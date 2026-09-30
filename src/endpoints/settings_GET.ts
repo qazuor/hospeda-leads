@@ -6,7 +6,7 @@ import type { SettingsOutput } from "./settings_GET.schema";
 export async function handle(request:Request){
   try{
     await getServerUserSession(request);
-    const [cities,subtypes,authorizedEmails,users,templates,typesRows,emailSettings]=await Promise.all([
+    const [cities,subtypes,authorizedEmails,users,templates,typesRows,emailSettings,userSenderSettings]=await Promise.all([
       db.selectFrom("crmCities").select(["id","name"]).where("active","=",true).orderBy("name").execute(),
       db.selectFrom("crmSubtypes").select(["id","typeName","name"]).where("active","=",true).orderBy("name").execute(),
       db.selectFrom("authorizedEmails").select(["id","email","displayName"]).where("active","=",true).orderBy("email").execute(),
@@ -15,14 +15,17 @@ export async function handle(request:Request){
       db.selectFrom("crmVerticals").select("name").where("active","=",true).orderBy("sortOrder").orderBy("name").execute(),
       db.selectFrom("appSettings").select(["key","value"]).where("key","in",[
         "brevo_sender_name","brevo_sender_email","brevo_reply_to_email"
-      ]).execute()
+      ]).execute(),
+      db.selectFrom("appSettings").select(["key","value"]).where("key","like","brevo_user_sender_email:%").execute()
     ]);
     const emailConfig=Object.fromEntries(emailSettings.map(row=>[row.key,row.value]));
+    const senderPrefix="brevo_user_sender_email:";
+    const userSenderMap=new Map(userSenderSettings.map(row=>[Number(row.key.slice(senderPrefix.length)),row.value]));
     const out:SettingsOutput={
       cities:cities.map(x=>({...x,id:String(x.id)})),
       subtypes:subtypes.map(x=>({...x,id:String(x.id)})),
       authorizedEmails:authorizedEmails.map(x=>({...x,id:String(x.id)})),
-      users,
+      users:users.map(user=>({...user,senderEmail:userSenderMap.get(user.id)??null})),
       templates:templates.map(x=>({...x,id:String(x.id)})),
       emailDelivery:{
         senderName:emailConfig.brevo_sender_name||"Hospeda",
