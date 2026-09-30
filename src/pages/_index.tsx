@@ -35,6 +35,7 @@ import { postLeadsSave, type DuplicateCandidate, type InputType } from "../endpo
 import { getLeadStats } from "../endpoints/leads_stats_GET.schema";
 import { getSettings } from "../endpoints/settings_GET.schema";
 import { useDebounce } from "../helpers/useDebounce";
+import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
 const QUERY_KEY=["leads"] as const;
@@ -65,14 +66,14 @@ const createDateFilters=()=>Object.fromEntries(DATE_FILTER_FIELDS.map(field=>[fi
 type SortBy=
   |"id"|"nombre"|"contactName"|"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"suscripcion"|"email"|"telefono"|"assignedUserEmail"
   |"sitioWeb"|"urlGmap"|"perfilInstagram"|"perfilFacebook"|"perfilAirbnb"|"perfilBooking"
-  |"perfilTurismoEntreRios"|"origen"|"quienCargo"|"asignadoA"|"fechaCreacion"|"fechaUltimoContacto"
+  |"perfilTurismoEntreRios"|"origen"|"quienCargo"|"fechaCreacion"|"fechaUltimoContacto"
   |"medioContactoPreferido"|"resultadoUltimoContacto"|"prioridad"|"fechaProximaAccion"
   |"fuenteReferencia"|"clientePotencialRecurrente"|"archivoAdjunto"|"creadoPor"|"createdAt"|"updatedAt";
 
 const TABLE_COLUMNS:TableColumnOption[]=[
   {key:"id",label:"ID"},
   {key:"nombre",label:"Lead"},
-  {key:"assignedUserEmail",label:"Asignado a usuario"},
+  {key:"assignedUserEmail",label:"Responsable"},
   {key:"contactName",label:"Persona de contacto"},
   {key:"tipo",label:"Vertical"},
   {key:"subtipo",label:"Subtipo"},
@@ -91,7 +92,6 @@ const TABLE_COLUMNS:TableColumnOption[]=[
   {key:"perfilTurismoEntreRios",label:"Turismo Entre Ríos"},
   {key:"origen",label:"Origen"},
   {key:"quienCargo",label:"Quién cargó"},
-  {key:"asignadoA",label:"Responsable"},
   {key:"fechaCreacion",label:"Fecha creación"},
   {key:"fechaUltimoContacto",label:"Último contacto"},
   {key:"medioContactoPreferido",label:"Medio preferido"},
@@ -110,7 +110,7 @@ const DEFAULT_WIDTHS:Record<string,number>={
   id:90,nombre:220,contactName:190,tipo:170,subtipo:180,commercialProfile:170,ciudad:170,estado:180,suscripcion:170,
   email:220,telefono:150,assignedUserEmail:190,sitioWeb:230,urlGmap:230,perfilInstagram:220,perfilFacebook:220,
   perfilAirbnb:220,perfilBooking:220,perfilTurismoEntreRios:240,origen:170,quienCargo:180,
-  asignadoA:180,fechaCreacion:150,fechaUltimoContacto:160,medioContactoPreferido:170,
+  fechaCreacion:150,fechaUltimoContacto:160,medioContactoPreferido:170,
   resultadoUltimoContacto:260,prioridad:130,fechaProximaAccion:160,fuenteReferencia:230,
   clientePotencialRecurrente:170,archivoAdjunto:230,creadoPor:180,createdAt:160,updatedAt:160
 };
@@ -131,7 +131,10 @@ const readStoredFilterGroups=():AdvancedFilterGroup[]=>{
     const raw=window.localStorage.getItem(TABLE_FILTERS_STORAGE_KEY);
     if(!raw)return [];
     const parsed=advancedFilterGroup.array().safeParse(JSON.parse(raw));
-    return parsed.success?parsed.data:[];
+    if(!parsed.success)return [];
+    return parsed.data
+      .map(group=>({rules:group.rules.filter(rule=>rule.field!=="asignadoA")}))
+      .filter(group=>group.rules.length);
   }catch{return []}
 };
 
@@ -142,6 +145,9 @@ const readStoredSort=():{sortBy:SortBy;sortDir:"asc"|"desc"}=>{
     const raw=window.localStorage.getItem(TABLE_SORT_STORAGE_KEY);
     if(!raw)return fallback;
     const parsed=JSON.parse(raw);
+    if(parsed?.sortBy==="asignadoA"&&(parsed?.sortDir==="asc"||parsed?.sortDir==="desc")){
+      return {sortBy:"assignedUserEmail",sortDir:parsed.sortDir};
+    }
     const validField=typeof parsed?.sortBy==="string"&&TABLE_COLUMNS.some(column=>column.key===parsed.sortBy);
     const validDirection=parsed?.sortDir==="asc"||parsed?.sortDir==="desc";
     return validField&&validDirection
@@ -198,6 +204,8 @@ function HeaderMenu({
 
 export default function LeadsPage(){
   const qc=useQueryClient();
+  const {authState}=useAuth();
+  const isAdmin=authState.type==="authenticated"&&authState.user.role==="admin";
   const [query,setQuery]=useState(readStoredQuery);
   const [cityFilter,setCityFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [statusFilter,setStatusFilter]=useState<SmartFilterState>(emptySmartFilter);
@@ -205,7 +213,6 @@ export default function LeadsPage(){
   const [subtypeFilter,setSubtypeFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [commercialProfileFilter,setCommercialProfileFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [priorityFilter,setPriorityFilter]=useState<SmartFilterState>(emptySmartFilter);
-  const [assignedFilter,setAssignedFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [assignedUserFilter,setAssignedUserFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [subscriptionFilter,setSubscriptionFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [originFilter,setOriginFilter]=useState<SmartFilterState>(emptySmartFilter);
@@ -256,6 +263,12 @@ export default function LeadsPage(){
         const leadIndex=next.indexOf("nombre");
         next.splice(leadIndex>=0?leadIndex+1:0,0,"assignedUserEmail");
         window.localStorage.setItem(assignedMigration,"1");
+        changed=true;
+      }
+      const legacyResponsibleIndex=next.indexOf("asignadoA");
+      if(legacyResponsibleIndex>=0){
+        next.splice(legacyResponsibleIndex,1);
+        if(!next.includes("assignedUserEmail"))next.splice(legacyResponsibleIndex,0,"assignedUserEmail");
         changed=true;
       }
       const profileMigration="hospeda-leads-commercial-profile-column-v1";
@@ -348,6 +361,7 @@ export default function LeadsPage(){
   const typeOptions=settings?.types??filters.tipos;
   const peopleOptions=settings?.authorizedEmails.map(x=>x.displayName||x.email)??filters.asignados;
   const userOptions=settings?.users??[];
+  const responsibleLabel=(email:string|null|undefined)=>userOptions.find(user=>user.email===email)?.displayName||email||"";
   const subtypeOptions=(settings?.subtypes??[]).filter(x=>!x.typeName||!form.tipo||x.typeName===form.tipo).map(x=>x.name);
   const allSubtypeOptions=Array.from(new Set((settings?.subtypes??[]).map(x=>x.name)));
   const templates=settings?.templates??[];
@@ -355,7 +369,7 @@ export default function LeadsPage(){
   const filterFields:FilterFieldDefinition[]=[
     {key:"id",label:"ID",kind:"number"},
     {key:"nombre",label:"Lead",kind:"text"},
-    {key:"assignedUserEmail",label:"Asignado a usuario",kind:"category",options:userOptions.map(user=>({value:user.email,label:user.displayName||user.email}))},
+    {key:"assignedUserEmail",label:"Responsable",kind:"category",options:userOptions.map(user=>({value:user.email,label:user.displayName||user.email}))},
     {key:"contactName",label:"Persona de contacto",kind:"text"},
     {key:"tipo",label:"Vertical",kind:"category",options:optionList(typeOptions)},
     {key:"subtipo",label:"Subtipo",kind:"category",options:optionList(allSubtypeOptions)},
@@ -374,7 +388,6 @@ export default function LeadsPage(){
     {key:"perfilTurismoEntreRios",label:"Turismo Entre Ríos",kind:"text"},
     {key:"origen",label:"Origen",kind:"category",options:optionList(filters.origenes)},
     {key:"quienCargo",label:"Quién cargó",kind:"category",options:optionList(filters.quienesCargaron)},
-    {key:"asignadoA",label:"Responsable",kind:"category",options:optionList(peopleOptions)},
     {key:"fechaCreacion",label:"Fecha creación",kind:"date"},
     {key:"fechaUltimoContacto",label:"Último contacto",kind:"date"},
     {key:"medioContactoPreferido",label:"Medio preferido",kind:"category",options:optionList(filters.mediosContacto.length?filters.mediosContacto:CONTACT_OPTIONS)},
@@ -410,8 +423,7 @@ export default function LeadsPage(){
     {key:"commercialProfile",label:"Perfil",category:"profile",options:asOptions(PROFILE_OPTIONS),value:commercialProfileFilter,setValue:setCommercialProfileFilter},
     {key:"estado",label:"Estado",category:"status",options:asOptions(STATUS_OPTIONS),value:statusFilter,setValue:setStatusFilter},
     {key:"prioridad",label:"Prioridad",category:"priority",options:asOptions(PRIORITY_OPTIONS),value:priorityFilter,setValue:setPriorityFilter},
-    {key:"asignadoA",label:"Responsable",category:"person",options:asOptions(peopleOptions),value:assignedFilter,setValue:setAssignedFilter},
-    {key:"assignedUserEmail",label:"Usuario",category:"person",options:[...userOptions.map(user=>({value:user.email,label:user.displayName||user.email})),{value:"__EMPTY__",label:"Sin valor"}],value:assignedUserFilter,setValue:setAssignedUserFilter},
+    {key:"assignedUserEmail",label:"Responsable",category:"person",options:[...userOptions.map(user=>({value:user.email,label:user.displayName||user.email})),{value:"__EMPTY__",label:"Sin valor"}],value:assignedUserFilter,setValue:setAssignedUserFilter},
     {key:"suscripcion",label:"Suscripción",category:"generic",options:asOptions(filters.suscripciones),value:subscriptionFilter,setValue:setSubscriptionFilter},
     {key:"origen",label:"Origen",category:"generic",options:asOptions(filters.origenes),value:originFilter,setValue:setOriginFilter},
     {key:"quienCargo",label:"Quién cargó",category:"person",options:asOptions(filters.quienesCargaron),value:loadedByFilter,setValue:setLoadedByFilter},
@@ -475,7 +487,7 @@ export default function LeadsPage(){
     if(form.id&&String(form.id)===String(target.id))setOpen(false);
     setPendingDelete(null);
   };
-  const quick=(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"asignadoA"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>quickM.mutate({id,field,value:value||null});
+  const quick=(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>quickM.mutate({id,field,value:value||null});
   const openContact=(lead:any,channel:"whatsapp"|"email")=>{setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
   const startResize=(key:string,startX:number)=>{
     const startWidth=columnWidths[key]??DEFAULT_WIDTHS[key]??160;
@@ -528,8 +540,12 @@ export default function LeadsPage(){
     if(key==="estado")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.estado??""} options={STATUS_OPTIONS} category="status" placeholder="Asignar estado" assignWhenEmpty onChange={v=>quick(l.id,"estado",v)}/>;
     if(key==="prioridad")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.prioridad??""} options={PRIORITY_OPTIONS} category="priority" placeholder="Asignar prioridad" emptyLabel="Sin prioridad" assignWhenEmpty onChange={v=>quick(l.id,"prioridad",v)}/>;
     if(key==="quienCargo")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.quienCargo??""} options={peopleOptions} category="person" placeholder="Asignar persona" assignWhenEmpty onChange={v=>quick(l.id,"quienCargo",v)}/>;
-    if(key==="asignadoA")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.asignadoA??""} options={peopleOptions} category="person" placeholder="Asignar responsable" assignWhenEmpty onChange={v=>quick(l.id,"asignadoA",v)}/>;
-    if(key==="assignedUserEmail")return <UserBadgeSelect className={styles.inlineBadgeSelect} value={l.assignedUserEmail??""} users={userOptions} placeholder="Asignar usuario" assignWhenEmpty onChange={v=>quick(l.id,"assignedUserEmail",v)}/>;
+    if(key==="assignedUserEmail"){
+      const label=responsibleLabel(l.assignedUserEmail)||l.asignadoA||"";
+      return isAdmin
+        ? <UserBadgeSelect className={styles.inlineBadgeSelect} value={l.assignedUserEmail??""} users={userOptions} placeholder="Asignar responsable" assignWhenEmpty onChange={v=>quick(l.id,"assignedUserEmail",v)}/>
+        : label?<ValueBadge value={label} category="person"/>:"—";
+    }
     if(key==="medioContactoPreferido")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
     if(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key))return <input
       className={styles.inlineDate}
@@ -610,16 +626,22 @@ export default function LeadsPage(){
           <div className={styles.editStickyHeader}>
             <div className={styles.editIdentityRow}>
               <div className={styles.editIdentity}>
-                <DialogTitle className={styles.editTitle}>{form.id?(form.nombre||"Lead sin nombre"):"Nuevo lead"}</DialogTitle>
-                <DialogDescription className={styles.editDescription}>
-                  {form.id?"Editá la información comercial y de contacto.":"Completá los datos principales para crear el lead."}
-                </DialogDescription>
-                <div className={styles.editIdentityBadges}>
-                  {form.tipo&&<ValueBadge value={str(form.tipo)} category="vertical"/>}
-                  {form.subtipo&&<ValueBadge value={str(form.subtipo)} category="subtype"/>}
-                  {form.commercialProfile&&<ValueBadge value={str(form.commercialProfile)} category="profile"/>}
-                  {form.estado&&<ValueBadge value={str(form.estado)} category="status"/>}
-                  {form.prioridad&&<ValueBadge value={str(form.prioridad)} category="priority"/>}
+                <div className={styles.editTitleLine}>
+                  <DialogTitle className={styles.editTitle}>{form.id?(form.nombre||"Lead sin nombre"):"Nuevo lead"}</DialogTitle>
+                  <div className={styles.editTitleBadges}>
+                    {form.tipo&&<ValueBadge value={str(form.tipo)} category="vertical"/>}
+                    {form.subtipo&&<ValueBadge value={str(form.subtipo)} category="subtype"/>}
+                    {form.estado&&<ValueBadge value={str(form.estado)} category="status"/>}
+                  </div>
+                </div>
+                <div className={styles.editMetaLine}>
+                  <DialogDescription className={styles.editDescription}>
+                    {form.id?"Editá la información comercial y de contacto.":"Completá los datos principales para crear el lead."}
+                  </DialogDescription>
+                  <div className={styles.editSecondaryBadges}>
+                    {form.commercialProfile&&<ValueBadge value={str(form.commercialProfile)} category="profile"/>}
+                    {form.prioridad&&<ValueBadge value={str(form.prioridad)} category="priority"/>}
+                  </div>
                 </div>
               </div>
             </div>
@@ -672,9 +694,13 @@ export default function LeadsPage(){
               </div>
               <div className={styles.editGrid}>
                 <label className={styles.editField}><span>Quién cargó</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.quienCargo)} options={peopleOptions} category="person" onChange={v=>set("quienCargo",v)} placeholder="Seleccionar persona…"/></label>
-                <label className={styles.editField}><span>Responsable</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.asignadoA)} options={peopleOptions} category="person" onChange={v=>set("asignadoA",v)} placeholder="Seleccionar responsable…"/></label>
-                <label className={styles.editField}><span>Asignado a usuario</span><UserBadgeSelect className={styles.editBadgeSelect} value={str(form.assignedUserEmail)} users={userOptions} onChange={v=>set("assignedUserEmail",v)} placeholder="Seleccionar usuario…"/></label>
-                <label className={styles.editField}><span>Origen</span><Input value={str(form.origen)} onChange={e=>set("origen",e.target.value)}/></label>
+                <label className={styles.editField}><span>Responsable</span>{isAdmin
+                  ? <UserBadgeSelect className={styles.editBadgeSelect} value={str(form.assignedUserEmail)} users={userOptions} onChange={v=>set("assignedUserEmail",v)} placeholder="Seleccionar responsable…"/>
+                  : <div className={styles.readOnlyResponsible}>{form.assignedUserEmail
+                      ? <ValueBadge value={responsibleLabel(form.assignedUserEmail)} category="person"/>
+                      : <span>Sin asignar</span>}<small>Solo un administrador puede modificarlo</small></div>
+                }</label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Origen</span><Input value={str(form.origen)} onChange={e=>set("origen",e.target.value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2+" "+styles.editCheckbox}><Checkbox checked={!!form.clientePotencialRecurrente} onChange={e=>set("clientePotencialRecurrente",e.target.checked)}/><span>Cliente potencial recurrente</span></label>
               </div>
             </section>
