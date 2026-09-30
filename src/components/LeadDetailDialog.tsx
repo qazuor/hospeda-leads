@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BriefcaseBusiness, CalendarClock, ContactRound, ExternalLink, History, Link2, Mail, MapPin,
+  BriefcaseBusiness, CalendarClock, ChevronLeft, ChevronRight, ContactRound, ExternalLink, History, Link2, Mail, MapPin,
   MessageCircle, Pencil, Phone, Plus, ShieldCheck, StickyNote, Trash2, X
 } from "lucide-react";
 import { Badge } from "./Badge";
@@ -13,28 +13,12 @@ import { ValueBadge } from "./ValueBadge";
 import { getLeadNotes } from "../endpoints/lead_notes_GET.schema";
 import { postLeadNote } from "../endpoints/lead_notes_POST.schema";
 import { getLeadJournal } from "../endpoints/lead_journal_GET.schema";
+import { formatDate, journalValue, nextActionInfo } from "../helpers/crmDates";
 import styles from "./LeadDetailDialog.module.css";
 
 const text=(v:unknown)=>v==null||v===""?"—":String(v);
-const date=(v:unknown)=>v?new Date(v as string).toLocaleString("es-AR"):"—";
-const journalDate=(v:unknown)=>{
-  if(!v)return "Vacío";
-  const d=new Date(v as string);
-  if(Number.isNaN(d.getTime()))return String(v);
-  return d.toLocaleString("es-AR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
-};
-const journalValue=(field:string|null,value:unknown)=>{
-  if(value===null||value===undefined||value==="")return "Vacío";
-  if(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"].includes(field??"")){
-    const d=new Date(value as string);
-    if(!Number.isNaN(d.getTime()))return d.toLocaleDateString("es-AR",{day:"numeric",month:"short",year:"numeric"});
-  }
-  if(field==="clientePotencialRecurrente"){
-    if(String(value)==="true")return "Sí";
-    if(String(value)==="false")return "No";
-  }
-  return String(value);
-};
+const date=(v:unknown)=>v?formatDate(v):"—";
+const dateTime=(v:unknown)=>v?formatDate(v,true):"—";
 
 const Field=({label,value,full=false}:{label:string;value:React.ReactNode;full?:boolean})=>
   <div className={styles.field+(full?" "+styles.full:"")}>
@@ -62,7 +46,7 @@ const urlRow=(label:string,value:unknown)=>{
 };
 
 const actionLabel:Record<string,string>={
-  created:"Creado",updated:"Editado",inline_updated:"Cambio rápido",note_added:"Nota agregada",bulk_assigned:"Asignación inicial",email_sent:"Email enviado",
+  created:"Creado",updated:"Editado",inline_updated:"Cambio rápido",bulk_updated:"Edición masiva",note_added:"Nota agregada",bulk_assigned:"Asignación inicial",email_sent:"Email enviado",contact_logged:"Contacto registrado",
   soft_deleted:"Enviado a papelera",restored:"Restaurado",hard_deleted:"Eliminado definitivamente",deleted:"Eliminado"
 };
 
@@ -78,7 +62,7 @@ const fieldLabel:Record<string,string>={
 };
 
 export const LeadDetailDialog=({
-  open,onOpenChange,lead,users,onEdit,onDelete,onWhatsApp,onEmail,readOnly=false
+  open,onOpenChange,lead,users,onEdit,onDelete,onWhatsApp,onEmail,readOnly=false,position,onPrevious,onNext
 }:{
   open:boolean;
   onOpenChange:(open:boolean)=>void;
@@ -89,6 +73,9 @@ export const LeadDetailDialog=({
   onWhatsApp?:(lead:any)=>void;
   onEmail?:(lead:any)=>void;
   readOnly?:boolean;
+  position?:{current:number;total:number};
+  onPrevious?:()=>void;
+  onNext?:()=>void;
 })=>{
   const qc=useQueryClient();
   const [note,setNote]=useState("");
@@ -151,6 +138,7 @@ export const LeadDetailDialog=({
           {!readOnly&&lead.email&&onEmail&&<Button size="sm" variant="outline" onClick={()=>onEmail(lead)}><Mail size={15}/>Email</Button>}
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
+          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Lead anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Lead siguiente"><ChevronRight size={16}/></Button></div>}
           {!readOnly&&onDelete&&<Button size="sm" variant="destructive" onClick={()=>onDelete(lead)}><Trash2 size={15}/>Eliminar</Button>}
           <Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>
           {!readOnly&&onEdit&&<Button size="sm" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar</Button>}
@@ -162,7 +150,7 @@ export const LeadDetailDialog=({
           <SummaryItem icon={ContactRound} label="Contacto" value={lead.contactName||lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>
           <SummaryItem icon={ShieldCheck} label="Responsable" value={assignedUser?.displayName||lead.assignedUserEmail||lead.asignadoA||"Sin asignar"}/>
-          <SummaryItem icon={CalendarClock} label="Próxima acción" value={lead.fechaProximaAccion?date(lead.fechaProximaAccion):"Sin fecha"}/>
+          <SummaryItem icon={CalendarClock} label="Próxima acción" value={<span className={styles["next_"+nextActionInfo(lead.fechaProximaAccion).tone]} title={nextActionInfo(lead.fechaProximaAccion).title}>{nextActionInfo(lead.fechaProximaAccion).label}</span>}/>
         </div>
 
         <div className={styles.contentGrid}>
@@ -212,8 +200,8 @@ export const LeadDetailDialog=({
                   : "—"}/>
               <Field label="Quién cargó" value={lead.quienCargo?<ValueBadge value={lead.quienCargo} category="person"/>:"—"}/>
               <Field label="Creado por" value={text(lead.creadoPor)}/>
-              <Field label="Creado en sistema" value={date(lead.createdAt)}/>
-              <Field label="Última actualización" value={date(lead.updatedAt)}/>
+              <Field label="Creado en sistema" value={dateTime(lead.createdAt)}/>
+              <Field label="Última actualización" value={dateTime(lead.updatedAt)}/>
               <Field label="Archivo adjunto" value={text(lead.archivoAdjunto)} full/>
             </div>
           </section>
@@ -250,7 +238,7 @@ export const LeadDetailDialog=({
             </div>}
             {notesQ.isLoading?<Skeleton className={styles.notesLoading}/>:<div className={styles.timeline}>
               {(notesQ.data?.notes??[]).length===0?<p className={styles.emptyState}>Sin notas todavía.</p>:(notesQ.data?.notes??[]).map(n=><article key={n.id}>
-                <div><strong>{n.author||"Sin autor"}</strong><time>{date(n.createdAt)}</time></div>
+                <div><strong>{n.author||"Sin autor"}</strong><time>{dateTime(n.createdAt)}</time></div>
                 <p>{n.note}</p>
               </article>)}
             </div>}
@@ -266,7 +254,7 @@ export const LeadDetailDialog=({
                     {entry.fieldName&&<strong>{fieldLabel[entry.fieldName]??entry.fieldName}</strong>}
                     <span className={styles.journalActor}>{entry.actorName}{entry.actorEmail?" · "+entry.actorEmail:""}</span>
                   </div>
-                  <time>{journalDate(entry.createdAt)}</time>
+                  <time>{dateTime(entry.createdAt)}</time>
                 </div>
                 {entry.fieldName&&<div className={styles.journalChange}>
                   <span>{journalValue(entry.fieldName,entry.oldValue)}</span>
