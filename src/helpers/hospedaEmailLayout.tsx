@@ -31,7 +31,8 @@ export function buildHospedaEmailHtml({
   senderName,
   subject,
   vertical,
-  commercialProfile
+  commercialProfile,
+  logoUrl=DEFAULT_LOGO_URL
 }:{
   bodyHtml:string;
   senderName:string;
@@ -40,7 +41,6 @@ export function buildHospedaEmailHtml({
   commercialProfile?:string|null;
   logoUrl?:string;
 }){
-  const logoUrl=arguments[0]?.logoUrl||DEFAULT_LOGO_URL;
   const safeSender=escapeHtml(senderName||"Equipo Hospeda");
   const safeSubject=escapeHtml(subject);
   const safeVertical=escapeHtml(vertical||"Turismo");
