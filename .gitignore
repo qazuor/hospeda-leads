@@ -7,3 +7,6 @@ dist-server
 coverage
 *.log
 .DS_Store
+
+migration-data*.json
+migration-data*.json.gz

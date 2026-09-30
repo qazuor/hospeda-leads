@@ -1,0 +1,90 @@
+name: Deploy VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+
+concurrency:
+  group: hospeda-leads-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Prepare destination
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          DEST="${VPS_PATH:-/opt/hospeda-leads}"
+          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "mkdir -p '$DEST'"
+
+      - name: Upload application
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          DEST="${VPS_PATH:-/opt/hospeda-leads}"
+          rsync -az --delete             --exclude '.git'             --exclude '.env'             --exclude 'node_modules'             --exclude 'migration-data*.json*'             -e "ssh -p $PORT"             ./ "$VPS_USER@$VPS_HOST:$DEST/"
+
+      - name: Configure and deploy
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          DEST="${VPS_PATH:-/opt/hospeda-leads}"
+
+          {
+            printf 'POSTGRES_PASSWORD=%s\n' "$POSTGRES_PASSWORD"
+            printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
+            printf 'ADMIN_EMAIL=%s\n' "$ADMIN_EMAIL"
+            printf 'BREVO_API_KEY=%s\n' "$BREVO_API_KEY"
+            printf 'PUBLIC_APP_URL=%s\n' "$PUBLIC_APP_URL"
+            printf 'APP_PORT=3001\n'
+          } > /tmp/hospeda-leads.env
+
+          scp -P "$PORT" /tmp/hospeda-leads.env "$VPS_USER@$VPS_HOST:$DEST/.env"
+          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "cd '$DEST' && docker compose --env-file .env up -d --build && docker compose --env-file .env exec -T app npm run db:migrate"
+
+      - name: Verify deployment
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          DEST="${VPS_PATH:-/opt/hospeda-leads}"
+          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "cd '$DEST' && docker compose --env-file .env ps && node -e \"fetch('http://127.0.0.1:3001/_api/health').then(async r=>{console.log(await r.text());if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})\""
