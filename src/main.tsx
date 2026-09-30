@@ -1,21 +1,34 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { GlobalContextProviders } from "./components/_globalContextProviders";
+import { AdminRoute, UserRoute } from "./components/ProtectedRoute";
+import LeadsPage from "./pages/_index";
+import AnalyticsPage from "./pages/analytics";
+import HistoryPage from "./pages/history";
+import LoginPage from "./pages/login";
+import RegisterPage from "./pages/register";
+import SettingsPage from "./pages/settings";
+import TemplatesPage from "./pages/templates";
+import TrashPage from "./pages/trash";
 import "./base.css";
-
-function MigrationApp() {
-  return (
-    <main className="migration-shell">
-      <section className="migration-card">
-        <div className="migration-eyebrow">HOSPEDA</div>
-        <h1>Hospeda Leads</h1>
-        <p>La migración desde Floot está en curso. El scaffold independiente ya funciona.</p>
-      </section>
-    </main>
-  );
-}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <MigrationApp />
+    <BrowserRouter>
+      <GlobalContextProviders>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/" element={<UserRoute><LeadsPage /></UserRoute>} />
+          <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
+          <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
+          <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+          <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
+          <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </GlobalContextProviders>
+    </BrowserRouter>
   </React.StrictMode>,
 );
