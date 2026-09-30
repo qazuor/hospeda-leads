@@ -82,7 +82,7 @@ export function TemplatesContent(){
     contact:previewLead?.contactName??"María",
     contact_name:previewLead?.contactName??"María",
     city:previewLead?.ciudad??"Concepción del Uruguay",
-    type:previewLead?.tipo??vertical||"Alojamiento",
+    type:(previewLead?.tipo??vertical)||"Alojamiento",
     subtype:previewLead?.subtipo??"Cabañas",
     phone:previewLead?.telefono??"3442 000000",
     email:previewLead?.email??"contacto@ejemplo.com",
