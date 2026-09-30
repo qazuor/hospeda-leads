@@ -516,6 +516,7 @@ export default function LeadsPage(){
       {rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}
     ];
     if(kind==="unassigned")groups=[{rules:[{field:"assignedUserEmail",operator:"empty"}]}];
+    if(kind==="noContact")groups=[{rules:[{field:"fechaUltimoContacto",operator:"empty"}]}];
     if(kind==="noNext")groups=[{rules:[{field:"fechaProximaAccion",operator:"empty"}]}];
     if(kind==="field"&&value){
       const [field,raw]=value.split("::");
