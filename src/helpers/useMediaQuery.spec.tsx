@@ -15,10 +15,10 @@ describe("useMediaQuery", () => {
       matches: false,
       media: "",
       onchange: null,
-      addEventListener: addListener,
-      removeEventListener: removeListener,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
+      addListener,
+      removeListener,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     });
 
@@ -36,14 +36,14 @@ describe("useMediaQuery", () => {
     expect(matchMedia).toHaveBeenCalledWith(query);
   });
 
-  it("should add event listener on mount", () => {
+  it("should subscribe on mount", () => {
     renderHook(() => useMediaQuery("(min-width: 768px)"));
-    expect(addListener).toHaveBeenCalledWith("change", expect.any(Function));
+    expect(addListener).toHaveBeenCalledWith(expect.any(Function));
   });
 
-  it("should remove event listener on unmount", () => {
+  it("should unsubscribe on unmount", () => {
     const { unmount } = renderHook(() => useMediaQuery("(min-width: 768px)"));
     unmount();
-    expect(removeListener).toHaveBeenCalledWith("change", expect.any(Function));
+    expect(removeListener).toHaveBeenCalledWith(expect.any(Function));
   });
 });
