@@ -233,17 +233,18 @@ export const LeadDetailDialog=({
             <SectionTitle icon={History} title="Journal de cambios" description="Auditoría cronológica de modificaciones y acciones."/>
             {journalQ.isLoading?<Skeleton className={styles.notesLoading}/>:journalQ.error?<p className={styles.journalError}>{journalQ.error.message}</p>:<div className={styles.journalList}>
               {(journalQ.data?.rows??[]).length===0?<p className={styles.emptyState}>Sin cambios registrados todavía.</p>:(journalQ.data?.rows??[]).map(entry=><article key={entry.id}>
-                <div className={styles.journalHead}>
-                  <div>
-                    <Badge variant={entry.action==="created"||entry.action==="restored"?"success":["deleted","soft_deleted","hard_deleted"].includes(entry.action)?"destructive":"outline"}>{actionLabel[entry.action]??entry.action}</Badge>
-                    <strong>{entry.fieldName?fieldLabel[entry.fieldName]??entry.fieldName:""}</strong>
+                <div className={styles.journalLine}>
+                  <div className={styles.journalSummary}>
+                    <span className={styles.journalAction}>{actionLabel[entry.action]??entry.action}</span>
+                    {entry.fieldName&&<strong>{fieldLabel[entry.fieldName]??entry.fieldName}</strong>}
+                    <span className={styles.journalActor}>{entry.actorName}{entry.actorEmail?" · "+entry.actorEmail:""}</span>
                   </div>
                   <time>{date(entry.createdAt)}</time>
                 </div>
-                <div className={styles.journalActor}>{entry.actorName}{entry.actorEmail?" · "+entry.actorEmail:""}</div>
-                {entry.fieldName&&<div className={styles.journalValues}>
-                  <span><small>Anterior</small>{text(entry.oldValue)}</span>
-                  <span><small>Nuevo</small>{text(entry.newValue)}</span>
+                {entry.fieldName&&<div className={styles.journalChange}>
+                  <span>{text(entry.oldValue)}</span>
+                  <b aria-hidden="true">→</b>
+                  <span>{text(entry.newValue)}</span>
                 </div>}
               </article>)}
             </div>}
