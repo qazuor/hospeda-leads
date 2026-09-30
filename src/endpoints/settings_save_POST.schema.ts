@@ -15,10 +15,10 @@ export const schema=z.discriminatedUnion("action",[
     action:z.literal("updateUser"),
     userId:z.number().int().positive(),
     email:z.string().email(),
-    fullName:z.string().min(2),
+    fullName:z.string().nullable().optional(),
     displayName:z.string().min(1),
-    phone:z.string().min(4),
-    sex,
+    phone:z.string().nullable().optional(),
+    sex:z.union([sex,z.literal(""),z.null()]).optional(),
     senderEmail:nullableSender
   }),
   z.object({
