@@ -253,7 +253,18 @@ export default function LeadsPage(){
   const [activeQuick,setActiveQuick]=useState("all");
   const [saveViewOpen,setSaveViewOpen]=useState(false);
   const [savedViewName,setSavedViewName]=useState("");
-  const [savedViews,setSavedViews]=useState<{name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc"}[]>([]);
+  const [savedViews,setSavedViews]=useState<Array<{
+    name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc";
+    inline?:{
+      cityFilter:SmartFilterState;statusFilter:SmartFilterState;typeFilter:SmartFilterState;subtypeFilter:SmartFilterState;
+      commercialProfileFilter:SmartFilterState;priorityFilter:SmartFilterState;assignedUserFilter:SmartFilterState;
+      subscriptionFilter:SmartFilterState;originFilter:SmartFilterState;loadedByFilter:SmartFilterState;
+      contactMethodFilter:SmartFilterState;createdByFilter:SmartFilterState;
+      textFilters:Record<TextFilterField,TextFilterState>;dateFilters:Record<DateFilterField,DateFilterState>;
+      idFilter:IdFilterState;recurrentFilter:"all"|"true"|"false";notesFilter:TextFilterState;
+      nextAction:"_all"|"with"|"without"|"overdue";
+    };
+  }>>([]);
   const [columnWidths,setColumnWidths]=useState<Record<string,number>>(()=>{
     if(typeof window==="undefined")return DEFAULT_WIDTHS;
     try{
@@ -476,16 +487,15 @@ export default function LeadsPage(){
   });
   const hasIdFilter=!!(idFilter.exact||idFilter.min||idFilter.max);
   const hasAnyFilters=hasSmartFilters||hasTextFilters||hasDateFilters||hasIdFilter||recurrentFilter!=="all"||notesFilter.mode!=="none"||nextAction!=="_all";
-  const clearAllFilters=()=>{
-    filterGroups.forEach(group=>group.setValue(emptySmartFilter()));
-    setTextFilters(createTextFilters());
-    setDateFilters(createDateFilters());
-    setIdFilter(emptyIdFilter());
-    setRecurrentFilter("all");
-    setNotesFilter(emptyTextFilter());
-    setNextAction("_all");
-    resetPage();
+  const resetInlineFilters=()=>{
+    setCityFilter(emptySmartFilter());setStatusFilter(emptySmartFilter());setTypeFilter(emptySmartFilter());
+    setSubtypeFilter(emptySmartFilter());setCommercialProfileFilter(emptySmartFilter());setPriorityFilter(emptySmartFilter());
+    setAssignedUserFilter(emptySmartFilter());setSubscriptionFilter(emptySmartFilter());setOriginFilter(emptySmartFilter());
+    setLoadedByFilter(emptySmartFilter());setContactMethodFilter(emptySmartFilter());setCreatedByFilter(emptySmartFilter());
+    setTextFilters(createTextFilters());setDateFilters(createDateFilters());setIdFilter(emptyIdFilter());
+    setRecurrentFilter("all");setNotesFilter(emptyTextFilter());setNextAction("_all");
   };
+  const clearAllFilters=()=>{resetInlineFilters();resetPage()};
   const removeFilterValue=(group:FilterGroup,mode:"include"|"exclude",value:string)=>{
     group.setValue(prev=>({...prev,[mode]:prev[mode].filter(item=>item!==value)}));
     resetPage();
@@ -502,6 +512,7 @@ export default function LeadsPage(){
   const set=(key:keyof InputType,value:any)=>setForm(prev=>({...prev,[key]:value}));
   const today=dateInput(new Date());
   const applyQuickView=(kind:string,value?:string)=>{
+    resetInlineFilters();
     setQuery("");
     setActiveQuick(kind);
     let groups:AdvancedFilterGroup[]=[];
@@ -530,7 +541,7 @@ export default function LeadsPage(){
     const leadId=urlParams.get("leadId");
     if(quickParam)applyQuickView(quickParam);
     else if(field&&value)applyQuickView("field",field+"::"+value);
-    else if(leadId){setAppliedFilterGroups([{rules:[{field:"id",operator:"eq",value:leadId}]}]);setPage(1)}
+    else if(leadId){resetInlineFilters();setQuery("");setAppliedFilterGroups([{rules:[{field:"id",operator:"eq",value:leadId}]}]);setPage(1)}
   },[]);
   useEffect(()=>{
     const leadId=urlParams.get("leadId");
@@ -541,13 +552,30 @@ export default function LeadsPage(){
 
   const saveCurrentView=()=>{
     const name=savedViewName.trim();if(!name||!currentUser)return;
-    const next=[...savedViews.filter(view=>view.name!==name),{name,query,filterGroups:appliedFilterGroups,sortBy,sortDir}];
+    const inline={
+      cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,
+      subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,
+      textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction
+    };
+    const next=[...savedViews.filter(view=>view.name!==name),{name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline}];
     setSavedViews(next);
     localStorage.setItem("hospeda-leads-saved-views-"+currentUser.id,JSON.stringify(next));
     setSavedViewName("");setSaveViewOpen(false);toast.success("Vista guardada");
   };
   const applySavedView=(view:(typeof savedViews)[number])=>{
-    setQuery(view.query);setAppliedFilterGroups(view.filterGroups);setSortBy(view.sortBy);setSortDir(view.sortDir);setActiveQuick("saved:"+view.name);setPage(1);
+    resetInlineFilters();
+    if(view.inline){
+      setCityFilter(view.inline.cityFilter);setStatusFilter(view.inline.statusFilter);setTypeFilter(view.inline.typeFilter);
+      setSubtypeFilter(view.inline.subtypeFilter);setCommercialProfileFilter(view.inline.commercialProfileFilter);
+      setPriorityFilter(view.inline.priorityFilter);setAssignedUserFilter(view.inline.assignedUserFilter);
+      setSubscriptionFilter(view.inline.subscriptionFilter);setOriginFilter(view.inline.originFilter);
+      setLoadedByFilter(view.inline.loadedByFilter);setContactMethodFilter(view.inline.contactMethodFilter);
+      setCreatedByFilter(view.inline.createdByFilter);setTextFilters(view.inline.textFilters);setDateFilters(view.inline.dateFilters);
+      setIdFilter(view.inline.idFilter);setRecurrentFilter(view.inline.recurrentFilter);setNotesFilter(view.inline.notesFilter);
+      setNextAction(view.inline.nextAction);
+    }
+    setQuery(view.query);setAppliedFilterGroups(view.filterGroups);setSortBy(view.sortBy);setSortDir(view.sortDir);
+    setActiveQuick("saved:"+view.name);setPage(1);
   };
   const removeSavedView=(name:string)=>{
     if(!currentUser)return;
