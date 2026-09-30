@@ -198,8 +198,12 @@ export interface Users {
   createdAt: Generated<Timestamp | null>;
   displayName: string;
   email: string;
+  fullName: string | null;
   id: Generated<number>;
+  phone: string | null;
   role: Generated<UserRole>;
+  senderEmail: string | null;
+  sex: string | null;
   updatedAt: Generated<Timestamp | null>;
 }
 
