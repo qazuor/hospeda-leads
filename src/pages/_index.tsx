@@ -343,10 +343,28 @@ export default function LeadsPage(){
   });
   const settingsQ=useQuery({queryKey:["settings"],queryFn:getSettings});
   const leadsQ=useQuery({
-    queryKey:[...QUERY_KEY,debouncedQuery,appliedFilterGroups,sortBy,sortDir,page],
+    queryKey:[...QUERY_KEY,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page],
     queryFn:()=>getLeads({
       q:debouncedQuery||undefined,
       filterGroups:appliedFilterGroups,
+      ciudades:cityFilter.include,excludeCiudades:cityFilter.exclude,
+      estados:statusFilter.include,excludeEstados:statusFilter.exclude,
+      tipos:typeFilter.include,excludeTipos:typeFilter.exclude,
+      subtipos:subtypeFilter.include,excludeSubtipos:subtypeFilter.exclude,
+      commercialProfiles:commercialProfileFilter.include,excludeCommercialProfiles:commercialProfileFilter.exclude,
+      prioridades:priorityFilter.include,excludePrioridades:priorityFilter.exclude,
+      assignedUsers:assignedUserFilter.include,excludeAssignedUsers:assignedUserFilter.exclude,
+      suscripciones:subscriptionFilter.include,excludeSuscripciones:subscriptionFilter.exclude,
+      origenes:originFilter.include,excludeOrigenes:originFilter.exclude,
+      quienesCargaron:loadedByFilter.include,excludeQuienesCargaron:loadedByFilter.exclude,
+      mediosContacto:contactMethodFilter.include,excludeMediosContacto:contactMethodFilter.exclude,
+      creadosPor:createdByFilter.include,excludeCreadosPor:createdByFilter.exclude,
+      textFilters:activeTextFilters,dateFilters:activeDateFilters,
+      idExact:idFilter.exact||undefined,idMin:idFilter.min||undefined,idMax:idFilter.max||undefined,
+      recurrent:recurrentFilter==="all"?undefined:recurrentFilter,
+      notesMode:notesFilter.mode==="none"?undefined:notesFilter.mode,
+      notesText:notesFilter.value||undefined,
+      nextAction:nextAction==="_all"?undefined:nextAction,
       sortBy,sortDir,page,pageSize:50
     }),
     placeholderData:(previous)=>previous
