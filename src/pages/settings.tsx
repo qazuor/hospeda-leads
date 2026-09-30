@@ -138,7 +138,7 @@ export default function SettingsPage(){
               <div className={styles.userCell}>{sexLabel(user.sex)}</div>
               <div className={styles.userCell}>{user.senderEmail||"—"}</div>
               <div>
-                <Badge variant={user.hasPassword?"default":"outline"}>
+                <Badge variant={user.hasPassword?"success":"outline"}>
                   {user.hasPassword?"Activo":user.invitationPending?"Invitación enviada":"Pendiente"}
                 </Badge>
               </div>
