@@ -1,6 +1,6 @@
 import superjson from "superjson";
 
-export type InvitationOutput={email:string;displayName:string};
+export type InvitationOutput={email:string};
 
 export const getInvitation=async(token:string):Promise<InvitationOutput>=>{
   const r=await fetch("/_api/auth/invitation?token="+encodeURIComponent(token));
