@@ -194,7 +194,7 @@ export async function handle(request:Request){
       }else{
         const placeholder=email.split("@")[0]||email;
         const created=await db.insertInto("users")
-          .values({email,displayName:placeholder,role:"user"})
+          .values({email,displayName:placeholder,fullName:null,phone:null,sex:null,senderEmail:null,role:"user"})
           .returning("id").executeTakeFirstOrThrow();
         userId=created.id;
       }
