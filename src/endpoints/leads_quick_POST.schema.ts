@@ -4,7 +4,7 @@ import superjson from "superjson";
 export const schema = z.object({
   id: z.union([z.string(), z.number()]),
   field: z.enum([
-    "tipo","subtipo","commercialProfile","ciudad","estado","prioridad","quienCargo","asignadoA","assignedUserEmail","medioContactoPreferido",
+    "tipo","subtipo","commercialProfile","ciudad","estado","prioridad","quienCargo","assignedUserEmail","medioContactoPreferido",
     "fechaCreacion","fechaUltimoContacto","fechaProximaAccion"
   ]),
   value: z.string().nullable(),
