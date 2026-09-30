@@ -1,39 +1,66 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, CheckCircle2, Clock3, Mail, Phone, Target, Users } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock3, Mail, Phone, Target, UserRoundCheck, Users, Webhook, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppHeader } from "../components/AppHeader";
+import { Button } from "../components/Button";
+import { Input } from "../components/Input";
 import { Skeleton } from "../components/Skeleton";
 import { getAnalytics } from "../endpoints/analytics_GET.schema";
+import { getSettings } from "../endpoints/settings_GET.schema";
+import { toDateInput } from "../helpers/crmDates";
 import styles from "./analytics.module.css";
 
+const ago=(days:number)=>{const d=new Date();d.setDate(d.getDate()-days);return toDateInput(d)};
+
 export default function AnalyticsPage(){
-  const q=useQuery({queryKey:["analytics"],queryFn:getAnalytics});
+  const navigate=useNavigate();
+  const [period,setPeriod]=useState("all"),[from,setFrom]=useState(""),[to,setTo]=useState("");
+  const [responsible,setResponsible]=useState(""),[type,setType]=useState(""),[city,setCity]=useState("");
+  const effectiveFrom=period==="30"?ago(29):period==="90"?ago(89):period==="custom"?from:"";
+  const effectiveTo=period==="30"||period==="90"?toDateInput(new Date()):period==="custom"?to:"";
+  const settings=useQuery({queryKey:["settings"],queryFn:getSettings});
+  const q=useQuery({queryKey:["analytics",effectiveFrom,effectiveTo,responsible,type,city],queryFn:()=>getAnalytics({from:effectiveFrom||undefined,to:effectiveTo||undefined,responsible:responsible||undefined,type:type||undefined,city:city||undefined})});
+  const drill=(field:string,value:string)=>navigate("/?filterField="+encodeURIComponent(field)+"&filterValue="+encodeURIComponent(value));
+  const quick=(name:string)=>navigate("/?quick="+encodeURIComponent(name));
   if(q.isLoading)return <><AppHeader/><main className={styles.shell}><Skeleton className={styles.loading}/></main></>;
   if(q.error)return <><AppHeader/><main className={styles.shell}><div className={styles.error}>{q.error.message}</div></main></>;
   const d=q.data!;
   const coverage=[{name:"Con teléfono",count:d.withPhone},{name:"Con email",count:d.withEmail},{name:"Con web",count:d.withWebsite}];
-  return <>
-    <AppHeader/>
-    <main className={styles.shell}>
-      <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Una vista del pipeline sin tener que interrogar una planilla a mano.</p></div><BarChart3 size={28}/></header>
-      <section className={styles.metrics}>
-        <article><Users/><div><strong>{d.total.toLocaleString("es-AR")}</strong><span>Total</span></div></article>
-        <article><Target/><div><strong>{d.pending.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></article>
-        <article><CheckCircle2/><div><strong>{d.subscribed.toLocaleString("es-AR")}</strong><span>Suscriptos</span></div></article>
-        <article><Clock3/><div><strong>{d.overdue.toLocaleString("es-AR")}</strong><span>Vencidos</span></div></article>
-        <article><Phone/><div><strong>{d.withPhone.toLocaleString("es-AR")}</strong><span>Con teléfono</span></div></article>
-        <article><Mail/><div><strong>{d.withEmail.toLocaleString("es-AR")}</strong><span>Con email</span></div></article>
-      </section>
-      <section className={styles.charts}>
-        <article className={styles.chartCard}><h2>Leads por ciudad</h2><p>Top 15 localidades</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byCity} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={125} tick={{fontSize:11}}/><Tooltip/><Bar dataKey="count" fill="var(--primary)" radius={[0,5,5,0]}/></BarChart></ResponsiveContainer></div></article>
-        <article className={styles.chartCard}><h2>Estado del pipeline</h2><p>Distribución comercial actual</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byStatus}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" tick={{fontSize:10}} interval={0} angle={-20} textAnchor="end" height={65}/><YAxis/><Tooltip/><Bar dataKey="count" fill="var(--secondary)" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></article>
-        <article className={styles.chartCard}><h2>Leads por vertical</h2><p>Las seis verticales comerciales, incluso cuando todavía tienen cero leads</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byType}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" tick={{fontSize:10}} interval={0} angle={-15} textAnchor="end" height={60}/><YAxis/><Tooltip/><Bar dataKey="count" fill="var(--primary)" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></article>
-        <article className={styles.chartCard}><h2>Subtipos más frecuentes</h2><p>Top 15 categorías dentro de las verticales</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.bySubtype} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={135} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="count" fill="var(--info)" radius={[0,5,5,0]}/></BarChart></ResponsiveContainer></div></article>
-        <article className={styles.chartCard}><h2>Origen de los leads</h2><p>Top fuentes de captación</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byOrigin} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={130} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="count" fill="var(--analytics)" radius={[0,5,5,0]}/></BarChart></ResponsiveContainer></div></article>
-        <article className={styles.chartCard}><h2>Calidad de contacto</h2><p>Registros con canales accionables</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={coverage}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis/><Tooltip/><Bar dataKey="count" fill="var(--success)" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></article>
-        <article className={styles.chartCard}><h2>Altas por fecha</h2><p>Últimas 30 fechas con actividad</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><LineChart data={d.createdByDay}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis/><Tooltip/><Line type="monotone" dataKey="count" stroke="var(--primary)" strokeWidth={3} dot={{r:3}}/></LineChart></ResponsiveContainer></div></article>
-      </section>
-    </main>
-  </>;
+
+  return <><AppHeader/><main className={styles.shell}>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Pipeline, actividad y conversión con acceso directo a los leads que explican cada número.</p></div><BarChart3 size={28}/></header>
+    <section className={styles.filters}>
+      <label>Período de alta<select value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="custom">Personalizado</option></select></label>
+      {period==="custom"&&<><label>Desde<Input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Hasta<Input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></>}
+      <label>Responsable<select value={responsible} onChange={e=>setResponsible(e.target.value)}><option value="">Todos</option>{settings.data?.users.map(user=><option key={user.id} value={user.email}>{user.displayName}</option>)}</select></label>
+      <label>Vertical<select value={type} onChange={e=>setType(e.target.value)}><option value="">Todas</option>{settings.data?.types.map(item=><option key={item}>{item}</option>)}</select></label>
+      <label>Ciudad<select value={city} onChange={e=>setCity(e.target.value)}><option value="">Todas</option>{settings.data?.cities.map(item=><option key={item.id}>{item.name}</option>)}</select></label>
+      {(period!=="all"||responsible||type||city)&&<Button variant="ghost" size="sm" onClick={()=>{setPeriod("all");setFrom("");setTo("");setResponsible("");setType("");setCity("")}}>Limpiar</Button>}
+    </section>
+
+    <section className={styles.metrics}>
+      <button onClick={()=>quick("all")}><Users/><div><strong>{d.total.toLocaleString("es-AR")}</strong><span>Leads del corte</span></div></button>
+      <button onClick={()=>quick("pending")}><Target/><div><strong>{d.pending.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></button>
+      <button onClick={()=>quick("subscribed")}><CheckCircle2/><div><strong>{d.subscribed.toLocaleString("es-AR")}</strong><span>Suscriptos</span></div></button>
+      <button onClick={()=>quick("overdue")}><Clock3/><div><strong>{d.overdue.toLocaleString("es-AR")}</strong><span>Vencidos</span></div></button>
+      <article><UserRoundCheck/><div><strong>{d.contacted.toLocaleString("es-AR")}</strong><span>Con contacto registrado</span></div></article>
+      <button onClick={()=>quick("noContact")}><Zap/><div><strong>{d.noContact.toLocaleString("es-AR")}</strong><span>Sin contactar</span></div></button>
+      <article><Webhook/><div><strong>{d.inactive30.toLocaleString("es-AR")}</strong><span>Sin actividad 30 días</span></div></article>
+      <article><BarChart3/><div><strong>{d.conversionRate.toLocaleString("es-AR")}%</strong><span>Conversión a suscripción</span></div></article>
+    </section>
+
+    <section className={styles.charts}>
+      <article className={styles.chartCard}><h2>Leads por ciudad</h2><p>Hacé clic en una barra para abrir esos leads.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byCity} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={125} tick={{fontSize:11}}/><Tooltip/><Bar dataKey="count" fill="var(--primary)" radius={[0,5,5,0]} cursor="pointer" onClick={(entry:any)=>entry?.name&&drill("ciudad",entry.name)}/></BarChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard}><h2>Estado del pipeline</h2><p>Distribución comercial actual.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byStatus}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" tick={{fontSize:10}} interval={0} angle={-20} textAnchor="end" height={65}/><YAxis/><Tooltip/><Bar dataKey="count" fill="var(--secondary)" radius={[5,5,0,0]} cursor="pointer" onClick={(entry:any)=>entry?.name&&drill("estado",entry.name)}/></BarChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard}><h2>Leads por vertical</h2><p>Comparación entre las verticales comerciales.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byType}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" tick={{fontSize:10}} interval={0} angle={-15} textAnchor="end" height={60}/><YAxis/><Tooltip/><Bar dataKey="count" fill="var(--primary)" radius={[5,5,0,0]} cursor="pointer" onClick={(entry:any)=>entry?.name&&drill("tipo",entry.name)}/></BarChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard}><h2>Por responsable</h2><p>Carga actual del equipo.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byResponsible} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={125} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="count" fill="var(--analytics)" radius={[0,5,5,0]}/></BarChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard}><h2>Subtipos más frecuentes</h2><p>Top 15 categorías.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.bySubtype} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={135} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="count" fill="var(--info)" radius={[0,5,5,0]} cursor="pointer" onClick={(entry:any)=>entry?.name&&drill("subtipo",entry.name)}/></BarChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard}><h2>Origen de los leads</h2><p>Top fuentes de captación.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={d.byOrigin} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={130} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="count" fill="var(--analytics)" radius={[0,5,5,0]} cursor="pointer" onClick={(entry:any)=>entry?.name&&drill("origen",entry.name)}/></BarChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard}><h2>Calidad de contacto</h2><p>Registros con canales accionables.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={coverage}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis/><Tooltip/><Bar dataKey="count" fill="var(--success)" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard}><h2>Altas por fecha</h2><p>Evolución temporal del corte seleccionado.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><LineChart data={d.createdByDay}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis/><Tooltip/><Line type="monotone" dataKey="count" stroke="var(--primary)" strokeWidth={3} dot={{r:3}}/></LineChart></ResponsiveContainer></div></article>
+      <article className={styles.chartCard+" "+styles.conversionCard}><h2>Conversión por vertical</h2><p>Suscriptos sobre el total de cada vertical dentro del corte.</p><div className={styles.conversionList}>{d.byTypeConversion.map(row=><button key={row.name} onClick={()=>drill("tipo",row.name)}><span>{row.name}</span><b>{row.subscribed}/{row.total}</b><strong>{row.rate.toLocaleString("es-AR")}%</strong></button>)}</div></article>
+    </section>
+  </main></>;
 }
