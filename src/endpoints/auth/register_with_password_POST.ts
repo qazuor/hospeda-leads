@@ -122,6 +122,7 @@ export async function handle(request:Request){
         displayName:displayName.trim(),
         phone:phone.trim(),
         sex,
+        senderEmail:null,
         role:defaultRole
       }).returning(["id","email","displayName","role","createdAt"]).execute();
 
