@@ -1,11 +1,32 @@
 import { z } from "zod";
 import superjson from "superjson";
 
+const nullableSender=z.union([z.string().email(),z.literal(""),z.null()]).optional();
+
 export const schema=z.discriminatedUnion("action",[
   z.object({action:z.literal("addCity"),name:z.string().min(1)}),
   z.object({action:z.literal("addSubtype"),name:z.string().min(1),typeName:z.string().nullable().optional()}),
   z.object({action:z.literal("addEmail"),email:z.string().email(),displayName:z.string().nullable().optional()}),
   z.object({action:z.literal("saveUserSenderEmail"),userId:z.number().int().positive(),senderEmail:z.string().email().nullable()}),
+  z.object({
+    action:z.literal("inviteUser"),
+    email:z.string().email(),
+    displayName:z.string().min(1),
+    role:z.enum(["admin","user"]).default("user"),
+    senderEmail:nullableSender
+  }),
+  z.object({
+    action:z.literal("resendUserInvite"),
+    userId:z.number().int().positive()
+  }),
+  z.object({
+    action:z.literal("updateUser"),
+    userId:z.number().int().positive(),
+    email:z.string().email(),
+    displayName:z.string().min(1),
+    role:z.enum(["admin","user"]),
+    senderEmail:nullableSender
+  }),
   z.object({
     action:z.literal("saveEmailDelivery"),
     senderName:z.string().min(1),
