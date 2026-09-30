@@ -670,13 +670,14 @@ export default function LeadsPage(){
         : label?<ValueBadge value={label} category="person"/>:"—";
     }
     if(key==="medioContactoPreferido")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
-    if(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key))return <input
+    if(key==="fechaProximaAccion")return <NextActionPicker compact value={l.fechaProximaAccion} onChange={value=>quick(l.id,"fechaProximaAccion",value)}/>;
+    if(["fechaCreacion","fechaUltimoContacto"].includes(key))return <input
       className={styles.inlineDate}
       type="date"
       value={dateInput(l[key])}
       onClick={e=>{e.stopPropagation();e.currentTarget.showPicker?.()}}
       onDoubleClick={e=>e.stopPropagation()}
-      onChange={e=>quick(l.id,key as "fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",e.target.value)}
+      onChange={e=>quick(l.id,key as "fechaCreacion"|"fechaUltimoContacto",e.target.value)}
     />;
     if(["createdAt","updatedAt"].includes(key))return displayDate(l[key]);
     if(key==="clientePotencialRecurrente")return l[key]?"Sí":"No";
