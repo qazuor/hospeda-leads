@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle, ArrowDownAZ, ArrowUpAZ, CheckCircle2, ChevronDown, Clock3,
-  ExternalLink, Filter, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, Target, Trash2, Users, X
+  AlertTriangle, ArrowDownAZ, ArrowUpAZ, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
+  ExternalLink, Filter, Globe2, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
+  Target, Trash2, UserRound, Users, UsersRound, X
 } from "lucide-react";
 import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
@@ -25,6 +26,7 @@ import {
 } from "../components/FieldFilterEditors";
 import { Textarea } from "../components/Textarea";
 import { UserBadgeSelect } from "../components/UserBadgeSelect";
+import { ValueBadge } from "../components/ValueBadge";
 import { getLeadDuplicates } from "../endpoints/leads_duplicates_GET.schema";
 import { advancedFilterGroup, getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
 import { postLeadsDelete } from "../endpoints/leads_delete_POST.schema";
@@ -603,44 +605,127 @@ export default function LeadsPage(){
         <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
       </section>
 
-      <Dialog open={open} onOpenChange={setOpen}><DialogContent className={styles.dialog}>
-        <DialogHeader><DialogTitle>{form.id?"Editar lead":"Nuevo lead"}</DialogTitle><DialogDescription>Todos los datos comerciales y de contacto del lead.</DialogDescription></DialogHeader>
-        <div className={styles.formGrid}>
-          <label className={styles.span2}>Nombre / razón social<Input value={form.nombre} onChange={e=>set("nombre",e.target.value)}/></label>
-          <label className={styles.span2}>Persona de contacto<Input value={str(form.contactName)} onChange={e=>set("contactName",e.target.value)} placeholder="Ej: Leandro Asrilevich"/></label>
-          <label>Vertical<BadgeSelect value={str(form.tipo)} options={typeOptions} category="vertical" onChange={v=>{set("tipo",v);set("subtipo","")}} placeholder="Seleccionar vertical…"/></label>
-          <label>Subtipo<BadgeSelect value={str(form.subtipo)} options={subtypeOptions} category="subtype" onChange={v=>set("subtipo",v)} placeholder="Seleccionar subtipo…" emptyLabel="Sin subtipo"/></label>
-          <label>Perfil comercial<BadgeSelect value={str(form.commercialProfile)} options={PROFILE_OPTIONS} category="profile" onChange={v=>set("commercialProfile",v||null)} placeholder="Seleccionar perfil…" emptyLabel="Sin perfil"/></label>
-          <label>Ciudad<BadgeSelect value={str(form.ciudad)} options={cityOptions} category="city" onChange={v=>set("ciudad",v)} placeholder="Seleccionar ciudad…"/></label>
-          <label>Estado<BadgeSelect value={str(form.estado)} options={STATUS_OPTIONS} category="status" onChange={v=>set("estado",v)} placeholder="Seleccionar estado…"/></label>
-          <label>Prioridad<BadgeSelect value={form.prioridad??""} options={PRIORITY_OPTIONS} category="priority" onChange={v=>set("prioridad",v||null)} placeholder="Sin prioridad" emptyLabel="Sin prioridad"/></label>
-          <label>Suscripción<Input value={str(form.suscripcion)} onChange={e=>set("suscripcion",e.target.value)}/></label>
-          <label>Quién cargó<BadgeSelect value={str(form.quienCargo)} options={peopleOptions} category="person" onChange={v=>set("quienCargo",v)} placeholder="Seleccionar persona…"/></label>
-          <label>Responsable<BadgeSelect value={str(form.asignadoA)} options={peopleOptions} category="person" onChange={v=>set("asignadoA",v)} placeholder="Seleccionar responsable…"/></label>
-          <label>Asignado a usuario<UserBadgeSelect value={str(form.assignedUserEmail)} users={userOptions} onChange={v=>set("assignedUserEmail",v)} placeholder="Seleccionar usuario…"/></label>
-          <label>Teléfono<Input value={str(form.telefono)} onChange={e=>set("telefono",e.target.value)}/></label>
-          <label>Email<Input type="email" value={str(form.email)} onChange={e=>set("email",e.target.value)}/></label>
-          <label>Medio preferido<BadgeSelect value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>
-          <label>Origen<Input value={str(form.origen)} onChange={e=>set("origen",e.target.value)}/></label>
-          <label className={styles.span2}>Fuente de referencia<Input value={str(form.fuenteReferencia)} onChange={e=>set("fuenteReferencia",e.target.value)}/></label>
-          <label>Sitio web<Input value={str(form.sitioWeb)} onChange={e=>set("sitioWeb",e.target.value)}/></label>
-          <label>Google Maps<Input value={str(form.urlGmap)} onChange={e=>set("urlGmap",e.target.value)}/></label>
-          <label>Instagram<Input value={str(form.perfilInstagram)} onChange={e=>set("perfilInstagram",e.target.value)}/></label>
-          <label>Facebook<Input value={str(form.perfilFacebook)} onChange={e=>set("perfilFacebook",e.target.value)}/></label>
-          <label>Airbnb<Input value={str(form.perfilAirbnb)} onChange={e=>set("perfilAirbnb",e.target.value)}/></label>
-          <label>Booking<Input value={str(form.perfilBooking)} onChange={e=>set("perfilBooking",e.target.value)}/></label>
-          <label className={styles.span2}>Turismo Entre Ríos<Input value={str(form.perfilTurismoEntreRios)} onChange={e=>set("perfilTurismoEntreRios",e.target.value)}/></label>
-          <label>Último contacto<Input type="date" value={str(form.fechaUltimoContacto)} onChange={e=>set("fechaUltimoContacto",e.target.value)}/></label>
-          <label>Próxima acción<Input type="date" value={str(form.fechaProximaAccion)} onChange={e=>set("fechaProximaAccion",e.target.value)}/></label>
-          <label className={styles.span2}>Resultado último contacto<Input value={str(form.resultadoUltimoContacto)} onChange={e=>set("resultadoUltimoContacto",e.target.value)}/></label>
-          <label className={styles.span2}>Archivo adjunto / URL<Input value={str(form.archivoAdjunto)} onChange={e=>set("archivoAdjunto",e.target.value)}/></label>
-          <label className={styles.span2+" "+styles.checkboxLabel}><Checkbox checked={!!form.clientePotencialRecurrente} onChange={e=>set("clientePotencialRecurrente",e.target.checked)}/><span>Cliente potencial recurrente</span></label>
-          <label className={styles.span2}>Nueva nota<Textarea value={str(form.notas)} onChange={e=>set("notas",e.target.value)} rows={3} placeholder="Se agregará al historial de notas; no reemplaza las anteriores."/></label>
-        </div>
-        {duplicateCandidates.length>0&&<div className={styles.duplicateWarning}><strong><AlertTriangle size={16}/>Posible lead duplicado</strong><p>Encontré coincidencias antes de crear el registro:</p>{duplicateCandidates.map(d=><div key={d.id}><b>{d.nombre}</b> · {d.ciudad||"sin ciudad"} · {d.reasons.join(", ")}</div>)}</div>}
-        {saveM.error&&<div className={styles.error}>{saveM.error.message}</div>}
-        <DialogFooter>{form.id&&<Button variant="destructive" onClick={()=>requestDelete(form.id!,form.nombre)} disabled={deleteM.isPending}><Trash2 size={16}/>Eliminar</Button>}<div className={styles.grow}/><Button variant="outline" onClick={()=>setOpen(false)}>Cancelar</Button>{duplicateCandidates.length>0?<Button variant="secondary" onClick={()=>saveLead(true)} disabled={saveM.isPending}>Guardar de todas formas</Button>:<Button onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.nombre.trim()}>{saveM.isPending?"Guardando…":"Guardar lead"}</Button>}</DialogFooter>
-      </DialogContent></Dialog>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className={styles.leadEditDialog}>
+          <div className={styles.editStickyHeader}>
+            <div className={styles.editIdentityRow}>
+              <div className={styles.editIdentity}>
+                <DialogTitle className={styles.editTitle}>{form.id?(form.nombre||"Lead sin nombre"):"Nuevo lead"}</DialogTitle>
+                <DialogDescription className={styles.editDescription}>
+                  {form.id?"Editá la información comercial y de contacto.":"Completá los datos principales para crear el lead."}
+                </DialogDescription>
+                <div className={styles.editIdentityBadges}>
+                  {form.tipo&&<ValueBadge value={str(form.tipo)} category="vertical"/>}
+                  {form.subtipo&&<ValueBadge value={str(form.subtipo)} category="subtype"/>}
+                  {form.commercialProfile&&<ValueBadge value={str(form.commercialProfile)} category="profile"/>}
+                  {form.estado&&<ValueBadge value={str(form.estado)} category="status"/>}
+                  {form.prioridad&&<ValueBadge value={str(form.prioridad)} category="priority"/>}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.editActionBar}>
+              {form.id&&<Button size="sm" variant="destructive" onClick={()=>requestDelete(form.id!,form.nombre)} disabled={deleteM.isPending}><Trash2 size={15}/>Eliminar</Button>}
+              <div className={styles.editActionSpacer}/>
+              <Button size="sm" variant="ghost" onClick={()=>setOpen(false)}><X size={15}/>Cancelar</Button>
+              {duplicateCandidates.length>0
+                ? <Button size="sm" variant="secondary" onClick={()=>saveLead(true)} disabled={saveM.isPending}>Guardar de todas formas</Button>
+                : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.nombre.trim()}>{saveM.isPending?"Guardando…":"Guardar lead"}</Button>}
+            </div>
+          </div>
+
+          <div className={styles.editScrollBody}>
+            <section className={styles.editSection}>
+              <div className={styles.editSectionHeader}>
+                <div className={styles.editSectionIcon}><Building2 size={17}/></div>
+                <div><h3>Identidad y clasificación</h3><p>Cómo se identifica y cómo lo clasificamos comercialmente.</p></div>
+              </div>
+              <div className={styles.editGrid}>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Nombre / razón social</span><Input value={form.nombre} onChange={e=>set("nombre",e.target.value)}/></label>
+                <label className={styles.editField}><span>Vertical</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.tipo)} options={typeOptions} category="vertical" onChange={v=>{set("tipo",v);set("subtipo","")}} placeholder="Seleccionar vertical…"/></label>
+                <label className={styles.editField}><span>Subtipo</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.subtipo)} options={subtypeOptions} category="subtype" onChange={v=>set("subtipo",v)} placeholder="Seleccionar subtipo…" emptyLabel="Sin subtipo"/></label>
+                <label className={styles.editField}><span>Perfil comercial</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.commercialProfile)} options={PROFILE_OPTIONS} category="profile" onChange={v=>set("commercialProfile",v||null)} placeholder="Seleccionar perfil…" emptyLabel="Sin perfil"/></label>
+                <label className={styles.editField}><span>Ciudad</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.ciudad)} options={cityOptions} category="city" onChange={v=>set("ciudad",v)} placeholder="Seleccionar ciudad…"/></label>
+                <label className={styles.editField}><span>Estado</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.estado)} options={STATUS_OPTIONS} category="status" onChange={v=>set("estado",v)} placeholder="Seleccionar estado…"/></label>
+                <label className={styles.editField}><span>Prioridad</span><BadgeSelect className={styles.editBadgeSelect} value={form.prioridad??""} options={PRIORITY_OPTIONS} category="priority" onChange={v=>set("prioridad",v||null)} placeholder="Sin prioridad" emptyLabel="Sin prioridad"/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Suscripción</span><Input value={str(form.suscripcion)} onChange={e=>set("suscripcion",e.target.value)}/></label>
+              </div>
+            </section>
+
+            <section className={styles.editSection}>
+              <div className={styles.editSectionHeader}>
+                <div className={styles.editSectionIcon}><UserRound size={17}/></div>
+                <div><h3>Contacto</h3><p>Datos de la persona y canal preferido para comunicarnos.</p></div>
+              </div>
+              <div className={styles.editGrid}>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Persona de contacto</span><Input value={str(form.contactName)} onChange={e=>set("contactName",e.target.value)} placeholder="Ej: Leandro Asrilevich"/></label>
+                <label className={styles.editField}><span>Teléfono</span><Input value={str(form.telefono)} onChange={e=>set("telefono",e.target.value)}/></label>
+                <label className={styles.editField}><span>Email</span><Input type="email" value={str(form.email)} onChange={e=>set("email",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Medio preferido</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>
+              </div>
+            </section>
+
+            <section className={styles.editSection}>
+              <div className={styles.editSectionHeader}>
+                <div className={styles.editSectionIcon}><UsersRound size={17}/></div>
+                <div><h3>Gestión interna</h3><p>Asignación, origen y responsables dentro del equipo.</p></div>
+              </div>
+              <div className={styles.editGrid}>
+                <label className={styles.editField}><span>Quién cargó</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.quienCargo)} options={peopleOptions} category="person" onChange={v=>set("quienCargo",v)} placeholder="Seleccionar persona…"/></label>
+                <label className={styles.editField}><span>Responsable</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.asignadoA)} options={peopleOptions} category="person" onChange={v=>set("asignadoA",v)} placeholder="Seleccionar responsable…"/></label>
+                <label className={styles.editField}><span>Asignado a usuario</span><UserBadgeSelect className={styles.editBadgeSelect} value={str(form.assignedUserEmail)} users={userOptions} onChange={v=>set("assignedUserEmail",v)} placeholder="Seleccionar usuario…"/></label>
+                <label className={styles.editField}><span>Origen</span><Input value={str(form.origen)} onChange={e=>set("origen",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2+" "+styles.editCheckbox}><Checkbox checked={!!form.clientePotencialRecurrente} onChange={e=>set("clientePotencialRecurrente",e.target.checked)}/><span>Cliente potencial recurrente</span></label>
+              </div>
+            </section>
+
+            <section className={styles.editSection}>
+              <div className={styles.editSectionHeader}>
+                <div className={styles.editSectionIcon}><CalendarClock size={17}/></div>
+                <div><h3>Seguimiento</h3><p>Historial reciente, próxima acción y contexto de referencia.</p></div>
+              </div>
+              <div className={styles.editGrid}>
+                <label className={styles.editField}><span>Último contacto</span><Input type="date" value={str(form.fechaUltimoContacto)} onChange={e=>set("fechaUltimoContacto",e.target.value)}/></label>
+                <label className={styles.editField}><span>Próxima acción</span><Input type="date" value={str(form.fechaProximaAccion)} onChange={e=>set("fechaProximaAccion",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Resultado último contacto</span><Input value={str(form.resultadoUltimoContacto)} onChange={e=>set("resultadoUltimoContacto",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Fuente de referencia</span><Input value={str(form.fuenteReferencia)} onChange={e=>set("fuenteReferencia",e.target.value)}/></label>
+              </div>
+            </section>
+
+            <section className={styles.editSection+" "+styles.editWideSection}>
+              <div className={styles.editSectionHeader}>
+                <div className={styles.editSectionIcon}><Globe2 size={17}/></div>
+                <div><h3>Presencia digital</h3><p>Web, mapas, perfiles externos y material adjunto.</p></div>
+              </div>
+              <div className={styles.editGrid}>
+                <label className={styles.editField}><span>Sitio web</span><Input value={str(form.sitioWeb)} onChange={e=>set("sitioWeb",e.target.value)}/></label>
+                <label className={styles.editField}><span>Google Maps</span><Input value={str(form.urlGmap)} onChange={e=>set("urlGmap",e.target.value)}/></label>
+                <label className={styles.editField}><span>Instagram</span><Input value={str(form.perfilInstagram)} onChange={e=>set("perfilInstagram",e.target.value)}/></label>
+                <label className={styles.editField}><span>Facebook</span><Input value={str(form.perfilFacebook)} onChange={e=>set("perfilFacebook",e.target.value)}/></label>
+                <label className={styles.editField}><span>Airbnb</span><Input value={str(form.perfilAirbnb)} onChange={e=>set("perfilAirbnb",e.target.value)}/></label>
+                <label className={styles.editField}><span>Booking</span><Input value={str(form.perfilBooking)} onChange={e=>set("perfilBooking",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Turismo Entre Ríos</span><Input value={str(form.perfilTurismoEntreRios)} onChange={e=>set("perfilTurismoEntreRios",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Archivo adjunto / URL</span><Input value={str(form.archivoAdjunto)} onChange={e=>set("archivoAdjunto",e.target.value)}/></label>
+              </div>
+            </section>
+
+            <section className={styles.editSection+" "+styles.editWideSection}>
+              <div className={styles.editSectionHeader}>
+                <div className={styles.editSectionIcon}><StickyNote size={17}/></div>
+                <div><h3>Nueva nota</h3><p>Se agrega al historial sin reemplazar las notas anteriores.</p></div>
+              </div>
+              <Textarea value={str(form.notas)} onChange={e=>set("notas",e.target.value)} rows={4} placeholder="Escribí contexto, acuerdos o próximos pasos…"/>
+            </section>
+
+            {duplicateCandidates.length>0&&<div className={styles.duplicateWarning+" "+styles.editWideSection}>
+              <strong><AlertTriangle size={16}/>Posible lead duplicado</strong>
+              <p>Encontré coincidencias antes de crear el registro:</p>
+              {duplicateCandidates.map(d=><div key={d.id}><b>{d.nombre}</b> · {d.ciudad||"sin ciudad"} · {d.reasons.join(", ")}</div>)}
+            </div>}
+            {saveM.error&&<div className={styles.error+" "+styles.editWideSection}>{saveM.error.message}</div>}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={duplicatesOpen} onOpenChange={setDuplicatesOpen}><DialogContent className={styles.duplicatesDialog}>
         <DialogHeader><DialogTitle>Duplicados potenciales</DialogTitle><DialogDescription>Coincidencias por nombre + ciudad, email o teléfono. Revisalas antes de borrar registros.</DialogDescription></DialogHeader>
