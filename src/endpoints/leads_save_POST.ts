@@ -53,8 +53,10 @@ export async function handle(request: Request) {
         perfilTurismoEntreRios: input.perfilTurismoEntreRios ?? null,
         origen: input.origen ?? null,
         quienCargo: input.quienCargo ?? user.displayName,
-        asignadoA: input.asignadoA ?? null,
-        assignedUserEmail: input.assignedUserEmail ?? null,
+        asignadoA: user.role==="admin" ? null : (existing?.asignadoA ?? null),
+        assignedUserEmail: user.role==="admin"
+          ? (input.assignedUserEmail ?? null)
+          : (existing?.assignedUserEmail ?? null),
         fechaCreacion: input.fechaCreacion!==undefined
           ? (dateOrNull(input.fechaCreacion) ?? existing?.fechaCreacion ?? new Date())
           : (existing?.fechaCreacion ?? new Date()),
@@ -78,7 +80,7 @@ export async function handle(request: Request) {
         const tracked=[
           "nombre","contactName","tipo","subtipo","commercialProfile","ciudad","estado","suscripcion","email","telefono",
           "sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking",
-          "perfilTurismoEntreRios","origen","quienCargo","asignadoA","assignedUserEmail","fechaCreacion","fechaUltimoContacto",
+          "perfilTurismoEntreRios","origen","quienCargo","assignedUserEmail","fechaCreacion","fechaUltimoContacto",
           "medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
           "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto"
         ] as const;
