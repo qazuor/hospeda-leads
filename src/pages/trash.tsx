@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, RotateCcw, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Eye, RotateCcw, Search, Trash2 } from "lucide-react";
 import { AppHeader } from "../components/AppHeader";
 import { Button } from "../components/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/Dialog";
 import { Input } from "../components/Input";
+import { LeadDetailDialog } from "../components/LeadDetailDialog";
 import { Skeleton } from "../components/Skeleton";
 import { ValueBadge } from "../components/ValueBadge";
 import { getTrashLeads } from "../endpoints/leads_trash_GET.schema";
+import { getSettings } from "../endpoints/settings_GET.schema";
 import { postLeadRestore } from "../endpoints/leads_restore_POST.schema";
 import { postLeadHardDelete } from "../endpoints/leads_hard_delete_POST.schema";
 import { useDebounce } from "../helpers/useDebounce";
@@ -18,12 +20,15 @@ export default function TrashPage(){
   const [q,setQ]=useState("");
   const [page,setPage]=useState(1);
   const [hardTarget,setHardTarget]=useState<any|null>(null);
+  const [selectedLead,setSelectedLead]=useState<any|null>(null);
+  const [viewOpen,setViewOpen]=useState(false);
   const debounced=useDebounce(q,300);
   const trash=useQuery({
     queryKey:["trash-leads",debounced,page],
     queryFn:()=>getTrashLeads({q:debounced||undefined,page,pageSize:50}),
     placeholderData:previous=>previous
   });
+  const settings=useQuery({queryKey:["settings"],queryFn:getSettings});
   const refresh=async()=>Promise.all([
     qc.invalidateQueries({queryKey:["trash-leads"]}),
     qc.invalidateQueries({queryKey:["leads"]}),
@@ -35,6 +40,7 @@ export default function TrashPage(){
   const restore=useMutation({mutationFn:postLeadRestore,onSuccess:refresh});
   const hardDelete=useMutation({mutationFn:postLeadHardDelete,onSuccess:async()=>{setHardTarget(null);await refresh()}});
   const data=trash.data;
+  const openView=(lead:any)=>{setSelectedLead(lead);setViewOpen(true)};
   return <>
     <AppHeader/>
     <main className={styles.shell}>
@@ -48,7 +54,7 @@ export default function TrashPage(){
       <section className={styles.card}>
         <div className={styles.meta}><strong>{(data?.total??0).toLocaleString("es-AR")} leads en papelera</strong><span>Página {page} de {Math.max(1,Math.ceil((data?.total??0)/50))}</span></div>
         {trash.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:trash.error?<div className={styles.error}>{trash.error.message}</div>:<div className={styles.scroller}><table><thead><tr><th>Lead</th><th>Contacto</th><th>Ciudad</th><th>Vertical</th><th>Estado</th><th>Eliminado</th><th>Por</th><th>Acciones</th></tr></thead><tbody>
-          {(data?.rows??[]).map(lead=><tr key={String(lead.id)}>
+          {(data?.rows??[]).map(lead=><tr key={String(lead.id)} onDoubleClick={()=>openView(lead)}>
             <td><strong>{lead.nombre}</strong><small>#{String(lead.id)}</small></td>
             <td><strong>{lead.contactName||"—"}</strong><small>{lead.email||lead.telefono||""}</small></td>
             <td>{lead.ciudad?<ValueBadge value={lead.ciudad} category="city"/>:"—"}</td>
@@ -56,11 +62,18 @@ export default function TrashPage(){
             <td>{lead.estado?<ValueBadge value={lead.estado} category="status"/>:"—"}</td>
             <td>{lead.deletedAt?new Date(lead.deletedAt).toLocaleString("es-AR"):"—"}</td>
             <td><strong>{lead.deletedByName||"—"}</strong><small>{lead.deletedByEmail||""}</small></td>
-            <td><div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>restore.mutate({id:String(lead.id)})} disabled={restore.isPending}><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" onClick={()=>setHardTarget(lead)}><Trash2 size={15}/>Hard delete</Button></div></td>
+            <td><div className={styles.actions}><Button size="sm" variant="ghost" onClick={()=>openView(lead)}><Eye size={15}/>Ver</Button><Button size="sm" variant="outline" onClick={()=>restore.mutate({id:String(lead.id)})} disabled={restore.isPending}><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" onClick={()=>setHardTarget(lead)}><Trash2 size={15}/>Hard delete</Button></div></td>
           </tr>)}
         </tbody></table></div>}
         <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((data?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((data?.total??0)/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
       </section>
+      <LeadDetailDialog
+        open={viewOpen}
+        onOpenChange={setViewOpen}
+        lead={selectedLead}
+        users={settings.data?.users}
+        readOnly
+      />
       <Dialog open={!!hardTarget} onOpenChange={open=>{if(!open&&!hardDelete.isPending)setHardTarget(null)}}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Eliminar definitivamente</DialogTitle><DialogDescription>Vas a borrar físicamente <strong>{hardTarget?.nombre}</strong>.</DialogDescription></DialogHeader>
         <div className={styles.warning}><AlertTriangle size={21}/><span>Esta acción no se puede deshacer. Se eliminarán el lead y sus notas. El journal de auditoría se conservará.</span></div>
