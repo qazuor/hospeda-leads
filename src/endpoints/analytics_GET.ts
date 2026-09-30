@@ -47,13 +47,17 @@ export async function handle(request:Request){
         if(contacted>=created)firstContactDays.push((contacted.getTime()-created.getTime())/86400000);
       }
       const stateEvents=events.filter(entry=>entry.fieldName==="estado");
-      let stateStart=new Date(lead.createdAt);
-      let currentState=stateEvents[0]?.oldValue||lead.estado;
-      for(const entry of stateEvents){
-        const at=new Date(entry.createdAt);addStatusDuration(entry.oldValue||currentState,stateStart,at);
-        currentState=entry.newValue||currentState;stateStart=at;
+      if(stateEvents.length){
+        let currentState=stateEvents[0].newValue||lead.estado;
+        let stateStart=new Date(stateEvents[0].createdAt);
+        for(const entry of stateEvents.slice(1)){
+          const at=new Date(entry.createdAt);
+          addStatusDuration(currentState,stateStart,at);
+          currentState=entry.newValue||currentState;
+          stateStart=at;
+        }
+        addStatusDuration(currentState,stateStart,now);
       }
-      addStatusDuration(lead.estado||currentState,stateStart,now);
     }
     for(const row of rows){if(row.fechaCreacion){const d=new Date(row.fechaCreacion).toISOString().slice(0,10);day.set(d,(day.get(d)??0)+1)}}
     const subscribed=rows.filter(r=>r.estado==="Suscripto").length;
