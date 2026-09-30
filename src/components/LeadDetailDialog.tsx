@@ -35,16 +35,17 @@ const fieldLabel:Record<string,string>={
 };
 
 export const LeadDetailDialog=({
-  open,onOpenChange,lead,users,onEdit,onDelete,onWhatsApp,onEmail
+  open,onOpenChange,lead,users,onEdit,onDelete,onWhatsApp,onEmail,readOnly=false
 }:{
   open:boolean;
   onOpenChange:(open:boolean)=>void;
   lead:any|null;
   users?:{id:number;email:string;displayName:string;role:"admin"|"user"}[];
-  onEdit:(lead:any)=>void;
-  onDelete:(lead:any)=>void;
-  onWhatsApp:(lead:any)=>void;
-  onEmail:(lead:any)=>void;
+  onEdit?:(lead:any)=>void;
+  onDelete?:(lead:any)=>void;
+  onWhatsApp?:(lead:any)=>void;
+  onEmail?:(lead:any)=>void;
+  readOnly?:boolean;
 })=>{
   const qc=useQueryClient();
   const [note,setNote]=useState("");
@@ -86,9 +87,9 @@ export const LeadDetailDialog=({
     </DialogHeader>
 
     <div className={styles.actions}>
-      {lead.telefono&&<Button variant="outline" onClick={()=>onWhatsApp(lead)}><MessageCircle size={16}/>WhatsApp</Button>}
-      {lead.telefono&&<Button variant="outline" asChild><a href={"tel:"+lead.telefono}><Phone size={16}/>Llamar</a></Button>}
-      {lead.email&&<Button variant="outline" onClick={()=>onEmail(lead)}><Mail size={16}/>Email</Button>}
+      {!readOnly&&lead.telefono&&onWhatsApp&&<Button variant="outline" onClick={()=>onWhatsApp(lead)}><MessageCircle size={16}/>WhatsApp</Button>}
+      {!readOnly&&lead.telefono&&<Button variant="outline" asChild><a href={"tel:"+lead.telefono}><Phone size={16}/>Llamar</a></Button>}
+      {!readOnly&&lead.email&&onEmail&&<Button variant="outline" onClick={()=>onEmail(lead)}><Mail size={16}/>Email</Button>}
       {lead.urlGmap&&<Button variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={16}/>Mapa</a></Button>}
     </div>
 
@@ -142,6 +143,15 @@ export const LeadDetailDialog=({
           <div className={styles.full}><span>Archivo adjunto</span><strong>{text(lead.archivoAdjunto)}</strong></div>
         </div>
       </section>
+
+      {lead.deletedAt&&<section>
+        <h3>Papelera</h3>
+        <div className={styles.group}>
+          <Field label="Eliminado" value={date(lead.deletedAt)}/>
+          <Field label="Eliminado por" value={text(lead.deletedByName)}/>
+          <div className={styles.full}><span>Email del usuario</span><strong>{text(lead.deletedByEmail)}</strong></div>
+        </div>
+      </section>}
     </div>
 
     <section className={styles.links}>
@@ -158,10 +168,10 @@ export const LeadDetailDialog=({
 
     <section className={styles.notes}>
       <h3>Historial de notas</h3>
-      <div className={styles.newNote}>
+      {!readOnly&&<div className={styles.newNote}>
         <Textarea rows={3} value={note} onChange={e=>setNote(e.target.value)} placeholder="Agregar una nueva nota…"/>
         <Button onClick={()=>noteM.mutate({leadId:String(lead.id),note})} disabled={!note.trim()||noteM.isPending}><Plus size={16}/>Agregar nota</Button>
-      </div>
+      </div>}
       {notesQ.isLoading?<Skeleton className={styles.notesLoading}/>:<div className={styles.timeline}>
         {(notesQ.data?.notes??[]).length===0?<p>Sin notas todavía.</p>:(notesQ.data?.notes??[]).map(n=><article key={n.id}>
           <div><strong>{n.author||"Sin autor"}</strong><time>{date(n.createdAt)}</time></div>
@@ -183,10 +193,10 @@ export const LeadDetailDialog=({
     </section>
 
     <DialogFooter>
-      <Button variant="destructive" onClick={()=>onDelete(lead)}><Trash2 size={16}/>Enviar a papelera</Button>
+      {!readOnly&&onDelete&&<Button variant="destructive" onClick={()=>onDelete(lead)}><Trash2 size={16}/>Enviar a papelera</Button>}
       <div className={styles.grow}/>
       <Button variant="outline" onClick={()=>onOpenChange(false)}>Cerrar</Button>
-      <Button onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={16}/>Editar lead</Button>
+      {!readOnly&&onEdit&&<Button onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={16}/>Editar lead</Button>}
     </DialogFooter>
   </DialogContent></Dialog>;
 };
