@@ -21,14 +21,15 @@ const RATE_LIMIT_CONFIG = {
 
 // Helper function to safely convert union type to Date
 function safeToDate(
-  value: string | number | bigint | null | undefined
+  value: string | number | bigint | Date | null | undefined
 ): Date | null {
   if (value === null || value === undefined) {
     return null;
   }
 
+  if (value instanceof Date) return value;
+
   if (typeof value === "bigint") {
-    // Convert bigint to number (assuming it's a timestamp in milliseconds)
     return new Date(Number(value));
   }
 

@@ -13,10 +13,13 @@ class FlootCamelCasePlugin extends CamelCasePlugin {
   }
 }
 
+const databaseUrl=process.env.DATABASE_URL;
+if(!databaseUrl)throw new Error("DATABASE_URL is required");
+
 export const db = new Kysely<DB>({
 plugins: [new FlootCamelCasePlugin()],
 dialect: new PostgresJSDialect({
-postgres: postgres(process.env.DATABASE_URL, {
+postgres: postgres(databaseUrl, {
 prepare: false,
 idle_timeout: 10,
 max: 3,

@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
 import { handle as h0 } from "../endpoints/analytics_GET";
 import { handle as h1 } from "../endpoints/auth/login_with_password_POST";
@@ -55,9 +56,14 @@ app.get("/_api/settings", (c) => h22(c.req.raw));
 app.post("/_api/settings_save", (c) => h23(c.req.raw));
 
 app.use("/*",serveStatic({root:"./dist"}));
-app.notFound((c)=>{
+app.notFound(async(c)=>{
   if(c.req.path.startsWith("/_api/")) return c.json({error:"Endpoint not found"},404);
-  return serveStatic({path:"./dist/index.html"})(c,async()=>{});
+  try{
+    const html=await readFile("./dist/index.html","utf8");
+    return c.html(html);
+  }catch{
+    return c.text("Not found",404);
+  }
 });
 
 const port=Number(process.env.PORT||3001);

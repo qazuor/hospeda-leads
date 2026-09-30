@@ -67,7 +67,8 @@
     "react-router-dom": "6.30.6",
     "sonner": "^2.0.1",
     "superjson": "2.2.2",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "recharts": "^2.15.1"
   },
   "devDependencies": {
     "@testing-library/react": "^16.2.0",
