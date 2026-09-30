@@ -8,6 +8,26 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: hospeda_leads
+          POSTGRES_USER: hospeda
+          POSTGRES_PASSWORD: hospeda
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hospeda -d hospeda_leads"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://hospeda:hospeda@127.0.0.1:5432/hospeda_leads
+      JWT_SECRET: ci-test-secret-that-is-long-enough-for-hs256
+      ADMIN_EMAIL: admin@example.com
+      PUBLIC_APP_URL: http://127.0.0.1:3001
+      BREVO_API_KEY: ci-placeholder-not-used
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,4 +36,25 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm test
+      - run: npm run db:migrate
+      - run: npm run db:seed:test
       - run: npm run build
+      - name: Start server
+        run: |
+          npm start > /tmp/hospeda-leads.log 2>&1 &
+          echo $! > /tmp/hospeda-leads.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3001/_api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/hospeda-leads.log
+          exit 1
+      - name: Smoke test API
+        run: |
+          curl -fsS http://127.0.0.1:3001/_api/health | grep '"ok":true'
+          curl -fsS -o /tmp/session.json -w '%{http_code}' http://127.0.0.1:3001/_api/auth/session | grep '401'
+      - name: Show server logs on failure
+        if: failure()
+        run: cat /tmp/hospeda-leads.log || true

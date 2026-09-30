@@ -4,7 +4,7 @@ import path from "node:path";
 import postgres from "postgres";
 
 const databaseUrl=process.env.DATABASE_URL;
-if(!databaseUrl) throw new Error("DATABASE_URL is required");
+if(!databaseUrl)throw new Error("DATABASE_URL is required");
 
 const sql=postgres(databaseUrl,{max:1});
 
@@ -25,9 +25,7 @@ for(const file of files){
   const applied=await sql`SELECT checksum FROM schema_migrations WHERE name=${file}`;
 
   if(applied.length){
-    if(applied[0].checksum!==checksum){
-      throw new Error(`Migration ${file} changed after being applied`);
-    }
+    if(applied[0].checksum!==checksum)throw new Error(`Migration ${file} changed after being applied`);
     continue;
   }
 
