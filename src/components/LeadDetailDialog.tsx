@@ -106,6 +106,10 @@ export const LeadDetailDialog=({
 
   if(!lead)return null;
   const assignedUser=users?.find(user=>user.email===lead.assignedUserEmail);
+  const preferred=String(lead.medioContactoPreferido??"").toLowerCase();
+  const whatsappPrimary=preferred.includes("whats");
+  const emailPrimary=preferred==="email";
+  const phonePrimary=preferred.includes("tel");
 
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className={styles.dialog}>
@@ -133,9 +137,9 @@ export const LeadDetailDialog=({
         </div>
 
         <div className={styles.actionBar}>
-          {!readOnly&&lead.telefono&&onWhatsApp&&<Button size="sm" variant="outline" onClick={()=>onWhatsApp(lead)}><MessageCircle size={15}/>WhatsApp</Button>}
-          {!readOnly&&lead.telefono&&<Button size="sm" variant="outline" asChild><a href={"tel:"+lead.telefono}><Phone size={15}/>Llamar</a></Button>}
-          {!readOnly&&lead.email&&onEmail&&<Button size="sm" variant="outline" onClick={()=>onEmail(lead)}><Mail size={15}/>Email</Button>}
+          {!readOnly&&lead.telefono&&onWhatsApp&&<Button size="sm" variant={whatsappPrimary?"primary":"outline"} onClick={()=>onWhatsApp(lead)}><MessageCircle size={15}/>WhatsApp</Button>}
+          {!readOnly&&lead.telefono&&<Button size="sm" variant={phonePrimary?"primary":"outline"} asChild><a href={"tel:"+lead.telefono}><Phone size={15}/>Llamar</a></Button>}
+          {!readOnly&&lead.email&&onEmail&&<Button size="sm" variant={emailPrimary?"primary":"outline"} onClick={()=>onEmail(lead)}><Mail size={15}/>Email</Button>}
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
           {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Lead anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Lead siguiente"><ChevronRight size={16}/></Button></div>}
