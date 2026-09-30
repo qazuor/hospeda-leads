@@ -11,7 +11,7 @@ export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
     const input=schema.parse(superjson.parse(await request.text()));
-    const [lead,template,emailRows]=await Promise.all([
+    const [lead,template,emailRows,senderUser]=await Promise.all([
       db.selectFrom("leads")
         .selectAll()
         .where("id","=",String(input.leadId))
@@ -24,8 +24,9 @@ export async function handle(request:Request){
         .executeTakeFirst(),
       db.selectFrom("appSettings")
         .select(["key","value"])
-        .where("key","in",["brevo_sender_name","brevo_sender_email","brevo_reply_to_email",`brevo_user_sender_email:${user.id}`])
-        .execute()
+        .where("key","in",["brevo_sender_name","brevo_sender_email","brevo_reply_to_email"])
+        .execute(),
+      db.selectFrom("users").select("senderEmail").where("id","=",user.id).executeTakeFirst()
     ]);
 
     if(!lead)return new Response(superjson.stringify({error:"El lead ya no existe o está en la papelera."}),{status:404});
@@ -35,7 +36,7 @@ export async function handle(request:Request){
     if(template.commercialProfile&&template.commercialProfile!==lead.commercialProfile)return new Response(superjson.stringify({error:"El template no corresponde al perfil comercial de este lead."}),{status:400});
 
     const emailConfig=Object.fromEntries(emailRows.map(row=>[row.key,row.value]));
-    const userSenderEmail=emailConfig[`brevo_user_sender_email:${user.id}`]?.trim()||"";
+    const userSenderEmail=senderUser?.senderEmail?.trim()||"";
     const senderName=userSenderEmail?user.displayName:(emailConfig.brevo_sender_name||"Hospeda");
     const senderEmail=userSenderEmail||(emailConfig.brevo_sender_email||"notificaciones@hospeda.com.ar");
     const replyToEmail=userSenderEmail||(emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar");
