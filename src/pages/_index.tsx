@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle, ArrowDownAZ, ArrowUpAZ, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
+  AlertTriangle, ArrowDownAZ, ArrowUpAZ, BookmarkPlus, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
   ExternalLink, Filter, Globe2, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
   Target, Trash2, UserRound, Users, UsersRound, X
 } from "lucide-react";
@@ -14,6 +16,7 @@ import { ColumnPicker, type TableColumnOption } from "../components/ColumnPicker
 import { ContactTemplateDialog } from "../components/ContactTemplateDialog";
 import { FilterBuilderDialog, FilterLegend, type FilterFieldDefinition } from "../components/FilterBuilderDialog";
 import { LeadDetailDialog } from "../components/LeadDetailDialog";
+import { NextActionPicker } from "../components/NextActionPicker";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/Dialog";
 import { Input } from "../components/Input";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/Popover";
@@ -30,11 +33,13 @@ import { ValueBadge } from "../components/ValueBadge";
 import { getLeadDuplicates } from "../endpoints/leads_duplicates_GET.schema";
 import { advancedFilterGroup, getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
 import { postLeadsDelete } from "../endpoints/leads_delete_POST.schema";
+import { postLeadsBulk } from "../endpoints/leads_bulk_POST.schema";
 import { postLeadsQuick } from "../endpoints/leads_quick_POST.schema";
 import { postLeadsSave, type DuplicateCandidate, type InputType } from "../endpoints/leads_save_POST.schema";
 import { getLeadStats } from "../endpoints/leads_stats_GET.schema";
 import { getSettings } from "../endpoints/settings_GET.schema";
 import { useDebounce } from "../helpers/useDebounce";
+import { toDateInput } from "../helpers/crmDates";
 import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
@@ -166,11 +171,7 @@ const emptyForm:InputType={
 };
 
 const str=(v:unknown)=>v==null?"":String(v);
-const dateInput=(v:unknown)=>{
-  if(!v)return "";
-  const d=new Date(v as string);
-  return Number.isNaN(d.getTime())?"":d.toISOString().slice(0,10);
-};
+const dateInput=toDateInput;
 const displayDate=(v:unknown)=>{
   if(!v)return "—";
   const d=new Date(v as string);
@@ -204,8 +205,10 @@ function HeaderMenu({
 
 export default function LeadsPage(){
   const qc=useQueryClient();
+  const [urlParams,setUrlParams]=useSearchParams();
   const {authState}=useAuth();
   const isAdmin=authState.type==="authenticated"&&authState.user.role==="admin";
+  const currentUser=authState.type==="authenticated"?authState.user:null;
   const [query,setQuery]=useState(readStoredQuery);
   const [cityFilter,setCityFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [statusFilter,setStatusFilter]=useState<SmartFilterState>(emptySmartFilter);
@@ -242,6 +245,14 @@ export default function LeadsPage(){
   const [tableFullscreen,setTableFullscreen]=useState(false);
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
   const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(readStoredFilterGroups);
+  const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
+  const [lastTouchedId,setLastTouchedId]=useState<string>("");
+  const [cellState,setCellState]=useState<Record<string,"saving"|"saved">>({});
+  const [bulkField,setBulkField]=useState<"estado"|"prioridad"|"assignedUserEmail"|"fechaProximaAccion"|"tipo"|"commercialProfile"|"ciudad">("estado");
+  const [bulkValue,setBulkValue]=useState("");
+  const [saveViewOpen,setSaveViewOpen]=useState(false);
+  const [savedViewName,setSavedViewName]=useState("");
+  const [savedViews,setSavedViews]=useState<{name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc"}[]>([]);
   const [columnWidths,setColumnWidths]=useState<Record<string,number>>(()=>{
     if(typeof window==="undefined")return DEFAULT_WIDTHS;
     try{
@@ -303,6 +314,13 @@ export default function LeadsPage(){
     catch{}
   },[sortBy,sortDir]);
   useEffect(()=>{
+    if(!currentUser)return;
+    try{
+      const raw=window.localStorage.getItem("hospeda-leads-saved-views-"+currentUser.id);
+      setSavedViews(raw?JSON.parse(raw):[]);
+    }catch{setSavedViews([])}
+  },[currentUser?.id]);
+  useEffect(()=>{
     if(!tableFullscreen)return;
     const previous=document.body.style.overflow;
     document.body.style.overflow="hidden";
@@ -348,6 +366,7 @@ export default function LeadsPage(){
   const saveM=useMutation({mutationFn:postLeadsSave});
   const deleteM=useMutation({mutationFn:postLeadsDelete,onSuccess:invalidate});
   const quickM=useMutation({mutationFn:postLeadsQuick,onSuccess:invalidate});
+  const bulkM=useMutation({mutationFn:postLeadsBulk,onSuccess:invalidate});
 
   const leads=leadsQ.data?.rows??[];
   const filters=leadsQ.data?.filters??{
@@ -355,7 +374,7 @@ export default function LeadsPage(){
     quienesCargaron:[],mediosContacto:[],creadosPor:[]
   };
   const total=leadsQ.data?.total??0;
-  const stats=statsQ.data??{total:0,pendientes:0,suscriptos:0,vencidos:0};
+  const stats=statsQ.data??{total:0,pendientes:0,suscriptos:0,vencidos:0,paraHoy:0,misPendientesHoy:0};
   const settings=settingsQ.data;
   const cityOptions=settings?.cities.map(x=>x.name)??filters.ciudades;
   const typeOptions=settings?.types??filters.tipos;
