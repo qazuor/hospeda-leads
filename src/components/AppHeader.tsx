@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { BarChart3, ChevronDown, History, ListFilter, LogOut, Moon, Settings, Sun, SunMoon, Trash2, UserCircle } from "lucide-react";
 import { Button } from "./Button";
+import { ProfileDialog } from "./ProfileDialog";
 import { useAuth } from "../helpers/useAuth";
 import { useThemeMode } from "../helpers/themeMode";
 import { LiveModeSwitch } from "./LiveModeSwitch";
@@ -20,6 +21,7 @@ export const AppHeader=()=>{
   const isAdmin=authState.type==="authenticated"&&authState.user.role==="admin";
   const administrationActive=["/history","/trash","/settings","/templates"].some(path=>location.pathname.startsWith(path));
   const displayName=authState.type==="authenticated"?authState.user.displayName:"";
+  const [profileOpen,setProfileOpen]=React.useState(false);
 
   return <header className={styles.header}>
     <Link to="/" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda Leads</strong><span>CRM comercial</span></div></Link>
@@ -51,6 +53,8 @@ export const AppHeader=()=>{
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{displayName||"Usuario"}</DropdownMenuLabel>
           <DropdownMenuSeparator/>
+          <DropdownMenuItem onClick={()=>setProfileOpen(true)}><UserCircle size={16}/>Mi perfil</DropdownMenuItem>
+          <DropdownMenuSeparator/>
           <DropdownMenuItem onClick={switchToLightMode}><Sun size={16}/>Tema claro{mode==="light"&&<b className={styles.menuCheck}>✓</b>}</DropdownMenuItem>
           <DropdownMenuItem onClick={switchToDarkMode}><Moon size={16}/>Tema oscuro{mode==="dark"&&<b className={styles.menuCheck}>✓</b>}</DropdownMenuItem>
           <DropdownMenuItem onClick={switchToAutoMode}><SunMoon size={16}/>Usar tema del sistema{mode==="auto"&&<b className={styles.menuCheck}>✓</b>}</DropdownMenuItem>
@@ -59,5 +63,6 @@ export const AppHeader=()=>{
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+    <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen}/>
   </header>
 };
