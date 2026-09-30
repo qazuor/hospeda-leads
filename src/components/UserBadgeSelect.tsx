@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "./Command";
 import { Popover, PopoverContent, PopoverTrigger } from "./Popover";
 import { ValueBadge } from "./ValueBadge";
@@ -34,10 +34,10 @@ export const UserBadgeSelect=({
           {selected
             ? <ValueBadge value={selected.label} category="person"/>
             : assignWhenEmpty
-              ? <span className={styles.assignPrompt}><Plus size={12}/>Asignar</span>
+              ? <span className={styles.assignPrompt}>Asignar</span>
               : <span className={styles.placeholder}>{placeholder}</span>}
         </span>
-        <ChevronsUpDown size={14}/>
+        {(!assignWhenEmpty||value)&&<ChevronsUpDown className={styles.chevrons} size={14}/>}
       </button>
     </PopoverTrigger>
     <PopoverContent removeBackgroundAndPadding align="start" className={styles.popover}>
