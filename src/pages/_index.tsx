@@ -602,7 +602,7 @@ export default function LeadsPage(){
   };
   const applyBulk=async()=>{
     if(!selectedIds.size)return;
-    const changes:any={[bulkField]:bulkValue||null};
+    const changes:any={[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)};
     await bulkM.mutateAsync({ids:Array.from(selectedIds),changes});
     toast.success(`${selectedIds.size} leads actualizados`);setSelectedIds(new Set());setBulkValue("");
   };
@@ -699,10 +699,20 @@ export default function LeadsPage(){
       </header>
 
       <section className={styles.metrics}>
-        <article><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>Total leads</span></div></article>
-        <article><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></article>
-        <article><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>Acciones vencidas</span></div></article>
-        <article><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos</span></div></article>
+        <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>Total leads</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>Para hoy</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>Acciones vencidas</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis pendientes hoy</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos</span></div></button>
+      </section>
+
+      <section className={styles.quickViews}>
+        <div className={styles.quickViewList}>
+          {[["all","Todos"],["mine","Mis leads"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><button type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</button>)}
+          {savedViews.map(view=><div className={styles.savedView} key={view.name}><button type="button" className={activeQuick==="saved:"+view.name?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</button><button type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</button></div>)}
+        </div>
+        <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
       <section className={styles.toolbar}>
@@ -719,16 +729,40 @@ export default function LeadsPage(){
         groups={appliedFilterGroups}
         fields={filterFields}
         onEdit={()=>setFilterDialogOpen(true)}
-        onClear={()=>{setAppliedFilterGroups([]);resetPage()}}
+        onClear={()=>{setAppliedFilterGroups([]);setActiveQuick("all");resetPage()}}
       />
+
+      {selectedIds.size>0&&<section className={styles.bulkBar}>
+        <strong>{selectedIds.size} seleccionados</strong>
+        <select value={bulkField} onChange={e=>{setBulkField(e.target.value as typeof bulkField);setBulkValue("")}}>
+          <option value="estado">Estado</option><option value="prioridad">Prioridad</option>
+          {isAdmin&&<option value="assignedUserEmail">Responsable</option>}
+          <option value="fechaProximaAccion">Próxima acción</option><option value="tipo">Vertical</option>
+          <option value="commercialProfile">Perfil comercial</option><option value="ciudad">Ciudad</option>
+        </select>
+        {bulkField==="fechaProximaAccion"
+          ? <div className={styles.bulkDate}><NextActionPicker value={bulkValue} onChange={setBulkValue}/></div>
+          : <select value={bulkValue} onChange={e=>setBulkValue(e.target.value)}>
+              <option value="">Elegir valor…</option>
+              {bulkField==="estado"&&STATUS_OPTIONS.map(item=><option key={item}>{item}</option>)}
+              {bulkField==="prioridad"&&<><option value="__CLEAR__">Sin prioridad</option>{PRIORITY_OPTIONS.map(item=><option key={item}>{item}</option>)}</>}
+              {bulkField==="assignedUserEmail"&&<><option value="__CLEAR__">Sin responsable</option>{userOptions.map(user=><option key={user.id} value={user.email}>{user.displayName||user.email}</option>)}</>}
+              {bulkField==="tipo"&&typeOptions.map(item=><option key={item}>{item}</option>)}
+              {bulkField==="commercialProfile"&&<><option value="__CLEAR__">Sin perfil</option>{PROFILE_OPTIONS.map(item=><option key={item}>{item}</option>)}</>}
+              {bulkField==="ciudad"&&cityOptions.map(item=><option key={item}>{item}</option>)}
+            </select>}
+        <Button size="sm" onClick={applyBulk} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
+        <Button size="sm" variant="ghost" onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button>
+      </section>}
 
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
         <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} leads</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span></div><div className={styles.tableMetaActions}><span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span><Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar los leads: {leadsQ.error.message}</div>:
         <div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
-          {visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
+          <col style={{width:44}}/>{visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
         </colgroup><thead><tr>
+          <th className={styles.selectHead}><Checkbox checked={leads.length>0&&leads.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
           {visibleColumns.map(key=>{
             const col=TABLE_COLUMNS.find(x=>x.key===key);
             if(!col)return null;
@@ -736,11 +770,12 @@ export default function LeadsPage(){
           })}
           <th>Contacto</th><th>Acciones</th>
         </tr></thead><tbody>
-          {leads.map(l=><tr key={String(l.id)} onDoubleClick={()=>openView(l)}>
-            {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}</div></td>)}
+          {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
+            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
+            {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
             <td><div className={styles.quick}>{l.telefono&&<><a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a><button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp"><MessageCircle size={15}/></button></>}{l.email&&<button type="button" onClick={()=>openContact(l,"email")} title="Email"><Mail size={15}/></button>}{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div></td>
             <td><div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title="Borrar"><Trash2 size={15}/></Button></div></td>
-          </tr>)}
+          </tr>})}
         </tbody></table></div>}
         <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
       </section>
@@ -836,7 +871,7 @@ export default function LeadsPage(){
               </div>
               <div className={styles.editGrid}>
                 <label className={styles.editField}><span>Último contacto</span><Input type="date" value={str(form.fechaUltimoContacto)} onChange={e=>set("fechaUltimoContacto",e.target.value)}/></label>
-                <label className={styles.editField}><span>Próxima acción</span><Input type="date" value={str(form.fechaProximaAccion)} onChange={e=>set("fechaProximaAccion",e.target.value)}/></label>
+                <label className={styles.editField}><span>Próxima acción</span><NextActionPicker value={form.fechaProximaAccion} onChange={value=>set("fechaProximaAccion",value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Resultado último contacto</span><Input value={str(form.resultadoUltimoContacto)} onChange={e=>set("resultadoUltimoContacto",e.target.value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Fuente de referencia</span><Input value={str(form.fuenteReferencia)} onChange={e=>set("fuenteReferencia",e.target.value)}/></label>
               </div>
@@ -887,9 +922,14 @@ export default function LeadsPage(){
         onOpenChange={setFilterDialogOpen}
         fields={filterFields}
         value={appliedFilterGroups}
-        onApply={groups=>{setAppliedFilterGroups(groups);setPage(1)}}
+        onApply={groups=>{setAppliedFilterGroups(groups);setActiveQuick("custom");setPage(1)}}
       />
-      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")}/>
+      <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}><DialogContent className={styles.confirmDialog}>
+        <DialogHeader><DialogTitle>Guardar vista</DialogTitle><DialogDescription>Conserva la búsqueda, filtros y orden actuales para volver a usarlos con un clic.</DialogDescription></DialogHeader>
+        <Input value={savedViewName} onChange={e=>setSavedViewName(e.target.value)} placeholder="Ej: Alojamientos de Colón sin contactar" autoFocus/>
+        <DialogFooter><Button variant="outline" onClick={()=>setSaveViewOpen(false)}>Cancelar</Button><Button onClick={saveCurrentView} disabled={!savedViewName.trim()}>Guardar vista</Button></DialogFooter>
+      </Dialog>
+      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
       <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Enviar lead a la papelera</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong> dejará de aparecer en la tabla y en la operación normal.</DialogDescription></DialogHeader>
