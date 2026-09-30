@@ -530,6 +530,15 @@ export default function LeadsPage(){
     ];
     if(kind==="unassigned")groups=[{rules:[{field:"assignedUserEmail",operator:"empty"}]}];
     if(kind==="noContact")groups=[{rules:[{field:"fechaUltimoContacto",operator:"empty"}]}];
+    if(kind==="contacted")groups=[{rules:[{field:"fechaUltimoContacto",operator:"not_empty"}]}];
+    if(kind==="inactive30"){
+      const d=new Date();d.setDate(d.getDate()-30);
+      groups=[{rules:[{field:"updatedAt",operator:"before",value:dateInput(d)}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    }
+    if(kind==="new7"){
+      const d=new Date();d.setDate(d.getDate()-7);
+      groups=[{rules:[{field:"createdAt",operator:"after",value:dateInput(d)}]}];
+    }
     if(kind==="noNext")groups=[{rules:[{field:"fechaProximaAccion",operator:"empty"}]}];
     if(kind==="field"&&value){
       const [field,raw]=value.split("::");
