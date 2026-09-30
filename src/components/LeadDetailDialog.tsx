@@ -17,6 +17,24 @@ import styles from "./LeadDetailDialog.module.css";
 
 const text=(v:unknown)=>v==null||v===""?"—":String(v);
 const date=(v:unknown)=>v?new Date(v as string).toLocaleString("es-AR"):"—";
+const journalDate=(v:unknown)=>{
+  if(!v)return "Vacío";
+  const d=new Date(v as string);
+  if(Number.isNaN(d.getTime()))return String(v);
+  return d.toLocaleString("es-AR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+};
+const journalValue=(field:string|null,value:unknown)=>{
+  if(value===null||value===undefined||value==="")return "Vacío";
+  if(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"].includes(field??"")){
+    const d=new Date(value as string);
+    if(!Number.isNaN(d.getTime()))return d.toLocaleDateString("es-AR",{day:"numeric",month:"short",year:"numeric"});
+  }
+  if(field==="clientePotencialRecurrente"){
+    if(String(value)==="true")return "Sí";
+    if(String(value)==="false")return "No";
+  }
+  return String(value);
+};
 
 const Field=({label,value,full=false}:{label:string;value:React.ReactNode;full?:boolean})=>
   <div className={styles.field+(full?" "+styles.full:"")}>
@@ -53,7 +71,7 @@ const fieldLabel:Record<string,string>={
   estado:"Estado",suscripcion:"Suscripción",email:"Email",telefono:"Teléfono",sitioWeb:"Sitio web",
   urlGmap:"Google Maps",perfilInstagram:"Instagram",perfilFacebook:"Facebook",perfilAirbnb:"Airbnb",
   perfilBooking:"Booking",perfilTurismoEntreRios:"Turismo Entre Ríos",origen:"Origen",quienCargo:"Quién cargó",
-  asignadoA:"Responsable",assignedUserEmail:"Asignado a usuario",fechaCreacion:"Fecha creación",fechaUltimoContacto:"Último contacto",
+  asignadoA:"Responsable",assignedUserEmail:"Responsable",fechaCreacion:"Fecha creación",fechaUltimoContacto:"Último contacto",
   medioContactoPreferido:"Medio preferido",resultadoUltimoContacto:"Resultado último contacto",
   prioridad:"Prioridad",fechaProximaAccion:"Próxima acción",fuenteReferencia:"Fuente de referencia",
   clientePotencialRecurrente:"Potencial recurrente",archivoAdjunto:"Archivo adjunto",note:"Nota"
@@ -107,16 +125,22 @@ export const LeadDetailDialog=({
       <div className={styles.stickyHeader}>
         <div className={styles.identityRow}>
           <div className={styles.identity}>
-            <DialogTitle className={styles.title}>{lead.nombre}</DialogTitle>
-            <DialogDescription className={styles.description}>
-              {lead.contactName||"Sin persona de contacto"} · ID #{String(lead.id)}
-            </DialogDescription>
-            <div className={styles.identityBadges}>
-              {lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:<Badge variant="outline">Sin vertical</Badge>}
-              {lead.subtipo&&<ValueBadge value={lead.subtipo} category="subtype"/>}
-              {lead.commercialProfile&&<ValueBadge value={lead.commercialProfile} category="profile"/>}
-              {lead.estado?<ValueBadge value={lead.estado} category="status"/>:<Badge variant="outline">Sin estado</Badge>}
-              {lead.prioridad&&<ValueBadge value={lead.prioridad} category="priority"/>}
+            <div className={styles.titleLine}>
+              <DialogTitle className={styles.title}>{lead.nombre}</DialogTitle>
+              <div className={styles.titleBadges}>
+                {lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:<Badge variant="outline">Sin vertical</Badge>}
+                {lead.subtipo&&<ValueBadge value={lead.subtipo} category="subtype"/>}
+                {lead.estado?<ValueBadge value={lead.estado} category="status"/>:<Badge variant="outline">Sin estado</Badge>}
+              </div>
+            </div>
+            <div className={styles.metaLine}>
+              <DialogDescription className={styles.description}>
+                {lead.contactName||"Sin persona de contacto"} · ID #{String(lead.id)}
+              </DialogDescription>
+              <div className={styles.secondaryBadges}>
+                {lead.commercialProfile&&<ValueBadge value={lead.commercialProfile} category="profile"/>}
+                {lead.prioridad&&<ValueBadge value={lead.prioridad} category="priority"/>}
+              </div>
             </div>
           </div>
         </div>
@@ -137,7 +161,7 @@ export const LeadDetailDialog=({
         <div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Contacto" value={lead.contactName||lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>
-          <SummaryItem icon={ShieldCheck} label="Responsable" value={assignedUser?.displayName||lead.asignadoA||"Sin asignar"}/>
+          <SummaryItem icon={ShieldCheck} label="Responsable" value={assignedUser?.displayName||lead.assignedUserEmail||lead.asignadoA||"Sin asignar"}/>
           <SummaryItem icon={CalendarClock} label="Próxima acción" value={lead.fechaProximaAccion?date(lead.fechaProximaAccion):"Sin fecha"}/>
         </div>
 
@@ -181,8 +205,11 @@ export const LeadDetailDialog=({
           <section className={styles.panel}>
             <SectionTitle icon={ShieldCheck} title="Gestión interna" description="Asignación, autoría y auditoría del registro."/>
             <div className={styles.fieldGrid}>
-              <Field label="Responsable" value={lead.asignadoA?<ValueBadge value={lead.asignadoA} category="person"/>:"—"}/>
-              <Field label="Asignado a usuario" value={lead.assignedUserEmail?<ValueBadge value={assignedUser?.displayName||lead.assignedUserEmail} category="person"/>:"—"}/>
+              <Field label="Responsable" value={lead.assignedUserEmail
+                ? <ValueBadge value={assignedUser?.displayName||lead.assignedUserEmail} category="person"/>
+                : lead.asignadoA
+                  ? <ValueBadge value={lead.asignadoA} category="person"/>
+                  : "—"}/>
               <Field label="Quién cargó" value={lead.quienCargo?<ValueBadge value={lead.quienCargo} category="person"/>:"—"}/>
               <Field label="Creado por" value={text(lead.creadoPor)}/>
               <Field label="Creado en sistema" value={date(lead.createdAt)}/>
@@ -239,12 +266,12 @@ export const LeadDetailDialog=({
                     {entry.fieldName&&<strong>{fieldLabel[entry.fieldName]??entry.fieldName}</strong>}
                     <span className={styles.journalActor}>{entry.actorName}{entry.actorEmail?" · "+entry.actorEmail:""}</span>
                   </div>
-                  <time>{date(entry.createdAt)}</time>
+                  <time>{journalDate(entry.createdAt)}</time>
                 </div>
                 {entry.fieldName&&<div className={styles.journalChange}>
-                  <span>{text(entry.oldValue)}</span>
+                  <span>{journalValue(entry.fieldName,entry.oldValue)}</span>
                   <b aria-hidden="true">→</b>
-                  <span>{text(entry.newValue)}</span>
+                  <span>{journalValue(entry.fieldName,entry.newValue)}</span>
                 </div>}
               </article>)}
             </div>}
