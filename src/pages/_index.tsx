@@ -250,6 +250,7 @@ export default function LeadsPage(){
   const [cellState,setCellState]=useState<Record<string,"saving"|"saved">>({});
   const [bulkField,setBulkField]=useState<"estado"|"prioridad"|"assignedUserEmail"|"fechaProximaAccion"|"tipo"|"commercialProfile"|"ciudad">("estado");
   const [bulkValue,setBulkValue]=useState("");
+  const [activeQuick,setActiveQuick]=useState("all");
   const [saveViewOpen,setSaveViewOpen]=useState(false);
   const [savedViewName,setSavedViewName]=useState("");
   const [savedViews,setSavedViews]=useState<{name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc"}[]>([]);
@@ -481,8 +482,62 @@ export default function LeadsPage(){
   const resetPage=()=>setPage(1);
   const sort=(field:SortBy,dir:"asc"|"desc")=>{setSortBy(field);setSortDir(dir);resetPage()};
   const set=(key:keyof InputType,value:any)=>setForm(prev=>({...prev,[key]:value}));
+  const today=dateInput(new Date());
+  const applyQuickView=(kind:string,value?:string)=>{
+    setQuery("");
+    setActiveQuick(kind);
+    let groups:AdvancedFilterGroup[]=[];
+    if(kind==="pending")groups=[{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(kind==="subscribed")groups=[{rules:[{field:"estado",operator:"eq",value:"Suscripto"}]}];
+    if(kind==="today")groups=[{rules:[{field:"fechaProximaAccion",operator:"on",value:today}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(kind==="overdue")groups=[{rules:[{field:"fechaProximaAccion",operator:"before",value:today}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(kind==="mine"&&currentUser)groups=[{rules:[{field:"assignedUserEmail",operator:"eq",value:currentUser.email}]}];
+    if(kind==="myToday"&&currentUser)groups=[
+      {rules:[{field:"assignedUserEmail",operator:"eq",value:currentUser.email}]},
+      {rules:[{field:"fechaProximaAccion",operator:"between",value:"2000-01-01",value2:today}]},
+      {rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}
+    ];
+    if(kind==="unassigned")groups=[{rules:[{field:"assignedUserEmail",operator:"empty"}]}];
+    if(kind==="noNext")groups=[{rules:[{field:"fechaProximaAccion",operator:"empty"}]}];
+    if(kind==="field"&&value){
+      const [field,raw]=value.split("::");
+      if(field&&raw)groups=[{rules:[{field:field as any,operator:"eq",value:raw}]}];
+    }
+    setAppliedFilterGroups(groups);setPage(1);
+  };
+  useEffect(()=>{
+    const quickParam=urlParams.get("quick");
+    const field=urlParams.get("filterField"),value=urlParams.get("filterValue");
+    const leadId=urlParams.get("leadId");
+    if(quickParam)applyQuickView(quickParam);
+    else if(field&&value)applyQuickView("field",field+"::"+value);
+    else if(leadId){setAppliedFilterGroups([{rules:[{field:"id",operator:"eq",value:leadId}]}]);setPage(1)}
+  },[]);
+  useEffect(()=>{
+    const leadId=urlParams.get("leadId");
+    if(!leadId||!leads.length)return;
+    const target=leads.find(item=>String(item.id)===leadId);
+    if(target){setSelectedLead(target);setLastTouchedId(leadId);setViewOpen(true);setUrlParams({}, {replace:true})}
+  },[leads]);
+
+  const saveCurrentView=()=>{
+    const name=savedViewName.trim();if(!name||!currentUser)return;
+    const next=[...savedViews.filter(view=>view.name!==name),{name,query,filterGroups:appliedFilterGroups,sortBy,sortDir}];
+    setSavedViews(next);
+    localStorage.setItem("hospeda-leads-saved-views-"+currentUser.id,JSON.stringify(next));
+    setSavedViewName("");setSaveViewOpen(false);toast.success("Vista guardada");
+  };
+  const applySavedView=(view:(typeof savedViews)[number])=>{
+    setQuery(view.query);setAppliedFilterGroups(view.filterGroups);setSortBy(view.sortBy);setSortDir(view.sortDir);setActiveQuick("saved:"+view.name);setPage(1);
+  };
+  const removeSavedView=(name:string)=>{
+    if(!currentUser)return;
+    const next=savedViews.filter(view=>view.name!==name);setSavedViews(next);
+    localStorage.setItem("hospeda-leads-saved-views-"+currentUser.id,JSON.stringify(next));
+  };
+
   const newLead=()=>{setForm(emptyForm);setDuplicateCandidates([]);setOpen(true)};
-  const editLead=(l:any)=>{setDuplicateCandidates([]);setForm({
+  const editLead=(l:any)=>{setLastTouchedId(String(l.id));setDuplicateCandidates([]);setForm({
     id:String(l.id),nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
     email:l.email,telefono:l.telefono,sitioWeb:l.sitioWeb,urlGmap:l.urlGmap,perfilInstagram:l.perfilInstagram,perfilFacebook:l.perfilFacebook,
     perfilAirbnb:l.perfilAirbnb,perfilBooking:l.perfilBooking,perfilTurismoEntreRios:l.perfilTurismoEntreRios,origen:l.origen,
@@ -491,11 +546,16 @@ export default function LeadsPage(){
     fechaProximaAccion:dateInput(l.fechaProximaAccion),fuenteReferencia:l.fuenteReferencia,clientePotencialRecurrente:l.clientePotencialRecurrente,
     archivoAdjunto:l.archivoAdjunto,notas:null,creadoPor:l.creadoPor
   });setOpen(true)};
-  const openView=(l:any)=>{setSelectedLead(l);setViewOpen(true)};
+  const openView=(l:any)=>{setLastTouchedId(String(l.id));setSelectedLead(l);setViewOpen(true)};
+  const selectedIndex=selectedLead?leads.findIndex(lead=>String(lead.id)===String(selectedLead.id)):-1;
+  const moveView=(offset:number)=>{
+    const target=leads[selectedIndex+offset];if(target)openView(target);
+  };
   const saveLead=async(force=false)=>{
     const result=await saveM.mutateAsync({...form,force});
     if("duplicateCandidates" in result){setDuplicateCandidates(result.duplicateCandidates);return}
-    setDuplicateCandidates([]);await invalidate();setOpen(false);
+    if(form.id)setLastTouchedId(String(form.id));
+    setDuplicateCandidates([]);await invalidate();setOpen(false);toast.success("Lead guardado");
   };
   const requestDelete=(id:string|number,nombre:string)=>setPendingDelete({id,nombre});
   const confirmDelete=async()=>{
@@ -504,10 +564,36 @@ export default function LeadsPage(){
     await deleteM.mutateAsync({id:target.id});
     if(selectedLead&&String(selectedLead.id)===String(target.id)){setViewOpen(false);setSelectedLead(null)}
     if(form.id&&String(form.id)===String(target.id))setOpen(false);
-    setPendingDelete(null);
+    setPendingDelete(null);toast.success("Lead enviado a la papelera");
   };
-  const quick=(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>quickM.mutate({id,field,value:value||null});
-  const openContact=(lead:any,channel:"whatsapp"|"email")=>{setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
+  const quick=async(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>{
+    const key=String(id)+":"+field;
+    const lead=leads.find(item=>String(item.id)===String(id));
+    const oldRaw=lead?.[field];
+    const oldValue=["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(field)?dateInput(oldRaw):str(oldRaw);
+    setCellState(prev=>({...prev,[key]:"saving"}));
+    try{
+      await quickM.mutateAsync({id,field,value:value||null});
+      setLastTouchedId(String(id));setCellState(prev=>({...prev,[key]:"saved"}));
+      window.setTimeout(()=>setCellState(prev=>{const next={...prev};delete next[key];return next}),1300);
+      toast.success("Cambio guardado",field==="tipo"?undefined:{action:{label:"Deshacer",onClick:()=>quickM.mutate({id,field,value:oldValue||null})}});
+    }catch(error){
+      setCellState(prev=>{const next={...prev};delete next[key];return next});
+      toast.error(error instanceof Error?error.message:"No se pudo guardar");
+    }
+  };
+  const applyBulk=async()=>{
+    if(!selectedIds.size)return;
+    const changes:any={[bulkField]:bulkValue||null};
+    await bulkM.mutateAsync({ids:Array.from(selectedIds),changes});
+    toast.success(`${selectedIds.size} leads actualizados`);setSelectedIds(new Set());setBulkValue("");
+  };
+  const togglePageSelection=()=>{
+    const ids=leads.map(lead=>String(lead.id));
+    const all=ids.length>0&&ids.every(id=>selectedIds.has(id));
+    setSelectedIds(prev=>{const next=new Set(prev);ids.forEach(id=>all?next.delete(id):next.add(id));return next});
+  };
+  const openContact=(lead:any,channel:"whatsapp"|"email")=>{setLastTouchedId(String(lead.id));setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
   const startResize=(key:string,startX:number)=>{
     const startWidth=columnWidths[key]??DEFAULT_WIDTHS[key]??160;
     const onMove=(event:MouseEvent)=>{
@@ -521,7 +607,7 @@ export default function LeadsPage(){
     document.addEventListener("mousemove",onMove);
     document.addEventListener("mouseup",onUp);
   };
-  const tableWidth=visibleColumns.reduce((total,key)=>total+(columnWidths[key]??DEFAULT_WIDTHS[key]??160),0)+250;
+  const tableWidth=visibleColumns.reduce((total,key)=>total+(columnWidths[key]??DEFAULT_WIDTHS[key]??160),0)+294;
 
   const headerFilter=(key:string)=>{
     const group=filterGroups.find(item=>item.key===key);
