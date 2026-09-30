@@ -12,5 +12,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
+COPY --from=build /app/migrations ./migrations
+COPY --from=build /app/scripts ./scripts
 EXPOSE 3001
 CMD ["npm", "start"]

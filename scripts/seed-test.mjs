@@ -4,7 +4,6 @@ import postgres from "postgres";
 const databaseUrl=process.env.DATABASE_URL;
 if(!databaseUrl)throw new Error("DATABASE_URL is required");
 const sql=postgres(databaseUrl,{max:1});
-
 const passwordHash=await hash("test-password-123",10);
 
 await sql.begin(async tx=>{
@@ -33,24 +32,17 @@ await sql.begin(async tx=>{
     VALUES('Alojamiento',1,true)
     ON CONFLICT(name) DO NOTHING
   `;
+
   await tx`
     INSERT INTO crm_cities(name,active)
     VALUES('Concepción del Uruguay',true)
     ON CONFLICT(name) DO NOTHING
   `;
+
   await tx`
     INSERT INTO leads(nombre,tipo,ciudad,estado,email,commercial_profile,assigned_user_email)
-    VALUES(
-      'Lead de prueba',
-      'Alojamiento',
-      'Concepción del Uruguay',
-      'Cargado',
-      'lead@example.com',
-      'Independiente',
-      'admin@example.com'
-    )
+    VALUES('Lead de prueba','Alojamiento','Concepción del Uruguay','Cargado','lead@example.com','Independiente','admin@example.com')
   `;
 });
-
 console.log("Seed completed");
 await sql.end();

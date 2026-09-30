@@ -1,17 +1,11 @@
 import { readFile } from "node:fs/promises";
 import postgres from "postgres";
 
-type Dump={
-  exportedAt:string;
-  source?:string;
-  tables:Record<string,Record<string,unknown>[]>;
-};
-
 const databaseUrl=process.env.DATABASE_URL;
 if(!databaseUrl)throw new Error("DATABASE_URL is required");
 
 const file=process.argv[2]||"migration-data.json";
-const dump=JSON.parse(await readFile(file,"utf8")) as Dump;
+const dump=JSON.parse(await readFile(file,"utf8"));
 const sql=postgres(databaseUrl,{max:1});
 
 const order=[
@@ -29,13 +23,10 @@ const order=[
   "app_settings"
 ];
 
-const allowed=new Set(order);
-
 await sql.begin(async tx=>{
   for(const table of order){
-    const rows=dump.tables[table]??[];
+    const rows=dump.tables?.[table]??[];
     if(!rows.length)continue;
-    if(!allowed.has(table))throw new Error(`Unexpected table ${table}`);
 
     for(let i=0;i<rows.length;i+=200){
       const batch=rows.slice(i,i+200);
@@ -57,7 +48,7 @@ await sql.begin(async tx=>{
     ["lead_journal","lead_journal_id_seq"],
     ["message_templates","message_templates_id_seq"],
     ["email_outbox","email_outbox_id_seq"]
-  ] as const;
+  ];
 
   for(const [table,sequence] of sequences){
     await tx.unsafe(

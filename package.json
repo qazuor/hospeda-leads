@@ -9,8 +9,9 @@
     "start": "node dist-server/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed:test": "tsx scripts/seed-test.ts"
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed:test": "node scripts/seed-test.mjs",
+    "db:import": "node scripts/import-data.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
