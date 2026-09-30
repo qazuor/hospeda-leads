@@ -60,7 +60,24 @@ La migración es idempotente mediante la tabla `schema_migrations`.
 
 Existe un snapshot cifrado AES-256-GCM creado el 30/09/2026.
 
-Los valores del URL y la clave **no están versionados**. Se cargan como secretos para el workflow manual `Migrate Floot Data to VPS`.
+Los valores del URL y la clave **no están versionados**.
+
+Para la migración inicial, agregarlos temporalmente a la aplicación en Coolify:
+
+```env
+MIGRATION_DATA_URL=<encrypted snapshot URL>
+MIGRATION_DATA_KEY=<AES-256 key in base64>
+```
+
+Con la base ya migrada (`npm run db:migrate`), abrir la terminal del contenedor y ejecutar:
+
+```bash
+npm run db:migrate:floot
+```
+
+El comando descarga el snapshot cifrado, lo descifra **en memoria**, verifica SHA-256, importa los datos, ajusta secuencias y compara todos los conteos.
+
+Después de un import correcto, eliminar `MIGRATION_DATA_URL` y `MIGRATION_DATA_KEY` de Coolify y redeployar.
 
 Conteos esperados del snapshot:
 

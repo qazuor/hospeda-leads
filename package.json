@@ -12,7 +12,8 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed:test": "node scripts/seed-test.mjs",
     "db:import": "node scripts/import-data.mjs",
-    "db:validate": "node scripts/validate-data.mjs"
+    "db:validate": "node scripts/validate-data.mjs",
+    "db:migrate:floot": "node scripts/migrate-floot-snapshot.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
