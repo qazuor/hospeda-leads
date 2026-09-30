@@ -24,7 +24,7 @@ export async function handle(request:Request){
         .executeTakeFirst(),
       db.selectFrom("appSettings")
         .select(["key","value"])
-        .where("key","in",["brevo_sender_name","brevo_sender_email","brevo_reply_to_email"])
+        .where("key","in",["brevo_sender_name","brevo_sender_email","brevo_reply_to_email",`brevo_user_sender_email:${user.id}`])
         .execute()
     ]);
 
@@ -35,9 +35,11 @@ export async function handle(request:Request){
     if(template.commercialProfile&&template.commercialProfile!==lead.commercialProfile)return new Response(superjson.stringify({error:"El template no corresponde al perfil comercial de este lead."}),{status:400});
 
     const emailConfig=Object.fromEntries(emailRows.map(row=>[row.key,row.value]));
-    const senderName=emailConfig.brevo_sender_name||"Hospeda";
-    const senderEmail=emailConfig.brevo_sender_email||"notificaciones@hospeda.com.ar";
-    const replyToEmail=emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar";
+    const userSenderEmail=emailConfig[`brevo_user_sender_email:${user.id}`]?.trim()||"";
+    const senderName=userSenderEmail?user.displayName:(emailConfig.brevo_sender_name||"Hospeda");
+    const senderEmail=userSenderEmail||(emailConfig.brevo_sender_email||"notificaciones@hospeda.com.ar");
+    const replyToEmail=userSenderEmail||(emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar");
+    const replyToName=userSenderEmail?user.displayName:"Hospeda";
     const apiKey=(process.env as Record<string,string|undefined>).BREVO_API_KEY;
     if(!apiKey)return new Response(superjson.stringify({error:"Brevo todavía no está conectado al CRM. Conectá BREVO_API_KEY y volvé a intentar."}),{status:503});
 
@@ -74,7 +76,7 @@ export async function handle(request:Request){
       senderEmail,
       senderName,
       replyToEmail,
-      replyToName:"Hospeda",
+      replyToName,
       subject,
       htmlBody,
       textBody,
@@ -96,7 +98,7 @@ export async function handle(request:Request){
       body:JSON.stringify({
         sender:{name:senderName,email:senderEmail},
         to:[{email:lead.email,name:lead.contactName||lead.nombre}],
-        replyTo:{email:replyToEmail,name:"Hospeda"},
+        replyTo:{email:replyToEmail,name:replyToName},
         subject,
         htmlContent:htmlBody,
         textContent:textBody,
