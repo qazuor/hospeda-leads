@@ -27,49 +27,71 @@ export async function handle(request: Request) {
       );
     }
 
-    // Check if email already exists
+    // Imported users are intentionally migrated without password hashes.
+    // If the user exists but has no password row yet, registration "claims"
+    // that existing account and preserves its id, role and lead assignments.
     const existingUser = await db
       .selectFrom("users")
-      .select("id")
-      .where("email", "=", email)
+      .leftJoin("userPasswords", "users.id", "userPasswords.userId")
+      .select([
+        "users.id",
+        "users.email",
+        "users.displayName",
+        "users.role",
+        "users.createdAt",
+        "userPasswords.id as passwordId",
+      ])
+      .where((eb) => eb.fn("lower", ["users.email"]), "=", email.toLowerCase())
       .limit(1)
-      .execute();
+      .executeTakeFirst();
 
-    if (existingUser.length > 0) {
+    if (existingUser?.passwordId) {
       return new Response(
         superjson.stringify({ message: "email already in use" }),
         {
           status: 409,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         }
       );
     }
 
     const passwordHash = await generatePasswordHash(password);
-    const role = email.toLowerCase()===(process.env.ADMIN_EMAIL??"").toLowerCase() ? ("admin" as const) : ("user" as const);
+    const defaultRole =
+      email.toLowerCase()===(process.env.ADMIN_EMAIL??"").toLowerCase()
+        ? ("admin" as const)
+        : ("user" as const);
 
-    // Create new user
     const newUser = await db.transaction().execute(async (trx) => {
-      // Insert the user
+      if (existingUser) {
+        await trx
+          .updateTable("users")
+          .set({ displayName: displayName || existingUser.displayName, updatedAt: new Date() })
+          .where("id", "=", existingUser.id)
+          .execute();
+
+        await trx
+          .insertInto("userPasswords")
+          .values({ userId: existingUser.id, passwordHash })
+          .execute();
+
+        return {
+          id: existingUser.id,
+          email: existingUser.email,
+          displayName: displayName || existingUser.displayName,
+          role: existingUser.role,
+          createdAt: existingUser.createdAt,
+        };
+      }
+
       const [user] = await trx
         .insertInto("users")
-        .values({
-          email,
-          displayName,
-          role,
-        })
-        .returning(["id", "email", "displayName", "createdAt"])
+        .values({ email, displayName, role: defaultRole })
+        .returning(["id", "email", "displayName", "role", "createdAt"])
         .execute();
 
-      // Store the password hash in another table
       await trx
         .insertInto("userPasswords")
-        .values({
-          userId: user.id,
-          passwordHash,
-        })
+        .values({ userId: user.id, passwordHash })
         .execute();
 
       return user;
@@ -96,7 +118,7 @@ export async function handle(request: Request) {
       superjson.stringify({
         user: {
           ...newUser,
-          role,
+          role: newUser.role,
         },
       }),
       {

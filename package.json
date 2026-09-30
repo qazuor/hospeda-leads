@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed:test": "node scripts/seed-test.mjs",
-    "db:import": "node scripts/import-data.mjs"
+    "db:import": "node scripts/import-data.mjs",
+    "db:validate": "node scripts/validate-data.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",

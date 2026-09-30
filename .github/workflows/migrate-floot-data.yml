@@ -1,0 +1,61 @@
+name: Migrate Floot Data to VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download and decrypt migration snapshot
+        env:
+          MIGRATION_DATA_URL: ${{ secrets.MIGRATION_DATA_URL }}
+          MIGRATION_DATA_KEY: ${{ secrets.MIGRATION_DATA_KEY }}
+        run: |
+          test -n "$MIGRATION_DATA_URL"
+          test -n "$MIGRATION_DATA_KEY"
+          curl --fail --location --silent --show-error "$MIGRATION_DATA_URL" -o /tmp/migration.enc.json
+          node scripts/decrypt-migration.mjs /tmp/migration.enc.json /tmp/migration-data.json
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Import snapshot
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          DEST="${VPS_PATH:-/opt/hospeda-leads}"
+          scp -P "$PORT" /tmp/migration-data.json "$VPS_USER@$VPS_HOST:$DEST/migration-data.json"
+          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "
+            set -e
+            cd '$DEST'
+            docker compose --env-file .env exec -T app npm run db:migrate
+            docker compose --env-file .env cp migration-data.json app:/tmp/migration-data.json
+            docker compose --env-file .env exec -T app npm run db:import -- /tmp/migration-data.json
+            docker compose --env-file .env exec -T app node scripts/validate-data.mjs /tmp/migration-data.json
+            docker compose --env-file .env exec -T app rm -f /tmp/migration-data.json
+            rm -f migration-data.json
+          "
+
+      - name: Remove local decrypted snapshot
+        if: always()
+        run: rm -f /tmp/migration-data.json /tmp/migration.enc.json
