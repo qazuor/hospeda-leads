@@ -34,6 +34,7 @@ import { getLeadDuplicates } from "../endpoints/leads_duplicates_GET.schema";
 import { advancedFilterGroup, getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
 import { postLeadsDelete } from "../endpoints/leads_delete_POST.schema";
 import { postLeadsBulk } from "../endpoints/leads_bulk_POST.schema";
+import { postLeadsBulkDelete } from "../endpoints/leads_bulk_delete_POST.schema";
 import { postLeadsQuick } from "../endpoints/leads_quick_POST.schema";
 import { postLeadsSave, type DuplicateCandidate, type InputType } from "../endpoints/leads_save_POST.schema";
 import { getLeadStats } from "../endpoints/leads_stats_GET.schema";
@@ -252,6 +253,7 @@ export default function LeadsPage(){
   const [cellState,setCellState]=useState<Record<string,"saving"|"saved">>({});
   const [bulkField,setBulkField]=useState<"estado"|"prioridad"|"assignedUserEmail"|"fechaProximaAccion"|"tipo"|"commercialProfile"|"ciudad">("estado");
   const [bulkValue,setBulkValue]=useState("");
+  const [bulkDeleteOpen,setBulkDeleteOpen]=useState(false);
   const [activeQuick,setActiveQuick]=useState("all");
   const [saveViewOpen,setSaveViewOpen]=useState(false);
   const [savedViewName,setSavedViewName]=useState("");
@@ -393,6 +395,7 @@ export default function LeadsPage(){
   const deleteM=useMutation({mutationFn:postLeadsDelete,onSuccess:invalidate});
   const quickM=useMutation({mutationFn:postLeadsQuick,onSuccess:invalidate});
   const bulkM=useMutation({mutationFn:postLeadsBulk,onSuccess:invalidate});
+  const bulkDeleteM=useMutation({mutationFn:postLeadsBulkDelete,onSuccess:invalidate});
   const savedViewM=useMutation({mutationFn:postSavedLeadView});
 
   useEffect(()=>{
@@ -652,6 +655,13 @@ export default function LeadsPage(){
     await bulkM.mutateAsync({ids:Array.from(selectedIds),changes});
     toast.success(`${selectedIds.size} leads actualizados`);setSelectedIds(new Set());setBulkValue("");
   };
+  const bulkDeleteSelected=async()=>{
+    if(!selectedIds.size)return;
+    const count=selectedIds.size;
+    await bulkDeleteM.mutateAsync({ids:Array.from(selectedIds)});
+    setSelectedIds(new Set());setBulkDeleteOpen(false);
+    toast.success(count+" leads enviados a la papelera");
+  };
   const togglePageSelection=()=>{
     const ids=leads.map(lead=>String(lead.id));
     const all=ids.length>0&&ids.every(id=>selectedIds.has(id));
@@ -798,6 +808,7 @@ export default function LeadsPage(){
               {bulkField==="ciudad"&&cityOptions.map(item=><option key={item}>{item}</option>)}
             </select>}
         <Button size="sm" onClick={applyBulk} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
+        <Button size="sm" variant="destructive" onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={14}/>Enviar a papelera</Button>
         <Button size="sm" variant="ghost" onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button>
       </section>}
 
@@ -977,6 +988,11 @@ export default function LeadsPage(){
       </DialogContent></Dialog>
       <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
+        <DialogHeader><DialogTitle>Enviar {selectedIds.size} leads a la papelera</DialogTitle><DialogDescription>Los seleccionados dejarán de aparecer en la operación normal.</DialogDescription></DialogHeader>
+        <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán y podrán restaurarse desde Papelera.</span></div>
+        <DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={bulkDeleteSelected} disabled={bulkDeleteM.isPending}>{bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
+      </DialogContent></Dialog>
       <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Enviar lead a la papelera</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong> dejará de aparecer en la tabla y en la operación normal.</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán. El administrador podrá restaurarlo o eliminarlo definitivamente desde Papelera.</span></div>
