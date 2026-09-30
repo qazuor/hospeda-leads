@@ -41,3 +41,7 @@ npm start
 ```
 
 La primera versión conserva Kysely y el sistema de autenticación actual para reducir riesgo durante la migración.
+
+## Deploy
+
+Producción recomendada: Coolify sobre el VPS de Hospeda. Ver [docs/COOLIFY_DEPLOY.md](docs/COOLIFY_DEPLOY.md).
