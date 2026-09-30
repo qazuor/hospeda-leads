@@ -330,6 +330,11 @@ export default function LeadsPage(){
     catch{}
   },[sortBy,sortDir]);
   useEffect(()=>{
+    if(!lastTouchedId)return;
+    const timeout=window.setTimeout(()=>setLastTouchedId(""),3500);
+    return ()=>window.clearTimeout(timeout);
+  },[lastTouchedId]);
+  useEffect(()=>{
     if(!tableFullscreen)return;
     const previous=document.body.style.overflow;
     document.body.style.overflow="hidden";
