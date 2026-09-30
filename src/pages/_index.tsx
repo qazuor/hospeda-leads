@@ -26,6 +26,7 @@ import {
 } from "../components/FieldFilterEditors";
 import { Textarea } from "../components/Textarea";
 import { UserBadgeSelect } from "../components/UserBadgeSelect";
+import { ValueBadge } from "../components/ValueBadge";
 import { getLeadDuplicates } from "../endpoints/leads_duplicates_GET.schema";
 import { advancedFilterGroup, getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
 import { postLeadsDelete } from "../endpoints/leads_delete_POST.schema";
