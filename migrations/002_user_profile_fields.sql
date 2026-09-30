@@ -4,10 +4,6 @@ ALTER TABLE users
   ADD COLUMN sex text,
   ADD COLUMN sender_email text;
 
-CREATE UNIQUE INDEX users_sender_email_lower_unique
-  ON users (lower(sender_email))
-  WHERE sender_email IS NOT NULL;
-
 ALTER TABLE users
   ADD CONSTRAINT users_sender_email_hospeda_check
   CHECK (sender_email IS NULL OR lower(sender_email) ~ '^[^@]+@hospeda\.com\.ar$');
