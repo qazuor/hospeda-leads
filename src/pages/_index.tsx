@@ -38,6 +38,8 @@ import { postLeadsQuick } from "../endpoints/leads_quick_POST.schema";
 import { postLeadsSave, type DuplicateCandidate, type InputType } from "../endpoints/leads_save_POST.schema";
 import { getLeadStats } from "../endpoints/leads_stats_GET.schema";
 import { getSettings } from "../endpoints/settings_GET.schema";
+import { getSavedLeadViews } from "../endpoints/saved_views_GET.schema";
+import { postSavedLeadView } from "../endpoints/saved_views_POST.schema";
 import { useDebounce } from "../helpers/useDebounce";
 import { toDateInput } from "../helpers/crmDates";
 import { useAuth } from "../helpers/useAuth";
@@ -326,13 +328,6 @@ export default function LeadsPage(){
     catch{}
   },[sortBy,sortDir]);
   useEffect(()=>{
-    if(!currentUser)return;
-    try{
-      const raw=window.localStorage.getItem("hospeda-leads-saved-views-"+currentUser.id);
-      setSavedViews(raw?JSON.parse(raw):[]);
-    }catch{setSavedViews([])}
-  },[currentUser?.id]);
-  useEffect(()=>{
     if(!tableFullscreen)return;
     const previous=document.body.style.overflow;
     document.body.style.overflow="hidden";
@@ -353,6 +348,7 @@ export default function LeadsPage(){
     return [{field,presence:filter.presence,from:filter.from||undefined,to:filter.to||undefined}];
   });
   const settingsQ=useQuery({queryKey:["settings"],queryFn:getSettings});
+  const savedViewsQ=useQuery({queryKey:["saved-views",currentUser?.id],queryFn:getSavedLeadViews,enabled:!!currentUser});
   const leadsQ=useQuery({
     queryKey:[...QUERY_KEY,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page],
     queryFn:()=>getLeads({
@@ -397,6 +393,12 @@ export default function LeadsPage(){
   const deleteM=useMutation({mutationFn:postLeadsDelete,onSuccess:invalidate});
   const quickM=useMutation({mutationFn:postLeadsQuick,onSuccess:invalidate});
   const bulkM=useMutation({mutationFn:postLeadsBulk,onSuccess:invalidate});
+  const savedViewM=useMutation({mutationFn:postSavedLeadView});
+
+  useEffect(()=>{
+    if(!savedViewsQ.data)return;
+    setSavedViews(savedViewsQ.data.views.map(({name,config})=>({name,...(config as any)})));
+  },[savedViewsQ.data]);
 
   const leads=leadsQ.data?.rows??[];
   const filters=leadsQ.data?.filters??{
@@ -557,10 +559,13 @@ export default function LeadsPage(){
       subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,
       textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction
     };
-    const next=[...savedViews.filter(view=>view.name!==name),{name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline}];
+    const view={name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline};
+    const next=[...savedViews.filter(item=>item.name!==name),view];
     setSavedViews(next);
-    localStorage.setItem("hospeda-leads-saved-views-"+currentUser.id,JSON.stringify(next));
-    setSavedViewName("");setSaveViewOpen(false);toast.success("Vista guardada");
+    void savedViewM.mutateAsync({action:"save",view:{name,config:{query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline}}})
+      .then(()=>toast.success("Vista guardada"))
+      .catch(error=>{setSavedViews(savedViews);toast.error(error instanceof Error?error.message:"No se pudo guardar la vista")});
+    setSavedViewName("");setSaveViewOpen(false);
   };
   const applySavedView=(view:(typeof savedViews)[number])=>{
     resetInlineFilters();
@@ -579,8 +584,11 @@ export default function LeadsPage(){
   };
   const removeSavedView=(name:string)=>{
     if(!currentUser)return;
-    const next=savedViews.filter(view=>view.name!==name);setSavedViews(next);
-    localStorage.setItem("hospeda-leads-saved-views-"+currentUser.id,JSON.stringify(next));
+    const previous=savedViews;
+    setSavedViews(savedViews.filter(view=>view.name!==name));
+    void savedViewM.mutateAsync({action:"delete",name}).catch(error=>{
+      setSavedViews(previous);toast.error(error instanceof Error?error.message:"No se pudo eliminar la vista");
+    });
   };
 
   const newLead=()=>{setForm(emptyForm);setDuplicateCandidates([]);setOpen(true)};
