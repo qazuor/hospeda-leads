@@ -4,7 +4,7 @@ export type SettingsOutput = {
   cities: {id:string; name:string}[];
   subtypes: {id:string; typeName:string|null; name:string}[];
   authorizedEmails: {id:string; email:string; displayName:string|null}[];
-  users: {id:number; email:string; displayName:string; role:"admin"|"user"}[];
+  users: {id:number; email:string; displayName:string; role:"admin"|"user"; senderEmail:string|null}[];
   templates: {id:string; channel:string; name:string; subject:string|null; body:string; vertical:string|null; commercialProfile:string|null}[];
   emailDelivery: {
     senderName:string;
