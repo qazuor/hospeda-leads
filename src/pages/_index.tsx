@@ -26,7 +26,7 @@ import {
 import { Textarea } from "../components/Textarea";
 import { UserBadgeSelect } from "../components/UserBadgeSelect";
 import { getLeadDuplicates } from "../endpoints/leads_duplicates_GET.schema";
-import { getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
+import { advancedFilterGroup, getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
 import { postLeadsDelete } from "../endpoints/leads_delete_POST.schema";
 import { postLeadsQuick } from "../endpoints/leads_quick_POST.schema";
 import { postLeadsSave, type DuplicateCandidate, type InputType } from "../endpoints/leads_save_POST.schema";
@@ -113,6 +113,41 @@ const DEFAULT_WIDTHS:Record<string,number>={
   clientePotencialRecurrente:170,archivoAdjunto:230,creadoPor:180,createdAt:160,updatedAt:160
 };
 
+const TABLE_QUERY_STORAGE_KEY="hospeda-leads-table-query-v1";
+const TABLE_FILTERS_STORAGE_KEY="hospeda-leads-table-filters-v1";
+const TABLE_SORT_STORAGE_KEY="hospeda-leads-table-sort-v1";
+
+const readStoredQuery=()=>{
+  if(typeof window==="undefined")return "";
+  try{return window.localStorage.getItem(TABLE_QUERY_STORAGE_KEY)??""}
+  catch{return ""}
+};
+
+const readStoredFilterGroups=():AdvancedFilterGroup[]=>{
+  if(typeof window==="undefined")return [];
+  try{
+    const raw=window.localStorage.getItem(TABLE_FILTERS_STORAGE_KEY);
+    if(!raw)return [];
+    const parsed=advancedFilterGroup.array().safeParse(JSON.parse(raw));
+    return parsed.success?parsed.data:[];
+  }catch{return []}
+};
+
+const readStoredSort=():{sortBy:SortBy;sortDir:"asc"|"desc"}=>{
+  const fallback={sortBy:"fechaCreacion" as SortBy,sortDir:"desc" as const};
+  if(typeof window==="undefined")return fallback;
+  try{
+    const raw=window.localStorage.getItem(TABLE_SORT_STORAGE_KEY);
+    if(!raw)return fallback;
+    const parsed=JSON.parse(raw);
+    const validField=typeof parsed?.sortBy==="string"&&TABLE_COLUMNS.some(column=>column.key===parsed.sortBy);
+    const validDirection=parsed?.sortDir==="asc"||parsed?.sortDir==="desc";
+    return validField&&validDirection
+      ? {sortBy:parsed.sortBy as SortBy,sortDir:parsed.sortDir}
+      : fallback;
+  }catch{return fallback}
+};
+
 const emptyForm:InputType={
   nombre:"",contactName:"",tipo:"Alojamiento",subtipo:"",commercialProfile:null,ciudad:"",estado:"Cargado",suscripcion:"",
   email:"",telefono:"",sitioWeb:"",urlGmap:"",perfilInstagram:"",perfilFacebook:"",
@@ -161,7 +196,7 @@ function HeaderMenu({
 
 export default function LeadsPage(){
   const qc=useQueryClient();
-  const [query,setQuery]=useState("");
+  const [query,setQuery]=useState(readStoredQuery);
   const [cityFilter,setCityFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [statusFilter,setStatusFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [typeFilter,setTypeFilter]=useState<SmartFilterState>(emptySmartFilter);
@@ -181,8 +216,9 @@ export default function LeadsPage(){
   const [recurrentFilter,setRecurrentFilter]=useState<"all"|"true"|"false">("all");
   const [notesFilter,setNotesFilter]=useState<TextFilterState>(emptyTextFilter);
   const [nextAction,setNextAction]=useState<"_all"|"with"|"without"|"overdue">("_all");
-  const [sortBy,setSortBy]=useState<SortBy>("fechaCreacion");
-  const [sortDir,setSortDir]=useState<"asc"|"desc">("desc");
+  const storedSort=readStoredSort();
+  const [sortBy,setSortBy]=useState<SortBy>(storedSort.sortBy);
+  const [sortDir,setSortDir]=useState<"asc"|"desc">(storedSort.sortDir);
   const [page,setPage]=useState(1);
   const [open,setOpen]=useState(false);
   const [viewOpen,setViewOpen]=useState(false);
@@ -196,7 +232,7 @@ export default function LeadsPage(){
   const [pendingDelete,setPendingDelete]=useState<{id:string|number;nombre:string}|null>(null);
   const [tableFullscreen,setTableFullscreen]=useState(false);
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
-  const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>([]);
+  const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(readStoredFilterGroups);
   const [columnWidths,setColumnWidths]=useState<Record<string,number>>(()=>{
     if(typeof window==="undefined")return DEFAULT_WIDTHS;
     try{
@@ -239,6 +275,18 @@ export default function LeadsPage(){
   useEffect(()=>{
     window.localStorage.setItem("hospeda-leads-column-widths",JSON.stringify(columnWidths));
   },[columnWidths]);
+  useEffect(()=>{
+    try{window.localStorage.setItem(TABLE_QUERY_STORAGE_KEY,query)}
+    catch{}
+  },[query]);
+  useEffect(()=>{
+    try{window.localStorage.setItem(TABLE_FILTERS_STORAGE_KEY,JSON.stringify(appliedFilterGroups))}
+    catch{}
+  },[appliedFilterGroups]);
+  useEffect(()=>{
+    try{window.localStorage.setItem(TABLE_SORT_STORAGE_KEY,JSON.stringify({sortBy,sortDir}))}
+    catch{}
+  },[sortBy,sortDir]);
   useEffect(()=>{
     if(!tableFullscreen)return;
     const previous=document.body.style.overflow;
