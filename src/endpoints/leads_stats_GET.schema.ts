@@ -1,0 +1,3 @@
+import superjson from "superjson";
+export type OutputType={total:number;pendientes:number;suscriptos:number;vencidos:number};
+export const getLeadStats=async():Promise<OutputType>=>{const r=await fetch("/_api/leads_stats");if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}return superjson.parse<OutputType>(await r.text())};

@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-server
+.env
+.env.*
+!.env.example
+coverage
+*.log
+.DS_Store
+
+migration-data*.json
+migration-data*.json.gz

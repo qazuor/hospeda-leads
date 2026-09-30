@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hospeda_leads
+      POSTGRES_USER: hospeda
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hospeda}
+    volumes:
+      - hospeda-leads-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hospeda -d hospeda_leads"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://hospeda:${POSTGRES_PASSWORD:-hospeda}@postgres:5432/hospeda_leads
+      JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3001}
+    ports:
+      - "127.0.0.1:${APP_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/_api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hospeda-leads-db:
