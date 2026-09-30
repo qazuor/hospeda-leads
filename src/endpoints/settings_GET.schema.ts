@@ -3,9 +3,12 @@ import superjson from "superjson";
 export type SettingsUser={
   id:number;
   email:string;
+  fullName:string|null;
   displayName:string;
-  role:"admin"|"user";
+  phone:string|null;
+  sex:string|null;
   senderEmail:string|null;
+  role:"admin"|"user";
   hasPassword:boolean;
   invitationPending:boolean;
 };
@@ -22,10 +25,10 @@ export type SettingsOutput = {
     replyToEmail:string;
     brevoConnected:boolean;
   };
-  types: string[];
+  types:string[];
 };
 
-export const getSettings = async ():Promise<SettingsOutput>=>{
+export const getSettings=async():Promise<SettingsOutput>=>{
   const r=await fetch("/_api/settings");
   if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
   return superjson.parse<SettingsOutput>(await r.text());
