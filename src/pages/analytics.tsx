@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, CheckCircle2, Clock3, Mail, Phone, Target, UserRoundCheck, Users, Webhook, Zap } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock3, ContactRound, Sparkles, Target, UserRoundCheck, Users, Webhook, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppHeader } from "../components/AppHeader";
@@ -48,6 +48,8 @@ export default function AnalyticsPage(){
       <article><UserRoundCheck/><div><strong>{d.contacted.toLocaleString("es-AR")}</strong><span>Con contacto registrado</span></div></article>
       <button onClick={()=>quick("noContact")}><Zap/><div><strong>{d.noContact.toLocaleString("es-AR")}</strong><span>Sin contactar</span></div></button>
       <article><Webhook/><div><strong>{d.inactive30.toLocaleString("es-AR")}</strong><span>Sin actividad 30 días</span></div></article>
+      <article><Sparkles/><div><strong>{d.new7.toLocaleString("es-AR")}</strong><span>Nuevos últimos 7 días</span></div></article>
+      <article title={d.firstContactSamples?d.firstContactSamples+" leads con primer contacto observable en el journal":"Todavía no hay muestras suficientes"}><ContactRound/><div><strong>{d.avgDaysToFirstContact===null?"—":d.avgDaysToFirstContact.toLocaleString("es-AR")+" d"}</strong><span>Al 1er contacto observado</span></div></article>
       <article><BarChart3/><div><strong>{d.conversionRate.toLocaleString("es-AR")}%</strong><span>Conversión a suscripción</span></div></article>
     </section>
 
@@ -61,6 +63,8 @@ export default function AnalyticsPage(){
       <article className={styles.chartCard}><h2>Calidad de contacto</h2><p>Registros con canales accionables.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={coverage}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis/><Tooltip/><Bar dataKey="count" fill="var(--success)" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></article>
       <article className={styles.chartCard}><h2>Altas por fecha</h2><p>Evolución temporal del corte seleccionado.</p><div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><LineChart data={d.createdByDay}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis/><Tooltip/><Line type="monotone" dataKey="count" stroke="var(--primary)" strokeWidth={3} dot={{r:3}}/></LineChart></ResponsiveContainer></div></article>
       <article className={styles.chartCard+" "+styles.conversionCard}><h2>Conversión por vertical</h2><p>Suscriptos sobre el total de cada vertical dentro del corte.</p><div className={styles.conversionList}>{d.byTypeConversion.map(row=><button key={row.name} onClick={()=>drill("tipo",row.name)}><span>{row.name}</span><b>{row.subscribed}/{row.total}</b><strong>{row.rate.toLocaleString("es-AR")}%</strong></button>)}</div></article>
+      <article className={styles.chartCard}><h2>Conversión por responsable</h2><p>Conversión observada sobre los leads actualmente asignados a cada integrante.</p><div className={styles.compactList}>{d.byResponsibleConversion.map(row=>{const email=settings.data?.users.find(user=>user.displayName===row.name)?.email;return <button key={row.name} onClick={()=>row.name==="Sin responsable"?quick("unassigned"):email&&drill("assignedUserEmail",email)}><span>{row.name}</span><b>{row.subscribed}/{row.total}</b><strong>{row.rate.toLocaleString("es-AR")}%</strong></button>})}</div></article>
+      <article className={styles.chartCard}><h2>Tiempo observado por estado</h2><p>Promedio de días entre cambios de estado registrados en el journal. No inventa historia anterior a la auditoría.</p><div className={styles.compactList}>{d.avgDaysByStatus.map(row=><button key={row.name} onClick={()=>drill("estado",row.name)}><span>{row.name}</span><b>{row.samples} tramos</b><strong>{row.days.toLocaleString("es-AR")} d</strong></button>)}</div></article>
     </section>
   </main></>;
 }
