@@ -46,3 +46,9 @@
 /* Opportunity actions remain within the shared mobile content width. */
 .pageActions{flex-wrap:wrap}
 @media(max-width:620px){.pageActions{width:100%;min-width:0}.pageActions button{max-width:100%}.tableMetaActions{min-width:0}}
+
+.tableMeta>div:first-child{flex-wrap:wrap}.tableMeta .resultsStatus{min-width:175px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--primary)}
+.resultsBody{min-height:0}.resultsUpdating{opacity:.6}.loadingSpinner{animation:resultsSpin .8s linear infinite}
+.fullscreenTable .resultsBody{flex:1;overflow:hidden;display:flex;flex-direction:column}
+@keyframes resultsSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.loadingSpinner{animation:none}}

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, ArrowDownAZ, ArrowUpAZ, BookmarkPlus, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
-  ExternalLink, Filter, Globe2, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
+  ExternalLink, Filter, Globe2, LoaderCircle, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
   Target, Trash2, UserRound, Users, UsersRound, X
 } from "lucide-react";
 import { OpportunityStart } from "../components/OpportunityStart";
@@ -396,6 +396,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     }),
     placeholderData:(previous)=>previous
   });
+  const resultsBusy=leadsQ.isFetching||query!==debouncedQuery;
   const statsQ=useQuery({queryKey:["lead-stats",entity],queryFn:()=>getLeadStats(entity)});
   const duplicatesQ=useQuery({queryKey:["lead-duplicates"],queryFn:getLeadDuplicates,enabled:duplicatesOpen});
 
@@ -856,7 +857,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       </section>}
 
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} onClick={()=>setPipelineView(true)}>Pipeline</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} onClick={()=>setPipelineView(true)}>Pipeline</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las oportunidades"}: {leadsQ.error.message}</div>:
         pipelineView&&!businessMode?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
@@ -877,6 +879,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <td><div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Enviar oportunidades del negocio a papelera":"Borrar"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></div></td>
           </tr>})}
         </tbody></table></div>}
+        </div>
         <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
       </section>
 
