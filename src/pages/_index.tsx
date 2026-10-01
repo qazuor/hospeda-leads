@@ -1,3 +1,5 @@
+import {DataImportDialog} from '../components/DataImportDialog';
+import {AccountMergeDialog} from '../components/AccountMergeDialog';
 import {PipelineBoard} from "../components/Pipeline";
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -247,6 +249,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [open,setOpen]=useState(false);
   const [viewOpen,setViewOpen]=useState(false);
   const [duplicatesOpen,setDuplicatesOpen]=useState(false);
+  const [importOpen,setImportOpen]=useState(false);
+  const [mergePair,setMergePair]=useState<{sourceId:string;destinationId:string}|null>(null);
   const [startingOpportunity,setStartingOpportunity]=useState(false);
   const [form,setForm]=useState<InputType>(emptyForm);
   const [selectedLead,setSelectedLead]=useState<any|null>(null);
@@ -793,7 +797,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
         <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Oportunidades"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las ventas que estás gestionando.":"Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades."}</p></div>
-        <div className={styles.pageActions}><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Nueva oportunidad"}</Button></div>
+        <div className={styles.pageActions}><Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Nueva oportunidad"}</Button></div>
       </header>
 
       <section className={styles.commercialGuide} aria-label="Ayuda comercial">
@@ -996,9 +1000,11 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         </DialogContent>
       </Dialog>
 
+      {importOpen&&<DataImportDialog onClose={()=>setImportOpen(false)}/>}
+      {mergePair&&<AccountMergeDialog {...mergePair} onClose={()=>setMergePair(null)}/>}
       <Dialog open={duplicatesOpen} onOpenChange={setDuplicatesOpen}><DialogContent className={styles.duplicatesDialog}>
-        <DialogHeader><DialogTitle>Duplicados potenciales</DialogTitle><DialogDescription>Coincidencias por nombre + ciudad, email o teléfono. Revisalas antes de borrar registros.</DialogDescription></DialogHeader>
-        {duplicatesQ.isFetching?<Skeleton className={styles.duplicatesSkeleton}/>:duplicatesQ.error?<div className={styles.error}>{duplicatesQ.error.message}</div>:<div className={styles.duplicateGroups}>{(duplicatesQ.data?.groups??[]).length===0?<p>No encontré duplicados.</p>:(duplicatesQ.data?.groups??[]).map((g,i)=><section key={g.reason+g.key+i}><div className={styles.duplicateGroupTitle}><Badge variant="warning">{g.reason}</Badge><span>{g.leads.length} registros</span></div>{g.leads.map(l=><div className={styles.duplicateRow} key={l.id}><div><strong>{l.nombre}</strong><span>{l.ciudad||"—"} · {l.telefono||"sin teléfono"} · {l.email||"sin email"}</span></div><Button size="sm" variant="outline" onClick={()=>{setAppliedFilterGroups([]);setQuery(l.nombre);setPage(1);setDuplicatesOpen(false)}}>Ver en tabla</Button></div>)}</section>)}</div>}
+        <DialogHeader><DialogTitle>Duplicados potenciales</DialogTitle><DialogDescription>Candidatos explicados. Teléfono o email compartido puede ser una persona que atiende varios negocios. Fusionar requiere verificar identidad y permiso admin.</DialogDescription></DialogHeader>
+        {duplicatesQ.isFetching?<Skeleton className={styles.duplicatesSkeleton}/>:duplicatesQ.error?<div className={styles.error}>{duplicatesQ.error.message}</div>:<div className={styles.duplicateGroups}>{(duplicatesQ.data?.groups??[]).length===0?<p>No encontré duplicados.</p>:(duplicatesQ.data?.groups??[]).map((g,i)=><section key={g.reason+g.key+i}><div className={styles.duplicateGroupTitle}><Badge variant="warning">{g.reason}</Badge><span>{g.leads.length} registros</span></div>{g.leads.map(l=><div className={styles.duplicateRow} key={l.id}><div><strong>{l.nombre}</strong><span>{l.ciudad||"—"} · {l.telefono||"sin teléfono"} · {l.email||"sin email"}</span></div>{authState.type==="authenticated"&&authState.user.role==="admin"&&g.leads.length>1&&<Button size="sm" variant="outline" onClick={()=>{setDuplicatesOpen(false);setMergePair({sourceId:l.accountId,destinationId:g.leads.find(x=>x.accountId!==l.accountId)!.accountId});}}>Revisar fusión</Button>}<Button size="sm" variant="outline" onClick={()=>{setAppliedFilterGroups([]);setQuery(l.nombre);setPage(1);setDuplicatesOpen(false)}}>Ver en tabla</Button></div>)}</section>)}</div>}
       </DialogContent></Dialog>
 
       <FilterBuilderDialog

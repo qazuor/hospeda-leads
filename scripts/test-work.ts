@@ -1,4 +1,5 @@
-import {handle as importLeads} from "../src/endpoints/leads_import_POST";
+import {post as importLeads} from "../src/endpoints/dataQuality";
+import type {ImportReview} from "../src/endpoints/dataQuality.schema";
 import {localDay} from "../src/helpers/workDates";
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
@@ -23,7 +24,10 @@ async function read(params='',cookie=user.cookie,status=200){const r=await get(n
 try{
  assert.equal((await get(new Request('http://localhost/_api/work'))).status,401);
  const importName='Import with tasks '+suffix;
- assert.equal((await importLeads(request({rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}]}))).status,200);
+ const previewResponse=await importLeads(request({action:'import_preview',rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}],source:'Work test'}));
+ assert.equal(previewResponse.status,200);
+ const preview=superjson.parse<ImportReview>(await previewResponse.text());
+ assert.equal((await importLeads(request({action:'import_confirm',batchId:preview.batchId,decisions:[{index:0,action:'create'}],confirm:true}))).status,200);
  const imported=await db.selectFrom('leads').selectAll().where('nombre','=',importName).executeTakeFirstOrThrow();
  assert.equal(imported.fechaProximaAccion!.toISOString().slice(0,10),'2026-10-01');
  assert.equal((await db.selectFrom('crmWorkJournal').select('actorEmail').where('accountId','=',imported.accountId).executeTakeFirstOrThrow()).actorEmail,user.user.email);

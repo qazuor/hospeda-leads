@@ -1,3 +1,4 @@
+import {accountFamily} from '../helpers/accountIdentity';
 import superjson from 'superjson';
 import {sql} from 'kysely';
 import {db} from '../helpers/db';
@@ -39,7 +40,7 @@ export async function get(request:Request){
   }
   if(input.from){tasks=tasks.where(sql<string>`t.due_date`,'>=',input.from);activities=activities.where(sql<string>`(t.occurred_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'>=',input.from);}
   if(input.to){tasks=tasks.where(sql<string>`t.due_date`,'<=',input.to);activities=activities.where(sql<string>`(t.occurred_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'<=',input.to);}
-  let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail']);
+  let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail']).where('mergedIntoId','is',null);
   let opportunitiesQuery=db.selectFrom('leads').select(['id','accountId','opportunityName','tipo','estado','assignedUserEmail','createdAt','fechaUltimoContacto']).where('deletedAt','is',null);
   if(user.role!=='admin'){
    accountsQuery=accountsQuery.where(eb=>eb.or([eb('assignedUserEmail','=',user.email),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.accountId','=','crmAccounts.id').where('crmTasks.assignedUserEmail','=',user.email).where('crmTasks.deletedAt','is',null)),eb.exists(eb.selectFrom('leads').select('id').whereRef('leads.accountId','=','crmAccounts.id').where('leads.assignedUserEmail','=',user.email).where('deletedAt','is',null))]));
@@ -68,7 +69,7 @@ export async function get(request:Request){
   // Audit is available for a concrete context only, to avoid mixing it into the day inbox.
   let journal:unknown[]=[];
   if(input.accountId){
-   if(user.role==='admin'||accounts.length){journal=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','=',input.accountId).orderBy('createdAt','desc').limit(200).execute();}
+   if(user.role==='admin'||accounts.length){journal=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','in',await accountFamily(db,input.accountId)).orderBy('createdAt','desc').limit(200).execute();}
   }
   return reply({tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}

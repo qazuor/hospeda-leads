@@ -2,7 +2,7 @@ import superjson from "superjson";
 export type DuplicateGroup = {
   reason: string;
   key: string;
-  leads: {id:string; nombre:string; ciudad:string|null; telefono:string|null; email:string|null}[];
+  leads: {accountId:string;id:string; nombre:string; ciudad:string|null; telefono:string|null; email:string|null}[];
 };
 export type OutputType = { groups: DuplicateGroup[] };
 export const getLeadDuplicates = async ():Promise<OutputType>=>{

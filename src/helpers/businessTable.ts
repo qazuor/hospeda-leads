@@ -20,8 +20,8 @@ export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
   )).*
   from crm_accounts a
   left join leads l on l.account_id = a.id and (${includeDeleted} or l.deleted_at is null)
-  where l.id is not null or (
+  where a.merged_into_id is null and (l.id is not null or (
     not exists (select 1 from leads history where history.account_id = a.id)
     and not exists (select 1 from lead_journal history where history.account_id = a.id)
-  )
+  ))
 )`;
