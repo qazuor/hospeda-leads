@@ -116,6 +116,7 @@ export async function handle(request: Request) {
           "users.id",
           "users.email",
           "users.displayName",
+          "users.fullName",
           "users.avatarUrl",
           "users.role",
           "userPasswords.passwordHash",
@@ -256,6 +257,7 @@ export async function handle(request: Request) {
       email: user.email,
       avatarUrl: user.avatarUrl,
       displayName: user.displayName,
+      fullName: user.fullName,
       role: user.role,
     };
 
