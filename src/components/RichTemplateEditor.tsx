@@ -134,7 +134,7 @@ export const RichTemplateEditor=({
 
     <div className={styles.variables}>
       <span>Insertar variable:</span>
-      {VARIABLES.map(variable=><button type="button" key={variable} onClick={()=>insert("{{"+variable+"}}")}>{"{{"+variable+"}}"}</button>)}
+      {VARIABLES.map(variable=><button type="button" key={variable} title={variable==="sender"?"Nombre completo del usuario que envía":variable==="sender_short"?"Nombre visible del usuario que envía":undefined} onClick={()=>insert("{{"+variable+"}}")}>{"{{"+variable+"}}"}</button>)}
       <button type="button" onClick={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</button>
     </div>
     <p className={styles.hint}>
