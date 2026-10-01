@@ -47,7 +47,6 @@ import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
 const QUERY_KEY=["leads"] as const;
-const STATUS_OPTIONS=["Cargado","Filtrado","1er contacto","En tratativas","Suscripto","Promocionado a Leandro","Rechazado","No interesado","Re contactar mas adelante"];
 const PRIORITY_OPTIONS=["alta","media","baja"];
 const PROFILE_OPTIONS=["Independiente","Consolidado","Referente"];
 const CONTACT_OPTIONS=["email","teléfono","WhatsApp","otro"];
@@ -416,6 +415,7 @@ export default function LeadsPage(){
   const total=leadsQ.data?.total??0;
   const stats=statsQ.data??{total:0,pendientes:0,suscriptos:0,vencidos:0,paraHoy:0,misPendientesHoy:0};
   const settings=settingsQ.data;
+  const STATUS_OPTIONS=settings?.opportunityStages??filters.estados;
   const cityOptions=settings?.cities.map(x=>x.name)??filters.ciudades;
   const typeOptions=settings?.types??filters.tipos;
   const peopleOptions=settings?.authorizedEmails.map(x=>x.displayName||x.email)??filters.asignados;
@@ -713,7 +713,7 @@ export default function LeadsPage(){
   };
 
   const renderCell=(l:any,key:string)=>{
-    if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.origen||"Sin origen"}</small></button>;
+    if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||l.nombre}</strong><small>{l.opportunityName?l.nombre+" · ":""}{l.origen||"Sin origen"}</small></button>;
     if(key==="id")return String(l.id);
     if(key==="ciudad")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
     if(key==="tipo")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;
@@ -835,7 +835,7 @@ export default function LeadsPage(){
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
             {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
-            <td><div className={styles.quick}>{l.telefono&&<><a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a><button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp"><MessageCircle size={15}/></button></>}{l.email&&<button type="button" onClick={()=>openContact(l,"email")} title="Email"><Mail size={15}/></button>}{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div></td>
+            <td><div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div></td>
             <td><div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title="Borrar"><Trash2 size={15}/></Button></div></td>
           </tr>})}
         </tbody></table></div>}

@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
 import { AdminRoute, UserRoute } from "./components/ProtectedRoute";
+import AccountsPage from "./pages/accounts";
 import LeadsPage from "./pages/_index";
 import AnalyticsPage from "./pages/analytics";
 import HistoryPage from "./pages/history";
@@ -21,6 +22,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/" element={<UserRoute><LeadsPage /></UserRoute>} />
+          <Route path="/accounts" element={<UserRoute><AccountsPage /></UserRoute>} />
+          <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />

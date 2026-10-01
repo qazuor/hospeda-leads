@@ -38,6 +38,10 @@ jobs:
       - run: npm test
       - run: npm run db:migrate
       - run: npm run db:seed:test
+      - name: Commercial migration and integration tests
+        run: npm run test:commercial
+        env:
+          CRM_TEST_DATABASE: "1"
       - run: npm run build
       - name: Start server
         run: |
@@ -55,6 +59,19 @@ jobs:
         run: |
           curl -fsS http://127.0.0.1:3001/_api/health | grep '"ok":true'
           curl -fsS -o /tmp/session.json -w '%{http_code}' http://127.0.0.1:3001/_api/auth/session | grep '401'
+
+      - name: Install Chromium for commercial browser test
+        run: npx playwright install --with-deps chromium
+
+      - name: Commercial browser test
+        run: npm run test:browser
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-browser-evidence
+          path: test-results/
 
       - name: Stop source server
         run: |

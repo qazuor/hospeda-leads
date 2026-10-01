@@ -1,3 +1,4 @@
+import { resolveCommercialContact } from "../helpers/commercialContact";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -10,6 +11,7 @@ export async function handle(request:Request){
     const input=schema.parse(superjson.parse(await request.text()));
     await db.transaction().execute(async trx=>{
       const lead=await trx.selectFrom("leads").selectAll().where("id","=",String(input.leadId)).where("deletedAt","is",null).executeTakeFirstOrThrow();
+      const contact=await resolveCommercialContact(trx,lead,input.contactId);
       const contactedAt=new Date();
       const values:Record<string,unknown>={
         fechaUltimoContacto:contactedAt,
@@ -29,7 +31,7 @@ export async function handle(request:Request){
       await writeLeadJournal(trx,{
         leadId:String(lead.id),leadName:lead.nombre,leadCity:lead.ciudad,leadType:lead.tipo,
         actor:{id:user.id,email:user.email,displayName:user.displayName},
-        action:"contact_logged",changes,metadata:{channel:input.channel,result:input.result}
+        action:"contact_logged",changes,metadata:{contactId:contact.contactId,contactName:contact.name,channel:input.channel,result:input.result}
       });
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));

@@ -30,7 +30,7 @@ export default function AnalyticsPage(){
   const coverage=[{name:"Con teléfono",count:d.withPhone},{name:"Con email",count:d.withEmail},{name:"Con web",count:d.withWebsite}];
 
   return <><AppHeader/><main className={styles.shell}>
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Pipeline, actividad y conversión con acceso directo a los leads que explican cada número.</p></div><BarChart3 size={28}/></header>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Pipeline, actividad y conversión con acceso directo a los leads que explican cada número. Cada lead representa una oportunidad; los estados comerciales no acreditan pagos.</p></div><BarChart3 size={28}/></header>
     <section className={styles.filters}>
       <label>Período de alta<select value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="custom">Personalizado</option></select></label>
       {period==="custom"&&<><label>Desde<Input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Hasta<Input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></>}

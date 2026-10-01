@@ -6,7 +6,7 @@ import type { DuplicateGroup, OutputType } from "./leads_duplicates_GET.schema";
 export async function handle(request:Request){
   try{
     await getServerUserSession(request);
-    const rows=await db.selectFrom("leads").select(["id","nombre","ciudad","telefono","email"]).where("deletedAt","is",null).execute();
+    const rows=await db.selectFrom("leads").select(["id","accountId","nombre","ciudad","telefono","email"]).where("deletedAt","is",null).execute();
     const groups:DuplicateGroup[]=[];
     const build=(reason:string,keyOf:(row:any)=>string)=>{
       const map=new Map<string,typeof rows>();
@@ -18,7 +18,8 @@ export async function handle(request:Request){
         map.set(key,list);
       }
       for(const [key,list] of map){
-        if(list.length>1) groups.push({reason,key,leads:list.map(x=>({...x,id:String(x.id)}))});
+        const accounts=new Map(list.map(row=>[String(row.accountId),row]));
+        if(accounts.size>1) groups.push({reason,key,leads:[...accounts.values()].map(x=>({...x,id:String(x.id)}))});
       }
     };
     build("Mismo nombre y ciudad",r=>r.nombre?.trim()?r.nombre.trim().toLowerCase()+"|"+(r.ciudad??"").trim().toLowerCase():"");

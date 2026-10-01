@@ -31,6 +31,7 @@ export async function handle(request: Request) {
         ? await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).executeTakeFirst()
         : undefined;
       if(input.id&&!existing)throw new Error("Lead no encontrado");
+      if(user.role!=="admin"&&input.assignedUserEmail!==undefined&&(input.assignedUserEmail??null)!==(existing?.assignedUserEmail??null))throw new Error("Solo un administrador puede modificar el responsable.");
       if(existing?.deletedAt)throw new Error("Este lead está en la papelera. Restauralo antes de editarlo.");
 
       const values = {
