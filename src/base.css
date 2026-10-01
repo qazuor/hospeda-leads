@@ -2,6 +2,8 @@
 @import url(https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap);
 @import url(https://fonts.googleapis.com/css2?family=Caveat&display=swap);
 :root {
+  --crm-content-width: 1600px;
+  --crm-gutter: clamp(12px, 2vw, 28px);
   /* Content layers */
   --z-content-low: 10; /* Minor elevated content */
   --z-content: 20; /* Standard elevated content */

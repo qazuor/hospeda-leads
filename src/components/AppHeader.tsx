@@ -23,14 +23,16 @@ export const AppHeader=()=>{
   const displayName=authState.type==="authenticated"?authState.user.displayName:"";
   const [profileOpen,setProfileOpen]=React.useState(false);
 
-  return <header className={styles.header}>
+  return <header className={styles.header}><div className={styles.inner}>
     <Link to="/accounts" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda CRM</strong><span>CRM comercial</span></div></Link>
-    <nav>
-      <Link to="/accounts" className={location.pathname.startsWith("/accounts")?styles.active:""}>Negocios</Link>
-      <Link to="/opportunities" title="Seguimiento de todas las oportunidades" className={location.pathname==="/opportunities"?styles.active:""}><ListFilter size={16}/>Seguimiento</Link>
+    <nav aria-label="Navegación principal"><div className={styles.navGroup}>
       <Link to="/my-day" className={location.pathname==="/my-day"?styles.active:""}>Mi día</Link>
       <Link to="/agenda" className={location.pathname==="/agenda"?styles.active:""}>Agenda</Link>
-      {isAdmin&&<Link to="/analytics" className={location.pathname==="/analytics"?styles.active:""}><BarChart3 size={16}/>Estadísticas</Link>}
+      </div>
+      <div className={styles.navGroup}><Link to="/accounts" className={location.pathname.startsWith("/accounts")?styles.active:""}>Negocios</Link>
+      <Link to="/opportunities" title="Seguimiento de todas las oportunidades" className={location.pathname==="/opportunities"?styles.active:""}><ListFilter size={16}/>Seguimiento</Link>
+      </div>
+      <div className={styles.navGroup}>{isAdmin&&<Link to="/analytics" className={location.pathname==="/analytics"?styles.active:""}><BarChart3 size={16}/>Estadísticas</Link>}
       {isAdmin&&<DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" className={styles.navMenu+" "+(administrationActive?styles.active:"")}>
@@ -44,12 +46,13 @@ export const AppHeader=()=>{
           <DropdownMenuItem asChild><Link to="/settings"><Settings size={16}/>Configuración</Link></DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>}
+      </div>
     </nav>
     <div className={styles.user}>
       <LiveModeSwitch/>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className={styles.userMenuButton}>
+          <Button variant="ghost" size="sm" className={styles.userMenuButton} aria-label={displayName||"Mi perfil"}>
             <UserCircle size={17}/><span>{displayName}</span><ChevronDown size={14}/>
           </Button>
         </DropdownMenuTrigger>
@@ -66,6 +69,6 @@ export const AppHeader=()=>{
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-    <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen}/>
+    </div><ProfileDialog open={profileOpen} onOpenChange={setProfileOpen}/>
   </header>
 };
