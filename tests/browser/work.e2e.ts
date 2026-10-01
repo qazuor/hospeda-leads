@@ -30,10 +30,11 @@ test('Mi día completes a call while preserving the visit, with agenda and retro
  await page.goto('/my-day');const generalRow=page.locator('article').filter({has:page.getByText('Seguimiento general E2E',{exact:true})});await generalRow.getByRole('button',{name:'Contactar',exact:true}).click();
  dialog=page.getByRole('dialog');await expect(dialog.getByRole('link',{name:'WhatsApp',exact:true})).toHaveAttribute('href','https://wa.me/5493442000001');await expect(dialog.getByRole('link',{name:'Email',exact:true})).toHaveAttribute('href','mailto:agenda%40example.com');
  await dialog.getByRole('button',{name:'Registrar actividad',exact:true}).click();await expect(page.getByRole('dialog').getByRole('heading',{name:'Registrar actividad',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Volver',exact:true}).click();
- const edges:number[][]=[];await page.setViewportSize({width:1800,height:1000});
+ const overflows:string[]=[];const edges:number[][]=[];await page.setViewportSize({width:1800,height:1000});
  for(const path of ['/accounts','/my-day','/agenda','/analytics','/settings','/history','/trash']){
   await page.goto(path);await expect(page.locator('main')).toBeVisible();edges.push(await page.locator('main').evaluate(el=>{const r=el.getBoundingClientRect();const s=getComputedStyle(el);return [r.left+parseFloat(s.paddingLeft),r.right-parseFloat(s.paddingRight)];}));
-  await page.setViewportSize({width:390,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth),{message:'Sin desborde móvil en '+path}).toBeLessThanOrEqual(390);await page.setViewportSize({width:1800,height:1000});
+  await page.setViewportSize({width:390,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth),{message:'Sin desborde móvil en '+path}).toBeLessThanOrEqual(390).catch(async()=>{overflows.push(path);console.log('Overflow',path,await page.evaluate(()=>Array.from(document.querySelectorAll('main *')).filter(el=>el.getBoundingClientRect().right>window.innerWidth).slice(0,20).map(el=>({tag:el.tagName,class:el.className,right:el.getBoundingClientRect().right}))));await page.screenshot({path:'test-results/overflow-'+path.slice(1)+'.png',fullPage:true});});await page.setViewportSize({width:1800,height:1000});
  }
+ expect(overflows).toEqual([]);
  for(const edge of edges)expect(edge).toEqual(edges[0]);
 });
