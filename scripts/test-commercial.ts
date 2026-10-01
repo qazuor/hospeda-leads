@@ -51,7 +51,8 @@ try{
   await mutate({action:'opportunity_save',accountId,opportunityName:'Forbidden',primaryContactId:foreign},user.value,400);
   await mutate({action:'opportunity_save',accountId,id:first,opportunityName:'Forbidden',assignedUserEmail:user.email},user.value,403);
   await assert.rejects(db.updateTable('leads').set({primaryContactId:foreign}).where('id','=',first).execute());
-  const quickResult=await quick(request({id:first,field:'estado',value:d.stages[1]||stage}));assert.equal(quickResult.status,200);
+  assert.equal((await quick(request({id:first,field:'estado',value:d.stages[1]||stage}))).status,400,'Foreign stage movement rejected');
+  const quickResult=await quick(request({id:first,field:'estado',value:d.stages[1]||stage},admin.value));assert.equal(quickResult.status,200);
   d=await detail(accountId);assert.equal(d.opportunities.length,2);assert.equal(d.opportunities.find(o=>String(o.id)===second)!.estado,stage);
   assert.equal((await quick(request({id:first,field:'assignedUserEmail',value:user.email}))).status,403);
   assert.equal((await bulk(request({ids:[first,second],changes:{assignedUserEmail:user.email}}))).status,403);

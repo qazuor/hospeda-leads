@@ -1,3 +1,4 @@
+import {PipelineBoard} from "../components/Pipeline";
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -255,6 +256,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [contactLead,setContactLead]=useState<any|null>(null);
   const [pendingDelete,setPendingDelete]=useState<{id:string|number;nombre:string}|null>(null);
   const [tableFullscreen,setTableFullscreen]=useState(false);
+  const [pipelineView,setPipelineView]=useState(false);
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
   const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(readStoredFilterGroups);
   const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
@@ -854,10 +856,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       </section>}
 
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span></div><div className={styles.tableMetaActions}><span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span><Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} onClick={()=>setPipelineView(true)}>Pipeline</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las oportunidades"}: {leadsQ.error.message}</div>:
-        <div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
+        pipelineView&&!businessMode?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
         </colgroup><thead><tr>
           <th className={styles.selectHead}><Checkbox checked={leads.length>0&&leads.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>

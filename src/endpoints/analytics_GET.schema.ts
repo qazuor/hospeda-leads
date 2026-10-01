@@ -5,6 +5,7 @@ export type ConversionBucket={name:string;total:number;subscribed:number;rate:nu
 export type DurationBucket={name:string;days:number;samples:number};
 export const schema=z.object({from:z.string().optional(),to:z.string().optional(),responsible:z.string().optional(),type:z.string().optional(),city:z.string().optional()});
 export type OutputType={
+  pipelineOpen:number;pipelineWon:number;pipelineLost:number;lossReasons:Bucket[];
   total:number;pending:number;subscribed:number;overdue:number;withPhone:number;withEmail:number;withWebsite:number;
   noContact:number;inactive30:number;contacted:number;conversionRate:number;new7:number;avgDaysToFirstContact:number|null;firstContactSamples:number;
   byCity:Bucket[];byStatus:Bucket[];byType:Bucket[];bySubtype:Bucket[];byOrigin:Bucket[];byPriority:Bucket[];byResponsible:Bucket[];

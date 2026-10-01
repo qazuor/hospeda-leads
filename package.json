@@ -16,7 +16,8 @@
     "db:migrate:floot": "node scripts/migrate-floot-snapshot.mjs",
     "test:commercial": "node scripts/test-commercial-migration.mjs && node --import tsx scripts/test-commercial.ts",
     "test:browser": "playwright test",
-    "test:work": "node scripts/test-work-migration.mjs && node --import tsx scripts/test-work.ts"
+    "test:work": "node scripts/test-work-migration.mjs && node --import tsx scripts/test-work.ts",
+    "test:pipeline": "node scripts/test-pipeline-migration.mjs && node --import tsx scripts/test-pipeline.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
@@ -94,6 +95,7 @@
     "vitest": "^3.2.4"
   },
   "overrides": {
-    "rollup": "4.63.5"
+    "rollup": "4.63.5",
+    "baseline-browser-mapping": "2.9.19"
   }
 }
