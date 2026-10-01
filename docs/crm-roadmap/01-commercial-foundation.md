@@ -85,3 +85,13 @@ La tabla de leads muestra el nombre de oportunidad y negocio; la búsqueda libre
 - Cargo y canal preferido son selects con catálogos en app_settings (migración 005). Los valores históricos fuera del catálogo permanecen seleccionables y no se normalizan ni borran automáticamente.
 
 - Ayuda contextual colapsable en cuentas y detalle: definiciones con ejemplos, alcance de cada editor y diferencia prospecto/cliente. Formularios explican principal, preferencias, responsables independientes y fecha estimada. Comunicación explica destinatario y variables vacías.
+
+## Lenguaje y flujo para usuarios sin experiencia
+
+La UI usa exclusivamente Negocios, Contactos y Oportunidades. `leads` sigue siendo el almacenamiento de oportunidades y sus URLs/IDs, sin crear otra fuente de estado. Los nombres antiguos solo permanecen en código y evidencia histórica.
+
+Nueva oportunidad solicita elegir un negocio existente o crear uno nuevo y luego cargar la venta. Cancelar después de crear un negocio lo conserva sin oportunidades, una situación válida. En el detalle de oportunidad, contactos y otras ventas son secciones colapsables del negocio; la etapa/notas/seguimiento de la oportunidad quedan separados. “Editar datos de venta” es un acceso rápido; “Editar oportunidad” es el formulario completo.
+
+El formulario completo ya no ofrece edición de campos compartidos del negocio. Envía scope=opportunity y el backend toma esos campos de la fila actual en una transacción con bloqueo, para que valores viejos del formulario no sobrescriban datos generales. La API heredada conserva su comportamiento cuando no recibe scope. El contacto elegido se valida dentro del negocio; responsables siguen restringidos a admin.
+
+Validación: se fija Rollup 4.63.5 mediante overrides de npm. Dos instalaciones limpias de CI con resolución flotante fallaron por la ausencia del binario opcional linux-x64-gnu; la versión fijada es la validada localmente y conserva las variantes nativas de cada plataforma.

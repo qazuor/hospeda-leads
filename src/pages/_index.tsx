@@ -7,6 +7,9 @@ import {
   ExternalLink, Filter, Globe2, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
   Target, Trash2, UserRound, Users, UsersRound, X
 } from "lucide-react";
+import { OpportunityStart } from "../components/OpportunityStart";
+import { CommercialHelp } from "../components/CommercialHelp";
+import { getCommercialDetail } from "../endpoints/commercial.schema";
 import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
 import { BadgeSelect } from "../components/BadgeSelect";
@@ -42,7 +45,7 @@ import { getSettings } from "../endpoints/settings_GET.schema";
 import { getSavedLeadViews } from "../endpoints/saved_views_GET.schema";
 import { postSavedLeadView } from "../endpoints/saved_views_POST.schema";
 import { useDebounce } from "../helpers/useDebounce";
-import { toDateInput } from "../helpers/crmDates";
+import { dateOnlyInput, toDateInput } from "../helpers/crmDates";
 import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
@@ -58,7 +61,7 @@ type TextFilterField=typeof TEXT_FILTER_FIELDS[number];
 const DATE_FILTER_FIELDS=["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"] as const;
 type DateFilterField=typeof DATE_FILTER_FIELDS[number];
 const TEXT_FILTER_LABELS:Record<TextFilterField,string>={
-  nombre:"Lead",contactName:"Persona de contacto",email:"Email",telefono:"Teléfono",sitioWeb:"Sitio web",
+  nombre:"Nombre del negocio",contactName:"Persona de contacto",email:"Email",telefono:"Teléfono",sitioWeb:"Sitio web",
   urlGmap:"Google Maps",perfilInstagram:"Instagram",perfilFacebook:"Facebook",perfilAirbnb:"Airbnb",
   perfilBooking:"Booking",perfilTurismoEntreRios:"Turismo Entre Ríos",resultadoUltimoContacto:"Resultado último contacto",
   fuenteReferencia:"Fuente de referencia",archivoAdjunto:"Archivo adjunto"
@@ -79,7 +82,7 @@ type SortBy=
 
 const TABLE_COLUMNS:TableColumnOption[]=[
   {key:"id",label:"ID"},
-  {key:"nombre",label:"Lead"},
+  {key:"nombre",label:"Oportunidad / negocio"},
   {key:"assignedUserEmail",label:"Responsable"},
   {key:"contactName",label:"Persona de contacto"},
   {key:"tipo",label:"Vertical"},
@@ -237,6 +240,7 @@ export default function LeadsPage(){
   const [open,setOpen]=useState(false);
   const [viewOpen,setViewOpen]=useState(false);
   const [duplicatesOpen,setDuplicatesOpen]=useState(false);
+  const [startingOpportunity,setStartingOpportunity]=useState(false);
   const [form,setForm]=useState<InputType>(emptyForm);
   const [selectedLead,setSelectedLead]=useState<any|null>(null);
   const [duplicateCandidates,setDuplicateCandidates]=useState<DuplicateCandidate[]>([]);
@@ -353,6 +357,7 @@ export default function LeadsPage(){
     if(filter.presence==="all"&&!filter.from&&!filter.to)return [];
     return [{field,presence:filter.presence,from:filter.from||undefined,to:filter.to||undefined}];
   });
+  const businessDetailQ=useQuery({queryKey:["commercial-detail","",String(form.id??"")],queryFn:()=>getCommercialDetail(undefined,String(form.id)),enabled:open&&!!form.id});
   const settingsQ=useQuery({queryKey:["settings"],queryFn:getSettings});
   const savedViewsQ=useQuery({queryKey:["saved-views",currentUser?.id],queryFn:getSavedLeadViews,enabled:!!currentUser});
   const leadsQ=useQuery({
@@ -427,7 +432,7 @@ export default function LeadsPage(){
   const optionList=(values:string[])=>values.map(value=>({value,label:value}));
   const filterFields:FilterFieldDefinition[]=[
     {key:"id",label:"ID",kind:"number"},
-    {key:"nombre",label:"Lead",kind:"text"},
+    {key:"nombre",label:"Oportunidad / negocio",kind:"text"},
     {key:"assignedUserEmail",label:"Responsable",kind:"category",options:userOptions.map(user=>({value:user.email,label:user.displayName||user.email}))},
     {key:"contactName",label:"Persona de contacto",kind:"text"},
     {key:"tipo",label:"Vertical",kind:"category",options:optionList(typeOptions)},
@@ -561,13 +566,13 @@ export default function LeadsPage(){
     if(quickParam)applyQuickView(quickParam);
     else if(field&&value)applyQuickView("field",field+"::"+value);
     else if(leadId){resetInlineFilters();setQuery("");setAppliedFilterGroups([{rules:[{field:"id",operator:"eq",value:leadId}]}]);setPage(1)}
-  },[]);
+  },[urlParams]);
   useEffect(()=>{
     const leadId=urlParams.get("leadId");
     if(!leadId||!leads.length)return;
     const target=leads.find(item=>String(item.id)===leadId);
     if(target){setSelectedLead(target);setLastTouchedId(leadId);setViewOpen(true);setUrlParams({}, {replace:true})}
-  },[leads]);
+  },[leads,urlParams]);
 
   const saveCurrentView=()=>{
     const name=savedViewName.trim();if(!name||!currentUser)return;
@@ -608,9 +613,9 @@ export default function LeadsPage(){
     });
   };
 
-  const newLead=()=>{setForm(emptyForm);setDuplicateCandidates([]);setOpen(true)};
+  const newLead=()=>setStartingOpportunity(true);
   const editLead=(l:any)=>{setLastTouchedId(String(l.id));setDuplicateCandidates([]);setForm({
-    id:String(l.id),nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
+    id:String(l.id),scope:"opportunity",opportunityName:l.opportunityName||"Gestión comercial inicial",serviceInterest:l.serviceInterest,primaryContactId:l.primaryContactId?String(l.primaryContactId):null,estimatedCloseDate:dateOnlyInput(l.estimatedCloseDate)||null,nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
     email:l.email,telefono:l.telefono,sitioWeb:l.sitioWeb,urlGmap:l.urlGmap,perfilInstagram:l.perfilInstagram,perfilFacebook:l.perfilFacebook,
     perfilAirbnb:l.perfilAirbnb,perfilBooking:l.perfilBooking,perfilTurismoEntreRios:l.perfilTurismoEntreRios,origen:l.origen,
     quienCargo:l.quienCargo,asignadoA:l.asignadoA,assignedUserEmail:l.assignedUserEmail,commercialProfile:l.commercialProfile,fechaCreacion:dateInput(l.fechaCreacion),fechaUltimoContacto:dateInput(l.fechaUltimoContacto),
@@ -627,7 +632,7 @@ export default function LeadsPage(){
     const result=await saveM.mutateAsync({...form,force});
     if("duplicateCandidates" in result){setDuplicateCandidates(result.duplicateCandidates);return}
     if(form.id)setLastTouchedId(String(form.id));
-    setDuplicateCandidates([]);await invalidate();setOpen(false);toast.success("Lead guardado");
+    setDuplicateCandidates([]);await invalidate();setOpen(false);toast.success("Oportunidad guardada");
   };
   const requestDelete=(id:string|number,nombre:string)=>setPendingDelete({id,nombre});
   const confirmDelete=async()=>{
@@ -636,7 +641,7 @@ export default function LeadsPage(){
     await deleteM.mutateAsync({id:target.id});
     if(selectedLead&&String(selectedLead.id)===String(target.id)){setViewOpen(false);setSelectedLead(null)}
     if(form.id&&String(form.id)===String(target.id))setOpen(false);
-    setPendingDelete(null);toast.success("Lead enviado a la papelera");
+    setPendingDelete(null);toast.success("Oportunidad enviada a la papelera");
   };
   const quick=async(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>{
     const key=String(id)+":"+field;
@@ -658,14 +663,14 @@ export default function LeadsPage(){
     if(!selectedIds.size)return;
     const changes:any={[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)};
     await bulkM.mutateAsync({ids:Array.from(selectedIds),changes});
-    toast.success(`${selectedIds.size} leads actualizados`);setSelectedIds(new Set());setBulkValue("");
+    toast.success(`${selectedIds.size} oportunidades actualizadas`);setSelectedIds(new Set());setBulkValue("");
   };
   const bulkDeleteSelected=async()=>{
     if(!selectedIds.size)return;
     const count=selectedIds.size;
     await bulkDeleteM.mutateAsync({ids:Array.from(selectedIds)});
     setSelectedIds(new Set());setBulkDeleteOpen(false);
-    toast.success(count+" leads enviados a la papelera");
+    toast.success(count+" oportunidades enviadas a la papelera");
   };
   const togglePageSelection=()=>{
     const ids=leads.map(lead=>String(lead.id));
@@ -713,7 +718,7 @@ export default function LeadsPage(){
   };
 
   const renderCell=(l:any,key:string)=>{
-    if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||l.nombre}</strong><small>{l.opportunityName?l.nombre+" · ":""}{l.origen||"Sin origen"}</small></button>;
+    if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></button>;
     if(key==="id")return String(l.id);
     if(key==="ciudad")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
     if(key==="tipo")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;
@@ -755,12 +760,13 @@ export default function LeadsPage(){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>PIPELINE COMERCIAL</div><h1>Leads</h1><p>Alta, seguimiento y conversión de potenciales clientes de Hospeda.</p></div>
-        <div className={styles.pageActions}><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>Nuevo lead</Button></div>
+        <div><div className={styles.eyebrow}>PIPELINE COMERCIAL</div><h1>Oportunidades</h1><p>Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades.</p></div>
+        <div className={styles.pageActions}><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>Nueva oportunidad</Button></div>
       </header>
 
+      <CommercialHelp/>
       <section className={styles.metrics}>
-        <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>Total leads</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>Total de oportunidades</span></div></button>
         <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></button>
         <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>Para hoy</span></div></button>
         <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>Acciones vencidas</span></div></button>
@@ -770,14 +776,14 @@ export default function LeadsPage(){
 
       <section className={styles.quickViews}>
         <div className={styles.quickViewList}>
-          {[["all","Todos"],["mine","Mis leads"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><button type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</button>)}
+          {[["all","Todos"],["mine","Mis oportunidades"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><button type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</button>)}
           {savedViews.map(view=><div className={styles.savedView} key={view.name}><button type="button" className={activeQuick==="saved:"+view.name?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</button><button type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</button></div>)}
         </div>
         <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
       <section className={styles.toolbar}>
-        <div className={styles.search}><Search size={17}/><Input value={query} onChange={e=>{setQuery(e.target.value);resetPage()}} placeholder="Buscar en leads y notas…"/></div>
+        <div className={styles.search}><Search size={17}/><Input value={query} onChange={e=>{setQuery(e.target.value);resetPage()}} placeholder="Buscar en oportunidades y notas…"/></div>
         <div className={styles.filters}>
           <Button variant="outline" onClick={()=>setFilterDialogOpen(true)} className={styles.filterButton}>
             <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
@@ -818,9 +824,9 @@ export default function LeadsPage(){
       </section>}
 
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} leads</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span></div><div className={styles.tableMetaActions}><span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span><Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} oportunidades</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span></div><div className={styles.tableMetaActions}><span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span><Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
-        leadsQ.error?<div className={styles.error}>No pude cargar los leads: {leadsQ.error.message}</div>:
+        leadsQ.error?<div className={styles.error}>No pude cargar las oportunidades: {leadsQ.error.message}</div>:
         <div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
         </colgroup><thead><tr>
@@ -848,7 +854,7 @@ export default function LeadsPage(){
             <div className={styles.editIdentityRow}>
               <div className={styles.editIdentity}>
                 <div className={styles.editTitleLine}>
-                  <DialogTitle className={styles.editTitle}>{form.id?(form.nombre||"Lead sin nombre"):"Nuevo lead"}</DialogTitle>
+                  <DialogTitle className={styles.editTitle}>{form.id?(form.opportunityName||"Gestión comercial inicial"):"Nueva oportunidad"}</DialogTitle>
                   <div className={styles.editTitleBadges}>
                     {form.tipo&&<ValueBadge value={str(form.tipo)} category="vertical"/>}
                     {form.subtipo&&<ValueBadge value={str(form.subtipo)} category="subtype"/>}
@@ -857,7 +863,7 @@ export default function LeadsPage(){
                 </div>
                 <div className={styles.editMetaLine}>
                   <DialogDescription className={styles.editDescription}>
-                    {form.id?"Editá la etapa y seguimiento de esta oportunidad. Los datos del negocio se comparten; las personas se gestionan desde el detalle.":"Completá los datos principales para crear el lead."}
+                    {form.id?"Editá esta venta y su seguimiento. Para cambiar dirección, canales o personas, abrí el negocio desde el detalle.":"Completá los datos principales para crear la oportunidad."}
                   </DialogDescription>
                   <div className={styles.editSecondaryBadges}>
                     {form.commercialProfile&&<ValueBadge value={str(form.commercialProfile)} category="profile"/>}
@@ -873,7 +879,7 @@ export default function LeadsPage(){
               <Button size="sm" variant="ghost" onClick={()=>setOpen(false)}><X size={15}/>Cancelar</Button>
               {duplicateCandidates.length>0
                 ? <Button size="sm" variant="secondary" onClick={()=>saveLead(true)} disabled={saveM.isPending}>Guardar de todas formas</Button>
-                : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.nombre.trim()}>{saveM.isPending?"Guardando…":"Guardar lead"}</Button>}
+                : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.opportunityName?.trim()}>{saveM.isPending?"Guardando…":"Guardar oportunidad"}</Button>}
             </div>
           </div>
 
@@ -884,27 +890,17 @@ export default function LeadsPage(){
                 <div><h3>Identidad y clasificación</h3><p>Cómo se identifica y cómo lo clasificamos comercialmente.</p></div>
               </div>
               <div className={styles.editGrid}>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Nombre / razón social</span><Input value={form.nombre} onChange={e=>set("nombre",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Nombre de oportunidad</span><Input value={str(form.opportunityName)} onChange={e=>set("opportunityName",e.target.value)} placeholder="Ej: Publicación de cabañas"/></label>
+                <p className={styles.editSpan2}>Negocio: <strong>{form.nombre}</strong> · Sus datos se editan por separado.</p>
+                <label className={styles.editField}><span>Servicio de interés</span><Input value={str(form.serviceInterest)} onChange={e=>set("serviceInterest",e.target.value)}/></label>
+                <label className={styles.editField}><span>Cierre estimado (opcional)</span><Input type="date" value={str(form.estimatedCloseDate)} onChange={e=>set("estimatedCloseDate",e.target.value||null)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Persona para esta oportunidad</span><select aria-label="Persona para esta oportunidad" value={str(form.primaryContactId)} onChange={e=>set("primaryContactId",e.target.value||null)}><option value="">Sin persona elegida</option>{businessDetailQ.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></label>
                 <label className={styles.editField}><span>Vertical</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.tipo)} options={typeOptions} category="vertical" onChange={v=>{set("tipo",v);set("subtipo","")}} placeholder="Seleccionar vertical…"/></label>
                 <label className={styles.editField}><span>Subtipo</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.subtipo)} options={subtypeOptions} category="subtype" onChange={v=>set("subtipo",v)} placeholder="Seleccionar subtipo…" emptyLabel="Sin subtipo"/></label>
                 <label className={styles.editField}><span>Perfil comercial</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.commercialProfile)} options={PROFILE_OPTIONS} category="profile" onChange={v=>set("commercialProfile",v||null)} placeholder="Seleccionar perfil…" emptyLabel="Sin perfil"/></label>
-                <label className={styles.editField}><span>Ciudad</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.ciudad)} options={cityOptions} category="city" onChange={v=>set("ciudad",v)} placeholder="Seleccionar ciudad…"/></label>
                 <label className={styles.editField}><span>Estado</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.estado)} options={STATUS_OPTIONS} category="status" onChange={v=>set("estado",v)} placeholder="Seleccionar estado…"/></label>
                 <label className={styles.editField}><span>Prioridad</span><BadgeSelect className={styles.editBadgeSelect} value={form.prioridad??""} options={PRIORITY_OPTIONS} category="priority" onChange={v=>set("prioridad",v||null)} placeholder="Sin prioridad" emptyLabel="Sin prioridad"/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Suscripción</span><Input value={str(form.suscripcion)} onChange={e=>set("suscripcion",e.target.value)}/></label>
-              </div>
-            </section>
-
-            <section className={styles.editSection}>
-              <div className={styles.editSectionHeader}>
-                <div className={styles.editSectionIcon}><UserRound size={17}/></div>
-                <div><h3>Canales del negocio</h3><p>{form.id?"Teléfono y email genéricos, compartidos por las oportunidades. Editá las personas desde el detalle del lead.":"Canales generales y, si la conocés, la primera persona de contacto."}</p></div>
-              </div>
-              <div className={styles.editGrid}>
-                {!form.id&&<label className={styles.editField+" "+styles.editSpan2}><span>Persona de contacto</span><Input value={str(form.contactName)} onChange={e=>set("contactName",e.target.value)} placeholder="Ej: Leandro Asrilevich"/></label>}
-                <label className={styles.editField}><span>Teléfono genérico</span><Input value={str(form.telefono)} onChange={e=>set("telefono",e.target.value)}/></label>
-                <label className={styles.editField}><span>Email genérico</span><Input type="email" value={str(form.email)} onChange={e=>set("email",e.target.value)}/></label>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Medio preferido</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>
               </div>
             </section>
 
@@ -935,24 +931,9 @@ export default function LeadsPage(){
                 <label className={styles.editField}><span>Último contacto</span><Input type="date" value={str(form.fechaUltimoContacto)} onChange={e=>set("fechaUltimoContacto",e.target.value)}/></label>
                 <label className={styles.editField}><span>Próxima acción</span><NextActionPicker value={form.fechaProximaAccion} onChange={value=>set("fechaProximaAccion",value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Resultado último contacto</span><Input value={str(form.resultadoUltimoContacto)} onChange={e=>set("resultadoUltimoContacto",e.target.value)}/></label>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Fuente de referencia</span><Input value={str(form.fuenteReferencia)} onChange={e=>set("fuenteReferencia",e.target.value)}/></label>
-              </div>
-            </section>
-
-            <section className={styles.editSection+" "+styles.editWideSection}>
-              <div className={styles.editSectionHeader}>
-                <div className={styles.editSectionIcon}><Globe2 size={17}/></div>
-                <div><h3>Presencia digital</h3><p>Web, mapas, perfiles externos y material adjunto.</p></div>
-              </div>
-              <div className={styles.editGrid}>
-                <label className={styles.editField}><span>Sitio web</span><Input value={str(form.sitioWeb)} onChange={e=>set("sitioWeb",e.target.value)}/></label>
-                <label className={styles.editField}><span>Google Maps</span><Input value={str(form.urlGmap)} onChange={e=>set("urlGmap",e.target.value)}/></label>
-                <label className={styles.editField}><span>Instagram</span><Input value={str(form.perfilInstagram)} onChange={e=>set("perfilInstagram",e.target.value)}/></label>
-                <label className={styles.editField}><span>Facebook</span><Input value={str(form.perfilFacebook)} onChange={e=>set("perfilFacebook",e.target.value)}/></label>
-                <label className={styles.editField}><span>Airbnb</span><Input value={str(form.perfilAirbnb)} onChange={e=>set("perfilAirbnb",e.target.value)}/></label>
-                <label className={styles.editField}><span>Booking</span><Input value={str(form.perfilBooking)} onChange={e=>set("perfilBooking",e.target.value)}/></label>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Turismo Entre Ríos</span><Input value={str(form.perfilTurismoEntreRios)} onChange={e=>set("perfilTurismoEntreRios",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Canal preferido para esta oportunidad</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Archivo adjunto / URL</span><Input value={str(form.archivoAdjunto)} onChange={e=>set("archivoAdjunto",e.target.value)}/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Fuente de referencia</span><Input value={str(form.fuenteReferencia)} onChange={e=>set("fuenteReferencia",e.target.value)}/></label>
               </div>
             </section>
 
@@ -965,7 +946,7 @@ export default function LeadsPage(){
             </section>
 
             {duplicateCandidates.length>0&&<div className={styles.duplicateWarning+" "+styles.editWideSection}>
-              <strong><AlertTriangle size={16}/>Posible lead duplicado</strong>
+              <strong><AlertTriangle size={16}/>Posible negocio duplicado</strong>
               <p>Encontré coincidencias antes de crear el registro:</p>
               {duplicateCandidates.map(d=><div key={d.id}><b>{d.nombre}</b> · {d.ciudad||"sin ciudad"} · {d.reasons.join(", ")}</div>)}
             </div>}
@@ -992,14 +973,15 @@ export default function LeadsPage(){
         <DialogFooter><Button variant="outline" onClick={()=>setSaveViewOpen(false)}>Cancelar</Button><Button onClick={saveCurrentView} disabled={!savedViewName.trim()}>Guardar vista</Button></DialogFooter>
       </DialogContent></Dialog>
       <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
+      {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>setUrlParams({leadId:id})}/>}
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
-        <DialogHeader><DialogTitle>Enviar {selectedIds.size} leads a la papelera</DialogTitle><DialogDescription>Los seleccionados dejarán de aparecer en la operación normal.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Enviar {selectedIds.size} oportunidades a la papelera</DialogTitle><DialogDescription>Los seleccionados dejarán de aparecer en la operación normal.</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán y podrán restaurarse desde Papelera.</span></div>
         <DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={bulkDeleteSelected} disabled={bulkDeleteM.isPending}>{bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>
       <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
-        <DialogHeader><DialogTitle>Enviar lead a la papelera</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong> dejará de aparecer en la tabla y en la operación normal.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Enviar oportunidad a la papelera</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong> dejará de aparecer en la tabla y en la operación normal.</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán. El administrador podrá restaurarlo o eliminarlo definitivamente desde Papelera.</span></div>
         <DialogFooter><Button variant="outline" onClick={()=>setPendingDelete(null)} disabled={deleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete} disabled={deleteM.isPending}>{deleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>

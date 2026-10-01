@@ -106,11 +106,11 @@ export const ContactTemplateDialog=({
     <label className={styles.recipient}>Destinatario<select aria-label="Destinatario" value={effectiveContactId} disabled={interactionStarted||sending||!ready} onChange={e=>{setSelectedContactId(e.target.value);setSelectedEmailTemplate(null);setSendError("");}}>
       <option value="">Datos genéricos / históricos del negocio</option>{contacts.map(c=><option key={c.id} value={String(c.id)}>{c.name}{c.isPrimary?" · Principal":""}</option>)}
     </select></label>
-    <p className={styles.recipientHelp}>El destinatario determina el teléfono/email y los datos de persona usados en el template. “Datos genéricos / históricos” conserva el contacto anterior del lead. Si no hay nombre de persona, esa variable queda vacía. Revisá la vista previa antes de enviar.</p>
+    <p className={styles.recipientHelp}>El destinatario determina el teléfono/email y los datos de persona usados en el template. “Datos genéricos / históricos” conserva el contacto anterior de la oportunidad. Si no hay nombre de persona, esa variable queda vacía. Revisá la vista previa antes de enviar.</p>
     <p className={styles.recipientChannel}>{channel==="whatsapp"?recipient.phone:recipient.email}</p>
     {detailQ.error&&<p role="alert" className={styles.errorBox}>{detailQ.error.message}</p>}
     {ready&&!hasChannel&&<p role="alert" className={styles.errorBox}>El destinatario seleccionado no tiene {channel==="whatsapp"?"teléfono":"email"}. Elegí otro contacto o los datos genéricos.</p>}
-    {!lead?.commercialProfile&&<p className={styles.empty}>Este lead todavía no tiene Perfil comercial. Los templates segmentados aparecerán cuando lo clasifiques.</p>}
+    {!lead?.commercialProfile&&<p className={styles.empty}>Esta oportunidad todavía no tiene Perfil comercial. Los templates segmentados aparecerán cuando la clasifiques.</p>}
     {referenteWhatsapp&&<p className={styles.empty}>Para el perfil Referente los templates de primer contacto están disponibles únicamente por Email.</p>}
 
     {!interactionStarted&&<>
@@ -120,7 +120,7 @@ export const ContactTemplateDialog=({
         return <button key={template.id} type="button" disabled={!ready||!hasChannel} onClick={()=>channel==="whatsapp"?startWhatsapp(template):setSelectedEmailTemplate(template)} className={selectedEmailTemplate?.id===template.id?styles.selected:""}>
           <strong>{template.name}</strong>{channel==="email"&&template.subject?<em>{renderPlain(template.subject)}</em>:null}<span>{preview.slice(0,220)}{preview.length>220?"…":""}</span>
         </button>;
-      })}</div>:<p className={styles.empty}>No hay templates aplicables a este lead para este canal.</p>}
+      })}</div>:<p className={styles.empty}>No hay templates aplicables a esta oportunidad para este canal.</p>}
       {channel==="email"&&selectedEmailTemplate&&<div className={styles.emailPreview}>
         <div className={styles.previewHeader}><strong>Vista previa</strong><span>{renderPlain(selectedEmailTemplate.subject??"")}</span></div>
         <iframe className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderHtml(selectedEmailTemplate.body),senderName:sender,subject:renderPlain(selectedEmailTemplate.subject??"")||"Mensaje de Hospeda",vertical:lead?.tipo,commercialProfile:lead?.commercialProfile})}/>
