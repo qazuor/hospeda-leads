@@ -26,7 +26,7 @@ export async function handle(request:Request){
         .select(["key","value"])
         .where("key","in",["brevo_sender_name","brevo_sender_email","brevo_reply_to_email"])
         .execute(),
-      db.selectFrom("users").select("senderEmail").where("id","=",user.id).executeTakeFirst()
+      db.selectFrom("users").select(["senderEmail","fullName","displayName"]).where("id","=",user.id).executeTakeFirst()
     ]);
 
     if(!lead)return new Response(superjson.stringify({error:"El lead ya no existe o está en la papelera."}),{status:404});
@@ -44,6 +44,8 @@ export async function handle(request:Request){
     const apiKey=(process.env as Record<string,string|undefined>).BREVO_API_KEY;
     if(!apiKey)return new Response(superjson.stringify({error:"Brevo todavía no está conectado al CRM. Conectá BREVO_API_KEY y volvé a intentar."}),{status:503});
 
+    const templateSender=senderUser?.fullName?.trim()||user.fullName?.trim()||user.displayName;
+    const templateSenderShort=senderUser?.displayName||user.displayName;
     const context={
       name:lead.nombre,
       contact:lead.contactName,
@@ -54,20 +56,21 @@ export async function handle(request:Request){
       phone:lead.telefono,
       email:lead.email,
       website:lead.sitioWeb,
-      sender:user.displayName
+      sender:templateSender,
+      sender_short:templateSenderShort
     };
     const subject=renderMessageTemplate(template.subject??"",context).trim()||"Mensaje de Hospeda";
     const rendered=renderMessageTemplateHtml(template.body,context);
     const bodyText=htmlToPlainText(rendered);
     const htmlBody=buildHospedaEmailHtml({
       bodyHtml:rendered,
-      senderName:user.displayName,
+      senderName:templateSender,
       subject,
       vertical:lead.tipo,
       commercialProfile:lead.commercialProfile,
       logoUrl:(process.env.PUBLIC_APP_URL??"http://localhost:3001").replace(/\/$/,"")+"/hospeda-logo.jpg"
     });
-    const textBody=buildHospedaEmailText({bodyText,senderName:user.displayName});
+    const textBody=buildHospedaEmailText({bodyText,senderName:templateSender});
 
     const inserted=await db.insertInto("emailOutbox").values({
       leadId:String(lead.id),
