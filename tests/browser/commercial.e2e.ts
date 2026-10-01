@@ -30,6 +30,7 @@ test('account with two contacts and independent opportunities preserves lead and
   for(const [name,stage,person] of [['Primera venta','Cargado','Ana'],['Segunda venta','En tratativas','Luis']]){
     await page.getByRole('button',{name:'Nueva oportunidad',exact:true}).click();
     await page.getByLabel('Nombre de oportunidad').fill(name);
+    await page.getByLabel('Cierre estimado',{exact:true}).fill('2027-01-15');
     await page.getByRole('combobox',{name:'Vertical',exact:true}).selectOption({label:'Alojamiento'});
     await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:stage});
     await page.getByRole('combobox',{name:'Contacto principal de oportunidad',exact:true}).selectOption({label:person});
@@ -79,6 +80,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto(accountUrl);
   const row=page.locator('article').filter({has:page.getByRole('link',{name:/Primera venta · #/})});
   await row.getByRole('button',{name:'Editar oportunidad',exact:true}).click();
+  await expect(page.getByLabel('Cierre estimado',{exact:true})).toHaveValue('2027-01-15');
   await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:'1er contacto'});
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await expect(row.getByText(/1er contacto/)).toBeVisible();

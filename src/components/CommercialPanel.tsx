@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "./Button";
 import { CommercialEditor, type EditorTarget } from "./CommercialEditor";
 import { getCommercialDetail } from "../endpoints/commercial.schema";
-import { formatDate, journalValue } from "../helpers/crmDates";
+import { formatDate, journalValue, dateOnlyInput } from "../helpers/crmDates";
 import styles from "./Commercial.module.css";
 
 const actionLabels:Record<string,string>={account_created:"Cuenta creada",account_updated:"Cuenta editada",converted_to_client:"Convertida a cliente",contact_created:"Contacto creado",contact_updated:"Contacto editado",contact_deleted:"Contacto dado de baja",contact_primary_changed:"Principal reemplazado",created:"Creada",updated:"Editada",inline_updated:"Cambio rápido",bulk_updated:"Edición masiva",note_added:"Nota agregada",email_sent:"Email enviado",contact_logged:"Contacto registrado",soft_deleted:"Enviada a papelera",restored:"Restaurada",hard_deleted:"Eliminada definitivamente"};
@@ -14,7 +14,7 @@ const valueLabel=(key:string,value:unknown)=>{
   if(value==null||value==="")return "Vacío";
   if(typeof value==="boolean")return value?"Sí":"No";
   if(key==="commercialStatus")return value==="client"?"Cliente comercial":"Prospecto";
-  if(["clientSince","deletedAt","estimatedCloseDate"].includes(key))return formatDate(String(value),key!=="estimatedCloseDate");
+  if(["clientSince","deletedAt","estimatedCloseDate"].includes(key))return formatDate(key==="estimatedCloseDate"?dateOnlyInput(value):String(value),key!=="estimatedCloseDate");
   return typeof value==="object"?JSON.stringify(value):journalValue(key,value);
 };
 function auditDetail(metadata:unknown){
@@ -43,7 +43,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
     {!contacts.length&&<p>Sin personas identificadas. Los canales genéricos del negocio siguen disponibles.</p>}
     <div className={styles.rows}>{contacts.map(c=><article key={c.id}><div><strong>{c.name}{c.isPrimary?" · Principal":""}</strong><span>{[c.position,c.phone,c.email,c.preferredChannel].filter(Boolean).join(" · ")||"Sin canales cargados"}</span>{c.notes&&<p>{c.notes}</p>}</div>{!readOnly&&<div className={styles.actions}><Button size="sm" variant="ghost" onClick={()=>setEditor({kind:"contact",item:c})}>Editar</Button><Button size="sm" variant="ghost" onClick={()=>setEditor({kind:"delete_contact",item:c})}>Dar de baja</Button></div>}</article>)}</div>
     <div className={styles.heading}><h3>Oportunidades ({opportunities.length})</h3>{!readOnly&&<Button size="sm" onClick={()=>setEditor({kind:"opportunity"})}>Nueva oportunidad</Button>}</div>
-    <div className={styles.rows}>{opportunities.map(o=><article key={o.id}><div><Link to={"/?leadId="+o.id}><strong>{o.opportunityName||o.nombre} · #{o.id}</strong></Link><span>{[o.tipo,o.estado,o.serviceInterest,o.assignedUserEmail].filter(Boolean).join(" · ")||"Sin clasificación"}</span><span>Contacto: {contacts.find(c=>String(c.id)===String(o.primaryContactId))?.name||"Sin principal"}{o.estimatedCloseDate?" · Cierre: "+formatDate(o.estimatedCloseDate):""}</span></div>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"opportunity",item:o})}>Editar oportunidad</Button>}</article>)}</div>
+    <div className={styles.rows}>{opportunities.map(o=><article key={o.id}><div><Link to={"/?leadId="+o.id}><strong>{o.opportunityName||o.nombre} · #{o.id}</strong></Link><span>{[o.tipo,o.estado,o.serviceInterest,o.assignedUserEmail].filter(Boolean).join(" · ")||"Sin clasificación"}</span><span>Contacto: {contacts.find(c=>String(c.id)===String(o.primaryContactId))?.name||"Sin principal"}{o.estimatedCloseDate?" · Cierre: "+formatDate(dateOnlyInput(o.estimatedCloseDate)):""}</span></div>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"opportunity",item:o})}>Editar oportunidad</Button>}</article>)}</div>
     {!compact&&<><h3>Historial comercial</h3><p className={styles.muted}>Incluye oportunidades en papelera y contactos dados de baja. Últimos 200 eventos de cada historial.</p><div className={styles.history}>{history.map(h=><details key={h.id}><summary>{formatDate(h.date,true)} · {h.label} · {h.actor}</summary><pre>{h.detail}</pre></details>)}</div></>}
     {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onClose={()=>setEditor(null)}/>}
   </section>;

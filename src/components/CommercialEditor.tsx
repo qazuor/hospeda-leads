@@ -5,7 +5,7 @@ import { Button } from "./Button";
 import { getSettings } from "../endpoints/settings_GET.schema";
 import { saveCommercial, type Account, type Contact, type Opportunity, type CommercialDetail } from "../endpoints/commercial.schema";
 import { useAuth } from "../helpers/useAuth";
-import { toDateInput } from "../helpers/crmDates";
+import { dateOnlyInput } from "../helpers/crmDates";
 import styles from "./Commercial.module.css";
 
 export type EditorTarget={kind:"account";item?:Account}|{kind:"contact";item?:Contact}|{kind:"opportunity";item?:Opportunity}|{kind:"convert"}|{kind:"delete_contact";item:Contact};
@@ -24,7 +24,7 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
     const initial=Object.fromEntries(entries);
     if(target.kind==="opportunity"){
       initial.opportunityName=target.item?.opportunityName||target.item?.nombre||"";
-      initial.estimatedCloseDate=toDateInput(target.item?.estimatedCloseDate);
+      initial.estimatedCloseDate=dateOnlyInput(target.item?.estimatedCloseDate);
       initial.estado=target.item?.estado||detail?.stages[0]||"";
     }
     return initial;
