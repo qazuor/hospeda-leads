@@ -27,7 +27,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByRole('heading',{name:'Personas de contacto (2)',exact:true})).toBeVisible();
   await expect(page.getByText('Luis · Principal',{exact:true})).toBeVisible();
   await expect(page.getByText('Ana · Principal',{exact:true})).toHaveCount(0);
-  for(const [name,stage,person] of [['Primera venta','Cargado','Ana'],['Segunda venta','Interesado','Luis']]){
+  for(const [name,stage,person] of [['Primera venta','Cargado','Ana'],['Segunda venta','En tratativas','Luis']]){
     await page.getByRole('button',{name:'Nueva oportunidad',exact:true}).click();
     await page.getByLabel('Nombre de oportunidad').fill(name);
     await page.getByLabel('Vertical',{exact:true}).selectOption({label:'Alojamiento'});
@@ -67,10 +67,10 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto(accountUrl);
   const row=page.locator('article').filter({has:page.getByRole('link',{name:/Primera venta · #/})});
   await row.getByRole('button',{name:'Editar oportunidad',exact:true}).click();
-  await page.getByLabel('Estado / etapa').selectOption({label:'Contactado'});
+  await page.getByLabel('Estado / etapa').selectOption({label:'1er contacto'});
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
-  await expect(row.getByText(/Contactado/)).toBeVisible();
-  await expect(page.locator('article').filter({has:page.getByRole('link',{name:/Segunda venta · #/})}).getByText(/Interesado/)).toBeVisible();
+  await expect(row.getByText(/1er contacto/)).toBeVisible();
+  await expect(page.locator('article').filter({has:page.getByRole('link',{name:/Segunda venta · #/})}).getByText(/En tratativas/)).toBeVisible();
   const contact=page.locator('article').filter({has:page.getByText('Ana',{exact:true})});
   await contact.getByRole('button',{name:'Dar de baja',exact:true}).click();
   await page.getByRole('button',{name:'Confirmar baja',exact:true}).click();

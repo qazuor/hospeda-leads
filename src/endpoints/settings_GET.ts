@@ -1,3 +1,4 @@
+import { getOpportunityStages } from "../helpers/commercialStages";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -8,7 +9,7 @@ type StoredInvitation={userId:number;email:string;expiresAt:string};
 export async function handle(request:Request){
   try{
     await getServerUserSession(request);
-    const [cities,subtypes,authorizedEmails,users,passwordRows,templates,typesRows,emailSettings,invitationSettings]=await Promise.all([
+    const [cities,subtypes,authorizedEmails,users,passwordRows,templates,typesRows,emailSettings,invitationSettings,opportunityStages]=await Promise.all([
       db.selectFrom("crmCities").select(["id","name"]).where("active","=",true).orderBy("name").execute(),
       db.selectFrom("crmSubtypes").select(["id","typeName","name"]).where("active","=",true).orderBy("name").execute(),
       db.selectFrom("authorizedEmails").select(["id","email","displayName"]).where("active","=",true).orderBy("email").execute(),
@@ -19,7 +20,8 @@ export async function handle(request:Request){
       db.selectFrom("appSettings").select(["key","value"]).where("key","in",[
         "brevo_sender_name","brevo_sender_email","brevo_reply_to_email"
       ]).execute(),
-      db.selectFrom("appSettings").select(["key","value"]).where("key","like","user_invitation:%").execute()
+      db.selectFrom("appSettings").select(["key","value"]).where("key","like","user_invitation:%").execute(),
+      getOpportunityStages(db)
     ]);
 
     const emailConfig=Object.fromEntries(emailSettings.map(row=>[row.key,row.value]));
@@ -49,6 +51,7 @@ export async function handle(request:Request){
         replyToEmail:emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar",
         brevoConnected:!!(process.env as Record<string,string|undefined>).BREVO_API_KEY
       },
+      opportunityStages,
       types:typesRows.map(x=>x.name)
     };
     return new Response(superjson.stringify(out),{headers:{"Content-Type":"application/json"}});

@@ -9,6 +9,7 @@ import {handle as saveLead} from '../src/endpoints/leads_save_POST';
 import {handle as legacy} from '../src/endpoints/leads_POST';
 import {handle as contactLog} from '../src/endpoints/lead_contact_POST';
 import {handle as sendEmail} from '../src/endpoints/send_template_email_POST';
+import {handle as duplicates} from '../src/endpoints/leads_duplicates_GET';
 import {handle as getLeads} from '../src/endpoints/leads_GET';
 import type {CommercialDetail} from '../src/endpoints/commercial.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable test database');
@@ -80,5 +81,11 @@ try{
   const filterGroups=JSON.stringify([{rules:[{field:'id',operator:'eq',value:first}]}]);
   const listed=await getLeads(new Request('http://localhost/_api/leads?filterGroups='+encodeURIComponent(filterGroups),{headers:{cookie:user.value}}));
   assert.equal(listed.status,200);assert.equal(superjson.parse<{rows:any[]}>(await listed.text()).rows[0].id,first);
+  const duplicated=await duplicates(new Request('http://localhost/_api/leads_duplicates',{headers:{cookie:user.value}}));
+  assert.equal(duplicated.status,200);
+  const duplicateGroups=superjson.parse<{groups:{leads:{id:string}[]}[]}>(await duplicated.text()).groups;
+  assert(!duplicateGroups.some(g=>g.leads.some(l=>l.id===first)&&g.leads.some(l=>l.id===second)),'Related opportunities must not be duplicate businesses');
+  const searchResult=await getLeads(new Request('http://localhost/_api/leads?q=Segunda%20venta',{headers:{cookie:user.value}}));
+  assert.equal(searchResult.status,200);assert(superjson.parse<{rows:{id:string}[]}>(await searchResult.text()).rows.some(l=>l.id===second));
   console.log('Commercial integration: auth, admin-only owners, two contacts/opportunities, DB constraints, independent states, audited conversion, selected recipients, empty generic names, templates, soft deletion and legacy filters passed');
 }finally{await db.destroy()}

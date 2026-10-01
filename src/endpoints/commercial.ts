@@ -1,5 +1,6 @@
 import { z } from "zod";
 import superjson from "superjson";
+import { getOpportunityStages } from "../helpers/commercialStages";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { commercialQuery, commercialMutation } from "./commercial.schema";
@@ -22,17 +23,14 @@ export async function get(request:Request){
       accountId=String(lead.accountId);
     }
     if(accountId){
-      const [account,contacts,opportunities,journal,leadJournal,stagesRow,legacyStages]=await Promise.all([
+      const [account,contacts,opportunities,journal,leadJournal,stages]=await Promise.all([
         db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow(),
         db.selectFrom("crmContacts").selectAll().where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
         db.selectFrom("leads").selectAll().where("accountId","=",accountId).orderBy("createdAt","desc").execute(),
         db.selectFrom("crmCommercialJournal").selectAll().where("accountId","=",accountId).orderBy("createdAt","desc").limit(200).execute(),
         db.selectFrom("leadJournal").selectAll().where("accountId","=",accountId).orderBy("createdAt","desc").limit(200).execute(),
-        db.selectFrom("appSettings").select("value").where("key","=","crm_opportunity_stages").executeTakeFirst(),
-        db.selectFrom("leads").select("estado").distinct().where("estado","is not",null).execute()
+        getOpportunityStages(db)
       ]);
-      const stored=stagesRow?JSON.parse(stagesRow.value):[];
-      const stages=[...new Set<string>([...(Array.isArray(stored)?stored.filter(x=>typeof x==="string"):[]),...legacyStages.map(x=>x.estado!).filter(Boolean)])];
       return response({account,contacts,opportunities,journal,leadJournal,stages});
     }
     let query=db.selectFrom("crmAccounts");
@@ -108,9 +106,7 @@ export async function post(request:Request){
         if(!vertical)throw new Error("Vertical no disponible en Configuración.");
       }
       if(input.estado&&input.estado!==old?.estado){
-        const stage=await trx.selectFrom("appSettings").select("value").where("key","=","crm_opportunity_stages").executeTakeFirst();
-        const historic=await trx.selectFrom("leads").select("id").where("estado","=",input.estado).executeTakeFirst();
-        if(!historic&&!(stage&&JSON.parse(stage.value).includes(input.estado)))throw new Error("Etapa no disponible.");
+        if(!(await getOpportunityStages(trx)).includes(input.estado))throw new Error("Etapa no disponible.");
       }
       const fields={opportunityName:input.opportunityName,tipo:nullable(input.tipo),estado:nullable(input.estado),assignedUserEmail:input.assignedUserEmail===undefined?(old?.assignedUserEmail??null):nullable(input.assignedUserEmail),primaryContactId:input.primaryContactId??null,serviceInterest:nullable(input.serviceInterest),estimatedCloseDate:input.estimatedCloseDate?new Date(input.estimatedCloseDate+"T12:00:00Z"):null,updatedAt:new Date()};
       const row=old?await trx.updateTable("leads").set({...fields,...(old.tipo!==fields.tipo?{subtipo:null}:{})}).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("leads").values({...fields,accountId:input.accountId,nombre:account.nombre,creadoPor:user.displayName,quienCargo:user.displayName,fechaCreacion:new Date()}).returningAll().executeTakeFirstOrThrow();

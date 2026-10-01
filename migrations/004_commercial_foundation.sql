@@ -102,7 +102,7 @@ BEGIN
 END $$;
 CREATE TRIGGER crm_account_projection_sync AFTER UPDATE OF nombre,ciudad,telefono,email,sitio_web,url_gmap,perfil_instagram,perfil_facebook,perfil_airbnb,perfil_booking,perfil_turismo_entre_rios ON crm_accounts FOR EACH ROW EXECUTE FUNCTION crm_account_projection();
 
-INSERT INTO app_settings(key,value) VALUES('crm_opportunity_stages','["Cargado","Contactado","Interesado","Suscripto","No interesado"]') ON CONFLICT(key) DO NOTHING;
+INSERT INTO app_settings(key,value) VALUES('crm_opportunity_stages','["Cargado","Filtrado","1er contacto","En tratativas","Suscripto","Promocionado a Leandro","Rechazado","No interesado","Re contactar mas adelante"]') ON CONFLICT(key) DO NOTHING;
 -- Reuse the existing Live Mode function for the new commercial tables.
 
 CREATE TRIGGER crm_accounts_live_version AFTER INSERT OR UPDATE OR DELETE ON crm_accounts FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_version();

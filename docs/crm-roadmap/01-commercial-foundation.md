@@ -40,7 +40,7 @@ Mutaciones comerciales en transacciones. Bloqueo de cuenta serializa cambios de 
 índice único parcial impide dos principales activos y FK compuesta impide contacto de otra cuenta.
 Baja lógica de contactos conserva historial y limpia referencias de oportunidades, sin sustituciones.
 Conversión explícita registra actor, fecha y motivo: cliente comercial no acredita pago.
-Configuraciones de verticales y etapas se leen de DB (etapas existentes más catálogo DB).
+Configuraciones de verticales y etapas se leen de DB, tanto en leads como en oportunidades (etapas existentes más catálogo DB). El catálogo inicial conserva exactamente las etapas de la UI previa.
 Auditoría de cuenta/contactos guarda snapshots y se muestra junto al journal de oportunidades.
 
 ## Próximas fases
@@ -74,3 +74,5 @@ Historial de cuenta muestra los últimos 200 eventos de cada fuente; el journal 
 Referencias de implementación: [PostgreSQL 17 constraints](https://www.postgresql.org/docs/17/ddl-constraints.html),
 [Kysely transactions](https://kysely-org.github.io/kysely-apidoc/classes/Transaction.html).
 Deploy manual exclusivamente con workflow_dispatch; esta fase no ejecuta deploy.
+
+La tabla de leads muestra el nombre de oportunidad y negocio; la búsqueda libre incluye ambos. La detección de duplicados compara cuentas distintas, no oportunidades de la misma cuenta.

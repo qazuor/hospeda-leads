@@ -47,7 +47,6 @@ import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
 const QUERY_KEY=["leads"] as const;
-const STATUS_OPTIONS=["Cargado","Filtrado","1er contacto","En tratativas","Suscripto","Promocionado a Leandro","Rechazado","No interesado","Re contactar mas adelante"];
 const PRIORITY_OPTIONS=["alta","media","baja"];
 const PROFILE_OPTIONS=["Independiente","Consolidado","Referente"];
 const CONTACT_OPTIONS=["email","teléfono","WhatsApp","otro"];
@@ -416,6 +415,7 @@ export default function LeadsPage(){
   const total=leadsQ.data?.total??0;
   const stats=statsQ.data??{total:0,pendientes:0,suscriptos:0,vencidos:0,paraHoy:0,misPendientesHoy:0};
   const settings=settingsQ.data;
+  const STATUS_OPTIONS=settings?.opportunityStages??filters.estados;
   const cityOptions=settings?.cities.map(x=>x.name)??filters.ciudades;
   const typeOptions=settings?.types??filters.tipos;
   const peopleOptions=settings?.authorizedEmails.map(x=>x.displayName||x.email)??filters.asignados;
@@ -713,7 +713,7 @@ export default function LeadsPage(){
   };
 
   const renderCell=(l:any,key:string)=>{
-    if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.origen||"Sin origen"}</small></button>;
+    if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||l.nombre}</strong><small>{l.opportunityName?l.nombre+" · ":""}{l.origen||"Sin origen"}</small></button>;
     if(key==="id")return String(l.id);
     if(key==="ciudad")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
     if(key==="tipo")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;

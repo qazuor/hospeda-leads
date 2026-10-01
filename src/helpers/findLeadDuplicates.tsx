@@ -19,7 +19,8 @@ export async function findLeadDuplicates(input: {
   const found = new Map<string, DuplicateCandidate>();
   const add = (row: any, reason: string) => {
     const id = String(row.id);
-    const existing = found.get(id) ?? {
+    const accountKey=String(row.accountId??row.id);
+    const existing = found.get(accountKey) ?? {
       id,
       nombre: row.nombre,
       ciudad: row.ciudad,
@@ -28,15 +29,16 @@ export async function findLeadDuplicates(input: {
       reasons: [] as string[],
     };
     if (!existing.reasons.includes(reason)) existing.reasons.push(reason);
-    found.set(id, existing);
+    found.set(accountKey, existing);
   };
 
   const byName = await db
     .selectFrom("leads")
-    .select(["id","nombre","ciudad","telefono","email"])
+    .select(["id","accountId","nombre","ciudad","telefono","email"])
     .where("deletedAt","is",null)
     .where(sql<string>`lower(trim(nombre))`, "=", input.nombre.trim().toLowerCase())
     .where(sql<string>`lower(coalesce(ciudad,''))`, "=", (input.ciudad ?? "").trim().toLowerCase())
+    .distinctOn("accountId").orderBy("accountId").orderBy("id")
     .limit(10)
     .execute();
   byName.forEach((row) => add(row, "Mismo nombre y ciudad"));
@@ -44,10 +46,11 @@ export async function findLeadDuplicates(input: {
   if (input.email?.trim()) {
     const byEmail = await db
       .selectFrom("leads")
-      .select(["id","nombre","ciudad","telefono","email"])
+      .select(["id","accountId","nombre","ciudad","telefono","email"])
       .where("deletedAt","is",null)
       .where(sql<string>`lower(trim(coalesce(email,'')))`, "=", input.email.trim().toLowerCase())
-      .limit(10)
+      .distinctOn("accountId").orderBy("accountId").orderBy("id")
+    .limit(10)
       .execute();
     byEmail.forEach((row) => add(row, "Mismo email"));
   }
@@ -56,10 +59,11 @@ export async function findLeadDuplicates(input: {
   if (phone.length >= 6) {
     const byPhone = await db
       .selectFrom("leads")
-      .select(["id","nombre","ciudad","telefono","email"])
+      .select(["id","accountId","nombre","ciudad","telefono","email"])
       .where("deletedAt","is",null)
       .where(sql<string>`regexp_replace(coalesce(telefono,''), '\\D', '', 'g')`, "=", phone)
-      .limit(10)
+      .distinctOn("accountId").orderBy("accountId").orderBy("id")
+    .limit(10)
       .execute();
     byPhone.forEach((row) => add(row, "Mismo teléfono"));
   }

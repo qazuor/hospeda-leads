@@ -12,6 +12,7 @@ export async function handle(request: Request) {
     let query=db.selectFrom("leads").where("deletedAt","is",null);
     if(input.q){const s="%"+input.q.toLowerCase()+"%";query=query.where(eb=>eb.or([
       eb(sql<string>`lower(nombre)`,"like",s),
+      eb(sql<string>`lower(coalesce(opportunity_name,''))`,"like",s),
       eb(sql<string>`lower(coalesce(contact_name,''))`,"like",s),
       eb(sql<string>`lower(coalesce(email,''))`,"like",s),
       eb(sql<string>`lower(coalesce(telefono,''))`,"like",s),
