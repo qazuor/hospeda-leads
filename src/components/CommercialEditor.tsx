@@ -12,7 +12,7 @@ export type EditorTarget={kind:"account";item?:Account}|{kind:"contact";item?:Co
 const accountFields=[['nombre','Negocio'],['ciudad','Ciudad'],['telefono','Teléfono genérico'],['email','Email genérico'],['sitioWeb','Sitio web'],['urlGmap','Google Maps'],['perfilInstagram','Instagram'],['perfilFacebook','Facebook'],['perfilAirbnb','Airbnb'],['perfilBooking','Booking'],['perfilTurismoEntreRios','Turismo Entre Ríos']];
 const contactFields=[['name','Nombre de la persona'],['position','Cargo'],['phone','Teléfono'],['email','Email'],['preferredChannel','Canal preferido'],['notes','Notas']];
 const opportunityFields=[['opportunityName','Nombre de oportunidad'],['serviceInterest','Servicio de interés'],['estimatedCloseDate','Cierre estimado']];
-const titles={account:"Cuenta / negocio",contact:"Persona de contacto",opportunity:"Oportunidad comercial",convert:"Convertir a cliente",delete_contact:"Dar de baja al contacto"};
+const titles={account:"Datos del negocio",contact:"Persona de contacto",opportunity:"Oportunidad comercial",convert:"Convertir a cliente",delete_contact:"Dar de baja al contacto"};
 export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorTarget;detail?:CommercialDetail;onClose:()=>void;onSaved?:(id:string)=>void}){
   const {authState}=useAuth();
   const admin=authState.type==="authenticated"&&authState.user.role==="admin";
@@ -50,15 +50,18 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
     }catch(e){setError(e instanceof Error?e.message:"Datos inválidos")}
   };
   return <Dialog open onOpenChange={open=>{if(!open&&!mutation.isPending)onClose()}}><DialogContent className={styles.editor}>
-    <DialogTitle>{titles[target.kind]}</DialogTitle><DialogDescription>{target.kind==="convert"?"Esta condición comercial no acredita ningún pago. El historial se conserva.":target.kind==="delete_contact"?"Conservaremos el historial. Se quitará como contacto principal de las oportunidades.":target.kind==="account"?"Los datos generales se comparten con todas las oportunidades de esta cuenta. Los cambios quedan registrados.":"Los cambios importantes quedan registrados en el historial."}</DialogDescription>
+    <DialogTitle>{titles[target.kind]}</DialogTitle><DialogDescription>{target.kind==="convert"?"Esta condición comercial no acredita ningún pago. El historial se conserva.":target.kind==="delete_contact"?"Conservaremos el historial. Se quitará como contacto principal de las oportunidades.":target.kind==="account"?"Los datos generales se comparten con todas las oportunidades de esta cuenta. Los cambios quedan registrados.":target.kind==="opportunity"?"Una oportunidad es una venta o contratación concreta. Su etapa, responsable y seguimiento son independientes de las otras ventas del negocio.":"Cada persona tiene sus propios datos. Los teléfonos y emails genéricos del negocio se editan por separado."}</DialogDescription>
     <form onSubmit={submit} className={styles.form}>
-      {(target.kind==="account"?accountFields:target.kind==="contact"?contactFields:target.kind==="opportunity"?opportunityFields:[]).map(([key,label])=>field(key,label))}
+      {(target.kind==="account"?accountFields:target.kind==="contact"?contactFields:target.kind==="opportunity"?opportunityFields:[]).map(([key,label])=>key==="position"||key==="preferredChannel"?select(key,label,(key==="position"?settings.data?.contactPositions:settings.data?.contactChannels)?.map(value=>({value,label:value}))??[]):field(key,label))}
       {target.kind==="contact"&&<label className={styles.checkbox}><input type="checkbox" checked={primary} onChange={e=>setPrimary(e.target.checked)}/>Principal de la cuenta (reemplaza al anterior)</label>}
       {target.kind==="opportunity"&&<>
         {select("tipo","Vertical",(settings.data?.types??[]).map(value=>({value,label:value})))}
         {select("estado","Estado / etapa",(detail?.stages??[]).map(value=>({value,label:value})))}
         {select("primaryContactId","Contacto principal de oportunidad",(detail?.contacts??[]).filter(c=>!c.deletedAt).map(c=>({value:String(c.id),label:c.name})))}
       </>}
+      {target.kind==="contact"&&<p className={styles.muted}>Cargo indica el rol de esta persona. Canal preferido registra su preferencia; no envía mensajes automáticamente. Marcar Principal reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada oportunidad.</p>}
+      {target.kind==="opportunity"&&<p className={styles.muted}>Usá un nombre concreto, por ejemplo “Publicación de cabañas”. Servicio de interés describe lo que ofrecés; cierre estimado es una previsión opcional, no una fecha de cobro.</p>}
+      {(target.kind==="account"||target.kind==="opportunity")&&<p className={styles.muted}>El responsable del negocio coordina esa relación; el de la oportunidad gestiona esa venta. Pueden ser distintos. Solo un administrador puede cambiarlos.</p>}
       {admin&&(target.kind==="account"||target.kind==="opportunity")&&select("assignedUserEmail","Responsable",(settings.data?.users??[]).map(u=>({value:u.email,label:u.displayName})))}
       {target.kind==="convert"&&field("reason","Motivo de conversión")}
       {target.kind==="delete_contact"&&<p>{target.item.name}</p>}

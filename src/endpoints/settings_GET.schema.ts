@@ -25,6 +25,8 @@ export type SettingsOutput = {
     replyToEmail:string;
     brevoConnected:boolean;
   };
+  contactPositions:string[];
+  contactChannels:string[];
   opportunityStages:string[];
   types:string[];
 };

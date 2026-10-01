@@ -857,7 +857,7 @@ export default function LeadsPage(){
                 </div>
                 <div className={styles.editMetaLine}>
                   <DialogDescription className={styles.editDescription}>
-                    {form.id?"Editá la información comercial y de contacto.":"Completá los datos principales para crear el lead."}
+                    {form.id?"Editá la etapa y seguimiento de esta oportunidad. Los datos del negocio se comparten; las personas se gestionan desde el detalle.":"Completá los datos principales para crear el lead."}
                   </DialogDescription>
                   <div className={styles.editSecondaryBadges}>
                     {form.commercialProfile&&<ValueBadge value={str(form.commercialProfile)} category="profile"/>}
@@ -898,12 +898,12 @@ export default function LeadsPage(){
             <section className={styles.editSection}>
               <div className={styles.editSectionHeader}>
                 <div className={styles.editSectionIcon}><UserRound size={17}/></div>
-                <div><h3>Contacto</h3><p>Datos de la persona y canal preferido para comunicarnos.</p></div>
+                <div><h3>Canales del negocio</h3><p>{form.id?"Teléfono y email genéricos, compartidos por las oportunidades. Editá las personas desde el detalle del lead.":"Canales generales y, si la conocés, la primera persona de contacto."}</p></div>
               </div>
               <div className={styles.editGrid}>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Persona de contacto</span><Input value={str(form.contactName)} onChange={e=>set("contactName",e.target.value)} placeholder="Ej: Leandro Asrilevich"/></label>
-                <label className={styles.editField}><span>Teléfono</span><Input value={str(form.telefono)} onChange={e=>set("telefono",e.target.value)}/></label>
-                <label className={styles.editField}><span>Email</span><Input type="email" value={str(form.email)} onChange={e=>set("email",e.target.value)}/></label>
+                {!form.id&&<label className={styles.editField+" "+styles.editSpan2}><span>Persona de contacto</span><Input value={str(form.contactName)} onChange={e=>set("contactName",e.target.value)} placeholder="Ej: Leandro Asrilevich"/></label>}
+                <label className={styles.editField}><span>Teléfono genérico</span><Input value={str(form.telefono)} onChange={e=>set("telefono",e.target.value)}/></label>
+                <label className={styles.editField}><span>Email genérico</span><Input type="email" value={str(form.email)} onChange={e=>set("email",e.target.value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Medio preferido</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>
               </div>
             </section>

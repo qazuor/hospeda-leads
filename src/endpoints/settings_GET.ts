@@ -18,7 +18,7 @@ export async function handle(request:Request){
       db.selectFrom("messageTemplates").select(["id","channel","name","subject","body","vertical","commercialProfile"]).where("active","=",true).orderBy("vertical").orderBy("commercialProfile").orderBy("channel").orderBy("name").execute(),
       db.selectFrom("crmVerticals").select("name").where("active","=",true).orderBy("sortOrder").orderBy("name").execute(),
       db.selectFrom("appSettings").select(["key","value"]).where("key","in",[
-        "brevo_sender_name","brevo_sender_email","brevo_reply_to_email"
+        "brevo_sender_name","brevo_sender_email","brevo_reply_to_email","crm_contact_positions","crm_contact_channels"
       ]).execute(),
       db.selectFrom("appSettings").select(["key","value"]).where("key","like","user_invitation:%").execute(),
       getOpportunityStages(db)
@@ -51,6 +51,8 @@ export async function handle(request:Request){
         replyToEmail:emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar",
         brevoConnected:!!(process.env as Record<string,string|undefined>).BREVO_API_KEY
       },
+      contactPositions:JSON.parse(emailConfig.crm_contact_positions||"[]"),
+      contactChannels:JSON.parse(emailConfig.crm_contact_channels||"[]"),
       opportunityStages,
       types:typesRows.map(x=>x.name)
     };
