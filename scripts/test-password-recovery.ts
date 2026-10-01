@@ -1,0 +1,53 @@
+import assert from "node:assert/strict";
+import {createHash} from "node:crypto";
+import {sql} from "kysely";
+import superjson from "superjson";
+import {db} from "../src/helpers/db";
+import {generatePasswordHash} from "../src/helpers/generatePasswordHash";
+import {request,reset} from "../src/endpoints/auth/password_recovery";
+import {handle as login} from "../src/endpoints/auth/login_with_password_POST";
+assert.equal(process.env.CRM_TEST_DATABASE,"1","Use disposable test database");
+process.env.PUBLIC_APP_URL="https://crm.example.com";process.env.BREVO_API_KEY="mock";
+const email=`recovery-${Date.now()}@example.com`;
+const realFetch=globalThis.fetch;const messages:any[]=[];
+globalThis.fetch=async(_url,options)=>{messages.push(JSON.parse(String(options?.body)));return new Response("{}",{status:201});};
+const req=(body:unknown)=>new Request("https://crm.example.com",{method:"POST",body:superjson.stringify(body)});
+const tokenFrom=(message:any)=>new URL(message.textContent.match(/https:\/\/\S+/)[0]).hash.slice(7);
+async function flush(){for(let i=0;i<100&&!messages.length;i++)await new Promise(r=>setTimeout(r,10));assert.equal(messages.length,1);}
+try{
+const user=await db.insertInto("users").values({email,displayName:"Recovery",role:"user"}).returningAll().executeTakeFirstOrThrow();
+await db.insertInto("authorizedEmails").values({email,active:true}).execute();
+await db.insertInto("userPasswords").values({userId:user.id,passwordHash:await generatePasswordHash("old-password-123")}).execute();
+const response=await request(req({email:email.toUpperCase()}));await flush();
+assert.equal(response.status,200);
+assert.equal(await (await request(req({email:"unknown@example.com"}))).text(),await response.text());
+await request(req({email}));assert.equal(messages.length,1,"cooldown prevents duplicate emails");
+const token=tokenFrom(messages[0]);assert.equal(token.length,64);
+const rows=await sql<{tokenHash:string}>`SELECT token_hash FROM password_reset_tokens WHERE user_id=${user.id}`.execute(db);
+assert.equal(rows.rows[0].tokenHash,createHash("sha256").update(token).digest("hex"));assert.notEqual(rows.rows[0].tokenHash,token);
+await db.insertInto("sessions").values({id:"recovery-session",userId:user.id,expiresAt:new Date(Date.now()+3600000)}).execute();
+await db.insertInto("loginAttempts").values({email,success:false}).execute();
+assert.equal((await reset(req({token,password:"new-password-123",confirmation:"wrong"}))).status,400);
+await db.updateTable("authorizedEmails").set({active:false}).where("email","=",email).execute();
+assert.equal((await reset(req({token,password:"new-password-123",confirmation:"new-password-123"}))).status,400);
+await db.updateTable("authorizedEmails").set({active:true}).where("email","=",email).execute();
+const results=await Promise.all([reset(req({token,password:"new-password-123",confirmation:"new-password-123"})),reset(req({token,password:"new-password-123",confirmation:"new-password-123"}))]);
+assert.deepEqual(results.map(r=>r.status).sort(),[200,400],"token consumed atomically");
+assert.equal((await db.selectFrom("sessions").selectAll().where("userId","=",user.id).execute()).length,0);
+assert.equal((await db.selectFrom("loginAttempts").selectAll().where("email","=",email).execute()).length,0);
+assert.equal((await login(req({email,password:"old-password-123"}))).status,401);
+assert.equal((await login(req({email,password:"new-password-123"}))).status,200);
+assert.equal((await reset(req({token,password:"new-password-123",confirmation:"new-password-123"}))).status,400);
+await sql`INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(${createHash("sha256").update(token).digest("hex")},${user.id},now()-interval '1 minute')`.execute(db);
+assert.equal((await reset(req({token,password:"new-password-123",confirmation:"new-password-123"}))).status,400,"expired token rejected");
+await sql`DELETE FROM password_reset_requests WHERE email_hash=${createHash("sha256").update(email).digest("hex")}`.execute(db);
+await db.updateTable("authorizedEmails").set({active:false}).where("email","=",email).execute();
+await request(req({email}));assert.equal(messages.length,1,"disabled account gets no email");
+await sql`DELETE FROM password_reset_requests WHERE email_hash=${createHash("sha256").update(email).digest("hex")}`.execute(db);
+await db.updateTable("authorizedEmails").set({active:true}).where("email","=",email).execute();
+globalThis.fetch=async()=>new Response("{}",{status:500});
+await request(req({email}));
+for(let i=0;i<100;i++){const pending=await sql`SELECT token_hash FROM password_reset_tokens WHERE user_id=${user.id} AND expires_at>now()`.execute(db);if(!pending.rows.length)break;await new Promise(r=>setTimeout(r,10));}
+assert.equal((await sql`SELECT token_hash FROM password_reset_tokens WHERE user_id=${user.id} AND expires_at>now()`.execute(db)).rows.length,0,"delivery failure removes the new token");
+console.log("Password recovery: generic replies, cooldown, hashing, validation, permissions, expiry, concurrency, session revocation and login passed");
+}finally{globalThis.fetch=realFetch;await db.destroy();}

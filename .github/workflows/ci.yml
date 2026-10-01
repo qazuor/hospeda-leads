@@ -50,6 +50,10 @@ jobs:
         run: npm run test:pipeline
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Password recovery integration tests
+        run: npm run test:auth
+        env:
+          CRM_TEST_DATABASE: "1"
       - run: npm run build
       - name: Start server
         run: |

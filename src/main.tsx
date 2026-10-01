@@ -1,3 +1,4 @@
+import PasswordRecoveryPage from "./pages/password-recovery";
 import ReactivationPage from "./pages/reactivation";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -29,6 +30,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <GlobalContextProviders>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
+          <Route path="/reset-password" element={<PasswordRecoveryPage reset />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
           <Route path="/opportunities" element={<UserRoute><LeadsPage key="opportunity" /></UserRoute>} />

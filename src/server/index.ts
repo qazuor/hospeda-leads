@@ -1,3 +1,4 @@
+import {request as passwordRecoveryRequest,reset as passwordRecoveryReset} from "../endpoints/auth/password_recovery";
 import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
@@ -41,6 +42,8 @@ import { get as commercialGET, post as commercialPOST } from "../endpoints/comme
 import {get as workGET,post as workPOST} from "../endpoints/work";
 
 const app=new Hono();
+app.post("/_api/auth/password_recovery/request",c=>passwordRecoveryRequest(c.req.raw));
+app.post("/_api/auth/password_recovery/reset",c=>passwordRecoveryReset(c.req.raw));
 app.get("/_api/pipeline",c=>pipelineGET(c.req.raw));
 app.post("/_api/pipeline",c=>pipelinePOST(c.req.raw));
 app.get("/_api/work",c=>workGET(c.req.raw));
