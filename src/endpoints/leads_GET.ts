@@ -1,3 +1,4 @@
+import {localDay,argentinaInstant} from "../helpers/workDates";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -97,8 +98,8 @@ export async function handle(request: Request) {
       const field=filter.field;
       if(filter.presence==="with")query=query.where(field,"is not",null);
       if(filter.presence==="without")query=query.where(field,"is",null);
-      if(filter.presence!=="without"&&filter.from)query=query.where(field,">=",new Date(filter.from+"T00:00:00"));
-      if(filter.presence!=="without"&&filter.to)query=query.where(field,"<=",new Date(filter.to+"T23:59:59.999"));
+      if(filter.presence!=="without"&&filter.from)query=query.where(field,">=",(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(field)?new Date(filter.from+"T00:00:00Z"):argentinaInstant(filter.from+"T00:00")));
+      if(filter.presence!=="without"&&filter.to)query=query.where(field,"<=",(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(field)?new Date(filter.to+"T23:59:59.999Z"):new Date(argentinaInstant(filter.to+"T23:59").getTime()+59999)));
     }
     if(input.idExact?.trim())query=query.where("id","=",input.idExact.trim());
     if(input.idMin?.trim())query=query.where("id",">=",input.idMin.trim());
@@ -187,13 +188,13 @@ export async function handle(request: Request) {
             if(rule.operator==="empty")return eb(field,"is",null);
             if(rule.operator==="not_empty")return eb(field,"is not",null);
             if(value){
-              const start=new Date(value+"T00:00:00");
-              const end=new Date(value+"T23:59:59.999");
+              const start=(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(field)?new Date(value+"T00:00:00Z"):argentinaInstant(value+"T00:00"));
+              const end=(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(field)?new Date(value+"T23:59:59.999Z"):new Date(argentinaInstant(value+"T23:59").getTime()+59999));
               if(rule.operator==="on")return eb.and([eb(field,">=",start),eb(field,"<=",end)]);
               if(rule.operator==="before")return eb(field,"<",start);
               if(rule.operator==="after")return eb(field,">",end);
               if(rule.operator==="between"&&value2){
-                return eb.and([eb(field,">=",start),eb(field,"<=",new Date(value2+"T23:59:59.999"))]);
+                return eb.and([eb(field,">=",start),eb(field,"<=",(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(field)?new Date(value2+"T23:59:59.999Z"):new Date(argentinaInstant(value2+"T23:59").getTime()+59999)))]);
               }
             }
           }
@@ -223,7 +224,7 @@ export async function handle(request: Request) {
     }
     if(input.nextAction==="with") query=query.where("fechaProximaAccion","is not",null);
     if(input.nextAction==="without") query=query.where("fechaProximaAccion","is",null);
-    if(input.nextAction==="overdue") query=query.where("fechaProximaAccion","<",new Date());
+    if(input.nextAction==="overdue") query=query.where("fechaProximaAccion","<",new Date(localDay()+"T00:00:00Z"));
     const count=await query.select(({fn})=>(input.entity==="business"?fn.count<string>("accountId").distinct():fn.countAll<string>()).as("count")).executeTakeFirstOrThrow();
     const sortBy=input.sortBy??"fechaCreacion";
     const sortDir=input.sortDir??"desc";

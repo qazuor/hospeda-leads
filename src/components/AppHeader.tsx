@@ -28,6 +28,8 @@ export const AppHeader=()=>{
     <nav>
       <Link to="/accounts" className={location.pathname.startsWith("/accounts")?styles.active:""}>Negocios</Link>
       <Link to="/opportunities" title="Seguimiento de todas las oportunidades" className={location.pathname==="/opportunities"?styles.active:""}><ListFilter size={16}/>Seguimiento</Link>
+      <Link to="/my-day" className={location.pathname==="/my-day"?styles.active:""}>Mi día</Link>
+      <Link to="/agenda" className={location.pathname==="/agenda"?styles.active:""}>Agenda</Link>
       {isAdmin&&<Link to="/analytics" className={location.pathname==="/analytics"?styles.active:""}><BarChart3 size={16}/>Estadísticas</Link>}
       {isAdmin&&<DropdownMenu>
         <DropdownMenuTrigger asChild>

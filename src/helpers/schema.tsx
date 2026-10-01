@@ -118,6 +118,9 @@ export interface LeadNotes {
 }
 
 export interface Leads {
+  assignedAt:Timestamp|null;
+  contactBaselineDate:Timestamp|null;
+  contactBaselineResult:string|null;
   accountId: Generated<Int8>;
   opportunityName: string | null;
   primaryContactId: Int8 | null;
@@ -258,7 +261,29 @@ export interface CrmCommercialJournal {
   metadata: Generated<Json>;
   createdAt: Generated<Timestamp>;
 }
+export interface CrmWorkTypes { id:string; name:string; agenda:Generated<boolean>; active:Generated<boolean>; }
+export interface CrmTasks {
+ id:Generated<Int8>; accountId:Int8; leadId:Int8|null; title:string; description:string|null;
+ participants:Generated<string>; contactIds:Generated<Json>; typeId:string; assignedUserEmail:string|null; dueDate:ColumnType<Date,string,string>; dueAt:Timestamp|null;
+ priority:Generated<"alta"|"media"|"baja">; status:Generated<"pending"|"completed"|"cancelled">;
+ result:string|null; completedAt:Timestamp|null; legacy:Generated<boolean>; deletedAt:Timestamp|null;
+ createdAt:Generated<Timestamp>; updatedAt:Generated<Timestamp>;
+}
+export interface CrmActivities {
+ id:Generated<Int8>; accountId:Int8; leadId:Int8|null; taskId:Int8|null; typeId:string; title:string;
+ occurredAt:Timestamp; participants:Generated<string>; contactIds:Generated<Json>; channel:string|null;
+ result:string|null; notes:string|null; actorEmail:string|null; deletedAt:Timestamp|null;
+ createdAt:Generated<Timestamp>; updatedAt:Generated<Timestamp>;
+}
+export interface CrmWorkJournal {
+ id:Generated<Int8>; accountId:Int8; entity:string; entityId:Int8; actorEmail:string|null;
+ action:string; beforeValue:Json|null; afterValue:Json|null; createdAt:Generated<Timestamp>;
+}
 export interface DB {
+  crmWorkTypes:CrmWorkTypes;
+  crmTasks:CrmTasks;
+  crmActivities:CrmActivities;
+  crmWorkJournal:CrmWorkJournal;
   crmAccounts: CrmAccounts;
   crmContacts: CrmContacts;
   crmCommercialJournal: CrmCommercialJournal;

@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
 import { AdminRoute, UserRoute } from "./components/ProtectedRoute";
+import MyDayPage from "./pages/my-day";
 import AccountsPage from "./pages/accounts";
 import LeadsPage from "./pages/_index";
 import AnalyticsPage from "./pages/analytics";
@@ -32,6 +33,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/opportunities" element={<UserRoute><LeadsPage key="opportunity" /></UserRoute>} />
           <Route path="/accounts" element={<UserRoute><LeadsPage key="business" businessMode /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
+          <Route path="/my-day" element={<UserRoute><MyDayPage key="day"/></UserRoute>} />
+          <Route path="/agenda" element={<UserRoute><MyDayPage key="agenda" agenda/></UserRoute>} />
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />

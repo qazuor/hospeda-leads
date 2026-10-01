@@ -580,6 +580,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     const leadId=urlParams.get("leadId");
     if(!leadId||!leads.length)return;
     const target=leads.find(item=>String(item.id)===leadId);
+    if(target&&urlParams.get("contact")==="whatsapp"){setContactLead(target);setContactChannel("whatsapp");setContactOpen(true);setUrlParams({}, {replace:true});return;}
     if(target){setSelectedLead(target);setLastTouchedId(leadId);setViewOpen(true);setUrlParams({}, {replace:true})}
   },[leads,urlParams]);
 

@@ -1,3 +1,4 @@
+import {setWorkActor} from "../helpers/workAudit";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -14,7 +15,7 @@ export async function handle(request: Request) {
     }
     const dateFields=["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"];
     const normalizedValue=dateFields.includes(input.field)
-      ? (input.value ? new Date(input.value+"T12:00:00") : null)
+      ? (input.value ? new Date(input.value+"T12:00:00Z") : null)
       : input.value;
     const values = input.field==="tipo"
       ? { tipo: input.value, subtipo: null, updatedAt: new Date() }
@@ -22,6 +23,7 @@ export async function handle(request: Request) {
         ? { assignedUserEmail: input.value, asignadoA: null, updatedAt: new Date() }
         : { [input.field]: normalizedValue, updatedAt: new Date() };
     await db.transaction().execute(async trx=>{
+      await setWorkActor(trx,user);
       if(input.accountId){
         const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:{};
         await updateBusinessFields(trx,[input.accountId],fields,user);

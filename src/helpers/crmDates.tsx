@@ -1,26 +1,25 @@
+import {localDay,calendarDay,CRM_TIME_ZONE} from "./workDates";
 const parseDate=(value:unknown):Date|null=>{
   if(!value)return null;
   if(value instanceof Date)return Number.isNaN(value.getTime())?null:value;
   const raw=String(value);
-  const d=/^\d{4}-\d{2}-\d{2}$/.test(raw)?new Date(raw+"T12:00:00"):new Date(raw);
+  const d=/^\d{4}-\d{2}-\d{2}$/.test(raw)?new Date(raw+"T12:00:00Z"):new Date(raw);
   return Number.isNaN(d.getTime())?null:d;
 };
-const dayStart=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
-const dayDiff=(a:Date,b:Date)=>Math.round((dayStart(a).getTime()-dayStart(b).getTime())/86400000);
+const dayDiff=(a:Date,b:Date)=>Math.round((Date.parse(calendarDay(a))-Date.parse(localDay(b)))/86400000);
 
 export const toDateInput=(value:unknown)=>{
   const d=parseDate(value);
   if(!d)return "";
-  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
+  return calendarDay(d);
 };
 
 export const formatDate=(value:unknown,withTime=false)=>{
   const d=parseDate(value);
   if(!d)return "Vacío";
   return withTime
-    ? d.toLocaleString("es-AR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})
-    : d.toLocaleDateString("es-AR",{day:"numeric",month:"short",year:"numeric"});
+    ? d.toLocaleString("es-AR",{day:"numeric",month:"short",year:"numeric",timeZone:CRM_TIME_ZONE,hour:"2-digit",minute:"2-digit"})
+    : d.toLocaleDateString("es-AR",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});
 };
 
 export type NextActionTone="empty"|"overdue"|"today"|"soon"|"future";
@@ -28,7 +27,7 @@ export const nextActionInfo=(value:unknown)=>{
   const d=parseDate(value);
   if(!d)return {label:"Sin próxima acción",tone:"empty" as NextActionTone,title:"Sin fecha"};
   const diff=dayDiff(d,new Date());
-  const dateLabel=d.toLocaleDateString("es-AR",{weekday:"short",day:"numeric",month:"short"});
+  const dateLabel=d.toLocaleDateString("es-AR",{timeZone:"UTC",weekday:"short",day:"numeric",month:"short"});
   if(diff<0){
     const days=Math.abs(diff);
     return {label:days===1?"Vencida ayer":`Vencida hace ${days} días`,tone:"overdue" as NextActionTone,title:formatDate(d)};

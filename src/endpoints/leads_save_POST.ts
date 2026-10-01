@@ -1,3 +1,4 @@
+import {setWorkActor} from "../helpers/workAudit";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -5,7 +6,7 @@ import { schema, type OutputType } from "./leads_save_POST.schema";
 import { findLeadDuplicates } from "../helpers/findLeadDuplicates";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 
-const dateOrNull = (value?: string | null) => value ? new Date(value + "T12:00:00") : null;
+const dateOrNull = (value?: string | null) => value ? new Date(value + "T12:00:00Z") : null;
 const comparable=(value:unknown)=>{
   if(value===null||value===undefined)return "";
   if(value instanceof Date)return value.toISOString();
@@ -27,6 +28,7 @@ export async function handle(request: Request) {
     }
 
     const id=await db.transaction().execute(async trx=>{
+      await setWorkActor(trx,user);
       const existing=input.id
         ? await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).forUpdate().executeTakeFirst()
         : undefined;
@@ -70,7 +72,7 @@ export async function handle(request: Request) {
         medioContactoPreferido: input.medioContactoPreferido ?? null,
         resultadoUltimoContacto: input.resultadoUltimoContacto ?? null,
         prioridad: input.prioridad ?? null,
-        fechaProximaAccion: dateOrNull(input.fechaProximaAccion),
+        ...(input.fechaProximaAccion!==undefined?{fechaProximaAccion:dateOrNull(input.fechaProximaAccion)}:{}),
         fuenteReferencia: input.fuenteReferencia ?? null,
         clientePotencialRecurrente: input.clientePotencialRecurrente ?? false,
         archivoAdjunto: input.archivoAdjunto ?? null,

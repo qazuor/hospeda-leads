@@ -1,3 +1,4 @@
+import {setWorkActor} from "../helpers/workAudit";
 import { resolveCommercialContact } from "../helpers/commercialContact";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -141,6 +142,7 @@ export async function handle(request:Request){
     if(!messageId)messageId="brevo-accepted-"+outboxId;
 
     await db.transaction().execute(async trx=>{
+      await setWorkActor(trx,user);
       await trx.updateTable("emailOutbox").set({
         status:"sent",
         attempts:1,
@@ -149,6 +151,7 @@ export async function handle(request:Request){
         sentAt:new Date(),
         updatedAt:new Date()
       }).where("id","=",outboxId!).execute();
+      const activity=await trx.insertInto("crmActivities").values({accountId:lead.accountId,leadId:lead.id,typeId:"message",title:"Email enviado: "+template.name,occurredAt:new Date(),channel:"email",result:"Aceptado por Brevo",participants:contact.name||"",contactIds:contact.contactId?[String(contact.contactId)]:[],actorEmail:user.email}).returning("id").executeTakeFirstOrThrow();
       await writeLeadJournal(trx,{
         leadId:String(lead.id),
         leadName:lead.nombre,
@@ -157,6 +160,7 @@ export async function handle(request:Request){
         actor:{id:user.id,email:user.email,displayName:user.displayName},
         action:"email_sent",
         metadata:{
+          activityId:activity.id,
           contactId:contact.contactId,
           channel:"email",
           templateId:String(template.id),

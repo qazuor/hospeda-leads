@@ -1,3 +1,4 @@
+import {setWorkActor} from "../helpers/workAudit";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -20,6 +21,7 @@ export async function handle(request:Request){
     }
     const ids=input.ids.map(String);
     const updated=await db.transaction().execute(async trx=>{
+      await setWorkActor(trx,user);
       const changesInput={...input.changes};
       if(input.entity==="business"){
         const shared:{ciudad?:string|null;assignedUserEmail?:string|null}={};
@@ -51,7 +53,7 @@ export async function handle(request:Request){
         }
         if("subtipo" in changesInput)add("subtipo",changesInput.subtipo??null);
         if("fechaProximaAccion" in changesInput){
-          const next=changesInput.fechaProximaAccion?new Date(changesInput.fechaProximaAccion+"T12:00:00"):null;
+          const next=changesInput.fechaProximaAccion?new Date(changesInput.fechaProximaAccion+"T12:00:00Z"):null;
           add("fechaProximaAccion",next);
         }
         if(!changes.length)continue;

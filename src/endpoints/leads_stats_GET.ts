@@ -15,9 +15,9 @@ export async function handle(request:Request){
       sql<string>`${count}`.as("total"),
       sql<string>`${count} filter (where coalesce(estado,'') <> 'Suscripto')`.as("pendientes"),
       sql<string>`${count} filter (where estado = 'Suscripto')`.as("suscriptos"),
-      sql<string>`${count} filter (where fecha_proxima_accion < current_date and coalesce(estado,'') <> 'Suscripto')`.as("vencidos"),
-      sql<string>`${count} filter (where fecha_proxima_accion::date = current_date and coalesce(estado,'') <> 'Suscripto')`.as("paraHoy"),
-      sql<string>`${count} filter (where assigned_user_email = ${user.email} and fecha_proxima_accion::date <= current_date and coalesce(estado,'') <> 'Suscripto')`.as("misPendientesHoy")
+      sql<string>`${count} filter (where fecha_proxima_accion < (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and coalesce(estado,'') <> 'Suscripto')`.as("vencidos"),
+      sql<string>`${count} filter (where fecha_proxima_accion = (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and coalesce(estado,'') <> 'Suscripto')`.as("paraHoy"),
+      sql<string>`${count} filter (where assigned_user_email = ${user.email} and fecha_proxima_accion <= (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and coalesce(estado,'') <> 'Suscripto')`.as("misPendientesHoy")
     ]).executeTakeFirstOrThrow();
     return new Response(superjson.stringify({
       total:Number(r.total),pendientes:Number(r.pendientes),suscriptos:Number(r.suscriptos),
