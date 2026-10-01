@@ -27,7 +27,7 @@ import { normalizeTemplateHtml } from "../helpers/renderMessageTemplate";
 import styles from "./RichTemplateEditor.module.css";
 
 const EMOJIS=["🙂","😊","👋","✨","📍","🏡","🍽️","🌿","🎉","📲","✅","🤝","💙","👉","📅","⭐"];
-const VARIABLES=["sender","name","contact","contact_name","city","type","subtype","phone","email","website"];
+const VARIABLES=["sender","sender_short","name","contact","contact_name","city","type","subtype","phone","email","website"];
 
 export const RichTemplateEditor=({
   value,onChange,channel
