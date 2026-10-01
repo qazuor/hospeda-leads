@@ -33,7 +33,7 @@ test('Mi día completes a call while preserving the visit, with agenda and retro
  const edges:number[][]=[];await page.setViewportSize({width:1800,height:1000});
  for(const path of ['/accounts','/my-day','/agenda','/analytics','/settings','/history','/trash']){
   await page.goto(path);await expect(page.locator('main')).toBeVisible();edges.push(await page.locator('main').evaluate(el=>{const r=el.getBoundingClientRect();const s=getComputedStyle(el);return [r.left+parseFloat(s.paddingLeft),r.right-parseFloat(s.paddingRight)];}));
-  await page.setViewportSize({width:390,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);await page.setViewportSize({width:1800,height:1000});
+  await page.setViewportSize({width:390,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth),{message:'Sin desborde móvil en '+path}).toBeLessThanOrEqual(390);await page.setViewportSize({width:1800,height:1000});
  }
  for(const edge of edges)expect(edge).toEqual(edges[0]);
 });
