@@ -9,6 +9,7 @@ export type TemplateContext={
   email?:unknown;
   website?:unknown;
   sender?:unknown;
+  sender_short?:unknown;
 };
 
 const text=(value:unknown)=>value==null?"":String(value).trim();
