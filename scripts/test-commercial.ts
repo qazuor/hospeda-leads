@@ -10,6 +10,10 @@ import {handle as legacy} from '../src/endpoints/leads_POST';
 import {handle as contactLog} from '../src/endpoints/lead_contact_POST';
 import {handle as sendEmail} from '../src/endpoints/send_template_email_POST';
 import {handle as duplicates} from '../src/endpoints/leads_duplicates_GET';
+import {handle as deleteBusinesses} from '../src/endpoints/leads_bulk_delete_POST';
+import {handle as restore} from '../src/endpoints/leads_restore_POST';
+import {handle as getStats} from '../src/endpoints/leads_stats_GET';
+import type {OutputType as ListOutput} from '../src/endpoints/leads_GET.schema';
 import {handle as getLeads} from '../src/endpoints/leads_GET';
 import type {CommercialDetail} from '../src/endpoints/commercial.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable test database');
@@ -95,5 +99,55 @@ try{
   assert(!duplicateGroups.some(g=>g.leads.some(l=>l.id===first)&&g.leads.some(l=>l.id===second)),'Related opportunities must not be duplicate businesses');
   const searchResult=await getLeads(new Request('http://localhost/_api/leads?q=Segunda%20venta',{headers:{cookie:user.value}}));
   assert.equal(searchResult.status,200);assert(superjson.parse<{rows:{id:string}[]}>(await searchResult.text()).rows.some(l=>l.id===second));
+  async function businesses(params:string){
+    const r=await getLeads(new Request('http://localhost/_api/leads?entity=business&'+params,{headers:{cookie:user.value}}));
+    const body=await r.text();assert.equal(r.status,200,body);return superjson.parse<ListOutput>(body);
+  }
+  let businessList=await businesses('q='+encodeURIComponent(`CRM test ${suffix}`));
+  assert.equal(businessList.total,1);assert.equal(businessList.rows.length,1);
+  assert.equal(String(businessList.rows[0].id),accountId);assert.equal(businessList.rows[0].opportunityCount,2);
+  assert.equal(businessList.rows[0].commercialStatus,'client');
+  // The existing saved-view rules still match original lead IDs, then return one business.
+  businessList=await businesses('filterGroups='+encodeURIComponent(filterGroups));
+  assert.equal(businessList.total,1);assert.equal(String(businessList.rows[0].id),accountId);
+  assert.equal(businessList.rows[0].opportunityId,first);
+  businessList=await businesses('q=Segunda%20venta');assert(businessList.rows.some(a=>String(a.id)===accountId));
+  const empty=await mutate({action:'account_save',nombre:`Empty business ${suffix}`,email:'generic@example.com'});
+  businessList=await businesses('q='+encodeURIComponent(`Empty business ${suffix}`));
+  assert.equal(businessList.total,1);assert.equal(businessList.rows[0].opportunityCount,0);assert.equal(businessList.rows[0].opportunityId,null);
+  // Shared emails never merge unrelated businesses.
+  const sharedEmail=await businesses('textFilters='+encodeURIComponent(JSON.stringify([{field:'email',mode:'equals',value:'generic@example.com'}])));
+  assert(sharedEmail.rows.some(a=>String(a.id)===accountId));assert(sharedEmail.rows.some(a=>String(a.id)===empty));
+  assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage}))).status,400,'Ambiguous business quick edit rejected');
+  assert.equal((await quick(request({id:first,accountId:otherId,field:'estado',value:stage}))).status,400,'Foreign opportunity rejected');
+  assert.equal((await quick(request({id:first,accountId,field:'assignedUserEmail',value:user.email}))).status,403);
+  assert.equal((await bulk(request({entity:'business',ids:[accountId],changes:{assignedUserEmail:user.email}}))).status,403);
+  const originalOppOwner=(await detail(accountId)).opportunities.find(o=>String(o.id)===first)!.assignedUserEmail;
+  assert.equal((await quick(request({id:first,accountId,field:'assignedUserEmail',value:user.email},admin.value))).status,200);
+  d=await detail(accountId);assert.equal(d.account.assignedUserEmail,user.email);assert.equal(d.opportunities.find(o=>String(o.id)===first)!.assignedUserEmail,originalOppOwner);
+  assert.equal((await bulk(request({entity:'business',ids:[accountId,empty],changes:{ciudad:'Colón'}}))).status,200);
+  assert.equal((await detail(empty)).account.ciudad,'Colón');d=await detail(accountId);
+  assert(d.opportunities.every(o=>o.ciudad==='Colón'));assert(d.journal.some(j=>j.action==='account_updated'));
+  assert.equal((await bulk(request({entity:'business',ids:[accountId],changes:{estado:stage}}))).status,200);
+  d=await detail(accountId);assert(d.opportunities.every(o=>o.estado===stage));
+  const conjunction=JSON.stringify([{rules:[{field:'id',operator:'eq',value:first}]},{rules:[{field:'id',operator:'eq',value:second}]}]);
+  assert.equal((await businesses('filterGroups='+encodeURIComponent(conjunction))).total,0,'AND groups must match the same opportunity');
+  const disjunction=JSON.stringify([{rules:[{field:'id',operator:'eq',value:first},{field:'id',operator:'eq',value:second}]}]);
+  assert.equal((await businesses('filterGroups='+encodeURIComponent(disjunction))).total,1,'OR deduplicates businesses');
+  const statsResponse=await getStats(new Request('http://localhost/_api/leads_stats?entity=business',{headers:{cookie:user.value}}));
+  assert.equal(statsResponse.status,200);assert.equal(superjson.parse<{total:number}>(await statsResponse.text()).total,(await businesses('')).total);
+  // Account locks and transactions roll back the whole bulk operation on invalid selections.
+  assert.equal((await bulk(request({entity:'business',ids:[accountId,'999999999'],changes:{ciudad:'Invalid'}}))).status,400);
+  assert.equal((await detail(accountId)).account.ciudad,'Colón');
+  assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId,empty]}))).status,400);
+  assert.equal((await detail(accountId)).opportunities.length,2);
+  assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId]}))).status,200);
+  assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,0);
+  d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.contacts.length);assert(d.leadJournal.some(j=>j.action==='soft_deleted'));
+  assert.equal((await restore(request({id:first},admin.value))).status,200);
+  assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,1);
+  assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage}))).status,200,'Single opportunity quick edit remains supported');
+  await restore(request({id:second},admin.value));
+  console.log('Business table: distinct businesses, empty businesses, legacy filters AND/OR, canonical inline fields, independent owners, admin restriction, bulk scope/rollback, trash/restore passed');
   console.log('Commercial integration: auth, admin-only owners, two contacts/opportunities, DB constraints, independent states, audited conversion, selected recipients, empty generic names, templates, soft deletion and legacy filters passed');
 }finally{await db.destroy()}

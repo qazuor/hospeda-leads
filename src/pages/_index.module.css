@@ -26,3 +26,12 @@
 .bulkBar{max-width:1600px;margin:0 auto 10px;display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid color-mix(in srgb,var(--primary) 35%,var(--border));border-radius:11px;background:color-mix(in srgb,var(--primary) 6%,var(--card));box-shadow:var(--shadow)}.bulkBar strong{font-size:12px;margin-right:5px;white-space:nowrap}.bulkBar select{height:34px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--foreground);padding:0 28px 0 9px;font:inherit;font-size:11px}.bulkDate{width:180px}.selectHead,.selectCell{padding:0!important;text-align:center!important}.selectHead>*,.selectCell>*{margin:auto}.selectedRow{background:color-mix(in srgb,var(--primary) 9%,var(--card))!important}.lastTouchedRow{box-shadow:inset 3px 0 0 var(--primary)}.cellSaveMark{position:absolute;right:1px;top:50%;transform:translateY(-50%);padding:1px 4px;border-radius:5px;background:var(--card);box-shadow:var(--shadow);font-size:8px;font-weight:700;color:var(--success)}
 
 .editField select{width:100%;min-width:0;background:var(--background);color:var(--foreground);border:1px solid var(--border);border-radius:8px;padding:10px}
+
+.businessTableGuide {
+  margin: 0 0 1rem;
+  padding: .65rem .8rem;
+  border-left: 2px solid var(--primary);
+  color: var(--muted-foreground);
+  font-size: .8rem;
+  line-height: 1.5;
+}

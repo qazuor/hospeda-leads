@@ -2,6 +2,7 @@ import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_quick_POST.schema";
+import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 
 export async function handle(request: Request) {
@@ -21,7 +22,14 @@ export async function handle(request: Request) {
         ? { assignedUserEmail: input.value, asignadoA: null, updatedAt: new Date() }
         : { [input.field]: normalizedValue, updatedAt: new Date() };
     await db.transaction().execute(async trx=>{
-      const old=await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).executeTakeFirstOrThrow();
+      if(input.accountId){
+        const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:{};
+        await updateBusinessFields(trx,[input.accountId],fields,user);
+        if(Object.keys(fields).length)return;
+        const opportunities=await trx.selectFrom("leads").select("id").where("accountId","=",input.accountId).where("deletedAt","is",null).execute();
+        if(opportunities.length!==1||String(opportunities[0].id)!==String(input.id))throw new Error("Abrí el negocio y elegí la oportunidad que querés modificar.");
+      }
+      const old=await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).forUpdate().executeTakeFirstOrThrow();
       if(old.deletedAt)throw new Error("Este lead está en la papelera.");
       await trx.updateTable("leads").set(values).where("id","=",String(input.id)).execute();
       const changes=input.field==="tipo"
