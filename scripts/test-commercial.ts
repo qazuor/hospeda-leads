@@ -53,6 +53,13 @@ try{
   assert.equal((await bulk(request({ids:[first,second],changes:{assignedUserEmail:user.email}}))).status,403);
   assert.equal((await saveLead(request({id:first,nombre:d.account.nombre,assignedUserEmail:user.email}))).status,400);
   assert.equal((await legacy(request({id:first,nombre:d.account.nombre,asignadoA:'CRM user'}))).status,403);
+  const protectedBusiness=d.account.nombre;
+  const scoped=await saveLead(request({id:first,scope:'opportunity',nombre:'Stale business',telefono:'stale',email:'stale@example.com',opportunityName:'Primera venta',estado:stage,tipo:vertical.name,assignedUserEmail:admin.email,primaryContactId:ana,serviceInterest:'Publicación',estimatedCloseDate:'2027-01-15'},admin.value));
+  assert.equal(scoped.status,200);d=await detail(accountId);
+  assert.equal(d.account.nombre,protectedBusiness);assert.equal(d.account.email,'generic@example.com');
+  assert.equal(String(d.opportunities.find(o=>String(o.id)===first)!.primaryContactId),ana);
+  assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,primaryContactId:foreign}))).status,400);
+  assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,assignedUserEmail:user.email}))).status,400);
   const beforeJournal=d.leadJournal.length;
   await mutate({action:'convert_client',accountId,reason:'Acuerdo comercial confirmado'});
   d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.account.clientSince);assert.equal(d.opportunities.length,2);assert.equal(d.leadJournal.length,beforeJournal);

@@ -120,7 +120,7 @@ export default function SettingsPage(){
 
       {section==="classifications"&&<section className={styles.classificationsLayout}>
         <article className={styles.card}>
-          <div className={styles.cardTitle}><MapPin/><div><h2>Ciudades</h2><p>Opciones disponibles al cargar y filtrar leads.</p></div></div>
+          <div className={styles.cardTitle}><MapPin/><div><h2>Ciudades</h2><p>Opciones disponibles al cargar y filtrar oportunidades.</p></div></div>
           <div className={styles.inlineForm}><Input value={city} onChange={e=>setCity(e.target.value)} placeholder="Nueva ciudad"/><Button onClick={saveCity} disabled={save.isPending}>Agregar</Button></div>
           <div className={styles.tags}>{data?.cities.map(x=><Badge key={x.id} variant="outline">{x.name}</Badge>)}</div>
         </article>
@@ -180,7 +180,7 @@ export default function SettingsPage(){
 
       <Dialog open={!!deletingSubtype} onOpenChange={open=>{if(!open&&!save.isPending)setDeletingSubtype(null)}}>
         <DialogContent className={styles.userDialog}>
-          <DialogHeader><DialogTitle>Eliminar subtipo</DialogTitle><DialogDescription><strong>{deletingSubtype?.name}</strong> dejará de aparecer como opción para nuevos cambios. Los leads existentes conservarán ese valor.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Eliminar subtipo</DialogTitle><DialogDescription><strong>{deletingSubtype?.name}</strong> dejará de aparecer como opción para nuevos cambios. Las oportunidades existentes conservarán ese valor.</DialogDescription></DialogHeader>
           <DialogFooter><Button variant="outline" onClick={()=>setDeletingSubtype(null)} disabled={save.isPending}>Cancelar</Button><Button variant="destructive" onClick={confirmSubtypeDelete} disabled={save.isPending}>{save.isPending?"Eliminando…":"Eliminar subtipo"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>

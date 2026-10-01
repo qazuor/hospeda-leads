@@ -24,10 +24,10 @@ export const AppHeader=()=>{
   const [profileOpen,setProfileOpen]=React.useState(false);
 
   return <header className={styles.header}>
-    <Link to="/" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda Leads</strong><span>CRM comercial</span></div></Link>
+    <Link to="/" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda CRM</strong><span>CRM comercial</span></div></Link>
     <nav>
-      <Link to="/" className={location.pathname==="/"?styles.active:""}><ListFilter size={16}/>Leads</Link>
-      <Link to="/accounts" className={location.pathname.startsWith("/accounts")?styles.active:""}>Cuentas</Link>
+      <Link to="/" className={location.pathname==="/"?styles.active:""}><ListFilter size={16}/>Oportunidades</Link>
+      <Link to="/accounts" className={location.pathname.startsWith("/accounts")?styles.active:""}>Negocios</Link>
       {isAdmin&&<Link to="/analytics" className={location.pathname==="/analytics"?styles.active:""}><BarChart3 size={16}/>Estadísticas</Link>}
       {isAdmin&&<DropdownMenu>
         <DropdownMenuTrigger asChild>

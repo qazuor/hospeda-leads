@@ -29,7 +29,7 @@ function auditDetail(metadata:unknown){
 export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:{accountId?:string;leadId?:string;compact?:boolean;readOnly?:boolean}){
   const q=useQuery({queryKey:["commercial-detail",accountId??"",leadId??""],queryFn:()=>getCommercialDetail(accountId,leadId)});
   const [editor,setEditor]=useState<EditorTarget|null>(null);
-  if(q.isPending)return <p>Cargando cuenta…</p>;
+  if(q.isPending)return <p>Cargando negocio…</p>;
   if(q.error)return <p role="alert" className={styles.error}>{q.error.message}</p>;
   const d=q.data;
   const contacts=d.contacts.filter(c=>!c.deletedAt);
@@ -39,15 +39,19 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
     <div className={styles.heading}><div><h2>{compact?<Link to={"/accounts/"+d.account.id}>{d.account.nombre}</Link>:d.account.nombre}</h2><p className={styles.muted}>Negocio · datos compartidos por todas sus oportunidades</p><p>{d.account.commercialStatus==="client"?"Cliente comercial · no acredita pago":"Prospecto"}{d.account.clientSince?" · desde "+formatDate(d.account.clientSince):""}</p></div>
       {!readOnly&&<div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>setEditor({kind:"account",item:d.account})}>Editar negocio</Button>{d.account.commercialStatus!=="client"&&<Button size="sm" onClick={()=>setEditor({kind:"convert"})}>Convertir a cliente</Button>}</div>}
     </div>
-    <CommercialHelp/>
+    {!compact&&<CommercialHelp/>}
     {!compact&&<div className={styles.summary}><span>Ciudad: {d.account.ciudad||"Sin datos"}</span><span>Email genérico: {d.account.email||"Sin datos"}</span><span>Teléfono genérico: {d.account.telefono||"Sin datos"}</span><span>Responsable: {d.account.assignedUserEmail||"Sin asignar"}</span></div>}
+    <details open={compact?undefined:true} className={styles.relatedSection}><summary>Contactos del negocio ({contacts.length})</summary>
     <div className={styles.heading}><h3>Personas de contacto ({contacts.length})</h3>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"contact"})}>Agregar contacto</Button>}</div>
     <p className={styles.muted}>Principal es la persona de referencia del negocio. Cada oportunidad puede tener un contacto distinto; al comunicarte podés elegir el destinatario.</p>
     {!contacts.length&&<p>Sin personas identificadas. Los canales genéricos del negocio siguen disponibles.</p>}
     <div className={styles.rows}>{contacts.map(c=><article key={c.id}><div><strong>{c.name}{c.isPrimary?" · Principal":""}</strong><span>{[c.position,c.phone,c.email,c.preferredChannel].filter(Boolean).join(" · ")||"Sin canales cargados"}</span>{c.notes&&<p>{c.notes}</p>}</div>{!readOnly&&<div className={styles.actions}><Button size="sm" variant="ghost" onClick={()=>setEditor({kind:"contact",item:c})}>Editar</Button><Button size="sm" variant="ghost" onClick={()=>setEditor({kind:"delete_contact",item:c})}>Dar de baja</Button></div>}</article>)}</div>
-    <p className={styles.muted}>Una oportunidad es una venta o contratación concreta: cada una tiene su propia etapa y seguimiento. {compact?"Este lead es una de ellas.":"Podés crear otra venta sin duplicar el negocio."}</p>
+    </details>
+    <details open={compact?undefined:true} className={styles.relatedSection}><summary>Ventas de este negocio ({opportunities.length})</summary>
+    <p className={styles.muted}>Una oportunidad es una venta o contratación concreta: cada una tiene su propia etapa y seguimiento. {compact?"La oportunidad abierta está marcada como Actual.":"Podés crear otra venta sin duplicar el negocio."}</p>
     <div className={styles.heading}><h3>Oportunidades ({opportunities.length})</h3>{!readOnly&&<Button size="sm" onClick={()=>setEditor({kind:"opportunity"})}>Nueva oportunidad</Button>}</div>
-    <div className={styles.rows}>{opportunities.map(o=><article key={o.id}><div><Link to={"/?leadId="+o.id}><strong>{o.opportunityName||"Gestión comercial inicial"} · #{o.id}{String(o.id)===leadId?" · Actual":""}</strong></Link><span>{[o.tipo,o.estado,o.serviceInterest,o.assignedUserEmail].filter(Boolean).join(" · ")||"Sin clasificación"}</span><span>Contacto: {contacts.find(c=>String(c.id)===String(o.primaryContactId))?.name||"Sin principal"}{o.estimatedCloseDate?" · Cierre: "+formatDate(dateOnlyInput(o.estimatedCloseDate)):""}</span></div>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"opportunity",item:o})}>Editar oportunidad</Button>}</article>)}</div>
+    <div className={styles.rows}>{opportunities.map(o=><article key={o.id}><div><Link to={"/?leadId="+o.id}><strong>{o.opportunityName||"Gestión comercial inicial"} · #{o.id}{String(o.id)===leadId?" · Actual":""}</strong></Link><span>{[o.tipo,o.estado,o.serviceInterest,o.assignedUserEmail].filter(Boolean).join(" · ")||"Sin clasificación"}</span><span>Contacto: {contacts.find(c=>String(c.id)===String(o.primaryContactId))?.name||"Sin principal"}{o.estimatedCloseDate?" · Cierre: "+formatDate(dateOnlyInput(o.estimatedCloseDate)):""}</span></div>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"opportunity",item:o})}>Editar datos de venta</Button>}</article>)}</div>
+    </details>
     {!compact&&<><h3>Historial comercial</h3><p className={styles.muted}>Incluye oportunidades en papelera y contactos dados de baja. Últimos 200 eventos de cada historial.</p><div className={styles.history}>{history.map(h=><details key={h.id}><summary>{formatDate(h.date,true)} · {h.label} · {h.actor}</summary><pre>{h.detail}</pre></details>)}</div></>}
     {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onClose={()=>setEditor(null)}/>}
   </section>;

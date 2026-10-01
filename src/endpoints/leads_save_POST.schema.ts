@@ -4,6 +4,11 @@ import superjson from "superjson";
 export const schema = z.object({
   id: z.union([z.string(), z.number()]).optional(),
   nombre: z.string().min(1),
+  scope: z.literal("opportunity").optional(),
+  opportunityName: z.string().trim().min(1).max(300).nullable().optional(),
+  serviceInterest: z.string().trim().max(2000).nullable().optional(),
+  primaryContactId: z.string().regex(/^[1-9]\d*$/).nullable().optional(),
+  estimatedCloseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,"Fecha inválida").nullable().optional(),
   contactName: z.string().nullable().optional(),
   tipo: z.string().nullable().optional(),
   subtipo: z.string().nullable().optional(),

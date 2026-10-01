@@ -28,12 +28,17 @@ export async function handle(request: Request) {
 
     const id=await db.transaction().execute(async trx=>{
       const existing=input.id
-        ? await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).executeTakeFirst()
+        ? await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).forUpdate().executeTakeFirst()
         : undefined;
       if(input.id&&!existing)throw new Error("Lead no encontrado");
       if(user.role!=="admin"&&input.assignedUserEmail!==undefined&&(input.assignedUserEmail??null)!==(existing?.assignedUserEmail??null))throw new Error("Solo un administrador puede modificar el responsable.");
       if(existing?.deletedAt)throw new Error("Este lead está en la papelera. Restauralo antes de editarlo.");
 
+      if(input.scope==="opportunity"&&!existing)throw new Error("Oportunidad no encontrada");
+      if(input.primaryContactId){
+        if(!existing)throw new Error("Elegí primero un negocio");
+        await trx.selectFrom("crmContacts").select("id").where("id","=",input.primaryContactId).where("accountId","=",existing.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow();
+      }
       const values = {
         nombre: input.nombre,
         contactName: input.contactName ?? null,
@@ -56,7 +61,7 @@ export async function handle(request: Request) {
         quienCargo: input.quienCargo ?? user.displayName,
         asignadoA: user.role==="admin" ? null : (existing?.asignadoA ?? null),
         assignedUserEmail: user.role==="admin"
-          ? (input.assignedUserEmail ?? null)
+          ? (input.assignedUserEmail===undefined?(existing?.assignedUserEmail??null):(input.assignedUserEmail??null))
           : (existing?.assignedUserEmail ?? null),
         fechaCreacion: input.fechaCreacion!==undefined
           ? (dateOrNull(input.fechaCreacion) ?? existing?.fechaCreacion ?? new Date())
@@ -71,9 +76,16 @@ export async function handle(request: Request) {
         archivoAdjunto: input.archivoAdjunto ?? null,
         notas: null,
         creadoPor: input.creadoPor ?? existing?.creadoPor ?? user.displayName,
+        ...(input.opportunityName!==undefined?{opportunityName:input.opportunityName}:{}),
+        ...(input.serviceInterest!==undefined?{serviceInterest:input.serviceInterest}:{}),
+        ...(input.primaryContactId!==undefined?{primaryContactId:input.primaryContactId}:{}),
+        ...(input.estimatedCloseDate!==undefined?{estimatedCloseDate:input.estimatedCloseDate}:{}),
         updatedAt: new Date(),
       };
 
+      if(input.scope==="opportunity"&&existing){
+        Object.assign(values,Object.fromEntries(["nombre","ciudad","telefono","email","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","contactName"].map(key=>[key,existing[key as keyof typeof existing]])));
+      }
       let leadId:string;
       if(existing){
         const updated=await trx.updateTable("leads").set(values).where("id","=",String(existing.id)).returning("id").executeTakeFirstOrThrow();
@@ -83,12 +95,12 @@ export async function handle(request: Request) {
           "sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking",
           "perfilTurismoEntreRios","origen","quienCargo","assignedUserEmail","fechaCreacion","fechaUltimoContacto",
           "medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
-          "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto"
+          "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","opportunityName","serviceInterest","primaryContactId","estimatedCloseDate"
         ] as const;
         const changes=tracked.flatMap(field=>
-          comparable(existing[field])===comparable(values[field])
+          comparable(existing[field])===comparable(field in values?values[field as keyof typeof values]:existing[field])
             ? []
-            : [{fieldName:field,oldValue:existing[field],newValue:values[field]}]
+            : [{fieldName:field,oldValue:existing[field],newValue:field in values?values[field as keyof typeof values]:existing[field]}]
         );
         if(changes.length){
           await writeLeadJournal(trx,{

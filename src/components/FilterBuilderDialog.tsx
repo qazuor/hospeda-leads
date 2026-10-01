@@ -115,7 +115,7 @@ export const FilterBuilderDialog=({
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className={styles.dialog}>
       <DialogHeader>
-        <DialogTitle>Filtrar leads</DialogTitle>
+        <DialogTitle>Filtrar oportunidades</DialogTitle>
         <DialogDescription>Los bloques se combinan con AND. Dentro de cada bloque podés agregar alternativas con OR.</DialogDescription>
       </DialogHeader>
 

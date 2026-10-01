@@ -118,7 +118,7 @@ export const LeadDetailDialog=({
         <div className={styles.identityRow}>
           <div className={styles.identity}>
             <div className={styles.titleLine}>
-              <DialogTitle className={styles.title}>{lead.opportunityName||lead.nombre}</DialogTitle>
+              <DialogTitle className={styles.title}>{lead.opportunityName||"Gestión comercial inicial"}</DialogTitle>
               <div className={styles.titleBadges}>
                 {lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:<Badge variant="outline">Sin vertical</Badge>}
                 {lead.subtipo&&<ValueBadge value={lead.subtipo} category="subtype"/>}
@@ -143,14 +143,15 @@ export const LeadDetailDialog=({
           {!readOnly&&onEmail&&<Button size="sm" variant={emailPrimary?"primary":"outline"} onClick={()=>onEmail(lead)}><Mail size={15}/>Email</Button>}
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
-          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Lead anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Lead siguiente"><ChevronRight size={16}/></Button></div>}
+          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Oportunidad anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Oportunidad siguiente"><ChevronRight size={16}/></Button></div>}
           {!readOnly&&onDelete&&<Button size="sm" variant="destructive" onClick={()=>onDelete(lead)}><Trash2 size={15}/>Eliminar</Button>}
           <Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>
-          {!readOnly&&onEdit&&<Button size="sm" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar lead</Button>}
+          {!readOnly&&onEdit&&<Button size="sm" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar oportunidad</Button>}
         </div>
       </div>
 
       <div className={styles.scrollBody}>
+        <p className={styles.detailHelp}>Estás viendo una oportunidad: una venta que queremos concretar. Su etapa, notas y próxima acción se gestionan aquí. El negocio reúne sus datos generales y personas de contacto.</p>
         <div className={styles.commercialBlock}><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></div>
         <div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Canal del negocio" value={lead.email||lead.telefono||"Sin datos"}/>
@@ -165,7 +166,7 @@ export const LeadDetailDialog=({
             <div className={styles.fieldGrid}>
               <Field label="Teléfono genérico" value={text(lead.telefono)}/>
               <Field label="Email genérico" value={text(lead.email)}/>
-              <Field label="Canal histórico del lead" value={text(lead.medioContactoPreferido)}/>
+              <Field label="Canal histórico dla oportunidad" value={text(lead.medioContactoPreferido)}/>
               <Field label="Ciudad" value={lead.ciudad?<ValueBadge value={lead.ciudad} category="city"/>:"—"}/>
               <Field label="Potencial recurrente" value={lead.clientePotencialRecurrente?"Sí":"No"}/>
             </div>
