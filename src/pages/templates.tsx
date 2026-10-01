@@ -12,7 +12,7 @@ import { getSettings } from "../endpoints/settings_GET.schema";
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import { buildHospedaEmailHtml } from "../helpers/hospedaEmailLayout";
 import { renderMessageTemplate, renderMessageTemplateHtml, normalizeTemplateHtml } from "../helpers/renderMessageTemplate";
-import { htmlToWhatsApp } from "../helpers/templateChannelFormatting";
+import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "../helpers/templateChannelFormatting";
 import { useAuth } from "../helpers/useAuth";
 import styles from "./templates.module.css";
 
@@ -37,6 +37,7 @@ export function TemplatesContent(){
   const [subject,setSubject]=useState("");
   const [body,setBody]=useState("<p></p>");
   const [previewLeadId,setPreviewLeadId]=useState("");
+  const [groupBy,setGroupBy]=useState<"channel"|"vertical"|"profile">("channel");
 
   const data=q.data;
   const filtered=useMemo(()=>{
@@ -47,6 +48,32 @@ export function TemplatesContent(){
         .filter(Boolean).some(value=>String(value).toLowerCase().includes(needle))
     );
   },[data?.templates,search]);
+
+  const templateGroups=useMemo(()=>{
+    const map=new Map<string,typeof filtered>();
+    const groupLabel=(template:(typeof filtered)[number])=>{
+      if(groupBy==="channel")return template.channel==="email"?"Email":"WhatsApp";
+      if(groupBy==="vertical")return template.vertical||"Todas las verticales";
+      return template.commercialProfile||"Todos los perfiles";
+    };
+    for(const template of filtered){
+      const label=groupLabel(template);
+      const list=map.get(label)??[];
+      list.push(template);
+      map.set(label,list);
+    }
+    const preferred=groupBy==="channel"
+      ? ["WhatsApp","Email"]
+      : groupBy==="profile"
+        ? ["Independiente","Consolidado","Referente","Todos los perfiles"]
+        : [...(data?.types??[]),"Todas las verticales"];
+    return Array.from(map,([label,templates])=>({label,templates}))
+      .sort((a,b)=>{
+        const ai=preferred.indexOf(a.label),bi=preferred.indexOf(b.label);
+        if(ai>=0||bi>=0)return (ai<0?999:ai)-(bi<0?999:bi);
+        return a.label.localeCompare(b.label,"es");
+      });
+  },[filtered,groupBy,data?.types]);
 
   const reset=()=>{
     setTemplateId(undefined);setChannel("whatsapp");setVertical("");setProfile("");
@@ -92,6 +119,7 @@ export function TemplatesContent(){
   const renderedBody=renderMessageTemplateHtml(body,context);
   const renderedSubject=renderMessageTemplate(subject,context);
   const whatsappPreview=htmlToWhatsApp(renderedBody);
+  const whatsappPreviewHtml=whatsappTextToPreviewHtml(whatsappPreview);
 
   return <section className={styles.embedded}>
     <header className={styles.embeddedHeader}>
@@ -102,15 +130,29 @@ export function TemplatesContent(){
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
         <div className={styles.search}><Search size={15}/><Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar template…"/></div>
+        <div className={styles.groupPicker}>
+          <span>Agrupar por</span>
+          <div>
+            <button type="button" className={groupBy==="channel"?styles.groupActive:""} onClick={()=>setGroupBy("channel")}>Canal</button>
+            <button type="button" className={groupBy==="vertical"?styles.groupActive:""} onClick={()=>setGroupBy("vertical")}>Vertical</button>
+            <button type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</button>
+          </div>
+        </div>
         <div className={styles.templateCount}>{filtered.length} templates</div>
-        {q.isLoading?<Skeleton className={styles.loading}/>:<div className={styles.templateList}>
-          {filtered.map(template=>{
-            const active=template.id===templateId;
-            return <button type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
-              <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
-              <div><strong>{template.name}</strong><span>{[template.channel,template.vertical,template.commercialProfile].filter(Boolean).join(" · ")}</span></div>
-            </button>;
-          })}
+        {q.isLoading?<Skeleton className={styles.loading}/>:<div className={styles.templateGroups}>
+          {templateGroups.map(group=><section className={styles.templateGroup} key={group.label}>
+            <div className={styles.templateGroupTitle}><strong>{group.label}</strong><span>{group.templates.length}</span></div>
+            <div className={styles.templateList}>
+              {group.templates.map(template=>{
+                const active=template.id===templateId;
+                return <button type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
+                  <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
+                  <div><strong>{template.name}</strong><span>{[template.vertical||"Todas",template.commercialProfile||"Todos",template.channel].filter(Boolean).join(" · ")}</span></div>
+                </button>;
+              })}
+            </div>
+          </section>)}
+          {!templateGroups.length&&<div className={styles.emptyTemplates}>No hay templates para mostrar.</div>}
         </div>}
       </aside>
 
@@ -146,7 +188,7 @@ export function TemplatesContent(){
             </select>
           </label>
           {channel==="whatsapp"
-            ? <div className={styles.whatsappPreview}>{whatsappPreview||"El mensaje aparecerá acá."}</div>
+            ? <div className={styles.whatsappPreview} dangerouslySetInnerHTML={{__html:whatsappPreviewHtml||"El mensaje aparecerá acá."}}/>
             : <><div className={styles.subjectPreview}>{renderedSubject||"Sin asunto"}</div><iframe className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderedBody,senderName:sender,subject:renderedSubject||"Mensaje de Hospeda",vertical:previewLead?.tipo??vertical,commercialProfile:previewLead?.commercialProfile??profile})}/></>}
         </aside>
       </div>
