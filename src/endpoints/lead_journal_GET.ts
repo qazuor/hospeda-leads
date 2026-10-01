@@ -18,6 +18,8 @@ export async function handle(request:Request){
     if(input.actor)query=query.where("actorName","=",input.actor);
     if(input.city)query=query.where("leadCity","=",input.city);
     if(input.type)query=query.where("leadType","=",input.type);
+    if(input.from)query=query.where("createdAt",">=",new Date(input.from+"T00:00:00"));
+    if(input.to)query=query.where("createdAt","<=",new Date(input.to+"T23:59:59.999"));
     if(input.q){
       const s="%"+input.q.toLowerCase()+"%";
       query=query.where(eb=>eb.or([

@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle, ArrowDownAZ, ArrowUpAZ, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
+  AlertTriangle, ArrowDownAZ, ArrowUpAZ, BookmarkPlus, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
   ExternalLink, Filter, Globe2, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
   Target, Trash2, UserRound, Users, UsersRound, X
 } from "lucide-react";
@@ -14,6 +16,7 @@ import { ColumnPicker, type TableColumnOption } from "../components/ColumnPicker
 import { ContactTemplateDialog } from "../components/ContactTemplateDialog";
 import { FilterBuilderDialog, FilterLegend, type FilterFieldDefinition } from "../components/FilterBuilderDialog";
 import { LeadDetailDialog } from "../components/LeadDetailDialog";
+import { NextActionPicker } from "../components/NextActionPicker";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/Dialog";
 import { Input } from "../components/Input";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/Popover";
@@ -30,11 +33,16 @@ import { ValueBadge } from "../components/ValueBadge";
 import { getLeadDuplicates } from "../endpoints/leads_duplicates_GET.schema";
 import { advancedFilterGroup, getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
 import { postLeadsDelete } from "../endpoints/leads_delete_POST.schema";
+import { postLeadsBulk } from "../endpoints/leads_bulk_POST.schema";
+import { postLeadsBulkDelete } from "../endpoints/leads_bulk_delete_POST.schema";
 import { postLeadsQuick } from "../endpoints/leads_quick_POST.schema";
 import { postLeadsSave, type DuplicateCandidate, type InputType } from "../endpoints/leads_save_POST.schema";
 import { getLeadStats } from "../endpoints/leads_stats_GET.schema";
 import { getSettings } from "../endpoints/settings_GET.schema";
+import { getSavedLeadViews } from "../endpoints/saved_views_GET.schema";
+import { postSavedLeadView } from "../endpoints/saved_views_POST.schema";
 import { useDebounce } from "../helpers/useDebounce";
+import { toDateInput } from "../helpers/crmDates";
 import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
@@ -166,11 +174,7 @@ const emptyForm:InputType={
 };
 
 const str=(v:unknown)=>v==null?"":String(v);
-const dateInput=(v:unknown)=>{
-  if(!v)return "";
-  const d=new Date(v as string);
-  return Number.isNaN(d.getTime())?"":d.toISOString().slice(0,10);
-};
+const dateInput=toDateInput;
 const displayDate=(v:unknown)=>{
   if(!v)return "—";
   const d=new Date(v as string);
@@ -204,8 +208,10 @@ function HeaderMenu({
 
 export default function LeadsPage(){
   const qc=useQueryClient();
+  const [urlParams,setUrlParams]=useSearchParams();
   const {authState}=useAuth();
   const isAdmin=authState.type==="authenticated"&&authState.user.role==="admin";
+  const currentUser=authState.type==="authenticated"?authState.user:null;
   const [query,setQuery]=useState(readStoredQuery);
   const [cityFilter,setCityFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [statusFilter,setStatusFilter]=useState<SmartFilterState>(emptySmartFilter);
@@ -242,6 +248,27 @@ export default function LeadsPage(){
   const [tableFullscreen,setTableFullscreen]=useState(false);
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
   const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(readStoredFilterGroups);
+  const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
+  const [lastTouchedId,setLastTouchedId]=useState<string>("");
+  const [cellState,setCellState]=useState<Record<string,"saving"|"saved">>({});
+  const [bulkField,setBulkField]=useState<"estado"|"prioridad"|"assignedUserEmail"|"fechaProximaAccion"|"tipo"|"commercialProfile"|"ciudad">("estado");
+  const [bulkValue,setBulkValue]=useState("");
+  const [bulkDeleteOpen,setBulkDeleteOpen]=useState(false);
+  const [activeQuick,setActiveQuick]=useState("all");
+  const [saveViewOpen,setSaveViewOpen]=useState(false);
+  const [savedViewName,setSavedViewName]=useState("");
+  const [savedViews,setSavedViews]=useState<Array<{
+    name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc";
+    inline?:{
+      cityFilter:SmartFilterState;statusFilter:SmartFilterState;typeFilter:SmartFilterState;subtypeFilter:SmartFilterState;
+      commercialProfileFilter:SmartFilterState;priorityFilter:SmartFilterState;assignedUserFilter:SmartFilterState;
+      subscriptionFilter:SmartFilterState;originFilter:SmartFilterState;loadedByFilter:SmartFilterState;
+      contactMethodFilter:SmartFilterState;createdByFilter:SmartFilterState;
+      textFilters:Record<TextFilterField,TextFilterState>;dateFilters:Record<DateFilterField,DateFilterState>;
+      idFilter:IdFilterState;recurrentFilter:"all"|"true"|"false";notesFilter:TextFilterState;
+      nextAction:"_all"|"with"|"without"|"overdue";
+    };
+  }>>([]);
   const [columnWidths,setColumnWidths]=useState<Record<string,number>>(()=>{
     if(typeof window==="undefined")return DEFAULT_WIDTHS;
     try{
@@ -303,6 +330,11 @@ export default function LeadsPage(){
     catch{}
   },[sortBy,sortDir]);
   useEffect(()=>{
+    if(!lastTouchedId)return;
+    const timeout=window.setTimeout(()=>setLastTouchedId(""),3500);
+    return ()=>window.clearTimeout(timeout);
+  },[lastTouchedId]);
+  useEffect(()=>{
     if(!tableFullscreen)return;
     const previous=document.body.style.overflow;
     document.body.style.overflow="hidden";
@@ -323,11 +355,30 @@ export default function LeadsPage(){
     return [{field,presence:filter.presence,from:filter.from||undefined,to:filter.to||undefined}];
   });
   const settingsQ=useQuery({queryKey:["settings"],queryFn:getSettings});
+  const savedViewsQ=useQuery({queryKey:["saved-views",currentUser?.id],queryFn:getSavedLeadViews,enabled:!!currentUser});
   const leadsQ=useQuery({
-    queryKey:[...QUERY_KEY,debouncedQuery,appliedFilterGroups,sortBy,sortDir,page],
+    queryKey:[...QUERY_KEY,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page],
     queryFn:()=>getLeads({
       q:debouncedQuery||undefined,
       filterGroups:appliedFilterGroups,
+      ciudades:cityFilter.include,excludeCiudades:cityFilter.exclude,
+      estados:statusFilter.include,excludeEstados:statusFilter.exclude,
+      tipos:typeFilter.include,excludeTipos:typeFilter.exclude,
+      subtipos:subtypeFilter.include,excludeSubtipos:subtypeFilter.exclude,
+      commercialProfiles:commercialProfileFilter.include,excludeCommercialProfiles:commercialProfileFilter.exclude,
+      prioridades:priorityFilter.include,excludePrioridades:priorityFilter.exclude,
+      assignedUsers:assignedUserFilter.include,excludeAssignedUsers:assignedUserFilter.exclude,
+      suscripciones:subscriptionFilter.include,excludeSuscripciones:subscriptionFilter.exclude,
+      origenes:originFilter.include,excludeOrigenes:originFilter.exclude,
+      quienesCargaron:loadedByFilter.include,excludeQuienesCargaron:loadedByFilter.exclude,
+      mediosContacto:contactMethodFilter.include,excludeMediosContacto:contactMethodFilter.exclude,
+      creadosPor:createdByFilter.include,excludeCreadosPor:createdByFilter.exclude,
+      textFilters:activeTextFilters,dateFilters:activeDateFilters,
+      idExact:idFilter.exact||undefined,idMin:idFilter.min||undefined,idMax:idFilter.max||undefined,
+      recurrent:recurrentFilter==="all"?undefined:recurrentFilter,
+      notesMode:notesFilter.mode==="none"?undefined:notesFilter.mode,
+      notesText:notesFilter.value||undefined,
+      nextAction:nextAction==="_all"?undefined:nextAction,
       sortBy,sortDir,page,pageSize:50
     }),
     placeholderData:(previous)=>previous
@@ -348,6 +399,14 @@ export default function LeadsPage(){
   const saveM=useMutation({mutationFn:postLeadsSave});
   const deleteM=useMutation({mutationFn:postLeadsDelete,onSuccess:invalidate});
   const quickM=useMutation({mutationFn:postLeadsQuick,onSuccess:invalidate});
+  const bulkM=useMutation({mutationFn:postLeadsBulk,onSuccess:invalidate});
+  const bulkDeleteM=useMutation({mutationFn:postLeadsBulkDelete,onSuccess:invalidate});
+  const savedViewM=useMutation({mutationFn:postSavedLeadView});
+
+  useEffect(()=>{
+    if(!savedViewsQ.data)return;
+    setSavedViews(savedViewsQ.data.views.map(({name,config})=>({name,...(config as any)})));
+  },[savedViewsQ.data]);
 
   const leads=leadsQ.data?.rows??[];
   const filters=leadsQ.data?.filters??{
@@ -355,7 +414,7 @@ export default function LeadsPage(){
     quienesCargaron:[],mediosContacto:[],creadosPor:[]
   };
   const total=leadsQ.data?.total??0;
-  const stats=statsQ.data??{total:0,pendientes:0,suscriptos:0,vencidos:0};
+  const stats=statsQ.data??{total:0,pendientes:0,suscriptos:0,vencidos:0,paraHoy:0,misPendientesHoy:0};
   const settings=settingsQ.data;
   const cityOptions=settings?.cities.map(x=>x.name)??filters.ciudades;
   const typeOptions=settings?.types??filters.tipos;
@@ -438,16 +497,15 @@ export default function LeadsPage(){
   });
   const hasIdFilter=!!(idFilter.exact||idFilter.min||idFilter.max);
   const hasAnyFilters=hasSmartFilters||hasTextFilters||hasDateFilters||hasIdFilter||recurrentFilter!=="all"||notesFilter.mode!=="none"||nextAction!=="_all";
-  const clearAllFilters=()=>{
-    filterGroups.forEach(group=>group.setValue(emptySmartFilter()));
-    setTextFilters(createTextFilters());
-    setDateFilters(createDateFilters());
-    setIdFilter(emptyIdFilter());
-    setRecurrentFilter("all");
-    setNotesFilter(emptyTextFilter());
-    setNextAction("_all");
-    resetPage();
+  const resetInlineFilters=()=>{
+    setCityFilter(emptySmartFilter());setStatusFilter(emptySmartFilter());setTypeFilter(emptySmartFilter());
+    setSubtypeFilter(emptySmartFilter());setCommercialProfileFilter(emptySmartFilter());setPriorityFilter(emptySmartFilter());
+    setAssignedUserFilter(emptySmartFilter());setSubscriptionFilter(emptySmartFilter());setOriginFilter(emptySmartFilter());
+    setLoadedByFilter(emptySmartFilter());setContactMethodFilter(emptySmartFilter());setCreatedByFilter(emptySmartFilter());
+    setTextFilters(createTextFilters());setDateFilters(createDateFilters());setIdFilter(emptyIdFilter());
+    setRecurrentFilter("all");setNotesFilter(emptyTextFilter());setNextAction("_all");
   };
+  const clearAllFilters=()=>{resetInlineFilters();resetPage()};
   const removeFilterValue=(group:FilterGroup,mode:"include"|"exclude",value:string)=>{
     group.setValue(prev=>({...prev,[mode]:prev[mode].filter(item=>item!==value)}));
     resetPage();
@@ -462,8 +520,96 @@ export default function LeadsPage(){
   const resetPage=()=>setPage(1);
   const sort=(field:SortBy,dir:"asc"|"desc")=>{setSortBy(field);setSortDir(dir);resetPage()};
   const set=(key:keyof InputType,value:any)=>setForm(prev=>({...prev,[key]:value}));
+  const today=dateInput(new Date());
+  const applyQuickView=(kind:string,value?:string)=>{
+    resetInlineFilters();
+    setQuery("");
+    setActiveQuick(kind);
+    let groups:AdvancedFilterGroup[]=[];
+    if(kind==="pending")groups=[{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(kind==="subscribed")groups=[{rules:[{field:"estado",operator:"eq",value:"Suscripto"}]}];
+    if(kind==="today")groups=[{rules:[{field:"fechaProximaAccion",operator:"on",value:today}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(kind==="overdue")groups=[{rules:[{field:"fechaProximaAccion",operator:"before",value:today}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(kind==="mine"&&currentUser)groups=[{rules:[{field:"assignedUserEmail",operator:"eq",value:currentUser.email}]}];
+    if(kind==="myToday"&&currentUser)groups=[
+      {rules:[{field:"assignedUserEmail",operator:"eq",value:currentUser.email}]},
+      {rules:[{field:"fechaProximaAccion",operator:"between",value:"2000-01-01",value2:today}]},
+      {rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}
+    ];
+    if(kind==="unassigned")groups=[{rules:[{field:"assignedUserEmail",operator:"empty"}]}];
+    if(kind==="noContact")groups=[{rules:[{field:"fechaUltimoContacto",operator:"empty"}]}];
+    if(kind==="contacted")groups=[{rules:[{field:"fechaUltimoContacto",operator:"not_empty"}]}];
+    if(kind==="inactive30"){
+      const d=new Date();d.setDate(d.getDate()-30);
+      groups=[{rules:[{field:"updatedAt",operator:"before",value:dateInput(d)}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    }
+    if(kind==="new7"){
+      const d=new Date();d.setDate(d.getDate()-7);
+      groups=[{rules:[{field:"createdAt",operator:"after",value:dateInput(d)}]}];
+    }
+    if(kind==="noNext")groups=[{rules:[{field:"fechaProximaAccion",operator:"empty"}]}];
+    if(kind==="field"&&value){
+      const [field,raw]=value.split("::");
+      if(field&&raw)groups=[{rules:[{field:field as any,operator:"eq",value:raw}]}];
+    }
+    setAppliedFilterGroups(groups);setPage(1);
+  };
+  useEffect(()=>{
+    const quickParam=urlParams.get("quick");
+    const field=urlParams.get("filterField"),value=urlParams.get("filterValue");
+    const leadId=urlParams.get("leadId");
+    if(quickParam)applyQuickView(quickParam);
+    else if(field&&value)applyQuickView("field",field+"::"+value);
+    else if(leadId){resetInlineFilters();setQuery("");setAppliedFilterGroups([{rules:[{field:"id",operator:"eq",value:leadId}]}]);setPage(1)}
+  },[]);
+  useEffect(()=>{
+    const leadId=urlParams.get("leadId");
+    if(!leadId||!leads.length)return;
+    const target=leads.find(item=>String(item.id)===leadId);
+    if(target){setSelectedLead(target);setLastTouchedId(leadId);setViewOpen(true);setUrlParams({}, {replace:true})}
+  },[leads]);
+
+  const saveCurrentView=()=>{
+    const name=savedViewName.trim();if(!name||!currentUser)return;
+    const inline={
+      cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,
+      subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,
+      textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction
+    };
+    const view={name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline};
+    const next=[...savedViews.filter(item=>item.name!==name),view];
+    setSavedViews(next);
+    void savedViewM.mutateAsync({action:"save",view:{name,config:{query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline}}})
+      .then(()=>toast.success("Vista guardada"))
+      .catch(error=>{setSavedViews(savedViews);toast.error(error instanceof Error?error.message:"No se pudo guardar la vista")});
+    setSavedViewName("");setSaveViewOpen(false);
+  };
+  const applySavedView=(view:(typeof savedViews)[number])=>{
+    resetInlineFilters();
+    if(view.inline){
+      setCityFilter(view.inline.cityFilter);setStatusFilter(view.inline.statusFilter);setTypeFilter(view.inline.typeFilter);
+      setSubtypeFilter(view.inline.subtypeFilter);setCommercialProfileFilter(view.inline.commercialProfileFilter);
+      setPriorityFilter(view.inline.priorityFilter);setAssignedUserFilter(view.inline.assignedUserFilter);
+      setSubscriptionFilter(view.inline.subscriptionFilter);setOriginFilter(view.inline.originFilter);
+      setLoadedByFilter(view.inline.loadedByFilter);setContactMethodFilter(view.inline.contactMethodFilter);
+      setCreatedByFilter(view.inline.createdByFilter);setTextFilters(view.inline.textFilters);setDateFilters(view.inline.dateFilters);
+      setIdFilter(view.inline.idFilter);setRecurrentFilter(view.inline.recurrentFilter);setNotesFilter(view.inline.notesFilter);
+      setNextAction(view.inline.nextAction);
+    }
+    setQuery(view.query);setAppliedFilterGroups(view.filterGroups);setSortBy(view.sortBy);setSortDir(view.sortDir);
+    setActiveQuick("saved:"+view.name);setPage(1);
+  };
+  const removeSavedView=(name:string)=>{
+    if(!currentUser)return;
+    const previous=savedViews;
+    setSavedViews(savedViews.filter(view=>view.name!==name));
+    void savedViewM.mutateAsync({action:"delete",name}).catch(error=>{
+      setSavedViews(previous);toast.error(error instanceof Error?error.message:"No se pudo eliminar la vista");
+    });
+  };
+
   const newLead=()=>{setForm(emptyForm);setDuplicateCandidates([]);setOpen(true)};
-  const editLead=(l:any)=>{setDuplicateCandidates([]);setForm({
+  const editLead=(l:any)=>{setLastTouchedId(String(l.id));setDuplicateCandidates([]);setForm({
     id:String(l.id),nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
     email:l.email,telefono:l.telefono,sitioWeb:l.sitioWeb,urlGmap:l.urlGmap,perfilInstagram:l.perfilInstagram,perfilFacebook:l.perfilFacebook,
     perfilAirbnb:l.perfilAirbnb,perfilBooking:l.perfilBooking,perfilTurismoEntreRios:l.perfilTurismoEntreRios,origen:l.origen,
@@ -472,11 +618,16 @@ export default function LeadsPage(){
     fechaProximaAccion:dateInput(l.fechaProximaAccion),fuenteReferencia:l.fuenteReferencia,clientePotencialRecurrente:l.clientePotencialRecurrente,
     archivoAdjunto:l.archivoAdjunto,notas:null,creadoPor:l.creadoPor
   });setOpen(true)};
-  const openView=(l:any)=>{setSelectedLead(l);setViewOpen(true)};
+  const openView=(l:any)=>{setLastTouchedId(String(l.id));setSelectedLead(l);setViewOpen(true)};
+  const selectedIndex=selectedLead?leads.findIndex(lead=>String(lead.id)===String(selectedLead.id)):-1;
+  const moveView=(offset:number)=>{
+    const target=leads[selectedIndex+offset];if(target)openView(target);
+  };
   const saveLead=async(force=false)=>{
     const result=await saveM.mutateAsync({...form,force});
     if("duplicateCandidates" in result){setDuplicateCandidates(result.duplicateCandidates);return}
-    setDuplicateCandidates([]);await invalidate();setOpen(false);
+    if(form.id)setLastTouchedId(String(form.id));
+    setDuplicateCandidates([]);await invalidate();setOpen(false);toast.success("Lead guardado");
   };
   const requestDelete=(id:string|number,nombre:string)=>setPendingDelete({id,nombre});
   const confirmDelete=async()=>{
@@ -485,10 +636,43 @@ export default function LeadsPage(){
     await deleteM.mutateAsync({id:target.id});
     if(selectedLead&&String(selectedLead.id)===String(target.id)){setViewOpen(false);setSelectedLead(null)}
     if(form.id&&String(form.id)===String(target.id))setOpen(false);
-    setPendingDelete(null);
+    setPendingDelete(null);toast.success("Lead enviado a la papelera");
   };
-  const quick=(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>quickM.mutate({id,field,value:value||null});
-  const openContact=(lead:any,channel:"whatsapp"|"email")=>{setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
+  const quick=async(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>{
+    const key=String(id)+":"+field;
+    const lead=leads.find(item=>String(item.id)===String(id));
+    const oldRaw=lead?.[field];
+    const oldValue=["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(field)?dateInput(oldRaw):str(oldRaw);
+    setCellState(prev=>({...prev,[key]:"saving"}));
+    try{
+      await quickM.mutateAsync({id,field,value:value||null});
+      setLastTouchedId(String(id));setCellState(prev=>({...prev,[key]:"saved"}));
+      window.setTimeout(()=>setCellState(prev=>{const next={...prev};delete next[key];return next}),1300);
+      toast.success("Cambio guardado",field==="tipo"?undefined:{action:{label:"Deshacer",onClick:()=>quickM.mutate({id,field,value:oldValue||null})}});
+    }catch(error){
+      setCellState(prev=>{const next={...prev};delete next[key];return next});
+      toast.error(error instanceof Error?error.message:"No se pudo guardar");
+    }
+  };
+  const applyBulk=async()=>{
+    if(!selectedIds.size)return;
+    const changes:any={[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)};
+    await bulkM.mutateAsync({ids:Array.from(selectedIds),changes});
+    toast.success(`${selectedIds.size} leads actualizados`);setSelectedIds(new Set());setBulkValue("");
+  };
+  const bulkDeleteSelected=async()=>{
+    if(!selectedIds.size)return;
+    const count=selectedIds.size;
+    await bulkDeleteM.mutateAsync({ids:Array.from(selectedIds)});
+    setSelectedIds(new Set());setBulkDeleteOpen(false);
+    toast.success(count+" leads enviados a la papelera");
+  };
+  const togglePageSelection=()=>{
+    const ids=leads.map(lead=>String(lead.id));
+    const all=ids.length>0&&ids.every(id=>selectedIds.has(id));
+    setSelectedIds(prev=>{const next=new Set(prev);ids.forEach(id=>all?next.delete(id):next.add(id));return next});
+  };
+  const openContact=(lead:any,channel:"whatsapp"|"email")=>{setLastTouchedId(String(lead.id));setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
   const startResize=(key:string,startX:number)=>{
     const startWidth=columnWidths[key]??DEFAULT_WIDTHS[key]??160;
     const onMove=(event:MouseEvent)=>{
@@ -502,7 +686,7 @@ export default function LeadsPage(){
     document.addEventListener("mousemove",onMove);
     document.addEventListener("mouseup",onUp);
   };
-  const tableWidth=visibleColumns.reduce((total,key)=>total+(columnWidths[key]??DEFAULT_WIDTHS[key]??160),0)+250;
+  const tableWidth=visibleColumns.reduce((total,key)=>total+(columnWidths[key]??DEFAULT_WIDTHS[key]??160),0)+294;
 
   const headerFilter=(key:string)=>{
     const group=filterGroups.find(item=>item.key===key);
@@ -547,13 +731,14 @@ export default function LeadsPage(){
         : label?<ValueBadge value={label} category="person"/>:"—";
     }
     if(key==="medioContactoPreferido")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
-    if(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key))return <input
+    if(key==="fechaProximaAccion")return <NextActionPicker compact value={l.fechaProximaAccion} onChange={value=>quick(l.id,"fechaProximaAccion",value)}/>;
+    if(["fechaCreacion","fechaUltimoContacto"].includes(key))return <input
       className={styles.inlineDate}
       type="date"
       value={dateInput(l[key])}
       onClick={e=>{e.stopPropagation();e.currentTarget.showPicker?.()}}
       onDoubleClick={e=>e.stopPropagation()}
-      onChange={e=>quick(l.id,key as "fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",e.target.value)}
+      onChange={e=>quick(l.id,key as "fechaCreacion"|"fechaUltimoContacto",e.target.value)}
     />;
     if(["createdAt","updatedAt"].includes(key))return displayDate(l[key]);
     if(key==="clientePotencialRecurrente")return l[key]?"Sí":"No";
@@ -575,10 +760,20 @@ export default function LeadsPage(){
       </header>
 
       <section className={styles.metrics}>
-        <article><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>Total leads</span></div></article>
-        <article><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></article>
-        <article><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>Acciones vencidas</span></div></article>
-        <article><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos</span></div></article>
+        <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>Total leads</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>Para hoy</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>Acciones vencidas</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis pendientes hoy</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos</span></div></button>
+      </section>
+
+      <section className={styles.quickViews}>
+        <div className={styles.quickViewList}>
+          {[["all","Todos"],["mine","Mis leads"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><button type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</button>)}
+          {savedViews.map(view=><div className={styles.savedView} key={view.name}><button type="button" className={activeQuick==="saved:"+view.name?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</button><button type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</button></div>)}
+        </div>
+        <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
       <section className={styles.toolbar}>
@@ -595,16 +790,41 @@ export default function LeadsPage(){
         groups={appliedFilterGroups}
         fields={filterFields}
         onEdit={()=>setFilterDialogOpen(true)}
-        onClear={()=>{setAppliedFilterGroups([]);resetPage()}}
+        onClear={()=>{setAppliedFilterGroups([]);setActiveQuick("all");resetPage()}}
       />
+
+      {selectedIds.size>0&&<section className={styles.bulkBar}>
+        <strong>{selectedIds.size} seleccionados</strong>
+        <select value={bulkField} onChange={e=>{setBulkField(e.target.value as typeof bulkField);setBulkValue("")}}>
+          <option value="estado">Estado</option><option value="prioridad">Prioridad</option>
+          {isAdmin&&<option value="assignedUserEmail">Responsable</option>}
+          <option value="fechaProximaAccion">Próxima acción</option><option value="tipo">Vertical</option>
+          <option value="commercialProfile">Perfil comercial</option><option value="ciudad">Ciudad</option>
+        </select>
+        {bulkField==="fechaProximaAccion"
+          ? <div className={styles.bulkDate}><NextActionPicker value={bulkValue} onChange={setBulkValue}/></div>
+          : <select value={bulkValue} onChange={e=>setBulkValue(e.target.value)}>
+              <option value="">Elegir valor…</option>
+              {bulkField==="estado"&&STATUS_OPTIONS.map(item=><option key={item}>{item}</option>)}
+              {bulkField==="prioridad"&&<><option value="__CLEAR__">Sin prioridad</option>{PRIORITY_OPTIONS.map(item=><option key={item}>{item}</option>)}</>}
+              {bulkField==="assignedUserEmail"&&<><option value="__CLEAR__">Sin responsable</option>{userOptions.map(user=><option key={user.id} value={user.email}>{user.displayName||user.email}</option>)}</>}
+              {bulkField==="tipo"&&typeOptions.map(item=><option key={item}>{item}</option>)}
+              {bulkField==="commercialProfile"&&<><option value="__CLEAR__">Sin perfil</option>{PROFILE_OPTIONS.map(item=><option key={item}>{item}</option>)}</>}
+              {bulkField==="ciudad"&&cityOptions.map(item=><option key={item}>{item}</option>)}
+            </select>}
+        <Button size="sm" onClick={applyBulk} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
+        <Button size="sm" variant="destructive" onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={14}/>Enviar a papelera</Button>
+        <Button size="sm" variant="ghost" onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button>
+      </section>}
 
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
         <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} leads</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span></div><div className={styles.tableMetaActions}><span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span><Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar los leads: {leadsQ.error.message}</div>:
         <div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
-          {visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
+          <col style={{width:44}}/>{visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
         </colgroup><thead><tr>
+          <th className={styles.selectHead}><Checkbox checked={leads.length>0&&leads.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
           {visibleColumns.map(key=>{
             const col=TABLE_COLUMNS.find(x=>x.key===key);
             if(!col)return null;
@@ -612,11 +832,12 @@ export default function LeadsPage(){
           })}
           <th>Contacto</th><th>Acciones</th>
         </tr></thead><tbody>
-          {leads.map(l=><tr key={String(l.id)} onDoubleClick={()=>openView(l)}>
-            {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}</div></td>)}
+          {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
+            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
+            {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
             <td><div className={styles.quick}>{l.telefono&&<><a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a><button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp"><MessageCircle size={15}/></button></>}{l.email&&<button type="button" onClick={()=>openContact(l,"email")} title="Email"><Mail size={15}/></button>}{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div></td>
             <td><div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title="Borrar"><Trash2 size={15}/></Button></div></td>
-          </tr>)}
+          </tr>})}
         </tbody></table></div>}
         <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
       </section>
@@ -712,7 +933,7 @@ export default function LeadsPage(){
               </div>
               <div className={styles.editGrid}>
                 <label className={styles.editField}><span>Último contacto</span><Input type="date" value={str(form.fechaUltimoContacto)} onChange={e=>set("fechaUltimoContacto",e.target.value)}/></label>
-                <label className={styles.editField}><span>Próxima acción</span><Input type="date" value={str(form.fechaProximaAccion)} onChange={e=>set("fechaProximaAccion",e.target.value)}/></label>
+                <label className={styles.editField}><span>Próxima acción</span><NextActionPicker value={form.fechaProximaAccion} onChange={value=>set("fechaProximaAccion",value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Resultado último contacto</span><Input value={str(form.resultadoUltimoContacto)} onChange={e=>set("resultadoUltimoContacto",e.target.value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Fuente de referencia</span><Input value={str(form.fuenteReferencia)} onChange={e=>set("fuenteReferencia",e.target.value)}/></label>
               </div>
@@ -763,10 +984,20 @@ export default function LeadsPage(){
         onOpenChange={setFilterDialogOpen}
         fields={filterFields}
         value={appliedFilterGroups}
-        onApply={groups=>{setAppliedFilterGroups(groups);setPage(1)}}
+        onApply={groups=>{setAppliedFilterGroups(groups);setActiveQuick("custom");setPage(1)}}
       />
-      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")}/>
+      <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}><DialogContent className={styles.confirmDialog}>
+        <DialogHeader><DialogTitle>Guardar vista</DialogTitle><DialogDescription>Conserva la búsqueda, filtros y orden actuales para volver a usarlos con un clic.</DialogDescription></DialogHeader>
+        <Input value={savedViewName} onChange={e=>setSavedViewName(e.target.value)} placeholder="Ej: Alojamientos de Colón sin contactar" autoFocus/>
+        <DialogFooter><Button variant="outline" onClick={()=>setSaveViewOpen(false)}>Cancelar</Button><Button onClick={saveCurrentView} disabled={!savedViewName.trim()}>Guardar vista</Button></DialogFooter>
+      </DialogContent></Dialog>
+      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
+        <DialogHeader><DialogTitle>Enviar {selectedIds.size} leads a la papelera</DialogTitle><DialogDescription>Los seleccionados dejarán de aparecer en la operación normal.</DialogDescription></DialogHeader>
+        <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán y podrán restaurarse desde Papelera.</span></div>
+        <DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={bulkDeleteSelected} disabled={bulkDeleteM.isPending}>{bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
+      </DialogContent></Dialog>
       <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Enviar lead a la papelera</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong> dejará de aparecer en la tabla y en la operación normal.</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán. El administrador podrá restaurarlo o eliminarlo definitivamente desde Papelera.</span></div>
