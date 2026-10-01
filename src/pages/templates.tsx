@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, FileText, Mail, MessageCircle, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, FileText, Mail, MessageCircle, Plus, Search } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -38,6 +38,7 @@ export function TemplatesContent(){
   const [body,setBody]=useState("<p></p>");
   const [previewLeadId,setPreviewLeadId]=useState("");
   const [groupBy,setGroupBy]=useState<"channel"|"vertical"|"profile">("channel");
+  const [collapsedGroups,setCollapsedGroups]=useState<Set<string>>(new Set());
 
   const data=q.data;
   const filtered=useMemo(()=>{
@@ -74,6 +75,16 @@ export function TemplatesContent(){
         return a.label.localeCompare(b.label,"es");
       });
   },[filtered,groupBy,data?.types]);
+
+  const groupKey=(label:string)=>groupBy+"::"+label;
+  const toggleGroup=(label:string)=>{
+    const key=groupKey(label);
+    setCollapsedGroups(prev=>{
+      const next=new Set(prev);
+      next.has(key)?next.delete(key):next.add(key);
+      return next;
+    });
+  };
 
   const reset=()=>{
     setTemplateId(undefined);setChannel("whatsapp");setVertical("");setProfile("");
@@ -140,18 +151,24 @@ export function TemplatesContent(){
         </div>
         <div className={styles.templateCount}>{filtered.length} templates</div>
         {q.isLoading?<Skeleton className={styles.loading}/>:<div className={styles.templateGroups}>
-          {templateGroups.map(group=><section className={styles.templateGroup} key={group.label}>
-            <div className={styles.templateGroupTitle}><strong>{group.label}</strong><span>{group.templates.length}</span></div>
-            <div className={styles.templateList}>
-              {group.templates.map(template=>{
-                const active=template.id===templateId;
-                return <button type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
-                  <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
-                  <div><strong>{template.name}</strong><span>{[template.vertical||"Todas",template.commercialProfile||"Todos",template.channel].filter(Boolean).join(" · ")}</span></div>
-                </button>;
-              })}
-            </div>
-          </section>)}
+          {templateGroups.map(group=>{
+            const collapsed=collapsedGroups.has(groupKey(group.label));
+            return <section className={styles.templateGroup} key={group.label}>
+              <button type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
+                <div>{collapsed?<ChevronRight size={14}/>:<ChevronDown size={14}/>}<strong>{group.label}</strong></div>
+                <span>{group.templates.length}</span>
+              </button>
+              {!collapsed&&<div className={styles.templateList}>
+                {group.templates.map(template=>{
+                  const active=template.id===templateId;
+                  return <button type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
+                    <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
+                    <div><strong>{template.name}</strong><span>{[template.vertical||"Todas",template.commercialProfile||"Todos",template.channel].filter(Boolean).join(" · ")}</span></div>
+                  </button>;
+                })}
+              </div>}
+            </section>;
+          })}
           {!templateGroups.length&&<div className={styles.emptyTemplates}>No hay templates para mostrar.</div>}
         </div>}
       </aside>
