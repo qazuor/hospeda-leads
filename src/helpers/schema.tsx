@@ -92,6 +92,7 @@ export interface EmailOutbox {
 }
 
 export interface LeadJournal {
+  accountId: Int8 | null;
   action: string;
   actorEmail: string | null;
   actorName: string;
@@ -117,6 +118,11 @@ export interface LeadNotes {
 }
 
 export interface Leads {
+  accountId: Generated<Int8>;
+  opportunityName: string | null;
+  primaryContactId: Int8 | null;
+  serviceInterest: string | null;
+  estimatedCloseDate: Timestamp | null;
   archivoAdjunto: string | null;
   asignadoA: string | null;
   assignedUserEmail: string | null;
@@ -207,7 +213,55 @@ export interface Users {
   updatedAt: Generated<Timestamp | null>;
 }
 
+export interface CrmAccounts {
+  id: Generated<Int8>;
+  sourceLeadId: Int8 | null;
+  nombre: string;
+  ciudad: string | null;
+  telefono: string | null;
+  email: string | null;
+  sitioWeb: string | null;
+  urlGmap: string | null;
+  perfilInstagram: string | null;
+  perfilFacebook: string | null;
+  perfilAirbnb: string | null;
+  perfilBooking: string | null;
+  perfilTurismoEntreRios: string | null;
+  assignedUserEmail: string | null;
+  commercialStatus: Generated<"prospect" | "client">;
+  clientSince: Timestamp | null;
+  createdAt: Generated<Timestamp>;
+  updatedAt: Generated<Timestamp>;
+}
+export interface CrmContacts {
+  id: Generated<Int8>;
+  accountId: Int8;
+  sourceLeadId: Int8 | null;
+  name: string;
+  position: string | null;
+  phone: string | null;
+  email: string | null;
+  preferredChannel: string | null;
+  isPrimary: Generated<boolean>;
+  notes: string | null;
+  deletedAt: Timestamp | null;
+  createdAt: Generated<Timestamp>;
+  updatedAt: Generated<Timestamp>;
+}
+export interface CrmCommercialJournal {
+  id: Generated<Int8>;
+  accountId: Int8;
+  contactId: Int8 | null;
+  action: string;
+  actorEmail: string | null;
+  actorName: string;
+  metadata: Generated<Json>;
+  createdAt: Generated<Timestamp>;
+}
 export interface DB {
+  crmAccounts: CrmAccounts;
+  crmContacts: CrmContacts;
+  crmCommercialJournal: CrmCommercialJournal;
   appSettings: AppSettings;
   authorizedEmails: AuthorizedEmails;
   crmCities: CrmCities;

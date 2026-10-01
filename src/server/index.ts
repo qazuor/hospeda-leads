@@ -35,7 +35,11 @@ import { handle as h21 } from "../endpoints/send_template_email_POST";
 import { handle as h22 } from "../endpoints/settings_GET";
 import { handle as h23 } from "../endpoints/settings_save_POST";
 
+import { get as commercialGET, post as commercialPOST } from "../endpoints/commercial";
+
 const app=new Hono();
+app.get("/_api/commercial", c=>commercialGET(c.req.raw));
+app.post("/_api/commercial", c=>commercialPOST(c.req.raw));
 
 app.get("/_api/health",(c)=>c.json({ok:true,service:"hospeda-leads"}));
 app.get("/_api/analytics", (c) => h0(c.req.raw));

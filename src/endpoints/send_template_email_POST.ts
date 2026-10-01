@@ -1,3 +1,4 @@
+import { resolveCommercialContact } from "../helpers/commercialContact";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -31,7 +32,9 @@ export async function handle(request:Request){
 
     if(!lead)return new Response(superjson.stringify({error:"El lead ya no existe o está en la papelera."}),{status:404});
     if(!template||template.channel!=="email")return new Response(superjson.stringify({error:"El template seleccionado no es un template de Email."}),{status:400});
-    if(!lead.email)return new Response(superjson.stringify({error:"El lead no tiene email cargado."}),{status:400});
+    let contact;
+    try{contact=await resolveCommercialContact(db,lead,input.contactId)}catch(error){return new Response(superjson.stringify({error:error instanceof Error?error.message:"Contacto inválido"}),{status:400})}
+    if(!contact.email)return new Response(superjson.stringify({error:"El destinatario seleccionado no tiene email cargado."}),{status:400});
     if(template.vertical&&template.vertical!==lead.tipo)return new Response(superjson.stringify({error:"El template no corresponde a la vertical de este lead."}),{status:400});
     if(template.commercialProfile&&template.commercialProfile!==lead.commercialProfile)return new Response(superjson.stringify({error:"El template no corresponde al perfil comercial de este lead."}),{status:400});
 
@@ -48,13 +51,13 @@ export async function handle(request:Request){
     const templateSenderShort=senderUser?.displayName||user.displayName;
     const context={
       name:lead.nombre,
-      contact:lead.contactName,
-      contact_name:lead.contactName,
+      contact:contact.name,
+      contact_name:contact.name,
       city:lead.ciudad,
       type:lead.tipo,
       subtype:lead.subtipo,
-      phone:lead.telefono,
-      email:lead.email,
+      phone:contact.phone,
+      email:contact.email,
       website:lead.sitioWeb,
       sender:templateSender,
       sender_short:templateSenderShort
@@ -75,8 +78,8 @@ export async function handle(request:Request){
     const inserted=await db.insertInto("emailOutbox").values({
       leadId:String(lead.id),
       templateId:String(template.id),
-      recipientEmail:lead.email,
-      recipientName:lead.contactName||lead.nombre,
+      recipientEmail:contact.email,
+      recipientName:contact.name||lead.nombre,
       senderEmail,
       senderName,
       replyToEmail,
@@ -101,7 +104,7 @@ export async function handle(request:Request){
       },
       body:JSON.stringify({
         sender:{name:senderName,email:senderEmail},
-        to:[{email:lead.email,name:lead.contactName||lead.nombre}],
+        to:[{email:contact.email,name:contact.name||lead.nombre}],
         replyTo:{email:replyToEmail,name:replyToName},
         subject,
         htmlContent:htmlBody,
@@ -154,10 +157,11 @@ export async function handle(request:Request){
         actor:{id:user.id,email:user.email,displayName:user.displayName},
         action:"email_sent",
         metadata:{
+          contactId:contact.contactId,
           channel:"email",
           templateId:String(template.id),
           templateName:template.name,
-          recipient:lead.email,
+          recipient:contact.email,
           sender:`${senderName} <${senderEmail}>`,
           replyTo:replyToEmail,
           subject,

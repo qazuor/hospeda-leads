@@ -1,3 +1,4 @@
+import { CommercialPanel } from "./CommercialPanel";
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -117,7 +118,7 @@ export const LeadDetailDialog=({
         <div className={styles.identityRow}>
           <div className={styles.identity}>
             <div className={styles.titleLine}>
-              <DialogTitle className={styles.title}>{lead.nombre}</DialogTitle>
+              <DialogTitle className={styles.title}>{lead.opportunityName||lead.nombre}</DialogTitle>
               <div className={styles.titleBadges}>
                 {lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:<Badge variant="outline">Sin vertical</Badge>}
                 {lead.subtipo&&<ValueBadge value={lead.subtipo} category="subtype"/>}
@@ -137,9 +138,9 @@ export const LeadDetailDialog=({
         </div>
 
         <div className={styles.actionBar}>
-          {!readOnly&&lead.telefono&&onWhatsApp&&<Button size="sm" variant={whatsappPrimary?"primary":"outline"} onClick={()=>onWhatsApp(lead)}><MessageCircle size={15}/>WhatsApp</Button>}
+          {!readOnly&&onWhatsApp&&<Button size="sm" variant={whatsappPrimary?"primary":"outline"} onClick={()=>onWhatsApp(lead)}><MessageCircle size={15}/>WhatsApp</Button>}
           {!readOnly&&lead.telefono&&<Button size="sm" variant={phonePrimary?"primary":"outline"} asChild><a href={"tel:"+lead.telefono}><Phone size={15}/>Llamar</a></Button>}
-          {!readOnly&&lead.email&&onEmail&&<Button size="sm" variant={emailPrimary?"primary":"outline"} onClick={()=>onEmail(lead)}><Mail size={15}/>Email</Button>}
+          {!readOnly&&onEmail&&<Button size="sm" variant={emailPrimary?"primary":"outline"} onClick={()=>onEmail(lead)}><Mail size={15}/>Email</Button>}
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
           {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Lead anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Lead siguiente"><ChevronRight size={16}/></Button></div>}
@@ -150,6 +151,7 @@ export const LeadDetailDialog=({
       </div>
 
       <div className={styles.scrollBody}>
+        <CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/>
         <div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Contacto" value={lead.contactName||lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>

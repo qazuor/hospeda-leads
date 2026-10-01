@@ -1,6 +1,7 @@
 import { z } from "zod";
 import superjson from "superjson";
 export const schema=z.object({
+  contactId:z.string().regex(/^[1-9]\d*$/).nullable().optional(),
   leadId:z.union([z.string(),z.number()]),
   channel:z.enum(["whatsapp","email","phone","other"]),
   result:z.enum(["Sin respuesta","Respondió","Interesado","Recontactar","No interesado"]),

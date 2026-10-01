@@ -12,6 +12,7 @@ export async function handle(request:Request){
       return new Response(superjson.stringify({error:"Ingest source not allowed"}),{status:403});
     }
     const input=schema.parse(superjson.parse(await request.text()));
+    if(input.leads.some(lead=>lead.assignedUserEmail||lead.asignadoA))return new Response(superjson.stringify({error:"Ingest no puede asignar responsables. Debe hacerlo un administrador."}),{status:403});
     const createdIds:string[]=[];
     const duplicates:OutputType["duplicates"]=[];
     let skipped=0;
