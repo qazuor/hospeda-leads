@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Copy, FileText, Mail, MessageCircle, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, FileText, Mail, MessageCircle, Plus, Search, Trash2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/Dialog";
 import { Input } from "../components/Input";
 import { RichTemplateEditor } from "../components/RichTemplateEditor";
 import { Skeleton } from "../components/Skeleton";
@@ -38,7 +39,8 @@ export function TemplatesContent(){
   const [body,setBody]=useState("<p></p>");
   const [previewLeadId,setPreviewLeadId]=useState("");
   const [groupBy,setGroupBy]=useState<"channel"|"vertical"|"profile">("channel");
-  const [collapsedGroups,setCollapsedGroups]=useState<Set<string>>(new Set());
+  const [expandedGroups,setExpandedGroups]=useState<Set<string>>(new Set());
+  const [deleteOpen,setDeleteOpen]=useState(false);
 
   const data=q.data;
   const filtered=useMemo(()=>{
@@ -79,7 +81,7 @@ export function TemplatesContent(){
   const groupKey=(label:string)=>groupBy+"::"+label;
   const toggleGroup=(label:string)=>{
     const key=groupKey(label);
-    setCollapsedGroups(prev=>{
+    setExpandedGroups(prev=>{
       const next=new Set(prev);
       next.has(key)?next.delete(key):next.add(key);
       return next;
@@ -110,6 +112,12 @@ export function TemplatesContent(){
       commercialProfile:profile||null
     });
     if(!templateId)reset();
+  };
+  const deleteTemplate=async()=>{
+    if(!templateId)return;
+    await save.mutateAsync({action:"deleteTemplate",id:templateId});
+    setDeleteOpen(false);
+    reset();
   };
 
   const referenteWhatsapp=channel==="whatsapp"&&profile==="Referente";
@@ -152,7 +160,7 @@ export function TemplatesContent(){
         <div className={styles.templateCount}>{filtered.length} templates</div>
         {q.isLoading?<Skeleton className={styles.loading}/>:<div className={styles.templateGroups}>
           {templateGroups.map(group=>{
-            const collapsed=collapsedGroups.has(groupKey(group.label));
+            const collapsed=!expandedGroups.has(groupKey(group.label));
             return <section className={styles.templateGroup} key={group.label}>
               <button type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
                 <div>{collapsed?<ChevronRight size={14}/>:<ChevronDown size={14}/>}<strong>{group.label}</strong></div>
@@ -179,6 +187,7 @@ export function TemplatesContent(){
             <div className={styles.titleRow}><FileText size={20}/><div><h3>{templateId?"Editar template":"Nuevo template"}</h3><p>{channel==="whatsapp"?"Formato compatible con WhatsApp":"HTML enriquecido para email"}</p></div></div>
             <div className={styles.headerActions}>
               {templateId&&<Button size="sm" variant="outline" onClick={duplicate}><Copy size={15}/>Duplicar</Button>}
+              {templateId&&<Button size="sm" variant="destructive" onClick={()=>setDeleteOpen(true)}><Trash2 size={15}/>Eliminar</Button>}
               <Badge variant={channel==="email"?"primary":"success"}>{channel==="email"?"Email":"WhatsApp"}</Badge>
             </div>
           </div>
@@ -210,6 +219,20 @@ export function TemplatesContent(){
         </aside>
       </div>
     </div>
+
+    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <DialogContent className={styles.deleteDialog}>
+        <DialogHeader>
+          <DialogTitle>Eliminar template</DialogTitle>
+          <DialogDescription><strong>{name||"Este template"}</strong> dejará de aparecer en la lista y no podrá usarse en nuevos contactos.</DialogDescription>
+        </DialogHeader>
+        <div className={styles.deleteWarning}>Los envíos históricos y referencias existentes se conservan. La baja es reversible a nivel de datos, aunque no exponemos restauración en la interfaz.</div>
+        <DialogFooter>
+          <Button variant="outline" onClick={()=>setDeleteOpen(false)} disabled={save.isPending}>Cancelar</Button>
+          <Button variant="destructive" onClick={deleteTemplate} disabled={save.isPending}>{save.isPending?"Eliminando…":"Eliminar template"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </section>;
 }
 
