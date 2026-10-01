@@ -1,5 +1,5 @@
 import { htmlToPlainText, renderMessageTemplate, renderMessageTemplateHtml } from "./renderMessageTemplate";
-import { htmlToWhatsApp } from "./templateChannelFormatting";
+import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "./templateChannelFormatting";
 
 describe("message template rendering",()=>{
   it("resolves optional contact without broken punctuation",()=>{
@@ -25,6 +25,13 @@ describe("message template rendering",()=>{
     expect(result).toContain("_bienvenido_");
     expect(result).toContain("~ayer~");
     expect(result).toContain("Hospeda (https://hospeda.com.ar)");
+  });
+
+  it("renders WhatsApp markup visually for previews",()=>{
+    const preview=whatsappTextToPreviewHtml("*Hola* _Leo_ ~ayer~");
+    expect(preview).toContain("<strong>Hola</strong>");
+    expect(preview).toContain("<em>Leo</em>");
+    expect(preview).toContain("<s>ayer</s>");
   });
 
   it("creates a readable email plain-text fallback",()=>{
