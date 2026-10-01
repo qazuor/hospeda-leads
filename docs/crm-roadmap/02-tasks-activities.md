@@ -98,6 +98,8 @@ como interés. Filtros por responsable (admin), localidad y vertical/contexto co
 `/agenda`: lista/calendario mensual de tipos marcados Agenda. Planificadas son tareas pendientes;
 realizadas son actividades. Completar no dibuja dos veces el mismo encuentro. Calendario sin rutas.
 Detalle de negocio/oportunidad reutiliza editores, pendientes, realizadas, tareas canceladas y auditoría.
+Las tareas generales permiten elegir canales genéricos o una persona para WhatsApp, llamada o email,
+sin crear una oportunidad ficticia ni registrar un envío al abrir el canal.
 Registro de contacto y email aceptado por Brevo crean actividades, vinculadas al journal por activityId.
 Detalle comercial oculta esas copias técnicas; journal técnico conserva su evidencia original.
 No se convierte automáticamente el journal técnico anterior en actividades retrospectivas.

@@ -1,3 +1,4 @@
+import {TaskContactDialog} from "./TaskContactDialog";
 import React,{useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
@@ -11,6 +12,7 @@ import styles from './Commercial.module.css';
 import workStyles from './Work.module.css';
 const bucketNames={overdue:'Vencidas',today:'Hoy',upcoming:'Próximas'};
 export function TaskRow({task,data,onEdit}:{task:WorkTask;data:WorkData;onEdit:(t:WorkTarget)=>void}){
+ const [contactOpen,setContactOpen]=useState(false);
  const pending=task.status==='pending';
  const {authState}=useAuth();const editable=authState.type==='authenticated'&&(authState.user.role==='admin'||task.assignedUserEmail===authState.user.email);
  return <article className={workStyles.row} data-tone={pending?taskBucket(task.dueDate,task.dueAt):task.status}>
@@ -20,11 +22,13 @@ export function TaskRow({task,data,onEdit}:{task:WorkTask;data:WorkData;onEdit:(
    {task.description&&<p>{task.description}</p>}{task.participants&&<span>Participantes: {task.participants}</span>}{task.result&&<p>Resultado: {task.result}</p>}
   </div>
   {editable&&<div className={styles.actions}>
+   {!task.leadId&&<Button size="sm" variant="outline" onClick={()=>setContactOpen(true)}>Contactar</Button>}
    {task.leadId&&<Button size="sm" variant="outline" asChild><Link to={'/opportunities?leadId='+task.leadId+'&contact=whatsapp'}>Contactar</Link></Button>}
    {pending&&<><Button size="sm" onClick={()=>onEdit({kind:'complete',item:task})}>Completar</Button><Button size="sm" variant="outline" onClick={()=>onEdit({kind:'task',item:task})}>Editar / reprogramar</Button><Button size="sm" variant="ghost" onClick={()=>onEdit({kind:'cancel',item:task})}>Cancelar</Button></>}
    <Button size="sm" variant="ghost" onClick={()=>onEdit({kind:'activity',accountId:task.accountId,leadId:task.leadId||undefined})}>Registrar actividad</Button>
    <Button size="sm" variant="ghost" onClick={()=>onEdit({kind:'delete_task',item:task})}>Dar de baja</Button>
   </div>}
+  {contactOpen&&<TaskContactDialog task={task} onClose={()=>setContactOpen(false)} onLog={()=>{setContactOpen(false);onEdit({kind:'activity',accountId:task.accountId});}}/>}
  </article>;
 }
 export function ActivityRow({activity,data,onEdit}:{activity:WorkActivity;data:WorkData;onEdit:(t:WorkTarget)=>void}){
