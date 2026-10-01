@@ -736,7 +736,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   };
 
   const renderCell=(l:any,key:string)=>{
-    if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.commercialStatus==="client"?"Cliente comercial":"Prospecto"} · {l.contactCount} contactos · {l.opportunityCount} oportunidades</small></button>;
+    if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.commercialStatus==="client"?"Cliente comercial":"Prospecto"}</small><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"oportunidad":"oportunidades"}</small></button>;
     if(businessMode&&!["id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
       const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayDate(v):v).join(" · ");
@@ -789,7 +789,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       </header>
 
       <CommercialHelp/>
-      {businessMode&&<p className={styles.tableHint}>Con una oportunidad, podés editar su seguimiento desde esta tabla. Con varias, mostramos sus valores y podés abrir el negocio para elegir cuál modificar. Los filtros de seguimiento encuentran negocios con alguna oportunidad que cumpla las condiciones. Cliente comercial no acredita pago.</p>}
+      {businessMode&&<p className={styles.businessTableGuide}>Con una oportunidad, podés editar su seguimiento desde esta tabla. Con varias, mostramos sus valores y podés abrir el negocio para elegir cuál modificar. Los filtros de seguimiento encuentran negocios con alguna oportunidad que cumpla las condiciones. Cliente comercial no acredita pago.</p>}
       <section className={styles.metrics}>
         <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de oportunidades"}</span></div></button>
         <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></button>
