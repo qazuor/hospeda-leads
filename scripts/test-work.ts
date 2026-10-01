@@ -1,3 +1,4 @@
+import {handle as importLeads} from "../src/endpoints/leads_import_POST";
 import {localDay} from "../src/helpers/workDates";
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
@@ -21,6 +22,12 @@ async function mutate(body:unknown,cookie=user.cookie,status=200){const r=await 
 async function read(params='',cookie=user.cookie,status=200){const r=await get(new Request('http://localhost/_api/work?'+params,{headers:{cookie}}));const value=superjson.parse<WorkData&{error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value;}
 try{
  assert.equal((await get(new Request('http://localhost/_api/work'))).status,401);
+ const importName='Import with tasks '+suffix;
+ assert.equal((await importLeads(request({rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}]}))).status,200);
+ const imported=await db.selectFrom('leads').selectAll().where('nombre','=',importName).executeTakeFirstOrThrow();
+ assert.equal(imported.fechaProximaAccion!.toISOString().slice(0,10),'2026-10-01');
+ assert.equal((await db.selectFrom('crmWorkJournal').select('actorEmail').where('accountId','=',imported.accountId).executeTakeFirstOrThrow()).actorEmail,user.user.email);
+
  assert.equal((await post(request({action:'task_delete',id:'1'},''))).status,401);
  const a=await db.insertInto('crmAccounts').values({nombre:'Work test',ciudad:'Colón',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
  const b=await db.insertInto('crmAccounts').values({nombre:'Other test',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();

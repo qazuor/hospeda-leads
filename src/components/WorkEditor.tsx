@@ -14,7 +14,8 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
  const [accountId,setAccount]=useState(item?.accountId||('accountId' in target?target.accountId:'')||'');
  const [leadId,setLead]=useState(item?.leadId||('leadId' in target?target.leadId:'')||'');
  const [title,setTitle]=useState(item?.title||'');
- const [typeId,setType]=useState(item?.typeId||(target.kind==='task'?'call':'message'));
+ const preferredType=target.kind==='task'?'call':'message';
+ const [typeId,setType]=useState(item?.typeId||data.types.find(t=>t.id===preferredType&&t.active)?.id||data.types.find(t=>t.active)?.id||'followup');
  const [description,setDescription]=useState(item&&'description' in item?item.description??'':item&&'notes' in item?item.notes??'':'');
  const [date,setDate]=useState(item&&'dueDate' in item?item.dueDate:localDay());
  const [time,setTime]=useState(item&&'dueAt' in item&&item.dueAt?localDateTime(item.dueAt).slice(11):'');
