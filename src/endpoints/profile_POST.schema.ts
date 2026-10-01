@@ -7,7 +7,7 @@ export const schema=z.object({
   sex:z.enum(["masculino","femenino","otro","prefiero_no_decir"]).nullable()
 });
 export type InputType=z.infer<typeof schema>;
-export type OutputType={ok:true;user:{id:number;email:string;displayName:string;avatarUrl:string|null;role:"admin"|"user"}};
+export type OutputType={ok:true;user:{id:number;email:string;displayName:string;fullName:string|null;avatarUrl:string|null;role:"admin"|"user"}};
 export const postProfile=async(body:InputType):Promise<OutputType>=>{
   const r=await fetch("/_api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(schema.parse(body))});
   if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
