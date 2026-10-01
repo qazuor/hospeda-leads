@@ -34,7 +34,7 @@ export const advancedFilterField=z.enum([
   "suscripcion","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb",
   "perfilBooking","perfilTurismoEntreRios","origen","quienCargo","asignadoA","fechaCreacion",
   "fechaUltimoContacto","medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
-  "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor","createdAt","updatedAt","notes"
+  "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor","createdAt","updatedAt","notes","deletedAt"
 ]);
 export const advancedFilterOperator=z.enum([
   "eq","neq","contains","not_contains","empty","not_empty",
@@ -45,7 +45,7 @@ export const advancedFilterRule=z.object({
   operator:advancedFilterOperator,
   value:z.string().optional(),
   value2:z.string().optional()
-});
+}).refine(rule=>rule.field!=="deletedAt"||["is_true","is_false"].includes(rule.operator),{message:"El filtro de eliminados requiere sí o no"});
 export const advancedFilterGroup=z.object({
   rules:z.array(advancedFilterRule).min(1).max(20)
 });

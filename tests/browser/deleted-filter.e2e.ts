@@ -1,0 +1,11 @@
+import {test,expect} from "@playwright/test";
+import superjson from "superjson";
+test("admin filters deleted opportunities as read-only and restores through existing API",async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem("hospeda-live-mode","off"));await page.goto("/login");await page.getByLabel("Email",{exact:true}).fill("admin@example.com");await page.getByLabel("Password",{exact:true}).fill("test-password-123");await page.getByRole("button",{name:"Log In",exact:true}).click();await expect(page).toHaveURL(/accounts$/);
+ const list=await page.evaluate(async()=>{const r=await fetch("/_api/leads?entity=opportunity");return await r.text();});const lead=superjson.parse<any>(list).rows[0];expect(lead).toBeTruthy();
+ const deleted=await page.evaluate(async body=>(await fetch("/_api/leads_delete",{method:"POST",body,headers:{"Content-Type":"application/json"}})).status,superjson.stringify({id:String(lead.id)}));expect(deleted).toBe(200);
+ try{await page.goto("/opportunities");await page.getByRole("button",{name:/^Filtrar/}).click();const dialog=page.getByRole("dialog",{name:"Filtrar oportunidades"});await dialog.getByLabel("Texto libre de búsqueda").fill(lead.nombre);await dialog.getByRole("button",{name:"Agregar filtro AND"}).click();await dialog.locator("select").first().selectOption("deletedAt");await dialog.locator("select").nth(1).selectOption("is_true");await dialog.getByRole("button",{name:"Aplicar filtros"}).click();
+ await expect(page.getByRole("button",{name:"Pipeline",exact:true})).toBeDisabled();await expect(page.getByRole("button",{name:"Papelera",exact:true}).first()).toBeVisible();const row=page.getByRole("row").filter({has:page.getByRole("button",{name:"Papelera",exact:true})}).first();await expect(row.getByRole("checkbox")).toBeDisabled();await expect(row.getByRole("button",{name:"Editar",exact:true})).toHaveCount(0);await expect(row.getByRole("combobox")).toHaveCount(0);
+ await page.getByRole("button",{name:"Papelera",exact:true}).first().click();await expect(page).toHaveURL(/trash$/);
+ }finally{const restored=await page.evaluate(async body=>(await fetch("/_api/leads_restore",{method:"POST",body,headers:{"Content-Type":"application/json"}})).status,superjson.stringify({id:String(lead.id)}));expect(restored).toBe(200);}
+});

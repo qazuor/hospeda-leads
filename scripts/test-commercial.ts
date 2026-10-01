@@ -52,7 +52,7 @@ try{
   await mutate({action:'opportunity_save',accountId,id:first,opportunityName:'Forbidden',assignedUserEmail:user.email},user.value,403);
   await assert.rejects(db.updateTable('leads').set({primaryContactId:foreign}).where('id','=',first).execute());
   assert.equal((await quick(request({id:first,field:'estado',value:d.stages[1]||stage}))).status,400,'Foreign stage movement rejected');
-  const quickResult=await quick(request({id:first,field:'estado',value:d.stages[1]||stage},admin.value));assert.equal(quickResult.status,200);
+  const quickResult=await quick(request({id:first,field:'estado',value:d.stages[1]||stage},admin.value));assert.equal(quickResult.status,200,await quickResult.text());
   d=await detail(accountId);assert.equal(d.opportunities.length,2);assert.equal(d.opportunities.find(o=>String(o.id)===second)!.estado,stage);
   assert.equal((await quick(request({id:first,field:'assignedUserEmail',value:user.email}))).status,403);
   assert.equal((await bulk(request({ids:[first,second],changes:{assignedUserEmail:user.email}}))).status,403);
@@ -147,7 +147,17 @@ try{
   assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId]}))).status,200);
   assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,0);
   d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.contacts.length);assert(d.leadJournal.some(j=>j.action==='soft_deleted'));
+  const deletedRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_true'}]}]);
+  async function deletionList(entity:string,rules=deletedRules,auth=admin.value){const r=await getLeads(new Request('http://localhost/_api/leads?entity='+entity+'&q='+encodeURIComponent(`CRM test ${suffix}`)+'&filterGroups='+encodeURIComponent(rules),{headers:{cookie:auth}}));return {status:r.status,data:superjson.parse<ListOutput>(await r.text())};}
+  assert.equal((await deletionList('opportunity',deletedRules,user.value)).status,403,'Archived data remains admin-only');
+  let archived=await deletionList('opportunity');assert.equal(archived.status,200);assert.equal(archived.data.total,2);assert(archived.data.rows.every(row=>row.deletedAt));
+  archived=await deletionList('business');assert.equal(archived.data.total,1);assert(archived.data.rows[0].deletedAt);
+  const activeRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_false'}]}]);assert.equal((await deletionList('business',activeRules)).data.total,0);
+  const bothRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_true'},{field:'deletedAt',operator:'is_false'}]}]);assert.equal((await deletionList('opportunity',bothRules)).data.total,2);
   assert.equal((await restore(request({id:first},admin.value))).status,200);
+  assert.equal((await deletionList('opportunity',activeRules)).data.total,1);
+  assert.equal((await deletionList('opportunity')).data.total,1,'Restore removes one row from deleted filter');
+  assert.equal((await deletionList('opportunity',bothRules)).data.total,2,'OR includes active and deleted');
   assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,1);
   assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage}))).status,200,'Single opportunity quick edit remains supported');
   await restore(request({id:second},admin.value));

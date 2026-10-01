@@ -477,7 +477,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     {key:"createdAt",label:"Creado en sistema",kind:"date"},
     {key:"updatedAt",label:"Actualizado",kind:"date"},
     {key:"notes",label:"Notas",kind:"notes"},
+    ...(isAdmin?[{key:"deletedAt" as const,label:"Oportunidad eliminada (Papelera)",kind:"boolean" as const}]:[]),
   ];
+  const includesDeletedFilter=appliedFilterGroups.some(group=>group.rules.some(rule=>rule.field==="deletedAt"));
+  useEffect(()=>{setSelectedIds(new Set());if(includesDeletedFilter)setPipelineView(false);},[includesDeletedFilter,appliedFilterGroups]);
   const appliedRuleCount=appliedFilterGroups.reduce((total,group)=>total+group.rules.length,0)+(query.trim()?1:0);
 
   const asOptions=(values:string[]):SmartFilterOption[]=>[
@@ -636,7 +639,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     fechaProximaAccion:dateInput(l.fechaProximaAccion),fuenteReferencia:l.fuenteReferencia,clientePotencialRecurrente:l.clientePotencialRecurrente,
     archivoAdjunto:l.archivoAdjunto,notas:null,creadoPor:l.creadoPor
   });setOpen(true)};
-  const openView=(l:any)=>{if(businessMode){navigate("/accounts/"+l.accountId);return}setLastTouchedId(String(l.id));setSelectedLead(l);setViewOpen(true)};
+  const openView=(l:any)=>{if(l.deletedAt){navigate("/trash");return}if(businessMode){navigate("/accounts/"+l.accountId);return}setLastTouchedId(String(l.id));setSelectedLead(l);setViewOpen(true)};
   const selectedIndex=selectedLead?leads.findIndex(lead=>String(lead.id)===String(selectedLead.id)):-1;
   const moveView=(offset:number)=>{
     const target=leads[selectedIndex+offset];if(target)openView(target);
@@ -695,7 +698,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar la selección a Papelera")}
   };
   const togglePageSelection=()=>{
-    const ids=leads.map(lead=>String(lead.id));
+    const ids=leads.filter(lead=>!lead.deletedAt).map(lead=>String(lead.id));
     const all=ids.length>0&&ids.every(id=>selectedIds.has(id));
     setSelectedIds(prev=>{const next=new Set(prev);ids.forEach(id=>all?next.delete(id):next.add(id));return next});
   };
@@ -740,6 +743,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   };
 
   const renderCell=(l:any,key:string)=>{
+    if(l.deletedAt){if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>navigate("/trash")}><strong>{businessMode?l.nombre:l.opportunityName||l.nombre}</strong><small>En Papelera · Abrir para restaurar</small></button>;const value=l[key];return value instanceof Date?displayDate(value.toISOString()):value===true?"Sí":value===false?"No":str(value)||"—";}
     if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.commercialStatus==="client"?"Cliente comercial":"Prospecto"}</small><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"oportunidad":"oportunidades"}</small></button>;
     if(businessMode&&!["id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
@@ -858,14 +862,15 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       </section>}
 
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} onClick={()=>setPipelineView(true)}>Pipeline</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} onClick={()=>setPipelineView(true)}>Pipeline</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las oportunidades. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las oportunidades"}: {leadsQ.error.message}</div>:
-        pipelineView&&!businessMode?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
+        pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
         </colgroup><thead><tr>
-          <th className={styles.selectHead}><Checkbox checked={leads.length>0&&leads.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
+          <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt)} checked={leads.some(lead=>!lead.deletedAt)&&leads.filter(lead=>!lead.deletedAt).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
           {visibleColumns.map(key=>{
             const col=TABLE_COLUMNS.find(x=>x.key===key);
             if(!col)return null;
@@ -874,10 +879,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           <th>Contacto</th><th>Acciones</th>
         </tr></thead><tbody>
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
-            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
+            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
             {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
-            <td><div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div></td>
-            <td><div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Enviar oportunidades del negocio a papelera":"Borrar"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></div></td>
+            <td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>
+            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Enviar oportunidades del negocio a papelera":"Borrar"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></div>}</td>
           </tr>})}
         </tbody></table></div>}
         </div>
