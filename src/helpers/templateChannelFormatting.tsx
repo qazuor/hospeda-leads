@@ -2,6 +2,24 @@ import { htmlToPlainText } from "./renderMessageTemplate";
 
 const clean=(value:string)=>value.replace(/\u00a0/g," ").replace(/[ \t]+\n/g,"\n");
 
+const escapePreview=(value:string)=>value
+  .replaceAll("&","&amp;")
+  .replaceAll("<","&lt;")
+  .replaceAll(">","&gt;")
+  .replaceAll('"',"&quot;")
+  .replaceAll("'","&#39;");
+
+export function whatsappTextToPreviewHtml(text:string){
+  let out=escapePreview(text);
+  out=out
+    .replace(/```([\s\S]*?)```/g,"<code>$1</code>")
+    .replace(/\*([^*\n]+)\*/g,"<strong>$1</strong>")
+    .replace(/_([^_\n]+)_/g,"<em>$1</em>")
+    .replace(/~([^~\n]+)~/g,"<s>$1</s>");
+  return out.replace(/\n/g,"<br>");
+}
+
+
 export function htmlToWhatsApp(html:string){
   if(typeof DOMParser==="undefined")return htmlToPlainText(html);
   const doc=new DOMParser().parseFromString("<div>"+html+"</div>","text/html");
