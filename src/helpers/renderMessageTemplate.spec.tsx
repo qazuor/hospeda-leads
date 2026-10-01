@@ -8,6 +8,11 @@ describe("message template rendering",()=>{
     expect(renderMessageTemplate(source,{contact:"Morena"})).toBe("Hola Morena, ¿cómo estás?");
   });
 
+  it("supports full and short sender variables",()=>{
+    expect(renderMessageTemplate("{{sender}} / {{sender_short}}",{sender:"Leandro Asrilevich",sender_short:"Leo"}))
+      .toBe("Leandro Asrilevich / Leo");
+  });
+
   it("renders variables safely inside rich HTML",()=>{
     const html=renderMessageTemplateHtml("<p>Hola <strong>{{contact}}</strong></p>",{contact:"<Leandro>"});
     expect(html).toContain("<strong>&lt;Leandro&gt;</strong>");
