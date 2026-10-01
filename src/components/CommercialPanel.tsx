@@ -1,3 +1,4 @@
+import {WorkPanel} from "./WorkPanel";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -34,7 +35,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const d=q.data;
   const contacts=d.contacts.filter(c=>!c.deletedAt);
   const opportunities=d.opportunities.filter(o=>!o.deletedAt);
-  const history=[...d.journal.map(j=>({id:"c"+j.id,date:j.createdAt,actor:j.actorName,label:actionLabels[j.action]||j.action,detail:auditDetail(j.metadata)})),...d.leadJournal.map(j=>({id:"l"+j.id,date:j.createdAt,actor:j.actorName,label:`${d.opportunities.find(o=>String(o.id)===String(j.leadId))?.opportunityName||j.leadName} · ${actionLabels[j.action]||j.action}${j.fieldName?" · "+(fieldLabels[j.fieldName]||j.fieldName):""}`,detail:j.fieldName?`${valueLabel(j.fieldName,j.oldValue)} → ${valueLabel(j.fieldName,j.newValue)}`:auditDetail(j.metadata)}))].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime());
+  const history=[...d.journal.map(j=>({id:"c"+j.id,date:j.createdAt,actor:j.actorName,label:actionLabels[j.action]||j.action,detail:auditDetail(j.metadata)})),...d.leadJournal.filter(j=>!(j.metadata&&typeof j.metadata==="object"&&"activityId" in j.metadata)).map(j=>({id:"l"+j.id,date:j.createdAt,actor:j.actorName,label:`${d.opportunities.find(o=>String(o.id)===String(j.leadId))?.opportunityName||j.leadName} · ${actionLabels[j.action]||j.action}${j.fieldName?" · "+(fieldLabels[j.fieldName]||j.fieldName):""}`,detail:j.fieldName?`${valueLabel(j.fieldName,j.oldValue)} → ${valueLabel(j.fieldName,j.newValue)}`:auditDetail(j.metadata)}))].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime());
   return <section className={styles.panel}>
     <div className={styles.heading}><div><h2>{compact?<Link to={"/accounts/"+d.account.id}>{d.account.nombre}</Link>:d.account.nombre}</h2><p className={styles.muted}>Negocio · datos compartidos por todas sus oportunidades</p><p>{d.account.commercialStatus==="client"?"Cliente comercial · no acredita pago":"Prospecto"}{d.account.clientSince?" · desde "+formatDate(d.account.clientSince):""}</p></div>
       {!readOnly&&<div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>setEditor({kind:"account",item:d.account})}>Editar negocio</Button>{d.account.commercialStatus!=="client"&&<Button size="sm" onClick={()=>setEditor({kind:"convert"})}>Convertir a cliente</Button>}</div>}
@@ -52,6 +53,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
     <div className={styles.heading}><h3>Oportunidades ({opportunities.length})</h3>{!readOnly&&<Button size="sm" onClick={()=>setEditor({kind:"opportunity"})}>Nueva oportunidad</Button>}</div>
     <div className={styles.rows}>{opportunities.map(o=><article key={o.id}><div><Link to={"/opportunities?leadId="+o.id}><strong>{o.opportunityName||"Gestión comercial inicial"} · #{o.id}{String(o.id)===leadId?" · Actual":""}</strong></Link><span>{[o.tipo,o.estado,o.serviceInterest,o.assignedUserEmail].filter(Boolean).join(" · ")||"Sin clasificación"}</span><span>Contacto: {contacts.find(c=>String(c.id)===String(o.primaryContactId))?.name||"Sin principal"}{o.estimatedCloseDate?" · Cierre: "+formatDate(dateOnlyInput(o.estimatedCloseDate)):""}</span></div>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"opportunity",item:o})}>Editar datos de venta</Button>}</article>)}</div>
     </details>
+    {!readOnly&&<WorkPanel accountId={d.account.id} leadId={leadId}/>}
     {!compact&&<><h3>Historial comercial</h3><p className={styles.muted}>Incluye oportunidades en papelera y contactos dados de baja. Últimos 200 eventos de cada historial.</p><div className={styles.history}>{history.map(h=><details key={h.id}><summary>{formatDate(h.date,true)} · {h.label} · {h.actor}</summary><pre>{h.detail}</pre></details>)}</div></>}
     {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onClose={()=>setEditor(null)}/>}
   </section>;

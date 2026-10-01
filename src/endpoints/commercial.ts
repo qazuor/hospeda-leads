@@ -1,3 +1,4 @@
+import {setWorkActor} from "../helpers/workAudit";
 import { z } from "zod";
 import superjson from "superjson";
 import { getOpportunityStages } from "../helpers/commercialStages";
@@ -53,6 +54,7 @@ export async function post(request:Request){
     const input=commercialMutation.parse(superjson.parse(await request.text()));
     const actor={id:user.id,email:user.email,displayName:user.displayName};
     const id=await db.transaction().execute(async trx=>{
+      await setWorkActor(trx,user);
       const audit=async(accountId:string,action:string,before:unknown,after:unknown,contactId:string|null=null)=>{
         await trx.insertInto("crmCommercialJournal").values({accountId,contactId,action,actorEmail:user.email,actorName:user.displayName,metadata:json({before,after})}).execute();
       };

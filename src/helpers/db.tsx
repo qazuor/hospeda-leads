@@ -22,7 +22,7 @@ dialect: new PostgresJSDialect({
 postgres: postgres(databaseUrl, {
 prepare: false,
 idle_timeout: 10,
-max: 3,
+max: process.env.CRM_TEST_DATABASE==="1" ? 1 : 3,
 }),
 }),
 })

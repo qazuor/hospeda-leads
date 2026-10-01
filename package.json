@@ -15,7 +15,8 @@
     "db:validate": "node scripts/validate-data.mjs",
     "db:migrate:floot": "node scripts/migrate-floot-snapshot.mjs",
     "test:commercial": "node scripts/test-commercial-migration.mjs && node --import tsx scripts/test-commercial.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:work": "node scripts/test-work-migration.mjs && node --import tsx scripts/test-work.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",

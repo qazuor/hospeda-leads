@@ -37,7 +37,11 @@ import { handle as h23 } from "../endpoints/settings_save_POST";
 
 import { get as commercialGET, post as commercialPOST } from "../endpoints/commercial";
 
+import {get as workGET,post as workPOST} from "../endpoints/work";
+
 const app=new Hono();
+app.get("/_api/work",c=>workGET(c.req.raw));
+app.post("/_api/work",c=>workPOST(c.req.raw));
 app.get("/_api/commercial", c=>commercialGET(c.req.raw));
 app.post("/_api/commercial", c=>commercialPOST(c.req.raw));
 

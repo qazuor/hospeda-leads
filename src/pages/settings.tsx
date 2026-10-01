@@ -1,3 +1,4 @@
+import {WorkTypesSettings} from "../components/WorkTypesSettings";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, FileText, Mail, MailPlus, MapPin, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Trash2, Users, X } from "lucide-react";
@@ -172,6 +173,8 @@ export default function SettingsPage(){
       </section>}
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
+
+      {section==="classifications"&&<WorkTypesSettings/>}
 
       {section==="system"&&<section className={styles.grid}>
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>

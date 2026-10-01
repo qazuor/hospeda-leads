@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import postgres from 'postgres';
+assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable database');
+const sql=postgres(process.env.DATABASE_URL,{max:1});const rollback=new Error('rollback fixtures');
+try{await sql.begin(async tx=>{
+ const schema=`work_migration_${Date.now()}`;
+ await tx.unsafe(`CREATE SCHEMA ${schema}; SET LOCAL search_path TO ${schema}`);
+ for(const name of (await readdir('migrations')).filter(n=>n.endsWith('.sql')&&n<'006').sort())await tx.unsafe(await readFile('migrations/'+name,'utf8'));
+ await tx.unsafe("SET LOCAL TIME ZONE 'Pacific/Auckland'");
+ await tx`INSERT INTO leads(id,nombre,fecha_proxima_accion) VALUES (900,'Antes','2026-10-01T12:00:00Z'),(901,'Sin fecha',NULL),(902,'Papelera','2026-09-01T12:00:00Z')`;
+ await tx`UPDATE leads SET deleted_at=now() WHERE id=902`;
+ await tx.unsafe(await readFile('migrations/006_tasks_activities.sql','utf8'));
+ const tasks=await tx`SELECT *,due_date::text AS day FROM crm_tasks ORDER BY lead_id`;
+ assert.equal(tasks.length,2);assert.equal(tasks[0].day,'2026-10-01');assert.equal(tasks[1].day,'2026-09-01');
+ await tx`UPDATE leads SET fecha_proxima_accion='2026-10-01T12:00:00Z' WHERE id=900`;
+ assert.equal(Number((await tx`SELECT count(*) AS n FROM crm_tasks WHERE lead_id=900`)[0].n),1);
+ const account=(await tx`SELECT account_id FROM leads WHERE id=900`)[0].account_id;
+ const visit=(await tx`INSERT INTO crm_tasks(account_id,lead_id,title,type_id,due_date,due_at) VALUES(${account},900,'Visita','visit','2026-10-02','2026-10-02T13:00:00-03:00') RETURNING id`)[0].id;
+ await tx`UPDATE crm_tasks SET status='completed',completed_at=now() WHERE lead_id=900 AND legacy`;
+ assert.equal((await tx`SELECT fecha_proxima_accion::text AS day FROM leads WHERE id=900`)[0].day,'2026-10-02');
+ await tx`UPDATE leads SET fecha_proxima_accion='2026-10-03T12:00:00Z' WHERE id=900`;
+ assert.equal(Number((await tx`SELECT count(*) AS n FROM crm_tasks WHERE lead_id=900 AND legacy`)[0].n),1);
+ assert.equal(Number((await tx`SELECT count(*) AS n FROM crm_tasks WHERE lead_id=900 AND status='pending'`)[0].n),2);
+ assert.equal((await tx`SELECT fecha_proxima_accion::text AS day FROM leads WHERE id=900`)[0].day,'2026-10-02');
+ await tx`UPDATE leads SET fecha_proxima_accion=NULL WHERE id=900`;
+ assert.equal((await tx`SELECT status FROM crm_tasks WHERE id=${visit}`)[0].status,'pending');
+ assert((await tx`SELECT fecha_proxima_accion FROM leads WHERE id=900`)[0].fecha_proxima_accion);
+ assert(Number((await tx`SELECT count(*) AS n FROM crm_work_journal`)[0].n)>0);
+ console.log('Work migration: calendar dates under foreign timezone, unique backfill, multiple tasks, legacy replan after completion, clearing only legacy, audit passed');
+ throw rollback;
+});}catch(e){if(e!==rollback)throw e}finally{await sql.end()}

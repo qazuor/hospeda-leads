@@ -6,7 +6,7 @@ import { useAuth } from "./useAuth";
 const STORAGE_KEY="hospeda-live-mode";
 const CHECK_INTERVAL=2500;
 const LIVE_QUERY_KEYS=[
-  "commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
+  "work","commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
   "lead-journal","global-journal","global-journal-filtered","trash-leads"
 ];
 

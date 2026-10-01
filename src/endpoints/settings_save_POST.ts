@@ -1,3 +1,4 @@
+import {setWorkActor} from "../helpers/workAudit";
 import { createHash, randomBytes } from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -165,6 +166,7 @@ export async function handle(request:Request){
       if(!target)return new Response(superjson.stringify({error:"El subtipo no existe."}),{status:404});
       const nextName=input.name.trim();
       await db.transaction().execute(async trx=>{
+        await setWorkActor(trx,user);
         await trx.updateTable("crmSubtypes").set({name:nextName,active:true}).where("id","=",target.id).execute();
         let leads=trx.updateTable("leads").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
         if(target.typeName)leads=leads.where("tipo","=",target.typeName);
@@ -255,6 +257,7 @@ export async function handle(request:Request){
       await ensureHospedaSender(displayName,senderEmail);
 
       await db.transaction().execute(async trx=>{
+        await setWorkActor(trx,user);
         if(target.email.toLowerCase()!==email){
           await trx.updateTable("authorizedEmails").set({active:false})
             .where(eb=>eb.fn("lower",["email"]),"=",target.email.toLowerCase()).execute();

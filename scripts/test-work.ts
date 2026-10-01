@@ -1,0 +1,104 @@
+import {handle as importLeads} from "../src/endpoints/leads_import_POST";
+import {localDay} from "../src/helpers/workDates";
+import assert from 'node:assert/strict';
+import superjson from 'superjson';
+import {db} from '../src/helpers/db';
+import {setServerSession} from '../src/helpers/getSetServerSession';
+import {get,post} from '../src/endpoints/work';
+import {handle as quick} from '../src/endpoints/leads_quick_POST';
+import {handle as save} from '../src/endpoints/leads_save_POST';
+import {handle as contact} from '../src/endpoints/lead_contact_POST';
+import type {WorkData} from '../src/endpoints/work.schema';
+assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
+const suffix=Date.now();
+async function identity(role:'admin'|'user'){
+ const user=await db.insertInto('users').values({email:`work-${role}-${suffix}-${Math.random()}@example.com`,displayName:'Work '+role,role}).returningAll().executeTakeFirstOrThrow();
+ const session={id:user.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:session.id,userId:user.id,expiresAt:new Date(Date.now()+3600000)}).execute();
+ const r=new Response();await setServerSession(r,session);return {user,cookie:r.headers.get('set-cookie')!.split(';')[0]};
+}
+const admin=await identity('admin'),user=await identity('user'),other=await identity('user');
+const request=(body:unknown,cookie=user.cookie)=>new Request('http://localhost/_api/work',{method:'POST',headers:{cookie},body:superjson.stringify(body)});
+async function mutate(body:unknown,cookie=user.cookie,status=200){const r=await post(request(body,cookie));const value=superjson.parse<{id:string;error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value.id;}
+async function read(params='',cookie=user.cookie,status=200){const r=await get(new Request('http://localhost/_api/work?'+params,{headers:{cookie}}));const value=superjson.parse<WorkData&{error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value;}
+try{
+ assert.equal((await get(new Request('http://localhost/_api/work'))).status,401);
+ const importName='Import with tasks '+suffix;
+ assert.equal((await importLeads(request({rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}]}))).status,200);
+ const imported=await db.selectFrom('leads').selectAll().where('nombre','=',importName).executeTakeFirstOrThrow();
+ assert.equal(imported.fechaProximaAccion!.toISOString().slice(0,10),'2026-10-01');
+ assert.equal((await db.selectFrom('crmWorkJournal').select('actorEmail').where('accountId','=',imported.accountId).executeTakeFirstOrThrow()).actorEmail,user.user.email);
+
+ assert.equal((await post(request({action:'task_delete',id:'1'},''))).status,401);
+ const a=await db.insertInto('crmAccounts').values({nombre:'Work test',ciudad:'Colón',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+ const b=await db.insertInto('crmAccounts').values({nombre:'Other test',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
+ const l=await db.insertInto('leads').values({nombre:a.nombre,accountId:a.id,opportunityName:'Plan Premium',estado:'Interesado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+ const own=await db.insertInto('crmContacts').values({accountId:a.id,name:'Ana'}).returning('id').executeTakeFirstOrThrow();
+ const foreign=await db.insertInto('crmContacts').values({accountId:b.id,name:'No corresponde'}).returning('id').executeTakeFirstOrThrow();
+ const base={action:'task_save',accountId:a.id,leadId:l.id,title:'Llamar',typeId:'call',dueDate:'2026-10-01',contactIds:[own.id],participants:'Propietaria'};
+ const unassigned=await mutate({...base,title:'Sin responsable',leadId:null,assignedUserEmail:null},admin.cookie);
+ await mutate({...base,id:unassigned,title:'Sin responsable editada',leadId:null},admin.cookie);
+ assert.equal((await db.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',unassigned).executeTakeFirstOrThrow()).assignedUserEmail,null);
+ await mutate({action:'task_delete',id:unassigned},admin.cookie);
+ const call=await mutate(base);
+ const visit=await mutate({...base,title:'Visita',typeId:'visit',dueDate:'2026-10-02',dueAt:'2026-10-02T15:00:00-03:00'});
+ await mutate({...base,title:'Forbidden',assignedUserEmail:other.user.email},user.cookie,403);
+ await mutate({...base,contactIds:[foreign.id]},user.cookie,400);
+ await mutate({...base,accountId:b.id},user.cookie,400);
+ await mutate({...base,accountId:b.id,leadId:null},user.cookie,403);
+ await mutate({...base,dueAt:'2026-10-02T01:00:00-03:00'},user.cookie,400);
+ await mutate({action:'task_status',id:call,status:'completed',result:'Confirmed'},other.cookie,403);
+ await read('responsible=all',user.cookie,403);await read('responsible='+other.user.email,user.cookie,403);
+ assert.equal((await read('responsible=all',admin.cookie)).tasks.filter(t=>t.leadId===l.id).length,2);
+ assert.equal((await read()).attention.some(x=>x.id===l.id),false);
+ const completedAt='2026-09-01T13:30:00-03:00';
+ await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt});
+ let lead=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();
+ assert.equal(lead.fechaProximaAccion!.toISOString().slice(0,10),'2026-10-02');
+ assert.equal(lead.assignedUserEmail,user.user.email);
+ await mutate({action:'task_status',id:call,status:'completed',result:'Duplicado'},user.cookie,400);
+ let activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',call).executeTakeFirstOrThrow();
+ assert.equal(activity.occurredAt.toISOString(),new Date(completedAt).toISOString());assert.deepEqual(activity.contactIds,[own.id]);
+ await mutate({action:'activity_save',id:activity.id,accountId:a.id,leadId:l.id,title:'Llamada real',typeId:'call',occurredAt:'2026-09-01T14:00:00-03:00',result:'Editado',contactIds:[own.id]});
+ const completed=await db.selectFrom('crmTasks').selectAll().where('id','=',call).executeTakeFirstOrThrow();assert.equal(completed.result,'Editado');assert.equal(completed.completedAt!.toISOString(),'2026-09-01T17:00:00.000Z');
+ const before=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();
+ await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',result:'Conversamos'});
+ await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Futuro',typeId:'meeting',occurredAt:'2099-01-01T09:00:00-03:00'},user.cookie,400);
+ const after=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();assert.equal(Number(after.n),Number(before.n)+1);
+ lead=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();assert.equal(lead.fechaUltimoContacto!.toISOString().slice(0,10),'2026-09-01');
+ const versionBefore=(await db.selectFrom('appSettings').select('value').where('key','=','crm_live_version').executeTakeFirstOrThrow()).value;
+ await mutate({action:'followup_settings',stages:['Interesado'],newAssignmentDays:10},user.cookie,403);
+ await mutate({action:'followup_settings',stages:['Interesado'],newAssignmentDays:10},admin.cookie);
+ const configured=await read();assert.equal(configured.newAssignmentDays,10);assert.deepEqual(configured.followupStages,['Interesado']);
+ assert.notEqual((await db.selectFrom('appSettings').select('value').where('key','=','crm_live_version').executeTakeFirstOrThrow()).value,versionBefore);
+ assert.equal((await quick(request({id:l.id,field:'fechaProximaAccion',value:'2026-10-03'}))).status,200);
+ assert.equal((await quick(request({id:l.id,field:'fechaProximaAccion',value:'2026-10-03'}))).status,200);
+ let legacy=await db.selectFrom('crmTasks').selectAll().where('leadId','=',l.id).where('legacy','=',true).execute();assert.equal(legacy.length,1);
+ assert.equal((await quick(request({id:l.id,field:'fechaProximaAccion',value:null}))).status,200);
+ assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',visit).executeTakeFirstOrThrow()).status,'pending');
+ // Full editor omission must not clear existing tasks.
+ assert.equal((await save(request({id:l.id,scope:'opportunity',nombre:a.nombre,estado:'Interesado'}))).status,200);
+ assert.equal((await db.selectFrom('leads').select('fechaProximaAccion').where('id','=',l.id).executeTakeFirstOrThrow()).fechaProximaAccion!.toISOString().slice(0,10),'2026-10-02');
+ await mutate({...base,id:visit,title:'Visita reprogramada',typeId:'visit',dueDate:'2026-10-04',dueAt:null});
+ await mutate({...base,id:visit,title:'Visit delegated',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:other.user.email},admin.cookie);
+ await mutate({...base,id:visit,title:'No me apropio',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:user.user.email},user.cookie,403);
+ const delegated=await read('',other.cookie);assert(delegated.tasks.some(t=>t.id===visit));assert(delegated.accounts.some(x=>x.id===a.id));
+ await mutate({action:'task_status',id:visit,status:'completed',result:'Visita efectuada',completedAt:'2026-09-15T15:00:00-03:00'},other.cookie);
+ assert.equal((await db.selectFrom('leads').select('assignedUserEmail').where('id','=',l.id).executeTakeFirstOrThrow()).assignedUserEmail,user.user.email);
+ assert.equal((await contact(request({leadId:l.id,channel:'phone',result:'Respondió'}))).status,200);
+ const logged=await db.selectFrom('crmActivities').selectAll().where('leadId','=',l.id).where('title','=','Contacto registrado').executeTakeFirstOrThrow();assert.equal(logged.typeId,'call');
+ const audit=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','=',a.id).execute();assert(audit.every(j=>j.actorEmail));assert(audit.some(j=>j.entity==='crm_activities'&&j.action==='UPDATE'));
+ await mutate({action:'type_save',id:'demo',name:'Demostración',agenda:true,active:true},user.cookie,403);
+ await mutate({action:'type_save',id:'demo',name:'Demostración',agenda:true,active:true},admin.cookie);
+ const demo=await mutate({...base,typeId:'demo',dueDate:'2026-10-02'});
+ const agenda=await read('mode=agenda&from=2026-10-01&to=2026-10-31');assert(agenda.tasks.some(t=>t.id===demo));assert(agenda.tasks.every(t=>t.typeId!=='call'));
+ await mutate({action:'type_save',id:'demo',name:'Demostración',agenda:true,active:false},admin.cookie);
+ await mutate({...base,typeId:'demo'},user.cookie,400);
+ await mutate({action:'task_delete',id:demo});assert(!(await read()).tasks.some(t=>t.id===demo));
+ // Many overdue items must not push today's work off the initial inbox page.
+ await db.insertInto('crmTasks').values(Array.from({length:27},(_,i)=>({accountId:a.id,leadId:l.id,title:'Old backlog '+i,typeId:'call',assignedUserEmail:user.user.email,dueDate:'2020-01-01'}))).execute();
+ const todays=await mutate({...base,title:'Hoy pese a vencidas',dueDate:localDay()});
+ const inbox=await read();assert(inbox.tasks.some(t=>t.id===todays));assert(inbox.bucketCounts!.overdue>=27);assert(inbox.tasks.filter(t=>t.dueDate==='2020-01-01').length===25);
+ await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',l.id).execute();assert(!(await read()).tasks.some(t=>t.leadId===l.id));
+ await db.updateTable('leads').set({deletedAt:null}).where('id','=',l.id).execute();
+ console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
+}finally{await db.destroy()}

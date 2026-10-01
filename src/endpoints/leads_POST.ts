@@ -1,3 +1,4 @@
+import {setWorkActor} from "../helpers/workAudit";
 import { db } from "../helpers/db";
 import superjson from "superjson";
 import { schema, type OutputType } from "./leads_POST.schema";
@@ -11,6 +12,7 @@ export async function handle(request:Request){
     const x=schema.parse(superjson.parse(await request.text()));
     if(x.asignadoA!==undefined&&user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden modificar el responsable."}),{status:403});
     const id=await db.transaction().execute(async trx=>{
+      await setWorkActor(trx,user);
       const existing=x.id?await trx.selectFrom("leads").selectAll().where("id","=",x.id).executeTakeFirstOrThrow():null;
       if(existing?.deletedAt)throw new Error("Este lead está en la papelera.");
       let responsible=existing?.assignedUserEmail??null;

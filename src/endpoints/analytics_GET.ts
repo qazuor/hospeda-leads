@@ -1,3 +1,4 @@
+import {localDay,calendarDay} from "../helpers/workDates";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -15,8 +16,8 @@ export async function handle(request:Request){
     if(user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden ver Estadísticas."}),{status:403});
     const input=schema.parse(Object.fromEntries(new URL(request.url).searchParams));
     let query=db.selectFrom("leads").where("deletedAt","is",null);
-    if(input.from)query=query.where("fechaCreacion",">=",new Date(input.from+"T00:00:00"));
-    if(input.to)query=query.where("fechaCreacion","<=",new Date(input.to+"T23:59:59.999"));
+    if(input.from)query=query.where("fechaCreacion",">=",new Date(input.from+"T00:00:00Z"));
+    if(input.to)query=query.where("fechaCreacion","<=",new Date(input.to+"T23:59:59.999Z"));
     if(input.responsible)query=query.where("assignedUserEmail","=",input.responsible);
     if(input.type)query=query.where("tipo","=",input.type);
     if(input.city)query=query.where("ciudad","=",input.city);
@@ -63,7 +64,7 @@ export async function handle(request:Request){
     const subscribed=rows.filter(r=>r.estado==="Suscripto").length;
     const out:OutputType={
       total:rows.length,pending:rows.filter(r=>r.estado!=="Suscripto").length,subscribed,
-      overdue:rows.filter(r=>r.fechaProximaAccion&&new Date(r.fechaProximaAccion)<now&&r.estado!=="Suscripto").length,
+      overdue:rows.filter(r=>r.fechaProximaAccion&&calendarDay(r.fechaProximaAccion)<localDay(now)&&r.estado!=="Suscripto").length,
       withPhone:rows.filter(r=>!!r.telefono?.trim()).length,withEmail:rows.filter(r=>!!r.email?.trim()).length,withWebsite:rows.filter(r=>!!r.sitioWeb?.trim()).length,
       noContact:rows.filter(r=>!r.fechaUltimoContacto).length,contacted:rows.filter(r=>!!r.fechaUltimoContacto).length,
       inactive30:rows.filter(r=>r.estado!=="Suscripto"&&new Date(r.updatedAt)<inactiveLimit).length,
