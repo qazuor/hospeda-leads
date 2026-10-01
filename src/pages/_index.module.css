@@ -52,3 +52,5 @@
 .fullscreenTable .resultsBody{flex:1;overflow:hidden;display:flex;flex-direction:column}
 @keyframes resultsSpin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.loadingSpinner{animation:none}}
+
+.deletedFilterHint{margin:0;padding:10px 16px;font-size:12px;color:var(--muted-foreground);border-bottom:1px solid var(--border)}

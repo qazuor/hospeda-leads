@@ -9,10 +9,13 @@ import { businessTableSource } from "../helpers/businessTable";
 
 export async function handle(request: Request) {
   try {
-    await getServerUserSession(request);
+    const {user}=await getServerUserSession(request);
     const url=new URL(request.url); const input=schema.parse(Object.fromEntries(url.searchParams));
-    const source=()=>input.entity==="business" ? db.selectFrom(businessTableSource().as("leads")) : db.selectFrom("leads");
-    let query=source().where("deletedAt","is",null);
+    const includeDeleted=input.filterGroups.some(group=>group.rules.some(rule=>rule.field==="deletedAt"));
+    if(includeDeleted&&user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden acceder a registros eliminados."}),{status:403});
+    const source=()=>input.entity==="business" ? db.selectFrom(businessTableSource(includeDeleted).as("leads")) : db.selectFrom("leads");
+    let query=source();
+    if(!includeDeleted)query=query.where("deletedAt","is",null);
     if(input.q){const s="%"+input.q.toLowerCase()+"%";query=query.where(eb=>eb.or([
       eb(sql<string>`lower(nombre)`,"like",s),
       eb(sql<string>`lower(coalesce(opportunity_name,''))`,"like",s),
@@ -156,6 +159,7 @@ export async function handle(request: Request) {
         ]);
         const dateFields=new Set(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"]);
         const buildRule=(rule:any):any=>{
+          if(rule.field==="deletedAt")return eb("deletedAt",rule.operator==="is_true"?"is not":"is",null);
           const value=(rule.value??"").trim();
           const value2=(rule.value2??"").trim();
           if(rule.field==="notes"){
@@ -240,7 +244,7 @@ export async function handle(request: Request) {
         db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute()
       ]);
       for(const row of rows){
-        const related=opportunities.filter(o=>String(o.accountId)===String(row.accountId));
+        const related=row.deletedAt?[]:opportunities.filter(o=>String(o.accountId)===String(row.accountId));
         row.opportunityId=Number(row.id)>0?String(row.id):null;
         // Stable business IDs keep row selection stable when filters match another sale.
         row.id=row.accountId;
@@ -250,7 +254,7 @@ export async function handle(request: Request) {
         row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
       }
     }
-    const distinct=async(col:"ciudad"|"estado"|"tipo"|"asignadoA"|"suscripcion"|"origen"|"quienCargo"|"medioContactoPreferido"|"creadoPor")=>(await source().select(col).where("deletedAt","is",null).where(col,"is not",null).distinct().orderBy(col).execute()).map(x=>x[col]).filter((x):x is string=>!!x);
+    const distinct=async(col:"ciudad"|"estado"|"tipo"|"asignadoA"|"suscripcion"|"origen"|"quienCargo"|"medioContactoPreferido"|"creadoPor")=>(await source().select(col).$if(!includeDeleted,q=>q.where("deletedAt","is",null)).where(col,"is not",null).distinct().orderBy(col).execute()).map(x=>x[col]).filter((x):x is string=>!!x);
     const [ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor]=await Promise.all([
       distinct("ciudad"),distinct("estado"),distinct("tipo"),distinct("asignadoA"),distinct("suscripcion"),
       distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor")
