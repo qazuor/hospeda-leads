@@ -46,6 +46,10 @@ jobs:
         run: npm run test:work
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Pipeline migration and integration tests
+        run: npm run test:pipeline
+        env:
+          CRM_TEST_DATABASE: "1"
       - run: npm run build
       - name: Start server
         run: |

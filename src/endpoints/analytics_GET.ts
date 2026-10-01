@@ -1,3 +1,4 @@
+import {sql} from "kysely";
 import {localDay,calendarDay} from "../helpers/workDates";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -26,10 +27,18 @@ export async function handle(request:Request){
       db.selectFrom("crmVerticals").select("name").where("active","=",true).orderBy("sortOrder").execute(),
       db.selectFrom("users").select(["email","displayName"]).execute()
     ]);
+    const stages=(await sql<{name:string;classification:string}>`SELECT name,classification FROM crm_stages`.execute(db)).rows;
+    const classifications=new Map(stages.map(s=>[s.name,s.classification]));
     const userNames=new Map(users.map(item=>[item.email,item.displayName]));
     const normalized=rows.map(row=>({...row,responsibleName:row.assignedUserEmail?userNames.get(row.assignedUserEmail)||row.assignedUserEmail:"Sin responsable"}));
     const ids=rows.map(row=>String(row.id));
-    const journalRows=ids.length?await db.selectFrom("leadJournal").select(["leadId","action","fieldName","oldValue","newValue","createdAt"]).where("leadId","in",ids).orderBy("createdAt").execute():[];
+    let journalRows=ids.length?await db.selectFrom("leadJournal").select(["leadId","action","fieldName","oldValue","newValue","createdAt"]).where("leadId","in",ids).orderBy("createdAt").execute():[];
+    const pipelineEvents=ids.length?(await sql<{leadId:string;oldStage:string|null;newStage:string|null;createdAt:Date}>`SELECT lead_id,old_stage,new_stage,created_at FROM crm_pipeline_events WHERE action='stage' AND lead_id IN (${sql.join(ids)}) ORDER BY created_at,id`.execute(db)).rows:[];
+    const firstPipeline=new Map<string,Date>();
+    for(const e of pipelineEvents)if(!firstPipeline.has(e.leadId))firstPipeline.set(e.leadId,e.createdAt);
+    journalRows=journalRows.filter(e=>e.fieldName!=='estado'||!e.leadId||!firstPipeline.has(e.leadId)||e.createdAt<firstPipeline.get(e.leadId)!);
+    journalRows.push(...pipelineEvents.map(e=>({leadId:e.leadId,action:'pipeline_stage',fieldName:'estado',oldValue:e.oldStage,newValue:e.newStage,createdAt:e.createdAt})));
+    journalRows.sort((a,b)=>a.createdAt.getTime()-b.createdAt.getTime());
     const journalByLead=new Map<string,typeof journalRows>();
     for(const entry of journalRows){if(entry.leadId===null)continue;const key=String(entry.leadId);const list=journalByLead.get(key)??[];list.push(entry);journalByLead.set(key,list)}
     const now=new Date(),inactiveLimit=new Date(Date.now()-30*86400000),weekLimit=new Date(Date.now()-7*86400000),day=new Map<string,number>();
@@ -63,6 +72,10 @@ export async function handle(request:Request){
     for(const row of rows){if(row.fechaCreacion){const d=new Date(row.fechaCreacion).toISOString().slice(0,10);day.set(d,(day.get(d)??0)+1)}}
     const subscribed=rows.filter(r=>r.estado==="Suscripto").length;
     const out:OutputType={
+      pipelineOpen:rows.filter(r=>(classifications.get(r.estado??'')??'open')==='open').length,
+      pipelineWon:rows.filter(r=>classifications.get(r.estado??'')==='won').length,
+      pipelineLost:rows.filter(r=>classifications.get(r.estado??'')==='lost').length,
+      lossReasons:ids.length?(await sql<{name:string;count:string}>`SELECT r.name,count(*) count FROM crm_pipeline_events e JOIN crm_loss_reasons r ON r.id=e.reason_id WHERE e.lead_id IN (${sql.join(ids)}) GROUP BY r.name ORDER BY count DESC`.execute(db)).rows.map(r=>({name:r.name,count:Number(r.count)})):[],
       total:rows.length,pending:rows.filter(r=>r.estado!=="Suscripto").length,subscribed,
       overdue:rows.filter(r=>r.fechaProximaAccion&&calendarDay(r.fechaProximaAccion)<localDay(now)&&r.estado!=="Suscripto").length,
       withPhone:rows.filter(r=>!!r.telefono?.trim()).length,withEmail:rows.filter(r=>!!r.email?.trim()).length,withWebsite:rows.filter(r=>!!r.sitioWeb?.trim()).length,

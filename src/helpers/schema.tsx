@@ -118,6 +118,9 @@ export interface LeadNotes {
 }
 
 export interface Leads {
+  stageSince: Timestamp | null;
+  pipelineRevision: Generated<number>;
+  reactivatedFromId: Int8 | null;
   assignedAt:Timestamp|null;
   contactBaselineDate:Timestamp|null;
   contactBaselineResult:string|null;
@@ -217,6 +220,7 @@ export interface Users {
 }
 
 export interface CrmAccounts {
+  doNotContact: Generated<boolean>;
   id: Generated<Int8>;
   sourceLeadId: Int8 | null;
   nombre: string;

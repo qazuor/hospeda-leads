@@ -1,3 +1,4 @@
+import ReactivationPage from "./pages/reactivation";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
@@ -34,6 +35,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/accounts" element={<UserRoute><LeadsPage key="business" businessMode /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
           <Route path="/my-day" element={<UserRoute><MyDayPage key="day"/></UserRoute>} />
+          <Route path="/reactivation" element={<UserRoute><ReactivationPage/></UserRoute>} />
           <Route path="/agenda" element={<UserRoute><MyDayPage key="agenda" agenda/></UserRoute>} />
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />

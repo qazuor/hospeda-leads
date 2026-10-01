@@ -1,3 +1,4 @@
+import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { readFile } from "node:fs/promises";
@@ -40,6 +41,8 @@ import { get as commercialGET, post as commercialPOST } from "../endpoints/comme
 import {get as workGET,post as workPOST} from "../endpoints/work";
 
 const app=new Hono();
+app.get("/_api/pipeline",c=>pipelineGET(c.req.raw));
+app.post("/_api/pipeline",c=>pipelinePOST(c.req.raw));
 app.get("/_api/work",c=>workGET(c.req.raw));
 app.post("/_api/work",c=>workPOST(c.req.raw));
 app.get("/_api/commercial", c=>commercialGET(c.req.raw));

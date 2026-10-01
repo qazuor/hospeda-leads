@@ -1,3 +1,4 @@
+import {PipelineDetail} from "./Pipeline";
 import {WorkPanel} from "./WorkPanel";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
 import { CommercialPanel } from "./CommercialPanel";
@@ -154,7 +155,7 @@ export const LeadDetailDialog=({
       </div>
 
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>
-        <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Tareas y actividades</SectionTab>}<SectionTab value="notes">Notas</SectionTab><SectionTab value="business">Negocio y contactos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
+        <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Tareas y actividades</SectionTab>}{!readOnly&&<SectionTab value="pipeline">Gestión comercial</SectionTab>}<SectionTab value="notes">Notas</SectionTab><SectionTab value="business">Negocio y contactos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
         <div className={styles.scrollBody}>
           <SectionTabPanel value="overview">
         <div className={styles.summaryGrid}>
@@ -243,6 +244,7 @@ export const LeadDetailDialog=({
             </div>
           </SectionTabPanel>
           {!readOnly&&<SectionTabPanel value="work">{lead.accountId?<WorkPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/>:<p>No hay un negocio vinculado.</p>}</SectionTabPanel>}
+          {!readOnly&&<SectionTabPanel value="pipeline"><PipelineDetail lead={lead}/></SectionTabPanel>}
           <SectionTabPanel value="notes">
           <section className={styles.panel+" "+styles.widePanel}>
             <SectionTitle icon={StickyNote} title="Notas" description="Contexto comercial y observaciones del equipo."/>

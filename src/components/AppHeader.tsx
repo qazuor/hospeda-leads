@@ -27,6 +27,7 @@ export const AppHeader=()=>{
     <Link to="/accounts" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda CRM</strong><span>CRM comercial</span></div></Link>
     <nav aria-label="Navegación principal"><div className={styles.navGroup}>
       <Link to="/my-day" className={location.pathname==="/my-day"?styles.active:""}>Mi día</Link>
+      <Link to="/reactivation" className={location.pathname==="/reactivation"?styles.active:""}>Reactivación</Link>
       <Link to="/agenda" className={location.pathname==="/agenda"?styles.active:""}>Agenda</Link>
       </div>
       <div className={styles.navGroup}><Link to="/accounts" className={location.pathname.startsWith("/accounts")?styles.active:""}>Negocios</Link>
