@@ -1,3 +1,4 @@
+import {localDay} from "../src/helpers/workDates";
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
 import {db} from '../src/helpers/db';
@@ -86,6 +87,10 @@ try{
  await mutate({action:'type_save',id:'demo',name:'Demostración',agenda:true,active:false},admin.cookie);
  await mutate({...base,typeId:'demo'},user.cookie,400);
  await mutate({action:'task_delete',id:demo});assert(!(await read()).tasks.some(t=>t.id===demo));
+ // Many overdue items must not push today's work off the initial inbox page.
+ await db.insertInto('crmTasks').values(Array.from({length:27},(_,i)=>({accountId:a.id,leadId:l.id,title:'Old backlog '+i,typeId:'call',assignedUserEmail:user.user.email,dueDate:'2020-01-01'}))).execute();
+ const todays=await mutate({...base,title:'Hoy pese a vencidas',dueDate:localDay()});
+ const inbox=await read();assert(inbox.tasks.some(t=>t.id===todays));assert(inbox.bucketCounts!.overdue>=27);assert(inbox.tasks.filter(t=>t.dueDate==='2020-01-01').length===25);
  await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',l.id).execute();assert(!(await read()).tasks.some(t=>t.leadId===l.id));
  await db.updateTable('leads').set({deletedAt:null}).where('id','=',l.id).execute();
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');

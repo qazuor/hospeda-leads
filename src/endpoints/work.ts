@@ -46,13 +46,23 @@ export async function get(request:Request){
    opportunitiesQuery=opportunitiesQuery.where(eb=>eb.or([eb('assignedUserEmail','=',user.email),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','leads.id').where('crmTasks.assignedUserEmail','=',user.email).where('crmTasks.deletedAt','is',null))]));
   }
   if(input.accountId){accountsQuery=accountsQuery.where('id','=',input.accountId);opportunitiesQuery=opportunitiesQuery.where('accountId','=',input.accountId);}
-  const [taskRows,activityRows,taskCount,activityCount,types,accounts,opportunities,users,needs]=await Promise.all([
-   tasks.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName']).orderBy(sql`CASE WHEN t.status='pending' THEN 0 ELSE 1 END`).orderBy('t.dueDate').orderBy('t.dueAt').orderBy('t.id').limit(100).offset((input.page-1)*100).execute(),
+  const now=new Date(),today=localDay(now);
+  const dayQueries=[
+   tasks.where(eb=>eb.or([eb(sql<string>`t.due_date`,'<',today),eb('t.dueAt','<',now)])),
+   tasks.where(sql<string>`t.due_date`,'=',today).where(eb=>eb.or([eb('t.dueAt','is',null),eb('t.dueAt','>=',now)])),
+   tasks.where(sql<string>`t.due_date`,'>',today)
+  ];
+  const taskPage=(query:typeof tasks,limit:number)=>query.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName']).orderBy(sql`CASE WHEN t.status='pending' THEN 0 ELSE 1 END`).orderBy('t.dueDate').orderBy('t.dueAt').orderBy('t.id').limit(limit).offset((input.page-1)*limit).execute();
+  const taskRowsPromise=input.mode==='day'?Promise.all(dayQueries.map(query=>taskPage(query,25))).then(rows=>rows.flat()):taskPage(tasks,100);
+  const bucketCountsPromise=input.mode==='day'?Promise.all(dayQueries.map(query=>query.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow())).then(rows=>({overdue:Number(rows[0].n),today:Number(rows[1].n),upcoming:Number(rows[2].n)})):Promise.resolve(undefined);
+  const [taskRows,activityRows,taskCount,activityCount,types,accounts,opportunities,users,needs,bucketCounts]=await Promise.all([
+
+   taskRowsPromise,
    activities.selectAll('t').select(['a.nombre as accountName','a.ciudad as city']).orderBy('t.occurredAt','desc').orderBy('t.id','desc').limit(100).offset((input.page-1)*100).execute(),
    tasks.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow(),activities.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow(),
    db.selectFrom('crmWorkTypes').selectAll().orderBy('name').execute(),accountsQuery.orderBy('nombre').execute(),opportunitiesQuery.execute(),
    db.selectFrom('users').select(['email','displayName']).orderBy('displayName').execute(),
-   attention.select(['l.id','l.accountId','a.nombre','l.opportunityName','l.createdAt','l.fechaUltimoContacto','l.estado']).where(eb=>eb.not(eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','l.id').where('status','=','pending').where('deletedAt','is',null)))).where(eb=>eb.or([eb('l.estado','in',followup.stages.length?followup.stages:['__none__']),eb.and([eb('l.fechaUltimoContacto','is',null),eb(sql`l.assigned_at AT TIME ZONE 'America/Argentina/Buenos_Aires'`,'>=',sql`${localDay()}::date - ${followup.newAssignmentDays}::integer`)])])).orderBy('l.createdAt','desc').execute()
+   attention.select(['l.id','l.accountId','a.nombre','l.opportunityName','l.createdAt','l.fechaUltimoContacto','l.estado']).where(eb=>eb.not(eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','l.id').where('status','=','pending').where('deletedAt','is',null)))).where(eb=>eb.or([eb('l.estado','in',followup.stages.length?followup.stages:['__none__']),eb.and([eb('l.fechaUltimoContacto','is',null),eb(sql`l.assigned_at AT TIME ZONE 'America/Argentina/Buenos_Aires'`,'>=',sql`${localDay()}::date - ${followup.newAssignmentDays}::integer`)])])).orderBy('l.createdAt','desc').execute(),bucketCountsPromise
   ]);
   const contacts=accounts.length?await db.selectFrom('crmContacts').select(['id','accountId','name']).where('accountId','in',accounts.map(a=>a.id)).where('deletedAt','is',null).orderBy('name').execute():[];
   // Audit is available for a concrete context only, to avoid mixing it into the day inbox.
@@ -60,7 +70,7 @@ export async function get(request:Request){
   if(input.accountId){
    if(user.role==='admin'||accounts.length){journal=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','=',input.accountId).orderBy('createdAt','desc').limit(200).execute();}
   }
-  return reply({tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
+  return reply({tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
 }
 export async function post(request:Request){

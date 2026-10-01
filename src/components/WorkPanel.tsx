@@ -53,6 +53,6 @@ export function WorkPanel({accountId,leadId}:{accountId:string;leadId?:string}){
  </details>;
 }
 export function WorkPagination({data,page,onPage}:{data:WorkData;page:number;onPage:(n:number)=>void}){
- const pages=Math.max(1,Math.ceil(Math.max(data.totalTasks,data.totalActivities)/100));
+ const pages=data.bucketCounts?Math.max(1,...Object.values(data.bucketCounts).map(n=>Math.ceil(n/25))):Math.max(1,Math.ceil(Math.max(data.totalTasks,data.totalActivities)/100));
  return pages>1?<div className={styles.actions}><Button size="sm" variant="outline" disabled={page===1} onClick={()=>onPage(page-1)}>Anterior</Button><span>Página {page} de {pages}</span><Button size="sm" variant="outline" disabled={page>=pages} onClick={()=>onPage(page+1)}>Siguiente</Button></div>:null;
 }

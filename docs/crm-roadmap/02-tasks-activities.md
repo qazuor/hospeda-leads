@@ -65,7 +65,7 @@ Zona operacional explícita: `America/Argentina/Buenos_Aires`.
 - Las fechas SQL DATE que postgres.js representa como Date se muestran por su día UTC de transporte,
   sin desplazarlas al día anterior. Los instantes del journal se muestran con hora argentina.
 - `fecha_ultimo_contacto` también era SQL DATE, no admite guardar una hora real. La hora vive en la
-  actividad. Triggers proyectan el último día/resultado de llamadas, mensajes, reuniones, visitas y
+  actividad. Agenda y actividades usan formato de 24 horas. Triggers proyectan el último día/resultado de llamadas, mensajes, reuniones, visitas y
   propuestas. Una carga retrospectiva no desplaza un contacto posterior. Baseline conservado de
   fechas históricas/manuales; editar/borrar una actividad recalcula respecto de las otras y el baseline.
 
@@ -104,7 +104,8 @@ Registro de contacto y email aceptado por Brevo crean actividades, vinculadas al
 Detalle comercial oculta esas copias técnicas; journal técnico conserva su evidencia original.
 No se convierte automáticamente el journal técnico anterior en actividades retrospectivas.
 
-Paginación de 100 tareas/actividades; controles muestran páginas y el calendario advierte cuando muestra
+Mi día pagina 25 tareas por sección de forma independiente: muchas vencidas no ocultan las de hoy
+ni las próximas. Conteos completos por sección. Detalle/agenda paginan 100 tareas/actividades; controles muestran páginas y el calendario advierte cuando muestra
 solo una página. No se oculta la existencia de otras páginas. Auditoría contextual: últimos 200 cambios.
 Live Mode invalida la nueva familia `work`; triggers de tareas/actividades/tipos incrementan versión.
 Filtros guardados, tabla, edición inline/masiva, notas, templates, Analytics, Papelera y dark mode continúan.

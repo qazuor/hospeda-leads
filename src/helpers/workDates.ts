@@ -26,4 +26,4 @@ export function taskBucket(dueDate:string,dueAt:Date|string|null,now=new Date())
  if(dueDate<today||(dueAt&&new Date(dueAt)<now))return 'overdue';
  return dueDate===today?'today':'upcoming';
 }
-export function prettyInstant(value:Date|string){return new Date(value).toLocaleString('es-AR',{timeZone:CRM_TIME_ZONE,dateStyle:'medium',timeStyle:'short'});}
+export function prettyInstant(value:Date|string){return new Date(value).toLocaleString('es-AR',{timeZone:CRM_TIME_ZONE,dateStyle:'medium',timeStyle:'short',hourCycle:'h23'});}

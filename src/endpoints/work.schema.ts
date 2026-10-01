@@ -28,6 +28,7 @@ export interface WorkData {
  attention:{id:string;accountId:string;nombre:string;opportunityName:string|null;reason:string}[];
  journal:{id:string;entity:string;entityId:string;actorEmail:string|null;action:string;beforeValue:unknown;afterValue:unknown;createdAt:Date}[];
  followupStages:string[];newAssignmentDays:number;
+ bucketCounts?:{overdue:number;today:number;upcoming:number};
  totalTasks:number;totalActivities:number;page:number;
 }
 export async function getWork(params:Record<string,string|undefined>={}):Promise<WorkData>{
