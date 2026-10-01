@@ -24,7 +24,7 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
  const [participants,setParticipants]=useState(item?.participants||'');
  const [contactIds,setContacts]=useState<string[]>(item?.contactIds||[]);
  const [channel,setChannel]=useState(item&&'channel' in item?item.channel??'':'');
- const [result,setResult]=useState('');
+ const [result,setResult]=useState(item?.result??'');
  const opportunities=data.opportunities.filter(o=>o.accountId===accountId);
  const owner=leadId?opportunities.find(o=>o.id===leadId)?.assignedUserEmail:data.accounts.find(a=>a.id===accountId)?.assignedUserEmail;
  const statusAction=['complete','cancel','delete_task','delete_activity'].includes(target.kind);

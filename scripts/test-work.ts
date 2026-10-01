@@ -27,6 +27,10 @@ try{
  const own=await db.insertInto('crmContacts').values({accountId:a.id,name:'Ana'}).returning('id').executeTakeFirstOrThrow();
  const foreign=await db.insertInto('crmContacts').values({accountId:b.id,name:'No corresponde'}).returning('id').executeTakeFirstOrThrow();
  const base={action:'task_save',accountId:a.id,leadId:l.id,title:'Llamar',typeId:'call',dueDate:'2026-10-01',contactIds:[own.id],participants:'Propietaria'};
+ const unassigned=await mutate({...base,title:'Sin responsable',leadId:null,assignedUserEmail:null},admin.cookie);
+ await mutate({...base,id:unassigned,title:'Sin responsable editada',leadId:null},admin.cookie);
+ assert.equal((await db.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',unassigned).executeTakeFirstOrThrow()).assignedUserEmail,null);
+ await mutate({action:'task_delete',id:unassigned},admin.cookie);
  const call=await mutate(base);
  const visit=await mutate({...base,title:'Visita',typeId:'visit',dueDate:'2026-10-02',dueAt:'2026-10-02T15:00:00-03:00'});
  await mutate({...base,title:'Forbidden',assignedUserEmail:other.user.email},user.cookie,403);
@@ -53,6 +57,11 @@ try{
  await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Futuro',typeId:'meeting',occurredAt:'2099-01-01T09:00:00-03:00'},user.cookie,400);
  const after=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();assert.equal(Number(after.n),Number(before.n)+1);
  lead=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();assert.equal(lead.fechaUltimoContacto!.toISOString().slice(0,10),'2026-09-01');
+ const versionBefore=(await db.selectFrom('appSettings').select('value').where('key','=','crm_live_version').executeTakeFirstOrThrow()).value;
+ await mutate({action:'followup_settings',stages:['Interesado'],newAssignmentDays:10},user.cookie,403);
+ await mutate({action:'followup_settings',stages:['Interesado'],newAssignmentDays:10},admin.cookie);
+ const configured=await read();assert.equal(configured.newAssignmentDays,10);assert.deepEqual(configured.followupStages,['Interesado']);
+ assert.notEqual((await db.selectFrom('appSettings').select('value').where('key','=','crm_live_version').executeTakeFirstOrThrow()).value,versionBefore);
  assert.equal((await quick(request({id:l.id,field:'fechaProximaAccion',value:'2026-10-03'}))).status,200);
  assert.equal((await quick(request({id:l.id,field:'fechaProximaAccion',value:'2026-10-03'}))).status,200);
  let legacy=await db.selectFrom('crmTasks').selectAll().where('leadId','=',l.id).where('legacy','=',true).execute();assert.equal(legacy.length,1);

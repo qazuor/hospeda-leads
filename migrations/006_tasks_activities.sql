@@ -174,3 +174,4 @@ END $$;
 CREATE TRIGGER crm_activity_contact AFTER INSERT OR UPDATE OR DELETE ON crm_activities FOR EACH ROW EXECUTE FUNCTION crm_activity_contact();
 
 INSERT INTO app_settings(key,value) VALUES ('crm_work_followup','{"stages":["Interesado","En tratativas"],"newAssignmentDays":7}') ON CONFLICT(key) DO NOTHING;
+CREATE TRIGGER crm_work_settings_live AFTER INSERT OR UPDATE ON app_settings FOR EACH ROW WHEN (NEW.key='crm_work_followup') EXECUTE FUNCTION bump_crm_live_version();

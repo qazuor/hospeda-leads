@@ -120,8 +120,8 @@ export async function post(request:Request){
    if(input.action==='task_save'){
     const existing=input.id?await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id).executeTakeFirstOrThrow():null;
     if(existing&&existing.status!=='pending')throw new Error('Solo se pueden editar o reprogramar tareas pendientes.');
-    const assignee=input.assignedUserEmail===undefined?(existing?.assignedUserEmail??commercialOwner):input.assignedUserEmail;
-    if(user.role!=='admin'&&assignee!==(existing?.assignedUserEmail??commercialOwner))throw new Forbidden('Solo admin puede asignar o cambiar el responsable de una tarea.');
+    const assignee=input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:commercialOwner):input.assignedUserEmail;
+    if(user.role!=='admin'&&assignee!==(existing?existing.assignedUserEmail:commercialOwner))throw new Forbidden('Solo admin puede asignar o cambiar el responsable de una tarea.');
     if(existing?.legacy&&assignee!==commercialOwner)throw new Error('El seguimiento histórico conserva el responsable de la oportunidad.');
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
