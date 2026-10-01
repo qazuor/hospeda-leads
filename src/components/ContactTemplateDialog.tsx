@@ -69,7 +69,7 @@ export const ContactTemplateDialog=({
   const context={name:lead?.nombre,contact:recipient.name,contact_name:recipient.name,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:recipient.phone,email:recipient.email,website:lead?.sitioWeb,sender,sender_short:senderShort};
   const referenteWhatsapp=channel==="whatsapp"&&lead?.commercialProfile==="Referente";
   const applicableTemplates=referenteWhatsapp?[]:templates.filter(template=>
-    (!template.vertical||template.vertical===lead?.tipo)&&(!template.commercialProfile||template.commercialProfile===lead?.commercialProfile)
+    (!template.vertical||template.vertical===lead?.tipo)&&(!lead?.commercialProfile?.trim()||!template.commercialProfile||template.commercialProfile===lead?.commercialProfile)
   );
   const renderPlain=(value:string)=>renderMessageTemplate(value,context);
   const renderHtml=(value:string)=>renderMessageTemplateHtml(value,context);
@@ -104,13 +104,13 @@ export const ContactTemplateDialog=({
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className={styles.dialog}>
     <DialogHeader><DialogTitle>{channel==="whatsapp"?"Enviar WhatsApp":"Enviar email"}</DialogTitle><DialogDescription>{lead?.nombre}{recipient.name?" · "+recipient.name:""}</DialogDescription></DialogHeader>
     <label className={styles.recipient}>Destinatario<select aria-label="Destinatario" value={effectiveContactId} disabled={interactionStarted||sending||!ready} onChange={e=>{setSelectedContactId(e.target.value);setSelectedEmailTemplate(null);setSendError("");}}>
-      <option value="">Datos genéricos / históricos del negocio</option>{contacts.map(c=><option key={c.id} value={String(c.id)}>{c.name}{c.isPrimary?" · Principal":""}</option>)}
+      <option value="">Contacto original de la oportunidad</option>{contacts.map(c=><option key={c.id} value={String(c.id)}>{c.name}{c.isPrimary?" · Principal":""}</option>)}
     </select></label>
-    <p className={styles.recipientHelp}>El destinatario determina el teléfono/email y los datos de persona usados en el template. “Datos genéricos / históricos” conserva el contacto anterior de la oportunidad. Si no hay nombre de persona, esa variable queda vacía. Revisá la vista previa antes de enviar.</p>
+    <p className={styles.recipientHelp}>Este selector elige a quién contactar; los templates se eligen debajo. “Contacto original” usa el teléfono, email y nombre ya cargados en la oportunidad. Las otras opciones son las personas agregadas al negocio. Si no hay nombre, la variable de contacto queda vacía.</p>
     <p className={styles.recipientChannel}>{channel==="whatsapp"?recipient.phone:recipient.email}</p>
     {detailQ.error&&<p role="alert" className={styles.errorBox}>{detailQ.error.message}</p>}
-    {ready&&!hasChannel&&<p role="alert" className={styles.errorBox}>El destinatario seleccionado no tiene {channel==="whatsapp"?"teléfono":"email"}. Elegí otro contacto o los datos genéricos.</p>}
-    {!lead?.commercialProfile&&<p className={styles.empty}>Esta oportunidad todavía no tiene Perfil comercial. Los templates segmentados aparecerán cuando la clasifiques.</p>}
+    {ready&&!hasChannel&&<p role="alert" className={styles.errorBox}>El destinatario seleccionado no tiene {channel==="whatsapp"?"teléfono":"email"}. Elegí otra persona o el contacto original.</p>}
+    {!lead?.commercialProfile?.trim()&&<p className={styles.empty}>Sin perfil comercial: mostramos templates de todos los perfiles compatibles con la vertical.</p>}
     {referenteWhatsapp&&<p className={styles.empty}>Para el perfil Referente los templates de primer contacto están disponibles únicamente por Email.</p>}
 
     {!interactionStarted&&<>

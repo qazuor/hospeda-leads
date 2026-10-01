@@ -37,7 +37,7 @@ export async function handle(request:Request){
     try{contact=await resolveCommercialContact(db,lead,input.contactId)}catch(error){return new Response(superjson.stringify({error:error instanceof Error?error.message:"Contacto inválido"}),{status:400})}
     if(!contact.email)return new Response(superjson.stringify({error:"El destinatario seleccionado no tiene email cargado."}),{status:400});
     if(template.vertical&&template.vertical!==lead.tipo)return new Response(superjson.stringify({error:"El template no corresponde a la vertical de este lead."}),{status:400});
-    if(template.commercialProfile&&template.commercialProfile!==lead.commercialProfile)return new Response(superjson.stringify({error:"El template no corresponde al perfil comercial de este lead."}),{status:400});
+    if(lead.commercialProfile?.trim()&&template.commercialProfile&&template.commercialProfile!==lead.commercialProfile)return new Response(superjson.stringify({error:"El template no corresponde al perfil comercial de este lead."}),{status:400});
 
     const emailConfig=Object.fromEntries(emailRows.map(row=>[row.key,row.value]));
     const userSenderEmail=senderUser?.senderEmail?.trim()||"";
