@@ -566,13 +566,13 @@ export default function LeadsPage(){
     if(quickParam)applyQuickView(quickParam);
     else if(field&&value)applyQuickView("field",field+"::"+value);
     else if(leadId){resetInlineFilters();setQuery("");setAppliedFilterGroups([{rules:[{field:"id",operator:"eq",value:leadId}]}]);setPage(1)}
-  },[]);
+  },[urlParams]);
   useEffect(()=>{
     const leadId=urlParams.get("leadId");
     if(!leadId||!leads.length)return;
     const target=leads.find(item=>String(item.id)===leadId);
     if(target){setSelectedLead(target);setLastTouchedId(leadId);setViewOpen(true);setUrlParams({}, {replace:true})}
-  },[leads]);
+  },[leads,urlParams]);
 
   const saveCurrentView=()=>{
     const name=savedViewName.trim();if(!name||!currentUser)return;
