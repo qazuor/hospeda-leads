@@ -58,19 +58,22 @@ const makeRule=(field:FilterFieldDefinition):AdvancedFilterRule=>({
 });
 
 export const FilterBuilderDialog=({
-  open,onOpenChange,fields,value,onApply
+  open,onOpenChange,fields,value,search="",title="Filtrar oportunidades",onApply
 }:{
   open:boolean;
   onOpenChange:(open:boolean)=>void;
   fields:FilterFieldDefinition[];
   value:AdvancedFilterGroup[];
-  onApply:(groups:AdvancedFilterGroup[])=>void;
+  search?:string;
+  title?:string;
+  onApply:(groups:AdvancedFilterGroup[],search:string)=>void;
 })=>{
   const [draft,setDraft]=useState<AdvancedFilterGroup[]>([]);
+  const [draftSearch,setDraftSearch]=useState("");
   const fieldMap=useMemo(()=>new Map(fields.map(field=>[field.key,field])),[fields]);
   useEffect(()=>{
-    if(open)setDraft(cloneGroups(value));
-  },[open,value]);
+    if(open){setDraft(cloneGroups(value));setDraftSearch(search);}
+  },[open,value,search]);
 
   const addGroup=()=>{
     const first=fields[0];
@@ -115,19 +118,23 @@ export const FilterBuilderDialog=({
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className={styles.dialog}>
       <DialogHeader>
-        <DialogTitle>Filtrar oportunidades</DialogTitle>
+        <DialogTitle>{title}</DialogTitle>
         <DialogDescription>Los bloques se combinan con AND. Dentro de cada bloque podés agregar alternativas con OR.</DialogDescription>
       </DialogHeader>
 
       <div className={styles.builder}>
-        {draft.length===0&&<div className={styles.empty}>
+        <section className={styles.group}>
+          <div className={styles.groupHeader}><div><strong>Texto libre</strong><span>Se combina con los demás filtros mediante AND.</span></div><Button variant="ghost" size="sm" onClick={()=>setDraftSearch("")} disabled={!draftSearch.trim()}>Quitar búsqueda</Button></div>
+          <label className={styles.searchField}><span>Texto libre de búsqueda</span><Input value={draftSearch} onChange={e=>setDraftSearch(e.target.value)} placeholder="Buscar negocios, oportunidades y notas…"/></label>
+        </section>
+        {draft.length===0&&!draftSearch.trim()&&<div className={styles.empty}>
           <Filter size={24}/>
           <strong>Sin filtros</strong>
           <span>Agregá una condición para empezar.</span>
         </div>}
 
         {draft.map((group,groupIndex)=><React.Fragment key={groupIndex}>
-          {groupIndex>0&&<div className={styles.andConnector}><span>AND</span></div>}
+          {(groupIndex>0||!!draftSearch.trim())&&<div className={styles.andConnector}><span>AND</span></div>}
           <section className={styles.group}>
             <div className={styles.groupHeader}>
               <div><strong>Filtro {groupIndex+1}</strong><span>{group.rules.length>1?"Cualquiera de estas condiciones (OR)":"Esta condición debe cumplirse"}</span></div>
@@ -168,24 +175,25 @@ export const FilterBuilderDialog=({
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" onClick={()=>setDraft([])} disabled={!draft.length}>Limpiar</Button>
+        <Button variant="ghost" onClick={()=>{setDraft([]);setDraftSearch("")}} disabled={!draft.length&&!draftSearch.trim()}>Limpiar</Button>
         <div className={styles.grow}/>
         <Button variant="outline" onClick={()=>onOpenChange(false)}>Cancelar</Button>
-        <Button onClick={()=>{onApply(validDraft);onOpenChange(false)}}>Aplicar filtros</Button>
+        <Button onClick={()=>{onApply(validDraft,draftSearch.trim());onOpenChange(false)}}>Aplicar filtros</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>;
 };
 
 export const FilterLegend=({
-  groups,fields,onEdit,onClear
+  groups,fields,search="",onEdit,onClear
 }:{
   groups:AdvancedFilterGroup[];
+  search?:string;
   fields:FilterFieldDefinition[];
   onEdit:()=>void;
   onClear:()=>void;
 })=>{
-  if(!groups.length)return null;
+  if(!groups.length&&!search.trim())return null;
   const map=new Map(fields.map(field=>[field.key,field]));
   const describe=(rule:AdvancedFilterRule)=>{
     const field=map.get(rule.field);
@@ -197,8 +205,9 @@ export const FilterLegend=({
   };
   return <div className={styles.legend}>
     <div className={styles.legendExpression}>
+      {!!search.trim()&&<div className={styles.legendGroup}><span className={styles.legendRule}>Texto libre contiene «{search.trim()}»</span></div>}
       {groups.map((group,groupIndex)=><React.Fragment key={groupIndex}>
-        {groupIndex>0&&<span className={styles.legendAnd}>AND</span>}
+        {(groupIndex>0||!!search.trim())&&<span className={styles.legendAnd}>AND</span>}
         <div className={styles.legendGroup}>
           {group.rules.map((rule,ruleIndex)=><React.Fragment key={ruleIndex}>
             {ruleIndex>0&&<span className={styles.legendOr}>OR</span>}

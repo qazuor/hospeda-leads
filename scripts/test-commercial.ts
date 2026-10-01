@@ -113,6 +113,8 @@ try{
   assert.equal(businessList.total,1);assert.equal(String(businessList.rows[0].id),accountId);
   assert.equal(businessList.rows[0].opportunityId,first);
   businessList=await businesses('q=Segunda%20venta');assert(businessList.rows.some(a=>String(a.id)===accountId));
+  assert.equal((await businesses('q=Segunda%20venta&filterGroups='+encodeURIComponent(filterGroups))).total,0,'Free search AND filters must match the same opportunity');
+  assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`)+'&filterGroups='+encodeURIComponent(filterGroups))).total,1,'Free search combines with matching dialog filters');
   const empty=await mutate({action:'account_save',nombre:`Empty business ${suffix}`,email:'generic@example.com'});
   businessList=await businesses('q='+encodeURIComponent(`Empty business ${suffix}`));
   assert.equal(businessList.total,1);assert.equal(businessList.rows[0].opportunityCount,0);assert.equal(businessList.rows[0].opportunityId,null);
