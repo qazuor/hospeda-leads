@@ -102,10 +102,11 @@ export const ContactTemplateDialog=({
   });
 
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className={styles.dialog}>
-    <DialogHeader><DialogTitle>{channel==="whatsapp"?"Enviar WhatsApp":"Enviar email"}</DialogTitle><DialogDescription>{lead?.nombre}{lead?.contactName?" · "+lead.contactName:""}</DialogDescription></DialogHeader>
-    <label>Destinatario<select value={effectiveContactId} disabled={interactionStarted||sending||!ready} onChange={e=>{setSelectedContactId(e.target.value);setSelectedEmailTemplate(null);setSendError("");}}>
+    <DialogHeader><DialogTitle>{channel==="whatsapp"?"Enviar WhatsApp":"Enviar email"}</DialogTitle><DialogDescription>{lead?.nombre}{recipient.name?" · "+recipient.name:""}</DialogDescription></DialogHeader>
+    <label className={styles.recipient}>Destinatario<select aria-label="Destinatario" value={effectiveContactId} disabled={interactionStarted||sending||!ready} onChange={e=>{setSelectedContactId(e.target.value);setSelectedEmailTemplate(null);setSendError("");}}>
       <option value="">Datos genéricos / históricos del negocio</option>{contacts.map(c=><option key={c.id} value={String(c.id)}>{c.name}{c.isPrimary?" · Principal":""}</option>)}
     </select></label>
+    <p className={styles.recipientChannel}>{channel==="whatsapp"?recipient.phone:recipient.email}</p>
     {detailQ.error&&<p role="alert" className={styles.errorBox}>{detailQ.error.message}</p>}
     {ready&&!hasChannel&&<p role="alert" className={styles.errorBox}>El destinatario seleccionado no tiene {channel==="whatsapp"?"teléfono":"email"}. Elegí otro contacto o los datos genéricos.</p>}
     {!lead?.commercialProfile&&<p className={styles.empty}>Este lead todavía no tiene Perfil comercial. Los templates segmentados aparecerán cuando lo clasifiques.</p>}

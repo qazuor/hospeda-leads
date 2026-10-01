@@ -63,6 +63,18 @@ test('account with two contacts and independent opportunities preserves lead and
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByText('Hola',{exact:true}).first()).toBeVisible();
   await communication.getByRole('button',{name:'Cancelar',exact:true}).click();
+  // Capture WhatsApp intent locally: this test never opens or sends a real message.
+  await page.evaluate(()=>{window.open=(url)=>{(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl=String(url);return null}});
+  await lead.getByRole('button',{name:'WhatsApp',exact:true}).click();
+  const whatsapp=page.getByRole('dialog').last();
+  await whatsapp.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
+  await whatsapp.getByRole('button',{name:/CRM WhatsApp template/}).click();
+  const intent=await page.evaluate(()=>(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl);
+  const whatsappUrl=new URL(intent);
+  expect(whatsappUrl.pathname).toBe('/5493442000002');
+  expect(whatsappUrl.searchParams.get('text')).toContain('Hola Luis luis@example.com');
+  await whatsapp.getByRole('button',{name:'Registrar resultado y cerrar',exact:true}).click();
+  await expect(page.getByRole('dialog')).toHaveCount(1);
   await lead.getByRole('button',{name:'Cerrar',exact:true}).click();
   await page.goto(accountUrl);
   const row=page.locator('article').filter({has:page.getByRole('link',{name:/Primera venta · #/})});

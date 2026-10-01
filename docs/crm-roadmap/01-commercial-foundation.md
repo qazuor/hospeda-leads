@@ -57,7 +57,7 @@ campos históricos: seleccionar persona evita ambigüedad; opción datos genéri
   Verifica migración 001–004 en esquema aislado (rollback), conservación completa de campos históricos,
   reimportación con ID repetido, autenticación, responsables por rol, pertenencia, índice único,
   oportunidades independientes, conversión idempotente, templates y baja lógica.
-  Brevo se simula: no envía correos reales.
+  Brevo se simula: no envía correos reales. La prueba de WhatsApp captura localmente la URL y el mensaje, sin abrir WhatsApp ni enviar mensajes.
 - `npm run test:browser`: Chromium sobre servidor compilado, cuenta con dos contactos y oportunidades,
   conversión, selección de destinatario y preview, nombres vacíos, estado independiente, baja lógica;
   capturas claro/oscuro/móvil. CI ejecuta estas pruebas sobre PostgreSQL 17, además de todos sus checks previos.

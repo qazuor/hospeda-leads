@@ -50,7 +50,7 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
     }catch(e){setError(e instanceof Error?e.message:"Datos inválidos")}
   };
   return <Dialog open onOpenChange={open=>{if(!open&&!mutation.isPending)onClose()}}><DialogContent className={styles.editor}>
-    <DialogTitle>{titles[target.kind]}</DialogTitle><DialogDescription>{target.kind==="convert"?"Esta condición comercial no acredita ningún pago. El historial se conserva.":target.kind==="delete_contact"?"Conservaremos el historial. Se quitará como contacto principal de las oportunidades.":"Los cambios importantes quedan registrados en el historial."}</DialogDescription>
+    <DialogTitle>{titles[target.kind]}</DialogTitle><DialogDescription>{target.kind==="convert"?"Esta condición comercial no acredita ningún pago. El historial se conserva.":target.kind==="delete_contact"?"Conservaremos el historial. Se quitará como contacto principal de las oportunidades.":target.kind==="account"?"Los datos generales se comparten con todas las oportunidades de esta cuenta. Los cambios quedan registrados.":"Los cambios importantes quedan registrados en el historial."}</DialogDescription>
     <form onSubmit={submit} className={styles.form}>
       {(target.kind==="account"?accountFields:target.kind==="contact"?contactFields:target.kind==="opportunity"?opportunityFields:[]).map(([key,label])=>field(key,label))}
       {target.kind==="contact"&&<label className={styles.checkbox}><input type="checkbox" checked={primary} onChange={e=>setPrimary(e.target.checked)}/>Principal de la cuenta (reemplaza al anterior)</label>}

@@ -61,6 +61,7 @@ try{
   const invalidLog=await contactLog(request({leadId:first,contactId:foreign,channel:'email',result:'Respondió'}));assert.equal(invalidLog.status,400);
   assert.equal((await contactLog(request({leadId:first,contactId:ana,channel:'email',result:'Respondió'}))).status,200);
   const template=await db.insertInto('messageTemplates').values({name:'CRM template',channel:'email',subject:'Hola {{contact}}',body:'<p>{{contact}} · {{email}} · {{sender_short}}</p>'}).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto('messageTemplates').values({name:'CRM WhatsApp template',channel:'whatsapp',body:'<p>Hola {{contact}} {{email}}</p>'}).execute();
   process.env.BREVO_API_KEY='test-placeholder';
   const realFetch=globalThis.fetch;
   const outbound:Record<string,any>[]=[];
