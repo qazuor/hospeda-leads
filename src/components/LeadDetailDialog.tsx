@@ -2,6 +2,7 @@ import {WorkPanel} from "./WorkPanel";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
 import { CommercialPanel } from "./CommercialPanel";
 import React, { useState } from "react";
+import {Link} from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BriefcaseBusiness, CalendarClock, ChevronLeft, ChevronRight, ContactRound, ExternalLink, History, Link2, Mail, MapPin,
@@ -129,7 +130,7 @@ export const LeadDetailDialog=({
             </div>
             <div className={styles.metaLine}>
               <DialogDescription className={styles.description}>
-                Oportunidad de {lead.nombre} · ID #{String(lead.id)}
+                Oportunidad de {lead.accountId?<Link to={"/accounts/"+lead.accountId}>{lead.nombre}</Link>:lead.nombre} · ID #{String(lead.id)}
               </DialogDescription>
               <div className={styles.secondaryBadges}>
                 {lead.commercialProfile&&<ValueBadge value={lead.commercialProfile} category="profile"/>}

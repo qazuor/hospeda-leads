@@ -6,3 +6,4 @@
 @media(max-width:1150px){.inner{flex-wrap:wrap;gap:8px}.inner nav{order:3;flex-basis:100%;padding-top:4px}.user{margin-left:auto}}
 @media(max-width:600px){.brand div{display:none}.userMenuButton>span{display:none}.inner nav{gap:8px;flex-wrap:wrap}.navGroup{gap:2px}.navGroup+.navGroup{padding-left:8px}.navGroup>a,.navMenu{font-size:12px;padding:7px 8px}.navGroup svg{display:none}.navMenu svg:last-child{display:block}}
 @media(max-width:420px){.navGroup:last-child{width:100%;border-left:0;padding-left:0;padding-top:4px;border-top:1px solid var(--border)}}
+.navGroup:empty{display:none}

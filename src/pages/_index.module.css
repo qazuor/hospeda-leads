@@ -42,3 +42,4 @@
   font-size: .8rem;
   line-height: 1.5;
 }
+@media(max-width:620px){.tableMeta{flex-wrap:wrap;align-items:flex-start}.tableMetaActions .tableHint{display:none}.tableMeta>div{flex-wrap:wrap}.tableMetaActions{margin-left:auto}.quickViewList{max-width:100%}}

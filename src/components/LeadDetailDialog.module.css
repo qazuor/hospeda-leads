@@ -16,3 +16,4 @@
 
 .detailHelp{margin:0 0 14px;font-size:12px;line-height:1.5;color:var(--muted-foreground)}
 .detailTabs{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0}.detailTabs>[role=tablist]{flex:none;margin:0;padding:4px 16px 0;background:var(--card)}.summaryGrid{margin-bottom:0}.field>span{font-size:11px;letter-spacing:.025em}.panelHeader p{font-size:12px}.fieldValue{font-size:14px}.summaryItem span{font-size:10px}.summaryItem strong{font-size:13px}.panelHeader h3{font-size:16px}.journalAction,.journalSummary strong{font-size:12px}.journalActor,.journalLine time{font-size:11px}.journalChange{font-size:12px}.newNote{flex-wrap:wrap}.newNote textarea{min-width:200px}.newNote button{margin-left:auto}
+.description a{color:var(--primary);text-decoration:none}.description a:hover{text-decoration:underline}
