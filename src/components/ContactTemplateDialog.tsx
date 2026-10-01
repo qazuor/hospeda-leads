@@ -50,8 +50,9 @@ export const ContactTemplateDialog=({
     }
   });
 
-  const sender=authState.type==="authenticated"?authState.user.displayName:"";
-  const context={name:lead?.nombre,contact:lead?.contactName,contact_name:lead?.contactName,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:lead?.telefono,email:lead?.email,website:lead?.sitioWeb,sender};
+  const senderShort=authState.type==="authenticated"?authState.user.displayName:"";
+  const sender=authState.type==="authenticated"?(authState.user.fullName?.trim()||authState.user.displayName):"";
+  const context={name:lead?.nombre,contact:lead?.contactName,contact_name:lead?.contactName,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:lead?.telefono,email:lead?.email,website:lead?.sitioWeb,sender,sender_short:senderShort};
   const referenteWhatsapp=channel==="whatsapp"&&lead?.commercialProfile==="Referente";
   const applicableTemplates=referenteWhatsapp?[]:templates.filter(template=>
     (!template.vertical||template.vertical===lead?.tipo)&&(!template.commercialProfile||template.commercialProfile===lead?.commercialProfile)
