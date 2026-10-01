@@ -76,18 +76,18 @@ export function TemplatesContent(){
 
   const referenteWhatsapp=channel==="whatsapp"&&profile==="Referente";
   const previewLead=(leadsQ.data?.rows??[]).find(lead=>String(lead.id)===previewLeadId);
-  const sender=authState.type==="authenticated"?authState.user.displayName:"Hospeda";
-  const context={
-    name:previewLead?.nombre??"Ruca Lihuén",
-    contact:previewLead?.contactName??"María",
-    contact_name:previewLead?.contactName??"María",
-    city:previewLead?.ciudad??"Concepción del Uruguay",
-    type:(previewLead?.tipo??vertical)||"Alojamiento",
-    subtype:previewLead?.subtipo??"Cabañas",
-    phone:previewLead?.telefono??"3442 000000",
-    email:previewLead?.email??"contacto@ejemplo.com",
-    website:previewLead?.sitioWeb??"https://hospeda.com.ar",
-    sender
+  const senderShort=authState.type==="authenticated"?authState.user.displayName:"Hospeda";
+  const sender=authState.type==="authenticated"?(authState.user.fullName?.trim()||authState.user.displayName):"Hospeda";
+  const example=!previewLeadId;
+  const context=example?{
+    name:"Ruca Lihuén",contact:"María",contact_name:"María",city:"Concepción del Uruguay",
+    type:vertical||"Alojamiento",subtype:"Cabañas",phone:"3442 000000",email:"contacto@ejemplo.com",
+    website:"https://hospeda.com.ar",sender,sender_short:senderShort
+  }:{
+    name:previewLead?.nombre??"",contact:previewLead?.contactName??"",contact_name:previewLead?.contactName??"",
+    city:previewLead?.ciudad??"",type:previewLead?.tipo??"",subtype:previewLead?.subtipo??"",
+    phone:previewLead?.telefono??"",email:previewLead?.email??"",website:previewLead?.sitioWeb??"",
+    sender,sender_short:senderShort
   };
   const renderedBody=renderMessageTemplateHtml(body,context);
   const renderedSubject=renderMessageTemplate(subject,context);
