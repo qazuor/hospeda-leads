@@ -18,6 +18,8 @@ test('account with two contacts and independent opportunities preserves lead and
   for(const person of ['Ana','Luis']){
     await page.getByRole('button',{name:'Agregar contacto',exact:true}).click();
     await page.getByLabel('Nombre de la persona').fill(person);
+    await page.getByRole('combobox',{name:'Cargo',exact:true}).selectOption({label:'Propietario/a'});
+    await page.getByRole('combobox',{name:'Canal preferido',exact:true}).selectOption({label:'WhatsApp'});
     await page.getByLabel('Email',{exact:true}).fill(person.toLowerCase()+'@example.com');
     await page.getByLabel('Teléfono',{exact:true}).fill(person==='Ana'?'5493442000001':'5493442000002');
     if(person==='Luis')await page.getByLabel('Principal de la cuenta').check();
@@ -26,6 +28,10 @@ test('account with two contacts and independent opportunities preserves lead and
   }
   await expect(page.getByRole('heading',{name:'Personas de contacto (2)',exact:true})).toBeVisible();
   await expect(page.getByText('Luis · Principal',{exact:true})).toBeVisible();
+  await page.locator('article').filter({has:page.getByText('Ana',{exact:true})}).getByRole('button',{name:'Editar',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'Cargo',exact:true})).toHaveValue('Propietario/a');
+  await expect(page.getByRole('combobox',{name:'Canal preferido',exact:true})).toHaveValue('WhatsApp');
+  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
   await expect(page.getByText('Ana · Principal',{exact:true})).toHaveCount(0);
   for(const [name,stage,person] of [['Primera venta','Cargado','Ana'],['Segunda venta','En tratativas','Luis']]){
     await page.getByRole('button',{name:'Nueva oportunidad',exact:true}).click();
@@ -52,6 +58,10 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.setViewportSize({width:1280,height:900});
   await page.getByRole('link',{name:/Primera venta · #/}).click();
   const lead=page.getByRole('dialog').last();
+  await expect(lead.getByRole('button',{name:'Editar negocio',exact:true})).toBeVisible();
+  await expect(lead.getByRole('heading',{name:'Contacto',exact:true})).toHaveCount(0);
+  await expect(lead.getByText('Este lead es una de ellas.',{exact:false})).toBeVisible();
+  await page.screenshot({path:'test-results/lead-commercial-detail.png',fullPage:true});
   await expect(lead.getByRole('heading',{name:'Primera venta',exact:true})).toBeVisible();
   await expect(lead.getByText('Cargado',{exact:true}).first()).toBeVisible();
   await lead.getByRole('button',{name:'Email',exact:true}).click();

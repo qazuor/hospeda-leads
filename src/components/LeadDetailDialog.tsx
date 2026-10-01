@@ -127,7 +127,7 @@ export const LeadDetailDialog=({
             </div>
             <div className={styles.metaLine}>
               <DialogDescription className={styles.description}>
-                {lead.contactName||"Sin persona de contacto"} · ID #{String(lead.id)}
+                Oportunidad de {lead.nombre} · ID #{String(lead.id)}
               </DialogDescription>
               <div className={styles.secondaryBadges}>
                 {lead.commercialProfile&&<ValueBadge value={lead.commercialProfile} category="profile"/>}
@@ -146,14 +146,14 @@ export const LeadDetailDialog=({
           {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Lead anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Lead siguiente"><ChevronRight size={16}/></Button></div>}
           {!readOnly&&onDelete&&<Button size="sm" variant="destructive" onClick={()=>onDelete(lead)}><Trash2 size={15}/>Eliminar</Button>}
           <Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>
-          {!readOnly&&onEdit&&<Button size="sm" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar</Button>}
+          {!readOnly&&onEdit&&<Button size="sm" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar lead</Button>}
         </div>
       </div>
 
       <div className={styles.scrollBody}>
-        <CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/>
+        <div className={styles.commercialBlock}><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></div>
         <div className={styles.summaryGrid}>
-          <SummaryItem icon={ContactRound} label="Contacto" value={lead.contactName||lead.email||lead.telefono||"Sin datos"}/>
+          <SummaryItem icon={ContactRound} label="Canal del negocio" value={lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>
           <SummaryItem icon={ShieldCheck} label="Responsable" value={assignedUser?.displayName||lead.assignedUserEmail||lead.asignadoA||"Sin asignar"}/>
           <SummaryItem icon={CalendarClock} label="Próxima acción" value={<span className={styles["next_"+nextActionInfo(lead.fechaProximaAccion).tone]} title={nextActionInfo(lead.fechaProximaAccion).title}>{nextActionInfo(lead.fechaProximaAccion).label}</span>}/>
@@ -161,19 +161,18 @@ export const LeadDetailDialog=({
 
         <div className={styles.contentGrid}>
           <section className={styles.panel}>
-            <SectionTitle icon={ContactRound} title="Contacto" description="Datos para comunicarte con el lead."/>
+            <SectionTitle icon={ContactRound} title="Datos del negocio" description="Canales genéricos compartidos. Las personas se gestionan arriba, en Personas de contacto."/>
             <div className={styles.fieldGrid}>
-              <Field label="Persona de contacto" value={text(lead.contactName)}/>
-              <Field label="Teléfono" value={text(lead.telefono)}/>
-              <Field label="Email" value={text(lead.email)}/>
-              <Field label="Medio preferido" value={text(lead.medioContactoPreferido)}/>
+              <Field label="Teléfono genérico" value={text(lead.telefono)}/>
+              <Field label="Email genérico" value={text(lead.email)}/>
+              <Field label="Canal histórico del lead" value={text(lead.medioContactoPreferido)}/>
               <Field label="Ciudad" value={lead.ciudad?<ValueBadge value={lead.ciudad} category="city"/>:"—"}/>
               <Field label="Potencial recurrente" value={lead.clientePotencialRecurrente?"Sí":"No"}/>
             </div>
           </section>
 
           <section className={styles.panel}>
-            <SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y situación del lead."/>
+            <SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y etapa de esta oportunidad, independientes de otras ventas del negocio."/>
             <div className={styles.fieldGrid}>
               <Field label="Vertical" value={lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:"—"}/>
               <Field label="Subtipo" value={lead.subtipo?<ValueBadge value={lead.subtipo} category="subtype"/>:"—"}/>
