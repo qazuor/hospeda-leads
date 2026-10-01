@@ -785,13 +785,14 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>PIPELINE COMERCIAL</div><h1>{businessMode?"Negocios":"Oportunidades"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las ventas que estás gestionando.":"Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades."}</p></div>
+        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Oportunidades"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las ventas que estás gestionando.":"Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades."}</p></div>
         <div className={styles.pageActions}><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Nueva oportunidad"}</Button></div>
       </header>
 
       <section className={styles.commercialGuide} aria-label="Ayuda comercial">
-      <CommercialHelp/>
-      {businessMode&&<p className={styles.businessTableGuide}>Con una oportunidad, podés editar su seguimiento desde esta tabla. Con varias, mostramos sus valores y podés abrir el negocio para elegir cuál modificar. Los filtros de seguimiento encuentran negocios con alguna oportunidad que cumpla las condiciones. Cliente comercial no acredita pago.</p>}
+      <CommercialHelp>
+      {businessMode&&<p>Con una oportunidad, podés editar su seguimiento desde esta tabla. Con varias, mostramos sus valores y podés abrir el negocio para elegir cuál modificar. Los filtros de seguimiento encuentran negocios con alguna oportunidad que cumpla las condiciones. Cliente comercial no acredita pago.</p>}
+      </CommercialHelp>
       </section>
       <section className={styles.metrics}>
         <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de oportunidades"}</span></div></button>

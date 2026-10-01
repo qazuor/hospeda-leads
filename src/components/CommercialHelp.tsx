@@ -1,7 +1,8 @@
+import type {ReactNode} from "react";
 import { ChevronDown, CircleHelp } from "lucide-react";
 import styles from "./Commercial.module.css";
 
-export function CommercialHelp(){
+export function CommercialHelp({children}:{children?:ReactNode}){
   return <details className={styles.help}>
     <summary className={styles.helpSummary}>
       <CircleHelp className={styles.helpIcon} size={20} aria-hidden="true"/>
@@ -18,5 +19,6 @@ export function CommercialHelp(){
       <dt>Qué editar</dt><dd>“Editar negocio” cambia datos compartidos. “Editar oportunidad” abre su clasificación y seguimiento completos. “Editar datos de venta” permite cambiar rápidamente nombre, servicio, etapa y persona. Para actualizar una persona usá “Editar” en Contactos.</dd>
       <dt>Prospecto y cliente</dt><dd>Prospecto es el negocio que todavía no convertimos a cliente. “Convertir a cliente” registra la decisión y su motivo; conserva el historial y no confirma pagos ni activa una suscripción en el portal turístico.</dd>
     </dl>
+    {children}
   </details>;
 }

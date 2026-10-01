@@ -126,3 +126,25 @@ Referencias oficiales: [PostgreSQL 17 DATE/TIMESTAMPTZ](https://www.postgresql.o
 [AT TIME ZONE](https://www.postgresql.org/docs/17/functions-datetime.html),
 [Triggers](https://www.postgresql.org/docs/17/sql-createtrigger.html),
 [React](https://react.dev/reference/react), [Kysely](https://kysely-org.github.io/kysely-apidoc/classes/Transaction.html).
+
+## Revisión de claridad visual
+
+- Todas las páginas operativas comparten ancho máximo de 1600 px y el mismo margen adaptable.
+  El encabezado se alinea con el contenido. Navegación agrupada en trabajo diario, datos comerciales
+  y administración, manteniendo las rutas y permisos.
+- Negocio: cabecera y datos generales, seguidos de Oportunidades, Contactos, Seguimiento e Historial.
+  Se muestra una sección por vez. La ayuda queda disponible al final, cerrada inicialmente.
+- Oportunidad: Resumen, Tareas y actividades, Notas, Negocio y contactos e Historial. La cabecera,
+  acciones y pestañas se mantienen visibles mientras se desplaza el contenido. Cambiar de oportunidad
+  restablece la sección inicial. La información del negocio no mezcla tareas generales con las de la venta.
+- Seguimiento separa tareas pendientes de actividades realizadas. Finalizadas/canceladas y auditoría
+  se consultan bajo demanda. Auditoría muestra campos y valores legibles, conservando los snapshots DB.
+- Tarjetas de trabajo: título, negocio/oportunidad, vencimiento y metadatos; Completar y Contactar
+  como acciones principales. Más acciones conserva reprogramar, cancelar, registrar actividad y baja.
+  Descripción/participantes se expanden cuando hacen falta; resultado de actividad permanece visible.
+- Mi día diferencia sus tres bandejas, con conteos y filtros separados. La explicación extensa es
+  desplegable. Agenda separa planificadas/realizadas, con controles lista/calendario y leyenda.
+- Formularios agrupan contexto, acción, planificación y participantes/notas. Sin cambios de modelo,
+  API, asignación comercial, reglas de fechas ni proyección de próxima acción.
+- Verificación de navegador cubre navegación por secciones, reprogramación desde el menú, anchos
+  iguales entre páginas a 1800 px, ausencia de desborde a 390 px y evidencias claro/oscuro/móvil.
