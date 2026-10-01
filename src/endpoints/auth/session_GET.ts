@@ -17,6 +17,7 @@ export async function handle(request: Request) {
           id: user.id,
           email: user.email,
           displayName: user.displayName,
+          fullName: user.fullName,
           avatarUrl: user.avatarUrl,
           role: user.role,
         } satisfies User,
