@@ -95,3 +95,7 @@ Nueva oportunidad solicita elegir un negocio existente o crear uno nuevo y luego
 El formulario completo ya no ofrece edición de campos compartidos del negocio. Envía scope=opportunity y el backend toma esos campos de la fila actual en una transacción con bloqueo, para que valores viejos del formulario no sobrescriban datos generales. La API heredada conserva su comportamiento cuando no recibe scope. El contacto elegido se valida dentro del negocio; responsables siguen restringidos a admin.
 
 Validación: se fija Rollup 4.63.5 mediante overrides de npm. Dos instalaciones limpias de CI con resolución flotante fallaron por la ausencia del binario opcional linux-x64-gnu; la versión fijada es la validada localmente y conserva las variantes nativas de cada plataforma.
+
+## Navegación centrada en negocios
+
+La entrada principal y el logo llevan a Negocios (/accounts): una fila por negocio, con contactos y oportunidades contados, sin multiplicar filas por venta. Al abrir un negocio aparecen las personas y ventas relacionadas. Seguimiento (/opportunities) conserva la tabla avanzada de oportunidades como vista secundaria. La raíz / redirige a negocios; los enlaces antiguos /?leadId, /?quick y otros filtros redirigen a /opportunities conservando el query completo. No cambian IDs ni datos.

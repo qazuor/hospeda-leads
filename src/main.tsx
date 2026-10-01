@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
 import { AdminRoute, UserRoute } from "./components/ProtectedRoute";
 import AccountsPage from "./pages/accounts";
@@ -14,6 +14,12 @@ import TemplatesPage from "./pages/templates";
 import TrashPage from "./pages/trash";
 import "./base.css";
 
+function HomeEntry(){
+  const {search}=useLocation();
+  // Keep existing bookmarks and deep links to leads/filters operational.
+  return <Navigate to={search?"/opportunities"+search:"/accounts"} replace/>;
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -21,7 +27,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/" element={<UserRoute><LeadsPage /></UserRoute>} />
+          <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
+          <Route path="/opportunities" element={<UserRoute><LeadsPage /></UserRoute>} />
           <Route path="/accounts" element={<UserRoute><AccountsPage /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
