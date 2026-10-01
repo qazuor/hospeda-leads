@@ -281,6 +281,12 @@ export async function handle(request:Request){
       }
     }
 
+    if(input.action==="deleteTemplate"){
+      const target=await db.selectFrom("messageTemplates").select(["id","name"]).where("id","=",String(input.id)).where("active","=",true).executeTakeFirst();
+      if(!target)return new Response(superjson.stringify({error:"El template no existe o ya fue eliminado."}),{status:404});
+      await db.updateTable("messageTemplates").set({active:false,updatedAt:new Date()}).where("id","=",target.id).execute();
+    }
+
     if(input.action==="saveTemplate"){
       if(input.channel==="whatsapp"&&input.commercialProfile==="Referente"){
         return new Response(superjson.stringify({error:"El perfil Referente solo admite templates de Email."}),{status:400});
