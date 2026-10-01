@@ -48,7 +48,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByLabel('Motivo de conversión').fill('Acuerdo comercial E2E');
   await page.getByRole('dialog').getByRole('button',{name:'Convertir a cliente',exact:true}).click();
   await expect(page.getByText(/Cliente comercial · no acredita pago/)).toBeVisible();
-  await expect(page.getByText(/Convertida a cliente/)).toBeVisible();
+  await expect(page.getByText(/Conversión a cliente/)).toBeVisible();
   await page.screenshot({path:'test-results/commercial-light.png',fullPage:true});
   await page.getByRole('button',{name:'Admin Test',exact:true}).click();
   await page.getByRole('menuitem',{name:'Tema oscuro'}).click();
