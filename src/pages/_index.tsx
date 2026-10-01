@@ -372,7 +372,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     queryKey:[...QUERY_KEY,entity,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page],
     queryFn:()=>getLeads({
       entity,
-      q:debouncedQuery||undefined,
+      q:debouncedQuery.trim()||undefined,
       filterGroups:appliedFilterGroups,
       ciudades:cityFilter.include,excludeCiudades:cityFilter.exclude,
       estados:statusFilter.include,excludeEstados:statusFilter.exclude,
@@ -478,7 +478,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     {key:"updatedAt",label:"Actualizado",kind:"date"},
     {key:"notes",label:"Notas",kind:"notes"},
   ];
-  const appliedRuleCount=appliedFilterGroups.reduce((total,group)=>total+group.rules.length,0);
+  const appliedRuleCount=appliedFilterGroups.reduce((total,group)=>total+group.rules.length,0)+(query.trim()?1:0);
 
   const asOptions=(values:string[]):SmartFilterOption[]=>[
     ...values.map(value=>({value,label:value})),
@@ -826,9 +826,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
       <FilterLegend
         groups={appliedFilterGroups}
+        search={query}
         fields={filterFields}
         onEdit={()=>setFilterDialogOpen(true)}
-        onClear={()=>{setAppliedFilterGroups([]);setActiveQuick("all");resetPage()}}
+        onClear={()=>{setAppliedFilterGroups([]);setQuery("");setActiveQuick("all");resetPage()}}
       />
 
       {selectedIds.size>0&&<section className={styles.bulkBar}>
@@ -1000,7 +1001,9 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         onOpenChange={setFilterDialogOpen}
         fields={filterFields}
         value={appliedFilterGroups}
-        onApply={groups=>{setAppliedFilterGroups(groups);setActiveQuick("custom");setPage(1)}}
+        search={query}
+        title={businessMode?"Filtrar negocios":"Filtrar oportunidades"}
+        onApply={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);setActiveQuick("custom");setPage(1)}}
       />
       <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Guardar vista</DialogTitle><DialogDescription>Conserva la búsqueda, filtros y orden actuales para volver a usarlos con un clic.</DialogDescription></DialogHeader>
