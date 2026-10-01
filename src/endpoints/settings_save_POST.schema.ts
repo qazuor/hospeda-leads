@@ -29,6 +29,7 @@ export const schema=z.discriminatedUnion("action",[
     senderEmail:z.string().email(),
     replyToEmail:z.string().email()
   }),
+  z.object({action:z.literal("deleteTemplate"),id:z.union([z.string(),z.number()])}),
   z.object({
     action:z.literal("saveTemplate"),
     id:z.union([z.string(),z.number()]).optional(),
