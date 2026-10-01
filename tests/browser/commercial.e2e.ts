@@ -84,7 +84,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByText('Hola Luis',{exact:true}).first()).toBeVisible();
-  await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Datos genéricos / históricos del negocio'});
+  await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Contacto original de la oportunidad'});
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByText('Hola',{exact:true}).first()).toBeVisible();
   await communication.getByRole('button',{name:'Cancelar',exact:true}).click();

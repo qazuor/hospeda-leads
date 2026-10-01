@@ -86,6 +86,15 @@ try{
     assert.equal(outbound[1].to[0].email,'generic@example.com');assert(!outbound[1].subject.includes('Luis'));assert(!outbound[1].subject.includes('Ana'));
     const noChannel=await mutate({action:'contact_save',accountId,name:'Sin email'});
     assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:noChannel}))).status,400);assert.equal(outbound.length,2);
+    await db.updateTable('messageTemplates').set({commercialProfile:'Consolidado'}).where('id','=',template.id).execute();
+    await db.updateTable('leads').set({commercialProfile:null}).where('id','=',first).execute();
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis}))).status,200,'No profile allows segmented templates');
+    await db.updateTable('leads').set({commercialProfile:'Referente'}).where('id','=',first).execute();
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis}))).status,400,'Known profile still restricts templates');
+    await db.updateTable('leads').set({commercialProfile:null}).where('id','=',first).execute();
+    await db.updateTable('messageTemplates').set({vertical:'Wrong vertical'}).where('id','=',template.id).execute();
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis}))).status,400,'Missing profile does not relax vertical');
+    await db.updateTable('messageTemplates').set({commercialProfile:null,vertical:null}).where('id','=',template.id).execute();
   }finally{globalThis.fetch=realFetch}
   await mutate({action:'contact_delete',accountId,id:ana});
   d=await detail(accountId);assert(d.contacts.find(c=>String(c.id)===ana)!.deletedAt);assert.equal(d.opportunities.find(o=>String(o.id)===first)!.primaryContactId,null);
