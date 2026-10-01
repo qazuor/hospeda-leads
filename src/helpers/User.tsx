@@ -10,6 +10,7 @@ export interface User {
   id: number;
   email: string;
   displayName: string;
+  fullName: string | null;
   avatarUrl: string | null;
   // adjust this as necessary
   role: "admin" | "user";
