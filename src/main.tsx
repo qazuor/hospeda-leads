@@ -16,8 +16,9 @@ import "./base.css";
 
 function HomeEntry(){
   const {search}=useLocation();
+  const legacyLead=new URLSearchParams(search).has("leadId");
   // Keep existing bookmarks and deep links to leads/filters operational.
-  return <Navigate to={search?"/opportunities"+search:"/accounts"} replace/>;
+  return <Navigate to={legacyLead?"/opportunities"+search:"/accounts"+search} replace/>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -28,8 +29,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
-          <Route path="/opportunities" element={<UserRoute><LeadsPage /></UserRoute>} />
-          <Route path="/accounts" element={<UserRoute><AccountsPage /></UserRoute>} />
+          <Route path="/opportunities" element={<UserRoute><LeadsPage key="opportunity" /></UserRoute>} />
+          <Route path="/accounts" element={<UserRoute><LeadsPage key="business" businessMode /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />

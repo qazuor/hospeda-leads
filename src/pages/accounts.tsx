@@ -1,29 +1,13 @@
-import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import React from "react";
+import { Link, useParams } from "react-router-dom";
 import { AppHeader } from "../components/AppHeader";
-import { Button } from "../components/Button";
-import { CommercialHelp } from "../components/CommercialHelp";
 import { CommercialPanel } from "../components/CommercialPanel";
-import { CommercialEditor } from "../components/CommercialEditor";
-import { getCommercialList } from "../endpoints/commercial.schema";
-import { useDebounce } from "../helpers/useDebounce";
 import styles from "../components/Commercial.module.css";
 
 export default function AccountsPage(){
   const {accountId}=useParams();
-  const navigate=useNavigate();
-  const [search,setSearch]=useState(""),[status,setStatus]=useState(""),[page,setPage]=useState(1),[creating,setCreating]=useState(false);
-  const qText=useDebounce(search,250);
-  const q=useQuery({queryKey:["commercial",qText,status,page],queryFn:()=>getCommercialList(qText,status,page),enabled:!accountId});
   return <><AppHeader/><main className={styles.shell}>
-    {accountId?<><Link to="/accounts">← Negocios</Link><CommercialPanel key={accountId} accountId={accountId}/></>:<>
-      <div className={styles.heading}><div><h1>Negocios</h1><p>Prospectos y clientes comerciales. La condición cliente no acredita pago.</p></div><Button onClick={()=>setCreating(true)}>Nuevo negocio</Button></div>
-      <p className={styles.muted}>Cada fila es un negocio. Abrilo para ver sus personas de contacto y oportunidades comerciales. Una nueva venta se agrega dentro del mismo negocio.</p>
-      <CommercialHelp/>
-      <div className={styles.filters}><label>Buscar<input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Negocio, ciudad o email"/></label><label>Condición<select value={status} onChange={e=>{setStatus(e.target.value);setPage(1)}}><option value="">Todas</option><option value="prospect">Prospectos</option><option value="client">Clientes comerciales</option></select></label></div>
-      {q.isPending?<p>Cargando…</p>:q.error?<p role="alert">{q.error.message}</p>:<><p>{q.data.total} negocios</p><div className={styles.businessTable}><table><thead><tr><th>Negocio</th><th>Ciudad</th><th>Condición</th><th>Contactos</th><th>Oportunidades</th><th>Responsable del negocio</th></tr></thead><tbody>{q.data.rows.map(a=><tr key={a.id}><td><Link to={"/accounts/"+a.id}><strong>{a.nombre}</strong><small>Ver contactos y oportunidades →</small></Link></td><td>{a.ciudad||"Sin ciudad"}</td><td>{a.commercialStatus==="client"?"Cliente comercial":"Prospecto"}</td><td>{a.contactCount}</td><td>{a.opportunityCount}</td><td>{a.assignedUserEmail||"Sin asignar"}</td></tr>)}</tbody></table>{!q.data.rows.length&&<p>No encontramos negocios con estos filtros.</p>}</div><div className={styles.actions}><Button variant="outline" disabled={page===1} onClick={()=>setPage(p=>p-1)}>Anterior</Button><span>Página {page}</span><Button variant="outline" disabled={page*50>=q.data.total} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div></>}
-      {creating&&<CommercialEditor target={{kind:"account"}} onClose={()=>setCreating(false)} onSaved={id=>navigate("/accounts/"+id)}/>}
-    </>}
+    <Link to="/accounts">← Volver a la tabla de negocios</Link>
+    {accountId&&<CommercialPanel key={accountId} accountId={accountId}/>}
   </main></>;
 }

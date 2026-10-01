@@ -2,6 +2,7 @@ import { z } from "zod";
 import superjson from "superjson";
 
 export const schema = z.object({
+  accountId:z.string().optional(),
   id: z.union([z.string(), z.number()]),
   field: z.enum([
     "tipo","subtipo","commercialProfile","ciudad","estado","prioridad","quienCargo","assignedUserEmail","medioContactoPreferido",

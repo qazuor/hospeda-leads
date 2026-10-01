@@ -1,3 +1,4 @@
+import { businessTableSource } from "../helpers/businessTable";
 import { db } from "../helpers/db";
 import superjson from "superjson";
 import { sql } from "kysely";
@@ -7,13 +8,16 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const r=await db.selectFrom("leads").where("deletedAt","is",null).select(({fn})=>[
-      fn.countAll<string>().as("total"),
-      sql<string>`count(*) filter (where coalesce(estado,'') <> 'Suscripto')`.as("pendientes"),
-      sql<string>`count(*) filter (where estado = 'Suscripto')`.as("suscriptos"),
-      sql<string>`count(*) filter (where fecha_proxima_accion < current_date and coalesce(estado,'') <> 'Suscripto')`.as("vencidos"),
-      sql<string>`count(*) filter (where fecha_proxima_accion::date = current_date and coalesce(estado,'') <> 'Suscripto')`.as("paraHoy"),
-      sql<string>`count(*) filter (where assigned_user_email = ${user.email} and fecha_proxima_accion::date <= current_date and coalesce(estado,'') <> 'Suscripto')`.as("misPendientesHoy")
+    const business=new URL(request.url).searchParams.get("entity")==="business";
+    const count=business?sql.raw("count(distinct account_id)"):sql.raw("count(*)");
+    const source=business?db.selectFrom(businessTableSource().as("leads")):db.selectFrom("leads");
+    const r=await source.where("deletedAt","is",null).select(({fn})=>[
+      sql<string>`${count}`.as("total"),
+      sql<string>`${count} filter (where coalesce(estado,'') <> 'Suscripto')`.as("pendientes"),
+      sql<string>`${count} filter (where estado = 'Suscripto')`.as("suscriptos"),
+      sql<string>`${count} filter (where fecha_proxima_accion < current_date and coalesce(estado,'') <> 'Suscripto')`.as("vencidos"),
+      sql<string>`${count} filter (where fecha_proxima_accion::date = current_date and coalesce(estado,'') <> 'Suscripto')`.as("paraHoy"),
+      sql<string>`${count} filter (where assigned_user_email = ${user.email} and fecha_proxima_accion::date <= current_date and coalesce(estado,'') <> 'Suscripto')`.as("misPendientesHoy")
     ]).executeTakeFirstOrThrow();
     return new Response(superjson.stringify({
       total:Number(r.total),pendientes:Number(r.pendientes),suscriptos:Number(r.suscriptos),

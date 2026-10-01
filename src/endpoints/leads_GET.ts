@@ -4,12 +4,14 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { OutputType } from "./leads_GET.schema";
 import { schema } from "./leads_GET.schema";
 import { sql } from "kysely";
+import { businessTableSource } from "../helpers/businessTable";
 
 export async function handle(request: Request) {
   try {
     await getServerUserSession(request);
     const url=new URL(request.url); const input=schema.parse(Object.fromEntries(url.searchParams));
-    let query=db.selectFrom("leads").where("deletedAt","is",null);
+    const source=()=>input.entity==="business" ? db.selectFrom(businessTableSource().as("leads")) : db.selectFrom("leads");
+    let query=source().where("deletedAt","is",null);
     if(input.q){const s="%"+input.q.toLowerCase()+"%";query=query.where(eb=>eb.or([
       eb(sql<string>`lower(nombre)`,"like",s),
       eb(sql<string>`lower(coalesce(opportunity_name,''))`,"like",s),
@@ -222,11 +224,32 @@ export async function handle(request: Request) {
     if(input.nextAction==="with") query=query.where("fechaProximaAccion","is not",null);
     if(input.nextAction==="without") query=query.where("fechaProximaAccion","is",null);
     if(input.nextAction==="overdue") query=query.where("fechaProximaAccion","<",new Date());
-    const count=await query.select(({fn})=>fn.countAll<string>().as("count")).executeTakeFirstOrThrow();
+    const count=await query.select(({fn})=>(input.entity==="business"?fn.count<string>("accountId").distinct():fn.countAll<string>()).as("count")).executeTakeFirstOrThrow();
     const sortBy=input.sortBy??"fechaCreacion";
     const sortDir=input.sortDir??"desc";
-    const rows=await query.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").limit(input.pageSize).offset((input.page-1)*input.pageSize).execute();
-    const distinct=async(col:"ciudad"|"estado"|"tipo"|"asignadoA"|"suscripcion"|"origen"|"quienCargo"|"medioContactoPreferido"|"creadoPor")=>(await db.selectFrom("leads").select(col).where("deletedAt","is",null).where(col,"is not",null).distinct().orderBy(col).execute()).map(x=>x[col]).filter((x):x is string=>!!x);
+    const candidates=input.entity==="business"
+      ? db.selectFrom(query.selectAll().distinctOn("accountId").orderBy("accountId").orderBy("id","asc").as("leads"))
+      : query;
+    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").limit(input.pageSize).offset((input.page-1)*input.pageSize).execute();
+    if(input.entity==="business"&&rows.length){
+      const ids=rows.map(row=>String(row.accountId));
+      const [accounts,opportunities,contacts]=await Promise.all([
+        db.selectFrom("crmAccounts").select(["id","commercialStatus"]).where("id","in",ids).execute(),
+        db.selectFrom("leads").selectAll().where("accountId","in",ids).where("deletedAt","is",null).orderBy("id").execute(),
+        db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute()
+      ]);
+      for(const row of rows){
+        const related=opportunities.filter(o=>String(o.accountId)===String(row.accountId));
+        row.opportunityId=Number(row.id)>0?String(row.id):null;
+        // Stable business IDs keep row selection stable when filters match another sale.
+        row.id=row.accountId;
+        row.opportunityCount=related.length;
+        row.contactCount=contacts.filter(c=>String(c.accountId)===String(row.accountId)).length;
+        row.commercialStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.commercialStatus;
+        row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
+      }
+    }
+    const distinct=async(col:"ciudad"|"estado"|"tipo"|"asignadoA"|"suscripcion"|"origen"|"quienCargo"|"medioContactoPreferido"|"creadoPor")=>(await source().select(col).where("deletedAt","is",null).where(col,"is not",null).distinct().orderBy(col).execute()).map(x=>x[col]).filter((x):x is string=>!!x);
     const [ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor]=await Promise.all([
       distinct("ciudad"),distinct("estado"),distinct("tipo"),distinct("asignadoA"),distinct("suscripcion"),
       distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor")
