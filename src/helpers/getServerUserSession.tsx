@@ -38,6 +38,7 @@ export async function getServerUserSession(request: Request) {
       "users.id",
       "users.email",
       "users.displayName",
+      "users.fullName",
       "users.role",
       "users.avatarUrl",
     ])
@@ -54,6 +55,7 @@ export async function getServerUserSession(request: Request) {
     id: result.id,
     email: result.email,
     displayName: result.displayName,
+    fullName: result.fullName,
     avatarUrl: result.avatarUrl,
     role: result.role,
   };

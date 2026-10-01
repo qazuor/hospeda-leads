@@ -1,11 +1,16 @@
 import { htmlToPlainText, renderMessageTemplate, renderMessageTemplateHtml } from "./renderMessageTemplate";
-import { htmlToWhatsApp } from "./templateChannelFormatting";
+import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "./templateChannelFormatting";
 
 describe("message template rendering",()=>{
   it("resolves optional contact without broken punctuation",()=>{
     const source="{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}";
     expect(renderMessageTemplate(source,{contact:""})).toBe("Hola, ¿cómo estás?");
     expect(renderMessageTemplate(source,{contact:"Morena"})).toBe("Hola Morena, ¿cómo estás?");
+  });
+
+  it("supports full and short sender variables",()=>{
+    expect(renderMessageTemplate("{{sender}} / {{sender_short}}",{sender:"Leandro Asrilevich",sender_short:"Leo"}))
+      .toBe("Leandro Asrilevich / Leo");
   });
 
   it("renders variables safely inside rich HTML",()=>{
@@ -20,6 +25,13 @@ describe("message template rendering",()=>{
     expect(result).toContain("_bienvenido_");
     expect(result).toContain("~ayer~");
     expect(result).toContain("Hospeda (https://hospeda.com.ar)");
+  });
+
+  it("renders WhatsApp markup visually for previews",()=>{
+    const preview=whatsappTextToPreviewHtml("*Hola* _Leo_ ~ayer~");
+    expect(preview).toContain("<strong>Hola</strong>");
+    expect(preview).toContain("<em>Leo</em>");
+    expect(preview).toContain("<s>ayer</s>");
   });
 
   it("creates a readable email plain-text fallback",()=>{

@@ -50,7 +50,7 @@ export async function handle(request:Request){
     const existingUser=await db.selectFrom("users")
       .leftJoin("userPasswords","users.id","userPasswords.userId")
       .select([
-        "users.id","users.email","users.displayName","users.role","users.createdAt",
+        "users.id","users.email","users.displayName","users.fullName","users.avatarUrl","users.role","users.createdAt",
         "userPasswords.id as passwordId"
       ])
       .where(eb=>eb.fn("lower",["users.email"]),"=",normalizedEmail)
@@ -111,6 +111,8 @@ export async function handle(request:Request){
           id:existingUser.id,
           email:existingUser.email,
           displayName:displayName.trim(),
+          fullName:fullName.trim(),
+          avatarUrl:existingUser.avatarUrl,
           role:existingUser.role,
           createdAt:existingUser.createdAt
         };
@@ -124,7 +126,7 @@ export async function handle(request:Request){
         sex,
         senderEmail:null,
         role:defaultRole
-      }).returning(["id","email","displayName","role","createdAt"]).execute();
+      }).returning(["id","email","displayName","fullName","avatarUrl","role","createdAt"]).execute();
 
       await trx.insertInto("userPasswords").values({userId:user.id,passwordHash}).execute();
       return user;

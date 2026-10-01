@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Mail, MailPlus, MapPin, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users } from "lucide-react";
+import { Check, FileText, Mail, MailPlus, MapPin, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Trash2, Users, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
@@ -25,8 +25,9 @@ export default function SettingsPage(){
   const q=useQuery({queryKey:["settings"],queryFn:getSettings});
   const save=useMutation({mutationFn:postSettingsSave,onSuccess:()=>qc.invalidateQueries({queryKey:["settings"]})});
   const [city,setCity]=useState("");
-  const [subtype,setSubtype]=useState("");
-  const [subtypeType,setSubtypeType]=useState("");
+  const [subtypeDrafts,setSubtypeDrafts]=useState<Record<string,string>>({});
+  const [editingSubtype,setEditingSubtype]=useState<{id:string;name:string;typeName:string|null}|null>(null);
+  const [deletingSubtype,setDeletingSubtype]=useState<{id:string;name:string;typeName:string|null}|null>(null);
   const [inviteOpen,setInviteOpen]=useState(false);
   const [inviteEmail,setInviteEmail]=useState("");
   const [editingUser,setEditingUser]=useState<SettingsUser|null>(null);
@@ -53,7 +54,23 @@ export default function SettingsPage(){
 
   const go=(next:Section)=>setParams(next==="users"?{}:{section:next});
   const saveCity=async()=>{if(!city.trim())return;await save.mutateAsync({action:"addCity",name:city});setCity("")};
-  const saveSubtype=async()=>{if(!subtype.trim())return;await save.mutateAsync({action:"addSubtype",name:subtype,typeName:subtypeType||null});setSubtype("")};
+  const addSubtype=async(typeName:string|null)=>{
+    const key=typeName??"__GENERAL__";
+    const name=(subtypeDrafts[key]??"").trim();
+    if(!name)return;
+    await save.mutateAsync({action:"addSubtype",name,typeName});
+    setSubtypeDrafts(prev=>({...prev,[key]:""}));
+  };
+  const saveSubtypeEdit=async()=>{
+    if(!editingSubtype?.name.trim())return;
+    await save.mutateAsync({action:"editSubtype",id:editingSubtype.id,name:editingSubtype.name.trim()});
+    setEditingSubtype(null);
+  };
+  const confirmSubtypeDelete=async()=>{
+    if(!deletingSubtype)return;
+    await save.mutateAsync({action:"deleteSubtype",id:deletingSubtype.id});
+    setDeletingSubtype(null);
+  };
   const inviteUser=async()=>{if(!inviteEmail.trim())return;await save.mutateAsync({action:"inviteUser",email:inviteEmail.trim()});setInviteEmail("");setInviteOpen(false)};
   const saveUser=async()=>{
     if(!editingUser||!editEmail.trim()||!editDisplayName.trim())return;
@@ -101,9 +118,45 @@ export default function SettingsPage(){
         </article>
       </section>}
 
-      {section==="classifications"&&<section className={styles.grid}>
-        <article className={styles.card}><div className={styles.cardTitle}><MapPin/><div><h2>Ciudades</h2><p>Opciones disponibles al cargar y filtrar leads.</p></div></div><div className={styles.inlineForm}><Input value={city} onChange={e=>setCity(e.target.value)} placeholder="Nueva ciudad"/><Button onClick={saveCity} disabled={save.isPending}>Agregar</Button></div><div className={styles.tags}>{data?.cities.map(x=><Badge key={x.id} variant="outline">{x.name}</Badge>)}</div></article>
-        <article className={styles.card}><div className={styles.cardTitle}><Tags/><div><h2>Subtipos</h2><p>Clasificación dependiente de la vertical.</p></div></div><div className={styles.stackForm}><select value={subtypeType} onChange={e=>setSubtypeType(e.target.value)}><option value="">Sin vertical específica</option>{data?.types.map(x=><option key={x}>{x}</option>)}</select><div className={styles.inlineForm}><Input value={subtype} onChange={e=>setSubtype(e.target.value)} placeholder="Nuevo subtipo"/><Button onClick={saveSubtype} disabled={save.isPending}>Agregar</Button></div></div><div className={styles.list}>{data?.subtypes.map(x=><div key={x.id}><strong>{x.name}</strong><span>{x.typeName||"Todas las verticales"}</span></div>)}</div></article>
+      {section==="classifications"&&<section className={styles.classificationsLayout}>
+        <article className={styles.card}>
+          <div className={styles.cardTitle}><MapPin/><div><h2>Ciudades</h2><p>Opciones disponibles al cargar y filtrar leads.</p></div></div>
+          <div className={styles.inlineForm}><Input value={city} onChange={e=>setCity(e.target.value)} placeholder="Nueva ciudad"/><Button onClick={saveCity} disabled={save.isPending}>Agregar</Button></div>
+          <div className={styles.tags}>{data?.cities.map(x=><Badge key={x.id} variant="outline">{x.name}</Badge>)}</div>
+        </article>
+        <div className={styles.subtypesArea}>
+          <div className={styles.subtypesHeader}><Tags/><div><h2>Subtipos por vertical</h2><p>Cada vertical administra su propia lista. Los Generales están disponibles para todas.</p></div></div>
+          <div className={styles.subtypeCards}>
+            {[...(data?.types??[]).map(typeName=>({key:typeName,label:typeName,typeName})),{key:"__GENERAL__",label:"Generales",typeName:null}].map(group=>{
+              const items=(data?.subtypes??[]).filter(item=>item.typeName===group.typeName);
+              const draft=subtypeDrafts[group.key]??"";
+              return <article className={styles.subtypeCard} key={group.key}>
+                <div className={styles.subtypeCardHeader}>
+                  <div><strong>{group.label}</strong><span>{group.typeName?"Subtipos exclusivos de esta vertical":"Disponibles para cualquier vertical"}</span></div>
+                  <Badge variant="outline">{items.length}</Badge>
+                </div>
+                <div className={styles.subtypeList}>
+                  {items.length===0&&<div className={styles.subtypeEmpty}>Todavía no hay subtipos.</div>}
+                  {items.map(item=><div className={styles.subtypeRow} key={item.id}>
+                    {editingSubtype?.id===item.id
+                      ? <>
+                          <Input value={editingSubtype.name} onChange={e=>setEditingSubtype({...editingSubtype,name:e.target.value})} autoFocus onKeyDown={e=>{if(e.key==="Enter")void saveSubtypeEdit();if(e.key==="Escape")setEditingSubtype(null)}}/>
+                          <div className={styles.subtypeActions}><Button size="icon-sm" onClick={saveSubtypeEdit} disabled={save.isPending||!editingSubtype.name.trim()} title="Guardar"><Check size={15}/></Button><Button size="icon-sm" variant="ghost" onClick={()=>setEditingSubtype(null)} title="Cancelar"><X size={15}/></Button></div>
+                        </>
+                      : <>
+                          <span>{item.name}</span>
+                          <div className={styles.subtypeActions}><Button size="icon-sm" variant="ghost" onClick={()=>setEditingSubtype({id:item.id,name:item.name,typeName:item.typeName})} title="Editar subtipo"><Pencil size={14}/></Button><Button size="icon-sm" variant="ghost" onClick={()=>setDeletingSubtype({id:item.id,name:item.name,typeName:item.typeName})} title="Eliminar subtipo"><Trash2 size={14}/></Button></div>
+                        </>}
+                  </div>)}
+                </div>
+                <div className={styles.subtypeAdd}>
+                  <Input value={draft} onChange={e=>setSubtypeDrafts(prev=>({...prev,[group.key]:e.target.value}))} placeholder={"Agregar a "+group.label+"…"} onKeyDown={e=>{if(e.key==="Enter")void addSubtype(group.typeName)}}/>
+                  <Button size="sm" onClick={()=>addSubtype(group.typeName)} disabled={save.isPending||!draft.trim()}>Agregar</Button>
+                </div>
+              </article>;
+            })}
+          </div>
+        </div>
       </section>}
 
       {section==="communication"&&<section className={styles.content}>
@@ -124,6 +177,13 @@ export default function SettingsPage(){
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>
         <article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Apariencia</h2><p>Elegí tema claro, oscuro o el definido por el sistema operativo.</p></div></div><div className={styles.systemControl}><ThemeModeSwitch/></div></article>
       </section>}
+
+      <Dialog open={!!deletingSubtype} onOpenChange={open=>{if(!open&&!save.isPending)setDeletingSubtype(null)}}>
+        <DialogContent className={styles.userDialog}>
+          <DialogHeader><DialogTitle>Eliminar subtipo</DialogTitle><DialogDescription><strong>{deletingSubtype?.name}</strong> dejará de aparecer como opción para nuevos cambios. Los leads existentes conservarán ese valor.</DialogDescription></DialogHeader>
+          <DialogFooter><Button variant="outline" onClick={()=>setDeletingSubtype(null)} disabled={save.isPending}>Cancelar</Button><Button variant="destructive" onClick={confirmSubtypeDelete} disabled={save.isPending}>{save.isPending?"Eliminando…":"Eliminar subtipo"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
 

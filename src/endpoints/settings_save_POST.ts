@@ -160,6 +160,24 @@ export async function handle(request:Request){
         .execute();
     }
 
+    if(input.action==="editSubtype"){
+      const target=await db.selectFrom("crmSubtypes").select(["id","name","typeName"]).where("id","=",String(input.id)).executeTakeFirst();
+      if(!target)return new Response(superjson.stringify({error:"El subtipo no existe."}),{status:404});
+      const nextName=input.name.trim();
+      await db.transaction().execute(async trx=>{
+        await trx.updateTable("crmSubtypes").set({name:nextName,active:true}).where("id","=",target.id).execute();
+        let leads=trx.updateTable("leads").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
+        if(target.typeName)leads=leads.where("tipo","=",target.typeName);
+        await leads.execute();
+      });
+    }
+
+    if(input.action==="deleteSubtype"){
+      const target=await db.selectFrom("crmSubtypes").select(["id","name"]).where("id","=",String(input.id)).executeTakeFirst();
+      if(!target)return new Response(superjson.stringify({error:"El subtipo no existe."}),{status:404});
+      await db.updateTable("crmSubtypes").set({active:false}).where("id","=",target.id).execute();
+    }
+
     if(input.action==="addEmail"){
       const email=normalizeEmail(input.email);
       await db.insertInto("authorizedEmails").values({
