@@ -1,7 +1,8 @@
 import * as Tabs from '@radix-ui/react-tabs';
 import styles from './SectionTabs.module.css';
 
-export const SectionTabs = Tabs.Root;
+export const SectionTabs = ({className, ...props}: React.ComponentProps<typeof Tabs.Root>) =>
+  <Tabs.Root {...props} className={[styles.root,className].filter(Boolean).join(' ')}/>;
 export const SectionTab = ({children, ...props}: React.ComponentProps<typeof Tabs.Trigger>) =>
   <Tabs.Trigger {...props} className={styles.tab}>{children}</Tabs.Trigger>;
 export const SectionTabList = ({children, ...props}: React.ComponentProps<typeof Tabs.List>) =>

@@ -63,6 +63,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('menuitem',{name:'Tema oscuro'}).click();
   await page.screenshot({path:'test-results/commercial-dark.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({path:'test-results/commercial-mobile.png',fullPage:true});
   await page.setViewportSize({width:1280,height:900});
   await page.getByRole('link',{name:/Primera venta · #/}).click();

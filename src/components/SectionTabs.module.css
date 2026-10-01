@@ -5,3 +5,4 @@
 .tab:focus-visible,.content:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
 .content{min-width:0;display:grid;gap:16px}.content[data-state=inactive]{display:none}
 @media(max-width:600px){.tab{padding:10px 12px;font-size:13px}.list{margin-bottom:16px}}
+.root{min-width:0;max-width:100%}
