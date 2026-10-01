@@ -162,11 +162,11 @@ export const LeadDetailDialog=({
 
         <div className={styles.contentGrid}>
           <section className={styles.panel}>
-            <SectionTitle icon={ContactRound} title="Datos del negocio" description="Canales genéricos compartidos. Las personas se gestionan arriba, en Personas de contacto."/>
+            <SectionTitle icon={ContactRound} title="Datos del negocio" description="Canales genéricos compartidos. Las personas se gestionan arriba, en Contactos del negocio."/>
             <div className={styles.fieldGrid}>
               <Field label="Teléfono genérico" value={text(lead.telefono)}/>
               <Field label="Email genérico" value={text(lead.email)}/>
-              <Field label="Canal histórico dla oportunidad" value={text(lead.medioContactoPreferido)}/>
+              <Field label="Canal histórico de la oportunidad" value={text(lead.medioContactoPreferido)}/>
               <Field label="Ciudad" value={lead.ciudad?<ValueBadge value={lead.ciudad} category="city"/>:"—"}/>
               <Field label="Potencial recurrente" value={lead.clientePotencialRecurrente?"Sí":"No"}/>
             </div>

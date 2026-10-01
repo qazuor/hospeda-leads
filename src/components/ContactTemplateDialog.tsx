@@ -106,7 +106,7 @@ export const ContactTemplateDialog=({
     <label className={styles.recipient}>Destinatario<select aria-label="Destinatario" value={effectiveContactId} disabled={interactionStarted||sending||!ready} onChange={e=>{setSelectedContactId(e.target.value);setSelectedEmailTemplate(null);setSendError("");}}>
       <option value="">Datos genéricos / históricos del negocio</option>{contacts.map(c=><option key={c.id} value={String(c.id)}>{c.name}{c.isPrimary?" · Principal":""}</option>)}
     </select></label>
-    <p className={styles.recipientHelp}>El destinatario determina el teléfono/email y los datos de persona usados en el template. “Datos genéricos / históricos” conserva el contacto anterior dla oportunidad. Si no hay nombre de persona, esa variable queda vacía. Revisá la vista previa antes de enviar.</p>
+    <p className={styles.recipientHelp}>El destinatario determina el teléfono/email y los datos de persona usados en el template. “Datos genéricos / históricos” conserva el contacto anterior de la oportunidad. Si no hay nombre de persona, esa variable queda vacía. Revisá la vista previa antes de enviar.</p>
     <p className={styles.recipientChannel}>{channel==="whatsapp"?recipient.phone:recipient.email}</p>
     {detailQ.error&&<p role="alert" className={styles.errorBox}>{detailQ.error.message}</p>}
     {ready&&!hasChannel&&<p role="alert" className={styles.errorBox}>El destinatario seleccionado no tiene {channel==="whatsapp"?"teléfono":"email"}. Elegí otro contacto o los datos genéricos.</p>}
