@@ -30,9 +30,9 @@ test('account with two contacts and independent opportunities preserves lead and
   for(const [name,stage,person] of [['Primera venta','Cargado','Ana'],['Segunda venta','En tratativas','Luis']]){
     await page.getByRole('button',{name:'Nueva oportunidad',exact:true}).click();
     await page.getByLabel('Nombre de oportunidad').fill(name);
-    await page.getByLabel('Vertical',{exact:true}).selectOption({label:'Alojamiento'});
-    await page.getByLabel('Estado / etapa').selectOption({label:stage});
-    await page.getByLabel('Contacto principal de oportunidad').selectOption({label:person});
+    await page.getByRole('combobox',{name:'Vertical',exact:true}).selectOption({label:'Alojamiento'});
+    await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:stage});
+    await page.getByRole('combobox',{name:'Contacto principal de oportunidad',exact:true}).selectOption({label:person});
     await page.getByRole('button',{name:'Guardar',exact:true}).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
@@ -55,11 +55,11 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(lead.getByText('Cargado',{exact:true}).first()).toBeVisible();
   await lead.getByRole('button',{name:'Email',exact:true}).click();
   const communication=page.getByRole('dialog').last();
-  await expect(communication.getByLabel('Destinatario')).toHaveValue(/\d+/);
-  await communication.getByLabel('Destinatario').selectOption({label:'Luis · Principal'});
+  await expect(communication.getByRole('combobox',{name:'Destinatario',exact:true})).toHaveValue(/\d+/);
+  await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByText('Hola Luis',{exact:true}).first()).toBeVisible();
-  await communication.getByLabel('Destinatario').selectOption({label:'Datos genéricos / históricos del negocio'});
+  await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Datos genéricos / históricos del negocio'});
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByText('Hola',{exact:true}).first()).toBeVisible();
   await communication.getByRole('button',{name:'Cancelar',exact:true}).click();
@@ -67,7 +67,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto(accountUrl);
   const row=page.locator('article').filter({has:page.getByRole('link',{name:/Primera venta · #/})});
   await row.getByRole('button',{name:'Editar oportunidad',exact:true}).click();
-  await page.getByLabel('Estado / etapa').selectOption({label:'1er contacto'});
+  await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:'1er contacto'});
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await expect(row.getByText(/1er contacto/)).toBeVisible();
   await expect(page.locator('article').filter({has:page.getByRole('link',{name:/Segunda venta · #/})}).getByText(/En tratativas/)).toBeVisible();
