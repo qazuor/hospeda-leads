@@ -92,7 +92,7 @@ export async function post(request:Request){
    const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',context.accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=await trx.selectFrom('leads').selectAll().where('id','=',p.leadId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
    if(user.role!=='admin'&&lead.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar tus oportunidades asignadas.');
-   if(lead.pipelineRevision!==p.revision)throw new Conflict('La oportunidad cambió. Actualizá y revisá antes de guardar.');
+   if(lead.pipelineRevision!==p.revision)throw new Conflict('La oportunidad cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
    if(p.action==='objection_save'){
     const type=(await sql<PipelineCatalog>`SELECT * FROM crm_objection_types WHERE id=${p.typeId} FOR SHARE`.execute(trx)).rows[0];
     const before=p.id?(await sql<PipelineObjection>`SELECT * FROM crm_objections WHERE id=${p.id} AND lead_id=${lead.id} AND deleted_at IS NULL FOR UPDATE`.execute(trx)).rows[0]:null;

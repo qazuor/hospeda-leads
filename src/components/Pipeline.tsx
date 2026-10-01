@@ -25,7 +25,8 @@ export function PipelineEditor({target,data,onClose}:{target:Target;data:Pipelin
  const m=useMutation({mutationFn:postPipeline,onSuccess:async()=>{await qc.invalidateQueries();toast.success('Cambio registrado');onClose();},onError:()=>{void qc.invalidateQueries({queryKey:['pipeline']});void qc.invalidateQueries({queryKey:['leads']});}});
  const lost=data.stages.find(s=>s.name===stage)?.classification==='lost';
  const insight=target.kind!=='reactivate'?data.insights.find(x=>x.id===target.lead.id):undefined;
- const revision=target.kind==='reactivate'?target.row.pipelineRevision:insight?.pipelineRevision??target.lead.pipelineRevision;
+ // Freeze the observed revision when the editor opens; Live Mode must not bless a stale form.
+ const [revision]=useState(()=>target.kind==='reactivate'?target.row.pipelineRevision:insight?.pipelineRevision??target.lead.pipelineRevision);
  function submit(deleted=false){
   let body:PipelineMutation;
   if(target.kind==='stage')body={action:'transition',leadId:target.lead.id,revision,stage,...(lost?{reasonId:reason,recontactDate:hasDate?date:null}:{}),comment};
