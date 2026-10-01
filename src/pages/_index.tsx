@@ -788,8 +788,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <div className={styles.pageActions}><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Nueva oportunidad"}</Button></div>
       </header>
 
+      <section className={styles.commercialGuide} aria-label="Ayuda comercial">
       <CommercialHelp/>
       {businessMode&&<p className={styles.businessTableGuide}>Con una oportunidad, podés editar su seguimiento desde esta tabla. Con varias, mostramos sus valores y podés abrir el negocio para elegir cuál modificar. Los filtros de seguimiento encuentran negocios con alguna oportunidad que cumpla las condiciones. Cliente comercial no acredita pago.</p>}
+      </section>
       <section className={styles.metrics}>
         <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de oportunidades"}</span></div></button>
         <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></button>

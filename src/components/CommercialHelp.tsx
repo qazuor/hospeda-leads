@@ -1,8 +1,16 @@
+import { ChevronDown, CircleHelp } from "lucide-react";
 import styles from "./Commercial.module.css";
 
 export function CommercialHelp(){
   return <details className={styles.help}>
-    <summary>Cómo usar negocios, contactos y oportunidades</summary>
+    <summary className={styles.helpSummary}>
+      <CircleHelp className={styles.helpIcon} size={20} aria-hidden="true"/>
+      <span className={styles.helpCopy}>
+        <strong>Cómo usar negocios, contactos y oportunidades</strong>
+        <span>Guía rápida para entender cada concepto y saber qué editar.</span>
+      </span>
+      <ChevronDown className={styles.helpChevron} size={18} aria-hidden="true"/>
+    </summary>
     <dl>
       <dt>Negocio</dt><dd>Es la organización con la que nos relacionamos, por ejemplo una cabaña o un restaurante. Su nombre, ubicación y canales genéricos se comparten entre sus oportunidades.</dd>
       <dt>Contacto</dt><dd>Es una persona de ese negocio, con su propio cargo, teléfono y email. Agregá una persona distinta por cada interlocutor; no uses el nombre del negocio como nombre de persona.</dd>
