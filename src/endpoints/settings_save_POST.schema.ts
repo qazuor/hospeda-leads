@@ -7,6 +7,8 @@ const sex=z.enum(["masculino","femenino","otro","prefiero_no_decir"]);
 export const schema=z.discriminatedUnion("action",[
   z.object({action:z.literal("addCity"),name:z.string().min(1)}),
   z.object({action:z.literal("addSubtype"),name:z.string().min(1),typeName:z.string().nullable().optional()}),
+  z.object({action:z.literal("editSubtype"),id:z.union([z.string(),z.number()]),name:z.string().min(1)}),
+  z.object({action:z.literal("deleteSubtype"),id:z.union([z.string(),z.number()])}),
   z.object({action:z.literal("addEmail"),email:z.string().email(),displayName:z.string().nullable().optional()}),
   z.object({action:z.literal("saveUserSenderEmail"),userId:z.number().int().positive(),senderEmail:z.string().email().nullable()}),
   z.object({action:z.literal("inviteUser"),email:z.string().email()}),
