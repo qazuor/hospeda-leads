@@ -27,8 +27,15 @@
 
 .editField select{width:100%;min-width:0;background:var(--background);color:var(--foreground);border:1px solid var(--border);border-radius:8px;padding:10px}
 
+.commercialGuide {
+  max-width: 1600px;
+  margin: 0 auto 20px;
+  display: grid;
+  gap: 12px;
+}
+
 .businessTableGuide {
-  margin: 0 0 1rem;
+  margin: 0;
   padding: .65rem .8rem;
   border-left: 2px solid var(--primary);
   color: var(--muted-foreground);
