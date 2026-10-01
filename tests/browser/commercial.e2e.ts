@@ -59,9 +59,12 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('link',{name:/Primera venta · #/}).click();
   const lead=page.getByRole('dialog').last();
   await expect(lead.getByRole('button',{name:'Editar negocio',exact:true})).toBeVisible();
+  await lead.getByText('Cómo usar negocios, contactos y oportunidades',{exact:true}).click();
+  await expect(lead.getByText(/Cada lead representa una oportunidad y conserva sus notas/)).toBeVisible();
+  await lead.getByText('Cómo usar negocios, contactos y oportunidades',{exact:true}).click();
   await expect(lead.getByRole('heading',{name:'Contacto',exact:true})).toHaveCount(0);
   await expect(lead.getByText('Este lead es una de ellas.',{exact:false})).toBeVisible();
-  await page.screenshot({path:'test-results/lead-commercial-detail.png',fullPage:true});
+  await page.screenshot({path:'test-results/lead-commercial-detail.png',fullPage:true,animations:'disabled'});
   await expect(lead.getByRole('heading',{name:'Primera venta',exact:true})).toBeVisible();
   await expect(lead.getByText('Cargado',{exact:true}).first()).toBeVisible();
   await lead.getByRole('button',{name:'Email',exact:true}).click();

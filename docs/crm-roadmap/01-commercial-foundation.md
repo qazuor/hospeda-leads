@@ -83,3 +83,5 @@ La tabla de leads muestra el nombre de oportunidad y negocio; la búsqueda libre
 - Una oportunidad es una venta/contratación concreta; el lead existente representa esa oportunidad. La gestión migrada sin nombre propio se muestra como “Gestión comercial inicial”, sin cambiar datos almacenados.
 - Las personas se editan exclusivamente en el bloque Personas de contacto del detalle. El formulario heredado conserva contactName al editar y lo permite al crear la primera entrada; el card inferior muestra solo canales genéricos y datos del negocio.
 - Cargo y canal preferido son selects con catálogos en app_settings (migración 005). Los valores históricos fuera del catálogo permanecen seleccionables y no se normalizan ni borran automáticamente.
+
+- Ayuda contextual colapsable en cuentas y detalle: definiciones con ejemplos, alcance de cada editor y diferencia prospecto/cliente. Formularios explican principal, preferencias, responsables independientes y fecha estimada. Comunicación explica destinatario y variables vacías.

@@ -59,6 +59,9 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
         {select("estado","Estado / etapa",(detail?.stages??[]).map(value=>({value,label:value})))}
         {select("primaryContactId","Contacto principal de oportunidad",(detail?.contacts??[]).filter(c=>!c.deletedAt).map(c=>({value:String(c.id),label:c.name})))}
       </>}
+      {target.kind==="contact"&&<p className={styles.muted}>Cargo indica el rol de esta persona. Canal preferido registra su preferencia; no envía mensajes automáticamente. Marcar Principal reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada oportunidad.</p>}
+      {target.kind==="opportunity"&&<p className={styles.muted}>Usá un nombre concreto, por ejemplo “Publicación de cabañas”. Servicio de interés describe lo que ofrecés; cierre estimado es una previsión opcional, no una fecha de cobro.</p>}
+      {(target.kind==="account"||target.kind==="opportunity")&&<p className={styles.muted}>El responsable del negocio coordina esa relación; el de la oportunidad gestiona esa venta. Pueden ser distintos. Solo un administrador puede cambiarlos.</p>}
       {admin&&(target.kind==="account"||target.kind==="opportunity")&&select("assignedUserEmail","Responsable",(settings.data?.users??[]).map(u=>({value:u.email,label:u.displayName})))}
       {target.kind==="convert"&&field("reason","Motivo de conversión")}
       {target.kind==="delete_contact"&&<p>{target.item.name}</p>}
