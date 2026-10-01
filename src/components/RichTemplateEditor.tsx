@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
@@ -24,9 +24,9 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./Popover";
 import { normalizeTemplateHtml } from "../helpers/renderMessageTemplate";
+import { WHATSAPP_EMOJI_GROUPS } from "../helpers/whatsappEmoji";
 import styles from "./RichTemplateEditor.module.css";
 
-const EMOJIS=["🙂","😊","👋","✨","📍","🏡","🍽️","🌿","🎉","📲","✅","🤝","💙","👉","📅","⭐"];
 const VARIABLES=["sender","sender_short","name","contact","contact_name","city","type","subtype","phone","email","website"];
 
 export const RichTemplateEditor=({
@@ -36,6 +36,7 @@ export const RichTemplateEditor=({
   onChange:(html:string)=>void;
   channel:"whatsapp"|"email";
 })=>{
+  const [emojiGroup,setEmojiGroup]=useState(WHATSAPP_EMOJI_GROUPS[0].key);
   const extensions=useMemo(()=>{
     const base=[
       Document,Paragraph,Text,Bold,Italic,Strike,HardBreak,History,
@@ -118,7 +119,12 @@ export const RichTemplateEditor=({
         <Popover>
           <PopoverTrigger asChild><button type="button" title="Emoji"><Smile size={15}/></button></PopoverTrigger>
           <PopoverContent align="start" className={styles.emojiPopover}>
-            {EMOJIS.map(emoji=><button type="button" key={emoji} onClick={()=>insert(emoji)}>{emoji}</button>)}
+            <div className={styles.emojiTabs}>
+              {WHATSAPP_EMOJI_GROUPS.map(group=><button type="button" key={group.key} className={emojiGroup===group.key?styles.emojiTabActive:""} onClick={()=>setEmojiGroup(group.key)}>{group.label}</button>)}
+            </div>
+            <div className={styles.emojiGrid}>
+              {(WHATSAPP_EMOJI_GROUPS.find(group=>group.key===emojiGroup)?.emojis??[]).map((emoji,index)=><button type="button" key={emoji+"-"+index} onClick={()=>insert(emoji)}>{emoji}</button>)}
+            </div>
           </PopoverContent>
         </Popover>
       </div>
