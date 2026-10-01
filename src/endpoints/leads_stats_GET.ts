@@ -11,7 +11,7 @@ export async function handle(request:Request){
     const business=new URL(request.url).searchParams.get("entity")==="business";
     const count=business?sql.raw("count(distinct account_id)"):sql.raw("count(*)");
     const source=business?db.selectFrom(businessTableSource().as("leads")):db.selectFrom("leads");
-    const r=await source.where("deletedAt","is",null).select(({fn})=>[
+    const r=await source.where("deletedAt","is",null).select([
       sql<string>`${count}`.as("total"),
       sql<string>`${count} filter (where coalesce(estado,'') <> 'Suscripto')`.as("pendientes"),
       sql<string>`${count} filter (where estado = 'Suscripto')`.as("suscriptos"),

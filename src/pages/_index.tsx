@@ -900,7 +900,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             </div>
 
             <div className={styles.editActionBar}>
-              {form.id&&<Button size="sm" variant="destructive" onClick={()=>requestDelete(form.id!,form.nombre)} disabled={deleteM.isPending}><Trash2 size={15}/>Eliminar</Button>}
+              {form.id&&<Button size="sm" variant="destructive" onClick={()=>requestDelete(form.id!,form.nombre)} disabled={deleteM.isPending||bulkDeleteM.isPending}><Trash2 size={15}/>Eliminar</Button>}
               <div className={styles.editActionSpacer}/>
               <Button size="sm" variant="ghost" onClick={()=>setOpen(false)}><X size={15}/>Cancelar</Button>
               {duplicateCandidates.length>0
@@ -1007,10 +1007,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán y podrán restaurarse desde Papelera.</span></div>
         <DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={bulkDeleteSelected} disabled={bulkDeleteM.isPending}>{bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>
-      <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
+      <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending&&!bulkDeleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>{businessMode?"Enviar oportunidades del negocio a papelera":"Enviar oportunidad a la papelera"}</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong>: {businessMode?"todas sus oportunidades activas irán a Papelera. El negocio y sus contactos conservarán su historial.":"dejará de aparecer en la tabla y en la operación normal."}</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán. El administrador podrá restaurarlo o eliminarlo definitivamente desde Papelera.</span></div>
-        <DialogFooter><Button variant="outline" onClick={()=>setPendingDelete(null)} disabled={deleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete} disabled={deleteM.isPending}>{deleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={()=>setPendingDelete(null)} disabled={deleteM.isPending||bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete} disabled={deleteM.isPending||bulkDeleteM.isPending}>{deleteM.isPending||bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>
     </main>
   </>;
