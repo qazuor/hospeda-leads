@@ -18,6 +18,7 @@ type LiveModeContextValue={
   setEnabled:(enabled:boolean)=>void;
   toggle:()=>void;
   checkNow:()=>Promise<void>;
+  refresh:()=>Promise<void>;
 };
 
 const LiveModeContext=createContext<LiveModeContextValue|null>(null);
@@ -88,7 +89,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
 
   return <LiveModeContext.Provider value={{
     enabled:enabledState,status,lastCheckedAt,setEnabled,
-    toggle:()=>setEnabled(!enabledState),checkNow
+    toggle:()=>setEnabled(!enabledState),checkNow,refresh:invalidateLiveQueries
   }}>{children}</LiveModeContext.Provider>;
 }
 

@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npm run db:migrate
@@ -60,6 +60,10 @@ jobs:
           CRM_TEST_DATABASE: "1"
       - name: Communication and resources migration and integration tests
         run: npm run test:communication
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Guided usability integration tests
+        run: npm run test:usability
         env:
           CRM_TEST_DATABASE: "1"
       - run: npm run build

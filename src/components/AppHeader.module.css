@@ -7,3 +7,5 @@
 @media(max-width:600px){.brand div{display:none}.userMenuButton>span{display:none}.inner nav{gap:8px;flex-wrap:wrap}.navGroup{gap:2px}.navGroup+.navGroup{padding-left:8px}.navGroup>a,.navMenu{font-size:12px;padding:7px 8px}.navGroup svg{display:none}.navMenu svg:last-child{display:block}}
 @media(max-width:420px){.navGroup:last-child{width:100%;border-left:0;padding-left:0;padding-top:4px;border-top:1px solid var(--border)}}
 .navGroup:empty{display:none}
+.navGroup>a,.navMenu{font-size:16px;min-height:44px;padding:10px 14px}.brand span{font-size:13px}.userMenuButton>span{font-size:15px}
+@media(max-width:600px){.brand div{display:block}.inner nav{overflow-x:auto;flex-wrap:nowrap}.navGroup{flex-wrap:nowrap}.navGroup>a,.navMenu{font-size:15px;padding:10px}.navGroup:last-child{width:auto;border:0}.userMenuButton>span{display:block;max-width:70px}}

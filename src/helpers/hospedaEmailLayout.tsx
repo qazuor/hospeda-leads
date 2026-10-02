@@ -64,7 +64,7 @@ export function buildHospedaEmailHtml({
             <tr>
               <td align="center" style="padding:22px 28px 18px;background:#ffffff;">
                 <a href="${SITE_URL}" target="_blank" style="text-decoration:none;">
-                  <img src="${logoUrl}" width="178" alt="Hospeda" style="display:block;width:178px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;">
+                  <img src="${logoUrl}" width="96" alt="Hospeda" style="display:block;width:96px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;">
                 </a>
               </td>
             </tr>

@@ -30,15 +30,15 @@
 
   /* Size variants - ensuring proper touch targets */
   .sm {
-    height: 1.5rem;
+    height: 2.75rem;
     padding: 0 var(--spacing-2);
-    font-size: 0.875rem;
+    font-size: 1rem;
   }
 
   .md {
-    height: 2.5rem;
+    height: 2.75rem;
     padding: 0 var(--spacing-3);
-    font-size: 0.9375rem;
+    font-size: 1rem;
   }
 
   .lg {
@@ -51,20 +51,20 @@
   /* Icon button sizes */
   .icon,
   .icon-md {
-    width: 2rem;
-    height: 2rem;
+    width: 2.75rem;
+    height: 2.75rem;
     padding: 0;
   }
 
   .icon-sm {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     padding: 0;
   }
 
   .icon-lg {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     padding: 0;
     border-radius: var(--radius-md);
   }
@@ -89,8 +89,8 @@
 
   .lg svg,
   .icon-lg svg {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
   }
 
   /* Primary - White text on solid brand color (high contrast) */

@@ -1,3 +1,4 @@
+import {SequenceSettings} from "../components/SequenceSettings";
 import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
@@ -179,6 +180,7 @@ export default function SettingsPage(){
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
 
+      {section==="communication"&&<SequenceSettings/>}
       {section==="classifications"&&<><WorkTypesSettings/><PipelineSettings/></>}
 
       {section==="system"&&<section className={styles.grid}>

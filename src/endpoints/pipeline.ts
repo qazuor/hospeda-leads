@@ -1,3 +1,4 @@
+import {crmError} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -13,7 +14,7 @@ import {day} from './work.schema';
 class Forbidden extends Error {}
 class Conflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:e instanceof Error?e.message:'No se pudo guardar'},e instanceof NotAuthenticatedError?401:e instanceof Forbidden?403:e instanceof Conflict?409:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden?403:e instanceof Conflict?409:400);
 const query=z.object({leadId:z.string().regex(/^\d+$/).optional(),ids:z.string().regex(/^\d+(,\d+)*$/).optional(),mode:z.enum(['detail','reactivation','config']).default('detail'),from:day.optional(),to:day.optional(),reasonId:z.string().regex(/^\d+$/).optional(),vertical:z.string().max(200).optional(),responsible:z.string().max(320).optional(),handled:z.enum(['yes','no','all']).default('no'),page:z.coerce.number().int().min(1).default(1)});
 export async function get(request:Request){
  try{
@@ -50,7 +51,8 @@ export async function get(request:Request){
    reactivations=(await sql<ReactivationRow>`SELECT l.id,l.account_id,l.nombre,l.opportunity_name,l.tipo,l.assigned_user_email,l.estado,l.pipeline_revision,a.do_not_contact,e.id event_id,e.reason_id,e.comment,e.recontact_date,e.task_id ${base} ORDER BY e.recontact_date,l.id LIMIT 50 OFFSET ${(p.page-1)*50}`.execute(db)).rows.map(r=>({...r,recontactDate:calendarDay(r.recontactDate)}));
   }
   const configJournal=user.role==='admin'&&p.mode==='config'?(await sql`SELECT * FROM crm_pipeline_config_journal ORDER BY id DESC LIMIT 100`.execute(db)).rows:[];
-  return reply({configJournal,stages:stages.rows,lossReasons:lossReasons.rows,objectionTypes:objectionTypes.rows,rules,insights,events,objections,reactivations,total,page:p.page,users,verticals:[...new Set([...verticals.map(v=>v.name),...historicalVerticals.map(v=>v.tipo!).filter(Boolean)])].sort()});
+  const historicalReview=user.role==='admin'&&p.mode==='config'?(await sql<{stage:string;count:string}>`SELECT coalesce(estado,'') stage,count(*) count FROM leads WHERE deleted_at IS NULL GROUP BY estado ORDER BY count(*) DESC`.execute(db)).rows.map(r=>({...r,count:Number(r.count)})):[];
+  return reply({historicalReview,configJournal,stages:stages.rows,lossReasons:lossReasons.rows,objectionTypes:objectionTypes.rows,rules,insights,events,objections,reactivations,total,page:p.page,users,verticals:[...new Set([...verticals.map(v=>v.name),...historicalVerticals.map(v=>v.tipo!).filter(Boolean)])].sort()});
  }catch(e){return fail(e)}
 }
 async function log(trx:Transaction<DB>,accountId:string,leadId:string|null,action:string,metadata:unknown){
@@ -105,7 +107,16 @@ export async function post(request:Request){
    if(p.action==='transition'){
     if(p.stage===lead.estado)throw new Error('Ya está en esta etapa.');
     await sql`SELECT set_config('crm.loss_reason',${p.reasonId??''},true),set_config('crm.loss_comment',${p.comment},true),set_config('crm.recontact',${p.recontactDate??''},true)`.execute(trx);
-    await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).execute();return lead.id;
+    const chosen=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active`.execute(trx)).rows[0];
+    if(!chosen)throw new Error('Elegí una etapa disponible.');
+    if((p.convertClient||p.onboarding)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una venta ganada.');
+    await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).execute();
+    if(p.convertClient&&account.commercialStatus!=='client'){
+     await trx.updateTable('crmAccounts').set({commercialStatus:'client',clientSince:new Date(),updatedAt:new Date()}).where('id','=',account.id).execute();
+     await trx.insertInto('crmCommercialJournal').values({accountId:account.id,action:'converted_to_client',actorEmail:user.email,actorName:user.displayName,metadata:{reason:p.comment||'Venta ganada',leadId:lead.id,paymentVerified:false}}).execute();
+    }
+    if(p.onboarding)await trx.insertInto('crmTasks').values({accountId:account.id,leadId:null,typeId:'followup',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
+    return lead.id;
    }
    if(account.doNotContact)throw new Forbidden('Este negocio está marcado como No contactar.');
    const event=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE id=${p.eventId} AND lead_id=${lead.id} AND reason_id IS NOT NULL FOR UPDATE`.execute(trx)).rows[0];
@@ -120,7 +131,7 @@ export async function post(request:Request){
     if(p.mode==='reopen')target=await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).returningAll().executeTakeFirstOrThrow();
     else{
      if(!p.opportunityName)throw new Error('Dale un nombre a la nueva oportunidad.');
-     target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:lead.assignedUserEmail,estado:p.stage,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
+     target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,primaryContactId:lead.primaryContactId,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:lead.assignedUserEmail,estado:p.stage,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
     }
    }
    const task=await trx.insertInto('crmTasks').values({accountId:lead.accountId,leadId:target.id,title:p.title,typeId:'followup',assignedUserEmail:lead.assignedUserEmail,dueDate:p.dueDate,priority:lead.prioridad??'media',description:`Retomar cierre #${event.id}: ${event.comment??''}`}).returning('id').executeTakeFirstOrThrow();

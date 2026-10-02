@@ -54,3 +54,7 @@
 @media(prefers-reduced-motion:reduce){.loadingSpinner{animation:none}}
 
 .deletedFilterHint{margin:0;padding:10px 16px;font-size:12px;color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+
+.scroller td,.scroller td strong{font-size:16px}.scroller td small,.tableMeta span,.tableHint{font-size:14px!important}.headerButton{font-size:14px;text-transform:none;min-height:44px}.inlineDate{height:44px;font-size:16px}.leadNameButton{min-height:44px}.stats span,.quickViews button{font-size:15px}
+
+.pageTools{position:relative}.pageTools>summary{min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:16px;line-height:24px}.pageTools>div{position:absolute;right:0;top:100%;z-index:20;display:grid;gap:8px;min-width:240px;max-width:calc(100vw - 24px);padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px #0002}.pageTools>summary:focus-visible{outline:3px solid var(--primary);outline-offset:3px}

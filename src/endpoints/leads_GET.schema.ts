@@ -52,7 +52,7 @@ export const advancedFilterGroup=z.object({
 export type AdvancedFilterRule=z.infer<typeof advancedFilterRule>;
 export type AdvancedFilterGroup=z.infer<typeof advancedFilterGroup>;
 export const schema=z.object({
-  entity:z.enum(["opportunity","business"]).default("opportunity"),
+  contactPresence:z.enum(["contacted","noContact"]).optional(),view:z.enum(["table","board"]).default("table"),classification:z.enum(["open","won","lost"]).optional(),commercialStatus:z.enum(["prospect","client"]).optional(),entity:z.enum(["opportunity","business"]).default("opportunity"),
   q:z.string().optional(),ciudad:z.string().optional(),estado:z.string().optional(),tipo:z.string().optional(),subtipo:z.string().optional(),commercialProfile:z.string().optional(),prioridad:z.string().optional(),asignado:z.string().optional(),assignedUser:z.string().optional(),
   ciudades:listSchema,excludeCiudades:listSchema,
   estados:listSchema,excludeEstados:listSchema,
@@ -78,6 +78,7 @@ export const schema=z.object({
   recurrent:z.enum(["true","false"]).optional(),
   notesMode:textMode.optional(),notesText:z.string().optional(),
   filterGroups:jsonArraySchema(advancedFilterGroup),
+  inactiveDays:z.coerce.number().int().min(1).max(365).optional(),
   nextAction:z.enum(["with","without","overdue"]).optional(),
   sortBy:z.enum([
     "id","nombre","contactName","tipo","subtipo","commercialProfile","ciudad","estado","suscripcion","email","telefono","assignedUserEmail",

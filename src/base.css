@@ -33,10 +33,10 @@
   --card-foreground: var(--foreground);
   --popup: hsl(0, 0%, 100%);
   --popup-foreground: var(--foreground);
-  --primary: hsl(199, 66%, 54%);
+  --primary: hsl(199, 66%, 33%);
   --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(28, 91%, 55%);
-  --secondary-foreground: hsl(0, 0%, 100%);
+  --secondary-foreground: hsl(220, 20%, 12%);
   --accent: hsl(330, 80%, 60%);
   --accent-foreground: hsl(0, 0%, 100%);
   --muted: hsl(220, 15%, 85%);
@@ -110,9 +110,9 @@
   --popup: hsl(220, 15%, 15%);
   --popup-foreground: var(--foreground);
   --primary: hsl(199, 66%, 60%);
-  --primary-foreground: hsl(0, 0%, 100%);
+  --primary-foreground: hsl(220, 20%, 12%);
   --secondary: hsl(28, 91%, 60%);
-  --secondary-foreground: hsl(0, 0%, 100%);
+  --secondary-foreground: hsl(220, 20%, 12%);
   --accent: hsl(94, 50%, 56%);
   --accent-foreground: hsl(0, 0%, 100%);
   --muted: hsl(220, 15%, 25%);
@@ -187,3 +187,9 @@
     text-decoration: none;
   }
 }
+/* Shared readable control and focus baseline. Zoom remains controlled by the browser. */
+body{font-size:16px;line-height:1.5}
+input,select,textarea{font-family:inherit;font-size:16px;line-height:1.5}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--primary);outline-offset:3px}
+main{scroll-margin-top:100px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
