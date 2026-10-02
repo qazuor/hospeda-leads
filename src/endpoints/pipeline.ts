@@ -56,7 +56,7 @@ export async function get(request:Request){
  }catch(e){return fail(e)}
 }
 async function log(trx:Transaction<DB>,accountId:string,leadId:string|null,action:string,metadata:unknown){
- await sql`INSERT INTO crm_pipeline_events(account_id,lead_id,action,actor_email,metadata) VALUES(${accountId},${leadId},${action},nullif(current_setting('crm.actor_email',true),''),${JSON.stringify(metadata)}::jsonb)`.execute(trx);
+ await sql`INSERT INTO crm_pipeline_events(account_id,lead_id,action,actor_email,metadata) VALUES(${accountId},${leadId},${action},nullif(current_setting('crm.actor_email',true),''),${JSON.stringify(metadata)}::text::jsonb)`.execute(trx);
 }
 export async function post(request:Request){
  try{
@@ -109,12 +109,13 @@ export async function post(request:Request){
     await sql`SELECT set_config('crm.loss_reason',${p.reasonId??''},true),set_config('crm.loss_comment',${p.comment},true),set_config('crm.recontact',${p.recontactDate??''},true)`.execute(trx);
     const chosen=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active`.execute(trx)).rows[0];
     if(!chosen)throw new Error('Elegí una etapa disponible.');
-    if((p.convertClient||p.onboarding)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una venta ganada.');
+    if((p.convertClient||p.onboarding||p.closing)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una venta ganada.');
     await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).execute();
     if(p.convertClient&&account.commercialStatus!=='client'){
      await trx.updateTable('crmAccounts').set({commercialStatus:'client',clientSince:new Date(),updatedAt:new Date()}).where('id','=',account.id).execute();
      await trx.insertInto('crmCommercialJournal').values({accountId:account.id,action:'converted_to_client',actorEmail:user.email,actorName:user.displayName,metadata:{reason:p.comment||'Venta ganada',leadId:lead.id,paymentVerified:false}}).execute();
     }
+    if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false});
     if(p.onboarding)await trx.insertInto('crmTasks').values({accountId:account.id,leadId:null,typeId:'followup',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
     return lead.id;
    }

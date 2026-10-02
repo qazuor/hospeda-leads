@@ -8,3 +8,4 @@
 .root{min-width:0;max-width:100%}
 
 .tab{font-size:16px;min-height:44px}@media(max-width:600px){.tab{font-size:16px}}
+@media(max-width:600px){.list{flex-wrap:wrap;overflow:visible}.tab{flex:1 0 auto;text-align:center}}

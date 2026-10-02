@@ -115,3 +115,15 @@ Enviar ventas a **Papelera** es otra acción: retira esas ventas de la operació
 3. Registrá qué pasó en la tarea que estabas atendiendo.
 4. Si queda algo pendiente, dejá una próxima acción con fecha.
 5. Revisá los clientes que necesitan acompañamiento y las ventas pospuestas que corresponde retomar.
+
+## Avance, acuerdo y cambios sobre varios registros
+
+En el resumen de una venta, **Cómo avanzar con esta venta** explica Contacto, Necesidad, Propuesta y Decisión. Es una ayuda; abrir un paso no modifica su etapa. Allí se muestra la última acción registrada y la próxima tarea de esa venta.
+
+Al elegir una etapa ganada aparece **Acuerdo y entrega**. Anotá qué se acordó, quién aceptó, el material, el responsable y la fecha de entrega conocida. Los campos desconocidos quedan por confirmar. La revisión se conserva en el historial; no acredita cobro. Creá una tarea para resolver lo pendiente.
+
+En el tablero, **Vista simple** agrupa por Abierta/Ganada/Perdida; **Ver etapas del equipo** conserva el detalle configurado.
+
+Para modificar varios registros, elegí el cambio y **Aplicar**. Primero se abre una revisión con todos los registros afectados. Si seleccionaste negocios, un cambio de etapa o prioridad puede alcanzar ventas que el filtro ocultaba. Revisá, confirmá la casilla y elegí **Confirmar cambios**. Si alguien cambió los datos, **Volver a revisar** carga una nueva vista previa. Cancelar no modifica nada.
+
+**Más acciones** de la venta contiene **Enviar venta a papelera**, con confirmación posterior. Los detalles técnicos de los materiales están desplegados aparte. El email se puede leer completo junto al asunto; **Ver diseño del email** muestra su presentación sin cambiar lo que se enviará.
