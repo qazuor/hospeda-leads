@@ -220,6 +220,8 @@ export interface Users {
 }
 
 export interface CrmAccounts {
+  mergedIntoId: Int8 | null;
+  mergedAt: Timestamp | null;
   doNotContact: Generated<boolean>;
   id: Generated<Int8>;
   sourceLeadId: Int8 | null;
@@ -283,7 +285,24 @@ export interface CrmWorkJournal {
  id:Generated<Int8>; accountId:Int8; entity:string; entityId:Int8; actorEmail:string|null;
  action:string; beforeValue:Json|null; afterValue:Json|null; createdAt:Generated<Timestamp>;
 }
+export interface CrmImportBatches {
+ id:string; fingerprint:string; ownerEmail:string; source:string; sourceUrl:string|null; obtainedAt:Timestamp|null;
+ rows:Json; status:Generated<'review'|'completed'>; result:Json|null; decisions:Json|null; createdAt:Generated<Timestamp>; completedAt:Timestamp|null;
+}
+export interface CrmDataEvidence {
+ id:Generated<Int8>; accountId:Int8; originalAccountId:Int8; contactId:Int8|null; leadId:Int8|null;
+ field:string; originalValue:string|null; normalizedValue:string|null; source:string; sourceUrl:string|null;
+ obtainedAt:Timestamp|null; verifiedAt:Timestamp|null; validity:string; observations:Generated<string>;
+ batchId:string|null; actorEmail:string; createdAt:Generated<Timestamp>;
+}
+export interface CrmAccountMerges {
+ id:Generated<Int8>; sourceId:Int8; destinationId:Int8; actorEmail:string; reason:string;
+ snapshot:Json; selections:Json; createdAt:Generated<Timestamp>;
+}
 export interface DB {
+ crmImportBatches:CrmImportBatches;
+ crmDataEvidence:CrmDataEvidence;
+ crmAccountMerges:CrmAccountMerges;
   crmWorkTypes:CrmWorkTypes;
   crmTasks:CrmTasks;
   crmActivities:CrmActivities;

@@ -1,3 +1,4 @@
+import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
 import { z } from "zod";
 import superjson from "superjson";
@@ -24,17 +25,19 @@ export async function get(request:Request){
       accountId=String(lead.accountId);
     }
     if(accountId){
+      accountId=await resolveAccount(db,accountId);
+      const family=await accountFamily(db,accountId);
       const [account,contacts,opportunities,journal,leadJournal,stages]=await Promise.all([
         db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow(),
         db.selectFrom("crmContacts").selectAll().where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
         db.selectFrom("leads").selectAll().where("accountId","=",accountId).orderBy("createdAt","desc").execute(),
-        db.selectFrom("crmCommercialJournal").selectAll().where("accountId","=",accountId).orderBy("createdAt","desc").limit(200).execute(),
-        db.selectFrom("leadJournal").selectAll().where("accountId","=",accountId).orderBy("createdAt","desc").limit(200).execute(),
+        db.selectFrom("crmCommercialJournal").selectAll().where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
+        db.selectFrom("leadJournal").selectAll().where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
         getOpportunityStages(db)
       ]);
       return response({account,contacts,opportunities,journal,leadJournal,stages});
     }
-    let query=db.selectFrom("crmAccounts");
+    let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null);
     if(input.status)query=query.where("commercialStatus","=",input.status);
     if(input.q)query=query.where(eb=>eb.or([eb("nombre","ilike","%"+input.q+"%"),eb("email","ilike","%"+input.q+"%"),eb("ciudad","ilike","%"+input.q+"%") ]));
     const [count,rows]=await Promise.all([
