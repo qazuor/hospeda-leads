@@ -13,7 +13,7 @@ import {Button} from './Button';
 import {Dialog,DialogContent,DialogTitle} from './Dialog';
 import styles from './Pipeline.module.css';
 import shared from './Commercial.module.css';
-export const classificationNames={open:'Abierta',won:'Ganada',lost:'Perdida'};
+export const classificationNames:Record<string,string>={open:'Abierta',won:'Ganada',lost:'Perdida'};
 export function PriorityExplanation({manual,insight}:{manual:string|null;insight?:PipelineInsight}){
  return <div className={styles.suggestion}><div>Prioridad manual: <strong>{manual||'Sin definir'}</strong></div>{insight&&<><div>Sugerencia: <strong>{insight.suggestion.priority||'Sin sugerencia'}</strong></div>{!!insight.suggestion.factors.length&&<ul>{insight.suggestion.factors.map(f=><li key={f.id}>{f.name} → {f.priority}</li>)}</ul>}</>}<span className={styles.meta}>La sugerencia no modifica tu decisión.</span></div>;
 }

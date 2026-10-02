@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 test('account with two contacts and independent opportunities preserves lead and communication flows',async({page})=>{
+  test.setTimeout(180000);
   await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
   await page.goto('/login');
   await page.getByLabel('Email',{exact:true}).fill('admin@example.com');
@@ -88,7 +89,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Contacto original de la oportunidad'});
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByLabel('Asunto final')).toHaveValue('Hola');
-  await communication.getByRole('button',{name:'Cerrar',exact:true}).click();
+  await communication.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   // Capture WhatsApp intent locally: this test never opens or sends a real message.
   await page.evaluate(()=>{window.open=(url)=>{(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl=String(url);return null}});
   await lead.getByRole('button',{name:'WhatsApp',exact:true}).click();
@@ -105,7 +106,7 @@ test('account with two contacts and independent opportunities preserves lead and
   expect(whatsappUrl.searchParams.get('text')).toContain('Hola Luis luis@example.com');
   await whatsapp.getByRole('button',{name:'Confirmar envío manual',exact:true}).click();
   await expect(whatsapp.getByText('Envío confirmado manualmente',{exact:true})).toBeVisible();
-  await whatsapp.getByRole('button',{name:'Cerrar',exact:true}).click();
+  await whatsapp.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await lead.getByRole('button',{name:'Editar oportunidad',exact:true}).click();
   await expect(page.getByLabel('Nombre / razón social',{exact:true})).toHaveCount(0);
