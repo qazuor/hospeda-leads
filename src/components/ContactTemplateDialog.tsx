@@ -18,7 +18,7 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates}
  const visible=applicable.filter(t=>[t.name,t.subject,t.vertical,t.commercialProfile,htmlToPlainText(t.body)].join(' ').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
  const prepare=useMutation({mutationFn:postCommunication,onSuccess:d=>setMessage(d)});
  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className={styles.dialog}>
- <DialogHeader className={styles.header}><div className={styles.heading}><span className={styles.channelIcon}>{channel==='email'?<Mail size={20}/>:<MessageCircle size={20}/>}</span><div><DialogTitle>{channel==='email'?'Preparar email':'Preparar WhatsApp'}</DialogTitle><DialogDescription>{lead?.nombre}</DialogDescription></div></div><p className={styles.subtitle}>{message?'Editá el contenido, revisalo y confirmá la acción.':'Elegí a quién contactar y cómo empezar el mensaje.'}</p></DialogHeader>
+ <DialogHeader className={styles.header}><div className={styles.heading}><span className={styles.channelIcon}>{channel==='email'?<Mail size={20}/>:<MessageCircle size={20}/>}</span><div><DialogTitle>{channel==='email'?'Preparar email':'Preparar WhatsApp'}</DialogTitle><DialogDescription>{lead?.nombre}</DialogDescription></div></div>{message&&<p className={styles.subtitle}>Editá el contenido, revisalo y confirmá la acción.</p>}</DialogHeader>
  <div className={styles.scrollBody}>
  {!message&&<>
  <section className={styles.recipientBox}><div className={styles.sectionHeading}><span className={styles.step}>1</span><h3>Destinatario</h3></div>
