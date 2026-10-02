@@ -30,11 +30,12 @@ import styles from "./RichTemplateEditor.module.css";
 const VARIABLES=["sender","sender_short","name","contact","contact_name","city","type","subtype","phone","email","website"];
 
 export const RichTemplateEditor=({
-  value,onChange,channel
+  value,onChange,channel,showVariables=true
 }:{
   value:string;
   onChange:(html:string)=>void;
   channel:"whatsapp"|"email";
+  showVariables?:boolean;
 })=>{
   const [emojiGroup,setEmojiGroup]=useState(WHATSAPP_EMOJI_GROUPS[0].key);
   const extensions=useMemo(()=>{
@@ -132,11 +133,11 @@ export const RichTemplateEditor=({
 
     <EditorContent editor={editor}/>
 
-    <div className={styles.variables}>
+    {showVariables&&<div className={styles.variables}>
       <span>Insertar variable:</span>
       {VARIABLES.map(variable=><button type="button" key={variable} title={variable==="sender"?"Nombre completo del usuario que envía":variable==="sender_short"?"Nombre visible del usuario que envía":undefined} onClick={()=>insert("{{"+variable+"}}")}>{"{{"+variable+"}}"}</button>)}
       <button type="button" onClick={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</button>
-    </div>
+    </div>}
     <p className={styles.hint}>
       {channel==="whatsapp"
         ?"WhatsApp conserva negrita, cursiva y tachado. Los links se envían como URL visible y quedan clickeables."

@@ -12,6 +12,10 @@ Template snapshot: contenido original, asunto, nombre, ID, fecha de edición, co
 
 Revisión/checkbox explícito antes de enviar/abrir. UUID estable del mensaje y bloqueo transaccional garantizan una sola reclamación de envío. Confirmaciones, controles y eventos usan el mismo orden de bloqueos breves de tablas CRM para coordinar escrituras con la fusión; nunca se retienen durante la llamada de red. Conflicto de revisión no se resuelve sobrescribiendo. Live Mode refresca listados sin remount del editor que descartaría texto en preparación. La ruta histórica `send_template_email` devuelve 409: se usa el flujo revisable.
 
+### Diálogos de contacto
+
+Selector con búsqueda por nombre, perfil y contenido, tarjetas con alcance/asunto/extracto y mensaje libre. Cabecera y cierre permanecen visibles; contenido interior desplazable y adaptable a móvil/dark mode. La preparación separa edición de revisión final; volver a editar conserva texto y exige nueva revisión. El editor final no ofrece variables, porque ya se renderizaron al preparar. Las acciones pendientes muestran progreso y no permiten nuevas confirmaciones.
+
 ## Estados honestos
 
 | Estado | Evidencia |
