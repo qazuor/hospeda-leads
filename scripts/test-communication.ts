@@ -8,7 +8,7 @@ async function resource(body:unknown,status=200,cookie=admin.cookie){const r=awa
 async function message(id:string){return (await sql<Message>`SELECT * FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0];}
 let realFetch=globalThis.fetch;
 try{
- assert.equal((await get(new Request('http://localhost/_api/communication?leadId=1'))).status,401);assert.equal((await resourcePost(request({},''))).status,401);assert.equal((await legacySend(request({}))).status,409);
+ assert.equal((await get(new Request('http://localhost/_api/communication?leadId=1'))).status,401);assert.equal((await resourcePost(request({},''))).status,401);assert.equal((await download(new Request('http://localhost/_api/resources/download?versionId='+randomUUID()))).status,401);assert.equal((await legacySend(request({}))).status,409);
  const a=await db.insertInto('crmAccounts').values({nombre:'Communication '+stamp,ciudad:'Colón',email:'generic@example.com',telefono:'5493442000001',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
  const l=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
  const c=await db.insertInto('crmContacts').values({accountId:a.id,name:'Persona real',email:'person@example.com',phone:'+5493442000002'}).returningAll().executeTakeFirstOrThrow();
