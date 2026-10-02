@@ -220,6 +220,7 @@ export interface Users {
 }
 
 export interface CrmAccounts {
+  archivedAt: Generated<Timestamp | null>;
   mergedIntoId: Int8 | null;
   mergedAt: Timestamp | null;
   doNotContact: Generated<boolean>;
@@ -272,13 +273,13 @@ export interface CrmTasks {
  id:Generated<Int8>; accountId:Int8; leadId:Int8|null; title:string; description:string|null;
  participants:Generated<string>; contactIds:Generated<Json>; typeId:string; assignedUserEmail:string|null; dueDate:ColumnType<Date,string,string>; dueAt:Timestamp|null;
  priority:Generated<"alta"|"media"|"baja">; status:Generated<"pending"|"completed"|"cancelled">;
- result:string|null; completedAt:Timestamp|null; legacy:Generated<boolean>; deletedAt:Timestamp|null;
+ outcome:Generated<string|null>; result:string|null; completedAt:Timestamp|null; legacy:Generated<boolean>; deletedAt:Timestamp|null;
  createdAt:Generated<Timestamp>; updatedAt:Generated<Timestamp>;
 }
 export interface CrmActivities {
  id:Generated<Int8>; accountId:Int8; leadId:Int8|null; taskId:Int8|null; typeId:string; title:string;
  occurredAt:Timestamp; participants:Generated<string>; contactIds:Generated<Json>; channel:string|null;
- result:string|null; notes:string|null; actorEmail:string|null; deletedAt:Timestamp|null;
+ outcome:Generated<string|null>; result:string|null; notes:string|null; actorEmail:string|null; deletedAt:Timestamp|null;
  createdAt:Generated<Timestamp>; updatedAt:Generated<Timestamp>;
 }
 export interface CrmWorkJournal {

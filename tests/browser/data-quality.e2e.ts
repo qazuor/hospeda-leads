@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 test('CSV review, safe update, provenance and explicit merge remain usable in dark/mobile',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
- await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Log In',exact:true}).click();await expect(page).toHaveURL(/\/accounts$/);
+ await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);await page.goto("/accounts");
  const stamp=Date.now(),name='Calidad E2E '+stamp,phone='+543442'+String(stamp).slice(-6),email='quality-'+stamp+'@example.com';
  await page.getByRole('button',{name:'Importar CSV',exact:true}).click();
  const dialog=page.getByRole('dialog');
@@ -14,7 +14,7 @@ test('CSV review, safe update, provenance and explicit merge remain usable in da
   await dialog.getByRole('combobox',{name:'Acción fila '+n,exact:true}).selectOption('create');
   await dialog.locator('section').filter({has:page.getByText(`Fila ${n}: ${name}`,{exact:true})}).getByLabel('Revisé las coincidencias y los datos ambiguos de esta fila.').check();
  }
- await dialog.getByLabel(/Confirmo 2 altas/).check();await dialog.getByRole('button',{name:'Confirmar lote',exact:true}).click();await expect(dialog.getByText('2 creados · 0 actualizados · 1 omitidos · 0 errores')).toBeVisible();await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+ await dialog.getByLabel(/Confirmo 2 altas/).check();await dialog.getByRole('button',{name:'Confirmar lote',exact:true}).click();await expect(dialog.getByText('2 creados · 0 actualizados · 1 omitidos · 0 errores')).toBeVisible();await dialog.getByRole('button',{name:'Cerrar',exact:true}).first().click();
  await page.getByRole('button',{name:'Buscar duplicados',exact:true}).click();const duplicates=page.getByRole('dialog');
  const group=duplicates.locator('section').filter({has:page.getByText(name,{exact:true})}).first();await group.getByRole('button',{name:'Revisar fusión',exact:true}).first().click();
  const merge=page.getByRole('dialog');await expect(merge.getByRole('heading',{name:'Fusionar negocios',exact:true})).toBeVisible();await merge.getByLabel('Motivo',{exact:true}).fill('Duplicado confirmado E2E');await merge.getByLabel(/Verifiqué que son el mismo negocio/).check();await merge.getByRole('button',{name:'Fusionar definitivamente',exact:true}).click();await expect(page).toHaveURL(/\/accounts\/\d+$/);await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();

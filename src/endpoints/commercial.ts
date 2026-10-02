@@ -1,3 +1,4 @@
+import {crmError} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
 import { z } from "zod";
@@ -35,9 +36,9 @@ export async function get(request:Request){
         db.selectFrom("leadJournal").selectAll().where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
         getOpportunityStages(db)
       ]);
-      return response({account,contacts,opportunities,journal,leadJournal,stages});
+      return response({account,contacts,opportunities,journal,leadJournal,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute()});
     }
-    let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null);
+    let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("archivedAt",input.archived?"is not":"is",null);
     if(input.status)query=query.where("commercialStatus","=",input.status);
     if(input.q)query=query.where(eb=>eb.or([eb("nombre","ilike","%"+input.q+"%"),eb("email","ilike","%"+input.q+"%"),eb("ciudad","ilike","%"+input.q+"%") ]));
     const [count,rows]=await Promise.all([
@@ -48,7 +49,7 @@ export async function get(request:Request){
       ]).orderBy("nombre").limit(50).offset((input.page-1)*50).execute()
     ]);
     return response({rows:rows.map(r=>({...r,opportunityCount:Number(r.opportunityCount),contactCount:Number(r.contactCount)})),total:Number(count.total),page:input.page});
-  }catch(e){return response({error:e instanceof Error?e.message:"Error"},e instanceof NotAuthenticatedError?401:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof NotAuthenticatedError?401:400)}
 }
 
 export async function post(request:Request){
@@ -68,13 +69,18 @@ export async function post(request:Request){
         const existing=input.id?await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.id).forUpdate().executeTakeFirstOrThrow():null;
         checkResponsible(input.assignedUserEmail,existing?.assignedUserEmail??null);
         checkEmail(input.email,existing?.email);
-        const fields={nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?.assignedUserEmail??null):nullable(input.assignedUserEmail),updatedAt:new Date()};
+        const fields={nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),existing?"account_updated":"account_created",existing,row);
         return String(row.id);
       }
       // One account lock for all related mutations: prevents competing primary selections.
       const account=await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.accountId).forUpdate().executeTakeFirstOrThrow();
+      if(input.action==="account_archive"){
+        if(user.role!=="admin"&&account.assignedUserEmail!==user.email)throw new Forbidden("Solo el responsable o un administrador puede archivar este negocio.");
+        const after=await trx.updateTable("crmAccounts").set({archivedAt:input.archived?new Date():null,updatedAt:new Date()}).where("id","=",input.accountId).returningAll().executeTakeFirstOrThrow();
+        await audit(input.accountId,input.archived?"account_archived":"account_unarchived",account,{...after,reason:input.reason});return input.accountId;
+      }
       if(input.action==="convert_client"){
         if(account.commercialStatus==="client")return String(account.id);
         const after=await trx.updateTable("crmAccounts").set({commercialStatus:"client",clientSince:new Date(),updatedAt:new Date()}).where("id","=",input.accountId).returningAll().executeTakeFirstOrThrow();
@@ -113,11 +119,11 @@ export async function post(request:Request){
       if(input.estado&&input.estado!==old?.estado){
         if(!(await getOpportunityStages(trx)).includes(input.estado))throw new Error("Etapa no disponible.");
       }
-      const fields={opportunityName:input.opportunityName,tipo:nullable(input.tipo),estado:nullable(input.estado),assignedUserEmail:input.assignedUserEmail===undefined?(old?.assignedUserEmail??null):nullable(input.assignedUserEmail),primaryContactId:input.primaryContactId??null,serviceInterest:nullable(input.serviceInterest),estimatedCloseDate:input.estimatedCloseDate?new Date(input.estimatedCloseDate+"T12:00:00Z"):null,updatedAt:new Date()};
+      const fields={opportunityName:input.opportunityName,tipo:nullable(input.tipo),estado:nullable(input.estado),assignedUserEmail:input.assignedUserEmail===undefined?(old?old.assignedUserEmail:account.assignedUserEmail??user.email):nullable(input.assignedUserEmail),primaryContactId:input.primaryContactId??null,serviceInterest:nullable(input.serviceInterest),estimatedCloseDate:input.estimatedCloseDate?new Date(input.estimatedCloseDate+"T12:00:00Z"):null,updatedAt:new Date()};
       const row=old?await trx.updateTable("leads").set({...fields,...(old.tipo!==fields.tipo?{subtipo:null}:{})}).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("leads").values({...fields,accountId:input.accountId,nombre:account.nombre,creadoPor:user.displayName,quienCargo:user.displayName,fechaCreacion:new Date()}).returningAll().executeTakeFirstOrThrow();
       await writeLeadJournal(trx,{leadId:row.id,leadName:row.nombre,actor,action:old?"updated":"created",changes:old?Object.entries(fields).filter(([key,value])=>String(old[key as keyof typeof old]??"")!==String(value??"")).map(([fieldName,newValue])=>({fieldName,oldValue:old[fieldName as keyof typeof old],newValue})):undefined,metadata:{accountId:input.accountId,opportunityName:input.opportunityName}});
       return String(row.id);
     });
     return response({id});
-  }catch(e){return response({error:e instanceof Error?e.message:"Error"},e instanceof Forbidden?403:e instanceof NotAuthenticatedError?401:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof Forbidden?403:e instanceof NotAuthenticatedError?401:400)}
 }

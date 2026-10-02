@@ -17,3 +17,10 @@
 .detailHelp{margin:0 0 14px;font-size:12px;line-height:1.5;color:var(--muted-foreground)}
 .detailTabs{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0}.detailTabs>[role=tablist]{flex:none;margin:0;padding:4px 16px 0;background:var(--card)}.summaryGrid{margin-bottom:0}.field>span{font-size:11px;letter-spacing:.025em}.panelHeader p{font-size:12px}.fieldValue{font-size:14px}.summaryItem span{font-size:10px}.summaryItem strong{font-size:13px}.panelHeader h3{font-size:16px}.journalAction,.journalSummary strong{font-size:12px}.journalActor,.journalLine time{font-size:11px}.journalChange{font-size:12px}.newNote{flex-wrap:wrap}.newNote textarea{min-width:200px}.newNote button{margin-left:auto}
 .description a{color:var(--primary);text-decoration:none}.description a:hover{text-decoration:underline}
+
+/* Comfortable reading and controls in the commercial workflow. */
+input,select,textarea{font-size:1rem;min-height:44px}button{min-height:44px}p,label{font-size:1rem;line-height:1.6}
+
+.page{position:static;transform:none;max-width:1280px;width:100%;max-height:none;height:auto;margin:0 auto;border:0;box-shadow:none}.page .scrollBody{overflow:visible;max-height:none}.page .stickyHeader{position:static}.page .detailTabs{overflow:visible}.page .actionBar{flex-wrap:wrap}
+
+.summaryItem span,.field>span,.panelHeader p,.journalActor,.journalLine time{font-size:14px}.summaryItem strong,.fieldValue,.linkRow strong,.timeline p{font-size:16px}.section{padding:16px;border:1px solid var(--border);border-radius:12px;margin-top:16px}.section>summary{font-size:16px;cursor:pointer;min-height:44px}.page .dialog{overflow:visible}

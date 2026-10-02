@@ -30,15 +30,15 @@ export function TaskRow({task,data,onEdit}:{task:WorkTask;data:WorkData;onEdit:(
    {(task.description||task.participants||task.result)&&<details className={ws.extra}><summary>Ver detalles</summary>{task.description&&<p>{task.description}</p>}{task.participants&&<p>Participantes: {task.participants}</p>}{task.result&&<p>Resultado: {task.result}</p>}</details>}
   </div>
   {editable&&<div className={ws.rowActions}>
-   {pending&&<Button size="sm" onClick={()=>onEdit({kind:'complete',item:task})}><Check size={14}/>Completar</Button>}
-   {pending&&(task.leadId?<Button size="sm" variant="outline" asChild><Link to={'/opportunities?leadId='+task.leadId+'&contact=whatsapp'}><Phone size={14}/>Contactar</Link></Button>:<Button size="sm" variant="outline" onClick={()=>setContactOpen(true)}><Phone size={14}/>Contactar</Button>)}
+   {pending&&<Button size="sm" onClick={()=>onEdit({kind:'complete',item:task})}><Check size={14}/>Registrar qué pasó</Button>}
+   {pending&&<Button size="sm" variant="outline" onClick={()=>setContactOpen(true)}><Phone size={14}/>Contactar</Button>}
    <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon-sm" variant="ghost" aria-label={'Más acciones de '+task.title}><MoreHorizontal size={18}/></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
     {pending&&<><DropdownMenuItem onSelect={()=>onEdit({kind:'task',item:task})}>Editar / reprogramar</DropdownMenuItem><DropdownMenuItem onSelect={()=>onEdit({kind:'cancel',item:task})}>Cancelar tarea</DropdownMenuItem></>}
     <DropdownMenuItem onSelect={()=>onEdit({kind:'activity',accountId:task.accountId,leadId:task.leadId||undefined})}>Registrar actividad</DropdownMenuItem>
     <DropdownMenuSeparator/><DropdownMenuItem onSelect={()=>onEdit({kind:'delete_task',item:task})}>Dar de baja</DropdownMenuItem>
    </DropdownMenuContent></DropdownMenu>
   </div>}
-  {contactOpen&&<TaskContactDialog task={task} onClose={()=>setContactOpen(false)} onLog={()=>{setContactOpen(false);onEdit({kind:'activity',accountId:task.accountId});}}/>}
+  {contactOpen&&<TaskContactDialog task={task} onClose={()=>setContactOpen(false)} onLog={(contactId,channel)=>{setContactOpen(false);onEdit({kind:'complete',item:task,contactIds:contactId?[contactId]:[],channel});}}/>}
  </article>;
 }
 export function ActivityRow({activity,data,onEdit}:{activity:WorkActivity;data:WorkData;onEdit:(t:WorkTarget)=>void}){

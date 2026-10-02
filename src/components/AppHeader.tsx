@@ -24,32 +24,11 @@ export const AppHeader=()=>{
   const [profileOpen,setProfileOpen]=React.useState(false);
 
   return <header className={styles.header}><div className={styles.inner}>
-    <Link to="/accounts" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda CRM</strong><span>CRM comercial</span></div></Link>
+    <Link to="/my-day" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda CRM</strong><span>Equipo Hospeda</span></div></Link>
     <nav aria-label="Navegación principal"><div className={styles.navGroup}>
-      <Link to="/my-day" className={location.pathname==="/my-day"?styles.active:""}>Mi día</Link>
-      <Link to="/reactivation" className={location.pathname==="/reactivation"?styles.active:""}>Reactivación</Link>
-      <Link to="/library" className={location.pathname==="/library"?styles.active:""}>Biblioteca</Link>
-      <Link to="/agenda" className={location.pathname==="/agenda"?styles.active:""}>Agenda</Link>
-      </div>
-      <div className={styles.navGroup}><Link to="/accounts" className={location.pathname.startsWith("/accounts")?styles.active:""}>Negocios</Link>
-      <Link to="/opportunities" title="Seguimiento de todas las oportunidades" className={location.pathname==="/opportunities"?styles.active:""}><ListFilter size={16}/>Seguimiento</Link>
-      </div>
-      <div className={styles.navGroup}>{isAdmin&&<Link to="/analytics" className={location.pathname==="/analytics"?styles.active:""}><BarChart3 size={16}/>Estadísticas</Link>}
-      {isAdmin&&<DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button type="button" className={styles.navMenu+" "+(administrationActive?styles.active:"")}>
-            <Settings size={16}/>Administración<ChevronDown size={14}/>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem asChild><Link to="/history"><History size={16}/>Historial</Link></DropdownMenuItem>
-          <DropdownMenuItem asChild><Link to="/trash"><Trash2 size={16}/>Papelera</Link></DropdownMenuItem>
-          <DropdownMenuSeparator/>
-          <DropdownMenuItem asChild><Link to="/settings"><Settings size={16}/>Configuración</Link></DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>}
-      </div>
-    </nav>
+      {[['/my-day','Mi día'],['/accounts','Negocios'],['/opportunities','Ventas'],['/agenda','Agenda']].map(([url,label])=><Link key={url} to={url} aria-current={location.pathname.startsWith(url)?'page':undefined} className={location.pathname.startsWith(url)?styles.active:''}>{label}</Link>)}
+      <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className={styles.navMenu}>Más opciones<ChevronDown size={16}/></button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem asChild><Link to="/reactivation">Retomar ventas pospuestas</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to="/library">Materiales para ofrecer</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to="/archived">Negocios archivados</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to="/guide">Guía de uso paso a paso</Link></DropdownMenuItem>{isAdmin&&<><DropdownMenuSeparator/><DropdownMenuItem asChild><Link to="/analytics">Estadísticas</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to="/settings">Configuración</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to="/history">Historial del equipo</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to="/trash">Papelera</Link></DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu>
+    </div></nav>
     <div className={styles.user}>
       <LiveModeSwitch/>
       <DropdownMenu>

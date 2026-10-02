@@ -1,3 +1,4 @@
+import {crmError} from '../helpers/crmErrors';
 import {localDay,argentinaInstant} from "../helpers/workDates";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -226,16 +227,23 @@ export async function handle(request: Request) {
         return eb.and(input.filterGroups.map(group=>eb.or(group.rules.map(buildRule))));
       });
     }
+    if(input.contactPresence){
+      const contacted=sql<boolean>`(fecha_ultimo_contacto IS NOT NULL OR EXISTS (SELECT 1 FROM crm_activities ac WHERE ac.deleted_at IS NULL AND (ac.lead_id=leads.id OR (ac.lead_id IS NULL AND ac.account_id=leads.account_id))))`;
+      query=query.where(contacted,'=',input.contactPresence==='contacted');
+    }
+    if(input.inactiveDays)query=query.where(sql<Date>`greatest(coalesce(fecha_ultimo_contacto,created_at),coalesce((select max(occurred_at) from crm_activities ac where (ac.lead_id=leads.id or (ac.lead_id is null and ac.account_id=leads.account_id)) and ac.deleted_at is null),created_at))`,'<',new Date(Date.now()-input.inactiveDays*86400000));
     if(input.nextAction==="with") query=query.where("fechaProximaAccion","is not",null);
     if(input.nextAction==="without") query=query.where("fechaProximaAccion","is",null);
     if(input.nextAction==="overdue") query=query.where("fechaProximaAccion","<",new Date(localDay()+"T00:00:00Z"));
+    if(input.classification)query=query.where(sql<string>`coalesce((select classification from crm_stages where name=leads.estado),'open')`,'=',input.classification);
+    if(input.commercialStatus)query=query.where('accountId','in',db.selectFrom('crmAccounts').select('id').where('commercialStatus','=',input.commercialStatus));
     const count=await query.select(({fn})=>(input.entity==="business"?fn.count<string>("accountId").distinct():fn.countAll<string>()).as("count")).executeTakeFirstOrThrow();
     const sortBy=input.sortBy??"fechaCreacion";
     const sortDir=input.sortDir??"desc";
     const candidates=input.entity==="business"
       ? db.selectFrom(query.selectAll().distinctOn("accountId").orderBy("accountId").orderBy("id","asc").as("leads"))
       : query;
-    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").limit(input.pageSize).offset((input.page-1)*input.pageSize).execute();
+    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((input.page-1)*input.pageSize)).execute();
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
       const [accounts,opportunities,contacts]=await Promise.all([
@@ -262,6 +270,6 @@ export async function handle(request: Request) {
     const out={rows,total:Number(count.count),page:input.page,pageSize:input.pageSize,filters:{ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
     return new Response(superjson.stringify(out), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
-    return new Response(superjson.stringify({ error: error instanceof Error ? error.message : "No se pudieron cargar los leads" }), { status: 401 });
+    return new Response(superjson.stringify({ error: crmError(error) }), { status: 401 });
   }
 }

@@ -8,9 +8,9 @@ export const LiveModeSwitch=()=>{
   const {enabled,status,toggle,lastCheckedAt}=useLiveMode();
   const title=enabled
     ? status==="error"
-      ? "Live activo, pero no se pudo comprobar la conexión"
-      : "Live activo: los cambios de otros usuarios aparecen automáticamente"
-    : "Live desactivado";
+      ? "Actualización automática activa, pero no se pudo comprobar la conexión"
+      : "Actualización automática activa: los cambios de otros usuarios aparecen automáticamente"
+    : "Actualización automática desactivada";
   return <Button
     type="button"
     variant="ghost"
@@ -22,6 +22,6 @@ export const LiveModeSwitch=()=>{
   >
     <span className={styles.indicator+" "+(enabled?styles.on:styles.off)+" "+(status==="error"?styles.error:"")}/>
     <Radio size={15}/>
-    <span className={styles.label}>Live</span>
+    <span className={styles.label}>Actualizar</span>
   </Button>;
 };

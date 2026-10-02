@@ -156,7 +156,7 @@ try{
   assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId,empty]}))).status,400);
   assert.equal((await detail(accountId)).opportunities.length,2);
   assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId]}))).status,200);
-  assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,0);
+  assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,1,'Business survives removal of all sales');
   d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.contacts.length);assert(d.leadJournal.some(j=>j.action==='soft_deleted'));
   const deletedRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_true'}]}]);
   async function deletionList(entity:string,rules=deletedRules,auth=admin.value){const r=await getLeads(new Request('http://localhost/_api/leads?entity='+entity+'&q='+encodeURIComponent(`CRM test ${suffix}`)+'&filterGroups='+encodeURIComponent(rules),{headers:{cookie:auth}}));return {status:r.status,data:superjson.parse<ListOutput>(await r.text())};}

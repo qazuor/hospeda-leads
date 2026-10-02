@@ -1,3 +1,4 @@
+import {localDay} from './workDates';
 import {calendarDay} from './workDates';
 import {createHash} from 'node:crypto';
 import {sql,type Kysely,type Transaction} from 'kysely';
@@ -28,6 +29,7 @@ async function prepare(e:Executor,input:Extract<CommunicationMutation,{action:'p
  const c=await resolveCommercialContact(e,lead,input.contactId);const recipient=(input.channel==='email'?c.email:c.phone)?.trim();if(!recipient)throw new Error('El contacto no tiene este canal');
  const t=input.templateId?await e.selectFrom('messageTemplates').selectAll().where('id','=',input.templateId).where('active','=',true).executeTakeFirstOrThrow():null;
  if(t&&(t.channel!==input.channel||(t.vertical&&t.vertical!==lead.tipo)||(lead.commercialProfile?.trim()&&t.commercialProfile&&t.commercialProfile!==lead.commercialProfile)))throw new Error('Template incompatible con canal, vertical o perfil');
+ if(!runId){const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE lead_id=${lead.id} AND contact_id IS NOT DISTINCT FROM ${c.contactId}::bigint AND channel=${input.channel} AND recipient=${recipient} AND owner_email=${user.email} AND status='draft' AND run_id IS NULL AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return reusable;}
  const ctx={name:lead.nombre,contact:c.name,contact_name:c.name,city:lead.ciudad,type:lead.tipo,subtype:lead.subtipo,phone:c.phone,email:c.email,website:lead.sitioWeb,sender:user.fullName?.trim()||user.displayName,sender_short:user.displayName};
  const rendered=t?renderMessageTemplateHtml(t.body,ctx):'<p></p>';
  const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;
@@ -52,6 +54,11 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  // Serialize against fusion and concurrent restrictions/sequence starts.
  await lockCommunication(e);
  if(input.action==='prepare')return prepare(e,input,user);
+ if(input.action==='cancel_draft'){
+  const m=await messageFor(e,input.id,user,true);if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
+  if(m.runId)throw new Error('Este borrador pertenece a un seguimiento. Cancelá o pausá el seguimiento para conservar sus pasos.');
+  return (await sql<Message>`UPDATE crm_messages SET status='cancelled',revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0];
+ }
  if(input.action==='edit'){
   const m=await messageFor(e,input.id,user,true);if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
   await assertContactAllowed(e,m.leadId!,m.contactId,m.channel);
@@ -93,7 +100,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  }
  if(input.action==='sequence_start'){
   const existing=(await sql<{id:string;ownerEmail:string}>`SELECT * FROM crm_sequence_runs WHERE id=${input.id}::uuid`.execute(e)).rows[0];if(existing){if(existing.ownerEmail!==user.email&&user.role!=='admin')throw new CommunicationForbidden('Ejecución ajena');return existing;}
-  const {lead,account}=await leadFor(e,input.leadId,user);if(account.commercialStatus==='client')throw new Error('Negocio convertido a cliente');
+  const {lead,account}=await leadFor(e,input.leadId,user);
   const stage=(await sql<{classification:string}>`SELECT classification FROM crm_stages WHERE name=${lead.estado??''}`.execute(e)).rows[0];if(stage?.classification!=='open')throw new Error('La oportunidad debe estar abierta');
   const seq=(await sql<{id:string;name:string;scope:string;steps:any[]}>`SELECT * FROM crm_sequences WHERE id=${input.sequenceId} AND active`.execute(e)).rows[0];if(!seq)throw new Error('Secuencia inactiva');
   if((await sql`SELECT id FROM crm_sequence_runs WHERE lead_id=${lead.id} AND coalesce(contact_id,0)=coalesce(${input.contactId}::bigint,0) AND status IN ('active','paused')`.execute(e)).rows.length)throw new CommunicationConflict('Ya hay una secuencia activa para este contacto');
@@ -110,6 +117,11 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  const run=(await sql<{id:string;leadId:string;ownerEmail:string;status:string}>`SELECT * FROM crm_sequence_runs WHERE id=${input.id}::uuid FOR UPDATE`.execute(e)).rows[0];if(!run)throw new Error('Secuencia inexistente');await leadFor(e,run.leadId,user);if(!['active','paused'].includes(run.status))throw new CommunicationConflict('Ejecución finalizada');
  if(input.state==='active'){for(const m of (await sql<Message>`SELECT * FROM crm_messages WHERE run_id=${run.id}::uuid AND status='draft'`.execute(e)).rows)await assertContactAllowed(e,m.leadId!,m.contactId,m.channel);}
  await sql`UPDATE crm_sequence_runs SET status=${input.state},reason=${input.reason},updated_at=now() WHERE id=${run.id}::uuid`.execute(e);
+ if(input.state==='active'){
+  if(!input.resumeDate)throw new Error('Elegí la fecha del próximo paso para reanudar.');
+  if(input.resumeDate<localDay())throw new Error('La fecha para reanudar no puede estar vencida.');
+  await sql`WITH remaining AS (SELECT t.id,t.due_date,min(t.due_date) OVER () first_day FROM crm_tasks t JOIN crm_messages m ON m.task_id=t.id WHERE m.run_id=${run.id}::uuid AND m.status='draft' AND t.result='Secuencia pausada' AND t.status='cancelled') UPDATE crm_tasks t SET due_date=${input.resumeDate}::date+(r.due_date-r.first_day),due_at=NULL FROM remaining r WHERE t.id=r.id`.execute(e);
+ }
  if(input.state==='active')await sql`UPDATE crm_tasks SET status='pending',result=NULL,updated_at=now() WHERE result='Secuencia pausada' AND status='cancelled' AND id IN (SELECT task_id FROM crm_messages WHERE run_id=${run.id}::uuid AND status='draft')`.execute(e);
  else await sql`UPDATE crm_tasks SET status='cancelled',result=${input.state==='paused'?'Secuencia pausada':'Secuencia cancelada'},updated_at=now() WHERE status='pending' AND id IN (SELECT task_id FROM crm_messages WHERE run_id=${run.id}::uuid)`.execute(e);
  if(input.state==='cancelled')await sql`UPDATE crm_messages SET status='cancelled',updated_at=now() WHERE run_id=${run.id}::uuid AND status='draft'`.execute(e);

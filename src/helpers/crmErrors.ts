@@ -1,0 +1,6 @@
+import {ZodError} from 'zod';
+const labels:Record<string,string>={nombre:'el nombre del negocio',name:'el nombre',title:'qué hay que hacer',reason:'el motivo',dueDate:'la fecha',resumeDate:'la fecha para retomar',occurredAt:'la fecha y hora real',completedAt:'la fecha y hora real',estimatedCloseDate:'la fecha prevista de cierre',opportunityName:'qué querés vender',typeId:'el tipo de acción',stage:'la etapa',reasonId:'el motivo de pérdida',contactId:'la persona de contacto',email:'el email',subject:'el asunto',body:'el mensaje',result:'el resultado',outcome:'qué pasó',accountId:'el negocio',leadId:'la venta',channel:'el canal'};
+export function crmError(error:unknown):string{
+ if(error instanceof ZodError){const issue=error.issues[0];const field=labels[String(issue.path.at(-1))]||'los datos del formulario';if(issue.code==='too_small'&&issue.type==='string')return `Completá ${field}${issue.minimum>1?` con al menos ${issue.minimum} caracteres`:''}.`;if(issue.code==='too_big')return `El valor de ${field} es demasiado largo. Acortalo para guardar.`;if(issue.code==='custom'&&!issue.message.startsWith('Invalid'))return issue.message;return `Revisá ${field} y elegí un valor válido.`}
+ return error instanceof Error?error.message:'No se pudo completar la acción. Intentá de nuevo.';
+}

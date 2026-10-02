@@ -23,7 +23,7 @@ export async function handle(request:Request){
     if(input.type)query=query.where("tipo","=",input.type);
     if(input.city)query=query.where("ciudad","=",input.city);
     const [rows,verticals,users]=await Promise.all([
-      query.select(["id","estado","ciudad","tipo","subtipo","origen","prioridad","telefono","email","sitioWeb","fechaCreacion","fechaProximaAccion","fechaUltimoContacto","createdAt","updatedAt","assignedUserEmail"]).execute(),
+      query.select(["id","accountId","estado","ciudad","tipo","subtipo","origen","prioridad","telefono","email","sitioWeb","fechaCreacion","fechaProximaAccion","fechaUltimoContacto","createdAt","updatedAt","assignedUserEmail"]).execute(),
       db.selectFrom("crmVerticals").select("name").where("active","=",true).orderBy("sortOrder").execute(),
       db.selectFrom("users").select(["email","displayName"]).execute()
     ]);
@@ -70,27 +70,33 @@ export async function handle(request:Request){
       }
     }
     for(const row of rows){if(row.fechaCreacion){const d=new Date(row.fechaCreacion).toISOString().slice(0,10);day.set(d,(day.get(d)??0)+1)}}
+    const contactChannels=ids.length?await db.selectFrom('crmContacts').select(['accountId','email','phone']).where('deletedAt','is',null).where('accountId','in',rows.map(r=>r.accountId)).execute():[];
+    const activityTimes=ids.length?await db.selectFrom('crmActivities').select(['leadId','accountId','occurredAt']).where('deletedAt','is',null).where(eb=>eb.or([eb('leadId','in',ids),eb.and([eb('leadId','is',null),eb('accountId','in',rows.map(r=>r.accountId))])])).execute():[];
+    const lastActivity=(r:typeof rows[number])=>Math.max(new Date(r.createdAt).getTime(),r.fechaUltimoContacto?new Date(r.fechaUltimoContacto).getTime():0,...activityTimes.filter(a=>a.leadId===r.id||(!a.leadId&&a.accountId===r.accountId)).map(a=>new Date(a.occurredAt).getTime()));
+    const isOpen=(r:typeof rows[number])=>(classifications.get(r.estado??'')??'open')==='open';
+    const isWon=(r:typeof rows[number])=>classifications.get(r.estado??'')==='won';
+    const won=rows.filter(isWon).length;
     const subscribed=rows.filter(r=>r.estado==="Suscripto").length;
     const out:OutputType={
       pipelineOpen:rows.filter(r=>(classifications.get(r.estado??'')??'open')==='open').length,
       pipelineWon:rows.filter(r=>classifications.get(r.estado??'')==='won').length,
       pipelineLost:rows.filter(r=>classifications.get(r.estado??'')==='lost').length,
       lossReasons:ids.length?(await sql<{name:string;count:string}>`SELECT r.name,count(*) count FROM crm_pipeline_events e JOIN crm_loss_reasons r ON r.id=e.reason_id WHERE e.lead_id IN (${sql.join(ids)}) GROUP BY r.name ORDER BY count DESC`.execute(db)).rows.map(r=>({name:r.name,count:Number(r.count)})):[],
-      total:rows.length,pending:rows.filter(r=>r.estado!=="Suscripto").length,subscribed,
-      overdue:rows.filter(r=>r.fechaProximaAccion&&calendarDay(r.fechaProximaAccion)<localDay(now)&&r.estado!=="Suscripto").length,
-      withPhone:rows.filter(r=>!!r.telefono?.trim()).length,withEmail:rows.filter(r=>!!r.email?.trim()).length,withWebsite:rows.filter(r=>!!r.sitioWeb?.trim()).length,
-      noContact:rows.filter(r=>!r.fechaUltimoContacto).length,contacted:rows.filter(r=>!!r.fechaUltimoContacto).length,
-      inactive30:rows.filter(r=>r.estado!=="Suscripto"&&new Date(r.updatedAt)<inactiveLimit).length,
+      total:rows.length,pending:rows.filter(isOpen).length,subscribed,
+      overdue:rows.filter(r=>r.fechaProximaAccion&&calendarDay(r.fechaProximaAccion)<localDay(now)&&isOpen(r)).length,
+      withPhone:rows.filter(r=>!!r.telefono?.trim()||contactChannels.some(c=>c.accountId===r.accountId&&!!c.phone?.trim())).length,withEmail:rows.filter(r=>!!r.email?.trim()||contactChannels.some(c=>c.accountId===r.accountId&&!!c.email?.trim())).length,withWebsite:rows.filter(r=>!!r.sitioWeb?.trim()).length,
+      noContact:rows.filter(r=>!r.fechaUltimoContacto&&!activityTimes.some(a=>a.leadId===r.id||(!a.leadId&&a.accountId===r.accountId))).length,contacted:rows.filter(r=>!!r.fechaUltimoContacto||activityTimes.some(a=>a.leadId===r.id||(!a.leadId&&a.accountId===r.accountId))).length,
+      inactive30:rows.filter(r=>isOpen(r)&&lastActivity(r)<inactiveLimit.getTime()).length,
       new7:rows.filter(r=>new Date(r.createdAt)>=weekLimit).length,
-      conversionRate:rows.length?Math.round(subscribed*1000/rows.length)/10:0,
+      conversionRate:rows.length?Math.round(won*1000/rows.length)/10:0,
       avgDaysToFirstContact:firstContactDays.length?Math.round(firstContactDays.reduce((a,b)=>a+b,0)/firstContactDays.length*10)/10:null,
       firstContactSamples:firstContactDays.length,
       byCity:top(rows,"ciudad",15),byStatus:top(rows,"estado",12),
       byType:verticals.map(v=>({name:v.name,count:rows.filter(r=>r.tipo===v.name).length})),
       bySubtype:top(rows,"subtipo",15),byOrigin:top(rows,"origen",12),byPriority:top(rows,"prioridad",5),
       byResponsible:top(normalized,"responsibleName",12),
-      byTypeConversion:verticals.map(v=>{const subset=rows.filter(r=>r.tipo===v.name),s=subset.filter(r=>r.estado==="Suscripto").length;return {name:v.name,total:subset.length,subscribed:s,rate:subset.length?Math.round(s*1000/subset.length)/10:0}}),
-      byResponsibleConversion:Array.from(new Set(normalized.map(r=>r.responsibleName))).map(name=>{const subset=normalized.filter(r=>r.responsibleName===name),s=subset.filter(r=>r.estado==="Suscripto").length;return {name,total:subset.length,subscribed:s,rate:subset.length?Math.round(s*1000/subset.length)/10:0}}).sort((a,b)=>b.total-a.total),
+      byTypeConversion:verticals.map(v=>{const subset=rows.filter(r=>r.tipo===v.name),s=subset.filter(isWon).length;return {name:v.name,total:subset.length,subscribed:s,rate:subset.length?Math.round(s*1000/subset.length)/10:0}}),
+      byResponsibleConversion:Array.from(new Set(normalized.map(r=>r.responsibleName))).map(name=>{const subset=normalized.filter(r=>r.responsibleName===name),s=subset.filter(isWon).length;return {name,total:subset.length,subscribed:s,rate:subset.length?Math.round(s*1000/subset.length)/10:0}}).sort((a,b)=>b.total-a.total),
       avgDaysByStatus:Array.from(statusDurations,([name,value])=>({name,days:Math.round(value.days/value.samples*10)/10,samples:value.samples})).sort((a,b)=>b.days-a.days),
       createdByDay:Array.from(day,([date,count])=>({date,count})).sort((a,b)=>a.date.localeCompare(b.date)).slice(-60)
     };

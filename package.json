@@ -20,7 +20,8 @@
     "test:pipeline": "node scripts/test-pipeline-migration.mjs && node --import tsx scripts/test-pipeline.ts",
     "test:auth": "node --import tsx scripts/test-password-recovery.ts",
     "test:quality": "node scripts/test-data-quality-migration.mjs && node --import tsx scripts/test-data-quality.ts",
-    "test:communication": "node scripts/test-communication-migration.mjs && node --import tsx scripts/test-communication.ts"
+    "test:communication": "node scripts/test-communication-migration.mjs && node --import tsx scripts/test-communication.ts",
+    "test:usability": "node --import tsx scripts/test-usability.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",

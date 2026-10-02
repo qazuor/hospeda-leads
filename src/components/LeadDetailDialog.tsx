@@ -69,7 +69,7 @@ const fieldLabel:Record<string,string>={
 };
 
 export const LeadDetailDialog=({
-  open,onOpenChange,lead,users,onEdit,onDelete,onWhatsApp,onEmail,readOnly=false,position,onPrevious,onNext
+  open,onOpenChange,lead,users,onEdit,onDelete,onWhatsApp,onEmail,page=false,readOnly=false,position,onPrevious,onNext
 }:{
   open:boolean;
   onOpenChange:(open:boolean)=>void;
@@ -79,7 +79,7 @@ export const LeadDetailDialog=({
   onDelete?:(lead:any)=>void;
   onWhatsApp?:(lead:any)=>void;
   onEmail?:(lead:any)=>void;
-  readOnly?:boolean;
+  page?:boolean;readOnly?:boolean;
   position?:{current:number;total:number};
   onPrevious?:()=>void;
   onNext?:()=>void;
@@ -118,8 +118,8 @@ export const LeadDetailDialog=({
   const emailPrimary=preferred==="email";
   const phonePrimary=preferred.includes("tel");
 
-  return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className={styles.dialog}>
+  return <Dialog open={open} modal={!page} onOpenChange={onOpenChange}>
+    <DialogContent inline={page} className={styles.dialog+(page?" "+styles.page:"")}>
       <div className={styles.stickyHeader}>
         <div className={styles.identityRow}>
           <div className={styles.identity}>
@@ -157,9 +157,9 @@ export const LeadDetailDialog=({
       </div>
 
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>
-        <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Tareas y actividades</SectionTab>}{!readOnly&&<SectionTab value="pipeline">Gestión comercial</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Comunicación</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}<SectionTab value="business">Negocio y contactos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
+        <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}</SectionTabList>
         <div className={styles.scrollBody}>
-          <SectionTabPanel value="overview">
+          <SectionTabPanel value="overview">{!readOnly&&<PipelineDetail lead={lead}/>}
         <div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Canal del negocio" value={lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>
@@ -167,7 +167,7 @@ export const LeadDetailDialog=({
           <SummaryItem icon={CalendarClock} label="Próxima acción" value={<span className={styles["next_"+nextActionInfo(lead.fechaProximaAccion).tone]} title={nextActionInfo(lead.fechaProximaAccion).title}>{nextActionInfo(lead.fechaProximaAccion).label}</span>}/>
         </div>
 
-            <div className={styles.contentGrid}>
+            <details className={styles.section}><summary>Ver todos los datos de esta venta</summary><div className={styles.contentGrid}>
           <section className={styles.panel}>
             <SectionTitle icon={ContactRound} title="Datos del negocio" description="Canales compartidos. Las personas están en Negocio y contactos."/>
             <div className={styles.fieldGrid}>
@@ -244,9 +244,9 @@ export const LeadDetailDialog=({
           </section>}
 
             </div>
-          </SectionTabPanel>
+          </details><details className={styles.section}><summary>Negocio, personas y otras ventas</summary><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></details></SectionTabPanel>
           {!readOnly&&<SectionTabPanel value="work">{lead.accountId?<WorkPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/>:<p>No hay un negocio vinculado.</p>}</SectionTabPanel>}
-          {!readOnly&&<SectionTabPanel value="pipeline"><PipelineDetail lead={lead}/></SectionTabPanel>}
+
           <SectionTabPanel value="notes">
           <section className={styles.panel+" "+styles.widePanel}>
             <SectionTitle icon={StickyNote} title="Notas" description="Contexto comercial y observaciones del equipo."/>
@@ -262,9 +262,7 @@ export const LeadDetailDialog=({
             </div>}
           </section>
 
-          </SectionTabPanel>
-          {!readOnly&&<SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)}/></SectionTabPanel>}{!readOnly&&lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/></SectionTabPanel>}<SectionTabPanel value="business"><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></SectionTabPanel>
-          <SectionTabPanel value="history">
+                    <details className={styles.section}><summary>Historial de cambios</summary>
           <section className={styles.panel+" "+styles.widePanel}>
             <SectionTitle icon={History} title="Journal de cambios" description="Auditoría cronológica de modificaciones y acciones."/>
             {journalQ.isLoading?<Skeleton className={styles.notesLoading}/>:journalQ.error?<p className={styles.journalError}>{journalQ.error.message}</p>:<div className={styles.journalList}>
@@ -285,7 +283,9 @@ export const LeadDetailDialog=({
               </article>)}
             </div>}
           </section>
-          </SectionTabPanel>
+          </details></SectionTabPanel>
+          {!readOnly&&<SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)}/></SectionTabPanel>}{!readOnly&&lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/></SectionTabPanel>}
+
         </div>
       </SectionTabs>
     </DialogContent>

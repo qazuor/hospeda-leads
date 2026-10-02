@@ -1,3 +1,7 @@
+import {UnsavedNavigation} from './components/UnsavedChanges';
+import SalePage from './pages/sale';
+import ArchivedPage from './pages/archived';
+import GuidePage from './pages/guide';
 import LibraryPage from './pages/library';
 import PasswordRecoveryPage from "./pages/password-recovery";
 import ReactivationPage from "./pages/reactivation";
@@ -22,19 +26,21 @@ function HomeEntry(){
   const {search}=useLocation();
   const legacyLead=new URLSearchParams(search).has("leadId");
   // Keep existing bookmarks and deep links to leads/filters operational.
-  return <Navigate to={legacyLead?"/opportunities"+search:"/accounts"+search} replace/>;
+  return <Navigate to={legacyLead?"/opportunities"+search:search?"/accounts"+search:"/my-day"} replace/>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <GlobalContextProviders>
+        <UnsavedNavigation/>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
           <Route path="/reset-password" element={<PasswordRecoveryPage reset />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
+          <Route path="/sales/:leadId" element={<UserRoute><SalePage/></UserRoute>} />
           <Route path="/opportunities" element={<UserRoute><LeadsPage key="opportunity" /></UserRoute>} />
           <Route path="/accounts" element={<UserRoute><LeadsPage key="business" businessMode /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
@@ -44,6 +50,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+          <Route path="/archived" element={<UserRoute><ArchivedPage/></UserRoute>} />
+          <Route path="/guide" element={<UserRoute><GuidePage/></UserRoute>} />
           <Route path="/library" element={<UserRoute><LibraryPage/></UserRoute>} />
           <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
           <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />

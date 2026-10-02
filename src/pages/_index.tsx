@@ -1,7 +1,8 @@
+import {useUnsavedChanges} from "../components/UnsavedChanges";
 import {DataImportDialog} from '../components/DataImportDialog';
 import {AccountMergeDialog} from '../components/AccountMergeDialog';
 import {PipelineBoard} from "../components/Pipeline";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -120,7 +121,7 @@ const TABLE_COLUMNS:TableColumnOption[]=[
   {key:"createdAt",label:"Creado en sistema"},
   {key:"updatedAt",label:"Actualizado"}
 ];
-const DEFAULT_COLUMNS=["nombre","assignedUserEmail","contactName","ciudad","tipo","subtipo","commercialProfile","estado","prioridad","fechaProximaAccion"];
+const DEFAULT_COLUMNS=["nombre","contactName","assignedUserEmail","estado","fechaProximaAccion"];
 const DEFAULT_WIDTHS:Record<string,number>={
   id:90,nombre:220,contactName:190,tipo:170,subtipo:180,commercialProfile:170,ciudad:170,estado:180,suscripcion:170,
   email:220,telefono:150,assignedUserEmail:190,sitioWeb:230,urlGmap:230,perfilInstagram:220,perfilFacebook:220,
@@ -134,16 +135,16 @@ const TABLE_QUERY_STORAGE_KEY="hospeda-leads-table-query-v1";
 const TABLE_FILTERS_STORAGE_KEY="hospeda-leads-table-filters-v1";
 const TABLE_SORT_STORAGE_KEY="hospeda-leads-table-sort-v1";
 
-const readStoredQuery=()=>{
+const readStoredQuery=(entity:string)=>{
   if(typeof window==="undefined")return "";
-  try{return window.localStorage.getItem(TABLE_QUERY_STORAGE_KEY)??""}
+  try{return window.localStorage.getItem(TABLE_QUERY_STORAGE_KEY+"-"+entity)??""}
   catch{return ""}
 };
 
-const readStoredFilterGroups=():AdvancedFilterGroup[]=>{
+const readStoredFilterGroups=(entity:string):AdvancedFilterGroup[]=>{
   if(typeof window==="undefined")return [];
   try{
-    const raw=window.localStorage.getItem(TABLE_FILTERS_STORAGE_KEY);
+    const raw=window.localStorage.getItem(TABLE_FILTERS_STORAGE_KEY+"-"+entity);
     if(!raw)return [];
     const parsed=advancedFilterGroup.array().safeParse(JSON.parse(raw));
     if(!parsed.success)return [];
@@ -153,11 +154,11 @@ const readStoredFilterGroups=():AdvancedFilterGroup[]=>{
   }catch{return []}
 };
 
-const readStoredSort=():{sortBy:SortBy;sortDir:"asc"|"desc"}=>{
+const readStoredSort=(entity:string):{sortBy:SortBy;sortDir:"asc"|"desc"}=>{
   const fallback={sortBy:"fechaCreacion" as SortBy,sortDir:"desc" as const};
   if(typeof window==="undefined")return fallback;
   try{
-    const raw=window.localStorage.getItem(TABLE_SORT_STORAGE_KEY);
+    const raw=window.localStorage.getItem(TABLE_SORT_STORAGE_KEY+"-"+entity);
     if(!raw)return fallback;
     const parsed=JSON.parse(raw);
     if(parsed?.sortBy==="asignadoA"&&(parsed?.sortDir==="asc"||parsed?.sortDir==="desc")){
@@ -223,7 +224,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const {authState}=useAuth();
   const isAdmin=authState.type==="authenticated"&&authState.user.role==="admin";
   const currentUser=authState.type==="authenticated"?authState.user:null;
-  const [query,setQuery]=useState(readStoredQuery);
+  const [query,setQuery]=useState(()=>readStoredQuery(entity));
   const [cityFilter,setCityFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [statusFilter,setStatusFilter]=useState<SmartFilterState>(emptySmartFilter);
   const [typeFilter,setTypeFilter]=useState<SmartFilterState>(emptySmartFilter);
@@ -242,7 +243,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [recurrentFilter,setRecurrentFilter]=useState<"all"|"true"|"false">("all");
   const [notesFilter,setNotesFilter]=useState<TextFilterState>(emptyTextFilter);
   const [nextAction,setNextAction]=useState<"_all"|"with"|"without"|"overdue">("_all");
-  const storedSort=readStoredSort();
+  const storedSort=readStoredSort(entity);
   const [sortBy,setSortBy]=useState<SortBy>(storedSort.sortBy);
   const [sortDir,setSortDir]=useState<"asc"|"desc">(storedSort.sortDir);
   const [page,setPage]=useState(1);
@@ -253,6 +254,9 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [mergePair,setMergePair]=useState<{sourceId:string;destinationId:string}|null>(null);
   const [startingOpportunity,setStartingOpportunity]=useState(false);
   const [form,setForm]=useState<InputType>(emptyForm);
+  const editBaseline=useRef<string|null>(null);
+  useEffect(()=>{editBaseline.current=open?JSON.stringify(form):null},[open]);
+  const legacyGuard=useUnsavedChanges(open&&editBaseline.current!==null&&JSON.stringify(form)!==editBaseline.current,()=>setOpen(false));
   const [selectedLead,setSelectedLead]=useState<any|null>(null);
   const [duplicateCandidates,setDuplicateCandidates]=useState<DuplicateCandidate[]>([]);
   const [contactOpen,setContactOpen]=useState(false);
@@ -262,7 +266,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [tableFullscreen,setTableFullscreen]=useState(false);
   const [pipelineView,setPipelineView]=useState(false);
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
-  const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(readStoredFilterGroups);
+  const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(()=>readStoredFilterGroups(entity));
   const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
   const [lastTouchedId,setLastTouchedId]=useState<string>("");
   const [cellState,setCellState]=useState<Record<string,"saving"|"saved">>({});
@@ -270,10 +274,11 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [bulkValue,setBulkValue]=useState("");
   const [bulkDeleteOpen,setBulkDeleteOpen]=useState(false);
   const [activeQuick,setActiveQuick]=useState("all");
+  const [classification,setClassification]=useState<"open"|"won"|"lost"|undefined>();
   const [saveViewOpen,setSaveViewOpen]=useState(false);
   const [savedViewName,setSavedViewName]=useState("");
   const [savedViews,setSavedViews]=useState<Array<{
-    name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc";
+    name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc";classification?:"open"|"won"|"lost";
     inline?:{
       cityFilter:SmartFilterState;statusFilter:SmartFilterState;typeFilter:SmartFilterState;subtypeFilter:SmartFilterState;
       commercialProfileFilter:SmartFilterState;priorityFilter:SmartFilterState;assignedUserFilter:SmartFilterState;
@@ -294,54 +299,28 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [visibleColumns,setVisibleColumns]=useState<string[]>(()=>{
     if(typeof window==="undefined")return DEFAULT_COLUMNS;
     try{
-      const saved=window.localStorage.getItem("hospeda-leads-visible-columns");
+      const saved=window.localStorage.getItem(`hospeda-${entity}-visible-columns-v2`);
       const parsed=saved?JSON.parse(saved):null;
-      const base=Array.isArray(parsed)&&parsed.length?parsed:DEFAULT_COLUMNS;
-      let next=[...base];
-      let changed=false;
-      const assignedMigration="hospeda-leads-assigned-user-column-after-name-v1";
-      if(window.localStorage.getItem(assignedMigration)!=="1"){
-        next=next.filter((key:string)=>key!=="assignedUserEmail");
-        const leadIndex=next.indexOf("nombre");
-        next.splice(leadIndex>=0?leadIndex+1:0,0,"assignedUserEmail");
-        window.localStorage.setItem(assignedMigration,"1");
-        changed=true;
-      }
-      const legacyResponsibleIndex=next.indexOf("asignadoA");
-      if(legacyResponsibleIndex>=0){
-        next.splice(legacyResponsibleIndex,1);
-        if(!next.includes("assignedUserEmail"))next.splice(legacyResponsibleIndex,0,"assignedUserEmail");
-        changed=true;
-      }
-      const profileMigration="hospeda-leads-commercial-profile-column-v1";
-      if(window.localStorage.getItem(profileMigration)!=="1"){
-        next=next.filter((key:string)=>key!=="commercialProfile");
-        const subtypeIndex=next.indexOf("subtipo");
-        next.splice(subtypeIndex>=0?subtypeIndex+1:Math.min(6,next.length),0,"commercialProfile");
-        window.localStorage.setItem(profileMigration,"1");
-        changed=true;
-      }
-      if(changed)window.localStorage.setItem("hospeda-leads-visible-columns",JSON.stringify(next));
-      return next;
+      return Array.isArray(parsed)&&parsed.length?parsed:DEFAULT_COLUMNS;
     }catch{return DEFAULT_COLUMNS}
   });
 
   useEffect(()=>{
-    window.localStorage.setItem("hospeda-leads-visible-columns",JSON.stringify(visibleColumns));
-  },[visibleColumns]);
+    window.localStorage.setItem(`hospeda-${entity}-visible-columns-v2`,JSON.stringify(visibleColumns));
+  },[visibleColumns,entity]);
   useEffect(()=>{
     window.localStorage.setItem("hospeda-leads-column-widths",JSON.stringify(columnWidths));
   },[columnWidths]);
   useEffect(()=>{
-    try{window.localStorage.setItem(TABLE_QUERY_STORAGE_KEY,query)}
+    try{window.localStorage.setItem(TABLE_QUERY_STORAGE_KEY+"-"+entity,query)}
     catch{}
   },[query]);
   useEffect(()=>{
-    try{window.localStorage.setItem(TABLE_FILTERS_STORAGE_KEY,JSON.stringify(appliedFilterGroups))}
+    try{window.localStorage.setItem(TABLE_FILTERS_STORAGE_KEY+"-"+entity,JSON.stringify(appliedFilterGroups))}
     catch{}
   },[appliedFilterGroups]);
   useEffect(()=>{
-    try{window.localStorage.setItem(TABLE_SORT_STORAGE_KEY,JSON.stringify({sortBy,sortDir}))}
+    try{window.localStorage.setItem(TABLE_SORT_STORAGE_KEY+"-"+entity,JSON.stringify({sortBy,sortDir}))}
     catch{}
   },[sortBy,sortDir]);
   useEffect(()=>{
@@ -373,7 +352,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const settingsQ=useQuery({queryKey:["settings"],queryFn:getSettings});
   const savedViewsQ=useQuery({queryKey:["saved-views",currentUser?.id],queryFn:getSavedLeadViews,enabled:!!currentUser});
   const leadsQ=useQuery({
-    queryKey:[...QUERY_KEY,entity,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page],
+    queryKey:[...QUERY_KEY,entity,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page,pipelineView,classification,activeQuick],
     queryFn:()=>getLeads({
       entity,
       q:debouncedQuery.trim()||undefined,
@@ -396,7 +375,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       notesMode:notesFilter.mode==="none"?undefined:notesFilter.mode,
       notesText:notesFilter.value||undefined,
       nextAction:nextAction==="_all"?undefined:nextAction,
-      sortBy,sortDir,page,pageSize:50
+      classification,contactPresence:activeQuick==='contacted'||activeQuick==='noContact'?activeQuick:undefined,sortBy,sortDir,page,inactiveDays:activeQuick==='inactive30'?30:undefined,pageSize:50,view:pipelineView?"board":"table"
     }),
     placeholderData:(previous)=>previous
   });
@@ -425,7 +404,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
   useEffect(()=>{
     if(!savedViewsQ.data)return;
-    setSavedViews(savedViewsQ.data.views.map(({name,config})=>({name,...(config as any)})));
+    setSavedViews(savedViewsQ.data.views.filter(({config})=>!(config as any).entity||(config as any).entity===entity).map(({name,config})=>({name,...(config as any)})));
   },[savedViewsQ.data]);
 
   const leads=leadsQ.data?.rows??[];
@@ -522,6 +501,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const hasIdFilter=!!(idFilter.exact||idFilter.min||idFilter.max);
   const hasAnyFilters=hasSmartFilters||hasTextFilters||hasDateFilters||hasIdFilter||recurrentFilter!=="all"||notesFilter.mode!=="none"||nextAction!=="_all";
   const resetInlineFilters=()=>{
+    setClassification(undefined);
     setCityFilter(emptySmartFilter());setStatusFilter(emptySmartFilter());setTypeFilter(emptySmartFilter());
     setSubtypeFilter(emptySmartFilter());setCommercialProfileFilter(emptySmartFilter());setPriorityFilter(emptySmartFilter());
     setAssignedUserFilter(emptySmartFilter());setSubscriptionFilter(emptySmartFilter());setOriginFilter(emptySmartFilter());
@@ -550,22 +530,21 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     setQuery("");
     setActiveQuick(kind);
     let groups:AdvancedFilterGroup[]=[];
-    if(kind==="pending")groups=[{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(["pending","today","overdue","myToday","inactive30"].includes(kind))setClassification("open");
     if(kind==="subscribed")groups=[{rules:[{field:"estado",operator:"eq",value:"Suscripto"}]}];
-    if(kind==="today")groups=[{rules:[{field:"fechaProximaAccion",operator:"on",value:today}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
-    if(kind==="overdue")groups=[{rules:[{field:"fechaProximaAccion",operator:"before",value:today}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+    if(kind==="today")groups=[{rules:[{field:"fechaProximaAccion",operator:"on",value:today}]}];
+    if(kind==="overdue")groups=[{rules:[{field:"fechaProximaAccion",operator:"before",value:today}]}];
     if(kind==="mine"&&currentUser)groups=[{rules:[{field:"assignedUserEmail",operator:"eq",value:currentUser.email}]}];
     if(kind==="myToday"&&currentUser)groups=[
       {rules:[{field:"assignedUserEmail",operator:"eq",value:currentUser.email}]},
       {rules:[{field:"fechaProximaAccion",operator:"between",value:"2000-01-01",value2:today}]},
-      {rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}
     ];
     if(kind==="unassigned")groups=[{rules:[{field:"assignedUserEmail",operator:"empty"}]}];
-    if(kind==="noContact")groups=[{rules:[{field:"fechaUltimoContacto",operator:"empty"}]}];
-    if(kind==="contacted")groups=[{rules:[{field:"fechaUltimoContacto",operator:"not_empty"}]}];
+    if(kind==="noContact")groups=[];
+    if(kind==="contacted")groups=[];
     if(kind==="inactive30"){
       const d=new Date();d.setDate(d.getDate()-30);
-      groups=[{rules:[{field:"updatedAt",operator:"before",value:dateInput(d)}]},{rules:[{field:"estado",operator:"neq",value:"Suscripto"}]}];
+      groups=[];
     }
     if(kind==="new7"){
       const d=new Date();d.setDate(d.getDate()-7);
@@ -576,6 +555,9 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       const [field,raw]=value.split("::");
       if(field&&raw)groups=[{rules:[{field:field as any,operator:"eq",value:raw}]}];
     }
+    const cohortFrom=urlParams.get('cohortFrom'),cohortTo=urlParams.get('cohortTo');
+    if(cohortFrom||cohortTo)groups.push({rules:[{field:'fechaCreacion',operator:cohortFrom&&cohortTo?'between':cohortFrom?'after':'before',value:cohortFrom||cohortTo||'',...(cohortFrom&&cohortTo?{value2:cohortTo}:{})}]});
+    for(const [param,field] of [['cohortOwner','assignedUserEmail'],['cohortType','tipo'],['cohortCity','ciudad']] as const){const v=urlParams.get(param);if(v)groups.push({rules:[{field,operator:'eq',value:v}]})}
     setAppliedFilterGroups(groups);setPage(1);
   };
   useEffect(()=>{
@@ -590,8 +572,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     const leadId=urlParams.get("leadId");
     if(!leadId||!leads.length)return;
     const target=leads.find(item=>String(item.id)===leadId);
-    if(target&&urlParams.get("contact")==="whatsapp"){setContactLead(target);setContactChannel("whatsapp");setContactOpen(true);setUrlParams({}, {replace:true});return;}
-    if(target){setSelectedLead(target);setLastTouchedId(leadId);setViewOpen(true);setUrlParams({}, {replace:true})}
+    if(target&&["whatsapp","email"].includes(urlParams.get("contact")??"")){setContactLead(target);setContactChannel(urlParams.get("contact") as "whatsapp"|"email");setContactOpen(true);setUrlParams({}, {replace:true});return;}
+    if(target&&urlParams.get("edit")==="true"){editLead(target);setUrlParams({}, {replace:true});return}if(target&&urlParams.get("delete")==="true"){requestDelete(target.id,target.nombre);setUrlParams({}, {replace:true});return}if(target){navigate("/sales/"+leadId,{replace:true})}
   },[leads,urlParams]);
 
   const saveCurrentView=()=>{
@@ -601,16 +583,16 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,
       textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction
     };
-    const view={name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline};
+    const view={name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline,classification};
     const next=[...savedViews.filter(item=>item.name!==name),view];
     setSavedViews(next);
-    void savedViewM.mutateAsync({action:"save",view:{name,config:{query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline}}})
+    void savedViewM.mutateAsync({action:"save",view:{name,config:{entity,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline,classification}}})
       .then(()=>toast.success("Vista guardada"))
       .catch(error=>{setSavedViews(savedViews);toast.error(error instanceof Error?error.message:"No se pudo guardar la vista")});
     setSavedViewName("");setSaveViewOpen(false);
   };
   const applySavedView=(view:(typeof savedViews)[number])=>{
-    resetInlineFilters();
+    resetInlineFilters();setClassification(view.classification);
     if(view.inline){
       setCityFilter(view.inline.cityFilter);setStatusFilter(view.inline.statusFilter);setTypeFilter(view.inline.typeFilter);
       setSubtypeFilter(view.inline.subtypeFilter);setCommercialProfileFilter(view.inline.commercialProfileFilter);
@@ -643,7 +625,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     fechaProximaAccion:dateInput(l.fechaProximaAccion),fuenteReferencia:l.fuenteReferencia,clientePotencialRecurrente:l.clientePotencialRecurrente,
     archivoAdjunto:l.archivoAdjunto,notas:null,creadoPor:l.creadoPor
   });setOpen(true)};
-  const openView=(l:any)=>{if(l.deletedAt){navigate("/trash");return}if(businessMode){navigate("/accounts/"+l.accountId);return}setLastTouchedId(String(l.id));setSelectedLead(l);setViewOpen(true)};
+  const openView=(l:any)=>{if(l.deletedAt){navigate("/trash");return}if(businessMode){navigate("/accounts/"+l.accountId);return}navigate("/sales/"+l.id)};
   const selectedIndex=selectedLead?leads.findIndex(lead=>String(lead.id)===String(selectedLead.id)):-1;
   const moveView=(offset:number)=>{
     const target=leads[selectedIndex+offset];if(target)openView(target);
@@ -749,7 +731,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const renderCell=(l:any,key:string)=>{
     if(l.deletedAt){if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>navigate("/trash")}><strong>{businessMode?l.nombre:l.opportunityName||l.nombre}</strong><small>En Papelera · Abrir para restaurar</small></button>;const value=l[key];return value instanceof Date?displayDate(value.toISOString()):value===true?"Sí":value===false?"No":str(value)||"—";}
     if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.commercialStatus==="client"?"Cliente comercial":"Prospecto"}</small><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"oportunidad":"oportunidades"}</small></button>;
-    if(businessMode&&!["id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
+    if(businessMode&&!["contactName","fechaProximaAccion","fechaUltimoContacto","id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
       const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayDate(v):v).join(" · ");
       return <button className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la oportunidad"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver oportunidades":"Agregar oportunidad"}</small></button>;
@@ -796,13 +778,13 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Oportunidades"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las ventas que estás gestionando.":"Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades."}</p></div>
-        <div className={styles.pageActions}><Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Nueva oportunidad"}</Button></div>
+        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Ventas"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las ventas que estás gestionando.":"Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades."}</p></div>
+        <div className={styles.pageActions}><Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Crear una venta"}</Button></div>
       </header>
 
       <section className={styles.commercialGuide} aria-label="Ayuda comercial">
       <CommercialHelp>
-      {businessMode&&<p>Con una oportunidad, podés editar su seguimiento desde esta tabla. Con varias, mostramos sus valores y podés abrir el negocio para elegir cuál modificar. Los filtros de seguimiento encuentran negocios con alguna oportunidad que cumpla las condiciones. Cliente comercial no acredita pago.</p>}
+      {businessMode&&<p>Abrí un negocio para ver su persona de contacto, el próximo paso y sus ventas. La próxima acción incluye las tareas generales del negocio.</p>}
       </CommercialHelp>
       </section>
       <section className={styles.metrics}>
@@ -811,7 +793,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>Para hoy</span></div></button>
         <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>Acciones vencidas</span></div></button>
         <button type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis pendientes hoy</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos históricos</span></div></button>
       </section>
 
       <section className={styles.quickViews}>
@@ -866,7 +848,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       </section>}
 
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} onClick={()=>setPipelineView(true)}>Pipeline</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} onClick={()=>setPipelineView(true)}>Ver por etapas</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las oportunidades. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
@@ -886,14 +868,14 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
             {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
             <td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>
-            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Enviar oportunidades del negocio a papelera":"Borrar"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></div>}</td>
+            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las ventas de este negocio":"Enviar venta a papelera"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></div>}</td>
           </tr>})}
         </tbody></table></div>}
         </div>
         <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
       </section>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={v=>v?setOpen(true):legacyGuard.requestClose()}>
         <DialogContent className={styles.leadEditDialog}>
           <div className={styles.editStickyHeader}>
             <div className={styles.editIdentityRow}>
@@ -921,7 +903,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <div className={styles.editActionBar}>
               {form.id&&<Button size="sm" variant="destructive" onClick={()=>requestDelete(form.id!,form.nombre)} disabled={deleteM.isPending||bulkDeleteM.isPending}><Trash2 size={15}/>Eliminar</Button>}
               <div className={styles.editActionSpacer}/>
-              <Button size="sm" variant="ghost" onClick={()=>setOpen(false)}><X size={15}/>Cancelar</Button>
+              <Button size="sm" variant="ghost" onClick={legacyGuard.requestClose}><X size={15}/>Cancelar</Button>
               {duplicateCandidates.length>0
                 ? <Button size="sm" variant="secondary" onClick={()=>saveLead(true)} disabled={saveM.isPending}>Guardar de todas formas</Button>
                 : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.opportunityName?.trim()}>{saveM.isPending?"Guardando…":"Guardar oportunidad"}</Button>}
@@ -1022,11 +1004,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <DialogFooter><Button variant="outline" onClick={()=>setSaveViewOpen(false)}>Cancelar</Button><Button onClick={saveCurrentView} disabled={!savedViewName.trim()}>Guardar vista</Button></DialogFooter>
       </DialogContent></Dialog>
       <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
+      {legacyGuard.confirmation}
       {businessEditor&&<CommercialEditor target={{kind:"account",item:businessEditor.item}} onClose={()=>setBusinessEditor(null)} onSaved={id=>navigate("/accounts/"+id)}/>}
       {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>setUrlParams({leadId:id})}/>}
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
-        <DialogHeader><DialogTitle>Enviar {selectedIds.size} {businessMode?"negocios":"oportunidades"} a la papelera</DialogTitle><DialogDescription>{businessMode?"Todas las oportunidades activas de los negocios seleccionados irán a Papelera, incluso las que no coincidan con el filtro actual.":"Los seleccionados dejarán de aparecer en la operación normal."}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Enviar {selectedIds.size} {businessMode?"grupos de ventas":"ventas"} a la papelera</DialogTitle><DialogDescription>{businessMode?"Todas las oportunidades activas de los negocios seleccionados irán a Papelera, incluso las que no coincidan con el filtro actual.":"Los seleccionados dejarán de aparecer en la operación normal."}</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán y podrán restaurarse desde Papelera.</span></div>
         <DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={bulkDeleteSelected} disabled={bulkDeleteM.isPending}>{bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>

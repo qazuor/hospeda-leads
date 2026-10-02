@@ -52,7 +52,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
     } catch (err) {
       console.error("Login error:", err);
       setError(
-        err instanceof Error ? err.message : "Login failed. Please try again."
+        err instanceof Error ? err.message : "No se pudo ingresar. Revisá los datos e intentá de nuevo."
       );
     } finally {
       setIsLoading(false);
@@ -85,7 +85,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
         </FormItem>
 
         <FormItem name="password">
-          <FormLabel>Password</FormLabel>
+          <FormLabel>Contraseña</FormLabel>
           <FormControl>
             <Input
               type="password"
@@ -112,10 +112,10 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
           {isLoading ? (
             <span className={styles.loadingText}>
               <Spinner className={styles.spinner} size="sm" />
-              Logging in...
+              Ingresando…
             </span>
           ) : (
-            "Log In"
+            "Ingresar"
           )}
         </Button>
       </form>

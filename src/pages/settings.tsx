@@ -1,3 +1,4 @@
+import {SequenceSettings} from "../components/SequenceSettings";
 import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
@@ -122,6 +123,7 @@ export default function SettingsPage(){
         </article>
       </section>}
 
+      {section==="communication"&&<SequenceSettings/>}
       {section==="classifications"&&<section className={styles.classificationsLayout}>
         <article className={styles.card}>
           <div className={styles.cardTitle}><MapPin/><div><h2>Ciudades</h2><p>Opciones disponibles al cargar y filtrar oportunidades.</p></div></div>
@@ -179,6 +181,7 @@ export default function SettingsPage(){
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
 
+      {section==="communication"&&<SequenceSettings/>}
       {section==="classifications"&&<><WorkTypesSettings/><PipelineSettings/></>}
 
       {section==="system"&&<section className={styles.grid}>

@@ -23,7 +23,7 @@ La rama activa de migración es `migration/floot-port`.
 
 ```bash
 cp .env.example .env
-npm install
+npm ci
 docker compose up -d postgres
 npm run dev
 ```
@@ -45,3 +45,9 @@ La primera versión conserva Kysely y el sistema de autenticación actual para r
 ## Deploy
 
 Producción recomendada: Coolify sobre el VPS de Hospeda. Ver [docs/COOLIFY_DEPLOY.md](docs/COOLIFY_DEPLOY.md).
+
+## Uso y validación de la experiencia
+
+- [Guía de uso para principiantes](docs/guia-de-uso.md) (también en `/guide`).
+- [Cambios, cobertura de la auditoría y validación](docs/usability-validation.md).
+- Prueba del recorrido completo: `CRM_TEST_DATABASE=1 npm run test:usability` sobre una base descartable con todas las migraciones aplicadas.
