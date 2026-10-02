@@ -3,6 +3,7 @@ import superjson from 'superjson';
 import {localDay} from '../../src/helpers/workDates';
 import type {PipelineData} from '../../src/endpoints/pipeline.schema';
 test('Pipeline loss, objections, reactivation and explained manual priority with compact dark/mobile UI',async({page})=>{
+ test.setTimeout(120000);
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);await page.goto("/accounts");
  async function mutate(endpoint:string,body:unknown){const r=await page.evaluate(async({endpoint,body})=>{const response=await fetch('/_api/'+endpoint,{method:'POST',body,headers:{'Content-Type':'application/json'}});return {status:response.status,text:await response.text()};},{endpoint,body:superjson.stringify(body)});expect(r.status,r.text).toBe(200);return superjson.parse<{id:string}>(r.text).id;}

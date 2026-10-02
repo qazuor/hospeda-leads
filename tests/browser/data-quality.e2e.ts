@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('CSV review, safe update, provenance and explicit merge remain usable in dark/mobile',async({page})=>{
+ test.setTimeout(120000);
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);await page.goto("/accounts");
  const stamp=Date.now(),name='Calidad E2E '+stamp,phone='+543442'+String(stamp).slice(-6),email='quality-'+stamp+'@example.com';

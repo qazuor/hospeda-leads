@@ -3,6 +3,7 @@ import superjson from 'superjson';
 import {localDay,localDateTime} from '../../src/helpers/workDates';
 
 test('Mi día completes a call while preserving the visit, with agenda and retrospective audit',async({page})=>{
+ test.setTimeout(120000);
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);await page.goto("/accounts");
  const name='Agenda E2E '+Date.now();

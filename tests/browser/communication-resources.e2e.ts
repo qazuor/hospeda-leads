@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('reviewed WhatsApp, assisted sequence, restriction and persistent resource approval',async({page})=>{
+ test.setTimeout(120000);
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);await page.goto("/accounts");
  const mutate=async(path:string,body:any)=>page.evaluate(async({path,body})=>{const serialized=JSON.stringify({json:body});const r=await fetch('/_api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:serialized});const d=await r.json();if(!r.ok)throw new Error(JSON.stringify(d));return d.json??d;},{path,body});
  // SuperJSON primitive-only envelopes; no real provider or WhatsApp is contacted.

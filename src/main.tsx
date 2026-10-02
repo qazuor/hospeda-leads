@@ -22,6 +22,11 @@ import TemplatesPage from "./pages/templates";
 import TrashPage from "./pages/trash";
 import "./base.css";
 
+function OpportunityEntry(){
+ const {search}=useLocation(),params=new URLSearchParams(search),id=params.get('leadId');
+ if(id&&/^\d+$/.test(id)&&!params.has('edit')&&!params.has('delete'))return <Navigate to={'/sales/'+id+(params.has('contact')?'?contact='+params.get('contact'):'')} replace/>;
+ return <LeadsPage key="opportunity"/>;
+}
 function HomeEntry(){
   const {search}=useLocation();
   const legacyLead=new URLSearchParams(search).has("leadId");
@@ -41,7 +46,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
           <Route path="/sales/:leadId" element={<UserRoute><SalePage/></UserRoute>} />
-          <Route path="/opportunities" element={<UserRoute><LeadsPage key="opportunity" /></UserRoute>} />
+          <Route path="/opportunities" element={<UserRoute><OpportunityEntry/></UserRoute>} />
           <Route path="/accounts" element={<UserRoute><LeadsPage key="business" businessMode /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
           <Route path="/my-day" element={<UserRoute><MyDayPage key="day"/></UserRoute>} />

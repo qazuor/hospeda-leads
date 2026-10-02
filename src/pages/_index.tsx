@@ -348,6 +348,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     if(filter.presence==="all"&&!filter.from&&!filter.to)return [];
     return [{field,presence:filter.presence,from:filter.from||undefined,to:filter.to||undefined}];
   });
+  const legacyId=urlParams.get("leadId");
+  const legacyLeadQ=useQuery({queryKey:["leads","legacy-action",legacyId],queryFn:()=>getLeads({entity:"opportunity",idExact:legacyId!,pageSize:10}),enabled:!!legacyId});
   const businessDetailQ=useQuery({queryKey:["commercial-detail","",String(form.id??"")],queryFn:()=>getCommercialDetail(undefined,String(form.id)),enabled:open&&!!form.id});
   const settingsQ=useQuery({queryKey:["settings"],queryFn:getSettings});
   const savedViewsQ=useQuery({queryKey:["saved-views",currentUser?.id],queryFn:getSavedLeadViews,enabled:!!currentUser});
@@ -566,15 +568,15 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     const leadId=urlParams.get("leadId");
     if(quickParam)applyQuickView(quickParam);
     else if(field&&value)applyQuickView("field",field+"::"+value);
-    else if(leadId){resetInlineFilters();setQuery("");setAppliedFilterGroups([{rules:[{field:"id",operator:"eq",value:leadId}]}]);setPage(1)}
+
   },[urlParams]);
   useEffect(()=>{
     const leadId=urlParams.get("leadId");
-    if(!leadId||!leads.length)return;
-    const target=leads.find(item=>String(item.id)===leadId);
+    if(!leadId)return;
+    const target=legacyLeadQ.data?.rows.find(item=>String(item.id)===leadId);
     if(target&&["whatsapp","email"].includes(urlParams.get("contact")??"")){setContactLead(target);setContactChannel(urlParams.get("contact") as "whatsapp"|"email");setContactOpen(true);setUrlParams({}, {replace:true});return;}
     if(target&&urlParams.get("edit")==="true"){editLead(target);setUrlParams({}, {replace:true});return}if(target&&urlParams.get("delete")==="true"){requestDelete(target.id,target.nombre);setUrlParams({}, {replace:true});return}if(target){navigate("/sales/"+leadId,{replace:true})}
-  },[leads,urlParams]);
+  },[legacyLeadQ.data,urlParams]);
 
   const saveCurrentView=()=>{
     const name=savedViewName.trim();if(!name||!currentUser)return;
@@ -1006,7 +1008,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
       {legacyGuard.confirmation}
       {businessEditor&&<CommercialEditor target={{kind:"account",item:businessEditor.item}} onClose={()=>setBusinessEditor(null)} onSaved={id=>navigate("/accounts/"+id)}/>}
-      {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>setUrlParams({leadId:id})}/>}
+      {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>navigate("/sales/"+id)}/>}
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Enviar {selectedIds.size} {businessMode?"grupos de ventas":"ventas"} a la papelera</DialogTitle><DialogDescription>{businessMode?"Todas las oportunidades activas de los negocios seleccionados irán a Papelera, incluso las que no coincidan con el filtro actual.":"Los seleccionados dejarán de aparecer en la operación normal."}</DialogDescription></DialogHeader>
