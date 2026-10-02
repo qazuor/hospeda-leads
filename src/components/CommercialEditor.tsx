@@ -38,6 +38,7 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
   const [baseline]=useState(()=>JSON.stringify({draft,primary}));
   const guard=useUnsavedChanges(JSON.stringify({draft,primary})!==baseline,onClose);
   const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async result=>{
+    await qc.cancelQueries({queryKey:["leads"]});
     await Promise.all(["commercial","commercial-detail","leads","lead-stats","lead-journal","global-journal","analytics"].map(key=>qc.invalidateQueries({queryKey:[key],refetchType:"all"})));
     onSaved?.(result.id);onClose();
   }});
