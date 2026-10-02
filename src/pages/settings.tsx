@@ -123,7 +123,6 @@ export default function SettingsPage(){
         </article>
       </section>}
 
-      {section==="communication"&&<SequenceSettings/>}
       {section==="classifications"&&<section className={styles.classificationsLayout}>
         <article className={styles.card}>
           <div className={styles.cardTitle}><MapPin/><div><h2>Ciudades</h2><p>Opciones disponibles al cargar y filtrar oportunidades.</p></div></div>

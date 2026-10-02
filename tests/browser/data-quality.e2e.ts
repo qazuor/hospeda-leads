@@ -4,7 +4,7 @@ test('CSV review, safe update, provenance and explicit merge remain usable in da
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);await page.goto("/accounts");
  const stamp=Date.now(),name='Calidad E2E '+stamp,phone='+543442'+String(stamp).slice(-6),email='quality-'+stamp+'@example.com';
- await page.getByRole('button',{name:'Importar CSV',exact:true}).click();
+ await page.getByText('Herramientas adicionales',{exact:true}).click();await page.getByRole('button',{name:'Importar CSV',exact:true}).click();
  const dialog=page.getByRole('dialog');
  await dialog.locator('input[type=file]').setInputFiles({name:'quality.csv',mimeType:'text/csv',buffer:Buffer.from(`nombre,ciudad,telefono,email\n${name},Colón,${phone},${email}\n${name},Colón,${phone},${email}\nInválido,Colón,123,bad\n`)});
  await dialog.getByLabel('Fuente',{exact:true}).fill('CSV navegador');

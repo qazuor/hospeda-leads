@@ -1,3 +1,4 @@
+import {useUnsavedChanges} from './UnsavedChanges';
 import {DocumentPreviewDialog,canPreviewDocument} from './DocumentPreviewDialog';
 import {LibraryResourceSelect} from './LibraryResourceSelect';
 import {calendarDay} from '../helpers/workDates';
@@ -16,6 +17,7 @@ export function ResourcesPanel({accountId,leadId,activityId,manageLibrary=false}
  const scopeAccount=accountId||targetAccount;
  const contextQ=useQuery({queryKey:['commercial-detail',scopeAccount??'',''],queryFn:()=>getCommercialDetail(scopeAccount),enabled:!!scopeAccount});
  const workQ=useQuery({queryKey:['work','resource-context',scopeAccount],queryFn:()=>getWork({accountId:scopeAccount,mode:'detail',responsible:admin?'all':undefined}),enabled:!!scopeAccount});
+ const draftGuard=useUnsavedChanges(!!title.trim()||!!url.trim()||!!file,()=>{});
  const m=useMutation({mutationFn:postResource,onSuccess:()=>{void qc.invalidateQueries({queryKey:['resources']});setVersionTarget(null);setTitle('');setUrl('');setFile(null);setError('');setLinkDoc('')}});
  async function submit(){try{setError('');let fileData:string|undefined;if(file){if(file.size>(q.data?.maxDocumentBytes??2097152))throw new Error('Archivo demasiado grande');fileData=await new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=reject;r.readAsDataURL(file);});}const version={...(file?{fileData,fileName:file.name,mimeType:file.type as any}:{url}),expiresOn:expires||null};if(versionTarget)m.mutate({action:'version',...versionTarget,version});else m.mutate({action:'create',id:crypto.randomUUID(),title,type,accountId:accountId??null,leadId:leadId||contextLead||null,activityId:activityId||contextActivity||null,library:!accountId,categoryId:category||null,version});}catch(e){setError(e instanceof Error?e.message:'Archivo inválido')}}
  const vLink=(v:ResourceVersion)=><span className={styles.documentLinks}><a href={'/_api/resources/download?versionId='+v.id} target="_blank" rel="noopener noreferrer">{v.url?'Abrir vínculo':'Descargar '+v.fileName} · v{v.version}</a>{canPreviewDocument(v)&&<Button size="sm" variant="outline" onClick={()=>setPreviewVersion(v)} aria-label={'Previsualizar '+v.fileName+' · v'+v.version}>Previsualizar</Button>}</span>;
@@ -34,6 +36,7 @@ export function ResourcesPanel({accountId,leadId,activityId,manageLibrary=false}
  <details><summary>Versiones anteriores ({d.versions.length-1})</summary>{d.versions.slice(1).map(v=><p key={v.id}>{vLink(v)} · {v.actorEmail} · {new Date(v.createdAt).toLocaleString('es-AR')}</p>)}</details></article>})}
  {admin&&manageLibrary&&<details><summary>Configurar categorías</summary><div className={styles.panel}><label>Nombre de categoría<input value={categoryName} onChange={e=>setCategoryName(e.target.value)}/></label><Button disabled={categoryName.trim().length<2||m.isPending} onClick={()=>m.mutate({action:'category',name:categoryName,active:true})}>Agregar categoría</Button>{q.data.categories.map(c=><p key={c.id}>{c.name} <Button size="sm" variant="ghost" onClick={()=>m.mutate({action:'category',id:c.id,name:c.name,active:!c.active})}>{c.active?'Desactivar':'Activar'}</Button></p>)}</div></details>}
  {(error||m.error)&&<p role="alert">{error||m.error?.message}</p>}
+ {draftGuard.confirmation}
  {previewVersion&&<DocumentPreviewDialog version={previewVersion} onClose={()=>setPreviewVersion(null)}/>}
  </section>;
 }

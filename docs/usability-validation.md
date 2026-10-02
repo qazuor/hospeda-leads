@@ -27,9 +27,11 @@ Esta entrega implementa la reorganización de navegación, ficha de negocio y ve
 | Cambios y borradores perdidos | Guardas en formularios, cierre del mensaje, cambio de sección y recarga. Reutilización de borradores guardados equivalentes y cancelación explícita de borradores manuales. |
 | Cierre fragmentado | Venta ganada + cliente opcional + tarea general de acompañamiento en una transacción; otras ventas conservadas. |
 | Estados históricos ambiguos | Vista previa de cantidades y clasificación en Configuración. Revisión por caso, sin migración silenciosa ni pagos/cierres inventados. |
-| Tablas excesivas | Cinco columnas por defecto, preferencias y búsquedas separadas por negocio/venta, filtros avanzados disponibles. |
+| Tablas excesivas | Alta como acción principal; importación y duplicados en Herramientas adicionales. Cinco columnas por defecto, preferencias y búsquedas separadas por negocio/venta, filtros avanzados disponibles. |
 | Lectura y manejo difíciles | Controles principales de 44 px, tipografía ampliada, contraste de acciones, foco visible, ajuste para móvil, movimiento reducido. |
 | Documentación inexistente para principiantes | `/guide` y `docs/guia-de-uso.md`, ejemplo completo hasta acompañamiento y segunda venta. |
+| Carga inicial pesada | Pantallas cargadas bajo demanda; mensaje visible al abrir una pantalla. |
+| Actualizar cambia un modo sin avisar | Actualizar carga los datos ahora; actualización automática configurable en un menú separado. |
 | Instalación poco reproducible | Lockfile y `npm ci` en README, Docker y CI. |
 
 ## Pruebas

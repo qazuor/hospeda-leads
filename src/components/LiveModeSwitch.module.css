@@ -1,1 +1,2 @@
 .button{display:flex!important;align-items:center;gap:6px!important;position:relative}.indicator{width:7px;height:7px;border-radius:999px;flex:none}.on{background:var(--success);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 14%,transparent)}.off{background:var(--muted-foreground);opacity:.55}.error{background:var(--warning);box-shadow:0 0 0 3px color-mix(in srgb,var(--warning) 16%,transparent)}.label{font-size:11px;font-weight:650}@media(max-width:720px){.label{display:none}}
+.controls{display:flex;align-items:center;gap:0}

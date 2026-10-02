@@ -10,6 +10,10 @@ Esta guía también está disponible dentro de la aplicación, en **Más opcione
 - Una **tarea** es algo pendiente, con fecha. Una **actividad** registra algo que ya ocurrió.
 - El **responsable** es la persona del equipo encargada de esa relación, venta o tarea. Pueden ser personas distintas.
 
+## Si la pantalla parece desactualizada
+
+Elegí **Actualizar** para cargar los datos actuales. En la flecha que está al lado podés activar **Actualizar automáticamente** para ver cambios del equipo sin recargar la página. Esto no guarda formularios ni envía mensajes.
+
 ## Ejemplo completo: Cabañas Camino Claro
 
 ### 1. Crear el negocio

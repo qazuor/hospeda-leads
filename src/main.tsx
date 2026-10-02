@@ -1,25 +1,26 @@
 import {UnsavedNavigation} from './components/UnsavedChanges';
-import SalePage from './pages/sale';
-import ArchivedPage from './pages/archived';
-import GuidePage from './pages/guide';
-import LibraryPage from './pages/library';
-import PasswordRecoveryPage from "./pages/password-recovery";
-import ReactivationPage from "./pages/reactivation";
+const SalePage=React.lazy(()=>import('./pages/sale'));
+const ArchivedPage=React.lazy(()=>import('./pages/archived'));
+const GuidePage=React.lazy(()=>import('./pages/guide'));
+const LibraryPage=React.lazy(()=>import('./pages/library'));
+const PasswordRecoveryPage=React.lazy(()=>import("./pages/password-recovery"));
+const ReactivationPage=React.lazy(()=>import("./pages/reactivation"));
 import React from "react";
+import {AppHeader} from "./components/AppHeader";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
 import { AdminRoute, UserRoute } from "./components/ProtectedRoute";
-import MyDayPage from "./pages/my-day";
-import AccountsPage from "./pages/accounts";
-import LeadsPage from "./pages/_index";
-import AnalyticsPage from "./pages/analytics";
-import HistoryPage from "./pages/history";
-import LoginPage from "./pages/login";
-import RegisterPage from "./pages/register";
-import SettingsPage from "./pages/settings";
-import TemplatesPage from "./pages/templates";
-import TrashPage from "./pages/trash";
+const MyDayPage=React.lazy(()=>import("./pages/my-day"));
+const AccountsPage=React.lazy(()=>import("./pages/accounts"));
+const LeadsPage=React.lazy(()=>import("./pages/_index"));
+const AnalyticsPage=React.lazy(()=>import("./pages/analytics"));
+const HistoryPage=React.lazy(()=>import("./pages/history"));
+const LoginPage=React.lazy(()=>import("./pages/login"));
+const RegisterPage=React.lazy(()=>import("./pages/register"));
+const SettingsPage=React.lazy(()=>import("./pages/settings"));
+const TemplatesPage=React.lazy(()=>import("./pages/templates"));
+const TrashPage=React.lazy(()=>import("./pages/trash"));
 import "./base.css";
 
 function OpportunityEntry(){
@@ -39,6 +40,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <GlobalContextProviders>
         <UnsavedNavigation/>
+        <React.Suspense fallback={<><AppHeader/><main style={{padding:24}} role="status">Abriendo pantalla…</main></>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
@@ -62,6 +64,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </React.Suspense>
       </GlobalContextProviders>
     </BrowserRouter>
   </React.StrictMode>,
