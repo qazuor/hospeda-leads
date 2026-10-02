@@ -3,7 +3,7 @@
 .grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem;}
 .grid label,.field {display:flex;flex-direction:column;gap:.35rem;font-size:.875rem;}
 .select {width:100%;background:var(--surface);color:var(--foreground);border:1px solid var(--border);padding:.5rem;border-radius:.4rem;}
-.row {border:1px solid var(--border);border-radius:.5rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;}
+.row {overflow-wrap:anywhere;border:1px solid var(--border);border-radius:.5rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;}
 .heading,.actions {display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;}
 .muted {color:var(--muted-foreground);font-size:.85rem;}
 .error {color:var(--error);white-space:pre-wrap;}
