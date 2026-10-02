@@ -30,12 +30,13 @@ import styles from "./RichTemplateEditor.module.css";
 const VARIABLES=["sender","sender_short","name","contact","contact_name","city","type","subtype","phone","email","website"];
 
 export const RichTemplateEditor=({
-  value,onChange,channel,showVariables=true
+  value,onChange,channel,showVariables=true,ariaLabel='Contenido del template'
 }:{
   value:string;
   onChange:(html:string)=>void;
   channel:"whatsapp"|"email";
   showVariables?:boolean;
+  ariaLabel?:string;
 })=>{
   const [emojiGroup,setEmojiGroup]=useState(WHATSAPP_EMOJI_GROUPS[0].key);
   const extensions=useMemo(()=>{
@@ -61,7 +62,7 @@ export const RichTemplateEditor=({
     extensions,
     content:normalizeTemplateHtml(value),
     immediatelyRender:false,
-    editorProps:{attributes:{class:styles.editor}},
+    editorProps:{attributes:{class:styles.editor,role:'textbox','aria-label':ariaLabel,'aria-multiline':'true'}},
     onUpdate:({editor})=>onChange(editor.getHTML())
   },[channel]);
 
