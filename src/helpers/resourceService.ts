@@ -4,6 +4,7 @@ import {communicationConfig,CommunicationForbidden,CommunicationConflict} from '
 import type {ResourceMutation,ResourceDocument} from '../endpoints/resources.schema';
 type E=Kysely<DB>|Transaction<DB>;
 export async function documentFor(e:E,id:string,user:User,write=false){const d=(await sql<ResourceDocument>`SELECT * FROM crm_documents WHERE id=${id}::uuid AND deleted_at IS NULL`.execute(e)).rows[0];if(!d)throw new Error('Documento inexistente');
+ if(write&&d.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin administra la biblioteca');
  if(user.role==='admin'||d.ownerEmail===user.email)return d;
  const account=d.accountId?await e.selectFrom('crmAccounts').selectAll().where('id','=',d.accountId).executeTakeFirst():null;
  const lead=d.leadId?await e.selectFrom('leads').selectAll().where('id','=',d.leadId).executeTakeFirst():null;
@@ -28,6 +29,8 @@ export async function mutateResource(db:Kysely<DB>,input:ResourceMutation,user:U
  await setWorkActor(e,user);await sql`LOCK TABLE crm_accounts,leads,crm_documents IN SHARE ROW EXCLUSIVE MODE`.execute(e);
  if(input.action==='category'){if(user.role!=='admin')throw new CommunicationForbidden('Solo admin configura categorías');if(input.id)await sql`UPDATE crm_document_categories SET name=${input.name},active=${input.active} WHERE id=${input.id}`.execute(e);else await sql`INSERT INTO crm_document_categories(name,active) VALUES(${input.name},${input.active})`.execute(e);return {ok:true};}
  if(input.action==='create'){
+  if(input.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin carga recursos en la biblioteca');
+  if(!input.library&&!input.accountId)throw new Error('Seleccioná un negocio para el documento');
   const existing=(await sql`SELECT id FROM crm_documents WHERE id=${input.id}::uuid`.execute(e)).rows[0];if(existing){await documentFor(e,input.id,user,true);return {id:input.id};}
   await validateContext(e,user,input.accountId,input.leadId,input.activityId);
   if(input.categoryId&&!(await sql`SELECT id FROM crm_document_categories WHERE id=${input.categoryId} AND active`.execute(e)).rows.length)throw new Error('Categoría inactiva');
