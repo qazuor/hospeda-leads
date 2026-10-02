@@ -10,7 +10,7 @@ export const resourceMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('link'),id:uuid,accountId:id,leadId:id.nullable(),activityId:id.nullable()})
 ]);
 export type ResourceMutation=z.infer<typeof resourceMutation>;
-export type ResourceVersion={id:string;documentId:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;expiresOn:string|null;actorEmail:string;createdAt:Date};
+export type ResourceVersion={id:string;documentId:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;expiresOn:Date|string|null;actorEmail:string;createdAt:Date};
 export type ResourceDocument={id:string;title:string;type:string;ownerEmail:string;accountId:string|null;leadId:string|null;activityId:string|null;library:boolean;categoryId:string|null;status:string;approvedBy:string|null;approvedAt:Date|null;deletedAt:Date|null;createdAt:Date;updatedAt:Date;versions:ResourceVersion[]};
 export type ResourcesDetail={documents:ResourceDocument[];categories:{id:string;name:string;active:boolean}[];maxDocumentBytes:number};
 export async function getResources(accountId?:string,search=''):Promise<ResourcesDetail>{const r=await fetch('/_api/resources?'+new URLSearchParams({...(accountId?{accountId}:{}),search}));const d=superjson.parse<any>(await r.text());if(!r.ok)throw new Error(d.error);return d;}
