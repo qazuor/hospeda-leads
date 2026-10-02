@@ -67,7 +67,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   if(input.event!=='manual_sent'&&['draft','cancelled'].includes(m.status))throw new Error('El mensaje todavía no fue utilizado');
   if(input.event==='manual_sent')await assertContactAllowed(e,m.leadId!,m.contactId,m.channel);
   const status=input.event==='replied'?'replied':input.event==='rejected'?'rejected':'manual_sent';
-  await sql`UPDATE crm_messages SET status=${status},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+  await sql`UPDATE crm_messages SET status=${status},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
   const aid=await activity(e,m,user,input.event==='replied'?'Respuesta registrada manualmente':input.event==='rejected'?'Rechazo registrado manualmente':'Envío confirmado manualmente');
   await e.updateTable('crmActivities').set({typeId:'message',notes:input.notes,updatedAt:new Date()}).where('id','=',aid).execute();
   if(input.event!=='manual_sent')await sql`SELECT crm_stop_sequences(${m.leadId}::bigint,${input.event==='replied'?'Respuesta registrada':'Rechazo registrado'})`.execute(e);
@@ -131,13 +131,13 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
   if(m.runId){if((await sql`SELECT id FROM crm_messages WHERE run_id=${m.runId}::uuid AND step_index<${m.stepIndex} AND status NOT IN ('manual_sent','accepted','delivery_confirmed')`.execute(e)).rows.length)throw new Error('Completá los pasos anteriores antes de continuar');const r=(await sql<{status:string}>`SELECT status FROM crm_sequence_runs WHERE id=${m.runId}::uuid`.execute(e)).rows[0];if(r?.status!=='active')throw new CommunicationForbidden('La secuencia está pausada o detenida');const task=await e.selectFrom('crmTasks').selectAll().where('id','=',m.taskId!).executeTakeFirstOrThrow();const today=(await sql<{day:string}>`SELECT to_char((now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date,'YYYY-MM-DD') AS day`.execute(e)).rows[0].day;if(task.deletedAt||task.status!=='pending')throw new CommunicationConflict('La tarea del paso ya no está pendiente');if(calendarDay(task.dueDate)>today||(task.dueAt&&new Date(task.dueAt)>new Date()))throw new Error('El paso todavía está en espera');}
   if(m.channel==='whatsapp'){
    const normalized=normalizeField('telefono',m.recipient);const phone=normalized.normalized?.replace(/\D/g,'')??'';if(normalized.validity!=='valid'||phone.length<10||phone.length>15)throw new Error('Revisá el teléfono con código de país');
-   await sql`UPDATE crm_messages SET status='whatsapp_opened',revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'WhatsApp abierto · envío no confirmado');return {message:{...m,status:'whatsapp_opened'},replay:false};
+   await sql`UPDATE crm_messages SET status='whatsapp_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'WhatsApp abierto · envío no confirmado');return {message:{...m,status:'whatsapp_opened'},replay:false};
   }
   if(!process.env.BREVO_API_KEY)throw new Error('BREVO_API_KEY no configurada');
   const settings=await e.selectFrom('appSettings').selectAll().where('key','in',['brevo_sender_name','brevo_sender_email','brevo_reply_to_email']).execute();const cfg=Object.fromEntries(settings.map(s=>[s.key,s.value]));const su=await e.selectFrom('users').select('senderEmail').where('id','=',user.id).executeTakeFirstOrThrow();const senderEmail=su.senderEmail?.trim()||cfg.brevo_sender_email;if(!senderEmail)throw new Error('Remitente Brevo no configurado');
   const out=await e.insertInto('emailOutbox').values({leadId:m.leadId,templateId:m.templateSnapshot?.id??null,recipientEmail:m.recipient,recipientName:m.recipientName||null,senderEmail,senderName:su.senderEmail?user.displayName:cfg.brevo_sender_name||'Hospeda',replyToEmail:su.senderEmail||cfg.brevo_reply_to_email||null,subject:m.subject,htmlBody:m.htmlBody!,textBody:m.textBody!,status:'submitting',attempts:1,requestedByUserId:user.id,requestedByEmail:user.email,requestedByName:user.displayName}).returningAll().executeTakeFirstOrThrow();
   await sql`UPDATE email_outbox SET request_key=${m.id}::uuid WHERE id=${out.id}`.execute(e);
-  await sql`UPDATE crm_messages SET status='submitting',outbox_id=${out.id},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+  await sql`UPDATE crm_messages SET status='submitting',outbox_id=${out.id},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
   return {message:{...m,outboxId:out.id},outbox:out,replay:false};
  });
  const m=claimed.message;

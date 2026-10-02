@@ -29,7 +29,7 @@ CREATE TABLE crm_messages (
  template_snapshot jsonb, owner_email text NOT NULL, activity_id bigint REFERENCES crm_activities(id),
  outbox_id bigint UNIQUE REFERENCES email_outbox(id), run_id uuid REFERENCES crm_sequence_runs(id), step_index integer,
  task_id bigint REFERENCES crm_tasks(id), status text NOT NULL DEFAULT 'draft',
- revision integer NOT NULL DEFAULT 1, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+ revision integer NOT NULL DEFAULT 1, last_interaction_at timestamptz, last_actor_email text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE(run_id,step_index),
  CHECK(status IN ('draft','whatsapp_opened','manual_sent','submitting','accepted','delivery_confirmed','failed','unknown','replied','rejected','cancelled'))
 );
