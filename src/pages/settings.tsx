@@ -1,3 +1,4 @@
+import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
 import React, { useEffect, useState } from "react";
@@ -16,8 +17,8 @@ import { getSettings, type SettingsUser } from "../endpoints/settings_GET.schema
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="users"|"classifications"|"communication"|"templates"|"system";
-const SECTIONS:Section[]=["users","classifications","communication","templates","system"];
+type Section="users"|"classifications"|"communication"|"templates"|"library"|"system";
+const SECTIONS:Section[]=["users","classifications","communication","templates","library","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -90,6 +91,7 @@ export default function SettingsPage(){
     {key:"classifications" as const,label:"Clasificaciones",icon:Tags},
     {key:"communication" as const,label:"Comunicación",icon:Mail},
     {key:"templates" as const,label:"Templates",icon:FileText},
+    {key:"library" as const,label:"Biblioteca",icon:FileText},
     {key:"system" as const,label:"Sistema",icon:SlidersHorizontal},
   ];
 
@@ -172,6 +174,8 @@ export default function SettingsPage(){
           <div className={styles.cardFooter}><Button onClick={saveEmailDelivery} disabled={save.isPending}>{save.isPending?"Guardando…":"Guardar configuración"}</Button></div>
         </article>
       </section>}
+
+      {section==="library"&&<section className={styles.content}><ResourcesPanel manageLibrary/></section>}
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
 
