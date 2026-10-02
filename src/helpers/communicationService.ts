@@ -68,7 +68,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   await e.updateTable('crmActivities').set({typeId:'message',notes:input.notes,updatedAt:new Date()}).where('id','=',aid).execute();
   if(input.event!=='manual_sent')await sql`SELECT crm_stop_sequences(${m.leadId}::bigint,${input.event==='replied'?'Respuesta registrada':'Rechazo registrado'})`.execute(e);
   if(m.taskId&&input.event==='manual_sent')await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
-  await finishRuns(e);return {ok:true};
+  await finishRuns(e);return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]};
  }
  if(input.action==='restrict'){
   const {lead}=await leadFor(e,input.leadId,user);await resolveCommercialContact(e,lead,input.contactId);
