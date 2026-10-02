@@ -7,7 +7,7 @@ import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '.
 import {Button} from './Button';
 import {Textarea} from './Textarea';
 import styles from './DataQuality.module.css';
-const relationLabels:Record<string,string>={leads:'Oportunidades',crmContacts:'Personas de contacto',crmTasks:'Tareas',crmActivities:'Actividades',crmDataEvidence:'Evidencias de datos',crmCommercialJournal:'Historial de negocios',leadJournal:'Historial de oportunidades',crmWorkJournal:'Auditoría de seguimiento',crm_pipeline_events:'Eventos comerciales',crm_objections:'Objeciones',leadNotes:'Notas',emailOutbox:'Emails históricos'};
+const relationLabels:Record<string,string>={crm_messages:'Mensajes y borradores',crm_contact_restrictions:'Restricciones de contacto',crm_sequence_runs:'Ejecuciones de seguimiento',crm_documents:'Documentos',crm_document_links:'Vínculos de recursos',crmDocumentVersions:'Versiones de documentos',leads:'Oportunidades',crmContacts:'Personas de contacto',crmTasks:'Tareas',crmActivities:'Actividades',crmDataEvidence:'Evidencias de datos',crmCommercialJournal:'Historial de negocios',leadJournal:'Historial de oportunidades',crmWorkJournal:'Auditoría de seguimiento',crm_pipeline_events:'Eventos comerciales',crm_objections:'Objeciones',leadNotes:'Notas',emailOutbox:'Emails históricos'};
 export function AccountMergeDialog({sourceId,destinationId,onClose}:{sourceId:string;destinationId:string;onClose:()=>void}){
  const qc=useQueryClient(),navigate=useNavigate();const [pair,setPair]=useState({sourceId,destinationId});
  const q=useQuery({queryKey:['merge-preview',pair.sourceId,pair.destinationId],queryFn:()=>qualityRequest<MergePreview>({action:'merge_preview',...pair}),refetchOnWindowFocus:false,staleTime:Infinity,retry:false});

@@ -27,6 +27,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_WEBHOOK_TOKEN: ${BREVO_WEBHOOK_TOKEN:-}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3001}
     ports:
       - "127.0.0.1:${APP_PORT:-3001}:3001"

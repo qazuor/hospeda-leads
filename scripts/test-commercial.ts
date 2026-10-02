@@ -1,3 +1,5 @@
+import {randomUUID} from 'node:crypto';
+import {post as communication} from '../src/endpoints/communication';
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
 import {db} from '../src/helpers/db';
@@ -8,7 +10,7 @@ import {handle as bulk} from '../src/endpoints/leads_bulk_POST';
 import {handle as saveLead} from '../src/endpoints/leads_save_POST';
 import {handle as legacy} from '../src/endpoints/leads_POST';
 import {handle as contactLog} from '../src/endpoints/lead_contact_POST';
-import {handle as sendEmail} from '../src/endpoints/send_template_email_POST';
+async function sendEmail(req:Request){const input=superjson.parse<any>(await req.text());const cookie=req.headers.get('cookie')!;const call=(body:any)=>communication(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie},body:superjson.stringify(body)}));let r=await call({action:'prepare',id:randomUUID(),leadId:String(input.leadId),templateId:String(input.templateId),contactId:input.contactId??null,channel:'email'});if(!r.ok)return r;let m=superjson.parse<any>(await r.text());r=await call({action:'edit',id:m.id,revision:m.revision,subject:m.subject,body:m.body});if(!r.ok)return r;m=superjson.parse<any>(await r.text());return call({action:'dispatch',id:m.id,revision:m.revision,confirm:true});}
 import {handle as duplicates} from '../src/endpoints/leads_duplicates_GET';
 import {handle as deleteBusinesses} from '../src/endpoints/leads_bulk_delete_POST';
 import {handle as restore} from '../src/endpoints/leads_restore_POST';
@@ -70,8 +72,8 @@ try{
   d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.account.clientSince);assert.equal(d.opportunities.length,2);assert.equal(d.leadJournal.length,beforeJournal);
   assert.equal(d.journal.filter(j=>j.action==='converted_to_client').length,1);
   await mutate({action:'convert_client',accountId,reason:'Repetido'});assert.equal((await detail(accountId)).journal.filter(j=>j.action==='converted_to_client').length,1);
-  const invalidLog=await contactLog(request({leadId:first,contactId:foreign,channel:'email',result:'Respondió'}));assert.equal(invalidLog.status,400);
-  assert.equal((await contactLog(request({leadId:first,contactId:ana,channel:'email',result:'Respondió'}))).status,200);
+  const invalidLog=await contactLog(request({leadId:first,contactId:foreign,channel:'email',result:'Respondió'},admin.value));assert.equal(invalidLog.status,400);
+  assert.equal((await contactLog(request({leadId:first,contactId:ana,channel:'email',result:'Respondió'},admin.value))).status,200);
   const template=await db.insertInto('messageTemplates').values({name:'CRM template',channel:'email',subject:'Hola {{contact}}',body:'<p>{{contact}} · {{email}} · {{sender_short}}</p>'}).returningAll().executeTakeFirstOrThrow();
   await db.insertInto('messageTemplates').values({name:'CRM WhatsApp template',channel:'whatsapp',body:'<p>Hola {{contact}} {{email}}</p>'}).execute();
   process.env.BREVO_API_KEY='test-placeholder';
@@ -79,27 +81,27 @@ try{
   const outbound:Record<string,any>[]=[];
   globalThis.fetch=async (_url,init)=>{outbound.push(JSON.parse(String(init?.body)));return new Response(JSON.stringify({messageId:'test-'+outbound.length}),{status:201})};
   try{
-    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis}))).status,200);
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis},admin.value))).status,200);
     assert.equal(outbound[0].to[0].email,'luis@example.com');assert.match(outbound[0].htmlContent,/Luis/);assert.match(outbound[0].htmlContent,/luis@example.com/);assert(!outbound[0].htmlContent.includes('ana@example.com'));
-    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:foreign}))).status,400);assert.equal(outbound.length,1);
-    assert.equal((await sendEmail(request({leadId:first,templateId:template.id}))).status,200);
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:foreign},admin.value))).status,400);assert.equal(outbound.length,1);
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id},admin.value))).status,200);
     assert.equal(outbound[1].to[0].email,'generic@example.com');assert(!outbound[1].subject.includes('Luis'));assert(!outbound[1].subject.includes('Ana'));
     const noChannel=await mutate({action:'contact_save',accountId,name:'Sin email'});
-    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:noChannel}))).status,400);assert.equal(outbound.length,2);
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:noChannel},admin.value))).status,400);assert.equal(outbound.length,2);
     await db.updateTable('messageTemplates').set({commercialProfile:'Consolidado'}).where('id','=',template.id).execute();
     await db.updateTable('leads').set({commercialProfile:null}).where('id','=',first).execute();
-    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis}))).status,200,'No profile allows segmented templates');
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis},admin.value))).status,200,'No profile allows segmented templates');
     await db.updateTable('leads').set({commercialProfile:'Referente'}).where('id','=',first).execute();
-    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis}))).status,400,'Known profile still restricts templates');
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis},admin.value))).status,400,'Known profile still restricts templates');
     await db.updateTable('leads').set({commercialProfile:null}).where('id','=',first).execute();
     await db.updateTable('messageTemplates').set({vertical:'Wrong vertical'}).where('id','=',template.id).execute();
-    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis}))).status,400,'Missing profile does not relax vertical');
+    assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis},admin.value))).status,400,'Missing profile does not relax vertical');
     await db.updateTable('messageTemplates').set({commercialProfile:null,vertical:null}).where('id','=',template.id).execute();
   }finally{globalThis.fetch=realFetch}
   await mutate({action:'contact_delete',accountId,id:ana});
   d=await detail(accountId);assert(d.contacts.find(c=>String(c.id)===ana)!.deletedAt);assert.equal(d.opportunities.find(o=>String(o.id)===first)!.primaryContactId,null);
-  assert.equal((await contactLog(request({leadId:first,contactId:ana,channel:'email',result:'Respondió'}))).status,400);
-  assert(d.journal.some(j=>j.action==='contact_deleted'));assert(d.leadJournal.some(j=>j.action==='email_sent'));
+  assert.equal((await contactLog(request({leadId:first,contactId:ana,channel:'email',result:'Respondió'},admin.value))).status,400);
+  assert(d.journal.some(j=>j.action==='contact_deleted'));assert(d.leadJournal.some(j=>j.action==='contact_logged'));
   const filterGroups=JSON.stringify([{rules:[{field:'id',operator:'eq',value:first}]}]);
   const listed=await getLeads(new Request('http://localhost/_api/leads?filterGroups='+encodeURIComponent(filterGroups),{headers:{cookie:user.value}}));
   assert.equal(listed.status,200);assert.equal(superjson.parse<{rows:any[]}>(await listed.text()).rows[0].id,first);

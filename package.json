@@ -19,7 +19,8 @@
     "test:work": "node scripts/test-work-migration.mjs && node --import tsx scripts/test-work.ts",
     "test:pipeline": "node scripts/test-pipeline-migration.mjs && node --import tsx scripts/test-pipeline.ts",
     "test:auth": "node --import tsx scripts/test-password-recovery.ts",
-    "test:quality": "node scripts/test-data-quality-migration.mjs && node --import tsx scripts/test-data-quality.ts"
+    "test:quality": "node scripts/test-data-quality-migration.mjs && node --import tsx scripts/test-data-quality.ts",
+    "test:communication": "node scripts/test-communication-migration.mjs && node --import tsx scripts/test-communication.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",

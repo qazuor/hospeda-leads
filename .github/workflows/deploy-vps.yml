@@ -57,6 +57,7 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_WEBHOOK_TOKEN: ${{ secrets.BREVO_WEBHOOK_TOKEN }}
           PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
         run: |
           PORT="${VPS_PORT:-22}"
@@ -67,6 +68,7 @@ jobs:
             printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
             printf 'ADMIN_EMAIL=%s\n' "$ADMIN_EMAIL"
             printf 'BREVO_API_KEY=%s\n' "$BREVO_API_KEY"
+            printf 'BREVO_WEBHOOK_TOKEN=%s\n' "$BREVO_WEBHOOK_TOKEN"
             printf 'PUBLIC_APP_URL=%s\n' "$PUBLIC_APP_URL"
             printf 'APP_PORT=3001\n'
           } > /tmp/hospeda-leads.env

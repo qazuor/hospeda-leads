@@ -49,7 +49,9 @@ async function snapshot(database:Kysely<DB>,sourceId:string,destinationId:string
  const relations:Record<string,unknown[] >={};
  for(const table of ['leads','crmContacts','crmTasks','crmActivities','crmDataEvidence','crmCommercialJournal','leadJournal','crmWorkJournal'] as const)relations[table]=await database.selectFrom(table).selectAll().where('accountId','in',[sourceId,destinationId]).orderBy('id').execute();
  // These tables are intentionally queried using SQL: generated schema predates phase 3.
- for(const table of ['crm_pipeline_events','crm_objections'])relations[table]=(await sql`SELECT * FROM ${sql.table(table)} WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint) ORDER BY id`.execute(database)).rows;
+ for(const table of ['crm_pipeline_events','crm_objections','crm_messages','crm_contact_restrictions','crm_sequence_runs','crm_documents','crm_document_links'])relations[table]=(await sql`SELECT * FROM ${sql.table(table)} WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint) ORDER BY id`.execute(database)).rows;
+ const documentIds=(relations.crm_documents as Array<{id:string}>).map(d=>d.id);
+ if(documentIds.length)relations.crmDocumentVersions=(await sql`SELECT to_jsonb(v)-'file_data' AS metadata FROM crm_document_versions v WHERE document_id IN (${sql.join(documentIds.map(id=>sql`${id}::uuid`))}) ORDER BY id`.execute(database)).rows;
  const leads=relations.leads as Array<{id:string}>;
  if(leads.length){relations.leadNotes=await database.selectFrom('leadNotes').selectAll().where('leadId','in',leads.map(l=>l.id)).orderBy('id').execute();relations.emailOutbox=await database.selectFrom('emailOutbox').selectAll().where('leadId','in',leads.map(l=>l.id)).orderBy('id').execute();}
  return {accounts,relations};
@@ -128,7 +130,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
   }
   if(input.action==='merge_confirm'){
    // Freeze all affected relationships, including legacy writers and JSON contact references.
-   await sql`LOCK TABLE crm_accounts,leads,crm_contacts,crm_tasks,crm_activities,crm_objections,crm_pipeline_events,crm_data_evidence,crm_commercial_journal,lead_journal,crm_work_journal,lead_notes,email_outbox IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
+   await sql`LOCK TABLE crm_accounts,leads,crm_contacts,crm_tasks,crm_activities,crm_objections,crm_pipeline_events,crm_data_evidence,crm_commercial_journal,lead_journal,crm_work_journal,lead_notes,email_outbox,crm_messages,crm_contact_restrictions,crm_sequence_runs,crm_documents,crm_document_links,crm_document_versions IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
    const p=await mergePreview(trx,input.sourceId,input.destinationId);
    if(p.token!==input.token)throw new QualityConflict('Cambió el negocio o sus relaciones. Revisá un nuevo preview antes de fusionar.');
    if(businessFields.some(f=>!input.selections[f]))throw new Error('Elegí el valor de cada campo.');
@@ -141,7 +143,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    await trx.updateTable('crmContacts').set({accountId:input.destinationId,updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
    await trx.updateTable('leads').set({accountId:input.destinationId,...Object.fromEntries(businessFields.map(f=>[f,p.destination[f]])),updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
    for(const table of ['crmTasks','crmActivities','crmDataEvidence'] as const)await trx.updateTable(table).set({accountId:input.destinationId}).where('accountId','=',input.sourceId).execute();
-   for(const table of ['crm_objections','crm_pipeline_events'])await sql`UPDATE ${sql.table(table)} SET account_id=${input.destinationId}::bigint WHERE account_id=${input.sourceId}::bigint`.execute(trx);
+   for(const table of ['crm_objections','crm_pipeline_events','crm_messages','crm_contact_restrictions','crm_sequence_runs','crm_documents','crm_document_links'])await sql`UPDATE ${sql.table(table)} SET account_id=${input.destinationId}::bigint WHERE account_id=${input.sourceId}::bigint`.execute(trx);
    const after=await trx.updateTable('crmAccounts').set({...fields,doNotContact:p.policy.doNotContact,commercialStatus:p.policy.commercialStatus as 'client'|'prospect',clientSince:p.policy.clientSince,updatedAt:new Date()}).where('id','=',input.destinationId).returningAll().executeTakeFirstOrThrow();
    await trx.insertInto('crmAccountMerges').values({sourceId:input.sourceId,destinationId:input.destinationId,actorEmail:user.email,reason:input.reason,snapshot:json(p.snapshot),selections:json(input.selections)}).execute();
    await trx.insertInto('crmCommercialJournal').values({accountId:input.destinationId,action:'account_merged',actorEmail:user.email,actorName:user.displayName,metadata:json({sourceId:input.sourceId,reason:input.reason,before:p.destination,after})}).execute();

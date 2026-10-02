@@ -58,6 +58,10 @@ jobs:
         run: npm run test:quality
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Communication and resources migration and integration tests
+        run: npm run test:communication
+        env:
+          CRM_TEST_DATABASE: "1"
       - run: npm run build
       - name: Start server
         run: |
@@ -109,6 +113,7 @@ jobs:
 
           curl -fsS http://127.0.0.1:3001/_api/health | grep '"ok":true'
           docker exec hospeda-leads-ci npm run db:migrate
+          CRM_TEST_DATABASE=1 node scripts/smoke-resource-persistence.mjs
           docker rm -f hospeda-leads-ci
 
       - name: Show server logs on failure

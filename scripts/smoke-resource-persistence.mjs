@@ -1,0 +1,5 @@
+// Runs against the production image in CI, using only seeded disposable credentials.
+import assert from 'node:assert/strict';
+assert.equal(process.env.CRM_TEST_DATABASE,'1','Disposable CI only');const base=process.env.PUBLIC_APP_URL??'http://127.0.0.1:3001';
+const r=await fetch(base+'/_api/auth/login_with_password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({json:{email:'admin@example.com',password:'test-password-123'}})});assert.equal(r.status,200);const cookie=r.headers.get('set-cookie')?.split(';')[0];assert(cookie);
+const resources=await fetch(base+'/_api/resources?search=CI%20persistence%20fixture',{headers:{cookie}});assert.equal(resources.status,200);const data=(await resources.json()).json;const d=data.documents.find(d=>d.title==='CI persistence fixture');assert(d);const v=d.versions.find(v=>v.version===1);assert(v);const download=await fetch(base+'/_api/resources/download?versionId='+v.id,{headers:{cookie}});assert.equal(download.status,200);assert.equal(await download.text(),'%PDF-1.4\nPersistent fixture\n%%EOF');console.log('Production image reads the exact file version created by source integration tests');
