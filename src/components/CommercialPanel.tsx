@@ -1,3 +1,4 @@
+import {ResourcesPanel} from './ResourcesPanel';
 import {DataQualityPanel} from './DataQualityPanel';
 import {ContactPolicy} from "./ContactPolicy";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
@@ -56,11 +57,11 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
     {accountId&&accountId!==String(d.account.id)&&<p className={styles.muted}>El negocio #{accountId} fue fusionado. Estás viendo su destino #{d.account.id}.</p>}
     {!compact&&<dl className={styles.businessFacts}><div><dt>Email genérico</dt><dd>{d.account.email||"Sin datos"}</dd></div><div><dt>Teléfono genérico</dt><dd>{d.account.telefono||"Sin datos"}</dd></div><div><dt>Responsable comercial</dt><dd>{d.account.assignedUserEmail||"Sin asignar"}</dd></div></dl>}
     {compact?<><details className={styles.relatedSection}><summary>Contactos del negocio ({contacts.length})</summary>{contactSection}</details><details className={styles.relatedSection}><summary>Ventas de este negocio ({opportunities.length})</summary>{opportunitySection}</details></>:<SectionTabs defaultValue="opportunities">
-      <SectionTabList aria-label="Secciones del negocio"><SectionTab value="opportunities">Oportunidades ({opportunities.length})</SectionTab><SectionTab value="contacts">Contactos ({contacts.length})</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="quality">Calidad de datos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
+      <SectionTabList aria-label="Secciones del negocio"><SectionTab value="opportunities">Oportunidades ({opportunities.length})</SectionTab><SectionTab value="contacts">Contactos ({contacts.length})</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="documents">Documentos</SectionTab><SectionTab value="quality">Calidad de datos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
       <SectionTabPanel value="opportunities">{!readOnly&&<ContactPolicy accountId={d.account.id} blocked={d.account.doNotContact}/>} {opportunitySection}</SectionTabPanel>
       <SectionTabPanel value="contacts">{contactSection}</SectionTabPanel>
       {!readOnly&&<SectionTabPanel value="work"><WorkPanel accountId={d.account.id}/></SectionTabPanel>}
-      <SectionTabPanel value="quality"><DataQualityPanel accountId={d.account.id} readOnly={readOnly}/></SectionTabPanel>
+      <SectionTabPanel value="documents"><ResourcesPanel accountId={d.account.id}/></SectionTabPanel><SectionTabPanel value="quality"><DataQualityPanel accountId={d.account.id} readOnly={readOnly}/></SectionTabPanel>
       <SectionTabPanel value="history"><section className={styles.section}><div><h3>Historial comercial</h3><p className={styles.muted}>Cambios de datos del negocio, contactos y oportunidades. Últimos 200 eventos de cada historial.</p></div><div className={styles.history}>{history.map(h=><details key={h.id}><summary>{formatDate(h.date,true)} · {h.label} · {h.actor}</summary><pre>{h.detail}</pre></details>)}</div></section></SectionTabPanel>
     </SectionTabs>}
     {!compact&&<CommercialHelp/>}

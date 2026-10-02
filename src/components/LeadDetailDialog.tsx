@@ -1,3 +1,5 @@
+import {CommunicationPanel} from './CommunicationPanel';
+import {ResourcesPanel} from './ResourcesPanel';
 import {PipelineDetail} from "./Pipeline";
 import {WorkPanel} from "./WorkPanel";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
@@ -155,7 +157,7 @@ export const LeadDetailDialog=({
       </div>
 
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>
-        <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Tareas y actividades</SectionTab>}{!readOnly&&<SectionTab value="pipeline">Gestión comercial</SectionTab>}<SectionTab value="notes">Notas</SectionTab><SectionTab value="business">Negocio y contactos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
+        <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Tareas y actividades</SectionTab>}{!readOnly&&<SectionTab value="pipeline">Gestión comercial</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Comunicación</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}<SectionTab value="business">Negocio y contactos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
         <div className={styles.scrollBody}>
           <SectionTabPanel value="overview">
         <div className={styles.summaryGrid}>
@@ -261,7 +263,7 @@ export const LeadDetailDialog=({
           </section>
 
           </SectionTabPanel>
-          <SectionTabPanel value="business"><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></SectionTabPanel>
+          {!readOnly&&<SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)}/></SectionTabPanel>}{!readOnly&&lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/></SectionTabPanel>}<SectionTabPanel value="business"><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></SectionTabPanel>
           <SectionTabPanel value="history">
           <section className={styles.panel+" "+styles.widePanel}>
             <SectionTitle icon={History} title="Journal de cambios" description="Auditoría cronológica de modificaciones y acciones."/>

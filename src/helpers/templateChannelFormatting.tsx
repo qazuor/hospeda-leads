@@ -21,7 +21,10 @@ export function whatsappTextToPreviewHtml(text:string){
 
 
 export function htmlToWhatsApp(html:string){
-  if(typeof DOMParser==="undefined")return htmlToPlainText(html);
+  if(typeof DOMParser==="undefined")return clean(htmlToPlainText(html
+    .replace(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/gi,"*$2*")
+    .replace(/<(em|i)\b[^>]*>([\s\S]*?)<\/\1>/gi,"_$2_")
+    .replace(/<(s|del|strike)\b[^>]*>([\s\S]*?)<\/\1>/gi,"~$2~")));
   const doc=new DOMParser().parseFromString("<div>"+html+"</div>","text/html");
   const render=(node:Node):string=>{
     if(node.nodeType===Node.TEXT_NODE)return node.textContent??"";

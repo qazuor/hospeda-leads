@@ -1,3 +1,4 @@
+import LibraryPage from './pages/library';
 import PasswordRecoveryPage from "./pages/password-recovery";
 import ReactivationPage from "./pages/reactivation";
 import React from "react";
@@ -43,6 +44,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+          <Route path="/library" element={<UserRoute><LibraryPage/></UserRoute>} />
           <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
           <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
