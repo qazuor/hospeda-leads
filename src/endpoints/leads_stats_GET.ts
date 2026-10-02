@@ -11,13 +11,15 @@ export async function handle(request:Request){
     const business=new URL(request.url).searchParams.get("entity")==="business";
     const count=business?sql.raw("count(distinct account_id)"):sql.raw("count(*)");
     const source=business?db.selectFrom(businessTableSource().as("leads")):db.selectFrom("leads");
+    const open=business?sql`exists(select 1 from leads l join crm_stages s on s.name=l.estado where l.account_id=leads.account_id and l.deleted_at is null and s.classification='open')`:sql`coalesce((select classification from crm_stages where name=leads.estado),'open')='open'`;
+    const actionable=business?sql`true`:open;
     const r=await source.where("deletedAt","is",null).select([
       sql<string>`${count}`.as("total"),
-      sql<string>`${count} filter (where coalesce((select classification from crm_stages where name=leads.estado),'open') = 'open')`.as("pendientes"),
+      sql<string>`${count} filter (where ${open})`.as("pendientes"),
       sql<string>`${count} filter (where estado = 'Suscripto')`.as("suscriptos"),
-      sql<string>`${count} filter (where fecha_proxima_accion < (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and coalesce((select classification from crm_stages where name=leads.estado),'open') = 'open')`.as("vencidos"),
-      sql<string>`${count} filter (where fecha_proxima_accion = (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and coalesce((select classification from crm_stages where name=leads.estado),'open') = 'open')`.as("paraHoy"),
-      sql<string>`${count} filter (where assigned_user_email = ${user.email} and fecha_proxima_accion <= (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and coalesce((select classification from crm_stages where name=leads.estado),'open') = 'open')`.as("misPendientesHoy")
+      sql<string>`${count} filter (where fecha_proxima_accion::date < (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and ${actionable})`.as("vencidos"),
+      sql<string>`${count} filter (where fecha_proxima_accion::date = (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and ${actionable})`.as("paraHoy"),
+      sql<string>`${count} filter (where assigned_user_email = ${user.email} and fecha_proxima_accion::date <= (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date and ${actionable})`.as("misPendientesHoy")
     ]).executeTakeFirstOrThrow();
     return new Response(superjson.stringify({
       total:Number(r.total),pendientes:Number(r.pendientes),suscriptos:Number(r.suscriptos),

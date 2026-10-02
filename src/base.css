@@ -2,6 +2,9 @@
 @import url(https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap);
 @import url(https://fonts.googleapis.com/css2?family=Caveat&display=swap);
 :root {
+  --brand-blue: #3AA7D9;
+  --brand-teal: #1EA7A1;
+  --brand-orange: #F5A623;
   --crm-content-width: 1600px;
   --crm-gutter: clamp(12px, 2vw, 28px);
   /* Content layers */
@@ -37,7 +40,7 @@
   --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(28, 91%, 55%);
   --secondary-foreground: hsl(220, 20%, 12%);
-  --accent: hsl(330, 80%, 60%);
+  --accent: hsl(177, 70%, 28%);
   --accent-foreground: hsl(0, 0%, 100%);
   --muted: hsl(220, 15%, 85%);
   --muted-foreground: hsl(220, 10%, 40%);
@@ -113,8 +116,8 @@
   --primary-foreground: hsl(220, 20%, 12%);
   --secondary: hsl(28, 91%, 60%);
   --secondary-foreground: hsl(220, 20%, 12%);
-  --accent: hsl(94, 50%, 56%);
-  --accent-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(177, 62%, 60%);
+  --accent-foreground: hsl(220, 20%, 12%);
   --muted: hsl(220, 15%, 25%);
   --muted-foreground: hsl(220, 10%, 70%);
   --success: hsl(145, 65%, 45%);

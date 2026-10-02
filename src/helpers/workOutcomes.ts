@@ -1,2 +1,4 @@
-export const workOutcomes = {no_answer:'No respondió', interested:'Mostró interés', replied:'Respondió', not_interested:'No quiere avanzar', do_not_contact:'Pidió no ser contactado', other:'Otro resultado'} as const;
+export const workOutcomes = {no_answer:'No respondió', interested:'Mostró interés', replied:'Respondió', not_interested:'No quiere avanzar', do_not_contact:'Pidió no ser contactado', other:'Otro resultado', delivered:'Entrega confirmada', needs_help:'Necesita ayuda', awaiting_confirmation:'Falta confirmar', care_completed:'Revisión realizada'} as const;
 export type WorkOutcome=keyof typeof workOutcomes;
+
+export const purposeOutcomes={commercial:["no_answer","interested","replied","not_interested","do_not_contact","other"],reactivation:["no_answer","interested","replied","not_interested","do_not_contact","other"],delivery:["delivered","awaiting_confirmation","needs_help","no_answer","do_not_contact","other"],care:["care_completed","needs_help","awaiting_confirmation","no_answer","do_not_contact","other"]} as const;

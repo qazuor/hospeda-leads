@@ -127,14 +127,14 @@ export const LeadDetailDialog=({
             <div className={styles.titleLine}>
               <DialogTitle className={styles.title}>{lead.opportunityName||"Gestión comercial inicial"}</DialogTitle>
               <div className={styles.titleBadges}>
-                {lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:<Badge variant="outline">Sin vertical</Badge>}
+                {lead.tipo&&<ValueBadge value={lead.tipo} category="vertical"/>}
                 {lead.subtipo&&<ValueBadge value={lead.subtipo} category="subtype"/>}
                 {lead.estado?<ValueBadge value={lead.estado} category="status"/>:<Badge variant="outline">Sin estado</Badge>}
               </div>
             </div>
             <div className={styles.metaLine}>
               <DialogDescription className={styles.description}>
-                Oportunidad de {lead.accountId?<Link to={"/accounts/"+lead.accountId}>{lead.nombre}</Link>:lead.nombre} · ID #{String(lead.id)}
+                Venta para {lead.accountId?<Link to={"/accounts/"+lead.accountId}>{lead.nombre}</Link>:lead.nombre}
               </DialogDescription>
               <div className={styles.secondaryBadges}>
                 {lead.commercialProfile&&<ValueBadge value={lead.commercialProfile} category="profile"/>}
@@ -145,15 +145,12 @@ export const LeadDetailDialog=({
         </div>
 
         <div className={styles.actionBar}>
-          {!readOnly&&onWhatsApp&&<Button size="sm" variant={whatsappPrimary?"primary":"outline"} onClick={()=>onWhatsApp(lead)}><MessageCircle size={15}/>WhatsApp</Button>}
-          {!readOnly&&lead.telefono&&<Button size="sm" variant={phonePrimary?"primary":"outline"} asChild><a href={"tel:"+lead.telefono}><Phone size={15}/>Llamar</a></Button>}
-          {!readOnly&&onEmail&&<Button size="sm" variant={emailPrimary?"primary":"outline"} onClick={()=>onEmail(lead)}><Mail size={15}/>Email</Button>}
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
           {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Oportunidad anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Oportunidad siguiente"><ChevronRight size={16}/></Button></div>}
           {!readOnly&&onDelete&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="outline" aria-label="Más acciones de la venta"><MoreHorizontal size={16}/>Más acciones</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={()=>onDelete(lead)}><Trash2 size={15}/>Enviar venta a papelera</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
-          <Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>
-          {!readOnly&&onEdit&&<Button size="sm" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar oportunidad</Button>}
+          {!page&&<Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>}
+          {!readOnly&&onEdit&&<Button size="sm" variant="outline" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar datos de venta</Button>}
         </div>
       </div>
 
@@ -161,12 +158,12 @@ export const LeadDetailDialog=({
         <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}</SectionTabList>
         <div className={styles.scrollBody}>
           <SectionTabPanel value="overview">{!readOnly&&<PipelineDetail lead={lead}/>}
-        <div className={styles.summaryGrid}>
+        <details className={styles.section}><summary>Responsable y datos generales</summary><div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Canal del negocio" value={lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>
           <SummaryItem icon={ShieldCheck} label="Responsable" value={assignedUser?.displayName||lead.assignedUserEmail||lead.asignadoA||"Sin asignar"}/>
           <SummaryItem icon={CalendarClock} label="Próxima acción" value={<span className={styles["next_"+nextActionInfo(lead.fechaProximaAccion).tone]} title={nextActionInfo(lead.fechaProximaAccion).title}>{nextActionInfo(lead.fechaProximaAccion).label}</span>}/>
-        </div>
+        </div></details>
 
             <details className={styles.section}><summary>Ver todos los datos de esta venta</summary><div className={styles.contentGrid}>
           <section className={styles.panel}>

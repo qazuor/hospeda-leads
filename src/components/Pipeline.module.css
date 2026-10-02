@@ -3,3 +3,5 @@
 .meta,.warning,.suggestion,.event,.empty{font-size:15px}.form label{font-size:16px}.form input,.form select{min-height:44px;font-size:16px}
 
 .boardControls{display:flex;flex-wrap:wrap;gap:8px;padding:12px}.boardControls button{white-space:normal;height:auto;min-height:44px;max-width:100%}.simpleBoard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}.simpleBoard .column{width:auto;min-width:0}@media(max-width:760px){.simpleBoard{grid-template-columns:1fr}.boardControls{flex-direction:column}.boardControls button{width:100%}}
+
+.closingEvidence{display:grid;grid-template-columns:minmax(140px,1fr) minmax(0,2fr);gap:10px 20px;margin:18px 0}.closingEvidence dt{color:var(--muted-foreground)}.closingEvidence dd{margin:0;overflow-wrap:anywhere}@media(max-width:600px){.closingEvidence{grid-template-columns:1fr;gap:4px}.closingEvidence dd{margin-bottom:12px}}

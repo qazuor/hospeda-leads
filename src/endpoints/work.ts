@@ -1,3 +1,5 @@
+import {purposeOutcomes} from '../helpers/workOutcomes';
+import type {WorkPurpose} from '../helpers/nextStep';
 import {crmError} from '../helpers/crmErrors';
 import {accountFamily} from '../helpers/accountIdentity';
 import superjson from 'superjson';
@@ -125,11 +127,19 @@ export async function post(request:Request){
     await trx.updateTable('crmActivities').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',input.id).execute();
     return input.id;
    }
+   if('outcome' in input&&input.outcome){
+    const purpose=('purpose' in input?input.purpose:undefined)??previous?.purpose;
+    if(purpose&&!([...purposeOutcomes[purpose as WorkPurpose]] as string[]).includes(input.outcome))throw new Error('Elegí un resultado que corresponda al propósito de esta acción.');
+   }
+   if('continuation' in input&&input.continuation){
+    if(['task','wait'].includes(input.continuation)&&!('nextTask' in input&&input.nextTask))throw new Error('Elegí qué hacer y una fecha para continuar.');
+    if(input.continuation==='done'&&'nextTask' in input&&input.nextTask)throw new Error('Terminar por ahora no crea una próxima tarea.');
+   }
    const createNextTask=async()=>{
     if(!('nextTask' in input)||!input.nextTask)return;
     if(input.outcome==='do_not_contact'||account.doNotContact)throw new Error('No se puede planificar contacto para un negocio bloqueado.');
     await trx.selectFrom('crmWorkTypes').select('id').where('id','=',input.nextTask.typeId).where('active','=',true).executeTakeFirstOrThrow();
-    await trx.insertInto('crmTasks').values({accountId,leadId,title:input.nextTask.title,typeId:input.nextTask.typeId,dueDate:input.nextTask.dueDate,assignedUserEmail:previous&&'assignedUserEmail' in previous?previous.assignedUserEmail:commercialOwner,priority:'media',contactIds:serialize(('contactIds' in input?input.contactIds:undefined)||previous?.contactIds||[])}).execute();
+    await trx.insertInto('crmTasks').values({accountId,leadId,title:input.nextTask.title,purpose:input.nextTask.purpose??('purpose' in input?input.purpose:undefined)??previous?.purpose??null,typeId:input.nextTask.typeId,dueDate:input.nextTask.dueDate,assignedUserEmail:previous&&'assignedUserEmail' in previous?previous.assignedUserEmail:commercialOwner,priority:'media',contactIds:serialize(('contactIds' in input?input.contactIds:undefined)||previous?.contactIds||[])}).execute();
    };
    const restrictIfRequested=async()=>{
     if(!('outcome' in input)||input.outcome!=='do_not_contact')return;
@@ -143,9 +153,9 @@ export async function post(request:Request){
     for(const contactId of actualContacts)await trx.selectFrom('crmContacts').select('id').where('id','=',contactId).where('accountId','=',accountId).where('deletedAt','is',null).executeTakeFirstOrThrow();
     const completedAt=input.status==='completed'?new Date(input.completedAt??new Date().toISOString()):null;
     if(completedAt&&completedAt>new Date())throw new Error('La finalización no puede estar en el futuro.');
-    await trx.updateTable('crmTasks').set({status:input.status,outcome:input.outcome??null,result:input.result,completedAt,updatedAt:new Date()}).where('id','=',input.id).execute();
+    await trx.updateTable('crmTasks').set({status:input.status,purpose:input.purpose??task.purpose,continuation:input.continuation??null,outcome:input.outcome??null,result:input.result,completedAt,updatedAt:new Date()}).where('id','=',input.id).execute();
     if(completedAt){
-     await trx.insertInto('crmActivities').values({accountId,leadId,taskId:input.id,typeId:task.typeId,title:task.title,occurredAt:completedAt,outcome:input.outcome??null,result:input.result,notes:task.description,participants:task.participants,channel:input.channel??null,contactIds:serialize(actualContacts),actorEmail:user.email}).execute();
+     await trx.insertInto('crmActivities').values({accountId,leadId,taskId:input.id,purpose:input.purpose??task.purpose,continuation:input.continuation??null,typeId:task.typeId,title:task.title,occurredAt:completedAt,outcome:input.outcome??null,result:input.result,notes:task.description,participants:task.participants,channel:input.channel??null,contactIds:serialize(actualContacts),actorEmail:user.email}).execute();
 
     }
     await restrictIfRequested();await createNextTask();
@@ -162,15 +172,15 @@ export async function post(request:Request){
     if(existing?.legacy&&assignee!==commercialOwner)throw new Error('El seguimiento histórico conserva el responsable de la oportunidad.');
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
-    const fields={accountId,leadId,title:input.title,description:input.description??null,typeId:input.typeId,assignedUserEmail:assignee,dueDate:input.dueDate,dueAt,priority:input.priority,participants:input.participants,contactIds:serialize(input.contactIds),updatedAt:new Date()};
+    const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,description:input.description??null,typeId:input.typeId,assignedUserEmail:assignee,dueDate:input.dueDate,dueAt,priority:input.priority,participants:input.participants,contactIds:serialize(input.contactIds),updatedAt:new Date()};
     const row=existing?await trx.updateTable('crmTasks').set(fields).where('id','=',input.id!).returning('id').executeTakeFirstOrThrow():await trx.insertInto('crmTasks').values(fields).returning('id').executeTakeFirstOrThrow();return row.id;
    }
    const occurredAt=new Date(input.occurredAt);
    if(occurredAt>new Date())throw new Error('Registrá una tarea para lo que todavía no ocurrió.');
-   const fields={accountId,leadId,title:input.title,typeId:input.typeId,occurredAt,participants:input.participants,contactIds:serialize(input.contactIds),channel:input.channel??null,outcome:input.outcome??null,result:input.result??null,notes:input.notes??null,updatedAt:new Date()};
+   const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,typeId:input.typeId,occurredAt,continuation:input.continuation??null,participants:input.participants,contactIds:serialize(input.contactIds),channel:input.channel??null,outcome:input.outcome??null,result:input.result??null,notes:input.notes??null,updatedAt:new Date()};
    const row=input.id?await trx.updateTable('crmActivities').set(fields).where('id','=',input.id).returning('id').executeTakeFirstOrThrow():await trx.insertInto('crmActivities').values({...fields,actorEmail:user.email}).returning('id').executeTakeFirstOrThrow();
    // The activity linked to a completion owns the factual completion date/result.
-   if(previous&&'taskId' in previous&&previous.taskId)await trx.updateTable('crmTasks').set({completedAt:occurredAt,outcome:input.outcome??null,result:input.result??null,updatedAt:new Date()}).where('id','=',previous.taskId).where('status','=','completed').execute();
+   if(previous&&'taskId' in previous&&previous.taskId)await trx.updateTable('crmTasks').set({completedAt:occurredAt,purpose:input.purpose??previous.purpose,continuation:input.continuation??null,outcome:input.outcome??null,result:input.result??null,updatedAt:new Date()}).where('id','=',previous.taskId).where('status','=','completed').execute();
 
    await restrictIfRequested();await createNextTask();
    return row.id;

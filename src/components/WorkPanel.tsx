@@ -1,3 +1,4 @@
+import {purposeNames} from '../helpers/nextStep';
 import React,{useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
@@ -20,18 +21,19 @@ export function TaskRow({task,data,onEdit}:{task:WorkTask;data:WorkData;onEdit:(
  const [contactOpen,setContactOpen]=useState(false);
  const pending=task.status==='pending';
  const {authState}=useAuth();const editable=authState.type==='authenticated'&&(authState.user.role==='admin'||task.assignedUserEmail===authState.user.email);
+ const needsContact=['call','message','followup'].includes(task.typeId);
  const bucket=taskBucket(task.dueDate,task.dueAt);
  return <article className={ws.row} data-tone={pending?bucket:task.status}>
   <div className={ws.rowBody}>
    <div className={ws.rowHeading}><strong>{task.title}</strong>{task.priority==='alta'&&<span className={ws.priority}>Alta prioridad</span>}{!pending&&<span className={ws.status}>{statusNames[task.status]}</span>}</div>
-   <Link className={ws.context} to={task.leadId?'/opportunities?leadId='+task.leadId:'/accounts/'+task.accountId}>{task.accountName}{task.opportunityName?' · '+task.opportunityName:''}</Link>
-   <div className={ws.due}><CalendarClock size={14} aria-hidden="true"/>{task.dueAt?prettyInstant(task.dueAt):formatDate(task.dueDate)+' · Sin hora'}</div>
-   <div className={ws.metadata}><span>{data.types.find(t=>t.id===task.typeId)?.name}</span><span>{data.users.find(u=>u.email===task.assignedUserEmail)?.displayName||'Sin responsable'}</span>{task.city&&<span>{task.city}</span>}</div>
+   <Link className={ws.context} to={task.leadId?'/sales/'+task.leadId:'/accounts/'+task.accountId}>{task.accountName}{task.opportunityName?' · '+task.opportunityName:''}</Link>
+   <div className={ws.due}><CalendarClock size={14} aria-hidden="true"/>{task.dueAt?prettyInstant(task.dueAt):formatDate(task.dueDate)}</div>
+   <div className={ws.metadata}><span>{task.purpose?purposeNames[task.purpose]:data.types.find(t=>t.id===task.typeId)?.name}</span><span>{data.users.find(u=>u.email===task.assignedUserEmail)?.displayName||'Sin responsable'}</span>{task.city&&<span>{task.city}</span>}</div>
    {(task.description||task.participants||task.result)&&<details className={ws.extra}><summary>Ver detalles</summary>{task.description&&<p>{task.description}</p>}{task.participants&&<p>Participantes: {task.participants}</p>}{task.result&&<p>Resultado: {task.result}</p>}</details>}
   </div>
   {editable&&<div className={ws.rowActions}>
-   {pending&&<Button size="sm" onClick={()=>onEdit({kind:'complete',item:task})}><Check size={14}/>Registrar qué pasó</Button>}
-   {pending&&<Button size="sm" variant="outline" onClick={()=>setContactOpen(true)}><Phone size={14}/>Contactar</Button>}
+   {pending&&<Button size="sm" variant={needsContact?"primary":"outline"} onClick={()=>setContactOpen(true)}><Phone size={14}/>Contactar</Button>}
+   {pending&&<Button size="sm" variant={needsContact?"outline":"primary"} onClick={()=>onEdit({kind:'complete',item:task})}><Check size={14}/>Registrar qué pasó</Button>}
    <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon-sm" variant="ghost" aria-label={'Más acciones de '+task.title}><MoreHorizontal size={18}/></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
     {pending&&<><DropdownMenuItem onSelect={()=>onEdit({kind:'task',item:task})}>Editar / reprogramar</DropdownMenuItem><DropdownMenuItem onSelect={()=>onEdit({kind:'cancel',item:task})}>Cancelar tarea</DropdownMenuItem></>}
     <DropdownMenuItem onSelect={()=>onEdit({kind:'activity',accountId:task.accountId,leadId:task.leadId||undefined})}>Registrar actividad</DropdownMenuItem>

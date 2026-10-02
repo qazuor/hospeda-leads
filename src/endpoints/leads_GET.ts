@@ -1,3 +1,4 @@
+import {calendarDay} from '../helpers/workDates';
 import {crmError} from '../helpers/crmErrors';
 import {localDay,argentinaInstant} from "../helpers/workDates";
 import superjson from "superjson";
@@ -246,16 +247,18 @@ export async function handle(request: Request) {
     const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((input.page-1)*input.pageSize)).execute();
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
-      const [accounts,opportunities,contacts]=await Promise.all([
+      const [accounts,opportunities,contacts,nextTasks]=await Promise.all([
         db.selectFrom("crmAccounts").select(["id","commercialStatus"]).where("id","in",ids).execute(),
         db.selectFrom("leads").selectAll().where("accountId","in",ids).where("deletedAt","is",null).orderBy("id").execute(),
-        db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute()
+        db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute(),
+        db.selectFrom("crmTasks as t").leftJoin("leads as l","l.id","t.leadId").select(["t.accountId","t.title","t.dueDate"]).where("t.accountId","in",ids).where("t.status","=","pending").where("t.deletedAt","is",null).where(eb=>eb.or([eb("t.leadId","is",null),eb("l.deletedAt","is",null)])).$if(user.role!=="admin",q=>q.where("t.assignedUserEmail","=",user.email)).orderBy("t.dueDate").orderBy("t.dueAt").orderBy("t.id").execute()
       ]);
       for(const row of rows){
         const related=row.deletedAt?[]:opportunities.filter(o=>String(o.accountId)===String(row.accountId));
         row.opportunityId=Number(row.id)>0?String(row.id):null;
         // Stable business IDs keep row selection stable when filters match another sale.
         row.id=row.accountId;
+        row.nextActionTitle=nextTasks.find(t=>String(t.accountId)===String(row.accountId)&&calendarDay(t.dueDate)===calendarDay(row.fechaProximaAccion))?.title??null;
         row.opportunityCount=related.length;
         row.contactCount=contacts.filter(c=>String(c.accountId)===String(row.accountId)).length;
         row.commercialStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.commercialStatus;

@@ -1,3 +1,4 @@
+import {localDay} from '../helpers/workDates';
 import {BulkChangeReview} from "../components/BulkChangeReview";
 import type {InputType as BulkInput} from "../endpoints/leads_bulk_POST.schema";
 import {useUnsavedChanges} from "../components/UnsavedChanges";
@@ -53,7 +54,7 @@ import { getSettings } from "../endpoints/settings_GET.schema";
 import { getSavedLeadViews } from "../endpoints/saved_views_GET.schema";
 import { postSavedLeadView } from "../endpoints/saved_views_POST.schema";
 import { useDebounce } from "../helpers/useDebounce";
-import { dateOnlyInput, toDateInput } from "../helpers/crmDates";
+import { nextActionInfo, dateOnlyInput, toDateInput } from "../helpers/crmDates";
 import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
@@ -64,7 +65,7 @@ import {HeaderMenu} from "../components/LeadsTableHeader";
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const navigate=useNavigate();
   const entity=businessMode?"business":"opportunity";
-  const tableColumns=TABLE_COLUMNS.map(column=>({...column,label:businessMode?(column.key==="nombre"?"Negocio":column.key==="id"?"ID de entrada":column.key==="assignedUserEmail"?"Responsable del negocio":column.label):column.label}));
+  const tableColumns=TABLE_COLUMNS.map(column=>({...column,label:businessMode?(column.key==="nombre"?"Negocio":column.key==="id"?"ID de entrada":column.key==="assignedUserEmail"?"Responsable del negocio":column.key==="estado"?"Etapas de ventas":column.label):column.label}));
   const [businessEditor,setBusinessEditor]=useState<{item?:Account}|null>(null);
   const qc=useQueryClient();
   const [urlParams,setUrlParams]=useSearchParams();
@@ -95,6 +96,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [sortDir,setSortDir]=useState<"asc"|"desc">(storedSort.sortDir);
   const [page,setPage]=useState(1);
   const [open,setOpen]=useState(false);
+  const [advancedTable,setAdvancedTable]=useState(false);
   const [viewOpen,setViewOpen]=useState(false);
   const [duplicatesOpen,setDuplicatesOpen]=useState(false);
   const [importOpen,setImportOpen]=useState(false);
@@ -373,13 +375,13 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const resetPage=()=>setPage(1);
   const sort=(field:SortBy,dir:"asc"|"desc")=>{setSortBy(field);setSortDir(dir);resetPage()};
   const set=(key:keyof InputType,value:any)=>setForm(prev=>({...prev,[key]:value}));
-  const today=dateInput(new Date());
+  const today=localDay();
   const applyQuickView=(kind:string,value?:string)=>{
     resetInlineFilters();
     setQuery("");
     setActiveQuick(kind);
     let groups:AdvancedFilterGroup[]=[];
-    if(["pending","today","overdue","myToday","inactive30"].includes(kind))setClassification("open");
+    if(kind==="pending"||(!businessMode&&["today","overdue","myToday","inactive30"].includes(kind)))setClassification("open");
     if(kind==="subscribed")groups=[{rules:[{field:"estado",operator:"eq",value:"Suscripto"}]}];
     if(kind==="today")groups=[{rules:[{field:"fechaProximaAccion",operator:"on",value:today}]}];
     if(kind==="overdue")groups=[{rules:[{field:"fechaProximaAccion",operator:"before",value:today}]}];
@@ -553,7 +555,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     document.addEventListener("mousemove",onMove);
     document.addEventListener("mouseup",onUp);
   };
-  const tableWidth=visibleColumns.reduce((total,key)=>total+(columnWidths[key]??DEFAULT_WIDTHS[key]??160),0)+294;
+  const shownColumns=businessMode&&!advancedTable?["nombre","contactName","estado","fechaProximaAccion"]:visibleColumns;
+  const tableWidth=shownColumns.reduce((total,key)=>total+(columnWidths[key]??DEFAULT_WIDTHS[key]??160),0)+(businessMode&&!advancedTable?124:294);
 
   const headerFilter=(key:string)=>{
     const group=filterGroups.find(item=>item.key===key);
@@ -581,7 +584,9 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
   const renderCell=(l:any,key:string)=>{
     if(l.deletedAt){if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>navigate("/trash")}><strong>{businessMode?l.nombre:l.opportunityName||l.nombre}</strong><small>En Papelera · Abrir para restaurar</small></button>;const value=l[key];return value instanceof Date?displayDate(value.toISOString()):value===true?"Sí":value===false?"No":str(value)||"—";}
-    if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.commercialStatus==="client"?"Cliente comercial":"Prospecto"}</small><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"oportunidad":"oportunidades"}</small></button>;
+    if(key==="estado"&&businessMode&&!advancedTable)return <span className={styles.relationship} data-client={l.commercialStatus==="client"}>{l.commercialStatus==="client"?"Cliente":"Potencial cliente"}</span>;
+    if(key==="fechaProximaAccion"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{nextActionInfo(l.fechaProximaAccion).label}</strong><small>{l.nextActionTitle||(l.fechaProximaAccion?"Acción del equipo · Abrir para revisar":"Elegir próximo paso")}</small></button>;
+    if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"venta":"ventas"}</small></button>;
     if(businessMode&&!["contactName","fechaProximaAccion","fechaUltimoContacto","id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
       const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayDate(v):v).join(" · ");
@@ -633,17 +638,27 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Crear una venta"}</Button><details className={styles.pageTools}><summary>Herramientas adicionales</summary><div><Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></details></div>
       </header>
 
-      <section className={styles.commercialGuide} aria-label="Ayuda comercial">
+      <section className={styles.toolbar}>
+        <div className={styles.search}><Search size={17}/><Input value={query} onChange={e=>{setQuery(e.target.value);resetPage()}} placeholder={businessMode?"Buscar negocios, oportunidades y notas…":"Buscar en oportunidades y notas…"}/></div>
+        <div className={styles.filters}>
+          <Button variant="outline" onClick={()=>setFilterDialogOpen(true)} className={styles.filterButton}>
+            <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
+          </Button>
+          {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(!businessMode||advancedTable)&&<ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/>}
+        </div>
+      </section>
+
+      <details className={styles.advancedWorkspace}><summary>Resumen, vistas guardadas y ayuda</summary>      <section className={styles.commercialGuide} aria-label="Ayuda comercial">
       <CommercialHelp>
       {businessMode&&<p>Abrí un negocio para ver su persona de contacto, el próximo paso y sus ventas. La próxima acción incluye las tareas generales del negocio.</p>}
       </CommercialHelp>
       </section>
       <section className={styles.metrics}>
         <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de oportunidades"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>Pendientes</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>Para hoy</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>Acciones vencidas</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis pendientes hoy</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con ventas abiertas":"Ventas abiertas"}</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción hoy":"Ventas con acción hoy"}</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción atrasada":"Ventas con acción atrasada"}</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis registros con acción hasta hoy</span></div></button>
         <button type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos históricos</span></div></button>
       </section>
 
@@ -655,16 +670,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
-      <section className={styles.toolbar}>
-        <div className={styles.search}><Search size={17}/><Input value={query} onChange={e=>{setQuery(e.target.value);resetPage()}} placeholder={businessMode?"Buscar negocios, oportunidades y notas…":"Buscar en oportunidades y notas…"}/></div>
-        <div className={styles.filters}>
-          <Button variant="outline" onClick={()=>setFilterDialogOpen(true)} className={styles.filterButton}>
-            <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
-          </Button>
-          <ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/>
-        </div>
-      </section>
-
+</details>
       <FilterLegend
         groups={appliedFilterGroups}
         search={query}
@@ -706,21 +712,21 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las oportunidades"}: {leadsQ.error.message}</div>:
         pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
-          <col style={{width:44}}/>{visibleColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}<col style={{width:120}}/><col style={{width:130}}/>
+          <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
           <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt)} checked={leads.some(lead=>!lead.deletedAt)&&leads.filter(lead=>!lead.deletedAt).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
-          {visibleColumns.map(key=>{
-            const col=TABLE_COLUMNS.find(x=>x.key===key);
+          {shownColumns.map(key=>{
+            const col=tableColumns.find(x=>x.key===key);
             if(!col)return null;
-            return <th key={key} className={styles.resizableTh}><HeaderMenu label={key==="nombre"&&businessMode?"Negocio":key==="id"&&businessMode?"ID de entrada":col.label} field={key as SortBy} sortBy={sortBy} sortDir={sortDir} onSort={sort}/><span className={styles.resizeHandle} onMouseDown={e=>{e.preventDefault();e.stopPropagation();startResize(key,e.clientX)}}/></th>;
+            return <th key={key} className={styles.resizableTh}>{key==="estado"&&businessMode&&!advancedTable?<span>Relación</span>:<HeaderMenu label={key==="nombre"&&businessMode?"Negocio":key==="id"&&businessMode?"ID de entrada":key==="estado"&&businessMode&&!advancedTable?"Relación":key==="fechaProximaAccion"?"Próximo paso":col.label} field={key as SortBy} sortBy={sortBy} sortDir={sortDir} onSort={sort}/>}<span className={styles.resizeHandle} onMouseDown={e=>{e.preventDefault();e.stopPropagation();startResize(key,e.clientX)}}/></th>;
           })}
-          <th>Contacto</th><th>Acciones</th>
+          {(!businessMode||advancedTable)&&<th>Contacto</th>}<th>Acciones</th>
         </tr></thead><tbody>
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
-            {visibleColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
-            <td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>
-            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="ghost" size="icon-sm" onClick={()=>openView(l)} title="Ver"><Search size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las ventas de este negocio":"Enviar venta a papelera"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></div>}</td>
+            {shownColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
+            {(!businessMode||advancedTable)&&<td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>}
+            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="outline" size="sm" onClick={()=>openView(l)}>Abrir</Button>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las ventas de este negocio":"Enviar venta a papelera"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></>}</div>}</td>
           </tr>})}
         </tbody></table></div>}
         </div>

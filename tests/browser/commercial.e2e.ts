@@ -52,10 +52,10 @@ test('account with two contacts and independent opportunities preserves lead and
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
   await expect(page.getByRole('heading',{name:'Ventas (2)',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Convertir a cliente',exact:true}).click();
+  await page.getByRole('button',{name:'Más acciones del negocio',exact:true}).click();await page.getByRole('menuitem',{name:'Convertir a cliente',exact:true}).click();
   await page.getByLabel('Motivo de conversión').fill('Acuerdo comercial E2E');
   await page.getByRole('dialog').getByRole('button',{name:'Convertir a cliente',exact:true}).click();
-  await expect(page.getByText(/Cliente comercial · no acredita pago/)).toBeVisible();
+  await expect(page.getByText(/· Cliente ·/)).toBeVisible();
   await page.getByRole('tab',{name:'Historial',exact:true}).click();
   await expect(page.getByText(/Conversión a cliente/)).toBeVisible();
   await page.getByRole('tab',{name:/^Ventas/}).click();
@@ -79,7 +79,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.screenshot({path:'test-results/lead-commercial-detail.png',fullPage:true,animations:'disabled'});
   await expect(lead.getByRole('heading',{name:'Primera venta',exact:true})).toBeVisible();
   await expect(lead.getByText('Cargado',{exact:true}).first()).toBeVisible();
-  await lead.getByRole('button',{name:'Email',exact:true}).click();
+  await lead.getByText('Otras acciones',{exact:true}).click();await lead.getByRole('button',{name:'Contactar ahora',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Preparar email con un mensaje modelo',exact:true}).click();
   const communication=page.getByRole('dialog').last();
   await expect(communication.getByRole('combobox',{name:'Destinatario',exact:true})).toHaveValue(/\d+/);
   await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
@@ -92,7 +92,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await communication.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   // Capture WhatsApp intent locally: this test never opens or sends a real message.
   await page.evaluate(()=>{window.open=(url)=>{(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl=String(url);return null}});
-  await lead.getByRole('button',{name:'WhatsApp',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();
   const whatsapp=page.getByRole('dialog').last();
   await whatsapp.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
   await whatsapp.getByRole('button',{name:/CRM WhatsApp template/}).click();
@@ -107,8 +107,8 @@ test('account with two contacts and independent opportunities preserves lead and
   await whatsapp.getByRole('button',{name:'Confirmar envío manual',exact:true}).click();
   await expect(whatsapp.getByText('Envío confirmado manualmente',{exact:true})).toBeVisible();
   await whatsapp.getByRole('button',{name:'Cerrar',exact:true}).first().click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await lead.getByRole('button',{name:'Editar oportunidad',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Volver',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
+  await lead.getByRole('button',{name:'Editar datos de venta',exact:true}).click();
   await expect(page.getByLabel('Nombre / razón social',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Teléfono genérico',{exact:true})).toHaveCount(0);
   await page.getByLabel('Nombre de oportunidad',{exact:true}).fill('Primera venta actualizada');
@@ -129,7 +129,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByRole('heading',{name:'Personas de contacto (1)',exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Historial',exact:true}).click();
   await expect(page.getByText(/Contacto dado de baja/)).toBeVisible();
-  await page.getByText('Cómo usar negocios, contactos y oportunidades',{exact:true}).click();
+  await page.getByText('Ayuda sobre negocios y ventas',{exact:true}).click();await page.getByText('Cómo usar negocios, contactos y oportunidades',{exact:true}).click();
   await expect(page.getByText(/Su etapa indica cómo avanza esa venta/)).toBeVisible();
   await page.getByRole('link',{name:'Ventas',exact:true}).click();
   await page.getByRole('button',{name:'Crear una venta',exact:true}).click();
@@ -138,15 +138,15 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByLabel('Qué querés vender',{exact:true}).fill('Tercera venta');
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Tercera venta',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Cerrar',exact:true}).click();
+  await page.getByRole('link',{name:'← Volver a Ventas',exact:true}).click();
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Ventas/}).click();
   await expect(page.getByRole('heading',{name:'Ventas (3)',exact:true})).toBeVisible();
   const legacyOpportunityUrl=(await page.getByRole('link',{name:/Tercera venta · #/}).getAttribute('href'))!.replace('/opportunities?','/?');
   await page.getByRole('link',{name:'Negocios',exact:true}).click();
   const businessRow=page.getByRole('row').filter({has:page.getByRole('button',{name:/Negocio E2E/})});
   await expect(businessRow).toHaveCount(1);
-  await expect(businessRow.getByRole('button',{name:/3 oportunidades/})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Guardar vista',exact:true})).toBeVisible();
+  await expect(businessRow.getByRole('button',{name:/3 ventas/})).toBeVisible();
+  await page.getByText('Resumen, vistas guardadas y ayuda',{exact:true}).click();await expect(page.getByRole('button',{name:'Guardar vista',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:/^Filtrar/})).toBeVisible();
   await expect(page.getByRole('button',{name:'Pantalla completa',exact:true})).toBeVisible();
   await expect(businessRow.getByRole('button',{name:/1er contacto.*En tratativas/})).toBeVisible();
