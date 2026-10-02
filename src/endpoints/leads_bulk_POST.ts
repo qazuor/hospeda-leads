@@ -1,4 +1,5 @@
 import {setWorkActor} from "../helpers/workAudit";
+import {createHash} from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -22,6 +23,13 @@ export async function handle(request:Request){
     const ids=input.ids.map(String);
     const updated=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
+      const matched=await trx.selectFrom("leads").select("accountId").where(input.entity==="business"?"accountId":"id","in",ids).where("deletedAt","is",null).execute();
+      const accountIds=input.entity==="business"?ids:[...new Set(matched.map(l=>String(l.accountId)))];
+      const businesses=accountIds.length?await trx.selectFrom("crmAccounts").selectAll().where("id","in",accountIds).orderBy("id").forUpdate().execute():[];
+      const leads=await trx.selectFrom("leads").selectAll().where(input.entity==="business"?"accountId":"id","in",ids).where("deletedAt","is",null).orderBy("id").forUpdate().execute();
+      const fingerprint=createHash('sha256').update(superjson.stringify({entity:input.entity,ids:[...ids].sort(),changes:input.changes,leads,businesses})).digest('hex');
+      if(input.expectedFingerprint&&input.expectedFingerprint!==fingerprint)throw new Error('Los datos cambiaron desde la revisión. Volvé a revisar antes de aplicar.');
+      if(input.preview)return {fingerprint,rows:leads.map(l=>({id:String(l.id),accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,estado:l.estado,assignedUserEmail:l.assignedUserEmail})),businesses:businesses.map(a=>({id:String(a.id),nombre:a.nombre,ciudad:a.ciudad,assignedUserEmail:a.assignedUserEmail}))};
       const changesInput={...input.changes};
       if(input.entity==="business"){
         const shared:{ciudad?:string|null;assignedUserEmail?:string|null}={};
@@ -29,7 +37,6 @@ export async function handle(request:Request){
         if("assignedUserEmail" in changesInput){shared.assignedUserEmail=changesInput.assignedUserEmail??null;delete changesInput.assignedUserEmail}
         await updateBusinessFields(trx,ids,shared,user);
       }
-      const leads=await trx.selectFrom("leads").selectAll().where(input.entity==="business"?"accountId":"id","in",ids).where("deletedAt","is",null).orderBy("id").forUpdate().execute();
       for(const lead of leads){
         const values:Record<string,unknown>={updatedAt:new Date()};
         const changes:{fieldName:string;oldValue:unknown;newValue:unknown}[]=[];
@@ -65,7 +72,7 @@ export async function handle(request:Request){
       }
       return input.entity==="business"?ids.length:leads.length;
     });
-    return new Response(superjson.stringify({ok:true,updated} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
+    return new Response(superjson.stringify({ok:true,updated:typeof updated==="number"?updated:0,...(typeof updated!=="number"?{preview:updated}:{})} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
     return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudieron actualizar los leads"}),{status:400});
   }

@@ -62,9 +62,9 @@ export function buildHospedaEmailHtml({
         <td align="center" style="padding:28px 12px;">
           <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dfe8ef;box-shadow:0 8px 28px rgba(33,55,72,.08);">
             <tr>
-              <td align="center" style="padding:22px 28px 18px;background:#ffffff;">
+              <td align="center" style="padding:14px 24px 12px;background:#ffffff;">
                 <a href="${SITE_URL}" target="_blank" style="text-decoration:none;">
-                  <img src="${logoUrl}" width="96" alt="Hospeda" style="display:block;width:96px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;">
+                  <img src="${logoUrl}" width="64" alt="Hospeda" style="display:block;width:64px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;">
                 </a>
               </td>
             </tr>

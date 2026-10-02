@@ -1,3 +1,5 @@
+import {BulkChangeReview} from "../components/BulkChangeReview";
+import type {InputType as BulkInput} from "../endpoints/leads_bulk_POST.schema";
 import {useUnsavedChanges} from "../components/UnsavedChanges";
 import {DataImportDialog} from '../components/DataImportDialog';
 import {AccountMergeDialog} from '../components/AccountMergeDialog';
@@ -55,164 +57,9 @@ import { dateOnlyInput, toDateInput } from "../helpers/crmDates";
 import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
-const QUERY_KEY=["leads"] as const;
-const PRIORITY_OPTIONS=["alta","media","baja"];
-const PROFILE_OPTIONS=["Independiente","Consolidado","Referente"];
-const CONTACT_OPTIONS=["email","teléfono","WhatsApp","otro"];
-const TEXT_FILTER_FIELDS=[
-  "nombre","contactName","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook",
-  "perfilAirbnb","perfilBooking","perfilTurismoEntreRios","resultadoUltimoContacto","fuenteReferencia","archivoAdjunto"
-] as const;
-type TextFilterField=typeof TEXT_FILTER_FIELDS[number];
-const DATE_FILTER_FIELDS=["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"] as const;
-type DateFilterField=typeof DATE_FILTER_FIELDS[number];
-const TEXT_FILTER_LABELS:Record<TextFilterField,string>={
-  nombre:"Nombre del negocio",contactName:"Persona de contacto",email:"Email",telefono:"Teléfono",sitioWeb:"Sitio web",
-  urlGmap:"Google Maps",perfilInstagram:"Instagram",perfilFacebook:"Facebook",perfilAirbnb:"Airbnb",
-  perfilBooking:"Booking",perfilTurismoEntreRios:"Turismo Entre Ríos",resultadoUltimoContacto:"Resultado último contacto",
-  fuenteReferencia:"Fuente de referencia",archivoAdjunto:"Archivo adjunto"
-};
-const DATE_FILTER_LABELS:Record<DateFilterField,string>={
-  fechaCreacion:"Fecha creación",fechaUltimoContacto:"Último contacto",fechaProximaAccion:"Próxima acción",
-  createdAt:"Creado en sistema",updatedAt:"Actualizado"
-};
-const createTextFilters=()=>Object.fromEntries(TEXT_FILTER_FIELDS.map(field=>[field,emptyTextFilter()])) as Record<TextFilterField,TextFilterState>;
-const createDateFilters=()=>Object.fromEntries(DATE_FILTER_FIELDS.map(field=>[field,emptyDateFilter()])) as Record<DateFilterField,DateFilterState>;
+import {QUERY_KEY, PRIORITY_OPTIONS, PROFILE_OPTIONS, CONTACT_OPTIONS, TEXT_FILTER_FIELDS, TextFilterField, DATE_FILTER_FIELDS, DateFilterField, TEXT_FILTER_LABELS, DATE_FILTER_LABELS, createTextFilters, createDateFilters, SortBy, TABLE_COLUMNS, DEFAULT_COLUMNS, DEFAULT_WIDTHS, TABLE_QUERY_STORAGE_KEY, TABLE_FILTERS_STORAGE_KEY, TABLE_SORT_STORAGE_KEY, readStoredQuery, readStoredFilterGroups, readStoredSort, emptyForm, str, dateInput, displayDate, isUrl} from "../helpers/leadsTableModel";
 
-type SortBy=
-  |"id"|"nombre"|"contactName"|"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"suscripcion"|"email"|"telefono"|"assignedUserEmail"
-  |"sitioWeb"|"urlGmap"|"perfilInstagram"|"perfilFacebook"|"perfilAirbnb"|"perfilBooking"
-  |"perfilTurismoEntreRios"|"origen"|"quienCargo"|"fechaCreacion"|"fechaUltimoContacto"
-  |"medioContactoPreferido"|"resultadoUltimoContacto"|"prioridad"|"fechaProximaAccion"
-  |"fuenteReferencia"|"clientePotencialRecurrente"|"archivoAdjunto"|"creadoPor"|"createdAt"|"updatedAt";
-
-const TABLE_COLUMNS:TableColumnOption[]=[
-  {key:"id",label:"ID"},
-  {key:"nombre",label:"Oportunidad / negocio"},
-  {key:"assignedUserEmail",label:"Responsable"},
-  {key:"contactName",label:"Persona de contacto"},
-  {key:"tipo",label:"Vertical"},
-  {key:"subtipo",label:"Subtipo"},
-  {key:"commercialProfile",label:"Perfil comercial"},
-  {key:"ciudad",label:"Ciudad"},
-  {key:"estado",label:"Estado"},
-  {key:"suscripcion",label:"Suscripción"},
-  {key:"email",label:"Email"},
-  {key:"telefono",label:"Teléfono"},
-  {key:"sitioWeb",label:"Sitio web"},
-  {key:"urlGmap",label:"Google Maps"},
-  {key:"perfilInstagram",label:"Instagram"},
-  {key:"perfilFacebook",label:"Facebook"},
-  {key:"perfilAirbnb",label:"Airbnb"},
-  {key:"perfilBooking",label:"Booking"},
-  {key:"perfilTurismoEntreRios",label:"Turismo Entre Ríos"},
-  {key:"origen",label:"Origen"},
-  {key:"quienCargo",label:"Quién cargó"},
-  {key:"fechaCreacion",label:"Fecha creación"},
-  {key:"fechaUltimoContacto",label:"Último contacto"},
-  {key:"medioContactoPreferido",label:"Medio preferido"},
-  {key:"resultadoUltimoContacto",label:"Resultado último contacto"},
-  {key:"prioridad",label:"Prioridad"},
-  {key:"fechaProximaAccion",label:"Próxima acción"},
-  {key:"fuenteReferencia",label:"Fuente de referencia"},
-  {key:"clientePotencialRecurrente",label:"Potencial recurrente"},
-  {key:"archivoAdjunto",label:"Archivo adjunto"},
-  {key:"creadoPor",label:"Creado por"},
-  {key:"createdAt",label:"Creado en sistema"},
-  {key:"updatedAt",label:"Actualizado"}
-];
-const DEFAULT_COLUMNS=["nombre","contactName","assignedUserEmail","estado","fechaProximaAccion"];
-const DEFAULT_WIDTHS:Record<string,number>={
-  id:90,nombre:220,contactName:190,tipo:170,subtipo:180,commercialProfile:170,ciudad:170,estado:180,suscripcion:170,
-  email:220,telefono:150,assignedUserEmail:190,sitioWeb:230,urlGmap:230,perfilInstagram:220,perfilFacebook:220,
-  perfilAirbnb:220,perfilBooking:220,perfilTurismoEntreRios:240,origen:170,quienCargo:180,
-  fechaCreacion:150,fechaUltimoContacto:160,medioContactoPreferido:170,
-  resultadoUltimoContacto:260,prioridad:130,fechaProximaAccion:160,fuenteReferencia:230,
-  clientePotencialRecurrente:170,archivoAdjunto:230,creadoPor:180,createdAt:160,updatedAt:160
-};
-
-const TABLE_QUERY_STORAGE_KEY="hospeda-leads-table-query-v1";
-const TABLE_FILTERS_STORAGE_KEY="hospeda-leads-table-filters-v1";
-const TABLE_SORT_STORAGE_KEY="hospeda-leads-table-sort-v1";
-
-const readStoredQuery=(entity:string)=>{
-  if(typeof window==="undefined")return "";
-  try{return window.localStorage.getItem(TABLE_QUERY_STORAGE_KEY+"-"+entity)??""}
-  catch{return ""}
-};
-
-const readStoredFilterGroups=(entity:string):AdvancedFilterGroup[]=>{
-  if(typeof window==="undefined")return [];
-  try{
-    const raw=window.localStorage.getItem(TABLE_FILTERS_STORAGE_KEY+"-"+entity);
-    if(!raw)return [];
-    const parsed=advancedFilterGroup.array().safeParse(JSON.parse(raw));
-    if(!parsed.success)return [];
-    return parsed.data
-      .map(group=>({rules:group.rules.filter(rule=>rule.field!=="asignadoA")}))
-      .filter(group=>group.rules.length);
-  }catch{return []}
-};
-
-const readStoredSort=(entity:string):{sortBy:SortBy;sortDir:"asc"|"desc"}=>{
-  const fallback={sortBy:"fechaCreacion" as SortBy,sortDir:"desc" as const};
-  if(typeof window==="undefined")return fallback;
-  try{
-    const raw=window.localStorage.getItem(TABLE_SORT_STORAGE_KEY+"-"+entity);
-    if(!raw)return fallback;
-    const parsed=JSON.parse(raw);
-    if(parsed?.sortBy==="asignadoA"&&(parsed?.sortDir==="asc"||parsed?.sortDir==="desc")){
-      return {sortBy:"assignedUserEmail",sortDir:parsed.sortDir};
-    }
-    const validField=typeof parsed?.sortBy==="string"&&TABLE_COLUMNS.some(column=>column.key===parsed.sortBy);
-    const validDirection=parsed?.sortDir==="asc"||parsed?.sortDir==="desc";
-    return validField&&validDirection
-      ? {sortBy:parsed.sortBy as SortBy,sortDir:parsed.sortDir}
-      : fallback;
-  }catch{return fallback}
-};
-
-const emptyForm:InputType={
-  nombre:"",contactName:"",tipo:"Alojamiento",subtipo:"",commercialProfile:null,ciudad:"",estado:"Cargado",suscripcion:"",
-  email:"",telefono:"",sitioWeb:"",urlGmap:"",perfilInstagram:"",perfilFacebook:"",
-  perfilAirbnb:"",perfilBooking:"",perfilTurismoEntreRios:"",origen:"",quienCargo:"",
-  asignadoA:"",assignedUserEmail:"",fechaUltimoContacto:"",medioContactoPreferido:"",resultadoUltimoContacto:"",
-  prioridad:null,fechaProximaAccion:"",fuenteReferencia:"",clientePotencialRecurrente:false,
-  archivoAdjunto:"",notas:null
-};
-
-const str=(v:unknown)=>v==null?"":String(v);
-const dateInput=toDateInput;
-const displayDate=(v:unknown)=>{
-  if(!v)return "—";
-  const d=new Date(v as string);
-  return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("es-AR");
-};
-const isUrl=(key:string)=>["sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","archivoAdjunto"].includes(key);
-
-function HeaderMenu({
-  label,field,sortBy,sortDir,onSort,children
-}:{
-  label:string;field:SortBy;sortBy:SortBy;sortDir:"asc"|"desc";
-  onSort:(field:SortBy,dir:"asc"|"desc")=>void;children?:React.ReactNode;
-}){
-  return <Popover>
-    <PopoverTrigger asChild>
-      <button className={styles.headerButton} title={"Ordenar por "+label}>
-        <span>{label}</span>
-        {sortBy===field?(sortDir==="asc"?<ArrowUpAZ size={14}/>:<ArrowDownAZ size={14}/>):<ChevronDown size={14}/>}
-      </button>
-    </PopoverTrigger>
-    <PopoverContent align="start" className={styles.headerPopover}>
-      <div className={styles.headerPopoverTitle}>{label}</div>
-      <div className={styles.sortButtons}>
-        <Button size="sm" variant={sortBy===field&&sortDir==="asc"?"secondary":"outline"} onClick={()=>onSort(field,"asc")}><ArrowUpAZ size={14}/>Ascendente</Button>
-        <Button size="sm" variant={sortBy===field&&sortDir==="desc"?"secondary":"outline"} onClick={()=>onSort(field,"desc")}><ArrowDownAZ size={14}/>Descendente</Button>
-      </div>
-      {children&&<div className={styles.headerFilter}>{children}</div>}
-    </PopoverContent>
-  </Popover>;
-}
+import {HeaderMenu} from "../components/LeadsTableHeader";
 
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const navigate=useNavigate();
@@ -668,11 +515,13 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       toast.error(error instanceof Error?error.message:"No se pudo guardar");
     }
   };
-  const applyBulk=async()=>{
+  const [bulkReview,setBulkReview]=useState<BulkInput|null>(null);
+  const applyBulk=async(fingerprint:string)=>{
     if(!selectedIds.size)return;
     const changes:any={[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)};
     try{
-    await bulkM.mutateAsync({entity,ids:Array.from(selectedIds),changes});
+    await bulkM.mutateAsync({...bulkReview!,expectedFingerprint:fingerprint});
+    setBulkReview(null);
     toast.success(`${selectedIds.size} ${businessMode?"negocios":"oportunidades"} actualizados`);setSelectedIds(new Set());setBulkValue("");
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudieron aplicar los cambios")}
   };
@@ -844,11 +693,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
               {bulkField==="ciudad"&&cityOptions.map(item=><option key={item}>{item}</option>)}
             </select>}
         {businessMode&&<span className={styles.tableHint}>{["ciudad","assignedUserEmail"].includes(bulkField)?"Modifica los datos del negocio.":"Modifica TODAS las oportunidades activas de estos negocios, incluso las que no coincidan con el filtro."}</span>}
-        <Button size="sm" onClick={applyBulk} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
+        <Button size="sm" onClick={()=>{bulkM.reset();setBulkReview({entity,ids:Array.from(selectedIds),changes:{[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)}})}} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
         <Button size="sm" variant="destructive" onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={14}/>Enviar a papelera</Button>
         <Button size="sm" variant="ghost" onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button>
       </section>}
 
+      {bulkReview&&<BulkChangeReview input={bulkReview} onClose={()=>setBulkReview(null)} onConfirm={applyBulk} pending={bulkM.isPending} error={bulkM.error?.message}/>}
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
         <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} onClick={()=>setPipelineView(true)}>Ver por etapas</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las oportunidades. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}

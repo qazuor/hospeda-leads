@@ -51,3 +51,16 @@ La migración 011 agrega resultados estructurados y archivo de negocios; reempla
 ## Evaluación con personas
 
 Las verificaciones técnicas no prueban que toda persona mayor pueda usar la app sin ayuda. Antes de declarar la experiencia terminada, probar con personas sin experiencia estos objetivos: crear un negocio, agregar contacto, programar y atender una tarea, cerrar una venta, acompañar y preparar otra propuesta. Registrar dónde piden ayuda, errores, abandonos y tiempo por objetivo. Cada bloqueo observado debe corregirse y repetirse con otra persona. No confundir el recorrido automatizado con esa evaluación humana.
+
+## Segunda entrega: pendientes concretos de la auditoría
+
+- Acción destructiva de venta en menú secundario, con confirmación existente conservada.
+- Vista previa completa de cambios masivos, confirmación explícita y detección de datos cambiados entre revisión y aplicación.
+- Guía Contacto/Necesidad/Propuesta/Decisión con evidencia y próxima tarea de la venta; tablero opcional por clasificación.
+- Acuerdo, persona, material, responsable y fecha de entrega guardados en el historial del cierre; campos desconocidos por confirmar, sin acreditar pago.
+- Lectura completa del email con asunto, diseño opcional, logo menor; encabezado de materiales y datos técnicos en detalles.
+- Configuración/persistencia de tabla y encabezados extraídos a módulos; componentes de revisión masiva y guía independientes. La refactorización es gradual, no una reescritura completa.
+- Estados históricos: decisiones propuestas por caso en Configuración. Reclasificar datos reales exige evaluar su evidencia con el equipo; no se automatiza por el nombre.
+- Protocolo reproducible en `docs/prueba-con-principiantes.md`. Sesiones humanas, mediciones reales y revisión completa con lector de pantalla pendientes.
+
+No hay migración nueva: la evidencia del cierre utiliza el historial existente. La vista de email no modifica los borradores guardados; el logo reducido se aplica al generar emails nuevos.

@@ -9,8 +9,9 @@ import {Link} from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BriefcaseBusiness, CalendarClock, ChevronLeft, ChevronRight, ContactRound, ExternalLink, History, Link2, Mail, MapPin,
-  MessageCircle, Pencil, Phone, Plus, ShieldCheck, StickyNote, Trash2, X
+  MessageCircle, MoreHorizontal, Pencil, Phone, Plus, ShieldCheck, StickyNote, Trash2, X
 } from "lucide-react";
+import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from "./DropdownMenu";
 import { Badge } from "./Badge";
 import { Button } from "./Button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./Dialog";
@@ -150,7 +151,7 @@ export const LeadDetailDialog=({
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
           {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Oportunidad anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Oportunidad siguiente"><ChevronRight size={16}/></Button></div>}
-          {!readOnly&&onDelete&&<Button size="sm" variant="destructive" onClick={()=>onDelete(lead)}><Trash2 size={15}/>Eliminar</Button>}
+          {!readOnly&&onDelete&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="outline" aria-label="Más acciones de la venta"><MoreHorizontal size={16}/>Más acciones</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={()=>onDelete(lead)}><Trash2 size={15}/>Enviar venta a papelera</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
           <Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>
           {!readOnly&&onEdit&&<Button size="sm" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar oportunidad</Button>}
         </div>
