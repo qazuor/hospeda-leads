@@ -2,7 +2,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Transaction,type Kysely,type Insertable} from 'kysely';
 import {z} from 'zod';
 import type {DB,Leads} from './schema';
-import {businessFields,importFields,normalizeField,matchAccounts} from './dataNormalization';
+import {businessFields,importFields,normalizeField,matchAccounts,dataFieldLabels} from './dataNormalization';
 import {qualityMutation,type QualityMutation,type ReviewRow,type ImportResult} from '../endpoints/dataQuality.schema';
 import {setWorkActor} from './workAudit';
 import {writeLeadJournal} from './writeLeadJournal';
@@ -26,9 +26,9 @@ export async function reviewRows(database:Kysely<DB>,values:Record<string,string
   for(const [field,value] of Object.entries(row)){
    if(!value.trim())continue;
    const n=normalizeField(field,value);
-   if(n.validity==='invalid')errors.push(field+': '+n.observations);
-   if(n.validity==='ambiguous')warnings.push(field+': '+n.observations);
-   if(field.startsWith('fecha')&&!validDate(value.trim()))errors.push(field+': usar AAAA-MM-DD o DD/MM/AAAA válido');
+   if(n.validity==='invalid')errors.push(dataFieldLabels[field]+': '+n.observations);
+   if(n.validity==='ambiguous')warnings.push(dataFieldLabels[field]+': '+n.observations);
+   if(field.startsWith('fecha')&&!validDate(value.trim()))errors.push(dataFieldLabels[field]+': usar AAAA-MM-DD o DD/MM/AAAA válido');
    if(field==='prioridad'&&!['alta','media','baja'].includes(value.trim()))errors.push('Prioridad inválida');
    if(field==='clientePotencialRecurrente'&&!['true','false','si','sí','no','1','0','yes'].includes(value.trim().toLowerCase()))errors.push('Booleano inválido');
    if(field==='asignadoA'&&!users.some(u=>u.email===value.trim())&&users.filter(u=>u.displayName===value.trim()).length!==1)errors.push('Responsable inexistente o ambiguo');
@@ -116,7 +116,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      if(account.updatedAt.toISOString()!==d.revision)throw new QualityConflict(`Fila ${row.index+1}: el destino cambió. Generá el preview nuevamente.`);
      if(user.role!=='admin'&&account.assignedUserEmail!==user.email)throw new QualityForbidden('Solo podés actualizar tus negocios asignados.');
      const unsupported=Object.keys(fields).filter(f=>!(businessFields as readonly string[]).includes(f));
-     if(unsupported.length)throw new Error(`Fila ${row.index+1}: actualizar negocio solo acepta datos generales; quitá ${unsupported.join(', ')} del mapeo o creá/omití la fila.`);
+     if(unsupported.length)throw new Error(`Fila ${row.index+1}: actualizar negocio solo acepta datos generales; quitá ${unsupported.map(f=>dataFieldLabels[f]||f).join(', ')} del mapeo o creá/omití la fila.`);
      const after=await trx.updateTable('crmAccounts').set({...fields,updatedAt:new Date()}).where('id','=',d.targetId).returningAll().executeTakeFirstOrThrow();
      await evidence(trx,d.targetId,fields,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
      await trx.insertInto('crmCommercialJournal').values({accountId:d.targetId,action:'import_updated',actorEmail:user.email,actorName:user.displayName,metadata:json({before:account,after,batchId:batch.id})}).execute();

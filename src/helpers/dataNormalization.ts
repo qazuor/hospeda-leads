@@ -2,6 +2,15 @@ export type Validity='valid'|'invalid'|'ambiguous'|'missing'|'unverified';
 export type Normalized={original:string|null; normalized:string|null; validity:Validity; observations:string};
 export const businessFields=['nombre','ciudad','telefono','email','sitioWeb','urlGmap','perfilInstagram','perfilFacebook','perfilAirbnb','perfilBooking','perfilTurismoEntreRios'] as const;
 export const importFields=[...businessFields,'tipo','subtipo','estado','suscripcion','origen','fuenteReferencia','prioridad','notas','archivoAdjunto','fechaCreacion','fechaUltimoContacto','fechaProximaAccion','medioContactoPreferido','resultadoUltimoContacto','clientePotencialRecurrente','quienCargo','creadoPor','asignadoA'] as const;
+export const dataFieldLabels:Record<string,string>={
+ nombre:'Nombre del negocio',ciudad:'Localidad',telefono:'Teléfono genérico',email:'Email',sitioWeb:'Sitio web',urlGmap:'Google Maps',
+ perfilInstagram:'Instagram',perfilFacebook:'Facebook',perfilAirbnb:'Airbnb',perfilBooking:'Booking',perfilTurismoEntreRios:'Turismo Entre Ríos',
+ tipo:'Vertical',subtipo:'Subtipo',estado:'Etapa',suscripcion:'Suscripción',origen:'Origen histórico',fuenteReferencia:'Fuente de referencia histórica',
+ prioridad:'Prioridad',notas:'Notas de oportunidad',archivoAdjunto:'Documento adjunto',fechaCreacion:'Fecha de creación',fechaUltimoContacto:'Último contacto',
+ fechaProximaAccion:'Próxima acción',medioContactoPreferido:'Canal preferido',resultadoUltimoContacto:'Resultado del último contacto',
+ clientePotencialRecurrente:'Potencial recurrente',quienCargo:'Quién cargó (histórico)',creadoPor:'Creado por (histórico)',asignadoA:'Responsable (nombre o email)',
+ name:'Nombre de la persona',phone:'Teléfono',position:'Cargo',preferredChannel:'Canal preferido'
+};
 export const comparisonName=(s:string|null|undefined)=>(s??'').normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('es-AR').replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
 export function normalizeField(field:string,value:string|null|undefined):Normalized{
  const original=value??null,s=value?.trim()??'';
