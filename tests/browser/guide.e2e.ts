@@ -1,0 +1,38 @@
+import {test, expect} from '@playwright/test';
+
+test('Beginner help supports scenarios, search, direct links and history', async ({page}) => {
+  await page.addInitScript(() => localStorage.setItem('hospeda-live-mode', 'off'));
+  await page.setViewportSize({width: 1440, height: 1000});
+  await page.goto('/login');
+  await page.getByLabel('Email', {exact: true}).fill('admin@example.com');
+  await page.getByLabel('Contraseña', {exact: true}).fill('test-password-123');
+  await page.getByRole('button', {name: 'Ingresar', exact: true}).click();
+  await expect(page).toHaveURL(/\/my-day$/);
+  await page.goto('/guide');
+  await expect(page.getByRole('heading', {name: 'Usar Hospeda, paso a paso'})).toBeVisible();
+  await page.getByRole('link', {name: /Quiero ver un ejemplo completo/}).click();
+  const article = page.getByRole('article');
+  await expect(article.getByRole('heading', {name: 'Cabañas Camino Claro: de nuevo negocio a cliente'})).toBeVisible();
+  await expect(article.locator('ol > li')).toHaveCount(12);
+  await page.getByLabel('¿Qué necesitás hacer?').fill('no respondio');
+  await expect(page.getByRole('heading', {name: 'Resultados de ayuda'})).toBeVisible();
+  await page.getByRole('link', {name: /No respondió o pidió esperar/}).click();
+  await expect(article.getByRole('heading', {name: 'No respondió o pidió esperar'})).toBeVisible();
+  await expect(article.getByText(/No se envían mensajes ni se reabre o cierra/)).toBeVisible();
+  await expect(page.getByLabel('¿Qué necesitás hacer?')).toHaveValue('');
+  await page.goBack();
+  await expect(article.getByRole('heading', {name: 'Cabañas Camino Claro: de nuevo negocio a cliente'})).toBeVisible();
+  await page.goto('/guide?topic=clients&article=care');
+  await expect(article.getByRole('heading', {name: 'Acompañar a un cliente'})).toBeVisible();
+  await expect(article.getByText(/No crees una venta solo para registrar una consulta/)).toBeVisible();
+  await page.screenshot({path: 'test-results/guide-desktop.png', fullPage: true, animations: 'disabled'});
+  await page.getByLabel('¿Qué necesitás hacer?').fill('xyzningunaexplicacion');
+  await expect(page.getByText('Probá con otra palabra o volvé a los temas de la guía.')).toBeVisible();
+  await page.getByRole('button', {name: 'Ver todos los temas'}).click();
+  await page.setViewportSize({width: 390, height: 844});
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({path: 'test-results/guide-mobile.png', fullPage: true, animations: 'disabled'});
+  await page.addStyleTag({content: '*,*::before,*::after{transition:none!important}'});
+  await page.evaluate(() => document.documentElement.classList.add('dark'));
+  await page.screenshot({path: 'test-results/guide-dark-mobile.png', fullPage: true, animations: 'disabled'});
+});

@@ -1,17 +1,59 @@
-import React from 'react';
-import {Link} from 'react-router-dom';
+import {useEffect, useRef, useState} from 'react';
+import {Link, useSearchParams} from 'react-router-dom';
+import {ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lightbulb, Search} from 'lucide-react';
 import {AppHeader} from '../components/AppHeader';
-import styles from '../components/Commercial.module.css';
-const steps=[
- ['1. Agregá el negocio','Entrá en Negocios y elegí Nuevo negocio. Escribí el nombre; la ciudad y los demás datos se pueden completar después. Guardá. Buscá primero si ya existe para evitar duplicados.','/accounts','Ir a Negocios'],
- ['2. Agregá con quién vas a hablar','Abrí el negocio. En Contactos, elegí Agregar contacto y escribí el nombre, teléfono o email. Principal significa que esa persona es la referencia habitual. No hace falta conocer su cargo para empezar.','/accounts','Buscar un negocio'],
- ['3. Prepará una venta','En el resumen del negocio, elegí Crear una venta. Poné un nombre concreto, por ejemplo Publicación de cabañas. Una venta es una propuesta que queremos concretar; un negocio puede tener varias. Elegí su persona de contacto.','/opportunities','Ver las ventas'],
- ['4. Dejá el próximo paso con fecha','Elegí Planificar próximo paso. Escribí algo concreto: Llamar a Ana para conocer sus necesidades. Elegí fecha y guardá. La tarea aparecerá en Mi día cuando corresponda. Si aún no conocés a la persona, el primer paso puede ser averiguar quién decide.','/my-day','Abrir Mi día'],
- ['5. Contactá y escuchá','En la tarea, elegí Contactar. Revisá la persona y el canal: llamada, WhatsApp o email. Preguntá qué necesita y si quiere recibir una propuesta. Los mensajes modelo son una ayuda: revisá destinatario y contenido antes de enviarlos. Abrir WhatsApp no significa que el mensaje se haya enviado.','/my-day','Ver mis tareas'],
- ['6. Registrá qué pasó','Después de hablar, elegí Registrar qué pasó en la tarea. Seleccioná el resultado y escribí las notas útiles. Elegí Cómo sigue: planificar una acción, esperar hasta una fecha o terminar por ahora. El botón indica lo que se guardará. Si no respondió, acordá cuándo intentar de nuevo. Si pidió no recibir más contactos, elegí Pidió que no lo contactemos.','/my-day','Registrar una acción'],
- ['7. Acompañá la decisión','Abrí la venta y consultá Cómo avanzar con esta venta: Contacto, Necesidad, Propuesta y Decisión. Es una guía; abrir un paso no cambia la etapa. En Etapa y prioridad podés cambiar la etapa. Una etapa indica en qué punto está: contacto, propuesta, decisión o cierre. Los nombres pueden variar según la configuración de Hospeda. Prepará materiales en Documentos y acordá siempre una próxima acción. Las secuencias son listas de tareas y borradores; no envían mensajes automáticamente.','/opportunities','Abrir una venta'],
- ['8. Cerrá con el resultado real','Si aceptó la propuesta, abrí Etapa y prioridad, elegí Cambiar etapa y seleccioná una etapa Ganada. En Acuerdo y entrega anotá qué se acordó, quién aceptó, el material, el responsable y la fecha conocida. Lo desconocido queda por confirmar. Podés marcar al negocio como cliente y dejar una tarea de acompañamiento. Una vez ganada, Revisar acuerdo y entrega permite completar o corregir datos sin reabrir la venta. Ganada y Cliente no prueban que haya pagado: registrá o verificá el pago por el procedimiento del equipo. Si no acepta, usá una etapa Perdida, anotá el motivo y, si corresponde, una fecha para retomarla.','/opportunities','Revisar ventas'],
- ['9. Seguí acompañando al cliente','Desde el resumen del negocio, planificá una tarea para comprobar que recibió lo acordado y preguntar cómo le está yendo. Registrá cada conversación. No abras otra venta para hacer seguimiento de lo que ya se vendió: usá una tarea general o vinculada a esa venta.','/accounts','Abrir un cliente'],
- ['10. Ofrecé algo más cuando tenga sentido','En el mismo negocio elegí Ofrecer otra venta. Describí la nueva propuesta y elegí su contacto. La venta anterior conserva su cierre y su historial. Ser cliente no impide gestionar otra venta. Antes de contactar, revisá lo último que habló el equipo y respetá las restricciones.','/accounts','Preparar otra venta'],
-];
-export default function GuidePage(){return <><AppHeader/><main className={styles.shell}><h1>Usar Hospeda, paso a paso</h1><p>No necesitás experiencia con ventas ni con un CRM. Esta herramienta sirve para recordar con quién hablaste, qué acordaron y qué hay que hacer después.</p><section className={styles.panel}><h2>Para empezar hoy</h2><p>Entrá en Mi día. Primero revisá las tareas atrasadas, después las de hoy. Las próximas están plegadas y los filtros están en Filtros de trabajo. Elegí Contactar, registrá el resultado y decidí cómo sigue. En cada negocio o venta, Ahora corresponde muestra el próximo paso.</p><Link to="/my-day">Ir a Mi día →</Link></section><nav aria-label="Pasos de la guía"><ol>{steps.map(([title],i)=><li key={title}><a href={'#step-'+i}>{title.slice(3)}</a></li>)}</ol></nav>{steps.map(([title,text,url,label],i)=><section id={'step-'+i} key={title} className={styles.panel}><h2>{title}</h2><p>{text}</p><Link to={url}>{label} →</Link></section>)}<section className={styles.panel}><h2>Si algo te frena</h2><ul><li><strong>No hay teléfono o email:</strong> abrí el negocio y agregá el canal de la persona o del negocio.</li><li><strong>No aparece una tarea:</strong> revisá su fecha, el responsable y los filtros. Agenda muestra las acciones que el equipo configuró para el calendario.</li><li><strong>No podés editar:</strong> puede ser una venta o tarea asignada a otra persona. Consultá al responsable o administrador.</li><li><strong>Los datos parecen viejos:</strong> elegí Actualizar. En la flecha de al lado podés activar Actualizar automáticamente para ver los cambios del equipo.</li><li><strong>Hay cambios sin guardar:</strong> seguí editando y guardá antes de salir. Descartar elimina solo los cambios que aún no guardaste.</li><li><strong>El email tiene resultado incierto:</strong> revisá el historial con el administrador antes de reenviarlo para evitar duplicarlo.</li><li><strong>Hay dos negocios iguales:</strong> pedí al administrador que revise los duplicados y conserve el historial.</li></ul></section><section className={styles.panel}><h2>Revisar antes de modificar varios registros</h2><p>Al aplicar un cambio masivo se abre una lista completa de los registros afectados. Revisala antes de confirmar: al seleccionar negocios se pueden modificar ventas que el filtro no mostraba. Si los datos cambiaron, volvé a revisar. Cancelar no modifica datos.</p></section><section className={styles.panel}><h2>Palabras que vas a encontrar</h2><dl><dt>Negocio</dt><dd>La empresa o establecimiento con el que nos relacionamos.</dd><dt>Contacto</dt><dd>Una persona de ese negocio.</dd><dt>Venta u oportunidad</dt><dd>Una propuesta concreta que queremos que acepte.</dd><dt>Tarea</dt><dd>Algo que falta hacer, con una fecha.</dd><dt>Actividad</dt><dd>Algo que ya hicimos y dejamos registrado.</dd><dt>Responsable</dt><dd>La persona del equipo encargada de esa relación, venta o tarea.</dd><dt>Historial</dt><dd>El registro de lo ocurrido, que se conserva aunque otra venta empiece.</dd></dl></section></main></>}
+import {Button} from '../components/Button';
+import {Input} from '../components/Input';
+import {useAuth} from '../helpers/useAuth';
+import topics from '../content/user-guide.json';
+import styles from './guide.module.css';
+
+const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+const entries = topics.flatMap(topic => topic.articles.map(article => ({topic, article})));
+
+export default function GuidePage() {
+  const [params] = useSearchParams();
+  const [search, setSearch] = useState('');
+  const topic = topics.find(item => item.id === params.get('topic')) ?? topics[0];
+  const article = topic.articles.find(item => item.id === params.get('article')) ?? topic.articles[0];
+  const index = topic.articles.indexOf(article);
+  const {authState} = useAuth();
+  const admin = authState.type === 'authenticated' && authState.user.role === 'admin';
+  const title = useRef<HTMLHeadingElement>(null);
+  const previous = useRef(article.id);
+  const term = normalize(search);
+  const results = entries.filter(({topic, article}) => normalize([topic.title, article.title, article.when, ...article.steps, article.result, ...article.example, ...article.notes].join(' ')).includes(term));
+  const url = (topicId: string, articleId?: string) => '/guide?topic=' + topicId + (articleId ? '&article=' + articleId : '');
+  useEffect(() => {
+    if (previous.current !== article.id) {
+      previous.current = article.id;
+      title.current?.focus({preventScroll: true});
+      title.current?.scrollIntoView({block: 'start'});
+    }
+  }, [article.id]);
+  return <><AppHeader/><main className={styles.shell}>
+    <header className={styles.hero}><div className={styles.heroIcon}><BookOpen size={26}/></div><div><span className={styles.eyebrow}>AYUDA PARA EL TRABAJO DIARIO</span><h1>Usar Hospeda, paso a paso</h1><p>Qué hacer, cómo registrarlo y cuál es el siguiente paso. No necesitás experiencia con un CRM ni con ventas.</p></div></header>
+    <div className={styles.shortcuts} aria-label="Por dónde empezar">
+      <Link to={url('first', 'business')} onClick={() => setSearch('')}><strong>Quiero cargar un negocio</strong><span>Desde los datos hasta el primer contacto<ArrowRight size={16}/></span></Link>
+      <Link to={url('start', 'routine')} onClick={() => setSearch('')}><strong>Quiero organizar mi día</strong><span>Qué revisar y cómo atender cada tarea<ArrowRight size={16}/></span></Link>
+      <Link to={url('example', 'full-example')} onClick={() => setSearch('')}><strong>Quiero ver un ejemplo completo</strong><span>Primera venta, entrega y nueva propuesta<ArrowRight size={16}/></span></Link>
+    </div>
+    <section className={styles.searchBox} aria-label="Buscador de ayuda"><label htmlFor="guide-search"><Search size={18}/>¿Qué necesitás hacer?</label><div><Input id="guide-search" type="search" placeholder="Ej.: no respondió, entregar, borrador…" value={search} onChange={event => setSearch(event.target.value)}/>{search && <Button variant="outline" onClick={() => setSearch('')}>Limpiar búsqueda</Button>}</div></section>
+    {term ? <section className={styles.searchResults} aria-label="Resultados de ayuda"><h2>Resultados de ayuda</h2><p role="status">{results.length} {results.length === 1 ? 'explicación encontrada' : 'explicaciones encontradas'} para “{search.trim()}”.</p>{results.length ? <div className={styles.resultGrid}>{results.map(({topic, article}) => <Link key={article.id} to={url(topic.id, article.id)} onClick={() => setSearch('')}><span className={styles.eyebrow}>{topic.title}</span><h3>{article.title}</h3><p>{article.when}</p><span className={styles.read}>Leer los pasos <ArrowRight size={15}/></span></Link>)}</div> : <div className={styles.empty}><p>Probá con otra palabra o volvé a los temas de la guía.</p><Button variant="outline" onClick={() => setSearch('')}>Ver todos los temas</Button></div>}</section> : <div className={styles.workspace}>
+      <aside id="guide-topics" className={styles.sidebar}><nav aria-label="Temas de la guía"><h2>Elegí un tema</h2>{topics.map(item => <Link key={item.id} to={url(item.id)} aria-current={topic.id === item.id ? 'page' : undefined}><span>{item.title}</span><span className={styles.count}>{item.articles.length}</span></Link>)}</nav><Link className={styles.problemLink} to={url('problems')}>¿Algo te frena? Revisá las soluciones <ArrowRight size={16}/></Link></aside>
+      <div className={styles.reading}>
+        <section className={styles.topicIntro}><span className={styles.eyebrow}>TEMA</span><h2>{topic.title}</h2><p>{topic.description}</p><nav aria-label="Explicaciones de este tema">{topic.articles.map((item, i) => <Link key={item.id} to={url(topic.id, item.id)} aria-current={article.id === item.id ? 'page' : undefined}><span>{i+1}</span>{item.title}</Link>)}</nav></section>
+        <article className={styles.article} aria-labelledby="guide-article-title">
+          <header><a className={styles.backToTopics} href="#guide-topics">Ver los temas de la guía</a><span className={styles.eyebrow}>EXPLICACIÓN {index+1} DE {topic.articles.length}</span><h2 id="guide-article-title" tabIndex={-1} ref={title}>{article.title}</h2><p className={styles.when}><strong>Cuándo usarlo</strong>{article.when}</p></header>
+          <section><h3>Cómo hacerlo</h3><ol className={styles.steps}>{article.steps.map((step, i) => <li key={i}><span aria-hidden="true">{i+1}</span><p>{step}</p></li>)}</ol></section>
+          <section className={styles.result}><CheckCircle2 size={21}/><div><h3>Qué queda al terminar</h3><p>{article.result}</p></div></section>
+          {article.example.length > 0 && <section className={styles.example}><h3><Lightbulb size={20}/>Ejemplo práctico</h3>{article.example.map(line => <p key={line}>{line}</p>)}</section>}
+          {article.notes.length > 0 && <section className={styles.notes}><h3>Tené en cuenta</h3><ul>{article.notes.map(note => <li key={note}>{note}</li>)}</ul></section>}
+          {article.url && (topic.id !== 'admin' || admin) && <Button asChild><Link to={article.url}>{article.linkLabel}<ArrowRight size={16}/></Link></Button>}
+          {topic.id === 'admin' && !admin && <p className={styles.adminNote}>Estas opciones las administra el equipo responsable del CRM. Pedile ayuda al administrador si necesitás un cambio.</p>}
+        </article>
+        <nav className={styles.pagination} aria-label="Continuar leyendo">{index > 0 ? <Link to={url(topic.id, topic.articles[index-1].id)}><ArrowLeft size={17}/><span><small>Anterior</small>{topic.articles[index-1].title}</span></Link> : <span/>}{index < topic.articles.length-1 ? <Link to={url(topic.id, topic.articles[index+1].id)}><span><small>Siguiente</small>{topic.articles[index+1].title}</span><ArrowRight size={17}/></Link> : <Link to={url('start', 'screens')}><span><small>Seguir consultando</small>Dónde encuentro cada cosa</span><ArrowRight size={17}/></Link>}</nav>
+      </div>
+    </div>}
+  </main></>;
+}
