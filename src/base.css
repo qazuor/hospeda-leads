@@ -200,4 +200,4 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 main{scroll-margin-top:100px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
-.dark{--surface-raised-shadow:0 2px 4px #0002,0 12px 32px -16px #0008;--surface-hover-shadow:0 6px 20px -10px #0009}
+.dark{--surface-border:color-mix(in srgb,var(--border) 75%,var(--card));--surface-raised-shadow:0 2px 4px #0002,0 12px 32px -16px #0008;--surface-hover-shadow:0 6px 20px -10px #0009}
