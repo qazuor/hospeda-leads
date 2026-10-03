@@ -45,7 +45,9 @@ test('Classification catalogs stay focused and commercial settings have their ow
   await page.setViewportSize({width: 390, height: 844});
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({path: 'test-results/classifications-mobile.png', fullPage: true});
+  await page.addStyleTag({content: '*,*::before,*::after{transition:none!important}'});
   await page.evaluate(() => document.documentElement.classList.add('dark'));
+  await expect.poll(() => page.getByLabel('Nuevo subtipo', {exact: true}).evaluate(el => parseInt(getComputedStyle(el).backgroundColor.match(/[\d.]+/)![0]))).toBeLessThan(50);
   await page.screenshot({path: 'test-results/classifications-dark-mobile.png', fullPage: true});
   await page.evaluate(() => document.documentElement.classList.remove('dark'));
   await page.getByRole('button', {name: 'Proceso comercial', exact: true}).click();
