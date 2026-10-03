@@ -1,0 +1,10 @@
+import {describe,it,expect} from 'vitest';
+import {nextStep,pendingWork} from './nextStep';
+import type {WorkTask} from '../endpoints/work.schema';
+const task=(id:string,leadId:string|null,date:string):WorkTask=>({id,accountId:'1',leadId,title:id,typeId:'call',description:null,assignedUserEmail:'a@example.com',dueDate:date,dueAt:null,priority:'media',status:'pending',result:null,completedAt:null,legacy:false,participants:'',contactIds:[],accountName:'Prueba',city:null,opportunityName:null,deletedAt:null});
+describe('next work across business and sales',()=>{
+ it('shows waiting only before the scheduled followup date',()=>{const t={...task('1',null,'2099-10-02'),continuation:'wait' as const};expect(nextStep({tasks:[t]}).help).toContain('Estamos esperando');expect(nextStep({tasks:[{...t,dueDate:'2000-01-01'}]}).help).toContain('atrasada')});
+ it('includes general care for won sales, excluding other proposals and removed work',()=>{const tasks=[task('1','2','2026-10-03'),task('2',null,'2026-10-02'),task('3','3','2026-10-01'),{...task('4',null,'2026-09-01'),deletedAt:new Date()}];expect(pendingWork(tasks,'2',true).map(t=>t.id)).toEqual(['2','1']);expect(pendingWork(tasks,'2').map(t=>t.id)).toEqual(['1']);expect(nextStep({tasks,leadId:'2',classification:'won'}).task?.id).toBe('2')});
+ it('respects restrictions and an explicit decision to finish without overriding pending commitments',()=>{expect(nextStep({tasks:[],blocked:true,hasContact:false}).kind).toBe('blocked');expect(nextStep({tasks:[],finished:true}).kind).toBe('done');expect(nextStep({tasks:[],finished:true,hasContact:false}).kind).toBe('done');expect(nextStep({tasks:[task('1',null,'2026-10-02')],finished:true}).kind).toBe('task');expect(nextStep({tasks:[],hasContact:false}).kind).toBe('contact')});
+ it('allows internal work without a contact channel and orders same day tasks by time',()=>{const a={...task('1',null,'2026-10-02'),typeId:'other',dueAt:new Date('2026-10-02T16:00:00Z')};const b={...task('2',null,'2026-10-02'),typeId:'other',dueAt:new Date('2026-10-02T14:00:00Z')};expect(nextStep({tasks:[a,b],hasContact:false}).task?.id).toBe('2')});
+});

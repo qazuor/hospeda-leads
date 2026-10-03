@@ -1,17 +1,16 @@
 import React from 'react';
-import {useAuth} from '../helpers/useAuth';
-import {useQuery} from '@tanstack/react-query';
-import {getWork} from '../endpoints/work.schema';
-import {prettyInstant} from '../helpers/workDates';
+import {Link} from 'react-router-dom';
+import type {PipelineStage} from '../endpoints/pipeline.schema';
+import {NextWork} from './NextWork';
 import styles from './Commercial.module.css';
-const steps=[['Contacto','Identificá a la persona que decide y preguntá si quiere conversar.','Contactos y canales del negocio'],['Necesidad','Escuchá qué necesita y dejá sus palabras en una actividad o nota.','Seguimiento y Notas'],['Propuesta','Prepará qué ofrecés, condiciones y material. Acordá una fecha para revisarlo.','Documentos y Mensajes'],['Decisión','Resolvé las dudas. Registrá Ganada si acepta o Perdida con el motivo real.','Cambiar etapa y acompañamiento']];
-export function SalesJourney({accountId,leadId}:{accountId:string;leadId:string}){
- const {authState}=useAuth();const responsible=authState.type==='authenticated'&&authState.user.role==='admin'?'all':undefined;
- const q=useQuery({queryKey:['work','sales-guide',leadId,responsible],queryFn:()=>getWork({accountId,leadId,mode:'detail',responsible})});
- const activity=q.data?.activities.filter(a=>String(a.leadId)===leadId).sort((a,b)=>new Date(b.occurredAt).getTime()-new Date(a.occurredAt).getTime())[0];
- const tasks=q.data?.tasks.filter(t=>String(t.leadId)===leadId&&t.status==='pending'&&!t.deletedAt).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
- return <section className={styles.panel} aria-label="Guía del avance comercial"><h3>Cómo avanzar con esta venta</h3><p>Contacto → Necesidad → Propuesta → Decisión. Es una guía: podés volver a un paso y las etapas del equipo se conservan. Abrí el paso que necesitás entender.</p>
- <div className={styles.journey}>{steps.map(([name,help,where],i)=><details key={name}><summary>{i+1}. {name}</summary><p>{help}</p><p className={styles.muted}>Dónde hacerlo: {where}.</p></details>)}</div>
- {q.isPending?<p role="status">Buscando la última acción y el próximo paso…</p>:q.error?<p role="alert">{q.error.message}</p>:<><p><strong>Última acción visible de esta venta:</strong> {activity?activity.title+' · '+prettyInstant(activity.occurredAt):'No hay acciones disponibles con tus permisos.'}</p>{activity?.result&&<p>{activity.result}</p>}<p><strong>Próximo paso:</strong> {tasks?.[0]?tasks[0].title+' · '+tasks[0].dueDate:'No hay una tarea pendiente disponible con tus permisos. En Seguimiento podés revisar o planificar.'}</p></>}
- </section>;
+const steps=[['contact','Contacto','Identificá a la persona que decide y preguntá si quiere conversar.'],['need','Necesidad','Escuchá qué necesita y registrá lo que te contó.'],['proposal','Propuesta','Prepará lo que ofrecés y acordá cuándo conversarlo.'],['decision','Decisión','Registrá la respuesta real. Si acepta, revisá acuerdo y entrega.']] as const;
+export function SalesJourney({accountId,leadId,stage}:{accountId:string;leadId:string;stage?:PipelineStage}){
+ const classification=stage?.classification??'open';
+ const current=steps.find(s=>s[0]===stage?.journeyPhase);
+ return <div className={styles.section}>
+  <NextWork accountId={accountId} leadId={leadId} classification={classification}/>
+  {classification==='won'&&<p className={styles.milestone}>La venta está concretada. El acuerdo y el historial quedan disponibles para acompañar al cliente. <Link to={'/accounts/'+accountId}>Ver cliente y ofrecer otra venta</Link></p>}
+  {classification==='lost'&&<p>La venta está cerrada sin venta. Podés planificar cuándo retomar desde Etapa y prioridad, conservando el cierre anterior.</p>}
+  {classification==='open'&&<>{current&&<p className={styles.phaseHint}><strong>Momento actual: {current[1]}.</strong> {current[2]}</p>}<details className={styles.processHelp}><summary>Cómo avanzar con esta venta</summary><p>Las etapas del equipo se conservan. Esta ayuda no modifica datos.</p><ol className={styles.progressPath}>{steps.map(([id,name,help])=><li key={id} aria-current={stage?.journeyPhase===id?'step':undefined}><strong>{name}{stage?.journeyPhase===id?' · Ahora':''}</strong><p>{help}</p></li>)}</ol></details></>}
+ </div>;
 }

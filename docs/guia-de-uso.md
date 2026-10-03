@@ -118,12 +118,24 @@ Enviar ventas a **Papelera** es otra acción: retira esas ventas de la operació
 
 ## Avance, acuerdo y cambios sobre varios registros
 
-En el resumen de una venta, **Cómo avanzar con esta venta** explica Contacto, Necesidad, Propuesta y Decisión. Es una ayuda; abrir un paso no modifica su etapa. Allí se muestra la última acción registrada y la próxima tarea de esa venta.
+En el resumen de una venta, el bloque **Ahora corresponde** muestra el próximo paso. **Cómo avanzar con esta venta** queda plegado y explica Contacto, Necesidad, Propuesta y Decisión. El administrador puede vincular una etapa a un momento del recorrido; no se deduce por su nombre ni se cambian datos históricos.
 
 Al elegir una etapa ganada aparece **Acuerdo y entrega**. Anotá qué se acordó, quién aceptó, el material, el responsable y la fecha de entrega conocida. Los campos desconocidos quedan por confirmar. La revisión se conserva en el historial; no acredita cobro. Creá una tarea para resolver lo pendiente.
 
-En el tablero, **Vista simple** agrupa por Abierta/Ganada/Perdida; **Ver etapas del equipo** conserva el detalle configurado.
+En el tablero, la vista inicial **Vista simple** agrupa por Abierta/Ganada/Perdida; **Ver etapas del equipo** conserva el detalle configurado.
 
 Para modificar varios registros, elegí el cambio y **Aplicar**. Primero se abre una revisión con todos los registros afectados. Si seleccionaste negocios, un cambio de etapa o prioridad puede alcanzar ventas que el filtro ocultaba. Revisá, confirmá la casilla y elegí **Confirmar cambios**. Si alguien cambió los datos, **Volver a revisar** carga una nueva vista previa. Cancelar no modifica nada.
 
 **Más acciones** de la venta contiene **Enviar venta a papelera**, con confirmación posterior. Los detalles técnicos de los materiales están desplegados aparte. El email se puede leer completo junto al asunto; **Ver diseño del email** muestra su presentación sin cambiar lo que se enviará.
+
+
+## Pantallas simplificadas y resultados según el trabajo
+
+- **Mi día** muestra primero las tareas atrasadas y las de hoy. Abrí **Próximas acciones** para mirar fechas futuras y **Filtros de trabajo** para cambiar el alcance. Mi trabajo y Todo el equipo son alcances distintos.
+- **Negocios** empieza con una vista simple: negocio, persona, relación y próximo paso. **Vista avanzada** conserva columnas, edición y herramientas. **Resumen, vistas guardadas y ayuda** contiene indicadores y vistas del equipo. La relación Cliente/Potencial cliente no es el resultado de una venta.
+- En la ficha, el bloque del **próximo paso** aparece antes de los datos adicionales. No tener tareas en un alcance no significa que toda la cartera esté atendida.
+- En **Registrar qué pasó**, revisá el propósito. Conversación comercial ofrece resultados de ventas; Entrega y Acompañamiento ofrecen Entrega confirmada, Necesita ayuda, Falta confirmar o Revisión realizada según corresponda. Las tareas anteriores a este cambio conservan su historia y requieren elegir el propósito correcto.
+- **Cómo sigue** requiere una decisión: **Planificar el próximo paso**, **Esperar hasta una fecha y recordar retomar** o **Terminar por ahora**. Las dos primeras crean una tarea con fecha; la última guarda el resultado sin crear otra. Las otras tareas se conservan.
+- **Fecha, canal y participantes** permite corregir la fecha real o quién participó. El foco inicial está en el resultado. Abrir un canal o preparar un borrador nunca prueba que el mensaje se haya enviado.
+- Una venta **ganada** muestra acuerdo y acompañamiento, incluyendo tareas generales del negocio. **Revisar acuerdo y entrega** guarda una nueva versión sin reabrir la venta ni acreditar pagos. Si otra persona cambió el acuerdo mientras lo editabas, abrilo de nuevo y revisá la versión actual.
+- **Más acciones del negocio** contiene Archivar y Convertir a cliente. La edición habitual y el próximo paso permanecen visibles.

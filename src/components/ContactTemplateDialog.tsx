@@ -7,12 +7,12 @@ import {useAuth} from '../helpers/useAuth';
 import {Mail,MessageCircle,Search,ArrowRight} from 'lucide-react';
 import styles from './ContactTemplateDialog.module.css';
 type Template={id:string;channel:string;name:string;subject:string|null;body:string;vertical:string|null;commercialProfile:string|null};
-export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates}:{open:boolean;onOpenChange:(v:boolean)=>void;channel:'email'|'whatsapp';lead:any|null;templates:Template[]}){
+export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,initialContactId}:{open:boolean;onOpenChange:(v:boolean)=>void;channel:'email'|'whatsapp';lead:any|null;templates:Template[];initialContactId?:string}){
  const {authState}=useAuth();
  const [contactId,setContactId]=useState<string|null>(null),[message,setMessage]=useState<Message|null>(null),[search,setSearch]=useState('');
  const q=useQuery({queryKey:['commercial-detail','',String(lead?.id??'')],queryFn:()=>getCommercialDetail(undefined,String(lead.id)),enabled:open&&!!lead?.id});
  const history=useQuery({queryKey:['communication',String(lead?.id??'')],queryFn:()=>getCommunication(String(lead.id)),enabled:open&&!!lead?.id});
- useEffect(()=>{if(open){setContactId(null);setMessage(null);setSearch('')}},[open,channel,lead?.id]);
+ useEffect(()=>{if(open){setContactId(initialContactId??null);setMessage(null);setSearch('')}},[open,channel,lead?.id,initialContactId]);
  const contacts=q.data?.contacts.filter(c=>!c.deletedAt)??[];const opp=q.data?.opportunities.find(o=>String(o.id)===String(lead?.id));const preferred=contacts.find(c=>String(c.id)===String(opp?.primaryContactId))||(contacts.length===1?contacts[0]:contacts.find(c=>c.isPrimary));const legacy=preferred?.sourceLeadId!=null&&String(preferred.sourceLeadId)===String(lead?.id)&&!opp?.opportunityName;
  const effective=contactId??(preferred&&!legacy?String(preferred.id):'');const person=contacts.find(c=>String(c.id)===effective);const recipient=effective?(channel==='email'?person?.email:person?.phone):(channel==='email'?lead?.email:lead?.telefono);
  const restriction=history.data?.restrictions.find(r=>!r.liftedAt&&['all',channel].includes(r.channel)&&((effective&&String(r.contactId)===effective)||(!r.contactId&&String(r.leadId)===String(lead?.id))));

@@ -1,3 +1,4 @@
+import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from './DropdownMenu';
 import {useAuth} from '../helpers/useAuth';
 import {BusinessSummary} from './BusinessSummary';
 import {ResourcesPanel} from './ResourcesPanel';
@@ -21,7 +22,7 @@ const ignoredFields=new Set(["id","sourceLeadId","accountId","createdAt","update
 const valueLabel=(key:string,value:unknown)=>{
   if(value==null||value==="")return "Vacío";
   if(typeof value==="boolean")return value?"Sí":"No";
-  if(key==="commercialStatus")return value==="client"?"Cliente comercial":"Prospecto";
+  if(key==="commercialStatus")return value==="client"?"Cliente comercial":"Potencial cliente";
   if(["clientSince","deletedAt","estimatedCloseDate"].includes(key))return formatDate(key==="estimatedCloseDate"?dateOnlyInput(value):String(value),key!=="estimatedCloseDate");
   return typeof value==="object"?JSON.stringify(value):journalValue(key,value);
 };
@@ -42,6 +43,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   if(q.error)return <p role="alert" className={styles.error}>{q.error.message}</p>;
   const d=q.data;
   const contacts=d.contacts.filter(c=>!c.deletedAt);
+  const mainContact=contacts.find(c=>c.isPrimary&&(c.phone||c.email))||contacts.find(c=>c.phone||c.email)||contacts[0];
   const opportunities=d.opportunities.filter(o=>!o.deletedAt);
   const history=[...d.journal.map(j=>({id:"c"+j.id,date:j.createdAt,actor:j.actorName,label:actionLabels[j.action]||j.action,detail:auditDetail(j.metadata)})),...d.leadJournal.filter(j=>!(j.metadata&&typeof j.metadata==="object"&&"activityId" in j.metadata)).map(j=>({id:"l"+j.id,date:j.createdAt,actor:j.actorName,label:`${d.opportunities.find(o=>String(o.id)===String(j.leadId))?.opportunityName||j.leadName} · ${actionLabels[j.action]||j.action}${j.fieldName?" · "+(fieldLabels[j.fieldName]||j.fieldName):""}`,detail:j.fieldName?`${valueLabel(j.fieldName,j.oldValue)} → ${valueLabel(j.fieldName,j.newValue)}`:auditDetail(j.metadata)}))].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime());
   const contactSection=<section className={styles.section}>
@@ -55,12 +57,12 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
     <div className={styles.rows}>{opportunities.map(o=><article key={o.id}><div><Link to={"/opportunities?leadId="+o.id}><strong>{o.opportunityName||"Gestión comercial inicial"} · #{o.id}{String(o.id)===leadId?" · Actual":""}</strong></Link><span>{[o.tipo,o.estado,o.serviceInterest].filter(Boolean).join(" · ")||"Sin clasificación"}</span><span>Contacto: {contacts.find(c=>String(c.id)===String(o.primaryContactId))?.name||"Sin principal"}{o.estimatedCloseDate?" · Cierre: "+formatDate(dateOnlyInput(o.estimatedCloseDate)):""}</span></div>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"opportunity",item:o})}>Editar datos de venta</Button>}</article>)}</div>
   </section>;
   return <section className={compact?styles.panel:styles.businessDetail}>
-    <header className={styles.heading+" "+styles.businessHeader}><div><span className={styles.eyebrow}>NEGOCIO</span>{compact?<h2><Link to={"/accounts/"+d.account.id}>{d.account.nombre}</Link></h2>:<h1>{d.account.nombre}</h1>}<p className={styles.muted}>{d.account.ciudad||"Sin localidad"} · {d.account.commercialStatus==="client"?"Cliente comercial · no acredita pago":"Prospecto"}{d.account.clientSince?" · desde "+formatDate(d.account.clientSince):""}</p></div>
-      {!readOnly&&<div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>setEditor({kind:"account",item:d.account})}>Editar negocio</Button>{authState.type==='authenticated'&&(authState.user.role==='admin'||d.account.assignedUserEmail===authState.user.email)&&<Button size="sm" variant="ghost" onClick={()=>setEditor({kind:"archive"})}>{d.account.archivedAt?"Recuperar negocio":"Archivar"}</Button>}{d.account.commercialStatus!=="client"&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"convert"})}>Convertir a cliente</Button>}</div>}
+    <header className={styles.heading+" "+styles.businessHeader}><div><span className={styles.eyebrow}>NEGOCIO</span>{compact?<h2><Link to={"/accounts/"+d.account.id}>{d.account.nombre}</Link></h2>:<h1>{d.account.nombre}</h1>}<p className={styles.muted}>{d.account.ciudad||"Sin localidad"} · {d.account.commercialStatus==="client"?"Cliente":"Potencial cliente"}{d.account.clientSince?" · desde "+formatDate(d.account.clientSince):""}</p></div>
+      {!readOnly&&<div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>setEditor({kind:"account",item:d.account})}>Editar negocio</Button><DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost">Más acciones del negocio</Button></DropdownMenuTrigger><DropdownMenuContent>{authState.type==='authenticated'&&(authState.user.role==='admin'||d.account.assignedUserEmail===authState.user.email)&&<DropdownMenuItem onSelect={()=>setEditor({kind:"archive"})}>{d.account.archivedAt?"Recuperar negocio":"Archivar"}</DropdownMenuItem>}{d.account.commercialStatus!=="client"&&<DropdownMenuItem onSelect={()=>setEditor({kind:"convert"})}>Convertir a cliente</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></div>}
     </header>
     {d.account.archivedAt&&<p role="status">Este negocio está archivado. Sus tareas e historial se conservan.</p>}
     {accountId&&accountId!==String(d.account.id)&&<p className={styles.muted}>El negocio #{accountId} fue fusionado. Estás viendo su destino #{d.account.id}.</p>}
-    {!compact&&<dl className={styles.businessFacts}><div><dt>Email genérico</dt><dd>{d.account.email||"Sin datos"}</dd></div><div><dt>Teléfono genérico</dt><dd>{d.account.telefono||"Sin datos"}</dd></div><div><dt>Responsable comercial</dt><dd>{d.users?.find(u=>u.email===d.account.assignedUserEmail)?.displayName||d.account.assignedUserEmail||"Sin asignar"}</dd></div></dl>}
+    {!compact&&<p className={styles.identityFacts}>{mainContact?.name||'Sin persona de contacto'} · {[mainContact?.email,mainContact?.phone].filter(Boolean).join(' · ')||[d.account.email,d.account.telefono].filter(Boolean).map(c=>'Canal del negocio: '+c).join(' · ')||'Falta teléfono o email'} · Responsable: {d.users?.find(u=>u.email===d.account.assignedUserEmail)?.displayName||'Sin asignar'}</p>}
     {compact?<><details className={styles.relatedSection}><summary>Contactos del negocio ({contacts.length})</summary>{contactSection}</details><details className={styles.relatedSection}><summary>Ventas de este negocio ({opportunities.length})</summary>{opportunitySection}</details></>:<SectionTabs value={section} onValueChange={setSection}>
       <SectionTabList aria-label="Secciones del negocio"><SectionTab value="summary">Resumen</SectionTab><SectionTab value="opportunities">Ventas ({opportunities.length})</SectionTab><SectionTab value="contacts">Contactos ({contacts.length})</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="documents">Documentos</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
       <SectionTabPanel value="summary"><BusinessSummary detail={d} readOnly={readOnly} onContact={()=>{setSection("contacts");if(!contacts.length)setEditor({kind:"contact"});}} onSale={()=>setEditor({kind:"opportunity"})}/></SectionTabPanel><SectionTabPanel value="opportunities">{opportunitySection}</SectionTabPanel>
@@ -69,7 +71,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
       <SectionTabPanel value="documents"><ResourcesPanel accountId={d.account.id}/></SectionTabPanel>
       <SectionTabPanel value="history"><details className={styles.relatedSection}><summary>Revisar calidad y procedencia de los datos</summary><DataQualityPanel accountId={d.account.id} readOnly={readOnly}/></details><section className={styles.section}><div><h3>Historial comercial</h3><p className={styles.muted}>Cambios de datos del negocio, contactos y oportunidades. Últimos 200 eventos de cada historial.</p></div><div className={styles.history}>{history.map(h=><details key={h.id}><summary>{formatDate(h.date,true)} · {h.label} · {h.actor}</summary><pre>{h.detail}</pre></details>)}</div></section></SectionTabPanel>
     </SectionTabs>}
-    {!compact&&<CommercialHelp/>}
+    {!compact&&<details><summary>Ayuda sobre negocios y ventas</summary><CommercialHelp/></details>}
     {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onClose={()=>setEditor(null)}/>}
   </section>;
 }

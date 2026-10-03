@@ -68,7 +68,7 @@ export async function post(request:Request){
     if(p.action==='stage_save'){
      const before=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.name} FOR UPDATE`.execute(trx)).rows[0];
      if(before&&before.classification!==p.classification)throw new Error('Clasificación histórica inmutable. Creá otra etapa.');
-     await sql`INSERT INTO crm_stages(name,sort_order,active,classification) VALUES(${p.name},${p.sortOrder},${p.active},${p.classification}) ON CONFLICT(name) DO UPDATE SET sort_order=excluded.sort_order,active=excluded.active`.execute(trx);return p.name;
+     await sql`INSERT INTO crm_stages(name,sort_order,active,classification,journey_phase) VALUES(${p.name},${p.sortOrder},${p.active},${p.classification},${p.journeyPhase===undefined?before?.journeyPhase??null:p.journeyPhase}) ON CONFLICT(name) DO UPDATE SET sort_order=excluded.sort_order,active=excluded.active,journey_phase=excluded.journey_phase`.execute(trx);return p.name;
     }
     if(p.action==='catalog_save'){
      const table=p.catalog==='loss'?sql`crm_loss_reasons`:sql`crm_objection_types`;
@@ -104,6 +104,14 @@ export async function post(request:Request){
     else{if(p.deleted)throw new Error('No se puede crear una objeción eliminada');result=(await sql<{id:string}>`INSERT INTO crm_objections(account_id,lead_id,type_id,notes,status) VALUES(${lead.accountId},${lead.id},${p.typeId},${p.notes},${p.status}) RETURNING id`.execute(trx)).rows[0].id;}
     await trx.updateTable('leads').set({updatedAt:new Date()}).where('id','=',lead.id).execute();return result;
    }
+   if(p.action==='closing_save'){
+    const stage=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${lead.estado}`.execute(trx)).rows[0];
+    if(stage?.classification!=='won')throw new Error('El acuerdo corresponde a una venta ganada.');
+    const previous=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='closing_checklist' ORDER BY id DESC LIMIT 1`.execute(trx)).rows[0];
+    if((previous?.id??null)!==p.expectedEventId)throw new Conflict('El acuerdo cambió. Volvé a abrirlo para revisar la última versión.');
+    await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,previousEventId:previous?.id??null});
+    return lead.id;
+   }
    if(p.action==='transition'){
     if(p.stage===lead.estado)throw new Error('Ya está en esta etapa.');
     await sql`SELECT set_config('crm.loss_reason',${p.reasonId??''},true),set_config('crm.loss_comment',${p.comment},true),set_config('crm.recontact',${p.recontactDate??''},true)`.execute(trx);
@@ -116,7 +124,7 @@ export async function post(request:Request){
      await trx.insertInto('crmCommercialJournal').values({accountId:account.id,action:'converted_to_client',actorEmail:user.email,actorName:user.displayName,metadata:{reason:p.comment||'Venta ganada',leadId:lead.id,paymentVerified:false}}).execute();
     }
     if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false});
-    if(p.onboarding)await trx.insertInto('crmTasks').values({accountId:account.id,leadId:null,typeId:'followup',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
+    if(p.onboarding)await trx.insertInto('crmTasks').values({accountId:account.id,leadId:null,typeId:'followup',purpose:'care',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
     return lead.id;
    }
    if(account.doNotContact)throw new Forbidden('Este negocio está marcado como No contactar.');
@@ -135,7 +143,7 @@ export async function post(request:Request){
      target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,primaryContactId:lead.primaryContactId,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:lead.assignedUserEmail,estado:p.stage,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
     }
    }
-   const task=await trx.insertInto('crmTasks').values({accountId:lead.accountId,leadId:target.id,title:p.title,typeId:'followup',assignedUserEmail:lead.assignedUserEmail,dueDate:p.dueDate,priority:lead.prioridad??'media',description:`Retomar cierre #${event.id}: ${event.comment??''}`}).returning('id').executeTakeFirstOrThrow();
+   const task=await trx.insertInto('crmTasks').values({accountId:lead.accountId,leadId:target.id,title:p.title,purpose:'reactivation',typeId:'followup',assignedUserEmail:lead.assignedUserEmail,dueDate:p.dueDate,priority:lead.prioridad??'media',description:`Retomar cierre #${event.id}: ${event.comment??''}`}).returning('id').executeTakeFirstOrThrow();
    await sql`UPDATE crm_pipeline_events SET task_id=${task.id},related_lead_id=${target.id} WHERE id=${event.id}`.execute(trx);
    await log(trx,lead.accountId,lead.id,'reactivation',{mode:p.mode,eventId:event.id,taskId:task.id,relatedLeadId:target.id});return target.id;
   });return reply({id});
