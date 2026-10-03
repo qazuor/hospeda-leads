@@ -251,3 +251,5 @@
 }
 
 @media(pointer:coarse){.sm,.icon-sm{min-height:44px}.icon-sm{min-width:44px}}
+
+@layer base{.primary{box-shadow:0 3px 8px color-mix(in srgb,var(--brand-blue) 20%,transparent)}.primary:hover{box-shadow:0 5px 12px color-mix(in srgb,var(--brand-blue) 25%,transparent)}.outline{background:var(--card);border-color:color-mix(in srgb,var(--primary) 25%,var(--border))}.outline:hover{background:color-mix(in srgb,var(--brand-blue) 6%,var(--card));border-color:color-mix(in srgb,var(--primary) 50%,var(--border))}}
