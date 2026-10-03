@@ -6,7 +6,7 @@ const LibraryPage=React.lazy(()=>import('./pages/library'));
 const PasswordRecoveryPage=React.lazy(()=>import("./pages/password-recovery"));
 const ReactivationPage=React.lazy(()=>import("./pages/reactivation"));
 import React from "react";
-import {AppHeader} from "./components/AppHeader";
+import {RouteLoading} from "./components/RouteLoading";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
@@ -40,7 +40,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <GlobalContextProviders>
         <UnsavedNavigation/>
-        <React.Suspense fallback={<><AppHeader/><main style={{padding:24}} role="status">Abriendo pantalla…</main></>}>
+        <React.Suspense fallback={<RouteLoading/>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
