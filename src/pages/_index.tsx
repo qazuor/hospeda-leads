@@ -711,7 +711,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las oportunidades"}: {leadsQ.error.message}</div>:
-        pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:tableWidth,minWidth:tableWidth}}><colgroup>
+        pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:"100%",minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
           <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt)} checked={leads.some(lead=>!lead.deletedAt)&&leads.filter(lead=>!lead.deletedAt).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
