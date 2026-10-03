@@ -139,3 +139,11 @@ Para modificar varios registros, elegí el cambio y **Aplicar**. Primero se abre
 - **Fecha, canal y participantes** permite corregir la fecha real o quién participó. El foco inicial está en el resultado. Abrir un canal o preparar un borrador nunca prueba que el mensaje se haya enviado.
 - Una venta **ganada** muestra acuerdo y acompañamiento, incluyendo tareas generales del negocio. **Revisar acuerdo y entrega** guarda una nueva versión sin reabrir la venta ni acreditar pagos. Si otra persona cambió el acuerdo mientras lo editabas, abrilo de nuevo y revisá la versión actual.
 - **Más acciones del negocio** contiene Archivar y Convertir a cliente. La edición habitual y el próximo paso permanecen visibles.
+
+## Configuración para administradores
+
+En **Configuración → Clasificaciones**, elegí **Verticales y subtipos** para administrar los rubros de los negocios. Seleccioná una vertical a la izquierda, buscá un subtipo o agregá uno nuevo. **Generales** reúne las opciones compartidas por todas las verticales. Editar un nombre también lo actualiza en los registros que lo usan; eliminar una opción la retira de nuevas selecciones y conserva los valores existentes.
+
+En la vista **Ciudades**, buscá una localidad o agregala a las opciones disponibles.
+
+Las reglas de trabajo están separadas en **Configuración → Proceso comercial**: **Etapas y resultados** reúne etapas de venta, motivos de pérdida, objeciones y prioridad sugerida; **Tareas y seguimiento** reúne los tipos de actividad y las reglas de seguimiento. Cambiar de pantalla no modifica las ventas existentes.
