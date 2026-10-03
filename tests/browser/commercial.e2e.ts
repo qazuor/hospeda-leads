@@ -149,7 +149,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByText('Resumen, vistas guardadas y ayuda',{exact:true}).click();await expect(page.getByRole('button',{name:'Guardar vista',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:/^Filtrar/})).toBeVisible();
   await expect(page.getByRole('button',{name:'Pantalla completa',exact:true})).toBeVisible();
-  await expect(businessRow.getByRole('button',{name:/1er contacto.*En tratativas/})).toBeVisible();
+  await page.getByRole('button',{name:'Vista avanzada',exact:true}).click();await expect(businessRow.getByRole('button',{name:/1er contacto.*En tratativas/})).toBeVisible();
   await page.getByRole('button',{name:'Todos',exact:true}).click();
   await page.getByPlaceholder('Buscar negocios, oportunidades y notas…').fill('Negocio E2E');
   await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:/Negocio E2E/})})).toHaveCount(1);
@@ -161,7 +161,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.screenshot({path:'test-results/business-first-list.png',fullPage:true,animations:'disabled'});
   await page.goto(legacyOpportunityUrl);
   await expect(page.getByRole('heading',{name:'Tercera venta',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Cerrar',exact:true}).click();
+  await page.getByRole('link',{name:'← Volver a Ventas',exact:true}).click();
   await page.goto('/?quick=all');
   await expect(page).toHaveURL(/\/accounts/);
   await page.getByRole('link',{name:'Negocios',exact:true}).click();
