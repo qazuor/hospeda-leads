@@ -37,6 +37,7 @@ function auditDetail(metadata:unknown){
 export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:{accountId?:string;leadId?:string;compact?:boolean;readOnly?:boolean}){
   const {authState}=useAuth();
   const q=useQuery({queryKey:["commercial-detail",accountId??"",leadId??""],queryFn:()=>getCommercialDetail(accountId,leadId)});
+  const [savedStep,setSavedStep]=useState<{kind:'contact'|'opportunity';id:string}|null>(null);
   const [section,setSection]=useState('summary');
   const [editor,setEditor]=useState<EditorTarget|null>(null);
   if(q.isPending)return <p>Cargando negocio…</p>;
@@ -60,6 +61,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
     <header className={styles.heading+" "+styles.businessHeader}><div><span className={styles.eyebrow}>NEGOCIO</span>{compact?<h2><Link to={"/accounts/"+d.account.id}>{d.account.nombre}</Link></h2>:<h1>{d.account.nombre}</h1>}<p className={styles.muted}>{d.account.ciudad||"Sin localidad"} · {d.account.commercialStatus==="client"?"Cliente":"Potencial cliente"}{d.account.clientSince?" · desde "+formatDate(d.account.clientSince):""}</p></div>
       {!readOnly&&<div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>setEditor({kind:"account",item:d.account})}>Editar negocio</Button><DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost">Más acciones del negocio</Button></DropdownMenuTrigger><DropdownMenuContent>{authState.type==='authenticated'&&(authState.user.role==='admin'||d.account.assignedUserEmail===authState.user.email)&&<DropdownMenuItem onSelect={()=>setEditor({kind:"archive"})}>{d.account.archivedAt?"Recuperar negocio":"Archivar"}</DropdownMenuItem>}{d.account.commercialStatus!=="client"&&<DropdownMenuItem onSelect={()=>setEditor({kind:"convert"})}>Convertir a cliente</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></div>}
     </header>
+    {savedStep&&!compact&&<section className={styles.conversationContinue} role="status"><h2>{savedStep.kind==='contact'?'Persona guardada. Seguimos con el próximo paso.':'Venta creada. Ahora planificá cómo empezar.'}</h2><p>{savedStep.kind==='contact'?'Volvé al resumen para revisar qué corresponde hacer. No hace falta cargar otra vez el negocio.':'Abrí esta venta para dejar el primer compromiso con fecha. La creación no envía mensajes.'}</p><div className={styles.actions}>{savedStep.kind==='opportunity'?<Button asChild><Link to={'/sales/'+savedStep.id}>Abrir esta venta</Link></Button>:<Button onClick={()=>{setSection('summary');setSavedStep(null)}}>Volver al próximo paso</Button>}<Button variant="ghost" onClick={()=>setSavedStep(null)}>Seguir en esta pantalla</Button></div></section>}
     {d.account.archivedAt&&<p role="status">Este negocio está archivado. Sus tareas e historial se conservan.</p>}
     {accountId&&accountId!==String(d.account.id)&&<p className={styles.muted}>El negocio #{accountId} fue fusionado. Estás viendo su destino #{d.account.id}.</p>}
     {!compact&&<p className={styles.identityFacts}>{mainContact?.name||'Sin persona de contacto'} · {[mainContact?.email,mainContact?.phone].filter(Boolean).join(' · ')||[d.account.email,d.account.telefono].filter(Boolean).map(c=>'Canal del negocio: '+c).join(' · ')||'Falta teléfono o email'} · Responsable: {d.users?.find(u=>u.email===d.account.assignedUserEmail)?.displayName||'Sin asignar'}</p>}
@@ -72,6 +74,6 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
       <SectionTabPanel value="history"><details className={styles.relatedSection}><summary>Revisar calidad y procedencia de los datos</summary><DataQualityPanel accountId={d.account.id} readOnly={readOnly}/></details><section className={styles.section}><div><h3>Historial comercial</h3><p className={styles.muted}>Cambios de datos del negocio, contactos y oportunidades. Últimos 200 eventos de cada historial.</p></div><div className={styles.history}>{history.map(h=><details key={h.id}><summary>{formatDate(h.date,true)} · {h.label} · {h.actor}</summary><pre>{h.detail}</pre></details>)}</div></section></SectionTabPanel>
     </SectionTabs>}
     {!compact&&<details><summary>Ayuda sobre negocios y ventas</summary><CommercialHelp/></details>}
-    {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onClose={()=>setEditor(null)}/>}
+    {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onSaved={id=>{if((editor.kind==='contact'||editor.kind==='opportunity')&&!editor.item)setSavedStep({kind:editor.kind,id})}} onClose={()=>setEditor(null)}/>}
   </section>;
 }

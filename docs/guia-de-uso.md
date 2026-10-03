@@ -118,6 +118,7 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 3. Marcá Principal del negocio si es la referencia habitual. Guardá.
 4. Agregá a las demás personas como contactos distintos. En una venta podés elegir su Contacto principal de oportunidad.
 5. Antes de comunicarte, revisá Destinatario. El canal general del negocio y los canales de una persona son opciones diferentes.
+6. Al agregar una persona aparece Volver al próximo paso. Te devuelve al resumen del negocio para continuar sin buscarlo de nuevo.
 
 **Qué queda al terminar:** Cada persona conserva sus datos. Principal del negocio reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada venta.
 
@@ -137,6 +138,7 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 2. Escribí un nombre que explique qué ofrecés. Revisá Contacto principal de oportunidad y los datos conocidos.
 3. El servicio de interés describe la oferta. El cierre estimado es una previsión opcional; no es una fecha de pago.
 4. Guardá y abrí esa venta desde el negocio. Leé su próximo paso y planificá la acción inicial.
+5. Al crearla desde el negocio aparece Abrir esta venta. Entrá para revisar el próximo paso y planificar el primer compromiso.
 
 **Qué queda al terminar:** La propuesta queda vinculada al mismo negocio, con su propia etapa, tareas e historial.
 
@@ -412,7 +414,8 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 3. Elegí Guardar y ver contenido final. Leé el texto guardado; Ver diseño del email muestra su presentación.
 4. Marcá Revisé destinatario y contenido final solo después de revisarlo.
 5. Para email, elegí Enviar email con Brevo. Para WhatsApp, Abrir WhatsApp con este mensaje abre el canal: allí debés enviar realmente el mensaje.
-6. Si lo enviaste por WhatsApp, podés usar Confirmar envío manual. Registrá respuesta o rechazo cuando realmente ocurra; completá también la tarea que estabas atendiendo.
+6. Si lo enviaste por WhatsApp, podés usar Confirmar envío manual. Después usá Registrar qué pasó para elegir el resultado real y cómo sigue en la tarea. La sección Mensajes conserva la gestión detallada de respuestas y rechazos.
+7. Después de usar el mensaje desde una tarea, Registrar qué pasó te lleva directamente al resultado de esa misma tarea, conservando el destinatario y el canal. Abrir el canal no completa la tarea: elegí el resultado real y cómo sigue.
 
 **Qué queda al terminar:** El CRM conserva el contenido y el estado del mensaje. El resultado de la tarea y su continuación se registran por separado.
 
