@@ -124,7 +124,8 @@
           "Completá Nombre de la persona, teléfono o email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar sin completar.",
           "Marcá Principal del negocio si es la referencia habitual. Guardá.",
           "Agregá a las demás personas como contactos distintos. En una venta podés elegir su Contacto principal de oportunidad.",
-          "Antes de comunicarte, revisá Destinatario. El canal general del negocio y los canales de una persona son opciones diferentes."
+          "Antes de comunicarte, revisá Destinatario. El canal general del negocio y los canales de una persona son opciones diferentes.",
+          "Al agregar una persona aparece Volver al próximo paso. Te devuelve al resumen del negocio para continuar sin buscarlo de nuevo."
         ],
         "result": "Cada persona conserva sus datos. Principal del negocio reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada venta.",
         "example": [
@@ -144,7 +145,8 @@
           "Abrí el negocio → Resumen → Crear una venta. Si ya es cliente, el botón del resumen dice Ofrecer otra venta.",
           "Escribí un nombre que explique qué ofrecés. Revisá Contacto principal de oportunidad y los datos conocidos.",
           "El servicio de interés describe la oferta. El cierre estimado es una previsión opcional; no es una fecha de pago.",
-          "Guardá y abrí esa venta desde el negocio. Leé su próximo paso y planificá la acción inicial."
+          "Guardá y abrí esa venta desde el negocio. Leé su próximo paso y planificá la acción inicial.",
+          "Al crearla desde el negocio aparece Abrir esta venta. Entrá para revisar el próximo paso y planificar el primer compromiso."
         ],
         "result": "La propuesta queda vinculada al mismo negocio, con su propia etapa, tareas e historial.",
         "example": [
@@ -436,7 +438,8 @@
           "Elegí Guardar y ver contenido final. Leé el texto guardado; Ver diseño del email muestra su presentación.",
           "Marcá Revisé destinatario y contenido final solo después de revisarlo.",
           "Para email, elegí Enviar email con Brevo. Para WhatsApp, Abrir WhatsApp con este mensaje abre el canal: allí debés enviar realmente el mensaje.",
-          "Si lo enviaste por WhatsApp, podés usar Confirmar envío manual. Registrá respuesta o rechazo cuando realmente ocurra; completá también la tarea que estabas atendiendo."
+          "Si lo enviaste por WhatsApp, podés usar Confirmar envío manual. Después usá Registrar qué pasó para elegir el resultado real y cómo sigue en la tarea. La sección Mensajes conserva la gestión detallada de respuestas y rechazos.",
+          "Después de usar el mensaje desde una tarea, Registrar qué pasó te lleva directamente al resultado de esa misma tarea, conservando el destinatario y el canal. Abrir el canal no completa la tarea: elegí el resultado real y cómo sigue."
         ],
         "result": "El CRM conserva el contenido y el estado del mensaje. El resultado de la tarea y su continuación se registran por separado.",
         "example": [

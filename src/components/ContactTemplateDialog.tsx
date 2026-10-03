@@ -7,7 +7,7 @@ import {useAuth} from '../helpers/useAuth';
 import {Mail,MessageCircle,Search,ArrowRight} from 'lucide-react';
 import styles from './ContactTemplateDialog.module.css';
 type Template={id:string;channel:string;name:string;subject:string|null;body:string;vertical:string|null;commercialProfile:string|null};
-export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,initialContactId}:{open:boolean;onOpenChange:(v:boolean)=>void;channel:'email'|'whatsapp';lead:any|null;templates:Template[];initialContactId?:string}){
+export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,initialContactId,onLog}:{open:boolean;onOpenChange:(v:boolean)=>void;channel:'email'|'whatsapp';lead:any|null;templates:Template[];initialContactId?:string;onLog?:(contactId:string,channel:string)=>void}){
  const {authState}=useAuth();
  const [contactId,setContactId]=useState<string|null>(null),[message,setMessage]=useState<Message|null>(null),[search,setSearch]=useState('');
  const q=useQuery({queryKey:['commercial-detail','',String(lead?.id??'')],queryFn:()=>getCommercialDetail(undefined,String(lead.id)),enabled:open&&!!lead?.id});
@@ -20,9 +20,9 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,
  const applicable=templates.filter(t=>t.channel===channel&&(!t.vertical||t.vertical===lead?.tipo)&&(!lead?.commercialProfile?.trim()||!t.commercialProfile||t.commercialProfile===lead.commercialProfile)&&!(channel==='whatsapp'&&lead?.commercialProfile==='Referente'));
  const visible=applicable.filter(t=>[t.name,t.subject,t.vertical,t.commercialProfile,htmlToPlainText(t.body)].join(' ').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
  const rendered=(source:string)=>renderMessageTemplate(source,{name:lead?.nombre,contact:person?.name,contact_name:person?.name,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:person?.phone??lead?.telefono,email:person?.email??lead?.email,website:lead?.sitioWeb,sender:authState.type==='authenticated'?(authState.user.fullName||authState.user.displayName):'',sender_short:authState.type==='authenticated'?authState.user.displayName:''});
- const [dirty,setDirty]=useState(false);const guard=useUnsavedChanges(dirty,()=>onOpenChange(false));
+ const [dirty,setDirty]=useState(false);const [busy,setBusy]=useState(false);const guard=useUnsavedChanges(dirty,()=>onOpenChange(false));
  const prepare=useMutation({mutationFn:postCommunication,onSuccess:d=>setMessage(d)});
- return <Dialog open={open} onOpenChange={v=>{if(!v)guard.requestClose()}}><DialogContent className={styles.dialog}>
+ return <Dialog open={open} onOpenChange={v=>{if(!v&&!busy)guard.requestClose()}}><DialogContent className={styles.dialog}>
  <DialogHeader className={styles.header}><div className={styles.heading}><span className={styles.channelIcon}>{channel==='email'?<Mail size={20}/>:<MessageCircle size={20}/>}</span><div><DialogTitle>{channel==='email'?'Preparar email':'Preparar WhatsApp'}</DialogTitle><DialogDescription>{lead?.nombre}</DialogDescription></div></div>{message&&<p className={styles.subtitle}>Editá el contenido, revisalo y confirmá la acción.</p>}</DialogHeader>
  <div className={styles.scrollBody}>
  {!message&&<>
@@ -36,8 +36,8 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,
  {!visible.length&&<p className={styles.empty}>{applicable.length?'No hay mensajes modelo que coincidan con la búsqueda.':'No hay mensajes modelo disponibles para este canal y perfil. Podés escribir un mensaje libre.'}</p>}
  <div className={styles.freeMessage}><span>¿Preferís escribir desde cero?</span><Button variant="outline" disabled={blocked||!recipient||prepare.isPending||!q.data} onClick={()=>prepare.mutate({action:'prepare',id:crypto.randomUUID(),leadId:String(lead.id),contactId:effective||null,channel,templateId:null})}>Escribir un mensaje nuevo</Button></div>
  {prepare.isPending&&<p className={styles.recipientHelp} role="status">Preparando borrador…</p>}</section></>}
- {message&&<MessageComposer key={message.id} initial={message} onChange={setMessage} onDirtyChange={setDirty}/>}
+ {message&&<MessageComposer key={message.id} initial={message} onChange={setMessage} onDirtyChange={setDirty} taskFlow={!!onLog} onBusyChange={setBusy}/>}
  {(prepare.error||q.error||history.error)&&<p className={styles.warning} role="alert">{prepare.error?.message||q.error?.message||history.error?.message}</p>}
  </div>
- <DialogFooter className={styles.footer}>{message?.status==='draft'&&<Button variant="ghost" disabled={dirty} onClick={()=>setMessage(null)}>Cambiar destinatario o modelo</Button>}<Button variant="outline" onClick={guard.requestClose}>Cerrar</Button></DialogFooter></DialogContent>{guard.confirmation}</Dialog>;
+ <DialogFooter className={styles.footer}>{onLog&&message&&!['draft','cancelled','submitting'].includes(message.status)&&<Button disabled={dirty||busy} onClick={()=>onLog(message.contactId??'',message.channel)}>Registrar qué pasó</Button>}{message?.status==='draft'&&<Button variant="ghost" disabled={dirty} onClick={()=>setMessage(null)}>Cambiar destinatario o modelo</Button>}<Button variant="outline" disabled={busy} onClick={guard.requestClose}>Cerrar</Button></DialogFooter></DialogContent>{guard.confirmation}</Dialog>;
 }
