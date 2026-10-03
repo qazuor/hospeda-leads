@@ -123,3 +123,5 @@
     }
   }
 }
+
+@layer base{.overlay{backdrop-filter:blur(4px);background:color-mix(in srgb,#142a3a 35%,transparent)}.content{border:1px solid var(--surface-border);border-radius:22px}}
