@@ -1,10 +1,12 @@
+import {ClassificationSettings} from "../components/ClassificationSettings";
+import {SectionTabs, SectionTabList, SectionTab, SectionTabPanel} from "../components/SectionTabs";
 import {SequenceSettings} from "../components/SequenceSettings";
 import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, FileText, Mail, MailPlus, MapPin, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Trash2, Users, X } from "lucide-react";
+import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
@@ -18,8 +20,8 @@ import { getSettings, type SettingsUser } from "../endpoints/settings_GET.schema
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="users"|"classifications"|"communication"|"templates"|"library"|"system";
-const SECTIONS:Section[]=["users","classifications","communication","templates","library","system"];
+type Section="users"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
+const SECTIONS:Section[]=["users","classifications","process","communication","templates","library","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -28,10 +30,6 @@ export default function SettingsPage(){
   const section:Section=requested&&SECTIONS.includes(requested)?requested:"users";
   const q=useQuery({queryKey:["settings"],queryFn:getSettings});
   const save=useMutation({mutationFn:postSettingsSave,onSuccess:()=>qc.invalidateQueries({queryKey:["settings"]})});
-  const [city,setCity]=useState("");
-  const [subtypeDrafts,setSubtypeDrafts]=useState<Record<string,string>>({});
-  const [editingSubtype,setEditingSubtype]=useState<{id:string;name:string;typeName:string|null}|null>(null);
-  const [deletingSubtype,setDeletingSubtype]=useState<{id:string;name:string;typeName:string|null}|null>(null);
   const [inviteOpen,setInviteOpen]=useState(false);
   const [inviteEmail,setInviteEmail]=useState("");
   const [editingUser,setEditingUser]=useState<SettingsUser|null>(null);
@@ -57,24 +55,6 @@ export default function SettingsPage(){
   },[data?.emailDelivery?.senderName,data?.emailDelivery?.senderEmail,data?.emailDelivery?.replyToEmail]);
 
   const go=(next:Section)=>setParams(next==="users"?{}:{section:next});
-  const saveCity=async()=>{if(!city.trim())return;await save.mutateAsync({action:"addCity",name:city});setCity("")};
-  const addSubtype=async(typeName:string|null)=>{
-    const key=typeName??"__GENERAL__";
-    const name=(subtypeDrafts[key]??"").trim();
-    if(!name)return;
-    await save.mutateAsync({action:"addSubtype",name,typeName});
-    setSubtypeDrafts(prev=>({...prev,[key]:""}));
-  };
-  const saveSubtypeEdit=async()=>{
-    if(!editingSubtype?.name.trim())return;
-    await save.mutateAsync({action:"editSubtype",id:editingSubtype.id,name:editingSubtype.name.trim()});
-    setEditingSubtype(null);
-  };
-  const confirmSubtypeDelete=async()=>{
-    if(!deletingSubtype)return;
-    await save.mutateAsync({action:"deleteSubtype",id:deletingSubtype.id});
-    setDeletingSubtype(null);
-  };
   const inviteUser=async()=>{if(!inviteEmail.trim())return;await save.mutateAsync({action:"inviteUser",email:inviteEmail.trim()});setInviteEmail("");setInviteOpen(false)};
   const saveUser=async()=>{
     if(!editingUser||!editEmail.trim()||!editDisplayName.trim())return;
@@ -90,6 +70,7 @@ export default function SettingsPage(){
   const tabs=[
     {key:"users" as const,label:"Usuarios",icon:Users},
     {key:"classifications" as const,label:"Clasificaciones",icon:Tags},
+    {key:"process" as const,label:"Proceso comercial",icon:GitBranch},
     {key:"communication" as const,label:"Comunicación",icon:Mail},
     {key:"templates" as const,label:"Templates",icon:FileText},
     {key:"library" as const,label:"Biblioteca",icon:FileText},
@@ -100,7 +81,7 @@ export default function SettingsPage(){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Configuración</h1><p>Usuarios, clasificaciones, comunicación y comportamiento general del CRM.</p></div></header>
-      <nav className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <button key={tab.key} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</button>})}</nav>
+      <nav aria-label="Secciones de configuración" className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <button key={tab.key} aria-current={section===tab.key?"page":undefined} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</button>})}</nav>
       {(q.error||save.error)&&<div className={styles.error}>{(q.error||save.error)?.message}</div>}
 
       {section==="users"&&<section className={styles.content}>
@@ -123,45 +104,15 @@ export default function SettingsPage(){
         </article>
       </section>}
 
-      {section==="classifications"&&<section className={styles.classificationsLayout}>
-        <article className={styles.card}>
-          <div className={styles.cardTitle}><MapPin/><div><h2>Ciudades</h2><p>Opciones disponibles al cargar y filtrar oportunidades.</p></div></div>
-          <div className={styles.inlineForm}><Input value={city} onChange={e=>setCity(e.target.value)} placeholder="Nueva ciudad"/><Button onClick={saveCity} disabled={save.isPending}>Agregar</Button></div>
-          <div className={styles.tags}>{data?.cities.map(x=><Badge key={x.id} variant="outline">{x.name}</Badge>)}</div>
-        </article>
-        <div className={styles.subtypesArea}>
-          <div className={styles.subtypesHeader}><Tags/><div><h2>Subtipos por vertical</h2><p>Cada vertical administra su propia lista. Los Generales están disponibles para todas.</p></div></div>
-          <div className={styles.subtypeCards}>
-            {[...(data?.types??[]).map(typeName=>({key:typeName,label:typeName,typeName})),{key:"__GENERAL__",label:"Generales",typeName:null}].map(group=>{
-              const items=(data?.subtypes??[]).filter(item=>item.typeName===group.typeName);
-              const draft=subtypeDrafts[group.key]??"";
-              return <article className={styles.subtypeCard} key={group.key}>
-                <div className={styles.subtypeCardHeader}>
-                  <div><strong>{group.label}</strong><span>{group.typeName?"Subtipos exclusivos de esta vertical":"Disponibles para cualquier vertical"}</span></div>
-                  <Badge variant="outline">{items.length}</Badge>
-                </div>
-                <div className={styles.subtypeList}>
-                  {items.length===0&&<div className={styles.subtypeEmpty}>Todavía no hay subtipos.</div>}
-                  {items.map(item=><div className={styles.subtypeRow} key={item.id}>
-                    {editingSubtype?.id===item.id
-                      ? <>
-                          <Input value={editingSubtype.name} onChange={e=>setEditingSubtype({...editingSubtype,name:e.target.value})} autoFocus onKeyDown={e=>{if(e.key==="Enter")void saveSubtypeEdit();if(e.key==="Escape")setEditingSubtype(null)}}/>
-                          <div className={styles.subtypeActions}><Button size="icon-sm" onClick={saveSubtypeEdit} disabled={save.isPending||!editingSubtype.name.trim()} title="Guardar"><Check size={15}/></Button><Button size="icon-sm" variant="ghost" onClick={()=>setEditingSubtype(null)} title="Cancelar"><X size={15}/></Button></div>
-                        </>
-                      : <>
-                          <span>{item.name}</span>
-                          <div className={styles.subtypeActions}><Button size="icon-sm" variant="ghost" onClick={()=>setEditingSubtype({id:item.id,name:item.name,typeName:item.typeName})} title="Editar subtipo"><Pencil size={14}/></Button><Button size="icon-sm" variant="ghost" onClick={()=>setDeletingSubtype({id:item.id,name:item.name,typeName:item.typeName})} title="Eliminar subtipo"><Trash2 size={14}/></Button></div>
-                        </>}
-                  </div>)}
-                </div>
-                <div className={styles.subtypeAdd}>
-                  <Input value={draft} onChange={e=>setSubtypeDrafts(prev=>({...prev,[group.key]:e.target.value}))} placeholder={"Agregar a "+group.label+"…"} onKeyDown={e=>{if(e.key==="Enter")void addSubtype(group.typeName)}}/>
-                  <Button size="sm" onClick={()=>addSubtype(group.typeName)} disabled={save.isPending||!draft.trim()}>Agregar</Button>
-                </div>
-              </article>;
-            })}
-          </div>
-        </div>
+      {section==="classifications"&&<section className={styles.content}>{data?<ClassificationSettings data={data}/>:<p role="status">Cargando clasificaciones…</p>}</section>}
+
+      {section==="process"&&<section className={styles.processSection}>
+        <header className={styles.processHeading}><h2>Proceso comercial</h2><p>Definí cómo avanzan las ventas y cómo el equipo organiza sus próximos pasos.</p></header>
+        <SectionTabs defaultValue="stages">
+          <SectionTabList aria-label="Configuración del proceso comercial"><SectionTab value="stages">Etapas y resultados</SectionTab><SectionTab value="tasks">Tareas y seguimiento</SectionTab></SectionTabList>
+          <SectionTabPanel value="stages"><PipelineSettings/></SectionTabPanel>
+          <SectionTabPanel value="tasks"><WorkTypesSettings/></SectionTabPanel>
+        </SectionTabs>
       </section>}
 
       {section==="communication"&&<section className={styles.content}>
@@ -181,19 +132,11 @@ export default function SettingsPage(){
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
 
       {section==="communication"&&<SequenceSettings/>}
-      {section==="classifications"&&<><WorkTypesSettings/><PipelineSettings/></>}
 
       {section==="system"&&<section className={styles.grid}>
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>
         <article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Apariencia</h2><p>Elegí tema claro, oscuro o el definido por el sistema operativo.</p></div></div><div className={styles.systemControl}><ThemeModeSwitch/></div></article>
       </section>}
-
-      <Dialog open={!!deletingSubtype} onOpenChange={open=>{if(!open&&!save.isPending)setDeletingSubtype(null)}}>
-        <DialogContent className={styles.userDialog}>
-          <DialogHeader><DialogTitle>Eliminar subtipo</DialogTitle><DialogDescription><strong>{deletingSubtype?.name}</strong> dejará de aparecer como opción para nuevos cambios. Las oportunidades existentes conservarán ese valor.</DialogDescription></DialogHeader>
-          <DialogFooter><Button variant="outline" onClick={()=>setDeletingSubtype(null)} disabled={save.isPending}>Cancelar</Button><Button variant="destructive" onClick={confirmSubtypeDelete} disabled={save.isPending}>{save.isPending?"Eliminando…":"Eliminar subtipo"}</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
 
