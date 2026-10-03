@@ -1,0 +1,22 @@
+.shell {
+  width: 100%;
+  max-width: calc(var(--crm-content-width) + 2 * var(--crm-gutter));
+  min-height: calc(100vh - 66px);
+  margin: 0 auto;
+  padding: 24px var(--crm-gutter) 40px;
+}
+
+.notice {
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
