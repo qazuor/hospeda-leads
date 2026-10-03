@@ -27,7 +27,7 @@ La edición del acuerdo agrega un evento auditable y exige la última versión c
 
 ## Validación
 
-TypeScript, compilación y 42 pruebas unitarias pasaron localmente. Las pruebas de integración ampliadas y del navegador verifican permisos, continuidad, acuerdo editable, resultados de acompañamiento, métricas y ventas independientes. La CI del PR ejecuta además todas las suites con PostgreSQL 17, Chromium y la imagen Docker de producción.
+TypeScript, compilación y 43 pruebas unitarias pasaron localmente. Las pruebas de integración ampliadas y del navegador verifican permisos, continuidad, acuerdo editable, resultados de acompañamiento, métricas y ventas independientes. La CI del PR ejecuta además todas las suites con PostgreSQL 17, Chromium y la imagen Docker de producción.
 
 La verificación visual incluye escritorio, móvil, modo oscuro y zoom. Las pruebas operan sobre datos sintéticos en una base aislada; no envían mensajes a personas reales.
 

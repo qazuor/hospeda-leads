@@ -139,7 +139,7 @@ export async function post(request:Request){
     if(!('nextTask' in input)||!input.nextTask)return;
     if(input.outcome==='do_not_contact'||account.doNotContact)throw new Error('No se puede planificar contacto para un negocio bloqueado.');
     await trx.selectFrom('crmWorkTypes').select('id').where('id','=',input.nextTask.typeId).where('active','=',true).executeTakeFirstOrThrow();
-    await trx.insertInto('crmTasks').values({accountId,leadId,title:input.nextTask.title,purpose:input.nextTask.purpose??('purpose' in input?input.purpose:undefined)??previous?.purpose??null,typeId:input.nextTask.typeId,dueDate:input.nextTask.dueDate,assignedUserEmail:previous&&'assignedUserEmail' in previous?previous.assignedUserEmail:commercialOwner,priority:'media',contactIds:serialize(('contactIds' in input?input.contactIds:undefined)||previous?.contactIds||[])}).execute();
+    await trx.insertInto('crmTasks').values({accountId,leadId,title:input.nextTask.title,continuation:'continuation' in input&&input.continuation==='wait'?'wait':null,purpose:input.nextTask.purpose??('purpose' in input?input.purpose:undefined)??previous?.purpose??null,typeId:input.nextTask.typeId,dueDate:input.nextTask.dueDate,assignedUserEmail:previous&&'assignedUserEmail' in previous?previous.assignedUserEmail:commercialOwner,priority:'media',contactIds:serialize(('contactIds' in input?input.contactIds:undefined)||previous?.contactIds||[])}).execute();
    };
    const restrictIfRequested=async()=>{
     if(!('outcome' in input)||input.outcome!=='do_not_contact')return;

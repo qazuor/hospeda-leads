@@ -27,6 +27,7 @@ export function TaskRow({task,data,onEdit}:{task:WorkTask;data:WorkData;onEdit:(
   <div className={ws.rowBody}>
    <div className={ws.rowHeading}><strong>{task.title}</strong>{task.priority==='alta'&&<span className={ws.priority}>Alta prioridad</span>}{!pending&&<span className={ws.status}>{statusNames[task.status]}</span>}</div>
    <Link className={ws.context} to={task.leadId?'/sales/'+task.leadId:'/accounts/'+task.accountId}>{task.accountName}{task.opportunityName?' · '+task.opportunityName:''}</Link>
+   {pending&&task.continuation==='wait'&&<p className={ws.metadata}>Esperando hasta la fecha acordada para retomar</p>}
    <div className={ws.due}><CalendarClock size={14} aria-hidden="true"/>{task.dueAt?prettyInstant(task.dueAt):formatDate(task.dueDate)}</div>
    <div className={ws.metadata}><span>{task.purpose?purposeNames[task.purpose]:data.types.find(t=>t.id===task.typeId)?.name}</span><span>{data.users.find(u=>u.email===task.assignedUserEmail)?.displayName||'Sin responsable'}</span>{task.city&&<span>{task.city}</span>}</div>
    {(task.description||task.participants||task.result)&&<details className={ws.extra}><summary>Ver detalles</summary>{task.description&&<p>{task.description}</p>}{task.participants&&<p>Participantes: {task.participants}</p>}{task.result&&<p>Resultado: {task.result}</p>}</details>}

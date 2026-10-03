@@ -108,7 +108,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(whatsapp.getByText('Envío confirmado manualmente',{exact:true})).toBeVisible();
   await whatsapp.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   await page.getByRole('dialog').getByRole('button',{name:'Volver',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
-  await lead.getByRole('button',{name:'Editar datos de venta',exact:true}).click();
+  await lead.getByRole('button',{name:'Editar datos de venta',exact:true}).first().click();
   await expect(page.getByLabel('Nombre / razón social',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Teléfono genérico',{exact:true})).toHaveCount(0);
   await page.getByLabel('Nombre de oportunidad',{exact:true}).fill('Primera venta actualizada');
