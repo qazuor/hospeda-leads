@@ -1,6 +1,7 @@
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
+import {get as businessImportGET,post as businessImportPOST} from '../endpoints/businessImport';
 import {request as passwordRecoveryRequest,reset as passwordRecoveryReset} from "../endpoints/auth/password_recovery";
 import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
 import { serve } from "@hono/node-server";
@@ -45,6 +46,8 @@ import { get as commercialGET, post as commercialPOST } from "../endpoints/comme
 import {get as workGET,post as workPOST} from "../endpoints/work";
 
 const app=new Hono();
+app.get('/_api/business_import',c=>businessImportGET(c.req.raw));
+app.post('/_api/business_import',c=>businessImportPOST(c.req.raw));
 app.get('/_api/communication',c=>communicationGET(c.req.raw));
 app.post('/_api/communication',c=>communicationPOST(c.req.raw));
 app.post('/_api/brevo/events',c=>brevoWebhook(c.req.raw));
