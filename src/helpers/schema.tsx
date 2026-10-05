@@ -220,6 +220,15 @@ export interface Users {
 }
 
 export interface CrmAccounts {
+  tipo: string | null;
+  subtipo: string | null;
+  provincia: string | null;
+  direccion: string | null;
+  whatsapp: string | null;
+  businessNotes: string | null;
+  discoverySource: string | null;
+  verificationUrls: string | null;
+  verifiedOn: string | null;
   archivedAt: Generated<Timestamp | null>;
   mergedIntoId: Int8 | null;
   mergedAt: Timestamp | null;
@@ -287,6 +296,7 @@ export interface CrmWorkJournal {
  action:string; beforeValue:Json|null; afterValue:Json|null; createdAt:Generated<Timestamp>;
 }
 export interface CrmImportBatches {
+ mode: Generated<'business'|'opportunity'>;
  id:string; fingerprint:string; ownerEmail:string; source:string; sourceUrl:string|null; obtainedAt:Timestamp|null;
  rows:Json; status:Generated<'review'|'completed'>; result:Json|null; decisions:Json|null; createdAt:Generated<Timestamp>; completedAt:Timestamp|null;
 }

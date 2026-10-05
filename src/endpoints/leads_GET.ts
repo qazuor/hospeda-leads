@@ -248,7 +248,7 @@ export async function handle(request: Request) {
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
       const [accounts,opportunities,contacts,nextTasks]=await Promise.all([
-        db.selectFrom("crmAccounts").select(["id","commercialStatus"]).where("id","in",ids).execute(),
+        db.selectFrom("crmAccounts").select(["id","commercialStatus","tipo","subtipo"]).where("id","in",ids).execute(),
         db.selectFrom("leads").selectAll().where("accountId","in",ids).where("deletedAt","is",null).orderBy("id").execute(),
         db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute(),
         db.selectFrom("crmTasks as t").leftJoin("leads as l","l.id","t.leadId").select(["t.accountId","t.title","t.dueDate"]).where("t.accountId","in",ids).where("t.status","=","pending").where("t.deletedAt","is",null).where(eb=>eb.or([eb("t.leadId","is",null),eb("l.deletedAt","is",null)])).$if(user.role!=="admin",q=>q.where("t.assignedUserEmail","=",user.email)).orderBy("t.dueDate").orderBy("t.dueAt").orderBy("t.id").execute()
@@ -262,7 +262,9 @@ export async function handle(request: Request) {
         row.opportunityCount=related.length;
         row.contactCount=contacts.filter(c=>String(c.accountId)===String(row.accountId)).length;
         row.commercialStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.commercialStatus;
+        const account=accounts.find(a=>String(a.id)===String(row.accountId))!;
         row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
+        for(const f of ['tipo','subtipo'] as const)if(account[f])row.opportunityValues[f]=[account[f]!];
       }
     }
     const distinct=async(col:"ciudad"|"estado"|"tipo"|"asignadoA"|"suscripcion"|"origen"|"quienCargo"|"medioContactoPreferido"|"creadoPor")=>(await source().select(col).$if(!includeDeleted,q=>q.where("deletedAt","is",null)).where(col,"is not",null).distinct().orderBy(col).execute()).map(x=>x[col]).filter((x):x is string=>!!x);
