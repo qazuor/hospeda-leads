@@ -1,8 +1,12 @@
 export type Validity='valid'|'invalid'|'ambiguous'|'missing'|'unverified';
 export type Normalized={original:string|null; normalized:string|null; validity:Validity; observations:string};
-export const businessFields=['nombre','ciudad','telefono','email','sitioWeb','urlGmap','perfilInstagram','perfilFacebook','perfilAirbnb','perfilBooking','perfilTurismoEntreRios'] as const;
-export const importFields=[...businessFields,'tipo','subtipo','estado','suscripcion','origen','fuenteReferencia','prioridad','notas','archivoAdjunto','fechaCreacion','fechaUltimoContacto','fechaProximaAccion','medioContactoPreferido','resultadoUltimoContacto','clientePotencialRecurrente','quienCargo','creadoPor','asignadoA'] as const;
+export const legacyBusinessFields=['nombre','ciudad','telefono','email','sitioWeb','urlGmap','perfilInstagram','perfilFacebook','perfilAirbnb','perfilBooking','perfilTurismoEntreRios'] as const;
+export const accountExtraFields=['tipo','subtipo','provincia','direccion','whatsapp','businessNotes','discoverySource','verificationUrls','verifiedOn'] as const;
+export const businessFields=[...legacyBusinessFields,...accountExtraFields] as const;
+export const businessImportFields=[...businessFields,'asignadoA'] as const;
+export const importFields=[...businessFields,'estado','suscripcion','origen','fuenteReferencia','prioridad','notas','archivoAdjunto','fechaCreacion','fechaUltimoContacto','fechaProximaAccion','medioContactoPreferido','resultadoUltimoContacto','clientePotencialRecurrente','quienCargo','creadoPor','asignadoA'] as const;
 export const dataFieldLabels:Record<string,string>={
+ provincia:'Provincia',direccion:'Dirección',whatsapp:'WhatsApp comercial',businessNotes:'Notas del negocio',discoverySource:'Fuente de descubrimiento',verificationUrls:'URLs de verificación',verifiedOn:'Fecha de verificación',
  nombre:'Nombre del negocio',ciudad:'Localidad',telefono:'Teléfono genérico',email:'Email',sitioWeb:'Sitio web',urlGmap:'Google Maps',
  perfilInstagram:'Instagram',perfilFacebook:'Facebook',perfilAirbnb:'Airbnb',perfilBooking:'Booking',perfilTurismoEntreRios:'Turismo Entre Ríos',
  tipo:'Vertical',subtipo:'Subtipo',estado:'Etapa',suscripcion:'Suscripción',origen:'Origen histórico',fuenteReferencia:'Fuente de referencia histórica',
@@ -16,7 +20,7 @@ export function normalizeField(field:string,value:string|null|undefined):Normali
  const original=value??null,s=value?.trim()??'';
  const result=(normalized:string|null,validity:Validity,observations=''):Normalized=>({original,normalized,validity,observations});
  if(!s)return result(null,'missing','Sin dato');
- if(field==='telefono'||field==='phone'){
+ if(field==='telefono'||field==='phone'||field==='whatsapp'){
   if(!/^\+?[\d\s().-]+$/.test(s))return result(null,'ambiguous','Varios números, internos o texto: revisar sin modificar.');
   const digits=s.replace(/\D/g,'');
   if(s.startsWith('+')||s.startsWith('00')){
@@ -42,7 +46,7 @@ export function normalizeField(field:string,value:string|null|undefined):Normali
  return result(s,'unverified');
 }
 export type Match={id:string; nombre:string; ciudad:string|null; reasons:string[]; kind:'duplicate_candidate'|'shared_person_or_related'; revision:string;current:Record<string,string|null>};
-export function matchAccounts(input:Record<string,string|null|undefined>,rows:Array<{id:string;nombre:string;ciudad:string|null;telefono:string|null;email:string|null;sitioWeb:string|null;updatedAt:Date}>):Match[]{
+export function matchAccounts(input:Record<string,string|null|undefined>,rows:Array<{id:string;nombre:string;ciudad:string|null;telefono:string|null;email:string|null;sitioWeb:string|null;updatedAt:Date;direccion?:string|null;whatsapp?:string|null;perfilInstagram?:string|null;perfilFacebook?:string|null}>):Match[]{
  return rows.flatMap(a=>{
   const reasons:string[]=[];
   const name=!!comparisonName(input.nombre)&&comparisonName(a.nombre)===comparisonName(input.nombre);
@@ -52,6 +56,13 @@ export function matchAccounts(input:Record<string,string|null|undefined>,rows:Ar
    const n=normalizeField(field,input[field]),v=normalizeField(field,a[field]);
    if(n.validity==='valid'&&v.validity==='valid'&&n.normalized&&n.normalized===v.normalized)reasons.push(label+' compartido');
   }
+  if(city&&comparisonName(input.direccion)&&comparisonName(input.direccion)===comparisonName(a.direccion))reasons.push('Dirección y localidad coinciden');
+  for(const f of ['perfilInstagram','perfilFacebook'] as const){
+   const clean=(v:string|null|undefined)=>{try{const u=new URL(v||'');if(!/^https?:$/.test(u.protocol))return null;return u.hostname.toLowerCase().replace(/^www\./,'')+u.pathname.replace(/\/$/,'').toLowerCase();}catch{return null;}};
+   const value=clean(input[f]);if(value&&value===clean(a[f]))reasons.push(dataFieldLabels[f]+' compartido');
+  }
+  const wa=normalizeField('whatsapp',input.whatsapp),oldWa=normalizeField('whatsapp',a.whatsapp);
+  if(wa.validity==='valid'&&oldWa.validity==='valid'&&wa.normalized===oldWa.normalized)reasons.push('WhatsApp compartido');
   return reasons.length?[{id:String(a.id),nombre:a.nombre,ciudad:a.ciudad,reasons,kind:name&&city?'duplicate_candidate' as const:'shared_person_or_related' as const,revision:a.updatedAt.toISOString(),current:Object.fromEntries(businessFields.map(f=>[f,String(a[f as keyof typeof a]??'')||null]))}]:[];
  });
 }

@@ -2,7 +2,8 @@ import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Transaction,type Kysely,type Insertable} from 'kysely';
 import {z} from 'zod';
 import type {DB,Leads} from './schema';
-import {businessFields,importFields,normalizeField,matchAccounts,dataFieldLabels} from './dataNormalization';
+import {classificationErrors} from './accountClassification';
+import {businessImportFields,legacyBusinessFields,accountExtraFields,businessFields,importFields,normalizeField,matchAccounts,dataFieldLabels} from './dataNormalization';
 import {qualityMutation,type QualityMutation,type ReviewRow,type ImportResult} from '../endpoints/dataQuality.schema';
 import {setWorkActor} from './workAudit';
 import {writeLeadJournal} from './writeLeadJournal';
@@ -17,31 +18,38 @@ function validDate(value:string){
  const m=value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);const day=m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:value;
  return /^\d{4}-\d{2}-\d{2}$/.test(day)&&!Number.isNaN(Date.parse(day))&&new Date(day).toISOString().slice(0,10)===day?day:null;
 }
-export async function reviewRows(database:Kysely<DB>,values:Record<string,string>[]):Promise<ReviewRow[]>{
+export async function reviewRows(database:Kysely<DB>,values:Record<string,string>[],mode:'business'|'opportunity'='opportunity'):Promise<ReviewRow[]>{
  const accounts=await activeAccounts(database);
  const users=await database.selectFrom('users').select(['email','displayName']).execute();
- const rows=values.map((row,index)=>{
+ const rows=await Promise.all(values.map(async(row,index)=>{
   const errors:string[]=[],warnings:string[]=[];
   if(!row.nombre?.trim())errors.push('Nombre obligatorio');
+  if(mode==='business'){
+   const unsupported=Object.keys(row).filter(f=>row[f].trim()&&!(businessImportFields as readonly string[]).includes(f));
+   if(unsupported.length)errors.push('Solo negocios: quitá los campos de venta '+unsupported.join(', '));
+   errors.push(...await classificationErrors(database,row.tipo?.trim()||null,row.subtipo?.trim()||null));
+  }else if(accountExtraFields.some(f=>!['tipo','subtipo'].includes(f)&&row[f]?.trim()))errors.push('Los datos de relevamiento requieren el modo Solo negocios.');
   for(const [field,value] of Object.entries(row)){
    if(!value.trim())continue;
    const n=normalizeField(field,value);
    if(n.validity==='invalid')errors.push(dataFieldLabels[field]+': '+n.observations);
    if(n.validity==='ambiguous')warnings.push(dataFieldLabels[field]+': '+n.observations);
+   if(field==='verifiedOn'&&(!validDate(value.trim())||value.trim()>new Date().toISOString().slice(0,10)))errors.push('Fecha de verificación inválida o futura: usar AAAA-MM-DD.');
+   if(field==='verificationUrls'&&value.split(/\s+/).some(url=>!/^https?:\/\//.test(url)||!z.string().url().safeParse(url).success))errors.push('URLs de verificación: usar URLs HTTP(S) separadas por espacios o líneas.');
    if(field.startsWith('fecha')&&!validDate(value.trim()))errors.push(dataFieldLabels[field]+': usar AAAA-MM-DD o DD/MM/AAAA válido');
    if(field==='prioridad'&&!['alta','media','baja'].includes(value.trim()))errors.push('Prioridad inválida');
    if(field==='clientePotencialRecurrente'&&!['true','false','si','sí','no','1','0','yes'].includes(value.trim().toLowerCase()))errors.push('Booleano inválido');
    if(field==='asignadoA'&&!users.some(u=>u.email===value.trim())&&users.filter(u=>u.displayName===value.trim()).length!==1)errors.push('Responsable inexistente o ambiguo');
   }
   return {index,values:row,errors,warnings,matches:matchAccounts(row,accounts),withinBatch:[] as number[]};
- });
- for(const row of rows)for(const other of rows){if(other.index>=row.index)break;const matches=matchAccounts(row.values,[{id:String(other.index),nombre:other.values.nombre??'',ciudad:other.values.ciudad??null,telefono:other.values.telefono??null,email:other.values.email??null,sitioWeb:other.values.sitioWeb??null,updatedAt:new Date(0)}]);if(matches.length){row.withinBatch.push(other.index);other.withinBatch.push(row.index);}}
+ }));
+ for(const row of rows)for(const other of rows){if(other.index>=row.index)break;const matches=matchAccounts(row.values,[{id:String(other.index),nombre:other.values.nombre??'',ciudad:other.values.ciudad??null,telefono:other.values.telefono??null,email:other.values.email??null,sitioWeb:other.values.sitioWeb??null,direccion:other.values.direccion??null,whatsapp:other.values.whatsapp??null,perfilInstagram:other.values.perfilInstagram??null,perfilFacebook:other.values.perfilFacebook??null,updatedAt:new Date(0)}]);if(matches.length){row.withinBatch.push(other.index);other.withinBatch.push(row.index);}}
  return rows;
 }
 async function evidence(trx:Transaction<DB>,accountId:string,fields:Record<string,string>,user:User,source:{source:string;sourceUrl?:string|null;obtainedAt?:string|null},batchId:string|null,leadId:string|null=null){
  for(const [field,value] of Object.entries(fields)){
   if(!value.trim())continue;const n=normalizeField(field,value);
-  await trx.insertInto('crmDataEvidence').values({accountId,originalAccountId:accountId,leadId:(businessFields as readonly string[]).includes(field)?null:leadId,field,originalValue:value,normalizedValue:n.normalized,source:source.source,sourceUrl:source.sourceUrl??null,obtainedAt:source.obtainedAt??null,verifiedAt:null,validity:n.validity,observations:n.observations,batchId,actorEmail:user.email}).execute();
+  await trx.insertInto('crmDataEvidence').values({accountId,originalAccountId:accountId,leadId:(leadId?(legacyBusinessFields as readonly string[]).includes(field):(businessFields as readonly string[]).includes(field))?null:leadId,field,originalValue:value,normalizedValue:n.normalized,source:source.source,sourceUrl:source.sourceUrl??null,obtainedAt:source.obtainedAt??null,verifiedAt:null,validity:n.validity,observations:n.observations,batchId,actorEmail:user.email}).execute();
  }
 }
 async function snapshot(database:Kysely<DB>,sourceId:string,destinationId:string){
@@ -75,11 +83,12 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    const config=await qualityConfig(trx);if(input.rows.length>config.maxRows||Buffer.byteLength(JSON.stringify(input.rows))>config.maxFileBytes)throw new Error('El lote supera los límites configurados.');
    if(user.role!=='admin'&&input.rows.some(r=>r.asignadoA?.trim()))throw new QualityForbidden('Solo admin importa responsables.');
    const values=input.rows.map(r=>Object.fromEntries(importFields.filter(f=>f in r).map(f=>[f,r[f]!])));
-   const fingerprint=digest(values.map(r=>Object.fromEntries(Object.entries(r).filter(([,v])=>v.trim()))));const batchId=randomUUID();
-   await trx.insertInto('crmImportBatches').values({id:batchId,fingerprint,ownerEmail:user.email,source:input.source,sourceUrl:input.sourceUrl??null,obtainedAt:input.obtainedAt??null,rows:json(values)}).onConflict(oc=>oc.column('fingerprint').doNothing()).execute();
+   const canonical=values.map(r=>Object.fromEntries(Object.entries(r).filter(([,v])=>v.trim())));
+   const fingerprint=digest(input.mode==='business'?{mode:input.mode,rows:canonical}:canonical);const batchId=randomUUID();
+   await trx.insertInto('crmImportBatches').values({id:batchId,fingerprint,ownerEmail:user.email,mode:input.mode,source:input.source,sourceUrl:input.sourceUrl??null,obtainedAt:input.obtainedAt??null,rows:json(values)}).onConflict(oc=>oc.column('fingerprint').doNothing()).execute();
    const batch=await trx.selectFrom('crmImportBatches').selectAll().where('fingerprint','=',fingerprint).executeTakeFirstOrThrow();
    if(batch.ownerEmail!==user.email&&user.role!=='admin')throw new QualityConflict('Ese archivo ya tiene un lote. Pedí al administrador revisar el lote existente.');
-   return {batchId:batch.id,status:batch.status,source:batch.source,sourceUrl:batch.sourceUrl,rows:await reviewRows(trx,values),result:batch.result??undefined};
+   return {batchId:batch.id,status:batch.status,mode:batch.mode,source:batch.source,sourceUrl:batch.sourceUrl,rows:await reviewRows(trx,values,batch.mode),result:batch.result??undefined};
   }
   if(input.action==='import_confirm'){
    const batch=await trx.selectFrom('crmImportBatches').selectAll().where('id','=',input.batchId).forUpdate().executeTakeFirstOrThrow();
@@ -87,7 +96,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    if(batch.status==='completed')return batch.result;
    // Bounded manual imports serialize against writers to recheck duplicates and previews safely.
    await sql`LOCK TABLE crm_accounts, leads IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
-   const values=z.array(z.record(z.string())).parse(batch.rows);const review=await reviewRows(trx,values);
+   const values=z.array(z.record(z.string())).parse(batch.rows);const review=await reviewRows(trx,values,batch.mode);
    if(input.decisions.length!==review.length||new Set(input.decisions.map(d=>d.index)).size!==review.length||input.decisions.some(d=>d.index>=review.length))throw new Error('Revisá todas las filas una sola vez.');
    const result:ImportResult={batchId:batch.id,imported:0,updated:0,skipped:0,errors:0,details:[]};
    const selectedTargets=new Set<string>();
@@ -98,7 +107,14 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
     if((row.warnings.length||row.matches.length||row.withinBatch.length)&&!d.acknowledge)throw new Error(`Fila ${row.index+1}: confirmá coincidencias y datos ambiguos.`);
     const fields=Object.fromEntries(Object.entries(row.values).filter(([,v])=>v.trim()));
     if(user.role!=='admin'&&fields.asignadoA)throw new QualityForbidden('Solo admin importa responsables.');
-    if(d.action==='create'){
+    if(d.action==='create'&&batch.mode==='business'){
+     const assigned=fields.asignadoA?await trx.selectFrom('users').select('email').where(eb=>eb.or([eb('email','=',fields.asignadoA.trim()),eb('displayName','=',fields.asignadoA.trim())])).executeTakeFirstOrThrow():null;
+     const data=Object.fromEntries(Object.entries(fields).filter(([f])=>(businessFields as readonly string[]).includes(f)));
+     const account=await trx.insertInto('crmAccounts').values({...data,nombre:fields.nombre,assignedUserEmail:assigned?.email??null}).returningAll().executeTakeFirstOrThrow();
+     await evidence(trx,String(account.id),data,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
+     await trx.insertInto('crmCommercialJournal').values({accountId:String(account.id),action:'account_created',actorEmail:user.email,actorName:user.displayName,metadata:json({after:account,batchId:batch.id,source:batch.source})}).execute();
+     result.imported++;result.details.push({index:row.index,action:'create',id:String(account.id),accountId:String(account.id),entity:'business'});
+    }else if(d.action==='create'){
      const data:Insertable<Leads>={nombre:fields.nombre,creadoPor:user.displayName,quienCargo:user.displayName};
      for(const [f,v] of Object.entries(fields)){
       if(f==='asignadoA'){const u=await trx.selectFrom('users').select('email').where('email','=',v.trim()).executeTakeFirst()??await trx.selectFrom('users').select('email').where('displayName','=',v.trim()).executeTakeFirstOrThrow();data.assignedUserEmail=u.email;data.asignadoA=v;}
@@ -109,7 +125,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      const lead=await trx.insertInto('leads').values(data).returningAll().executeTakeFirstOrThrow();
      await evidence(trx,String(lead.accountId),fields,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id,String(lead.id));
      await writeLeadJournal(trx,{leadId:lead.id,leadName:lead.nombre,actor:user,action:'created',metadata:{batchId:batch.id,source:batch.source}});
-     result.imported++;result.details.push({index:row.index,action:'create',id:String(lead.id)});
+     result.imported++;result.details.push({index:row.index,action:'create',id:String(lead.id),accountId:String(lead.accountId),entity:'opportunity'});
     }else{
      if(!d.targetId||!d.revision)throw new Error('Elegí negocio destino para actualizar.');
      if(!row.matches.some(m=>m.id===d.targetId))throw new QualityConflict('El destino ya no coincide con la fila. Revisá el preview.');
@@ -119,6 +135,8 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      if(user.role!=='admin'&&account.assignedUserEmail!==user.email)throw new QualityForbidden('Solo podés actualizar tus negocios asignados.');
      const unsupported=Object.keys(fields).filter(f=>!(businessFields as readonly string[]).includes(f));
      if(unsupported.length)throw new Error(`Fila ${row.index+1}: actualizar negocio solo acepta datos generales; quitá ${unsupported.map(f=>dataFieldLabels[f]||f).join(', ')} del mapeo o creá/omití la fila.`);
+     const classification=await classificationErrors(trx,fields.tipo??account.tipo,fields.subtipo??account.subtipo,account);
+     if(classification.length)throw new Error(classification.join(' '));
      const after=await trx.updateTable('crmAccounts').set({...fields,updatedAt:new Date()}).where('id','=',d.targetId).returningAll().executeTakeFirstOrThrow();
      await evidence(trx,d.targetId,fields,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
      await trx.insertInto('crmCommercialJournal').values({accountId:d.targetId,action:'import_updated',actorEmail:user.email,actorName:user.displayName,metadata:json({before:account,after,batchId:batch.id})}).execute();
@@ -141,7 +159,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    const destHasPrimary=await trx.selectFrom('crmContacts').select('id').where('accountId','=',input.destinationId).where('isPrimary','=',true).where('deletedAt','is',null).executeTakeFirst();
    if(sourceHasPrimary&&destHasPrimary)await trx.updateTable('crmContacts').set({isPrimary:false,updatedAt:new Date()}).where('id','=',sourceHasPrimary.id).execute();
    await trx.updateTable('crmContacts').set({accountId:input.destinationId,updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
-   await trx.updateTable('leads').set({accountId:input.destinationId,...Object.fromEntries(businessFields.map(f=>[f,p.destination[f]])),updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
+   await trx.updateTable('leads').set({accountId:input.destinationId,...Object.fromEntries(legacyBusinessFields.map(f=>[f,p.destination[f]])),updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
    for(const table of ['crmTasks','crmActivities','crmDataEvidence'] as const)await trx.updateTable(table).set({accountId:input.destinationId}).where('accountId','=',input.sourceId).execute();
    for(const table of ['crm_objections','crm_pipeline_events','crm_messages','crm_contact_restrictions','crm_sequence_runs','crm_documents','crm_document_links'])await sql`UPDATE ${sql.table(table)} SET account_id=${input.destinationId}::bigint WHERE account_id=${input.sourceId}::bigint`.execute(trx);
    const after=await trx.updateTable('crmAccounts').set({...fields,doNotContact:p.policy.doNotContact,commercialStatus:p.policy.commercialStatus as 'client'|'prospect',clientSince:p.policy.clientSince,updatedAt:new Date()}).where('id','=',input.destinationId).returningAll().executeTakeFirstOrThrow();
