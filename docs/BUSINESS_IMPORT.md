@@ -14,4 +14,6 @@ El endpoint autenticado existente `POST /_api/data_quality` acepta `import_previ
 
 Los lotes históricos y clientes API que omiten `mode` conservan `opportunity`: crean una venta inicial. El modo está persistido en el lote y forma parte de su identidad para impedir confundir los dos flujos. El antiguo ingest por Bearer continúa deshabilitado.
 
+Para automatizar sin navegador, usar la [API limitada de importación de negocios](BUSINESS_IMPORT_API.md). Requiere configurar una clave independiente; no habilita el antiguo ingest ni hereda permisos administrativos.
+
 La migración 013 agrega columnas sin reescribir las ventas. Clasificación histórica: copia únicamente valores no ambiguos de las oportunidades; conflictos quedan sin clasificación. Editar un negocio no cambia las clasificaciones independientes de sus ventas.

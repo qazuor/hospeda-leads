@@ -59,6 +59,8 @@ jobs:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           BREVO_WEBHOOK_TOKEN: ${{ secrets.BREVO_WEBHOOK_TOKEN }}
           PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
+          BUSINESS_IMPORT_TOKEN_SHA256: ${{ secrets.BUSINESS_IMPORT_TOKEN_SHA256 }}
+          BUSINESS_IMPORT_ACTOR_EMAIL: ${{ secrets.BUSINESS_IMPORT_ACTOR_EMAIL }}
         run: |
           PORT="${VPS_PORT:-22}"
           DEST="${VPS_PATH:-/opt/hospeda-leads}"
@@ -70,6 +72,8 @@ jobs:
             printf 'BREVO_API_KEY=%s\n' "$BREVO_API_KEY"
             printf 'BREVO_WEBHOOK_TOKEN=%s\n' "$BREVO_WEBHOOK_TOKEN"
             printf 'PUBLIC_APP_URL=%s\n' "$PUBLIC_APP_URL"
+            printf 'BUSINESS_IMPORT_TOKEN_SHA256=%s\n' "$BUSINESS_IMPORT_TOKEN_SHA256"
+            printf 'BUSINESS_IMPORT_ACTOR_EMAIL=%s\n' "$BUSINESS_IMPORT_ACTOR_EMAIL"
             printf 'APP_PORT=3001\n'
           } > /tmp/hospeda-leads.env
 
