@@ -29,6 +29,7 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
       initial.opportunityName=target.item?.opportunityName||"Presentación de Hospeda";
       initial.estimatedCloseDate=dateOnlyInput(target.item?.estimatedCloseDate);
       initial.estado=target.item?.estado||"";
+      initial.tipo=target.item?.tipo||detail?.account.tipo||"";
       initial.primaryContactId=String((target.item?target.item.primaryContactId:detail?.contacts.find(c=>c.isPrimary&&!c.deletedAt)?.id)||"");
       initial.assignedUserEmail=target.item?(target.item.assignedUserEmail||""):detail?.account.assignedUserEmail||(authState.type==="authenticated"?authState.user.email:"");
     }
