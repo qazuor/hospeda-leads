@@ -43,11 +43,12 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
   if(prefs.loadMode==='continuous'&&results.data.pages.at(-1)!.page<target.page&&results.hasNextPage){if(!results.isFetchingNextPage)void results.fetchNextPage();return;}
   const anchor=target.anchorId?document.querySelector<HTMLElement>(`[data-business-id="${target.anchorId}"]`):null;
   window.scrollTo(0,anchor?window.scrollY+anchor.getBoundingClientRect().top-(target.anchorOffset??0):target.scrollY);if(scroll.current)scroll.current.scrollLeft=target.scrollX;
+  if(anchor)Array.from(anchor.querySelectorAll<HTMLButtonElement>('button')).find(button=>button.textContent==='Abrir')?.focus({preventScroll:true});
   restore.current=null;
  },[busy,results.data,results.isFetchingNextPage,prefs.loadMode]);
  useEffect(()=>{if(prefs.loadMode!=='continuous'||busy||restore.current||results.error||!results.hasNextPage)return;const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&!results.isFetchingNextPage)void results.fetchNextPage();},{rootMargin:'150px'});if(sentinel.current)observer.observe(sentinel.current);return()=>observer.disconnect();},[prefs.loadMode,busy,results.hasNextPage,results.isFetchingNextPage,results.data,results.error]);
  useEffect(()=>{if(prefs.loadMode==='continuous'&&results.data&&!restore.current)setPage(results.data.pages.at(-1)!.page);},[results.data,prefs.loadMode]);
- const change=(next:ListPreferences,reset=false)=>{restore.current=null;lastAnchor.current=undefined;setSelected([]);setPrefs(next);if(reset){lastContext.current={page:1,scrollY:0,scrollX:0};setPage(1);}};
+ const change=(next:ListPreferences,reset=false)=>{restore.current=null;lastAnchor.current=undefined;setPrefs(next);if(reset){setSelected([]);lastContext.current={page:1,scrollY:0,scrollX:0};setPage(1);}};
  const open=(row:OutputType['rows'][number])=>{lastAnchor.current=String(row.accountId);capture();navigate('/accounts/'+row.accountId);};
  const fields:FilterFieldDefinition[]=BUSINESS_FILTER_COLUMNS.map(c=>({key:c.key as FilterFieldDefinition['key'],label:c.label,kind:['fechaCreacion','fechaUltimoContacto','fechaProximaAccion','createdAt','updatedAt'].includes(c.key)?'date':c.key==='id'?'number':c.key==='clientePotencialRecurrente'?'boolean':c.key==='notes'?'notes':'text'}));
  for(const field of fields){if(field.key==='assignedUserEmail'){field.kind='category';field.options=settings.data?.users.map(u=>({value:u.email,label:u.displayName||u.email}))??[];}if(field.key==='ciudad'){field.kind='category';field.options=settings.data?.cities.map(c=>({value:c.name,label:c.name}))??[];}}
