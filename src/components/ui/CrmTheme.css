@@ -1,0 +1,10 @@
+/* Resolve aliases on body, where legacy .dark tokens live, not on :root. */
+body {
+  --mantine-color-body: var(--background);
+  --mantine-color-text: var(--foreground);
+  --mantine-color-dimmed: var(--muted-foreground);
+  --mantine-color-default: var(--card);
+  --mantine-color-default-color: var(--foreground);
+  --mantine-color-default-border: var(--border);
+  --mantine-color-default-hover: var(--surface);
+}

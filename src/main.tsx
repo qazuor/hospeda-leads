@@ -1,3 +1,4 @@
+import React from "react";
 import {UnsavedNavigation} from './components/UnsavedChanges';
 const SalePage=React.lazy(()=>import('./pages/sale'));
 const ArchivedPage=React.lazy(()=>import('./pages/archived'));
@@ -5,7 +6,6 @@ const GuidePage=React.lazy(()=>import('./pages/guide'));
 const LibraryPage=React.lazy(()=>import('./pages/library'));
 const PasswordRecoveryPage=React.lazy(()=>import("./pages/password-recovery"));
 const ReactivationPage=React.lazy(()=>import("./pages/reactivation"));
-import React from "react";
 import {RouteLoading} from "./components/RouteLoading";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
@@ -22,6 +22,8 @@ const RegisterPage=React.lazy(()=>import("./pages/register"));
 const SettingsPage=React.lazy(()=>import("./pages/settings"));
 const TemplatesPage=React.lazy(()=>import("./pages/templates"));
 const TrashPage=React.lazy(()=>import("./pages/trash"));
+import './styleLayers.css';
+import '@mantine/core/styles.layer.css';
 import "./base.css";
 
 function OpportunityEntry(){
