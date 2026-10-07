@@ -9,6 +9,7 @@ export const schema = z.object({
     "fechaCreacion","fechaUltimoContacto","fechaProximaAccion"
   ]),
   value: z.string().nullable(),
+  expectedValue:z.string().nullable().optional(),
 });
 export type OutputType = { ok: true };
 export const postLeadsQuick = async (body: z.infer<typeof schema>): Promise<OutputType> => {

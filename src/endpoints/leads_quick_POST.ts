@@ -7,6 +7,8 @@ import { schema, type OutputType } from "./leads_quick_POST.schema";
 import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 
+class InlineConflict extends Error {}
+
 export async function handle(request: Request) {
   try {
     const {user}=await getServerUserSession(request);
@@ -27,6 +29,11 @@ export async function handle(request: Request) {
       await setWorkActor(trx,user);
       if(input.accountId){
         const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:{};
+        if(Object.keys(fields).length&&input.expectedValue!==undefined){
+          const account=await assertBusinessAccess(trx,input.accountId,user,true);
+          const current=input.field==='ciudad'?account.ciudad:account.assignedUserEmail;
+          if(current!==input.expectedValue&&current!==input.value)throw new InlineConflict("Este dato cambió mientras lo editabas. Recargá los datos y revisá el nuevo valor.");
+        }
         await updateBusinessFields(trx,[input.accountId],fields,user);
         if(Object.keys(fields).length)return;
         const opportunities=await trx.selectFrom("leads").select("id").where("accountId","=",input.accountId).where("deletedAt","is",null).execute();
@@ -52,6 +59,6 @@ export async function handle(request: Request) {
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   } catch(error) {
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo actualizar"}),{status:error instanceof CrmForbidden?403:400});
+    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo actualizar"}),{status:error instanceof CrmForbidden?403:error instanceof InlineConflict?409:400});
   }
 }
