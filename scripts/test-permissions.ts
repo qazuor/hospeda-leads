@@ -82,6 +82,7 @@ try{
  await call(other,save,'leads_save',{id:separateManagement,scope:'opportunity',nombre:'Must preserve the business',opportunityName:'Authorized scoped edit'});
  await call(other,save,'leads_save',{id:separateManagement,nombre:'Unauthorized business projection'},403);
  await call(other,quick,'leads_quick',{id:separateManagement,field:'ciudad',value:'Unauthorized business city'},403);
+ await call(other,bulk,'leads_bulk',{entity:'opportunity',ids:[separateManagement],changes:{ciudad:'Unauthorized bulk projection'}},403);
  assert.equal((await db.selectFrom('crmAccounts').select('nombre').where('id','=',separateBusiness).executeTakeFirstOrThrow()).nombre,'Independent responsibility '+suffix);
  // Materials are administered exclusively by admin and used in an authorized context.
  const documentId=crypto.randomUUID();

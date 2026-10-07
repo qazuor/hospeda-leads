@@ -31,6 +31,7 @@ export async function handle(request:Request){
       const leads=await trx.selectFrom("leads").selectAll().where(input.entity==="business"?"accountId":"id","in",ids).where("deletedAt","is",null).orderBy("id").forUpdate().execute();
       if(input.entity==="business"){for(const id of ids)await assertBusinessAccess(trx,id,user,true);}
       else {for(const id of ids)await assertLeadAccess(trx,id,user,true);}
+      if(input.entity!=="business"&&"ciudad" in input.changes){for(const id of accountIds)await assertBusinessAccess(trx,id,user,true);}
       if(Object.keys(input.changes).some(key=>input.entity!=="business"||!["ciudad","assignedUserEmail"].includes(key))){for(const lead of leads)await assertLeadAccess(trx,String(lead.id),user,true);}
       const fingerprint=createHash('sha256').update(superjson.stringify({entity:input.entity,ids:[...ids].sort(),changes:input.changes,leads,businesses})).digest('hex');
       if(input.expectedFingerprint&&input.expectedFingerprint!==fingerprint)throw new Error('Los datos cambiaron desde la revisión. Volvé a revisar antes de aplicar.');
