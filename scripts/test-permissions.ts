@@ -72,13 +72,17 @@ try{
  assert.equal(changedClassification.account.tipo,verticalB);assert.equal(changedClassification.account.subtipo,null);
  assert.equal(changedClassification.opportunities[0].tipo,beforeInline.opportunities[0].tipo);
  await call(owner,quick,'leads_quick',classification('subtipo',subtypeA,verticalA,subtypeA),409);
+ const historicalClassification=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,opportunityName:'Historical classification fixture',tipo:verticalA})).id;
  await call(owner,quick,'leads_quick',classification('tipo',null,verticalB,null));
  const clearedClassification=await call(owner,list,'leads?entity=business&q='+encodeURIComponent('Permission business '+suffix));
- assert.equal(clearedClassification.rows[0].tipo,null);assert.equal(clearedClassification.rows[0].subtipo,null);
+ assert.equal(clearedClassification.rows[0].tipo,null);assert.equal(clearedClassification.rows[0].subtipo,null);assert.deepEqual(clearedClassification.rows[0].opportunityValues.tipo,[]);assert.deepEqual(clearedClassification.rows[0].opportunityValues.subtipo,[]);assert.equal(clearedClassification.rows[0].opportunityCount,2);
+ assert.equal((await db.selectFrom('leads').select('tipo').where('id','=',historicalClassification).executeTakeFirstOrThrow()).tipo,verticalA);
+ await call(owner,remove,'leads_delete',{id:historicalClassification});
  console.log('Inline business edits: owner/admin permissions, compare-and-set conflicts, idempotent retry, isolated field writes and management preservation passed');
  await call(other,commercialGet,'commercial?accountId='+accountId);
  const shared=await call(other,list,'leads?entity=business&q='+encodeURIComponent('Permission business '+suffix));assert.equal(shared.total,1);assert.equal(shared.rows[0].canModify,false);
  assert.equal((await call(owner,list,'leads?entity=business&q='+encodeURIComponent('Permission business '+suffix))).rows[0].canModify,true);
+ assert.equal(shared.rows[0].canModifyManagement,false);
  const safe=await call(other,settings,'settings');assert.deepEqual(safe.authorizedEmails,[]);assert(!('emailDelivery' in safe));
  for(const u of safe.users)assert.deepEqual(Object.keys(u).sort(),['displayName','email','id','role']);
  const administrative=await call(admin,settings,'settings');assert(administrative.emailDelivery);assert(administrative.users.some((u:any)=>'hasPassword' in u&&'invitationPending' in u&&'phone' in u));
@@ -120,6 +124,7 @@ try{
  const secondManagement=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,opportunityName:'Another management',assignedUserEmail:owner.user.email})).id;
  const pending=(await call(owner,workPost,'work',{action:'task_save',accountId:separateBusiness,title:'Preserve this commitment',typeId:'call',dueDate:'2027-01-15'})).id;
  const taskBefore=await db.selectFrom('crmTasks').selectAll().where('id','=',pending).executeTakeFirstOrThrow();
+ const independentRows=await call(other,list,'leads?entity=business&q='+encodeURIComponent('Independent responsibility '+suffix));assert.equal(independentRows.rows[0].canModify,false);assert.equal(independentRows.rows[0].canModifyManagement,true);
  const untouchedBefore=await db.selectFrom('leads').selectAll().where('id','=',secondManagement).executeTakeFirstOrThrow();
  for(const [field,value] of [['commercialProfile','Referente'],['medioContactoPreferido','WhatsApp'],['origen','Google Maps'],['quienCargo','Historical loader'],['creadoPor','Historical author']]){
   const before=await db.selectFrom('leads').selectAll().where('id','=',separateManagement).executeTakeFirstOrThrow();
