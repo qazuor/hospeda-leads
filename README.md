@@ -6,7 +6,7 @@ CRM interno de Hospeda para carga, seguimiento, filtrado y gestión de leads.
 
 Migración en curso desde Floot a una aplicación portable y autohosteable.
 
-La rama activa de migración es `migration/floot-port`.
+La rama estable es `main`. Los cambios se preparan en ramas feature y se integran mediante PR con CI aprobada.
 
 ## Stack destino
 

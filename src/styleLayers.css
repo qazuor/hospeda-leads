@@ -1,0 +1,2 @@
+/* Legacy baseline must not reset Mantine controls during the migration. */
+@layer base, mantine;

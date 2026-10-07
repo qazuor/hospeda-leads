@@ -6,6 +6,7 @@ import { SonnerToaster } from "./SonnerToaster";
 import { ScrollToHashElement } from "./ScrollToHashElement";
 import { AuthProvider } from "../helpers/useAuth";
 import { LiveModeProvider } from "../helpers/liveMode";
+import { CrmThemeProvider } from './ui/CrmThemeProvider';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,7 @@ export const GlobalContextProviders = ({
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
       <ThemeModeProvider>
+        <CrmThemeProvider>
         <LiveModeProvider>
         <ScrollToHashElement />
         <TooltipProvider>
@@ -31,6 +33,7 @@ export const GlobalContextProviders = ({
           <SonnerToaster />
         </TooltipProvider>
         </LiveModeProvider>
+        </CrmThemeProvider>
       </ThemeModeProvider>
       </AuthProvider>
     </QueryClientProvider>
