@@ -45,15 +45,16 @@ export const valueBadgeColors=(category:Category,value:string)=>{
 };
 
 export const ValueBadge=({
-  value,category="generic",muted=false,className
+  value,category="generic",muted=false,className,nativeTooltip=true
 }:{
   value:string;
   category?:Category;
   muted?:boolean;
   className?:string;
+  nativeTooltip?:boolean;
 })=>{
   if(!value)return <span className={styles.empty}>—</span>;
-  return <span className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={value}>{value}</span>;
+  return <span className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{value}</span>;
 };
 
 export type BadgeCategory=Category;

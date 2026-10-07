@@ -33,3 +33,14 @@
 .fullscreenResults input[type=checkbox]{width:20px;height:20px;padding:0}
 .screenReaderOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:767px){.fullscreenResults{padding:0 12px 12px;gap:12px}.fullscreenResults .grid{grid-template-columns:1fr}.resultsFrame{gap:16px}}
+
+/* Single-line cells use the app tooltip for the complete value. */
+.cellValue{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;-webkit-line-clamp:unset;max-height:none;line-height:1.4}.table td,.table td button{white-space:nowrap;overflow-wrap:normal}.valueBadge{display:inline-block;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cellValue:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;border-radius:4px}.cellTooltip{max-width:min(480px,calc(100vw - 24px));white-space:normal;overflow-wrap:anywhere}
+/* The results toolbar replaces the navigation at the top while reading the table. */
+.navigation header{position:static}.resultsBar{align-items:flex-end;position:sticky;top:0;z-index:32;background:var(--background);padding:10px 0}.resultsBar .status{min-height:0;line-height:1.5}.floatingHeader{position:fixed;z-index:31;overflow:hidden;border:1px solid var(--border);background:var(--surface);border-radius:12px 12px 0 0}.floatingHeader .table th{border-bottom:1px solid var(--border)}
+/* Only the results viewport scrolls in fullscreen; toolbar and table headers stay visible. */
+.fullscreenResults{display:flex;flex-direction:column;overflow:hidden;gap:12px}.fullscreenResults .resultsBar{position:static;flex-shrink:0;padding:14px 0}.fullscreenResults .resultsSection{flex:1;min-height:0;overflow:auto}.fullscreenResults .resultsSection:has(>.scroll){overflow:hidden}.fullscreenResults .scroll{height:100%;overflow:auto}.fullscreenResults .table th{position:sticky;top:0;z-index:3}.fullscreenResults .table th.pinned{z-index:4}.fullscreenResults .pagination{padding:16px}.fullscreenResults .panel{overflow:auto;flex-shrink:0;max-height:40vh}
+
+.cellActions{overflow:visible;min-width:0}.table .cellActions button{white-space:nowrap}
+
+.table td:has(>.cellActions){padding-inline:0}
