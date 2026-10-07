@@ -40,3 +40,7 @@
 .navigation header{position:static}.resultsBar{align-items:flex-end;position:sticky;top:0;z-index:32;background:var(--background);padding:10px 0}.resultsBar .status{min-height:0;line-height:1.5}.floatingHeader{position:fixed;z-index:31;overflow:hidden;border:1px solid var(--border);background:var(--surface);border-radius:12px 12px 0 0}.floatingHeader .table th{border-bottom:1px solid var(--border)}
 /* Only the results viewport scrolls in fullscreen; toolbar and table headers stay visible. */
 .fullscreenResults{display:flex;flex-direction:column;overflow:hidden;gap:12px}.fullscreenResults .resultsBar{position:static;flex-shrink:0;padding:14px 0}.fullscreenResults .resultsSection{flex:1;min-height:0;overflow:auto}.fullscreenResults .resultsSection:has(>.scroll){overflow:hidden}.fullscreenResults .scroll{height:100%;overflow:auto}.fullscreenResults .table th{position:sticky;top:0;z-index:3}.fullscreenResults .table th.pinned{z-index:4}.fullscreenResults .pagination{padding:16px}.fullscreenResults .panel{overflow:auto;flex-shrink:0;max-height:40vh}
+
+.cellActions{overflow:visible;min-width:0}.table .cellActions button{white-space:nowrap}
+
+.table td:has(>.cellActions){padding-inline:0}
