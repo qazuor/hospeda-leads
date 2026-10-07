@@ -94,7 +94,7 @@
   {
     "id": "first",
     "title": "Negocio y primer contacto",
-    "description": "Cargá un negocio, identificá a la persona y dejá el primer paso.",
+    "description": "Cargá un negocio, usá sus canales o una persona conocida y dejá el primer paso.",
     "articles": [
       {
         "id": "business",
@@ -103,7 +103,7 @@
         "steps": [
           "Entrá en Negocios y buscá el nombre. Revisá ciudad y canales para evitar crear un duplicado.",
           "Si no existe, elegí Nuevo negocio. Completá el campo Negocio y los datos que conozcas. No inventes lo que falte.",
-          "Guardá. Abrí su resumen y revisá el bloque del próximo paso.",
+          "Guardá. Abrí su ficha y revisá el próximo paso, que permanece visible entre secciones.",
           "Para completar datos después, elegí Editar negocio. Usá los canales generales para recepción, central telefónica o email del establecimiento.",
           "Si falta responsable o la asignación es incorrecta, pedile al administrador que la revise."
         ],
@@ -116,11 +116,32 @@
         "linkLabel": "Abrir Negocios"
       },
       {
+        "id": "contact-business",
+        "title": "Contactar desde la ficha del negocio",
+        "when": "Cuando querés preparar un mensaje sin buscar primero una tarea.",
+        "steps": [
+          "Abrí el negocio. Nombre, responsable, próximo paso y última conversación permanecen a la vista.",
+          "Elegí Contactar en la cabecera. Si hay una gestión abierta se utiliza; si hay varias, elegí cuál corresponde. Las cerradas conservan su historia.",
+          "Si no hay una abierta, elegí Preparar gestión para contactar. Revisá y guardá su nombre y la etapa que corresponda; persona, propuesta y cierre estimado son opcionales. Cancelar esa preparación no crea una gestión.",
+          "Elegí WhatsApp o Email y continuá. Verificá Destinatario y el número o dirección; podés usar el canal general sin cargar una persona. Si falta, elegí Agregar teléfono o email.",
+          "Elegí un mensaje modelo o Escribir un mensaje nuevo. Editá, guardá y revisá el contenido final antes de realizar la acción.",
+          "Abrir WhatsApp no confirma envío. Enviar email muestra lo confirmado por el proveedor; si el resultado es incierto, revisalo antes de volver a intentar."
+        ],
+        "result": "Un mensaje revisado, vinculado a la gestión elegida y con destinatario visible.",
+        "example": [],
+        "notes": [
+          "Preparar y guardar una gestión no registra contacto, envío ni conversación.",
+          "El próximo paso permanece visible al entrar en Gestiones comerciales, Datos del negocio o Contactos."
+        ],
+        "url": "/accounts",
+        "linkLabel": "Abrir Negocios"
+      },
+      {
         "id": "people",
         "title": "Agregar personas y elegir con quién hablar",
         "when": "Cuando conocés a alguien del negocio o hay varias personas involucradas.",
         "steps": [
-          "Abrí el negocio y entrá en Contactos. Elegí Agregar contacto. En Resumen, Agregar persona o Ver o editar personas te llevan a esa sección.",
+          "Abrí el negocio y entrá en Contactos. Elegí Agregar contacto. La persona es opcional: Contactar también permite usar el teléfono o email del negocio.",
           "Completá Nombre de la persona, teléfono o email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar sin completar.",
           "Marcá Principal del negocio si es la referencia habitual. Guardá.",
           "Agregá a las demás personas como contactos distintos. En una gestión podés elegir su Contacto principal de gestión.",
@@ -142,7 +163,7 @@
         "title": "Cuándo crear una gestión y cómo hacerlo",
         "when": "Cuando vas a trabajar una propuesta concreta. No es necesario para cada llamada general.",
         "steps": [
-          "Abrí el negocio → Resumen → Iniciar gestión. Si ya es cliente, el botón del resumen dice Iniciar gestión.",
+          "Abrí el negocio → Gestiones comerciales → Iniciar gestión. Este recorrido prepara una propuesta antes de contactar.",
           "Escribí un nombre que explique qué ofrecés. Revisá Contacto principal de gestión y los datos conocidos.",
           "El servicio de interés describe la oferta. El cierre estimado es una previsión opcional; no es una fecha de pago.",
           "Guardá y abrí esa gestión desde el negocio. Leé su próximo paso y planificá la acción inicial.",
@@ -185,7 +206,7 @@
         "title": "Contactar por llamada, WhatsApp o email",
         "when": "Cuando llega el momento de una tarea o una conversación necesaria.",
         "steps": [
-          "Abrí la tarea y elegí Contactar. Desde el resumen también podés abrir Otras acciones → Contactar ahora.",
+          "Para una tarea, elegí Contactar. Desde la ficha del negocio, usá Contactar en la cabecera; usa una gestión abierta o permite elegir entre varias.",
           "Revisá Destinatario y sus canales. Si elegís otra persona, comprobá que el teléfono o email le corresponda.",
           "Usá Llamar, WhatsApp o Email según lo disponible y permitido. Email en este diálogo abre tu aplicación de correo.",
           "Al trabajar una gestión, Preparar email con un mensaje modelo y Preparar WhatsApp con un mensaje modelo abren el editor del CRM.",
@@ -388,7 +409,7 @@
         "title": "Acompañar a un cliente",
         "when": "Cuando querés saber cómo le fue o ayudar con algo que ya contrató.",
         "steps": [
-          "Abrí el negocio → Resumen y leé la última conversación. Planificá el próximo paso con Propósito Acompañamiento.",
+          "Abrí la ficha del negocio y leé la última conversación, visible junto al próximo paso. Planificá el próximo paso con Propósito Acompañamiento.",
           "Usá Seguimiento general del negocio para una consulta general; vinculá la gestión si se trata de lo que se entregó en ella.",
           "Contactá en la fecha elegida y registrá el resultado: Revisión realizada, Necesita ayuda o Falta confirmar, según corresponda.",
           "En Cómo sigue dejá una acción con fecha si hay algo pendiente. Terminar por ahora guarda lo ocurrido sin crear otra tarea."
@@ -409,7 +430,7 @@
         "when": "Cuando existe una propuesta nueva, diferente de la anterior.",
         "steps": [
           "Abrí el negocio existente; no crees otro negocio por tratarse de una segunda gestión.",
-          "En Resumen elegí Iniciar gestión. Poné un nombre concreto y revisá su contacto.",
+          "En Gestiones comerciales elegí Iniciar gestión. Poné un nombre concreto y revisá su contacto opcional.",
           "Guardá y planificá una tarea con Propósito Conversación comercial vinculada a esta nueva gestión.",
           "Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo contratado anteriormente."
         ],
@@ -571,7 +592,7 @@
         "steps": [
           "Buscás Cabañas Camino Claro en Negocios. Como no existe, elegís Nuevo negocio, completás el nombre y ciudad conocidos y guardás.",
           "En Contactos agregás a Ana, su teléfono y su preferencia. La marcás como Principal del negocio.",
-          "En Resumen creás Publicación de cabañas. Elegís a Ana como contacto de esa gestión.",
+          "En Gestiones comerciales creás Publicación de cabañas. Elegís a Ana como contacto de esa gestión.",
           "Planificás Llamar a Ana para conocer qué necesita, con Propósito Conversación comercial y fecha concreta.",
           "El día acordado, Contactar → elegís Ana → hablás. Te cuenta que quiere más consultas fuera de temporada.",
           "Registrar qué pasó → Mostró interés. Anotás la necesidad y que Luis participa en la decisión. Cómo sigue → Planificar el próximo paso: Preparar propuesta para Ana, con fecha.",

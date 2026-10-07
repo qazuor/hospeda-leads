@@ -89,7 +89,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 ## Negocio y primer contacto
 
-Cargá un negocio, identificá a la persona y dejá el primer paso.
+Cargá un negocio, usá sus canales o una persona conocida y dejá el primer paso.
 
 ### Cargar o completar un negocio
 
@@ -97,7 +97,7 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 1. Entrá en Negocios y buscá el nombre. Revisá ciudad y canales para evitar crear un duplicado.
 2. Si no existe, elegí Nuevo negocio. Completá el campo Negocio y los datos que conozcas. No inventes lo que falte.
-3. Guardá. Abrí su resumen y revisá el bloque del próximo paso.
+3. Guardá. Abrí su ficha y revisá el próximo paso, que permanece visible entre secciones.
 4. Para completar datos después, elegí Editar negocio. Usá los canales generales para recepción, central telefónica o email del establecimiento.
 5. Si falta responsable o la asignación es incorrecta, pedile al administrador que la revise.
 
@@ -109,11 +109,31 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
+### Contactar desde la ficha del negocio
+
+**Cuándo usarlo:** Cuando querés preparar un mensaje sin buscar primero una tarea.
+
+1. Abrí el negocio. Nombre, responsable, próximo paso y última conversación permanecen a la vista.
+2. Elegí Contactar en la cabecera. Si hay una gestión abierta se utiliza; si hay varias, elegí cuál corresponde. Las cerradas conservan su historia.
+3. Si no hay una abierta, elegí Preparar gestión para contactar. Revisá y guardá su nombre y la etapa que corresponda; persona, propuesta y cierre estimado son opcionales. Cancelar esa preparación no crea una gestión.
+4. Elegí WhatsApp o Email y continuá. Verificá Destinatario y el número o dirección; podés usar el canal general sin cargar una persona. Si falta, elegí Agregar teléfono o email.
+5. Elegí un mensaje modelo o Escribir un mensaje nuevo. Editá, guardá y revisá el contenido final antes de realizar la acción.
+6. Abrir WhatsApp no confirma envío. Enviar email muestra lo confirmado por el proveedor; si el resultado es incierto, revisalo antes de volver a intentar.
+
+**Qué queda al terminar:** Un mensaje revisado, vinculado a la gestión elegida y con destinatario visible.
+
+**Tené en cuenta:**
+
+- Preparar y guardar una gestión no registra contacto, envío ni conversación.
+- El próximo paso permanece visible al entrar en Gestiones comerciales, Datos del negocio o Contactos.
+
+**Dónde ir:** Abrir Negocios (/accounts)
+
 ### Agregar personas y elegir con quién hablar
 
 **Cuándo usarlo:** Cuando conocés a alguien del negocio o hay varias personas involucradas.
 
-1. Abrí el negocio y entrá en Contactos. Elegí Agregar contacto. En Resumen, Agregar persona o Ver o editar personas te llevan a esa sección.
+1. Abrí el negocio y entrá en Contactos. Elegí Agregar contacto. La persona es opcional: Contactar también permite usar el teléfono o email del negocio.
 2. Completá Nombre de la persona, teléfono o email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar sin completar.
 3. Marcá Principal del negocio si es la referencia habitual. Guardá.
 4. Agregá a las demás personas como contactos distintos. En una gestión podés elegir su Contacto principal de gestión.
@@ -134,7 +154,7 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 **Cuándo usarlo:** Cuando vas a trabajar una propuesta concreta. No es necesario para cada llamada general.
 
-1. Abrí el negocio → Resumen → Iniciar gestión. Si ya es cliente, el botón del resumen dice Iniciar gestión.
+1. Abrí el negocio → Gestiones comerciales → Iniciar gestión. Este recorrido prepara una propuesta antes de contactar.
 2. Escribí un nombre que explique qué ofrecés. Revisá Contacto principal de gestión y los datos conocidos.
 3. El servicio de interés describe la oferta. El cierre estimado es una previsión opcional; no es una fecha de pago.
 4. Guardá y abrí esa gestión desde el negocio. Leé su próximo paso y planificá la acción inicial.
@@ -179,7 +199,7 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 **Cuándo usarlo:** Cuando llega el momento de una tarea o una conversación necesaria.
 
-1. Abrí la tarea y elegí Contactar. Desde el resumen también podés abrir Otras acciones → Contactar ahora.
+1. Para una tarea, elegí Contactar. Desde la ficha del negocio, usá Contactar en la cabecera; usa una gestión abierta o permite elegir entre varias.
 2. Revisá Destinatario y sus canales. Si elegís otra persona, comprobá que el teléfono o email le corresponda.
 3. Usá Llamar, WhatsApp o Email según lo disponible y permitido. Email en este diálogo abre tu aplicación de correo.
 4. Al trabajar una gestión, Preparar email con un mensaje modelo y Preparar WhatsApp con un mensaje modelo abren el editor del CRM.
@@ -369,7 +389,7 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 **Cuándo usarlo:** Cuando querés saber cómo le fue o ayudar con algo que ya contrató.
 
-1. Abrí el negocio → Resumen y leé la última conversación. Planificá el próximo paso con Propósito Acompañamiento.
+1. Abrí la ficha del negocio y leé la última conversación, visible junto al próximo paso. Planificá el próximo paso con Propósito Acompañamiento.
 2. Usá Seguimiento general del negocio para una consulta general; vinculá la gestión si se trata de lo que se entregó en ella.
 3. Contactá en la fecha elegida y registrá el resultado: Revisión realizada, Necesita ayuda o Falta confirmar, según corresponda.
 4. En Cómo sigue dejá una acción con fecha si hay algo pendiente. Terminar por ahora guarda lo ocurrido sin crear otra tarea.
@@ -391,7 +411,7 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 **Cuándo usarlo:** Cuando existe una propuesta nueva, diferente de la anterior.
 
 1. Abrí el negocio existente; no crees otro negocio por tratarse de una segunda gestión.
-2. En Resumen elegí Iniciar gestión. Poné un nombre concreto y revisá su contacto.
+2. En Gestiones comerciales elegí Iniciar gestión. Poné un nombre concreto y revisá su contacto opcional.
 3. Guardá y planificá una tarea con Propósito Conversación comercial vinculada a esta nueva gestión.
 4. Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo contratado anteriormente.
 
@@ -540,7 +560,7 @@ Un caso ficticio para aprender a registrar una relación comercial completa.
 
 1. Buscás Cabañas Camino Claro en Negocios. Como no existe, elegís Nuevo negocio, completás el nombre y ciudad conocidos y guardás.
 2. En Contactos agregás a Ana, su teléfono y su preferencia. La marcás como Principal del negocio.
-3. En Resumen creás Publicación de cabañas. Elegís a Ana como contacto de esa gestión.
+3. En Gestiones comerciales creás Publicación de cabañas. Elegís a Ana como contacto de esa gestión.
 4. Planificás Llamar a Ana para conocer qué necesita, con Propósito Conversación comercial y fecha concreta.
 5. El día acordado, Contactar → elegís Ana → hablás. Te cuenta que quiere más consultas fuera de temporada.
 6. Registrar qué pasó → Mostró interés. Anotás la necesidad y que Luis participa en la decisión. Cómo sigue → Planificar el próximo paso: Preparar propuesta para Ana, con fecha.
