@@ -45,7 +45,13 @@ try{
  const beforeInline=await call(owner,commercialGet,'commercial?accountId='+accountId);
  await call(owner,quick,'leads_quick',{id:accountId,accountId,field:'ciudad',value:'Colón',expectedValue:null});
  const afterInline=await call(owner,commercialGet,'commercial?accountId='+accountId);
- assert.equal(afterInline.account.ciudad,'Colón');assert.equal(afterInline.account.email,beforeInline.account.email);assert.equal(afterInline.account.telefono,beforeInline.account.telefono);assert.equal(afterInline.account.nombre,beforeInline.account.nombre);const commercialFields=(rows:any[])=>rows.map(({ciudad,updatedAt,...rest})=>rest);assert.deepEqual(commercialFields(afterInline.opportunities),commercialFields(beforeInline.opportunities));
+ assert.equal(afterInline.account.ciudad,'Colón');assert.equal(afterInline.account.email,beforeInline.account.email);assert.equal(afterInline.account.telefono,beforeInline.account.telefono);assert.equal(afterInline.account.nombre,beforeInline.account.nombre);const commercialFields=(rows:any[])=>rows.map(({ciudad,updatedAt,pipelineRevision,...rest})=>rest);assert.deepEqual(commercialFields(afterInline.opportunities),commercialFields(beforeInline.opportunities));
+ // The legacy pipeline guard increments its technical revision on every lead update,
+ // including mirrored business data. All commercial fields must remain unchanged.
+ for(const opportunity of afterInline.opportunities){
+  const previous=beforeInline.opportunities.find((row:any)=>row.id===opportunity.id);
+  assert(previous);assert.equal(opportunity.pipelineRevision,previous.pipelineRevision+1);
+ }
  const countInline=afterInline.journal.length;
  await call(owner,quick,'leads_quick',{id:accountId,accountId,field:'ciudad',value:'Colón',expectedValue:null});assert.equal((await call(owner,commercialGet,'commercial?accountId='+accountId)).journal.length,countInline);
  await call(owner,quick,'leads_quick',{id:accountId,accountId,field:'ciudad',value:'Concordia',expectedValue:null},409);assert.equal((await call(owner,commercialGet,'commercial?accountId='+accountId)).account.ciudad,'Colón');
