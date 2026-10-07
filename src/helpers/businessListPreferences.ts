@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {systemViewsSchema} from './businessSystemViews';
 import {advancedFilterGroup, schema as leadsSchema} from '../endpoints/leads_GET.schema';
 const TABLE_COLUMNS=[
   {key:"id",label:"ID"},
@@ -56,7 +57,7 @@ export function availableListPreferences(preferences:ListPreferences):ListPrefer
  return {...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50};
 }
 export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS},pins:{actions:'right'},columnLayoutVersion:2,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
-export const teamDefaultsSchema=z.object({preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()}).refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId)));
+export const teamDefaultsSchema=z.object({systemViews:systemViewsSchema.optional(),preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()}).refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId)));
 export type TeamDefaults=z.infer<typeof teamDefaultsSchema>;
 export const initialPreferences=(team:TeamDefaults|undefined,mobile:boolean):ListPreferences=>team?{...team.preferences,presentation:mobile?'grid':team.preferences.presentation,query:team.initialPresetId?(team.presets.find(p=>p.id===team.initialPresetId)!.query??team.preferences.query):team.preferences.query,filters:team.initialPresetId?team.presets.find(p=>p.id===team.initialPresetId)!.filters:team.preferences.filters}:basePreferences(mobile);
 export const preferenceKey=(userId:number)=>`hospeda-business-list-v1-user-${userId}`;
