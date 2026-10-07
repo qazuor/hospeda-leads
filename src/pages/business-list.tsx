@@ -1,11 +1,11 @@
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {useInfiniteQuery,useQuery,useQueryClient} from '@tanstack/react-query';
-import {useNavigate} from 'react-router-dom';
+import {useNavigate,useSearchParams} from 'react-router-dom';
 import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
 import {Skeleton} from '../components/Skeleton';
 import {ValueBadge,type BadgeCategory} from '../components/ValueBadge';
-import {ArrowUp,ArrowDown,ArrowUpDown} from 'lucide-react';
+import {ArrowUp,ArrowDown,ArrowUpDown,Search,SlidersHorizontal,Table2,LayoutGrid,Maximize2,Minimize2,RotateCcw,Plus,X} from 'lucide-react';
 import {CommercialEditor} from '../components/CommercialEditor';
 import {DataImportDialog} from '../components/DataImportDialog';
 import {FilterBuilderDialog,FilterLegend,type FilterFieldDefinition} from '../components/FilterBuilderDialog';
@@ -24,10 +24,11 @@ export default function BusinessListPage(){const {authState}=useAuth();const def
  return <><AppHeader/>{defaults.isPending||!ready&&!defaults.error?<main className={styles.shell} aria-busy="true"><h1>Negocios</h1><p>Cargando preferencias del equipo…</p><Skeleton className={styles.skeleton}/></main>:defaults.error?<main className={styles.shell}><p role="alert">No pude cargar los valores del equipo: {defaults.error.message}</p><Button onClick={()=>defaults.refetch()}>Reintentar</Button></main>:<BusinessList key={authState.user.id} userId={authState.user.id} admin={authState.user.role==='admin'} defaults={defaults.data!}/>}</>;
 }
 function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defaults:Awaited<ReturnType<typeof getBusinessListDefaults>>}){
- const navigate=useNavigate(),qc=useQueryClient();
+ const navigate=useNavigate(),qc=useQueryClient();const [searchParams,setSearchParams]=useSearchParams();const [duplicatesOpen,setDuplicatesOpen]=useState(false);
  const [initial]=useState(()=>{const personal=readPersonalPreferences(userId);return personal??{preferences:initialPreferences(defaults.defaults??undefined,window.innerWidth<768),context:{page:1,scrollY:0,scrollX:0} as ListContext};});
  const [prefs,setPrefs]=useState(initial.preferences),[page,setPage]=useState(initial.context.page),[viewport,setViewport]=useState(window.innerWidth),[containerWidth,setContainerWidth]=useState(window.innerWidth);
  const [editor,setEditor]=useState(false),[importOpen,setImportOpen]=useState(false),[filterOpen,setFilterOpen]=useState(false),[selected,setSelected]=useState<string[]>([]),[fullscreen,setFullscreen]=useState(false),[storageError,setStorageError]=useState(false);
+ useEffect(()=>{const tool=searchParams.get('adminTool');if(!tool)return;if(admin){if(tool==='import')setImportOpen(true);if(tool==='duplicates')setDuplicatesOpen(true);}const next=new URLSearchParams(searchParams);next.delete('adminTool');setSearchParams(next,{replace:true});},[admin,searchParams,setSearchParams]);
  const scroll=useRef<HTMLDivElement>(null),sentinel=useRef<HTMLDivElement>(null),restore=useRef<ListContext|null>(initial.context),lastAnchor=useRef(initial.context.anchorId),lastContext=useRef(initial.context);
  const state=useRef({prefs,page});state.current={prefs,page};
  const resizing=useRef<{key:string;startX:number;width:number;pointerId:number}|null>(null);
@@ -72,27 +73,28 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
  const renderRows=busy?[]:rows;
  const skeletons=Array.from({length:prefs.pageSize},(_,i)=>i);
  return <main className={styles.shell} style={fullscreen?{position:'fixed',inset:0,zIndex:60,overflow:'auto',background:'var(--background)',maxWidth:'none'}:undefined}>
- <div className={styles.heading}><div><h1>Negocios</h1><p>Establecimientos y sus datos. Abrí un negocio para consultar qué pasó y cómo continuar.</p></div><Button onClick={()=>setEditor(true)}>Nuevo negocio</Button></div>
+ <div className={styles.heading}><div><h1>Negocios</h1><p>Establecimientos y sus datos. Abrí un negocio para consultar qué pasó y cómo continuar.</p></div><Button onClick={()=>setEditor(true)}><Plus size={17} aria-hidden="true"/>Nuevo negocio</Button></div>
  {storageError&&<p role="alert">No pude guardar las preferencias en este navegador. Podés seguir trabajando, pero al volver podrían perderse.</p>}
- <section className={styles.panel}><div className={styles.toolbar}>
- <label className={styles.search}>Buscar negocios<input value={prefs.query} onChange={e=>change({...prefs,query:e.target.value},true)} placeholder="Buscar negocios, gestiones y notas…"/></label>
- <Button variant="outline" onClick={()=>setFilterOpen(true)}>Filtrar negocios</Button>
- <label>Ordenar por<select value={prefs.sortBy} onChange={e=>change({...prefs,sortBy:e.target.value as ListPreferences['sortBy']},true)}>{BUSINESS_FILTER_COLUMNS.filter(c=>c.key!=='notes').map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
- <label>Dirección<select value={prefs.sortDir} onChange={e=>change({...prefs,sortDir:e.target.value as 'asc'|'desc'},true)}><option value="asc">Ascendente</option><option value="desc">Descendente</option></select></label>
- </div><div className={styles.toolbar}>
- <div><Button variant={prefs.presentation==='table'?'primary':'outline'} aria-pressed={prefs.presentation==='table'} onClick={()=>change({...prefs,presentation:'table'})}>Tabla</Button> <Button variant={prefs.presentation==='grid'?'primary':'outline'} aria-pressed={prefs.presentation==='grid'} onClick={()=>change({...prefs,presentation:'grid'})}>Grilla</Button></div>
- <label>Resultados por página o lote<select value={prefs.pageSize} onChange={e=>change({...prefs,pageSize:Number(e.target.value)},true)}>{Array.from(new Set([10,25,50,100,prefs.pageSize])).sort((a,b)=>a-b).map(n=><option key={n} value={n}>{n}</option>)}</select></label>
- <label>Forma de carga<select value={prefs.loadMode} onChange={e=>change({...prefs,loadMode:e.target.value as ListPreferences['loadMode']},true)}><option value="pages">Paginación</option><option value="continuous">Carga continua</option></select></label>
- <Button variant="outline" onClick={()=>change({...prefs,query:'',filters:[],legacyFilters:undefined},true)}>Limpiar filtros</Button>
- <Button variant="outline" onClick={()=>change(initialPreferences(defaults.defaults??undefined,viewport<768),true)}>Restablecer valores del equipo</Button>
- <Button variant="outline" onClick={()=>setFullscreen(v=>!v)}>{fullscreen?'Salir de pantalla completa':'Pantalla completa'}</Button>
- </div>
- {(defaults.defaults?.presets.length??0)>0&&<label>Filtros preestablecidos<select value="" onChange={e=>{const preset=defaults.defaults!.presets.find(p=>p.id===e.target.value);if(preset)change({...prefs,filters:preset.filters,query:preset.query??'',legacyFilters:undefined},true);}}><option value="">Elegir un filtro…</option>{defaults.defaults!.presets.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
- <FilterLegend groups={prefs.filters} search={prefs.query} fields={fields} onEdit={()=>setFilterOpen(true)} onClear={()=>change({...prefs,query:'',filters:[],legacyFilters:undefined},true)}/>
-
- {prefs.legacyFilters&&<details><summary>Filtros adicionales de la vista guardada</summary><p>Esta vista conserva los filtros de su versión anterior. Limpiar filtros o aplicar nuevos filtros permite reemplazarlos.</p>{legacyFilterLabels(prefs.legacyFilters).map((label,i)=><p key={i}>{label}</p>)}</details>}
- <BusinessListOptions value={prefs} onChange={v=>change(v)}/></section>
- <BusinessListTools userId={userId} admin={admin} prefs={prefs} onChange={p=>change(p,true)} onImport={()=>setImportOpen(true)} selected={selected} onClear={()=>setSelected([])}/>
+ <section className={styles.listControls} aria-label="Búsqueda y presentación de negocios">
+  <div className={styles.searchRow}>
+   <div className={styles.searchBox}><Search size={18} aria-hidden="true"/><input aria-label="Buscar negocios" value={prefs.query} onChange={e=>change({...prefs,query:e.target.value},true)} placeholder="Buscar negocios, gestiones y notas…"/>{prefs.query&&<Button size="icon-sm" variant="ghost" aria-label="Borrar búsqueda" onClick={()=>change({...prefs,query:''},true)}><X size={16} aria-hidden="true"/></Button>}</div>
+   <Button variant="outline" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={16} aria-hidden="true"/>Filtrar negocios</Button>
+  </div>
+  <div className={styles.controlRow}>
+   <div className={styles.presentation} role="group" aria-label="Presentación del listado"><Button size="sm" variant="ghost" aria-pressed={prefs.presentation==='table'} onClick={()=>change({...prefs,presentation:'table'})}><Table2 size={16} aria-hidden="true"/>Tabla</Button><Button size="sm" variant="ghost" aria-pressed={prefs.presentation==='grid'} onClick={()=>change({...prefs,presentation:'grid'})}><LayoutGrid size={16} aria-hidden="true"/>Grilla</Button></div>
+   <BusinessListOptions value={prefs} onChange={v=>change(v)}/>
+   <label className={styles.compactField}><span>Ordenar por</span><select value={prefs.sortBy} onChange={e=>change({...prefs,sortBy:e.target.value as ListPreferences['sortBy']},true)}>{BUSINESS_FILTER_COLUMNS.filter(c=>c.key!=='notes').map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
+   <Button size="sm" variant="outline" aria-label={prefs.sortDir==='asc'?'Dirección: Ascendente':'Dirección: Descendente'} onClick={()=>change({...prefs,sortDir:prefs.sortDir==='asc'?'desc':'asc'},true)}>{prefs.sortDir==='asc'?<ArrowUp size={16} aria-hidden="true"/>:<ArrowDown size={16} aria-hidden="true"/>}{prefs.sortDir==='asc'?'Ascendente':'Descendente'}</Button>
+   <label className={styles.compactField}><span>Resultados</span><select aria-label="Resultados por página o lote" value={prefs.pageSize} onChange={e=>change({...prefs,pageSize:Number(e.target.value)},true)}>{Array.from(new Set([10,25,50,100,prefs.pageSize])).sort((a,b)=>a-b).map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+   <label className={styles.compactField}><span>Forma de carga</span><select value={prefs.loadMode} onChange={e=>change({...prefs,loadMode:e.target.value as ListPreferences['loadMode']},true)}><option value="pages">Paginación</option><option value="continuous">Carga continua</option></select></label>
+   <Button size="sm" variant="ghost" className={styles.fullscreen} aria-label={fullscreen?'Salir de pantalla completa':'Pantalla completa'} onClick={()=>setFullscreen(v=>!v)}>{fullscreen?<Minimize2 size={17} aria-hidden="true"/>:<Maximize2 size={17} aria-hidden="true"/>}<span>{fullscreen?'Salir':'Pantalla completa'}</span></Button>
+  </div>
+  <div className={styles.viewsRow}><BusinessListTools userId={userId} admin={admin} prefs={prefs} onChange={p=>change(p,true)} selected={selected} onClear={()=>setSelected([])} duplicatesOpen={duplicatesOpen} onDuplicatesOpenChange={setDuplicatesOpen}/>
+   {(defaults.defaults?.presets.length??0)>0&&<label className={styles.compactField}><span>Filtros preestablecidos</span><select value="" onChange={e=>{const preset=defaults.defaults!.presets.find(p=>p.id===e.target.value);if(preset)change({...prefs,filters:preset.filters,query:preset.query??'',legacyFilters:undefined},true);}}><option value="">Elegir un filtro…</option>{defaults.defaults!.presets.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
+   <Button size="sm" variant="ghost" onClick={()=>change(initialPreferences(defaults.defaults??undefined,viewport<768),true)}><RotateCcw size={15} aria-hidden="true"/>Restablecer valores del equipo</Button>
+  </div>
+  {hasFilters&&<div className={styles.appliedFilters}><FilterLegend groups={prefs.filters} search={prefs.query} fields={fields} onEdit={()=>setFilterOpen(true)} onClear={()=>change({...prefs,query:'',filters:[],legacyFilters:undefined},true)}/>{prefs.legacyFilters&&legacyFilterLabels(prefs.legacyFilters).map((label,i)=><span key={i}>{label}</span>)}{prefs.legacyFilters&&<Button size="sm" variant="ghost" onClick={()=>change({...prefs,query:'',filters:[],legacyFilters:undefined},true)}><X size={15} aria-hidden="true"/>Limpiar filtros</Button>}</div>}
+ </section>
  <p role="status" aria-live="polite" className={styles.status}>{busy?'Cargando negocios…':`${results.isFetchingNextPage?'Cargando más negocios… · ':''}${rows.length} de ${total} negocios cargados`}{!busy&&prefs.loadMode==='continuous'&&!results.hasNextPage&&' · No hay más resultados'}</p>
  {results.error&&<div className={styles.error} role="alert">No pude cargar los negocios: {results.error.message} <Button disabled={results.isFetching} onClick={()=>results.isFetchNextPageError?results.fetchNextPage():results.refetch()}>Reintentar</Button></div>}
  <section aria-label="Resultados de negocios" aria-busy={busy||results.isFetchingNextPage}>

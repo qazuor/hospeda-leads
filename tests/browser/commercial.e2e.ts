@@ -149,12 +149,12 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByRole('button',{name:'Filtrar negocios',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Pantalla completa',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Vista avanzada',exact:true})).toHaveCount(0);
-  await page.getByPlaceholder('Buscar negocios, gestiones y notas…').fill('Negocio E2E');
+  await page.getByRole('textbox',{name:'Buscar negocios',exact:true}).fill('Negocio E2E');
   await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:/Negocio E2E/})})).toHaveCount(1);
-  await page.getByText('Herramientas adicionales',{exact:true}).click();
-  await page.getByLabel('Nombre de la vista',{exact:true}).fill('Negocios E2E guardados');
   await page.getByRole('button',{name:'Guardar vista',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Negocios E2E guardados',exact:true})).toBeVisible();
+  await page.getByLabel('Nombre de la vista',{exact:true}).fill('Negocios E2E guardados');
+  await page.getByRole('dialog').getByRole('button',{name:'Guardar vista',exact:true}).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('combobox',{name:'Vistas guardadas',exact:true}).locator('option').filter({hasText:'Negocios E2E guardados'})).toHaveCount(1);await page.getByRole('combobox',{name:'Vistas guardadas',exact:true}).selectOption('Negocios E2E guardados');
   await page.screenshot({path:'test-results/business-first-list.png',fullPage:true,animations:'disabled'});
   await page.goto(legacyOpportunityUrl);
   await expect(page.getByRole('heading',{name:'Tercera gestión',exact:true})).toBeVisible();
