@@ -115,13 +115,13 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Guardar gestión',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
-  const row=page.locator('article').filter({has:page.getByRole('link',{name:/Primera gestión actualizada · #/})});
+  const row=page.locator('article').filter({has:page.getByRole('link',{name:'Primera gestión actualizada',exact:true})});
   await row.getByRole('button',{name:'Editar datos de gestión',exact:true}).click();
   await expect(page.getByLabel('Cierre estimado',{exact:true})).toHaveValue('2027-01-15');
   await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:'1er contacto'});
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await expect(row.getByText(/1er contacto/)).toBeVisible();
-  await expect(page.locator('article').filter({has:page.getByRole('link',{name:/Segunda gestión · #/})}).getByText(/En tratativas/)).toBeVisible();
+  await expect(page.locator('article').filter({has:page.getByRole('link',{name:'Segunda gestión',exact:true})}).getByText(/En tratativas/)).toBeVisible();
   await page.getByRole('tab',{name:/^Contactos/}).click();
   const contact=page.locator('article').filter({has:page.getByText('Ana',{exact:true})});
   await contact.getByRole('button',{name:'Dar de baja',exact:true}).click();
@@ -141,7 +141,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('link',{name:'← Volver a Gestiones comerciales',exact:true}).click();
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   await expect(page.getByRole('heading',{name:'Gestiones comerciales (3)',exact:true})).toBeVisible();
-  const legacyOpportunityUrl=(await page.getByRole('link',{name:/Tercera gestión · #/}).getAttribute('href'))!.replace('/opportunities?','/?');
+  const legacyOpportunityUrl=(await page.getByRole('link',{name:'Tercera gestión',exact:true}).getAttribute('href'))!.replace(/^\/sales\/(\d+)$/, '/?leadId=$1');
   await page.getByRole('link',{name:'Negocios',exact:true}).click();
   const businessRow=page.getByRole('row').filter({has:page.getByRole('button',{name:/Negocio E2E/})});
   await expect(businessRow).toHaveCount(1);
