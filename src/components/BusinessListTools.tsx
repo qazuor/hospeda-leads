@@ -1,6 +1,6 @@
 import React,{useRef,useState} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {Bookmark,Plus,Trash2} from 'lucide-react';
+import {Bookmark,Trash2} from 'lucide-react';
 import viewStyles from './BusinessListTools.module.css';
 import {Button} from './Button';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './Dialog';
@@ -15,8 +15,8 @@ import {getSettings} from '../endpoints/settings_GET.schema';
 import {preferencesFromSavedView,type ListPreferences} from '../helpers/businessListPreferences';
 import {toast} from 'sonner';
 import styles from '../pages/business-list.module.css';
-export function BusinessListTools({userId,admin,prefs,onChange,selected,onClear,duplicatesOpen:duplicates,onDuplicatesOpenChange:setDuplicates}:{userId:number;admin:boolean;prefs:ListPreferences;onChange:(p:ListPreferences)=>void;selected:string[];onClear:()=>void;duplicatesOpen:boolean;onDuplicatesOpenChange:(open:boolean)=>void}){
- const qc=useQueryClient();const [saveDialog,setSaveDialog]=useState(false),[pair,setPair]=useState<{sourceId:string;destinationId:string}|null>(null),[viewName,setViewName]=useState(''),[field,setField]=useState('ciudad'),[value,setValue]=useState(''),[review,setReview]=useState<InputType|null>(null),[remove,setRemove]=useState(false);
+export function BusinessListTools({saveDialog,onSaveDialogChange:setSaveDialog,userId,admin,prefs,onChange,selected,onClear,duplicatesOpen:duplicates,onDuplicatesOpenChange:setDuplicates}:{saveDialog:boolean;onSaveDialogChange:(open:boolean)=>void;userId:number;admin:boolean;prefs:ListPreferences;onChange:(p:ListPreferences)=>void;selected:string[];onClear:()=>void;duplicatesOpen:boolean;onDuplicatesOpenChange:(open:boolean)=>void}){
+ const qc=useQueryClient();const [pair,setPair]=useState<{sourceId:string;destinationId:string}|null>(null),[viewName,setViewName]=useState(''),[field,setField]=useState('ciudad'),[value,setValue]=useState(''),[review,setReview]=useState<InputType|null>(null),[remove,setRemove]=useState(false);
  const viewLatch=useRef(false);const latch=useRef(false);const dup=useQuery({queryKey:['lead-duplicates'],queryFn:getLeadDuplicates,enabled:admin&&duplicates});const settings=useQuery({queryKey:['settings'],queryFn:getSettings});const views=useQuery({queryKey:['business-saved-views',userId],queryFn:getSavedLeadViews});
  const save=useMutation({mutationFn:postSavedLeadView,onSuccess:()=>qc.invalidateQueries({queryKey:['business-saved-views',userId]})});const bulk=useMutation({mutationFn:postLeadsBulk});const deletion=useMutation({mutationFn:postLeadsBulkDelete});
  const options=field==='ciudad'?settings.data?.cities.map(c=>({value:c.name,label:c.name})):field==='assignedUserEmail'?settings.data?.users.map(u=>({value:u.email,label:u.displayName||u.email})):field==='estado'?settings.data?.opportunityStages.map(v=>({value:v,label:v})):field==='tipo'?settings.data?.types.map(v=>({value:v,label:v})):(field==='prioridad'?['alta','media','baja']:['Independiente','Consolidado','Referente']).map(v=>({value:v,label:v}));
@@ -25,7 +25,6 @@ export function BusinessListTools({userId,admin,prefs,onChange,selected,onClear,
  return <>
  <div className={viewStyles.views}>
   <Bookmark size={16} aria-hidden="true"/><label className={viewStyles.viewLabel}><span>Vistas</span><select aria-label="Vistas guardadas" value="" disabled={views.isPending||!!views.error} onChange={e=>{const view=views.data?.views.find(v=>v.name===e.target.value);if(!view)return;const parsed=preferencesFromSavedView(prefs,view.config);if(parsed)onChange(parsed);else toast.error('No pude recuperar los filtros de esta vista. Revisala antes de usarla.');}}><option value="">{views.isPending?'Cargando vistas…':'Aplicar vista guardada…'}</option>{views.data?.views.filter(v=>!v.config.entity||v.config.entity==='business').map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></label>
-  <Button size="sm" variant="ghost" onClick={()=>{save.reset();setSaveDialog(true);}}><Plus size={15} aria-hidden="true"/>Guardar vista</Button>
   {views.error&&<span role="alert">No pude cargar las vistas. <Button size="sm" variant="ghost" onClick={()=>views.refetch()}>Reintentar</Button></span>}
  </div>
  <Dialog open={saveDialog} onOpenChange={open=>{if(!viewLatch.current)setSaveDialog(open);}}><DialogContent><DialogTitle>Vistas guardadas</DialogTitle><DialogDescription>Guardá la búsqueda, los filtros y la presentación actuales para volver a usarlos.</DialogDescription>

@@ -185,15 +185,18 @@ export const FilterBuilderDialog=({
 };
 
 export const FilterLegend=({
-  groups,fields,search="",onEdit,onClear
+  groups,fields,search="",onEdit,onClear,actions,extraLabels=[]
 }:{
   groups:AdvancedFilterGroup[];
   search?:string;
   fields:FilterFieldDefinition[];
   onEdit:()=>void;
   onClear:()=>void;
+  actions?:React.ReactNode;
+  extraLabels?:string[];
 })=>{
-  if(!groups.length&&!search.trim())return null;
+  const hasFilters=!!(groups.length||search.trim()||extraLabels.length);
+  if(!hasFilters&&!actions)return null;
   const map=new Map(fields.map(field=>[field.key,field]));
   const describe=(rule:AdvancedFilterRule)=>{
     const field=map.get(rule.field);
@@ -205,6 +208,8 @@ export const FilterLegend=({
   };
   return <div className={styles.legend}>
     <div className={styles.legendExpression}>
+      {!hasFilters&&<span>Sin filtros aplicados</span>}
+      {extraLabels.map((label,index)=><span key={index} className={styles.legendRule}>{label}</span>)}
       {!!search.trim()&&<div className={styles.legendGroup}><span className={styles.legendRule}>Texto libre contiene «{search.trim()}»</span></div>}
       {groups.map((group,groupIndex)=><React.Fragment key={groupIndex}>
         {(groupIndex>0||!!search.trim())&&<span className={styles.legendAnd}>AND</span>}
@@ -217,8 +222,8 @@ export const FilterLegend=({
       </React.Fragment>)}
     </div>
     <div className={styles.legendActions}>
-      <Button variant="ghost" size="sm" onClick={onEdit}>Editar</Button>
-      <Button variant="ghost" size="sm" onClick={onClear}>Limpiar</Button>
+      {hasFilters&&<Button variant="ghost" size="sm" onClick={onEdit}>Editar</Button>}
+      {hasFilters&&<Button variant="ghost" size="sm" onClick={onClear}>Limpiar</Button>}{actions}
     </div>
   </div>;
 };
