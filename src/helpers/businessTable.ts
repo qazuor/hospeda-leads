@@ -8,7 +8,7 @@ export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
   select (jsonb_populate_record(null::leads,
     coalesce(to_jsonb(l), '{}'::jsonb) || jsonb_build_object(
       'id', coalesce(l.id, -a.id), 'account_id', a.id,
-      'tipo', coalesce(a.tipo,l.tipo), 'subtipo', coalesce(a.subtipo,CASE WHEN a.tipo IS NULL OR a.tipo=l.tipo THEN l.subtipo END),
+      'tipo', a.tipo, 'subtipo', a.subtipo,
       'nombre', a.nombre, 'ciudad', a.ciudad, 'telefono', a.telefono,
       'email', a.email, 'sitio_web', a.sitio_web, 'url_gmap', a.url_gmap,
       'perfil_instagram', a.perfil_instagram, 'perfil_facebook', a.perfil_facebook,

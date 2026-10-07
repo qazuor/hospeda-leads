@@ -58,6 +58,23 @@ try{
  await call(owner,quick,'leads_quick',{id:accountId,accountId,field:'ciudad',value:null,expectedValue:'Colón'});
  await call(admin,quick,'leads_quick',{id:ownOther,accountId:ownOther,field:'assignedUserEmail',value:owner.user.email,expectedValue:other.user.email});assert.equal((await call(admin,commercialGet,'commercial?accountId='+ownOther)).account.assignedUserEmail,owner.user.email);
  await call(admin,quick,'leads_quick',{id:ownOther,accountId:ownOther,field:'assignedUserEmail',value:other.user.email,expectedValue:owner.user.email});
+ // Classification edits are atomic business writes; management labels are preserved.
+ const verticalA='Inline vertical A '+suffix,verticalB='Inline vertical B '+suffix,subtypeA='Inline subtype A '+suffix,subtypeB='Inline subtype B '+suffix;
+ await db.insertInto('crmVerticals').values([{name:verticalA},{name:verticalB}]).execute();
+ await db.insertInto('crmSubtypes').values([{name:subtypeA,typeName:verticalA},{name:subtypeB,typeName:verticalB}]).execute();
+ const classification=(field:'tipo'|'subtipo',value:string|null,tipo:string|null,subtipo:string|null)=>({id:accountId,accountId,scope:'business',field,value,expectedValue:field==='tipo'?tipo:subtipo,expectedClassification:{tipo,subtipo}});
+ await call(other,quick,'leads_quick',classification('tipo',verticalA,null,null),403);
+ await call(owner,quick,'leads_quick',classification('tipo',verticalA,null,null));
+ await call(owner,quick,'leads_quick',classification('subtipo',subtypeB,verticalA,null),400);
+ await call(owner,quick,'leads_quick',classification('subtipo',subtypeA,verticalA,null));
+ await call(owner,quick,'leads_quick',classification('tipo',verticalB,verticalA,subtypeA));
+ const changedClassification=await call(owner,commercialGet,'commercial?accountId='+accountId);
+ assert.equal(changedClassification.account.tipo,verticalB);assert.equal(changedClassification.account.subtipo,null);
+ assert.equal(changedClassification.opportunities[0].tipo,beforeInline.opportunities[0].tipo);
+ await call(owner,quick,'leads_quick',classification('subtipo',subtypeA,verticalA,subtypeA),409);
+ await call(owner,quick,'leads_quick',classification('tipo',null,verticalB,null));
+ const clearedClassification=await call(owner,list,'leads?entity=business&q='+encodeURIComponent('Permission business '+suffix));
+ assert.equal(clearedClassification.rows[0].tipo,null);assert.equal(clearedClassification.rows[0].subtipo,null);
  console.log('Inline business edits: owner/admin permissions, compare-and-set conflicts, idempotent retry, isolated field writes and management preservation passed');
  await call(other,commercialGet,'commercial?accountId='+accountId);
  const shared=await call(other,list,'leads?entity=business&q='+encodeURIComponent('Permission business '+suffix));assert.equal(shared.total,1);assert.equal(shared.rows[0].canModify,false);
@@ -99,6 +116,27 @@ try{
  await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,id:separateManagement,opportunityName:'Unauthorized by business owner'},403);
  await call(other,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,id:separateManagement,opportunityName:'Authorized management owner'});
  await call(other,save,'leads_save',{id:separateManagement,scope:'opportunity',nombre:'Must preserve the business',opportunityName:'Authorized scoped edit'});
+ // Explicit management selection can edit its owner's fields without business ownership.
+ const secondManagement=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,opportunityName:'Another management',assignedUserEmail:owner.user.email})).id;
+ const pending=(await call(owner,workPost,'work',{action:'task_save',accountId:separateBusiness,title:'Preserve this commitment',typeId:'call',dueDate:'2027-01-15'})).id;
+ const taskBefore=await db.selectFrom('crmTasks').selectAll().where('id','=',pending).executeTakeFirstOrThrow();
+ const untouchedBefore=await db.selectFrom('leads').selectAll().where('id','=',secondManagement).executeTakeFirstOrThrow();
+ for(const [field,value] of [['commercialProfile','Referente'],['medioContactoPreferido','WhatsApp'],['origen','Google Maps'],['quienCargo','Historical loader'],['creadoPor','Historical author']]){
+  const before=await db.selectFrom('leads').selectAll().where('id','=',separateManagement).executeTakeFirstOrThrow();
+  const edit={id:separateManagement,accountId:separateBusiness,scope:'management',field,value,expectedValue:before[field as keyof typeof before]};
+  await call(owner,quick,'leads_quick',edit,403);
+  await call(other,quick,'leads_quick',edit);
+  const auditBefore=await db.selectFrom('leadJournal').select('id').where('leadId','=',separateManagement).execute();
+  await call(other,quick,'leads_quick',edit);
+  assert.deepEqual(await db.selectFrom('leadJournal').select('id').where('leadId','=',separateManagement).execute(),auditBefore);
+  await call(other,quick,'leads_quick',{...edit,value:'Changed by stale form'},409);
+  const after=await db.selectFrom('leads').selectAll().where('id','=',separateManagement).executeTakeFirstOrThrow();
+  assert.equal(after[field as keyof typeof after],value);assert.equal(after.estado,before.estado);assert.equal(after.assignedUserEmail,before.assignedUserEmail);
+ }
+ await call(other,quick,'leads_quick',{id:separateManagement,accountId,scope:'management',field:'origen',value:'Other business'},400);
+ await call(other,quick,'leads_quick',{id:separateManagement,accountId:separateBusiness,scope:'management',field:'tipo',value:verticalA},400);
+ assert.deepEqual(await db.selectFrom('leads').selectAll().where('id','=',secondManagement).executeTakeFirstOrThrow(),untouchedBefore);
+ assert.deepEqual(await db.selectFrom('crmTasks').selectAll().where('id','=',pending).executeTakeFirstOrThrow(),taskBefore);
  await call(other,save,'leads_save',{id:separateManagement,nombre:'Unauthorized business projection'},403);
  await call(other,quick,'leads_quick',{id:separateManagement,field:'ciudad',value:'Unauthorized business city'},403);
  await call(other,bulk,'leads_bulk',{entity:'opportunity',ids:[separateManagement],changes:{ciudad:'Unauthorized bulk projection'}},403);
