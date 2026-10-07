@@ -18,11 +18,11 @@ No se migran preferencias antiguas compartidas sin usuario: no se conoce su prop
 
 La paginación usa Anterior/Siguiente. En carga continua se conserva lo cargado al pedir el siguiente lote, con skeletons del lote y Cargar más disponible. La carga inicial y los cambios de búsqueda/filtro reemplazan los datos por skeletons, conservando encabezados. Los errores permiten reintentar sin borrar filtros y detienen el disparador automático.
 
-## Valores del equipo
+## Configuraciones por defecto
 
 Nuevo endpoint autenticado `/_api/business_list_defaults`: GET comparte únicamente el documento operativo de valores iniciales; POST exige admin y valida estructura, campos, rangos, filtros, IDs únicos de presets y filtro inicial existente. Se almacena con upsert atómico en `app_settings`, clave `business_list_team_defaults_v1`; no requiere migración SQL.
 
-En Configuración → Listado de negocios, el admin elige presentación, campos/orden, tamaño, carga, ordenamiento y filtros preestablecidos. Los filtros disponibles y el filtro inicial activo son opciones distintas. Crear un preset no lo aplica. Preferencias personales prevalecen; Restablecer valores del equipo vuelve a los iniciales (grilla en mobile), mientras Limpiar filtros conserva presentación y demás preferencias.
+En Configuración → Listado de negocios, el admin elige presentación, campos/orden, tamaño, carga, ordenamiento y filtros preestablecidos. Los filtros disponibles y el filtro inicial activo son opciones distintas. Crear un preset no lo aplica. Preferencias personales prevalecen; Restablecer configuraciones por defecto vuelve a los iniciales (grilla en mobile), mientras Limpiar filtros conserva presentación y demás preferencias.
 
 ## Validación
 
