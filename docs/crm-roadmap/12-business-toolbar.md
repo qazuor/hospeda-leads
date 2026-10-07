@@ -16,3 +16,10 @@ Validación prevista: TypeScript, unitarias, build; recorridos de lista 1280/390
 - Búsqueda/filtros sin diferencias por mayúsculas o acentos en toda la app.
 - **Nuevo pedido: badges de tabla clickeables con edición en el lugar.** Selector de valores existentes, loading desde primer clic, error persistente y actualización consistente. Permitir editar solo a responsable/admin; asignación de Responsable solo admin. Mantener lectura compartida. No editar etapas hasta resolver criterios comerciales pendientes.
 - Resto de materiales, resultados guiados, próximos pasos, historial y feedback de acciones según el alcance general.
+
+## Pedidos adicionales — pendientes
+
+- Incluir **Acciones** en el selector de columnas, con visibilidad, orden y fijación/quitar fijación, conservando los límites de espacio desktop y sin fijación mobile. Esto actualiza el criterio anterior que mantenía Abrir siempre visible en tabla. Si se oculta Acciones, el nombre del negocio conserva el acceso para abrir su ficha.
+- Reemplazar el hover del botón de encabezado por un resaltado de **toda la columna**, encabezado y celdas, con una variante más intensa del fondo del tema. Mantener texto legible, filas alineadas, celdas fijas y contraste claro/oscuro. Mantener foco por teclado distinguible del hover.
+
+Ambos pedidos se implementarán en una subtarea propia; no forman parte del rediseño de barra de búsqueda de este PR.
