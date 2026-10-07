@@ -24,3 +24,7 @@ TypeScript, seis pruebas de preferencias y diff check locales aprobados. Browser
 ## Resto pendiente
 
 Después de los dos bloques de arriba: badges editables, búsqueda indiferente a mayúsculas/acentos en toda la app y resto del alcance general. No cambia la lectura compartida ni los permisos de modificación. No se implementan las reglas comerciales pendientes. Sin migración, limpieza, comunicaciones reales ni despliegue.
+
+## Primera CI y corrección de espera
+
+CI 37589653695 aprobó TypeScript, 55 unitarias, integraciones, permisos, build y smoke de API. Navegador: 31 aprobados y dos fallidos (mismo recorrido a 1280/390). Al quitar el selector de cantidad, la comprobación de ausencia pasó antes de finalizar la carga inicial del segundo usuario; la lectura de preferencias asumía un registro ya existente y lanzó TypeError. La comprobación espera ahora a que el registro se guarde, conservando la exigencia de lote 50. Nueva CI pendiente; PR no mergeado.
