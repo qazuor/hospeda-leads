@@ -558,14 +558,14 @@
         "steps": [
           "Entrá en Negocios y buscá por nombre. Elegí Tabla o Grilla: ambas muestran los mismos resultados y conservan la búsqueda, filtros y orden.",
           "Usá Filtrar negocios para acotar el alcance. La búsqueda libre se combina con los filtros configurados mediante AND: deben cumplirse ambas condiciones.",
-          "Abrí Campos, orden y columnas fijas para elegir qué datos mostrar y moverlos. Nombre y Abrir siempre están disponibles. En tabla de escritorio también podés ajustar anchos y fijar columnas a izquierda o derecha.",
-          "Elegí la cantidad de resultados por lote. Al bajar se cargan más negocios automáticamente; también podés usar Cargar más. El contador indica cuánto se cargó y cuándo no hay más resultados.",
+          "Abrí Columnas junto al contador para elegir qué datos mostrar y moverlos. Ordená desde los encabezados de la tabla. Nombre y Abrir siempre están disponibles. En tabla de escritorio también podés ajustar anchos y fijar columnas a izquierda o derecha.",
+          "Los negocios se cargan en lotes de 50. Al bajar se cargan más automáticamente; también podés usar Cargar más. El contador indica cuánto se cargó y cuándo no hay más resultados.",
           "Limpiar filtros quita la búsqueda y las condiciones. Restablecer configuraciones por defecto recupera la configuración inicial definida por el admin.",
           "Abrí un negocio para trabajar y volvé por Volver al listado de negocios, Negocios en el menú o Atrás. Se recuperan tus preferencias y el punto del listado.",
           "En Gestiones comerciales revisá propuestas y avances con el tablero. Ver etapas del equipo muestra el detalle configurado.",
           "Para cambios sobre varios registros, elegí el cambio y Aplicar. Revisá toda la lista afectada antes de confirmar la casilla y Confirmar cambios. Si los datos cambiaron, usá Volver a revisar. Cancelar no modifica nada."
         ],
-        "result": "Las vistas y filtros cambian lo que ves; no cambian datos por sí solos. Confirmar una edición masiva sí los modifica.",
+        "result": "Guardar como vista, en la barra de filtros, conserva la configuración actual. Las vistas y filtros cambian lo que ves; no cambian datos por sí solos. Confirmar una edición masiva sí los modifica.",
         "example": [
           "Buscá Camino Claro y filtrá Colón: se muestran los registros que cumplen ambos criterios."
         ],

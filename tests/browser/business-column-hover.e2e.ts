@@ -14,7 +14,7 @@ for(const theme of ['light','dark'])test(`business headers highlight the entire 
   else if(url.pathname.endsWith('/business_list_defaults'))data={defaults:null};
   else if(url.pathname.endsWith('/settings'))data={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedEmails:[],opportunityStages:[]};
   else if(url.pathname.endsWith('/saved_views'))data={views:[]};
-  else if(url.pathname.endsWith('/leads'))data={rows:[1,2,3].map(id=>({id:String(-id),accountId:String(id),nombre:`Negocio ${id}`,ciudad:'Colón',telefono:'123',canModify:false,opportunityCount:0,contactCount:0})),total:3,page:1,pageSize:25,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
+  else if(url.pathname.endsWith('/leads'))data={rows:[1,2,3].map(id=>({id:String(-id),accountId:String(id),nombre:`Negocio ${id}`,ciudad:'Colón',telefono:'123',canModify:id!==2,opportunityCount:0,contactCount:0})),total:3,page:1,pageSize:25,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts');await expect(page.locator('tbody tr[data-business-id]')).toHaveCount(3);
@@ -37,6 +37,8 @@ for(const theme of ['light','dark'])test(`business headers highlight the entire 
   await expect.poll(()=>background(2)).toEqual(original);
  }
  const sort=headers.nth(1).getByRole('button');await sort.focus();await sort.press('Tab');await page.keyboard.press('Shift+Tab');await expect(sort).toBeFocused();
- expect(await sort.evaluate(button=>getComputedStyle(button).boxShadow)).not.toBe('none');
- await sort.press('Enter');await expect(page.getByRole('button',{name:'Dirección: Descendente',exact:true})).toBeVisible();
+ await expect(sort).toHaveCSS('outline-style','solid');await expect(sort).toHaveCSS('outline-width','2px');
+ await sort.press('Enter');await expect(headers.nth(1)).toHaveAttribute('aria-sort','descending');
+ await cells.first().getByRole('checkbox').check();await expect(page.getByRole('checkbox',{name:'Deseleccionar todos',exact:true})).toHaveJSProperty('indeterminate',true);await page.getByRole('checkbox',{name:'Deseleccionar todos',exact:true}).click();await expect(cells.locator('input:checked')).toHaveCount(0);await page.getByRole('checkbox',{name:'Seleccionar todos los negocios cargados',exact:true}).check();await expect(cells.locator('input:checked')).toHaveCount(2);await expect(cells.nth(1).getByRole('checkbox')).toBeDisabled();await page.getByRole('checkbox',{name:'Deseleccionar todos',exact:true}).click();await expect(cells.locator('input:checked')).toHaveCount(0);
+ expect((await cells.first().boundingBox())!.height).toBeLessThanOrEqual(64);
 });

@@ -1,7 +1,7 @@
 import React,{useRef,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {getBusinessListDefaults,saveBusinessListDefaults} from '../endpoints/business_list_defaults.schema';
-import {availableListPreferences,BUSINESS_PAGINATION_CONTROLS_ENABLED,basePreferences,BUSINESS_COLUMNS,BUSINESS_FILTER_COLUMNS,type TeamDefaults} from '../helpers/businessListPreferences';
+import {availableListPreferences,BUSINESS_PAGINATION_CONTROLS_ENABLED,BUSINESS_RESULTS_CONTROL_ENABLED,basePreferences,BUSINESS_COLUMNS,BUSINESS_FILTER_COLUMNS,type TeamDefaults} from '../helpers/businessListPreferences';
 import {BusinessListOptions} from './BusinessListOptions';
 import {FilterBuilderDialog,type FilterFieldDefinition} from './FilterBuilderDialog';
 import {Button} from './Button';
@@ -16,7 +16,7 @@ function DefaultsEditor({initial}:{initial:TeamDefaults}){
  async function save(){if(latch.current)return;latch.current=true;setBusy(true);setError('');try{await saveBusinessListDefaults(value);toast.success('Configuraciones por defecto guardadas');await qc.invalidateQueries({queryKey:['business-list-defaults']});}catch(e){setError((e as Error).message);}finally{latch.current=false;setBusy(false);}}
  return <section className={styles.panel}><h2>Configuraciones por defecto del listado</h2><p>Estas configuraciones se aplican al comenzar o al restablecer. Las preferencias personales tienen prioridad. En mobile, la presentación inicial es grilla.</p><fieldset disabled={busy} style={{border:0,padding:0}}><div className={styles.toolbar}>
  <label>Presentación inicial<select value={p.presentation} onChange={e=>change({presentation:e.target.value as typeof p.presentation})}><option value="table">Tabla</option><option value="grid">Grilla</option></select></label>
- <label>Cantidad inicial de resultados<select value={p.pageSize} onChange={e=>change({pageSize:Number(e.target.value)})}>{[10,25,50,100].map(n=><option key={n}>{n}</option>)}</select></label>
+ {BUSINESS_RESULTS_CONTROL_ENABLED&&<label>Cantidad inicial de resultados<select value={p.pageSize} onChange={e=>change({pageSize:Number(e.target.value)})}>{[10,25,50,100].map(n=><option key={n}>{n}</option>)}</select></label>}
  {BUSINESS_PAGINATION_CONTROLS_ENABLED&&<label>Forma inicial de carga<select value={p.loadMode} onChange={e=>change({loadMode:e.target.value as typeof p.loadMode})}><option value="pages">Paginación</option><option value="continuous">Carga continua</option></select></label>}
  <label>Ordenamiento inicial<select value={p.sortBy} onChange={e=>change({sortBy:e.target.value as typeof p.sortBy})}>{BUSINESS_COLUMNS.map(c=><option value={c.key} key={c.key}>{c.label}</option>)}</select></label>
  <label>Dirección inicial<select value={p.sortDir} onChange={e=>change({sortDir:e.target.value as typeof p.sortDir})}><option value="asc">Ascendente</option><option value="desc">Descendente</option></select></label>
