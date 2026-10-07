@@ -11,6 +11,7 @@ import styles from './PersonalViewsDialog.module.css';
 type Screen={kind:'list'}|{kind:'edit'|'delete';view:SavedLeadView};
 export function PersonalViewsDialog({userId,prefs,saveOpen,onSaveOpenChange}:{userId:number;prefs:ListPreferences;saveOpen:boolean;onSaveOpenChange:(open:boolean)=>void}){
  const [manageOpen,setManageOpen]=useState(false),[screen,setScreen]=useState<Screen>({kind:'list'}),[name,setName]=useState(''),[replaceConfig,setReplaceConfig]=useState(false);
+ const manageButton=useRef<HTMLButtonElement>(null);
  const lock=useRef(false),qc=useQueryClient();const key=['business-saved-views',userId];
  const views=useQuery({queryKey:key,queryFn:getSavedLeadViews,enabled:saveOpen||manageOpen});
  const mutation=useMutation({mutationFn:postSavedLeadView,onSuccess:()=>qc.invalidateQueries({queryKey:key})});
@@ -24,8 +25,8 @@ export function PersonalViewsDialog({userId,prefs,saveOpen,onSaveOpenChange}:{us
  }catch(error){toast.error((error as Error).message);/* Keep the error and entered values beside the action. */}finally{lock.current=false;}}
  const title=saveOpen?'Guardar como vista':screen.kind==='edit'?'Editar vista':screen.kind==='delete'?'Eliminar vista':'Tus vistas';
  return <>
-  <Button variant="ghost" size="sm" aria-label="Administrar tus vistas" onClick={()=>{show({kind:'list'});setManageOpen(true);}}><Settings2 size={15} aria-hidden="true"/>Administrar</Button>
-  <Dialog open={open} onOpenChange={value=>{if(!value)close();}}><DialogContent className={styles.dialog}>
+  <Button ref={manageButton} variant="ghost" size="sm" aria-label="Administrar tus vistas" onClick={()=>{show({kind:'list'});setManageOpen(true);}}><Settings2 size={15} aria-hidden="true"/>Administrar</Button>
+  <Dialog open={open} onOpenChange={value=>{if(!value)close();}}><DialogContent className={styles.dialog} showCloseButton={!pending} onCloseAutoFocus={event=>{if(!saveOpen){event.preventDefault();manageButton.current?.focus();}}}>
    <DialogTitle>{title}</DialogTitle>
    <DialogDescription>{saveOpen?'Guardá la búsqueda, los filtros y la presentación actuales.':screen.kind==='edit'?'Cambiá el nombre o reemplazá la configuración guardada con la del listado actual.':screen.kind==='delete'?'Solo se elimina la vista guardada. Los negocios y los filtros del listado se conservan.':'Editá o eliminá tus vistas personales. Las vistas del sistema se configuran desde Administración.'}</DialogDescription>
    {mutation.error&&<p className={styles.error} role="alert">{mutation.error.message}</p>}
@@ -36,7 +37,7 @@ export function PersonalViewsDialog({userId,prefs,saveOpen,onSaveOpenChange}:{us
    </form>:screen.kind==='delete'?<div className={styles.form}><p className={styles.viewName}>{screen.view.name}</p><div className={styles.actions}><Button variant="outline" disabled={pending} onClick={()=>show({kind:'list'})}>Cancelar</Button><Button variant="destructive" disabled={pending} onClick={()=>void submit({action:'delete',name:screen.view.name})}>{pending&&<LoaderCircle size={16} aria-hidden="true"/>}{pending?'Eliminando vista…':'Eliminar vista'}</Button></div></div>:<>
     {views.isPending?<p role="status">Cargando tus vistas…</p>:views.error?<p role="alert">No pude cargar tus vistas. <Button variant="outline" size="sm" disabled={views.isFetching} onClick={()=>views.refetch()}>Reintentar</Button></p>:<ul className={styles.list}>{views.data?.views.filter(view=>!view.config.entity||view.config.entity==='business').map(view=><li key={view.name}><Bookmark size={16} aria-hidden="true"/><span className={styles.viewName}>{view.name}</span><Button variant="ghost" size="icon-sm" aria-label={'Editar vista '+view.name} onClick={()=>show({kind:'edit',view})}><Pencil size={16} aria-hidden="true"/></Button><Button variant="ghost" size="icon-sm" aria-label={'Eliminar vista '+view.name} onClick={()=>show({kind:'delete',view})}><Trash2 size={16} aria-hidden="true"/></Button></li>)}</ul>}
     {views.isSuccess&&!views.data.views.some(view=>!view.config.entity||view.config.entity==='business')&&<p className={styles.empty}>Todavía no guardaste vistas personales. Usá “Guardar como vista” desde la barra de filtros.</p>}
-    <div className={styles.actions}><Button variant="outline" onClick={close}>Cerrar</Button></div>
+    <div className={styles.actions}><Button variant="outline" onClick={close}>Listo</Button></div>
    </>}
   </DialogContent></Dialog>
  </>;
