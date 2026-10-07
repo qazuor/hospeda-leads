@@ -21,8 +21,12 @@ for(const width of [1280,390])test(`business table ellipsis and fixed headers at
  const row=page.locator('tbody tr[data-business-id]').first(),email=row.locator('td').nth(4).locator('div');
  await expect(email).toHaveCSS('white-space','nowrap');await expect(email).toHaveCSS('text-overflow','ellipsis');await expect(email).not.toHaveAttribute('title',/.+/);
  const horizontal=page.locator('section[aria-label="Resultados de negocios"] table').locator('..');
- await horizontal.evaluate(node=>node.scrollLeft=320);await email.hover();await expect(page.getByRole('tooltip')).toContainText('correo-muy-largo-para-la-columna@example.com');await page.mouse.move(0,0);await expect(page.getByRole('tooltip')).toHaveCount(0);
- await page.evaluate(()=>window.scrollTo(0,650));const floating=page.getByLabel('Encabezados fijos de negocios');await expect(floating).toBeVisible();
+ await horizontal.evaluate(node=>node.scrollLeft=320);await email.hover();await expect(page.getByRole('tooltip')).toContainText('correo-muy-largo-para-la-columna@example.com');
+ // Radix keeps the tooltip open while the pointer travels toward its content.
+ // A second movement leaves that grace area instead of teleporting and stopping there.
+ await page.mouse.move(0,0,{steps:10});await page.mouse.move(0,100,{steps:10});await expect(page.getByRole('tooltip')).toHaveCount(0);
+ await email.focus();await expect(page.getByRole('tooltip')).toContainText('correo-muy-largo-para-la-columna@example.com');await page.keyboard.press('Escape');await expect(page.getByRole('tooltip')).toHaveCount(0);
+ await horizontal.evaluate(node=>window.scrollTo(0,window.scrollY+node.getBoundingClientRect().top+100));const floating=page.getByLabel('Encabezados fijos de negocios');await expect(floating).toBeVisible();
  const count=page.getByRole('status');await expect.poll(()=>count.locator('..').evaluate(node=>Math.round(node.getBoundingClientRect().top))).toBe(0);
  await expect.poll(()=>floating.evaluate(node=>Math.round(node.getBoundingClientRect().top))).toBe(await count.locator('..').evaluate(node=>Math.round(node.getBoundingClientRect().bottom)));
  await page.screenshot({path:`test-results/business-sticky-${width}.png`,animations:'disabled'});
