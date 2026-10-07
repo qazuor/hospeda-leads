@@ -67,7 +67,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({path:'test-results/commercial-mobile.png',fullPage:true});
   await page.setViewportSize({width:1280,height:900});
-  await page.getByRole('link',{name:/Primera gestión · #/}).click();
+  await page.getByRole('link',{name:'Primera gestión',exact:true}).click();
   const lead=page.locator('main');
   await expect(lead.getByRole('button',{name:'Editar negocio',exact:true})).not.toBeVisible();
   await lead.getByText('Negocio, personas y otras gestiones',{exact:true}).click();
