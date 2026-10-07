@@ -39,7 +39,7 @@ const DEFAULT_WIDTHS:Record<string,number>={nombre:220,assignedUserEmail:190,ciu
 export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
 export const BUSINESS_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 const field=z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key),'Campo desconocido');
-const legacyFiltersSchema=leadsSchema.omit({entity:true,q:true,filterGroups:true,view:true,page:true,pageSize:true,sortBy:true,sortDir:true});
+const legacyFiltersSchema=leadsSchema.omit({anchorAccountId:true,alignAnchorPage:true,entity:true,q:true,filterGroups:true,view:true,page:true,pageSize:true,sortBy:true,sortDir:true});
 export const listPreferencesSchema=z.object({
  presentation:z.enum(['table','grid']),columns:z.array(field).min(1).max(40).refine(v=>v.includes('nombre')&&new Set(v).size===v.length),
  widths:z.record(field,z.number().min(100).max(600)),pins:z.record(field,z.enum(['left','right'])),
@@ -53,7 +53,7 @@ export type TeamDefaults=z.infer<typeof teamDefaultsSchema>;
 export const initialPreferences=(team:TeamDefaults|undefined,mobile:boolean):ListPreferences=>team?{...team.preferences,presentation:mobile?'grid':team.preferences.presentation,query:team.initialPresetId?(team.presets.find(p=>p.id===team.initialPresetId)!.query??team.preferences.query):team.preferences.query,filters:team.initialPresetId?team.presets.find(p=>p.id===team.initialPresetId)!.filters:team.preferences.filters}:basePreferences(mobile);
 export const preferenceKey=(userId:number)=>`hospeda-business-list-v1-user-${userId}`;
 export type ListContext={page:number;scrollY:number;scrollX:number;anchorId?:string;anchorOffset?:number};
-export const contextSchema=z.object({page:z.number().int().min(1).max(100000),scrollY:z.number().min(0),scrollX:z.number().min(0),anchorId:z.string().optional(),anchorOffset:z.number().optional()});
+export const contextSchema=z.object({page:z.number().int().min(1).max(100000),scrollY:z.number().min(0),scrollX:z.number().min(0),anchorId:z.string().regex(/^[0-9]+$/).optional(),anchorOffset:z.number().optional()});
 export function readPersonalPreferences(userId:number){try{const raw=localStorage.getItem(preferenceKey(userId));if(!raw)return null;return z.object({preferences:listPreferencesSchema,context:contextSchema}).parse(JSON.parse(raw));}catch{return null;}}
 export function savePersonalPreferences(userId:number,preferences:ListPreferences,context:ListContext){try{localStorage.setItem(preferenceKey(userId),JSON.stringify({preferences,context}));return true;}catch{return false;}}
 // Keep at least half the viewport available to the scrolling center. Mobile never pins.

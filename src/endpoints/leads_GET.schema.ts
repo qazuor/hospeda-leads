@@ -88,10 +88,11 @@ export const schema=z.object({
     "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor","createdAt","updatedAt"
   ]).optional(),
   sortDir:z.enum(["asc","desc"]).optional(),
+  anchorAccountId:z.string().regex(/^[0-9]+$/).optional(),alignAnchorPage:z.preprocess(v=>v==='true'?true:v==='false'?false:v,z.boolean()).default(false),
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
 export type BusinessTableMetadata={canModify?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";opportunityValues?:Record<string,string[]>};
-export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;filters:{
+export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;filters:{
   ciudades:string[];estados:string[];tipos:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];
 }};
