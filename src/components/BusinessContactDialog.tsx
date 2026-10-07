@@ -1,6 +1,6 @@
 import React,{useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
-import {NativeSelect} from '@mantine/core';
+import {CrmNativeSelect} from './ui/CrmNativeSelect';
 import {MessageCircle,Mail,ArrowRight,Plus} from 'lucide-react';
 import {CrmDialog} from './ui/CrmDialog';
 import {CrmButton as Button} from './ui/CrmButton';
@@ -35,9 +35,9 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo}:{detail:Com
    {created&&<p role="status">Gestión guardada. Elegí el canal para continuar. Todavía no se realizó un contacto.</p>}
    {!open.length?<><p>Sin gestiones abiertas. Para contactar, prepará y guardá una gestión. La persona y la propuesta son opcionales.</p><Button leftSection={<Plus size={18} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Preparar gestión para contactar</Button></>:<>
     {open.length===1?<p>Gestión: <strong>{opportunity?.opportunityName||'Presentación de Hospeda'}</strong></p>:<CrmSelect label="Gestión abierta" placeholder="Elegí una gestión" value={effective||null} onChange={value=>setChosen(value??'')} data={open.map(o=>({value:String(o.id),label:(o.opportunityName||'Gestión #'+o.id)+' · '+(o.estado||'Sin etapa')}))}/>}
-    <NativeSelect label="Canal" value={channel} onChange={e=>setChannel(e.target.value as 'email'|'whatsapp')}
+    <CrmNativeSelect label="Canal" value={channel} onChange={e=>setChannel(e.target.value as 'email'|'whatsapp')}
       leftSection={channel==='email'?<Mail size={18} aria-hidden="true"/>:<MessageCircle size={18} aria-hidden="true"/>}
-      data={[{value:'whatsapp',label:'WhatsApp'},{value:'email',label:'Email'}]} styles={{input:{minHeight:44,fontSize:16,background:'var(--card)',color:'var(--foreground)',borderColor:'var(--border)'}}}/>
+      data={[{value:'whatsapp',label:'WhatsApp'},{value:'email',label:'Email'}]}/>
     {recent&&<p>Último canal usado en esta gestión: {recent.channel==='email'?'Email':'WhatsApp'} · {recent.recipient}. Podés cambiarlo antes de preparar el mensaje.</p>}
     <p>Podés usar el teléfono o email del negocio, sin cargar una persona. También podrás elegir una persona registrada.</p>
     <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!opportunity||detail.account.doNotContact} onClick={()=>setComposing(true)}>Continuar con el mensaje</Button>
