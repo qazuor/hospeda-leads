@@ -1,20 +1,21 @@
-import React,{useEffect,useState} from 'react';
+import React,{useState} from 'react';
+import {ArrowUp,ArrowDown,Columns3,ChevronDown,X} from 'lucide-react';
 import {BUSINESS_COLUMNS,type ListPreferences} from '../helpers/businessListPreferences';
 import {Button} from './Button';
+import {Popover,PopoverContent,PopoverTrigger} from './Popover';
+import styles from './BusinessListOptions.module.css';
 export function BusinessListOptions({value,onChange}:{value:ListPreferences;onChange:(v:ListPreferences)=>void}){
+ const [open,setOpen]=useState(false);
  const change=(patch:Partial<ListPreferences>)=>onChange({...value,...patch});
- return <details><summary>Campos, orden y columnas fijas</summary><p>Nombre y Abrir siempre están disponibles. La fijación funciona en tabla de escritorio y deja espacio para desplazarte.</p>
- <div style={{display:'grid',gap:12}}>{[...value.columns,...BUSINESS_COLUMNS.map(c=>c.key).filter(k=>!value.columns.includes(k))].map(key=>{const index=value.columns.indexOf(key);const label=BUSINESS_COLUMNS.find(c=>c.key===key)!.label;return <div key={key} style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
- <label><input type="checkbox" checked={index>=0} disabled={key==='nombre'} onChange={()=>change({columns:index>=0?value.columns.filter(k=>k!==key):[...value.columns,key]})}/>Mostrar {label}</label>
- {index>=0&&<><Button size="sm" variant="outline" aria-label={'Subir '+label} disabled={index===0} onClick={()=>{const columns=[...value.columns];[columns[index-1],columns[index]]=[columns[index],columns[index-1]];change({columns});}}>↑</Button><Button size="sm" variant="outline" aria-label={'Bajar '+label} disabled={index===value.columns.length-1} onClick={()=>{const columns=[...value.columns];[columns[index],columns[index+1]]=[columns[index+1],columns[index]];change({columns});}}>↓</Button>
- <label>Ancho de {label}<WidthInput label={label} value={value.widths[key]??160} onChange={width=>change({widths:{...value.widths,[key]:width}})}/></label>
- <label>Fijar {label}<select value={value.pins[key]??''} onChange={e=>{const pins={...value.pins};if(e.target.value)pins[key]=e.target.value as 'left'|'right';else delete pins[key];change({pins});}}><option value="">Sin fijación</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label></>}
- </div>;})}</div></details>;
-}
-
-function WidthInput({label,value,onChange}:{label:string;value:number;onChange:(value:number)=>void}){
- const [draft,setDraft]=useState(String(value));
- useEffect(()=>setDraft(String(value)),[value]);
- const commit=()=>{const width=draft.trim()?Math.max(100,Math.min(600,Number(draft))):value;const valid=Number.isFinite(width)?width:value;setDraft(String(valid));if(valid!==value)onChange(valid);};
- return <input aria-label={'Ancho de '+label} type="number" min={100} max={600} value={draft} style={{width:75}} onChange={e=>setDraft(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape')setDraft(String(value));}}/>;
+ function move(index:number,offset:number){const columns=[...value.columns];[columns[index],columns[index+offset]]=[columns[index+offset],columns[index]];change({columns});}
+ const keys=[...value.columns,...BUSINESS_COLUMNS.map(c=>c.key).filter(k=>!value.columns.includes(k))];
+ return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="outline"><Columns3 size={16} aria-hidden="true"/>Columnas<ChevronDown size={14} aria-hidden="true"/></Button></PopoverTrigger>
+ <PopoverContent align="end" className={styles.menu} aria-label="Columnas del listado">
+  <div className={styles.heading}><div><strong>Columnas visibles</strong><p>Nombre y Abrir siempre disponibles.</p></div><Button variant="ghost" size="icon-sm" aria-label="Cerrar columnas" onClick={()=>setOpen(false)}><X size={16}/></Button></div>
+  <div className={styles.list}>{keys.map(key=>{const index=value.columns.indexOf(key);const label=BUSINESS_COLUMNS.find(c=>c.key===key)!.label;return <div key={key} className={styles.row}>
+   <label className={styles.field}><input type="checkbox" checked={index>=0} disabled={key==='nombre'} onChange={()=>change({columns:index>=0?value.columns.filter(k=>k!==key):[...value.columns,key]})}/><span>{label}</span></label>
+   {index>=0&&<div className={styles.controls}><Button size="icon-sm" variant="ghost" aria-label={'Subir '+label} disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={15}/></Button><Button size="icon-sm" variant="ghost" aria-label={'Bajar '+label} disabled={index===value.columns.length-1} onClick={()=>move(index,1)}><ArrowDown size={15}/></Button><select aria-label={'Fijar '+label} value={value.pins[key]??''} onChange={e=>{const pins={...value.pins};if(e.target.value)pins[key]=e.target.value as 'left'|'right';else delete pins[key];change({pins});}}><option value="">Sin fijar</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></div>}
+  </div>;})}</div>
+  <p className={styles.help}>Arrastrá el borde del encabezado para ajustar el ancho. La fijación se aplica solo en tabla de escritorio.</p>
+ </PopoverContent></Popover>;
 }
