@@ -23,3 +23,5 @@ Validación prevista: TypeScript, unitarias, build; recorridos de lista 1280/390
 - Reemplazar el hover del botón de encabezado por un resaltado de **toda la columna**, encabezado y celdas, con una variante más intensa del fondo del tema. Mantener texto legible, filas alineadas, celdas fijas y contraste claro/oscuro. Mantener foco por teclado distinguible del hover.
 
 Ambos pedidos se implementarán en una subtarea propia; no forman parte del rediseño de barra de búsqueda de este PR.
+
+- **Loading según su origen:** skeletons al cargar inicialmente o al buscar, filtrar, ordenar y realizar otras acciones explícitas que cambien resultados. Un refetch automático en segundo plano debe conservar los resultados o el estado vacío, sin sustituirlos periódicamente por skeletons. Mantener skeletons del lote nuevo al cargar más y feedback específico de acciones. Reproducir el caso de cero resultados, identificar el disparador real (polling, foco, invalidación u otro) y verificar ausencia de parpadeo; no asumir la causa reportada.
