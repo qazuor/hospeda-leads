@@ -36,7 +36,7 @@ const TABLE_COLUMNS=[
   {key:"updatedAt",label:"Actualizado"}
 ];
 const DEFAULT_WIDTHS:Record<string,number>={nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180};
-export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS,{key:'notes',label:'Notas'}];
+export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
 export const BUSINESS_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 const field=z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key),'Campo desconocido');
 const legacyFiltersSchema=leadsSchema.omit({entity:true,q:true,filterGroups:true,view:true,page:true,pageSize:true,sortBy:true,sortDir:true});

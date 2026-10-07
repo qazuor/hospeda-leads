@@ -506,11 +506,14 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando necesitás encontrar negocios o propuestas sin revisar toda la cartera.
 
-1. Entrá en Negocios y buscá por nombre. La vista simple muestra lo esencial; Vista avanzada habilita columnas y herramientas adicionales.
-2. Usá los filtros para acotar el alcance. La búsqueda libre se combina con los filtros configurados mediante AND: deben cumplirse ambas condiciones.
-3. En Gestiones comerciales podés revisar propuestas y usar el tablero. La Vista simple agrupa abiertas, ganadas y perdidas; Ver etapas del equipo muestra el detalle configurado.
-4. Para cambios sobre varios registros, elegí el cambio y Aplicar. Revisá toda la lista afectada antes de confirmar la casilla y Confirmar cambios.
-5. Si los datos cambiaron, usá Volver a revisar. Cancelar no modifica nada.
+1. Entrá en Negocios y buscá por nombre. Elegí Tabla o Grilla: ambas muestran los mismos resultados y conservan la búsqueda, filtros y orden.
+2. Usá Filtrar negocios para acotar el alcance. La búsqueda libre se combina con los filtros configurados mediante AND: deben cumplirse ambas condiciones.
+3. Abrí Campos, orden y columnas fijas para elegir qué datos mostrar y moverlos. Nombre y Abrir siempre están disponibles. En tabla de escritorio también podés ajustar anchos y fijar columnas a izquierda o derecha.
+4. Elegí la cantidad de resultados y Paginación o Carga continua. Anterior y Siguiente cambian de página; Cargar más trae otro lote. El contador indica cuánto se cargó y cuándo no hay más resultados.
+5. Limpiar filtros quita la búsqueda y las condiciones. Restablecer valores del equipo recupera la configuración inicial definida por el admin.
+6. Abrí un negocio para trabajar y volvé por Volver al listado de negocios, Negocios en el menú o Atrás. Se recuperan tus preferencias y el punto del listado.
+7. En Gestiones comerciales revisá propuestas y avances con el tablero. Ver etapas del equipo muestra el detalle configurado.
+8. Para cambios sobre varios registros, elegí el cambio y Aplicar. Revisá toda la lista afectada antes de confirmar la casilla y Confirmar cambios. Si los datos cambiaron, usá Volver a revisar. Cancelar no modifica nada.
 
 **Qué queda al terminar:** Las vistas y filtros cambian lo que ves; no cambian datos por sí solos. Confirmar una edición masiva sí los modifica.
 
@@ -521,6 +524,9 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 **Tené en cuenta:**
 
 - Seleccionar negocios puede afectar gestiones que el filtro no mostraba. Revisá la lista completa del cambio masivo.
+- En mobile se comienza con grilla; podés elegir tabla. Las columnas fijas se aplican solo en escritorio y dejan espacio para desplazarte.
+- Tus preferencias tienen prioridad sobre los valores iniciales del equipo. Se recuerdan por usuario en este navegador; en otro dispositivo podés configurar una vista propia.
+- Los filtros preestablecidos disponibles se eligen desde el listado. Que un filtro esté disponible no significa que esté aplicado: revisá siempre las condiciones visibles.
 
 **Dónde ir:** Buscar en Negocios (/accounts)
 
