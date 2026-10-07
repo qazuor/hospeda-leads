@@ -47,7 +47,12 @@ export const listPreferencesSchema=z.object({
  sortBy:leadsSchema.shape.sortBy.unwrap().default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),legacyFilters:legacyFiltersSchema.optional()
 });
 export type ListPreferences=z.infer<typeof listPreferencesSchema>;
-export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion'],widths:{...DEFAULT_WIDTHS},pins:{},query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:25,loadMode:'pages'});
+// Restore this switch to expose pagination again; schema, queries and return context support both modes.
+export const BUSINESS_PAGINATION_CONTROLS_ENABLED=false;
+export function availableListPreferences(preferences:ListPreferences):ListPreferences{
+ return BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences:{...preferences,loadMode:'continuous'};
+}
+export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion'],widths:{...DEFAULT_WIDTHS},pins:{},query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:25,loadMode:'continuous'});
 export const teamDefaultsSchema=z.object({preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()}).refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId)));
 export type TeamDefaults=z.infer<typeof teamDefaultsSchema>;
 export const initialPreferences=(team:TeamDefaults|undefined,mobile:boolean):ListPreferences=>team?{...team.preferences,presentation:mobile?'grid':team.preferences.presentation,query:team.initialPresetId?(team.presets.find(p=>p.id===team.initialPresetId)!.query??team.preferences.query):team.preferences.query,filters:team.initialPresetId?team.presets.find(p=>p.id===team.initialPresetId)!.filters:team.preferences.filters}:basePreferences(mobile);
