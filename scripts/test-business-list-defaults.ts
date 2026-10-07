@@ -5,6 +5,8 @@ import {setServerSession} from '../src/helpers/getSetServerSession';
 import {handle} from '../src/endpoints/business_list_defaults';
 import {handle as listBusinesses} from '../src/endpoints/leads_GET';
 import {defaultSystemViews} from '../src/helpers/businessSystemViews';
+import {handle as mutateView} from '../src/endpoints/saved_views_POST';
+import {handle as readViews} from '../src/endpoints/saved_views_GET';
 import {basePreferences} from '../src/helpers/businessListPreferences';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Disposable database required');
 const key='business_list_team_defaults_v1';
@@ -16,6 +18,20 @@ try{const admin=await actor('admin'),seller=await actor('user');const defaults={
  await call(admin,defaults);assert.deepEqual((await call(seller)).defaults,defaults);await call(seller,{...defaults,initialPresetId:'colon'},403);assert.equal((await call(admin)).defaults.initialPresetId,null);
  const systemViews=defaultSystemViews().reverse().map(v=>({...v,name:'Equipo '+v.name,enabled:v.id!=='today'}));await call(admin,{...defaults,systemViews});assert.deepEqual((await call(seller)).defaults.systemViews,systemViews);await call(seller,{...defaults,systemViews:[]},403);assert.deepEqual((await call(admin)).defaults.systemViews,systemViews);await call(admin,{...defaults,systemViews:[systemViews[0],systemViews[0]]},400);
  await call(admin,{...defaults,initialPresetId:'missing'},400);await call(admin,{...defaults,preferences:{...defaults.preferences,columns:['email']}},400);await call(admin,{...defaults,preferences:{...defaults.preferences,filters:[{rules:[{field:'deletedAt',operator:'is_true'}]}]}},400);await call('',undefined,401);
+ async function personal(cookie:string,body?:unknown,status=200){const response=await (body?mutateView:readViews)(new Request('http://localhost/_api/saved_views',{headers:{cookie},...(body?{method:'POST',body:superjson.stringify(body)}:{})}));assert.equal(response.status,status,await response.clone().text());return superjson.parse<any>(await response.text());}
+ const oldConfig={entity:'business',preferences:{...basePreferences(),query:'Concepción'},extra:'preserve'};
+ await personal(admin,{action:'save',view:{name:'Ajena',config:oldConfig}});
+ await personal(seller,{action:'update',name:'Ajena',view:{name:'Robada',config:{}}},400);
+ await personal(seller,{action:'delete',name:'Ajena'});assert.deepEqual((await personal(admin)).views,[{name:'Ajena',config:oldConfig}]);
+ await personal(seller,{action:'save',view:{name:'Mía',config:oldConfig}});
+ await personal(seller,{action:'save',view:{name:'Mía',config:{}}},400);
+ await personal(seller,{action:'update',name:'Mía',view:{name:'Renombrada',config:oldConfig}});assert.deepEqual((await personal(seller)).views,[{name:'Renombrada',config:oldConfig}]);
+ await Promise.all(['Uno','Dos'].map(name=>personal(seller,{action:'save',view:{name,config:{entity:'business'}}})));
+ assert.equal((await personal(seller)).views.length,3);
+ await personal(seller,{action:'update',name:'Renombrada',view:{name:'Uno',config:{}}},400);assert.equal((await personal(seller)).views.length,3);
+ await personal(seller,{action:'update',name:'Renombrada',view:{name:'Renombrada',config:{entity:'business',preferences:basePreferences()}}});
+ await personal(seller,{action:'delete',name:'Renombrada'});assert.equal((await personal(seller)).views.length,2);assert.equal((await personal(admin)).views[0].name,'Ajena');
+ console.log('Personal views: authenticated ownership, atomic concurrent saves, rename, configuration replacement, duplicates and delete passed');
  await call(admin,{...defaults,initialPresetId:'colon'});assert.equal((await call(seller)).defaults.initialPresetId,'colon');const owner=await db.selectFrom('users').select('email').where('id','=',ids[0]).executeTakeFirstOrThrow();
  const prefix='Anchor fixture '+Date.now();
  for(let i=0;i<25;i++){const a=await db.insertInto('crmAccounts').values({nombre:prefix+' '+String(i).padStart(2,'0'),assignedUserEmail:owner.email}).returning('id').executeTakeFirstOrThrow();accountIds.push(a.id);}
@@ -27,4 +43,4 @@ try{const admin=await actor('admin'),seller=await actor('user');const defaults={
  await db.updateTable('crmAccounts').set({archivedAt:new Date()}).where('id','=',accountIds[0]).execute();const archived=await listing({alignAnchorPage:'true'});assert.equal(archived.anchorPage,undefined);assert.equal(archived.total,24);
  console.log('Business anchor restoration: reordered pages, continuous batches, filters and archived access passed');
  console.log('Business list team defaults: shared read, admin write, initial preset and schema validation passed');
-}finally{if(accountIds.length)await db.deleteFrom('crmAccounts').where('id','in',accountIds).execute();if(existing)await db.updateTable('appSettings').set({value:existing.value}).where('key','=',key).execute();else await db.deleteFrom('appSettings').where('key','=',key).execute();await db.deleteFrom('sessions').where('userId','in',ids).execute();await db.deleteFrom('users').where('id','in',ids).execute();await db.destroy();}
+}finally{if(accountIds.length)await db.deleteFrom('crmAccounts').where('id','in',accountIds).execute();if(existing)await db.updateTable('appSettings').set({value:existing.value}).where('key','=',key).execute();else await db.deleteFrom('appSettings').where('key','=',key).execute();await db.deleteFrom('appSettings').where('key','in',ids.map(id=>'lead_saved_views:'+id)).execute();await db.deleteFrom('sessions').where('userId','in',ids).execute();await db.deleteFrom('users').where('id','in',ids).execute();await db.destroy();}
