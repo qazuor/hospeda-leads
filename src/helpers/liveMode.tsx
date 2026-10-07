@@ -13,6 +13,7 @@ const LIVE_QUERY_KEYS=[
 type LiveStatus="live"|"checking"|"off"|"error";
 type LiveModeContextValue={
   enabled:boolean;
+  manualRefreshing:boolean;
   status:LiveStatus;
   lastCheckedAt:Date|null;
   setEnabled:(enabled:boolean)=>void;
@@ -34,12 +35,20 @@ export function LiveModeProvider({children}:{children:ReactNode}){
   const [enabledState,setEnabledState]=useState(initialEnabled);
   const [status,setStatus]=useState<LiveStatus>(enabledState?"checking":"off");
   const [lastCheckedAt,setLastCheckedAt]=useState<Date|null>(null);
+  const [manualRefreshing,setManualRefreshing]=useState(false);
+  const manualRefreshLock=useRef(false);
   const lastVersion=useRef<string|null>(null);
   const checking=useRef(false);
 
   const invalidateLiveQueries=useCallback(async()=>{
     await Promise.all(LIVE_QUERY_KEYS.map(key=>queryClient.invalidateQueries({queryKey:[key]})));
   },[queryClient]);
+
+  const refresh=useCallback(async()=>{
+    if(manualRefreshLock.current)return;
+    manualRefreshLock.current=true;setManualRefreshing(true);
+    try{await invalidateLiveQueries();}finally{manualRefreshLock.current=false;setManualRefreshing(false);}
+  },[invalidateLiveQueries]);
 
   const checkNow=useCallback(async()=>{
     if(!enabledState||authState.type!=="authenticated"||checking.current)return;
@@ -88,8 +97,8 @@ export function LiveModeProvider({children}:{children:ReactNode}){
   },[enabledState,authState.type,checkNow]);
 
   return <LiveModeContext.Provider value={{
-    enabled:enabledState,status,lastCheckedAt,setEnabled,
-    toggle:()=>setEnabled(!enabledState),checkNow,refresh:invalidateLiveQueries
+    enabled:enabledState,manualRefreshing,status,lastCheckedAt,setEnabled,
+    toggle:()=>setEnabled(!enabledState),checkNow,refresh
   }}>{children}</LiveModeContext.Provider>;
 }
 
