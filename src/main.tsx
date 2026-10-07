@@ -1,4 +1,5 @@
 import React from "react";
+import {AppCommandPalette} from './components/AppCommandPalette';
 import {UnsavedNavigation} from './components/UnsavedChanges';
 const SalePage=React.lazy(()=>import('./pages/sale'));
 const ArchivedPage=React.lazy(()=>import('./pages/archived'));
@@ -24,6 +25,7 @@ const TemplatesPage=React.lazy(()=>import("./pages/templates"));
 const TrashPage=React.lazy(()=>import("./pages/trash"));
 import './styleLayers.css';
 import '@mantine/core/styles.layer.css';
+import '@mantine/spotlight/styles.layer.css';
 import "./base.css";
 
 function OpportunityEntry(){
@@ -43,6 +45,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <GlobalContextProviders>
         <UnsavedNavigation/>
+        <AppCommandPalette/>
         <React.Suspense fallback={<RouteLoading/>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
