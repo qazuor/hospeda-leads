@@ -65,7 +65,7 @@ import {HeaderMenu} from "../components/LeadsTableHeader";
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const navigate=useNavigate();
   const entity=businessMode?"business":"opportunity";
-  const tableColumns=TABLE_COLUMNS.map(column=>({...column,label:businessMode?(column.key==="nombre"?"Negocio":column.key==="id"?"ID de entrada":column.key==="assignedUserEmail"?"Responsable del negocio":column.key==="estado"?"Etapas de ventas":column.label):column.label}));
+  const tableColumns=TABLE_COLUMNS.map(column=>({...column,label:businessMode?(column.key==="nombre"?"Negocio":column.key==="id"?"ID de entrada":column.key==="assignedUserEmail"?"Responsable del negocio":column.key==="estado"?"Etapas de gestiones":column.label):column.label}));
   const [businessEditor,setBusinessEditor]=useState<{item?:Account}|null>(null);
   const qc=useQueryClient();
   const [urlParams,setUrlParams]=useSearchParams();
@@ -113,7 +113,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [contactLead,setContactLead]=useState<any|null>(null);
   const [pendingDelete,setPendingDelete]=useState<{id:string|number;nombre:string}|null>(null);
   const [tableFullscreen,setTableFullscreen]=useState(false);
-  const [pipelineView,setPipelineView]=useState(false);
+  const [pipelineView,setPipelineView]=useState(!businessMode);
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
   const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(()=>readStoredFilterGroups(entity));
   const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
@@ -311,7 +311,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     {key:"createdAt",label:"Creado en sistema",kind:"date"},
     {key:"updatedAt",label:"Actualizado",kind:"date"},
     {key:"notes",label:"Notas",kind:"notes"},
-    ...(isAdmin?[{key:"deletedAt" as const,label:"Oportunidad eliminada (Papelera)",kind:"boolean" as const}]:[]),
+    ...(isAdmin?[{key:"deletedAt" as const,label:"Gestión eliminada (Papelera)",kind:"boolean" as const}]:[]),
   ];
   const includesDeletedFilter=appliedFilterGroups.some(group=>group.rules.some(rule=>rule.field==="deletedAt"));
   useEffect(()=>{setSelectedIds(new Set());if(includesDeletedFilter)setPipelineView(false);},[includesDeletedFilter,appliedFilterGroups]);
@@ -485,7 +485,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     const result=await saveM.mutateAsync({...form,force});
     if("duplicateCandidates" in result){setDuplicateCandidates(result.duplicateCandidates);return}
     if(form.id)setLastTouchedId(String(form.id));
-    setDuplicateCandidates([]);await invalidate();setOpen(false);toast.success("Oportunidad guardada");
+    setDuplicateCandidates([]);await invalidate();setOpen(false);toast.success("Gestión guardada");
   };
   const requestDelete=(id:string|number,nombre:string)=>setPendingDelete({id,nombre});
   const confirmDelete=async()=>{
@@ -496,7 +496,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     else await deleteM.mutateAsync({id:target.id});
     if(selectedLead&&String(selectedLead.id)===String(target.id)){setViewOpen(false);setSelectedLead(null)}
     if(form.id&&String(form.id)===String(target.id))setOpen(false);
-    setPendingDelete(null);toast.success(businessMode?"Oportunidades del negocio enviadas a la papelera":"Oportunidad enviada a la papelera");
+    setPendingDelete(null);toast.success(businessMode?"Gestiones comerciales del negocio enviadas a la papelera":"Gestión enviada a la papelera");
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar a Papelera")}
   };
   const quick=async(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>{
@@ -524,7 +524,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     try{
     await bulkM.mutateAsync({...bulkReview!,expectedFingerprint:fingerprint});
     setBulkReview(null);
-    toast.success(`${selectedIds.size} ${businessMode?"negocios":"oportunidades"} actualizados`);setSelectedIds(new Set());setBulkValue("");
+    toast.success(`${selectedIds.size} ${businessMode?"negocios":"gestiones"} actualizados`);setSelectedIds(new Set());setBulkValue("");
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudieron aplicar los cambios")}
   };
   const bulkDeleteSelected=async()=>{
@@ -533,7 +533,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     try{
     await bulkDeleteM.mutateAsync({entity,ids:Array.from(selectedIds)});
     setSelectedIds(new Set());setBulkDeleteOpen(false);
-    toast.success(count+(businessMode?" negocios: oportunidades enviadas a papelera":" oportunidades enviadas a la papelera"));
+    toast.success(count+(businessMode?" negocios: gestiones enviadas a papelera":" gestiones enviadas a la papelera"));
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar la selección a Papelera")}
   };
   const togglePageSelection=()=>{
@@ -541,7 +541,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     const all=ids.length>0&&ids.every(id=>selectedIds.has(id));
     setSelectedIds(prev=>{const next=new Set(prev);ids.forEach(id=>all?next.delete(id):next.add(id));return next});
   };
-  const openContact=(lead:any,channel:"whatsapp"|"email")=>{if(lead.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede contactar.");return;}if(businessMode){if(lead.opportunityCount!==1){toast.info("Elegí una oportunidad del negocio para registrar la comunicación en su historial.");openView(lead);return}lead={...lead,id:lead.opportunityId}}setLastTouchedId(String(lead.id));setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
+  const openContact=(lead:any,channel:"whatsapp"|"email")=>{if(lead.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede contactar.");return;}if(businessMode){if(lead.opportunityCount!==1){toast.info("Elegí una gestión del negocio para registrar la comunicación en su historial.");openView(lead);return}lead={...lead,id:lead.opportunityId}}setLastTouchedId(String(lead.id));setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
   const startResize=(key:string,startX:number)=>{
     const startWidth=columnWidths[key]??DEFAULT_WIDTHS[key]??160;
     const onMove=(event:MouseEvent)=>{
@@ -586,11 +586,11 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     if(l.deletedAt){if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>navigate("/trash")}><strong>{businessMode?l.nombre:l.opportunityName||l.nombre}</strong><small>En Papelera · Abrir para restaurar</small></button>;const value=l[key];return value instanceof Date?displayDate(value.toISOString()):value===true?"Sí":value===false?"No":str(value)||"—";}
     if(key==="estado"&&businessMode&&!advancedTable)return <span className={styles.relationship} data-client={l.commercialStatus==="client"}>{l.commercialStatus==="client"?"Cliente":"Potencial cliente"}</span>;
     if(key==="fechaProximaAccion"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{nextActionInfo(l.fechaProximaAccion).label}</strong><small>{l.nextActionTitle||(l.fechaProximaAccion?"Acción del equipo · Abrir para revisar":"Elegir próximo paso")}</small></button>;
-    if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"venta":"ventas"}</small></button>;
+    if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"gestión":"gestiones"}</small></button>;
     if(businessMode&&!["contactName","fechaProximaAccion","fechaUltimoContacto","id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
       const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayDate(v):v).join(" · ");
-      return <button className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la oportunidad"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver oportunidades":"Agregar oportunidad"}</small></button>;
+      return <button className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la gestión"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver gestiones":"Agregar gestión"}</small></button>;
     }
     if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></button>;
     if(key==="id")return businessMode?(l.opportunityId||"—"):String(l.id);
@@ -634,37 +634,37 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Ventas"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las ventas que estás gestionando.":"Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades."}</p></div>
-        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Crear una venta"}</Button><details className={styles.pageTools}><summary>Herramientas adicionales</summary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></details></div>
+        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Gestiones comerciales"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión."}</p></div>
+        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><details className={styles.pageTools}><summary>Herramientas adicionales</summary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></details></div>
       </header>
 
       <section className={styles.toolbar}>
-        <div className={styles.search}><Search size={17}/><Input value={query} onChange={e=>{setQuery(e.target.value);resetPage()}} placeholder={businessMode?"Buscar negocios, oportunidades y notas…":"Buscar en oportunidades y notas…"}/></div>
+        <div className={styles.search}><Search size={17}/><Input value={query} onChange={e=>{setQuery(e.target.value);resetPage()}} placeholder={businessMode?"Buscar negocios, gestiones y notas…":"Buscar en gestiones y notas…"}/></div>
         <div className={styles.filters}>
           <Button variant="outline" onClick={()=>setFilterDialogOpen(true)} className={styles.filterButton}>
             <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
           </Button>
-          {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(!businessMode||advancedTable)&&<ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/>}
+          {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(businessMode?advancedTable:!pipelineView)&&<ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/>}
         </div>
       </section>
 
       <details className={styles.advancedWorkspace}><summary>Resumen, vistas guardadas y ayuda</summary>      <section className={styles.commercialGuide} aria-label="Ayuda comercial">
       <CommercialHelp>
-      {businessMode&&<p>Abrí un negocio para ver su persona de contacto, el próximo paso y sus ventas. La próxima acción incluye las tareas generales del negocio.</p>}
+      {businessMode&&<p>Abrí un negocio para ver su persona de contacto, el próximo paso y sus gestiones. La próxima acción incluye las tareas generales del negocio.</p>}
       </CommercialHelp>
       </section>
       <section className={styles.metrics}>
-        <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de oportunidades"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con ventas abiertas":"Ventas abiertas"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción hoy":"Ventas con acción hoy"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción atrasada":"Ventas con acción atrasada"}</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de gestiones"}</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con gestiones abiertas":"Gestiones comerciales abiertas"}</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción hoy":"Gestiones comerciales con acción hoy"}</span></div></button>
+        <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción atrasada":"Gestiones comerciales con acción atrasada"}</span></div></button>
         <button type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis registros con acción hasta hoy</span></div></button>
         <button type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos históricos</span></div></button>
       </section>
 
       <section className={styles.quickViews}>
         <div className={styles.quickViewList}>
-          {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis oportunidades"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><button type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</button>)}
+          {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis gestiones"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><button type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</button>)}
           {savedViews.map(view=><div className={styles.savedView} key={view.name}><button type="button" className={activeQuick==="saved:"+view.name?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</button><button type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</button></div>)}
         </div>
         <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
@@ -698,7 +698,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
               {bulkField==="commercialProfile"&&<><option value="__CLEAR__">Sin perfil</option>{PROFILE_OPTIONS.map(item=><option key={item}>{item}</option>)}</>}
               {bulkField==="ciudad"&&cityOptions.map(item=><option key={item}>{item}</option>)}
             </select>}
-        {businessMode&&<span className={styles.tableHint}>{["ciudad","assignedUserEmail"].includes(bulkField)?"Modifica los datos del negocio.":"Modifica TODAS las oportunidades activas de estos negocios, incluso las que no coincidan con el filtro."}</span>}
+        {businessMode&&<span className={styles.tableHint}>{["ciudad","assignedUserEmail"].includes(bulkField)?"Modifica los datos del negocio.":"Modifica TODAS las gestiones activas de estos negocios, incluso las que no coincidan con el filtro."}</span>}
         <Button size="sm" onClick={()=>{bulkM.reset();setBulkReview({entity,ids:Array.from(selectedIds),changes:{[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)}})}} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
         <Button size="sm" variant="destructive" onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={14}/>Enviar a papelera</Button>
         <Button size="sm" variant="ghost" onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button>
@@ -706,11 +706,16 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
       {bulkReview&&<BulkChangeReview input={bulkReview} onClose={()=>setBulkReview(null)} onConfirm={applyBulk} pending={bulkM.isPending} error={bulkM.error?.message}/>}
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"oportunidades"}</strong><span>Página {page} de {Math.max(1,Math.ceil(total/50))}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} onClick={()=>setPipelineView(true)}>Ver por etapas</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
-        {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las oportunidades. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?"Tablero con todos los resultados":`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} onClick={()=>setPipelineView(true)}>Tablero comercial</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las gestiones. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
+        {!businessMode&&!resultsBusy&&!leadsQ.error&&!leads.length&&<section className={styles.commercialGuide}>
+          <h2>{appliedRuleCount||stats.total?"Sin resultados por los filtros actuales":"Sin gestiones iniciadas"}</h2>
+          <p>{appliedRuleCount||stats.total?"Revisá los filtros para encontrar la gestión que buscás.":"Cargar un negocio no inicia una gestión. Cuando prepares una propuesta, usá Iniciar gestión."}</p>
+          <Button variant="outline" onClick={appliedRuleCount||stats.total?()=>{clearAllFilters();setAppliedFilterGroups([]);setQuery("")}:newLead}>{appliedRuleCount||stats.total?"Limpiar filtros":"Iniciar gestión"}</Button>
+        </section>}
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
-        leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las oportunidades"}: {leadsQ.error.message}</div>:
+        leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las gestiones"}: {leadsQ.error.message}</div>:
         pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:"100%",minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
@@ -726,11 +731,11 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt||l.canModify===false} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
             {shownColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
             {(!businessMode||advancedTable)&&<td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>}
-            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="outline" size="sm" onClick={()=>openView(l)}>Abrir</Button>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" disabled={l.canModify===false} onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las ventas de este negocio":"Enviar venta a papelera"} disabled={l.canModify===false||(businessMode&&!l.opportunityCount)}><Trash2 size={15}/></Button></>}</div>}</td>
+            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="outline" size="sm" onClick={()=>openView(l)}>Abrir</Button>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" disabled={l.canModify===false} onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las gestiones de este negocio":"Enviar gestión a papelera"} disabled={l.canModify===false||(businessMode&&!l.opportunityCount)}><Trash2 size={15}/></Button></>}</div>}</td>
           </tr>})}
         </tbody></table></div>}
         </div>
-        <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
+        {!(pipelineView&&!businessMode)&&<div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>}
       </section>
 
       <Dialog open={open} onOpenChange={v=>v?setOpen(true):legacyGuard.requestClose()}>
@@ -739,7 +744,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <div className={styles.editIdentityRow}>
               <div className={styles.editIdentity}>
                 <div className={styles.editTitleLine}>
-                  <DialogTitle className={styles.editTitle}>{form.id?(form.opportunityName||"Gestión comercial inicial"):"Nueva oportunidad"}</DialogTitle>
+                  <DialogTitle className={styles.editTitle}>{form.id?(form.opportunityName||"Gestión comercial inicial"):"Nueva gestión"}</DialogTitle>
                   <div className={styles.editTitleBadges}>
                     {form.tipo&&<ValueBadge value={str(form.tipo)} category="vertical"/>}
                     {form.subtipo&&<ValueBadge value={str(form.subtipo)} category="subtype"/>}
@@ -748,7 +753,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
                 </div>
                 <div className={styles.editMetaLine}>
                   <DialogDescription className={styles.editDescription}>
-                    {form.id?"Editá esta venta y su seguimiento. Para cambiar dirección, canales o personas, abrí el negocio desde el detalle.":"Completá los datos principales para crear la oportunidad."}
+                    {form.id?"Editá esta gestión y su seguimiento. Para cambiar dirección, canales o personas, abrí el negocio desde el detalle.":"Completá los datos principales para crear la gestión."}
                   </DialogDescription>
                   <div className={styles.editSecondaryBadges}>
                     {form.commercialProfile&&<ValueBadge value={str(form.commercialProfile)} category="profile"/>}
@@ -764,7 +769,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
               <Button size="sm" variant="ghost" onClick={legacyGuard.requestClose}><X size={15}/>Cancelar</Button>
               {duplicateCandidates.length>0
                 ? <Button size="sm" variant="secondary" onClick={()=>saveLead(true)} disabled={saveM.isPending}>Guardar de todas formas</Button>
-                : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.opportunityName?.trim()}>{saveM.isPending?"Guardando…":"Guardar oportunidad"}</Button>}
+                : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.opportunityName?.trim()}>{saveM.isPending?"Guardando…":"Guardar gestión"}</Button>}
             </div>
           </div>
 
@@ -775,11 +780,11 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
                 <div><h3>Identidad y clasificación</h3><p>Cómo se identifica y cómo lo clasificamos comercialmente.</p></div>
               </div>
               <div className={styles.editGrid}>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Nombre de oportunidad</span><Input value={str(form.opportunityName)} onChange={e=>set("opportunityName",e.target.value)} placeholder="Ej: Publicación de cabañas"/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Nombre de gestión</span><Input value={str(form.opportunityName)} onChange={e=>set("opportunityName",e.target.value)} placeholder="Ej: Publicación de cabañas"/></label>
                 <p className={styles.editSpan2}>Negocio: <strong>{form.nombre}</strong> · Sus datos se editan por separado.</p>
                 <label className={styles.editField}><span>Servicio de interés</span><Input value={str(form.serviceInterest)} onChange={e=>set("serviceInterest",e.target.value)}/></label>
                 <label className={styles.editField}><span>Cierre estimado (opcional)</span><Input type="date" value={str(form.estimatedCloseDate)} onChange={e=>set("estimatedCloseDate",e.target.value||null)}/></label>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Persona para esta oportunidad</span><select aria-label="Persona para esta oportunidad" value={str(form.primaryContactId)} onChange={e=>set("primaryContactId",e.target.value||null)}><option value="">Sin persona elegida</option>{businessDetailQ.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Persona para esta gestión</span><select aria-label="Persona para esta gestión" value={str(form.primaryContactId)} onChange={e=>set("primaryContactId",e.target.value||null)}><option value="">Sin persona elegida</option>{businessDetailQ.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></label>
                 <label className={styles.editField}><span>Vertical</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.tipo)} options={typeOptions} category="vertical" onChange={v=>{set("tipo",v);set("subtipo","")}} placeholder="Seleccionar vertical…"/></label>
                 <label className={styles.editField}><span>Subtipo</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.subtipo)} options={subtypeOptions} category="subtype" onChange={v=>set("subtipo",v)} placeholder="Seleccionar subtipo…" emptyLabel="Sin subtipo"/></label>
                 <label className={styles.editField}><span>Perfil comercial</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.commercialProfile)} options={PROFILE_OPTIONS} category="profile" onChange={v=>set("commercialProfile",v||null)} placeholder="Seleccionar perfil…" emptyLabel="Sin perfil"/></label>
@@ -816,7 +821,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
                 <label className={styles.editField}><span>Último contacto</span><Input type="date" value={str(form.fechaUltimoContacto)} onChange={e=>set("fechaUltimoContacto",e.target.value)}/></label>
                 <label className={styles.editField}><span>Próxima acción</span><NextActionPicker value={form.fechaProximaAccion} onChange={value=>set("fechaProximaAccion",value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Resultado último contacto</span><Input value={str(form.resultadoUltimoContacto)} onChange={e=>set("resultadoUltimoContacto",e.target.value)}/></label>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Canal preferido para esta oportunidad</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Canal preferido para esta gestión</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Archivo adjunto / URL</span><Input value={str(form.archivoAdjunto)} onChange={e=>set("archivoAdjunto",e.target.value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Fuente de referencia</span><Input value={str(form.fuenteReferencia)} onChange={e=>set("fuenteReferencia",e.target.value)}/></label>
               </div>
@@ -853,7 +858,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         fields={filterFields}
         value={appliedFilterGroups}
         search={query}
-        title={businessMode?"Filtrar negocios":"Filtrar oportunidades"}
+        title={businessMode?"Filtrar negocios":"Filtrar gestiones"}
         onApply={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);setActiveQuick("custom");setPage(1)}}
       />
       <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}><DialogContent className={styles.confirmDialog}>
@@ -867,12 +872,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>navigate("/sales/"+id)}/>}
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
-        <DialogHeader><DialogTitle>Enviar {selectedIds.size} {businessMode?"grupos de ventas":"ventas"} a la papelera</DialogTitle><DialogDescription>{businessMode?"Todas las oportunidades activas de los negocios seleccionados irán a Papelera, incluso las que no coincidan con el filtro actual.":"Los seleccionados dejarán de aparecer en la operación normal."}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Enviar {selectedIds.size} {businessMode?"grupos de gestiones":"gestiones"} a la papelera</DialogTitle><DialogDescription>{businessMode?"Todas las gestiones activas de los negocios seleccionados irán a Papelera, incluso las que no coincidan con el filtro actual.":"Los seleccionados dejarán de aparecer en la operación normal."}</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán y podrán restaurarse desde Papelera.</span></div>
         <DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={bulkDeleteSelected} disabled={bulkDeleteM.isPending}>{bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>
       <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending&&!bulkDeleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
-        <DialogHeader><DialogTitle>{businessMode?"Enviar oportunidades del negocio a papelera":"Enviar oportunidad a la papelera"}</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong>: {businessMode?"todas sus oportunidades activas irán a Papelera. El negocio y sus contactos conservarán su historial.":"dejará de aparecer en la tabla y en la operación normal."}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{businessMode?"Enviar gestiones del negocio a papelera":"Enviar gestión a la papelera"}</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong>: {businessMode?"todas sus gestiones activas irán a Papelera. El negocio y sus contactos conservarán su historial.":"dejará de aparecer en la tabla y en la operación normal."}</DialogDescription></DialogHeader>
         <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán. El administrador podrá restaurarlo o eliminarlo definitivamente desde Papelera.</span></div>
         <DialogFooter><Button variant="outline" onClick={()=>setPendingDelete(null)} disabled={deleteM.isPending||bulkDeleteM.isPending}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete} disabled={deleteM.isPending||bulkDeleteM.isPending}>{deleteM.isPending||bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>

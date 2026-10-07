@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createHash,randomBytes} from 'node:crypto';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {createServer} from 'node:http';
 import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -57,8 +57,8 @@ try{
  await call({...confirm,batchId:within.batchId,decisions:[{index:0,action:'create',acknowledge:true},{index:1,action:'skip'}]},409);
  const foreign=await mutateQuality(db,{action:'import_preview',mode:'business',source:'Other',rows:[{nombre:'Foreign '+stamp}]},{...other,role:'admin'}) as ImportReview;
  await call({...confirm,batchId:foreign.batchId},403);await read('?batchId='+foreign.batchId,404);
- const opportunity=await mutateQuality(db,{action:'import_preview',mode:'opportunity',source:'Legacy',rows:[{nombre:'Legacy API '+stamp}]},admin) as ImportReview;
- await call({...confirm,batchId:opportunity.batchId},403);await read('?batchId='+opportunity.batchId,404);
+ const opportunity=await db.insertInto('crmImportBatches').values({id:randomUUID(),fingerprint:'legacy-'+stamp,ownerEmail:admin.email,mode:'opportunity',source:'Legacy',rows:[{nombre:'Legacy API '+stamp}]}).returningAll().executeTakeFirstOrThrow();
+ await call({...confirm,batchId:opportunity.id},403);await read('?batchId='+opportunity.id,404);
  const bad=await call<ImportReview>({...previewBody,rows:[{nombre:'Invalid API '+stamp,tipo,subtipo:'inventado'}]});assert(bad.rows[0].errors.length);await call({...confirm,batchId:bad.batchId},400);
  const wrongType=await post(new Request('http://localhost',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'text/plain'},body:'{}'}));assert.equal(wrongType.status,415);
  const large=await post(new Request('http://localhost',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:' '.repeat(2097153)}));assert.equal(large.status,413);

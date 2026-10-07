@@ -107,7 +107,7 @@ export default function SettingsPage(){
       {section==="classifications"&&<section className={styles.content}>{data?<ClassificationSettings data={data}/>:<p role="status">Cargando clasificaciones…</p>}</section>}
 
       {section==="process"&&<section className={styles.processSection}>
-        <header className={styles.processHeading}><h2>Proceso comercial</h2><p>Definí cómo avanzan las ventas y cómo el equipo organiza sus próximos pasos.</p></header>
+        <header className={styles.processHeading}><h2>Proceso comercial</h2><p>Definí cómo avanzan las gestiones y cómo el equipo organiza sus próximos pasos.</p></header>
         <SectionTabs defaultValue="stages">
           <SectionTabList aria-label="Configuración del proceso comercial"><SectionTab value="stages">Etapas y resultados</SectionTab><SectionTab value="tasks">Tareas y seguimiento</SectionTab></SectionTabList>
           <SectionTabPanel value="stages"><PipelineSettings/></SectionTabPanel>

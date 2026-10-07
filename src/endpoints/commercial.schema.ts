@@ -18,7 +18,7 @@ export const commercialMutation=z.discriminatedUnion("action",[
   z.object({action:z.literal("convert_client"),accountId:id,reason:z.string().trim().min(1).max(2000)}),
   z.object({action:z.literal("contact_save"),accountId:id,id:id.optional(),name:z.string().trim().min(1).max(300),position:optionalText,phone:optionalText,email:storedEmail,preferredChannel:optionalText,isPrimary:z.boolean().default(false),notes:optionalText}),
   z.object({action:z.literal("contact_delete"),accountId:id,id}),
-  z.object({action:z.literal("opportunity_save"),accountId:id,id:id.optional(),opportunityName:z.string().trim().min(1).max(300),tipo:optionalText,estado:optionalText,assignedUserEmail:email,primaryContactId:id.nullable().optional(),serviceInterest:optionalText,estimatedCloseDate:date})
+  z.object({action:z.literal("opportunity_save"),accountId:id,id:id.optional(),creationRequestKey:z.string().uuid().optional(),opportunityName:z.string().trim().min(1).max(300),tipo:optionalText,estado:optionalText,assignedUserEmail:email,primaryContactId:id.nullable().optional(),serviceInterest:optionalText,estimatedCloseDate:date})
 ]);
 export type CommercialMutation=z.infer<typeof commercialMutation>;
 export type Contact=Selectable<CrmContacts>;

@@ -10,7 +10,7 @@ export const dataFieldLabels:Record<string,string>={
  nombre:'Nombre del negocio',ciudad:'Localidad',telefono:'Teléfono genérico',email:'Email',sitioWeb:'Sitio web',urlGmap:'Google Maps',
  perfilInstagram:'Instagram',perfilFacebook:'Facebook',perfilAirbnb:'Airbnb',perfilBooking:'Booking',perfilTurismoEntreRios:'Turismo Entre Ríos',
  tipo:'Vertical',subtipo:'Subtipo',estado:'Etapa',suscripcion:'Suscripción',origen:'Origen histórico',fuenteReferencia:'Fuente de referencia histórica',
- prioridad:'Prioridad',notas:'Notas de oportunidad',archivoAdjunto:'Documento adjunto',fechaCreacion:'Fecha de creación',fechaUltimoContacto:'Último contacto',
+ prioridad:'Prioridad',notas:'Notas de gestión',archivoAdjunto:'Documento adjunto',fechaCreacion:'Fecha de creación',fechaUltimoContacto:'Último contacto',
  fechaProximaAccion:'Próxima acción',medioContactoPreferido:'Canal preferido',resultadoUltimoContacto:'Resultado del último contacto',
  clientePotencialRecurrente:'Potencial recurrente',quienCargo:'Quién cargó (histórico)',creadoPor:'Creado por (histórico)',asignadoA:'Responsable (nombre o email)',
  name:'Nombre de la persona',phone:'Teléfono',position:'Cargo',preferredChannel:'Canal preferido'

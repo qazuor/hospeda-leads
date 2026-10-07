@@ -58,10 +58,10 @@ export default function HistoryPage(){
   const clear=()=>{setLeadLabel("");setActor("_all");setCity("_all");setType("_all");setAction("_all");setQ("");setDatePreset("all");setFrom("");setTo("");setPage(1)};
 
   return <><AppHeader/><main className={styles.shell}>
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>AUDITORÍA</div><h1>Historial global</h1><p>Cambios realizados en todos las oportunidades, con usuario, contexto y fecha.</p></div><History size={30}/></header>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>AUDITORÍA</div><h1>Historial global</h1><p>Cambios realizados en todos las gestiones, con usuario, contexto y fecha.</p></div><History size={30}/></header>
     <section className={styles.toolbar}>
-      <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar campo, valor, oportunidad o usuario…"/></div>
-      <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por oportunidad…"/></div>
+      <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar campo, valor, gestión o usuario…"/></div>
+      <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por gestión…"/></div>
       <select value={datePreset} onChange={e=>{setDatePreset(e.target.value);reset()}}><option value="all">Todo el historial</option><option value="today">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="custom">Rango personalizado</option></select>
       {datePreset==="custom"&&<><Input type="date" value={from} onChange={e=>{setFrom(e.target.value);reset()}}/><Input type="date" value={to} onChange={e=>{setTo(e.target.value);reset()}}/></>}
       <select value={actor} onChange={e=>{setActor(e.target.value);reset()}}><option value="_all">Todos los usuarios</option>{data?.filters.actors.map(x=><option key={x}>{x}</option>)}</select>
@@ -72,7 +72,7 @@ export default function HistoryPage(){
     </section>
     <section className={styles.card}>
       <div className={styles.meta}><strong>{(shownData?.total??0).toLocaleString("es-AR")} eventos</strong><span>Página {page} de {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span></div>
-      {shown.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:shown.error?<div className={styles.error}>{shown.error.message}</div>:<div className={styles.scroller}><table><thead><tr><th>Fecha</th><th>Oportunidad</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
+      {shown.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:shown.error?<div className={styles.error}>{shown.error.message}</div>:<div className={styles.scroller}><table><thead><tr><th>Fecha</th><th>Gestión</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
         {(shownData?.rows??[]).map(row=><tr key={row.id}>
           <td>{formatDate(row.createdAt,true)}</td>
           <td>{row.leadId?<Link className={styles.leadLink} to={"/?leadId="+row.leadId}><strong>{row.leadName}</strong><small>#{row.leadId}</small></Link>:<><strong>{row.leadName}</strong><small>eliminado</small></>}</td>

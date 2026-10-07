@@ -66,6 +66,10 @@ jobs:
         run: npm run test:permissions
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Explicit management migration and read-only audit tests
+        run: npm run test:managements
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Guided usability integration tests
         run: npm run test:usability
         env:

@@ -24,7 +24,7 @@ test('Beginner help supports scenarios, search, direct links and history', async
   await expect(article.getByRole('heading', {name: 'Cabañas Camino Claro: de nuevo negocio a cliente'})).toBeVisible();
   await page.goto('/guide?topic=clients&article=care');
   await expect(article.getByRole('heading', {name: 'Acompañar a un cliente'})).toBeVisible();
-  await expect(article.getByText(/No crees una venta solo para registrar una consulta/)).toBeVisible();
+  await expect(article.getByText(/No crees una gestión solo para registrar una consulta/)).toBeVisible();
   await page.screenshot({path: 'test-results/guide-desktop.png', fullPage: true, animations: 'disabled'});
   await page.getByLabel('¿Qué necesitás hacer?').fill('xyzningunaexplicacion');
   await expect(page.getByText('Probá con otra palabra o volvé a los temas de la guía.')).toBeVisible();

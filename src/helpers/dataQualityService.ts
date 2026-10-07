@@ -1,13 +1,12 @@
 import {assertAccountWritable,assertLeadAccess} from './crmPermissions';
 import {createHash,randomUUID} from 'node:crypto';
-import {sql,type Transaction,type Kysely,type Insertable} from 'kysely';
+import {sql,type Transaction,type Kysely} from 'kysely';
 import {z} from 'zod';
-import type {DB,Leads} from './schema';
+import type {DB} from './schema';
 import {classificationErrors} from './accountClassification';
 import {businessImportFields,legacyBusinessFields,accountExtraFields,businessFields,importFields,normalizeField,matchAccounts,dataFieldLabels} from './dataNormalization';
 import {qualityMutation,type QualityMutation,type ReviewRow,type ImportResult} from '../endpoints/dataQuality.schema';
 import {setWorkActor} from './workAudit';
-import {writeLeadJournal} from './writeLeadJournal';
 import type {User} from './User';
 export class QualityForbidden extends Error{}
 export class QualityConflict extends Error{}
@@ -28,7 +27,7 @@ export async function reviewRows(database:Kysely<DB>,values:Record<string,string
   if(!row.nombre?.trim())errors.push('Nombre obligatorio');
   if(mode==='business'){
    const unsupported=Object.keys(row).filter(f=>row[f].trim()&&!(businessImportFields as readonly string[]).includes(f));
-   if(unsupported.length)errors.push('Solo negocios: quitá los campos de venta '+unsupported.join(', '));
+   if(unsupported.length)errors.push('Solo negocios: quitá los campos de gestión '+unsupported.join(', '));
    errors.push(...await classificationErrors(database,row.tipo?.trim()||null,row.subtipo?.trim()||null));
   }else if(accountExtraFields.some(f=>!['tipo','subtipo'].includes(f)&&row[f]?.trim()))errors.push('Los datos de relevamiento requieren el modo Solo negocios.');
   for(const [field,value] of Object.entries(row)){
@@ -85,6 +84,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
  return database.transaction().execute(async trx=>{
   await setWorkActor(trx,user);
   if(input.action==='import_preview'){
+   if(input.mode!=='business')throw new QualityConflict('La importación con gestión inicial está deshabilitada. Importá solo negocios e iniciá cada gestión explícitamente.');
    if(input.obtainedAt&&new Date(input.obtainedAt)>new Date())throw new QualityValidation('Fecha de obtención futura.');
    const config=await qualityConfig(trx);if(input.rows.length>config.maxRows||Buffer.byteLength(JSON.stringify(input.rows))>config.maxFileBytes)throw new QualityValidation('El lote supera los límites configurados.');
    if(user.role!=='admin'&&input.rows.some(r=>r.asignadoA?.trim()))throw new QualityForbidden('Solo admin importa responsables.');
@@ -101,6 +101,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    if(policy&&(batch.mode!=='business'||batch.ownerEmail!==user.email))throw new QualityForbidden('Lote no autorizado para esta clave.');
    if(batch.ownerEmail!==user.email&&user.role!=='admin')throw new QualityForbidden('Lote de otro usuario.');
    if(batch.status==='completed')return batch.result;
+   if(batch.mode!=='business')throw new QualityConflict('Este lote histórico crearía gestiones automáticamente. Volvé a importar el archivo en modo Solo negocios.');
    // Bounded manual imports serialize against writers to recheck duplicates and previews safely.
    await sql`LOCK TABLE crm_accounts, leads IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
    const values=z.array(z.record(z.string())).parse(batch.rows);const review=await reviewRows(trx,values,batch.mode);
@@ -123,18 +124,6 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      await evidence(trx,String(account.id),data,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
      await trx.insertInto('crmCommercialJournal').values({accountId:String(account.id),action:'account_created',actorEmail:user.email,actorName:user.displayName,metadata:json({after:account,batchId:batch.id,source:batch.source})}).execute();
      result.imported++;result.details.push({index:row.index,action:'create',id:String(account.id),accountId:String(account.id),entity:'business'});
-    }else if(d.action==='create'){
-     const data:Insertable<Leads>={nombre:fields.nombre,creadoPor:user.displayName,quienCargo:user.displayName};
-     for(const [f,v] of Object.entries(fields)){
-      if(f==='asignadoA'){const u=await trx.selectFrom('users').select('email').where('email','=',v.trim()).executeTakeFirst()??await trx.selectFrom('users').select('email').where('displayName','=',v.trim()).executeTakeFirstOrThrow();data.assignedUserEmail=u.email;data.asignadoA=v;}
-      else if(f.startsWith('fecha'))Object.assign(data,{[f]:new Date(validDate(v.trim())!+'T12:00:00Z')});
-      else if(f==='clientePotencialRecurrente')data.clientePotencialRecurrente=['true','si','sí','1','yes'].includes(v.trim().toLowerCase());
-      else Object.assign(data,{[f]:v});
-     }
-     const lead=await trx.insertInto('leads').values(data).returningAll().executeTakeFirstOrThrow();
-     await evidence(trx,String(lead.accountId),fields,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id,String(lead.id));
-     await writeLeadJournal(trx,{leadId:lead.id,leadName:lead.nombre,actor:user,action:'created',metadata:{batchId:batch.id,source:batch.source}});
-     result.imported++;result.details.push({index:row.index,action:'create',id:String(lead.id),accountId:String(lead.accountId),entity:'opportunity'});
     }else{
      if(!d.targetId||!d.revision)throw new QualityValidation('Elegí negocio destino para actualizar.');
      if(!row.matches.some(m=>m.id===d.targetId))throw new QualityConflict('El destino ya no coincide con la fila. Revisá el preview.');

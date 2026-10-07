@@ -72,7 +72,7 @@ try{
  const concurrent=await Promise.all([mutation<ImportResult>(body),mutation<ImportResult>(body)]);
  const result=concurrent[0];assert.deepEqual(concurrent[1],result);assert.equal(result.imported,1);assert.equal(result.updated,1);assert.equal(result.skipped,1);
  assert.equal((await detail(dest.id)).account.telefono,source.telefono);
- assert.deepEqual(await mutation<ImportResult>(body),result);assert.equal(Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n),count+1);
+ assert.deepEqual(await mutation<ImportResult>(body),result);assert.equal(Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n),count);
  const retry=await mutation<ImportReview>({action:'import_preview',rows:importRows,source:'Otra fuente'});assert.equal(retry.batchId,review.batchId);assert.equal(retry.status,'completed');
  const qualityResponse=await get(new Request('http://localhost/_api/data_quality?accountId='+dest.id,{headers:{cookie:admin.cookie}}));const quality=superjson.parse<QualityDetail>(await qualityResponse.text());assert(quality.evidence.some(e=>e.batchId===review.batchId));
  // Import conflicts cannot partially apply earlier rows.

@@ -135,7 +135,7 @@ export const LeadDetailDialog=({
             </div>
             <div className={styles.metaLine}>
               <DialogDescription className={styles.description}>
-                Venta para {lead.accountId?<Link to={"/accounts/"+lead.accountId}>{lead.nombre}</Link>:lead.nombre}
+                Gestión para {lead.accountId?<Link to={"/accounts/"+lead.accountId}>{lead.nombre}</Link>:lead.nombre}
               </DialogDescription>
               <div className={styles.secondaryBadges}>
                 {lead.commercialProfile&&<ValueBadge value={lead.commercialProfile} category="profile"/>}
@@ -148,15 +148,15 @@ export const LeadDetailDialog=({
         <div className={styles.actionBar}>
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
-          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Oportunidad anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Oportunidad siguiente"><ChevronRight size={16}/></Button></div>}
-          {!readOnly&&onDelete&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="outline" aria-label="Más acciones de la venta"><MoreHorizontal size={16}/>Más acciones</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={()=>onDelete(lead)}><Trash2 size={15}/>Enviar venta a papelera</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
+          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Gestión anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Gestión siguiente"><ChevronRight size={16}/></Button></div>}
+          {!readOnly&&onDelete&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="outline" aria-label="Más acciones de la gestión"><MoreHorizontal size={16}/>Más acciones</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={()=>onDelete(lead)}><Trash2 size={15}/>Enviar gestión a papelera</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
           {!page&&<Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>}
-          {!readOnly&&onEdit&&<Button size="sm" variant="outline" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar datos de venta</Button>}
+          {!readOnly&&onEdit&&<Button size="sm" variant="outline" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar datos de gestión</Button>}
         </div>
       </div>
 
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>
-        <SectionTabList aria-label="Secciones de la oportunidad"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}</SectionTabList>
+        <SectionTabList aria-label="Secciones de la gestión"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}</SectionTabList>
         <div className={styles.scrollBody}>
           <SectionTabPanel value="overview">{!readOnly&&<PipelineDetail lead={lead}/>}
         <details className={styles.section}><summary>Responsable y datos generales</summary><div className={styles.summaryGrid}>
@@ -166,20 +166,20 @@ export const LeadDetailDialog=({
           <SummaryItem icon={CalendarClock} label="Próxima acción" value={<span className={styles["next_"+nextActionInfo(lead.fechaProximaAccion).tone]} title={nextActionInfo(lead.fechaProximaAccion).title}>{nextActionInfo(lead.fechaProximaAccion).label}</span>}/>
         </div></details>
 
-            <details className={styles.section}><summary>Ver todos los datos de esta venta</summary><div className={styles.contentGrid}>
+            <details className={styles.section}><summary>Ver todos los datos de esta gestión</summary><div className={styles.contentGrid}>
           <section className={styles.panel}>
             <SectionTitle icon={ContactRound} title="Datos del negocio" description="Canales compartidos. Las personas están en Negocio y contactos."/>
             <div className={styles.fieldGrid}>
               <Field label="Teléfono genérico" value={text(lead.telefono)}/>
               <Field label="Email genérico" value={text(lead.email)}/>
-              <Field label="Canal histórico de la oportunidad" value={text(lead.medioContactoPreferido)}/>
+              <Field label="Canal histórico de la gestión" value={text(lead.medioContactoPreferido)}/>
               <Field label="Ciudad" value={lead.ciudad?<ValueBadge value={lead.ciudad} category="city"/>:"—"}/>
               <Field label="Potencial recurrente" value={lead.clientePotencialRecurrente?"Sí":"No"}/>
             </div>
           </section>
 
           <section className={styles.panel}>
-            <SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y etapa de esta oportunidad, independientes de otras ventas del negocio."/>
+            <SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y etapa de esta gestión, independientes de otras gestiones del negocio."/>
             <div className={styles.fieldGrid}>
               <Field label="Vertical" value={lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:"—"}/>
               <Field label="Subtipo" value={lead.subtipo?<ValueBadge value={lead.subtipo} category="subtype"/>:"—"}/>
@@ -243,7 +243,7 @@ export const LeadDetailDialog=({
           </section>}
 
             </div>
-          </details><details className={styles.section}><summary>Negocio, personas y otras ventas</summary><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></details></SectionTabPanel>
+          </details><details className={styles.section}><summary>Negocio, personas y otras gestiones</summary><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></details></SectionTabPanel>
           {!readOnly&&<SectionTabPanel value="work">{lead.accountId?<WorkPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/>:<p>No hay un negocio vinculado.</p>}</SectionTabPanel>}
 
           <SectionTabPanel value="notes">

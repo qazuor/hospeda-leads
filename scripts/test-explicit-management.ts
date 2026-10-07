@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import postgres from 'postgres';
+import superjson from 'superjson';
+import {db} from '../src/helpers/db';
+import {post,get} from '../src/endpoints/commercial';
+import {handle as legacy} from '../src/endpoints/leads_POST';
+import {handle as saveLegacy} from '../src/endpoints/leads_save_POST';
+import {post as quality} from '../src/endpoints/dataQuality';
+import {setServerSession} from '../src/helpers/getSetServerSession';
+import {auditManagementCleanup} from './lib/audit-management-cleanup.mjs';
+
+assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable DB');
+const stamp=Date.now();
+const user=await db.insertInto('users').values({email:`explicit-${stamp}@example.com`,displayName:'Explicit test',role:'admin'}).returningAll().executeTakeFirstOrThrow();
+const session={id:user.email,createdAt:stamp,lastAccessed:stamp};
+await db.insertInto('sessions').values({id:session.id,userId:user.id,expiresAt:new Date(stamp+3600000)}).execute();
+const response=new Response();await setServerSession(response,session);const cookie=response.headers.get('set-cookie')!.split(';')[0];
+async function call(handler:(r:Request)=>Promise<Response>,url:string,body?:unknown,status=200){
+ const r=await handler(new Request('http://localhost/_api/'+url,{headers:{cookie},...(body?{method:'POST',body:superjson.stringify(body)}:{})}));
+ const data=superjson.parse<any>(await r.text());assert.equal(r.status,status,data.error);return data;
+}
+const count=async()=>Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n);
+const auditDB=postgres(process.env.DATABASE_URL!,{max:1,prepare:false});
+try{
+ const initial=await count();
+ const {id:accountId}=await call(post,'commercial',{action:'account_save',nombre:'Solo negocio '+stamp});
+ await call(post,'commercial',{action:'account_save',id:accountId,nombre:'Solo negocio editado '+stamp,email:'business@example.com'});
+ assert.equal(await count(),initial,'Creating/editing a business creates no management');
+ const before=(await call(get,'commercial?accountId='+accountId));assert.equal(before.opportunities.length,0);assert.equal(before.account.assignedUserEmail,user.email);
+ await call(legacy,'leads',{nombre:'Legacy no management'},409);
+ await call(saveLegacy,'leads_save',{nombre:'Legacy force no management',force:true},409);
+ assert.equal(await count(),initial);
+ assert.equal(await count(),initial);
+ await call(quality,'data_quality',{action:'import_preview',mode:'opportunity',source:'Disabled historic mode',rows:[{nombre:'No create'}]},409);
+ const historic=await db.insertInto('crmImportBatches').values({id:randomUUID(),fingerprint:'historic-'+stamp,ownerEmail:user.email,mode:'opportunity',source:'Historic',rows:[{nombre:'No create'}]}).returningAll().executeTakeFirstOrThrow();
+ await call(quality,'data_quality',{action:'import_confirm',batchId:historic.id,decisions:[{index:0,action:'create'}],confirm:true},409);
+ assert.equal(await count(),initial);
+ const payload={action:'opportunity_save',accountId,opportunityName:'Presentación de Hospeda',creationRequestKey:randomUUID()};
+ const attempts=await Promise.all([call(post,'commercial',payload),call(post,'commercial',payload)]);
+ assert.equal(attempts[0].id,attempts[1].id);assert.equal(await count(),initial+1,'Concurrent retries create only one management');
+ const first=await db.selectFrom('leads').selectAll().where('id','=',attempts[0].id).executeTakeFirstOrThrow();
+ for(const field of ['estado','serviceInterest','estimatedCloseDate','primaryContactId','fechaUltimoContacto','resultadoUltimoContacto'] as const)assert.equal(first[field],null);
+ assert.equal(first.assignedUserEmail,user.email);assert.equal(first.accountId,accountId);
+ assert.equal((await db.selectFrom('leadJournal').selectAll().where('leadId','=',first.id).where('action','=','created').execute()).length,1);
+ await call(post,'commercial',{...payload,opportunityName:'Changed uncertain retry'},409);assert.equal(await count(),initial+1);
+ const {id:second}=await call(post,'commercial',{...payload,creationRequestKey:randomUUID(),opportunityName:'Segunda gestión'});
+ assert.notEqual(second,first.id);assert.equal((await call(get,'commercial?accountId='+accountId)).opportunities.length,2);
+ // Fixtures exercise actual FK discovery, unkeyed history and JSON evidence.
+ const blank=await db.insertInto('leads').values({accountId,nombre:'Blank candidate'}).returningAll().executeTakeFirstOrThrow();
+ const technical=await db.insertInto('leads').values({accountId,nombre:'Technical review'}).returningAll().executeTakeFirstOrThrow();
+ await db.insertInto('leadJournal').values({accountId,leadId:technical.id,leadName:'Technical review',actorName:'Test',action:'created'}).execute();
+ const task=await db.insertInto('crmTasks').values({accountId,leadId:blank.id,title:'Compromiso vigente',typeId:'call',dueDate:'2027-01-15'}).returningAll().executeTakeFirstOrThrow();
+ await db.insertInto('crmCommercialJournal').values({accountId,actorName:'Test',action:'external_reference',metadata:{nested:{leadId:second}}}).execute();
+ const newBlank=await db.insertInto('leads').values({accountId,nombre:'Truly blank'}).returningAll().executeTakeFirstOrThrow();
+ const beforeAudit=await db.selectFrom('crmAccounts').selectAll().orderBy('id').execute();const countBeforeAudit=await count();
+ await assert.rejects(db.transaction().execute(trx=>trx.insertInto('leads').values({nombre:'Legacy database writer'}).execute()),/iniciá la gestión explícitamente/);
+ await db.destroy();
+ const rawBefore=await auditDB`SELECT * FROM crm_accounts ORDER BY id`;
+ const report=await auditDB.begin('isolation level repeatable read read only',tx=>auditManagementCleanup((q:string)=>tx.unsafe(q)));
+ assert.equal(report.readOnly,true);assert.equal(report.cleanupExecuted,false);assert.equal(report.manualReviewRequired,true);
+ const proposal=(id:string)=>report.proposals.find((r:any)=>r.leadId===String(id))!;
+ assert.equal(proposal(blank.id).status,'blocked');assert(proposal(blank.id).blockers.some((b:string)=>b.includes('crm_tasks')));
+ assert.equal(proposal(technical.id).status,'review');assert.equal(proposal(newBlank.id).status,'candidate');
+ assert(proposal(second).blockers.some((b:string)=>b.includes('Referencia JSON')));
+ assert.equal(report.counts.businesses,beforeAudit.length);assert(report.foreignKeys.some((f:any)=>f.table_name==='crm_tasks'));assert(report.triggers.some((t:any)=>t.name==='crm_lead_account_guard'));
+ assert.deepEqual(await auditDB`SELECT * FROM crm_accounts ORDER BY id`,rawBefore);assert.equal(Number((await auditDB`SELECT count(*) AS n FROM leads`)[0].n),countBeforeAudit);
+ assert.equal((await auditDB`SELECT title FROM crm_tasks WHERE id=${task.id}`)[0].title,'Compromiso vigente');
+ await assert.rejects(auditDB.begin(tx=>auditManagementCleanup((q:string)=>tx.unsafe(q))),/REPEATABLE READ READ ONLY/);
+ await assert.rejects(auditDB.begin('read only',tx=>tx`DELETE FROM leads`),/read-only transaction/);
+ console.log('Explicit management: business-only creation/edit, legacy API/DB guards, disabled historic batches, concurrent/replayed requests, independent managements, no invented stage/contact/proposal, read-only FK/history/JSON audit and preservation passed');
+}finally{await auditDB.end();await db.destroy();}

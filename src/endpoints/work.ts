@@ -122,7 +122,7 @@ export async function post(request:Request){
    const commercialOwner=lead?lead.assignedUserEmail:account.assignedUserEmail;
    const delegatedTask=previous&&isTask&&'assignedUserEmail' in previous&&previous.assignedUserEmail===user.email;
    const linkedTask=previous&&!isTask&&'taskId' in previous&&previous.taskId?await trx.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',previous.taskId).executeTakeFirst():null;
-   if(user.role!=='admin'&&commercialOwner!==user.email&&!delegatedTask&&linkedTask?.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar trabajo de tus negocios u oportunidades asignados.');
+   if(user.role!=='admin'&&commercialOwner!==user.email&&!delegatedTask&&linkedTask?.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar trabajo de tus negocios u gestiones asignados.');
    if(previous&&isTask){
     const old=await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id!).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
     if(user.role!=='admin'&&old.assignedUserEmail!==user.email)throw new Forbidden('La tarea corresponde a otro responsable.');
@@ -176,7 +176,7 @@ export async function post(request:Request){
     if(existing&&existing.status!=='pending')throw new Error('Solo se pueden editar o reprogramar tareas pendientes.');
     const assignee=input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:commercialOwner):input.assignedUserEmail;
     if(user.role!=='admin'&&assignee!==(existing?existing.assignedUserEmail:commercialOwner))throw new Forbidden('Solo admin puede asignar o cambiar el responsable de una tarea.');
-    if(existing?.legacy&&assignee!==commercialOwner)throw new Error('El seguimiento histórico conserva el responsable de la oportunidad.');
+    if(existing?.legacy&&assignee!==commercialOwner)throw new Error('El seguimiento histórico conserva el responsable de la gestión.');
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
     const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,description:input.description??null,typeId:input.typeId,assignedUserEmail:assignee,dueDate:input.dueDate,dueAt,priority:input.priority,participants:input.participants,contactIds:serialize(input.contactIds),updatedAt:new Date()};

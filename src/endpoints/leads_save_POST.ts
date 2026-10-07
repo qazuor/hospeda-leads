@@ -4,7 +4,6 @@ import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_save_POST.schema";
-import { findLeadDuplicates } from "../helpers/findLeadDuplicates";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 
 const dateOrNull = (value?: string | null) => value ? new Date(value + "T12:00:00Z") : null;
@@ -18,15 +17,7 @@ export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
     const input = schema.parse(superjson.parse(await request.text()));
-    if (!input.id && !input.force) {
-      const duplicateCandidates = await findLeadDuplicates(input);
-      if (duplicateCandidates.length) {
-        return new Response(
-          superjson.stringify({ duplicateCandidates } satisfies OutputType),
-          { headers: { "Content-Type": "application/json" } }
-        );
-      }
-    }
+    if(!input.id)return new Response(superjson.stringify({error:"El alta heredada está deshabilitada. Creá un negocio y usá Iniciar gestión cuando corresponda."}),{status:409});
 
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
@@ -38,7 +29,7 @@ export async function handle(request: Request) {
       if(user.role!=="admin"&&input.assignedUserEmail!==undefined&&(input.assignedUserEmail??null)!==(existing?.assignedUserEmail??null))throw new Error("Solo un administrador puede modificar el responsable.");
       if(existing?.deletedAt)throw new Error("Este lead está en la papelera. Restauralo antes de editarlo.");
 
-      if(input.scope==="opportunity"&&!existing)throw new Error("Oportunidad no encontrada");
+      if(input.scope==="opportunity"&&!existing)throw new Error("Gestión no encontrada");
       if(input.primaryContactId){
         if(!existing)throw new Error("Elegí primero un negocio");
         await trx.selectFrom("crmContacts").select("id").where("id","=",input.primaryContactId).where("accountId","=",existing.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow();
@@ -115,16 +106,7 @@ export async function handle(request: Request) {
             changes
           });
         }
-      }else{
-        const created=await trx.insertInto("leads").values(values).returning("id").executeTakeFirstOrThrow();
-        leadId=String(created.id);
-        await writeLeadJournal(trx,{
-          leadId,
-          leadName:values.nombre,
-          actor:{id:user.id,email:user.email,displayName:user.displayName},
-          action:"created"
-        });
-      }
+      }else{throw new Error("Gestión no encontrada");}
 
       if(input.notas?.trim()){
         const note=await trx.insertInto("leadNotes").values({

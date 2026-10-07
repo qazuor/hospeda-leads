@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
@@ -14,6 +15,7 @@ import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { NotAuthenticatedError } from "../helpers/getSetServerSession";
 
 class Forbidden extends Error {}
+class Conflict extends Error {}
 const response=(value:unknown,status=200)=>new Response(superjson.stringify(value),{status,headers:{"Content-Type":"application/json"}});
 const nullable=(v:string|null|undefined)=>v?.trim()||null;
 const checkEmail=(next:string|null|undefined,previous?:string|null)=>{if(next&&next!==previous&&!z.string().email().safeParse(next).success)throw new Error("Email inválido.");};
@@ -55,7 +57,7 @@ export async function get(request:Request){
       ]).orderBy("nombre").limit(50).offset((input.page-1)*50).execute()
     ]);
     return response({rows:rows.map(r=>({...r,opportunityCount:Number(r.opportunityCount),contactCount:Number(r.contactCount)})),total:Number(count.total),page:input.page});
-  }catch(e){return response({error:crmError(e)},e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:400)}
 }
 
 export async function post(request:Request){
@@ -124,6 +126,15 @@ export async function post(request:Request){
         await audit(input.accountId,old?"contact_updated":"contact_created",old,row,String(row.id));
         return String(row.id);
       }
+      const creationHash=input.creationRequestKey?createHash("sha256").update(JSON.stringify({...input,actorEmail:user.email})).digest("hex"):null;
+      if(!input.id&&input.creationRequestKey){
+        const previous=await trx.selectFrom("leads").selectAll().where("creationRequestKey","=",input.creationRequestKey).executeTakeFirst();
+        if(previous){
+          if(previous.creationRequestHash!==creationHash)throw new Conflict("Este intento ya guardó otra versión. Abrí la gestión antes de cambiar sus datos; no se creó otra.");
+          if(previous.deletedAt)throw new Conflict("La gestión guardada con este intento está en Papelera. No se creará otra al reintentar.");
+          return String(previous.id);
+        }
+      }
       const old=input.id?await trx.selectFrom("leads").selectAll().where("id","=",input.id).where("accountId","=",input.accountId).where("deletedAt","is",null).forUpdate().executeTakeFirstOrThrow():null;
       checkResponsible(input.assignedUserEmail,old?.assignedUserEmail??null);
       if(input.primaryContactId)await trx.selectFrom("crmContacts").select("id").where("id","=",input.primaryContactId).where("accountId","=",input.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow();
@@ -135,10 +146,10 @@ export async function post(request:Request){
         if(!(await getOpportunityStages(trx)).includes(input.estado))throw new Error("Etapa no disponible.");
       }
       const fields={opportunityName:input.opportunityName,tipo:nullable(input.tipo),estado:nullable(input.estado),assignedUserEmail:input.assignedUserEmail===undefined?(old?old.assignedUserEmail:account.assignedUserEmail??user.email):nullable(input.assignedUserEmail),primaryContactId:input.primaryContactId??null,serviceInterest:nullable(input.serviceInterest),estimatedCloseDate:input.estimatedCloseDate?new Date(input.estimatedCloseDate+"T12:00:00Z"):null,updatedAt:new Date()};
-      const row=old?await trx.updateTable("leads").set({...fields,...(old.tipo!==fields.tipo?{subtipo:null}:{})}).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("leads").values({...fields,accountId:input.accountId,nombre:account.nombre,creadoPor:user.displayName,quienCargo:user.displayName,fechaCreacion:new Date()}).returningAll().executeTakeFirstOrThrow();
+      const row=old?await trx.updateTable("leads").set({...fields,...(old.tipo!==fields.tipo?{subtipo:null}:{})}).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("leads").values({...fields,creationRequestKey:input.creationRequestKey??null,creationRequestHash:creationHash,accountId:input.accountId,nombre:account.nombre,creadoPor:user.displayName,quienCargo:user.displayName,fechaCreacion:new Date()}).returningAll().executeTakeFirstOrThrow();
       await writeLeadJournal(trx,{leadId:row.id,leadName:row.nombre,actor,action:old?"updated":"created",changes:old?Object.entries(fields).filter(([key,value])=>String(old[key as keyof typeof old]??"")!==String(value??"")).map(([fieldName,newValue])=>({fieldName,oldValue:old[fieldName as keyof typeof old],newValue})):undefined,metadata:{accountId:input.accountId,opportunityName:input.opportunityName}});
       return String(row.id);
     });
     return response({id});
-  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:400)}
 }

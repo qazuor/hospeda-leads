@@ -22,7 +22,7 @@ export async function handle(request:Request){
       const leads=await trx.selectFrom("leads").selectAll().where(input.entity==="business"?"accountId":"id","in",ids).where("deletedAt","is",null).orderBy("id").forUpdate().execute();
       if(input.entity==="business"){for(const id of ids)await assertBusinessAccess(trx,id,user,true);}
       else {for(const id of ids)await assertLeadAccess(trx,id,user,true);}
-      if(input.entity==="business"&&ids.some(id=>!leads.some(l=>String(l.accountId)===id)))throw new Error("Un negocio sin oportunidades todavía no tiene elementos que enviar a Papelera.");
+      if(input.entity==="business"&&ids.some(id=>!leads.some(l=>String(l.accountId)===id)))throw new Error("Un negocio sin gestiones todavía no tiene elementos que enviar a Papelera.");
       for(const lead of leads)await assertLeadAccess(trx,String(lead.id),user,true);
       const now=new Date();
       for(const lead of leads){

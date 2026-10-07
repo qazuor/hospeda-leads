@@ -30,7 +30,7 @@ export async function handle(request: Request) {
         await updateBusinessFields(trx,[input.accountId],fields,user);
         if(Object.keys(fields).length)return;
         const opportunities=await trx.selectFrom("leads").select("id").where("accountId","=",input.accountId).where("deletedAt","is",null).execute();
-        if(opportunities.length!==1||String(opportunities[0].id)!==String(input.id))throw new Error("Abrí el negocio y elegí la oportunidad que querés modificar.");
+        if(opportunities.length!==1||String(opportunities[0].id)!==String(input.id))throw new Error("Abrí el negocio y elegí la gestión que querés modificar.");
       }
       const old=await assertLeadAccess(trx,String(input.id),user,true);
       if(old.deletedAt)throw new Error("Este lead está en la papelera.");

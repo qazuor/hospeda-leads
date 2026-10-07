@@ -39,9 +39,14 @@ await sql.begin(async tx=>{
     ON CONFLICT(name) DO NOTHING
   `;
 
+  const [business]=await tx`
+    INSERT INTO crm_accounts(nombre,tipo,ciudad,email,assigned_user_email)
+    VALUES('Negocio de prueba','Alojamiento','Concepción del Uruguay','lead@example.com','admin@example.com')
+    RETURNING id
+  `;
   await tx`
-    INSERT INTO leads(nombre,tipo,ciudad,estado,email,commercial_profile,assigned_user_email)
-    VALUES('Lead de prueba','Alojamiento','Concepción del Uruguay','Cargado','lead@example.com','Independiente','admin@example.com')
+    INSERT INTO leads(account_id,nombre,opportunity_name,tipo,ciudad,estado,email,commercial_profile,assigned_user_email)
+    VALUES(${business.id},'Negocio de prueba','Gestión de prueba','Alojamiento','Concepción del Uruguay','Cargado','lead@example.com','Independiente','admin@example.com')
   `;
 });
 console.log("Seed completed");

@@ -9,7 +9,7 @@ const source={source:z.string().trim().min(1).max(200),sourceUrl:z.string().url(
 export const importRow=z.record(z.enum(importFields),z.string().max(10000));
 export const decision=z.object({index:z.number().int().nonnegative(),action:z.enum(['create','update','skip']),targetId:id.optional(),revision:z.string().optional(),acknowledge:z.boolean().default(false)});
 export const qualityMutation=z.discriminatedUnion('action',[
- z.object({action:z.literal('import_preview'),rows:z.array(importRow).min(1).max(250),mode:z.enum(['business','opportunity']).default('opportunity'),...source}),
+ z.object({action:z.literal('import_preview'),rows:z.array(importRow).min(1).max(250),mode:z.enum(['business','opportunity']).default('business'),...source}),
  z.object({action:z.literal('import_confirm'),batchId:z.string().uuid(),decisions:z.array(decision).max(250),confirm:z.literal(true)}),
  z.object({action:z.literal('merge_preview'),sourceId:id,destinationId:id}),
  z.object({action:z.literal('merge_confirm'),sourceId:id,destinationId:id,token:z.string().length(64),reason:z.string().trim().min(3).max(2000),selections:z.record(z.enum(businessFields),z.enum(['source','destination'])),confirm:z.literal(true)}),
