@@ -13,11 +13,11 @@ import styles from './InlineBusinessBadge.module.css';
 export function InlineBusinessBadge({accountId,name,field,value,label}:{accountId:string;name:string;field:'ciudad'|'assignedUserEmail';value:string|null;label:string}){
  const [processing,setProcessing]=useState(false);
  const [open,setOpen]=useState(false),[draft,setDraft]=useState<{value:string;expected:string|null}|null>(null);const lock=useRef(false),qc=useQueryClient(),{authState}=useAuth();
- const detail=useQuery({queryKey:['commercial-detail',accountId],queryFn:()=>getCommercialDetail(accountId),enabled:open,refetchOnMount:'always'});
+ const detail=useQuery({queryKey:['commercial-detail',accountId],queryFn:()=>getCommercialDetail(accountId),enabled:open,refetchOnMount:'always',refetchOnWindowFocus:false});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings,enabled:open});const save=useMutation({mutationFn:postLeadsQuick});
  const title=field==='ciudad'?'Ciudad':'Responsable',empty=field==='ciudad'?'Sin ciudad':'Sin responsable';const current=detail.data?.account[field]??null;
  const allowed=authState.type==='authenticated'&&!!detail.data&&!detail.data.account.archivedAt&&(authState.user.role==='admin'||field==='ciudad'&&detail.data.account.assignedUserEmail===authState.user.email);
- const loading=detail.isFetching||settings.isPending,options=field==='ciudad'?settings.data?.cities.map(v=>({value:v.name,label:v.name}))??[]:settings.data?.users.map(v=>({value:v.email,label:v.displayName||v.email}))??[];
+ const loading=detail.isFetching&&!processing||settings.isPending,options=field==='ciudad'?settings.data?.cities.map(v=>({value:v.name,label:v.name}))??[]:settings.data?.users.map(v=>({value:v.email,label:v.displayName||v.email}))??[];
  async function submit(){if(lock.current||!draft||!allowed)return;lock.current=true;setProcessing(true);try{
   await save.mutateAsync({id:accountId,accountId,field,value:draft.value||null,expectedValue:draft.expected});
   await Promise.all([qc.invalidateQueries({queryKey:['leads']}),qc.invalidateQueries({queryKey:['commercial-detail',accountId]})]);setOpen(false);toast.success(title+' actualizado',{duration:8000});
