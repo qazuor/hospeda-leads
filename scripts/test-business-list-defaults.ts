@@ -4,6 +4,7 @@ import {db} from '../src/helpers/db';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {handle} from '../src/endpoints/business_list_defaults';
 import {handle as listBusinesses} from '../src/endpoints/leads_GET';
+import {defaultSystemViews} from '../src/helpers/businessSystemViews';
 import {basePreferences} from '../src/helpers/businessListPreferences';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Disposable database required');
 const key='business_list_team_defaults_v1';
@@ -13,6 +14,7 @@ async function actor(role:'admin'|'user'){const user=await db.insertInto('users'
 async function call(cookie:string,body?:unknown,status=200){const r=await handle(new Request('http://localhost/_api/business_list_defaults',{headers:{cookie},...(body?{method:'POST',body:superjson.stringify(body)}:{})}));assert.equal(r.status,status,await r.clone().text());return superjson.parse<any>(await r.text());}
 try{const admin=await actor('admin'),seller=await actor('user');const defaults={preferences:basePreferences(),presets:[{id:'colon',name:'Colón',filters:[{rules:[{field:'ciudad',operator:'eq',value:'Colón'}]}]}],initialPresetId:null};
  await call(admin,defaults);assert.deepEqual((await call(seller)).defaults,defaults);await call(seller,{...defaults,initialPresetId:'colon'},403);assert.equal((await call(admin)).defaults.initialPresetId,null);
+ const systemViews=defaultSystemViews().reverse().map(v=>({...v,name:'Equipo '+v.name,enabled:v.id!=='today'}));await call(admin,{...defaults,systemViews});assert.deepEqual((await call(seller)).defaults.systemViews,systemViews);await call(seller,{...defaults,systemViews:[]},403);assert.deepEqual((await call(admin)).defaults.systemViews,systemViews);await call(admin,{...defaults,systemViews:[systemViews[0],systemViews[0]]},400);
  await call(admin,{...defaults,initialPresetId:'missing'},400);await call(admin,{...defaults,preferences:{...defaults.preferences,columns:['email']}},400);await call(admin,{...defaults,preferences:{...defaults.preferences,filters:[{rules:[{field:'deletedAt',operator:'is_true'}]}]}},400);await call('',undefined,401);
  await call(admin,{...defaults,initialPresetId:'colon'});assert.equal((await call(seller)).defaults.initialPresetId,'colon');const owner=await db.selectFrom('users').select('email').where('id','=',ids[0]).executeTakeFirstOrThrow();
  const prefix='Anchor fixture '+Date.now();
