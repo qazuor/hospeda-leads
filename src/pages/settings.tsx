@@ -1,3 +1,4 @@
+import {BusinessListDefaults} from '../components/BusinessListDefaults';
 import {ClassificationSettings} from "../components/ClassificationSettings";
 import {SectionTabs, SectionTabList, SectionTab, SectionTabPanel} from "../components/SectionTabs";
 import {SequenceSettings} from "../components/SequenceSettings";
@@ -20,8 +21,8 @@ import { getSettings, type OperationalUser } from "../endpoints/settings_GET.sch
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="users"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
-const SECTIONS:Section[]=["users","classifications","process","communication","templates","library","system"];
+type Section="businesses"|"users"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
+const SECTIONS:Section[]=["businesses","users","classifications","process","communication","templates","library","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -68,6 +69,7 @@ export default function SettingsPage(){
   };
 
   const tabs=[
+    {key:"businesses" as const,label:"Listado de negocios",icon:SlidersHorizontal},
     {key:"users" as const,label:"Usuarios",icon:Users},
     {key:"classifications" as const,label:"Clasificaciones",icon:Tags},
     {key:"process" as const,label:"Proceso comercial",icon:GitBranch},
@@ -84,6 +86,7 @@ export default function SettingsPage(){
       <nav aria-label="Secciones de configuración" className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <button key={tab.key} aria-current={section===tab.key?"page":undefined} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</button>})}</nav>
       {(q.error||save.error)&&<div className={styles.error}>{(q.error||save.error)?.message}</div>}
 
+      {section==="businesses"&&<BusinessListDefaults/>}
       {section==="users"&&<section className={styles.content}>
         <article className={styles.usersCard}>
           <div className={styles.usersHeader}>
