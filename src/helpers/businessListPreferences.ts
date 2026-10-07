@@ -35,25 +35,27 @@ const TABLE_COLUMNS=[
   {key:"createdAt",label:"Creado en sistema"},
   {key:"updatedAt",label:"Actualizado"}
 ];
-const DEFAULT_WIDTHS:Record<string,number>={nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180};
+const DEFAULT_WIDTHS:Record<string,number>={actions:110,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180};
 export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
-export const BUSINESS_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
+const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
+export const BUSINESS_COLUMNS=[...BUSINESS_DATA_COLUMNS,{key:'actions',label:'Acciones'}];
 const field=z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key),'Campo desconocido');
 const legacyFiltersSchema=leadsSchema.omit({anchorAccountId:true,alignAnchorPage:true,entity:true,q:true,filterGroups:true,view:true,page:true,pageSize:true,sortBy:true,sortDir:true});
 export const listPreferencesSchema=z.object({
  presentation:z.enum(['table','grid']),columns:z.array(field).min(1).max(40).refine(v=>v.includes('nombre')&&new Set(v).size===v.length),
  widths:z.record(field,z.number().min(100).max(600)),pins:z.record(field,z.enum(['left','right'])),
  query:z.string().max(1000),filters:z.array(advancedFilterGroup).max(20).refine(groups=>!groups.some(g=>g.rules.some(r=>r.field==='deletedAt'))),
- sortBy:leadsSchema.shape.sortBy.unwrap().default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),legacyFilters:legacyFiltersSchema.optional()
+ sortBy:leadsSchema.shape.sortBy.unwrap().default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),columnLayoutVersion:z.literal(2).optional(),legacyFilters:legacyFiltersSchema.optional()
 });
 export type ListPreferences=z.infer<typeof listPreferencesSchema>;
 // Restore this switch to expose pagination again; schema, queries and return context support both modes.
 export const BUSINESS_PAGINATION_CONTROLS_ENABLED=false;
 export const BUSINESS_RESULTS_CONTROL_ENABLED=false;
 export function availableListPreferences(preferences:ListPreferences):ListPreferences{
- return {...preferences,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50};
+ const layout=preferences.columnLayoutVersion===2?preferences:{...preferences,columnLayoutVersion:2 as const,columns:[...preferences.columns.filter(key=>key!=='actions'),'actions'],widths:{...preferences.widths,actions:110},pins:{...preferences.pins,actions:'right' as const}};
+ return {...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50};
 }
-export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion'],widths:{...DEFAULT_WIDTHS},pins:{},query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
+export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS},pins:{actions:'right'},columnLayoutVersion:2,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
 export const teamDefaultsSchema=z.object({preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()}).refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId)));
 export type TeamDefaults=z.infer<typeof teamDefaultsSchema>;
 export const initialPreferences=(team:TeamDefaults|undefined,mobile:boolean):ListPreferences=>team?{...team.preferences,presentation:mobile?'grid':team.preferences.presentation,query:team.initialPresetId?(team.presets.find(p=>p.id===team.initialPresetId)!.query??team.preferences.query):team.preferences.query,filters:team.initialPresetId?team.presets.find(p=>p.id===team.initialPresetId)!.filters:team.preferences.filters}:basePreferences(mobile);
