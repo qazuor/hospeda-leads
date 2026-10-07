@@ -30,7 +30,8 @@ for(const width of [1280,390])test(`remaining badges edit their explicit busines
   await expect(popup.getByRole('option',{name:/Gestión ajena/})).toHaveJSProperty('disabled',true);
   const managementSelect=popup.getByRole('combobox',{name:'Gestión a modificar',exact:true});
   await managementSelect.focus();await page.keyboard.press('End');await expect(managementSelect).toHaveValue('11');
-  await page.keyboard.press('Home');await expect(managementSelect).toHaveValue('');
+  // Selecting a management mounts an autofocus field, so return focus to the selector.
+  await managementSelect.focus();await page.keyboard.press('Home');await expect(managementSelect).toHaveValue('');
   await popup.getByRole('combobox',{name:'Gestión a modificar',exact:true}).selectOption('11');await popup.getByRole('combobox',{name:`Nuevo valor de ${title}`,exact:true}).selectOption(value);if(field==='commercialProfile')await page.screenshot({path:`test-results/badge-management-${width}.png`,animations:'disabled'});await popup.getByRole('button',{name:'Guardar',exact:true}).click();if(field==='commercialProfile'){await expect(popup.getByRole('button',{name:'Guardando perfil comercial…',exact:true})).toBeDisabled();await expect(popup.getByRole('button',{name:'Cancelar',exact:true})).toBeDisabled();await expect.poll(()=>popup.evaluate(element=>element.scrollWidth-element.clientWidth)).toBe(0);await page.screenshot({path:`test-results/badge-management-saving-${width}.png`,animations:'disabled'});release();}await expect(popup).toHaveCount(0);expect(mutations.at(-1)).toEqual({id:'11',accountId:'1',scope:'management',field,value,expectedValue});
  }
  // Business ownership never overrides the independently assigned management owner.

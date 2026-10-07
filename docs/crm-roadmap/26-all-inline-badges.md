@@ -13,3 +13,5 @@ Validación: TypeScript, unitarias, build; integración de clasificación, confl
 ## Corrección de CI
 
 El run 37681302290 aprobó TypeScript, 60 unitarias, integraciones, build y smoke de API; navegador aprobó 49 y falló dos variantes de la misma aserción. Playwright 1.58.2 redirige el estado de un option dentro de label al select asociado: el option tenía disabled, pero el select estaba habilitado. Se comprueba ahora la propiedad disabled del option y se verifica por teclado que End omite la gestión ajena y Home vuelve a la opción inicial. Se mantienen las pruebas de autorización reales del servidor. Nueva CI completa y revisión visual requeridas antes del merge.
+
+El siguiente run confirmó la propiedad disabled y que End omite la opción ajena. La comprobación Home necesitaba devolver el foco al selector porque elegir gestión monta el campo de edición con autofocus. La prueba recupera explícitamente ese foco antes de Home. Sin cambios funcionales ni de permisos.
