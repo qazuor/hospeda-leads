@@ -467,7 +467,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   };
 
   const newLead=()=>businessMode?setBusinessEditor({}):setStartingOpportunity(true);
-  const editLead=(l:any)=>{if(businessMode){void getCommercialDetail(String(l.accountId)).then(detail=>setBusinessEditor({item:detail.account})).catch(error=>toast.error(error.message));return}setLastTouchedId(String(l.id));setDuplicateCandidates([]);setForm({
+  const editLead=(l:any)=>{if(l.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede modificarlo.");return;}if(businessMode){void getCommercialDetail(String(l.accountId)).then(detail=>setBusinessEditor({item:detail.account})).catch(error=>toast.error(error.message));return}setLastTouchedId(String(l.id));setDuplicateCandidates([]);setForm({
     id:String(l.id),scope:"opportunity",opportunityName:l.opportunityName||"Gestión comercial inicial",serviceInterest:l.serviceInterest,primaryContactId:l.primaryContactId?String(l.primaryContactId):null,estimatedCloseDate:dateOnlyInput(l.estimatedCloseDate)||null,nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
     email:l.email,telefono:l.telefono,sitioWeb:l.sitioWeb,urlGmap:l.urlGmap,perfilInstagram:l.perfilInstagram,perfilFacebook:l.perfilFacebook,
     perfilAirbnb:l.perfilAirbnb,perfilBooking:l.perfilBooking,perfilTurismoEntreRios:l.perfilTurismoEntreRios,origen:l.origen,
@@ -537,11 +537,11 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar la selección a Papelera")}
   };
   const togglePageSelection=()=>{
-    const ids=leads.filter(lead=>!lead.deletedAt).map(lead=>String(lead.id));
+    const ids=leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).map(lead=>String(lead.id));
     const all=ids.length>0&&ids.every(id=>selectedIds.has(id));
     setSelectedIds(prev=>{const next=new Set(prev);ids.forEach(id=>all?next.delete(id):next.add(id));return next});
   };
-  const openContact=(lead:any,channel:"whatsapp"|"email")=>{if(businessMode){if(lead.opportunityCount!==1){toast.info("Elegí una oportunidad del negocio para registrar la comunicación en su historial.");openView(lead);return}lead={...lead,id:lead.opportunityId}}setLastTouchedId(String(lead.id));setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
+  const openContact=(lead:any,channel:"whatsapp"|"email")=>{if(lead.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede contactar.");return;}if(businessMode){if(lead.opportunityCount!==1){toast.info("Elegí una oportunidad del negocio para registrar la comunicación en su historial.");openView(lead);return}lead={...lead,id:lead.opportunityId}}setLastTouchedId(String(lead.id));setContactLead(lead);setContactChannel(channel);setContactOpen(true)};
   const startResize=(key:string,startX:number)=>{
     const startWidth=columnWidths[key]??DEFAULT_WIDTHS[key]??160;
     const onMove=(event:MouseEvent)=>{
@@ -594,25 +594,25 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     }
     if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></button>;
     if(key==="id")return businessMode?(l.opportunityId||"—"):String(l.id);
-    if(key==="ciudad")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
-    if(key==="tipo")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;
+    if(key==="ciudad")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
+    if(key==="tipo")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;
     if(key==="subtipo")return l.tipo
-      ? <BadgeSelect className={styles.inlineBadgeSelect} value={l.subtipo??""} options={(settings?.subtypes??[]).filter(x=>!x.typeName||x.typeName===l.tipo).map(x=>x.name)} category="subtype" placeholder="Asignar subtipo" emptyLabel="Sin subtipo" assignWhenEmpty onChange={v=>quick(l.id,"subtipo",v)}/>
+      ? <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.subtipo??""} options={(settings?.subtypes??[]).filter(x=>!x.typeName||x.typeName===l.tipo).map(x=>x.name)} category="subtype" placeholder="Asignar subtipo" emptyLabel="Sin subtipo" assignWhenEmpty onChange={v=>quick(l.id,"subtipo",v)}/>
       : <span className={styles.assignDependency}>Asigná vertical primero</span>;
-    if(key==="commercialProfile")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.commercialProfile??""} options={PROFILE_OPTIONS} category="profile" placeholder="Asignar perfil" emptyLabel="Sin perfil" assignWhenEmpty onChange={v=>quick(l.id,"commercialProfile",v)}/>;
-    if(key==="estado")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.estado??""} options={STATUS_OPTIONS} category="status" placeholder="Asignar estado" assignWhenEmpty onChange={v=>quick(l.id,"estado",v)}/>;
-    if(key==="prioridad")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.prioridad??""} options={PRIORITY_OPTIONS} category="priority" placeholder="Asignar prioridad" emptyLabel="Sin prioridad" assignWhenEmpty onChange={v=>quick(l.id,"prioridad",v)}/>;
-    if(key==="quienCargo")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.quienCargo??""} options={peopleOptions} category="person" placeholder="Asignar persona" assignWhenEmpty onChange={v=>quick(l.id,"quienCargo",v)}/>;
+    if(key==="commercialProfile")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.commercialProfile??""} options={PROFILE_OPTIONS} category="profile" placeholder="Asignar perfil" emptyLabel="Sin perfil" assignWhenEmpty onChange={v=>quick(l.id,"commercialProfile",v)}/>;
+    if(key==="estado")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.estado??""} options={STATUS_OPTIONS} category="status" placeholder="Asignar estado" assignWhenEmpty onChange={v=>quick(l.id,"estado",v)}/>;
+    if(key==="prioridad")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.prioridad??""} options={PRIORITY_OPTIONS} category="priority" placeholder="Asignar prioridad" emptyLabel="Sin prioridad" assignWhenEmpty onChange={v=>quick(l.id,"prioridad",v)}/>;
+    if(key==="quienCargo")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.quienCargo??""} options={peopleOptions} category="person" placeholder="Asignar persona" assignWhenEmpty onChange={v=>quick(l.id,"quienCargo",v)}/>;
     if(key==="assignedUserEmail"){
       const label=responsibleLabel(l.assignedUserEmail)||l.asignadoA||"";
       return isAdmin
         ? <UserBadgeSelect className={styles.inlineBadgeSelect} value={l.assignedUserEmail??""} users={userOptions} placeholder="Asignar responsable" assignWhenEmpty onChange={v=>quick(l.id,"assignedUserEmail",v)}/>
         : label?<ValueBadge value={label} category="person"/>:"—";
     }
-    if(key==="medioContactoPreferido")return <BadgeSelect className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
-    if(key==="fechaProximaAccion")return <NextActionPicker compact value={l.fechaProximaAccion} onChange={value=>quick(l.id,"fechaProximaAccion",value)}/>;
+    if(key==="medioContactoPreferido")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
+    if(key==="fechaProximaAccion")return <NextActionPicker disabled={l.canModify===false} compact value={l.fechaProximaAccion} onChange={value=>quick(l.id,"fechaProximaAccion",value)}/>;
     if(["fechaCreacion","fechaUltimoContacto"].includes(key))return <input
-      className={styles.inlineDate}
+      disabled={l.canModify===false} className={styles.inlineDate}
       type="date"
       value={dateInput(l[key])}
       onClick={e=>{e.stopPropagation();e.currentTarget.showPicker?.()}}
@@ -635,7 +635,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
         <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Ventas"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las ventas que estás gestionando.":"Qué queremos vender y cómo avanza cada venta. Un mismo negocio puede tener varias oportunidades."}</p></div>
-        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Crear una venta"}</Button><details className={styles.pageTools}><summary>Herramientas adicionales</summary><div><Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button><Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></details></div>
+        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Crear una venta"}</Button><details className={styles.pageTools}><summary>Herramientas adicionales</summary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></details></div>
       </header>
 
       <section className={styles.toolbar}>
@@ -714,7 +714,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:"100%",minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
-          <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt)} checked={leads.some(lead=>!lead.deletedAt)&&leads.filter(lead=>!lead.deletedAt).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
+          <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)} checked={leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)&&leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
           {shownColumns.map(key=>{
             const col=tableColumns.find(x=>x.key===key);
             if(!col)return null;
@@ -723,10 +723,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           {(!businessMode||advancedTable)&&<th>Contacto</th>}<th>Acciones</th>
         </tr></thead><tbody>
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
-            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
+            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt||l.canModify===false} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
             {shownColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
-            {(!businessMode||advancedTable)&&<td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>}
-            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="outline" size="sm" onClick={()=>openView(l)}>Abrir</Button>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las ventas de este negocio":"Enviar venta a papelera"} disabled={businessMode&&!l.opportunityCount}><Trash2 size={15}/></Button></>}</div>}</td>
+            {(!businessMode||advancedTable)&&<td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>}
+            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="outline" size="sm" onClick={()=>openView(l)}>Abrir</Button>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" disabled={l.canModify===false} onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las ventas de este negocio":"Enviar venta a papelera"} disabled={l.canModify===false||(businessMode&&!l.opportunityCount)}><Trash2 size={15}/></Button></>}</div>}</td>
           </tr>})}
         </tbody></table></div>}
         </div>

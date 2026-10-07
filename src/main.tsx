@@ -57,9 +57,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-          <Route path="/archived" element={<UserRoute><ArchivedPage/></UserRoute>} />
+          <Route path="/archived" element={<AdminRoute><ArchivedPage/></AdminRoute>} />
           <Route path="/guide" element={<UserRoute><GuidePage/></UserRoute>} />
-          <Route path="/library" element={<UserRoute><LibraryPage/></UserRoute>} />
+          <Route path="/library" element={<AdminRoute><LibraryPage/></AdminRoute>} />
           <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
           <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

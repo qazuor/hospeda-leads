@@ -21,7 +21,8 @@
     "test:auth": "node --import tsx scripts/test-password-recovery.ts",
     "test:quality": "node scripts/test-data-quality-migration.mjs && node scripts/test-business-import-migration.mjs && node --import tsx scripts/test-data-quality.ts && node --import tsx scripts/test-business-import.ts && node --import tsx scripts/test-business-import-api.ts",
     "test:communication": "node scripts/test-communication-migration.mjs && node --import tsx scripts/test-communication.ts",
-    "test:usability": "node --import tsx scripts/test-usability.ts"
+    "test:usability": "node --import tsx scripts/test-usability.ts",
+    "test:permissions": "node --import tsx scripts/test-permissions.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",

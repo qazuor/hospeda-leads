@@ -24,13 +24,13 @@ async function read(params='',cookie=user.cookie,status=200){const r=await get(n
 try{
  assert.equal((await get(new Request('http://localhost/_api/work'))).status,401);
  const importName='Import with tasks '+suffix;
- const previewResponse=await importLeads(request({action:'import_preview',rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}],source:'Work test'}));
+ const previewResponse=await importLeads(request({action:'import_preview',rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}],source:'Work test'},admin.cookie));
  assert.equal(previewResponse.status,200);
  const preview=superjson.parse<ImportReview>(await previewResponse.text());
- assert.equal((await importLeads(request({action:'import_confirm',batchId:preview.batchId,decisions:[{index:0,action:'create'}],confirm:true}))).status,200);
+ assert.equal((await importLeads(request({action:'import_confirm',batchId:preview.batchId,decisions:[{index:0,action:'create'}],confirm:true},admin.cookie))).status,200);
  const imported=await db.selectFrom('leads').selectAll().where('nombre','=',importName).executeTakeFirstOrThrow();
  assert.equal(imported.fechaProximaAccion!.toISOString().slice(0,10),'2026-10-01');
- assert.equal((await db.selectFrom('crmWorkJournal').select('actorEmail').where('accountId','=',imported.accountId).executeTakeFirstOrThrow()).actorEmail,user.user.email);
+ assert.equal((await db.selectFrom('crmWorkJournal').select('actorEmail').where('accountId','=',imported.accountId).executeTakeFirstOrThrow()).actorEmail,admin.user.email);
 
  assert.equal((await post(request({action:'task_delete',id:'1'},''))).status,401);
  const a=await db.insertInto('crmAccounts').values({nombre:'Work test',ciudad:'Colón',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();

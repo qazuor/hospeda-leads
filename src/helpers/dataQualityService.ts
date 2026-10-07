@@ -1,3 +1,4 @@
+import {assertAccountWritable} from './crmPermissions';
 import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Transaction,type Kysely,type Insertable} from 'kysely';
 import {z} from 'zod';
@@ -75,6 +76,7 @@ export async function mergePreview(database:Kysely<DB>,sourceId:string,destinati
 }
 export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user:User,policy?:{businessCreateOnly:true}){
  const input=qualityMutation.parse(raw);
+ if(!policy&&input.action.startsWith("import_")&&user.role!=="admin")throw new QualityForbidden("Solo un administrador puede importar negocios.");
  if(policy&&(input.action!=='import_preview'&&input.action!=='import_confirm'))throw new QualityForbidden('La clave solo permite importar negocios.');
  if(policy&&input.action==='import_preview'&&(input.mode!=='business'||input.rows.length>30||input.rows.some(r=>r.asignadoA?.trim())))throw new QualityForbidden('Solo negocios sin asignación, hasta 30 filas.');
  if(policy&&input.action==='import_confirm'&&input.decisions.some(d=>d.action==='update'))throw new QualityForbidden('La clave no permite actualizar negocios.');
@@ -177,10 +179,11 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    return {id:input.destinationId};
   }
   const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',input.accountId).where('mergedIntoId','is',null).forUpdate().executeTakeFirstOrThrow();
-  if(user.role!=='admin'&&account.assignedUserEmail!==user.email)throw new QualityForbidden('Solo podés verificar datos de tus negocios asignados.');
+  assertAccountWritable(user,account);
   if(input.contactId&&input.leadId)throw new QualityValidation('Elegí un único alcance.');
   const contact=input.contactId?await trx.selectFrom('crmContacts').selectAll().where('id','=',input.contactId).where('accountId','=',input.accountId).where('deletedAt','is',null).executeTakeFirstOrThrow():null;
   const lead=input.leadId?await trx.selectFrom('leads').selectAll().where('id','=',input.leadId).where('accountId','=',input.accountId).executeTakeFirstOrThrow():null;
+  if(lead?.deletedAt)throw new QualityForbidden('La gestión está en la papelera.');
   const entity=contact??lead??account;
   const allowed=contact?['name','phone','email','position','preferredChannel']:lead?importFields:businessFields;
   if(!(allowed as readonly string[]).includes(input.field))throw new QualityValidation('Campo fuera del alcance.');

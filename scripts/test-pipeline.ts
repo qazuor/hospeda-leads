@@ -33,7 +33,7 @@ try{
  await mutate({action:'transition',leadId:l.id,revision:revision+20,stage:'En tratativas'},user.cookie,409);
  await mutate({action:'transition',leadId:l.id,revision,stage:'Perdida'},user.cookie,400);
  assert.equal((await quick(request({id:l.id,field:'estado',value:'Perdida'}))).status,400);
- assert.equal((await quick(request({id:l.id,field:'estado',value:'En tratativas'},other.cookie))).status,400);
+ assert.equal((await quick(request({id:l.id,field:'estado',value:'En tratativas'},other.cookie))).status,403);
  await mutate({action:'transition',leadId:l.id,revision,stage:'Perdida',reasonId:reason.id,comment:'Retomar más adelante',recontactDate:'2026-10-01'});
  let row=await lead();assert.equal(row.estado,'Perdida');assert.equal(row.prioridad,'baja');
  assert.equal((await db.selectFrom('crmAccounts').select('commercialStatus').where('id','=',a.id).executeTakeFirstOrThrow()).commercialStatus,'prospect');

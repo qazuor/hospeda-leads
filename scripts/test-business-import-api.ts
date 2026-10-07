@@ -55,9 +55,9 @@ try{
  await call({...confirm,batchId:race.batchId,decisions:[{index:0,action:'create',acknowledge:true}]},409);
  const within=await call<ImportReview>({...previewBody,rows:[{...rows[0],nombre:'Within '+stamp,direccion:'Within 10'},{...rows[0],nombre:'Within '+stamp,direccion:'Within 10'}]});
  await call({...confirm,batchId:within.batchId,decisions:[{index:0,action:'create',acknowledge:true},{index:1,action:'skip'}]},409);
- const foreign=await mutateQuality(db,{action:'import_preview',mode:'business',source:'Other',rows:[{nombre:'Foreign '+stamp}]},other) as ImportReview;
+ const foreign=await mutateQuality(db,{action:'import_preview',mode:'business',source:'Other',rows:[{nombre:'Foreign '+stamp}]},{...other,role:'admin'}) as ImportReview;
  await call({...confirm,batchId:foreign.batchId},403);await read('?batchId='+foreign.batchId,404);
- const opportunity=await mutateQuality(db,{action:'import_preview',mode:'opportunity',source:'Legacy',rows:[{nombre:'Legacy API '+stamp}]},user) as ImportReview;
+ const opportunity=await mutateQuality(db,{action:'import_preview',mode:'opportunity',source:'Legacy',rows:[{nombre:'Legacy API '+stamp}]},admin) as ImportReview;
  await call({...confirm,batchId:opportunity.batchId},403);await read('?batchId='+opportunity.batchId,404);
  const bad=await call<ImportReview>({...previewBody,rows:[{nombre:'Invalid API '+stamp,tipo,subtipo:'inventado'}]});assert(bad.rows[0].errors.length);await call({...confirm,batchId:bad.batchId},400);
  const wrongType=await post(new Request('http://localhost',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'text/plain'},body:'{}'}));assert.equal(wrongType.status,415);

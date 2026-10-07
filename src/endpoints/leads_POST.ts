@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess,assertBusinessAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
 import { db } from "../helpers/db";
 import superjson from "superjson";
@@ -13,8 +14,9 @@ export async function handle(request:Request){
     if(x.asignadoA!==undefined&&user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden modificar el responsable."}),{status:403});
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
-      const existing=x.id?await trx.selectFrom("leads").selectAll().where("id","=",x.id).executeTakeFirstOrThrow():null;
+      let existing=x.id?await trx.selectFrom("leads").selectAll().where("id","=",x.id).executeTakeFirstOrThrow():null;
       if(existing?.deletedAt)throw new Error("Este lead está en la papelera.");
+      if(existing){existing=await assertLeadAccess(trx,String(existing.id),user,true);await assertBusinessAccess(trx,String(existing.accountId),user,true);}
       let responsible=existing?.assignedUserEmail??null;
       if(x.asignadoA!==undefined){
         responsible=null;
@@ -30,5 +32,5 @@ export async function handle(request:Request){
       return String(row.id);
     });
     return new Response(superjson.stringify({ok:true,id} satisfies OutputType));
-  }catch(e){return new Response(superjson.stringify({error:e instanceof Error?e.message:"Error"}),{status:400})}
+  }catch(e){return new Response(superjson.stringify({error:e instanceof Error?e.message:"Error"}),{status:e instanceof CrmForbidden?403:400})}
 }

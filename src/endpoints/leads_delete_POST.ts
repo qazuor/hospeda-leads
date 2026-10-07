@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -8,7 +9,7 @@ export async function handle(request: Request) {
     const {user}=await getServerUserSession(request);
     const input=schema.parse(superjson.parse(await request.text()));
     await db.transaction().execute(async trx=>{
-      const lead=await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).executeTakeFirstOrThrow();
+      const lead=await assertLeadAccess(trx,String(input.id),user,true);
       if(lead.deletedAt) return;
       await writeLeadJournal(trx,{
         leadId:String(lead.id),leadName:lead.nombre,leadCity:lead.ciudad,leadType:lead.tipo,
@@ -25,6 +26,6 @@ export async function handle(request: Request) {
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   } catch(error) {
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo enviar el lead a la papelera"}),{status:400});
+    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo enviar el lead a la papelera"}),{status:error instanceof CrmForbidden?403:400});
   }
 }

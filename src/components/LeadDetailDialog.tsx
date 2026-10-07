@@ -85,6 +85,7 @@ export const LeadDetailDialog=({
   onPrevious?:()=>void;
   onNext?:()=>void;
 })=>{
+  readOnly=readOnly||lead?.canModify===false;
   const qc=useQueryClient();
   const [note,setNote]=useState("");
 

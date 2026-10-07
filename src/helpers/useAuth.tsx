@@ -90,6 +90,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // and update the data linked to AUTH_QUERY_KEY.
   const onLogin = useCallback(
     (user: User) => {
+      // Do not reuse administrative or business data from the previous session.
+      const otherQueries={predicate:(query:{queryKey:readonly unknown[]})=>query.queryKey[0]!==AUTH_QUERY_KEY[0]};
+      void queryClient.cancelQueries(otherQueries);
+      queryClient.removeQueries(otherQueries);
       queryClient.setQueryData(AUTH_QUERY_KEY, user);
     },
     [queryClient]

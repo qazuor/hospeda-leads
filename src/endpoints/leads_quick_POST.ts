@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess,assertBusinessAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -31,8 +32,9 @@ export async function handle(request: Request) {
         const opportunities=await trx.selectFrom("leads").select("id").where("accountId","=",input.accountId).where("deletedAt","is",null).execute();
         if(opportunities.length!==1||String(opportunities[0].id)!==String(input.id))throw new Error("Abrí el negocio y elegí la oportunidad que querés modificar.");
       }
-      const old=await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).forUpdate().executeTakeFirstOrThrow();
+      const old=await assertLeadAccess(trx,String(input.id),user,true);
       if(old.deletedAt)throw new Error("Este lead está en la papelera.");
+      if(["nombre","ciudad","telefono","email","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios"].includes(input.field))await assertBusinessAccess(trx,String(old.accountId),user,true);
       await trx.updateTable("leads").set(values).where("id","=",String(input.id)).execute();
       const changes=input.field==="tipo"
         ? [
@@ -50,6 +52,6 @@ export async function handle(request: Request) {
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   } catch(error) {
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo actualizar"}),{status:400});
+    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo actualizar"}),{status:error instanceof CrmForbidden?403:400});
   }
 }

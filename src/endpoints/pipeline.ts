@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
 import {crmError} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
@@ -14,7 +15,7 @@ import {day} from './work.schema';
 class Forbidden extends Error {}
 class Conflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden?403:e instanceof Conflict?409:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:400);
 const query=z.object({leadId:z.string().regex(/^\d+$/).optional(),ids:z.string().regex(/^\d+(,\d+)*$/).optional(),mode:z.enum(['detail','reactivation','config']).default('detail'),from:day.optional(),to:day.optional(),reasonId:z.string().regex(/^\d+$/).optional(),vertical:z.string().max(200).optional(),responsible:z.string().max(320).optional(),handled:z.enum(['yes','no','all']).default('no'),page:z.coerce.number().int().min(1).default(1)});
 export async function get(request:Request){
  try{
@@ -28,6 +29,7 @@ export async function get(request:Request){
   const ids=p.leadId?[p.leadId]:(p.ids?.split(',')??[]);if(ids.length>100)throw new Error('Máximo 100 oportunidades por consulta.');
   let insights:PipelineInsight[]=[],events:PipelineEvent[]=[],objections:PipelineObjection[]=[];
   if(ids.length){
+   for(const id of ids)await assertLeadAccess(db,id,user);
    const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null}>`SELECT l.id,l.estado,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.status='pending' AND t.deleted_at IS NULL) pending_followup,l.fecha_proxima_accion,l.fecha_ultimo_contacto,l.estimated_close_date
     FROM leads l JOIN crm_accounts a ON a.id=l.account_id LEFT JOIN crm_stages s ON s.name=l.estado WHERE l.id IN (${sql.join(ids)}) AND l.deleted_at IS NULL`.execute(db);
@@ -40,7 +42,7 @@ export async function get(request:Request){
   let reactivations:ReactivationRow[]=[],total=0;
   if(p.mode==='reactivation'){
    const clauses=[sql`l.deleted_at IS NULL`,sql`s.classification='lost'`,sql`e.recontact_date IS NOT NULL`];
-   if(user.role!=='admin')clauses.push(sql`l.assigned_user_email=${user.email}`);
+   if(user.role!=='admin')clauses.push(sql`l.assigned_user_email=${user.email}`,sql`a.archived_at IS NULL`);
    else if(p.responsible&&p.responsible!=='all')clauses.push(sql`l.assigned_user_email=${p.responsible}`);
    if(p.from)clauses.push(sql`e.recontact_date>=${p.from}::date`);if(p.to)clauses.push(sql`e.recontact_date<=${p.to}::date`);
    if(p.reasonId)clauses.push(sql`e.reason_id=${p.reasonId}`);if(p.vertical)clauses.push(sql`l.tipo=${p.vertical}`);
@@ -93,7 +95,7 @@ export async function post(request:Request){
    const context=await trx.selectFrom('leads').select('accountId').where('id','=',p.leadId).where('deletedAt','is',null).executeTakeFirstOrThrow();
    const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',context.accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=await trx.selectFrom('leads').selectAll().where('id','=',p.leadId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
-   if(user.role!=='admin'&&lead.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar tus oportunidades asignadas.');
+   await assertLeadAccess(trx,String(lead.id),user,true);
    if(lead.pipelineRevision!==p.revision)throw new Conflict('La oportunidad cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
    if(p.action==='objection_save'){
     const type=(await sql<PipelineCatalog>`SELECT * FROM crm_objection_types WHERE id=${p.typeId} FOR SHARE`.execute(trx)).rows[0];

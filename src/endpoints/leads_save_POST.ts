@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess,assertBusinessAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -29,10 +30,11 @@ export async function handle(request: Request) {
 
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
-      const existing=input.id
-        ? await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).forUpdate().executeTakeFirst()
+      let existing=input.id
+        ? await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).executeTakeFirst()
         : undefined;
       if(input.id&&!existing)throw new Error("Lead no encontrado");
+      if(existing){existing=await assertLeadAccess(trx,String(existing.id),user,true);if(input.scope!=="opportunity")await assertBusinessAccess(trx,String(existing.accountId),user,true);}
       if(user.role!=="admin"&&input.assignedUserEmail!==undefined&&(input.assignedUserEmail??null)!==(existing?.assignedUserEmail??null))throw new Error("Solo un administrador puede modificar el responsable.");
       if(existing?.deletedAt)throw new Error("Este lead está en la papelera. Restauralo antes de editarlo.");
 
@@ -144,6 +146,6 @@ export async function handle(request: Request) {
 
     return new Response(superjson.stringify({ id } satisfies OutputType), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
-    return new Response(superjson.stringify({ error: error instanceof Error ? error.message : "No se pudo guardar el lead" }), { status: 400 });
+    return new Response(superjson.stringify({ error: error instanceof Error ? error.message : "No se pudo guardar el lead" }), { status: error instanceof CrmForbidden ? 403 : 400 });
   }
 }

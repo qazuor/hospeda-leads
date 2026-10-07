@@ -62,6 +62,10 @@ jobs:
         run: npm run test:communication
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Shared reading and owner permissions integration tests
+        run: npm run test:permissions
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Guided usability integration tests
         run: npm run test:usability
         env:

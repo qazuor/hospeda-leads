@@ -1,3 +1,4 @@
+import {CrmForbidden} from '../helpers/crmPermissions';
 import {sql} from 'kysely';
 import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {leadFor,CommunicationForbidden} from '../helpers/communicationService';
@@ -42,6 +43,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo registrar el contacto"}),{status:error instanceof CommunicationForbidden?403:error instanceof NotAuthenticatedError?401:400});
+    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo registrar el contacto"}),{status:error instanceof CommunicationForbidden||error instanceof CrmForbidden?403:error instanceof NotAuthenticatedError?401:400});
   }
 }

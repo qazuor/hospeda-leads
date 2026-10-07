@@ -90,7 +90,7 @@ export const schema=z.object({
   sortDir:z.enum(["asc","desc"]).optional(),
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
-export type BusinessTableMetadata={nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";opportunityValues?:Record<string,string[]>};
+export type BusinessTableMetadata={canModify?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";opportunityValues?:Record<string,string[]>};
 export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;filters:{
   ciudades:string[];estados:string[];tipos:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];

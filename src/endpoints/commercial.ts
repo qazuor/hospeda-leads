@@ -1,3 +1,4 @@
+import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {crmError} from '../helpers/crmErrors';
@@ -20,26 +21,29 @@ const json=(value:unknown)=>JSON.parse(JSON.stringify(value));
 
 export async function get(request:Request){
   try{
-    await getServerUserSession(request);
+    const {user}=await getServerUserSession(request);
     const input=commercialQuery.parse(Object.fromEntries(new URL(request.url).searchParams));
     let accountId=input.accountId;
     if(input.leadId){
-      const lead=await db.selectFrom("leads").select("accountId").where("id","=",input.leadId).executeTakeFirstOrThrow();
+      const lead=await assertLeadAccess(db,input.leadId,user);
       accountId=String(lead.accountId);
     }
     if(accountId){
       accountId=await resolveAccount(db,accountId);
+      const visibleAccount=await db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow();
+      assertAccountReadable(user,visibleAccount);
       const family=await accountFamily(db,accountId);
       const [account,contacts,opportunities,journal,leadJournal,stages]=await Promise.all([
         db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow(),
-        db.selectFrom("crmContacts").selectAll().where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
-        db.selectFrom("leads").selectAll().where("accountId","=",accountId).orderBy("createdAt","desc").execute(),
+        db.selectFrom("crmContacts").selectAll().where("deletedAt","is",null).where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
+        db.selectFrom("leads").selectAll().where("deletedAt","is",null).where("accountId","=",accountId).orderBy("createdAt","desc").execute(),
         db.selectFrom("crmCommercialJournal").selectAll().where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
-        db.selectFrom("leadJournal").selectAll().where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
+        db.selectFrom("leadJournal").selectAll().where(eb=>eb.or([eb("leadId","is",null),eb.exists(eb.selectFrom("leads").select("id").whereRef("leads.id","=","leadJournal.leadId").where("deletedAt","is",null))])).where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
         getOpportunityStages(db)
       ]);
       return response({account,contacts,opportunities,journal,leadJournal,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute()});
     }
+    if(input.archived&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("archivedAt",input.archived?"is not":"is",null);
     if(input.status)query=query.where("commercialStatus","=",input.status);
     if(input.q)query=query.where(eb=>eb.or([eb("nombre","ilike","%"+input.q+"%"),eb("email","ilike","%"+input.q+"%"),eb("ciudad","ilike","%"+input.q+"%") ]));
@@ -51,7 +55,7 @@ export async function get(request:Request){
       ]).orderBy("nombre").limit(50).offset((input.page-1)*50).execute()
     ]);
     return response({rows:rows.map(r=>({...r,opportunityCount:Number(r.opportunityCount),contactCount:Number(r.contactCount)})),total:Number(count.total),page:input.page});
-  }catch(e){return response({error:crmError(e)},e instanceof NotAuthenticatedError?401:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:400)}
 }
 
 export async function post(request:Request){
@@ -69,6 +73,7 @@ export async function post(request:Request){
       };
       if(input.action==="account_save"){
         const existing=input.id?await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.id).forUpdate().executeTakeFirstOrThrow():null;
+        if(existing)assertAccountWritable(user,existing);
         checkResponsible(input.assignedUserEmail,existing?.assignedUserEmail??null);
         checkEmail(input.email,existing?.email);
         const extra=Object.fromEntries(accountExtraFields.filter(f=>input[f]!==undefined).map(f=>[f,nullable(input[f])]));
@@ -84,6 +89,8 @@ export async function post(request:Request){
       }
       // One account lock for all related mutations: prevents competing primary selections.
       const account=await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.accountId).forUpdate().executeTakeFirstOrThrow();
+      if(input.action!=="opportunity_save"||!input.id)assertAccountWritable(user,account);
+      else await assertLeadAccess(trx,input.id,user,true);
       if(input.action==="account_archive"){
         if(user.role!=="admin"&&account.assignedUserEmail!==user.email)throw new Forbidden("Solo el responsable o un administrador puede archivar este negocio.");
         const after=await trx.updateTable("crmAccounts").set({archivedAt:input.archived?new Date():null,updatedAt:new Date()}).where("id","=",input.accountId).returningAll().executeTakeFirstOrThrow();
@@ -133,5 +140,5 @@ export async function post(request:Request){
       return String(row.id);
     });
     return response({id});
-  }catch(e){return response({error:crmError(e)},e instanceof Forbidden?403:e instanceof NotAuthenticatedError?401:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:400)}
 }

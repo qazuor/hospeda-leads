@@ -16,7 +16,7 @@ import { Input } from "../components/Input";
 import { LiveModeSwitch } from "../components/LiveModeSwitch";
 import { ThemeModeSwitch } from "../components/ThemeModeSwitch";
 import { TemplatesContent } from "./templates";
-import { getSettings, type SettingsUser } from "../endpoints/settings_GET.schema";
+import { getSettings, type OperationalUser } from "../endpoints/settings_GET.schema";
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
@@ -32,7 +32,7 @@ export default function SettingsPage(){
   const save=useMutation({mutationFn:postSettingsSave,onSuccess:()=>qc.invalidateQueries({queryKey:["settings"]})});
   const [inviteOpen,setInviteOpen]=useState(false);
   const [inviteEmail,setInviteEmail]=useState("");
-  const [editingUser,setEditingUser]=useState<SettingsUser|null>(null);
+  const [editingUser,setEditingUser]=useState<OperationalUser|null>(null);
   const [editEmail,setEditEmail]=useState("");
   const [editFullName,setEditFullName]=useState("");
   const [editDisplayName,setEditDisplayName]=useState("");
@@ -117,7 +117,7 @@ export default function SettingsPage(){
 
       {section==="communication"&&<section className={styles.content}>
         <article className={styles.card}>
-          <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery.brevoConnected?"success":"warning"}>{data?.emailDelivery.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
+          <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery?.brevoConnected?"success":"warning"}>{data?.emailDelivery?.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
           <div className={styles.deliveryGrid}>
             <label>Nombre remitente<Input value={senderName} onChange={e=>setSenderName(e.target.value)} placeholder="Hospeda"/></label>
             <label>Email remitente<Input type="email" value={senderEmail} onChange={e=>setSenderEmail(e.target.value)} placeholder="notificaciones@hospeda.com.ar"/></label>
