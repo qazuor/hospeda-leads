@@ -27,6 +27,6 @@ function DefaultsEditor({initial}:{initial:TeamDefaults}){
  <label>Filtro aplicado inicialmente<select value={value.initialPresetId??''} onChange={e=>setValue({...value,initialPresetId:e.target.value||null})}><option value="">Ninguno</option>{value.presets.map(preset=><option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>
  <p><Button onClick={save} disabled={busy}>{busy?'Guardando valores del equipo…':'Guardar valores del equipo'}</Button></p></fieldset>
  {error&&<p role="alert" className={styles.error}>{error}</p>}
- <FilterBuilderDialog open={!!filterId} onOpenChange={open=>{if(!open)setFilterId(null);}} fields={fields} value={value.presets.find(p=>p.id===filterId)?.filters??[]} title="Configurar filtro preestablecido" search="" onApply={filters=>{setValue({...value,presets:value.presets.map(p=>p.id===filterId?{...p,filters}:p)});setFilterId(null);}}/>
+ <FilterBuilderDialog open={!!filterId} onOpenChange={open=>{if(!open)setFilterId(null);}} fields={fields} value={value.presets.find(p=>p.id===filterId)?.filters??[]} title="Configurar filtro preestablecido" search={value.presets.find(p=>p.id===filterId)?.query??''} onApply={(filters,query)=>{setValue({...value,presets:value.presets.map(p=>p.id===filterId?{...p,filters,query}:p)});setFilterId(null);}}/>
  </section>;
 }
