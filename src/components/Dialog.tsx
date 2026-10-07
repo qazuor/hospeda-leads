@@ -29,6 +29,7 @@ interface DialogContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   /** Render the dialog into this element instead of document.body. */
   inline?:boolean;
+  showCloseButton?: boolean;
   container?: React.ComponentPropsWithoutRef<
     typeof DialogPrimitive.Portal
   >["container"];
@@ -37,7 +38,7 @@ interface DialogContentProps
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, container, inline=false, ...props }, ref) => inline ? <div ref={ref} className={className}>{children}</div> : (
+>(({ className, children, container, inline=false, showCloseButton=true, ...props }, ref) => inline ? <div ref={ref} className={className}>{children}</div> : (
   <DialogPortal container={container}>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -46,10 +47,10 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className={styles.close}>
+      {showCloseButton&&<DialogPrimitive.Close className={styles.close}>
         <X className={styles.closeIcon} />
         <span className={styles.screenReaderText}>Cerrar</span>
-      </DialogPrimitive.Close>
+      </DialogPrimitive.Close>}
     </DialogPrimitive.Content>
   </DialogPortal>
 ))

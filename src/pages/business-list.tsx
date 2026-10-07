@@ -3,6 +3,7 @@ import {useInfiniteQuery,useQuery,useQueryClient} from '@tanstack/react-query';
 import {useNavigate,useSearchParams} from 'react-router-dom';
 import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
+import {Dialog,DialogContent,DialogTitle} from '../components/Dialog';
 import {Skeleton} from '../components/Skeleton';
 import {ValueBadge,type BadgeCategory} from '../components/ValueBadge';
 import {ArrowUp,ArrowDown,ArrowUpDown,Search,SlidersHorizontal,Table2,LayoutGrid,Maximize2,Minimize2,RotateCcw,Plus,X} from 'lucide-react';
@@ -33,11 +34,12 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
  const [editor,setEditor]=useState(false),[importOpen,setImportOpen]=useState(false),[filterOpen,setFilterOpen]=useState(false),[selected,setSelected]=useState<string[]>([]),[fullscreen,setFullscreen]=useState(false),[storageError,setStorageError]=useState(false);
  useEffect(()=>{const tool=searchParams.get('adminTool');if(!tool)return;if(admin){if(tool==='import')setImportOpen(true);if(tool==='duplicates')setDuplicatesOpen(true);}const next=new URLSearchParams(searchParams);next.delete('adminTool');setSearchParams(next,{replace:true});},[admin,searchParams,setSearchParams]);
  const scroll=useRef<HTMLDivElement>(null),sentinel=useRef<HTMLDivElement>(null),restore=useRef<ListContext|null>(initial.context),lastAnchor=useRef(initial.context.anchorId),lastContext=useRef(initial.context);
- const state=useRef({prefs,page});state.current={prefs,page};
+ const resultsFrame=useRef<HTMLDivElement>(null),fullscreenButton=useRef<HTMLButtonElement>(null),horizontalPosition=useRef(0);
+ const state=useRef({prefs,page,fullscreen});state.current={prefs,page,fullscreen};
  const resizing=useRef<{key:string;startX:number;width:number;pointerId:number}|null>(null);
  const resizeColumn=(key:string,width:number)=>setPrefs(previous=>({...previous,widths:{...previous.widths,[key]:Math.max(100,Math.min(600,Math.round(width)))}}));
  const badgeCategories:Record<string,BadgeCategory>={tipo:'vertical',subtipo:'subtype',ciudad:'city',assignedUserEmail:'person',commercialProfile:'profile',medioContactoPreferido:'contact',quienCargo:'person',creadoPor:'person',origen:'generic'};
- useEffect(()=>{if(!fullscreen)return;const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape')setFullscreen(false);};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[fullscreen]);
+
  const query=useDebounce(prefs.query,300);
  const request={...prefs.legacyFilters,entity:'business' as const,q:query,filterGroups:prefs.filters,sortBy:prefs.sortBy,sortDir:prefs.sortDir,pageSize:prefs.pageSize};
  const resultKey=['leads','business-list',userId,request,prefs.loadMode,prefs.loadMode==='pages'?page:0];
@@ -48,7 +50,7 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
  useEffect(()=>{if(!results.isFetching)settledRequest.current=requestSignature;},[requestSignature,results.isFetching]);
  const busy=results.isPending||query!==prefs.query||((manualRefreshing||retryLoading||settledRequest.current!==requestSignature)&&results.isFetching&&!results.isFetchingNextPage);
  const retryResults=async()=>{if(retryLock.current)return;retryLock.current=true;setRetryLoading(true);try{if(results.isFetchNextPageError)await results.fetchNextPage();else await results.refetch();}finally{retryLock.current=false;setRetryLoading(false);}};
- const capture=()=>{const {prefs,page}=state.current;const anchors=Array.from(document.querySelectorAll<HTMLElement>('[data-business-id]'));const anchor=anchors.find(e=>e.getBoundingClientRect().bottom>0);if(!anchors.length){const ok=savePersonalPreferences(userId,prefs,{...lastContext.current,page});setStorageError(!ok);return ok;}const context={page,scrollY:window.scrollY,scrollX:scroll.current?.scrollLeft??0,anchorId:lastAnchor.current??anchor?.dataset.businessId,anchorOffset:lastAnchor.current?document.querySelector<HTMLElement>(`[data-business-id="${lastAnchor.current}"]`)?.getBoundingClientRect().top:anchor?.getBoundingClientRect().top};lastContext.current=context;const ok=savePersonalPreferences(userId,prefs,context);setStorageError(!ok);return ok;};
+ const capture=()=>{const {prefs,page,fullscreen}=state.current;if(fullscreen){const ok=savePersonalPreferences(userId,prefs,{...lastContext.current,page,anchorId:lastAnchor.current??lastContext.current.anchorId,scrollX:scroll.current?.scrollLeft??horizontalPosition.current});setStorageError(!ok);return ok;}const anchors=Array.from(document.querySelectorAll<HTMLElement>('[data-business-id]'));const anchor=anchors.find(e=>e.getBoundingClientRect().bottom>0);if(!anchors.length){const ok=savePersonalPreferences(userId,prefs,{...lastContext.current,page});setStorageError(!ok);return ok;}const context={page,scrollY:window.scrollY,scrollX:scroll.current?.scrollLeft??0,anchorId:lastAnchor.current??anchor?.dataset.businessId,anchorOffset:lastAnchor.current?document.querySelector<HTMLElement>(`[data-business-id="${lastAnchor.current}"]`)?.getBoundingClientRect().top:anchor?.getBoundingClientRect().top};lastContext.current=context;const ok=savePersonalPreferences(userId,prefs,context);setStorageError(!ok);return ok;};
  useEffect(()=>{const resize=()=>setViewport(window.innerWidth);window.addEventListener('resize',resize);window.addEventListener('pagehide',capture);let frame=0;const onScroll=()=>{if(!restore.current&&!frame)frame=requestAnimationFrame(()=>{frame=0;capture();});};window.addEventListener('scroll',onScroll,{passive:true});return()=>{cancelAnimationFrame(frame);window.removeEventListener('scroll',onScroll);capture();window.removeEventListener('resize',resize);window.removeEventListener('pagehide',capture);};},[userId]);
  useEffect(()=>{if(!restore.current)capture();},[prefs,page]);
  useLayoutEffect(()=>{
@@ -66,14 +68,16 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
   if(anchor){const buttons=Array.from(anchor.querySelectorAll<HTMLButtonElement>('button'));(buttons.find(button=>button.textContent==='Abrir')??buttons.find(button=>button.classList.contains(styles.businessName)))?.focus({preventScroll:true});}
   restore.current=null;
  },[busy,results.data,results.isFetchingNextPage,prefs.loadMode]);
- useEffect(()=>{if(prefs.loadMode!=='continuous'||busy||restore.current||results.error||results.isFetching||!results.hasNextPage)return;const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&!results.isFetchingNextPage)void results.fetchNextPage();},{rootMargin:'150px'});if(sentinel.current)observer.observe(sentinel.current);return()=>observer.disconnect();},[prefs.loadMode,busy,results.hasNextPage,results.isFetchingNextPage,results.isFetching,results.data,results.error]);
+ useEffect(()=>{if(prefs.loadMode!=='continuous'||busy||restore.current||results.error||results.isFetching||!results.hasNextPage)return;const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&!results.isFetchingNextPage)void results.fetchNextPage();},{root:fullscreen?resultsFrame.current:null,rootMargin:'150px'});if(sentinel.current)observer.observe(sentinel.current);return()=>observer.disconnect();},[prefs.loadMode,busy,results.hasNextPage,results.isFetchingNextPage,results.isFetching,results.data,results.error,fullscreen]);
  useEffect(()=>{if(prefs.loadMode==='continuous'&&results.data&&!restore.current)setPage(results.data.pages.at(-1)!.page);},[results.data,prefs.loadMode]);
  const change=(next:ListPreferences,reset=false)=>{restore.current=null;lastAnchor.current=undefined;setPrefs(availableListPreferences(next));if(reset){setSelected([]);lastContext.current={page:1,scrollY:0,scrollX:0};setPage(1);}};
  const open=(row:OutputType['rows'][number])=>{lastAnchor.current=String(row.accountId);capture();navigate('/accounts/'+row.accountId);};
  const fields:FilterFieldDefinition[]=BUSINESS_FILTER_COLUMNS.map(c=>({key:c.key as FilterFieldDefinition['key'],label:c.label,kind:['fechaCreacion','fechaUltimoContacto','fechaProximaAccion','createdAt','updatedAt'].includes(c.key)?'date':c.key==='id'?'number':c.key==='clientePotencialRecurrente'?'boolean':c.key==='notes'?'notes':'text'}));
  for(const field of fields){if(field.key==='assignedUserEmail'){field.kind='category';field.options=settings.data?.users.map(u=>({value:u.email,label:u.displayName||u.email}))??[];}if(field.key==='ciudad'){field.kind='category';field.options=settings.data?.cities.map(c=>({value:c.name,label:c.name}))??[];}}
  for(const field of fields){const choices=field.key==='tipo'?settings.data?.types:field.key==='subtipo'?settings.data?.subtypes.map(v=>v.name):field.key==='estado'?settings.data?.opportunityStages:field.key==='commercialProfile'?['Independiente','Consolidado','Referente']:field.key==='prioridad'?['alta','media','baja']:undefined;if(choices){field.kind='category';field.options=choices.map(v=>({value:v,label:v}));}}
- useLayoutEffect(()=>{const node=scroll.current;if(!node)return;const observer=new ResizeObserver(()=>setContainerWidth(node.clientWidth));observer.observe(node);return()=>observer.disconnect();},[prefs.presentation]);
+ useLayoutEffect(()=>{const node=scroll.current;if(!node)return;const observer=new ResizeObserver(()=>setContainerWidth(node.clientWidth));observer.observe(node);return()=>observer.disconnect();},[prefs.presentation,fullscreen]);
+ useLayoutEffect(()=>{if(scroll.current)scroll.current.scrollLeft=horizontalPosition.current;},[fullscreen]);
+ const toggleFullscreen=(open:boolean)=>{horizontalPosition.current=scroll.current?.scrollLeft??horizontalPosition.current;if(open)capture();setFullscreen(open);};
  const pins=effectivePins(prefs,Math.min(viewport,containerWidth));const pinnedStyle=(key:string):React.CSSProperties=>pins[key]?{[pins[key].side]:pins[key].offset}:{};
  const columnClass=(key:string)=>[pins[key]?styles.pinned:'',hoveredColumn===key?styles.columnHighlighted:''].filter(Boolean).join(' ');
  const headerPointer=(key:string)=>({onPointerEnter:(event:React.PointerEvent<HTMLTableCellElement>)=>{if(event.pointerType!=='touch')setHoveredColumn(key);},onPointerLeave:()=>setHoveredColumn(null)});
@@ -81,9 +85,9 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
  const hasFilters=Boolean(prefs.query.trim()||prefs.filters.length||(prefs.legacyFilters&&legacyFilterLabels(prefs.legacyFilters).length));
  const renderRows=busy?[]:rows;
  const selectableIds=rows.filter(row=>row.canModify!==false).map(row=>String(row.accountId));
- const selectAll=useRef<HTMLInputElement>(null);useEffect(()=>{if(selectAll.current)selectAll.current.indeterminate=selected.length>0&&!selectableIds.every(id=>selected.includes(id));},[selected,results.data,prefs.presentation,busy]);
+ const selectAll=useRef<HTMLInputElement>(null);useEffect(()=>{if(selectAll.current)selectAll.current.indeterminate=selected.length>0&&!selectableIds.every(id=>selected.includes(id));},[selected,results.data,prefs.presentation,busy,fullscreen]);
  const skeletons=Array.from({length:prefs.pageSize},(_,i)=>i);
- return <main className={styles.shell} style={fullscreen?{position:'fixed',inset:0,zIndex:60,overflow:'auto',background:'var(--background)',maxWidth:'none'}:undefined}>
+ return <main className={styles.shell}>
  <div className={styles.heading}><div><h1>Negocios</h1><p>Establecimientos y sus datos. Abrí un negocio para consultar qué pasó y cómo continuar.</p></div><Button onClick={()=>setEditor(true)}><Plus size={17} aria-hidden="true"/>Nuevo negocio</Button></div>
  {storageError&&<p role="alert">No pude guardar las preferencias en este navegador. Podés seguir trabajando, pero al volver podrían perderse.</p>}
  <section className={styles.listControls} aria-label="Búsqueda y presentación de negocios">
@@ -97,6 +101,8 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
   </div>
   <div className={styles.appliedFilters} aria-label="Filtros aplicados"><FilterLegend groups={prefs.filters} search={prefs.query} fields={fields} extraLabels={prefs.legacyFilters?legacyFilterLabels(prefs.legacyFilters):[]} onEdit={()=>setFilterOpen(true)} onClear={()=>change({...prefs,query:'',filters:[],legacyFilters:undefined},true)} actions={<Button size="sm" variant="ghost" onClick={()=>setSaveViewOpen(true)}><Plus size={15} aria-hidden="true"/>Guardar como vista</Button>}/></div>
  </section>
+ <Dialog open={fullscreen} onOpenChange={toggleFullscreen}><DialogContent inline={!fullscreen} showCloseButton={false} ref={resultsFrame} className={fullscreen?styles.fullscreenResults:styles.resultsFrame} aria-describedby={undefined} onOpenAutoFocus={event=>{event.preventDefault();fullscreenButton.current?.focus();}} onCloseAutoFocus={event=>{event.preventDefault();requestAnimationFrame(()=>fullscreenButton.current?.focus({preventScroll:true}));}}>
+ {fullscreen&&<DialogTitle className={styles.screenReaderOnly}>Resultados de negocios en pantalla completa</DialogTitle>}
  <div className={styles.resultsBar}>
  <p role="status" aria-live="polite" className={styles.status}>{busy?'Cargando negocios…':`${results.isFetchingNextPage?'Cargando más negocios… · ':''}${rows.length} de ${total} negocios cargados`}{!busy&&prefs.loadMode==='continuous'&&!results.hasNextPage&&' · No hay más resultados'}</p>
  <div className={styles.controlRow}>
@@ -104,7 +110,7 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
    <BusinessListOptions value={prefs} onChange={v=>change(v)}/>
    {BUSINESS_RESULTS_CONTROL_ENABLED&&<label className={styles.compactField}><span>Resultados</span><select aria-label="Resultados por lote" value={prefs.pageSize} onChange={e=>change({...prefs,pageSize:Number(e.target.value)},true)}>{Array.from(new Set([10,25,50,100,prefs.pageSize])).sort((a,b)=>a-b).map(n=><option key={n} value={n}>{n}</option>)}</select></label>}
    {BUSINESS_PAGINATION_CONTROLS_ENABLED&&<label className={styles.compactField}><span>Forma de carga</span><select value={prefs.loadMode} onChange={e=>change({...prefs,loadMode:e.target.value as ListPreferences['loadMode']},true)}><option value="pages">Paginación</option><option value="continuous">Carga continua</option></select></label>}
-   <Button size="sm" variant="ghost" className={styles.fullscreen} aria-label={fullscreen?'Salir de pantalla completa':'Pantalla completa'} onClick={()=>setFullscreen(v=>!v)}>{fullscreen?<Minimize2 size={17} aria-hidden="true"/>:<Maximize2 size={17} aria-hidden="true"/>}<span>{fullscreen?'Salir':'Pantalla completa'}</span></Button>
+   <Button ref={fullscreenButton} size="sm" variant="ghost" className={styles.fullscreen} aria-label={fullscreen?'Salir de pantalla completa':'Pantalla completa'} onClick={()=>toggleFullscreen(!fullscreen)}>{fullscreen?<Minimize2 size={17} aria-hidden="true"/>:<Maximize2 size={17} aria-hidden="true"/>}<span>{fullscreen?'Salir':'Pantalla completa'}</span></Button>
  </div></div>
  {results.error&&<div className={styles.error} role="alert">No pude cargar los negocios: {results.error.message} <Button disabled={results.isFetching} onClick={retryResults}>Reintentar</Button></div>}
  <section aria-label="Resultados de negocios" aria-busy={busy||results.isFetchingNextPage}>
@@ -112,6 +118,7 @@ function BusinessList({userId,admin,defaults}:{userId:number;admin:boolean;defau
  </section>
  {!busy&&(!results.error||!!results.data)&&rows.length===0&&<section className={styles.panel}><h2>{hasFilters?'Sin resultados por los filtros actuales':'Sin negocios cargados'}</h2><p>{hasFilters?'Revisá la búsqueda y los filtros.':'Cargá un establecimiento para comenzar.'}</p>{!hasFilters&&<Button onClick={()=>setEditor(true)}>Nuevo negocio</Button>}</section>}
  {BUSINESS_PAGINATION_CONTROLS_ENABLED&&prefs.loadMode==='pages'?<nav aria-label="Paginación de negocios" className={styles.pagination}><Button variant="outline" disabled={page<=1||busy} onClick={()=>{lastAnchor.current=undefined;setPage(p=>p-1);}}>Anterior</Button><span>Página {page} de {Math.max(1,Math.ceil(total/prefs.pageSize))}</span><Button variant="outline" disabled={page*prefs.pageSize>=total||busy} onClick={()=>{lastAnchor.current=undefined;setPage(p=>p+1);}}>Siguiente</Button></nav>:<div ref={sentinel} className={styles.pagination}><Button variant="outline" disabled={!results.hasNextPage||results.isFetching||busy} onClick={()=>results.fetchNextPage()}>{results.isFetchingNextPage?'Cargando más negocios…':'Cargar más'}</Button></div>}
+ </DialogContent></Dialog>
  <FilterBuilderDialog open={filterOpen} onOpenChange={setFilterOpen} fields={fields} value={prefs.filters} search={prefs.query} title="Filtrar negocios" onApply={(filters,query)=>change({...prefs,filters,query,legacyFilters:undefined},true)}/>
  {editor&&<CommercialEditor target={{kind:'account'}} onClose={()=>setEditor(false)} onSaved={id=>{void qc.invalidateQueries({queryKey:['leads']});toast.success('Negocio guardado');capture();navigate('/accounts/'+id);}}/>}
  {importOpen&&<DataImportDialog onClose={()=>setImportOpen(false)}/>}
