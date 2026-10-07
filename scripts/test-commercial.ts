@@ -38,8 +38,10 @@ try{
   const accountId=await mutate({action:'account_save',nombre:`CRM test ${suffix}`,email:'generic@example.com',assignedUserEmail:admin.email},admin.value);
   const otherId=await mutate({action:'account_save',nombre:`Other ${suffix}`});
   await mutate({action:'account_save',id:accountId,nombre:'Forbidden',assignedUserEmail:user.email},user.value,403);
+  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com'},user.value,403);
+  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com',assignedUserEmail:user.email},admin.value);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com'});
-  assert.equal((await detail(accountId)).account.assignedUserEmail,admin.email);
+  assert.equal((await detail(accountId)).account.assignedUserEmail,user.email);
   const ana=await mutate({action:'contact_save',accountId,name:'Ana',email:'ana@example.com',phone:'111',isPrimary:true});
   const luis=await mutate({action:'contact_save',accountId,name:'Luis',email:'luis@example.com',phone:'222',isPrimary:true});
   let d=await detail(accountId);assert.equal(d.contacts.filter(c=>c.isPrimary&&!c.deletedAt).length,1);assert.equal(String(d.contacts.find(c=>c.isPrimary)!.id),luis);
@@ -53,20 +55,20 @@ try{
   await mutate({action:'opportunity_save',accountId,opportunityName:'Forbidden',primaryContactId:foreign},user.value,400);
   await mutate({action:'opportunity_save',accountId,id:first,opportunityName:'Forbidden',assignedUserEmail:user.email},user.value,403);
   await assert.rejects(db.updateTable('leads').set({primaryContactId:foreign}).where('id','=',first).execute());
-  assert.equal((await quick(request({id:first,field:'estado',value:d.stages[1]||stage}))).status,400,'Foreign stage movement rejected');
+  assert.equal((await quick(request({id:first,field:'estado',value:d.stages[1]||stage}))).status,403,'Foreign stage movement rejected');
   const quickResult=await quick(request({id:first,field:'estado',value:d.stages[1]||stage},admin.value));assert.equal(quickResult.status,200,await quickResult.text());
   d=await detail(accountId);assert.equal(d.opportunities.length,2);assert.equal(d.opportunities.find(o=>String(o.id)===second)!.estado,stage);
   assert.equal((await quick(request({id:first,field:'assignedUserEmail',value:user.email}))).status,403);
   assert.equal((await bulk(request({ids:[first,second],changes:{assignedUserEmail:user.email}}))).status,403);
-  assert.equal((await saveLead(request({id:first,nombre:d.account.nombre,assignedUserEmail:user.email}))).status,400);
+  assert.equal((await saveLead(request({id:first,nombre:d.account.nombre,assignedUserEmail:user.email}))).status,403);
   assert.equal((await legacy(request({id:first,nombre:d.account.nombre,asignadoA:'CRM user'}))).status,403);
   const protectedBusiness=d.account.nombre;
   const scoped=await saveLead(request({id:first,scope:'opportunity',nombre:'Stale business',telefono:'stale',email:'stale@example.com',opportunityName:'Primera venta',estado:stage,tipo:vertical.name,assignedUserEmail:admin.email,primaryContactId:ana,serviceInterest:'Publicación',estimatedCloseDate:'2027-01-15'},admin.value));
   assert.equal(scoped.status,200);d=await detail(accountId);
   assert.equal(d.account.nombre,protectedBusiness);assert.equal(d.account.email,'generic@example.com');
   assert.equal(String(d.opportunities.find(o=>String(o.id)===first)!.primaryContactId),ana);
-  assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,primaryContactId:foreign}))).status,400);
-  assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,assignedUserEmail:user.email}))).status,400);
+  assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,primaryContactId:foreign},admin.value))).status,400);
+  assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,assignedUserEmail:user.email}))).status,403);
   const beforeJournal=d.leadJournal.length;
   await mutate({action:'convert_client',accountId,reason:'Acuerdo comercial confirmado'});
   d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.account.clientSince);assert.equal(d.opportunities.length,2);assert.equal(d.leadJournal.length,beforeJournal);
@@ -99,7 +101,7 @@ try{
     await db.updateTable('messageTemplates').set({commercialProfile:null,vertical:null}).where('id','=',template.id).execute();
   }finally{globalThis.fetch=realFetch}
   await mutate({action:'contact_delete',accountId,id:ana});
-  d=await detail(accountId);assert(d.contacts.find(c=>String(c.id)===ana)!.deletedAt);assert.equal(d.opportunities.find(o=>String(o.id)===first)!.primaryContactId,null);
+  d=await detail(accountId);assert(!d.contacts.some(c=>String(c.id)===ana));assert.equal(d.opportunities.find(o=>String(o.id)===first)!.primaryContactId,null);
   assert.equal((await contactLog(request({leadId:first,contactId:ana,channel:'email',result:'Respondió'},admin.value))).status,400);
   assert(d.journal.some(j=>j.action==='contact_deleted'));assert(d.leadJournal.some(j=>j.action==='contact_logged'));
   const filterGroups=JSON.stringify([{rules:[{field:'id',operator:'eq',value:first}]}]);
@@ -142,7 +144,8 @@ try{
   assert.equal((await bulk(request({entity:'business',ids:[accountId,empty],changes:{ciudad:'Colón'}}))).status,200);
   assert.equal((await detail(empty)).account.ciudad,'Colón');d=await detail(accountId);
   assert(d.opportunities.every(o=>o.ciudad==='Colón'));assert(d.journal.some(j=>j.action==='account_updated'));
-  assert.equal((await bulk(request({entity:'business',ids:[accountId],changes:{estado:stage}}))).status,200);
+  assert.equal((await bulk(request({entity:'business',ids:[accountId],changes:{estado:stage}}))).status,403);
+  assert.equal((await bulk(request({entity:'business',ids:[accountId],changes:{estado:stage}},admin.value))).status,200);
   d=await detail(accountId);assert(d.opportunities.every(o=>o.estado===stage));
   const conjunction=JSON.stringify([{rules:[{field:'id',operator:'eq',value:first}]},{rules:[{field:'id',operator:'eq',value:second}]}]);
   assert.equal((await businesses('filterGroups='+encodeURIComponent(conjunction))).total,0,'AND groups must match the same opportunity');
@@ -155,9 +158,10 @@ try{
   assert.equal((await detail(accountId)).account.ciudad,'Colón');
   assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId,empty]}))).status,400);
   assert.equal((await detail(accountId)).opportunities.length,2);
-  assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId]}))).status,200);
+  assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId]}))).status,403);
+  assert.equal((await deleteBusinesses(request({entity:'business',ids:[accountId]},admin.value))).status,200);
   assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,1,'Business survives removal of all sales');
-  d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.contacts.length);assert(d.leadJournal.some(j=>j.action==='soft_deleted'));
+  d=await detail(accountId);assert.equal(d.account.commercialStatus,'client');assert(d.contacts.length);assert.equal(d.leadJournal.length,0,'Deleted opportunity history is available only through Trash');
   const deletedRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_true'}]}]);
   async function deletionList(entity:string,rules=deletedRules,auth=admin.value){const r=await getLeads(new Request('http://localhost/_api/leads?entity='+entity+'&q='+encodeURIComponent(`CRM test ${suffix}`)+'&filterGroups='+encodeURIComponent(rules),{headers:{cookie:auth}}));return {status:r.status,data:superjson.parse<ListOutput>(await r.text())};}
   assert.equal((await deletionList('opportunity',deletedRules,user.value)).status,403,'Archived data remains admin-only');
@@ -170,7 +174,8 @@ try{
   assert.equal((await deletionList('opportunity')).data.total,1,'Restore removes one row from deleted filter');
   assert.equal((await deletionList('opportunity',bothRules)).data.total,2,'OR includes active and deleted');
   assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`))).total,1);
-  assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage}))).status,200,'Single opportunity quick edit remains supported');
+  assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage}))).status,403,'A business owner cannot change a management owned by another user');
+  assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage},admin.value))).status,200,'Single opportunity quick edit remains supported for its owner or admin');
   await restore(request({id:second},admin.value));
   console.log('Business table: distinct businesses, empty businesses, legacy filters AND/OR, canonical inline fields, independent owners, admin restriction, bulk scope/rollback, trash/restore passed');
   console.log('Commercial integration: auth, admin-only owners, two contacts/opportunities, DB constraints, independent states, audited conversion, selected recipients, empty generic names, templates, soft deletion and legacy filters passed');

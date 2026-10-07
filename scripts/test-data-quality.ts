@@ -49,7 +49,7 @@ try{
  await sql`DROP TRIGGER quality_test_fail ON crm_account_merges; DROP FUNCTION quality_test_fail()`.execute(db);
  p=await mutation<MergePreview>({action:'merge_preview',sourceId:source.id,destinationId:dest.id});await mutation(mergeBody());
  const d=await detail(source.id);assert.equal(d.account.id,dest.id);assert.equal(d.account.doNotContact,true);assert.equal(d.account.commercialStatus,'client');assert.equal(d.account.telefono,source.telefono);assert(d.journal.some(j=>j.action==='original'&&j.accountId===source.id));
- assert.equal(d.contacts.length,2);assert.equal(d.contacts.filter(c=>c.isPrimary).length,1);assert.equal(d.opportunities.length,2);
+ assert.equal(d.contacts.length,2);assert.equal(d.contacts.filter(c=>c.isPrimary).length,1);assert.equal(d.opportunities.length,1);assert.equal((await db.selectFrom("leads").selectAll().where("accountId","=",dest.id).execute()).length,2,"Fusion preserves deleted opportunities without exposing them in the active detail");
  const moved=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();assert.equal(moved.accountId,dest.id);assert.equal(moved.primaryContactId,c1.id);assert.equal(moved.archivoAdjunto,l.archivoAdjunto);assert.equal(moved.notas,l.notas);assert.equal(moved.assignedUserEmail,user.user.email);
  assert.equal((await db.selectFrom('leads').selectAll().where('id','=',sibling.id).executeTakeFirstOrThrow()).reactivatedFromId,l.id);
  assert.equal((await db.selectFrom('leadNotes').selectAll().where('id','=',note.id).executeTakeFirstOrThrow()).leadId,l.id);
@@ -72,7 +72,7 @@ try{
  const concurrent=await Promise.all([mutation<ImportResult>(body),mutation<ImportResult>(body)]);
  const result=concurrent[0];assert.deepEqual(concurrent[1],result);assert.equal(result.imported,1);assert.equal(result.updated,1);assert.equal(result.skipped,1);
  assert.equal((await detail(dest.id)).account.telefono,source.telefono);
- assert.deepEqual(await mutation<ImportResult>(body),result);assert.equal(Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n),count+1);
+ assert.deepEqual(await mutation<ImportResult>(body),result);assert.equal(Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n),count);
  const retry=await mutation<ImportReview>({action:'import_preview',rows:importRows,source:'Otra fuente'});assert.equal(retry.batchId,review.batchId);assert.equal(retry.status,'completed');
  const qualityResponse=await get(new Request('http://localhost/_api/data_quality?accountId='+dest.id,{headers:{cookie:admin.cookie}}));const quality=superjson.parse<QualityDetail>(await qualityResponse.text());assert(quality.evidence.some(e=>e.batchId===review.batchId));
  // Import conflicts cannot partially apply earlier rows.

@@ -206,7 +206,7 @@ export function TemplatesContent(){
         </article>
 
         <aside className={styles.previewCard}>
-          <div className={styles.previewTitle}><strong>Vista previa</strong><span>Usá una oportunidad real para comprobar variables antes de guardar.</span></div>
+          <div className={styles.previewTitle}><strong>Vista previa</strong><span>Usá una gestión real para comprobar variables antes de guardar.</span></div>
           <label className={styles.previewLead}>Previsualizar como
             <select value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>
               <option value="">Datos de ejemplo</option>

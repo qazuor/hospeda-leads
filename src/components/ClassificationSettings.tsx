@@ -79,7 +79,7 @@ export function ClassificationSettings({data}: {data: SettingsOutput}) {
         </article>
       </SectionTabPanel>
     </SectionTabs>
-    <Link className={styles.related} to="/settings?section=process"><div><strong>¿Buscás etapas de venta o tipos de tareas?</strong><span>Ahora están en Proceso comercial, junto con las reglas de seguimiento.</span></div><ArrowRight size={20}/></Link>
+    <Link className={styles.related} to="/settings?section=process"><div><strong>¿Buscás etapas de gestión o tipos de tareas?</strong><span>Ahora están en Proceso comercial, junto con las reglas de seguimiento.</span></div><ArrowRight size={20}/></Link>
     <Dialog open={!!editing} onOpenChange={open => {if (!open && !save.isPending) setEditing(null);}}><DialogContent>
       <DialogHeader><DialogTitle>Editar subtipo</DialogTitle><DialogDescription>Pertenece a {editing?.typeName ?? 'Generales'}. Guardar también actualiza el nombre en los registros que usan este subtipo.</DialogDescription></DialogHeader>
       <form onSubmit={e => {e.preventDefault(); if (!editing?.name.trim() || save.isPending) return; save.mutate({action: 'editSubtype', id: editing.id, name: editing.name.trim()}, {onSuccess: () => {setEditing(null); setNotice('Subtipo actualizado.');}});}}>

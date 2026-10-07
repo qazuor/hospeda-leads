@@ -1,3 +1,4 @@
+import {BusinessListDefaults} from '../components/BusinessListDefaults';
 import {ClassificationSettings} from "../components/ClassificationSettings";
 import {SectionTabs, SectionTabList, SectionTab, SectionTabPanel} from "../components/SectionTabs";
 import {SequenceSettings} from "../components/SequenceSettings";
@@ -16,12 +17,12 @@ import { Input } from "../components/Input";
 import { LiveModeSwitch } from "../components/LiveModeSwitch";
 import { ThemeModeSwitch } from "../components/ThemeModeSwitch";
 import { TemplatesContent } from "./templates";
-import { getSettings, type SettingsUser } from "../endpoints/settings_GET.schema";
+import { getSettings, type OperationalUser } from "../endpoints/settings_GET.schema";
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="users"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
-const SECTIONS:Section[]=["users","classifications","process","communication","templates","library","system"];
+type Section="businesses"|"users"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
+const SECTIONS:Section[]=["businesses","users","classifications","process","communication","templates","library","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -32,7 +33,7 @@ export default function SettingsPage(){
   const save=useMutation({mutationFn:postSettingsSave,onSuccess:()=>qc.invalidateQueries({queryKey:["settings"]})});
   const [inviteOpen,setInviteOpen]=useState(false);
   const [inviteEmail,setInviteEmail]=useState("");
-  const [editingUser,setEditingUser]=useState<SettingsUser|null>(null);
+  const [editingUser,setEditingUser]=useState<OperationalUser|null>(null);
   const [editEmail,setEditEmail]=useState("");
   const [editFullName,setEditFullName]=useState("");
   const [editDisplayName,setEditDisplayName]=useState("");
@@ -68,6 +69,7 @@ export default function SettingsPage(){
   };
 
   const tabs=[
+    {key:"businesses" as const,label:"Listado de negocios",icon:SlidersHorizontal},
     {key:"users" as const,label:"Usuarios",icon:Users},
     {key:"classifications" as const,label:"Clasificaciones",icon:Tags},
     {key:"process" as const,label:"Proceso comercial",icon:GitBranch},
@@ -84,6 +86,7 @@ export default function SettingsPage(){
       <nav aria-label="Secciones de configuración" className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <button key={tab.key} aria-current={section===tab.key?"page":undefined} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</button>})}</nav>
       {(q.error||save.error)&&<div className={styles.error}>{(q.error||save.error)?.message}</div>}
 
+      {section==="businesses"&&<BusinessListDefaults/>}
       {section==="users"&&<section className={styles.content}>
         <article className={styles.usersCard}>
           <div className={styles.usersHeader}>
@@ -107,7 +110,7 @@ export default function SettingsPage(){
       {section==="classifications"&&<section className={styles.content}>{data?<ClassificationSettings data={data}/>:<p role="status">Cargando clasificaciones…</p>}</section>}
 
       {section==="process"&&<section className={styles.processSection}>
-        <header className={styles.processHeading}><h2>Proceso comercial</h2><p>Definí cómo avanzan las ventas y cómo el equipo organiza sus próximos pasos.</p></header>
+        <header className={styles.processHeading}><h2>Proceso comercial</h2><p>Definí cómo avanzan las gestiones y cómo el equipo organiza sus próximos pasos.</p></header>
         <SectionTabs defaultValue="stages">
           <SectionTabList aria-label="Configuración del proceso comercial"><SectionTab value="stages">Etapas y resultados</SectionTab><SectionTab value="tasks">Tareas y seguimiento</SectionTab></SectionTabList>
           <SectionTabPanel value="stages"><PipelineSettings/></SectionTabPanel>
@@ -117,7 +120,7 @@ export default function SettingsPage(){
 
       {section==="communication"&&<section className={styles.content}>
         <article className={styles.card}>
-          <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery.brevoConnected?"success":"warning"}>{data?.emailDelivery.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
+          <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery?.brevoConnected?"success":"warning"}>{data?.emailDelivery?.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
           <div className={styles.deliveryGrid}>
             <label>Nombre remitente<Input value={senderName} onChange={e=>setSenderName(e.target.value)} placeholder="Hospeda"/></label>
             <label>Email remitente<Input type="email" value={senderEmail} onChange={e=>setSenderEmail(e.target.value)} placeholder="notificaciones@hospeda.com.ar"/></label>

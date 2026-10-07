@@ -23,3 +23,5 @@
 .conversationContinue{padding:18px 20px;margin:16px 0;border:1px solid color-mix(in srgb,var(--brand-blue) 25%,var(--border));border-radius:18px;background:linear-gradient(120deg,color-mix(in srgb,var(--brand-blue) 6%,var(--card)),var(--card));display:grid;gap:10px}.conversationContinue h2,.conversationContinue h3{font:700 18px/1.4 var(--font-family-heading);margin:0}.conversationContinue p{font-size:15px;line-height:1.6;margin:0;color:var(--muted-foreground)}.conversationContinue>a{font-size:14px;color:var(--primary)}.conversationContinue>button{width:fit-content}
 
 .researchValue { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.contactChoice{display:grid;gap:8px;font-size:16px}.contactChoice select{width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;font:inherit;color:var(--foreground);background:var(--card)}

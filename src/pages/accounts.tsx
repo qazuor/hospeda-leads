@@ -7,7 +7,7 @@ import styles from "../components/Commercial.module.css";
 export default function AccountsPage(){
   const {accountId}=useParams();
   return <><AppHeader/><main className={styles.shell}>
-    <Link to="/accounts">← Volver a la tabla de negocios</Link>
+    <Link to="/accounts">← Volver al listado de negocios</Link>
     {accountId&&<CommercialPanel key={accountId} accountId={accountId}/>}
   </main></>;
 }

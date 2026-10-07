@@ -1,3 +1,4 @@
+import {assertAccountReadable,assertAccountWritable,assertLeadAccess} from './crmPermissions';
 import {sql,type Kysely,type Transaction} from 'kysely';import {createHash,randomUUID} from 'node:crypto';
 import type {DB} from './schema';import type {User} from './User';import {setWorkActor} from './workAudit';
 import {communicationConfig,CommunicationForbidden,CommunicationConflict} from './communicationService';
@@ -5,15 +6,17 @@ import type {ResourceMutation,ResourceDocument} from '../endpoints/resources.sch
 type E=Kysely<DB>|Transaction<DB>;
 export async function documentFor(e:E,id:string,user:User,write=false){const d=(await sql<ResourceDocument>`SELECT * FROM crm_documents WHERE id=${id}::uuid AND deleted_at IS NULL`.execute(e)).rows[0];if(!d)throw new Error('Documento inexistente');
  if(write&&d.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin administra la biblioteca');
+ if(d.accountId){const account=await e.selectFrom('crmAccounts').selectAll().where('id','=',d.accountId).executeTakeFirstOrThrow();assertAccountReadable(user,account);if(write)assertAccountWritable(user,account);}
+ if(d.leadId){const lead=await e.selectFrom('leads').select('deletedAt').where('id','=',d.leadId).executeTakeFirstOrThrow();if(lead.deletedAt&&user.role!=='admin')throw new CommunicationForbidden('La gestión está en la papelera.');}
  if(user.role==='admin'||d.ownerEmail===user.email)return d;
  const account=d.accountId?await e.selectFrom('crmAccounts').selectAll().where('id','=',d.accountId).executeTakeFirst():null;
  const lead=d.leadId?await e.selectFrom('leads').selectAll().where('id','=',d.leadId).executeTakeFirst():null;
- if(!write&&((d.library&&d.status==='approved')||account?.assignedUserEmail===user.email||lead?.assignedUserEmail===user.email))return d;
+ if(!write&&((d.library&&d.status==='approved')||(!d.library&&!!account)))return d;
  throw new CommunicationForbidden('No tenés acceso a este documento');}
 async function validateContext(e:E,user:User,accountId:string|null,leadId:string|null,activityId:string|null){if(!accountId){if(leadId||activityId)throw new Error('Seleccioná negocio');return;}
- const a=await e.selectFrom('crmAccounts').selectAll().where('id','=',accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();let owner=a.assignedUserEmail===user.email;
+ const a=await e.selectFrom('crmAccounts').selectAll().where('id','=',accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();assertAccountReadable(user,a);if(leadId)await assertLeadAccess(e,leadId,user,true);else assertAccountWritable(user,a);let owner=a.assignedUserEmail===user.email;
  if(leadId){const l=await e.selectFrom('leads').selectAll().where('id','=',leadId).where('accountId','=',accountId).where('deletedAt','is',null).executeTakeFirstOrThrow();owner ||=l.assignedUserEmail===user.email;}
- if(activityId){const act=await e.selectFrom('crmActivities').selectAll().where('id','=',activityId).where('accountId','=',accountId).where('deletedAt','is',null).executeTakeFirstOrThrow();if(leadId&&act.leadId!==leadId)throw new Error('La actividad no corresponde a la oportunidad');}
+ if(activityId){const act=await e.selectFrom('crmActivities').selectAll().where('id','=',activityId).where('accountId','=',accountId).where('deletedAt','is',null).executeTakeFirstOrThrow();if(leadId&&act.leadId!==leadId)throw new Error('La actividad no corresponde a la gestión');}
  if(user.role!=='admin'&&!owner)throw new CommunicationForbidden('Negocio ajeno');}
 async function insertVersion(e:E,documentId:string,version:number,v:Extract<ResourceMutation,{action:'version'}>['version'],user:User){
  if(!!v.url===!!v.fileData)throw new Error('Elegí archivo o vínculo');if(v.expiresOn&&(!Number.isFinite(Date.parse(v.expiresOn))||new Date(v.expiresOn).toISOString().slice(0,10)!==v.expiresOn))throw new Error('Vencimiento inválido');
@@ -26,6 +29,7 @@ async function insertVersion(e:E,documentId:string,version:number,v:Extract<Reso
  return (await sql`INSERT INTO crm_document_versions(id,document_id,version,url,file_data,file_name,mime_type,byte_size,sha256,expires_on,actor_email) VALUES(${randomUUID()}::uuid,${documentId}::uuid,${version},${url},${data},${name},${mime},${size},${sha},${v.expiresOn??null}::date,${user.email}) RETURNING id`.execute(e)).rows[0];
 }
 export async function mutateResource(db:Kysely<DB>,input:ResourceMutation,user:User){return db.transaction().execute(async e=>{
+ if(input.action!=='link'&&user.role!=='admin')throw new CommunicationForbidden('Solo un administrador puede administrar materiales.');
  await setWorkActor(e,user);await sql`LOCK TABLE crm_accounts,leads,crm_documents IN SHARE ROW EXCLUSIVE MODE`.execute(e);
  if(input.action==='category'){if(user.role!=='admin')throw new CommunicationForbidden('Solo admin configura categorías');if(input.id)await sql`UPDATE crm_document_categories SET name=${input.name},active=${input.active} WHERE id=${input.id}`.execute(e);else await sql`INSERT INTO crm_document_categories(name,active) VALUES(${input.name},${input.active})`.execute(e);return {ok:true};}
  if(input.action==='create'){

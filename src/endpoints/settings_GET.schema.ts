@@ -13,13 +13,15 @@ export type SettingsUser={
   invitationPending:boolean;
 };
 
+export type OperationalUser=Pick<SettingsUser,"id"|"email"|"displayName"|"role"> & Partial<Omit<SettingsUser,"id"|"email"|"displayName"|"role">>;
+
 export type SettingsOutput = {
   cities: {id:string; name:string}[];
   subtypes: {id:string; typeName:string|null; name:string}[];
   authorizedEmails: {id:string; email:string; displayName:string|null}[];
-  users: SettingsUser[];
+  users: OperationalUser[];
   templates: {id:string; channel:string; name:string; subject:string|null; body:string; vertical:string|null; commercialProfile:string|null}[];
-  emailDelivery: {
+  emailDelivery?: {
     senderName:string;
     senderEmail:string;
     replyToEmail:string;

@@ -118,6 +118,8 @@ export interface LeadNotes {
 }
 
 export interface Leads {
+  creationRequestKey: Generated<string | null>;
+  creationRequestHash: Generated<string | null>;
   stageSince: Timestamp | null;
   pipelineRevision: Generated<number>;
   reactivatedFromId: Int8 | null;

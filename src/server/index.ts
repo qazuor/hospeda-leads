@@ -1,3 +1,4 @@
+import {handle as businessListDefaults} from '../endpoints/business_list_defaults';
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
@@ -96,6 +97,8 @@ app.get("/_api/leads_stats", (c) => h18(c.req.raw));
 app.get("/_api/leads_trash", (c) => h19(c.req.raw));
 app.get("/_api/live_version", (c) => h20(c.req.raw));
 app.post("/_api/send_template_email", (c) => h21(c.req.raw));
+app.get('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
+app.post('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
 app.get("/_api/settings", (c) => h22(c.req.raw));
 app.post("/_api/settings_save", (c) => h23(c.req.raw));
 

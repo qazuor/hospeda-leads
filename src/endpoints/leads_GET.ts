@@ -1,3 +1,4 @@
+import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {calendarDay} from '../helpers/workDates';
 import {crmError} from '../helpers/crmErrors';
 import {localDay,argentinaInstant} from "../helpers/workDates";
@@ -18,6 +19,7 @@ export async function handle(request: Request) {
     const source=()=>input.entity==="business" ? db.selectFrom(businessTableSource(includeDeleted).as("leads")) : db.selectFrom("leads");
     let query=source();
     if(!includeDeleted)query=query.where("deletedAt","is",null);
+    if(input.entity==="opportunity"&&user.role!=="admin")query=query.where(eb=>eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("archivedAt","is",null)));
     if(input.q){const s="%"+input.q.toLowerCase()+"%";query=query.where(eb=>eb.or([
       eb(sql<string>`lower(nombre)`,"like",s),
       eb(sql<string>`lower(coalesce(opportunity_name,''))`,"like",s),
@@ -244,7 +246,18 @@ export async function handle(request: Request) {
     const candidates=input.entity==="business"
       ? db.selectFrom(query.selectAll().distinctOn("accountId").orderBy("accountId").orderBy("id","asc").as("leads"))
       : query;
-    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((input.page-1)*input.pageSize)).execute();
+    let anchorPage:number|undefined;
+    if(input.entity==='business'&&input.anchorAccountId){
+      const ranked=candidates.select('accountId').select(sql<number>`row_number() over(order by ${sql.ref(sortBy)} ${sql.raw(sortDir)}, id desc)`.as('rowPosition')).as('ranked');
+      const anchor=await db.selectFrom(ranked).select('rowPosition').where('accountId','=',input.anchorAccountId).executeTakeFirst();
+      if(anchor)anchorPage=Math.ceil(Number(anchor.rowPosition)/input.pageSize);
+    }
+    const page=input.alignAnchorPage&&anchorPage?anchorPage:input.page;
+    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
+    if(rows.length){
+      const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
+      for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissions.find(a=>String(a.id)===String(row.accountId))):canModifyManagement(user,row,permissions.find(a=>String(a.id)===String(row.accountId))));
+    }
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
       const [accounts,opportunities,contacts,nextTasks]=await Promise.all([
@@ -272,7 +285,7 @@ export async function handle(request: Request) {
       distinct("ciudad"),distinct("estado"),distinct("tipo"),distinct("asignadoA"),distinct("suscripcion"),
       distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor")
     ]);
-    const out={rows,total:Number(count.count),page:input.page,pageSize:input.pageSize,filters:{ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
+    const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
     return new Response(superjson.stringify(out), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
     return new Response(superjson.stringify({ error: crmError(error) }), { status: 401 });

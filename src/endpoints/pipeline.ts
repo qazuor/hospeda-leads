@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
 import {crmError} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
@@ -14,7 +15,7 @@ import {day} from './work.schema';
 class Forbidden extends Error {}
 class Conflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden?403:e instanceof Conflict?409:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:400);
 const query=z.object({leadId:z.string().regex(/^\d+$/).optional(),ids:z.string().regex(/^\d+(,\d+)*$/).optional(),mode:z.enum(['detail','reactivation','config']).default('detail'),from:day.optional(),to:day.optional(),reasonId:z.string().regex(/^\d+$/).optional(),vertical:z.string().max(200).optional(),responsible:z.string().max(320).optional(),handled:z.enum(['yes','no','all']).default('no'),page:z.coerce.number().int().min(1).default(1)});
 export async function get(request:Request){
  try{
@@ -25,9 +26,10 @@ export async function get(request:Request){
    db.selectFrom('appSettings').select('value').where('key','=','crm_priority_rules').executeTakeFirstOrThrow(),db.selectFrom('users').select(['email','displayName']).execute(),db.selectFrom('crmVerticals').select('name').where('active','=',true).execute(),db.selectFrom('leads').select('tipo').distinct().where('tipo','is not',null).execute()
   ]);
   const rules=z.array(priorityRule).parse(JSON.parse(setting.value));
-  const ids=p.leadId?[p.leadId]:(p.ids?.split(',')??[]);if(ids.length>100)throw new Error('Máximo 100 oportunidades por consulta.');
+  const ids=p.leadId?[p.leadId]:(p.ids?.split(',')??[]);if(ids.length>100)throw new Error('Máximo 100 gestiones por consulta.');
   let insights:PipelineInsight[]=[],events:PipelineEvent[]=[],objections:PipelineObjection[]=[];
   if(ids.length){
+   for(const id of ids)await assertLeadAccess(db,id,user);
    const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null}>`SELECT l.id,l.estado,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.status='pending' AND t.deleted_at IS NULL) pending_followup,l.fecha_proxima_accion,l.fecha_ultimo_contacto,l.estimated_close_date
     FROM leads l JOIN crm_accounts a ON a.id=l.account_id LEFT JOIN crm_stages s ON s.name=l.estado WHERE l.id IN (${sql.join(ids)}) AND l.deleted_at IS NULL`.execute(db);
@@ -40,7 +42,7 @@ export async function get(request:Request){
   let reactivations:ReactivationRow[]=[],total=0;
   if(p.mode==='reactivation'){
    const clauses=[sql`l.deleted_at IS NULL`,sql`s.classification='lost'`,sql`e.recontact_date IS NOT NULL`];
-   if(user.role!=='admin')clauses.push(sql`l.assigned_user_email=${user.email}`);
+   if(user.role!=='admin')clauses.push(sql`l.assigned_user_email=${user.email}`,sql`a.archived_at IS NULL`);
    else if(p.responsible&&p.responsible!=='all')clauses.push(sql`l.assigned_user_email=${p.responsible}`);
    if(p.from)clauses.push(sql`e.recontact_date>=${p.from}::date`);if(p.to)clauses.push(sql`e.recontact_date<=${p.to}::date`);
    if(p.reasonId)clauses.push(sql`e.reason_id=${p.reasonId}`);if(p.vertical)clauses.push(sql`l.tipo=${p.vertical}`);
@@ -93,8 +95,8 @@ export async function post(request:Request){
    const context=await trx.selectFrom('leads').select('accountId').where('id','=',p.leadId).where('deletedAt','is',null).executeTakeFirstOrThrow();
    const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',context.accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=await trx.selectFrom('leads').selectAll().where('id','=',p.leadId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
-   if(user.role!=='admin'&&lead.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar tus oportunidades asignadas.');
-   if(lead.pipelineRevision!==p.revision)throw new Conflict('La oportunidad cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
+   await assertLeadAccess(trx,String(lead.id),user,true);
+   if(lead.pipelineRevision!==p.revision)throw new Conflict('La gestión cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
    if(p.action==='objection_save'){
     const type=(await sql<PipelineCatalog>`SELECT * FROM crm_objection_types WHERE id=${p.typeId} FOR SHARE`.execute(trx)).rows[0];
     const before=p.id?(await sql<PipelineObjection>`SELECT * FROM crm_objections WHERE id=${p.id} AND lead_id=${lead.id} AND deleted_at IS NULL FOR UPDATE`.execute(trx)).rows[0]:null;
@@ -106,7 +108,7 @@ export async function post(request:Request){
    }
    if(p.action==='closing_save'){
     const stage=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${lead.estado}`.execute(trx)).rows[0];
-    if(stage?.classification!=='won')throw new Error('El acuerdo corresponde a una venta ganada.');
+    if(stage?.classification!=='won')throw new Error('El acuerdo corresponde a una gestión ganada.');
     const previous=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='closing_checklist' ORDER BY id DESC LIMIT 1`.execute(trx)).rows[0];
     if((previous?.id??null)!==p.expectedEventId)throw new Conflict('El acuerdo cambió. Volvé a abrirlo para revisar la última versión.');
     await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,previousEventId:previous?.id??null});
@@ -117,11 +119,11 @@ export async function post(request:Request){
     await sql`SELECT set_config('crm.loss_reason',${p.reasonId??''},true),set_config('crm.loss_comment',${p.comment},true),set_config('crm.recontact',${p.recontactDate??''},true)`.execute(trx);
     const chosen=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active`.execute(trx)).rows[0];
     if(!chosen)throw new Error('Elegí una etapa disponible.');
-    if((p.convertClient||p.onboarding||p.closing)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una venta ganada.');
+    if((p.convertClient||p.onboarding||p.closing)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una gestión ganada.');
     await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).execute();
     if(p.convertClient&&account.commercialStatus!=='client'){
      await trx.updateTable('crmAccounts').set({commercialStatus:'client',clientSince:new Date(),updatedAt:new Date()}).where('id','=',account.id).execute();
-     await trx.insertInto('crmCommercialJournal').values({accountId:account.id,action:'converted_to_client',actorEmail:user.email,actorName:user.displayName,metadata:{reason:p.comment||'Venta ganada',leadId:lead.id,paymentVerified:false}}).execute();
+     await trx.insertInto('crmCommercialJournal').values({accountId:account.id,action:'converted_to_client',actorEmail:user.email,actorName:user.displayName,metadata:{reason:p.comment||'Gestión ganada',leadId:lead.id,paymentVerified:false}}).execute();
     }
     if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false});
     if(p.onboarding)await trx.insertInto('crmTasks').values({accountId:account.id,leadId:null,typeId:'followup',purpose:'care',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
@@ -139,7 +141,7 @@ export async function post(request:Request){
     const next=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active AND classification='open' FOR SHARE`.execute(trx)).rows[0];if(!next)throw new Error('Elegí una etapa abierta activa.');
     if(p.mode==='reopen')target=await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).returningAll().executeTakeFirstOrThrow();
     else{
-     if(!p.opportunityName)throw new Error('Dale un nombre a la nueva oportunidad.');
+     if(!p.opportunityName)throw new Error('Dale un nombre a la nueva gestión.');
      target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,primaryContactId:lead.primaryContactId,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:lead.assignedUserEmail,estado:p.stage,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
     }
    }

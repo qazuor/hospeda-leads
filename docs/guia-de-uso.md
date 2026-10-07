@@ -12,16 +12,16 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 1. Negocio: la empresa o establecimiento. Crealo una vez; después agregás personas y propuestas dentro de él.
 2. Contacto: una persona del negocio. Guardá su nombre y sus propios canales de comunicación.
-3. Venta u oportunidad: una propuesta concreta. Crear una venta inicia su seguimiento; todavía no significa que se haya vendido.
+3. Gestión comercial: reúne una propuesta y su seguimiento. Iniciar gestión guarda ese contexto; todavía no significa que se haya vendido.
 4. Tarea o próximo paso: algo que falta hacer, con una fecha. Actividad: lo que ya hiciste y registraste.
-5. Etapa: el punto en el que está una venta. Abierta sigue en negociación; Ganada fue aceptada; Perdida se cerró sin concretarse. Los nombres concretos dependen de la configuración.
-6. Cliente: la relación del negocio con Hospeda. Un cliente puede tener ventas nuevas abiertas. Responsable: quien se encarga de ese negocio, venta o tarea.
+5. Etapa: el punto en el que está una gestión. Abierta sigue en negociación; Ganada fue aceptada; Perdida se cerró sin concretarse. Los nombres concretos dependen de la configuración.
+6. Cliente: la relación del negocio con Hospeda. Un cliente puede tener gestiones nuevas abiertas. Responsable: quien se encarga de ese negocio, gestión o tarea.
 
 **Qué queda al terminar:** Podés distinguir los datos del negocio, lo que se ofrece, lo que falta hacer y lo que ya ocurrió.
 
 **Ejemplo:**
 
-- Cabañas Camino Claro es el negocio. Ana es un contacto. Publicación de cabañas es una venta. Llamar a Ana el jueves es una tarea. La llamada del jueves es una actividad.
+- Cabañas Camino Claro es el negocio. Ana es un contacto. Publicación de cabañas es una gestión. Llamar a Ana el jueves es una tarea. La llamada del jueves es una actividad.
 
 **Tené en cuenta:**
 
@@ -32,13 +32,13 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Cuándo usarlo:** Cuando ves campos que no sabés cómo completar.
 
 1. Vertical indica el rubro del negocio; Subtipo lo describe con más detalle. Usá las opciones del equipo y completá solo lo que conozcas.
-2. Perfil comercial ayuda a elegir mensajes modelo adecuados. No es la etapa de la venta ni la relación Cliente/Potencial cliente.
+2. Perfil comercial ayuda a elegir mensajes modelo adecuados. No es la etapa de la gestión ni la relación Cliente/Potencial cliente.
 3. Prioridad indica qué merece atención antes. La aplicación puede mostrar una prioridad sugerida y explicar por qué; no reemplaza la prioridad manual.
 4. Origen y Fuente de referencia explican de dónde salió el dato. Guardá la fuente real, no una suposición.
 5. Notas conserva información útil. Usá una actividad para una conversación realizada y una tarea para un compromiso pendiente.
 6. Suscripción y Cierre estimado describen información comercial registrada. No prueban cobros ni activación de servicios.
 
-**Qué queda al terminar:** Cada campo ayuda a describir el caso, sin confundirse con el resultado de una venta.
+**Qué queda al terminar:** Cada campo ayuda a describir el caso, sin confundirse con el resultado de una gestión.
 
 **Ejemplo:**
 
@@ -53,11 +53,11 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Cuándo usarlo:** Cuando no sabés qué pantalla abrir.
 
 1. Mi día: empezá aquí para atender tareas vencidas y las que corresponden hoy.
-2. Negocios: buscá establecimientos, cargá uno nuevo y abrí sus contactos, ventas, documentos e historial.
-3. Ventas: consultá propuestas concretas. Abrí una para ver Resumen, Seguimiento, Notas, Mensajes y Documentos.
+2. Negocios: buscá establecimientos, cargá uno nuevo y abrí sus contactos, gestiones, documentos e historial.
+3. Gestiones comerciales: consultá propuestas concretas. Abrí una para ver Resumen, Seguimiento, Notas, Mensajes y Documentos.
 4. Agenda: revisá encuentros configurados para el calendario, normalmente visitas y reuniones. No reemplaza todas las tareas de Mi día.
-5. Más opciones → Retomar ventas pospuestas: revisá ventas perdidas con una fecha para volver a conversar.
-6. Más opciones → Materiales para ofrecer: consultá recursos aprobados. Negocios archivados permite recuperar establecimientos.
+5. Más opciones → Retomar gestiones pospuestas: revisá gestiones perdidas con una fecha para volver a conversar.
+6. Usá los materiales aprobados dentro de una gestión. Solo el admin administra materiales y consulta Negocios archivados.
 7. Configuración, Estadísticas, Historial del equipo y Papelera son accesos de administración. Si no los ves, consultá al administrador.
 
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
@@ -89,7 +89,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 ## Negocio y primer contacto
 
-Cargá un negocio, identificá a la persona y dejá el primer paso.
+Cargá un negocio, usá sus canales o una persona conocida y dejá el primer paso.
 
 ### Cargar o completar un negocio
 
@@ -97,11 +97,11 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 1. Entrá en Negocios y buscá el nombre. Revisá ciudad y canales para evitar crear un duplicado.
 2. Si no existe, elegí Nuevo negocio. Completá el campo Negocio y los datos que conozcas. No inventes lo que falte.
-3. Guardá. Abrí su resumen y revisá el bloque del próximo paso.
+3. Guardá. Abrí su ficha y revisá el próximo paso, que permanece visible entre secciones.
 4. Para completar datos después, elegí Editar negocio. Usá los canales generales para recepción, central telefónica o email del establecimiento.
 5. Si falta responsable o la asignación es incorrecta, pedile al administrador que la revise.
 
-**Qué queda al terminar:** El negocio queda guardado; no se crea una venta ni se envían mensajes por cargarlo.
+**Qué queda al terminar:** El negocio queda guardado; no se crea una gestión ni se envían mensajes por cargarlo.
 
 **Ejemplo:**
 
@@ -109,18 +109,38 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
+### Contactar desde la ficha del negocio
+
+**Cuándo usarlo:** Cuando querés preparar un mensaje sin buscar primero una tarea.
+
+1. Abrí el negocio. Nombre, responsable, próximo paso y última conversación permanecen a la vista.
+2. Elegí Contactar en la cabecera. Si hay una gestión abierta se utiliza; si hay varias, elegí cuál corresponde. Las cerradas conservan su historia.
+3. Si no hay una abierta, elegí Preparar gestión para contactar. Revisá y guardá su nombre y la etapa que corresponda; persona, propuesta y cierre estimado son opcionales. Cancelar esa preparación no crea una gestión.
+4. Elegí WhatsApp o Email y continuá. Verificá Destinatario y el número o dirección; podés usar el canal general sin cargar una persona. Si falta, elegí Agregar teléfono o email.
+5. Elegí un mensaje modelo o Escribir un mensaje nuevo. Editá, guardá y revisá el contenido final antes de realizar la acción.
+6. Abrir WhatsApp no confirma envío. Enviar email muestra lo confirmado por el proveedor; si el resultado es incierto, revisalo antes de volver a intentar.
+
+**Qué queda al terminar:** Un mensaje revisado, vinculado a la gestión elegida y con destinatario visible.
+
+**Tené en cuenta:**
+
+- Preparar y guardar una gestión no registra contacto, envío ni conversación.
+- El próximo paso permanece visible al entrar en Gestiones comerciales, Datos del negocio o Contactos.
+
+**Dónde ir:** Abrir Negocios (/accounts)
+
 ### Agregar personas y elegir con quién hablar
 
 **Cuándo usarlo:** Cuando conocés a alguien del negocio o hay varias personas involucradas.
 
-1. Abrí el negocio y entrá en Contactos. Elegí Agregar contacto. En Resumen, Agregar persona o Ver o editar personas te llevan a esa sección.
+1. Abrí el negocio y entrá en Contactos. Elegí Agregar contacto. La persona es opcional: Contactar también permite usar el teléfono o email del negocio.
 2. Completá Nombre de la persona, teléfono o email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar sin completar.
 3. Marcá Principal del negocio si es la referencia habitual. Guardá.
-4. Agregá a las demás personas como contactos distintos. En una venta podés elegir su Contacto principal de oportunidad.
+4. Agregá a las demás personas como contactos distintos. En una gestión podés elegir su Contacto principal de gestión.
 5. Antes de comunicarte, revisá Destinatario. El canal general del negocio y los canales de una persona son opciones diferentes.
 6. Al agregar una persona aparece Volver al próximo paso. Te devuelve al resumen del negocio para continuar sin buscarlo de nuevo.
 
-**Qué queda al terminar:** Cada persona conserva sus datos. Principal del negocio reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada venta.
+**Qué queda al terminar:** Cada persona conserva sus datos. Principal del negocio reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada gestión.
 
 **Ejemplo:**
 
@@ -130,21 +150,21 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 - No hace falta inventar una persona para usar el teléfono o email general.
 
-### Cuándo crear una venta y cómo hacerlo
+### Cuándo crear una gestión y cómo hacerlo
 
 **Cuándo usarlo:** Cuando vas a trabajar una propuesta concreta. No es necesario para cada llamada general.
 
-1. Abrí el negocio → Resumen → Crear una venta. Si ya es cliente, el botón del resumen dice Ofrecer otra venta.
-2. Escribí un nombre que explique qué ofrecés. Revisá Contacto principal de oportunidad y los datos conocidos.
+1. Abrí el negocio → Gestiones comerciales → Iniciar gestión. Este recorrido prepara una propuesta antes de contactar.
+2. Escribí un nombre que explique qué ofrecés. Revisá Contacto principal de gestión y los datos conocidos.
 3. El servicio de interés describe la oferta. El cierre estimado es una previsión opcional; no es una fecha de pago.
-4. Guardá y abrí esa venta desde el negocio. Leé su próximo paso y planificá la acción inicial.
-5. Al crearla desde el negocio aparece Abrir esta venta. Entrá para revisar el próximo paso y planificar el primer compromiso.
+4. Guardá y abrí esa gestión desde el negocio. Leé su próximo paso y planificá la acción inicial.
+5. Al crearla desde el negocio aparece Abrir gestión. Entrá para revisar el próximo paso y planificar el primer compromiso.
 
 **Qué queda al terminar:** La propuesta queda vinculada al mismo negocio, con su propia etapa, tareas e historial.
 
 **Ejemplo:**
 
-- Creá Publicación de cabañas para una oferta de publicación. Para averiguar quién atiende el establecimiento, podés usar una tarea general sin crear una venta.
+- Creá Publicación de cabañas para una oferta de publicación. Para averiguar quién atiende el establecimiento, podés usar una tarea general sin crear una gestión.
 
 **Tené en cuenta:**
 
@@ -157,10 +177,10 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 **Cuándo usarlo:** Cuando hay algo pendiente: llamar, enviar una propuesta, visitar o confirmar una entrega.
 
 1. En el bloque del próximo paso elegí Planificar próximo paso. También podés usar Mi día → Agregar próximo paso o Seguimiento → Nueva tarea.
-2. Si empezaste desde Mi día, buscá y elegí el Negocio. En Contexto seleccioná una venta o Seguimiento general del negocio.
+2. Si empezaste desde Mi día, buscá y elegí el Negocio. En Contexto seleccioná una gestión o Seguimiento general del negocio.
 3. Escribí un Título concreto. Elegí Tipo, Fecha de vencimiento y, si sirve, Hora (opcional). Revisá Propósito.
 4. Conversación comercial sirve para una oferta; Entrega para cumplir lo acordado; Acompañamiento para revisar cómo le va; Retomar una conversación para volver sobre un contacto anterior.
-5. En Participantes y notas (opcional) agregá detalles. Si partiste del negocio y querés vincular una venta, abrí Vincular a una venta (opcional).
+5. En Participantes y notas (opcional) agregá detalles. Si partiste del negocio y querés vincular una gestión, abrí Vincular a una gestión (opcional).
 6. Elegí Guardar próximo paso.
 
 **Qué queda al terminar:** Se guarda una tarea pendiente. Aparece en Mi día según su fecha; si su tipo está configurado para agenda, también en el calendario.
@@ -179,10 +199,10 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 **Cuándo usarlo:** Cuando llega el momento de una tarea o una conversación necesaria.
 
-1. Abrí la tarea y elegí Contactar. Desde el resumen también podés abrir Otras acciones → Contactar ahora.
+1. Para una tarea, elegí Contactar. Desde la ficha del negocio, usá Contactar en la cabecera; usa una gestión abierta o permite elegir entre varias.
 2. Revisá Destinatario y sus canales. Si elegís otra persona, comprobá que el teléfono o email le corresponda.
 3. Usá Llamar, WhatsApp o Email según lo disponible y permitido. Email en este diálogo abre tu aplicación de correo.
-4. Al trabajar una venta, Preparar email con un mensaje modelo y Preparar WhatsApp con un mensaje modelo abren el editor del CRM.
+4. Al trabajar una gestión, Preparar email con un mensaje modelo y Preparar WhatsApp con un mensaje modelo abren el editor del CRM.
 5. Hablá con la persona. Preguntá qué necesita y acordá qué hacer después. Volvé a Registrar qué pasó.
 
 **Qué queda al terminar:** Abrir un canal inicia la comunicación fuera del CRM o prepara el mensaje; el resultado de la conversación se registra después.
@@ -193,7 +213,7 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 **Tené en cuenta:**
 
-- Los modelos están disponibles al trabajar una venta. Una tarea general puede usar los canales del negocio sin inventar una oportunidad.
+- Los modelos están disponibles al trabajar una gestión. Una tarea general puede usar los canales del negocio sin inventar una gestión.
 - Si un canal está bloqueado, respetá la restricción. Abrir WhatsApp no demuestra que el mensaje se haya enviado.
 
 ### Registrar qué pasó y decidir cómo sigue
@@ -214,7 +234,7 @@ Cargá un negocio, identificá a la persona y dejá el primer paso.
 
 **Tené en cuenta:**
 
-- Terminar por ahora no gana ni pierde una venta. Registrar Mostró interés no cambia por sí solo su etapa.
+- Terminar por ahora no gana ni pierde una gestión. Registrar Mostró interés no cambia por sí solo su etapa.
 - Si la conversación no provenía de una tarea, usá Registrar actividad o Registrar una conversación realizada para anotar lo que ya ocurrió.
 
 ## Propuesta, decisión y cierre
@@ -225,13 +245,13 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 **Cuándo usarlo:** Cuando la persona quiere conocer la oferta.
 
-1. Abrí la venta → Resumen. Consultá Cómo avanzar con esta venta: Contacto, Necesidad, Propuesta y Decisión.
+1. Abrí la gestión → Resumen. Consultá Cómo avanzar con esta gestión: Contacto, Necesidad, Propuesta y Decisión.
 2. Preguntá qué busca el negocio y quién decide. Registrá esas respuestas como actividad o nota.
 3. Prepará la propuesta y vinculá el material en Documentos si corresponde. En Mensajes podés preparar la comunicación.
 4. Cuando el avance sea real, abrí Etapa y prioridad → Cambiar etapa y elegí una etapa adecuada. Leé también su clasificación.
 5. Dejá una tarea para revisar la propuesta con la persona en una fecha acordada.
 
-**Qué queda al terminar:** La venta tiene un avance explicable, material disponible y un próximo compromiso.
+**Qué queda al terminar:** La gestión tiene un avance explicable, material disponible y un próximo compromiso.
 
 **Ejemplo:**
 
@@ -241,18 +261,18 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 - Abrir un paso de la guía no cambia la etapa. Los nombres y la vinculación al recorrido dependen de la configuración del equipo.
 
-**Dónde ir:** Abrir Ventas (/opportunities)
+**Dónde ir:** Abrir Gestiones comerciales (/opportunities)
 
 ### Registrar una duda u objeción
 
 **Cuándo usarlo:** Cuando algo impide decidir, pero todavía puede resolverse.
 
-1. Abrí la venta y abrí Dudas y objeciones en Resumen.
+1. Abrí la gestión y abrí Dudas y objeciones en Resumen.
 2. Elegí Agregar objeción. Seleccioná el tipo que corresponda y escribí Notas / resolución.
 3. Dejá Estado en Pendiente mientras falte resolverla y guardá.
 4. Planificá una tarea para responder esa duda. Cuando la resuelvan, elegí Editar / resolver y cambiá su Estado a Resuelta; si dejó de corresponder, usá Descartada.
 
-**Qué queda al terminar:** La dificultad queda visible para el equipo sin dar la venta por perdida.
+**Qué queda al terminar:** La dificultad queda visible para el equipo sin dar la gestión por perdida.
 
 **Ejemplo:**
 
@@ -262,18 +282,18 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 - Una objeción no significa que la persona haya rechazado la oferta. No elijas Perdida solo porque surgió una duda.
 
-### La persona aceptó: concretar la venta
+### La persona aceptó: concretar la gestión
 
 **Cuándo usarlo:** Cuando hay una aceptación real de la propuesta.
 
-1. Abrí la venta → Resumen → Etapa y prioridad → Cambiar etapa.
+1. Abrí la gestión → Resumen → Etapa y prioridad → Cambiar etapa.
 2. Elegí una etapa clasificada como Ganada. No te guíes solo por el nombre histórico de la etapa.
 3. En Acuerdo y entrega completá Qué se acordó, Persona que aceptó, Propuesta o material acordado y Responsable de la entrega. Agregá la fecha si la conocés.
 4. Marcá Revisamos qué se entrega y quién lo hará solo si efectivamente lo revisaron. Si faltan datos, dejá qué hay que confirmar.
 5. Si corresponde, marcá Marcar este negocio como cliente y Crear una tarea de acompañamiento. Escribí qué hacer y la fecha.
 6. Guardá. Revisá los otros compromisos pendientes del negocio.
 
-**Qué queda al terminar:** La venta queda ganada. Si elegiste convertir al negocio y crear acompañamiento, esos cambios se guardan junto con el cierre.
+**Qué queda al terminar:** La gestión queda ganada. Si elegiste convertir al negocio y crear acompañamiento, esos cambios se guardan junto con el cierre.
 
 **Ejemplo:**
 
@@ -282,18 +302,18 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 **Tené en cuenta:**
 
 - Ganada no verifica pagos ni activa servicios del portal. El cobro y la entrega se verifican por el procedimiento del equipo.
-- Para completar el acuerdo después, usá Revisar acuerdo y entrega. Conserva el cierre; no reabre la venta.
+- Para completar el acuerdo después, usá Revisar acuerdo y entrega. Conserva el cierre; no reabre la gestión.
 
-### La propuesta fue rechazada: cerrar sin venta
+### La propuesta fue rechazada: cerrar sin gestión
 
 **Cuándo usarlo:** Cuando hay una decisión real de no avanzar con esa propuesta.
 
-1. Abrí la venta → Resumen → Etapa y prioridad → Cambiar etapa.
+1. Abrí la gestión → Resumen → Etapa y prioridad → Cambiar etapa.
 2. Elegí una etapa clasificada como Perdida. Seleccioná Motivo de pérdida y escribí un Comentario con lo ocurrido.
 3. Si es adecuado volver a conversar más adelante, marcá Definir fecha para retomar y elegí Fecha de recontacto.
 4. Guardá. Revisá las tareas pendientes para cancelar las que ya no correspondan.
 
-**Qué queda al terminar:** La venta se cierra sin concretarse y conserva su historia. Si dejaste fecha de recontacto, puede aparecer en la lista para retomar.
+**Qué queda al terminar:** La gestión se cierra sin concretarse y conserva su historia. Si dejaste fecha de recontacto, puede aparecer en la lista para retomar.
 
 **Ejemplo:**
 
@@ -313,7 +333,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 3. Elegí Esperar hasta una fecha y recordar retomar en Cómo sigue. Escribí la acción y la fecha.
 4. Guardá y programá el próximo paso. Revisá la etapa por separado según el estado real de la propuesta.
 
-**Qué queda al terminar:** Queda una tarea para recordar retomar en esa fecha. No se envían mensajes ni se reabre o cierra la venta automáticamente.
+**Qué queda al terminar:** Queda una tarea para recordar retomar en esa fecha. No se envían mensajes ni se reabre o cierra la gestión automáticamente.
 
 **Ejemplo:**
 
@@ -323,24 +343,24 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 - Si eligió no recibir más contactos, usá Pidió no ser contactado y respetá el bloqueo, en lugar de planificar otro intento.
 
-### Retomar una venta perdida
+### Retomar una gestión perdida
 
 **Cuándo usarlo:** Cuando llega la fecha de recontacto de una propuesta cerrada.
 
-1. Entrá en Más opciones → Retomar ventas pospuestas. Revisá fechas y Seguimiento generado; Sin planificar muestra las pendientes de organizar.
+1. Entrá en Más opciones → Retomar gestiones pospuestas. Revisá fechas y Seguimiento generado; Sin planificar muestra las pendientes de organizar.
 2. Leé el motivo, la última conversación y las restricciones. Elegí Planificar en la fila.
 3. En Acción elegí Crear seguimiento y conservar cerrada si solo vas a consultar si cambió la situación.
-4. Usá Reabrir esta oportunidad y crear seguimiento cuando la misma propuesta vuelve a negociarse. Elegí una Etapa abierta.
-5. Si se trata de una propuesta diferente, elegí Crear otra oportunidad vinculada y seguimiento; completá el nombre y la etapa abierta.
+4. Usá Reabrir esta gestión y crear seguimiento cuando la misma propuesta vuelve a negociarse. Elegí una Etapa abierta.
+5. Si se trata de una propuesta diferente, elegí Crear otra gestión vinculada y seguimiento; completá el nombre y la etapa abierta.
 6. Completá Seguimiento y Vencimiento de la tarea. Guardá y atendé la tarea en Mi día.
 
 **Qué queda al terminar:** La acción elegida se guarda conservando el cierre anterior en la historia. No se contacta automáticamente.
 
 **Ejemplo:**
 
-- La publicación fue rechazada hace meses. Primero consultás si cambió la necesidad; conservás la venta cerrada hasta que realmente haya una nueva negociación.
+- La publicación fue rechazada hace meses. Primero consultás si cambió la necesidad; conservás la gestión cerrada hasta que realmente haya una nueva negociación.
 
-**Dónde ir:** Revisar ventas para retomar (/reactivation)
+**Dónde ir:** Revisar gestiones para retomar (/reactivation)
 
 ## Entrega y clientes
 
@@ -348,14 +368,14 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 ### Verificar la entrega y completar el acuerdo
 
-**Cuándo usarlo:** Después de concretar una venta o cuando falta confirmar algo acordado.
+**Cuándo usarlo:** Después de concretar una gestión o cuando falta confirmar algo acordado.
 
-1. Abrí la venta ganada y revisá Acuerdo y entrega. Usá Revisar acuerdo y entrega para completar o corregir lo conocido.
-2. Planificá una tarea con Propósito Entrega para comprobar que se cumplió lo acordado. Vinculala a esa venta si corresponde.
+1. Abrí la gestión ganada y revisá Acuerdo y entrega. Usá Revisar acuerdo y entrega para completar o corregir lo conocido.
+2. Planificá una tarea con Propósito Entrega para comprobar que se cumplió lo acordado. Vinculala a esa gestión si corresponde.
 3. Al realizarla, elegí Registrar qué pasó. Según lo ocurrido, usá Entrega confirmada, Falta confirmar o Necesita ayuda.
 4. Detallá qué se entregó o qué falta. Elegí Cómo sigue y programá una acción para cada compromiso pendiente.
 
-**Qué queda al terminar:** El acuerdo y el trabajo de entrega quedan registrados sin reabrir la venta.
+**Qué queda al terminar:** El acuerdo y el trabajo de entrega quedan registrados sin reabrir la gestión.
 
 **Ejemplo:**
 
@@ -369,8 +389,8 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 **Cuándo usarlo:** Cuando querés saber cómo le fue o ayudar con algo que ya contrató.
 
-1. Abrí el negocio → Resumen y leé la última conversación. Planificá el próximo paso con Propósito Acompañamiento.
-2. Usá Seguimiento general del negocio para una consulta general; vinculá la venta si se trata de lo que se entregó en ella.
+1. Abrí la ficha del negocio y leé la última conversación, visible junto al próximo paso. Planificá el próximo paso con Propósito Acompañamiento.
+2. Usá Seguimiento general del negocio para una consulta general; vinculá la gestión si se trata de lo que se entregó en ella.
 3. Contactá en la fecha elegida y registrá el resultado: Revisión realizada, Necesita ayuda o Falta confirmar, según corresponda.
 4. En Cómo sigue dejá una acción con fecha si hay algo pendiente. Terminar por ahora guarda lo ocurrido sin crear otra tarea.
 
@@ -378,28 +398,28 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 **Ejemplo:**
 
-- Preguntás si recibió consultas y si necesita ayuda para actualizar el material. Eso es acompañamiento, no una nueva venta.
+- Preguntás si recibió consultas y si necesita ayuda para actualizar el material. Eso es acompañamiento, no una nueva gestión.
 
 **Tené en cuenta:**
 
-- No crees una venta solo para registrar una consulta de soporte. Las tareas generales del negocio también pueden aparecer en el resumen de una venta ganada.
+- No crees una gestión solo para registrar una consulta de soporte. Las tareas generales del negocio también pueden aparecer en el resumen de una gestión ganada.
 
 **Dónde ir:** Buscar un cliente (/accounts)
 
-### Ofrecer otra venta al mismo cliente
+### Iniciar gestión al mismo cliente
 
 **Cuándo usarlo:** Cuando existe una propuesta nueva, diferente de la anterior.
 
-1. Abrí el negocio existente; no crees otro negocio por tratarse de una segunda venta.
-2. En Resumen elegí Ofrecer otra venta. Poné un nombre concreto y revisá su contacto.
-3. Guardá y planificá una tarea con Propósito Conversación comercial vinculada a esta nueva venta.
+1. Abrí el negocio existente; no crees otro negocio por tratarse de una segunda gestión.
+2. En Gestiones comerciales elegí Iniciar gestión. Poné un nombre concreto y revisá su contacto opcional.
+3. Guardá y planificá una tarea con Propósito Conversación comercial vinculada a esta nueva gestión.
 4. Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo contratado anteriormente.
 
 **Qué queda al terminar:** La nueva propuesta tiene su propio recorrido. La anterior conserva su cierre, acuerdo e historial.
 
 **Ejemplo:**
 
-- Publicación de cabañas ya está ganada. Más adelante ofrecés Campaña de temporada como otra venta del mismo negocio.
+- Publicación de cabañas ya está ganada. Más adelante ofrecés Campaña de temporada como otra gestión del mismo negocio.
 
 ## Mensajes y herramientas
 
@@ -407,7 +427,7 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 ### Preparar y enviar un mensaje modelo
 
-**Cuándo usarlo:** Cuando trabajás una venta y querés usar un modelo o guardar un borrador.
+**Cuándo usarlo:** Cuando trabajás una gestión y querés usar un modelo o guardar un borrador.
 
 1. Desde Contactar elegí Preparar email con un mensaje modelo o Preparar WhatsApp con un mensaje modelo. Revisá el destinatario y elegí un modelo; también podés Escribir un mensaje nuevo.
 2. Leé y adaptá el contenido. En email revisá también el asunto. Comprobá nombres, fechas y datos reemplazados del modelo.
@@ -432,7 +452,7 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 **Cuándo usarlo:** Cuando el mensaje todavía no está listo para enviarse.
 
 1. Guardá el contenido con Guardar y ver contenido final antes de cerrar.
-2. Volvé a la venta → Mensajes → Mensajes y borradores. Abrí el borrador y usá Volver a editar si necesitás cambiarlo.
+2. Volvé a la gestión → Mensajes → Mensajes y borradores. Abrí el borrador y usá Volver a editar si necesitás cambiarlo.
 3. Si salís con cambios sin guardar, elegí volver a editar o descartarlos. Descartar conserva la última versión que ya estaba guardada.
 4. Para cancelar un borrador independiente, abrí Opciones del borrador, marcá Quiero cancelar este borrador y elegí Cancelar borrador.
 5. Si pertenece a una secuencia, administralo desde ese seguimiento asistido.
@@ -447,7 +467,7 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando conviene seguir una serie de pasos ya definida por el equipo.
 
-1. Abrí una venta abierta → Mensajes → Iniciar secuencia. Revisá la Persona, elegí Secuencia y leé los pasos e intervalos.
+1. Abrí una gestión abierta → Mensajes → Iniciar secuencia. Revisá la Persona, elegí Secuencia y leé los pasos e intervalos.
 2. Marcá Confirmo la generación de tareas y borradores y elegí Iniciar seguimiento asistido.
 3. Revisá las tareas en Mi día y los borradores en Mensajes. Cada mensaje requiere revisión y acción humana para enviarlo.
 4. Usá Pausar si todavía no corresponde continuar. Para Reanudar, escribí el motivo y elegí Fecha del próximo paso.
@@ -461,15 +481,15 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Tené en cuenta:**
 
-- No es un envío automático. Respuestas, rechazos, pedidos de no contacto y cierres de la venta detienen los pasos correspondientes. No dupliques el mismo seguimiento con tareas manuales.
+- No es un envío automático. Respuestas, rechazos, pedidos de no contacto y cierres de la gestión detienen los pasos correspondientes. No dupliques el mismo seguimiento con tareas manuales.
 
 ### Buscar y vincular materiales al negocio
 
-**Cuándo usarlo:** Cuando necesitás una propuesta, folleto o documento para trabajar una venta.
+**Cuándo usarlo:** Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.
 
 1. En Más opciones → Materiales para ofrecer buscá recursos aprobados. Usá Previsualizar cuando esté disponible, o Abrir vínculo / Descargar documento.
-2. En el negocio o la venta entrá en Documentos y buscá el recurso en el selector de biblioteca.
-3. Elegí el documento y usá Vincular documento al negocio. Desde un negocio podés elegir Oportunidad vinculada (opcional) o dejarlo como documento general.
+2. En el negocio o la gestión entrá en Documentos y buscá el recurso en el selector de biblioteca.
+3. Elegí el documento y usá Vincular documento al negocio. Desde un negocio podés elegir Gestión vinculada (opcional) o dejarlo como documento general.
 4. Si necesitás un documento específico del caso, abrí Agregar documento o recurso. Completá título, tipo y un vínculo HTTP(S) o archivo permitido, y guardá.
 5. Revisá la versión, el vencimiento y su aprobación antes de usarlo como material comercial.
 
@@ -506,11 +526,14 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando necesitás encontrar negocios o propuestas sin revisar toda la cartera.
 
-1. Entrá en Negocios y buscá por nombre. La vista simple muestra lo esencial; Vista avanzada habilita columnas y herramientas adicionales.
-2. Usá los filtros para acotar el alcance. La búsqueda libre se combina con los filtros configurados mediante AND: deben cumplirse ambas condiciones.
-3. En Ventas podés revisar propuestas y usar el tablero. La Vista simple agrupa abiertas, ganadas y perdidas; Ver etapas del equipo muestra el detalle configurado.
-4. Para cambios sobre varios registros, elegí el cambio y Aplicar. Revisá toda la lista afectada antes de confirmar la casilla y Confirmar cambios.
-5. Si los datos cambiaron, usá Volver a revisar. Cancelar no modifica nada.
+1. Entrá en Negocios y buscá por nombre. Elegí Tabla o Grilla: ambas muestran los mismos resultados y conservan la búsqueda, filtros y orden.
+2. Usá Filtrar negocios para acotar el alcance. La búsqueda libre se combina con los filtros configurados mediante AND: deben cumplirse ambas condiciones.
+3. Abrí Campos, orden y columnas fijas para elegir qué datos mostrar y moverlos. Nombre y Abrir siempre están disponibles. En tabla de escritorio también podés ajustar anchos y fijar columnas a izquierda o derecha.
+4. Elegí la cantidad de resultados y Paginación o Carga continua. Anterior y Siguiente cambian de página; Cargar más trae otro lote. El contador indica cuánto se cargó y cuándo no hay más resultados.
+5. Limpiar filtros quita la búsqueda y las condiciones. Restablecer valores del equipo recupera la configuración inicial definida por el admin.
+6. Abrí un negocio para trabajar y volvé por Volver al listado de negocios, Negocios en el menú o Atrás. Se recuperan tus preferencias y el punto del listado.
+7. En Gestiones comerciales revisá propuestas y avances con el tablero. Ver etapas del equipo muestra el detalle configurado.
+8. Para cambios sobre varios registros, elegí el cambio y Aplicar. Revisá toda la lista afectada antes de confirmar la casilla y Confirmar cambios. Si los datos cambiaron, usá Volver a revisar. Cancelar no modifica nada.
 
 **Qué queda al terminar:** Las vistas y filtros cambian lo que ves; no cambian datos por sí solos. Confirmar una edición masiva sí los modifica.
 
@@ -520,7 +543,10 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Tené en cuenta:**
 
-- Seleccionar negocios puede afectar ventas que el filtro no mostraba. Revisá la lista completa del cambio masivo.
+- Seleccionar negocios puede afectar gestiones que el filtro no mostraba. Revisá la lista completa del cambio masivo.
+- En mobile se comienza con grilla; podés elegir tabla. Las columnas fijas se aplican solo en escritorio y dejan espacio para desplazarte.
+- Tus preferencias tienen prioridad sobre los valores iniciales del equipo. Se recuerdan por usuario en este navegador; en otro dispositivo podés configurar una vista propia.
+- Los filtros preestablecidos disponibles se eligen desde el listado. Que un filtro esté disponible no significa que esté aplicado: revisá siempre las condiciones visibles.
 
 **Dónde ir:** Buscar en Negocios (/accounts)
 
@@ -534,28 +560,28 @@ Un caso ficticio para aprender a registrar una relación comercial completa.
 
 1. Buscás Cabañas Camino Claro en Negocios. Como no existe, elegís Nuevo negocio, completás el nombre y ciudad conocidos y guardás.
 2. En Contactos agregás a Ana, su teléfono y su preferencia. La marcás como Principal del negocio.
-3. En Resumen creás Publicación de cabañas. Elegís a Ana como contacto de esa venta.
+3. En Gestiones comerciales creás Publicación de cabañas. Elegís a Ana como contacto de esa gestión.
 4. Planificás Llamar a Ana para conocer qué necesita, con Propósito Conversación comercial y fecha concreta.
 5. El día acordado, Contactar → elegís Ana → hablás. Te cuenta que quiere más consultas fuera de temporada.
 6. Registrar qué pasó → Mostró interés. Anotás la necesidad y que Luis participa en la decisión. Cómo sigue → Planificar el próximo paso: Preparar propuesta para Ana, con fecha.
 7. Preparás y vinculás el material en Documentos. Si enviás un mensaje desde el CRM, guardás, revisás y confirmás la acción. Registrás lo que hiciste en la tarea y programás la consulta posterior.
-8. Ana pide esperar hasta hablar con Luis. Registrás la respuesta y Cómo sigue → Esperar hasta una fecha y recordar retomar. No das la venta por perdida por estar esperando.
+8. Ana pide esperar hasta hablar con Luis. Registrás la respuesta y Cómo sigue → Esperar hasta una fecha y recordar retomar. No das la gestión por perdida por estar esperando.
 9. Ana y Luis aceptan. Cambiar etapa → elegís una etapa Ganada. Completás Acuerdo y entrega con lo conocido, marcás al negocio como cliente si corresponde y creás acompañamiento.
 10. Planificás una tarea de Entrega. Cuando verificás lo acordado, registrás Entrega confirmada; si falta algo, anotás Falta confirmar y dejás otra tarea.
 11. Más adelante, una tarea de Acompañamiento sirve para preguntar cómo le fue y registrar Revisión realizada o Necesita ayuda.
-12. Si surge Campaña de temporada, abrís el mismo negocio → Ofrecer otra venta. La trabajás como propuesta nueva; Publicación de cabañas conserva su cierre.
+12. Si surge Campaña de temporada, abrís el mismo negocio → Iniciar gestión. La trabajás como propuesta nueva; Publicación de cabañas conserva su cierre.
 
 **Qué queda al terminar:** Un negocio, sus personas, dos propuestas distintas y una historia comprensible de compromisos, resultados y seguimiento.
 
 **Ejemplo:**
 
 - Si no responde: registrá No respondió y programá cuándo retomar.
-- Si rechaza la oferta: cerrá esa venta como Perdida con motivo real; una fecha de recontacto es opcional.
+- Si rechaza la oferta: cerrá esa gestión como Perdida con motivo real; una fecha de recontacto es opcional.
 - Si pide no recibir contactos: registrá Pidió no ser contactado y respetá el bloqueo.
 
 **Tené en cuenta:**
 
-- Este ejemplo no representa una venta real ni prueba pagos. No cargues datos ficticios en producción para practicar sin acordarlo con el administrador.
+- Este ejemplo no representa una gestión real ni prueba pagos. No cargues datos ficticios en producción para practicar sin acordarlo con el administrador.
 
 **Dónde ir:** Ir a Negocios (/accounts)
 
@@ -585,7 +611,7 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 
 1. Abrí Mi día → Filtros de trabajo. Revisá ciudad, vertical y el alcance visible. Todo el equipo es una opción del administrador.
 2. Revisá Vencidas, Para hoy y Próximas acciones. La tarea puede tener una fecha distinta de la que recordabas.
-3. Abrí el negocio o venta → Seguimiento. Comprobá si la tarea está pendiente, realizada o cancelada.
+3. Abrí el negocio o gestión → Seguimiento. Comprobá si la tarea está pendiente, realizada o cancelada.
 4. Revisá el responsable. Si no tenés permiso, consultá al responsable o administrador; no dupliques la tarea para saltear esa asignación.
 5. Si los datos parecen viejos, elegí Actualizar. La flecha permite activar Actualizar automáticamente.
 
@@ -613,19 +639,19 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 
 ### Archivar, recuperar y distinguir la Papelera
 
-**Cuándo usarlo:** Cuando querés retirar algo de la vista habitual sin confundir negocio y venta.
+**Cuándo usarlo:** Cuando querés retirar algo de la vista habitual sin confundir negocio y gestión.
 
 1. Para un negocio, abrí Más acciones del negocio → Archivar. Escribí el motivo y guardá.
 2. Para recuperarlo, entrá en Más opciones → Negocios archivados, abrí su ficha y elegí Recuperar negocio.
-3. Para retirar una venta, usá Más acciones de la venta → Enviar venta a papelera y revisá la confirmación.
-4. Pedí al administrador la restauración de una venta desde Papelera si se retiró por error.
+3. Para retirar una gestión, usá Más acciones de la gestión → Enviar gestión a papelera y revisá la confirmación.
+4. Pedí al administrador la restauración de una gestión desde Papelera si se retiró por error.
 5. Para duplicados, revisá los datos y pedí al administrador que evalúe la fusión. No borres uno sin revisar su historia.
 
-**Qué queda al terminar:** Archivar conserva las personas, ventas e historial del negocio. Papelera opera sobre ventas; no elimina el negocio por retirar todas sus ventas.
+**Qué queda al terminar:** Archivar conserva las personas, gestiones e historial del negocio. Papelera opera sobre gestiones; no elimina el negocio por retirar todas sus gestiones.
 
 **Tené en cuenta:**
 
-- Las tareas pendientes de un negocio archivado siguen en Mi día. Archivar no significa que una venta esté Perdida ni que el cliente haya cancelado.
+- Las tareas pendientes de un negocio archivado siguen en Mi día. Archivar no significa que una gestión esté Perdida ni que el cliente haya cancelado.
 
 ## Administrar el CRM
 
@@ -658,7 +684,7 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 2. En Biblioteca abrí Agregar documento o recurso. Completá título, tipo, categoría si corresponde, vínculo o archivo y vencimiento conocido.
 3. Revisá el material y usá Aprobar versión cuando esté listo. Una versión nueva vuelve a borrador y conserva las anteriores.
 4. Archivá materiales que ya no deban ofrecerse. Revisá vencimiento y versiones antes de recomendar un recurso.
-5. El equipo consulta Materiales para ofrecer y vincula recursos a negocios o ventas. Vincular no envía el archivo.
+5. El equipo consulta Materiales para ofrecer y vincula recursos a negocios o gestiones. Vincular no envía el archivo.
 
 **Qué queda al terminar:** El equipo dispone de modelos y recursos revisados, con sus versiones e historia.
 
@@ -673,9 +699,9 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 **Cuándo usarlo:** Cuando necesitás organizar datos o revisar la operación del equipo.
 
 1. En Negocios, Herramientas adicionales contiene Importar CSV y Buscar duplicados. Revisá la vista previa y los registros afectados antes de aplicar cambios.
-2. Para un duplicado, compará ciudad, canales, personas, ventas e historia antes de decidir la fusión.
+2. Para un duplicado, compará ciudad, canales, personas, gestiones e historia antes de decidir la fusión.
 3. En Historial del negocio, Revisar calidad y procedencia de los datos permite consultar origen y calidad.
-4. Usá Estadísticas para revisar la operación comercial; contrastá los indicadores con las ventas y actividades reales.
+4. Usá Estadísticas para revisar la operación comercial; contrastá los indicadores con las gestiones y actividades reales.
 5. Para modificar varios registros, revisá la lista completa y confirmá solo si el cambio representa la decisión del equipo.
 
 **Qué queda al terminar:** Los cambios se apoyan en registros identificados, sin reemplazar la revisión del caso.

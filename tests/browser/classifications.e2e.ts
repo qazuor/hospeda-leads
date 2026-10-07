@@ -11,7 +11,7 @@ test('Classification catalogs stay focused and commercial settings have their ow
   await page.goto('/settings?section=classifications');
   await expect(page.getByRole('heading', {name: 'Clasificaciones de negocios'})).toBeVisible();
   await expect(page.getByRole('heading', {name: 'Tipos de tareas y actividades'})).toHaveCount(0);
-  await expect(page.getByRole('heading', {name: 'Etapas y resultados de venta'})).toHaveCount(0);
+  await expect(page.getByRole('heading', {name: 'Etapas y resultados de gestión'})).toHaveCount(0);
   const name = 'Subtipo prueba ' + Date.now();
   await page.getByLabel('Nuevo subtipo', {exact: true}).fill(name);
   await page.getByRole('button', {name: 'Agregar subtipo', exact: true}).click();
@@ -52,9 +52,9 @@ test('Classification catalogs stay focused and commercial settings have their ow
   await page.evaluate(() => document.documentElement.classList.remove('dark'));
   await page.getByRole('button', {name: 'Proceso comercial', exact: true}).click();
   await expect(page).toHaveURL(/section=process/);
-  await expect(page.getByRole('heading', {name: 'Etapas y resultados de venta'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Etapas y resultados de gestión'})).toBeVisible();
   await expect(page.getByRole('heading', {name: 'Tipos de tareas y actividades'})).toHaveCount(0);
   await page.getByRole('tab', {name: 'Tareas y seguimiento'}).click();
   await expect(page.getByRole('heading', {name: 'Tipos de tareas y actividades'})).toBeVisible();
-  await expect(page.getByRole('heading', {name: 'Etapas y resultados de venta'})).toHaveCount(0);
+  await expect(page.getByRole('heading', {name: 'Etapas y resultados de gestión'})).toHaveCount(0);
 });

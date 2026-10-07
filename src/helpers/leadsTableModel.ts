@@ -36,7 +36,7 @@ export type SortBy=
 
 export const TABLE_COLUMNS:TableColumnOption[]=[
   {key:"id",label:"ID"},
-  {key:"nombre",label:"Oportunidad / negocio"},
+  {key:"nombre",label:"Gestión / negocio"},
   {key:"assignedUserEmail",label:"Responsable"},
   {key:"contactName",label:"Persona de contacto"},
   {key:"tipo",label:"Vertical"},

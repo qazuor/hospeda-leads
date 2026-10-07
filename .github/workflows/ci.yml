@@ -62,6 +62,18 @@ jobs:
         run: npm run test:communication
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Shared reading and owner permissions integration tests
+        run: npm run test:permissions
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Explicit management migration and read-only audit tests
+        run: npm run test:managements
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Business list team defaults and permissions
+        run: node --import tsx scripts/test-business-list-defaults.ts
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Guided usability integration tests
         run: npm run test:usability
         env:

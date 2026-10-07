@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess,assertBusinessAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
 import { db } from "../helpers/db";
 import superjson from "superjson";
@@ -10,11 +11,13 @@ export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
     const x=schema.parse(superjson.parse(await request.text()));
+    if(!x.id)return new Response(superjson.stringify({error:"El alta heredada está deshabilitada. Creá un negocio y usá Iniciar gestión cuando corresponda."}),{status:409});
     if(x.asignadoA!==undefined&&user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden modificar el responsable."}),{status:403});
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
-      const existing=x.id?await trx.selectFrom("leads").selectAll().where("id","=",x.id).executeTakeFirstOrThrow():null;
+      let existing=x.id?await trx.selectFrom("leads").selectAll().where("id","=",x.id).executeTakeFirstOrThrow():null;
       if(existing?.deletedAt)throw new Error("Este lead está en la papelera.");
+      if(existing){existing=await assertLeadAccess(trx,String(existing.id),user,true);await assertBusinessAccess(trx,String(existing.accountId),user,true);}
       let responsible=existing?.assignedUserEmail??null;
       if(x.asignadoA!==undefined){
         responsible=null;
@@ -25,10 +28,11 @@ export async function handle(request:Request){
         }
       }
       const data={nombre:x.nombre,tipo:x.tipo??null,subtipo:x.subtipo??null,ciudad:x.ciudad??null,estado:x.estado??null,email:x.email??null,telefono:x.telefono??null,origen:x.origen??null,prioridad:x.prioridad??null,assignedUserEmail:responsible,...(x.asignadoA!==undefined?{asignadoA:null}:{}),fechaProximaAccion:x.fechaProximaAccion?new Date(x.fechaProximaAccion):null,notas:x.notas??null,updatedAt:new Date()};
-      const row=existing?await trx.updateTable("leads").set(data).where("id","=",x.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("leads").values(data).returningAll().executeTakeFirstOrThrow();
+      const row=existing?await trx.updateTable("leads").set(data).where("id","=",x.id!).returningAll().executeTakeFirstOrThrow():null;
+      if(!row)throw new Error("Gestión no encontrada");
       await writeLeadJournal(trx,{leadId:row.id,leadName:row.nombre,actor:{id:user.id,email:user.email,displayName:user.displayName},action:existing?"updated":"created",changes:existing?Object.entries(data).filter(([key,value])=>String(existing[key as keyof typeof existing]??"")!==String(value??"")).map(([fieldName,newValue])=>({fieldName,oldValue:existing[fieldName as keyof typeof existing],newValue})):undefined});
       return String(row.id);
     });
     return new Response(superjson.stringify({ok:true,id} satisfies OutputType));
-  }catch(e){return new Response(superjson.stringify({error:e instanceof Error?e.message:"Error"}),{status:400})}
+  }catch(e){return new Response(superjson.stringify({error:e instanceof Error?e.message:"Error"}),{status:e instanceof CrmForbidden?403:400})}
 }

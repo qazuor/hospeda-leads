@@ -13,6 +13,7 @@ import { GlobalContextProviders } from "./components/_globalContextProviders";
 import { AdminRoute, UserRoute } from "./components/ProtectedRoute";
 const MyDayPage=React.lazy(()=>import("./pages/my-day"));
 const AccountsPage=React.lazy(()=>import("./pages/accounts"));
+const BusinessListPage=React.lazy(()=>import("./pages/business-list"));
 const LeadsPage=React.lazy(()=>import("./pages/_index"));
 const AnalyticsPage=React.lazy(()=>import("./pages/analytics"));
 const HistoryPage=React.lazy(()=>import("./pages/history"));
@@ -49,7 +50,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
           <Route path="/sales/:leadId" element={<UserRoute><SalePage/></UserRoute>} />
           <Route path="/opportunities" element={<UserRoute><OpportunityEntry/></UserRoute>} />
-          <Route path="/accounts" element={<UserRoute><LeadsPage key="business" businessMode /></UserRoute>} />
+          <Route path="/accounts" element={<UserRoute><BusinessListPage /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
           <Route path="/my-day" element={<UserRoute><MyDayPage key="day"/></UserRoute>} />
           <Route path="/reactivation" element={<UserRoute><ReactivationPage/></UserRoute>} />
@@ -57,9 +58,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-          <Route path="/archived" element={<UserRoute><ArchivedPage/></UserRoute>} />
+          <Route path="/archived" element={<AdminRoute><ArchivedPage/></AdminRoute>} />
           <Route path="/guide" element={<UserRoute><GuidePage/></UserRoute>} />
-          <Route path="/library" element={<UserRoute><LibraryPage/></UserRoute>} />
+          <Route path="/library" element={<AdminRoute><LibraryPage/></AdminRoute>} />
           <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
           <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

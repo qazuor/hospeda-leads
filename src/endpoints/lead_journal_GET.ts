@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
 import superjson from "superjson";
 import { sql } from "kysely";
 import { db } from "../helpers/db";
@@ -12,6 +13,7 @@ export async function handle(request:Request){
     if(!input.leadId&&user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo administradores pueden ver el historial global."}),{status:403});
     }
+    if(input.leadId)await assertLeadAccess(db,String(input.leadId),user);
     let query=db.selectFrom("leadJournal");
     if(input.leadId)query=query.where("leadId","=",String(input.leadId));
     if(input.action)query=query.where("action","=",input.action);
@@ -33,12 +35,13 @@ export async function handle(request:Request){
     }
     const count=await query.select(({fn})=>fn.countAll<string>().as("count")).executeTakeFirstOrThrow();
     const rows=await query.selectAll().orderBy("createdAt","desc").orderBy("id","desc").limit(input.pageSize).offset((input.page-1)*input.pageSize).execute();
+    const filterSource=()=>input.leadId?db.selectFrom("leadJournal").where("leadId","=",String(input.leadId)):db.selectFrom("leadJournal");
     const [actionsRows,actorsRows,citiesRows,typesRows,leadsRows]=await Promise.all([
-      db.selectFrom("leadJournal").select("action").distinct().orderBy("action").execute(),
-      db.selectFrom("leadJournal").select("actorName").distinct().orderBy("actorName").execute(),
-      db.selectFrom("leadJournal").select("leadCity").where("leadCity","is not",null).distinct().orderBy("leadCity").execute(),
-      db.selectFrom("leadJournal").select("leadType").where("leadType","is not",null).distinct().orderBy("leadType").execute(),
-      db.selectFrom("leadJournal").select(["leadId","leadName"]).where("leadId","is not",null).distinct().orderBy("leadName").execute(),
+      filterSource().select("action").distinct().orderBy("action").execute(),
+      filterSource().select("actorName").distinct().orderBy("actorName").execute(),
+      filterSource().select("leadCity").where("leadCity","is not",null).distinct().orderBy("leadCity").execute(),
+      filterSource().select("leadType").where("leadType","is not",null).distinct().orderBy("leadType").execute(),
+      filterSource().select(["leadId","leadName"]).where("leadId","is not",null).distinct().orderBy("leadName").execute(),
     ]);
     const out:OutputType={
       rows:rows.map(row=>({...row,id:String(row.id),leadId:row.leadId===null?null:String(row.leadId)})),
@@ -53,6 +56,6 @@ export async function handle(request:Request){
     };
     return new Response(superjson.stringify(out),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo cargar el historial"}),{status:400});
+    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo cargar el historial"}),{status:error instanceof CrmForbidden?403:400});
   }
 }

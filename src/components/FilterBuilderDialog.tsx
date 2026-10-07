@@ -58,7 +58,7 @@ const makeRule=(field:FilterFieldDefinition):AdvancedFilterRule=>({
 });
 
 export const FilterBuilderDialog=({
-  open,onOpenChange,fields,value,search="",title="Filtrar oportunidades",onApply
+  open,onOpenChange,fields,value,search="",title="Filtrar gestiones",onApply
 }:{
   open:boolean;
   onOpenChange:(open:boolean)=>void;
@@ -125,7 +125,7 @@ export const FilterBuilderDialog=({
       <div className={styles.builder}>
         <section className={styles.group}>
           <div className={styles.groupHeader}><div><strong>Texto libre</strong><span>Se combina con los demás filtros mediante AND.</span></div><Button variant="ghost" size="sm" onClick={()=>setDraftSearch("")} disabled={!draftSearch.trim()}>Quitar búsqueda</Button></div>
-          <label className={styles.searchField}><span>Texto libre de búsqueda</span><Input value={draftSearch} onChange={e=>setDraftSearch(e.target.value)} placeholder="Buscar negocios, oportunidades y notas…"/></label>
+          <label className={styles.searchField}><span>Texto libre de búsqueda</span><Input value={draftSearch} onChange={e=>setDraftSearch(e.target.value)} placeholder="Buscar negocios, gestiones y notas…"/></label>
         </section>
         {draft.length===0&&!draftSearch.trim()&&<div className={styles.empty}>
           <Filter size={24}/>

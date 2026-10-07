@@ -1,3 +1,4 @@
+import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -8,7 +9,7 @@ export async function handle(request:Request){
     const {user}=await getServerUserSession(request);
     const input=schema.parse(superjson.parse(await request.text()));
     const row=await db.transaction().execute(async trx=>{
-      const lead=await trx.selectFrom("leads").select(["id","nombre","deletedAt"]).where("id","=",String(input.leadId)).executeTakeFirstOrThrow();
+      const lead=await assertLeadAccess(trx,String(input.leadId),user,true);
       if(lead.deletedAt)throw new Error("Este lead está en la papelera. Restauralo antes de agregar notas.");
       const note=await trx.insertInto("leadNotes").values({leadId:String(input.leadId),note:input.note,author:user.displayName}).returning("id").executeTakeFirstOrThrow();
       await writeLeadJournal(trx,{
@@ -22,6 +23,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({id:String(row.id)} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo guardar la nota"}),{status:400});
+    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo guardar la nota"}),{status:error instanceof CrmForbidden?403:400});
   }
 }

@@ -1,3 +1,4 @@
+import {CrmForbidden,assertBusinessAccess,assertLeadAccess,assertAccountReadable} from '../helpers/crmPermissions';
 import {purposeOutcomes} from '../helpers/workOutcomes';
 import type {WorkPurpose} from '../helpers/nextStep';
 import {crmError} from '../helpers/crmErrors';
@@ -11,13 +12,15 @@ import {calendarDay,localDay} from '../helpers/workDates';
 import {workMutation,workQuery,followupSettings} from './work.schema';
 class Forbidden extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden?403:e instanceof NotAuthenticatedError?401:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:400);
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
 export async function get(request:Request){
  try{
   const {user}=await getServerUserSession(request);
   const input=workQuery.parse(Object.fromEntries(new URL(request.url).searchParams));
+  if(input.accountId)await assertBusinessAccess(db,input.accountId,user);
+  if(input.leadId)await assertLeadAccess(db,input.leadId,user);
   if(input.calendar&&(input.mode!=='agenda'||!input.from||!input.to||Date.parse(input.to)-Date.parse(input.from)>31*86400000||input.from&&input.to&&input.from>input.to))throw new Error('Elegí un mes para el calendario.');
   const setting=await db.selectFrom('appSettings').select('value').where('key','=','crm_work_followup').executeTakeFirstOrThrow();
   const followup=followupSettings.parse({action:'followup_settings',...JSON.parse(setting.value)});
@@ -26,6 +29,7 @@ export async function get(request:Request){
   let tasks=db.selectFrom('crmTasks as t').innerJoin('crmAccounts as a','a.id','t.accountId').leftJoin('leads as l','l.id','t.leadId').where('t.deletedAt','is',null).where(eb=>eb.or([eb('t.leadId','is',null),eb('l.deletedAt','is',null)]));
   let activities=db.selectFrom('crmActivities as t').innerJoin('crmAccounts as a','a.id','t.accountId').leftJoin('leads as l','l.id','t.leadId').where('t.deletedAt','is',null).where(eb=>eb.or([eb('t.leadId','is',null),eb('l.deletedAt','is',null)]));
   let attention=db.selectFrom('leads as l').innerJoin('crmAccounts as a','a.id','l.accountId').where('l.deletedAt','is',null).where(sql<string>`coalesce((select classification from crm_stages where name=l.estado),'open')`,'=','open');
+  if(user.role!=='admin'){tasks=tasks.where('a.archivedAt','is',null);activities=activities.where('a.archivedAt','is',null);attention=attention.where('a.archivedAt','is',null);}
   if(responsible!=='all'){
    tasks=tasks.where('t.assignedUserEmail','=',responsible);
    activities=activities.where(eb=>eb.or([eb('t.actorEmail','=',responsible),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.id','=','t.taskId').where('crmTasks.assignedUserEmail','=',responsible)),eb('l.assignedUserEmail','=',responsible),eb.and([eb('t.leadId','is',null),eb('a.assignedUserEmail','=',responsible)])]));
@@ -47,6 +51,8 @@ export async function get(request:Request){
   let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail']).where('mergedIntoId','is',null);
   let opportunitiesQuery=db.selectFrom('leads').select(['id','accountId','opportunityName','tipo','estado','assignedUserEmail','createdAt','fechaUltimoContacto']).where('deletedAt','is',null);
   if(user.role!=='admin'){
+   accountsQuery=accountsQuery.where('archivedAt','is',null);
+   opportunitiesQuery=opportunitiesQuery.where('accountId','in',db.selectFrom('crmAccounts').select('id').where('archivedAt','is',null));
    accountsQuery=accountsQuery.where(eb=>eb.or([eb('assignedUserEmail','=',user.email),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.accountId','=','crmAccounts.id').where('crmTasks.assignedUserEmail','=',user.email).where('crmTasks.deletedAt','is',null)),eb.exists(eb.selectFrom('leads').select('id').whereRef('leads.accountId','=','crmAccounts.id').where('leads.assignedUserEmail','=',user.email).where('deletedAt','is',null))]));
    opportunitiesQuery=opportunitiesQuery.where(eb=>eb.or([eb('assignedUserEmail','=',user.email),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','leads.id').where('crmTasks.assignedUserEmail','=',user.email).where('crmTasks.deletedAt','is',null))]));
   }
@@ -112,10 +118,11 @@ export async function post(request:Request){
    if(previous&&(String(previous.accountId)!==String(accountId)||String(previous.leadId??'')!==String(leadId??'')))throw new Error('No se puede mover un registro a otro contexto.');
    const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=leadId?await trx.selectFrom('leads').selectAll().where('id','=',leadId).where('accountId','=',accountId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow():null;
+   assertAccountReadable(user,account);
    const commercialOwner=lead?lead.assignedUserEmail:account.assignedUserEmail;
    const delegatedTask=previous&&isTask&&'assignedUserEmail' in previous&&previous.assignedUserEmail===user.email;
    const linkedTask=previous&&!isTask&&'taskId' in previous&&previous.taskId?await trx.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',previous.taskId).executeTakeFirst():null;
-   if(user.role!=='admin'&&commercialOwner!==user.email&&!delegatedTask&&linkedTask?.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar trabajo de tus negocios u oportunidades asignados.');
+   if(user.role!=='admin'&&commercialOwner!==user.email&&!delegatedTask&&linkedTask?.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar trabajo de tus negocios u gestiones asignados.');
    if(previous&&isTask){
     const old=await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id!).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
     if(user.role!=='admin'&&old.assignedUserEmail!==user.email)throw new Forbidden('La tarea corresponde a otro responsable.');
@@ -169,7 +176,7 @@ export async function post(request:Request){
     if(existing&&existing.status!=='pending')throw new Error('Solo se pueden editar o reprogramar tareas pendientes.');
     const assignee=input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:commercialOwner):input.assignedUserEmail;
     if(user.role!=='admin'&&assignee!==(existing?existing.assignedUserEmail:commercialOwner))throw new Forbidden('Solo admin puede asignar o cambiar el responsable de una tarea.');
-    if(existing?.legacy&&assignee!==commercialOwner)throw new Error('El seguimiento histórico conserva el responsable de la oportunidad.');
+    if(existing?.legacy&&assignee!==commercialOwner)throw new Error('El seguimiento histórico conserva el responsable de la gestión.');
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
     const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,description:input.description??null,typeId:input.typeId,assignedUserEmail:assignee,dueDate:input.dueDate,dueAt,priority:input.priority,participants:input.participants,contactIds:serialize(input.contactIds),updatedAt:new Date()};
