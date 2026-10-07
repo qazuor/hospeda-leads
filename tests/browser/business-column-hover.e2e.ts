@@ -7,7 +7,7 @@ for(const theme of ['light','dark'])test(`business headers highlight the entire 
  await page.addInitScript(preferences=>{
   localStorage.setItem('hospeda-live-mode','off');
   localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));
- },{...basePreferences(),columns:['nombre','ciudad','telefono'],pins:{nombre:'left',ciudad:'right'}});
+ },{...basePreferences(),columns:['nombre','ciudad','telefono','actions'],pins:{nombre:'left',ciudad:'right',actions:'right'}});
  await page.route('**/_api/**',async route=>{
   const url=new URL(route.request().url());let data:unknown={};
   if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'viewer@example.com',displayName:'Viewer',role:'user'}};
