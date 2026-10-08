@@ -1,14 +1,16 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from './Dialog';
 import {Button} from './Button';
 import type {ResourceVersion} from '../endpoints/resources.schema';
 import styles from './Communication.module.css';
 
+const PdfPreview=lazy(()=>import('./PdfPreview'));
 export const canPreviewDocument=(v:ResourceVersion)=>!v.url&&['application/pdf','image/png','image/jpeg','text/plain'].includes(v.mimeType??'');
 export function DocumentPreviewDialog({version,onClose}:{version:ResourceVersion;onClose:()=>void}){
- const [content,setContent]=useState<{url?:string;text?:string}|null>(null),[error,setError]=useState('');
+ const [content,setContent]=useState<{url?:string;text?:string;blob?:Blob}|null>(null),[error,setError]=useState('');
  const [attempt,setAttempt]=useState(0),[expanded,setExpanded]=useState(false);
  const loading=useRef(true);
+ const pdfError=useCallback(()=>setError('No se pudo mostrar el PDF. Podés reintentar o descargar el archivo.'),[]);
  const download='/_api/resources/download?versionId='+version.id;
  useEffect(()=>{
   const controller=new AbortController();let objectUrl:string|undefined;
@@ -19,6 +21,7 @@ export function DocumentPreviewDialog({version,onClose}:{version:ResourceVersion
    if(r.headers.get('Content-Type')?.split(';')[0]!==version.mimeType)throw new Error('El formato recibido no admite esta vista previa.');
    const blob=await r.blob();if(controller.signal.aborted)return;
    if(version.mimeType==='text/plain'){const text=await blob.text();if(!controller.signal.aborted)setContent({text});}
+   else if(version.mimeType==='application/pdf')setContent({blob});
    else{objectUrl=URL.createObjectURL(blob);setContent({url:objectUrl});}
   }catch(e){if(!controller.signal.aborted)setError(e instanceof Error?e.message:'No se pudo cargar el documento.');}
   finally{if(!controller.signal.aborted)loading.current=false;}}
@@ -30,7 +33,7 @@ export function DocumentPreviewDialog({version,onClose}:{version:ResourceVersion
   <DialogHeader><DialogTitle>Vista previa del documento</DialogTitle><DialogDescription>{version.fileName} · versión {version.version}. Previsualizar no vincula ni envía el material.</DialogDescription></DialogHeader>
   <div className={styles.documentPreviewBody}>
    {error?<><p role="alert">{error}</p>{canPreviewDocument(version)&&<Button variant="outline" onClick={retry}>Reintentar vista previa</Button>}</>:!content?<p role="status">Cargando vista previa…</p>:version.mimeType==='text/plain'?<pre className={styles.documentText}>{content.text}</pre>:version.mimeType==='application/pdf'?<>
-    <object className={styles.documentPdf} data={content.url} type="application/pdf" aria-label={'Vista previa de '+version.fileName}><p>Tu navegador no puede mostrar este PDF. Usá Descargar para abrirlo.</p></object><p className={styles.muted}>Si el navegador no muestra el PDF, podés descargarlo y abrirlo.</p>
+    <Suspense fallback={<p role="status">Cargando visor PDF…</p>}><PdfPreview blob={content.blob!} onError={pdfError}/></Suspense>
    </>:<>
     <div className={styles.actions}><Button variant="outline" aria-pressed={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?'Ajustar imagen':'Ampliar imagen'}</Button><p className={styles.muted} role="status">{expanded?'Imagen ampliada. Desplazate dentro de la vista para ver los detalles.':'Imagen ajustada al espacio disponible.'}</p></div>
     <div className={styles.documentImageViewport} tabIndex={0} role="region" aria-label="Imagen del material" aria-describedby="material-image-help"><img className={expanded?styles.documentImageExpanded:styles.documentImage} src={content.url} alt={'Vista previa de '+version.fileName} onError={()=>setError('No se pudo mostrar la imagen. Podés reintentar o descargar el archivo.')}/></div>
