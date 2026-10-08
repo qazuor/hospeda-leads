@@ -1,3 +1,4 @@
+import {mcpRoutes} from './mcp/routes';
 import {handle as businessListDefaults} from '../endpoints/business_list_defaults';
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
@@ -47,6 +48,9 @@ import { get as commercialGET, post as commercialPOST } from "../endpoints/comme
 import {get as workGET,post as workPOST} from "../endpoints/work";
 
 const app=new Hono();
+// Mount only MCP paths; the normal CRM API and static routes keep their behavior.
+const mcp=mcpRoutes();
+for(const path of ['/mcp','/mcp/*','/.well-known/oauth-authorization-server','/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'])app.all(path,c=>mcp.fetch(c.req.raw));
 app.get('/_api/business_import',c=>businessImportGET(c.req.raw));
 app.post('/_api/business_import',c=>businessImportPOST(c.req.raw));
 app.get('/_api/communication',c=>communicationGET(c.req.raw));
