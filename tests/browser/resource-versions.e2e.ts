@@ -1,0 +1,53 @@
+import { test, expect } from '@playwright/test';
+
+test('material versions and Mantine retirement persist through the real API', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.addInitScript(() => localStorage.setItem('hospeda-live-mode', 'off'));
+  await page.goto('/login');
+  await page.getByLabel('Email', { exact: true }).fill('admin@example.com');
+  await page.getByLabel('Contraseña', { exact: true }).fill('test-password-123');
+  await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
+  await expect(page).toHaveURL(/my-day$/);
+  const id = crypto.randomUUID(), title = 'Versiones E2E ' + Date.now();
+  const mutate = async (input: unknown) => page.evaluate(async body => {
+    const response = await fetch('/_api/resources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ json: body }) });
+    if (!response.ok) throw new Error(await response.text());
+  }, input);
+  await mutate({ action: 'create', id, title, type: 'propuesta', accountId: null, leadId: null, activityId: null, library: true, categoryId: null, version: { fileName: 'original.txt', mimeType: 'text/plain', fileData: Buffer.from('Texto original').toString('base64') } });
+  await mutate({ action: 'status', id, revision: 1, status: 'approved' });
+  await page.goto('/settings?section=library');
+  await page.getByLabel('Buscar recurso', { exact: true }).fill(title);
+  const article = page.getByRole('article').filter({ hasText: title });
+  await article.getByRole('button', { name: 'Nueva versión', exact: true }).click();
+  await expect(page.getByText('Nueva versión de', { exact: false })).toContainText(title);
+  await page.getByLabel('O archivo', { exact: true }).setInputFiles({ name: 'actualizado.txt', mimeType: 'text/plain', buffer: Buffer.from('Texto actualizado') });
+  await page.getByRole('button', { name: 'Guardar versión', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Nueva versión guardada como borrador');
+  await expect(article).toContainText('Borrador');
+  await article.getByRole('button', { name: 'Aprobar versión', exact: true }).click();
+  await expect(article).toContainText('Aprobado');
+  await page.reload();
+  await page.getByLabel('Buscar recurso', { exact: true }).fill(title);
+  await expect(article).toContainText('Aprobado');
+  await article.getByRole('button', { name: 'Previsualizar actualizado.txt · v2', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Texto actualizado');
+  await page.getByRole('button', { name: 'Cerrar vista previa', exact: true }).click();
+  await article.getByRole('button', { name: 'Versiones anteriores (1)', exact: true }).click();
+  await article.getByRole('button', { name: 'Previsualizar original.txt · v1', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Texto original');
+  await page.getByRole('button', { name: 'Cerrar vista previa', exact: true }).click();
+  await article.getByRole('button', { name: 'Dar de baja', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText(title);
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar baja', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(article).toHaveCount(0);
+  await page.reload();
+  await page.getByLabel('Buscar recurso', { exact: true }).fill(title);
+  await expect(article).toHaveCount(0);
+  const ids = await page.evaluate(async () => {
+    const response = await fetch('/_api/resources');
+    const data = await response.json();
+    return data.json.documents.map((material: { id: string }) => material.id);
+  });
+  expect(ids).not.toContain(id);
+});
