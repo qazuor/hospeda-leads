@@ -23,7 +23,7 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
       if (route.request().method() === 'POST') {
         const input = superjson.parse<any>(route.request().postData()!); mutations.push(input);
         if (fail) { fail = false; status = 400; data = { error: 'No pude guardar. Intentá nuevamente.' }; }
-        else { await slow; saved.push(input.view); data = { ok: true }; }
+        else { await slow; const view={...input.view,id:'saved-revised'}; saved.push(view); data = { ok: true,view }; }
       } else data = { views: saved };
     } else if (url.pathname.endsWith('/leads')) {
       requests.push({ query: url.searchParams.get('q'), filters: JSON.parse(url.searchParams.get('filterGroups') || '[]'), classification: url.searchParams.get('classification') });
