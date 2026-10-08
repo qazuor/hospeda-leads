@@ -56,7 +56,7 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
  await page.setViewportSize({width,height:844});await page.route('https://fonts.googleapis.com/**',route=>route.abort());
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  const writes:any[]=[],errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
- const lead={id:'201',accountId:'101',nombre:'Negocio de prueba',opportunityName:'Gestión de prueba',assignedUserEmail:'owner@example.com',estado:'Cargado',deletedAt:null};
+ const lead={id:'201',accountId:'101',nombre:'Negocio de prueba',opportunityName:'Gestión de prueba',email:'fixture@example.com',assignedUserEmail:'owner@example.com',estado:'Cargado',deletedAt:null};
  const restriction={id:'301',leadId:'201',contactId:'401',channel:'email',reason:'Solicitud original',actorEmail:'admin@example.com',createdAt:new Date(),liftedAt:null as Date|null,liftReason:null as string|null};
  let calls=0,release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve});
  await page.route('**/_api/**',async route=>{
@@ -65,12 +65,16 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
   else if(path.endsWith('/settings'))data=settings;
   else if(path.endsWith('/leads'))data={rows:[lead],total:1,page:1,pageSize:10};
   else if(path.endsWith('/lead_notes'))data={notes:[]};else if(path.endsWith('/lead_journal'))data={rows:[],total:0,page:1,pageSize:50,filters:{actions:[],actors:[],cities:[],types:[],leads:[]}};
-  else if(path.endsWith('/commercial'))data={account:{id:'101',nombre:'Negocio de prueba',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',archivedAt:null,mergedIntoId:null},opportunities:[lead],contacts:[{id:'401',name:'Ana Contacto',deletedAt:null}],journal:[],leadJournal:[],stages:[],users:[]};
+  else if(path.endsWith('/commercial'))data={account:{id:'101',nombre:'Negocio de prueba',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',archivedAt:null,mergedIntoId:null},opportunities:[lead],contacts:[{id:'401',name:'Ana Contacto',email:'ana@example.com',deletedAt:null}],journal:[],leadJournal:[],stages:[],users:[]};
   else if(path.endsWith('/work'))data={activities:[],tasks:[],types:[],users:[],attention:[],contacts:[]};
   else if(path.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]};
   else if(path.endsWith('/communication')){
    if(route.request().method()==='POST'){
-    writes.push(superjson.parse(route.request().postData()!));calls++;
+    const input=superjson.parse<any>(route.request().postData()!);writes.push(input);
+    if(input.action==='prepare'){
+     await route.fulfill({contentType:'application/json',body:superjson.stringify({id:input.id,accountId:'101',leadId:'201',contactId:'401',channel:'email',recipient:'ana@example.com',recipientName:'Ana Contacto',subject:'Prueba de enlace',body:'<p>Mensaje inicial</p>',status:'draft',revision:1,ownerEmail:'owner@example.com',createdAt:new Date(),updatedAt:new Date(),textBody:null,htmlBody:null,templateSnapshot:null})});return;
+    }
+    calls++;
     if(calls===1){await gate;await route.fulfill({status:500,contentType:'application/json',body:superjson.stringify({error:'No se pudo levantar'})});return;}
     restriction.liftedAt=new Date();restriction.liftReason=writes[1].reason;data={ok:true};
    }else data={restrictions:[restriction],messages:[],recentMessages:[],sequences:[],runs:[],recentContactHours:24};
@@ -96,5 +100,17 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
  await expect(page.locator('[data-lifted-restriction="301"]')).toBeFocused();
  await expect(page.getByRole('article')).toContainText('Pedido confirmado por Ana');
  expect(writes).toEqual(Array(2).fill({action:'lift',id:'301',reason:'Pedido confirmado por Ana'}));expect(errors).toEqual([]);
+ // Exercise the actual message dialog locally, including parent focus after closing its child.
+ await page.goto('/sales/201?contact=email');
+ const parent=page.getByRole('dialog').last();await parent.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
+ const editor=parent.getByRole('textbox',{name:'Mensaje final',exact:true});await editor.fill('Mensaje con enlace');await editor.press('ControlOrMeta+a');
+ await parent.getByRole('button',{name:'Agregar link',exact:true}).click();const child=page.getByRole('dialog').last();
+ await child.getByLabel('URL del enlace',{exact:true}).fill('https://example.com/cancelar');await page.keyboard.press('Escape');
+ await expect(editor).toBeFocused();await expect(editor.locator('a')).toHaveCount(0);
+ await parent.getByRole('button',{name:'Agregar link',exact:true}).click();await child.getByLabel('URL del enlace',{exact:true}).fill('https://example.com/anidado');
+ await child.getByRole('button',{name:'Guardar enlace',exact:true}).click();
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ await expect(editor).toBeFocused();await expect(editor.locator('a')).toHaveAttribute('href','https://example.com/anidado');
+ expect(writes.filter(input=>input.action==='prepare')).toHaveLength(1);expect(errors).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });

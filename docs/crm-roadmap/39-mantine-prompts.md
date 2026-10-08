@@ -6,12 +6,12 @@ Levantar una restricción de contacto usa un diálogo exclusivo de admin, identi
 
 La revisión de `src/**/*.tsx` no encuentra llamadas a `window.prompt`, `window.confirm` o `window.alert`, ni controles HTML directos button/input/textarea/select/dialog. Los componentes compartidos usan Mantine; TipTap conserva su editor especializado.
 
-El diálogo compartido registra hijos abiertos para que Escape, overlay y foco correspondan al diálogo superior. Cerrar el hijo libera al padre; no cancela la preparación del mensaje.
+El diálogo compartido registra hijos abiertos para que Escape y overlay cierren solo el diálogo superior. Cerrar el hijo libera al padre; no cancela la preparación del mensaje. La gestión de foco de Mantine permanece activa para evitar reinicializar el foco del padre y quitarlo al editor al guardar un enlace.
 
 ## Validación
 
 - Typecheck, build y 83 pruebas unitarias.
-- Ocho nuevos recorridos simulados: 1280/390 px, email/WhatsApp y admin/user, selección, validación, cancelación, foco, loading, error/reintento y permisos. Capturas claro/oscuro.
+- Ocho nuevos recorridos simulados, incluidos diálogos de preparación de email anidados: 1280/390 px, email/WhatsApp y admin/user, selección, validación, cancelación, foco, loading, error/reintento y permisos. Capturas claro/oscuro.
 - Recorrido existente de comunicaciones ampliado con API/PostgreSQL reales: enlace dentro de un diálogo de mensaje sin envío, levantamiento persistente, motivo y secuencia detenida después de recargar.
 - CI completo antes de mergear.
 
