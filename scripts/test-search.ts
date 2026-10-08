@@ -67,7 +67,7 @@ try {
   const enye = await db.insertInto('crmAccounts').values({ nombre: `${marker} caña`, assignedUserEmail: reader.user.email }).returningAll().executeTakeFirstOrThrow();
   for (const [query, expected] of [['cana', plain.id], ['caña', enye.id], ['can\u0303a', enye.id]]) {
     const result = await get(leads, 'leads', { entity: 'business', q: `${marker} ${query}` });
-    assert.deepEqual(result.rows.map(r => r.accountId), [expected]);
+    assert.deepEqual(result.rows.map((r: { accountId: string }) => r.accountId), [expected]);
   }
   assert.equal((await get(commercial, 'commercial', { q: `${marker} colon` })).total, 12);
   assert.equal((await get(work, 'work', { mode: 'lookup', q: `${marker} colon` })).accounts.length, 12);
