@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import React,{useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
@@ -40,7 +41,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label,knownValue
  }catch(error){toast.error((error as Error).message);}finally{lock.current=false;setProcessing(false);}}
  function reload(){setDraft(null);save.reset();void detail.refetch();}
  return <Popover open={open} onOpenChange={next=>{if(lock.current)return;if(next){setDraft(null);setManagementId('');save.reset();void detail.refetch();}setOpen(next);}}>
-  <Tooltip open={tooltipOpen&&!open} onOpenChange={setTooltipOpen}><TooltipTrigger asChild><PopoverTrigger asChild><button type="button" className={styles.trigger} aria-label={'Editar '+title.toLowerCase()+' de '+name}><ValueBadge category={category} value={label||empty} muted={!value} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/></button></PopoverTrigger></TooltipTrigger><TooltipContent className={styles.tooltip}>{label||empty}</TooltipContent></Tooltip>
+  <Tooltip open={tooltipOpen&&!open} onOpenChange={setTooltipOpen}><TooltipTrigger asChild><PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={'Editar '+title.toLowerCase()+' de '+name}><ValueBadge category={category} value={label||empty} muted={!value} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/></UnstyledButton></PopoverTrigger></TooltipTrigger><TooltipContent className={styles.tooltip}>{label||empty}</TooltipContent></Tooltip>
   <PopoverContent aria-label={'Editar '+title.toLowerCase()} className={styles.popover} align="start" onEscapeKeyDown={event=>{if(lock.current)event.preventDefault();}} onInteractOutside={event=>{if(lock.current)event.preventDefault();}}>
    <h3>Editar {title.toLowerCase()}</h3><p className={styles.help}>{name}</p>
    {loading?<p role="status">Cargando opciones…</p>:detail.error||settings.error?<p role="alert">{detail.error?.message||settings.error?.message}<Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();}}>Reintentar</Button></p>:<>

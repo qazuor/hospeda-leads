@@ -1,3 +1,5 @@
+import { NativeSelect } from './NativeSelect';
+import { UnstyledButton } from '@mantine/core';
 import React, { useState } from "react";
 import { Filter, X } from "lucide-react";
 import { Button } from "./Button";
@@ -33,9 +35,9 @@ export const TextFilterEditor=({
 })=>{
   const needsValue=["contains","not_contains","equals","not_equals"].includes(value.mode);
   return <div className={styles.stack}>
-    <select value={value.mode} onChange={e=>onChange({mode:e.target.value as TextFilterMode,value:value.value})}>
+    <NativeSelect value={value.mode} onChange={e=>onChange({mode:e.target.value as TextFilterMode,value:value.value})}>
       {Object.entries(textModeLabel).map(([key,label])=><option key={key} value={key}>{label}</option>)}
-    </select>
+    </NativeSelect>
     {needsValue&&<Input value={value.value} onChange={e=>onChange({...value,value:e.target.value})} placeholder={placeholder}/>}
     {value.mode!=="none"&&<Button variant="ghost" size="sm" onClick={()=>onChange(emptyTextFilter())}><X size={13}/>Limpiar</Button>}
   </div>;
@@ -48,11 +50,11 @@ export const DateFilterEditor=({
   onChange:(next:DateFilterState)=>void;
 })=>{
   return <div className={styles.stack}>
-    <select value={value.presence} onChange={e=>onChange({...value,presence:e.target.value as DateFilterState["presence"]})}>
+    <NativeSelect value={value.presence} onChange={e=>onChange({...value,presence:e.target.value as DateFilterState["presence"]})}>
       <option value="all">Cualquier valor</option>
       <option value="with">Con fecha</option>
       <option value="without">Sin fecha</option>
-    </select>
+    </NativeSelect>
     {value.presence!=="without"&&<>
       <label>Desde<Input type="date" value={value.from} onChange={e=>onChange({...value,from:e.target.value})}/></label>
       <label>Hasta<Input type="date" value={value.to} onChange={e=>onChange({...value,to:e.target.value})}/></label>
@@ -85,11 +87,11 @@ export const BooleanFilterEditor=({
   labelTrue?:string;
   labelFalse?:string;
 })=><div className={styles.stack}>
-  <select value={value} onChange={e=>onChange(e.target.value as "all"|"true"|"false")}>
+  <NativeSelect value={value} onChange={e=>onChange(e.target.value as "all"|"true"|"false")}>
     <option value="all">Todos</option>
     <option value="true">{labelTrue}</option>
     <option value="false">{labelFalse}</option>
-  </select>
+  </NativeSelect>
 </div>;
 
 export const TextFilterPopover=({
@@ -103,9 +105,9 @@ export const TextFilterPopover=({
   const active=value.mode!=="none";
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
-      <button type="button" className={styles.trigger+" "+(active?styles.active:"")}>
+      <UnstyledButton type="button" className={styles.trigger+" "+(active?styles.active:"")}>
         <Filter size={13}/><span>{label}</span>{active&&<b>1</b>}
-      </button>
+      </UnstyledButton>
     </PopoverTrigger>
     <PopoverContent align="start" className={styles.popover}>
       <strong className={styles.title}>{label}</strong>

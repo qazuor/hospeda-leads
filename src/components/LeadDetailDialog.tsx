@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from './Disclosure';
 import {CommunicationPanel} from './CommunicationPanel';
 import {ResourcesPanel} from './ResourcesPanel';
 import {PipelineDetail} from "./Pipeline";
@@ -159,14 +160,14 @@ export const LeadDetailDialog=({
         <SectionTabList aria-label="Secciones de la gestión"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}</SectionTabList>
         <div className={styles.scrollBody}>
           <SectionTabPanel value="overview">{!readOnly&&<PipelineDetail lead={lead}/>}
-        <details className={styles.section}><summary>Responsable y datos generales</summary><div className={styles.summaryGrid}>
+        <Disclosure className={styles.section}><DisclosureSummary>Responsable y datos generales</DisclosureSummary><div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Canal del negocio" value={lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>
           <SummaryItem icon={ShieldCheck} label="Responsable" value={assignedUser?.displayName||lead.assignedUserEmail||lead.asignadoA||"Sin asignar"}/>
           <SummaryItem icon={CalendarClock} label="Próxima acción" value={<span className={styles["next_"+nextActionInfo(lead.fechaProximaAccion).tone]} title={nextActionInfo(lead.fechaProximaAccion).title}>{nextActionInfo(lead.fechaProximaAccion).label}</span>}/>
-        </div></details>
+        </div></Disclosure>
 
-            <details className={styles.section}><summary>Ver todos los datos de esta gestión</summary><div className={styles.contentGrid}>
+            <Disclosure className={styles.section}><DisclosureSummary>Ver todos los datos de esta gestión</DisclosureSummary><div className={styles.contentGrid}>
           <section className={styles.panel}>
             <SectionTitle icon={ContactRound} title="Datos del negocio" description="Canales compartidos. Las personas están en Negocio y contactos."/>
             <div className={styles.fieldGrid}>
@@ -243,7 +244,7 @@ export const LeadDetailDialog=({
           </section>}
 
             </div>
-          </details><details className={styles.section}><summary>Negocio, personas y otras gestiones</summary><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></details></SectionTabPanel>
+          </Disclosure><Disclosure className={styles.section}><DisclosureSummary>Negocio, personas y otras gestiones</DisclosureSummary><CommercialPanel key={String(lead.id)} leadId={String(lead.id)} compact readOnly={readOnly}/></Disclosure></SectionTabPanel>
           {!readOnly&&<SectionTabPanel value="work">{lead.accountId?<WorkPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/>:<p>No hay un negocio vinculado.</p>}</SectionTabPanel>}
 
           <SectionTabPanel value="notes">
@@ -261,7 +262,7 @@ export const LeadDetailDialog=({
             </div>}
           </section>
 
-                    <details className={styles.section}><summary>Historial de cambios</summary>
+                    <Disclosure className={styles.section}><DisclosureSummary>Historial de cambios</DisclosureSummary>
           <section className={styles.panel+" "+styles.widePanel}>
             <SectionTitle icon={History} title="Journal de cambios" description="Auditoría cronológica de modificaciones y acciones."/>
             {journalQ.isLoading?<Skeleton className={styles.notesLoading}/>:journalQ.error?<p className={styles.journalError}>{journalQ.error.message}</p>:<div className={styles.journalList}>
@@ -282,7 +283,7 @@ export const LeadDetailDialog=({
               </article>)}
             </div>}
           </section>
-          </details></SectionTabPanel>
+          </Disclosure></SectionTabPanel>
           {!readOnly&&<SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)}/></SectionTabPanel>}{!readOnly&&lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/></SectionTabPanel>}
 
         </div>

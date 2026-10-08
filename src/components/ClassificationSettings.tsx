@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import {useState} from 'react';
 import {useMutation, useQueryClient} from '@tanstack/react-query';
 import {Link} from 'react-router-dom';
@@ -53,7 +54,7 @@ export function ClassificationSettings({data}: {data: SettingsOutput}) {
         <div className={styles.workspace}>
           <aside className={styles.groups} aria-label="Elegir vertical">
             <div className={styles.groupHeading}>Elegí una vertical<span>El rubro principal del negocio</span></div>
-            {groups.map(g => <button type="button" key={g.key} disabled={save.isPending} aria-pressed={group === g.key} onClick={() => {setGroup(g.key); setSearch(''); setNotice(''); save.reset();}}><span>{g.label}</span><span className={styles.count}>{data.subtypes.filter(item => item.typeName === (g.key === '__GENERAL__' ? null : g.key)).length}</span></button>)}
+            {groups.map(g => <UnstyledButton type="button" key={g.key} disabled={save.isPending} aria-pressed={group === g.key} onClick={() => {setGroup(g.key); setSearch(''); setNotice(''); save.reset();}}><span>{g.label}</span><span className={styles.count}>{data.subtypes.filter(item => item.typeName === (g.key === '__GENERAL__' ? null : g.key)).length}</span></UnstyledButton>)}
           </aside>
           <article className={styles.card}>
             <header className={styles.cardHeading}><div><span className={styles.eyebrow}>{typeName ? 'VERTICAL' : 'COMPARTIDOS'}</span><h3>{label}</h3><p>{typeName ? 'Los subtipos describen qué clase de negocio es dentro de este rubro.' : 'Estos subtipos se pueden elegir en cualquier vertical.'}</p></div><span className={styles.count}>{items.length} {items.length === 1 ? 'subtipo' : 'subtipos'}</span></header>

@@ -1,137 +1,34 @@
-"use client"
+import React, { createContext, useContext, useState } from 'react';
+import { Box, Combobox, useCombobox } from '@mantine/core';
+import { Search } from 'lucide-react';
+import { normalizeSearchText } from '../helpers/searchText';
+import styles from './Command.module.css';
 
-import * as React from "react"
-import { type DialogProps } from "@radix-ui/react-dialog"
-import { Command as CommandPrimitive } from "cmdk"
-import { Search } from "lucide-react"
-import { Dialog, DialogContent } from "./Dialog"
-import styles from "./Command.module.css"
-
-const Command = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive
-    ref={ref}
-    className={`${styles.command} ${className ?? ""}`}
-    {...props}
-  />
-))
-Command.displayName = CommandPrimitive.displayName
-
-const CommandDialog = ({ children, ...props }: DialogProps) => {
-  return (
-    <Dialog {...props}>
-      <DialogContent className={styles.CommandDialogContent}>
-        <Command className={styles.commandInDialog}>
-          {children}
-        </Command>
-      </DialogContent>
-    </Dialog>
-  )
+interface ItemProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'> { value: string; keywords?: string[]; disabled?: boolean; onSelect?: (value: string) => void }
+const Context = createContext({ query: '', count: 0, setQuery: (_query: string) => {} });
+const text = (children: React.ReactNode): string => React.Children.toArray(children).map(child => typeof child === 'string' || typeof child === 'number' ? String(child) : React.isValidElement<{ children?: React.ReactNode }>(child) ? text(child.props.children) : '').join(' ');
+const matches = (item: ItemProps, query: string) => normalizeSearchText([item.value, ...(item.keywords ?? []), text(item.children)].join(' ')).includes(normalizeSearchText(query));
+function collect(children: React.ReactNode): ItemProps[] {
+  return React.Children.toArray(children).flatMap(child => React.isValidElement<{ children?: React.ReactNode }>(child) ? child.type === CommandItem ? [child.props as ItemProps] : collect(child.props.children) : []);
 }
-
-const CommandInput = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive.Input>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
-  <div className={styles.cmdkInputWrapper}>
-    <Search className={styles.cmdkInputWrapperSearchIcon} />
-    <CommandPrimitive.Input
-      ref={ref}
-      className={`${styles.cmdkInput} ${className ?? ""}`}
-      {...props}
-    />
-  </div>
-))
-
-CommandInput.displayName = CommandPrimitive.Input.displayName
-
-const CommandList = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.List
-    ref={ref}
-    className={`${styles.commandList} ${className ?? ""}`}
-    {...props}
-  />
-))
-
-CommandList.displayName = CommandPrimitive.List.displayName
-
-const CommandEmpty = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive.Empty>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
->((props, ref) => (
-  <CommandPrimitive.Empty
-    ref={ref}
-    className={styles.commandEmpty}
-    {...props}
-  />
-))
-
-CommandEmpty.displayName = CommandPrimitive.Empty.displayName
-
-const CommandGroup = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive.Group>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.Group
-    ref={ref}
-    className={`${styles.commandGroup} ${className ?? ""}`}
-    {...props}
-  />
-))
-
-CommandGroup.displayName = CommandPrimitive.Group.displayName
-
-const CommandSeparator = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Separator>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.Separator
-    ref={ref}
-    className={`${styles.commandSeparator} ${className ?? ""}`}
-    {...props}
-  />
-))
-CommandSeparator.displayName = CommandPrimitive.Separator.displayName
-
-const CommandItem = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.Item
-    ref={ref}
-    className={`${styles.commandItem} ${className ?? ""}`}
-    {...props}
-  />
-))
-
-CommandItem.displayName = CommandPrimitive.Item.displayName
-
-const CommandShortcut = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLSpanElement>) => {
-  return (
-    <span
-      className={`${styles.commandShortcut} ${className ?? ""}`}
-      {...props}
-    />
-  )
-}
-CommandShortcut.displayName = "CommandShortcut"
-
-export {
-  Command,
-  CommandDialog,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandShortcut,
-  CommandSeparator,
-}
+export const Command = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { label?: string }>(({ children, className, label, ...props }, ref) => {
+  const [query, setQuery] = useState(''); const items = collect(children); const filtered = items.filter(item => matches(item, query));
+  const store = useCombobox({ defaultOpened: true });
+  return <Context.Provider value={{ query, count: filtered.length, setQuery: next => { setQuery(next); store.resetSelectedOption(); } }}>
+    <Combobox store={store} onOptionSubmit={value => items.find(item => item.value === value)?.onSelect?.(value)}>
+      <Box {...props} ref={ref} className={[styles.command, className].filter(Boolean).join(' ')}>{children}</Box>
+    </Combobox>
+  </Context.Provider>;
+});
+export const CommandInput = React.forwardRef<HTMLInputElement, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> & { onValueChange?: (value: string) => void }>(({ onValueChange, onChange, value, className, ...props }, ref) => {
+  const ctx = useContext(Context);
+  return <Combobox.Search {...props} ref={ref} value={value ?? ctx.query} data-autofocus aria-label={props['aria-label'] ?? props.placeholder ?? 'Buscar opciones'}
+    leftSection={<Search size={16} />} classNames={{ input: className }}
+    onChange={event => { ctx.setQuery(event.currentTarget.value); onValueChange?.(event.currentTarget.value); onChange?.(event); }} />;
+});
+export const CommandList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => <Combobox.Options {...props} ref={ref} className={[styles.commandList, className].filter(Boolean).join(' ')} />);
+export const CommandEmpty = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => useContext(Context).count ? null : <Combobox.Empty {...props} ref={ref} />);
+export const CommandItem = React.forwardRef<HTMLDivElement, ItemProps>(({ keywords, onSelect, className, ...props }, ref) => {
+  const ctx = useContext(Context); if (!matches({ ...props, keywords }, ctx.query)) return null;
+  return <Combobox.Option {...props} ref={ref} className={[styles.commandItem, className].filter(Boolean).join(' ')} />;
+});

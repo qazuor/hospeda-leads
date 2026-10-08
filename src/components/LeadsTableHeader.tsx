@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import React from "react";
 import {ArrowDownAZ,ArrowUpAZ,ChevronDown} from "lucide-react";
 import {Popover,PopoverTrigger,PopoverContent} from "./Popover";
@@ -12,10 +13,10 @@ export function HeaderMenu({
 }){
   return <Popover>
     <PopoverTrigger asChild>
-      <button className={styles.headerButton} title={"Ordenar por "+label}>
+      <UnstyledButton className={styles.headerButton} title={"Ordenar por "+label}>
         <span>{label}</span>
         {sortBy===field?(sortDir==="asc"?<ArrowUpAZ size={14}/>:<ArrowDownAZ size={14}/>):<ChevronDown size={14}/>}
-      </button>
+      </UnstyledButton>
     </PopoverTrigger>
     <PopoverContent align="start" className={styles.headerPopover}>
       <div className={styles.headerPopoverTitle}>{label}</div>

@@ -28,6 +28,7 @@ for(const width of [1280,390])test(`fullscreen isolates business results at ${wi
  await expect(dialog.getByRole('status')).toContainText('3 de 3 negocios cargados');
  await expect(dialog.locator('thead')).toBeVisible();
  await expect(dialog.getByRole('button',{name:'Tabla',exact:true})).toBeVisible();
+ await expect(dialog.getByRole('button',{name:'Salir de pantalla completa'}).locator('svg')).toBeVisible();
  await expect(dialog.getByRole('textbox',{name:'Buscar negocios'})).toHaveCount(0);
  await expect(dialog.getByRole('button',{name:'Filtrar negocios'})).toHaveCount(0);
  await expect(dialog.getByRole('button',{name:'Nuevo negocio'})).toHaveCount(0);

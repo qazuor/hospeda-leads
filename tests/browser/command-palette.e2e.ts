@@ -23,6 +23,7 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
       await route.fulfill({ contentType: 'application/json', body: superjson.stringify(data) });
     });
     await page.goto('/guide');
+    await expect(page.getByRole('button', { name: 'Fixture', exact: true }).locator('svg').first()).toBeVisible();
     const trigger = page.getByRole('button', { name: 'Abrir accesos rápidos', exact: true });
     const dialog = page.getByRole('dialog', { name: 'Accesos rápidos', exact: true });
     const search = dialog.getByRole('textbox', { name: 'Buscar opciones', exact: true });

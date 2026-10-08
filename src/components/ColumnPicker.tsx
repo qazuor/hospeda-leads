@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import React from "react";
 import { Columns3 } from "lucide-react";
 import { Button } from "./Button";
@@ -26,7 +27,7 @@ export const ColumnPicker=({
     <PopoverTrigger asChild><Button variant="outline"><Columns3 size={16}/>Columnas</Button></PopoverTrigger>
     <PopoverContent align="end" className={styles.popover}>
       <div className={styles.title}><strong>Columnas visibles</strong><span>{visible.length} de {columns.length}</span></div>
-      <div className={styles.actions}><button onClick={()=>onChange(columns.map(x=>x.key))}>Mostrar todas</button><button onClick={()=>onChange(columns.slice(0,8).map(x=>x.key))}>Vista básica</button></div>
+      <div className={styles.actions}><UnstyledButton onClick={()=>onChange(columns.map(x=>x.key))}>Mostrar todas</UnstyledButton><UnstyledButton onClick={()=>onChange(columns.slice(0,8).map(x=>x.key))}>Vista básica</UnstyledButton></div>
       <div className={styles.list}>
         {columns.map(col=><label key={col.key}><Checkbox checked={visible.includes(col.key)} onChange={()=>toggle(col.key)}/><span>{col.label}</span></label>)}
       </div>

@@ -1,3 +1,4 @@
+import { NativeSelect } from './NativeSelect';
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as z from "zod";
@@ -99,7 +100,7 @@ export const PasswordRegisterForm:React.FC<PasswordRegisterFormProps>=({classNam
       <FormItem name="sex">
         <FormLabel>Sexo</FormLabel>
         <FormControl>
-          <select
+          <NativeSelect
             className={styles.select}
             value={form.values.sex||"prefiero_no_decir"}
             onChange={e=>form.setValues((prev:any)=>({...prev,sex:e.target.value}))}
@@ -108,7 +109,7 @@ export const PasswordRegisterForm:React.FC<PasswordRegisterFormProps>=({classNam
             <option value="femenino">Femenino</option>
             <option value="otro">Otro</option>
             <option value="prefiero_no_decir">Prefiero no decir</option>
-          </select>
+          </NativeSelect>
         </FormControl>
         <FormMessage/>
       </FormItem>

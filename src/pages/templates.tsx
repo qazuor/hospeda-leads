@@ -1,3 +1,5 @@
+import { UnstyledButton } from '@mantine/core';
+import { NativeSelect } from '../components/NativeSelect';
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Copy, FileText, Mail, MessageCircle, Plus, Search, Trash2 } from "lucide-react";
@@ -152,9 +154,9 @@ export function TemplatesContent(){
         <div className={styles.groupPicker}>
           <span>Agrupar por</span>
           <div>
-            <button type="button" className={groupBy==="channel"?styles.groupActive:""} onClick={()=>setGroupBy("channel")}>Canal</button>
-            <button type="button" className={groupBy==="vertical"?styles.groupActive:""} onClick={()=>setGroupBy("vertical")}>Vertical</button>
-            <button type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</button>
+            <UnstyledButton type="button" className={groupBy==="channel"?styles.groupActive:""} onClick={()=>setGroupBy("channel")}>Canal</UnstyledButton>
+            <UnstyledButton type="button" className={groupBy==="vertical"?styles.groupActive:""} onClick={()=>setGroupBy("vertical")}>Vertical</UnstyledButton>
+            <UnstyledButton type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</UnstyledButton>
           </div>
         </div>
         <div className={styles.templateCount}>{filtered.length} templates</div>
@@ -162,17 +164,17 @@ export function TemplatesContent(){
           {templateGroups.map(group=>{
             const collapsed=!expandedGroups.has(groupKey(group.label));
             return <section className={styles.templateGroup} key={group.label}>
-              <button type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
+              <UnstyledButton type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
                 <div>{collapsed?<ChevronRight size={14}/>:<ChevronDown size={14}/>}<strong>{group.label}</strong></div>
                 <span>{group.templates.length}</span>
-              </button>
+              </UnstyledButton>
               {!collapsed&&<div className={styles.templateList}>
                 {group.templates.map(template=>{
                   const active=template.id===templateId;
-                  return <button type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
+                  return <UnstyledButton type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
                     <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
                     <div><strong>{template.name}</strong><span>{[template.vertical||"Todas",template.commercialProfile||"Todos",template.channel].filter(Boolean).join(" · ")}</span></div>
-                  </button>;
+                  </UnstyledButton>;
                 })}
               </div>}
             </section>;
@@ -192,9 +194,9 @@ export function TemplatesContent(){
             </div>
           </div>
           <div className={styles.metaGrid}>
-            <label>Canal<select value={channel} onChange={e=>setChannel(e.target.value as Channel)}><option value="whatsapp">WhatsApp</option><option value="email">Email</option></select></label>
-            <label>Vertical<select value={vertical} onChange={e=>setVertical(e.target.value)}><option value="">Todas las verticales</option>{data?.types.map(type=><option key={type}>{type}</option>)}</select></label>
-            <label>Perfil comercial<select value={profile} onChange={e=>setProfile(e.target.value as Profile)}><option value="">Todos los perfiles</option><option>Independiente</option><option>Consolidado</option><option>Referente</option></select></label>
+            <label>Canal<NativeSelect value={channel} onChange={e=>setChannel(e.target.value as Channel)}><option value="whatsapp">WhatsApp</option><option value="email">Email</option></NativeSelect></label>
+            <label>Vertical<NativeSelect value={vertical} onChange={e=>setVertical(e.target.value)}><option value="">Todas las verticales</option>{data?.types.map(type=><option key={type}>{type}</option>)}</NativeSelect></label>
+            <label>Perfil comercial<NativeSelect value={profile} onChange={e=>setProfile(e.target.value as Profile)}><option value="">Todos los perfiles</option><option>Independiente</option><option>Consolidado</option><option>Referente</option></NativeSelect></label>
           </div>
           <label className={styles.field}>Nombre del template<Input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
           {channel==="email"&&<label className={styles.field}>Asunto<Input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Asunto del email"/></label>}
@@ -208,10 +210,10 @@ export function TemplatesContent(){
         <aside className={styles.previewCard}>
           <div className={styles.previewTitle}><strong>Vista previa</strong><span>Usá una gestión real para comprobar variables antes de guardar.</span></div>
           <label className={styles.previewLead}>Previsualizar como
-            <select value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>
+            <NativeSelect value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>
               <option value="">Datos de ejemplo</option>
               {(leadsQ.data?.rows??[]).map(lead=><option key={String(lead.id)} value={String(lead.id)}>{lead.nombre}{lead.ciudad?" · "+lead.ciudad:""}</option>)}
-            </select>
+            </NativeSelect>
           </label>
           {channel==="whatsapp"
             ? <div className={styles.whatsappPreview} dangerouslySetInnerHTML={{__html:whatsappPreviewHtml||"El mensaje aparecerá acá."}}/>

@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import React, { useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
@@ -75,7 +76,7 @@ export const RichTemplateEditor=({
   if(!editor)return <div className={styles.loading}>Cargando editor…</div>;
 
   const toolbarButton=(label:string,active:boolean,onClick:()=>void,icon:React.ReactNode)=>(
-    <button type="button" title={label} aria-label={label} className={active?styles.active:""} onClick={onClick}>{icon}</button>
+    <UnstyledButton type="button" title={label} aria-label={label} className={active?styles.active:""} onClick={onClick}>{icon}</UnstyledButton>
   );
   const setLink=()=>{
     const previous=editor.getAttributes("link").href as string|undefined;
@@ -119,13 +120,13 @@ export const RichTemplateEditor=({
         {toolbarButton("Agregar link",editor.isActive("link"),setLink,<LinkIcon size={15}/>)}
         {editor.isActive("link")&&toolbarButton("Quitar link",false,()=>editor.chain().focus().unsetLink().run(),<Unlink size={15}/>)}
         <Popover>
-          <PopoverTrigger asChild><button type="button" title="Emoji"><Smile size={15}/></button></PopoverTrigger>
+          <PopoverTrigger asChild><UnstyledButton type="button" title="Emoji"><Smile size={15}/></UnstyledButton></PopoverTrigger>
           <PopoverContent align="start" className={styles.emojiPopover}>
             <div className={styles.emojiTabs}>
-              {WHATSAPP_EMOJI_GROUPS.map(group=><button type="button" key={group.key} className={emojiGroup===group.key?styles.emojiTabActive:""} onClick={()=>setEmojiGroup(group.key)}>{group.label}</button>)}
+              {WHATSAPP_EMOJI_GROUPS.map(group=><UnstyledButton type="button" key={group.key} className={emojiGroup===group.key?styles.emojiTabActive:""} onClick={()=>setEmojiGroup(group.key)}>{group.label}</UnstyledButton>)}
             </div>
             <div className={styles.emojiGrid}>
-              {(WHATSAPP_EMOJI_GROUPS.find(group=>group.key===emojiGroup)?.emojis??[]).map((emoji,index)=><button type="button" key={emoji+"-"+index} onClick={()=>insert(emoji)}>{emoji}</button>)}
+              {(WHATSAPP_EMOJI_GROUPS.find(group=>group.key===emojiGroup)?.emojis??[]).map((emoji,index)=><UnstyledButton type="button" key={emoji+"-"+index} onClick={()=>insert(emoji)}>{emoji}</UnstyledButton>)}
             </div>
           </PopoverContent>
         </Popover>
@@ -136,8 +137,8 @@ export const RichTemplateEditor=({
 
     {showVariables&&<div className={styles.variables}>
       <span>Insertar variable:</span>
-      {VARIABLES.map(variable=><button type="button" key={variable} title={variable==="sender"?"Nombre completo del usuario que envía":variable==="sender_short"?"Nombre visible del usuario que envía":undefined} onClick={()=>insert("{{"+variable+"}}")}>{"{{"+variable+"}}"}</button>)}
-      <button type="button" onClick={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</button>
+      {VARIABLES.map(variable=><UnstyledButton type="button" key={variable} title={variable==="sender"?"Nombre completo del usuario que envía":variable==="sender_short"?"Nombre visible del usuario que envía":undefined} onClick={()=>insert("{{"+variable+"}}")}>{"{{"+variable+"}}"}</UnstyledButton>)}
+      <UnstyledButton type="button" onClick={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</UnstyledButton>
     </div>}
     <p className={styles.hint}>
       {channel==="whatsapp"

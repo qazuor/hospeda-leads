@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import React, { useMemo, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "./Command";
@@ -23,7 +24,7 @@ export const UserBadgeSelect=({
   const selected=options.find(user=>user.email===value);
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
-      <button
+      <UnstyledButton
         type="button"
         onClick={e=>e.stopPropagation()}
         onDoubleClick={e=>e.stopPropagation()}
@@ -38,7 +39,7 @@ export const UserBadgeSelect=({
               : <span className={styles.placeholder}>{placeholder}</span>}
         </span>
         {(!assignWhenEmpty||value)&&<ChevronsUpDown className={styles.chevrons} size={14}/>}
-      </button>
+      </UnstyledButton>
     </PopoverTrigger>
     <PopoverContent removeBackgroundAndPadding align="start" className={styles.popover}>
       <Command>

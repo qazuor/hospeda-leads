@@ -1,22 +1,7 @@
-import { InputHTMLAttributes, forwardRef } from 'react';
-import styles from './Checkbox.module.css';
-import { Check } from 'lucide-react';
-export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>;
-
+import { forwardRef, type InputHTMLAttributes } from 'react';
+import { Checkbox as MantineCheckbox } from '@mantine/core';
+export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> & { size?: number; indeterminate?: boolean };
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <div className={styles.checkboxWrapper}>
-        <input
-          {...props}
-          type="checkbox"
-          ref={ref}
-          className={`${styles.checkbox} ${className || ''}`}
-        />
-        <Check className={styles.checkmark} aria-hidden="true" />
-      </div>
-    );
-  }
+  ({ className, size: _size, ...props }, ref) => <MantineCheckbox {...props} data-autofocus={props.autoFocus || undefined} ref={ref} classNames={{ input: className }} />,
 );
-
 Checkbox.displayName = 'Checkbox';

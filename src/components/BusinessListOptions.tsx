@@ -1,3 +1,5 @@
+import { Checkbox } from './Checkbox';
+import { NativeSelect } from './NativeSelect';
 import React,{useState} from 'react';
 import {ArrowUp,ArrowDown,Columns3,ChevronDown,X} from 'lucide-react';
 import {BUSINESS_COLUMNS,type ListPreferences} from '../helpers/businessListPreferences';
@@ -13,8 +15,8 @@ export function BusinessListOptions({value,onChange}:{value:ListPreferences;onCh
  <PopoverContent align="end" className={styles.menu} aria-label="Columnas del listado">
   <div className={styles.heading}><div><strong>Columnas visibles</strong><p>Nombre siempre disponible. Si ocultás Acciones, abrí el negocio desde su nombre.</p></div><Button variant="ghost" size="icon-sm" aria-label="Cerrar columnas" onClick={()=>setOpen(false)}><X size={16}/></Button></div>
   <div className={styles.list}>{keys.map(key=>{const index=value.columns.indexOf(key);const label=BUSINESS_COLUMNS.find(c=>c.key===key)!.label;return <div key={key} className={styles.row}>
-   <label className={styles.field}><input type="checkbox" checked={index>=0} disabled={key==='nombre'} onChange={()=>change({columns:index>=0?value.columns.filter(k=>k!==key):[...value.columns,key]})}/><span>{label}</span></label>
-   {index>=0&&<div className={styles.controls}><Button size="icon-sm" variant="ghost" aria-label={'Subir '+label} disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={15}/></Button><Button size="icon-sm" variant="ghost" aria-label={'Bajar '+label} disabled={index===value.columns.length-1} onClick={()=>move(index,1)}><ArrowDown size={15}/></Button><select aria-label={'Fijar '+label} value={value.pins[key]??''} onChange={e=>{const pins={...value.pins};if(e.target.value)pins[key]=e.target.value as 'left'|'right';else delete pins[key];change({pins});}}><option value="">Sin fijar</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></div>}
+   <label className={styles.field}><Checkbox  checked={index>=0} disabled={key==='nombre'} onChange={()=>change({columns:index>=0?value.columns.filter(k=>k!==key):[...value.columns,key]})}/><span>{label}</span></label>
+   {index>=0&&<div className={styles.controls}><Button size="icon-sm" variant="ghost" aria-label={'Subir '+label} disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={15}/></Button><Button size="icon-sm" variant="ghost" aria-label={'Bajar '+label} disabled={index===value.columns.length-1} onClick={()=>move(index,1)}><ArrowDown size={15}/></Button><NativeSelect aria-label={'Fijar '+label} value={value.pins[key]??''} onChange={e=>{const pins={...value.pins};if(e.target.value)pins[key]=e.target.value as 'left'|'right';else delete pins[key];change({pins});}}><option value="">Sin fijar</option><option value="left">Izquierda</option><option value="right">Derecha</option></NativeSelect></div>}
   </div>;})}</div>
   <p className={styles.help}>Arrastrá el borde del encabezado para ajustar el ancho. La fijación se aplica solo en tabla de escritorio.</p>
  </PopoverContent></Popover>;

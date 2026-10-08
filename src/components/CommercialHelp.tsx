@@ -1,17 +1,18 @@
+import { Disclosure, DisclosureSummary } from './Disclosure';
 import type {ReactNode} from "react";
 import { ChevronDown, CircleHelp } from "lucide-react";
 import styles from "./Commercial.module.css";
 
 export function CommercialHelp({children}:{children?:ReactNode}){
-  return <details className={styles.help}>
-    <summary className={styles.helpSummary}>
+  return <Disclosure className={styles.help}>
+    <DisclosureSummary className={styles.helpSummary}>
       <CircleHelp className={styles.helpIcon} size={20} aria-hidden="true"/>
       <span className={styles.helpCopy}>
         <strong>Cómo usar negocios, contactos y gestiones</strong>
         <span>Guía rápida para entender cada concepto y saber qué editar.</span>
       </span>
       <ChevronDown className={styles.helpChevron} size={18} aria-hidden="true"/>
-    </summary>
+    </DisclosureSummary>
     <dl>
       <dt>Negocio</dt><dd>Es la organización con la que nos relacionamos, por ejemplo una cabaña o un restaurante. Su nombre, ubicación y canales genéricos se comparten entre sus gestiones.</dd>
       <dt>Contacto</dt><dd>Es una persona de ese negocio, con su propio cargo, teléfono y email. Agregá una persona distinta por cada interlocutor; no uses el nombre del negocio como nombre de persona.</dd>
@@ -20,5 +21,5 @@ export function CommercialHelp({children}:{children?:ReactNode}){
       <dt>Prospecto y cliente</dt><dd>Prospecto es el negocio que todavía no convertimos a cliente. “Convertir a cliente” registra la decisión y su motivo; conserva el historial y no confirma pagos ni activa una suscripción en el portal turístico.</dd>
     </dl>
     {children}
-  </details>;
+  </Disclosure>;
 }

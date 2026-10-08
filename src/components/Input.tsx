@@ -1,18 +1,9 @@
-import React, { forwardRef, InputHTMLAttributes } from "react";
-import styles from "./Input.module.css";
+import { forwardRef, type InputHTMLAttributes } from 'react';
+import { Input as MantineInput } from '@mantine/core';
+import styles from './ui/CrmControls.module.css';
 
-type InputProps = InputHTMLAttributes<HTMLInputElement>;
-
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <input
-        ref={ref}
-        className={`${styles.input} ${className || ""}`}
-        {...props}
-      />
-    );
-  }
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, size, ...props }, ref) => <MantineInput {...props} data-autofocus={props.autoFocus || undefined} ref={ref}
+    classNames={{ wrapper: styles.field, input: [styles.input, className].filter(Boolean).join(' ') }} />,
 );
-
-Input.displayName = "Input";
+Input.displayName = 'Input';
