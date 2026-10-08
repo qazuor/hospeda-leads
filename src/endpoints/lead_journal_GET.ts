@@ -1,6 +1,6 @@
+import {searchSql} from "../helpers/searchSql";
 import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
 import superjson from "superjson";
-import { sql } from "kysely";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./lead_journal_GET.schema";
@@ -22,17 +22,14 @@ export async function handle(request:Request){
     if(input.type)query=query.where("leadType","=",input.type);
     if(input.from)query=query.where("createdAt",">=",new Date(input.from+"T00:00:00"));
     if(input.to)query=query.where("createdAt","<=",new Date(input.to+"T23:59:59.999"));
-    if(input.q){
-      const s="%"+input.q.toLowerCase()+"%";
-      query=query.where(eb=>eb.or([
-        eb(sql<string>`lower(lead_name)`,"like",s),
-        eb(sql<string>`lower(actor_name)`,"like",s),
-        eb(sql<string>`lower(coalesce(actor_email,''))`,"like",s),
-        eb(sql<string>`lower(coalesce(field_name,''))`,"like",s),
-        eb(sql<string>`lower(coalesce(old_value,''))`,"like",s),
-        eb(sql<string>`lower(coalesce(new_value,''))`,"like",s),
-      ]));
-    }
+    if(input.q)query=query.where(eb=>eb.or([
+      searchSql("leadName",input.q!),
+      searchSql("actorName",input.q!),
+      searchSql("actorEmail",input.q!),
+      searchSql("fieldName",input.q!),
+      searchSql("oldValue",input.q!),
+      searchSql("newValue",input.q!),
+    ]));
     const count=await query.select(({fn})=>fn.countAll<string>().as("count")).executeTakeFirstOrThrow();
     const rows=await query.selectAll().orderBy("createdAt","desc").orderBy("id","desc").limit(input.pageSize).offset((input.page-1)*input.pageSize).execute();
     const filterSource=()=>input.leadId?db.selectFrom("leadJournal").where("leadId","=",String(input.leadId)):db.selectFrom("leadJournal");

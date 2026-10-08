@@ -1,3 +1,4 @@
+import {searchSql} from "../helpers/searchSql";
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess,assertAccountReadable} from '../helpers/crmPermissions';
 import {purposeOutcomes} from '../helpers/workOutcomes';
 import type {WorkPurpose} from '../helpers/nextStep';
@@ -57,7 +58,7 @@ export async function get(request:Request){
    opportunitiesQuery=opportunitiesQuery.where(eb=>eb.or([eb('assignedUserEmail','=',user.email),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','leads.id').where('crmTasks.assignedUserEmail','=',user.email).where('crmTasks.deletedAt','is',null))]));
   }
   if(input.accountId){accountsQuery=accountsQuery.where('id','=',input.accountId);opportunitiesQuery=opportunitiesQuery.where('accountId','=',input.accountId);}
-  if(input.q)accountsQuery=accountsQuery.where(eb=>eb.or([eb('nombre','ilike','%'+input.q+'%'),eb('ciudad','ilike','%'+input.q+'%')]));
+  if(input.q)accountsQuery=accountsQuery.where(eb=>eb.or([searchSql('nombre',input.q!),searchSql('ciudad',input.q!)]));
   // Search results are bounded; a concrete context is fetched separately.
   const selectedAccounts=await accountsQuery.orderBy('nombre').limit(input.accountId?1:50).execute();
   opportunitiesQuery=opportunitiesQuery.where('accountId','in',selectedAccounts.length?selectedAccounts.map(a=>a.id):['0']);
