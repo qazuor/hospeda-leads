@@ -2,7 +2,7 @@
 
 Base: PR 73 integrado en main `04fe2ab2e0e60a2cff4ff0bdfcf0258580a32470`. Los números entre paréntesis corresponden al listado discutido con el propietario, no a la secuencia de ejecución.
 
-1. Limpieza de gestiones históricas vacías (12): auditoría, respaldo, restauración comprobada, manifiesto y ensayo; revisión antes de ejecución productiva.
+1. Limpieza de gestiones históricas (12): completada el 8 de octubre de 2026 con alcance ampliado explícitamente a todos los registros comerciales artificiales; ver evidencia en el runbook.
 2. Revisar modelos de mensajes (11): textos y restricciones heredadas por perfil/vertical.
 3. Múltiples verticales por negocio (10): acordar clasificación, gestiones conjuntas, filtros, responsables y migración antes de implementar.
 4. Completar búsqueda sin acentos (1): materiales, modelos y filtros de texto restantes.
@@ -24,4 +24,4 @@ Multivertical empieza por acordar el diseño; no implica autorización para fusi
 
 ## Estado del primer punto
 
-La auditoría de solo lectura existe y tiene pruebas de integración. No existe un relevamiento productivo ni respaldo/restauración comprobados en esta sesión. El entorno actual no tiene DATABASE_URL ni clientes PostgreSQL configurados. El procedimiento de continuación está en `docs/management-cleanup-runbook.md`; no se habilita borrado por deploy ni por este cambio documental.
+El operador confirmó la ejecución productiva y el commit: 1.602 gestiones eliminadas, 3.532 negocios y sus responsables conservados, 2 personas conservadas. También se verificaron las tablas protegidas y la conservación del journal vinculado a negocios. Hubo respaldo externo, restauración aislada y ensayo con rollback antes de ejecutar. Ver `docs/management-cleanup-runbook.md`. Esta operación no forma parte de migraciones ni deploys.

@@ -10,7 +10,7 @@ Estado: procedimiento de preparación, pendiente de datos y ensayo reales. No co
 - Manifiesto aprobado con IDs exactos, huellas, conteos, relaciones a preservar y SQL específico ensayado.
 - Resultado del ensayo con conservación de negocios, responsables, personas e historia y ausencia de regeneración de gestiones.
 
-No hay conteos productivos verificados en esta sesión. No inferir que una gestión está vacía por nombre, etapa, antigüedad, fecha de corte o ausencia de tarjetas visibles. Las gestiones reales creadas después de la autorización histórica no se incluyen automáticamente.
+Los conteos de la ejecución excepcional están registrados al final. Para futuras limpiezas: No inferir que una gestión está vacía por nombre, etapa, antigüedad, fecha de corte o ausencia de tarjetas visibles. Las gestiones reales creadas después de la autorización histórica no se incluyen automáticamente.
 
 ## 1. Entorno y evidencia
 
@@ -108,3 +108,18 @@ Validar conteos, conservación y comportamiento antes de reabrir escritores. Ant
 - https://www.postgresql.org/docs/17/app-pgrestore.html
 - https://www.postgresql.org/docs/17/sql-set-transaction.html
 - `docs/crm-roadmap/07-explicit-management-and-cleanup-audit.md`
+
+## Ejecución excepcional confirmada — 8 de octubre de 2026
+
+El propietario confirmó que todas las gestiones y registros comerciales existentes eran artificiales, creados programáticamente, y autorizó borrarlos incluso si la auditoría de vacío los clasificaba como bloqueados. Esa autorización específica amplió el alcance original; no es una regla para futuras gestiones reales.
+
+- Backup PostgreSQL 17 custom: 3.402.984 bytes; SHA-256 `181a028a7b3c2ba1fd5aa3e9f0e3c06b3fa13ed77517b5d12502e8d2d3458da2`. El operador confirmó copia externa al contenedor.
+- Restauración completada en base aislada; hashes de negocios y asignaciones coincidentes con la auditoría anterior.
+- Ensayo aprobado: registros comerciales en cero, tablas protegidas conservadas, rollback verificado con las 1.602 gestiones de vuelta.
+- Producción revalidada contra la copia ensayada y conteos exactos bajo bloqueo transaccional. Commit confirmado por el operador.
+- Eliminados: 1.602 gestiones, 6 mensajes, 2 outbox, 110 eventos de pipeline, 1 objeción, 4 notas, 2 actividades y 4 tareas. Eventos email, ejecuciones de secuencia y restricciones ya estaban en cero.
+- Conservados: 3.532 negocios y todas sus asignaciones, 2 personas, documentos/versiones, modelos, catálogos, procedencia/importaciones/fusiones y las demás tablas protegidas.
+- Journal histórico conservado con su contexto de negocio y `lead_id` desvinculado; work/resource journals originales conservados y nuevos registros técnicos de borrado permitidos. Los IDs de origen y snapshots históricos no se reescribieron.
+- Informe privado del operador: `cleanup-production-1791485152656.json`, `cleanupCommitted: true`. Dumps, datos y credenciales no se incorporan al repositorio.
+
+No reutilizar el DELETE global del ensayo en una base con nuevos seguimientos reales. Esta evidencia es la salida comunicada por el operador; el agente no accedió directamente a producción.
