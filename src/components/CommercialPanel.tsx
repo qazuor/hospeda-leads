@@ -10,7 +10,7 @@ import {ContactPolicy} from "./ContactPolicy";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
 import {WorkPanel} from "./WorkPanel";
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CommercialHelp } from "./CommercialHelp";
 import { Button } from "./Button";
@@ -41,7 +41,8 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const {authState}=useAuth();
   const q=useQuery({queryKey:["commercial-detail",accountId??"",leadId??""],queryFn:()=>getCommercialDetail(accountId,leadId)});
   const [savedStep,setSavedStep]=useState<{kind:'contact'|'opportunity';id:string}|null>(null);
-  const [section,setSection]=useState('opportunities');
+  const [params]=useSearchParams();
+  const [section,setSection]=useState(()=>params.get('section')==='documents'?'documents':'opportunities');
   const [contacting,setContacting]=useState(false);
   const [editor,setEditor]=useState<EditorTarget|null>(null);
   if(q.isPending)return <p>Cargando negocio…</p>;
