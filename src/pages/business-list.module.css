@@ -48,3 +48,5 @@
 /* Mantine's inner label must fit the existing compact business name row. */
 .table .businessName :global(.mantine-Button-label){padding-block:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;min-width:0}
 .table .businessName :global(.mantine-Button-inner){justify-content:flex-start;min-width:0}
+
+.listControls{grid-template-columns:minmax(0,1fr)}.viewsRow{min-width:0}

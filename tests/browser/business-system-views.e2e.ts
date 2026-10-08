@@ -18,14 +18,14 @@ for(const width of [1280,390])test(`system views coexist with personal views at 
  });
  await page.goto('/accounts');await expect(page.locator('tbody tr[data-business-id]')).toHaveCount(3);
 
- const selector=page.getByRole('combobox',{name:'Vistas guardadas',exact:true});
- await expect(selector.locator('optgroup[label="Vistas del sistema"] option')).toHaveCount(6);
- await expect(selector.locator('optgroup[label="Tus vistas"] option')).toHaveCount(1);
+ const selector=page.getByRole('region',{name:'Vistas guardadas',exact:true});
+ await expect(selector.getByRole('group',{name:'Vistas del sistema',exact:true}).locator('[data-view-id]')).toHaveCount(6);
+ await expect(selector.getByRole('group',{name:'Tus vistas',exact:true}).locator('[data-view-id]')).toHaveCount(1);
  const mine=page.waitForRequest(r=>{const url=new URL(r.url());return url.pathname.endsWith('/leads')&&(url.searchParams.get('filterGroups')??'').includes('viewer@example.com');});
- await selector.selectOption('system:mine');await mine;
+ await selector.locator('[data-view-id="system:mine"]').click();await mine;
  await expect(page.getByText('viewer@example.com',{exact:false}).first()).toBeVisible();
- const personal=page.waitForRequest(r=>new URL(r.url()).searchParams.get('q')==='personal');await selector.selectOption('personal:personal-mine');await personal;
+ const personal=page.waitForRequest(r=>new URL(r.url()).searchParams.get('q')==='personal');await selector.locator('[data-view-id="personal:personal-mine"]').click();await personal;
  await expect(page.getByRole('textbox',{name:'Buscar negocios'})).toHaveValue('personal');
- await selector.selectOption('system:all');await expect(page.getByRole('textbox',{name:'Buscar negocios'})).toHaveValue('');
+ await selector.locator('[data-view-id="system:all"]').click();await expect(page.getByRole('textbox',{name:'Buscar negocios'})).toHaveValue('');
  await page.screenshot({path:`test-results/business-system-views-${width}.png`,animations:'disabled'});
 });
