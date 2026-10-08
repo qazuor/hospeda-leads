@@ -1,5 +1,8 @@
+import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from './Dialog';
+import {Input} from './Input';
+import {Button} from './Button';
 import { UnstyledButton } from '@mantine/core';
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
@@ -39,6 +42,9 @@ export const RichTemplateEditor=({
   showVariables?:boolean;
   ariaLabel?:string;
 })=>{
+  const linkErrorId=useId();
+  const [linkOpen,setLinkOpen]=useState(false),[linkUrl,setLinkUrl]=useState(''),[linkError,setLinkError]=useState('');
+  const linkSelection=useRef<{from:number;to:number}|null>(null);
   const [emojiGroup,setEmojiGroup]=useState(WHATSAPP_EMOJI_GROUPS[0].key);
   const extensions=useMemo(()=>{
     const base=[
@@ -73,19 +79,33 @@ export const RichTemplateEditor=({
     if(editor.getHTML()!==next)editor.commands.setContent(next,{emitUpdate:false});
   },[editor,value]);
 
+  useEffect(()=>{setLinkOpen(false);linkSelection.current=null;},[editor]);
+
   if(!editor)return <div className={styles.loading}>Cargando editor…</div>;
 
   const toolbarButton=(label:string,active:boolean,onClick:()=>void,icon:React.ReactNode)=>(
     <UnstyledButton type="button" title={label} aria-label={label} className={active?styles.active:""} onClick={onClick}>{icon}</UnstyledButton>
   );
   const setLink=()=>{
-    const previous=editor.getAttributes("link").href as string|undefined;
-    const input=window.prompt("URL del enlace",previous??"https://");
-    if(input===null)return;
-    const trimmed=input.trim();
-    if(!trimmed){editor.chain().focus().unsetLink().run();return}
+    const {from,to}=editor.state.selection;
+    linkSelection.current={from,to};
+    setLinkUrl(editor.getAttributes("link").href??"https://");setLinkError('');setLinkOpen(true);
+  };
+  const restoreLinkSelection=()=>{
+    if(editor.isDestroyed||!linkSelection.current)return;
+    const selection=linkSelection.current,chain=editor.chain().focus();
+    // Avoid clearing stored marks when adding a link at an empty cursor.
+    if(editor.state.selection.from!==selection.from||editor.state.selection.to!==selection.to)chain.setTextSelection(selection);
+    chain.run();
+  };
+  const closeLink=()=>{setLinkOpen(false);requestAnimationFrame(restoreLinkSelection);};
+  const applyLink=()=>{
+    const trimmed=linkUrl.trim();
     const href=/^[a-z][a-z0-9+.-]*:/i.test(trimmed)?trimmed:"https://"+trimmed;
-    editor.chain().focus().extendMarkRange("link").setLink({href}).run();
+    try{new URL(href);}catch{setLinkError('Escribí una URL válida, por ejemplo https://hospeda.com.ar.');return;}
+    if(!editor.can().setLink({href})){setLinkError('Este tipo de enlace no está permitido. Revisá la URL.');return;}
+    if(linkSelection.current)editor.chain().focus().setTextSelection(linkSelection.current).extendMarkRange("link").setLink({href}).run();
+    closeLink();
   };
   const insert=(value:string)=>editor.chain().focus().insertContent(value).run();
 
@@ -134,6 +154,16 @@ export const RichTemplateEditor=({
     </div>
 
     <EditorContent editor={editor}/>
+    {linkOpen&&<Dialog open onOpenChange={open=>{if(!open)closeLink()}}><DialogContent onCloseAutoFocus={event=>{
+      event.preventDefault();restoreLinkSelection();
+    }}><DialogHeader><DialogTitle>Editar enlace</DialogTitle><DialogDescription>El enlace se aplicará al texto seleccionado. Podés escribir la URL completa o un dominio.</DialogDescription></DialogHeader>
+      <form onSubmit={event=>{event.preventDefault();event.stopPropagation();if(linkUrl.trim())applyLink();}}>
+        <label>URL del enlace<Input autoFocus value={linkUrl} maxLength={2000} onChange={event=>{setLinkUrl(event.target.value);setLinkError('')}} aria-invalid={!!linkError} aria-describedby={linkError?linkErrorId:undefined}/></label>
+        {linkError&&<p role="alert" id={linkErrorId}>{linkError}</p>}
+        <DialogFooter><Button variant="outline" onClick={closeLink}>Cancelar</Button><Button type="submit" disabled={!linkUrl.trim()}>Guardar enlace</Button></DialogFooter>
+      </form>
+    </DialogContent></Dialog>}
+
 
     {showVariables&&<div className={styles.variables}>
       <span>Insertar variable:</span>

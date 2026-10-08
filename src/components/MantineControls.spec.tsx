@@ -57,6 +57,17 @@ describe('Mantine migration preserves CRM interactions', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.getAllByPlaceholderText('Buscar negocios')).toHaveLength(1);
   });
+  it('closes only the nested dialog on Escape and releases its parent afterwards', async () => {
+    mount(<Dialog defaultOpen><DialogContent><DialogTitle>Preparar email</DialogTitle>
+      <Dialog defaultOpen><DialogContent><DialogTitle>Editar enlace anidado</DialogTitle><Input autoFocus aria-label="URL anidada" /></DialogContent></Dialog>
+    </DialogContent></Dialog>);
+    const input=await screen.findByRole('textbox',{name:'URL anidada'});
+    fireEvent.keyDown(input,{key:'Escape',code:'Escape'});
+    await waitFor(()=>expect(screen.queryByText('Editar enlace anidado')).toBeNull());
+    expect(screen.getByText('Preparar email')).toBeTruthy();
+    fireEvent.keyDown(document.body,{key:'Escape',code:'Escape'});
+    await waitFor(()=>expect(screen.queryByText('Preparar email')).toBeNull());
+  });
   it('opens and closes disclosure sections using an accessible control', () => {
     mount(<Disclosure open><DisclosureSummary>Más información</DisclosureSummary><p>Información del negocio</p></Disclosure>);
     const control = screen.getByRole('button', { name: 'Más información' });
