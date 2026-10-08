@@ -72,7 +72,7 @@ Cambiar DATABASE_URL de la auditoría a la copia restaurada y ejecutar:
 npm run db:audit:managements -- --output "$cleanup_dir/audit-restored-before.json"
 ~~~
 
-Comparar tablas, conteos, IDs, datos/asignaciones de negocios, personas, gestiones, referencias e integridad de documentos. La huella del informe completo puede diferir por fecha de captura: comparar los datos preservados y sus huellas, no exigir igualdad del snapshotSha256 global. Origen y dump tomados en momentos diferentes pueden incluir cambios legítimos; registrar esa diferencia y utilizar la copia restaurada como base consistente del ensayo. No afirmar respaldo verificado únicamente porque pg_restore terminó sin error.
+Comparar tablas, conteos, IDs, datos/asignaciones de negocios, personas, gestiones, referencias e integridad de documentos. Comparar también preservation.businessIds, businessDataSha256 y assignmentsSha256. capturedAt puede diferir entre auditorías y no participa en snapshotSha256; esa huella permite detectar diferencias en los datos y estructuras que la auditoría examina, pero no certifica por sí sola la restauración completa. Origen y dump tomados en momentos diferentes pueden incluir cambios legítimos; registrar esa diferencia y utilizar la copia restaurada como base consistente del ensayo. No afirmar respaldo verificado únicamente porque pg_restore terminó sin error.
 
 ## 4. Manifiesto y SQL ensayable
 
