@@ -42,7 +42,7 @@ try {
   const account = accounts[0];
   const proposal = await db.insertInto('leads').values({ accountId: account.id, nombre: account.nombre, opportunityName: `${marker} Gastronomía`, contactName: `${marker} José`, ciudad: account.ciudad, estado: 'Cargado', assignedUserEmail: reader.user.email }).returningAll().executeTakeFirstOrThrow();
   await db.insertInto('leadNotes').values({ leadId: proposal.id, note: `${marker} reunión pingüino`, author: reader.user.email }).execute();
-  const deleted = await db.insertInto('leads').values({ accountId: account.id, nombre: `${marker} Eliminación`, deletedAt: new Date() }).returningAll().executeTakeFirstOrThrow();
+  const deleted = await db.insertInto('leads').values({ accountId: account.id, nombre: account.nombre, deletedAt: new Date() }).returningAll().executeTakeFirstOrThrow();
   await db.insertInto('leadNotes').values({ leadId: deleted.id, note: `${marker} únicamente borrada` }).execute();
   await db.insertInto('leadJournal').values({ leadId: proposal.id, leadName: account.nombre, actorName: `${marker} Lucía`, action: 'search_test', newValue: `${marker} evaluación` }).execute();
 
@@ -73,8 +73,10 @@ try {
   assert.equal((await get(work, 'work', { mode: 'lookup', q: `${marker} colon` })).accounts.length, 12);
   for (const query of ['lucia', 'evaluacion']) assert.equal((await get(journal, 'lead_journal', { leadId: proposal.id, q: `${marker} ${query}` })).total, 1);
   await get(journal, 'lead_journal', { q: marker }, reader.cookie, 403);
-  await get(trash, 'leads_trash', { q: `${marker} eliminacion` }, reader.cookie, 403);
-  assert.equal((await get(trash, 'leads_trash', { q: `${marker} eliminacion` }, admin.cookie)).total, 1);
+  await get(trash, 'leads_trash', { q: `${marker} colon` }, reader.cookie, 403);
+  const trashed = await get(trash, 'leads_trash', { q: `${marker} colon` }, admin.cookie);
+  assert.equal(trashed.total, 1);
+  assert.equal(trashed.rows[0].id, deleted.id);
   await db.updateTable('crmAccounts').set({ archivedAt: new Date() }).where('id', '=', account.id).execute();
   assert.equal((await get(leads, 'leads', { entity: 'opportunity', q: `${marker} gastronomia` })).total, 0);
   assert.equal((await get(commercial, 'commercial', { q: `${marker} colon` })).total, 11);
