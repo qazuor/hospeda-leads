@@ -291,9 +291,6 @@ export async function handle(request:Request){
     }
 
     if(input.action==="saveTemplate"){
-      if(input.channel==="whatsapp"&&input.commercialProfile==="Referente"){
-        return new Response(superjson.stringify({error:"El perfil Referente solo admite templates de Email."}),{status:400});
-      }
       if(input.id){
         await db.updateTable("messageTemplates").set({
           channel:input.channel,

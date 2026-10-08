@@ -5,3 +5,6 @@
 @media(max-width:1250px){.editorWorkspace{grid-template-columns:1fr}.previewCard{position:static}.previewFrame{height:360px}}@media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{position:static;max-height:330px;min-height:0}.metaGrid{grid-template-columns:1fr}.embeddedHeader{align-items:flex-start;flex-direction:column}}
 .deleteDialog{width:min(520px,calc(100vw - 24px))}
 .deleteWarning{padding:10px 11px;border:1px solid color-mix(in srgb,var(--error) 25%,var(--border));border-radius:9px;background:color-mix(in srgb,var(--error) 7%,var(--card));color:var(--muted-foreground);font-size:11px;line-height:1.45}
+
+.scopeHelp{padding:10px 11px;border:1px solid var(--border);border-radius:9px;background:var(--muted);color:var(--muted-foreground);font-size:11px;line-height:1.45}
+@media(max-width:600px){.editorHeader{align-items:flex-start;flex-direction:column}.headerActions{width:100%;flex-wrap:wrap}.headerActions>*{flex-shrink:0}.headerActions button{white-space:nowrap}}

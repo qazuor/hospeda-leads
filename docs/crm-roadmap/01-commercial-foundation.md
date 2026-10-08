@@ -118,4 +118,4 @@ Las métricas de la tabla principal cuentan negocios distintos. Estado, suscripc
 
 El selector Destinatario muestra «Contacto original de la oportunidad» para conservar el teléfono, email y nombre históricos. Las demás opciones son personas activas del negocio; los templates se eligen debajo.
 
-Sin perfil comercial, se muestran y permiten enviar templates de todos los perfiles, manteniendo las restricciones de canal y vertical. Con perfil definido, se muestran los genéricos y los correspondientes a ese perfil. Se conserva la regla existente de primer contacto Referente por email.
+Sin perfil comercial, se muestran y permiten enviar templates de todos los perfiles, manteniendo las restricciones de canal y vertical. Con perfil definido, se muestran los genéricos y los correspondientes a ese perfil. Actualización del 8 de octubre de 2026: Referente admite email y WhatsApp por decisión explícita del propietario; ver 42-modelos-de-mensajes.md.

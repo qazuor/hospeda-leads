@@ -76,7 +76,7 @@ export default function SettingsPage(){
     {key:"classifications" as const,label:"Clasificaciones",icon:Tags},
     {key:"process" as const,label:"Proceso comercial",icon:GitBranch},
     {key:"communication" as const,label:"Comunicación",icon:Mail},
-    {key:"templates" as const,label:"Templates",icon:FileText},
+    {key:"templates" as const,label:"Modelos de mensajes",icon:FileText},
     {key:"library" as const,label:"Biblioteca",icon:FileText},
     {key:"system" as const,label:"Sistema",icon:SlidersHorizontal},
   ];

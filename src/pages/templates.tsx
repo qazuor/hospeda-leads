@@ -1,3 +1,4 @@
+import {TEMPLATE_SCOPE_HELP} from '../helpers/messageTemplatePolicy';
 import { UnstyledButton } from '@mantine/core';
 import { NativeSelect } from '../components/NativeSelect';
 import React, { useMemo, useState } from "react";
@@ -102,7 +103,7 @@ export function TemplatesContent(){
   const duplicate=()=>{
     if(!templateId)return;
     setTemplateId(undefined);
-    setName((name.trim()||"Template")+" · copia");
+    setName((name.trim()||"Modelo")+" · copia");
   };
   const saveTemplate=async()=>{
     if(!name.trim())return;
@@ -122,7 +123,7 @@ export function TemplatesContent(){
     reset();
   };
 
-  const referenteWhatsapp=channel==="whatsapp"&&profile==="Referente";
+  const historicalVertical=!!vertical&&!!data&&!data.types.includes(vertical);
   const previewLead=(leadsQ.data?.rows??[]).find(lead=>String(lead.id)===previewLeadId);
   const senderShort=authState.type==="authenticated"?authState.user.displayName:"Hospeda";
   const sender=authState.type==="authenticated"?(authState.user.fullName?.trim()||authState.user.displayName):"Hospeda";
@@ -144,13 +145,13 @@ export function TemplatesContent(){
 
   return <section className={styles.embedded}>
     <header className={styles.embeddedHeader}>
-      <div><h2>Templates</h2><p>Mensajes segmentados por canal, vertical y perfil comercial.</p></div>
-      <Button onClick={reset}><Plus size={16}/>Nuevo template</Button>
+      <div><h2>Modelos de mensajes</h2><p>Prepará mensajes reutilizables y elegí para qué canal, vertical y perfil aparecen.</p></div>
+      <Button onClick={reset}><Plus size={16}/>Nuevo modelo</Button>
     </header>
     {q.error&&<div className={styles.error}>{q.error.message}</div>}
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
-        <div className={styles.search}><Search size={15}/><Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar template…"/></div>
+        <div className={styles.search}><Search size={15}/><Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo…"/></div>
         <div className={styles.groupPicker}>
           <span>Agrupar por</span>
           <div>
@@ -159,7 +160,7 @@ export function TemplatesContent(){
             <UnstyledButton type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</UnstyledButton>
           </div>
         </div>
-        <div className={styles.templateCount}>{filtered.length} templates</div>
+        <div className={styles.templateCount}>{filtered.length} modelo{filtered.length===1?"":"s"}</div>
         {q.isLoading?<Skeleton className={styles.loading}/>:<div className={styles.templateGroups}>
           {templateGroups.map(group=>{
             const collapsed=!expandedGroups.has(groupKey(group.label));
@@ -179,14 +180,14 @@ export function TemplatesContent(){
               </div>}
             </section>;
           })}
-          {!templateGroups.length&&<div className={styles.emptyTemplates}>No hay templates para mostrar.</div>}
+          {!templateGroups.length&&<div className={styles.emptyTemplates}>No hay modelos para mostrar.</div>}
         </div>}
       </aside>
 
       <div className={styles.editorWorkspace}>
         <article className={styles.editorCard}>
           <div className={styles.editorHeader}>
-            <div className={styles.titleRow}><FileText size={20}/><div><h3>{templateId?"Editar template":"Nuevo template"}</h3><p>{channel==="whatsapp"?"Formato compatible con WhatsApp":"HTML enriquecido para email"}</p></div></div>
+            <div className={styles.titleRow}><FileText size={20}/><div><h3>{templateId?"Editar modelo":"Nuevo modelo"}</h3><p>{channel==="whatsapp"?"Formato compatible con WhatsApp":"HTML enriquecido para email"}</p></div></div>
             <div className={styles.headerActions}>
               {templateId&&<Button size="sm" variant="outline" onClick={duplicate}><Copy size={15}/>Duplicar</Button>}
               {templateId&&<Button size="sm" variant="destructive" onClick={()=>setDeleteOpen(true)}><Trash2 size={15}/>Eliminar</Button>}
@@ -195,20 +196,21 @@ export function TemplatesContent(){
           </div>
           <div className={styles.metaGrid}>
             <label>Canal<NativeSelect value={channel} onChange={e=>setChannel(e.target.value as Channel)}><option value="whatsapp">WhatsApp</option><option value="email">Email</option></NativeSelect></label>
-            <label>Vertical<NativeSelect value={vertical} onChange={e=>setVertical(e.target.value)}><option value="">Todas las verticales</option>{data?.types.map(type=><option key={type}>{type}</option>)}</NativeSelect></label>
+            <label>Vertical<NativeSelect value={vertical} onChange={e=>setVertical(e.target.value)}><option value="">Todas las verticales</option>{historicalVertical&&<option value={vertical}>{vertical} · Valor histórico</option>}{data?.types.map(type=><option key={type}>{type}</option>)}</NativeSelect></label>
             <label>Perfil comercial<NativeSelect value={profile} onChange={e=>setProfile(e.target.value as Profile)}><option value="">Todos los perfiles</option><option>Independiente</option><option>Consolidado</option><option>Referente</option></NativeSelect></label>
           </div>
-          <label className={styles.field}>Nombre del template<Input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
+          <label className={styles.field}>Nombre del modelo<Input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
           {channel==="email"&&<label className={styles.field}>Asunto<Input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Asunto del email"/></label>}
           <div className={styles.editorLabel}>Contenido</div>
           <RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel}/>
-          {referenteWhatsapp&&<div className={styles.warning}>El perfil Referente se contacta con templates por Email, no por WhatsApp.</div>}
+          <p className={styles.scopeHelp}>{TEMPLATE_SCOPE_HELP} Email y WhatsApp están disponibles para todos los perfiles.</p>
+          {historicalVertical&&<p className={styles.warning}>Este modelo usa una vertical histórica: {vertical}. Conservá ese valor o elegí explícitamente una vertical actual; no se cambia automáticamente.</p>}
           {save.error&&<div className={styles.errorInline}>{save.error.message}</div>}
-          <div className={styles.footer}><Button variant="outline" onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()||referenteWhatsapp}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear template"}</Button></div>
+          <div className={styles.footer}><Button variant="outline" onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear modelo"}</Button></div>
         </article>
 
         <aside className={styles.previewCard}>
-          <div className={styles.previewTitle}><strong>Vista previa</strong><span>Usá una gestión real para comprobar variables antes de guardar.</span></div>
+          <div className={styles.previewTitle}><strong>Vista previa</strong><span>Elegí un negocio para comprobar variables. Los datos de ejemplo son ficticios.</span></div>
           <label className={styles.previewLead}>Previsualizar como
             <NativeSelect value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>
               <option value="">Datos de ejemplo</option>
@@ -225,13 +227,13 @@ export function TemplatesContent(){
     <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
       <DialogContent className={styles.deleteDialog}>
         <DialogHeader>
-          <DialogTitle>Eliminar template</DialogTitle>
-          <DialogDescription><strong>{name||"Este template"}</strong> dejará de aparecer en la lista y no podrá usarse en nuevos contactos.</DialogDescription>
+          <DialogTitle>Eliminar modelo</DialogTitle>
+          <DialogDescription><strong>{name||"Este modelo"}</strong> dejará de aparecer en la lista y no podrá usarse en nuevos contactos.</DialogDescription>
         </DialogHeader>
         <div className={styles.deleteWarning}>Los envíos históricos y referencias existentes se conservan. La baja es reversible a nivel de datos, aunque no exponemos restauración en la interfaz.</div>
         <DialogFooter>
           <Button variant="outline" onClick={()=>setDeleteOpen(false)} disabled={save.isPending}>Cancelar</Button>
-          <Button variant="destructive" onClick={deleteTemplate} disabled={save.isPending}>{save.isPending?"Eliminando…":"Eliminar template"}</Button>
+          <Button variant="destructive" onClick={deleteTemplate} disabled={save.isPending}>{save.isPending?"Eliminando…":"Eliminar modelo"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
