@@ -157,7 +157,7 @@ export const LeadDetailDialog=({
       </div>
 
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>
-        <SectionTabList aria-label="Secciones de la gestión"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}{!readOnly&&<SectionTab value="documents">Documentos</SectionTab>}</SectionTabList>
+        <SectionTabList aria-label="Secciones de la gestión"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}<SectionTab value="documents">Documentos</SectionTab></SectionTabList>
         <div className={styles.scrollBody}>
           <SectionTabPanel value="overview">{!readOnly&&<PipelineDetail lead={lead}/>}
         <Disclosure className={styles.section}><DisclosureSummary>Responsable y datos generales</DisclosureSummary><div className={styles.summaryGrid}>
@@ -284,7 +284,7 @@ export const LeadDetailDialog=({
             </div>}
           </section>
           </Disclosure></SectionTabPanel>
-          {!readOnly&&<SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)}/></SectionTabPanel>}{!readOnly&&lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)}/></SectionTabPanel>}
+          {!readOnly&&<SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)}/></SectionTabPanel>}{lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)} readOnly={readOnly}/></SectionTabPanel>}
 
         </div>
       </SectionTabs>

@@ -517,10 +517,10 @@
         "title": "Buscar y vincular materiales al negocio",
         "when": "Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.",
         "steps": [
-          "En Más opciones → Materiales para ofrecer buscá recursos aprobados. Usá Previsualizar cuando esté disponible, o Abrir vínculo / Descargar documento.",
+          "Abrí el negocio o una gestión y entrá en Documentos. Allí podés consultar sus materiales y elegir documentos aprobados de la biblioteca.",
           "En el negocio o la gestión entrá en Documentos y buscá el recurso en el selector de biblioteca.",
-          "Elegí el documento y usá Vincular documento al negocio. Desde un negocio podés elegir Gestión vinculada (opcional) o dejarlo como documento general.",
-          "Si necesitás un documento específico del caso, abrí Agregar documento o recurso. Completá título, tipo y un vínculo HTTP(S) o archivo permitido, y guardá.",
+          "Elegí el documento, revisá el destino y usá Vincular documento al negocio o Vincular documento a la gestión. Desde un negocio podés elegir una gestión propia o dejarlo como documento general.",
+          "Si sos administrador y necesitás un documento específico del caso, abrí Agregar documento o recurso. Completá título, tipo y un vínculo HTTP(S) o archivo permitido, y guardá.",
           "Revisá la versión, el vencimiento y su aprobación antes de usarlo como material comercial."
         ],
         "result": "El documento queda asociado al contexto elegido. Vincularlo no lo envía al cliente.",
@@ -530,8 +530,8 @@
         "notes": [
           "Solo un administrador carga y administra la biblioteca común en Configuración → Biblioteca. Los documentos particulares del negocio se gestionan dentro de su ficha. Una nueva versión conserva las anteriores y vuelve a borrador."
         ],
-        "url": "/library",
-        "linkLabel": "Consultar materiales"
+        "url": "/accounts",
+        "linkLabel": "Elegir negocio para consultar materiales"
       },
       {
         "id": "agenda",

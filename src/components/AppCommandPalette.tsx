@@ -67,7 +67,7 @@ export function AppCommandPalette() {
       { url: '/analytics', label: 'Estadísticas', description: 'Resultados comerciales del equipo', icon: BarChart3 },
       { url: '/settings', label: 'Configuración', description: 'Usuarios y catálogos del CRM', icon: Settings },
       { url: '/templates', label: 'Mensajes modelo', description: 'Plantillas de WhatsApp y email', icon: Mail },
-      { url: '/library', label: 'Biblioteca comercial', description: 'Materiales y documentos del equipo', icon: Library },
+      { url: '/settings?section=library', label: 'Biblioteca comercial', description: 'Materiales y documentos del equipo', icon: Library },
       { url: '/history', label: 'Historial del equipo', description: 'Actividad y auditoría global', icon: History },
       { url: '/trash', label: 'Papelera', description: 'Registros eliminados y recuperación', icon: Trash2 },
     ] : []),
