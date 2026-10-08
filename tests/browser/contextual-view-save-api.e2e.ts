@@ -12,9 +12,11 @@ test('personal view creation and contextual update persist through the real API'
   const selector=page.getByRole('combobox',{name:'Vistas guardadas',exact:true});await expect(selector).toHaveValue('personal:'+id);const save=page.getByRole('button',{name:'Guardar vista',exact:true});await expect(save).toBeDisabled();
   await search.fill(name+' modificada');await save.click();await page.getByRole('dialog',{name:'Guardar vista',exact:true}).getByRole('button',{name:'Actualizar la vista actual',exact:true}).click();
   const updated=page.waitForResponse(response=>response.url().endsWith('/_api/saved_views')&&response.request().method()==='POST');await page.getByRole('dialog',{name:'Actualizar vista',exact:true}).getByRole('button',{name:'Actualizar vista',exact:true}).click();const updateResponse=await updated;expect(updateResponse.ok()).toBe(true);expect(superjson.parse<any>(await updateResponse.text()).view.id).toBe(id);await expect(save).toBeDisabled();
-  const response=await page.request.get('/_api/saved_views');expect(response.ok()).toBe(true);const stored=superjson.parse<any>(await response.text()).views.find((view:any)=>view.id===id);expect(stored.name).toBe(name);expect(stored.config.preferences.query).toBe(name+' modificada');
+  // Use the same browser transport as the app. Playwright 1.58's request
+  // cookie filter excludes Secure cookies on HTTP 127.0.0.1 (Chromium accepts loopback).
+  const response=await page.evaluate(async()=>{const response=await fetch('/_api/saved_views');return {status:response.status,body:await response.text()};});expect(response.status,response.body).toBe(200);const stored=superjson.parse<any>(response.body).views.find((view:any)=>view.id===id);expect(stored.name).toBe(name);expect(stored.config.preferences.query).toBe(name+' modificada');
   await page.reload();await expect(selector).toHaveValue('personal:'+id);await expect(search).toHaveValue(name+' modificada');await expect(save).toBeDisabled();
  }finally{
-  if(id){const removed=await page.request.post('/_api/saved_views',{headers:{'Content-Type':'application/json'},data:superjson.stringify({action:'delete',id,name})});expect(removed.ok()).toBe(true);}
+  if(id){const removed=await page.evaluate(async body=>{const response=await fetch('/_api/saved_views',{method:'POST',headers:{'Content-Type':'application/json'},body});return {status:response.status,body:await response.text()};},superjson.stringify({action:'delete',id,name}));expect(removed.status,removed.body).toBe(200);}
  }
 });
