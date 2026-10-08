@@ -677,6 +677,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 </Disclosure>
       <FilterLegend
         groups={appliedFilterGroups}
+        onChange={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);resetPage();}}
         search={query}
         fields={filterFields}
         onEdit={()=>setFilterDialogOpen(true)}
