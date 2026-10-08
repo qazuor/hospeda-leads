@@ -15,6 +15,9 @@ test('reviewed WhatsApp, assisted sequence, restriction and persistent resource 
  await emailEditor.fill('Enlace de prueba');await emailEditor.press('ControlOrMeta+a');
  await emailDialog.getByRole('button',{name:'Agregar link',exact:true}).click();
  const linkDialog=page.getByRole('dialog').last();
+ await linkDialog.getByLabel('URL del enlace',{exact:true}).fill('https://example.com/cancelar');
+ await page.keyboard.press('Escape');await expect(emailEditor).toBeFocused();await expect(emailEditor.locator('a')).toHaveCount(0);
+ await emailDialog.getByRole('button',{name:'Agregar link',exact:true}).click();
  await linkDialog.getByLabel('URL del enlace',{exact:true}).fill('https://example.com/fixture');
  await linkDialog.getByRole('button',{name:'Guardar enlace',exact:true}).click();
  await expect(emailEditor).toBeFocused();await expect(emailEditor.locator('a')).toHaveAttribute('href','https://example.com/fixture');
