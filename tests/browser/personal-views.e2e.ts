@@ -4,7 +4,7 @@ import {basePreferences} from '../../src/helpers/businessListPreferences';
 for(const width of [1280,390])test(`manage personal views without changing the current list at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:844});
  const original={entity:'business',preferences:{...basePreferences(),query:'Guardada'}};
- let views=[{name:'Mi vista',config:original}],failUpdate=true;const mutations:any[]=[];let releaseUpdate!:()=>void;const slowUpdate=new Promise<void>(resolve=>{releaseUpdate=resolve;});
+ let views=[{id:'personal-original',name:'Mi vista',config:original}],failUpdate=true;const mutations:any[]=[];let releaseUpdate!:()=>void;const slowUpdate=new Promise<void>(resolve=>{releaseUpdate=resolve;});
  await page.addInitScript(preferences=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},{...basePreferences(),query:'Actual'});
  await page.route('**/_api/**',async route=>{
   const url=new URL(route.request().url());let data:unknown={},status=200;
@@ -15,7 +15,7 @@ for(const width of [1280,390])test(`manage personal views without changing the c
    if(route.request().method()==='POST'){
     const input=superjson.parse<any>(route.request().postData()!);mutations.push(input);
     if(input.action==='update'&&failUpdate){failUpdate=false;status=400;data={error:'No pude guardar la vista. Volvé a intentarlo.'};}
-    else {if(input.action==='update'&&mutations.filter(m=>m.action==='update').length===2)await slowUpdate;if(input.action==='delete')views=views.filter(v=>v.name!==input.name);else if(input.action==='update')views=views.map(v=>v.name===input.name?input.view:v);else views.push(input.view);data={ok:true};}
+    else {if(input.action==='update'&&mutations.filter(m=>m.action==='update').length===2)await slowUpdate;if(input.action==='delete')views=views.filter(v=>v.name!==input.name);else if(input.action==='update')views=views.map(v=>v.name===input.name?{...input.view,id:v.id}:v);else views.push(input.view);data={ok:true,view:input.action==='delete'?undefined:views.find(v=>v.name===input.view.name)};}
    }else data={views};
   }else if(url.pathname.endsWith('/leads'))data={rows:[],total:0,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
   await route.fulfill({status,contentType:'application/json',body:superjson.stringify(data)});

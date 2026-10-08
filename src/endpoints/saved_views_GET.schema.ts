@@ -1,5 +1,5 @@
 import superjson from "superjson";
-export type SavedLeadView={name:string;config:Record<string,unknown>};
+export type SavedLeadView={id?:string;name:string;config:Record<string,unknown>};
 export type OutputType={views:SavedLeadView[]};
 export const getSavedLeadViews=async():Promise<OutputType>=>{
   const r=await fetch("/_api/saved_views");
