@@ -1,5 +1,5 @@
 .button { min-height: 44px; height: auto; }
-.buttonLabel { white-space: normal; overflow-wrap: anywhere; padding-block: 8px; }
+.buttonLabel { white-space: normal; overflow-wrap: anywhere; padding-block: 4px; }
 .input { min-height: 44px; font-size: 16px; background: var(--card); color: var(--foreground); border-color: var(--border); }
 .option { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
 .dropdown { background: var(--popup); color: var(--foreground); border-color: var(--border); }

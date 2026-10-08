@@ -67,7 +67,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   const focus = () => { const event = new Event('focus', { cancelable: true }); onOpenAutoFocus?.(event); };
   if (inline) return <InlineContext.Provider value><Box {...props} ref={ref} className={className}>{children}</Box></InlineContext.Provider>;
   return <InlineContext.Provider value={false}><Modal.Root opened={ctx.open} onClose={close} size="auto" centered fullScreen={fullScreen} scrollAreaComponent={ModalSurface}
-    zIndex={410} portalProps={container ? { target: container } : undefined}
+    transitionProps={{ duration: 0 }} zIndex={410} portalProps={container ? { target: container } : undefined}
     closeOnEscape={!onEscapeKeyDown} closeOnClickOutside={!onInteractOutside}
     onEnterTransitionEnd={focus} returnFocus={!onCloseAutoFocus}
     onExitTransitionEnd={() => { const event = new Event('focus', { cancelable: true }); onCloseAutoFocus?.(event); }}>

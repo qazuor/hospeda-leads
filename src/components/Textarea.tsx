@@ -8,7 +8,7 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, disableResize = false, variant = 'default', style, ...props }, ref) =>
-    <MantineTextarea {...props} ref={ref} variant={variant === 'clear' ? 'unstyled' : 'default'}
+    <MantineTextarea {...props} data-autofocus={props.autoFocus || undefined} ref={ref} variant={variant === 'clear' ? 'unstyled' : 'default'}
       classNames={{ root: styles.field, input: [styles.input, className].filter(Boolean).join(' ') }}
       styles={{ input: { resize: disableResize ? 'none' : 'vertical', ...style } }} />,
 );

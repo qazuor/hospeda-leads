@@ -4,6 +4,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MantineProvider } from '@mantine/core';
 import { Button } from './Button';
 import { Checkbox } from './Checkbox';
+import { NativeSelect } from './NativeSelect';
+import { Input } from './Input';
+import { Dialog, DialogContent, DialogTitle } from './Dialog';
 import { Command, CommandInput, CommandList, CommandItem, CommandEmpty } from './Command';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import { SectionTabs, SectionTabList, SectionTab, SectionTabPanel } from './SectionTabs';
@@ -26,7 +29,7 @@ describe('Mantine migration preserves CRM interactions', () => {
   });
   it('filters option labels and keywords and submits the keyboard selection', async () => {
     const select = vi.fn();
-    mount(<Command><CommandInput aria-label="Buscar documento" /><CommandList><CommandEmpty>Sin documentos</CommandEmpty>
+    mount(<Command label="Buscar documento"><CommandInput aria-label="Buscar documento" /><CommandList><CommandEmpty>Sin documentos</CommandEmpty>
       <CommandItem value="one" keywords={['guía']} onSelect={select}>Primer documento</CommandItem>
       <CommandItem value="two" onSelect={select}>Otro documento</CommandItem>
     </CommandList></Command>);
@@ -38,6 +41,21 @@ describe('Mantine migration preserves CRM interactions', () => {
     fireEvent.change(search, { target: { value: 'inexistente' } });
     await waitFor(() => expect(screen.queryAllByRole('option')).toHaveLength(0));
     expect(screen.getByText('Sin documentos')).toBeTruthy();
+  });
+  it('focuses the requested result field and removes closed dialog controls', async () => {
+    function Example() { const [open, setOpen] = useState(true); return <>
+      <Input aria-label="Buscar negocios" placeholder="Buscar negocios" />
+      <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogTitle>Registrar resultado</DialogTitle>
+        <Input aria-label="Primero en el formulario" placeholder="Buscar negocios" />
+        <label>¿Qué pasó?<NativeSelect autoFocus><option>Conversamos</option></NativeSelect></label>
+        <Button onClick={() => setOpen(false)}>Cancelar resultado</Button>
+      </DialogContent></Dialog>
+    </>; }
+    mount(<Example />);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('combobox', { name: '¿Qué pasó?' })));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar resultado' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getAllByPlaceholderText('Buscar negocios')).toHaveLength(1);
   });
   it('opens and closes disclosure sections using an accessible control', () => {
     mount(<Disclosure open><DisclosureSummary>Más información</DisclosureSummary><p>Información del negocio</p></Disclosure>);

@@ -16,7 +16,7 @@ export const Command = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTM
   const store = useCombobox({ defaultOpened: true });
   return <Context.Provider value={{ query, count: filtered.length, setQuery: next => { setQuery(next); store.resetSelectedOption(); } }}>
     <Combobox store={store} onOptionSubmit={value => items.find(item => item.value === value)?.onSelect?.(value)}>
-      <Box {...props} ref={ref} aria-label={label} className={[styles.command, className].filter(Boolean).join(' ')}>{children}</Box>
+      <Box {...props} ref={ref} className={[styles.command, className].filter(Boolean).join(' ')}>{children}</Box>
     </Combobox>
   </Context.Provider>;
 });

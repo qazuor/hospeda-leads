@@ -4,7 +4,7 @@ import styles from './ui/CrmControls.module.css';
 
 /** Mantine field retaining native option values and change events. */
 export const NativeSelect = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
-  ({ className, size, ...props }, ref) => <MantineNativeSelect {...props} ref={ref}
+  ({ className, size, ...props }, ref) => <MantineNativeSelect {...props} data-autofocus={props.autoFocus || undefined} ref={ref}
     classNames={{ root: styles.field, input: [styles.input, className].filter(Boolean).join(' ') }} />,
 );
 NativeSelect.displayName = 'NativeSelect';
