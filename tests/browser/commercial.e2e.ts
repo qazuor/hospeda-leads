@@ -154,7 +154,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Guardar como vista',exact:true}).click();
   await page.getByLabel('Nombre de la vista',{exact:true}).fill('Negocios E2E guardados');
   await page.getByRole('dialog').getByRole('button',{name:'Guardar vista',exact:true}).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('combobox',{name:'Vistas guardadas',exact:true}).locator('option').filter({hasText:'Negocios E2E guardados'})).toHaveCount(1);await page.getByRole('combobox',{name:'Vistas guardadas',exact:true}).selectOption('Negocios E2E guardados');
+  await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('button',{name:'Aplicar vista personal Negocios E2E guardados',exact:true})).toHaveCount(1);await page.getByRole('button',{name:'Aplicar vista personal Negocios E2E guardados',exact:true}).click();
   await page.screenshot({path:'test-results/business-first-list.png',fullPage:true,animations:'disabled'});
   await page.goto(legacyOpportunityUrl);
   await expect(page.getByRole('heading',{name:'Tercera gestión',exact:true})).toBeVisible();
