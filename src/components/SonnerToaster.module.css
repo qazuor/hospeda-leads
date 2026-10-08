@@ -177,4 +177,6 @@
       opacity: 1;
     }
   }
-}
+}/* Keep global notices below active Mantine dialogs and popovers. Errors inside
+   a dialog are also rendered beside the action, without blocking its controls. */
+.toaster { z-index:390 !important; }

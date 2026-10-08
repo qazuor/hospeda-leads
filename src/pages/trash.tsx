@@ -1,3 +1,4 @@
+import { Table } from '@mantine/core';
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Eye, RotateCcw, Search, Trash2 } from "lucide-react";
@@ -42,7 +43,7 @@ export default function TrashPage(){
     {selectedIds.size>0&&<section className={styles.bulkBar}><strong>{selectedIds.size} seleccionados</strong><Button size="sm" variant="outline" onClick={restoreSelected} disabled={restore.isPending}><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={15}/>Eliminar definitivamente</Button><Button size="sm" variant="ghost" onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button></section>}
     <section className={styles.card}>
       <div className={styles.meta}><strong>{(data?.total??0).toLocaleString("es-AR")} gestiones en papelera</strong><span>Página {page} de {Math.max(1,Math.ceil((data?.total??0)/50))}</span></div>
-      {trash.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:trash.error?<div className={styles.error}>{trash.error.message}</div>:<div className={styles.scroller}><table><thead><tr><th className={styles.selectCell}><Checkbox checked={rows.length>0&&rows.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePage}/></th><th>Gestión</th><th>Contacto</th><th>Ciudad</th><th>Vertical</th><th>Estado</th><th>Eliminado</th><th>Por</th><th>Acciones</th></tr></thead><tbody>
+      {trash.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:trash.error?<div className={styles.error}>{trash.error.message}</div>:<div className={styles.scroller}><Table><thead><tr><th className={styles.selectCell}><Checkbox checked={rows.length>0&&rows.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePage}/></th><th>Gestión</th><th>Contacto</th><th>Ciudad</th><th>Vertical</th><th>Estado</th><th>Eliminado</th><th>Por</th><th>Acciones</th></tr></thead><tbody>
         {rows.map(lead=>{const id=String(lead.id);return <tr key={id} className={selectedIds.has(id)?styles.selectedRow:""} onDoubleClick={()=>openView(lead)}>
           <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
           <td><strong>{lead.nombre}</strong><small>#{id}</small></td><td><strong>{lead.contactName||"—"}</strong><small>{lead.email||lead.telefono||""}</small></td>
@@ -50,7 +51,7 @@ export default function TrashPage(){
           <td>{lead.deletedAt?new Date(lead.deletedAt).toLocaleString("es-AR"):"—"}</td><td><strong>{lead.deletedByName||"—"}</strong><small>{lead.deletedByEmail||""}</small></td>
           <td><div className={styles.actions}><Button size="sm" variant="ghost" onClick={()=>openView(lead)}><Eye size={15}/>Ver</Button><Button size="sm" variant="outline" onClick={()=>restore.mutate({id})} disabled={restore.isPending}><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" onClick={()=>setHardTarget(lead)}><Trash2 size={15}/>Eliminar definitivamente</Button></div></td>
         </tr>})}
-      </tbody></table></div>}
+      </tbody></Table></div>}
       <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((data?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((data?.total??0)/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
     </section>
     <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={settings.data?.users} readOnly/>

@@ -1,3 +1,4 @@
+import { NativeSelect } from './NativeSelect';
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserCircle } from "lucide-react";
@@ -40,7 +41,7 @@ export function ProfileDialog({open,onOpenChange}:{open:boolean;onOpenChange:(op
         <label><span>Nombre completo</span><Input value={fullName} onChange={e=>setFullName(e.target.value)}/></label>
         <label><span>Nombre visible</span><Input value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label>
         <label><span>Teléfono</span><Input type="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></label>
-        <label><span>Sexo</span><select value={sex} onChange={e=>setSex(e.target.value)}><option value="">Sin completar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option><option value="otro">Otro</option><option value="prefiero_no_decir">Prefiero no decir</option></select></label>
+        <label><span>Sexo</span><NativeSelect value={sex} onChange={e=>setSex(e.target.value)}><option value="">Sin completar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option><option value="otro">Otro</option><option value="prefiero_no_decir">Prefiero no decir</option></NativeSelect></label>
         <label className={styles.wide}><span>Email de acceso</span><Input value={q.data.profile.email} disabled/></label>
         <label className={styles.wide}><span>Email Hospeda para envíos</span><Input value={q.data.profile.senderEmail??"Sin configurar"} disabled/></label>
       </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { Badge } from "@mantine/core";
 import styles from "./ValueBadge.module.css";
 
 type Category="vertical"|"subtype"|"status"|"priority"|"city"|"person"|"contact"|"profile"|"generic";
@@ -54,7 +55,7 @@ export const ValueBadge=({
   nativeTooltip?:boolean;
 })=>{
   if(!value)return <span className={styles.empty}>—</span>;
-  return <span className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{value}</span>;
+  return <Badge component="span" tt="none" variant="outline" className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{value}</Badge>;
 };
 
 export type BadgeCategory=Category;

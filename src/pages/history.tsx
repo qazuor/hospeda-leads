@@ -1,3 +1,5 @@
+import { Table } from '@mantine/core';
+import { NativeSelect } from '../components/NativeSelect';
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { History, Search } from "lucide-react";
@@ -62,17 +64,17 @@ export default function HistoryPage(){
     <section className={styles.toolbar}>
       <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar campo, valor, gestión o usuario…"/></div>
       <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por gestión…"/></div>
-      <select value={datePreset} onChange={e=>{setDatePreset(e.target.value);reset()}}><option value="all">Todo el historial</option><option value="today">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="custom">Rango personalizado</option></select>
+      <NativeSelect value={datePreset} onChange={e=>{setDatePreset(e.target.value);reset()}}><option value="all">Todo el historial</option><option value="today">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="custom">Rango personalizado</option></NativeSelect>
       {datePreset==="custom"&&<><Input type="date" value={from} onChange={e=>{setFrom(e.target.value);reset()}}/><Input type="date" value={to} onChange={e=>{setTo(e.target.value);reset()}}/></>}
-      <select value={actor} onChange={e=>{setActor(e.target.value);reset()}}><option value="_all">Todos los usuarios</option>{data?.filters.actors.map(x=><option key={x}>{x}</option>)}</select>
-      <select value={city} onChange={e=>{setCity(e.target.value);reset()}}><option value="_all">Todas las ciudades</option>{data?.filters.cities.map(x=><option key={x}>{x}</option>)}</select>
-      <select value={type} onChange={e=>{setType(e.target.value);reset()}}><option value="_all">Todas las verticales</option>{data?.filters.types.map(x=><option key={x}>{x}</option>)}</select>
-      <select value={action} onChange={e=>{setAction(e.target.value);reset()}}><option value="_all">Todas las acciones</option>{data?.filters.actions.map(x=><option key={x} value={x}>{actionLabel[x]??x}</option>)}</select>
+      <NativeSelect value={actor} onChange={e=>{setActor(e.target.value);reset()}}><option value="_all">Todos los usuarios</option>{data?.filters.actors.map(x=><option key={x}>{x}</option>)}</NativeSelect>
+      <NativeSelect value={city} onChange={e=>{setCity(e.target.value);reset()}}><option value="_all">Todas las ciudades</option>{data?.filters.cities.map(x=><option key={x}>{x}</option>)}</NativeSelect>
+      <NativeSelect value={type} onChange={e=>{setType(e.target.value);reset()}}><option value="_all">Todas las verticales</option>{data?.filters.types.map(x=><option key={x}>{x}</option>)}</NativeSelect>
+      <NativeSelect value={action} onChange={e=>{setAction(e.target.value);reset()}}><option value="_all">Todas las acciones</option>{data?.filters.actions.map(x=><option key={x} value={x}>{actionLabel[x]??x}</option>)}</NativeSelect>
       {(leadLabel||actor!=="_all"||city!=="_all"||type!=="_all"||action!=="_all"||q||datePreset!=="all")&&<Button variant="outline" onClick={clear}>Limpiar</Button>}
     </section>
     <section className={styles.card}>
       <div className={styles.meta}><strong>{(shownData?.total??0).toLocaleString("es-AR")} eventos</strong><span>Página {page} de {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span></div>
-      {shown.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:shown.error?<div className={styles.error}>{shown.error.message}</div>:<div className={styles.scroller}><table><thead><tr><th>Fecha</th><th>Gestión</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
+      {shown.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:shown.error?<div className={styles.error}>{shown.error.message}</div>:<div className={styles.scroller}><Table><thead><tr><th>Fecha</th><th>Gestión</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
         {(shownData?.rows??[]).map(row=><tr key={row.id}>
           <td>{formatDate(row.createdAt,true)}</td>
           <td>{row.leadId?<Link className={styles.leadLink} to={"/?leadId="+row.leadId}><strong>{row.leadName}</strong><small>#{row.leadId}</small></Link>:<><strong>{row.leadName}</strong><small>eliminado</small></>}</td>
@@ -82,7 +84,7 @@ export default function HistoryPage(){
           <td>{row.fieldName?fieldLabel[row.fieldName]??row.fieldName:"—"}</td>
           <td className={styles.change}>{row.fieldName?<><span>{journalValue(row.fieldName,row.oldValue)}</span><b>→</b><strong>{journalValue(row.fieldName,row.newValue)}</strong></>:"—"}</td>
         </tr>)}
-      </tbody></table></div>}
+      </tbody></Table></div>}
       <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((shownData?.total??0)/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
     </section>
   </main></>;

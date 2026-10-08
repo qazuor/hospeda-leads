@@ -1,3 +1,4 @@
+import { Input } from './Input';
 import {canModifyBusiness} from "../helpers/crmPermissions";
 import {useAuth} from "../helpers/useAuth";
 import React, { useState } from "react";
@@ -24,7 +25,7 @@ export function OpportunityStart({onClose,onCreated}:{onClose:()=>void;onCreated
     <DialogTitle>Iniciar gestión · Elegí el negocio</DialogTitle>
     <DialogDescription>¿A qué negocio querés ofrecerle un servicio? Primero buscá si ya existe para conservar juntos sus contactos y gestiones. Solo podés iniciar una gestión en un negocio del que sos responsable; un admin puede hacerlo en cualquiera.</DialogDescription>
     {accountId?<><p>{detail.error?detail.error.message:"Cargando negocio…"}</p><Button variant="outline" onClick={()=>setAccountId("")}>Volver a elegir</Button></>:<>
-      <label className={styles.businessSearch}>Buscar negocio<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Nombre, ciudad o email" autoFocus/></label>
+      <label className={styles.businessSearch}>Buscar negocio<Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Nombre, ciudad o email" autoFocus/></label>
       {businesses.isPending?<p>Cargando negocios…</p>:businesses.error?<p role="alert">{businesses.error.message}</p>:<div className={styles.businessChoices}>{businesses.data.rows.map(a=><Button key={a.id} variant="outline" disabled={!canModifyBusiness(user,a)} onClick={()=>setAccountId(String(a.id))}><span><strong>{a.nombre}</strong><small>{a.ciudad||"Sin ciudad"} · {a.opportunityCount} gestiones</small></span><span>Elegir →</span></Button>)}{!businesses.data.rows.length&&<p>No encontramos negocios con esa búsqueda.</p>}{businesses.data.total>50&&<p>Mostramos los primeros 50. Escribí un nombre o ciudad para acotar la búsqueda.</p>}</div>}
       <p className={styles.muted}>¿Es un negocio nuevo? Cargá sus datos una sola vez y después agregá lo que querés venderle.</p>
       <div className={styles.actions}><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={()=>setCreatingBusiness(true)}>Crear negocio nuevo</Button></div>

@@ -12,3 +12,5 @@
 .drawerContent { height: 90dvh; max-height: 90dvh; border-radius: 16px 16px 0 0; }
 .drawerBody { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 .modalContent { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.buttonLabel { display:flex; align-items:center; gap:8px; }
+.field { min-width:0; width:100%; flex:1; }

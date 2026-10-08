@@ -8,3 +8,14 @@ body {
   --mantine-color-default-border: var(--border);
   --mantine-color-default-hover: var(--surface);
 }
+/* All fields use the shared readable size, including legacy page layouts. */
+[data-mantine-color-scheme] .mantine-Input-input:not([type=checkbox]):not([type=radio]) {
+  min-height: 44px;
+  font-size: 16px;
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+[data-mantine-color-scheme] .mantine-InputWrapper-root,
+[data-mantine-color-scheme] .mantine-Input-wrapper { min-width: 0; }
+.mantine-Menu-itemLabel { display:flex; align-items:center; gap:8px; }

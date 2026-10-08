@@ -1,3 +1,4 @@
+import { NativeSelect } from './NativeSelect';
 import React, { useEffect, useMemo, useState } from "react";
 import { Filter, Plus, Trash2 } from "lucide-react";
 import { Button } from "./Button";
@@ -148,16 +149,16 @@ export const FilterBuilderDialog=({
                 return <React.Fragment key={ruleIndex}>
                   {ruleIndex>0&&<div className={styles.orConnector}><span>OR</span></div>}
                   <div className={styles.rule}>
-                    <select value={rule.field} onChange={e=>changeField(groupIndex,ruleIndex,e.target.value as AdvancedFilterRule["field"])}>
+                    <NativeSelect value={rule.field} onChange={e=>changeField(groupIndex,ruleIndex,e.target.value as AdvancedFilterRule["field"])}>
                       {fields.map(option=><option key={option.key} value={option.key}>{option.label}</option>)}
-                    </select>
-                    <select value={rule.operator} onChange={e=>changeOperator(groupIndex,ruleIndex,e.target.value as AdvancedFilterRule["operator"])}>
+                    </NativeSelect>
+                    <NativeSelect value={rule.operator} onChange={e=>changeOperator(groupIndex,ruleIndex,e.target.value as AdvancedFilterRule["operator"])}>
                       {operators.map(operator=><option key={operator} value={operator}>{operatorLabels[operator]}</option>)}
-                    </select>
-                    {needsValue(rule.operator)&&field.kind==="category"&&<select value={rule.value??""} onChange={e=>updateRule(groupIndex,ruleIndex,{...rule,value:e.target.value})}>
+                    </NativeSelect>
+                    {needsValue(rule.operator)&&field.kind==="category"&&<NativeSelect value={rule.value??""} onChange={e=>updateRule(groupIndex,ruleIndex,{...rule,value:e.target.value})}>
                       <option value="">Elegir valor…</option>
                       {field.options?.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>}
+                    </NativeSelect>}
                     {needsValue(rule.operator)&&field.kind==="date"&&<Input type="date" value={rule.value??""} onChange={e=>updateRule(groupIndex,ruleIndex,{...rule,value:e.target.value})}/>}
                     {needsValue(rule.operator)&&field.kind==="number"&&<Input inputMode="numeric" value={rule.value??""} onChange={e=>updateRule(groupIndex,ruleIndex,{...rule,value:e.target.value})} placeholder="Valor"/>}
                     {needsValue(rule.operator)&&["text","notes"].includes(field.kind)&&<Input value={rule.value??""} onChange={e=>updateRule(groupIndex,ruleIndex,{...rule,value:e.target.value})} placeholder="Valor…"/>}

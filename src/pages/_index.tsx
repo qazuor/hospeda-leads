@@ -1,3 +1,7 @@
+import { Table } from '@mantine/core';
+import { Disclosure, DisclosureSummary } from '../components/Disclosure';
+import { NativeSelect } from '../components/NativeSelect';
+import { UnstyledButton } from '@mantine/core';
 import {localDay} from '../helpers/workDates';
 import {BulkChangeReview} from "../components/BulkChangeReview";
 import type {InputType as BulkInput} from "../endpoints/leads_bulk_POST.schema";
@@ -570,12 +574,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       const field=key as DateFilterField;
       return <div className={styles.headerFilterStack}>
         <DateFilterEditor value={dateFilters[field]} onChange={next=>{setDateFilters(prev=>({...prev,[field]:next}));resetPage()}}/>
-        {field==="fechaProximaAccion"&&<select value={nextAction} onChange={e=>{setNextAction(e.target.value as any);resetPage()}}>
+        {field==="fechaProximaAccion"&&<NativeSelect value={nextAction} onChange={e=>{setNextAction(e.target.value as any);resetPage()}}>
           <option value="_all">Sin atajo adicional</option>
           <option value="with">Con fecha</option>
           <option value="without">Sin fecha</option>
           <option value="overdue">Vencidas</option>
-        </select>}
+        </NativeSelect>}
       </div>;
     }
     if(key==="clientePotencialRecurrente")return <BooleanFilterEditor value={recurrentFilter} onChange={next=>{setRecurrentFilter(next);resetPage()}} labelTrue="Sí, recurrente" labelFalse="No recurrente"/>;
@@ -583,16 +587,16 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   };
 
   const renderCell=(l:any,key:string)=>{
-    if(l.deletedAt){if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>navigate("/trash")}><strong>{businessMode?l.nombre:l.opportunityName||l.nombre}</strong><small>En Papelera · Abrir para restaurar</small></button>;const value=l[key];return value instanceof Date?displayDate(value.toISOString()):value===true?"Sí":value===false?"No":str(value)||"—";}
+    if(l.deletedAt){if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>navigate("/trash")}><strong>{businessMode?l.nombre:l.opportunityName||l.nombre}</strong><small>En Papelera · Abrir para restaurar</small></UnstyledButton>;const value=l[key];return value instanceof Date?displayDate(value.toISOString()):value===true?"Sí":value===false?"No":str(value)||"—";}
     if(key==="estado"&&businessMode&&!advancedTable)return <span className={styles.relationship} data-client={l.commercialStatus==="client"}>{l.commercialStatus==="client"?"Cliente":"Potencial cliente"}</span>;
-    if(key==="fechaProximaAccion"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{nextActionInfo(l.fechaProximaAccion).label}</strong><small>{l.nextActionTitle||(l.fechaProximaAccion?"Acción del equipo · Abrir para revisar":"Elegir próximo paso")}</small></button>;
-    if(key==="nombre"&&businessMode)return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"gestión":"gestiones"}</small></button>;
+    if(key==="fechaProximaAccion"&&businessMode)return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{nextActionInfo(l.fechaProximaAccion).label}</strong><small>{l.nextActionTitle||(l.fechaProximaAccion?"Acción del equipo · Abrir para revisar":"Elegir próximo paso")}</small></UnstyledButton>;
+    if(key==="nombre"&&businessMode)return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"gestión":"gestiones"}</small></UnstyledButton>;
     if(businessMode&&!["contactName","fechaProximaAccion","fechaUltimoContacto","id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
       const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayDate(v):v).join(" · ");
-      return <button className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la gestión"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver gestiones":"Agregar gestión"}</small></button>;
+      return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la gestión"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver gestiones":"Agregar gestión"}</small></UnstyledButton>;
     }
-    if(key==="nombre")return <button className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></button>;
+    if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></UnstyledButton>;
     if(key==="id")return businessMode?(l.opportunityId||"—"):String(l.id);
     if(key==="ciudad")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
     if(key==="tipo")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;
@@ -611,7 +615,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     }
     if(key==="medioContactoPreferido")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
     if(key==="fechaProximaAccion")return <NextActionPicker disabled={l.canModify===false} compact value={l.fechaProximaAccion} onChange={value=>quick(l.id,"fechaProximaAccion",value)}/>;
-    if(["fechaCreacion","fechaUltimoContacto"].includes(key))return <input
+    if(["fechaCreacion","fechaUltimoContacto"].includes(key))return <Input
       disabled={l.canModify===false} className={styles.inlineDate}
       type="date"
       value={dateInput(l[key])}
@@ -635,7 +639,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
         <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Gestiones comerciales"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión."}</p></div>
-        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><details className={styles.pageTools}><summary>Herramientas adicionales</summary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></details></div>
+        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
       </header>
 
       <section className={styles.toolbar}>
@@ -648,29 +652,29 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         </div>
       </section>
 
-      <details className={styles.advancedWorkspace}><summary>Resumen, vistas guardadas y ayuda</summary>      <section className={styles.commercialGuide} aria-label="Ayuda comercial">
+      <Disclosure className={styles.advancedWorkspace}><DisclosureSummary>Resumen, vistas guardadas y ayuda</DisclosureSummary>      <section className={styles.commercialGuide} aria-label="Ayuda comercial">
       <CommercialHelp>
       {businessMode&&<p>Abrí un negocio para ver su persona de contacto, el próximo paso y sus gestiones. La próxima acción incluye las tareas generales del negocio.</p>}
       </CommercialHelp>
       </section>
       <section className={styles.metrics}>
-        <button type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de gestiones"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con gestiones abiertas":"Gestiones comerciales abiertas"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción hoy":"Gestiones comerciales con acción hoy"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción atrasada":"Gestiones comerciales con acción atrasada"}</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis registros con acción hasta hoy</span></div></button>
-        <button type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos históricos</span></div></button>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de gestiones"}</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con gestiones abiertas":"Gestiones comerciales abiertas"}</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción hoy":"Gestiones comerciales con acción hoy"}</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción atrasada":"Gestiones comerciales con acción atrasada"}</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis registros con acción hasta hoy</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos históricos</span></div></UnstyledButton>
       </section>
 
       <section className={styles.quickViews}>
         <div className={styles.quickViewList}>
-          {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis gestiones"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><button type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</button>)}
-          {savedViews.map(view=><div className={styles.savedView} key={view.name}><button type="button" className={activeQuick==="saved:"+view.name?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</button><button type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</button></div>)}
+          {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis gestiones"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><UnstyledButton type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</UnstyledButton>)}
+          {savedViews.map(view=><div className={styles.savedView} key={view.name}><UnstyledButton type="button" className={activeQuick==="saved:"+view.name?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</UnstyledButton><UnstyledButton type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</UnstyledButton></div>)}
         </div>
         <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
-</details>
+</Disclosure>
       <FilterLegend
         groups={appliedFilterGroups}
         search={query}
@@ -681,15 +685,15 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
       {selectedIds.size>0&&<section className={styles.bulkBar}>
         <strong>{selectedIds.size} seleccionados</strong>
-        <select value={bulkField} onChange={e=>{setBulkField(e.target.value as typeof bulkField);setBulkValue("")}}>
+        <NativeSelect value={bulkField} onChange={e=>{setBulkField(e.target.value as typeof bulkField);setBulkValue("")}}>
           <option value="estado">Estado</option><option value="prioridad">Prioridad</option>
           {isAdmin&&<option value="assignedUserEmail">Responsable</option>}
           <option value="fechaProximaAccion">Próxima acción</option><option value="tipo">Vertical</option>
           <option value="commercialProfile">Perfil comercial</option><option value="ciudad">Ciudad</option>
-        </select>
+        </NativeSelect>
         {bulkField==="fechaProximaAccion"
           ? <div className={styles.bulkDate}><NextActionPicker value={bulkValue} onChange={setBulkValue}/></div>
-          : <select value={bulkValue} onChange={e=>setBulkValue(e.target.value)}>
+          : <NativeSelect value={bulkValue} onChange={e=>setBulkValue(e.target.value)}>
               <option value="">Elegir valor…</option>
               {bulkField==="estado"&&STATUS_OPTIONS.map(item=><option key={item}>{item}</option>)}
               {bulkField==="prioridad"&&<><option value="__CLEAR__">Sin prioridad</option>{PRIORITY_OPTIONS.map(item=><option key={item}>{item}</option>)}</>}
@@ -697,7 +701,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
               {bulkField==="tipo"&&typeOptions.map(item=><option key={item}>{item}</option>)}
               {bulkField==="commercialProfile"&&<><option value="__CLEAR__">Sin perfil</option>{PROFILE_OPTIONS.map(item=><option key={item}>{item}</option>)}</>}
               {bulkField==="ciudad"&&cityOptions.map(item=><option key={item}>{item}</option>)}
-            </select>}
+            </NativeSelect>}
         {businessMode&&<span className={styles.tableHint}>{["ciudad","assignedUserEmail"].includes(bulkField)?"Modifica los datos del negocio.":"Modifica TODAS las gestiones activas de estos negocios, incluso las que no coincidan con el filtro."}</span>}
         <Button size="sm" onClick={()=>{bulkM.reset();setBulkReview({entity,ids:Array.from(selectedIds),changes:{[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)}})}} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
         <Button size="sm" variant="destructive" onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={14}/>Enviar a papelera</Button>
@@ -716,7 +720,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las gestiones"}: {leadsQ.error.message}</div>:
-        pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><table style={{width:"100%",minWidth:tableWidth}}><colgroup>
+        pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><Table style={{width:"100%",minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
           <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)} checked={leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)&&leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
@@ -730,10 +734,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt||l.canModify===false} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
             {shownColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
-            {(!businessMode||advancedTable)&&<td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<button type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></button><button type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></button>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>}
+            {(!businessMode||advancedTable)&&<td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<UnstyledButton type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></UnstyledButton><UnstyledButton type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></UnstyledButton>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>}
             <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="outline" size="sm" onClick={()=>openView(l)}>Abrir</Button>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" disabled={l.canModify===false} onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las gestiones de este negocio":"Enviar gestión a papelera"} disabled={l.canModify===false||(businessMode&&!l.opportunityCount)}><Trash2 size={15}/></Button></>}</div>}</td>
           </tr>})}
-        </tbody></table></div>}
+        </tbody></Table></div>}
         </div>
         {!(pipelineView&&!businessMode)&&<div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil(total/50))}</span><Button variant="outline" disabled={page>=Math.ceil(total/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>}
       </section>
@@ -784,7 +788,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
                 <p className={styles.editSpan2}>Negocio: <strong>{form.nombre}</strong> · Sus datos se editan por separado.</p>
                 <label className={styles.editField}><span>Servicio de interés</span><Input value={str(form.serviceInterest)} onChange={e=>set("serviceInterest",e.target.value)}/></label>
                 <label className={styles.editField}><span>Cierre estimado (opcional)</span><Input type="date" value={str(form.estimatedCloseDate)} onChange={e=>set("estimatedCloseDate",e.target.value||null)}/></label>
-                <label className={styles.editField+" "+styles.editSpan2}><span>Persona para esta gestión</span><select aria-label="Persona para esta gestión" value={str(form.primaryContactId)} onChange={e=>set("primaryContactId",e.target.value||null)}><option value="">Sin persona elegida</option>{businessDetailQ.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></label>
+                <label className={styles.editField+" "+styles.editSpan2}><span>Persona para esta gestión</span><NativeSelect aria-label="Persona para esta gestión" value={str(form.primaryContactId)} onChange={e=>set("primaryContactId",e.target.value||null)}><option value="">Sin persona elegida</option>{businessDetailQ.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</NativeSelect></label>
                 <label className={styles.editField}><span>Vertical</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.tipo)} options={typeOptions} category="vertical" onChange={v=>{set("tipo",v);set("subtipo","")}} placeholder="Seleccionar vertical…"/></label>
                 <label className={styles.editField}><span>Subtipo</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.subtipo)} options={subtypeOptions} category="subtype" onChange={v=>set("subtipo",v)} placeholder="Seleccionar subtipo…" emptyLabel="Sin subtipo"/></label>
                 <label className={styles.editField}><span>Perfil comercial</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.commercialProfile)} options={PROFILE_OPTIONS} category="profile" onChange={v=>set("commercialProfile",v||null)} placeholder="Seleccionar perfil…" emptyLabel="Sin perfil"/></label>

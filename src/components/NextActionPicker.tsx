@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import React from "react";
 import { CalendarClock, Trash2 } from "lucide-react";
 import { Button } from "./Button";
@@ -16,9 +17,9 @@ export function NextActionPicker({value,onChange,compact=false,disabled=false}:{
   const info=nextActionInfo(value);
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" disabled={disabled} title={info.title} className={styles.trigger+" "+styles[info.tone]+" "+(compact?styles.compact:"")}>
+      <UnstyledButton type="button" disabled={disabled} title={info.title} className={styles.trigger+" "+styles[info.tone]+" "+(compact?styles.compact:"")}>
         <CalendarClock size={compact?13:15}/><span>{info.label}</span>
-      </button>
+      </UnstyledButton>
     </PopoverTrigger>
     <PopoverContent align="start" className={styles.popover}>
       <strong>Próxima acción</strong>

@@ -1,3 +1,4 @@
+import { UnstyledButton } from '@mantine/core';
 import React, { useMemo, useState } from "react";
 import { Check, Filter, MinusCircle, PlusCircle, X } from "lucide-react";
 import { Button } from "./Button";
@@ -46,12 +47,12 @@ export const SmartMultiFilter=({
   };
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
-      <button type="button" className={styles.trigger+" "+(count?styles.active:"")+" "+(className??"")}>
+      <UnstyledButton type="button" className={styles.trigger+" "+(count?styles.active:"")+" "+(className??"")}>
         <Filter size={13}/>
         <span>{label}</span>
         {!!value.include.length&&<b className={styles.includeCount}>+{value.include.length}</b>}
         {!!value.exclude.length&&<b className={styles.excludeCount}>−{value.exclude.length}</b>}
-      </button>
+      </UnstyledButton>
     </PopoverTrigger>
     <PopoverContent removeBackgroundAndPadding align="start" className={styles.popover}>
       <div className={styles.head}>
@@ -59,8 +60,8 @@ export const SmartMultiFilter=({
         {count>0&&<Button variant="ghost" size="icon-sm" onClick={()=>onChange(emptySmartFilter())} title="Limpiar filtro"><X size={14}/></Button>}
       </div>
       <div className={styles.mode}>
-        <button type="button" className={mode==="include"?styles.modeActive:""} onClick={()=>setMode("include")}><PlusCircle size={14}/>Incluir</button>
-        <button type="button" className={mode==="exclude"?styles.modeExclude:""} onClick={()=>setMode("exclude")}><MinusCircle size={14}/>Excluir</button>
+        <UnstyledButton type="button" className={mode==="include"?styles.modeActive:""} onClick={()=>setMode("include")}><PlusCircle size={14}/>Incluir</UnstyledButton>
+        <UnstyledButton type="button" className={mode==="exclude"?styles.modeExclude:""} onClick={()=>setMode("exclude")}><MinusCircle size={14}/>Excluir</UnstyledButton>
       </div>
       <Command>
         <CommandInput placeholder={"Buscar "+label.toLowerCase()+"…"}/>
