@@ -66,3 +66,6 @@
 .tableCard{border-color:var(--surface-border);border-radius:20px;box-shadow:var(--surface-raised-shadow)}.tableMeta{padding:14px 18px}.scroller th{border-right-color:transparent;background:color-mix(in srgb,var(--brand-blue) 5%,var(--card))}.scroller td{border-top-color:color-mix(in srgb,var(--border) 60%,var(--card))}.scroller tbody tr:nth-child(even){background:color-mix(in srgb,var(--surface) 40%,var(--card))}.scroller tbody tr:hover{background:color-mix(in srgb,var(--brand-blue) 8%,var(--card))}
 .advancedWorkspace{border:0;margin:4px 0 14px}.advancedWorkspace [data-disclosure-control]{display:list-item;width:fit-content;padding:10px 16px;border-radius:14px;background:color-mix(in srgb,var(--surface) 65%,var(--card));font-size:14px}.metrics>button{border-color:var(--surface-border);border-radius:18px;box-shadow:var(--surface-raised-shadow)}.search input{border-radius:14px}.pageTools [data-disclosure-control]{border-radius:14px;background:var(--card)}
 @media(max-width:620px){.pageHeader{padding:20px;gap:18px}.pageHeader h1{font-size:28px}.pageHeader .pageActions{gap:8px}.tableMeta{padding:12px}}
+
+/* Row actions retain compact table geometry beneath the shared button minimum. */
+.scroller .rowActions button{min-height:36px;height:36px}
