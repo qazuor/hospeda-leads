@@ -61,16 +61,16 @@ export async function token(c:Config,request:Request){
   if(!kind)return json({error:'unsupported_grant_type'},400);
   const credential=p.get(kind==='code'?'code':'refresh_token')??'';
   return await db.transaction().execute(async tx=>{
-   const row=(await sql<{user_id:number;redirect_uri:string;challenge:string;scopes:string}>`SELECT user_id,redirect_uri,challenge,scopes FROM crm_mcp_credentials WHERE hash=${hash(credential)} AND kind=${kind} AND client_id=${c.clientId} AND expires_at>now() FOR UPDATE`.execute(tx)).rows[0];
+   const row=(await sql<{userId:number;redirectUri:string;challenge:string;scopes:string}>`SELECT user_id,redirect_uri,challenge,scopes FROM crm_mcp_credentials WHERE hash=${hash(credential)} AND kind=${kind} AND client_id=${c.clientId} AND expires_at>now() FOR UPDATE`.execute(tx)).rows[0];
    if(!row)return json({error:'invalid_grant'},400);
-   if(kind==='code'&&(p.get('redirect_uri')!==row.redirect_uri||!/^[-._~a-zA-Z0-9]{43,128}$/.test(p.get('code_verifier')??'')||hash(p.get('code_verifier')!)!==row.challenge))return json({error:'invalid_grant'},400);
+   if(kind==='code'&&(p.get('redirect_uri')!==row.redirectUri||!/^[-._~a-zA-Z0-9]{43,128}$/.test(p.get('code_verifier')??'')||hash(p.get('code_verifier')!)!==row.challenge))return json({error:'invalid_grant'},400);
    // Recheck live role and allowlist during every exchange and every MCP request.
-   const allowed=await tx.selectFrom('users').innerJoin('authorizedEmails','users.email','authorizedEmails.email').select('users.id').where('users.id','=',row.user_id).where('users.role','=','admin').where('authorizedEmails.active','=',true).executeTakeFirst();
+   const allowed=await tx.selectFrom('users').innerJoin('authorizedEmails','users.email','authorizedEmails.email').select('users.id').where('users.id','=',row.userId).where('users.role','=','admin').where('authorizedEmails.active','=',true).executeTakeFirst();
    if(!allowed)return json({error:'invalid_grant'},400);
    await sql`DELETE FROM crm_mcp_credentials WHERE hash=${hash(credential)}`.execute(tx);
-   const accessToken=await sign(c,{kind:'access',userId:row.user_id,scope},3600);
+   const accessToken=await sign(c,{kind:'access',userId:row.userId,scope},3600);
    let refresh:string|undefined;
-   if(row.scopes.split(' ').includes('offline_access')){refresh=random();await sql`INSERT INTO crm_mcp_credentials(hash,kind,user_id,client_id,scopes,expires_at) VALUES(${hash(refresh)},'refresh',${row.user_id},${c.clientId},${row.scopes},now()+interval '30 days')`.execute(tx);}
+   if(row.scopes.split(' ').includes('offline_access')){refresh=random();await sql`INSERT INTO crm_mcp_credentials(hash,kind,user_id,client_id,scopes,expires_at) VALUES(${hash(refresh)},'refresh',${row.userId},${c.clientId},${row.scopes},now()+interval '30 days')`.execute(tx);}
    return json({access_token:accessToken,token_type:'Bearer',expires_in:3600,scope,...(refresh?{refresh_token:refresh}:{})});
   });
  }catch{return json({error:'invalid_client'},400);}
