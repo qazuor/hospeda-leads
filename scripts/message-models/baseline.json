@@ -1,0 +1,281 @@
+[
+  {
+    "id": "5",
+    "name": "Primer contacto · Alojamiento · Consolidado · Email",
+    "channel": "email",
+    "vertical": "Alojamiento",
+    "commercial_profile": "Consolidado",
+    "subject": "Hospeda · Propuesta para {{name}}",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y te contacto desde <strong>Hospeda</strong>, una plataforma turística regional que integra la oferta del Litoral Entrerriano.</p><p>Estamos incorporando alojamientos con una presencia consolidada en sus destinos y nos gustaría conversar con ustedes acerca de la incorporación de <strong>{{name}}</strong> a Hospeda.</p><p>Nuestro objetivo es dar una presencia sólida dentro del ecosistema turístico del destino y acompañar al huésped durante toda su estadía, conectándolo con propuestas y servicios locales.</p><blockquote>Por las características de <strong>{{name}}</strong>, creemos que puede ocupar un lugar relevante dentro de la oferta de {{#if city}}{{city}}{{else}}la región{{/if}}.</blockquote><p><strong>Quedo a disposición para presentarles brevemente la propuesta y las distintas formas de participación.</strong></p>"
+  },
+  {
+    "id": "3",
+    "name": "Primer contacto · Alojamiento · Independiente · Email",
+    "channel": "email",
+    "vertical": "Alojamiento",
+    "commercial_profile": "Independiente",
+    "subject": "Invitación para sumar {{name}} a Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística enfocada inicialmente en el Litoral Entrerriano.</p><p>Hospeda reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales para acompañar al visitante antes y durante su estadía.</p><p>Estamos incorporando alojamientos {{#if city}}de {{city}}{{else}}de la región{{/if}} y nos gustaría invitar a <strong>{{name}}</strong> a formar parte de la plataforma.</p><blockquote>La propuesta está pensada para dar visibilidad al alojamiento, facilitar el contacto directo con potenciales huéspedes y ayudar a que quienes se hospedan descubran todo lo que pueden hacer durante su estadía.</blockquote><p><strong>Si te interesa, quedo a disposición para contarte cómo funciona Hospeda y cuáles son las alternativas para participar.</strong></p>"
+  },
+  {
+    "id": "6",
+    "name": "Primer contacto · Alojamiento · Referente · Email",
+    "channel": "email",
+    "vertical": "Alojamiento",
+    "commercial_profile": "Referente",
+    "subject": "Invitación institucional · {{name}} en Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística regional que busca integrar y poner en valor la oferta del Litoral Entrerriano.</p><p>Estamos trabajando en la incorporación de establecimientos referentes de cada destino y nos gustaría conversar con ustedes acerca de la presencia de <strong>{{name}}</strong> dentro de Hospeda.</p><p>La propuesta va más allá de una publicación tradicional: buscamos construir un ecosistema que conecte alojamientos, gastronomía, experiencias, servicios y contenido local, acompañando al visitante antes y durante su estadía.</p><blockquote>Por la trayectoria y el posicionamiento de <strong>{{name}}</strong>, consideramos especialmente valioso que forme parte de esta etapa de crecimiento de Hospeda.</blockquote><p><strong>Quedo a disposición para coordinar una breve presentación y evaluar juntos la forma más adecuada de participación.</strong></p>"
+  },
+  {
+    "id": "30",
+    "name": "Primer contacto · Editor · Consolidado · Email",
+    "channel": "email",
+    "vertical": "Editor",
+    "commercial_profile": "Consolidado",
+    "subject": "Hospeda · Propuesta para {{name}}",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y te contacto desde <strong>Hospeda</strong>, una plataforma turística regional que integra la oferta del Litoral Entrerriano.</p><p>Estamos incorporando creadores, equipos y medios con una presencia consolidada en sus destinos y nos gustaría conversar con ustedes acerca de la incorporación de <strong>{{name}}</strong> a Hospeda.</p><p>Nuestro objetivo es trabajar con equipos y productores de contenido con experiencia para generar y difundir material útil que acompañe al visitante antes y durante su viaje.</p><blockquote>Por las características de <strong>{{name}}</strong>, creemos que puede ocupar un lugar relevante dentro de la oferta de {{#if city}}{{city}}{{else}}la región{{/if}}.</blockquote><p><strong>Quedo a disposición para presentarles brevemente la propuesta y las distintas formas de participación.</strong></p>"
+  },
+  {
+    "id": "28",
+    "name": "Primer contacto · Editor · Independiente · Email",
+    "channel": "email",
+    "vertical": "Editor",
+    "commercial_profile": "Independiente",
+    "subject": "Invitación para sumar {{name}} a Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística enfocada inicialmente en el Litoral Entrerriano.</p><p>Hospeda reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales para acompañar al visitante antes y durante su estadía.</p><p>Estamos incorporando creadores, equipos y medios {{#if city}}de {{city}}{{else}}de la región{{/if}} y nos gustaría invitar a <strong>{{name}}</strong> a formar parte de la plataforma.</p><blockquote>La propuesta está pensada para sumar miradas locales y contenido de calidad sobre destinos, actividades, gastronomía, cultura y experiencias de la región.</blockquote><p><strong>Si te interesa, quedo a disposición para contarte cómo funciona Hospeda y cuáles son las alternativas para participar.</strong></p>"
+  },
+  {
+    "id": "31",
+    "name": "Primer contacto · Editor · Referente · Email",
+    "channel": "email",
+    "vertical": "Editor",
+    "commercial_profile": "Referente",
+    "subject": "Invitación institucional · {{name}} en Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística regional que busca integrar y poner en valor la oferta del Litoral Entrerriano.</p><p>Estamos trabajando en la incorporación de medios, agencias y referentes editoriales y nos gustaría conversar con ustedes acerca de la presencia de <strong>{{name}}</strong> dentro de Hospeda.</p><p>La propuesta va más allá de una publicación tradicional: buscamos construir un ecosistema que conecte alojamientos, gastronomía, experiencias, servicios y contenido local, acompañando al visitante antes y durante su estadía.</p><blockquote>Por el posicionamiento de <strong>{{name}}</strong>, creemos que una vinculación editorial puede aportar una mirada valiosa y elevar la calidad del contenido turístico disponible.</blockquote><p><strong>Quedo a disposición para coordinar una breve presentación y evaluar juntos la forma más adecuada de participación.</strong></p>"
+  },
+  {
+    "id": "15",
+    "name": "Primer contacto · Experiencia · Consolidado · Email",
+    "channel": "email",
+    "vertical": "Experiencia",
+    "commercial_profile": "Consolidado",
+    "subject": "Hospeda · Propuesta para {{name}}",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y te contacto desde <strong>Hospeda</strong>, una plataforma turística regional que integra la oferta del Litoral Entrerriano.</p><p>Estamos incorporando experiencias y actividades con una presencia consolidada en sus destinos y nos gustaría conversar con ustedes acerca de la incorporación de <strong>{{name}}</strong> a Hospeda.</p><p>Nuestro objetivo es integrar operadores y experiencias consolidadas para que el visitante pueda descubrir actividades de calidad durante su estadía y acceder directamente a sus prestadores.</p><blockquote>Por las características de <strong>{{name}}</strong>, creemos que puede ocupar un lugar relevante dentro de la oferta de {{#if city}}{{city}}{{else}}la región{{/if}}.</blockquote><p><strong>Quedo a disposición para presentarles brevemente la propuesta y las distintas formas de participación.</strong></p>"
+  },
+  {
+    "id": "13",
+    "name": "Primer contacto · Experiencia · Independiente · Email",
+    "channel": "email",
+    "vertical": "Experiencia",
+    "commercial_profile": "Independiente",
+    "subject": "Invitación para sumar {{name}} a Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística enfocada inicialmente en el Litoral Entrerriano.</p><p>Hospeda reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales para acompañar al visitante antes y durante su estadía.</p><p>Estamos incorporando experiencias y actividades {{#if city}}de {{city}}{{else}}de la región{{/if}} y nos gustaría invitar a <strong>{{name}}</strong> a formar parte de la plataforma.</p><blockquote>La propuesta está pensada para facilitar que viajeros que ya están en destino o planificando su visita puedan descubrir la actividad y contactar directamente con quienes la ofrecen.</blockquote><p><strong>Si te interesa, quedo a disposición para contarte cómo funciona Hospeda y cuáles son las alternativas para participar.</strong></p>"
+  },
+  {
+    "id": "16",
+    "name": "Primer contacto · Experiencia · Referente · Email",
+    "channel": "email",
+    "vertical": "Experiencia",
+    "commercial_profile": "Referente",
+    "subject": "Invitación institucional · {{name}} en Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística regional que busca integrar y poner en valor la oferta del Litoral Entrerriano.</p><p>Estamos trabajando en la incorporación de experiencias y operadores referentes de cada destino y nos gustaría conversar con ustedes acerca de la presencia de <strong>{{name}}</strong> dentro de Hospeda.</p><p>La propuesta va más allá de una publicación tradicional: buscamos construir un ecosistema que conecte alojamientos, gastronomía, experiencias, servicios y contenido local, acompañando al visitante antes y durante su estadía.</p><blockquote>Por el posicionamiento de <strong>{{name}}</strong>, consideramos especialmente valiosa su participación para construir una oferta de experiencias de referencia en la región.</blockquote><p><strong>Quedo a disposición para coordinar una breve presentación y evaluar juntos la forma más adecuada de participación.</strong></p>"
+  },
+  {
+    "id": "10",
+    "name": "Primer contacto · Gastronomía · Consolidado · Email",
+    "channel": "email",
+    "vertical": "Gastronomía",
+    "commercial_profile": "Consolidado",
+    "subject": "Hospeda · Propuesta para {{name}}",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y te contacto desde <strong>Hospeda</strong>, una plataforma turística regional que integra la oferta del Litoral Entrerriano.</p><p>Estamos incorporando propuestas gastronómicas con una presencia consolidada en sus destinos y nos gustaría conversar con ustedes acerca de la incorporación de <strong>{{name}}</strong> a Hospeda.</p><p>Nuestro objetivo es posicionar la propuesta dentro de la oferta gastronómica del destino y generar nuevas oportunidades de visibilidad frente a visitantes que ya están viajando o planificando su estadía.</p><blockquote>Por las características de <strong>{{name}}</strong>, creemos que puede ocupar un lugar relevante dentro de la oferta de {{#if city}}{{city}}{{else}}la región{{/if}}.</blockquote><p><strong>Quedo a disposición para presentarles brevemente la propuesta y las distintas formas de participación.</strong></p>"
+  },
+  {
+    "id": "8",
+    "name": "Primer contacto · Gastronomía · Independiente · Email",
+    "channel": "email",
+    "vertical": "Gastronomía",
+    "commercial_profile": "Independiente",
+    "subject": "Invitación para sumar {{name}} a Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística enfocada inicialmente en el Litoral Entrerriano.</p><p>Hospeda reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales para acompañar al visitante antes y durante su estadía.</p><p>Estamos incorporando propuestas gastronómicas {{#if city}}de {{city}}{{else}}de la región{{/if}} y nos gustaría invitar a <strong>{{name}}</strong> a formar parte de la plataforma.</p><blockquote>La propuesta está pensada para hacer que turistas que ya están en el destino, o que están planificando su viaje, puedan descubrir el establecimiento, conocer su propuesta y acceder directamente a sus canales de contacto.</blockquote><p><strong>Si te interesa, quedo a disposición para contarte cómo funciona Hospeda y cuáles son las alternativas para participar.</strong></p>"
+  },
+  {
+    "id": "11",
+    "name": "Primer contacto · Gastronomía · Referente · Email",
+    "channel": "email",
+    "vertical": "Gastronomía",
+    "commercial_profile": "Referente",
+    "subject": "Invitación institucional · {{name}} en Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística regional que busca integrar y poner en valor la oferta del Litoral Entrerriano.</p><p>Estamos trabajando en la incorporación de referentes gastronómicos de cada destino y nos gustaría conversar con ustedes acerca de la presencia de <strong>{{name}}</strong> dentro de Hospeda.</p><p>La propuesta va más allá de una publicación tradicional: buscamos construir un ecosistema que conecte alojamientos, gastronomía, experiencias, servicios y contenido local, acompañando al visitante antes y durante su estadía.</p><blockquote>Por el posicionamiento de <strong>{{name}}</strong>, consideramos especialmente valiosa su participación dentro de la propuesta gastronómica de Hospeda.</blockquote><p><strong>Quedo a disposición para coordinar una breve presentación y evaluar juntos la forma más adecuada de participación.</strong></p>"
+  },
+  {
+    "id": "20",
+    "name": "Primer contacto · Partner · Consolidado · Email",
+    "channel": "email",
+    "vertical": "Partner",
+    "commercial_profile": "Consolidado",
+    "subject": "Hospeda · Propuesta para {{name}}",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y te contacto desde <strong>Hospeda</strong>, una plataforma turística regional que integra la oferta del Litoral Entrerriano.</p><p>Estamos incorporando actores y organizaciones locales con una presencia consolidada en sus destinos y nos gustaría conversar con ustedes acerca de la incorporación de <strong>{{name}}</strong> a Hospeda.</p><p>Nuestro objetivo es construir una red de colaboración, contenido y difusión que conecte a los principales actores de cada destino y fortalezca la oferta turística local.</p><blockquote>Por las características de <strong>{{name}}</strong>, creemos que puede ocupar un lugar relevante dentro de la oferta de {{#if city}}{{city}}{{else}}la región{{/if}}.</blockquote><p><strong>Quedo a disposición para presentarles brevemente la propuesta y las distintas formas de participación.</strong></p>"
+  },
+  {
+    "id": "18",
+    "name": "Primer contacto · Partner · Independiente · Email",
+    "channel": "email",
+    "vertical": "Partner",
+    "commercial_profile": "Independiente",
+    "subject": "Invitación para sumar {{name}} a Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística enfocada inicialmente en el Litoral Entrerriano.</p><p>Hospeda reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales para acompañar al visitante antes y durante su estadía.</p><p>Estamos incorporando actores y organizaciones locales {{#if city}}de {{city}}{{else}}de la región{{/if}} y nos gustaría invitar a <strong>{{name}}</strong> a formar parte de la plataforma.</p><blockquote>La propuesta está pensada para generar vínculos entre actores locales que mejoren la experiencia del visitante y, al mismo tiempo, creen oportunidades de visibilidad y colaboración dentro del destino.</blockquote><p><strong>Si te interesa, quedo a disposición para contarte cómo funciona Hospeda y cuáles son las alternativas para participar.</strong></p>"
+  },
+  {
+    "id": "21",
+    "name": "Primer contacto · Partner · Referente · Email",
+    "channel": "email",
+    "vertical": "Partner",
+    "commercial_profile": "Referente",
+    "subject": "Invitación institucional · {{name}} en Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística regional que busca integrar y poner en valor la oferta del Litoral Entrerriano.</p><p>Estamos trabajando en la incorporación de instituciones, empresas y referentes estratégicos de cada destino y nos gustaría conversar con ustedes acerca de la presencia de <strong>{{name}}</strong> dentro de Hospeda.</p><p>La propuesta va más allá de una publicación tradicional: buscamos construir un ecosistema que conecte alojamientos, gastronomía, experiencias, servicios y contenido local, acompañando al visitante antes y durante su estadía.</p><blockquote>Por el rol de <strong>{{name}}</strong>{{#if city}} en {{city}}{{/if}}, creemos que existe una oportunidad especialmente interesante para trabajar en conjunto.</blockquote><p><strong>Quedo a disposición para coordinar una breve presentación y evaluar juntos la forma más adecuada de participación.</strong></p>"
+  },
+  {
+    "id": "25",
+    "name": "Primer contacto · Proveedor de servicios · Consolidado · Email",
+    "channel": "email",
+    "vertical": "Proveedor de servicios",
+    "commercial_profile": "Consolidado",
+    "subject": "Hospeda · Propuesta para {{name}}",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y te contacto desde <strong>Hospeda</strong>, una plataforma turística regional que integra la oferta del Litoral Entrerriano.</p><p>Estamos incorporando proveedores de servicios con una presencia consolidada en sus destinos y nos gustaría conversar con ustedes acerca de la incorporación de <strong>{{name}}</strong> a Hospeda.</p><p>Nuestro objetivo es generar un canal adicional de visibilidad y contacto con propietarios y operadores turísticos que necesitan soluciones profesionales para sus negocios.</p><blockquote>Por las características de <strong>{{name}}</strong>, creemos que puede ocupar un lugar relevante dentro de la oferta de {{#if city}}{{city}}{{else}}la región{{/if}}.</blockquote><p><strong>Quedo a disposición para presentarles brevemente la propuesta y las distintas formas de participación.</strong></p>"
+  },
+  {
+    "id": "23",
+    "name": "Primer contacto · Proveedor de servicios · Independiente · Email",
+    "channel": "email",
+    "vertical": "Proveedor de servicios",
+    "commercial_profile": "Independiente",
+    "subject": "Invitación para sumar {{name}} a Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística enfocada inicialmente en el Litoral Entrerriano.</p><p>Hospeda reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales para acompañar al visitante antes y durante su estadía.</p><p>Estamos incorporando proveedores de servicios {{#if city}}de {{city}}{{else}}de la región{{/if}} y nos gustaría invitar a <strong>{{name}}</strong> a formar parte de la plataforma.</p><blockquote>La propuesta está pensada para conectar profesionales y prestadores con alojamientos y otros negocios turísticos que necesitan esos servicios para su actividad.</blockquote><p><strong>Si te interesa, quedo a disposición para contarte cómo funciona Hospeda y cuáles son las alternativas para participar.</strong></p>"
+  },
+  {
+    "id": "26",
+    "name": "Primer contacto · Proveedor de servicios · Referente · Email",
+    "channel": "email",
+    "vertical": "Proveedor de servicios",
+    "commercial_profile": "Referente",
+    "subject": "Invitación institucional · {{name}} en Hospeda",
+    "body": "<p>{{#if contact}}Hola <strong>{{contact}}</strong>, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}</p><p>Mi nombre es <strong>{{sender}}</strong> y formo parte de <strong>Hospeda</strong>, una plataforma turística regional que busca integrar y poner en valor la oferta del Litoral Entrerriano.</p><p>Estamos trabajando en la incorporación de proveedores referentes capaces de acompañar a alojamientos, operadores y empresas turísticas y nos gustaría conversar con ustedes acerca de la presencia de <strong>{{name}}</strong> dentro de Hospeda.</p><p>La propuesta va más allá de una publicación tradicional: buscamos construir un ecosistema que conecte alojamientos, gastronomía, experiencias, servicios y contenido local, acompañando al visitante antes y durante su estadía.</p><blockquote>Por la trayectoria y capacidad de <strong>{{name}}</strong>, consideramos especialmente interesante explorar una participación destacada dentro de la red de proveedores de Hospeda.</blockquote><p><strong>Quedo a disposición para coordinar una breve presentación y evaluar juntos la forma más adecuada de participación.</strong></p>"
+  },
+  {
+    "id": "4",
+    "name": "Primer contacto · Alojamiento · Consolidado · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Alojamiento",
+    "commercial_profile": "Consolidado",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nSoy {{sender}}, de Hospeda. Estamos desarrollando una plataforma turística regional que integra alojamientos, gastronomía, experiencias y servicios del Litoral Entrerriano.\n\nMe gustaría invitarlos a conocer la propuesta para {{name}}.\n\nBuscamos dar una presencia sólida dentro del ecosistema turístico del destino y acompañar al huésped durante toda su estadía, conectándolo con propuestas y servicios locales.\n\nPor el perfil de {{name}}, creemos que puede ser una incorporación muy interesante a Hospeda.\n\nQuedo a disposición para contarte brevemente cómo funciona."
+  },
+  {
+    "id": "2",
+    "name": "Primer contacto · Alojamiento · Independiente · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Alojamiento",
+    "commercial_profile": "Independiente",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nMi nombre es {{sender}} y te escribo desde Hospeda. Estamos desarrollando una plataforma turística del Litoral Entrerriano que reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales en un mismo lugar.\n\nConocimos {{name}}{{#if city}}, en {{city}}{{/if}}, y quería invitarte a conocer la propuesta.\n\nLa idea es dar visibilidad al alojamiento, facilitar el contacto directo con potenciales huéspedes y ayudar a que quienes se hospedan descubran todo lo que pueden hacer durante su estadía.\n\nSi te interesa, con gusto te cuento brevemente cómo funciona Hospeda."
+  },
+  {
+    "id": "29",
+    "name": "Primer contacto · Editor · Consolidado · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Editor",
+    "commercial_profile": "Consolidado",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nSoy {{sender}}, de Hospeda. Estamos desarrollando una plataforma turística regional que integra alojamientos, gastronomía, experiencias y servicios del Litoral Entrerriano.\n\nMe gustaría invitarlos a conocer la propuesta para {{name}}.\n\nBuscamos trabajar con equipos y productores de contenido con experiencia para generar y difundir material útil que acompañe al visitante antes y durante su viaje.\n\nPor el perfil de {{name}}, creemos que puede ser una incorporación muy interesante a Hospeda.\n\nQuedo a disposición para contarte brevemente cómo funciona."
+  },
+  {
+    "id": "27",
+    "name": "Primer contacto · Editor · Independiente · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Editor",
+    "commercial_profile": "Independiente",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nMi nombre es {{sender}} y te escribo desde Hospeda. Estamos desarrollando una plataforma turística del Litoral Entrerriano que reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales en un mismo lugar.\n\nConocimos {{name}}{{#if city}}, en {{city}}{{/if}}, y quería invitarte a conocer la propuesta.\n\nLa idea es sumar miradas locales y contenido de calidad sobre destinos, actividades, gastronomía, cultura y experiencias de la región.\n\nSi te interesa, con gusto te cuento brevemente cómo funciona Hospeda."
+  },
+  {
+    "id": "14",
+    "name": "Primer contacto · Experiencia · Consolidado · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Experiencia",
+    "commercial_profile": "Consolidado",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nSoy {{sender}}, de Hospeda. Estamos desarrollando una plataforma turística regional que integra alojamientos, gastronomía, experiencias y servicios del Litoral Entrerriano.\n\nMe gustaría invitarlos a conocer la propuesta para {{name}}.\n\nBuscamos integrar operadores y experiencias consolidadas para que el visitante pueda descubrir actividades de calidad durante su estadía y acceder directamente a sus prestadores.\n\nPor el perfil de {{name}}, creemos que puede ser una incorporación muy interesante a Hospeda.\n\nQuedo a disposición para contarte brevemente cómo funciona."
+  },
+  {
+    "id": "12",
+    "name": "Primer contacto · Experiencia · Independiente · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Experiencia",
+    "commercial_profile": "Independiente",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nMi nombre es {{sender}} y te escribo desde Hospeda. Estamos desarrollando una plataforma turística del Litoral Entrerriano que reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales en un mismo lugar.\n\nConocimos {{name}}{{#if city}}, en {{city}}{{/if}}, y quería invitarte a conocer la propuesta.\n\nLa idea es facilitar que viajeros que ya están en destino o planificando su visita puedan descubrir la actividad y contactar directamente con quienes la ofrecen.\n\nSi te interesa, con gusto te cuento brevemente cómo funciona Hospeda."
+  },
+  {
+    "id": "9",
+    "name": "Primer contacto · Gastronomía · Consolidado · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Gastronomía",
+    "commercial_profile": "Consolidado",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nSoy {{sender}}, de Hospeda. Estamos desarrollando una plataforma turística regional que integra alojamientos, gastronomía, experiencias y servicios del Litoral Entrerriano.\n\nMe gustaría invitarlos a conocer la propuesta para {{name}}.\n\nBuscamos posicionar la propuesta dentro de la oferta gastronómica del destino y generar nuevas oportunidades de visibilidad frente a visitantes que ya están viajando o planificando su estadía.\n\nPor el perfil de {{name}}, creemos que puede ser una incorporación muy interesante a Hospeda.\n\nQuedo a disposición para contarte brevemente cómo funciona."
+  },
+  {
+    "id": "7",
+    "name": "Primer contacto · Gastronomía · Independiente · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Gastronomía",
+    "commercial_profile": "Independiente",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nMi nombre es {{sender}} y te escribo desde Hospeda. Estamos desarrollando una plataforma turística del Litoral Entrerriano que reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales en un mismo lugar.\n\nConocimos {{name}}{{#if city}}, en {{city}}{{/if}}, y quería invitarte a conocer la propuesta.\n\nLa idea es hacer que turistas que ya están en el destino, o que están planificando su viaje, puedan descubrir el establecimiento, conocer su propuesta y acceder directamente a sus canales de contacto.\n\nSi te interesa, con gusto te cuento brevemente cómo funciona Hospeda."
+  },
+  {
+    "id": "19",
+    "name": "Primer contacto · Partner · Consolidado · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Partner",
+    "commercial_profile": "Consolidado",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nSoy {{sender}}, de Hospeda. Estamos desarrollando una plataforma turística regional que integra alojamientos, gastronomía, experiencias y servicios del Litoral Entrerriano.\n\nMe gustaría invitarlos a conocer la propuesta para {{name}}.\n\nBuscamos construir una red de colaboración, contenido y difusión que conecte a los principales actores de cada destino y fortalezca la oferta turística local.\n\nPor el perfil de {{name}}, creemos que puede ser una incorporación muy interesante a Hospeda.\n\nQuedo a disposición para contarte brevemente cómo funciona."
+  },
+  {
+    "id": "17",
+    "name": "Primer contacto · Partner · Independiente · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Partner",
+    "commercial_profile": "Independiente",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nMi nombre es {{sender}} y te escribo desde Hospeda. Estamos desarrollando una plataforma turística del Litoral Entrerriano que reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales en un mismo lugar.\n\nConocimos {{name}}{{#if city}}, en {{city}}{{/if}}, y quería invitarte a conocer la propuesta.\n\nLa idea es generar vínculos entre actores locales que mejoren la experiencia del visitante y, al mismo tiempo, creen oportunidades de visibilidad y colaboración dentro del destino.\n\nSi te interesa, con gusto te cuento brevemente cómo funciona Hospeda."
+  },
+  {
+    "id": "24",
+    "name": "Primer contacto · Proveedor de servicios · Consolidado · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Proveedor de servicios",
+    "commercial_profile": "Consolidado",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nSoy {{sender}}, de Hospeda. Estamos desarrollando una plataforma turística regional que integra alojamientos, gastronomía, experiencias y servicios del Litoral Entrerriano.\n\nMe gustaría invitarlos a conocer la propuesta para {{name}}.\n\nBuscamos generar un canal adicional de visibilidad y contacto con propietarios y operadores turísticos que necesitan soluciones profesionales para sus negocios.\n\nPor el perfil de {{name}}, creemos que puede ser una incorporación muy interesante a Hospeda.\n\nQuedo a disposición para contarte brevemente cómo funciona."
+  },
+  {
+    "id": "22",
+    "name": "Primer contacto · Proveedor de servicios · Independiente · WhatsApp",
+    "channel": "whatsapp",
+    "vertical": "Proveedor de servicios",
+    "commercial_profile": "Independiente",
+    "subject": null,
+    "body": "{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}\n\nMi nombre es {{sender}} y te escribo desde Hospeda. Estamos desarrollando una plataforma turística del Litoral Entrerriano que reúne alojamientos, gastronomía, experiencias, servicios y propuestas locales en un mismo lugar.\n\nConocimos {{name}}{{#if city}}, en {{city}}{{/if}}, y quería invitarte a conocer la propuesta.\n\nLa idea es conectar profesionales y prestadores con alojamientos y otros negocios turísticos que necesitan esos servicios para su actividad.\n\nSi te interesa, con gusto te cuento brevemente cómo funciona Hospeda."
+  },
+  {
+    "id": "1",
+    "name": "prueba contacto",
+    "channel": "whatsapp",
+    "vertical": null,
+    "commercial_profile": null,
+    "subject": null,
+    "body": "<p>Hola {{name}}, te <strong><em>escribo</em></strong> por tu <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://hospeda.com.ar\">{{subtype}}</a> probando 😁 {{city}}</p>"
+  }
+]

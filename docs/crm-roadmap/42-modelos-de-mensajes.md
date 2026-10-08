@@ -6,6 +6,8 @@ Una regla compartida entre selector y preparación de borradores valida canal, v
 
 La configuración habla de modelos de mensajes y explica el alcance general/específico. El selector muestra el contexto de la gestión y cuántos modelos del canal fueron excluidos. Una vertical histórica aparece explícitamente al editar, sin cambiar el valor almacenado. La vista previa identifica los ejemplos como ficticios y permite elegir un negocio.
 
-Los cuerpos y asuntos existentes se mantienen: falta leer los modelos cargados en producción para revisar sus textos y proponer cambios concretos; no se inventan promociones, precios ni compromisos comerciales. La búsqueda sin acentos conserva su lugar en el orden de prioridades.
+La exportación del propietario contiene 31 modelos activos: 30 comerciales (18 email, 12 WhatsApp) y uno de prueba. Se preparó una revisión editorial de los 30, seis WhatsApp para Referente y la desactivación de prueba contacto. No se incorporan promociones, precios ni garantías. Los textos no afirman haber investigado trayectoria o posicionamiento; diferencian beneficios por vertical, colaboración editorial/institucional y tono por perfil. La búsqueda sin acentos conserva su lugar en el orden de prioridades.
+
+La aplicación en producción sigue pendiente: el PR incorpora un comando manual, no una migración automática. Ver el procedimiento de [revisión del catálogo](../message-model-review-runbook.md).
 
 Validación: matriz unitaria de compatibilidad, integración de guardar y preparar un modelo Referente por WhatsApp, y recorridos de navegador para configuración, segmentación y preparación del borrador.
