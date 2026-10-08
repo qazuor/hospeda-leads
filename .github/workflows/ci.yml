@@ -78,6 +78,10 @@ jobs:
         run: npm run test:usability
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Accent-insensitive search integration tests
+        run: node --import tsx scripts/test-search.ts
+        env:
+          CRM_TEST_DATABASE: "1"
       - run: npm run build
       - name: Start server
         run: |

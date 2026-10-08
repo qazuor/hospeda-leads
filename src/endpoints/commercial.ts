@@ -1,3 +1,4 @@
+import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
 import {accountExtraFields} from '../helpers/dataNormalization';
@@ -48,7 +49,7 @@ export async function get(request:Request){
     if(input.archived&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("archivedAt",input.archived?"is not":"is",null);
     if(input.status)query=query.where("commercialStatus","=",input.status);
-    if(input.q)query=query.where(eb=>eb.or([eb("nombre","ilike","%"+input.q+"%"),eb("email","ilike","%"+input.q+"%"),eb("ciudad","ilike","%"+input.q+"%") ]));
+    if(input.q)query=query.where(eb=>eb.or([searchSql("nombre",input.q!),searchSql("email",input.q!),searchSql("ciudad",input.q!)]));
     const [count,rows]=await Promise.all([
       query.select(eb=>eb.fn.countAll().as("total")).executeTakeFirstOrThrow(),
       query.selectAll().select(eb=>[

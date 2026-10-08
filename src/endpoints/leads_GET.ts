@@ -1,3 +1,4 @@
+import {searchSql} from "../helpers/searchSql";
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {calendarDay} from '../helpers/workDates';
 import {crmError} from '../helpers/crmErrors';
@@ -20,21 +21,18 @@ export async function handle(request: Request) {
     let query=source();
     if(!includeDeleted)query=query.where("deletedAt","is",null);
     if(input.entity==="opportunity"&&user.role!=="admin")query=query.where(eb=>eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("archivedAt","is",null)));
-    if(input.q){const s="%"+input.q.toLowerCase()+"%";query=query.where(eb=>eb.or([
-      eb(sql<string>`lower(nombre)`,"like",s),
-      eb(sql<string>`lower(coalesce(opportunity_name,''))`,"like",s),
-      eb(sql<string>`lower(coalesce(contact_name,''))`,"like",s),
-      eb(sql<string>`lower(coalesce(email,''))`,"like",s),
-      eb(sql<string>`lower(coalesce(telefono,''))`,"like",s),
-      eb(sql<string>`lower(coalesce(ciudad,''))`,"like",s),
-      eb(sql<string>`lower(coalesce(origen,''))`,"like",s),
-      eb.exists(
-        eb.selectFrom("leadNotes")
-          .select("leadNotes.id")
-          .whereRef("leadNotes.leadId","=","leads.id")
-          .where(sql<string>`lower(note)`,"like",s)
-      )
-    ]))}
+    if(input.q)query=query.where(eb=>eb.or([
+      searchSql("nombre",input.q!),
+      searchSql("opportunityName",input.q!),
+      searchSql("contactName",input.q!),
+      searchSql("email",input.q!),
+      searchSql("telefono",input.q!),
+      searchSql("ciudad",input.q!),
+      searchSql("origen",input.q!),
+      eb.exists(eb.selectFrom("leadNotes").select("leadNotes.id")
+        .whereRef("leadNotes.leadId","=","leads.id")
+        .where(searchSql("note",input.q!)))
+    ]));
     const includeCities=input.ciudades.length?input.ciudades:(input.ciudad?[input.ciudad]:[]);
     const includeStates=input.estados.length?input.estados:(input.estado?[input.estado]:[]);
     const includeTypes=input.tipos.length?input.tipos:(input.tipo?[input.tipo]:[]);
