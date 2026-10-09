@@ -10,15 +10,15 @@ body {
 }
 /* All fields use the shared readable size, including legacy page layouts. */
 [data-mantine-color-scheme] .mantine-Input-input:not([type=checkbox]):not([type=radio]) {
-  min-height: 44px;
-  font-size: 16px;
+  min-height: var(--crm-control-height);
+  font-size: var(--crm-control-font);
   background: var(--card);
   color: var(--foreground);
   border-color: var(--border);
 }
 [data-mantine-color-scheme] .mantine-InputWrapper-root,
 [data-mantine-color-scheme] .mantine-Input-wrapper { min-width: 0; }
-.mantine-Menu-itemLabel { display:flex; align-items:center; gap:8px; }
+.mantine-Menu-itemLabel { display:flex; align-items:center; gap:10px; min-width:0; }
 
 .mantine-InputWrapper-label { font-size:14px;font-weight:500;margin-bottom:6px; }
 .mantine-InputWrapper-description { font-size:13px;line-height:1.5; }

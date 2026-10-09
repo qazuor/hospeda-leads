@@ -12,6 +12,9 @@
   --crm-panel-padding: 20px;
   --crm-panel-radius: 12px;
   --crm-title-size: clamp(26px, 2.5vw, 32px);
+  --crm-control-height: 38px;
+  --crm-control-font: 14px;
+  --crm-focus-color: color-mix(in srgb, var(--primary) 65%, var(--foreground));
   --crm-gutter: clamp(12px, 2vw, 28px);
   /* Content layers */
   --z-content-low: 10; /* Minor elevated content */
@@ -199,10 +202,12 @@
 /* Shared readable control and focus baseline. Zoom remains controlled by the browser. */
 body{font-size:16px;line-height:1.5}
 input,select,textarea{font-family:inherit;font-size:16px;line-height:1.5}
-input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[data-disclosure-control]:focus-visible{outline:3px solid var(--primary);outline-offset:3px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[data-disclosure-control]:focus-visible{outline:1.5px solid var(--crm-focus-color);outline-offset:2px}
 main{scroll-margin-top:100px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 .dark{--surface-border:color-mix(in srgb,var(--border) 75%,var(--card));--surface-raised-shadow:0 2px 4px #0002,0 12px 32px -16px #0008;--surface-hover-shadow:0 6px 20px -10px #0009}
 
 @media(max-width:600px){:root{--crm-panel-padding:16px}}
+
+@media(max-width:767px){:root{--crm-control-height:44px;--crm-control-font:16px}}

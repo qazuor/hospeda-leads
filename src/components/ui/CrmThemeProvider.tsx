@@ -17,8 +17,8 @@ const theme = createTheme({
   },
   fontFamily: 'var(--font-family-base)',
   headings: { fontFamily: 'var(--font-family-heading)' },
-  defaultRadius: 'md',
-  radius: { xs: '4px', sm: '6px', md: '12px', lg: '16px', xl: '20px' },
+  defaultRadius: 'sm',
+  radius: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px' },
   spacing: { xs: '8px', sm: '12px', md: '16px', lg: '24px', xl: '32px' },
   fontSizes: { xs: '12px', sm: '14px', md: '16px', lg: '18px', xl: '20px' },
 });
