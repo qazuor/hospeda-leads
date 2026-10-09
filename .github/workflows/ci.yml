@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        # Docker Official Images mirror: avoid Docker Hub's shared-IP pull quota.
+        image: public.ecr.aws/docker/library/postgres:17-alpine
         env:
           POSTGRES_DB: hospeda_leads
           POSTGRES_USER: hospeda
@@ -122,7 +123,7 @@ jobs:
           kill "$(cat /tmp/hospeda-leads.pid)" || true
 
       - name: Build production Docker image
-        run: docker build -t hospeda-leads:ci .
+        run: docker build --build-arg NODE_IMAGE=public.ecr.aws/docker/library/node:22-alpine -t hospeda-leads:ci .
 
       - name: Smoke test production Docker image
         run: |
