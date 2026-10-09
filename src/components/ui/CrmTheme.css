@@ -26,4 +26,6 @@ body {
 /* Fields remain distinct from their containing surface in both themes. */
 body{--crm-field-border:color-mix(in srgb,var(--foreground) 22%,var(--border))}
 [data-mantine-color-scheme] .mantine-Input-input:not([type=checkbox]):not([type=radio]){border-color:var(--crm-field-border)}
-[data-mantine-color-scheme] .mantine-Input-input:focus{border-color:var(--primary)}
+[data-mantine-color-scheme] .mantine-Input-input:focus{border-color:var(--crm-focus-color)}
+
+.mantine-focus-auto:focus-visible,.mantine-focus-always:focus{outline:1.5px solid var(--crm-focus-color);outline-offset:2px}
