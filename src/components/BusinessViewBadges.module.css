@@ -2,3 +2,5 @@
 
 .actions :global(.mantine-ActionIcon-root){width:24px;height:28px;min-width:24px}
 @media(max-width:767px){.badge{height:44px}.actions :global(.mantine-ActionIcon-root){width:32px;height:44px;min-width:32px}}
+
+.row{container-type:inline-size}.badge{max-width:calc(100cqw - 88px)}.badge .select{min-width:0;flex:1}.actions{flex-shrink:0}
