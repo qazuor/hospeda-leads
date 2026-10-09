@@ -93,6 +93,13 @@ try{
  const delegated=await read('',other.cookie);assert(delegated.tasks.some(t=>t.id===visit));assert(delegated.accounts.some(x=>x.id===a.id));
  await mutate({action:'task_status',id:visit,status:'completed',result:'Visita efectuada',completedAt:'2026-09-15T15:00:00-03:00'},other.cookie);
  assert.equal((await db.selectFrom('leads').select('assignedUserEmail').where('id','=',l.id).executeTakeFirstOrThrow()).assignedUserEmail,user.user.email);
+ // A toast destination reads one exact task, including delegated work outside the inbox page.
+ const exactTask='mode=detail&accountId='+a.id+'&taskId='+visit;
+ assert.deepEqual((await read(exactTask,other.cookie)).tasks.map(t=>t.id),[visit]);
+ assert.equal((await read(exactTask,user.cookie)).tasks.length,0);
+ assert.deepEqual((await read(exactTask+'&responsible=all',admin.cookie)).tasks.map(t=>t.id),[visit]);
+ assert.equal((await read('mode=detail&accountId='+b.id+'&taskId='+visit,admin.cookie)).tasks.length,0);
+ assert.equal((await get(new Request('http://localhost/_api/work?taskId='+visit,{headers:{cookie:user.cookie}}))).status,400);
  assert.equal((await contact(request({leadId:l.id,channel:'phone',result:'Respondió'}))).status,200);
  const logged=await db.selectFrom('crmActivities').selectAll().where('leadId','=',l.id).where('title','=','Contacto registrado').executeTakeFirstOrThrow();assert.equal(logged.typeId,'call');
  const audit=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','=',a.id).execute();assert(audit.every(j=>j.actorEmail));assert(audit.some(j=>j.entity==='crm_activities'&&j.action==='UPDATE'));

@@ -1,4 +1,5 @@
 import { Disclosure, DisclosureSummary } from './Disclosure';
+import {QueryErrorNotice} from './QueryErrorNotice';
 import {purposeNames} from '../helpers/nextStep';
 import React,{useState} from 'react';
 import {Link} from 'react-router-dom';
@@ -67,7 +68,7 @@ export function WorkPanel({accountId,leadId}:{accountId:string;leadId?:string}){
  const params={accountId,leadId,responsible:admin?'all':undefined,mode:'detail',page:String(page)};
  const q=useQuery({queryKey:['work',params],queryFn:()=>getWork(params)});
  if(q.isPending)return <p>Cargando tareas y actividades…</p>;
- if(q.error)return <p role="alert">{q.error.message}</p>;
+ if(q.error)return <QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar seguimiento"/>;
  const d=q.data;const pending=d.tasks.filter(t=>t.status==='pending');const finished=d.tasks.filter(t=>t.status!=='pending');
  return <section className={styles.section}>
   <header className={styles.heading}><div><h3>Tareas y actividades comerciales</h3><p className={styles.muted}>Tareas: lo que falta hacer. Actividades: lo que ya ocurrió.</p></div><div className={styles.actions}><Button size="sm" onClick={()=>setEditor({kind:'task',accountId,leadId})}>Nueva tarea</Button><Button size="sm" variant="outline" onClick={()=>setEditor({kind:'activity',accountId,leadId})}>Registrar actividad</Button></div></header>

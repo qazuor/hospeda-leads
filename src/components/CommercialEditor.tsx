@@ -12,6 +12,7 @@ import { getSettings } from "../endpoints/settings_GET.schema";
 import { saveCommercial, type Account, type Contact, type Opportunity, type CommercialDetail } from "../endpoints/commercial.schema";
 import { useAuth } from "../helpers/useAuth";
 import { dateOnlyInput } from "../helpers/crmDates";
+import {crmSuccess} from '../helpers/crmFeedback';
 import styles from "./Commercial.module.css";
 
 export type EditorTarget={kind:"account";item?:Account}|{kind:"contact";item?:Contact}|{kind:"opportunity";item?:Opportunity}|{kind:"convert"}|{kind:"archive"}|{kind:"delete_contact";item:Contact};
@@ -46,9 +47,12 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
   const [creationRequestKey]=useState(()=>crypto.randomUUID());
   const [baseline]=useState(()=>JSON.stringify({draft,primary}));
   const guard=useUnsavedChanges(JSON.stringify({draft,primary})!==baseline,onClose);
-  const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async result=>{
+  const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async (result,input)=>{
     await qc.cancelQueries({queryKey:["leads"]});
     await Promise.all(["commercial","commercial-detail","leads","lead-stats","lead-journal","global-journal","analytics"].map(key=>qc.invalidateQueries({queryKey:[key],refetchType:"all"})));
+    if(input.action==='contact_save')crmSuccess('Contacto guardado',{label:'Ver contacto',href:'/accounts/'+input.accountId+'?section=contacts&contactId='+result.id});
+    else if(input.action==='opportunity_save')crmSuccess('Gestión guardada',{label:'Abrir gestión',href:'/sales/'+result.id});
+    else if(input.action==='account_save')crmSuccess('Negocio guardado',{label:'Ver negocio',href:'/accounts/'+result.id});
     onSaved?.(result.id);onClose();
   }});
   const field=(key:string,label:string)=> <label key={key}>{label}{key==="notes"||key==="reason"||key==="businessNotes"||key==="verificationUrls"?<Textarea disabled={mutation.isPending} rows={3} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>:<Input disabled={mutation.isPending} type={(key==="estimatedCloseDate"||key==="verifiedOn")?"date":"text"} inputMode={key==="email"?"email":undefined} required={["nombre","name","opportunityName"].includes(key)} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>}</label>;

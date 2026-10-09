@@ -1,0 +1,25 @@
+import {test,expect} from '@playwright/test';
+import superjson from 'superjson';
+import {localDay} from '../../src/helpers/workDates';
+test('contact and pending toasts open the saved record and navigation protects edits',async({page})=>{
+ test.setTimeout(120000);await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
+ const text=await page.evaluate(async()=>await(await fetch('/_api/commercial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({json:{action:'account_save',nombre:'Avisos claros '+Date.now(),assignedUserEmail:'admin@example.com'}})})).text());const accountId=superjson.parse<any>(text).id;
+ await page.goto('/accounts/'+accountId);await page.getByRole('button',{name:'Agregar persona de contacto',exact:true}).click();await page.getByLabel('Nombre de la persona').fill('Ana de los avisos');await page.getByLabel('Email',{exact:true}).fill('ana@example.com');await page.getByRole('dialog').getByRole('button',{name:'Guardar',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.getByRole('button',{name:'Ver contacto',exact:true}).click();await expect(page).toHaveURL(/section=contacts&contactId=\d+/);await expect(page.locator('[data-contact-id]').filter({hasText:'Ana de los avisos'})).toBeFocused();
+ await page.getByRole('button',{name:'Planificar próximo paso',exact:true}).click();let dialog=page.getByRole('dialog');await dialog.getByLabel('Título',{exact:true}).fill('Revisar aviso de próximo paso');await dialog.getByLabel('Fecha de vencimiento').fill(localDay());await dialog.getByRole('button',{name:'Guardar próximo paso',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await page.getByRole('button',{name:'Ver pendiente',exact:true}).click();await expect(page).toHaveURL(/my-day\?accountId=\d+&taskId=\d+/);const selected=page.getByRole('region',{name:'Pendiente seleccionado',exact:true});await expect(selected.getByText('Revisar aviso de próximo paso',{exact:true})).toBeVisible();await expect(selected.locator('[data-work-task]')).toBeFocused();
+ await selected.getByRole('button',{name:'Más acciones de Revisar aviso de próximo paso',exact:true}).click();await page.getByRole('menuitem',{name:'Editar / reprogramar',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByLabel('Título',{exact:true}).fill('No perder este cambio');
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('crm:navigate',{detail:'/accounts'})));await expect(page.getByRole('heading',{name:'Tenés cambios sin guardar',exact:true})).toBeVisible();await page.getByRole('button',{name:'Seguir editando',exact:true}).click();await expect(dialog.getByLabel('Título',{exact:true})).toHaveValue('No perder este cambio');await expect(page).toHaveURL(/my-day\?accountId=/);
+});
+
+test('a read error offers a toast retry and keeps the business route',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ let fail=true,reads=0;
+ await page.route('**/_api/**',async route=>{
+  const path=new URL(route.request().url()).pathname;
+  if(path.endsWith('/commercial')){reads++;await route.fulfill({status:fail?500:200,contentType:'application/json',body:superjson.stringify(fail?{error:'Lectura temporalmente no disponible'}:{account:{id:'1',nombre:'Negocio recuperado',assignedUserEmail:'admin@example.com'},contacts:[],opportunities:[],journal:[],leadJournal:[],users:[],verticals:[]})});return;}
+  await route.fulfill({contentType:'application/json',body:superjson.stringify(path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:path.endsWith('/work')?{tasks:[],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:0,totalActivities:0,page:1}:path.endsWith('/pipeline')?{stages:[]}:{})});
+ });
+ await page.goto('/accounts/1');await expect(page.getByRole('button',{name:'Reintentar negocio',exact:true})).toBeVisible();fail=false;const before=reads;await page.getByRole('button',{name:'Reintentar',exact:true}).click();await expect(page.getByRole('heading',{name:'Negocio recuperado',exact:true})).toBeVisible();expect(reads).toBeGreaterThan(before);await expect(page).toHaveURL(/accounts\/1$/);
+});
