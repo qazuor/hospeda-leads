@@ -48,7 +48,7 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
   await legend.getByRole('button', { name: 'Cambiar valor del filtro Ciudad no es Concordia', exact: true }).click(); await popup.getByRole('option', { name: 'Colón', exact: true }).click();
   await expect.poll(() => requests.at(-1)?.filters[0].rules[1].value).toBe('Colón'); expect(requests.at(-1).filters[0].rules[1].operator).toBe('neq');
   await legend.getByRole('button', { name: 'Quitar filtro Ciudad no es Colón', exact: true }).click();
-  await expect(legend.getByText('OR', { exact: true })).toHaveCount(0);
+  await expect(legend.getByText('O', { exact: true })).toHaveCount(0);
   await expect(legend.getByRole('button', { name: 'Cambiar valor del filtro Vertical sin valor', exact: true })).toHaveCount(0);
   await legend.getByRole('button', { name: 'Quitar filtro Vertical sin valor', exact: true }).click();
   await legend.getByRole('button', { name: 'Cambiar valor del filtro Responsable es Ana', exact: true }).click(); popup = page.getByRole('dialog', { name: 'Elegir valor de Responsable', exact: true });
