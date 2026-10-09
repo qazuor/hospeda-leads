@@ -24,7 +24,7 @@ export function TaskRow({task,data,onEdit}:{task:WorkTask;data:WorkData;onEdit:(
  const {authState}=useAuth();const editable=authState.type==='authenticated'&&(authState.user.role==='admin'||task.assignedUserEmail===authState.user.email);
  const needsContact=['call','message','followup'].includes(task.typeId);
  const bucket=taskBucket(task.dueDate,task.dueAt);
- return <article className={ws.row} data-tone={pending?bucket:task.status}>
+ return <article data-work-task={task.id} tabIndex={-1} className={ws.row} data-tone={pending?bucket:task.status}>
   <div className={ws.rowBody}>
    <div className={ws.rowHeading}><strong>{task.title}</strong>{task.priority==='alta'&&<span className={ws.priority}>Alta prioridad</span>}{!pending&&<span className={ws.status}>{statusNames[task.status]}</span>}</div>
    <Link className={ws.context} to={task.leadId?'/sales/'+task.leadId:'/accounts/'+task.accountId}>{task.accountName}{task.opportunityName?' · '+task.opportunityName:''}</Link>
