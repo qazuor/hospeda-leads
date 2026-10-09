@@ -9,6 +9,9 @@
   --surface-hover-shadow: 0 6px 20px -10px #26374a30;
   --surface-border: color-mix(in srgb, var(--border) 75%, var(--card));
   --crm-content-width: 1600px;
+  --crm-panel-padding: 20px;
+  --crm-panel-radius: 12px;
+  --crm-title-size: clamp(26px, 2.5vw, 32px);
   --crm-gutter: clamp(12px, 2vw, 28px);
   /* Content layers */
   --z-content-low: 10; /* Minor elevated content */
@@ -201,3 +204,5 @@ main{scroll-margin-top:100px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 .dark{--surface-border:color-mix(in srgb,var(--border) 75%,var(--card));--surface-raised-shadow:0 2px 4px #0002,0 12px 32px -16px #0008;--surface-hover-shadow:0 6px 20px -10px #0009}
+
+@media(max-width:600px){:root{--crm-panel-padding:16px}}

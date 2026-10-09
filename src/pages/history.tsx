@@ -23,7 +23,7 @@ const actionLabel:Record<string,string>={
   soft_deleted:"Enviado a papelera",restored:"Restaurado",hard_deleted:"Eliminado definitivamente",deleted:"Eliminado"
 };
 const fieldLabel:Record<string,string>={
-  nombre:"Nombre",contactName:"Persona de contacto",tipo:"Vertical",subtipo:"Subtipo",commercialProfile:"Perfil comercial",ciudad:"Ciudad",
+  opportunityName:"Nombre de la gestión",nombre:"Nombre",contactName:"Persona de contacto",tipo:"Vertical",subtipo:"Subtipo",commercialProfile:"Perfil comercial",ciudad:"Ciudad",
   estado:"Estado",suscripcion:"Suscripción",email:"Email",telefono:"Teléfono",sitioWeb:"Sitio web",urlGmap:"Google Maps",
   perfilInstagram:"Instagram",perfilFacebook:"Facebook",perfilAirbnb:"Airbnb",perfilBooking:"Booking",perfilTurismoEntreRios:"Turismo Entre Ríos",
   origen:"Origen",quienCargo:"Quién cargó",asignadoA:"Responsable",assignedUserEmail:"Responsable",fechaCreacion:"Fecha creación",
@@ -62,7 +62,7 @@ export default function HistoryPage(){
   const clear=()=>{setLeadLabel("");setActor("_all");setCity("_all");setType("_all");setAction("_all");setQ("");setDatePreset("all");setFrom("");setTo("");setPage(1)};
 
   return <><AppHeader/><main className={styles.shell}>
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>AUDITORÍA</div><h1>Historial global</h1><p>Cambios realizados en todos las gestiones, con usuario, contexto y fecha.</p></div><History size={30}/></header>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>AUDITORÍA</div><h1>Historial global</h1><p>Cambios realizados en todas las gestiones, con usuario, contexto y fecha.</p></div><History size={30}/></header>
     <section className={styles.toolbar}>
       <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar campo, valor, gestión o usuario…"/></div>
       <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por gestión…"/></div>

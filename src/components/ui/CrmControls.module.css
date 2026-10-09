@@ -1,5 +1,6 @@
-.button { min-height: 44px; height: auto; }
-.buttonLabel { white-space: normal; overflow-wrap: anywhere; padding-block: 4px; }
+.button { min-height: 44px; height: auto; flex-shrink: 0; max-width: 100%; }
+.buttonLabel { white-space: normal; overflow-wrap: normal; word-break: normal; padding-block: 4px; line-height: 1.4; }
+.button[data-variant] { color: var(--button-color); text-decoration: none; }
 .input { min-height: 44px; font-size: 16px; background: var(--card); color: var(--foreground); border-color: var(--border); }
 .option { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
 .dropdown { background: var(--popup); color: var(--foreground); border-color: var(--border); }

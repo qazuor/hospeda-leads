@@ -1,0 +1,10 @@
+/* Shared visual primitives; domain behavior stays in callers. */
+.panel{min-width:0;padding:var(--crm-panel-padding);border:1px solid var(--border);border-radius:var(--crm-panel-radius);background:var(--card);color:var(--foreground);box-shadow:none}
+.pageHeading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;min-width:0;padding:0 0 16px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;box-shadow:none}
+.pageHeading>div{min-width:0}.pageHeading h1{font:700 var(--crm-title-size)/1.25 var(--font-family-heading);letter-spacing:-.025em;margin:0 0 6px}.pageHeading p{color:var(--muted-foreground);font-size:15px;line-height:1.5;max-width:75ch;margin:0}
+.actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}.actions>:is(button,a){flex-shrink:0;max-width:100%}
+.footer{composes:actions;justify-content:flex-end;padding-top:16px;border-top:1px solid var(--border)}
+.empty{padding:16px;border:1px dashed var(--border);border-radius:10px;color:var(--muted-foreground);background:transparent;font-size:15px;line-height:1.5}
+.field{display:grid;gap:6px;min-width:0;font-size:14px;line-height:1.5;font-weight:500}
+.navigation{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:4px;min-width:0;max-width:100%;padding:4px;border:1px solid var(--border);border-radius:12px;background:var(--surface);scrollbar-width:thin}.navigation>:is(button,a){flex:0 0 auto;min-height:44px;white-space:nowrap}
+@media(max-width:600px){.pageHeading{align-items:flex-start;gap:12px}.footer>:is(button,a){flex:1 1 140px}}

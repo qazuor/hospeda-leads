@@ -19,3 +19,6 @@ body {
 [data-mantine-color-scheme] .mantine-InputWrapper-root,
 [data-mantine-color-scheme] .mantine-Input-wrapper { min-width: 0; }
 .mantine-Menu-itemLabel { display:flex; align-items:center; gap:8px; }
+
+.mantine-InputWrapper-label { font-size:14px;font-weight:500;margin-bottom:6px; }
+.mantine-InputWrapper-description { font-size:13px;line-height:1.5; }
