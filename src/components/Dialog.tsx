@@ -58,6 +58,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   useEffect(() => () => {
     if (wasInline.current) return;
     window.setTimeout(() => {
+      if (typeof document === 'undefined') return;
       if (document.activeElement !== document.body || document.querySelector('[role="dialog"]')) return;
       const event = new Event('focus', { cancelable: true }); closingFocus.current?.(event);
       if (!event.defaultPrevented && opener.current?.isConnected) opener.current.focus({ preventScroll: true });
