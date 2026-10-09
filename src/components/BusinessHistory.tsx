@@ -13,7 +13,7 @@ import {Disclosure,DisclosureSummary} from './Disclosure';
 import styles from './BusinessHistory.module.css';
 const channels:Record<string,string>={phone:'Teléfono',whatsapp:'WhatsApp',email:'Email',presencial:'Presencial',videollamada:'Videollamada',other:'Otro'};
 const continuations:Record<string,string>={task:'Se planificó otro paso',wait:'Se acordó esperar hasta una fecha',done:'Se decidió terminar por ahora'};
-export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:string;users?:{email:string;displayName:string}[];readOnly?:boolean}){
+export function BusinessHistory({accountId,users=[],readOnly=false,onFollow}:{accountId:string;users?:{email:string;displayName:string}[];readOnly?:boolean;onFollow?:()=>void}){
  const [page,setPage]=useState(1);
  // Reuse commercial-detail invalidation after recording work, messages and business changes.
  const q=useQuery({queryKey:['commercial-detail','history',accountId,page],queryFn:()=>getBusinessHistory(accountId,page)});
@@ -24,11 +24,11 @@ export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:s
  return <section className={styles.history} aria-label="Historial comercial">
   <div className={styles.commitments}><h3><CalendarClock size={18} aria-hidden="true"/> Compromisos pendientes ({d.totalPending})</h3>
    {!d.pending.length?<p>No hay compromisos pendientes registrados.</p>:<ul>{d.pending.map(t=><li key={t.id}>
-    <Link to={t.leadId?'/sales/'+t.leadId:'/accounts/'+accountId+(readOnly?'':'?section=work')}>{t.title}</Link>
+    <Link onClick={!t.leadId&&!readOnly?onFollow:undefined} to={t.leadId?'/sales/'+t.leadId:'/accounts/'+accountId+(readOnly?'':'?section=work')}>{t.title}</Link>
     <span>{t.dueAt?prettyInstant(t.dueAt):formatDate(calendarDay(t.dueDate))} · {actor(t.assignedUserEmail)}</span>
     <span>{t.opportunityName||'Seguimiento general del negocio'}{t.continuation==='wait'?' · Recordatorio para retomar':''}</span>
    </li>)}</ul>}
-   {d.totalPending>d.pending.length&&<p>Se muestran los primeros {d.pending.length} por fecha. <Link to={'/accounts/'+accountId+(readOnly?'':'?section=work')}>Ver seguimiento</Link></p>}
+   {d.totalPending>d.pending.length&&<p>Se muestran los primeros {d.pending.length} por fecha. <Link onClick={!readOnly?onFollow:undefined} to={'/accounts/'+accountId+(readOnly?'':'?section=work')}>Ver seguimiento</Link></p>}
   </div>
   <header><h3><MessageCircle size={18} aria-hidden="true"/> Conversaciones y resultados</h3><p>Acciones registradas por fecha real. Los mensajes muestran su estado comprobado; abrir WhatsApp no acredita un envío.</p></header>
   {!d.events.length&&<p>No hay conversaciones ni resultados registrados todavía.</p>}
