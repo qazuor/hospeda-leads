@@ -16,7 +16,7 @@ for(const width of [1280,390])test(`guided result reviews the next step and pres
   await route.fulfill({contentType:'application/json',body:superjson.stringify(path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:path.endsWith('/work')?data:{})});
  });
  await page.goto('/my-day');await page.locator('article').filter({has:page.getByText('Consultar necesidades',{exact:true})}).getByRole('button',{name:'Registrar qué pasó',exact:true}).click();
- const dialog=page.getByRole('dialog');await dialog.getByLabel('¿Qué pasó?',{exact:true}).selectOption('interested');
+ const dialog=page.getByRole('dialog');await dialog.getByRole('combobox',{name:'¿Qué pasó?',exact:true}).selectOption('interested');
  const review=dialog.getByRole('region',{name:'Revisión del resultado',exact:true});
  await expect(review).toContainText('Mostró interés');await expect(review).toContainText('Ana');await expect(review).toContainText('Falta elegir cómo continuar');
  await dialog.getByLabel('Detalles del resultado',{exact:true}).fill('Pidió una propuesta para su equipo');
