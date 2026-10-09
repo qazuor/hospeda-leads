@@ -1,3 +1,4 @@
+import {useDialogLayer} from '../../helpers/useDialogLayer';
 import React, { useEffect, useId, useRef } from 'react';
 import { Drawer, Modal } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
@@ -12,6 +13,7 @@ type Props = {
 export function CrmDialog({ opened, onClose, title, description, children, busy = false, returnFocusTo }: Props) {
   const mobile = useMediaQuery('(max-width: 600px)', false, { getInitialValueInEffect: false });
   const descriptionId = useId();
+  const layer=useDialogLayer(opened);
   // These callers unmount dialogs instead of toggling `opened` to false.
   // Capture the opener before autofocus and defer restoration until removal.
   const opener = useRef(returnFocusTo ?? (typeof document === 'undefined' ? null : document.activeElement as HTMLElement));
@@ -25,9 +27,9 @@ export function CrmDialog({ opened, onClose, title, description, children, busy 
   }, []);
   const shared = {
     opened, onClose: () => { if (!busy) onClose(); }, title,
-    closeOnClickOutside: !busy, closeOnEscape: !busy, withCloseButton: !busy,
+    closeOnClickOutside: layer.active&&!busy, closeOnEscape: layer.active&&!busy, withCloseButton: !busy,
     closeButtonProps: { 'aria-label': 'Cerrar' },
-    zIndex: 410, trapFocus: true, returnFocus: true,
+    zIndex: layer.zIndex, trapFocus: layer.active, returnFocus: true,
     'aria-describedby': description ? descriptionId : undefined,
   };
   const content = <>
