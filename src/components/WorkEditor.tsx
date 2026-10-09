@@ -8,6 +8,8 @@ import {purposeNames,type WorkPurpose} from '../helpers/nextStep';
 import {useDebounce} from '../helpers/useDebounce';
 import {useUnsavedChanges} from './UnsavedChanges';
 import {workOutcomes,purposeOutcomes,type WorkOutcome} from '../helpers/workOutcomes';
+import {workGuidance} from '../helpers/workGuidance';
+import {formatDate} from '../helpers/crmDates';
 import React,{useState} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
@@ -40,6 +42,8 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
  const [purpose,setPurpose]=useState<WorkPurpose|''>(('purpose' in target?target.purpose:undefined)||item?.purpose||(item?'':'commercial'));
  const [continuation,setContinuation]=useState<'task'|'wait'|'done'|''>('');
  const [next,setNext]=useState(false),[nextTitle,setNextTitle]=useState(''),[nextDate,setNextDate]=useState(localDay());
+ const guidance=workGuidance(purpose,outcome);
+ const chooseContinuation=(value:'task'|'wait'|'done')=>{setContinuation(value);setNext(value!=='done');if(value==='wait'&&!nextTitle)setNextTitle('Retomar conversación')};
  const values=JSON.stringify({accountId,leadId,title,typeId,description,date,time,occurred,assigned,priority,participants,contactIds,channel,result,outcome,purpose,continuation,next,nextTitle,nextDate});
  const [baseline]=useState(values);const guard=useUnsavedChanges(values!==baseline,onClose);
  const nextTask=next&&outcome!=='do_not_contact'?{title:nextTitle,dueDate:nextDate,typeId:'followup',purpose:purpose||undefined}:undefined;
@@ -92,10 +96,17 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
    {['activity','complete'].includes(target.kind)&&<label>Canal<NativeSelect value={channel} onChange={e=>setChannel(e.target.value)}><option value="">Sin especificar</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="presencial">Presencial</option><option value="videollamada">Videollamada</option><option value="other">Otro</option></NativeSelect></label>}
    {target.kind==='complete'&&availableContacts.some(c=>c.accountId===accountId)&&<Disclosure className={styles.optionalFields}><DisclosureSummary>Revisar con quién hablamos</DisclosureSummary><fieldset><legend>Personas que participaron</legend>{availableContacts.filter(c=>c.accountId===accountId).map(c=><label className={styles.checkbox} key={c.id}><Checkbox  checked={contactIds.includes(c.id)} onChange={e=>setContacts(e.target.checked?[...contactIds,c.id]:contactIds.filter(id=>id!==c.id))}/>{c.name}</label>)}</fieldset></Disclosure>}
 </Disclosure>}
+   {guidance&&['activity','complete'].includes(target.kind)&&<section className={styles.contextNote} aria-label="Orientación para continuar"><p>{guidance.text}</p>{guidance.continuation&&outcome!=='do_not_contact'&&<Button type="button" variant="outline" size="sm" onClick={()=>chooseContinuation(guidance.continuation!)}>{guidance.continuation==='wait'?'Elegir una fecha para retomar':'Planificar una acción con fecha'}</Button>}</section>}
    {outcome==='do_not_contact'&&<p role="alert">El negocio quedará marcado como No contactar y se detendrán sus secuencias. Solo un administrador podrá habilitarlo de nuevo.</p>}
    {['activity','complete','cancel'].includes(target.kind)&&<label className={styles.fullField}>Detalles del resultado<Textarea required={target.kind==='cancel'} value={result} onChange={e=>setResult(e.target.value)} placeholder={item?.result||'Qué ocurrió / motivo de cancelación'}/></label>}
    {['activity','complete'].includes(target.kind)&&outcome!=='do_not_contact'&&<fieldset className={styles.formSection}><legend>¿Qué hacemos después?</legend><label>Cómo sigue<NativeSelect required value={continuation} onChange={e=>{setContinuation(e.target.value as typeof continuation);setNext(['task','wait'].includes(e.target.value));if(e.target.value==='wait'&&!nextTitle)setNextTitle('Retomar conversación');}}><option value="">Elegí qué hacemos después</option><option value="task">Planificar el próximo paso</option><option value="wait">Esperar hasta una fecha y recordar retomar</option><option value="done">Terminar por ahora</option></NativeSelect></label>{next?<><label>Qué hay que hacer<Input required maxLength={200} value={nextTitle} onChange={e=>setNextTitle(e.target.value)} placeholder="Por ejemplo: revisar la propuesta con Ana"/></label><label>Cuándo<Input required type="date" value={nextDate} onChange={e=>setNextDate(e.target.value)}/></label></>:<p>{continuation==='done'?'Terminar por ahora guarda el resultado sin crear otra tarea. Las demás tareas se conservan.':'Elegí una opción. Si hay algo pendiente, dejá una acción con fecha.'}</p>}</fieldset>}
-   {next&&<p role="status">Al guardar se registrará el resultado y quedará pendiente “{nextTitle||'el próximo paso'}” para el {nextDate}. Las otras tareas se conservan.</p>}
+   {next&&<p role="status">Al guardar se registrará el resultado y quedará pendiente “{nextTitle||'el próximo paso'}” para el {formatDate(nextDate)}. Las otras tareas se conservan.</p>}
+   {['activity','complete'].includes(target.kind)&&outcome&&<section className={styles.formSection} aria-label="Revisión del resultado"><h3>Revisá lo que se guardará</h3><dl>
+    <dt>Resultado</dt><dd>{workOutcomes[outcome]}{result.trim()?' · '+result.trim():''}</dd>
+    <dt>Fecha real</dt><dd>{occurred?formatDate(occurred.slice(0,10))+' · '+occurred.slice(11)+' (Argentina)':'Elegí una fecha'}</dd>
+    <dt>Personas</dt><dd>{contactIds.length?contactIds.map(id=>availableContacts.find(c=>c.id===id)?.name||'Contacto #'+id).join(', '):'Sin persona registrada'}</dd>
+    <dt>Próximo paso</dt><dd>{outcome==='do_not_contact'?'Respetar la restricción de contacto':next?(nextTitle||'Falta definir la acción')+' · '+formatDate(nextDate):continuation==='done'?'Terminar por ahora, sin crear otra tarea':'Falta elegir cómo continuar'}</dd>
+   </dl><p>{target.kind==='complete'?'Se completará esta tarea y se registrará una actividad.':'Se guardará esta actividad.'} La etapa comercial se conserva. Las otras tareas no se completan ni cancelan.</p></section>}
    {target.kind==='complete'&&<p className={styles.muted}>Se registrará una actividad con la fecha real, participantes y resultado. La fecha de vencimiento original se conserva.</p>}
    {target.kind.startsWith('delete')&&<p>Se ocultará el registro. Su historial de auditoría se conserva.</p>}
    {save.error&&<p role="alert" className={styles.error}>{save.error.message}</p>}
