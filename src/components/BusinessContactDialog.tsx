@@ -11,10 +11,13 @@ import {getPipeline} from '../endpoints/pipeline.schema';
 import {getCommunication} from '../endpoints/communication.schema';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import type {CommercialDetail} from '../endpoints/commercial.schema';
+import {useAuth} from '../helpers/useAuth';
+import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import styles from './Commercial.module.css';
 
 /** Creation stays explicit until the initial commercial stage has been agreed. */
 export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,onLog}:{detail:CommercialDetail;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:'email'|'whatsapp';initialContactId?:string;onLog?:(contactId:string,channel:string)=>void}){
+ const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:undefined;
  const stages=useQuery({queryKey:['pipeline','config-summary'],queryFn:()=>getPipeline({mode:'config'})});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
  const history=useQuery({queryKey:['communication','account',detail.account.id],queryFn:()=>getCommunication('',detail.account.id)});
@@ -28,22 +31,23 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const channel=channelChoice??recent?.channel??(detail.account.telefono?'whatsapp':'email');
  const recipient=initialContactId??(recent?.channel===channel&&detail.contacts.some(c=>!c.deletedAt&&String(c.id)===recent.contactId)?recent.contactId!:'');
  if(editor)return <CommercialEditor target={editor} detail={detail} onSaved={id=>{if(editor.kind==='opportunity'){setChosen(id);setCreated(true)}}} onClose={()=>setEditor(null)}/>;
- if(composing&&opportunity)return <ContactTemplateDialog open channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onAddChannel={()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}} onOpenChange={v=>{if(!v)setComposing(false)}}/>;
+ if(composing&&opportunity)return <ContactTemplateDialog open channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onAddChannel={canModifyBusiness(user,detail.account)?()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}:undefined} onOpenChange={v=>{if(!v)setComposing(false)}}/>;
  return <CrmDialog opened onClose={onClose} title="Contactar" returnFocusTo={returnFocusTo}
   description={<>{detail.account.nombre} · Elegí la gestión y el canal. Después verificá el destinatario y revisá el mensaje.</>}>
   {stages.isPending||settings.isPending||history.isPending?<p role="status">Cargando gestiones y mensajes modelo…</p>:stages.error||settings.error||history.error?<><p role="alert">{stages.error?.message||settings.error?.message||history.error?.message}</p><Button onClick={()=>{void stages.refetch();void settings.refetch();void history.refetch()}}>Reintentar</Button></>:<div className={styles.section}>
    {created&&<p role="status">Gestión guardada. Elegí el canal para continuar. Todavía no se realizó un contacto.</p>}
-   {!open.length?<><p>Sin gestiones abiertas. Para contactar, prepará y guardá una gestión. La persona y la propuesta son opcionales.</p><Button leftSection={<Plus size={18} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Preparar gestión para contactar</Button></>:<>
+   {!open.length?<><p>Sin gestiones abiertas. Para contactar, prepará y guardá una gestión. La persona y la propuesta son opcionales.</p><Button disabled={!canModifyBusiness(user,detail.account)} leftSection={<Plus size={18} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Preparar gestión para contactar</Button>{!canModifyBusiness(user,detail.account)&&<p>El responsable del negocio o un administrador puede preparar una gestión.</p>}</>:<>
     {open.length===1?<p>Gestión: <strong>{opportunity?.opportunityName||'Presentación de Hospeda'}</strong></p>:<CrmSelect label="Gestión abierta" placeholder="Elegí una gestión" value={effective||null} onChange={value=>setChosen(value??'')} data={open.map(o=>({value:String(o.id),label:(o.opportunityName||'Gestión #'+o.id)+' · '+(o.estado||'Sin etapa')}))}/>}
     <CrmNativeSelect label="Canal" value={channel} onChange={e=>setChannel(e.target.value as 'email'|'whatsapp')}
       leftSection={channel==='email'?<Mail size={18} aria-hidden="true"/>:<MessageCircle size={18} aria-hidden="true"/>}
       data={[{value:'whatsapp',label:'WhatsApp'},{value:'email',label:'Email'}]}/>
     {recent&&<p>Último canal usado en esta gestión: {recent.channel==='email'?'Email':'WhatsApp'} · {recent.recipient}. Podés cambiarlo antes de preparar el mensaje.</p>}
     <p>Podés usar el teléfono o email del negocio, sin cargar una persona. También podrás elegir una persona registrada.</p>
-    <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!opportunity||detail.account.doNotContact} onClick={()=>setComposing(true)}>Continuar con el mensaje</Button>
+    <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!canModifyManagement(user,opportunity,detail.account)||detail.account.doNotContact} onClick={()=>setComposing(true)}>Continuar con el mensaje</Button>
+    {opportunity&&!canModifyManagement(user,opportunity,detail.account)&&<p>Solo el responsable de esta gestión o un administrador puede preparar sus mensajes.</p>}
    </>}
    {detail.account.doNotContact&&<p role="alert">Este negocio pidió no recibir contactos. Revisá su restricción antes de continuar.</p>}
-   <Button variant="default" onClick={()=>setEditor({kind:'account',item:detail.account})}>Agregar o editar teléfono o email</Button>
+   <Button variant="default" disabled={!canModifyBusiness(user,detail.account)} onClick={()=>setEditor({kind:'account',item:detail.account})}>Agregar o editar teléfono o email</Button>
   </div>}
   <Button mt="md" variant="subtle" onClick={onClose}>Cancelar</Button>
  </CrmDialog>;
