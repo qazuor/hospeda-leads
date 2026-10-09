@@ -1,3 +1,5 @@
+import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
+import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import { Table } from '@mantine/core';
 import { NativeSelect } from '../components/NativeSelect';
 import React, { useMemo, useState } from "react";
@@ -74,7 +76,8 @@ export default function HistoryPage(){
     </section>
     <section className={styles.card}>
       <div className={styles.meta}><strong>{(shownData?.total??0).toLocaleString("es-AR")} eventos</strong><span>Página {page} de {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span></div>
-      {shown.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:shown.error?<div className={styles.error}>{shown.error.message}</div>:<div className={styles.scroller}><Table><thead><tr><th>Fecha</th><th>Gestión</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
+      {shown.error&&<QueryErrorNotice error={shown.error} onRetry={shown.refetch} busy={shown.isFetching}/> }
+      {shown.isLoading?<div className={styles.loading}><QueryLoadingNotice>Cargando historial…</QueryLoadingNotice>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:<div className={styles.scroller}><Table><thead><tr><th>Fecha</th><th>Gestión</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
         {(shownData?.rows??[]).map(row=><tr key={row.id}>
           <td>{formatDate(row.createdAt,true)}</td>
           <td>{row.leadId?<Link className={styles.leadLink} to={"/?leadId="+row.leadId}><strong>{row.leadName}</strong><small>#{row.leadId}</small></Link>:<><strong>{row.leadName}</strong><small>eliminado</small></>}</td>

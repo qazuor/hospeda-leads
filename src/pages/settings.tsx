@@ -1,3 +1,7 @@
+import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
+import {QueryErrorNotice} from '../components/QueryErrorNotice';
+import {useOperationGuard} from '../helpers/useOperationGuard';
+import {toast} from 'sonner';
 import { UnstyledButton } from '@mantine/core';
 import { NativeSelect } from '../components/NativeSelect';
 import {BusinessListDefaults} from '../components/BusinessListDefaults';
@@ -32,6 +36,7 @@ export default function SettingsPage(){
   const requested=params.get("section") as Section|null;
   const section:Section=requested&&SECTIONS.includes(requested)?requested:"users";
   const q=useQuery({queryKey:["settings"],queryFn:getSettings});
+  const runOperation=useOperationGuard(error=>toast.error(error instanceof Error?error.message:'No se pudo guardar'));
   const save=useMutation({mutationFn:postSettingsSave,onSuccess:()=>qc.invalidateQueries({queryKey:["settings"]})});
   const [inviteOpen,setInviteOpen]=useState(false);
   const [inviteEmail,setInviteEmail]=useState("");
@@ -58,17 +63,17 @@ export default function SettingsPage(){
   },[data?.emailDelivery?.senderName,data?.emailDelivery?.senderEmail,data?.emailDelivery?.replyToEmail]);
 
   const go=(next:Section)=>setParams(next==="users"?{}:{section:next});
-  const inviteUser=async()=>{if(!inviteEmail.trim())return;await save.mutateAsync({action:"inviteUser",email:inviteEmail.trim()});setInviteEmail("");setInviteOpen(false)};
-  const saveUser=async()=>{
+  const inviteUser=async()=>{return runOperation('settings',async()=>{if(!inviteEmail.trim())return;await save.mutateAsync({action:"inviteUser",email:inviteEmail.trim()});setInviteEmail("");setInviteOpen(false)});};
+  const saveUser=async()=>{return runOperation('settings',async()=>{
     if(!editingUser||!editEmail.trim()||!editDisplayName.trim())return;
     await save.mutateAsync({action:"updateUser",userId:editingUser.id,email:editEmail.trim(),fullName:editFullName.trim()||null,displayName:editDisplayName.trim(),phone:editPhone.trim()||null,sex:(editSex||null) as "masculino"|"femenino"|"otro"|"prefiero_no_decir"|null,senderEmail:editSenderEmail.trim()||null});
     setEditingUser(null);
-  };
-  const resendInvite=async(userId:number)=>{await save.mutateAsync({action:"resendUserInvite",userId})};
-  const saveEmailDelivery=async()=>{
+  });};
+  const resendInvite=async(userId:number)=>{return runOperation('settings',async()=>{await save.mutateAsync({action:"resendUserInvite",userId})});};
+  const saveEmailDelivery=async()=>{return runOperation('settings',async()=>{
     if(!senderName.trim()||!senderEmail.trim()||!replyToEmail.trim())return;
     await save.mutateAsync({action:"saveEmailDelivery",senderName,senderEmail,replyToEmail});
-  };
+  });};
 
   const tabs=[
     {key:"businesses" as const,label:"Listado de negocios",icon:SlidersHorizontal},
@@ -86,7 +91,7 @@ export default function SettingsPage(){
     <main className={styles.shell}>
       <header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Configuración</h1><p>Usuarios, clasificaciones, comunicación y comportamiento general del CRM.</p></div></header>
       <nav aria-label="Secciones de configuración" className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <UnstyledButton key={tab.key} aria-current={section===tab.key?"page":undefined} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</UnstyledButton>})}</nav>
-      {(q.error||save.error)&&<div className={styles.error}>{(q.error||save.error)?.message}</div>}
+      {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}{save.error&&<div role="alert" className={styles.error}>{save.error.message}</div>}
 
       {section==="businesses"&&<BusinessListDefaults/>}
       {section==="users"&&<section className={styles.content}>
@@ -143,16 +148,16 @@ export default function SettingsPage(){
         <article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Apariencia</h2><p>Elegí tema claro, oscuro o el definido por el sistema operativo.</p></div></div><div className={styles.systemControl}><ThemeModeSwitch/></div></article>
       </section>}
 
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={inviteOpen} onOpenChange={open=>{if(!save.isPending)setInviteOpen(open)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" disabled={save.isPending} onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
 
-      <Dialog open={!!editingUser} onOpenChange={open=>{if(!open)setEditingUser(null)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Editar usuario</DialogTitle><DialogDescription>El email Hospeda se usa como From y Reply-To cuando esta persona envía correos desde el CRM.</DialogDescription></DialogHeader><div className={styles.editUserGrid}>
+      <Dialog open={!!editingUser} onOpenChange={open=>{if(!open&&!save.isPending)setEditingUser(null)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Editar usuario</DialogTitle><DialogDescription>El email Hospeda se usa como From y Reply-To cuando esta persona envía correos desde el CRM.</DialogDescription></DialogHeader><div className={styles.editUserGrid}>
         <label className={styles.dialogField}><span>Nombre completo</span><Input value={editFullName} onChange={e=>setEditFullName(e.target.value)}/></label>
         <label className={styles.dialogField}><span>Nombre visible</span><Input value={editDisplayName} onChange={e=>setEditDisplayName(e.target.value)}/></label>
         <label className={styles.dialogField}><span>Teléfono</span><Input type="tel" value={editPhone} onChange={e=>setEditPhone(e.target.value)}/></label>
         <label className={styles.dialogField}><span>Sexo</span><NativeSelect value={editSex} onChange={e=>setEditSex(e.target.value)}><option value="">Sin completar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option><option value="otro">Otro</option><option value="prefiero_no_decir">Prefiere no decir</option></NativeSelect></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email real</span><Input type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)}/></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email Hospeda para enviar mails</span><Input type="email" value={editSenderEmail} onChange={e=>setEditSenderEmail(e.target.value)} placeholder="nombre@hospeda.com.ar"/></label>
-      </div><DialogFooter><Button variant="outline" onClick={()=>setEditingUser(null)}>Cancelar</Button><Button onClick={saveUser} disabled={save.isPending||!editEmail.trim()||!editDisplayName.trim()}>{save.isPending?"Guardando…":"Guardar cambios"}</Button></DialogFooter></DialogContent></Dialog>
+      </div><DialogFooter><Button variant="outline" disabled={save.isPending} onClick={()=>setEditingUser(null)}>Cancelar</Button><Button onClick={saveUser} disabled={save.isPending||!editEmail.trim()||!editDisplayName.trim()}>{save.isPending?"Guardando…":"Guardar cambios"}</Button></DialogFooter></DialogContent></Dialog>
     </main>
   </>;
 }

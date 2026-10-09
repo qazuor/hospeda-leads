@@ -1,7 +1,8 @@
+import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import { NativeSelect } from './NativeSelect';
 import { Input } from './Input';
 import React,{useRef,useState} from 'react';
-import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
+import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {BusinessViewBadges} from './BusinessViewBadges';
 import type {ViewManagementRequest} from './PersonalViewsDialog';
 import viewStyles from './BusinessListTools.module.css';
@@ -25,7 +26,7 @@ export function BusinessListTools({saveDialog,onSaveDialogChange:setSaveDialog,u
  const [management,setManagement]=useState<ViewManagementRequest|null>(null);
  const qc=useQueryClient();const [pair,setPair]=useState<{sourceId:string;destinationId:string}|null>(null),[field,setField]=useState('ciudad'),[value,setValue]=useState(''),[review,setReview]=useState<InputType|null>(null),[remove,setRemove]=useState(false);
  const latch=useRef(false);const dup=useQuery({queryKey:['lead-duplicates'],queryFn:getLeadDuplicates,enabled:admin&&duplicates});const settings=useQuery({queryKey:['settings'],queryFn:getSettings});const views=useQuery({queryKey:['business-saved-views',userId],queryFn:getSavedLeadViews});
- const bulk=useMutation({mutationFn:postLeadsBulk});const deletion=useMutation({mutationFn:postLeadsBulkDelete});
+ const bulk=useGuardedMutation({mutationFn:postLeadsBulk});const deletion=useGuardedMutation({mutationFn:postLeadsBulkDelete});
  const options=field==='ciudad'?settings.data?.cities.map(c=>({value:c.name,label:c.name})):field==='assignedUserEmail'?settings.data?.users.map(u=>({value:u.email,label:u.displayName||u.email})):field==='estado'?settings.data?.opportunityStages.map(v=>({value:v,label:v})):field==='tipo'?settings.data?.types.map(v=>({value:v,label:v})):(field==='prioridad'?['alta','media','baja']:['Independiente','Consolidado','Referente']).map(v=>({value:v,label:v}));
  async function apply(fingerprint:string){if(latch.current)return;latch.current=true;try{await bulk.mutateAsync({...review!,expectedFingerprint:fingerprint});setReview(null);onClear();await qc.invalidateQueries({queryKey:['leads']});toast.success('Cambios guardados');}catch(e){toast.error((e as Error).message);}finally{latch.current=false;}}
  async function trash(){if(latch.current)return;latch.current=true;try{await deletion.mutateAsync({entity:'business',ids:selected});setRemove(false);onClear();await qc.invalidateQueries({queryKey:['leads']});toast.success('Gestiones enviadas a papelera');}catch(e){toast.error((e as Error).message);}finally{latch.current=false;}}

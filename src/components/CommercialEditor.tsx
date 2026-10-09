@@ -46,7 +46,6 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
   const submitting=useRef(false);
   const [creationRequestKey]=useState(()=>crypto.randomUUID());
   const [baseline]=useState(()=>JSON.stringify({draft,primary}));
-  const guard=useUnsavedChanges(JSON.stringify({draft,primary})!==baseline,onClose);
   const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async (result,input)=>{
     await qc.cancelQueries({queryKey:["leads"]});
     await Promise.all(["commercial","commercial-detail","leads","lead-stats","lead-journal","global-journal","analytics"].map(key=>qc.invalidateQueries({queryKey:[key],refetchType:"all"})));
@@ -55,6 +54,7 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
     else if(input.action==='account_save')crmSuccess('Negocio guardado',{label:'Ver negocio',href:'/accounts/'+result.id});
     onSaved?.(result.id);onClose();
   }});
+  const guard=useUnsavedChanges(JSON.stringify({draft,primary})!==baseline,onClose,mutation.isPending);
   const field=(key:string,label:string)=> <label key={key}>{label}{key==="notes"||key==="reason"||key==="businessNotes"||key==="verificationUrls"?<Textarea disabled={mutation.isPending} rows={3} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>:<Input disabled={mutation.isPending} type={(key==="estimatedCloseDate"||key==="verifiedOn")?"date":"text"} inputMode={key==="email"?"email":undefined} required={["nombre","name","opportunityName"].includes(key)} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>}</label>;
   const select=(key:string,label:string,options:{value:string;label:string}[])=> <label>{label}<NativeSelect disabled={mutation.isPending} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}><option value="" disabled={key==="estado"&&target.kind==="opportunity"&&!!target.item?.estado}>{key==="estado"?"Sin etapa":key==="primaryContactId"?"Sin persona elegida":"Sin asignar"}</option>{draft[key]&&!options.some(o=>o.value===draft[key])&&<option value={draft[key]}>{draft[key]} (histórico)</option>}{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</NativeSelect></label>;
   const submit=async(event:React.FormEvent)=>{

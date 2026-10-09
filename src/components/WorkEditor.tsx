@@ -1,3 +1,4 @@
+import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import { Input } from './Input';
 import { NativeSelect } from './NativeSelect';
@@ -11,7 +12,7 @@ import {workOutcomes,purposeOutcomes,type WorkOutcome} from '../helpers/workOutc
 import {workGuidance} from '../helpers/workGuidance';
 import {formatDate} from '../helpers/crmDates';
 import React,{useState} from 'react';
-import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
+import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {crmSuccess} from '../helpers/crmFeedback';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from './Dialog';
@@ -46,7 +47,7 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
  const guidance=workGuidance(purpose,outcome);
  const chooseContinuation=(value:'task'|'wait'|'done')=>{setContinuation(value);setNext(value!=='done');if(value==='wait'&&!nextTitle)setNextTitle('Retomar conversación')};
  const values=JSON.stringify({accountId,leadId,title,typeId,description,date,time,occurred,assigned,priority,participants,contactIds,channel,result,outcome,purpose,continuation,next,nextTitle,nextDate});
- const [baseline]=useState(values);const guard=useUnsavedChanges(values!==baseline,onClose);
+ const [baseline]=useState(values);
  const nextTask=next&&outcome!=='do_not_contact'?{title:nextTitle,dueDate:nextDate,typeId:'followup',purpose:purpose||undefined}:undefined;
  const [search,setSearch]=useState('');const debouncedSearch=useDebounce(search,250);
  const lookup=useQuery({queryKey:['work','lookup',debouncedSearch,accountId],queryFn:()=>getWork({mode:'lookup',...(debouncedSearch?{q:debouncedSearch}:accountId?{accountId}:{})}),enabled:!['delete_task','delete_activity','cancel'].includes(target.kind)});
@@ -60,7 +61,8 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
  const owner=leadId?opportunities.find(o=>o.id===leadId)?.assignedUserEmail:choices.find(a=>a.id===accountId)?.assignedUserEmail;
  const statusAction=['complete','cancel','delete_task','delete_activity'].includes(target.kind);
  const names={task:item?'Editar / reprogramar tarea':'Planificar próximo paso',activity:item?'Editar actividad':'Registrar actividad',complete:'Registrar qué pasó',cancel:'Cancelar tarea',delete_task:'Dar de baja tarea',delete_activity:'Dar de baja actividad'};
- const save=useMutation({mutationFn:postWork,onSuccess:async(result,input)=>{await Promise.all(['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','communication','pipeline','analytics'].map(key=>qc.invalidateQueries({queryKey:[key]})));const cached=qc.getQueriesData<Partial<WorkData>>({queryKey:['work']}).flatMap(([,value])=>value?.tasks??[]);const remaining=pendingWork([...new Map(cached.filter(t=>t.accountId===accountId&&t.leadId===(leadId||null)&&(!['complete','cancel','delete_task'].includes(target.kind)||t.id!==item?.id)).map(t=>[t.id,t])).values()]);crmSuccess(target.kind==='complete'?(next?'Resultado guardado y próximo paso programado':'Resultado guardado; las otras tareas se conservan'):target.kind==='task'?'Próximo paso guardado':target.kind==='cancel'?'Tarea cancelada con motivo':'Guardado',input.action==='task_save'?{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+result.id}:remaining[0]?{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+remaining[0].id}:leadId?{label:'Abrir gestión',href:'/sales/'+leadId}:{label:'Ver historial',href:'/accounts/'+accountId+'?section=history'},remaining[0]?'Próximo pendiente: '+remaining[0].title+' · '+formatDate(remaining[0].dueDate):'No hay otro pendiente visible en este contexto.');onClose();},onError:e=>toast.error(e.message)});
+ const save=useGuardedMutation({mutationFn:postWork,onSuccess:async(result,input)=>{await Promise.all(['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','communication','pipeline','analytics'].map(key=>qc.invalidateQueries({queryKey:[key]})));const cached=qc.getQueriesData<Partial<WorkData>>({queryKey:['work']}).flatMap(([,value])=>value?.tasks??[]);const remaining=pendingWork([...new Map(cached.filter(t=>t.accountId===accountId&&t.leadId===(leadId||null)&&(!['complete','cancel','delete_task'].includes(target.kind)||t.id!==item?.id)).map(t=>[t.id,t])).values()]);crmSuccess(target.kind==='complete'?(next?'Resultado guardado y próximo paso programado':'Resultado guardado; las otras tareas se conservan'):target.kind==='task'?'Próximo paso guardado':target.kind==='cancel'?'Tarea cancelada con motivo':'Guardado',input.action==='task_save'?{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+result.id}:remaining[0]?{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+remaining[0].id}:leadId?{label:'Abrir gestión',href:'/sales/'+leadId}:{label:'Ver historial',href:'/accounts/'+accountId+'?section=history'},remaining[0]?'Próximo pendiente: '+remaining[0].title+' · '+formatDate(remaining[0].dueDate):'No hay otro pendiente visible en este contexto.');onClose();},onError:e=>toast.error(e.message)});
+ const guard=useUnsavedChanges(values!==baseline,onClose,save.isPending);
  const submit=(e:React.FormEvent)=>{
   e.preventDefault();if(target.kind==='cancel'&&!result.trim()){toast.error('Escribí un motivo para cancelar esta tarea.');return;}if(['activity','complete'].includes(target.kind)&&outcome!=='do_not_contact'&&!continuation){toast.error('Elegí cómo sigue esta conversación.');return;}let body:WorkMutation;
   if(target.kind==='complete'||target.kind==='cancel')body={action:'task_status',id:target.item.id,status:target.kind==='complete'?'completed':'cancelled',purpose:purpose||undefined,continuation:continuation||undefined,result:result.trim()||workOutcomes[outcome as WorkOutcome]||'Cancelada',outcome:outcome||null,nextTask,contactIds,channel:channel||null, ...(target.kind==='complete'?{completedAt:argentinaInstant(occurred).toISOString()}:{})};
@@ -75,7 +77,7 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
  return <Dialog open onOpenChange={open=>{if(!open&&!save.isPending)guard.requestClose();}}><DialogContent className={styles.editor}>
   <DialogHeader><DialogTitle>{names[target.kind]}</DialogTitle><DialogDescription>{statusAction?item?.title:target.kind==='task'?'Definí el próximo paso y cuándo hacerlo. Horarios de Argentina.':'Registrá una acción realizada, también de días anteriores. Horarios de Argentina.'}</DialogDescription></DialogHeader>
   {['complete','activity'].includes(target.kind)&&<><WorkFlowSteps current={continuation?2:1} blocked={outcome==='do_not_contact'}/>{target.kind==='complete'&&<p className={styles.contextNote}><strong>{'accountName' in target.item?target.item.accountName:'Negocio seleccionado'}</strong> · {target.item.leadId?(target.item.opportunityName||'Esta gestión'):'Seguimiento general del negocio'}</p>}</>}
-  <form className={styles.form} onSubmit={submit}>
+  <form onSubmit={submit}><fieldset className={styles.form} disabled={save.isPending} style={{border:0,padding:0,margin:0,minWidth:0}}>
    {!statusAction&&<>
     {accountId&&('accountId' in target&&target.accountId||item)?<p className={styles.contextNote}><strong>{choices.find(a=>a.id===accountId)?.nombre||item&&'accountName' in item&&item.accountName||'Negocio seleccionado'}</strong> · {leadId?opportunities.find(o=>o.id===leadId)?.opportunityName||'Esta gestión':'Seguimiento general del negocio'}</p>:<fieldset className={styles.formSection}><legend>Negocio y gestión</legend>{!accountId&&<label>Buscar negocio<Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Escribí un nombre o ciudad"/></label>}<label>Negocio<NativeSelect required value={accountId} disabled={!!item||!!('accountId' in target&&target.accountId)} onChange={e=>{setAccount(e.target.value);setLead('');setContacts([]);setAssigned(undefined);}}><option value="">Elegí un negocio</option>{choices.map(a=><option key={a.id} value={a.id}>{a.nombre}</option>)}</NativeSelect></label>
     <label>Contexto<NativeSelect value={leadId} disabled={!!item||!!('leadId' in target&&target.leadId)} onChange={e=>{setLead(e.target.value);setAssigned(undefined);}}><option value="">Seguimiento general del negocio</option>{opportunities.map(o=><option key={o.id} value={o.id}>{o.opportunityName||'Gestión comercial inicial'} · #{o.id}</option>)}</NativeSelect></label>
@@ -119,7 +121,7 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
    {target.kind.startsWith('delete')&&<p>Se ocultará el registro. Su historial de auditoría se conserva.</p>}
    {save.error&&<p role="alert" className={styles.error}>{save.error.message}</p>}
    <div className={styles.actions}><Button type="submit" disabled={save.isPending}>{save.isPending?'Guardando…':next?'Guardar y programar próximo paso':target.kind==='complete'?'Guardar resultado':target.kind==='task'?'Guardar próximo paso':'Guardar'}</Button><Button type="button" variant="outline" onClick={guard.requestClose} disabled={save.isPending}>Volver</Button></div>
-  </form>
+  </fieldset></form>
  </DialogContent>{guard.confirmation}</Dialog>;
 }
 

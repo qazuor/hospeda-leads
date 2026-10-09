@@ -1,3 +1,4 @@
+import {QueryLoadingNotice} from './QueryLoadingNotice';
 import {BusinessHistory} from './BusinessHistory';
 import {QueryErrorNotice} from './QueryErrorNotice';
 import { Disclosure, DisclosureSummary } from './Disclosure';
@@ -49,8 +50,8 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const [editor,setEditor]=useState<EditorTarget|null>(null);
   const requestedContact=params.get('contactId');
   useEffect(()=>{if(section!=='contacts'||!requestedContact||q.isPending)return;const frame=requestAnimationFrame(()=>{const node=document.querySelector<HTMLElement>('[data-contact-id="'+requestedContact.replace(/[^0-9]/g,'')+'"]');node?.scrollIntoView({block:'center'});node?.focus({preventScroll:true})});return()=>cancelAnimationFrame(frame)},[section,requestedContact,q.isPending]);
-  if(q.isPending)return <p>Cargando negocio…</p>;
-  if(q.error)return <QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar negocio"/>;
+  if(!q.data&&q.isPending)return <QueryLoadingNotice>Cargando negocio…</QueryLoadingNotice>;
+  if(!q.data)return <QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching} label="Reintentar negocio"/>;
   const d=q.data;
   const requestedReadOnly=readOnly;
   readOnly=readOnly||!canModifyBusiness(authState.type==="authenticated"?authState.user:undefined,d.account);
@@ -69,6 +70,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
     <div className={styles.rows}>{opportunities.map(o=><article key={o.id}><div><Link to={"/sales/"+o.id}><strong>{o.opportunityName||"Gestión comercial inicial"}</strong></Link><span>#{o.id}{String(o.id)===leadId?" · Actual":""}</span><span>{[o.tipo,o.estado,o.serviceInterest].filter(Boolean).join(" · ")||"Sin clasificación"}</span><span>Contacto: {contacts.find(c=>String(c.id)===String(o.primaryContactId))?.name||"Sin principal"}{o.estimatedCloseDate?" · Cierre: "+formatDate(dateOnlyInput(o.estimatedCloseDate)):""}</span><Link to={"/sales/"+o.id}>Abrir gestión</Link></div>{!requestedReadOnly&&canModifyManagement(authState.type==="authenticated"?authState.user:undefined,o,d.account)&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"opportunity",item:o})}>Editar datos de gestión</Button>}</article>)}</div>
   </section>;
   return <section className={compact?styles.panel:styles.businessDetail}>
+    {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}{q.isFetching&&!q.error&&<QueryLoadingNotice>Actualizando negocio…</QueryLoadingNotice>}
     <header className={styles.heading+" "+styles.businessHeader}><div><span className={styles.eyebrow}>NEGOCIO</span>{compact?<h2><Link to={"/accounts/"+d.account.id}>{d.account.nombre}</Link></h2>:<h1>{d.account.nombre}</h1>}<p className={styles.muted}>{[d.account.ciudad,d.account.tipo,d.account.subtipo].filter(Boolean).join(" · ")||"Sin localidad"} · {d.account.commercialStatus==="client"?"Cliente":"Potencial cliente"}{d.account.clientSince?" · desde "+formatDate(d.account.clientSince):""}</p>{!compact&&<p>Responsable: {d.users?.find(u=>u.email===d.account.assignedUserEmail)?.displayName||"Sin asignar"}</p>}</div>
       {!readOnly&&<div className={styles.actions}>{!compact&&<Button onClick={()=>setContacting(true)}>Contactar</Button>}<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"account",item:d.account})}>Editar negocio</Button><DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost">Más acciones del negocio</Button></DropdownMenuTrigger><DropdownMenuContent>{authState.type==='authenticated'&&authState.user.role==='admin'&&<DropdownMenuItem onSelect={()=>setEditor({kind:"archive"})}>{d.account.archivedAt?"Recuperar negocio":"Archivar"}</DropdownMenuItem>}{d.account.commercialStatus!=="client"&&<DropdownMenuItem onSelect={()=>setEditor({kind:"convert"})}>Convertir a cliente</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></div>}
     </header>
