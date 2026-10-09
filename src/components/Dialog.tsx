@@ -61,9 +61,12 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
     if (wasInline.current) return;
     window.setTimeout(() => {
       if (typeof document === 'undefined') return;
-      if (document.activeElement !== document.body || document.querySelector('[role="dialog"]')) return;
+      // The parent trap reactivates when a child unmounts. Restore an explicit
+      // target after its autofocus timer, including targets inside that parent.
       const event = new Event('focus', { cancelable: true }); closingFocus.current?.(event);
-      if (!event.defaultPrevented && opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+      if (event.defaultPrevented) return;
+      if (document.activeElement !== document.body || document.querySelector('[role="dialog"]')) return;
+      if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
     }, 10);
   }, []);
   const initialFocus = useRef(onOpenAutoFocus); initialFocus.current = onOpenAutoFocus;
