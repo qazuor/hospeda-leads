@@ -28,6 +28,8 @@ for (const width of [1280, 390]) test(`PDF pages, zoom, corrupt retry and permis
   await expect(form).toBeVisible();
   await form.getByRole('combobox', { name: 'Documento de biblioteca', exact: true }).click();
   await page.getByRole('option', { name: /Folleto aprobado/ }).click();
+  await form.getByRole('button',{name:'Previsualizar material seleccionado',exact:true}).scrollIntoViewIfNeeded();
+  await expect(form.getByText('Miniatura no disponible. Podés reintentar o abrir la vista previa.',{exact:true})).toBeVisible();
   await form.getByRole('button',{name:'Previsualizar material seleccionado',exact:true}).click();
   let dialog=page.getByRole('dialog');await expect(dialog.getByRole('alert')).toContainText('No se pudo mostrar el PDF');
   mode='valid';await dialog.getByRole('button',{name:'Reintentar vista previa',exact:true}).click();
@@ -39,7 +41,7 @@ for (const width of [1280, 390]) test(`PDF pages, zoom, corrupt retry and permis
   await dialog.getByRole('button',{name:'Ajustar página',exact:true}).click();await expect(region).toHaveAttribute('aria-busy','false');
   await page.screenshot({path:`test-results/pdf-preview-${width}-light.png`});await page.evaluate(()=>document.body.classList.add('dark'));await page.screenshot({path:`test-results/pdf-preview-${width}-dark.png`});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-  await dialog.getByRole('button',{name:'Cerrar vista previa',exact:true}).click();mode='denied';
+  await dialog.getByRole('button',{name:'Cerrar vista previa',exact:true}).click();await form.getByRole('button',{name:'Reintentar miniatura',exact:true}).click();await expect(form.getByRole('img',{name:'Primera página de folleto.pdf',exact:true})).toBeVisible();await expect(form.getByRole('combobox',{name:'Documento de biblioteca',exact:true})).toContainText('Folleto aprobado');mode='denied';
   await form.getByRole('button',{name:'Previsualizar material seleccionado',exact:true}).click();dialog=page.getByRole('dialog');await expect(dialog.getByRole('alert')).toContainText('No tenés permiso');await expect(dialog.locator('canvas')).toHaveCount(0);
-  expect(downloads).toBe(3);expect(writes).toHaveLength(0);expect(errors).toEqual([]);
+  expect(downloads).toBe(5);expect(writes).toHaveLength(0);expect(errors).toEqual([]);
 });
