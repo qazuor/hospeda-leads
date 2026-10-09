@@ -21,7 +21,7 @@ Compact header and horizontal tabs, readable controls, task metadata and calenda
 
 TypeScript, unit tests and production build locally. CI additionally runs migrations, integration tests, browser flows and production Docker smoke tests. Transversal browser coverage includes 320, 390 and 1280px in both themes, checks document overflow and limits mobile header height to 130px. Screenshots remain available as CI evidence.
 
-Presentation of native date/file controls and further composition adjustments are separate visual follow-ups; do not change their data contracts merely to restyle them.
+Localized date/file presentation preserves the existing data contracts. Native date-time and time fields retain their validation semantics.
 
 ## Visual follow-up
 

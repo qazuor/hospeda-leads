@@ -10,6 +10,7 @@ for(const width of [320,390,1280])test(`compact navigation and guide remain usab
     await page.goto('/guide');await page.evaluate(dark=>localStorage.setItem('hospeda-theme-mode',dark?'dark':'light'),dark);await page.reload();
     await expect(page.getByRole('heading',{name:'Usar Hospeda, paso a paso',exact:true})).toBeVisible();
     await expect(page.getByRole('button',{name:'Más opciones',exact:true})).toBeInViewport({ratio:1});
+    if(width>=1280)await expect(page.getByRole('link',{name:'Agenda',exact:true})).toBeInViewport({ratio:1});
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if(width<600)expect(await page.getByRole('banner').evaluate(el=>el.getBoundingClientRect().height)).toBeLessThanOrEqual(130);
     await page.getByRole('button',{name:'Más opciones',exact:true}).click();await expect(page.getByRole('menuitem',{name:'Configuración',exact:true})).toBeVisible();await page.keyboard.press('Escape');
