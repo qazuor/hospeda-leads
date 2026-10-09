@@ -9,7 +9,7 @@ const storedEmail=z.string().trim().max(320).nullable().optional();
 const email=z.union([z.string().trim().email().max(320),z.literal("")]).nullable().optional();
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,"Fecha inválida").nullable().optional();
 export const commercialQuery=z.object({
-  accountId:id.optional(),leadId:id.optional(),q:z.string().max(200).optional(),
+  historyPage:z.coerce.number().int().min(1).max(100000).optional(),accountId:id.optional(),leadId:id.optional(),q:z.string().max(200).optional(),
   status:z.enum(["prospect","client"]).optional(),archived:z.preprocess(v=>v===true||v==="true",z.boolean()).default(false),page:z.coerce.number().int().min(1).default(1)
 });
 export const commercialMutation=z.discriminatedUnion("action",[
