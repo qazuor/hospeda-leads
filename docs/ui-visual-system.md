@@ -4,7 +4,7 @@ The October 2026 visual audit is implemented through shared CSS Modules rather t
 
 ## Shared primitives
 
-- `CrmLayout.module.css`: panel, page heading, wrapping action group, form field, dialog footer, empty state and horizontal section navigation.
+- `CrmLayout.module.css`: panel, page heading, wrapping action group, responsive filter grid, form field, dialog footer, empty state and horizontal section navigation.
 - `CrmControls.module.css`: control dimensions and readable button labels; action links use the Mantine variant foreground.
 - `Disclosure.module.css`: one accordion header anatomy, padding and chevron placement. Page styles only describe context and typography.
 - `Dialog`: consistent width, responsive padding and secondary/primary action footer.

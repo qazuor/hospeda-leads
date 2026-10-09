@@ -1,4 +1,5 @@
 .pageHeading { composes: pageHeading from './ui/CrmLayout.module.css'; }
+.filters { composes: filterGrid from './ui/CrmLayout.module.css'; }
 .rowActions { composes: actions from './ui/CrmLayout.module.css'; }
 /* Planification and history share the same compact row anatomy. */
 .row{border-left:3px solid var(--border)!important;background:var(--card);font-size:14px;align-items:flex-start!important;gap:12px!important;padding:14px!important}
@@ -20,6 +21,6 @@
 
 .pageHeading{}.pageHeading h1{}.queue .column{border-color:var(--surface-border);border-radius: var(--crm-panel-radius);box-shadow: none}.columnHeader span{border-radius:999px;background:color-mix(in srgb,var(--brand-blue) 10%,var(--card));font-size:13px}.priority,.status{border-radius:999px;padding:3px 9px}.filterBar{border-color:var(--surface-border);border-radius: var(--crm-panel-radius)}.event{border-radius:10px}.queue .row{border-radius:16px}.queue .column[data-tone=overdue]{background:linear-gradient(140deg,color-mix(in srgb,var(--brand-orange) 5%,var(--card)),var(--card) 65%)}
 @media(max-width:600px){.pageHeading{}.queue .column{ border-radius: var(--crm-panel-radius); box-shadow: none}}
-@media(max-width:600px){.filterBar .filters{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}.filterBar label{min-width:0;width:100%}.day{padding:4px;min-height:88px}.event{padding:4px 2px;font-size:12px;line-height:1.4;min-height:44px}.calendarLegend{gap:8px;font-size:13px}}
+@media(max-width:600px){.filterBar .filters{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;flex:1 0 100%}.filterBar label{min-width:0;width:100%}.day{padding:4px;min-height:88px}.event{padding:4px 2px;font-size:12px;line-height:1.4;min-height:44px}.calendarLegend{gap:8px;font-size:13px}}
 
 .eventAccount{display:block;font-size:13px;color:var(--muted-foreground)}@media(max-width:600px){.eventTime,.eventTitle{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:11px}.eventSeparator,.eventAccount{display:none}.eventTime{font-weight:600}.eventTitle{margin-top:3px}}
