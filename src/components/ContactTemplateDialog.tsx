@@ -1,4 +1,5 @@
 import {templateCompatibility} from '../helpers/messageTemplatePolicy';
+import {normalizeSearchText} from '../helpers/searchText';
 import { NativeSelect } from './NativeSelect';
 import { Input } from './Input';
 import { UnstyledButton } from '@mantine/core';
@@ -23,7 +24,8 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,
  const blocked=q.data?.account.doNotContact||!!restriction;const recent=history.data?.recentMessages.find(m=>((effective?m.contactId===effective:!m.contactId&&m.leadId===String(lead?.id))||(m.channel===channel&&m.recipient===recipient))&&m.status!=='draft'&&m.status!=='cancelled'&&!!m.lastInteractionAt&&Date.now()-new Date(m.lastInteractionAt).getTime()<(history.data?.recentContactHours??72)*3600000);
  const applicable=templates.filter(t=>templateCompatibility(t,{channel,vertical:lead?.tipo,commercialProfile:lead?.commercialProfile})===null);
  const excluded=templates.filter(t=>t.channel===channel).length-applicable.length;
- const visible=applicable.filter(t=>[t.name,t.subject,t.vertical,t.commercialProfile,htmlToPlainText(t.body)].join(' ').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+ const normalizedSearch=normalizeSearchText(search);
+ const visible=applicable.filter(t=>normalizeSearchText([t.name,t.subject,t.vertical,t.commercialProfile,htmlToPlainText(t.body)].join(' ')).includes(normalizedSearch));
  const rendered=(source:string)=>renderMessageTemplate(source,{name:lead?.nombre,contact:person?.name,contact_name:person?.name,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:person?.phone??lead?.telefono,email:person?.email??lead?.email,website:lead?.sitioWeb,sender:authState.type==='authenticated'?(authState.user.fullName||authState.user.displayName):'',sender_short:authState.type==='authenticated'?authState.user.displayName:''});
  const [dirty,setDirty]=useState(false);const [busy,setBusy]=useState(false);const guard=useUnsavedChanges(dirty,()=>onOpenChange(false));
  const preparing=useRef(false),requestKeys=useRef(new Map<string,string>());
