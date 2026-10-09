@@ -109,5 +109,19 @@ try{
  const inbox=await read();assert(inbox.tasks.some(t=>t.id===todays));assert(inbox.bucketCounts!.overdue>=27);assert(inbox.tasks.filter(t=>t.dueDate==='2020-01-01').length===25);
  await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',l.id).execute();assert(!(await read()).tasks.some(t=>t.leadId===l.id));
  await db.updateTable('leads').set({deletedAt:null}).where('id','=',l.id).execute();
+ // Duplicate advice checks the whole matching scope, without depending on inbox pagination.
+ const duplicateBase={...base,title:'Revisar propuesta turística',typeId:'followup',dueDate:'2027-01-18'};
+ const duplicate1=await mutate(duplicateBase),duplicate2=await mutate({...duplicateBase,title:'REVISAR PROPUESTA TURI\u0301STICA'});
+ const duplicateOther=await mutate({...duplicateBase,assignedUserEmail:other.user.email},admin.cookie);
+ const duplicateGeneral=await mutate({...duplicateBase,leadId:null});
+ const duplicateParams={mode:'duplicates',accountId:a.id,leadId:l.id,duplicateTitle:'revisar propuesta turistica',duplicateType:'followup',from:'2027-01-18',to:'2027-01-18'};
+ const findDuplicates=async(params:Record<string,string>,cookie=user.cookie)=>await read(new URLSearchParams(params).toString(),cookie) as unknown as {tasks:{id:string}[];total:number};
+ const ownDuplicates=await findDuplicates(duplicateParams);assert.equal(ownDuplicates.total,2);assert.deepEqual(new Set(ownDuplicates.tasks.map(t=>t.id)),new Set([duplicate1,duplicate2]));
+ assert.equal((await findDuplicates({...duplicateParams,responsible:'all'},admin.cookie)).total,3);
+ assert.deepEqual((await findDuplicates(duplicateParams,other.cookie)).tasks.map(t=>t.id),[duplicateOther]);
+ assert.equal((await findDuplicates({...duplicateParams,excludeTaskId:duplicate1})).total,1);
+ const generalParams={...duplicateParams};delete (generalParams as Partial<typeof duplicateParams>).leadId;assert.deepEqual((await findDuplicates(generalParams)).tasks.map(t=>t.id),[duplicateGeneral]);
+ await mutate({action:'task_status',id:duplicate2,status:'cancelled',result:'La acción ya estaba planificada'});assert.equal((await findDuplicates(duplicateParams)).total,1);
+ assert.equal((await get(new Request('http://localhost/_api/work?mode=duplicates',{headers:{cookie:user.cookie}}))).status,400);
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
 }finally{await db.destroy()}

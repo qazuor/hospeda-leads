@@ -1,4 +1,4 @@
-import {searchSql} from "../helpers/searchSql";
+import {searchSql,normalizeSearchSql} from "../helpers/searchSql";
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess,assertAccountReadable} from '../helpers/crmPermissions';
 import {purposeOutcomes} from '../helpers/workOutcomes';
 import type {WorkPurpose} from '../helpers/nextStep';
@@ -49,6 +49,14 @@ export async function get(request:Request){
   }
   if(input.from){tasks=tasks.where(sql<string>`t.due_date`,'>=',input.from);activities=activities.where(sql<string>`(t.occurred_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'>=',input.from);}
   if(input.to){tasks=tasks.where(sql<string>`t.due_date`,'<=',input.to);activities=activities.where(sql<string>`(t.occurred_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'<=',input.to);}
+  if(input.mode==='duplicates'){
+   if(!input.accountId||!input.duplicateTitle||!input.duplicateType||!input.from||input.from!==input.to)throw new Error('Falta el contexto, título, tipo o fecha para revisar pendientes.');
+   let matches=tasks.where('t.status','=','pending').where('t.typeId','=',input.duplicateType).where(sql<boolean>`${normalizeSearchSql(sql<string>`trim(t.title)`)} = ${normalizeSearchSql(sql<string>`${input.duplicateTitle}`)}`);
+   if(!input.leadId)matches=matches.where('t.leadId','is',null);
+   if(input.excludeTaskId)matches=matches.where('t.id','!=',input.excludeTaskId);
+   const [rows,count]=await Promise.all([matches.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName']).orderBy('t.dueAt').orderBy('t.id').limit(5).execute(),matches.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()]);
+   return reply({tasks:rows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),total:Number(count.n)});
+  }
   let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail']).where('mergedIntoId','is',null);
   let opportunitiesQuery=db.selectFrom('leads').select(['id','accountId','opportunityName','tipo','estado','assignedUserEmail','createdAt','fechaUltimoContacto']).where('deletedAt','is',null);
   if(user.role!=='admin'){
