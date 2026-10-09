@@ -38,6 +38,7 @@ export async function get(request:Request){
   }
   if(input.accountId){tasks=tasks.where('t.accountId','=',input.accountId);activities=activities.where('t.accountId','=',input.accountId);attention=attention.where('l.accountId','=',input.accountId);}
   if(input.leadId){tasks=tasks.where('t.leadId','=',input.leadId);activities=activities.where('t.leadId','=',input.leadId);attention=attention.where('l.id','=',input.leadId);}
+  if(input.taskId){if(input.mode!=='detail'||!input.accountId)throw new Error('Elegí el negocio del pendiente.');tasks=tasks.where('t.id','=',input.taskId);activities=activities.where('t.taskId','=',input.taskId);}
   if(input.city){tasks=tasks.where('a.ciudad','=',input.city);activities=activities.where('a.ciudad','=',input.city);attention=attention.where('a.ciudad','=',input.city);}
   if(input.vertical){tasks=tasks.where('l.tipo','=',input.vertical);activities=activities.where('l.tipo','=',input.vertical);attention=attention.where('l.tipo','=',input.vertical);}
   if(input.mode==='day')tasks=tasks.where('t.status','=','pending');

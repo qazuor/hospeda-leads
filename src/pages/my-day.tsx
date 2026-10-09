@@ -3,7 +3,7 @@ import { NativeSelect } from '../components/NativeSelect';
 import { Input } from '../components/Input';
 import { UnstyledButton } from '@mantine/core';
 import React,{useState,useEffect} from 'react';
-import {Link} from 'react-router-dom';
+import {Link,useSearchParams} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
 import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
@@ -16,6 +16,7 @@ import {useAuth} from '../helpers/useAuth';
 import styles from '../components/Commercial.module.css';
 import ws from '../components/Work.module.css';
 export default function MyDayPage({agenda=false}:{agenda?:boolean}){
+ const [searchParams]=useSearchParams();const requestedTask=searchParams.get('taskId'),requestedAccount=searchParams.get('accountId');const selected=!!requestedTask&&!!requestedAccount&&!agenda;
  const {authState}=useAuth();const admin=authState.type==='authenticated'&&authState.user.role==='admin';
  const [now,setNow]=useState(()=>new Date());
  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),30000);return ()=>window.clearInterval(timer);},[]);
@@ -23,7 +24,10 @@ export default function MyDayPage({agenda=false}:{agenda?:boolean}){
  const [editor,setEditor]=useState<WorkTarget|null>(null);const [calendar,setCalendar]=useState(false);const [month,setMonth]=useState(localDay().slice(0,7));
  const monthEnd=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10);
  const params={responsible:responsible||undefined,city:city||undefined,vertical:vertical||undefined,mode:agenda?'agenda':'day',calendar:agenda&&calendar?'true':undefined,page:String(page),from:agenda?month+'-01':undefined,to:agenda?monthEnd:undefined};
- const q=useQuery({queryKey:['work',params],queryFn:()=>getWork(params)});const d=q.data;
+ const queryParams=selected?{mode:'detail',accountId:requestedAccount!,taskId:requestedTask!,responsible:admin?'all':undefined}:params;
+ const q=useQuery({queryKey:['work',queryParams],queryFn:()=>getWork(queryParams)});const d=q.data;
+ useEffect(()=>setEditor(null),[requestedTask,requestedAccount]);
+ useEffect(()=>{if(!selected||q.isPending)return;const frame=requestAnimationFrame(()=>{const node=document.querySelector<HTMLElement>('[data-work-task="'+requestedTask!.replace(/[^0-9]/g,'')+'"]');node?.scrollIntoView({block:'center'});node?.focus({preventScroll:true})});return()=>cancelAnimationFrame(frame)},[selected,requestedTask,q.isPending]);
  const reset=(fn:()=>void)=>{fn();setPage(1);};
  const days=Array.from({length:Number(monthEnd.slice(8))},(_,i)=>month+'-'+String(i+1).padStart(2,'0'));
  const firstWeekday=(new Date(month+'-01T12:00:00Z').getUTCDay()+6)%7;
@@ -40,7 +44,8 @@ export default function MyDayPage({agenda=false}:{agenda?:boolean}){
    {agenda&&<label>Mes<Input type="month" required value={month} onChange={e=>{if(e.target.value)reset(()=>setMonth(e.target.value));}}/></label>}
   </div>{(responsible||city||vertical)&&<Button size="sm" variant="ghost" onClick={()=>reset(()=>{setResponsible('');setCity('');setVertical('');})}>Limpiar filtros</Button>}{agenda&&<div className={ws.viewSwitch} aria-label="Vista de agenda"><Button size="sm" variant={!calendar?'secondary':'ghost'} aria-pressed={!calendar} onClick={()=>setCalendar(false)}>Ver lista</Button><Button size="sm" variant={calendar?'secondary':'ghost'} aria-pressed={calendar} onClick={()=>setCalendar(true)}>Ver calendario</Button></div>}</section></Disclosure>
   {q.isPending&&<p>Cargando…</p>}{q.error&&<p role="alert">{q.error.message}</p>}
-  {d&&<>
+  {d&&selected&&<section className={styles.panel} aria-label="Pendiente seleccionado"><h2>Pendiente seleccionado</h2>{d.tasks.length?d.tasks.map(task=><TaskRow key={task.id} task={task} data={d} onEdit={setEditor}/>):<p>Este pendiente no está disponible en tu alcance. Puede haberse retirado o corresponder a otra persona.</p>}<Link to="/my-day">Ver todos mis pendientes</Link>{editor&&<WorkEditor key={editor.kind+('item' in editor?editor.item?.id||'new':'new')} target={editor} data={d} onClose={()=>setEditor(null)}/>}</section>}
+  {d&&!selected&&<>
    {!agenda&&<><div className={ws.queue}>{(['overdue','today','upcoming'] as const).map((bucket,i)=>{
     const tasks=d.tasks.filter(t=>taskBucket(t.dueDate,t.dueAt,now)===bucket);
     if(!tasks.length&&!(d.bucketCounts?.[bucket]??0))return null;

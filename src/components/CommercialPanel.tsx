@@ -1,4 +1,5 @@
 import {BusinessHistory} from './BusinessHistory';
+import {QueryErrorNotice} from './QueryErrorNotice';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from './DropdownMenu';
@@ -10,7 +11,7 @@ import {DataQualityPanel} from './DataQualityPanel';
 import {ContactPolicy} from "./ContactPolicy";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
 import {WorkPanel} from "./WorkPanel";
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CommercialHelp } from "./CommercialHelp";
@@ -43,11 +44,13 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const q=useQuery({queryKey:["commercial-detail",accountId??"",leadId??""],queryFn:()=>getCommercialDetail(accountId,leadId)});
   const [savedStep,setSavedStep]=useState<{kind:'contact'|'opportunity';id:string}|null>(null);
   const [params]=useSearchParams();
-  const [section,setSection]=useState(()=>['documents','history','work'].includes(params.get('section')??'')?params.get('section')!:'opportunities');
+  const [section,setSection]=useState(()=>['documents','history','work','contacts'].includes(params.get('section')??'')?params.get('section')!:'opportunities');
   const [contacting,setContacting]=useState(false);
   const [editor,setEditor]=useState<EditorTarget|null>(null);
+  const requestedContact=params.get('contactId');
+  useEffect(()=>{if(section!=='contacts'||!requestedContact||q.isPending)return;const frame=requestAnimationFrame(()=>{const node=document.querySelector<HTMLElement>('[data-contact-id="'+requestedContact.replace(/[^0-9]/g,'')+'"]');node?.scrollIntoView({block:'center'});node?.focus({preventScroll:true})});return()=>cancelAnimationFrame(frame)},[section,requestedContact,q.isPending]);
   if(q.isPending)return <p>Cargando negocio…</p>;
-  if(q.error)return <p role="alert" className={styles.error}>{q.error.message}</p>;
+  if(q.error)return <QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar negocio"/>;
   const d=q.data;
   const requestedReadOnly=readOnly;
   readOnly=readOnly||!canModifyBusiness(authState.type==="authenticated"?authState.user:undefined,d.account);
@@ -58,7 +61,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const contactSection=<section className={styles.section}>
     <div className={styles.heading}><div><h3>Personas de contacto ({contacts.length})</h3><p className={styles.muted}>Elegí con quién comunicarte. Principal identifica a la persona de referencia.</p></div>{!readOnly&&<Button size="sm" variant="outline" onClick={()=>setEditor({kind:"contact"})}>Agregar contacto</Button>}</div>
     {!contacts.length&&<p className={styles.empty}>Sin personas identificadas. Podés usar los canales genéricos del negocio.</p>}
-    <div className={styles.rows}>{contacts.map(c=><article key={c.id}><div><strong>{c.name}{c.isPrimary?" · Principal":""}</strong><span>{[c.position,c.phone,c.email,c.preferredChannel].filter(Boolean).join(" · ")||"Sin canales cargados"}</span>{c.notes&&<p>{c.notes}</p>}</div>{!readOnly&&<div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>setEditor({kind:"contact",item:c})}>Editar</Button><Button size="sm" variant="ghost" onClick={()=>setEditor({kind:"delete_contact",item:c})}>Dar de baja</Button></div>}</article>)}</div>
+    <div className={styles.rows}>{contacts.map(c=><article key={c.id} data-contact-id={c.id} tabIndex={-1}><div><strong>{c.name}{c.isPrimary?" · Principal":""}</strong><span>{[c.position,c.phone,c.email,c.preferredChannel].filter(Boolean).join(" · ")||"Sin canales cargados"}</span>{c.notes&&<p>{c.notes}</p>}</div>{!readOnly&&<div className={styles.actions}><Button size="sm" variant="outline" onClick={()=>setEditor({kind:"contact",item:c})}>Editar</Button><Button size="sm" variant="ghost" onClick={()=>setEditor({kind:"delete_contact",item:c})}>Dar de baja</Button></div>}</article>)}</div>
   </section>;
   const opportunitySection=<section className={styles.section}>
     <div className={styles.heading}><div><h3>Gestiones comerciales ({opportunities.length})</h3><p className={styles.muted}>{compact?"La gestión abierta está marcada como Actual.":"Cada gestión conserva su propuesta, etapa y seguimiento."}</p></div>{!readOnly&&<Button size="sm" onClick={()=>setEditor({kind:"opportunity"})}>Iniciar gestión</Button>}</div>
