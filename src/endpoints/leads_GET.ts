@@ -1,4 +1,4 @@
-import {searchSql} from "../helpers/searchSql";
+import {searchSql,normalizeSearchSql} from "../helpers/searchSql";
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {calendarDay} from '../helpers/workDates';
 import {crmError} from '../helpers/crmErrors';
@@ -73,26 +73,27 @@ export async function handle(request: Request) {
     applySetFilter("creadoPor",input.creadosPor,input.excludeCreadosPor);
 
     const textExpressions={
-      nombre:sql<string>`lower(coalesce(nombre,''))`,
-      contactName:sql<string>`lower(coalesce(contact_name,''))`,
-      email:sql<string>`lower(coalesce(email,''))`,
-      telefono:sql<string>`lower(coalesce(telefono,''))`,
-      sitioWeb:sql<string>`lower(coalesce(sitio_web,''))`,
-      urlGmap:sql<string>`lower(coalesce(url_gmap,''))`,
-      perfilInstagram:sql<string>`lower(coalesce(perfil_instagram,''))`,
-      perfilFacebook:sql<string>`lower(coalesce(perfil_facebook,''))`,
-      perfilAirbnb:sql<string>`lower(coalesce(perfil_airbnb,''))`,
-      perfilBooking:sql<string>`lower(coalesce(perfil_booking,''))`,
-      perfilTurismoEntreRios:sql<string>`lower(coalesce(perfil_turismo_entre_rios,''))`,
-      resultadoUltimoContacto:sql<string>`lower(coalesce(resultado_ultimo_contacto,''))`,
-      fuenteReferencia:sql<string>`lower(coalesce(fuente_referencia,''))`,
-      archivoAdjunto:sql<string>`lower(coalesce(archivo_adjunto,''))`,
+      nombre:normalizeSearchSql(sql<string>`nombre`),
+      contactName:normalizeSearchSql(sql<string>`contact_name`),
+      email:normalizeSearchSql(sql<string>`email`),
+      telefono:normalizeSearchSql(sql<string>`telefono`),
+      sitioWeb:normalizeSearchSql(sql<string>`sitio_web`),
+      urlGmap:normalizeSearchSql(sql<string>`url_gmap`),
+      perfilInstagram:normalizeSearchSql(sql<string>`perfil_instagram`),
+      perfilFacebook:normalizeSearchSql(sql<string>`perfil_facebook`),
+      perfilAirbnb:normalizeSearchSql(sql<string>`perfil_airbnb`),
+      perfilBooking:normalizeSearchSql(sql<string>`perfil_booking`),
+      perfilTurismoEntreRios:normalizeSearchSql(sql<string>`perfil_turismo_entre_rios`),
+      resultadoUltimoContacto:normalizeSearchSql(sql<string>`resultado_ultimo_contacto`),
+      fuenteReferencia:normalizeSearchSql(sql<string>`fuente_referencia`),
+      archivoAdjunto:normalizeSearchSql(sql<string>`archivo_adjunto`),
     };
     for(const filter of input.textFilters){
       const expr=textExpressions[filter.field];
-      const raw=(filter.value??"").trim().toLowerCase();
-      if(filter.mode==="contains"&&raw)query=query.where(expr,"like","%"+raw+"%");
-      if(filter.mode==="not_contains"&&raw)query=query.where(expr,"not like","%"+raw+"%");
+      const value=(filter.value??"").trim();
+      const raw=normalizeSearchSql(sql<string>`${value}`);
+      if(filter.mode==="contains"&&value)query=query.where(expr,"like",normalizeSearchSql(sql<string>`${"%"+value+"%"}`));
+      if(filter.mode==="not_contains"&&value)query=query.where(expr,"not like",normalizeSearchSql(sql<string>`${"%"+value+"%"}`));
       if(filter.mode==="equals")query=query.where(expr,"=",raw);
       if(filter.mode==="not_equals")query=query.where(expr,"!=",raw);
       if(filter.mode==="empty")query=query.where(expr,"=","");
@@ -113,14 +114,14 @@ export async function handle(request: Request) {
     if(input.recurrent==="false")query=query.where("clientePotencialRecurrente","=",false);
 
     if(input.notesMode){
-      const raw=(input.notesText??"").trim().toLowerCase();
+      const raw=(input.notesText??"").trim();
       if((input.notesMode==="contains"||input.notesMode==="not_contains"||input.notesMode==="equals"||input.notesMode==="not_equals")&&raw){
         query=query.where(eb=>{
           let sub=eb.selectFrom("leadNotes")
             .select("leadNotes.id")
             .whereRef("leadNotes.leadId","=","leads.id");
-          if(input.notesMode==="contains"||input.notesMode==="not_contains")sub=sub.where(sql<string>`lower(note)`,"like","%"+raw+"%");
-          else sub=sub.where(sql<string>`lower(note)`,"=",raw);
+          if(input.notesMode==="contains"||input.notesMode==="not_contains")sub=sub.where(normalizeSearchSql(sql<string>`note`),"like",normalizeSearchSql(sql<string>`${"%"+raw+"%"}`));
+          else sub=sub.where(normalizeSearchSql(sql<string>`note`),"=",normalizeSearchSql(sql<string>`${raw}`));
           return input.notesMode==="not_contains"||input.notesMode==="not_equals"
             ? eb.not(eb.exists(sub))
             : eb.exists(sub);
@@ -138,20 +139,20 @@ export async function handle(request: Request) {
       query=query.where(eb=>{
         const textExpr=(field:string)=>{
           const map:Record<string,any>={
-            nombre:sql<string>`lower(coalesce(nombre,''))`,
-            contactName:sql<string>`lower(coalesce(contact_name,''))`,
-            email:sql<string>`lower(coalesce(email,''))`,
-            telefono:sql<string>`lower(coalesce(telefono,''))`,
-            sitioWeb:sql<string>`lower(coalesce(sitio_web,''))`,
-            urlGmap:sql<string>`lower(coalesce(url_gmap,''))`,
-            perfilInstagram:sql<string>`lower(coalesce(perfil_instagram,''))`,
-            perfilFacebook:sql<string>`lower(coalesce(perfil_facebook,''))`,
-            perfilAirbnb:sql<string>`lower(coalesce(perfil_airbnb,''))`,
-            perfilBooking:sql<string>`lower(coalesce(perfil_booking,''))`,
-            perfilTurismoEntreRios:sql<string>`lower(coalesce(perfil_turismo_entre_rios,''))`,
-            resultadoUltimoContacto:sql<string>`lower(coalesce(resultado_ultimo_contacto,''))`,
-            fuenteReferencia:sql<string>`lower(coalesce(fuente_referencia,''))`,
-            archivoAdjunto:sql<string>`lower(coalesce(archivo_adjunto,''))`,
+            nombre:normalizeSearchSql(sql<string>`nombre`),
+            contactName:normalizeSearchSql(sql<string>`contact_name`),
+            email:normalizeSearchSql(sql<string>`email`),
+            telefono:normalizeSearchSql(sql<string>`telefono`),
+            sitioWeb:normalizeSearchSql(sql<string>`sitio_web`),
+            urlGmap:normalizeSearchSql(sql<string>`url_gmap`),
+            perfilInstagram:normalizeSearchSql(sql<string>`perfil_instagram`),
+            perfilFacebook:normalizeSearchSql(sql<string>`perfil_facebook`),
+            perfilAirbnb:normalizeSearchSql(sql<string>`perfil_airbnb`),
+            perfilBooking:normalizeSearchSql(sql<string>`perfil_booking`),
+            perfilTurismoEntreRios:normalizeSearchSql(sql<string>`perfil_turismo_entre_rios`),
+            resultadoUltimoContacto:normalizeSearchSql(sql<string>`resultado_ultimo_contacto`),
+            fuenteReferencia:normalizeSearchSql(sql<string>`fuente_referencia`),
+            archivoAdjunto:normalizeSearchSql(sql<string>`archivo_adjunto`),
           };
           return map[field];
         };
@@ -167,8 +168,8 @@ export async function handle(request: Request) {
           if(rule.field==="notes"){
             const noteSub=(mode:"like"|"eq")=>{
               let sub=eb.selectFrom("leadNotes").select("leadNotes.id").whereRef("leadNotes.leadId","=","leads.id");
-              if(mode==="like")sub=sub.where(sql<string>`lower(note)`,"like","%"+value.toLowerCase()+"%");
-              else sub=sub.where(sql<string>`lower(note)`,"=",value.toLowerCase());
+              if(mode==="like")sub=sub.where(normalizeSearchSql(sql<string>`note`),"like",normalizeSearchSql(sql<string>`${"%"+value+"%"}`));
+              else sub=sub.where(normalizeSearchSql(sql<string>`note`),"=",normalizeSearchSql(sql<string>`${value}`));
               return sub;
             };
             if(rule.operator==="contains"&&value)return eb.exists(noteSub("like"));
@@ -215,11 +216,11 @@ export async function handle(request: Request) {
           }
           const expr=textExpr(rule.field);
           if(expr){
-            const lower=value.toLowerCase();
-            if(rule.operator==="contains"&&value)return eb(expr,"like","%"+lower+"%");
-            if(rule.operator==="not_contains"&&value)return eb(expr,"not like","%"+lower+"%");
-            if(rule.operator==="eq")return eb(expr,"=",lower);
-            if(rule.operator==="neq")return eb(expr,"!=",lower);
+            const normalized=normalizeSearchSql(sql<string>`${value}`);
+            if(rule.operator==="contains"&&value)return eb(expr,"like",normalizeSearchSql(sql<string>`${"%"+value+"%"}`));
+            if(rule.operator==="not_contains"&&value)return eb(expr,"not like",normalizeSearchSql(sql<string>`${"%"+value+"%"}`));
+            if(rule.operator==="eq")return eb(expr,"=",normalized);
+            if(rule.operator==="neq")return eb(expr,"!=",normalized);
             if(rule.operator==="empty")return eb(expr,"=","");
             if(rule.operator==="not_empty")return eb(expr,"!=","");
           }

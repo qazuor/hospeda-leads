@@ -1,3 +1,4 @@
+import {searchSql} from '../helpers/searchSql';
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess} from '../helpers/crmPermissions';
 import {sql} from 'kysely';import superjson from 'superjson';import {z} from 'zod';
 import {db} from '../helpers/db';import {getServerUserSession} from '../helpers/getServerUserSession';import {NotAuthenticatedError} from '../helpers/getSetServerSession';
@@ -23,7 +24,7 @@ export async function get(request:Request){try{
     AND (${user.role==='admin'} OR l.lead_id IS NULL OR EXISTS(SELECT 1 FROM leads cl WHERE cl.id=l.lead_id AND cl.deleted_at IS NULL))))
   AND (${leadId}::bigint IS NULL OR d.lead_id=${leadId}::bigint
    OR EXISTS(SELECT 1 FROM crm_document_links l WHERE l.document_id=d.id AND l.account_id=${accountId}::bigint AND l.lead_id=${leadId}::bigint))
-  AND d.title ILIKE ${'%'+search+'%'} ORDER BY d.updated_at DESC LIMIT 200
+  AND ${searchSql("d.title",search)} ORDER BY d.updated_at DESC LIMIT 200
  `.execute(db)).rows;
  const documents:ResourceDocument[]=[];
  for(const d of rows){try{

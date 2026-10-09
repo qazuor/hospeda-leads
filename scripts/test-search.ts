@@ -10,6 +10,7 @@ import { handle as leads } from '../src/endpoints/leads_GET';
 import { handle as trash } from '../src/endpoints/leads_trash_GET';
 import { handle as journal } from '../src/endpoints/lead_journal_GET';
 import { get as commercial } from '../src/endpoints/commercial';
+import {get as resources} from '../src/endpoints/resources';
 import { get as work } from '../src/endpoints/work';
 
 assert.equal(process.env.CRM_TEST_DATABASE, '1', 'Use a disposable database');
@@ -61,6 +62,29 @@ try {
       const result = await get(leads, 'leads', { entity, q: `${marker} ${query}` });
       assert.equal(result.total, 1, `${entity} searches management, contact and notes`);
     }
+  }
+  // Positive/negative filters must normalize both sides and preserve AND/OR and note existence.
+  for(const entity of ['business','opportunity']) {
+    const base={entity,q:marker};
+    for(const [mode,expected] of [['contains',12],['not_contains',0],['equals',1],['not_equals',11]] as const) {
+      const value=mode.includes('contains')?'COLON':`${marker} Colo\u0301n 00`;
+      const result=await get(leads,'leads',{...base,textFilters:JSON.stringify([{field:'nombre',mode,value}])});
+      assert.equal(result.total,entity==='business'?expected:(expected===0||mode==='not_equals'?0:1),`${entity} ${mode}`);
+    }
+    for(const [mode,expected] of [['contains',1],['not_contains',0],['equals',1],['not_equals',0]] as const) {
+      const value=mode.includes('contains')?'REUNION PINGUINO':`${marker} reunion pinguino`;
+      assert.equal((await get(leads,'leads',{entity,q:account.nombre,notesMode:mode,notesText:value})).total,expected);
+    }
+    const groups=[{rules:[{field:'nombre',operator:'eq',value:`${marker} colon 00`},{field:'nombre',operator:'eq',value:'imposible'}]},
+      {rules:[{field:'notes',operator:'contains',value:'REUNION PINGUINO'}]}];
+    assert.equal((await get(leads,'leads',{...base,filterGroups:JSON.stringify(groups)})).total,1);
+    for(const operator of ['not_contains','neq'])assert.equal((await get(leads,'leads',{entity,q:account.nombre,filterGroups:JSON.stringify([{rules:[{field:'notes',operator,value:`${marker} reunion pinguino`}]}])})).total,0);
+  }
+  const resourceId=randomUUID();
+  await sql`INSERT INTO crm_documents(id,title,type,owner_email,library,status) VALUES(${resourceId}::uuid,${marker+' Proposición pingüino'},'propuesta',${admin.user.email},true,'draft')`.execute(db);
+  for(const search of [marker+' proposicion pinguino',marker+' PROPOSICIÓN PINGÜINO',marker+' Proposicio\u0301n pinguino']) {
+    assert.equal((await get(resources,'resources',{search},admin.cookie)).documents[0].id,resourceId);
+    assert.equal((await get(resources,'resources',{search},reader.cookie)).documents.length,0,'Draft search does not bypass visibility');
   }
   assert.equal((await get(leads, 'leads', { entity: 'business', q: `${marker} unicamente borrada` })).total, 0, 'Removed management notes do not expose a business');
   const plain = await db.insertInto('crmAccounts').values({ nombre: `${marker} cana`, assignedUserEmail: reader.user.email }).returningAll().executeTakeFirstOrThrow();

@@ -1,3 +1,4 @@
+import {normalizeSearchText} from '../helpers/searchText';
 import {TEMPLATE_SCOPE_HELP} from '../helpers/messageTemplatePolicy';
 import { UnstyledButton } from '@mantine/core';
 import { NativeSelect } from '../components/NativeSelect';
@@ -47,11 +48,11 @@ export function TemplatesContent(){
 
   const data=q.data;
   const filtered=useMemo(()=>{
-    const needle=search.trim().toLowerCase();
+    const needle=normalizeSearchText(search);
     if(!needle)return data?.templates??[];
     return (data?.templates??[]).filter(template=>
       [template.name,template.channel,template.vertical,template.commercialProfile]
-        .filter(Boolean).some(value=>String(value).toLowerCase().includes(needle))
+        .filter(Boolean).some(value=>normalizeSearchText(String(value)).includes(needle))
     );
   },[data?.templates,search]);
 
