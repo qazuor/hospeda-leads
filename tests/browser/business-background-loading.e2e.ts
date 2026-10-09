@@ -17,7 +17,7 @@ for(const width of [1280,390])test(`business background refresh preserves popula
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts');const results=page.getByRole('region',{name:'Resultados de negocios',exact:true});
- await expect(results).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-business-id="1"]')).toBeVisible();await expect(page.getByRole('button',{name:'Actualizar',exact:true})).toHaveAttribute('title',/Último chequeo/);
+ await expect(results).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-business-id="1"]')).toBeVisible();if(width<768)await page.getByRole('button',{name:'Abrir menú de navegación',exact:true}).click();await expect(page.getByRole('button',{name:'Actualizar',exact:true})).toHaveAttribute('title',/Último chequeo/);if(width<768)await page.keyboard.press('Escape');
  function block(){let release!:()=>void;gate=new Promise<void>(r=>release=r);const requested=new Promise<void>(r=>started=r);return {requested,release:()=>{gate=null;started=null;release();}};}
  // A real Live version change triggers invalidation; hold the response to inspect the pending UI.
  let pending=block();version++;try{await pending.requested;await expect(results).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-business-id="1"]')).toBeVisible();await expect(results.locator('.mantine-Skeleton-root')).toHaveCount(0);}finally{pending.release();}
@@ -26,6 +26,6 @@ for(const width of [1280,390])test(`business background refresh preserves popula
  await expect(page.getByRole('heading',{name:'Sin resultados por los filtros actuales',exact:true})).toBeVisible();await expect(results).toHaveAttribute('aria-busy','false');
  pending=block();version++;try{await pending.requested;await expect(results).toHaveAttribute('aria-busy','false');await expect(page.getByRole('heading',{name:'Sin resultados por los filtros actuales',exact:true})).toBeVisible();await expect(results.locator('.mantine-Skeleton-root')).toHaveCount(0);await page.screenshot({path:`test-results/business-empty-background-${width}.png`,animations:'disabled'});}finally{pending.release();}
  // The manual Update action remains visible and prevents another click while pending.
- pending=block();try{await page.getByRole('button',{name:'Actualizar',exact:true}).click();await pending.requested;await expect(results).toHaveAttribute('aria-busy','true');await expect(page.getByRole('button',{name:'Actualizar',exact:true})).toBeDisabled();await expect(results.locator('.mantine-Skeleton-root').first()).toBeVisible();}finally{pending.release();}
+ pending=block();try{if(width<768)await page.getByRole('button',{name:'Abrir menú de navegación',exact:true}).click();await page.getByRole('button',{name:'Actualizar',exact:true}).click();await pending.requested;await expect(results).toHaveAttribute('aria-busy','true');await expect(page.getByRole('button',{name:'Actualizar',exact:true})).toBeDisabled();if(width<768)await page.keyboard.press('Escape');await expect(results.locator('.mantine-Skeleton-root').first()).toBeVisible();}finally{pending.release();}
  await expect(results).toHaveAttribute('aria-busy','false');await expect(page.getByRole('heading',{name:'Sin resultados por los filtros actuales',exact:true})).toBeVisible();
 });

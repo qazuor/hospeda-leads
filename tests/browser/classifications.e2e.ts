@@ -50,7 +50,7 @@ test('Classification catalogs stay focused and commercial settings have their ow
   await expect.poll(() => page.getByLabel('Nuevo subtipo', {exact: true}).evaluate(el => parseInt(getComputedStyle(el).backgroundColor.match(/[\d.]+/)![0]))).toBeLessThan(50);
   await page.screenshot({path: 'test-results/classifications-dark-mobile.png', fullPage: true});
   await page.evaluate(() => document.documentElement.classList.remove('dark'));
-  await page.getByRole('button', {name: 'Proceso comercial', exact: true}).click();
+  await page.getByRole('combobox', {name: 'Sección de configuración', exact: true}).selectOption('process');
   await expect(page).toHaveURL(/section=process/);
   await expect(page.getByRole('heading', {name: 'Etapas y resultados de gestión'})).toBeVisible();
   await expect(page.getByRole('heading', {name: 'Tipos de tareas y actividades'})).toHaveCount(0);

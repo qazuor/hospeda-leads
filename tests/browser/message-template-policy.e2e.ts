@@ -26,8 +26,10 @@ for(const width of [1280,390])test(`Referente WhatsApp models can be saved and h
  await expect.poll(()=>writes.length).toBe(1);
  expect(writes[0]).toMatchObject({action:'saveTemplate',channel:'whatsapp',commercialProfile:'Referente',vertical:null});
  await expect(page.getByLabel('Nombre del modelo',{exact:true})).toHaveValue('');
+ if(width<768)await page.getByRole('button',{name:/^Elegir modelo/}).click();
  await page.getByRole('button',{name:/^WhatsApp \d+$/}).click();
  await page.getByRole('button',{name:/Modelo histórico/}).click();
+ if(width<768)await page.getByRole('button',{name:/^Elegir modelo/}).click();
  await expect(page.getByRole('combobox',{name:'Vertical',exact:true})).toHaveValue('Alojamiento');
  await expect(page.getByText(/Este modelo usa una vertical histórica/)).toBeVisible();
  await expect(page.getByRole('button',{name:'Guardar cambios',exact:true})).toBeEnabled();

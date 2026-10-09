@@ -34,3 +34,17 @@ Mobile row/card actions have 44px targets; narrow action cells wrap instead of o
 The unit suite checks localized display, ISO output, invalid/leap days, month output and native file events. Browser tests retain API-payload assertions; only displayed-value and control-selection assertions change for localized controls.
 
 Mobile notifications appear below the compact header, show one notice at a time and reserve space for a dismiss target. They remain below active dialogs and keep their existing destination/retry actions.
+
+
+## Segunda revisión visual
+
+- Header móvil de una fila (320–767 px) con Burger + Drawer de Mantine. Las rutas y permisos permanecen compartidos con desktop; cierre con Escape, botón y navegación, con foco restaurado.
+- Configuración y verticales reutilizan `CrmResponsiveNavigation`: navegación desktop y selector móvil con las mismas opciones y callbacks.
+- Herramientas del listado compactas, controles secundarios breves, filtros con una sola leyenda, badges de 13 px y textos largos en dos líneas.
+- Menos superficies anidadas en próximo paso, tareas y mensajes. Acciones de tarea comparten una fila flexible, incluido su menú.
+- Formularios con bordes contrastados, acordeones con chevron alineado y estados vacíos con padding consistente.
+- Modelos: agrupador contenido en su columna, ayudas secundarias y footer en flujo en móvil. Biblioteca: acciones administrativas discretas, conservando confirmación destructiva.
+- Agenda móvil mantiene la grilla mensual y las acciones de cada evento, con desplazamiento horizontal indicado y columnas de lectura de 80 px mínimos.
+- Avisos móviles compactos en la esquina inferior y footer de diálogo sticky dentro de su propio scroll, conservando acciones y duración existentes.
+
+Validación: navegación móvil en claro/oscuro y 320/390 px, destinos de admin y vendedor, cierre/foco, flujos existentes de filtros, modelos, tareas y materiales, sin cambios de endpoints o datos.

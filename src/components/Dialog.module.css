@@ -5,3 +5,6 @@
 .description{color:var(--muted-foreground);font-size:16px;line-height:1.5;margin-bottom:16px}
 
 @media(max-width:600px){.content{padding:18px;max-height:calc(100dvh - 24px)}.title{font-size:22px}.description{font-size:14px}}
+
+.footer{position:sticky;bottom:-24px;background:var(--popup);padding-block:12px;margin-top:16px;z-index:2}.description{font-size:14px}.title{font-size:22px}
+@media(max-width:600px){.footer{bottom:-18px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}.title{font-size:20px}}

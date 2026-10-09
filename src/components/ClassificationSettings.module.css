@@ -4,3 +4,6 @@
 .root button[role=tab]{display:flex;align-items:center;justify-content:center;gap:8px}.groups button:disabled{opacity:.65;cursor:wait}
 .groups button>span:first-child{min-width:0;overflow-wrap:anywhere}
 @media(max-width:700px){.groups{display:flex;overflow-x:auto;gap:4px;padding:6px;border-radius:12px}.groups>button{flex:0 0 auto;min-height:44px}.groupHeading{display:none}.groups button>span:first-child{white-space:nowrap}.root{gap:14px}}
+
+.workspace{gap:16px}.cardHeading{margin-bottom:16px}.cardHeading h3{font-size:21px}.addForm{padding:12px 0;border:0;border-radius:0;background:transparent;margin-bottom:16px;border-bottom:1px solid var(--border)}.groups{border-radius:12px;box-shadow:none}.root{gap:16px}.related{border-radius:10px;padding:14px}.icon{width:40px;height:40px;border-radius:10px}.heading h2{font-size:22px}
+@media(max-width:700px){.workspace{gap:0}.heading{gap:10px;align-items:flex-start}.heading h2{font-size:20px}.cardHeading{margin-bottom:12px}.cardHeading h3{font-size:20px}.addForm{gap:8px;flex-direction:row;align-items:flex-end}.addForm label{width:auto}.addForm button{width:auto;max-width:120px;font-size:13px}.listHeading{gap:8px}.related{padding:12px}.card{padding:12px}}

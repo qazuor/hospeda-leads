@@ -13,6 +13,7 @@ test('model search ignores accents in name, vertical and profile while preservin
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/settings?section=templates');
+ await page.getByRole('button',{name:/^Elegir modelo/}).click();
  const search=page.getByPlaceholder('Buscar modelo…');
  for(const query of ['proposicion colon','PROPOSICIÓN COLÓN','Proposicio\u0301n Colo\u0301n','gastronomia','dueño']) {
   await search.fill(query);await expect(page.getByText('1 modelo',{exact:true})).toBeVisible();
@@ -20,6 +21,7 @@ test('model search ignores accents in name, vertical and profile while preservin
  }
  await search.fill('dueno');await expect(page.getByText('No hay modelos para mostrar.')).toBeVisible();
  await search.fill('');await expect(page.getByText('2 modelos',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:/^Elegir modelo/}).click();
  await page.getByRole('button',{name:'Insertar variable',exact:true}).click();
  await page.getByRole('menuitem',{name:/Nombre del negocio/}).click();
  await expect(page.getByRole('textbox',{name:'Contenido del modelo'})).toContainText('{{name}}');

@@ -1,3 +1,4 @@
+import {CrmResponsiveDisclosure} from '../components/ui/CrmResponsiveDisclosure';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import {normalizeSearchText} from '../helpers/searchText';
@@ -159,7 +160,7 @@ export function TemplatesContent(){
     </header>
     {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/> }
     <div className={styles.layout}>
-      <aside className={styles.sidebar}>
+      <CrmResponsiveDisclosure label={`Elegir modelo (${filtered.length})`}><aside className={styles.sidebar}>
         <div className={styles.search}><Search size={15}/><Input disabled={save.isPending} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo…"/></div>
         <div className={styles.groupPicker}>
           <span>Agrupar por</span>
@@ -191,7 +192,7 @@ export function TemplatesContent(){
           })}
           {!templateGroups.length&&<div className={styles.emptyTemplates}>No hay modelos para mostrar.</div>}
         </div>}
-      </aside>
+      </aside></CrmResponsiveDisclosure>
 
       <div className={styles.editorWorkspace}>
         <article className={styles.editorCard}>

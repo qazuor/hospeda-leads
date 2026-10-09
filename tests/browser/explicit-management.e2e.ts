@@ -36,6 +36,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   const saved=await detail(id);expect(saved.opportunities).toHaveLength(1);expect(saved.opportunities[0].estado).toBeNull();expect(saved.opportunities[0].primaryContactId).toBeNull();expect(saved.opportunities[0].fechaUltimoContacto).toBeNull();expect(saved.opportunities[0].estimatedCloseDate).toBeNull();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   await page.screenshot({path:`test-results/explicit-management-${viewport.width}.png`,fullPage:true});
+  if(viewport.width<768)await page.getByRole('button',{name:'Abrir menú de navegación',exact:true}).click();
   await page.getByRole('link',{name:'Gestiones comerciales',exact:true}).click();
   await expect(page.locator('[aria-label="Pipeline comercial"]')).toBeVisible();
   await expect(page.getByRole('heading',{name:'Gestiones comerciales',exact:true})).toBeVisible();

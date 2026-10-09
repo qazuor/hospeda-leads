@@ -1,4 +1,5 @@
-FROM node:22-alpine AS build
+ARG NODE_IMAGE=node:22-alpine
+FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 
 # Coolify can expose NODE_ENV=production at build time. The frontend build
@@ -10,7 +11,7 @@ RUN npm ci --include=dev
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
