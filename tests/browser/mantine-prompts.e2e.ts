@@ -83,6 +83,8 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
  });
  await page.goto('/sales/201');await page.getByRole('tab',{name:'Mensajes',exact:true}).click();
  await page.getByRole('button',{name:'Restricciones de contacto',exact:true}).click();
+ // Wait for the accordion's clipping animation before scrolling/clicking its last action.
+ await expect.poll(()=>page.getByRole('region',{name:'Restricciones de contacto',exact:true}).evaluate(el=>getComputedStyle(el).overflow)).toBe('visible');
  const open=page.getByRole('button',{name:'Levantar restricción',exact:true});
  if(role==='user'){await expect(open).toHaveCount(0);expect(writes).toEqual([]);expect(errors).toEqual([]);return;}
  await open.click();const dialog=page.getByRole('dialog');
