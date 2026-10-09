@@ -1,10 +1,11 @@
 .button { display: inline-flex; align-items: center; justify-content: center; min-height: var(--crm-control-height); height: auto; padding-block: 6px; flex-shrink: 0; max-width: 100%; font-size: 14px; font-weight: 500; }
 .buttonInner { height: auto; width: 100%; min-width: 0; }
-.buttonLabel { white-space: normal; overflow-wrap: normal; word-break: normal; padding-block: 0; height: auto; min-width: 0; line-height: 1.4; text-box-trim: none; }
+.buttonLabel { display: flex; align-items: center; gap: 8px; white-space: normal; overflow-wrap: normal; word-break: normal; padding-block: 0; height: auto; min-width: 0; line-height: 1.4; text-box-trim: none; }
 :where(a).button:where([data-variant]) { color: var(--button-color); text-decoration: none; }
 .button:where([data-variant="outline"]):where(:not([data-disabled])){color:var(--primary)}
 .button:where([data-variant="subtle"],[data-variant="light"]):where(:not([data-disabled])){color:var(--foreground)}
-.input { min-height: var(--crm-control-height); height: var(--crm-control-height); font-size: var(--crm-control-font); background: var(--card); color: var(--foreground); border-color: var(--border); }
+.input { min-height: var(--crm-control-height); font-size: var(--crm-control-font); background: var(--card); color: var(--foreground); border-color: var(--border); }
+.input:not(textarea) { height: var(--crm-control-height); }
 .option { min-height: var(--crm-control-height); white-space: normal; overflow-wrap: anywhere; }
 .dropdown { background: var(--popup); color: var(--foreground); border-color: var(--border); }
 .content { background: var(--popup); color: var(--foreground); }
@@ -16,7 +17,6 @@
 .drawerContent { height: auto; max-height: 90dvh; border-radius: 16px 16px 0 0; }
 .drawerBody { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 .modalContent { max-height: calc(100dvh - 32px); overflow-y: auto; }
-.buttonLabel { display:flex; align-items:center; gap:8px; }
 .field { min-width:0; width:100%; align-self:start; }
 
 .filePicker{position:relative;display:flex;align-items:center;gap:12px;min-height:44px;min-width:0;width:100%;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--foreground);padding:4px 10px;font-size:14px;line-height:1.4}
