@@ -1,3 +1,4 @@
+import {CrmResponsiveNavigation} from '../components/ui/CrmResponsiveNavigation';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import {useOperationGuard} from '../helpers/useOperationGuard';
@@ -90,7 +91,7 @@ export default function SettingsPage(){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Configuración</h1><p>Usuarios, clasificaciones, comunicación y comportamiento general del CRM.</p></div></header>
-      <nav aria-label="Secciones de configuración" className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <UnstyledButton key={tab.key} aria-current={section===tab.key?"page":undefined} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</UnstyledButton>})}</nav>
+      <CrmResponsiveNavigation label="Sección de configuración" value={section} options={tabs.map(tab=>({value:tab.key,label:tab.label}))} onChange={value=>go(value as Section)}><nav aria-label="Secciones de configuración" className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <UnstyledButton key={tab.key} aria-current={section===tab.key?"page":undefined} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</UnstyledButton>})}</nav></CrmResponsiveNavigation>
       {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}{save.error&&<div role="alert" className={styles.error}>{save.error.message}</div>}
 
       {section==="businesses"&&<BusinessListDefaults/>}
@@ -141,7 +142,7 @@ export default function SettingsPage(){
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
 
-      {section==="communication"&&<SequenceSettings/>}
+      {section==="communication"&&<div className={styles.sequenceSection}><SequenceSettings/></div>}
 
       {section==="system"&&<section className={styles.grid}>
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>

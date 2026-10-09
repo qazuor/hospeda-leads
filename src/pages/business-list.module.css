@@ -53,3 +53,7 @@
 .listControls{grid-template-columns:minmax(0,1fr);gap: 10px}.viewsRow{min-width:0;gap: 8px;padding-top: 8px}
 
 .table .businessName{white-space:normal;line-height:1.4}.table .businessName :global(.mantine-Button-label){white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;max-height:2.8em}
+
+.resetMobileLabel{display:none}.viewsRow{padding-top:0}.listControls{padding:16px}.searchBox{background:var(--card)}.searchBox :global(.mantine-Input-wrapper){background:transparent}
+@media(max-width:767px){.listControls{padding:12px;gap:8px}.searchRow{flex-wrap:nowrap;gap:8px}.searchBox{flex-basis:auto;min-width:0;padding-inline:8px}.searchRow>button{min-height:44px;padding-inline:10px}.searchRow>button svg{display:none}.viewsRow{display:grid;grid-template-columns:minmax(0,1fr);gap:0}.viewsRow>button{justify-self:end;min-height:36px;height:36px;padding:4px 8px}.resetLabel{display:none}.resetMobileLabel{display:inline}.resultsBar .controlRow{margin-left:0;width:100%;justify-content:space-between}.resultsBar{gap:8px;padding:8px 0}.table .businessName{font-size:14px}.valueBadge{font-size:13px!important}}
+.table .valueBadge{max-width:100%}

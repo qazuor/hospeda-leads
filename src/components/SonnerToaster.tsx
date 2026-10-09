@@ -13,8 +13,8 @@ export const SonnerToaster = ({ className, ...props }: ToasterProps) => {
   const mobile=useMediaQuery("(max-width:600px)",false,{getInitialValueInEffect:false});
   return (
     <Sonner
-      position={mobile?"top-right":"bottom-right"}
-      mobileOffset={{top:136,left:12,right:12,bottom:12}}
+      position="bottom-right"
+      mobileOffset={{top:12,left:12,right:12,bottom:12}}
       visibleToasts={mobile?1:3}
       closeButton
       className={`${styles.toaster} ${className ?? ""}`}

@@ -1,0 +1,1 @@
+.root{min-width:0}.mobile{display:none}.desktop{min-width:0}@media(max-width:700px){.desktop{display:none}.mobile{display:grid;gap:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);margin-bottom:16px}}

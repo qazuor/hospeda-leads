@@ -22,3 +22,8 @@ body {
 
 .mantine-InputWrapper-label { font-size:14px;font-weight:500;margin-bottom:6px; }
 .mantine-InputWrapper-description { font-size:13px;line-height:1.5; }
+
+/* Fields remain distinct from their containing surface in both themes. */
+body{--crm-field-border:color-mix(in srgb,var(--foreground) 22%,var(--border))}
+[data-mantine-color-scheme] .mantine-Input-input:not([type=checkbox]):not([type=radio]){border-color:var(--crm-field-border)}
+[data-mantine-color-scheme] .mantine-Input-input:focus{border-color:var(--primary)}

@@ -182,3 +182,6 @@
 .toaster { z-index:390 !important; }
 .toast{padding-right:48px}
 @media(max-width:600px){.toast{width:calc(100vw - 24px);max-width:calc(100vw - 24px);padding:12px 52px 12px 12px;gap:8px;flex-wrap:wrap}.title{font-size:14px;line-height:1.4}.description{font-size:13px;max-height:5.6em;overflow:auto}.actionButton,.cancelButton{min-height:44px;margin-left:0}.content{flex:1 1 160px}.closeButton{width:44px;height:44px;top:4px;right:4px}.toaster{--viewport-padding:12px}}
+
+.toast{background:var(--card);color:var(--foreground)}.title{color:var(--foreground)}
+@media(max-width:600px){.toast{padding:10px 48px 10px 12px;gap:6px;box-shadow:var(--shadow-sm)}.description{max-height:3em}.actionButton,.cancelButton{font-size:13px;padding:6px 10px}.content{gap:3px}.toast:hover{transform:none}.title{font-size:13px}.toaster{bottom:calc(12px + env(safe-area-inset-bottom,0px))!important}}
