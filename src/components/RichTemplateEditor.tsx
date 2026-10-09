@@ -1,6 +1,7 @@
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from './Dialog';
 import {Input} from './Input';
 import {Button} from './Button';
+import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from './DropdownMenu';
 import { UnstyledButton } from '@mantine/core';
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -167,9 +168,13 @@ export const RichTemplateEditor=({
 
 
     {showVariables&&<div className={styles.variables}>
-      <span>Insertar variable:</span>
-      {VARIABLES.map(variable=><UnstyledButton type="button" key={variable} title={VARIABLE_LABELS[variable]+" · {{"+variable+"}}"} onClick={()=>insert("{{"+variable+"}}")}><span>{VARIABLE_LABELS[variable]}</span><code>{"{{"+variable+"}}"}</code></UnstyledButton>)}
-      <UnstyledButton type="button" onClick={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</UnstyledButton>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button variant="outline">Insertar variable</Button></DropdownMenuTrigger>
+        <DropdownMenuContent className={styles.variableMenu}>
+          {VARIABLES.map(variable=><DropdownMenuItem key={variable} onSelect={()=>insert("{{"+variable+"}}")}><span className={styles.variableOption}><span>{VARIABLE_LABELS[variable]}</span><code>{"{{"+variable+"}}"}</code></span></DropdownMenuItem>)}
+          <DropdownMenuItem onSelect={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>}
     <p className={styles.hint}>
       {channel==="whatsapp"
