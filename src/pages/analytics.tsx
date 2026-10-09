@@ -1,3 +1,5 @@
+import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
+import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import { NativeSelect } from '../components/NativeSelect';
 import { UnstyledButton } from '@mantine/core';
 import React, { useState } from "react";
@@ -27,12 +29,13 @@ export default function AnalyticsPage(){
   const cohort=new URLSearchParams({...(effectiveFrom?{cohortFrom:effectiveFrom}:{}),...(effectiveTo?{cohortTo:effectiveTo}:{}),...(responsible?{cohortOwner:responsible}:{}),...(type?{cohortType:type}:{}),...(city?{cohortCity:city}:{})}).toString();
   const drill=(field:string,value:string)=>navigate("/opportunities?"+cohort+"&filterField="+encodeURIComponent(field)+"&filterValue="+encodeURIComponent(value));
   const quick=(name:string)=>navigate("/opportunities?"+cohort+"&quick="+encodeURIComponent(name));
-  if(q.isLoading)return <><AppHeader/><main className={styles.shell}><Skeleton className={styles.loading}/></main></>;
-  if(q.error)return <><AppHeader/><main className={styles.shell}><div className={styles.error}>{q.error.message}</div></main></>;
+  if(q.isPending)return <><AppHeader/><main className={styles.shell}><QueryLoadingNotice>Cargando informe…</QueryLoadingNotice></main></>;
+  if(!q.data)return <><AppHeader/><main className={styles.shell}><QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching}/></main></>;
   const d=q.data!;
   const coverage=[{name:"Con teléfono",count:d.withPhone},{name:"Con email",count:d.withEmail},{name:"Con web",count:d.withWebsite}];
 
   return <><AppHeader/><main className={styles.shell}>
+ {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}
     <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Pipeline, actividad y conversión con acceso directo a las gestiones que explican cada número; los estados comerciales no acreditan pagos.</p></div><BarChart3 size={28}/></header>
     <section className={styles.filters}>
       <label>Período de alta<NativeSelect value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="custom">Personalizado</option></NativeSelect></label>

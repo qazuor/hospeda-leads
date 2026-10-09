@@ -1,6 +1,7 @@
+import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import { UnstyledButton } from '@mantine/core';
 import {useState} from 'react';
-import {useMutation, useQueryClient} from '@tanstack/react-query';
+import { useQueryClient} from '@tanstack/react-query';
 import {Link} from 'react-router-dom';
 import {ArrowRight, MapPin, Pencil, Plus, Tags, Trash2} from 'lucide-react';
 import type {SettingsOutput} from '../endpoints/settings_GET.schema';
@@ -24,7 +25,7 @@ export function ClassificationSettings({data}: {data: SettingsOutput}) {
   const [editing, setEditing] = useState<Subtype | null>(null);
   const [deleting, setDeleting] = useState<Subtype | null>(null);
   const [notice, setNotice] = useState('');
-  const save = useMutation({mutationFn: postSettingsSave, onSuccess: async () => {
+  const save = useGuardedMutation({mutationFn: postSettingsSave, onSuccess: async () => {
     await qc.invalidateQueries({queryKey: ['settings']});
   }});
   const typeName = group === '__GENERAL__' ? null : group;

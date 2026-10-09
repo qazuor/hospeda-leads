@@ -6,5 +6,5 @@ export function QueryErrorNotice({error,onRetry,busy=false,label='Reintentar'}:{
  const retry=async()=>{if(lock.current||busy)return;lock.current=true;try{await onRetry()}finally{lock.current=false}};
  const latest=useRef(retry);latest.current=retry;
  useEffect(()=>{crmReadError(error.message,()=>latest.current())},[error]);
- return <div role="alert"><p>{error.message}</p><Button variant="outline" disabled={busy} onClick={()=>void retry()}>{busy?'Cargando…':label}</Button></div>;
+ return <div role="alert"><p>{error.message}</p><Button variant="outline" disabled={busy} onClick={()=>{void retry().catch(()=>undefined)}}>{busy?'Cargando…':label}</Button></div>;
 }

@@ -1,7 +1,8 @@
+import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import { Input } from './Input';
 import { Checkbox } from './Checkbox';
 import React,{useEffect,useRef,useState} from 'react';
-import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
+import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {Bookmark,LoaderCircle,Pencil,Settings2,Trash2} from 'lucide-react';
 import {Button} from './Button';
 import {Dialog,DialogContent,DialogDescription,DialogTitle} from './Dialog';
@@ -20,7 +21,7 @@ export function PersonalViewsDialog({userId,prefs,saveOpen,onSaveOpenChange,save
  const manageButton=useRef<HTMLButtonElement>(null);
  const lock=useRef(false),qc=useQueryClient();const key=['business-saved-views',userId];
  const views=useQuery({queryKey:key,queryFn:getSavedLeadViews,enabled:saveOpen||manageOpen});
- const mutation=useMutation({mutationFn:postSavedLeadView,onSuccess:()=>qc.invalidateQueries({queryKey:key})});
+ const mutation=useGuardedMutation({mutationFn:postSavedLeadView,onSuccess:()=>qc.invalidateQueries({queryKey:key})});
  const pending=mutation.isPending,open=saveOpen||manageOpen;
  function close(){if(lock.current)return;setManageOpen(false);onSaveOpenChange(false);onManagementClose?.();}
  function show(next:Screen){mutation.reset();setScreen(next);setName(next.kind==='edit'?next.view.name:'');setReplaceConfig(false);}

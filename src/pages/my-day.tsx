@@ -1,3 +1,5 @@
+import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
+import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import { Disclosure, DisclosureSummary } from '../components/Disclosure';
 import { NativeSelect } from '../components/NativeSelect';
 import { Input } from '../components/Input';
@@ -43,7 +45,7 @@ export default function MyDayPage({agenda=false}:{agenda?:boolean}){
    <label>Rubro<NativeSelect value={vertical} onChange={e=>reset(()=>setVertical(e.target.value))}><option value="">Todos (incluye negocio general)</option>{(d?.verticals??[]).map(t=><option key={t} value={t!}>{t}</option>)}</NativeSelect></label>
    {agenda&&<label>Mes<Input type="month" required value={month} onChange={e=>{if(e.target.value)reset(()=>setMonth(e.target.value));}}/></label>}
   </div>{(responsible||city||vertical)&&<Button size="sm" variant="ghost" onClick={()=>reset(()=>{setResponsible('');setCity('');setVertical('');})}>Limpiar filtros</Button>}{agenda&&<div className={ws.viewSwitch} aria-label="Vista de agenda"><Button size="sm" variant={!calendar?'secondary':'ghost'} aria-pressed={!calendar} onClick={()=>setCalendar(false)}>Ver lista</Button><Button size="sm" variant={calendar?'secondary':'ghost'} aria-pressed={calendar} onClick={()=>setCalendar(true)}>Ver calendario</Button></div>}</section></Disclosure>
-  {q.isPending&&<p>Cargando…</p>}{q.error&&<p role="alert">{q.error.message}</p>}
+  {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/> }
   {d&&selected&&<section className={styles.panel} aria-label="Pendiente seleccionado"><h2>Pendiente seleccionado</h2>{d.tasks.length?d.tasks.map(task=><TaskRow key={task.id} task={task} data={d} onEdit={setEditor}/>):<p>Este pendiente no está disponible en tu alcance. Puede haberse retirado o corresponder a otra persona.</p>}<Link to="/my-day">Ver todos mis pendientes</Link>{editor&&<WorkEditor key={editor.kind+('item' in editor?editor.item?.id||'new':'new')} target={editor} data={d} onClose={()=>setEditor(null)}/>}</section>}
   {d&&!selected&&<>
    {!agenda&&<><div className={ws.queue}>{(['overdue','today','upcoming'] as const).map((bucket,i)=>{

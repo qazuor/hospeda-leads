@@ -1,3 +1,4 @@
+import {useOperationGuard} from '../helpers/useOperationGuard';
 import { Table } from '@mantine/core';
 import { Disclosure, DisclosureSummary } from '../components/Disclosure';
 import { NativeSelect } from '../components/NativeSelect';
@@ -250,6 +251,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       qc.invalidateQueries({queryKey:["commercial-detail"]})
     ]);
   };
+  const runOperation=useOperationGuard(error=>toast.error(error instanceof Error?error.message:'No se pudo guardar'));
   const saveM=useMutation({mutationFn:postLeadsSave});
   const deleteM=useMutation({mutationFn:postLeadsDelete,onSuccess:invalidate});
   const quickM=useMutation({mutationFn:postLeadsQuick,onSuccess:invalidate});
@@ -486,13 +488,16 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     const target=leads[selectedIndex+offset];if(target)openView(target);
   };
   const saveLead=async(force=false)=>{
+    return runOperation('save',async()=>{
     const result=await saveM.mutateAsync({...form,force});
     if("duplicateCandidates" in result){setDuplicateCandidates(result.duplicateCandidates);return}
     if(form.id)setLastTouchedId(String(form.id));
     setDuplicateCandidates([]);await invalidate();setOpen(false);toast.success("Gestión guardada");
+    });
   };
   const requestDelete=(id:string|number,nombre:string)=>setPendingDelete({id,nombre});
   const confirmDelete=async()=>{
+    return runOperation('delete',async()=>{
     if(!pendingDelete)return;
     const target=pendingDelete;
     try{
@@ -502,8 +507,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     if(form.id&&String(form.id)===String(target.id))setOpen(false);
     setPendingDelete(null);toast.success(businessMode?"Gestiones comerciales del negocio enviadas a la papelera":"Gestión enviada a la papelera");
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar a Papelera")}
+    });
   };
   const quick=async(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>{
+    return runOperation('quick:'+id+':'+field,async()=>{
     const key=String(id)+":"+field;
     const lead=leads.find(item=>String(item.id)===String(id));
     const oldRaw=lead?.[field];
@@ -520,9 +527,11 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       setCellState(prev=>{const next={...prev};delete next[key];return next});
       toast.error(error instanceof Error?error.message:"No se pudo guardar");
     }
+    });
   };
   const [bulkReview,setBulkReview]=useState<BulkInput|null>(null);
   const applyBulk=async(fingerprint:string)=>{
+    return runOperation('bulk',async()=>{
     if(!selectedIds.size)return;
     const changes:any={[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)};
     try{
@@ -530,8 +539,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     setBulkReview(null);
     toast.success(`${selectedIds.size} ${businessMode?"negocios":"gestiones"} actualizados`);setSelectedIds(new Set());setBulkValue("");
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudieron aplicar los cambios")}
+    });
   };
   const bulkDeleteSelected=async()=>{
+    return runOperation('delete',async()=>{
     if(!selectedIds.size)return;
     const count=selectedIds.size;
     try{
@@ -539,6 +550,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     setSelectedIds(new Set());setBulkDeleteOpen(false);
     toast.success(count+(businessMode?" negocios: gestiones enviadas a papelera":" gestiones enviadas a la papelera"));
     }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar la selección a Papelera")}
+    });
   };
   const togglePageSelection=()=>{
     const ids=leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).map(lead=>String(lead.id));

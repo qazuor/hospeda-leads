@@ -1,8 +1,10 @@
+import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
+import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import {normalizeSearchText} from '../helpers/searchText';
 import {TEMPLATE_SCOPE_HELP} from '../helpers/messageTemplatePolicy';
 import { UnstyledButton } from '@mantine/core';
 import { NativeSelect } from '../components/NativeSelect';
-import React, { useMemo, useState } from "react";
+import React, { useRef, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Copy, FileText, Mail, MessageCircle, Plus, Search, Trash2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
@@ -106,22 +108,27 @@ export function TemplatesContent(){
     setTemplateId(undefined);
     setName((name.trim()||"Modelo")+" · copia");
   };
+  const writeLock=useRef(false);
   const saveTemplate=async()=>{
+    if(writeLock.current)return;
     if(!name.trim())return;
     const plainEnough=body.replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").trim();
     if(!plainEnough)return;
-    await save.mutateAsync({
+    writeLock.current=true;
+    try{await save.mutateAsync({
       action:"saveTemplate",id:templateId,channel,name,
       subject:channel==="email"?subject:null,body,vertical:vertical||null,
       commercialProfile:profile||null
     });
     if(!templateId)reset();
+    }catch{}finally{writeLock.current=false;}
   };
   const deleteTemplate=async()=>{
-    if(!templateId)return;
-    await save.mutateAsync({action:"deleteTemplate",id:templateId});
+    if(!templateId||writeLock.current)return;
+    writeLock.current=true;try{await save.mutateAsync({action:"deleteTemplate",id:templateId});
     setDeleteOpen(false);
     reset();
+    }catch{}finally{writeLock.current=false;}
   };
 
   const historicalVertical=!!vertical&&!!data&&!data.types.includes(vertical);
@@ -149,31 +156,31 @@ export function TemplatesContent(){
       <div><h2>Modelos de mensajes</h2><p>Prepará mensajes reutilizables y elegí para qué canal, vertical y perfil aparecen.</p></div>
       <Button onClick={reset}><Plus size={16}/>Nuevo modelo</Button>
     </header>
-    {q.error&&<div className={styles.error}>{q.error.message}</div>}
+    {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/> }
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
-        <div className={styles.search}><Search size={15}/><Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo…"/></div>
+        <div className={styles.search}><Search size={15}/><Input disabled={save.isPending} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo…"/></div>
         <div className={styles.groupPicker}>
           <span>Agrupar por</span>
           <div>
-            <UnstyledButton type="button" className={groupBy==="channel"?styles.groupActive:""} onClick={()=>setGroupBy("channel")}>Canal</UnstyledButton>
-            <UnstyledButton type="button" className={groupBy==="vertical"?styles.groupActive:""} onClick={()=>setGroupBy("vertical")}>Vertical</UnstyledButton>
-            <UnstyledButton type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</UnstyledButton>
+            <UnstyledButton disabled={save.isPending} type="button" className={groupBy==="channel"?styles.groupActive:""} onClick={()=>setGroupBy("channel")}>Canal</UnstyledButton>
+            <UnstyledButton disabled={save.isPending} type="button" className={groupBy==="vertical"?styles.groupActive:""} onClick={()=>setGroupBy("vertical")}>Vertical</UnstyledButton>
+            <UnstyledButton disabled={save.isPending} type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</UnstyledButton>
           </div>
         </div>
         <div className={styles.templateCount}>{filtered.length} modelo{filtered.length===1?"":"s"}</div>
-        {q.isLoading?<Skeleton className={styles.loading}/>:<div className={styles.templateGroups}>
+        {q.isLoading?<><QueryLoadingNotice>Cargando modelos…</QueryLoadingNotice><Skeleton className={styles.loading}/></>:<div className={styles.templateGroups}>
           {templateGroups.map(group=>{
             const collapsed=!expandedGroups.has(groupKey(group.label));
             return <section className={styles.templateGroup} key={group.label}>
-              <UnstyledButton type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
+              <UnstyledButton disabled={save.isPending} type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
                 <div>{collapsed?<ChevronRight size={14}/>:<ChevronDown size={14}/>}<strong>{group.label}</strong></div>
                 <span>{group.templates.length}</span>
               </UnstyledButton>
               {!collapsed&&<div className={styles.templateList}>
                 {group.templates.map(template=>{
                   const active=template.id===templateId;
-                  return <UnstyledButton type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
+                  return <UnstyledButton disabled={save.isPending} type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
                     <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
                     <div><strong>{template.name}</strong><span>{[template.vertical||"Todas",template.commercialProfile||"Todos",template.channel].filter(Boolean).join(" · ")}</span></div>
                   </UnstyledButton>;
@@ -190,30 +197,30 @@ export function TemplatesContent(){
           <div className={styles.editorHeader}>
             <div className={styles.titleRow}><FileText size={20}/><div><h3>{templateId?"Editar modelo":"Nuevo modelo"}</h3><p>{channel==="whatsapp"?"Formato compatible con WhatsApp":"HTML enriquecido para email"}</p></div></div>
             <div className={styles.headerActions}>
-              {templateId&&<Button size="sm" variant="outline" onClick={duplicate}><Copy size={15}/>Duplicar</Button>}
-              {templateId&&<Button size="sm" variant="destructive" onClick={()=>setDeleteOpen(true)}><Trash2 size={15}/>Eliminar</Button>}
+              {templateId&&<Button size="sm" variant="outline" disabled={save.isPending} onClick={duplicate}><Copy size={15}/>Duplicar</Button>}
+              {templateId&&<Button size="sm" variant="destructive" disabled={save.isPending} onClick={()=>setDeleteOpen(true)}><Trash2 size={15}/>Eliminar</Button>}
               <Badge variant={channel==="email"?"primary":"success"}>{channel==="email"?"Email":"WhatsApp"}</Badge>
             </div>
           </div>
           <div className={styles.metaGrid}>
-            <label>Canal<NativeSelect value={channel} onChange={e=>setChannel(e.target.value as Channel)}><option value="whatsapp">WhatsApp</option><option value="email">Email</option></NativeSelect></label>
-            <label>Vertical<NativeSelect value={vertical} onChange={e=>setVertical(e.target.value)}><option value="">Todas las verticales</option>{historicalVertical&&<option value={vertical}>{vertical} · Valor histórico</option>}{data?.types.map(type=><option key={type}>{type}</option>)}</NativeSelect></label>
-            <label>Perfil comercial<NativeSelect value={profile} onChange={e=>setProfile(e.target.value as Profile)}><option value="">Todos los perfiles</option><option>Independiente</option><option>Consolidado</option><option>Referente</option></NativeSelect></label>
+            <label>Canal<NativeSelect disabled={save.isPending} value={channel} onChange={e=>setChannel(e.target.value as Channel)}><option value="whatsapp">WhatsApp</option><option value="email">Email</option></NativeSelect></label>
+            <label>Vertical<NativeSelect disabled={save.isPending} value={vertical} onChange={e=>setVertical(e.target.value)}><option value="">Todas las verticales</option>{historicalVertical&&<option value={vertical}>{vertical} · Valor histórico</option>}{data?.types.map(type=><option key={type}>{type}</option>)}</NativeSelect></label>
+            <label>Perfil comercial<NativeSelect disabled={save.isPending} value={profile} onChange={e=>setProfile(e.target.value as Profile)}><option value="">Todos los perfiles</option><option>Independiente</option><option>Consolidado</option><option>Referente</option></NativeSelect></label>
           </div>
-          <label className={styles.field}>Nombre del modelo<Input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
-          {channel==="email"&&<label className={styles.field}>Asunto<Input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Asunto del email"/></label>}
+          <label className={styles.field}>Nombre del modelo<Input disabled={save.isPending} value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
+          {channel==="email"&&<label className={styles.field}>Asunto<Input disabled={save.isPending} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Asunto del email"/></label>}
           <div className={styles.editorLabel}>Contenido</div>
-          <RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel}/>
+          <div inert={save.isPending}><RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel}/></div>
           <p className={styles.scopeHelp}>{TEMPLATE_SCOPE_HELP} Email y WhatsApp están disponibles para todos los perfiles.</p>
           {historicalVertical&&<p className={styles.warning}>Este modelo usa una vertical histórica: {vertical}. Conservá ese valor o elegí explícitamente una vertical actual; no se cambia automáticamente.</p>}
           {save.error&&<div className={styles.errorInline}>{save.error.message}</div>}
-          <div className={styles.footer}><Button variant="outline" onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear modelo"}</Button></div>
+          <div className={styles.footer}><Button variant="outline" disabled={save.isPending} onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear modelo"}</Button></div>
         </article>
 
         <aside className={styles.previewCard}>
           <div className={styles.previewTitle}><strong>Vista previa</strong><span>Elegí un negocio para comprobar variables. Los datos de ejemplo son ficticios.</span></div>
           <label className={styles.previewLead}>Previsualizar como
-            <NativeSelect value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>
+            <NativeSelect disabled={save.isPending} value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>
               <option value="">Datos de ejemplo</option>
               {(leadsQ.data?.rows??[]).map(lead=><option key={String(lead.id)} value={String(lead.id)}>{lead.nombre}{lead.ciudad?" · "+lead.ciudad:""}</option>)}
             </NativeSelect>
@@ -225,7 +232,7 @@ export function TemplatesContent(){
       </div>
     </div>
 
-    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+    <Dialog open={deleteOpen} onOpenChange={open=>{if(!save.isPending)setDeleteOpen(open)}}>
       <DialogContent className={styles.deleteDialog}>
         <DialogHeader>
           <DialogTitle>Eliminar modelo</DialogTitle>

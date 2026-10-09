@@ -1,3 +1,4 @@
+import {QueryLoadingNotice} from './QueryLoadingNotice';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import {QueryErrorNotice} from './QueryErrorNotice';
 import {purposeNames} from '../helpers/nextStep';
@@ -67,10 +68,10 @@ export function WorkPanel({accountId,leadId}:{accountId:string;leadId?:string}){
  const [editor,setEditor]=useState<WorkTarget|null>(null);const [page,setPage]=useState(1);
  const params={accountId,leadId,responsible:admin?'all':undefined,mode:'detail',page:String(page)};
  const q=useQuery({queryKey:['work',params],queryFn:()=>getWork(params)});
- if(q.isPending)return <p>Cargando tareas y actividades…</p>;
- if(q.error)return <QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar seguimiento"/>;
+ if(!q.data&&q.isPending)return <QueryLoadingNotice>Cargando tareas y actividades…</QueryLoadingNotice>;
+ if(!q.data)return <QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching}/>;
  const d=q.data;const pending=d.tasks.filter(t=>t.status==='pending');const finished=d.tasks.filter(t=>t.status!=='pending');
- return <section className={styles.section}>
+ return <section className={styles.section}>{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}
   <header className={styles.heading}><div><h3>Tareas y actividades comerciales</h3><p className={styles.muted}>Tareas: lo que falta hacer. Actividades: lo que ya ocurrió.</p></div><div className={styles.actions}><Button size="sm" onClick={()=>setEditor({kind:'task',accountId,leadId})}>Nueva tarea</Button><Button size="sm" variant="outline" onClick={()=>setEditor({kind:'activity',accountId,leadId})}>Registrar actividad</Button></div></header>
   {Math.max(d.totalTasks,d.totalActivities)>100&&<p className={styles.muted}>Conteos de tareas correspondientes a esta página. Usá los controles inferiores para consultar el resto.</p>}
   <SectionTabs defaultValue="tasks"><SectionTabList aria-label="Seguimiento comercial"><SectionTab value="tasks">Tareas pendientes ({pending.length})</SectionTab><SectionTab value="activities">Actividades realizadas ({d.totalActivities})</SectionTab></SectionTabList>

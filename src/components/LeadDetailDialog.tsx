@@ -1,3 +1,4 @@
+import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import {CommunicationPanel} from './CommunicationPanel';
 import {ResourcesPanel} from './ResourcesPanel';
@@ -7,7 +8,7 @@ import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTa
 import { CommercialPanel } from "./CommercialPanel";
 import React, { useState } from "react";
 import {Link} from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {  useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BriefcaseBusiness, CalendarClock, ChevronLeft, ChevronRight, ContactRound, ExternalLink, History, Link2, Mail, MapPin,
   MessageCircle, MoreHorizontal, Pencil, Phone, Plus, ShieldCheck, StickyNote, Trash2, X
@@ -102,7 +103,7 @@ export const LeadDetailDialog=({
     enabled:open&&!!lead?.id
   });
 
-  const noteM=useMutation({
+  const noteM=useGuardedMutation({
     mutationFn:postLeadNote,
     onSuccess:async()=>{
       setNote("");
