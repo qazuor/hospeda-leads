@@ -14,11 +14,11 @@ import type {CommercialDetail} from '../endpoints/commercial.schema';
 import styles from './Commercial.module.css';
 
 /** Creation stays explicit until the initial commercial stage has been agreed. */
-export function BusinessContactDialog({detail,onClose,returnFocusTo}:{detail:CommercialDetail;onClose:()=>void;returnFocusTo?:HTMLElement|null}){
+export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,onLog}:{detail:CommercialDetail;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:'email'|'whatsapp';initialContactId?:string;onLog?:(contactId:string,channel:string)=>void}){
  const stages=useQuery({queryKey:['pipeline','config-summary'],queryFn:()=>getPipeline({mode:'config'})});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
  const history=useQuery({queryKey:['communication','account',detail.account.id],queryFn:()=>getCommunication('',detail.account.id)});
- const [chosen,setChosen]=useState(''),[channelChoice,setChannel]=useState<'email'|'whatsapp'|null>(null);
+ const [chosen,setChosen]=useState(''),[channelChoice,setChannel]=useState<'email'|'whatsapp'|null>(initialChannel??null);
  const [created,setCreated]=useState(false);
  const [composing,setComposing]=useState(false),[editor,setEditor]=useState<EditorTarget|null>(null);
  const open=detail.opportunities.filter(o=>!o.deletedAt&&(stages.data?.stages.find(s=>s.name===o.estado)?.classification??'open')==='open');
@@ -26,9 +26,9 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo}:{detail:Com
  const opportunity=open.find(o=>String(o.id)===effective);
  const recent=history.data?.recentMessages.find(m=>String(m.leadId)===effective);
  const channel=channelChoice??recent?.channel??(detail.account.telefono?'whatsapp':'email');
- const recipient=recent?.channel===channel&&detail.contacts.some(c=>!c.deletedAt&&String(c.id)===recent.contactId)?recent.contactId!:'';
+ const recipient=initialContactId??(recent?.channel===channel&&detail.contacts.some(c=>!c.deletedAt&&String(c.id)===recent.contactId)?recent.contactId!:'');
  if(editor)return <CommercialEditor target={editor} detail={detail} onSaved={id=>{if(editor.kind==='opportunity'){setChosen(id);setCreated(true)}}} onClose={()=>setEditor(null)}/>;
- if(composing&&opportunity)return <ContactTemplateDialog open channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} onAddChannel={()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}} onOpenChange={v=>{if(!v)setComposing(false)}}/>;
+ if(composing&&opportunity)return <ContactTemplateDialog open channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onAddChannel={()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}} onOpenChange={v=>{if(!v)setComposing(false)}}/>;
  return <CrmDialog opened onClose={onClose} title="Contactar" returnFocusTo={returnFocusTo}
   description={<>{detail.account.nombre} · Elegí la gestión y el canal. Después verificá el destinatario y revisá el mensaje.</>}>
   {stages.isPending||settings.isPending||history.isPending?<p role="status">Cargando gestiones y mensajes modelo…</p>:stages.error||settings.error||history.error?<><p role="alert">{stages.error?.message||settings.error?.message||history.error?.message}</p><Button onClick={()=>{void stages.refetch();void settings.refetch();void history.refetch()}}>Reintentar</Button></>:<div className={styles.section}>

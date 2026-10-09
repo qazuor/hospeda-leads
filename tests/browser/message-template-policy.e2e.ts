@@ -69,6 +69,7 @@ test('selector offers Referente WhatsApp and explains models excluded by explici
  await expect(dialog.getByRole('button',{name:/Modelo general/})).toBeVisible();
  await expect(dialog.getByRole('button',{name:/Modelo de otro perfil/})).toHaveCount(0);
  await expect(dialog.getByText(/1 modelo de este canal no coincide/)).toBeVisible();
+ await dialog.getByLabel('Buscar mensaje modelo').fill('gastronomia');await expect(dialog.getByRole('button',{name:/Institucional por WhatsApp/})).toBeVisible();await expect(dialog.getByRole('button',{name:/Modelo general/})).toHaveCount(0);await dialog.getByLabel('Buscar mensaje modelo').fill('');
  await dialog.getByRole('button',{name:/Institucional por WhatsApp/}).click();
  await expect.poll(()=>writes.length).toBe(1);
  expect(writes[0]).toMatchObject({action:'prepare',templateId:'1',channel:'whatsapp'});
