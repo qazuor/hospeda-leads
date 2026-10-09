@@ -1,3 +1,6 @@
+import {DatesProvider} from '@mantine/dates';
+import 'dayjs/locale/es';
+import '@mantine/dates/styles.layer.css';
 import React from 'react';
 import { createTheme, MantineProvider } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
@@ -26,6 +29,6 @@ export function CrmThemeProvider({ children }: { children: React.ReactNode }) {
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)', false, { getInitialValueInEffect: false });
   const colorScheme = mode === 'auto' ? (systemDark ? 'dark' : 'light') : mode;
   return <MantineProvider theme={theme} forceColorScheme={colorScheme}>
-    {children}
+    <DatesProvider settings={{locale:"es",firstDayOfWeek:1}}>{children}</DatesProvider>
   </MantineProvider>;
 }

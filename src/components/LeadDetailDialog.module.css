@@ -23,4 +23,4 @@
 
 .page{position:static;transform:none;max-width:1280px;width:100%;max-height:none;height:auto;margin:0 auto;border:0;box-shadow:none}.page .scrollBody{overflow:visible;max-height:none}.page .stickyHeader{position:static}.page .detailTabs{overflow:visible}.page .actionBar{flex-wrap:wrap}
 
-.summaryItem span,.field>span,.panelHeader p,.journalActor,.journalLine time{font-size:14px}.summaryItem strong,.fieldValue,.linkRow strong,.timeline p{font-size:16px}.section{padding:16px;border:1px solid var(--border);border-radius:12px;margin-top:16px}.section [data-disclosure-control]{font-size:16px;cursor:pointer;min-height:44px}.page .dialog{overflow:visible}
+.summaryItem span,.field>span,.panelHeader p,.journalActor,.journalLine time{font-size:14px}.summaryItem strong,.fieldValue,.linkRow strong,.timeline p{font-size:16px}.section{padding:16px;border:1px solid var(--border);border-radius:12px;margin-top:16px}.section [data-disclosure-control]{font-size:16px;cursor:pointer}.page .dialog{overflow:visible}

@@ -118,7 +118,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   const row=page.locator('article').filter({has:page.getByRole('link',{name:'Primera gestión actualizada',exact:true})});
   await row.getByRole('button',{name:'Editar datos de gestión',exact:true}).click();
-  await expect(page.getByLabel('Cierre estimado',{exact:true})).toHaveValue('2027-01-15');
+  await expect(page.getByLabel('Cierre estimado',{exact:true})).toHaveValue('15/01/2027');
   await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:'1er contacto'});
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await expect(row.getByText(/1er contacto/)).toBeVisible();

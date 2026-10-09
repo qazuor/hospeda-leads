@@ -1,3 +1,4 @@
+import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {useOperationGuard} from '../helpers/useOperationGuard';
 import { Table } from '@mantine/core';
 import { Disclosure, DisclosureSummary } from '../components/Disclosure';
@@ -627,13 +628,13 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     }
     if(key==="medioContactoPreferido")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
     if(key==="fechaProximaAccion")return <NextActionPicker disabled={l.canModify===false} compact value={l.fechaProximaAccion} onChange={value=>quick(l.id,"fechaProximaAccion",value)}/>;
-    if(["fechaCreacion","fechaUltimoContacto"].includes(key))return <Input
+    if(["fechaCreacion","fechaUltimoContacto"].includes(key))return <CrmDateInput
       disabled={l.canModify===false} className={styles.inlineDate}
-      type="date"
+
       value={dateInput(l[key])}
-      onClick={e=>{e.stopPropagation();e.currentTarget.showPicker?.()}}
+      onClick={e=>{e.stopPropagation()}}
       onDoubleClick={e=>e.stopPropagation()}
-      onChange={e=>quick(l.id,key as "fechaCreacion"|"fechaUltimoContacto",e.target.value)}
+      onValueChange={e=>quick(l.id,key as "fechaCreacion"|"fechaUltimoContacto",e)}
     />;
     if(["createdAt","updatedAt"].includes(key))return displayDate(l[key]);
     if(key==="clientePotencialRecurrente")return l[key]?"Sí":"No";
@@ -733,7 +734,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las gestiones"}: {leadsQ.error.message}</div>:
-        pipelineView&&!businessMode&&!includesDeletedFilter?<PipelineBoard leads={leads} onOpen={openView}/>:<div className={styles.scroller}><Table style={{width:"100%",minWidth:tableWidth}}><colgroup>
+        pipelineView&&!businessMode&&!includesDeletedFilter?(leads.length?<PipelineBoard leads={leads} onOpen={openView}/>:null):<div className={styles.scroller}><Table style={{width:"100%",minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
           <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)} checked={leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)&&leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
@@ -800,7 +801,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
                 <label className={styles.editField+" "+styles.editSpan2}><span>Nombre de gestión</span><Input value={str(form.opportunityName)} onChange={e=>set("opportunityName",e.target.value)} placeholder="Ej: Publicación de cabañas"/></label>
                 <p className={styles.editSpan2}>Negocio: <strong>{form.nombre}</strong> · Sus datos se editan por separado.</p>
                 <label className={styles.editField}><span>Servicio de interés</span><Input value={str(form.serviceInterest)} onChange={e=>set("serviceInterest",e.target.value)}/></label>
-                <label className={styles.editField}><span>Cierre estimado (opcional)</span><Input type="date" value={str(form.estimatedCloseDate)} onChange={e=>set("estimatedCloseDate",e.target.value||null)}/></label>
+                <label className={styles.editField}><span>Cierre estimado (opcional)</span><CrmDateInput  value={str(form.estimatedCloseDate)} onValueChange={e=>set("estimatedCloseDate",e||null)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Persona para esta gestión</span><NativeSelect aria-label="Persona para esta gestión" value={str(form.primaryContactId)} onChange={e=>set("primaryContactId",e.target.value||null)}><option value="">Sin persona elegida</option>{businessDetailQ.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</NativeSelect></label>
                 <label className={styles.editField}><span>Vertical</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.tipo)} options={typeOptions} category="vertical" onChange={v=>{set("tipo",v);set("subtipo","")}} placeholder="Seleccionar vertical…"/></label>
                 <label className={styles.editField}><span>Subtipo</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.subtipo)} options={subtypeOptions} category="subtype" onChange={v=>set("subtipo",v)} placeholder="Seleccionar subtipo…" emptyLabel="Sin subtipo"/></label>
@@ -835,7 +836,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
                 <div><h3>Seguimiento</h3><p>Historial reciente, próxima acción y contexto de referencia.</p></div>
               </div>
               <div className={styles.editGrid}>
-                <label className={styles.editField}><span>Último contacto</span><Input type="date" value={str(form.fechaUltimoContacto)} onChange={e=>set("fechaUltimoContacto",e.target.value)}/></label>
+                <label className={styles.editField}><span>Último contacto</span><CrmDateInput  value={str(form.fechaUltimoContacto)} onValueChange={e=>set("fechaUltimoContacto",e)}/></label>
                 <label className={styles.editField}><span>Próxima acción</span><NextActionPicker value={form.fechaProximaAccion} onChange={value=>set("fechaProximaAccion",value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Resultado último contacto</span><Input value={str(form.resultadoUltimoContacto)} onChange={e=>set("resultadoUltimoContacto",e.target.value)}/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Canal preferido para esta gestión</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.medioContactoPreferido)} options={CONTACT_OPTIONS} category="contact" onChange={v=>set("medioContactoPreferido",v)} placeholder="Sin definir" emptyLabel="Sin definir"/></label>

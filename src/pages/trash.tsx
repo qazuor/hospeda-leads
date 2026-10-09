@@ -1,3 +1,4 @@
+import {CrmEmptyState} from '../components/ui/CrmEmptyState';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import { Table } from '@mantine/core';
 import React, { useState, useRef } from "react";
@@ -46,14 +47,14 @@ export default function TrashPage(){
   const deleteOne=()=>{if(hardTarget)void run([String(hardTarget.id)],true)};
 
   return <><AppHeader/><main className={styles.shell}>
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Papelera</h1><p>Gestiones comerciales eliminados de forma reversible. Podés restaurarlos o borrarlos definitivamente.</p></div><Trash2 size={30}/></header>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Papelera</h1><p>Gestiones comerciales eliminadas de forma reversible. Podés restaurarlos o borrarlos definitivamente.</p></div><Trash2 size={30}/></header>
     <section className={styles.toolbar}><div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Buscar por nombre, contacto, email, ciudad o vertical…"/></div></section>
     {selectedIds.size>0&&<section className={styles.bulkBar}><strong>{selectedIds.size} seleccionados</strong><Button size="sm" variant="outline" onClick={restoreSelected} disabled={processing}><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" disabled={processing} onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={15}/>Eliminar definitivamente</Button><Button size="sm" variant="ghost" disabled={processing} onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button></section>}
     {processing&&<p role="status">Procesando selección…</p>}{operationError&&<p role="alert">{operationError}</p>}
     {trash.error&&<QueryErrorNotice error={trash.error} onRetry={trash.refetch} busy={trash.isFetching}/>}
     <section className={styles.card}>
       <div className={styles.meta}><strong>{(data?.total??0).toLocaleString("es-AR")} gestiones en papelera</strong><span>Página {page} de {Math.max(1,Math.ceil((data?.total??0)/50))}</span></div>
-      {trash.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:<div className={styles.scroller}><Table><thead><tr><th className={styles.selectCell}><Checkbox disabled={processing} checked={rows.length>0&&rows.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePage}/></th><th>Gestión</th><th>Contacto</th><th>Ciudad</th><th>Vertical</th><th>Estado</th><th>Eliminado</th><th>Por</th><th>Acciones</th></tr></thead><tbody>
+      {trash.isLoading?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:!rows.length?<CrmEmptyState>No hay gestiones en papelera.</CrmEmptyState>:<div className={styles.scroller}><Table><thead><tr><th className={styles.selectCell}><Checkbox disabled={processing} checked={rows.length>0&&rows.every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePage}/></th><th>Gestión</th><th>Contacto</th><th>Ciudad</th><th>Vertical</th><th>Estado</th><th>Eliminado</th><th>Por</th><th>Acciones</th></tr></thead><tbody>
         {rows.map(lead=>{const id=String(lead.id);return <tr key={id} className={selectedIds.has(id)?styles.selectedRow:""} onDoubleClick={()=>openView(lead)}>
           <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={processing} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
           <td><strong>{lead.nombre}</strong><small>#{id}</small></td><td><strong>{lead.contactName||"—"}</strong><small>{lead.email||lead.telefono||""}</small></td>
@@ -62,7 +63,7 @@ export default function TrashPage(){
           <td><div className={styles.actions}><Button size="sm" variant="ghost" onClick={()=>openView(lead)}><Eye size={15}/>Ver</Button><Button size="sm" variant="outline" onClick={()=>void run([id],false)} disabled={processing}><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" disabled={processing} onClick={()=>setHardTarget(lead)}><Trash2 size={15}/>Eliminar definitivamente</Button></div></td>
         </tr>})}
       </tbody></Table></div>}
-      <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((data?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((data?.total??0)/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
+      {!!data?.total&&<div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((data?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((data?.total??0)/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>}
     </section>
     <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={settings.data?.users} readOnly/>
     <Dialog open={!!hardTarget} onOpenChange={open=>{if(!open&&!processing)setHardTarget(null)}}><DialogContent className={styles.confirmDialog}><DialogHeader><DialogTitle>Eliminar definitivamente</DialogTitle><DialogDescription>Vas a borrar físicamente <strong>{hardTarget?.nombre}</strong>.</DialogDescription></DialogHeader><div className={styles.warning}><AlertTriangle size={21}/><span>Esta acción no se puede deshacer. Se eliminarán la gestión y sus notas. El journal de auditoría se conservará.</span></div><DialogFooter><Button variant="outline" onClick={()=>setHardTarget(null)} disabled={processing}>Cancelar</Button><Button variant="destructive" onClick={deleteOne} disabled={processing}>{processing?"Eliminando…":"Eliminar definitivamente"}</Button></DialogFooter></DialogContent></Dialog>

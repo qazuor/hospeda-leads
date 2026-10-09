@@ -27,6 +27,7 @@ type Channel="email"|"whatsapp";
 type Profile=""|"Independiente"|"Consolidado"|"Referente";
 
 export function TemplatesContent(){
+  const previewRef=useRef<HTMLElement>(null);
   const qc=useQueryClient();
   const {authState}=useAuth();
   const q=useQuery({queryKey:["settings"],queryFn:getSettings});
@@ -196,7 +197,7 @@ export function TemplatesContent(){
         <article className={styles.editorCard}>
           <div className={styles.editorHeader}>
             <div className={styles.titleRow}><FileText size={20}/><div><h3>{templateId?"Editar modelo":"Nuevo modelo"}</h3><p>{channel==="whatsapp"?"Formato compatible con WhatsApp":"HTML enriquecido para email"}</p></div></div>
-            <div className={styles.headerActions}>
+            <div className={styles.headerActions}><Button className={styles.previewShortcut} variant="outline" onClick={()=>{previewRef.current?.scrollIntoView({block:"start",behavior:"smooth"});previewRef.current?.focus({preventScroll:true})}}>Ver vista previa</Button>
               {templateId&&<Button size="sm" variant="outline" disabled={save.isPending} onClick={duplicate}><Copy size={15}/>Duplicar</Button>}
               {templateId&&<Button size="sm" variant="destructive" disabled={save.isPending} onClick={()=>setDeleteOpen(true)}><Trash2 size={15}/>Eliminar</Button>}
               <Badge variant={channel==="email"?"primary":"success"}>{channel==="email"?"Email":"WhatsApp"}</Badge>
@@ -217,7 +218,7 @@ export function TemplatesContent(){
           <div className={styles.footer}><Button variant="outline" disabled={save.isPending} onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear modelo"}</Button></div>
         </article>
 
-        <aside className={styles.previewCard}>
+        <aside ref={previewRef} tabIndex={-1} aria-label="Vista previa del modelo" className={styles.previewCard}>
           <div className={styles.previewTitle}><strong>Vista previa</strong><span>Elegí un negocio para comprobar variables. Los datos de ejemplo son ficticios.</span></div>
           <label className={styles.previewLead}>Previsualizar como
             <NativeSelect disabled={save.isPending} value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>

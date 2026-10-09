@@ -1,6 +1,7 @@
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import { Textarea } from './Textarea';
 import { Input } from './Input';
+import {CrmDateInput} from './ui/CrmDateInput';
 import { NativeSelect } from './NativeSelect';
 import { Checkbox } from './Checkbox';
 import {useUnsavedChanges} from "./UnsavedChanges";
@@ -55,7 +56,7 @@ export function CommercialEditor({target,detail,onClose,onSaved}:{target:EditorT
     onSaved?.(result.id);onClose();
   }});
   const guard=useUnsavedChanges(JSON.stringify({draft,primary})!==baseline,onClose,mutation.isPending);
-  const field=(key:string,label:string)=> <label key={key}>{label}{key==="notes"||key==="reason"||key==="businessNotes"||key==="verificationUrls"?<Textarea disabled={mutation.isPending} rows={3} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>:<Input disabled={mutation.isPending} type={(key==="estimatedCloseDate"||key==="verifiedOn")?"date":"text"} inputMode={key==="email"?"email":undefined} required={["nombre","name","opportunityName"].includes(key)} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>}</label>;
+  const field=(key:string,label:string)=> <label key={key}>{label}{key==="notes"||key==="reason"||key==="businessNotes"||key==="verificationUrls"?<Textarea disabled={mutation.isPending} rows={3} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>:(key==="estimatedCloseDate"||key==="verifiedOn")?<CrmDateInput disabled={mutation.isPending} value={draft[key]||""} onValueChange={value=>setDraft(d=>({...d,[key]:value}))}/>:<Input disabled={mutation.isPending} type="text" inputMode={key==="email"?"email":undefined} required={["nombre","name","opportunityName"].includes(key)} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/>}</label>;
   const select=(key:string,label:string,options:{value:string;label:string}[])=> <label>{label}<NativeSelect disabled={mutation.isPending} value={draft[key]||""} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}><option value="" disabled={key==="estado"&&target.kind==="opportunity"&&!!target.item?.estado}>{key==="estado"?"Sin etapa":key==="primaryContactId"?"Sin persona elegida":"Sin asignar"}</option>{draft[key]&&!options.some(o=>o.value===draft[key])&&<option value={draft[key]}>{draft[key]} (histórico)</option>}{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</NativeSelect></label>;
   const submit=async(event:React.FormEvent)=>{
     event.preventDefault();if(submitting.current)return;submitting.current=true;setError("");

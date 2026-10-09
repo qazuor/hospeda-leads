@@ -1,20 +1,12 @@
-.header{background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:var(--z-nav-sticky)}
-.inner{max-width:calc(var(--crm-content-width) + 2 * var(--crm-gutter));margin:0 auto;min-height:66px;display:flex;align-items:center;gap:24px;padding:8px var(--crm-gutter)}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--foreground);flex:none}.brand img{width:38px;height:38px;object-fit:contain;border-radius:10px}.brand strong{display:block;font-family:var(--font-family-heading);font-size:15px}.brand span{display:block;font-size:11px;color:var(--muted-foreground);margin-top:1px}
-.inner nav{display:flex;align-items:center;gap:14px;flex:1;min-width:0}.navGroup{display:flex;gap:4px;align-items:center}.navGroup+.navGroup{border-left:1px solid var(--border);padding-left:14px}.navGroup>a,.navMenu{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;color:var(--muted-foreground);text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap}.navGroup>a:hover,.navMenu:hover{background:var(--surface);color:var(--foreground)}.navGroup>a.active,.navMenu.active{background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--foreground)}
-.user{display:flex;align-items:center;gap:6px;flex:none}.userMenuButton{gap:6px!important}.userMenuButton>span{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.menuCheck{margin-left:auto;font-size:12px}
-@media(max-width:1400px){.inner{flex-wrap:wrap;gap:8px}.inner nav{order:3;flex-basis:100%;padding-top:4px}.user{margin-left:auto}}
-@media(max-width:600px){.brand div{display:none}.userMenuButton :global(.mantine-Button-label)>span{display:none}.inner nav{gap:8px;flex-wrap:wrap}.navGroup{gap:2px}.navGroup+.navGroup{padding-left:8px}.navGroup>a,.navMenu{font-size:12px;padding:7px 8px}.navGroup svg{display:none}.navMenu svg:last-child{display:block}}
-@media(max-width:420px){.navGroup:last-child{width:100%;border-left:0;padding-left:0;padding-top:4px;border-top:1px solid var(--border)}}
-.navGroup:empty{display:none}
-.navGroup>a,.navMenu{font-size:16px;min-height:44px;padding:10px 14px}.brand span{font-size:13px}.userMenuButton>span{font-size:15px}
-@media(max-width:600px){.brand div{display:block}.inner nav{overflow-x:auto;flex-wrap:nowrap}.navGroup{flex-wrap:nowrap}.navGroup>a,.navMenu{font-size:15px;padding:10px}.navGroup:last-child{width:auto;border:0}.userMenuButton>span{display:block;max-width:70px}}
-@media(max-width:600px){.inner nav{overflow:visible;flex-wrap:wrap}.navGroup{width:100%;flex-wrap:wrap;gap:4px}.navGroup .navMenu{flex-basis:100%;justify-content:center}}
-
-.header{border-top:3px solid var(--brand-teal)}.brand strong{font-size:19px}.navGroup>a.active{box-shadow:inset 0 -3px var(--primary)}
-
-.header{background:color-mix(in srgb,var(--card) 94%,transparent);backdrop-filter:blur(12px);border-bottom-color:var(--surface-border);box-shadow:0 3px 18px #26374a06}.navGroup>a{border-radius:13px;transition:background var(--animation-duration-fast),box-shadow var(--animation-duration-fast)}.navGroup>a.active{background:color-mix(in srgb,var(--brand-blue) 12%,var(--card));color:var(--foreground);box-shadow:none}.brand strong{letter-spacing:-.025em}
-
-.commands{padding:8px 10px}.commandLabel{margin-inline:6px}.commands kbd{font:500 12px var(--font-family-base);padding:2px 4px;border:1px solid var(--border);border-radius:4px}
+.header{background:var(--card);border-top:3px solid var(--brand-teal);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:var(--z-nav-sticky)}
+.inner{max-width:calc(var(--crm-content-width) + 2 * var(--crm-gutter));margin:0 auto;display:flex;align-items:center;gap:20px;padding:8px var(--crm-gutter)}
+.brand{display:flex;align-items:center;gap:10px;color:var(--foreground);text-decoration:none;flex:none}.brand img{width:36px;height:36px;object-fit:contain;border-radius:8px}.brand strong{display:block;font:700 18px/1.3 var(--font-family-heading);letter-spacing:-.025em}.brand span{display:block;font-size:12px;color:var(--muted-foreground)}
+.inner nav{flex:1;min-width:0}.navGroup{display:flex;align-items:center;gap:4px}.navLinks>a,.navMenu{display:flex;align-items:center;justify-content:center;gap:6px;flex:none;min-height:44px;padding:8px 12px;border-radius:8px;color:var(--muted-foreground);font-size:14px;font-weight:600;white-space:nowrap;text-decoration:none}.navGroup svg{flex-shrink:0}.navLinks>a:hover,.navMenu:hover{background:var(--surface);color:var(--foreground)}.navLinks>a.active,.navMenu.active{background:color-mix(in srgb,var(--primary) 10%,var(--card));color:var(--foreground)}
+.user{display:flex;align-items:center;gap:4px;flex:none;margin-left:auto}.userMenuButton{gap:6px}.userMenuButton span{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.menuCheck{margin-left:auto;font-size:12px}.commands{padding:8px}.commandLabel{margin-inline:4px}.commands kbd{font:500 12px var(--font-family-base);padding:2px 4px;border:1px solid var(--border);border-radius:4px}
 @media(max-width:1500px){.commandLabel{display:none}}
-@media(max-width:600px){.commands kbd{display:none}.commands{min-width:44px}.navGroup svg{display:block;flex-shrink:0;width:16px}}
+@media(max-width:1440px){.inner{flex-wrap:wrap;gap:4px 12px}.inner nav{order:3;flex-basis:100%}.navLinks{overflow-x:auto;scrollbar-width:thin}}
+@media(max-width:600px){.inner{padding-block:4px;gap:0}.brand{gap:6px}.brand img{width:28px;height:28px}.brand strong{font-size:15px}.brand span{display:none}.commands kbd,.commandLabel,.userMenuButton :global(.mantine-Button-label)>span{display:none}.commands{min-width:40px;padding-inline:8px}.user{gap:0}.userMenuButton{padding-inline:6px!important}.navGroup{gap:2px}.navLinks{gap:2px;overflow-x:auto;padding-bottom:2px}.navLinks>a,.navMenu{font-size:13px;padding:8px;gap:5px}.navGroup svg{width:16px;height:16px}}
+
+.navLinks{display:flex;align-items:center;gap:4px;flex:1;min-width:0}.navMenu{flex:none}.navGroup{min-width:0}.navMenu{position:relative;background:var(--card)}@media(max-width:360px){.brand img{width:24px;height:24px}.brand{gap:4px}.brand strong{font-size:14px}}
+
+@media(max-width:360px){.brand strong{display:none}}

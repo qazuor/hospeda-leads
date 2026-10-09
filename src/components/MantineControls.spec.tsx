@@ -1,3 +1,5 @@
+import {CrmDateInput,CrmMonthInput,parseCalendarInput} from './ui/CrmDateInput';
+import 'dayjs/locale/es';
 import React, { useState } from 'react';
 import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -92,4 +94,31 @@ describe('Mantine migration preserves CRM interactions', () => {
     expect(screen.getByRole('tab', { name: 'Historial' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.queryByText('Borrador sin guardar')).toBeNull();
   });
+  it('shows local dates while preserving ISO values and rejecting impossible days', () => {
+    const change=vi.fn();
+    mount(<label>Fecha<CrmDateInput value="2027-01-18" onValueChange={change}/></label>);
+    const input=screen.getByLabelText('Fecha') as HTMLInputElement;
+    expect(input.value).toBe('18/01/2027');
+    fireEvent.change(input,{target:{value:'21/02/2027'}});
+    expect(change).toHaveBeenLastCalledWith('2027-02-21');
+    fireEvent.change(input,{target:{value:'2027-03-22'}});
+    expect(change).toHaveBeenLastCalledWith('2027-03-22');
+    expect(parseCalendarInput('31/02/2027')).toBeNull();
+    expect(parseCalendarInput('29/02/2028')).toBe('2028-02-29');
+  });
+  it('keeps native file selection and the original change event behind Spanish labels', () => {
+    const change=vi.fn();const file=new File(['texto'],'documento.txt',{type:'text/plain'});
+    mount(<label>Documento<Input type="file" aria-label="Documento" accept=".txt" onChange={change}/></label>);
+    const input=screen.getByLabelText('Documento') as HTMLInputElement;
+    fireEvent.change(input,{target:{files:[file]}});
+    expect(change).toHaveBeenCalledOnce();expect(change.mock.calls[0][0].target.files[0]).toBe(file);
+    expect(screen.getByText('documento.txt')).toBeTruthy();expect(input.accept).toBe('.txt');
+  });
+  it('shows Spanish months and emits the unchanged month contract', async () => {
+    const change=vi.fn();mount(<CrmMonthInput value="2027-01" onValueChange={change}/>);
+    const picker=screen.getByLabelText('Mes');expect(picker.textContent).toContain('enero 2027');
+    fireEvent.click(picker);fireEvent.click(await screen.findByRole('button',{name:'febrero'}));
+    expect(change).toHaveBeenLastCalledWith('2027-02');
+  });
+
 });

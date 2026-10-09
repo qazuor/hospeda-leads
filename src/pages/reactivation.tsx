@@ -1,3 +1,4 @@
+import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import { Input } from '../components/Input';
@@ -20,7 +21,7 @@ export default function ReactivationPage(){
  const q=useQuery({queryKey:['pipeline','reactivation',params],queryFn:()=>getPipeline(params)});const d=q.data;
  const change=(fn:()=>void)=>{fn();setPage(1);};
  return <><AppHeader/><main className={styles.shell}><header className={styles.heading}><div><h1>Reactivación</h1><p>Gestiones comerciales perdidas con fecha para retomar. Planificá el próximo paso cuando corresponda.</p></div><Link to="/opportunities">Abrir seguimiento</Link></header><section className={styles.panel}><div className={styles.filters}>
- <label>Desde<Input type="date" value={from} onChange={e=>change(()=>setFrom(e.target.value))}/></label><label>Hasta<Input type="date" value={to} onChange={e=>change(()=>setTo(e.target.value))}/></label>
+ <label>Desde<CrmDateInput  value={from} onValueChange={e=>change(()=>setFrom(e))}/></label><label>Hasta<CrmDateInput  value={to} onValueChange={e=>change(()=>setTo(e))}/></label>
  <label>Motivo<NativeSelect value={reason} onChange={e=>change(()=>setReason(e.target.value))}><option value="">Todos</option>{d?.lossReasons.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</NativeSelect></label><label>Vertical<NativeSelect value={vertical} onChange={e=>change(()=>setVertical(e.target.value))}><option value="">Todas</option>{d?.verticals.map(v=><option key={v}>{v}</option>)}</NativeSelect></label>
  {admin&&<label>Responsable<NativeSelect value={responsible} onChange={e=>change(()=>setResponsible(e.target.value))}><option value="">Todo el equipo</option>{d?.users.map(u=><option key={u.email} value={u.email}>{u.displayName}</option>)}</NativeSelect></label>}
  <label>Seguimiento generado<NativeSelect value={handled} onChange={e=>change(()=>setHandled(e.target.value))}><option value="no">Sin planificar</option><option value="yes">Ya planificado</option><option value="all">Todos</option></NativeSelect></label></div><p className={styles.muted}>No se contacta ni se reabre automáticamente. “No contactar” bloquea las acciones de reactivación.</p></section>

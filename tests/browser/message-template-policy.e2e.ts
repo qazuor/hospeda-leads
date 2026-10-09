@@ -20,7 +20,7 @@ for(const width of [1280,390])test(`Referente WhatsApp models can be saved and h
  await page.goto('/settings?section=templates');
  await page.getByRole('combobox',{name:'Perfil comercial',exact:true}).selectOption('Referente');
  await page.getByLabel('Nombre del modelo',{exact:true}).fill('Invitación por WhatsApp');
- await page.getByRole('textbox',{name:'Contenido del template',exact:true}).fill('Hola {{name}}, te presentamos Hospeda.');
+ await page.getByRole('textbox',{name:'Contenido del modelo',exact:true}).fill('Hola {{name}}, te presentamos Hospeda.');
  await expect(page.getByRole('button',{name:'Crear modelo',exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'Crear modelo',exact:true}).click();
  await expect.poll(()=>writes.length).toBe(1);

@@ -19,7 +19,7 @@ test('free business search matches accents and preserves the original label', as
   try {
     await page.goto('/accounts');
     await page.getByRole('button', { name: 'Grilla', exact: true }).click();
-    const search = page.getByPlaceholder('Buscar negocios, gestiones y notas…');
+    const search = page.getByRole('textbox',{name:'Buscar negocios',exact:true});
     for (const query of [`${marker} Colon`, `${marker} COLÓN`, `${marker} Colo\u0301n`]) {
       const response = page.waitForResponse(r => r.url().includes('/_api/leads?') && new URL(r.url()).searchParams.get('q') === query);
       await search.fill(query);

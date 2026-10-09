@@ -17,7 +17,7 @@ for(const width of [1280,390])for(const channel of ['email','whatsapp'])test(`li
  });
  await page.goto('/settings?section=templates');
  await page.getByRole('combobox',{name:/^Canal/}).selectOption(channel);
- const editor=page.getByRole('textbox',{name:'Contenido del template',exact:true});
+ const editor=page.getByRole('textbox',{name:'Contenido del modelo',exact:true});
  await editor.fill('Visitar Hospeda hoy');
  await editor.evaluate(node=>{
   const text=node.querySelector('p')!.firstChild!;

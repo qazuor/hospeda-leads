@@ -1,5 +1,8 @@
-.button { min-height: 44px; height: auto; }
-.buttonLabel { white-space: normal; overflow-wrap: anywhere; padding-block: 4px; }
+.button { min-height: 44px; height: auto; flex-shrink: 0; max-width: 100%; }
+.buttonLabel { white-space: normal; overflow-wrap: normal; word-break: normal; padding-block: 4px; line-height: 1.4; }
+:where(a).button:where([data-variant]) { color: var(--button-color); text-decoration: none; }
+.button:where([data-variant="outline"]):where(:not([data-disabled])){color:var(--primary)}
+.button:where([data-variant="subtle"],[data-variant="light"]):where(:not([data-disabled])){color:var(--foreground)}
 .input { min-height: 44px; font-size: 16px; background: var(--card); color: var(--foreground); border-color: var(--border); }
 .option { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
 .dropdown { background: var(--popup); color: var(--foreground); border-color: var(--border); }
@@ -14,3 +17,7 @@
 .modalContent { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .buttonLabel { display:flex; align-items:center; gap:8px; }
 .field { min-width:0; width:100%; flex:1; }
+
+.filePicker{position:relative;display:flex;align-items:center;gap:12px;min-height:44px;min-width:0;width:100%;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--foreground);padding:4px 10px;font-size:14px;line-height:1.4}
+.fileButton{flex:none;padding:6px 8px;border-radius:6px;background:var(--surface);font-weight:600}.fileName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted-foreground)}
+.fileNative{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}.filePicker:focus-within{outline:2px solid var(--primary);outline-offset:2px}.filePicker[data-disabled]{opacity:.6}.filePicker[data-disabled] .fileNative{cursor:not-allowed}

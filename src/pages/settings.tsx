@@ -125,7 +125,7 @@ export default function SettingsPage(){
         </SectionTabs>
       </section>}
 
-      {section==="communication"&&<section className={styles.content}>
+      {section==="communication"&&<section className={styles.content}><header className={styles.processHeading}><h2>Comunicación</h2><p>Envío de email y seguimientos asistidos.</p></header>
         <article className={styles.card}>
           <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery?.brevoConnected?"success":"warning"}>{data?.emailDelivery?.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
           <div className={styles.deliveryGrid}>
