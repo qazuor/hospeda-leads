@@ -32,3 +32,5 @@ File fields display Spanish selection labels while retaining the original native
 Mobile row/card actions have 44px targets; narrow action cells wrap instead of overflowing. Names can wrap and card metadata shares a readable scale. Model variables use a compact menu with human labels and the token secondary; the mobile editor offers a focusable preview destination and keeps its save footer visible. Classification navigation, history rows and message sections follow the same spacing and surface rules.
 
 The unit suite checks localized display, ISO output, invalid/leap days, month output and native file events. Browser tests retain API-payload assertions; only displayed-value and control-selection assertions change for localized controls.
+
+Mobile notifications appear below the compact header, show one notice at a time and reserve space for a dismiss target. They remain below active dialogs and keep their existing destination/retry actions.

@@ -42,3 +42,5 @@
 @media(max-width:600px){.formSection[aria-label="Revisión del resultado"] dl{grid-template-columns:minmax(0,1fr);gap:6px}.formSection[aria-label="Revisión del resultado"] dd{margin-bottom:10px}}
 
 .identityFacts{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px}.identityFacts>span{display:flex;gap:8px;flex-wrap:wrap;min-width:0}.identityFacts strong{font-weight:500;color:var(--foreground)}.form label:has(input[type=number]){max-width:140px}
+
+.contextNote{margin:12px 0;color:var(--foreground);font-size:14px;line-height:1.5}.contextNote p{margin:0 0 8px}
