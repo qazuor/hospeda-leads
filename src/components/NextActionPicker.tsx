@@ -1,3 +1,4 @@
+import {CrmDateInput} from './ui/CrmDateInput';
 import { UnstyledButton } from '@mantine/core';
 import React from "react";
 import { CalendarClock, Trash2 } from "lucide-react";
@@ -23,7 +24,7 @@ export function NextActionPicker({value,onChange,compact=false,disabled=false}:{
     </PopoverTrigger>
     <PopoverContent align="start" className={styles.popover}>
       <strong>Próxima acción</strong>
-      <Input type="date" value={normalized} onChange={e=>onChange(e.target.value)}/>
+      <CrmDateInput  value={normalized} onValueChange={e=>onChange(e)}/>
       <div className={styles.shortcuts}>
         <Button size="sm" variant="outline" onClick={()=>onChange(addDays(0))}>Hoy</Button>
         <Button size="sm" variant="outline" onClick={()=>onChange(addDays(1))}>Mañana</Button>

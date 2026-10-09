@@ -21,7 +21,7 @@ for(const role of ['user','admin'])for(const width of [1280,390])test(`business 
  });
  await page.goto('/accounts');const first=page.getByRole('group',{name:'Acciones de Negocio 1',exact:true});await expect(first).toBeVisible();
  await expect(first.getByRole('button')).toHaveCount(role==='admin'?3:2);
- const sizes=await first.getByRole('button').evaluateAll(buttons=>buttons.map(b=>({width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height})));expect(sizes.every(s=>s.width===32&&s.height===32)).toBe(true);
+ const sizes=await first.getByRole('button').evaluateAll(buttons=>buttons.map(b=>({width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height})));expect(sizes.every(s=>s.width===(width<768?44:32)&&s.height===(width<768?44:32))).toBe(true);
  if(role==='user'){await expect(page.getByRole('group',{name:'Acciones de Negocio 2',exact:true}).getByRole('button',{name:'Contactar',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Archivar negocio',exact:true})).toHaveCount(0);}
  await first.getByRole('button',{name:'Contactar',exact:true}).click();await expect(page.getByRole('dialog',{name:'Preparar contacto',exact:true}).getByRole('status')).toContainText('Cargando datos para contactar');releaseDetail();await expect(page.getByRole('dialog',{name:'Contactar',exact:true})).toBeVisible();await expect(page.getByText('Sin gestiones abiertas.',{exact:false})).toBeVisible();await page.getByRole('button',{name:'Cancelar',exact:true}).click();expect(mutations).toEqual([]);
  await page.screenshot({path:`test-results/business-row-actions-${role}-${width}.png`,animations:'disabled'});

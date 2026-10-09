@@ -31,10 +31,11 @@ import { normalizeTemplateHtml } from "../helpers/renderMessageTemplate";
 import { WHATSAPP_EMOJI_GROUPS } from "../helpers/whatsappEmoji";
 import styles from "./RichTemplateEditor.module.css";
 
+const VARIABLE_LABELS:Record<string,string>={sender:"Nombre de quien envía",sender_short:"Nombre corto de quien envía",name:"Nombre del negocio",contact:"Persona de contacto",contact_name:"Persona de contacto",city:"Ciudad",type:"Vertical",subtype:"Subtipo",phone:"Teléfono",email:"Email",website:"Sitio web"};
 const VARIABLES=["sender","sender_short","name","contact","contact_name","city","type","subtype","phone","email","website"];
 
 export const RichTemplateEditor=({
-  value,onChange,channel,showVariables=true,ariaLabel='Contenido del template'
+  value,onChange,channel,showVariables=true,ariaLabel='Contenido del modelo'
 }:{
   value:string;
   onChange:(html:string)=>void;
@@ -167,7 +168,7 @@ export const RichTemplateEditor=({
 
     {showVariables&&<div className={styles.variables}>
       <span>Insertar variable:</span>
-      {VARIABLES.map(variable=><UnstyledButton type="button" key={variable} title={variable==="sender"?"Nombre completo del usuario que envía":variable==="sender_short"?"Nombre visible del usuario que envía":undefined} onClick={()=>insert("{{"+variable+"}}")}>{"{{"+variable+"}}"}</UnstyledButton>)}
+      {VARIABLES.map(variable=><UnstyledButton type="button" key={variable} title={VARIABLE_LABELS[variable]+" · {{"+variable+"}}"} onClick={()=>insert("{{"+variable+"}}")}><span>{VARIABLE_LABELS[variable]}</span><code>{"{{"+variable+"}}"}</code></UnstyledButton>)}
       <UnstyledButton type="button" onClick={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</UnstyledButton>
     </div>}
     <p className={styles.hint}>

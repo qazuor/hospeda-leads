@@ -1,3 +1,4 @@
+import {CrmDateInput} from './ui/CrmDateInput';
 import { NativeSelect } from './NativeSelect';
 import { UnstyledButton } from '@mantine/core';
 import React, { useState } from "react";
@@ -56,8 +57,8 @@ export const DateFilterEditor=({
       <option value="without">Sin fecha</option>
     </NativeSelect>
     {value.presence!=="without"&&<>
-      <label>Desde<Input type="date" value={value.from} onChange={e=>onChange({...value,from:e.target.value})}/></label>
-      <label>Hasta<Input type="date" value={value.to} onChange={e=>onChange({...value,to:e.target.value})}/></label>
+      <label>Desde<CrmDateInput  value={value.from} onValueChange={e=>onChange({...value,from:e})}/></label>
+      <label>Hasta<CrmDateInput  value={value.to} onValueChange={e=>onChange({...value,to:e})}/></label>
     </>}
     {(value.presence!=="all"||value.from||value.to)&&<Button variant="ghost" size="sm" onClick={()=>onChange(emptyDateFilter())}><X size={13}/>Limpiar</Button>}
   </div>;

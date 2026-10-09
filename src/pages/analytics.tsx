@@ -1,3 +1,4 @@
+import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {CrmEmptyState} from '../components/ui/CrmEmptyState';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
@@ -40,7 +41,7 @@ export default function AnalyticsPage(){
     <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Pipeline, actividad y conversión con acceso directo a las gestiones que explican cada número; los estados comerciales no acreditan pagos.</p></div><BarChart3 size={28}/></header>
     <section className={styles.filters}>
       <label>Período de alta<NativeSelect value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="custom">Personalizado</option></NativeSelect></label>
-      {period==="custom"&&<><label>Desde<Input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Hasta<Input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></>}
+      {period==="custom"&&<><label>Desde<CrmDateInput  value={from} onValueChange={e=>setFrom(e)}/></label><label>Hasta<CrmDateInput  value={to} onValueChange={e=>setTo(e)}/></label></>}
       <label>Responsable<NativeSelect value={responsible} onChange={e=>setResponsible(e.target.value)}><option value="">Todos</option>{settings.data?.users.map(user=><option key={user.id} value={user.email}>{user.displayName}</option>)}</NativeSelect></label>
       <label>Vertical<NativeSelect value={type} onChange={e=>setType(e.target.value)}><option value="">Todas</option>{settings.data?.types.map(item=><option key={item}>{item}</option>)}</NativeSelect></label>
       <label>Ciudad<NativeSelect value={city} onChange={e=>setCity(e.target.value)}><option value="">Todas</option>{settings.data?.cities.map(item=><option key={item.id}>{item.name}</option>)}</NativeSelect></label>

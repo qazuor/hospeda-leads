@@ -1,3 +1,4 @@
+import {CrmDateInput} from './ui/CrmDateInput';
 import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import { NativeSelect } from './NativeSelect';
 import { Input } from './Input';
@@ -39,7 +40,7 @@ export function BusinessListTools({saveDialog,onSaveDialogChange:setSaveDialog,u
   {views.error&&<span role="alert">No pude cargar las vistas. <Button size="sm" variant="ghost" onClick={()=>views.refetch()}>Reintentar</Button></span>}
  </div>
  {selected.length>0&&<section aria-label="Modificar negocios seleccionados" className={styles.panel}><strong>{selected.length} seleccionados</strong><div className={styles.toolbar}><NativeSelect aria-label="Campo a modificar" value={field} onChange={e=>{setField(e.target.value);setValue('');}}><option value="ciudad">Ciudad</option>{admin&&<option value="assignedUserEmail">Responsable</option>}<option value="estado">Etapa de las gestiones</option><option value="prioridad">Prioridad</option><option value="tipo">Vertical</option><option value="commercialProfile">Perfil comercial</option><option value="fechaProximaAccion">Próxima acción</option></NativeSelect>
- {field==='fechaProximaAccion'?<Input aria-label="Nueva fecha" type="date" value={value} onChange={e=>setValue(e.target.value)}/>:<NativeSelect aria-label="Nuevo valor" value={value} onChange={e=>setValue(e.target.value)}><option value="">Elegir valor…</option>{['prioridad','commercialProfile','assignedUserEmail'].includes(field)&&<option value="__CLEAR__">Sin valor</option>}{options?.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</NativeSelect>}
+ {field==='fechaProximaAccion'?<CrmDateInput aria-label="Nueva fecha"  value={value} onValueChange={e=>setValue(e)}/>:<NativeSelect aria-label="Nuevo valor" value={value} onChange={e=>setValue(e.target.value)}><option value="">Elegir valor…</option>{['prioridad','commercialProfile','assignedUserEmail'].includes(field)&&<option value="__CLEAR__">Sin valor</option>}{options?.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</NativeSelect>}
  <p>{['ciudad','assignedUserEmail'].includes(field)?'Modifica los datos del negocio.':'Modifica todas las gestiones activas de los negocios seleccionados, incluso las que no coincidan con el filtro.'}</p>
  <Button disabled={!value||bulk.isPending} onClick={()=>{bulk.reset();setReview({entity:'business',ids:selected,changes:{[field]:value==='__CLEAR__'?null:value}});}}>Aplicar</Button><Button variant="outline" onClick={()=>setRemove(true)}>Enviar a papelera</Button><Button variant="outline" onClick={onClear}>Cancelar selección</Button></div></section>}
  {review&&<BulkChangeReview input={review} onClose={()=>setReview(null)} onConfirm={apply} pending={bulk.isPending} error={bulk.error?.message}/>}

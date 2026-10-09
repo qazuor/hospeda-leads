@@ -1,3 +1,4 @@
+import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import { Table } from '@mantine/core';
@@ -67,7 +68,7 @@ export default function HistoryPage(){
       <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar campo, valor, gestión o usuario…"/></div>
       <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por gestión…"/></div>
       <NativeSelect value={datePreset} onChange={e=>{setDatePreset(e.target.value);reset()}}><option value="all">Todo el historial</option><option value="today">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="custom">Rango personalizado</option></NativeSelect>
-      {datePreset==="custom"&&<><Input type="date" value={from} onChange={e=>{setFrom(e.target.value);reset()}}/><Input type="date" value={to} onChange={e=>{setTo(e.target.value);reset()}}/></>}
+      {datePreset==="custom"&&<><CrmDateInput  value={from} onValueChange={e=>{setFrom(e);reset()}}/><CrmDateInput  value={to} onValueChange={e=>{setTo(e);reset()}}/></>}
       <NativeSelect value={actor} onChange={e=>{setActor(e.target.value);reset()}}><option value="_all">Todos los usuarios</option>{data?.filters.actors.map(x=><option key={x}>{x}</option>)}</NativeSelect>
       <NativeSelect value={city} onChange={e=>{setCity(e.target.value);reset()}}><option value="_all">Todas las ciudades</option>{data?.filters.cities.map(x=><option key={x}>{x}</option>)}</NativeSelect>
       <NativeSelect value={type} onChange={e=>{setType(e.target.value);reset()}}><option value="_all">Todas las verticales</option>{data?.filters.types.map(x=><option key={x}>{x}</option>)}</NativeSelect>

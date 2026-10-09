@@ -22,3 +22,13 @@ Compact header and horizontal tabs, readable controls, task metadata and calenda
 TypeScript, unit tests and production build locally. CI additionally runs migrations, integration tests, browser flows and production Docker smoke tests. Transversal browser coverage includes 320, 390 and 1280px in both themes, checks document overflow and limits mobile header height to 130px. Screenshots remain available as CI evidence.
 
 Presentation of native date/file controls and further composition adjustments are separate visual follow-ups; do not change their data contracts merely to restyle them.
+
+## Visual follow-up
+
+`CrmDateInput` displays Spanish calendar days and emits the existing YYYY-MM-DD contract. It accepts localized typed dates and existing ISO input, rejects impossible dates and preserves the configured bounds. `CrmMonthInput` presents the same YYYY-MM value through a Spanish month picker. Native date-time and time fields retain their original validation semantics.
+
+File fields display Spanish selection labels while retaining the original native input, accept list, disabled state, files, ref and change event. Resource and import labels remain explicit accessible names.
+
+Mobile row/card actions have 44px targets; narrow action cells wrap instead of overflowing. Names can wrap and card metadata shares a readable scale. Model variables show human labels with the token secondary; the mobile editor offers a focusable preview destination and keeps its save footer visible. Classification navigation, history rows and message sections follow the same spacing and surface rules.
+
+The unit suite checks localized display, ISO output, invalid/leap days, month output and native file events. Browser tests retain API-payload assertions; only displayed-value and control-selection assertions change for localized controls.
