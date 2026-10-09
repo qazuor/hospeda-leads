@@ -3,3 +3,5 @@
 @media(max-width:767px){.actions :global(.mantine-Button-root){width:44px!important;height:44px!important;min-height:44px!important;min-width:44px!important}}
 
 .heading .name{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+
+.wide:not(.next) .readValue{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
