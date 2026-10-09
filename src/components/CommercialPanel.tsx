@@ -1,3 +1,4 @@
+import {BusinessHistory} from './BusinessHistory';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from './DropdownMenu';
@@ -42,7 +43,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const q=useQuery({queryKey:["commercial-detail",accountId??"",leadId??""],queryFn:()=>getCommercialDetail(accountId,leadId)});
   const [savedStep,setSavedStep]=useState<{kind:'contact'|'opportunity';id:string}|null>(null);
   const [params]=useSearchParams();
-  const [section,setSection]=useState(()=>params.get('section')==='documents'?'documents':'opportunities');
+  const [section,setSection]=useState(()=>['documents','history','work'].includes(params.get('section')??'')?params.get('section')!:'opportunities');
   const [contacting,setContacting]=useState(false);
   const [editor,setEditor]=useState<EditorTarget|null>(null);
   if(q.isPending)return <p>Cargando negocio…</p>;
@@ -80,7 +81,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
       <SectionTabPanel value="contacts">{contactSection}</SectionTabPanel>
       {!readOnly&&<SectionTabPanel value="work"><WorkPanel accountId={d.account.id}/></SectionTabPanel>}
       <SectionTabPanel value="documents"><ResourcesPanel accountId={d.account.id} readOnly={readOnly}/></SectionTabPanel>
-      <SectionTabPanel value="history"><Disclosure className={styles.relatedSection}><DisclosureSummary>Revisar calidad y procedencia de los datos</DisclosureSummary><DataQualityPanel accountId={d.account.id} readOnly={readOnly}/></Disclosure><section className={styles.section}><div><h3>Historial comercial</h3><p className={styles.muted}>Cambios de datos del negocio, contactos y gestiones. Últimos 200 eventos de cada historial.</p></div><div className={styles.history}>{history.map(h=><Disclosure key={h.id}><DisclosureSummary>{formatDate(h.date,true)} · {h.label} · {h.actor}</DisclosureSummary><pre>{h.detail}</pre></Disclosure>)}</div></section></SectionTabPanel>
+      <SectionTabPanel value="history"><BusinessHistory key={d.account.id} accountId={String(d.account.id)} users={d.users} readOnly={readOnly} onFollow={()=>setSection('work')}/><Disclosure className={styles.relatedSection}><DisclosureSummary>Revisar calidad y procedencia de los datos</DisclosureSummary><DataQualityPanel accountId={d.account.id} readOnly={readOnly}/></Disclosure><Disclosure className={styles.relatedSection}><DisclosureSummary>Auditoría de cambios de datos</DisclosureSummary><section className={styles.section}><div><h3>Auditoría de cambios</h3><p className={styles.muted}>Cambios de datos del negocio, contactos y gestiones. Últimos 200 eventos de cada historial.</p></div><div className={styles.history}>{history.map(h=><Disclosure key={h.id}><DisclosureSummary>{formatDate(h.date,true)} · {h.label} · {h.actor}</DisclosureSummary><pre>{h.detail}</pre></Disclosure>)}</div></section></Disclosure></SectionTabPanel>
     </SectionTabs>}
     {!compact&&<Disclosure><DisclosureSummary>Ayuda sobre negocios y gestiones</DisclosureSummary><CommercialHelp/></Disclosure>}
     {contacting&&!compact&&!readOnly&&<BusinessContactDialog detail={d} onClose={()=>setContacting(false)}/>}

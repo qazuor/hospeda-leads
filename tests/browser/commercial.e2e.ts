@@ -57,6 +57,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('dialog').getByRole('button',{name:'Convertir a cliente',exact:true}).click();
   await expect(page.getByText(/· Cliente ·/)).toBeVisible();
   await page.getByRole('tab',{name:'Historial',exact:true}).click();
+  await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
   await expect(page.getByText(/Conversión a cliente/)).toBeVisible();
   await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   await page.screenshot({path:'test-results/commercial-light.png',fullPage:true});
@@ -128,6 +129,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Confirmar baja',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Personas de contacto (1)',exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Historial',exact:true}).click();
+  await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
   await expect(page.getByText(/Contacto dado de baja/)).toBeVisible();
   await page.getByText('Ayuda sobre negocios y gestiones',{exact:true}).click();await page.getByText('Cómo usar negocios, contactos y gestiones',{exact:true}).click();
   await expect(page.getByText(/Su etapa indica cómo avanza esa gestión/)).toBeVisible();

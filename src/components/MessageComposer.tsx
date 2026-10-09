@@ -7,7 +7,8 @@ import React,{useEffect,useState,useRef} from 'react';import {useMutation,useQue
 import {Button} from './Button';import {RichTemplateEditor} from './RichTemplateEditor';import {postCommunication,type Message} from '../endpoints/communication.schema';import {whatsappTextToPreviewHtml,htmlToWhatsApp} from '../helpers/templateChannelFormatting';
 import {Mail,MessageCircle,Check,ArrowLeft,Eye} from 'lucide-react';
 import styles from './Communication.module.css';
-export const messageLabels:Record<string,string>={draft:'Borrador',whatsapp_opened:'WhatsApp abierto · envío no confirmado',manual_sent:'Envío confirmado manualmente',submitting:'Envío en curso · no reenviar',accepted:'Email aceptado por proveedor · entrega no confirmada',delivery_confirmed:'Entrega confirmada',failed:'Rebote/fallo',unknown:'Resultado incierto · revisar Brevo',replied:'Respuesta registrada manualmente',rejected:'Rechazo registrado manualmente',cancelled:'Cancelado'};
+import {messageLabels} from '../helpers/messageLabels';
+export {messageLabels} from '../helpers/messageLabels';
 const editorContent=(channel:Message['channel'],body:string)=>channel==='whatsapp'?'<p>'+whatsappTextToPreviewHtml(body)+'</p>':body;
 export function MessageComposer({initial,onChange,onDirtyChange,taskFlow=false,onBusyChange}:{initial:Message;onChange?:(m:Message)=>void;onDirtyChange?:(dirty:boolean)=>void;taskFlow?:boolean;onBusyChange?:(busy:boolean)=>void}){
  const [m,setM]=useState(initial),[subject,setSubject]=useState(initial.subject),[body,setBody]=useState(initial.body),[confirm,setConfirm]=useState(false),[notes,setNotes]=useState(''),[editing,setEditing]=useState(true),[editorHtml,setEditorHtml]=useState(()=>editorContent(initial.channel,initial.body));const qc=useQueryClient();
