@@ -1,3 +1,4 @@
+import {normalizeSearchText} from '../helpers/searchText';
 import {useEffect, useRef, useState} from 'react';
 import {Link, useSearchParams} from 'react-router-dom';
 import {ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lightbulb, Search} from 'lucide-react';
@@ -8,7 +9,7 @@ import {useAuth} from '../helpers/useAuth';
 import topics from '../content/user-guide.json';
 import styles from './guide.module.css';
 
-const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+const normalize = (value: string) => normalizeSearchText(value).trim();
 const entries = topics.flatMap(topic => topic.articles.map(article => ({topic, article})));
 
 export default function GuidePage() {

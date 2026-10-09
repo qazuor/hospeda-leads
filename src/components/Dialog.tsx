@@ -1,3 +1,4 @@
+import {useDialogLayer} from '../helpers/useDialogLayer';
 import React, { createContext, useContext, useId, useState, useRef, useEffect, useCallback } from 'react';
 import { Box, CloseButton, Modal, Text, Title } from '@mantine/core';
 import { ControlTarget } from './ui/ControlTarget';
@@ -53,15 +54,19 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   onEscapeKeyDown, onInteractOutside, onOpenAutoFocus, onCloseAutoFocus, ...props
 }, ref) => {
   const ctx = useDialog();
+  const layer=useDialogLayer(ctx.open&&!inline);
   const opener = useRef(typeof document === 'undefined' ? null : document.activeElement as HTMLElement);
   const wasInline = useRef(inline);
   useEffect(() => () => {
     if (wasInline.current) return;
     window.setTimeout(() => {
       if (typeof document === 'undefined') return;
-      if (document.activeElement !== document.body || document.querySelector('[role="dialog"]')) return;
+      // The parent trap reactivates when a child unmounts. Restore an explicit
+      // target after its autofocus timer, including targets inside that parent.
       const event = new Event('focus', { cancelable: true }); closingFocus.current?.(event);
-      if (!event.defaultPrevented && opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+      if (event.defaultPrevented) return;
+      if (document.activeElement !== document.body || document.querySelector('[role="dialog"]')) return;
+      if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
     }, 10);
   }, []);
   const initialFocus = useRef(onOpenAutoFocus); initialFocus.current = onOpenAutoFocus;
@@ -79,20 +84,20 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   const close = () => ctx.change(false);
   const guard = (handler: ((event: Event) => void) | undefined) => { const event = new Event('dismiss', { cancelable: true }); handler?.(event); return !event.defaultPrevented; };
   useEffect(() => {
-    if (!ctx.open || inline || !onEscapeKeyDown || ctx.hasOpenChild) return;
+    if (!ctx.open || inline || !layer.active || !onEscapeKeyDown || ctx.hasOpenChild) return;
     const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopImmediatePropagation(); if (guard(onEscapeKeyDown)) close(); } };
     document.addEventListener('keydown', listener, true);
     return () => document.removeEventListener('keydown', listener, true);
-  }, [ctx.open, inline, onEscapeKeyDown, ctx.change, ctx.hasOpenChild]);
+  }, [ctx.open, inline, onEscapeKeyDown, ctx.change, ctx.hasOpenChild, layer.active]);
 
   const focus = () => { const event = new Event('focus', { cancelable: true }); onOpenAutoFocus?.(event); };
   if (inline) return <InlineContext.Provider value><Box {...props} ref={ref} className={className}>{children}</Box></InlineContext.Provider>;
   return <InlineContext.Provider value={false}><Modal.Root opened={ctx.open} onClose={close} size="auto" centered fullScreen={fullScreen} scrollAreaComponent={ModalSurface}
-    transitionProps={{ duration: 0 }} zIndex={410} portalProps={container ? { target: container } : undefined}
-    closeOnEscape={!onEscapeKeyDown && !ctx.hasOpenChild} closeOnClickOutside={!onInteractOutside && !ctx.hasOpenChild}
+    transitionProps={{ duration: 0 }} zIndex={layer.zIndex} trapFocus={layer.active} portalProps={container ? { target: container } : undefined}
+    closeOnEscape={layer.active && !onEscapeKeyDown && !ctx.hasOpenChild} closeOnClickOutside={layer.active && !onInteractOutside && !ctx.hasOpenChild}
     onEnterTransitionEnd={focus} returnFocus={!onCloseAutoFocus}
     onExitTransitionEnd={() => { const event = new Event('focus', { cancelable: true }); onCloseAutoFocus?.(event); }}>
-    <Modal.Overlay onClick={onInteractOutside ? () => { if (guard(onInteractOutside)) close(); } : undefined} />
+    <Modal.Overlay onClick={onInteractOutside ? () => { if (layer.active && guard(onInteractOutside)) close(); } : undefined} />
     <Modal.Content {...props} ref={ref} classNames={{ content: [styles.content, className].filter(Boolean).join(' ') }}>
       {children}
       {showCloseButton && <CloseButton aria-label="Cerrar" className={styles.close} size="lg" onClick={close} />}

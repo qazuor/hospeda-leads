@@ -25,3 +25,11 @@
 .researchValue { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .contactChoice{display:grid;gap:8px;font-size:16px}.contactChoice select{width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;font:inherit;color:var(--foreground);background:var(--card)}
+
+.formSection[aria-label="Revisión del resultado"]{padding:18px;border:1px solid var(--border);border-radius:10px;background:var(--card);grid-column:1/-1}
+.formSection[aria-label="Revisión del resultado"] h3,.formSection[aria-label="Revisión del resultado"] dl{grid-column:1/-1;margin:0}
+.formSection[aria-label="Revisión del resultado"] dl{display:grid;grid-template-columns:minmax(100px,140px) minmax(0,1fr);gap:10px 18px}
+.formSection[aria-label="Revisión del resultado"] dt{color:var(--muted-foreground)}
+.formSection[aria-label="Revisión del resultado"] dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+[data-work-task]:focus-visible,[data-contact-id]:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+@media(max-width:600px){.formSection[aria-label="Revisión del resultado"] dl{grid-template-columns:minmax(0,1fr);gap:6px}.formSection[aria-label="Revisión del resultado"] dd{margin-bottom:10px}}
