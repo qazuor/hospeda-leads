@@ -13,16 +13,20 @@ import {getSettings} from '../endpoints/settings_GET.schema';
 import {getCommunication} from '../endpoints/communication.schema';
 import {getCommercialDetail} from '../endpoints/commercial.schema';
 import type {WorkTask} from '../endpoints/work.schema';
+import {useAuth} from '../helpers/useAuth';
+import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import styles from './Commercial.module.css';
 
 /** A task keeps its scope, including closed managements and general business work. */
 export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()=>void;onLog:(contactId:string,channel:string)=>void}){
+ const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:undefined;
  const q=useQuery({queryKey:['commercial-detail',task.accountId,''],queryFn:()=>getCommercialDetail(task.accountId)});
  const restrictions=useQuery({queryKey:['communication','account',task.accountId],queryFn:()=>getCommunication('',task.accountId)});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings,enabled:!!task.leadId});
  const [messageChannel,setMessageChannel]=useState<'email'|'whatsapp'|null>(null);
  const [contactId,setContact]=useState(''),[usedChannel,setUsedChannel]=useState('');
  const opportunity=q.data?.opportunities.find(o=>String(o.id)===String(task.leadId)&&!o.deletedAt);
+ const canPrepare=task.leadId?canModifyManagement(user,opportunity,q.data?.account):canModifyBusiness(user,q.data?.account)||!!q.data?.opportunities.some(o=>canModifyManagement(user,o,q.data?.account));
  const preferredId=task.contactIds.find(id=>q.data?.contacts.some(c=>String(c.id)===id&&!c.deletedAt))||opportunity?.primaryContactId||q.data?.contacts.find(c=>!c.deletedAt&&c.isPrimary)?.id||'';
  const effective=contactId==='__business'?'':contactId||String(preferredId);
  const contact=q.data?.contacts.find(c=>String(c.id)===effective&&!c.deletedAt);
@@ -46,10 +50,11 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
    <p>Teléfono: {phone||'Sin datos'} · Email: {email||'Sin datos'}</p>
    {(blocked('whatsapp')||blocked('email')||blocked('phone'))&&<p role="status">Algunos canales están restringidos. Solo mostramos las acciones permitidas.</p>}
    {task.leadId&&!opportunity&&<p role="alert">La gestión de esta tarea ya no está disponible. Revisá la tarea antes de preparar un mensaje.</p>}
+   {!canPrepare&&<p>La tarea asignada te permite registrar su resultado. Para preparar mensajes necesitás ser responsable de la gestión o administrador; la asignación de esta tarea no cambia esos permisos.</p>}
    {!task.leadId&&<p>Para escribir usarás el recorrido de Contactar: elegí una gestión o prepará una explícitamente. Esta tarea seguirá siendo general.</p>}
    <div className={styles.actions}>
-    {!!phone?.replace(/\D/g,'')&&!blocked('whatsapp')&&<Button variant="default" leftSection={<MessageCircle size={18} aria-hidden="true"/>} disabled={!!task.leadId&&!opportunity} onClick={()=>{setUsedChannel('whatsapp');setMessageChannel('whatsapp')}}>Preparar WhatsApp con un mensaje modelo</Button>}
-    {email&&!blocked('email')&&<Button variant="default" leftSection={<Mail size={18} aria-hidden="true"/>} disabled={!!task.leadId&&!opportunity} onClick={()=>{setUsedChannel('email');setMessageChannel('email')}}>Preparar email con un mensaje modelo</Button>}
+    {!!phone?.replace(/\D/g,'')&&!blocked('whatsapp')&&<Button variant="default" leftSection={<MessageCircle size={18} aria-hidden="true"/>} disabled={!canPrepare} onClick={()=>{setUsedChannel('whatsapp');setMessageChannel('whatsapp')}}>Preparar WhatsApp con un mensaje modelo</Button>}
+    {email&&!blocked('email')&&<Button variant="default" leftSection={<Mail size={18} aria-hidden="true"/>} disabled={!canPrepare} onClick={()=>{setUsedChannel('email');setMessageChannel('email')}}>Preparar email con un mensaje modelo</Button>}
     {phone&&!blocked('phone')&&<ChannelLink component="a" variant="default" leftSection={<Phone size={18} aria-hidden="true"/>} href={'tel:'+phone} onClick={()=>setUsedChannel('phone')}>Llamar</ChannelLink>}
    </div>
    {!phone&&!email&&<p>Este destinatario no tiene teléfono ni email. <Link to={'/accounts/'+task.accountId}>Agregar o revisar contacto</Link></p>}
