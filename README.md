@@ -4,29 +4,36 @@ CRM interno de Hospeda para carga, seguimiento, filtrado y gestión de leads.
 
 ## Estado
 
-Migración en curso desde Floot a una aplicación portable y autohosteable.
+CRM en producción en https://crm.hospeda.com.ar, portable y autohospedado en Coolify. La documentación histórica conserva entregas de la migración desde Floot.
 
 La rama estable es `main`. Los cambios se preparan en ramas feature y se integran mediante PR con CI aprobada.
 
-## Stack destino
+## Stack actual
 
 - React 19 + Vite
 - React Router
 - TanStack Query
+- Mantine 9.7.1 + Lucide
 - Hono sobre Node.js
 - PostgreSQL + Kysely
 - TipTap
 - Brevo Transactional Email
 - Docker / Docker Compose
 
+## Continuar el desarrollo
+
+Leer [AGENTS.md](AGENTS.md): instrucciones compartidas para Codex y Claude Code. [CLAUDE.md](CLAUDE.md) importa ese mismo archivo.
+
+- [Estado actual y operaciones ya realizadas](docs/estado-desarrollo.md).
+- [Decisiones funcionales y visuales](docs/decisiones.md).
+- [Pendientes y próximo trabajo](docs/pendientes.md).
+- [Mapa del código y las pruebas](docs/mapa-tecnico.md).
+- [Historial de desarrollo](docs/historial-desarrollo.md).
+- [Preparar PC, base local y sesiones del agente](docs/desarrollo-local.md).
+
 ## Desarrollo local
 
-```bash
-cp .env.example .env
-npm ci
-docker compose up -d postgres
-npm run dev
-```
+Seguir [la guía local](docs/desarrollo-local.md), incluyendo el override de puerto PostgreSQL, carga explícita de `.env`, migraciones y seed solo de ejemplo. Usar Node 22 y PostgreSQL 17 como CI/producción.
 
 Frontend: http://localhost:5173  
 API: http://localhost:3001  
@@ -34,13 +41,13 @@ Health: http://localhost:3001/_api/health
 
 ## Producción
 
-```bash
+~~~bash
 npm ci
 npm run build
 npm start
-```
+~~~
 
-La primera versión conserva Kysely y el sistema de autenticación actual para reducir riesgo durante la migración.
+La API utiliza Kysely y autenticación/sesiones propias. Las operaciones históricas de limpieza y recuperación son manuales: no se vuelven a ejecutar al clonar o desplegar.
 
 ## Deploy
 

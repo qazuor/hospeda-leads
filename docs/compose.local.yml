@@ -1,0 +1,6 @@
+# Override de desarrollo: publicar solo PostgreSQL en loopback del host.
+# Usar junto con docker-compose.yml, no de manera independiente.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5433:5432"
