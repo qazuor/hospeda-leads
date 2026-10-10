@@ -63,9 +63,10 @@ export function AppCommandPalette() {
   }, [opened, selected, query, viewportHeight]);
 
   const debounced=useDebounce(query.trim(),250);
-  const content=useQuery({queryKey:['crm-search',authenticated?authState.user.id:null,debounced],queryFn:({signal})=>searchCrm(debounced,signal),enabled:authenticated&&opened&&debounced.length>=2&&debounced.length<=200,staleTime:0,gcTime:0});
-  useEffect(()=>{if(opened)commandStore.updateState(state=>({...state,selected:-1}));},[content.data,debounced,opened]);
+  const content=useQuery({queryKey:['crm-search',authenticated?authState.user.id:null,authenticated?authState.user.role:null,debounced],queryFn:({signal})=>searchCrm(debounced,signal),enabled:authenticated&&opened&&debounced.length>=2&&debounced.length<=200,staleTime:0,gcTime:0});
   const contentCurrent=debounced===query.trim()&&query.trim().length>=2;
+  const contentIdentity=contentCurrent?(content.data?.results??[]).map(result=>result.id).join(','):'';
+  useEffect(()=>{if(opened)commandStore.updateState(state=>({...state,selected:-1}));},[contentIdentity,opened]);
   if (!authenticated) return null;
   const destinations = [
     ...mainNavigation,
@@ -126,6 +127,6 @@ export function AppCommandPalette() {
           leftSection={<action.icon size={20} aria-hidden="true" />} onClick={action.run} />
       )}</Spotlight.ActionsGroup>)}</Spotlight.ActionsList> : <Spotlight.Empty>{query.trim().length<2?'Escribí al menos 2 caracteres para buscar en el CRM.':content.isFetching?'Buscando…':'Sin opciones para esta búsqueda'}</Spotlight.Empty>}
     <Spotlight.Footer>↑ ↓ para elegir · Enter para abrir · Esc para cerrar</Spotlight.Footer>
-    <span className={styles.announcement} role="status" aria-live="polite">{selectedAction ? `Opción seleccionada: ${selectedAction.label}` : ''}</span>
+    <span className={styles.announcement} role="status" aria-label="Opción seleccionada" aria-live="polite">{selectedAction ? `Opción seleccionada: ${selectedAction.label}` : ''}</span>
   </Spotlight.Root>;
 }

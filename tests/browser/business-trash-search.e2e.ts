@@ -14,7 +14,7 @@ for(const width of [1280,390])test(`business deletion, CRM search and management
   else if(path.endsWith('/commercial')){
    if(route.request().method()==='POST'){writes.push(superjson.parse(route.request().postData()!));deleted=false;data={id:'1'};}
    else if(url.searchParams.has('accountId'))data={account:{...account,deletedAt:null},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[]};
-   else data={rows:url.searchParams.get('deleted')==='true'&&!deleted?[]:[account],total:url.searchParams.get('deleted')==='true'&&!deleted?0:1,page:1};
+   else data={rows:url.searchParams.get('deleted')==='true'&&!deleted?[]:[{...account,deletedAt:url.searchParams.get('deleted')==='true'?account.deletedAt:null}],total:url.searchParams.get('deleted')==='true'&&!deleted?0:1,page:1};
   }else if(path.endsWith('/search'))data={results:[{id:'business:1',kind:'Negocios',label:account.nombre,description:'Colón',url:'/accounts/1'},{id:'note:2',kind:'Notas',label:'Café y reunión',description:account.nombre,url:'/sales/4'},{id:'file:3',kind:'Archivos',label:'Propuesta café.pdf',description:account.nombre,url:'/accounts/1?section=documents'}]};
   else if(path.endsWith('/leads'))data={rows:[],total:0,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
   else if(path.endsWith('/saved_views'))data={views:[]};
@@ -39,5 +39,5 @@ for(const width of [1280,390])test(`business deletion, CRM search and management
  const chooser=page.getByRole('dialog',{name:'Iniciar gestión',exact:true});await expect(chooser.getByRole('button',{name:new RegExp(account.nombre)})).toBeVisible();
  await expect(chooser.getByText('0 gestiones')).toHaveCount(0);await page.screenshot({path:`test-results/start-management-${width}.png`,animations:'disabled'});
  const bounds=await chooser.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right};});expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(width);
- await chooser.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(1);expect(errors).toEqual([]);
+ await chooser.getByRole('button',{name:new RegExp(account.nombre)}).click();const preparation=page.getByRole('dialog',{name:'Preparar gestión',exact:true});await expect(preparation.getByRole('textbox',{name:'Nombre de la gestión',exact:true})).toHaveValue('Presentación de Hospeda');await page.screenshot({path:`test-results/prepare-management-${width}.png`,animations:'disabled'});await preparation.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(1);expect(errors).toEqual([]);
 });
