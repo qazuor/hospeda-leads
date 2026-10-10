@@ -10,7 +10,7 @@ for(const width of [1280,390])test(`global history includes business journals at
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/history');await expect(page.getByRole('heading',{name:'Historial global',exact:true})).toBeVisible();
- await expect(page.getByText('Negocio editado',{exact:true})).toBeVisible();await expect(page.getByText('Negocio / contacto',{exact:true})).toBeVisible();
+ await expect(page.getByRole('table').getByText('Negocio editado',{exact:true})).toBeVisible();await expect(page.getByText('Negocio / contacto',{exact:true})).toBeVisible();
  await page.getByText('Ver cambios',{exact:true}).click();await expect(page.getByText('Nombre: Café antiguo → Café del puerto',{exact:true})).toBeVisible();
  const links=page.getByRole('link',{name:/Café del puerto.*Negocio #1/});await expect(links).toHaveCount(2);await expect(links.first()).toHaveAttribute('href','/accounts/1');
  await page.getByPlaceholder('Filtrar por negocio…').click();await page.getByRole('option',{name:'Café del puerto (#1)',exact:true}).click();
