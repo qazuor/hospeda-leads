@@ -41,12 +41,15 @@ Son credenciales sintéticas locales. Si definís otro `POSTGRES_PASSWORD` al cr
 
 ## Migrar, crear usuario de ejemplo y arrancar
 
-Los scripts de DB y el servidor leen `process.env`: no cargan `.env` solos. Node 22 permite cargarlo explícitamente y ejecutar el script de package.json:
+Los scripts de DB y el servidor leen `process.env`: no cargan `.env` solos. En Bash (Ubuntu), exportar las variables del archivo local antes de ejecutar los scripts. La `.env` de ejemplo y los valores de esta guía son compatibles con este formato; escribir entre comillas cualquier valor que contenga espacios o caracteres especiales:
 
 ~~~bash
-node --env-file=.env --run db:migrate
-node --env-file=.env --run db:seed:test
-node --env-file=.env --run dev
+set -a
+source .env
+set +a
+npm run db:migrate
+npm run db:seed:test
+npm run dev
 ~~~
 
 `db:seed:test` es exclusivamente para esta base de ejemplo. Crea/resetea el administrador de prueba y agrega negocio/gestión sintéticos; no es un seed de producción ni es idempotente en todos los datos. No ejecutarlo contra un dump real o la DB productiva.
@@ -118,10 +121,13 @@ Las integraciones modifican datos sintéticos y algunas prueban migraciones dest
 Ejemplo en esa base de pruebas ya migrada/sembrada:
 
 ~~~bash
-CRM_TEST_DATABASE=1 node --env-file=.env.test --run test:commercial
+set -a
+source .env.test
+set +a
+CRM_TEST_DATABASE=1 npm run test:commercial
 ~~~
 
-Navegador espera un servidor en http://127.0.0.1:3001. Build y `node --env-file=.env.test --run start` en una terminal; Chromium y tests en otra:
+Navegador espera un servidor en http://127.0.0.1:3001. En una terminal, cargar `.env.test` como arriba, ejecutar `npm run build` y `npm start`. Chromium y tests en otra:
 
 ~~~bash
 npx playwright install chromium
