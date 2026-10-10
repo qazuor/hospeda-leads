@@ -222,6 +222,10 @@ export interface Users {
 }
 
 export interface CrmAccounts {
+  origin: Generated<string | null>;
+  sourceReference: Generated<string | null>;
+  reviewStatus: Generated<"filtered" | null>;
+  subscriptionLabel: Generated<string | null>;
   tipo: string | null;
   subtipo: string | null;
   provincia: string | null;

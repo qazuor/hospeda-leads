@@ -1,3 +1,4 @@
+import {globalHistory} from '../helpers/globalHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
 import superjson from "superjson";
@@ -13,6 +14,7 @@ export async function handle(request:Request){
     if(!input.leadId&&user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo administradores pueden ver el historial global."}),{status:403});
     }
+    if(!input.leadId)return new Response(superjson.stringify(await globalHistory(input)),{headers:{"Content-Type":"application/json"}});
     if(input.leadId)await assertLeadAccess(db,String(input.leadId),user);
     let query=db.selectFrom("leadJournal");
     if(input.leadId)query=query.where("leadId","=",String(input.leadId));

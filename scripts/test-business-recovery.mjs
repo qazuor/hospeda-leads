@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {planBusinessRecovery,validateRecoveryManifest} from './lib/recover-business-metadata.mjs';
+const manifest={formatVersion:1,backupSha256:'a'.repeat(64),accounts:[{accountId:'1',sourceLeadId:'10',values:{origin:'Google Maps',source_reference:'https://example.com',review_status:'filtered',subscription_label:'Comp',deleted_at:'2026-10-03T12:00:00.000Z',deleted_by_email:'original@example.com',deletion_reason:'Registro mal cargado'}}]};
+const current=[{id:'1',source_lead_id:'10',nombre:'Negocio',assigned_user_email:'new-owner@example.com',archived_at:'2026-10-09T12:00:00Z',discovery_source:'Investigación nueva',verification_urls:'https://new.example.com',origin:null,source_reference:null,review_status:null,subscription_label:null,deleted_at:null,deleted_by_email:null,deletion_reason:null}];
+const plan=planBusinessRecovery(manifest,current,{});assert.equal(plan.conflicts.length,0);assert.equal(plan.changes.length,1);assert.equal(plan.counts.origin,1);assert.equal(plan.changes[0].fields.origin,'Google Maps');assert.equal(current[0].discovery_source,'Investigación nueva');assert.equal(current[0].assigned_user_email,'new-owner@example.com');assert.equal(current[0].archived_at,'2026-10-09T12:00:00Z');
+assert.equal(planBusinessRecovery(manifest,[{...current[0],...manifest.accounts[0].values}],{}).changes.length,0,'Idempotent');
+assert(planBusinessRecovery(manifest,[{...current[0],subscription_label:'Premium nuevo'}],{}).conflicts.length);
+assert(planBusinessRecovery(manifest,current,{'1':[{entity:'tasks',id:'5'}]}).conflicts.length,'New work blocks historical deletion/filter state');
+assert(planBusinessRecovery(manifest,[{...current[0],source_lead_id:'11'}],{}).conflicts.length,'Identity guard');
+assert.throws(()=>validateRecoveryManifest({...manifest,accounts:[{...manifest.accounts[0],values:{commercial_status:'client'}}]}),'Only authorized fields');
+console.log('Business recovery: explicit fields, identity, original attribution, preserved research/owner/archive, idempotency, conflicts and new-work guard passed');
