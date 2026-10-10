@@ -14,7 +14,7 @@
     "db:import": "node scripts/import-data.mjs",
     "db:validate": "node scripts/validate-data.mjs",
     "db:migrate:floot": "node scripts/migrate-floot-snapshot.mjs",
-    "test:commercial": "node scripts/test-commercial-migration.mjs && node --import tsx scripts/test-commercial.ts && node --import tsx scripts/test-business-history.ts",
+    "test:commercial": "node scripts/test-commercial-migration.mjs && node --import tsx scripts/test-commercial.ts && node --import tsx scripts/test-business-history.ts && node --import tsx scripts/test-global-history.ts && node scripts/test-business-recovery.mjs && node scripts/test-recovery-postgres.mjs",
     "test:browser": "playwright test",
     "test:work": "node scripts/test-work-migration.mjs && node --import tsx scripts/test-work.ts",
     "test:pipeline": "node scripts/test-pipeline-migration.mjs && node --import tsx scripts/test-pipeline.ts",
@@ -26,7 +26,8 @@
     "db:review:models": "node scripts/review-message-models.mjs",
     "db:audit:managements": "node scripts/audit-management-cleanup.mjs",
     "test:mcp": "node --import tsx scripts/test-mcp.ts",
-    "test:managements": "node scripts/test-explicit-management-migration.mjs && node --import tsx scripts/test-explicit-management.ts"
+    "test:managements": "node scripts/test-explicit-management-migration.mjs && node --import tsx scripts/test-explicit-management.ts",
+    "db:recover:businesses": "node scripts/recover-business-metadata.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",

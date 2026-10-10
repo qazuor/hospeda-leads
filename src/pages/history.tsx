@@ -1,3 +1,4 @@
+import {auditChanges} from '../helpers/auditChanges';
 import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
@@ -21,7 +22,7 @@ import styles from "./history.module.css";
 const actionLabel:Record<string,string>={
   created:"Creado",updated:"Editado",inline_updated:"Cambio rápido",bulk_updated:"Edición masiva",
   note_added:"Nota agregada",bulk_assigned:"Asignación inicial",email_sent:"Email enviado",contact_logged:"Contacto registrado",
-  soft_deleted:"Enviado a papelera",restored:"Restaurado",hard_deleted:"Eliminado definitivamente",deleted:"Eliminado"
+  soft_deleted:"Enviado a papelera",restored:"Restaurado",hard_deleted:"Eliminado definitivamente",deleted:"Eliminado",account_created:"Negocio creado",account_updated:"Negocio editado",account_deleted:"Negocio enviado a Papelera",account_restored:"Negocio restaurado",account_archived:"Negocio archivado",account_unarchived:"Negocio recuperado",contact_created:"Contacto creado",contact_updated:"Contacto editado",contact_deleted:"Contacto dado de baja",converted_to_client:"Conversión a cliente",account_merged:"Negocios fusionados",import_updated:"Actualizado desde lote",work_insert:"Tarea o actividad creada",work_update:"Tarea o actividad editada",work_delete:"Tarea o actividad eliminada",resource_insert:"Recurso creado",resource_update:"Recurso editado",resource_delete:"Recurso eliminado",pipeline_stage:"Cambio de etapa",pipeline_objection:"Objeción registrada",business_metadata_recovered:"Datos históricos recuperados",configuration_updated:"Configuración editada"
 };
 const fieldLabel:Record<string,string>={
   opportunityName:"Nombre de la gestión",nombre:"Nombre",contactName:"Persona de contacto",tipo:"Vertical",subtipo:"Subtipo",commercialProfile:"Perfil comercial",ciudad:"Ciudad",
@@ -51,11 +52,11 @@ export default function HistoryPage(){
     placeholderData:previous=>previous
   });
   const data=journal.data;
-  const leadOptions=useMemo(()=>data?.filters.leads.map(x=>x.name+" (#"+x.id+")")??[],[data?.filters.leads]);
-  const selectedLeadId=useMemo(()=>data?.filters.leads.find(x=>x.name+" (#"+x.id+")"===leadLabel)?.id,[data?.filters.leads,leadLabel]);
+  const leadOptions=useMemo(()=>data?.filters.accounts?.map(x=>x.name+" (#"+x.id+")")??[],[data?.filters.accounts]);
+  const selectedLeadId=useMemo(()=>data?.filters.accounts?.find(x=>x.name+" (#"+x.id+")"===leadLabel)?.id,[data?.filters.accounts,leadLabel]);
   const filteredJournal=useQuery({
     queryKey:["global-journal-filtered",debounced,action,actor,city,type,selectedLeadId,effectiveFrom,effectiveTo,page],
-    queryFn:()=>getLeadJournal({q:debounced||undefined,action:action==="_all"?undefined:action,actor:actor==="_all"?undefined:actor,city:city==="_all"?undefined:city,type:type==="_all"?undefined:type,leadId:selectedLeadId||undefined,from:effectiveFrom||undefined,to:effectiveTo||undefined,page,pageSize:50}),
+    queryFn:()=>getLeadJournal({q:debounced||undefined,action:action==="_all"?undefined:action,actor:actor==="_all"?undefined:actor,city:city==="_all"?undefined:city,type:type==="_all"?undefined:type,accountId:selectedLeadId||undefined,from:effectiveFrom||undefined,to:effectiveTo||undefined,page,pageSize:50}),
     enabled:!!data&&!!selectedLeadId,placeholderData:previous=>previous
   });
   const shown=selectedLeadId?filteredJournal:journal,shownData=shown.data??data;
@@ -63,10 +64,10 @@ export default function HistoryPage(){
   const clear=()=>{setLeadLabel("");setActor("_all");setCity("_all");setType("_all");setAction("_all");setQ("");setDatePreset("all");setFrom("");setTo("");setPage(1)};
 
   return <><AppHeader/><main className={styles.shell}>
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>AUDITORÍA</div><h1>Historial global</h1><p>Cambios realizados en todas las gestiones, con usuario, contexto y fecha.</p></div><History size={30}/></header>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>AUDITORÍA</div><h1>Historial global</h1><p>Acciones sobre negocios, contactos, gestiones, tareas y documentos, con usuario y fecha.</p></div><History size={30}/></header>
     <section className={styles.toolbar}>
-      <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar campo, valor, gestión o usuario…"/></div>
-      <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por gestión…"/></div>
+      <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar negocio, campo, valor o usuario…"/></div>
+      <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por negocio…"/></div>
       <NativeSelect value={datePreset} onChange={e=>{setDatePreset(e.target.value);reset()}}><option value="all">Todo el historial</option><option value="today">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="custom">Rango personalizado</option></NativeSelect>
       {datePreset==="custom"&&<><CrmDateInput  value={from} onValueChange={e=>{setFrom(e);reset()}}/><CrmDateInput  value={to} onValueChange={e=>{setTo(e);reset()}}/></>}
       <NativeSelect value={actor} onChange={e=>{setActor(e.target.value);reset()}}><option value="_all">Todos los usuarios</option>{data?.filters.actors.map(x=><option key={x}>{x}</option>)}</NativeSelect>
@@ -78,15 +79,15 @@ export default function HistoryPage(){
     <section className={styles.card}>
       <div className={styles.meta}><strong>{(shownData?.total??0).toLocaleString("es-AR")} eventos</strong><span>Página {page} de {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span></div>
       {shown.error&&<QueryErrorNotice error={shown.error} onRetry={shown.refetch} busy={shown.isFetching}/> }
-      {shown.isLoading?<div className={styles.loading}><QueryLoadingNotice>Cargando historial…</QueryLoadingNotice>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:<div className={styles.scroller}><Table><thead><tr><th>Fecha</th><th>Gestión</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
+      {shown.isLoading?<div className={styles.loading}><QueryLoadingNotice>Cargando historial…</QueryLoadingNotice>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:<div className={styles.scroller}><Table><thead><tr><th>Fecha</th><th>Negocio / gestión</th><th>Ciudad</th><th>Vertical</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Cambio</th></tr></thead><tbody>
         {(shownData?.rows??[]).map(row=><tr key={row.id}>
           <td>{formatDate(row.createdAt,true)}</td>
-          <td>{row.leadId?<Link className={styles.leadLink} to={"/?leadId="+row.leadId}><strong>{row.leadName}</strong><small>#{row.leadId}</small></Link>:<><strong>{row.leadName}</strong><small>eliminado</small></>}</td>
+          <td>{row.accountId?<Link className={styles.leadLink} to={row.accountDeleted?"/trash":"/accounts/"+row.accountId}><strong>{row.accountName||row.leadName}</strong><small>{row.accountDeleted?"En Papelera":"Negocio #"+row.accountId}{row.leadId?" · Gestión #"+row.leadId:""}</small></Link>:row.leadId?<Link className={styles.leadLink} to={"/sales/"+row.leadId}><strong>{row.leadName}</strong><small>Gestión #{row.leadId}</small></Link>:<strong>{row.leadName}</strong>}</td>
           <td>{row.leadCity||"Vacío"}</td><td>{row.leadType||"Vacío"}</td>
           <td><strong>{row.actorName}</strong><small>{row.actorEmail??""}</small></td>
-          <td><Badge variant={["deleted","soft_deleted","hard_deleted"].includes(row.action)?"destructive":row.action==="created"||row.action==="restored"?"success":"outline"}>{actionLabel[row.action]??row.action}</Badge></td>
+          <td><Badge variant={["deleted","soft_deleted","hard_deleted"].includes(row.action)?"destructive":row.action==="created"||row.action==="restored"?"success":"outline"}>{actionLabel[row.action]??row.action}</Badge>{row.source&&<small>{{lead:"Gestión histórica",business:"Negocio / contacto",work:"Tarea / actividad",resource:"Documento / comunicación",pipeline:"Pipeline",configuration:"Configuración"}[row.source]||row.source}</small>}</td>
           <td>{row.fieldName?fieldLabel[row.fieldName]??row.fieldName:"—"}</td>
-          <td className={styles.change}>{row.fieldName?<><span>{journalValue(row.fieldName,row.oldValue)}</span><b>→</b><strong>{journalValue(row.fieldName,row.newValue)}</strong></>:"—"}</td>
+          <td className={styles.change}>{row.fieldName?<><span>{journalValue(row.fieldName,row.oldValue)}</span><b>→</b><strong>{journalValue(row.fieldName,row.newValue)}</strong></>:auditChanges(row.metadata).length?<details><summary>Ver cambios</summary>{auditChanges(row.metadata).map((line,i)=><p key={i}>{line}</p>)}</details>:"—"}</td>
         </tr>)}
       </tbody></Table></div>}
       <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((shownData?.total??0)/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>

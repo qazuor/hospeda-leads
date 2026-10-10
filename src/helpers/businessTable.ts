@@ -9,6 +9,9 @@ export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
     coalesce(to_jsonb(l), '{}'::jsonb) || jsonb_build_object(
       'id', coalesce(l.id, -a.id), 'account_id', a.id, 'deleted_at', a.deleted_at,
       'tipo', a.tipo, 'subtipo', a.subtipo,
+      'origen', coalesce(a.origin,l.origen), 'fuente_referencia', coalesce(a.source_reference,l.fuente_referencia),
+      'estado', coalesce(l.estado,CASE WHEN a.review_status='filtered' THEN 'Filtrado' END),
+      'suscripcion', coalesce(l.suscripcion,a.subscription_label),
       'nombre', a.nombre, 'ciudad', a.ciudad, 'telefono', a.telefono,
       'email', a.email, 'sitio_web', a.sitio_web, 'url_gmap', a.url_gmap,
       'perfil_instagram', a.perfil_instagram, 'perfil_facebook', a.perfil_facebook,
