@@ -18,7 +18,9 @@ for(const width of [1280,390])test(`business deletion, CRM search and management
   }else if(path.endsWith('/search'))data={results:[{id:'business:1',kind:'Negocios',label:account.nombre,description:'Colón',url:'/accounts/1'},{id:'note:2',kind:'Notas',label:'Café y reunión',description:account.nombre,url:'/sales/4'},{id:'file:3',kind:'Archivos',label:'Propuesta café.pdf',description:account.nombre,url:'/accounts/1?section=documents'}]};
   else if(path.endsWith('/leads'))data={rows:[],total:0,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
   else if(path.endsWith('/saved_views'))data={views:[]};
-  else if(path.endsWith('/pipeline'))data={insights:[],events:[],objections:[],stages:[],rules:[],verticals:[],users:[]};
+  else if(path.endsWith('/work'))data={tasks:[],activities:[],journal:[],attention:[],accounts:[],opportunities:[],contacts:[],users:[],types:[],totalTasks:0,totalActivities:0,totalAttention:0,page:1};
+  else if(path.endsWith('/leads_stats'))data={total:0,pendientes:0,suscriptos:0,vencidos:0,paraHoy:0,misPendientesHoy:0};
+  else if(path.endsWith('/pipeline'))data={insights:[],events:[],objections:[],stages:[],rules:[],verticals:[],users:[],lossReasons:[],objectionTypes:[],reactivations:[],configJournal:[],total:0,page:1};
   else if(path.endsWith('/leads_trash'))data={rows:[],total:0,page:1,pageSize:50};
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
