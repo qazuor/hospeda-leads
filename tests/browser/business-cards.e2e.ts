@@ -27,7 +27,9 @@ for(const width of [1280,390])test(`business cards preserve fields, actions and 
  expect(await card.locator('[data-card-field]').evaluateAll(fields=>fields.map(field=>field.getAttribute('data-card-field')))).toEqual(columns.filter(key=>!['nombre','actions'].includes(key)));
  await expect(card.getByRole('group',{name:'Acciones de Hostería del Río',exact:true}).getByRole('button')).toHaveCount(role==='admin'?3:2);
  if(role==='user'){await expect(page.locator('[data-business-id="2"]').getByRole('button',{name:'Contactar',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Archivar negocio',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:/Editar responsable de/})).toHaveCount(0);}
- await expect(page.locator('[data-business-id="3"]').getByText('Sin próximo paso',{exact:true})).toBeVisible();
+ const emptyCard=page.locator('[data-business-id="3"]');
+ for(const key of ['ciudad','email','telefono','fuenteReferencia','fechaProximaAccion'])await expect(emptyCard.locator(`[data-card-field="${key}"]`)).toHaveCount(0);
+ await expect(emptyCard.getByText('Potencial cliente',{exact:true})).toBeVisible();
  const contact=card.getByLabel('Email: '+email,{exact:true});await contact.focus();await expect(page.getByRole('tooltip')).toContainText(email);await page.keyboard.press('Tab');
  const description=card.locator('[data-card-field="fuenteReferencia"]');expect(await description.evaluate(element=>element.scrollHeight<=element.clientHeight)).toBe(true);
  await page.getByRole('button',{name:'Grilla',exact:true}).focus();await page.mouse.move(0,0);await expect(page.getByRole('tooltip')).toHaveCount(0);await card.scrollIntoViewIfNeeded();await page.screenshot({path:`test-results/business-cards-${width}.png`,animations:'disabled'});

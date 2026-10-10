@@ -14,6 +14,12 @@ const contactFields=new Set(['telefono','email','sitioWeb','urlGmap','perfilInst
 const icons:Record<string,typeof Tag>={assignedUserEmail:UserRound,ciudad:MapPin,tipo:Tag,subtipo:Tag,commercialProfile:Tag,medioContactoPreferido:Phone,telefono:Phone,email:AtSign,urlGmap:MapPin,fechaProximaAccion:ArrowRight,fechaCreacion:CalendarDays,fechaUltimoContacto:CalendarDays,createdAt:CalendarDays,updatedAt:CalendarDays};
 const labels=new Map(BUSINESS_COLUMNS.map(column=>[column.key,column.label]));
 
+function hasCardValue(row:Business,key:string){
+ const value=row.opportunityCount!==1&&row.opportunityValues?.[key]?.length?row.opportunityValues[key]:row[key as keyof Business];
+ // False and zero are meaningful values; only absent data is omitted.
+ return value!==null&&value!==undefined&&(typeof value!=='string'||value.trim()!=='')&&(!Array.isArray(value)||value.some(item=>item!==null&&item!==undefined&&String(item).trim()!==''));
+}
+
 export function BusinessCard({row,columns,selected,onSelect,onOpen,renderValue,describeValue,isEditable}:{
  row:Business;columns:string[];selected:boolean;onSelect:()=>void;onOpen:()=>void;
  renderValue:(key:string)=>React.ReactNode;describeValue:(key:string)=>string;isEditable:(key:string)=>boolean;
@@ -24,9 +30,9 @@ export function BusinessCard({row,columns,selected,onSelect,onOpen,renderValue,d
    <h2 className={styles.heading}><UnstyledButton data-business-open className={styles.name} aria-label={'Abrir negocio '+row.nombre} onClick={onOpen}>{row.nombre}</UnstyledButton></h2>
    {columns.includes('actions')&&<div className={styles.actions}>{renderValue('actions')}</div>}
   </div>
-  <p className={styles.summary}>{row.opportunityCount??0} gestiones · {row.contactCount??0} contactos · {row.commercialStatus==='client'?'Cliente':'Potencial cliente'}</p>
+  <p className={styles.summary}>{[row.opportunityCount ? `${row.opportunityCount} gestiones` : null, row.contactCount ? `${row.contactCount} contactos` : null, row.commercialStatus==='client'?'Cliente':'Potencial cliente'].filter(Boolean).join(' · ')}</p>
   <dl className={styles.fields}>
-   {columns.filter(key=>key!=='nombre'&&key!=='actions').map(key=>{
+   {columns.filter(key=>key!=='nombre'&&key!=='actions'&&hasCardValue(row,key)).map(key=>{
     const label=labels.get(key)??key,compact=metadata.has(key),contact=contactFields.has(key),next=key==='fechaProximaAccion';
     const Icon=icons[key]??(contact?Globe:Tag),description=describeValue(key);
     return <div key={key} data-card-field={key} className={[styles.field,compact?styles.metadata:'',contact?styles.contact:'',next?styles.next:'',!compact?styles.wide:''].filter(Boolean).join(' ')}>

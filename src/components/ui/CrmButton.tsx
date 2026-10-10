@@ -7,5 +7,5 @@ export const CrmButton = React.forwardRef<HTMLButtonElement, Props>(function Crm
   { type = 'button', disabled, loading, ...props }, ref,
 ) {
   return <Button {...props} ref={ref} type={type} loading={loading}
-    disabled={disabled || loading} classNames={{ root: styles.button, label: styles.buttonLabel }} />;
+    disabled={disabled || loading} classNames={{ root: styles.button, inner: styles.buttonInner, label: styles.buttonLabel }} />;
 });

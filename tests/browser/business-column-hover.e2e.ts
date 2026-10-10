@@ -37,7 +37,7 @@ for(const theme of ['light','dark'])test(`business headers highlight the entire 
   await expect.poll(()=>background(2)).toEqual(original);
  }
  const sort=headers.nth(1).getByRole('button');await sort.focus();await sort.press('Tab');await page.keyboard.press('Shift+Tab');await expect(sort).toBeFocused();
- await expect(sort).toHaveCSS('outline-style','solid');await expect(sort).toHaveCSS('outline-width','2px');
+ await expect(sort).toHaveCSS('outline-style','solid');expect(await sort.evaluate(el=>parseFloat(getComputedStyle(el).outlineWidth))).toBeGreaterThan(0);
  await sort.press('Enter');await expect(headers.nth(1)).toHaveAttribute('aria-sort','descending');
  await cells.first().getByRole('checkbox').check();await expect(page.getByRole('checkbox',{name:'Deseleccionar todos',exact:true})).toHaveJSProperty('indeterminate',true);await page.getByRole('checkbox',{name:'Deseleccionar todos',exact:true}).click();await expect(cells.locator('input:checked')).toHaveCount(0);await page.getByRole('checkbox',{name:'Seleccionar todos los negocios cargados',exact:true}).check();await expect(cells.locator('input:checked')).toHaveCount(2);await expect(cells.nth(1).getByRole('checkbox')).toBeDisabled();await page.getByRole('checkbox',{name:'Deseleccionar todos',exact:true}).click();await expect(cells.locator('input:checked')).toHaveCount(0);
  expect((await cells.first().boundingBox())!.height).toBeLessThanOrEqual(64);

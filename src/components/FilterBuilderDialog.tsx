@@ -75,7 +75,7 @@ export const FilterBuilderDialog=({
         {additionalFilters.length>0&&<section className={styles.group}><strong>Otros filtros de esta vista</strong><ul>{additionalFilters.map((label,index)=><li key={index}>{label}</li>)}</ul><label className={styles.additionalChoice}><Checkbox checked={clearAdditional} onChange={event=>setClearAdditional(event.target.checked)}/>Quitar estos filtros al aplicar</label></section>}
 
         <section className={styles.group}>
-          <div className={styles.groupHeader}><div><strong>Texto libre</strong><span>Se combina con los demás filtros mediante AND.</span></div><Button variant="ghost" size="sm" onClick={()=>setDraftSearch("")} disabled={!draftSearch.trim()}>Quitar búsqueda</Button></div>
+          <div className={styles.groupHeader}><div><strong>Texto libre</strong><span>Se combina con los demás filtros mediante AND.</span></div><Button variant="ghost" size="sm" onClick={()=>setDraftSearch("")} disabled={!draftSearch.trim()}><Trash2 size={14} aria-hidden="true"/>Quitar búsqueda</Button></div>
           <label className={styles.searchField}><span>Texto libre de búsqueda</span><Input value={draftSearch} onChange={e=>setDraftSearch(e.target.value)} placeholder="Buscar negocios, gestiones y notas…"/></label>
         </section>
         {draft.length===0&&!draftSearch.trim()&&(!additionalFilters.length||clearAdditional)&&<div className={styles.empty}>

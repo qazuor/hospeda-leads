@@ -16,7 +16,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant={variant === 'outline' ? 'outline' : variant === 'ghost' || variant === 'link' ? 'subtle' : variant === 'secondary' ? 'light' : 'filled'}
       color={variant === 'destructive' ? 'red' : undefined}
       size={size === 'lg' || size === 'icon-lg' ? 'lg' : size === 'sm' || size === 'icon-sm' ? 'sm' : 'md'}
-      classNames={{ root: styles.button, label: styles.buttonLabel }}
+      classNames={{ root: styles.button, inner: styles.buttonInner, label: styles.buttonLabel }}
       w={icon ? 44 : undefined} px={icon ? 0 : size === 'sm' ? 8 : undefined}
       renderRoot={child ? rootProps => React.cloneElement(child, { ...rootProps, ...child.props, className: [rootProps.className, child.props.className].filter(Boolean).join(' '), children: rootProps.children }) : undefined}
     >{child ? child.props.children as React.ReactNode : children}</MantineButton>;

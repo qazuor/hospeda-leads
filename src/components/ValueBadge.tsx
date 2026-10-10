@@ -55,7 +55,7 @@ export const ValueBadge=({
   nativeTooltip?:boolean;
 })=>{
   if(!value)return <span className={styles.empty}>—</span>;
-  return <Badge component="span" tt="none" variant="outline" className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{value}</Badge>;
+  return <Badge component="span" tt="none" variant="outline" classNames={{ label: styles.label }} className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{value}</Badge>;
 };
 
 export type BadgeCategory=Category;
