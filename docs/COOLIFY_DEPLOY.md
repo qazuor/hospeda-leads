@@ -8,7 +8,7 @@ En el Coolify existente del VPS de Hospeda:
 
 - Aplicación: `hospeda-leads-prod`
 - Fuente: GitHub `qazuor/hospeda-leads`
-- Rama inicial de validación: `migration/floot-port`
+- Rama inicial de migración (histórica): `migration/floot-port`
 - Rama definitiva: `main`
 - Build: Dockerfile
 - Puerto interno: `3001`
@@ -20,10 +20,10 @@ No hace falta desplegar el `docker-compose.yml` en Coolify. Ese compose queda pa
 
 ## Dominio
 
-Dominio sugerido:
+Dominio productivo confirmado:
 
 ```
-https://leads.hospeda.com.ar
+https://crm.hospeda.com.ar
 ```
 
 Puede cambiarse por otro subdominio. `PUBLIC_APP_URL` debe coincidir exactamente con el dominio definitivo porque se usa, entre otras cosas, para imágenes absolutas en emails.
@@ -39,7 +39,7 @@ DATABASE_URL=<internal PostgreSQL URL from Coolify>
 JWT_SECRET=<random secret, minimum 32 bytes>
 ADMIN_EMAIL=<email administrador>
 BREVO_API_KEY=<Hospeda Brevo API key>
-PUBLIC_APP_URL=https://leads.hospeda.com.ar
+PUBLIC_APP_URL=https://crm.hospeda.com.ar
 ```
 
 No versionar valores reales.
