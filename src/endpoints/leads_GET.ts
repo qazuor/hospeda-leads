@@ -20,6 +20,7 @@ export async function handle(request: Request) {
     const source=()=>input.entity==="business" ? db.selectFrom(businessTableSource(includeDeleted).as("leads")) : db.selectFrom("leads");
     let query=source();
     if(!includeDeleted)query=query.where("deletedAt","is",null);
+    if(input.entity==="opportunity")query=query.where("accountId","in",db.selectFrom("crmAccounts").select("id").where("deletedAt","is",null));
     if(input.entity==="opportunity"&&user.role!=="admin")query=query.where(eb=>eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("archivedAt","is",null)));
     if(input.q)query=query.where(eb=>eb.or([
       searchSql("nombre",input.q!),
@@ -254,7 +255,7 @@ export async function handle(request: Request) {
     const page=input.alignAnchorPage&&anchorPage?anchorPage:input.page;
     const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
     if(rows.length){
-      const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
+      const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
       for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissions.find(a=>String(a.id)===String(row.accountId))):canModifyManagement(user,row,permissions.find(a=>String(a.id)===String(row.accountId))));
     }
     if(input.entity==="business"&&rows.length){

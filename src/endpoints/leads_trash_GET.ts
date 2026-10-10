@@ -9,7 +9,7 @@ export async function handle(request:Request){
     const {user}=await getServerUserSession(request);
     if(user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden acceder a la papelera."}),{status:403});
     const input=schema.parse(Object.fromEntries(new URL(request.url).searchParams));
-    let query=db.selectFrom("leads").where("deletedAt","is not",null);
+    let query=db.selectFrom("leads").where("deletedAt","is not",null).where("accountId","in",db.selectFrom("crmAccounts").select("id").where("deletedAt","is",null));
     if(input.q)query=query.where(eb=>eb.or([
       searchSql("nombre",input.q!),
       searchSql("contactName",input.q!),

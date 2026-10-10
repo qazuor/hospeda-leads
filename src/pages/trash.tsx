@@ -1,3 +1,5 @@
+import {BusinessTrashPanel} from '../components/BusinessTrashPanel';
+import {SegmentedControl} from '@mantine/core';
 import {CrmEmptyState} from '../components/ui/CrmEmptyState';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import { Table } from '@mantine/core';
@@ -20,6 +22,10 @@ import { useDebounce } from "../helpers/useDebounce";
 import styles from "./trash.module.css";
 
 export default function TrashPage(){
+ const [entity,setEntity]=useState('business');
+ return <><AppHeader/><main className={styles.shell}><header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Papelera</h1><p>Recuperá registros eliminados. Archivar y eliminar son acciones diferentes.</p></div><Trash2 size={30}/></header><SegmentedControl aria-label="Registros de Papelera" value={entity} onChange={setEntity} data={[{value:'business',label:'Negocios'},{value:'management',label:'Gestiones'}]}/>{entity==='business'?<BusinessTrashPanel/>:<ManagementTrashPanel/>}</main></>;
+}
+function ManagementTrashPanel(){
   const qc=useQueryClient();
   const [q,setQ]=useState(""),[page,setPage]=useState(1);
   const [hardTarget,setHardTarget]=useState<any|null>(null);
@@ -46,8 +52,7 @@ export default function TrashPage(){
   const deleteSelected=()=>void run(Array.from(selectedIds),true);
   const deleteOne=()=>{if(hardTarget)void run([String(hardTarget.id)],true)};
 
-  return <><AppHeader/><main className={styles.shell}>
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Papelera</h1><p>Gestiones comerciales eliminadas de forma reversible. Podés restaurarlos o borrarlos definitivamente.</p></div><Trash2 size={30}/></header>
+  return <><p>Gestiones eliminadas de forma reversible. Podés restaurarlas o borrarlas definitivamente.</p>
     <section className={styles.toolbar}><div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Buscar por nombre, contacto, email, ciudad o vertical…"/></div></section>
     {selectedIds.size>0&&<section className={styles.bulkBar}><strong>{selectedIds.size} seleccionados</strong><Button size="sm" variant="outline" onClick={restoreSelected} disabled={processing}><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" disabled={processing} onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={15}/>Eliminar definitivamente</Button><Button size="sm" variant="ghost" disabled={processing} onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button></section>}
     {processing&&<p role="status">Procesando selección…</p>}{operationError&&<p role="alert">{operationError}</p>}
@@ -68,5 +73,5 @@ export default function TrashPage(){
     <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={settings.data?.users} readOnly/>
     <Dialog open={!!hardTarget} onOpenChange={open=>{if(!open&&!processing)setHardTarget(null)}}><DialogContent className={styles.confirmDialog}><DialogHeader><DialogTitle>Eliminar definitivamente</DialogTitle><DialogDescription>Vas a borrar físicamente <strong>{hardTarget?.nombre}</strong>.</DialogDescription></DialogHeader><div className={styles.warning}><AlertTriangle size={21}/><span>Esta acción no se puede deshacer. Se eliminarán la gestión y sus notas. El journal de auditoría se conservará.</span></div><DialogFooter><Button variant="outline" onClick={()=>setHardTarget(null)} disabled={processing}>Cancelar</Button><Button variant="destructive" onClick={deleteOne} disabled={processing}>{processing?"Eliminando…":"Eliminar definitivamente"}</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={bulkDeleteOpen} onOpenChange={open=>{if(!processing)setBulkDeleteOpen(open)}}><DialogContent className={styles.confirmDialog}><DialogHeader><DialogTitle>Eliminar {selectedIds.size} gestiones definitivamente</DialogTitle><DialogDescription>Vas a borrar físicamente todas las gestiones seleccionadas.</DialogDescription></DialogHeader><div className={styles.warning}><AlertTriangle size={21}/><span>Esta acción no se puede deshacer. Los journals de auditoría se conservarán.</span></div><DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={processing}>Cancelar</Button><Button variant="destructive" onClick={deleteSelected} disabled={processing}>{processing?"Eliminando…":"Eliminar definitivamente"}</Button></DialogFooter></DialogContent></Dialog>
-  </main></>;
+  </>;
 }

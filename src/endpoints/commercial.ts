@@ -8,6 +8,7 @@ import {crmError} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
 import { z } from "zod";
+import {sql} from "kysely";
 import superjson from "superjson";
 import { getOpportunityStages } from "../helpers/commercialStages";
 import { db } from "../helpers/db";
@@ -48,8 +49,9 @@ export async function get(request:Request){
       ]);
       return response({account,contacts,opportunities,journal,leadJournal,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute()});
     }
-    if(input.archived&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados.");
-    let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("archivedAt",input.archived?"is not":"is",null);
+    if((input.archived||input.deleted)&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados o eliminados.");
+    let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("deletedAt",input.deleted?"is not":"is",null);
+    if(!input.deleted)query=query.where("archivedAt",input.archived?"is not":"is",null);
     if(input.status)query=query.where("commercialStatus","=",input.status);
     if(input.q)query=query.where(eb=>eb.or([searchSql("nombre",input.q!),searchSql("email",input.q!),searchSql("ciudad",input.q!)]));
     const [count,rows]=await Promise.all([
@@ -76,6 +78,21 @@ export async function post(request:Request){
       const checkResponsible=(next:string|null|undefined,previous:string|null)=>{
         if(next!==undefined&&nullable(next)!==previous&&user.role!=="admin")throw new Forbidden("Solo un administrador puede modificar el responsable.");
       };
+      if(input.action==="account_trash"){
+        const ids=[...new Set(input.accountIds)];
+        const accounts=await trx.selectFrom("crmAccounts").selectAll().where("id","in",ids).orderBy("id").forUpdate().execute();
+        if(accounts.length!==ids.length)throw new Error("Algún negocio ya no existe. Actualizá la selección.");
+        for(const account of accounts){
+          if(account.mergedIntoId)throw new Error("No se puede eliminar un negocio fusionado.");
+          if(input.deleted)assertAccountWritable(user,account);
+          else if(user.role!=="admin")throw new CrmForbidden("Solo un administrador puede restaurar negocios.");
+          if(Boolean(account.deletedAt)===input.deleted)continue;
+          const after=await trx.updateTable("crmAccounts").set({deletedAt:input.deleted?new Date():null,deletedByEmail:input.deleted?user.email:null,deletionReason:input.deleted?input.reason:null,updatedAt:new Date()}).where("id","=",account.id).returningAll().executeTakeFirstOrThrow();
+          await audit(String(account.id),input.deleted?"account_deleted":"account_restored",account,{...after,reason:input.reason});
+          if(input.deleted)await sql`SELECT crm_stop_sequences(id, 'Negocio eliminado') FROM leads WHERE account_id=${account.id}`.execute(trx);
+        }
+        return ids[0];
+      }
       if(input.action==="account_save"){
         const existing=input.id?await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.id).forUpdate().executeTakeFirstOrThrow():null;
         if(existing)assertAccountWritable(user,existing);

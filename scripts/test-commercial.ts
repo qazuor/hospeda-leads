@@ -166,8 +166,8 @@ try{
   async function deletionList(entity:string,rules=deletedRules,auth=admin.value){const r=await getLeads(new Request('http://localhost/_api/leads?entity='+entity+'&q='+encodeURIComponent(`CRM test ${suffix}`)+'&filterGroups='+encodeURIComponent(rules),{headers:{cookie:auth}}));return {status:r.status,data:superjson.parse<ListOutput>(await r.text())};}
   assert.equal((await deletionList('opportunity',deletedRules,user.value)).status,403,'Archived data remains admin-only');
   let archived=await deletionList('opportunity');assert.equal(archived.status,200);assert.equal(archived.data.total,2);assert(archived.data.rows.every(row=>row.deletedAt));
-  archived=await deletionList('business');assert.equal(archived.data.total,1);assert(archived.data.rows[0].deletedAt);
-  const activeRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_false'}]}]);assert.equal((await deletionList('business',activeRules)).data.total,0);
+  archived=await deletionList('business');assert.equal(archived.data.total,0,'Opportunity deletion does not delete its business');
+  const activeRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_false'}]}]);assert.equal((await deletionList('business',activeRules)).data.total,1,'The business remains active after its managements are deleted');
   const bothRules=JSON.stringify([{rules:[{field:'deletedAt',operator:'is_true'},{field:'deletedAt',operator:'is_false'}]}]);assert.equal((await deletionList('opportunity',bothRules)).data.total,2);
   assert.equal((await restore(request({id:first},admin.value))).status,200);
   assert.equal((await deletionList('opportunity',activeRules)).data.total,1);
