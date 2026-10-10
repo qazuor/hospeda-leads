@@ -2,22 +2,23 @@ import type {Kysely, Transaction} from 'kysely';
 import type {DB} from './schema';
 
 type Actor = {email:string; role:'admin'|'user'};
-type AccountAccess = {assignedUserEmail:string|null; archivedAt?:unknown; mergedIntoId?:unknown};
+type AccountAccess = {assignedUserEmail:string|null; archivedAt?:unknown; deletedAt?:unknown; mergedIntoId?:unknown};
 type Executor = Kysely<DB>|Transaction<DB>;
 
 export class CrmForbidden extends Error {}
 
 export function canModifyBusiness(user:Actor|undefined, account:AccountAccess|undefined):boolean {
-  return !!user && !!account && !account.mergedIntoId &&
+  return !!user && !!account && !account.deletedAt && !account.mergedIntoId &&
     (user.role==='admin' || (!account.archivedAt && account.assignedUserEmail===user.email));
 }
 
 export function canModifyManagement(user:Actor|undefined, lead:{assignedUserEmail:string|null;deletedAt?:unknown}|undefined, account:AccountAccess|undefined):boolean {
-  return !!user && !!lead && !!account && !lead.deletedAt && !account.mergedIntoId &&
+  return !!user && !!lead && !!account && !lead.deletedAt && !account.deletedAt && !account.mergedIntoId &&
     (user.role==='admin' || (!account.archivedAt && lead.assignedUserEmail===user.email));
 }
 
 export function assertAccountReadable(user:Actor, account:AccountAccess):void {
+  if(account.deletedAt)throw new CrmForbidden('Este negocio está en la papelera. Restauralo antes de consultar o modificar sus datos.');
   if(account.archivedAt && user.role!=='admin')throw new CrmForbidden('Solo un administrador puede consultar negocios archivados.');
 }
 

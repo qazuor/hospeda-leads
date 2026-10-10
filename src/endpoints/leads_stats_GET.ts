@@ -10,7 +10,7 @@ export async function handle(request:Request){
     const {user}=await getServerUserSession(request);
     const business=new URL(request.url).searchParams.get("entity")==="business";
     const count=business?sql.raw("count(distinct account_id)"):sql.raw("count(*)");
-    const source=business?db.selectFrom(businessTableSource().as("leads")):db.selectFrom("leads");
+    const source=business?db.selectFrom(businessTableSource().as("leads")):db.selectFrom("leads").where("accountId","in",db.selectFrom("crmAccounts").select("id").where("deletedAt","is",null));
     const open=business?sql`exists(select 1 from leads l join crm_stages s on s.name=l.estado where l.account_id=leads.account_id and l.deleted_at is null and s.classification='open')`:sql`coalesce((select classification from crm_stages where name=leads.estado),'open')='open'`;
     const actionable=business?sql`true`:open;
     const r=await source.where("deletedAt","is",null).select([

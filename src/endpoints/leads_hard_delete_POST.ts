@@ -1,3 +1,4 @@
+import {assertBusinessAccess} from '../helpers/crmPermissions';
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
@@ -11,6 +12,7 @@ export async function handle(request:Request){
     const input=schema.parse(superjson.parse(await request.text()));
     await db.transaction().execute(async trx=>{
       const lead=await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).executeTakeFirstOrThrow();
+      await assertBusinessAccess(trx,String(lead.accountId),user,false,true);
       if(!lead.deletedAt)throw new Error("El lead debe estar en la papelera antes de eliminarlo definitivamente.");
       await writeLeadJournal(trx,{
         leadId:String(lead.id),leadName:lead.nombre,leadCity:lead.ciudad,leadType:lead.tipo,

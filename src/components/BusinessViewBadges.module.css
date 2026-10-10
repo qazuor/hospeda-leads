@@ -4,3 +4,5 @@
 @media(max-width:767px){.badge{height:44px}.actions :global(.mantine-ActionIcon-root){width:32px;height:44px;min-width:32px}}
 
 .row{container-type:inline-size}.badge{max-width:calc(100cqw - 88px)}.badge .select{min-width:0;flex:1}.actions{flex-shrink:0}
+
+.badge{border-color:transparent;background:var(--surface);border-radius:6px}.badge[data-active=true]{border-color:color-mix(in srgb,var(--primary) 30%,var(--border))}.label{font-size:12px}.group+.group{padding-left:12px}.row>button:disabled{visibility:hidden}

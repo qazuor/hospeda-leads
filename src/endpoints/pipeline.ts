@@ -41,7 +41,7 @@ export async function get(request:Request){
   }
   let reactivations:ReactivationRow[]=[],total=0;
   if(p.mode==='reactivation'){
-   const clauses=[sql`l.deleted_at IS NULL`,sql`s.classification='lost'`,sql`e.recontact_date IS NOT NULL`];
+   const clauses=[sql`l.deleted_at IS NULL`,sql`a.deleted_at IS NULL`,sql`s.classification='lost'`,sql`e.recontact_date IS NOT NULL`];
    if(user.role!=='admin')clauses.push(sql`l.assigned_user_email=${user.email}`,sql`a.archived_at IS NULL`);
    else if(p.responsible&&p.responsible!=='all')clauses.push(sql`l.assigned_user_email=${p.responsible}`);
    if(p.from)clauses.push(sql`e.recontact_date>=${p.from}::date`);if(p.to)clauses.push(sql`e.recontact_date<=${p.to}::date`);

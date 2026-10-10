@@ -10,6 +10,8 @@ import { handle as leads } from '../src/endpoints/leads_GET';
 import { handle as trash } from '../src/endpoints/leads_trash_GET';
 import { handle as journal } from '../src/endpoints/lead_journal_GET';
 import { get as commercial } from '../src/endpoints/commercial';
+import {get as search} from '../src/endpoints/search';
+import {post as changeBusiness} from '../src/endpoints/commercial';
 import {get as resources} from '../src/endpoints/resources';
 import { get as work } from '../src/endpoints/work';
 
@@ -101,12 +103,44 @@ try {
   const trashed = await get(trash, 'leads_trash', { q: `${marker} colon` }, admin.cookie);
   assert.equal(trashed.total, 1);
   assert.equal(trashed.rows[0].id, deleted.id);
+  const result=await get(search,'search',{q:marker+' gastronomia'});
+  assert(result.results.some((r:any)=>r.kind==='Gestiones'&&r.url==='/sales/'+proposal.id));
+  assert((await get(search,'search',{q:marker+' reunion pinguino'})).results.some((r:any)=>r.kind==='Notas'));
+  assert.equal((await get(search,'search',{q:marker+' proposicion pinguino'})).results.length,0,'Library draft remains private');
+  assert((await get(search,'search',{q:marker+' proposicion pinguino'},admin.cookie)).results.some((r:any)=>r.id==='file:'+resourceId));
+  await get(search,'search',{q:'a'},reader.cookie,400);
+  const unauthenticated=await search(new Request('http://localhost/_api/search?q=test'));
+  assert.equal(unauthenticated.status,401);
+  async function trashBusiness(accountIds:string[],deleted:boolean,cookie=reader.cookie,status=200){
+    const r=await changeBusiness(new Request('http://localhost/_api/commercial',{method:'POST',headers:{cookie},body:superjson.stringify({action:'account_trash',accountIds,deleted,reason:'Registro de prueba mal cargado'})}));
+    const data=superjson.parse<any>(await r.text());assert.equal(r.status,status,data.error);
+  }
+  const colleague=await db.insertInto('crmAccounts').values({nombre:marker+' protegido',assignedUserEmail:admin.user.email}).returningAll().executeTakeFirstOrThrow();
+  await trashBusiness([String(account.id),String(colleague.id)],true,reader.cookie,403);
+  assert.equal((await db.selectFrom('crmAccounts').select('deletedAt').where('id','=',account.id).executeTakeFirstOrThrow()).deletedAt,null,'Mixed authorization batch is atomic');
+  await trashBusiness([String(account.id)],true);
+  assert.equal((await get(commercial,'commercial',{q:account.nombre})).total,0);
+  assert.equal((await get(leads,'leads',{entity:'opportunity',q:marker+' gastronomia'},admin.cookie)).total,0);
+  assert.equal((await get(search,'search',{q:marker+' gastronomia'},admin.cookie)).results.length,0);
+  await get(commercial,'commercial',{accountId:String(account.id)},admin.cookie,403);
+  await get(commercial,'commercial',{deleted:'true'},reader.cookie,403);
+  assert.equal((await get(commercial,'commercial',{deleted:'true',q:account.nombre},admin.cookie)).rows[0].id,account.id);
+  assert.equal((await db.selectFrom('leads').select('deletedAt').where('id','=',proposal.id).executeTakeFirstOrThrow()).deletedAt,null,'Child opportunity state is preserved');
+  await trashBusiness([String(account.id)],false,reader.cookie,403);
+  await trashBusiness([String(account.id)],false,admin.cookie);
+  assert.equal((await get(commercial,'commercial',{q:account.nombre})).total,1);
+  assert((await get(search,'search',{q:marker+' gastronomia'})).results.some((r:any)=>r.id==='lead:'+proposal.id));
   await db.updateTable('crmAccounts').set({ archivedAt: new Date() }).where('id', '=', account.id).execute();
   assert.equal((await get(leads, 'leads', { entity: 'opportunity', q: `${marker} gastronomia` })).total, 0);
   assert.equal((await get(commercial, 'commercial', { q: `${marker} colon` })).total, 11);
   assert.equal((await get(work, 'work', { mode: 'lookup', q: `${marker} colon` })).accounts.length, 11);
   await get(commercial, 'commercial', { q: marker, archived: 'true' }, reader.cookie, 403);
   assert.equal((await get(commercial, 'commercial', { q: `${marker} colon`, archived: 'true' }, admin.cookie)).total, 1);
+  await trashBusiness([String(account.id)],true,admin.cookie);
+  assert.equal((await get(commercial,'commercial',{q:account.nombre,archived:'true'},admin.cookie)).total,0,'Deleted archived businesses only appear in Trash');
+  await trashBusiness([String(account.id)],false,admin.cookie);
+  assert.equal((await get(commercial,'commercial',{q:account.nombre},admin.cookie)).total,0);
+  assert.equal((await get(commercial,'commercial',{q:account.nombre,archived:'true'},admin.cookie)).total,1,'Restore preserves previous archive state');
   assert.equal((await db.selectFrom('leads').select('opportunityName').where('id', '=', proposal.id).executeTakeFirstOrThrow()).opportunityName, `${marker} Gastronomía`, 'Search never rewrites stored values');
   console.log('Accent-insensitive search: Latin Unicode, ñ, all free-search endpoints, pagination, AND/OR filters, deleted/archived visibility and permissions passed');
 } finally {

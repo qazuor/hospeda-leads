@@ -232,6 +232,9 @@ export interface CrmAccounts {
   verificationUrls: string | null;
   verifiedOn: string | null;
   archivedAt: Generated<Timestamp | null>;
+  deletedAt: Generated<Timestamp | null>;
+  deletedByEmail: Generated<string | null>;
+  deletionReason: Generated<string | null>;
   mergedIntoId: Int8 | null;
   mergedAt: Timestamp | null;
   doNotContact: Generated<boolean>;

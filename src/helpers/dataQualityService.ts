@@ -14,7 +14,7 @@ export class QualityValidation extends Error{}
 const json=(v:unknown)=>JSON.parse(JSON.stringify(v));
 const digest=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export async function qualityConfig(database:Kysely<DB>){const row=await database.selectFrom('appSettings').select('value').where('key','=','crm_data_quality').executeTakeFirstOrThrow();return z.object({maxRows:z.number().int().min(1).max(250),maxFileBytes:z.number().int().min(100).max(2097152)}).parse(JSON.parse(row.value));}
-const activeAccounts=(database:Kysely<DB>)=>database.selectFrom('crmAccounts').selectAll().where('mergedIntoId','is',null).orderBy('id').execute();
+const activeAccounts=(database:Kysely<DB>)=>database.selectFrom('crmAccounts').selectAll().where('mergedIntoId','is',null).where('deletedAt','is',null).orderBy('id').execute();
 function validDate(value:string){
  const m=value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);const day=m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:value;
  return /^\d{4}-\d{2}-\d{2}$/.test(day)&&!Number.isNaN(Date.parse(day))&&new Date(day).toISOString().slice(0,10)===day?day:null;
@@ -69,7 +69,7 @@ export async function mergePreview(database:Kysely<DB>,sourceId:string,destinati
  if(sourceId===destinationId)throw new QualityValidation('Elegí dos negocios distintos');
  const data=await snapshot(database,sourceId,destinationId);
  const source=data.accounts.find(a=>String(a.id)===sourceId),destination=data.accounts.find(a=>String(a.id)===destinationId);
- if(!source||!destination||source.mergedIntoId||destination.mergedIntoId)throw new QualityConflict('El negocio ya fue fusionado o no existe.');
+ if(!source||!destination||source.mergedIntoId||destination.mergedIntoId||source.deletedAt||destination.deletedAt)throw new QualityConflict('El negocio ya fue fusionado o no existe.');
  const dates=[source.clientSince,destination.clientSince].filter((d):d is Date=>!!d).sort((a,b)=>a.getTime()-b.getTime());
  return {source,destination,token:digest(data),counts:Object.fromEntries(Object.entries(data.relations).map(([k,v])=>[k,v.length])),policy:{doNotContact:source.doNotContact||destination.doNotContact,commercialStatus:source.commercialStatus==='client'||destination.commercialStatus==='client'?'client':'prospect',clientSince:dates[0]?.toISOString()??null},snapshot:data};
 }
@@ -128,7 +128,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      if(!d.targetId||!d.revision)throw new QualityValidation('Elegí negocio destino para actualizar.');
      if(!row.matches.some(m=>m.id===d.targetId))throw new QualityConflict('El destino ya no coincide con la fila. Revisá el preview.');
      if(selectedTargets.has(d.targetId))throw new QualityValidation('Dos filas actualizan el mismo negocio: unificá las filas primero.');selectedTargets.add(d.targetId);
-     const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',d.targetId).where('mergedIntoId','is',null).forUpdate().executeTakeFirstOrThrow();
+     const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',d.targetId).where('mergedIntoId','is',null).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
      if(account.updatedAt.toISOString()!==d.revision)throw new QualityConflict(`Fila ${row.index+1}: el destino cambió. Generá el preview nuevamente.`);
      if(user.role!=='admin'&&account.assignedUserEmail!==user.email)throw new QualityForbidden('Solo podés actualizar tus negocios asignados.');
      const unsupported=Object.keys(fields).filter(f=>!(businessFields as readonly string[]).includes(f));
@@ -167,7 +167,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    await sql`SET CONSTRAINTS ALL IMMEDIATE`.execute(trx);
    return {id:input.destinationId};
   }
-  const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',input.accountId).where('mergedIntoId','is',null).forUpdate().executeTakeFirstOrThrow();
+  const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',input.accountId).where('mergedIntoId','is',null).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
   if(input.leadId)await assertLeadAccess(trx,input.leadId,user,true);else assertAccountWritable(user,account);
   if(input.contactId&&input.leadId)throw new QualityValidation('Elegí un único alcance.');
   const contact=input.contactId?await trx.selectFrom('crmContacts').selectAll().where('id','=',input.contactId).where('accountId','=',input.accountId).where('deletedAt','is',null).executeTakeFirstOrThrow():null;

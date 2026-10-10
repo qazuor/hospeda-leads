@@ -16,23 +16,23 @@ export async function read<T>(c:Config,fn:(tx:postgres.TransactionSql)=>Promise<
 export async function closeData(){await pool?.end();pool=undefined;}
 export async function list(c:Config,input:{cursor?:string;limit:number;search?:string;city?:string;vertical?:string;includeArchived:boolean}){
  return read(c,async tx=>{
-  const rows=await tx.unsafe(`SELECT ${businessColumns} FROM public.crm_accounts WHERE id>$1::bigint AND merged_into_id IS NULL AND ($2::boolean OR archived_at IS NULL) AND ($3::text IS NULL OR nombre ILIKE '%'||$3||'%') AND ($4::text IS NULL OR ciudad=$4) AND ($5::text IS NULL OR tipo=$5) ORDER BY id LIMIT $6`,[input.cursor??'0',input.includeArchived,input.search??null,input.city??null,input.vertical??null,input.limit+1]);
+  const rows=await tx.unsafe(`SELECT ${businessColumns} FROM public.crm_accounts WHERE id>$1::bigint AND merged_into_id IS NULL AND deleted_at IS NULL AND ($2::boolean OR archived_at IS NULL) AND ($3::text IS NULL OR nombre ILIKE '%'||$3||'%') AND ($4::text IS NULL OR ciudad=$4) AND ($5::text IS NULL OR tipo=$5) ORDER BY id LIMIT $6`,[input.cursor??'0',input.includeArchived,input.search??null,input.city??null,input.vertical??null,input.limit+1]);
   const more=rows.length>input.limit,items=rows.slice(0,input.limit);
   return {businesses:items,nextCursor:more?items.at(-1)?.id:null};
  });
 }
 export async function business(c:Config,id:string){return read(c,async tx=>{
- const rows=await tx.unsafe(`SELECT ${businessColumns} FROM public.crm_accounts WHERE id=$1::bigint`,[id]);
+ const rows=await tx.unsafe(`SELECT ${businessColumns} FROM public.crm_accounts WHERE id=$1::bigint AND deleted_at IS NULL`,[id]);
  if(!rows.length)return {found:false};
  const contacts=await tx`SELECT id::text,name,position,phone,email,preferred_channel,is_primary FROM public.crm_contacts WHERE account_id=${id} AND deleted_at IS NULL ORDER BY id`;
  const managements=await tx`SELECT id::text,opportunity_name,tipo,estado,assigned_user_email,deleted_at FROM public.leads WHERE account_id=${id} ORDER BY id`;
  return {found:true,business:rows[0],contacts,managements};
 });}
 export async function matches(c:Config,id:string){return read(c,async tx=>{
- const source=await tx`SELECT nombre,ciudad,telefono,whatsapp,email,sitio_web,perfil_instagram,url_gmap FROM public.crm_accounts WHERE id=${id}`;
+ const source=await tx`SELECT nombre,ciudad,telefono,whatsapp,email,sitio_web,perfil_instagram,url_gmap FROM public.crm_accounts WHERE id=${id} AND deleted_at IS NULL`;
  if(!source.length)return {found:false};
  const a=source[0];
- const rows=await tx.unsafe(`SELECT ${businessColumns} FROM public.crm_accounts WHERE id<>$1::bigint AND merged_into_id IS NULL AND (
+ const rows=await tx.unsafe(`SELECT ${businessColumns} FROM public.crm_accounts WHERE id<>$1::bigint AND merged_into_id IS NULL AND deleted_at IS NULL AND (
   (lower(nombre)=lower($2) AND ciudad IS NOT DISTINCT FROM $3) OR
   (nullif(regexp_replace(telefono,'[^0-9]','','g'),'') IS NOT NULL AND right(regexp_replace(telefono,'[^0-9]','','g'),10)=right(regexp_replace($4,'[^0-9]','','g'),10)) OR
   (nullif(email,'') IS NOT NULL AND lower(email)=lower($5)) OR
@@ -43,7 +43,7 @@ export async function matches(c:Config,id:string){return read(c,async tx=>{
  return {found:true,candidates:rows.slice(0,100),truncated:rows.length>100,notice:'Coincidencias para revisión, no prueba de identidad. Teléfonos centrales, sitios municipales, cadenas y domicilios compartidos no justifican una fusión automática.'};
 });}
 export async function overview(c:Config){return read(c,async tx=>({
- counts:await tx`SELECT tipo,count(*)::int AS businesses,count(*) FILTER(WHERE archived_at IS NOT NULL)::int AS archived FROM public.crm_accounts WHERE merged_into_id IS NULL GROUP BY tipo ORDER BY tipo`,
+ counts:await tx`SELECT tipo,count(*)::int AS businesses,count(*) FILTER(WHERE archived_at IS NOT NULL)::int AS archived FROM public.crm_accounts WHERE merged_into_id IS NULL AND deleted_at IS NULL GROUP BY tipo ORDER BY tipo`,
  verticals:await tx`SELECT name,active FROM public.crm_verticals ORDER BY name`,
  subtypes:await tx`SELECT type_name,name,active FROM public.crm_subtypes ORDER BY type_name,name`
 }));}

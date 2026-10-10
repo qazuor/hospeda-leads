@@ -31,6 +31,14 @@ describe('CRM shared reading and owner-only modifications',()=>{
   expect(canModifyManagement(owner,management,business)).toBe(false);
   expect(canModifyBusiness(colleague,business)).toBe(false);
  });
+ it('blocks deleted businesses and their managements even for administrators',()=>{
+  const deleted={...business,deletedAt:new Date()};
+  for(const actor of [owner,colleague,admin]){
+   expect(()=>assertAccountReadable(actor,deleted)).toThrow(CrmForbidden);
+   expect(canModifyBusiness(actor,deleted)).toBe(false);
+   expect(canModifyManagement(actor,{assignedUserEmail:actor.email},deleted)).toBe(false);
+  }
+ });
  it('prevents editing merged source businesses',()=>{
   expect(canModifyBusiness(admin,{...business,mergedIntoId:'42'})).toBe(false);
  });

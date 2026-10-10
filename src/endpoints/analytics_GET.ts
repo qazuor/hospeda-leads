@@ -16,7 +16,7 @@ export async function handle(request:Request){
     const {user}=await getServerUserSession(request);
     if(user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden ver Estadísticas."}),{status:403});
     const input=schema.parse(Object.fromEntries(new URL(request.url).searchParams));
-    let query=db.selectFrom("leads").where("deletedAt","is",null);
+    let query=db.selectFrom("leads").where("deletedAt","is",null).where("accountId","in",db.selectFrom("crmAccounts").select("id").where("deletedAt","is",null));
     if(input.from)query=query.where("fechaCreacion",">=",new Date(input.from+"T00:00:00Z"));
     if(input.to)query=query.where("fechaCreacion","<=",new Date(input.to+"T23:59:59.999Z"));
     if(input.responsible)query=query.where("assignedUserEmail","=",input.responsible);

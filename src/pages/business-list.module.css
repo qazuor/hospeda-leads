@@ -66,3 +66,5 @@
 .searchBox{min-height:var(--crm-control-height);background:var(--card)}.shell .searchBox input{padding-block:6px;font-size:var(--crm-control-font)}
 .listControls{padding:14px;gap:8px}.viewsRow{padding-top:0}.resultsBar{padding-block:4px}.table td small{font-size:12px}
 @media(max-width:767px){.listControls{padding:10px;gap:6px}.viewsRow{gap:4px}.resultsBar{gap:8px}.shell{gap:12px}.searchRow>button{height:auto;min-height:44px}.table th>.headerLabel{min-height:44px}}
+
+.viewsRow{display:grid;grid-template-columns:minmax(0,1fr) auto}.viewsRow>div:first-child{grid-column:1/-1}.viewsRow>button{justify-self:end}.viewsRow>label{max-width:340px}.resetLabel{display:none}.resetMobileLabel{display:inline}

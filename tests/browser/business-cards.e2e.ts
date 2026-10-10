@@ -25,7 +25,7 @@ for(const width of [1280,390])test(`business cards preserve fields, actions and 
  await page.goto('/accounts');let card=page.locator('[data-business-id="1"]');await expect(card).toBeVisible();
  await expect(card.getByText('2 gestiones · 3 contactos · Cliente',{exact:true})).toBeVisible();
  expect(await card.locator('[data-card-field]').evaluateAll(fields=>fields.map(field=>field.getAttribute('data-card-field')))).toEqual(columns.filter(key=>!['nombre','actions'].includes(key)));
- await expect(card.getByRole('group',{name:'Acciones de Hostería del Río',exact:true}).getByRole('button')).toHaveCount(role==='admin'?3:2);
+ await expect(card.getByRole('group',{name:'Acciones de Hostería del Río',exact:true}).getByRole('button')).toHaveCount(3);
  if(role==='user'){await expect(page.locator('[data-business-id="2"]').getByRole('button',{name:'Contactar',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Archivar negocio',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:/Editar responsable de/})).toHaveCount(0);}
  const emptyCard=page.locator('[data-business-id="3"]');
  for(const key of ['ciudad','email','telefono','fuenteReferencia','fechaProximaAccion'])await expect(emptyCard.locator(`[data-card-field="${key}"]`)).toHaveCount(0);

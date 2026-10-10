@@ -30,6 +30,7 @@ export async function get(request:Request){
   let tasks=db.selectFrom('crmTasks as t').innerJoin('crmAccounts as a','a.id','t.accountId').leftJoin('leads as l','l.id','t.leadId').where('t.deletedAt','is',null).where(eb=>eb.or([eb('t.leadId','is',null),eb('l.deletedAt','is',null)]));
   let activities=db.selectFrom('crmActivities as t').innerJoin('crmAccounts as a','a.id','t.accountId').leftJoin('leads as l','l.id','t.leadId').where('t.deletedAt','is',null).where(eb=>eb.or([eb('t.leadId','is',null),eb('l.deletedAt','is',null)]));
   let attention=db.selectFrom('leads as l').innerJoin('crmAccounts as a','a.id','l.accountId').where('l.deletedAt','is',null).where(sql<string>`coalesce((select classification from crm_stages where name=l.estado),'open')`,'=','open');
+  tasks=tasks.where('a.deletedAt','is',null);activities=activities.where('a.deletedAt','is',null);attention=attention.where('a.deletedAt','is',null);
   if(user.role!=='admin'){tasks=tasks.where('a.archivedAt','is',null);activities=activities.where('a.archivedAt','is',null);attention=attention.where('a.archivedAt','is',null);}
   if(responsible!=='all'){
    tasks=tasks.where('t.assignedUserEmail','=',responsible);
@@ -58,8 +59,9 @@ export async function get(request:Request){
    const [rows,count]=await Promise.all([matches.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName']).orderBy('t.dueAt').orderBy('t.id').limit(5).execute(),matches.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()]);
    return reply({tasks:rows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),total:Number(count.n)});
   }
-  let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail']).where('mergedIntoId','is',null);
+  let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail']).where('mergedIntoId','is',null).where('deletedAt','is',null);
   let opportunitiesQuery=db.selectFrom('leads').select(['id','accountId','opportunityName','tipo','estado','assignedUserEmail','createdAt','fechaUltimoContacto']).where('deletedAt','is',null);
+  opportunitiesQuery=opportunitiesQuery.where('accountId','in',db.selectFrom('crmAccounts').select('id').where('deletedAt','is',null));
   if(user.role!=='admin'){
    accountsQuery=accountsQuery.where('archivedAt','is',null);
    opportunitiesQuery=opportunitiesQuery.where('accountId','in',db.selectFrom('crmAccounts').select('id').where('archivedAt','is',null));
@@ -93,7 +95,7 @@ export async function get(request:Request){
    db.selectFrom('users').select(['email','displayName']).orderBy('displayName').execute(),
    attention.select(['l.id','l.accountId','a.nombre','l.opportunityName','l.createdAt','l.fechaUltimoContacto','l.estado']).where(eb=>eb.not(eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','l.id').where('status','=','pending').where('deletedAt','is',null)))).where(eb=>eb.or([eb('l.estado','in',followup.stages.length?followup.stages:['__none__']),eb.and([eb('l.fechaUltimoContacto','is',null),eb(sql`l.assigned_at AT TIME ZONE 'America/Argentina/Buenos_Aires'`,'>=',sql`${localDay()}::date - ${followup.newAssignmentDays}::integer`)])])).orderBy('l.createdAt','desc').execute(),bucketCountsPromise
   ]);
-  const cities=(await db.selectFrom('crmAccounts').select('ciudad').where('mergedIntoId','is',null).where('ciudad','is not',null).distinct().orderBy('ciudad').execute()).map(r=>r.ciudad).filter(Boolean);
+  const cities=(await db.selectFrom('crmAccounts').select('ciudad').where('mergedIntoId','is',null).where('deletedAt','is',null).where('ciudad','is not',null).distinct().orderBy('ciudad').execute()).map(r=>r.ciudad).filter(Boolean);
   const verticals=(await db.selectFrom('leads').select('tipo').where('deletedAt','is',null).where('tipo','is not',null).distinct().orderBy('tipo').execute()).map(r=>r.tipo).filter(Boolean);
   const contacts=accounts.length?await db.selectFrom('crmContacts').select(['id','accountId','name']).where('accountId','in',accounts.map(a=>a.id)).where('deletedAt','is',null).orderBy('name').execute():[];
   // Audit is available for a concrete context only, to avoid mixing it into the day inbox.

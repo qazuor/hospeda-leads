@@ -1,7 +1,10 @@
+import {useQuery} from '@tanstack/react-query';
+import {useDebounce} from '../helpers/useDebounce';
+import {searchCrm} from '../endpoints/search.schema';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spotlight, useSpotlight } from '@mantine/spotlight';
-import { Archive, BarChart3, BookOpen, Copy, History, Library, Mail, Moon, RotateCcw, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
+import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Library, Mail, Moon, RotateCcw, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
 import { useAuth } from '../helpers/useAuth';
 import { useThemeMode } from '../helpers/themeMode';
 import { normalizeSearchText } from '../helpers/searchText';
@@ -9,6 +12,8 @@ import { mainNavigation } from '../helpers/appNavigation';
 import { commandPalette, commandStore, openCommandPalette, restoreCommandFocus } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import styles from './AppCommandPalette.module.css';
+
+const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
 
 export function AppCommandPalette() {
   const { authState } = useAuth();
@@ -57,6 +62,10 @@ export function AppCommandPalette() {
     return () => window.cancelAnimationFrame(frame);
   }, [opened, selected, query, viewportHeight]);
 
+  const debounced=useDebounce(query.trim(),250);
+  const content=useQuery({queryKey:['crm-search',authenticated?authState.user.id:null,debounced],queryFn:({signal})=>searchCrm(debounced,signal),enabled:authenticated&&opened&&debounced.length>=2&&debounced.length<=200,staleTime:0,gcTime:0});
+  useEffect(()=>{if(opened)commandStore.updateState(state=>({...state,selected:-1}));},[content.data,debounced,opened]);
+  const contentCurrent=debounced===query.trim()&&query.trim().length>=2;
   if (!authenticated) return null;
   const destinations = [
     ...mainNavigation,
@@ -76,7 +85,7 @@ export function AppCommandPalette() {
     // Recheck at execution time as well as opening time.
     if (!document.querySelector('[data-unsaved="true"]')) navigate(url);
   };
-  const groups = [
+  const navigationGroups = [
     { label: 'Ir a', actions: destinations.map(item => ({ ...item, id: item.url, run: () => go(item.url) })) },
     { label: 'Acciones', actions: [
       { id: 'light', label: 'Tema claro', description: 'Usar colores claros', icon: Sun, run: switchToLightMode },
@@ -89,6 +98,12 @@ export function AppCommandPalette() {
     ] },
   ].map(group => ({ ...group, actions: group.actions.filter(action =>
     normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))) }));
+  const contentGroups=contentCurrent?(content.data?.results??[]).reduce<Array<{label:string;actions:{id:string;label:string;description:string;icon:typeof BookOpen;run:()=>void}[]}>>((groups,result)=>{
+    let group=groups.find(group=>group.label===result.kind);
+    if(!group){group={label:result.kind,actions:[]};groups.push(group);}
+    group.actions.push({...result,icon:resultIcons[result.kind],run:()=>go(result.url)});return groups;
+  },[]):[];
+  const groups=[...contentGroups,...navigationGroups];
   const hasResults = groups.some(group => group.actions.length > 0);
   const selectedAction = groups.flatMap(group => group.actions)[selected];
 
@@ -100,14 +115,16 @@ export function AppCommandPalette() {
     classNames={{ content: styles.content, header: styles.header, title: styles.title, body: styles.body, search: styles.search,
       action: styles.action, actionDescription: styles.description, actionsList: styles.list }}>
     <CrmButton className={styles.close} variant="subtle" aria-label="Cerrar accesos rápidos" onClick={commandPalette.close}><X size={20} aria-hidden="true" /></CrmButton>
-    <Spotlight.Search aria-label="Buscar opciones" placeholder="Buscar una pantalla o acción…" data-autofocus
+    <Spotlight.Search maxLength={200} aria-label="Buscar opciones" placeholder="Buscar negocios, gestiones, notas, archivos…" data-autofocus
       leftSection={<Search size={20} aria-hidden="true" />} />
+    {query.trim().length>=2&&(!contentCurrent||content.isFetching)&&<p className={styles.feedback} role="status">Buscando en el CRM…</p>}
+    {contentCurrent&&content.error&&<p className={styles.feedback} role="alert">No pude buscar en el CRM. <CrmButton variant="subtle" onClick={()=>content.refetch()}>Reintentar</CrmButton></p>}
     {hasResults ? <Spotlight.ActionsList h={Math.max(60, Math.min(420, viewportHeight - 230))}>{groups.map(group => group.actions.length > 0 &&
-      <Spotlight.ActionsGroup key={group.label} label={group.label}>{group.actions.map(action =>
+      <Spotlight.ActionsGroup key={group.label} role="group" aria-label={group.label} label={group.label}>{group.actions.map(action =>
         <Spotlight.Action key={action.id} id={action.id} label={action.label} description={action.description}
           data-command-option data-selected={selectedAction?.id === action.id || undefined}
           leftSection={<action.icon size={20} aria-hidden="true" />} onClick={action.run} />
-      )}</Spotlight.ActionsGroup>)}</Spotlight.ActionsList> : <Spotlight.Empty>Sin opciones para esta búsqueda</Spotlight.Empty>}
+      )}</Spotlight.ActionsGroup>)}</Spotlight.ActionsList> : <Spotlight.Empty>{query.trim().length<2?'Escribí al menos 2 caracteres para buscar en el CRM.':content.isFetching?'Buscando…':'Sin opciones para esta búsqueda'}</Spotlight.Empty>}
     <Spotlight.Footer>↑ ↓ para elegir · Enter para abrir · Esc para cerrar</Spotlight.Footer>
     <span className={styles.announcement} role="status" aria-live="polite">{selectedAction ? `Opción seleccionada: ${selectedAction.label}` : ''}</span>
   </Spotlight.Root>;

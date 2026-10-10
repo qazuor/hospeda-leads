@@ -7,7 +7,7 @@ import type { Leads } from "./schema";
 export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
   select (jsonb_populate_record(null::leads,
     coalesce(to_jsonb(l), '{}'::jsonb) || jsonb_build_object(
-      'id', coalesce(l.id, -a.id), 'account_id', a.id,
+      'id', coalesce(l.id, -a.id), 'account_id', a.id, 'deleted_at', a.deleted_at,
       'tipo', a.tipo, 'subtipo', a.subtipo,
       'nombre', a.nombre, 'ciudad', a.ciudad, 'telefono', a.telefono,
       'email', a.email, 'sitio_web', a.sitio_web, 'url_gmap', a.url_gmap,
@@ -24,6 +24,6 @@ export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
     )
   )).*
   from crm_accounts a
-  left join leads l on l.account_id = a.id and (${includeDeleted} or l.deleted_at is null)
-  where a.merged_into_id is null and a.archived_at is null
+  left join leads l on l.account_id = a.id and l.deleted_at is null
+  where a.merged_into_id is null and a.archived_at is null and (${includeDeleted} or a.deleted_at is null)
 )`;
