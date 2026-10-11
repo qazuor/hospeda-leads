@@ -8,7 +8,7 @@ export const schema = z.object({
   id: z.union([z.string(), z.number()]),
   field: z.enum([
     "origen","creadoPor","tipo","subtipo","commercialProfile","ciudad","estado","prioridad","quienCargo","assignedUserEmail","medioContactoPreferido",
-    "fechaCreacion","fechaUltimoContacto","fechaProximaAccion"
+    "fechaCreacion","fechaUltimoContacto","fechaProximaAccion","reviewStatus"
   ]),
   value: z.string().nullable(),
   expectedValue:z.string().nullable().optional(),

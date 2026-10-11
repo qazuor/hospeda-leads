@@ -4,3 +4,15 @@
 .backToTopics{display:block;width:fit-content;font-size:13px;color:var(--primary);text-decoration:none;margin-bottom:18px}.backToTopics:hover{text-decoration:underline}.sidebar{scroll-margin-top:110px}@media(max-width:700px){.sidebar{scroll-margin-top:240px}}@media(max-width:700px){.shortcuts{display:flex;overflow-x:auto;gap:8px}.shortcuts>a{flex:0 0 230px}.sidebar nav{display:flex;overflow-x:auto;padding:8px;gap:4px}.sidebar nav h2{display:none}.sidebar nav a{flex:0 0 auto;white-space:nowrap}.topicIntro nav{flex-wrap:nowrap;overflow-x:auto}.topicIntro nav a{flex:0 0 auto;width:auto}.article h2{scroll-margin-top:120px}.sidebar{scroll-margin-top:120px}}
 
 .workspace>*,.shortcuts,.sidebar,.topicIntro,.topicIntro nav{min-width:0;max-width:100%}
+.sidebar nav{max-height:calc(100vh - 120px);overflow-y:auto;align-content:start}
+.sidebar nav>details{min-width:0;border-radius:12px}
+.sidebar nav>details>summary{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;padding:10px;border-radius:12px;cursor:pointer;list-style:none;color:var(--foreground);font-size:14px}
+.sidebar nav>details>summary::-webkit-details-marker{display:none}
+.sidebar nav>details>summary::after{content:'›';font-size:20px;color:var(--muted-foreground);transform:rotate(90deg);transition:transform .15s ease}
+.sidebar nav>details[open]>summary::after{transform:rotate(-90deg)}
+.sidebar nav>details>summary:hover,.sidebar nav>details[open]>summary{background:var(--surface)}
+.sidebar nav>details>summary .count{margin-left:auto}
+.sidebar nav .subtopics{display:grid;gap:2px;margin:2px 0 8px 12px;padding-left:10px;border-left:1px solid var(--border)}
+.sidebar nav .subtopics a{justify-content:flex-start;min-height:36px;padding:7px 9px;font-size:13px;line-height:1.4}
+.sidebar nav .subtopics a[aria-current]{background:color-mix(in srgb,var(--brand-blue) 10%,var(--card));font-weight:650}
+@media(max-width:700px){.sidebar nav{display:grid;grid-template-columns:minmax(0,1fr);max-height:min(55vh,520px);overflow-y:auto;overflow-x:hidden}.sidebar nav>details{flex:none;white-space:normal}.sidebar nav>details>summary{white-space:normal;overflow-wrap:anywhere}.sidebar nav .subtopics a{flex:none;white-space:normal}}

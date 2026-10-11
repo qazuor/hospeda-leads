@@ -15,6 +15,7 @@ const icons:Record<string,typeof Tag>={assignedUserEmail:UserRound,ciudad:MapPin
 const labels=new Map(BUSINESS_COLUMNS.map(column=>[column.key,column.label]));
 
 function hasCardValue(row:Business,key:string){
+ if(key==='reviewStatus')return true;
  const value=row.opportunityCount!==1&&row.opportunityValues?.[key]?.length?row.opportunityValues[key]:row[key as keyof Business];
  // False and zero are meaningful values; only absent data is omitted.
  return value!==null&&value!==undefined&&(typeof value!=='string'||value.trim()!=='')&&(!Array.isArray(value)||value.some(item=>item!==null&&item!==undefined&&String(item).trim()!==''));

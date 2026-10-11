@@ -32,7 +32,7 @@ const dateField=z.enum(["fechaCreacion","fechaUltimoContacto","fechaProximaAccio
 export const advancedFilterField=z.enum([
   "id","nombre","contactName","assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado",
   "suscripcion","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb",
-  "perfilBooking","perfilTurismoEntreRios","origen","quienCargo","asignadoA","fechaCreacion",
+  "perfilBooking","perfilTurismoEntreRios","origen","quienCargo","asignadoA","reviewStatus","fechaCreacion",
   "fechaUltimoContacto","medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
   "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor","createdAt","updatedAt","notes","deletedAt"
 ]);
@@ -91,7 +91,7 @@ export const schema=z.object({
   anchorAccountId:z.string().regex(/^[0-9]+$/).optional(),alignAnchorPage:z.preprocess(v=>v==='true'?true:v==='false'?false:v,z.boolean()).default(false),
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
-export type BusinessTableMetadata={canModify?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";opportunityValues?:Record<string,string[]>};
+export type BusinessTableMetadata={canModify?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";reviewStatus?:"filtered"|null;opportunityValues?:Record<string,string[]>};
 export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;filters:{
   ciudades:string[];estados:string[];tipos:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];

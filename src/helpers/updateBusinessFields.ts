@@ -3,7 +3,7 @@ import {assertAccountWritable} from './crmPermissions';
 import { sql, type Transaction } from "kysely";
 import type { DB } from "./schema";
 
-export async function updateBusinessFields(trx:Transaction<DB>,ids:string[],changes:{ciudad?:string|null;assignedUserEmail?:string|null;tipo?:string|null;subtipo?:string|null},actor:{email:string;displayName:string;role:"admin"|"user"}){
+export async function updateBusinessFields(trx:Transaction<DB>,ids:string[],changes:{ciudad?:string|null;assignedUserEmail?:string|null;tipo?:string|null;subtipo?:string|null;reviewStatus?:"filtered"|null},actor:{email:string;displayName:string;role:"admin"|"user"}){
   const accounts=await trx.selectFrom("crmAccounts").selectAll().where("id","in",ids).orderBy("id").forUpdate().execute();
   if(accounts.length!==new Set(ids).size)throw new Error("Uno de los negocios ya no existe.");
   for(const before of accounts)assertAccountWritable(actor,before);
