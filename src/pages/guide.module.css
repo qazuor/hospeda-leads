@@ -16,3 +16,5 @@
 .sidebar nav .subtopics a{justify-content:flex-start;min-height:36px;padding:7px 9px;font-size:13px;line-height:1.4}
 .sidebar nav .subtopics a[aria-current]{background:color-mix(in srgb,var(--brand-blue) 10%,var(--card));font-weight:650}
 @media(max-width:700px){.sidebar nav{display:grid;grid-template-columns:minmax(0,1fr);max-height:min(55vh,520px);overflow-y:auto;overflow-x:hidden}.sidebar nav>details{flex:none;white-space:normal}.sidebar nav>details>summary{white-space:normal;overflow-wrap:anywhere}.sidebar nav .subtopics a{flex:none;white-space:normal}}
+.shortcutScrollHint{display:none}
+@media(max-width:700px){.shortcuts{scroll-snap-type:x proximity;scroll-padding-inline:16px;padding-bottom:3px}.shortcuts>a{scroll-snap-align:start}.shortcutScrollHint{display:flex;align-items:center;justify-content:flex-end;gap:5px;margin:-9px 2px 12px;color:var(--muted-foreground);font-size:12px;line-height:1.4}.shortcutScrollHint svg{color:var(--primary);flex:none}}

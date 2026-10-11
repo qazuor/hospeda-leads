@@ -1,6 +1,6 @@
 # Pendientes y próximo trabajo
 
-Corte: 10/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
+Corte: 11/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
 
 ## Primeros pasos al retomar en una PC
 
@@ -9,9 +9,27 @@ Corte: 10/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un b
 3. Pedir/obtener observación del deploy real para comprobar los 23 negocios recuperados en Papelera, los atributos recuperados y el Historial global. El operador confirmó el commit, no la visualización final.
 4. Continuar el recorrido de UI en una base local sintética. Para datos reales usar únicamente acceso explícitamente configurado; no copiar secretos del VPS al repo.
 
-## Cambio en revisión
+## Cambio mergeado: revisión de negocios y ayuda
 
-- La UI de `crm_accounts.review_status` está implementada para editar Filtrado/No filtrado, ofrecerlo como columna seleccionable y editable inline en tabla y cards, mostrarlo en detalle y filtrar por el valor. Los badges simples abren una lista compacta de opciones y guardan al seleccionar; Vertical/Subtipo mantiene su editor detallado y varias gestiones requieren elegir el registro antes de modificarlo. Los filtros de usuario incluyen “Usuario autenticado”. La guía anida sus artículos, los expone en la paleta de comandos con búsqueda aproximada e incluye el recorrido de venta y la revisión de negocios precargados. Validación local: `pnpm run typecheck`, `pnpm test` (95 pruebas), `pnpm run build` y los 15 recorridos de navegador afectados aprobados. La pasada completa de CI posterior a corregir expectativas de tests quedó verde en `8b5583d`. Issue #94 y PR #95. Falta revisión manual visual/funcional; no inferir merge ni deploy desde CI.
+- La UI de `crm_accounts.review_status` está implementada para editar Filtrado/No filtrado, ofrecerlo como columna seleccionable y editable inline en tabla y cards, mostrarlo en detalle y filtrar por el valor. Los badges simples abren una lista compacta de opciones y guardan al seleccionar; Vertical/Subtipo mantiene su editor detallado y varias gestiones requieren elegir el registro antes de modificarlo. Los filtros de usuario incluyen “Usuario autenticado”. La guía anida sus artículos, los expone en la paleta de comandos con búsqueda aproximada e incluye el recorrido de venta y la revisión de negocios precargados. Validación local: `pnpm run typecheck`, `pnpm test` (95 pruebas), `pnpm run build` y los 15 recorridos de navegador afectados aprobados. El CI terminó verde y el PR #95 se mergeó el 11/10/2026. El deploy no queda confirmado por ese merge.
+
+## Reporte estético y próximos ajustes
+
+Se corrigieron tres detalles visuales de alcance acotado:
+
+- **Navegación desktop intermedia (1024–1440 px):** el header podía partir el grupo y dejar “Más opciones” separado; ahora conserva una fila hasta 1100 px y mantiene el menú unido a Agenda cuando necesita dos filas.
+- **Accesos horizontales en móvil:** la Guía y las vistas guardadas ahora explican que hay más elementos fuera del área visible y cómo encontrarlos.
+- **Mi día y Agenda:** la acción de planificar queda como principal; registrar lo ya realizado queda secundaria, con textos que describen mejor cada acción.
+
+La revisión estética detectó además estos ajustes para priorizar en una próxima pasada:
+
+1. **Negocios en cards, contenido largo:** correo del responsable y otros valores aparecen como badges y pueden partir una palabra/correo en una línea de una sola letra a 390 px. Ejemplo reproducido con fixture sintético: `admin@example.com` en [la card de negocio](../src/components/BusinessCard.tsx). Ajustar wrapping/truncado y reservar el badge para valores cortos.
+2. **Negocios, controles de listado en móvil:** filtros, vistas guardadas, selector de columnas y acciones de tabla/card compiten por espacio vertical; revisar agrupación, densidad y separación con datos reales de longitud variada.
+3. **Detalle de negocio y gestión:** hay varios paneles con bordes, fondos y radios distintos en la misma vista. Revisar qué información es principal y reducir contenedores anidados para que el próximo paso comercial destaque.
+4. **Formularios densos (gestiones, modelos y configuración):** en pantallas estrechas se apilan secciones y acciones. Revisar longitud de etiquetas, agrupación de campos relacionados, consistencia de botones y distancia entre descripción, campo y ayuda.
+5. **Jerarquía transversal:** hacer una pasada por títulos, subtítulos, etiquetas y texto auxiliar para evitar que contenido secundario use el mismo peso visual que estados y acciones principales; probar contraste en claro/oscuro.
+
+Evidencia de esta iteración: screenshots sintéticos de Guía, navegación y vistas en móvil, además de Mi día; pruebas dirigidas en 320, 390, 1024 y 1280 px. No equivalen a una revisión completa de todas las rutas, ambos temas ni una prueba con usuarios principiantes. El reporte es una inspección de UI/código con ejemplos visuales puntuales; validar los hallazgos propuestos en el próximo recorrido interactivo antes de rediseñar áreas grandes.
 
 ## Prioridad: pulido visual, con recorridos reales
 
