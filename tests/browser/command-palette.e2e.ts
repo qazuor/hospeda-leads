@@ -39,6 +39,14 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
     await expect(dialog.getByRole('status',{name:'Opción seleccionada',exact:true})).toContainText('Gestiones comerciales');
     await search.fill('zzzz');
     await expect(dialog.getByText('Sin opciones para esta búsqueda')).toBeVisible();
+    await search.fill('revisar precargdo');
+    const reviewArticle=dialog.getByRole('button', {name: /Revisar negocios precargados/});
+    await expect(reviewArticle).toBeVisible();
+    await reviewArticle.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(/article=review-prefilled-businesses/);
+    await trigger.click();
+    await expect(search).toBeFocused();
     await search.fill('TEMA OSCURO');
     await search.press('ArrowDown');
     await search.press('Enter');
@@ -58,7 +66,7 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
     })).toBe(true);
     await search.fill('CONFIGURACION');
     if (role === 'admin') await expect(dialog.getByRole('button', { name: /^Configuración/ })).toBeVisible();
-    else await expect(dialog.getByText('Sin opciones para esta búsqueda')).toBeVisible();
+    else await expect(dialog.getByRole('button', { name: /Qué configurar y dónde/ })).toBeVisible();
     await search.fill('');
     await search.press('ArrowUp');
     await expect(dialog.locator('[data-selected]')).toHaveCount(1);

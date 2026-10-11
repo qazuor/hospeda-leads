@@ -100,7 +100,8 @@ export function AppCommandPalette() {
     ] },
   ].map(group => ({ ...group, actions: group.actions.filter(action =>
     normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))) }));
-  const helpActions=query.trim().length>=2?guideTopics.flatMap(topic=>topic.articles.flatMap(article=>{
+  const navigationMatch=navigationGroups.some(group=>group.actions.some(action=>normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))));
+  const helpActions=query.trim().length>=2&&!navigationMatch?guideTopics.flatMap(topic=>topic.articles.flatMap(article=>{
     const text=[topic.title,article.title,article.when,...article.steps,article.result,...article.example,...article.notes].join(' ');
     const score=fuzzySearchScore(query,text);
     return score===null?[]:[{id:`help:${topic.id}:${article.id}`,label:article.title,description:`${topic.title} · ${article.when}`,icon:BookOpen,score,run:()=>go(`/guide?topic=${topic.id}&article=${article.id}`)}];
