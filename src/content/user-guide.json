@@ -116,6 +116,31 @@
         "linkLabel": "Abrir Negocios"
       },
       {
+        "id": "review-prefilled-businesses",
+        "title": "Revisar negocios precargados",
+        "when": "Cuando recibís una lista de negocios que todavía no se verificó.",
+        "steps": [
+          "Entrá en Negocios. En Columnas activá Revisión para ver el estado de cada registro; también podés filtrar Revisión por No filtrado para encontrar los que faltan revisar.",
+          "Abrí cada negocio y comprobá que exista y que corresponda al establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.",
+          "Si confirmás que es real y debe permanecer en el CRM, registrá las fuentes y la fecha en Editar negocio → Ubicación y relevamiento. Después elegí Filtrado en la columna Revisión o en Editar negocio.",
+          "Si no podés confirmarlo todavía, dejalo No filtrado. Anotá qué falta comprobar en Notas del negocio y volvé a revisarlo cuando tengas información.",
+          "Si confirmás que es un registro inválido, seleccioná solo ese negocio y elegí Enviar a papelera; también podés abrirlo y usar Más acciones del negocio → Eliminar negocio. Escribí un motivo concreto, por ejemplo: No existe en la dirección indicada, y confirmá.",
+          "Cuando termines, volvé a filtrar Revisión por No filtrado para revisar los registros pendientes. Si el negocio existe pero no se va a trabajar por ahora, usá Archivar en lugar de eliminarlo."
+        ],
+        "result": "Los negocios verificados que deben permanecer quedan marcados Filtrado. Los registros inválidos quedan en Papelera y los casos pendientes siguen visibles como No filtrado.",
+        "example": [
+          "Un perfil oficial confirma que Cabañas Camino Claro existe en Colón: guardás el vínculo y la fecha de revisión, y marcás Filtrado.",
+          "El domicilio y las fuentes consultadas muestran que otro registro no corresponde a un establecimiento real: lo enviás a Papelera con el motivo, sin borrar sus contactos ni su historial."
+        ],
+        "notes": [
+          "Filtrado significa que el negocio fue revisado, se confirmó como válido y se decidió conservarlo. Es una marca de revisión, no una etapa de venta.",
+          "Eliminar mueve el negocio a Papelera: conserva contactos, gestiones e historial y un administrador puede restaurarlo. Para conservar un negocio válido que solo se deja de trabajar, usá Archivar.",
+          "Solo podés eliminar negocios sobre los que tenés permiso de modificación. Si no aparece la acción o el servidor rechaza el cambio, pedile ayuda al responsable o al administrador."
+        ],
+        "url": "/accounts",
+        "linkLabel": "Revisar negocios"
+      },
+      {
         "id": "contact-business",
         "title": "Contactar desde la ficha del negocio",
         "when": "Cuando querés preparar un mensaje sin buscar primero una tarea.",
@@ -295,7 +320,7 @@
       },
       {
         "id": "win",
-        "title": "La persona aceptó: concretar la gestión",
+        "title": "Cómo cerrar una venta cuando aceptan la propuesta",
         "when": "Cuando hay una aceptación real de la propuesta.",
         "steps": [
           "Abrí la gestión → Resumen → Etapa y prioridad → Cambiar etapa.",
@@ -587,7 +612,7 @@
     "articles": [
       {
         "id": "full-example",
-        "title": "Cabañas Camino Claro: de nuevo negocio a cliente",
+        "title": "De negocio nuevo a venta cerrada: ejemplo paso a paso",
         "when": "Para practicar el recorrido. Los nombres y acuerdos de este ejemplo son ficticios.",
         "steps": [
           "Buscás Cabañas Camino Claro en Negocios. Como no existe, elegís Nuevo negocio, completás el nombre y ciudad conocidos y guardás.",

@@ -10,6 +10,7 @@ import type { OutputType } from "./leads_GET.schema";
 import { schema } from "./leads_GET.schema";
 import { sql } from "kysely";
 import { businessTableSource } from "../helpers/businessTable";
+import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS} from '../helpers/filterRules';
 
 export async function handle(request: Request) {
   try {
@@ -185,6 +186,11 @@ export async function handle(request: Request) {
             if(rule.operator==="is_true")return eb("clientePotencialRecurrente","=",true);
             if(rule.operator==="is_false")return eb("clientePotencialRecurrente","=",false);
           }
+          if(rule.field==="reviewStatus"){
+            const filtered=eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("reviewStatus","=","filtered"));
+            if(rule.operator==="is_true")return filtered;
+            if(rule.operator==="is_false")return eb.not(filtered);
+          }
           if(rule.field==="id"){
             if(rule.operator==="eq"&&value)return eb("id","=",value);
             if(rule.operator==="gte"&&value)return eb("id",">=",value);
@@ -208,11 +214,13 @@ export async function handle(request: Request) {
           }
           if(categoryFields.has(rule.field)){
             const field=rule.field as any;
+            const userValues=USER_FILTER_FIELDS.has(rule.field)&&value===CURRENT_USER_FILTER_VALUE?[user.email,user.displayName].filter((item,index,all):item is string=>!!item&&all.indexOf(item)===index):null;
             if(rule.operator==="empty")return eb.or([eb(field,"is",null),eb(field,"=","")]);
             if(rule.operator==="not_empty")return eb.and([eb(field,"is not",null),eb(field,"!=","")]);
-            if(rule.operator==="eq")return value==="__EMPTY__"?eb.or([eb(field,"is",null),eb(field,"=","")]):eb(field,"=",value);
+            if(rule.operator==="eq")return userValues?eb(field,"in",userValues):value==="__EMPTY__"?eb.or([eb(field,"is",null),eb(field,"=","")]):eb(field,"=",value);
             if(rule.operator==="neq")return value==="__EMPTY__"
               ? eb.and([eb(field,"is not",null),eb(field,"!=","")])
+              : userValues?eb.or([eb(field,"is",null),eb.and(userValues.map(userValue=>eb(field,"!=",userValue)))])
               : eb.or([eb(field,"is",null),eb(field,"!=",value)]);
           }
           const expr=textExpr(rule.field);
@@ -261,7 +269,7 @@ export async function handle(request: Request) {
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
       const [accounts,opportunities,contacts,nextTasks]=await Promise.all([
-        db.selectFrom("crmAccounts").select(["id","commercialStatus","tipo","subtipo"]).where("id","in",ids).execute(),
+        db.selectFrom("crmAccounts").select(["id","commercialStatus","reviewStatus","tipo","subtipo"]).where("id","in",ids).execute(),
         db.selectFrom("leads").selectAll().where("accountId","in",ids).where("deletedAt","is",null).orderBy("id").execute(),
         db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute(),
         db.selectFrom("crmTasks as t").leftJoin("leads as l","l.id","t.leadId").select(["t.accountId","t.title","t.dueDate"]).where("t.accountId","in",ids).where("t.status","=","pending").where("t.deletedAt","is",null).where(eb=>eb.or([eb("t.leadId","is",null),eb("l.deletedAt","is",null)])).$if(user.role!=="admin",q=>q.where("t.assignedUserEmail","=",user.email)).orderBy("t.dueDate").orderBy("t.dueAt").orderBy("t.id").execute()
@@ -276,6 +284,7 @@ export async function handle(request: Request) {
         row.canModifyManagement=related.some(item=>user.role==='admin'||item.assignedUserEmail===user.email);
         row.contactCount=contacts.filter(c=>String(c.accountId)===String(row.accountId)).length;
         row.commercialStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.commercialStatus;
+        row.reviewStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.reviewStatus;
         const account=accounts.find(a=>String(a.id)===String(row.accountId))!;
         row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
         for(const f of ['tipo','subtipo'] as const)row.opportunityValues[f]=account[f]?[account[f]!]:[];

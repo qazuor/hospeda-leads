@@ -1,5 +1,7 @@
 import type { AdvancedFilterGroup, AdvancedFilterRule } from '../endpoints/leads_GET.schema';
 
+export const CURRENT_USER_FILTER_VALUE='__CURRENT_USER__';
+export const USER_FILTER_FIELDS=new Set<AdvancedFilterRule['field']>(['assignedUserEmail','asignadoA','quienCargo','creadoPor']);
 export type FilterFieldKind = 'category' | 'text' | 'date' | 'boolean' | 'number' | 'notes';
 export type FilterFieldDefinition = { key: AdvancedFilterRule['field']; label: string; kind: FilterFieldKind; options?: { value: string; label: string }[] };
 export const operatorLabels: Record<AdvancedFilterRule['operator'], string> = {

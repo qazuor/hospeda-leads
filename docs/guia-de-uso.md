@@ -109,6 +109,32 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
+### Revisar negocios precargados
+
+**Cuándo usarlo:** Cuando recibís una lista de negocios que todavía no se verificó.
+
+1. Entrá en Negocios. En Columnas activá Revisión para ver el estado de cada registro; también podés filtrar Revisión por No filtrado para encontrar los que faltan revisar.
+2. Abrí cada negocio y comprobá que exista y que corresponda al establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.
+3. Si confirmás que es real y debe permanecer en el CRM, registrá las fuentes y la fecha en Editar negocio → Ubicación y relevamiento. Después elegí Filtrado en la columna Revisión o en Editar negocio.
+4. Si no podés confirmarlo todavía, dejalo No filtrado. Anotá qué falta comprobar en Notas del negocio y volvé a revisarlo cuando tengas información.
+5. Si confirmás que es un registro inválido, seleccioná solo ese negocio y elegí Enviar a papelera; también podés abrirlo y usar Más acciones del negocio → Eliminar negocio. Escribí un motivo concreto, por ejemplo: No existe en la dirección indicada, y confirmá.
+6. Cuando termines, volvé a filtrar Revisión por No filtrado para revisar los registros pendientes. Si el negocio existe pero no se va a trabajar por ahora, usá Archivar en lugar de eliminarlo.
+
+**Qué queda al terminar:** Los negocios verificados que deben permanecer quedan marcados Filtrado. Los registros inválidos quedan en Papelera y los casos pendientes siguen visibles como No filtrado.
+
+**Ejemplo:**
+
+- Un perfil oficial confirma que Cabañas Camino Claro existe en Colón: guardás el vínculo y la fecha de revisión, y marcás Filtrado.
+- El domicilio y las fuentes consultadas muestran que otro registro no corresponde a un establecimiento real: lo enviás a Papelera con el motivo, sin borrar sus contactos ni su historial.
+
+**Tené en cuenta:**
+
+- Filtrado significa que el negocio fue revisado, se confirmó como válido y se decidió conservarlo. Es una marca de revisión, no una etapa de venta.
+- Eliminar mueve el negocio a Papelera: conserva contactos, gestiones e historial y un administrador puede restaurarlo. Para conservar un negocio válido que solo se deja de trabajar, usá Archivar.
+- Solo podés eliminar negocios sobre los que tenés permiso de modificación. Si no aparece la acción o el servidor rechaza el cambio, pedile ayuda al responsable o al administrador.
+
+**Dónde ir:** Revisar negocios (/accounts)
+
 ### Contactar desde la ficha del negocio
 
 **Cuándo usarlo:** Cuando querés preparar un mensaje sin buscar primero una tarea.
@@ -282,7 +308,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 - Una objeción no significa que la persona haya rechazado la oferta. No elijas Perdida solo porque surgió una duda.
 
-### La persona aceptó: concretar la gestión
+### Cómo cerrar una venta cuando aceptan la propuesta
 
 **Cuándo usarlo:** Cuando hay una aceptación real de la propuesta.
 
@@ -487,10 +513,10 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.
 
-1. En Más opciones → Materiales para ofrecer buscá recursos aprobados. Usá Previsualizar cuando esté disponible, o Abrir vínculo / Descargar documento.
+1. Abrí el negocio o una gestión y entrá en Documentos. Allí podés consultar sus materiales y elegir documentos aprobados de la biblioteca.
 2. En el negocio o la gestión entrá en Documentos y buscá el recurso en el selector de biblioteca.
-3. Elegí el documento y usá Vincular documento al negocio. Desde un negocio podés elegir Gestión vinculada (opcional) o dejarlo como documento general.
-4. Si necesitás un documento específico del caso, abrí Agregar documento o recurso. Completá título, tipo y un vínculo HTTP(S) o archivo permitido, y guardá.
+3. Elegí el documento, revisá el destino y usá Vincular documento al negocio o Vincular documento a la gestión. Desde un negocio podés elegir una gestión propia o dejarlo como documento general.
+4. Si sos administrador y necesitás un documento específico del caso, abrí Agregar documento o recurso. Completá título, tipo y un vínculo HTTP(S) o archivo permitido, y guardá.
 5. Revisá la versión, el vencimiento y su aprobación antes de usarlo como material comercial.
 
 **Qué queda al terminar:** El documento queda asociado al contexto elegido. Vincularlo no lo envía al cliente.
@@ -503,7 +529,7 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 - Solo un administrador carga y administra la biblioteca común en Configuración → Biblioteca. Los documentos particulares del negocio se gestionan dentro de su ficha. Una nueva versión conserva las anteriores y vuelve a borrador.
 
-**Dónde ir:** Consultar materiales (/library)
+**Dónde ir:** Elegir negocio para consultar materiales (/accounts)
 
 ### Usar Agenda y reprogramar una tarea
 
@@ -528,14 +554,14 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 1. Entrá en Negocios y buscá por nombre. Elegí Tabla o Grilla: ambas muestran los mismos resultados y conservan la búsqueda, filtros y orden.
 2. Usá Filtrar negocios para acotar el alcance. La búsqueda libre se combina con los filtros configurados mediante AND: deben cumplirse ambas condiciones.
-3. Abrí Campos, orden y columnas fijas para elegir qué datos mostrar y moverlos. Nombre y Abrir siempre están disponibles. En tabla de escritorio también podés ajustar anchos y fijar columnas a izquierda o derecha.
-4. Elegí la cantidad de resultados y Paginación o Carga continua. Anterior y Siguiente cambian de página; Cargar más trae otro lote. El contador indica cuánto se cargó y cuándo no hay más resultados.
-5. Limpiar filtros quita la búsqueda y las condiciones. Restablecer valores del equipo recupera la configuración inicial definida por el admin.
+3. Abrí Columnas junto al contador para elegir qué datos mostrar y moverlos. Ordená desde los encabezados de la tabla. Nombre siempre está disponible. Acciones se puede ocultar; en ese caso abrí el negocio desde su nombre. En tabla de escritorio también podés ajustar anchos y fijar columnas a izquierda o derecha.
+4. Los negocios se cargan en lotes de 50. Al bajar se cargan más automáticamente; también podés usar Cargar más. El contador indica cuánto se cargó y cuándo no hay más resultados.
+5. Limpiar filtros quita la búsqueda y las condiciones. Restablecer configuraciones por defecto recupera la configuración inicial definida por el admin.
 6. Abrí un negocio para trabajar y volvé por Volver al listado de negocios, Negocios en el menú o Atrás. Se recuperan tus preferencias y el punto del listado.
 7. En Gestiones comerciales revisá propuestas y avances con el tablero. Ver etapas del equipo muestra el detalle configurado.
 8. Para cambios sobre varios registros, elegí el cambio y Aplicar. Revisá toda la lista afectada antes de confirmar la casilla y Confirmar cambios. Si los datos cambiaron, usá Volver a revisar. Cancelar no modifica nada.
 
-**Qué queda al terminar:** Las vistas y filtros cambian lo que ves; no cambian datos por sí solos. Confirmar una edición masiva sí los modifica.
+**Qué queda al terminar:** Guardar como vista, en la barra de filtros, conserva la configuración actual. Las vistas y filtros cambian lo que ves; no cambian datos por sí solos. Confirmar una edición masiva sí los modifica.
 
 **Ejemplo:**
 
@@ -545,7 +571,7 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 - Seleccionar negocios puede afectar gestiones que el filtro no mostraba. Revisá la lista completa del cambio masivo.
 - En mobile se comienza con grilla; podés elegir tabla. Las columnas fijas se aplican solo en escritorio y dejan espacio para desplazarte.
-- Tus preferencias tienen prioridad sobre los valores iniciales del equipo. Se recuerdan por usuario en este navegador; en otro dispositivo podés configurar una vista propia.
+- Tus preferencias tienen prioridad sobre los configuraciones por defecto. Se recuerdan por usuario en este navegador; en otro dispositivo podés configurar una vista propia.
 - Los filtros preestablecidos disponibles se eligen desde el listado. Que un filtro esté disponible no significa que esté aplicado: revisá siempre las condiciones visibles.
 
 **Dónde ir:** Buscar en Negocios (/accounts)
@@ -554,7 +580,7 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 Un caso ficticio para aprender a registrar una relación comercial completa.
 
-### Cabañas Camino Claro: de nuevo negocio a cliente
+### De negocio nuevo a venta cerrada: ejemplo paso a paso
 
 **Cuándo usarlo:** Para practicar el recorrido. Los nombres y acuerdos de este ejemplo son ficticios.
 

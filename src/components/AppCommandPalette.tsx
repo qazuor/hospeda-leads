@@ -7,11 +7,12 @@ import { Spotlight, useSpotlight } from '@mantine/spotlight';
 import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Library, Mail, Moon, RotateCcw, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
 import { useAuth } from '../helpers/useAuth';
 import { useThemeMode } from '../helpers/themeMode';
-import { normalizeSearchText } from '../helpers/searchText';
+import { fuzzySearchScore, normalizeSearchText } from '../helpers/searchText';
 import { mainNavigation } from '../helpers/appNavigation';
 import { commandPalette, commandStore, openCommandPalette, restoreCommandFocus } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import styles from './AppCommandPalette.module.css';
+import guideTopics from '../content/user-guide.json';
 
 const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
 
@@ -99,12 +100,19 @@ export function AppCommandPalette() {
     ] },
   ].map(group => ({ ...group, actions: group.actions.filter(action =>
     normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))) }));
+  const navigationMatch=navigationGroups.some(group=>group.actions.some(action=>normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))));
+  const helpActions=query.trim().length>=2&&!navigationMatch?guideTopics.flatMap(topic=>topic.articles.flatMap(article=>{
+    const text=[topic.title,article.title,article.when,...article.steps,article.result,...article.example,...article.notes].join(' ');
+    const score=fuzzySearchScore(query,text);
+    return score===null?[]:[{id:`help:${topic.id}:${article.id}`,label:article.title,description:`${topic.title} · ${article.when}`,icon:BookOpen,score,run:()=>go(`/guide?topic=${topic.id}&article=${article.id}`)}];
+  })).sort((a,b)=>a.score-b.score):[];
+  const helpGroups=helpActions.length?[{label:'Ayuda',actions:helpActions}]:[];
   const contentGroups=contentCurrent?(content.data?.results??[]).reduce<Array<{label:string;actions:{id:string;label:string;description:string;icon:typeof BookOpen;run:()=>void}[]}>>((groups,result)=>{
     let group=groups.find(group=>group.label===result.kind);
     if(!group){group={label:result.kind,actions:[]};groups.push(group);}
     group.actions.push({...result,icon:resultIcons[result.kind],run:()=>go(result.url)});return groups;
   },[]):[];
-  const groups=[...contentGroups,...navigationGroups];
+  const groups=[...helpGroups,...contentGroups,...navigationGroups];
   const hasResults = groups.some(group => group.actions.length > 0);
   const selectedAction = groups.flatMap(group => group.actions)[selected];
 

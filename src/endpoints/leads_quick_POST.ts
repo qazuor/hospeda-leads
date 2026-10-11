@@ -14,6 +14,7 @@ export async function handle(request: Request) {
   try {
     const {user}=await getServerUserSession(request);
     const input = schema.parse(superjson.parse(await request.text()));
+    if(input.field==='reviewStatus'&&input.value!==null&&input.value!=='filtered')throw new Error('Elegí Filtrado o No filtrado.');
     if(input.field==="assignedUserEmail"&&user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo un administrador puede modificar el responsable."}),{status:403});
     }
@@ -32,7 +33,7 @@ export async function handle(request: Request) {
         if(!input.accountId||!isInlineBadgeField(input.field)||inlineBadgeFields[input.field].scope!=='management')throw new Error('Elegí un dato de la gestión.');
         const old=await assertLeadAccess(trx,String(input.id),user,true);
         if(String(old.accountId)!==input.accountId)throw new Error('La gestión no pertenece a este negocio.');
-        const current=old[input.field];
+        const current=old[input.field as 'commercialProfile'|'medioContactoPreferido'|'origen'|'quienCargo'|'creadoPor'];
         if(input.expectedValue!==undefined&&current!==input.expectedValue&&current!==input.value)throw new InlineConflict('Este dato cambió mientras lo editabas. Recargá los datos y revisá el nuevo valor.');
         if(current===input.value)return;
         if(input.field==='commercialProfile'&&input.value&&!['Independiente','Consolidado','Referente'].includes(input.value))throw new Error('Perfil comercial no disponible.');
@@ -42,10 +43,10 @@ export async function handle(request: Request) {
       }
       if(input.scope==='business'&&(!input.accountId||!isInlineBadgeField(input.field)||inlineBadgeFields[input.field].scope!=='business'))throw new Error('Elegí un dato del negocio.');
       if(input.accountId){
-        const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:input.field==="tipo"?{tipo:input.value,subtipo:null}:input.field==="subtipo"?{subtipo:input.value}:{};
-        if(Object.keys(fields).length&&(input.expectedValue!==undefined||input.field==="tipo"||input.field==="subtipo")){
+        const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:input.field==="tipo"?{tipo:input.value,subtipo:null}:input.field==="subtipo"?{subtipo:input.value}:input.field==="reviewStatus"?{reviewStatus:input.value as "filtered"|null}:{};
+        if(Object.keys(fields).length&&(input.expectedValue!==undefined||input.field==="tipo"||input.field==="subtipo"||input.field==="reviewStatus")){
           const account=await assertBusinessAccess(trx,input.accountId,user,true);
-          const current=account[input.field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo'];
+          const current=input.field==='reviewStatus'?account.reviewStatus:account[input.field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo'];
           if(input.field==='tipo'||input.field==='subtipo'){
             const expected=input.expectedClassification;
             if(!expected)throw new Error('Recargá la clasificación antes de editarla.');
@@ -68,7 +69,7 @@ export async function handle(request: Request) {
             {fieldName:"tipo",oldValue:old.tipo,newValue:input.value},
             ...(old.subtipo?[{fieldName:"subtipo",oldValue:old.subtipo,newValue:null}]:[])
           ]
-        : [{fieldName:input.field,oldValue:old[input.field],newValue:normalizedValue}];
+        : [{fieldName:input.field,oldValue:old[input.field as keyof typeof old],newValue:normalizedValue}];
       await writeLeadJournal(trx,{
         leadId:String(old.id),
         leadName:old.nombre,

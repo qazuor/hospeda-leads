@@ -51,7 +51,7 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - Papelera de gestiones: consulta su `leads.deleted_at`; no equivale a eliminar el negocio. El antiguo filtro de oportunidad eliminada sigue refiriéndose a la gestión.
 - Eliminación definitiva es una operación distinta y restringida. No sustituir soft delete por archivo ni presentar ambos como un cambio de nombre.
 - `origin` y `source_reference` preservan origen/ref histórica sin reemplazar `discovery_source` ni `verification_urls` actuales.
-- `review_status='filtered'` es revisión de negocio; no una nueva etapa automática.
+- `review_status='filtered'` indica que el negocio fue revisado, se confirmó como válido y se decidió conservarlo. `NULL` queda pendiente de revisión; no es una etapa de venta.
 - `subscription_label` es etiqueta histórica; no acredita pago ni convierte a Cliente.
 - `source_lead_id` es referencia histórica/técnica, no autorización para recrear las gestiones eliminadas.
 

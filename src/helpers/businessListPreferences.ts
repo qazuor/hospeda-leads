@@ -11,6 +11,7 @@ const TABLE_COLUMNS=[
   {key:"commercialProfile",label:"Perfil comercial"},
   {key:"ciudad",label:"Ciudad"},
   {key:"estado",label:"Estado"},
+  {key:"reviewStatus",label:"Revisión"},
   {key:"suscripcion",label:"Suscripción"},
   {key:"email",label:"Email"},
   {key:"telefono",label:"Teléfono"},
