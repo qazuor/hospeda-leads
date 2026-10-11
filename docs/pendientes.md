@@ -11,7 +11,7 @@ Corte: 10/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un b
 
 ## Cambio en revisión
 
-- La UI de `crm_accounts.review_status` está implementada para editar Filtrado/No filtrado, ofrecerlo como columna seleccionable y editable inline en tabla y cards, mostrarlo en detalle y filtrar por el valor. Los badges simples abren una lista compacta de opciones y guardan al seleccionar; Vertical/Subtipo mantiene su editor detallado y varias gestiones requieren elegir el registro antes de modificarlo. Los filtros de usuario incluyen “Usuario autenticado”. La guía anida sus artículos, los expone en la paleta de comandos con búsqueda aproximada e incluye el recorrido de venta y la revisión de negocios precargados. Validación local: `pnpm run typecheck`, `pnpm test` (95 pruebas) y `pnpm run build` aprobados. Issue aprobado: #94. El PR y su CI quedan pendientes.
+- La UI de `crm_accounts.review_status` está implementada para editar Filtrado/No filtrado, ofrecerlo como columna seleccionable y editable inline en tabla y cards, mostrarlo en detalle y filtrar por el valor. Los badges simples abren una lista compacta de opciones y guardan al seleccionar; Vertical/Subtipo mantiene su editor detallado y varias gestiones requieren elegir el registro antes de modificarlo. Los filtros de usuario incluyen “Usuario autenticado”. La guía anida sus artículos, los expone en la paleta de comandos con búsqueda aproximada e incluye el recorrido de venta y la revisión de negocios precargados. Validación local: `pnpm run typecheck`, `pnpm test` (95 pruebas) y `pnpm run build` aprobados. Issue #94 aprobado. PR #95 abierto; quedan pendientes la CI y la revisión manual visual/funcional.
 
 ## Prioridad: pulido visual, con recorridos reales
 
