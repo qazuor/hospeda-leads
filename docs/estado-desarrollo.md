@@ -10,6 +10,10 @@ La UI debe ser sencilla para vendedores y personas con poca experiencia técnica
 
 Base remota comprobada para este traspaso: `75904f4acb6958fa8ca90bee3689f73b4a796275` (merge del [PR #92](https://github.com/qazuor/hospeda-leads/pull/92)). El propio PR de documentación será un commit posterior: esta referencia es una base histórica, no un HEAD perpetuo.
 
+## Cambio en revisión — estado de negocio y redistribución
+
+El issue aprobado [#98](https://github.com/qazuor/hospeda-leads/issues/98) define separar el estado del negocio del estado de cada gestión, preservar los negocios que ya no estén en estado Nuevo y redistribuir los restantes de forma equitativa contando también el trabajo previo. La propuesta se dividió en PRs encadenados para revisión. Los PRs [#99](https://github.com/qazuor/hospeda-leads/pull/99) y [#100](https://github.com/qazuor/hospeda-leads/pull/100) tienen CI verde; el [#101](https://github.com/qazuor/hospeda-leads/pull/101) incorpora el modelo de dominio y también tiene CI verde sobre `721a52da83b2dbcf7a81cf4252b939809745aa3c` (14/10/2026). Los tres siguen abiertos y sin merge. API, UI y página de redistribución continúan en los cortes siguientes; no se ejecutaron cambios de datos productivos.
+
 ## Lo implementado en main
 
 | Área | Estado y alcance | Referencia |

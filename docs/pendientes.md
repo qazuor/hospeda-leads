@@ -2,6 +2,10 @@
 
 Corte: 11/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
 
+## En curso: estados y redistribución de negocios
+
+El alcance está aprobado en el [issue #98](https://github.com/qazuor/hospeda-leads/issues/98). PRs [#99](https://github.com/qazuor/hospeda-leads/pull/99)–[#101](https://github.com/qazuor/hospeda-leads/pull/101) están abiertos y con CI verde; ninguno está mergeado. Siguen pendientes los cortes encadenados de API, UI y previsualización/ejecución de la redistribución. La operación productiva no se ha realizado como parte de este cambio.
+
 ## Primeros pasos al retomar en una PC
 
 1. Clonar/pull y preparar el entorno local según [desarrollo local](desarrollo-local.md).
