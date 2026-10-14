@@ -27,6 +27,7 @@
     "db:audit:managements": "node scripts/audit-management-cleanup.mjs",
     "test:mcp": "node --import tsx scripts/test-mcp.ts",
     "test:managements": "node scripts/test-explicit-management-migration.mjs && node --import tsx scripts/test-explicit-management.ts",
+    "test:business-state-migration": "node scripts/test-business-state-migration.mjs",
     "db:recover:businesses": "node scripts/recover-business-metadata.mjs"
   },
   "dependencies": {
