@@ -77,3 +77,13 @@
 /* Keep toolbar controls together and empty states aligned with the results. */
 .toolbar{justify-content:flex-start;margin-bottom:12px}.search{max-width:680px}.filters{flex:none}.pageActions{width:auto;max-width:100%;flex-wrap:wrap;align-items:center;gap:8px}.pageTools{width:auto}.tableCard:has(>.emptyState){box-shadow:none}.emptyState{padding:24px}.emptyState h2{margin:0 0 8px;font-size:22px}.emptyState p{margin:0 0 16px;font-size:14px;line-height:1.5}.advancedWorkspace [data-disclosure-control]{display:flex;align-items:center}.advancedWorkspace{margin:0 0 16px}
 @media(max-width:600px){.pageActions{width:100%}.emptyState{padding:16px}.emptyState h2{font-size:20px}.toolbar{flex-direction:row;flex-wrap:nowrap}.search{min-width:0}.filters{padding:0}.filterButton{padding-inline:12px}}
+
+@media(max-width:620px){
+ .quickViews{align-items:center;flex-direction:row;gap:8px;min-width:0}
+ .quickViewList{flex:1;min-width:0;max-width:calc(100% - 112px);scrollbar-width:thin;overscroll-behavior-inline:contain}
+ .quickViewList>button,.savedView>button:first-child{height:34px;padding-inline:9px;font-size:12px}
+ .quickViews>button{flex:none;white-space:nowrap;padding-inline:8px;font-size:12px}
+ .filters{gap:5px;min-width:0}
+ .filters>:is(button,[role=combobox]){flex:0 0 auto}
+ .filterButton{padding-inline:10px}
+}

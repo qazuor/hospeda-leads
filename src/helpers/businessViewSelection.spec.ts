@@ -1,6 +1,6 @@
 import {beforeEach,describe,expect,it} from 'vitest';
 import {basePreferences,listPreferencesSchema,type ListPreferences} from './businessListPreferences';
-import {businessViewSelectionKey,readBusinessViewSelection,saveBusinessViewSelection,viewPreferencesFingerprint} from './businessViewSelection';
+import {businessViewSelectionKey,manualViewFilterDelta,readBusinessViewSelection,saveBusinessViewSelection,viewPreferencesFingerprint} from './businessViewSelection';
 describe('active business view',()=>{
  beforeEach(()=>localStorage.clear());
  it('normalizes legacy layouts, inactive loading modes, object order and unused columns',()=>{
@@ -22,6 +22,16 @@ describe('active business view',()=>{
   const p=basePreferences(),fingerprint=viewPreferencesFingerprint(p);
   for(const update of [{query:'Colón'},{presentation:'grid' as const},{sortDir:'desc' as const},{columns:['nombre']},{widths:{...p.widths,nombre:300}},{legacyFilters:{classification:'open' as const}}])expect(viewPreferencesFingerprint(listPreferencesSchema.parse({...p,...update}))).not.toBe(fingerprint);
   expect(viewPreferencesFingerprint(listPreferencesSchema.parse({...p,legacyFilters:{ciudades:[]}}))).toBe(fingerprint);
+ });
+ it('shows only filters added or changed after applying a view',()=>{
+  const inherited={field:'ciudad',operator:'eq',value:'Colón'} as const,changed={field:'tipo',operator:'eq',value:'Hotel'} as const;
+  const baseline={...basePreferences(),query:'precargada',filters:[{rules:[inherited,changed]}]};
+  const current={...baseline,query:'manual',filters:[{rules:[inherited,{...changed,value:'Cabaña'}]},{rules:[{field:'subtipo',operator:'eq',value:'Hostería'} as const]}]};
+  const delta=manualViewFilterDelta(current,baseline);
+  expect(delta.query).toBe('manual');
+  expect(delta.filters).toEqual([{rules:[{...changed,value:'Cabaña'}]},{rules:[{field:'subtipo',operator:'eq',value:'Hostería'}]}]);
+  expect(delta.visibleRuleIndexes).toEqual([{groupIndex:0,ruleIndex:1},{groupIndex:1,ruleIndex:0}]);
+  const unchanged=manualViewFilterDelta(baseline,baseline);expect(unchanged.filters).toEqual([]);expect(unchanged.visibleRuleIndexes).toEqual([]);expect(unchanged.query).toBe('');expect(unchanged.legacyFilters).toBeUndefined();
  });
  it('persists the exact identity and applied baseline separately for each user',()=>{
   const selection={kind:'personal' as const,id:'stable-id',name:'Colón',baseline:basePreferences()};

@@ -5,3 +5,6 @@
 .heading .name{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
 
 .wide:not(.next) .readValue{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+
+@container(max-width:420px){.field[data-card-field="assignedUserEmail"]{grid-column:1/-1}}
+.field[data-card-field="assignedUserEmail"] dd :global(.mantine-Badge-label){display:block;white-space:nowrap;word-break:normal;overflow:hidden;text-overflow:ellipsis}

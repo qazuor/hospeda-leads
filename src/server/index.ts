@@ -1,6 +1,7 @@
 import {get as searchGET} from '../endpoints/search';
 import {mcpRoutes} from './mcp/routes';
 import {handle as businessListDefaults} from '../endpoints/business_list_defaults';
+import {handle as businessSystemViewConvert} from '../endpoints/business_system_view_convert';
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
@@ -105,6 +106,7 @@ app.get("/_api/live_version", (c) => h20(c.req.raw));
 app.post("/_api/send_template_email", (c) => h21(c.req.raw));
 app.get('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
 app.post('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
+app.post('/_api/business_system_view_convert',c=>businessSystemViewConvert(c.req.raw));
 app.get("/_api/settings", (c) => h22(c.req.raw));
 app.post("/_api/settings_save", (c) => h23(c.req.raw));
 
