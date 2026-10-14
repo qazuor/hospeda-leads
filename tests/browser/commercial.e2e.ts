@@ -106,12 +106,12 @@ test('account with two contacts and independent opportunities preserves lead and
   await whatsapp.getByRole('button',{name:'Guardar y ver contenido final'}).click();
   await whatsapp.getByLabel('Revisé destinatario y contenido final').check();
   await whatsapp.getByRole('button',{name:'Abrir WhatsApp con este mensaje'}).click();
-  await expect(whatsapp.getByRole('button',{name:'Confirmar envío manual'})).toBeVisible();
+  await expect(whatsapp.getByRole('button',{name:'Confirmar envío',exact:true})).toBeVisible();
   const intent=await page.evaluate(()=>(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl);
   const whatsappUrl=new URL(intent);
   expect(whatsappUrl.pathname).toBe('/5493442000002');
   expect(whatsappUrl.searchParams.get('text')).toContain('Hola Luis luis@example.com');
-  await whatsapp.getByRole('button',{name:'Confirmar envío manual',exact:true}).click();
+  await whatsapp.getByRole('button',{name:'Confirmar envío',exact:true}).click();
   await expect(whatsapp.getByText('Envío confirmado manualmente',{exact:true})).toBeVisible();
   await whatsapp.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   await page.getByRole('dialog').getByRole('button',{name:'Volver',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
