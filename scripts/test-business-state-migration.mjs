@@ -36,6 +36,7 @@ try{
   for(const [key,value] of Object.entries(beforeAccount))if(key!=='updated_at')assert.deepEqual(afterAccount[key],value,`crm_accounts.${key} preserved`);
   assert.equal(afterAccount.status,'archived','archival restriction preserved by the backfill');
   assert.equal(afterAccount.is_client,true,'legacy client marker preserved as an independent boolean');
+  assert.equal(afterAccount.do_not_contact,true,'legacy do-not-contact marker preserved');
   assert.equal(afterAccount.recontact_at,null);
   assert.equal(afterAccount.referred_to_leandro,false);
   await tx`SELECT set_config('crm.actor_email','fixture@example.com',true)`;
@@ -46,7 +47,6 @@ try{
   assert.equal(stateEvent.metadata.before.status,'archived');
   assert.equal(stateEvent.metadata.before.referred_to_leandro,false);
   assert.equal(stateEvent.metadata.after.status,'reviewed');
-  assert.equal(stateEvent.metadata.after.do_not_contact,true);
   assert.equal(stateEvent.metadata.after.referred_to_leandro,true);
   assert.equal(stateEvent.metadata.after.recontact_at.slice(0,10),'2026-12-15');
   await tx`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','management_change',true)`;
