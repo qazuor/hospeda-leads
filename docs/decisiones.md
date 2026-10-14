@@ -63,6 +63,16 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - La limpieza masiva de octubre fue excepcional, con autorización específica y respaldo/ensayo. No generalizar esa autorización a registros futuros ni automatizarla en migraciones.
 - Respaldo y procedimiento de recuperación son independientes del deploy. Nunca restaurar un dump antiguo completo encima de producción para recuperar pocos campos.
 
+## Estados y Comunicación — producto aprobado
+
+- El estado del negocio y la etapa de cada gestión son independientes; un negocio puede tener varias gestiones abiertas. Cliente, No contactar, Eliminado y Derivado a Leandro son marcas separadas del estado general según la spec 53.
+- Las gestiones usan catálogos fijos por tipo. Los cierres exigen motivo; la derivación a Leandro conserva historial y solo admin puede desactivarla. La migración debe preservar los negocios Filtrados como Revisados y no restaurar elementos de Papelera.
+- Comunicación prepara contactos salientes y registra respuestas manualmente; no es una bandeja sincronizada. Canales: Email por Brevo, WhatsApp asistido, llamadas, redes y Otros con aclaración.
+- Las salidas respetan contexto, permisos y bloqueos; respuestas entrantes se pueden registrar sin habilitar envíos. No contactar bloquea el negocio completo y solo admin levanta el bloqueo.
+- Se retiran las secuencias asistidas. El usuario autorizó limpiar sus registros de prueba con una migración que limita la eliminación a artefactos atribuibles y se detiene si detecta referencias independientes.
+- Especificaciones aprobadas: [estados](crm-roadmap/53-business-and-management-state-model.md) y [Comunicación](crm-roadmap/56-communication-product-spec.md).
+- La autorización cubre integrar y probar el código. No implica ejecutar migraciones ni escribir en bases de datos productivas.
+
 ## Desarrollo y continuidad
 
 - Feature/fix/docs branch, PR, CI verde y merge. Corregir fallos antes de integrar; avanzar sin confirmaciones redundantes dentro del trabajo autorizado.
