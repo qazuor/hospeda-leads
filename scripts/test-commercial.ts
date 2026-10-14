@@ -86,7 +86,8 @@ try{
     assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis},admin.value))).status,200);
     assert.equal(outbound[0].to[0].email,'luis@example.com');assert.match(outbound[0].htmlContent,/Luis/);assert.match(outbound[0].htmlContent,/luis@example.com/);assert(!outbound[0].htmlContent.includes('ana@example.com'));
     assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:foreign},admin.value))).status,400);assert.equal(outbound.length,1);
-    const generalRecipient=await sendEmail(request({leadId:first,templateId:template.id},admin.value));
+    const genericTemplate=await db.insertInto('messageTemplates').values({name:'CRM generic template',channel:'email',subject:'Hola',body:'<p>Mensaje general</p>'}).returningAll().executeTakeFirstOrThrow();
+    const generalRecipient=await sendEmail(request({leadId:first,templateId:genericTemplate.id},admin.value));
     assert.equal(generalRecipient.status,200,await generalRecipient.text());
     assert.equal(outbound[1].to[0].email,'generic@example.com');assert(!outbound[1].subject.includes('Luis'));assert(!outbound[1].subject.includes('Ana'));
     const noChannel=await mutate({action:'contact_save',accountId,name:'Sin email'});
