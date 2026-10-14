@@ -80,7 +80,9 @@ test('account with two contacts and independent opportunities preserves lead and
   await lead.getByText('Otras acciones',{exact:true}).click();await lead.getByRole('button',{name:'Contactar ahora',exact:true}).click();let contactDialog=page.getByRole('dialog').last();await contactDialog.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Ana'});await contactDialog.getByRole('button',{name:'Preparar email con un mensaje modelo',exact:true}).click();
   const communication=page.getByRole('dialog').last();
   await expect(communication.getByRole('combobox',{name:'Destinatario',exact:true})).toHaveValue(/\d+/);
-  await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
+  const emailRecipient=communication.getByRole('combobox',{name:'Destinatario',exact:true});
+  await emailRecipient.selectOption({label:'Luis · Principal'});
+  await expect(communication.getByText('luis@example.com',{exact:true})).toBeVisible();
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByLabel('Asunto final')).toHaveValue('Hola Luis');
   await communication.getByRole('button',{name:'Cambiar destinatario o modelo'}).click();
