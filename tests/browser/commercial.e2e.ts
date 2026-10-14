@@ -88,7 +88,9 @@ test('account with two contacts and independent opportunities preserves lead and
   await communication.getByRole('button',{name:'Cambiar destinatario o modelo'}).click();
   await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Canal general del negocio'});
   await communication.getByRole('button',{name:/CRM template/}).first().click();
-  await expect(communication.getByLabel('Asunto final')).toHaveValue('Hola');
+  await expect(communication.getByLabel('Asunto final')).toHaveValue('Hola {{contact}}');
+  await expect(communication.getByRole('alert')).toContainText('Faltan datos en este mensaje');
+  await expect(communication.getByRole('button',{name:'Guardar y ver contenido final'})).toBeDisabled();
   await communication.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   // Capture WhatsApp intent locally: this test never opens or sends a real message.
   await page.evaluate(()=>{window.open=(url)=>{(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl=String(url);return null}});
