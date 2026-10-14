@@ -50,8 +50,8 @@ try{
   const foreign=await mutate({action:'contact_save',accountId:otherId,name:'Foreign',email:'foreign@example.com'});
   const vertical=await db.selectFrom('crmVerticals').select('name').where('active','=',true).executeTakeFirstOrThrow();
   const stage=d.stages[0];
-  const first=await mutate({action:'opportunity_save',accountId,opportunityName:'Primera venta',tipo:vertical.name,estado:stage,primaryContactId:ana,serviceInterest:'Publicación',estimatedCloseDate:'2027-01-15',assignedUserEmail:admin.email},admin.value);
-  const second=await mutate({action:'opportunity_save',accountId,opportunityName:'Segunda venta',tipo:vertical.name,estado:stage,primaryContactId:luis});
+  const first=await mutate({action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Primera venta',tipo:vertical.name,estado:stage,primaryContactId:ana,serviceInterest:'Publicación',estimatedCloseDate:'2027-01-15',assignedUserEmail:admin.email},admin.value);
+  const second=await mutate({action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Segunda venta',tipo:vertical.name,estado:stage,primaryContactId:luis});
   await mutate({action:'opportunity_save',accountId,opportunityName:'Forbidden',primaryContactId:foreign},user.value,400);
   await mutate({action:'opportunity_save',accountId,id:first,opportunityName:'Forbidden',assignedUserEmail:user.email},user.value,403);
   await assert.rejects(db.updateTable('leads').set({primaryContactId:foreign}).where('id','=',first).execute());
