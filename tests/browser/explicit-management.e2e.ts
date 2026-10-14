@@ -34,7 +34,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
    await expect(dialog.getByRole('button',{name:'Cancelar',exact:true})).toBeDisabled();
   }finally{release();}
   await expect(dialog).toHaveCount(0);await expect(page.getByRole('status').filter({hasText:'Gestión iniciada. Ahora planificá cómo empezar.'}).getByRole('link',{name:'Abrir gestión',exact:true})).toBeVisible();
-  const saved=await detail(id);expect(saved.account.status).toBe('in_management');expect(saved.opportunities).toHaveLength(1);expect(saved.opportunities[0].estado).toBeNull();expect(saved.opportunities[0].primaryContactId).toBeNull();expect(saved.opportunities[0].fechaUltimoContacto).toBeNull();expect(saved.opportunities[0].estimatedCloseDate).toBeNull();
+  const saved=await detail(id);expect(saved.account.status).toBe('in_management');expect(saved.opportunities).toHaveLength(1);expect(saved.opportunities[0].estado).toBe('main:contact');expect(saved.opportunities[0].primaryContactId).toBeNull();expect(saved.opportunities[0].fechaUltimoContacto).toBeNull();expect(saved.opportunities[0].estimatedCloseDate).toBeNull();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   await page.screenshot({path:`test-results/explicit-management-${viewport.width}.png`,fullPage:true});
   if(viewport.width<768)await page.getByRole('button',{name:'Abrir menú de navegación',exact:true}).click();
