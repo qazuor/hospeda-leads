@@ -45,12 +45,12 @@ export async function get(request:Request){
    if(user.role!=='admin')clauses.push(sql`l.assigned_user_email=${user.email}`,sql`a.archived_at IS NULL`);
    else if(p.responsible&&p.responsible!=='all')clauses.push(sql`l.assigned_user_email=${p.responsible}`);
    if(p.from)clauses.push(sql`e.recontact_date>=${p.from}::date`);if(p.to)clauses.push(sql`e.recontact_date<=${p.to}::date`);
-   if(p.reasonId)clauses.push(sql`e.reason_id=${p.reasonId}`);if(p.vertical)clauses.push(sql`l.tipo=${p.vertical}`);
+   if(p.reasonId)clauses.push(sql`((l.management_type IS NULL AND e.reason_id=${p.reasonId}) OR (l.management_type IS NOT NULL AND e.management_reason_id=${p.reasonId}))`);if(p.vertical)clauses.push(sql`l.tipo=${p.vertical}`);
    if(p.handled==='no')clauses.push(sql`e.task_id IS NULL AND e.related_lead_id IS NULL`);
    if(p.handled==='yes')clauses.push(sql`(e.task_id IS NOT NULL OR e.related_lead_id IS NOT NULL)`);
    const base=sql`FROM leads l JOIN crm_accounts a ON a.id=l.account_id JOIN crm_stages s ON s.name=l.estado JOIN LATERAL (SELECT * FROM crm_pipeline_events WHERE lead_id=l.id AND action='stage' ORDER BY id DESC LIMIT 1) e ON true WHERE ${sql.join(clauses,sql` AND `)}`;
    total=Number((await sql<{n:string}>`SELECT count(*) n ${base}`.execute(db)).rows[0].n);
-   reactivations=(await sql<ReactivationRow>`SELECT l.id,l.account_id,l.nombre,l.opportunity_name,l.tipo,l.assigned_user_email,l.estado,l.pipeline_revision,a.do_not_contact,e.id event_id,e.reason_id,e.comment,e.recontact_date,e.task_id ${base} ORDER BY e.recontact_date,l.id LIMIT 50 OFFSET ${(p.page-1)*50}`.execute(db)).rows.map(r=>({...r,recontactDate:calendarDay(r.recontactDate)}));
+   reactivations=(await sql<ReactivationRow>`SELECT l.id,l.account_id,l.nombre,l.opportunity_name,l.tipo,l.assigned_user_email,l.estado,l.pipeline_revision,a.do_not_contact,e.id event_id,coalesce(e.management_reason_id,e.reason_id)::text reason_id,coalesce(e.comment,e.management_note) comment,e.recontact_date,e.task_id ${base} ORDER BY e.recontact_date,l.id LIMIT 50 OFFSET ${(p.page-1)*50}`.execute(db)).rows.map(r=>({...r,recontactDate:calendarDay(r.recontactDate)}));
   }
   const configJournal=user.role==='admin'&&p.mode==='config'?(await sql`SELECT * FROM crm_pipeline_config_journal ORDER BY id DESC LIMIT 100`.execute(db)).rows:[];
   const historicalReview=user.role==='admin'&&p.mode==='config'?(await sql<{stage:string;count:string}>`SELECT coalesce(estado,'') stage,count(*) count FROM leads WHERE deleted_at IS NULL GROUP BY estado ORDER BY count(*) DESC`.execute(db)).rows.map(r=>({...r,count:Number(r.count)})):[];

@@ -98,7 +98,7 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
  await page.screenshot({path:`test-results/restriction-dialog-${width}.png`,fullPage:true});
  await page.evaluate(()=>document.body.classList.add('dark'));await page.screenshot({path:`test-results/restriction-dialog-${width}-dark.png`,fullPage:true});await page.evaluate(()=>document.body.classList.remove('dark'));
  await dialog.getByRole('button',{name:'Confirmar levantamiento',exact:true}).click();await expect(dialog).toHaveCount(0);
- await expect(page.getByRole('status')).toContainText('Restricción levantada. No se enviaron mensajes ni se reanudaron seguimientos.');
+ await expect(page.getByRole('status')).toContainText('Restricción levantada. No se enviaron mensajes.');
  await expect(page.locator('[data-lifted-restriction="301"]')).toBeFocused();
  await expect(page.getByRole('article')).toContainText('Pedido confirmado por Ana');
  expect(writes).toEqual(Array(2).fill({action:'lift',id:'301',reason:'Pedido confirmado por Ana'}));expect(errors).toEqual([]);

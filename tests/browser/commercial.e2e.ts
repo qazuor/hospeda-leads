@@ -44,9 +44,9 @@ test('account with two contacts and independent opportunities preserves lead and
   for(const [name,person] of [['Primera gestión','Ana'],['Segunda gestión','Luis']]){
     await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
     await page.getByLabel('Nombre de la gestión').fill(name);
-    await page.getByLabel('Cierre estimado',{exact:true}).fill('2027-01-15');await page.keyboard.press('Escape');
+    await page.getByLabel('Cierre estimado',{exact:true}).fill('2027-01-15');
     await page.getByRole('combobox',{name:'Contacto principal de gestión',exact:true}).selectOption({label:person});
-    await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
+    await page.getByRole('dialog').last().getByRole('button',{name:/^(Iniciar gestión|Marcar Revisado e iniciar gestión)$/}).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
   await expect(page.getByRole('heading',{name:'Gestiones comerciales (2)',exact:true})).toBeVisible();
