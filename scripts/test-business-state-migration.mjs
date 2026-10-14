@@ -57,7 +57,7 @@ try{
   for(const [key,value] of Object.entries(beforeLead))assert.deepEqual(afterLead[key],value,`leads.${key} preserved`);
   assert.deepEqual(await tx`SELECT * FROM lead_journal WHERE account_id=${account.id} ORDER BY id`,journals.lead,'legacy journal preserved');
   const commercialAfter=await tx`SELECT * FROM crm_commercial_journal WHERE account_id=${account.id} ORDER BY id`;
-  assert.deepEqual(commercialAfter.slice(0,journals.commercial.length),journals.commercial,'commercial journal preserved');
+  assert.deepEqual(commercialAfter.slice(0,journals.commercial.length),Array.from(journals.commercial),'commercial journal preserved');
   const pipelineAfter=await tx`SELECT * FROM crm_pipeline_events WHERE account_id=${account.id} ORDER BY id`;
   for(let i=0;i<journals.pipeline.length;i++)for(const [key,value] of Object.entries(journals.pipeline[i]))assert.deepEqual(pipelineAfter[i][key],value,`crm_pipeline_events.${key} preserved`);
   await tx`SAVEPOINT invalid_status`;
