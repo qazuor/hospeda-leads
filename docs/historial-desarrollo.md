@@ -2,6 +2,10 @@
 
 Registro de hitos para trasladar el proyecto entre herramientas. No es una transcripción completa del chat ni el journal de usuarios comerciales. Fechas y estados se indican cuando se conocen; para la historia íntegra de código consultar GitHub y los PRs.
 
+## 14/10/2026 — modelo de estado de negocio en revisión
+
+Se creó y aprobó el alcance del [issue #98](https://github.com/qazuor/hospeda-leads/issues/98) para separar estados de negocio y gestión, y preparar la redistribución equitativa de negocios nuevos considerando el trabajo previo. Los PRs encadenados [#99](https://github.com/qazuor/hospeda-leads/pull/99), [#100](https://github.com/qazuor/hospeda-leads/pull/100) y [#101](https://github.com/qazuor/hospeda-leads/pull/101) pasaron CI; el #101 quedó verde en `721a52da83b2dbcf7a81cf4252b939809745aa3c`. Permanecen abiertos y sin merge mientras continúa la cadena. No se hicieron escrituras productivas.
+
 ## Migración y evolución funcional
 
 El CRM se llevó desde Floot a React/Vite + Hono/PostgreSQL, autohospedado en Coolify. Durante octubre se incorporaron fundación comercial, personas, gestiones independientes, tareas/actividades, Mi día/Agenda, pipeline, objeciones, reactivación, procedencia/importación, comunicación asistida, recursos y permisos. Los detalles de cada entrega permanecen en `docs/crm-roadmap/01-...` a `07-...` y los documentos de UX.
