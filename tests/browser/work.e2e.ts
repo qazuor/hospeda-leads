@@ -13,7 +13,7 @@ test('Mi día completes a call while preserving the visit, with agenda and retro
  const today=localDay();const tomorrow=localDay(new Date(Date.now()+86400000));const yesterday=localDateTime(new Date(Date.now()-86400000));
  await page.getByRole('link',{name:'Mi día',exact:true}).click();
  for(const [title,type,date,time] of [['Llamada E2E','call',today,''],['Visita E2E','visit',tomorrow,'15:00']]){
-  await page.getByRole('button',{name:'Agregar próximo paso',exact:true}).click();const dialog=page.getByRole('dialog');
+  await page.getByRole('button',{name:'Planificar una tarea',exact:true}).click();const dialog=page.getByRole('dialog');
   await dialog.getByRole('combobox',{name:'Negocio',exact:true}).selectOption(accountId);await dialog.getByRole('combobox',{name:'Contexto',exact:true}).selectOption(leadId);await dialog.getByLabel('Título',{exact:true}).fill(title);await dialog.getByRole('combobox',{name:'Tipo',exact:true}).selectOption(type);await dialog.getByLabel('Fecha de vencimiento').fill(date);if(time)await dialog.getByLabel('Hora (opcional)').fill(time);await dialog.getByText('Participantes y notas (opcional)',{exact:true}).click();await dialog.getByLabel('Descripción / notas').fill('Confirmar condiciones con propietaria');await dialog.getByRole('button',{name:'Guardar próximo paso',exact:true}).click();await expect(dialog).toHaveCount(0);
  }
  await expect(page.getByText('Llamada E2E',{exact:true})).toBeVisible();await page.getByText(/^Próximas acciones/).click();await expect(page.getByText('Visita E2E',{exact:true})).toBeVisible();
