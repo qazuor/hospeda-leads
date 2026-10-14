@@ -59,6 +59,9 @@
 @media(max-width:767px){.listControls{padding:12px;gap:8px}.searchRow{flex-wrap:nowrap;gap:8px}.searchBox{flex-basis:auto;min-width:0;padding-inline:8px}.searchRow>button{min-height:44px;padding-inline:10px}.searchRow>button svg{display:none}.resultsBar .controlRow{margin-left:0;width:100%;justify-content:space-between}.resultsBar{gap:8px;padding:8px 0}.table .businessName{font-size:14px}.valueBadge{font-size:13px!important}}
 .table .valueBadge{max-width:100%}
 
+/* Pinned-column tint must not override the active full-column hover highlight. */
+@media(min-width:768px){.table th.pinned.columnHighlighted,.table td.pinned.columnHighlighted{background:color-mix(in srgb,var(--surface) 90%,var(--foreground))}}
+
 /* Header labels share the same baseline, including the non-sortable actions column. */
 .table th>.headerLabel{display:flex;align-items:center;min-height:36px;line-height:1.4;color:var(--muted-foreground);font-size:13px;font-weight:650}
 .table th>button :global(.mantine-Button-inner){justify-content:flex-start}

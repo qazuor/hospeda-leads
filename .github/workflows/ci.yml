@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        # Docker Official Images mirror: avoid Docker Hub's shared-IP pull quota.
-        image: public.ecr.aws/docker/library/postgres:17-alpine
+        # Google Artifact Registry cache for the official Docker Hub image.
+        image: mirror.gcr.io/library/postgres:17-alpine
         env:
           POSTGRES_DB: hospeda_leads
           POSTGRES_USER: hospeda
