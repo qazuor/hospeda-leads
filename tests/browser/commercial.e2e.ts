@@ -175,7 +175,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByLabel('Negocio',{exact:true}).fill('Otro negocio guiado');
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await page.getByLabel('Nombre de la gestión',{exact:true}).fill('Primera gestión guiada');
-  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:/^(Iniciar gestión|Marcar Revisado e iniciar gestión)$/}).click();
   await expect(page.getByRole('heading',{name:'Primera gestión guiada',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'Otro negocio guiado',exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/opportunity-guided-detail.png',fullPage:true,animations:'disabled'});
