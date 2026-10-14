@@ -37,9 +37,9 @@ try{
  const owner=await actor('user','owner'),other=await actor('user','other'),admin=await actor('admin','admin');
  const accountId=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Permission business '+suffix,email:'business@example.com'})).id;
  const ownOther=(await call(other,commercialPost,'commercial',{action:'account_save',nombre:'Colleague business '+suffix})).id;
- const leadId=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,opportunityName:'Existing management',estado:'Cargado'})).id;
+ const leadId=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Existing management',estado:'Cargado'})).id;
  const contactId=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId,name:'Known person',isPrimary:true,email:'person@example.com'})).id;
- const colleagueLead=(await call(other,commercialPost,'commercial',{action:'opportunity_save',accountId:ownOther,opportunityName:'Colleague management',estado:'Cargado'})).id;
+ const colleagueLead=(await call(other,commercialPost,'commercial',{action:'opportunity_save',accountId:ownOther,confirmReviewed:true,opportunityName:'Colleague management',estado:'Cargado'})).id;
  await call(other,quick,'leads_quick',{id:accountId,accountId,field:'ciudad',value:'Colón',expectedValue:null},403);
  await call(owner,quick,'leads_quick',{id:accountId,accountId,field:'assignedUserEmail',value:other.user.email,expectedValue:owner.user.email},403);
  const beforeInline=await call(owner,commercialGet,'commercial?accountId='+accountId);
@@ -72,7 +72,7 @@ try{
  assert.equal(changedClassification.account.tipo,verticalB);assert.equal(changedClassification.account.subtipo,null);
  assert.equal(changedClassification.opportunities[0].tipo,beforeInline.opportunities[0].tipo);
  await call(owner,quick,'leads_quick',classification('subtipo',subtypeA,verticalA,subtypeA),409);
- const historicalClassification=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,opportunityName:'Historical classification fixture',tipo:verticalA})).id;
+ const historicalClassification=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Historical classification fixture',tipo:verticalA})).id;
  await call(owner,quick,'leads_quick',classification('tipo',null,verticalB,null));
  const clearedClassification=await call(owner,list,'leads?entity=business&q='+encodeURIComponent('Permission business '+suffix));
  assert.equal(clearedClassification.rows[0].tipo,null);assert.equal(clearedClassification.rows[0].subtipo,null);assert.deepEqual(clearedClassification.rows[0].opportunityValues.tipo,[]);assert.deepEqual(clearedClassification.rows[0].opportunityValues.subtipo,[]);assert.equal(clearedClassification.rows[0].opportunityCount,2);
@@ -116,12 +116,12 @@ try{
  await call(other,qualityPost,'dataQuality',{action:'import_preview',mode:'business',source:'Unauthorized CSV',rows:[{nombre:'Unauthorized import'}]},403);
  // A management can retain an independent owner without granting business editing rights.
  const separateBusiness=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Independent responsibility '+suffix})).id;
- const separateManagement=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,opportunityName:'Independent owner',assignedUserEmail:other.user.email})).id;
+ const separateManagement=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,confirmReviewed:true,opportunityName:'Independent owner',assignedUserEmail:other.user.email})).id;
  await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,id:separateManagement,opportunityName:'Unauthorized by business owner'},403);
  await call(other,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,id:separateManagement,opportunityName:'Authorized management owner'});
  await call(other,save,'leads_save',{id:separateManagement,scope:'opportunity',nombre:'Must preserve the business',opportunityName:'Authorized scoped edit'});
  // Explicit management selection can edit its owner's fields without business ownership.
- const secondManagement=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,opportunityName:'Another management',assignedUserEmail:owner.user.email})).id;
+ const secondManagement=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:separateBusiness,confirmReviewed:true,opportunityName:'Another management',assignedUserEmail:owner.user.email})).id;
  const pending=(await call(owner,workPost,'work',{action:'task_save',accountId:separateBusiness,title:'Preserve this commitment',typeId:'call',dueDate:'2027-01-15'})).id;
  const taskBefore=await db.selectFrom('crmTasks').selectAll().where('id','=',pending).executeTakeFirstOrThrow();
  const independentRows=await call(other,list,'leads?entity=business&q='+encodeURIComponent('Independent responsibility '+suffix));assert.equal(independentRows.rows[0].canModify,false);assert.equal(independentRows.rows[0].canModifyManagement,true);
