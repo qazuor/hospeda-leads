@@ -30,7 +30,7 @@ const textField=z.enum([
 const textMode=z.enum(["contains","not_contains","equals","not_equals","empty","not_empty"]);
 const dateField=z.enum(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"]);
 export const advancedFilterField=z.enum([
-  "id","nombre","contactName","assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado",
+  "id","nombre","contactName","assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus",
   "suscripcion","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb",
   "perfilBooking","perfilTurismoEntreRios","origen","quienCargo","asignadoA","reviewStatus","fechaCreacion",
   "fechaUltimoContacto","medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
@@ -81,7 +81,7 @@ export const schema=z.object({
   inactiveDays:z.coerce.number().int().min(1).max(365).optional(),
   nextAction:z.enum(["with","without","overdue"]).optional(),
   sortBy:z.enum([
-    "id","nombre","contactName","tipo","subtipo","commercialProfile","ciudad","estado","suscripcion","email","telefono","assignedUserEmail",
+    "id","nombre","contactName","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus","suscripcion","email","telefono","assignedUserEmail",
     "sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking",
     "perfilTurismoEntreRios","origen","quienCargo","asignadoA","fechaCreacion","fechaUltimoContacto",
     "medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
@@ -91,9 +91,9 @@ export const schema=z.object({
   anchorAccountId:z.string().regex(/^[0-9]+$/).optional(),alignAnchorPage:z.preprocess(v=>v==='true'?true:v==='false'?false:v,z.boolean()).default(false),
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
-export type BusinessTableMetadata={canModify?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";reviewStatus?:"filtered"|null;opportunityValues?:Record<string,string[]>};
+export type BusinessTableMetadata={canModify?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";isClient?:boolean;businessStatus?:"new"|"reviewed"|"in_management"|"no_follow_up_scheduled"|"recontact"|"archived"|null;businessRecontactAt?:string|null;referredToLeandro?:boolean;opportunityValues?:Record<string,string[]>};
 export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;filters:{
-  ciudades:string[];estados:string[];tipos:string[];asignados:string[];
+  ciudades:string[];estados:string[];tipos:string[];businessStatuses:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];
 }};
 export const getLeads = async (input:z.input<typeof schema>): Promise<OutputType> => {

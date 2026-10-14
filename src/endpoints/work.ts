@@ -162,8 +162,8 @@ export async function post(request:Request){
    };
    const restrictIfRequested=async()=>{
     if(!('outcome' in input)||input.outcome!=='do_not_contact')return;
+    await sql`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','work_outcome',true)`.execute(trx);
     await trx.updateTable('crmAccounts').set({doNotContact:true,updatedAt:new Date()}).where('id','=',accountId).execute();
-    await trx.insertInto('crmCommercialJournal').values({accountId,action:'contact_policy',actorEmail:user.email,actorName:user.displayName,metadata:{before:{doNotContact:account.doNotContact},after:{doNotContact:true,reason:'Solicitado al registrar el resultado'}}}).execute();
    };
    if(input.action==='task_status'){
     const task=await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id).executeTakeFirstOrThrow();

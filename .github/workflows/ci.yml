@@ -38,7 +38,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run db:migrate
-      - run: npm run db:seed:test
+      - name: Seed disposable test database
+        run: npm run db:seed:test
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Commercial migration and integration tests
         run: npm run test:commercial
         env:
@@ -73,6 +76,10 @@ jobs:
           CRM_TEST_DATABASE: "1"
       - name: Business state migration and audit tests
         run: npm run test:business-state-migration
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Business and management state integration tests
+        run: npm run test:business-state
         env:
           CRM_TEST_DATABASE: "1"
       - name: Business list team defaults and permissions

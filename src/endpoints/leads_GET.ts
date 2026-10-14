@@ -11,6 +11,7 @@ import { schema } from "./leads_GET.schema";
 import { sql } from "kysely";
 import { businessTableSource } from "../helpers/businessTable";
 import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS} from '../helpers/filterRules';
+import {managementLabel} from '../helpers/businessManagement';
 
 export async function handle(request: Request) {
   try {
@@ -159,7 +160,7 @@ export async function handle(request: Request) {
           return map[field];
         };
         const categoryFields=new Set([
-          "assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado","suscripcion","origen",
+          "assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus","suscripcion","origen",
           "quienCargo","asignadoA","medioContactoPreferido","prioridad","creadoPor"
         ]);
         const dateFields=new Set(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"]);
@@ -187,9 +188,18 @@ export async function handle(request: Request) {
             if(rule.operator==="is_false")return eb("clientePotencialRecurrente","=",false);
           }
           if(rule.field==="reviewStatus"){
-            const filtered=eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("reviewStatus","=","filtered"));
-            if(rule.operator==="is_true")return filtered;
-            if(rule.operator==="is_false")return eb.not(filtered);
+            const legacyStatus=rule.operator==="is_true"?"reviewed":"new";
+            const matches=eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("status","=",legacyStatus));
+            return rule.operator==="is_true"?matches:eb.not(matches);
+          }
+          if(rule.field==="businessStatus"){
+            const account=()=>eb.selectFrom('crmAccounts').select('id').whereRef('crmAccounts.id','=','leads.accountId');
+            if(rule.operator==='empty')return eb.not(eb.exists(account().where('status','is not',null)));
+            if(rule.operator==='not_empty')return eb.exists(account().where('status','is not',null));
+            if(value&&(rule.operator==='eq'||rule.operator==='neq')){
+              const matches=eb.exists(account().where('status','=',value as any));
+              return rule.operator==='eq'?matches:eb.not(matches);
+            }
           }
           if(rule.field==="id"){
             if(rule.operator==="eq"&&value)return eb("id","=",value);
@@ -254,14 +264,15 @@ export async function handle(request: Request) {
     const candidates=input.entity==="business"
       ? db.selectFrom(query.selectAll().distinctOn("accountId").orderBy("accountId").orderBy("id","asc").as("leads"))
       : query;
+    const orderExpression=sortBy==='businessStatus'?(input.entity==='business'?sql.ref('business_status'):sql<string>`(SELECT status FROM crm_accounts WHERE id=leads.account_id)`):sql.ref(sortBy);
     let anchorPage:number|undefined;
     if(input.entity==='business'&&input.anchorAccountId){
-      const ranked=candidates.select('accountId').select(sql<number>`row_number() over(order by ${sql.ref(sortBy)} ${sql.raw(sortDir)}, id desc)`.as('rowPosition')).as('ranked');
+      const ranked=candidates.select('accountId').select(sql<number>`row_number() over(order by ${orderExpression} ${sql.raw(sortDir)}, id desc)`.as('rowPosition')).as('ranked');
       const anchor=await db.selectFrom(ranked).select('rowPosition').where('accountId','=',input.anchorAccountId).executeTakeFirst();
       if(anchor)anchorPage=Math.ceil(Number(anchor.rowPosition)/input.pageSize);
     }
     const page=input.alignAnchorPage&&anchorPage?anchorPage:input.page;
-    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(sortBy,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
+    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(orderExpression,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
     if(rows.length){
       const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
       for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissions.find(a=>String(a.id)===String(row.accountId))):canModifyManagement(user,row,permissions.find(a=>String(a.id)===String(row.accountId))));
@@ -269,7 +280,7 @@ export async function handle(request: Request) {
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
       const [accounts,opportunities,contacts,nextTasks]=await Promise.all([
-        db.selectFrom("crmAccounts").select(["id","commercialStatus","reviewStatus","tipo","subtipo"]).where("id","in",ids).execute(),
+        db.selectFrom("crmAccounts").select(["id","commercialStatus","tipo","subtipo","status","recontactAt","isClient","referredToLeandro"]).where("id","in",ids).execute(),
         db.selectFrom("leads").selectAll().where("accountId","in",ids).where("deletedAt","is",null).orderBy("id").execute(),
         db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute(),
         db.selectFrom("crmTasks as t").leftJoin("leads as l","l.id","t.leadId").select(["t.accountId","t.title","t.dueDate"]).where("t.accountId","in",ids).where("t.status","=","pending").where("t.deletedAt","is",null).where(eb=>eb.or([eb("t.leadId","is",null),eb("l.deletedAt","is",null)])).$if(user.role!=="admin",q=>q.where("t.assignedUserEmail","=",user.email)).orderBy("t.dueDate").orderBy("t.dueAt").orderBy("t.id").execute()
@@ -284,9 +295,12 @@ export async function handle(request: Request) {
         row.canModifyManagement=related.some(item=>user.role==='admin'||item.assignedUserEmail===user.email);
         row.contactCount=contacts.filter(c=>String(c.accountId)===String(row.accountId)).length;
         row.commercialStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.commercialStatus;
-        row.reviewStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.reviewStatus;
         const account=accounts.find(a=>String(a.id)===String(row.accountId))!;
-        row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
+        row.businessStatus=account.status;
+        row.businessRecontactAt=account.recontactAt?calendarDay(account.recontactAt):null;
+        row.isClient=account.isClient;
+        row.referredToLeandro=account.referredToLeandro;
+        row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return field==='estado'&&o.managementType?managementLabel(o.managementType,String(v)):v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
         for(const f of ['tipo','subtipo'] as const)row.opportunityValues[f]=account[f]?[account[f]!]:[];
       }
     }
@@ -295,7 +309,8 @@ export async function handle(request: Request) {
       distinct("ciudad"),distinct("estado"),distinct("tipo"),distinct("asignadoA"),distinct("suscripcion"),
       distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor")
     ]);
-    const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
+    const businessStatuses=(await db.selectFrom('crmAccounts').select('status').distinct().where('status','is not',null).orderBy('status').execute()).map(row=>row.status);
+    const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,businessStatuses,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
     return new Response(superjson.stringify(out), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
     return new Response(superjson.stringify({ error: crmError(error) }), { status: 401 });
