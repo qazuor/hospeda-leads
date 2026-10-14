@@ -8,10 +8,10 @@ test('Seller continues from a message into the same task with its selected perso
  const accountId=await mutate('commercial',{action:'account_save',nombre:'Recorrido vendedor '+Date.now(),assignedUserEmail:'admin@example.com'});
  const ana=await mutate('commercial',{action:'contact_save',accountId,name:'Ana del recorrido',phone:'5493442000001',isPrimary:true});
  const luis=await mutate('commercial',{action:'contact_save',accountId,name:'Luis del recorrido',phone:'5493442000002'});
- const leadId=await mutate('commercial',{action:'opportunity_save',accountId,opportunityName:'Propuesta del recorrido',primaryContactId:ana,assignedUserEmail:'admin@example.com'});
- const taskId=await mutate('work',{action:'task_save',accountId,leadId,title:'Conversar sobre la propuesta',purpose:'commercial',typeId:'message',dueDate:localDay(),assignedUserEmail:'admin@example.com'});
+ const leadId=await mutate('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,managementType:'main',opportunityName:'Propuesta del recorrido',primaryContactId:ana,assignedUserEmail:'admin@example.com'});
+ const taskId=await mutate('work',{action:'task_save',accountId,leadId,title:'Conversar sobre la propuesta',purpose:'commercial',typeId:'message',dueDate:localDay(),contactIds:[luis],assignedUserEmail:'admin@example.com'});
  await page.goto('/my-day');const row=page.locator('article').filter({has:page.getByText('Conversar sobre la propuesta',{exact:true})});await row.getByRole('button',{name:'Contactar',exact:true}).click();
- await page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();let dialog=page.getByRole('dialog');await dialog.getByLabel('Destinatario').selectOption(luis);await dialog.getByRole('button',{name:'Escribir un mensaje nuevo'}).click();
+ let dialog=page.getByRole('dialog');await dialog.getByLabel('Destinatario').selectOption(luis);await dialog.getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByLabel('Destinatario').selectOption(luis);await dialog.getByRole('button',{name:'Escribir un mensaje nuevo'}).click();
  await dialog.locator('.tiptap').fill('Hola Luis, ¿podemos revisar la propuesta?');await dialog.getByRole('button',{name:'Guardar y ver contenido final'}).click();await dialog.getByLabel('Revisé destinatario y contenido final').check();
  await page.evaluate(()=>{window.open=()=>null});await dialog.getByRole('button',{name:'Abrir WhatsApp con este mensaje'}).click();await expect(dialog.getByRole('button',{name:'Registrar qué pasó',exact:true})).toBeVisible();
  await expect(dialog.getByRole('button',{name:'Registrar respuesta',exact:true})).toHaveCount(0);

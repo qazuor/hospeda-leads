@@ -16,6 +16,8 @@
 
 .content{display:grid;gap:24px}.sectionNav{margin-bottom:20px}.deliveryGrid input{border-color:var(--crm-field-border)}.content>h2,.content>section>h2{margin:0 0 8px}.sequenceSection{margin-top:24px}
 
+.reassignmentNotice{padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}.reassignmentNotice strong{font-size:14px}.reassignmentNotice p{margin:4px 0 0;color:var(--muted-foreground);font-size:13px;line-height:1.55}.reassignmentSummary{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.reassignmentTableWrap{overflow:auto;border:1px solid var(--border);border-radius:10px}.reassignmentTable{width:100%;border-collapse:collapse;min-width:780px;font-size:13px}.reassignmentTable th,.reassignmentTable td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}.reassignmentTable thead th{background:var(--surface);color:var(--muted-foreground);font-size:11px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}.reassignmentTable tbody tr:last-child>*{border-bottom:0}.reassignmentTable tbody th{font-weight:600}.reassignmentTable tbody th strong,.reassignmentTable tbody th small,.reassignmentTable td small{display:block}.reassignmentTable tbody th small,.reassignmentTable td small{margin-top:3px;color:var(--muted-foreground);font-size:11px;font-weight:400;line-height:1.45}.reassignmentHelp{font-size:12px;line-height:1.55;color:var(--muted-foreground);margin:12px 0}.reassignmentActions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.error button{margin-left:8px}
+
 .dialogField>span,.deliveryGrid label{font-size:14px;line-height:1.4}
 .dialogField{gap:7px}
 .stackForm{gap:10px}

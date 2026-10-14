@@ -19,7 +19,6 @@ export async function handle(request:Request){
       await leadFor(trx,String(input.leadId),user);
       const lead=await trx.selectFrom("leads").selectAll().where("id","=",String(input.leadId)).where("deletedAt","is",null).executeTakeFirstOrThrow();
       const contact=await resolveCommercialContact(trx,lead,input.contactId);
-      if(['Respondió','Interesado','No interesado'].includes(input.result))await sql`SELECT crm_stop_sequences(${String(lead.id)}::bigint,${input.result})`.execute(trx);
       const contactedAt=new Date();
       const values:Record<string,unknown>={
         updatedAt:new Date()

@@ -76,6 +76,7 @@
 .viewsRow>div{flex:1 1 100%;min-width:0}
 .appliedFilters{border-top:1px solid var(--border);padding-top:8px}
 .activeViewStatus{display:inline-flex;flex:0 1 auto;align-items:center;gap:4px;min-width:0;max-width:100%;padding:3px 7px;border-left:1px solid var(--border);color:var(--muted-foreground);font-size:12px;line-height:1.4;white-space:normal;overflow:visible}
+.selectionPinned{position:sticky;left:0;z-index:4;background:var(--surface);box-shadow:1px 0 0 var(--border)}
 .activeViewStatus strong{min-width:0;color:var(--foreground);font-weight:600;overflow-wrap:anywhere}
 .activeViewStatus>span{flex-shrink:0}
 @media(max-width:767px){.listControls{gap:6px}.searchRow{gap:8px}.viewsRow{padding-top:5px}.appliedFilters{padding-top:5px}.activeViewStatus{max-width:100%;padding-inline:5px}}

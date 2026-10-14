@@ -7,16 +7,27 @@ export async function businessHistory(family:string[],page:number):Promise<Comme
  const events=sql`WITH events AS (
  SELECT 'activity:'||a.id::text AS id,a.occurred_at,a.title,a.result,a.notes,a.channel,a.outcome,a.continuation,a.actor_email,a.lead_id,l.opportunity_name,
  'activity'::text AS kind,m.recipient_name,m.status AS message_status,m.subject AS message_subject,
- coalesce(m.text_body,CASE WHEN m.channel='whatsapp' THEN m.body ELSE '' END) AS message_text
+ coalesce(m.text_body,CASE WHEN m.channel IN ('whatsapp','social','other') THEN coalesce(nullif(m.body,''),m.template_snapshot->>'finalBody','') ELSE '' END) AS message_text
  FROM crm_activities a LEFT JOIN leads l ON l.id=a.lead_id
  LEFT JOIN LATERAL(SELECT * FROM crm_messages m WHERE m.activity_id=a.id AND m.account_id IN (${ids}) AND (m.lead_id IS NULL OR EXISTS(SELECT 1 FROM leads ml WHERE ml.id=m.lead_id AND ml.deleted_at IS NULL)) AND m.status NOT IN ('draft','cancelled') ORDER BY m.created_at DESC,m.id LIMIT 1)m ON true
  WHERE a.account_id IN (${ids}) AND a.deleted_at IS NULL AND (a.lead_id IS NULL OR l.deleted_at IS NULL)
  UNION ALL
  SELECT 'message:'||m.id::text,coalesce(m.last_interaction_at,m.created_at),coalesce(nullif(m.subject,''),'Mensaje'),NULL::text,NULL::text,m.channel,NULL::text,NULL::text,coalesce(m.last_actor_email,m.owner_email),m.lead_id,l.opportunity_name,
- 'message'::text,m.recipient_name,m.status,m.subject,coalesce(m.text_body,CASE WHEN m.channel='whatsapp' THEN m.body ELSE '' END)
+ 'message'::text,m.recipient_name,m.status,m.subject,coalesce(m.text_body,CASE WHEN m.channel IN ('whatsapp','social','other') THEN coalesce(nullif(m.body,''),m.template_snapshot->>'finalBody','') ELSE '' END)
  FROM crm_messages m LEFT JOIN leads l ON l.id=m.lead_id
  WHERE m.account_id IN (${ids}) AND m.status NOT IN ('draft','cancelled') AND (m.lead_id IS NULL OR l.deleted_at IS NULL)
  AND NOT EXISTS(SELECT 1 FROM crm_activities a WHERE a.id=m.activity_id AND a.deleted_at IS NULL)
+ UNION ALL
+ SELECT 'response:'||r.id::text,r.occurred_at,'Respuesta recibida',r.category,r.summary,r.channel,r.category,NULL::text,r.actor_email,r.lead_id,l.opportunity_name,
+ 'response'::text,r.recipient_name,NULL::text,NULL::text,coalesce(r.exact_text,'')
+ FROM crm_communication_responses r LEFT JOIN leads l ON l.id=r.lead_id
+ WHERE r.account_id IN (${ids}) AND (r.lead_id IS NULL OR l.deleted_at IS NULL)
+ UNION ALL
+ SELECT 'communication:'||j.id::text,j.created_at,j.action,coalesce(j.after_value::text,j.before_value::text),NULL::text,NULL::text,NULL::text,NULL::text,
+ coalesce(j.actor_email,j.triggered_by_email),j.lead_id,l.opportunity_name,'communication'::text,NULL::text,NULL::text,NULL::text,
+ jsonb_build_object('automatic',j.is_automatic,'triggeredBy',j.triggered_by_email,'before',j.before_value,'after',j.after_value)::text
+ FROM crm_communication_journal j LEFT JOIN leads l ON l.id=j.lead_id
+ WHERE j.account_id IN (${ids}) AND (j.entity_type<>'response' OR j.action<>'response_registered') AND (j.lead_id IS NULL OR l.deleted_at IS NULL)
  )`;
  const pending=sql`FROM crm_tasks t LEFT JOIN leads l ON l.id=t.lead_id WHERE t.account_id IN (${ids}) AND t.deleted_at IS NULL AND t.status='pending' AND (t.lead_id IS NULL OR l.deleted_at IS NULL)`;
  const [rows,count,tasks,taskCount]=await Promise.all([

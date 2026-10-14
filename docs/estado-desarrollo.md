@@ -1,4 +1,4 @@
-# Estado del CRM — corte al 11 de octubre de 2026
+# Estado del CRM — corte al 14 de octubre de 2026
 
 Este documento es el traspaso de la conversación de desarrollo a un checkout local. No importa automáticamente la conversación de ChatGPT a Codex o Claude: conserva las decisiones y la evidencia útil en Git. Verificar el estado remoto al comenzar una nueva sesión.
 
@@ -90,6 +90,14 @@ Detalles y orden sugerido: [pendientes](pendientes.md). Instrucciones estables: 
 PR #92: 93 pruebas unitarias, 115 recorridos de navegador, integraciones PostgreSQL 17, build y smoke de Docker aprobados antes del merge. Son los resultados de esa revisión; no cifras a prometer para cualquier commit futuro. Pruebas nuevas del historial usan desktop 1280px y móvil 390px. Otras suites incluyen 320px y ambos temas.
 
 Un CLI local debe volver a verificar comandos, permisos y checks del cambio que realice. El historial de conversaciones de cada herramienta se retoma con su mecanismo propio; los documentos y PRs son el traspaso entre herramientas.
+
+## Integración local de cambios visuales, estados y comunicación
+
+Se creó `feat/integrate-crm-state-communication-visual` desde `origin/main` en `50263c0`, en el worktree aislado `/tmp/hospeda-integration`. Recibe el cambio visual del PR #102, las ramas de estados en orden de dependencia (#99, #100, #101, journal, API, UI y preferencias), los cambios locales complementarios de estados y el worktree de Comunicación. Los conflictos de UI se resolvieron conservando las mejoras visuales, la columna de selección fija, los nuevos estados y las reglas de producto aprobadas. La migración 019 se mantuvo intacta; el nuevo código de archivo está en la migración 023.
+
+Incluye las migraciones 018–023, la conversión de vistas, flujos de estados, derivación, comunicación, la limpieza aprobada de secuencias de prueba y las specs 53–59. No se ejecutaron migraciones ni escrituras de base durante esta integración; tampoco se inició ningún servidor. La limpieza de secuencias de la migración 022 requiere revisar el preflight antes de aplicarla a cualquier base.
+
+Verificado en el worktree de integración: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --cached --check`; build conserva la advertencia de chunk mayor a 500 kB. No se ejecutaron pruebas de navegador ni de integración con PostgreSQL. El [PR #103](https://github.com/qazuor/hospeda-leads/pull/103) está abierto contra `main`; su CI ejecuta ahora. No se mergeó a `main`. Falta revisar navegador y migraciones sobre una base local descartable.
 
 ## Cambio mergeado — marca de revisión y ayuda del CRM
 

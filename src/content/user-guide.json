@@ -120,20 +120,20 @@
         "title": "Revisar negocios precargados",
         "when": "Cuando recibís una lista de negocios que todavía no se verificó.",
         "steps": [
-          "Entrá en Negocios. En Columnas activá Revisión para ver el estado de cada registro; también podés filtrar Revisión por No filtrado para encontrar los que faltan revisar.",
+          "Entrá en Negocios y agregá la columna Estado del negocio si no está visible. Filtrá por Nuevo para encontrar registros que todavía no revisaste.",
           "Abrí cada negocio y comprobá que exista y que corresponda al establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.",
-          "Si confirmás que es real y debe permanecer en el CRM, registrá las fuentes y la fecha en Editar negocio → Ubicación y relevamiento. Después elegí Filtrado en la columna Revisión o en Editar negocio.",
-          "Si no podés confirmarlo todavía, dejalo No filtrado. Anotá qué falta comprobar en Notas del negocio y volvé a revisarlo cuando tengas información.",
+          "Si confirmás que es real y debe permanecer en el CRM, registrá las fuentes y la fecha en Editar negocio → Ubicación y relevamiento. Después cambiá Estado del negocio a Revisado desde la columna o el detalle.",
+          "Si no podés confirmarlo todavía, dejalo en Nuevo. Anotá qué falta comprobar en Notas del negocio y volvé a revisarlo cuando tengas información.",
           "Si confirmás que es un registro inválido, seleccioná solo ese negocio y elegí Enviar a papelera; también podés abrirlo y usar Más acciones del negocio → Eliminar negocio. Escribí un motivo concreto, por ejemplo: No existe en la dirección indicada, y confirmá.",
-          "Cuando termines, volvé a filtrar Revisión por No filtrado para revisar los registros pendientes. Si el negocio existe pero no se va a trabajar por ahora, usá Archivar en lugar de eliminarlo."
+          "Cuando termines, volvé a filtrar Estado del negocio por Nuevo para revisar los registros pendientes. Si el negocio existe pero no se va a trabajar por ahora, usá Archivar en lugar de eliminarlo."
         ],
-        "result": "Los negocios verificados que deben permanecer quedan marcados Filtrado. Los registros inválidos quedan en Papelera y los casos pendientes siguen visibles como No filtrado.",
+        "result": "Los negocios verificados que deben permanecer quedan en estado Revisado. Los registros inválidos quedan en Papelera y los casos pendientes siguen visibles como Nuevo.",
         "example": [
-          "Un perfil oficial confirma que Cabañas Camino Claro existe en Colón: guardás el vínculo y la fecha de revisión, y marcás Filtrado.",
+          "Un perfil oficial confirma que Cabañas Camino Claro existe en Colón: guardás el vínculo y la fecha de revisión, y cambiás el estado a Revisado.",
           "El domicilio y las fuentes consultadas muestran que otro registro no corresponde a un establecimiento real: lo enviás a Papelera con el motivo, sin borrar sus contactos ni su historial."
         ],
         "notes": [
-          "Filtrado significa que el negocio fue revisado, se confirmó como válido y se decidió conservarlo. Es una marca de revisión, no una etapa de venta.",
+          "Revisado significa que se comprobó que el negocio existe y corresponde al registro. Es un estado del negocio, independiente de las etapas de sus gestiones.",
           "Eliminar mueve el negocio a Papelera: conserva contactos, gestiones e historial y un administrador puede restaurarlo. Para conservar un negocio válido que solo se deja de trabajar, usá Archivar.",
           "Solo podés eliminar negocios sobre los que tenés permiso de modificación. Si no aparece la acción o el servidor rechaza el cambio, pedile ayuda al responsable o al administrador."
         ],
@@ -505,35 +505,13 @@
           "Guardá el contenido con Guardar y ver contenido final antes de cerrar.",
           "Volvé a la gestión → Mensajes → Mensajes y borradores. Abrí el borrador y usá Volver a editar si necesitás cambiarlo.",
           "Si salís con cambios sin guardar, elegí volver a editar o descartarlos. Descartar conserva la última versión que ya estaba guardada.",
-          "Para cancelar un borrador independiente, abrí Opciones del borrador, marcá Quiero cancelar este borrador y elegí Cancelar borrador.",
-          "Si pertenece a una secuencia, administralo desde ese seguimiento asistido."
+          "Para cancelar un borrador, abrí Opciones del borrador, marcá Quiero cancelar este borrador y elegí Cancelar borrador."
         ],
         "result": "Cerrar no cancela un borrador guardado. Cancelarlo evita seguir usándolo, conservando su registro.",
         "example": [
           "Preparaste la propuesta pero falta confirmar el precio con el equipo. Guardá el borrador y volvé cuando tengas el dato; no lo envíes para probar."
         ],
         "notes": [],
-        "url": "",
-        "linkLabel": ""
-      },
-      {
-        "id": "sequence",
-        "title": "Cuándo usar un seguimiento asistido",
-        "when": "Cuando conviene seguir una serie de pasos ya definida por el equipo.",
-        "steps": [
-          "Abrí una gestión abierta → Mensajes → Iniciar secuencia. Revisá la Persona, elegí Secuencia y leé los pasos e intervalos.",
-          "Marcá Confirmo la generación de tareas y borradores y elegí Iniciar seguimiento asistido.",
-          "Revisá las tareas en Mi día y los borradores en Mensajes. Cada mensaje requiere revisión y acción humana para enviarlo.",
-          "Usá Pausar si todavía no corresponde continuar. Para Reanudar, escribí el motivo y elegí Fecha del próximo paso.",
-          "Usá Cancelar cuando esa secuencia ya no corresponde. Registrá respuestas, rechazos y pedidos de no contacto en lugar de seguir insistiendo."
-        ],
-        "result": "Se preparan tareas y borradores. Al reanudar, se reprograman los pasos restantes respetando sus intervalos.",
-        "example": [
-          "El equipo definió presentación y una consulta posterior. Usá la secuencia solo si coincide con el caso; para un único compromiso, alcanza una tarea."
-        ],
-        "notes": [
-          "No es un envío automático. Respuestas, rechazos, pedidos de no contacto y cierres de la gestión detienen los pasos correspondientes. No dupliques el mismo seguimiento con tareas manuales."
-        ],
         "url": "",
         "linkLabel": ""
       },
@@ -740,7 +718,7 @@
           "Renombrar un subtipo también actualiza los registros que lo usan. Eliminarlo retira la opción de nuevas selecciones y conserva valores existentes.",
           "Proceso comercial → Etapas y resultados: administrá etapas, motivos de pérdida, objeciones y prioridad sugerida. Desactivar preserva referencias históricas.",
           "Proceso comercial → Tareas y seguimiento: administrá tipos de actividad y qué tipos aparecen en Agenda, además de las reglas de seguimiento.",
-          "Comunicación configura envío global y secuencias. Templates administra mensajes modelo. Biblioteca administra recursos comunes. Sistema cambia apariencia y actualización automática."
+          "Comunicación configura el envío global de Email por Brevo. Templates administra mensajes modelo. Biblioteca administra recursos comunes. Sistema cambia apariencia y actualización automática."
         ],
         "result": "Las opciones compartidas quedan en el área correspondiente. Cambiar de sección no modifica datos.",
         "example": [],

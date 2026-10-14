@@ -9,7 +9,7 @@ export function BulkChangeReview({input,onClose,onConfirm,pending,error}:{input:
  const [confirmed,setConfirmed]=useState(false);
  const q=useQuery({queryKey:['bulk-preview',input],queryFn:()=>postLeadsBulk({...input,preview:true}),staleTime:0,refetchOnWindowFocus:false,refetchOnReconnect:false});
  const p=q.data?.preview;const businessFields=input.entity==='business'&&Object.keys(input.changes).every(k=>['ciudad','assignedUserEmail'].includes(k));
- return <Dialog open onOpenChange={v=>!v&&!pending&&onClose()}><DialogContent className={styles.editor}><DialogTitle>Revisar cambios antes de aplicar</DialogTitle><DialogDescription>Revisá el alcance completo. Cerrar esta gestiónna no modifica datos.</DialogDescription>
+ return <Dialog open onOpenChange={v=>!v&&!pending&&onClose()}><DialogContent className={styles.editor}><DialogTitle>Revisar cambios antes de aplicar</DialogTitle><DialogDescription>Revisá el alcance completo. Cerrar esta ventana no modifica datos.</DialogDescription>
  <p>Cambio solicitado: {Object.entries(input.changes).map(([k,v])=>({estado:'Etapa',prioridad:'Prioridad',assignedUserEmail:'Responsable',fechaProximaAccion:'Próxima acción',tipo:'Vertical',ciudad:'Localidad',commercialProfile:'Perfil comercial'}[k]??k)+': '+(v??'Sin valor')).join(' · ')}</p>
  {q.isPending&&<p role="status">Buscando todos los registros afectados…</p>}{q.error&&<p role="alert">{q.error.message}</p>}
  {p&&<><p><strong>{businessFields?p.businesses.length:p.rows.length} {businessFields?'negocios':'gestiones'} {businessFields?'afectados':'afectadas'}</strong>. {input.entity==='business'&&!businessFields?'Incluye todas las gestiones no retiradas de los negocios seleccionados, aunque no aparezcan en el filtro.':''}</p>

@@ -1,0 +1,49 @@
+import React,{useState} from 'react';
+import {useQuery,useQueryClient} from '@tanstack/react-query';
+import {Button} from './Button';
+import {Input} from './Input';
+import {Textarea} from './Textarea';
+import {NativeSelect} from './NativeSelect';
+import {Disclosure,DisclosureSummary} from './Disclosure';
+import {useGuardedMutation} from '../helpers/useGuardedMutation';
+import {postCommunication} from '../endpoints/communication.schema';
+import {getCommunication} from '../endpoints/communication.schema';
+import {getSettings} from '../endpoints/settings_GET.schema';
+import {htmlToPlainText} from '../helpers/renderMessageTemplate';
+import {unresolvedTemplateVariables} from '../helpers/renderMessageTemplate';
+import {templateCompatibility,orderTemplatesBySpecificity} from '../helpers/messageTemplatePolicy';
+import {managementTypeLabels,type ManagementType} from '../helpers/businessManagement';
+import {messageLabels} from '../helpers/messageLabels';
+
+type Details={account:{id:string|number;nombre:string;assignedUserEmail:string|null;email:string|null;telefono:string|null;tipo:string|null;archivedAt:Date|string|null;recontactAt:Date|string|null;status:string;doNotContact:boolean;isClient:boolean};contacts:{id:string|number;name:string;email:string|null;phone:string|null;deletedAt:Date|string|null}[];opportunities:{id:string|number;opportunityName:string|null;assignedUserEmail:string|null;estado:string|null;managementType?:string|null;tipo?:string|null;commercialProfile?:string|null;deletedAt:Date|string|null}[]};
+const purposes=[['verification','Verificar negocio y datos'],['first_contact','Presentación / primer contacto'],['resume','Retomar conversación'],['relationship','Relación y novedades'],['care','Acompañamiento / atención al cliente'],['operations','Coordinación operativa'],['other','Otro']];
+export function ManualCommunicationForm({detail,currentLeadId,userEmail,isAdmin}:{detail:Details;currentLeadId:string|null;userEmail:string;isAdmin:boolean}){
+ type Purpose='verification'|'first_contact'|'resume'|'relationship'|'care'|'operations'|'other';
+ const qc=useQueryClient(),settings=useQuery({queryKey:['settings'],queryFn:getSettings}),history=useQuery({queryKey:['communication','account',String(detail.account.id)],queryFn:()=>getCommunication('',String(detail.account.id))});const [context,setContext]=useState(currentLeadId),[channel,setChannel]=useState<'call'|'social'|'other'>('call'),[contactId,setContactId]=useState(''),[purpose,setPurpose]=useState<Purpose>(detail.account.status==='new'?'verification':'first_contact'),[otherPurpose,setOtherPurpose]=useState(''),[recipient,setRecipient]=useState(detail.account.nombre),[destination,setDestination]=useState(''),[body,setBody]=useState(''),[templateId,setTemplateId]=useState(''),[result,setResult]=useState<'manual_sent'|'manual_no_contact'>('manual_sent'),[confirmedClient,setConfirmedClient]=useState(false),[copyNotice,setCopyNotice]=useState('');
+ const lead=detail.opportunities.find(o=>String(o.id)===context);const templates=orderTemplatesBySpecificity((settings.data?.templates??[]).filter(t=>t.active!==false&&t.channel===channel&&templateCompatibility(t,{channel,vertical:lead?.tipo??detail.account.tipo,commercialProfile:lead?.commercialProfile??null,managementType:lead?.managementType??null})===null));
+ const missingVariables=unresolvedTemplateVariables(body);
+ const canStart=isAdmin||(context?lead?.assignedUserEmail===userEmail:detail.account.assignedUserEmail===userEmail);
+ const selectedContact=detail.contacts.find(c=>String(c.id)===contactId);
+ const recent=history.data?.recentMessages.find(m=>((selectedContact?String(m.contactId??'')===String(selectedContact.id):!m.contactId&&m.recipient===recipient)&&(m.channel===channel||selectedContact))&&!!m.lastInteractionAt&&Date.now()-new Date(m.lastInteractionAt).getTime()<(history.data?.recentContactHours??72)*3600000);
+ const mutation=useGuardedMutation({mutationFn:postCommunication,onSuccess:async(data,input)=>{if(input.action==='manual_start'&&input.channel!=='call'&&input.body){const text=input.templateId?(data as any).body:input.body;try{await navigator.clipboard.writeText(text);setCopyNotice('Texto copiado. El intento quedó pendiente hasta que registres el resultado.')}catch{setCopyNotice('No se pudo copiar automáticamente. Seleccioná y copiá el texto; el intento quedó pendiente.')}}else if(input.action==='manual_start'&&input.channel!=='call'){setCopyNotice('Intento iniciado sin texto. Completalo cuando termines; el CRM no envió ningún mensaje.')}void qc.invalidateQueries({queryKey:['communication']});void qc.invalidateQueries({queryKey:['global-journal']});void qc.invalidateQueries({queryKey:['lead-journal']});}});
+ const start=()=>mutation.mutate({action:'manual_start',id:crypto.randomUUID(),accountId:String(detail.account.id),leadId:context||null,contactId:contactId||null,channel,purpose:context?null:purpose,otherPurpose:purpose==='other'?otherPurpose:null,recipient:recipient.trim()||detail.account.nombre,recipientName:recipient.trim()||detail.account.nombre,destination:destination.trim()||null,body,result:channel==='call'?result:null,templateId:templateId||null});
+ return <Disclosure><DisclosureSummary>Registrar llamada o contacto manual</DisclosureSummary><div>
+  <p>El CRM registra lo que hiciste; no realiza llamadas ni envía mensajes por redes.</p>
+  {detail.account.status==='recontact'&&detail.account.recontactAt&&<p>Fecha de recontacto sugerida: {new Date(detail.account.recontactAt).toLocaleDateString('es-AR')}. Podés contactar antes si hace falta.</p>}
+  <label>Contexto<NativeSelect value={context??''} onChange={e=>{setContext(e.target.value||null);setPurpose(!e.target.value&&detail.account.status==='new'?'verification':'first_contact')}}><option value="">General · negocio</option>{detail.opportunities.filter(o=>!o.deletedAt).map(o=><option key={o.id} value={String(o.id)}>{o.opportunityName||'Gestión #'+o.id}</option>)}</NativeSelect></label>
+  <label>Canal<NativeSelect value={channel} onChange={e=>{const next=e.target.value as typeof channel;setChannel(next);setTemplateId('');setBody('')}}><option value="call">Llamada</option><option value="social">Red social</option><option value="other">Otro</option></NativeSelect></label>
+  <label>Persona<NativeSelect value={contactId} onChange={e=>{setContactId(e.target.value);const c=detail.contacts.find(v=>String(v.id)===e.target.value);setRecipient(c?.name??detail.account.nombre)}}><option value="">Negocio</option>{detail.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</NativeSelect></label>
+  <label>Destinatario<Input value={recipient} onChange={e=>setRecipient(e.target.value)} /></label>
+  {channel!=='call'&&<label>{channel==='social'?'Cuenta o perfil usado':'Canal y destino'}<Input value={destination} onChange={e=>setDestination(e.target.value)} placeholder={channel==='social'?'@cuenta o enlace del perfil':'Ej.: Telegram · +54…'} /></label>}
+  {!context&&<><label>Propósito general<NativeSelect value={purpose} onChange={e=>{setPurpose(e.target.value as Purpose);setConfirmedClient(false)}}>{purposes.filter(([key])=>detail.account.status==='new'?key==='verification':key!=='verification').map(([key,label])=><option key={key} value={key}>{label}</option>)}</NativeSelect></label>{purpose==='other'&&<label>Aclaración del propósito<Input value={otherPurpose} onChange={e=>setOtherPurpose(e.target.value)} /></label>}</>}
+  {!context&&purpose==='care'&&!detail.account.isClient&&<label><input type="checkbox" checked={confirmedClient} onChange={e=>setConfirmedClient(e.target.checked)}/> Si registrás el contacto como realizado, se marcará Es cliente. ¿Continuar?</label>}
+  {channel==='call'&&<label>Resultado<NativeSelect value={result} onChange={e=>setResult(e.target.value as typeof result)}><option value="manual_sent">Llamada realizada</option><option value="manual_no_contact">Intento sin contacto</option></NativeSelect></label>}
+  {channel!=='call'&&<label>Modelo (opcional)<NativeSelect value={templateId} onChange={e=>{setTemplateId(e.target.value);const t=templates.find(t=>t.id===e.target.value);setBody(t?htmlToPlainText(t.body):'')}}><option value="">Escribir desde cero</option>{templates.map(t=><option key={t.id} value={t.id}>{t.name}{t.managementType?` · ${managementTypeLabels[t.managementType as ManagementType]}`:t.vertical?` · ${t.vertical}`:''}</option>)}</NativeSelect></label>}
+  {recent&&<p role="status"><strong>Contacto reciente</strong> · {new Date(recent.lastInteractionAt!).toLocaleString('es-AR')} · {recent.channel} · {messageLabels[recent.status]??recent.status}. Es un aviso; podés continuar.</p>}
+  <label>{channel==='call'?'Resumen obligatorio':'Texto a copiar (opcional)'}<Textarea rows={4} value={body} onChange={e=>setBody(e.target.value)} /></label>
+  {missingVariables.length>0&&<p role="alert">Completá o quitá estas variables antes de copiar: {missingVariables.map(v=>`{{${v}}}`).join(', ')}.</p>}
+  {copyNotice&&<p role="status">{copyNotice}</p>}{mutation.error&&<p role="alert">{mutation.error.message}</p>}
+  <Button disabled={!canStart||mutation.isPending||!recipient.trim()||(channel==='call'&&!body.trim())||(channel!=='call'&&missingVariables.length>0)||(channel!=='call'&&!destination.trim())||(!context&&purpose==='other'&&!otherPurpose.trim())||(!context&&purpose==='care'&&!detail.account.isClient&&!confirmedClient)} onClick={start}>{mutation.isPending?'Guardando…':channel==='call'?'Registrar llamada':body.trim()?'Crear intento y copiar texto':'Iniciar intento manual'}</Button>
+  {!canStart&&<p>Solo la persona responsable del contexto o un administrador puede iniciar el contacto.</p>}
+ </div></Disclosure>;
+}

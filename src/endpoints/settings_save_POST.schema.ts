@@ -30,14 +30,17 @@ export const schema=z.discriminatedUnion("action",[
     replyToEmail:z.string().email()
   }),
   z.object({action:z.literal("deleteTemplate"),id:z.union([z.string(),z.number()])}),
+  z.object({action:z.literal("setTemplateActive"),id:z.union([z.string(),z.number()]),active:z.boolean()}),
+  z.object({action:z.literal("restoreTemplateVersion"),id:z.union([z.string(),z.number()]),version:z.number().int().positive()}),
   z.object({
     action:z.literal("saveTemplate"),
     id:z.union([z.string(),z.number()]).optional(),
-    channel:z.enum(["email","whatsapp"]),
+    channel:z.enum(["email","whatsapp","social","other"]),
     name:z.string().min(1),
     subject:z.string().nullable().optional(),
     body:z.string().min(1),
     vertical:z.string().nullable().optional(),
+    managementType:z.enum(['main','partner','provider','editor','accompaniment']).nullable().optional(),
     commercialProfile:z.enum(["Independiente","Consolidado","Referente"]).nullable().optional()
   })
 ]);

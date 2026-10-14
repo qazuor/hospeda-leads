@@ -10,7 +10,8 @@ export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
       'id', coalesce(l.id, -a.id), 'account_id', a.id, 'deleted_at', a.deleted_at,
       'tipo', a.tipo, 'subtipo', a.subtipo,
       'origen', coalesce(a.origin,l.origen), 'fuente_referencia', coalesce(a.source_reference,l.fuente_referencia),
-      'estado', coalesce(l.estado,CASE WHEN a.review_status='filtered' THEN 'Filtrado' END),
+      'estado', l.estado,
+      'business_status', a.status,
       'suscripcion', coalesce(l.suscripcion,a.subscription_label),
       'nombre', a.nombre, 'ciudad', a.ciudad, 'telefono', a.telefono,
       'email', a.email, 'sitio_web', a.sitio_web, 'url_gmap', a.url_gmap,
@@ -25,7 +26,7 @@ export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
       'fecha_ultimo_contacto', coalesce((select max(ac.occurred_at) from crm_activities ac left join leads al on al.id=ac.lead_id where ac.account_id=a.id and ac.deleted_at is null and (ac.lead_id is null or al.deleted_at is null)),l.fecha_ultimo_contacto)
 
     )
-  )).*
+  )).*, a.status AS business_status
   from crm_accounts a
   left join leads l on l.account_id = a.id and l.deleted_at is null
   where a.merged_into_id is null and a.archived_at is null and (${includeDeleted} or a.deleted_at is null)

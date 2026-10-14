@@ -14,7 +14,6 @@ export async function handle(request: Request) {
   try {
     const {user}=await getServerUserSession(request);
     const input = schema.parse(superjson.parse(await request.text()));
-    if(input.field==='reviewStatus'&&input.value!==null&&input.value!=='filtered')throw new Error('Elegí Filtrado o No filtrado.');
     if(input.field==="assignedUserEmail"&&user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo un administrador puede modificar el responsable."}),{status:403});
     }
@@ -43,10 +42,10 @@ export async function handle(request: Request) {
       }
       if(input.scope==='business'&&(!input.accountId||!isInlineBadgeField(input.field)||inlineBadgeFields[input.field].scope!=='business'))throw new Error('Elegí un dato del negocio.');
       if(input.accountId){
-        const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:input.field==="tipo"?{tipo:input.value,subtipo:null}:input.field==="subtipo"?{subtipo:input.value}:input.field==="reviewStatus"?{reviewStatus:input.value as "filtered"|null}:{};
-        if(Object.keys(fields).length&&(input.expectedValue!==undefined||input.field==="tipo"||input.field==="subtipo"||input.field==="reviewStatus")){
+        const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:input.field==="tipo"?{tipo:input.value,subtipo:null}:input.field==="subtipo"?{subtipo:input.value}:{};
+        if(Object.keys(fields).length&&(input.expectedValue!==undefined||input.field==="tipo"||input.field==="subtipo")){
           const account=await assertBusinessAccess(trx,input.accountId,user,true);
-          const current=input.field==='reviewStatus'?account.reviewStatus:account[input.field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo'];
+          const current=account[input.field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo'];
           if(input.field==='tipo'||input.field==='subtipo'){
             const expected=input.expectedClassification;
             if(!expected)throw new Error('Recargá la clasificación antes de editarla.');

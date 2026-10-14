@@ -3,7 +3,7 @@ import type {WorkPurpose} from './nextStep';
 /** Advice is presentation only; it never selects a stage or changes other work. */
 export function workGuidance(purpose:WorkPurpose|'',outcome:WorkOutcome|''){
  if(!purpose||!outcome)return null;
- if(outcome==='do_not_contact')return {text:'Respetá el pedido y dejá constancia de lo que dijo. Se aplicará la restricción del negocio y se detendrán sus secuencias.',continuation:null};
+ if(outcome==='do_not_contact')return {text:'Este resultado histórico se conserva. Para registrar un nuevo pedido, usá Comunicación: ahí se bloquea todo el negocio y podés elegir qué gestiones cerrar.',continuation:null};
  if(outcome==='no_answer')return {text:'Anotá el intento. Si corresponde volver a contactar, elegí una fecha para retomar.',continuation:'wait' as const};
  if(outcome==='interested'||outcome==='replied')return {text:'Anotá qué respondió y qué acordaron. Podés dejar una acción concreta con fecha para continuar.',continuation:'task' as const};
  if(outcome==='needs_help')return {text:'Describí qué ayuda necesita y dejá una acción con fecha para resolverla.',continuation:'task' as const};

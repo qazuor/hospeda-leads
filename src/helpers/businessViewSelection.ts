@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import type {AdvancedFilterGroup} from '../endpoints/leads_GET.schema';
-import {availableListPreferences,listPreferencesSchema,type ListPreferences} from './businessListPreferences';
+import {availableListPreferences,legacyFilterLabels,listPreferencesSchema,type ListPreferences} from './businessListPreferences';
 
 const selectionSchema=z.object({kind:z.enum(['system','personal']),id:z.string().min(1).max(100),name:z.string().min(1).max(80),baseline:listPreferencesSchema});
 export type BusinessViewSelection=z.infer<typeof selectionSchema>;
@@ -27,10 +27,11 @@ export function manualViewFilterDelta(current:ListPreferences,baseline:ListPrefe
  const filters:AdvancedFilterGroup[]=current.filters.map((group,groupIndex)=>({rules:group.rules.filter((rule,ruleIndex)=>{const key=JSON.stringify(canonical(rule)),count=remaining.get(key)??0;if(count){remaining.set(key,count-1);return false;}visibleRuleIndexes.push({groupIndex,ruleIndex});return true;})})).filter(group=>group.rules.length>0);
  const baselineLegacy=baseline.legacyFilters??{};
  const legacyFilters=Object.fromEntries(Object.entries(current.legacyFilters??{}).filter(([key,value])=>JSON.stringify(canonical(value))!==JSON.stringify(canonical((baselineLegacy as Record<string,unknown>)[key])))) as ListPreferences['legacyFilters'];
- return {filters,visibleRuleIndexes,query:current.query===baseline.query?'':current.query,legacyFilters:Object.keys(legacyFilters??{}).length?legacyFilters:undefined};
+ const extraLabels=legacyFilters?legacyFilterLabels(legacyFilters):[];
+ return {filters,visibleRuleIndexes,query:current.query===baseline.query?'':current.query,legacyFilters:Object.keys(legacyFilters??{}).length?legacyFilters:undefined,extraLabels};
 }
 export function readBusinessViewSelection(userId:number):BusinessViewSelection|null{
- try{const parsed=selectionSchema.safeParse(JSON.parse(localStorage.getItem(businessViewSelectionKey(userId))??'null'));return parsed.success?parsed.data:null;}catch{return null;}
+ try{const parsed=selectionSchema.safeParse(JSON.parse(localStorage.getItem(businessViewSelectionKey(userId))??'null'));return parsed.success?{...parsed.data,baseline:availableListPreferences(parsed.data.baseline)}:null;}catch{return null;}
 }
 export function saveBusinessViewSelection(userId:number,selection:BusinessViewSelection|null):boolean{
  try{if(selection)localStorage.setItem(businessViewSelectionKey(userId),JSON.stringify(selection));else localStorage.removeItem(businessViewSelectionKey(userId));return true;}catch{return false;}

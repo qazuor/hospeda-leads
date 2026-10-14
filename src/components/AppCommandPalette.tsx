@@ -117,7 +117,8 @@ export function AppCommandPalette() {
   const selectedAction = groups.flatMap(group => group.actions)[selected];
 
   return <Spotlight.Root store={commandStore} shortcut={null} query={query} onQueryChange={setQuery}
-    title="Accesos rápidos" zIndex={410} size={640} yOffset={16} scrollable
+    title="Accesos rápidos" zIndex={410} size={640} yOffset={16} scrollable withOverlay
+    overlayProps={{ backgroundOpacity: 0.62, blur: 2, className: 'crm-dialog-overlay' }}
     maxHeight={Math.max(100, Math.min(420, viewportHeight - 210))} trapFocus returnFocus
     styles={{ content: { maxHeight: viewportHeight - 32 } }}
     onSpotlightClose={restoreCommandFocus}

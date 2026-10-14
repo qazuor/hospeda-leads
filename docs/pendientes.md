@@ -1,6 +1,15 @@
 # Pendientes y próximo trabajo
 
-Corte: 11/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
+Corte: 14/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
+
+## Integración visual + estados + Comunicación
+
+La rama `feat/integrate-crm-state-communication-visual` parte de `origin/main` y reúne el PR visual #102, la cadena de estados, sus cambios locales complementarios y el worktree de Comunicación. Está en `/tmp/hospeda-integration`; [PR #103](https://github.com/qazuor/hospeda-leads/pull/103) abierto contra `main`. Los servidores siguen detenidos.
+
+- Typecheck, 110 pruebas unitarias y build pasan. No se ejecutaron E2E ni pruebas de PostgreSQL.
+- Próximo: revisar el diff integrado y recorrer desktop/móvil; correr migraciones y pruebas de integración solo sobre una base local descartable.
+- La migración 022 elimina únicamente datos atribuibles a secuencias de prueba y aborta ante referencias independientes. Ejecutar primero `pnpm run db:preflight:communication-sequences` con `CRM_TEST_DATABASE=1` y una URL local; revisar su salida antes de aplicar cualquier migración. No se tocaron bases en esta tarea.
+- CI del PR en curso; revisar checks, probar navegador y validar migraciones en una base local descartable. No mergear a `main` sin el pedido explícito del propietario.
 
 ## En curso: estados y redistribución de negocios
 
@@ -70,13 +79,9 @@ Implementación/revisión existente: [documento 48](crm-roadmap/48-commercial-ru
 
 No deducir esas decisiones de etapas históricas. No agregar automatismos de pago/entrega/cierre ni permisos nuevos mientras sigan abiertas.
 
-## Modelo nuevo de estados de negocio y gestiones
+## Estados de negocio y gestiones
 
-La definición de producto está en [spec de estados](crm-roadmap/53-business-and-management-state-model.md) y la comparación con el checkout local está en el [reporte de brechas](crm-roadmap/54-current-state-gap-analysis.md). La inspección fue de solo lectura: el modelo no está implementado y no se consultó la base de datos.
-
-Antes de implementar quedan por definir los puntos listados en la spec: matriz de transiciones, motivos finales, etapas de acompañamiento de ficha, fecha y vencimiento de recontacto, retorno de etapa y responsable al quitar derivación, edición de catálogos por admin y permisos/estado recuperado al desarchivar.
-
-La migración debe conservar como Revisados los negocios actualmente marcados Filtrado y resolver ambiguos sin inferir estados a partir de etiquetas históricas. No ejecutar cambios de datos productivos sin alcance y procedimiento específicos.
+La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-business-and-management-state-model.md). El código y las migraciones 018–021 se integraron al branch local de integración; aún faltan pruebas de migración en PostgreSQL descartable y revisión del PR final. La migración conserva `review_status='filtered'` como Revisado, mantiene Papelera separada y no reconstruye gestiones eliminadas.
 
 ## Pospuesto por el propietario: datos y multivertical
 

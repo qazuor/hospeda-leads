@@ -59,7 +59,7 @@ test('selector offers Referente WhatsApp and explains models excluded by explici
    if(route.request().method()==='POST'){
     const input=superjson.parse<any>(route.request().postData()!);writes.push(input);
     data={id:input.id,accountId:'101',leadId:'201',contactId:null,channel:'whatsapp',recipient:account.telefono,recipientName:'',subject:'',body:'Hola Negocio de prueba',status:'draft',revision:1,ownerEmail:'owner@example.com',createdAt:new Date(),updatedAt:new Date(),textBody:null,htmlBody:null,templateSnapshot:null};
-   }else data={restrictions:[],messages:[],recentMessages:[],sequences:[],runs:[],recentContactHours:24};
+   }else data={restrictions:[],messages:[],recentMessages:[],recentContactHours:24};
   }
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });

@@ -27,6 +27,7 @@ export function CrmDialog({ opened, onClose, title, description, children, busy 
   }, []);
   const shared = {
     opened, onClose: () => { if (!busy) onClose(); }, title,
+    withOverlay: true, overlayProps: { backgroundOpacity: 0.62, blur: 2, className: 'crm-dialog-overlay' },
     closeOnClickOutside: layer.active&&!busy, closeOnEscape: layer.active&&!busy, withCloseButton: !busy,
     closeButtonProps: { 'aria-label': 'Cerrar' },
     zIndex: layer.zIndex, trapFocus: layer.active, returnFocus: true,

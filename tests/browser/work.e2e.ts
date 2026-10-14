@@ -9,7 +9,7 @@ test('Mi día completes a call while preserving the visit, with agenda and retro
  const name='Agenda E2E '+Date.now();
  async function mutate(endpoint:string,body:unknown){const r=await page.evaluate(async ({endpoint,body})=>{const response=await fetch('/_api/'+endpoint,{method:'POST',body,headers:{'Content-Type':'application/json'}});return {status:response.status,text:await response.text()};},{endpoint,body:superjson.stringify(body)});expect(r.status,r.text).toBe(200);return superjson.parse<{id:string}>(r.text).id;}
  const accountId=await mutate('commercial',{action:'account_save',nombre:name,ciudad:'Colón',email:'agenda@example.com',telefono:'5493442000001',assignedUserEmail:'admin@example.com'});
- const leadId=await mutate('commercial',{action:'opportunity_save',accountId,opportunityName:'Publicación Premium',estado:'En tratativas',assignedUserEmail:'admin@example.com'});
+ const leadId=await mutate('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Publicación Premium',estado:'En tratativas',assignedUserEmail:'admin@example.com'});
  const today=localDay();const tomorrow=localDay(new Date(Date.now()+86400000));const yesterday=localDateTime(new Date(Date.now()-86400000));
  await page.getByRole('link',{name:'Mi día',exact:true}).click();
  for(const [title,type,date,time] of [['Llamada E2E','call',today,''],['Visita E2E','visit',tomorrow,'15:00']]){

@@ -9,7 +9,7 @@ test('delegated task explains communication permissions without expanding manage
  const writes:string[]=[];
  await page.route('**/_api/**',async route=>{
   const path=new URL(route.request().url()).pathname;if(route.request().method()==='POST')writes.push(path);
-  const data=path.endsWith('/auth/session')?{user:{id:1,email:'delegate@example.com',displayName:'Delegado',role:'user'}}:path.endsWith('/work')?work:path.endsWith('/commercial')?{account,contacts:[],opportunities:[{id:'2',accountId:'1',opportunityName:'Propuesta',assignedUserEmail:'owner@example.com',estado:'Cargado',deletedAt:null}],journal:[],leadJournal:[],users:[],stages:[]}:path.endsWith('/communication')?{restrictions:[],messages:[],recentMessages:[],sequences:[],runs:[]}:path.endsWith('/settings')?{templates:[]}:{};
+  const data=path.endsWith('/auth/session')?{user:{id:1,email:'delegate@example.com',displayName:'Delegado',role:'user'}}:path.endsWith('/work')?work:path.endsWith('/commercial')?{account,contacts:[],opportunities:[{id:'2',accountId:'1',opportunityName:'Propuesta',assignedUserEmail:'owner@example.com',estado:'Cargado',deletedAt:null}],journal:[],leadJournal:[],users:[],stages:[]}:path.endsWith('/communication')?{restrictions:[],messages:[],recentMessages:[]}:path.endsWith('/settings')?{templates:[]}:{};
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/my-day');await page.locator('article').filter({has:page.getByText(task.title,{exact:true})}).getByRole('button',{name:'Contactar',exact:true}).click();const dialog=page.getByRole('dialog');

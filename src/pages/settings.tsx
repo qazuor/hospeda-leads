@@ -8,10 +8,10 @@ import { NativeSelect } from '../components/NativeSelect';
 import {BusinessListDefaults} from '../components/BusinessListDefaults';
 import {ClassificationSettings} from "../components/ClassificationSettings";
 import {SectionTabs, SectionTabList, SectionTab, SectionTabPanel} from "../components/SectionTabs";
-import {SequenceSettings} from "../components/SequenceSettings";
 import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
+import {BusinessReassignment} from "../components/BusinessReassignment";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users } from "lucide-react";
@@ -28,8 +28,8 @@ import { getSettings, type OperationalUser } from "../endpoints/settings_GET.sch
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="businesses"|"users"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
-const SECTIONS:Section[]=["businesses","users","classifications","process","communication","templates","library","system"];
+type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
+const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","library","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -79,6 +79,7 @@ export default function SettingsPage(){
   const tabs=[
     {key:"businesses" as const,label:"Listado de negocios",icon:SlidersHorizontal},
     {key:"users" as const,label:"Usuarios",icon:Users},
+    {key:"reassignment" as const,label:"Redistribución",icon:GitBranch},
     {key:"classifications" as const,label:"Clasificaciones",icon:Tags},
     {key:"process" as const,label:"Proceso comercial",icon:GitBranch},
     {key:"communication" as const,label:"Comunicación",icon:Mail},
@@ -95,6 +96,7 @@ export default function SettingsPage(){
       {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}{save.error&&<div role="alert" className={styles.error}>{save.error.message}</div>}
 
       {section==="businesses"&&<BusinessListDefaults/>}
+      {section==="reassignment"&&<BusinessReassignment/>}
       {section==="users"&&<section className={styles.content}>
         <article className={styles.usersCard}>
           <div className={styles.usersHeader}>
@@ -126,7 +128,7 @@ export default function SettingsPage(){
         </SectionTabs>
       </section>}
 
-      {section==="communication"&&<section className={styles.content}><header className={styles.processHeading}><h2>Comunicación</h2><p>Envío de email y seguimientos asistidos.</p></header>
+      {section==="communication"&&<section className={styles.content}><header className={styles.processHeading}><h2>Comunicación</h2><p>Configuración del envío de Email por Brevo.</p></header>
         <article className={styles.card}>
           <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery?.brevoConnected?"success":"warning"}>{data?.emailDelivery?.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
           <div className={styles.deliveryGrid}>
@@ -141,8 +143,6 @@ export default function SettingsPage(){
       {section==="library"&&<section className={styles.content}><ResourcesPanel manageLibrary/></section>}
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
-
-      {section==="communication"&&<div className={styles.sequenceSection}><SequenceSettings/></div>}
 
       {section==="system"&&<section className={styles.grid}>
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>

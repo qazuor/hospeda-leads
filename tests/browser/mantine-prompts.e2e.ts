@@ -77,11 +77,11 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
     calls++;
     if(calls===1){await gate;await route.fulfill({status:500,contentType:'application/json',body:superjson.stringify({error:'No se pudo levantar'})});return;}
     restriction.liftedAt=new Date();restriction.liftReason=writes[1].reason;data={ok:true};
-   }else data={restrictions:[restriction],messages:[],recentMessages:[],sequences:[],runs:[],recentContactHours:24};
+   }else data={restrictions:[restriction],messages:[],recentMessages:[],responses:[],openManagements:[],recentContactHours:24,webhookConfigured:false};
   }
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
- await page.goto('/sales/201');await page.getByRole('tab',{name:'Mensajes',exact:true}).click();
+ await page.goto('/sales/201');await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
  await page.getByRole('button',{name:'Restricciones de contacto',exact:true}).click();
  // Wait for the accordion's clipping animation before scrolling/clicking its last action.
  await expect.poll(()=>page.getByRole('region',{name:'Restricciones de contacto',exact:true}).evaluate(el=>getComputedStyle(el).overflow)).toBe('visible');
@@ -98,7 +98,7 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
  await page.screenshot({path:`test-results/restriction-dialog-${width}.png`,fullPage:true});
  await page.evaluate(()=>document.body.classList.add('dark'));await page.screenshot({path:`test-results/restriction-dialog-${width}-dark.png`,fullPage:true});await page.evaluate(()=>document.body.classList.remove('dark'));
  await dialog.getByRole('button',{name:'Confirmar levantamiento',exact:true}).click();await expect(dialog).toHaveCount(0);
- await expect(page.getByRole('status')).toContainText('Restricción levantada. No se enviaron mensajes ni se reanudaron seguimientos.');
+ await expect(page.getByRole('status')).toContainText('Restricción levantada. No se enviaron mensajes.');
  await expect(page.locator('[data-lifted-restriction="301"]')).toBeFocused();
  await expect(page.getByRole('article')).toContainText('Pedido confirmado por Ana');
  expect(writes).toEqual(Array(2).fill({action:'lift',id:'301',reason:'Pedido confirmado por Ana'}));expect(errors).toEqual([]);

@@ -16,6 +16,7 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { commercialQuery, commercialMutation } from "./commercial.schema";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { NotAuthenticatedError } from "../helpers/getSetServerSession";
+import {managementStageCatalog,type ManagementType} from '../helpers/businessManagement';
 
 class Forbidden extends Error {}
 class Conflict extends Error {}
@@ -39,15 +40,16 @@ export async function get(request:Request){
       assertAccountReadable(user,visibleAccount);
       const family=await accountFamily(db,accountId);
       if(input.historyPage)return response(await businessHistory(family,input.historyPage));
-      const [account,contacts,opportunities,journal,leadJournal,stages]=await Promise.all([
+      const [account,contacts,opportunities,journal,leadJournal,managementJournal,stages]=await Promise.all([
         db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow(),
         db.selectFrom("crmContacts").selectAll().where("deletedAt","is",null).where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
         db.selectFrom("leads").selectAll().where("deletedAt","is",null).where("accountId","=",accountId).orderBy("createdAt","desc").execute(),
         db.selectFrom("crmCommercialJournal").selectAll().where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
         db.selectFrom("leadJournal").selectAll().where(eb=>eb.or([eb("leadId","is",null),eb.exists(eb.selectFrom("leads").select("id").whereRef("leads.id","=","leadJournal.leadId").where("deletedAt","is",null))])).where("accountId","in",family).orderBy("createdAt","desc").limit(200).execute(),
+        sql`SELECT e.id,e.lead_id AS "leadId",e.action,e.actor_email AS "actorEmail",coalesce(u.display_name,e.actor_email,'Sistema') AS "actorName",e.old_stage AS "oldStage",e.new_stage AS "newStage",e.comment,e.metadata,e.created_at AS "createdAt" FROM crm_pipeline_events e LEFT JOIN users u ON u.email=e.actor_email WHERE e.account_id IN (${sql.join(family.map(id=>sql`${id}::bigint`))}) AND e.lead_id IS NOT NULL AND e.action='stage' ORDER BY e.created_at DESC LIMIT 200`.execute(db),
         getOpportunityStages(db)
       ]);
-      return response({account,contacts,opportunities,journal,leadJournal,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute()});
+      return response({account,contacts,opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute()});
     }
     if((input.archived||input.deleted)&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados o eliminados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("deletedAt",input.deleted?"is not":"is",null);
@@ -89,7 +91,6 @@ export async function post(request:Request){
           if(Boolean(account.deletedAt)===input.deleted)continue;
           const after=await trx.updateTable("crmAccounts").set({deletedAt:input.deleted?new Date():null,deletedByEmail:input.deleted?user.email:null,deletionReason:input.deleted?input.reason:null,updatedAt:new Date()}).where("id","=",account.id).returningAll().executeTakeFirstOrThrow();
           await audit(String(account.id),input.deleted?"account_deleted":"account_restored",account,{...after,reason:input.reason});
-          if(input.deleted)await sql`SELECT crm_stop_sequences(id, 'Negocio eliminado') FROM leads WHERE account_id=${account.id}`.execute(trx);
         }
         return ids[0];
       }
@@ -104,25 +105,44 @@ export async function post(request:Request){
         const classification=await classificationErrors(trx,tipo,subtipo,existing??undefined);
         if(classification.length)throw new Error(classification.join(' '));
         if(input.verifiedOn&&input.verifiedOn>new Date().toISOString().slice(0,10))throw new Error('Fecha de verificación futura.');
-        const fields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),reviewStatus:input.reviewStatus===undefined?(existing?.reviewStatus??null):input.reviewStatus,assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
+        const fields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),existing?"account_updated":"account_created",existing,row);
         return String(row.id);
       }
       // One account lock for all related mutations: prevents competing primary selections.
       const account=await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.accountId).forUpdate().executeTakeFirstOrThrow();
+      const stateAccount=account as typeof account&{status:string|null;isClient:boolean;recontactAt:Date|string|null;referredToLeandro:boolean};
       if(input.action!=="opportunity_save"||!input.id)assertAccountWritable(user,account);
       else await assertLeadAccess(trx,input.id,user,true);
       if(input.action==="account_archive"){
-        if(user.role!=="admin"&&account.assignedUserEmail!==user.email)throw new Forbidden("Solo el responsable o un administrador puede archivar este negocio.");
-        const after=await trx.updateTable("crmAccounts").set({archivedAt:input.archived?new Date():null,updatedAt:new Date()}).where("id","=",input.accountId).returningAll().executeTakeFirstOrThrow();
+        if(input.archived&&user.role!=="admin"&&account.assignedUserEmail!==user.email)throw new Forbidden("Solo el responsable o un administrador puede archivar este negocio.");
+        if(!input.archived&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede desarchivar negocios.");
+        const restoredStatus=account.status==='reviewed'||stateAccount.isClient?'reviewed':'new';
+        const after=await trx.updateTable("crmAccounts").set({archivedAt:input.archived?new Date():null,status:input.archived?'archived':restoredStatus,updatedAt:new Date()}).where("id","=",input.accountId).returningAll().executeTakeFirstOrThrow();
         await audit(input.accountId,input.archived?"account_archived":"account_unarchived",account,{...after,reason:input.reason});return input.accountId;
+      }
+      if(input.action==='business_status'){
+        if(['new','in_management','archived'].includes(input.status))throw new Error('Este estado se define por revisión, gestión o archivo; no se modifica directamente.');
+        if(account.deletedAt)throw new Error('Restaurá el negocio de Papelera antes de modificarlo.');
+        if(account.archivedAt||stateAccount.status==='archived')throw new Error('Desarchivá el negocio antes de cambiar su estado.');
+        if(account.doNotContact&&input.status!=='archived')throw new Error('Este negocio está marcado como No contactar.');
+        if(stateAccount.status==='new'&&input.status!=='reviewed')throw new Error('Un negocio Nuevo debe pasar por Revisado antes de elegir seguimiento o iniciar una gestión.');
+        const active=(await sql<{n:string}>`SELECT count(*) n FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open'`.execute(trx)).rows[0];
+        if(Number(active?.n)>0)throw new Error('El negocio tiene gestiones abiertas; su estado es En gestión.');
+        if(!['reviewed','recontact','no_follow_up_scheduled'].includes(input.status))throw new Error('Estado de negocio no disponible.');
+        await sql`UPDATE crm_accounts SET status=${input.status},recontact_at=${input.status==='recontact'?input.recontactAt??null:null},updated_at=now() WHERE id=${account.id}`.execute(trx);
+        return String(account.id);
       }
       if(input.action==="convert_client"){
         if(account.commercialStatus==="client")return String(account.id);
-        const after=await trx.updateTable("crmAccounts").set({commercialStatus:"client",clientSince:new Date(),updatedAt:new Date()}).where("id","=",input.accountId).returningAll().executeTakeFirstOrThrow();
-        await audit(input.accountId,"converted_to_client",account,{...after,reason:input.reason,paymentVerified:false});
+        await trx.updateTable("crmAccounts").set({commercialStatus:"client",clientSince:new Date(),updatedAt:new Date()}).where("id","=",input.accountId).execute();
         return input.accountId;
+      }
+      if(input.action==='set_client'){
+        if(!input.isClient&&user.role!=='admin')throw new CrmForbidden('Solo un administrador puede quitar la marca Cliente.');
+        await sql`UPDATE crm_accounts SET is_client=${input.isClient},updated_at=now() WHERE id=${account.id}`.execute(trx);
+        return String(account.id);
       }
       if(input.action==="contact_delete"){
         const old=await trx.selectFrom("crmContacts").selectAll().where("id","=",input.id).where("accountId","=",input.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow();
@@ -162,11 +182,29 @@ export async function post(request:Request){
         const vertical=await trx.selectFrom("crmVerticals").select("id").where("name","=",input.tipo).where("active","=",true).executeTakeFirst();
         if(!vertical)throw new Error("Vertical no disponible en Configuración.");
       }
-      if(input.estado&&input.estado!==old?.estado){
-        if(!(await getOpportunityStages(trx)).includes(input.estado))throw new Error("Etapa no disponible.");
+      const requestedManagementType=input.managementType??null;
+      const managementType=(old as (typeof old&{managementType?:ManagementType|null})|null)?.managementType??requestedManagementType;
+      if(old&&managementType&&input.estado&&input.estado!==old.estado)throw new Error('Cambiá la etapa desde la gestión.');
+      let initialStage=input.estado;
+      if(!old){
+        if(account.archivedAt||stateAccount.status==='archived')throw new Error('Desarchivá el negocio antes de iniciar una gestión.');
+        if(stateAccount.status==='new'){
+          if(!input.confirmReviewed)throw new Error('Confirmá que el negocio existe y es válido para marcarlo Revisado e iniciar la gestión.');
+          await trx.updateTable('crmAccounts').set({status:'reviewed',updatedAt:new Date()}).where('id','=',account.id).execute();
+        }
+        if(managementType==='accompaniment'&&!stateAccount.isClient)throw new Error('El acompañamiento de ficha se inicia después de marcar al negocio como Cliente.');
       }
-      const fields={opportunityName:input.opportunityName,tipo:nullable(input.tipo),estado:nullable(input.estado),assignedUserEmail:input.assignedUserEmail===undefined?(old?old.assignedUserEmail:account.assignedUserEmail??user.email):nullable(input.assignedUserEmail),primaryContactId:input.primaryContactId??null,serviceInterest:nullable(input.serviceInterest),estimatedCloseDate:input.estimatedCloseDate?new Date(input.estimatedCloseDate+"T12:00:00Z"):null,updatedAt:new Date()};
-      const row=old?await trx.updateTable("leads").set({...fields,...(old.tipo!==fields.tipo?{subtipo:null}:{})}).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("leads").values({...fields,creationRequestKey:input.creationRequestKey??null,creationRequestHash:creationHash,accountId:input.accountId,nombre:account.nombre,creadoPor:user.displayName,quienCargo:user.displayName,fechaCreacion:new Date()}).returningAll().executeTakeFirstOrThrow();
+      if(!old&&managementType){
+        const first=managementStageCatalog(managementType).find(stage=>stage.classification==='open'&&stage.key!==`${managementType}:leandro`);
+        if(!first)throw new Error('No hay etapa inicial configurada para este tipo de gestión.');
+        initialStage=first.key;
+      }
+      if(initialStage&&initialStage!==old?.estado){
+        if(managementType){if(!managementStageCatalog(managementType).some(stage=>stage.key===initialStage))throw new Error('Etapa no disponible para este tipo de gestión.');}
+        else if(!(await getOpportunityStages(trx)).includes(initialStage))throw new Error("Etapa no disponible.");
+      }
+      const fields={opportunityName:input.opportunityName,tipo:nullable(input.tipo),estado:nullable(initialStage),assignedUserEmail:input.assignedUserEmail===undefined?(old?old.assignedUserEmail:account.assignedUserEmail??user.email):nullable(input.assignedUserEmail),primaryContactId:input.primaryContactId??null,serviceInterest:nullable(input.serviceInterest),estimatedCloseDate:input.estimatedCloseDate?new Date(input.estimatedCloseDate+"T12:00:00Z"):null,updatedAt:new Date()};
+      const row=old?await trx.updateTable("leads").set({...fields,...(old.tipo!==fields.tipo?{subtipo:null}:{})}).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("leads").values({...fields,creationRequestKey:input.creationRequestKey??null,creationRequestHash:creationHash,accountId:input.accountId,nombre:account.nombre,creadoPor:user.displayName,quienCargo:user.displayName,fechaCreacion:new Date(),...(managementType?{managementType}: {})} as any).returningAll().executeTakeFirstOrThrow();
       await writeLeadJournal(trx,{leadId:row.id,leadName:row.nombre,actor,action:old?"updated":"created",changes:old?Object.entries(fields).filter(([key,value])=>String(old[key as keyof typeof old]??"")!==String(value??"")).map(([fieldName,newValue])=>({fieldName,oldValue:old[fieldName as keyof typeof old],newValue})):undefined,metadata:{accountId:input.accountId,opportunityName:input.opportunityName}});
       return String(row.id);
     });

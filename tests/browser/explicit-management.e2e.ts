@@ -19,7 +19,8 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'Preparar gestión'});
   await expect(dialog.getByLabel('Nombre de la gestión')).toHaveValue('Presentación de Hospeda');
-  await expect(dialog.getByRole('combobox',{name:'Estado / etapa',exact:true})).toHaveValue('');
+  await expect(dialog.getByText(/figura como Nuevo/)).toBeVisible();
+  await expect(dialog.getByRole('combobox',{name:/^Tipo de gestión/})).toHaveValue('main');
   await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(dialog).toHaveCount(0);
   expect((await detail(id)).opportunities).toHaveLength(0);
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:'Preparar gestión'});
@@ -27,13 +28,13 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   let release!:()=>void;const gate=new Promise<void>(r=>release=r);
   await page.route('**/_api/commercial',async route=>{if(route.request().method()==='POST')await gate;await route.continue();});
   try{
-   await dialog.getByRole('button',{name:'Guardar',exact:true}).click();
+   await dialog.getByRole('button',{name:'Marcar Revisado e iniciar gestión',exact:true}).click();
    await expect(dialog.getByRole('button',{name:'Guardando gestión…',exact:true})).toBeDisabled();
    await expect(dialog.getByLabel('Propuesta (opcional)',{exact:true})).toBeDisabled();
    await expect(dialog.getByRole('button',{name:'Cancelar',exact:true})).toBeDisabled();
   }finally{release();}
   await expect(dialog).toHaveCount(0);await expect(page.getByRole('status').filter({hasText:'Gestión iniciada. Ahora planificá cómo empezar.'}).getByRole('link',{name:'Abrir gestión',exact:true})).toBeVisible();
-  const saved=await detail(id);expect(saved.opportunities).toHaveLength(1);expect(saved.opportunities[0].estado).toBeNull();expect(saved.opportunities[0].primaryContactId).toBeNull();expect(saved.opportunities[0].fechaUltimoContacto).toBeNull();expect(saved.opportunities[0].estimatedCloseDate).toBeNull();
+  const saved=await detail(id);expect(saved.account.status).toBe('in_management');expect(saved.opportunities).toHaveLength(1);expect(saved.opportunities[0].estado).toBe('main:contact');expect(saved.opportunities[0].primaryContactId).toBeNull();expect(saved.opportunities[0].fechaUltimoContacto).toBeNull();expect(saved.opportunities[0].estimatedCloseDate).toBeNull();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   await page.screenshot({path:`test-results/explicit-management-${viewport.width}.png`,fullPage:true});
   if(viewport.width<768)await page.getByRole('button',{name:'Abrir menú de navegación',exact:true}).click();

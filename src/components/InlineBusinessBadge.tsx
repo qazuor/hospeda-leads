@@ -27,12 +27,12 @@ export function InlineBusinessBadge({accountId,name,field,value,label,knownValue
  const config=inlineBadgeFields[field],{title,empty,scope,category}=config;
  const account=detail.data?.account,gestions=detail.data?.opportunities??[];
  const management=scope==='management'?(managementId?gestions.find(item=>String(item.id)===managementId):gestions.length===1?gestions[0]:undefined):undefined;
- const current=(scope==='business'?account?.[field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo'|'reviewStatus']:management?.[field as 'commercialProfile'|'medioContactoPreferido'|'origen'|'quienCargo'|'creadoPor'])??null;
+ const current=(scope==='business'?account?.[field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo']:management?.[field as 'commercialProfile'|'medioContactoPreferido'|'origen'|'quienCargo'|'creadoPor'])??null;
  const user=authState.type==='authenticated'?authState.user:undefined;
  const allowed=scope==='business'?canModifyBusiness(user,account)&&(field!=='assignedUserEmail'||user?.role==='admin'):canModifyManagement(user,management,account);
  const loading=detail.isFetching&&!processing||settings.isPending;
- const plainOptions=field==='reviewStatus'?['filtered']:field==='tipo'?settings.data?.types??[]:field==='subtipo'?settings.data?.subtypes.filter(item=>item.typeName===account?.tipo).map(item=>item.name)??[]:field==='commercialProfile'?['Independiente','Consolidado','Referente']:field==='medioContactoPreferido'?settings.data?.contactChannels??[]:field==='ciudad'?settings.data?.cities.map(item=>item.name)??[]:knownValues;
- const options=field==='reviewStatus'?[{value:'filtered',label:'Filtrado'}]:field==='assignedUserEmail'?settings.data?.users.map(item=>({value:item.email,label:item.displayName||item.email}))??[]:Array.from(new Set([...plainOptions,...(['quienCargo','creadoPor'].includes(field)?settings.data?.users.map(item=>item.displayName)??[]:[])])).map(value=>({value,label:value}));
+ const plainOptions=field==='tipo'?settings.data?.types??[]:field==='subtipo'?settings.data?.subtypes.filter(item=>item.typeName===account?.tipo).map(item=>item.name)??[]:field==='commercialProfile'?['Independiente','Consolidado','Referente']:field==='medioContactoPreferido'?settings.data?.contactChannels??[]:field==='ciudad'?settings.data?.cities.map(item=>item.name)??[]:knownValues;
+ const options=field==='assignedUserEmail'?settings.data?.users.map(item=>({value:item.email,label:item.displayName||item.email}))??[]:Array.from(new Set([...plainOptions,...(['quienCargo','creadoPor'].includes(field)?settings.data?.users.map(item=>item.displayName)??[]:[])])).map(value=>({value,label:value}));
  const missingManagement=scope==='management'&&!management;
  const hasEditableManagement=gestions.some(item=>canModifyManagement(user,item,account));
  const compact=field!=='tipo'&&field!=='subtipo'&&!(scope==='management'&&gestions.length>1);

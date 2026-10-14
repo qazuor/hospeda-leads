@@ -24,6 +24,7 @@ import { getLeadNotes } from "../endpoints/lead_notes_GET.schema";
 import { postLeadNote } from "../endpoints/lead_notes_POST.schema";
 import { getLeadJournal } from "../endpoints/lead_journal_GET.schema";
 import { formatDate, journalValue, nextActionInfo } from "../helpers/crmDates";
+import {managementLabel} from '../helpers/businessManagement';
 import styles from "./LeadDetailDialog.module.css";
 
 const text=(v:unknown)=>v==null||v===""?"—":String(v);
@@ -132,7 +133,7 @@ export const LeadDetailDialog=({
               <div className={styles.titleBadges}>
                 {lead.tipo&&<ValueBadge value={lead.tipo} category="vertical"/>}
                 {lead.subtipo&&<ValueBadge value={lead.subtipo} category="subtype"/>}
-                {lead.estado?<ValueBadge value={lead.estado} category="status"/>:<Badge variant="outline">Sin estado</Badge>}
+                {lead.estado?<ValueBadge value={lead.managementType?managementLabel(lead.managementType,lead.estado):lead.estado} category="status"/>:<Badge variant="outline">Sin estado</Badge>}
               </div>
             </div>
             <div className={styles.metaLine}>
@@ -158,7 +159,7 @@ export const LeadDetailDialog=({
       </div>
 
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>
-        <SectionTabList aria-label="Secciones de la gestión"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab>{!readOnly&&<SectionTab value="communication">Mensajes</SectionTab>}<SectionTab value="documents">Documentos</SectionTab></SectionTabList>
+        <SectionTabList aria-label="Secciones de la gestión"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab><SectionTab value="communication">Comunicación</SectionTab><SectionTab value="documents">Documentos</SectionTab></SectionTabList>
         <div className={styles.scrollBody}>
           <SectionTabPanel value="overview">{!readOnly&&<PipelineDetail lead={lead}/>}
         <Disclosure className={styles.section}><DisclosureSummary>Responsable y datos generales</DisclosureSummary><div className={styles.summaryGrid}>
@@ -186,7 +187,7 @@ export const LeadDetailDialog=({
               <Field label="Vertical" value={lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:"—"}/>
               <Field label="Subtipo" value={lead.subtipo?<ValueBadge value={lead.subtipo} category="subtype"/>:"—"}/>
               <Field label="Perfil comercial" value={lead.commercialProfile?<ValueBadge value={lead.commercialProfile} category="profile"/>:"—"}/>
-              <Field label="Estado" value={lead.estado?<ValueBadge value={lead.estado} category="status"/>:"—"}/>
+              <Field label="Etapa de gestión" value={lead.estado?<ValueBadge value={lead.managementType?managementLabel(lead.managementType,lead.estado):lead.estado} category="status"/>:"—"}/>
               <Field label="Prioridad" value={lead.prioridad?<ValueBadge value={lead.prioridad} category="priority"/>:"—"}/>
               <Field label="Suscripción" value={text(lead.suscripcion)}/>
               <Field label="Origen" value={text(lead.origen)} full/>
@@ -285,7 +286,7 @@ export const LeadDetailDialog=({
             </div>}
           </section>
           </Disclosure></SectionTabPanel>
-          {!readOnly&&<SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)}/></SectionTabPanel>}{lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)} readOnly={readOnly}/></SectionTabPanel>}
+          <SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)} readOnly={readOnly}/></SectionTabPanel>{lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)} readOnly={readOnly}/></SectionTabPanel>}
 
         </div>
       </SectionTabs>

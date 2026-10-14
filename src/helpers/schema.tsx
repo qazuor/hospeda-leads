@@ -186,6 +186,7 @@ export interface MessageTemplates {
   commercialProfile: string | null;
   createdAt: Generated<Timestamp>;
   id: Generated<Int8>;
+  managementType: string | null;
   name: string;
   subject: string | null;
   updatedAt: Generated<Timestamp>;
