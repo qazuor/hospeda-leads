@@ -1,4 +1,11 @@
 .panel { composes: panel from './ui/CrmLayout.module.css'; }
+.stateCard{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--foreground)}
+.stateCard>div:first-child{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.stateBadge{font-size:13px;font-weight:600;border-radius:999px;padding:4px 10px;background:var(--surface);color:var(--foreground)}
+.stateControls{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
+.stateControls label{display:grid;gap:4px;font-size:12px;color:var(--muted-foreground)}
+.stateControls select,.stateControls input{min-height:36px}
+.stateCard>p{flex-basis:100%;margin:0}
 .help { composes: panel from './ui/CrmLayout.module.css'; }
 .businessFacts { composes: panel from './ui/CrmLayout.module.css'; }
 .businessHeader { composes: pageHeading from './ui/CrmLayout.module.css'; }

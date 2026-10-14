@@ -24,6 +24,8 @@ import { OpportunityStart } from "../components/OpportunityStart";
 import { CommercialEditor } from "../components/CommercialEditor";
 import type { Account } from "../endpoints/commercial.schema";
 import { CommercialHelp } from "../components/CommercialHelp";
+import {businessStatusLabels} from '../helpers/businessStatus';
+import {managementLabel,managementTypes,managementStageCatalog} from '../helpers/businessManagement';
 import { getCommercialDetail } from "../endpoints/commercial.schema";
 import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
@@ -109,6 +111,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [mergePair,setMergePair]=useState<{sourceId:string;destinationId:string}|null>(null);
   const [startingOpportunity,setStartingOpportunity]=useState(false);
   const [form,setForm]=useState<InputType>(emptyForm);
+  const [editingManagementType,setEditingManagementType]=useState<string|null>(null);
   const editBaseline=useRef<string|null>(null);
   useEffect(()=>{editBaseline.current=open?JSON.stringify(form):null},[open]);
   const legacyGuard=useUnsavedChanges(open&&editBaseline.current!==null&&JSON.stringify(form)!==editBaseline.current,()=>setOpen(false));
@@ -274,6 +277,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const stats=statsQ.data??{total:0,pendientes:0,suscriptos:0,vencidos:0,paraHoy:0,misPendientesHoy:0};
   const settings=settingsQ.data;
   const STATUS_OPTIONS=settings?.opportunityStages??filters.estados;
+  const FILTER_STATUS_OPTIONS=[...new Set([...STATUS_OPTIONS,...managementTypes.flatMap(type=>managementStageCatalog(type).map(stage=>stage.key))])];
+  const statusOptionLabel=(value:string)=>managementTypes.flatMap(type=>managementStageCatalog(type)).find(stage=>stage.key===value)?.label??value;
   const cityOptions=settings?.cities.map(x=>x.name)??filters.ciudades;
   const typeOptions=settings?.types??filters.tipos;
   const peopleOptions=settings?.authorizedEmails.map(x=>x.displayName||x.email)??filters.asignados;
@@ -292,7 +297,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     {key:"subtipo",label:"Subtipo",kind:"category",options:optionList(allSubtypeOptions)},
     {key:"commercialProfile",label:"Perfil comercial",kind:"category",options:optionList(PROFILE_OPTIONS)},
     {key:"ciudad",label:"Ciudad",kind:"category",options:optionList(cityOptions)},
-    {key:"estado",label:"Estado",kind:"category",options:optionList(STATUS_OPTIONS)},
+    {key:"estado",label:"Etapa de gestión",kind:"category",options:FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))},
+    {key:"businessStatus",label:"Estado del negocio",kind:"category",options:Object.entries(businessStatusLabels).map(([value,label])=>({value,label}))},
     {key:"suscripcion",label:"Suscripción",kind:"category",options:optionList(filters.suscripciones)},
     {key:"email",label:"Email",kind:"text"},
     {key:"telefono",label:"Teléfono",kind:"text"},
@@ -341,7 +347,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     {key:"tipo",label:"Vertical",category:"vertical",options:asOptions(typeOptions),value:typeFilter,setValue:setTypeFilter},
     {key:"subtipo",label:"Subtipo",category:"subtype",options:asOptions(allSubtypeOptions),value:subtypeFilter,setValue:setSubtypeFilter},
     {key:"commercialProfile",label:"Perfil",category:"profile",options:asOptions(PROFILE_OPTIONS),value:commercialProfileFilter,setValue:setCommercialProfileFilter},
-    {key:"estado",label:"Estado",category:"status",options:asOptions(STATUS_OPTIONS),value:statusFilter,setValue:setStatusFilter},
+    {key:"estado",label:"Etapa",category:"status",options:FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)})),value:statusFilter,setValue:setStatusFilter},
     {key:"prioridad",label:"Prioridad",category:"priority",options:asOptions(PRIORITY_OPTIONS),value:priorityFilter,setValue:setPriorityFilter},
     {key:"assignedUserEmail",label:"Responsable",category:"person",options:[...userOptions.map(user=>({value:user.email,label:user.displayName||user.email})),{value:"__EMPTY__",label:"Sin valor"}],value:assignedUserFilter,setValue:setAssignedUserFilter},
     {key:"suscripcion",label:"Suscripción",category:"generic",options:asOptions(filters.suscripciones),value:subscriptionFilter,setValue:setSubscriptionFilter},
@@ -473,8 +479,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     });
   };
 
-  const newLead=()=>businessMode?setBusinessEditor({}):setStartingOpportunity(true);
-  const editLead=(l:any)=>{if(l.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede modificarlo.");return;}if(businessMode){void getCommercialDetail(String(l.accountId)).then(detail=>setBusinessEditor({item:detail.account})).catch(error=>toast.error(error.message));return}setLastTouchedId(String(l.id));setDuplicateCandidates([]);setForm({
+  const newLead=()=>{setEditingManagementType(null);if(businessMode)setBusinessEditor({});else setStartingOpportunity(true);};
+  const editLead=(l:any)=>{if(l.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede modificarlo.");return;}if(businessMode){void getCommercialDetail(String(l.accountId)).then(detail=>setBusinessEditor({item:detail.account})).catch(error=>toast.error(error.message));return}setLastTouchedId(String(l.id));setDuplicateCandidates([]);setEditingManagementType(l.managementType??null);setForm({
     id:String(l.id),scope:"opportunity",opportunityName:l.opportunityName||"Gestión comercial inicial",serviceInterest:l.serviceInterest,primaryContactId:l.primaryContactId?String(l.primaryContactId):null,estimatedCloseDate:dateOnlyInput(l.estimatedCloseDate)||null,nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
     email:l.email,telefono:l.telefono,sitioWeb:l.sitioWeb,urlGmap:l.urlGmap,perfilInstagram:l.perfilInstagram,perfilFacebook:l.perfilFacebook,
     perfilAirbnb:l.perfilAirbnb,perfilBooking:l.perfilBooking,perfilTurismoEntreRios:l.perfilTurismoEntreRios,origen:l.origen,
@@ -617,6 +623,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       ? <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.subtipo??""} options={(settings?.subtypes??[]).filter(x=>!x.typeName||x.typeName===l.tipo).map(x=>x.name)} category="subtype" placeholder="Asignar subtipo" emptyLabel="Sin subtipo" assignWhenEmpty onChange={v=>quick(l.id,"subtipo",v)}/>
       : <span className={styles.assignDependency}>Asigná vertical primero</span>;
     if(key==="commercialProfile")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.commercialProfile??""} options={PROFILE_OPTIONS} category="profile" placeholder="Asignar perfil" emptyLabel="Sin perfil" assignWhenEmpty onChange={v=>quick(l.id,"commercialProfile",v)}/>;
+    if(key==="estado"&&l.managementType)return <ValueBadge value={managementLabel(l.managementType,l.estado)} category="status"/>;
     if(key==="estado")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.estado??""} options={STATUS_OPTIONS} category="status" placeholder="Asignar estado" assignWhenEmpty onChange={v=>quick(l.id,"estado",v)}/>;
     if(key==="prioridad")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.prioridad??""} options={PRIORITY_OPTIONS} category="priority" placeholder="Asignar prioridad" emptyLabel="Sin prioridad" assignWhenEmpty onChange={v=>quick(l.id,"prioridad",v)}/>;
     if(key==="quienCargo")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.quienCargo??""} options={peopleOptions} category="person" placeholder="Asignar persona" assignWhenEmpty onChange={v=>quick(l.id,"quienCargo",v)}/>;
@@ -806,7 +813,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
                 <label className={styles.editField}><span>Vertical</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.tipo)} options={typeOptions} category="vertical" onChange={v=>{set("tipo",v);set("subtipo","")}} placeholder="Seleccionar vertical…"/></label>
                 <label className={styles.editField}><span>Subtipo</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.subtipo)} options={subtypeOptions} category="subtype" onChange={v=>set("subtipo",v)} placeholder="Seleccionar subtipo…" emptyLabel="Sin subtipo"/></label>
                 <label className={styles.editField}><span>Perfil comercial</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.commercialProfile)} options={PROFILE_OPTIONS} category="profile" onChange={v=>set("commercialProfile",v||null)} placeholder="Seleccionar perfil…" emptyLabel="Sin perfil"/></label>
-                <label className={styles.editField}><span>Estado</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.estado)} options={STATUS_OPTIONS} category="status" onChange={v=>set("estado",v)} placeholder="Seleccionar estado…"/></label>
+                {!editingManagementType&&<label className={styles.editField}><span>Estado</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.estado)} options={STATUS_OPTIONS} category="status" onChange={v=>set("estado",v)} placeholder="Seleccionar estado…"/></label>}
                 <label className={styles.editField}><span>Prioridad</span><BadgeSelect className={styles.editBadgeSelect} value={form.prioridad??""} options={PRIORITY_OPTIONS} category="priority" onChange={v=>set("prioridad",v||null)} placeholder="Sin prioridad" emptyLabel="Sin prioridad"/></label>
                 <label className={styles.editField+" "+styles.editSpan2}><span>Suscripción</span><Input value={str(form.suscripcion)} onChange={e=>set("suscripcion",e.target.value)}/></label>
               </div>
