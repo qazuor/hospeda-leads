@@ -39,7 +39,7 @@ try{
   assert.equal(afterAccount.recontact_at,null);
   assert.equal(afterAccount.referred_to_leandro,false);
   await tx`SELECT set_config('crm.actor_email','fixture@example.com',true)`;
-  await tx`UPDATE crm_accounts SET status='reviewed',is_client=true,do_not_contact=true,referred_to_leandro=true,recontact_at='2026-12-15' WHERE id=${account.id}`;
+  await tx`UPDATE crm_accounts SET status='reviewed',archived_at=NULL,is_client=true,do_not_contact=true,referred_to_leandro=true,recontact_at='2026-12-15' WHERE id=${account.id}`;
   const stateEvent=(await tx`SELECT action,actor_email,metadata FROM crm_commercial_journal WHERE account_id=${account.id} ORDER BY id DESC LIMIT 1`)[0];
   assert.equal(stateEvent.action,'leandro_referral_changed');
   assert.equal(stateEvent.actor_email,'fixture@example.com');
