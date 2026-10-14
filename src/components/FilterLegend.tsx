@@ -10,15 +10,16 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from '.
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
 import styles from './FilterLegend.module.css';
 
-function FilterBadge({ rule, search, fields, onChange, onRemove }: {
+function FilterBadge({ rule, search, fields, onChange, onRemove, readOnly = false }: {
   rule?: AdvancedFilterRule; search?: string; fields: FilterFieldDefinition[];
   onChange: (value: string, value2?: string) => void; onRemove: () => void;
+  readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(rule?.value ?? search ?? ''), [value2, setValue2] = useState(rule?.value2 ?? '');
   const field = rule ? fields.find(f => f.key === rule.field) : undefined;
   const label = rule ? describeFilterRule(rule, fields) : `Texto libre contiene «${search?.trim()}»`;
-  const editable = !rule || !!field && needsValue(rule.operator);
+  const editable = !readOnly && (!rule || !!field && needsValue(rule.operator));
   const category = field?.kind === 'category' && rule?.operator !== 'between';
   const options = field?.options ?? [];
   const choices = rule?.value && !options.some(o => o.value === rule.value) ? [{ value: rule.value, label: rule.value }, ...options] : options;
@@ -42,33 +43,37 @@ function FilterBadge({ rule, search, fields, onChange, onRemove }: {
         </form>}
       </PopoverContent>
     </Popover> : <span className={styles.staticValue} title={label}>{content}</span>}
-    <ActionIcon variant="subtle" color="gray" className={styles.remove} aria-label={'Quitar filtro ' + label} title="Quitar filtro" onClick={onRemove}><X size={13} aria-hidden="true" /></ActionIcon>
+    {!readOnly && <ActionIcon variant="subtle" color="gray" className={styles.remove} aria-label={'Quitar filtro ' + label} title="Quitar filtro" onClick={onRemove}><X size={13} aria-hidden="true" /></ActionIcon>}
   </div>;
 }
 
-export function FilterLegend({ groups, fields, search = '', onEdit, onClear, actions, extraLabels = [], onChange }: {
+export function FilterLegend({ groups, fields, search = '', displaySearch, onEdit, onClear, actions, status, extraLabels = [], onChange, readOnly = false, hideClear = false, emptyLabel = 'Sin filtros aplicados', compact = false, visibleRuleIndexes }: {
   groups: AdvancedFilterGroup[]; search?: string; fields: FilterFieldDefinition[]; onEdit: () => void; onClear: () => void;
-  actions?: React.ReactNode; extraLabels?: string[]; onChange?: (groups: AdvancedFilterGroup[], search: string) => void;
+  actions?: React.ReactNode; status?: React.ReactNode; extraLabels?: string[]; onChange?: (groups: AdvancedFilterGroup[], search: string) => void;
+  readOnly?: boolean; hideClear?: boolean; emptyLabel?: string; compact?: boolean; displaySearch?: string; visibleRuleIndexes?: {groupIndex:number;ruleIndex:number}[];
 }) {
   const legend = useRef<HTMLDivElement>(null);
-  const hasFilters = !!(groups.length || search.trim() || extraLabels.length);
+  const shownSearch=displaySearch??search;
+  const visibleGroups = groups.map((group, groupIndex) => ({group,groupIndex,rules:group.rules.map((rule,ruleIndex)=>({rule,ruleIndex})).filter(({ruleIndex})=>!visibleRuleIndexes||visibleRuleIndexes.some(index=>index.groupIndex===groupIndex&&index.ruleIndex===ruleIndex))})).filter(item=>item.rules.length>0);
+  const hasFilters = !!(visibleGroups.length || shownSearch.trim() || extraLabels.length);
   const afterRemove = (next: AdvancedFilterGroup[], query: string) => { onChange?.(next, query); requestAnimationFrame(() => legend.current?.focus({ preventScroll: true })); };
   if (!hasFilters && !actions) return null;
-  return <div ref={legend} tabIndex={-1} className={styles.legend}>
+  return <div ref={legend} tabIndex={-1} className={`${styles.legend}${compact ? ` ${styles.compact}` : ''}`}>
     <div className={styles.expression}>
-      {!hasFilters && <span className={styles.empty}>Sin filtros aplicados</span>}
+      {status}
+      {!hasFilters && <span className={styles.empty}>{emptyLabel}</span>}
       {extraLabels.map((label, i) => <div key={i} className={styles.clause}>{i > 0 && <span className={styles.and}>Y</span>}<span className={styles.legacy}>{label}</span></div>)}
-      {!!search.trim() && <div className={styles.clause}>{extraLabels.length > 0 && <span className={styles.and}>Y</span>}
-        {onChange ? <FilterBadge search={search} fields={fields} onChange={query => onChange(groups, query)} onRemove={() => afterRemove(groups, '')} /> : <span className={styles.legacy}>Texto libre contiene «{search.trim()}»</span>}
+      {!!shownSearch.trim() && <div className={styles.clause}>{extraLabels.length > 0 && <span className={styles.and}>Y</span>}
+        {onChange && !readOnly ? <FilterBadge search={shownSearch} fields={fields} onChange={query => onChange(groups, query)} onRemove={() => afterRemove(groups, '')} /> : <span className={styles.legacy}>Texto libre contiene «{shownSearch.trim()}»</span>}
       </div>}
-      {groups.map((group, gi) => <div className={styles.clause} key={gi}>
-        {(gi > 0 || !!search.trim() || extraLabels.length > 0) && <span className={styles.and}>Y</span>}
-        <div className={group.rules.length > 1 ? styles.alternatives : styles.group}>{group.rules.map((rule, ri) => <React.Fragment key={ri}>
-          {ri > 0 && <span className={styles.or}>O</span>}
-          {onChange ? <FilterBadge rule={rule} fields={fields} onChange={(value, value2) => onChange(changeFilterRule(groups, gi, ri, { ...rule, value, ...(rule.operator === 'between' ? { value2 } : {}) }), search)} onRemove={() => afterRemove(changeFilterRule(groups, gi, ri, null), search)} /> : <span className={styles.legacy}>{describeFilterRule(rule, fields)}</span>}
+      {visibleGroups.map(({group,groupIndex,rules}, gi) => <div className={styles.clause} key={groupIndex}>
+        {(gi > 0 || !!shownSearch.trim() || extraLabels.length > 0) && <span className={styles.and}>Y</span>}
+        <div className={rules.length > 1 ? styles.alternatives : styles.group}>{rules.map(({rule,ruleIndex}, visibleIndex) => <React.Fragment key={ruleIndex}>
+          {visibleIndex > 0 && <span className={styles.or}>O</span>}
+          {onChange && !readOnly ? <FilterBadge rule={rule} fields={fields} onChange={(value, value2) => onChange(changeFilterRule(groups, groupIndex, ruleIndex, { ...rule, value, ...(rule.operator === 'between' ? { value2 } : {}) }), search)} onRemove={() => afterRemove(changeFilterRule(groups, groupIndex, ruleIndex, null), search)} /> : <span className={styles.legacy}>{describeFilterRule(rule, fields)}</span>}
         </React.Fragment>)}</div>
       </div>)}
     </div>
-    <div className={styles.actions}>{hasFilters && <Button variant="ghost" size="sm" onClick={onEdit}>Editar</Button>}{hasFilters && <Button variant="ghost" size="sm" onClick={onClear}>Limpiar</Button>}{actions}</div>
+    <div className={styles.actions}>{hasFilters && !readOnly && <Button variant="ghost" size="sm" onClick={onEdit}>Editar</Button>}{hasFilters && !readOnly && !hideClear && <Button variant="ghost" size="sm" onClick={onClear}>Limpiar</Button>}{actions}</div>
   </div>;
 }
