@@ -97,7 +97,7 @@ Se creó `feat/integrate-crm-state-communication-visual` desde `origin/main` en 
 
 Incluye las migraciones 018–023, la conversión de vistas, flujos de estados, derivación, comunicación, la limpieza aprobada de secuencias de prueba y las specs 53–59. No se ejecutaron migraciones ni escrituras de base durante esta integración; tampoco se inició ningún servidor. La limpieza de secuencias de la migración 022 requiere revisar el preflight antes de aplicarla a cualquier base.
 
-Verificado en el worktree de integración: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --cached --check`; build conserva la advertencia de chunk mayor a 500 kB. No se ejecutaron pruebas de navegador ni de integración con PostgreSQL. La rama todavía no se publicó ni tiene PR y no se mergeó a `main`. El siguiente paso es revisar la integración y completar las pruebas de navegador y de migraciones sobre una base local descartable.
+Verificado en el worktree de integración: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --cached --check`; build conserva la advertencia de chunk mayor a 500 kB. No se ejecutaron pruebas de navegador ni de integración con PostgreSQL. El [PR #103](https://github.com/qazuor/hospeda-leads/pull/103) está abierto contra `main`; su CI ejecuta ahora. No se mergeó a `main`. Falta revisar navegador y migraciones sobre una base local descartable.
 
 ## Cambio mergeado — marca de revisión y ayuda del CRM
 

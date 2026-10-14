@@ -4,12 +4,12 @@ Corte: 14/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un b
 
 ## Integración visual + estados + Comunicación
 
-La rama local `feat/integrate-crm-state-communication-visual` parte de `origin/main` y reúne el PR visual #102, la cadena de estados, sus cambios locales complementarios y el worktree de Comunicación. Está en `/tmp/hospeda-integration`; no se publicó ni se abrió PR. Los servidores siguen detenidos.
+La rama `feat/integrate-crm-state-communication-visual` parte de `origin/main` y reúne el PR visual #102, la cadena de estados, sus cambios locales complementarios y el worktree de Comunicación. Está en `/tmp/hospeda-integration`; [PR #103](https://github.com/qazuor/hospeda-leads/pull/103) abierto contra `main`. Los servidores siguen detenidos.
 
 - Typecheck, 110 pruebas unitarias y build pasan. No se ejecutaron E2E ni pruebas de PostgreSQL.
 - Próximo: revisar el diff integrado y recorrer desktop/móvil; correr migraciones y pruebas de integración solo sobre una base local descartable.
 - La migración 022 elimina únicamente datos atribuibles a secuencias de prueba y aborta ante referencias independientes. Ejecutar primero `pnpm run db:preflight:communication-sequences` con `CRM_TEST_DATABASE=1` y una URL local; revisar su salida antes de aplicar cualquier migración. No se tocaron bases en esta tarea.
-- Después de la revisión, publicar un único PR de integración. No mergear a `main` sin el pedido explícito del propietario.
+- CI del PR en curso; revisar checks, probar navegador y validar migraciones en una base local descartable. No mergear a `main` sin el pedido explícito del propietario.
 
 ## En curso: estados y redistribución de negocios
 
