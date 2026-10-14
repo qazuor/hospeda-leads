@@ -143,7 +143,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByLabel('Buscar negocio',{exact:true}).fill('Negocio E2E');
   await page.getByRole('dialog').getByRole('button',{name:/^Negocio E2E/}).click();
   await page.getByLabel('Nombre de la gestión',{exact:true}).fill('Tercera gestión');
-  await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Tercera gestión',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'← Volver a Gestiones comerciales',exact:true}).click();
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
