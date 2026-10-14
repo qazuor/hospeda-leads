@@ -28,6 +28,7 @@
     "test:mcp": "node --import tsx scripts/test-mcp.ts",
     "test:managements": "node scripts/test-explicit-management-migration.mjs && node --import tsx scripts/test-explicit-management.ts",
     "test:business-state-migration": "node scripts/test-business-state-migration.mjs",
+    "test:business-state": "node --import tsx scripts/test-business-state.ts",
     "db:recover:businesses": "node scripts/recover-business-metadata.mjs"
   },
   "dependencies": {
