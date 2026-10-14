@@ -18,14 +18,17 @@ export type ViewManagementRequest={kind:'edit'|'delete';view:SavedLeadView;opene
 export function PersonalViewsDialog({userId,prefs,fields,admin,saveOpen,onSaveOpenChange,saveTarget,onSaved,onConverted,managementRequest,onManagementClose}:{userId:number;prefs:ListPreferences;fields:FilterFieldDefinition[];admin:boolean;saveOpen:boolean;onSaveOpenChange:(open:boolean)=>void;saveTarget?:SavedLeadView;onSaved?:(input:InputType,result:OutputType)=>void;onConverted?:(sourceId:string,view:BusinessSystemView)=>void;managementRequest?:ViewManagementRequest|null;onManagementClose?:()=>void}){
  const [manageOpen,setManageOpen]=useState(false),[screen,setScreen]=useState<Screen>({kind:'list'}),[name,setName]=useState(''),[editPreferences,setEditPreferences]=useState<ListPreferences|null>(null),[editFiltersOpen,setEditFiltersOpen]=useState(false);
  const [saveMode,setSaveMode]=useState<'choice'|'new'|'update'>(saveTarget?'choice':'new');
- const focusReturn=useRef<HTMLButtonElement|null>(null);
+ const focusReturn=useRef<HTMLElement|null>(null),returnToSelectedView=useRef(false);
  const direct=useRef(false);
  const manageButton=useRef<HTMLButtonElement>(null);
  const lock=useRef(false),qc=useQueryClient();const key=['business-saved-views',userId];
  const views=useQuery({queryKey:key,queryFn:getSavedLeadViews,enabled:saveOpen||manageOpen});
+ useEffect(()=>{if(saveOpen)setSaveMode(saveTarget?'choice':'new');},[saveOpen,saveTarget]);
+ if(saveOpen)returnToSelectedView.current=true;
  const mutation=useGuardedMutation({mutationFn:postSavedLeadView,onSuccess:()=>qc.invalidateQueries({queryKey:key})});
  const conversion=useGuardedMutation({mutationFn:convertSavedViewToSystem,onSuccess:async()=>{await Promise.all([qc.invalidateQueries({queryKey:key}),qc.invalidateQueries({queryKey:['business-list-defaults']})]);}});
  const pending=mutation.isPending||conversion.isPending,open=saveOpen||manageOpen;
+ useEffect(()=>{if(open||!returnToSelectedView.current)return;const timer=window.setTimeout(()=>{const target=document.querySelector<HTMLButtonElement>('[data-view-id][aria-pressed="true"]');if(target?.isConnected)target.focus({preventScroll:true});returnToSelectedView.current=false;},50);return()=>window.clearTimeout(timer);},[open]);
  function close(){if(lock.current)return;setManageOpen(false);setEditFiltersOpen(false);setEditPreferences(null);onSaveOpenChange(false);onManagementClose?.();}
  function show(next:Screen){mutation.reset();conversion.reset();setScreen(next);setName(next.kind==='edit'?next.view.name:next.kind==='duplicate'?`${next.view.name} (copia)`.slice(0,80):'');setEditFiltersOpen(false);setEditPreferences(next.kind==='edit'?preferencesFromSavedView(prefs,next.view.config):null);}
  useEffect(()=>{if(managementRequest){direct.current=true;focusReturn.current=managementRequest.opener;show(managementRequest);setManageOpen(true);}},[managementRequest]);
@@ -39,7 +42,7 @@ export function PersonalViewsDialog({userId,prefs,fields,admin,saveOpen,onSaveOp
  const editLegacyLabels=editPreferences?.legacyFilters?legacyFilterLabels(editPreferences.legacyFilters):[];
  return <>
   <Button ref={manageButton} variant="ghost" size="icon-sm" aria-label="Administrar tus vistas" title="Administrar vistas" onClick={()=>{direct.current=false;focusReturn.current=manageButton.current;show({kind:'list'});setManageOpen(true);}}><Settings2 size={16} aria-hidden="true"/></Button>
-  <Dialog open={open} onOpenChange={value=>{if(!value)close();}}><DialogContent className={styles.dialog} showCloseButton={!pending} onCloseAutoFocus={event=>{event.preventDefault();const target=saveOpen?document.querySelector<HTMLButtonElement>('[data-view-id][aria-pressed="true"]'):focusReturn.current;if(target?.isConnected)target.focus();else manageButton.current?.focus();}}>
+  <Dialog open={open} onOpenChange={value=>{if(!value)close();}}><DialogContent className={styles.dialog} showCloseButton={!pending} onCloseAutoFocus={event=>{event.preventDefault();const target=returnToSelectedView.current?document.querySelector<HTMLElement>('[data-view-id][aria-pressed="true"]')??focusReturn.current:focusReturn.current;if(target?.isConnected)target.focus({preventScroll:true});else manageButton.current?.focus();}}>
    <DialogTitle>{title}</DialogTitle>
    <DialogDescription>{saveOpen?(saveMode==='new'?'Guardá la búsqueda, los filtros y la presentación actuales.':`Elegí cómo guardar los cambios de «${saveTarget?.name}».`):screen.kind==='edit'?'Editá el nombre y los filtros guardados en esta vista. Los filtros del listado actual no cambian.':screen.kind==='delete'?'Solo se elimina la vista guardada. Los negocios y los filtros del listado se conservan.':screen.kind==='duplicate'?'Se crea una copia personal con los mismos filtros y presentación.':screen.kind==='convert'?'La vista dejará de ser personal y quedará compartida con todo el equipo como vista del sistema. Esta acción se puede deshacer desde Administración.':'Editá tus vistas personales. Las vistas del sistema se configuran desde Administración.'}</DialogDescription>
    {mutation.error&&<p className={styles.error} role="alert">{mutation.error.message}</p>}{conversion.error&&<p className={styles.error} role="alert">{conversion.error.message}</p>}

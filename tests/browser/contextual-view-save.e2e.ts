@@ -4,7 +4,7 @@ import {basePreferences} from '../../src/helpers/businessListPreferences';
 
 for(const width of [1280,390])for(const role of ['user','admin'])test(`contextual view save, identity and system protection for ${role} at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:844});
- const initial=basePreferences();const config={entity:'business',extra:'preserve',preferences:{...initial,query:'Guardada',filters:[{rules:[{field:'ciudad',operator:'eq',value:'Colón'}]}]}};
+ const initial=basePreferences();const config={entity:'business',extra:'preserve',preferences:{...initial,query:'Guardada',filters:[{rules:[{field:'ciudad',operator:'eq',value:'Ciudad original'}]}]}};
  let views:any[]=[{id:'my-original',name:'Mi vista',config}],failUpdate=true;const mutations:any[]=[],errors:string[]=[];
  let release!:()=>void;const slow=new Promise<void>(resolve=>{release=resolve;});page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(({initial,dark})=>{localStorage.setItem('hospeda-live-mode','off');if(dark)localStorage.setItem('hospeda-theme-mode','dark');if(!localStorage.getItem('hospeda-business-list-v1-user-3'))localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences:initial,context:{page:1,scrollY:0,scrollX:0}}));},{initial,dark:width===390});
@@ -38,7 +38,10 @@ for(const width of [1280,390])for(const role of ['user','admin'])test(`contextua
  await selector.locator('[data-view-id="personal:my-original"]').click();const save=page.getByRole('button',{name:'Guardar vista',exact:true});await expect(save).toBeDisabled();await expect(search).toHaveValue('Guardada');
  await search.fill('Cambio');await expect(save).toBeEnabled();await search.fill('Guardada');await expect(save).toBeDisabled();
  await page.getByRole('button',{name:'Grilla',exact:true}).click();await expect(save).toBeEnabled();await page.getByRole('button',{name:'Tabla',exact:true}).click();await expect(save).toBeDisabled();
- // Value-only badge edits mark the selected view dirty and persist across reload.
+ // Filters inherited from the selected view stay out of the manual-filter row.
+ await expect(page.getByRole('button',{name:'Cambiar valor del filtro Ciudad es Ciudad original',exact:true})).toHaveCount(0);
+ // Editing an inherited filter through the builder turns it into a visible manual change.
+ await page.getByRole('button',{name:'Editar filtros',exact:true}).click();let builder=page.getByRole('dialog',{name:'Filtrar negocios',exact:true});await builder.getByRole('combobox',{name:'Valor del filtro',exact:true}).selectOption({label:'Colón'});await builder.getByRole('button',{name:'Aplicar filtros',exact:true}).click();
  await page.getByRole('button',{name:'Cambiar valor del filtro Ciudad es Colón',exact:true}).click();await page.getByRole('option',{name:'Concordia',exact:true}).click();await expect(save).toBeEnabled();
  await page.reload();await expect(selector.locator('[data-view-id="personal:my-original"]')).toHaveAttribute('aria-pressed','true');await expect(save).toBeEnabled();await expect(page.getByRole('button',{name:'Cambiar valor del filtro Ciudad es Concordia',exact:true})).toBeVisible();
  const beforeCancel=mutations.length;await save.click();dialog=page.getByRole('dialog',{name:'Guardar vista',exact:true});await expect(dialog.getByRole('button',{name:'Guardar como vista nueva',exact:true})).toBeVisible();
