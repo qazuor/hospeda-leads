@@ -98,7 +98,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await communication.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   await expect(page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true})).toBeVisible();
   // Capture WhatsApp intent locally: this test never opens or sends a real message.
-  await page.evaluate(()=>{window.open=(url)=>{(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl=String(url);return null}});
+  await page.evaluate(()=>{window.open=()=>{const popup={closed:false,opener:null,location:{href:'about:blank'}} as unknown as Window;(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup=popup;return popup}});
   await page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();
   const whatsapp=page.getByRole('dialog').last();
   await whatsapp.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
@@ -107,7 +107,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await whatsapp.getByLabel('Revisé destinatario y contenido final').check();
   await whatsapp.getByRole('button',{name:'Abrir WhatsApp con este mensaje'}).click();
   await expect(whatsapp.getByRole('button',{name:'Confirmar envío',exact:true})).toBeVisible();
-  const intent=await page.evaluate(()=>(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl);
+  const intent=await page.evaluate(()=>(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup.location.href);
   const whatsappUrl=new URL(intent);
   expect(whatsappUrl.pathname).toBe('/5493442000002');
   expect(whatsappUrl.searchParams.get('text')).toContain('Hola Luis luis@example.com');
