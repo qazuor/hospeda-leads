@@ -16,11 +16,14 @@ export function BusinessViewBadges({system,personal,active,onSelect,onManage}:{s
   <UnstyledButton className={styles.select} data-view-id={kind+':'+id} aria-label={'Aplicar vista '+(kind==='system'?'del sistema ':'personal ')+name} aria-pressed={selected} title={name} onFocus={event=>{if(event.currentTarget.matches(':focus-visible'))reveal(event.currentTarget);}} onClick={()=>onSelect(kind,id)}>{selected&&<Check size={13} aria-hidden="true"/>}<span>{name}</span></UnstyledButton>
   {view&&<div className={styles.actions}>{(['edit','delete'] as const).map(action=><ActionIcon key={action} variant="subtle" color={action==='delete'?'red':'gray'} size={28} aria-label={(action==='edit'?'Editar':'Eliminar')+' vista '+name} title={(action==='edit'?'Editar':'Eliminar')+' vista '+name} onFocus={event=>{if(event.currentTarget.matches(':focus-visible'))reveal(event.currentTarget);}} onClick={event=>onManage(action,view,event.currentTarget)}>{action==='edit'?<Pencil size={13}/>:<Trash2 size={13}/>}</ActionIcon>)}</div>}
  </div>;}
- return <div className={styles.row} role="region" aria-label="Vistas guardadas">
+ return <div className={styles.container}>
+ <div className={styles.row} role="region" aria-label="Vistas guardadas">
   <ActionIcon variant="subtle" color="gray" size={30} disabled={!edges.left} aria-label="Vistas anteriores" onClick={()=>viewport.current?.scrollBy({left:-Math.max(160,viewport.current.clientWidth*.7),behavior:'smooth'})}><ChevronLeft size={16}/></ActionIcon>
   <ScrollArea className={styles.scroll} viewportRef={viewport} scrollbars="x" type="auto" scrollbarSize={5} offsetScrollbars="x" onScrollPositionChange={updateEdges}>
    <div className={styles.content} ref={content}><div className={styles.group} role="group" aria-label="Vistas del sistema"><span className={styles.label}>Sistema</span>{system.map(view=>badge('system',view.id,view.name))}</div><div className={styles.group} role="group" aria-label="Tus vistas"><span className={styles.label}>Tus vistas</span>{personal.map(view=>view.id?badge('personal',view.id,view.name,view):null)}{personal.length===0&&<span className={styles.empty}>Sin vistas personales</span>}</div></div>
   </ScrollArea>
   <ActionIcon variant="subtle" color="gray" size={30} disabled={!edges.right} aria-label="Más vistas" onClick={()=>viewport.current?.scrollBy({left:Math.max(160,viewport.current.clientWidth*.7),behavior:'smooth'})}><ChevronRight size={16}/></ActionIcon>
+ </div>
+ {edges.right&&<p className={styles.scrollHint}><ChevronRight size={13} aria-hidden="true"/>Deslizá o tocá la flecha para ver más vistas</p>}
  </div>;
 }

@@ -6,3 +6,5 @@
 .row{container-type:inline-size}.badge{max-width:calc(100cqw - 88px)}.badge .select{min-width:0;flex:1}.actions{flex-shrink:0}
 
 .badge{border-color:transparent;background:var(--surface);border-radius:6px}.badge[data-active=true]{border-color:color-mix(in srgb,var(--primary) 30%,var(--border))}.label{font-size:12px}.group+.group{padding-left:12px}.row>button:disabled{visibility:hidden}
+.container{min-width:0}.scrollHint{display:none}
+@media(max-width:767px){.scrollHint{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin:3px 4px 0;color:var(--muted-foreground);font-size:12px;line-height:1.4}.scrollHint svg{flex:none;color:var(--primary)}}

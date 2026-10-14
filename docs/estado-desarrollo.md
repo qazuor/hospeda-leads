@@ -1,4 +1,4 @@
-# Estado del CRM — corte al 10 de octubre de 2026
+# Estado del CRM — corte al 11 de octubre de 2026
 
 Este documento es el traspaso de la conversación de desarrollo a un checkout local. No importa automáticamente la conversación de ChatGPT a Codex o Claude: conserva las decisiones y la evidencia útil en Git. Verificar el estado remoto al comenzar una nueva sesión.
 
@@ -87,8 +87,14 @@ PR #92: 93 pruebas unitarias, 115 recorridos de navegador, integraciones Postgre
 
 Un CLI local debe volver a verificar comandos, permisos y checks del cambio que realice. El historial de conversaciones de cada herramienta se retoma con su mecanismo propio; los documentos y PRs son el traspaso entre herramientas.
 
-## Cambio en revisión — marca de revisión y ayuda del CRM
+## Cambio mergeado — marca de revisión y ayuda del CRM
 
 En el checkout local se agregó UI para editar `crm_accounts.review_status` desde el formulario del negocio, ofrecer Revisión como columna opcional para tabla y cards, editarla inline, mostrar el valor en el detalle, y filtrar por la marca. El valor `filtered` identifica Filtrado; `NULL` se presenta como No filtrado. No se agregó una migración porque el campo existe desde la migración 017. Los filtros de columnas de usuario también ofrecen “Usuario autenticado”, resuelto en el servidor para cada sesión en `assignedUserEmail`, `asignadoA`, `quienCargo` y `creadoPor`. La ayuda suma accesos directos por tarea para el recorrido de negocio a venta y para cerrar una venta, muestra los artículos anidados bajo sus temas y los expone en la paleta de comandos con búsqueda aproximada. Incluye una guía para verificar negocios precargados, marcarlos Filtrado si son válidos o enviarlos a Papelera si son inválidos. Los badges editables simples de tabla y cards abren ahora una lista compacta de opciones como badges y guardan al seleccionar; Vertical/Subtipo conserva el editor detallado por sus dependencias, y las columnas de gestión mantienen la selección explícita cuando hay más de una gestión.
 
-Validación local: `pnpm run typecheck`, `pnpm test` (95 pruebas), `pnpm run build` y los 15 recorridos de navegador afectados aprobados; Vite mantiene el aviso de chunk grande (>500 kB). El CI inicial detectó expectativas viejas para badges, guía y búsqueda; se actualizaron las pruebas y la pasada completa posterior terminó verde sobre `8b5583d`. El issue #94 registra y aprueba este alcance; seguimiento en el [PR #95](https://github.com/qazuor/hospeda-leads/pull/95). Falta revisión manual visual; CI, merge y deploy son estados separados. `pnpm-lock.yaml` estaba sin seguimiento y no forma parte del cambio.
+Validación local: `pnpm run typecheck`, `pnpm test` (95 pruebas), `pnpm run build` y los 15 recorridos de navegador afectados aprobados; Vite mantiene el aviso de chunk grande (>500 kB). La pasada completa de CI terminó verde sobre `8b5583d`. El [PR #95](https://github.com/qazuor/hospeda-leads/pull/95) se mergeó el 11/10/2026. No inferir deploy desde el merge. `pnpm-lock.yaml` estaba sin seguimiento y no formó parte del cambio.
+
+## Pulido visual de navegación y recorridos
+
+En la rama `feat/visual-polish-ux` se compactó el header entre 768 y 1440 px para mantener la navegación agrupada y evitar que “Más opciones” quede aislado; se agregaron indicaciones de desplazamiento en los accesos horizontales de la Guía y las vistas guardadas; y se jerarquizaron las acciones de Mi día/Agenda con verbos más claros y una acción principal. El reporte estético y las mejoras futuras priorizadas están en [pendientes](pendientes.md).
+
+Validación local: `pnpm run typecheck`, `pnpm run build` y 6 pruebas de navegador dirigidas (11/10/2026). Se usaron respuestas sintéticas; no se recorrieron datos productivos ni todas las pantallas/temas con una persona usuaria. Build mantiene el aviso de bundle principal mayor a 500 kB. El CI, merge y deploy de este cambio quedan pendientes.

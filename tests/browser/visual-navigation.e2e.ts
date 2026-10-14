@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import superjson from 'superjson';
 
-for(const width of [320,390,1280])test(`compact navigation and guide remain usable at ${width}px`,async({page})=>{
+for(const width of [320,390,1024,1280])test(`compact navigation and guide remain usable at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:844});
   await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
@@ -11,6 +11,7 @@ for(const width of [320,390,1280])test(`compact navigation and guide remain usab
     await expect(page.getByRole('heading',{name:'Usar Hospeda, paso a paso',exact:true})).toBeVisible();
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if(width<768){
+      await expect(page.getByText('Deslizá para ver los otros recorridos',{exact:true})).toBeVisible();
       const burger=page.getByRole('button',{name:'Abrir menú de navegación',exact:true});
       expect(await page.getByRole('banner').evaluate(el=>el.getBoundingClientRect().height)).toBeLessThanOrEqual(70);
       await expect(burger).toBeInViewport({ratio:1});await burger.click();
@@ -23,6 +24,20 @@ for(const width of [320,390,1280])test(`compact navigation and guide remain usab
       await burger.click();await page.getByRole('dialog').getByRole('link',{name:'Guía de uso paso a paso',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
     }else{
       await expect(page.getByRole('link',{name:'Agenda',exact:true})).toBeInViewport({ratio:1});
+      await expect(page.getByText('Deslizá para ver los otros recorridos',{exact:true})).toBeHidden();
+      if(width===1280){
+        const banner=page.getByRole('banner');
+        expect(await banner.evaluate(el=>el.getBoundingClientRect().height)).toBeLessThanOrEqual(76);
+        const agenda=await page.getByRole('link',{name:'Agenda',exact:true}).boundingBox();
+        const more=await page.getByRole('button',{name:'Más opciones',exact:true}).boundingBox();
+        expect(agenda&&more?more.x-(agenda.x+agenda.width):Infinity).toBeLessThan(28);
+      }
+      if(width===1024){
+        expect(await page.getByRole('banner').evaluate(el=>el.getBoundingClientRect().height)).toBeLessThanOrEqual(116);
+        const agenda=await page.getByRole('link',{name:'Agenda',exact:true}).boundingBox();
+        const more=await page.getByRole('button',{name:'Más opciones',exact:true}).boundingBox();
+        expect(agenda&&more?more.x-(agenda.x+agenda.width):Infinity).toBeLessThan(28);
+      }
       await page.getByRole('button',{name:'Más opciones',exact:true}).click();await expect(page.getByRole('menuitem',{name:'Configuración',exact:true})).toBeVisible();await page.keyboard.press('Escape');
     }
     await page.screenshot({path:`test-results/visual-navigation-${width}-${dark?'dark':'light'}.png`,fullPage:true,animations:'disabled'});
