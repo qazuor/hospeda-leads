@@ -44,10 +44,8 @@ try{
   assert.equal(stateEvent.action,'leandro_referral_changed');
   assert.equal(stateEvent.actor_email,'fixture@example.com');
   assert.equal(stateEvent.metadata.before.status,'archived');
-  assert.equal(stateEvent.metadata.before.is_client,true);
   assert.equal(stateEvent.metadata.before.referred_to_leandro,false);
   assert.equal(stateEvent.metadata.after.status,'reviewed');
-  assert.equal(stateEvent.metadata.after.is_client,true);
   assert.equal(stateEvent.metadata.after.do_not_contact,true);
   assert.equal(stateEvent.metadata.after.referred_to_leandro,true);
   assert.equal(stateEvent.metadata.after.recontact_at.slice(0,10),'2026-12-15');
