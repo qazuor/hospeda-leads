@@ -91,7 +91,12 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(communication.getByLabel('Asunto final')).toHaveValue('Hola {{contact}}');
   await expect(communication.getByRole('alert')).toContainText('Faltan datos en este mensaje');
   await expect(communication.getByRole('button',{name:'Guardar y ver contenido final'})).toBeDisabled();
+  await communication.getByLabel('Asunto final').fill('Hola');
+  await communication.getByLabel('Mensaje final').fill('Mensaje general de prueba');
+  await communication.getByRole('button',{name:'Guardar y ver contenido final'}).click();
+  await expect(communication.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
   await communication.getByRole('button',{name:'Cerrar',exact:true}).first().click();
+  await expect(page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true})).toBeVisible();
   // Capture WhatsApp intent locally: this test never opens or sends a real message.
   await page.evaluate(()=>{window.open=(url)=>{(window as unknown as {crmWhatsAppUrl:string}).crmWhatsAppUrl=String(url);return null}});
   await page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();

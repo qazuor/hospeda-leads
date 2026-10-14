@@ -257,7 +257,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  if(input.action==='edit'){
   const m=await messageFor(e,input.id,user,true);if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
-  const updated={...m,subject:input.subject.trim(),body:input.body};if(m.channel==='email'&&!updated.subject)throw new Error('Asunto obligatorio');if(!input.body.trim())throw new Error('Mensaje vacío');if(unresolvedTemplateVariables(input.body).length)throw new Error('Completá o quitá las variables pendientes antes de guardar.');
+  const updated={...m,subject:input.subject.trim(),body:input.body};if(m.channel==='email'&&!updated.subject)throw new Error('Asunto obligatorio');if(!input.body.trim())throw new Error('Mensaje vacío');if([...unresolvedTemplateVariables(updated.subject),...unresolvedTemplateVariables(input.body)].length)throw new Error('Completá o quitá las variables pendientes del asunto y del mensaje antes de guardar.');
   // Content is sanitized separately before preview and sending.
   const body=m.channel==='email'?sanitizeEmail(input.body):input.body;
   const final=await renderFinal(e,{...updated,body},user);
