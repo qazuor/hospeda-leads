@@ -12,6 +12,7 @@ import {SequenceSettings} from "../components/SequenceSettings";
 import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
+import {BusinessReassignment} from "../components/BusinessReassignment";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users } from "lucide-react";
@@ -28,8 +29,8 @@ import { getSettings, type OperationalUser } from "../endpoints/settings_GET.sch
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="businesses"|"users"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
-const SECTIONS:Section[]=["businesses","users","classifications","process","communication","templates","library","system"];
+type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
+const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","library","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -79,6 +80,7 @@ export default function SettingsPage(){
   const tabs=[
     {key:"businesses" as const,label:"Listado de negocios",icon:SlidersHorizontal},
     {key:"users" as const,label:"Usuarios",icon:Users},
+    {key:"reassignment" as const,label:"Redistribución",icon:GitBranch},
     {key:"classifications" as const,label:"Clasificaciones",icon:Tags},
     {key:"process" as const,label:"Proceso comercial",icon:GitBranch},
     {key:"communication" as const,label:"Comunicación",icon:Mail},
@@ -95,6 +97,7 @@ export default function SettingsPage(){
       {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}{save.error&&<div role="alert" className={styles.error}>{save.error.message}</div>}
 
       {section==="businesses"&&<BusinessListDefaults/>}
+      {section==="reassignment"&&<BusinessReassignment/>}
       {section==="users"&&<section className={styles.content}>
         <article className={styles.usersCard}>
           <div className={styles.usersHeader}>

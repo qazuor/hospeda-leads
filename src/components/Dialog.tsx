@@ -97,7 +97,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
     closeOnEscape={layer.active && !onEscapeKeyDown && !ctx.hasOpenChild} closeOnClickOutside={layer.active && !onInteractOutside && !ctx.hasOpenChild}
     onEnterTransitionEnd={focus} returnFocus={!onCloseAutoFocus}
     onExitTransitionEnd={() => { const event = new Event('focus', { cancelable: true }); onCloseAutoFocus?.(event); }}>
-    <Modal.Overlay onClick={onInteractOutside ? () => { if (layer.active && guard(onInteractOutside)) close(); } : undefined} />
+    <Modal.Overlay className="crm-dialog-overlay" backgroundOpacity={0.62} blur={2} onClick={onInteractOutside ? () => { if (layer.active && guard(onInteractOutside)) close(); } : undefined} />
     <Modal.Content {...props} ref={ref} classNames={{ content: [styles.content, className].filter(Boolean).join(' ') }}>
       {children}
       {showCloseButton && <CloseButton aria-label="Cerrar" className={styles.close} size="lg" onClick={close} />}

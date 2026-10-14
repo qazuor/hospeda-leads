@@ -19,6 +19,7 @@ describe('Commercial days are explicit Argentina calendar days',()=>{
  it('preserves legacy calendar date and rejects impossible dates',()=>{
   expect(calendarDay(new Date('2026-10-01T00:00:00Z'))).toBe('2026-10-01');
   expect(toDateInput(new Date('2026-10-01T12:00:00Z'))).toBe('2026-10-01');
+  expect(toDateInput(new Date('2026-11-13T00:00:00Z'))).toBe('2026-11-13');
   expect(day.safeParse('2026-02-30').success).toBe(false);
   expect(day.safeParse('2028-02-29').success).toBe(true);
   expect(nextActionInfo(null).tone).toBe('empty');

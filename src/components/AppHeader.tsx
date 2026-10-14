@@ -75,7 +75,7 @@ export const AppHeader=()=>{
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-    </div><Drawer opened={navigationOpen} onClose={()=>setNavigationOpen(false)} title="Menú de navegación" position="left" size="min(22rem, calc(100vw - 24px))" zIndex={450} closeButtonProps={{'aria-label':'Cerrar menú de navegación'}} classNames={{content:styles.drawerContent,header:styles.drawerHeader,body:styles.drawerBody}}>
+    </div><Drawer opened={navigationOpen} onClose={()=>setNavigationOpen(false)} title="Menú de navegación" position="left" size="min(22rem, calc(100vw - 24px))" zIndex={450} withOverlay overlayProps={{backgroundOpacity:0.62,blur:2,className:'crm-dialog-overlay'}} closeButtonProps={{'aria-label':'Cerrar menú de navegación'}} classNames={{content:styles.drawerContent,header:styles.drawerHeader,body:styles.drawerBody}}>
       <nav id="crm-mobile-navigation" aria-label="Navegación móvil" className={styles.mobileNavigation}>
         {mainNavigation.map(mobileLink)}<div className={styles.navigationDivider}/>{extraNavigation.map(mobileLink)}
         {isAdmin&&<><p className={styles.navigationLabel}>Administración</p>{adminNavigation.map(mobileLink)}</>}

@@ -21,7 +21,7 @@ async function call(handler:(r:Request)=>Promise<Response>,url:string,body?:unkn
  const data=superjson.parse<any>(await r.text());assert.equal(r.status,status,data.error);return data;
 }
 const count=async()=>Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n);
-const auditDB=postgres(process.env.DATABASE_URL!,{max:1,prepare:false});
+const auditDB=postgres(process.env.DATABASE_URL!,{max:1,prepare:false,path:process.env.CRM_TEST_DATABASE_SOCKET});
 try{
  const initial=await count();
  const {id:accountId}=await call(post,'commercial',{action:'account_save',nombre:'Solo negocio '+stamp});
