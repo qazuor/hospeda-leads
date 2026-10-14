@@ -19,7 +19,7 @@ try{
  const applied=exec(['--manifest',path,'--output',join(folder,'applied.json'),'--apply','--expected-preview',preview.previewSha256,'--actor',email]);assert.equal(applied.committed,true);
  const [after]=await db`SELECT * FROM crm_accounts WHERE id=${account.id}`;
  for(const k of ['nombre','assigned_user_email','archived_at','discovery_source','verification_urls','commercial_status','client_since'])assert.deepEqual(after[k],account[k],k+' preserved');
- assert.equal(after.origin,'Turismo Colón');assert.equal(after.review_status,'filtered');assert.equal(after.subscription_label,'Comp');assert.equal(after.deleted_by_email,'historical@example.com');assert.equal(new Date(after.deleted_at).toISOString(),manifest.accounts[0].values.deleted_at);
+ assert.equal(after.origin,'Turismo Colón');assert.equal(after.review_status,'filtered');assert.equal(after.status,'archived','An archived business stays archived when metadata is recovered');assert.equal(after.subscription_label,'Comp');assert.equal(after.deleted_by_email,'historical@example.com');assert.equal(new Date(after.deleted_at).toISOString(),manifest.accounts[0].values.deleted_at);
  assert.equal((await db`SELECT count(*)::int AS n FROM leads WHERE account_id=${account.id}`)[0].n,0,'No artificial management recreated');
  assert.equal((await db`SELECT count(*)::int AS n FROM crm_commercial_journal WHERE account_id=${account.id} AND action='business_metadata_recovered'`)[0].n,1);
  const repeat=exec(['--manifest',path,'--output',join(folder,'repeat.json')]);assert.equal(repeat.counts.origin,0);assert.equal(repeat.conflicts,0);
