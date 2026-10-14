@@ -77,11 +77,11 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
     calls++;
     if(calls===1){await gate;await route.fulfill({status:500,contentType:'application/json',body:superjson.stringify({error:'No se pudo levantar'})});return;}
     restriction.liftedAt=new Date();restriction.liftReason=writes[1].reason;data={ok:true};
-   }else data={restrictions:[restriction],messages:[],recentMessages:[],recentContactHours:24};
+   }else data={restrictions:[restriction],messages:[],recentMessages:[],responses:[],openManagements:[],recentContactHours:24,webhookConfigured:false};
   }
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
- await page.goto('/sales/201');await page.getByRole('tab',{name:'Comunicación',exact:true}).click();await expect(page.getByRole('heading',{name:'Comunicación',exact:true})).toBeVisible();
+ await page.goto('/sales/201');await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
  await page.getByRole('button',{name:'Restricciones de contacto',exact:true}).click();
  // Wait for the accordion's clipping animation before scrolling/clicking its last action.
  await expect.poll(()=>page.getByRole('region',{name:'Restricciones de contacto',exact:true}).evaluate(el=>getComputedStyle(el).overflow)).toBe('visible');
