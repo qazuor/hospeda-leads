@@ -177,11 +177,12 @@ BEGIN
     NEW.is_client := NEW.commercial_status='client';
     NEW.client_since := CASE WHEN NEW.is_client THEN coalesce(NEW.client_since,now()) ELSE NULL END;
   END IF;
-  IF NEW.review_status='filtered' AND NEW.status='new' THEN NEW.status:='reviewed'; END IF;
+  IF NEW.archived_at IS NOT NULL THEN NEW.status:='archived';
+  ELSIF NEW.review_status='filtered' AND NEW.status='new' THEN NEW.status:='reviewed'; END IF;
   IF NEW.status='reviewed' AND NOT NEW.is_client THEN NEW.review_status:='filtered'; END IF;
   RETURN NEW;
 END $$;
-CREATE TRIGGER crm_sync_client_indicator BEFORE INSERT OR UPDATE OF is_client,commercial_status,review_status,status ON crm_accounts
+CREATE TRIGGER crm_sync_client_indicator BEFORE INSERT OR UPDATE OF is_client,commercial_status,review_status,status,archived_at ON crm_accounts
 FOR EACH ROW EXECUTE FUNCTION crm_sync_client_indicator();
 
 CREATE FUNCTION crm_management_stage_guard() RETURNS trigger LANGUAGE plpgsql AS $$
