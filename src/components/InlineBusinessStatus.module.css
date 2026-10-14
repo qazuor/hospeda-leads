@@ -1,0 +1,17 @@
+.trigger{display:inline-flex;align-items:center;gap:3px;max-width:100%;min-width:0;border:0;background:transparent;color:inherit;cursor:pointer;padding:0!important;border-radius:6px;vertical-align:middle}
+.trigger>svg{flex-shrink:0;color:var(--muted-foreground)}
+.trigger:disabled{cursor:default}
+.trigger:focus-visible{outline:1.5px solid var(--crm-focus-color);outline-offset:2px}
+.badge{max-width:100%;flex:0 1 auto;text-align:left}
+.popover{display:grid;gap:10px;width:min(300px,calc(100vw - 24px));padding:8px!important}
+.options{display:grid;gap:3px}
+.option{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:36px;padding:5px 7px;border-radius:6px;text-align:left}
+.option:not(:disabled){cursor:pointer}
+.option:not(:disabled):hover{background:var(--surface)}
+.option:disabled{opacity:1;cursor:not-allowed;background:color-mix(in srgb,var(--surface) 75%,transparent);color:var(--muted-foreground)}
+.option:disabled :global(.mantine-Badge-root){cursor:not-allowed}
+.option:disabled :global(.mantine-Badge-root){filter:grayscale(1);opacity:.42}
+.option :global(.mantine-Badge-root){pointer-events:none}
+.option:focus-visible{outline:1.5px solid var(--crm-focus-color)}
+.date{display:grid;gap:5px;font-size:12px;color:var(--muted-foreground)}
+.error{font-size:12px;color:var(--destructive)}
