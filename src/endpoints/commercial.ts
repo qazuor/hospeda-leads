@@ -91,7 +91,6 @@ export async function post(request:Request){
           if(Boolean(account.deletedAt)===input.deleted)continue;
           const after=await trx.updateTable("crmAccounts").set({deletedAt:input.deleted?new Date():null,deletedByEmail:input.deleted?user.email:null,deletionReason:input.deleted?input.reason:null,updatedAt:new Date()}).where("id","=",account.id).returningAll().executeTakeFirstOrThrow();
           await audit(String(account.id),input.deleted?"account_deleted":"account_restored",account,{...after,reason:input.reason});
-          if(input.deleted)await sql`SELECT crm_stop_sequences(id, 'Negocio eliminado') FROM leads WHERE account_id=${account.id}`.execute(trx);
         }
         return ids[0];
       }
@@ -187,10 +186,15 @@ export async function post(request:Request){
       const managementType=(old as (typeof old&{managementType?:ManagementType|null})|null)?.managementType??requestedManagementType;
       if(old&&managementType&&input.estado&&input.estado!==old.estado)throw new Error('Cambiá la etapa desde la gestión.');
       let initialStage=input.estado;
-      if(!old&&managementType){
+      if(!old){
         if(account.archivedAt||stateAccount.status==='archived')throw new Error('Desarchivá el negocio antes de iniciar una gestión.');
-        if(stateAccount.status==='new')throw new Error('El negocio debe pasar por Revisado antes de iniciar una gestión.');
+        if(stateAccount.status==='new'){
+          if(!input.confirmReviewed)throw new Error('Confirmá que el negocio existe y es válido para marcarlo Revisado e iniciar la gestión.');
+          await trx.updateTable('crmAccounts').set({status:'reviewed',updatedAt:new Date()}).where('id','=',account.id).execute();
+        }
         if(managementType==='accompaniment'&&!stateAccount.isClient)throw new Error('El acompañamiento de ficha se inicia después de marcar al negocio como Cliente.');
+      }
+      if(!old&&managementType){
         const first=managementStageCatalog(managementType).find(stage=>stage.classification==='open'&&stage.key!==`${managementType}:leandro`);
         if(!first)throw new Error('No hay etapa inicial configurada para este tipo de gestión.');
         initialStage=first.key;

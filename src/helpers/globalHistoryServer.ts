@@ -26,6 +26,14 @@ const events=sql`WITH raw_events AS (
  UNION ALL
  SELECT 'configuration:'||j.id,NULL::bigint,NULL::bigint,j.entity,NULL::text,NULL::text,j.actor_email,NULL::text,'configuration_updated',NULL::text,NULL::text,NULL::text,jsonb_build_object('before',j.before_value,'after',j.after_value),j.created_at,'configuration'
  FROM crm_pipeline_config_journal j
+ UNION ALL
+ SELECT 'communication:'||j.id,j.lead_id,j.account_id,NULL::text,NULL::text,NULL::text,j.actor_email,
+ CASE WHEN j.is_automatic THEN 'Automático · '||coalesce(u.display_name,j.triggered_by_email,'Sistema') ELSE coalesce(j.actor_name,j.actor_email) END,
+ CASE WHEN j.is_automatic THEN 'automatic_'||j.action ELSE j.action END,NULL::text,
+ coalesce(j.before_value::text,''),coalesce(j.after_value::text,''),
+ jsonb_build_object('entityType',j.entity_type,'entityId',j.entity_id,'automatic',j.is_automatic,'triggeredBy',j.triggered_by_email,'before',j.before_value,'after',j.after_value,'relatedEventId',j.related_event_id),
+ j.created_at,'communication'
+ FROM crm_communication_journal j LEFT JOIN users u ON u.email=j.triggered_by_email
  ), events AS (
  SELECT e.id,e.lead_id,e.account_id,coalesce(e.lead_name,a.nombre,'Configuración / biblioteca') AS lead_name,
  coalesce(e.lead_city,a.ciudad) AS lead_city,coalesce(e.lead_type,a.tipo) AS lead_type,

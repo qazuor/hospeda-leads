@@ -77,7 +77,7 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
     calls++;
     if(calls===1){await gate;await route.fulfill({status:500,contentType:'application/json',body:superjson.stringify({error:'No se pudo levantar'})});return;}
     restriction.liftedAt=new Date();restriction.liftReason=writes[1].reason;data={ok:true};
-   }else data={restrictions:[restriction],messages:[],recentMessages:[],sequences:[],runs:[],recentContactHours:24};
+   }else data={restrictions:[restriction],messages:[],recentMessages:[],recentContactHours:24};
   }
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });

@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {templateCompatibility} from './messageTemplatePolicy';
+import {templateCompatibility,orderTemplatesBySpecificity} from './messageTemplatePolicy';
 
 describe('message template segmentation',()=>{
   it.each(['email','whatsapp'])('allows Referente models through %s',channel=>{
@@ -17,5 +17,10 @@ describe('message template segmentation',()=>{
   it('treats blank scopes as unset but does not invent classification aliases',()=>{
     expect(templateCompatibility({channel:'email',vertical:' ',commercialProfile:' '},{channel:'email',vertical:'Alojamientos',commercialProfile:'Referente'})).toBeNull();
     expect(templateCompatibility({channel:'email',vertical:'Alojamiento'},{channel:'email',vertical:'Alojamientos'})).toContain('vertical');
+  });
+  it('filters by management type when known and lists specialized models first',()=>{
+    expect(templateCompatibility({channel:'email',managementType:'partner'},{channel:'email',managementType:'main'})).toContain('tipo de gestión');
+    expect(templateCompatibility({channel:'email',managementType:'partner'},{channel:'email'})).toBeNull();
+    expect(orderTemplatesBySpecificity([{managementType:null,vertical:null,commercialProfile:null},{managementType:'partner',vertical:null,commercialProfile:null},{managementType:null,vertical:'Gastronomía',commercialProfile:'Referente'}]).map(t=>t.managementType??t.vertical??'general')).toEqual(['Gastronomía','partner','general']);
   });
 });

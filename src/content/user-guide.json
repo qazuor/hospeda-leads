@@ -505,35 +505,13 @@
           "Guardá el contenido con Guardar y ver contenido final antes de cerrar.",
           "Volvé a la gestión → Mensajes → Mensajes y borradores. Abrí el borrador y usá Volver a editar si necesitás cambiarlo.",
           "Si salís con cambios sin guardar, elegí volver a editar o descartarlos. Descartar conserva la última versión que ya estaba guardada.",
-          "Para cancelar un borrador independiente, abrí Opciones del borrador, marcá Quiero cancelar este borrador y elegí Cancelar borrador.",
-          "Si pertenece a una secuencia, administralo desde ese seguimiento asistido."
+          "Para cancelar un borrador, abrí Opciones del borrador, marcá Quiero cancelar este borrador y elegí Cancelar borrador."
         ],
         "result": "Cerrar no cancela un borrador guardado. Cancelarlo evita seguir usándolo, conservando su registro.",
         "example": [
           "Preparaste la propuesta pero falta confirmar el precio con el equipo. Guardá el borrador y volvé cuando tengas el dato; no lo envíes para probar."
         ],
         "notes": [],
-        "url": "",
-        "linkLabel": ""
-      },
-      {
-        "id": "sequence",
-        "title": "Cuándo usar un seguimiento asistido",
-        "when": "Cuando conviene seguir una serie de pasos ya definida por el equipo.",
-        "steps": [
-          "Abrí una gestión abierta → Mensajes → Iniciar secuencia. Revisá la Persona, elegí Secuencia y leé los pasos e intervalos.",
-          "Marcá Confirmo la generación de tareas y borradores y elegí Iniciar seguimiento asistido.",
-          "Revisá las tareas en Mi día y los borradores en Mensajes. Cada mensaje requiere revisión y acción humana para enviarlo.",
-          "Usá Pausar si todavía no corresponde continuar. Para Reanudar, escribí el motivo y elegí Fecha del próximo paso.",
-          "Usá Cancelar cuando esa secuencia ya no corresponde. Registrá respuestas, rechazos y pedidos de no contacto en lugar de seguir insistiendo."
-        ],
-        "result": "Se preparan tareas y borradores. Al reanudar, se reprograman los pasos restantes respetando sus intervalos.",
-        "example": [
-          "El equipo definió presentación y una consulta posterior. Usá la secuencia solo si coincide con el caso; para un único compromiso, alcanza una tarea."
-        ],
-        "notes": [
-          "No es un envío automático. Respuestas, rechazos, pedidos de no contacto y cierres de la gestión detienen los pasos correspondientes. No dupliques el mismo seguimiento con tareas manuales."
-        ],
         "url": "",
         "linkLabel": ""
       },
@@ -740,7 +718,7 @@
           "Renombrar un subtipo también actualiza los registros que lo usan. Eliminarlo retira la opción de nuevas selecciones y conserva valores existentes.",
           "Proceso comercial → Etapas y resultados: administrá etapas, motivos de pérdida, objeciones y prioridad sugerida. Desactivar preserva referencias históricas.",
           "Proceso comercial → Tareas y seguimiento: administrá tipos de actividad y qué tipos aparecen en Agenda, además de las reglas de seguimiento.",
-          "Comunicación configura envío global y secuencias. Templates administra mensajes modelo. Biblioteca administra recursos comunes. Sistema cambia apariencia y actualización automática."
+          "Comunicación configura el envío global de Email por Brevo. Templates administra mensajes modelo. Biblioteca administra recursos comunes. Sistema cambia apariencia y actualización automática."
         ],
         "result": "Las opciones compartidas quedan en el área correspondiente. Cambiar de sección no modifica datos.",
         "example": [],

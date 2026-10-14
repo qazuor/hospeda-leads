@@ -148,6 +148,7 @@ export async function post(request:Request){
    }
    if('outcome' in input&&input.outcome){
     const purpose=('purpose' in input?input.purpose:undefined)??previous?.purpose;
+    if(input.outcome==='do_not_contact'&&previous?.outcome!=='do_not_contact')throw new Error('Registrá “Pidió no contactar” en Comunicación para activar el bloqueo y elegir las gestiones que querés cerrar.');
     if(purpose&&!([...purposeOutcomes[purpose as WorkPurpose]] as string[]).includes(input.outcome))throw new Error('Elegí un resultado que corresponda al propósito de esta acción.');
    }
    if('continuation' in input&&input.continuation){
@@ -159,11 +160,6 @@ export async function post(request:Request){
     if(input.outcome==='do_not_contact'||account.doNotContact)throw new Error('No se puede planificar contacto para un negocio bloqueado.');
     await trx.selectFrom('crmWorkTypes').select('id').where('id','=',input.nextTask.typeId).where('active','=',true).executeTakeFirstOrThrow();
     await trx.insertInto('crmTasks').values({accountId,leadId,title:input.nextTask.title,continuation:'continuation' in input&&input.continuation==='wait'?'wait':null,purpose:input.nextTask.purpose??('purpose' in input?input.purpose:undefined)??previous?.purpose??null,typeId:input.nextTask.typeId,dueDate:input.nextTask.dueDate,assignedUserEmail:previous&&'assignedUserEmail' in previous?previous.assignedUserEmail:commercialOwner,priority:'media',contactIds:serialize(('contactIds' in input?input.contactIds:undefined)||previous?.contactIds||[])}).execute();
-   };
-   const restrictIfRequested=async()=>{
-    if(!('outcome' in input)||input.outcome!=='do_not_contact')return;
-    await sql`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','work_outcome',true)`.execute(trx);
-    await trx.updateTable('crmAccounts').set({doNotContact:true,updatedAt:new Date()}).where('id','=',accountId).execute();
    };
    if(input.action==='task_status'){
     const task=await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id).executeTakeFirstOrThrow();
@@ -177,7 +173,7 @@ export async function post(request:Request){
      await trx.insertInto('crmActivities').values({accountId,leadId,taskId:input.id,purpose:input.purpose??task.purpose,continuation:input.continuation??null,typeId:task.typeId,title:task.title,occurredAt:completedAt,outcome:input.outcome??null,result:input.result,notes:task.description,participants:task.participants,channel:input.channel??null,contactIds:serialize(actualContacts),actorEmail:user.email}).execute();
 
     }
-    await restrictIfRequested();await createNextTask();
+    await createNextTask();
     return input.id;
    }
    const type=await trx.selectFrom('crmWorkTypes').selectAll().where('id','=',input.typeId).executeTakeFirstOrThrow();
@@ -201,7 +197,7 @@ export async function post(request:Request){
    // The activity linked to a completion owns the factual completion date/result.
    if(previous&&'taskId' in previous&&previous.taskId)await trx.updateTable('crmTasks').set({completedAt:occurredAt,purpose:input.purpose??previous.purpose,continuation:input.continuation??null,outcome:input.outcome??null,result:input.result??null,updatedAt:new Date()}).where('id','=',previous.taskId).where('status','=','completed').execute();
 
-   await restrictIfRequested();await createNextTask();
+   await createNextTask();
    return row.id;
   });
   return reply({id});

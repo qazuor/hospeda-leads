@@ -8,6 +8,7 @@ export type TemplateContext={
   phone?:unknown;
   email?:unknown;
   website?:unknown;
+  hospeda_url?:unknown;
   sender?:unknown;
   sender_short?:unknown;
 };
@@ -40,7 +41,7 @@ export function renderMessageTemplate(source:string,context:TemplateContext){
     if(next===out)break;
     out=next;
   }
-  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>values[key]??"");
+  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>values[key]||`{{${key}}}`);
   return out
     .replace(/[ \t]+([,.;:!?])/g,"$1")
     .replace(/[ \t]{2,}/g," ")
@@ -63,12 +64,16 @@ export function renderMessageTemplateHtml(source:string,context:TemplateContext)
     if(next===out)break;
     out=next;
   }
-  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>htmlValues[key]??"");
+  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>htmlValues[key]||`{{${key}}}`);
   return out
     .replace(/<p>\s*<\/p>/g,"")
     .replace(/javascript:/gi,"")
     .replace(/\son[a-z]+\s*=\s*["'][^"']*["']/gi,"")
     .trim();
+}
+
+export function unresolvedTemplateVariables(source:string){
+  return [...new Set([...source.matchAll(/{{\s*([a-zA-Z0-9_]+)\s*}}/g)].map(match=>match[1]))];
 }
 
 export function htmlToPlainText(source:string){

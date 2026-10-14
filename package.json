@@ -23,7 +23,7 @@
     "db:preflight:business-state": "node scripts/business-state-preflight.mjs",
     "test:auth": "node --import tsx scripts/test-password-recovery.ts",
     "test:quality": "node scripts/test-data-quality-migration.mjs && node scripts/test-business-import-migration.mjs && node --import tsx scripts/test-data-quality.ts && node --import tsx scripts/test-business-import.ts && node --import tsx scripts/test-business-import-api.ts",
-    "test:communication": "node scripts/test-communication-migration.mjs && node --import tsx scripts/test-communication.ts && node --import tsx scripts/test-message-model-review.mjs",
+    "test:communication": "node scripts/test-communication-migration.mjs && node scripts/test-communication-product-migration.mjs && node --import tsx scripts/test-communication.ts && node --import tsx scripts/test-message-model-review.mjs",
     "test:usability": "node --import tsx scripts/test-usability.ts",
     "test:permissions": "node --import tsx scripts/test-permissions.ts",
     "db:review:models": "node scripts/review-message-models.mjs",

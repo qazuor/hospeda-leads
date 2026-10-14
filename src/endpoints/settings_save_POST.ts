@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { buildHospedaEmailHtml, buildHospedaEmailText } from "../helpers/hospedaEmailLayout";
+import {sql} from 'kysely';
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./settings_save_POST.schema";
 
@@ -290,27 +291,34 @@ export async function handle(request:Request){
       await db.updateTable("messageTemplates").set({active:false,updatedAt:new Date()}).where("id","=",target.id).execute();
     }
 
+    if(input.action==="setTemplateActive"){
+      await db.updateTable("messageTemplates").set({active:input.active,updatedAt:new Date()}).where("id","=",String(input.id)).execute();
+    }
+
+    if(input.action==="restoreTemplateVersion"){
+      await db.transaction().execute(async trx=>{
+        await setWorkActor(trx,user);
+        const old=(await sql<{snapshot:any}>`SELECT snapshot FROM crm_message_template_versions WHERE template_id=${String(input.id)} AND version=${input.version} FOR UPDATE`.execute(trx)).rows[0];
+        if(!old)throw new Error('No existe esa versión del modelo.');
+        const v=old.snapshot;
+        await trx.updateTable('messageTemplates').set({channel:v.channel,name:v.name,subject:v.subject,body:v.body,vertical:v.vertical,managementType:v.management_type,commercialProfile:v.commercial_profile,updatedAt:new Date()}).where('id','=',String(input.id)).execute();
+        const current=await sql<any>`SELECT to_jsonb(t) AS value FROM message_templates t WHERE id=${String(input.id)}`.execute(trx);
+        const next=await sql<{version:number}>`SELECT coalesce(max(version),0)+1 AS version FROM crm_message_template_versions WHERE template_id=${String(input.id)}`.execute(trx);
+        await sql`INSERT INTO crm_message_template_versions(template_id,version,snapshot,actor_email) VALUES(${String(input.id)},${next.rows[0].version},${JSON.stringify(current.rows[0].value)}::text::jsonb,${user.email})`.execute(trx);
+      });
+    }
+
     if(input.action==="saveTemplate"){
-      if(input.id){
-        await db.updateTable("messageTemplates").set({
-          channel:input.channel,
-          name:input.name.trim(),
-          subject:input.channel==="email"?(input.subject?.trim()||null):null,
-          body:input.body,
-          vertical:input.vertical?.trim()||null,
-          commercialProfile:input.commercialProfile??null,
-          updatedAt:new Date()
-        }).where("id","=",String(input.id)).execute();
-      }else{
-        await db.insertInto("messageTemplates").values({
-          channel:input.channel,
-          name:input.name.trim(),
-          subject:input.channel==="email"?(input.subject?.trim()||null):null,
-          body:input.body,
-          vertical:input.vertical?.trim()||null,
-          commercialProfile:input.commercialProfile??null
-        }).execute();
-      }
+      await db.transaction().execute(async trx=>{
+        await setWorkActor(trx,user);
+        const values={channel:input.channel,name:input.name.trim(),subject:input.channel==="email"?(input.subject?.trim()||null):null,body:input.body,vertical:input.vertical?.trim()||null,managementType:input.managementType??null,commercialProfile:input.commercialProfile??null,updatedAt:new Date()};
+        let templateId:string;
+        if(input.id){const saved=await trx.updateTable('messageTemplates').set(values).where('id','=',String(input.id)).returning('id').executeTakeFirstOrThrow();templateId=String(saved.id);}
+        else{const saved=await trx.insertInto('messageTemplates').values(values).returning('id').executeTakeFirstOrThrow();templateId=String(saved.id);}
+        const snapshot=(await sql<any>`SELECT to_jsonb(t) AS value FROM message_templates t WHERE id=${templateId}`.execute(trx)).rows[0].value;
+        const next=(await sql<{version:number}>`SELECT coalesce(max(version),0)+1 AS version FROM crm_message_template_versions WHERE template_id=${templateId}`.execute(trx)).rows[0].version;
+        await sql`INSERT INTO crm_message_template_versions(template_id,version,snapshot,actor_email) VALUES(${templateId},${next},${JSON.stringify(snapshot)}::text::jsonb,${user.email})`.execute(trx);
+      });
     }
 
     return new Response(superjson.stringify({ok:true} satisfies OutputType));

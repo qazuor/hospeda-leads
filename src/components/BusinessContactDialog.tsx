@@ -7,6 +7,7 @@ import {CrmButton as Button} from './ui/CrmButton';
 import {CrmSelect} from './ui/CrmSelect';
 import {CommercialEditor,type EditorTarget} from './CommercialEditor';
 import {ContactTemplateDialog} from './ContactTemplateDialog';
+import {GeneralContactDialog} from './GeneralContactDialog';
 import {getPipeline} from '../endpoints/pipeline.schema';
 import {getCommunication} from '../endpoints/communication.schema';
 import {getSettings} from '../endpoints/settings_GET.schema';
@@ -23,27 +24,33 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const history=useQuery({queryKey:['communication','account',detail.account.id],queryFn:()=>getCommunication('',detail.account.id)});
  const [chosen,setChosen]=useState(''),[channelChoice,setChannel]=useState<'email'|'whatsapp'|null>(initialChannel??null);
  const [created,setCreated]=useState(false);
- const [composing,setComposing]=useState(false),[editor,setEditor]=useState<EditorTarget|null>(null);
+ const [composing,setComposing]=useState(false),[generalContact,setGeneralContact]=useState(false),[editor,setEditor]=useState<EditorTarget|null>(null);
  const open=detail.opportunities.filter(o=>!o.deletedAt&&(stages.data?.stages.find(s=>s.name===o.estado)?.classification??'open')==='open');
  const effective=chosen||(open.length===1?String(open[0].id):'');
  const opportunity=open.find(o=>String(o.id)===effective);
- const recent=history.data?.recentMessages.find(m=>String(m.leadId)===effective);
- const channel=channelChoice??recent?.channel??(detail.account.telefono?'whatsapp':'email');
- const recipient=initialContactId??(recent?.channel===channel&&detail.contacts.some(c=>!c.deletedAt&&String(c.id)===recent.contactId)?recent.contactId!:'');
+ const archived=!!detail.account.archivedAt||detail.account.status==='archived';
+ const recentCandidate=history.data?.recentMessages.find(m=>String(m.leadId)===effective&&(m.channel==='email'||m.channel==='whatsapp'));
+ const recent=recentCandidate&&(recentCandidate.channel==='email'||recentCandidate.channel==='whatsapp')?recentCandidate:null;
+ const channel=channelChoice??(recent?.channel==='email'||recent?.channel==='whatsapp'?recent.channel:null)??(detail.account.telefono?'whatsapp':'email');
+ const activeContacts=detail.contacts.filter(c=>!c.deletedAt);
+ const recipient=initialContactId??(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:'');
  if(editor)return <CommercialEditor target={editor} detail={detail} onSaved={id=>{if(editor.kind==='opportunity'){setChosen(id);setCreated(true)}}} onClose={()=>setEditor(null)}/>;
  if(composing&&opportunity)return <ContactTemplateDialog open channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onAddChannel={canModifyBusiness(user,detail.account)?()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}:undefined} onOpenChange={v=>{if(!v)setComposing(false)}}/>;
+ if(generalContact)return <GeneralContactDialog detail={detail} templates={settings.data?.templates??[]} onClose={()=>setGeneralContact(false)}/>;
  return <CrmDialog opened onClose={onClose} title="Contactar" returnFocusTo={returnFocusTo}
   description={<>{detail.account.nombre} · Elegí la gestión y el canal. Después verificá el destinatario y revisá el mensaje.</>}>
   {stages.isPending||settings.isPending||history.isPending?<p role="status">Cargando gestiones y mensajes modelo…</p>:stages.error||settings.error||history.error?<><p role="alert">{stages.error?.message||settings.error?.message||history.error?.message}</p><Button onClick={()=>{void stages.refetch();void settings.refetch();void history.refetch()}}>Reintentar</Button></>:<div className={styles.section}>
    {created&&<p role="status">Gestión guardada. Elegí el canal para continuar. Todavía no se realizó un contacto.</p>}
-   {!open.length?<><p>Sin gestiones abiertas. Para contactar, prepará y guardá una gestión. La persona y la propuesta son opcionales.</p><Button disabled={!canModifyBusiness(user,detail.account)} leftSection={<Plus size={18} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Preparar gestión para contactar</Button>{!canModifyBusiness(user,detail.account)&&<p>El responsable del negocio o un administrador puede preparar una gestión.</p>}</>:<>
+   {!open.length?<><p>Sin gestiones abiertas. Podés hacer un contacto general o iniciar una gestión. Al guardarla vas a volver acá para elegir el canal y preparar el mensaje; todavía no se contacta al comercio.</p>{archived&&<p role="status">Un administrador debe desarchivar este negocio antes de contactar o iniciar una gestión.</p>}<Button variant="outline" disabled={!canModifyBusiness(user,detail.account)||detail.account.doNotContact||!!detail.account.archivedAt} onClick={()=>setGeneralContact(true)}>Contactar en general</Button><Button disabled={!canModifyBusiness(user,detail.account)||archived} leftSection={<Plus size={18} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Iniciar gestión y continuar</Button>{!canModifyBusiness(user,detail.account)&&<p>El responsable del negocio o un administrador puede preparar una gestión.</p>}</>:<>
     {open.length===1?<p>Gestión: <strong>{opportunity?.opportunityName||'Presentación de Hospeda'}</strong></p>:<CrmSelect label="Gestión abierta" placeholder="Elegí una gestión" value={effective||null} onChange={value=>setChosen(value??'')} data={open.map(o=>({value:String(o.id),label:(o.opportunityName||'Gestión #'+o.id)+' · '+(o.estado||'Sin etapa')}))}/>}
     <CrmNativeSelect label="Canal" value={channel} onChange={e=>setChannel(e.target.value as 'email'|'whatsapp')}
       leftSection={channel==='email'?<Mail size={18} aria-hidden="true"/>:<MessageCircle size={18} aria-hidden="true"/>}
       data={[{value:'whatsapp',label:'WhatsApp'},{value:'email',label:'Email'}]}/>
     {recent&&<p>Último canal usado en esta gestión: {recent.channel==='email'?'Email':'WhatsApp'} · {recent.recipient}. Podés cambiarlo antes de preparar el mensaje.</p>}
     <p>Podés usar el teléfono o email del negocio, sin cargar una persona. También podrás elegir una persona registrada.</p>
-    <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!canModifyManagement(user,opportunity,detail.account)||detail.account.doNotContact} onClick={()=>setComposing(true)}>Continuar con el mensaje</Button>
+    <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!canModifyManagement(user,opportunity,detail.account)||detail.account.doNotContact||archived} onClick={()=>setComposing(true)}>Continuar con el mensaje</Button>
+    {archived&&<p role="status">Un administrador debe desarchivar este negocio antes de iniciar un contacto.</p>}
+    <Button variant="outline" disabled={!canModifyBusiness(user,detail.account)||detail.account.doNotContact||!!detail.account.archivedAt} onClick={()=>setGeneralContact(true)}>Contactar en general</Button>
     {opportunity&&!canModifyManagement(user,opportunity,detail.account)&&<p>Solo el responsable de esta gestión o un administrador puede preparar sus mensajes.</p>}
    </>}
    {detail.account.doNotContact&&<p role="alert">Este negocio pidió no recibir contactos. Revisá su restricción antes de continuar.</p>}

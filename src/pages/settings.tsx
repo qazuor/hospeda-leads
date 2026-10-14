@@ -8,7 +8,6 @@ import { NativeSelect } from '../components/NativeSelect';
 import {BusinessListDefaults} from '../components/BusinessListDefaults';
 import {ClassificationSettings} from "../components/ClassificationSettings";
 import {SectionTabs, SectionTabList, SectionTab, SectionTabPanel} from "../components/SectionTabs";
-import {SequenceSettings} from "../components/SequenceSettings";
 import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
@@ -129,7 +128,7 @@ export default function SettingsPage(){
         </SectionTabs>
       </section>}
 
-      {section==="communication"&&<section className={styles.content}><header className={styles.processHeading}><h2>Comunicación</h2><p>Envío de email y seguimientos asistidos.</p></header>
+      {section==="communication"&&<section className={styles.content}><header className={styles.processHeading}><h2>Comunicación</h2><p>Configuración del envío de Email por Brevo.</p></header>
         <article className={styles.card}>
           <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery?.brevoConnected?"success":"warning"}>{data?.emailDelivery?.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
           <div className={styles.deliveryGrid}>
@@ -144,8 +143,6 @@ export default function SettingsPage(){
       {section==="library"&&<section className={styles.content}><ResourcesPanel manageLibrary/></section>}
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
-
-      {section==="communication"&&<div className={styles.sequenceSection}><SequenceSettings/></div>}
 
       {section==="system"&&<section className={styles.grid}>
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>

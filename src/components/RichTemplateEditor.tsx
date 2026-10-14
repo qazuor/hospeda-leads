@@ -32,8 +32,8 @@ import { normalizeTemplateHtml } from "../helpers/renderMessageTemplate";
 import { WHATSAPP_EMOJI_GROUPS } from "../helpers/whatsappEmoji";
 import styles from "./RichTemplateEditor.module.css";
 
-const VARIABLE_LABELS:Record<string,string>={sender:"Nombre de quien envía",sender_short:"Nombre corto de quien envía",name:"Nombre del negocio",contact:"Persona de contacto",contact_name:"Persona de contacto",city:"Ciudad",type:"Vertical",subtype:"Subtipo",phone:"Teléfono",email:"Email",website:"Sitio web"};
-const VARIABLES=["sender","sender_short","name","contact","contact_name","city","type","subtype","phone","email","website"];
+const VARIABLE_LABELS:Record<string,string>={contact:"Persona de contacto",name:"Nombre del negocio",type:"Vertical o tipo",sender:"Responsable asignado",hospeda_url:"Enlace a ficha pública de Hospeda"};
+const VARIABLES=["contact","name","type","sender","hospeda_url"];
 
 export const RichTemplateEditor=({
   value,onChange,channel,showVariables=true,ariaLabel='Contenido del modelo'

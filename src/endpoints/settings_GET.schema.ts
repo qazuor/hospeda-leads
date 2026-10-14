@@ -20,7 +20,8 @@ export type SettingsOutput = {
   subtypes: {id:string; typeName:string|null; name:string}[];
   authorizedEmails: {id:string; email:string; displayName:string|null}[];
   users: OperationalUser[];
-  templates: {id:string; channel:string; name:string; subject:string|null; body:string; vertical:string|null; commercialProfile:string|null}[];
+  templates: {id:string; channel:string; name:string; subject:string|null; body:string; vertical:string|null; managementType:string|null;commercialProfile:string|null;active?:boolean}[];
+  templateVersions?: {templateId:string;version:number;snapshot:Record<string,unknown>;actorEmail:string|null;createdAt:Date}[];
   emailDelivery?: {
     senderName:string;
     senderEmail:string;
