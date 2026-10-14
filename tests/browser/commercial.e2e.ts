@@ -41,14 +41,12 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Cancelar',exact:true}).click();
   await expect(page.getByText('Ana · Principal',{exact:true})).toHaveCount(0);
   await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
-  for(const [name,stage,person] of [['Primera gestión','Cargado','Ana'],['Segunda gestión','En tratativas','Luis']]){
+  for(const [name,person] of [['Primera gestión','Ana'],['Segunda gestión','Luis']]){
     await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
     await page.getByLabel('Nombre de la gestión').fill(name);
     await page.getByLabel('Cierre estimado',{exact:true}).fill('2027-01-15');
-    await page.getByRole('combobox',{name:'Tipo de negocio',exact:true}).selectOption({label:'Alojamiento'});
-    await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:stage});
-    await page.getByRole('combobox',{name:'Contacto principal de gestión',exact:true}).selectOption({label:person});
-    await page.getByRole('button',{name:'Guardar',exact:true}).click();
+    await page.getByRole('combobox',{name:'Persona para esta gestión',exact:true}).selectOption({label:person});
+    await page.getByRole('button',{name:/^(Iniciar gestión|Marcar Revisado e iniciar gestión)$/}).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
   await expect(page.getByRole('heading',{name:'Gestiones comerciales (2)',exact:true})).toBeVisible();
@@ -76,10 +74,9 @@ test('account with two contacts and independent opportunities preserves lead and
   await lead.getByText('Contactos del negocio (2)',{exact:true}).click();
   await lead.getByText('Gestiones comerciales de este negocio (2)',{exact:true}).click();
   await expect(lead.getByRole('heading',{name:'Contacto',exact:true})).toHaveCount(0);
-  await expect(lead.getByText('La gestión abierta está marcada como Actual.',{exact:false})).toBeVisible();
   await page.screenshot({path:'test-results/lead-commercial-detail.png',fullPage:true,animations:'disabled'});
   await expect(lead.getByRole('heading',{name:'Primera gestión',exact:true})).toBeVisible();
-  await expect(lead.getByText('Cargado',{exact:true}).first()).toBeVisible();
+  await expect(lead.getByText('Por contactar',{exact:true}).first()).toBeVisible();
   await lead.getByText('Otras acciones',{exact:true}).click();await lead.getByRole('button',{name:'Contactar ahora',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Preparar email con un mensaje modelo',exact:true}).click();
   const communication=page.getByRole('dialog').last();
   await expect(communication.getByRole('combobox',{name:'Destinatario',exact:true})).toHaveValue(/\d+/);
@@ -119,10 +116,9 @@ test('account with two contacts and independent opportunities preserves lead and
   const row=page.locator('article').filter({has:page.getByRole('link',{name:'Primera gestión actualizada',exact:true})});
   await row.getByRole('button',{name:'Editar datos de gestión',exact:true}).click();
   await expect(page.getByLabel('Cierre estimado',{exact:true})).toHaveValue('15/01/2027');
-  await page.getByRole('combobox',{name:'Estado / etapa',exact:true}).selectOption({label:'1er contacto'});
-  await page.getByRole('button',{name:'Guardar',exact:true}).click();
-  await expect(row.getByText(/1er contacto/)).toBeVisible();
-  await expect(page.locator('article').filter({has:page.getByRole('link',{name:'Segunda gestión',exact:true})}).getByText(/En tratativas/)).toBeVisible();
+  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+  await expect(row.getByText(/Por contactar/)).toBeVisible();
+  await expect(page.locator('article').filter({has:page.getByRole('link',{name:'Segunda gestión',exact:true})}).getByText(/Por contactar/)).toBeVisible();
   await page.getByRole('tab',{name:/^Contactos/}).click();
   const contact=page.locator('article').filter({has:page.getByText('Ana',{exact:true})});
   await contact.getByRole('button',{name:'Dar de baja',exact:true}).click();
@@ -138,7 +134,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByLabel('Buscar negocio',{exact:true}).fill('Negocio E2E');
   await page.getByRole('dialog').getByRole('button',{name:/^Negocio E2E/}).click();
   await page.getByLabel('Nombre de la gestión',{exact:true}).fill('Tercera gestión');
-  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Tercera gestión',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'← Volver a Gestiones comerciales',exact:true}).click();
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
