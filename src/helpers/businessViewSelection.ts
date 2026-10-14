@@ -30,7 +30,7 @@ export function manualViewFilterDelta(current:ListPreferences,baseline:ListPrefe
  return {filters,visibleRuleIndexes,query:current.query===baseline.query?'':current.query,legacyFilters:Object.keys(legacyFilters??{}).length?legacyFilters:undefined};
 }
 export function readBusinessViewSelection(userId:number):BusinessViewSelection|null{
- try{const parsed=selectionSchema.safeParse(JSON.parse(localStorage.getItem(businessViewSelectionKey(userId))??'null'));return parsed.success?parsed.data:null;}catch{return null;}
+ try{const parsed=selectionSchema.safeParse(JSON.parse(localStorage.getItem(businessViewSelectionKey(userId))??'null'));return parsed.success?{...parsed.data,baseline:availableListPreferences(parsed.data.baseline)}:null;}catch{return null;}
 }
 export function saveBusinessViewSelection(userId:number,selection:BusinessViewSelection|null):boolean{
  try{if(selection)localStorage.setItem(businessViewSelectionKey(userId),JSON.stringify(selection));else localStorage.removeItem(businessViewSelectionKey(userId));return true;}catch{return false;}

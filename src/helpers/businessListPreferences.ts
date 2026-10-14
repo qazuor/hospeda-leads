@@ -11,7 +11,7 @@ const TABLE_COLUMNS=[
   {key:"commercialProfile",label:"Perfil comercial"},
   {key:"ciudad",label:"Ciudad"},
   {key:"estado",label:"Estado"},
-  {key:"reviewStatus",label:"Revisión"},
+  {key:"businessStatus",label:"Estado del negocio"},
   {key:"suscripcion",label:"Suscripción"},
   {key:"email",label:"Email"},
   {key:"telefono",label:"Teléfono"},
@@ -41,7 +41,7 @@ const DEFAULT_WIDTHS:Record<string,number>={actions:110,nombre:220,assignedUserE
 export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
 const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 export const BUSINESS_COLUMNS=[...BUSINESS_DATA_COLUMNS,{key:'actions',label:'Acciones'}];
-const field=z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key),'Campo desconocido');
+const field=z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key)||key==='reviewStatus','Campo desconocido');
 const legacyFiltersSchema=leadsSchema.omit({anchorAccountId:true,alignAnchorPage:true,entity:true,q:true,filterGroups:true,view:true,page:true,pageSize:true,sortBy:true,sortDir:true});
 export const listPreferencesSchema=z.object({
  presentation:z.enum(['table','grid']),columns:z.array(field).min(1).max(40).refine(v=>v.includes('nombre')&&new Set(v).size===v.length),
@@ -54,23 +54,38 @@ export type ListPreferences=z.infer<typeof listPreferencesSchema>;
 export const BUSINESS_PAGINATION_CONTROLS_ENABLED=false;
 export const BUSINESS_RESULTS_CONTROL_ENABLED=false;
 export function availableListPreferences(preferences:ListPreferences):ListPreferences{
- const layout=preferences.columnLayoutVersion===2?preferences:{...preferences,columnLayoutVersion:2 as const,columns:[...preferences.columns.filter(key=>key!=='actions'),'actions'],widths:{...preferences.widths,actions:110},pins:{...preferences.pins,actions:'right' as const}};
- return {...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50};
+ const filters=preferences.filters.map(group=>({rules:group.rules.map(rule=>rule.field==='reviewStatus'?{field:'businessStatus' as const,operator:'eq' as const,value:rule.operator==='is_true'?'reviewed':'new'}:rule)}));
+ const columns=preferences.columns.filter(key=>key!=='reviewStatus');
+ const {reviewStatus:_oldWidth,...widths}=preferences.widths;
+ const {reviewStatus:_oldPin,...pins}=preferences.pins;
+ const migrated={...preferences,filters,columns,widths,pins};
+ const layout=migrated.columnLayoutVersion===2?migrated:{...migrated,columnLayoutVersion:2 as const,columns:[...migrated.columns.filter(key=>key!=='actions'),'actions'],widths:{...migrated.widths,actions:110},pins:{...migrated.pins,actions:'right' as const}};
+ return normalizePinnedColumnOrder({...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50});
 }
-export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS},pins:{actions:'right'},columnLayoutVersion:2,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
-export const teamDefaultsSchema=z.object({systemViews:systemViewsSchema.optional(),preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()}).refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId))).superRefine((value,context)=>{for(const [index,view] of (value.systemViews??[]).entries())if(view.id.startsWith('custom:')&&!listPreferencesSchema.safeParse(view.preferences).success)context.addIssue({code:'custom',path:['systemViews',index,'preferences'],message:'La configuración de la vista personalizada no es válida'});});
+export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','businessStatus','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS,businessStatus:190},pins:{actions:'right'},columnLayoutVersion:2,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
+export const teamDefaultsSchema=z.object({systemViews:systemViewsSchema.optional(),preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()})
+ .refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId)))
+ .refine(v=>!v.systemViews?.some(view=>view.id.startsWith('custom:')&&!listPreferencesSchema.safeParse(view.preferences).success),'Configuración de vista compartida inválida');
 export type TeamDefaults=z.infer<typeof teamDefaultsSchema>;
-export const initialPreferences=(team:TeamDefaults|undefined,mobile:boolean):ListPreferences=>team?{...team.preferences,presentation:mobile?'grid':team.preferences.presentation,query:team.initialPresetId?(team.presets.find(p=>p.id===team.initialPresetId)!.query??team.preferences.query):team.preferences.query,filters:team.initialPresetId?team.presets.find(p=>p.id===team.initialPresetId)!.filters:team.preferences.filters}:basePreferences(mobile);
+export const initialPreferences=(team:TeamDefaults|undefined,mobile:boolean):ListPreferences=>team?availableListPreferences({...team.preferences,presentation:mobile?'grid':team.preferences.presentation,query:team.initialPresetId?(team.presets.find(p=>p.id===team.initialPresetId)!.query??team.preferences.query):team.preferences.query,filters:team.initialPresetId?team.presets.find(p=>p.id===team.initialPresetId)!.filters:team.preferences.filters}):basePreferences(mobile);
 export const preferenceKey=(userId:number)=>`hospeda-business-list-v1-user-${userId}`;
 export type ListContext={page:number;scrollY:number;scrollX:number;anchorId?:string;anchorOffset?:number};
 export const contextSchema=z.object({page:z.number().int().min(1).max(100000),scrollY:z.number().min(0),scrollX:z.number().min(0),anchorId:z.string().regex(/^[0-9]+$/).optional(),anchorOffset:z.number().optional()});
 export function readPersonalPreferences(userId:number){try{const raw=localStorage.getItem(preferenceKey(userId));if(!raw)return null;return z.object({preferences:listPreferencesSchema,context:contextSchema}).parse(JSON.parse(raw));}catch{return null;}}
 export function savePersonalPreferences(userId:number,preferences:ListPreferences,context:ListContext){try{localStorage.setItem(preferenceKey(userId),JSON.stringify({preferences,context}));return true;}catch{return false;}}
-// Keep at least half the viewport available for scrolling; reserve the always-fixed selection column on desktop.
-export function effectivePins(prefs:ListPreferences,viewportWidth:number){const pins:Record<string,{side:'left'|'right';offset:number}>={};if(viewportWidth<768)return pins;let occupied=44;const offsets={left:44,right:0};for(const side of ['left','right'] as const){for(const key of side==='right'?[...prefs.columns].reverse():prefs.columns){if(prefs.pins[key]!==side)continue;const width=prefs.widths[key]??160;if(occupied+width>viewportWidth*.5)continue;pins[key]={side,offset:offsets[side]};offsets[side]+=width;occupied+=width;}}return pins;}
+// Pinned columns are contiguous edge groups: left, scrolling center, right.
+export function normalizePinnedColumnOrder(prefs:ListPreferences):ListPreferences{
+ const left=prefs.columns.filter(key=>prefs.pins[key]==='left');
+ const center=prefs.columns.filter(key=>!prefs.pins[key]);
+ const right=prefs.columns.filter(key=>prefs.pins[key]==='right');
+ const columns=[...left,...center,...right];
+ return columns.every((key,index)=>key===prefs.columns[index])?prefs:{...prefs,columns};
+}
+// The selection checkbox occupies the first 44px; every requested pin stays fixed on desktop.
+export function effectivePins(prefs:ListPreferences,viewportWidth:number){const pins:Record<string,{side:'left'|'right';offset:number}>={};if(viewportWidth<768)return pins;const normalized=normalizePinnedColumnOrder(prefs);const offsets={left:44,right:0};for(const side of ['left','right'] as const){for(const key of side==='right'?[...normalized.columns].reverse():normalized.columns){if(normalized.pins[key]!==side)continue;const width=normalized.widths[key]??160;pins[key]={side,offset:offsets[side]};offsets[side]+=width;}}return pins;}
 
 export function preferencesFromSavedView(current:ListPreferences,config:Record<string,unknown>):ListPreferences|null{
- const modern=listPreferencesSchema.safeParse(config.preferences);if(modern.success)return modern.data;
+ const modern=listPreferencesSchema.safeParse(config.preferences);if(modern.success)return availableListPreferences(modern.data);
  const inline=(config.inline??{}) as Record<string,any>;
  const legacy:Record<string,unknown>={classification:config.classification};
  for(const [old,include,exclude] of [['cityFilter','ciudades','excludeCiudades'],['statusFilter','estados','excludeEstados'],['typeFilter','tipos','excludeTipos'],['subtypeFilter','subtipos','excludeSubtipos'],['commercialProfileFilter','commercialProfiles','excludeCommercialProfiles'],['priorityFilter','prioridades','excludePrioridades'],['assignedUserFilter','assignedUsers','excludeAssignedUsers'],['subscriptionFilter','suscripciones','excludeSuscripciones'],['originFilter','origenes','excludeOrigenes'],['loadedByFilter','quienesCargaron','excludeQuienesCargaron'],['contactMethodFilter','mediosContacto','excludeMediosContacto'],['createdByFilter','creadosPor','excludeCreadosPor']]){legacy[include]=inline[old]?.include;legacy[exclude]=inline[old]?.exclude;}
