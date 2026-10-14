@@ -19,9 +19,11 @@ for(const width of [1280,390])test(`business table ellipsis and fixed headers at
  await page.goto('/accounts');await expect(page.locator('tbody tr[data-business-id]')).toHaveCount(50);
 
  const row=page.locator('tbody tr[data-business-id]').first(),email=row.locator('td').nth(4).locator('div');
+ const selection=row.locator('td').first();await expect(selection).toHaveCSS('position','sticky');await expect(selection).toHaveCSS('left','0px');
+ if(width>=768){const backgrounds=()=>row.evaluate(element=>{const cells=[...element.querySelectorAll('td')];const pinned=cells.find(cell=>getComputedStyle(cell).position==='sticky')!,regular=cells.find(cell=>getComputedStyle(cell).position!=='sticky')!;return{pinned:getComputedStyle(pinned).backgroundColor,regular:getComputedStyle(regular).backgroundColor};});expect((await backgrounds()).pinned).not.toBe((await backgrounds()).regular);await page.evaluate(()=>document.body.classList.add('dark'));expect((await backgrounds()).pinned).not.toBe((await backgrounds()).regular);await page.evaluate(()=>document.body.classList.remove('dark'));}
  await expect(email).toHaveCSS('white-space','nowrap');await expect(email).toHaveCSS('text-overflow','ellipsis');await expect(email).not.toHaveAttribute('title',/.+/);
  const horizontal=page.locator('section[aria-label="Resultados de negocios"] table').locator('..');
- await horizontal.evaluate(node=>node.scrollLeft=320);await email.hover();await expect(page.getByRole('tooltip')).toContainText('correo-muy-largo-para-la-columna@example.com');
+ await horizontal.evaluate(node=>node.scrollLeft=320);expect(Math.abs((await selection.boundingBox())!.x-(await horizontal.boundingBox())!.x)).toBeLessThanOrEqual(2);await email.hover();await expect(page.getByRole('tooltip')).toContainText('correo-muy-largo-para-la-columna@example.com');
  // Radix keeps the tooltip open while the pointer travels toward its content.
  // A second movement leaves that grace area instead of teleporting and stopping there.
  await page.mouse.move(0,0,{steps:10});await page.mouse.move(0,100,{steps:10});await expect(page.getByRole('tooltip')).toHaveCount(0);

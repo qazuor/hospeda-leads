@@ -25,15 +25,20 @@ Se corrigieron tres detalles visuales de alcance acotado:
 - **Accesos horizontales en móvil:** la Guía y las vistas guardadas ahora explican que hay más elementos fuera del área visible y cómo encontrarlos.
 - **Mi día y Agenda:** la acción de planificar queda como principal; registrar lo ya realizado queda secundaria, con textos que describen mejor cada acción.
 
-La revisión estética detectó además estos ajustes para priorizar en una próxima pasada:
+Segunda pasada visual implementada y publicada en el [PR #102](https://github.com/qazuor/hospeda-leads/pull/102); queda pendiente la revisión del PR y la previsualización local:
 
-1. **Negocios en cards, contenido largo:** correo del responsable y otros valores aparecen como badges y pueden partir una palabra/correo en una línea de una sola letra a 390 px. Ejemplo reproducido con fixture sintético: `admin@example.com` en [la card de negocio](../src/components/BusinessCard.tsx). Ajustar wrapping/truncado y reservar el badge para valores cortos.
-2. **Negocios, controles de listado en móvil:** filtros, vistas guardadas, selector de columnas y acciones de tabla/card compiten por espacio vertical; revisar agrupación, densidad y separación con datos reales de longitud variada.
-3. **Detalle de negocio y gestión:** hay varios paneles con bordes, fondos y radios distintos en la misma vista. Revisar qué información es principal y reducir contenedores anidados para que el próximo paso comercial destaque.
-4. **Formularios densos (gestiones, modelos y configuración):** en pantallas estrechas se apilan secciones y acciones. Revisar longitud de etiquetas, agrupación de campos relacionados, consistencia de botones y distancia entre descripción, campo y ayuda.
-5. **Jerarquía transversal:** hacer una pasada por títulos, subtítulos, etiquetas y texto auxiliar para evitar que contenido secundario use el mismo peso visual que estados y acciones principales; probar contraste en claro/oscuro.
+- **Cards de Negocios:** el responsable largo ahora tiene el ancho de la card y se limita a una sola línea con el valor completo disponible por tooltip.
+- **Controles móviles del listado:** se ajustó la jerarquía entre búsqueda, vistas guardadas y filtros aplicados con separadores sutiles; el carril horizontal ya no ocupa espacio con el estado vacío de vistas personales y conserva el cue de desplazamiento.
+- **Columnas fijadas:** reciben un tinte de color de acento en desktop, más visible y compatible con las franjas de filas y el tema oscuro.
+- **Selección de filas:** la columna de checkbox permanece como primera columna y fija a la izquierda durante el desplazamiento horizontal; el resto de fijaciones izquierdas comienza después de ella.
+- **Detalle de negocio:** el próximo paso conserva el tratamiento principal; conversación reciente y otros datos secundarios se leen como bloques separados por divisores, sin una caja adicional.
+- **Formularios y jerarquía:** contexto del negocio se presenta aparte en “Preparar gestión”; aumentaron legibilidad y espaciado de campos/ayudas en gestión, modelos y configuración.
 
-Evidencia de esta iteración: screenshots sintéticos de Guía, navegación y vistas en móvil, además de Mi día; pruebas dirigidas en 320, 390, 1024 y 1280 px. No equivalen a una revisión completa de todas las rutas, ambos temas ni una prueba con usuarios principiantes. El reporte es una inspección de UI/código con ejemplos visuales puntuales; validar los hallazgos propuestos en el próximo recorrido interactivo antes de rediseñar áreas grandes.
+Los cambios viven solo en el árbol de trabajo de `feat/visual-polish-ux`; no se hicieron commit ni push. `pnpm run typecheck`, `pnpm run build`, tres pruebas dirigidas con fixtures y `git diff --check` pasaron. Una ejecución de `business-cards.e2e.ts` alcanzó un fallo preexistente de restauración del foco al regresar del detalle; no se modificó ese comportamiento. No se ejecutaron pruebas de navegador que escriben en la base local.
+
+Sigue pendiente tu revisión visual de esta previsualización, en especial decidir si la densidad del panel móvil de vistas se siente mejor y si el detalle queda demasiado abierto en desktop. La prueba con personas principiantes y revisión en tema oscuro completo continúan pendientes.
+
+Evidencia de la primera iteración: screenshots sintéticos de Guía, navegación y vistas en móvil, además de Mi día; pruebas dirigidas en 320, 390, 1024 y 1280 px. Para esta segunda pasada se agregaron screenshots de cards, detalle y preparación de gestión, en móvil y desktop. No equivalen a una revisión completa de todas las rutas, ambos temas ni una prueba con usuarios principiantes.
 
 ## Prioridad: pulido visual, con recorridos reales
 
@@ -43,6 +48,9 @@ El propietario sigue detectando detalles pese a varias rondas de mejoras. El pri
 - Tabla y cards: centrado y padding de badges de ciudad, responsable, vertical y estado; datos largos; filas vacías innecesarias; altura de tarjetas.
 - Acciones de fila: iconos sin borde decorativo; header Acciones alineado; targets accesibles y menús sin iconos pegados a texto.
 - Vistas de Negocios: badges compactos, poco espacio vacío, nombre/selección/acciones y guardado contextual legibles, overflow móvil.
+- Filtros aplicados de Negocios: segunda iteración implementada localmente; chips compactos, vista activa adelante y resumen diferencial que omite filtros heredados. Los filtros manuales siguen editables; el nombre completo de la vista se conserva y puede envolver si es largo.
+- Edición de vistas personales: ahora se pueden editar los filtros guardados desde Administrar, además del nombre. Queda para revisar visualmente en la previsualización local.
+- Administración de vistas: duplicar una vista personal está disponible para todos; convertirla en vista de sistema está disponible solo para admin. La conversión comparte configuración con el equipo y retira el original personal en una transacción; las vistas personalizadas se administran desde Configuración. Implementado y validado localmente; el PR está abierto y falta revisión visual en la previsualización.
 - Formulario Iniciar gestión: jerarquía, espacios, contexto del negocio, campos opcionales y footer; conservar creación explícita/idempotencia.
 - Foco y controles: borde discreto con contraste suficiente, tamaño compacto sin perder teclado ni targets táctiles.
 - Hamburguesa/Drawer móvil, diálogos anidados, dropdowns, tooltips, scroll y restauración de foco.
@@ -61,6 +69,14 @@ Implementación/revisión existente: [documento 48](crm-roadmap/48-commercial-ru
 4. Si habrá registro estructurado de pagos, fuente y responsable de confirmación.
 
 No deducir esas decisiones de etapas históricas. No agregar automatismos de pago/entrega/cierre ni permisos nuevos mientras sigan abiertas.
+
+## Modelo nuevo de estados de negocio y gestiones
+
+La definición de producto está en [spec de estados](crm-roadmap/53-business-and-management-state-model.md) y la comparación con el checkout local está en el [reporte de brechas](crm-roadmap/54-current-state-gap-analysis.md). La inspección fue de solo lectura: el modelo no está implementado y no se consultó la base de datos.
+
+Antes de implementar quedan por definir los puntos listados en la spec: matriz de transiciones, motivos finales, etapas de acompañamiento de ficha, fecha y vencimiento de recontacto, retorno de etapa y responsable al quitar derivación, edición de catálogos por admin y permisos/estado recuperado al desarchivar.
+
+La migración debe conservar como Revisados los negocios actualmente marcados Filtrado y resolver ambiguos sin inferir estados a partir de etiquetas históricas. No ejecutar cambios de datos productivos sin alcance y procedimiento específicos.
 
 ## Pospuesto por el propietario: datos y multivertical
 

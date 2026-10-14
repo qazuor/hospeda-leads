@@ -15,4 +15,8 @@
 @media(max-width:600px){.pageHeader{}.sectionNav button{flex:0 0 auto;justify-content:center;padding:10px}.pageHeader h1{}}
 
 .content{display:grid;gap:24px}.sectionNav{margin-bottom:20px}.deliveryGrid input{border-color:var(--crm-field-border)}.content>h2,.content>section>h2{margin:0 0 8px}.sequenceSection{margin-top:24px}
+
+.dialogField>span,.deliveryGrid label{font-size:14px;line-height:1.4}
+.dialogField{gap:7px}
+.stackForm{gap:10px}
 @media(max-width:700px){.shell{padding:16px 12px 32px}.pageHeader{margin-bottom:16px}.content{gap:20px}.usersHeader{gap:12px}.userRow{position:relative;padding:12px 0;gap:6px}.userActions{position:absolute;right:0;top:8px}.userMain{padding-right:48px}.userCell{font-size:13px}.userMain strong{font-size:14px}}
