@@ -91,9 +91,9 @@ PR #92: 93 pruebas unitarias, 115 recorridos de navegador, integraciones Postgre
 
 Un CLI local debe volver a verificar comandos, permisos y checks del cambio que realice. El historial de conversaciones de cada herramienta se retoma con su mecanismo propio; los documentos y PRs son el traspaso entre herramientas.
 
-## Planificación de IA — documentación en preparación
+## Planificación de IA — definición funcional acordada
 
-Se generó una propuesta de épica de IA, una spec fundacional y 19 specs hijas correspondientes al inventario seleccionado por el propietario. La documentación distingue lo acordado (selección de ideas y autorización para documentar) de las propuestas aún pendientes de aprobación (guardrails y arquitectura). No hay integración LLM ni implementación aprobada. Proveedor/modelo, privacidad/retención, límites de uso y voz permanecen abiertos. Ver [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y el [inventario](crm-roadmap/60-ideas-uso-ia.md).
+Se generaron una épica, una spec fundacional y 19 specs hijas. El propietario definió la experiencia (chat general y acciones contextuales), acceso para todo usuario autenticado respetando permisos CRM, uso de ficha e historial completos cuando se permiten, registro de prompts/respuestas vinculados al negocio en su journal y de fragmentos por negocio para resultados multinegocio, límites antes de habilitar, punto de comparación por fecha y el informe de cartera con 30 días predeterminados, desglose por responsable y métricas iniciales acordadas. Dictado queda fuera de la primera etapa. No hay integración LLM ni implementación aprobada. Proveedor/modelo se elegirá antes de implementar; también falta verificar privacidad, retención, entrenamiento, región y contrato del proveedor antes de enviar datos reales. Ver [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y el [inventario](crm-roadmap/60-ideas-uso-ia.md).
 
 ## Integración local de cambios visuales, estados y comunicación
 

@@ -80,9 +80,14 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - `AGENTS.md` es la instrucción común; `CLAUDE.md` importa esa instrucción. Documentos de estado/decisiones/pendientes compartidos y versionados son la memoria entre herramientas.
 - Registrar solamente contexto de este CRM. No copiar memorias personales del usuario ni instrucciones del portal turístico a este proyecto.
 
-## IA en el CRM — alcance documental
+## IA en el CRM — definición funcional para las specs
 
 - El propietario seleccionó 19 ideas para seguir definiendo y retiró las demás del inventario. El [documento 60](crm-roadmap/60-ideas-uso-ia.md) conserva esa selección.
 - Se autorizó preparar una épica, una spec de base común de IA y una spec hija por idea, además de publicar la documentación para revisión. Esta autorización no aprueba implementación.
-- Proveedor/modelo, clases de datos enviadas a terceros, retención/uso del proveedor, habilitación por rol, límites de gasto y tecnología de voz siguen sin decisión. Consultar la [épica 61](crm-roadmap/61-ai-in-crm-epic.md) y la [spec base 62](crm-roadmap/62-ai-platform-foundation-spec.md).
-- Las reglas transversales que aparecen en las specs son propuestas para revisión hasta que el propietario las apruebe explícitamente. Las specs hijas pendientes no son autorización de código ni de acceso a datos productivos.
+- La experiencia combinará chat general y acciones contextuales. El chat explicará cómo usar el CRM y responderá preguntas sobre el negocio que el usuario esté viendo; no buscará otros negocios.
+- Todo usuario autenticado podrá usar IA, sujeto a los permisos que ya exige cada función del CRM. En el contexto de un negocio se permite enviar su ficha e historial completos si el usuario puede leerlos.
+- Los prompts y respuestas de interacciones vinculadas a un negocio se guardarán en su journal. En operaciones sobre varios negocios, cada journal recibirá un prompt sin referencias a otros negocios y solo el fragmento de su negocio; el prompt original y el informe completo quedan en pantalla para quien lo generó. Las consultas generales sin negocio asociado no se guardarán en un journal de negocio.
+- El informe de cartera tendrá período inicial de últimos 30 días y desglose por responsable. Sus métricas iniciales serán negocios por estado actual; gestiones por etapa/resultados; contactos y respuestas registrados en el período; tareas abiertas/vencidas actuales y tareas completadas en el período. El resumen de cambios usa fecha elegida y no guarda marca de revisión; dictado queda fuera de la primera etapa.
+- La spec se mantiene agnóstica a proveedor/modelo; habrá que elegirlos antes de implementar la conexión real. Antes de enviar datos reales, verificar condiciones de privacidad, retención, entrenamiento, región y contrato.
+- Configurar límites antes de habilitar el servicio, informar uso y errores y bloquear solicitudes al alcanzar el límite. Dictado queda fuera de la primera etapa.
+- Estas decisiones completan la definición funcional documental; no autorizan todavía la implementación ni el acceso/escritura a datos productivos.

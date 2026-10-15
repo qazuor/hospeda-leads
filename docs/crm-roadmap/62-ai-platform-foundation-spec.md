@@ -1,27 +1,28 @@
 # Spec hija: soporte común para IA en CRM
 
 **Épica:** [61 — IA dentro de Hospeda CRM](61-ai-in-crm-epic.md)
-**Estado:** propuesta para revisión; no implementada
+**Estado:** propuesta funcional definida; no implementada. La integración con un proveedor real queda bloqueada hasta elegir proveedor/modelo y verificar sus condiciones.
 **Prioridad:** fundacional; requisito previo para las specs 63–81
 
 ## Objetivo
 
-Dejar una integración interna y segura para que distintas pantallas del CRM soliciten tareas acotadas a un modelo de lenguaje. Cada funcionalidad hija consume la misma capa del servidor con un identificador y un contrato tipado propios; no implementa conexiones, claves ni prompts libres en el navegador.
+Dejar una integración interna y segura para que el chat general y las acciones contextuales del CRM soliciten tareas acotadas a un modelo de lenguaje. Cada funcionalidad consume la misma capa del servidor con un identificador y un contrato tipado propios; no implementa conexiones, claves ni llamadas directas al modelo desde el navegador. La interfaz no fija proveedor ni modelo: esa elección se hará antes de implementar la integración real.
 
 ## Historias de usuario
 
 - Como persona usuaria, quiero pedir una ayuda o borrador desde el lugar donde trabajo sin configurar un proveedor.
+- Como persona usuaria, quiero consultar cómo usar el CRM y, desde la ficha abierta, preguntar por ese negocio sin tener que buscarlo de nuevo.
 - Como responsable del producto, quiero cambiar o desactivar la conexión de IA desde configuración de servidor sin reescribir cada función.
 - Como desarrollador, quiero simular respuestas, errores y límites para probar cada integración sin usar datos ni créditos reales.
 
 ## Flujo común
 
-1. La UI invoca una operación de IA concreta, por ejemplo `business_summary`, con los identificadores/contexto mínimo y la entrada editada por la persona.
+1. La UI invoca una operación de IA concreta, por ejemplo `general_chat` o `business_summary`, con la entrada de la persona y, si aplica, el identificador del negocio que está viendo. El chat general responde sobre el uso del CRM; cuando hay una ficha abierta, puede responder además sobre ese negocio. No busca otros negocios.
 2. El endpoint autentica la sesión, verifica permisos sobre cada recurso referenciado y valida el tamaño/forma de la entrada.
-3. Un preparador propio de esa operación obtiene solo los datos permitidos. El cliente nunca decide por sí solo qué registros completos incluir.
+3. Un preparador propio de esa operación obtiene la ficha e historial completos del negocio contextual cuando la persona tiene permiso de lectura. No carga otros negocios ni datos que el usuario no pueda consultar. Para operaciones sin contexto de negocio, obtiene únicamente las fuentes documentales necesarias.
 4. Un servicio común aplica límites, instrucciones base y un contrato de salida validable, y llama al adaptador configurado en servidor.
 5. La respuesta se valida contra su esquema; se eliminan campos extra o se rechaza una forma inválida. La UI muestra resultado, fuentes, incertidumbre y acciones permitidas.
-6. Guardar/aplicar/enviar queda a cargo del flujo de producto correspondiente y exige confirmación explícita.
+6. Si la interacción está vinculada a un único negocio, el CRM guarda el prompt y la respuesta como entrada de IA en el journal del negocio. Si una función analiza un conjunto definido, cada journal recibe una versión del prompt que no identifica a los otros negocios y solo el fragmento correspondiente a ese negocio; el prompt original y el informe completo quedan en pantalla para quien lo generó. Las consultas generales sobre uso del CRM, sin negocio asociado, no se guardan en un journal de negocio. Guardar/aplicar/enviar otra acción sugerida queda a cargo del flujo de producto y exige confirmación explícita.
 
 ## Contrato técnico propuesto
 
@@ -36,23 +37,25 @@ Dejar una integración interna y segura para que distintas pantallas del CRM sol
 
 - La clave del proveedor existe únicamente en variables/configuración privada del servidor; nunca se serializa al cliente ni se imprime en logs.
 - No registrar prompts, transcripciones, textos de mensajes, respuestas del modelo ni datos de negocios en logs de aplicación o telemetría por defecto.
-- Registrar como máximo identificador de solicitud, función, usuario, proveedor/modelo, tiempos, estado y conteos de tokens/costo reportados, sin contenido.
-- Enviar al proveedor solamente los campos que el spec hija enumera. No mandar una ficha/historial completo como atajo de contexto.
+- En logs y telemetría técnica registrar como máximo identificador de solicitud, función, usuario, proveedor/modelo, tiempos, estado y conteos de tokens/costo reportados; no registrar contenido allí.
+- Enviar la ficha e historial completos del negocio contextual cuando la persona tenga permiso de lectura, como aprobó el propietario. No buscar ni incluir otros negocios. Para funciones sin negocio contextual, enviar solo las fuentes pertinentes a esa función.
+- Guardar el prompt y respuesta de cada interacción vinculada a un negocio en su journal. Si la operación analiza varios negocios, escribir una entrada por negocio con un prompt sin referencias a los demás y solo su respuesta/fragmento. El prompt original y el informe completo permanecen en pantalla para quien los generó y no se copian en los journals. Identificar cada entrada como interacción de IA e indicar usuario y fecha/hora. No guardar en journals consultas genéricas de uso del CRM sin negocio asociado.
 - Tratar notas, mensajes, documentos y contenido recuperado como datos no confiables; sus instrucciones no pueden reemplazar las reglas de sistema ni autorizar acciones.
-- Mantener No contactar, Papelera, archivado y permisos vigentes; IA no los modifica ni los omite.
-- No asumir que el proveedor no retiene datos o los excluye de entrenamiento: debe verificarse contrato y configuración antes de producción.
+- Mantener No contactar, Papelera, archivado y permisos vigentes; IA no los modifica ni los omite. Los negocios en Papelera no pueden enviarse a IA hasta ser restaurados por el flujo autorizado, aunque un administrador pueda verlos allí.
+- Mantener agnósticos proveedor y modelo en esta spec. Elegirlos antes de implementar la conexión real y verificar contrato, retención, entrenamiento, región y controles aplicables antes de producción con datos reales.
 
 ## Resiliencia y experiencia
 
 - Mostrar carga, evitar doble solicitud, permitir cancelar cuando el transporte lo admita y conservar el texto ante error.
 - Reintentar solo fallos transitorios de generación, con límite y sin duplicar efectos de CRM; no reintentar automáticamente después de un resultado incierto si una feature llegara a tener efectos externos.
 - Errores presentados en lenguaje claro: servicio no configurado, límite alcanzado, timeout, respuesta no válida y fallo temporal.
+- Antes de enviar contexto de negocio, la UI identifica el negocio y avisa que el prompt y la respuesta se conservarán en su journal, visible para lectores autorizados.
 - Si no hay proveedor configurado o la IA falla, la función deja disponible su alternativa manual.
-- No persistir chats ni resultados globales en la base en esta capa. La persistencia de un resultado confirmado pertenece a la feature que lo usa.
+- La conversación genérica sobre uso del CRM no se persiste por defecto. Las interacciones vinculadas a un negocio se persisten en el journal según la regla anterior; las acciones propuestas siguen su flujo de confirmación propio.
 
 ## Configuración y administración
 
-La configuración se realiza en servidor por ambiente: proveedor, modelo, credencial, endpoint compatible si aplica, timeout y topes. La UI no permite que un usuario cambie proveedor/modelo ni administre credenciales. Los límites por usuario/rol y alertas de gasto se definen antes de habilitar producción.
+La configuración se realiza en servidor por ambiente: proveedor, modelo, credencial, endpoint compatible si aplica, timeout y topes. La UI no permite que una persona usuaria cambie proveedor/modelo ni administre credenciales. Antes de habilitar IA se deben configurar límites, informar uso y errores, y bloquear nuevas solicitudes al alcanzarlos. Todo usuario autenticado puede usar las funciones de IA, sujeto a los permisos que la función del CRM ya exige; no hay habilitación individual o piloto administrado.
 
 ## Pruebas y observabilidad
 
@@ -70,22 +73,25 @@ La configuración se realiza en servidor por ambiente: proveedor, modelo, creden
 5. Esquemas invalidan respuestas mal formadas; un error deja intacto el borrador del usuario.
 6. En configuración ausente o error de proveedor, la UI muestra una alternativa manual operativa.
 7. Pruebas pueden correr con proveedor simulado sin red ni datos reales.
+8. Las interacciones de un negocio aparecen en su journal; las interacciones multinegocio crean en cada journal un prompt sin referencias a otras fichas y solo su fragmento, sin revelar el informe agregado completo.
 
 ## Decisiones que bloquean implementación productiva
 
 | Decisión | Recomendación a evaluar | Estado |
 |---|---|---|
-| Proveedor y modelo inicial | Elegir uno con salida estructurada, límites por cuenta, controles documentados de retención y política de no entrenamiento aplicable a datos enviados. | Pendiente del propietario |
-| Datos que pueden salir del CRM | Aprobar clases de dato por función y excluir credenciales, información de acceso y datos innecesarios. | Pendiente del propietario |
-| Retención/uso del proveedor | Verificar condiciones vigentes y contratar/configurar antes de enviar datos reales. | Pendiente de verificación |
-| Quién puede usar IA | Recomendación: los mismos permisos de lectura/acción de la función, más un control administrativo para habilitar/deshabilitar IA por ambiente. | Pendiente del propietario |
-| Límites y gasto | Definir presupuesto/alertas y respuesta al agotamiento antes de habilitar a todo el equipo. | Pendiente del propietario |
-| Dictado | Decidir motor, tratamiento de audio y confirmación de no conservación en la spec 81; no habilitar por defecto. | Pendiente del propietario |
+| Proveedor y modelo inicial | Mantener esta spec agnóstica; elegir proveedor/modelo antes de implementar la conexión real. | Acordado |
+| Datos que pueden salir del CRM | En contexto de negocio, se permite ficha e historial completos cuando el usuario tiene permiso; el chat general no consulta negocios distintos del que está abierto. | Acordado |
+| Retención/uso del proveedor | Verificar condiciones vigentes de retención, entrenamiento, región y contrato antes de usar datos reales. | Pendiente de verificación antes de producción |
+| Quién puede usar IA | Todo usuario autenticado, sujeto a los permisos existentes de la función/negocio; sin habilitación administrativa por usuario. | Acordado |
+| Límites y gasto | Configurarlos antes de habilitar el servicio, informar uso/errores y bloquear nuevas solicitudes al alcanzar el límite. | Acordado; valores concretos antes de habilitar |
+| Persistencia | Guardar prompt y respuesta de interacciones vinculadas a negocio. En multinegocio, guardar en cada journal un prompt sin referencias a los demás y solo el fragmento de esa ficha; no registrar consultas genéricas sin negocio. | Acordado |
+| Auditoría multinegocio | Guardar el prompt y solo el fragmento de ese negocio en cada journal; el informe completo queda en pantalla para quien lo generó. | Acordado |
+| Dictado | Fuera de la primera etapa. | Acordado |
 
 ## Áreas técnicas estimadas
 
-Sin fijar aún nombres definitivos de archivos: endpoint/contrato en `src/endpoints/`, servicio y adaptador en `src/helpers/` o módulo de servidor, registro de rutas en el servidor Hono, configuración de entorno/documentación local y tests de contrato. Las funciones hijas añaden sus esquemas, preparadores de contexto, componentes y pruebas propios. No se requiere migración de base para la capa inicial si no se aprueba persistencia de solicitudes.
+Sin fijar aún nombres definitivos de archivos: endpoint/contrato en `src/endpoints/`, servicio y adaptador en `src/helpers/` o módulo de servidor, registro de rutas en el servidor Hono, configuración de entorno/documentación local y tests de contrato. Las funciones hijas añaden sus esquemas, preparadores de contexto, componentes y pruebas propios. Debe revisarse el modelo actual del journal para guardar prompt/respuesta exactos; si no lo soporta, agregar una migración nueva sin editar migraciones ya aplicadas.
 
 ## Dependencias
 
-Requiere una decisión de proveedor, datos y habilitación antes de enviar datos reales. Es prerequisito de las specs 63–81. No requiere cambiar estados, permisos existentes ni el modelo de Comunicación.
+Es prerequisito de las specs 63–80. La elección de proveedor/modelo y la verificación de sus condiciones son previas a implementar una integración real o enviar datos reales. La spec 81 queda fuera de la primera etapa. No cambia los permisos existentes ni el modelo de Comunicación.

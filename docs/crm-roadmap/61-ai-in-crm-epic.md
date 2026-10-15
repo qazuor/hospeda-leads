@@ -1,12 +1,12 @@
 # Épica: IA dentro de Hospeda CRM
 
-**Estado:** propuesta documental para revisión; no autoriza implementar funciones de IA.
+**Estado:** propuesta documental; las decisiones de producto de esta spec quedaron definidas, pero no autoriza por sí sola a implementar. La conexión productiva requiere elegir proveedor/modelo y verificar sus condiciones antes de enviar datos reales.
 **Fecha:** 15/10/2026
 **Inventario de producto:** [19 ideas priorizadas](60-ideas-uso-ia.md)
 
 ## Objetivo
 
-Incorporar asistencia de IA en los puntos donde una persona usa el CRM: aprender la aplicación, entender información comercial, preparar trabajo y revisar propuestas. La IA debe reducir pasos y escritura repetitiva, mientras que las personas conservan las decisiones, los cambios de datos y el envío de comunicaciones.
+Incorporar un chat general para explicar cómo usar el CRM y responder preguntas sobre el negocio que la persona está viendo, además de acciones de IA contextuales en los flujos de trabajo. La IA debe reducir pasos y escritura repetitiva, mientras que las personas conservan las decisiones, los cambios de datos y el envío de comunicaciones.
 
 Esta épica organiza una capacidad común de conexión con modelos de lenguaje y 19 funcionalidades hijas. No se implementará una función individual hasta que su spec hija esté revisada y aprobada.
 
@@ -22,24 +22,25 @@ Esta épica organiza una capacidad común de conexión con modelos de lenguaje y
 - Un agente que opere el CRM sin intervención humana.
 - Envío automático de mensajes, registro de respuestas, cambios de estados, cierres, fusiones o desbloqueos.
 - Una bandeja conversacional que sustituya la navegación normal.
-- Elegir por anticipado un proveedor, modelo, presupuesto, región, tratamiento contractual o retención de datos.
+- Elegir en esta spec un proveedor o modelo concreto. Esa decisión debe tomarse antes de implementar y enviar datos reales.
 - Usar conversaciones del CRM para entrenar modelos.
 
 ## Principios comunes
 
 1. **La IA propone; la persona decide.** Todo resultado que pueda guardarse, aplicarse o enviarse requiere una acción explícita y una vista previa.
 2. **Permisos primero.** El servidor comprueba el acceso al negocio, la gestión, el historial o el material antes de preparar el contexto. La IA no amplía permisos.
-3. **Contexto mínimo y rastreable.** Cada función declara qué campos/eventos necesita. Cuando afirma algo del CRM, incluye una referencia navegable a su origen o indica que no pudo verificarlo.
-4. **No inventar.** El modelo puede señalar información ausente o contradictoria; no completa datos comerciales, precios, acuerdos, respuestas ni acciones como si fueran hechos.
-5. **Sin efectos implícitos.** Generar texto no equivale a guardar, contactar, aceptar, cerrar ni crear una tarea.
-6. **Falla segura y recuperable.** Si el modelo no está disponible, el CRM conserva el borrador y deja seguir con el flujo manual.
-7. **Claridad para personas no técnicas.** Cada acción explica qué información usará, qué propone y qué ocurrirá al confirmarla.
+3. **Contexto explícito.** El chat puede explicar el uso del CRM y, si la persona está viendo un negocio, responder sobre ese negocio usando su ficha e historial completos si tiene permiso de lectura. No busca ni consulta otros negocios. Las acciones contextuales cargan solo el negocio/gestión sobre la que se trabaja y respetan permisos.
+4. **Rastreo y journal.** Para una interacción sobre un negocio, guardar su prompt y respuesta en el journal, identificada como IA y atribuida a quien la inició. En un análisis de varios negocios, cada journal contiene un prompt que no identifica a los demás y solo el fragmento de esa ficha; el informe completo queda en pantalla para quien lo generó. Las consultas generales sobre cómo usar el CRM, sin negocio asociado, no se guardan en un journal de negocio.
+5. **No inventar.** El modelo puede señalar información ausente o contradictoria; no completa datos comerciales, precios, acuerdos, respuestas ni acciones como si fueran hechos.
+6. **Sin efectos implícitos.** Generar texto no equivale a guardar, contactar, aceptar, cerrar ni crear una tarea. Guardar prompt/respuesta en el journal es el registro de la interacción, no una acción comercial.
+7. **Falla segura y recuperable.** Si el modelo no está disponible, el CRM conserva el borrador y deja seguir con el flujo manual.
+8. **Claridad para personas no técnicas.** Antes de enviar contexto comercial, indicar qué negocio y qué tipo de información usará. Cada acción explica qué propone y qué ocurrirá al confirmarla.
 
 ## Specs hijas
 
 | ID | Spec | Prioridad | Dependencias principales |
 |---|---|---|---|
-| 62 | [Base común de IA](62-ai-platform-foundation-spec.md) | Fundacional | Política de proveedor y datos por definir |
+| 62 | [Base común de IA](62-ai-platform-foundation-spec.md) | Fundacional | Seleccionar proveedor/modelo antes de implementar y verificar privacidad/retención |
 | 63 | [Ayuda para aprender a usar la app](63-ai-crm-help.md) | Alta | 62, guía vigente |
 | 64 | [Explicar campos y opciones en contexto](64-ai-contextual-field-help.md) | Alta | 62, catálogo de ayuda por campo |
 | 65 | [Recorrido guiado para una tarea nueva](65-ai-guided-task-tour.md) | Alta | 62, rutas y pasos de tareas |
@@ -66,7 +67,7 @@ Esta épica organiza una capacidad común de conexión con modelos de lenguaje y
 2. Probar la integración con una función acotada y de bajo riesgo: Ayuda para aprender a usar la app (63).
 3. Incorporar las funciones altas en el contexto donde ya ocurre el trabajo (64–72), empezando por borradores y revisiones reversibles.
 4. Añadir las funciones medias (73–80) luego de validar precisión, utilidad y permisos de la primera ola.
-5. Evaluar dictado (81) por separado; la transcripción de voz añade tratamiento de audio y requiere aprobación específica.
+5. Mantener dictado (81) fuera de la primera etapa; evaluarlo más adelante con una decisión específica de tecnología y privacidad.
 
 Esta secuencia es una recomendación de planificación, no una autorización para saltarse la revisión de cada spec.
 
@@ -74,11 +75,12 @@ Esta secuencia es una recomendación de planificación, no una autorización par
 
 - Cada spec hija tiene alcance, flujo, fuentes, permisos, errores, aceptación y dependencias definidos antes de su implementación.
 - La base común no expone claves ni permite al navegador llamar directamente al proveedor.
-- Cada función limita explícitamente el contexto enviado y conserva el flujo manual si falla la IA.
-- No se guardan ni ejecutan sugerencias sin confirmación humana.
+- El chat general solo consulta el negocio que se está viendo; las funciones de negocio verifican permisos y guardan prompt/respuesta en su journal.
+- Cada función conserva el flujo manual si falla la IA y no amplía permisos ni realiza acciones comerciales implícitas.
+- Las sugerencias no se ejecutan ni se guardan como hechos comerciales sin confirmación humana; se registra en el journal el prompt/respuesta de cada interacción vinculada a un negocio, según la decisión aprobada.
 - Se pueden probar las funciones sin una cuenta real del proveedor ni datos productivos.
 - La UI diferencia hechos del CRM, inferencias y datos faltantes, con vínculos a fuentes cuando corresponda.
 
 ## Próximo paso
 
-Revisar esta épica y las specs, resolver las decisiones abiertas de la spec 62 y aprobar las specs hijas que se quieran implementar primero.
+Elegir proveedor/modelo antes de implementar la conexión real, verificar sus condiciones antes de usar datos reales y revisar/aprobar las specs que se quieran implementar. La definición funcional transversal está acordada; las specs no autorizan implementación por sí solas.
