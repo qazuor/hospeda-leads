@@ -107,7 +107,8 @@ No reescribir esos bloques desde cero. Revisar la implementación y ampliar la c
 ## IA en el CRM — revisar antes de implementar
 
 - Revisar la [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [spec base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y las specs hijas 63–81.
-- Resolver proveedor/modelo, tratamiento de datos, retención, habilitación por rol y límites de gasto. Esos puntos bloquean producción con datos reales.
-- Decidir las propuestas de cada spec, en especial el punto de comparación para cambios desde revisión, métricas/informes y tecnología de dictado.
-- No interpretar la publicación documental como aprobación para integrar un LLM o desplegar IA.
-- Revisar la cadena de documentación: [tracker #107](https://github.com/qazuor/hospeda-leads/pull/107), [base #108](https://github.com/qazuor/hospeda-leads/pull/108), [Alta #109](https://github.com/qazuor/hospeda-leads/pull/109) y [Media/Exploratoria #110](https://github.com/qazuor/hospeda-leads/pull/110). Los PRs están abiertos; no mergear hasta su revisión y CI verde.
+- Elegir proveedor/modelo y verificar retención, entrenamiento, región y contrato antes de enviar datos reales. La spec permanece agnóstica hasta esa elección.
+- Configurar límites concretos antes de habilitar el servicio. El CRM informará uso/errores y bloqueará solicitudes al alcanzar el límite.
+- Revisar cada spec hija y autorizar por separado el primer alcance de implementación. Dictado queda fuera de la primera etapa.
+- No interpretar la documentación como aprobación para conectar un proveedor, enviar datos reales o desplegar IA.
+- Revisar la cadena de documentación: [tracker #107](https://github.com/qazuor/hospeda-leads/pull/107), [base #108](https://github.com/qazuor/hospeda-leads/pull/108), [Alta #109](https://github.com/qazuor/hospeda-leads/pull/109) y [Media/Exploratoria #110](https://github.com/qazuor/hospeda-leads/pull/110). No mergear hasta su revisión y CI verde.

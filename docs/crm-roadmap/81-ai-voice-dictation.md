@@ -2,6 +2,8 @@
 
 **Épica:** [61](61-ai-in-crm-epic.md) · **Prioridad:** Exploratoria · **Depende de:** [62](62-ai-platform-foundation-spec.md), decisión específica de voz y privacidad.
 
+**Estado:** fuera de la primera etapa de implementación; conservar como posibilidad futura sin desarrollar ni habilitar en el lanzamiento inicial de IA.
+
 ## Objetivo
 
 Permitir dictar texto para completar una nota o respuesta mientras se usa el CRM móvil, sin convertir la llamada en una grabación almacenada.
