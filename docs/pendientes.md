@@ -110,3 +110,4 @@ No reescribir esos bloques desde cero. Revisar la implementación y ampliar la c
 - Resolver proveedor/modelo, tratamiento de datos, retención, habilitación por rol y límites de gasto. Esos puntos bloquean producción con datos reales.
 - Decidir las propuestas de cada spec, en especial el punto de comparación para cambios desde revisión, métricas/informes y tecnología de dictado.
 - No interpretar la publicación documental como aprobación para integrar un LLM o desplegar IA.
+- Revisar la cadena de documentación: [tracker #107](https://github.com/qazuor/hospeda-leads/pull/107), [base #108](https://github.com/qazuor/hospeda-leads/pull/108), [Alta #109](https://github.com/qazuor/hospeda-leads/pull/109) y [Media/Exploratoria #110](https://github.com/qazuor/hospeda-leads/pull/110). Los PRs están abiertos; no mergear hasta su revisión y CI verde.
