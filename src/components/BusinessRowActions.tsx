@@ -1,5 +1,5 @@
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from './DropdownMenu';
-import React,{useRef,useState} from 'react';
+import React,{useLayoutEffect,useRef,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
 import {Archive,Eye,MessageCircle,LoaderCircle,Trash2,MoreHorizontal} from 'lucide-react';
@@ -15,9 +15,15 @@ import styles from './BusinessRowActions.module.css';
 export function BusinessRowActions({accountId,name,canModify,admin,onOpen}:{accountId:string;name:string;canModify:boolean;admin:boolean;onOpen:()=>void}){
  const navigate=useNavigate();const [action,setAction]=useState<'contact'|'archive'|'delete_account'|null>(null);const {authState}=useAuth();
  const actionTrigger=useRef<HTMLButtonElement|null>(null);
+ const restoreActionFocus=useRef(false);
  const detail=useQuery({queryKey:['commercial-detail',accountId],queryFn:()=>getCommercialDetail(accountId),enabled:!!action});
  const allowed=detail.data&&authState.type==='authenticated'&&!detail.data.account.archivedAt&&(authState.user.role==='admin'||detail.data.account.assignedUserEmail===authState.user.email);
- const close=()=>setAction(null);
+ const close=()=>{restoreActionFocus.current=true;setAction(null);};
+ useLayoutEffect(()=>{
+  if(action||!restoreActionFocus.current)return;
+  restoreActionFocus.current=false;
+  if(actionTrigger.current?.isConnected)actionTrigger.current.focus({preventScroll:true});
+ },[action]);
  const pending=!!action&&detail.isPending;
  const control=(label:string,icon:React.ReactNode,onClick:()=>void,disabled=false,help=label)=>{
   const reason=label==='Contactar'&&!canModify?'Solo el responsable del negocio o un administrador puede contactar.':action?'Cerrá la acción abierta para volver a usar este botón.':help;
