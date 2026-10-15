@@ -27,8 +27,8 @@ export function BusinessRowActions({accountId,name,canModify,admin,onOpen}:{acco
  const pending=!!action&&detail.isPending;
  const control=(label:string,icon:React.ReactNode,onClick:()=>void,disabled=false,help=label)=>{
   const reason=label==='Contactar'&&!canModify?'Solo el responsable del negocio o un administrador puede contactar.':action?'Cerrá la acción abierta para volver a usar este botón.':help;
-  const button=<Button size="icon-sm" variant="ghost" className={styles.action} aria-label={label} disabled={disabled} disabledReason={reason} onClick={event=>{actionTrigger.current=event.currentTarget;onClick();}}>{icon}</Button>;
-  return disabled?button:<Tooltip><TooltipTrigger asChild><span className={styles.trigger}>{button}</span></TooltipTrigger><TooltipContent>{help}</TooltipContent></Tooltip>;
+  const button=<Button size="icon-sm" variant="ghost" className={styles.action} aria-label={label} disabled={disabled} disabledReason="" onClick={event=>{actionTrigger.current=event.currentTarget;onClick();}}>{icon}</Button>;
+  return <Tooltip><TooltipTrigger asChild><span className={styles.trigger}>{button}</span></TooltipTrigger><TooltipContent>{disabled?reason:help}</TooltipContent></Tooltip>;
  };
  return <><div className={styles.actions} role="group" aria-label={'Acciones de '+name}>
   {control('Abrir',<Eye size={16} aria-hidden="true"/>,onOpen,!!action,'Abrir negocio')}
