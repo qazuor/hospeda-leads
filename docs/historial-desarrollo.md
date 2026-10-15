@@ -61,3 +61,7 @@ El propietario pidió continuar desde Codex o Claude Code en su PC y versionar e
 ## Cómo continuar este registro
 
 Agregar hitos con problema, resultado, PR/commit, validaciones efectivas y estado productivo. No pegar outputs con datos privados, secretos, dumps ni transcripciones completas. Usar enlaces a evidencia pública y conservar evidencia privada en el almacenamiento autorizado del propietario.
+
+## 15/10/2026 — propuesta documental de IA
+
+Se prepararon la épica 61, la spec fundacional 62 y 19 specs hijas 63–81 a partir del inventario seleccionado por el propietario en el documento 60. Se conservaron como pendientes las decisiones de proveedor/modelo, datos y retención. Es documentación de propuesta; no se implementó ni se aprobó enviar datos del CRM a un proveedor.

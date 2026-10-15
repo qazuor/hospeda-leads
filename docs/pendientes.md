@@ -103,3 +103,10 @@ El usuario pidió avanzar con otros puntos mientras esto quedaba para después. 
 Ya están implementados los bloques 43–52 del roadmap: búsqueda restante, historial comercial, Contactar desde tareas, registro guiado, continuidad, revisión de reglas/permisos (no las decisiones aún abiertas), miniaturas, avisos, loading y UI transversal. También las rondas posteriores de diseño, Papelera/Archivo, búsqueda de entidades y unificación del historial global.
 
 No reescribir esos bloques desde cero. Revisar la implementación y ampliar la cobertura del caso que falle. Limpieza y recuperación productiva están ejecutadas; no volver a tratarlas como pendientes.
+
+## IA en el CRM — revisar antes de implementar
+
+- Revisar la [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [spec base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y las specs hijas 63–81.
+- Resolver proveedor/modelo, tratamiento de datos, retención, habilitación por rol y límites de gasto. Esos puntos bloquean producción con datos reales.
+- Decidir las propuestas de cada spec, en especial el punto de comparación para cambios desde revisión, métricas/informes y tecnología de dictado.
+- No interpretar la publicación documental como aprobación para integrar un LLM o desplegar IA.
