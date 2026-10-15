@@ -19,7 +19,7 @@ La persona pregunta por qué un negocio o gestión está en una situación y rec
 2. No confundir autor de un evento automático con el usuario que provocó la acción inicial.
 3. Citar la fuente que respalda cada afirmación causal; si solo hay correlación, decirlo.
 4. No editar ni “explicar” eventos por interpretación psicológica del usuario/comercio.
-5. Consultar historial no modifica estados ni genera una entrada comercial.
+5. Consultar historial no modifica estados ni crea una actividad comercial; prompt y respuesta quedan como interacción de IA en el journal según la spec 62.
 
 ## Impacto estimado
 

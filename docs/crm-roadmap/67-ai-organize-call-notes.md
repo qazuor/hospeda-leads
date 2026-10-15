@@ -8,7 +8,7 @@ La persona pega o dicta apuntes libres y recibe una propuesta ordenada para comp
 
 ## Flujo y salida
 
-- Acción **Ordenar apuntes** en el formulario de llamada. Antes de generar, mostrar qué texto se procesará.
+- Acción **Ordenar apuntes** en el formulario de llamada. Antes de generar, mostrar qué texto se procesará y avisar que prompt y respuesta se conservarán en el journal del negocio/gestión vinculada.
 - Completar como borrador campos separados: resumen obligatorio, respuesta recibida si está expresada, compromisos/acciones con persona y fecha si constan, dudas pendientes y observaciones.
 - La persona puede aceptar, editar o descartar cada bloque. El guardado usa el formulario manual y su contexto General/gestión.
 
@@ -23,7 +23,7 @@ La persona pega o dicta apuntes libres y recibe una propuesta ordenada para comp
 
 1. La salida conserva los hechos y matices expresados, incluidos los negativos y la incertidumbre.
 2. Cada campo se revisa por separado; descartar IA restaura el texto original.
-3. Guardar registra solamente el contenido que la persona confirmó.
+3. Guardar registra solamente el contenido que la persona confirmó; el journal de IA conserva por separado el prompt original y la respuesta generada, según la spec 62.
 4. La función respeta permisos del contexto y deja un flujo manual si el proveedor falla.
 
 ## Impacto estimado

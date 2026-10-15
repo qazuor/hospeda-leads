@@ -11,7 +11,7 @@ Desde la ficha, una persona obtiene un resumen corto de qué necesita el comerci
 - Acción **Resumir actividad** en la ficha, con opción de incluir todas las gestiones visibles o una gestión seleccionada y un rango temporal.
 - Presentar secciones: situación conocida, hechos recientes, acuerdos/compromisos y próximos pendientes.
 - Cada afirmación factual importante tiene fecha y vínculo al evento/gestión/tarea fuente. Mostrar cuándo no hay información suficiente.
-- Regenerar es explícito; el resultado se puede cerrar, copiar o usar como borrador en otra acción. No se guarda como un hecho comercial por defecto.
+- Regenerar es explícito; el resultado se puede cerrar, copiar o usar como borrador en otra acción. Prompt y respuesta de cada generación se guardan en el journal del negocio según la spec 62; la respuesta se etiqueta como contenido generado por IA, no como hecho comercial confirmado.
 
 ## Contexto y permisos
 
@@ -23,7 +23,7 @@ Solo datos que el usuario ya puede leer: estado del negocio, gestiones visibles,
 2. Las fuentes abren el elemento correcto respetando permisos.
 3. No se incluyen registros fuera del rango o contexto seleccionado.
 4. Un error no borra el contenido de la ficha y mantiene alternativa manual.
-5. No se agrega el texto generado al journal hasta que la persona lo copie/guarde mediante una función existente.
+5. El journal registra prompt y respuesta como interacción de IA; no transforma la respuesta en dato comercial ni la presenta como hecho confirmado.
 
 ## Impacto estimado
 

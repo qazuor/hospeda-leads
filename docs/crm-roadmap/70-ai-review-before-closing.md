@@ -16,9 +16,9 @@ Antes de confirmar un cierre, el vendedor puede ver una revisión legible de cam
 ## Guardrails
 
 - La IA no elige resultado/motivo, no valida como hecho una venta, no bloquea un cierre válido y no elimina requisitos deterministas.
-- Cancelar revisión deja el formulario intacto. El cierre sigue requiriendo la acción explícita ya existente.
+- Cancelar revisión deja el formulario intacto. El cierre sigue requiriendo la acción explícita ya existente. Prompt y respuesta de la revisión se registran en el journal del negocio según la spec 62, sin presentarse como resultado o hecho comercial.
 - No se usa como mecanismo de aprobación gerencial ni como evaluación de rendimiento del vendedor.
 
 ## Aceptación e impacto
 
-El cierre funciona sin proveedor IA y mantiene los errores de validación existentes. Sugerencias no cambian estado ni journal. Integración estimada con `Pipeline`/formulario de cierre y reglas del endpoint de etapas; debe verificar especialmente verticales, resultados y motivos distintos.
+El cierre funciona sin proveedor IA y mantiene los errores de validación existentes. Las sugerencias no cambian estados ni generan hechos comerciales; el journal solo registra la interacción de IA según la spec 62. Integración estimada con `Pipeline`/formulario de cierre y reglas del endpoint de etapas; debe verificar especialmente verticales, resultados y motivos distintos.

@@ -8,7 +8,7 @@ Una persona puede preguntar en lenguaje cotidiano cómo realizar una tarea y rec
 
 ## Flujo y ubicación
 
-- Entrada principal desde Guía/Ayuda con el rótulo **Preguntar cómo hacer algo**; acceso secundario desde la paleta de comandos.
+- Chat general accesible desde la navegación del CRM, Guía/Ayuda y la paleta de comandos. Siempre puede explicar cómo usar la app. Si se abre desde la ficha de un negocio, también responde preguntas sobre ese negocio usando su ficha e historial si la persona tiene permiso; no busca otros negocios.
 - El usuario escribe una pregunta y puede elegir una tarea sugerida o seguir con una pregunta libre.
 - La respuesta presenta pasos cortos, un vínculo por paso cuando exista y un enlace al artículo de referencia.
 - La persona puede reformular o abrir el artículo; esta ayuda no realiza la tarea por ella.
@@ -16,7 +16,7 @@ Una persona puede preguntar en lenguaje cotidiano cómo realizar una tarea y rec
 ## Datos y respuesta
 
 - Fuente inicial: artículos vigentes de `src/content/user-guide.json` y rutas/acciones declaradas del producto. No se usa la guía histórica Markdown como fuente independiente.
-- Se permite enviar la pregunta, el idioma y la ruta/pantalla actual si está disponible. No se envía el registro de negocio que está abierto.
+- En una consulta general de uso se envían la pregunta, idioma, guía aprobada y ruta actual si está disponible. Desde una ficha, se puede enviar también la ficha e historial completos del negocio actual, sujetos al permiso de lectura. Antes de generar, la UI identifica ese contexto y avisa que prompt y respuesta quedarán en el journal del negocio.
 - La respuesta debe distinguir instrucciones respaldadas de una pregunta sin cobertura. En este último caso ofrece buscar por otro término, ver temas o pedir ayuda humana; no inventa botones ni permisos.
 
 ## Reglas y aceptación
@@ -24,7 +24,7 @@ Una persona puede preguntar en lenguaje cotidiano cómo realizar una tarea y rec
 1. La búsqueda no requiere conocer los nombres internos de campos o menús.
 2. Toda instrucción factual apunta a uno o más artículos o rutas existentes; enlaces inválidos se descartan.
 3. La ayuda explica requisitos de permisos/estado solo si están documentados y no ofrece omitirlos.
-4. Responder, cerrar o cambiar de pantalla no modifica datos ni crea historial comercial.
+4. La respuesta no cambia datos comerciales ni ejecuta acciones. Si la consulta está vinculada al negocio abierto, prompt y respuesta se registran en su journal según la spec 62; una consulta genérica sin negocio no se registra en un journal de negocio.
 5. Loading, error y ausencia de conexión permiten volver a la búsqueda y consultar la guía sin perder la pregunta.
 6. La misma consulta puede ejecutarse con un proveedor simulado en pruebas, validando referencias y casos sin respuesta.
 
