@@ -28,6 +28,9 @@ test('Beginner help supports scenarios, search, direct links and history', async
   await page.goto('/guide?topic=clients&article=care');
   await expect(article.getByRole('heading', {name: 'Acompañar a un cliente'})).toBeVisible();
   await expect(article.getByText(/No crees una gestión solo para registrar una consulta/)).toBeVisible();
+  await page.goto('/guide?topic=start&article=business-states');
+  await expect(article.getByRole('heading', {name: 'Estado del negocio y estado de cada gestión'})).toBeVisible();
+  await expect(article.getByText(/Reabrirla hace falta un administrador|Solo un administrador puede desarchivarlo/)).toBeVisible();
   await page.screenshot({path: 'test-results/guide-desktop.png', fullPage: true, animations: 'disabled'});
   await page.getByLabel('¿Qué necesitás hacer?').fill('xyzningunaexplicacion');
   await expect(page.getByText('Probá con otra palabra o volvé a los temas de la guía.')).toBeVisible();

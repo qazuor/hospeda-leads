@@ -103,3 +103,15 @@ El usuario pidió avanzar con otros puntos mientras esto quedaba para después. 
 Ya están implementados los bloques 43–52 del roadmap: búsqueda restante, historial comercial, Contactar desde tareas, registro guiado, continuidad, revisión de reglas/permisos (no las decisiones aún abiertas), miniaturas, avisos, loading y UI transversal. También las rondas posteriores de diseño, Papelera/Archivo, búsqueda de entidades y unificación del historial global.
 
 No reescribir esos bloques desde cero. Revisar la implementación y ampliar la cobertura del caso que falle. Limpieza y recuperación productiva están ejecutadas; no volver a tratarlas como pendientes.
+
+### Ajustes menores solicitados en staging — 14/10/2026
+
+Implementados localmente: abreviatura del badge Concepción del Uruguay, mejor jerarquía/espaciado en Contacto general, perfil, levantar restricción y cambio de política No contactar. `pnpm run typecheck` y las 110 pruebas unitarias pasan. Pendiente: revisión visual del propietario en `http://localhost:5173`; no se hizo commit ni push.
+
+### Tooltips en acciones deshabilitadas — 15/10/2026
+
+La cobertura automática está agregada en los componentes compartidos y en controles de acción especiales. Confirmar visualmente mouse y foco de teclado en desktop/mobile; revisar especialmente tooltips dentro de tablas, popovers y formularios. No se hizo commit ni push.
+
+### Guías del CRM actualizadas — 15/10/2026
+
+Se refrescaron la guía en pantalla y el Markdown generado con los flujos actuales de estados, comunicación, cierres, modelos, recontacto, vistas y papelera; el detalle de gestión usa ahora las etapas propias de su tipo. `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `tests/browser/guide.e2e.ts` pasaron en el servidor local con API interceptada; no se escribió en la base. El build conserva el aviso de chunk mayor a 500 kB. Sin commit ni push.
