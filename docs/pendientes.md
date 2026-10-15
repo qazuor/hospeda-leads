@@ -119,3 +119,12 @@ Se refrescaron la guía en pantalla y el Markdown generado con los flujos actual
 ### PR de ajustes UX y guías — 15/10/2026
 
 [PR #105](https://github.com/qazuor/hospeda-leads/pull/105) abierto hacia `staging`. CI sigue en ejecución. Pendiente revisión visual manual; no mergeado.
+
+## IA en el CRM — revisar antes de implementar
+
+- Revisar la [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [spec base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y las specs hijas 63–81.
+- Elegir proveedor/modelo y verificar retención, entrenamiento, región y contrato antes de enviar datos reales. La spec permanece agnóstica hasta esa elección.
+- Configurar límites concretos antes de habilitar el servicio. El CRM informará uso/errores y bloqueará solicitudes al alcanzar el límite.
+- Revisar cada spec hija y autorizar por separado el primer alcance de implementación. Dictado queda fuera de la primera etapa.
+- No interpretar la documentación como aprobación para conectar un proveedor, enviar datos reales o desplegar IA.
+- La documentación quedó integrada en `staging` mediante los PR #107–#110. Antes de implementar, elegir proveedor/modelo, verificar sus condiciones y definir los límites de uso.
