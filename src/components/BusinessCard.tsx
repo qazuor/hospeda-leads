@@ -26,7 +26,7 @@ export function BusinessCard({row,columns,selected,onSelect,onOpen,renderValue,d
 }){
  return <Card component="article" id={'business-'+row.accountId} data-business-id={row.accountId} className={styles.card} padding={14} radius="md" withBorder>
   <div className={styles.header}>
-   <Checkbox aria-label={'Seleccionar '+row.nombre} disabled={row.canModify===false} checked={selected} onChange={onSelect}/>
+   <Checkbox aria-label={'Seleccionar '+row.nombre} disabled={row.canModify===false} disabledReason="Solo la persona responsable del negocio o un administrador puede modificarlo." checked={selected} onChange={onSelect}/>
    <h2 className={styles.heading}><UnstyledButton data-business-open className={styles.name} aria-label={'Abrir negocio '+row.nombre} onClick={onOpen}>{row.nombre}</UnstyledButton></h2>
    {columns.includes('actions')&&<div className={styles.actions}>{renderValue('actions')}</div>}
   </div>

@@ -4,6 +4,7 @@ import {Check,ChevronLeft,ChevronRight} from 'lucide-react';
 import type {BusinessSystemView} from '../helpers/businessSystemViews';
 import type {BusinessViewSelection} from '../helpers/businessViewSelection';
 import styles from './BusinessViewBadges.module.css';
+import {DisabledTooltip} from './Tooltip';
 export function BusinessViewBadges({system,personal,active,onSelect}:{system:BusinessSystemView[];personal:{id?:string;name:string}[];active:BusinessViewSelection|null;onSelect:(kind:'system'|'personal',id:string)=>void}){
  const viewport=useRef<HTMLDivElement>(null),content=useRef<HTMLDivElement>(null);
  const [edges,setEdges]=useState({left:false,right:false});
@@ -16,11 +17,11 @@ export function BusinessViewBadges({system,personal,active,onSelect}:{system:Bus
  </div>;}
  return <div className={styles.container}>
  <div className={styles.row} role="region" aria-label="Vistas guardadas">
-  <ActionIcon variant="subtle" color="gray" size={30} disabled={!edges.left} aria-label="Vistas anteriores" onClick={()=>viewport.current?.scrollBy({left:-Math.max(160,viewport.current.clientWidth*.7),behavior:'smooth'})}><ChevronLeft size={16}/></ActionIcon>
+  <DisabledTooltip disabled={!edges.left} reason="No hay vistas anteriores. Desplazate hacia la izquierda en la lista para verlas." style={{flex:'none'}}><ActionIcon variant="subtle" color="gray" size={30} disabled={!edges.left} aria-label="Vistas anteriores" onClick={()=>viewport.current?.scrollBy({left:-Math.max(160,viewport.current.clientWidth*.7),behavior:'smooth'})}><ChevronLeft size={16}/></ActionIcon></DisabledTooltip>
   <ScrollArea className={styles.scroll} viewportRef={viewport} scrollbars="x" type="auto" scrollbarSize={5} offsetScrollbars="x" onScrollPositionChange={updateEdges}>
    <div className={styles.content} ref={content}><div className={styles.group} role="group" aria-label="Vistas del sistema"><span className={styles.label}>Sistema</span>{system.map(view=>badge('system',view.id,view.name))}</div><div className={styles.group} role="group" aria-label="Tus vistas"><span className={styles.label}>Tus vistas</span>{personal.map(view=>view.id?badge('personal',view.id,view.name):null)}{personal.length===0&&<span className={styles.empty}>Sin vistas personales</span>}</div></div>
   </ScrollArea>
-  <ActionIcon variant="subtle" color="gray" size={30} disabled={!edges.right} aria-label="Más vistas" onClick={()=>viewport.current?.scrollBy({left:Math.max(160,viewport.current.clientWidth*.7),behavior:'smooth'})}><ChevronRight size={16}/></ActionIcon>
+  <DisabledTooltip disabled={!edges.right} reason="No hay más vistas a la derecha. Deslizá la lista para revisar las que están visibles." style={{flex:'none'}}><ActionIcon variant="subtle" color="gray" size={30} disabled={!edges.right} aria-label="Más vistas" onClick={()=>viewport.current?.scrollBy({left:Math.max(160,viewport.current.clientWidth*.7),behavior:'smooth'})}><ChevronRight size={16}/></ActionIcon></DisabledTooltip>
  </div>
  {edges.right&&<p className={styles.scrollHint}><ChevronRight size={13} aria-hidden="true"/>Deslizá para ver más vistas</p>}
  </div>;

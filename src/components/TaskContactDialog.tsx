@@ -17,6 +17,7 @@ import {useAuth} from '../helpers/useAuth';
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {initialCommunicationRecipient} from '../helpers/communicationRecipient';
 import styles from './Commercial.module.css';
+import {DisabledTooltip} from './Tooltip';
 
 /** A task keeps its scope, including closed managements and general business work. */
 export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()=>void;onLog:(contactId:string,channel:string)=>void}){
@@ -47,7 +48,7 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
   <WorkFlowSteps current={0}/>
   <p className={styles.contextNote}><strong>{task.accountName}</strong> · {task.leadId?(task.opportunityName||'Esta gestión'):'Seguimiento general del negocio'}</p>
   {loading&&<p role="status"><Loader size="sm"/> Cargando contactos y restricciones…</p>}
-  {error&&<><p role="alert">{error.message}</p><Button variant="default" disabled={q.isFetching||restrictions.isFetching||settings.isFetching} onClick={()=>{void q.refetch();void restrictions.refetch();if(task.leadId)void settings.refetch()}}>Reintentar carga</Button></>}
+  {error&&<><p role="alert">{error.message}</p><Button variant="default" disabled={q.isFetching||restrictions.isFetching||settings.isFetching} disabledReason={(q.isFetching || restrictions.isFetching || settings.isFetching) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} onClick={()=>{void q.refetch();void restrictions.refetch();if(task.leadId)void settings.refetch()}}>Reintentar carga</Button></>}
   {q.data&&!loading&&!error&&<div className={styles.form}>
    <CrmNativeSelect label="Destinatario" value={mustChooseRecipient?'':effective||'__business'} onChange={e=>{setContact(e.target.value);setUsedChannel('')}} data={[...(mustChooseRecipient?[{value:'',label:'Elegí una persona o el canal general'}]:[]),{value:'__business',label:'Canal general de '+q.data.account.nombre},...availableContacts.map(c=>({value:String(c.id),label:c.name}))]}/>
    <p>{mustChooseRecipient?'Elegí explícitamente a quién contactar.':<>Teléfono: {phone||'Sin datos'} · Email: {email||'Sin datos'}</>}</p>
@@ -56,9 +57,9 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
    {!canPrepare&&<p>La tarea asignada te permite registrar su resultado. Para preparar mensajes necesitás ser responsable de la gestión o administrador; la asignación de esta tarea no cambia esos permisos.</p>}
    {!task.leadId&&<p>Para escribir usarás el recorrido de Contactar: elegí una gestión o prepará una explícitamente. Esta tarea seguirá siendo general.</p>}
    <div className={styles.actions}>
-    {!!phone?.replace(/\D/g,'')&&!blocked('whatsapp')&&<Button variant="default" leftSection={<MessageCircle size={18} aria-hidden="true"/>} disabled={!canPrepare||mustChooseRecipient} onClick={()=>{setUsedChannel('whatsapp');setMessageChannel('whatsapp')}}>Preparar WhatsApp con un mensaje modelo</Button>}
-    {email&&!blocked('email')&&<Button variant="default" leftSection={<Mail size={18} aria-hidden="true"/>} disabled={!canPrepare||mustChooseRecipient} onClick={()=>{setUsedChannel('email');setMessageChannel('email')}}>Preparar email con un mensaje modelo</Button>}
-    {phone&&!blocked('phone')&&<ChannelLink component="a" variant="default" disabled={mustChooseRecipient} leftSection={<Phone size={18} aria-hidden="true"/>} href={mustChooseRecipient?undefined:'tel:'+phone} onClick={()=>setUsedChannel('phone')}>Llamar</ChannelLink>}
+    {!!phone?.replace(/\D/g,'')&&!blocked('whatsapp')&&<Button variant="default" leftSection={<MessageCircle size={18} aria-hidden="true"/>} disabled={!canPrepare||mustChooseRecipient} disabledReason={mustChooseRecipient?'Elegí explícitamente a quién contactar.':'Solo el responsable de esta gestión o un administrador puede preparar mensajes; la tarea asignada no otorga ese permiso.'} onClick={()=>{setUsedChannel('whatsapp');setMessageChannel('whatsapp')}}>Preparar WhatsApp con un mensaje modelo</Button>}
+    {email&&!blocked('email')&&<Button variant="default" leftSection={<Mail size={18} aria-hidden="true"/>} disabled={!canPrepare||mustChooseRecipient} disabledReason={mustChooseRecipient?'Elegí explícitamente a quién contactar.':'Solo el responsable de esta gestión o un administrador puede preparar mensajes; la tarea asignada no otorga ese permiso.'} onClick={()=>{setUsedChannel('email');setMessageChannel('email')}}>Preparar email con un mensaje modelo</Button>}
+    {phone&&!blocked('phone')&&<DisabledTooltip disabled={mustChooseRecipient} reason="Elegí explícitamente a quién contactar."><ChannelLink component="a" variant="default" disabled={mustChooseRecipient} leftSection={<Phone size={18} aria-hidden="true"/>} href={mustChooseRecipient?undefined:'tel:'+phone} onClick={()=>setUsedChannel('phone')}>Llamar</ChannelLink></DisabledTooltip>}
    </div>
    {!phone&&!email&&<p>Este destinatario no tiene teléfono ni email. <Link to={'/accounts/'+task.accountId}>Agregar o revisar contacto</Link></p>}
    <section className={styles.conversationContinue}><h3>Después de hablar o intentar contactar</h3><p>Abrir un canal no confirma un envío. También podés registrar una llamada o un intento sin respuesta.</p><Button onClick={()=>onLog(effective,usedChannel)}>Registrar qué pasó</Button></section>

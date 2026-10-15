@@ -16,6 +16,7 @@ import {getSettings} from '../endpoints/settings_GET.schema';
 import {postLeadsQuick} from '../endpoints/leads_quick_POST.schema';
 import {toast} from 'sonner';
 import styles from './InlineBusinessBadge.module.css';
+import {DisabledTooltip} from './Tooltip';
 
 type Draft={value:string;expected:string|null;classification:{tipo:string|null;subtipo:string|null}};
 export function InlineBusinessBadge({accountId,name,field,value,label,knownValues=[]}:{accountId:string;name:string;field:InlineBadgeField;value:string|null;label:string;knownValues?:string[]}){
@@ -50,9 +51,9 @@ export function InlineBusinessBadge({accountId,name,field,value,label,knownValue
       {[{value:'',label:empty},...((current&&!options.some(item=>item.value===current))?[{value:current,label:current}]:[]),...options].map(item=>{
        const isCurrent=(item.value||null)===current;
        const nextDraft:Draft={value:item.value,expected:current,classification:{tipo:account?.tipo??null,subtipo:account?.subtipo??null}};
-       return <UnstyledButton key={item.value||'__empty__'} type="button" className={styles.option} data-current={isCurrent||undefined} aria-pressed={isCurrent} disabled={processing||isCurrent} onClick={()=>{setDraft(nextDraft);void submit(nextDraft);}}>
+       return <DisabledTooltip key={item.value||'__empty__'} disabled={processing||isCurrent} reason={processing?'Guardando el cambio. Esperá a que termine.':'Este es el valor actual; elegí otro valor para guardar un cambio.'} style={{width:'100%'}}><UnstyledButton type="button" className={styles.option} data-current={isCurrent||undefined} aria-pressed={isCurrent} disabled={processing||isCurrent} onClick={()=>{setDraft(nextDraft);void submit(nextDraft);}}>
         <ValueBadge category={category} value={item.label} muted={!item.value} nativeTooltip={false}/>{isCurrent?<Check size={14} aria-label="Valor actual"/>:null}
-       </UnstyledButton>;
+       </UnstyledButton></DisabledTooltip>;
       })}
      </div>
      {processing?<p className={styles.compactStatus} role="status"><LoaderCircle size={13} aria-hidden="true"/>Guardando…</p>:null}
@@ -68,11 +69,11 @@ export function InlineBusinessBadge({accountId,name,field,value,label,knownValue
      {field==='tipo'&&draft&&(draft.value||null)!==current&&account?.subtipo&&<p className={styles.warning}>Al guardar esta vertical se quitará el subtipo “{account.subtipo}”. Después podés elegir uno compatible.</p>}
      <p className={styles.help}>{scope==='business'?'Se modifica este dato del negocio. Sus gestiones y compromisos se conservan.':'Se modifica únicamente esta gestión. Los demás datos, gestiones y compromisos se conservan.'} Con filtros activos, el negocio podría dejar de aparecer.</p>
      {['quienCargo','creadoPor','origen'].includes(field)&&<p className={styles.help}>Es un dato histórico importado. La autoría real de las acciones permanece en el historial.</p>}
-     {save.error&&<div className={styles.error} role="alert"><p>{save.error.message}</p><Button type="button" size="sm" variant="outline" disabled={processing} onClick={reload}>Recargar datos</Button></div>}
-     <div className={styles.actions}><Button variant="outline" size="sm" disabled={processing} onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" size="sm" disabled={processing||!draft||(draft.value||null)===current}>{processing&&<LoaderCircle size={14} aria-hidden="true"/>}{processing?'Guardando '+title.toLowerCase()+'…':'Guardar'}</Button></div>
+     {save.error&&<div className={styles.error} role="alert"><p>{save.error.message}</p><Button type="button" size="sm" variant="outline" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={reload}>Recargar datos</Button></div>}
+     <div className={styles.actions}><Button variant="outline" size="sm" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" size="sm" disabled={processing||!draft||(draft.value||null)===current} disabledReason={(processing) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{processing&&<LoaderCircle size={14} aria-hidden="true"/>}{processing?'Guardando '+title.toLowerCase()+'…':'Guardar'}</Button></div>
     </form>}
    </>}
-   {(loading||detail.error||settings.error||missingManagement||!allowed)&&<Button variant="outline" size="sm" disabled={processing} onClick={()=>setOpen(false)}>Cerrar</Button>}
+   {(loading||detail.error||settings.error||missingManagement||!allowed)&&<Button variant="outline" size="sm" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setOpen(false)}>Cerrar</Button>}
    </>}
   </PopoverContent>
  </Popover>;

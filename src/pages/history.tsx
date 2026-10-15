@@ -90,7 +90,7 @@ export default function HistoryPage(){
           <td className={styles.change}>{row.fieldName?<><span>{journalValue(row.fieldName,row.oldValue)}</span><b>→</b><strong>{journalValue(row.fieldName,row.newValue)}</strong></>:auditChanges(row.metadata).length?<details><summary>Ver cambios</summary>{auditChanges(row.metadata).map((line,i)=><p key={i}>{line}</p>)}</details>:"—"}</td>
         </tr>)}
       </tbody></Table></div>}
-      <div className={styles.pagination}><Button variant="outline" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((shownData?.total??0)/50)} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
+      <div className={styles.pagination}><Button variant="outline" disabled={page<=1} disabledReason={"Ya estás en la primera página."} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</Button><span>{page} / {Math.max(1,Math.ceil((shownData?.total??0)/50))}</span><Button variant="outline" disabled={page>=Math.ceil((shownData?.total??0)/50)} disabledReason={"Ya estás en la última página."} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></div>
     </section>
   </main></>;
 }

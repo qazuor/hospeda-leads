@@ -18,6 +18,6 @@ export default function PasswordRecoveryPage({reset=false}:{reset?:boolean}){
  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
  {reset&&!token?<p role="alert">El enlace no es válido. <Link to="/forgot-password">Solicitar otro enlace</Link></p>:!done&&<form onSubmit={submit} className={styles.recoveryForm}>
  {reset?<><label>Nueva contraseña<Input type="password" autoComplete="new-password" required minLength={8} maxLength={72} value={password} onChange={e=>setPassword(e.target.value)} disabled={busy}/></label><label>Repetir contraseña<Input type="password" autoComplete="new-password" required minLength={8} maxLength={72} value={confirmation} onChange={e=>setConfirmation(e.target.value)} disabled={busy}/></label></>:<label>Email<Input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} disabled={busy}/></label>}
- <Button type="submit" disabled={busy}>{busy?"Procesando…":reset?"Guardar contraseña":"Enviar enlace de recuperación"}</Button></form>}
+ <Button type="submit" disabled={busy} disabledReason="La operación está en curso. Esperá a que termine para continuar.">{busy?"Procesando…":reset?"Guardar contraseña":"Enviar enlace de recuperación"}</Button></form>}
  <div className={styles.foot}><Link to="/login">Volver al login</Link>{reset&&<><br/><Link to="/forgot-password">Solicitar otro enlace</Link></>}</div></section></main>;
 }

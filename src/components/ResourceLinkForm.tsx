@@ -55,7 +55,7 @@ export function ResourceLinkForm({ accountId, leadId, documents, loading, error,
       data={[{ value: '', label: 'Sin actividad específica' }, ...(work.data?.activities.filter(a => !targetLead || String(a.leadId) === targetLead).map(a => ({ value: String(a.id), label: `${a.title} · ${new Date(a.occurredAt).toLocaleDateString('es-AR')}` })) || [])]}
       onChange={value => { setActivityId(value || ''); resetFeedback(); }}/>
     <p className={styles.materialTarget}>Destino: <strong>{detail.data?.account.nombre || 'Negocio'} · {targetName}</strong></p>
-    <div className={styles.actions}><Button disabled={blocked || !selected} onClick={link}>{busy ? 'Vinculando documento…' : leadId ? 'Vincular documento a la gestión' : 'Vincular documento al negocio'}</Button></div>
+    <div className={styles.actions}><Button disabled={blocked || !selected} disabledReason={"El negocio tiene un bloqueo de contacto activo. Un administrador debe levantarlo para habilitar esta acción."} onClick={link}>{busy ? 'Vinculando documento…' : leadId ? 'Vincular documento a la gestión' : 'Vincular documento al negocio'}</Button></div>
     {mutation.error && <p role="alert">{mutation.error.message} Tu selección se conserva; podés volver a intentar.</p>}
     {confirmation && <p role="status">{confirmation}</p>}
     {busy && <span hidden data-unsaved="true"/>}

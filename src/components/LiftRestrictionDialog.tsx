@@ -5,6 +5,7 @@ import {Input} from './Input';
 import {Button} from './Button';
 import {postCommunication} from '../endpoints/communication.schema';
 import {crmError} from '../helpers/crmErrors';
+import styles from './Communication.module.css';
 
 export type RestrictionTarget={id:string;channel:string;contact:string;reason:string};
 export function LiftRestrictionDialog({target,onClose,onLifted}:{target:RestrictionTarget;onClose:()=>void;onLifted:()=>void}){
@@ -28,11 +29,11 @@ export function LiftRestrictionDialog({target,onClose,onLifted}:{target:Restrict
   if(notice)notice.focus();else if(opener.current?.isConnected)opener.current.focus();
  }}><DialogHeader><DialogTitle>Levantar restricción</DialogTitle><DialogDescription>Se habilitará el contacto para este canal. Los seguimientos detenidos no se reanudan y no se envía ningún mensaje.</DialogDescription></DialogHeader>
   <p><strong>{channel}</strong> · {target.contact}</p><p>Motivo original: {target.reason}</p>
-  <form onSubmit={event=>{event.preventDefault();event.stopPropagation();void submit()}}>
+  <form className={styles.generalForm} onSubmit={event=>{event.preventDefault();event.stopPropagation();void submit()}}>
    <label>Motivo para levantar la restricción<Input autoFocus required minLength={3} maxLength={1000} disabled={mutation.isPending} value={reason} onChange={event=>setReason(event.target.value)}/></label>
    {mutation.error&&<p role="alert">{crmError(mutation.error)}<br/>El motivo se conserva para reintentar.</p>}
    {mutation.isPending&&<p role="status">Levantando restricción…</p>}
-   <DialogFooter><Button variant="outline" disabled={mutation.isPending} onClick={close}>Cancelar</Button><Button type="submit" disabled={mutation.isPending||reason.trim().length<3}>{mutation.isPending?'Levantando restricción…':'Confirmar levantamiento'}</Button></DialogFooter>
+   <DialogFooter><Button variant="outline" disabled={mutation.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={close}>Cancelar</Button><Button type="submit" disabled={mutation.isPending||reason.trim().length<3} disabledReason={(mutation.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá el motivo obligatorio (mínimo 3 caracteres)."}>{mutation.isPending?'Levantando restricción…':'Confirmar levantamiento'}</Button></DialogFooter>
   </form>
  </DialogContent></Dialog>;
 }

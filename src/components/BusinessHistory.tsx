@@ -19,7 +19,7 @@ export function BusinessHistory({accountId,users=[],readOnly=false,onFollow}:{ac
  const q=useQuery({queryKey:['commercial-detail','history',accountId,page],queryFn:()=>getBusinessHistory(accountId,page)});
  const actor=(email:string|null)=>users.find(u=>u.email===email)?.displayName||email||'Sin responsable registrado';
  if(q.isPending)return <p role="status"><Loader size="sm"/> Cargando historial comercial…</p>;
- if(q.error)return <div role="alert"><p>{q.error.message}</p><Button variant="outline" disabled={q.isFetching} onClick={()=>void q.refetch()}>Reintentar historial</Button></div>;
+ if(q.error)return <div role="alert"><p>{q.error.message}</p><Button variant="outline" disabled={q.isFetching} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>void q.refetch()}>Reintentar historial</Button></div>;
  const d=q.data;
  return <section className={styles.history} aria-label="Historial comercial">
   <div className={styles.commitments}><h3><CalendarClock size={18} aria-hidden="true"/> Compromisos pendientes ({d.totalPending})</h3>
@@ -42,6 +42,6 @@ export function BusinessHistory({accountId,users=[],readOnly=false,onFollow}:{ac
    {(e.notes||e.messageText)&&<Disclosure><DisclosureSummary>Ver contenido registrado</DisclosureSummary>{e.notes&&<p className={styles.text}>{e.notes}</p>}{e.messageText&&<p className={styles.text}>{e.messageText}</p>}</Disclosure>}
    {e.leadId&&<Link to={'/sales/'+e.leadId}>Abrir gestión</Link>}
   </li>)}</ol>
-  {d.total>50&&<nav className={styles.pagination} aria-label="Páginas del historial comercial"><Button variant="outline" disabled={page===1||q.isFetching} onClick={()=>setPage(p=>p-1)}>Anterior</Button><span>Página {page} de {Math.ceil(d.total/50)}</span><Button variant="outline" disabled={page*50>=d.total||q.isFetching} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></nav>}
+  {d.total>50&&<nav className={styles.pagination} aria-label="Páginas del historial comercial"><Button variant="outline" disabled={page===1||q.isFetching} disabledReason={(q.isFetching) ? "La operación está en curso. Esperá a que termine para continuar." : "Ya estás en la primera página."} onClick={()=>setPage(p=>p-1)}>Anterior</Button><span>Página {page} de {Math.ceil(d.total/50)}</span><Button variant="outline" disabled={page*50>=d.total||q.isFetching} disabledReason={(q.isFetching) ? "La operación está en curso. Esperá a que termine para continuar." : "Ya estás en la última página."} onClick={()=>setPage(p=>p+1)}>Siguiente</Button></nav>}
  </section>;
 }

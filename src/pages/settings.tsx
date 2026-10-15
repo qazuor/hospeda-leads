@@ -110,7 +110,7 @@ export default function SettingsPage(){
             <div><Badge variant="outline">{user.role==="admin"?"Administrador":"Usuario"}</Badge></div>
             <div><Badge variant={user.hasPassword?"success":"outline"}>{user.hasPassword?"Activo":user.invitationPending?"Invitación enviada":"Pendiente"}</Badge></div>
             <div className={styles.userActions}>
-              {!user.hasPassword&&<Button variant="ghost" size="icon-sm" title={user.invitationPending?"Reenviar invitación":"Enviar invitación"} onClick={()=>resendInvite(user.id)} disabled={save.isPending}><RotateCw size={15}/></Button>}
+              {!user.hasPassword&&<Button variant="ghost" size="icon-sm" title={user.invitationPending?"Reenviar invitación":"Enviar invitación"} onClick={()=>resendInvite(user.id)} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar."><RotateCw size={15}/></Button>}
               <Button variant="ghost" size="icon-sm" title="Editar usuario" onClick={()=>setEditingUser(user)}><Pencil size={15}/></Button>
             </div>
           </div>)}</div>
@@ -136,7 +136,7 @@ export default function SettingsPage(){
             <label>Email remitente<Input type="email" value={senderEmail} onChange={e=>setSenderEmail(e.target.value)} placeholder="notificaciones@hospeda.com.ar"/></label>
             <label>Reply-To<Input type="email" value={replyToEmail} onChange={e=>setReplyToEmail(e.target.value)} placeholder="contacto@hospeda.com.ar"/></label>
           </div>
-          <div className={styles.cardFooter}><Button onClick={saveEmailDelivery} disabled={save.isPending}>{save.isPending?"Guardando…":"Guardar configuración"}</Button></div>
+          <div className={styles.cardFooter}><Button onClick={saveEmailDelivery} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">{save.isPending?"Guardando…":"Guardar configuración"}</Button></div>
         </article>
       </section>}
 
@@ -149,7 +149,7 @@ export default function SettingsPage(){
         <article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Apariencia</h2><p>Elegí tema claro, oscuro o el definido por el sistema operativo.</p></div></div><div className={styles.systemControl}><ThemeModeSwitch/></div></article>
       </section>}
 
-      <Dialog open={inviteOpen} onOpenChange={open=>{if(!save.isPending)setInviteOpen(open)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" disabled={save.isPending} onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={inviteOpen} onOpenChange={open=>{if(!save.isPending)setInviteOpen(open)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
 
       <Dialog open={!!editingUser} onOpenChange={open=>{if(!open&&!save.isPending)setEditingUser(null)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Editar usuario</DialogTitle><DialogDescription>El email Hospeda se usa como From y Reply-To cuando esta persona envía correos desde el CRM.</DialogDescription></DialogHeader><div className={styles.editUserGrid}>
         <label className={styles.dialogField}><span>Nombre completo</span><Input value={editFullName} onChange={e=>setEditFullName(e.target.value)}/></label>
@@ -158,7 +158,7 @@ export default function SettingsPage(){
         <label className={styles.dialogField}><span>Sexo</span><NativeSelect value={editSex} onChange={e=>setEditSex(e.target.value)}><option value="">Sin completar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option><option value="otro">Otro</option><option value="prefiero_no_decir">Prefiere no decir</option></NativeSelect></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email real</span><Input type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)}/></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email Hospeda para enviar mails</span><Input type="email" value={editSenderEmail} onChange={e=>setEditSenderEmail(e.target.value)} placeholder="nombre@hospeda.com.ar"/></label>
-      </div><DialogFooter><Button variant="outline" disabled={save.isPending} onClick={()=>setEditingUser(null)}>Cancelar</Button><Button onClick={saveUser} disabled={save.isPending||!editEmail.trim()||!editDisplayName.trim()}>{save.isPending?"Guardando…":"Guardar cambios"}</Button></DialogFooter></DialogContent></Dialog>
+      </div><DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setEditingUser(null)}>Cancelar</Button><Button onClick={saveUser} disabled={save.isPending||!editEmail.trim()||!editDisplayName.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{save.isPending?"Guardando…":"Guardar cambios"}</Button></DialogFooter></DialogContent></Dialog>
     </main>
   </>;
 }

@@ -106,7 +106,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
 
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading} disabledReason="La operación está en curso. Esperá a que termine para continuar."
           className={styles.submitButton}
         >
           {isLoading ? (
