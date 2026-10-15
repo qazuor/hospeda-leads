@@ -79,3 +79,10 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - Estado comprobado del código, resultado de CI, deploy observado y confirmación del operador son evidencias diferentes; documentarlas como tales.
 - `AGENTS.md` es la instrucción común; `CLAUDE.md` importa esa instrucción. Documentos de estado/decisiones/pendientes compartidos y versionados son la memoria entre herramientas.
 - Registrar solamente contexto de este CRM. No copiar memorias personales del usuario ni instrucciones del portal turístico a este proyecto.
+
+## IA en el CRM — alcance documental
+
+- El propietario seleccionó 19 ideas para seguir definiendo y retiró las demás del inventario. El [documento 60](crm-roadmap/60-ideas-uso-ia.md) conserva esa selección.
+- Se autorizó preparar una épica, una spec de base común de IA y una spec hija por idea, además de publicar la documentación para revisión. Esta autorización no aprueba implementación.
+- Proveedor/modelo, clases de datos enviadas a terceros, retención/uso del proveedor, habilitación por rol, límites de gasto y tecnología de voz siguen sin decisión. Consultar la [épica 61](crm-roadmap/61-ai-in-crm-epic.md) y la [spec base 62](crm-roadmap/62-ai-platform-foundation-spec.md).
+- Las reglas transversales que aparecen en las specs son propuestas para revisión hasta que el propietario las apruebe explícitamente. Las specs hijas pendientes no son autorización de código ni de acceso a datos productivos.

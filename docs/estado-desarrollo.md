@@ -91,6 +91,10 @@ PR #92: 93 pruebas unitarias, 115 recorridos de navegador, integraciones Postgre
 
 Un CLI local debe volver a verificar comandos, permisos y checks del cambio que realice. El historial de conversaciones de cada herramienta se retoma con su mecanismo propio; los documentos y PRs son el traspaso entre herramientas.
 
+## Planificación de IA — documentación en preparación
+
+Se generó una propuesta de épica de IA, una spec fundacional y 19 specs hijas correspondientes al inventario seleccionado por el propietario. La documentación distingue lo acordado (selección de ideas y autorización para documentar) de las propuestas aún pendientes de aprobación (guardrails y arquitectura). No hay integración LLM ni implementación aprobada. Proveedor/modelo, privacidad/retención, límites de uso y voz permanecen abiertos. Ver [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y el [inventario](crm-roadmap/60-ideas-uso-ia.md).
+
 ## Integración local de cambios visuales, estados y comunicación
 
 Se creó `feat/integrate-crm-state-communication-visual` desde `origin/main` en `50263c0`, en el worktree aislado `/tmp/hospeda-integration`. Recibe el cambio visual del PR #102, las ramas de estados en orden de dependencia (#99, #100, #101, journal, API, UI y preferencias), los cambios locales complementarios de estados y el worktree de Comunicación. Los conflictos de UI se resolvieron conservando las mejoras visuales, la columna de selección fija, los nuevos estados y las reglas de producto aprobadas. La migración 019 se mantuvo intacta; el nuevo código de archivo está en la migración 023.
