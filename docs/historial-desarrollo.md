@@ -61,3 +61,9 @@ El propietario pidió continuar desde Codex o Claude Code en su PC y versionar e
 ## Cómo continuar este registro
 
 Agregar hitos con problema, resultado, PR/commit, validaciones efectivas y estado productivo. No pegar outputs con datos privados, secretos, dumps ni transcripciones completas. Usar enlaces a evidencia pública y conservar evidencia privada en el almacenamiento autorizado del propietario.
+
+## 15/10/2026 — propuesta documental de IA
+
+Se prepararon la épica 61, la spec fundacional 62 y 19 specs hijas 63–81 a partir del inventario seleccionado por el propietario en el documento 60. En refinamiento, el propietario definió chat general y acciones contextuales, acceso para todo usuario autenticado respetando permisos CRM, ficha e historial completos con permiso, registro de prompts y fragmentos específicos en los journals involucrados, límites antes de habilitar, fecha elegida para resumir cambios, informe de cartera con período de 30 días, desglose por responsable y métricas iniciales acordadas, y dictado fuera de la primera etapa. La propuesta sigue sin implementación; falta elegir proveedor/modelo y verificar sus condiciones para datos reales antes de autorizar la conexión real.
+
+Entrega de documentación encadenada hacia `staging`: tracker [PR #107](https://github.com/qazuor/hospeda-leads/pull/107), base [#108](https://github.com/qazuor/hospeda-leads/pull/108), Alta [#109](https://github.com/qazuor/hospeda-leads/pull/109), Media/Exploratoria [#110](https://github.com/qazuor/hospeda-leads/pull/110). Commits de slices: `6467d83`, `793ff01`, `43acb4d`, `d5bf7d6`. Sin merge; CI seguía en ejecución.

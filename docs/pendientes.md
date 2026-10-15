@@ -103,3 +103,12 @@ El usuario pidió avanzar con otros puntos mientras esto quedaba para después. 
 Ya están implementados los bloques 43–52 del roadmap: búsqueda restante, historial comercial, Contactar desde tareas, registro guiado, continuidad, revisión de reglas/permisos (no las decisiones aún abiertas), miniaturas, avisos, loading y UI transversal. También las rondas posteriores de diseño, Papelera/Archivo, búsqueda de entidades y unificación del historial global.
 
 No reescribir esos bloques desde cero. Revisar la implementación y ampliar la cobertura del caso que falle. Limpieza y recuperación productiva están ejecutadas; no volver a tratarlas como pendientes.
+
+## IA en el CRM — revisar antes de implementar
+
+- Revisar la [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [spec base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y las specs hijas 63–81.
+- Elegir proveedor/modelo y verificar retención, entrenamiento, región y contrato antes de enviar datos reales. La spec permanece agnóstica hasta esa elección.
+- Configurar límites concretos antes de habilitar el servicio. El CRM informará uso/errores y bloqueará solicitudes al alcanzar el límite.
+- Revisar cada spec hija y autorizar por separado el primer alcance de implementación. Dictado queda fuera de la primera etapa.
+- No interpretar la documentación como aprobación para conectar un proveedor, enviar datos reales o desplegar IA.
+- Revisar la cadena de documentación: [tracker #107](https://github.com/qazuor/hospeda-leads/pull/107), [base #108](https://github.com/qazuor/hospeda-leads/pull/108), [Alta #109](https://github.com/qazuor/hospeda-leads/pull/109) y [Media/Exploratoria #110](https://github.com/qazuor/hospeda-leads/pull/110). No mergear hasta su revisión y CI verde.
