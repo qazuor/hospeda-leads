@@ -115,3 +115,7 @@ La cobertura automática está agregada en los componentes compartidos y en cont
 ### Guías del CRM actualizadas — 15/10/2026
 
 Se refrescaron la guía en pantalla y el Markdown generado con los flujos actuales de estados, comunicación, cierres, modelos, recontacto, vistas y papelera; el detalle de gestión usa ahora las etapas propias de su tipo. `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `tests/browser/guide.e2e.ts` pasaron en el servidor local con API interceptada; no se escribió en la base. El build conserva el aviso de chunk mayor a 500 kB. Sin commit ni push.
+
+### PR de ajustes UX y guías — 15/10/2026
+
+[PR #105](https://github.com/qazuor/hospeda-leads/pull/105) abierto hacia `staging`. CI sigue en ejecución. Pendiente revisión visual manual; no mergeado.
