@@ -24,8 +24,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       w={icon ? 44 : undefined} px={icon ? 0 : size === 'sm' ? 8 : undefined}
       renderRoot={child ? rootProps => React.cloneElement(child, { ...rootProps, ...child.props, className: [rootProps.className, child.props.className].filter(Boolean).join(' '), children: rootProps.children }) : undefined}
     >{child ? child.props.children as React.ReactNode : children}</MantineButton>;
-    if(!disabled)return button;
-    return <DisabledTooltip reason={reason}>{button}</DisabledTooltip>;
+    return <DisabledTooltip disabled={!!disabled} reason={reason}>{button}</DisabledTooltip>;
   },
 );
 Button.displayName = 'Button';

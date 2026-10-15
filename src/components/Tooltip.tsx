@@ -14,9 +14,8 @@ export function Tooltip({ children, open, onOpenChange, delayDuration = 300 }: {
   </MantineTooltip>;
 }
 export function DisabledTooltip({children,reason,style,disabled=true}:{children:React.ReactNode;reason:string;style?:React.CSSProperties;disabled?:boolean}){
-  if(!disabled)return <>{children}</>;
-  return <MantineTooltip label={reason} position="top" offset={4} openDelay={300} zIndex={450} multiline maw={320} events={{hover:true,focus:true,touch:false}}>
-    <span style={{display:'inline-flex',alignItems:'center',maxWidth:'100%',verticalAlign:'middle',...style}} tabIndex={0}>{children}</span>
+  return <MantineTooltip label={reason} disabled={!disabled} position="top" offset={4} openDelay={300} zIndex={450} multiline maw={320} events={{hover:true,focus:true,touch:false}}>
+    <span style={{display:disabled?'inline-flex':'contents',alignItems:'center',maxWidth:'100%',verticalAlign:'middle',...style}} tabIndex={disabled?0:undefined}>{children}</span>
   </MantineTooltip>;
 }
 export const TooltipTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(({ asChild, ...props }, ref) =>
