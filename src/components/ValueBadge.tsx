@@ -45,6 +45,12 @@ export const valueBadgeColors=(category:Category,value:string)=>{
   } as React.CSSProperties;
 };
 
+const badgeLabel=(category:Category,value:string)=>{
+  if(category!=="city")return value;
+  const normalized=value.trim().normalize("NFD").replace(/\p{M}/gu,"").toLocaleLowerCase("es-AR");
+  return normalized==="concepcion del uruguay"?"C. del Uruguay":value;
+};
+
 export const ValueBadge=({
   value,category="generic",muted=false,className,nativeTooltip=true
 }:{
@@ -55,8 +61,7 @@ export const ValueBadge=({
   nativeTooltip?:boolean;
 })=>{
   if(!value)return <span className={styles.empty}>—</span>;
-  const displayValue=category==="city"&&value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLocaleLowerCase("es-AR")==="concepcion del uruguay"?"C. del Uruguay":value;
-  return <Badge component="span" tt="none" variant="outline" classNames={{ label: styles.label }} className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{displayValue}</Badge>;
+  return <Badge component="span" tt="none" variant="outline" classNames={{ label: styles.label }} className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{badgeLabel(category,value)}</Badge>;
 };
 
 export type BadgeCategory=Category;
