@@ -24,6 +24,7 @@ import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "../helpers/templateCh
 import { useAuth } from "../helpers/useAuth";
 import {managementTypes,managementTypeLabels,type ManagementType} from '../helpers/businessManagement';
 import styles from "./templates.module.css";
+import {DisabledTooltip} from '../components/Tooltip';
 
 type Channel="email"|"whatsapp"|"social"|"other";
 type Profile=""|"Independiente"|"Consolidado"|"Referente";
@@ -168,9 +169,9 @@ export function TemplatesContent(){
         <div className={styles.groupPicker}>
           <span>Agrupar por</span>
           <div>
-            <UnstyledButton disabled={save.isPending} type="button" className={groupBy==="channel"?styles.groupActive:""} onClick={()=>setGroupBy("channel")}>Canal</UnstyledButton>
-            <UnstyledButton disabled={save.isPending} type="button" className={groupBy==="vertical"?styles.groupActive:""} onClick={()=>setGroupBy("vertical")}>Vertical</UnstyledButton>
-            <UnstyledButton disabled={save.isPending} type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</UnstyledButton>
+            <DisabledTooltip disabled={save.isPending} reason="Se está guardando el modelo. Esperá a que termine para cambiar la agrupación."><UnstyledButton disabled={save.isPending} type="button" className={groupBy==="channel"?styles.groupActive:""} onClick={()=>setGroupBy("channel")}>Canal</UnstyledButton></DisabledTooltip>
+            <DisabledTooltip disabled={save.isPending} reason="Se está guardando el modelo. Esperá a que termine para cambiar la agrupación."><UnstyledButton disabled={save.isPending} type="button" className={groupBy==="vertical"?styles.groupActive:""} onClick={()=>setGroupBy("vertical")}>Vertical</UnstyledButton></DisabledTooltip>
+            <DisabledTooltip disabled={save.isPending} reason="Se está guardando el modelo. Esperá a que termine para cambiar la agrupación."><UnstyledButton disabled={save.isPending} type="button" className={groupBy==="profile"?styles.groupActive:""} onClick={()=>setGroupBy("profile")}>Perfil</UnstyledButton></DisabledTooltip>
           </div>
         </div>
         <div className={styles.templateCount}>{filtered.length} modelo{filtered.length===1?"":"s"}</div>
@@ -178,17 +179,17 @@ export function TemplatesContent(){
           {templateGroups.map(group=>{
             const collapsed=!expandedGroups.has(groupKey(group.label));
             return <section className={styles.templateGroup} key={group.label}>
-              <UnstyledButton disabled={save.isPending} type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
+              <DisabledTooltip disabled={save.isPending} reason="Se está guardando el modelo. Esperá a que termine para cambiar la lista."><UnstyledButton disabled={save.isPending} type="button" className={styles.templateGroupTitle} onClick={()=>toggleGroup(group.label)} aria-expanded={!collapsed}>
                 <div>{collapsed?<ChevronRight size={14}/>:<ChevronDown size={14}/>}<strong>{group.label}</strong></div>
                 <span>{group.templates.length}</span>
-              </UnstyledButton>
+              </UnstyledButton></DisabledTooltip>
               {!collapsed&&<div className={styles.templateList}>
                 {group.templates.map(template=>{
                   const active=template.id===templateId;
-                  return <UnstyledButton disabled={save.isPending} type="button" key={template.id} onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
+                  return <DisabledTooltip key={template.id} disabled={save.isPending} reason="Se está guardando el modelo. Esperá a que termine para seleccionar otro."><UnstyledButton disabled={save.isPending} type="button" onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
                     <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
                     <div><strong>{template.name}{template.active===false?' · Desactivado':''}</strong><span>{[template.vertical||"Todas las verticales",template.managementType?managementTypeLabels[template.managementType as ManagementType]:"Todos los tipos",template.commercialProfile||"Todos los perfiles",template.channel].filter(Boolean).join(" · ")}</span></div>
-                  </UnstyledButton>;
+                  </UnstyledButton></DisabledTooltip>;
                 })}
               </div>}
             </section>;
@@ -202,9 +203,9 @@ export function TemplatesContent(){
           <div className={styles.editorHeader}>
             <div className={styles.titleRow}><FileText size={20}/><div><h3>{templateId?"Editar modelo":"Nuevo modelo"}</h3><p>{channel==="whatsapp"?"Formato compatible con WhatsApp":"HTML enriquecido para email"}</p></div></div>
             <div className={styles.headerActions}><Button className={styles.previewShortcut} variant="outline" onClick={()=>{previewRef.current?.scrollIntoView({block:"start",behavior:"smooth"});previewRef.current?.focus({preventScroll:true})}}>Ver vista previa</Button>
-              {templateId&&<Button size="sm" variant="outline" disabled={save.isPending} onClick={duplicate}><Copy size={15}/>Duplicar</Button>}
-              {templateId&&selectedTemplate?.active!==false&&<Button size="sm" variant="ghost" className={styles.deleteAction} disabled={save.isPending} onClick={()=>setDeleteOpen(true)}><Trash2 size={15}/>Desactivar</Button>}
-              {templateId&&selectedTemplate?.active===false&&<Button size="sm" variant="outline" disabled={save.isPending} onClick={()=>save.mutate({action:'setTemplateActive',id:templateId,active:true})}>Reactivar modelo</Button>}
+              {templateId&&<Button size="sm" variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={duplicate}><Copy size={15}/>Duplicar</Button>}
+              {templateId&&selectedTemplate?.active!==false&&<Button size="sm" variant="ghost" className={styles.deleteAction} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setDeleteOpen(true)}><Trash2 size={15}/>Desactivar</Button>}
+              {templateId&&selectedTemplate?.active===false&&<Button size="sm" variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>save.mutate({action:'setTemplateActive',id:templateId,active:true})}>Reactivar modelo</Button>}
               <Badge variant={channel==="email"?"primary":channel==="whatsapp"?"success":"secondary"}>{channel==="email"?"Email":channel==="whatsapp"?"WhatsApp":channel==='social'?'Red social':'Otro'}</Badge>
             </div>
           </div>
@@ -219,10 +220,10 @@ export function TemplatesContent(){
           <div className={styles.editorLabel}>Contenido</div>
           <div inert={save.isPending}><RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel==='whatsapp'?'whatsapp':'email'}/></div>
           <p className={styles.scopeHelp}>{TEMPLATE_SCOPE_HELP} Email, WhatsApp, redes sociales y Otros aceptan modelos compartidos; llamadas no usan modelos.</p>
-          {!!versions.length&&<section><h4>Versiones anteriores</h4><NativeSelect value={selectedVersion} onChange={e=>setSelectedVersion(e.target.value)}><option value="">Elegí una versión</option>{versions.map(v=><option key={v.version} value={String(v.version)}>Versión {v.version} · {new Date(v.createdAt).toLocaleString('es-AR')}</option>)}</NativeSelect>{selectedVersion&&<><p>{htmlToPlainText(String(versions.find(v=>v.version===Number(selectedVersion))?.snapshot.body??''))}</p><Button variant="outline" disabled={save.isPending} onClick={()=>void restoreVersion()}>Restaurar esta versión</Button></>}</section>}
+          {!!versions.length&&<section><h4>Versiones anteriores</h4><NativeSelect value={selectedVersion} onChange={e=>setSelectedVersion(e.target.value)}><option value="">Elegí una versión</option>{versions.map(v=><option key={v.version} value={String(v.version)}>Versión {v.version} · {new Date(v.createdAt).toLocaleString('es-AR')}</option>)}</NativeSelect>{selectedVersion&&<><p>{htmlToPlainText(String(versions.find(v=>v.version===Number(selectedVersion))?.snapshot.body??''))}</p><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>void restoreVersion()}>Restaurar esta versión</Button></>}</section>}
           {historicalVertical&&<p className={styles.warning}>Este modelo usa una vertical histórica: {vertical}. Conservá ese valor o elegí explícitamente una vertical actual; no se cambia automáticamente.</p>}
           {save.error&&<div className={styles.errorInline}>{save.error.message}</div>}
-          <div className={styles.footer}><Button variant="outline" disabled={save.isPending} onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear modelo"}</Button></div>
+          <div className={styles.footer}><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear modelo"}</Button></div>
         </article>
 
         <aside ref={previewRef} tabIndex={-1} aria-label="Vista previa del modelo" className={styles.previewCard}>
@@ -248,8 +249,8 @@ export function TemplatesContent(){
         </DialogHeader>
           <div className={styles.deleteWarning}>Las versiones anteriores y los contactos históricos se conservan.</div>
         <DialogFooter>
-          <Button variant="outline" onClick={()=>setDeleteOpen(false)} disabled={save.isPending}>Cancelar</Button>
-          <Button variant="destructive" onClick={deleteTemplate} disabled={save.isPending}>{save.isPending?"Desactivando…":"Desactivar modelo"}</Button>
+          <Button variant="outline" onClick={()=>setDeleteOpen(false)} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">Cancelar</Button>
+          <Button variant="destructive" onClick={deleteTemplate} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">{save.isPending?"Desactivando…":"Desactivar modelo"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

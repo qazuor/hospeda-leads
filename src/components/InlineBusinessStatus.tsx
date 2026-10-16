@@ -10,6 +10,7 @@ import {saveCommercial} from '../endpoints/commercial.schema';
 import {businessStatuses,businessStatusLabels,type BusinessStatus} from '../helpers/businessStatus';
 import {calendarDay} from '../helpers/workDates';
 import styles from './InlineBusinessStatus.module.css';
+import {DisabledTooltip} from './Tooltip';
 
 const directlyEditable:BusinessStatus[]=['reviewed','no_follow_up_scheduled','recontact'];
 export function InlineBusinessStatus({accountId,status,recontactAt,disabled=false}:{accountId:string;status:BusinessStatus|null|undefined;recontactAt:Date|string|null|undefined;disabled?:boolean}){
@@ -25,12 +26,12 @@ export function InlineBusinessStatus({accountId,status,recontactAt,disabled=fals
   </UnstyledButton></PopoverTrigger>
   <PopoverContent aria-label="Estado del negocio" className={styles.popover} align="start">
    <div className={styles.options} role="group" aria-label="Estados del negocio">
-    {businessStatuses.map(option=>{const selected=value===option;const allowed=canEditStatus.includes(option)&&!disabled;return <UnstyledButton key={option} type="button" className={styles.option} aria-pressed={selected} disabled={!allowed||mutation.isPending} onClick={()=>setValue(option)}>
+    {businessStatuses.map(option=>{const selected=value===option;const allowed=canEditStatus.includes(option)&&!disabled;const isDisabled=!allowed||mutation.isPending;const reason=mutation.isPending?'Guardando el estado. Esperá a que termine.':disabled?'Solo el responsable autorizado del negocio o un administrador puede cambiar este estado.':current==='new'?'Primero cambiá el negocio a Revisado para habilitar esta etapa.':current==='in_management'?'El negocio tiene una gestión abierta; su estado se actualiza automáticamente al iniciar o cerrar gestiones.':current==='archived'?'Un administrador debe desarchivar el negocio antes de cambiar su estado.':'Esta opción no está disponible desde el estado actual del negocio.';return <DisabledTooltip key={option} disabled={isDisabled} reason={reason} style={{width:'100%'}}><UnstyledButton type="button" className={styles.option} aria-pressed={selected} disabled={isDisabled} onClick={()=>setValue(option)}>
       <ValueBadge category="status" value={businessStatusLabels[option]} nativeTooltip={false}/>{selected&&<Check size={14} aria-label="Estado seleccionado"/>}
-     </UnstyledButton>;})}
+     </UnstyledButton></DisabledTooltip>;})}
    </div>
    {value==='recontact'&&canEditStatus.includes('recontact')&&<label className={styles.date}>Fecha de recontacto (opcional)<CrmDateInput disabled={disabled||mutation.isPending} value={date} onValueChange={setDate}/></label>}
-   {changed&&<Button size="sm" disabled={disabled||mutation.isPending} onClick={()=>mutation.mutate({action:'business_status',accountId,status:value,recontactAt:value==='recontact'?(date||null):null})}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
+   {changed&&<Button size="sm" disabled={disabled||mutation.isPending} disabledReason={(mutation.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} onClick={()=>mutation.mutate({action:'business_status',accountId,status:value,recontactAt:value==='recontact'?(date||null):null})}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
    {mutation.error&&<span role="alert" className={styles.error}>{mutation.error.message}</span>}
   </PopoverContent>
  </Popover>;

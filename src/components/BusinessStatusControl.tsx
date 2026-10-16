@@ -27,7 +27,7 @@ export function BusinessStatusControl({account,readOnly}:{account:Account;readOn
   {!readOnly&&!['archived','in_management'].includes(account.status??'')&&<div className={styles.stateControls}>
    <label>Actualizar estado<CrmNativeSelect value={status} disabled={mutation.isPending} onChange={e=>{setStatus(e.target.value as BusinessStatus);setError('')}}>{choices.map(value=><option key={value} value={value}>{businessStatusLabels[value]}</option>)}</CrmNativeSelect></label>
    {status==='recontact'&&<label>Fecha opcional<CrmDateInput disabled={mutation.isPending} value={recontactAt} onValueChange={setRecontactAt}/></label>}
-   {(status!==account.status||(status==='recontact'&&recontactAt!==savedRecontactDay))&&<Button size="sm" disabled={mutation.isPending} onClick={save}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
+   {(status!==account.status||(status==='recontact'&&recontactAt!==savedRecontactDay))&&<Button size="sm" disabled={mutation.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={save}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
   </div>}
   {account.status==='in_management'&&<p className={styles.muted}>Se actualiza automáticamente mientras haya gestiones abiertas.</p>}
   {account.status==='archived'&&<p className={styles.muted}>Para volver a trabajar el negocio, un administrador debe desarchivarlo.</p>}

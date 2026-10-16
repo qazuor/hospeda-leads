@@ -104,6 +104,22 @@ Ya están implementados los bloques 43–52 del roadmap: búsqueda restante, his
 
 No reescribir esos bloques desde cero. Revisar la implementación y ampliar la cobertura del caso que falle. Limpieza y recuperación productiva están ejecutadas; no volver a tratarlas como pendientes.
 
+### Ajustes menores solicitados en staging — 14/10/2026
+
+Implementados localmente: abreviatura del badge Concepción del Uruguay, mejor jerarquía/espaciado en Contacto general, perfil, levantar restricción y cambio de política No contactar. `pnpm run typecheck` y las 110 pruebas unitarias pasan. Pendiente: revisión visual del propietario en `http://localhost:5173`; no se hizo commit ni push.
+
+### Tooltips en acciones deshabilitadas — 15/10/2026
+
+La cobertura automática está agregada en los componentes compartidos y en controles de acción especiales. Confirmar visualmente mouse y foco de teclado en desktop/mobile; revisar especialmente tooltips dentro de tablas, popovers y formularios. No se hizo commit ni push.
+
+### Guías del CRM actualizadas — 15/10/2026
+
+Se refrescaron la guía en pantalla y el Markdown generado con los flujos actuales de estados, comunicación, cierres, modelos, recontacto, vistas y papelera; el detalle de gestión usa ahora las etapas propias de su tipo. `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `tests/browser/guide.e2e.ts` pasaron en el servidor local con API interceptada; no se escribió en la base. El build conserva el aviso de chunk mayor a 500 kB. Sin commit ni push.
+
+### PR de ajustes UX y guías — 15/10/2026
+
+[PR #105](https://github.com/qazuor/hospeda-leads/pull/105) abierto hacia `staging`. CI sigue en ejecución. Pendiente revisión visual manual; no mergeado.
+
 ## IA en el CRM — revisar antes de implementar
 
 - Revisar la [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [spec base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y las specs hijas 63–81.
@@ -111,4 +127,4 @@ No reescribir esos bloques desde cero. Revisar la implementación y ampliar la c
 - Configurar límites concretos antes de habilitar el servicio. El CRM informará uso/errores y bloqueará solicitudes al alcanzar el límite.
 - Revisar cada spec hija y autorizar por separado el primer alcance de implementación. Dictado queda fuera de la primera etapa.
 - No interpretar la documentación como aprobación para conectar un proveedor, enviar datos reales o desplegar IA.
-- Revisar la cadena de documentación: [tracker #107](https://github.com/qazuor/hospeda-leads/pull/107), [base #108](https://github.com/qazuor/hospeda-leads/pull/108), [Alta #109](https://github.com/qazuor/hospeda-leads/pull/109) y [Media/Exploratoria #110](https://github.com/qazuor/hospeda-leads/pull/110). No mergear hasta su revisión y CI verde.
+- La documentación quedó integrada en `staging` mediante los PR #107–#110. Antes de implementar, elegir proveedor/modelo, verificar sus condiciones y definir los límites de uso.

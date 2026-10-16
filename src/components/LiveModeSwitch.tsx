@@ -17,7 +17,7 @@ export const LiveModeSwitch=()=>{
     type="button"
     variant="ghost"
     size="sm"
-    disabled={refreshing}
+    disabled={refreshing} disabledReason="La operación está en curso. Esperá a que termine para continuar."
     onClick={async()=>{setRefreshing(true);try{await refresh()}finally{setRefreshing(false)}}}
     className={styles.button}
     aria-label="Actualizar"

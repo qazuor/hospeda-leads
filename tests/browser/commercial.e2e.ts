@@ -137,7 +137,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
   await expect(page.getByText(/Contacto dado de baja/)).toBeVisible();
   await page.getByText('Ayuda sobre negocios y gestiones',{exact:true}).click();await page.getByText('Cómo usar negocios, contactos y gestiones',{exact:true}).click();
-  await expect(page.getByText(/Su etapa indica cómo avanza esa gestión/)).toBeVisible();
+  await expect(page.getByText(/El recorrido y los motivos de cierre dependen del tipo/)).toBeVisible();
   await page.getByRole('link',{name:'Gestiones comerciales',exact:true}).click();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await page.getByLabel('Buscar negocio',{exact:true}).fill('Negocio E2E');

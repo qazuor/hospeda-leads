@@ -75,7 +75,7 @@ export const FilterBuilderDialog=({
         {additionalFilters.length>0&&<section className={styles.group}><strong>Otros filtros de esta vista</strong><ul>{additionalFilters.map((label,index)=><li key={index}>{label}</li>)}</ul><label className={styles.additionalChoice}><Checkbox checked={clearAdditional} onChange={event=>setClearAdditional(event.target.checked)}/>Quitar estos filtros al aplicar</label></section>}
 
         <section className={styles.group}>
-          <div className={styles.groupHeader}><div><strong>Texto libre</strong><span>Se combina con los demás filtros mediante AND.</span></div><Button variant="ghost" size="sm" onClick={()=>setDraftSearch("")} disabled={!draftSearch.trim()}><Trash2 size={14} aria-hidden="true"/>Quitar búsqueda</Button></div>
+          <div className={styles.groupHeader}><div><strong>Texto libre</strong><span>Se combina con los demás filtros mediante AND.</span></div><Button variant="ghost" size="sm" onClick={()=>setDraftSearch("")} disabled={!draftSearch.trim()} disabledReason={"Elegí un valor antes de aplicar el cambio."}><Trash2 size={14} aria-hidden="true"/>Quitar búsqueda</Button></div>
           <label className={styles.searchField}><span>Texto libre de búsqueda</span><Input value={draftSearch} onChange={e=>setDraftSearch(e.target.value)} placeholder="Buscar negocios, gestiones y notas…"/></label>
         </section>
         {draft.length===0&&!draftSearch.trim()&&(!additionalFilters.length||clearAdditional)&&<div className={styles.empty}>
@@ -111,7 +111,7 @@ export const FilterBuilderDialog=({
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" onClick={()=>{setDraft([]);setDraftSearch("");setClearAdditional(true)}} disabled={!draft.length&&!draftSearch.trim()&&!additionalFilters.length}>Limpiar</Button>
+        <Button variant="ghost" onClick={()=>{setDraft([]);setDraftSearch("");setClearAdditional(true)}} disabled={!draft.length&&!draftSearch.trim()&&!additionalFilters.length} disabledReason={"Elegí un valor antes de aplicar el cambio."}>Limpiar</Button>
         <div className={styles.grow}/>
         <Button variant="outline" onClick={()=>onOpenChange(false)}>Cancelar</Button>
         {onApplyAndSave&&<Button variant="outline" onClick={()=>{onApplyAndSave(validDraft,draftSearch.trim(),clearAdditional);onOpenChange(false);}}>Aplicar y guardar como vista</Button>}

@@ -151,7 +151,7 @@ export const LeadDetailDialog=({
         <div className={styles.actionBar}>
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
-          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} title="Gestión anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} title="Gestión siguiente"><ChevronRight size={16}/></Button></div>}
+          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} title="Gestión anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} title="Gestión siguiente"><ChevronRight size={16}/></Button></div>}
           {!readOnly&&onDelete&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="outline" aria-label="Más acciones de la gestión"><MoreHorizontal size={16}/>Más acciones</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={()=>onDelete(lead)}><Trash2 size={15}/>Enviar gestión a papelera</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
           {!page&&<Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>}
           {!readOnly&&onEdit&&<Button size="sm" variant="outline" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar datos de gestión</Button>}
@@ -254,7 +254,7 @@ export const LeadDetailDialog=({
             <SectionTitle icon={StickyNote} title="Notas" description="Contexto comercial y observaciones del equipo."/>
             {!readOnly&&<div className={styles.newNote}>
               <Textarea rows={3} value={note} onChange={e=>setNote(e.target.value)} placeholder="Agregar una nueva nota…"/>
-              <Button onClick={()=>noteM.mutate({leadId:String(lead.id),note})} disabled={!note.trim()||noteM.isPending}><Plus size={16}/>Agregar nota</Button>
+              <Button onClick={()=>noteM.mutate({leadId:String(lead.id),note})} disabled={!note.trim()||noteM.isPending} disabledReason={(noteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}><Plus size={16}/>Agregar nota</Button>
             </div>}
             {notesQ.isLoading?<Skeleton className={styles.notesLoading}/>:<div className={styles.timeline}>
               {(notesQ.data?.notes??[]).length===0?<p className={styles.emptyState}>Sin notas todavía.</p>:(notesQ.data?.notes??[]).map(n=><article key={n.id}>

@@ -55,7 +55,8 @@ export const ValueBadge=({
   nativeTooltip?:boolean;
 })=>{
   if(!value)return <span className={styles.empty}>—</span>;
-  return <Badge component="span" tt="none" variant="outline" classNames={{ label: styles.label }} className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{value}</Badge>;
+  const displayValue=category==="city"&&value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLocaleLowerCase("es-AR")==="concepcion del uruguay"?"C. del Uruguay":value;
+  return <Badge component="span" tt="none" variant="outline" classNames={{ label: styles.label }} className={styles.badge+" "+(muted?styles.muted:"")+" "+(className??"")} style={valueBadgeColors(category,value)} title={nativeTooltip?value:undefined}>{displayValue}</Badge>;
 };
 
 export type BadgeCategory=Category;
