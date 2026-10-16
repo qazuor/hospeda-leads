@@ -37,7 +37,7 @@ const TABLE_COLUMNS=[
   {key:"createdAt",label:"Creado en sistema"},
   {key:"updatedAt",label:"Actualizado"}
 ];
-const DEFAULT_WIDTHS:Record<string,number>={actions:110,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180};
+const DEFAULT_WIDTHS:Record<string,number>={actions:150,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180};
 export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
 const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 export const BUSINESS_COLUMNS=[...BUSINESS_DATA_COLUMNS,{key:'actions',label:'Acciones'}];
@@ -59,7 +59,8 @@ export function availableListPreferences(preferences:ListPreferences):ListPrefer
  const {reviewStatus:_oldWidth,...widths}=preferences.widths;
  const {reviewStatus:_oldPin,...pins}=preferences.pins;
  const migrated={...preferences,filters,columns,widths,pins};
- const layout=migrated.columnLayoutVersion===2?migrated:{...migrated,columnLayoutVersion:2 as const,columns:[...migrated.columns.filter(key=>key!=='actions'),'actions'],widths:{...migrated.widths,actions:110},pins:{...migrated.pins,actions:'right' as const}};
+ const layout=migrated.columnLayoutVersion===2?migrated:{...migrated,columnLayoutVersion:2 as const,columns:[...migrated.columns.filter(key=>key!=='actions'),'actions'],widths:{...migrated.widths,actions:150},pins:{...migrated.pins,actions:'right' as const}};
+ layout.widths={...layout.widths,actions:Math.max(150,layout.widths.actions??DEFAULT_WIDTHS.actions)};
  return normalizePinnedColumnOrder({...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50});
 }
 export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','businessStatus','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS,businessStatus:190},pins:{actions:'right'},columnLayoutVersion:2,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
