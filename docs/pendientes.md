@@ -131,4 +131,4 @@ Se refrescaron la guía en pantalla y el Markdown generado con los flujos actual
 
 ## Estado de ramas — 16/10/2026
 
-Los PRs #99–#110 revisados para estados, comunicación, UI y documentación están integrados en `staging`. La rama `feat/ui-aesthetic-functional-tweaks` reúne tres ajustes de UI y documentación/prueba complementaria para integrar a `staging`; no implica merge a `main` ni deploy.
+Los PRs #99–#110 revisados para estados, comunicación, UI y documentación están integrados en `staging`. Los tres ajustes adicionales de UI y la documentación/prueba complementaria se integraron mediante el commit `924d186` el 16/10/2026. Esto no implica merge a `main` ni deploy.

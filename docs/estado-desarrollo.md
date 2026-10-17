@@ -159,7 +159,7 @@ Los ajustes de interfaz, formularios, tooltips y guías se publicaron en la rama
 
 El branch `feat/ui-aesthetic-functional-tweaks` se reubicó sobre el `staging` actualizado (`8a3095f`). Las implementaciones principales de estados y comunicación ya estaban integradas mediante el PR #103. De los dos worktrees locales, se incorporaron las decisiones de producto de estados y comunicación que faltaban, y se reforzó el test de migración para verificar la conservación de `Es cliente` y `No contactar` en la auditoría. Las variantes locales de componentes eran anteriores a los tooltips de `staging`; se conservaron las versiones actuales. La edición local de la migración 019 se excluyó porque las migraciones aplicadas son inmutables.
 
-Validación en el branch: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --check`. El build conserva la advertencia existente de chunks mayores a 500 kB. Los tres commits de UI están pendientes de integración en `staging` al momento de este corte.
+Validación en el branch: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --check`. El build conserva la advertencia existente de chunks mayores a 500 kB. Los tres commits de UI y la documentación/prueba complementaria quedaron integrados en `staging` mediante el commit `924d186` el 16/10/2026. Sin merge a `main` ni deploy confirmado.
 
 ## Redistribución de responsables — 15/10/2026
 
