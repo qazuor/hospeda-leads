@@ -2,9 +2,9 @@
 
 Registro de hitos para trasladar el proyecto entre herramientas. No es una transcripción completa del chat ni el journal de usuarios comerciales. Fechas y estados se indican cuando se conocen; para la historia íntegra de código consultar GitHub y los PRs.
 
-## 14/10/2026 — modelo de estado de negocio en revisión
+## 14/10/2026 — estados, comunicación y UI integrados en staging
 
-Se creó y aprobó el alcance del [issue #98](https://github.com/qazuor/hospeda-leads/issues/98) para separar estados de negocio y gestión, y preparar la redistribución equitativa de negocios nuevos considerando el trabajo previo. Los PRs encadenados [#99](https://github.com/qazuor/hospeda-leads/pull/99), [#100](https://github.com/qazuor/hospeda-leads/pull/100) y [#101](https://github.com/qazuor/hospeda-leads/pull/101) pasaron CI; el #101 quedó verde en `721a52da83b2dbcf7a81cf4252b939809745aa3c`. Permanecen abiertos y sin merge mientras continúa la cadena. No se hicieron escrituras productivas.
+Se creó y aprobó el alcance del [issue #98](https://github.com/qazuor/hospeda-leads/issues/98) para separar estados de negocio y gestión, y preparar la redistribución equitativa de negocios nuevos considerando el trabajo previo. Los PRs #99–#103 se mergearon a `staging` el 14/10. La integración incluye los flujos de estados, auditoría, comunicación, los ajustes visuales del #102 y los cambios locales aprobados. No se hicieron escrituras productivas como parte de esos merges.
 
 ## Migración y evolución funcional
 
@@ -58,6 +58,10 @@ La confirmación final de la UI quedó pendiente. No restaurar de nuevo el dump 
 
 El propietario pidió continuar desde Codex o Claude Code en su PC y versionar el contexto. Este conjunto incorpora `AGENTS.md`, importación `CLAUDE.md`, estado, decisiones, pendientes, mapa técnico y guía local. La memoria compartida se mantiene mediante Git/documentos; cada herramienta conserva sus conversaciones por separado.
 
+## 12/10/2026 — modelo de estados de negocio y gestiones, trabajo local
+
+En `feat/business-management-state-model` se implementan las decisiones aprobadas en el documento 53 y el plan de migración 55. Se ejecutaron 001–020 y el seed en bases PostgreSQL 17 efímeras; pasaron el test de migración con rollback, las integraciones de gestión/pipeline/estados, 97 pruebas unitarias, typecheck, build y 2 recorridos de estado en navegador. Luego de la indicación del propietario, se conectó la app a `hospeda_crm_replica`, se corrió el preflight de solo lectura y se aplicaron 018–020 únicamente a esa réplica local: se conservaron 3.532 negocios, 146 Filtrados mapeados a Revisado, el Cliente, 25 registros en Papelera y los conteos de journals. Producción sigue intacta. Las pruebas encontraron reglas que se corrigieron: No contactar manual es independiente de Archivado; crear gestión requiere Revisado; Acompañamiento usa `is_client`; y no se escribe un evento de etapa vacío para inserciones sin estado. El seed exige `CRM_TEST_DATABASE=1`, configurado en CI, donde se agregó el test de estado. Los servidores locales están activos en `http://localhost:5173` y API 3001 para revisión visual. No hay CI remoto, commit, PR o deploy confirmado.
+
 ## Cómo continuar este registro
 
 Agregar hitos con problema, resultado, PR/commit, validaciones efectivas y estado productivo. No pegar outputs con datos privados, secretos, dumps ni transcripciones completas. Usar enlaces a evidencia pública y conservar evidencia privada en el almacenamiento autorizado del propietario.
@@ -66,4 +70,12 @@ Agregar hitos con problema, resultado, PR/commit, validaciones efectivas y estad
 
 Se prepararon la épica 61, la spec fundacional 62 y 19 specs hijas 63–81 a partir del inventario seleccionado por el propietario en el documento 60. En refinamiento, el propietario definió chat general y acciones contextuales, acceso para todo usuario autenticado respetando permisos CRM, ficha e historial completos con permiso, registro de prompts y fragmentos específicos en los journals involucrados, límites antes de habilitar, fecha elegida para resumir cambios, informe de cartera con período de 30 días, desglose por responsable y métricas iniciales acordadas, y dictado fuera de la primera etapa. La propuesta sigue sin implementación; falta elegir proveedor/modelo y verificar sus condiciones para datos reales antes de autorizar la conexión real.
 
-Entrega de documentación encadenada hacia `staging`: tracker [PR #107](https://github.com/qazuor/hospeda-leads/pull/107), base [#108](https://github.com/qazuor/hospeda-leads/pull/108), Alta [#109](https://github.com/qazuor/hospeda-leads/pull/109), Media/Exploratoria [#110](https://github.com/qazuor/hospeda-leads/pull/110). Commits de slices: `6467d83`, `793ff01`, `43acb4d`, `d5bf7d6`. Sin merge; CI seguía en ejecución.
+Entrega de documentación encadenada hacia `staging`: tracker [PR #107](https://github.com/qazuor/hospeda-leads/pull/107), base [#108](https://github.com/qazuor/hospeda-leads/pull/108), Alta [#109](https://github.com/qazuor/hospeda-leads/pull/109), Media/Exploratoria [#110](https://github.com/qazuor/hospeda-leads/pull/110). Commits de slices: `6467d83`, `793ff01`, `43acb4d`, `d5bf7d6`. Los cuatro PRs se mergearon el 15/10; la implementación de IA sigue pendiente.
+
+## 15/10/2026 — redistribución de responsables de negocios
+
+Por instrucción del propietario, se redistribuyeron 2.460 negocios no filtrados ni eliminados por orden ascendente de ID entre cuatro usuarios con rol `user`, excluyendo a Julián. Los responsables de 356 negocios filtrados o en Papelera se conservaron; cada usuario elegible quedó con 883 negocios. Se registró un evento de auditoría por negocio y no se cambiaron responsables de gestiones. El respaldo y el manifiesto de rollback permanecen fuera de Git.
+
+## 16/10/2026 — ajustes menores de UI
+
+Se abreviaron los badges de Concepción del Uruguay a “C. del Uruguay”, se mantuvieron visibles todas las acciones de negocios en tabla y grilla y se quitó el resaltado de columna al pasar por un encabezado. Typecheck, tests (23 archivos, 110 pruebas), build y `git diff --check` pasaron antes de integrar estos cambios. El build mantiene la advertencia de chunks mayores a 500 kB.

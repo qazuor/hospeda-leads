@@ -1,4 +1,4 @@
-# Estado del CRM — corte al 14 de octubre de 2026
+# Estado del CRM — corte al 16 de octubre de 2026
 
 Este documento es el traspaso de la conversación de desarrollo a un checkout local. No importa automáticamente la conversación de ChatGPT a Codex o Claude: conserva las decisiones y la evidencia útil en Git. Verificar el estado remoto al comenzar una nueva sesión.
 
@@ -10,9 +10,9 @@ La UI debe ser sencilla para vendedores y personas con poca experiencia técnica
 
 Base remota comprobada para este traspaso: `75904f4acb6958fa8ca90bee3689f73b4a796275` (merge del [PR #92](https://github.com/qazuor/hospeda-leads/pull/92)). El propio PR de documentación será un commit posterior: esta referencia es una base histórica, no un HEAD perpetuo.
 
-## Cambio en revisión — estado de negocio y redistribución
+## Estados de negocio y gestión — integrados en staging
 
-El issue aprobado [#98](https://github.com/qazuor/hospeda-leads/issues/98) define separar el estado del negocio del estado de cada gestión, preservar los negocios que ya no estén en estado Nuevo y redistribuir los restantes de forma equitativa contando también el trabajo previo. La propuesta se dividió en PRs encadenados para revisión. Los PRs [#99](https://github.com/qazuor/hospeda-leads/pull/99) y [#100](https://github.com/qazuor/hospeda-leads/pull/100) tienen CI verde; el [#101](https://github.com/qazuor/hospeda-leads/pull/101) incorpora el modelo de dominio y también tiene CI verde sobre `721a52da83b2dbcf7a81cf4252b939809745aa3c` (14/10/2026). Los tres siguen abiertos y sin merge. API, UI y página de redistribución continúan en los cortes siguientes; no se ejecutaron cambios de datos productivos.
+El issue aprobado [#98](https://github.com/qazuor/hospeda-leads/issues/98) define separar el estado del negocio del estado de cada gestión, preservar los negocios que ya no estén en estado Nuevo y redistribuir los restantes de forma equitativa contando también el trabajo previo. Los PRs #99–#103 están mergeados en `staging`; esto no significa que estén en `main` ni desplegados. La redistribución productiva ejecutada el 15/10 está registrada más abajo; no repetirla automáticamente.
 
 ## Lo implementado en main
 
@@ -95,15 +95,15 @@ Un CLI local debe volver a verificar comandos, permisos y checks del cambio que 
 
 Se generaron una épica, una spec fundacional y 19 specs hijas. El propietario definió la experiencia (chat general y acciones contextuales), acceso para todo usuario autenticado respetando permisos CRM, uso de ficha e historial completos cuando se permiten, registro de prompts/respuestas vinculados al negocio en su journal y de fragmentos por negocio para resultados multinegocio, límites antes de habilitar, punto de comparación por fecha y el informe de cartera con 30 días predeterminados, desglose por responsable y métricas iniciales acordadas. Dictado queda fuera de la primera etapa. No hay integración LLM ni implementación aprobada. Proveedor/modelo se elegirá antes de implementar; también falta verificar privacidad, retención, entrenamiento, región y contrato del proveedor antes de enviar datos reales. Ver [épica 61](crm-roadmap/61-ai-in-crm-epic.md), [base 62](crm-roadmap/62-ai-platform-foundation-spec.md) y el [inventario](crm-roadmap/60-ideas-uso-ia.md).
 
-La documentación se publicó en una cadena de PRs hacia `staging`: [#107 tracker (draft)](https://github.com/qazuor/hospeda-leads/pull/107), [#108 base](https://github.com/qazuor/hospeda-leads/pull/108), [#109 prioridad Alta](https://github.com/qazuor/hospeda-leads/pull/109) y [#110 Media/Exploratoria](https://github.com/qazuor/hospeda-leads/pull/110). No están mergeados; CI seguía en ejecución al registrar este estado.
+La documentación se integró en `staging` mediante los PRs [#107](https://github.com/qazuor/hospeda-leads/pull/107), [#108](https://github.com/qazuor/hospeda-leads/pull/108), [#109](https://github.com/qazuor/hospeda-leads/pull/109) y [#110](https://github.com/qazuor/hospeda-leads/pull/110). La implementación de IA sigue pendiente.
 
-## Integración local de cambios visuales, estados y comunicación
+## Integración de cambios visuales, estados y comunicación
 
-Se creó `feat/integrate-crm-state-communication-visual` desde `origin/main` en `50263c0`, en el worktree aislado `/tmp/hospeda-integration`. Recibe el cambio visual del PR #102, las ramas de estados en orden de dependencia (#99, #100, #101, journal, API, UI y preferencias), los cambios locales complementarios de estados y el worktree de Comunicación. Los conflictos de UI se resolvieron conservando las mejoras visuales, la columna de selección fija, los nuevos estados y las reglas de producto aprobadas. La migración 019 se mantuvo intacta; el nuevo código de archivo está en la migración 023.
+La rama `feat/integrate-crm-state-communication-visual` recibió el cambio visual del PR #102, la cadena de estados (#99–#101 y sus cortes de journal, API, UI y preferencias), los cambios locales complementarios y Comunicación. El PR #103 se mergeó en `staging` el 14/10. La migración 019 se mantuvo intacta; el nuevo código de archivo está en la migración 023.
 
 Incluye las migraciones 018–023, la conversión de vistas, flujos de estados, derivación, comunicación, la limpieza aprobada de secuencias de prueba y las specs 53–59. No se ejecutaron migraciones ni escrituras de base durante esta integración; tampoco se inició ningún servidor. La limpieza de secuencias de la migración 022 requiere revisar el preflight antes de aplicarla a cualquier base.
 
-Verificado en el worktree de integración: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --cached --check`; build conserva la advertencia de chunk mayor a 500 kB. No se ejecutaron pruebas de navegador ni de integración con PostgreSQL. El [PR #103](https://github.com/qazuor/hospeda-leads/pull/103) está abierto contra `main`; su CI ejecuta ahora. No se mergeó a `main`. Falta revisar navegador y migraciones sobre una base local descartable.
+La validación registrada para el PR #103 fue `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --cached --check`; el build conserva la advertencia de chunk mayor a 500 kB. No se ejecutaron pruebas de navegador ni de integración PostgreSQL como parte de ese PR. Falta revisión visual y validar migraciones sobre una base local descartable.
 
 ## Cambio mergeado — marca de revisión y ayuda del CRM
 
@@ -153,7 +153,17 @@ El panel “Cómo avanzar con esta gestión” ahora muestra el catálogo real s
 
 ## Publicación de ajustes UX y guías — 15/10/2026
 
-Los ajustes de interfaz, formularios, tooltips y guías se publicaron en la rama `feat/crm-ux-polish` y están en el [PR #105](https://github.com/qazuor/hospeda-leads/pull/105), dirigido a `staging`. Checks locales: typecheck, 110 pruebas, build y prueba de navegador de la guía. CI del PR sigue en ejecución; revisión visual manual pendiente.
+Los ajustes de interfaz, formularios, tooltips y guías se publicaron en la rama `feat/crm-ux-polish` y el [PR #105](https://github.com/qazuor/hospeda-leads/pull/105) ya fue mergeado en `staging`. Esto no implica merge a `main` ni deploy. Revisión visual manual pendiente.
+
+## Integración local de estados, comunicación y ajustes de UI — 16/10/2026
+
+El branch `feat/ui-aesthetic-functional-tweaks` se reubicó sobre el `staging` actualizado (`8a3095f`). Las implementaciones principales de estados y comunicación ya estaban integradas mediante el PR #103. De los dos worktrees locales, se incorporaron las decisiones de producto de estados y comunicación que faltaban, y se reforzó el test de migración para verificar la conservación de `Es cliente` y `No contactar` en la auditoría. Las variantes locales de componentes eran anteriores a los tooltips de `staging`; se conservaron las versiones actuales. La edición local de la migración 019 se excluyó porque las migraciones aplicadas son inmutables.
+
+Validación en el branch: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --check`. El build conserva la advertencia existente de chunks mayores a 500 kB. Los tres commits de UI están pendientes de integración en `staging` al momento de este corte.
+
+## Redistribución de responsables — 15/10/2026
+
+Por instrucción del propietario, se redistribuyeron en producción 2.460 negocios no filtrados ni eliminados por ID ascendente entre cuatro usuarios con rol `user`, excluyendo a Julián. Los 356 negocios filtrados o en Papelera conservaron sus responsables; quedaron 883 negocios asignados por usuario. Se generó un evento de auditoría por negocio y no se modificaron responsables de gestiones. El respaldo y el manifiesto de rollback quedaron fuera de Git. No repetir la operación como parte de un deploy o cambio de código.
 ## Acciones de negocios siempre visibles
 
 En la rama `feat/ui-aesthetic-functional-tweaks`, las acciones Abrir, Contactar, Archivar y Eliminar quedan siempre visibles en tabla y grilla; las no permitidas se muestran deshabilitadas con explicación. La columna de acciones tiene un ancho mínimo de 150 px para evitar recortes. También se quitó el resaltado de columna que se activaba al pasar por un encabezado. `pnpm run typecheck` y `git diff --check` pasaron. Commits locales; sin push ni PR.

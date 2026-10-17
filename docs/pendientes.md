@@ -1,19 +1,19 @@
 # Pendientes y próximo trabajo
 
-Corte: 14/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
+Corte: 16/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
 
 ## Integración visual + estados + Comunicación
 
-La rama `feat/integrate-crm-state-communication-visual` parte de `origin/main` y reúne el PR visual #102, la cadena de estados, sus cambios locales complementarios y el worktree de Comunicación. Está en `/tmp/hospeda-integration`; [PR #103](https://github.com/qazuor/hospeda-leads/pull/103) abierto contra `main`. Los servidores siguen detenidos.
+La implementación unificada de estados y comunicación se integró en `staging` mediante el [PR #103](https://github.com/qazuor/hospeda-leads/pull/103), junto con los PRs #99–#102. No está integrada en `main`.
 
 - Typecheck, 110 pruebas unitarias y build pasan. No se ejecutaron E2E ni pruebas de PostgreSQL.
-- Próximo: revisar el diff integrado y recorrer desktop/móvil; correr migraciones y pruebas de integración solo sobre una base local descartable.
+- Próximo: terminar la revisión visual en desktop/móvil; ejecutar migraciones y pruebas de integración solo sobre una base local descartable.
 - La migración 022 elimina únicamente datos atribuibles a secuencias de prueba y aborta ante referencias independientes. Ejecutar primero `pnpm run db:preflight:communication-sequences` con `CRM_TEST_DATABASE=1` y una URL local; revisar su salida antes de aplicar cualquier migración. No se tocaron bases en esta tarea.
-- CI del PR en curso; revisar checks, probar navegador y validar migraciones en una base local descartable. No mergear a `main` sin el pedido explícito del propietario.
+- La revisión visual manual y la validación de migraciones sobre una base descartable siguen pendientes. No inferir deploy desde el merge a `staging`.
 
 ## En curso: estados y redistribución de negocios
 
-El alcance está aprobado en el [issue #98](https://github.com/qazuor/hospeda-leads/issues/98). PRs [#99](https://github.com/qazuor/hospeda-leads/pull/99)–[#101](https://github.com/qazuor/hospeda-leads/pull/101) están abiertos y con CI verde; ninguno está mergeado. Siguen pendientes los cortes encadenados de API, UI y previsualización/ejecución de la redistribución. La operación productiva no se ha realizado como parte de este cambio.
+El alcance está aprobado en el [issue #98](https://github.com/qazuor/hospeda-leads/issues/98). Los PRs #99–#103 se integraron en `staging`. La redistribución productiva reportada el 15/10 está registrada en el historial; no repetirla como parte de cambios de código.
 
 ## Primeros pasos al retomar en una PC
 
@@ -34,7 +34,7 @@ Se corrigieron tres detalles visuales de alcance acotado:
 - **Accesos horizontales en móvil:** la Guía y las vistas guardadas ahora explican que hay más elementos fuera del área visible y cómo encontrarlos.
 - **Mi día y Agenda:** la acción de planificar queda como principal; registrar lo ya realizado queda secundaria, con textos que describen mejor cada acción.
 
-Segunda pasada visual implementada y publicada en el [PR #102](https://github.com/qazuor/hospeda-leads/pull/102); queda pendiente la revisión del PR y la previsualización local:
+Segunda pasada visual implementada y publicada en el [PR #102](https://github.com/qazuor/hospeda-leads/pull/102), mergeado a `staging`:
 
 - **Cards de Negocios:** el responsable largo ahora tiene el ancho de la card y se limita a una sola línea con el valor completo disponible por tooltip.
 - **Controles móviles del listado:** se ajustó la jerarquía entre búsqueda, vistas guardadas y filtros aplicados con separadores sutiles; el carril horizontal ya no ocupa espacio con el estado vacío de vistas personales y conserva el cue de desplazamiento.
@@ -43,9 +43,9 @@ Segunda pasada visual implementada y publicada en el [PR #102](https://github.co
 - **Detalle de negocio:** el próximo paso conserva el tratamiento principal; conversación reciente y otros datos secundarios se leen como bloques separados por divisores, sin una caja adicional.
 - **Formularios y jerarquía:** contexto del negocio se presenta aparte en “Preparar gestión”; aumentaron legibilidad y espaciado de campos/ayudas en gestión, modelos y configuración.
 
-Los cambios viven solo en el árbol de trabajo de `feat/visual-polish-ux`; no se hicieron commit ni push. `pnpm run typecheck`, `pnpm run build`, tres pruebas dirigidas con fixtures y `git diff --check` pasaron. Una ejecución de `business-cards.e2e.ts` alcanzó un fallo preexistente de restauración del foco al regresar del detalle; no se modificó ese comportamiento. No se ejecutaron pruebas de navegador que escriben en la base local.
+El PR #102 está mergeado en `staging`. Los ajustes adicionales de ciudad, acciones visibles y hover están en proceso de integración en la rama `feat/ui-aesthetic-functional-tweaks`. `pnpm run typecheck`, `pnpm run build`, tres pruebas dirigidas con fixtures y `git diff --check` pasaron en la pasada visual anterior. Una ejecución de `business-cards.e2e.ts` alcanzó un fallo preexistente de restauración del foco al regresar del detalle; no se modificó ese comportamiento. No se ejecutaron pruebas de navegador que escriben en la base local.
 
-Sigue pendiente tu revisión visual de esta previsualización, en especial decidir si la densidad del panel móvil de vistas se siente mejor y si el detalle queda demasiado abierto en desktop. La prueba con personas principiantes y revisión en tema oscuro completo continúan pendientes.
+La revisión visual manual final en desktop y móvil sigue pendiente. La prueba con personas principiantes y revisión completa en tema oscuro también continúan pendientes.
 
 Evidencia de la primera iteración: screenshots sintéticos de Guía, navegación y vistas en móvil, además de Mi día; pruebas dirigidas en 320, 390, 1024 y 1280 px. Para esta segunda pasada se agregaron screenshots de cards, detalle y preparación de gestión, en móvil y desktop. No equivalen a una revisión completa de todas las rutas, ambos temas ni una prueba con usuarios principiantes.
 
@@ -118,7 +118,7 @@ Se refrescaron la guía en pantalla y el Markdown generado con los flujos actual
 
 ### PR de ajustes UX y guías — 15/10/2026
 
-[PR #105](https://github.com/qazuor/hospeda-leads/pull/105) abierto hacia `staging`. CI sigue en ejecución. Pendiente revisión visual manual; no mergeado.
+[PR #105](https://github.com/qazuor/hospeda-leads/pull/105) mergeado en `staging`. Pendiente revisión visual manual; aún no integrado a `main`.
 
 ## IA en el CRM — revisar antes de implementar
 
@@ -128,3 +128,7 @@ Se refrescaron la guía en pantalla y el Markdown generado con los flujos actual
 - Revisar cada spec hija y autorizar por separado el primer alcance de implementación. Dictado queda fuera de la primera etapa.
 - No interpretar la documentación como aprobación para conectar un proveedor, enviar datos reales o desplegar IA.
 - La documentación quedó integrada en `staging` mediante los PR #107–#110. Antes de implementar, elegir proveedor/modelo, verificar sus condiciones y definir los límites de uso.
+
+## Estado de ramas — 16/10/2026
+
+Los PRs #99–#110 revisados para estados, comunicación, UI y documentación están integrados en `staging`. La rama `feat/ui-aesthetic-functional-tweaks` reúne tres ajustes de UI y documentación/prueba complementaria para integrar a `staging`; no implica merge a `main` ni deploy.

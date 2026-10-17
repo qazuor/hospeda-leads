@@ -23,6 +23,13 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - La biblioteca es administrada: los vendedores seleccionan materiales existentes. Un vínculo o preview no equivale a enviarlos.
 - No inventar promociones, precios, garantías, trayectoria investigada ni resultados de envío en textos/modelos.
 
+## Auditoría de estados
+
+- Cada cambio de estado del negocio, fecha de recontacto, marca Cliente, No contactar o derivación a Leandro debe dejar evidencia en el journal del negocio y en el historial global.
+- Cada cambio de etapa de una gestión debe aparecer en el historial del negocio asociado y en el historial global. Las etapas se conservan como eventos inmutables de pipeline.
+- La auditoría de campos de estado del negocio vive en la base para cubrir cambios indirectos o automáticos, además de las rutas de UI/API.
+- Si un estado del negocio cambia como consecuencia de otra operación, conservar al usuario que inició la operación y mostrar además que el cambio fue automático, junto con la causa cuando se conoce. Un cambio desde el control del campo se muestra como directo.
+
 ## Búsqueda, filtros y vistas
 
 - Búsqueda ignora mayúsculas y acentos, preserva el texto original y distingue ñ de n.
@@ -51,9 +58,38 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - Papelera de gestiones: consulta su `leads.deleted_at`; no equivale a eliminar el negocio. El antiguo filtro de oportunidad eliminada sigue refiriéndose a la gestión.
 - Eliminación definitiva es una operación distinta y restringida. No sustituir soft delete por archivo ni presentar ambos como un cambio de nombre.
 - `origin` y `source_reference` preservan origen/ref histórica sin reemplazar `discovery_source` ni `verification_urls` actuales.
-- `review_status='filtered'` indica que el negocio fue revisado, se confirmó como válido y se decidió conservarlo. `NULL` queda pendiente de revisión; no es una etapa de venta.
+- `status` es la única fuente de verdad para distinguir Nuevo de Revisado. `review_status` se conserva como dato histórico/compatibilidad para respaldar la migración, pero no se edita ni se ofrece como columna o filtro en la interfaz.
 - `subscription_label` es etiqueta histórica; no acredita pago ni convierte a Cliente.
 - `source_lead_id` es referencia histórica/técnica, no autorización para recrear las gestiones eliminadas.
+
+## Migración del modelo de estados
+
+- La evolución empieza con columnas aditivas; la primera migración no reescribe historiales ni elimina `review_status`.
+- El nuevo `status` queda nullable durante la compatibilidad. Los históricos solo se convierten después de un preflight de solo lectura sobre una copia reciente y una lista explícita de ambiguos.
+- Filtrado debe conservarse como evidencia y convertirse a Revisado uno a uno; Papelera, Archivo, cliente, No contactar, asignaciones, motivos y fechas son datos independientes que no se infieren ni se limpian en el primer deploy.
+- Ningún backfill ni despliegue de migración de estados queda autorizado en producción por el pedido de implementación local. Consultar el plan 55 antes de preparar una ejecución.
+
+## Estados de negocio y gestiones — definición aprobada
+
+- Entre etapas abiertas de una gestión se permite cualquier cambio, incluso retroceder. Solo administradores pueden reabrir una gestión cerrada; eligen una etapa abierta y el cierre anterior permanece en el historial.
+- Los catálogos de etapas y motivos son fijos en la aplicación por ahora. Los motivos de cierre se separan por vertical y resultado; `Otro` siempre requiere nota.
+- Una propuesta comercial de Editor cerrada ganada pregunta si corresponde marcar el negocio como Cliente. La colaboración editorial no lo activa automáticamente.
+- El acompañamiento de ficha es una gestión separada: Pendiente de iniciar → Contactado (opcional) → Trabajando en la ficha → Cerrada completada / Cerrada no completada. La completada no exige motivo; la no completada sí.
+- Una fecha de recontacto acordada en una gestión crea una tarea/recordatorio visible para su responsable. `Recontactar` en el negocio puede llevar una fecha opcional como referencia.
+- Al derivar a Leandro, la gestión conserva su etapa previa; Leandro puede avanzar mientras esté derivada. Si un administrador desactiva la derivación, la gestión vuelve a la etapa previa y el negocio se reasigna al responsable original u otro elegido por el administrador.
+- Solo administradores desarchivan. Se restaura Revisado si existe evidencia histórica de revisión; en caso contrario, Nuevo.
+- Si se cierra una gestión con `Pidió no ser contactado`, se activa No contactar y se archiva el negocio; se pregunta si cerrar también las otras gestiones abiertas.
+- Los motivos específicos acordados por vertical y resultado, así como el flujo completo, están en [spec 53](crm-roadmap/53-business-and-management-state-model.md).
+- El negocio marcado Cliente de la réplica local permanece como Cliente y se mapea a Revisado; no se infiere una gestión desde los journals.
+
+## Comunicación — producto aprobado
+
+- Comunicación es saliente y permite registrar manualmente respuestas; no es una bandeja sincronizada. Email se envía por Brevo; WhatsApp prepara y abre el canal externo; llamadas, redes y Otros se registran manualmente.
+- Se permiten contactos generales con propósito y contactos dentro de gestiones abiertas. Nuevo solo admite verificación; Archivado y No contactar bloquean salidas; Papelera bloquea todo hasta restauración administrativa.
+- Toda respuesta entrante requiere contexto. “Pidió no contactar” bloquea el negocio completo; solo admin levanta el bloqueo. Confirmaciones y correcciones quedan auditadas.
+- Las etapas y motivos de gestión son catálogos fijos. Admin administra modelos compartidos; se conservan sus versiones y se pueden restaurar.
+- Se retiraron las secuencias asistidas. La limpieza de registros de prueba se limitó a los artefactos identificables al aplicar la migración 022 en la réplica local; no autoriza escrituras en producción.
+- El flujo acordado está en [spec 56 — Comunicación](crm-roadmap/56-communication-product-spec.md).
 
 ## Datos reales, fusiones y multivertical
 
