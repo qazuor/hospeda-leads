@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 16 de octubre de 2026
 
+## Compatibilidad de la marca «Revisados» — 18/10/2026
+
+En `staging` se restaura la columna seleccionable y el filtro booleano «Revisados» para tabla y cards. La UI deriva el valor exclusivamente del estado del negocio: `Nuevo` (o estado ausente) = no revisado; cualquier otro estado = revisado. Los filtros y columnas guardados con el nombre anterior se conservan; las preferencias de columnas antiguas recuperan la columna una vez y luego permiten ocultarla. El modelo interno y la base siguen usando `crm_accounts.status`; no se consulta ni modifica `review_status` y no se agrega migración.
+
+Verificación local: typecheck, suite completa de Vitest (24 archivos, 111 pruebas) y build pasan; el build mantiene el aviso existente por el bundle principal mayor a 500 kB. El servidor Vite del checkout continúa escuchando en `localhost:5173`.
+
 Este documento es el traspaso de la conversación de desarrollo a un checkout local. No importa automáticamente la conversación de ChatGPT a Codex o Claude: conserva las decisiones y la evidencia útil en Git. Verificar el estado remoto al comenzar una nueva sesión.
 
 ## Contexto

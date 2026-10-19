@@ -17,3 +17,8 @@ export const businessStatusLabels: Record<BusinessStatus, string> = {
   recontact: "Recontactar",
   archived: "Archivado",
 };
+
+// Compatibilidad visual: cualquier estado posterior a Nuevo implica que el
+// negocio ya fue revisado. El estado sigue siendo la fuente de verdad.
+export const isReviewedBusinessStatus = (status: BusinessStatus | null | undefined): boolean =>
+  (status ?? "new") !== "new";

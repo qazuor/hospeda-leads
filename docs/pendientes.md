@@ -2,6 +2,10 @@
 
 Corte: 16/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
 
+## Compatibilidad «Revisados» — implementada en staging
+
+Se recuperó la columna seleccionable para tabla/cards y el filtro booleano, derivados de `crm_accounts.status` (`Nuevo` = no revisado; los demás estados = revisado). Una actualización de preferencias antiguas vuelve a mostrarla una vez, sin impedir que después se oculte. Los filtros guardados con `reviewStatus` se mantienen. No se usa `crm_accounts.review_status` ni requiere migración. Validado con typecheck, 111 pruebas unitarias y build. El servidor del checkout está disponible en `localhost:5173`.
+
 ## Integración visual + estados + Comunicación
 
 La implementación unificada de estados y comunicación se integró en `staging` mediante el [PR #103](https://github.com/qazuor/hospeda-leads/pull/103), junto con los PRs #99–#102. No está integrada en `main`.

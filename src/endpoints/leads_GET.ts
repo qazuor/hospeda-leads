@@ -12,6 +12,7 @@ import { sql } from "kysely";
 import { businessTableSource } from "../helpers/businessTable";
 import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS} from '../helpers/filterRules';
 import {managementLabel} from '../helpers/businessManagement';
+import {isReviewedBusinessStatus} from '../helpers/businessStatus';
 
 export async function handle(request: Request) {
   try {
@@ -188,9 +189,9 @@ export async function handle(request: Request) {
             if(rule.operator==="is_false")return eb("clientePotencialRecurrente","=",false);
           }
           if(rule.field==="reviewStatus"){
-            const legacyStatus=rule.operator==="is_true"?"reviewed":"new";
-            const matches=eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("status","=",legacyStatus));
-            return rule.operator==="is_true"?matches:eb.not(matches);
+            const account=()=>eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId");
+            if(rule.operator==="is_true")return eb.exists(account().where("status","is not",null).where("status","!=","new"));
+            if(rule.operator==="is_false")return eb.exists(account().where(status=>status.or([status("status","is",null),status("status","=","new")])));
           }
           if(rule.field==="businessStatus"){
             const account=()=>eb.selectFrom('crmAccounts').select('id').whereRef('crmAccounts.id','=','leads.accountId');
@@ -264,7 +265,7 @@ export async function handle(request: Request) {
     const candidates=input.entity==="business"
       ? db.selectFrom(query.selectAll().distinctOn("accountId").orderBy("accountId").orderBy("id","asc").as("leads"))
       : query;
-    const orderExpression=sortBy==='businessStatus'?(input.entity==='business'?sql.ref('business_status'):sql<string>`(SELECT status FROM crm_accounts WHERE id=leads.account_id)`):sql.ref(sortBy);
+    const orderExpression=sortBy==='businessStatus'?(input.entity==='business'?sql.ref('business_status'):sql<string>`(SELECT status FROM crm_accounts WHERE id=leads.account_id)`):sortBy==='reviewStatus'?sql<boolean>`coalesce((SELECT status FROM crm_accounts WHERE id=leads.account_id),'new') <> 'new'`:sql.ref(sortBy);
     let anchorPage:number|undefined;
     if(input.entity==='business'&&input.anchorAccountId){
       const ranked=candidates.select('accountId').select(sql<number>`row_number() over(order by ${orderExpression} ${sql.raw(sortDir)}, id desc)`.as('rowPosition')).as('ranked');
@@ -297,6 +298,7 @@ export async function handle(request: Request) {
         row.commercialStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.commercialStatus;
         const account=accounts.find(a=>String(a.id)===String(row.accountId))!;
         row.businessStatus=account.status;
+        row.reviewStatus=isReviewedBusinessStatus(account.status);
         row.businessRecontactAt=account.recontactAt?calendarDay(account.recontactAt):null;
         row.isClient=account.isClient;
         row.referredToLeandro=account.referredToLeandro;
