@@ -91,7 +91,7 @@ Un mismo negocio puede tener varias personas y varias gestiones. Cada gestión t
 2. Elegí la etapa que describe lo ocurrido. No es obligatorio pasar por todas las etapas abiertas; podés saltar o retroceder.
 3. Si cambió el estado, dejá una nota o actividad que explique el hecho.
 4. Si la derivás a Leandro, la gestión y el negocio cambian de responsable. Solo un admin puede retirar la derivación.
-5. Si no aparece la acción o no podés guardarla, verificá quién figura como responsable de esa gestión o pedí al administrador que revise permisos.
+5. Solo el responsable indicado en la gestión o un administrador puede cambiar la etapa. Si ves el botón deshabilitado, el texto al pasar el mouse indica quién puede hacerlo; pedí ayuda a esa persona.
 
 ## Guía 8 — Cerrar una gestión como ganada
 
@@ -109,8 +109,8 @@ Un mismo negocio puede tener varias personas y varias gestiones. Cada gestión t
 **Objetivo:** registrar por qué no avanzó y dejar claro si hay que volver.
 
 1. Elegí el cierre desfavorable y el motivo exacto. Si elegís **Otro**, agregá nota.
-2. Si acordaron volver a hablar, programá la fecha y completá la tarea que se genera.
-3. Si pidió no ser contactado, registrá ese motivo y el bloqueo. No planifiques otro contacto.
+2. Si acordaron volver a hablar, programá la fecha y completá la tarea que se genera. Esta opción no aparece si el motivo es **Pidió no ser contactado**.
+3. Si pidió no ser contactado, el negocio queda Archivado y bloqueado para nuevos contactos; no programes otro intento. Podés elegir si se cierran también otras gestiones abiertas.
 4. Si queda otra gestión abierta para ese negocio, el negocio seguirá **En gestión**. Cerrar una gestión no cierra automáticamente las demás.
 5. Para crear una propuesta distinta, iniciá otra gestión desde la ficha después de revisar el caso.
 

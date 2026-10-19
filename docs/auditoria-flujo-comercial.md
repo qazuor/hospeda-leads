@@ -6,7 +6,7 @@ Fecha: 19/10/2026. Alcance: código local de `staging` en `6cc6bb2`, documentaci
 
 El modelo tiene una base coherente: negocio, persona y gestión son entidades distintas; crear un negocio no inicia una venta; puede haber varias gestiones; los cierres y contactos dejan historial; los estados del negocio se derivan en parte de las gestiones; Papelera y Archivado son diferentes.
 
-La principal dificultad de uso es que el trabajo comercial está distribuido entre ficha, panel de gestiones, pipeline, Contactar, Mensajes/Historial, tareas, Mi día, Agenda y Reactivación. Hay rutas que permiten empezar bien y explican la decisión, pero otras muestran acciones que fallan en servidor o presentan opciones incompatibles. Los hallazgos P0 **1 y 2 ya están corregidos en esta rama**; los pendientes son **3 y 4**.
+La principal dificultad de uso es que el trabajo comercial está distribuido entre ficha, panel de gestiones, pipeline, Contactar, Mensajes/Historial, tareas, Mi día, Agenda y Reactivación. Hay rutas que permiten empezar bien y explican la decisión, pero otras muestran acciones que fallan en servidor o presentan opciones incompatibles. Los cuatro hallazgos P0 ya están corregidos en esta rama; falta un recorrido integrado en navegador.
 
 ## Hallazgos priorizados
 
@@ -16,9 +16,9 @@ La principal dificultad de uso es que el trabajo comercial está distribuido ent
 
 2. **[CORREGIDO 19/10/2026] Reactivación ofrecía “Reabrir” a usuarios no administradores.** La opción aparece deshabilitada y aclara que requiere admin; el diálogo explica que aún se puede crear seguimiento o iniciar otra gestión del mismo tipo. La API también rechaza explícitamente la reapertura para cualquier rol que no sea admin, antes de actualizar la etapa.
 
-3. **Cierre “Pidió no ser contactado” permite elegir “Definir fecha para retomar”.** El formulario muestra la fecha para cualquier pérdida (`src/components/Pipeline.tsx:67`), aunque la API rechaza la combinación (`src/endpoints/pipeline.ts:136–138`). **Impacto:** el usuario completa el formulario y recibe un error al guardar. **Recomendación:** ocultar o deshabilitar la fecha al seleccionar ese motivo, y explicar que el negocio queda Archivado y con No contactar.
+3. **[CORREGIDO 19/10/2026] Cierre “Pidió no ser contactado” permitía elegir “Definir fecha para retomar”.** Al seleccionar ese motivo, el formulario ahora oculta la fecha, limpia una fecha marcada previamente y explica que el negocio quedará Archivado y No contactar. El envío también omite la fecha como segunda barrera; la validación existente de la API se conserva.
 
-4. **Controles de etapa aparecen habilitados a usuarios sin permiso para editar.** En el pipeline y detalle de gestión se habilita “Cambiar etapa” a cualquiera con una gestión tipada (`src/components/Pipeline.tsx:81,91`), aunque la regla común permite modificar solo al responsable de esa gestión o al admin (`src/helpers/crmPermissions.ts:15–18,38–44`). El usuario puede abrir el diálogo y recibir un 403 al guardar. **Impacto:** acción engañosa y solicitud fallida. **Recomendación:** usar `canModifyManagement` para la visibilidad/estado del control y mostrar quién es el responsable.
+4. **[CORREGIDO 19/10/2026] Controles de etapa aparecían habilitados a usuarios sin permiso para editar.** El tablero y el detalle ahora basan el botón en `canModify`, calculado por el servidor con `canModifyManagement`; los usuarios sin permiso ven el botón deshabilitado con una explicación. El detalle muestra quién es el responsable de la gestión. La API conserva su control de autorización al guardar.
 
 ### P1 — Simplificar y hacer consistente el trabajo diario
 
@@ -63,7 +63,7 @@ La principal dificultad de uso es que el trabajo comercial está distribuido ent
 
 ## Límites de esta auditoría
 
-- Los hallazgos P0 1 y 2 se corrigieron en código y tienen pruebas unitarias para la selección de etapas y rol. No se ejecutaron mutaciones contra una base; la verificación integrada de los recorridos sigue pendiente.
+- Los hallazgos P0 1–4 se corrigieron en código. Hay pruebas unitarias para la selección de etapas y rol; para 3 y 4 pasaron typecheck, pruebas de permisos/Reactivación y build. No se ejecutaron mutaciones contra una base; la verificación integrada de los recorridos sigue pendiente.
 - No se realizó un recorrido visual real con Chrome, viewport móvil/desktop, temas claros/oscuros ni usuarios principiantes. Los puntos P2 visuales son revisión de estructura y copy, no resultados de test de usabilidad.
 - El corte corresponde a `staging`; no confirma que `main` o producción tengan el mismo código.
 - La guía en Markdown y el contenido del CRM se actualizaron para describir las opciones corregidas. Sigue pendiente reproducir el recorrido completo con datos de prueba.

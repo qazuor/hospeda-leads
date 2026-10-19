@@ -312,7 +312,8 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 **Tené en cuenta:**
 
-- Abrir un paso de la guía no cambia la etapa. Los nombres y la vinculación al recorrido dependen de la configuración del equipo.
+- Abrir un paso de la guía no cambia la etapa. Las etapas disponibles son fijas y dependen del tipo de gestión.
+- Solo el responsable de esa gestión o un administrador puede cambiar su etapa. Si el botón está deshabilitado, el texto de ayuda indica quién puede hacerlo.
 
 **Dónde ir:** Abrir Gestiones comerciales (/opportunities)
 
@@ -363,7 +364,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 1. Abrí la gestión → Resumen → Etapa y prioridad → Cambiar etapa.
 2. Elegí el cierre no favorable correspondiente al tipo y un motivo obligatorio. “Otro” exige una nota breve.
-3. Si es una gestión comercial perdida y querés retomarla más adelante, podés indicar una fecha de recontacto. Esa fecha queda en la gestión y programa un pendiente.
+3. Si es una gestión comercial perdida y querés retomarla más adelante, podés indicar una fecha de recontacto. Esa fecha queda en la gestión y programa un pendiente. La opción no aparece cuando el motivo es Pidió no ser contactado.
 4. Si el motivo es Pidió no ser contactado, el negocio queda No contactar y se archiva automáticamente. Podés elegir si también se cierran otras gestiones abiertas para las que tengas permiso.
 5. Guardá y revisá los próximos pasos. Para una gestión ya cerrada, solo un administrador puede reabrirla; el cierre anterior queda en el historial.
 

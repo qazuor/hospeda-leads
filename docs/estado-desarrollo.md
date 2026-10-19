@@ -10,6 +10,10 @@ Hallazgos prioritarios originales: Reactivación no conservaba el tipo de gesti�
 
 Se ajustó Reactivación para conservar el tipo de gestión al reabrir o crear otra gestión vinculada, listar solo etapas abiertas compatibles y no ofrecer la etapa especial de derivación a Leandro. La UI deshabilita la reapertura para no administradores y la API vuelve a comprobar el rol. Pasaron cuatro pruebas unitarias, `pnpm run typecheck` y `pnpm run build`. No se ejecutaron escrituras ni pruebas de integración con base.
 
+## Corrección de cierres y permisos del pipeline — P0 3 y 4
+
+Al cerrar una gestión con motivo **Pidió no ser contactado**, el formulario oculta la fecha de recontacto, descarta una fecha marcada antes y avisa que el negocio quedará Archivado y No contactar. El payload también omite la fecha para ese motivo; la validación del servidor sigue activa. En el tablero y el detalle de gestión, **Cambiar etapa** ahora usa el permiso `canModify` calculado por el servidor mediante `canModifyManagement`; si no corresponde, queda deshabilitado con explicación. El detalle informa quién es el responsable. Pasaron typecheck, 11 pruebas unitarias de permisos/Reactivación y build; no se probaron escrituras ni integración con base.
+
 ## Compatibilidad de la marca «Revisados» — 18/10/2026
 
 En `staging` se restaura la columna seleccionable y el filtro booleano «Revisados» para tabla y cards. La UI deriva el valor exclusivamente del estado del negocio: `Nuevo` (o estado ausente) = no revisado; cualquier otro estado = revisado. Los filtros y columnas guardados con el nombre anterior se conservan; las preferencias de columnas antiguas recuperan la columna una vez y luego permiten ocultarla. El modelo interno y la base siguen usando `crm_accounts.status`; no se consulta ni modifica `review_status` y no se agrega migración.

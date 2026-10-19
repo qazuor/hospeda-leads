@@ -1,4 +1,4 @@
-import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
+import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
 import {crmError} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
@@ -31,10 +31,11 @@ export async function get(request:Request){
   let insights:PipelineInsight[]=[],events:PipelineEvent[]=[],objections:PipelineObjection[]=[];
   if(ids.length){
    for(const id of ids)await assertLeadAccess(db,id,user);
-   const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null}>`SELECT l.id,l.estado,l.management_type,a.status business_status,a.referred_to_leandro,a.referred_original_owner_email,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
+   const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null;managementDeletedAt:Date|null;businessArchivedAt:Date|null;businessDeletedAt:Date|null;businessMergedIntoId:string|null}>`SELECT l.id,l.estado,l.management_type,a.status business_status,a.referred_to_leandro,a.referred_original_owner_email,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
+    l.deleted_at management_deleted_at,a.archived_at business_archived_at,a.deleted_at business_deleted_at,a.merged_into_id business_merged_into_id,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.status='pending' AND t.deleted_at IS NULL) pending_followup,l.fecha_proxima_accion,l.fecha_ultimo_contacto,l.estimated_close_date
     FROM leads l JOIN crm_accounts a ON a.id=l.account_id LEFT JOIN crm_stages s ON s.name=l.estado WHERE l.id IN (${sql.join(ids)}) AND l.deleted_at IS NULL`.execute(db);
-   insights=rows.map(r=>({...r,suggestion:suggestPriority(rules,{stage:r.estado,classification:r.classification,pending:r.pendingFollowup,nextDay:r.fechaProximaAccion?calendarDay(r.fechaProximaAccion):null,lastContactDay:r.fechaUltimoContacto?calendarDay(r.fechaUltimoContacto):null,closeDay:r.estimatedCloseDate?calendarDay(r.estimatedCloseDate):null},localDay())}));
+   insights=rows.map(r=>{const {managementDeletedAt,businessArchivedAt,businessDeletedAt,businessMergedIntoId,classification,fechaProximaAccion,fechaUltimoContacto,estimatedCloseDate,...insight}=r;return {...insight,canModify:canModifyManagement(user,{assignedUserEmail:r.assignedUserEmail,deletedAt:managementDeletedAt},{assignedUserEmail:null,archivedAt:businessArchivedAt,deletedAt:businessDeletedAt,mergedIntoId:businessMergedIntoId}),suggestion:suggestPriority(rules,{stage:r.estado,classification,pending:r.pendingFollowup,nextDay:fechaProximaAccion?calendarDay(fechaProximaAccion):null,lastContactDay:fechaUltimoContacto?calendarDay(fechaUltimoContacto):null,closeDay:estimatedCloseDate?calendarDay(estimatedCloseDate):null},localDay())}});
    if(p.leadId){
     events=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${p.leadId} ORDER BY id DESC LIMIT 200`.execute(db)).rows.map(e=>({...e,managementReasonId:e.managementReasonId??null,managementNote:e.managementNote??null,recontactDate:e.recontactDate?calendarDay(e.recontactDate):null}));
     objections=(await sql<PipelineObjection>`SELECT * FROM crm_objections WHERE lead_id=${p.leadId} AND deleted_at IS NULL ORDER BY id DESC`.execute(db)).rows;

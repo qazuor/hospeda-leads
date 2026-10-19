@@ -2,7 +2,8 @@
 
 ## Auditoría del flujo comercial — 19/10/2026
 
-- P0 1 y 2 de [la auditoría](auditoria-flujo-comercial.md) están corregidos en local y cubiertos por pruebas unitarias. P0 3 y 4 siguen pendientes; no dar por cerrados los restantes recorridos hasta verificación integrada.
+- P0 1–4 de [la auditoría](auditoria-flujo-comercial.md) están corregidos localmente. P0 1 y 2 tienen pruebas unitarias específicas; typecheck, pruebas de permisos/Reactivación y build pasaron después de P0 3 y 4.
+- Pendiente: recorrido integrado en navegador con datos descartables. No usar la réplica de producción para mutaciones ni marcar el proceso completo como probado hasta hacer ese recorrido.
 - Usar [guía de capacitación](guia-capacitacion-vendedores.md) como material base; validarla con un vendedor principiante y recorrido visual real.
 - La guía en pantalla se sincronizó para explicar Reactivación tipada y reapertura exclusiva de admin; revisar consistencia de los demás artículos al corregir los hallazgos restantes.
 - No se ejecutaron pruebas interactivas en Chrome ni operaciones de escritura en base.
