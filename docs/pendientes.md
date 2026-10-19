@@ -1,5 +1,12 @@
 # Pendientes y próximo trabajo
 
+## Auditoría del flujo comercial — 19/10/2026
+
+- P0 1 y 2 de [la auditoría](auditoria-flujo-comercial.md) están corregidos en local y cubiertos por pruebas unitarias. P0 3 y 4 siguen pendientes; no dar por cerrados los restantes recorridos hasta verificación integrada.
+- Usar [guía de capacitación](guia-capacitacion-vendedores.md) como material base; validarla con un vendedor principiante y recorrido visual real.
+- La guía en pantalla se sincronizó para explicar Reactivación tipada y reapertura exclusiva de admin; revisar consistencia de los demás artículos al corregir los hallazgos restantes.
+- No se ejecutaron pruebas interactivas en Chrome ni operaciones de escritura en base.
+
 Corte: 16/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
 
 ## Compatibilidad «Revisados» — implementada en staging

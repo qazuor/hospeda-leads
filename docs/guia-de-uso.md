@@ -138,12 +138,12 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando recibís una lista de negocios que todavía no se verificó.
 
-1. Entrá en Negocios y agregá la columna Estado del negocio si no está visible. Filtrá por Nuevo para encontrar registros que todavía no revisaste.
+1. Entrá en Negocios y agregá la columna Revisados si no está visible. Filtrá por No para encontrar registros que todavía no verificaste.
 2. Abrí cada negocio y comprobá que exista y que corresponda al establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.
-3. Si confirmás que es real y debe permanecer en el CRM, registrá las fuentes y la fecha en Editar negocio → Ubicación y relevamiento. Después cambiá Estado del negocio a Revisado desde la columna o el detalle.
+3. Si confirmás que es real y debe permanecer en el CRM, registrá las fuentes y la fecha en Editar negocio → Ubicación y relevamiento. Después marcá Revisados desde la columna o el detalle; también podés confirmarlo al iniciar una gestión.
 4. Si no podés confirmarlo todavía, dejalo en Nuevo. Anotá qué falta comprobar en Notas del negocio y volvé a revisarlo cuando tengas información.
 5. Si confirmás que es un registro inválido, seleccioná solo ese negocio y elegí Enviar a papelera; también podés abrirlo y usar Más acciones del negocio → Eliminar negocio. Escribí un motivo concreto, por ejemplo: No existe en la dirección indicada, y confirmá.
-6. Cuando termines, volvé a filtrar Estado del negocio por Nuevo para revisar los registros pendientes. Si el negocio existe pero no se va a trabajar por ahora, usá Archivar en lugar de eliminarlo.
+6. Cuando termines, volvé a filtrar Revisados por No para encontrar los registros pendientes. Si el negocio existe pero no se va a trabajar por ahora, usá Archivar en lugar de eliminarlo.
 
 **Qué queda al terminar:** Los negocios verificados que deben permanecer quedan en estado Revisado. Los registros inválidos quedan en Papelera y los casos pendientes siguen visibles como Nuevo.
 
@@ -404,8 +404,8 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 1. Revisá el estado Recontactar del negocio y las fechas de recontacto de las gestiones. La fecha es una referencia y no bloquea un contacto anticipado.
 2. Si solo querés volver a conversar, creá un seguimiento con fecha y conservá la gestión cerrada.
-3. Si la misma propuesta vuelve a negociarse, pedile a un administrador que reabra la gestión y elija una etapa abierta. El cierre anterior queda en el historial.
-4. Si se trata de una propuesta distinta, iniciá una gestión nueva desde el negocio. No reutilices el cierre anterior para una oportunidad diferente.
+3. Si la misma propuesta vuelve a negociarse, elegí reabrir la gestión original; solo un administrador puede hacerlo. Elegí una etapa abierta del mismo tipo. El cierre anterior queda en el historial.
+4. Si querés continuar con otra gestión vinculada del mismo tipo, elegí Crear otra gestión: conserva el tipo y el vínculo al cierre previo. Para una propuesta de otro tipo, iniciá la gestión desde la ficha del negocio.
 5. Antes de contactar, revisá Archivado, Papelera y No contactar. Archivado debe desarchivarse por un administrador y Papelera debe restaurarse por un administrador; No contactar requiere que un administrador levante el bloqueo.
 
 **Qué queda al terminar:** Retomás el caso con su historia conservada y sin generar un contacto automático.

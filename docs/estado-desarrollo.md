@@ -1,5 +1,15 @@
 # Estado del CRM — corte al 16 de octubre de 2026
 
+## Auditoría del flujo comercial — 19/10/2026
+
+Se revisó estáticamente el recorrido desde alta/revisión del negocio hasta gestión, comunicación, tareas, cierre y reactivación sobre `staging` (`6cc6bb2`). Se documentó el informe [auditoria-flujo-comercial.md](auditoria-flujo-comercial.md) y una guía para capacitación de vendedores principiantes en [guia-capacitacion-vendedores.md](guia-capacitacion-vendedores.md). También se actualizó la guía compartida en Markdown y su fuente JSON para usar la columna **Revisados** y advertir sobre límites actuales de Reactivación.
+
+Hallazgos prioritarios originales: Reactivación no conservaba el tipo de gestión; ofrecía reapertura a no administradores; el cierre por “Pidió no ser contactado” deja elegir una fecha incompatible; algunos controles de cambio de etapa aparecen habilitados sin permiso. Los puntos 1 y 2 ya se corrigieron abajo. No se probaron mutaciones contra una base. Falta recorrido manual de navegador y validar el proceso con vendedores nuevos.
+
+## Corrección de Reactivación — P0 1 y 2
+
+Se ajustó Reactivación para conservar el tipo de gestión al reabrir o crear otra gestión vinculada, listar solo etapas abiertas compatibles y no ofrecer la etapa especial de derivación a Leandro. La UI deshabilita la reapertura para no administradores y la API vuelve a comprobar el rol. Pasaron cuatro pruebas unitarias, `pnpm run typecheck` y `pnpm run build`. No se ejecutaron escrituras ni pruebas de integración con base.
+
 ## Compatibilidad de la marca «Revisados» — 18/10/2026
 
 En `staging` se restaura la columna seleccionable y el filtro booleano «Revisados» para tabla y cards. La UI deriva el valor exclusivamente del estado del negocio: `Nuevo` (o estado ausente) = no revisado; cualquier otro estado = revisado. Los filtros y columnas guardados con el nombre anterior se conservan; las preferencias de columnas antiguas recuperan la columna una vez y luego permiten ocultarla. El modelo interno y la base siguen usando `crm_accounts.status`; no se consulta ni modifica `review_status` y no se agrega migración.
