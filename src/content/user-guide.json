@@ -77,12 +77,14 @@
         "title": "Dónde encuentro cada cosa",
         "when": "Cuando no sabés qué pantalla abrir.",
         "steps": [
-          "Mi día: empezá aquí para atender tareas vencidas y las que corresponden hoy.",
+          "Si ya tenés un compromiso pendiente, empezá en Mi día y abrí esa tarea. Desde ahí podés contactar y registrar qué pasó en el mismo contexto.",
+          "Si todavía no hay una tarea, entrá a Negocios, buscá el comercio y abrí su ficha. Elegí Contactar para verificar datos o hacer un contacto general; elegí Iniciar gestión cuando ya haya una propuesta concreta.",
           "Negocios: buscá establecimientos, cargá uno nuevo y abrí sus contactos, gestiones, documentos e historial.",
           "Gestiones comerciales: consultá propuestas concretas. Abrí una para ver Resumen, Seguimiento, Notas, Mensajes y Documentos.",
           "Agenda: revisá encuentros configurados para el calendario, normalmente visitas y reuniones. No reemplaza todas las tareas de Mi día.",
           "Más opciones → Retomar gestiones pospuestas: revisá gestiones cerradas con una fecha para retomar y sus seguimientos pendientes. Reabrir una gestión cerrada requiere un administrador.",
           "Usá los materiales aprobados dentro de una gestión. Solo el admin administra materiales y consulta Negocios archivados.",
+          "Búsqueda global, pipeline e historial son atajos para encontrar el mismo negocio o gestión; no son procesos comerciales distintos.",
           "Configuración, Estadísticas, Historial del equipo y Papelera son accesos de administración. Si no los ves, consultá al administrador."
         ],
         "result": "Sabés dónde buscar según lo que querés hacer.",
@@ -96,9 +98,9 @@
         "title": "Qué hago al empezar y terminar el día",
         "when": "Todos los días de trabajo.",
         "steps": [
-          "Abrí Mi día. Atendé primero Vencidas y después Para hoy. Revisá si cada compromiso todavía corresponde.",
+          "Si tenés tareas, abrí Mi día. Atendé primero Vencidas y después Para hoy. Revisá si cada compromiso todavía corresponde. Si aún no hay tarea, empezá por Negocios y abrí la ficha del comercio.",
           "Antes de contactar, leé la última conversación del negocio y el próximo paso. Comprobá el destinatario y las restricciones.",
-          "Usá Contactar para hablar; después Registrar qué pasó en la misma tarea.",
+          "Usá Contactar para hablar; después registrá qué pasó en la misma tarea o contexto desde donde empezaste.",
           "Elegí Cómo sigue. Si falta algo, dejá una acción concreta con fecha; si esperás una respuesta, programá cuándo retomarla.",
           "Abrí Próximas acciones para mirar fechas futuras. Revisá Filtros de trabajo si no encontrás algo.",
           "Al terminar, comprobá que los compromisos asumidos tengan una tarea y que las conversaciones estén registradas."
@@ -256,12 +258,12 @@
         "title": "Contactar por Email, WhatsApp, llamada u otro canal",
         "when": "Cuando llega el momento de una tarea o una conversación necesaria.",
         "steps": [
-          "Para iniciar un contacto, elegí Contactar desde el negocio o una tarea. Elegí General o una gestión abierta; las gestiones cerradas solo admiten registrar respuestas entrantes.",
-          "Revisá destinatario, persona y dato exacto. Email y WhatsApp pueden usar el canal general del negocio si no hay una persona con ese canal.",
+          "Para iniciar un contacto desde la ficha del negocio, elegí Contactar y luego General o una gestión abierta; las gestiones cerradas solo admiten registrar respuestas entrantes. El selector ofrece Email, WhatsApp, Llamada, Red social y Otro.",
+          "Para Email y WhatsApp, revisá destinatario, persona y dato exacto. Si no hay una persona con ese canal, pueden usar el canal general del negocio.",
           "Email se prepara y envía desde el CRM mediante Brevo. El CRM muestra si Brevo aceptó la solicitud; eso no confirma que llegó al destinatario.",
           "WhatsApp abre la aplicación con el texto preparado. Al volver, marcá Enviado solo si efectivamente lo enviaste; si no, marcá No enviado. Si no se pudo abrir, el intento queda No confirmado.",
-          "Llamadas, redes sociales y Otros se registran manualmente. Para redes y Otros podés copiar un texto; el intento queda pendiente hasta que registres el resultado y un resumen.",
-          "Después de hablar o recibir una respuesta, registrá la comunicación en el CRM. Abrir un canal no confirma envío ni respuesta."
+          "Llamadas, redes sociales y Otros llevan al formulario de registro manual. Para llamada escribí un resumen; para redes y Otros podés iniciar un intento con texto o sin él y completar después el resultado y resumen. En Otro, aclarás el canal usado.",
+          "Después de hablar o recibir una respuesta, registrá la comunicación en el CRM. Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta."
         ],
         "result": "Abrir un canal inicia la comunicación fuera del CRM o prepara el mensaje; el resultado de la conversación se registra después.",
         "example": [

@@ -11,6 +11,14 @@ Material para explicar el CRM a personas que nunca usaron uno. La idea central: 
 
 Un mismo negocio puede tener varias personas y varias gestiones. Cada gestión tiene su propia etapa. El estado del negocio es otra cosa.
 
+## Camino recomendado: dónde empezar y cómo terminar
+
+1. Si ya tenés un compromiso pendiente, empezá en **Mi día** y abrí la tarea. Desde ahí podés contactar y registrar qué pasó en el mismo contexto.
+2. Si todavía no hay una tarea, entrá a **Negocios**, buscá el comercio y abrí su ficha. Elegí **Contactar** para verificar datos o hacer un contacto general; elegí **Iniciar gestión** cuando ya haya una propuesta concreta.
+3. Después del contacto, registrá el resultado en la misma tarea, negocio o gestión desde donde empezaste. Si acordaron otro paso, dejá una tarea con fecha.
+
+La búsqueda global, el pipeline y el historial son atajos para encontrar el mismo negocio o gestión; no son procesos comerciales distintos. Si una tarea ya existe, continuá esa tarea en vez de iniciar otro recorrido.
+
 ## Guía 1 — Buscar y cargar un negocio
 
 **Objetivo:** encontrar el registro correcto o crear uno sin duplicarlo.
@@ -64,11 +72,11 @@ Un mismo negocio puede tener varias personas y varias gestiones. Cada gestión t
 
 1. Elegí **General** si el contacto no pertenece a una propuesta abierta; elegí la gestión abierta si se relaciona con esa propuesta.
 2. En General, seleccioná propósito. En una gestión, esa gestión ya es el propósito/contexto.
-3. Elegí Email o WhatsApp, la persona y el dato concreto. Si no hay persona para ese canal, puede usarse el canal general del negocio. Revisá el destino antes de continuar.
-4. Usá un modelo o redactá desde cero. Revisá y personalizá el mensaje; el CRM solo tiene información registrada.
-5. Para Email, el sistema envía mediante el proveedor configurado; verificá el resultado visible. Para WhatsApp, se abre la aplicación externa y luego hay que indicar si se envió.
-6. Si no estás seguro de que se envió, dejalo **No confirmado**. No vuelvas a enviar a ciegas.
-7. Llamadas, redes y Otros se registran manualmente desde **Comunicación** o desde una tarea: indicá si se realizó o quedó sin contacto y escribí un resumen.
+3. Elegí el canal en **Contactar**: Email, WhatsApp, Llamada, Red social u Otro. En Email y WhatsApp revisá la persona y el dato concreto; si no hay persona para ese canal, puede usarse el canal general del negocio.
+4. Para Email y WhatsApp, usá un modelo o redactá desde cero. Revisá y personalizá el mensaje; el CRM solo tiene información registrada. Email se envía mediante el proveedor configurado; WhatsApp abre la aplicación externa y luego hay que indicar si se envió.
+5. Si no estás seguro de que Email o WhatsApp se envió, dejalo **No confirmado**. No vuelvas a enviar a ciegas.
+6. Para una llamada, una red social u Otro, el formulario registra el resultado que indiques. En llamadas escribí un resumen; para redes y Otros podés iniciar un intento con texto o sin él y completarlo después con resultado y resumen. En **Otro**, aclarás qué canal usaste.
+7. Abrir una aplicación, copiar texto o iniciar un intento no confirma que el contacto se haya realizado. Registrá el resultado real al terminar.
 
 **Importante:** abrir un borrador, copiar texto o abrir WhatsApp no significa que el contacto se haya realizado.
 

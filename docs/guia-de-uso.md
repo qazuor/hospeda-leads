@@ -77,13 +77,15 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Cuándo usarlo:** Cuando no sabés qué pantalla abrir.
 
-1. Mi día: empezá aquí para atender tareas vencidas y las que corresponden hoy.
-2. Negocios: buscá establecimientos, cargá uno nuevo y abrí sus contactos, gestiones, documentos e historial.
-3. Gestiones comerciales: consultá propuestas concretas. Abrí una para ver Resumen, Seguimiento, Notas, Mensajes y Documentos.
-4. Agenda: revisá encuentros configurados para el calendario, normalmente visitas y reuniones. No reemplaza todas las tareas de Mi día.
-5. Más opciones → Retomar gestiones pospuestas: revisá gestiones cerradas con una fecha para retomar y sus seguimientos pendientes. Reabrir una gestión cerrada requiere un administrador.
-6. Usá los materiales aprobados dentro de una gestión. Solo el admin administra materiales y consulta Negocios archivados.
-7. Configuración, Estadísticas, Historial del equipo y Papelera son accesos de administración. Si no los ves, consultá al administrador.
+1. Si ya tenés un compromiso pendiente, empezá en Mi día y abrí esa tarea. Desde ahí podés contactar y registrar qué pasó en el mismo contexto.
+2. Si todavía no hay una tarea, entrá a Negocios, buscá el comercio y abrí su ficha. Elegí Contactar para verificar datos o hacer un contacto general; elegí Iniciar gestión cuando ya haya una propuesta concreta.
+3. Negocios: buscá establecimientos, cargá uno nuevo y abrí sus contactos, gestiones, documentos e historial.
+4. Gestiones comerciales: consultá propuestas concretas. Abrí una para ver Resumen, Seguimiento, Notas, Mensajes y Documentos.
+5. Agenda: revisá encuentros configurados para el calendario, normalmente visitas y reuniones. No reemplaza todas las tareas de Mi día.
+6. Más opciones → Retomar gestiones pospuestas: revisá gestiones cerradas con una fecha para retomar y sus seguimientos pendientes. Reabrir una gestión cerrada requiere un administrador.
+7. Usá los materiales aprobados dentro de una gestión. Solo el admin administra materiales y consulta Negocios archivados.
+8. Búsqueda global, pipeline e historial son atajos para encontrar el mismo negocio o gestión; no son procesos comerciales distintos.
+9. Configuración, Estadísticas, Historial del equipo y Papelera son accesos de administración. Si no los ves, consultá al administrador.
 
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
 
@@ -93,9 +95,9 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Cuándo usarlo:** Todos los días de trabajo.
 
-1. Abrí Mi día. Atendé primero Vencidas y después Para hoy. Revisá si cada compromiso todavía corresponde.
+1. Si tenés tareas, abrí Mi día. Atendé primero Vencidas y después Para hoy. Revisá si cada compromiso todavía corresponde. Si aún no hay tarea, empezá por Negocios y abrí la ficha del comercio.
 2. Antes de contactar, leé la última conversación del negocio y el próximo paso. Comprobá el destinatario y las restricciones.
-3. Usá Contactar para hablar; después Registrar qué pasó en la misma tarea.
+3. Usá Contactar para hablar; después registrá qué pasó en la misma tarea o contexto desde donde empezaste.
 4. Elegí Cómo sigue. Si falta algo, dejá una acción concreta con fecha; si esperás una respuesta, programá cuándo retomarla.
 5. Abrí Próximas acciones para mirar fechas futuras. Revisá Filtros de trabajo si no encontrás algo.
 6. Al terminar, comprobá que los compromisos asumidos tengan una tarea y que las conversaciones estén registradas.
@@ -251,12 +253,12 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando llega el momento de una tarea o una conversación necesaria.
 
-1. Para iniciar un contacto, elegí Contactar desde el negocio o una tarea. Elegí General o una gestión abierta; las gestiones cerradas solo admiten registrar respuestas entrantes.
-2. Revisá destinatario, persona y dato exacto. Email y WhatsApp pueden usar el canal general del negocio si no hay una persona con ese canal.
+1. Para iniciar un contacto desde la ficha del negocio, elegí Contactar y luego General o una gestión abierta; las gestiones cerradas solo admiten registrar respuestas entrantes. El selector ofrece Email, WhatsApp, Llamada, Red social y Otro.
+2. Para Email y WhatsApp, revisá destinatario, persona y dato exacto. Si no hay una persona con ese canal, pueden usar el canal general del negocio.
 3. Email se prepara y envía desde el CRM mediante Brevo. El CRM muestra si Brevo aceptó la solicitud; eso no confirma que llegó al destinatario.
 4. WhatsApp abre la aplicación con el texto preparado. Al volver, marcá Enviado solo si efectivamente lo enviaste; si no, marcá No enviado. Si no se pudo abrir, el intento queda No confirmado.
-5. Llamadas, redes sociales y Otros se registran manualmente. Para redes y Otros podés copiar un texto; el intento queda pendiente hasta que registres el resultado y un resumen.
-6. Después de hablar o recibir una respuesta, registrá la comunicación en el CRM. Abrir un canal no confirma envío ni respuesta.
+5. Llamadas, redes sociales y Otros llevan al formulario de registro manual. Para llamada escribí un resumen; para redes y Otros podés iniciar un intento con texto o sin él y completar después el resultado y resumen. En Otro, aclarás el canal usado.
+6. Después de hablar o recibir una respuesta, registrá la comunicación en el CRM. Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta.
 
 **Qué queda al terminar:** Abrir un canal inicia la comunicación fuera del CRM o prepara el mensaje; el resultado de la conversación se registra después.
 

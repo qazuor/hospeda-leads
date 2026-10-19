@@ -5,14 +5,14 @@ import { basePreferences } from '../../src/helpers/businessListPreferences';
 for (const width of [1280, 390]) for (const dark of [false, true]) {
   test(`Mantine contact search, focus and layout at ${width}px ${dark ? 'dark' : 'light'}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
-    const errors: string[] = [], writes: string[] = [];
+    const errors: string[] = [], writes: string[] = [], manualPayloads: any[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(({ preferences, dark }) => {
       localStorage.setItem('hospeda-live-mode', 'off');
       localStorage.setItem('hospeda-theme-mode', dark ? 'dark' : 'light');
       localStorage.setItem('hospeda-business-list-v1-user-3', JSON.stringify({ preferences, context: { page: 1, scrollY: 0, scrollX: 0 } }));
     }, { preferences: { ...basePreferences(), columns: ['nombre', 'actions'], pins: {} }, dark });
-    const account = { id: '1', nombre: 'Negocio de prueba', ciudad: 'Concepción', assignedUserEmail: 'owner@example.com', tipo: 'Alojamientos', archivedAt: null, telefono: '123', email: 'fixture@example.com' };
+    const account = { id: '1', nombre: 'Negocio de prueba', ciudad: 'Concepción', assignedUserEmail: 'owner@example.com', tipo: 'Alojamientos', status: 'reviewed', doNotContact: false, isClient: false, archivedAt: null, recontactAt: null, telefono: '123', whatsapp: '123', email: 'fixture@example.com' };
     const opportunities = [
       { id: '11', accountId: '1', opportunityName: 'Presentación Concepción', estado: 'Cargado', assignedUserEmail: 'owner@example.com' },
       { id: '12', accountId: '1', opportunityName: 'Otra propuesta', estado: 'Cargado', assignedUserEmail: 'owner@example.com' },
@@ -20,14 +20,17 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     ];
     await page.route('**/_api/**', async route => {
       const url = new URL(route.request().url());
-      if (route.request().method() !== 'GET') writes.push(url.pathname);
+      if (route.request().method() !== 'GET') {
+        writes.push(url.pathname);
+        if (url.pathname.endsWith('/communication')) manualPayloads.push(superjson.parse<any>(route.request().postData()!));
+      }
       let data: unknown = {};
       if (url.pathname.endsWith('/auth/session')) data = { user: { id: 3, email: 'owner@example.com', displayName: 'Owner', role: 'user' } };
       else if (url.pathname.endsWith('/business_list_defaults')) data = { defaults: null };
       else if (url.pathname.endsWith('/saved_views')) data = { views: [] };
       else if (url.pathname.endsWith('/settings')) data = { users: [], cities: [], types: [], subtypes: [], contactChannels: ['WhatsApp', 'Email'], templates: [], authorizedEmails: [], opportunityStages: [] };
       else if (url.pathname.endsWith('/commercial')) data = { account, opportunities, contacts: [], journal: [], leadJournal: [], stages: [] };
-      else if (url.pathname.endsWith('/communication')) data = { recentMessages: [], messages: [], resources: [] };
+      else if (url.pathname.endsWith('/communication')) data = { recentMessages: [], messages: [], resources: [], restrictions: [], responses: [], openManagements: [], recentContactHours: 72 };
       else if (url.pathname.endsWith('/pipeline')) data = { stages: [{ name: 'Cargado', classification: 'open' }, { name: 'Cerrada', classification: 'lost' }] };
       else if (url.pathname.endsWith('/leads')) data = { rows: [{ ...account, accountId: '1', canModify: true, opportunityCount: 3, contactCount: 0 }], total: 1, page: 1, pageSize: 50, filters: { ciudades: [], estados: [], tipos: [], asignados: [], suscripciones: [], origenes: [], quienesCargaron: [], mediosContacto: [], creadosPor: [] } };
       await route.fulfill({ contentType: 'application/json', body: superjson.stringify(data) });
@@ -54,6 +57,24 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await expect(dialog).toBeVisible();
     await search.press('Tab');
     await expect(search).toHaveValue('Presentación Concepción · Cargado');
+    await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('email');
+    await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('social');
+    await dialog.getByRole('button', { name: 'Continuar con red social', exact: true }).click();
+    let manual = page.getByRole('dialog', { name: 'Registrar contacto por red social', exact: true });
+    await manual.getByLabel('Cuenta o perfil usado').fill('@hospeda');
+    await manual.getByRole('button', { name: 'Iniciar intento manual', exact: true }).click();
+    await expect(manual.getByRole('status')).toContainText('Intento iniciado sin texto');
+    expect(manualPayloads[0]).toMatchObject({ action: 'manual_start', channel: 'social', leadId: '11', purpose: null, destination: '@hospeda' });
+    await manual.getByRole('button', { name: 'Volver a elegir canal', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Contactar en general', exact: true }).click();
+    const general = page.getByRole('dialog', { name: 'Contacto general', exact: true });
+    await general.getByLabel('Canal').selectOption('call');
+    await general.getByLabel('Resumen obligatorio').fill('Llamada realizada para presentar Hospeda');
+    await general.getByRole('button', { name: 'Registrar llamada', exact: true }).click();
+    await expect(general.getByRole('button', { name: 'Llamada registrada', exact: true })).toBeDisabled();
+    expect(manualPayloads[1]).toMatchObject({ action: 'manual_start', channel: 'call', leadId: null, purpose: 'first_contact', body: 'Llamada realizada para presentar Hospeda', result: 'manual_sent' });
+    await general.getByLabel('Cerrar').click();
+    await expect(dialog).toBeVisible();
     await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('email');
     const secondary = dialog.getByRole('button', { name: 'Agregar o editar teléfono o email', exact: true });
     const colors = await secondary.evaluate(element => ({
@@ -86,7 +107,7 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
-    expect(writes).toEqual([]);
+    expect(writes).toEqual(['/_api/communication', '/_api/communication']);
     expect(errors).toEqual([]);
   });
 }

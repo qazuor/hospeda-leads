@@ -4,7 +4,7 @@
 
 Se revisó estáticamente el recorrido desde alta/revisión del negocio hasta gestión, comunicación, tareas, cierre y reactivación sobre `staging` (`6cc6bb2`). Se documentó el informe [auditoria-flujo-comercial.md](auditoria-flujo-comercial.md) y una guía para capacitación de vendedores principiantes en [guia-capacitacion-vendedores.md](guia-capacitacion-vendedores.md). También se actualizó la guía compartida en Markdown y su fuente JSON para usar la columna **Revisados** y advertir sobre límites actuales de Reactivación.
 
-Hallazgos prioritarios originales: Reactivación no conservaba el tipo de gestión; ofrecía reapertura a no administradores; el cierre por “Pidió no ser contactado” deja elegir una fecha incompatible; algunos controles de cambio de etapa aparecen habilitados sin permiso. Los puntos 1 y 2 ya se corrigieron abajo. No se probaron mutaciones contra una base. Falta recorrido manual de navegador y validar el proceso con vendedores nuevos.
+Hallazgos prioritarios originales: Reactivación no conservaba el tipo de gestión; ofrecía reapertura a no administradores; el cierre por “Pidió no ser contactado” dejaba elegir una fecha incompatible; algunos controles de cambio de etapa aparecían habilitados sin permiso. Los puntos P0 1–4 ya están corregidos; el commit `d173889` está en `staging` y `origin/staging`. P1 5 está aclarado en la guía de capacitación y la ayuda dentro del CRM. P1 6 está corregido localmente: Contactar desde la ficha ofrece los cinco canales y separa preparación de mensajes del registro manual. Pasaron typecheck, build y el test de navegador enfocado con API interceptada. No se probaron mutaciones contra una base ni el flujo con una sesión autenticada del servidor local; falta recorrido manual con datos descartables y validar el proceso con vendedores nuevos.
 
 ## Corrección de Reactivación — P0 1 y 2
 
@@ -13,6 +13,16 @@ Se ajustó Reactivación para conservar el tipo de gestión al reabrir o crear o
 ## Corrección de cierres y permisos del pipeline — P0 3 y 4
 
 Al cerrar una gestión con motivo **Pidió no ser contactado**, el formulario oculta la fecha de recontacto, descarta una fecha marcada antes y avisa que el negocio quedará Archivado y No contactar. El payload también omite la fecha para ese motivo; la validación del servidor sigue activa. En el tablero y el detalle de gestión, **Cambiar etapa** ahora usa el permiso `canModify` calculado por el servidor mediante `canModifyManagement`; si no corresponde, queda deshabilitado con explicación. El detalle informa quién es el responsable. Pasaron typecheck, 11 pruebas unitarias de permisos/Reactivación y build; no se probaron escrituras ni integración con base.
+
+Commit `d173889` publicado en `origin/staging`.
+
+## Camino recomendado para vendedores nuevos — P1 5
+
+La guía de capacitación y la ayuda dentro del CRM señalan el mismo recorrido: empezar por Mi día si ya existe una tarea; si no, buscar el negocio, abrir su ficha y elegir Contactar o Iniciar gestión según el objetivo. El resultado se registra en el mismo contexto y el próximo compromiso queda como tarea. Búsqueda global, pipeline e historial se describen como atajos, no como procesos distintos. No se quitaron accesos alternativos.
+
+## Canales disponibles desde Contactar — P1 6
+
+Desde Contactar en la ficha, el selector ofrece Email, WhatsApp, Llamada, Red social y Otro para contexto General o una gestión abierta. Email y WhatsApp conservan la preparación/envío existente; los canales manuales abren el formulario de registro con el contexto ya elegido. La guía de capacitación y la ayuda dentro del CRM explican qué queda pendiente y que iniciar o copiar no prueba que el contacto se realizó. Pasó `pnpm run typecheck`, `pnpm run build` y `pnpm exec playwright test tests/browser/mantine-contact.e2e.ts` (4 variantes desktop/móvil y claro/oscuro); también pasó `tests/browser/message-template-policy.e2e.ts` (3 casos). Las regresiones que exigen login no avanzaron de `/login` en el servidor local y no se ejecutaron contra la base. El cambio sigue local, sin commit.
 
 ## Compatibilidad de la marca «Revisados» — 18/10/2026
 
