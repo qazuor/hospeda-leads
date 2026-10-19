@@ -2,7 +2,7 @@
 
 ## Auditoría del flujo comercial — 19/10/2026
 
-- P0 1–4 de [la auditoría](auditoria-flujo-comercial.md) están corregidos; `d173889` ya está en `origin/staging`. P1 5 está aclarado en la guía y ayuda. P1 6 está corregido localmente: Contactar desde ficha muestra los cinco canales y deriva los manuales a su registro; cambios sin commit.
+- P0 1–4 de [la auditoría](auditoria-flujo-comercial.md) están corregidos; `d173889` ya está en `origin/staging`. P1 5 y 6 se corrigieron en `045ab36`, ya publicado en `origin/staging`. P1 7, 10 y 11 están corregidos localmente; typecheck y build pasaron, y #11 pasó un E2E con API interceptada. La exportación de la guía también pasó para #10 y #11. Falta el recorrido visual con la base de pruebas local descartable.
 - Pendiente: recorrido integrado en navegador con datos descartables. No usar la réplica de producción para mutaciones ni marcar el proceso completo como probado hasta hacer ese recorrido.
 - Usar [guía de capacitación](guia-capacitacion-vendedores.md) como material base; validar el recorrido recomendado con un vendedor principiante y en una sesión visual real.
 - La guía en pantalla se sincronizó para explicar Reactivación tipada y reapertura exclusiva de admin; revisar consistencia de los demás artículos al corregir los hallazgos restantes.

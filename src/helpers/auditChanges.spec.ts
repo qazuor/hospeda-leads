@@ -8,6 +8,9 @@ describe('audit changes',()=>{
   expect(auditChanges({before:{title:'Visita'},after:null})).toEqual(['Título: Visita → Vacío']);
   expect(auditChanges({reason:'Error de carga'})).toEqual(['Motivo: Error de carga']);
  });
+ it('shows the reason alongside a business state change',()=>{
+  expect(auditChanges({before:{commercial_status:'prospect'},after:{commercial_status:'client'},reason:'Era cliente antes de usar el CRM'})).toEqual(['Condición comercial: prospect → client','Motivo: Era cliente antes de usar el CRM']);
+ });
  it('distinguishes direct changes from values derived from another action',()=>{
   expect(auditChanges({origin:'direct',before:{status:'new'},after:{status:'reviewed'}})).toEqual(['Origen: Cambio directo','Estado del negocio: new → reviewed']);
   expect(auditChanges({origin:'automatic',cause:'management_change',before:{status:'in_management'},after:{status:'no_follow_up_scheduled'}})).toEqual(['Origen: Automático · derivado de un cambio en la gestión','Estado del negocio: in_management → no_follow_up_scheduled']);

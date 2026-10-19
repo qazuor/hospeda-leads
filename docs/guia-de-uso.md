@@ -210,8 +210,9 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 1. Abrí el negocio → Gestiones comerciales → Iniciar gestión. Para empezar, el negocio debe estar Revisado.
 2. Si figura Nuevo pero acabás de verificarlo, iniciá el flujo desde Contactar o desde Iniciar gestión y confirmá la verificación en el formulario. Se marca Revisado al guardar la nueva gestión.
 3. Elegí el tipo correcto: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. Acompañamiento de ficha es para ayudar a un cliente con su ficha después de la aceptación.
-4. Escribí un nombre concreto, elegí los datos conocidos y guardá. La gestión comienza en su etapa inicial; crearla no contacta al negocio ni registra una venta.
-5. Avanzá la etapa según lo que realmente ocurrió. Podés pasar entre etapas abiertas sin recorrerlas todas. Cerrá cuando tengas un resultado real y completá el motivo solicitado.
+4. Escribí un nombre corto y concreto. Por ejemplo: Plan de alojamiento 2027, Propuesta para una institución, Servicios de fotografía o Completar la ficha de Hospeda. El responsable se toma del negocio; solo un administrador puede cambiarlo.
+5. Si hace falta, abrí Más datos (opcional) para agregar tema, fecha estimada o persona principal. Guardá para iniciar la gestión en su etapa inicial; esto no contacta al negocio ni registra una venta.
+6. Avanzá la etapa según lo que realmente ocurrió. Podés pasar entre etapas abiertas sin recorrerlas todas. Cerrá cuando tengas un resultado real y completá el motivo solicitado.
 
 **Qué queda al terminar:** La gestión queda vinculada al negocio con un recorrido propio y separado de otras gestiones.
 
@@ -232,10 +233,11 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 1. En el bloque del próximo paso elegí Planificar próximo paso. También podés usar Mi día → Agregar próximo paso o Seguimiento → Nueva tarea.
 2. Si empezaste desde Mi día, buscá y elegí el Negocio. En Contexto seleccioná una gestión o Seguimiento general del negocio.
-3. Escribí un Título concreto. Elegí Tipo, Fecha de vencimiento y, si sirve, Hora (opcional). Revisá Propósito.
-4. Conversación comercial sirve para una oferta; Entrega para cumplir lo acordado; Acompañamiento para revisar cómo le va; Retomar una conversación para volver sobre un contacto anterior.
-5. En Participantes y notas (opcional) agregá detalles. Si partiste del negocio y querés vincular una gestión, abrí Vincular a una gestión (opcional).
-6. Elegí Guardar próximo paso.
+3. Antes de crearla, revisá las tareas pendientes que aparecen para ese negocio. Si ya existe una para el mismo compromiso, abrila y actualizala en lugar de duplicarla.
+4. Escribí un Título concreto. Elegí Tipo, Fecha de vencimiento y, si sirve, Hora (opcional). Revisá Propósito.
+5. Conversación comercial sirve para una oferta; Entrega para cumplir lo acordado; Acompañamiento para revisar cómo le va; Retomar una conversación para volver sobre un contacto anterior.
+6. En Participantes y notas (opcional) agregá detalles. Si partiste del negocio y querés vincular una gestión, abrí Vincular a una gestión (opcional).
+7. Elegí Guardar próximo paso.
 
 **Qué queda al terminar:** Se guarda una tarea pendiente. Aparece en Mi día según su fecha; si su tipo está configurado para agenda, también en el calendario.
 
@@ -275,11 +277,12 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Después de hacer la tarea, incluso si no hubo respuesta.
 
-1. Para completar una tarea, elegí Registrar qué pasó y describí el resultado real de esa tarea.
-2. Si recibiste una respuesta y no corresponde a una tarea, usá Registrar respuesta recibida en Comunicación. Elegí General o la gestión relacionada; también podés vincular el contacto saliente que la originó.
-3. Elegí la categoría que mejor describe la respuesta y escribí un resumen obligatorio. El texto exacto es opcional. “Otro” requiere aclaración.
-4. Si la respuesta fue “Quiere retomar más adelante”, podés crear un recordatorio con fecha y responsable. La respuesta no cambia etapas por sí sola.
-5. Si la persona pidió no contactar, registrá esa categoría. Se activa el bloqueo global; el diálogo permite elegir explícitamente si además querés cerrar gestiones abiertas que tengas permiso para cerrar.
+1. Una tarea es algo pendiente con fecha; una actividad registra algo que ya ocurrió; la etapa describe la situación de la gestión.
+2. Para completar una tarea, elegí Registrar qué pasó y describí el resultado real. Esto guarda una actividad y completa esa tarea; no cierra la gestión ni completa otras tareas.
+3. Si recibiste una respuesta y no corresponde a una tarea, usá Registrar respuesta recibida en Comunicación. Elegí General o la gestión relacionada; también podés vincular el contacto saliente que la originó.
+4. Elegí la categoría que mejor describe la respuesta y escribí un resumen obligatorio. El texto exacto es opcional. “Otro” requiere aclaración.
+5. Si la respuesta fue “Quiere retomar más adelante”, podés crear un recordatorio con fecha y responsable. La respuesta no cambia etapas por sí sola.
+6. Si la persona pidió no contactar, registrá esa categoría. Se activa el bloqueo global; el diálogo permite elegir explícitamente si además querés cerrar gestiones abiertas que tengas permiso para cerrar.
 
 **Qué queda al terminar:** Se completa esa tarea y se registra lo ocurrido. Si elegiste una continuación con fecha, se crea otra tarea. Las demás tareas se conservan.
 
@@ -359,6 +362,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 **Tené en cuenta:**
 
 - Un resultado favorable no acredita pagos ni activa servicios del portal.
+- Si el negocio ya era cliente antes de registrar su seguimiento en el CRM, usá Más acciones del negocio → Registrar cliente previo y explicá la relación. Para una venta trabajada en el CRM, cerrá la gestión como ganada; no uses esta excepción.
 
 ### Cerrar una gestión sin resultado favorable
 

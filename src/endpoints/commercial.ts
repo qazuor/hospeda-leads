@@ -137,6 +137,10 @@ export async function post(request:Request){
       if(input.action==="convert_client"){
         if(account.commercialStatus==="client")return String(account.id);
         await trx.updateTable("crmAccounts").set({commercialStatus:"client",clientSince:new Date(),updatedAt:new Date()}).where("id","=",input.accountId).execute();
+        const event=await trx.selectFrom("crmCommercialJournal").select(["id","metadata"]).where("accountId","=",input.accountId).where("action","=","converted_to_client").where("actorEmail","=",user.email).orderBy("id","desc").executeTakeFirst();
+        if(!event)throw new Error("No se pudo registrar el cambio en el historial. No se marcó el negocio como Cliente.");
+        const previous=event.metadata&&typeof event.metadata==="object"&&!Array.isArray(event.metadata)?event.metadata as Record<string,unknown>:{};
+        await trx.updateTable("crmCommercialJournal").set({metadata:json({...previous,reason:input.reason,reasonType:"preexisting_client"})}).where("id","=",event.id).execute();
         return input.accountId;
       }
       if(input.action==='set_client'){

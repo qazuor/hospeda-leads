@@ -9,6 +9,6 @@ export function auditChanges(metadata:unknown):string[]{
  const changes=keys.filter(key=>!ignored.has(camel(key))&&JSON.stringify(before[key])!==JSON.stringify(after[key])).map(key=>`${labels[camel(key)]||camel(key)}: ${value(before[key])} → ${value(after[key])}`);
  if(m.origin==='automatic')changes.unshift(`Origen: Automático${m.cause==='management_change'?' · derivado de un cambio en la gestión':m.cause==='work_outcome'?' · derivado del resultado de una actividad':''}`);
  else if(m.origin==='direct')changes.unshift('Origen: Cambio directo');
- if(!changes.length&&m.reason)changes.push('Motivo: '+value(m.reason));
+ if(m.reason)changes.push('Motivo: '+value(m.reason));
  return changes;
 }

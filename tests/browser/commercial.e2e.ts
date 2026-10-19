@@ -40,6 +40,15 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByRole('combobox',{name:'Canal preferido',exact:true})).toHaveValue('WhatsApp');
   await page.getByRole('button',{name:'Cancelar',exact:true}).click();
   await expect(page.getByText('Ana · Principal',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Más acciones del negocio',exact:true}).click();await page.getByRole('menuitem',{name:'Registrar cliente previo',exact:true}).click();
+  await expect(page.getByText(/solo si el negocio ya tenía una relación comercial antes de empezar a registrar su seguimiento en el CRM/i)).toBeVisible();
+  await page.getByLabel('¿Qué relación comercial previa tuvo?').fill('Acuerdo anterior al uso del CRM');
+  await page.getByRole('dialog').getByRole('button',{name:'Registrar cliente previo',exact:true}).click();
+  await expect(page.getByText(/· Cliente ·/)).toBeVisible();
+  await page.getByRole('tab',{name:'Historial',exact:true}).click();
+  await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
+  await expect(page.getByText(/Conversión a cliente/)).toBeVisible();
+  await expect(page.getByText(/Motivo: Acuerdo anterior al uso del CRM/)).toBeVisible();
   await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   for(const [name,person] of [['Primera gestión','Ana'],['Segunda gestión','Luis']]){
     await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
@@ -50,13 +59,6 @@ test('account with two contacts and independent opportunities preserves lead and
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
   await expect(page.getByRole('heading',{name:'Gestiones comerciales (2)',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Más acciones del negocio',exact:true}).click();await page.getByRole('menuitem',{name:'Convertir a cliente',exact:true}).click();
-  await page.getByLabel('Motivo de conversión').fill('Acuerdo comercial E2E');
-  await page.getByRole('dialog').getByRole('button',{name:'Convertir a cliente',exact:true}).click();
-  await expect(page.getByText(/· Cliente ·/)).toBeVisible();
-  await page.getByRole('tab',{name:'Historial',exact:true}).click();
-  await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
-  await expect(page.getByText(/Conversión a cliente/)).toBeVisible();
   await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   await page.screenshot({path:'test-results/commercial-light.png',fullPage:true});
   await page.getByRole('button',{name:'Admin Test',exact:true}).click();

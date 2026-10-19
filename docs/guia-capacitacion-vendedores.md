@@ -51,8 +51,9 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 2. Si todavía figura **Nuevo**, el sistema permite solo verificación. Si ya confirmaste que el negocio es válido y querés empezar una propuesta, elegí **Iniciar gestión**.
 3. Si la ficha sigue Nuevo, el formulario de inicio permite confirmar que ya verificaste el negocio y marcarlo Revisado en el mismo paso. No hace falta cerrar el formulario y empezar de nuevo.
 4. Elegí el tipo de gestión que corresponde: Verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha.
-5. Poné un nombre que te recuerde qué se propone (“Plan de alojamiento”, “Participación como partner”). Elegí contacto si ya sabés quién es.
-6. Guardá. La gestión empieza en **Por contactar**. Guardar no envía nada.
+5. Escribí un nombre corto que te recuerde qué van a trabajar. Por ejemplo: “Plan de alojamiento 2027”, “Propuesta para una institución”, “Servicios de fotografía” o “Completar la ficha de Hospeda”.
+6. El responsable se toma del negocio; solo un administrador puede cambiarlo. Si necesitás, abrí **Más datos (opcional)** para indicar el tema, una fecha estimada o la persona principal.
+7. Guardá. La gestión empieza en **Por contactar**. Guardar no envía nada ni registra un contacto.
 
 **Frase para recordar:** “Negocio es quién; gestión es qué propuesta estamos trabajando”.
 
@@ -61,10 +62,10 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 **Objetivo:** no depender de la memoria para volver a llamar o escribir.
 
 1. Si acordaste “te llamo el jueves”, creá una tarea con acción y fecha (“Llamar a Ana por la propuesta”).
-2. Si ya llamaste o escribiste, registrá una actividad con el resultado. No registres una tarea futura como si ya hubiera ocurrido.
-3. Revisá **Mi día** para ver vencidas y próximas. Antes de crear otra tarea, comprobá si ya existe una para el mismo compromiso.
-4. Al terminar la tarea, anotá qué pasó y decidí el próximo paso. Completar la tarea no cierra automáticamente la gestión ni otras tareas.
-5. Cambiá la etapa de la gestión solo cuando cambie la situación real. No avances una etapa solo porque hiciste una tarea.
+2. Una tarea es algo pendiente con fecha. Si ya llamaste o escribiste, registrá una actividad con lo que pasó; no registres una tarea futura como si ya hubiera ocurrido.
+3. Al crear una tarea desde la ficha, revisá la lista de tareas pendientes que muestra el formulario. Si ya cubre el compromiso, abrí esa tarea en vez de duplicarla.
+4. Revisá **Mi día** para ver vencidas y próximas. Al terminar una tarea, anotá el resultado y decidí el próximo paso. Completarla no cierra automáticamente la gestión ni otras tareas.
+5. La etapa indica la situación de la gestión. Cambiala solo cuando cambie esa situación; hacer o completar una tarea no la mueve automáticamente.
 
 ## Guía 5 — Contactar al comercio
 
@@ -111,6 +112,8 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 4. Guardá. En Verticales principales y Partners, una gestión ganada marca el negocio como **Cliente**. Para algunas propuestas de Editores, el CRM pregunta por separado.
 5. Si hay que ayudar a crear o mejorar la ficha, iniciá luego una gestión separada de **Acompañamiento de ficha**.
 6. Cuando ocurra la entrega, registrala como actividad. La aceptación o fecha acordada no demuestra que se entregó ni que se cobró.
+
+**Tené en cuenta:** Si el negocio ya era cliente antes de registrar su seguimiento en el CRM, usá **Más acciones del negocio → Registrar cliente previo** y explicá la relación. Para una venta trabajada en el CRM, cerrá la gestión como ganada; no uses esta excepción.
 
 ## Guía 9 — Cerrar una gestión como no ganada
 

@@ -79,3 +79,11 @@ Por instrucción del propietario, se redistribuyeron 2.460 negocios no filtrados
 ## 16/10/2026 — ajustes menores de UI
 
 Se abreviaron los badges de Concepción del Uruguay a “C. del Uruguay”, se mantuvieron visibles todas las acciones de negocios en tabla y grilla y se quitó el resaltado de columna al pasar por un encabezado. Typecheck, tests (23 archivos, 110 pruebas), build y `git diff --check` pasaron antes de integrar estos cambios. El build mantiene la advertencia de chunks mayores a 500 kB.
+
+## 19/10/2026 — orientación al crear una gestión (P1 10)
+
+Se simplificó el formulario de gestión nueva: tipo, nombre corto y responsable quedan al frente; ejemplos cambian según el tipo, y tema, fecha y persona principal quedan bajo “Más datos (opcional)”. La ayuda del CRM y las guías quedaron alineadas. Pasaron exportación de la guía, typecheck y `git diff --check`. No hubo pruebas de navegador ni escrituras en base; sigue pendiente revisar visualmente con datos descartables. Cambio local en `staging`, sin commit.
+
+## 19/10/2026 — orientación de tareas y actividades (P1 11)
+
+El planificador de tareas ahora explica la diferencia entre pendiente, actividad realizada y etapa, y muestra hasta cinco tareas pendientes visibles para ese negocio antes de crear otra. Se conserva el aviso de coincidencia exacta para posibles duplicados y el resultado de una tarea sigue sin cambiar etapas automáticamente. Se actualizaron guía de capacitación y ayuda en pantalla. Pasaron exportación, typecheck, build, `git diff --check` y un E2E con API interceptada; no hubo escrituras en base. Cambio local en `staging`, sin commit.
