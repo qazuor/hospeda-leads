@@ -407,13 +407,14 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 ### Retomar una conversación o reabrir una gestión
 
-**Cuándo usarlo:** Cuando llega la fecha de recontacto de una propuesta cerrada.
+**Cuándo usarlo:** Cuando querés retomar una gestión cerrada que tiene fecha de recontacto.
 
-1. Revisá el estado Recontactar del negocio y las fechas de recontacto de las gestiones. La fecha es una referencia y no bloquea un contacto anticipado.
-2. Si solo querés volver a conversar, creá un seguimiento con fecha y conservá la gestión cerrada.
-3. Si la misma propuesta vuelve a negociarse, elegí reabrir la gestión original; solo un administrador puede hacerlo. Elegí una etapa abierta del mismo tipo. El cierre anterior queda en el historial.
-4. Si querés continuar con otra gestión vinculada del mismo tipo, elegí Crear otra gestión: conserva el tipo y el vínculo al cierre previo. Para una propuesta de otro tipo, iniciá la gestión desde la ficha del negocio.
-5. Antes de contactar, revisá Archivado, Papelera y No contactar. Archivado debe desarchivarse por un administrador y Papelera debe restaurarse por un administrador; No contactar requiere que un administrador levante el bloqueo.
+1. En Reactivación, revisá qué acción existe. Si el cierre generó una tarea y dejó al negocio en Recontactar, su fecha resume el seguimiento y se muestra una sola vez; abrí la tarea enlazada para registrar o consultar el resultado. Si hay una gestión relacionada, abrila desde la fila.
+2. Elegí Elegir cómo retomar. Si solo querés volver a conversar, creá un seguimiento y conservá la gestión cerrada.
+3. Si la misma propuesta vuelve a negociarse, pedile a un administrador que elija Reabrir esta gestión y una etapa abierta del mismo tipo. El cierre anterior queda en el historial.
+4. Si querés trabajar otra propuesta del mismo tipo, elegí Crear otra gestión. Para una propuesta de otro tipo, iniciá la gestión desde la ficha del negocio.
+5. Si la fila ya muestra una acción creada, abrí la tarea o gestión relacionada; no vuelvas a planificar desde el mismo cierre. La tarea es lo que hay que completar; el estado del negocio solo resume la fecha acordada. El CRM no contacta ni reabre automáticamente.
+6. Antes de contactar, revisá Archivado, Papelera y No contactar. Archivado debe desarchivarse por un administrador y Papelera debe restaurarse por un administrador; No contactar requiere que un administrador levante el bloqueo.
 
 **Qué queda al terminar:** Retomás el caso con su historia conservada y sin generar un contacto automático.
 
@@ -680,13 +681,13 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 
 **Cuándo usarlo:** Cuando querés retirar algo de la vista habitual sin confundir negocio y gestión.
 
-1. Archivado y Papelera son situaciones distintas. Archivado conserva el negocio, pero requiere desarchivo administrativo antes de iniciar una gestión.
+1. Archivar es para un negocio válido que dejás de trabajar por ahora: lo oculta de la lista activa y conserva sus contactos, gestiones, tareas e historial. Solo un administrador puede desarchivarlo.
 2. Solo un administrador puede desarchivar. El negocio vuelve a Revisado si ya había sido verificado; si no, vuelve a Nuevo.
-3. Papelera es la eliminación lógica del negocio. Mientras esté allí no se puede abrir para trabajar ni contactar; solo un administrador puede restaurarlo.
+3. Enviar un negocio a Papelera es para un registro inválido o cargado por error. Se oculta de las listas habituales, conserva sus datos e historial y solo un administrador puede restaurarlo.
 4. Enviar una gestión a la Papelera es una acción separada del estado del negocio. Revisá cuidadosamente cuál entidad estás eliminando.
 5. Antes de fusionar o retirar duplicados, compará ciudad, canales, personas, gestiones e historial y pedí al administrador que evalúe la fusión.
 
-**Qué queda al terminar:** Archivar conserva las personas, gestiones e historial del negocio. Papelera opera sobre gestiones; no elimina el negocio por retirar todas sus gestiones.
+**Qué queda al terminar:** Elegís Archivar para conservar un negocio válido que no se trabajará ahora, o Papelera para apartar un registro inválido. Ambas acciones conservan el historial y tienen recuperación administrativa.
 
 **Tené en cuenta:**
 

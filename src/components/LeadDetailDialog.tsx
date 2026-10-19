@@ -161,7 +161,7 @@ export const LeadDetailDialog=({
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>
         <SectionTabList aria-label="Secciones de la gestión"><SectionTab value="overview">Resumen</SectionTab>{!readOnly&&<SectionTab value="work">Seguimiento</SectionTab>}<SectionTab value="notes">Notas</SectionTab><SectionTab value="communication">Comunicación</SectionTab><SectionTab value="documents">Documentos</SectionTab></SectionTabList>
         <div className={styles.scrollBody}>
-          <SectionTabPanel value="overview">{!readOnly&&<PipelineDetail lead={lead}/>}
+          <SectionTabPanel value="overview"><PipelineDetail lead={lead} readOnly={readOnly}/>
         <Disclosure className={styles.section}><DisclosureSummary>Responsable y datos generales</DisclosureSummary><div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Canal del negocio" value={lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>

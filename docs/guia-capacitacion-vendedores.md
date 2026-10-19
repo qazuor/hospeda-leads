@@ -55,6 +55,8 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 6. El responsable se toma del negocio; solo un administrador puede cambiarlo. Si necesitás, abrí **Más datos (opcional)** para indicar el tema, una fecha estimada o la persona principal.
 7. Guardá. La gestión empieza en **Por contactar**. Guardar no envía nada ni registra un contacto.
 
+**Quién responde por cada cosa:** “Relación del negocio” identifica a quien lleva la relación general con el comercio. “Responsable de esta gestión” identifica a quien lleva esa propuesta concreta; pueden ser personas distintas. “Responsable de la tarea” es quien hará ese próximo paso. Asignar una tarea no cambia responsables comerciales ni otorga permiso para contactar o cambiar la etapa.
+
 **Frase para recordar:** “Negocio es quién; gestión es qué propuesta estamos trabajando”.
 
 ## Guía 4 — Organizar el seguimiento
@@ -129,8 +131,8 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 
 **Objetivo:** elegir la acción correcta para no perder un registro válido.
 
-- **Archivar:** el negocio existe, pero se deja de trabajar por ahora. Conserva datos e historial; requiere intervención administrativa para desarchivar.
-- **Enviar a Papelera:** el registro es inválido, duplicado confirmado u otro motivo de baja. Conserva el historial para posible restauración; solo un admin puede restaurar y mientras tanto no se trabaja.
+- **Archivar:** el negocio es válido, pero se deja de trabajar por ahora. Conserva contactos, gestiones, tareas e historial; solo un administrador puede desarchivarlo.
+- **Enviar a Papelera:** el registro es inválido o se cargó por error. Conserva contactos, gestiones, tareas e historial para posible restauración; solo un administrador puede restaurarlo y mientras tanto no se puede trabajar ni contactar.
 - **No contactar:** es una restricción de salida, no una forma de borrar ni archivar el negocio.
 
 ## Guía del supervisor — simulación de 15 minutos
@@ -145,4 +147,4 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 
 ### Nota para quien capacita
 
-En Reactivación, elegí una etapa abierta del mismo tipo de gestión. “Crear otra gestión” conserva ese tipo y el vínculo con el cierre previo. Solo un administrador puede elegir “Reabrir esta gestión”. Si el motivo fue que pidió no ser contactado, respetá el bloqueo y no programes recontacto.
+En Reactivación, revisá la acción existente. Cuando el cierre generó una tarea y dejó al negocio en **Recontactar**, su fecha resume el seguimiento y aparece una sola vez; abrí la tarea enlazada para registrar o consultar qué pasó. Si hay una gestión relacionada, abrila desde la fila. Elegí **Elegir cómo retomar** para ver las opciones: crear solo un seguimiento o iniciar una nueva gestión del mismo tipo. Solo un administrador puede elegir **Reabrir esta gestión**. Si ya se creó una acción, abrila desde la fila; no repitas la planificación desde el mismo cierre. Si el motivo fue que pidió no ser contactado, respetá el bloqueo y no programes recontacto.

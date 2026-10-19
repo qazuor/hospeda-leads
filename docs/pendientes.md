@@ -2,11 +2,11 @@
 
 ## Auditoría del flujo comercial — 19/10/2026
 
-- P0 1–4 de [la auditoría](auditoria-flujo-comercial.md) están corregidos; `d173889` ya está en `origin/staging`. P1 5 y 6 se corrigieron en `045ab36`, ya publicado en `origin/staging`. P1 7, 10 y 11 están corregidos localmente; typecheck y build pasaron, y #11 pasó un E2E con API interceptada. La exportación de la guía también pasó para #10 y #11. Falta el recorrido visual con la base de pruebas local descartable.
+- P0 1–4 de [la auditoría](auditoria-flujo-comercial.md) están corregidos; `d173889` ya está en `origin/staging`. P1 5 y 6 se corrigieron en `045ab36`; P1 7, 10 y 11 en `8e9e7ca`; ambos publicados en `origin/staging`. P1 12–16 están corregidos localmente: Reactivación anticipa opciones y resume la tarea; Archivar/Papelera distinguen usos y consecuencias; el resumen del negocio y el próximo paso de cada gestión reúnen la información para retomar el trabajo; los responsables del negocio, la gestión y la tarea se identifican por separado. #12–15 pasaron typecheck, build y E2E desktop/móvil con API interceptada; #16 pasó typecheck, build y `git diff --check`. Falta una revisión visual integral de los puntos anteriores y verificación con una base descartable.
 - Pendiente: recorrido integrado en navegador con datos descartables. No usar la réplica de producción para mutaciones ni marcar el proceso completo como probado hasta hacer ese recorrido.
 - Usar [guía de capacitación](guia-capacitacion-vendedores.md) como material base; validar el recorrido recomendado con un vendedor principiante y en una sesión visual real.
-- La guía en pantalla se sincronizó para explicar Reactivación tipada y reapertura exclusiva de admin; revisar consistencia de los demás artículos al corregir los hallazgos restantes.
-- No se ejecutaron pruebas interactivas en Chrome ni operaciones de escritura en base.
+- La guía en pantalla y la capacitación explican que el estado Recontactar resume la fecha de la tarea y que el vendedor debe abrir esa tarea para registrar o consultar el resultado.
+- No se hicieron operaciones de escritura en base. El E2E del punto 15 usa Chromium con API interceptada; se revisaron capturas desktop/móvil. El recorrido integrado con datos descartables sigue pendiente.
 
 Corte: 16/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
 
