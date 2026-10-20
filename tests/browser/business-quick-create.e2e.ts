@@ -13,18 +13,18 @@ test('Nuevo negocio warns about similar businesses, blocks No contactar duplicat
  // Live warning: same name and city as an existing business.
  await dialog.getByLabel('Nombre',{exact:true}).fill(name);await dialog.getByLabel('Ciudad',{exact:true}).fill('Colón');
  await expect(dialog.getByText('Puede que ya exista:',{exact:true})).toBeVisible();
- await expect(dialog.getByRole('link',{name:'Abrir '+name,exact:true})).toHaveAttribute('href','/accounts/'+existing);
+ await expect(dialog.getByRole('link',{name:'Abrir '+name+' (en otra pestaña)',exact:true})).toHaveAttribute('href','/accounts/'+existing);
  await expect(dialog.getByText('Mismo nombre y ciudad · Responsable del negocio:',{exact:false})).toBeVisible();
  await expect(create).toBeDisabled();
- await dialog.getByLabel('Es otro negocio, guardar igual',{exact:true}).check();await expect(create).toBeEnabled();
+ await dialog.getByLabel('Ninguno de estos es mi negocio, crear igual',{exact:true}).check();await expect(create).toBeEnabled();
  await page.screenshot({path:'test-results/business-quick-create-warning.png',fullPage:true});
  // A No contactar match is a hard block (the server enforces it too; here the check response is simulated).
- await page.route('**/_api/business/duplicate-check?**',route=>route.fulfill({status:200,contentType:'application/json',body:superjson.stringify({candidates:[{id:'999999',nombre:'Hostería que pidió no ser contactada',ciudad:'Colón',doNotContact:true,archived:true,deleted:false,reasons:['Teléfono compartido'],canOpen:false}]})}));
+ await page.route('**/_api/business/duplicate-check?**',route=>route.fulfill({status:200,contentType:'application/json',body:superjson.stringify({candidates:[{id:'999999',nombre:'Hostería que pidió no ser contactada',ciudad:'Colón',doNotContact:true,archived:true,deleted:false,reasons:['Teléfono compartido'],canOpen:false,blocking:true}]})}));
  await dialog.getByLabel('Teléfono / WhatsApp',{exact:true}).fill('3447 401234');
  await expect(dialog.getByRole('alert')).toHaveText('Ese negocio pidió no ser contactado. Consultá con un administrador.');
  await expect(dialog.getByText('No contactar',{exact:true})).toBeVisible();await expect(dialog.getByText('Archivado',{exact:true})).toBeVisible();
- await expect(dialog.getByRole('link',{name:'Abrir Hostería que pidió no ser contactada'})).toHaveCount(0);
- await expect(dialog.getByLabel('Es otro negocio, guardar igual')).toHaveCount(0);await expect(create).toBeDisabled();
+ await expect(dialog.getByRole('link',{name:/Abrir Hostería que pidió no ser contactada/})).toHaveCount(0);
+ await expect(dialog.getByLabel('Ninguno de estos es mi negocio, crear igual')).toHaveCount(0);await expect(create).toBeDisabled();
  await page.screenshot({path:'test-results/business-quick-create-dnc.png',fullPage:true});
  await page.unroute('**/_api/business/duplicate-check?**');
  // A different name clears the warning; the person is saved as Principal.
@@ -32,7 +32,7 @@ test('Nuevo negocio warns about similar businesses, blocks No contactar duplicat
  await expect(dialog.getByText('Puede que ya exista:',{exact:true})).toHaveCount(0);
  await dialog.getByLabel('Nombre de la persona',{exact:true}).fill('Ana del alta');await dialog.getByLabel('Teléfono de la persona',{exact:true}).fill('3447 400222');
  await create.click();
- await expect(page.getByText('Negocio creado',{exact:true})).toBeVisible();
+ await expect(page.getByText('Negocio creado',{exact:true})).toBeVisible();await expect(page.getByText('Negocio guardado',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Abrir negocio',exact:true})).toHaveCount(0);
  await expect(page).toHaveURL(/\/accounts\/\d+/);await expect(page.getByRole('heading',{name:name+' Norte',exact:true})).toBeVisible();
  const id=page.url().match(/\/accounts\/(\d+)/)![1];
  const detail=await api('commercial?accountId='+id);

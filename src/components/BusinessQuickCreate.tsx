@@ -12,11 +12,11 @@ import {useUnsavedChanges} from './UnsavedChanges';
 import {useAuth} from '../helpers/useAuth';
 import {useDebounce} from '../helpers/useDebounce';
 import {crmSuccess} from '../helpers/crmFeedback';
-import {DNC_DUPLICATE_BLOCK,duplicateQuery,duplicateReasonLabel,duplicateWarning} from '../helpers/duplicateWarning';
+import {duplicateQuery,duplicateReasonLabel,duplicateWarning} from '../helpers/duplicateWarning';
 import {VOCAB} from '../content/vocabulary';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import {saveCommercial} from '../endpoints/commercial.schema';
-import {checkBusinessDuplicates} from '../endpoints/business_duplicate_check.schema';
+import {checkBusinessDuplicates,DNC_DUPLICATE_MESSAGE} from '../endpoints/business_duplicate_check.schema';
 import styles from './Commercial.module.css';
 
 const empty={nombre:'',ciudad:'',telefono:'',email:'',tipo:'',subtipo:'',personName:'',personPhone:''};
@@ -26,7 +26,7 @@ const invalidated=['commercial','commercial-detail','leads','lead-stats','lead-j
  * "Nuevo negocio": one step with name, city and phone, an optional person (saved as Principal in the same transaction)
  * and a live duplicate warning. A duplicate of a No contactar business blocks saving. Never creates a management.
  */
-export function BusinessQuickCreate({onClose,onSaved}:{onClose:()=>void;onSaved?:(id:string)=>void}){
+export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()=>void;onSaved?:(id:string)=>void;/** False when `onSaved` already opens the business. */toastLink?:boolean}){
  const {authState}=useAuth();
  const user=authState.type==='authenticated'?authState.user:undefined;
  const admin=user?.role==='admin';
@@ -36,20 +36,23 @@ export function BusinessQuickCreate({onClose,onSaved}:{onClose:()=>void;onSaved?
  const [acknowledged,setAcknowledged]=useState('');
  const [error,setError]=useState('');
  const submitting=useRef(false);
- const queryKey=useDebounce(JSON.stringify(duplicateQuery(draft)),400);
+ const currentKey=JSON.stringify(duplicateQuery(draft));
+ const queryKey=useDebounce(currentKey,400);
  const query=JSON.parse(queryKey) as ReturnType<typeof duplicateQuery>;
- const duplicates=useQuery({queryKey:['business-duplicate-check',queryKey],queryFn:()=>checkBusinessDuplicates(query!),enabled:!!query,staleTime:30000});
- const {blocker,shown,hidden}=duplicateWarning({candidates:query?duplicates.data?.candidates??[]:[]});
+ const duplicates=useQuery({queryKey:['business-duplicate-check',queryKey],queryFn:({signal})=>checkBusinessDuplicates(query!,{signal}),enabled:!!query,staleTime:30000});
+ // Never save on a stale or missing check: wait until the typed values were checked (a failed check does not block).
+ const checking=currentKey!=='null'&&(currentKey!==queryKey||duplicates.isFetching);
+ const {blocker,shown,hidden,dncWarning}=duplicateWarning({candidates:query?duplicates.data?.candidates??[]:[]});
  const shownKey=shown.map(c=>c.id).join(',');
  const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async result=>{
   await qc.cancelQueries({queryKey:['leads']});
   await Promise.all(invalidated.map(key=>qc.invalidateQueries({queryKey:[key],refetchType:'all'})));
-  crmSuccess('Negocio creado',{label:'Abrir negocio',href:'/accounts/'+result.id},draft.personName.trim()?`${draft.personName.trim()} quedó como persona principal.`:undefined);
+  crmSuccess('Negocio creado',toastLink?{label:'Abrir negocio',href:'/accounts/'+result.id}:undefined,draft.personName.trim()?`${draft.personName.trim()} quedó como persona principal.`:undefined);
   onSaved?.(result.id);onClose();
  }});
  const guard=useUnsavedChanges(Object.entries(empty).some(([k,v])=>draft[k as keyof typeof empty]!==v),onClose,mutation.isPending);
  const set=(key:keyof typeof draft)=>(e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement>)=>{const value=e.target.value;setDraft(d=>({...d,[key]:value,...(key==='tipo'?{subtipo:''}:{})}));};
- const disabledReason=mutation.isPending?'Estamos creando el negocio. Esperá a que termine.':blocker?DNC_DUPLICATE_BLOCK:shown.length&&acknowledged!==shownKey?'Revisá los negocios parecidos: abrí el que corresponde o marcá «Es otro negocio, guardar igual».':undefined;
+ const disabledReason=mutation.isPending?'Estamos creando el negocio. Esperá a que termine.':checking?'Revisando si ya existe…':blocker?DNC_DUPLICATE_MESSAGE:shown.length&&acknowledged!==shownKey?'Revisá los negocios parecidos: abrí el que corresponde o marcá «Ninguno de estos es mi negocio, crear igual».':undefined;
  const submit=async(event:React.FormEvent)=>{
   event.preventDefault();if(submitting.current||disabledReason)return;submitting.current=true;setError('');
   const text=(v:string)=>v.trim()||null;
@@ -63,13 +66,13 @@ export function BusinessQuickCreate({onClose,onSaved}:{onClose:()=>void;onSaved?
   <DialogDescription>Con el nombre alcanza para crearlo. No crea una gestión: para ofrecerle algo, después usá Iniciar gestión.</DialogDescription>
   <form onSubmit={submit} className={styles.form} aria-busy={mutation.isPending}>
    <fieldset className={styles.formSection}><legend>Datos del negocio</legend>{input('nombre','Nombre',{required:true,autoFocus:true,placeholder:'Ej.: Cabañas del Río'})}{input('ciudad','Ciudad',{placeholder:'Ej.: Colón'})}{input('telefono','Teléfono / WhatsApp',{type:'tel',placeholder:'Ej.: 3447 412345'})}</fieldset>
-   {query&&(shown.length>0||duplicates.isError)&&<section className={styles.fullField} aria-label="Negocios parecidos" style={{display:'grid',gap:8,padding:12,border:'1px solid '+(blocker?'var(--error)':'var(--border)'),borderRadius:10}}>
-    {blocker&&<p role="alert" className={styles.error} style={{margin:0}}><strong>{DNC_DUPLICATE_BLOCK}</strong></p>}
-    {shown.length>0&&<><strong>Puede que ya exista:</strong><ul style={{margin:0,paddingInlineStart:18,display:'grid',gap:8}}>{shown.map(c=><li key={c.id}><span style={{display:'inline-flex',flexWrap:'wrap',gap:6,alignItems:'center'}}><strong>{c.nombre}</strong>{c.ciudad?` · ${c.ciudad}`:''}{c.doNotContact&&<ValueBadge value="No contactar" category="status"/>}{c.archived&&<ValueBadge value="Archivado" category="status"/>}{c.canOpen&&<Link to={'/accounts/'+c.id} aria-label={'Abrir '+c.nombre}>Abrir</Link>}</span><small className={styles.muted} style={{display:'block'}}>{[c.reasons.map(duplicateReasonLabel).join(' · '),'responsibleName' in c?`${VOCAB.businessOwner}: ${c.responsibleName||'sin asignar'}`:null].filter(Boolean).join(' · ')}</small></li>)}</ul>{hidden>0&&<small className={styles.muted}>Y {hidden} más parecidos.</small>}</>}
-    {duplicates.isError&&<small className={styles.muted}>No pudimos revisar si ya existe. Igual podés crearlo.</small>}
-    {shown.length>0&&!blocker&&<label className={styles.checkbox}><Checkbox disabled={mutation.isPending} checked={acknowledged===shownKey} onChange={e=>setAcknowledged(e.target.checked?shownKey:'')}/>Es otro negocio, guardar igual</label>}
-   </section>}
    <fieldset className={styles.formSection}><legend>Persona con la que hablaste (opcional)</legend>{input('personName','Nombre de la persona',{required:!!draft.personPhone.trim(),placeholder:'Ej.: Ana'})}{input('personPhone','Teléfono de la persona',{type:'tel'})}<p>Queda como persona principal del negocio.</p></fieldset>
+   <div className={styles.fullField} aria-live="polite">{checking?<small className={styles.muted} role="status">Revisando si ya existe…</small>:query&&(shown.length>0||duplicates.isError)&&<section aria-label="Negocios parecidos" style={{display:'grid',gap:8,padding:12,border:'1px solid '+(blocker?'var(--error)':'var(--border)'),borderRadius:10}}>
+    {blocker&&<p role="alert" className={styles.error} style={{margin:0}}><strong>{DNC_DUPLICATE_MESSAGE}</strong></p>}
+    {shown.length>0&&<div id="quick-create-duplicates"><strong>Puede que ya exista:</strong><ul style={{margin:'8px 0 0',paddingInlineStart:18,display:'grid',gap:8}}>{shown.map(c=><li key={c.id}><span style={{display:'inline-flex',flexWrap:'wrap',gap:6,alignItems:'center'}}><strong>{c.nombre}</strong>{c.ciudad?` · ${c.ciudad}`:''}{c.doNotContact&&<ValueBadge value="No contactar" category="status"/>}{c.archived&&<ValueBadge value="Archivado" category="status"/>}{c.canOpen&&<Link to={'/accounts/'+c.id} target="_blank" rel="noopener" aria-label={'Abrir '+c.nombre+' (en otra pestaña)'}>Abrir</Link>}</span><small className={styles.muted} style={{display:'block'}}>{[c.reasons.map(duplicateReasonLabel).join(' · '),'responsibleName' in c?`${VOCAB.businessOwner}: ${c.responsibleName||'sin asignar'}`:null].filter(Boolean).join(' · ')}</small></li>)}</ul>{hidden>0&&<small className={styles.muted}>Y {hidden} más parecidos.</small>}{dncWarning&&!blocker&&<p style={{margin:'8px 0 0'}}><strong>Si es el mismo, no lo contactes.</strong></p>}</div>}
+    {duplicates.isError&&<small className={styles.muted}>No pudimos revisar si ya existe. Igual podés crearlo.</small>}
+    {shown.length>0&&!blocker&&<label className={styles.checkbox}><Checkbox disabled={mutation.isPending} aria-describedby="quick-create-duplicates" checked={acknowledged===shownKey} onChange={e=>setAcknowledged(e.target.checked?shownKey:'')}/>Ninguno de estos es mi negocio, crear igual</label>}
+   </section>}</div>
    <Disclosure className={styles.optionalFields}><DisclosureSummary>Más datos (opcional)</DisclosureSummary><div className={styles.formSection}>{input('email','Email del negocio',{type:'email'})}<label>Vertical<NativeSelect disabled={mutation.isPending} value={draft.tipo} onChange={set('tipo')}><option value="">Sin clasificar</option>{(settings.data?.types??[]).map(t=><option key={t}>{t}</option>)}</NativeSelect></label><label>Subtipo<NativeSelect disabled={mutation.isPending} value={draft.subtipo} onChange={set('subtipo')}><option value="">Sin asignar</option>{(settings.data?.subtypes??[]).filter(s=>s.typeName===draft.tipo).map(s=><option key={s.name} value={s.name}>{s.name}</option>)}</NativeSelect></label>{admin&&<label>{VOCAB.businessOwner}<NativeSelect disabled={mutation.isPending} value={draft.assignedUserEmail} onChange={set('assignedUserEmail')}><option value="">Sin asignar</option>{(settings.data?.users??[]).map(u=><option key={u.email} value={u.email}>{u.displayName}</option>)}</NativeSelect></label>}</div></Disclosure>
    {!admin&&<p className={styles.muted}>Vas a quedar como {VOCAB.businessOwner.toLowerCase()}.</p>}
    {(error||mutation.error)&&<p role="alert" className={styles.error}>{error||mutation.error?.message}</p>}
