@@ -14,7 +14,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   const {id}=await mutate({action:'account_save',nombre:'Preparación explícita '+viewport.width+' '+Date.now(),email:'business@example.com'});
   expect((await detail(id)).opportunities).toHaveLength(0);
   await page.goto('/accounts/'+id);
-  await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
+  await page.getByRole('tab',{name:/^Gestiones \(/}).click();
   await expect(page.getByText(/Sin gestiones iniciadas/)).toBeVisible();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'Iniciar gestión'});

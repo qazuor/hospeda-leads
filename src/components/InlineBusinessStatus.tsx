@@ -13,16 +13,21 @@ import styles from './InlineBusinessStatus.module.css';
 import {DisabledTooltip} from './Tooltip';
 
 const directlyEditable:BusinessStatus[]=['reviewed','no_follow_up_scheduled','recontact'];
-export function InlineBusinessStatus({accountId,status,recontactAt,disabled=false}:{accountId:string;status:BusinessStatus|null|undefined;recontactAt:Date|string|null|undefined;disabled?:boolean}){
+/**
+ * Business status badge-button with a popover to change it. The popover always starts on the saved status;
+ * "Guardar" only appears after choosing a different one (or a new recontact date).
+ * `labelled` renders the business record variant: "Estado: {badge} ▾ Cambiar".
+ */
+export function InlineBusinessStatus({accountId,status,recontactAt,disabled=false,labelled=false,onSaved}:{accountId:string;status:BusinessStatus|null|undefined;recontactAt:Date|string|null|undefined;disabled?:boolean;labelled?:boolean;onSaved?:()=>Promise<void>|void}){
  const qc=useQueryClient();const current=status??'new';const savedRecontactDay=calendarDay(recontactAt);const [value,setValue]=useState<BusinessStatus>(current);const [date,setDate]=useState(savedRecontactDay);const [open,setOpen]=useState(false);
  useEffect(()=>{setValue(current);setDate(savedRecontactDay);},[current,savedRecontactDay]);
- const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async()=>{await qc.invalidateQueries({queryKey:['leads']});await qc.invalidateQueries({queryKey:['commercial-detail',accountId]});setOpen(false);}});
+ const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async()=>{await qc.invalidateQueries({queryKey:['leads']});await qc.invalidateQueries({queryKey:['commercial-detail',accountId]});await onSaved?.();setOpen(false);}});
  const canEditStatus=current==='new'?['reviewed' as const]:directlyEditable;
  const canEdit=!disabled&&!mutation.isPending&&canEditStatus.length>0;
  const changed=value!==current||(value==='recontact'&&date!==savedRecontactDay);
  return <Popover open={open} onOpenChange={setOpen}>
-  <PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={'Estado del negocio: '+businessStatusLabels[current]}>
-   <ValueBadge category="status" value={businessStatusLabels[current]} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/>
+  <PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={(labelled?'Cambiar estado del negocio. Ahora: ':'Estado del negocio: ')+businessStatusLabels[current]}>
+   {labelled&&<span className={styles.label}>Estado:</span>}<ValueBadge category="status" value={businessStatusLabels[current]} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/>{labelled&&<span className={styles.change}>Cambiar</span>}
   </UnstyledButton></PopoverTrigger>
   <PopoverContent aria-label="Estado del negocio" className={styles.popover} align="start">
    <div className={styles.options} role="group" aria-label="Estados del negocio">
@@ -31,7 +36,7 @@ export function InlineBusinessStatus({accountId,status,recontactAt,disabled=fals
      </UnstyledButton></DisabledTooltip>;})}
    </div>
    {value==='recontact'&&canEditStatus.includes('recontact')&&<label className={styles.date}>Fecha de recontacto (opcional)<CrmDateInput disabled={disabled||mutation.isPending} value={date} onValueChange={setDate}/></label>}
-   {changed&&<Button size="sm" disabled={disabled||mutation.isPending} disabledReason={(mutation.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} onClick={()=>mutation.mutate({action:'business_status',accountId,status:value,recontactAt:value==='recontact'?(date||null):null})}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
+   {changed&&<Button size="sm" disabled={disabled||mutation.isPending} disabledReason={mutation.isPending?"Guardando el estado. Esperá a que termine.":"Solo el responsable autorizado del negocio o un administrador puede cambiar este estado."} onClick={()=>mutation.mutate({action:'business_status',accountId,status:value,recontactAt:value==='recontact'?(date||null):null})}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
    {mutation.error&&<span role="alert" className={styles.error}>{mutation.error.message}</span>}
   </PopoverContent>
  </Popover>;
