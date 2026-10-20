@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 16 de octubre de 2026
 
+## Configuración de variables de texto para modelos — 19/10/2026
+
+En `staging`, localmente y sin commit, se agregó Configuración → **Variables de texto**. Permite crear, editar y eliminar variables; seleccionar fuente CRM, sistema, otra variable o texto; y definir textos por vertical, tipo de negocio, tipo de gestión, hora local, canal y presencia de nombre de contacto. Se precargaron variables genéricas `saludo`, `gracias`, `despedida`, `presentacion`, `pregunta_cierre` y `firma`; las variables existentes se conservan. Si ya existía un catálogo guardado, los nuevos valores predeterminados se agregan sin reactivar los que el admin haya deshabilitado. Los modelos insertan el catálogo configurado y la vista previa y el servidor resuelven las mismas reglas; los mensajes preparados conservan una copia del contexto y definiciones usadas. La configuración se guarda en `app_settings`, sin migración de esquema.
+
+Las variantes se resuelven por condiciones reales y gana la combinación más específica; combinaciones duplicadas se rechazan. No se implementó rotación aleatoria o cíclica de textos. Pasaron `pnpm run typecheck`, 13 pruebas focalizadas de render/variables, `pnpm run build` y `git diff --check`. El build conserva el aviso existente de chunk JavaScript superior a 500 kB. Pendiente: revisión visual manual de la nueva sección y prueba funcional en la app autenticada. Sin commit ni push.
+
 ## Auditoría del flujo comercial — 19/10/2026
 
 Se revisó estáticamente el recorrido desde alta/revisión del negocio hasta gestión, comunicación, tareas, cierre y reactivación sobre `staging` (`6cc6bb2`). Se documentó el informe [auditoria-flujo-comercial.md](auditoria-flujo-comercial.md) y una guía para capacitación de vendedores principiantes en [guia-capacitacion-vendedores.md](guia-capacitacion-vendedores.md). También se actualizó la guía compartida en Markdown y su fuente JSON para usar la columna **Revisados** y advertir sobre límites actuales de Reactivación.

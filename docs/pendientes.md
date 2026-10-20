@@ -141,6 +141,12 @@ Se refrescaron la guía en pantalla y el Markdown generado con los flujos actual
 - No interpretar la documentación como aprobación para conectar un proveedor, enviar datos reales o desplegar IA.
 - La documentación quedó integrada en `staging` mediante los PR #107–#110. Antes de implementar, elegir proveedor/modelo, verificar sus condiciones y definir los límites de uso.
 
+## Variables de texto para modelos — 19/10/2026
+
+- Revisar visualmente Configuración → Variables de texto en desktop y mobile y probar crear/editar/eliminar una variable en la base local autenticada.
+- Las alternativas se seleccionan por coincidencia contextual y especificidad, no por rotación aleatoria o cíclica. Los textos alternativos sin condiciones repetidas son configurables; cada combinación de condiciones admite un solo texto.
+- La configuración vive en `app_settings`; no requiere migración. La conexión real de datos de sistema/CRM está limitada al catálogo explícito de campos permitidos.
+
 ## Estado de ramas — 16/10/2026
 
 Los PRs #99–#110 revisados para estados, comunicación, UI y documentación están integrados en `staging`. Los tres ajustes adicionales de UI y la documentación/prueba complementaria se integraron mediante el commit `924d186` el 16/10/2026. Esto no implica merge a `main` ni deploy.
