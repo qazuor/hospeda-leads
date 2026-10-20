@@ -42,6 +42,10 @@ Ctrl+C detiene Vite y la API; el contenedor sigue corriendo.
 
 Los scripts solo operan sobre `hospeda-crm-dev-pg` si tiene la etiqueta `hospeda-crm.dev=1`; nunca tocan otros contenedores.
 
+**Un solo contenedor y una sola base para todos los worktrees/ramas.** Es intencional, pero implica que `local:stop` y `local:reset` afectan a todos los worktrees, y que las migraciones de una rama de feature se aplican en la base compartida (otra rama sin esa migración puede fallar o ver tablas extra). Para volver a un estado limpio, usar `npm run local:reset -- --yes`. Los puertos de la app sí se eligen libres por ejecución, así que dos worktrees pueden correr a la vez. El estado local (secreto JWT, puertos, proceso) vive en `.local/dev.json` de cada worktree.
+
+El sembrado deja una marca en la base al terminar; si se interrumpe, el siguiente `npm run local` completa solo lo que falta (`local:status` muestra si está completo). Solo funciona en Linux con Docker accesible.
+
 El contenedor corre con `fsync=off` para que la carga sea rápida: es una base descartable, y ante un corte brusco del equipo conviene `local:reset`.
 
 ### Datos reales (opcional)
@@ -52,7 +56,7 @@ Con un dump entregado por el propietario:
 npm run local -- --data=dump:/ruta/absoluta/al/archivo
 ~~~
 
-Acepta formato custom (`pg_restore`) o SQL plano (`psql`), detectado automáticamente. Se restaura en una base separada `hospeda_dump` dentro del mismo contenedor (la base de desarrollo no se toca), se migra y la app arranca contra ella. Nunca se siembra. Para restaurar otra vez, agregar `--fresh`. Se rechaza un dump dentro del repositorio.
+Solo se acepta formato custom; el propietario debe generarlo con `pg_dump -Fc --no-owner --no-acl <base> > archivo.dump`. Un SQL plano se rechaza a propósito (puede traer `\connect` y escribir en otra base). Se restaura con `pg_restore --exit-on-error` primero en `hospeda_dump_tmp` y recién al terminar bien se renombra a `hospeda_dump`: una restauración interrumpida nunca queda como válida y se reintenta sola. La base de desarrollo no se toca, se migra la restaurada y la app arranca contra ella. Nunca se siembra. La base recuerda el archivo de origen (ruta y fecha de modificación): si pasás otro archivo sin `--fresh`, avisa y conserva lo ya restaurado. Para restaurar otra vez, agregar `--fresh`. Se rechaza un dump dentro del repositorio (también vía enlace simbólico).
 
 Esa base contiene datos personales reales y el login es con usuarios reales: no enviar comunicaciones, no copiar el dump ni su contenido al repo ni a chats. Para volver a los datos sintéticos, ejecutar `npm run local` sin `--data`.
 
@@ -69,9 +73,12 @@ Solo si hace falta algo distinto de `npm run local`. Los scripts de DB y el serv
 docker compose -p hospeda-crm-local -f docker-compose.yml -f docs/compose.local.yml up -d postgres
 ~~~
 
-Variables mínimas: `DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads`, `PUBLIC_APP_URL=http://localhost:5173` (el origen que usa el navegador; si no coincide, los POST se rechazan), `ADMIN_EMAIL=admin@example.com`, `BREVO_API_KEY=` vacío y un `JWT_SECRET` aleatorio de al menos 32 caracteres. Luego:
+Variables mínimas: `DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads`, `PUBLIC_APP_URL=http://localhost:5173` (el origen que usa el navegador; si no coincide, los POST se rechazan), `ADMIN_EMAIL=admin@example.com`, `BREVO_API_KEY=` vacío y un `JWT_SECRET` aleatorio de al menos 32 caracteres. Exportar esas variables en la shell (o guardarlas en un archivo local no versionado y cargarlo) y luego:
 
 ~~~bash
+set -a
+source .env
+set +a
 npm run db:migrate
 CRM_TEST_DATABASE=1 npm run db:seed:test
 npm run dev
