@@ -1,4 +1,5 @@
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
+import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
@@ -64,7 +65,7 @@ async function log(trx:Transaction<DB>,accountId:string,leadId:string|null,actio
 }
 export async function post(request:Request){
  try{
-  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(superjson.parse(await request.text()));
+  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(await parseBody(request));
   const id=await db.transaction().execute(async trx=>{
    await setWorkActor(trx,user);
    if(p.action==='stage_save'||p.action==='catalog_save'||p.action==='rules_save'){

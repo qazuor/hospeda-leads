@@ -2,6 +2,7 @@ import {searchSql,normalizeSearchSql} from "../helpers/searchSql";
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess,assertAccountReadable} from '../helpers/crmPermissions';
 import {purposeOutcomes} from '../helpers/workOutcomes';
 import type {WorkPurpose} from '../helpers/nextStep';
+import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily} from '../helpers/accountIdentity';
 import superjson from 'superjson';
@@ -109,7 +110,7 @@ export async function get(request:Request){
 export async function post(request:Request){
  try{
   const {user}=await getServerUserSession(request);
-  const input=workMutation.parse(superjson.parse(await request.text()));
+  const input=workMutation.parse(await parseBody(request));
   const id=await db.transaction().execute(async trx=>{
    await setWorkActor(trx,user);
    if(input.action==='followup_settings'){
