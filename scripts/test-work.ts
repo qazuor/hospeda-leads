@@ -12,6 +12,8 @@ import {handle as save} from '../src/endpoints/leads_save_POST';
 import {handle as contact} from '../src/endpoints/lead_contact_POST';
 import type {WorkData} from '../src/endpoints/work.schema';
 import {handle as liveVersion} from '../src/endpoints/live_version_GET';
+import {post as communicationPost} from '../src/endpoints/communication';
+import {reconcileEvents} from '../src/helpers/communicationService';
 import type {OutputType as LiveVersion} from '../src/endpoints/live_version_GET.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
 const suffix=Date.now();
@@ -225,5 +227,130 @@ try{
  const generalParams={...duplicateParams};delete (generalParams as Partial<typeof duplicateParams>).leadId;assert.deepEqual((await findDuplicates(generalParams)).tasks.map(t=>t.id),[duplicateGeneral]);
  await mutate({action:'task_status',id:duplicate2,status:'cancelled',result:'La acción ya estaba planificada'});assert.equal((await findDuplicates(duplicateParams)).total,1);
  assert.equal((await get(new Request('http://localhost/_api/work?mode=duplicates',{headers:{cookie:user.cookie}}))).status,400);
+ // Decision 2B after a contact: the outcome links its message, resolves it once and keeps a single activity.
+ const contactMessage=async(v:{status:string;owner?:string;channel?:string;accountId?:string;leadId?:string|null;activity?:boolean;at?:Date|null})=>{const id=crypto.randomUUID();const accountId=v.accountId??a.id,leadId=v.leadId===undefined?l.id:v.leadId;const activity=v.activity?(await db.insertInto('crmActivities').values({accountId,leadId,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto · envío no confirmado',occurredAt:new Date(),notes:'Snapshot de mensaje #'+id,actorEmail:v.owner??user.user.email}).returning('id').executeTakeFirstOrThrow()).id:null;await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,owner_email,status,activity_id,last_interaction_at) VALUES(${id}::uuid,${accountId},${accountId},${leadId},${v.channel??'whatsapp'},'+5493447000000','Ana',${v.owner??user.user.email},${v.status},${activity},${v.at??null}::timestamptz)`.execute(db);return {id,activity};};
+ const messageRow=async(id:string)=>(await sql<{status:string;activityId:string|null;completedAt:Date|null;summary:string|null}>`SELECT status,activity_id,completed_at,summary FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0];
+ const activityCount=async()=>Number((await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).where('accountId','=',a.id).executeTakeFirstOrThrow()).n);
+ const contactOutcome={action:'activity_save',accountId:a.id,leadId:l.id,title:'Contacto por WhatsApp',typeId:'message',occurredAt:'2026-09-20T10:00:00-03:00',purpose:'commercial',channel:'whatsapp',contactIds:[own.id],outcome:'no_answer',result:'No respondió',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'};
+ const opened=await contactMessage({status:'whatsapp_opened',activity:true});
+ // Opening WhatsApp proves nothing: the seller must say whether it was sent, and an outcome is required.
+ const unanswered=await post(request({...contactOutcome,messageId:opened.id}));assert.equal(unanswered.status,400);assert.equal(superjson.parse<{error:string}>(await unanswered.text()).error,'Contá si el mensaje se envió.');
+ await mutate({...contactOutcome,outcome:null,messageId:opened.id,messageSent:true},user.cookie,400);
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true,continuation:undefined,continuationReason:undefined},user.cookie,400);
+ // A restriction on the channel blocks confirming the send (No contactar is respected).
+ const restriction=(await sql<{id:string}>`INSERT INTO crm_contact_restrictions(account_id,channel,reason,actor_email,source,evidence) VALUES(${a.id},'whatsapp','Pidió no recibir WhatsApp',${admin.user.email},'manual','test') RETURNING id`.execute(db)).rows[0].id;
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true},user.cookie,403);
+ assert.equal((await messageRow(opened.id)).status,'whatsapp_opened','A rejected outcome leaves the message untouched');
+ await sql`UPDATE crm_contact_restrictions SET lifted_at=now(),lifted_by=${admin.user.email},lift_reason='test' WHERE id=${restriction}`.execute(db);
+ const beforeLink=await activityCount();
+ const linkedActivity=await mutate({...contactOutcome,messageId:opened.id,messageSent:true});
+ assert.equal(linkedActivity,opened.activity,'The activity created when WhatsApp was opened records the outcome');
+ assert.equal(await activityCount(),beforeLink,'No second activity for the same contact');
+ assert.equal((await messageRow(opened.id)).status,'manual_sent');
+ const outcomeRow=await db.selectFrom('crmActivities').selectAll().where('id','=',linkedActivity).executeTakeFirstOrThrow();
+ assert.deepEqual({outcome:outcomeRow.outcome,continuation:outcomeRow.continuation,continuationReason:outcomeRow.continuationReason,result:outcomeRow.result,notes:outcomeRow.notes,actorEmail:outcomeRow.actorEmail},{outcome:'no_answer',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',result:'No respondió',notes:'Snapshot de mensaje #'+opened.id,actorEmail:user.user.email});
+ assert.equal((await sql<{n:string}>`SELECT count(*) AS n FROM crm_communication_journal WHERE entity_id=${opened.id} AND action='contact_resolved'`.execute(db)).rows[0].n,'1');
+ // The message is resolved once.
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true},user.cookie,409);
+ // Later communication results never overwrite what the seller wrote.
+ const replied=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:user.cookie},body:superjson.stringify({action:'outcome',id:opened.id,event:'replied',notes:'Respondió más tarde'})}));assert.equal(replied.status,200,await replied.text());
+ const afterReply=await db.selectFrom('crmActivities').select(['result','notes','outcome']).where('id','=',linkedActivity).executeTakeFirstOrThrow();assert.deepEqual(afterReply,{result:'No respondió',notes:'Snapshot de mensaje #'+opened.id,outcome:'no_answer'});
+ // A registered call has no activity yet: the outcome creates one and links it.
+ const callMessage=await contactMessage({status:'manual_sent',channel:'call'});
+ const callActivity=await mutate({...contactOutcome,channel:'phone',title:'Contacto por llamada',messageId:callMessage.id,outcome:'interested',continuation:'task',continuationReason:undefined,nextTask:{title:'Enviar propuesta',dueDate:'2026-10-05',typeId:'followup'}});
+ assert.equal(await activityCount(),beforeLink+1);
+ assert.equal((await messageRow(callMessage.id)).activityId,callActivity);
+ assert.equal((await messageRow(callMessage.id)).status,'manual_sent','An already resolved call keeps its status');
+ // A manual attempt that was not sent is closed as not done, without inferring a send.
+ const pendingAttempt=await contactMessage({status:'manual_pending',channel:'social'});
+ // "Not sent" is never recorded from the outcome step: the communication flow marks it.
+ const notSent=await post(request({...contactOutcome,channel:'other',messageId:pendingAttempt.id,messageSent:false,outcome:'other',result:'No lo pude mandar'}));assert.equal(notSent.status,400);assert.equal(superjson.parse<{error:string}>(await notSent.text()).error,'Si no se envió, marcalo como no enviado.');
+ assert.equal((await messageRow(pendingAttempt.id)).status,'manual_pending');
+ // A confirmed manual attempt is completed and keeps the outcome's words as its summary.
+ await mutate({...contactOutcome,channel:'other',messageId:pendingAttempt.id,messageSent:true,outcome:'interested',result:'Contestó por Instagram'});
+ const doneAttempt=await messageRow(pendingAttempt.id);assert.equal(doneAttempt.status,'manual_sent');assert(doneAttempt.completedAt);assert.equal(doneAttempt.summary,'Contestó por Instagram');
+ // Drafts and uncertain email sends are not contacts; other people's or other businesses' messages are refused.
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'draft'})).id,messageSent:true},user.cookie,409);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'unknown',channel:'email'})).id},user.cookie,409);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'whatsapp_opened',owner:admin.user.email})).id,messageSent:true},user.cookie,403);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'manual_sent',channel:'call',accountId:b.id,leadId:null})).id},user.cookie,400);
+ await mutate({...contactOutcome,leadId:null,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
+ // Completing a task after a contact links the same way: one activity, carrying the task.
+ const callTask=await mutate({...base,title:'Llamar por la propuesta',dueDate:'2026-10-06'});
+ const taskCall=await contactMessage({status:'manual_sent',channel:'call'});
+ await mutate({action:'task_status',id:callTask,status:'cancelled',result:'Ya no hace falta',messageId:taskCall.id},user.cookie,400);
+ const beforeTask=await activityCount();
+ await mutate({action:'task_status',id:callTask,status:'completed',result:'Atendió Ana',outcome:'interested',completedAt:'2026-09-21T11:00:00-03:00',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',messageId:taskCall.id});
+ assert.equal(await activityCount(),beforeTask+1);
+ const taskActivity=await db.selectFrom('crmActivities').select(['id','taskId','outcome']).where('taskId','=',callTask).executeTakeFirstOrThrow();
+ assert.equal((await messageRow(taskCall.id)).activityId,taskActivity.id);assert.equal(taskActivity.outcome,'interested');
+ // Task completion also resolves an opened WhatsApp or a pending attempt, and the reused activity carries the task.
+ for(const [status,channel] of [['whatsapp_opened','whatsapp'],['manual_pending','social']] as const){
+  const task=await mutate({...base,title:'Seguir '+status,dueDate:'2026-10-07'});const m=await contactMessage({status,channel,activity:status==='whatsapp_opened'});
+  await mutate({action:'task_status',id:task,status:'completed',result:'Hecho',outcome:'no_answer',completedAt:'2026-09-22T11:00:00-03:00',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',messageId:m.id},user.cookie,400);
+  await mutate({action:'task_status',id:task,status:'completed',result:'Hecho',outcome:'no_answer',completedAt:'2026-09-22T11:00:00-03:00',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',messageId:m.id,messageSent:true});
+  const row=await messageRow(m.id);assert.equal(row.status,'manual_sent');const linkedTask=await db.selectFrom('crmActivities').select(['id','taskId','outcome']).where('id','=',row.activityId!).executeTakeFirstOrThrow();assert.equal(linkedTask.taskId,task);assert.equal(linkedTask.outcome,'no_answer');if(m.activity)assert.equal(linkedTask.id,m.activity);
+ }
+ // A delivery confirmed by Brevo after the outcome never overwrites what the seller wrote.
+ const emailMessage=await contactMessage({status:'accepted',channel:'email',activity:true});
+ const emailActivity=await mutate({...contactOutcome,channel:'email',title:'Contacto por email',messageId:emailMessage.id,outcome:'later',continuation:'done',result:'Pidió que le escriba en noviembre'});
+ const outbox=await db.insertInto('emailOutbox').values({recipientEmail:'brevo-'+suffix+'@example.com',senderEmail:'crm@example.com',senderName:'CRM',subject:'Hola',htmlBody:'<p>Hola</p>',textBody:'Hola',status:'accepted',messageId:'brevo-'+suffix}).returning('id').executeTakeFirstOrThrow();
+ await sql`UPDATE crm_messages SET outbox_id=${outbox.id} WHERE id=${emailMessage.id}::uuid`.execute(db);
+ await sql`INSERT INTO crm_email_events(fingerprint,message_id,recipient,event,occurred_at,payload) VALUES(${'fp-'+suffix},${'brevo-'+suffix},${'brevo-'+suffix+'@example.com'},'delivered',now(),'{}'::jsonb)`.execute(db);
+ await db.transaction().execute(t=>reconcileEvents(t,String(outbox.id)));
+ assert.equal((await messageRow(emailMessage.id)).status,'delivery_confirmed');
+ assert.equal((await db.selectFrom('crmActivities').select('result').where('id','=',emailActivity).executeTakeFirstOrThrow()).result,'Pidió que le escriba en noviembre');
+ // No contactar, archived businesses and closed managements block confirming a send.
+ const blockedAccount=async(name:string)=>{const acc=await db.insertInto('crmAccounts').values({nombre:name+' '+suffix,assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();const lead=await db.insertInto('leads').values({nombre:acc.nombre,accountId:acc.id,opportunityName:'Plan',estado:'Interesado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();return {acc,lead};};
+ const dnc=await blockedAccount('DNC');const dncMessage=await contactMessage({status:'whatsapp_opened',accountId:dnc.acc.id,leadId:dnc.lead.id});
+ await sql`UPDATE crm_accounts SET do_not_contact=true WHERE id=${dnc.acc.id}`.execute(db);
+ await mutate({...contactOutcome,accountId:dnc.acc.id,leadId:dnc.lead.id,messageId:dncMessage.id,messageSent:true},user.cookie,403);
+ const archived=await blockedAccount('Archivado');const archivedMessage=await contactMessage({status:'whatsapp_opened',owner:admin.user.email,accountId:archived.acc.id,leadId:archived.lead.id});
+ await sql`UPDATE crm_accounts SET archived_at=now(),status='archived' WHERE id=${archived.acc.id}`.execute(db);
+ await mutate({...contactOutcome,accountId:archived.acc.id,leadId:archived.lead.id,messageId:archivedMessage.id,messageSent:true},admin.cookie,403);
+ const closedStage=(await sql<{name:string}>`SELECT name FROM crm_stages WHERE classification NOT IN ('open','lost') AND active LIMIT 1`.execute(db)).rows[0].name;
+ const closedLead=await blockedAccount('Cerrada');const closedMessage=await contactMessage({status:'whatsapp_opened',accountId:closedLead.acc.id,leadId:closedLead.lead.id});
+ await db.updateTable('leads').set({estado:closedStage}).where('id','=',closedLead.lead.id).execute();
+ await mutate({...contactOutcome,accountId:closedLead.acc.id,leadId:closedLead.lead.id,messageId:closedMessage.id,messageSent:true},user.cookie,403);
+ for(const id of [dncMessage.id,archivedMessage.id,closedMessage.id])assert.equal((await messageRow(id)).status,'whatsapp_opened');
+ // Decision 14A: contacts left without an outcome stay in Hoy until resolved; only the seller's own, only since tracking started.
+ const pendingNow=await contactMessage({status:'manual_sent',channel:'call',at:new Date()});
+ const pendingOld=await contactMessage({status:'manual_sent',channel:'call',at:new Date('2020-01-01T00:00:00Z')});
+ const pendingForeign=await contactMessage({status:'manual_sent',channel:'call',owner:admin.user.email,at:new Date()});
+ const pendingDraft=await contactMessage({status:'draft',at:new Date()});
+ const pendingIds=async(cookie=user.cookie)=>(await read('',cookie)).pendingOutcomes!.map(p=>p.id);
+ const listed=await pendingIds();assert(listed.includes(pendingNow.id));for(const id of [pendingOld.id,pendingForeign.id,pendingDraft.id])assert(!listed.includes(id));
+ assert((await pendingIds(admin.cookie)).includes(pendingForeign.id));
+ await mutate({...contactOutcome,channel:'phone',messageId:pendingNow.id,occurredAt:new Date().toISOString()});
+ assert(!(await pendingIds()).includes(pendingNow.id),'A recorded outcome removes the pending item');
+ // Only items the seller can still resolve: her own business or management, still active.
+ const fresh=async(name:string,owner=user.user.email)=>db.insertInto('crmAccounts').values({nombre:name+' '+suffix,assignedUserEmail:owner}).returningAll().executeTakeFirstOrThrow();
+ const pendingCall=(accountId:string,leadId:string|null=null,status='manual_sent',channel='call')=>contactMessage({status,channel,accountId,leadId,at:new Date()});
+ const reassigned=await fresh('Reasignado');const reassignedCall=await pendingCall(reassigned.id);
+ assert((await pendingIds()).includes(reassignedCall.id));
+ await db.updateTable('crmAccounts').set({assignedUserEmail:other.user.email}).where('id','=',reassigned.id).execute();
+ assert(!(await pendingIds()).includes(reassignedCall.id),'A reassigned business leaves the list');
+ const foreignLead=await db.insertInto('leads').values({nombre:a.nombre,accountId:a.id,opportunityName:'De otra persona',estado:'Interesado',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
+ const foreignLeadCall=await pendingCall(a.id,foreignLead.id);
+ assert(!(await pendingIds()).includes(foreignLeadCall.id),'A management of another seller is not hers to resolve');
+ // No contactar and closed managements block confirming a send, so those unconfirmed sends stay out; confirmed contacts stay listed.
+ const dncOpened=await pendingCall(dnc.acc.id,dnc.lead.id,'whatsapp_opened','whatsapp'),dncCall=await pendingCall(dnc.acc.id,dnc.lead.id);
+ const closedOpened=await pendingCall(closedLead.acc.id,closedLead.lead.id,'manual_pending','social'),closedCall=await pendingCall(closedLead.acc.id,closedLead.lead.id);
+ let ids=await pendingIds();
+ for(const id of [dncOpened.id,closedOpened.id])assert(!ids.includes(id),'An unconfirmed send that cannot be confirmed is left to the communication panel');
+ for(const id of [dncCall.id,closedCall.id])assert(ids.includes(id),'A confirmed contact can still get its outcome');
+ // Archived or trashed businesses and trashed managements never appear.
+ const archivedCall=await pendingCall(archived.acc.id,archived.lead.id,'manual_sent','call');
+ const trashed=await fresh('Papelera');const trashedCall=await pendingCall(trashed.id);await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',trashed.id).execute();
+ const trashedLeadAccount=await blockedAccount('Gestión en papelera');const trashedLeadCall=await pendingCall(trashedLeadAccount.acc.id,trashedLeadAccount.lead.id);await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',trashedLeadAccount.lead.id).execute();
+ ids=await pendingIds();for(const id of [archivedCall.id,trashedCall.id,trashedLeadCall.id])assert(!ids.includes(id));
+ // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp.
+ const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await pendingCall(laterAccount.id,null,'whatsapp_opened','whatsapp');
+ assert((await pendingIds()).includes(laterCall.id));
+ await new Promise(r=>setTimeout(r,20));
+ await mutate({action:'activity_save',accountId:laterAccount.id,leadId:null,title:'Charla en la oficina',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
+ // Edits stay exempt from linking.
+ await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
 }finally{await db.destroy()}

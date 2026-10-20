@@ -14,13 +14,18 @@ import {getCommunication} from '../endpoints/communication.schema';
 import {messageLabels} from '../helpers/messageLabels';
 import {formatDate,formatDateTime} from '../helpers/crmDates';
 import {ManualCommunicationForm} from './ManualCommunicationForm';
+import {OutcomeAfterContact,leaveWithoutOutcome} from './OutcomeAfterContact';
+import {useUnsavedChanges} from './UnsavedChanges';
+import {canLogContactOutcome} from '../helpers/contactOutcome';
+import {VOCAB} from '../content/vocabulary';
 import styles from './Communication.module.css';
 
 type Data={account:{id:string|number;nombre:string;email:string|null;telefono:string|null;whatsapp:string|null;tipo:string|null;status:string;archivedAt:Date|string|null;recontactAt:Date|string|null;doNotContact:boolean;isClient:boolean;assignedUserEmail:string|null};contacts:{id:string|number;name:string;email:string|null;phone:string|null;deletedAt:Date|string|null}[];users?:{email:string;displayName:string}[]};
 type Template={id:string|number;channel:string;name:string;subject:string|null;body:string;vertical:string|null;managementType:string|null;commercialProfile:string|null;active?:boolean};
 const purposeOptions=[['verification','Verificar el negocio'],['first_contact','Presentación / primer contacto'],['resume','Retomar conversación'],['relationship','Relación y novedades'],['care','Acompañamiento / atención al cliente'],['operations','Coordinación operativa'],['other','Otro']];
 type Purpose='verification'|'first_contact'|'resume'|'relationship'|'care'|'operations'|'other';
-export function GeneralContactDialog({detail,templates,onClose}:{detail:Data;templates:Template[];onClose:()=>void}){
+/** A used message chains into "¿Cómo salió?" → "¿Cómo sigue?" (decision 2B); `onFinished` closes the whole contact flow afterwards; `chainOutcome={false}` keeps a task's own completion path. */
+export function GeneralContactDialog({detail,templates,onClose,onFinished,chainOutcome=true}:{detail:Data;templates:Template[];onClose:()=>void;onFinished?:()=>void;chainOutcome?:boolean}){
  const {authState}=useAuth(),user=authState.type==='authenticated'?authState.user:undefined,allowed=canModifyBusiness(user,detail.account),qc=useQueryClient();
  const history=useQuery({queryKey:['communication','account',String(detail.account.id)],queryFn:()=>getCommunication('',String(detail.account.id))});
  const [channel,setChannel]=useState<'email'|'whatsapp'|'call'|'social'|'other'>('email'),[contactId,setContactId]=useState(''),[purpose,setPurpose]=useState<Purpose>(detail.account.status==='new'?'verification':'first_contact'),[otherPurpose,setOtherPurpose]=useState(''),[templateId,setTemplateId]=useState(''),[confirmedClient,setConfirmedClient]=useState(false),[message,setMessage]=useState<PreparedMessage|null>(null);
@@ -35,11 +40,14 @@ export function GeneralContactDialog({detail,templates,onClose}:{detail:Data;tem
  const prepare=useMutation({mutationFn:postCommunication,onSuccess:(v)=>{setMessage(v as PreparedMessage);void qc.invalidateQueries({queryKey:['communication']});}});
  const disabledReason=prepare.isPending?'La operación está en curso. Esperá a que termine para continuar.':!allowed?'Solo la persona responsable del negocio o un administrador puede preparar un contacto.':detail.account.doNotContact?'El negocio está marcado No contactar; un administrador debe levantar el bloqueo.':detail.account.archivedAt?'El negocio está archivado; un administrador debe desarchivarlo.':!contactId&&candidates.length>0?'Elegí la persona de contacto que recibirá este mensaje.':!contactId&&!canUseBusiness?'No hay un dato válido para este canal. Agregá el email o teléfono al negocio o a una persona.':purpose==='other'&&!otherPurpose.trim()?'Escribí la aclaración del propósito.':purpose==='care'&&!detail.account.isClient&&!confirmedClient?'Confirmá que el negocio se marcará como Cliente cuando registres el contacto como realizado.':'';
  const start=()=>{if(!user||!allowed||manualChannel)return;prepare.mutate({action:'prepare_general',id:crypto.randomUUID(),accountId:String(detail.account.id),leadId:null,contactId:contactId||null,channel,purpose,otherPurpose:purpose==='other'?otherPurpose:null,templateId:templateId||null})};
+ const [outcome,setOutcome]=useState(false),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);const pendingOutcome=chainOutcome&&!!message&&canLogContactOutcome(message.status);const finish=onFinished??onClose;
+ const leaveGuard=useUnsavedChanges(pendingOutcome&&!dirty,onClose,busy,leaveWithoutOutcome(message?.status));
+ if(outcome&&message)return <OutcomeAfterContact contact={{accountId:String(message.accountId),leadId:null,contactIds:message.contactId?[String(message.contactId)]:[],channel:message.channel,purpose:message.purpose,messageId:message.id,messageStatus:message.status}} onDone={finish}/>;
  const businessOwner=detail.users?.find(u=>u.email===detail.account.assignedUserEmail)?.displayName||detail.account.assignedUserEmail||'Sin asignar';
- return <Dialog open onOpenChange={open=>{if(!open)onClose()}}><DialogContent><DialogHeader><DialogTitle>Contacto general</DialogTitle><DialogDescription>{detail.account.nombre} · sin asociar a una gestión · Relación del negocio: {businessOwner||'Sin asignar'}</DialogDescription></DialogHeader>
+ return <Dialog open onOpenChange={open=>{if(!open&&!busy&&!prepare.isPending)leaveGuard.requestClose()}}><DialogContent><DialogHeader><DialogTitle>Contacto general</DialogTitle><DialogDescription>{detail.account.nombre} · sin asociar a una gestión · Relación del negocio: {businessOwner||'Sin asignar'}</DialogDescription></DialogHeader>
   {!message?<div className={styles.generalForm}>
    <label>Canal<NativeSelect value={channel} onChange={e=>{setChannel(e.target.value as typeof channel);setTemplateId('')}}><option value="email">Email · Brevo</option><option value="whatsapp">WhatsApp</option><option value="call">Llamada</option><option value="social">Red social</option><option value="other">Otro</option></NativeSelect></label>
-   {manualChannel?<ManualCommunicationForm key={channel} detail={{...detail,opportunities:[]}} currentLeadId={null} userEmail={user?.email??''} isAdmin={user?.role==='admin'} embedded fixedContext initialChannel={channel}/>:<>
+   {manualChannel?<ManualCommunicationForm key={channel} detail={{...detail,opportunities:[]}} currentLeadId={null} userEmail={user?.email??''} isAdmin={user?.role==='admin'} embedded fixedContext initialChannel={channel} chainOutcome={chainOutcome} onFinished={finish}/>:<>
    {detail.account.status==='recontact'&&detail.account.recontactAt&&<p>Fecha sugerida de recontacto: {formatDate(detail.account.recontactAt)}. Podés contactar antes si hace falta.</p>}
    {recent&&<p role="status"><strong>Contacto reciente</strong> · {formatDateTime(recent.lastInteractionAt!)} · {recent.channel} · {messageLabels[recent.status]??recent.status}. Revisalo antes de iniciar otro.</p>}
    <label>Persona de contacto<NativeSelect value={contactId} onChange={e=>setContactId(e.target.value)}><option value="">{candidates.length?'Elegí una persona':'Usar el dato general del negocio'}</option>{candidates.map(c=><option key={c.id} value={String(c.id)}>{c.name} · {channel==='email'?c.email:c.phone}</option>)}</NativeSelect></label>
@@ -52,6 +60,6 @@ export function GeneralContactDialog({detail,templates,onClose}:{detail:Data;tem
    {prepare.error&&<p role="alert">{prepare.error.message}</p>}
    <Button disabled={!allowed||blocked||prepare.isPending||(!contactId&&candidates.length>0)||(!contactId&&!canUseBusiness)||(purpose==='other'&&!otherPurpose.trim())||(purpose==='care'&&!detail.account.isClient&&!confirmedClient)} disabledReason={disabledReason} onClick={start}>{prepare.isPending?'Preparando borrador…':'Preparar mensaje'}</Button>
    </>}
-  </div>:<MessageComposer initial={message} onChange={setMessage}/ >}
-  <DialogFooter><Button variant="outline" disabled={prepare.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={onClose}>Cerrar</Button></DialogFooter></DialogContent></Dialog>;
+  </div>:<MessageComposer initial={message} onChange={setMessage} onDirtyChange={setDirty} onBusyChange={setBusy} hideWhatsAppResolution={chainOutcome}/>}
+  <DialogFooter>{pendingOutcome&&<Button disabled={dirty||busy} disabledReason={busy?'La operación está en curso. Esperá a que termine para continuar.':'Guardá o descartá los cambios pendientes antes de continuar.'} onClick={()=>setOutcome(true)}>{VOCAB.logOutcome}</Button>}<Button variant="outline" disabled={prepare.isPending||busy} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={leaveGuard.requestClose}>Cerrar</Button></DialogFooter></DialogContent>{leaveGuard.confirmation}</Dialog>;
 }
