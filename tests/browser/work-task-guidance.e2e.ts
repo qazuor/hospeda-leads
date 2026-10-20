@@ -19,5 +19,5 @@ test('planning a task shows visible pending commitments and distinguishes task, 
  await expect(dialog.getByText(/Tarea: algo pendiente con fecha/)).toBeVisible();
  const pending=dialog.getByRole('region',{name:'Tareas pendientes del negocio'});
  await expect(pending).toContainText('Llamar a Ana por la propuesta');
- await expect(pending).toContainText('Seguimiento general');
+ await expect(pending).toContainText('Sin gestión (general del negocio)');
 });
