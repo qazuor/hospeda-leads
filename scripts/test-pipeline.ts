@@ -77,6 +77,19 @@ try{
  await mutate({action:'transition',leadId:foreign.id,revision:foreign.pipelineRevision,stage:'Perdida',reasonId:inactiveReason},admin.cookie,400);
  const policy=(await sql<{n:string}>`SELECT count(*) n FROM crm_pipeline_events WHERE account_id=${a.id} AND action='contact_policy'`.execute(db)).rows[0];assert.equal(Number(policy.n),2);
  assert((await read('mode=config',admin.cookie)).configJournal.some(j=>j.actorEmail===admin.user.email));
+ // Report item 1.10: a closed typed management is reopened only by an admin, and each refusal says why.
+ {
+  const typed=await db.insertInto('leads').values({nombre:a.nombre,accountId:a.id,estado:'main:contact',managementType:'main',assignedUserEmail:user.user.email,opportunityName:'Gestión tipada'} as never).returningAll().executeTakeFirstOrThrow();
+  const typedRevision=async()=>(await db.selectFrom('leads').select('pipelineRevision').where('id','=',typed.id).executeTakeFirstOrThrow()).pipelineRevision;
+  const lostReason=d.managementReasons.find(r=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.active&&!r.doNotContact&&!r.requiresNote)!;
+  await mutate({action:'transition',leadId:typed.id,revision:await typedRevision(),stage:'main:lost',reasonId:lostReason.id});
+  const refusal=async(stage:string,cookie:string,status:number)=>{const r=await post(request({action:'transition',leadId:typed.id,revision:await typedRevision(),stage},cookie));assert.equal(r.status,status);return superjson.parse<{error?:string}>(await r.text()).error;};
+  assert.equal(await refusal('main:contacted',user.cookie,403),'Solo un administrador puede reabrir una gestión cerrada.');
+  assert.equal(await refusal('main:won',admin.cookie,400),'Elegí una etapa disponible.');
+  assert.equal((await db.selectFrom('leads').select('estado').where('id','=',typed.id).executeTakeFirstOrThrow()).estado,'main:lost');
+  await mutate({action:'transition',leadId:typed.id,revision:await typedRevision(),stage:'main:contacted'},admin.cookie);
+  assert.equal((await db.selectFrom('leads').select('estado').where('id','=',typed.id).executeTakeFirstOrThrow()).estado,'main:contacted');
+ }
  // Board totals past the 500-row cap: real counts per classification, truncated flag, and per stage/type groups.
  {
   const stages=await db.selectFrom('crmStages').select(['name','classification']).execute();
@@ -97,7 +110,7 @@ try{
   assert.deepEqual([bulk.boardTotals.open,bulk.boardTotals.won,bulk.boardTotals.lost],[400,60,42]);
   assert.equal(bulk.boardTotals.groups.reduce((sum,g)=>sum+g.count,0),502);assert.equal(bulk.boardTotals.groups.find(g=>g.estado===plan[1][0])?.count,60);
  }
- console.log('Pipeline integration: loss reason, queue filters, ownership, optimistic conflicts, legacy guards, blocked contact, reopen/new/followup, history, objections and catalogs passed');
+ console.log('Pipeline integration: loss reason, queue filters, ownership, optimistic conflicts, legacy guards, blocked contact, reopen/new/followup, admin-only typed reopen messages, history, objections and catalogs passed');
 }finally{
  try{
   await sql`ALTER TABLE leads ENABLE TRIGGER crm_pipeline_guard`.execute(db);
