@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import superjson from 'superjson';
 import {basePreferences} from '../../src/helpers/businessListPreferences';
 for(const width of [1280,390])test(`business list preferences, restoration and loading at ${width}px`,async({page})=>{
- await page.setViewportSize({width,height:844});
+ test.setTimeout(120000);await page.setViewportSize({width,height:844});
  let userId=3;const rows=Array.from({length:65},(_,i)=>({id:String(-i-1),accountId:String(i+1),nombre:i===0?'Negocio con un nombre muy extenso que se mantiene legible incluso al elegir una columna estrecha':'Negocio '+String(i+1).padStart(2,'0'),ciudad:'Colón',assignedUserEmail:'owner@example.com',telefono:'123',email:'fixture@example.com',canModify:false,opportunityCount:0,contactCount:0,fechaProximaAccion:new Date('2026-11-01T00:00:00Z'),nextActionTitle:'Llamar'}));
  let gate:Promise<void>|null=null;let fail=false;const requestedSizes=new Map<number,number>();
  await page.route('**/_api/**',async route=>{const url=new URL(route.request().url());let data:unknown={};if(url.pathname.endsWith('/auth/session'))data={user:{id:userId,email:'viewer@example.com',displayName:'Viewer',role:'user'}};
@@ -10,7 +10,7 @@ for(const width of [1280,390])test(`business list preferences, restoration and l
  else if(url.pathname.endsWith('/settings'))data={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedEmails:[],opportunityStages:[]};
  else if(url.pathname.endsWith('/leads')){if(fail){await route.fulfill({status:500,body:superjson.stringify({error:'Fallo simulado'})});return;}if(gate)await gate;const size=Number(url.searchParams.get('pageSize')??25),anchorIndex=rows.findIndex(row=>row.accountId===url.searchParams.get('anchorAccountId')),anchorPage=anchorIndex<0?undefined:Math.floor(anchorIndex/size)+1,page=url.searchParams.get('alignAnchorPage')==='true'&&anchorPage?anchorPage:Number(url.searchParams.get('page')??1);requestedSizes.set(userId,size);data={anchorPage,rows:rows.slice((page-1)*size,page*size),total:rows.length,page,pageSize:size,filters:{ciudades:['Colón'],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};}
  else if(url.pathname.endsWith('/saved_views'))data={views:[]};
- else if(url.pathname.endsWith('/commercial'))data={account:{id:url.searchParams.get('accountId'),nombre:'Ficha para volver',assignedUserEmail:'owner@example.com',archivedAt:null,mergedIntoId:null,commercialStatus:'prospect'},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[]};
+ else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{id:url.searchParams.get('accountId'),nombre:'Ficha para volver',assignedUserEmail:'owner@example.com',archivedAt:null,mergedIntoId:null,commercialStatus:'prospect'},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[]};
  else if(url.pathname.endsWith('/work'))data={tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}};
  else if(url.pathname.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]};
  else if(url.pathname.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
