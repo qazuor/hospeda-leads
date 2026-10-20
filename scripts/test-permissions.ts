@@ -26,7 +26,7 @@ async function actor(role:'admin'|'user',name:string){
  const sid='permission-'+user.id;
  await db.insertInto('sessions').values({id:sid,userId:user.id,expiresAt:new Date(Date.now()+3600000)}).execute();
  const r=new Response();await setServerSession(r,{id:sid,createdAt:Date.now(),lastAccessed:Date.now()});
- return {user,cookie:r.headers.get('set-cookie')!.split(';')[0]};
+ return {user,sessionId:sid,cookie:r.headers.get('set-cookie')!.split(';')[0]};
 }
 type Actor=Awaited<ReturnType<typeof actor>>;
 async function call(a:Actor,handler:(r:Request)=>Promise<Response>,url:string,body?:unknown,status=200){
@@ -35,6 +35,9 @@ async function call(a:Actor,handler:(r:Request)=>Promise<Response>,url:string,bo
 }
 try{
  const owner=await actor('user','owner'),other=await actor('user','other'),admin=await actor('admin','admin');
+ const expired=await actor('user','expired');
+ await db.updateTable('sessions').set({expiresAt:new Date(Date.now()-1000)}).where('id','=',expired.sessionId).execute();
+ await call(expired,commercialGet,'commercial?accountId=00000000-0000-0000-0000-000000000000',undefined,401);
  const accountId=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Permission business '+suffix,email:'business@example.com'})).id;
  const ownOther=(await call(other,commercialPost,'commercial',{action:'account_save',nombre:'Colleague business '+suffix})).id;
  const leadId=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Existing management',estado:'Cargado'})).id;
