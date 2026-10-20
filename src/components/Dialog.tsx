@@ -11,6 +11,12 @@ const Context = createContext<{ open: boolean; change: (open: boolean) => void; 
 const FLOATING = '.mantine-Popover-dropdown,.mantine-Menu-dropdown,.mantine-Combobox-dropdown,.mantine-Select-dropdown';
 const InlineContext = createContext(false);
 function ModalSurface({ children }: { children: React.ReactNode }) { return <>{children}</>; }
+/** A dropdown counts as open when it is rendered, not faded out, and its trigger (when it has one) is not collapsed; Mantine leaves closed menus mounted. */
+function isOpenFloating(item: HTMLElement) {
+  if (item.checkVisibility ? !item.checkVisibility() : getComputedStyle(item).display === 'none') return false;
+  if (getComputedStyle(item).opacity === '0') return false;
+  const trigger = item.getAttribute('aria-labelledby'); return !(trigger && document.getElementById(trigger)?.getAttribute('aria-expanded') === 'false');
+}
 function useDialog() { const value = useContext(Context); if (!value) throw new Error('Dialog control requires Dialog'); return value; }
 export function Dialog({ children, open, defaultOpen = false, onOpenChange }: DialogProps) {
   const parent = useContext(Context);
@@ -89,7 +95,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   // Escape closes an open picker or dropdown first (Mantine handles it); the dialog only reacts once nothing is floating above it.
   const pickerOpen = (event: KeyboardEvent) => {
     if (event.defaultPrevented || (event.target as Element | null)?.closest?.(FLOATING + ',[data-picker-open="true"]')) return true;
-    return Array.from(document.querySelectorAll<HTMLElement>(FLOATING)).some(item => item.checkVisibility ? item.checkVisibility() : getComputedStyle(item).display !== 'none');
+    return Array.from(document.querySelectorAll<HTMLElement>(FLOATING)).some(isOpenFloating);
   };
   const guard = (handler: ((event: Event) => void) | undefined) => { const event = new Event('dismiss', { cancelable: true }); handler?.(event); return !event.defaultPrevented; };
   useEffect(() => {

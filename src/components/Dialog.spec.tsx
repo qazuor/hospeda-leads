@@ -78,4 +78,21 @@ describe('Dialog Escape', () => {
     fireEvent.keyDown(screen.getByText('Con menú'), { key: 'Escape', code: 'Escape' });
     await waitFor(() => expect(calls).toEqual([false]));
   });
+
+  it('closes only the topmost of two stacked sibling dialogs per Escape, ignoring a collapsed menu left mounted', async () => {
+    const editor: boolean[] = [], prompt: boolean[] = [];
+    function Stack() { const [asked, setAsked] = React.useState(false); return <MantineProvider>
+      <Dialog defaultOpen onOpenChange={next => editor.push(next)}><DialogContent><DialogTitle>Editor</DialogTitle><button onClick={() => setAsked(true)}>Salir</button>
+        <Menu keepMounted><Menu.Target><button aria-expanded="false">Más</button></Menu.Target><Menu.Dropdown><Menu.Item>Editar</Menu.Item></Menu.Dropdown></Menu></DialogContent></Dialog>
+      {asked && <Dialog open onOpenChange={next => { prompt.push(next); if (!next) setAsked(false); }}><DialogContent><DialogTitle>Tenés cambios</DialogTitle><button>Volver</button></DialogContent></Dialog>}
+    </MantineProvider>; }
+    render(<Stack />);
+    fireEvent.click(screen.getByRole('button', { name: 'Salir' }));
+    const back = await screen.findByRole('button', { name: 'Volver' });
+    fireEvent.keyDown(back, { key: 'Escape', code: 'Escape' });
+    expect(prompt).toEqual([false]); expect(editor).toEqual([]);
+    await waitFor(() => expect(screen.queryByText('Tenés cambios')).toBeNull());
+    fireEvent.keyDown(screen.getByText('Editor'), { key: 'Escape', code: 'Escape' });
+    expect(editor).toEqual([false]);
+  });
 });
