@@ -2,8 +2,9 @@
 import { describe, expect, it } from "vitest";
 import {
   CONTAINER_NAME, DUMP_DB, SYNTHETIC_DB, VOLUME_NAME,
-  buildAppEnv, buildBaseEnv, buildDatabaseUrl, buildSeedEnv, checkContainerOwnership, detectDumpFormat, generateJwtSecret, isOwnedDatabase, isOwnedVolume,
-  isValidJwtSecret, parseArgs, pickFreePort, redactUrl, resolveDataMode, validateDumpPath,
+  DUMP_TMP_DB, SEED_MARKER,
+  buildAppEnv, buildBaseEnv, buildDatabaseUrl, buildDockerEnv, buildSeedEnv, checkContainerOwnership, detectDumpFormat, formatDumpComment, generateJwtSecret, isOwnedDatabase, isOwnedVolume,
+  isSameProcess, isValidJwtSecret, parseArgs, parseDumpComment, parseProcStat, parseSsPids, pickFreePort, planSeeding, redactUrl, resolveDataMode, validateDumpPath,
 } from "./lib.mjs";
 
 describe("parseArgs", () => {
@@ -139,9 +140,94 @@ describe("ownership guards", () => {
   });
 
   it("only owns its volume and databases", () => {
-    expect(isOwnedVolume({ name: VOLUME_NAME })).toBe(true);
-    expect(isOwnedVolume({ name: "hospeda-postgres-data" })).toBe(false);
+    expect(isOwnedVolume({ name: VOLUME_NAME, labels: { "hospeda-crm.dev": "1" } })).toBe(true);
+    expect(isOwnedVolume({ name: VOLUME_NAME, labels: null, mountedByOwnedContainer: true })).toBe(true);
+    expect(isOwnedVolume({ name: VOLUME_NAME, labels: null })).toBe(false);
+    expect(isOwnedVolume({ name: "hospeda-postgres-data", labels: { "hospeda-crm.dev": "1" } })).toBe(false);
+    expect(isOwnedDatabase({ dbName: DUMP_TMP_DB })).toBe(true);
     expect(isOwnedDatabase({ dbName: DUMP_DB })).toBe(true);
     expect(isOwnedDatabase({ dbName: "postgres" })).toBe(false);
+  });
+});
+
+describe("validateDumpPath with symlinks", () => {
+  it("rejects a link that resolves into the repo", () => {
+    const realpath = (p: string) => (p === "/home/u/links/a.dump" ? "/home/u/repo/secret.dump" : p);
+    expect(validateDumpPath({ dumpPath: "/home/u/links/a.dump", repoRoot: "/home/u/repo", realpath }).ok).toBe(false);
+  });
+});
+
+describe("dump comment", () => {
+  it("round-trips source and mtime", () => {
+    const comment = formatDumpComment({ source: "/d/it's.dump", mtimeMs: 1700000000123.9 });
+    expect(parseDumpComment({ comment })).toEqual({ source: "/d/it's.dump", mtimeMs: 1700000000123 });
+  });
+
+  it.each([null, undefined, "", "other", "hospeda-crm.dev dump {bad"])("returns null for %s", (comment) => {
+    expect(parseDumpComment({ comment })).toBeNull();
+  });
+});
+
+describe("planSeeding", () => {
+  it("skips everything when the marker is present", () => {
+    expect(planSeeding({ marker: SEED_MARKER, accounts: 0, perfRows: 0 })).toEqual({ testSeed: false, perfSeed: false, complete: true });
+  });
+
+  it("seeds both on an empty database", () => {
+    expect(planSeeding({ marker: null, accounts: 0, perfRows: 0 })).toEqual({ testSeed: true, perfSeed: true, complete: false });
+  });
+
+  it("only finishes the perf seed after an interrupted run", () => {
+    expect(planSeeding({ marker: null, accounts: 1, perfRows: 0 })).toEqual({ testSeed: false, perfSeed: true, complete: false });
+  });
+
+  it("does not reseed a complete database that lacks the marker", () => {
+    expect(planSeeding({ marker: null, accounts: 3501, perfRows: 3500 })).toEqual({ testSeed: false, perfSeed: false, complete: false });
+  });
+});
+
+describe("process identity", () => {
+  const stat = (pid: number, comm: string, pgid: number, start: string) =>
+    `${pid} (${comm}) S 1 ${pgid} ${pgid} 0 -1 4194560 100 0 0 0 1 1 0 0 20 0 1 0 ${start} 1000 100 18446744073709551615`;
+
+  it("parses fields after the last parenthesis even with odd comm names", () => {
+    expect(parseProcStat({ stat: stat(42, "my (weird) app", 40, "98765") })).toEqual({ pgid: 40, startTime: "98765" });
+  });
+
+  it("returns null for garbage", () => {
+    expect(parseProcStat({ stat: "garbage" })).toBeNull();
+  });
+
+  it("matches only when pid, start time and pgid all match", () => {
+    const recorded = { pid: 42, startTime: "98765", pgid: 42 };
+    expect(isSameProcess({ recorded, readStat: () => stat(42, "npm", 42, "98765") })).toBe(true);
+    expect(isSameProcess({ recorded, readStat: () => stat(42, "npm", 42, "11111") })).toBe(false);
+    expect(isSameProcess({ recorded, readStat: () => stat(42, "npm", 7, "98765") })).toBe(false);
+  });
+
+  it("fails closed on missing record or unreadable stat", () => {
+    expect(isSameProcess({ recorded: null, readStat: () => "x" })).toBe(false);
+    expect(isSameProcess({ recorded: { pid: 1 }, readStat: () => "x" })).toBe(false);
+    expect(isSameProcess({ recorded: { pid: 42, startTime: "1", pgid: 42 }, readStat: () => null })).toBe(false);
+    expect(isSameProcess({ recorded: { pid: 42, startTime: "1", pgid: 42 }, readStat: () => { throw new Error("EACCES"); } })).toBe(false);
+  });
+});
+
+describe("parseSsPids", () => {
+  it("extracts every pid from ss output", () => {
+    const output = 'LISTEN 0 511 *:3002 *:* users:(("node",pid=123,fd=19),("node",pid=124,fd=20))\n';
+    expect(parseSsPids({ output })).toEqual([123, 124]);
+  });
+
+  it("returns an empty list when the process is not visible", () => {
+    expect(parseSsPids({ output: "LISTEN 0 511 *:3002 *:*\n" })).toEqual([]);
+  });
+});
+
+describe("docker env", () => {
+  it("passes DOCKER_* only to the docker env, never to the app env", () => {
+    const parentEnv = { PATH: "/bin", DOCKER_HOST: "unix:///x", DOCKER_CONTEXT: "c", DOCKER_CONFIG: "/cfg" };
+    expect(buildDockerEnv({ parentEnv })).toMatchObject({ DOCKER_HOST: "unix:///x", DOCKER_CONTEXT: "c", DOCKER_CONFIG: "/cfg" });
+    expect(buildBaseEnv({ parentEnv })).toEqual({ PATH: "/bin" });
   });
 });

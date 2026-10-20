@@ -11,6 +11,8 @@ export const PG_USER = "hospeda";
 export const PG_PASSWORD = "hospeda";
 export const SYNTHETIC_DB = "hospeda_leads";
 export const DUMP_DB = "hospeda_dump";
+export const DUMP_TMP_DB = "hospeda_dump_tmp";
+export const SEED_MARKER = "hospeda-crm.dev seed=complete";
 export const DEFAULT_API_PORT = 3001;
 export const DEFAULT_WEB_PORT = 5173;
 export const DEFAULT_PG_PORT = 5433;
@@ -66,13 +68,14 @@ export function resolveDataMode({ data }) {
 
 /**
  * Validates an owner-provided dump path: absolute and never inside the repo (dumps hold real personal data).
- * @param {{dumpPath: string, repoRoot: string}} input
+ * Symlinks are resolved first (via the injected `realpath`) so a link pointing into the repo is caught too.
+ * @param {{dumpPath: string, repoRoot: string, realpath?: (p: string) => string}} input
  * @returns {{ok: true} | {ok: false, reason: string}}
  */
-export function validateDumpPath({ dumpPath, repoRoot }) {
+export function validateDumpPath({ dumpPath, repoRoot, realpath = (p) => p }) {
   if (!path.isAbsolute(dumpPath)) return { ok: false, reason: "The dump path must be absolute" };
-  const resolved = path.resolve(dumpPath);
-  const relative = path.relative(path.resolve(repoRoot), resolved);
+  const resolved = path.resolve(realpath(path.resolve(dumpPath)));
+  const relative = path.relative(path.resolve(realpath(path.resolve(repoRoot))), resolved);
   if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
     return { ok: false, reason: "Refusing a dump inside the repository: keep real data outside Git" };
   }
@@ -80,13 +83,98 @@ export function validateDumpPath({ dumpPath, repoRoot }) {
 }
 
 /**
- * Detects the dump format from the first bytes of the file.
+ * Detects the dump format from the first bytes of the file. Only "custom" (pg_dump -Fc) is accepted by the tooling:
+ * plain SQL can contain \connect and write into other databases.
  * @param {{head: Uint8Array}} input
  * @returns {"custom" | "plain"}
  */
 export function detectDumpFormat({ head }) {
   const magic = Buffer.from(head.slice(0, 5)).toString("latin1");
   return magic === "PGDMP" ? "custom" : "plain";
+}
+
+/** Message shown when a dump is not custom format. */
+export const CUSTOM_DUMP_REQUIRED = "Only custom-format dumps are accepted. Create it with: pg_dump -Fc --no-owner --no-acl <db> > file.dump";
+
+/**
+ * Builds the COMMENT stored on the restored database to remember its source file.
+ * @param {{source: string, mtimeMs: number}} input
+ * @returns {string}
+ */
+export function formatDumpComment({ source, mtimeMs }) {
+  return `hospeda-crm.dev dump ${JSON.stringify({ source, mtimeMs: Math.floor(mtimeMs) })}`;
+}
+
+/**
+ * Parses a comment built by formatDumpComment.
+ * @param {{comment: string | null | undefined}} input
+ * @returns {{source: string, mtimeMs: number} | null}
+ */
+export function parseDumpComment({ comment }) {
+  const prefix = "hospeda-crm.dev dump ";
+  if (!comment?.startsWith(prefix)) return null;
+  try {
+    const value = JSON.parse(comment.slice(prefix.length));
+    return typeof value.source === "string" && typeof value.mtimeMs === "number" ? value : null;
+  } catch { return null; }
+}
+
+/**
+ * Decides which seeds still have to run.
+ * @param {{marker: string | null | undefined, accounts: number | null, perfRows: number | null}} input
+ * @returns {{testSeed: boolean, perfSeed: boolean, complete: boolean}}
+ */
+export function planSeeding({ marker, accounts, perfRows }) {
+  if (marker === SEED_MARKER) return { testSeed: false, perfSeed: false, complete: true };
+  return { testSeed: (accounts ?? 0) === 0, perfSeed: (perfRows ?? 0) === 0, complete: false };
+}
+
+/**
+ * Parses /proc/<pid>/stat. The comm field may contain spaces and parentheses, so fields are read after the LAST ")".
+ * @param {{stat: string}} input
+ * @returns {{pgid: number, startTime: string} | null}
+ */
+export function parseProcStat({ stat }) {
+  const end = stat.lastIndexOf(")");
+  if (end < 0) return null;
+  const fields = stat.slice(end + 1).trim().split(/\s+/); // fields[0] is field 3 (state)
+  const pgid = Number(fields[2]); // field 5
+  const startTime = fields[19]; // field 22
+  return Number.isInteger(pgid) && startTime ? { pgid, startTime } : null;
+}
+
+/**
+ * Process identity: pid, start time and process group must all match what was recorded. Fails CLOSED on any read problem.
+ * @param {{recorded: {pid?: number, startTime?: string, pgid?: number} | null | undefined, readStat: (pid: number) => string | null}} input
+ * @returns {boolean}
+ */
+export function isSameProcess({ recorded, readStat }) {
+  if (!recorded?.pid || !recorded.startTime || !recorded.pgid) return false;
+  let stat;
+  try { stat = readStat(recorded.pid); } catch { return false; }
+  if (!stat) return false;
+  const parsed = parseProcStat({ stat });
+  return parsed !== null && parsed.startTime === recorded.startTime && parsed.pgid === recorded.pgid;
+}
+
+/**
+ * Extracts listening pids from `ss -ltnp` output.
+ * @param {{output: string}} input
+ * @returns {number[]}
+ */
+export function parseSsPids({ output }) {
+  return [...output.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1]));
+}
+
+/**
+ * Environment for docker CLI calls only (never given to the app).
+ * @param {{parentEnv: Record<string, string | undefined>}} input
+ * @returns {Record<string, string>}
+ */
+export function buildDockerEnv({ parentEnv }) {
+  const env = buildBaseEnv({ parentEnv });
+  for (const key of ["DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_CONFIG"]) if (parentEnv[key] !== undefined) env[key] = parentEnv[key];
+  return env;
 }
 
 /**
@@ -178,12 +266,13 @@ export function checkContainerOwnership({ name, labels }) {
 }
 
 /**
- * Guard: only the owned volume may be removed.
- * @param {{name: string}} input
+ * Guard: only the owned volume may be removed: exact name AND the label, or (legacy, unlabeled) mounted by our verified container.
+ * @param {{name: string, labels?: Record<string, string> | null, mountedByOwnedContainer?: boolean}} input
  * @returns {boolean}
  */
-export function isOwnedVolume({ name }) {
-  return name === VOLUME_NAME;
+export function isOwnedVolume({ name, labels = null, mountedByOwnedContainer = false }) {
+  if (name !== VOLUME_NAME) return false;
+  return labels?.[LABEL_KEY] === LABEL_VALUE || mountedByOwnedContainer;
 }
 
 /**
@@ -192,5 +281,5 @@ export function isOwnedVolume({ name }) {
  * @returns {boolean}
  */
 export function isOwnedDatabase({ dbName }) {
-  return dbName === SYNTHETIC_DB || dbName === DUMP_DB;
+  return dbName === SYNTHETIC_DB || dbName === DUMP_DB || dbName === DUMP_TMP_DB;
 }
