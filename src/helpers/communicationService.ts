@@ -15,7 +15,7 @@ import {setWorkActor} from './workAudit';
 import {writeLeadJournal} from './writeLeadJournal';
 import { withDefaultMessageVariables } from './messageVariables';
 import {responseCategoryLabel} from './crmLabels';
-import {canLogContactOutcome,needsSentAnswer} from './contactOutcome';
+import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
 type Executor=Kysely<DB>|Transaction<DB>;
 export class CommunicationForbidden extends Error{}
 export class CommunicationConflict extends Error{}
@@ -260,27 +260,45 @@ async function activity(e:Executor,m:Message,user:User,result:string){
 /**
  * Links the outcome a seller writes after a contact (work.ts, decision 2B) to its message, inside the caller's transaction.
  * The caller locks the business and the management first, so the lock order stays account → lead → message.
- * Only the message owner or an admin may do it. A pending attempt (WhatsApp opened, manual attempt started) needs an explicit
- * answer: `sent` → manual_sent, not sent → manual_not_done; opening a channel never counts as a send.
+ * Only the message owner or an admin may do it. A pending attempt (WhatsApp opened, manual attempt started) needs the seller's
+ * explicit `sent` confirmation to become manual_sent (opening a channel never counts as a send); "not sent" is recorded through
+ * the communication flow, never here. A completed manual attempt keeps its summary or takes the outcome's `result`.
  * Returns the activity the communication service already created for this message, so the caller updates it instead of
  * adding a second one; `null` means the caller inserts the activity and links it with {@link linkMessageActivity}.
  */
-export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:string;sent?:boolean;accountId:string;leadId:string|null}):Promise<{activityId:string|null}>{
+export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:string;sent?:boolean;result?:string|null;accountId:string;leadId:string|null}):Promise<{activityId:string|null}>{
  const m=await messageFor(e,v.messageId,user,true);
  if(String(m.accountId)!==String(v.accountId)||String(m.leadId??'')!==String(v.leadId??''))throw new Error('El mensaje no corresponde a este negocio o gestión.');
  if(!canLogContactOutcome(m.status))throw new CommunicationConflict('Este mensaje no registra un contacto realizado; no se puede anotar cómo salió.');
  const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
  if(existing?.outcome)throw new CommunicationConflict('Ya anotaste cómo salió este contacto.');
  if(needsSentAnswer(m.status)){
-  if(v.sent===undefined)throw new Error('Contá si el mensaje se envió.');
-  if(v.sent)await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
-  const status=v.sent?'manual_sent':'manual_not_done';
-  await sql`UPDATE crm_messages SET status=${status},completed_at=CASE WHEN status='manual_pending' THEN now() ELSE completed_at END,completed_by_email=CASE WHEN status='manual_pending' THEN ${user.email} ELSE completed_by_email END,last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
-  if(m.taskId&&v.sent)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
-  if(v.sent)await markClientForCare(e,m,user);
+  if(!v.sent)throw new Error('Contá si el mensaje se envió.');
+  await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
+  const status='manual_sent';
+  await sql`UPDATE crm_messages SET status=${status},summary=CASE WHEN status='manual_pending' THEN COALESCE(summary,${v.result?.trim()||null}) ELSE summary END,completed_at=CASE WHEN status='manual_pending' THEN now() ELSE completed_at END,completed_by_email=CASE WHEN status='manual_pending' THEN ${user.email} ELSE completed_by_email END,last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+  if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
+  await markClientForCare(e,m,user);
   await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_resolved',actor:user,before:{status:m.status},after:{status,source:'outcome'}});
  }
  return {activityId:existing?String(existing.id):null};
+}
+/** A contact the seller left without "¿Cómo salió?" (decision 2B): it stays in Hoy until an outcome is recorded. */
+export type PendingContactOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date};
+/**
+ * The seller's own contacts since outcome tracking started (migration 028) that still lack an outcome: neither the message's
+ * activity nor any later activity of the same business and management has one. Archived, merged or trashed businesses and
+ * trashed managements are left out; messages marked as not sent, drafts and uncertain sends never count as contacts.
+ */
+export async function pendingContactOutcomes(e:Executor,{ownerEmail,accountId=null,leadId=null,limit=20}:{ownerEmail:string;accountId?:string|null;leadId?:string|null;limit?:number}):Promise<PendingContactOutcome[]>{
+ return (await sql<PendingContactOutcome>`SELECT m.id,m.account_id,a.nombre AS account_name,m.lead_id,l.opportunity_name,m.contact_id,m.channel,m.status,m.purpose,m.recipient_name,m.last_interaction_at
+  FROM crm_messages m JOIN crm_accounts a ON a.id=m.account_id LEFT JOIN leads l ON l.id=m.lead_id
+  WHERE m.owner_email=${ownerEmail} AND (${accountId}::bigint IS NULL OR m.account_id=${accountId}::bigint) AND (${leadId}::bigint IS NULL OR m.lead_id=${leadId}::bigint) AND m.status=ANY(${[...OUTCOME_READY_STATUSES]}::text[])
+   AND m.last_interaction_at>=(SELECT value::timestamptz FROM app_settings WHERE key='crm_contact_outcome_since')
+   AND a.deleted_at IS NULL AND a.archived_at IS NULL AND a.merged_into_id IS NULL AND (m.lead_id IS NULL OR l.deleted_at IS NULL)
+   AND NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.id=m.activity_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL)
+   AND NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at)
+  ORDER BY m.last_interaction_at DESC LIMIT ${limit}`.execute(e)).rows.map(r=>({...r,id:String(r.id),accountId:String(r.accountId),leadId:r.leadId==null?null:String(r.leadId),contactId:r.contactId==null?null:String(r.contactId)}));
 }
 /** Points a message at the activity that records its outcome (see {@link resolveMessageForWork}). */
 export async function linkMessageActivity(e:Executor,messageId:string,activityId:string){await sql`UPDATE crm_messages SET activity_id=${activityId} WHERE id=${messageId}::uuid`.execute(e);}

@@ -39,6 +39,8 @@ export interface WorkData {
  bucketCounts?:{overdue:number;today:number;upcoming:number};
  cities?:string[];verticals?:string[];
  totalTasks:number;totalActivities:number;page:number;
+ /** Day mode only: the seller's contacts still waiting for "¿Cómo salió?" (decision 2B). */
+ pendingOutcomes?:import('./communication.schema').PendingOutcome[];
 }
 export async function getWork(params:Record<string,string|undefined>={}):Promise<WorkData>{
  const search=new URLSearchParams(Object.entries(params).filter((x):x is [string,string]=>x[1]!==undefined));

@@ -16,7 +16,7 @@ const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{s
 const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
-import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,resolveMessageForWork} from '../helpers/communicationService';
+import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactOutcomes,resolveMessageForWork} from '../helpers/communicationService';
 export async function get(request:Request){
  try{
   const {user}=await getServerUserSession(request);
@@ -105,7 +105,9 @@ export async function get(request:Request){
   if(input.accountId){
    if(user.role==='admin'||accounts.length){journal=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','in',await accountFamily(db,input.accountId)).orderBy('createdAt','desc').limit(200).execute();}
   }
-  return reply({cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
+  // Decision 2B: the seller's own contacts still waiting for "¿Cómo salió?" stay visible in Hoy.
+  const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email}):[];
+  return reply({pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
 }
 export async function post(request:Request){
@@ -161,6 +163,7 @@ export async function post(request:Request){
     if(input.action==='activity_save'&&input.id)throw new Error('Un registro ya guardado no se vincula a otro mensaje.');
     if(input.action==='task_status'&&input.status!=='completed')throw new Error('Solo una tarea completada se vincula a un mensaje.');
     if(!('outcome' in input)||!input.outcome)throw new Error('Elegí cómo salió el contacto.');
+    if('messageSent' in input&&input.messageSent===false)throw new Error('Si no se envió, marcalo como no enviado.');
    }
    // Decision 2B: a new result always says how it continues, including an edit that adds the first result. Other edits stay exempt.
    const requiresNextStep=(input.action==='activity_save'&&!!input.outcome&&!previous?.outcome)||(input.action==='task_status'&&input.status==='completed');
@@ -171,7 +174,7 @@ export async function post(request:Request){
     if(input.continuation==='done'&&'nextTask' in input&&input.nextTask)throw new Error('«No agendar nada» no crea otra tarea.');
    }
    // The contact's message is resolved once and keeps a single activity: the one the communication service created, if any.
-   const linked=messageId&&(input.action==='activity_save'||input.action==='task_status')?await resolveMessageForWork(trx,user,{messageId,sent:input.messageSent,accountId:String(accountId),leadId:leadId==null?null:String(leadId)}):null;
+   const linked=messageId&&(input.action==='activity_save'||input.action==='task_status')?await resolveMessageForWork(trx,user,{messageId,sent:input.messageSent,result:input.result??null,accountId:String(accountId),leadId:leadId==null?null:String(leadId)}):null;
    const createNextTask=async()=>{
     if(!('nextTask' in input)||!input.nextTask)return;
     if(input.outcome==='do_not_contact'||account.doNotContact)throw new Error('No se puede planificar contacto para un negocio bloqueado.');
