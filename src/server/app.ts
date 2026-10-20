@@ -12,6 +12,7 @@ import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
 import { Hono } from "hono";
 import { applyAssetMiddleware, applyStaticFallback } from "./staticAssets";
 import { applyBodyLimit } from "./bodyLimit";
+import { applySecurity } from "./security";
 import { createHealthHandler, onError, requestContext } from "./observability";
 import { sql } from "kysely";
 import { db } from "../helpers/db";
@@ -56,6 +57,7 @@ export const app=new Hono();
 app.use("*",requestContext);
 app.onError(onError);
 applyAssetMiddleware(app);
+applySecurity(app);
 applyBodyLimit(app);
 // Mount only MCP paths; the normal CRM API and static routes keep their behavior.
 const mcp=mcpRoutes();
