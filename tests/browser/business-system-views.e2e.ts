@@ -19,7 +19,7 @@ for(const width of [1280,390])test(`system views coexist with personal views at 
  await page.goto('/accounts');await expect(page.locator('tbody tr[data-business-id]')).toHaveCount(3);
 
  const selector=page.getByRole('region',{name:'Vistas guardadas',exact:true});
- await expect(selector.getByRole('group',{name:'Vistas del sistema',exact:true}).locator('[data-view-id]')).toHaveCount(7);
+ await expect(selector.getByRole('group',{name:'Vistas rápidas',exact:true}).locator('[data-view-id]')).toHaveCount(7);
  await expect(selector.getByRole('group',{name:'Tus vistas',exact:true}).locator('[data-view-id]')).toHaveCount(1);
  const mine=page.waitForRequest(r=>{const url=new URL(r.url());return url.pathname.endsWith('/leads')&&(url.searchParams.get('filterGroups')??'').includes('viewer@example.com');});
  await selector.locator('[data-view-id="system:mine"]').click();await mine;
