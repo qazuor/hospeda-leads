@@ -2,14 +2,11 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useQueryClient } from "@tanstack/react-query";
 import { getLiveVersion } from "../endpoints/live_version_GET.schema";
 import { useAuth } from "./useAuth";
+import { LIVE_QUERY_KEYS, liveQueryKeysToInvalidate, type LiveSnapshot } from "./liveDomains";
 
 const STORAGE_KEY="hospeda-live-mode";
 const CHECK_INTERVAL=10000;
 const EVENT_THROTTLE=2000;
-const LIVE_QUERY_KEYS=[
-  "communication","resources","data-quality","pipeline","work","commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
-  "lead-journal","global-journal","global-journal-filtered","trash-leads"
-];
 
 type LiveStatus="live"|"checking"|"off"|"error";
 type LiveModeState={
@@ -43,21 +40,21 @@ export function LiveModeProvider({children}:{children:ReactNode}){
   const [lastCheckedAt,setLastCheckedAt]=useState<Date|null>(null);
   const [manualRefreshing,setManualRefreshing]=useState(false);
   const manualRefreshLock=useRef(false);
-  const lastVersion=useRef<string|null>(null);
+  const lastSnapshot=useRef<LiveSnapshot|null>(null);
   const checking=useRef(false);
   const lastCheckStartedAt=useRef(0);
   const generation=useRef(0);
 
   const updateStatus=useCallback((next:LiveStatus)=>setStatus(current=>current===next?current:next),[]);
 
-  const invalidateLiveQueries=useCallback(async()=>{
-    await Promise.all(LIVE_QUERY_KEYS.map(key=>queryClient.invalidateQueries({queryKey:[key]})));
+  const invalidateLiveQueries=useCallback(async(keys:readonly string[]=LIVE_QUERY_KEYS)=>{
+    await Promise.all(keys.map(key=>queryClient.invalidateQueries({queryKey:[key]})));
   },[queryClient]);
 
   const refresh=useCallback(async()=>{
     if(manualRefreshLock.current)return;
     manualRefreshLock.current=true;setManualRefreshing(true);
-    try{await invalidateLiveQueries();}finally{manualRefreshLock.current=false;setManualRefreshing(false);}
+    try{await invalidateLiveQueries(LIVE_QUERY_KEYS);}finally{manualRefreshLock.current=false;setManualRefreshing(false);}
   },[invalidateLiveQueries]);
 
   const checkVersion=useCallback(async(manual:boolean)=>{
@@ -67,13 +64,14 @@ export function LiveModeProvider({children}:{children:ReactNode}){
     lastCheckStartedAt.current=Date.now();
     if(manual)updateStatus("checking");
     try{
-      const {version}=await getLiveVersion();
+      const next=await getLiveVersion();
       if(checkGeneration!==generation.current)return;
-      const previous=lastVersion.current;
-      lastVersion.current=version;
+      const previous=lastSnapshot.current;
+      lastSnapshot.current=next;
       setLastCheckedAt(new Date());
       updateStatus("live");
-      if(previous!==null&&previous!==version)await invalidateLiveQueries();
+      const keys=liveQueryKeysToInvalidate({previous,next});
+      if(keys.length>0)await invalidateLiveQueries(keys);
     }catch{
       if(checkGeneration===generation.current)updateStatus("error");
     }finally{
@@ -88,7 +86,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
     window.localStorage.setItem(STORAGE_KEY,next?"on":"off");
     if(!next)updateStatus("off");
     else{
-      lastVersion.current=null;
+      lastSnapshot.current=null;
       updateStatus("checking");
     }
   },[updateStatus]);

@@ -12,6 +12,7 @@ const LIVE_QUERY_KEYS=[
 
 describe("LiveModeProvider polling", () => {
   let version = "v1";
+  let domains: Record<string, string> | undefined;
   let fetchMock: ReturnType<typeof vi.fn>;
   let originalVisibilityState: PropertyDescriptor | undefined;
 
@@ -25,7 +26,8 @@ describe("LiveModeProvider polling", () => {
     originalVisibilityState = Object.getOwnPropertyDescriptor(document, "visibilityState");
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     version = "v1";
-    fetchMock = vi.fn(async () => new Response(JSON.stringify({ json: { version } }), { status: 200 }));
+    domains = undefined;
+    fetchMock = vi.fn(async () => new Response(JSON.stringify({ json: domains ? { version, domains } : { version } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -86,6 +88,37 @@ describe("LiveModeProvider polling", () => {
     version = "v2";
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     expect(invalidate).toHaveBeenCalledTimes(LIVE_QUERY_KEYS.length);
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual(LIVE_QUERY_KEYS.map(key => [key]));
+  });
+
+  it("invalidates only the query keys mapped to the changed domains", async () => {
+    domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue();
+    renderWithProvider(<span>consumer</span>, queryClient);
+    await act(async () => {});
+    version = "v2";
+    domains = { ...domains, communication: "2" };
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    const keys = invalidate.mock.calls.map(([filters]) => filters?.queryKey?.[0]);
+    expect(keys).toEqual(["communication", "resources", "data-quality", "commercial-detail", "settings", "lead-journal", "global-journal", "global-journal-filtered"]);
+    expect(keys).not.toContain("leads");
+    invalidate.mockClear();
+    version = "v3";
+    domains = { ...domains, business: "3", work: "3" };
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey?.[0])).toEqual(expect.arrayContaining(["leads", "lead-stats", "work"]));
+  });
+
+  it("invalidates every live query when a server without domains changes version", async () => {
+    domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue();
+    renderWithProvider(<span>consumer</span>, queryClient);
+    await act(async () => {});
+    version = "v2";
+    domains = undefined;
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual(LIVE_QUERY_KEYS.map(key => [key]));
   });
 
