@@ -1,6 +1,6 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useInfiniteQuery } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
-import { useLiveMode, useLiveModeRefreshing, LiveModeProvider } from "./liveMode";
+import { useLiveMode, useLiveModeRefreshing, useLivePendingRefresh, shouldDeferLiveRefetch, LiveModeProvider, LIVE_MANUAL_WHEN_PAGED } from "./liveMode";
 import { vi } from "vitest";
 
 vi.mock("./useAuth", () => ({ useAuth: () => ({ authState: { type: "authenticated" } }) }));
@@ -211,5 +211,73 @@ describe("LiveModeProvider polling", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     await act(async () => { resolveManual(new Response(JSON.stringify({ json: { version } }), { status: 200 })); });
     expect(screen.getByText("live")).toBeTruthy();
+  });
+
+  describe("paged infinite lists (manual refresh chip)", () => {
+    const listKey = ["leads", "business-list", 1];
+    function List({ fetched }: { fetched: number[] }) {
+      const results = useInfiniteQuery({ queryKey: listKey, initialPageParam: 1, queryFn: async ({ pageParam }) => { fetched.push(pageParam); return { page: pageParam }; }, getNextPageParam: last => last.page < 3 ? last.page + 1 : undefined, meta: LIVE_MANUAL_WHEN_PAGED });
+      const { pending, clear } = useLivePendingRefresh(listKey);
+      const { refresh } = useLiveMode();
+      return <><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button><button onClick={() => void refresh()}>Refresh all</button></>;
+    }
+    async function renderList(pages: number) {
+      domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
+      const fetched: number[] = [];
+      renderWithProvider(<List fetched={fetched} />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      for (let page = 1; page < pages; page += 1) await act(async () => { screen.getByText("More").click(); await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByText("pages:" + pages)).toBeTruthy();
+      fetched.length = 0;
+      return fetched;
+    }
+    async function liveChange(domain: string) {
+      version = version + "+";
+      domains = { ...domains, [domain]: version };
+      await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    }
+
+    it("flags a list with more than one page instead of refetching every page", async () => {
+      const fetched = await renderList(2);
+      await liveChange("business");
+      expect(fetched).toEqual([]);
+      expect(screen.getByText("pending")).toBeTruthy();
+      await liveChange("business");
+      expect(fetched).toEqual([]);
+      await act(async () => { screen.getByText("Clear").click(); });
+      expect(screen.getByText("fresh")).toBeTruthy();
+    });
+
+    it("keeps refreshing a list with a single page automatically", async () => {
+      const fetched = await renderList(1);
+      await liveChange("business");
+      expect(fetched).toEqual([1]);
+      expect(screen.getByText("fresh")).toBeTruthy();
+    });
+
+    it("does not flag the list for changes in domains it does not read", async () => {
+      const fetched = await renderList(2);
+      await liveChange("journal");
+      expect(fetched).toEqual([]);
+      expect(screen.getByText("fresh")).toBeTruthy();
+    });
+
+    it("refetches every loaded page and clears the flag on a manual refresh", async () => {
+      const fetched = await renderList(2);
+      await liveChange("business");
+      expect(screen.getByText("pending")).toBeTruthy();
+      await act(async () => { screen.getByText("Refresh all").click(); await vi.advanceTimersByTimeAsync(0); });
+      expect(fetched).toEqual([1, 2]);
+      expect(screen.getByText("fresh")).toBeTruthy();
+    });
+
+    it("defers only opted-in queries that are on screen with several pages", () => {
+      const query = (meta: Record<string, unknown> | undefined, observers: number, pages: unknown) => ({ meta, getObserversCount: () => observers, state: { data: pages === undefined ? undefined : { pages } } });
+      expect(shouldDeferLiveRefetch(query(LIVE_MANUAL_WHEN_PAGED, 1, [1, 2]))).toBe(true);
+      expect(shouldDeferLiveRefetch(query(LIVE_MANUAL_WHEN_PAGED, 1, [1]))).toBe(false);
+      expect(shouldDeferLiveRefetch(query(LIVE_MANUAL_WHEN_PAGED, 0, [1, 2]))).toBe(false);
+      expect(shouldDeferLiveRefetch(query(undefined, 1, [1, 2]))).toBe(false);
+      expect(shouldDeferLiveRefetch(query(LIVE_MANUAL_WHEN_PAGED, 1, undefined))).toBe(false);
+    });
   });
 });
