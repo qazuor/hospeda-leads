@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push * staging)",
+      "Bash(git push * staging *)",
+      "Bash(git push * *:main)",
+      "Bash(git push * *:main *)",
+      "Bash(git push * *:staging)",
+      "Bash(git push * *:staging *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git commit *--amend* main)",
+      "Bash(git commit *--amend* staging)",
+      "Bash(gh workflow run deploy-vps*)",
+      "Bash(gh pr merge * --admin*)"
+    ]
+  }
+}

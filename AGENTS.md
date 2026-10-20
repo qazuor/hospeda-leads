@@ -1,55 +1,104 @@
-# Instrucciones compartidas — Hospeda CRM
+# AGENTS.md — Hospeda CRM
 
-Este archivo es el punto de entrada para Codex y Claude Code. El propietario es Leandro (Leo). Trabajar y comunicar en español claro, directo y sin inventar resultados.
+Shared instructions for every coding agent working in this repo (Claude Code reads them through `CLAUDE.md`). Owner: Leandro (qazuor). Chat with the owner in Spanish; code, comments, identifiers, docs and commit messages in English.
 
-## Al iniciar una sesión
+## What this is
 
-1. Leer `docs/estado-desarrollo.md`, `docs/decisiones.md` y `docs/pendientes.md`.
-2. Leer `docs/desarrollo-local.md` para preparar el entorno; consultar `docs/mapa-tecnico.md` para ubicar código y pruebas.
-3. Revisar `git status`, rama actual y HEAD remoto de `main`. No asumir que el commit documentado sigue siendo el último.
-4. Confirmar en código lo que describen documentos antiguos. `docs/crm-roadmap/` conserva entregas históricas: sus frases “pendiente” pueden haber quedado resueltas posteriormente.
-5. Mantener los cambios locales del usuario. Antes de cambiar de rama o actualizar el checkout, revisar archivos sin commit. Usar una rama o worktree separado cuando sea necesario.
+Internal sales CRM for Hospeda, self-hosted on the Hospeda VPS through Coolify (https://crm.hospeda.com.ar). It is a **separate product** from the Hospeda tourism platform: no monorepo, no Drizzle, no Better Auth, no `@repo/*` packages, no Linear. Do not carry assumptions from that repo into this one.
 
-## Proyecto y herramientas
+Stack: React 19 + Vite + React Router 6 + TanStack Query, Mantine 9.7.1 + Lucide, TipTap, Sonner, Recharts on the client. Hono on Node 22 for the API. PostgreSQL 17 through Kysely (postgres.js driver), Zod, SuperJSON. Brevo for transactional email. npm with `package-lock.json` (never pnpm/yarn).
 
-- Repositorio: `qazuor/hospeda-leads`; rama estable `main`.
-- CRM interno independiente del portal turístico Hospeda: no aplicar supuestos del monorepo Astro/Drizzle/Neon al CRM.
-- React 19, Vite, React Router, TanStack Query, Mantine 9.7.1, Lucide, TipTap, Sonner y Recharts.
-- API Hono/Node; PostgreSQL 17, Kysely con mapeo snake_case/camelCase, Zod y SuperJSON.
-- Usar Node 22 y npm con `package-lock.json`. Comandos reales en `package.json`; CI completa en `.github/workflows/ci.yml`.
-- Tests básicos: `npm run typecheck`, `npm test`, `npm run build`. Integraciones y seed solo sobre bases locales descartables; ver guía local.
+## Commands
 
-## Flujo autorizado de desarrollo
+```bash
+npm run dev          # Vite on :5173 + API (tsx watch) on :3001; Vite proxies /_api to the API
+npm run typecheck    # tsc --noEmit
+npm test             # Vitest unit tests (jsdom, globals)
+npm run build        # Vite bundle + tsup server bundle into dist-server/
+npm start            # serve the production build on :3001
 
-El propietario pidió avanzar con cambios, abrir PRs, corregir CI y mergear cuando esté verde. No pedir otra confirmación para tareas rutinarias ya comprendidas en el encargo.
+npx vitest run src/helpers/filterRules.spec.ts   # a single unit test file
+npx vitest run -t "name of the test"             # a single test by name
+```
 
-- Rama de trabajo → cambio acotado → validación pertinente → PR → todos los checks requeridos verdes → merge a `main`.
-- Verificar el HEAD exacto del PR y el resultado de CI antes del merge. No afirmar “verde”, “mergeado”, “desplegado” ni “probado en producción” sin evidencia.
-- El merge y el deploy son estados distintos. Coolify ejecuta producción; no inferir el deploy por un merge.
-- Describir problema y comportamiento final en el PR, con validación y limitaciones relevantes.
-- No delegar a otros agentes salvo que el usuario lo pida.
+There is no linter or formatter step. CI is typecheck + tests + build + integration + browser + Docker smoke.
 
-## Reglas de implementación
+Scripts and the server read `process.env` only, they do not load `.env` themselves. Export the file first: `set -a; source .env; set +a` (bash).
 
-- Negocio (`crm_accounts`), persona (`crm_contacts`) y gestión (`leads`) son entidades distintas. Crear/importar un negocio no crea gestiones, tareas ni conversaciones.
-- Respetar los controles de permisos del servidor y las restricciones No contactar. Leer un negocio no concede permiso de modificarlo, enviar mensajes o administrar su gestión.
-- No inferir contacto, respuesta, aceptación, pago ni entrega a partir de abrir un canal, guardar un borrador o cambiar una etapa.
-- Mantener búsqueda sin acentos, Unicode y distinción entre ñ y n. Campos/opciones de catálogo conservan comparaciones exactas cuando corresponde.
-- En badges de filtros se cambia solamente el valor: campo y operador permanecen fijos; conservar grupos AND/OR y exclusiones.
-- Reutilizar Mantine, wrappers y clases compartidas. En tareas visuales, no cambiar contratos, permisos ni reglas comerciales de paso.
-- Toda acción debe mostrar loading y evitar doble submit; errores conservan lo escrito y ofrecen reintento pertinente. No repetir automáticamente envíos inciertos.
-- Preservar calendario de Argentina: día comercial no equivale a un instante UTC. Reutilizar los helpers de fecha existentes.
-- Las migraciones aplicadas tienen checksum: no editarlas; agregar una nueva migración cuando haga falta.
-- No usar importadores heredados para recrear gestiones eliminadas ni repetir la limpieza/recuperación de octubre como parte de un deploy.
+### Database and integration tests
 
-## Datos y credenciales
+```bash
+npm run db:migrate                          # apply pending migrations/*.sql
+CRM_TEST_DATABASE=1 npm run db:seed:test    # DESTRUCTIVE synthetic seed (admin@example.com / test-password-123)
+CRM_TEST_DATABASE=1 npm run test:commercial # one integration suite (see package.json for all test:*)
+node --import tsx scripts/test-search.ts    # a single integration script
+npm run test:browser                        # Playwright; needs `npm run build && npm start` on :3001 first
+```
 
-No versionar `.env` reales, claves, conexiones productivas, dumps, manifiestos con datos, informes por negocio, passwords, tokens ni sesiones. Guardar evidencia privada fuera de Git. Las métricas agregadas de la documentación describen un snapshot, no un contador en vivo.
+Integration suites (`scripts/test-*.ts|mjs`) mutate the database and several replay migrations on copies. They expect a disposable PostgreSQL that has been migrated and seeded, in the order `.github/workflows/ci.yml` runs them. Local Postgres: `docker compose -p hospeda-crm-local -f docker-compose.yml -f docs/compose.local.yml up -d postgres` (port 5433). Full setup: `docs/desarrollo-local.md`. The browser suite takes ~10 minutes in CI; slow is not hung.
 
-La limpieza, fusión, reasignación o recuperación de datos productivos requiere un alcance específicamente autorizado y un procedimiento revisado. Una tarea de UI no autoriza esas escrituras. No inventar acceso a la DB: la integración MCP quedó pospuesta y no se confirmó su conexión productiva.
+## Architecture
 
-La recuperación del 10/10/2026 ya fue aplicada por el operador. No volver a ejecutarla automáticamente. Confirmar únicamente su visualización si sigue pendiente.
+- **Client** (`src/main.tsx`, `src/pages/`, `src/components/`): React SPA. Shared Mantine wrappers live in `src/components/` (`Button`, `Badge`, `Dialog`, selects, dates). Shared layout classes in `src/components/ui/CrmLayout.module.css`, tokens in `src/base.css`. Styling is CSS Modules.
+- **Endpoints** come in pairs inherited from the Floot port:
+  - `src/endpoints/<name>.schema.ts` holds the Zod input `schema`, the output types and the **client-side fetch function** (`fetch("/_api/...")` + SuperJSON). Pages and components call this function, usually through TanStack Query.
+  - `src/endpoints/<name>.ts` exports `handle(request: Request)`, the server handler.
+  - Each handler is registered by hand in `src/server/index.ts` (`app.get('/_api/x', c => xGET(c.req.raw))`). A new endpoint touches all three places.
+- **Server** (`src/server/index.ts`): Hono app that serves `/_api/*`, the built SPA and the MCP server (`src/server/mcp/`, OAuth-protected; credentials table exists, the service is not enabled in production).
+- **Domain/helpers** (`src/helpers/`): DB access (`db.tsx`, Kysely with a snake_case↔camelCase plugin plus overrides for names with digits), generated table types (`schema.tsx`), session (`getServerUserSession.tsx`), permissions (`crmPermissions.ts`), date helpers (`crmDates.tsx`), search normalization, filters, history/audit.
+- **Migrations**: plain SQL in `migrations/NNN_*.sql`, applied in order by `scripts/migrate.mjs`, which records a sha256 checksum per file in `schema_migrations`.
+- Code map with file-level detail: `docs/mapa-tecnico.md`.
 
-## Al cerrar una tarea
+### Domain model you must not blur
 
-Actualizar `docs/estado-desarrollo.md` y `docs/pendientes.md` con lo realizado, PR/commit, pruebas efectivas y siguiente paso. Registrar nuevas decisiones estables en `docs/decisiones.md` y hitos relevantes en `docs/historial-desarrollo.md`. Distinguir implementado, mergeado, ejecución productiva reportada y verificación visual pendiente. No convertir hipótesis ni recuerdos en hechos.
+- Business (`crm_accounts`), person (`crm_contacts`) and management (`leads`) are different entities. `leads` is the legacy **physical** table name for managements; many endpoints keep the `leads_` prefix for compatibility. Creating or importing a business never creates managements, tasks or conversations.
+- The Businesses list is a projection (`src/helpers/businessTable.ts`, `leads_GET`). Never route a write meant for a management onto an account (or the reverse) because IDs happen to match.
+- Opening a channel, saving a draft or moving a stage is NOT evidence of contact, reply, acceptance, payment or delivery. Do not infer those states.
+- Server-side permission checks and "Do not contact" restrictions are mandatory on every write path. Read access to a business grants nothing else.
+- Dates: a business day in Argentina is not a UTC instant. Use the helpers in `crmDates.tsx`.
+- Search is accent-insensitive but keeps ñ ≠ n. Catalog fields and options compare exactly.
+- Filter badges change only the value; field and operator stay fixed, AND/OR groups and exclusions are preserved.
+
+## Code conventions
+
+- Match the surrounding code. The existing style is compact (minimal whitespace, terse handlers); follow it in files that use it instead of reformatting.
+- TypeScript strict, no `any`, `import type` for type-only imports, Zod for every request input.
+- Reuse Mantine, the shared wrappers and `CrmLayout` classes before writing new UI. Visual tasks do not change contracts, permissions or business rules.
+- Every action shows loading state and blocks double submit. On error, keep what the user typed and offer a relevant retry. Never auto-retry a send whose outcome is uncertain.
+- Unit tests sit next to the code as `*.spec.ts(x)`. Bug fixes get a regression test first.
+
+## Git and PR workflow
+
+`main` and `staging` are protected **by convention** (no GitHub branch protection on this plan). Treat these as non-negotiable:
+
+1. NEVER `git push` to `main` or `staging` directly, in any form (`*:main`, force, `-u`). `.claude/settings.json` denies it; do not look for a way around it.
+2. NEVER force-push and NEVER `git commit --amend` on `main` or `staging`.
+3. All work: branch from `origin/staging` → change → typecheck + tests + build green locally → PR **targeting `staging`** → wait for CI → merge.
+4. Merge only when the PR's latest CI run is fully green on the exact head SHA (`gh pr view <N> --json headRefOid,statusCheckRollup`). Skipped jobs are fine; failed or cancelled are not. NEVER `gh pr merge --admin`.
+5. `staging` → `main` happens ONLY when the owner explicitly asks for it.
+6. Hotfix exception: branch from `main`, PR to `main`, then back-merge `main` → `staging` through a PR.
+7. A merged or closed PR is done. Before pushing to a branch that ever had a PR, check `gh pr list --head <branch> --state all`. If it is `MERGED`/`CLOSED`, cut a new branch from `origin/staging` for the follow-up.
+
+Commits: Conventional Commits `type(scope): description`, atomic, stage files one by one (never `git add .` / `-A`), commit right after staging, never amend a pushed commit. Branch names: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`. PR body states the problem, the final behaviour, the validation that actually ran and known limitations.
+
+Within that flow the owner has pre-authorized: opening PRs to `staging`, fixing CI and merging to `staging` once green. Everything else (merging to `main`, deploys, data operations) needs explicit approval in the current conversation.
+
+Do not run two agents on the same working tree. Use separate branches/worktrees for parallel work.
+
+## Safety: data, secrets, production
+
+- **Production data is off limits.** No agent writes to the production database: no cleanup, merge, reassignment, recovery, import or seed. A UI or code task never authorizes data writes. Data operations need a scope the owner approved for that specific operation and a reviewed runbook (`docs/management-cleanup-runbook.md`, `docs/business-metadata-recovery.md`). There is no agent DB connection to production; do not claim or invent one.
+- The October cleanup and the 2026-10-10 recovery were already applied by the operator. Never re-run them, and never use the legacy importers (`db:import`, `db:migrate:floot`, `db:recover:businesses`) to recreate deleted managements.
+- `CRM_TEST_DATABASE=1` is a self-declaration, not a guard: the scripts do not check where `DATABASE_URL` points. Before any seed or `test:*`, confirm the exported `DATABASE_URL` is a local disposable database.
+- **Migrations are immutable once applied.** Editing an applied file breaks its checksum. Always add a new numbered migration. Applying migrations does not run cleanups or recoveries.
+- **Deploy is manual.** Production runs on Coolify; `deploy-vps.yml` is `workflow_dispatch` only. Never trigger it, and never treat a merge as a deploy.
+- Never commit real `.env*` files, keys, tokens, production connection strings, dumps, per-business reports, manifests with data, passwords or sessions. Private evidence stays outside Git. Do not print full snapshots in production logs.
+- Never send real email/messages from a dev or test database. Brevo without a real key cannot send; use the existing mocks and fixtures.
+
+## Reporting
+
+Report only what you verified. "Green", "merged", "deployed" and "tested in production" are distinct claims and each needs evidence (CI run, PR state, Coolify, owner confirmation). Say which tests actually ran and which were skipped.
+
+## Project docs
+
+Start-of-session context: `docs/estado-desarrollo.md` (current state), `docs/decisiones.md` (stable decisions), `docs/pendientes.md` (open work). When a task closes, update `estado-desarrollo.md` and `pendientes.md` with PR, tests run and next step; record new stable decisions in `decisiones.md`. `docs/crm-roadmap/` is historical: its "pending" items may already be done, so confirm in code.
