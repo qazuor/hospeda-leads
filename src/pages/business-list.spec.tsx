@@ -10,7 +10,8 @@ vi.mock('../components/Tooltip', () => ({
   TooltipContent: () => null,
   DisabledTooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-import { BusinessTableRow } from './business-list';
+import { BusinessTableRow, dateCell, joinedValues } from './business-list';
+import { businessCountsSummary } from '../components/BusinessCard';
 
 beforeAll(() => {
   window.matchMedia = vi.fn().mockImplementation(query => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
@@ -37,5 +38,23 @@ describe('BusinessTableRow', () => {
     view.rerender(<Harness tick={3} selected />);
     expect(tooltipRenders.count).toBe(initial * 2);
     expect((screen.getByRole('checkbox', { name: 'Seleccionar Hotel Río' }) as HTMLInputElement).checked).toBe(true);
+  });
+});
+
+describe('business list date and count helpers', () => {
+  const utcMidnight = new Date('2026-11-01T00:00:00Z');
+  it('shows DATE columns as the calendar day, not the Argentina instant', () => {
+    expect(dateCell('fechaProximaAccion', utcMidnight)).toMatch(/^1 (de )?nov/i);
+    expect(dateCell('createdAt', utcMidnight)).toMatch(/^31 (de )?oct/i);
+  });
+  it('joins multi-management DATE values with the calendar-day formatter', () => {
+    expect(joinedValues('fechaUltimoContacto', [utcMidnight, utcMidnight])).toMatch(/^1 (de )?nov.* · 1 (de )?nov/i);
+    expect(joinedValues('ciudad', ['Colón', 'Paraná'])).toBe('Colón · Paraná');
+  });
+  it('uses singular and plural forms in the counts summary', () => {
+    expect(businessCountsSummary({ opportunityCount: 1, contactCount: 1, commercialStatus: 'client' })).toBe('1 gestión · 1 persona · Cliente');
+    expect(businessCountsSummary({ opportunityCount: 2, contactCount: 3 })).toBe('2 gestiones · 3 personas · Potencial cliente');
+    expect(businessCountsSummary({ opportunityCount: 0, contactCount: 0 })).toBe('Potencial cliente');
+    expect(businessCountsSummary({ opportunityCount: 0, contactCount: 1 }, true)).toBe('0 gestiones · 1 persona · Potencial cliente');
   });
 });
