@@ -8,6 +8,8 @@ const LibraryPage=React.lazy(()=>import('./pages/library'));
 const PasswordRecoveryPage=React.lazy(()=>import("./pages/password-recovery"));
 const ReactivationPage=React.lazy(()=>import("./pages/reactivation"));
 import {RouteLoading} from "./components/RouteLoading";
+import {RouteErrorBoundary} from "./components/AppErrorBoundary";
+import {reloadOnceForStaleChunk} from "./helpers/chunkReload";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
@@ -40,12 +42,20 @@ function HomeEntry(){
   return <Navigate to={legacyLead?"/opportunities"+search:search?"/accounts"+search:"/my-day"} replace/>;
 }
 
+function RouteBoundary({children}:{children:React.ReactNode}){
+  const {pathname}=useLocation();
+  return <RouteErrorBoundary pathname={pathname}>{children}</RouteErrorBoundary>;
+}
+
+window.addEventListener('vite:preloadError',event=>{event.preventDefault();reloadOnceForStaleChunk();});
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <GlobalContextProviders>
         <UnsavedNavigation/>
         <AppCommandPalette/>
+        <RouteBoundary>
         <React.Suspense fallback={<RouteLoading/>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -71,6 +81,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </React.Suspense>
+        </RouteBoundary>
       </GlobalContextProviders>
     </BrowserRouter>
   </React.StrictMode>,
