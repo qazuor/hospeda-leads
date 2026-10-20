@@ -9,7 +9,7 @@ const journal=[
  {id:'2',accountId:'201',action:'business_status_changed',actorEmail:owner.email,actorName:'Marta',createdAt:new Date('2026-10-06T12:00:00Z'),metadata:{before:{recontactAt:null},after:{recontactAt:null}}},
  {id:'1',accountId:'201',action:'contact_policy',actorEmail:owner.email,actorName:'Marta',createdAt:new Date('2026-10-05T15:00:00Z'),metadata:{before:{doNotContact:false,status:'in_management'},after:{doNotContact:true,status:'archived'},origin:'automatic',cause:'management_change'}},
 ];
-async function mock(page:Page,user:typeof owner,detailStatus:number,business=account){
+async function mock(page:Page,user:typeof owner,detailStatus:number,business=account,entries=journal){
  const detailRequests:string[]=[];
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.route('**/_api/**',async route=>{
@@ -17,7 +17,7 @@ async function mock(page:Page,user:typeof owner,detailStatus:number,business=acc
   let data:unknown=path.endsWith('/auth/session')?{user}:{};
   if(path.endsWith('/commercial')){
    if(url.searchParams.has('historyPage'))data={events:[],total:0,page:1,pending:[],totalPending:0};
-   else{detailRequests.push(url.search);status=detailStatus;data=detailStatus===200?{account:business,contacts:[],opportunities:[],journal,leadJournal:[],managementJournal:[],stages:[],users:[{email:owner.email,displayName:'Marta'}]}:{error:'Este negocio está archivado. Solo su responsable o un administrador puede consultarlo.'};}
+   else{detailRequests.push(url.search);status=detailStatus;data=detailStatus===200?{account:business,contacts:[],opportunities:[],journal:entries,leadJournal:[],managementJournal:[],stages:[],users:[{email:owner.email,displayName:'Marta'}]}:{error:'Este negocio está archivado. Solo su responsable o un administrador puede consultarlo.'};}
   }else if(path.endsWith('/work'))data={tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}};
   else if(path.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[],managementReasons:[]};
   else if(path.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
@@ -39,6 +39,12 @@ test('the responsible seller reads her No contactar business with a red banner a
  await expect(page.getByRole('button',{name:'Agregar contacto',exact:true})).toHaveCount(0);
  await expect(page.getByRole('alert').filter({hasText:'archivado'})).toHaveCount(0);
  expect(requests.length).toBe(1);
+});
+
+test('a No contactar set by hand says when it was marked, not that the business asked',async({page})=>{
+ await mock(page,owner,200,account,[{...journal[1],metadata:{before:{doNotContact:false},after:{doNotContact:true},origin:'direct',cause:null}}]);
+ await page.goto('/accounts/201');
+ await expect(page.getByTestId('do-not-contact-banner')).toHaveText('No contactar · Marcado el 5 de oct de 2026. Solo un administrador puede levantar el bloqueo.');
 });
 
 test('an archived business without No contactar explains that only an admin can restore it',async({page})=>{

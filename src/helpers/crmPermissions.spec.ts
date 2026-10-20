@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {assertAccountReadable,assertAccountViewable,assertAccountWritable,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
+import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertLeadAccess,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
 const owner={email:'owner@example.com',role:'user' as const};
 const colleague={email:'colleague@example.com',role:'user' as const};
 const admin={email:'admin@example.com',role:'admin' as const};
@@ -36,6 +36,18 @@ describe('CRM shared reading and owner-only modifications',()=>{
   expect(()=>assertAccountWritable(owner,archived)).toThrow(CrmForbidden);
   expect(canModifyBusiness(owner,archived)).toBe(false);
   expect(canModifyManagement(owner,{assignedUserEmail:owner.email},archived)).toBe(false);
+ });
+ it('tells the owner of an archived business that only an admin can modify it',async()=>{
+  const archived={id:'7',...business,archivedAt:new Date(),deletedAt:null};
+  const lead={id:'9',accountId:'7',assignedUserEmail:owner.email,deletedAt:null};
+  // Minimal stand-in for the Kysely chain used by assertLeadAccess/assertBusinessAccess.
+  const executor={selectFrom:(table:string)=>{const q={selectAll:()=>q,where:()=>q,forUpdate:()=>q,executeTakeFirstOrThrow:async()=>table==='leads'?lead:archived};return q;}} as unknown as Parameters<typeof assertLeadAccess>[0];
+  const message='Este negocio está archivado. Solo un administrador puede modificarlo.';
+  expect(()=>assertAccountWritable(owner,archived)).toThrow(message);
+  await expect(assertLeadAccess(executor,'9',owner,true)).rejects.toThrow(message);
+  await expect(assertLeadAccess(executor,'9',owner)).resolves.toBe(lead);
+  await expect(assertLeadAccess(executor,'9',colleague)).rejects.toThrow('Solo su responsable o un administrador puede consultarlo');
+  await expect(assertLeadAccess(executor,'9',admin,true)).resolves.toBe(lead);
  });
  it('keeps active and deleted businesses on the shared reading rules',()=>{
   expect(()=>assertAccountViewable(colleague,business)).not.toThrow();

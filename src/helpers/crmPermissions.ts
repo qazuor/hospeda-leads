@@ -35,7 +35,10 @@ export function assertAccountViewable(user:Actor, account:AccountAccess):void {
   assertAccountReadable(user, account);
 }
 
+const archivedWriteMessage='Este negocio está archivado. Solo un administrador puede modificarlo.';
+
 export function assertAccountWritable(user:Actor, account:AccountAccess):void {
+  if(account.archivedAt && !account.deletedAt && user.role!=='admin')throw new CrmForbidden(archivedWriteMessage);
   assertAccountReadable(user, account);
   if(!canModifyBusiness(user, account))throw new CrmForbidden('Solo el responsable del negocio o un administrador puede modificarlo.');
 }
@@ -59,6 +62,7 @@ export async function assertLeadAccess(executor:Executor, leadId:string, user:Ac
   let lead=await executor.selectFrom('leads').selectAll().where('id','=',leadId).executeTakeFirstOrThrow();
   const account=await assertBusinessAccess(executor,String(lead.accountId),user,false,write);
   if(write)lead=await executor.selectFrom('leads').selectAll().where('id','=',leadId).where('accountId','=',account.id).forUpdate().executeTakeFirstOrThrow();
+  if(write && account.archivedAt && user.role!=='admin')throw new CrmForbidden(archivedWriteMessage);
   if(lead.deletedAt && (write || user.role!=='admin'))throw new CrmForbidden('Esta gestión está en la papelera. Solo un administrador puede consultarla; restaurala antes de modificarla.');
   if(write&&!canModifyManagement(user,lead,account))throw new CrmForbidden("Solo el responsable de esta gestión o un administrador puede modificarla.");
   return lead;

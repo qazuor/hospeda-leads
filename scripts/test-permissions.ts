@@ -187,6 +187,9 @@ try{
  const dncTask=(await call(owner,workPost,'work',{action:'task_save',accountId:dncBusiness,leadId:openLead,title:'Commitment before the block',typeId:'call',dueDate:'2027-01-15'})).id;
  const dncResponse=crypto.randomUUID();
  await call(owner,communicationPost,'communication',{action:'response_create',id:dncResponse,accountId:dncBusiness,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Answered before the block',exactText:null,otherDetail:null});
+ const dncDocument=crypto.randomUUID();
+ await call(admin,resourcesPost,'resources',{action:'create',id:dncDocument,title:'Business own material',type:'propuesta',library:false,accountId:dncBusiness,leadId:null,activityId:null,categoryId:null,version:{url:'https://example.com/own.pdf'}});
+ await call(owner,resourcesPost,'resources',{action:'link',id:documentId,accountId:dncBusiness,leadId:null,activityId:null});
  const revision=async(lead:string,a:Actor=owner)=>(await call(a,pipelineGet,'pipeline?leadId='+lead)).insights[0].pipelineRevision as number;
  const dncReason=(await call(owner,pipelineGet,'pipeline?leadId='+dncLead)).managementReasons.find((r:any)=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey==='do_not_contact');assert(dncReason);
  await call(owner,pipelinePost,'pipeline',{action:'transition',leadId:dncLead,revision:await revision(dncLead),stage:'main:lost',reasonId:dncReason.id,comment:''});
@@ -194,7 +197,9 @@ try{
  const dncReads=[[commercialGet,'commercial?accountId='+dncBusiness],[commercialGet,'commercial?accountId='+dncBusiness+'&historyPage=1'],[commercialGet,'commercial?leadId='+openLead],[qualityGet,'dataQuality?accountId='+dncBusiness],[communicationGet,'communication?accountId='+dncBusiness],[resourcesGet,'resources?accountId='+dncBusiness],[workGet,'work?mode=detail&accountId='+dncBusiness],[notes,'lead_notes?leadId='+openLead],[journal,'lead_journal?leadId='+openLead],[pipelineGet,'pipeline?leadId='+openLead]] as const;
  for(const [handler,url] of dncReads){await call(owner,handler,url);await call(other,handler,url,undefined,403);}
  const dncDetail=await call(owner,commercialGet,'commercial?accountId='+dncBusiness);
- assert.equal(dncDetail.account.doNotContact,true);assert(doNotContactSince(dncDetail.journal),'the banner date comes from the journal entry that set No contactar');
+ assert.equal(dncDetail.account.doNotContact,true);assert.equal(doNotContactSince(dncDetail.journal)?.requested,true,'the banner says the business asked only because a DNC close recorded it');
+ assert((await call(owner,workGet,'work?mode=detail&accountId='+dncBusiness)).tasks.some((t:any)=>String(t.id)===String(dncTask)),'the owner still sees the commitments of her archived business');
+ const dncDocuments=(await call(owner,resourcesGet,'resources?accountId='+dncBusiness)).documents.map((d:any)=>d.id);assert(dncDocuments.includes(dncDocument)&&dncDocuments.includes(documentId),'the owner still sees the documents of her archived business');
  const pipelineRevisions=new Map([[dncLead,await revision(dncLead)],[openLead,await revision(openLead)]]);
  const documentLink={action:'link',id:documentId,accountId:dncBusiness,leadId:openLead,activityId:null};
  const dncWrites:[(r:Request)=>Promise<Response>,string,unknown][]=[
@@ -231,17 +236,22 @@ try{
   [communicationPost,'communication',{action:'response_create',id:crypto.randomUUID(),accountId:dncBusiness,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Unauthorized response',exactText:null,otherDetail:null}],
   [communicationPost,'communication',{action:'response_correct',id:dncResponse,category:'other',summary:'Unauthorized correction',exactText:null,otherDetail:'Changed',reason:'Unauthorized correction'}],
   [resourcesPost,'resources',documentLink],
+  [qualityPost,'dataQuality',{action:'evidence',accountId:dncBusiness,leadId:openLead,field:'telefono',revision:blocked.updatedAt.toISOString(),source:'Unauthorized check',verifiedAt:null,validity:'valid',observations:''}],
+  [qualityPost,'dataQuality',{action:'evidence',accountId:dncBusiness,field:'telefono',revision:blocked.updatedAt.toISOString(),source:'Unauthorized check',verifiedAt:null,validity:'valid',observations:''}],
   [pipelinePost,'pipeline',{action:'transition',leadId:openLead,revision:pipelineRevisions.get(openLead),stage:'main:leandro'}],
   [pipelinePost,'pipeline',{action:'transition',leadId:openLead,revision:pipelineRevisions.get(openLead),stage:'main:lost'}],
   [pipelinePost,'pipeline',{action:'transition',leadId:dncLead,revision:pipelineRevisions.get(dncLead),stage:'main:contacted'}],
   [pipelinePost,'pipeline',{action:'unrefer',leadId:openLead,revision:pipelineRevisions.get(openLead)}],
   [pipelinePost,'pipeline',{action:'contact_policy',accountId:dncBusiness,blocked:false,reason:'Unauthorized lift'}],
  ];
- const snapshot=async()=>({account:await db.selectFrom('crmAccounts').selectAll().where('id','=',dncBusiness).executeTakeFirstOrThrow(),leads:await db.selectFrom('leads').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),contacts:await db.selectFrom('crmContacts').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),tasks:await db.selectFrom('crmTasks').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),activities:await db.selectFrom('crmActivities').select('id').where('accountId','=',dncBusiness).execute(),messages:(await sql`SELECT id FROM crm_messages WHERE account_id=${dncBusiness}`.execute(db)).rows,responses:(await sql`SELECT id,category,summary FROM crm_communication_responses WHERE account_id=${dncBusiness}`.execute(db)).rows,links:(await sql`SELECT id FROM crm_document_links WHERE account_id=${dncBusiness}`.execute(db)).rows});
+ const snapshot=async()=>({account:await db.selectFrom('crmAccounts').selectAll().where('id','=',dncBusiness).executeTakeFirstOrThrow(),leads:await db.selectFrom('leads').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),contacts:await db.selectFrom('crmContacts').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),tasks:await db.selectFrom('crmTasks').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),activities:await db.selectFrom('crmActivities').select('id').where('accountId','=',dncBusiness).execute(),messages:(await sql`SELECT id FROM crm_messages WHERE account_id=${dncBusiness}`.execute(db)).rows,responses:(await sql`SELECT id,category,summary FROM crm_communication_responses WHERE account_id=${dncBusiness}`.execute(db)).rows,links:(await sql`SELECT id FROM crm_document_links WHERE account_id=${dncBusiness}`.execute(db)).rows,evidence:(await sql`SELECT id FROM crm_data_evidence WHERE account_id=${dncBusiness}`.execute(db)).rows});
  const beforeWrites=await snapshot();
  for(const seller of [owner,other])for(const [handler,url,body] of dncWrites)await call(seller,handler,url,body,403);
  assert.deepEqual(await snapshot(),beforeWrites,'no rejected write changed the No contactar business');
  await call(admin,commercialGet,'commercial?accountId='+dncBusiness);
+ await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId,blocked:true,reason:'Manual admin mark'});
+ assert.equal(doNotContactSince((await call(owner,commercialGet,'commercial?accountId='+accountId)).journal)?.requested,false,'a manual mark never claims the business asked');
+ await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId,blocked:false,reason:'Lift manual mark'});
  await call(admin,commercialGet,'commercial?accountId='+accountId);
  await call(admin,commercialPost,'commercial',{action:'account_archive',accountId,archived:false,reason:'Restore test business'});
  console.log(`Permissions API: ${checks} checks passed; shared reading, owner/admin writes, administrative settings, mixed-batch rollback, trash and archived protection. No communications dispatched.`);

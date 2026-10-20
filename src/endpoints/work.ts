@@ -32,7 +32,8 @@ export async function get(request:Request){
   let activities=db.selectFrom('crmActivities as t').innerJoin('crmAccounts as a','a.id','t.accountId').leftJoin('leads as l','l.id','t.leadId').where('t.deletedAt','is',null).where(eb=>eb.or([eb('t.leadId','is',null),eb('l.deletedAt','is',null)]));
   let attention=db.selectFrom('leads as l').innerJoin('crmAccounts as a','a.id','l.accountId').where('l.deletedAt','is',null).where(sql<string>`coalesce((select classification from crm_stages where name=l.estado),'open')`,'=','open');
   tasks=tasks.where('a.deletedAt','is',null);activities=activities.where('a.deletedAt','is',null);attention=attention.where('a.deletedAt','is',null);
-  if(user.role!=='admin'){tasks=tasks.where('a.archivedAt','is',null);activities=activities.where('a.archivedAt','is',null);attention=attention.where('a.archivedAt','is',null);}
+  // Detail of one business already passed assertBusinessAccess, which lets only its responsible seller view it once archived (decision 1C).
+  if(user.role!=='admin'&&!(input.mode==='detail'&&input.accountId)){tasks=tasks.where('a.archivedAt','is',null);activities=activities.where('a.archivedAt','is',null);attention=attention.where('a.archivedAt','is',null);}
   if(responsible!=='all'){
    tasks=tasks.where('t.assignedUserEmail','=',responsible);
    activities=activities.where(eb=>eb.or([eb('t.actorEmail','=',responsible),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.id','=','t.taskId').where('crmTasks.assignedUserEmail','=',responsible)),eb('l.assignedUserEmail','=',responsible),eb.and([eb('t.leadId','is',null),eb('a.assignedUserEmail','=',responsible)])]));
