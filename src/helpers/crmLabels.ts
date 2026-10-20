@@ -17,7 +17,7 @@ export const channelLabels={phone:'Teléfono',call:'Llamada',whatsapp:'WhatsApp'
 export const channelLabel=(channel:string|null|undefined):string=>!channel?'Sin canal':has(channelLabels,channel)?channelLabels[channel]:channel;
 
 /** Communication response categories, worded like the canonical outcome list where they overlap (decision 3A). */
-export const responseCategoryLabels={interested:contactOutcomes.interested,information:'Pidió información',later:contactOutcomes.later,rejected:contactOutcomes.not_interested,not_now:'No puede ahora',operational:'Consulta operativa',do_not_contact:contactOutcomes.do_not_contact,other:'Otro'} as const;
+export const responseCategoryLabels={interested:contactOutcomes.interested,information:'Pidió información',later:contactOutcomes.later,rejected:contactOutcomes.not_interested,not_now:'No puede ahora',operational:'Consulta operativa',do_not_contact:contactOutcomes.do_not_contact,other:contactOutcomes.other} as const;
 /** Response category label (`information` → "Pidió información"); empty → "Sin clasificar"; unknown passes through. */
 export const responseCategoryLabel=(category:string|null|undefined):string=>!category?'Sin clasificar':has(responseCategoryLabels,category)?responseCategoryLabels[category]:category;
 

@@ -28,7 +28,7 @@ export async function get(request:Request){try{
  `.execute(db)).rows;
  const documents:ResourceDocument[]=[];
  for(const d of rows){try{
-  await documentFor(db,d.id,user);
+  await documentFor(db,d.id,user,false,true);
   const [versionsResult,linksResult]=await Promise.all([
    sql<ResourceVersion>`SELECT id,document_id,version,url,file_name,mime_type,byte_size,expires_on,actor_email,created_at
     FROM crm_document_versions WHERE document_id=${d.id}::uuid

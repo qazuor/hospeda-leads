@@ -104,6 +104,7 @@ export async function post(request:Request){
    const stateAccount=account as typeof account&{status:string;isClient:boolean;referredToLeandro:boolean;referredOriginalOwnerEmail:string|null};
    const referralRequested=p.action==='transition'&&!!typedLead.managementType&&p.stage===`${typedLead.managementType}:leandro`;
    await assertLeadAccess(trx,String(lead.id),user,!referralRequested);
+   if(referralRequested&&account.archivedAt&&user.role!=='admin')throw new Forbidden('Este negocio está archivado. Solo un administrador puede modificarlo.');
    if(lead.pipelineRevision!==p.revision)throw new Conflict('La gestión cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
    if(p.action==='objection_save'){
     const type=(await sql<PipelineCatalog>`SELECT * FROM crm_objection_types WHERE id=${p.typeId} FOR SHARE`.execute(trx)).rows[0];
