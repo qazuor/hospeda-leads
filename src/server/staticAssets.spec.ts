@@ -1,6 +1,9 @@
+// @vitest-environment node
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { AddressInfo } from "node:net";
+import { createAdaptorServer } from "@hono/node-server";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyAssetMiddleware, applyStaticFallback, isAssetLikePath } from "./staticAssets";
@@ -68,5 +71,49 @@ describe("applyAssetMiddleware + applyStaticFallback", () => {
     const download = await app.request("/_api/resources/download", { headers: { "Accept-Encoding": "gzip" } });
     expect(compressed.headers.get("Content-Encoding")).toBe("gzip");
     expect(download.headers.has("Content-Encoding")).toBe(false);
+  });
+});
+
+// Regression: through @hono/node-server, handlers return its lightweight Response.
+// Headers they mutate after construction (setServerSession's Set-Cookie) must survive compression.
+describe("applyAssetMiddleware behind @hono/node-server", () => {
+  const app = new Hono();
+  const server = createAdaptorServer({ fetch: app.fetch });
+  let origin = "";
+
+  beforeAll(async () => {
+    applyAssetMiddleware(app);
+    app.post("/_api/auth/login", () => {
+      const response = new Response(JSON.stringify({ user: { id: "u1" } }), { headers: { "Content-Type": "application/json" } });
+      response.headers.set("Set-Cookie", "session=abc; HttpOnly; Path=/");
+      return response;
+    });
+    app.get("/_api/big", () => {
+      const response = new Response(JSON.stringify({ payload: "x".repeat(4096) }), { headers: { "Content-Type": "application/json", "Cache-Control": "private" } });
+      response.headers.set("Set-Cookie", "session=rolled; HttpOnly; Path=/");
+      response.headers.set("Cache-Control", "no-store");
+      return response;
+    });
+    await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", () => resolveListen()));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
+  });
+
+  it("keeps a Set-Cookie added after construction on small JSON responses", async () => {
+    const response = await fetch(`${origin}/_api/auth/login`, { method: "POST", headers: { "Accept-Encoding": "gzip" } });
+    expect(response.status).toBe(200);
+    expect(response.headers.getSetCookie()).toEqual(["session=abc; HttpOnly; Path=/"]);
+    expect(await response.json()).toEqual({ user: { id: "u1" } });
+  });
+
+  it("keeps headers added or changed after construction on compressed JSON responses", async () => {
+    const response = await fetch(`${origin}/_api/big`, { headers: { "Accept-Encoding": "gzip" } });
+    expect(response.headers.get("Content-Encoding")).toBe("gzip");
+    expect(response.headers.getSetCookie()).toEqual(["session=rolled; HttpOnly; Path=/"]);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect((await response.json()).payload).toHaveLength(4096);
   });
 });

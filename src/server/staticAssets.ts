@@ -2,7 +2,7 @@ import { compress } from "hono/compress";
 import { readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { Hono, type MiddlewareHandler } from "hono";
+import { type Context, Hono, type MiddlewareHandler } from "hono";
 
 export function isAssetLikePath(path: string): boolean {
   const finalSegment = path.slice(path.lastIndexOf("/") + 1);
@@ -20,13 +20,30 @@ export const cacheHeadersMiddleware: MiddlewareHandler = async (c, next) => {
   }
 };
 
+/**
+ * @hono/node-server's lightweight Response keeps headers mutated after construction
+ * (e.g. setServerSession's Set-Cookie) only until its body is read. compress() reads the
+ * body to rebuild the response, which silently dropped those headers. Snapshot the live
+ * headers, force materialization, and write them back so compress() sees the real ones.
+ */
+function keepLateHeaderMutations(c: Context): void {
+  const live = new Headers(c.res.headers);
+  void c.res.body;
+  const target = c.res.headers;
+  for (const key of [...target.keys()]) target.delete(key);
+  for (const [key, value] of live) target.append(key, value);
+}
+
 // Register before the routes so compression and cache headers wrap them.
 export function applyAssetMiddleware(app: Hono): void {
   const compression = compress();
 
   app.use("*", async (c, next) => {
     if (c.req.path === "/_api/resources/download" || c.req.path === "/mcp" || c.req.path.startsWith("/mcp/")) return next();
-    return compression(c, next);
+    return compression(c, async () => {
+      await next();
+      keepLateHeaderMutations(c);
+    });
   });
   app.use("*", cacheHeadersMiddleware);
 }
