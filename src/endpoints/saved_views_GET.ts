@@ -3,6 +3,7 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { OutputType, SavedLeadView } from "./saved_views_GET.schema";
 import {identifySavedViews} from '../helpers/savedViewIdentity';
+import {errorResponse} from '../helpers/errorResponse';
 
 export async function handle(request:Request){
   try{
@@ -17,6 +18,6 @@ export async function handle(request:Request){
     }
     return new Response(superjson.stringify({views:identifySavedViews(views,user.id)} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudieron cargar las vistas"}),{status:400});
+    return errorResponse(error);
   }
 }

@@ -3,6 +3,7 @@ import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_trash_GET.schema";
+import {errorResponse} from '../helpers/errorResponse';
 
 export async function handle(request:Request){
   try{
@@ -22,6 +23,6 @@ export async function handle(request:Request){
     const out={rows,total:Number(count.count),page:input.page,pageSize:input.pageSize} satisfies OutputType;
     return new Response(superjson.stringify(out),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo cargar la papelera"}),{status:400});
+    return errorResponse(error);
   }
 }

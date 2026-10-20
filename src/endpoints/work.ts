@@ -2,7 +2,8 @@ import {searchSql,normalizeSearchSql} from "../helpers/searchSql";
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess,assertAccountReadable} from '../helpers/crmPermissions';
 import {purposeOutcomes} from '../helpers/workOutcomes';
 import type {WorkPurpose} from '../helpers/nextStep';
-import {crmError} from '../helpers/crmErrors';
+import {parseBody} from '../helpers/parseBody';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily} from '../helpers/accountIdentity';
 import superjson from 'superjson';
 import {sql} from 'kysely';
@@ -13,7 +14,7 @@ import {calendarDay,localDay} from '../helpers/workDates';
 import {workMutation,workQuery,followupSettings} from './work.schema';
 class Forbidden extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
 export async function get(request:Request){
@@ -109,7 +110,7 @@ export async function get(request:Request){
 export async function post(request:Request){
  try{
   const {user}=await getServerUserSession(request);
-  const input=workMutation.parse(superjson.parse(await request.text()));
+  const input=workMutation.parse(await parseBody(request));
   const id=await db.transaction().execute(async trx=>{
    await setWorkActor(trx,user);
    if(input.action==='followup_settings'){

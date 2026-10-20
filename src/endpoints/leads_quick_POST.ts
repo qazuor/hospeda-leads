@@ -7,13 +7,15 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_quick_POST.schema";
 import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 class InlineConflict extends Error {}
 
 export async function handle(request: Request) {
   try {
     const {user}=await getServerUserSession(request);
-    const input = schema.parse(superjson.parse(await request.text()));
+    const input = schema.parse(await parseBody(request));
     if(input.field==="assignedUserEmail"&&user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo un administrador puede modificar el responsable."}),{status:403});
     }
@@ -79,6 +81,6 @@ export async function handle(request: Request) {
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   } catch(error) {
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo actualizar"}),{status:error instanceof CrmForbidden?403:error instanceof InlineConflict?409:400});
+    return errorResponse(error,error instanceof CrmForbidden?403:error instanceof InlineConflict?409:400);
   }
 }

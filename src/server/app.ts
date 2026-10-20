@@ -9,9 +9,11 @@ import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
 import {get as businessImportGET,post as businessImportPOST} from '../endpoints/businessImport';
 import {request as passwordRecoveryRequest,reset as passwordRecoveryReset} from "../endpoints/auth/password_recovery";
 import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
-import { serveStatic } from "@hono/node-server/serve-static";
-import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
+import { applyAssetMiddleware, applyStaticFallback } from "./staticAssets";
+import { createHealthHandler, onError, requestContext } from "./observability";
+import { sql } from "kysely";
+import { db } from "../helpers/db";
 import { handle as h0 } from "../endpoints/analytics_GET";
 import { handle as h1 } from "../endpoints/auth/login_with_password_POST";
 import { handle as h2 } from "../endpoints/auth/logout_POST";
@@ -50,6 +52,9 @@ import { get as commercialGET, post as commercialPOST } from "../endpoints/comme
 import {get as workGET,post as workPOST} from "../endpoints/work";
 
 export const app=new Hono();
+app.use("*",requestContext);
+app.onError(onError);
+applyAssetMiddleware(app);
 // Mount only MCP paths; the normal CRM API and static routes keep their behavior.
 const mcp=mcpRoutes();
 for(const path of ['/mcp','/mcp/*','/.well-known/oauth-authorization-server','/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'])app.all(path,c=>mcp.fetch(c.req.raw));
@@ -73,7 +78,10 @@ app.post("/_api/work",c=>workPOST(c.req.raw));
 app.get("/_api/commercial", c=>commercialGET(c.req.raw));
 app.post("/_api/commercial", c=>commercialPOST(c.req.raw));
 
-app.get("/_api/health",(c)=>c.json({ok:true,service:"hospeda-leads"}));
+// /health and /health/live: process liveness only (used by CI, docker-compose and Coolify). /health/ready adds a DB round trip (select 1, 2 s timeout).
+app.get("/_api/health",createHealthHandler({}));
+app.get("/_api/health/live",createHealthHandler({}));
+app.get("/_api/health/ready",createHealthHandler({ping:()=>sql`select 1`.execute(db),cacheMs:2000}));
 app.get("/_api/analytics", (c) => h0(c.req.raw));
 app.post("/_api/auth/login_with_password", (c) => h1(c.req.raw));
 app.post("/_api/auth/logout", (c) => h2(c.req.raw));
@@ -112,13 +120,4 @@ app.post('/_api/business_reassignment',c=>businessReassignmentPOST(c.req.raw));
 app.get("/_api/settings", (c) => h22(c.req.raw));
 app.post("/_api/settings_save", (c) => h23(c.req.raw));
 
-app.use("/*",serveStatic({root:"./dist"}));
-app.notFound(async(c)=>{
-  if(c.req.path.startsWith("/_api/")) return c.json({error:"Endpoint not found"},404);
-  try{
-    const html=await readFile("./dist/index.html","utf8");
-    return c.html(html);
-  }catch{
-    return c.text("Not found",404);
-  }
-});
+applyStaticFallback(app,{distDir:"./dist"});

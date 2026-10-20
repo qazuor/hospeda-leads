@@ -5,6 +5,7 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { SettingsOutput } from "./settings_GET.schema";
 import {sql} from 'kysely';
 import { withDefaultMessageVariables } from "../helpers/messageVariables";
+import {errorResponse} from '../helpers/errorResponse';
 
 type StoredInvitation={userId:number;email:string;expiresAt:string};
 
@@ -65,6 +66,6 @@ export async function handle(request:Request){
     };
     return new Response(superjson.stringify(out),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo cargar configuración"}),{status:400});
+    return errorResponse(error);
   }
 }
