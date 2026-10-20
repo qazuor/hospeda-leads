@@ -99,6 +99,8 @@ export async function post(request:Request){
       if(input.action==="account_save"){
         const existing=input.id?await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.id).forUpdate().executeTakeFirstOrThrow():null;
         if(existing)assertAccountWritable(user,existing);
+        if(existing&&input.primaryContact)throw new Error("Las personas de un negocio existente se agregan desde su ficha.");
+        checkEmail(input.primaryContact?.email);
         checkResponsible(input.assignedUserEmail,existing?.assignedUserEmail??null);
         checkEmail(input.email,existing?.email);
         const extra=Object.fromEntries(accountExtraFields.filter(f=>input[f]!==undefined).map(f=>[f,nullable(input[f])]));
@@ -114,6 +116,10 @@ export async function post(request:Request){
         }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),existing?"account_updated":"account_created",existing,row);
+        if(input.primaryContact){// One-step creation: the person becomes Principal in the same transaction (a new business has no previous Principal).
+          const contact=await trx.insertInto("crmContacts").values({accountId:String(row.id),name:input.primaryContact.name,phone:nullable(input.primaryContact.phone),email:nullable(input.primaryContact.email),isPrimary:true,updatedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
+          await audit(String(row.id),"contact_created",null,contact,String(contact.id));
+        }
         return String(row.id);
       }
       // One account lock for all related mutations: prevents competing primary selections.

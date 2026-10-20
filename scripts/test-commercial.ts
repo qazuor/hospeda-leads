@@ -22,6 +22,7 @@ import {sql} from 'kysely';
 import {BUSINESS_PROJECTION_LEAD_COLUMNS,businessTableSource} from '../src/helpers/businessTable';
 import {calendarDay} from '../src/helpers/workDates';
 import type {CommercialDetail} from '../src/endpoints/commercial.schema';
+import {DNC_DUPLICATE_BLOCK} from '../src/helpers/duplicateWarning';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable test database');
 const suffix=Date.now();
 async function cookie(role:'admin'|'user'){
@@ -92,6 +93,37 @@ try{
     await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'});// non-DNC duplicates only warn
     await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',dncId).execute();
     assert.equal((await check({telefono:`03447${p6}`})).some(c=>c.id===dncId),false,'Trash is excluded');
+  }
+  {// U-18: one-step creation stores the person as Principal in the same transaction, never creates a management, and keeps the No contactar block
+    const quickName=`Alta rápida ${suffix}`,p6=String(suffix).slice(-6);
+    const quickId=await mutate({action:'account_save',nombre:quickName,ciudad:'Colón',telefono:`03446 ${p6}`,primaryContact:{name:'Ana del alta',phone:'3447 400222'}});
+    const quick=await detail(quickId);
+    assert.deepEqual(quick.contacts.map(c=>[c.name,c.phone,c.isPrimary]),[['Ana del alta','3447 400222',true]]);
+    assert.equal(quick.account.assignedUserEmail,user.email);
+    assert.equal(quick.opportunities.length,0,'Creating a business never creates a management');
+    assert.equal((await db.selectFrom('crmTasks').select('id').where('accountId','=',quickId).execute()).length,0,'Creating a business never creates a task');
+    const created=quick.journal.find(j=>j.action==='contact_created');
+    assert.equal(String(created?.contactId),String(quick.contacts[0].id),'The person creation is audited');
+    assert(quick.journal.some(j=>j.action==='account_created'));
+    await mutate({action:'account_save',id:quickId,nombre:quickName,ciudad:'Colón',telefono:`03446 ${p6}`,primaryContact:{name:'Luis'}},user.value,400);
+    assert.equal((await detail(quickId)).contacts.length,1,'Existing businesses add people through contact_save');
+    await mutate({action:'account_save',nombre:`Alta email ${suffix}`,primaryContact:{name:'Email malo',email:'no-es-email'}},user.value,400);
+    assert.equal((await db.selectFrom('crmAccounts').select('id').where('nombre','=',`Alta email ${suffix}`).execute()).length,0,'An invalid person email creates nothing');
+    // Atomicity: when the person insert fails, the business is rolled back too.
+    await sql`CREATE OR REPLACE FUNCTION u18_fail_contact() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN IF NEW.name='Falla del alta' THEN RAISE EXCEPTION 'forced contact failure'; END IF; RETURN NEW; END$$`.execute(db);
+    await sql`CREATE TRIGGER u18_fail_contact BEFORE INSERT ON crm_contacts FOR EACH ROW EXECUTE FUNCTION u18_fail_contact()`.execute(db);
+    try{
+      const failed=await post(request({action:'account_save',nombre:`Alta fallida ${suffix}`,primaryContact:{name:'Falla del alta'}}));
+      assert.notEqual(failed.status,200,await failed.text());
+      assert.equal((await db.selectFrom('crmAccounts').select('id').where('nombre','=',`Alta fallida ${suffix}`).execute()).length,0,'Business and person are one transaction');
+    }finally{await sql`DROP TRIGGER u18_fail_contact ON crm_contacts`.execute(db);await sql`DROP FUNCTION u18_fail_contact()`.execute(db);}
+    // A duplicate of a No contactar business is a 409 with the decision copy the dialog shows; nothing is created.
+    const dnc=await mutate({action:'account_save',nombre:`No contactar rápido ${suffix}`,ciudad:'Colón',telefono:`03445 ${p6}`,assignedUserEmail:admin.email},admin.value);
+    await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dnc).execute();
+    const blocked=await post(request({action:'account_save',nombre:`Otro alta ${suffix}`,telefono:`3445 ${p6}`,primaryContact:{name:'Persona bloqueada'}}));
+    assert.equal(blocked.status,409);assert.equal(superjson.parse<{error:string}>(await blocked.text()).error,DNC_DUPLICATE_BLOCK);
+    assert.equal((await db.selectFrom('crmContacts').select('id').where('name','=','Persona bloqueada').execute()).length,0);
+    await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','in',[dnc,quickId]).execute();
   }
   const ana=await mutate({action:'contact_save',accountId,name:'Ana',email:'ana@example.com',phone:'111',isPrimary:true});
   const luis=await mutate({action:'contact_save',accountId,name:'Luis',email:'luis@example.com',phone:'222',isPrimary:true});
