@@ -15,7 +15,7 @@ describe('businessSection',()=>{
   expect(businessSection('communication')).toBe('que-paso');
   expect(businessSection('summary')).toBe('datos');
  });
- it('opens Gestiones for missing, unknown or prototype values',()=>{
-  for(const value of [null,undefined,'','nada','constructor','__proto__','toString'])expect(businessSection(value)).toBe('gestiones');
+ it('opens Qué pasó for missing, unknown or prototype values',()=>{
+  for(const value of [null,undefined,'','nada','constructor','__proto__','toString'])expect(businessSection(value)).toBe('que-paso');
  });
 });

@@ -21,7 +21,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('link',{name:'Negocios',exact:true}).click();
   await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
   await page.getByRole('button',{name:'Negocio E2E',exact:true}).click();
-  await expect(page.getByRole('tab',{name:'Gestiones (0)',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(page.getByRole('tab',{name:'Qué pasó',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(page.getByRole('tablist',{name:'Secciones del negocio'}).getByRole('tab')).toHaveText(['Qué pasó','Gestiones (0)','Personas (0)','Datos y documentos']);
   await page.getByRole('tab',{name:'Personas (0)',exact:true}).click();
   for(const person of ['Ana','Luis']){

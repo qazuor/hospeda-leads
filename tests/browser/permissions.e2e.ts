@@ -7,7 +7,8 @@ test('seller can read a colleague business without editing or administrative con
   const path=new URL(route.request().url()).pathname;
   const data=path.endsWith('/auth/session')?{user:{id:3,email:'viewer@example.com',displayName:'Viewer',fullName:null,avatarUrl:null,role:'user'}}:
    path.endsWith('/commercial')?(new URL(route.request().url()).searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{id:'101',nombre:'Negocio compartido',assignedUserEmail:'owner@example.com',archivedAt:null,mergedIntoId:null,commercialStatus:'prospect',email:'business@example.com'},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Responsable'}]}):
-   path.endsWith('/work')?{tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}}:
+   path.endsWith('/work')?{tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],contacts:[],journal:[],totalTasks:0,totalActivities:0,page:1,followup:{stages:[],newAssignmentDays:7}}:
+   path.endsWith('/communication')?{recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72}:
    path.endsWith('/pipeline')?{stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]}:
    path.endsWith('/resources')?{documents:[],categories:[],maxDocumentBytes:2097152}:{};
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});

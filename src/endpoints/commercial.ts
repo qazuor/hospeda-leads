@@ -41,7 +41,7 @@ export async function get(request:Request){
       const visibleAccount=await db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow();
       assertAccountViewable(user,visibleAccount);
       const family=await accountFamily(db,accountId);
-      if(input.historyPage)return response(await businessHistory(family,input.historyPage));
+      if(input.historyPage)return response(await businessHistory(family,input.historyPage,input.historyKind));
       const [account,contacts,opportunities,journal,leadJournal,managementJournal,stages]=await Promise.all([
         db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow(),
         db.selectFrom("crmContacts").selectAll().where("deletedAt","is",null).where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
