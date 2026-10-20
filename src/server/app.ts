@@ -11,6 +11,7 @@ import {request as passwordRecoveryRequest,reset as passwordRecoveryReset} from 
 import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
 import { Hono } from "hono";
 import { applyAssetMiddleware, applyStaticFallback } from "./staticAssets";
+import { applyBodyLimit } from "./bodyLimit";
 import { createHealthHandler, onError, requestContext } from "./observability";
 import { sql } from "kysely";
 import { db } from "../helpers/db";
@@ -55,6 +56,7 @@ export const app=new Hono();
 app.use("*",requestContext);
 app.onError(onError);
 applyAssetMiddleware(app);
+applyBodyLimit(app);
 // Mount only MCP paths; the normal CRM API and static routes keep their behavior.
 const mcp=mcpRoutes();
 for(const path of ['/mcp','/mcp/*','/.well-known/oauth-authorization-server','/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'])app.all(path,c=>mcp.fetch(c.req.raw));
