@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import superjson from 'superjson';
+import {apiJson,postJson,LONG_TIMEOUT_MS} from '../helpers/apiClient';
 const id=z.string().regex(/^[1-9]\d*$/),uuid=z.string().uuid(),channel=z.enum(['email','whatsapp','call','social','other']);
 const context={accountId:id,leadId:id.nullable()};
 export const communicationMutation=z.discriminatedUnion('action',[
@@ -21,5 +21,5 @@ export type CommunicationMutation=z.infer<typeof communicationMutation>;
 export type Message={id:string;accountId:string;leadId:string|null;contactId:string|null;channel:'email'|'whatsapp'|'call'|'social'|'other';recipient:string;recipientName:string;subject:string;body:string;htmlBody:string|null;textBody:string|null;templateSnapshot:any;ownerEmail:string;activityId:string|null;outboxId:string|null;taskId:string|null;status:string;revision:number;lastInteractionAt:Date|null;lastActorEmail:string|null;createdAt:Date;updatedAt:Date;purpose?:string|null;otherPurpose?:string|null;destinationDetail?:string|null;contentHash?:string|null;summary?:string|null;completedAt?:Date|null;completedByEmail?:string|null};
 export type PreparedMessage=Message&{channel:'email'|'whatsapp'};
 export type CommunicationDetail={messages:Message[];recentMessages:Message[];restrictions:any[];responses:any[];openManagements:{id:string|number;opportunityName:string|null;managementType:string|null;estado:string|null;assignedUserEmail:string|null;classification:string;canClose:boolean}[];recentContactHours:number;webhookConfigured:boolean};
-export async function postCommunication(body:CommunicationMutation):Promise<any>{const r=await fetch('/_api/communication',{method:'POST',headers:{'Content-Type':'application/json'},body:superjson.stringify(communicationMutation.parse(body))});const d=superjson.parse<any>(await r.text());if(!r.ok)throw new Error(d.error);return d;}
-export async function getCommunication(leadId:string,accountId?:string):Promise<CommunicationDetail>{const r=await fetch('/_api/communication?'+(accountId?'accountId='+accountId:'leadId='+leadId));const d=superjson.parse<any>(await r.text());if(!r.ok)throw new Error(d.error);return d;}
+export async function postCommunication(body:CommunicationMutation):Promise<any>{return postJson<any>('/_api/communication',communicationMutation.parse(body),{timeoutMs:LONG_TIMEOUT_MS});}
+export async function getCommunication(leadId:string,accountId?:string):Promise<CommunicationDetail>{return apiJson<any>('/_api/communication?'+(accountId?'accountId='+accountId:'leadId='+leadId));}

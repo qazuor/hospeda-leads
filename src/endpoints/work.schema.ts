@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import superjson from 'superjson';
+import {apiJson,postJson} from '../helpers/apiClient';
 const id=z.string().regex(/^\d+$/);
 export const day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,'Fecha inválida');
 const instant=z.string().datetime({offset:true});
@@ -38,10 +38,10 @@ export interface WorkData {
 }
 export async function getWork(params:Record<string,string|undefined>={}):Promise<WorkData>{
  const search=new URLSearchParams(Object.entries(params).filter((x):x is [string,string]=>x[1]!==undefined));
- const r=await fetch('/_api/work?'+search);const value=superjson.parse<WorkData&{error?:string}>(await r.text());if(!r.ok)throw new Error(value.error);return value;
+ return apiJson<WorkData&{error?:string}>('/_api/work?'+search);
 }
-export async function postWork(body:WorkMutation){const r=await fetch('/_api/work',{method:'POST',headers:{'Content-Type':'application/json'},body:superjson.stringify(workMutation.parse(body))});const value=superjson.parse<{id:string;error?:string}>(await r.text());if(!r.ok)throw new Error(value.error);return value;}
+export async function postWork(body:WorkMutation){return postJson<{id:string;error?:string}>('/_api/work',workMutation.parse(body));}
 export async function getWorkDuplicates(params:{accountId:string;leadId?:string;title:string;typeId:string;date:string;excludeTaskId?:string;responsible?:string}):Promise<{tasks:WorkTask[];total:number}>{
  const search=new URLSearchParams({mode:'duplicates',accountId:params.accountId,duplicateTitle:params.title,duplicateType:params.typeId,from:params.date,to:params.date,...(params.leadId?{leadId:params.leadId}:{}),...(params.excludeTaskId?{excludeTaskId:params.excludeTaskId}:{}),...(params.responsible?{responsible:params.responsible}:{})});
- const r=await fetch('/_api/work?'+search);const value=superjson.parse<{tasks:WorkTask[];total:number;error?:string}>(await r.text());if(!r.ok)throw new Error(value.error);return value;
+ return apiJson<{tasks:WorkTask[];total:number;error?:string}>('/_api/work?'+search);
 }

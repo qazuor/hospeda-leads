@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {apiJson} from "../helpers/apiClient";
 
 export const schema=z.object({
   accountId:z.string().regex(/^[1-9]\d*$/).optional(),
@@ -13,7 +13,5 @@ export type OutputType={rows:JournalItem[];total:number;page:number;pageSize:num
 export const getLeadJournal=async(input:z.input<typeof schema>):Promise<OutputType>=>{
   const p=schema.parse(input);const qs=new URLSearchParams();
   Object.entries(p).forEach(([k,v])=>{if(v!==undefined&&v!=="")qs.set(k,String(v))});
-  const r=await fetch("/_api/lead_journal?"+qs.toString());
-  if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
-  return superjson.parse<OutputType>(await r.text());
+  return apiJson<OutputType>("/_api/lead_journal?"+qs.toString());
 };

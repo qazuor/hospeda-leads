@@ -6,12 +6,15 @@ import { ScrollToHashElement } from "./ScrollToHashElement";
 import { AuthProvider } from "../helpers/useAuth";
 import { LiveModeProvider } from "../helpers/liveMode";
 import { CrmThemeProvider } from './ui/CrmThemeProvider';
+import { shouldRetryQuery } from "../helpers/apiClient";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60 * 1000, // 1 minute “fresh” window
+      retry: shouldRetryQuery, // never repeat 400/401/403/404/409; once when offline (status 0); at most 2 otherwise
     },
+    mutations: { retry: false }, // uncertain sends are never repeated automatically
   },
 });
 

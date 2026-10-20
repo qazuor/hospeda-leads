@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {apiJson,postJson} from "../helpers/apiClient";
 import type { Selectable } from "kysely";
 import type { CrmAccounts, CrmContacts, CrmCommercialJournal, Leads, LeadJournal } from "../helpers/schema";
 import {managementTypes,type ManagementType} from '../helpers/businessManagement';
@@ -32,10 +32,8 @@ export type Opportunity=Selectable<Leads>&{managementType:ManagementType|null;re
 export type CommercialDetail={account:Account;contacts:Contact[];opportunities:Opportunity[];journal:Selectable<CrmCommercialJournal>[];leadJournal:Selectable<LeadJournal>[];managementJournal?:{id:string;leadId:string;action:string;actorEmail:string|null;actorName:string;oldStage:string|null;newStage:string|null;comment:string|null;metadata:unknown;createdAt:Date|string}[];stages:string[];users?:{email:string;displayName:string}[]};
 export type CommercialList={rows:(Account&{opportunityCount:number;contactCount:number})[];total:number;page:number};
 export async function commercialRequest<T>(path:string,body?:unknown):Promise<T>{
-  const r=await fetch("/_api/"+path,body===undefined?undefined:{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(body)});
-  const data=superjson.parse<T&{error?:string}>(await r.text());
-  if(!r.ok)throw new Error(data.error||"No se pudo completar la operación comercial");
-  return data;
+  const options={fallback:"No se pudo completar la operación comercial"};
+  return body===undefined?apiJson<T>("/_api/"+path,{},options):postJson<T>("/_api/"+path,body,options);
 }
 export const getCommercialDetail=(accountId?:string,leadId?:string)=>commercialRequest<CommercialDetail>("commercial?"+new URLSearchParams(accountId?{accountId}:{leadId:leadId!}));
 export const getCommercialList=(q:string,status:string,page:number)=>commercialRequest<CommercialList>("commercial?"+new URLSearchParams({q,...(status?{status}:{}),page:String(page)}));
