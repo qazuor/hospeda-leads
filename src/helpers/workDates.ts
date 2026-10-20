@@ -27,3 +27,11 @@ export function taskBucket(dueDate:string,dueAt:Date|string|null,now=new Date())
  return dueDate===today?'today':'upcoming';
 }
 export function prettyInstant(value:Date|string){return new Date(value).toLocaleString('es-AR',{timeZone:CRM_TIME_ZONE,dateStyle:'medium',timeStyle:'short',hourCycle:'h23'});}
+
+const addDays=(day:string,n:number)=>{const d=new Date(`${day}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+/** Quick due-date choices as Argentina calendar days. `nextMonday` is always after today (Sunday gives the next day). */
+export function shortcutDates(now:Date=new Date()):{tomorrow:string;in3:string;nextMonday:string;in7:string} {
+ const today=localDay(now);
+ const weekday=new Date(`${today}T12:00:00Z`).getUTCDay();
+ return {tomorrow:addDays(today,1),in3:addDays(today,3),nextMonday:addDays(today,((8-weekday)%7)||7),in7:addDays(today,7)};
+}

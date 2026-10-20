@@ -67,7 +67,7 @@ import { nextActionInfo, dateOnlyInput, toDateInput } from "../helpers/crmDates"
 import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
-import {QUERY_KEY, PRIORITY_OPTIONS, PROFILE_OPTIONS, CONTACT_OPTIONS, TEXT_FILTER_FIELDS, TextFilterField, DATE_FILTER_FIELDS, DateFilterField, TEXT_FILTER_LABELS, DATE_FILTER_LABELS, createTextFilters, createDateFilters, SortBy, TABLE_COLUMNS, DEFAULT_COLUMNS, DEFAULT_WIDTHS, TABLE_QUERY_STORAGE_KEY, TABLE_FILTERS_STORAGE_KEY, TABLE_SORT_STORAGE_KEY, readStoredQuery, readStoredFilterGroups, readStoredSort, emptyForm, str, dateInput, displayDate, isUrl} from "../helpers/leadsTableModel";
+import {QUERY_KEY, PRIORITY_OPTIONS, PROFILE_OPTIONS, CONTACT_OPTIONS, TEXT_FILTER_FIELDS, TextFilterField, DATE_FILTER_FIELDS, DateFilterField, TEXT_FILTER_LABELS, DATE_FILTER_LABELS, createTextFilters, createDateFilters, SortBy, TABLE_COLUMNS, DEFAULT_COLUMNS, DEFAULT_WIDTHS, TABLE_QUERY_STORAGE_KEY, TABLE_FILTERS_STORAGE_KEY, TABLE_SORT_STORAGE_KEY, readStoredQuery, readStoredFilterGroups, readStoredSort, emptyForm, str, dateInput, displayCalendarDate,displayDate, isUrl} from "../helpers/leadsTableModel";
 
 import {HeaderMenu} from "../components/LeadsTableHeader";
 
@@ -614,7 +614,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     if(key==="nombre"&&businessMode)return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"gestión":"gestiones"}</small></UnstyledButton>;
     if(businessMode&&!["contactName","fechaProximaAccion","fechaUltimoContacto","id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
-      const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayDate(v):v).join(" · ");
+      const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayCalendarDate(v):v).join(" · ");
       return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la gestión"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver gestiones":"Agregar gestión"}</small></UnstyledButton>;
     }
     if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></UnstyledButton>;
