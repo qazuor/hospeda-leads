@@ -39,8 +39,8 @@ try{
   const otherId=await mutate({action:'account_save',nombre:`Other ${suffix}`});
   await mutate({action:'account_save',id:accountId,nombre:'Forbidden',assignedUserEmail:user.email},user.value,403);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com'},user.value,403);
-  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com',assignedUserEmail:user.email},admin.value);
-  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com'});
+  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com',assignedUserEmail:user.email},admin.value);
+  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com'});
   assert.equal((await detail(accountId)).account.assignedUserEmail,user.email);
   const ana=await mutate({action:'contact_save',accountId,name:'Ana',email:'ana@example.com',phone:'111',isPrimary:true});
   const luis=await mutate({action:'contact_save',accountId,name:'Luis',email:'luis@example.com',phone:'222',isPrimary:true});
