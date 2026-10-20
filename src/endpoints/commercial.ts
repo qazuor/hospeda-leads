@@ -2,7 +2,7 @@ import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
-import {findNewDncBlocker,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
+import {findNewDncBlocker,findDncPersonPhoneBlocker,findNewDncPersonPhoneBlocker,DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {parseBody} from '../helpers/parseBody';
@@ -99,6 +99,8 @@ export async function post(request:Request){
       if(input.action==="account_save"){
         const existing=input.id?await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.id).forUpdate().executeTakeFirstOrThrow():null;
         if(existing)assertAccountWritable(user,existing);
+        if(existing&&input.primaryContact)throw new Error("Las personas de un negocio existente se agregan desde su ficha.");
+        checkEmail(input.primaryContact?.email);
         checkResponsible(input.assignedUserEmail,existing?.assignedUserEmail??null);
         checkEmail(input.email,existing?.email);
         const extra=Object.fromEntries(accountExtraFields.filter(f=>input[f]!==undefined).map(f=>[f,nullable(input[f])]));
@@ -111,9 +113,14 @@ export async function post(request:Request){
         {
           const after={nombre:input.nombre,ciudad:fields.ciudad,telefono:fields.telefono,email:fields.email,whatsapp:input.whatsapp===undefined?existing?.whatsapp:nullable(input.whatsapp)};
           if(await findNewDncBlocker(trx,{after,before:existing??undefined,excludeId:existing?String(existing.id):undefined}))throw new Conflict(DNC_DUPLICATE_MESSAGE);
+          if(input.primaryContact&&await findDncPersonPhoneBlocker(trx,input.primaryContact.phone))throw new Conflict(DNC_DUPLICATE_MESSAGE);
         }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),existing?"account_updated":"account_created",existing,row);
+        if(input.primaryContact){// One-step creation: the person becomes Principal in the same transaction (a new business has no previous Principal).
+          const contact=await trx.insertInto("crmContacts").values({accountId:String(row.id),name:input.primaryContact.name,phone:nullable(input.primaryContact.phone),email:nullable(input.primaryContact.email),isPrimary:true,updatedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
+          await audit(String(row.id),"contact_created",null,contact,String(contact.id));
+        }
         return String(row.id);
       }
       // One account lock for all related mutations: prevents competing primary selections.
@@ -166,6 +173,8 @@ export async function post(request:Request){
       if(input.action==="contact_save"){
         const old=input.id?await trx.selectFrom("crmContacts").selectAll().where("id","=",input.id).where("accountId","=",input.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow():null;
         checkEmail(input.email,old?.email);
+        // A person's phone exactly shared with a No contactar business blocks (decision 1C), unless the previous phone already matched it; the own business never does.
+        if(await findNewDncPersonPhoneBlocker(trx,{after:input.phone,before:old?.phone,excludeId:input.accountId}))throw new Conflict(DNC_PERSON_PHONE_MESSAGE);
         if(input.isPrimary){
           const previous=await trx.selectFrom("crmContacts").selectAll().where("accountId","=",input.accountId).where("isPrimary","=",true).where("deletedAt","is",null).execute();
           await trx.updateTable("crmContacts").set({isPrimary:false,updatedAt:new Date()}).where("accountId","=",input.accountId).where("isPrimary","=",true).execute();

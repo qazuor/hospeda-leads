@@ -2,7 +2,7 @@ import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import {CommunicationPanel} from './CommunicationPanel';
 import {ResourcesPanel} from './ResourcesPanel';
-import {PipelineDetail} from "./Pipeline";
+import {PipelineDetail,StageBadgeButton} from "./Pipeline";
 import {WorkPanel} from "./WorkPanel";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
 import { CommercialPanel } from "./CommercialPanel";
@@ -14,7 +14,6 @@ import {
   MessageCircle, MoreHorizontal, Pencil, Phone, Plus, ShieldCheck, StickyNote, Trash2, X
 } from "lucide-react";
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from "./DropdownMenu";
-import { Badge } from "./Badge";
 import { Button } from "./Button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./Dialog";
 import { Skeleton } from "./Skeleton";
@@ -25,6 +24,8 @@ import { postLeadNote } from "../endpoints/lead_notes_POST.schema";
 import { getLeadJournal } from "../endpoints/lead_journal_GET.schema";
 import { formatDate, journalValue, nextActionInfo } from "../helpers/crmDates";
 import {managementLabel} from '../helpers/businessManagement';
+import {actorLabel,userLabel} from '../helpers/crmLabels';
+import {managementDisplayName} from '../content/vocabulary';
 import styles from "./LeadDetailDialog.module.css";
 
 const text=(v:unknown)=>v==null||v===""?"—":String(v);
@@ -117,7 +118,6 @@ export const LeadDetailDialog=({
   });
 
   if(!lead)return null;
-  const assignedUser=users?.find(user=>user.email===lead.assignedUserEmail);
   const preferred=String(lead.medioContactoPreferido??"").toLowerCase();
   const whatsappPrimary=preferred.includes("whats");
   const emailPrimary=preferred==="email";
@@ -129,11 +129,11 @@ export const LeadDetailDialog=({
         <div className={styles.identityRow}>
           <div className={styles.identity}>
             <div className={styles.titleLine}>
-              <DialogTitle className={styles.title}>{lead.opportunityName||"Gestión comercial inicial"}</DialogTitle>
+              <DialogTitle className={styles.title}>{managementDisplayName(lead)}</DialogTitle>
               <div className={styles.titleBadges}>
                 {lead.tipo&&<ValueBadge value={lead.tipo} category="vertical"/>}
                 {lead.subtipo&&<ValueBadge value={lead.subtipo} category="subtype"/>}
-                {lead.estado?<ValueBadge value={lead.managementType?managementLabel(lead.managementType,lead.estado):lead.estado} category="status"/>:<Badge variant="outline">Sin estado</Badge>}
+                <StageBadgeButton lead={lead} readOnly={readOnly}/>
               </div>
             </div>
             <div className={styles.metaLine}>
@@ -151,7 +151,7 @@ export const LeadDetailDialog=({
         <div className={styles.actionBar}>
           {lead.urlGmap&&<Button size="sm" variant="outline" asChild><a href={lead.urlGmap} target="_blank" rel="noreferrer"><MapPin size={15}/>Mapa</a></Button>}
           <div className={styles.actionSpacer}/>
-          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} title="Gestión anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} title="Gestión siguiente"><ChevronRight size={16}/></Button></div>}
+          {position&&<div className={styles.leadNavigation}><Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!onPrevious} disabledReason="Es la primera gestión de la lista." title="Gestión anterior"><ChevronLeft size={16}/></Button><span>{position.current} de {position.total}</span><Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!onNext} disabledReason="Es la última gestión de la lista." title="Gestión siguiente"><ChevronRight size={16}/></Button></div>}
           {!readOnly&&onDelete&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="outline" aria-label="Más acciones de la gestión"><MoreHorizontal size={16}/>Más acciones</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={()=>onDelete(lead)}><Trash2 size={15}/>Enviar gestión a papelera</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
           {!page&&<Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>}
           {!readOnly&&onEdit&&<Button size="sm" variant="outline" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar datos de gestión</Button>}
@@ -165,7 +165,7 @@ export const LeadDetailDialog=({
         <Disclosure className={styles.section}><DisclosureSummary>Responsable y datos generales</DisclosureSummary><div className={styles.summaryGrid}>
           <SummaryItem icon={ContactRound} label="Canal del negocio" value={lead.email||lead.telefono||"Sin datos"}/>
           <SummaryItem icon={MapPin} label="Ciudad" value={lead.ciudad||"Sin ciudad"}/>
-          <SummaryItem icon={ShieldCheck} label="Responsable" value={assignedUser?.displayName||lead.assignedUserEmail||lead.asignadoA||"Sin asignar"}/>
+          <SummaryItem icon={ShieldCheck} label="Responsable" value={lead.assignedUserEmail?userLabel(users,lead.assignedUserEmail):lead.asignadoA||"Sin asignar"}/>
           <SummaryItem icon={CalendarClock} label="Próxima acción" value={<span className={styles["next_"+nextActionInfo(lead.fechaProximaAccion).tone]} title={nextActionInfo(lead.fechaProximaAccion).title}>{nextActionInfo(lead.fechaProximaAccion).label}</span>}/>
         </div></Disclosure>
 
@@ -209,12 +209,12 @@ export const LeadDetailDialog=({
             <SectionTitle icon={ShieldCheck} title="Gestión interna" description="Asignación, autoría y auditoría del registro."/>
             <div className={styles.fieldGrid}>
               <Field label="Responsable" value={lead.assignedUserEmail
-                ? <ValueBadge value={assignedUser?.displayName||lead.assignedUserEmail} category="person"/>
+                ? <ValueBadge value={userLabel(users,lead.assignedUserEmail)} category="person"/>
                 : lead.asignadoA
                   ? <ValueBadge value={lead.asignadoA} category="person"/>
                   : "—"}/>
               <Field label="Quién cargó" value={lead.quienCargo?<ValueBadge value={lead.quienCargo} category="person"/>:"—"}/>
-              <Field label="Creado por" value={text(lead.creadoPor)}/>
+              <Field label="Creado por" value={lead.creadoPor?actorLabel(lead.creadoPor,users):"—"}/>
               <Field label="Creado en sistema" value={dateTime(lead.createdAt)}/>
               <Field label="Última actualización" value={dateTime(lead.updatedAt)}/>
               <Field label="Archivo adjunto" value={text(lead.archivoAdjunto)} full/>
@@ -240,8 +240,7 @@ export const LeadDetailDialog=({
             <SectionTitle icon={Trash2} title="Papelera" description="Información del borrado reversible."/>
             <div className={styles.fieldGrid}>
               <Field label="Eliminado" value={date(lead.deletedAt)}/>
-              <Field label="Eliminado por" value={text(lead.deletedByName)}/>
-              <Field label="Email del usuario" value={text(lead.deletedByEmail)} full/>
+              <Field label="Eliminado por" value={lead.deletedByEmail?actorLabel(lead.deletedByEmail,users):text(lead.deletedByName)}/>
             </div>
           </section>}
 
@@ -254,7 +253,7 @@ export const LeadDetailDialog=({
             <SectionTitle icon={StickyNote} title="Notas" description="Contexto comercial y observaciones del equipo."/>
             {!readOnly&&<div className={styles.newNote}>
               <Textarea rows={3} value={note} onChange={e=>setNote(e.target.value)} placeholder="Agregar una nueva nota…"/>
-              <Button onClick={()=>noteM.mutate({leadId:String(lead.id),note})} disabled={!note.trim()||noteM.isPending} disabledReason={(noteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}><Plus size={16}/>Agregar nota</Button>
+              <Button onClick={()=>noteM.mutate({leadId:String(lead.id),note})} disabled={!note.trim()||noteM.isPending} disabledReason={noteM.isPending?"Estamos guardando la nota. Esperá un momento.":"Escribí la nota para poder agregarla."}><Plus size={16}/>Agregar nota</Button>
             </div>}
             {notesQ.isLoading?<Skeleton className={styles.notesLoading}/>:<div className={styles.timeline}>
               {(notesQ.data?.notes??[]).length===0?<p className={styles.emptyState}>Sin notas todavía.</p>:(notesQ.data?.notes??[]).map(n=><article key={n.id}>
@@ -273,7 +272,7 @@ export const LeadDetailDialog=({
                   <div className={styles.journalSummary}>
                     <span className={styles.journalAction}>{actionLabel[entry.action]??entry.action}</span>
                     {entry.fieldName&&<strong>{fieldLabel[entry.fieldName]??entry.fieldName}</strong>}
-                    <span className={styles.journalActor}>{entry.actorName}{entry.actorEmail?" · "+entry.actorEmail:""}</span>
+                    <span className={styles.journalActor}>{actorLabel(entry.actorEmail||entry.actorName,users)}</span>
                   </div>
                   <time>{dateTime(entry.createdAt)}</time>
                 </div>

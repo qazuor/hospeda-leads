@@ -132,7 +132,9 @@ export async function post(request:Request){
     if(!chosen)throw new Error('Elegí una etapa disponible.');
     const current=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${lead.estado}`.execute(trx)).rows[0];
     if(typed&&chosen.managementType!==typed)throw new Error('La etapa no pertenece a este tipo de gestión.');
-    if(typed&&current?.classification!=='open'&&(chosen.classification!=='open'||user.role!=='admin'))throw new Forbidden('Solo un administrador puede reabrir una gestión cerrada; elegí una etapa abierta.');
+    // A closed typed management only reopens (to an open stage) and only by an admin; each case has its own message (report item 1.10).
+    if(typed&&current?.classification!=='open'&&user.role!=='admin')throw new Forbidden('Solo un administrador puede reabrir una gestión cerrada.');
+    if(typed&&current?.classification!=='open'&&chosen.classification!=='open')throw new Error('Elegí una etapa disponible.');
     if(typed&&p.recontactDate&&chosen.classification==='open')throw new Error('La fecha de recontacto solo se registra al cerrar la gestión.');
     if(typed&&p.onboarding)throw new Error('El acompañamiento de ficha se inicia como una gestión independiente.');
     if((p.convertClient||p.onboarding||p.closing)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una gestión ganada.');

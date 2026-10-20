@@ -8,11 +8,12 @@ import {errorResponse} from '../helpers/errorResponse';
 import {normalizeSearchSql} from '../helpers/searchSql';
 import {matchAccounts,phoneSignificantKeys,strictComparisonName} from '../helpers/dataNormalization';
 import {assertAccountReadable} from '../helpers/crmPermissions';
-import type {DuplicateCandidate} from './business_duplicate_check.schema';
+import {DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE,type DuplicateCandidate} from './business_duplicate_check.schema';
+export {DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE};
 
 const text=z.string().trim().max(200).optional();
-const querySchema=z.object({nombre:text,ciudad:text,telefono:text,email:text,whatsapp:text});
-type Input=z.infer<typeof querySchema>;
+const querySchema=z.object({nombre:text,ciudad:text,telefono:text,email:text,whatsapp:text,personPhone:text});
+type Input=Omit<z.infer<typeof querySchema>,'personPhone'>;
 type Executor=Kysely<DB>|Transaction<DB>;
 
 /** Existing businesses (archived and No contactar included; trash and merged excluded) that look like `input`: SQL prefilter, then `matchAccounts` with the ñ-preserving name rule. No contactar first so they survive the limit. */
@@ -47,7 +48,6 @@ export const isBlockingMatch=(m:{kind:string;reasons:string[]})=>m.kind==='dupli
 
 type Values={nombre?:string|null;ciudad?:string|null;telefono?:string|null;email?:string|null;whatsapp?:string|null};
 const pick=(v:Values):Input=>({nombre:v.nombre??undefined,ciudad:v.ciudad??undefined,telefono:v.telefono??undefined,email:v.email??undefined,whatsapp:v.whatsapp??undefined});
-export const DNC_DUPLICATE_MESSAGE='Ese negocio pidió no ser contactado. Consultá con un administrador.';
 /** First No contactar business that `after` newly duplicates, or null. On edits (`before` given) only identity fields that changed count, and a business the record already matched before the change does not block. */
 export async function findNewDncBlocker(executor:Executor,{after,before,excludeId}:{after:Values;before?:Values;excludeId?:string}){
  const keys=['nombre','ciudad','telefono','email','whatsapp'] as const;
@@ -57,16 +57,37 @@ export async function findNewDncBlocker(executor:Executor,{after,before,excludeI
  return (await blockers(after)).find(f=>!previous.has(String(f.account.id)))?.account??null;
 }
 
+const personReasons:Record<string,string>={'Teléfono compartido':'Teléfono de la persona compartido','Teléfono parecido':'Teléfono de la persona parecido'};
+/** Businesses whose phone matches a person's phone (No contactar first). Only an exactly shared phone (national key) blocks. */
+export async function findPersonPhoneMatches(executor:Executor,phone:string|null|undefined,options:{excludeId?:string}={}){
+ if(!phone?.trim())return [];
+ return (await findDuplicateAccounts(executor,{telefono:phone},options)).map(f=>({...f,blocking:f.account.doNotContact&&f.match.reasons.includes('Teléfono compartido'),match:{...f.match,reasons:f.match.reasons.map(r=>personReasons[r]??r)}}));
+}
+/** First No contactar business whose phone is exactly the person's phone, or null. */
+export const findDncPersonPhoneBlocker=async(executor:Executor,phone:string|null|undefined,options:{excludeId?:string}={})=>(await findPersonPhoneMatches(executor,phone,options)).find(f=>f.blocking)?.account??null;
+/** Like `findNewDncBlocker` for a person's phone: only a No contactar business the new phone blocks on and the previous phone did not. */
+export async function findNewDncPersonPhoneBlocker(executor:Executor,{after,before,excludeId}:{after:string|null|undefined;before?:string|null;excludeId?:string}){
+ const ids=async(phone:string|null|undefined)=>new Set((await findPersonPhoneMatches(executor,phone,{excludeId})).filter(f=>f.blocking).map(f=>String(f.account.id)));
+ const previous=await ids(before),next=await findPersonPhoneMatches(executor,after,{excludeId});
+ return next.find(f=>f.blocking&&!previous.has(String(f.account.id)))?.account??null;
+}
+
 /** GET /_api/business/duplicate-check: any authenticated user. Exposes only id, name, city, archived/No contactar flags and the match reasons; status and the responsible's display name (never email) only for businesses the caller can open. */
 export async function handle(request:Request){try{
  const {user}=await getServerUserSession(request);
  const input=querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
- const found=await findDuplicateAccounts(db,input);
+ const {personPhone,...business}=input;
+ const merged=new Map<string,{match:{id:string;reasons:string[]};account:Awaited<ReturnType<typeof findDuplicateAccounts>>[number]['account'];blocking:boolean}>();
+ for(const f of [...(await findDuplicateAccounts(db,business)).map(f=>({...f,blocking:f.account.doNotContact&&isBlockingMatch(f.match)})),...await findPersonPhoneMatches(db,personPhone)]){
+  const previous=merged.get(f.match.id);
+  merged.set(f.match.id,previous?{...previous,blocking:previous.blocking||f.blocking,match:{...previous.match,reasons:[...new Set([...previous.match.reasons,...f.match.reasons])]}}:f);
+ }
+ const found=[...merged.values()].sort((a,b)=>Number(b.account.doNotContact)-Number(a.account.doNotContact));
  const names=new Map((await db.selectFrom('users').select(['email','displayName']).where('email','in',[...new Set(found.flatMap(f=>f.account.assignedUserEmail?[f.account.assignedUserEmail]:[]))].concat('')).execute()).map(u=>[u.email,u.displayName]));
- const candidates:DuplicateCandidate[]=found.map(({match,account})=>{
+ const candidates:DuplicateCandidate[]=found.map(({match,account,blocking})=>{
   let canOpen=true;try{assertAccountReadable(user,account);}catch{canOpen=false;}
   const status=(account as typeof account&{status?:string|null}).status??null;
-  return {id:match.id,nombre:account.nombre,ciudad:account.ciudad,doNotContact:account.doNotContact,archived:!!account.archivedAt,deleted:false,...(canOpen?{status,responsibleName:account.assignedUserEmail?names.get(account.assignedUserEmail)??null:null}:{}),reasons:match.reasons,canOpen};
+  return {id:match.id,nombre:account.nombre,ciudad:account.ciudad,doNotContact:account.doNotContact,archived:!!account.archivedAt,deleted:false,...(canOpen?{status,responsibleName:account.assignedUserEmail?names.get(account.assignedUserEmail)??null:null}:{}),reasons:match.reasons,canOpen,blocking};
  });
  return new Response(superjson.stringify({candidates}),{headers:{'Content-Type':'application/json'}});
 }catch(e){return errorResponse(e);}}
