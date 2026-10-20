@@ -76,3 +76,18 @@
 .activeViewStatus>span{flex-shrink:0}
 @media(max-width:767px){.listControls{gap:6px}.searchRow{gap:8px}.viewsRow{padding-top:5px}.appliedFilters{padding-top:5px}.activeViewStatus{max-width:100%;padding-inline:5px}}
 .resultsBar .liveChanges{flex-shrink:0;white-space:nowrap}
+
+/* U-13: pinned actions column keeps its own edge so it never reads as part of the data underneath. */
+.pinnedRight{box-shadow:-8px 0 8px -8px rgb(0 0 0/.28)!important;border-left:1px solid var(--border)}
+.table td:has(>.cellActions){padding-inline:8px}
+/* Skeleton rows mirror the real cells. */
+.skeletonCheck{height:20px;width:20px;border-radius:4px}.skeletonName{height:16px;width:70%;margin:4px 0}.skeletonSub{height:12px;width:45%;margin:4px 0}.skeletonActions{display:flex;gap:6px;align-items:center}.skeletonButton{height:32px;width:72px;border-radius:8px}.skeletonDot{height:32px;width:32px;border-radius:8px}
+.table .skeleton{height:16px;width:65%;margin:6px 0}
+/* Phones: search on its own full-width row, every control at least 44px. */
+@media(max-width:767px){
+ .searchRow{flex-wrap:wrap}.searchBox{flex-basis:100%}.searchRow>button{flex:1 1 100%;min-height:44px}.searchRow>button svg{display:inline-block}
+ .presentation button,.resultsBar .controlRow>button,.viewsRow>button{min-height:44px}.presentation{padding:2px}
+ .compactField select{min-height:44px}.resultsBar .controlRow{flex-wrap:wrap}
+}
+.table .cellActions button{min-height:32px;height:32px;padding:0 10px}.table .cellActions button[data-row-more]{padding:0;width:32px}
+@media(max-width:767px){.table .cellActions button{min-height:44px;height:44px}.table .cellActions button[data-row-more]{width:44px}}
