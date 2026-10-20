@@ -13,7 +13,13 @@ test('reactivation rows summarize the business date and link the actionable task
   const path=new URL(route.request().url()).pathname;
   await route.fulfill({contentType:'application/json',body:superjson.stringify(path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:path.endsWith('/pipeline')?data:{})});
  });
+ // Old bookmark: Reactivación now lives in Hoy → Para retomar.
  await page.goto('/reactivation');
+ await expect(page).toHaveURL(/\/my-day\?view=retomar$/);
+ await expect(page.getByRole('tab',{name:'Para retomar',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tabpanel',{name:'Para retomar',exact:true})).toBeVisible();
+ await expect(page).toHaveTitle('Hoy · Hospeda CRM');
+ await expect(page.getByRole('link',{name:'Ir a Gestiones',exact:true})).toHaveAttribute('href','/opportunities');
  const planned=page.locator('article').filter({hasText:'Cabañas del Río'});
  await expect(planned).toContainText('Estado del negocio: Recontactar');
  await expect(planned).toContainText('La fecha resume esta tarea');

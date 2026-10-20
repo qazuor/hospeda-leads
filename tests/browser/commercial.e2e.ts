@@ -142,7 +142,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByText(/Contacto dado de baja/)).toBeVisible();
   await page.getByText('Ayuda sobre negocios y gestiones',{exact:true}).click();await page.getByText('Cómo usar negocios, contactos y gestiones',{exact:true}).click();
   await expect(page.getByText(/El recorrido y los motivos de cierre dependen del tipo/)).toBeVisible();
-  await page.getByRole('link',{name:'Gestiones comerciales',exact:true}).click();
+  await page.getByRole('link',{name:'Gestiones',exact:true}).click();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await page.getByLabel('Buscar negocio',{exact:true}).fill('Negocio E2E');
   await page.getByRole('dialog').getByRole('button',{name:/^Negocio E2E/}).click();
@@ -173,7 +173,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto('/?quick=all');
   await expect(page).toHaveURL(/\/accounts/);
   await page.getByRole('link',{name:'Negocios',exact:true}).click();
-  await page.getByRole('link',{name:'Gestiones comerciales',exact:true}).click();
+  await page.getByRole('link',{name:'Gestiones',exact:true}).click();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await page.getByRole('button',{name:'Crear negocio nuevo',exact:true}).click();
   await page.getByLabel('Nombre',{exact:true}).fill('Otro negocio guiado');

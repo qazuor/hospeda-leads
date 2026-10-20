@@ -21,9 +21,10 @@ test('seller can read a colleague business without editing or administrative con
  await page.getByRole('tab',{name:'Documentos',exact:true}).click();
  await expect(page.getByRole('button',{name:'Vincular documento al negocio',exact:true})).toHaveCount(0);
  await expect(page.getByText('Agregar documento o recurso',{exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Más opciones',exact:true}).click();
- for(const name of ['Configuración','Papelera','Negocios archivados','Materiales para ofrecer'])await expect(page.getByRole('menuitem',{name,exact:true})).toHaveCount(0);
- await page.keyboard.press('Escape');
+ // Sellers get only Hoy · Negocios · Gestiones · Ayuda: no "Administración" menu at all.
+ for(const name of ['Hoy','Negocios','Gestiones','Ayuda'])await expect(page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name,exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Administración',exact:true})).toHaveCount(0);
+ for(const name of ['Configuración','Papelera','Negocios archivados','Materiales para ofrecer'])await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
  for(const path of ['/archived','/library','/settings','/history','/trash','/analytics']){
   await page.goto(path);
   await expect(page.getByRole('heading',{name:'Acceso denegado',exact:true})).toBeVisible();
