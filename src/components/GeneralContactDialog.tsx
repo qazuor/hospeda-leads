@@ -12,6 +12,7 @@ import {useAuth} from '../helpers/useAuth';
 import {canModifyBusiness} from '../helpers/crmPermissions';
 import {getCommunication} from '../endpoints/communication.schema';
 import {messageLabels} from '../helpers/messageLabels';
+import {formatDate,formatDateTime} from '../helpers/crmDates';
 import {ManualCommunicationForm} from './ManualCommunicationForm';
 import styles from './Communication.module.css';
 
@@ -39,8 +40,8 @@ export function GeneralContactDialog({detail,templates,onClose}:{detail:Data;tem
   {!message?<div className={styles.generalForm}>
    <label>Canal<NativeSelect value={channel} onChange={e=>{setChannel(e.target.value as typeof channel);setTemplateId('')}}><option value="email">Email · Brevo</option><option value="whatsapp">WhatsApp</option><option value="call">Llamada</option><option value="social">Red social</option><option value="other">Otro</option></NativeSelect></label>
    {manualChannel?<ManualCommunicationForm key={channel} detail={{...detail,opportunities:[]}} currentLeadId={null} userEmail={user?.email??''} isAdmin={user?.role==='admin'} embedded fixedContext initialChannel={channel}/>:<>
-   {detail.account.status==='recontact'&&detail.account.recontactAt&&<p>Fecha sugerida de recontacto: {new Date(detail.account.recontactAt).toLocaleDateString('es-AR')}. Podés contactar antes si hace falta.</p>}
-   {recent&&<p role="status"><strong>Contacto reciente</strong> · {new Date(recent.lastInteractionAt!).toLocaleString('es-AR')} · {recent.channel} · {messageLabels[recent.status]??recent.status}. Revisalo antes de iniciar otro.</p>}
+   {detail.account.status==='recontact'&&detail.account.recontactAt&&<p>Fecha sugerida de recontacto: {formatDate(detail.account.recontactAt)}. Podés contactar antes si hace falta.</p>}
+   {recent&&<p role="status"><strong>Contacto reciente</strong> · {formatDateTime(recent.lastInteractionAt!)} · {recent.channel} · {messageLabels[recent.status]??recent.status}. Revisalo antes de iniciar otro.</p>}
    <label>Persona de contacto<NativeSelect value={contactId} onChange={e=>setContactId(e.target.value)}><option value="">{candidates.length?'Elegí una persona':'Usar el dato general del negocio'}</option>{candidates.map(c=><option key={c.id} value={String(c.id)}>{c.name} · {channel==='email'?c.email:c.phone}</option>)}</NativeSelect></label>
    {canUseBusiness&&<p>Destinatario: {businessTarget} · negocio</p>}{!candidates.length&&!businessTarget&&<p role="alert">No hay un dato válido para este canal. Agregalo a la ficha del negocio o a una persona.</p>}
    <label>Propósito<NativeSelect value={purpose} onChange={e=>{setPurpose(e.target.value as Purpose);setConfirmedClient(false)}}>{purposeOptions.filter(([key])=>detail.account.status==='new'?key==='verification':key!=='verification').map(([key,label])=><option key={key} value={key}>{label}</option>)}</NativeSelect></label>

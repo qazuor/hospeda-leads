@@ -20,6 +20,7 @@ import { postLeadRestore } from "../endpoints/leads_restore_POST.schema";
 import { postLeadHardDelete } from "../endpoints/leads_hard_delete_POST.schema";
 import { useDebounce } from "../helpers/useDebounce";
 import styles from "./trash.module.css";
+import {formatDateTime} from "../helpers/crmDates";
 
 export default function TrashPage(){
  const [entity,setEntity]=useState('business');
@@ -64,7 +65,7 @@ function ManagementTrashPanel(){
           <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={processing} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
           <td><strong>{lead.nombre}</strong><small>#{id}</small></td><td><strong>{lead.contactName||"—"}</strong><small>{lead.email||lead.telefono||""}</small></td>
           <td>{lead.ciudad?<ValueBadge value={lead.ciudad} category="city"/>:"—"}</td><td>{lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:"—"}</td><td>{lead.estado?<ValueBadge value={lead.estado} category="status"/>:"—"}</td>
-          <td>{lead.deletedAt?new Date(lead.deletedAt).toLocaleString("es-AR"):"—"}</td><td><strong>{lead.deletedByName||"—"}</strong><small>{lead.deletedByEmail||""}</small></td>
+          <td>{lead.deletedAt?formatDateTime(lead.deletedAt):"—"}</td><td><strong>{lead.deletedByName||"—"}</strong><small>{lead.deletedByEmail||""}</small></td>
           <td><div className={styles.actions}><Button size="sm" variant="ghost" onClick={()=>openView(lead)}><Eye size={15}/>Ver</Button><Button size="sm" variant="outline" onClick={()=>void run([id],false)} disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar."><RotateCcw size={15}/>Restaurar</Button><Button size="sm" variant="destructive" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setHardTarget(lead)}><Trash2 size={15}/>Eliminar definitivamente</Button></div></td>
         </tr>})}
       </tbody></Table></div>}

@@ -2,7 +2,7 @@ import type {TableColumnOption} from "../components/ColumnPicker";
 import {emptyTextFilter,emptyDateFilter,type TextFilterState,type DateFilterState} from "../components/FieldFilterEditors";
 import {advancedFilterGroup,type AdvancedFilterGroup} from "../endpoints/leads_GET.schema";
 import type {InputType} from "../endpoints/leads_save_POST.schema";
-import {toDateInput} from "./crmDates";
+import {toDateInput,formatDay} from "./crmDates";
 export const QUERY_KEY=["leads"] as const;
 export const PRIORITY_OPTIONS=["alta","media","baja"];
 export const PROFILE_OPTIONS=["Independiente","Consolidado","Referente"];
@@ -133,8 +133,8 @@ export const str=(v:unknown)=>v==null?"":String(v);
 export const dateInput=toDateInput;
 export const displayDate=(v:unknown)=>{
   if(!v)return "—";
-  const d=new Date(v as string);
-  return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("es-AR");
+  const out=formatDay(v);
+  return out==="Vacío"?"—":out;
 };
 export const isUrl=(key:string)=>["sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","archivoAdjunto"].includes(key);
 
