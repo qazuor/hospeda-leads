@@ -46,24 +46,33 @@ try{
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com',assignedUserEmail:user.email},admin.value);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com'});
   assert.equal((await detail(accountId)).account.assignedUserEmail,user.email);
-  {// U-09: duplicate check hides private data and No contactar duplicates cannot be created (admins included)
+  {// U-09: duplicate check hides private data and No contactar duplicates cannot be created or edited into (admins included)
     const check=async(q:Record<string,string>,who=user.value)=>{const r=await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?'+new URLSearchParams(q),{headers:{cookie:who}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<{candidates:Record<string,any>[]}>(t).candidates};
     assert.equal((await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?nombre=x'))).status,401);
-    const p6=String(suffix).slice(-6);
-    const dncName=`Cabañas Dupé ${suffix}`;
-    const dncId=await mutate({action:'account_save',nombre:dncName,ciudad:'Colón',telefono:`+54 9 3447 15-${p6}`,email:`dnc-${suffix}@example.com`,assignedUserEmail:admin.email},admin.value);
+    const p6=String(suffix).slice(-6),dncName=`Cabañas Dupé ${suffix}`,dncPhone=`+54 9 3447 ${p6}`;
+    const dncId=await mutate({action:'account_save',nombre:dncName,ciudad:'Colón',telefono:dncPhone,email:`dnc-${suffix}@example.com`,assignedUserEmail:admin.email},admin.value);
     await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dncId).execute();
-    let found=await check({nombre:`cabanas dupe ${suffix}`.replace('cabanas','cabañas'),ciudad:'colon'});
+    let found=await check({nombre:dncName.replace('Dupé','Dupe'),ciudad:'colon'});
     assert.deepEqual(found.map(c=>c.id),[dncId]);assert.equal(found[0].doNotContact,true);assert.equal(found[0].responsibleName,'CRM admin');
-    assert(!JSON.stringify(found).includes(admin.email)&&!JSON.stringify(found).includes('412345')&&!JSON.stringify(found).includes('dnc-'),'No owner email or contact data leaks');
-    assert.deepEqual((await check({nombre:`Cabanas Dupe ${suffix}`,ciudad:'Colón'})).length,0,'ñ and n stay different');
+    assert(!JSON.stringify(found).includes(admin.email)&&!JSON.stringify(found).includes('3447')&&!JSON.stringify(found).includes('dnc-'),'No owner email or contact data leaks');
+    assert.equal((await check({nombre:`Cabanas Dupe ${suffix}`,ciudad:'Colón'})).length,0,'ñ and n stay different');
     found=await check({telefono:`03447${p6}`});assert.equal(found[0]?.id,dncId);assert(found[0].reasons.includes('Teléfono parecido'));
     found=await check({email:`DNC-${suffix}@example.com`});assert.equal(found[0]?.id,dncId);
     assert.equal((await check({telefono:`03447${p6.replace(/.$/,d=>String((+d+1)%10))}`})).length,0);
-    await mutate({action:'account_save',nombre:`Otro nombre ${suffix}`,telefono:`3447${p6}`},user.value,409);
+    // Only an exact name+city or an exactly shared phone blocks; similar phone and shared email only warn.
+    await mutate({action:'account_save',nombre:`Similar phone ${suffix}`,telefono:`3447${p6}`});
+    await mutate({action:'account_save',nombre:`Same email ${suffix}`,email:`dnc-${suffix}@example.com`});
+    await mutate({action:'account_save',nombre:`Cabanas Dupe ${suffix}`,ciudad:'Colón',email:`dnc-${suffix}@example.com`},admin.value);
+    await mutate({action:'account_save',nombre:`Otro nombre ${suffix}`,telefono:dncPhone},user.value,409);
     await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'},admin.value,409);
+    // Editing an existing business into a DNC duplicate is blocked; an unchanged identity is not.
+    const edited=await mutate({action:'account_save',nombre:`Editable ${suffix}`,ciudad:'Colón'});
+    await mutate({action:'account_save',id:edited,nombre:dncName,ciudad:'Colón'},user.value,409);
+    await mutate({action:'account_save',id:edited,nombre:`Editable ${suffix}`,ciudad:'Colón',telefono:dncPhone},user.value,409);
+    await mutate({action:'account_save',id:edited,nombre:`Editable ${suffix}`,ciudad:'Colón',businessNotes:'only notes'});
     await db.updateTable('crmAccounts').set({archivedAt:new Date(),status:'archived'}).where('id','=',dncId).execute();
     found=await check({nombre:dncName,ciudad:'Colón'});assert.equal(found[0].archived,true);assert.equal(found[0].canOpen,false,'Archived is not openable by sellers');
+    assert(!('status' in found[0])&&!('responsibleName' in found[0]),'Unopenable candidates omit status and responsible');
     assert.equal((await check({nombre:dncName,ciudad:'Colón'},admin.value))[0].canOpen,true);
     await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'},user.value,409);
     await mutate({action:'account_save',nombre:`Unrelated ${suffix}`,ciudad:'Colón',telefono:'3442999111'});
