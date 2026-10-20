@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertLeadAccess,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
+import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertLeadAccess,canEditBusinessContactData,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
 const owner={email:'owner@example.com',role:'user' as const};
 const colleague={email:'colleague@example.com',role:'user' as const};
 const admin={email:'admin@example.com',role:'admin' as const};
@@ -69,5 +69,26 @@ describe('CRM shared reading and owner-only modifications',()=>{
  });
  it('prevents editing merged source businesses',()=>{
   expect(canModifyBusiness(admin,{...business,mergedIntoId:'42'})).toBe(false);
+ });
+});
+describe('contact data editing with an open management (decision 8A)',()=>{
+ it('lets owner and admin edit regardless of managements',()=>{
+  for(const actor of [owner,admin])expect(canEditBusinessContactData(actor,business,false)).toBe(true);
+ });
+ it('lets a colleague edit only with an open management',()=>{
+  expect(canEditBusinessContactData(colleague,business,true)).toBe(true);
+  expect(canEditBusinessContactData(colleague,business,false)).toBe(false);
+  expect(canModifyBusiness(colleague,business)).toBe(false);
+ });
+ it('never widens archived, trashed, merged or missing businesses for sellers',()=>{
+  for(const closed of [{...business,archivedAt:new Date()},{...business,deletedAt:new Date()},{...business,mergedIntoId:'42'}])expect(canEditBusinessContactData(colleague,closed,true)).toBe(false);
+  expect(canEditBusinessContactData(colleague,undefined,true)).toBe(false);
+  expect(canEditBusinessContactData(undefined,business,true)).toBe(false);
+ });
+ it('keeps the strict read and view guards untouched',()=>{
+  const archived={...business,archivedAt:new Date()};
+  expect(()=>assertAccountReadable(colleague,archived)).toThrow(CrmForbidden);
+  expect(()=>assertAccountViewable(colleague,archived)).toThrow(CrmForbidden);
+  expect(()=>assertAccountWritable(colleague,business)).toThrow(CrmForbidden);
  });
 });

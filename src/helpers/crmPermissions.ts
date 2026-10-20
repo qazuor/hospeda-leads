@@ -43,6 +43,33 @@ export function assertAccountWritable(user:Actor, account:AccountAccess):void {
   if(!canModifyBusiness(user, account))throw new CrmForbidden('Solo el responsable del negocio o un administrador puede modificarlo.');
 }
 
+/** Decision 8A: owner/admin, or a seller with an open management on a live (not archived, deleted or merged) business. Only phone, email, WhatsApp and persons are editable that way; callers enforce the whitelist. */
+export function canEditBusinessContactData(user:Actor|undefined, account:AccountAccess|undefined, hasOpenManagement:boolean):boolean {
+  return canModifyBusiness(user,account) || (!!user && !!account && hasOpenManagement && !account.archivedAt && !account.deletedAt && !account.mergedIntoId);
+}
+
+/** Ids of the not deleted, open-stage managements of a business assigned to this seller (the "responsible seller" of a management is leads.assigned_user_email). */
+export async function openManagementLeadIds(executor:Executor, accountId:string, email:string):Promise<string[]> {
+  const rows=(await sql<{id:string}>`SELECT l.id FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${accountId} AND l.assigned_user_email=${email} AND l.deleted_at IS NULL AND s.classification='open' ORDER BY l.id`.execute(executor)).rows;
+  return rows.map(r=>String(r.id));
+}
+
+export async function hasOpenManagement(executor:Executor, accountId:string, email:string):Promise<boolean> {
+  return (await openManagementLeadIds(executor,accountId,email)).length>0;
+}
+
+/**
+ * Write guard for the contact data of a business (decision 8A). Returns scope `full` for owner/admin and `open_management` (with the
+ * management ids, for the audit) for a seller who only has an open management. Everything else throws exactly like assertAccountWritable,
+ * so archived, trashed and merged businesses and sellers without an open management stay rejected. Never widens any other guard.
+ */
+export async function assertContactDataWritable(executor:Executor, user:Actor, account:AccountAccess&{id:unknown}):Promise<{scope:'full'|'open_management';leadIds:string[]}> {
+  if(canModifyBusiness(user,account)){assertAccountWritable(user,account);return {scope:'full',leadIds:[]};}
+  const leadIds=account.archivedAt||account.deletedAt||account.mergedIntoId?[]:await openManagementLeadIds(executor,String(account.id),user.email);
+  if(!canEditBusinessContactData(user,account,leadIds.length>0)){assertAccountWritable(user,account);throw new CrmForbidden('Solo el responsable del negocio o un administrador puede modificarlo.');}
+  return {scope:'open_management',leadIds};
+}
+
 /** Locks business rows FOR UPDATE in ascending id order so transactions locking several businesses cannot deadlock each other. */
 export async function lockAccounts(executor:Executor, ids:readonly unknown[]):Promise<void> {
   const keys=[...new Set(ids.filter(v=>v!=null&&v!=='').map(String))];
