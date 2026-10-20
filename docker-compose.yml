@@ -24,7 +24,7 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATABASE_URL: postgres://hospeda:${POSTGRES_PASSWORD:-hospeda}@postgres:5432/hospeda_leads
-      JWT_SECRET: ${JWT_SECRET:-development-only-change-me-not-for-production}
+      JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       BREVO_WEBHOOK_TOKEN: ${BREVO_WEBHOOK_TOKEN:-}

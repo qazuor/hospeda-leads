@@ -3,11 +3,19 @@ import { jwtVerify, SignJWT } from "jose";
 const encoder = new TextEncoder();
 export const MinJwtSecretLength = 32;
 
-/** Fails fast (at module load) when JWT_SECRET is missing or too short, instead of signing with the literal "undefined". */
+const PlaceholderMarkers = ["change-me", "changeme", "not-for-production", "example"];
+const KnownPlaceholders = ["development-only-change-me"];
+
+const isPlaceholderSecret = (value: string) => {
+  const lower = value.toLowerCase();
+  return KnownPlaceholders.includes(lower) || PlaceholderMarkers.some((marker) => lower.includes(marker));
+};
+
+/** Fails fast (at module load) when JWT_SECRET is missing, too short or a known placeholder, instead of signing with "undefined" or a public value. */
 export function requireJwtSecret(value: string | undefined): string {
-  if (!value || value.length < MinJwtSecretLength)
+  if (!value || value.length < MinJwtSecretLength || isPlaceholderSecret(value))
     throw new Error(
-      `JWT_SECRET must be set and at least ${MinJwtSecretLength} characters long (got ${value ? value.length : 0}). Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
+      `JWT_SECRET must be set to a real random secret of at least ${MinJwtSecretLength} characters (got ${value ? value.length : 0}${value && isPlaceholderSecret(value) ? ", looks like a placeholder" : ""}). Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
     );
   return value;
 }

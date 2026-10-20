@@ -14,7 +14,26 @@ describe("JWT_SECRET boot validation", () => {
   it("throws a clear error when JWT_SECRET is missing", async () => {
     vi.resetModules();
     vi.stubEnv("JWT_SECRET", "");
-    await expect(load()).rejects.toThrow(/JWT_SECRET must be set and at least 32/);
+    await expect(load()).rejects.toThrow(/JWT_SECRET must be set to a real random secret of at least 32/);
+  });
+
+  it.each([
+    "development-only-change-me",
+    "development-only-change-me-not-for-production",
+    "change-me-with-at-least-32-random-bytes",
+    "my-super-long-ChangeMe-secret-value-123456",
+    "an-example-secret-that-is-long-enough-0000",
+    "generate-a-random-secret-not-for-production",
+  ])("rejects the placeholder %s", async (placeholder) => {
+    vi.resetModules();
+    vi.stubEnv("JWT_SECRET", placeholder);
+    await expect(load()).rejects.toThrow(/JWT_SECRET must be set to a real random secret/);
+  });
+
+  it("accepts the CI secret", async () => {
+    vi.resetModules();
+    vi.stubEnv("JWT_SECRET", "ci-test-secret-that-is-long-enough-for-hs256");
+    await expect(load()).resolves.toBeDefined();
   });
 
   it("throws when JWT_SECRET is shorter than 32 characters", async () => {
