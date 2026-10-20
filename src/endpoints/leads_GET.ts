@@ -1,4 +1,4 @@
-import {searchSql,normalizeSearchSql} from "../helpers/searchSql";
+import {searchSql,normalizeSearchSql,multiFieldSearchSql,phoneSearchSql} from "../helpers/searchSql";
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {calendarDay} from '../helpers/workDates';
 import {errorResponse} from "../helpers/errorResponse";
@@ -64,18 +64,8 @@ export async function handle(request: Request) {
     if(!includeDeleted)query=query.where("deletedAt","is",null);
     if(input.entity==="opportunity")query=query.where("accountId","in",db.selectFrom("crmAccounts").select("id").where("deletedAt","is",null));
     if(input.entity==="opportunity"&&user.role!=="admin")query=query.where(eb=>eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("archivedAt","is",null)));
-    if(input.q)query=query.where(eb=>eb.or([
-      searchSql("nombre",input.q!),
-      searchSql("opportunityName",input.q!),
-      searchSql("contactName",input.q!),
-      searchSql("email",input.q!),
-      searchSql("telefono",input.q!),
-      searchSql("ciudad",input.q!),
-      searchSql("origen",input.q!),
-      eb.exists(eb.selectFrom("leadNotes").select("leadNotes.id")
-        .whereRef("leadNotes.leadId","=","leads.id")
-        .where(searchSql("note",input.q!)))
-    ]));
+    if(input.q)query=query.where(multiFieldSearchSql(["nombre","opportunityName","contactName","email","telefono","ciudad","origen"],input.q!,{phoneColumns:["telefono"],extra:token=>sql<boolean>`exists(select 1 from lead_notes ln where ln.lead_id=leads.id and (${searchSql("ln.note",token)}${phoneSearchSql("ln.note",token)?sql` or ${phoneSearchSql("ln.note",token)}`:sql``}))`}));
+
     const includeCities=input.ciudades.length?input.ciudades:(input.ciudad?[input.ciudad]:[]);
     const includeStates=input.estados.length?input.estados:(input.estado?[input.estado]:[]);
     const includeTypes=input.tipos.length?input.tipos:(input.tipo?[input.tipo]:[]);
