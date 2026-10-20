@@ -1,7 +1,18 @@
 import { jwtVerify, SignJWT } from "jose";
 
 const encoder = new TextEncoder();
-const secret = process.env.JWT_SECRET;
+export const MinJwtSecretLength = 32;
+
+/** Fails fast (at module load) when JWT_SECRET is missing or too short, instead of signing with the literal "undefined". */
+export function requireJwtSecret(value: string | undefined): string {
+  if (!value || value.length < MinJwtSecretLength)
+    throw new Error(
+      `JWT_SECRET must be set and at least ${MinJwtSecretLength} characters long (got ${value ? value.length : 0}). Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
+    );
+  return value;
+}
+
+const secret = requireJwtSecret(process.env.JWT_SECRET);
 
 export const SessionExpirationSeconds = 60 * 60 * 24 * 7; // 1 week
 // Probability to run cleanup (10%)

@@ -31,7 +31,7 @@ ADMIN_EMAIL=admin@example.com
 BREVO_API_KEY=
 ~~~
 
-Generar un JWT_SECRET local aleatorio (el resultado va en `.env`):
+Generar un JWT_SECRET local aleatorio de al menos 32 caracteres (el servidor no arranca sin él; el resultado va en `.env`):
 
 ~~~bash
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"

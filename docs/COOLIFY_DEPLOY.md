@@ -36,7 +36,7 @@ Configurar en la aplicación:
 NODE_ENV=production
 PORT=3001
 DATABASE_URL=<internal PostgreSQL URL from Coolify>
-JWT_SECRET=<random secret, minimum 32 bytes>
+JWT_SECRET=<random secret, minimum 32 characters; the server refuses to start with a shorter or missing value>
 ADMIN_EMAIL=<email administrador>
 BREVO_API_KEY=<Hospeda Brevo API key>
 PUBLIC_APP_URL=https://crm.hospeda.com.ar
