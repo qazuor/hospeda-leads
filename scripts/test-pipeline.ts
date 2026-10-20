@@ -31,7 +31,7 @@ try{
  const revision=(await lead()).pipelineRevision;
  await mutate({action:'transition',leadId:l.id,revision,stage:'En tratativas'},other.cookie,403);
  await mutate({action:'transition',leadId:l.id,revision:revision+20,stage:'En tratativas'},user.cookie,409);
- await mutate({action:'transition',leadId:l.id,revision,stage:'Perdida'},user.cookie,400);
+ {const r=await post(request({action:'transition',leadId:l.id,revision,stage:'Perdida'}));assert.equal(r.status,400);const body=superjson.parse<{error?:string}>(await r.text());assert.match(body.error??'',/^(Elegí el motivo|Para cerrar perdida)/,'trigger RAISE messages must reach the user through crmError, got: '+body.error)}
  assert.equal((await quick(request({id:l.id,field:'estado',value:'Perdida'}))).status,400);
  assert.equal((await quick(request({id:l.id,field:'estado',value:'En tratativas'},other.cookie))).status,403);
  await mutate({action:'transition',leadId:l.id,revision,stage:'Perdida',reasonId:reason.id,comment:'Retomar más adelante',recontactDate:'2026-10-01'});
