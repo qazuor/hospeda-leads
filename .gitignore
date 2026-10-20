@@ -17,3 +17,6 @@ perf-results/
 
 # Local automation credentials
 *.token
+
+# Local dev state (generated secrets and ports)
+.local/
