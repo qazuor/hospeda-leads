@@ -6,11 +6,12 @@ import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_bulk_delete_POST.schema";
 import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     const ids=input.ids.map(String);
     // Authorize every target before making any change: mixed batches roll back.
     const deleted=await db.transaction().execute(async trx=>{

@@ -7,9 +7,10 @@ import {qualityMutation} from './dataQuality.schema';
 import {mutateQuality,QualityForbidden,QualityConflict,qualityConfig} from '../helpers/dataQualityService';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {businessFields,normalizeField,dataFieldLabels} from '../helpers/dataNormalization';
+import {parseBody} from '../helpers/parseBody';
 const reply=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json'}});
 const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof QualityForbidden||e instanceof CrmForbidden?403:e instanceof QualityConflict?409:fallbackStatus(e));
-export async function post(request:Request){try{const {user}=await getServerUserSession(request);return reply(await mutateQuality(db,qualityMutation.parse(superjson.parse(await request.text())),user));}catch(e){return fail(e);}}
+export async function post(request:Request){try{const {user}=await getServerUserSession(request);return reply(await mutateQuality(db,qualityMutation.parse(await parseBody(request)),user));}catch(e){return fail(e);}}
 export async function get(request:Request){try{
  const {user}=await getServerUserSession(request);const config=await qualityConfig(db),id=new URL(request.url).searchParams.get('accountId');
  if(!id)return reply({config,canEdit:false,fields:[],evidence:[],merges:[]});

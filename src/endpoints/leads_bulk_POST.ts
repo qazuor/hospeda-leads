@@ -8,6 +8,7 @@ import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_bulk_POST.schema";
 import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 const comparable=(value:unknown)=>{
   if(value===null||value===undefined)return null;
@@ -18,7 +19,7 @@ const comparable=(value:unknown)=>{
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     if(Object.prototype.hasOwnProperty.call(input.changes,"assignedUserEmail")&&user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo un administrador puede modificar el responsable."}),{status:403});
     }

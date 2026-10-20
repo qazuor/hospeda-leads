@@ -9,11 +9,12 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./lead_contact_POST.schema";
 import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
       await leadFor(trx,String(input.leadId),user);

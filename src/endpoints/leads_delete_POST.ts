@@ -5,10 +5,11 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_delete_POST.schema";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 export async function handle(request: Request) {
   try {
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     await db.transaction().execute(async trx=>{
       const lead=await assertLeadAccess(trx,String(input.id),user,true);
       if(lead.deletedAt) return;

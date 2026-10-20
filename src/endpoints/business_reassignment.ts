@@ -6,6 +6,7 @@ import {getServerUserSession} from '../helpers/getServerUserSession';
 import {errorResponse} from '../helpers/errorResponse';
 import {createBusinessReassignmentPlan,type ReassignmentAccount} from '../helpers/businessReassignment';
 import type {DB} from '../helpers/schema';
+import {parseBody} from '../helpers/parseBody';
 
 async function loadPlan(executor:Kysely<DB>|Transaction<DB>,lock=false){
  const selected=['id','status','assignedUserEmail','deletedAt','archivedAt','mergedIntoId'] as const;
@@ -32,7 +33,7 @@ export async function post(request:Request){
  try{
   const {user}=await getServerUserSession(request);
   if(user.role!=='admin')return response({error:'Solo administradores pueden redistribuir negocios.'},403);
-  const input=superjson.parse<{fingerprint:string}>(await request.text());
+  const input=await parseBody(request) as {fingerprint:string};
   if(!/^[a-f0-9]{64}$/.test(input.fingerprint))return response({error:'Actualizá la vista previa antes de ejecutar.'},400);
   const result=await db.transaction().execute(async trx=>{
    const plan=await loadPlan(trx,true);

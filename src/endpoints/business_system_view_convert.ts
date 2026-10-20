@@ -8,6 +8,7 @@ import {defaultSystemViews,type BusinessSystemView} from '../helpers/businessSys
 import {identifySavedViews} from '../helpers/savedViewIdentity';
 import type {SavedLeadView} from './saved_views_GET.schema';
 import {z} from 'zod';
+import {parseBody} from '../helpers/parseBody';
 
 const inputSchema=z.object({id:z.string().min(1).max(100)});
 const defaultsKey='business_list_team_defaults_v1';
@@ -15,7 +16,7 @@ export async function handle(request:Request){
  try{
   const {user}=await getServerUserSession(request);
   if(user.role!=='admin')return new Response(superjson.stringify({error:'Solo un administrador puede convertir vistas de sistema.'}),{status:403});
-  const {id}=inputSchema.parse(superjson.parse(await request.text()));
+  const {id}=inputSchema.parse(await parseBody(request));
   const viewsKey='lead_saved_views:'+user.id;
   const initial:TeamDefaults={systemViews:defaultSystemViews(),preferences:basePreferences(),presets:[],initialPresetId:null};
   const systemView=await db.transaction().execute(async trx=>{
