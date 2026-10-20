@@ -87,3 +87,23 @@ Se simplificó el formulario de gestión nueva: tipo, nombre corto y responsable
 ## 19/10/2026 — orientación de tareas y actividades (P1 11)
 
 El planificador de tareas ahora explica la diferencia entre pendiente, actividad realizada y etapa, y muestra hasta cinco tareas pendientes visibles para ese negocio antes de crear otra. Se conserva el aviso de coincidencia exacta para posibles duplicados y el resultado de una tarea sigue sin cambiar etapas automáticamente. Se actualizaron guía de capacitación y ayuda en pantalla. Pasaron exportación, typecheck, build, `git diff --check` y un E2E con API interceptada; no hubo escrituras en base. Cambio local en `staging`, sin commit.
+
+## 19/10/2026 — claridad de Reactivación (P1 12)
+
+La lista y el diálogo usan “Elegir cómo retomar”; cada cierre muestra la fecha acordada y el estado/vencimiento de su tarea o la gestión relacionada. Los cierres con una acción generada muestran el destino y no permiten duplicarla; los filtros distinguen sin acción, con acción y todos. Guía de capacitación y ayuda del CRM sincronizadas. Pasaron typecheck, build, exportación, `git diff --check` y E2E con API interceptada. No se escribió en DB; falta una prueba de consulta sobre base descartable y revisión visual. Cambio local en `staging`, sin commit.
+
+## 19/10/2026 — seguimiento de recontacto como una sola acción (P1 13)
+
+Cuando el negocio quedó en Recontactar por una gestión cerrada con fecha, la fila muestra ese estado y la fecha una sola vez, enlaza directamente la tarea y aclara que esa tarea es el pendiente que se completa. Si el negocio no quedó en ese estado, se muestra la fecha de la tarea; la gestión relacionada conserva su enlace propio. Se actualizaron las guías. Pasaron typecheck, build, exportación de la guía y E2E con API interceptada (Chromium se ejecutó fuera del sandbox). Falta revisar visualmente y probar la consulta sobre una base descartable. No se escribió en base. Cambio local en `staging`, sin commit.
+
+## 19/10/2026 — diferencia entre Archivar y Papelera (P1 14)
+
+El menú del negocio y los tooltips describen los usos distintos: Archivar conserva un negocio válido que deja de trabajarse; Enviar a Papelera aparta un registro inválido. Las confirmaciones detallan visibilidad, datos conservados y restauración administrativa, también para selección masiva. La guía en pantalla, capacitación y manual quedaron alineados. Pasaron typecheck, build, exportación y E2E de acciones con API interceptada en desktop/móvil. No se escribió en base. Falta revisión visual completa. Cambio local en `staging`, sin commit.
+
+## 19/10/2026 — contexto para retomar el trabajo (P1 15)
+
+La ficha muestra en un vistazo la última interacción registrada, la próxima tarea pendiente y las gestiones abiertas; cada dato lleva al contexto relacionado. En la gestión, el bloque del próximo paso incluye la última actividad y conserva junto a la tarea las acciones de Contactar y Registrar qué pasó. Los lectores sin permiso de edición pueden consultar el contexto, pero no reciben acciones de cambio o contacto. Pasaron typecheck, build y E2E con API interceptada en 1280 y 390 px; se revisaron capturas. Sin escrituras en base. Falta validar consultas con base descartable y revisar visualmente el resto de la auditoría. Cambio local en `staging`, sin commit.
+
+## 19/10/2026 — responsables visibles por contexto (P1 16)
+
+Contactar distingue la relación general del negocio de la persona responsable de la gestión; el pipeline muestra ambas en cada tarjeta. La asignación y el diálogo de contacto desde tareas identifican también al responsable de la tarea y explican que delegarla no cambia responsables comerciales ni permisos. No se alteraron reglas de acceso. Pasaron `pnpm run typecheck`, `pnpm run build` y `git diff --check`; no se probó con base ni navegador. Falta revisión visual manual. Cambio local en `staging`, sin commit.

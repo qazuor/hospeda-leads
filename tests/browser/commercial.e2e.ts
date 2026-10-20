@@ -47,14 +47,15 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByText(/· Cliente ·/)).toBeVisible();
   await page.getByRole('tab',{name:'Historial',exact:true}).click();
   await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
-  await expect(page.getByText(/Conversión a cliente/)).toBeVisible();
+  const conversion=page.getByRole('button',{name:/Conversión a cliente/});await expect(conversion).toBeVisible();await conversion.click();
   await expect(page.getByText(/Motivo: Acuerdo anterior al uso del CRM/)).toBeVisible();
   await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   for(const [name,person] of [['Primera gestión','Ana'],['Segunda gestión','Luis']]){
     await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
     await page.getByLabel('Nombre de la gestión').fill(name);
-    await page.getByLabel('Cierre estimado',{exact:true}).fill('2027-01-15');
-    await page.getByRole('combobox',{name:'Contacto principal de gestión',exact:true}).selectOption({label:person});
+    await page.getByRole('dialog').last().getByText('Más datos (opcional)',{exact:true}).click();
+    await page.getByLabel('Fecha estimada (opcional)',{exact:true}).fill('2027-01-15');
+    await page.getByRole('combobox',{name:'Persona principal de esta gestión',exact:true}).selectOption({label:person});
     await page.getByRole('dialog').last().getByRole('button',{name:/^(Iniciar gestión|Marcar Revisado e iniciar gestión)$/}).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
@@ -68,7 +69,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({path:'test-results/commercial-mobile.png',fullPage:true});
   await page.setViewportSize({width:1280,height:900});
-  await page.getByRole('link',{name:'Primera gestión',exact:true}).click();
+  await page.getByRole('tabpanel').getByRole('link',{name:'Primera gestión',exact:true}).click();
   const lead=page.locator('main');
   await expect(lead.getByRole('button',{name:'Editar negocio',exact:true})).not.toBeVisible();
   await lead.getByText('Negocio, personas y otras gestiones',{exact:true}).click();
@@ -126,7 +127,8 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   const row=page.locator('article').filter({has:page.getByRole('link',{name:'Primera gestión actualizada',exact:true})});
   await row.getByRole('button',{name:'Editar datos de gestión',exact:true}).click();
-  await expect(page.getByLabel('Cierre estimado',{exact:true})).toHaveValue('15/01/2027');
+  await page.getByRole('dialog').getByText('Datos opcionales de la gestión',{exact:true}).click();
+  await expect(page.getByLabel('Fecha estimada (opcional)',{exact:true})).toHaveValue('15/01/2027');
   await page.getByRole('button',{name:'Cancelar',exact:true}).click();
   await expect(row.getByText(/Por contactar/)).toBeVisible();
   await expect(page.locator('article').filter({has:page.getByRole('link',{name:'Segunda gestión',exact:true})}).getByText(/Por contactar/)).toBeVisible();
@@ -150,7 +152,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('link',{name:'← Volver a Gestiones comerciales',exact:true}).click();
   await page.goto(accountUrl);await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   await expect(page.getByRole('heading',{name:'Gestiones comerciales (3)',exact:true})).toBeVisible();
-  const legacyOpportunityUrl=(await page.getByRole('link',{name:'Tercera gestión',exact:true}).getAttribute('href'))!.replace(/^\/sales\/(\d+)$/, '/?leadId=$1');
+  const legacyOpportunityUrl=(await page.getByRole('tabpanel').getByRole('link',{name:'Tercera gestión',exact:true}).getAttribute('href'))!.replace(/^\/sales\/(\d+)$/, '/?leadId=$1');
   await page.getByRole('link',{name:'Negocios',exact:true}).click();
   const businessRow=page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})});
   await expect(businessRow).toHaveCount(1);

@@ -65,7 +65,7 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
   else if(path.endsWith('/settings'))data=settings;
   else if(path.endsWith('/leads'))data={rows:[lead],total:1,page:1,pageSize:10};
   else if(path.endsWith('/lead_notes'))data={notes:[]};else if(path.endsWith('/lead_journal'))data={rows:[],total:0,page:1,pageSize:50,filters:{actions:[],actors:[],cities:[],types:[],leads:[]}};
-  else if(path.endsWith('/commercial'))data={account:{id:'101',nombre:'Negocio de prueba',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',archivedAt:null,mergedIntoId:null},opportunities:[lead],contacts:[{id:'401',name:'Ana Contacto',email:'ana@example.com',deletedAt:null}],journal:[],leadJournal:[],stages:[],users:[]};
+  else if(path.endsWith('/commercial'))data=new URL(route.request().url()).searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{id:'101',nombre:'Negocio de prueba',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',archivedAt:null,mergedIntoId:null},opportunities:[lead],contacts:[{id:'401',name:'Ana Contacto',email:'ana@example.com',deletedAt:null}],journal:[],leadJournal:[],stages:[],users:[]};
   else if(path.endsWith('/work'))data={activities:[],tasks:[],types:[],users:[],attention:[],contacts:[]};
   else if(path.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]};
   else if(path.endsWith('/communication')){

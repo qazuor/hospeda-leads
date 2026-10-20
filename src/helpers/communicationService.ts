@@ -13,6 +13,7 @@ import {htmlToWhatsApp} from './templateChannelFormatting';
 import {buildHospedaEmailHtml,buildHospedaEmailText} from './hospedaEmailLayout';
 import {setWorkActor} from './workAudit';
 import {writeLeadJournal} from './writeLeadJournal';
+import { withDefaultMessageVariables } from './messageVariables';
 type Executor=Kysely<DB>|Transaction<DB>;
 export class CommunicationForbidden extends Error{}
 export class CommunicationConflict extends Error{}
@@ -22,6 +23,10 @@ async function templateOwnerName(e:Executor,email:string|null|undefined,user:Use
  if(!email)return user.fullName?.trim()||user.displayName;
  const owner=await e.selectFrom('users').select(['displayName','fullName']).where('email','=',email).executeTakeFirst();
  return owner?.fullName?.trim()||owner?.displayName||user.displayName;
+}
+async function messageVariables(e:Executor){
+ const row=await e.selectFrom('appSettings').select('value').where('key','=','crm_message_variables').executeTakeFirst();
+ return withDefaultMessageVariables(row?.value?JSON.parse(row.value):null);
 }
 export async function lockCommunication(e:Executor){await sql`LOCK TABLE crm_accounts,leads,crm_contact_restrictions,crm_messages IN SHARE ROW EXCLUSIVE MODE`.execute(e);}
 export async function communicationConfig(e:Executor){const r=await e.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow();return z.object({recentContactHours:z.number().int().min(1).max(720),maxDocumentBytes:z.number().int().min(1).max(2097152)}).parse(JSON.parse(r.value));}
@@ -74,11 +79,12 @@ async function prepare(e:Executor,input:Extract<CommunicationMutation,{action:'p
  const incompatibility=t?templateCompatibility(t,{channel:input.channel,vertical:lead.tipo,commercialProfile:lead.commercialProfile,managementType:lead.managementType}):null;
  if(incompatibility)throw new Error(incompatibility);
  const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE lead_id=${lead.id} AND contact_id IS NOT DISTINCT FROM ${c.contactId}::bigint AND channel=${input.channel} AND recipient=${recipient} AND owner_email=${user.email} AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return reusable;
- const ownerName=await templateOwnerName(e,lead.assignedUserEmail,user);const ctx={name:lead.nombre,contact:c.name,contact_name:c.name,city:lead.ciudad,type:lead.tipo,subtype:lead.subtipo,phone:c.phone,email:c.email,website:lead.sitioWeb,sender:ownerName,sender_short:ownerName};
- const rendered=t?renderMessageTemplateHtml(t.body,ctx):'<p></p>';
+ const ownerName=await templateOwnerName(e,lead.assignedUserEmail,user);const ctx={name:lead.nombre,contact:c.name,contact_name:c.name,city:lead.ciudad,type:lead.tipo,subtype:lead.subtipo,phone:c.phone,email:c.email,website:lead.sitioWeb,sender:ownerName,sender_short:ownerName,managementType:lead.managementType,channel:input.channel,business_status:account.status,is_client:account.commercialStatus==='client'?'Sí':'No'};
+ const variableDefinitions=await messageVariables(e);
+ const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';
  const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;
- const subject=t?renderMessageTemplate(t.subject??'',ctx):'';
- const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx}:null;
+ const subject=t?renderMessageTemplate(t.subject??'',ctx,variableDefinitions):'';
+ const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions}:null;
  return (await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,subject,body,template_snapshot,owner_email,task_id) VALUES(${input.id}::uuid,${lead.accountId},${lead.accountId},${lead.id},${c.contactId},${input.channel},${recipient},${c.name??''},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},NULL) RETURNING *`.execute(e)).rows[0];
 }
 async function prepareGeneral(e:Executor,input:Extract<CommunicationMutation,{action:'prepare_general'}>,user:User){
@@ -95,8 +101,9 @@ async function prepareGeneral(e:Executor,input:Extract<CommunicationMutation,{ac
  const t=input.templateId?await e.selectFrom('messageTemplates').selectAll().where('id','=',input.templateId).where('active','=',true).executeTakeFirstOrThrow():null;
  const incompatible=t?templateCompatibility(t,{channel:input.channel,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,managementType:lead?.managementType??null}):null;if(incompatible)throw new Error(incompatible);
  const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE account_id=${account.id} AND lead_id IS NOT DISTINCT FROM ${input.leadId}::bigint AND contact_id IS NOT DISTINCT FROM ${target.contactId}::bigint AND channel=${input.channel} AND recipient=${target.value} AND owner_email=${user.email} AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return reusable;
- const ownerName=await templateOwnerName(e,lead?.assignedUserEmail??account.assignedUserEmail,user);const ctx={name:account.nombre,contact:target.name,contact_name:target.name,city:lead?.ciudad??account.ciudad,type:lead?.tipo??account.tipo,subtype:lead?.subtipo??account.subtipo,phone:target.value,email:target.value,website:account.sitioWeb,sender:ownerName,sender_short:ownerName};
- const rendered=t?renderMessageTemplateHtml(t.body,ctx):'<p></p>';const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;const subject=t?renderMessageTemplate(t.subject??'',ctx):'';const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx}:null;
+ const ownerName=await templateOwnerName(e,lead?.assignedUserEmail??account.assignedUserEmail,user);const ctx={name:account.nombre,contact:target.name,contact_name:target.name,city:lead?.ciudad??account.ciudad,type:lead?.tipo??account.tipo,subtype:lead?.subtipo??account.subtipo,phone:target.value,email:target.value,website:account.sitioWeb,sender:ownerName,sender_short:ownerName,managementType:lead?.managementType,channel:input.channel,business_status:account.status,is_client:account.commercialStatus==='client'?'Sí':'No'};
+ const variableDefinitions=await messageVariables(e);
+ const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;const subject=t?renderMessageTemplate(t.subject??'',ctx,variableDefinitions):'';const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions}:null;
  const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,subject,body,template_snapshot,owner_email,purpose,other_purpose) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${target.contactId},${input.channel},${target.value},${target.name},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},${input.purpose},${input.otherPurpose}) RETURNING *`.execute(e)).rows[0];
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:'draft_prepared',actor:user,after:{channel:input.channel,purpose:input.purpose,recipient:target.value}});return created;
 }

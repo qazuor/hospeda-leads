@@ -52,7 +52,7 @@ test('selector offers Referente WhatsApp and explains models excluded by explici
   const path=new URL(route.request().url()).pathname;let data:unknown={};
   if(path.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',displayName:'Owner',role:'user'}};
   else if(path.endsWith('/settings'))data={users:[],cities:[],types:['Gastronomía'],subtypes:[],templates:models,authorizedEmails:[],opportunityStages:[]};
-  else if(path.endsWith('/commercial'))data={account,opportunities:[lead],contacts:[],journal:[],leadJournal:[],stages:[],users:[]};
+  else if(path.endsWith('/commercial'))data=new URL(route.request().url()).searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account,opportunities:[lead],contacts:[],journal:[],leadJournal:[],stages:[],users:[]};
   else if(path.endsWith('/work'))data={activities:[],tasks:[],types:[],users:[],attention:[],contacts:[]};
   else if(path.endsWith('/pipeline'))data={stages:[{name:'Cargado',classification:'open'}],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]};
   else if(path.endsWith('/communication')){

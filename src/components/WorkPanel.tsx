@@ -20,10 +20,10 @@ import ws from './Work.module.css';
 
 const statusNames={pending:'Pendiente',completed:'Completada',cancelled:'Cancelada'};
 const channelNames:Record<string,string>={phone:'Teléfono',whatsapp:'WhatsApp',email:'Email',presencial:'Presencial',videollamada:'Videollamada',other:'Otro'};
-export function TaskRow({task,data,onEdit}:{task:WorkTask;data:WorkData;onEdit:(t:WorkTarget)=>void}){
+export function TaskRow({task,data,onEdit,readOnly=false}:{task:WorkTask;data:WorkData;onEdit:(t:WorkTarget)=>void;readOnly?:boolean}){
  const [contactOpen,setContactOpen]=useState(false);
  const pending=task.status==='pending';
- const {authState}=useAuth();const editable=authState.type==='authenticated'&&(authState.user.role==='admin'||task.assignedUserEmail===authState.user.email);
+ const {authState}=useAuth();const editable=!readOnly&&authState.type==='authenticated'&&(authState.user.role==='admin'||task.assignedUserEmail===authState.user.email);
  const needsContact=['call','message','followup'].includes(task.typeId);
  const bucket=taskBucket(task.dueDate,task.dueAt);
  return <article data-work-task={task.id} tabIndex={-1} className={ws.row} data-tone={pending?bucket:task.status}>
