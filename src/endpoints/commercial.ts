@@ -4,6 +4,7 @@ import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
+import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
@@ -70,7 +71,7 @@ export async function get(request:Request){
 export async function post(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=commercialMutation.parse(superjson.parse(await request.text()));
+    const input=commercialMutation.parse(await parseBody(request));
     const actor={id:user.id,email:user.email,displayName:user.displayName};
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
