@@ -67,4 +67,10 @@ const res=await app.request('/_api/does_not_exist');
 expect(res.status).toBe(404);
 expect(await res.json()).toEqual({error:'Endpoint not found'});
 });
+it('answers 413 for an over-limit /_api body before auth, while a small body still reaches auth',async()=>{
+const big=await app.request('/_api/commercial',{method:'POST',headers:{'content-type':'application/json'},body:'x'.repeat(300*1024)});
+expect(big.status).toBe(413);
+expect(((await big.json()) as {json:{error:string}}).json.error).toBe('La solicitud es demasiado grande.');
+expect((await app.request('/_api/commercial',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).status).toBe(401);
+});
 });
