@@ -49,5 +49,20 @@ globalThis.fetch=async()=>new Response("{}",{status:500});
 await request(req({email}));
 for(let i=0;i<100;i++){const pending=await sql`SELECT token_hash FROM password_reset_tokens WHERE user_id=${user.id} AND expires_at>now()`.execute(db);if(!pending.rows.length)break;await new Promise(r=>setTimeout(r,10));}
 assert.equal((await sql`SELECT token_hash FROM password_reset_tokens WHERE user_id=${user.id} AND expires_at>now()`.execute(db)).rows.length,0,"delivery failure removes the new token");
-console.log("Password recovery: generic replies, cooldown, hashing, validation, permissions, expiry, concurrency, session revocation and login passed");
+const attempts=async(e:string)=>(await db.selectFrom("loginAttempts").selectAll().where(sql`lower(email)`,"=",e.toLowerCase()).where("success","=",false).execute()).length;
+const wrong=await login(req({email,password:"definitely-wrong"}));assert.equal(wrong.status,401);const wrongBody=await wrong.text();
+const ghost=`ghost-${Date.now()}@example.com`;
+const unknown=await login(req({email:ghost,password:"whatever-123"}));assert.equal(unknown.status,401,"unauthorized email is not a 403");assert.equal(await unknown.text(),wrongBody,"unknown email body equals wrong-password body");
+await db.updateTable("authorizedEmails").set({active:false}).where("email","=",email).execute();
+const disabled=await login(req({email,password:"new-password-123"}));assert.equal(disabled.status,401,"disabled account with a valid password is rejected");assert.equal(await disabled.text(),wrongBody,"disabled account body equals wrong-password body");
+await db.updateTable("authorizedEmails").set({active:true}).where("email","=",email).execute();
+assert.equal(await attempts(ghost),1,"unauthorized attempts are recorded");
+for(let i=0;i<4;i++)assert.equal((await login(req({email:ghost.toUpperCase(),password:"whatever-123"}))).status,401);
+assert.equal((await login(req({email:ghost,password:"whatever-123"}))).status,429,"unauthorized email is rate limited");
+assert.equal(await attempts(email),2,"wrong and disabled attempts counted for the real account");
+assert.equal((await login(req({email,password:"new-password-123"}))).status,200);assert.equal(await attempts(email),0,"successful login clears failed attempts");
+for(let i=0;i<5;i++)assert.equal((await login(req({email,password:"definitely-wrong"}))).status,401);
+assert.equal((await login(req({email,password:"new-password-123"}))).status,429,"locked account rejects even the right password");
+await db.deleteFrom("loginAttempts").where(sql`lower(email)`,"=",ghost).execute();
+console.log("Password recovery: generic replies, cooldown, hashing, validation, permissions, expiry, concurrency, session revocation, login enumeration and lockout passed");
 }finally{globalThis.fetch=realFetch;await db.destroy();}
