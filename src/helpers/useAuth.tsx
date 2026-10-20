@@ -87,6 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           : { type: "unauthenticated" };
 
   const logout = useCallback(async () => {
+    // Cancel any in-flight session refresh so it cannot restore the user after logout
+    await queryClient.cancelQueries({ queryKey: AUTH_QUERY_KEY });
     // Optimistically update UI
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
     // Make the actual API call

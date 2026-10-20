@@ -87,12 +87,49 @@ describe("AuthProvider session keepalive", () => {
     expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
   });
 
-  it("keeps the known user when a background refresh fails transiently", async () => {
+  it("keeps the known user when a background refresh fails with a network error", async () => {
     mount();
     await advance(0);
     respond = () => { throw new Error("network down"); };
     await advance(SESSION_REFRESH_INTERVAL_MS);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await advance(2000); // retry: 1 in the provider
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(screen.getByTestId("state").textContent).toBe("authenticated");
+  });
+
+  it("keeps the known user when a background refresh returns 400 session validation failed", async () => {
+    mount();
+    await advance(0);
+    respond = () => new Response(JSON.stringify({ json: { error: "Session validation failed" } }), { status: 400 });
+    await advance(SESSION_REFRESH_INTERVAL_MS);
+    await advance(2000);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(screen.getByTestId("state").textContent).toBe("authenticated");
+  });
+
+  it("logout cancels an in-flight refresh so it cannot restore the user", async () => {
+    let logout: (() => Promise<void>) | undefined;
+    function Grab() { logout = useAuth().logout; return <Probe />; }
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><AuthProvider><Grab /></AuthProvider></QueryClientProvider>);
+    await advance(0);
+    let release: (r: Response) => void = () => {};
+    let pendingTaken = false;
+    let finishLogout: () => void = () => {};
+    // First session call stays in flight; logout and the post-logout session check answer normally (server has no session).
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("logout")) return new Promise<Response>((r) => { finishLogout = () => r(new Response(JSON.stringify({ json: {} }), { status: 200 })); });
+      if (pendingTaken) return Promise.resolve(unauthorized());
+      pendingTaken = true;
+      return new Promise<Response>((r) => { release = r; });
+    });
+    await advance(SESSION_REFRESH_INTERVAL_MS);
+    let done: Promise<void> | undefined;
+    await act(async () => { done = logout!(); await vi.advanceTimersByTimeAsync(0); });
+    // The stale refresh answers while the logout request is still in flight.
+    await act(async () => { release(ok()); await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
+    await act(async () => { finishLogout(); await done; await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
   });
 });
