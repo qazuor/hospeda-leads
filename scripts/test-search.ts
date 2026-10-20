@@ -109,7 +109,11 @@ try {
     assert(phoneRows.slice(0, 2).every(a => palette.results.some((r: { id: string }) => r.id === 'business:' + a.id)), `Ctrl+K phone search "${query}"`);
     assert(!palette.results.some((r: { id: string }) => r.id === 'business:' + phoneRows[2].id));
   }
-  assert.equal((await get(leads, 'leads', { entity: 'business', q: `${marker} 12` })).rows.filter((r: { nombre: string }) => r.nombre.includes('fono')).length, 0, 'Short digit fragments are not treated as phones');
+  assert((await get(leads, 'leads', { entity: 'business', q: '4444' })).rows.some((r: { accountId: string }) => r.accountId === phoneRows[2].id), 'Short phone fragments still match as text');
+  const noteLead = await db.insertInto('leads').values({ accountId: phoneRows[2].id, nombre: phoneRows[2].nombre, estado: 'Cargado', assignedUserEmail: reader.user.email }).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto('leadNotes').values({ leadId: noteLead.id, note: `${marker} llamar al 0299 15 444-7788 mañana`, author: reader.user.email }).execute();
+  assert((await get(leads, 'leads', { entity: 'business', q: '2994447788' })).rows.some((r: { accountId: string }) => r.accountId === phoneRows[2].id), 'Phone written in a note is found by a phone query');
+  assert.equal((await get(leads, 'leads', { entity: 'business', q: `${marker} 12` })).rows.filter((r: { nombre: string }) => r.nombre.includes('fono')).length, 2, 'Short digit fragments match as plain text only');
   assert.deepEqual((await get(leads, 'leads', { entity: 'business', q: `${marker} fono rosario` })).rows.map((r: { nombre: string }) => r.nombre), [`${marker} fono otro`], 'name + city across fields');
   assert((await get(search, 'search', { q: `${marker} fono rosario` })).results.some((r: { id: string }) => r.id === 'business:' + phoneRows[2].id), 'Ctrl+K name + city');
   assert.equal((await get(search, 'search', { q: `${marker} fono quince rosario` })).results.filter((r: { kind: string }) => r.kind === 'Negocios').length, 0, 'Every word must match somewhere');

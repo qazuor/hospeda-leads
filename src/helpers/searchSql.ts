@@ -49,7 +49,7 @@ export function multiFieldSearchSql(columns: readonly string[], query: string, o
   const perToken = (token: string) => sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, token)), ...phoneColumns.map(c => phoneSearchSql(c, token)).filter((p): p is RawBuilder<boolean> => p !== null), ...(extra ? [extra(token)] : [])], sql` or `)})`;
   // A query that is just a phone number is matched as one piece (digit groups are not separate words), which also keeps it to a single pass over the text columns.
   const whole = phoneColumns.map(c => phoneSearchSql(c, query)).filter((p): p is RawBuilder<boolean> => p !== null);
-  if (whole.length) return sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, query.trim())), ...whole], sql` or `)})`;
+  if (whole.length) return sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, query.trim())), ...(extra ? [extra(query.trim())] : []), ...whole], sql` or `)})`;
   const tokens = searchTokens(query);
   return tokens.length ? sql<boolean>`(${sql.join(tokens.map(perToken), sql` and `)})` : sql<boolean>`false`;
 }
