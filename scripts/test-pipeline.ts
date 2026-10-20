@@ -84,9 +84,12 @@ try{
   const plan=[['Cargado',400],[pick('won'),60],[pick('lost'),42]] as const;
   const accounts=await db.insertInto('crmAccounts').values(Array.from({length:502},(_,n)=>({nombre:bulkPrefix+n,assignedUserEmail:user.user.email}))).returning('id').execute();
   // Closing stages normally require a reason through the pipeline; this fixture only needs the counts, so the guard is paused on the disposable DB.
-  await sql`ALTER TABLE leads DISABLE TRIGGER crm_pipeline_guard`.execute(db);
-  const leadRows=await db.insertInto('leads').values(accounts.map((account,n)=>({nombre:bulkPrefix+n,accountId:account.id,estado:n<400?plan[0][0]:n<460?plan[1][0]:plan[2][0],tipo:'Alojamiento',assignedUserEmail:user.user.email,opportunityName:'Bulk'}))).returning('id').execute();
-  await sql`ALTER TABLE leads ENABLE TRIGGER crm_pipeline_guard`.execute(db);
+  const leadRows=await db.transaction().execute(async trx=>{
+   await sql`ALTER TABLE leads DISABLE TRIGGER crm_pipeline_guard`.execute(trx);
+   const inserted=await trx.insertInto('leads').values(accounts.map((account,n)=>({nombre:bulkPrefix+n,accountId:account.id,estado:n<400?plan[0][0]:n<460?plan[1][0]:plan[2][0],tipo:'Alojamiento',assignedUserEmail:user.user.email,opportunityName:'Bulk'}))).returning('id').execute();
+   await sql`ALTER TABLE leads ENABLE TRIGGER crm_pipeline_guard`.execute(trx);
+   return inserted;
+  });
   const ids=leadRows.map(r=>Number(r.id));
   const bulkResponse=await list(new Request('http://localhost/_api/leads?view=board&idMin='+Math.min(...ids)+'&idMax='+Math.max(...ids),{headers:{cookie:user.cookie}}));
   const bulk=superjson.parse<{rows:unknown[];total:number;truncated:boolean;boardTotals:{open:number;won:number;lost:number;total:number;groups:{estado:string|null;managementType:string|null;count:number}[]}}>(await bulkResponse.text());
@@ -96,7 +99,11 @@ try{
  }
  console.log('Pipeline integration: loss reason, queue filters, ownership, optimistic conflicts, legacy guards, blocked contact, reopen/new/followup, history, objections and catalogs passed');
 }finally{
+ try{
+  await sql`ALTER TABLE leads ENABLE TRIGGER crm_pipeline_guard`.execute(db);
  if(accountId){await sql`DELETE FROM crm_pipeline_events WHERE account_id=${accountId}`.execute(db);await db.deleteFrom('leads').where('accountId','=',accountId).execute();}
  await sql`DELETE FROM crm_pipeline_events WHERE lead_id IN (SELECT id FROM leads WHERE nombre LIKE ${bulkPrefix+'%'})`.execute(db);await db.deleteFrom('leads').where('nombre','like',bulkPrefix+'%').execute();await sql`DELETE FROM crm_commercial_journal WHERE account_id IN (SELECT id FROM crm_accounts WHERE nombre LIKE ${bulkPrefix+'%'})`.execute(db);await db.deleteFrom('crmAccounts').where('nombre','like',bulkPrefix+'%').execute();
- await db.destroy();
+ }finally{
+  await db.destroy();
+ }
 }

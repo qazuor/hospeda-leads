@@ -17,7 +17,7 @@ import { PipelineBoard } from './Pipeline';
 beforeAll(() => {
   window.matchMedia = vi.fn().mockImplementation(query => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); pipeline.insights = [{ id: 1, canModify: true, pendingFollowup: false, stageSince: null }]; });
 
 const lead = (extra: Record<string, unknown> = {}) => ({ id: 1, accountId: 9, nombre: 'Hotel Sol', estado: 'main:contact', managementType: 'main', assignedUserEmail: 'ana@example.com', prioridad: null, tipo: 'Hotel', opportunityName: 'Alta', ...extra }) as never;
 const renderBoard = (props: Partial<React.ComponentProps<typeof PipelineBoard>> = {}) => render(
@@ -50,7 +50,6 @@ describe('PipelineBoard', () => {
     fireEvent.focus(screen.getByRole('button', { name: 'Cambiar etapa' }).parentElement as HTMLElement);
     const reason = await screen.findByText(/Solo .* puede cambiar la etapa/);
     expect(reason.textContent).toBe('Solo Otra persona del equipo o un administrador puede cambiar la etapa.');
-    pipeline.insights = [{ id: 1, canModify: true, pendingFollowup: false, stageSince: null }];
   });
   it('reduces the server groups for the team-stages view', async () => {
     renderBoard({ boardTotals: { open: 700, won: 0, lost: 0, total: 700, groups: [{ estado: 'main:contact', managementType: 'main', count: 700 }] } });
