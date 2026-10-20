@@ -10,7 +10,7 @@ export function MaterialThumbnail({version}:{version:ResourceVersion}){
  useEffect(()=>{
   if(!visible||!canThumbnail(version))return;const controller=new AbortController();let objectUrl:string|undefined;setState({});
   void (async()=>{
-   try{const r=await fetch('/_api/resources/download?versionId='+version.id,{signal:controller.signal,credentials:'same-origin',cache:'no-store',redirect:'error'});
+   try{const r=await fetch('/_api/resources/download?versionId='+version.id,{signal:controller.signal,credentials:'same-origin',redirect:'error'});
     if(!r.ok)throw new Error('Miniatura no disponible. Podés reintentar o abrir la vista previa.');
     if(r.headers.get('Content-Type')?.split(';')[0]!==version.mimeType)throw new Error('El formato recibido no admite una miniatura.');
     const blob=await r.blob();if(controller.signal.aborted)return;
