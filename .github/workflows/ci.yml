@@ -2,8 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main, migration/floot-port]
+    branches: [main, staging]
   pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
@@ -31,77 +39,114 @@ jobs:
       BREVO_API_KEY: ci-placeholder-not-used
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Detect docs-only change
+        id: filter
+        # Fails open: anything unexpected leaves code=true. The job still runs and reports success on docs-only PRs so the required check never stays pending.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          code=true
+          if [ -n "$PR_NUMBER" ] && files=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)') && [ -n "$files" ] && [ "$(printf '%s\n' "$files" | wc -l)" -lt 3000 ]; then
+            if ! printf '%s\n' "$files" | grep -qvE '^docs/|\.md$'; then code=false; fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "code changed: $code"
+      - if: steps.filter.outputs.code == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run db:migrate
+          cache: npm
+      - if: steps.filter.outputs.code == 'true'
+        run: npm ci
+      - if: steps.filter.outputs.code == 'true'
+        run: npm run typecheck
+      - if: steps.filter.outputs.code == 'true'
+        run: npm test
+      - if: steps.filter.outputs.code == 'true'
+        run: npm run db:migrate
       - name: Seed disposable test database
+        if: steps.filter.outputs.code == 'true'
         run: npm run db:seed:test
         env:
           CRM_TEST_DATABASE: "1"
       - name: Commercial migration and integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:commercial
         env:
           CRM_TEST_DATABASE: "1"
       - name: Tasks and activities migration and integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:work
         env:
           CRM_TEST_DATABASE: "1"
       - name: Pipeline migration and integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:pipeline
         env:
           CRM_TEST_DATABASE: "1"
       - name: Password recovery integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:auth
         env:
           CRM_TEST_DATABASE: "1"
       - name: Data quality migration and integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:quality
         env:
           CRM_TEST_DATABASE: "1"
       - name: Communication and resources migration and integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:communication
         env:
           CRM_TEST_DATABASE: "1"
       - name: Shared reading and owner permissions integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:permissions
         env:
           CRM_TEST_DATABASE: "1"
       - name: Explicit management migration and read-only audit tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:managements
         env:
           CRM_TEST_DATABASE: "1"
       - name: Business state migration and audit tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:business-state-migration
         env:
           CRM_TEST_DATABASE: "1"
       - name: Business and management state integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:business-state
         env:
           CRM_TEST_DATABASE: "1"
       - name: Business list team defaults and permissions
+        if: steps.filter.outputs.code == 'true'
         run: node --import tsx scripts/test-business-list-defaults.ts
         env:
           CRM_TEST_DATABASE: "1"
       - name: Guided usability integration tests
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:usability
         env:
           CRM_TEST_DATABASE: "1"
       - name: Accent-insensitive search integration tests
+        if: steps.filter.outputs.code == 'true'
         run: node --import tsx scripts/test-search.ts
         env:
           CRM_TEST_DATABASE: "1"
       - name: Read-only MCP and OAuth integration
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:mcp
         env:
           CRM_TEST_DATABASE: "1"
-      - run: npm run build
+      - if: steps.filter.outputs.code == 'true'
+        run: npm run build
       - name: Start server
+        if: steps.filter.outputs.code == 'true'
         run: |
-          npm start > /tmp/hospeda-leads.log 2>&1 &
+          # Run node directly (not through npm): killing an npm wrapper PID does not stop its node child, which then keeps port 3001.
+          node dist-server/index.js > /tmp/hospeda-leads.log 2>&1 &
           echo $! > /tmp/hospeda-leads.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3001/_api/health >/dev/null; then
@@ -112,32 +157,68 @@ jobs:
           cat /tmp/hospeda-leads.log
           exit 1
       - name: Smoke test API
+        if: steps.filter.outputs.code == 'true'
         run: |
           curl -fsS http://127.0.0.1:3001/_api/health | grep '"ok":true'
           curl -fsS -o /tmp/session.json -w '%{http_code}' http://127.0.0.1:3001/_api/auth/session | grep '401'
 
+      - name: Resolve Playwright version
+        if: steps.filter.outputs.code == 'true'
+        id: pw
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        if: steps.filter.outputs.code == 'true'
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
       - name: Install Chromium for commercial browser test
+        if: steps.filter.outputs.code == 'true' && steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
+      - name: Install Chromium system dependencies
+        if: steps.filter.outputs.code == 'true' && steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
       - name: Commercial browser test
+        if: steps.filter.outputs.code == 'true'
         run: npm run test:browser
 
       - name: Upload browser evidence
-        if: always()
+        if: steps.filter.outputs.code == 'true' && (always())
         uses: actions/upload-artifact@v4
         with:
           name: commercial-browser-evidence
           path: test-results/
 
       - name: Stop source server
+        if: steps.filter.outputs.code == 'true'
         run: |
           kill "$(cat /tmp/hospeda-leads.pid)" || true
+          # The Docker smoke test reuses port 3001 on the host network: wait for the graceful shutdown to release it.
+          for i in {1..20}; do
+            if ! ss -Hltn 'sport = :3001' | grep -q .; then exit 0; fi
+            sleep 1
+          done
+          echo "Port 3001 is still in use after stopping the source server:"
+          ss -Hltnp 'sport = :3001' || true
+          exit 1
 
       - name: Build production Docker image
+        if: steps.filter.outputs.code == 'true'
         run: docker build --build-arg NODE_IMAGE=mirror.gcr.io/library/node:22-alpine -t hospeda-leads:ci .
 
       - name: Smoke test production Docker image
+        if: steps.filter.outputs.code == 'true'
         run: |
+          if ss -Hltn 'sport = :3001' | grep -q .; then
+            echo "Port 3001 is already in use: the health check would not reach the container."
+            ss -Hltnp 'sport = :3001' || true
+            exit 1
+          fi
           docker run -d             --name hospeda-leads-ci             --network host             -e NODE_ENV=production             -e PORT=3001             -e DATABASE_URL="$DATABASE_URL"             -e JWT_SECRET="$JWT_SECRET"             -e ADMIN_EMAIL="$ADMIN_EMAIL"             -e BREVO_API_KEY="$BREVO_API_KEY"             -e PUBLIC_APP_URL="$PUBLIC_APP_URL"             hospeda-leads:ci
 
           for i in {1..30}; do
@@ -148,10 +229,13 @@ jobs:
           done
 
           curl -fsS http://127.0.0.1:3001/_api/health | grep '"ok":true'
+          test "$(docker inspect -f '{{.State.Running}}' hospeda-leads-ci)" = true
           docker exec hospeda-leads-ci npm run db:migrate
           CRM_TEST_DATABASE=1 node scripts/smoke-resource-persistence.mjs
           docker rm -f hospeda-leads-ci
 
       - name: Show server logs on failure
-        if: failure()
-        run: cat /tmp/hospeda-leads.log || true
+        if: steps.filter.outputs.code == 'true' && (failure())
+        run: |
+          cat /tmp/hospeda-leads.log || true
+          docker logs hospeda-leads-ci || true

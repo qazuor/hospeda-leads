@@ -4,7 +4,8 @@ import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
-import {crmError} from '../helpers/crmErrors';
+import {parseBody} from '../helpers/parseBody';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
 import { z } from "zod";
@@ -64,13 +65,13 @@ export async function get(request:Request){
       ]).orderBy("nombre").limit(50).offset((input.page-1)*50).execute()
     ]);
     return response({rows:rows.map(r=>({...r,opportunityCount:Number(r.opportunityCount),contactCount:Number(r.contactCount)})),total:Number(count.total),page:input.page});
-  }catch(e){return response({error:crmError(e)},e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:fallbackStatus(e))}
 }
 
 export async function post(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=commercialMutation.parse(superjson.parse(await request.text()));
+    const input=commercialMutation.parse(await parseBody(request));
     const actor={id:user.id,email:user.email,displayName:user.displayName};
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
@@ -213,5 +214,5 @@ export async function post(request:Request){
       return String(row.id);
     });
     return response({id});
-  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:fallbackStatus(e))}
 }

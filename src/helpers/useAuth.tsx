@@ -13,6 +13,11 @@ import { User } from "./User";
 // React Query key for auth session. Make sure to optimistically update user infos using this.
 export const AUTH_QUERY_KEY = ["auth", "session"] as const;
 
+// session_GET re-signs the 1-day JWT cookie, so refetching well inside that window keeps visible tabs signed in.
+export const SESSION_STALE_MS = 5 * 60_000;
+export const SESSION_REFRESH_INTERVAL_MS = 30 * 60_000;
+const NOT_AUTHENTICATED_MESSAGE = "Not authenticated";
+
 // Do not use this state in login/register UI because it's irrelevant. Only use it in UI that requires authentication.
 // For pages that requires authentication only in parts of the UI (e.g. typical home page with a user avatar), the loading
 // state should not apply to the full page, only to the parts that require authentication.
@@ -61,13 +66,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     retry: 1,
     enabled: true,
-    staleTime: Infinity,
+    staleTime: SESSION_STALE_MS,
+    refetchInterval: SESSION_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const authState: AuthState =
     status === "pending"
       ? { type: "loading" }
-      : status === "error"
+      : status === "error" && !(data && !(error instanceof Error && error.message === NOT_AUTHENTICATED_MESSAGE)) // a transient failure of a background refresh must not sign out a known user
+
         ? {
             type: "unauthenticated",
             errorMessage:
@@ -78,6 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           : { type: "unauthenticated" };
 
   const logout = useCallback(async () => {
+    // Cancel any in-flight session refresh so it cannot restore the user after logout
+    await queryClient.cancelQueries({ queryKey: AUTH_QUERY_KEY });
     // Optimistically update UI
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
     // Make the actual API call

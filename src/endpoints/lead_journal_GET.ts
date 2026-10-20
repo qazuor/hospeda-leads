@@ -5,6 +5,7 @@ import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./lead_journal_GET.schema";
+import {errorResponse} from '../helpers/errorResponse';
 
 export async function handle(request:Request){
   try{
@@ -55,6 +56,6 @@ export async function handle(request:Request){
     };
     return new Response(superjson.stringify(out),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo cargar el historial"}),{status:error instanceof CrmForbidden?403:400});
+    return errorResponse(error,error instanceof CrmForbidden?403:400);
   }
 }

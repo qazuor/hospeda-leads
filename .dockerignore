@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-server
+.git
+test-results
+playwright-report
+perf-results
+coverage
+.env*
+*.log
+docs
+tests
+*.md

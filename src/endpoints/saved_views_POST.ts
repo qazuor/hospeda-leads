@@ -5,11 +5,13 @@ import { schema, type OutputType } from "./saved_views_POST.schema";
 import type { SavedLeadView } from "./saved_views_GET.schema";
 import {randomUUID} from 'node:crypto';
 import {identifySavedViews} from '../helpers/savedViewIdentity';
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     const key="lead_saved_views:"+user.id;
     const result=await db.transaction().execute(async trx=>{
       // Initialize before locking so concurrent first saves serialize too.
@@ -35,6 +37,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true,view:result} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo guardar la vista"}),{status:400});
+    return errorResponse(error);
   }
 }

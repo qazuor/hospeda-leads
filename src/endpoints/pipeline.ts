@@ -1,5 +1,6 @@
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
-import {crmError} from '../helpers/crmErrors';
+import {parseBody} from '../helpers/parseBody';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -16,7 +17,7 @@ import {day} from './work.schema';
 class Forbidden extends Error {}
 class Conflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:fallbackStatus(e));
 const query=z.object({leadId:z.string().regex(/^\d+$/).optional(),ids:z.string().regex(/^\d+(,\d+)*$/).optional(),mode:z.enum(['detail','reactivation','config']).default('detail'),from:day.optional(),to:day.optional(),reasonId:z.string().regex(/^\d+$/).optional(),vertical:z.string().max(200).optional(),responsible:z.string().max(320).optional(),handled:z.enum(['yes','no','all']).default('no'),page:z.coerce.number().int().min(1).default(1)});
 export async function get(request:Request){
  try{
@@ -64,7 +65,7 @@ async function log(trx:Transaction<DB>,accountId:string,leadId:string|null,actio
 }
 export async function post(request:Request){
  try{
-  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(superjson.parse(await request.text()));
+  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(await parseBody(request));
   const id=await db.transaction().execute(async trx=>{
    await setWorkActor(trx,user);
    if(p.action==='stage_save'||p.action==='catalog_save'||p.action==='rules_save'){

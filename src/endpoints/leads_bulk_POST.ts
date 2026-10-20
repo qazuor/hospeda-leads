@@ -7,6 +7,8 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_bulk_POST.schema";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 const comparable=(value:unknown)=>{
   if(value===null||value===undefined)return null;
@@ -17,7 +19,7 @@ const comparable=(value:unknown)=>{
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     if(Object.prototype.hasOwnProperty.call(input.changes,"assignedUserEmail")&&user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo un administrador puede modificar el responsable."}),{status:403});
     }
@@ -80,6 +82,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true,updated:typeof updated==="number"?updated:0,...(typeof updated!=="number"?{preview:updated}:{})} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudieron actualizar los leads"}),{status:error instanceof CrmForbidden?403:400});
+    return errorResponse(error,error instanceof CrmForbidden?403:400);
   }
 }
