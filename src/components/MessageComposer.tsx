@@ -3,13 +3,15 @@ import { Input } from './Input';
 import { Checkbox } from './Checkbox';
 import {useUnsavedChanges} from './UnsavedChanges';
 import React,{useEffect,useState,useRef} from 'react';import {useMutation,useQueryClient} from '@tanstack/react-query';
-import {Button} from './Button';import {RichTemplateEditor} from './RichTemplateEditor';import {postCommunication,type PreparedMessage} from '../endpoints/communication.schema';import {whatsappTextToPreviewHtml,htmlToWhatsApp} from '../helpers/templateChannelFormatting';
+import {Button} from './Button';import {postCommunication,type PreparedMessage} from '../endpoints/communication.schema';import {whatsappTextToPreviewHtml,htmlToWhatsApp} from '../helpers/templateChannelFormatting';
 import {Mail,MessageCircle,Check,ArrowLeft,Eye} from 'lucide-react';
 import styles from './Communication.module.css';
 import {messageLabels} from '../helpers/messageLabels';
 import {crmSuccess} from '../helpers/crmFeedback';
 import {unresolvedTemplateVariables} from '../helpers/renderMessageTemplate';
+import editorStyles from './RichTemplateEditor.module.css';
 export {messageLabels} from '../helpers/messageLabels';
+const RichTemplateEditor=React.lazy(()=>import('./RichTemplateEditor').then(m=>({default:m.RichTemplateEditor})));
 const editorContent=(channel:PreparedMessage['channel'],body:string)=>channel==='whatsapp'?'<p>'+whatsappTextToPreviewHtml(body)+'</p>':body;
 export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange}:{initial:PreparedMessage;onChange?:(m:PreparedMessage)=>void;onDirtyChange?:(dirty:boolean)=>void;onBusyChange?:(busy:boolean)=>void}){
  const [m,setM]=useState(initial),[subject,setSubject]=useState(initial.subject),[body,setBody]=useState(initial.body),[confirm,setConfirm]=useState(false),[editing,setEditing]=useState(true),[editorHtml,setEditorHtml]=useState(()=>editorContent(initial.channel,initial.body)),[externalUrl,setExternalUrl]=useState<string|null>(null);const externalWindow=useRef<Window|null>(null);const qc=useQueryClient();
@@ -31,7 +33,7 @@ export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange}:{i
  {draft&&<ol className={styles.progress} aria-label="Preparación del mensaje"><li aria-current={editing?'step':undefined}><span>{editing?'1':<Check size={14}/>}</span>Editar mensaje</li><li aria-current={!editing?'step':undefined}><span>2</span>Revisar y confirmar</li></ol>}
  {draft&&editing&&<div className={styles.editSection}><div><h3>Personalizá el mensaje</h3><p className={styles.muted}>El destinatario ya está elegido. Revisá el saludo y ajustá el texto antes de continuar.</p></div>
  {m.channel==='email'&&<label>Asunto<Input aria-label="Asunto final" value={subject} disabled={mutation.isPending} onChange={e=>{setSubject(e.target.value);setConfirm(false)}}/></label>}
- <div inert={mutation.isPending}><RichTemplateEditor channel={m.channel} ariaLabel="Mensaje final" showVariables={false} value={editorHtml} onChange={v=>{setEditorHtml(v);setBody(m.channel==='whatsapp'?htmlToWhatsApp(v):v);setConfirm(false)}}/></div>
+ <div inert={mutation.isPending}><React.Suspense fallback={<div aria-busy="true" className={editorStyles.loading}>Cargando editor…</div>}><RichTemplateEditor channel={m.channel} ariaLabel="Mensaje final" showVariables={false} value={editorHtml} onChange={v=>{setEditorHtml(v);setBody(m.channel==='whatsapp'?htmlToWhatsApp(v):v);setConfirm(false)}}/></React.Suspense></div>
  {missingVariables.length>0&&<p role="alert">Faltan datos en este mensaje: {missingVariables.map(v=>`{{${v}}}`).join(', ')}. Completalos o quitá esas variables para continuar.</p>}
  <div className={styles.actionBar}><span className={styles.muted}>{dirty?'Cambios sin guardar':'Borrador guardado'}</span><Button disabled={mutation.isPending||!body.trim()||missingVariables.length>0||(m.channel==='email'&&!subject.trim())} disabledReason={(mutation.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá o quitá las variables faltantes antes de continuar."} onClick={()=>mutate({action:'edit',id:m.id,revision:m.revision,subject,body})}><Eye size={16}/>{mutation.isPending?'Guardando mensaje…':'Guardar y ver contenido final'}</Button></div></div>}
  {(!draft||!editing)&&preview&&<section className={styles.reviewSection}><div className={styles.reviewHeading}><div><h3>{draft?'Revisá el contenido final':'Contenido utilizado'}</h3><p className={styles.muted}>{draft?'Este es el contenido guardado que usará el canal.':'Se conserva el mensaje utilizado y su destinatario.'}</p></div>{draft&&<Button size="sm" variant="outline" disabled={mutation.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>{setEditing(true);setConfirm(false)}}><ArrowLeft size={14}/>Volver a editar</Button>}</div>

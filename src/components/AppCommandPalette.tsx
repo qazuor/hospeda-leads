@@ -12,7 +12,7 @@ import { mainNavigation } from '../helpers/appNavigation';
 import { commandPalette, commandStore, openCommandPalette, restoreCommandFocus } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import styles from './AppCommandPalette.module.css';
-import guideTopics from '../content/user-guide.json';
+type GuideTopics=typeof import('../content/user-guide.json');
 
 const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
 
@@ -65,6 +65,7 @@ export function AppCommandPalette() {
 
   const debounced=useDebounce(query.trim(),250);
   const content=useQuery({queryKey:['crm-search',authenticated?authState.user.id:null,authenticated?authState.user.role:null,debounced],queryFn:({signal})=>searchCrm(debounced,signal),enabled:authenticated&&opened&&debounced.length>=2&&debounced.length<=200,staleTime:0,gcTime:0});
+  const guideTopics=useQuery<GuideTopics>({queryKey:['user-guide-topics'],queryFn:()=>import('../content/user-guide.json').then(m=>m.default),enabled:opened&&query.trim().length>=2,staleTime:Infinity});
   const contentCurrent=debounced===query.trim()&&query.trim().length>=2;
   const contentIdentity=contentCurrent?(content.data?.results??[]).map(result=>result.id).join(','):'';
   useEffect(()=>{if(opened)commandStore.updateState(state=>({...state,selected:-1}));},[contentIdentity,opened]);
@@ -101,7 +102,7 @@ export function AppCommandPalette() {
   ].map(group => ({ ...group, actions: group.actions.filter(action =>
     normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))) }));
   const navigationMatch=navigationGroups.some(group=>group.actions.some(action=>normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))));
-  const helpActions=query.trim().length>=2&&!navigationMatch?guideTopics.flatMap(topic=>topic.articles.flatMap(article=>{
+  const helpActions=query.trim().length>=2&&!navigationMatch?(guideTopics.data??[]).flatMap(topic=>topic.articles.flatMap(article=>{
     const text=[topic.title,article.title,article.when,...article.steps,article.result,...article.example,...article.notes].join(' ');
     const score=fuzzySearchScore(query,text);
     return score===null?[]:[{id:`help:${topic.id}:${article.id}`,label:article.title,description:`${topic.title} · ${article.when}`,icon:BookOpen,score,run:()=>go(`/guide?topic=${topic.id}&article=${article.id}`)}];
