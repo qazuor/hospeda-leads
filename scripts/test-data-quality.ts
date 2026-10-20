@@ -60,6 +60,14 @@ try{
  await assert.rejects(()=>db.insertInto('leads').values({nombre:'Reaparecer',accountId:source.id}).execute(),/fusionado/);
  await mutation(mergeBody(),409);
  const listing=await list(new Request('http://localhost/_api/leads?entity=business&q='+encodeURIComponent('Fusión'),{headers:{cookie:admin.cookie}}));const rows=superjson.parse<{rows:Array<{accountId:string}>}>(await listing.text());assert(!rows.rows.some(r=>r.accountId===source.id));assert(rows.rows.some(r=>r.accountId===dest.id));
+ // U-09: imports cannot create or rename into a duplicate of a No contactar business (acknowledge does not lift it)
+ {const dnc=await db.insertInto('crmAccounts').values({nombre:'Cabañas Bloqueo '+stamp,ciudad:'Colón',doNotContact:true}).returningAll().executeTakeFirstOrThrow();
+  const free=await db.insertInto('crmAccounts').values({nombre:'Libre '+stamp,ciudad:'Colón',email:`libre-${stamp}@example.com`,assignedUserEmail:admin.email}).returningAll().executeTakeFirstOrThrow();
+  const run=async(rows:Record<string,string>[],decision:Record<string,unknown>,status:number)=>{const r=await mutation<ImportReview>({action:'import_preview',rows,source:'CSV dnc'});const m=r.rows[0].matches.find(x=>x.id===(decision.targetId as string|undefined));return mutation({action:'import_confirm',batchId:r.batchId,decisions:[{index:0,acknowledge:true,...decision,...(m?{revision:m.revision}:{})}],confirm:true},status);};
+  await run([{nombre:dnc.nombre,ciudad:'Colón'}],{action:'create'},409);
+  await run([{nombre:dnc.nombre,ciudad:'Colón',email:free.email!}],{action:'update',targetId:String(free.id)},409);
+  await run([{nombre:'Cabanas Bloqueo '+stamp,ciudad:'Colón'}],{action:'create'},200);// ñ is not n
+  await db.deleteFrom('crmAccounts').where('id','in',[dnc.id,free.id]).execute().catch(()=>undefined);}
  // Reviewed import, invalid rows, conservative updates and replay protection.
  const importRows=[{nombre:'Import '+stamp,ciudad:'Colón',email:'import@example.com'},{nombre:'Inválido',email:'bad'},{nombre:dest.nombre,ciudad:'Colón',telefono:''}];
  const count=Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n);
