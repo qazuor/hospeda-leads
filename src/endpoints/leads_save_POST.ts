@@ -5,6 +5,8 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_save_POST.schema";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 const dateOrNull = (value?: string | null) => value ? new Date(value + "T12:00:00Z") : null;
 const comparable=(value:unknown)=>{
@@ -16,7 +18,7 @@ const comparable=(value:unknown)=>{
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
-    const input = schema.parse(superjson.parse(await request.text()));
+    const input = schema.parse(await parseBody(request));
     if(!input.id)return new Response(superjson.stringify({error:"El alta heredada está deshabilitada. Creá un negocio y usá Iniciar gestión cuando corresponda."}),{status:409});
 
     const id=await db.transaction().execute(async trx=>{
@@ -128,6 +130,6 @@ export async function handle(request: Request) {
 
     return new Response(superjson.stringify({ id } satisfies OutputType), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
-    return new Response(superjson.stringify({ error: error instanceof Error ? error.message : "No se pudo guardar el lead" }), { status: error instanceof CrmForbidden ? 403 : 400 });
+    return errorResponse(error,error instanceof CrmForbidden ? 403 : 400);
   }
 }

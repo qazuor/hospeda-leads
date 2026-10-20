@@ -1,10 +1,10 @@
 import {searchSql} from '../helpers/searchSql';
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess} from '../helpers/crmPermissions';
 import {sql} from 'kysely';import superjson from 'superjson';import {z} from 'zod';
-import {db} from '../helpers/db';import {getServerUserSession} from '../helpers/getServerUserSession';import {NotAuthenticatedError} from '../helpers/getSetServerSession';
+import {db} from '../helpers/db';import {getServerUserSession} from '../helpers/getServerUserSession';import {NotAuthenticatedError} from '../helpers/getSetServerSession';import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {CommunicationForbidden,CommunicationConflict,communicationConfig} from '../helpers/communicationService';import {documentFor,mutateResource} from '../helpers/resourceService';import {resourceMutation,type ResourceDocument,type ResourceVersion,type ResourceLink} from './resources.schema';
 const response=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json'}});
-const failure=(e:unknown)=>response({error:e instanceof Error?e.message:'Error'},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:400);
+const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:fallbackStatus(e));
 export async function get(request:Request){try{
  const {user}=await getServerUserSession(request);
  const params=new URL(request.url).searchParams;
@@ -44,7 +44,7 @@ export async function get(request:Request){try{
  }catch(e){if(!(e instanceof CommunicationForbidden)&&!(e instanceof CrmForbidden))throw e;}}
  return response({documents,categories:(await sql`SELECT * FROM crm_document_categories ORDER BY name`.execute(db)).rows,maxDocumentBytes:(await communicationConfig(db)).maxDocumentBytes});
  }catch(e){return failure(e)}}
-export async function post(request:Request){try{const {user}=await getServerUserSession(request);const raw=await request.text();if(Buffer.byteLength(raw)>2900000)throw new Error('Solicitud demasiado grande');return response(await mutateResource(db,resourceMutation.parse(superjson.parse(raw)),user));}catch(e){return failure(e)}}
+export async function post(request:Request){try{const {user}=await getServerUserSession(request);const raw=await request.text();if(Buffer.byteLength(raw)>2900000)throw new Error('Solicitud demasiado grande');return response(await mutateResource(db,resourceMutation.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})()),user));}catch(e){return failure(e)}}
 export async function download(request:Request){try{const {user}=await getServerUserSession(request);const id=z.string().uuid().parse(new URL(request.url).searchParams.get('versionId'));const v=(await sql<ResourceVersion&{fileData:string|null}>`SELECT * FROM crm_document_versions WHERE id=${id}::uuid`.execute(db)).rows[0];if(!v)throw new Error('Versión inexistente');const doc=await documentFor(db,v.documentId,user);if(user.role!=='admin'&&doc.ownerEmail!==user.email&&doc.library&&doc.status==='approved'&&!(v as ResourceVersion&{approvedAt?:Date}).approvedAt)throw new CommunicationForbidden('Esta versión no fue aprobada');
  if(v.url){let u:URL;try{u=new URL(v.url)}catch{throw new Error('Referencia histórica sin URL válida; consultá el adjunto original')}if(!['http:','https:'].includes(u.protocol)||u.username||u.password)throw new Error('Referencia histórica no navegable');return new Response(null,{status:302,headers:{Location:u.href,'Cache-Control':'no-store'}});}
  return new Response(new Uint8Array(Buffer.from(v.fileData!,'base64')),{headers:{'Content-Type':v.mimeType!,'Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(v.fileName!)}`,'X-Content-Type-Options':'nosniff','Cache-Control':'private, max-age=86400','Vary':'Cookie'}});

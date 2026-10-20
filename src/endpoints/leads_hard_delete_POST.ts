@@ -4,12 +4,14 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_hard_delete_POST.schema";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
     if(user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden eliminar definitivamente."}),{status:403});
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     await db.transaction().execute(async trx=>{
       const lead=await trx.selectFrom("leads").selectAll().where("id","=",String(input.id)).executeTakeFirstOrThrow();
       await assertBusinessAccess(trx,String(lead.accountId),user,false,true);
@@ -23,6 +25,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo eliminar definitivamente"}),{status:400});
+    return errorResponse(error);
   }
 }
