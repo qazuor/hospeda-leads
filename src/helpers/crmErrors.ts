@@ -5,11 +5,11 @@ export function crmError(error:unknown):string{
  const generic='No se pudo completar la acción. Intentá de nuevo.';
  if(!(error instanceof Error))return generic;
  const friendly=friendlySqlState(error);
- if(friendly){if(['23503','23514'].includes(sqlState(error)!))logOnce(error);return friendly}
+ if(friendly){if(['23503','23514','22P02','22001','22007','22008'].includes(sqlState(error)!))logOnce(error);return friendly}
  if(isUnexpectedError(error)){logOnce(error);return generic}
  return error.message;
 }
-const sqlStateMessages:Record<string,string>={'23503':'El elemento que elegiste ya no existe o cambió. Recargá e intentá de nuevo.','23514':'Alguno de los datos no es válido. Revisalos e intentá de nuevo.','23505':'Ya existe un registro con esos datos.','40001':'Hubo un conflicto con otro cambio. Intentá de nuevo.','40P01':'Hubo un conflicto con otro cambio. Intentá de nuevo.','55P03':'La operación tardó demasiado. Intentá de nuevo.','57014':'La operación tardó demasiado. Intentá de nuevo.'};
+const sqlStateMessages:Record<string,string>={'22P02':'Alguno de los datos tiene un formato inválido.','22001':'Alguno de los textos es demasiado largo.','22007':'Alguna de las fechas no es válida.','22008':'Alguna de las fechas no es válida.','23503':'El elemento que elegiste ya no existe o cambió. Recargá e intentá de nuevo.','23514':'Alguno de los datos no es válido. Revisalos e intentá de nuevo.','23505':'Ya existe un registro con esos datos.','40001':'Hubo un conflicto con otro cambio. Intentá de nuevo.','40P01':'Hubo un conflicto con otro cambio. Intentá de nuevo.','55P03':'La operación tardó demasiado. Intentá de nuevo.','57014':'La operación tardó demasiado. Intentá de nuevo.'};
 const logged=new WeakSet<object>();
 const logOnce=(error:Error)=>{if(logged.has(error))return;logged.add(error);console.error('[crm] unexpected error',error)};
 /** Duck-typed postgres.js error (PostgresError has a 5-char SQLSTATE `code` and a `severity`); avoids importing the driver into the client bundle. */

@@ -1,5 +1,5 @@
 import {CrmForbidden,assertBusinessAccess} from '../helpers/crmPermissions';
-import {crmError} from '../helpers/crmErrors';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {sql} from 'kysely';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
@@ -11,7 +11,7 @@ import {setWorkActor} from '../helpers/workAudit';
 import {communicationMutation} from './communication.schema';
 import {mutateCommunication,leadFor,communicationConfig,CommunicationForbidden,CommunicationConflict,digest,reconcileEvents,lockCommunication} from '../helpers/communicationService';
 const response=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json'}});
-const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:400);
+const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:fallbackStatus(e));
 const camelRows=(rows:Record<string,unknown>[])=>rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key.replace(/_([a-z])/g,(_,letter:string)=>letter.toUpperCase()),value])));
 export async function get(request:Request){
  try{
@@ -42,7 +42,7 @@ export async function get(request:Request){
   return response({recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]),restrictions:camelRows(restrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
  }catch(e){return failure(e)}
 }
-export async function post(request:Request){try{const {user}=await getServerUserSession(request);if(Number(request.headers.get('Content-Length')??0)>100000)throw new Error('Solicitud demasiado grande');const raw=await request.text();if(raw.length>100000)throw new Error('Solicitud demasiado grande');return response(await mutateCommunication(db,communicationMutation.parse(superjson.parse(raw)),user));}catch(e){return failure(e)}}
+export async function post(request:Request){try{const {user}=await getServerUserSession(request);if(Number(request.headers.get('Content-Length')??0)>100000)throw new Error('Solicitud demasiado grande');const raw=await request.text();if(raw.length>100000)throw new Error('Solicitud demasiado grande');return response(await mutateCommunication(db,communicationMutation.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})()),user));}catch(e){return failure(e)}}
 export async function webhook(request:Request){
  const secret=process.env.BREVO_WEBHOOK_TOKEN;if(!secret||secret.length<32)return new Response('Webhook not configured',{status:503});
  const provided=request.headers.get('Authorization')??'',expected='Bearer '+secret;const a=Buffer.from(provided),b=Buffer.from(expected);if(a.length!==b.length||!timingSafeEqual(a,b))return new Response('Unauthorized',{status:401});

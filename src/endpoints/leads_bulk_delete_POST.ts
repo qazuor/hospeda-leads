@@ -5,11 +5,13 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_bulk_delete_POST.schema";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     const ids=input.ids.map(String);
     // Authorize every target before making any change: mixed batches roll back.
     const deleted=await db.transaction().execute(async trx=>{
@@ -41,6 +43,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true,deleted} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudieron enviar los leads a la papelera"}),{status:error instanceof CrmForbidden?403:400});
+    return errorResponse(error,error instanceof CrmForbidden?403:400);
   }
 }
