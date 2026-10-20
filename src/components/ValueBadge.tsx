@@ -11,7 +11,7 @@ const tones={neutral:[215,12],info:[204,72],progress:[225,65],warning:[32,90],vi
 export type BadgeTone=keyof typeof tones;
 
 // Legacy Floot statuses keep their own hue; everything else resolves to a semantic tone.
-const legacy:Record<string,Tone>={
+const legacy=new Map<string,Tone>(Object.entries({
   "status:Cargado":[215,12],
   "status:Filtrado":[210,76],
   "status:1er contacto":[190,74],
@@ -27,9 +27,9 @@ const legacy:Record<string,Tone>={
   "profile:Independiente":[162,57],
   "profile:Consolidado":[205,69],
   "profile:Referente":[274,61],
-};
+} as Record<string,Tone>));
 
-const businessStatusTones:Record<string,BadgeTone>={
+const businessStatusTones=new Map<string,BadgeTone>(Object.entries({
   [businessStatusLabels.new]:"info",
   [businessStatusLabels.reviewed]:"neutral",
   [businessStatusLabels.in_management]:"progress",
@@ -37,15 +37,15 @@ const businessStatusTones:Record<string,BadgeTone>={
   "Sin tarea agendada":"warning",
   [businessStatusLabels.recontact]:"violet",
   [businessStatusLabels.archived]:"muted",
-};
+} as Record<string,BadgeTone>));
 const classificationTones={open:"progress",won:"success",lost:"dangerMuted"} as const;
 const stageTones=new Map<string,BadgeTone>(managementTypes.flatMap(type=>managementStageCatalog(type).map(stage=>[stage.label,classificationTones[stage.classification]] as const)));
 
 /** Semantic tone of a status or stage label: business status, then stage classification, then neutral. */
-export const badgeTone=(category:Category,value:string):BadgeTone=>category==="status"?businessStatusTones[value]??stageTones.get(value)??"neutral":"neutral";
+export const badgeTone=(category:Category,value:string):BadgeTone=>category==="status"?businessStatusTones.get(value)??stageTones.get(value)??"neutral":"neutral";
 
 export const valueBadgeColors=(category:Category,value:string)=>{
-  const [h,s]=legacy[category+":"+value]??tones[badgeTone(category,value)];
+  const [h,s]=legacy.get(category+":"+value)??tones[badgeTone(category,value)]??tones.neutral;
   const tint=`hsl(${h} ${Math.max(45,s)}% 52%)`;
   return {
     backgroundColor:`color-mix(in srgb, ${tint} 15%, var(--card))`,

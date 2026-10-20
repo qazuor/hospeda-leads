@@ -25,4 +25,10 @@ describe('badgeTone',()=>{
  it('uses different hues for closed-won and closed-lost',()=>{
   expect(valueBadgeColors('status','Cerrada ganada').color).not.toBe(valueBadgeColors('status','Cerrada perdida').color);
  });
+ it('treats prototype property names as plain unknown values',()=>{
+  for(const value of ['constructor','__proto__','toString','hasOwnProperty'])for(const category of ['status','city','generic'] as const){
+   expect(badgeTone(category,value)).toBe('neutral');
+   expect(valueBadgeColors(category,value)).toEqual(valueBadgeColors('city','Colón'));
+  }
+ });
 });
