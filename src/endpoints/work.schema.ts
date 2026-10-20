@@ -8,14 +8,16 @@ const purpose=z.enum(["commercial","delivery","care","reactivation"]);
 const continuation=z.enum(['task','wait','done']).optional();
 /** Why the seller chose "No agendar nada" (continuation 'done'). */
 const continuationReason=z.string().trim().min(3,'Contá en pocas palabras por qué no agendás nada.').max(500).optional();
+/** The prepared message a contact outcome belongs to, and the seller's explicit answer to "¿Lo enviaste?" (never inferred). */
+const messageLink={messageId:z.string().uuid().optional(),messageSent:z.boolean().optional()};
 const nextTask=z.object({purpose:purpose.optional(),title:z.string().trim().min(1).max(200),dueDate:day,typeId:z.string().min(1).max(80)}).optional();
 const common={purpose:purpose.optional(),id:id.optional(),accountId:id,leadId:id.nullable().optional(),title:z.string().trim().min(1).max(200),typeId:z.string().min(1).max(80),participants:z.string().max(2000).default(''),contactIds:z.array(id).max(50).default([])};
 export const followupSettings=z.object({action:z.literal('followup_settings'),stages:z.array(z.string().trim().min(1)).max(50),newAssignmentDays:z.number().int().min(1).max(90)});
 export const workMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('task_save'),...common,description:z.string().max(10000).nullable().optional(),assignedUserEmail:z.string().email().nullable().optional(),dueDate:day,dueAt:instant.nullable().optional(),priority:z.enum(['alta','media','baja']).default('media')}),
- z.object({action:z.literal('task_status'),id,status:z.enum(['completed','cancelled']),purpose:purpose.optional(),contactIds:z.array(id).max(50).optional(),channel:z.string().max(100).nullable().optional(),outcome,continuation,continuationReason,nextTask,result:z.string().trim().min(1).max(4000),completedAt:instant.optional()}),
+ z.object({action:z.literal('task_status'),id,status:z.enum(['completed','cancelled']),purpose:purpose.optional(),contactIds:z.array(id).max(50).optional(),channel:z.string().max(100).nullable().optional(),outcome,continuation,continuationReason,nextTask,result:z.string().trim().min(1).max(4000),completedAt:instant.optional(),...messageLink}),
  z.object({action:z.literal('task_delete'),id}),
- z.object({action:z.literal('activity_save'),...common,occurredAt:instant,outcome,continuation,continuationReason,nextTask,channel:z.string().max(100).nullable().optional(),result:z.string().max(4000).nullable().optional(),notes:z.string().max(10000).nullable().optional()}),
+ z.object({action:z.literal('activity_save'),...common,occurredAt:instant,outcome,continuation,continuationReason,nextTask,channel:z.string().max(100).nullable().optional(),result:z.string().max(4000).nullable().optional(),notes:z.string().max(10000).nullable().optional(),...messageLink}),
  z.object({action:z.literal('activity_delete'),id}),
  followupSettings,
  z.object({action:z.literal('type_save'),id:z.string().regex(/^[a-z][a-z0-9_-]{0,79}$/),name:z.string().trim().min(1).max(100),agenda:z.boolean(),active:z.boolean()})
@@ -37,6 +39,8 @@ export interface WorkData {
  bucketCounts?:{overdue:number;today:number;upcoming:number};
  cities?:string[];verticals?:string[];
  totalTasks:number;totalActivities:number;page:number;
+ /** Day mode only: the seller's contacts still waiting for "¿Cómo salió?" (decision 2B). */
+ pendingOutcomes?:import('./communication.schema').PendingOutcome[];
 }
 export async function getWork(params:Record<string,string|undefined>={}):Promise<WorkData>{
  const search=new URLSearchParams(Object.entries(params).filter((x):x is [string,string]=>x[1]!==undefined));
