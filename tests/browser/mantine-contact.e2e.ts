@@ -32,7 +32,10 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
       else if (url.pathname.endsWith('/commercial')) data = { account, opportunities, contacts: [], journal: [], leadJournal: [], stages: [] };
       else if (url.pathname.endsWith('/communication')) data = { recentMessages: [], messages: [], resources: [], restrictions: [], responses: [], openManagements: [], recentContactHours: 72 };
       else if (url.pathname.endsWith('/pipeline')) data = { stages: [{ name: 'Cargado', classification: 'open' }, { name: 'Cerrada', classification: 'lost' }] };
+      else if (url.pathname.endsWith('/work')) data = { tasks: [], activities: [], types: [{ id: 'message', name: 'Mensaje', agenda: false, active: true }, { id: 'followup', name: 'Seguimiento', agenda: true, active: true }], accounts: [{ id: '1', nombre: account.nombre, ciudad: account.ciudad, assignedUserEmail: account.assignedUserEmail }], opportunities: [], contacts: [], users: [], attention: [], journal: [], followupStages: [], newAssignmentDays: 7, totalTasks: 0, totalActivities: 0, page: 1 };
       else if (url.pathname.endsWith('/leads')) data = { rows: [{ ...account, accountId: '1', canModify: true, opportunityCount: 3, contactCount: 0 }], total: 1, page: 1, pageSize: 50, filters: { ciudades: [], estados: [], tipos: [], asignados: [], suscripciones: [], origenes: [], quienesCargaron: [], mediosContacto: [], creadosPor: [] } };
+      // A registered call returns its message, which chains into the outcome step (decision 2B).
+      if (route.request().method() !== 'GET' && url.pathname.endsWith('/communication') && manualPayloads.at(-1)?.channel === 'call') data = { id: '00000000-0000-4000-8000-000000000001', accountId: '1', leadId: null, contactId: null, channel: 'call', status: 'manual_sent', purpose: 'first_contact' };
       await route.fulfill({ contentType: 'application/json', body: superjson.stringify(data) });
     });
     await page.goto('/accounts');
@@ -71,6 +74,13 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await general.getByLabel('Canal').selectOption('call');
     await general.getByLabel('Resumen obligatorio').fill('Llamada realizada para presentar Hospeda');
     await general.getByRole('button', { name: 'Registrar llamada', exact: true }).click();
+    // The call goes straight to "¿Cómo salió?"; leaving it is never silent.
+    const outcome = page.getByRole('dialog', { name: 'Registrar actividad', exact: true });
+    await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por llamada');
+    await outcome.getByRole('button', { name: 'Volver', exact: true }).click();
+    const leave = page.getByRole('dialog', { name: '¿Salir sin anotar cómo salió?', exact: true });
+    await leave.getByRole('button', { name: 'Salir sin anotar', exact: true }).click();
+    await expect(outcome).toHaveCount(0);
     await expect(general.getByRole('button', { name: 'Llamada registrada', exact: true })).toBeDisabled();
     expect(manualPayloads[1]).toMatchObject({ action: 'manual_start', channel: 'call', leadId: null, purpose: 'first_contact', body: 'Llamada realizada para presentar Hospeda', result: 'manual_sent' });
     await general.getByLabel('Cerrar').click();
