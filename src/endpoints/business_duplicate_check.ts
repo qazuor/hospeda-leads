@@ -57,7 +57,7 @@ export async function findNewDncBlocker(executor:Executor,{after,before,excludeI
  return (await blockers(after)).find(f=>!previous.has(String(f.account.id)))?.account??null;
 }
 
-/** GET /_api/business/duplicate-check: any authenticated user. Exposes only name, city, flags, status, the responsible's display name and the match reasons. */
+/** GET /_api/business/duplicate-check: any authenticated user. Exposes only id, name, city, archived/No contactar flags and the match reasons; status and the responsible's display name (never email) only for businesses the caller can open. */
 export async function handle(request:Request){try{
  const {user}=await getServerUserSession(request);
  const input=querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));

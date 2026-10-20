@@ -45,8 +45,8 @@ export function normalizeField(field:string,value:string|null|undefined):Normali
  if(field==='nombre'||field==='ciudad'||field==='name')return result(comparisonName(s),'valid','Solo para comparar; no cambia el texto visible.');
  return result(s,'unverified');
 }
-/** Comparison keys (last 8 significant digits) for an Argentine phone: strips 00/54 country code, the mobile 9, the trunk 0 and the local "15" (before or after the area code). Empty for foreign numbers, service numbers (0800/0810...) and anything under 8 digits. */
-export function phoneSignificantKeys(value:string|null|undefined):string[]{
+// Candidate national-number digit strings for an Argentine phone: strips 00/54 country code, the mobile 9, the trunk 0 and the local "15" (before or after the area code). Empty for foreign numbers, service numbers (0800/0810...) and non-phone text.
+function phoneForms(value:string|null|undefined):string[]{
  if(!value||!/^\+?[\d\s().-]+$/.test(value.trim()))return [];
  let d=value.replace(/\D/g,'');
  const international=value.trim().startsWith('+')||d.startsWith('00');
@@ -59,7 +59,15 @@ export function phoneSignificantKeys(value:string|null|undefined):string[]{
  if(d.length===12){for(const i of [2,3,4])if(d.slice(i,i+2)==='15')forms.add(d.slice(0,i)+d.slice(i+2));}
  else if(d.length===10&&d.startsWith('15'))forms.add(d.slice(2));
  else forms.add(d);
- return [...forms].filter(f=>f.length>=8&&f.length<=10).map(f=>f.slice(-8));
+ return [...forms];
+}
+/** Comparison keys (last 8 significant digits) for an Argentine phone. Empty for foreign or service numbers and anything under 8 digits. */
+export function phoneSignificantKeys(value:string|null|undefined):string[]{
+ return phoneForms(value).filter(f=>f.length>=8&&f.length<=10).map(f=>f.slice(-8));
+}
+/** Exact 10-digit national numbers (area code + number) an Argentine phone can stand for; one entry when unambiguous. */
+export function phoneNationalKeys(value:string|null|undefined):string[]{
+ return phoneForms(value).filter(f=>f.length===10);
 }
 /** Like comparisonName but keeps ñ (and ã, õ) distinct from n, consistent with normalizeSearchSql. */
 export const strictComparisonName=(s:string|null|undefined)=>(s??'').normalize('NFD').replace(/[\u0300-\u0302\u0304-\u036f]/g,'').normalize('NFC').toLocaleLowerCase('es-AR').replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
@@ -74,9 +82,15 @@ export function matchAccounts(input:Record<string,string|null|undefined>,rows:Ar
    const n=normalizeField(field,input[field]),v=normalizeField(field,a[field]);
    if(n.validity==='valid'&&v.validity==='valid'&&n.normalized&&n.normalized===v.normalized)reasons.push(label+' compartido');
   }
-  if(options.similarPhone&&!reasons.includes('Teléfono compartido')){
-   const mine=['telefono','whatsapp'].flatMap(f=>phoneSignificantKeys(input[f])),theirs=new Set([a.telefono,a.whatsapp].flatMap(v=>phoneSignificantKeys(v)));
-   if(mine.some(k=>theirs.has(k)))reasons.push('Teléfono parecido');
+  if(options.similarPhone){
+   // Exactly one national number on each side (telefono and whatsapp together) and equal: a shared phone even when written with a local 15.
+   const national=(...v:Array<string|null|undefined>)=>[...new Set(v.flatMap(x=>phoneNationalKeys(x)))];
+   const mine=national(input.telefono,input.whatsapp),theirs=national(a.telefono,a.whatsapp);
+   if(mine.length===1&&theirs.length===1&&mine[0]===theirs[0]){if(!reasons.includes('Teléfono compartido'))reasons.push('Teléfono compartido');}
+   else if(!reasons.includes('Teléfono compartido')){
+    const similar=new Set([a.telefono,a.whatsapp].flatMap(v=>phoneSignificantKeys(v)));
+    if(['telefono','whatsapp'].flatMap(f=>phoneSignificantKeys(input[f])).some(k=>similar.has(k)))reasons.push('Teléfono parecido');
+   }
   }
   if(city&&comparisonName(input.direccion)&&comparisonName(input.direccion)===comparisonName(a.direccion))reasons.push('Dirección y localidad coinciden');
   for(const f of ['perfilInstagram','perfilFacebook'] as const){
