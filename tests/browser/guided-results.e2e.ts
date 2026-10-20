@@ -18,7 +18,7 @@ for(const width of [1280,390])test(`guided result reviews the next step and pres
  await page.goto('/my-day');await page.locator('article').filter({has:page.getByText('Consultar necesidades',{exact:true})}).getByRole('button',{name:'Registrar qué pasó',exact:true}).click();
  const dialog=page.getByRole('dialog');await dialog.getByRole('combobox',{name:'¿Qué pasó?',exact:true}).selectOption('interested');
  const review=dialog.getByRole('region',{name:'Revisión del resultado',exact:true});
- await expect(review).toContainText('Mostró interés');await expect(review).toContainText('Ana');await expect(review).toContainText('Falta elegir cómo continuar');
+ await expect(review).toContainText('Respondió, le interesa');await expect(review).toContainText('Ana');await expect(review).toContainText('Falta elegir cómo continuar');
  await dialog.getByRole('textbox',{name:'Detalles del resultado',exact:true}).fill('Pidió una propuesta para su equipo');
  await dialog.getByRole('button',{name:'Planificar una acción con fecha',exact:true}).click();await dialog.getByLabel('Qué hay que hacer',{exact:true}).fill('Revisar la propuesta con Ana');await dialog.getByLabel('Cuándo',{exact:true}).fill('2027-01-18');
  await expect(review).toContainText('Revisar la propuesta con Ana');await expect(review).toContainText('La etapa comercial se conserva');

@@ -122,12 +122,16 @@ try{
  assert.equal((await read('responsible=all',admin.cookie)).tasks.filter(t=>t.leadId===l.id).length,2);
  assert.equal((await read()).attention.some(x=>x.id===l.id),false);
  const completedAt='2026-09-01T13:30:00-03:00';
- await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt});
+ // Decision 2B: completing a task must say how it continues.
+ await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt},user.cookie,400);
+ await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt,continuation:'done'},user.cookie,400);
+ await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt,continuation:'done',continuationReason:'Ya quedó todo resuelto'});
+ assert.equal((await db.selectFrom('crmTasks').select('continuationReason').where('id','=',call).executeTakeFirstOrThrow()).continuationReason,'Ya quedó todo resuelto');
  let lead=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();
  assert.equal(lead.fechaProximaAccion!.toISOString().slice(0,10),'2026-10-02');
  assert.equal(lead.assignedUserEmail,user.user.email);
- await mutate({action:'task_status',id:call,status:'completed',result:'Duplicado'},user.cookie,400);
- let activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',call).executeTakeFirstOrThrow();
+ await mutate({action:'task_status',id:call,status:'completed',result:'Duplicado',continuation:'done',continuationReason:'Ya quedó todo resuelto'},user.cookie,400);
+ let activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',call).executeTakeFirstOrThrow();assert.equal(activity.continuation,'done');assert.equal(activity.continuationReason,'Ya quedó todo resuelto');
  assert.equal(activity.occurredAt.toISOString(),new Date(completedAt).toISOString());assert.deepEqual(activity.contactIds,[own.id]);
  await mutate({action:'activity_save',id:activity.id,accountId:a.id,leadId:l.id,title:'Llamada real',typeId:'call',occurredAt:'2026-09-01T14:00:00-03:00',result:'Editado',contactIds:[own.id]});
  const completed=await db.selectFrom('crmTasks').selectAll().where('id','=',call).executeTakeFirstOrThrow();assert.equal(completed.result,'Editado');assert.equal(completed.completedAt!.toISOString(),'2026-09-01T17:00:00.000Z');
@@ -135,6 +139,24 @@ try{
  await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',result:'Conversamos'});
  await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Futuro',typeId:'meeting',occurredAt:'2099-01-01T09:00:00-03:00'},user.cookie,400);
  const after=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();assert.equal(Number(after.n),Number(before.n)+1);
+ // Single outcome list (3A) and mandatory next step (2B) for new results.
+ const outcomeBase={action:'activity_save',accountId:a.id,leadId:l.id,title:'Llamada con resultado',typeId:'call',occurredAt:'2026-08-02T10:00:00-03:00',purpose:'commercial'};
+ const missing=await post(request({...outcomeBase,outcome:'no_answer'}));assert.equal(missing.status,400);assert.equal(superjson.parse<{error:string}>(await missing.text()).error,'Elegí cómo sigue: agendá una tarea o elegí «No agendar nada» y contá por qué.');
+ await mutate({...outcomeBase,outcome:'no_answer',continuation:'done',continuationReason:'  '},user.cookie,400);
+ await mutate({...outcomeBase,outcome:'replied',continuation:'done',continuationReason:'Ya quedó todo resuelto'},user.cookie,400);
+ await mutate({...outcomeBase,outcome:'delivered',continuation:'done',continuationReason:'Ya quedó todo resuelto'},user.cookie,400);
+ const later=await mutate({...outcomeBase,outcome:'later',continuation:'wait',nextTask:{title:'Retomar conversación',dueDate:'2026-11-02',typeId:'followup'}});
+ assert.equal((await db.selectFrom('crmActivities').select(['outcome','continuation']).where('id','=',later).executeTakeFirstOrThrow()).outcome,'later');
+ assert.equal((await db.selectFrom('crmTasks').select('continuation').where('leadId','=',l.id).where('title','=','Retomar conversación').where('status','=','pending').executeTakeFirstOrThrow()).continuation,'wait');
+ const closed=await mutate({...outcomeBase,outcome:'not_interested',continuation:'done',continuationReason:'Ya trabaja con otra empresa'});
+ // Editing an existing activity stays exempt and keeps its continuation and reason.
+ await mutate({...outcomeBase,id:closed,outcome:'not_interested',result:'Corrijo el detalle'});
+ const edited=await db.selectFrom('crmActivities').select(['continuation','continuationReason','result']).where('id','=',closed).executeTakeFirstOrThrow();
+ assert.deepEqual(edited,{continuation:'done',continuationReason:'Ya trabaja con otra empresa',result:'Corrijo el detalle'});
+ // The constraints keep every historical value and reject unknown ones and blank reasons (rolled back: no unaudited writes remain).
+ const rollback=async(statement:(t:typeof db)=>Promise<unknown>)=>assert.rejects(db.transaction().execute(async t=>{await statement(t);throw new Error('rollback');}),/rollback/);
+ await rollback(async t=>{for(const value of ['no_answer','interested','later','replied','not_interested','do_not_contact','other','delivered','needs_help','awaiting_confirmation','care_completed']){await sql`UPDATE crm_activities SET outcome=${value} WHERE id=${closed}::bigint`.execute(t);await sql`UPDATE crm_tasks SET outcome=${value} WHERE id=${call}::bigint`.execute(t);}});
+ for(const [statement,constraint] of [[sql`UPDATE crm_activities SET outcome='bogus' WHERE id=${closed}::bigint`,/crm_activities_outcome_check/],[sql`UPDATE crm_tasks SET outcome='bogus' WHERE id=${call}::bigint`,/crm_tasks_outcome_check/],[sql`UPDATE crm_activities SET continuation_reason=' a ' WHERE id=${closed}::bigint`,/crm_activities_continuation_reason_check/],[sql`UPDATE crm_tasks SET continuation_reason=' a ' WHERE id=${call}::bigint`,/crm_tasks_continuation_reason_check/]] as const)await assert.rejects(db.transaction().execute(async t=>{await statement.execute(t);}),constraint);
  lead=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();assert.equal(lead.fechaUltimoContacto!.toISOString().slice(0,10),'2026-09-01');
  const versionBefore=(await db.selectFrom('appSettings').select('value').where('key','=','crm_live_version').executeTakeFirstOrThrow()).value;
  await mutate({action:'followup_settings',stages:['Interesado'],newAssignmentDays:10},user.cookie,403);
@@ -153,7 +175,7 @@ try{
  await mutate({...base,id:visit,title:'Visit delegated',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:other.user.email},admin.cookie);
  await mutate({...base,id:visit,title:'No me apropio',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:user.user.email},user.cookie,403);
  const delegated=await read('',other.cookie);assert(delegated.tasks.some(t=>t.id===visit));assert(delegated.accounts.some(x=>x.id===a.id));
- await mutate({action:'task_status',id:visit,status:'completed',result:'Visita efectuada',completedAt:'2026-09-15T15:00:00-03:00'},other.cookie);
+ await mutate({action:'task_status',id:visit,status:'completed',result:'Visita efectuada',completedAt:'2026-09-15T15:00:00-03:00',continuation:'done',continuationReason:'Ya quedó todo resuelto'},other.cookie);
  assert.equal((await db.selectFrom('leads').select('assignedUserEmail').where('id','=',l.id).executeTakeFirstOrThrow()).assignedUserEmail,user.user.email);
  // A toast destination reads one exact task, including delegated work outside the inbox page.
  const exactTask='mode=detail&accountId='+a.id+'&taskId='+visit;
