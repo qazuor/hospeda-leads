@@ -2,7 +2,7 @@ import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
-import {findNewDncBlocker,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
+import {findNewDncBlocker,findDncPersonPhoneBlocker,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {parseBody} from '../helpers/parseBody';
@@ -113,6 +113,7 @@ export async function post(request:Request){
         {
           const after={nombre:input.nombre,ciudad:fields.ciudad,telefono:fields.telefono,email:fields.email,whatsapp:input.whatsapp===undefined?existing?.whatsapp:nullable(input.whatsapp)};
           if(await findNewDncBlocker(trx,{after,before:existing??undefined,excludeId:existing?String(existing.id):undefined}))throw new Conflict(DNC_DUPLICATE_MESSAGE);
+          if(input.primaryContact&&await findDncPersonPhoneBlocker(trx,input.primaryContact.phone))throw new Conflict(DNC_DUPLICATE_MESSAGE);
         }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),existing?"account_updated":"account_created",existing,row);
@@ -172,6 +173,8 @@ export async function post(request:Request){
       if(input.action==="contact_save"){
         const old=input.id?await trx.selectFrom("crmContacts").selectAll().where("id","=",input.id).where("accountId","=",input.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow():null;
         checkEmail(input.email,old?.email);
+        // A person's phone that is exactly a No contactar business's phone blocks (decision 1C); unchanged phones and the own business do not.
+        if(nullable(input.phone)!==(old?.phone??null)&&await findDncPersonPhoneBlocker(trx,input.phone,{excludeId:input.accountId}))throw new Conflict(DNC_DUPLICATE_MESSAGE);
         if(input.isPrimary){
           const previous=await trx.selectFrom("crmContacts").selectAll().where("accountId","=",input.accountId).where("isPrimary","=",true).where("deletedAt","is",null).execute();
           await trx.updateTable("crmContacts").set({isPrimary:false,updatedAt:new Date()}).where("accountId","=",input.accountId).where("isPrimary","=",true).execute();
