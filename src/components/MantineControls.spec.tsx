@@ -121,4 +121,22 @@ describe('Mantine migration preserves CRM interactions', () => {
     expect(change).toHaveBeenLastCalledWith('2027-02');
   });
 
+  it('shows a Spanish inline message instead of the native bubble and clears it on edit', () => {
+    mount(<form><label>Nombre<Input required /></label><label>Tipo<NativeSelect required><option value="">Elegir</option><option value="a">A</option></NativeSelect></label></form>);
+    const name = screen.getByLabelText('Nombre') as HTMLInputElement; const kind = screen.getByLabelText('Tipo') as HTMLSelectElement;
+    const notCancelled = fireEvent.invalid(name); expect(notCancelled).toBe(false);
+    expect(screen.getByText('Completá este dato.')).toBeTruthy();
+    fireEvent.invalid(kind); expect(screen.getByText('Elegí una opción.')).toBeTruthy();
+    fireEvent.change(name, { target: { value: 'Ana' } });
+    expect(screen.queryByText('Completá este dato.')).toBeNull();
+  });
+  it('does not invent a reason for a disabled button without one', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount(<><Button disabled>Guardar</Button><Button disabled disabledReason="Falta elegir el negocio.">Enviar</Button></>);
+    expect(screen.getByRole('button', { name: 'Guardar' }).closest('span[tabindex]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Enviar' }).closest('span[tabindex]')).not.toBeNull();
+    expect(warn).toHaveBeenCalledWith('Button disabled without disabledReason:', 'Guardar');
+    warn.mockRestore();
+  });
+
 });

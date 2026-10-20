@@ -13,7 +13,9 @@ export function Tooltip({ children, open, onOpenChange, delayDuration = 300 }: {
     <ControlTarget onMouseEnter={() => onOpenChange?.(true)} onMouseLeave={() => onOpenChange?.(false)} onFocus={() => onOpenChange?.(true)} onBlur={() => onOpenChange?.(false)}>{trigger}</ControlTarget>
   </MantineTooltip>;
 }
-export function DisabledTooltip({children,reason,style,disabled=true}:{children:React.ReactNode;reason:string;style?:React.CSSProperties;disabled?:boolean}){
+export function DisabledTooltip({children,reason,style,disabled=true}:{children:React.ReactNode;reason?:string;style?:React.CSSProperties;disabled?:boolean}){
+  // Without a specific reason there is nothing useful to say: render the control untouched.
+  if(!reason)return <>{children}</>;
   return <MantineTooltip label={reason} disabled={!disabled} position="top" offset={4} openDelay={300} zIndex={450} multiline maw={320} events={{hover:true,focus:true,touch:false}}>
     <span style={{display:disabled?'inline-flex':'contents',alignItems:'center',maxWidth:'100%',verticalAlign:'middle',...style}} tabIndex={disabled?0:undefined}>{children}</span>
   </MantineTooltip>;

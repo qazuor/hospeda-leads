@@ -15,7 +15,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const icon = size.startsWith('icon');
     const child = asChild && React.isValidElement<Record<string, unknown>>(children) ? children : null;
     const label=React.Children.toArray(children).filter((item):item is string|number=>typeof item==='string'||typeof item==='number').join(' ').trim();
-    const reason=disabledReason??(label==='Anterior'?'Ya estás en la primera página.':label==='Siguiente'?'Ya estás en la última página.':/^(Guardando|Enviando|Cargando|Actualizando|Eliminando|Restaurando|Importando|Procesando|Convirtiendo|Duplicando|Levantando|Redistribuyendo)/i.test(label)?'La operación está en curso. Esperá a que termine para continuar.':'Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción.');
+    const reason=disabledReason??(label==='Anterior'?'Ya estás en la primera página.':label==='Siguiente'?'Ya estás en la última página.':/^(Guardando|Enviando|Cargando|Actualizando|Eliminando|Restaurando|Importando|Procesando|Convirtiendo|Duplicando|Levantando|Redistribuyendo)/i.test(label)?'La operación está en curso. Esperá a que termine para continuar.':undefined);
+    if(disabled&&!reason&&import.meta.env.DEV)console.warn('Button disabled without disabledReason:',label||'(no text)');
     const button=<MantineButton {...props} disabled={disabled} ref={ref} type={type}
       variant={variant === 'outline' ? 'outline' : variant === 'ghost' || variant === 'link' ? 'subtle' : variant === 'secondary' ? 'light' : 'filled'}
       color={variant === 'destructive' ? 'red' : undefined}

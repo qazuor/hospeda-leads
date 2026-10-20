@@ -85,10 +85,12 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   }, [ctx.open, inline, fullScreen]);
   // Mantine owns focus trapping, scroll locking, portals and modal stacking.
   const close = () => ctx.change(false);
+  // Escape closes an open picker or dropdown first (Mantine handles it); the dialog only reacts once nothing is floating above it.
+  const pickerOpen = (event: KeyboardEvent) => event.defaultPrevented || !!(event.target as Element | null)?.closest?.('.mantine-Popover-dropdown,[data-picker-open="true"]') || Array.from(document.querySelectorAll<HTMLElement>('.mantine-Popover-dropdown')).some(item => item.style.display !== 'none');
   const guard = (handler: ((event: Event) => void) | undefined) => { const event = new Event('dismiss', { cancelable: true }); handler?.(event); return !event.defaultPrevented; };
   useEffect(() => {
     if (!ctx.open || inline || !layer.active || !onEscapeKeyDown || ctx.hasOpenChild) return;
-    const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopImmediatePropagation(); if (guard(onEscapeKeyDown)) close(); } };
+    const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') { if (pickerOpen(event)) return; event.stopImmediatePropagation(); if (guard(onEscapeKeyDown)) close(); } };
     document.addEventListener('keydown', listener, true);
     return () => document.removeEventListener('keydown', listener, true);
   }, [ctx.open, inline, onEscapeKeyDown, ctx.change, ctx.hasOpenChild, layer.active]);

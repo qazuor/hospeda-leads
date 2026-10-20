@@ -1,4 +1,4 @@
-import {forwardRef} from 'react';
+import {forwardRef,useState} from 'react';
 import {DateInput,MonthPickerInput,type DateInputProps} from '@mantine/dates';
 import styles from './CrmControls.module.css';
 
@@ -15,14 +15,17 @@ export function parseCalendarInput(text:string):string|null {
 type Props=Omit<DateInputProps,'value'|'defaultValue'|'onChange'|'min'|'max'> & {
   value:string;onValueChange:(value:string)=>void;min?:string;max?:string;
 };
-export const CrmDateInput=forwardRef<HTMLInputElement,Props>(({value,onValueChange,className,min,max,...props},ref)=><DateInput
-  {...props} ref={ref} value={value||null} onChange={next=>onValueChange(next??'')}
+export const CrmDateInput=forwardRef<HTMLInputElement,Props>(({value,onValueChange,className,min,max,...props},ref)=>{
+  const [pickerOpen,setPickerOpen]=useState(false);
+  // Escape closes only the open picker, never the surrounding dialog or form.
+  return <DateInput
+  {...props} ref={ref} data-picker-open={pickerOpen||undefined} onKeyDown={event=>{props.onKeyDown?.(event);if(event.key==='Escape'&&pickerOpen)event.stopPropagation();}} value={value||null} onChange={next=>onValueChange(next??'')}
   minDate={min||undefined} maxDate={max||undefined} locale="es" valueFormat="DD/MM/YYYY" dateParser={parseCalendarInput}
   ariaLabels={{nextMonth:"Mes siguiente",previousMonth:"Mes anterior",nextYear:"Año siguiente",previousYear:"Año anterior",nextDecade:"Década siguiente",previousDecade:"Década anterior",monthLevelControl:"Elegir mes",yearLevelControl:"Elegir año"}}
   placeholder={props.placeholder??'dd/mm/aaaa'} data-autofocus={props.autoFocus||undefined}
-  popoverProps={{zIndex:430,floatingStrategy:'fixed'}}
-  classNames={{wrapper:styles.field,input:[styles.input,className].filter(Boolean).join(' ')}}/>
-);
+  popoverProps={{zIndex:430,floatingStrategy:'fixed',onOpen:()=>setPickerOpen(true),onClose:()=>setPickerOpen(false)}}
+  classNames={{wrapper:styles.field,input:[styles.input,className].filter(Boolean).join(' ')}}/>;
+});
 CrmDateInput.displayName='CrmDateInput';
 
 export function CrmMonthInput({value,onValueChange,required}:{value:string;onValueChange:(value:string)=>void;required?:boolean}) {
