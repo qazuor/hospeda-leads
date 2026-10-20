@@ -15,6 +15,7 @@ import {getSettings} from '../endpoints/settings_GET.schema';
 import type {CommercialDetail} from '../endpoints/commercial.schema';
 import {useAuth} from '../helpers/useAuth';
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
+import {stageLabel} from '../helpers/crmLabels';
 import styles from './Commercial.module.css';
 
 /** Creation stays explicit until the initial commercial stage has been agreed. */
@@ -40,10 +41,11 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const managementContactReason=!canModifyManagement(user,opportunity,detail.account)?managementPermissionReason:detail.account.doNotContact?noContactReason:archived?archivedReason:'';
  const recentCandidate=history.data?.recentMessages.find(m=>String(m.leadId)===effective&&(m.channel==='email'||m.channel==='whatsapp'));
  const recent=recentCandidate&&(recentCandidate.channel==='email'||recentCandidate.channel==='whatsapp')&&(!channelChoice||channelChoice===recentCandidate.channel)?recentCandidate:null;
- const channel=channelChoice??(recent?.channel==='email'||recent?.channel==='whatsapp'?recent.channel:null)??(detail.account.telefono?'whatsapp':'email');
- const manualChannel=channel==='call'||channel==='social'||channel==='other';
  const activeContacts=detail.contacts.filter(c=>!c.deletedAt);
- const recipient=initialContactId??(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:'');
+ const channel=channelChoice??(recent?.channel==='email'||recent?.channel==='whatsapp'?recent.channel:null)??(detail.account.telefono?.trim()||activeContacts.some(c=>c.phone?.trim())?'whatsapp':'email');
+ const manualChannel=channel==='call'||channel==='social'||channel==='other';
+ // An empty recipient must reach the next step as "no request", so it can preselect the person who has the data (report item 1.4).
+ const recipient=initialContactId||(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:undefined);
  if(editor)return <CommercialEditor target={editor} detail={detail} onSaved={id=>{if(editor.kind==='opportunity'){setChosen(id);setCreated(true)}}} onClose={()=>setEditor(null)}/>;
  if(manualContact&&opportunity&&manualChannel)return <CrmDialog opened onClose={()=>setManualContact(false)} title={channel==='call'?'Registrar llamada':channel==='social'?'Registrar contacto por red social':'Registrar contacto por otro canal'} description={<>{detail.account.nombre} · {opportunity.opportunityName||'Gestión comercial'} · se guardará el resultado que registres, sin inferir envío o respuesta.</>}>
   <ManualCommunicationForm key={channel} detail={detail} currentLeadId={String(opportunity.id)} userEmail={user?.email??''} isAdmin={user?.role==='admin'} embedded fixedContext initialChannel={channel} initialContactId={initialContactId}/>
@@ -56,13 +58,13 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
   {stages.isPending||settings.isPending||history.isPending?<p role="status">Cargando gestiones y mensajes modelo…</p>:stages.error||settings.error||history.error?<><p role="alert">{stages.error?.message||settings.error?.message||history.error?.message}</p><Button onClick={()=>{void stages.refetch();void settings.refetch();void history.refetch()}}>Reintentar</Button></>:<div className={styles.section}>
    {created&&<p role="status">Gestión guardada. Elegí el canal para continuar. Todavía no se realizó un contacto.</p>}
    {!open.length?<><p>Sin gestiones abiertas. Podés hacer un contacto general o iniciar una gestión. Al guardarla vas a volver acá para elegir el canal y preparar el mensaje; todavía no se contacta al comercio.</p>{archived&&<p role="status">Un administrador debe desarchivar este negocio antes de contactar o iniciar una gestión.</p>}<Button variant="outline" disabled={!canModifyBusiness(user,detail.account)||detail.account.doNotContact||!!detail.account.archivedAt} disabledReason={businessContactReason} onClick={()=>setGeneralContact(true)}>Contactar en general</Button><Button disabled={!canModifyBusiness(user,detail.account)||archived} disabledReason={!canModifyBusiness(user,detail.account)?businessPermissionReason:archivedReason} leftSection={<Plus size={18} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Iniciar gestión y continuar</Button>{!canModifyBusiness(user,detail.account)&&<p>El responsable del negocio o un administrador puede preparar una gestión.</p>}</>:<>
-    {open.length===1?<p>Gestión: <strong>{opportunity?.opportunityName||'Presentación de Hospeda'}</strong></p>:<CrmSelect label="Gestión abierta" placeholder="Elegí una gestión" value={effective||null} onChange={value=>setChosen(value??'')} data={open.map(o=>({value:String(o.id),label:(o.opportunityName||'Gestión #'+o.id)+' · '+(o.estado||'Sin etapa')}))}/>}
+    {open.length===1?<p>Gestión: <strong>{opportunity?.opportunityName||'Presentación de Hospeda'}</strong></p>:<CrmSelect label="Gestión abierta" placeholder="Elegí una gestión" value={effective||null} onChange={value=>setChosen(value??'')} data={open.map(o=>({value:String(o.id),label:(o.opportunityName||'Gestión #'+o.id)+' · '+stageLabel(o.estado)}))}/>}
     {opportunity&&<p>Responsable de esta gestión: <strong>{managementOwner}</strong></p>}
     <CrmNativeSelect label="Canal" value={channel} onChange={e=>{setChannel(e.target.value as typeof channel);setManualContact(false);setComposing(false)}}
       leftSection={channel==='email'?<Mail size={18} aria-hidden="true"/>:channel==='whatsapp'?<MessageCircle size={18} aria-hidden="true"/>:undefined}
       data={[{value:'whatsapp',label:'WhatsApp'},{value:'email',label:'Email · Brevo'},{value:'call',label:'Llamada'},{value:'social',label:'Red social'},{value:'other',label:'Otro canal'}]}/>
     {recent&&<p>Último canal usado en esta gestión: {recent.channel==='email'?'Email':'WhatsApp'} · {recent.recipient}. Podés cambiarlo antes de preparar el mensaje.</p>}
-    <p>Podés usar el teléfono o email del negocio, sin cargar una persona. También podrás elegir una persona registrada.</p>
+    <p>Si una persona del negocio tiene el teléfono o email, la elegimos para el mensaje; si no, usamos el del negocio. En el paso siguiente podés cambiarla.</p>
     {manualChannel?<><p>{channel==='call'?'La llamada se registra con su resultado y un resumen.': 'Se creará un intento pendiente. El CRM no enviará el mensaje; al terminar, registrá si se realizó o quedó sin contacto.'}</p><Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!canModifyManagement(user,opportunity,detail.account)||detail.account.doNotContact||archived} disabledReason={managementContactReason} onClick={()=>setManualContact(true)}>{channel==='call'?'Registrar llamada':channel==='social'?'Continuar con red social':'Continuar con otro canal'}</Button></>:<Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!canModifyManagement(user,opportunity,detail.account)||detail.account.doNotContact||archived} disabledReason={managementContactReason} onClick={()=>setComposing(true)}>Continuar con el mensaje</Button>}
     {archived&&<p role="status">Un administrador debe desarchivar este negocio antes de iniciar un contacto.</p>}
     <Button variant="outline" disabled={!canModifyBusiness(user,detail.account)||detail.account.doNotContact||!!detail.account.archivedAt} disabledReason={businessContactReason} onClick={()=>setGeneralContact(true)}>Contactar en general</Button>
