@@ -1,0 +1,18 @@
+import {describe,it,expect} from 'vitest';
+import {refreshDateViewSelection,sellerDefaultSelection} from './useBusinessViewSelection';
+import {availableListPreferences,basePreferences} from './businessListPreferences';
+import {applyBusinessSystemView,defaultSystemViews} from './businessSystemViews';
+import {viewPreferencesFingerprint} from './businessViewSelection';
+const base={admin:false,hasSelection:false,hasMarker:false,base:basePreferences(),systemViews:undefined,email:'marta@x.com'};
+describe('seller default view',()=>{
+ it('starts a seller without marker or selection on Mis negocios, filtered by their email',()=>{const r=sellerDefaultSelection(base)!;expect(r.selection).toMatchObject({kind:'system',id:'mine',name:'Mis negocios'});expect(r.preferences.filters).toEqual([{rules:[{field:'assignedUserEmail',operator:'eq',value:'marta@x.com'}]}]);expect(r.selection.baseline).toEqual(r.preferences);});
+ it('applies to an existing seller on top of their personal columns and widths',()=>{const personal={...basePreferences(),columnLayoutVersion:3 as const,columns:['nombre','email','actions'],widths:{...basePreferences().widths,email:480}};const r=sellerDefaultSelection({...base,base:personal})!;expect(r.preferences.columns).toEqual(['nombre','email','fechaUltimoContacto','actions']);expect(r.preferences.widths.email).toBe(480);expect(r.preferences.filters).toHaveLength(1);});
+ it('does not apply to admins, a stored selection, an applied marker or a disabled view',()=>{expect(sellerDefaultSelection({...base,admin:true})).toBeNull();expect(sellerDefaultSelection({...base,hasSelection:true})).toBeNull();expect(sellerDefaultSelection({...base,hasMarker:true})).toBeNull();expect(sellerDefaultSelection({...base,systemViews:defaultSystemViews().map(v=>({...v,enabled:v.id!=='mine'}))})).toBeNull();});
+ it('uses the team-renamed name of the view',()=>{expect(sellerDefaultSelection({...base,systemViews:defaultSystemViews().map(v=>v.id==='mine'?{...v,name:'Los míos'}:v)})!.selection.name).toBe('Los míos');});
+});
+describe('date-based system views refresh',()=>{
+ const yesterday=new Date('2026-10-07T15:00:00Z'),today=new Date('2026-10-08T15:00:00Z');
+ const stored=(id:string,at:Date)=>{const p=availableListPreferences(applyBusinessSystemView(basePreferences(),id,'marta@x.com',at));return {preferences:p,selection:{kind:'system' as const,id,name:'V',baseline:p}};};
+ it('recomputes an unmodified Para hoy / Hablé hace poco and replaces prefs and baseline together',()=>{for(const id of ['today','overdue','recent']){const s=stored(id,yesterday);const r=refreshDateViewSelection({selection:s.selection,preferences:s.preferences,email:'marta@x.com',now:today})!;expect(r.preferences).toEqual(r.selection.baseline);expect(viewPreferencesFingerprint(r.preferences)).not.toBe(viewPreferencesFingerprint(s.preferences));expect(viewPreferencesFingerprint(r.preferences)).toBe(viewPreferencesFingerprint(applyBusinessSystemView(basePreferences(),id,'marta@x.com',today)));}});
+ it('leaves modified, non-date and personal selections alone',()=>{const s=stored('today',yesterday);expect(refreshDateViewSelection({selection:s.selection,preferences:{...s.preferences,query:'hotel'},email:'m',now:today})).toBeNull();const m=stored('mine',yesterday);expect(refreshDateViewSelection({selection:m.selection,preferences:m.preferences,email:'m',now:today})).toBeNull();expect(refreshDateViewSelection({selection:{...s.selection,kind:'personal'},preferences:s.preferences,email:'m',now:today})).toBeNull();expect(refreshDateViewSelection({selection:null,preferences:s.preferences,email:'m'})).toBeNull();});
+});
