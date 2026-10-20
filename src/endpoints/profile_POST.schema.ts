@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {postJson} from "../helpers/apiClient";
 export const schema=z.object({
   displayName:z.string().trim().min(1).max(120),
   fullName:z.string().trim().max(180).nullable(),
@@ -9,7 +9,5 @@ export const schema=z.object({
 export type InputType=z.infer<typeof schema>;
 export type OutputType={ok:true;user:{id:number;email:string;displayName:string;fullName:string|null;avatarUrl:string|null;role:"admin"|"user"}};
 export const postProfile=async(body:InputType):Promise<OutputType>=>{
-  const r=await fetch("/_api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(schema.parse(body))});
-  if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
-  return superjson.parse<OutputType>(await r.text());
+  return postJson<OutputType>("/_api/profile",schema.parse(body));
 };

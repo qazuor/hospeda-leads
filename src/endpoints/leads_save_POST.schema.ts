@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {postJson} from "../helpers/apiClient";
 
 export const schema = z.object({
   id: z.union([z.string(), z.number()]).optional(),
@@ -55,14 +55,5 @@ export type DuplicateCandidate = {
 export type OutputType = { id: string } | { duplicateCandidates: DuplicateCandidate[] };
 
 export const postLeadsSave = async (body: InputType): Promise<OutputType> => {
-  const result = await fetch("/_api/leads_save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: superjson.stringify(schema.parse(body)),
-  });
-  if (!result.ok) {
-    const error = superjson.parse<{ error: string }>(await result.text());
-    throw new Error(error.error);
-  }
-  return superjson.parse<OutputType>(await result.text());
+  return postJson<OutputType>("/_api/leads_save",schema.parse(body));
 };

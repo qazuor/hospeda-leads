@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {apiJson} from "../helpers/apiClient";
 import type { Selectable } from "kysely";
 import type { Leads } from "../helpers/schema";
 const listSchema=z.preprocess(value=>{
@@ -102,10 +102,5 @@ export const getLeads = async (input:z.input<typeof schema>): Promise<OutputType
     if(Array.isArray(v)){if(v.length)qs.set(k,JSON.stringify(v));return}
     if(v!==undefined&&v!=="")qs.set(k,String(v));
   });
-  const result = await fetch("/_api/leads?"+qs.toString());
-  if (!result.ok) {
-    const error = superjson.parse<{ error: string }>(await result.text());
-    throw new Error(error.error);
-  }
-  return superjson.parse<OutputType>(await result.text());
+  return apiJson<OutputType>("/_api/leads?"+qs.toString());
 };
