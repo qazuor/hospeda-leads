@@ -24,6 +24,11 @@ export const VOCAB={
 } as const;
 export type VocabKey=keyof typeof VOCAB;
 
+/** Free-text choice in preset lists: picking it asks the seller for her own words. */
+export const OTHER_REASON='Otro (contame)';
+/** Preset reasons for "No agendar nada" after a result (owner decision 2B). */
+export const NO_FOLLOW_UP_REASONS=['Ya tengo otra tarea agendada','La gestión ya está cerrada','El negocio no quiere seguir por ahora',OTHER_REASON] as const;
+
 /**
  * Returns `"{count} {word}"` with the singular form only for exactly 1.
  * @example plural(1,'gestión','gestiones') // "1 gestión"
