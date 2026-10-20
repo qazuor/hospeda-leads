@@ -1,6 +1,8 @@
 import {apiJson} from '../helpers/apiClient';
 /** Shared with the server (409) and the creation dialog (owner decision 1C). */
 export const DNC_DUPLICATE_MESSAGE='Ese negocio pidió no ser contactado. Consultá con un administrador.';
+/** 409 when a person's phone is a No contactar business's phone. */
+export const DNC_PERSON_PHONE_MESSAGE='Ese teléfono es de un negocio que pidió no ser contactado. Consultá con un administrador.';
 /** `personPhone` is the phone of the person being added; it is compared with the businesses' phones. */
 export type DuplicateCheckInput = {nombre?:string; ciudad?:string; telefono?:string; email?:string; whatsapp?:string; personPhone?:string};
 /** Only what the warning needs: never contact data or the responsible's email. `status` and `responsibleName` are omitted when the caller cannot open the business. `blocking`: saving would be rejected (No contactar with same name and city or an exactly shared phone). */

@@ -2,7 +2,7 @@ import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
-import {findNewDncBlocker,findDncPersonPhoneBlocker,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
+import {findNewDncBlocker,findDncPersonPhoneBlocker,findNewDncPersonPhoneBlocker,DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {parseBody} from '../helpers/parseBody';
@@ -173,8 +173,8 @@ export async function post(request:Request){
       if(input.action==="contact_save"){
         const old=input.id?await trx.selectFrom("crmContacts").selectAll().where("id","=",input.id).where("accountId","=",input.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow():null;
         checkEmail(input.email,old?.email);
-        // A person's phone that is exactly a No contactar business's phone blocks (decision 1C); unchanged phones and the own business do not.
-        if(nullable(input.phone)!==(old?.phone??null)&&await findDncPersonPhoneBlocker(trx,input.phone,{excludeId:input.accountId}))throw new Conflict(DNC_DUPLICATE_MESSAGE);
+        // A person's phone exactly shared with a No contactar business blocks (decision 1C), unless the previous phone already matched it; the own business never does.
+        if(await findNewDncPersonPhoneBlocker(trx,{after:input.phone,before:old?.phone,excludeId:input.accountId}))throw new Conflict(DNC_PERSON_PHONE_MESSAGE);
         if(input.isPrimary){
           const previous=await trx.selectFrom("crmContacts").selectAll().where("accountId","=",input.accountId).where("isPrimary","=",true).where("deletedAt","is",null).execute();
           await trx.updateTable("crmContacts").set({isPrimary:false,updatedAt:new Date()}).where("accountId","=",input.accountId).where("isPrimary","=",true).execute();

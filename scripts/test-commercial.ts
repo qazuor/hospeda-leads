@@ -22,7 +22,7 @@ import {sql} from 'kysely';
 import {BUSINESS_PROJECTION_LEAD_COLUMNS,businessTableSource} from '../src/helpers/businessTable';
 import {calendarDay} from '../src/helpers/workDates';
 import type {CommercialDetail} from '../src/endpoints/commercial.schema';
-import {DNC_DUPLICATE_MESSAGE} from '../src/endpoints/business_duplicate_check.schema';
+import {DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE} from '../src/endpoints/business_duplicate_check.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable test database');
 const suffix=Date.now();
 async function cookie(role:'admin'|'user'){
@@ -135,10 +135,12 @@ try{
     assert.equal((await db.selectFrom('crmAccounts').select('id').where('nombre','=',`Alta persona ${suffix}`).execute()).length,0);
     const similarId=await mutate({action:'account_save',nombre:`Alta parecida ${suffix}`,primaryContact:{name:'Persona parecida',phone:`45${p6}`}});
     const blockedContact=await post(request({action:'contact_save',accountId:quickId,name:'Luis bloqueado',phone:`+54 9 3445 ${p6}`}));
-    assert.equal(blockedContact.status,409);assert.equal(superjson.parse<{error:string}>(await blockedContact.text()).error,DNC_DUPLICATE_MESSAGE);
+    assert.equal(blockedContact.status,409);assert.equal(superjson.parse<{error:string}>(await blockedContact.text()).error,DNC_PERSON_PHONE_MESSAGE);
     await mutate({action:'contact_save',accountId:quickId,name:'Luis parecido',phone:`45${p6}`});
     const legacy=await db.insertInto('crmContacts').values({accountId:quickId,name:'Legado',phone:`3445 ${p6}`,isPrimary:false}).returning('id').executeTakeFirstOrThrow();
     await mutate({action:'contact_save',accountId:quickId,id:String(legacy.id),name:'Legado editado',phone:`3445 ${p6}`});// an unchanged phone does not block
+    await mutate({action:'contact_save',accountId:quickId,id:String(legacy.id),name:'Legado editado',phone:`+54 9 (3445) ${p6}`});// reformatting a phone that already matched does not block
+    assert.equal((await post(request({action:'contact_save',accountId:quickId,id:String(quick.contacts[0].id),name:'Ana del alta',phone:`03445-${p6}`}))).status,409,'Changing to a No contactar phone blocks');
     await mutate({action:'contact_save',accountId:dnc,name:'Persona del propio negocio',phone:`3445 ${p6}`},admin.value);// the business's own phone is not a duplicate
     await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','in',[dnc,quickId,similarId]).execute();
   }

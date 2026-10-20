@@ -1,6 +1,6 @@
 import React,{useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
-import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
+import {keepPreviousData,useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './Dialog';
 import {Button} from './Button';
 import {Input} from './Input';
@@ -39,7 +39,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
  const currentKey=JSON.stringify(duplicateQuery(draft));
  const queryKey=useDebounce(currentKey,400);
  const query=JSON.parse(queryKey) as ReturnType<typeof duplicateQuery>;
- const duplicates=useQuery({queryKey:['business-duplicate-check',queryKey],queryFn:({signal})=>checkBusinessDuplicates(query!,{signal}),enabled:!!query,staleTime:30000});
+ const duplicates=useQuery({queryKey:['business-duplicate-check',queryKey],queryFn:({signal})=>checkBusinessDuplicates(query!,{signal}),enabled:!!query,staleTime:30000,placeholderData:keepPreviousData});
  // Never save on a stale or missing check: wait until the typed values were checked (a failed check does not block).
  const checking=currentKey!=='null'&&(currentKey!==queryKey||duplicates.isFetching);
  const {blocker,shown,hidden,dncWarning}=duplicateWarning({candidates:query?duplicates.data?.candidates??[]:[]});
@@ -67,7 +67,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
   <form onSubmit={submit} className={styles.form} aria-busy={mutation.isPending}>
    <fieldset className={styles.formSection}><legend>Datos del negocio</legend>{input('nombre','Nombre',{required:true,autoFocus:true,placeholder:'Ej.: Cabañas del Río'})}{input('ciudad','Ciudad',{placeholder:'Ej.: Colón'})}{input('telefono','Teléfono / WhatsApp',{type:'tel',placeholder:'Ej.: 3447 412345'})}</fieldset>
    <fieldset className={styles.formSection}><legend>Persona con la que hablaste (opcional)</legend>{input('personName','Nombre de la persona',{required:!!draft.personPhone.trim(),placeholder:'Ej.: Ana'})}{input('personPhone','Teléfono de la persona',{type:'tel'})}<p>Queda como persona principal del negocio.</p></fieldset>
-   <div className={styles.fullField} aria-live="polite">{checking?<small className={styles.muted} role="status">Revisando si ya existe…</small>:query&&(shown.length>0||duplicates.isError)&&<section aria-label="Negocios parecidos" style={{display:'grid',gap:8,padding:12,border:'1px solid '+(blocker?'var(--error)':'var(--border)'),borderRadius:10}}>
+   <div className={styles.fullField} aria-live="polite" style={{display:'grid',gap:8}}>{checking&&<small className={styles.muted} role="status">Revisando si ya existe…</small>}{query&&(shown.length>0||(duplicates.isError&&!checking))&&<section aria-label="Negocios parecidos" style={{display:'grid',gap:8,padding:12,border:'1px solid '+(blocker?'var(--error)':'var(--border)'),borderRadius:10}}>
     {blocker&&<p role="alert" className={styles.error} style={{margin:0}}><strong>{DNC_DUPLICATE_MESSAGE}</strong></p>}
     {shown.length>0&&<div id="quick-create-duplicates"><strong>Puede que ya exista:</strong><ul style={{margin:'8px 0 0',paddingInlineStart:18,display:'grid',gap:8}}>{shown.map(c=><li key={c.id}><span style={{display:'inline-flex',flexWrap:'wrap',gap:6,alignItems:'center'}}><strong>{c.nombre}</strong>{c.ciudad?` · ${c.ciudad}`:''}{c.doNotContact&&<ValueBadge value="No contactar" category="status"/>}{c.archived&&<ValueBadge value="Archivado" category="status"/>}{c.canOpen&&<Link to={'/accounts/'+c.id} target="_blank" rel="noopener" aria-label={'Abrir '+c.nombre+' (en otra pestaña)'}>Abrir</Link>}</span><small className={styles.muted} style={{display:'block'}}>{[c.reasons.map(duplicateReasonLabel).join(' · '),'responsibleName' in c?`${VOCAB.businessOwner}: ${c.responsibleName||'sin asignar'}`:null].filter(Boolean).join(' · ')}</small></li>)}</ul>{hidden>0&&<small className={styles.muted}>Y {hidden} más parecidos.</small>}{dncWarning&&!blocker&&<p style={{margin:'8px 0 0'}}><strong>Si es el mismo, no lo contactes.</strong></p>}</div>}
     {duplicates.isError&&<small className={styles.muted}>No pudimos revisar si ya existe. Igual podés crearlo.</small>}

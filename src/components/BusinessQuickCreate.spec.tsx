@@ -51,6 +51,8 @@ describe('BusinessQuickCreate',()=>{
   expect(create().disabled).toBe(false);
   type('Nombre de la persona','Ana');type('Teléfono de la persona','3447 412345');
   expect(create().disabled).toBe(true);// the person phone is checked too
+  expect(screen.getByText('Puede que ya exista:')).toBeTruthy();// the list stays while re-checking
+  expect(screen.getByRole('status').textContent).toBe('Revisando si ya existe…');
   await waitFor(()=>expect(mocks.check).toHaveBeenLastCalledWith({nombre:'Cabañas del Río',ciudad:'Colón',personPhone:'3447 412345'},expect.anything()));
   await waitFor(()=>expect(create().disabled).toBe(false));
   fireEvent.click(create());
