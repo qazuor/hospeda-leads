@@ -5,6 +5,8 @@ import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {MessageComposer} from './MessageComposer';
 import {postCommunication,type PreparedMessage} from '../endpoints/communication.schema';
+import {CrmApiError} from '../helpers/apiClient';
+import {toast} from 'sonner';
 
 vi.mock('sonner',()=>({toast:{error:vi.fn(),success:vi.fn(),info:vi.fn()}}));
 vi.mock('./RichTemplateEditor',()=>({RichTemplateEditor:({ariaLabel}:{ariaLabel:string})=><textarea aria-label={ariaLabel}/>}));
@@ -40,6 +42,21 @@ describe('MessageComposer reused draft (report item 1.14)',()=>{
   expect(vi.mocked(postCommunication).mock.calls[0][0]).toMatchObject({action:'prepare',leadId:'9',contactId:'7',channel:'whatsapp',templateId:null,discardDraft:{id:'11111111-1111-4111-8111-111111111111',revision:4}});
   expect(onChange.mock.calls[0][0].id).toBe('33333333-3333-4333-8333-333333333333');
   expect(screen.queryByRole('group',{name:'Borrador anterior'})).toBeNull();
+ });
+ it('on a concurrent change (409) closes the question and explains it',async()=>{
+  vi.mocked(postCommunication).mockRejectedValueOnce(new CrmApiError('El borrador cambió o ya fue utilizado.',409));
+  show(message({reusedDraft:true}));
+  fireEvent.click(screen.getByRole('button',{name:'Descartarlo y empezar de nuevo'}));
+  expect((await screen.findByRole('alert')).textContent).toContain('Este borrador cambió en otra ventana.');
+  expect(screen.queryByRole('group',{name:'Borrador anterior'})).toBeNull();
+ });
+ it('confirms without the "Abrir gestión" action when the draft has no management',async()=>{
+  vi.mocked(postCommunication).mockResolvedValue(message({id:'44444444-4444-4444-8444-444444444444',leadId:null,purpose:'first_contact',reusedDraft:undefined}));
+  show(message({reusedDraft:true,leadId:null,purpose:'first_contact'}));
+  fireEvent.click(screen.getByRole('button',{name:'Descartarlo y empezar de nuevo'}));
+  await waitFor(()=>expect(toast.success).toHaveBeenCalled());
+  expect(vi.mocked(postCommunication).mock.calls[0][0]).toMatchObject({action:'prepare_general',leadId:null,purpose:'first_contact'});
+  expect(vi.mocked(toast.success).mock.calls[0]).toEqual(['Borrador anterior descartado',expect.not.objectContaining({action:expect.anything()})]);
  });
  it('opens a fresh draft directly',()=>{
   show(message({}));
