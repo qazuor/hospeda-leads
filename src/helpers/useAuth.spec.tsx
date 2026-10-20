@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import { AuthProvider, useAuth, SESSION_REFRESH_INTERVAL_MS, SESSION_STALE_MS } from "./useAuth";
+import { AuthProvider, useAuth, AUTH_QUERY_KEY, SESSION_REFRESH_INTERVAL_MS, SESSION_STALE_MS } from "./useAuth";
+import { SESSION_EXPIRED_EVENT } from "./apiClient";
 
 const USER = { id: 1, email: "a@b.c", displayName: "A", fullName: "A", avatarUrl: null, role: "admin" };
 
-function Probe() { return <span data-testid="state">{useAuth().authState.type}</span>; }
+function Probe() { const { authState, sessionExpired } = useAuth(); return <><span data-testid="state">{authState.type}</span><span data-testid="expired">{String(sessionExpired)}</span></>; }
 
 describe("AuthProvider session keepalive", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -74,7 +75,7 @@ describe("AuthProvider session keepalive", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("shows unauthenticated when the cookie expired while the tab was away", async () => {
+  it("keeps the page and flags the expiry when the cookie expired while the tab was away", async () => {
     mount();
     await advance(0);
     respond = unauthorized;
@@ -84,7 +85,17 @@ describe("AuthProvider session keepalive", () => {
     await act(async () => { document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); await vi.advanceTimersByTimeAsync(0); });
     await advance(2000); // retry: 1 in the provider
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    // No redirect: the known user stays on the page under the re-login dialog.
+    expect(screen.getByTestId("state").textContent).toBe("authenticated");
+    expect(screen.getByTestId("expired").textContent).toBe("true");
+  });
+
+  it("is plainly unauthenticated, with no expiry dialog, on a first visit without a session", async () => {
+    respond = unauthorized;
+    mount();
+    await advance(2000);
     expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
+    expect(screen.getByTestId("expired").textContent).toBe("false");
   });
 
   it("keeps the known user when a background refresh fails with a network error", async () => {
@@ -95,6 +106,7 @@ describe("AuthProvider session keepalive", () => {
     await advance(2000); // retry: 1 in the provider
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(screen.getByTestId("state").textContent).toBe("authenticated");
+    expect(screen.getByTestId("expired").textContent).toBe("false");
   });
 
   it("keeps the known user when a background refresh returns 400 session validation failed", async () => {
@@ -131,5 +143,73 @@ describe("AuthProvider session keepalive", () => {
     expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
     await act(async () => { finishLogout(); await done; await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
+  });
+
+  describe("session expiry from page requests", () => {
+    let auth: ReturnType<typeof useAuth> | undefined;
+    let renders = 0;
+    function Grab() { auth = useAuth(); renders++; return <Probe />; }
+    function mountWith(queryClient: QueryClient) { return render(<QueryClientProvider client={queryClient}><AuthProvider><Grab /></AuthProvider></QueryClientProvider>); }
+    const fire = () => act(async () => { window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT)); });
+
+    it("collapses every 401 event into one expiry flag", async () => {
+      mountWith(new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+      await advance(0);
+      expect(screen.getByTestId("expired").textContent).toBe("false");
+      await fire();
+      const after = renders;
+      await fire(); await fire();
+      expect(screen.getByTestId("expired").textContent).toBe("true");
+      expect(screen.getByTestId("state").textContent).toBe("authenticated");
+      expect(renders).toBe(after);
+    });
+
+    it("ignores 401 events when nobody is signed in", async () => {
+      respond = unauthorized;
+      mountWith(new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+      await advance(2000);
+      await fire();
+      expect(screen.getByTestId("expired").textContent).toBe("false");
+      expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
+    });
+
+    it("re-login as the same user keeps page data and reloads only failed reads", async () => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      mountWith(queryClient);
+      await advance(0);
+      queryClient.setQueryData(["accounts", 1], { draft: "kept" });
+      const failed = vi.fn(async () => { throw new Error("401"); });
+      await act(async () => { await queryClient.prefetchQuery({ queryKey: ["work"], queryFn: failed }); });
+      await fire();
+      const reloaded = vi.fn(async () => "ok");
+      queryClient.getQueryCache().find({ queryKey: ["work"] })!.setOptions({ queryKey: ["work"], queryFn: reloaded });
+      await act(async () => { auth!.onRelogin(USER as never); await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByTestId("expired").textContent).toBe("false");
+      expect(queryClient.getQueryData(["accounts", 1])).toEqual({ draft: "kept" });
+      expect(queryClient.getQueryData(AUTH_QUERY_KEY)).toEqual(USER);
+      expect(queryClient.getQueryState(["work"])!.isInvalidated).toBe(true);
+    });
+
+    it("re-login as another user drops the previous user's data", async () => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      mountWith(queryClient);
+      await advance(0);
+      queryClient.setQueryData(["accounts", 1], { draft: "previous user" });
+      await fire();
+      await act(async () => { auth!.onRelogin({ ...USER, id: 2, email: "x@y.z" } as never); });
+      expect(screen.getByTestId("expired").textContent).toBe("false");
+      expect(queryClient.getQueryData(["accounts", 1])).toBeUndefined();
+    });
+
+    it("logout succeeds when the server session is already gone", async () => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      mountWith(queryClient);
+      await advance(0);
+      await fire();
+      respond = unauthorized;
+      await act(async () => { await auth!.logout(); await vi.advanceTimersByTimeAsync(2000); });
+      expect(screen.getByTestId("state").textContent).toBe("unauthenticated");
+      expect(screen.getByTestId("expired").textContent).toBe("false");
+    });
   });
 });
