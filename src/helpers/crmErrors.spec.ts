@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {z} from 'zod';
-import {crmError, isUnexpectedError} from './crmErrors';
+import {crmError, fallbackStatus, isUnexpectedError} from './crmErrors';
 const generic='No se pudo completar la acción. Intentá de nuevo.';
 const pgError=(code:string,message:string,extra:Record<string,unknown>={})=>Object.assign(new Error(message),{name:'PostgresError',severity:'ERROR',code,...extra});
 afterEach(()=>vi.restoreAllMocks());
@@ -14,6 +14,13 @@ describe('crmError',()=>{
  it('maps TypeError to a generic message',()=>{vi.spyOn(console,'error').mockImplementation(()=>{});expect(crmError(new TypeError("Cannot read properties of undefined (reading 'x')"))).toBe(generic)});
  it('returns the generic message for non-Error values',()=>{expect(crmError('boom')).toBe(generic)});
 });
+describe('crmError FK/check violations',()=>{
+ it('maps 23503 and 23514 to friendly messages and logs them once',()=>{const spy=vi.spyOn(console,'error').mockImplementation(()=>{});const fk=pgError('23503','insert violates foreign key',{table_name:'leads'});const ck=pgError('23514','violates check constraint',{table_name:'leads'});expect(crmError(fk)).toBe('El elemento que elegiste ya no existe o cambió. Recargá e intentá de nuevo.');expect(crmError(fk)).toBe('El elemento que elegiste ya no existe o cambió. Recargá e intentá de nuevo.');expect(crmError(ck)).toBe('Alguno de los datos no es válido. Revisalos e intentá de nuevo.');expect(spy).toHaveBeenCalledTimes(2);expect(fallbackStatus(fk)).toBe(400);expect(fallbackStatus(ck)).toBe(400)});
+});
 describe('isUnexpectedError',()=>{
  it('classifies errors',()=>{expect(isUnexpectedError(pgError('42703','column'))).toBe(true);expect(isUnexpectedError(new RangeError('x'))).toBe(true);expect(isUnexpectedError(new SyntaxError('x'))).toBe(true);expect(isUnexpectedError(pgError('P0001','msg'))).toBe(false);expect(isUnexpectedError(new Error('Negocio no encontrado'))).toBe(false);expect(isUnexpectedError(new z.ZodError([]))).toBe(false)});
+});
+describe('fallbackStatus',()=>{
+ it('returns 500 for unexpected SQL and programming errors',()=>{expect(fallbackStatus(pgError('42P01','relation'))).toBe(500);expect(fallbackStatus(pgError('23502','null',{table_name:'leads'}))).toBe(500);expect(fallbackStatus(new TypeError('x'))).toBe(500)});
+ it('keeps 400 for business, trigger, validation and friendly SQL errors',()=>{expect(fallbackStatus(new Error('Elegí el motivo'))).toBe(400);expect(fallbackStatus(pgError('P0001','Revisá el negocio'))).toBe(400);expect(fallbackStatus(pgError('23502','Creá primero el negocio'))).toBe(400);expect(fallbackStatus(pgError('23505','dup'))).toBe(400);expect(fallbackStatus(z.string().safeParse(1).error)).toBe(400)});
 });
