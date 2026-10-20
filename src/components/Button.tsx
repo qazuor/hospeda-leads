@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button as MantineButton } from '@mantine/core';
 import styles from './ui/CrmControls.module.css';
-import {DisabledTooltip} from './Tooltip';
+import {DisabledTooltip,warnMissingReason} from './Tooltip';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'outline' | 'ghost' | 'link' | 'secondary' | 'destructive';
@@ -15,7 +15,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const icon = size.startsWith('icon');
     const child = asChild && React.isValidElement<Record<string, unknown>>(children) ? children : null;
     const label=React.Children.toArray(children).filter((item):item is string|number=>typeof item==='string'||typeof item==='number').join(' ').trim();
-    const reason=disabledReason??(label==='Anterior'?'Ya estás en la primera página.':label==='Siguiente'?'Ya estás en la última página.':/^(Guardando|Enviando|Cargando|Actualizando|Eliminando|Restaurando|Importando|Procesando|Convirtiendo|Duplicando|Levantando|Redistribuyendo)/i.test(label)?'La operación está en curso. Esperá a que termine para continuar.':'Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción.');
+    const reason=disabledReason??(label==='Anterior'?'Ya estás en la primera página.':label==='Siguiente'?'Ya estás en la última página.':/^(Guardando|Enviando|Cargando|Actualizando|Eliminando|Restaurando|Importando|Procesando|Convirtiendo|Duplicando|Levantando|Redistribuyendo)/i.test(label)?'La operación está en curso. Esperá a que termine para continuar.':undefined);
+    if(disabled&&!reason)warnMissingReason(label||'(no text)');
     const button=<MantineButton {...props} disabled={disabled} ref={ref} type={type}
       variant={variant === 'outline' ? 'outline' : variant === 'ghost' || variant === 'link' ? 'subtle' : variant === 'secondary' ? 'light' : 'filled'}
       color={variant === 'destructive' ? 'red' : undefined}
