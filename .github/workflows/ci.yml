@@ -145,7 +145,8 @@ jobs:
       - name: Start server
         if: steps.filter.outputs.code == 'true'
         run: |
-          npm start > /tmp/hospeda-leads.log 2>&1 &
+          # Run node directly (not through npm): killing an npm wrapper PID does not stop its node child, which then keeps port 3001.
+          node dist-server/index.js > /tmp/hospeda-leads.log 2>&1 &
           echo $! > /tmp/hospeda-leads.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3001/_api/health >/dev/null; then
@@ -197,6 +198,14 @@ jobs:
         if: steps.filter.outputs.code == 'true'
         run: |
           kill "$(cat /tmp/hospeda-leads.pid)" || true
+          # The Docker smoke test reuses port 3001 on the host network: wait for the graceful shutdown to release it.
+          for i in {1..20}; do
+            if ! ss -Hltn 'sport = :3001' | grep -q .; then exit 0; fi
+            sleep 1
+          done
+          echo "Port 3001 is still in use after stopping the source server:"
+          ss -Hltnp 'sport = :3001' || true
+          exit 1
 
       - name: Build production Docker image
         if: steps.filter.outputs.code == 'true'
@@ -205,6 +214,11 @@ jobs:
       - name: Smoke test production Docker image
         if: steps.filter.outputs.code == 'true'
         run: |
+          if ss -Hltn 'sport = :3001' | grep -q .; then
+            echo "Port 3001 is already in use: the health check would not reach the container."
+            ss -Hltnp 'sport = :3001' || true
+            exit 1
+          fi
           docker run -d             --name hospeda-leads-ci             --network host             -e NODE_ENV=production             -e PORT=3001             -e DATABASE_URL="$DATABASE_URL"             -e JWT_SECRET="$JWT_SECRET"             -e ADMIN_EMAIL="$ADMIN_EMAIL"             -e BREVO_API_KEY="$BREVO_API_KEY"             -e PUBLIC_APP_URL="$PUBLIC_APP_URL"             hospeda-leads:ci
 
           for i in {1..30}; do
@@ -215,10 +229,13 @@ jobs:
           done
 
           curl -fsS http://127.0.0.1:3001/_api/health | grep '"ok":true'
+          test "$(docker inspect -f '{{.State.Running}}' hospeda-leads-ci)" = true
           docker exec hospeda-leads-ci npm run db:migrate
           CRM_TEST_DATABASE=1 node scripts/smoke-resource-persistence.mjs
           docker rm -f hospeda-leads-ci
 
       - name: Show server logs on failure
         if: steps.filter.outputs.code == 'true' && (failure())
-        run: cat /tmp/hospeda-leads.log || true
+        run: |
+          cat /tmp/hospeda-leads.log || true
+          docker logs hospeda-leads-ci || true
