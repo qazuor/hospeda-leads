@@ -11,6 +11,9 @@ import {request as passwordRecoveryRequest,reset as passwordRecoveryReset} from 
 import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
 import { Hono } from "hono";
 import { applyAssetMiddleware, applyStaticFallback } from "./staticAssets";
+import { createHealthHandler, onError, requestContext } from "./observability";
+import { sql } from "kysely";
+import { db } from "../helpers/db";
 import { handle as h0 } from "../endpoints/analytics_GET";
 import { handle as h1 } from "../endpoints/auth/login_with_password_POST";
 import { handle as h2 } from "../endpoints/auth/logout_POST";
@@ -49,6 +52,8 @@ import { get as commercialGET, post as commercialPOST } from "../endpoints/comme
 import {get as workGET,post as workPOST} from "../endpoints/work";
 
 export const app=new Hono();
+app.use("*",requestContext);
+app.onError(onError);
 applyAssetMiddleware(app);
 // Mount only MCP paths; the normal CRM API and static routes keep their behavior.
 const mcp=mcpRoutes();
@@ -73,7 +78,9 @@ app.post("/_api/work",c=>workPOST(c.req.raw));
 app.get("/_api/commercial", c=>commercialGET(c.req.raw));
 app.post("/_api/commercial", c=>commercialPOST(c.req.raw));
 
-app.get("/_api/health",(c)=>c.json({ok:true,service:"hospeda-leads"}));
+// DB-aware (select 1, 2 s timeout) for CI/Coolify/compose; /_api/health/live is a pure process liveness probe.
+app.get("/_api/health",createHealthHandler({ping:()=>sql`select 1`.execute(db)}));
+app.get("/_api/health/live",createHealthHandler({}));
 app.get("/_api/analytics", (c) => h0(c.req.raw));
 app.post("/_api/auth/login_with_password", (c) => h1(c.req.raw));
 app.post("/_api/auth/logout", (c) => h2(c.req.raw));
