@@ -35,7 +35,6 @@ import {useAuth} from '../helpers/useAuth';
 import {formatDate,formatDay} from '../helpers/crmDates';
 import {useDebounce} from '../helpers/useDebounce';
 import {ACTIONS_MIN_WIDTH,columnWidthFor,BUSINESS_PAGINATION_CONTROLS_ENABLED,BUSINESS_RESULTS_CONTROL_ENABLED,availableListPreferences,BUSINESS_COLUMNS,BUSINESS_FILTER_COLUMNS,legacyFilterLabels,effectivePins,initialPreferences,readPersonalPreferences,savePersonalPreferences,type ListPreferences,type ListContext} from '../helpers/businessListPreferences';
-import {toast} from 'sonner';
 import {refreshDateViewSelection,readSellerDefaultMarker,sellerDefaultSelection,useBusinessViewSelection,writeSellerDefaultMarker} from '../helpers/useBusinessViewSelection';
 import {useCallbackRef} from '../helpers/useCallbackRef';
 import {viewPreferencesFingerprint,readBusinessViewSelection,saveBusinessViewSelection} from '../helpers/businessViewSelection';
@@ -154,7 +153,7 @@ function BusinessList({userId,userEmail,admin,defaults}:{userId:number;userEmail
  {!fullscreen&&loadControls}
  </DialogContent></Dialog>
  <FilterBuilderDialog open={filterOpen} onOpenChange={setFilterOpen} fields={fields} value={prefs.filters} search={prefs.query} title="Filtrar negocios" additionalFilters={prefs.legacyFilters?legacyFilterLabels(prefs.legacyFilters):[]} onApplyAndSave={(filters,query,clear)=>{const next={...prefs,filters,query,legacyFilters:clear?undefined:prefs.legacyFilters};change(next,true);if(!viewSelection.active||viewPreferencesFingerprint(next)!==viewPreferencesFingerprint(viewSelection.active.baseline))setSaveViewOpen(true);}} onApply={(filters,query,clear)=>change({...prefs,filters,query,legacyFilters:clear?undefined:prefs.legacyFilters},true)}/>
- {editor&&<CommercialEditor target={{kind:'account'}} onClose={()=>setEditor(false)} onSaved={id=>{void qc.invalidateQueries({queryKey:['leads']});toast.success('Negocio guardado');capture();navigate('/accounts/'+id);}}/>}
+ {editor&&<CommercialEditor target={{kind:'account'}} createdToastLink={false} onClose={()=>setEditor(false)} onSaved={id=>{void qc.invalidateQueries({queryKey:['leads']});capture();navigate('/accounts/'+id);}}/>}
  {importOpen&&<DataImportDialog onClose={()=>setImportOpen(false)}/>}
  </main>;
 }

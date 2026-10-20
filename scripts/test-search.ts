@@ -16,7 +16,7 @@ import {get as resources} from '../src/endpoints/resources';
 import { get as work } from '../src/endpoints/work';
 
 assert.equal(process.env.CRM_TEST_DATABASE, '1', 'Use a disposable database');
-const marker = 'search-' + randomUUID();
+const marker = 'search-' + randomUUID().replace(/[0-9]/g, (digit) => 'abcdefghij'[Number(digit)]);
 async function session(role: 'user' | 'admin') {
   const user = await db.insertInto('users').values({ email: `${marker}-${role}@example.com`, displayName: 'Prueba búsqueda', role }).returningAll().executeTakeFirstOrThrow();
   const id = `${marker}-${role}`;
