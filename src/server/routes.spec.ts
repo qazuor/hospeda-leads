@@ -30,9 +30,10 @@ const KNOWN_EXCEPTIONS:Record<string,number>={
 
 // Public by design (own credentials, API key, bearer token or webhook secret). Probed without credentials (empty body: 400 is the handler's own validation, 503 means the secret is not configured, leads_ingest 500 is the missing DB) and with the relevant token envs unset; each must answer exactly this status.
 const PUBLIC_EXPECTED:Record<string,number>={
-// DB-aware: the dummy DB is unreachable, so it answers 503; liveness needs no DB.
-'GET /_api/health':503,
+'GET /_api/health':200,
 'GET /_api/health/live':200,
+// Readiness checks the DB; the dummy DB is unreachable, so it answers 503.
+'GET /_api/health/ready':503,
 'POST /_api/auth/login_with_password':400,
 'POST /_api/auth/register_with_password':400,
 'POST /_api/auth/password_recovery/request':400,

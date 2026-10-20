@@ -78,9 +78,10 @@ app.post("/_api/work",c=>workPOST(c.req.raw));
 app.get("/_api/commercial", c=>commercialGET(c.req.raw));
 app.post("/_api/commercial", c=>commercialPOST(c.req.raw));
 
-// DB-aware (select 1, 2 s timeout) for CI/Coolify/compose; /_api/health/live is a pure process liveness probe.
-app.get("/_api/health",createHealthHandler({ping:()=>sql`select 1`.execute(db)}));
+// /health and /health/live: process liveness only (used by CI, docker-compose and Coolify). /health/ready adds a DB round trip (select 1, 2 s timeout).
+app.get("/_api/health",createHealthHandler({}));
 app.get("/_api/health/live",createHealthHandler({}));
+app.get("/_api/health/ready",createHealthHandler({ping:()=>sql`select 1`.execute(db)}));
 app.get("/_api/analytics", (c) => h0(c.req.raw));
 app.post("/_api/auth/login_with_password", (c) => h1(c.req.raw));
 app.post("/_api/auth/logout", (c) => h2(c.req.raw));

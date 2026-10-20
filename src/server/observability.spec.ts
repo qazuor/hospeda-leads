@@ -120,7 +120,7 @@ describe("createHealthHandler", () => {
     expect(res.status).toBe(503);
   });
 
-  it("liveness (no ping) never touches the database", async () => {
+  it("liveness (no ping, used by /_api/health) never touches the database", async () => {
     const res = await run({});
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, service: "hospeda-leads" });
