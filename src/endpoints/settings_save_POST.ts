@@ -1,4 +1,5 @@
 import {setWorkActor} from "../helpers/workAudit";
+import {lockAccounts} from "../helpers/crmPermissions";
 import { createHash, randomBytes } from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -171,6 +172,11 @@ export async function handle(request:Request){
       const nextName=input.name.trim();
       await db.transaction().execute(async trx=>{
         await setWorkActor(trx,user);
+        // Lock the affected businesses first (before any write, which would also hold the live-version row), in id order: the leads active-account guard takes FOR SHARE on each business while
+        // updating its leads, so locking leads first would invert the business-then-management order used by every other writer.
+        let affected=trx.selectFrom("leads").select("accountId").distinct().where("subtipo","=",target.name);
+        if(target.typeName)affected=affected.where("tipo","=",target.typeName);
+        await lockAccounts(trx,(await affected.execute()).map(r=>r.accountId));
         await trx.updateTable("crmSubtypes").set({name:nextName,active:true}).where("id","=",target.id).execute();
         let leads=trx.updateTable("leads").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
         if(target.typeName)leads=leads.where("tipo","=",target.typeName);

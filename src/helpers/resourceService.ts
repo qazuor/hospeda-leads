@@ -38,6 +38,8 @@ export async function mutateResource(db:Kysely<DB>,input:ResourceMutation,user:U
  if(input.action==='create'){
   if(input.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin carga recursos en la biblioteca');
   if(!input.library&&!input.accountId)throw new Error('Seleccioná un negocio para el documento');
+  // A double submit of the same document id waits here and then returns the stored document instead of a duplicate-key error.
+  await sql`SELECT pg_advisory_xact_lock(hashtext('crm_documents'),hashtext(${input.id}))`.execute(e);
   const existing=(await sql`SELECT id FROM crm_documents WHERE id=${input.id}::uuid`.execute(e)).rows[0];if(existing){await documentFor(e,input.id,user,true);return {id:input.id};}
   await validateContext(e,user,input.accountId,input.leadId,input.activityId);
   if(input.categoryId&&!(await sql`SELECT id FROM crm_document_categories WHERE id=${input.categoryId} AND active`.execute(e)).rows.length)throw new Error('Categoría inactiva');

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';
 import {CamelCasePlugin,Kysely,sql,type Transaction} from 'kysely';import {PostgresJSDialect} from 'kysely-postgres-js';import postgres from 'postgres';
 import {db} from '../src/helpers/db';import type {DB} from '../src/helpers/schema';
-import {post} from '../src/endpoints/communication';import {post as quality} from '../src/endpoints/dataQuality';
+import {post,webhook} from '../src/endpoints/communication';import {handle as saveSettings} from '../src/endpoints/settings_save_POST';import {mutateResource} from '../src/helpers/resourceService';import type {User} from '../src/helpers/User';import {post as quality} from '../src/endpoints/dataQuality';
 import {lockCommunication} from '../src/helpers/communicationService';import {lockAccounts} from '../src/helpers/crmPermissions';
 import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable DB');
@@ -41,7 +41,7 @@ try{
    assert.equal(await attempt(trx=>trx.updateTable('leads').set({notas:'Unrelated write '+stamp,updatedAt:new Date()}).where('id','=',leadB.id).execute()),'ok','A write to another business must not wait for a communication on A');
    assert.equal(await attempt(trx=>lockCommunication(trx,lockScope(b.id))),'ok','Communications on different businesses run concurrently');
    assert.equal(await attempt(trx=>trx.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',a.id).execute(),300),'55P03','No contactar on A must wait for the communication on A');
-   assert.equal(await attempt(trx=>trx.updateTable('leads').set({estado:'Perdida',updatedAt:new Date()}).where('id','=',leadA.id).execute(),300),'55P03','A stage change on A must wait (the account sync trigger updates the locked row)');
+   assert.equal(await attempt(trx=>trx.updateTable('leads').set({estado:'Perdida',updatedAt:new Date()}).where('id','=',leadA.id).execute(),300),'55P03','A stage change on A must wait (crm_leads_active_guard takes FOR SHARE on the locked business row)');
   }finally{h.release();await h.done;}
   console.log('Unrelated writes proceed while a communication holds its business');}
 
@@ -89,5 +89,58 @@ try{
   const prepared=await contact;assert.equal(prepared.status,200,prepared.data.error);
   const stale=await call(post,{action:'prepare_general',id:randomUUID(),accountId:source.id,leadId:null,contactId:null,channel:'whatsapp',purpose:'verification',otherPurpose:null,templateId:null});assert.notEqual(stale.status,200,'The merged source no longer accepts communications');
   console.log('Merges and communications serialize per business');}
+ // 5. Each action resolves its business and locks it BEFORE its checks. The holder locks only the business row (no table lock,
+ // no FK insert) and, where an FK/guard would make any implementation wait, commits a change the action must observe.
+ {const business=async(name:string)=>{const acc=await account(name);const lead=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,estado:'Cargado',assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();return {acc,lead};};
+  const whatsappDraft=async(leadId:string)=>{const d=await call(post,{action:'prepare',id:randomUUID(),leadId,contactId:null,channel:'whatsapp',templateId:null});assert.equal(d.status,200,d.data.error);const e=await call(post,{action:'edit',id:d.data.id,revision:d.data.revision,subject:'',body:'Hola alcance'});assert.equal(e.status,200,e.data.error);return e.data;};
+  async function underLock<T>(label:string,accountId:string,change:((trx:Transaction<DB>)=>Promise<unknown>)|null,op:()=>Promise<T>){
+   const h=await hold(async trx=>{await lockAccounts(trx,[accountId]);if(change)await change(trx);});const p=op();
+   try{assert.equal(await waiting(p),true,label+' must wait for the business row');}finally{h.release();await h.done;}return p;
+  }
+  const noContact=(id:string)=>(trx:Transaction<DB>)=>trx.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',id).execute();
+  {const {acc,lead}=await business('Scope edit');const d=await whatsappDraft(String(lead.id));
+   assert.equal((await underLock('edit',String(acc.id),null,()=>call(post,{action:'edit',id:d.id,revision:d.revision,subject:'',body:'Hola otra vez'}))).status,200);}
+  {const {acc}=await business('Scope lift');const added=await call(post,{action:'restrict',accountId:acc.id,leadId:null,contactId:null,channel:'call',reason:'Para levantar'});assert.equal(added.status,200);
+   const restriction=(await sql<{id:string}>`SELECT id FROM crm_contact_restrictions WHERE account_id=${acc.id} AND lifted_at IS NULL`.execute(db)).rows[0];
+   // The journal FK would make any lift wait eventually; the restriction row staying untouched proves it waited before acting.
+   const h=await hold(trx=>lockAccounts(trx,[acc.id]));const lift=call(post,{action:'lift',id:String(restriction.id),reason:'Levantada en prueba'});
+   try{assert.equal(await waiting(lift),true,'lift must wait for the business row');assert.equal(await attempt(trx=>sql`SELECT id FROM crm_contact_restrictions WHERE id=${restriction.id} FOR UPDATE NOWAIT`.execute(trx)),'ok','lift must not touch the restriction before locking its business');}finally{h.release();await h.done;}
+   assert.equal((await lift).status,200);}
+  {const {acc,lead}=await business('Scope outcome');const d=await whatsappDraft(String(lead.id));const opened=await call(post,{action:'dispatch',id:d.id,revision:d.revision,confirm:true});assert.equal(opened.status,200,opened.data.error);
+   const r=await underLock('outcome manual_sent',String(acc.id),noContact(String(acc.id)),()=>call(post,{action:'outcome',id:d.id,event:'manual_sent',notes:''}));assert.equal(r.status,403,'outcome must see No contactar committed while it waited');}
+  {const {acc}=await business('Scope general');
+   const r=await underLock('prepare_general',String(acc.id),noContact(String(acc.id)),()=>call(post,{action:'prepare_general',id:randomUUID(),accountId:acc.id,leadId:null,contactId:null,channel:'whatsapp',purpose:'first_contact',otherPurpose:null,templateId:null}));assert.equal(r.status,403,'prepare_general must see No contactar committed while it waited');}
+  {const {acc}=await business('Scope response');const id=randomUUID();
+   const r=await underLock('response_create',String(acc.id),noContact(String(acc.id)),()=>call(post,{action:'response_create',id,accountId:acc.id,leadId:null,contactId:null,channel:'whatsapp',recipient:'x',recipientName:'x',destination:null,linkedMessageId:null,category:'do_not_contact',summary:'No quiere',exactText:null,otherDetail:null,confirmDoNotContact:true,closeLeadIds:[],reminder:null}));assert.equal(r.status,200,r.data.error);
+   assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE account_id=${acc.id} AND action='do_not_contact_activated'`.execute(db)).rows[0].n),0,'response_create must see No contactar already active and not activate it again');}
+  {const {acc,lead}=await business('Scope prepare');const t=await db.insertInto('messageTemplates').values({name:'Locks scope '+stamp,channel:'whatsapp',body:'<p>Hola {{name}}</p>'}).returningAll().executeTakeFirstOrThrow();const id=randomUUID();
+   const r=await underLock('lead prepare',String(acc.id),trx=>trx.updateTable('crmAccounts').set({isClient:true}).where('id','=',acc.id).execute(),()=>call(post,{action:'prepare',id,leadId:lead.id,contactId:null,channel:'whatsapp',templateId:t.id}));assert.equal(r.status,200,r.data.error);
+   assert.equal((await sql<{v:string}>`SELECT template_snapshot->'context'->>'is_client' AS v FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].v,'Sí','prepare must render with the business state committed while it waited');}
+  console.log('Every communication action locks its business before checking it');}
+
+ // 6. A subtype rename touching managements of a locked business waits instead of deadlocking.
+ {const {id:subtypeId}=await db.insertInto('crmSubtypes').values({name:'Locks sub '+stamp,typeName:null}).returning('id').executeTakeFirstOrThrow();
+  const lead=await db.insertInto('leads').values({accountId:b.id,nombre:b.nombre,estado:'Cargado',subtipo:'Locks sub '+stamp,assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();
+  const h=await hold(trx=>lockAccounts(trx,[b.id]));
+  const rename=saveSettings(new Request('http://localhost/_api/settings',{method:'POST',headers:{cookie},body:superjson.stringify({action:'editSubtype',id:String(subtypeId),name:'Locks sub renamed '+stamp})}));
+  try{assert.equal(await waiting(rename),true,'The rename must wait for the business row');}finally{h.release();await h.done;}
+  assert.equal((await rename).status,200);assert.equal((await db.selectFrom('leads').select('subtipo').where('id','=',lead.id).executeTakeFirstOrThrow()).subtipo,'Locks sub renamed '+stamp);
+  console.log('Subtype renames wait for communications on affected businesses');}
+
+ // 7. Webhook: lock timeouts are retryable (503) while invalid payloads stay 400. Run with DB_LOCK_TIMEOUT_MS=2000.
+ {assert.equal(process.env.DB_LOCK_TIMEOUT_MS,'2000','Run this script with DB_LOCK_TIMEOUT_MS=2000');process.env.BREVO_WEBHOOK_TOKEN='fixture-webhook-token-at-least-32-characters';
+  const hook=(body:string)=>webhook(new Request('http://localhost/_api/communication/webhook',{method:'POST',headers:{Authorization:'Bearer '+process.env.BREVO_WEBHOOK_TOKEN},body}));
+  const event=JSON.stringify({event:'delivered',email:'nobody@example.com','message-id':'locks-'+stamp+'@brevo.test',ts_event:Math.floor(Date.now()/1000)-5});
+  const h=await hold(async trx=>{await sql`LOCK TABLE crm_accounts IN SHARE ROW EXCLUSIVE MODE`.execute(trx);});
+  try{assert.equal((await hook(event)).status,503,'A lock timeout must ask the provider to retry');}finally{h.release();await h.done;}
+  assert.equal((await hook(event)).status,200);assert.equal((await hook('{"event":1}')).status,400);
+  console.log('Webhook lock timeouts return 503');}
+
+ // 8. Concurrent double submits of the same library document return the same id instead of a duplicate-key error.
+ {const actor={id:u.id,email:u.email,displayName:u.displayName,fullName:null,avatarUrl:null,role:'admin'} as User;
+  for(let round=0;round<5;round++){const id=randomUUID();const create=()=>mutateResource(other,{action:'create',id,title:'Recurso concurrente '+round,type:'Guía',accountId:null,leadId:null,activityId:null,library:true,categoryId:null,version:{url:'https://example.com/recurso-'+round,expiresOn:null}},actor);
+   const results=await Promise.allSettled([create(),create()]);for(const r of results)assert.equal(r.status,'fulfilled',r.status==='rejected'?String(r.reason):'');
+   assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_document_versions WHERE document_id=${id}::uuid`.execute(db)).rows[0].n),1);}
+  console.log('Concurrent document creates are idempotent');}
  console.log('Communication lock tests passed');
 }finally{await other.destroy();await db.destroy();}

@@ -1,5 +1,5 @@
 import {CrmForbidden,assertBusinessAccess,lockAccounts} from '../helpers/crmPermissions';
-import {crmError,fallbackStatus} from '../helpers/crmErrors';
+import {crmError,fallbackStatus,isTransientDbError} from '../helpers/crmErrors';
 import {sql} from 'kysely';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
@@ -66,5 +66,6 @@ export async function webhook(request:Request){
     if(oid){await lockAccounts(e,(await sql<{accountId:string}>`SELECT account_id FROM crm_messages WHERE outbox_id=${oid}`.execute(e)).rows.map(r=>r.accountId));await sql`UPDATE email_outbox SET message_id=coalesce(message_id,${v['message-id']}) WHERE id=${oid}`.execute(e);await reconcileEvents(e,oid);}
    }
   });return new Response('OK');
- }catch{return new Response('Invalid webhook event',{status:400})}
+ // Lock waits, deadlocks and timeouts are retryable: 503 lets the provider redeliver; invalid payloads stay 400.
+ }catch(e){return isTransientDbError(e)?new Response('Temporarily unavailable',{status:503,headers:{'Retry-After':'30'}}):new Response('Invalid webhook event',{status:400})}
 }

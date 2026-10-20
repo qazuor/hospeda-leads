@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {z} from 'zod';
-import {crmError, fallbackStatus, isUnexpectedError} from './crmErrors';
+import {crmError, fallbackStatus, isTransientDbError, isUnexpectedError} from './crmErrors';
 const generic='No se pudo completar la acción. Intentá de nuevo.';
 const pgError=(code:string,message:string,extra:Record<string,unknown>={})=>Object.assign(new Error(message),{name:'PostgresError',severity:'ERROR',code,...extra});
 afterEach(()=>vi.restoreAllMocks());
@@ -24,4 +24,7 @@ describe('isUnexpectedError',()=>{
 describe('fallbackStatus',()=>{
  it('returns 500 for unexpected SQL and programming errors',()=>{expect(fallbackStatus(pgError('42P01','relation'))).toBe(500);expect(fallbackStatus(pgError('23502','null',{table_name:'leads'}))).toBe(500);expect(fallbackStatus(new TypeError('x'))).toBe(500)});
  it('keeps 400 for business, trigger, validation and friendly SQL errors',()=>{expect(fallbackStatus(new Error('Elegí el motivo'))).toBe(400);expect(fallbackStatus(pgError('P0001','Revisá el negocio'))).toBe(400);expect(fallbackStatus(pgError('23502','Creá primero el negocio'))).toBe(400);expect(fallbackStatus(pgError('23505','dup'))).toBe(400);expect(fallbackStatus(z.string().safeParse(1).error)).toBe(400)});
+});
+describe('isTransientDbError',()=>{
+ it('flags retryable SQL states only',()=>{for(const code of ['40P01','55P03','40001','57014'])expect(isTransientDbError(pgError(code,'x'))).toBe(true);for(const code of ['23505','P0001','22P02'])expect(isTransientDbError(pgError(code,'x'))).toBe(false);expect(isTransientDbError(new Error('55P03'))).toBe(false);expect(isTransientDbError(new SyntaxError('bad json'))).toBe(false)});
 });
