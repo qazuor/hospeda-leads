@@ -8,8 +8,15 @@ import styles from './Dialog.module.css';
 
 export interface DialogProps { children?: React.ReactNode; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; modal?: boolean }
 const Context = createContext<{ open: boolean; change: (open: boolean) => void; titleId: string; opener: React.RefObject<HTMLElement | null>; hasOpenChild: boolean; registerChild: (token: symbol, open: boolean) => void } | null>(null);
+const FLOATING = '.mantine-Popover-dropdown,.mantine-Menu-dropdown,.mantine-Combobox-dropdown,.mantine-Select-dropdown';
 const InlineContext = createContext(false);
 function ModalSurface({ children }: { children: React.ReactNode }) { return <>{children}</>; }
+/** A dropdown counts as open when it is rendered, not faded out, and its trigger (when it has one) is not collapsed; Mantine leaves closed menus mounted. */
+function isOpenFloating(item: HTMLElement) {
+  if (item.checkVisibility ? !item.checkVisibility() : getComputedStyle(item).display === 'none') return false;
+  if (getComputedStyle(item).opacity === '0') return false;
+  const trigger = item.getAttribute('aria-labelledby'); return !(trigger && document.getElementById(trigger)?.getAttribute('aria-expanded') === 'false');
+}
 function useDialog() { const value = useContext(Context); if (!value) throw new Error('Dialog control requires Dialog'); return value; }
 export function Dialog({ children, open, defaultOpen = false, onOpenChange }: DialogProps) {
   const parent = useContext(Context);
@@ -85,10 +92,15 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   }, [ctx.open, inline, fullScreen]);
   // Mantine owns focus trapping, scroll locking, portals and modal stacking.
   const close = () => ctx.change(false);
+  // Escape closes an open picker or dropdown first (Mantine handles it); the dialog only reacts once nothing is floating above it.
+  const pickerOpen = (event: KeyboardEvent) => {
+    if (event.defaultPrevented || (event.target as Element | null)?.closest?.(FLOATING + ',[data-picker-open="true"]')) return true;
+    return Array.from(document.querySelectorAll<HTMLElement>(FLOATING)).some(isOpenFloating);
+  };
   const guard = (handler: ((event: Event) => void) | undefined) => { const event = new Event('dismiss', { cancelable: true }); handler?.(event); return !event.defaultPrevented; };
   useEffect(() => {
-    if (!ctx.open || inline || !layer.active || !onEscapeKeyDown || ctx.hasOpenChild) return;
-    const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopImmediatePropagation(); if (guard(onEscapeKeyDown)) close(); } };
+    if (!ctx.open || inline || !layer.active || ctx.hasOpenChild) return;
+    const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') { if (pickerOpen(event)) return; event.stopImmediatePropagation(); if (guard(onEscapeKeyDown)) close(); } };
     document.addEventListener('keydown', listener, true);
     return () => document.removeEventListener('keydown', listener, true);
   }, [ctx.open, inline, onEscapeKeyDown, ctx.change, ctx.hasOpenChild, layer.active]);
@@ -97,7 +109,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   if (inline) return <InlineContext.Provider value><Box {...props} ref={ref} className={className}>{children}</Box></InlineContext.Provider>;
   return <InlineContext.Provider value={false}><Modal.Root opened={ctx.open} onClose={close} size="auto" centered fullScreen={fullScreen} scrollAreaComponent={ModalSurface}
     transitionProps={{ duration: 0 }} zIndex={layer.zIndex} trapFocus={layer.active} portalProps={container ? { target: container } : undefined}
-    closeOnEscape={layer.active && !onEscapeKeyDown && !ctx.hasOpenChild} closeOnClickOutside={layer.active && !onInteractOutside && !ctx.hasOpenChild}
+    closeOnEscape={false} closeOnClickOutside={layer.active && !onInteractOutside && !ctx.hasOpenChild}
     onEnterTransitionEnd={focus} returnFocus={!onCloseAutoFocus}
     onExitTransitionEnd={() => { const event = new Event('focus', { cancelable: true }); onCloseAutoFocus?.(event); }}>
     <Modal.Overlay className="crm-dialog-overlay" backgroundOpacity={0.62} blur={2} onClick={onInteractOutside ? () => { if (layer.active && guard(onInteractOutside)) close(); } : undefined} />
