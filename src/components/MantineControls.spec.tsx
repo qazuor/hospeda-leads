@@ -135,8 +135,37 @@ describe('Mantine migration preserves CRM interactions', () => {
     mount(<><Button disabled>Guardar</Button><Button disabled disabledReason="Falta elegir el negocio.">Enviar</Button></>);
     expect(screen.getByRole('button', { name: 'Guardar' }).closest('span[tabindex]')).toBeNull();
     expect(screen.getByRole('button', { name: 'Enviar' }).closest('span[tabindex]')).not.toBeNull();
-    expect(warn).toHaveBeenCalledWith('Button disabled without disabledReason:', 'Guardar');
+    expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+  it('keeps the same button node and focus when the disabled reason toggles', () => {
+    const view = mount(<Button disabledReason="Falta elegir el negocio.">Guardar</Button>);
+    const button = screen.getByRole('button', { name: 'Guardar' }); button.focus();
+    view.rerender(<MantineProvider><Button disabled disabledReason="Falta elegir el negocio.">Guardar</Button></MantineProvider>);
+    view.rerender(<MantineProvider><Button disabled>Guardar</Button></MantineProvider>);
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBe(button);
+    view.rerender(<MantineProvider><Button disabledReason="Falta elegir el negocio.">Guardar</Button></MantineProvider>);
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBe(button);
+  });
+  it('maps validity to specific Spanish messages, links them and focuses the first invalid field', () => {
+    mount(<form><label>Email<Input type="email" defaultValue="x" /></label><label>Corto<Input minLength={5} defaultValue="ab" /></label><label>Cant<Input type="number" max={3} defaultValue="9" /></label></form>);
+    const email = screen.getByLabelText('Email') as HTMLInputElement;
+    const scroll = vi.fn(); email.scrollIntoView = scroll;
+    // jsdom does not flag typeMismatch from defaultValue until validity runs; invoke the real checks.
+    fireEvent.invalid(email);
+    expect(screen.getByText('Revisá el formato (ej.: nombre@dominio.com).')).toBeTruthy();
+    expect(document.activeElement).toBe(email); expect(scroll).toHaveBeenCalledWith({ block: 'center' });
+    const described = email.getAttribute('aria-describedby'); expect(described).toBeTruthy();
+    expect(document.getElementById(described!)?.textContent).toContain('Revisá el formato');
+    const short = screen.getByLabelText('Corto') as HTMLInputElement; short.value = 'ab'; short.setAttribute('minlength', '5');
+    fireEvent.invalid(screen.getByLabelText('Cant')); expect(screen.getByText('El valor máximo es 3.')).toBeTruthy();
+  });
+  it('clears the inline message on blur once the value is valid', () => {
+    mount(<form><label>Nombre<Input required /></label></form>);
+    const name = screen.getByLabelText('Nombre') as HTMLInputElement;
+    fireEvent.invalid(name); expect(screen.getByText('Completá este dato.')).toBeTruthy();
+    name.value = 'Ana'; fireEvent.blur(name);
+    expect(screen.queryByText('Completá este dato.')).toBeNull();
   });
 
 });

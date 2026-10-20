@@ -1,7 +1,7 @@
 import React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MantineProvider } from '@mantine/core';
+import { MantineProvider, Menu } from '@mantine/core';
 import 'dayjs/locale/es';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from './Dialog';
 import { CrmDateInput } from './ui/CrmDateInput';
@@ -45,7 +45,7 @@ describe('Dialog Escape', () => {
   it('closes only the open date picker on the first Escape and the dialog on the second', async () => {
     const calls: boolean[] = [];
     function Example() { const [value, setValue] = React.useState(''); return <MantineProvider><Dialog defaultOpen onOpenChange={next => calls.push(next)}>
-      <DialogContent onEscapeKeyDown={() => {}}><DialogTitle>Agendar</DialogTitle><label>Fecha<CrmDateInput value={value} onValueChange={setValue} /></label></DialogContent></Dialog></MantineProvider>; }
+      <DialogContent><DialogTitle>Agendar</DialogTitle><label>Fecha<CrmDateInput value={value} onValueChange={setValue} /></label></DialogContent></Dialog></MantineProvider>; }
     render(<Example />);
     const input = screen.getByLabelText('Fecha');
     fireEvent.click(input);
@@ -57,5 +57,25 @@ describe('Dialog Escape', () => {
     expect(screen.getByText('Agendar')).toBeTruthy();
     fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' });
     expect(calls).toEqual([false]);
+  });
+
+  it('closes the dialog on Escape when nothing floating is open', () => {
+    const calls: boolean[] = [];
+    render(<MantineProvider><Dialog defaultOpen onOpenChange={next => calls.push(next)}><DialogContent><DialogTitle>Simple</DialogTitle><input aria-label="Dato" /></DialogContent></Dialog></MantineProvider>);
+    fireEvent.keyDown(screen.getByLabelText('Dato'), { key: 'Escape', code: 'Escape' });
+    expect(calls).toEqual([false]);
+  });
+
+  it('closes only an open menu inside the dialog, then the dialog', async () => {
+    const calls: boolean[] = [];
+    render(<MantineProvider><Dialog defaultOpen onOpenChange={next => calls.push(next)}><DialogContent><DialogTitle>Con menú</DialogTitle>
+      <Menu><Menu.Target><button>Acciones</button></Menu.Target><Menu.Dropdown><Menu.Item>Editar</Menu.Item></Menu.Dropdown></Menu></DialogContent></Dialog></MantineProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Acciones' }));
+    const item = await screen.findByRole('menuitem', { name: 'Editar' });
+    fireEvent.keyDown(item, { key: 'Escape', code: 'Escape' });
+    expect(calls).toEqual([]);
+    expect(screen.getByText('Con menú')).toBeTruthy();
+    fireEvent.keyDown(screen.getByText('Con menú'), { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(calls).toEqual([false]));
   });
 });

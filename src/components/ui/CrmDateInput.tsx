@@ -17,9 +17,9 @@ type Props=Omit<DateInputProps,'value'|'defaultValue'|'onChange'|'min'|'max'> & 
 };
 export const CrmDateInput=forwardRef<HTMLInputElement,Props>(({value,onValueChange,className,min,max,...props},ref)=>{
   const [pickerOpen,setPickerOpen]=useState(false);
-  // Escape closes only the open picker, never the surrounding dialog or form.
+  // Dialog reads data-picker-open so Escape closes only the open picker.
   return <DateInput
-  {...props} ref={ref} data-picker-open={pickerOpen||undefined} onKeyDown={event=>{props.onKeyDown?.(event);if(event.key==='Escape'&&pickerOpen)event.stopPropagation();}} value={value||null} onChange={next=>onValueChange(next??'')}
+  {...props} ref={ref} data-picker-open={pickerOpen||undefined} value={value||null} onChange={next=>onValueChange(next??'')}
   minDate={min||undefined} maxDate={max||undefined} locale="es" valueFormat="DD/MM/YYYY" dateParser={parseCalendarInput}
   ariaLabels={{nextMonth:"Mes siguiente",previousMonth:"Mes anterior",nextYear:"Año siguiente",previousYear:"Año anterior",nextDecade:"Década siguiente",previousDecade:"Década anterior",monthLevelControl:"Elegir mes",yearLevelControl:"Elegir año"}}
   placeholder={props.placeholder??'dd/mm/aaaa'} data-autofocus={props.autoFocus||undefined}
