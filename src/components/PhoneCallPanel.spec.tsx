@@ -3,7 +3,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-import {PhoneCallPanel} from './PhoneCallPanel';
+import {PhoneCallPanel,useCallSession} from './PhoneCallPanel';
 import {getCommunication,postCommunication} from '../endpoints/communication.schema';
 
 vi.mock('sonner',()=>({toast:{error:vi.fn(),success:vi.fn(),info:vi.fn()}}));
@@ -69,5 +69,49 @@ describe('PhoneCallPanel',()=>{
   await screen.findByText('Esta persona no tiene un teléfono cargado.');
   await waitFor(()=>expect((screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}) as HTMLButtonElement).disabled).toBe(false));
   expect((screen.getByRole('button',{name:'Copiar número'}) as HTMLButtonElement).disabled).toBe(true);
+ });
+ it('keeps the number and "Ya llamé" usable on a general task path (onLog, no management, no purpose)',async()=>{
+  const onLog=vi.fn();show({leadId:null,purpose:null,contacts:[ana],fixedRecipient:{id:'7',mustChoose:false},onLog});
+  await waitFor(()=>{expect((screen.getByRole('button',{name:'Copiar número'}) as HTMLButtonElement).disabled).toBe(false);expect((screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}) as HTMLButtonElement).disabled).toBe(false)});
+  fireEvent.click(screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}));expect(onLog).toHaveBeenCalledWith('7','phone');
+ });
+ it('still needs a purpose when it saves the call itself without a management',async()=>{
+  show({leadId:null,purpose:null});
+  await screen.findByLabelText('Número a llamar');
+  expect((screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}) as HTMLButtonElement).disabled).toBe(true);
+  await waitFor(()=>expect((screen.getByRole('button',{name:'Copiar número'}) as HTMLButtonElement).disabled).toBe(false));
+ });
+ it('does not render a tel: link without a number once the call is saved (touch)',async()=>{
+  setPointer(true);vi.mocked(postCommunication).mockResolvedValue({id:'m1',accountId:'5',leadId:null,contactId:null,channel:'call',purpose:'first_contact',status:'manual_sent'} as never);
+  show({account:{...account,telefono:null}});
+  await waitFor(()=>expect((screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}));
+  await screen.findByText('Cómo salió (mock)');
+  expect(document.querySelector('a[href="tel:"]')).toBeNull();
+ });
+});
+
+describe('PhoneCallPanel call session',()=>{
+ function Host({leadId}:{leadId:string|null}){const session=useCallSession();const [shown,setShown]=React.useState(true);
+  return <MantineProvider><QueryClientProvider client={client}><button onClick={()=>setShown(!shown)}>alternar</button>{shown&&<PhoneCallPanel session={session} account={account} contacts={[]} leadId={leadId} purpose={{purpose:'first_contact',otherPurpose:''}} onFinished={()=>{}}/>}</QueryClientProvider></MantineProvider>;}
+ const client=new QueryClient();
+ it('keeps a saved call saved when the panel is unmounted and mounted again',async()=>{
+  vi.mocked(postCommunication).mockResolvedValue({id:'m1',accountId:'5',leadId:null,contactId:null,channel:'call',purpose:'first_contact',status:'manual_sent'} as never);
+  render(<Host leadId={null}/>);
+  await waitFor(()=>expect((screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}));await screen.findByText('Cómo salió (mock)');
+  fireEvent.click(screen.getByRole('button',{name:'alternar'}));fireEvent.click(screen.getByRole('button',{name:'alternar'}));
+  const again=await screen.findByRole('button',{name:'Ya llamé: anotar cómo salió'});
+  expect((again as HTMLButtonElement).disabled).toBe(true);expect(postCommunication).toHaveBeenCalledTimes(1);
+ });
+ it('retries an uncertain save with the same request key even if the note or the button changes',async()=>{
+  vi.mocked(postCommunication).mockRejectedValueOnce(new Error('timeout')).mockResolvedValueOnce({id:'m1',accountId:'5',leadId:null,contactId:null,channel:'call',purpose:'first_contact',status:'manual_sent'} as never);
+  render(<Host leadId={null}/>);
+  await waitFor(()=>expect((screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button',{name:'Ya llamé: anotar cómo salió'}));await screen.findByRole('alert');
+  fireEvent.change(screen.getByLabelText('Nota de la llamada (opcional)'),{target:{value:'otra nota'}});
+  fireEvent.click(screen.getByRole('button',{name:'No me atendieron'}));
+  await waitFor(()=>expect(postCommunication).toHaveBeenCalledTimes(2));
+  const [first,second]=vi.mocked(postCommunication).mock.calls.map(c=>(c[0] as {id:string}).id);expect(second).toBe(first);
  });
 });
