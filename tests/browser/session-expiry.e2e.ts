@@ -26,6 +26,26 @@ test('an expired session re-logs in from a dialog and keeps the unsaved draft',a
  await editor.getByRole('button',{name:'Guardar próximo paso',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByText(title,{exact:true})).toBeVisible();
 });
 
+test('re-login with another account discards the draft with a full reload',async({page})=>{
+ test.setTimeout(120000);
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);
+ await page.getByRole('button',{name:'Planificar una tarea',exact:true}).click();const editor=page.getByRole('dialog');
+ const draft='Borrador de la cuenta anterior '+Date.now();await editor.getByLabel('Título',{exact:true}).fill(draft);
+ await page.evaluate(()=>{(window as unknown as {previousPage:boolean}).previousPage=true;});
+ // Same signal apiClient emits on any 401.
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('crm:session-expired')));
+ const relogin=page.getByRole('dialog').filter({hasText:'Si ingresás con otra cuenta, lo que escribiste se descarta.'});await expect(relogin).toHaveCount(1);
+ // The server answers for a different account (mocked): this browser now belongs to someone else.
+ await page.route(url=>url.pathname==='/_api/auth/login_with_password',route=>route.fulfill({status:200,contentType:'application/json',body:superjson.stringify({user:{id:987654,email:'otra@example.com',displayName:'Otra',fullName:null,avatarUrl:null,role:'user'}})}));
+ await relogin.getByLabel('Email',{exact:true}).fill('otra@example.com');await relogin.getByLabel('Contraseña',{exact:true}).fill('otra-password');
+ const prompts:string[]=[];page.on('dialog',dialog=>{prompts.push(dialog.type());void dialog.accept();});
+ const reloaded=page.waitForEvent('load');await relogin.getByRole('button',{name:'Ingresar',exact:true}).click();await reloaded;
+ // Full reload (the dirty editor's beforeunload prompt must not block it): no JS state and no draft from the previous account.
+ expect(prompts).toEqual([]);expect(await page.evaluate(()=>(window as unknown as {previousPage?:boolean}).previousPage??false)).toBe(false);
+ await expect(page.getByText(draft)).toHaveCount(0);await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('a first visit without a session goes to the login page, with Spanish copy',async({page})=>{
  await page.goto('/my-day');await expect(page).toHaveURL(/\/login$/);await expect(page.getByRole('dialog')).toHaveCount(0);
  await expect(page.getByLabel('Email',{exact:true})).toHaveAttribute('placeholder','tu@email.com');

@@ -57,11 +57,13 @@ export const DialogClose = React.forwardRef<HTMLButtonElement, TriggerProps>(({ 
 interface ContentProps extends React.HTMLAttributes<HTMLDivElement> {
   inline?: boolean; fullScreen?: boolean; showCloseButton?: boolean; container?: HTMLElement | null;
   onEscapeKeyDown?: (event: Event) => void; onInteractOutside?: (event: Event) => void;
+  /** Hides the page behind the dialog completely (e.g. re-login, where the previous page may hold another user's data). */
+  opaqueOverlay?: boolean;
   onOpenAutoFocus?: (event: Event) => void; onCloseAutoFocus?: (event: Event) => void;
 }
 export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   className, children, container, inline = false, fullScreen = false, showCloseButton = true,
-  onEscapeKeyDown, onInteractOutside, onOpenAutoFocus, onCloseAutoFocus, ...props
+  onEscapeKeyDown, onInteractOutside, onOpenAutoFocus, onCloseAutoFocus, opaqueOverlay = false, ...props
 }, ref) => {
   const ctx = useDialog();
   const layer=useDialogLayer(ctx.open&&!inline);
@@ -112,7 +114,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
     closeOnEscape={false} closeOnClickOutside={layer.active && !onInteractOutside && !ctx.hasOpenChild}
     onEnterTransitionEnd={focus} returnFocus={!onCloseAutoFocus}
     onExitTransitionEnd={() => { const event = new Event('focus', { cancelable: true }); onCloseAutoFocus?.(event); }}>
-    <Modal.Overlay className="crm-dialog-overlay" backgroundOpacity={0.62} blur={2} onClick={onInteractOutside ? () => { if (layer.active && guard(onInteractOutside)) close(); } : undefined} />
+    <Modal.Overlay className="crm-dialog-overlay" backgroundOpacity={opaqueOverlay ? 1 : 0.62} blur={opaqueOverlay ? 0 : 2} color={opaqueOverlay ? "var(--background)" : undefined} onClick={onInteractOutside ? () => { if (layer.active && guard(onInteractOutside)) close(); } : undefined} />
     <Modal.Content {...props} ref={ref} classNames={{ content: [styles.content, className].filter(Boolean).join(' ') }}>
       {children}
       {showCloseButton && <CloseButton aria-label="Cerrar" className={styles.close} size="lg" onClick={close} />}
