@@ -14,6 +14,7 @@ import React,{useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
+import {crmSuccess} from '../helpers/crmFeedback';
 import {getPipeline,postPipeline,type PipelineData,type PipelineMutation,type PipelineInsight,type ReactivationRow,type PipelineObjection} from '../endpoints/pipeline.schema';
 import type {Opportunity} from '../endpoints/commercial.schema';
 import {formatDate} from '../helpers/crmDates';
@@ -40,7 +41,9 @@ export function PipelineEditor({target,data,onClose}:{target:Target;data:Pipelin
  const [reason,setReason]=useState('');const [comment,setComment]=useState(item?.notes??'');const [date,setDate]=useState(target.kind==='reactivate'?target.row.recontactDate:localDay());
  const [accountOwner,setAccountOwner]=useState('');
  const [hasDate,setHasDate]=useState(false);const [closeOtherOpen,setCloseOtherOpen]=useState(false);const [typeId,setTypeId]=useState(item?.typeId??'');const [status,setStatus]=useState<PipelineObjection['status']>(item?.status??'open');const [mode,setMode]=useState<'followup'|'reopen'|'new'>('followup');const [name,setName]=useState('');const [title,setTitle]=useState('Retomar conversación');
- const m=useGuardedMutation({mutationFn:postPipeline,onSuccess:async(_result,input)=>{await qc.invalidateQueries();toast.success(input.action==='transition'?stageChangeMessage({stages:data.stages,reasons:data.managementReasons,from:target.kind==='stage'?target.lead.estado:null,to:input.stage,reasonId:input.reasonId,canViewArchived:user?.role==='admin'}):'Cambio registrado');onClose();},onError:()=>{void qc.invalidateQueries({queryKey:['pipeline']});void qc.invalidateQueries({queryKey:['leads']});}});
+ const m=useGuardedMutation({mutationFn:postPipeline,onSuccess:async(_result,input)=>{await qc.invalidateQueries();if(input.action!=='transition')toast.success('Cambio registrado');else{const message=stageChangeMessage({stages:data.stages,reasons:data.managementReasons,from:target.kind==='stage'?target.lead.estado:null,to:input.stage,reasonId:input.reasonId});
+  // After a No contactar close the business is archived: its record (read-only for its responsible seller) is the place to keep consulting it.
+  if(target.kind==='stage'&&data.managementReasons.some(r=>r.id===input.reasonId&&r.doNotContact))crmSuccess(message,{label:'Abrir negocio',href:'/accounts/'+target.lead.accountId});else toast.success(message);}onClose();},onError:()=>{void qc.invalidateQueries({queryKey:['pipeline']});void qc.invalidateQueries({queryKey:['leads']});}});
  const selectedStage=data.stages.find(s=>s.name===stage);
  const reactivationStages=target.kind==='reactivate'?getReactivationStages(data.stages,target.row.managementType):[];
  const canReopen=mayReopenManagement(user?.role);

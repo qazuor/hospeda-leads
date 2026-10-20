@@ -38,14 +38,11 @@ export const stageOptionGroups=({stages,currentStage,managementType}:{stages:rea
  ].filter(group=>group.options.length>0);
 };
 
-/**
- * Success toast of a stage change: reopened, closed (with the No contactar special case) or moved.
- * `canViewArchived` is false for sellers: the server does not let them read an archived business yet, so the copy must not promise it.
- */
-export const stageChangeMessage=({stages,reasons,from,to,reasonId,canViewArchived=true}:{stages:readonly StageOption[];reasons:readonly Pick<PipelineReason,'id'|'doNotContact'>[];from:string|null|undefined;to:string;reasonId?:string|null;canViewArchived?:boolean}):string=>{
+/** Success toast of a stage change: reopened, closed (with the No contactar special case) or moved. */
+export const stageChangeMessage=({stages,reasons,from,to,reasonId}:{stages:readonly StageOption[];reasons:readonly Pick<PipelineReason,'id'|'doNotContact'>[];from:string|null|undefined;to:string;reasonId?:string|null}):string=>{
  const target=stages.find(stage=>stage.name===to);
  const name=stageDisplayName(target,to);
- if(reasonId&&reasons.some(reason=>reason.id===reasonId&&reason.doNotContact))return canViewArchived?'El negocio quedó en No contactar y archivado. Podés seguir consultándolo.':'El negocio quedó en No contactar y archivado. Para volver a verlo, pedíselo a un administrador.';
+ if(reasonId&&reasons.some(reason=>reason.id===reasonId&&reason.doNotContact))return 'El negocio quedó en No contactar y archivado. Podés seguir consultándolo.';
  if(target&&target.classification!=='open')return `Gestión cerrada como ${name}`;
  const previous=stages.find(stage=>stage.name===from)?.classification;
  return previous&&previous!=='open'?`Gestión reabierta en ${name}`:`Etapa cambiada a ${name}`;

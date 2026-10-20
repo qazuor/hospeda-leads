@@ -36,7 +36,6 @@ describe('stage change messages',()=>{
  });
  it('explains the No contactar close',()=>{
   expect(stageChangeMessage({stages,reasons,from:'main:contacted',to:'main:lost',reasonId:'dnc'})).toBe('El negocio quedó en No contactar y archivado. Podés seguir consultándolo.');
-  expect(stageChangeMessage({stages,reasons,from:'main:contacted',to:'main:lost',reasonId:'dnc',canViewArchived:false})).toBe('El negocio quedó en No contactar y archivado. Para volver a verlo, pedíselo a un administrador.');
  });
 });
 
