@@ -4,6 +4,7 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { SettingsOutput } from "./settings_GET.schema";
 import {sql} from 'kysely';
+import { withDefaultMessageVariables } from "../helpers/messageVariables";
 
 type StoredInvitation={userId:number;email:string;expiresAt:string};
 
@@ -11,7 +12,7 @@ export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
     const admin=user.role==="admin";
-    const [cities,subtypes,authorizedEmails,users,passwordRows,templates,typesRows,emailSettings,invitationSettings,opportunityStages,templateVersions]=await Promise.all([
+    const [cities,subtypes,authorizedEmails,users,passwordRows,templates,typesRows,emailSettings,invitationSettings,opportunityStages,templateVersions,variableSettings]=await Promise.all([
       db.selectFrom("crmCities").select(["id","name"]).where("active","=",true).orderBy("name").execute(),
       db.selectFrom("crmSubtypes").select(["id","typeName","name"]).where("active","=",true).orderBy("name").execute(),
       admin?db.selectFrom("authorizedEmails").select(["id","email","displayName"]).where("active","=",true).orderBy("email").execute():Promise.resolve([]),
@@ -24,7 +25,8 @@ export async function handle(request:Request){
       ]).execute(),
       admin?db.selectFrom("appSettings").select(["key","value"]).where("key","like","user_invitation:%").execute():Promise.resolve([]),
       getOpportunityStages(db),
-      admin?sql<any>`SELECT template_id::text AS "templateId",version,snapshot,actor_email AS "actorEmail",created_at AS "createdAt" FROM crm_message_template_versions ORDER BY template_id,version DESC`.execute(db).then(r=>r.rows):Promise.resolve([])
+      admin?sql<any>`SELECT template_id::text AS "templateId",version,snapshot,actor_email AS "actorEmail",created_at AS "createdAt" FROM crm_message_template_versions ORDER BY template_id,version DESC`.execute(db).then(r=>r.rows):Promise.resolve([]),
+      admin?db.selectFrom("appSettings").select("value").where("key","=","crm_message_variables").executeTakeFirst():Promise.resolve(undefined)
     ]);
 
     const emailConfig=Object.fromEntries(emailSettings.map(row=>[row.key,row.value]));
@@ -49,6 +51,7 @@ export async function handle(request:Request){
       }):({id:user.id,email:user.email,displayName:user.displayName,role:user.role})),
       templates:templates.map(x=>({...x,id:String(x.id)})),
       ...(admin?{templateVersions}:{}),
+      ...(admin?{messageVariables:withDefaultMessageVariables(variableSettings?.value?JSON.parse(variableSettings.value):null)}:{}),
       ...(admin?{emailDelivery:{
         senderName:emailConfig.brevo_sender_name||"Hospeda",
         senderEmail:emailConfig.brevo_sender_email||"notificaciones@hospeda.com.ar",

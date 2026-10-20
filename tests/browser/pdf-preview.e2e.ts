@@ -17,7 +17,7 @@ for (const width of [1280, 390]) test(`PDF pages, zoom, corrupt retry and permis
    if(route.request().method()==='POST'){writes.push(route.request().postData());}
    if(url.pathname.endsWith('/resources/download')){downloads++;await route.fulfill({status:mode==='denied'?403:200,contentType:'application/pdf',body:mode==='corrupt'?Buffer.from('%PDF-1.7 invalid'):twoPagePdf()});return;}
    if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',displayName:'Owner',role:'user'}};
-   else if(url.pathname.endsWith('/commercial'))data={account,opportunities,contacts:[],journal:[],leadJournal:[],stages:[],users:[]};
+   else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account,opportunities,contacts:[],journal:[],leadJournal:[],stages:[],users:[]};
    else if(url.pathname.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]};
    else if(url.pathname.endsWith('/work'))data={activities:[],tasks:[],types:[],users:[],attention:[],contacts:[]};
    else if(url.pathname.endsWith('/resources'))data={documents:url.searchParams.has('accountId')?[]:[material],categories:[],maxDocumentBytes:2097152};

@@ -1,3 +1,5 @@
+import { defaultMessageVariableSettings, resolveMessageVariables, type MessageVariableDefinition } from "./messageVariables";
+
 export type TemplateContext={
   name?:unknown;
   contact?:unknown;
@@ -11,6 +13,7 @@ export type TemplateContext={
   hospeda_url?:unknown;
   sender?:unknown;
   sender_short?:unknown;
+  managementType?:unknown;
 };
 
 const text=(value:unknown)=>value==null?"":String(value).trim();
@@ -31,9 +34,8 @@ export const normalizeTemplateHtml=(source:string)=>{
     .join("");
 };
 
-export function renderMessageTemplate(source:string,context:TemplateContext){
-  const values:Record<string,string>={};
-  for(const [key,value] of Object.entries(context))values[key]=text(value);
+export function renderMessageTemplate(source:string,context:TemplateContext,definitions:MessageVariableDefinition[]=defaultMessageVariableSettings()){
+  const values=resolveMessageVariables(context as Record<string,unknown>,definitions);
   let out=source;
   const conditional=/{{#if\s+([a-zA-Z0-9_]+)}}([\s\S]*?)(?:{{else}}([\s\S]*?))?{{\/if}}/g;
   for(let i=0;i<10;i++){
@@ -50,10 +52,11 @@ export function renderMessageTemplate(source:string,context:TemplateContext){
     .trim();
 }
 
-export function renderMessageTemplateHtml(source:string,context:TemplateContext){
+export function renderMessageTemplateHtml(source:string,context:TemplateContext,definitions:MessageVariableDefinition[]=defaultMessageVariableSettings()){
+  const resolved=resolveMessageVariables(context as Record<string,unknown>,definitions);
   const values:Record<string,string>={};
   const htmlValues:Record<string,string>={};
-  for(const [key,value] of Object.entries(context)){
+  for(const [key,value] of Object.entries(resolved)){
     values[key]=text(value);
     htmlValues[key]=escapeHtml(values[key]);
   }
