@@ -14,6 +14,7 @@ import {buildHospedaEmailHtml,buildHospedaEmailText} from './hospedaEmailLayout'
 import {setWorkActor} from './workAudit';
 import {writeLeadJournal} from './writeLeadJournal';
 import { withDefaultMessageVariables } from './messageVariables';
+import {responseCategoryLabel} from './crmLabels';
 type Executor=Kysely<DB>|Transaction<DB>;
 export class CommunicationForbidden extends Error{}
 export class CommunicationConflict extends Error{}
@@ -91,6 +92,13 @@ async function channelTarget(e:Executor,account:any,lead:any|null,contactId:stri
  const value=String(channel==='email'?account.email:(account.whatsapp||account.telefono)??'').trim();if(!value)throw new Error('No hay un dato general para este canal.');return {contactId:null,name:account.nombre,value};
 }
 export async function messageFor(e:Executor,id:string,user:User,lock=false){const r=await sql<Message>`SELECT * FROM crm_messages WHERE id=${id}::uuid ${lock?sql`FOR UPDATE`:sql``}`.execute(e);const m=r.rows[0];if(!m)throw new Error('Mensaje inexistente');if(user.role!=='admin'&&m.ownerEmail!==user.email)throw new CommunicationForbidden('Interacción de otro usuario.');await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);return m;}
+/** Cancels a draft after checking ownership, its business and its revision; journaled like an explicit cancellation. */
+async function cancelDraft(e:Executor,draft:{id:string;revision:number},user:User,accountId?:string){
+ const m=await messageFor(e,draft.id,user,true);if(accountId&&String(m.accountId)!==accountId)throw new Error('El borrador no pertenece a este negocio.');
+ if(m.status!=='draft'||m.revision!==draft.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
+ const cancelled=(await sql<Message>`UPDATE crm_messages SET status='cancelled',revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0];
+ await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'draft_cancelled',actor:user,before:{status:m.status},after:{status:'cancelled'}});return cancelled;
+}
 async function prepare(e:Executor,input:Extract<CommunicationMutation,{action:'prepare'}>,user:User){
  const existing=(await sql<Message>`SELECT * FROM crm_messages WHERE id=${input.id}::uuid`.execute(e)).rows[0];if(existing){await messageFor(e,input.id,user);return existing;}
  const {lead,account}=await leadFor(e,input.leadId,user);
@@ -100,7 +108,8 @@ async function prepare(e:Executor,input:Extract<CommunicationMutation,{action:'p
  const t=input.templateId?await e.selectFrom('messageTemplates').selectAll().where('id','=',input.templateId).where('active','=',true).executeTakeFirstOrThrow():null;
  const incompatibility=t?templateCompatibility(t,{channel:input.channel,vertical:lead.tipo,commercialProfile:lead.commercialProfile,managementType:lead.managementType}):null;
  if(incompatibility)throw new Error(incompatibility);
- const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE lead_id=${lead.id} AND contact_id IS NOT DISTINCT FROM ${c.contactId}::bigint AND channel=${input.channel} AND recipient=${recipient} AND owner_email=${user.email} AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return reusable;
+ if(input.discardDraft)await cancelDraft(e,input.discardDraft,user,String(account.id));
+ const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE lead_id=${lead.id} AND contact_id IS NOT DISTINCT FROM ${c.contactId}::bigint AND channel=${input.channel} AND recipient=${recipient} AND owner_email=${user.email} AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return {...reusable,reusedDraft:true};
  const ownerName=await templateOwnerName(e,lead.assignedUserEmail,user);const ctx={name:lead.nombre,contact:c.name,contact_name:c.name,city:lead.ciudad,type:lead.tipo,subtype:lead.subtipo,phone:c.phone,email:c.email,website:lead.sitioWeb,sender:ownerName,sender_short:ownerName,managementType:lead.managementType,channel:input.channel,business_status:account.status,is_client:account.commercialStatus==='client'?'Sí':'No'};
  const variableDefinitions=await messageVariables(e);
  const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';
@@ -122,7 +131,8 @@ async function prepareGeneral(e:Executor,input:Extract<CommunicationMutation,{ac
  const target=await channelTarget(e,account,lead,input.contactId,input.channel);
  const t=input.templateId?await e.selectFrom('messageTemplates').selectAll().where('id','=',input.templateId).where('active','=',true).executeTakeFirstOrThrow():null;
  const incompatible=t?templateCompatibility(t,{channel:input.channel,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,managementType:lead?.managementType??null}):null;if(incompatible)throw new Error(incompatible);
- const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE account_id=${account.id} AND lead_id IS NOT DISTINCT FROM ${input.leadId}::bigint AND contact_id IS NOT DISTINCT FROM ${target.contactId}::bigint AND channel=${input.channel} AND recipient=${target.value} AND owner_email=${user.email} AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return reusable;
+ if(input.discardDraft)await cancelDraft(e,input.discardDraft,user,String(account.id));
+ const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE account_id=${account.id} AND lead_id IS NOT DISTINCT FROM ${input.leadId}::bigint AND contact_id IS NOT DISTINCT FROM ${target.contactId}::bigint AND channel=${input.channel} AND recipient=${target.value} AND owner_email=${user.email} AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return {...reusable,reusedDraft:true};
  const ownerName=await templateOwnerName(e,lead?.assignedUserEmail??account.assignedUserEmail,user);const ctx={name:account.nombre,contact:target.name,contact_name:target.name,city:lead?.ciudad??account.ciudad,type:lead?.tipo??account.tipo,subtype:lead?.subtipo??account.subtipo,phone:target.value,email:target.value,website:account.sitioWeb,sender:ownerName,sender_short:ownerName,managementType:lead?.managementType,channel:input.channel,business_status:account.status,is_client:account.commercialStatus==='client'?'Sí':'No'};
  const variableDefinitions=await messageVariables(e);
  const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;const subject=t?renderMessageTemplate(t.subject??'',ctx,variableDefinitions):'';const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions}:null;
@@ -168,7 +178,7 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
  if(input.reminder){
-  if(input.category!=='later')throw new Error('El recordatorio solo aplica a “Quiere retomar más adelante”.');
+  if(input.category!=='later')throw new Error(`El recordatorio solo aplica a “${responseCategoryLabel('later')}”.`);
   const parsed=new Date(input.reminder.dueDate+'T00:00:00Z');if(Number.isNaN(parsed.valueOf())||parsed.toISOString().slice(0,10)!==input.reminder.dueDate)throw new Error('Fecha de recordatorio inválida.');
   const contextOwner=lead?.assignedUserEmail??account.assignedUserEmail;
   if(user.role!=='admin'&&user.email!==contextOwner)throw new CommunicationForbidden('Solo el responsable del contexto o un administrador puede crear este recordatorio.');
@@ -278,11 +288,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'interaction_corrected',actor:user,before,after:{...after,correctionReason:input.reason}});
   return (await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0];
  }
-  if(input.action==='cancel_draft'){
-  const m=await messageFor(e,input.id,user,true);if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
-  const cancelled=(await sql<Message>`UPDATE crm_messages SET status='cancelled',revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0];
-  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'draft_cancelled',actor:user,before:{status:m.status},after:{status:'cancelled'}});return cancelled;
- }
+  if(input.action==='cancel_draft')return cancelDraft(e,input,user);
  if(input.action==='edit'){
   const m=await messageFor(e,input.id,user,true);if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
