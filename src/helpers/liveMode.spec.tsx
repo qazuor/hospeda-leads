@@ -13,6 +13,8 @@ const LIVE_QUERY_KEYS=[
 describe("LiveModeProvider polling", () => {
   let version = "v1";
   let domains: Record<string, string> | undefined;
+  /** Database clock minus browser clock, in seconds. */
+  let skew = 0;
   let fetchMock: ReturnType<typeof vi.fn>;
   let originalVisibilityState: PropertyDescriptor | undefined;
 
@@ -27,7 +29,8 @@ describe("LiveModeProvider polling", () => {
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     version = "v1";
     domains = undefined;
-    fetchMock = vi.fn(async () => new Response(JSON.stringify({ json: domains ? { version, domains, now: String(Date.now() / 1000) } : { version } }), { status: 200 }));
+    skew = 0;
+    fetchMock = vi.fn(async () => new Response(JSON.stringify({ json: domains ? { version, domains, now: String(Date.now() / 1000 + skew) } : { version } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -215,14 +218,16 @@ describe("LiveModeProvider polling", () => {
 
   describe("paged infinite lists (manual refresh chip)", () => {
     const listKey = ["leads", "business-list", 1];
+    let delay = 0;
     function List({ fetched }: { fetched: number[] }) {
-      const results = useInfiniteQuery({ queryKey: listKey, initialPageParam: 1, queryFn: async ({ pageParam }) => { fetched.push(pageParam); return { page: pageParam }; }, getNextPageParam: last => last.page < 3 ? last.page + 1 : undefined, meta: LIVE_MANUAL_WHEN_PAGED });
+      const results = useInfiniteQuery({ queryKey: listKey, initialPageParam: 1, queryFn: async ({ pageParam }) => { fetched.push(pageParam); if (delay) await new Promise(resolve => setTimeout(resolve, delay)); return { page: pageParam }; }, getNextPageParam: last => last.page < 3 ? last.page + 1 : undefined, meta: LIVE_MANUAL_WHEN_PAGED });
       const { pending, clear } = useLivePendingRefresh(listKey);
       const { refresh } = useLiveMode();
       return <><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button><button onClick={() => void refresh()}>Refresh all</button></>;
     }
     async function renderList(pages: number) {
       domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
+      delay = 0;
       const fetched: number[] = [];
       const { queryClient } = renderWithProvider(<List fetched={fetched} />);
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
@@ -234,7 +239,7 @@ describe("LiveModeProvider polling", () => {
     /** Simulates a database write now (domain value = database clock in epoch seconds). */
     function write(domain: string) {
       version = version + "+";
-      domains = { ...domains, [domain]: String(Date.now() / 1000) };
+      domains = { ...domains, [domain]: String(Date.now() / 1000 + skew) };
     }
     async function nextPoll() {
       await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
@@ -287,16 +292,63 @@ describe("LiveModeProvider polling", () => {
       expect(screen.getByText("fresh")).toBeTruthy();
     });
 
-    it("does not flag the list for a change it already refetched after the user's own edit", async () => {
-      const { fetched, queryClient } = await renderList(2);
+    async function ownEditRefetchedAfter(queryClient: QueryClient, elapsed: number) {
       await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
       write("business");
-      await act(async () => { await vi.advanceTimersByTimeAsync(300); await queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(0); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(elapsed); await queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(0); });
+    }
+
+    it("does not flag the list for a change it already refetched after the user's own edit", async () => {
+      const { fetched, queryClient } = await renderList(2);
+      await ownEditRefetchedAfter(queryClient, 2000);
       expect(fetched).toEqual([1, 2]);
       await nextPoll();
       expect(screen.getByText("fresh")).toBeTruthy();
       expect(fetched).toEqual([1, 2]);
       await liveChange("business");
+      expect(screen.getByText("pending")).toBeTruthy();
+    });
+
+    it("still flags the list when its refetch started within the freshness margin of the change", async () => {
+      const { queryClient } = await renderList(2);
+      await ownEditRefetchedAfter(queryClient, 300);
+      await nextPoll();
+      expect(screen.getByText("pending")).toBeTruthy();
+    });
+
+    it("compares change times in the browser clock when the server clock is skewed", async () => {
+      skew = 3600;
+      const { fetched, queryClient } = await renderList(2);
+      await ownEditRefetchedAfter(queryClient, 2000);
+      await nextPoll();
+      expect(screen.getByText("fresh")).toBeTruthy();
+      expect(fetched).toEqual([1, 2]);
+      await liveChange("business");
+      expect(screen.getByText("pending")).toBeTruthy();
+    });
+
+    it("keeps the flag when a refetch that started before the change completes after it", async () => {
+      const { fetched, queryClient } = await renderList(2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      delay = 6000;
+      await act(async () => { void queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(2000); });
+      write("business");
+      await act(async () => { await vi.advanceTimersByTimeAsync(7000); });
+      expect(screen.getByText("pending")).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+      expect(fetched).toEqual([1, 2]);
+      expect(screen.getByText("pending")).toBeTruthy();
+    });
+
+    it("keeps the flag when the list data is replaced locally with setQueryData", async () => {
+      const { queryClient } = await renderList(2);
+      // The last fetch must be a full one, so only the `manual` guard keeps setQueryData from clearing the flag.
+      await act(async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(0); });
+      version = "v2";
+      domains = undefined;
+      await nextPoll();
+      expect(screen.getByText("pending")).toBeTruthy();
+      await act(async () => { queryClient.setQueryData(listKey, (data: unknown) => (data && typeof data === "object" ? { ...data } : data)); await vi.advanceTimersByTimeAsync(0); });
       expect(screen.getByText("pending")).toBeTruthy();
     });
 

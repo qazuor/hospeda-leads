@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { hashKey, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { getLiveVersion } from "../endpoints/live_version_GET.schema";
 import { useAuth } from "./useAuth";
-import { LIVE_QUERY_KEYS, liveChangeTime, liveQueryKeysToInvalidate, toClientTime, type LiveSnapshot } from "./liveDomains";
+import { LIVE_QUERY_KEYS, liveChangeTime, liveFreshAfter, liveQueryKeysToInvalidate, type LiveSnapshot } from "./liveDomains";
 
 const STORAGE_KEY="hospeda-live-mode";
 const CHECK_INTERVAL=10000;
@@ -37,7 +37,7 @@ export function shouldDeferLiveRefetch(query:DeferrableQuery){
   return Array.isArray(pages)&&pages.length>1;
 }
 
-/** Flags per query hash, holding the browser-clock time of the newest flagged change (null = unknown, any full refetch clears it). */
+/** Flags per query hash, holding the browser time after which a load must start to include the newest flagged change (null = unknown, any full refetch clears it). */
 type PendingStore={subscribe:(listener:()=>void)=>()=>void;has:(hash:string)=>boolean;changedAt:(hash:string)=>number|null|undefined;mark:(hash:string,changedAt:number|null)=>void;clear:(hash?:string)=>void};
 function createPendingStore():PendingStore{
   const pending=new Map<string,number|null>(),listeners=new Set<()=>void>();
@@ -94,7 +94,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
     const deferred=new Set<string>();
     if(deferPaged)for(const query of queryClient.getQueryCache().getAll())if(keys.includes(String(query.queryKey[0]))&&shouldDeferLiveRefetch(query)){
       deferred.add(query.queryHash);
-      // Data whose last full fetch started after the change (e.g. refetched after the user's own edit) is already fresh.
+      // Data whose last full fetch started after the change plus margin (e.g. refetched after the user's own edit) is already fresh.
       const fresh=freshFrom.current.get(query.queryHash);
       if(changedAt===null||fresh===undefined||fresh<=changedAt)pending.mark(query.queryHash,changedAt);
     }
@@ -126,7 +126,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
       const keys=liveQueryKeysToInvalidate({previous,next});
       if(keys.length>0){
         const serverTime=liveChangeTime({previous,next});
-        await invalidateLiveQueries(keys,true,serverTime===null?null:toClientTime({serverTime,snapshot:next,sentAt,receivedAt}));
+        await invalidateLiveQueries(keys,true,serverTime===null?null:liveFreshAfter({serverTime,snapshot:next,sentAt,receivedAt}));
       }
     }catch{
       if(checkGeneration===generation.current)updateStatus("error");

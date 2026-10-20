@@ -50,6 +50,21 @@ export function toClientTime({serverTime,snapshot,sentAt,receivedAt}:{serverTime
   return serverTime+(sentAt+receivedAt)/2-now*1000;
 }
 
+/**
+ * Safety margin added on top of the clock conversion error: trigger stamps are taken before COMMIT, so a load that
+ * started shortly after the stamp may still have read the previous state.
+ */
+export const LIVE_FRESH_MARGIN_MS=1500;
+
+/**
+ * Browser time after which a load must have started to count as including a change made at `serverTime`
+ * (database clock): converted time + half the poll round trip + `LIVE_FRESH_MARGIN_MS`. Null when it cannot be known.
+ */
+export function liveFreshAfter({serverTime,snapshot,sentAt,receivedAt}:{serverTime:number;snapshot:LiveSnapshot;sentAt:number;receivedAt:number}):number|null{
+  const clientTime=toClientTime({serverTime,snapshot,sentAt,receivedAt});
+  return clientTime===null?null:clientTime+(receivedAt-sentAt)/2+LIVE_FRESH_MARGIN_MS;
+}
+
 export function liveQueryKeysToInvalidate({previous,next}:{previous:LiveSnapshot|null;next:LiveSnapshot}):readonly LiveQueryKey[]{
   if(!previous)return [];
   if(!previous.domains||!next.domains)return previous.version===next.version?[]:LIVE_QUERY_KEYS;

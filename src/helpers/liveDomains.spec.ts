@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { LIVE_DOMAIN_QUERY_KEYS, LIVE_QUERY_KEYS, liveChangeTime, liveQueryKeysToInvalidate, toClientTime, type LiveSnapshot } from "./liveDomains";
+import { LIVE_DOMAIN_QUERY_KEYS, LIVE_QUERY_KEYS, LIVE_FRESH_MARGIN_MS, liveChangeTime, liveFreshAfter, liveQueryKeysToInvalidate, toClientTime, type LiveSnapshot } from "./liveDomains";
 
 const domains={business:"1",work:"1",communication:"1",catalog:"1",journal:"1"};
 const snapshot=(version:string,changes:Record<string,string>={}):LiveSnapshot=>({version,domains:{...domains,...changes}});
@@ -81,5 +81,10 @@ describe("liveChangeTime and toClientTime", () => {
   it("shifts a database time by the offset measured at the request midpoint", () => {
     expect(toClientTime({serverTime:1000000,snapshot:{version:"1",now:"1001"},sentAt:5000000,receivedAt:5000200})).toBe(1000000+5000100-1001000);
     expect(toClientTime({serverTime:1000000,snapshot:{version:"1"},sentAt:0,receivedAt:0})).toBeNull();
+  });
+  it("requires a load to start after the converted change plus half the round trip and the margin", () => {
+    expect(LIVE_FRESH_MARGIN_MS).toBe(1500);
+    expect(liveFreshAfter({serverTime:1000000,snapshot:{version:"1",now:"1001"},sentAt:5000000,receivedAt:5000200})).toBe(1000000+5000100-1001000+100+1500);
+    expect(liveFreshAfter({serverTime:1000000,snapshot:{version:"1"},sentAt:0,receivedAt:0})).toBeNull();
   });
 });
