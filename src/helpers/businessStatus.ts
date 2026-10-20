@@ -13,7 +13,7 @@ export const businessStatusLabels: Record<BusinessStatus, string> = {
   new: "Nuevo",
   reviewed: "Revisado",
   in_management: "En gestión",
-  no_follow_up_scheduled: "Sin seguimiento programado",
+  no_follow_up_scheduled: "Sin tarea agendada",
   recontact: "Recontactar",
   archived: "Archivado",
 };
