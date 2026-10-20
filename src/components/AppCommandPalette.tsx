@@ -4,11 +4,11 @@ import {searchCrm} from '../endpoints/search.schema';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spotlight, useSpotlight } from '@mantine/spotlight';
-import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Library, Mail, Moon, RotateCcw, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
+import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Library, Mail, Moon, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
 import { useAuth } from '../helpers/useAuth';
 import { useThemeMode } from '../helpers/themeMode';
 import { fuzzySearchScore, normalizeSearchText } from '../helpers/searchText';
-import { mainNavigation } from '../helpers/appNavigation';
+import { mainNavigation, todayViews } from '../helpers/appNavigation';
 import { commandPalette, commandStore, openCommandPalette, restoreCommandFocus } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import styles from './AppCommandPalette.module.css';
@@ -72,8 +72,8 @@ export function AppCommandPalette() {
   if (!authenticated) return null;
   const destinations = [
     ...mainNavigation,
-    { url: '/reactivation', label: 'Retomar gestiones pospuestas', description: 'Seguimientos que pueden reactivarse', icon: RotateCcw },
-    { url: '/guide', label: 'Guía de uso paso a paso', description: 'Ayuda para trabajar con el CRM', icon: BookOpen },
+    // Hoy views keep the old names (Agenda, Reactivación) as search aliases.
+    ...todayViews.filter(item => item.view !== 'list').map(({ url, label, description, keywords, icon }) => ({ url, label: 'Hoy · ' + label, description, keywords, icon })),
     ...(isAdmin ? [
       { url: '/archived', label: 'Negocios archivados', description: 'Consultar negocios fuera del listado activo', icon: Archive },
       { url: '/analytics', label: 'Estadísticas', description: 'Resultados comerciales del equipo', icon: BarChart3 },
@@ -88,6 +88,8 @@ export function AppCommandPalette() {
     // Recheck at execution time as well as opening time.
     if (!document.querySelector('[data-unsaved="true"]')) navigate(url);
   };
+  const matches = (action: { label: string; description: string; keywords?: string }) =>
+    normalizeSearchText(`${action.label} ${action.description} ${action.keywords ?? ''}`).includes(normalizeSearchText(query));
   const navigationGroups = [
     { label: 'Ir a', actions: destinations.map(item => ({ ...item, id: item.url, run: () => go(item.url) })) },
     { label: 'Acciones', actions: [
@@ -99,9 +101,8 @@ export function AppCommandPalette() {
         { id: 'duplicates', label: 'Buscar duplicados', description: 'Abrir revisión de coincidencias', icon: Copy, run: () => go('/accounts?adminTool=duplicates') },
       ] : []),
     ] },
-  ].map(group => ({ ...group, actions: group.actions.filter(action =>
-    normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))) }));
-  const navigationMatch=navigationGroups.some(group=>group.actions.some(action=>normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))));
+  ].map(group => ({ ...group, actions: group.actions.filter(matches) }));
+  const navigationMatch=navigationGroups.some(group=>group.actions.some(matches));
   const helpActions=query.trim().length>=2&&!navigationMatch?(guideTopics.data??[]).flatMap(topic=>topic.articles.flatMap(article=>{
     const text=[topic.title,article.title,article.when,...article.steps,article.result,...article.example,...article.notes].join(' ');
     const score=fuzzySearchScore(query,text);

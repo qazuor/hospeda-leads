@@ -16,28 +16,34 @@ import {getWork} from '../endpoints/work.schema';
 import {localDay,taskBucket} from '../helpers/workDates';
 import {formatDate,formatTime} from '../helpers/crmDates';
 import {useAuth} from '../helpers/useAuth';
+import {parseTodayView,todayViews,type TodayView} from '../helpers/appNavigation';
+import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from '../components/SectionTabs';
 import styles from '../components/Commercial.module.css';
 import ws from '../components/Work.module.css';
-export default function MyDayPage({agenda=false}:{agenda?:boolean}){
- const [searchParams]=useSearchParams();const requestedTask=searchParams.get('taskId'),requestedAccount=searchParams.get('accountId');const selected=!!requestedTask&&!!requestedAccount&&!agenda;
+const ReactivationContent=React.lazy(()=>import('./reactivation').then(m=>({default:m.ReactivationContent})));
+/** Hoy (owner decision 5A): tabs Lista / Calendario (was /agenda) / Para retomar (was /reactivation), driven by `?view`. */
+export default function MyDayPage(){
+ const [searchParams,setSearchParams]=useSearchParams();const view=parseTodayView({value:searchParams.get('view')}),agenda=view==='calendar',retomar=view==='retomar';const requestedTask=searchParams.get('taskId'),requestedAccount=searchParams.get('accountId');const selected=!!requestedTask&&!!requestedAccount&&view==='list';
  const {authState}=useAuth();const admin=authState.type==='authenticated'&&authState.user.role==='admin';
  const [now,setNow]=useState(()=>new Date());
  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),30000);return ()=>window.clearInterval(timer);},[]);
  const [responsible,setResponsible]=useState('');const [city,setCity]=useState('');const [vertical,setVertical]=useState('');const [page,setPage]=useState(1);
- const [editor,setEditor]=useState<WorkTarget|null>(null);const [calendar,setCalendar]=useState(false);const [month,setMonth]=useState(localDay().slice(0,7));
+ const [editor,setEditor]=useState<WorkTarget|null>(null);const [calendar,setCalendar]=useState(true);
+ const [shownView,setShownView]=useState<TodayView>(view);if(shownView!==view){setShownView(view);setPage(1);setEditor(null);setCalendar(true);}const [month,setMonth]=useState(localDay().slice(0,7));
  const monthEnd=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10);
  const params={responsible:responsible||undefined,city:city||undefined,vertical:vertical||undefined,mode:agenda?'agenda':'day',calendar:agenda&&calendar?'true':undefined,page:String(page),from:agenda?month+'-01':undefined,to:agenda?monthEnd:undefined};
  const queryParams=selected?{mode:'detail',accountId:requestedAccount!,taskId:requestedTask!,responsible:admin?'all':undefined}:params;
- const q=useQuery({queryKey:['work',queryParams],queryFn:()=>getWork(queryParams)});const d=q.data;
+ const q=useQuery({queryKey:['work',queryParams],queryFn:()=>getWork(queryParams),enabled:!retomar});const d=q.data;
  useEffect(()=>setEditor(null),[requestedTask,requestedAccount]);
  useEffect(()=>{if(!selected||q.isPending)return;const frame=requestAnimationFrame(()=>{const node=document.querySelector<HTMLElement>('[data-work-task="'+requestedTask!.replace(/[^0-9]/g,'')+'"]');node?.scrollIntoView({block:'center'});node?.focus({preventScroll:true})});return()=>cancelAnimationFrame(frame)},[selected,requestedTask,q.isPending]);
  const reset=(fn:()=>void)=>{fn();setPage(1);};
  const days=Array.from({length:Number(monthEnd.slice(8))},(_,i)=>month+'-'+String(i+1).padStart(2,'0'));
  const firstWeekday=(new Date(month+'-01T12:00:00Z').getUTCDay()+6)%7;
- const heading=agenda?'Agenda de visitas y reuniones':'Mi día';
  return <><AppHeader/><main className={styles.shell}>
-  <div className={styles.heading+" "+ws.pageHeading}><div><span className={styles.eyebrow}>{agenda?"ENCUENTROS COMERCIALES":"TRABAJO DIARIO"}</span><h1>{heading}</h1><p className={styles.muted}>{agenda?"Visitas y reuniones planificadas y realizadas":formatDate(localDay(now))+" · Priorizá lo vencido y lo que toca hoy"} · Horarios de Argentina</p></div><div className={styles.actions}><Button onClick={()=>setEditor({kind:'task'})}>{agenda?"Planificar encuentro":"Planificar una tarea"}</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity'})}>{agenda?"Anotar encuentro realizado":"Anotar qué ya hice"}</Button></div></div>
-  <Disclosure className={ws.guide}><DisclosureSummary>Cómo usar {agenda?"la agenda":"Mi día"}</DisclosureSummary>{!agenda&&!selected&&<section className={styles.conversationContinue} aria-label="Cómo trabajar hoy"><h2>Una tarea por vez</h2><p>1. Revisá lo que corresponde hoy. 2. Contactá o hacé la tarea. 3. Registrá qué pasó y elegí cómo sigue.</p><Link to="/guide?topic=start&article=routine">Ver el recorrido con ejemplos →</Link></section>}<p>{agenda?'Planificá una visita o reunión como tarea y completala cuando ocurra. Las realizadas aparecen como actividades, sin duplicar el evento en el calendario.':'Atendé primero las vencidas, después las de hoy. Podés planificar llamada y visita simultáneamente; completar una conserva la otra. Registrar actividad guarda lo ocurrido y permite cargar fechas anteriores.'}</p></Disclosure>
+  <div className={styles.heading+" "+ws.pageHeading}><div><span className={styles.eyebrow}>{agenda?"ENCUENTROS COMERCIALES":"TRABAJO DIARIO"}</span><h1>Hoy</h1><p className={styles.muted}>{agenda?"Visitas y reuniones planificadas y realizadas":retomar?"Gestiones cerradas con una fecha para volver a contactar":formatDate(localDay(now))+" · Priorizá lo vencido y lo que toca hoy"} · Horarios de Argentina</p></div>{!retomar&&<div className={styles.actions}><Button onClick={()=>setEditor({kind:'task'})}>{agenda?"Planificar encuentro":"Planificar una tarea"}</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity'})}>{agenda?"Anotar encuentro realizado":"Anotar qué ya hice"}</Button></div>}</div>
+  <SectionTabs value={view} onValueChange={next=>setSearchParams(next==='list'?{}:{view:next})}><SectionTabList aria-label="Vistas de Hoy">{todayViews.map(item=><SectionTab key={item.view} value={item.view}>{item.label}</SectionTab>)}</SectionTabList><SectionTabPanel value={view}>
+  {retomar?<React.Suspense fallback={<QueryLoadingNotice/>}><ReactivationContent/></React.Suspense>:<>
+  <Disclosure className={ws.guide}><DisclosureSummary>Cómo usar {agenda?"el calendario":"esta lista"}</DisclosureSummary>{!agenda&&!selected&&<section className={styles.conversationContinue} aria-label="Cómo trabajar hoy"><h2>Una tarea por vez</h2><p>1. Revisá lo que corresponde hoy. 2. Contactá o hacé la tarea. 3. Registrá qué pasó y elegí cómo sigue.</p><Link to="/guide?topic=start&article=routine">Ver el recorrido con ejemplos →</Link></section>}<p>{agenda?'Planificá una visita o reunión como tarea y completala cuando ocurra. Las realizadas aparecen como actividades, sin duplicar el evento en el calendario.':'Atendé primero las vencidas, después las de hoy. Podés planificar llamada y visita simultáneamente; completar una conserva la otra. Registrar actividad guarda lo ocurrido y permite cargar fechas anteriores.'}</p></Disclosure>
   {!selected&&<>
   <p className={styles.scopeLine}>{responsible==='all'?'Trabajo de todo el equipo':responsible?'Trabajo de '+(d?.users.find(u=>u.email===responsible)?.displayName||responsible):'Mi trabajo'}{city?' · '+city:''}{vertical?' · '+vertical:''}</p>
   <Disclosure className={ws.workFilters} open={agenda||undefined}><DisclosureSummary>Filtros de trabajo{city||vertical||responsible?' · activos':''}</DisclosureSummary><section className={ws.filterBar} aria-label="Filtros de trabajo"><div className={ws.filters}>
@@ -45,7 +51,7 @@ export default function MyDayPage({agenda=false}:{agenda?:boolean}){
    <label>Localidad<NativeSelect value={city} onChange={e=>reset(()=>setCity(e.target.value))}><option value="">Todas</option>{(d?.cities??[]).map(c=><option key={c} value={c!}>{c}</option>)}</NativeSelect></label>
    <label>Rubro<NativeSelect value={vertical} onChange={e=>reset(()=>setVertical(e.target.value))}><option value="">Todos (incluye negocio general)</option>{(d?.verticals??[]).map(t=><option key={t} value={t!}>{t}</option>)}</NativeSelect></label>
    {agenda&&<label>Mes<CrmMonthInput required value={month} onValueChange={value=>{if(value)reset(()=>setMonth(value));}}/></label>}
-  </div>{(responsible||city||vertical)&&<Button size="sm" variant="ghost" onClick={()=>reset(()=>{setResponsible('');setCity('');setVertical('');})}>Limpiar filtros</Button>}{agenda&&<div className={ws.viewSwitch} aria-label="Vista de agenda"><Button size="sm" variant={!calendar?'secondary':'ghost'} aria-pressed={!calendar} onClick={()=>setCalendar(false)}>Ver lista</Button><Button size="sm" variant={calendar?'secondary':'ghost'} aria-pressed={calendar} onClick={()=>setCalendar(true)}>Ver calendario</Button></div>}</section></Disclosure>
+  </div>{(responsible||city||vertical)&&<Button size="sm" variant="ghost" onClick={()=>reset(()=>{setResponsible('');setCity('');setVertical('');})}>Limpiar filtros</Button>}{agenda&&<div className={ws.viewSwitch} aria-label="Vista del calendario"><Button size="sm" variant={calendar?'secondary':'ghost'} aria-pressed={calendar} onClick={()=>setCalendar(true)}>Ver como calendario</Button><Button size="sm" variant={!calendar?'secondary':'ghost'} aria-pressed={!calendar} onClick={()=>setCalendar(false)}>Ver como lista</Button></div>}</section></Disclosure>
   </>}
   {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/> }
   {d&&selected&&<section className={styles.panel} aria-label="Pendiente seleccionado"><h2>Pendiente seleccionado</h2>{d.tasks.length?d.tasks.map(task=><TaskRow key={task.id} task={task} data={d} onEdit={setEditor}/>):<p>Este pendiente no está disponible en tu alcance. Puede haberse retirado o corresponder a otra persona.</p>}<Link to="/my-day">Ver todos mis pendientes</Link>{editor&&<WorkEditor key={editor.kind+('item' in editor?editor.item?.id||'new':'new')} target={editor} data={d} onClose={()=>setEditor(null)}/>}</section>}
@@ -62,5 +68,6 @@ export default function MyDayPage({agenda=false}:{agenda?:boolean}){
    {!(agenda&&calendar)&&<WorkPagination data={d} page={page} onPage={setPage}/>}
    {editor&&<WorkEditor key={editor.kind+('item' in editor?editor.item?.id||'new':'new')} target={editor} data={d} onClose={()=>setEditor(null)}/>}
   </>}
+  </>}</SectionTabPanel></SectionTabs>
  </main></>;
 }
