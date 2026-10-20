@@ -1,5 +1,5 @@
-import {CrmForbidden,assertBusinessAccess} from '../helpers/crmPermissions';
-import {crmError,fallbackStatus} from '../helpers/crmErrors';
+import {CrmForbidden,assertBusinessAccess,lockAccounts} from '../helpers/crmPermissions';
+import {crmError,fallbackStatus,isTransientDbError} from '../helpers/crmErrors';
 import {sql} from 'kysely';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
@@ -51,7 +51,9 @@ export async function webhook(request:Request){
   const eventSchema=z.object({event:z.string().max(100),email:z.string().email(),'message-id':z.string().min(1).max(500),ts_event:z.number().int().positive().optional(),ts:z.number().int().positive().optional(),ts_epoch:z.number().positive().optional(),tags:z.array(z.string()).optional()}).passthrough();
   const values=z.array(eventSchema).max(100).parse(Array.isArray(JSON.parse(raw))?JSON.parse(raw):[JSON.parse(raw)]);
   await db.transaction().execute(async e=>{
-   await lockCommunication(e);await setWorkActor(e,{email:'brevo-webhook'});
+   // Lock every business this batch can reconcile up front, in id order; the per-event lock below only adds rows that became visible meanwhile.
+   const ids=values.map(v=>v['message-id']),emails=values.map(v=>v.email.toLowerCase()),tags=values.flatMap(v=>v.tags??[]).filter(t=>/^hospeda-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(t)).map(t=>t.slice(8));
+   await lockCommunication(e,async e=>({accountIds:(await sql<{accountId:string}>`SELECT DISTINCT m.account_id FROM crm_messages m JOIN email_outbox o ON o.id=m.outbox_id WHERE (trim(both '<>' from o.message_id)=ANY(SELECT trim(both '<>' from x) FROM unnest(${ids}::text[]) x) AND lower(o.recipient_email)=ANY(${emails}::text[])) OR m.id=ANY(${tags}::uuid[])`.execute(e)).rows.map(r=>r.accountId)}));await setWorkActor(e,{email:'brevo-webhook'});
    for(const v of values){
     const epoch=v.ts_event??v.ts??(v.ts_epoch?(v.ts_epoch>1e12?v.ts_epoch/1000:v.ts_epoch):null);if(!epoch||epoch*1000>Date.now()+86400000)throw new Error('Invalid event time');
     const at=new Date(epoch*1000);const fingerprint=digest([v['message-id'].replace(/^<|>$/g,''),v.email.toLowerCase(),v.event,epoch]);
@@ -61,8 +63,9 @@ export async function webhook(request:Request){
     const tagged=!out&&tagId?(await sql<{id:string}>`SELECT o.id FROM email_outbox o JOIN crm_messages m ON m.outbox_id=o.id WHERE m.id=${tagId}::uuid AND lower(o.recipient_email)=lower(${v.email})`.execute(e)).rows[0]:null;
     const oid=out?.id??tagged?.id??null;
     await sql`INSERT INTO crm_email_events(fingerprint,message_id,recipient,event,occurred_at,payload,outbox_id) VALUES(${fingerprint},${v['message-id']},${v.email},${v.event},${at},${JSON.stringify(v)}::text::jsonb,${oid}) ON CONFLICT DO NOTHING`.execute(e);
-    if(oid){await sql`UPDATE email_outbox SET message_id=coalesce(message_id,${v['message-id']}) WHERE id=${oid}`.execute(e);await reconcileEvents(e,oid);}
+    if(oid){await lockAccounts(e,(await sql<{accountId:string}>`SELECT account_id FROM crm_messages WHERE outbox_id=${oid}`.execute(e)).rows.map(r=>r.accountId));await sql`UPDATE email_outbox SET message_id=coalesce(message_id,${v['message-id']}) WHERE id=${oid}`.execute(e);await reconcileEvents(e,oid);}
    }
   });return new Response('OK');
- }catch{return new Response('Invalid webhook event',{status:400})}
+ // Lock waits, deadlocks and timeouts are retryable: 503 lets the provider redeliver; invalid payloads stay 400.
+ }catch(e){return isTransientDbError(e)?new Response('Temporarily unavailable',{status:503,headers:{'Retry-After':'30'}}):new Response('Invalid webhook event',{status:400})}
 }

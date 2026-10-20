@@ -25,3 +25,5 @@ export function isUnexpectedError(error:unknown):boolean{
 }
 /** Fallback HTTP status for errors that are not auth/forbidden/conflict: 500 for unexpected errors (SQL/programming), 400 otherwise (validation, business rules, trigger messages, friendly SQL states such as duplicates). */
 export function fallbackStatus(error:unknown):400|500{return isUnexpectedError(error)&&!friendlySqlState(error)?500:400}
+/** True for SQL errors that a retry can resolve: deadlock, lock or statement timeout, serialization failure. */
+export function isTransientDbError(error:unknown):boolean{return ['40P01','55P03','40001','57014'].includes(sqlState(error)??'')}

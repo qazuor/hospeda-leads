@@ -1,4 +1,4 @@
-import {assertAccountReadable,assertAccountWritable,assertLeadAccess} from './crmPermissions';
+import {assertAccountReadable,assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {sql,type Kysely,type Transaction} from 'kysely';import {createHash,randomUUID} from 'node:crypto';
 import type {DB} from './schema';import type {User} from './User';import {setWorkActor} from './workAudit';
 import {communicationConfig,CommunicationForbidden,CommunicationConflict} from './communicationService';
@@ -30,11 +30,16 @@ async function insertVersion(e:E,documentId:string,version:number,v:Extract<Reso
 }
 export async function mutateResource(db:Kysely<DB>,input:ResourceMutation,user:User){return db.transaction().execute(async e=>{
  if(input.action!=='link'&&user.role!=='admin')throw new CommunicationForbidden('Solo un administrador puede administrar materiales.');
- await setWorkActor(e,user);await sql`LOCK TABLE crm_accounts,leads,crm_documents IN SHARE ROW EXCLUSIVE MODE`.execute(e);
+ await setWorkActor(e,user);
+ // ROW EXCLUSIVE excludes merges/imports (SHARE ROW EXCLUSIVE) without blocking other writers; the business row, then the document row, serialize per account and per document.
+ await sql`LOCK TABLE crm_accounts,leads,crm_documents IN ROW EXCLUSIVE MODE`.execute(e);
+ if(input.action!=='category'){const doc=input.action==='create'?null:(await sql<{accountId:string|null}>`SELECT account_id FROM crm_documents WHERE id=${input.id}::uuid`.execute(e)).rows[0];await lockAccounts(e,['accountId' in input?input.accountId:null,doc?.accountId]);if(input.action!=='create')await sql`SELECT id FROM crm_documents WHERE id=${input.id}::uuid FOR UPDATE`.execute(e);}
  if(input.action==='category'){if(user.role!=='admin')throw new CommunicationForbidden('Solo admin configura categorías');if(input.id)await sql`UPDATE crm_document_categories SET name=${input.name},active=${input.active} WHERE id=${input.id}`.execute(e);else await sql`INSERT INTO crm_document_categories(name,active) VALUES(${input.name},${input.active})`.execute(e);return {ok:true};}
  if(input.action==='create'){
   if(input.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin carga recursos en la biblioteca');
   if(!input.library&&!input.accountId)throw new Error('Seleccioná un negocio para el documento');
+  // A double submit of the same document id waits here and then returns the stored document instead of a duplicate-key error.
+  await sql`SELECT pg_advisory_xact_lock(hashtext('crm_documents'),hashtext(${input.id}))`.execute(e);
   const existing=(await sql`SELECT id FROM crm_documents WHERE id=${input.id}::uuid`.execute(e)).rows[0];if(existing){await documentFor(e,input.id,user,true);return {id:input.id};}
   await validateContext(e,user,input.accountId,input.leadId,input.activityId);
   if(input.categoryId&&!(await sql`SELECT id FROM crm_document_categories WHERE id=${input.categoryId} AND active`.execute(e)).rows.length)throw new Error('Categoría inactiva');

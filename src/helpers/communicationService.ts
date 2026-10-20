@@ -1,7 +1,7 @@
 import {templateCompatibility} from './messageTemplatePolicy';
-import {assertAccountReadable,assertAccountWritable,assertLeadAccess} from './crmPermissions';
+import {assertAccountReadable,assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {createHash} from 'node:crypto';
-import {sql,type Kysely,type Transaction} from 'kysely';
+import {sql,type Kysely,type RawBuilder,type Transaction} from 'kysely';
 import {z} from 'zod';
 import type {DB} from './schema';
 import type {User} from './User';
@@ -28,7 +28,29 @@ async function messageVariables(e:Executor){
  const row=await e.selectFrom('appSettings').select('value').where('key','=','crm_message_variables').executeTakeFirst();
  return withDefaultMessageVariables(row?.value?JSON.parse(row.value):null);
 }
-export async function lockCommunication(e:Executor){await sql`LOCK TABLE crm_accounts,leads,crm_contact_restrictions,crm_messages IN SHARE ROW EXCLUSIVE MODE`.execute(e);}
+/** Account ids whose rows act as the communication mutex for one transaction. */
+export type CommunicationLockScope={accountIds:readonly unknown[]};
+/**
+ * Serializes communication writers per business instead of globally.
+ * ROW EXCLUSIVE (what any INSERT/UPDATE takes) never blocks ordinary writers, but it conflicts with the
+ * SHARE ROW EXCLUSIVE table lock that merges and imports take on crm_accounts first, so no merge can run or
+ * move rows between accounts while this transaction is open. The scope is resolved after that lock, so the
+ * account ids are stable; then the affected crm_accounts rows are locked FOR UPDATE. Every writer of an
+ * account row (do_not_contact, archive, trash, reassignment, lead stage/trash changes through the account
+ * sync triggers) and every INSERT referencing it (FOR KEY SHARE) waits for this transaction.
+ */
+export async function lockCommunication(e:Executor,scope:(e:Executor)=>Promise<CommunicationLockScope>){await sql`LOCK TABLE crm_accounts,leads,crm_contact_restrictions,crm_messages IN ROW EXCLUSIVE MODE`.execute(e);await lockAccounts(e,(await scope(e)).accountIds);}
+const accountsOf=async(e:Executor,query:RawBuilder<{accountId:string}>)=>({accountIds:(await query.execute(e)).rows.map(r=>r.accountId)});
+const messageScope=(id:string)=>(e:Executor)=>accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_messages WHERE id=${id}::uuid`);
+/** Resolves the business(es) a communication mutation reads or writes; unknown ids resolve to no rows and fail later with the usual error. */
+function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatch'}>){return async(e:Executor):Promise<CommunicationLockScope>=>{
+ if(input.action==='prepare')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`);
+ if(input.action==='prepare_general'||input.action==='manual_start'||input.action==='response_create')return {accountIds:[input.accountId]};
+ if(input.action==='response_correct')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_communication_responses WHERE id=${input.id}::uuid`);
+ if(input.action==='restrict')return input.accountId?{accountIds:[input.accountId]}:input.leadId?accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`):{accountIds:[]};
+ if(input.action==='lift')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_contact_restrictions WHERE id=${input.id}`);
+ return messageScope(input.id)(e);
+};}
 export async function communicationConfig(e:Executor){const r=await e.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow();return z.object({recentContactHours:z.number().int().min(1).max(720),maxDocumentBytes:z.number().int().min(1).max(2097152)}).parse(JSON.parse(r.value));}
 export async function leadFor(e:Executor,id:string,user:User,write=true){const l=await e.selectFrom('leads').selectAll().where('id','=',id).where('deletedAt','is',null).executeTakeFirstOrThrow();const a=await e.selectFrom('crmAccounts').selectAll().where('id','=',l.accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();assertAccountReadable(user,a);if(write)await assertLeadAccess(e,String(l.id),user,true);return {lead:l,account:a};}
 async function communicationContext(e:Executor,accountId:string,leadId:string|null,user:User,write:boolean){
@@ -228,8 +250,8 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  if(input.action==='dispatch')return dispatch(db,input,user);
  return db.transaction().execute(async e=>{
  await setWorkActor(e,user);
- // Serialize against fusion and concurrent contact restrictions.
- await lockCommunication(e);
+ // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.
+ await lockCommunication(e,communicationScope(input));
  if(input.action==='prepare')return prepare(e,input,user);
  if(input.action==='prepare_general')return prepareGeneral(e,input,user);
  if(input.action==='manual_start')return startManual(e,input,user);
@@ -306,7 +328,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
 export function sanitizeEmail(source:string){return source.replace(/<(script|style|iframe|object)[\s\S]*?<\/\1\s*>/gi,'').replace(/<\/?([a-z0-9]+)\b[^>]*>/gi,(tag,name)=>{const n=String(name).toLowerCase();if(!['p','br','strong','b','em','i','s','u','ul','ol','li','blockquote','h1','h2','h3','hr','a'].includes(n))return '';if(tag.startsWith('</'))return '</'+n+'>';if(n==='a'){const match=tag.match(/href\s*=\s*["']([^"']*)["']/i);let href='';try{const u=new URL(match?.[1]??'');if(['https:','http:','mailto:'].includes(u.protocol))href=u.href.replaceAll('"','&quot;');}catch{}return href?'<a href="'+href+'">':'<a>'; }return '<'+n+'>';});}
 async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,{action:'dispatch'}>,user:User){
  const claimed=await database.transaction().execute(async e=>{
-  await setWorkActor(e,user);await lockCommunication(e);
+  await setWorkActor(e,user);await lockCommunication(e,messageScope(input.id));
   const m=await messageFor(e,input.id,user,true);
   if(m.status!=='draft'){if(['submitting','unknown'].includes(m.status))throw new CommunicationConflict('Envío en curso o resultado incierto. No se reenvía: reconciliá con Brevo.');return {message:m,replay:true};}
   if(m.revision!==input.revision||!m.body.trim()||(m.channel==='email'&&(!m.htmlBody||!m.subject)))throw new CommunicationConflict('Guardá y revisá la vista previa final antes de enviar');
@@ -332,9 +354,9 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
  const out=claimed.outbox!;let accepted=false;
  try{
   const r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',signal:AbortSignal.timeout(20000),headers:{'api-key':process.env.BREVO_API_KEY!,'Content-Type':'application/json',accept:'application/json'},body:JSON.stringify({sender:{email:out.senderEmail,name:out.senderName},to:[{email:m.recipient,...(m.recipientName?{name:m.recipientName}:{})}],...(out.replyToEmail?{replyTo:{email:out.replyToEmail}}:{}),subject:m.subject,htmlContent:m.htmlBody,textContent:m.textBody,tags:['hospeda-'+m.id],headers:{'X-Mailin-custom':'hospeda_outbox:'+out.id}})});
-  if(!r.ok){const reason=(await r.text()).slice(0,2000);await database.transaction().execute(async e=>{await lockCommunication(e);await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='error',last_error=${reason},updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'failed' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Rechazo de Brevo');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_rejected',actor:user,before:{status:'submitting'},after:{status:'failed',reason}});});return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0],error:'Brevo rechazó el envío'};}
+  if(!r.ok){const reason=(await r.text()).slice(0,2000);await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='error',last_error=${reason},updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'failed' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Rechazo de Brevo');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_rejected',actor:user,before:{status:'submitting'},after:{status:'failed',reason}});});return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0],error:'Brevo rechazó el envío'};}
   accepted=true;const data=await r.json() as {messageId?:string};const messageId=data.messageId??null;
-  await database.transaction().execute(async e=>{await lockCommunication(e);await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='accepted',message_id=${messageId},sent_at=now(),updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'accepted' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Email aceptado por proveedor · entrega no confirmada');await markClientForCare(e,m,user);await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_accepted',actor:user,after:{status:'accepted',deliveryConfirmed:false}});if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Aceptado por proveedor',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();await reconcileEvents(e,out.id);});
+  await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='accepted',message_id=${messageId},sent_at=now(),updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'accepted' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Email aceptado por proveedor · entrega no confirmada');await markClientForCare(e,m,user);await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_accepted',actor:user,after:{status:'accepted',deliveryConfirmed:false}});if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Aceptado por proveedor',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();await reconcileEvents(e,out.id);});
   return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0]};
  }catch(error){
   // Never turn a post-acceptance error into permission to resend. A crashed process also leaves submitting.
