@@ -70,3 +70,4 @@ El migrador lleva checksums. Aplicar migraciones no ejecuta la limpieza ni recup
 - Datos: [recuperación](business-metadata-recovery.md), [limpieza](management-cleanup-runbook.md), [importación](BUSINESS_IMPORT.md).
 - Modelos: [revisión](message-model-review-runbook.md), documento 42 del roadmap.
 - Infraestructura: [Coolify](COOLIFY_DEPLOY.md), [MCP](crm-mcp.md), [desarrollo local](desarrollo-local.md).
+- Rendimiento: [plan, resultados y notas de deploy de octubre 2026](rendimiento-y-arquitectura-2026-10.md); harness en `scripts/perf/`.
