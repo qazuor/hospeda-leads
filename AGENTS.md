@@ -71,7 +71,7 @@ Integration suites (`scripts/test-*.ts|mjs`) mutate the database and several rep
 
 `main` and `staging` are protected **by convention** (no GitHub branch protection on this plan). Treat these as non-negotiable:
 
-1. NEVER `git push` to `main` or `staging` directly, in any form (`*:main`, force, `-u`). `.claude/settings.json` denies it; do not look for a way around it.
+1. NEVER `git push` to `main` or `staging` directly, in any form (`*:main`, force, `-u`). `.claude/settings.json` denies the common forms; those patterns are a guardrail, not enforcement, so do not look for a spelling that slips past them.
 2. NEVER force-push and NEVER `git commit --amend` on `main` or `staging`.
 3. All work: branch from `origin/staging` → change → typecheck + tests + build green locally → PR **targeting `staging`** → wait for CI → merge.
 4. Merge only when the PR's latest CI run is fully green on the exact head SHA (`gh pr view <N> --json headRefOid,statusCheckRollup`). Skipped jobs are fine; failed or cancelled are not. NEVER `gh pr merge --admin`.
