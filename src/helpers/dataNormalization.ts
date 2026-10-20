@@ -45,6 +45,18 @@ export function normalizeField(field:string,value:string|null|undefined):Normali
  if(field==='nombre'||field==='ciudad'||field==='name')return result(comparisonName(s),'valid','Solo para comparar; no cambia el texto visible.');
  return result(s,'unverified');
 }
+/** Comparison keys (last 8 significant digits) for an Argentine phone: strips 00/54 country code, the mobile 9, the trunk 0 and the local "15" (before or after the area code). Several keys when the 15 position is ambiguous; empty when too short to compare. */
+export function phoneSignificantKeys(value:string|null|undefined):string[]{
+ if(!value||!/^\+?[\d\s().-]+$/.test(value.trim()))return [];
+ let d=value.replace(/\D/g,'');
+ if(d.startsWith('00'))d=d.slice(2);
+ if(d.startsWith('54')&&d.length>=12){d=d.slice(2);if(d.startsWith('9')&&d.length>10)d=d.slice(1);}
+ if(d.startsWith('0')&&d.length>10)d=d.slice(1);
+ const forms=new Set([d]);
+ if(d.length===10&&d.startsWith('15'))forms.add(d.slice(2));
+ if(d.length===12)for(const i of [2,3,4])if(d.slice(i,i+2)==='15')forms.add(d.slice(0,i)+d.slice(i+2));
+ return [...forms].filter(f=>f.length>=8).map(f=>f.slice(-8));
+}
 export type Match={id:string; nombre:string; ciudad:string|null; reasons:string[]; kind:'duplicate_candidate'|'shared_person_or_related'; revision:string;current:Record<string,string|null>};
 export function matchAccounts(input:Record<string,string|null|undefined>,rows:Array<{id:string;nombre:string;ciudad:string|null;telefono:string|null;email:string|null;sitioWeb:string|null;updatedAt:Date;direccion?:string|null;whatsapp?:string|null;perfilInstagram?:string|null;perfilFacebook?:string|null}>):Match[]{
  return rows.flatMap(a=>{
@@ -55,6 +67,10 @@ export function matchAccounts(input:Record<string,string|null|undefined>,rows:Ar
   for(const [field,label] of [['telefono','Teléfono'],['email','Email'],['sitioWeb','Sitio web']] as const){
    const n=normalizeField(field,input[field]),v=normalizeField(field,a[field]);
    if(n.validity==='valid'&&v.validity==='valid'&&n.normalized&&n.normalized===v.normalized)reasons.push(label+' compartido');
+  }
+  if(!reasons.includes('Teléfono compartido')){
+   const mine=['telefono','whatsapp'].flatMap(f=>phoneSignificantKeys(input[f])),theirs=new Set([a.telefono,a.whatsapp].flatMap(v=>phoneSignificantKeys(v)));
+   if(mine.some(k=>theirs.has(k)))reasons.push('Teléfono parecido');
   }
   if(city&&comparisonName(input.direccion)&&comparisonName(input.direccion)===comparisonName(a.direccion))reasons.push('Dirección y localidad coinciden');
   for(const f of ['perfilInstagram','perfilFacebook'] as const){

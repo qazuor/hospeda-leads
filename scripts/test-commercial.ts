@@ -11,6 +11,7 @@ import {handle as saveLead} from '../src/endpoints/leads_save_POST';
 import {handle as legacy} from '../src/endpoints/leads_POST';
 import {handle as contactLog} from '../src/endpoints/lead_contact_POST';
 async function sendEmail(req:Request){const input=superjson.parse<any>(await req.text());const cookie=req.headers.get('cookie')!;const call=(body:any)=>communication(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie},body:superjson.stringify(body)}));let r=await call({action:'prepare',id:randomUUID(),leadId:String(input.leadId),templateId:String(input.templateId),contactId:input.contactId??null,channel:'email'});if(!r.ok)return r;let m=superjson.parse<any>(await r.text());r=await call({action:'edit',id:m.id,revision:m.revision,subject:m.subject,body:m.body});if(!r.ok)return r;m=superjson.parse<any>(await r.text());return call({action:'dispatch',id:m.id,revision:m.revision,confirm:true});}
+import {handle as duplicateCheck} from '../src/endpoints/business_duplicate_check';
 import {handle as duplicates} from '../src/endpoints/leads_duplicates_GET';
 import {handle as deleteBusinesses} from '../src/endpoints/leads_bulk_delete_POST';
 import {handle as restore} from '../src/endpoints/leads_restore_POST';
@@ -45,6 +46,32 @@ try{
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com',assignedUserEmail:user.email},admin.value);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com'});
   assert.equal((await detail(accountId)).account.assignedUserEmail,user.email);
+  {// U-09: duplicate check hides private data and No contactar duplicates cannot be created (admins included)
+    const check=async(q:Record<string,string>,who=user.value)=>{const r=await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?'+new URLSearchParams(q),{headers:{cookie:who}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<{candidates:Record<string,any>[]}>(t).candidates};
+    assert.equal((await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?nombre=x'))).status,401);
+    const p6=String(suffix).slice(-6);
+    const dncName=`Cabañas Dupé ${suffix}`;
+    const dncId=await mutate({action:'account_save',nombre:dncName,ciudad:'Colón',telefono:`+54 9 3447 15-${p6}`,email:`dnc-${suffix}@example.com`,assignedUserEmail:admin.email},admin.value);
+    await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dncId).execute();
+    let found=await check({nombre:`cabanas dupe ${suffix}`.replace('cabanas','cabañas'),ciudad:'colon'});
+    assert.deepEqual(found.map(c=>c.id),[dncId]);assert.equal(found[0].doNotContact,true);assert.equal(found[0].responsibleName,'CRM admin');
+    assert(!JSON.stringify(found).includes(admin.email)&&!JSON.stringify(found).includes('412345')&&!JSON.stringify(found).includes('dnc-'),'No owner email or contact data leaks');
+    assert.deepEqual((await check({nombre:`Cabanas Dupe ${suffix}`,ciudad:'Colón'})).length,0,'ñ and n stay different');
+    found=await check({telefono:`03447${p6}`});assert.equal(found[0]?.id,dncId);assert(found[0].reasons.includes('Teléfono parecido'));
+    found=await check({email:`DNC-${suffix}@example.com`});assert.equal(found[0]?.id,dncId);
+    assert.equal((await check({telefono:`03447${p6.replace(/.$/,d=>String((+d+1)%10))}`})).length,0);
+    await mutate({action:'account_save',nombre:`Otro nombre ${suffix}`,telefono:`3447${p6}`},user.value,409);
+    await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'},admin.value,409);
+    await db.updateTable('crmAccounts').set({archivedAt:new Date(),status:'archived'}).where('id','=',dncId).execute();
+    found=await check({nombre:dncName,ciudad:'Colón'});assert.equal(found[0].archived,true);assert.equal(found[0].canOpen,false,'Archived is not openable by sellers');
+    assert.equal((await check({nombre:dncName,ciudad:'Colón'},admin.value))[0].canOpen,true);
+    await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'},user.value,409);
+    await mutate({action:'account_save',nombre:`Unrelated ${suffix}`,ciudad:'Colón',telefono:'3442999111'});
+    await db.updateTable('crmAccounts').set({doNotContact:false}).where('id','=',dncId).execute();
+    await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'});// non-DNC duplicates only warn
+    await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',dncId).execute();
+    assert.equal((await check({telefono:`03447${p6}`})).some(c=>c.id===dncId),false,'Trash is excluded');
+  }
   const ana=await mutate({action:'contact_save',accountId,name:'Ana',email:'ana@example.com',phone:'111',isPrimary:true});
   const luis=await mutate({action:'contact_save',accountId,name:'Luis',email:'luis@example.com',phone:'222',isPrimary:true});
   let d=await detail(accountId);assert.equal(d.contacts.filter(c=>c.isPrimary&&!c.deletedAt).length,1);assert.equal(String(d.contacts.find(c=>c.isPrimary)!.id),luis);

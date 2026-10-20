@@ -2,6 +2,7 @@ import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
+import {findDuplicateAccounts,isBlockingMatch} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {parseBody} from '../helpers/parseBody';
@@ -107,6 +108,10 @@ export async function post(request:Request){
         if(classification.length)throw new Error(classification.join(' '));
         if(input.verifiedOn&&input.verifiedOn>new Date().toISOString().slice(0,10))throw new Error('Fecha de verificación futura.');
         const fields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
+        if(!existing){
+          const blocked=(await findDuplicateAccounts(trx,{nombre:input.nombre,ciudad:fields.ciudad??undefined,telefono:fields.telefono??undefined,email:fields.email??undefined,whatsapp:nullable(input.whatsapp)??undefined})).find(f=>f.account.doNotContact&&isBlockingMatch(f.match));
+          if(blocked)throw new Conflict("Ese negocio pidió no ser contactado. Consultá con un administrador.");
+        }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),existing?"account_updated":"account_created",existing,row);
         return String(row.id);
