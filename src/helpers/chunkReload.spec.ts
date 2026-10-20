@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import {isChunkLoadError,reloadOnceForStaleChunk} from './chunkReload';
+import {hasStaleChunk,installPreloadErrorHandler,isChunkLoadError,reloadOnceForStaleChunk,resetStaleChunk} from './chunkReload';
 
 afterEach(()=>{window.sessionStorage.clear();vi.restoreAllMocks();});
 
@@ -27,5 +27,23 @@ describe('reloadOnceForStaleChunk',()=>{
     const reload=vi.fn();
     expect(reloadOnceForStaleChunk({now:1_000,reload})).toBe(false);
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe('preload error handling',()=>{
+  it('matches React\'s lazy-import failure message',()=>expect(isChunkLoadError(new Error('Expected the result of a dynamic import() call. Instead received: undefined'))).toBe(true));
+  it('installs a listener that prevents default, marks the chunk and reloads once',()=>{
+    resetStaleChunk();
+    let handler:((event:Event)=>void)|undefined;
+    installPreloadErrorHandler({addEventListener:(type:string,fn:EventListenerOrEventListenerObject)=>{if(type==='vite:preloadError')handler=fn as (event:Event)=>void;}} as Pick<Window,'addEventListener'>);
+    expect(handler).toBeDefined();
+    const preventDefault=vi.fn(),reload=vi.fn();
+    vi.spyOn(window,'location','get').mockReturnValue({...window.location,reload} as Location);
+    handler!({preventDefault} as unknown as Event);
+    handler!({preventDefault} as unknown as Event);
+    expect(preventDefault).toHaveBeenCalledTimes(2);
+    expect(hasStaleChunk()).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(1);
+    resetStaleChunk();
   });
 });
