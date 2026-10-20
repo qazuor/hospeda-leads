@@ -1,4 +1,4 @@
-import React,{useRef,useState,type MutableRefObject} from 'react';
+import React,{useEffect,useRef,useState,type MutableRefObject} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {Button as ChannelLink} from '@mantine/core';
 import {Copy,Phone} from 'lucide-react';
@@ -36,6 +36,7 @@ export function PhoneCallPanel({account,contacts,leadId,purpose=null,blockedReas
  const people=contacts.filter(c=>!c.deletedAt);
  const history=useQuery({queryKey:['communication','account',String(account.id)],queryFn:()=>getCommunication('',String(account.id))});
  const [picked,setPicked]=useState<string|null>(null),[note,setNote]=useState(''),[notice,setNotice]=useState(''),[outcomeOpen,setOutcomeOpen]=useState(false);
+ useEffect(()=>{if(!logged){setNote('');setNotice('')}},[logged]);
  const choice=channelRecipientChoice({contacts:people,channel:'whatsapp',requestedId:initialContactId,generalValue:account.telefono});
  const effective=fixedRecipient?fixedRecipient.id:picked??choice.recipientId,mustChoose=fixedRecipient?fixedRecipient.mustChoose:choice.mustChoose&&picked===null;
  const person=people.find(c=>String(c.id)===effective);
