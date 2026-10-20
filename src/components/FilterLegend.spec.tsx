@@ -29,4 +29,10 @@ describe('filter badges only change values', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar valor' }));
     expect(change).toHaveBeenCalledWith([{ rules: [{ field: 'id', operator: 'between', value: '2', value2: '8' }] }], '');
   });
+  it('joins groups with "y" and alternatives with "o" without changing the groups', () => {
+    const groups = [{ rules: [{ field: 'id' as const, operator: 'eq' as const, value: '1' }, { field: 'id' as const, operator: 'eq' as const, value: '2' }] }, { rules: [{ field: 'id' as const, operator: 'eq' as const, value: '3' }] }];
+    render(<MantineProvider><FilterLegend groups={groups} fields={[{ key: 'id', label: 'ID', kind: 'number' }]} onChange={() => {}} onEdit={() => {}} onClear={() => {}} /></MantineProvider>);
+    expect(screen.getAllByText('y')).toHaveLength(1); expect(screen.getAllByText('o')).toHaveLength(1);
+    expect(screen.queryByText('Y')).toBeNull(); expect(screen.queryByText('O')).toBeNull();
+  });
 });

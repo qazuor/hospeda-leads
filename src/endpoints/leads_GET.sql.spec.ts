@@ -32,6 +32,8 @@ const cases:Record<string,{query:Record<string,string>;user?:typeof user}>={
   'opportunity default seller':{query:{entity:'opportunity'}},
   'opportunity default admin':{query:{entity:'opportunity'},user:admin},
   'quick search with ñ and accents':{query:{entity:'business',q:'Ñandú José cañón'}},
+  'quick search by name and city':{query:{entity:'business',q:'hotel Colón'}},
+  'quick search by phone in another format':{query:{entity:'business',q:'+54 9 351 555-1234'}},
   'set filters include/exclude':{query:{entity:'business',ciudades:json(['Paraná','__EMPTY__']),excludeCiudades:json(['Gualeguay']),estados:json(['Nuevo']),excludeEstados:json(['__EMPTY__','Perdido']),prioridades:json(['Alta','__EMPTY__']),excludePrioridades:json(['__EMPTY__']),asignados:json(['A','B']),suscripciones:json(['__EMPTY__']),excludeOrigenes:json(['__EMPTY__','web']),origenes:json(['x']),quienesCargaron:json(['q']),mediosContacto:json(['m']),creadosPor:json(['c']),excludeCreadosPor:json(['d']),tipos:json(['t']),subtipos:json(['s']),commercialProfiles:json(['p']),assignedUsers:json(['u@example.com'])}},
   'singular legacy filters':{query:{ciudad:'Paraná',estado:'Nuevo',tipo:'Hotel',subtipo:'3',commercialProfile:'p',prioridad:'Alta',asignado:'A',assignedUser:'u@x.com'}},
   'text filters all modes':{query:{entity:'business',textFilters:json([{field:'nombre',mode:'contains',value:' Ñu '},{field:'email',mode:'not_contains',value:'Gmail'},{field:'telefono',mode:'equals',value:'123'},{field:'sitioWeb',mode:'not_equals',value:'x'},{field:'contactName',mode:'empty'},{field:'urlGmap',mode:'not_empty'},{field:'archivoAdjunto',mode:'contains',value:''}])}},

@@ -95,6 +95,30 @@ try {
     const result = await get(leads, 'leads', { entity: 'business', q: `${marker} ${query}` });
     assert.deepEqual(result.rows.map((r: { accountId: string }) => r.accountId), [expected]);
   }
+  // U-16: phone digits in any format, multi-word across name + city, ñ≠n kept.
+  const phoneRows = await db.insertInto('crmAccounts').values([
+    { nombre: `${marker} fono local`, telefono: '(0351) 555-1234', ciudad: 'Córdoba', assignedUserEmail: reader.user.email },
+    { nombre: `${marker} fono quince`, telefono: '351 15 555 1234', ciudad: 'Córdoba', assignedUserEmail: reader.user.email },
+    { nombre: `${marker} fono otro`, telefono: '011 4444-9876', ciudad: 'Rosario', assignedUserEmail: reader.user.email },
+  ]).returningAll().execute();
+  for (const query of ['3515551234', '+54 9 351 555-1234', '0351 15 555 1234', '351-5551234', '5551234']) {
+    const result = await get(leads, 'leads', { entity: 'business', q: query });
+    const names = result.rows.filter((r: { nombre: string }) => r.nombre.startsWith(marker)).map((r: { nombre: string }) => r.nombre).sort();
+    assert.deepEqual(names, [`${marker} fono local`, `${marker} fono quince`], `phone search "${query}"`);
+    const palette = await get(search, 'search', { q: query });
+    assert(phoneRows.slice(0, 2).every(a => palette.results.some((r: { id: string }) => r.id === 'business:' + a.id)), `Ctrl+K phone search "${query}"`);
+    assert(!palette.results.some((r: { id: string }) => r.id === 'business:' + phoneRows[2].id));
+  }
+  assert((await get(leads, 'leads', { entity: 'business', q: '4444' })).rows.some((r: { accountId: string }) => r.accountId === phoneRows[2].id), 'Short phone fragments still match as text');
+  const noteLead = await db.insertInto('leads').values({ accountId: phoneRows[2].id, nombre: phoneRows[2].nombre, estado: 'Cargado', assignedUserEmail: reader.user.email }).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto('leadNotes').values({ leadId: noteLead.id, note: `${marker} llamar al 0299 15 444-7788 mañana`, author: reader.user.email }).execute();
+  assert((await get(leads, 'leads', { entity: 'business', q: '2994447788' })).rows.some((r: { accountId: string }) => r.accountId === phoneRows[2].id), 'Phone written in a note is found by a phone query');
+  assert.equal((await get(leads, 'leads', { entity: 'business', q: `${marker} 12` })).rows.filter((r: { nombre: string }) => r.nombre.includes('fono')).length, 2, 'Short digit fragments match as plain text only');
+  assert.deepEqual((await get(leads, 'leads', { entity: 'business', q: `${marker} fono rosario` })).rows.map((r: { nombre: string }) => r.nombre), [`${marker} fono otro`], 'name + city across fields');
+  assert((await get(search, 'search', { q: `${marker} fono rosario` })).results.some((r: { id: string }) => r.id === 'business:' + phoneRows[2].id), 'Ctrl+K name + city');
+  assert.equal((await get(search, 'search', { q: `${marker} fono quince rosario` })).results.filter((r: { kind: string }) => r.kind === 'Negocios').length, 0, 'Every word must match somewhere');
+  assert.deepEqual((await get(leads, 'leads', { entity: 'business', q: `${marker} caña concepcion` })).rows.length, 0, 'Words stay ANDed with ñ distinct from n');
+  assert.deepEqual((await get(leads, 'leads', { entity: 'business', q: `${marker} cana` })).rows.map((r: { accountId: string }) => r.accountId), [plain.id]);
   assert.equal((await get(commercial, 'commercial', { q: `${marker} colon` })).total, 12);
   assert.equal((await get(work, 'work', { mode: 'lookup', q: `${marker} colon` })).accounts.length, 12);
   for (const query of ['lucia', 'evaluacion']) assert.equal((await get(journal, 'lead_journal', { leadId: proposal.id, q: `${marker} ${query}` })).total, 1);

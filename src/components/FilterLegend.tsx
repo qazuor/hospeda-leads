@@ -62,14 +62,14 @@ export function FilterLegend({ groups, fields, search = '', displaySearch, onEdi
     <div className={styles.expression}>
       {status}
       {!hasFilters && <span className={styles.empty}>{emptyLabel}</span>}
-      {extraLabels.map((label, i) => <div key={i} className={styles.clause}>{i > 0 && <span className={styles.and}>Y</span>}<span className={styles.legacy}>{label}</span></div>)}
-      {!!shownSearch.trim() && <div className={styles.clause}>{extraLabels.length > 0 && <span className={styles.and}>Y</span>}
+      {extraLabels.map((label, i) => <div key={i} className={styles.clause}>{i > 0 && <span className={styles.and}>y</span>}<span className={styles.legacy}>{label}</span></div>)}
+      {!!shownSearch.trim() && <div className={styles.clause}>{extraLabels.length > 0 && <span className={styles.and}>y</span>}
         {onChange && !readOnly ? <FilterBadge search={shownSearch} fields={fields} onChange={query => onChange(groups, query)} onRemove={() => afterRemove(groups, '')} /> : <span className={styles.legacy}>Texto libre contiene «{shownSearch.trim()}»</span>}
       </div>}
       {visibleGroups.map(({group,groupIndex,rules}, gi) => <div className={styles.clause} key={groupIndex}>
-        {(gi > 0 || !!shownSearch.trim() || extraLabels.length > 0) && <span className={styles.and}>Y</span>}
+        {(gi > 0 || !!shownSearch.trim() || extraLabels.length > 0) && <span className={styles.and}>y</span>}
         <div className={rules.length > 1 ? styles.alternatives : styles.group}>{rules.map(({rule,ruleIndex}, visibleIndex) => <React.Fragment key={ruleIndex}>
-          {visibleIndex > 0 && <span className={styles.or}>O</span>}
+          {visibleIndex > 0 && <span className={styles.or}>o</span>}
           {onChange && !readOnly ? <FilterBadge rule={rule} fields={fields} onChange={(value, value2) => onChange(changeFilterRule(groups, groupIndex, ruleIndex, { ...rule, value, ...(rule.operator === 'between' ? { value2 } : {}) }), search)} onRemove={() => afterRemove(changeFilterRule(groups, groupIndex, ruleIndex, null), search)} /> : <span className={styles.legacy}>{describeFilterRule(rule, fields)}</span>}
         </React.Fragment>)}</div>
       </div>)}

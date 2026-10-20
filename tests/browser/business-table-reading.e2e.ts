@@ -5,6 +5,7 @@ for(const width of [1280,390])test(`business table ellipsis and fixed headers at
  await page.setViewportSize({width,height:844});
  await page.addInitScript(preferences=>{
   localStorage.setItem('hospeda-live-mode','off');
+  localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');
   localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));
  },{...basePreferences(),columns:['nombre','ciudad','telefono','email','sitioWeb','actions'],widths:{nombre:220,ciudad:150,telefono:100,email:100,sitioWeb:100,actions:110},pins:{sitioWeb:'left',email:'right',actions:'right'}});
  await page.route('**/_api/**',async route=>{
