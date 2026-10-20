@@ -34,6 +34,7 @@ describe("applyAssetMiddleware + applyStaticFallback", () => {
     applyAssetMiddleware(app);
     app.get("/_api/x", (c) => c.json({ payload: "x".repeat(2048) }));
     app.get("/_api/resources/download", (c) => c.text("download payload"));
+    app.get("/consent", (c) => c.html("<p>consent</p>", 200, { "Cache-Control": "no-store" }));
     applyStaticFallback(app, { distDir });
   });
 
@@ -58,6 +59,17 @@ describe("applyAssetMiddleware + applyStaticFallback", () => {
     expect(response.headers.get("Content-Type")).toContain("text/html");
     expect(response.headers.get("Cache-Control")).toBe("no-cache");
     expect(await response.text()).toContain("CRM shell");
+  });
+
+  it("serves the root shell without caching it", async () => {
+    const response = await app.request("/");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-cache");
+  });
+
+  it("keeps a stricter cache policy chosen by an HTML handler", async () => {
+    const response = await app.request("/consent");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("keeps unknown API routes as JSON 404s", async () => {

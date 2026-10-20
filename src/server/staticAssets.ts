@@ -15,6 +15,8 @@ export const cacheHeadersMiddleware: MiddlewareHandler = async (c, next) => {
     if (c.res.status === 200) c.res.headers.set("Cache-Control", "public, max-age=31536000, immutable");
     return;
   }
+  // Never weaken a policy the handler chose (e.g. the MCP consent page sends no-store).
+  if (c.res.headers.has("Cache-Control")) return;
   if (c.req.path === "/" || c.req.path === "/index.html" || c.res.headers.get("Content-Type")?.includes("text/html")) {
     c.res.headers.set("Cache-Control", "no-cache");
   }
@@ -30,8 +32,11 @@ function keepLateHeaderMutations(c: Context): void {
   const live = new Headers(c.res.headers);
   void c.res.body;
   const target = c.res.headers;
-  for (const key of [...target.keys()]) target.delete(key);
-  for (const [key, value] of live) target.append(key, value);
+  // Responses such as Response.redirect() have immutable headers and nothing late to keep.
+  try {
+    for (const key of [...target.keys()]) target.delete(key);
+    for (const [key, value] of live) target.append(key, value);
+  } catch {}
 }
 
 // Register before the routes so compression and cache headers wrap them.
