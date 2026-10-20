@@ -85,6 +85,11 @@ describe('contact data editing with an open management (decision 8A)',()=>{
   expect(canEditBusinessContactData(colleague,undefined,true)).toBe(false);
   expect(canEditBusinessContactData(undefined,business,true)).toBe(false);
  });
+ it('never applies to a No contactar business, but owner and admin keep editing it',()=>{
+  const dnc={...business,doNotContact:true};
+  expect(canEditBusinessContactData(colleague,dnc,true)).toBe(false);
+  for(const actor of [owner,admin])expect(canEditBusinessContactData(actor,dnc,false)).toBe(true);
+ });
  it('keeps the strict read and view guards untouched',()=>{
   const archived={...business,archivedAt:new Date()};
   expect(()=>assertAccountReadable(colleague,archived)).toThrow(CrmForbidden);

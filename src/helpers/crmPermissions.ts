@@ -2,7 +2,7 @@ import {sql, type Kysely, type Transaction} from 'kysely';
 import type {DB} from './schema';
 
 type Actor = {email:string; role:'admin'|'user'};
-type AccountAccess = {assignedUserEmail:string|null; archivedAt?:unknown; deletedAt?:unknown; mergedIntoId?:unknown};
+type AccountAccess = {assignedUserEmail:string|null; archivedAt?:unknown; deletedAt?:unknown; mergedIntoId?:unknown; doNotContact?:unknown};
 type Executor = Kysely<DB>|Transaction<DB>;
 
 export class CrmForbidden extends Error {}
@@ -43,9 +43,9 @@ export function assertAccountWritable(user:Actor, account:AccountAccess):void {
   if(!canModifyBusiness(user, account))throw new CrmForbidden('Solo el responsable del negocio o un administrador puede modificarlo.');
 }
 
-/** Decision 8A: owner/admin, or a seller with an open management on a live (not archived, deleted or merged) business. Only phone, email, WhatsApp and persons are editable that way; callers enforce the whitelist. */
+/** Decision 8A: owner/admin, or a seller with an open management on a live (not archived, deleted, merged or No contactar) business. Only phone, email, WhatsApp and persons are editable that way; callers enforce the whitelist. */
 export function canEditBusinessContactData(user:Actor|undefined, account:AccountAccess|undefined, hasOpenManagement:boolean):boolean {
-  return canModifyBusiness(user,account) || (!!user && !!account && hasOpenManagement && !account.archivedAt && !account.deletedAt && !account.mergedIntoId);
+  return canModifyBusiness(user,account) || (!!user && !!account && hasOpenManagement && !account.archivedAt && !account.deletedAt && !account.mergedIntoId && !account.doNotContact);
 }
 
 /** Ids of the not deleted, open-stage managements of a business assigned to this seller (the "responsible seller" of a management is leads.assigned_user_email). */
@@ -65,7 +65,7 @@ export async function hasOpenManagement(executor:Executor, accountId:string, ema
  */
 export async function assertContactDataWritable(executor:Executor, user:Actor, account:AccountAccess&{id:unknown}):Promise<{scope:'full'|'open_management';leadIds:string[]}> {
   if(canModifyBusiness(user,account)){assertAccountWritable(user,account);return {scope:'full',leadIds:[]};}
-  const leadIds=account.archivedAt||account.deletedAt||account.mergedIntoId?[]:await openManagementLeadIds(executor,String(account.id),user.email);
+  const leadIds=account.archivedAt||account.deletedAt||account.mergedIntoId||account.doNotContact?[]:await openManagementLeadIds(executor,String(account.id),user.email);
   if(!canEditBusinessContactData(user,account,leadIds.length>0)){assertAccountWritable(user,account);throw new CrmForbidden('Solo el responsable del negocio o un administrador puede modificarlo.');}
   return {scope:'open_management',leadIds};
 }

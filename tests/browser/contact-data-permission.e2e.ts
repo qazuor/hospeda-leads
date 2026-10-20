@@ -29,7 +29,8 @@ test('a seller with an open management corrects only phone, email and WhatsApp',
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Editar negocio',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Más acciones del negocio',exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Corregir datos de contacto',exact:true}).first().click();
+ await page.getByRole('tab',{name:'Datos y documentos',exact:true}).click();
+ await page.getByRole('button',{name:'Corregir datos de contacto',exact:true}).click();
  const dialog=page.getByRole('dialog');
  await expect(dialog.getByText('Queda registrado en el historial.').first()).toBeVisible();
  await expect(dialog.getByLabel('Teléfono')).toHaveValue('3447111111');

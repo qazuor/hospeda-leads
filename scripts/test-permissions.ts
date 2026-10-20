@@ -244,6 +244,27 @@ try{
   await call(admin,commercialPost,'commercial',{...contactBody,telefono:'+54 9 3447 500001'});
   assert.equal((await account8a()).telefono,'+54 9 3447 500001');
   await call(admin,commercialPost,'commercial',{action:'account_archive',accountId:biz,archived:false,reason:'Restore 8A'});
+  // Closed-off variants: the open-management scope never applies to No contactar, trashed or merged businesses, to deleted managements or to managements of someone else.
+  const variant=async(label:string,prepare:(biz:string,lead:string)=>Promise<void>,assignTo=opener)=>{
+   const b=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:`8A ${label} ${suffix}`,telefono:'+54 9 3447 '+String(suffix+label.length).slice(-6),email:`${label.replace(/\W/g,'')}8a@example.com`})).id;
+   const c=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId:b,name:'Person '+label,isPrimary:false})).id;
+   const l=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:b,confirmReviewed:true,managementType:'main',opportunityName:'Mgmt '+label,assignedUserEmail:assignTo.user.email})).id;
+   await prepare(b,l);
+   const state=async()=>JSON.stringify([await db.selectFrom('crmAccounts').selectAll().where('id','=',b).executeTakeFirstOrThrow(),await db.selectFrom('crmContacts').selectAll().where('accountId','=',b).orderBy('id').execute()]);
+   const before=await state();const acc=await db.selectFrom('crmAccounts').selectAll().where('id','=',b).executeTakeFirstOrThrow();
+   await call(opener,commercialPost,'commercial',{action:'account_save',id:b,nombre:acc.nombre,telefono:null,whatsapp:null},403);
+   await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:b,id:c,name:'Edited '+label,isPrimary:false},403);
+   await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:b,name:'Added '+label,isPrimary:false},403);
+   assert.equal(await state(),before,label+': nothing changed');
+   return {b,l};
+  };
+  const dncVariant=await variant('dnc',async b=>{await sql`UPDATE crm_accounts SET do_not_contact=true WHERE id=${b}`.execute(db);});
+  assert.equal((await call(opener,commercialGet,'commercial?accountId='+dncVariant.b)).canEditContactData,false,'the detail hides the correction for a No contactar business');
+  assert.equal((await call(admin,commercialGet,'commercial?accountId='+dncVariant.b)).canEditContactData,true);
+  await variant('trashed',async b=>{await call(owner,commercialPost,'commercial',{action:'account_trash',accountIds:[b],deleted:true,reason:'8A trashed variant'});});
+  await variant('merged',async b=>{await sql`UPDATE crm_accounts SET merged_into_id=${biz} WHERE id=${b}`.execute(db);});
+  await variant('deletedlead',async(_b,l)=>{await sql`UPDATE leads SET deleted_at=now() WHERE id=${l}`.execute(db);});
+  await variant('foreignlead',async()=>{},closer);
   console.log('Decision 8A matrix: open-management seller edits only phone/email/WhatsApp/persons; closed, unrelated, archived and No contactar paths stay closed');
  }
  // Materials are administered exclusively by admin and used in an authorized context.
