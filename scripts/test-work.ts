@@ -12,6 +12,7 @@ import {handle as save} from '../src/endpoints/leads_save_POST';
 import {handle as contact} from '../src/endpoints/lead_contact_POST';
 import type {WorkData} from '../src/endpoints/work.schema';
 import {handle as liveVersion} from '../src/endpoints/live_version_GET';
+import {post as communicationPost} from '../src/endpoints/communication';
 import type {OutputType as LiveVersion} from '../src/endpoints/live_version_GET.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
 const suffix=Date.now();
@@ -225,5 +226,60 @@ try{
  const generalParams={...duplicateParams};delete (generalParams as Partial<typeof duplicateParams>).leadId;assert.deepEqual((await findDuplicates(generalParams)).tasks.map(t=>t.id),[duplicateGeneral]);
  await mutate({action:'task_status',id:duplicate2,status:'cancelled',result:'La acción ya estaba planificada'});assert.equal((await findDuplicates(duplicateParams)).total,1);
  assert.equal((await get(new Request('http://localhost/_api/work?mode=duplicates',{headers:{cookie:user.cookie}}))).status,400);
+ // Decision 2B after a contact: the outcome links its message, resolves it once and keeps a single activity.
+ const contactMessage=async(v:{status:string;owner?:string;channel?:string;accountId?:string;leadId?:string|null;activity?:boolean})=>{const id=crypto.randomUUID();const accountId=v.accountId??a.id,leadId=v.leadId===undefined?l.id:v.leadId;const activity=v.activity?(await db.insertInto('crmActivities').values({accountId,leadId,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto · envío no confirmado',occurredAt:new Date(),notes:'Snapshot de mensaje #'+id,actorEmail:v.owner??user.user.email}).returning('id').executeTakeFirstOrThrow()).id:null;await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,owner_email,status,activity_id) VALUES(${id}::uuid,${accountId},${accountId},${leadId},${v.channel??'whatsapp'},'+5493447000000','Ana',${v.owner??user.user.email},${v.status},${activity})`.execute(db);return {id,activity};};
+ const messageRow=async(id:string)=>(await sql<{status:string;activityId:string|null;completedAt:Date|null}>`SELECT status,activity_id,completed_at FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0];
+ const activityCount=async()=>Number((await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).where('accountId','=',a.id).executeTakeFirstOrThrow()).n);
+ const contactOutcome={action:'activity_save',accountId:a.id,leadId:l.id,title:'Contacto por WhatsApp',typeId:'message',occurredAt:'2026-09-20T10:00:00-03:00',purpose:'commercial',channel:'whatsapp',contactIds:[own.id],outcome:'no_answer',result:'No respondió',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'};
+ const opened=await contactMessage({status:'whatsapp_opened',activity:true});
+ // Opening WhatsApp proves nothing: the seller must say whether it was sent, and an outcome is required.
+ const unanswered=await post(request({...contactOutcome,messageId:opened.id}));assert.equal(unanswered.status,400);assert.equal(superjson.parse<{error:string}>(await unanswered.text()).error,'Contá si el mensaje se envió.');
+ await mutate({...contactOutcome,outcome:null,messageId:opened.id,messageSent:true},user.cookie,400);
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true,continuation:undefined,continuationReason:undefined},user.cookie,400);
+ // A restriction on the channel blocks confirming the send (No contactar is respected).
+ const restriction=(await sql<{id:string}>`INSERT INTO crm_contact_restrictions(account_id,channel,reason,actor_email,source,evidence) VALUES(${a.id},'whatsapp','Pidió no recibir WhatsApp',${admin.user.email},'manual','test') RETURNING id`.execute(db)).rows[0].id;
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true},user.cookie,403);
+ assert.equal((await messageRow(opened.id)).status,'whatsapp_opened','A rejected outcome leaves the message untouched');
+ await sql`UPDATE crm_contact_restrictions SET lifted_at=now(),lifted_by=${admin.user.email},lift_reason='test' WHERE id=${restriction}`.execute(db);
+ const beforeLink=await activityCount();
+ const linkedActivity=await mutate({...contactOutcome,messageId:opened.id,messageSent:true});
+ assert.equal(linkedActivity,opened.activity,'The activity created when WhatsApp was opened records the outcome');
+ assert.equal(await activityCount(),beforeLink,'No second activity for the same contact');
+ assert.equal((await messageRow(opened.id)).status,'manual_sent');
+ const outcomeRow=await db.selectFrom('crmActivities').selectAll().where('id','=',linkedActivity).executeTakeFirstOrThrow();
+ assert.deepEqual({outcome:outcomeRow.outcome,continuation:outcomeRow.continuation,continuationReason:outcomeRow.continuationReason,result:outcomeRow.result,notes:outcomeRow.notes,actorEmail:outcomeRow.actorEmail},{outcome:'no_answer',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',result:'No respondió',notes:'Snapshot de mensaje #'+opened.id,actorEmail:user.user.email});
+ assert.equal((await sql<{n:string}>`SELECT count(*) AS n FROM crm_communication_journal WHERE entity_id=${opened.id} AND action='contact_resolved'`.execute(db)).rows[0].n,'1');
+ // The message is resolved once.
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true},user.cookie,409);
+ // Later communication results never overwrite what the seller wrote.
+ const replied=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:user.cookie},body:superjson.stringify({action:'outcome',id:opened.id,event:'replied',notes:'Respondió más tarde'})}));assert.equal(replied.status,200,await replied.text());
+ const afterReply=await db.selectFrom('crmActivities').select(['result','notes','outcome']).where('id','=',linkedActivity).executeTakeFirstOrThrow();assert.deepEqual(afterReply,{result:'No respondió',notes:'Snapshot de mensaje #'+opened.id,outcome:'no_answer'});
+ // A registered call has no activity yet: the outcome creates one and links it.
+ const callMessage=await contactMessage({status:'manual_sent',channel:'call'});
+ const callActivity=await mutate({...contactOutcome,channel:'phone',title:'Contacto por llamada',messageId:callMessage.id,outcome:'interested',continuation:'task',continuationReason:undefined,nextTask:{title:'Enviar propuesta',dueDate:'2026-10-05',typeId:'followup'}});
+ assert.equal(await activityCount(),beforeLink+1);
+ assert.equal((await messageRow(callMessage.id)).activityId,callActivity);
+ assert.equal((await messageRow(callMessage.id)).status,'manual_sent','An already resolved call keeps its status');
+ // A manual attempt that was not sent is closed as not done, without inferring a send.
+ const pendingAttempt=await contactMessage({status:'manual_pending',channel:'social'});
+ await mutate({...contactOutcome,channel:'other',messageId:pendingAttempt.id,messageSent:false,outcome:'other',result:'No lo pude mandar'});
+ const notDone=await messageRow(pendingAttempt.id);assert.equal(notDone.status,'manual_not_done');assert(notDone.completedAt);
+ // Drafts and uncertain email sends are not contacts; other people's or other businesses' messages are refused.
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'draft'})).id,messageSent:true},user.cookie,409);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'unknown',channel:'email'})).id},user.cookie,409);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'whatsapp_opened',owner:admin.user.email})).id,messageSent:true},user.cookie,403);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'manual_sent',channel:'call',accountId:b.id,leadId:null})).id},user.cookie,400);
+ await mutate({...contactOutcome,leadId:null,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
+ // Completing a task after a contact links the same way: one activity, carrying the task.
+ const callTask=await mutate({...base,title:'Llamar por la propuesta',dueDate:'2026-10-06'});
+ const taskCall=await contactMessage({status:'manual_sent',channel:'call'});
+ await mutate({action:'task_status',id:callTask,status:'cancelled',result:'Ya no hace falta',messageId:taskCall.id},user.cookie,400);
+ const beforeTask=await activityCount();
+ await mutate({action:'task_status',id:callTask,status:'completed',result:'Atendió Ana',outcome:'interested',completedAt:'2026-09-21T11:00:00-03:00',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',messageId:taskCall.id});
+ assert.equal(await activityCount(),beforeTask+1);
+ const taskActivity=await db.selectFrom('crmActivities').select(['id','taskId','outcome']).where('taskId','=',callTask).executeTakeFirstOrThrow();
+ assert.equal((await messageRow(taskCall.id)).activityId,taskActivity.id);assert.equal(taskActivity.outcome,'interested');
+ // Edits stay exempt from linking.
+ await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
 }finally{await db.destroy()}
