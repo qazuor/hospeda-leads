@@ -216,6 +216,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     queryKey:[...QUERY_KEY,entity,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page,pipelineView,classification,activeQuick],
     queryFn:()=>getLeads({
       entity,
+      filterOptions:"include",
       q:debouncedQuery.trim()||undefined,
       filterGroups:appliedFilterGroups,
       ciudades:cityFilter.include,excludeCiudades:cityFilter.exclude,

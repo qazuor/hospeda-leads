@@ -1,4 +1,4 @@
-import { UnstyledButton } from '@mantine/core';
+import { Loader, UnstyledButton } from '@mantine/core';
 import React,{useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
@@ -14,16 +14,18 @@ import {inlineBadgeFields,type InlineBadgeField} from '../helpers/inlineBadgeFie
 import {getCommercialDetail} from '../endpoints/commercial.schema';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import {postLeadsQuick} from '../endpoints/leads_quick_POST.schema';
+import {getLeads} from '../endpoints/leads_GET.schema';
 import {toast} from 'sonner';
 import styles from './InlineBusinessBadge.module.css';
 import {DisabledTooltip} from './Tooltip';
 
 type Draft={value:string;expected:string|null;classification:{tipo:string|null;subtipo:string|null}};
-export function InlineBusinessBadge({accountId,name,field,value,label,knownValues=[]}:{accountId:string;name:string;field:InlineBadgeField;value:string|null;label:string;knownValues?:string[]}){
+export function InlineBusinessBadge({accountId,name,field,value,label}:{accountId:string;name:string;field:InlineBadgeField;value:string|null;label:string}){
  const [tooltipOpen,setTooltipOpen]=useState(false);
  const [processing,setProcessing]=useState(false),[open,setOpen]=useState(false),[draft,setDraft]=useState<Draft|null>(null),[managementId,setManagementId]=useState('');
  const lock=useRef(false),qc=useQueryClient(),{authState}=useAuth();
  const detail=useQuery({queryKey:['commercial-detail',accountId],queryFn:()=>getCommercialDetail(accountId),enabled:open,refetchOnMount:'always',refetchOnWindowFocus:false});
+ const filterOptions=useQuery({queryKey:['business-inline-filter-options'],queryFn:()=>getLeads({entity:'business',filterOptions:'include',page:1,pageSize:10}),enabled:open&&['origen','quienCargo','creadoPor'].includes(field),staleTime:5*60*1000});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings,enabled:open});const save=useMutation({mutationFn:postLeadsQuick});
  const config=inlineBadgeFields[field],{title,empty,scope,category}=config;
  const account=detail.data?.account,gestions=detail.data?.opportunities??[];
@@ -31,8 +33,8 @@ export function InlineBusinessBadge({accountId,name,field,value,label,knownValue
  const current=(scope==='business'?account?.[field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo']:management?.[field as 'commercialProfile'|'medioContactoPreferido'|'origen'|'quienCargo'|'creadoPor'])??null;
  const user=authState.type==='authenticated'?authState.user:undefined;
  const allowed=scope==='business'?canModifyBusiness(user,account)&&(field!=='assignedUserEmail'||user?.role==='admin'):canModifyManagement(user,management,account);
- const loading=detail.isFetching&&!processing||settings.isPending;
- const plainOptions=field==='tipo'?settings.data?.types??[]:field==='subtipo'?settings.data?.subtypes.filter(item=>item.typeName===account?.tipo).map(item=>item.name)??[]:field==='commercialProfile'?['Independiente','Consolidado','Referente']:field==='medioContactoPreferido'?settings.data?.contactChannels??[]:field==='ciudad'?settings.data?.cities.map(item=>item.name)??[]:knownValues;
+ const loading=detail.isFetching&&!processing||settings.isPending||filterOptions.isPending&&['origen','quienCargo','creadoPor'].includes(field);
+ const plainOptions=field==='tipo'?settings.data?.types??[]:field==='subtipo'?settings.data?.subtypes.filter(item=>item.typeName===account?.tipo).map(item=>item.name)??[]:field==='commercialProfile'?['Independiente','Consolidado','Referente']:field==='medioContactoPreferido'?settings.data?.contactChannels??[]:field==='ciudad'?settings.data?.cities.map(item=>item.name)??[]:field==='origen'?filterOptions.data?.filters.origenes??[]:field==='quienCargo'?filterOptions.data?.filters.quienesCargaron??[]:field==='creadoPor'?filterOptions.data?.filters.creadosPor??[]:[];
  const options=field==='assignedUserEmail'?settings.data?.users.map(item=>({value:item.email,label:item.displayName||item.email}))??[]:Array.from(new Set([...plainOptions,...(['quienCargo','creadoPor'].includes(field)?settings.data?.users.map(item=>item.displayName)??[]:[])])).map(value=>({value,label:value}));
  const missingManagement=scope==='management'&&!management;
  const hasEditableManagement=gestions.some(item=>canModifyManagement(user,item,account));
@@ -46,7 +48,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label,knownValue
   <Tooltip open={tooltipOpen&&!open} onOpenChange={setTooltipOpen}><TooltipTrigger asChild><PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={'Editar '+title.toLowerCase()+' de '+name}><ValueBadge category={category} value={label||empty} muted={!value} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/></UnstyledButton></PopoverTrigger></TooltipTrigger><TooltipContent className={styles.tooltip}>{label||empty}</TooltipContent></Tooltip>
   <PopoverContent aria-label={compact?'Opciones de '+title.toLowerCase():'Editar '+title.toLowerCase()} className={compact?styles.compactPopover:styles.popover} align="start" onEscapeKeyDown={event=>{if(lock.current)event.preventDefault();}} onInteractOutside={event=>{if(lock.current)event.preventDefault();}}>
    {compact?<>
-    {loading?<p className={styles.compactStatus} role="status">Cargando…</p>:detail.error||settings.error?<div className={styles.compactError} role="alert"><span>{detail.error?.message||settings.error?.message}</span><Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();}}>Reintentar</Button></div>:missingManagement?<div className={styles.compactError} role="alert">Sin gestiones iniciadas. <Link to={'/accounts/'+accountId}>Abrir negocio</Link></div>:!allowed?<p className={styles.compactError} role="alert">No tenés permiso para modificar este dato.</p>:<>
+    {loading?<p className={styles.compactStatus} role="status"><Loader size={13} aria-hidden="true"/> Cargando…</p>:detail.error||settings.error||filterOptions.error?<div className={styles.compactError} role="alert"><span>{detail.error?.message||settings.error?.message||filterOptions.error?.message}</span><Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();void filterOptions.refetch();}}>Reintentar</Button></div>:missingManagement?<div className={styles.compactError} role="alert">Sin gestiones iniciadas. <Link to={'/accounts/'+accountId}>Abrir negocio</Link></div>:!allowed?<p className={styles.compactError} role="alert">No tenés permiso para modificar este dato.</p>:<>
      <div className={styles.optionList} role="group" aria-label={'Opciones de '+title.toLowerCase()}>
       {[{value:'',label:empty},...((current&&!options.some(item=>item.value===current))?[{value:current,label:current}]:[]),...options].map(item=>{
        const isCurrent=(item.value||null)===current;
@@ -61,7 +63,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label,knownValue
     </>}
    </>:<>
    <h3>Editar {title.toLowerCase()}</h3><p className={styles.help}>{name}</p>
-   {loading?<p role="status">Cargando opciones…</p>:detail.error||settings.error?<p role="alert">{detail.error?.message||settings.error?.message}<Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();}}>Reintentar</Button></p>:<>
+   {loading?<p role="status"><Loader size="sm" aria-hidden="true"/> Cargando opciones…</p>:detail.error||settings.error||filterOptions.error?<p role="alert">{detail.error?.message||settings.error?.message||filterOptions.error?.message}<Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();void filterOptions.refetch();}}>Reintentar</Button></p>:<>
     {scope==='management'&&(gestions.length>1?<label className={styles.management}>Gestión a modificar<CrmNativeSelect aria-label="Gestión a modificar" disabled={processing||!hasEditableManagement} value={managementId} onChange={event=>{setManagementId(event.target.value);setDraft(null);save.reset();}}><option value="">Elegir gestión</option>{gestions.map(item=><option key={item.id} value={String(item.id)} disabled={!canModifyManagement(user,item,account)}>{item.opportunityName||'Gestión '+item.id} · {item.estado||'Sin etapa'}{canModifyManagement(user,item,account)?'':' · Solo consulta'}</option>)}</CrmNativeSelect></label>:gestions.length===1?<p className={styles.help}>Gestión: {gestions[0].opportunityName||'Gestión '+gestions[0].id}</p>:<p className={styles.help}>Sin gestiones iniciadas. Este dato pertenece a una gestión.<br/><Link to={'/accounts/'+accountId}>Abrir negocio</Link></p>)}
     {missingManagement?gestions.length>1&&(hasEditableManagement?<p className={styles.help}>Elegí la gestión que querés modificar. Las demás conservan sus datos.</p>:<p role="alert">Estas gestiones están en modo consulta. Solo su responsable o un administrador puede modificarlas.</p>):!allowed?<p role="alert">Ya no tenés permiso para modificar este dato. Actualizá el listado.</p>:<form onSubmit={event=>{event.preventDefault();void submit();}}>
      <label>{title}<CrmNativeSelect autoFocus aria-label={'Nuevo valor de '+title.toLowerCase()} disabled={processing||field==='subtipo'&&!account?.tipo} value={draft?.value??current??''} onChange={event=>setDraft({value:event.target.value,expected:draft?draft.expected:current,classification:draft?.classification??{tipo:account?.tipo??null,subtipo:account?.subtipo??null}})}><option value="">{empty}</option>{current&&!options.some(item=>item.value===current)&&<option value={current}>{current} (valor actual)</option>}{options.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</CrmNativeSelect></label>

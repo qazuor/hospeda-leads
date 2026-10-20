@@ -273,7 +273,7 @@ export async function handle(request: Request) {
       if(anchor)anchorPage=Math.ceil(Number(anchor.rowPosition)/input.pageSize);
     }
     const page=input.alignAnchorPage&&anchorPage?anchorPage:input.page;
-    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(orderExpression,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
+    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(orderExpression,sortDir).orderBy("id","desc").$if(input.view==="board",q=>q.limit(500)).$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
     if(rows.length){
       const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
       for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissions.find(a=>String(a.id)===String(row.accountId))):canModifyManagement(user,row,permissions.find(a=>String(a.id)===String(row.accountId))));
@@ -307,11 +307,11 @@ export async function handle(request: Request) {
       }
     }
     const distinct=async(col:"ciudad"|"estado"|"tipo"|"asignadoA"|"suscripcion"|"origen"|"quienCargo"|"medioContactoPreferido"|"creadoPor")=>(await source().select(col).$if(!includeDeleted,q=>q.where("deletedAt","is",null)).where(col,"is not",null).distinct().orderBy(col).execute()).map(x=>x[col]).filter((x):x is string=>!!x);
-    const [ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor]=await Promise.all([
+    const [ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor,businessStatuses]=input.filterOptions==="include"?await Promise.all([
       distinct("ciudad"),distinct("estado"),distinct("tipo"),distinct("asignadoA"),distinct("suscripcion"),
-      distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor")
-    ]);
-    const businessStatuses=(await db.selectFrom('crmAccounts').select('status').distinct().where('status','is not',null).orderBy('status').execute()).map(row=>row.status);
+      distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor"),
+      db.selectFrom('crmAccounts').select('status').distinct().where('status','is not',null).orderBy('status').execute().then(rows=>rows.map(row=>row.status))
+    ]):[[],[],[],[],[],[],[],[],[],[]];
     const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,businessStatuses,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
     return new Response(superjson.stringify(out), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
