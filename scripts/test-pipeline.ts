@@ -51,6 +51,7 @@ try{
  assert(!(await read('mode=reactivation')).reactivations.some(r=>r.id===l.id));
  await mutate({...base,revision:row.pipelineRevision},user.cookie,409);
  const listResponse=await list(new Request('http://localhost/_api/leads?idExact='+l.id,{headers:{cookie:user.cookie}}));const listed=superjson.parse<{rows:{estado:string}[]}>(await listResponse.text());assert.equal(listed.rows[0].estado,'En tratativas');
+ const boardResponse=await list(new Request('http://localhost/_api/leads?view=board&idExact='+l.id,{headers:{cookie:user.cookie}}));const board=superjson.parse<{rows:unknown[];boardTotals:{open:number;won:number;lost:number;total:number};truncated:boolean}>(await boardResponse.text());assert.equal(board.boardTotals.total,1);assert.equal(board.boardTotals.open+board.boardTotals.won+board.boardTotals.lost,1);assert.equal(board.truncated,false);
  const objectionType=d.objectionTypes.find(t=>t.active)!;
  const objection=await mutate({action:'objection_save',leadId:l.id,revision:(await lead()).pipelineRevision,typeId:objectionType.id,notes:'Debe consultar con su socio',status:'open'});
  assert.equal((await lead()).estado,'En tratativas');

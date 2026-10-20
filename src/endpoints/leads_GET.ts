@@ -319,7 +319,14 @@ export async function handle(request: Request) {
       distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor"),
       db.selectFrom('crmAccounts').select('status').distinct().where('status','is not',null).orderBy('status').execute().then(rows=>rows.map(row=>row.status))
     ]):[[],[],[],[],[],[],[],[],[],[]];
-    const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,businessStatuses,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
+    // Board only: real totals per stage classification under the same filters (the board itself is capped at 500 rows).
+    const boardTotals=input.view==="board"?await (async()=>{
+      const grouped=await query.select(sql<string>`coalesce((select classification from crm_stages where name=leads.estado),'open')`.as("classification")).select(({fn})=>fn.countAll<string>().as("count")).groupBy(sql`1`).execute();
+      const totals={open:0,won:0,lost:0,total:0};
+      for(const item of grouped){const key=item.classification==="won"||item.classification==="lost"?item.classification:"open";totals[key]+=Number(item.count);totals.total+=Number(item.count)}
+      return totals;
+    })():undefined;
+    const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(boardTotals?{boardTotals,truncated:boardTotals.total>rows.length}:{}),...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,businessStatuses,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
     return new Response(superjson.stringify(out), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
     return errorResponse(error);

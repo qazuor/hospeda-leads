@@ -67,6 +67,7 @@ const cases:Record<string,{query:Record<string,string>;user?:typeof user}>={
   'default sort':{query:{}},
   'anchor page':{query:{entity:'business',anchorAccountId:'12',alignAnchorPage:'true',pageSize:'25',page:'3'}},
   'board view':{query:{entity:'business',view:'board'}},
+  'board view opportunity totals':{query:{entity:'opportunity',view:'board',classification:'open'}},
   'filter options include':{query:{entity:'business',filterOptions:'include'}},
 };
 
