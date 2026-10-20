@@ -75,3 +75,4 @@
 .activeViewStatus strong{min-width:0;color:var(--foreground);font-weight:600;overflow-wrap:anywhere}
 .activeViewStatus>span{flex-shrink:0}
 @media(max-width:767px){.listControls{gap:6px}.searchRow{gap:8px}.viewsRow{padding-top:5px}.appliedFilters{padding-top:5px}.activeViewStatus{max-width:100%;padding-inline:5px}}
+.resultsBar .liveChanges{flex-shrink:0;white-space:nowrap}

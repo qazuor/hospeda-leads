@@ -2,6 +2,7 @@ import {post as importLeads} from "../src/endpoints/dataQuality";
 import type {ImportReview} from "../src/endpoints/dataQuality.schema";
 import {localDay} from "../src/helpers/workDates";
 import assert from 'node:assert/strict';
+import {sql} from 'kysely';
 import superjson from 'superjson';
 import {db} from '../src/helpers/db';
 import {setServerSession} from '../src/helpers/getSetServerSession';
@@ -10,6 +11,8 @@ import {handle as quick} from '../src/endpoints/leads_quick_POST';
 import {handle as save} from '../src/endpoints/leads_save_POST';
 import {handle as contact} from '../src/endpoints/lead_contact_POST';
 import type {WorkData} from '../src/endpoints/work.schema';
+import {handle as liveVersion} from '../src/endpoints/live_version_GET';
+import type {OutputType as LiveVersion} from '../src/endpoints/live_version_GET.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
 const suffix=Date.now();
 async function identity(role:'admin'|'user'){
@@ -21,8 +24,54 @@ const admin=await identity('admin'),user=await identity('user'),other=await iden
 const request=(body:unknown,cookie=user.cookie)=>new Request('http://localhost/_api/work',{method:'POST',headers:{cookie},body:superjson.stringify(body)});
 async function mutate(body:unknown,cookie=user.cookie,status=200){const r=await post(request(body,cookie));const value=superjson.parse<{id:string;error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value.id;}
 async function read(params='',cookie=user.cookie,status=200){const r=await get(new Request('http://localhost/_api/work?'+params,{headers:{cookie}}));const value=superjson.parse<WorkData&{error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value;}
+const EXPECTED_LIVE_TRIGGERS=[
+  "CREATE TRIGGER authorized_emails_live_version AFTER INSERT OR DELETE OR UPDATE ON public.authorized_emails FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_accounts_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_accounts FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_activities_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_activities FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business', 'work')",
+  "CREATE TRIGGER crm_cities_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_cities FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_commercial_journal_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_commercial_journal FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('journal')",
+  "CREATE TRIGGER crm_communication_interaction_corrections_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_interaction_corrections FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_communication_journal_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_journal FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_communication_response_corrections_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_response_corrections FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_communication_responses_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_responses FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_contacts_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_contacts FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_evidence_live AFTER INSERT ON public.crm_data_evidence FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_import_live AFTER INSERT OR UPDATE ON public.crm_import_batches FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_management_reasons_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_management_reasons FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_merge_live AFTER INSERT ON public.crm_account_merges FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_message_template_versions_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_message_template_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_objection_types_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_objection_types FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_objections_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_objections FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_pipeline_events_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_pipeline_events FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_reasons_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_loss_reasons FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_stages_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_stages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_subtypes_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_subtypes FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_tasks_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_tasks FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business', 'work')",
+  "CREATE TRIGGER crm_verticals_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_verticals FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_work_settings_live AFTER INSERT OR UPDATE ON public.app_settings FOR EACH ROW WHEN ((new.key = 'crm_work_followup'::text)) EXECUTE FUNCTION bump_crm_live_domain('work')",
+  "CREATE TRIGGER crm_work_types_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_work_types FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('work')",
+  "CREATE TRIGGER email_outbox_live_version AFTER INSERT OR DELETE OR UPDATE ON public.email_outbox FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER lead_journal_live_version AFTER INSERT OR DELETE OR UPDATE ON public.lead_journal FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('journal')",
+  "CREATE TRIGGER lead_notes_live_version AFTER INSERT OR DELETE OR UPDATE ON public.lead_notes FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER leads_live_version AFTER INSERT OR DELETE OR UPDATE ON public.leads FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER message_templates_live_version AFTER INSERT OR DELETE OR UPDATE ON public.message_templates FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT ON public.crm_document_links FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_contact_restrictions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_document_categories FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_document_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_documents FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_messages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER users_live_version AFTER INSERT OR DELETE OR UPDATE ON public.users FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')"
+];
+async function liveVersions(){const r=await liveVersion(new Request('http://localhost/_api/live_version',{headers:{cookie:user.cookie}}));assert.equal(r.status,200);const value=superjson.parse<LiveVersion>(await r.text());assert(value.domains,'Live version must report domains');return {version:value.version,...value.domains};}
 try{
  assert.equal((await get(new Request('http://localhost/_api/work'))).status,401);
+ const legacyTriggers=await sql<{name:string}>`SELECT t.tgname AS name FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE NOT t.tgisinternal AND p.proname='bump_crm_live_version'`.execute(db);
+ assert.deepEqual(legacyTriggers.rows,[],'Every live trigger must bump a domain');
+ // Migration 026 must keep each trigger's events, level and WHEN exactly as migrations 001-022 defined them.
+ const domainTriggers=await sql<{def:string}>`SELECT pg_get_triggerdef(t.oid) AS def FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE NOT t.tgisinternal AND p.proname='bump_crm_live_domain'`.execute(db);
+ assert.deepEqual(domainTriggers.rows.map(row=>row.def).sort(),[...EXPECTED_LIVE_TRIGGERS].sort(),'Live trigger definitions drifted');
+ assert.deepEqual(Object.keys(await liveVersions()).sort(),['business','catalog','communication','journal','version','work']);
  const importName='Import without tasks '+suffix;
  const previewResponse=await importLeads(request({action:'import_preview',rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}],source:'Work test'},admin.cookie));
  assert.equal(previewResponse.status,200);
@@ -44,7 +93,20 @@ try{
  const own=await db.insertInto('crmContacts').values({accountId:a.id,name:'Ana'}).returning('id').executeTakeFirstOrThrow();
  const foreign=await db.insertInto('crmContacts').values({accountId:b.id,name:'No corresponde'}).returning('id').executeTakeFirstOrThrow();
  const base={action:'task_save',accountId:a.id,leadId:l.id,title:'Llamar',typeId:'call',dueDate:'2026-10-01',contactIds:[own.id],participants:'Propietaria'};
+ const liveBeforeTask=await liveVersions();
  const unassigned=await mutate({...base,title:'Sin responsable',leadId:null,assignedUserEmail:null},admin.cookie);
+ const liveAfterTask=await liveVersions();
+ assert.notEqual(liveAfterTask.work,liveBeforeTask.work,'Task writes bump the work domain');
+ assert.notEqual(liveAfterTask.business,liveBeforeTask.business,'Task writes bump the business domain');
+ assert.notEqual(liveAfterTask.version,liveBeforeTask.version,'Task writes keep bumping the legacy version');
+ assert.equal(liveAfterTask.communication,liveBeforeTask.communication,'Task writes do not bump communication');
+ assert.equal(liveAfterTask.catalog,liveBeforeTask.catalog,'Task writes do not bump catalog');
+ await db.updateTable('messageTemplates').set({updatedAt:new Date()}).where('id','=','0').execute();
+ const liveAfterTemplate=await liveVersions();
+ assert.notEqual(liveAfterTemplate.communication,liveAfterTask.communication,'Template writes bump communication');
+ assert.notEqual(liveAfterTemplate.version,liveAfterTask.version,'Template writes keep bumping the legacy version');
+ assert.equal(liveAfterTemplate.business,liveAfterTask.business,'Template writes do not bump business');
+ assert.equal(liveAfterTemplate.work,liveAfterTask.work,'Template writes do not bump work');
  await mutate({...base,id:unassigned,title:'Sin responsable editada',leadId:null},admin.cookie);
  assert.equal((await db.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',unassigned).executeTakeFirstOrThrow()).assignedUserEmail,null);
  await mutate({action:'task_delete',id:unassigned},admin.cookie);

@@ -20,7 +20,7 @@ import {InlineBusinessStatus} from '../components/InlineBusinessStatus';
 import {businessStatusLabels} from '../helpers/businessStatus';
 import {managementTypes,managementStageCatalog,managementLabel} from '../helpers/businessManagement';
 import {ValueBadge,type BadgeCategory} from '../components/ValueBadge';
-import {ArrowUp,ArrowDown,ArrowUpDown,Search,SlidersHorizontal,Table2,LayoutGrid,Maximize2,Minimize2,Plus,X} from 'lucide-react';
+import {ArrowUp,ArrowDown,ArrowUpDown,Search,SlidersHorizontal,Table2,LayoutGrid,Maximize2,Minimize2,Plus,RefreshCw,X} from 'lucide-react';
 import {CommercialEditor} from '../components/CommercialEditor';
 import {DataImportDialog} from '../components/DataImportDialog';
 import {FilterBuilderDialog,FilterLegend,type FilterFieldDefinition} from '../components/FilterBuilderDialog';
@@ -30,7 +30,7 @@ import {BusinessListOptions} from '../components/BusinessListOptions';
 import {getLeads,type OutputType} from '../endpoints/leads_GET.schema';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import {getBusinessListDefaults} from '../endpoints/business_list_defaults.schema';
-import {useLiveModeRefreshing} from '../helpers/liveMode';
+import {LIVE_MANUAL_WHEN_PAGED,useLiveModeRefreshing,useLivePendingRefresh} from '../helpers/liveMode';
 import {useAuth} from '../helpers/useAuth';
 import {formatDate} from '../helpers/crmDates';
 import {useDebounce} from '../helpers/useDebounce';
@@ -66,11 +66,13 @@ function BusinessList({userId,userEmail,admin,defaults}:{userId:number;userEmail
  const request={...prefs.legacyFilters,entity:'business' as const,q:query,filterGroups:prefs.filters,sortBy:prefs.sortBy,sortDir:prefs.sortDir,pageSize:prefs.pageSize};
  const resultKey=['leads','business-list',userId,request,prefs.loadMode,prefs.loadMode==='pages'?page:0];
  const requestSignature=JSON.stringify(resultKey);const settledRequest=useRef(requestSignature);
- const results=useInfiniteQuery({queryKey:resultKey,initialPageParam:prefs.loadMode==='pages'?page:1,queryFn:({pageParam})=>getLeads({...request,page:pageParam,anchorAccountId:prefs.loadMode==='pages'||pageParam===1?restore.current?.anchorId:undefined,alignAnchorPage:prefs.loadMode==='pages'&&!!restore.current?.anchorId}),getNextPageParam:(last)=>last.page*last.pageSize<last.total?last.page+1:undefined});
+ const results=useInfiniteQuery({queryKey:resultKey,initialPageParam:prefs.loadMode==='pages'?page:1,queryFn:({pageParam})=>getLeads({...request,page:pageParam,anchorAccountId:prefs.loadMode==='pages'||pageParam===1?restore.current?.anchorId:undefined,alignAnchorPage:prefs.loadMode==='pages'&&!!restore.current?.anchorId}),getNextPageParam:(last)=>last.page*last.pageSize<last.total?last.page+1:undefined,meta:LIVE_MANUAL_WHEN_PAGED});
+ const livePending=useLivePendingRefresh(resultKey);const [liveRefreshing,setLiveRefreshing]=useState(false);const liveRefreshLock=useRef(false);
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
  const rows=results.data?.pages.flatMap(p=>p.rows)??[],total=results.data?.pages[0]?.total??0;
  useEffect(()=>{if(!results.isFetching)settledRequest.current=requestSignature;},[requestSignature,results.isFetching]);
- const busy=results.isPending||query!==prefs.query||((manualRefreshing||retryLoading||settledRequest.current!==requestSignature)&&results.isFetching&&!results.isFetchingNextPage);
+ const busy=results.isPending||query!==prefs.query||((manualRefreshing||retryLoading||liveRefreshing||settledRequest.current!==requestSignature)&&results.isFetching&&!results.isFetchingNextPage);
+ const refreshLiveChanges=async()=>{if(liveRefreshLock.current)return;liveRefreshLock.current=true;setLiveRefreshing(true);livePending.clear();try{await results.refetch();}finally{liveRefreshLock.current=false;setLiveRefreshing(false);}};
  const retryResults=async()=>{if(retryLock.current)return;retryLock.current=true;setRetryLoading(true);try{if(results.isFetchNextPageError)await results.fetchNextPage();else await results.refetch();}finally{retryLock.current=false;setRetryLoading(false);}};
  const capture=()=>{const {prefs,page,fullscreen}=state.current;if(fullscreen){const ok=savePersonalPreferences(userId,prefs,{...lastContext.current,page,anchorId:lastAnchor.current??lastContext.current.anchorId,scrollX:scroll.current?.scrollLeft??horizontalPosition.current});setStorageError(!ok);return ok;}const anchors=Array.from(document.querySelectorAll<HTMLElement>('[data-business-id]'));const anchor=anchors.find(e=>e.getBoundingClientRect().bottom>0);if(!anchors.length){const ok=savePersonalPreferences(userId,prefs,{...lastContext.current,page});setStorageError(!ok);return ok;}const context={page,scrollY:window.scrollY,scrollX:scroll.current?.scrollLeft??0,anchorId:lastAnchor.current??anchor?.dataset.businessId,anchorOffset:lastAnchor.current?document.querySelector<HTMLElement>(`[data-business-id="${lastAnchor.current}"]`)?.getBoundingClientRect().top:anchor?.getBoundingClientRect().top};lastContext.current=context;const ok=savePersonalPreferences(userId,prefs,context);setStorageError(!ok);return ok;};
  useEffect(()=>{const resize=()=>setViewport(window.innerWidth);window.addEventListener('resize',resize);window.addEventListener('pagehide',capture);let frame=0;const onScroll=()=>{if(!restore.current&&!frame)frame=requestAnimationFrame(()=>{frame=0;capture();});};window.addEventListener('scroll',onScroll,{passive:true});return()=>{cancelAnimationFrame(frame);window.removeEventListener('scroll',onScroll);capture();window.removeEventListener('resize',resize);window.removeEventListener('pagehide',capture);};},[userId]);
@@ -126,6 +128,7 @@ function BusinessList({userId,userEmail,admin,defaults}:{userId:number;userEmail
  {fullscreen&&<DialogTitle className={styles.screenReaderOnly}>Resultados de negocios en pantalla completa</DialogTitle>}
  <div ref={resultsBar} className={styles.resultsBar}>
  <p role="status" aria-live="polite" className={styles.status}>{busy?'Cargando negocios…':`${results.isFetchingNextPage?'Cargando más negocios… · ':''}${rows.length} de ${total} negocios cargados`}{!busy&&prefs.loadMode==='continuous'&&!results.hasNextPage&&' · No hay más resultados'}</p>
+ {livePending.pending&&!busy&&<Button size="sm" variant="secondary" className={styles.liveChanges} title="Hay cambios nuevos en los negocios de este listado. Actualizá para verlos." onClick={()=>void refreshLiveChanges()}><RefreshCw size={14} aria-hidden="true"/>Hay cambios · Actualizar</Button>}
  <div className={styles.controlRow}>
    <div className={styles.presentation} role="group" aria-label="Presentación del listado"><Button size="sm" variant="ghost" aria-pressed={prefs.presentation==='table'} onClick={()=>change({...prefs,presentation:'table'})}><Table2 size={16} aria-hidden="true"/>Tabla</Button><Button size="sm" variant="ghost" aria-pressed={prefs.presentation==='grid'} onClick={()=>change({...prefs,presentation:'grid'})}><LayoutGrid size={16} aria-hidden="true"/>Grilla</Button></div>
    <BusinessListOptions value={prefs} onChange={v=>change(v)}/>
