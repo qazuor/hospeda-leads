@@ -30,7 +30,7 @@ export type CommercialMutation=z.infer<typeof commercialMutation>;
 export type Contact=Selectable<CrmContacts>;
 export type Account=Selectable<CrmAccounts>&{status:BusinessStatus|null;recontactAt:Date|string|null;isClient:boolean;referredToLeandro:boolean};
 export type Opportunity=Selectable<Leads>&{managementType:ManagementType|null;referredPreviousStage:string|null};
-export type CommercialDetail={account:Account;contacts:Contact[];opportunities:Opportunity[];journal:Selectable<CrmCommercialJournal>[];leadJournal:Selectable<LeadJournal>[];managementJournal?:{id:string;leadId:string;action:string;actorEmail:string|null;actorName:string;oldStage:string|null;newStage:string|null;comment:string|null;metadata:unknown;createdAt:Date|string}[];stages:string[];users?:{email:string;displayName:string}[]};
+export type CommercialDetail={account:Account;contacts:Contact[];opportunities:Opportunity[];journal:Selectable<CrmCommercialJournal>[];leadJournal:Selectable<LeadJournal>[];managementJournal?:{id:string;leadId:string;action:string;actorEmail:string|null;actorName:string;oldStage:string|null;newStage:string|null;comment:string|null;metadata:unknown;createdAt:Date|string}[];stages:string[];users?:{email:string;displayName:string}[];/** Decision 8A: the user may correct this business's contact data (owner, admin or a seller with an open management). */canEditContactData?:boolean};
 export type CommercialList={rows:(Account&{opportunityCount:number;contactCount:number})[];total:number;page:number};
 export async function commercialRequest<T>(path:string,body?:unknown):Promise<T>{
   const options={fallback:"No se pudo completar la operación comercial"};
