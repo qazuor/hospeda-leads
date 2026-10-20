@@ -1,4 +1,5 @@
-import { QueryClient, QueryClientProvider, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryClient, QueryClientProvider, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { StrictMode } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { useLiveMode, useLiveModeRefreshing, useLivePendingRefresh, shouldDeferLiveRefetch, LiveModeProvider, LIVE_MANUAL_WHEN_PAGED } from "./liveMode";
 import { vi } from "vitest";
@@ -226,7 +227,9 @@ describe("LiveModeProvider polling", () => {
       const queryClient = useQueryClient();
       // An own edit: the write is stamped first, the response arrives 300 ms later, then the list is refetched.
       const edit = useMutation({ mutationFn: async () => { write("business"); await new Promise(resolve => setTimeout(resolve, 300)); }, onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); } });
-      return <><button onClick={() => edit.mutate()}>Edit</button><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button><button onClick={() => void refresh()}>Refresh all</button></>;
+      // A failed own edit: the statement ran but the response is an error; the list is refetched anyway.
+      const failed = useMutation({ mutationFn: async () => { write("business"); await new Promise(resolve => setTimeout(resolve, 300)); throw new Error("rejected"); }, onError: async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); } });
+      return <><button onClick={() => edit.mutate()}>Edit</button><button onClick={() => failed.mutate()}>Fail</button><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button><button onClick={() => void refresh()}>Refresh all</button></>;
     }
     async function renderList(pages: number) {
       domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
@@ -371,13 +374,44 @@ describe("LiveModeProvider polling", () => {
 
     it("keeps the flag when the list data is replaced locally with setQueryData", async () => {
       const { queryClient } = await renderList(2);
-      // The last fetch must be a full one, so only the `manual` guard keeps setQueryData from clearing the flag.
-      await act(async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(0); });
-      version = "v2";
-      domains = undefined;
-      await nextPoll();
+      await liveChange("business");
       expect(screen.getByText("pending")).toBeTruthy();
+      // A full refetch is running since after the flag, so only the `manual` guard keeps setQueryData from clearing it.
+      delay = 6000;
+      await act(async () => { void queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(100); });
       await act(async () => { queryClient.setQueryData(listKey, (data: unknown) => (data && typeof data === "object" ? { ...data } : data)); await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByText("pending")).toBeTruthy();
+    });
+
+    it("clears the flag with a refetch that starts right after the flagging poll, within the margin of the change", async () => {
+      const { fetched, queryClient } = await renderList(2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(9800); });
+      write("business");
+      await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+      expect(screen.getByText("pending")).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(100); await queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(0); });
+      expect(fetched).toEqual([1, 2]);
+      expect(screen.getByText("fresh")).toBeTruthy();
+    });
+
+    it("keeps the flag with a refetch that started just before the flagging poll", async () => {
+      const { fetched, queryClient } = await renderList(2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(9700); });
+      write("business");
+      delay = 200;
+      await act(async () => { void queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(300); });
+      expect(screen.getByText("pending")).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(fetched).toEqual([1, 2]);
+      expect(screen.getByText("pending")).toBeTruthy();
+    });
+
+    it("does not apply the own-edit exception to a rejected mutation", async () => {
+      const { fetched } = await renderList(2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      await act(async () => { screen.getByText("Fail").click(); await vi.advanceTimersByTimeAsync(1000); });
+      expect(fetched).toEqual([1, 2]);
+      await nextPoll();
       expect(screen.getByText("pending")).toBeTruthy();
     });
 
@@ -397,6 +431,52 @@ describe("LiveModeProvider polling", () => {
       expect(shouldDeferLiveRefetch(query(LIVE_MANUAL_WHEN_PAGED, 0, [1, 2]))).toBe(false);
       expect(shouldDeferLiveRefetch(query(undefined, 1, [1, 2]))).toBe(false);
       expect(shouldDeferLiveRefetch(query(LIVE_MANUAL_WHEN_PAGED, 1, undefined))).toBe(false);
+    });
+  });
+
+  describe("mutation cache onSuccess wrap", () => {
+    function Mutate() {
+      const mutation = useMutation({ mutationFn: async (value: number) => value * 2 });
+      return <><button onClick={() => mutation.mutate(2)}>Mutate</button><span>{mutation.status}</span></>;
+    }
+    function clientWith(spy: ReturnType<typeof vi.fn>) {
+      return new QueryClient({ mutationCache: new MutationCache({ onSuccess: spy }), defaultOptions: { queries: { retry: false } } });
+    }
+
+    it("calls the original handler once with its arguments and awaits its promise", async () => {
+      const spy = vi.fn(() => new Promise<void>(resolve => setTimeout(resolve, 1000)));
+      renderWithProvider(<Mutate />, clientWith(spy));
+      await act(async () => {});
+      await act(async () => { screen.getByText("Mutate").click(); await vi.advanceTimersByTimeAsync(500); });
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0]?.slice(0, 2)).toEqual([4, 2]);
+      expect(screen.getByText("pending")).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+      expect(screen.getByText("success")).toBeTruthy();
+    });
+
+    it("restores the original handler on unmount, also under StrictMode", async () => {
+      const spy = vi.fn();
+      const queryClient = clientWith(spy);
+      const { unmount } = renderWithProvider(<span>consumer</span>, queryClient);
+      expect(queryClient.getMutationCache().config.onSuccess).not.toBe(spy);
+      unmount();
+      expect(queryClient.getMutationCache().config.onSuccess).toBe(spy);
+      const strict = render(<StrictMode><QueryClientProvider client={queryClient}><LiveModeProvider><span>strict</span></LiveModeProvider></QueryClientProvider></StrictMode>);
+      expect(queryClient.getMutationCache().config.onSuccess).not.toBe(spy);
+      strict.unmount();
+      expect(queryClient.getMutationCache().config.onSuccess).toBe(spy);
+    });
+
+    it("restores the original handler when providers unmount out of order", async () => {
+      const spy = vi.fn();
+      const queryClient = clientWith(spy);
+      const first = renderWithProvider(<span>first</span>, queryClient);
+      const second = renderWithProvider(<span>second</span>, queryClient);
+      first.unmount();
+      expect(queryClient.getMutationCache().config.onSuccess).not.toBe(spy);
+      second.unmount();
+      expect(queryClient.getMutationCache().config.onSuccess).toBe(spy);
     });
   });
 });
