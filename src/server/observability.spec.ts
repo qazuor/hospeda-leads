@@ -42,6 +42,24 @@ describe("onError + requestContext", () => {
     expect(JSON.stringify(lines[0])).not.toContain("a@b.com");
   });
 
+  it("does not log user input embedded in Postgres error messages", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const app = buildApp();
+    app.get("/_api/pg", () => {
+      throw Object.assign(new Error('invalid input syntax for type uuid: "x@y.com"'), { code: "22P02", severity: "ERROR", table_name: "leads", column_name: "id" });
+    });
+    app.get("/_api/long", () => {
+      throw new Error("z".repeat(500));
+    });
+    await app.request("/_api/pg");
+    await app.request("/_api/long");
+    const [pg, long] = logged(errorSpy);
+    expect(JSON.stringify(pg)).not.toContain("x@y.com");
+    expect(pg).toMatchObject({ code: "22P02", table_name: "leads", column_name: "id" });
+    expect(pg.stack).toContain("at ");
+    expect((long.message as string).length).toBe(200);
+  });
+
   it("keeps non-API errors generic and ignores a client-supplied request id", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const app = buildApp();
