@@ -15,8 +15,7 @@ test('Slow navigation keeps the loading notice aligned with page content', async
     await gate;
     await route.continue();
   });
-  await page.getByRole('button', {name: 'Más opciones'}).click();
-  await page.getByRole('menuitem', {name: 'Guía de uso paso a paso'}).click();
+  await page.getByRole('link', {name: 'Ayuda', exact: true}).click();
   const loading = page.locator('[data-route-loading]');
   await expect(loading).toBeVisible();
   await expect(loading.locator('div')).toHaveCSS('position', 'static');

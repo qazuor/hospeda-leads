@@ -40,7 +40,7 @@ try{const admin=await actor('admin'),seller=await actor('user');const defaults={
  await personal(seller,{action:'update',id:historical.id,name:historical.name,view:{name:'Histórica renombrada',config:oldConfig}});assert.equal((await personal(seller)).views[0].id,historical.id);
  console.log('Personal views: authenticated ownership, atomic concurrent saves, rename, configuration replacement, duplicates and delete passed');
  await call(admin,{...defaults,initialPresetId:'colon'});assert.equal((await call(seller)).defaults.initialPresetId,'colon');const owner=await db.selectFrom('users').select('email').where('id','=',ids[0]).executeTakeFirstOrThrow();
- const prefix='Anchor fixture '+Date.now();
+ const prefix='Anchor fixture '+String(Date.now()).replace(/[0-9]/g,(digit)=>'abcdefghij'[Number(digit)]);
  for(let i=0;i<25;i++){const a=await db.insertInto('crmAccounts').values({nombre:prefix+' '+String(i).padStart(2,'0'),assignedUserEmail:owner.email}).returning('id').executeTakeFirstOrThrow();accountIds.push(a.id);}
  await db.updateTable('crmAccounts').set({nombre:prefix+' zz'}).where('id','=',accountIds[0]).execute();
  async function listing(extra:Record<string,string>={}){const query=new URLSearchParams({entity:'business',q:prefix,page:'1',pageSize:'10',sortBy:'nombre',sortDir:'asc',anchorAccountId:accountIds[0],...extra});const response=await listBusinesses(new Request('http://localhost/_api/leads?'+query,{headers:{cookie:seller}}));assert.equal(response.status,200,await response.clone().text());return superjson.parse<any>(await response.text());}

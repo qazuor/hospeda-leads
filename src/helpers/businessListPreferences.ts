@@ -38,7 +38,11 @@ const TABLE_COLUMNS=[
   {key:"createdAt",label:"Creado en sistema"},
   {key:"updatedAt",label:"Actualizado"}
 ];
-const DEFAULT_WIDTHS:Record<string,number>={actions:150,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180,fechaUltimoContacto:170,reviewStatus:140};
+/** The actions column holds two text buttons and a menu, so it never shrinks below this. */
+export const ACTIONS_MIN_WIDTH=220;
+/** Rendered width of a column: stored width (or 160) with the actions column clamped to its minimum. */
+export const columnWidthFor=(widths:Record<string,number>,key:string)=>Math.max(key==='actions'?ACTIONS_MIN_WIDTH:100,widths[key]??160);
+const DEFAULT_WIDTHS:Record<string,number>={actions:ACTIONS_MIN_WIDTH,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180,fechaUltimoContacto:170,reviewStatus:140};
 export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
 const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 export const BUSINESS_COLUMNS=[...BUSINESS_DATA_COLUMNS,{key:'actions',label:'Acciones'}];
@@ -59,7 +63,7 @@ const untouchedReviewColumn=(p:ListPreferences)=>!p.pins.reviewStatus&&(p.widths
 export function availableListPreferences(preferences:ListPreferences):ListPreferences{
  // Layout v4 (idempotent, deterministic): drops the old default "Revisados" column only when untouched, adds "Último contacto" once, keeps every personal width, pin, filter and order.
  const layout=preferences.columnLayoutVersion===4?preferences:{...preferences,columnLayoutVersion:4 as const,columns:[...preferences.columns.filter(key=>key!=='actions'&&!(key==='reviewStatus'&&untouchedReviewColumn(preferences))),...(preferences.columns.includes('fechaUltimoContacto')?[]:['fechaUltimoContacto']),'actions'],widths:{...preferences.widths,fechaUltimoContacto:preferences.widths.fechaUltimoContacto??DEFAULT_WIDTHS.fechaUltimoContacto,actions:150},pins:{...preferences.pins,actions:'right' as const}};
- layout.widths={...layout.widths,actions:Math.max(150,layout.widths.actions??DEFAULT_WIDTHS.actions)};
+ layout.widths={...layout.widths,actions:Math.max(ACTIONS_MIN_WIDTH,layout.widths.actions??DEFAULT_WIDTHS.actions)};
  return normalizePinnedColumnOrder({...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50});
 }
 export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','businessStatus','ciudad','telefono','fechaUltimoContacto','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS,businessStatus:190},pins:{actions:'right'},columnLayoutVersion:4,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
@@ -82,7 +86,7 @@ export function normalizePinnedColumnOrder(prefs:ListPreferences):ListPreference
  return columns.every((key,index)=>key===prefs.columns[index])?prefs:{...prefs,columns};
 }
 // The selection checkbox occupies the first 44px; every requested pin stays fixed on desktop.
-export function effectivePins(prefs:ListPreferences,viewportWidth:number){const pins:Record<string,{side:'left'|'right';offset:number}>={};if(viewportWidth<768)return pins;const normalized=normalizePinnedColumnOrder(prefs);const offsets={left:44,right:0};for(const side of ['left','right'] as const){for(const key of side==='right'?[...normalized.columns].reverse():normalized.columns){if(normalized.pins[key]!==side)continue;const width=normalized.widths[key]??160;pins[key]={side,offset:offsets[side]};offsets[side]+=width;}}return pins;}
+export function effectivePins(prefs:ListPreferences,viewportWidth:number){const pins:Record<string,{side:'left'|'right';offset:number}>={};if(viewportWidth<768)return pins;const normalized=normalizePinnedColumnOrder(prefs);const offsets={left:44,right:0};for(const side of ['left','right'] as const){for(const key of side==='right'?[...normalized.columns].reverse():normalized.columns){if(normalized.pins[key]!==side)continue;const width=columnWidthFor(normalized.widths,key);pins[key]={side,offset:offsets[side]};offsets[side]+=width;}}return pins;}
 
 export function preferencesFromSavedView(current:ListPreferences,config:Record<string,unknown>):ListPreferences|null{
  const modern=listPreferencesSchema.safeParse(config.preferences);if(modern.success)return availableListPreferences(modern.data);

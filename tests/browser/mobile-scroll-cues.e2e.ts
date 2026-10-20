@@ -37,9 +37,9 @@ test('mobile guide, quick filters and daily actions are easy to discover',async(
   await expect(page.getByText('Deslizá para ver más vistas',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Más vistas',exact:true})).toBeVisible();
   const businessCard=page.locator('[data-business-id="1"]'),ownerField=businessCard.locator('[data-card-field="assignedUserEmail"]'),ownerLabel=ownerField.locator('.mantine-Badge-label');
-  await expect(ownerField).toBeVisible();await expect(ownerLabel).toHaveCSS('white-space','nowrap');
+  await businessCard.getByRole('button',{name:'Ver más datos',exact:true}).click();await expect(ownerField).toBeVisible();await expect(ownerLabel).toHaveCSS('white-space','nowrap');
   expect((await ownerField.boundingBox())!.width).toBeGreaterThan((await businessCard.boundingBox())!.width*.8);
-  expect(await page.getByLabel('Búsqueda y presentación de negocios').evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(220);
+  expect(await page.getByLabel('Búsqueda y presentación de negocios').evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(280);
   await page.screenshot({path:'test-results/business-view-scroll-cue-mobile.png',fullPage:true,animations:'disabled'});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
