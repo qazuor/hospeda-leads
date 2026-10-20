@@ -36,14 +36,16 @@ describe('BusinessRowActions', () => {
     renderActions({ admin: true, canModify: true });
     openMenu();
     const items = await screen.findAllByRole('menuitem');
-    expect(items.map(item => item.textContent)).toEqual(['Archivar negocio', 'Enviar a Papelera…']);
+    expect(items.map(item => item.textContent)).toEqual(['Archivar negocio…', 'Enviar a Papelera…']);
     expect(document.querySelector('.mantine-Menu-divider')).toBeTruthy();
   });
-  it('disables Contactar and Papelera when the user cannot modify the business', async () => {
+  it('disables Contactar and the whole menu when the user cannot modify the business', () => {
     renderActions({ admin: false, canModify: false });
     expect((screen.getByRole('button', { name: 'Contactar' }) as HTMLButtonElement).disabled).toBe(true);
-    openMenu();
-    const trash = await screen.findByRole('menuitem', { name: /Enviar a Papelera/ });
-    expect(trash.hasAttribute('disabled') || trash.hasAttribute('data-disabled')).toBe(true);
+    expect((screen.getByRole('button', { name: 'Más acciones de Hotel Río' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it('keeps the menu enabled for admins who cannot modify (Archivar is still available)', () => {
+    renderActions({ admin: true, canModify: false });
+    expect((screen.getByRole('button', { name: 'Más acciones de Hotel Río' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

@@ -15,7 +15,7 @@ const metadata=new Set(['assignedUserEmail','ciudad','tipo','subtipo','commercia
 const contactFields=new Set(['telefono','email','sitioWeb','urlGmap','perfilInstagram','perfilFacebook','perfilAirbnb','perfilBooking','perfilTurismoEntreRios']);
 const icons:Record<string,typeof Tag>={assignedUserEmail:UserRound,ciudad:MapPin,tipo:Tag,subtipo:Tag,commercialProfile:Tag,medioContactoPreferido:Phone,telefono:Phone,email:AtSign,urlGmap:MapPin,fechaProximaAccion:ArrowRight,fechaCreacion:CalendarDays,fechaUltimoContacto:CalendarDays,createdAt:CalendarDays,updatedAt:CalendarDays};
 /** Fields a seller needs at a glance on a phone; the rest sit behind "Ver más datos". */
-const primary=new Set(['ciudad','businessStatus','estado','fechaProximaAccion']);
+const primary=new Set(['ciudad','businessStatus','estado','fechaProximaAccion','telefono','whatsapp']);
 /** "1 gestión · 1 persona · Cliente"; `always` keeps zero counts (table cell), otherwise zero parts are omitted (card). */
 export function businessCountsSummary(row:{opportunityCount?:number|null;contactCount?:number|null;commercialStatus?:string|null},always=false):string{
  return [always||row.opportunityCount?plural(row.opportunityCount??0,'gestión','gestiones'):null,always||row.contactCount?plural(row.contactCount??0,'persona','personas'):null,row.commercialStatus==='client'?'Cliente':'Potencial cliente'].filter(Boolean).join(' · ');

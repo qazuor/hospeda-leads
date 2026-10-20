@@ -34,7 +34,7 @@ import {LIVE_MANUAL_WHEN_PAGED,useLiveModeRefreshing,useLivePendingRefresh} from
 import {useAuth} from '../helpers/useAuth';
 import {formatDate,formatDay} from '../helpers/crmDates';
 import {useDebounce} from '../helpers/useDebounce';
-import {BUSINESS_PAGINATION_CONTROLS_ENABLED,BUSINESS_RESULTS_CONTROL_ENABLED,availableListPreferences,BUSINESS_COLUMNS,BUSINESS_FILTER_COLUMNS,legacyFilterLabels,effectivePins,initialPreferences,readPersonalPreferences,savePersonalPreferences,type ListPreferences,type ListContext} from '../helpers/businessListPreferences';
+import {ACTIONS_MIN_WIDTH,columnWidthFor,BUSINESS_PAGINATION_CONTROLS_ENABLED,BUSINESS_RESULTS_CONTROL_ENABLED,availableListPreferences,BUSINESS_COLUMNS,BUSINESS_FILTER_COLUMNS,legacyFilterLabels,effectivePins,initialPreferences,readPersonalPreferences,savePersonalPreferences,type ListPreferences,type ListContext} from '../helpers/businessListPreferences';
 import {toast} from 'sonner';
 import {refreshDateViewSelection,readSellerDefaultMarker,sellerDefaultSelection,useBusinessViewSelection,writeSellerDefaultMarker} from '../helpers/useBusinessViewSelection';
 import {useCallbackRef} from '../helpers/useCallbackRef';
@@ -65,7 +65,7 @@ function BusinessList({userId,userEmail,admin,defaults}:{userId:number;userEmail
  const attachTable=React.useCallback((node:HTMLDivElement|null)=>{tableObserver.current?.disconnect();scroll.current=node;if(!node)return;setTableEpoch(v=>v+1);const position=horizontalPosition.current;node.scrollLeft=position;requestAnimationFrame(()=>{if(scroll.current===node)node.scrollLeft=position;});tableObserver.current=new ResizeObserver(()=>setContainerWidth(node.clientWidth));tableObserver.current.observe(node);},[]);
  const state=useRef({prefs,page,fullscreen});state.current={prefs,page,fullscreen};
  const resizing=useRef<{key:string;startX:number;width:number;pointerId:number}|null>(null);
- const minWidth=(key:string)=>key==='actions'?ACTIONS_MIN_WIDTH:100,columnWidth=(key:string)=>Math.max(minWidth(key),prefs.widths[key]??160);
+ const minWidth=(key:string)=>key==='actions'?ACTIONS_MIN_WIDTH:100,columnWidth=(key:string)=>columnWidthFor(prefs.widths,key);
  const resizeColumn=(key:string,width:number)=>setPrefs(previous=>({...previous,widths:{...previous.widths,[key]:Math.max(minWidth(key),Math.min(600,Math.round(width)))}}));
 
  const query=useDebounce(prefs.query,300);
@@ -163,7 +163,6 @@ const badgeCategories:Record<string,BadgeCategory>={tipo:'vertical',subtipo:'sub
 const pinnedStyleFor=(pins:Pins,key:string):React.CSSProperties=>key==='selection'?{left:0}:pins[key]?{[pins[key].side]:pins[key].offset}:{};
 const columnClassFor=(pins:Pins,key:string)=>[pins[key]||key==='selection'?styles.pinned:'',pins[key]?.side==='right'?styles.pinnedRight:'',key==='selection'?styles.selectionPinned:''].filter(Boolean).join(' ');
 function showInlineCell(row:Row,key:string,admin:boolean){return key==='businessStatus'?true:isInlineBadgeField(key)&&(inlineBadgeFields[key].scope==='management'?(row.opportunityCount===0?row.canModify!==false:row.canModifyManagement!==false):key==='assignedUserEmail'?admin:row.canModify!==false);}
-const ACTIONS_MIN_WIDTH=220;
 const DATE_ONLY_KEYS=['fechaCreacion','fechaUltimoContacto','fechaProximaAccion'];
 export const dateCell=(key:string,v:unknown)=>DATE_ONLY_KEYS.includes(key)?formatDate(v):formatDay(v);
 export const joinedValues=(key:string,values:unknown[])=>(DATE_ONLY_KEYS.includes(key)?values.map(v=>formatDate(v)):values).join(' · ');
