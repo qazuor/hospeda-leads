@@ -23,7 +23,7 @@ describe('badgeTone',()=>{
   expect(badgeTone('status','Valor desconocido')).toBe('neutral');
  });
  it('uses different hues for closed-won and closed-lost',()=>{
-  expect(valueBadgeColors('status','Cerrada ganada').color).not.toBe(valueBadgeColors('status','Cerrada perdida').color);
+  expect(valueBadgeColors('status','Cerrada ganada')['--badge-h' as never]).not.toBe(valueBadgeColors('status','Cerrada perdida')['--badge-h' as never]);
  });
  it('treats prototype property names as plain unknown values',()=>{
   for(const value of ['constructor','__proto__','toString','hasOwnProperty'])for(const category of ['status','city','generic'] as const){

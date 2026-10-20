@@ -45,12 +45,14 @@ const stageTones=new Map<string,BadgeTone>(managementTypes.flatMap(type=>managem
 export const badgeTone=(category:Category,value:string):BadgeTone=>category==="status"?businessStatusTones.get(value)??stageTones.get(value)??"neutral":"neutral";
 
 export const valueBadgeColors=(category:Category,value:string)=>{
-  const [h,s]=legacy.get(category+":"+value)??tones[badgeTone(category,value)]??tones.neutral;
-  const tint=`hsl(${h} ${Math.max(45,s)}% 52%)`;
+  const [h,sat]=legacy.get(category+":"+value)??tones[badgeTone(category,value)]??tones.neutral;
+  const tint=`hsl(${h} ${Math.max(45,sat)}% 52%)`;
+  // Text colour comes from the .badge class (plain fallback, then light-dark) using these hue variables.
   return {
     backgroundColor:`color-mix(in srgb, ${tint} 15%, var(--card))`,
-    color:`light-dark(hsl(${h} ${Math.min(85,s+10)}% 24%), hsl(${h} ${Math.min(85,s+10)}% 82%))`,
     borderColor:`color-mix(in srgb, ${tint} 34%, var(--border))`,
+    "--badge-h":String(h),
+    "--badge-s":`${Math.min(85,sat+10)}%`,
   } as React.CSSProperties;
 };
 
