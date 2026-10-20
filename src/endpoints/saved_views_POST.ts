@@ -5,6 +5,7 @@ import { schema, type OutputType } from "./saved_views_POST.schema";
 import type { SavedLeadView } from "./saved_views_GET.schema";
 import {randomUUID} from 'node:crypto';
 import {identifySavedViews} from '../helpers/savedViewIdentity';
+import {errorResponse} from '../helpers/errorResponse';
 
 export async function handle(request:Request){
   try{
@@ -35,6 +36,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true,view:result} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo guardar la vista"}),{status:400});
+    return errorResponse(error);
   }
 }

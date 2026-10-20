@@ -2,13 +2,13 @@ import {CrmForbidden,assertBusinessAccess,canModifyBusiness} from '../helpers/cr
 import superjson from 'superjson';
 import {db} from '../helpers/db';
 import {getServerUserSession} from '../helpers/getServerUserSession';
-import {NotAuthenticatedError} from '../helpers/getSetServerSession';
+import {NotAuthenticatedError} from '../helpers/getSetServerSession';import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {qualityMutation} from './dataQuality.schema';
 import {mutateQuality,QualityForbidden,QualityConflict,qualityConfig} from '../helpers/dataQualityService';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {businessFields,normalizeField,dataFieldLabels} from '../helpers/dataNormalization';
 const reply=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:e instanceof Error?e.message:'Error de calidad de datos'},e instanceof NotAuthenticatedError?401:e instanceof QualityForbidden||e instanceof CrmForbidden?403:e instanceof QualityConflict?409:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof QualityForbidden||e instanceof CrmForbidden?403:e instanceof QualityConflict?409:fallbackStatus(e));
 export async function post(request:Request){try{const {user}=await getServerUserSession(request);return reply(await mutateQuality(db,qualityMutation.parse(superjson.parse(await request.text())),user));}catch(e){return fail(e);}}
 export async function get(request:Request){try{
  const {user}=await getServerUserSession(request);const config=await qualityConfig(db),id=new URL(request.url).searchParams.get('accountId');

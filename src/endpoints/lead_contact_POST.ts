@@ -1,6 +1,5 @@
 import {CrmForbidden} from '../helpers/crmPermissions';
 import {sql} from 'kysely';
-import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {leadFor,CommunicationForbidden} from '../helpers/communicationService';
 import {setWorkActor} from "../helpers/workAudit";
 import { resolveCommercialContact } from "../helpers/commercialContact";
@@ -9,6 +8,7 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./lead_contact_POST.schema";
+import {errorResponse} from '../helpers/errorResponse';
 
 export async function handle(request:Request){
   try{
@@ -42,6 +42,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo registrar el contacto"}),{status:error instanceof CommunicationForbidden||error instanceof CrmForbidden?403:error instanceof NotAuthenticatedError?401:400});
+    return errorResponse(error,error instanceof CommunicationForbidden||error instanceof CrmForbidden?403:400);
   }
 }

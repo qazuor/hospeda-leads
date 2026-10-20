@@ -2,32 +2,6 @@
 import {afterAll,beforeAll,describe,expect,it} from 'vitest';
 import type {Hono} from 'hono';
 
-// Routes that currently answer something other than 401 without a cookie. These legacy handlers map every error, including 'Not authenticated', to 400. TODO(E-02): return 401 and remove the entries.
-const KNOWN_EXCEPTIONS:Record<string,number>={
-'GET /_api/analytics':400,
-'GET /_api/lead_journal':400,
-'GET /_api/saved_views':400,
-'POST /_api/saved_views':400,
-'GET /_api/profile':400,
-'POST /_api/profile':400,
-'GET /_api/lead_notes':400,
-'POST /_api/lead_notes':400,
-'POST /_api/leads_delete':400,
-'POST /_api/leads_bulk':400,
-'POST /_api/leads_bulk_delete':400,
-'GET /_api/leads_duplicates':400,
-'POST /_api/leads_hard_delete':400,
-'POST /_api/leads':400,
-'POST /_api/leads_quick':400,
-'POST /_api/leads_restore':400,
-'POST /_api/leads_save':400,
-'GET /_api/leads_trash':400,
-'GET /_api/business_reassignment':400,
-'POST /_api/business_reassignment':400,
-'GET /_api/settings':400,
-'POST /_api/settings_save':400,
-};
-
 // Public by design (own credentials, API key, bearer token or webhook secret). Probed without credentials (empty body: 400 is the handler's own validation, 503 means the secret is not configured, leads_ingest 500 is the missing DB) and with the relevant token envs unset; each must answer exactly this status.
 const PUBLIC_EXPECTED:Record<string,number>={
 'GET /_api/health':200,
@@ -71,9 +45,7 @@ const key=`${r.method} ${r.path}`;
 if(key in PUBLIC_EXPECTED)continue;
 const res=await probe(r.path,r.method);
 const text=await res.text();
-// Exceptions share 400 with validation errors, so their body must still be an authentication failure, not a validation error that happens to share the status.
-const exception=key in KNOWN_EXCEPTIONS;
-if(res.status!==(KNOWN_EXCEPTIONS[key]??401)||(exception&&!/Not authenticated/i.test(text)))unexpected.push(`${key} -> ${res.status} ${text.slice(0,80)}`);
+if(res.status!==401)unexpected.push(`${key} -> ${res.status} ${text.slice(0,80)}`);
 }
 expect(unexpected).toEqual([]);
 });

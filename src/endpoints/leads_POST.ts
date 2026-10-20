@@ -5,6 +5,7 @@ import superjson from "superjson";
 import { schema, type OutputType } from "./leads_POST.schema";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {errorResponse} from '../helpers/errorResponse';
 
 // Compatibility endpoint. Legacy names may be resolved only by administrators.
 export async function handle(request:Request){
@@ -34,5 +35,5 @@ export async function handle(request:Request){
       return String(row.id);
     });
     return new Response(superjson.stringify({ok:true,id} satisfies OutputType));
-  }catch(e){return new Response(superjson.stringify({error:e instanceof Error?e.message:"Error"}),{status:e instanceof CrmForbidden?403:400})}
+  }catch(e){return errorResponse(e,e instanceof CrmForbidden?403:400)}
 }

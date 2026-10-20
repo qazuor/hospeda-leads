@@ -7,6 +7,7 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_quick_POST.schema";
 import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {errorResponse} from '../helpers/errorResponse';
 
 class InlineConflict extends Error {}
 
@@ -79,6 +80,6 @@ export async function handle(request: Request) {
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   } catch(error) {
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo actualizar"}),{status:error instanceof CrmForbidden?403:error instanceof InlineConflict?409:400});
+    return errorResponse(error,error instanceof CrmForbidden?403:error instanceof InlineConflict?409:400);
   }
 }

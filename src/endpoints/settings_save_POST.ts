@@ -7,6 +7,7 @@ import {sql} from 'kysely';
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./settings_save_POST.schema";
 import { validateMessageVariables } from "../helpers/messageVariables";
+import {errorResponse} from '../helpers/errorResponse';
 
 const INVITE_PREFIX="user_invitation:";
 const INVITE_TTL_MS=7*24*60*60*1000;
@@ -343,8 +344,6 @@ export async function handle(request:Request){
 
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({
-      error:error instanceof Error?error.message:"No se pudo guardar configuración"
-    }),{status:400});
+    return errorResponse(error);
   }
 }

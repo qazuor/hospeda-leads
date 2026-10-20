@@ -4,6 +4,7 @@ import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type Bucket, type OutputType } from "./analytics_GET.schema";
+import {errorResponse} from '../helpers/errorResponse';
 
 const top=(rows:any[],key:string,limit=12):Bucket[]=>{
   const m=new Map<string,number>();
@@ -102,6 +103,6 @@ export async function handle(request:Request){
     };
     return new Response(superjson.stringify(out),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudieron cargar estadísticas"}),{status:400});
+    return errorResponse(error);
   }
 }

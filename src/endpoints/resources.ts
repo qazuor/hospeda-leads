@@ -1,10 +1,10 @@
 import {searchSql} from '../helpers/searchSql';
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess} from '../helpers/crmPermissions';
 import {sql} from 'kysely';import superjson from 'superjson';import {z} from 'zod';
-import {db} from '../helpers/db';import {getServerUserSession} from '../helpers/getServerUserSession';import {NotAuthenticatedError} from '../helpers/getSetServerSession';
+import {db} from '../helpers/db';import {getServerUserSession} from '../helpers/getServerUserSession';import {NotAuthenticatedError} from '../helpers/getSetServerSession';import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {CommunicationForbidden,CommunicationConflict,communicationConfig} from '../helpers/communicationService';import {documentFor,mutateResource} from '../helpers/resourceService';import {resourceMutation,type ResourceDocument,type ResourceVersion,type ResourceLink} from './resources.schema';
 const response=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json'}});
-const failure=(e:unknown)=>response({error:e instanceof Error?e.message:'Error'},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:400);
+const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:fallbackStatus(e));
 export async function get(request:Request){try{
  const {user}=await getServerUserSession(request);
  const params=new URL(request.url).searchParams;

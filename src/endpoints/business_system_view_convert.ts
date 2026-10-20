@@ -2,7 +2,7 @@ import superjson from 'superjson';
 import {randomUUID} from 'node:crypto';
 import {db} from '../helpers/db';
 import {getServerUserSession} from '../helpers/getServerUserSession';
-import {NotAuthenticatedError} from '../helpers/getSetServerSession';
+import {errorResponse} from '../helpers/errorResponse';
 import {basePreferences,preferencesFromSavedView,teamDefaultsSchema,type TeamDefaults} from '../helpers/businessListPreferences';
 import {defaultSystemViews,type BusinessSystemView} from '../helpers/businessSystemViews';
 import {identifySavedViews} from '../helpers/savedViewIdentity';
@@ -45,7 +45,6 @@ export async function handle(request:Request){
   });
   return new Response(superjson.stringify({ok:true,systemView}),{headers:{'Content-Type':'application/json'}});
  }catch(error){
-  const status=error instanceof NotAuthenticatedError?401:400;
-  return new Response(superjson.stringify({error:error instanceof Error?error.message:'No se pudo convertir la vista.'}),{status});
+  return errorResponse(error);
  }
 }

@@ -7,6 +7,7 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_bulk_POST.schema";
+import {errorResponse} from '../helpers/errorResponse';
 
 const comparable=(value:unknown)=>{
   if(value===null||value===undefined)return null;
@@ -80,6 +81,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true,updated:typeof updated==="number"?updated:0,...(typeof updated!=="number"?{preview:updated}:{})} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudieron actualizar los leads"}),{status:error instanceof CrmForbidden?403:400});
+    return errorResponse(error,error instanceof CrmForbidden?403:400);
   }
 }

@@ -2,7 +2,7 @@ import superjson from 'superjson';
 import {db} from '../helpers/db';
 import {getServerUserSession} from '../helpers/getServerUserSession';
 import {teamDefaultsSchema} from '../helpers/businessListPreferences';
-import {NotAuthenticatedError} from '../helpers/getSetServerSession';
+import {errorResponse} from '../helpers/errorResponse';
 const key='business_list_team_defaults_v1';
 export async function handle(request:Request){try{
  const {user}=await getServerUserSession(request);
@@ -15,4 +15,4 @@ export async function handle(request:Request){try{
  const row=await db.selectFrom('appSettings').select('value').where('key','=',key).executeTakeFirst();
  const parsed=row?teamDefaultsSchema.safeParse(JSON.parse(row.value)):null;
  return new Response(superjson.stringify({defaults:parsed?.success?parsed.data:null}));
- }catch(error){return new Response(superjson.stringify({error:error instanceof Error?error.message:'No pude guardar los configuraciones por defecto.'}),{status:error instanceof NotAuthenticatedError?401:400});}}
+ }catch(error){return errorResponse(error);}}

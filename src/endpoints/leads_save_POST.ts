@@ -5,6 +5,7 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_save_POST.schema";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {errorResponse} from '../helpers/errorResponse';
 
 const dateOrNull = (value?: string | null) => value ? new Date(value + "T12:00:00Z") : null;
 const comparable=(value:unknown)=>{
@@ -128,6 +129,6 @@ export async function handle(request: Request) {
 
     return new Response(superjson.stringify({ id } satisfies OutputType), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
-    return new Response(superjson.stringify({ error: error instanceof Error ? error.message : "No se pudo guardar el lead" }), { status: error instanceof CrmForbidden ? 403 : 400 });
+    return errorResponse(error,error instanceof CrmForbidden ? 403 : 400);
   }
 }

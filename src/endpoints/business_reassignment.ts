@@ -3,6 +3,7 @@ import {sql} from 'kysely';
 import type {Kysely,Transaction} from 'kysely';
 import {db} from '../helpers/db';
 import {getServerUserSession} from '../helpers/getServerUserSession';
+import {errorResponse} from '../helpers/errorResponse';
 import {createBusinessReassignmentPlan,type ReassignmentAccount} from '../helpers/businessReassignment';
 import type {DB} from '../helpers/schema';
 
@@ -24,7 +25,7 @@ export async function get(request:Request){
   const plan=await loadPlan(db);
   if(!plan.users.length)throw new Error('No hay usuarios vendedores para recibir negocios.');
   return response(plan);
- }catch(error){return response({error:error instanceof Error?error.message:'No se pudo preparar la vista previa.'},400);}
+ }catch(error){return errorResponse(error);}
 }
 
 export async function post(request:Request){
@@ -52,5 +53,5 @@ export async function post(request:Request){
    return {ok:true,moved:plan.moves.length,plan};
   });
   return response(result);
- }catch(error){return response({error:error instanceof Error?error.message:'No se pudo ejecutar la redistribución.'},400);}
+ }catch(error){return errorResponse(error);}
 }

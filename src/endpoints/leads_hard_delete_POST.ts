@@ -4,6 +4,7 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_hard_delete_POST.schema";
+import {errorResponse} from '../helpers/errorResponse';
 
 export async function handle(request:Request){
   try{
@@ -23,6 +24,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo eliminar definitivamente"}),{status:400});
+    return errorResponse(error);
   }
 }
