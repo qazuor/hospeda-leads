@@ -100,6 +100,6 @@
   },
   "overrides": {
     "rollup": "4.63.5",
-    "baseline-browser-mapping": "2.9.19"
+    "baseline-browser-mapping": "2.11.30"
   }
 }
