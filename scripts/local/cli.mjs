@@ -181,6 +181,12 @@ async function readDbComment(dbName) {
   return result.code === 0 ? result.stdout.trim() || null : null;
 }
 
+async function analyzeDatabase(dbName) {
+  log(`Analyzing ${dbName} (planner statistics)`);
+  const result = await psql(dbName, "analyze");
+  if (result.code !== 0) throw new Error(`analyze failed: ${result.stderr.trim()}`);
+}
+
 async function setDbComment(dbName, comment) {
   if (!isOwnedDatabase({ dbName })) throw new Error(`Refusing to comment database "${dbName}"`);
   const result = await psql("postgres", `comment on database ${dbName} is ${sqlLiteral(comment)}`);
@@ -235,6 +241,7 @@ async function restoreDump({ dumpPath, fresh }) {
     if (copied.code !== 0) throw new Error(`docker cp failed: ${copied.stderr.trim()}`);
     const restore = await docker(["exec", CONTAINER_NAME, "pg_restore", "-U", PG_USER, "-d", DUMP_TMP_DB, "--no-owner", "--no-acl", "--exit-on-error", "/tmp/restore.dump"], { timeout: 3_600_000 });
     if (restore.code !== 0) throw new Error(`pg_restore failed (exit ${restore.code}): ${restore.stderr.trim().split("\n").slice(-3).join(" | ")}`);
+    await analyzeDatabase(DUMP_TMP_DB);
     await setDbComment(DUMP_TMP_DB, formatDumpComment({ source: real, mtimeMs }));
     if (exists) await dropDatabase(DUMP_DB);
     const renamed = await psql("postgres", `alter database ${DUMP_TMP_DB} rename to ${DUMP_DB}`);
@@ -302,6 +309,8 @@ async function seedIfNeeded({ databaseUrl, endpoint }) {
     log("Seeding synthetic dataset (~3.5k businesses, 50k activities). This takes a few minutes.");
     await runStreaming("node", ["scripts/perf/seed-synthetic.mjs"], seedEnv);
   }
+  // Bulk inserts leave planner statistics empty; the first list request then picks a slow plan.
+  await analyzeDatabase(SYNTHETIC_DB);
   await setDbComment(SYNTHETIC_DB, SEED_MARKER);
   counts = await readCounts(databaseUrl);
   return counts;
