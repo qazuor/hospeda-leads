@@ -37,6 +37,16 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}])test(`bus
  await card.getByRole('button',{name:'Cambiar estado del negocio. Ahora: Recontactar',exact:true}).click();
  await expect(popup.getByLabel('Fecha de recontacto (opcional)')).toHaveValue('15/11/2026');
  await page.keyboard.press('Escape');
+ // Closing without saving must discard the unsaved pick: reopening shows the saved status and no Guardar.
+ await card.getByRole('button',{name:'Cambiar estado del negocio. Ahora: Recontactar',exact:true}).click();
+ await popup.getByRole('button',{name:/^Revisado/}).click();
+ await expect(popup.getByRole('button',{name:'Guardar',exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');await expect(popup).toHaveCount(0);
+ await card.getByRole('button',{name:'Cambiar estado del negocio. Ahora: Recontactar',exact:true}).click();
+ await expect(popup.getByRole('button',{name:/^Recontactar/})).toHaveAttribute('aria-pressed','true');
+ await expect(popup.getByRole('button',{name:/^Revisado/})).toHaveAttribute('aria-pressed','false');
+ await expect(popup.getByRole('button',{name:'Guardar',exact:true})).toHaveCount(0);
+ await page.keyboard.press('Escape');
  expect(writes).toContainEqual({action:'business_status',accountId:'1',status:'recontact',recontactAt:'2026-11-15'});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
  await page.screenshot({path:`test-results/business-state-${viewport.width}.png`,fullPage:true});

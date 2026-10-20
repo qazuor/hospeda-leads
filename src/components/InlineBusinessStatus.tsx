@@ -25,7 +25,7 @@ export function InlineBusinessStatus({accountId,status,recontactAt,disabled=fals
  const canEditStatus=current==='new'?['reviewed' as const]:directlyEditable;
  const canEdit=!disabled&&!mutation.isPending&&canEditStatus.length>0;
  const changed=value!==current||(value==='recontact'&&date!==savedRecontactDay);
- return <Popover open={open} onOpenChange={setOpen}>
+ return <Popover open={open} onOpenChange={next=>{setOpen(next);if(!next){setValue(current);setDate(savedRecontactDay);}}}>
   <PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={(labelled?'Cambiar estado del negocio. Ahora: ':'Estado del negocio: ')+businessStatusLabels[current]}>
    {labelled&&<span className={styles.label}>Estado:</span>}<ValueBadge category="status" value={businessStatusLabels[current]} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/>{labelled&&<span className={styles.change}>Cambiar</span>}
   </UnstyledButton></PopoverTrigger>
