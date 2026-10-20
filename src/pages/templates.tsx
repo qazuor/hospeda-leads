@@ -23,6 +23,7 @@ import { renderMessageTemplate, renderMessageTemplateHtml, normalizeTemplateHtml
 import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "../helpers/templateChannelFormatting";
 import { useAuth } from "../helpers/useAuth";
 import {managementTypes,managementTypeLabels,type ManagementType} from '../helpers/businessManagement';
+import { defaultMessageVariableSettings } from "../helpers/messageVariables";
 import styles from "./templates.module.css";
 import {DisabledTooltip} from '../components/Tooltip';
 
@@ -147,13 +148,14 @@ export function TemplatesContent(){
   const sender=previewOwner?.fullName?.trim()||previewOwner?.displayName||(authState.type==="authenticated"?(authState.user.fullName?.trim()||authState.user.displayName):"Responsable asignado");
   const example=!previewLeadId;
   const context=example?{
-    name:"Ruca Lihuén",contact:"María",type:vertical||"Alojamiento",sender,hospeda_url:""
+    name:"Ruca Lihuén",contact:"María",city:"Colón",type:vertical||"Alojamiento",subtype:"Hotel",phone:"3447 000000",email:"contacto@ejemplo.com",website:"https://ejemplo.com",sender,hospeda_url:"",managementType,channel
   }:{
-    name:previewLead?.nombre??"",contact:previewLead?.contactName??"",
-    type:previewLead?.tipo??"",sender,hospeda_url:""
+    name:previewLead?.nombre??"",contact:previewLead?.contactName??"",city:previewLead?.ciudad??"",phone:previewLead?.telefono??"",email:previewLead?.email??"",website:previewLead?.sitioWeb??"",
+    type:previewLead?.tipo??"",subtype:previewLead?.subtipo??"",sender,hospeda_url:"",managementType:previewLead?.managementType,channel
   };
-  const renderedBody=renderMessageTemplateHtml(body,context);
-  const renderedSubject=renderMessageTemplate(subject,context);
+  const messageVariables=data?.messageVariables??defaultMessageVariableSettings();
+  const renderedBody=renderMessageTemplateHtml(body,context,messageVariables);
+  const renderedSubject=renderMessageTemplate(subject,context,messageVariables);
   const whatsappPreview=htmlToWhatsApp(renderedBody);
   const whatsappPreviewHtml=whatsappTextToPreviewHtml(whatsappPreview);
 
@@ -218,7 +220,7 @@ export function TemplatesContent(){
           <label className={styles.field}>Nombre del modelo<Input disabled={save.isPending} value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
           {channel==="email"&&<label className={styles.field}>Asunto<Input disabled={save.isPending} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Asunto del email"/></label>}
           <div className={styles.editorLabel}>Contenido</div>
-          <div inert={save.isPending}><RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel==='whatsapp'?'whatsapp':'email'}/></div>
+          <div inert={save.isPending}><RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel==='whatsapp'?'whatsapp':'email'} messageVariables={messageVariables}/></div>
           <p className={styles.scopeHelp}>{TEMPLATE_SCOPE_HELP} Email, WhatsApp, redes sociales y Otros aceptan modelos compartidos; llamadas no usan modelos.</p>
           {!!versions.length&&<section><h4>Versiones anteriores</h4><NativeSelect value={selectedVersion} onChange={e=>setSelectedVersion(e.target.value)}><option value="">Elegí una versión</option>{versions.map(v=><option key={v.version} value={String(v.version)}>Versión {v.version} · {new Date(v.createdAt).toLocaleString('es-AR')}</option>)}</NativeSelect>{selectedVersion&&<><p>{htmlToPlainText(String(versions.find(v=>v.version===Number(selectedVersion))?.snapshot.body??''))}</p><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>void restoreVersion()}>Restaurar esta versión</Button></>}</section>}
           {historicalVertical&&<p className={styles.warning}>Este modelo usa una vertical histórica: {vertical}. Conservá ese valor o elegí explícitamente una vertical actual; no se cambia automáticamente.</p>}

@@ -1,4 +1,5 @@
 import superjson from "superjson";
+import type { MessageVariableDefinition } from "../helpers/messageVariables";
 
 export type SettingsUser={
   id:number;
@@ -21,6 +22,7 @@ export type SettingsOutput = {
   authorizedEmails: {id:string; email:string; displayName:string|null}[];
   users: OperationalUser[];
   templates: {id:string; channel:string; name:string; subject:string|null; body:string; vertical:string|null; managementType:string|null;commercialProfile:string|null;active?:boolean}[];
+  messageVariables?: MessageVariableDefinition[];
   templateVersions?: {templateId:string;version:number;snapshot:Record<string,unknown>;actorEmail:string|null;createdAt:Date}[];
   emailDelivery?: {
     senderName:string;

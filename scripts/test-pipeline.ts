@@ -44,7 +44,7 @@ try{
  const base={action:'reactivate',leadId:l.id,eventId:event.id,revision:(await lead()).pipelineRevision,mode:'reopen',stage:'En tratativas',dueDate:'2026-10-03',title:'Retomar conversación'};
  await mutate(base,user.cookie,403);await mutate(base,admin.cookie,403);
  await mutate({action:'contact_policy',accountId:a.id,blocked:false,reason:'Nuevo consentimiento'},admin.cookie);
- await mutate({...base,revision:(await lead()).pipelineRevision});
+ await mutate({...base,revision:(await lead()).pipelineRevision},admin.cookie);
  row=await lead();assert.equal(row.estado,'En tratativas');assert.equal(row.prioridad,'baja');
  closed=await read('leadId='+l.id);assert(closed.events.some(e=>e.id===event.id&&e.reasonId===reason.id));assert(closed.events.some(e=>e.action==='reactivation'));
  assert.equal((await db.selectFrom('crmTasks').selectAll().where('leadId','=',l.id).where('status','=','pending').execute()).length,1);

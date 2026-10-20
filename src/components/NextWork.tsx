@@ -3,9 +3,10 @@ import React,{useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
 import {getWork,type WorkTask} from '../endpoints/work.schema';
+import {getBusinessHistory} from '../endpoints/businessHistory.schema';
 import {getCommercialDetail,type CommercialDetail} from '../endpoints/commercial.schema';
 import {nextStep,pendingWork,type WorkPurpose} from '../helpers/nextStep';
-import {localDay} from '../helpers/workDates';
+import {localDay,prettyInstant} from '../helpers/workDates';
 import {useAuth} from '../helpers/useAuth';
 import {Button} from './Button';
 import {TaskRow} from './WorkPanel';
@@ -17,6 +18,7 @@ export function NextWork({accountId,leadId,classification='open',detail,onAddCon
  const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:null;
  const scope=user?.role==='admin'?'all':undefined;
  const work=useQuery({queryKey:['work','next',accountId,scope],queryFn:()=>getWork({accountId,mode:'detail',responsible:scope})});
+ const history=useQuery({queryKey:['commercial-detail','history',accountId,1],queryFn:()=>getBusinessHistory(accountId,1),enabled:!!leadId});
  const business=useQuery({queryKey:['commercial-detail',accountId,''],queryFn:()=>getCommercialDetail(accountId),enabled:!detail});
  const d=detail??business.data;
  const [editor,setEditor]=useState<WorkTarget|null>(null),[contacting,setContacting]=useState(false);
@@ -28,12 +30,14 @@ export function NextWork({accountId,leadId,classification='open',detail,onAddCon
  const step=nextStep({tasks:work.data.tasks,leadId,classification,blocked:d.account.doNotContact,finished:work.data.activities.find(a=>!leadId||a.leadId===leadId||(classification==='won'&&!a.leadId))?.continuation==='done',hasContact:!!(person?.phone||person?.email||d.account.telefono||d.account.email)});
  const purpose:WorkPurpose=classification==='won'?'care':classification==='lost'?'reactivation':'commercial';
  const tasks=pendingWork(work.data.tasks,leadId,classification==='won');
+ const lastManagementEvent=history.data?.events.find(event=>event.leadId===leadId);
  const synthetic:WorkTask={id:'',accountId,leadId:leadId??null,title:'Conversación con '+d.account.nombre,purpose,description:null,typeId:'call',assignedUserEmail:d.account.assignedUserEmail,dueDate:localDay(),dueAt:null,priority:'media',status:'pending',result:null,completedAt:null,legacy:false,participants:'',contactIds:person?[person.id]:[],accountName:d.account.nombre,city:d.account.ciudad,opportunityName:null,deletedAt:null};
  return <section className={styles.nextWork} data-state={step.kind==='blocked'?'blocked':classification} aria-label="Próximo paso">
   <div><span className={styles.eyebrow}>{classification==='won'?(leadId?'VENTA CONCRETADA':'CLIENTE'):classification==='lost'?'VENTA CERRADA SIN VENTA':'AHORA CORRESPONDE'}</span><h2>{step.kind==='task'?'Tu próximo paso':step.title}</h2><p>{step.help}</p><p className={styles.muted}>{scope==='all'?'Trabajo del equipo':'Trabajo visible para vos'}{leadId?' · Esta gestión'+(classification==='won'?' y acompañamiento general':''):' · Este negocio y sus gestiones'}</p></div>
+  {leadId&&lastManagementEvent&&<p className={styles.recentWork}><strong>Última actividad registrada:</strong> {lastManagementEvent.title} · {prettyInstant(lastManagementEvent.occurredAt)}{lastManagementEvent.result?` · ${lastManagementEvent.result}`:''}</p>}
   {!step.task&&step.kind!=='plan'&&step.kind!=='done'&&<p>Sin próximo paso programado.</p>}
-  {step.kind==='task'&&<><TaskRow task={step.task!} data={work.data} onEdit={setEditor}/>{step.task&&!step.task.leadId&&leadId&&<p className={styles.muted}>Esta tarea acompaña al negocio en general.</p>}{tasks.length>1&&<Disclosure><DisclosureSummary>Otros próximos pasos ({tasks.length-1})</DisclosureSummary><div className={styles.rows}>{tasks.slice(1,4).map(t=><TaskRow key={t.id} task={t} data={work.data!} onEdit={setEditor}/>)}</div><p>El resto está en Seguimiento.</p></Disclosure>}</>}
-  {step.kind==='blocked'&&tasks.length>0&&<Disclosure><DisclosureSummary>Compromisos pendientes ({tasks.length})</DisclosureSummary><p>La restricción de contacto se conserva. Podés revisar y registrar tareas internas.</p><div className={styles.rows}>{tasks.slice(0,4).map(t=><TaskRow key={t.id} task={t} data={work.data!} onEdit={setEditor}/>)}</div></Disclosure>}
+  {step.kind==='task'&&<><TaskRow task={step.task!} data={work.data} onEdit={setEditor} readOnly={readOnly}/>{step.task&&!step.task.leadId&&leadId&&<p className={styles.muted}>Esta tarea acompaña al negocio en general.</p>}{tasks.length>1&&<Disclosure><DisclosureSummary>Otros próximos pasos ({tasks.length-1})</DisclosureSummary><div className={styles.rows}>{tasks.slice(1,4).map(t=><TaskRow key={t.id} task={t} data={work.data!} onEdit={setEditor} readOnly={readOnly}/>)}</div><p>El resto está en Seguimiento.</p></Disclosure>}</>}
+  {step.kind==='blocked'&&tasks.length>0&&<Disclosure><DisclosureSummary>Compromisos pendientes ({tasks.length})</DisclosureSummary><p>La restricción de contacto se conserva. Podés revisar y registrar tareas internas.</p><div className={styles.rows}>{tasks.slice(0,4).map(t=><TaskRow key={t.id} task={t} data={work.data!} onEdit={setEditor} readOnly={readOnly}/>)}</div></Disclosure>}
   {can&&step.kind==='contact'&&onAddChannel&&<Button onClick={onAddChannel}>Agregar teléfono o email</Button>}
   {can&&step.kind==='contact'&&(onAddContact?<Button onClick={onAddContact}>Agregar persona de contacto</Button>:<Button asChild><Link to={'/accounts/'+accountId}>Agregar o revisar contacto</Link></Button>)}
   {can&&(step.kind==='plan'||step.kind==='done')&&<Button variant={step.kind==='done'?'outline':'primary'} onClick={()=>setEditor({kind:'task',accountId,leadId,purpose,title:classification==='won'?'Consultar cómo le fue':classification==='lost'?'Retomar conversación':''})}>Planificar próximo paso</Button>}

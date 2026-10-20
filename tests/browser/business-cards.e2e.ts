@@ -16,7 +16,7 @@ for(const width of [1280,390])test(`business cards preserve fields, actions and 
   else if(url.pathname.endsWith('/saved_views'))data={views:[]};
   else if(url.pathname.endsWith('/settings'))data={users:[{id:3,email:'owner@example.com',displayName:'Owner',role:'user'},{id:4,email:'other@example.com',displayName:'Other',role:'user'}],cities:[{id:'1',name:'Concepción del Uruguay'}],types:['Alojamientos'],subtypes:[{id:'1',tipo:'Alojamientos',name:'Hotel'}],templates:[],authorizedEmails:[],opportunityStages:[]};
   else if(url.pathname.endsWith('/leads')){if(gate)await gate;data={rows,total:3,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};}
-  else if(url.pathname.endsWith('/commercial'))data={account:{id:url.searchParams.get('accountId'),nombre:'Hostería del Río',assignedUserEmail:'owner@example.com',archivedAt:null,mergedIntoId:null},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[]};
+  else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{id:url.searchParams.get('accountId'),nombre:'Hostería del Río',assignedUserEmail:'owner@example.com',archivedAt:null,mergedIntoId:null},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[]};
   else if(url.pathname.endsWith('/work'))data={tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}};
   else if(url.pathname.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]};
   else if(url.pathname.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
@@ -25,10 +25,10 @@ for(const width of [1280,390])test(`business cards preserve fields, actions and 
  await page.goto('/accounts');let card=page.locator('[data-business-id="1"]');await expect(card).toBeVisible();
  await expect(card.getByText('2 gestiones · 3 contactos · Cliente',{exact:true})).toBeVisible();
  expect(await card.locator('[data-card-field]').evaluateAll(fields=>fields.map(field=>field.getAttribute('data-card-field')))).toEqual(columns.filter(key=>!['nombre','actions'].includes(key)));
- await expect(card.getByRole('group',{name:'Acciones de Hostería del Río',exact:true}).getByRole('button')).toHaveCount(3);
+ await expect(card.getByRole('group',{name:'Acciones de Hostería del Río',exact:true}).getByRole('button')).toHaveCount(4);
  const ownerField=card.locator('[data-card-field="assignedUserEmail"]');const ownerLabel=ownerField.locator('.mantine-Badge-label');
  if(width===390){expect((await ownerField.boundingBox())!.width).toBeGreaterThan((await card.boundingBox())!.width*.8);await expect(ownerLabel).toHaveCSS('white-space','nowrap');expect(await ownerLabel.evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(22);}
- if(role==='user'){await expect(page.locator('[data-business-id="2"]').getByRole('button',{name:'Contactar',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Archivar negocio',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:/Editar responsable de/})).toHaveCount(0);}
+ if(role==='user'){await expect(page.locator('[data-business-id="2"]').getByRole('button',{name:'Contactar',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Archivar negocio',exact:true}).first()).toBeDisabled();await expect(page.getByRole('button',{name:/Editar responsable de/})).toHaveCount(0);}
  const emptyCard=page.locator('[data-business-id="3"]');
  for(const key of ['ciudad','email','telefono','fuenteReferencia','fechaProximaAccion'])await expect(emptyCard.locator(`[data-card-field="${key}"]`)).toHaveCount(0);
  await expect(emptyCard.getByText('Potencial cliente',{exact:true})).toBeVisible();
