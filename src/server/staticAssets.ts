@@ -28,7 +28,7 @@ export const cacheHeadersMiddleware: MiddlewareHandler = async (c, next) => {
  * body to rebuild the response, which silently dropped those headers. Snapshot the live
  * headers, force materialization, and write them back so compress() sees the real ones.
  */
-function keepLateHeaderMutations(c: Context): void {
+export function keepLateHeaderMutations(c: Context): void {
   const live = new Headers(c.res.headers);
   void c.res.body;
   const target = c.res.headers;
