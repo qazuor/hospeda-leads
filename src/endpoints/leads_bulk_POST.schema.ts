@@ -1,5 +1,5 @@
 import { z } from "zod";
-import {postJson} from "../helpers/apiClient";
+import {postJson,LONG_TIMEOUT_MS} from "../helpers/apiClient";
 
 export const schema=z.object({
   entity:z.enum(["opportunity","business"]).default("opportunity"),ids:z.array(z.union([z.string(),z.number()])).min(1).max(500),
@@ -19,5 +19,5 @@ export type InputType=z.input<typeof schema>;
 export type BulkPreview={fingerprint:string;rows:{id:string;accountId:string|null;nombre:string;opportunityName:string|null;estado:string|null;assignedUserEmail:string|null}[];businesses:{id:string;nombre:string;ciudad:string|null;assignedUserEmail:string|null}[]};
 export type OutputType={ok:true;updated:number;preview?:BulkPreview};
 export const postLeadsBulk=async(body:InputType):Promise<OutputType>=>{
-  return postJson<OutputType>("/_api/leads_bulk",schema.parse(body));
+  return postJson<OutputType>("/_api/leads_bulk",schema.parse(body),{timeoutMs:LONG_TIMEOUT_MS});
 };

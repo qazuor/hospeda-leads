@@ -1,4 +1,4 @@
-import {z} from 'zod';import {apiJson,postJson} from '../helpers/apiClient';
+import {z} from 'zod';import {apiJson,postJson,LONG_TIMEOUT_MS} from '../helpers/apiClient';
 const id=z.string().regex(/^[1-9]\d*$/),uuid=z.string().uuid();
 export const versionInput=z.object({url:z.string().max(2000).optional(),fileData:z.string().max(2796204).optional(),fileName:z.string().max(150).optional(),mimeType:z.enum(['application/pdf','image/png','image/jpeg','text/plain']).optional(),expiresOn:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional()});
 export const resourceMutation=z.discriminatedUnion('action',[
@@ -15,4 +15,4 @@ export type ResourceLink={leadId:string|null;activityId:string|null;leadName:str
 export type ResourceDocument={id:string;title:string;type:string;ownerEmail:string;accountId:string|null;leadId:string|null;activityId:string|null;library:boolean;categoryId:string|null;status:string;approvedBy:string|null;approvedAt:Date|null;deletedAt:Date|null;createdAt:Date;updatedAt:Date;versions:ResourceVersion[];links?:ResourceLink[]};
 export type ResourcesDetail={documents:ResourceDocument[];categories:{id:string;name:string;active:boolean}[];maxDocumentBytes:number};
 export async function getResources(accountId?:string,search='',leadId?:string):Promise<ResourcesDetail>{return apiJson<any>('/_api/resources?'+new URLSearchParams({...(accountId?{accountId}:{}),...(leadId?{leadId}:{}),search}));}
-export async function postResource(input:ResourceMutation):Promise<any>{return postJson<any>('/_api/resources',resourceMutation.parse(input));}
+export async function postResource(input:ResourceMutation):Promise<any>{return postJson<any>('/_api/resources',resourceMutation.parse(input),{timeoutMs:LONG_TIMEOUT_MS});}

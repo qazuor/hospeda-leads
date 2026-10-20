@@ -12,7 +12,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60 * 1000, // 1 minute “fresh” window
-      retry: shouldRetryQuery, // never repeat offline/400/401/403/404/409; at most 2 retries otherwise
+      retry: shouldRetryQuery, // never repeat 400/401/403/404/409; once when offline (status 0); at most 2 otherwise
     },
     mutations: { retry: false }, // uncertain sends are never repeated automatically
   },

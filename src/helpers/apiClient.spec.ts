@@ -1,6 +1,9 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import superjson from 'superjson';
-import {apiJson,postJson,CrmApiError,GENERIC_MESSAGE,OFFLINE_MESSAGE,SESSION_EXPIRED_EVENT,SESSION_EXPIRED_MESSAGE,UNREADABLE_MESSAGE,isEnglishMessage,isNotRetryable,shouldRetryQuery} from './apiClient';
+import {saveBusinessListDefaults} from '../endpoints/business_list_defaults.schema';
+import {postLeadsBulkDelete} from '../endpoints/leads_bulk_delete_POST.schema';
+import {basePreferences} from './businessListPreferences';
+import {apiJson,postJson,CrmApiError,GENERIC_MESSAGE,OFFLINE_MESSAGE,UNCERTAIN_MESSAGE,LONG_TIMEOUT_MS,SESSION_EXPIRED_EVENT,SESSION_EXPIRED_MESSAGE,UNREADABLE_MESSAGE,isEnglishMessage,isNotRetryable,shouldRetryQuery} from './apiClient';
 
 const reply=(body:unknown,status=200,raw=false)=>new Response(raw?String(body):superjson.stringify(body),{status});
 const mockFetch=(impl:(...args:Parameters<typeof fetch>)=>Promise<Response>)=>vi.spyOn(globalThis,'fetch').mockImplementation(impl);
@@ -50,6 +53,17 @@ describe('apiJson',()=>{
   expect(timeout).toHaveBeenCalledWith(20000);expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
   expect(error.status).toBe(0);expect(error.message).toBe(OFFLINE_MESSAGE);
  });
+ it('honours timeoutMs and lets 0/null disable the timeout',async()=>{
+  const timeout=vi.spyOn(AbortSignal,'timeout');const fetchMock=mockFetch(async()=>reply({ok:true}));
+  await apiJson('/_api/x',{},{timeoutMs:LONG_TIMEOUT_MS});expect(timeout).toHaveBeenLastCalledWith(120000);
+  timeout.mockClear();await apiJson('/_api/x',{},{timeoutMs:0});await apiJson('/_api/x',{},{timeoutMs:null});
+  expect(timeout).not.toHaveBeenCalled();expect(fetchMock.mock.calls[1][1]?.signal).toBeUndefined();expect(fetchMock.mock.calls[2][1]?.signal).toBeUndefined();
+ });
+ it('reports an uncertain outcome (not "reintentá") when a write gets no answer',async()=>{
+  mockFetch(async()=>{throw new TypeError('Failed to fetch')});
+  const error=await failure(postJson('/_api/work',{a:1}));
+  expect(error.status).toBe(0);expect(error.message).toBe(UNCERTAIN_MESSAGE);expect(error.message).not.toContain('reintentá');
+ });
  it('rethrows a caller abort untouched so query cancellation keeps working',async()=>{
   const controller=new AbortController();
   mockFetch(async(_url,init)=>new Promise((_,reject)=>init!.signal!.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')))));
@@ -89,7 +103,10 @@ describe('postJson',()=>{
 });
 
 describe('retry policy',()=>{
- it.each([0,400,401,403,404,409])('never retries status %i',status=>{expect(shouldRetryQuery(0,new CrmApiError('x',status))).toBe(false)});
+ it.each([400,401,403,404,409])('never retries status %i',status=>{expect(shouldRetryQuery(0,new CrmApiError('x',status))).toBe(false)});
+ it('retries status 0 exactly once (transient reset or redeploy)',()=>{
+  const error=new CrmApiError('x',0);expect(shouldRetryQuery(0,error)).toBe(true);expect(shouldRetryQuery(1,error)).toBe(false);
+ });
  it('retries other failures at most twice',()=>{
   const error=new CrmApiError('x',500);
   expect(shouldRetryQuery(0,error)).toBe(true);expect(shouldRetryQuery(1,error)).toBe(true);expect(shouldRetryQuery(2,error)).toBe(false);
@@ -104,4 +121,22 @@ describe('retry policy',()=>{
 describe('isEnglishMessage',()=>{
  it.each([notAuthenticated,unknownError,endpointNotFound,en('duplicate','key','value','violates','unique','constraint')])('flags %j',m=>{expect(isEnglishMessage(m)).toBe(true)});
  it.each(['Elegí algo','Negocio no encontrado','Solo administradores pueden ver Estadísticas.','Documento inexistente','Error al guardar','No se pudo completar la acción. Intentá de nuevo.'])('keeps Spanish %j',m=>{expect(isEnglishMessage(m)).toBe(false)});
+});
+
+describe('fetcher request shape',()=>{
+ it('business list defaults POST sends a SuperJSON body without Content-Type, 20 s timeout',async()=>{
+  const timeout=vi.spyOn(AbortSignal,'timeout');const fetchMock=mockFetch(async()=>reply({ok:true}));
+  const defaults={preferences:basePreferences(),presets:[],initialPresetId:null};
+  await saveBusinessListDefaults(defaults);
+  const [url,init]=fetchMock.mock.calls[0];
+  expect(url).toBe('/_api/business_list_defaults');expect(init?.method).toBe('POST');expect(init?.headers).toBeUndefined();
+  expect(superjson.parse(String(init?.body))).toEqual(defaults);expect(timeout).toHaveBeenCalledWith(20000);
+ });
+ it('bulk delete POSTs SuperJSON with the JSON content type and the long timeout',async()=>{
+  const timeout=vi.spyOn(AbortSignal,'timeout');const fetchMock=mockFetch(async()=>reply({ok:true,deleted:2}));
+  expect(await postLeadsBulkDelete({ids:['1',2]})).toEqual({ok:true,deleted:2});
+  const [url,init]=fetchMock.mock.calls[0];
+  expect(url).toBe('/_api/leads_bulk_delete');expect(init?.method).toBe('POST');expect((init?.headers as Record<string,string>)['Content-Type']).toBe('application/json');
+  expect(superjson.parse(String(init?.body))).toEqual({entity:'opportunity',ids:['1',2]});expect(timeout).toHaveBeenCalledWith(LONG_TIMEOUT_MS);
+ });
 });
