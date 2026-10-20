@@ -31,12 +31,16 @@ describe('crm labels',()=>{
  });
 
  it('never shows an email for a user or actor',()=>{
-  const users=[{email:'marta@example.test',displayName:'Marta'},{email:'sin.nombre@example.test',displayName:null}];
+  const users=[{email:'marta@example.test',displayName:'Marta'},{email:'sin.nombre@example.test',displayName:null},{email:'mail.name@example.test',displayName:'mail.name@example.test'}];
   expect(userLabel(users,'MARTA@example.test')).toBe('Marta');
   expect(userLabel(users,'sin.nombre@example.test')).toBe('Otra persona del equipo');
   expect(userLabel(users,'seller1@example.test')).toBe('Otra persona del equipo');
   expect(userLabel(undefined,'seller1@example.test')).not.toContain('@');
   expect(userLabel(users,null)).toBe('Sin responsable');
+  expect(userLabel(users,'mail.name@example.test')).toBe('Otra persona del equipo');
+  expect(actorLabel('Sistema')).toBe('Automático');
+  expect(actorLabel('SISTEMA')).toBe('Automático');
+  expect(actorLabel('mail.name@example.test',users)).toBe('Otra persona del equipo');
   expect(actorLabel(null)).toBe('Automático');
   expect(actorLabel('  ')).toBe('Automático');
   expect(actorLabel('marta@example.test',users)).toBe('Marta');

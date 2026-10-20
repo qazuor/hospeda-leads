@@ -44,6 +44,11 @@ describe('management labels and hints',()=>{
 });
 
 describe('suggestedStageForOutcome (decision 9A)',()=>{
+ it('infers the type from the stage key when it is missing',()=>{
+  expect(suggestedStageForOutcome(null,'provider:contact','interested')?.key).toBe('provider:interested');
+  expect(suggestedStageForOutcome(undefined,'accompaniment:pending','later')?.key).toBe('accompaniment:contacted');
+  expect(suggestedStageForOutcome(null,'main:won','interested')).toBeNull();
+ });
  const key=(type:Parameters<typeof suggestedStageForOutcome>[0],current:string,outcome:string)=>suggestedStageForOutcome(type,current,outcome)?.key??null;
  it('suggests the interested stage of each type, only forward',()=>{
   expect(key('main','main:contact','interested')).toBe('main:interested');
@@ -71,7 +76,8 @@ describe('suggestedStageForOutcome (decision 9A)',()=>{
   expect(key('main','main:lost','later')).toBeNull();
   expect(key('main','partner:contact','interested')).toBeNull();
   for(const outcome of ['no_answer','not_interested','do_not_contact','other','replied'])expect(key('main','main:contact',outcome),outcome).toBeNull();
-  expect(suggestedStageForOutcome(null,'main:contact','interested')).toBeNull();
+  expect(suggestedStageForOutcome(null,'main:unknown','interested')).toBeNull();
+  expect(suggestedStageForOutcome(null,'Prospecto','interested')).toBeNull();
   expect(suggestedStageForOutcome('main',null,'interested')).toBeNull();
  });
 });

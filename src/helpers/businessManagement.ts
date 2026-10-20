@@ -70,7 +70,7 @@ export const managementLabel=(_type:string|null|undefined,key:string|null|undefi
 };
 
 /** One plain line per management type (owner decision 6b: names stay, a hint explains them). */
-export const managementTypeHints:Record<ManagementType,string>={main:'Para que el negocio se sume a Hospeda con un plan. Si se gana, el negocio pasa a ser cliente.',partner:'Para acordar con el negocio una propuesta o un plan como socio de Hospeda.',provider:'Para que el negocio participe ofreciendo un servicio que Hospeda necesita.',editor:'Para que el negocio colabore con contenido o reciba una propuesta comercial como editor.',accompaniment:'Para ayudar a un negocio que ya es cliente a crear o mejorar su ficha.'};
+export const managementTypeHints:Record<ManagementType,string>={main:'Para que el negocio se sume a Hospeda con un plan. Si se cierra ganada, el negocio pasa a ser cliente.',partner:'Para acordar con el negocio una propuesta o un plan como socio de Hospeda. Si se cierra ganada, el negocio pasa a ser cliente.',provider:'Para que el negocio participe ofreciendo un servicio que Hospeda necesita.',editor:'Para que el negocio colabore con contenido o reciba una propuesta comercial como editor.',accompaniment:'Para ayudar a un negocio que ya es cliente a crear o mejorar su ficha.'};
 
 /** Outcome of a contact that may suggest moving the management forward (decision 9A). */
 export type StageSuggestingOutcome='interested'|'later';
@@ -79,9 +79,11 @@ const laterFrom:Record<ManagementType,string>={main:'main:contact',partner:'part
 /**
  * Stage to offer (never apply) after a contact outcome, per decision 9A: only forward moves between open stages of the same type.
  * `interested` → the type's interested stage; `later` → `*:contacted` only from `*:contact` / `accompaniment:pending`. Anything else → null.
+ * When `type` is missing it is inferred from the catalog key prefix of `currentKey`.
  */
 export const suggestedStageForOutcome=(type:ManagementType|null|undefined,currentKey:string|null|undefined,outcome:string|null|undefined):ManagementStageDefinition|null=>{
- if(!type||!currentKey||!outcome)return null;
+ if(!currentKey||!outcome)return null;
+ if(!type){const prefix=currentKey.split(':')[0];if(!managementStageByKey(currentKey)||!(managementTypes as readonly string[]).includes(prefix))return null;type=prefix as ManagementType;}
  const current=stages[type].find(stage=>stage.key===currentKey);
  if(!current||current.classification!=='open')return null;
  const targetKey=outcome==='interested'?interestedStage[type]:outcome==='later'&&currentKey===laterFrom[type]?`${type}:contacted`:null;

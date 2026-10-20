@@ -1,5 +1,5 @@
 import {managementStageByKey} from './businessManagement';
-import {contactOutcomes,legacyOutcomeDisplay} from './workOutcomes';
+import {contactOutcomes,purposeOutcomeLabels} from './workOutcomes';
 
 /**
  * Display labels for stored CRM values (report item 1.8): never show an internal key or an email to a seller.
@@ -21,22 +21,26 @@ export const responseCategoryLabels={interested:contactOutcomes.interested,infor
 /** Response category label (`information` → "Pidió información"); empty → "Sin clasificar"; unknown passes through. */
 export const responseCategoryLabel=(category:string|null|undefined):string=>!category?'Sin clasificar':has(responseCategoryLabels,category)?responseCategoryLabels[category]:category;
 
-/** Outcome label: canonical outcomes first, then legacy stored values mapped for display (history is not rewritten). Empty → "Sin resultado". */
-export const outcomeLabel=(outcome:string|null|undefined):string=>!outcome?'Sin resultado':has(contactOutcomes,outcome)?contactOutcomes[outcome]:has(legacyOutcomeDisplay,outcome)?legacyOutcomeDisplay[outcome]:outcome;
+/** Outcome label: canonical outcomes first, then purpose-specific outcomes (and the old `replied`); history is not rewritten. Empty → "Sin resultado". */
+export const outcomeLabel=(outcome:string|null|undefined):string=>!outcome?'Sin resultado':has(contactOutcomes,outcome)?contactOutcomes[outcome]:has(purposeOutcomeLabels,outcome)?purposeOutcomeLabels[outcome]:outcome;
 
 /** Minimal user shape for name lookups. */
 export type LabelUser={email:string;displayName?:string|null};
 /** Fallback when a user cannot be resolved to a name. */
 export const UNKNOWN_USER_LABEL='Otra persona del equipo';
-/** A user's display name. Never returns an email: unknown or nameless users become "Otra persona del equipo"; no email → "Sin responsable". */
+/** A user's display name. Never returns an email: unknown or nameless users (or a display name that is itself an email) become "Otra persona del equipo"; no email → "Sin responsable". */
 export const userLabel=(users:readonly LabelUser[]|null|undefined,email:string|null|undefined):string=>{
  if(!email)return 'Sin responsable';
  const wanted=email.trim().toLowerCase();
- return users?.find(user=>user.email.trim().toLowerCase()===wanted)?.displayName?.trim()||UNKNOWN_USER_LABEL;
+ const name=users?.find(user=>user.email.trim().toLowerCase()===wanted)?.displayName?.trim();
+ return name&&!name.includes('@')?name:UNKNOWN_USER_LABEL;
 };
-/** Who did something: no actor → "Automático" (instead of "Sistema"); an email is resolved with `userLabel`; a name passes through. */
+/**
+ * Who did something. Pass the stored actor email (e.g. `actorEmail`), not a server-composed name, so it can be resolved with `userLabel`.
+ * No actor, or the legacy "Sistema" placeholder (any case) → "Automático"; an email → `userLabel`; any other name passes through.
+ */
 export const actorLabel=(actor:string|null|undefined,users?:readonly LabelUser[]|null):string=>{
  const value=actor?.trim();
- if(!value)return 'Automático';
+ if(!value||value.toLowerCase()==='sistema')return 'Automático';
  return value.includes('@')?userLabel(users,value):value;
 };
