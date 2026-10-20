@@ -30,7 +30,7 @@ import {BusinessListOptions} from '../components/BusinessListOptions';
 import {getLeads,type OutputType} from '../endpoints/leads_GET.schema';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import {getBusinessListDefaults} from '../endpoints/business_list_defaults.schema';
-import {useLiveMode} from '../helpers/liveMode';
+import {useLiveModeRefreshing} from '../helpers/liveMode';
 import {useAuth} from '../helpers/useAuth';
 import {formatDate} from '../helpers/crmDates';
 import {useDebounce} from '../helpers/useDebounce';
@@ -43,7 +43,7 @@ export default function BusinessListPage(){const {authState}=useAuth();const def
  return <><div className={styles.navigation}><AppHeader/></div>{defaults.isPending||!ready&&!defaults.error?<main className={styles.shell} aria-busy="true"><h1>Negocios</h1><p>Cargando configuraciones por defecto…</p><Skeleton className={styles.skeleton}/></main>:defaults.error?<main className={styles.shell}><p role="alert">No pude cargar las configuraciones por defecto: {defaults.error.message}</p><Button onClick={()=>defaults.refetch()}>Reintentar</Button></main>:<BusinessList key={authState.user.id} userId={authState.user.id} userEmail={authState.user.email} admin={authState.user.role==='admin'} defaults={defaults.data!}/>}</>;
 }
 function BusinessList({userId,userEmail,admin,defaults}:{userId:number;userEmail:string;admin:boolean;defaults:Awaited<ReturnType<typeof getBusinessListDefaults>>}){
- const {manualRefreshing}=useLiveMode();const [retryLoading,setRetryLoading]=useState(false);const retryLock=useRef(false);
+ const manualRefreshing=useLiveModeRefreshing();const [retryLoading,setRetryLoading]=useState(false);const retryLock=useRef(false);
  const navigate=useNavigate(),qc=useQueryClient();const [searchParams,setSearchParams]=useSearchParams();const [duplicatesOpen,setDuplicatesOpen]=useState(false);
  const [initial]=useState(()=>{const personal=readPersonalPreferences(userId);return personal??{preferences:initialPreferences(defaults.defaults??undefined,window.innerWidth<768),context:{page:1,scrollY:0,scrollX:0} as ListContext};});
  const [prefs,setPrefs]=useState(()=>availableListPreferences(initial.preferences)),[page,setPage]=useState(initial.context.page),[viewport,setViewport]=useState(window.innerWidth),[containerWidth,setContainerWidth]=useState(window.innerWidth);
