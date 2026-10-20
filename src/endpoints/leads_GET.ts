@@ -13,6 +13,7 @@ import { businessTableSource } from "../helpers/businessTable";
 import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS} from '../helpers/filterRules';
 import {managementLabel} from '../helpers/businessManagement';
 import {isReviewedBusinessStatus} from '../helpers/businessStatus';
+import {groupBy,countBy} from '../helpers/groupBy';
 
 export async function handle(request: Request) {
   try {
@@ -276,7 +277,8 @@ export async function handle(request: Request) {
     const rows:OutputType["rows"]=await candidates.selectAll().orderBy(orderExpression,sortDir).orderBy("id","desc").$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
     if(rows.length){
       const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
-      for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissions.find(a=>String(a.id)===String(row.accountId))):canModifyManagement(user,row,permissions.find(a=>String(a.id)===String(row.accountId))));
+      const permissionsById=new Map(permissions.map(a=>[String(a.id),a]));
+      for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissionsById.get(String(row.accountId))):canModifyManagement(user,row,permissionsById.get(String(row.accountId))));
     }
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
@@ -286,17 +288,23 @@ export async function handle(request: Request) {
         db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute(),
         db.selectFrom("crmTasks as t").leftJoin("leads as l","l.id","t.leadId").select(["t.accountId","t.title","t.dueDate"]).where("t.accountId","in",ids).where("t.status","=","pending").where("t.deletedAt","is",null).where(eb=>eb.or([eb("t.leadId","is",null),eb("l.deletedAt","is",null)])).$if(user.role!=="admin",q=>q.where("t.assignedUserEmail","=",user.email)).orderBy("t.dueDate").orderBy("t.dueAt").orderBy("t.id").execute()
       ]);
+      // Index related rows once per request: the loop stays O(rows + related) even for the unpaginated board.
+      const accountsById=new Map(accounts.map(a=>[String(a.id),a]));
+      const opportunitiesByAccount=groupBy(opportunities,o=>String(o.accountId));
+      const contactCountByAccount=countBy(contacts,c=>String(c.accountId));
+      const nextTasksByAccount=groupBy(nextTasks,t=>String(t.accountId));
       for(const row of rows){
-        const related=row.deletedAt?[]:opportunities.filter(o=>String(o.accountId)===String(row.accountId));
+        const accountKey=String(row.accountId);
+        const related=row.deletedAt?[]:opportunitiesByAccount.get(accountKey)??[];
         row.opportunityId=Number(row.id)>0?String(row.id):null;
         // Stable business IDs keep row selection stable when filters match another sale.
         row.id=row.accountId;
-        row.nextActionTitle=nextTasks.find(t=>String(t.accountId)===String(row.accountId)&&calendarDay(t.dueDate)===calendarDay(row.fechaProximaAccion))?.title??null;
+        row.nextActionTitle=nextTasksByAccount.get(accountKey)?.find(t=>calendarDay(t.dueDate)===calendarDay(row.fechaProximaAccion))?.title??null;
         row.opportunityCount=related.length;
         row.canModifyManagement=related.some(item=>user.role==='admin'||item.assignedUserEmail===user.email);
-        row.contactCount=contacts.filter(c=>String(c.accountId)===String(row.accountId)).length;
-        row.commercialStatus=accounts.find(a=>String(a.id)===String(row.accountId))!.commercialStatus;
-        const account=accounts.find(a=>String(a.id)===String(row.accountId))!;
+        row.contactCount=contactCountByAccount.get(accountKey)??0;
+        const account=accountsById.get(accountKey)!;
+        row.commercialStatus=account.commercialStatus;
         row.businessStatus=account.status;
         row.reviewStatus=isReviewedBusinessStatus(account.status);
         row.businessRecontactAt=account.recontactAt?calendarDay(account.recontactAt):null;
