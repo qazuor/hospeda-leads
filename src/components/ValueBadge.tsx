@@ -47,7 +47,7 @@ export const badgeTone=(category:Category,value:string):BadgeTone=>category==="s
 export const valueBadgeColors=(category:Category,value:string)=>{
   const [h,sat]=legacy.get(category+":"+value)??tones[badgeTone(category,value)]??tones.neutral;
   const tint=`hsl(${h} ${Math.max(45,sat)}% 52%)`;
-  // Text colour comes from the .badge class (plain fallback, then light-dark) using these hue variables.
+  // Text colour comes from the .badge class (light-dark inside @supports; foreground colour otherwise) using these hue variables.
   return {
     backgroundColor:`color-mix(in srgb, ${tint} 15%, var(--card))`,
     borderColor:`color-mix(in srgb, ${tint} 34%, var(--border))`,
