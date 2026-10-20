@@ -1,7 +1,7 @@
 import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
-import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
+import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {parseBody} from '../helpers/parseBody';
@@ -38,7 +38,7 @@ export async function get(request:Request){
     if(accountId){
       accountId=await resolveAccount(db,accountId);
       const visibleAccount=await db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow();
-      assertAccountReadable(user,visibleAccount);
+      assertAccountViewable(user,visibleAccount);
       const family=await accountFamily(db,accountId);
       if(input.historyPage)return response(await businessHistory(family,input.historyPage));
       const [account,contacts,opportunities,journal,leadJournal,managementJournal,stages]=await Promise.all([

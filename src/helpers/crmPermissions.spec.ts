@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {assertAccountReadable,assertAccountWritable,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
+import {assertAccountReadable,assertAccountViewable,assertAccountWritable,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
 const owner={email:'owner@example.com',role:'user' as const};
 const colleague={email:'colleague@example.com',role:'user' as const};
 const admin={email:'admin@example.com',role:'admin' as const};
@@ -24,6 +24,22 @@ describe('CRM shared reading and owner-only modifications',()=>{
    expect(canModifyBusiness(actor,archived)).toBe(false);
   }
   expect(()=>assertAccountWritable(admin,archived)).not.toThrow();
+ });
+ it('lets the responsible seller view her archived business read-only (decision 1C)',()=>{
+  const archived={...business,archivedAt:new Date(),doNotContact:true};
+  expect(()=>assertAccountViewable(owner,archived)).not.toThrow();
+  expect(()=>assertAccountViewable(admin,archived)).not.toThrow();
+  expect(()=>assertAccountViewable(colleague,archived)).toThrow('Solo su responsable o un administrador puede consultarlo');
+  expect(()=>assertAccountViewable(owner,{...archived,assignedUserEmail:null})).toThrow(CrmForbidden);
+  // Write guards stay closed for the owner: viewing never grants modifying.
+  expect(()=>assertAccountReadable(owner,archived)).toThrow(CrmForbidden);
+  expect(()=>assertAccountWritable(owner,archived)).toThrow(CrmForbidden);
+  expect(canModifyBusiness(owner,archived)).toBe(false);
+  expect(canModifyManagement(owner,{assignedUserEmail:owner.email},archived)).toBe(false);
+ });
+ it('keeps active and deleted businesses on the shared reading rules',()=>{
+  expect(()=>assertAccountViewable(colleague,business)).not.toThrow();
+  for(const actor of [owner,admin])expect(()=>assertAccountViewable(actor,{...business,archivedAt:new Date(),deletedAt:new Date()})).toThrow('papelera');
  });
  it('preserves independent management ownership under a shared business',()=>{
   const management={assignedUserEmail:colleague.email,deletedAt:null};
