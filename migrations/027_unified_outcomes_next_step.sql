@@ -15,9 +15,3 @@ ALTER TABLE crm_tasks VALIDATE CONSTRAINT crm_tasks_continuation_reason_check;
 ALTER TABLE crm_activities ADD COLUMN continuation_reason text;
 ALTER TABLE crm_activities ADD CONSTRAINT crm_activities_continuation_reason_check CHECK(continuation_reason IS NULL OR length(btrim(continuation_reason)) BETWEEN 3 AND 500) NOT VALID;
 ALTER TABLE crm_activities VALIDATE CONSTRAINT crm_activities_continuation_reason_check;
-
--- "Pidió que lo contacte más adelante" is a reply: it stops automatic sequences like the other replies (same body as 011 plus 'later').
-CREATE OR REPLACE FUNCTION crm_sequence_activity_stop() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF NEW.deleted_at IS NULL AND NEW.lead_id IS NOT NULL AND (NEW.outcome IN ('interested','later','replied','not_interested','do_not_contact') OR (NEW.outcome IS NULL AND NEW.result IN ('Respondió','Interesado','No interesado','Respuesta registrada manualmente','Rechazo registrado manualmente'))) THEN
- PERFORM crm_stop_sequences(NEW.lead_id,coalesce(NEW.outcome,NEW.result)); END IF; RETURN NEW;
-END $$;

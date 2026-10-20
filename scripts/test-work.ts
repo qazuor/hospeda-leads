@@ -134,9 +134,13 @@ try{
  let activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',call).executeTakeFirstOrThrow();assert.equal(activity.continuation,'done');assert.equal(activity.continuationReason,'Ya quedó todo resuelto');
  assert.equal(activity.occurredAt.toISOString(),new Date(completedAt).toISOString());assert.deepEqual(activity.contactIds,[own.id]);
  await mutate({action:'activity_save',id:activity.id,accountId:a.id,leadId:l.id,title:'Llamada real',typeId:'call',occurredAt:'2026-09-01T14:00:00-03:00',result:'Editado',contactIds:[own.id]});
- const completed=await db.selectFrom('crmTasks').selectAll().where('id','=',call).executeTakeFirstOrThrow();assert.equal(completed.result,'Editado');assert.equal(completed.completedAt!.toISOString(),'2026-09-01T17:00:00.000Z');
+ const completed=await db.selectFrom('crmTasks').selectAll().where('id','=',call).executeTakeFirstOrThrow();assert.equal(completed.result,'Editado');assert.equal(completed.continuationReason,'Ya quedó todo resuelto','An edit without a continuation keeps the linked task reason');
+ // Editing the activity of a completed task propagates the new continuation reason to that task.
+ await mutate({action:'activity_save',id:activity.id,accountId:a.id,leadId:l.id,title:'Llamada real',typeId:'call',occurredAt:'2026-09-01T14:00:00-03:00',result:'Editado',contactIds:[own.id],continuation:'done',continuationReason:'La gestión ya está cerrada'});
+ assert.equal((await db.selectFrom('crmTasks').select('continuationReason').where('id','=',call).executeTakeFirstOrThrow()).continuationReason,'La gestión ya está cerrada');
+ assert.equal((await db.selectFrom('crmActivities').select('continuationReason').where('id','=',activity.id).executeTakeFirstOrThrow()).continuationReason,'La gestión ya está cerrada');assert.equal(completed.completedAt!.toISOString(),'2026-09-01T17:00:00.000Z');
  const before=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();
- await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',result:'Conversamos'});
+ const retro=await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',result:'Conversamos'});
  await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Futuro',typeId:'meeting',occurredAt:'2099-01-01T09:00:00-03:00'},user.cookie,400);
  const after=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();assert.equal(Number(after.n),Number(before.n)+1);
  // Single outcome list (3A) and mandatory next step (2B) for new results.
@@ -148,6 +152,13 @@ try{
  const later=await mutate({...outcomeBase,outcome:'later',continuation:'wait',nextTask:{title:'Retomar conversación',dueDate:'2026-11-02',typeId:'followup'}});
  assert.equal((await db.selectFrom('crmActivities').select(['outcome','continuation']).where('id','=',later).executeTakeFirstOrThrow()).outcome,'later');
  assert.equal((await db.selectFrom('crmTasks').select('continuation').where('leadId','=',l.id).where('title','=','Retomar conversación').where('status','=','pending').executeTakeFirstOrThrow()).continuation,'wait');
+ // `later` is canonical for every purpose, including delivery and care.
+ for(const purpose of ['delivery','care'])await mutate({...outcomeBase,purpose,outcome:'later',continuation:'wait',nextTask:{title:'Retomar '+purpose,dueDate:'2026-11-03',typeId:'followup'}});
+ // An edit that adds the first result to an activity is a new result: it must say how it continues.
+ const retroBase={action:'activity_save',id:retro,accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',purpose:'commercial',outcome:'interested'};
+ await mutate(retroBase,user.cookie,400);
+ await mutate({...retroBase,continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ assert.equal((await db.selectFrom('crmActivities').select('continuationReason').where('id','=',retro).executeTakeFirstOrThrow()).continuationReason,'Ya tengo otra tarea agendada');
  const closed=await mutate({...outcomeBase,outcome:'not_interested',continuation:'done',continuationReason:'Ya trabaja con otra empresa'});
  // Editing an existing activity stays exempt and keeps its continuation and reason.
  await mutate({...outcomeBase,id:closed,outcome:'not_interested',result:'Corrijo el detalle'});

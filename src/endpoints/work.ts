@@ -152,8 +152,8 @@ export async function post(request:Request){
     // One canonical list plus the purpose's own extras (decision 3A); an edit may keep its historical value.
     if(input.outcome!==previous?.outcome&&!(outcomeOptions(purpose) as readonly string[]).includes(input.outcome))throw new Error('Elegí un resultado que corresponda al propósito de esta acción.');
    }
-   // Decision 2B: a new result always says how it continues. Edits of existing activities stay exempt.
-   const requiresNextStep=(input.action==='activity_save'&&!input.id&&!!input.outcome)||(input.action==='task_status'&&input.status==='completed');
+   // Decision 2B: a new result always says how it continues, including an edit that adds the first result. Other edits stay exempt.
+   const requiresNextStep=(input.action==='activity_save'&&!!input.outcome&&!previous?.outcome)||(input.action==='task_status'&&input.status==='completed');
    if(requiresNextStep&&(!('continuation' in input)||!input.continuation))throw new Error('Elegí cómo sigue: agendá una tarea o elegí «No agendar nada» y contá por qué.');
    if(requiresNextStep&&'continuation' in input&&input.continuation==='done'&&!input.continuationReason)throw new Error('Elegiste «No agendar nada»: contá por qué.');
    if('continuation' in input&&input.continuation){

@@ -20,6 +20,10 @@ for(const width of [1280,390])test(`guided result reviews the next step and pres
  const review=dialog.getByRole('region',{name:'Revisión del resultado',exact:true});
  await expect(review).toContainText('Respondió, le interesa');await expect(review).toContainText('Ana');await expect(review).toContainText('Falta elegir cómo continuar');
  await dialog.getByRole('textbox',{name:'Detalles del resultado',exact:true}).fill('Pidió una propuesta para su equipo');
+ // Decision 2B: saving without "¿Cómo sigue?" is blocked, and "Otro (contame)" needs the seller's words.
+ const next=dialog.getByRole('combobox',{name:/^¿Cómo sigue\?/});await dialog.getByRole('button',{name:'Guardar resultado',exact:true}).click();await expect(dialog).toBeVisible();await expect.poll(()=>next.evaluate(el=>(el as HTMLSelectElement).validity.valueMissing)).toBe(true);expect(writes).toHaveLength(0);
+ await next.selectOption('done');await dialog.getByRole('combobox',{name:'¿Por qué no agendás nada?',exact:true}).selectOption('Otro (contame)');const why=dialog.getByRole('textbox',{name:/^Contá por qué/});await dialog.getByRole('button',{name:'Guardar resultado',exact:true}).click();await expect(dialog).toBeVisible();await expect.poll(()=>why.evaluate(el=>(el as HTMLInputElement).validity.valueMissing)).toBe(true);expect(writes).toHaveLength(0);
+ await expect(review).toContainText('No agendar nada');
  await dialog.getByRole('button',{name:'Planificar una acción con fecha',exact:true}).click();await dialog.getByLabel('Qué hay que hacer',{exact:true}).fill('Revisar la propuesta con Ana');await dialog.getByLabel('Cuándo',{exact:true}).fill('2027-01-18');
  await expect(review).toContainText('Revisar la propuesta con Ana');await expect(review).toContainText('La etapa comercial se conserva');
  await dialog.getByRole('button',{name:'Guardar y programar',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('No se pudo guardar');await expect(dialog.getByRole('textbox',{name:'Detalles del resultado',exact:true})).toHaveValue('Pidió una propuesta para su equipo');await expect(dialog.getByLabel('Cuándo',{exact:true})).toHaveValue('18/01/2027');

@@ -11,7 +11,7 @@ import {useDebounce} from '../helpers/useDebounce';
 import {useUnsavedChanges} from './UnsavedChanges';
 import {outcomeOptions,type WorkOutcome} from '../helpers/workOutcomes';
 import {outcomeLabel} from '../helpers/crmLabels';
-import {VOCAB} from '../content/vocabulary';
+import {VOCAB,NO_FOLLOW_UP_REASONS,OTHER_REASON} from '../content/vocabulary';
 import {workGuidance} from '../helpers/workGuidance';
 import {formatDate} from '../helpers/crmDates';
 import React,{useState} from 'react';
@@ -48,9 +48,9 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
  const [continuation,setContinuation]=useState<'task'|'wait'|'done'|''>('');
  const [next,setNext]=useState(false),[nextTitle,setNextTitle]=useState(''),[nextDate,setNextDate]=useState(localDay());
  const [reasonChoice,setReasonChoice]=useState(''),[reasonText,setReasonText]=useState('');
- const continuationReason=continuation==='done'?(reasonChoice===otherReason?reasonText.trim():reasonChoice)||undefined:undefined;
- // Decision 2B: every new result says how it continues; editing an old activity may keep what it had.
- const continuationRequired=target.kind==='complete'||(target.kind==='activity'&&!item);
+ const continuationReason=continuation==='done'?(reasonChoice===OTHER_REASON?reasonText.trim():reasonChoice)||undefined:undefined;
+ // Decision 2B: every new result says how it continues (also an edit that adds the first result); other edits may keep what they had.
+ const continuationRequired=target.kind==='complete'||(target.kind==='activity'&&(!item||(!item.outcome&&!!outcome)));
  const guidance=workGuidance(purpose,outcome);
  const chooseContinuation=(value:'task'|'wait'|'done')=>{setContinuation(value);setNext(value!=='done');if(value==='wait'&&!nextTitle)setNextTitle('Retomar conversación')};
  const values=JSON.stringify({accountId,leadId,title,typeId,description,date,time,occurred,assigned,priority,participants,contactIds,channel,result,outcome,purpose,continuation,next,nextTitle,nextDate,reasonChoice,reasonText});
@@ -118,7 +118,7 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
    {guidance&&['activity','complete'].includes(target.kind)&&<section className={styles.contextNote} aria-label="Orientación para continuar"><p>{guidance.text}</p>{guidance.continuation&&outcome!=='do_not_contact'&&<Button type="button" variant="outline" size="sm" disabled={save.isPending} disabledReason="Se está guardando este registro. Esperá a que termine para cambiar el próximo paso." onClick={()=>chooseContinuation(guidance.continuation!)}>{guidance.continuation==='wait'?'Elegir una fecha para retomar':'Planificar una acción con fecha'}</Button>}</section>}
    {outcome==='do_not_contact'&&<p role="alert">El negocio quedará marcado como No contactar. Solo un administrador podrá habilitarlo de nuevo.</p>}
    {['activity','complete','cancel'].includes(target.kind)&&<label className={styles.fullField}>{target.kind==='cancel'?'Motivo de cancelación':'Detalles del resultado'}<Textarea required={target.kind==='cancel'} value={result} onChange={e=>setResult(e.target.value)} placeholder={target.kind==='cancel'?'Por qué ya no corresponde hacer esta tarea':item?.result||'Qué ocurrió'}/></label>}
-   {['activity','complete'].includes(target.kind)&&outcome!=='do_not_contact'&&<fieldset className={styles.formSection}><legend>Próximo paso</legend><label>{VOCAB.whatsNext}<NativeSelect required={continuationRequired} value={continuation} onChange={e=>{setContinuation(e.target.value as typeof continuation);setNext(['task','wait'].includes(e.target.value));if(e.target.value==='wait'&&!nextTitle)setNextTitle('Retomar conversación');}}><option value="">{continuationRequired?'Elegí cómo sigue':'Dejar como está'}</option><option value="task">Agendar una tarea</option><option value="wait">Esperar hasta una fecha y retomar</option><option value="done">No agendar nada</option></NativeSelect></label>{next?<><label>Qué hay que hacer<Input required maxLength={200} value={nextTitle} onChange={e=>setNextTitle(e.target.value)} placeholder="Por ejemplo: revisar la propuesta con Ana"/></label><label>Cuándo<CrmDateInput required  value={nextDate} onValueChange={e=>setNextDate(e)}/></label></>:continuation==='done'?<><label>¿Por qué no agendás nada?<NativeSelect required={continuationRequired} value={reasonChoice} onChange={e=>setReasonChoice(e.target.value)}><option value="">Elegí un motivo</option>{noFollowUpReasons.map(r=><option key={r} value={r}>{r}</option>)}</NativeSelect></label>{reasonChoice===otherReason&&<label>Contá por qué<Input required minLength={3} maxLength={500} value={reasonText} onChange={e=>setReasonText(e.target.value)} placeholder="Ej.: ya trabaja con otra empresa"/></label>}<p>No se crea otra tarea. Las demás tareas se conservan.</p></>:<p>{continuation==='task'?'Definí una acción con fecha para que quede pendiente.':continuationRequired?'Antes de guardar, elegí si agendás una tarea o no agendás nada.':'Si no elegís nada, se conserva cómo seguía.'}</p>}</fieldset>}
+   {['activity','complete'].includes(target.kind)&&outcome!=='do_not_contact'&&<fieldset className={styles.formSection}><legend>Próximo paso</legend><label>{VOCAB.whatsNext}<NativeSelect required={continuationRequired} value={continuation} onChange={e=>{setContinuation(e.target.value as typeof continuation);setNext(['task','wait'].includes(e.target.value));if(e.target.value==='wait'&&!nextTitle)setNextTitle('Retomar conversación');}}><option value="">{continuationRequired?'Elegí cómo sigue':'Dejar como está'}</option><option value="task">Agendar una tarea</option><option value="wait">Esperar hasta una fecha y retomar</option><option value="done">No agendar nada</option></NativeSelect></label>{next?<><label>Qué hay que hacer<Input required maxLength={200} value={nextTitle} onChange={e=>setNextTitle(e.target.value)} placeholder="Por ejemplo: revisar la propuesta con Ana"/></label><label>Cuándo<CrmDateInput required  value={nextDate} onValueChange={e=>setNextDate(e)}/></label></>:continuation==='done'?<><label>¿Por qué no agendás nada?<NativeSelect required={continuationRequired} value={reasonChoice} onChange={e=>setReasonChoice(e.target.value)}><option value="">Elegí un motivo</option>{NO_FOLLOW_UP_REASONS.map(r=><option key={r} value={r}>{r}</option>)}</NativeSelect></label>{reasonChoice===OTHER_REASON&&<label>Contá por qué<Input required minLength={3} maxLength={500} value={reasonText} onChange={e=>setReasonText(e.target.value)} placeholder="Ej.: ya trabaja con otra empresa"/></label>}<p>No se crea otra tarea. Las demás tareas se conservan.</p></>:<p>{continuation==='task'?'Definí una acción con fecha para que quede pendiente.':continuationRequired?'Antes de guardar, elegí si agendás una tarea o no agendás nada.':'Si no elegís nada, se conserva cómo seguía.'}</p>}</fieldset>}
    {next&&<p role="status">Al guardar se registrará el resultado y quedará pendiente “{nextTitle||'el próximo paso'}” para el {formatDate(nextDate)}. Las otras tareas se conservan.</p>}
    {['activity','complete'].includes(target.kind)&&outcome&&<section className={styles.formSection} aria-label="Revisión del resultado"><h3>Revisá lo que se guardará</h3><dl>
     <dt>Resultado</dt><dd>{outcomeLabel(outcome)}{result.trim()?' · '+result.trim():''}</dd>
@@ -137,9 +137,5 @@ export function WorkEditor({target,data,onClose}:{target:WorkTarget;data:WorkDat
   </fieldset></form>
  </DialogContent>{guard.confirmation}</Dialog>;
 }
-
-const otherReason='Otro (contame)';
-/** Preset reasons for "No agendar nada"; "Otro (contame)" asks for the seller's own words. */
-const noFollowUpReasons=['Ya quedó todo resuelto','Se cerró la gestión','No corresponde seguir',otherReason] as const;
 
 function statusActionPlaceholder(kind:WorkTarget['kind']){return ['complete','cancel','delete_task','delete_activity'].includes(kind)}
