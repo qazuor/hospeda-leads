@@ -32,7 +32,7 @@ try{
  await mutate({action:'transition',leadId:l.id,revision,stage:'En tratativas'},other.cookie,403);
  await mutate({action:'transition',leadId:l.id,revision:revision+20,stage:'En tratativas'},user.cookie,409);
  await mutate({action:'transition',leadId:l.id,revision,stage:'Perdida'},user.cookie,400);
- assert.equal((await quick(request({id:l.id,field:'estado',value:'Perdida'}))).status,400);
+ {const r=await quick(request({id:l.id,field:'estado',value:'Perdida'}));assert.equal(r.status,400);const body=superjson.parse<{error?:string}>(await r.text());assert.match(body.error??'',/Para cerrar perdida usá el pipeline/,'trigger RAISE messages must reach the user, not a generic one')}
  assert.equal((await quick(request({id:l.id,field:'estado',value:'En tratativas'},other.cookie))).status,403);
  await mutate({action:'transition',leadId:l.id,revision,stage:'Perdida',reasonId:reason.id,comment:'Retomar más adelante',recontactDate:'2026-10-01'});
  let row=await lead();assert.equal(row.estado,'Perdida');assert.equal(row.prioridad,'baja');
