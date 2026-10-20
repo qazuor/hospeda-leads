@@ -11,6 +11,7 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(({ preferences, dark }) => {
     localStorage.setItem('hospeda-live-mode', 'off');
+    localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');
     localStorage.setItem('hospeda-business-list-v1-user-3', JSON.stringify({ preferences, context: { page: 1, scrollY: 0, scrollX: 0 } }));
     if (dark) localStorage.setItem('hospeda-theme-mode', 'dark');
   }, { preferences, dark: width === 390 });

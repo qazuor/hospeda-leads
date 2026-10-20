@@ -6,12 +6,23 @@ import {availableListPreferences,preferencesFromSavedView,type ListPreferences} 
 import {applyBusinessSystemView,resolveSystemViews,type BusinessSystemView} from './businessSystemViews';
 import {readBusinessViewSelection,saveBusinessViewSelection,viewPreferencesFingerprint,type BusinessViewSelection} from './businessViewSelection';
 
-/** Empty state of a non-admin seller: starts on the system view "Mis negocios". Returns null when it must not apply (admin, stored view or personal preferences, view disabled). */
-export function sellerDefaultSelection({admin,hasStoredState,base,systemViews,email,now}:{admin:boolean;hasStoredState:boolean;base:ListPreferences;systemViews:BusinessSystemView[]|undefined;email:string;now?:Date}):{preferences:ListPreferences;selection:BusinessViewSelection}|null{
+export const sellerDefaultMarkerKey=(userId:number)=>`hospeda-business-seller-default-v1-user-${userId}`;
+export function readSellerDefaultMarker(userId:number){try{return localStorage.getItem(sellerDefaultMarkerKey(userId))!==null;}catch{return false;}}
+export function writeSellerDefaultMarker(userId:number){try{localStorage.setItem(sellerDefaultMarkerKey(userId),'1');}catch{/* the default may then apply again next time */}}
+/** Decision 4A, once per user: a non-admin without an explicit stored view selection starts on "Mis negocios" on top of their current preferences (columns and widths are kept). Null for admins, a stored selection, an already applied marker or a disabled view. */
+export function sellerDefaultSelection({admin,hasSelection,hasMarker,base,systemViews,email,now}:{admin:boolean;hasSelection:boolean;hasMarker:boolean;base:ListPreferences;systemViews:BusinessSystemView[]|undefined;email:string;now?:Date}):{preferences:ListPreferences;selection:BusinessViewSelection}|null{
  const mine=resolveSystemViews(systemViews).find(view=>view.id==='mine'&&view.enabled);
- if(admin||hasStoredState||!mine)return null;
+ if(admin||hasSelection||hasMarker||!mine)return null;
  const preferences=availableListPreferences(applyBusinessSystemView(base,'mine',email,now));
  return {preferences,selection:{kind:'system',id:'mine',name:mine.name,baseline:preferences}};
+}
+const DATE_SYSTEM_VIEWS=['today','overdue','recent'];
+/** Date-based system views go stale overnight: when the stored one is unmodified, recompute filters and baseline together so it is not shown as unsaved. */
+export function refreshDateViewSelection({selection,preferences,email,now}:{selection:BusinessViewSelection|null;preferences:ListPreferences;email:string;now?:Date}):{preferences:ListPreferences;selection:BusinessViewSelection}|null{
+ if(selection?.kind!=='system'||!DATE_SYSTEM_VIEWS.includes(selection.id))return null;
+ if(viewPreferencesFingerprint(preferences)!==viewPreferencesFingerprint(selection.baseline))return null;
+ const next=availableListPreferences(applyBusinessSystemView(preferences,selection.id,email,now));
+ return {preferences:next,selection:{...selection,baseline:next}};
 }
 export function useBusinessViewSelection(userId:number,prefs:ListPreferences,systemViews:BusinessSystemView[]|undefined,defaultSelection?:BusinessViewSelection|null){
  const [active,setActive]=useState<BusinessViewSelection|null>(()=>readBusinessViewSelection(userId)??defaultSelection??null);

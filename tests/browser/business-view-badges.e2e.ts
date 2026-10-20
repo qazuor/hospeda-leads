@@ -7,7 +7,7 @@ for(const width of [1280,390])test(`view badges stay focused on selection and us
  await page.setViewportSize({width,height:844});const initial=basePreferences();
  let views=Array.from({length:12},(_,i)=>({id:'view-'+i,name:i===11?'Una vista con un nombre largo para verificar el espacio y la accesibilidad':'Personal '+i,config:{entity:'business',preferences:{...initial,query:'Consulta '+i}}}));const lastViewName=views[11].name;
  const requests:any[]=[];let failRename=true;
- await page.addInitScript(prefs=>{localStorage.setItem('hospeda-live-mode','off');if(!localStorage.getItem('hospeda-business-list-v1-user-3'))localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences:prefs,context:{page:1,scrollY:0,scrollX:0}}));},initial);
+ await page.addInitScript(prefs=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');if(!localStorage.getItem('hospeda-business-list-v1-user-3'))localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences:prefs,context:{page:1,scrollY:0,scrollX:0}}));},initial);
  await page.route('**/_api/**',async route=>{
   const path=new URL(route.request().url()).pathname;let data:unknown={},status=200;
   if(path.endsWith('/auth/session'))data={user:{id:3,email:'viewer@example.com',displayName:'Viewer',role:'user'}};
@@ -39,7 +39,7 @@ for(const width of [1280,390])test(`view badges stay focused on selection and us
 
 test('an admin can convert a saved view into a shared system view',async({page})=>{
  await page.setViewportSize({width:1280,height:844});const preferences={...basePreferences(),query:'termas'},saved={id:'saved-1',name:'Termas del litoral',config:{entity:'business',preferences}};let personal=[saved],defaults:any=null,convertedId='';
- await page.addInitScript(prefs=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences:prefs,context:{page:1,scrollY:0,scrollX:0}}));},basePreferences());
+ await page.addInitScript(prefs=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences:prefs,context:{page:1,scrollY:0,scrollX:0}}));},basePreferences());
  await page.route('**/_api/**',async route=>{const path=new URL(route.request().url()).pathname;let data:unknown={};
   if(path.endsWith('/auth/session'))data={user:{id:3,email:'admin@example.com',displayName:'Admin',role:'admin'}};
   else if(path.endsWith('/business_list_defaults')){if(route.request().method()==='POST'){defaults=superjson.parse<any>(route.request().postData()!);data={ok:true};}else data={defaults};}

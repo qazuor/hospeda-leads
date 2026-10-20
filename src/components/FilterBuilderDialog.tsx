@@ -9,10 +9,12 @@ import styles from "./FilterBuilderDialog.module.css";
 
 import {makeRule,needsValue,type FilterFieldDefinition} from '../helpers/filterRules';
 import {FilterRuleFields} from './FilterRuleFields';
-import {localDay} from '../helpers/workDates';
-/** Relative date presets: write an `after` rule N days back from today (Argentina calendar day). */
+import {pastDaysRange} from '../helpers/businessSystemViews';
+/** Relative date presets: write an inclusive `between` rule over the last N Argentina days. */
 export const RELATIVE_DATE_PRESETS=[{days:7,label:'Últimos 7 días'},{days:30,label:'Últimos 30 días'}] as const;
-export const relativeDateRule=(rule:AdvancedFilterRule,days:number,now=new Date()):AdvancedFilterRule=>({...rule,operator:'after',value:localDay(new Date(now.getTime()-days*86400000)),value2:''});
+export const relativeDateRule=(rule:AdvancedFilterRule,days:number,now=new Date()):AdvancedFilterRule=>({...rule,...pastDaysRange(days,now)});
+/** Only fields that hold past moments get the shortcuts. */
+export const PAST_DATE_FIELDS:readonly string[]=['fechaUltimoContacto','fechaCreacion','createdAt','updatedAt'];
 export type {FilterFieldDefinition,FilterFieldKind} from '../helpers/filterRules';
 export {FilterLegend} from './FilterLegend';
 const cloneGroups=(groups:AdvancedFilterGroup[])=>groups.map(group=>({rules:group.rules.map(rule=>({...rule}))}));
@@ -105,7 +107,7 @@ export const FilterBuilderDialog=({
                     <FilterRuleFields rule={rule} fields={fields} onChange={next=>updateRule(groupIndex,ruleIndex,next)}/>
                     <Button variant="ghost" size="icon-sm" onClick={()=>removeRule(groupIndex,ruleIndex)} title="Quitar condición"><Trash2 size={14}/></Button>
                   </div>
-                  {field.kind==='date'&&<div role="group" aria-label="Fechas rápidas" style={{display:'flex',gap:6,flexWrap:'wrap'}}>{RELATIVE_DATE_PRESETS.map(preset=><Button key={preset.days} variant="outline" size="sm" onClick={()=>updateRule(groupIndex,ruleIndex,relativeDateRule(rule,preset.days))}>{preset.label}</Button>)}</div>}
+                  {field.kind==='date'&&PAST_DATE_FIELDS.includes(field.key)&&<div role="group" aria-label="Fechas rápidas" style={{display:'flex',gap:6,flexWrap:'wrap'}}>{RELATIVE_DATE_PRESETS.map(preset=><Button key={preset.days} variant="outline" size="sm" onClick={()=>updateRule(groupIndex,ruleIndex,relativeDateRule(rule,preset.days))}>{preset.label}</Button>)}</div>}
                 </React.Fragment>;
               })}
             </div>

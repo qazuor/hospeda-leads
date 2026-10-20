@@ -12,7 +12,9 @@ export const defaultSystemViews=():BusinessSystemView[]=>[
 ];
 /** Stored team views predate newer built-ins: append the missing ones (enabled) after the stored order. */
 export const resolveSystemViews=(stored?:BusinessSystemView[]):BusinessSystemView[]=>stored?[...stored,...defaultSystemViews().filter(view=>!stored.some(item=>item.id===view.id))]:defaultSystemViews();
-export const systemViewHelp:Record<BusinessSystemView['id'],string>={all:'Todos los negocios disponibles.',mine:'Negocios del usuario que aplica la vista.',today:'Próximo paso con fecha de hoy.',overdue:'Próximo paso con fecha anterior a hoy.',unassigned:'Negocios sin responsable.',noNext:'Negocios sin fecha de próxima acción.',recent:'Negocios con último contacto en los últimos 7 días.'};
+export const systemViewHelp:Record<BusinessSystemView['id'],string>={all:'Todos los negocios disponibles.',mine:'Negocios del usuario que aplica la vista.',today:'Próximo paso con fecha de hoy.',overdue:'Próximo paso con fecha anterior a hoy.',unassigned:'Negocios sin responsable.',noNext:'Negocios sin fecha de próxima acción.',recent:'Tus negocios con los que hablaste en las últimas dos semanas.'};
+/** Inclusive window of the last `days` Argentina calendar days, today included. */
+export const pastDaysRange=(days:number,now=new Date())=>({operator:'between' as const,value:localDay(new Date(now.getTime()-(days-1)*86400000)),value2:localDay(now)});
 export function applyBusinessSystemView(current:ListPreferences,idOrView:BusinessSystemView['id']|BusinessSystemView,email:string,now=new Date()):ListPreferences{
  const view=typeof idOrView==='string'?undefined:idOrView;
  const id=typeof idOrView==='string'?idOrView:idOrView.id;
@@ -21,7 +23,7 @@ export function applyBusinessSystemView(current:ListPreferences,idOrView:Busines
  if(id==='mine')filters=[{rules:[{field:'assignedUserEmail',operator:'eq',value:email}]}];
  if(id==='today'||id==='overdue')filters=[{rules:[{field:'fechaProximaAccion',operator:id==='today'?'on':'before',value:localDay(now)}]}];
  if(id==='unassigned')filters=[{rules:[{field:'assignedUserEmail',operator:'empty'}]}];
- if(id==='recent')filters=[{rules:[{field:'fechaUltimoContacto',operator:'after',value:localDay(new Date(now.getTime()-7*86400000))}]}];
+ if(id==='recent')filters=[{rules:[{field:'assignedUserEmail',operator:'eq',value:email}]},{rules:[{field:'fechaUltimoContacto',...pastDaysRange(14,now)}]}];
  if(id==='noNext')filters=[{rules:[{field:'fechaProximaAccion',operator:'empty'}]}];
  return {...current,query:'',filters,legacyFilters:undefined};
 }

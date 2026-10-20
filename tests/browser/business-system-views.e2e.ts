@@ -4,7 +4,7 @@ import {basePreferences} from '../../src/helpers/businessListPreferences';
 for(const width of [1280,390])test(`system views coexist with personal views at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:844});
  await page.addInitScript(preferences=>{
-  localStorage.setItem('hospeda-live-mode','off');
+  localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');
   localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));
  },{...basePreferences(),columns:['nombre','ciudad','telefono','actions'],pins:{nombre:'left',ciudad:'right',actions:'right'}});
  await page.route('**/_api/**',async route=>{
@@ -50,4 +50,23 @@ for(const role of ['user','admin'])test(`empty state starts ${role==='user'?'on 
  const status=page.getByRole('status').filter({hasText:'Vista:'});
  if(role==='user'){await expect(status).toContainText('Mis negocios');expect(requests.every(r=>r.includes('viewer@example.com'))).toBe(true);await expect(page.getByRole('columnheader',{name:'Último contacto'})).toBeVisible();await expect(page.getByRole('columnheader',{name:'Revisados'})).toHaveCount(0);}
  else{await expect(status).toHaveCount(0);expect(requests.some(r=>r.includes('viewer@example.com'))).toBe(false);}
+});
+test('an existing seller gets Mis negocios once, keeping their columns, and can leave it',async({page})=>{
+ await page.addInitScript(preferences=>{localStorage.setItem('hospeda-live-mode','off');if(!localStorage.getItem('hospeda-business-list-v1-user-3'))localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},{...basePreferences(),columns:['nombre','ciudad','actions']});
+ const requests:string[]=[];
+ await page.route('**/_api/**',async route=>{
+  const url=new URL(route.request().url());let data:unknown={};
+  if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'viewer@example.com',displayName:'Viewer',role:'user'}};
+  else if(url.pathname.endsWith('/business_list_defaults'))data={defaults:null};
+  else if(url.pathname.endsWith('/settings'))data={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedEmails:[],opportunityStages:[]};
+  else if(url.pathname.endsWith('/saved_views'))data={views:[]};
+  else if(url.pathname.endsWith('/leads')){requests.push(url.searchParams.get('filterGroups')??'');data={rows:[{id:'-1',accountId:'1',nombre:'Negocio 1',ciudad:'Colón',telefono:'123',canModify:true,opportunityCount:0,contactCount:0}],total:1,page:1,pageSize:25,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};}
+  await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
+ });
+ await page.goto('/accounts');await expect(page.locator('tbody tr[data-business-id]')).toHaveCount(1);
+ await expect(page.getByRole('status').filter({hasText:'Vista:'})).toContainText('Mis negocios');expect(requests.every(r=>r.includes('viewer@example.com'))).toBe(true);
+ await expect(page.getByRole('columnheader',{name:'Ciudad'})).toBeVisible();await expect(page.getByRole('columnheader',{name:'Teléfono'})).toHaveCount(0);
+ expect(await page.evaluate(()=>localStorage.getItem('hospeda-business-seller-default-v1-user-3'))).toBe('1');
+ await page.getByRole('button',{name:'Restablecer configuraciones por defecto',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Vista:'})).toHaveCount(0);
+ await page.reload();await expect(page.locator('tbody tr[data-business-id]')).toHaveCount(1);await expect(page.getByRole('status').filter({hasText:'Vista:'})).toHaveCount(0);
 });

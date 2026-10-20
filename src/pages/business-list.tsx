@@ -36,9 +36,9 @@ import {formatDate,formatDay} from '../helpers/crmDates';
 import {useDebounce} from '../helpers/useDebounce';
 import {BUSINESS_PAGINATION_CONTROLS_ENABLED,BUSINESS_RESULTS_CONTROL_ENABLED,availableListPreferences,BUSINESS_COLUMNS,BUSINESS_FILTER_COLUMNS,legacyFilterLabels,effectivePins,initialPreferences,readPersonalPreferences,savePersonalPreferences,type ListPreferences,type ListContext} from '../helpers/businessListPreferences';
 import {toast} from 'sonner';
-import {sellerDefaultSelection,useBusinessViewSelection} from '../helpers/useBusinessViewSelection';
+import {refreshDateViewSelection,readSellerDefaultMarker,sellerDefaultSelection,useBusinessViewSelection,writeSellerDefaultMarker} from '../helpers/useBusinessViewSelection';
 import {useCallbackRef} from '../helpers/useCallbackRef';
-import {viewPreferencesFingerprint,readBusinessViewSelection} from '../helpers/businessViewSelection';
+import {viewPreferencesFingerprint,readBusinessViewSelection,saveBusinessViewSelection} from '../helpers/businessViewSelection';
 import {resolveSystemViews} from '../helpers/businessSystemViews';
 import styles from './business-list.module.css';
 export default function BusinessListPage(){const {authState}=useAuth();const defaults=useQuery({queryKey:['business-list-defaults'],queryFn:getBusinessListDefaults,refetchOnWindowFocus:false});const [ready,setReady]=useState(false);useEffect(()=>{if(defaults.isSuccess&&!defaults.isFetching)setReady(true);},[defaults.isSuccess,defaults.isFetching]);if(authState.type!=='authenticated')return null;
@@ -47,7 +47,11 @@ export default function BusinessListPage(){const {authState}=useAuth();const def
 function BusinessList({userId,userEmail,admin,defaults}:{userId:number;userEmail:string;admin:boolean;defaults:Awaited<ReturnType<typeof getBusinessListDefaults>>}){
  const manualRefreshing=useLiveModeRefreshing();const [retryLoading,setRetryLoading]=useState(false);const retryLock=useRef(false);
  const navigate=useNavigate(),qc=useQueryClient();const [searchParams,setSearchParams]=useSearchParams();const [duplicatesOpen,setDuplicatesOpen]=useState(false);
- const [initial]=useState(()=>{const personal=readPersonalPreferences(userId);if(personal)return {...personal,defaultSelection:null};const base=initialPreferences(defaults.defaults??undefined,window.innerWidth<768),seller=sellerDefaultSelection({admin,hasStoredState:!!readBusinessViewSelection(userId),base,systemViews:defaults.defaults?.systemViews,email:userEmail});return {preferences:seller?.preferences??base,context:{page:1,scrollY:0,scrollX:0} as ListContext,defaultSelection:seller?.selection??null};});
+ const [initial]=useState(()=>{const personal=readPersonalPreferences(userId),stored=readBusinessViewSelection(userId),marker=readSellerDefaultMarker(userId),systemViews=defaults.defaults?.systemViews,base=personal?.preferences??initialPreferences(defaults.defaults??undefined,window.innerWidth<768),context=personal?.context??{page:1,scrollY:0,scrollX:0} as ListContext;
+  const seller=sellerDefaultSelection({admin,hasSelection:!!stored,hasMarker:marker,base,systemViews,email:userEmail});if(!admin&&!marker)writeSellerDefaultMarker(userId);
+  if(seller)return {preferences:seller.preferences,context,defaultSelection:seller.selection};
+  const fresh=personal?refreshDateViewSelection({selection:stored,preferences:base,email:userEmail}):null;if(fresh)saveBusinessViewSelection(userId,fresh.selection);
+  return {preferences:fresh?.preferences??base,context,defaultSelection:null};});
  const [prefs,setPrefs]=useState(()=>availableListPreferences(initial.preferences)),[page,setPage]=useState(initial.context.page),[viewport,setViewport]=useState(window.innerWidth),[containerWidth,setContainerWidth]=useState(window.innerWidth);
  const viewSelection=useBusinessViewSelection(userId,prefs,defaults.defaults?.systemViews,initial.defaultSelection);
  const visibleAppliedFilters=viewSelection.active?manualViewFilterDelta(prefs,viewSelection.active.baseline):{filters:prefs.filters,visibleRuleIndexes:undefined,query:prefs.query,extraLabels:[],legacyFilters:prefs.legacyFilters};

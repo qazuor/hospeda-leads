@@ -7,7 +7,7 @@ for(const width of [1280,390])for(const role of ['user','admin'])test(`contextua
  const initial=basePreferences();const config={entity:'business',extra:'preserve',preferences:{...initial,query:'Guardada',filters:[{rules:[{field:'ciudad',operator:'eq',value:'Ciudad original'}]}]}};
  let views:any[]=[{id:'my-original',name:'Mi vista',config}],failUpdate=true;const mutations:any[]=[],errors:string[]=[];
  let release!:()=>void;const slow=new Promise<void>(resolve=>{release=resolve;});page.on('pageerror',error=>errors.push(error.message));
- await page.addInitScript(({initial,dark})=>{localStorage.setItem('hospeda-live-mode','off');if(dark)localStorage.setItem('hospeda-theme-mode','dark');if(!localStorage.getItem('hospeda-business-list-v1-user-3'))localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences:initial,context:{page:1,scrollY:0,scrollX:0}}));},{initial,dark:width===390});
+ await page.addInitScript(({initial,dark})=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');if(dark)localStorage.setItem('hospeda-theme-mode','dark');if(!localStorage.getItem('hospeda-business-list-v1-user-3'))localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences:initial,context:{page:1,scrollY:0,scrollX:0}}));},{initial,dark:width===390});
  await page.route('**/_api/**',async route=>{
   const url=new URL(route.request().url());let data:unknown={},status=200;
   if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',displayName:'Owner',role}};

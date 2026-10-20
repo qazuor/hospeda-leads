@@ -54,9 +54,11 @@ export type ListPreferences=z.infer<typeof listPreferencesSchema>;
 // Restore this switch to expose pagination again; schema, queries and return context support both modes.
 export const BUSINESS_PAGINATION_CONTROLS_ENABLED=false;
 export const BUSINESS_RESULTS_CONTROL_ENABLED=false;
+/** The old default "Revisados" column counts as untouched (safe to drop) when it has no pin, default width, is not the sort and no filter uses it. */
+const untouchedReviewColumn=(p:ListPreferences)=>!p.pins.reviewStatus&&(p.widths.reviewStatus===undefined||p.widths.reviewStatus===DEFAULT_WIDTHS.reviewStatus)&&p.sortBy!=='reviewStatus'&&!p.filters.some(g=>g.rules.some(r=>r.field==='reviewStatus'));
 export function availableListPreferences(preferences:ListPreferences):ListPreferences{
- // Layout v4 (idempotent): drops the old default "Revisados" column, adds "Último contacto" once, keeps every personal width, pin, filter and order.
- const layout=preferences.columnLayoutVersion===4?preferences:{...preferences,columnLayoutVersion:4 as const,columns:[...preferences.columns.filter(key=>key!=='actions'&&key!=='reviewStatus'),...(preferences.columns.includes('fechaUltimoContacto')?[]:['fechaUltimoContacto']),'actions'],widths:{...preferences.widths,fechaUltimoContacto:preferences.widths.fechaUltimoContacto??DEFAULT_WIDTHS.fechaUltimoContacto,actions:150},pins:{...preferences.pins,actions:'right' as const}};
+ // Layout v4 (idempotent, deterministic): drops the old default "Revisados" column only when untouched, adds "Último contacto" once, keeps every personal width, pin, filter and order.
+ const layout=preferences.columnLayoutVersion===4?preferences:{...preferences,columnLayoutVersion:4 as const,columns:[...preferences.columns.filter(key=>key!=='actions'&&!(key==='reviewStatus'&&untouchedReviewColumn(preferences))),...(preferences.columns.includes('fechaUltimoContacto')?[]:['fechaUltimoContacto']),'actions'],widths:{...preferences.widths,fechaUltimoContacto:preferences.widths.fechaUltimoContacto??DEFAULT_WIDTHS.fechaUltimoContacto,actions:150},pins:{...preferences.pins,actions:'right' as const}};
  layout.widths={...layout.widths,actions:Math.max(150,layout.widths.actions??DEFAULT_WIDTHS.actions)};
  return normalizePinnedColumnOrder({...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50});
 }
