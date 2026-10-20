@@ -27,12 +27,11 @@ export function broadcastLogout(){
  try{window.localStorage.setItem(LOGOUT_STORAGE_KEY,String(Date.now()));}catch{}
 }
 
-/** Calls `onLogout` once per logout signal from another tab. Returns the unsubscribe function. */
+/** Calls `onLogout` for every logout signal from another tab (both transports may deliver one): the handler must be idempotent and decide whether to act. Returns the unsubscribe function. */
 export function onLogoutElsewhere(onLogout:()=>void):()=>void{
  if(typeof window==='undefined')return()=>undefined;
- let handled=false;const once=()=>{if(handled)return;handled=true;onLogout();};
- const storage=(event:StorageEvent)=>{if(event.key===LOGOUT_STORAGE_KEY&&event.newValue)once();};
- const message=(event:MessageEvent)=>{if(event.data===LOGOUT_MESSAGE)once();};
+ const storage=(event:StorageEvent)=>{if(event.key===LOGOUT_STORAGE_KEY&&event.newValue)onLogout();};
+ const message=(event:MessageEvent)=>{if(event.data===LOGOUT_MESSAGE)onLogout();};
  window.addEventListener('storage',storage);getChannel()?.addEventListener('message',message);
  return()=>{window.removeEventListener('storage',storage);getChannel()?.removeEventListener('message',message);};
 }

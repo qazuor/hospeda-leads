@@ -274,6 +274,22 @@ describe("AuthProvider session keepalive", () => {
       expect(assignMock).not.toHaveBeenCalled();
     });
 
+    it("a tab that ignored a logout while signed out still reacts to the next one after signing in", async () => {
+      respond = unauthorized;
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      mountWith(queryClient);
+      await advance(2000);
+      const logoutElsewhere = (value: string) => act(async () => { window.dispatchEvent(new StorageEvent("storage", { key: LOGOUT_STORAGE_KEY, newValue: value })); });
+      await logoutElsewhere("1");
+      expect(assignMock).not.toHaveBeenCalled();
+      await act(async () => { auth!.onLogin(USER as never); });
+      expect(screen.getByTestId("state").textContent).toBe("authenticated");
+      await logoutElsewhere("2");
+      await logoutElsewhere("3");
+      expect(assignMock).toHaveBeenCalledTimes(1);
+      expect(assignMock).toHaveBeenCalledWith("/login");
+    });
+
     it("logout tells the other tabs", async () => {
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       mountWith(queryClient);
