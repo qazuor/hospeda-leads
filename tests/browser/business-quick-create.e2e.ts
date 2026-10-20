@@ -32,7 +32,7 @@ test('Nuevo negocio warns about similar businesses, blocks No contactar duplicat
  await expect(dialog.getByText('Puede que ya exista:',{exact:true})).toHaveCount(0);
  await dialog.getByLabel('Nombre de la persona',{exact:true}).fill('Ana del alta');await dialog.getByLabel('Teléfono de la persona',{exact:true}).fill('3447 400222');
  await create.click();
- await expect(page.getByText('Negocio creado',{exact:true})).toBeVisible();await expect(page.getByText('Negocio guardado',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Abrir negocio',exact:true})).toHaveCount(0);
+ await expect(page.locator('[data-sonner-toast]').getByText('Negocio creado',{exact:true})).toBeVisible();await expect(page.getByText('Negocio guardado',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Abrir negocio',exact:true})).toHaveCount(0);
  await expect(page).toHaveURL(/\/accounts\/\d+/);await expect(page.getByRole('heading',{name:name+' Norte',exact:true})).toBeVisible();
  const id=page.url().match(/\/accounts\/(\d+)/)![1];
  const detail=await api('commercial?accountId='+id);

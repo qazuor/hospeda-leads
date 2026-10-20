@@ -1,4 +1,5 @@
-import {stageLabel} from './crmLabels';
+import {channelLabel,channelLabels,responseCategoryLabel,stageLabel} from './crmLabels';
+import {messageLabels} from './messageLabels';
 
 /** Filters of the unified "Qué pasó" timeline. */
 export const historyFilters=['all','contact','management','change'] as const;
@@ -20,7 +21,7 @@ const communicationTitles:Readonly<Record<string,string>>={
 };
 /** Plain-words titles for business data changes. */
 const changeTitles:Readonly<Record<string,string>>={
- account_created:'Negocio creado',account_updated:'Datos del negocio editados',account_deleted:'Negocio enviado a Papelera',account_restored:'Negocio restaurado',account_archived:'Negocio archivado',account_unarchived:'Negocio recuperado',account_merged:'Negocios fusionados',
+ account_created:'Negocio creado',account_updated:'Datos del negocio editados',account_contact_data_updated:'Datos de contacto corregidos',account_deleted:'Negocio enviado a Papelera',account_restored:'Negocio restaurado',account_archived:'Negocio archivado',account_unarchived:'Negocio recuperado',account_merged:'Negocios fusionados',
  contact_policy:'Preferencias de contacto actualizadas',leandro_referral_changed:'Derivación a Leandro actualizada',import_updated:'Actualizado desde un lote',business_assignment_rebalanced:'Responsable actualizado por redistribución',converted_to_client:'Pasó a ser cliente',
  business_status_changed:'Estado del negocio actualizado',business_state_changed:'Estado del negocio actualizado',client_marked:'Marcado como cliente',client_unmarked:'Se quitó la marca de cliente',
  contact_created:'Persona agregada',contact_updated:'Persona editada',contact_deleted:'Persona quitada',contact_primary_changed:'Persona principal reemplazada'
@@ -35,4 +36,22 @@ export const journalTitle=({kind,action}:{kind:'communication'|'change';action:s
  return kind==='communication'?'Novedad en la comunicación':'Cambio en los datos del negocio';
 };
 /** Title of a stage change: "Contactado → Interesado"; unknown keys pass through `stageLabel`. */
-export const stageChangeTitle=({oldStage,newStage}:{oldStage:string|null;newStage:string|null}):string=>`${stageLabel(oldStage)} → ${stageLabel(newStage)}`;
+export const stageChangeTitle=({oldStage,newStage}:{oldStage:string|null;newStage:string|null}):string=>oldStage?`${stageLabel(oldStage)} → ${stageLabel(newStage)}`:`Gestión iniciada → ${stageLabel(newStage)}`;
+
+const record=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
+const text=(value:unknown):string=>typeof value==='string'?value.trim():'';
+/**
+ * Readable summary of a communication journal entry built from a whitelist (message status, response category, channel, recipient name, summary).
+ * Never echoes raw JSON, ids, emails, destinations or message content; returns null when nothing readable is left.
+ */
+export const journalDetail=({before,after,automatic=false}:{before?:unknown;after?:unknown;automatic?:boolean}):string|null=>{
+ const a=record(after),b=record(before),parts:string[]=[];
+ const status=text(a.status);if(status&&Object.hasOwn(messageLabels,status))parts.push(messageLabels[status]);
+ const category=text(a.category);if(category)parts.push(responseCategoryLabel(category));
+ const channel=text(a.channel);if(channel&&Object.hasOwn(channelLabels,channel))parts.push(channelLabel(channel));
+ const name=text(a.recipientName);if(name)parts.push(name);
+ const summary=text(a.summary);if(summary)parts.push(summary);
+ const was=text(b.status);if(!status&&was&&Object.hasOwn(messageLabels,was))parts.push('Antes: '+messageLabels[was]);
+ if(automatic)parts.push('Registrado automáticamente');
+ return parts.length?parts.join(' · '):null;
+};

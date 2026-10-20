@@ -145,7 +145,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('tab',{name:'Qué pasó',exact:true}).click();
   await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
   await expect(page.locator('[data-kind="change"]').getByText('Persona quitada')).toBeVisible();
-  await expect(page.getByText(/Persona quitada/).last()).toBeVisible();
+  await expect(page.locator('section').filter({has:page.getByRole('heading',{name:'Auditoría de cambios',exact:true})}).getByText(/Persona quitada/)).toBeVisible();
   await page.getByText('Ayuda sobre negocios y gestiones',{exact:true}).click();await page.getByText('Cómo usar negocios, personas y gestiones',{exact:true}).click();
   await expect(page.getByText(/El recorrido y los motivos de cierre dependen del tipo/)).toBeVisible();
   await page.getByRole('link',{name:'Gestiones',exact:true}).click();

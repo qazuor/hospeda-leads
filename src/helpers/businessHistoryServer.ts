@@ -1,10 +1,12 @@
 import {sql} from 'kysely';
 import {db} from './db';
 import type {CommercialHistoryData,CommercialHistoryEvent} from '../endpoints/businessHistory.schema';
-import {historyFilterKinds,journalTitle,stageChangeTitle,type HistoryFilter} from './historyLabels';
+import {historyFilterKinds,journalDetail,journalTitle,stageChangeTitle,type HistoryFilter} from './historyLabels';
 type HistoryRow=CommercialHistoryEvent&{oldStage:string|null;newStage:string|null};
+/** The communication arm ships its journal payload as JSON text; it is parsed here and never forwarded. */
+const parseDetail=(value:string|null):{before?:unknown;after?:unknown;automatic?:boolean}=>{try{const d=JSON.parse(value??'{}');return {before:d.before,after:d.after,automatic:d.automatic===true}}catch{return {}}};
 /** Raw journal/stage rows become plain-words entries; the internal action key and stage keys never reach the client. */
-const present=({oldStage,newStage,...e}:HistoryRow):CommercialHistoryEvent=>e.kind==='stage'?{...e,title:stageChangeTitle({oldStage,newStage})}:e.kind==='communication'||e.kind==='change'?{...e,title:journalTitle({kind:e.kind,action:e.title})}:e;
+const present=({oldStage,newStage,...e}:HistoryRow):CommercialHistoryEvent=>e.kind==='stage'?{...e,title:stageChangeTitle({oldStage,newStage})}:e.kind==='communication'?{...e,title:journalTitle({kind:e.kind,action:e.title}),result:journalDetail(parseDetail(e.messageText)),messageText:null}:e.kind==='response'?{...e,result:null}:e.kind==='change'?{...e,title:journalTitle({kind:e.kind,action:e.title})}:e;
 /** Called only after the commercial endpoint resolves the business and checks read access. */
 /** One date-ordered stream (50 per page) of contacts, responses, stage changes and data changes; `filter` narrows it by kind. */
 export async function businessHistory(family:string[],page:number,filter:HistoryFilter='all'):Promise<CommercialHistoryData>{
@@ -30,9 +32,9 @@ export async function businessHistory(family:string[],page:number,filter:History
  FROM crm_communication_responses r LEFT JOIN leads l ON l.id=r.lead_id
  WHERE r.account_id IN (${ids}) AND (r.lead_id IS NULL OR l.deleted_at IS NULL)
  UNION ALL
- SELECT 'communication:'||j.id::text,j.created_at,j.action,coalesce(j.after_value::text,j.before_value::text),NULL::text,NULL::text,NULL::text,NULL::text,
+ SELECT 'communication:'||j.id::text,j.created_at,j.action,NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,
  coalesce(j.actor_email,j.triggered_by_email),j.lead_id,l.opportunity_name,'communication'::text,NULL::text,NULL::text,NULL::text,
- jsonb_build_object('automatic',j.is_automatic,'triggeredBy',j.triggered_by_email,'before',j.before_value,'after',j.after_value)::text,NULL::text,NULL::text
+ jsonb_build_object('automatic',j.is_automatic,'before',j.before_value,'after',j.after_value)::text,NULL::text,NULL::text
  FROM crm_communication_journal j LEFT JOIN leads l ON l.id=j.lead_id
  WHERE j.account_id IN (${ids}) AND (j.entity_type<>'response' OR j.action<>'response_registered') AND (j.lead_id IS NULL OR l.deleted_at IS NULL)
  UNION ALL
