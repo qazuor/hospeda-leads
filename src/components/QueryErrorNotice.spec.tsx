@@ -31,6 +31,11 @@ describe('QueryErrorNotice',()=>{
   wrap(<QueryErrorNotice error={new CrmApiError('x',404)} onRetry={vi.fn()} backTo="/my-day"/>);
   expect(screen.getByRole('link',{name:'Volver a Mi día'}).getAttribute('href')).toBe('/my-day');
  });
+ it('offers no "Reintentar" on 401: the session-expired dialog handles it',()=>{
+  wrap(<QueryErrorNotice error={new CrmApiError('Tu sesión venció. Volvé a ingresar para seguir.',401)} onRetry={vi.fn()}/>);
+  expect(screen.getByRole('alert').textContent).toContain('Tu sesión venció');
+  expect(screen.queryByRole('button')).toBeNull();expect(screen.queryByRole('link')).toBeNull();
+ });
  it('keeps "Reintentar" for retryable failures',()=>{
   const onRetry=vi.fn();
   wrap(<QueryErrorNotice error={new CrmApiError('Sin conexión',0)} onRetry={onRetry}/>);
@@ -44,6 +49,10 @@ describe('crmReadError',()=>{
  it('accepts a plain message and keeps the retry action',()=>{
   crmReadError('No se pudo cargar.',vi.fn());
   expect(vi.mocked(toast.error)).toHaveBeenCalledWith('No se pudo cargar.',expect.objectContaining({action:expect.objectContaining({label:'Reintentar'})}));
+ });
+ it('shows one shared toast without retry for 401',()=>{
+  crmReadError(new CrmApiError('Tu sesión venció.',401),vi.fn());crmReadError(new CrmApiError('Tu sesión venció.',401),vi.fn());
+  expect(vi.mocked(toast.error).mock.calls).toEqual([['Tu sesión venció.',{id:'crm-session-expired'}],['Tu sesión venció.',{id:'crm-session-expired'}]]);
  });
  it('drops the retry action for 403',()=>{
   crmReadError(new CrmApiError('Sin permiso.',403),vi.fn());

@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeModeProvider } from "../helpers/themeMode";
 import { SonnerToaster } from "./SonnerToaster";
+import { SessionExpiredDialog } from "./SessionExpiredDialog";
 import { ScrollToHashElement } from "./ScrollToHashElement";
 import { AuthProvider } from "../helpers/useAuth";
 import { LiveModeProvider } from "../helpers/liveMode";
@@ -32,6 +33,7 @@ export const GlobalContextProviders = ({
         <ScrollToHashElement />
           {children}
           <SonnerToaster />
+          <SessionExpiredDialog />
         </LiveModeProvider>
         </CrmThemeProvider>
       </ThemeModeProvider>
