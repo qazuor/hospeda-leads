@@ -48,7 +48,7 @@ set -a
 source .env
 set +a
 npm run db:migrate
-CRM_TEST_DATABASE=1 pnpm db:seed:test
+CRM_TEST_DATABASE=1 npm run db:seed:test
 npm run dev
 ~~~
 
