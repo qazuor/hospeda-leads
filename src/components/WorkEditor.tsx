@@ -5,7 +5,7 @@ import { NativeSelect } from './NativeSelect';
 import { Textarea } from './Textarea';
 import { Checkbox } from './Checkbox';
 import {WorkFlowSteps} from './WorkFlowSteps';
-import {DueDateShortcuts} from './DueDateShortcuts';
+import {DueDateShortcuts,needsOverdueConfirmation} from './DueDateShortcuts';
 import {purposeNames,pendingWork,type WorkPurpose} from '../helpers/nextStep';
 import {useDebounce} from '../helpers/useDebounce';
 import {useUnsavedChanges,type LeaveCopy} from './UnsavedChanges';
@@ -46,8 +46,8 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy}:{target:WorkT
  const [channel,setChannel]=useState(item&&'channel' in item?item.channel??'':('channel' in target?target.channel:undefined)||'');
  const [result,setResult]=useState(item?.result??'');
  const [outcome,setOutcome]=useState<WorkOutcome|''>((item?.outcome as WorkOutcome)||'');
- const [purpose,setPurpose]=useState<WorkPurpose|''>(('purpose' in target?target.purpose:undefined)||item?.purpose||(target.kind==='task'||item&&target.kind!=='complete'?'':'commercial'));
- // Completing a task that has no purpose keeps the former default so the result form stays usable. Planning or rescheduling never asks for a purpose: it is hidden when the task already has one, otherwise optional.
+ const [purpose,setPurpose]=useState<WorkPurpose|''>(('purpose' in target?target.purpose:undefined)||item?.purpose||(item||target.kind==='task'?'':'commercial'));
+ // Completing a task without a purpose makes the seller choose one (never inferred). Planning or rescheduling never asks for a purpose: it is hidden when the task already has one, otherwise optional.
  const [hadPurpose]=useState(!!purpose);
  const [continuation,setContinuation]=useState<'task'|'wait'|'done'|''>('');
  const [next,setNext]=useState(false),[nextTitle,setNextTitle]=useState(''),[nextDate,setNextDate]=useState('');
@@ -80,7 +80,7 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy}:{target:WorkT
  const save=useGuardedMutation({mutationFn:postWork,onSuccess:async(result,input)=>{await Promise.all(['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','communication','pipeline','analytics'].map(key=>qc.invalidateQueries({queryKey:[key]})));const cached=qc.getQueriesData<Partial<WorkData>>({queryKey:['work']}).flatMap(([,value])=>value?.tasks??[]);const remaining=pendingWork([...new Map(cached.filter(t=>t.accountId===accountId&&t.leadId===(leadId||null)&&(!['complete','cancel','delete_task'].includes(target.kind)||t.id!==item?.id)).map(t=>[t.id,t])).values()]);if(input.action==='task_save')crmSuccess((item?'Tarea actualizada: ':'Tarea agendada: ')+input.title+' · '+formatDate(input.dueDate),{label:'Ver en Mi día',href:'/my-day?accountId='+accountId+'&taskId='+result.id});else crmSuccess(target.kind==='complete'?(next?'Resultado guardado y próximo paso programado':'Resultado guardado; las otras tareas se conservan'):target.kind==='cancel'?'Tarea cancelada con motivo':'Guardado',remaining[0]?{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+remaining[0].id}:leadId?{label:'Abrir gestión',href:'/sales/'+leadId}:{label:'Ver historial',href:'/accounts/'+accountId+'?section=history'},remaining[0]?'Próximo pendiente: '+remaining[0].title+' · '+formatDate(remaining[0].dueDate):'No hay otro pendiente visible en este contexto.');onSaved?.();onClose();},onError:e=>toast.error(e.message)});
  const guard=useUnsavedChanges(values!==baseline||!!leaveCopy,onClose,save.isPending,leaveCopy);
  const submit=(e:React.FormEvent)=>{
-  e.preventDefault();if(target.kind==='task'&&!date){toast.error('Elegí para cuándo es la tarea.');return;}if(next&&!nextDate){toast.error('Elegí cuándo vas a retomar esto.');return;}if(target.kind==='cancel'&&!result.trim()){toast.error('Escribí un motivo para cancelar esta tarea.');return;}let body:WorkMutation;
+  e.preventDefault();if(target.kind==='task'&&!date){toast.error('Elegí para cuándo es la tarea.');return;}if(next&&!nextDate){toast.error('Elegí cuándo vas a retomar esto.');return;}if(target.kind==='task'&&needsOverdueConfirmation(date,item&&'dueDate' in item?item.dueDate:undefined)&&!dueConfirmed){toast.error('Esa fecha ya pasó. Marcá "Sí, quiero dejarla vencida" o elegí otra fecha.');return;}if(next&&needsOverdueConfirmation(nextDate,undefined)&&!nextConfirmed){toast.error('Esa fecha ya pasó. Marcá "Sí, quiero dejarla vencida" o elegí otra fecha.');return;}if(target.kind==='cancel'&&!result.trim()){toast.error('Escribí un motivo para cancelar esta tarea.');return;}let body:WorkMutation;
   if(target.kind==='complete'||target.kind==='cancel')body={action:'task_status',id:target.item.id,status:target.kind==='complete'?'completed':'cancelled',purpose:purpose||undefined,continuation:continuation||undefined,continuationReason,result:result.trim()||(outcome?outcomeLabel(outcome):'')||'Cancelada',outcome:outcome||null,nextTask,contactIds,channel:channel||null, ...(target.kind==='complete'?{completedAt:argentinaInstant(occurred).toISOString()}:{})};
   else if(target.kind==='delete_task')body={action:'task_delete',id:target.item.id};
   else if(target.kind==='delete_activity')body={action:'activity_delete',id:target.item.id};

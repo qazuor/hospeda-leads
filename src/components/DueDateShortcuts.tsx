@@ -13,6 +13,7 @@ export const needsOverdueConfirmation=(value:string,originalValue:string|undefin
  * Never preselects a day. A past day (other than the one the task already had) shows a required "Sí, quiero dejarla vencida" checkbox.
  */
 export function DueDateShortcuts({label,value,onChange,originalValue,overdueConfirmed,onOverdueConfirmedChange,now,className,postpone}:{label:string;value:string;onChange:(value:string)=>void;originalValue?:string;overdueConfirmed:boolean;onOverdueConfirmedChange:(confirmed:boolean)=>void;now?:Date;className?:string;postpone?:boolean}){
+ const change=(day:string)=>{onChange(day);onOverdueConfirmedChange(false);};
  const input=useRef<HTMLInputElement>(null);
  const dates=shortcutDates(now);
  const chips=[['Mañana',dates.tomorrow],['En 3 días',dates.in3],['Lunes',dates.nextMonday],['En 1 semana',dates.in7]] as const;
@@ -21,10 +22,10 @@ export function DueDateShortcuts({label,value,onChange,originalValue,overdueConf
  return <div className={className} style={{display:'grid',gap:8}}>
   <div role="group" aria-label="Atajos de fecha" style={{display:'flex',flexWrap:'wrap',gap:8}}>
    {postpone&&<span>Posponer a:</span>}
-   {chips.map(([name,day])=><Button key={name} type="button" size="sm" variant={value===day?'primary':'outline'} aria-pressed={value===day} title={formatDate(day)} onClick={()=>onChange(day)}>{name}</Button>)}
+   {chips.map(([name,day])=><Button key={name} type="button" size="sm" variant={value===day?'primary':'outline'} aria-pressed={value===day} title={formatDate(day)} onClick={()=>change(day)}>{name}</Button>)}
    <Button type="button" size="sm" variant={value&&!matches?'primary':'outline'} aria-pressed={!!value&&!matches} onClick={()=>input.current?.focus()}>Elegir fecha</Button>
   </div>
-  <label>{label}<CrmDateInput ref={input} required value={value} onValueChange={onChange}/></label>
+  <label>{label}<CrmDateInput ref={input} required value={value} onValueChange={change}/></label>
   {overdue&&<label style={{display:'flex',alignItems:'center',gap:12,fontWeight:400}}><Checkbox required checked={overdueConfirmed} onChange={e=>onOverdueConfirmedChange(e.target.checked)}/>Sí, quiero dejarla vencida</label>}
  </div>;
 }

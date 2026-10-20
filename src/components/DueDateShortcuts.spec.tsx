@@ -59,4 +59,11 @@ describe('DueDateShortcuts',()=>{
   setup({postpone:true});
   expect(screen.getByText('Posponer a:')).toBeTruthy();
  });
+
+ it('resets the confirmation whenever the day changes',()=>{
+  const {onChange,onConfirm}=setup({value:'2026-10-20',overdueConfirmed:true});
+  fireEvent.click(screen.getByRole('button',{name:'Mañana'}));
+  expect(onChange).toHaveBeenCalledWith('2026-10-24');
+  expect(onConfirm).toHaveBeenLastCalledWith(false);
+ });
 });
