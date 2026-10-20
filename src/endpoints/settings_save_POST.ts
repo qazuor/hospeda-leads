@@ -6,6 +6,7 @@ import { buildHospedaEmailHtml, buildHospedaEmailText } from "../helpers/hospeda
 import {sql} from 'kysely';
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./settings_save_POST.schema";
+import { validateMessageVariables } from "../helpers/messageVariables";
 
 const INVITE_PREFIX="user_invitation:";
 const INVITE_TTL_MS=7*24*60*60*1000;
@@ -283,6 +284,25 @@ export async function handle(request:Request){
         await db.insertInto("appSettings").values(row)
           .onConflict(oc=>oc.column("key").doUpdateSet({value:row.value,updatedAt:new Date()})).execute();
       }
+    }
+
+    if(input.action==="saveMessageVariables"){
+      const variables=validateMessageVariables(input.variables);
+      const keys=new Set(variables.map(variable=>variable.key));
+      for(const variable of variables){
+        if(variable.source.kind==="variable"&&!keys.has(variable.source.key))throw new Error(`{{${variable.key}}} referencia una variable que no existe.`);
+      }
+      for(const start of variables){
+        const visited=new Set<string>();
+        let current:typeof start|undefined=start;
+        while(current?.source.kind==="variable"){
+          if(visited.has(current.key))throw new Error(`Hay una referencia circular que incluye {{${current.key}}}.`);
+          visited.add(current.key);
+          current=variables.find(item=>item.key===current?.source.key);
+        }
+      }
+      await db.insertInto("appSettings").values({key:"crm_message_variables",value:JSON.stringify(variables)})
+        .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify(variables),updatedAt:new Date()})).execute();
     }
 
     if(input.action==="deleteTemplate"){

@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import superjson from 'superjson';
 import {basePreferences} from '../../src/helpers/businessListPreferences';
 
-for(const theme of ['light','dark'])test(`business headers highlight the entire column in ${theme} mode`,async({page})=>{
+for(const theme of ['light','dark'])test(`business headers keep row stripes while hovered in ${theme} mode`,async({page})=>{
  await page.setViewportSize({width:1280,height:844});
  await page.addInitScript(preferences=>{
   localStorage.setItem('hospeda-live-mode','off');
@@ -22,19 +22,15 @@ for(const theme of ['light','dark'])test(`business headers highlight the entire 
  const headers=page.locator('thead th'),cells=page.locator('tbody tr[data-business-id]');
  const background=(index:number)=>cells.evaluateAll((rows,index)=>rows.map(row=>getComputedStyle(row.children[index]).backgroundColor),index);
  const original=await background(3);expect(original[0]).not.toBe(original[1]);
- // Both fixed sides and ordinary columns share the highlight; leaving restores the stripes.
+ // Column highlighting was removed on purpose (d783af1): hovering a header must keep the row stripes.
  for(const index of [1,2,3,0,4]){
   await headers.nth(index).hover();
-  const color=await headers.nth(index).evaluate(cell=>getComputedStyle(cell).backgroundColor);
-  await expect.poll(()=>background(index)).toEqual([color,color,color]);
-  await expect.poll(()=>background(index===3?2:3)).not.toEqual([color,color,color]);
+  await expect.poll(()=>background(3)).toEqual(original);
   if(index===3){
    await expect(cells.first().locator('td').nth(index)).toHaveCSS('position','sticky');
    await expect(headers.nth(index).getByRole('button')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
    await page.screenshot({path:`test-results/business-column-hover-${theme}.png`,animations:'disabled'});
   }
-  await page.getByRole('heading',{name:'Negocios',exact:true}).hover();
-  await expect.poll(()=>background(3)).toEqual(original);
  }
  const sort=headers.nth(1).getByRole('button');await sort.focus();await sort.press('Tab');await page.keyboard.press('Shift+Tab');await expect(sort).toBeFocused();
  await expect(sort).toHaveCSS('outline-style','solid');expect(await sort.evaluate(el=>parseFloat(getComputedStyle(el).outlineWidth))).toBeGreaterThan(0);

@@ -19,7 +19,7 @@ for (const width of [1280, 390]) test(`material management keeps drafts and lock
   await page.route('**/_api/**', async route => {
     const url = new URL(route.request().url()); let data: unknown = {};
     if (url.pathname.endsWith('/auth/session')) data = { user: { id: 1, email: 'admin@example.com', displayName: 'Admin', role: 'admin' } };
-    else if (url.pathname.endsWith('/commercial')) data = { account: { id: '101', nombre: 'Negocio de materiales', assignedUserEmail: 'admin@example.com', commercialStatus: 'prospect', archivedAt: null, mergedIntoId: null }, opportunities: [], contacts: [], journal: [], leadJournal: [], stages: [], users: [] };
+    else if (url.pathname.endsWith('/commercial')) data = url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{ account: { id: '101', nombre: 'Negocio de materiales', assignedUserEmail: 'admin@example.com', commercialStatus: 'prospect', archivedAt: null, mergedIntoId: null }, opportunities: [], contacts: [], journal: [], leadJournal: [], stages: [], users: [] };
     else if (url.pathname.endsWith('/pipeline')) data = { stages: [], insights: [], events: [], objections: [], lossReasons: [], objectionTypes: [], rules: [], users: [], verticals: [] };
     else if (url.pathname.endsWith('/work')) data = { activities: [], tasks: [], types: [], users: [], attention: [], contacts: [] };
     else if (url.pathname.endsWith('/resources')) {

@@ -134,7 +134,7 @@ jobs:
           kill "$(cat /tmp/hospeda-leads.pid)" || true
 
       - name: Build production Docker image
-        run: docker build --build-arg NODE_IMAGE=public.ecr.aws/docker/library/node:22-alpine -t hospeda-leads:ci .
+        run: docker build --build-arg NODE_IMAGE=mirror.gcr.io/library/node:22-alpine -t hospeda-leads:ci .
 
       - name: Smoke test production Docker image
         run: |
