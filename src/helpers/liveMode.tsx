@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { hashKey, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { getLiveVersion } from "../endpoints/live_version_GET.schema";
 import { useAuth } from "./useAuth";
-import { LIVE_QUERY_KEYS, liveQueryKeysToInvalidate, type LiveSnapshot } from "./liveDomains";
+import { LIVE_QUERY_KEYS, liveChangeTime, liveQueryKeysToInvalidate, toClientTime, type LiveSnapshot } from "./liveDomains";
 
 const STORAGE_KEY="hospeda-live-mode";
 const CHECK_INTERVAL=10000;
@@ -37,14 +37,16 @@ export function shouldDeferLiveRefetch(query:DeferrableQuery){
   return Array.isArray(pages)&&pages.length>1;
 }
 
-type PendingStore={subscribe:(listener:()=>void)=>()=>void;has:(hash:string)=>boolean;mark:(hashes:Iterable<string>)=>void;clear:(hash?:string)=>void};
+/** Flags per query hash, holding the browser-clock time of the newest flagged change (null = unknown, any full refetch clears it). */
+type PendingStore={subscribe:(listener:()=>void)=>()=>void;has:(hash:string)=>boolean;changedAt:(hash:string)=>number|null|undefined;mark:(hash:string,changedAt:number|null)=>void;clear:(hash?:string)=>void};
 function createPendingStore():PendingStore{
-  const pending=new Set<string>(),listeners=new Set<()=>void>();
+  const pending=new Map<string,number|null>(),listeners=new Set<()=>void>();
   const notify=()=>listeners.forEach(listener=>listener());
   return {
     subscribe:listener=>{listeners.add(listener);return ()=>{listeners.delete(listener);};},
     has:hash=>pending.has(hash),
-    mark:hashes=>{let changed=false;for(const hash of hashes)if(!pending.has(hash)){pending.add(hash);changed=true;}if(changed)notify();},
+    changedAt:hash=>pending.get(hash),
+    mark:(hash,changedAt)=>{const known=pending.has(hash),current=pending.get(hash);pending.set(hash,!known?changedAt:current===null||changedAt===null?null:Math.max(current!,changedAt));if(!known)notify();},
     clear:hash=>{if(hash===undefined?pending.size===0:!pending.has(hash))return;if(hash===undefined)pending.clear();else pending.delete(hash);notify();},
   };
 }
@@ -69,13 +71,33 @@ export function LiveModeProvider({children}:{children:ReactNode}){
   const lastCheckStartedAt=useRef(0);
   const generation=useRef(0);
   const [pending]=useState(createPendingStore);
+  /** Browser time at which the running and the last successful full (not next-page) fetch of each query started. */
+  const fetchStartedAt=useRef(new Map<string,number>());
+  const freshFrom=useRef(new Map<string,number>());
+
+  useEffect(()=>queryClient.getQueryCache().subscribe(event=>{
+    if(event.type==="removed"){fetchStartedAt.current.delete(event.query.queryHash);freshFrom.current.delete(event.query.queryHash);return;}
+    if(event.type!=="updated"||event.query.state.fetchMeta?.fetchMore)return;
+    const hash=event.query.queryHash;
+    if(event.action.type==="fetch"){fetchStartedAt.current.set(hash,Date.now());return;}
+    if(event.action.type!=="success"||event.action.manual)return;
+    const startedAt=fetchStartedAt.current.get(hash);
+    if(startedAt!==undefined)freshFrom.current.set(hash,startedAt);
+    // A full refetch that started after the flagged change already shows it, whatever triggered it.
+    const changedAt=pending.changedAt(hash);
+    if(changedAt!==undefined&&(changedAt===null||startedAt===undefined||startedAt>changedAt))pending.clear(hash);
+  }),[queryClient,pending]);
 
   const updateStatus=useCallback((next:LiveStatus)=>setStatus(current=>current===next?current:next),[]);
 
-  const invalidateLiveQueries=useCallback(async(keys:readonly string[],deferPaged:boolean)=>{
+  const invalidateLiveQueries=useCallback(async(keys:readonly string[],deferPaged:boolean,changedAt:number|null=null)=>{
     const deferred=new Set<string>();
-    if(deferPaged)for(const query of queryClient.getQueryCache().getAll())if(keys.includes(String(query.queryKey[0]))&&shouldDeferLiveRefetch(query))deferred.add(query.queryHash);
-    pending.mark(deferred);
+    if(deferPaged)for(const query of queryClient.getQueryCache().getAll())if(keys.includes(String(query.queryKey[0]))&&shouldDeferLiveRefetch(query)){
+      deferred.add(query.queryHash);
+      // Data whose last full fetch started after the change (e.g. refetched after the user's own edit) is already fresh.
+      const fresh=freshFrom.current.get(query.queryHash);
+      if(changedAt===null||fresh===undefined||fresh<=changedAt)pending.mark(query.queryHash,changedAt);
+    }
     await Promise.all(keys.map(key=>queryClient.invalidateQueries(deferred.size?{queryKey:[key],predicate:query=>!deferred.has(query.queryHash)}:{queryKey:[key]})));
   },[queryClient,pending]);
 
@@ -93,14 +115,19 @@ export function LiveModeProvider({children}:{children:ReactNode}){
     lastCheckStartedAt.current=Date.now();
     if(manual)updateStatus("checking");
     try{
+      const sentAt=Date.now();
       const next=await getLiveVersion();
+      const receivedAt=Date.now();
       if(checkGeneration!==generation.current)return;
       const previous=lastSnapshot.current;
       lastSnapshot.current=next;
       setLastCheckedAt(new Date());
       updateStatus("live");
       const keys=liveQueryKeysToInvalidate({previous,next});
-      if(keys.length>0)await invalidateLiveQueries(keys,true);
+      if(keys.length>0){
+        const serverTime=liveChangeTime({previous,next});
+        await invalidateLiveQueries(keys,true,serverTime===null?null:toClientTime({serverTime,snapshot:next,sentAt,receivedAt}));
+      }
     }catch{
       if(checkGeneration===generation.current)updateStatus("error");
     }finally{

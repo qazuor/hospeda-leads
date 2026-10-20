@@ -27,7 +27,7 @@ describe("LiveModeProvider polling", () => {
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     version = "v1";
     domains = undefined;
-    fetchMock = vi.fn(async () => new Response(JSON.stringify({ json: domains ? { version, domains } : { version } }), { status: 200 }));
+    fetchMock = vi.fn(async () => new Response(JSON.stringify({ json: domains ? { version, domains, now: String(Date.now() / 1000) } : { version } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -224,21 +224,28 @@ describe("LiveModeProvider polling", () => {
     async function renderList(pages: number) {
       domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
       const fetched: number[] = [];
-      renderWithProvider(<List fetched={fetched} />);
+      const { queryClient } = renderWithProvider(<List fetched={fetched} />);
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
       for (let page = 1; page < pages; page += 1) await act(async () => { screen.getByText("More").click(); await vi.advanceTimersByTimeAsync(0); });
       expect(screen.getByText("pages:" + pages)).toBeTruthy();
       fetched.length = 0;
-      return fetched;
+      return { fetched, queryClient };
+    }
+    /** Simulates a database write now (domain value = database clock in epoch seconds). */
+    function write(domain: string) {
+      version = version + "+";
+      domains = { ...domains, [domain]: String(Date.now() / 1000) };
+    }
+    async function nextPoll() {
+      await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     }
     async function liveChange(domain: string) {
-      version = version + "+";
-      domains = { ...domains, [domain]: version };
-      await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+      write(domain);
+      await nextPoll();
     }
 
     it("flags a list with more than one page instead of refetching every page", async () => {
-      const fetched = await renderList(2);
+      const { fetched, queryClient } = await renderList(2);
       await liveChange("business");
       expect(fetched).toEqual([]);
       expect(screen.getByText("pending")).toBeTruthy();
@@ -249,26 +256,57 @@ describe("LiveModeProvider polling", () => {
     });
 
     it("keeps refreshing a list with a single page automatically", async () => {
-      const fetched = await renderList(1);
+      const { fetched, queryClient } = await renderList(1);
       await liveChange("business");
       expect(fetched).toEqual([1]);
       expect(screen.getByText("fresh")).toBeTruthy();
     });
 
     it("does not flag the list for changes in domains it does not read", async () => {
-      const fetched = await renderList(2);
+      const { fetched, queryClient } = await renderList(2);
       await liveChange("journal");
       expect(fetched).toEqual([]);
       expect(screen.getByText("fresh")).toBeTruthy();
     });
 
     it("refetches every loaded page and clears the flag on a manual refresh", async () => {
-      const fetched = await renderList(2);
+      const { fetched, queryClient } = await renderList(2);
       await liveChange("business");
       expect(screen.getByText("pending")).toBeTruthy();
       await act(async () => { screen.getByText("Refresh all").click(); await vi.advanceTimersByTimeAsync(0); });
       expect(fetched).toEqual([1, 2]);
       expect(screen.getByText("fresh")).toBeTruthy();
+    });
+
+    it("clears the flag when another full refetch of the list succeeds", async () => {
+      const { fetched, queryClient } = await renderList(2);
+      await liveChange("business");
+      expect(screen.getByText("pending")).toBeTruthy();
+      await act(async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(0); });
+      expect(fetched).toEqual([1, 2]);
+      expect(screen.getByText("fresh")).toBeTruthy();
+    });
+
+    it("does not flag the list for a change it already refetched after the user's own edit", async () => {
+      const { fetched, queryClient } = await renderList(2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      write("business");
+      await act(async () => { await vi.advanceTimersByTimeAsync(300); await queryClient.invalidateQueries({ queryKey: ["leads"] }); await vi.advanceTimersByTimeAsync(0); });
+      expect(fetched).toEqual([1, 2]);
+      await nextPoll();
+      expect(screen.getByText("fresh")).toBeTruthy();
+      expect(fetched).toEqual([1, 2]);
+      await liveChange("business");
+      expect(screen.getByText("pending")).toBeTruthy();
+    });
+
+    it("keeps the flag when only the next page is fetched", async () => {
+      const { fetched, queryClient } = await renderList(2);
+      await liveChange("business");
+      await act(async () => { screen.getByText("More").click(); await vi.advanceTimersByTimeAsync(0); });
+      expect(fetched).toEqual([3]);
+      expect(screen.getByText("pages:3")).toBeTruthy();
+      expect(screen.getByText("pending")).toBeTruthy();
     });
 
     it("defers only opted-in queries that are on screen with several pages", () => {

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { LIVE_DOMAIN_QUERY_KEYS, LIVE_QUERY_KEYS, liveQueryKeysToInvalidate, type LiveSnapshot } from "./liveDomains";
+import { LIVE_DOMAIN_QUERY_KEYS, LIVE_QUERY_KEYS, liveChangeTime, liveQueryKeysToInvalidate, toClientTime, type LiveSnapshot } from "./liveDomains";
 
 const domains={business:"1",work:"1",communication:"1",catalog:"1",journal:"1"};
 const snapshot=(version:string,changes:Record<string,string>={}):LiveSnapshot=>({version,domains:{...domains,...changes}});
@@ -64,5 +64,22 @@ describe("liveQueryKeysToInvalidate", () => {
     const sql=readFileSync(resolve(__dirname,"../../migrations/026_live_version_domains.sql"),"utf8");
     const bumped=new Set([...sql.matchAll(/bump_crm_live_domain\(([^)]+)\)/g)].flatMap(match=>match[1].split(",").map(arg=>arg.trim().replace(/'/g,""))));
     expect([...bumped].sort()).toEqual(Object.keys(LIVE_DOMAIN_QUERY_KEYS).sort());
+  });
+});
+
+describe("liveChangeTime and toClientTime", () => {
+  const base={version:"1",domains:{business:"1000.5",work:"900",communication:"800"}};
+  it("returns the database time of the newest changed domain", () => {
+    expect(liveChangeTime({previous:base,next:{version:"2",domains:{...base.domains,work:"1001.25",communication:"1002"}}})).toBe(1002000);
+  });
+  it("is unknown without a previous snapshot, without domains or for non-numeric values", () => {
+    expect(liveChangeTime({previous:null,next:base})).toBeNull();
+    expect(liveChangeTime({previous:{version:"1"},next:base})).toBeNull();
+    expect(liveChangeTime({previous:base,next:{version:"2",domains:{...base.domains,work:"abc"}}})).toBeNull();
+    expect(liveChangeTime({previous:base,next:base})).toBeNull();
+  });
+  it("shifts a database time by the offset measured at the request midpoint", () => {
+    expect(toClientTime({serverTime:1000000,snapshot:{version:"1",now:"1001"},sentAt:5000000,receivedAt:5000200})).toBe(1000000+5000100-1001000);
+    expect(toClientTime({serverTime:1000000,snapshot:{version:"1"},sentAt:0,receivedAt:0})).toBeNull();
   });
 });
