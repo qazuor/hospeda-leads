@@ -1,9 +1,10 @@
 import {test,expect} from '@playwright/test';
+import {basePreferences} from '../../src/helpers/businessListPreferences';
 import superjson from 'superjson';
 
 test('mobile guide, quick filters and daily actions are easy to discover',async({page})=>{
   await page.setViewportSize({width:390,height:844});
-  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+  await page.addInitScript(preferences=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},{...basePreferences(true),columns:['nombre','assignedUserEmail','ciudad','actions']});
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
   const row={id:'-1',accountId:'1',nombre:'Posada de prueba',ciudad:'Colón',assignedUserEmail:'admin@example.com',telefono:'123',email:'prueba@example.com',canModify:true,opportunityCount:0,contactCount:0,fechaProximaAccion:null,nextActionTitle:null};
   const work={tasks:[],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,bucketCounts:{overdue:0,today:0,upcoming:0},cities:[],verticals:[],totalTasks:0,totalActivities:0,page:1};

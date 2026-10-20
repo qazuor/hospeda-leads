@@ -4,8 +4,8 @@ import superjson from "superjson";
 import {apiJson} from "../../helpers/apiClient";
 
 export const schema = z.object({
-  email: z.string().email("Email is required"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().email("Ingresá un email válido, por ejemplo tu@email.com."),
+  password: z.string().min(1, "Ingresá tu contraseña."),
 });
 
 export type OutputType = {

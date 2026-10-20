@@ -40,7 +40,7 @@ export async function handle(request: Request) {
   } catch (error) {
     if (error instanceof NotAuthenticatedError) {
       return new Response(
-        superjson.stringify({ error: "Not authenticated" }),
+        superjson.stringify({ error: error.message }),
         {
           status: 401,
           headers: {
