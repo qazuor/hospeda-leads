@@ -106,7 +106,7 @@ export async function get(request:Request){
    if(user.role==='admin'||accounts.length){journal=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','in',await accountFamily(db,input.accountId)).orderBy('createdAt','desc').limit(200).execute();}
   }
   // Decision 2B: the seller's own contacts still waiting for "¿Cómo salió?" stay visible in Hoy.
-  const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email}):[];
+  const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin'}):[];
   return reply({pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
 }

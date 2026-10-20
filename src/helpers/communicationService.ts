@@ -286,18 +286,23 @@ export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:st
 /** A contact the seller left without "¿Cómo salió?" (decision 2B): it stays in Hoy until an outcome is recorded. */
 export type PendingContactOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date};
 /**
- * The seller's own contacts since outcome tracking started (migration 028) that still lack an outcome: neither the message's
- * activity nor any later activity of the same business and management has one. Archived, merged or trashed businesses and
- * trashed managements are left out; messages marked as not sent, drafts and uncertain sends never count as contacts.
+ * The seller's own contacts since outcome tracking started (migration 028) that she can still resolve: she is the management's
+ * (or, without one, the business's) responsible or an admin, and the message's activity has no outcome. A confirmed contact is
+ * also resolved by any later outcome activity of the same business and management; an unconfirmed send (WhatsApp opened, manual
+ * attempt started) is not, and it is left out when No contactar or a closed management blocks confirming it (the communication
+ * panel keeps it with its reason). Archived, merged or trashed businesses, trashed managements, drafts, not-sent and uncertain
+ * sends never appear.
  */
-export async function pendingContactOutcomes(e:Executor,{ownerEmail,accountId=null,leadId=null,limit=20}:{ownerEmail:string;accountId?:string|null;leadId?:string|null;limit?:number}):Promise<PendingContactOutcome[]>{
+export async function pendingContactOutcomes(e:Executor,{ownerEmail,isAdmin,accountId=null,leadId=null,limit=20}:{ownerEmail:string;isAdmin:boolean;accountId?:string|null;leadId?:string|null;limit?:number}):Promise<PendingContactOutcome[]>{
  return (await sql<PendingContactOutcome>`SELECT m.id,m.account_id,a.nombre AS account_name,m.lead_id,l.opportunity_name,m.contact_id,m.channel,m.status,m.purpose,m.recipient_name,m.last_interaction_at
   FROM crm_messages m JOIN crm_accounts a ON a.id=m.account_id LEFT JOIN leads l ON l.id=m.lead_id
   WHERE m.owner_email=${ownerEmail} AND (${accountId}::bigint IS NULL OR m.account_id=${accountId}::bigint) AND (${leadId}::bigint IS NULL OR m.lead_id=${leadId}::bigint) AND m.status=ANY(${[...OUTCOME_READY_STATUSES]}::text[])
    AND m.last_interaction_at>=(SELECT value::timestamptz FROM app_settings WHERE key='crm_contact_outcome_since')
    AND a.deleted_at IS NULL AND a.archived_at IS NULL AND a.merged_into_id IS NULL AND (m.lead_id IS NULL OR l.deleted_at IS NULL)
+   AND (${isAdmin} OR coalesce(l.assigned_user_email,a.assigned_user_email)=${ownerEmail})
+   AND (m.status NOT IN ('whatsapp_opened','manual_pending') OR (NOT a.do_not_contact AND (m.lead_id IS NULL OR coalesce((SELECT classification FROM crm_stages WHERE name=l.estado),'')='open')))
    AND NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.id=m.activity_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL)
-   AND NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at)
+   AND (m.status IN ('whatsapp_opened','manual_pending') OR NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at))
   ORDER BY m.last_interaction_at DESC LIMIT ${limit}`.execute(e)).rows.map(r=>({...r,id:String(r.id),accountId:String(r.accountId),leadId:r.leadId==null?null:String(r.leadId),contactId:r.contactId==null?null:String(r.contactId)}));
 }
 /** Points a message at the activity that records its outcome (see {@link resolveMessageForWork}). */

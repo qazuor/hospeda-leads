@@ -323,6 +323,33 @@ try{
  assert((await pendingIds(admin.cookie)).includes(pendingForeign.id));
  await mutate({...contactOutcome,channel:'phone',messageId:pendingNow.id,occurredAt:new Date().toISOString()});
  assert(!(await pendingIds()).includes(pendingNow.id),'A recorded outcome removes the pending item');
+ // Only items the seller can still resolve: her own business or management, still active.
+ const fresh=async(name:string,owner=user.user.email)=>db.insertInto('crmAccounts').values({nombre:name+' '+suffix,assignedUserEmail:owner}).returningAll().executeTakeFirstOrThrow();
+ const pendingCall=(accountId:string,leadId:string|null=null,status='manual_sent',channel='call')=>contactMessage({status,channel,accountId,leadId,at:new Date()});
+ const reassigned=await fresh('Reasignado');const reassignedCall=await pendingCall(reassigned.id);
+ assert((await pendingIds()).includes(reassignedCall.id));
+ await db.updateTable('crmAccounts').set({assignedUserEmail:other.user.email}).where('id','=',reassigned.id).execute();
+ assert(!(await pendingIds()).includes(reassignedCall.id),'A reassigned business leaves the list');
+ const foreignLead=await db.insertInto('leads').values({nombre:a.nombre,accountId:a.id,opportunityName:'De otra persona',estado:'Interesado',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
+ const foreignLeadCall=await pendingCall(a.id,foreignLead.id);
+ assert(!(await pendingIds()).includes(foreignLeadCall.id),'A management of another seller is not hers to resolve');
+ // No contactar and closed managements block confirming a send, so those unconfirmed sends stay out; confirmed contacts stay listed.
+ const dncOpened=await pendingCall(dnc.acc.id,dnc.lead.id,'whatsapp_opened','whatsapp'),dncCall=await pendingCall(dnc.acc.id,dnc.lead.id);
+ const closedOpened=await pendingCall(closedLead.acc.id,closedLead.lead.id,'manual_pending','social'),closedCall=await pendingCall(closedLead.acc.id,closedLead.lead.id);
+ let ids=await pendingIds();
+ for(const id of [dncOpened.id,closedOpened.id])assert(!ids.includes(id),'An unconfirmed send that cannot be confirmed is left to the communication panel');
+ for(const id of [dncCall.id,closedCall.id])assert(ids.includes(id),'A confirmed contact can still get its outcome');
+ // Archived or trashed businesses and trashed managements never appear.
+ const archivedCall=await pendingCall(archived.acc.id,archived.lead.id,'manual_sent','call');
+ const trashed=await fresh('Papelera');const trashedCall=await pendingCall(trashed.id);await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',trashed.id).execute();
+ const trashedLeadAccount=await blockedAccount('Gestión en papelera');const trashedLeadCall=await pendingCall(trashedLeadAccount.acc.id,trashedLeadAccount.lead.id);await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',trashedLeadAccount.lead.id).execute();
+ ids=await pendingIds();for(const id of [archivedCall.id,trashedCall.id,trashedLeadCall.id])assert(!ids.includes(id));
+ // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp.
+ const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await pendingCall(laterAccount.id,null,'whatsapp_opened','whatsapp');
+ assert((await pendingIds()).includes(laterCall.id));
+ await new Promise(r=>setTimeout(r,20));
+ await mutate({action:'activity_save',accountId:laterAccount.id,leadId:null,title:'Charla en la oficina',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
  // Edits stay exempt from linking.
  await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
