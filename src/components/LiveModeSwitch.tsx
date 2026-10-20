@@ -2,7 +2,6 @@ import React,{useState} from "react";
 import { Radio,ChevronDown } from "lucide-react";
 import { Button } from "./Button";
 import { useLiveMode } from "../helpers/liveMode";
-import { formatTime } from "../helpers/crmDates";
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuCheckboxItem} from "./DropdownMenu";
 import styles from "./LiveModeSwitch.module.css";
 
@@ -22,7 +21,7 @@ export const LiveModeSwitch=()=>{
     onClick={async()=>{setRefreshing(true);try{await refresh()}finally{setRefreshing(false)}}}
     className={styles.button}
     aria-label="Actualizar"
-    title={"Actualizar datos ahora. "+title+(lastCheckedAt?" · Último chequeo "+formatTime(lastCheckedAt):"")}
+    title={"Actualizar datos ahora. "+title+(lastCheckedAt?" · Último chequeo "+lastCheckedAt.toLocaleTimeString("es-AR"):"")}
   >
     <span className={styles.indicator+" "+(enabled?styles.on:styles.off)+" "+(status==="error"?styles.error:"")}/>
     <Radio size={15}/>

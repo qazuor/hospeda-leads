@@ -25,7 +25,7 @@ export const formatDate=(value:unknown,withTime=false)=>{
 
 /** Date and time of an instant in Argentina time ("20 oct 2026, 13:11"). */
 export const formatDateTime=(value:unknown)=>formatDate(value,true);
-/** Calendar day of an instant (timestamp) in Argentina time, so late-evening events do not jump to the next UTC day. */
+/** Calendar day of an instant (timestamp) in Argentina time, so late-evening events do not jump to the next UTC day. For timestamps only: NOT for SQL DATE values (a Date at UTC midnight would show the previous day); use `formatDate` for those. */
 export const formatDay=(value:unknown)=>{
   const d=parseDate(value);
   if(!d)return "Vacío";
@@ -37,7 +37,7 @@ export const formatTime=(value:unknown)=>{
   if(!d)return "Vacío";
   return d.toLocaleTimeString("es-AR",{timeZone:CRM_TIME_ZONE,hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
 };
-/** Plain-words distance from an instant to `now`, by Argentina calendar days ("hoy", "ayer", "hace 6 días"). */
+/** Plain-words distance from an instant (timestamp) to `now`, by Argentina calendar days ("hoy", "ayer", "hace 6 días"). NOT for SQL DATE values (a Date at UTC midnight is read as the previous Argentina day). */
 export const relativeAgo=(value:unknown,now:Date=new Date())=>{
   const d=parseDate(value);
   if(!d)return "";
@@ -47,7 +47,7 @@ export const relativeAgo=(value:unknown,now:Date=new Date())=>{
   if(diff===1)return "mañana";
   return diff<0?`hace ${-diff} días`:`en ${diff} días`;
 };
-/** "Vencida ayer" / "Vencida hace N días" for a due calendar day before today, otherwise null. */
+/** "Vencida ayer" / "Vencida hace N días" for a due calendar day (SQL DATE or YYYY-MM-DD) before today, otherwise null. Reads the value's UTC calendar day, so it is NOT for timestamps (use `relativeAgo`). */
 export const overdueLabel=(value:unknown,now:Date=new Date())=>{
   const d=parseDate(value);
   if(!d)return null;

@@ -1,5 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {formatDate,formatDateTime,formatDay,formatTime,relativeAgo,overdueLabel,nextActionInfo} from './crmDates';
+import {displayCalendarDate,displayDate} from './leadsTableModel';
 
 describe('Argentina date and time formatting',()=>{
  it('renders 24-hour Argentina time',()=>{
@@ -14,6 +15,14 @@ describe('Argentina date and time formatting',()=>{
   expect(formatDay('2026-10-01')).toMatch(/^1 de oct\.? de 2026$/);
   expect(formatDate(new Date('2026-10-01T00:00:00Z'))).toMatch(/^1 de oct\.? de 2026$/);
   expect(formatDay('2026-10-02T01:30:00Z')).toMatch(/^1 de oct\.? de 2026$/);
+ });
+ it('renders SQL DATE values (UTC midnight Date, as postgres.js returns them) on their own day',()=>{
+  const sqlDate=new Date('2026-10-01T00:00:00Z');
+  expect(formatDate(sqlDate)).toMatch(/^1 de oct\.? de 2026$/);
+  expect(displayCalendarDate(sqlDate)).toMatch(/^1 de oct\.? de 2026$/);
+  expect(displayCalendarDate('2026-10-01T00:00:00.000Z')).toMatch(/^1 de oct\.? de 2026$/);
+  expect(displayDate('2026-10-02T01:30:00Z')).toMatch(/^1 de oct\.? de 2026$/);
+  expect(displayCalendarDate(null)).toBe('—');
  });
  it('returns a placeholder for invalid values',()=>{
   expect(formatDay(null)).toBe('Vacío');
