@@ -120,10 +120,13 @@ try{
 
  // 6. A subtype rename touching managements of a locked business waits instead of deadlocking.
  {const {id:subtypeId}=await db.insertInto('crmSubtypes').values({name:'Locks sub '+stamp,typeName:null}).returning('id').executeTakeFirstOrThrow();
+  // A free business's management is inserted first so an unlocked rename would update (and hold) it before waiting on B.
+  const freeLead=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre,estado:'Cargado',subtipo:'Locks sub '+stamp,assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();
   const lead=await db.insertInto('leads').values({accountId:b.id,nombre:b.nombre,estado:'Cargado',subtipo:'Locks sub '+stamp,assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();
   const h=await hold(trx=>lockAccounts(trx,[b.id]));
   const rename=saveSettings(new Request('http://localhost/_api/settings',{method:'POST',headers:{cookie},body:superjson.stringify({action:'editSubtype',id:String(subtypeId),name:'Locks sub renamed '+stamp})}));
-  try{assert.equal(await waiting(rename),true,'The rename must wait for the business row');}finally{h.release();await h.done;}
+  try{assert.equal(await waiting(rename),true,'The rename must wait for the business row');
+   for(const id of [freeLead.id,lead.id])assert.equal(await attempt(trx=>sql`SELECT id FROM leads WHERE id=${id} FOR UPDATE NOWAIT`.execute(trx)),'ok','The rename must lock the businesses before touching any management');}finally{h.release();await h.done;}
   assert.equal((await rename).status,200);assert.equal((await db.selectFrom('leads').select('subtipo').where('id','=',lead.id).executeTakeFirstOrThrow()).subtipo,'Locks sub renamed '+stamp);
   console.log('Subtype renames wait for communications on affected businesses');}
 
