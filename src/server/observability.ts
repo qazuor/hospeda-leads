@@ -17,7 +17,8 @@ function safePath(c: Context): string {
   return c.req.path.slice(0, 200);
 }
 
-function logLine(level: "warn" | "error", fields: Record<string, unknown>): void {
+/** One JSON line by level; callers must pass no cookies, bodies or tokens. */
+export function logLine(level: "warn" | "error", fields: Record<string, unknown>): void {
   const line = JSON.stringify({ level, ...fields });
   if (level === "error") console.error(line);
   else console.warn(line);
