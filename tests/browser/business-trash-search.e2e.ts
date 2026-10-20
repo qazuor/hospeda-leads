@@ -29,7 +29,7 @@ for(const width of [1280,390])test(`business deletion, CRM search and management
  await page.getByRole('button',{name:'Restaurar',exact:true}).click();const restore=page.getByRole('dialog',{name:'Restaurar negocio',exact:true});
  await expect(restore).toContainText('mantienen');await restore.getByRole('button',{name:'Restaurar negocio',exact:true}).click();
  await expect(restore).toHaveCount(0);await expect(page.getByText('No hay negocios en papelera.',{exact:true})).toBeVisible();expect(writes).toEqual([{action:'account_trash',accountIds:['1'],deleted:false,reason:'Restauración desde Papelera'}]);
- await page.getByText('Gestiones',{exact:true}).click();await expect(page.getByText('No hay gestiones en papelera.',{exact:true})).toBeVisible();
+ await page.locator('main').getByText('Gestiones',{exact:true}).click();await expect(page.getByText('No hay gestiones en papelera.',{exact:true})).toBeVisible();
  await page.goto('/guide');await page.getByRole('button',{name:'Abrir accesos rápidos',exact:true}).click();
  const palette=page.getByRole('dialog',{name:'Accesos rápidos',exact:true}),search=palette.getByRole('textbox',{name:'Buscar opciones',exact:true});
  await search.fill('cafe');await expect(palette.locator('[data-command-option]')).toHaveCount(3);await expect(palette.getByRole('group',{name:'Archivos',exact:true})).toBeVisible();

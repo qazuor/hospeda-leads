@@ -1,8 +1,8 @@
 import { Burger, Drawer, UnstyledButton } from '@mantine/core';
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Upload, Copy, BarChart3, ChevronDown, History, LogOut, Moon, Settings, Sun, SunMoon, Trash2, UserCircle, Search, RotateCcw, Archive, BookOpen } from "lucide-react";
-import { mainNavigation } from '../helpers/appNavigation';
+import { Upload, Copy, BarChart3, ChevronDown, History, LogOut, Moon, Settings, Sun, SunMoon, Trash2, UserCircle, Search, Archive } from "lucide-react";
+import { APP_TITLE, documentTitle, mainNavigation, sectionTitle } from '../helpers/appNavigation';
 import { openCommandPalette } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import { Button } from "./Button";
@@ -27,11 +27,8 @@ export const AppHeader=()=>{
   const [profileOpen,setProfileOpen]=React.useState(false);
   const [navigationOpen,setNavigationOpen]=React.useState(false);
   React.useEffect(()=>setNavigationOpen(false),[location.pathname,location.search]);
-  const extraNavigation=[
-    {url:'/reactivation',label:'Retomar gestiones pospuestas',icon:RotateCcw},
-    ...(isAdmin?[{url:'/archived',label:'Negocios archivados',icon:Archive}]:[]),
-    {url:'/guide',label:'Guía de uso paso a paso',icon:BookOpen},
-  ];
+  // Sellers only get the main sections (owner decision 5A); "Administración" is admin-only.
+  const archivedNavigation=[{url:'/archived',label:'Negocios archivados',icon:Archive}];
   const adminNavigation=[
     {url:'/accounts?adminTool=import',label:'Importar CSV',icon:Upload},
     {url:'/accounts?adminTool=duplicates',label:'Buscar duplicados',icon:Copy},
@@ -41,15 +38,17 @@ export const AppHeader=()=>{
     {url:'/trash',label:'Papelera',icon:Trash2},
   ];
   const isActive=(url:string)=>url.includes('?')?location.pathname+location.search===url:location.pathname.startsWith(url)||(url==='/opportunities'&&location.pathname.startsWith('/sales/'));
+  const section=sectionTitle({pathname:location.pathname})??(isAdmin?[...archivedNavigation,...adminNavigation].find(item=>!item.url.includes('?')&&location.pathname.startsWith(item.url))?.label:null)??null;
+  React.useEffect(()=>{document.title=documentTitle({section});return ()=>{document.title=APP_TITLE};},[section]);
   const mobileLink=({url,label,icon:Icon}:Pick<typeof mainNavigation[number], 'url'|'label'|'icon'>)=><Link key={url} to={url} aria-current={isActive(url)?'page':undefined} onClick={()=>setNavigationOpen(false)}><Icon size={20} aria-hidden="true"/><span>{label}</span></Link>;
 
 
   return <header className={styles.header}><div className={styles.inner}>
     <Burger className={styles.burger} opened={navigationOpen} onClick={()=>setNavigationOpen(v=>!v)} aria-label="Abrir menú de navegación" aria-expanded={navigationOpen} aria-controls="crm-mobile-navigation" size="sm"/>
-    <Link to="/my-day" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda CRM</strong><span>Equipo Hospeda</span></div></Link>
+    <Link to="/my-day" className={styles.brand}><img src={LOGO} alt="Hospeda"/><div><strong>Hospeda CRM</strong><span>Equipo Hospeda</span></div></Link>{section&&<span className={styles.sectionTitle}>{section}</span>}
     <nav aria-label="Navegación principal" className={styles.desktopNavigation}><div className={styles.navGroup}>
       <div className={styles.navLinks}>{mainNavigation.map(({url,label,icon:Icon})=><Link key={url} to={url} aria-current={(location.pathname.startsWith(url)||(url==='/opportunities'&&location.pathname.startsWith('/sales/')))?'page':undefined} className={(location.pathname.startsWith(url)||(url==='/opportunities'&&location.pathname.startsWith('/sales/')))?styles.active:''}><Icon size={18} aria-hidden="true"/>{label}</Link>)}</div>
-      <DropdownMenu><DropdownMenuTrigger asChild><UnstyledButton type="button" className={styles.navMenu}>Más opciones<ChevronDown size={16}/></UnstyledButton></DropdownMenuTrigger><DropdownMenuContent align="start">{extraNavigation.map(({url,label,icon:Icon})=><DropdownMenuItem key={url} asChild><Link to={url}><Icon size={16} aria-hidden="true"/>{label}</Link></DropdownMenuItem>)}{isAdmin&&<><DropdownMenuSeparator/><DropdownMenuLabel>Administración</DropdownMenuLabel>{adminNavigation.map(({url,label,icon:Icon})=><DropdownMenuItem key={url} asChild><Link to={url}><Icon size={16} aria-hidden="true"/>{label}</Link></DropdownMenuItem>)}</>}</DropdownMenuContent></DropdownMenu>
+      {isAdmin&&<DropdownMenu><DropdownMenuTrigger asChild><UnstyledButton type="button" className={styles.navMenu}>Administración<ChevronDown size={16}/></UnstyledButton></DropdownMenuTrigger><DropdownMenuContent align="start">{archivedNavigation.map(({url,label,icon:Icon})=><DropdownMenuItem key={url} asChild><Link to={url}><Icon size={16} aria-hidden="true"/>{label}</Link></DropdownMenuItem>)}<DropdownMenuSeparator/>{adminNavigation.map(({url,label,icon:Icon})=><DropdownMenuItem key={url} asChild><Link to={url}><Icon size={16} aria-hidden="true"/>{label}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>}
     </div></nav>
     <div className={styles.user}>
       {authState.type==="authenticated"&&<CrmButton variant="default" className={styles.commands} data-command-trigger aria-label="Abrir accesos rápidos" aria-keyshortcuts="Control+K Meta+K" onClick={openCommandPalette}>
@@ -77,8 +76,8 @@ export const AppHeader=()=>{
     </div>
     </div><Drawer opened={navigationOpen} onClose={()=>setNavigationOpen(false)} title="Menú de navegación" position="left" size="min(22rem, calc(100vw - 24px))" zIndex={450} withOverlay overlayProps={{backgroundOpacity:0.62,blur:2,className:'crm-dialog-overlay'}} closeButtonProps={{'aria-label':'Cerrar menú de navegación'}} classNames={{content:styles.drawerContent,header:styles.drawerHeader,body:styles.drawerBody}}>
       <nav id="crm-mobile-navigation" aria-label="Navegación móvil" className={styles.mobileNavigation}>
-        {mainNavigation.map(mobileLink)}<div className={styles.navigationDivider}/>{extraNavigation.map(mobileLink)}
-        {isAdmin&&<><p className={styles.navigationLabel}>Administración</p>{adminNavigation.map(mobileLink)}</>}
+        {mainNavigation.map(mobileLink)}
+        {isAdmin&&<><div className={styles.navigationDivider}/><p className={styles.navigationLabel}>Administración</p>{archivedNavigation.map(mobileLink)}{adminNavigation.map(mobileLink)}</>}
       </nav><div className={styles.drawerLive}><LiveModeSwitch/></div>
     </Drawer><ProfileDialog open={profileOpen} onOpenChange={setProfileOpen}/>
   </header>
