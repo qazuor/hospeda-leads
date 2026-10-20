@@ -72,7 +72,7 @@ MIGRATION_DATA_KEY=<AES-256 key in base64>
 Con la base ya migrada (`npm run db:migrate`), abrir la terminal del contenedor y ejecutar:
 
 ```bash
-npm run db:migrate:floot
+node scripts/migrate-floot-snapshot.mjs
 ```
 
 El comando descarga el snapshot cifrado, lo descifra **en memoria**, verifica SHA-256, importa los datos, ajusta secuencias y compara todos los conteos.

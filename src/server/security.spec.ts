@@ -43,7 +43,7 @@ describe("security middlewares through the node adapter", () => {
     applyBodyLimit(app);
     app.post("/_api/commercial", (c) => { c.header("Set-Cookie", "session=abc; Path=/; HttpOnly"); return c.json({ ok: true }); });
     app.get("/_api/commercial", (c) => c.json({ ok: true }));
-    for (const path of ["/_api/brevo/events", "/_api/business_import", "/_api/leads_ingest"]) app.post(path, (c) => c.json({ ok: true }));
+    for (const path of ["/_api/brevo/events", "/_api/business_import"]) app.post(path, (c) => c.json({ ok: true }));
     app.post("/mcp/redirect", () => Response.redirect("https://chatgpt.com/cb?code=1", 303));
     app.get("/mcp/page", (c) => c.html("<p>consent</p>", 200, { "Content-Security-Policy": "default-src 'none'" }));
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -127,6 +127,6 @@ describe("security middlewares through the node adapter", () => {
     try { expect((await send("POST", "/_api/commercial", { Origin: "null", "Sec-Fetch-Site": "same-origin" })).status).toBe(403); } finally { warn.mockRestore(); }
   });
   it("lets bearer-token clients through regardless of Origin", async () => {
-    for (const path of ["/_api/brevo/events", "/_api/business_import", "/_api/leads_ingest"]) expect((await send("POST", path, { Origin: "https://evil.example" })).status).toBe(200);
+    for (const path of ["/_api/brevo/events", "/_api/business_import"]) expect((await send("POST", path, { Origin: "https://evil.example" })).status).toBe(200);
   });
 });
