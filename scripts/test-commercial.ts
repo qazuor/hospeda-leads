@@ -68,6 +68,15 @@ try{
     await mutate({action:'account_save',nombre:`Otro nombre ${suffix}`,telefono:`3447 15 ${p6}`},user.value,409);
     await mutate({action:'account_save',nombre:`Otro nombre ${suffix}`,whatsapp:dncPhone},user.value,409);
     await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'},admin.value,409);
+    {// DNC with a landline and a different WhatsApp: either channel blocks a re-add
+      const q=p6.split('').reverse().join('');assert.notEqual(q,p6);
+      const dnc2=await mutate({action:'account_save',nombre:`Dos canales ${suffix}`,ciudad:'Colón',telefono:`03442 ${p6}`,whatsapp:`+54 9 3442 15-${q}`},admin.value);
+      await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dnc2).execute();
+      await mutate({action:'account_save',nombre:`Otro canal ${suffix}`,whatsapp:`3442 15 ${q}`},user.value,409);
+      await mutate({action:'account_save',nombre:`Otro canal ${suffix}`,telefono:`3442${p6}`},user.value,409);
+      await mutate({action:'account_save',nombre:`Otro canal ${suffix}`,telefono:`3442${p6}`,whatsapp:'3445111222'},user.value,409);
+      await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',dnc2).execute();
+    }
     // Editing an existing business into a DNC duplicate is blocked; an unchanged identity is not.
     const edited=await mutate({action:'account_save',nombre:`Editable ${suffix}`,ciudad:'Colón'});
     await mutate({action:'account_save',id:edited,nombre:dncName,ciudad:'Colón'},user.value,409);

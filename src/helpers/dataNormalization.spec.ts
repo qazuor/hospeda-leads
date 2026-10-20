@@ -36,6 +36,9 @@ describe('conservative normalization',()=>{
   expect(matchAccounts({nombre:'X',whatsapp:'+54 9 3447 15-412345'},[row],{similarPhone:true})[0].reasons).toContain('Teléfono compartido');
   expect(matchAccounts({nombre:'X',telefono:'3447 15 412345'},[row])).toEqual([]);
   expect(matchAccounts({nombre:'X',telefono:'47412345'},[row],{similarPhone:true})[0].reasons).toEqual(['Teléfono parecido']);
-  expect(matchAccounts({nombre:'X',telefono:'3447412345',whatsapp:'3442111222'},[row],{similarPhone:true})[0].reasons).toEqual(['Teléfono parecido']);
+  expect(matchAccounts({nombre:'X',telefono:'3447412345',whatsapp:'3442111222'},[row],{similarPhone:true})[0].reasons).toEqual(['Teléfono compartido']);
+  const two={...row,telefono:'03447 412345',whatsapp:'+54 9 3447 15-555666'};
+  expect(matchAccounts({nombre:'X',whatsapp:'3447 15 555666'},[two],{similarPhone:true})[0].reasons).toContain('Teléfono compartido');
+  expect(matchAccounts({nombre:'X',telefono:'55566600'},[two],{similarPhone:true})[0]?.reasons??[]).not.toContain('Teléfono compartido');
  });
 });

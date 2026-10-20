@@ -83,10 +83,10 @@ export function matchAccounts(input:Record<string,string|null|undefined>,rows:Ar
    if(n.validity==='valid'&&v.validity==='valid'&&n.normalized&&n.normalized===v.normalized)reasons.push(label+' compartido');
   }
   if(options.similarPhone){
-   // Exactly one national number on each side (telefono and whatsapp together) and equal: a shared phone even when written with a local 15.
-   const national=(...v:Array<string|null|undefined>)=>[...new Set(v.flatMap(x=>phoneNationalKeys(x)))];
+   // Per value: only phones that individually stand for exactly one national number can establish a shared phone; ambiguous ones just count as similar.
+   const national=(...v:Array<string|null|undefined>)=>new Set(v.flatMap(x=>{const k=phoneNationalKeys(x);return k.length===1?k:[];}));
    const mine=national(input.telefono,input.whatsapp),theirs=national(a.telefono,a.whatsapp);
-   if(mine.length===1&&theirs.length===1&&mine[0]===theirs[0]){if(!reasons.includes('Teléfono compartido'))reasons.push('Teléfono compartido');}
+   if([...mine].some(k=>theirs.has(k))){if(!reasons.includes('Teléfono compartido'))reasons.push('Teléfono compartido');}
    else if(!reasons.includes('Teléfono compartido')){
     const similar=new Set([a.telefono,a.whatsapp].flatMap(v=>phoneSignificantKeys(v)));
     if(['telefono','whatsapp'].flatMap(f=>phoneSignificantKeys(input[f])).some(k=>similar.has(k)))reasons.push('Teléfono parecido');
