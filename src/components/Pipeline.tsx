@@ -41,9 +41,10 @@ export function PipelineEditor({target,data,onClose}:{target:Target;data:Pipelin
  const [reason,setReason]=useState('');const [comment,setComment]=useState(item?.notes??'');const [date,setDate]=useState(target.kind==='reactivate'?target.row.recontactDate:localDay());
  const [accountOwner,setAccountOwner]=useState('');
  const [hasDate,setHasDate]=useState(false);const [closeOtherOpen,setCloseOtherOpen]=useState(false);const [typeId,setTypeId]=useState(item?.typeId??'');const [status,setStatus]=useState<PipelineObjection['status']>(item?.status??'open');const [mode,setMode]=useState<'followup'|'reopen'|'new'>('followup');const [name,setName]=useState('');const [title,setTitle]=useState('Retomar conversación');
- const m=useGuardedMutation({mutationFn:postPipeline,onSuccess:async(_result,input)=>{await qc.invalidateQueries();if(input.action!=='transition')toast.success('Cambio registrado');else{const message=stageChangeMessage({stages:data.stages,reasons:data.managementReasons,from:target.kind==='stage'?target.lead.estado:null,to:input.stage,reasonId:input.reasonId});
-  // After a No contactar close the business is archived: its record (read-only for its responsible seller) is the place to keep consulting it.
-  if(target.kind==='stage'&&data.managementReasons.some(r=>r.id===input.reasonId&&r.doNotContact))crmSuccess(message,{label:'Abrir negocio',href:'/accounts/'+target.lead.accountId});else toast.success(message);}onClose();},onError:()=>{void qc.invalidateQueries({queryKey:['pipeline']});void qc.invalidateQueries({queryKey:['leads']});}});
+ const m=useGuardedMutation({mutationFn:postPipeline,onSuccess:async(_result,input)=>{await qc.invalidateQueries();if(input.action!=='transition')toast.success('Cambio registrado');else{const accountOwner=insight?.accountAssignedUserEmail;
+  // After a No contactar close the business is archived: only an admin or the business's responsible can keep reading it.
+  const result=stageChangeMessage({stages:data.stages,reasons:data.managementReasons,from:target.kind==='stage'?target.lead.estado:null,to:input.stage,reasonId:input.reasonId,canViewArchived:user?.role==='admin'||(!!user&&accountOwner===user.email)});
+  if(result.openBusiness&&target.kind==='stage')crmSuccess(result.message,{label:'Abrir negocio',href:'/accounts/'+target.lead.accountId});else toast.success(result.message);}onClose();},onError:()=>{void qc.invalidateQueries({queryKey:['pipeline']});void qc.invalidateQueries({queryKey:['leads']});}});
  const selectedStage=data.stages.find(s=>s.name===stage);
  const reactivationStages=target.kind==='reactivate'?getReactivationStages(data.stages,target.row.managementType):[];
  const canReopen=mayReopenManagement(user?.role);
@@ -111,9 +112,9 @@ export function PipelineDetail({lead,readOnly=false}:{lead:Opportunity;readOnly?
 export function StageBadgeButton({lead,readOnly=false}:{lead:Opportunity;readOnly?:boolean}){
  const q=useQuery({queryKey:['pipeline','detail',lead.id],queryFn:()=>getPipeline({leadId:lead.id})});const [open,setOpen]=useState(false);const {authState}=useAuth();const role=authState.type==='authenticated'?authState.user.role:null;
  const i=q.data?.insights[0];const estado=i?i.estado:lead.estado;const stage=q.data?.stages.find(s=>s.name===estado);const label=stageDisplayName(stage,estado);
- const locked=isReopenLocked({managementType:lead.managementType,current:stage,role});
+ const locked=!!q.data&&isReopenLocked({managementType:lead.managementType,current:stage,role});
  const badge=<ValueBadge value={label} category="status" nativeTooltip={false}/>;
- if(!q.data||!i||i.canModify!==true||readOnly||locked)return <span className={styles.stageBadge} title={locked?CLOSED_MANAGEMENT_NOTICE:undefined}>Etapa: {badge}</span>;
+ if(!q.data||!i||i.canModify!==true||readOnly||locked)return <span className={styles.stageBadge}>Etapa: {badge}{locked&&<span className={styles.stageNotice}>{CLOSED_MANAGEMENT_NOTICE}</span>}</span>;
  const currentLead={...lead,estado:i.estado,prioridad:i.manualPriority,assignedUserEmail:i.assignedUserEmail,pipelineRevision:i.pipelineRevision};
  return <><button type="button" className={styles.stageBadge+' '+styles.stageBadgeButton} aria-haspopup="dialog" title="Cambiar etapa" onClick={()=>setOpen(true)}>Etapa: {badge}<span aria-hidden="true">▾</span></button>{open&&<PipelineEditor target={{kind:'stage',lead:currentLead}} data={q.data} onClose={()=>setOpen(false)}/>}</>;
 }

@@ -15,11 +15,11 @@ export const stageDisplayName=(stage:Pick<PipelineStage,'name'|'displayName'>|un
 };
 
 /**
- * Mirrors the server rule: only an admin can reopen a typed management that is already closed.
- * Legacy (untyped) managements keep their historical behaviour.
+ * Mirrors the server rule: only an admin can change the stage of a typed management whose current stage is not open
+ * (closed, or unknown to the catalog). Legacy (untyped) managements keep their historical behaviour.
  */
 export const isReopenLocked=({managementType,current,role}:{managementType:string|null|undefined;current:Pick<PipelineStage,'classification'>|undefined;role:string|null|undefined}):boolean=>
- Boolean(managementType)&&!!current&&current.classification!=='open'&&role!=='admin';
+ Boolean(managementType)&&current?.classification!=='open'&&role!=='admin';
 
 /**
  * Options of the stage dialog: active stages of the management's type, without the current stage,
@@ -38,14 +38,20 @@ export const stageOptionGroups=({stages,currentStage,managementType}:{stages:rea
  ].filter(group=>group.options.length>0);
 };
 
-/** Success toast of a stage change: reopened, closed (with the No contactar special case) or moved. */
-export const stageChangeMessage=({stages,reasons,from,to,reasonId}:{stages:readonly StageOption[];reasons:readonly Pick<PipelineReason,'id'|'doNotContact'>[];from:string|null|undefined;to:string;reasonId?:string|null}):string=>{
+/**
+ * Success toast of a stage change: reopened, closed (with the No contactar special case) or moved.
+ * After a No contactar close the business is archived: only an admin or the business's responsible can still read it,
+ * so only they get the "seguir consultándolo" copy and the "Abrir negocio" action (`openBusiness`).
+ */
+export const stageChangeMessage=({stages,reasons,from,to,reasonId,canViewArchived}:{stages:readonly StageOption[];reasons:readonly Pick<PipelineReason,'id'|'doNotContact'>[];from:string|null|undefined;to:string;reasonId?:string|null;canViewArchived:boolean}):{message:string;openBusiness:boolean}=>{
  const target=stages.find(stage=>stage.name===to);
+ if(reasonId&&reasons.some(reason=>reason.id===reasonId&&reason.doNotContact))return canViewArchived
+  ?{message:'El negocio quedó en No contactar y archivado. Podés seguir consultándolo.',openBusiness:true}
+  :{message:'El negocio quedó en No contactar y archivado. Solo su responsable o un administrador puede consultarlo.',openBusiness:false};
+ if(target&&target.classification!=='open')return {message:`Gestión cerrada: ${target.classification==='won'?'ganada':'perdida'}`,openBusiness:false};
  const name=stageDisplayName(target,to);
- if(reasonId&&reasons.some(reason=>reason.id===reasonId&&reason.doNotContact))return 'El negocio quedó en No contactar y archivado. Podés seguir consultándolo.';
- if(target&&target.classification!=='open')return `Gestión cerrada como ${name}`;
  const previous=stages.find(stage=>stage.name===from)?.classification;
- return previous&&previous!=='open'?`Gestión reabierta en ${name}`:`Etapa cambiada a ${name}`;
+ return {message:previous&&previous!=='open'?`Gestión reabierta en ${name}`:`Etapa cambiada a ${name}`,openBusiness:false};
 };
 
 const eventTitles:Record<string,string>={closing_checklist:'Acuerdo y entrega registrados',reactivation:'Reactivación planificada',objection:'Objeción actualizada',contact_policy:'Preferencias de contacto actualizadas',leandro_referral_removed:'Derivación a Leandro desactivada'};

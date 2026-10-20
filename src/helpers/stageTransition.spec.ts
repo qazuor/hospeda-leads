@@ -25,17 +25,26 @@ describe('reopen lock',()=>{
   expect(isReopenLocked({managementType:'main',current:{classification:'open'},role:'user'})).toBe(false);
   expect(isReopenLocked({managementType:null,current:{classification:'lost'},role:'user'})).toBe(false);
  });
+ it('locks an unknown current stage like the server does',()=>{
+  expect(isReopenLocked({managementType:'main',current:undefined,role:'user'})).toBe(true);
+  expect(isReopenLocked({managementType:'main',current:undefined,role:'admin'})).toBe(false);
+ });
 });
 
 describe('stage change messages',()=>{
  const reasons=[{id:'r1',doNotContact:false},{id:'dnc',doNotContact:true}];
+ const message=(input:Omit<Parameters<typeof stageChangeMessage>[0],'stages'|'reasons'|'canViewArchived'>&{canViewArchived?:boolean})=>stageChangeMessage({stages,reasons,canViewArchived:true,...input});
  it('names the new stage with its label, never the key',()=>{
-  expect(stageChangeMessage({stages,reasons,from:'main:contact',to:'main:contacted'})).toBe('Etapa cambiada a Contactado');
-  expect(stageChangeMessage({stages,reasons,from:'main:contacted',to:'main:lost',reasonId:'r1'})).toBe('Gestión cerrada como Cerrada perdida');
-  expect(stageChangeMessage({stages,reasons,from:'main:lost',to:'main:contacted'})).toBe('Gestión reabierta en Contactado');
+  expect(message({from:'main:contact',to:'main:contacted'})).toEqual({message:'Etapa cambiada a Contactado',openBusiness:false});
+  expect(message({from:'main:lost',to:'main:contacted'})).toEqual({message:'Gestión reabierta en Contactado',openBusiness:false});
  });
- it('explains the No contactar close',()=>{
-  expect(stageChangeMessage({stages,reasons,from:'main:contacted',to:'main:lost',reasonId:'dnc'})).toBe('El negocio quedó en No contactar y archivado. Podés seguir consultándolo.');
+ it('says how the management was closed',()=>{
+  expect(message({from:'main:contacted',to:'main:lost',reasonId:'r1'})).toEqual({message:'Gestión cerrada: perdida',openBusiness:false});
+  expect(message({from:'main:contacted',to:'main:won',reasonId:'r1'})).toEqual({message:'Gestión cerrada: ganada',openBusiness:false});
+ });
+ it('offers the archived business only to whoever can still read it',()=>{
+  expect(message({from:'main:contacted',to:'main:lost',reasonId:'dnc'})).toEqual({message:'El negocio quedó en No contactar y archivado. Podés seguir consultándolo.',openBusiness:true});
+  expect(message({from:'main:contacted',to:'main:lost',reasonId:'dnc',canViewArchived:false})).toEqual({message:'El negocio quedó en No contactar y archivado. Solo su responsable o un administrador puede consultarlo.',openBusiness:false});
  });
 });
 
