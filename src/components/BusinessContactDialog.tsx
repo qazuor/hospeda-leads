@@ -44,8 +44,8 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const activeContacts=detail.contacts.filter(c=>!c.deletedAt);
  const channel=channelChoice??(recent?.channel==='email'||recent?.channel==='whatsapp'?recent.channel:null)??(detail.account.telefono?.trim()||activeContacts.some(c=>c.phone?.trim())?'whatsapp':'email');
  const manualChannel=channel==='call'||channel==='social'||channel==='other';
- // An empty recipient must reach the next step as "no request", so it can preselect the person who has the data (report item 1.4).
- const recipient=initialContactId||(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:undefined);
+ // Only undefined means "no request" (report item 1.4): '' is an explicit choice of the business general channel.
+ const recipient=initialContactId??(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:undefined);
  if(editor)return <CommercialEditor target={editor} detail={detail} onSaved={id=>{if(editor.kind==='opportunity'){setChosen(id);setCreated(true)}}} onClose={()=>setEditor(null)}/>;
  if(manualContact&&opportunity&&manualChannel)return <CrmDialog opened onClose={()=>setManualContact(false)} title={channel==='call'?'Registrar llamada':channel==='social'?'Registrar contacto por red social':'Registrar contacto por otro canal'} description={<>{detail.account.nombre} · {opportunity.opportunityName||'Gestión comercial'} · se guardará el resultado que registres, sin inferir envío o respuesta.</>}>
   <ManualCommunicationForm key={channel} detail={detail} currentLeadId={String(opportunity.id)} userEmail={user?.email??''} isAdmin={user?.role==='admin'} embedded fixedContext initialChannel={channel} initialContactId={initialContactId}/>

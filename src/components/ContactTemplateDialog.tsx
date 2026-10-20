@@ -23,7 +23,7 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,
  const [contactId,setContactId]=useState<string|null>(null),[message,setMessage]=useState<PreparedMessage|null>(null),[search,setSearch]=useState('');
  const q=useQuery({queryKey:['commercial-detail','',String(lead?.id??'')],queryFn:()=>getCommercialDetail(undefined,String(lead.id)),enabled:open&&!!lead?.id});
  const history=useQuery({queryKey:['communication',String(lead?.id??'')],queryFn:()=>getCommunication(String(lead.id)),enabled:open&&!!lead?.id});
- useEffect(()=>{if(open){setContactId(initialContactId||null);setMessage(null);setSearch('')}},[open,channel,lead?.id,initialContactId]);
+ useEffect(()=>{if(open){setContactId(initialContactId??null);setMessage(null);setSearch('')}},[open,channel,lead?.id,initialContactId]);
  const contacts=q.data?.contacts.filter(c=>!c.deletedAt)??[];const opp=q.data?.opportunities.find(o=>String(o.id)===String(lead?.id));const preferred=contacts.find(c=>String(c.id)===String(opp?.primaryContactId))||(contacts.length===1?contacts[0]:contacts.find(c=>c.isPrimary));const legacy=preferred?.sourceLeadId!=null&&String(preferred.sourceLeadId)===String(lead?.id)&&!opp?.opportunityName;
  const choice=channelRecipientChoice({contacts,channel,requestedId:initialContactId,legacy,generalValue:channel==='email'?lead?.email:lead?.telefono});
  const effective=contactId??choice.recipientId;
