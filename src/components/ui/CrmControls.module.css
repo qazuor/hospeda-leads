@@ -21,7 +21,7 @@
 
 .filePicker{position:relative;display:flex;align-items:center;gap:12px;min-height:44px;min-width:0;width:100%;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--foreground);padding:4px 10px;font-size:14px;line-height:1.4}
 .fileButton{flex:none;padding:6px 8px;border-radius:6px;background:var(--surface);font-weight:600}.fileName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted-foreground)}
-.fileNative{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}.filePicker:focus-within{outline:1.5px solid var(--crm-focus-color);outline-offset:2px}.filePicker[data-disabled]{opacity:.6}.filePicker[data-disabled] .fileNative{cursor:not-allowed}
+.fileNative{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}.filePicker:focus-within{outline:2px solid var(--crm-focus-color);outline-offset:2px}.filePicker[data-disabled]{opacity:.6}.filePicker[data-disabled] .fileNative{cursor:not-allowed}
 
 .menuLabel { display: flex; align-items: center; gap: 10px; min-width: 0; line-height: 1.4; }
 .menuLabel svg,.buttonLabel svg { flex-shrink: 0; }

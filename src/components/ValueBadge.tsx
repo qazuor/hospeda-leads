@@ -1,47 +1,56 @@
 import React from "react";
 import { Badge } from "@mantine/core";
+import {businessStatusLabels} from "../helpers/businessStatus";
+import {managementStageCatalog,managementTypes} from "../helpers/businessManagement";
 import styles from "./ValueBadge.module.css";
 
 type Category="vertical"|"subtype"|"status"|"priority"|"city"|"person"|"contact"|"profile"|"generic";
 
-const hashHue=(value:string)=>{
-  let hash=0;
-  for(let i=0;i<value.length;i++)hash=(hash*31+value.charCodeAt(i))|0;
-  return Math.abs(hash)%360;
+type Tone=[number,number];
+const tones={neutral:[215,12],info:[204,72],progress:[225,65],warning:[32,90],violet:[270,60],muted:[215,8],success:[145,60],dangerMuted:[0,35]} satisfies Record<string,Tone>;
+export type BadgeTone=keyof typeof tones;
+
+// Legacy Floot statuses keep their own hue; everything else resolves to a semantic tone.
+const legacy:Record<string,Tone>={
+  "status:Cargado":[215,12],
+  "status:Filtrado":[210,76],
+  "status:1er contacto":[190,74],
+  "status:En tratativas":[38,90],
+  "status:Suscripto":[143,61],
+  "status:Promocionado a Leandro":[268,63],
+  "status:Rechazado":[0,68],
+  "status:No interesado":[355,43],
+  "status:Re contactar mas adelante":[238,55],
+  "priority:alta":[0,68],
+  "priority:media":[38,90],
+  "priority:baja":[143,52],
+  "profile:Independiente":[162,57],
+  "profile:Consolidado":[205,69],
+  "profile:Referente":[274,61],
 };
 
-const fixed:Record<string,[number,number,number]>={
-  "vertical:Alojamiento":[204,72,44],
-  "vertical:Gastronomía":[24,88,48],
-  "vertical:Experiencia":[272,67,50],
-  "vertical:Partner":[174,65,38],
-  "vertical:Proveedor de servicios":[224,57,48],
-  "vertical:Editor":[330,62,49],
-  "status:Cargado":[215,12,46],
-  "status:Filtrado":[210,76,48],
-  "status:1er contacto":[190,74,42],
-  "status:En tratativas":[38,90,42],
-  "status:Suscripto":[143,61,36],
-  "status:Promocionado a Leandro":[268,63,48],
-  "status:Rechazado":[0,68,49],
-  "status:No interesado":[355,43,45],
-  "status:Re contactar mas adelante":[238,55,52],
-  "priority:alta":[0,68,49],
-  "priority:media":[38,90,42],
-  "priority:baja":[143,52,37],
-  "profile:Independiente":[162,57,38],
-  "profile:Consolidado":[205,69,45],
-  "profile:Referente":[274,61,48],
+const businessStatusTones:Record<string,BadgeTone>={
+  [businessStatusLabels.new]:"info",
+  [businessStatusLabels.reviewed]:"neutral",
+  [businessStatusLabels.in_management]:"progress",
+  [businessStatusLabels.no_follow_up_scheduled]:"warning",
+  "Sin tarea agendada":"warning",
+  [businessStatusLabels.recontact]:"violet",
+  [businessStatusLabels.archived]:"muted",
 };
+const classificationTones={open:"progress",won:"success",lost:"dangerMuted"} as const;
+const stageTones=new Map<string,BadgeTone>(managementTypes.flatMap(type=>managementStageCatalog(type).map(stage=>[stage.label,classificationTones[stage.classification]] as const)));
+
+/** Semantic tone of a status or stage label: business status, then stage classification, then neutral. */
+export const badgeTone=(category:Category,value:string):BadgeTone=>category==="status"?businessStatusTones[value]??stageTones.get(value)??"neutral":"neutral";
 
 export const valueBadgeColors=(category:Category,value:string)=>{
-  const key=category+":"+value;
-  const tuple=fixed[key]??[hashHue(category+"|"+value),58,44];
-  const [h,s,l]=tuple;
+  const [h,s]=legacy[category+":"+value]??tones[badgeTone(category,value)];
+  const tint=`hsl(${h} ${Math.max(45,s)}% 52%)`;
   return {
-    backgroundColor:`color-mix(in srgb, hsl(${h} ${Math.max(45,s)}% 52%) 15%, var(--card))`,
-    color:`color-mix(in srgb, hsl(${h} ${Math.min(85,s+10)}% 55%) 72%, var(--foreground))`,
-    borderColor:`color-mix(in srgb, hsl(${h} ${Math.max(45,s)}% 52%) 34%, var(--border))`,
+    backgroundColor:`color-mix(in srgb, ${tint} 15%, var(--card))`,
+    color:`light-dark(hsl(${h} ${Math.min(85,s+10)}% 24%), hsl(${h} ${Math.min(85,s+10)}% 82%))`,
+    borderColor:`color-mix(in srgb, ${tint} 34%, var(--border))`,
   } as React.CSSProperties;
 };
 
