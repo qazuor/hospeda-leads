@@ -111,6 +111,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [data, dataUpdatedAt, switchUser]);
   // Logout in another tab: drop every cached record and start over on the login page, without the re-login dialog.
   useEffect(() => onLogoutElsewhere(() => {
+    // Nobody signed in here (login, register, password reset): nothing to clear, and a reload would drop a reset token.
+    if (knownUserIdRef.current === null) return;
     knownUserIdRef.current = null;
     queryClient.getMutationCache().clear();
     queryClient.clear();

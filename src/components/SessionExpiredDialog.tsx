@@ -3,6 +3,7 @@ import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '.
 import {Button} from './Button';
 import {PasswordLoginForm} from './PasswordLoginForm';
 import {useAuth} from '../helpers/useAuth';
+import {authNavigation} from '../helpers/authSync';
 
 export const SESSION_EXPIRED_DIALOG_TEXT='Tu sesión venció. Ingresá de nuevo para seguir; lo que escribiste se conserva.';
 export const OTHER_ACCOUNT_TEXT='Si ingresás con otra cuenta, lo que escribiste se descarta.';
@@ -15,6 +16,6 @@ export function SessionExpiredDialog(){
  return <Dialog open onOpenChange={()=>undefined}><DialogContent opaqueOverlay showCloseButton={false} onEscapeKeyDown={keepOpen} onInteractOutside={keepOpen}>
   <DialogHeader><DialogTitle>Volvé a ingresar</DialogTitle><DialogDescription>{SESSION_EXPIRED_DIALOG_TEXT} {OTHER_ACCOUNT_TEXT}</DialogDescription></DialogHeader>
   <PasswordLoginForm defaultEmail={authState.user.email} onSuccess={onRelogin}/>
-  <Button variant="ghost" onClick={()=>{void logout().catch(()=>window.location.assign('/login'))}}>Salir sin guardar</Button>
+  <Button variant="ghost" onClick={()=>{void logout().catch(()=>authNavigation.assign('/login'))}}>Salir sin guardar</Button>
  </DialogContent></Dialog>;
 }

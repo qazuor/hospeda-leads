@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import {releaseUnloadGuards} from './authSync';
+import {LOGOUT_STORAGE_KEY,onLogoutElsewhere,releaseUnloadGuards} from './authSync';
 
 describe('releaseUnloadGuards',()=>{
  afterEach(()=>vi.restoreAllMocks());
@@ -12,5 +12,17 @@ describe('releaseUnloadGuards',()=>{
   const released=new Event('beforeunload',{cancelable:true});window.dispatchEvent(released);
   expect(prompt).toHaveBeenCalledTimes(1);expect(released.defaultPrevented).toBe(false);
   window.removeEventListener('beforeunload',prompt);
+ });
+});
+
+describe('onLogoutElsewhere',()=>{
+ it('reacts once to the logout key and ignores other keys or a removed value',()=>{
+  const onLogout=vi.fn();const stop=onLogoutElsewhere(onLogout);
+  window.dispatchEvent(new StorageEvent('storage',{key:'hospeda-live-mode',newValue:'off'}));
+  window.dispatchEvent(new StorageEvent('storage',{key:LOGOUT_STORAGE_KEY,newValue:null}));
+  expect(onLogout).not.toHaveBeenCalled();
+  window.dispatchEvent(new StorageEvent('storage',{key:LOGOUT_STORAGE_KEY,newValue:'1'}));window.dispatchEvent(new StorageEvent('storage',{key:LOGOUT_STORAGE_KEY,newValue:'2'}));
+  expect(onLogout).toHaveBeenCalledTimes(1);
+  stop();
  });
 });

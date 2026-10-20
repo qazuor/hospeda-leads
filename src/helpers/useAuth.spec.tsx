@@ -266,6 +266,14 @@ describe("AuthProvider session keepalive", () => {
       expect(screen.getByTestId("expired").textContent).toBe("false");
     });
 
+    it("ignores a logout from another tab when nobody is signed in here (login, register, password reset)", async () => {
+      respond = unauthorized;
+      mountWith(new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+      await advance(2000);
+      await act(async () => { window.dispatchEvent(new StorageEvent("storage", { key: LOGOUT_STORAGE_KEY, newValue: "1" })); });
+      expect(assignMock).not.toHaveBeenCalled();
+    });
+
     it("logout tells the other tabs", async () => {
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       mountWith(queryClient);
