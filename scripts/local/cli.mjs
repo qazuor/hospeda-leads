@@ -87,7 +87,14 @@ async function inspectContainer() {
 
 async function ensureVolume() {
   const existing = await docker(["volume", "inspect", VOLUME_NAME], { timeout: 15_000 });
-  if (existing.code === 0) return;
+  if (existing.code === 0) {
+    const labels = JSON.parse(existing.stdout)[0]?.Labels ?? {};
+    // An unlabeled volume is only adopted when our own container already mounts it (legacy volume).
+    if (labels[LABEL_KEY] !== LABEL_VALUE && !(await inspectContainer())?.mountedVolumes.includes(VOLUME_NAME)) {
+      throw new Error(`Volume "${VOLUME_NAME}" exists but was not created by this script (missing ${LABEL_KEY}=${LABEL_VALUE}); refusing to use it`);
+    }
+    return;
+  }
   const created = await docker(["volume", "create", "--label", `${LABEL_KEY}=${LABEL_VALUE}`, VOLUME_NAME]);
   if (created.code !== 0) throw new Error(`docker volume create failed: ${created.stderr.trim()}`);
 }
@@ -284,12 +291,15 @@ async function verifyListenerIsOurs({ port, pgid }) {
 
 function killGroup(pgid, signal) { try { process.kill(-pgid, signal); } catch { /* already gone */ } }
 
+function groupAlive(pgid) { try { process.kill(-pgid, 0); return true; } catch { return false; } }
+
 /** Stops the recorded app, only if its identity (pid + start time + pgid) still matches. Returns whether something was stopped. */
 async function stopApp(recorded) {
   if (!isOurApp(recorded)) return false;
+  // Identity is verified once; afterwards act on the group, since the leader may exit before its children.
   killGroup(recorded.pgid, "SIGTERM");
-  for (let i = 0; i < 40 && isOurApp(recorded); i++) await sleep(250);
-  if (isOurApp(recorded)) killGroup(recorded.pgid, "SIGKILL");
+  for (let i = 0; i < 40 && groupAlive(recorded.pgid); i++) await sleep(250);
+  if (groupAlive(recorded.pgid)) killGroup(recorded.pgid, "SIGKILL");
   return true;
 }
 
@@ -362,7 +372,7 @@ async function commandUp(args) {
   const shutdown = async (signal) => {
     if (stopping) return;
     stopping = true;
-    log(`${signal} received: stopping the app (the database container keeps running)`);
+    try { log(`${signal} received: stopping the app (the database container keeps running)`); } catch { /* terminal closed (SIGHUP) */ }
     await stopApp(recorded);
     await writeState({ app: null });
     process.exit(0);
