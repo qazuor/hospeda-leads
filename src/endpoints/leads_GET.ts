@@ -259,7 +259,9 @@ export async function handle(request: Request) {
     if(input.nextAction==="overdue") query=query.where("fechaProximaAccion","<",new Date(localDay()+"T00:00:00Z"));
     if(input.classification)query=query.where(sql<string>`coalesce((select classification from crm_stages where name=leads.estado),'open')`,'=',input.classification);
     if(input.commercialStatus)query=query.where('accountId','in',db.selectFrom('crmAccounts').select('id').where('commercialStatus','=',input.commercialStatus));
-    const count=await query.select(({fn})=>(input.entity==="business"?fn.count<string>("accountId").distinct():fn.countAll<string>()).as("count")).executeTakeFirstOrThrow();
+    // Opportunity board: the total comes from the grouped board query, so the separate count is skipped.
+    const boardMode=input.view==="board"&&input.entity==="opportunity";
+    const count=boardMode?null:await query.select(({fn})=>(input.entity==="business"?fn.count<string>("accountId").distinct():fn.countAll<string>()).as("count")).executeTakeFirstOrThrow();
     const sortBy=input.sortBy??"fechaCreacion";
     const sortDir=input.sortDir??"desc";
     const candidates=input.entity==="business"
@@ -273,7 +275,11 @@ export async function handle(request: Request) {
       if(anchor)anchorPage=Math.ceil(Number(anchor.rowPosition)/input.pageSize);
     }
     const page=input.alignAnchorPage&&anchorPage?anchorPage:input.page;
-    const rows:OutputType["rows"]=await candidates.selectAll().orderBy(orderExpression,sortDir).orderBy("id","desc").$if(input.view==="board",q=>q.limit(500)).$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize)).execute();
+    const rowsQuery=candidates.selectAll().orderBy(orderExpression,sortDir).orderBy("id","desc").$if(input.view==="board",q=>q.limit(500)).$if(input.view!=="board",q=>q.limit(input.pageSize).offset((page-1)*input.pageSize));
+    // Board only: real totals under the same filters (the board itself is capped at 500 rows), grouped by stage and management type so the client can reduce them for any view.
+    const groupedTotals=boardMode?query.select(sql<string>`coalesce((select classification from crm_stages where name=leads.estado),'open')`.as("classification")).select(["estado","managementType"]).select(({fn})=>fn.countAll<string>().as("count")).groupBy([sql`1`,"estado","managementType"]).execute():Promise.resolve(null);
+    const [loadedRows,grouped]=await Promise.all([rowsQuery.execute(),groupedTotals]);
+    const rows:OutputType["rows"]=loadedRows;
     if(rows.length){
       const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
       const permissionsById=new Map(permissions.map(a=>[String(a.id),a]));
@@ -319,14 +325,12 @@ export async function handle(request: Request) {
       distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor"),
       db.selectFrom('crmAccounts').select('status').distinct().where('status','is not',null).orderBy('status').execute().then(rows=>rows.map(row=>row.status))
     ]):[[],[],[],[],[],[],[],[],[],[]];
-    // Board only: real totals per stage classification under the same filters (the board itself is capped at 500 rows).
-    const boardTotals=input.view==="board"?await (async()=>{
-      const grouped=await query.select(sql<string>`coalesce((select classification from crm_stages where name=leads.estado),'open')`.as("classification")).select(({fn})=>fn.countAll<string>().as("count")).groupBy(sql`1`).execute();
-      const totals={open:0,won:0,lost:0,total:0};
+    const boardTotals=grouped?(()=>{
+      const totals={open:0,won:0,lost:0,total:0,groups:grouped.map(item=>({estado:item.estado??null,managementType:item.managementType??null,count:Number(item.count)}))};
       for(const item of grouped){const key=item.classification==="won"||item.classification==="lost"?item.classification:"open";totals[key]+=Number(item.count);totals.total+=Number(item.count)}
       return totals;
     })():undefined;
-    const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(boardTotals?{boardTotals,truncated:boardTotals.total>rows.length}:{}),...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,businessStatuses,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
+    const out={rows,total:boardTotals?boardTotals.total:Number(count!.count),page,pageSize:input.pageSize,...(boardTotals?{boardTotals,truncated:boardTotals.total>rows.length}:{}),...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,businessStatuses,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
     return new Response(superjson.stringify(out), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
     return errorResponse(error);

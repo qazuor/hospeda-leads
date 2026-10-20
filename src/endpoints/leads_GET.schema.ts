@@ -92,7 +92,7 @@ export const schema=z.object({
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
 export type BusinessTableMetadata={canModify?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";isClient?:boolean;businessStatus?:"new"|"reviewed"|"in_management"|"no_follow_up_scheduled"|"recontact"|"archived"|null;reviewStatus?:boolean;businessRecontactAt?:string|null;referredToLeandro?:boolean;opportunityValues?:Record<string,string[]>};
-export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;boardTotals?:{open:number;won:number;lost:number;total:number};truncated?:boolean;filters:{
+export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;boardTotals?:{open:number;won:number;lost:number;total:number;groups:{estado:string|null;managementType:string|null;count:number}[]};truncated?:boolean;filters:{
   ciudades:string[];estados:string[];tipos:string[];businessStatuses:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];
 }};
