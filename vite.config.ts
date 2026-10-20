@@ -6,6 +6,8 @@ export default defineConfig({
   server: {
     // Overridable by scripts/local/cli.mjs when the default ports are busy.
     port: Number(process.env.CRM_DEV_WEB_PORT || 5173),
+    // When the launcher chose the port, never silently move to another one.
+    strictPort: Boolean(process.env.CRM_DEV_WEB_PORT),
     proxy: {
       "/_api": process.env.CRM_DEV_API_URL || "http://localhost:3001",
     },
