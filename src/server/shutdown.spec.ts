@@ -7,6 +7,8 @@ import {createShutdown} from './shutdown';
 
 const listen=async(handler:Parameters<typeof createServer>[1])=>{const server=createServer(handler);await new Promise<void>((r)=>server.listen(0,'127.0.0.1',r));return {server,port:(server.address() as AddressInfo).port};};
 const get=(port:number,path='/')=>new Promise<string>((resolve,reject)=>{request({port,host:'127.0.0.1',path,agent:false},(res)=>{let body='';res.on('data',(d)=>body+=d);res.on('end',()=>resolve(body));}).on('error',reject).end();});
+// Probe below the ephemeral range (32768+): parallel suites make outgoing connections that can grab ports from it.
+const freePort=async():Promise<number>=>{for(;;){const candidate=20000+Math.floor(Math.random()*10000);const probe=createServer();const ok=await new Promise<boolean>((r)=>{probe.once('error',()=>r(false));probe.listen(candidate,()=>r(true));});if(ok){await new Promise<void>((r)=>probe.close(()=>r()));return candidate;}}};
 const sleep=(ms:number)=>new Promise((r)=>setTimeout(r,ms));
 
 describe('createShutdown',()=>{
@@ -38,7 +40,7 @@ describe('createShutdown',()=>{
 
 describe('server entrypoint',()=>{
   it('exits 0 on SIGTERM once started',async()=>{
-    const port=String(20000+Math.floor(Math.random()*10000));
+    const port=String(await freePort());
     const child=spawn(process.execPath,['--import','tsx','--input-type=module','-e',"await import('./src/server/index.ts')"],{env:{...process.env,PORT:port,DATABASE_URL:'postgres://x:x@127.0.0.1:1/x',JWT_SECRET:'test-secret',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']});
     let out='';child.stdout.on('data',(d)=>out+=d);child.stderr.on('data',(d)=>out+=d);
     const exited=new Promise<number|null>((r)=>child.on('exit',(code)=>r(code)));

@@ -6,7 +6,7 @@ export type ShutdownOptions={server:Pick<Server,'close'|'closeIdleConnections'>&
  * Builds an idempotent shutdown handler: stop accepting connections, let in-flight requests finish (bounded by `timeoutMs`),
  * release resources (DB pool) and exit 0. Exits 1 when the drain times out or a step fails.
  */
-export const createShutdown=({server,closeResources,timeoutMs=10000,exit,log=()=>undefined}:ShutdownOptions)=>{
+export const createShutdown=({server,closeResources,timeoutMs=8000,exit,log=()=>undefined}:ShutdownOptions)=>{
   let started=false;let timedOut=false;
   return async(signal:string)=>{
     if(started)return;started=true;
