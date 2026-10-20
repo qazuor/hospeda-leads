@@ -1,5 +1,6 @@
 import {useDialogLayer} from '../helpers/useDialogLayer';
-import React, { createContext, useContext, useId, useState, useRef, useEffect, useCallback } from 'react';
+import {useCallbackRef} from '../helpers/useCallbackRef';
+import React, { createContext, useContext, useId, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Box, CloseButton, Modal, Text, Title } from '@mantine/core';
 import { ControlTarget } from './ui/ControlTarget';
 import { Button } from './Button';
@@ -28,12 +29,14 @@ export function Dialog({ children, open, defaultOpen = false, onOpenChange }: Di
     return () => parentRegister(token.current, false);
   }, [actualOpen, parentRegister]);
   const hasOpenChild = childrenOpen.size > 0;
-  const change = (next: boolean) => {
+  const change = useCallbackRef((next: boolean) => {
     if (!next && hasOpenChild) return;
     if (next) opener.current = document.activeElement as HTMLElement;
     setLocal(next); onOpenChange?.(next);
-  };
-  return <Context.Provider value={{ open: actualOpen, change, titleId, opener, hasOpenChild, registerChild }}>{children}</Context.Provider>;
+  });
+  // A stable value keeps re-renders of the owner from rescanning large dialog bodies (e.g. the business list) for context consumers.
+  const value = useMemo(() => ({ open: actualOpen, change, titleId, opener, hasOpenChild, registerChild }), [actualOpen, change, titleId, hasOpenChild, registerChild]);
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 interface TriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> { asChild?: boolean }
 export const DialogTrigger = React.forwardRef<HTMLButtonElement, TriggerProps>(({ asChild, onClick, ...props }, ref) => {
