@@ -1,6 +1,7 @@
 import superjson from "superjson";
 import { sql } from "kysely";
 import { db } from "../helpers/db";
+import { errorResponse } from "../helpers/errorResponse";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { OutputType } from "./live_version_GET.schema";
 
@@ -18,6 +19,6 @@ export async function handle(request:Request){
       {headers:{"Content-Type":"application/json","Cache-Control":"no-store"}}
     );
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo comprobar cambios"}),{status:401});
+    return errorResponse(error);
   }
 }
