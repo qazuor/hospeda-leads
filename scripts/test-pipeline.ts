@@ -16,7 +16,7 @@ const admin=await identity('admin'),user=await identity('user'),other=await iden
 const request=(body:unknown,cookie=user.cookie)=>new Request('http://localhost/_api/pipeline',{method:'POST',headers:{cookie},body:superjson.stringify(body)});
 async function mutate(body:unknown,cookie=user.cookie,status=200){const r=await post(request(body,cookie));const value=superjson.parse<{id:string;error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value.id;}
 async function read(params='',cookie=user.cookie,status=200){const r=await get(new Request('http://localhost/_api/pipeline?'+params,{headers:{cookie}}));const d=superjson.parse<PipelineData&{error?:string}>(await r.text());assert.equal(r.status,status,d.error);return d;}
-let accountId:string|undefined;
+let accountId:string|undefined;const bulkPrefix='Board bulk '+stamp+' ';
 try{
  assert.equal((await get(new Request('http://localhost/_api/pipeline'))).status,401);
  const a=await db.insertInto('crmAccounts').values({nombre:'Pipeline fixtures '+stamp,assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();accountId=a.id;
@@ -51,6 +51,7 @@ try{
  assert(!(await read('mode=reactivation')).reactivations.some(r=>r.id===l.id));
  await mutate({...base,revision:row.pipelineRevision},user.cookie,409);
  const listResponse=await list(new Request('http://localhost/_api/leads?idExact='+l.id,{headers:{cookie:user.cookie}}));const listed=superjson.parse<{rows:{estado:string}[]}>(await listResponse.text());assert.equal(listed.rows[0].estado,'En tratativas');
+ const boardResponse=await list(new Request('http://localhost/_api/leads?view=board&idExact='+l.id,{headers:{cookie:user.cookie}}));const board=superjson.parse<{rows:unknown[];boardTotals:{open:number;won:number;lost:number;total:number};truncated:boolean}>(await boardResponse.text());assert.equal(board.boardTotals.total,1);assert.equal(board.boardTotals.open+board.boardTotals.won+board.boardTotals.lost,1);assert.equal(board.truncated,false);
  const objectionType=d.objectionTypes.find(t=>t.active)!;
  const objection=await mutate({action:'objection_save',leadId:l.id,revision:(await lead()).pipelineRevision,typeId:objectionType.id,notes:'Debe consultar con su socio',status:'open'});
  assert.equal((await lead()).estado,'En tratativas');
@@ -76,8 +77,33 @@ try{
  await mutate({action:'transition',leadId:foreign.id,revision:foreign.pipelineRevision,stage:'Perdida',reasonId:inactiveReason},admin.cookie,400);
  const policy=(await sql<{n:string}>`SELECT count(*) n FROM crm_pipeline_events WHERE account_id=${a.id} AND action='contact_policy'`.execute(db)).rows[0];assert.equal(Number(policy.n),2);
  assert((await read('mode=config',admin.cookie)).configJournal.some(j=>j.actorEmail===admin.user.email));
+ // Board totals past the 500-row cap: real counts per classification, truncated flag, and per stage/type groups.
+ {
+  const stages=await db.selectFrom('crmStages').select(['name','classification']).execute();
+  const pick=(c:string)=>stages.find(x=>x.classification===c)!.name;
+  const plan=[['Cargado',400],[pick('won'),60],[pick('lost'),42]] as const;
+  const accounts=await db.insertInto('crmAccounts').values(Array.from({length:502},(_,n)=>({nombre:bulkPrefix+n,assignedUserEmail:user.user.email}))).returning('id').execute();
+  // Closing stages normally require a reason through the pipeline; this fixture only needs the counts, so the guard is paused on the disposable DB.
+  const leadRows=await db.transaction().execute(async trx=>{
+   await sql`ALTER TABLE leads DISABLE TRIGGER crm_pipeline_guard`.execute(trx);
+   const inserted=await trx.insertInto('leads').values(accounts.map((account,n)=>({nombre:bulkPrefix+n,accountId:account.id,estado:n<400?plan[0][0]:n<460?plan[1][0]:plan[2][0],tipo:'Alojamiento',assignedUserEmail:user.user.email,opportunityName:'Bulk'}))).returning('id').execute();
+   await sql`ALTER TABLE leads ENABLE TRIGGER crm_pipeline_guard`.execute(trx);
+   return inserted;
+  });
+  const ids=leadRows.map(r=>Number(r.id));
+  const bulkResponse=await list(new Request('http://localhost/_api/leads?view=board&idMin='+Math.min(...ids)+'&idMax='+Math.max(...ids),{headers:{cookie:user.cookie}}));
+  const bulk=superjson.parse<{rows:unknown[];total:number;truncated:boolean;boardTotals:{open:number;won:number;lost:number;total:number;groups:{estado:string|null;managementType:string|null;count:number}[]}}>(await bulkResponse.text());
+  assert.equal(bulk.rows.length,500);assert.equal(bulk.truncated,true);assert.equal(bulk.total,502);assert.equal(bulk.boardTotals.total,502);
+  assert.deepEqual([bulk.boardTotals.open,bulk.boardTotals.won,bulk.boardTotals.lost],[400,60,42]);
+  assert.equal(bulk.boardTotals.groups.reduce((sum,g)=>sum+g.count,0),502);assert.equal(bulk.boardTotals.groups.find(g=>g.estado===plan[1][0])?.count,60);
+ }
  console.log('Pipeline integration: loss reason, queue filters, ownership, optimistic conflicts, legacy guards, blocked contact, reopen/new/followup, history, objections and catalogs passed');
 }finally{
+ try{
+  await sql`ALTER TABLE leads ENABLE TRIGGER crm_pipeline_guard`.execute(db);
  if(accountId){await sql`DELETE FROM crm_pipeline_events WHERE account_id=${accountId}`.execute(db);await db.deleteFrom('leads').where('accountId','=',accountId).execute();}
- await db.destroy();
+ await sql`DELETE FROM crm_pipeline_events WHERE lead_id IN (SELECT id FROM leads WHERE nombre LIKE ${bulkPrefix+'%'})`.execute(db);await db.deleteFrom('leads').where('nombre','like',bulkPrefix+'%').execute();await sql`DELETE FROM crm_commercial_journal WHERE account_id IN (SELECT id FROM crm_accounts WHERE nombre LIKE ${bulkPrefix+'%'})`.execute(db);await db.deleteFrom('crmAccounts').where('nombre','like',bulkPrefix+'%').execute();
+ }finally{
+  await db.destroy();
+ }
 }
