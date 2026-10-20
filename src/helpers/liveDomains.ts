@@ -57,12 +57,28 @@ export function toClientTime({serverTime,snapshot,sentAt,receivedAt}:{serverTime
 export const LIVE_FRESH_MARGIN_MS=1500;
 
 /**
- * Browser time after which a load must have started to count as including a change made at `serverTime`
- * (database clock): converted time + half the poll round trip + `LIVE_FRESH_MARGIN_MS`. Null when it cannot be known.
+ * A live change in the browser clock: `changedAt` is the latest plausible time of the write (converted time + half the
+ * poll round trip) and `freshAfter` adds `LIVE_FRESH_MARGIN_MS` for the gap between the trigger stamp and COMMIT.
  */
-export function liveFreshAfter({serverTime,snapshot,sentAt,receivedAt}:{serverTime:number;snapshot:LiveSnapshot;sentAt:number;receivedAt:number}):number|null{
+export type LiveChange={changedAt:number;freshAfter:number};
+
+/** Converts a database-clock change time into a `LiveChange`, or null when the server did not report `now`. */
+export function liveChangeWindow({serverTime,snapshot,sentAt,receivedAt}:{serverTime:number;snapshot:LiveSnapshot;sentAt:number;receivedAt:number}):LiveChange|null{
   const clientTime=toClientTime({serverTime,snapshot,sentAt,receivedAt});
-  return clientTime===null?null:clientTime+(receivedAt-sentAt)/2+LIVE_FRESH_MARGIN_MS;
+  if(clientTime===null)return null;
+  const changedAt=clientTime+(receivedAt-sentAt)/2;
+  return {changedAt,freshAfter:changedAt+LIVE_FRESH_MARGIN_MS};
+}
+
+/**
+ * Whether a load that started at `startedAt` already includes `change`. Either it started after the margin, or the
+ * change happened before the latest own mutation response (which arrives after that mutation's COMMIT) and the load
+ * started at or after that response, as when the list is refetched right after the user's own edit.
+ */
+export function liveLoadIncludes({startedAt,change,lastOwnMutationAt}:{startedAt:number|undefined;change:LiveChange|null;lastOwnMutationAt:number|undefined}):boolean{
+  if(startedAt===undefined||change===null)return false;
+  if(startedAt>change.freshAfter)return true;
+  return lastOwnMutationAt!==undefined&&change.changedAt<=lastOwnMutationAt&&startedAt>=lastOwnMutationAt;
 }
 
 export function liveQueryKeysToInvalidate({previous,next}:{previous:LiveSnapshot|null;next:LiveSnapshot}):readonly LiveQueryKey[]{

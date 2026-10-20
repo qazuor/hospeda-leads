@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider, useInfiniteQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import { useLiveMode, useLiveModeRefreshing, useLivePendingRefresh, shouldDeferLiveRefetch, LiveModeProvider, LIVE_MANUAL_WHEN_PAGED } from "./liveMode";
 import { vi } from "vitest";
@@ -223,7 +223,10 @@ describe("LiveModeProvider polling", () => {
       const results = useInfiniteQuery({ queryKey: listKey, initialPageParam: 1, queryFn: async ({ pageParam }) => { fetched.push(pageParam); if (delay) await new Promise(resolve => setTimeout(resolve, delay)); return { page: pageParam }; }, getNextPageParam: last => last.page < 3 ? last.page + 1 : undefined, meta: LIVE_MANUAL_WHEN_PAGED });
       const { pending, clear } = useLivePendingRefresh(listKey);
       const { refresh } = useLiveMode();
-      return <><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button><button onClick={() => void refresh()}>Refresh all</button></>;
+      const queryClient = useQueryClient();
+      // An own edit: the write is stamped first, the response arrives 300 ms later, then the list is refetched.
+      const edit = useMutation({ mutationFn: async () => { write("business"); await new Promise(resolve => setTimeout(resolve, 300)); }, onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); } });
+      return <><button onClick={() => edit.mutate()}>Edit</button><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button><button onClick={() => void refresh()}>Refresh all</button></>;
     }
     async function renderList(pages: number) {
       domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
@@ -309,7 +312,33 @@ describe("LiveModeProvider polling", () => {
       expect(screen.getByText("pending")).toBeTruthy();
     });
 
-    it("still flags the list when its refetch started within the freshness margin of the change", async () => {
+    async function ownEdit() {
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      await act(async () => { screen.getByText("Edit").click(); await vi.advanceTimersByTimeAsync(1000); });
+    }
+
+    it.each([0, 3600])("does not flag the list after the user's own edit refetched it 300 ms later (server clock skew %i s)", async serverSkew => {
+      skew = serverSkew;
+      const { fetched } = await renderList(2);
+      await ownEdit();
+      expect(fetched).toEqual([1, 2]);
+      await nextPoll();
+      expect(screen.getByText("fresh")).toBeTruthy();
+      expect(fetched).toEqual([1, 2]);
+    });
+
+    it.each([0, 3600])("still flags another user's change that lands after the own edit settled (server clock skew %i s)", async serverSkew => {
+      skew = serverSkew;
+      const { fetched } = await renderList(2);
+      await ownEdit();
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      write("business");
+      await nextPoll();
+      expect(screen.getByText("pending")).toBeTruthy();
+      expect(fetched).toEqual([1, 2]);
+    });
+
+    it("still flags the list when a refetch without an own edit started within the freshness margin of the change", async () => {
       const { queryClient } = await renderList(2);
       await ownEditRefetchedAfter(queryClient, 300);
       await nextPoll();

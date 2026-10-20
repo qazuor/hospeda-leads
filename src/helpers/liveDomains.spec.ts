@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { LIVE_DOMAIN_QUERY_KEYS, LIVE_QUERY_KEYS, LIVE_FRESH_MARGIN_MS, liveChangeTime, liveFreshAfter, liveQueryKeysToInvalidate, toClientTime, type LiveSnapshot } from "./liveDomains";
+import { LIVE_DOMAIN_QUERY_KEYS, LIVE_QUERY_KEYS, LIVE_FRESH_MARGIN_MS, liveChangeTime, liveChangeWindow, liveLoadIncludes, liveQueryKeysToInvalidate, toClientTime, type LiveSnapshot } from "./liveDomains";
 
 const domains={business:"1",work:"1",communication:"1",catalog:"1",journal:"1"};
 const snapshot=(version:string,changes:Record<string,string>={}):LiveSnapshot=>({version,domains:{...domains,...changes}});
@@ -84,7 +84,19 @@ describe("liveChangeTime and toClientTime", () => {
   });
   it("requires a load to start after the converted change plus half the round trip and the margin", () => {
     expect(LIVE_FRESH_MARGIN_MS).toBe(1500);
-    expect(liveFreshAfter({serverTime:1000000,snapshot:{version:"1",now:"1001"},sentAt:5000000,receivedAt:5000200})).toBe(1000000+5000100-1001000+100+1500);
-    expect(liveFreshAfter({serverTime:1000000,snapshot:{version:"1"},sentAt:0,receivedAt:0})).toBeNull();
+    const changedAt=1000000+5000100-1001000+100;
+    expect(liveChangeWindow({serverTime:1000000,snapshot:{version:"1",now:"1001"},sentAt:5000000,receivedAt:5000200})).toEqual({changedAt,freshAfter:changedAt+1500});
+    expect(liveChangeWindow({serverTime:1000000,snapshot:{version:"1"},sentAt:0,receivedAt:0})).toBeNull();
+  });
+  it("treats a load as including a change after the margin or after an own mutation response that followed the change", () => {
+    const change={changedAt:10000,freshAfter:11500};
+    expect(liveLoadIncludes({startedAt:11501,change,lastOwnMutationAt:undefined})).toBe(true);
+    expect(liveLoadIncludes({startedAt:11500,change,lastOwnMutationAt:undefined})).toBe(false);
+    expect(liveLoadIncludes({startedAt:10400,change,lastOwnMutationAt:10300})).toBe(true);
+    expect(liveLoadIncludes({startedAt:10300,change,lastOwnMutationAt:10300})).toBe(true);
+    expect(liveLoadIncludes({startedAt:10200,change,lastOwnMutationAt:10300})).toBe(false);
+    expect(liveLoadIncludes({startedAt:10400,change,lastOwnMutationAt:9999})).toBe(false);
+    expect(liveLoadIncludes({startedAt:undefined,change,lastOwnMutationAt:10300})).toBe(false);
+    expect(liveLoadIncludes({startedAt:99999,change:null,lastOwnMutationAt:10300})).toBe(false);
   });
 });
