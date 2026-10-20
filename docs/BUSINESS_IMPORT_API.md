@@ -1,6 +1,6 @@
 # Importación automatizada de negocios
 
-`GET /_api/business_import` y `POST /_api/business_import` usan JSON convencional y `Authorization: Bearer <clave>`. No requieren cookies ni sesión del navegador. El antiguo `/_api/leads_ingest` permanece deshabilitado.
+`GET /_api/business_import` y `POST /_api/business_import` usan JSON convencional y `Authorization: Bearer <clave>`. No requieren cookies ni sesión del navegador. El antiguo `/_api/leads_ingest` fue eliminado (responde 404).
 
 ## Activación y revocación
 

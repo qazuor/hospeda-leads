@@ -2,7 +2,7 @@
 import {afterAll,beforeAll,describe,expect,it} from 'vitest';
 import type {Hono} from 'hono';
 
-// Public by design (own credentials, API key, bearer token or webhook secret). Probed without credentials (empty body: 400 is the handler's own validation, 503 means the secret is not configured, leads_ingest 500 is the missing DB) and with the relevant token envs unset; each must answer exactly this status.
+// Public by design (own credentials, API key, bearer token or webhook secret). Probed without credentials (empty body: 400 is the handler's own validation, 503 means the secret is not configured) and with the relevant token envs unset; each must answer exactly this status.
 const PUBLIC_EXPECTED:Record<string,number>={
 'GET /_api/health':200,
 'GET /_api/health/live':200,
@@ -14,7 +14,6 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'POST /_api/auth/password_recovery/reset':400,
 'GET /_api/auth/invitation':400,
 'POST /_api/brevo/events':503,
-'POST /_api/leads_ingest':500,
 'GET /_api/business_import':503,
 'POST /_api/business_import':503,
 };

@@ -88,7 +88,7 @@ Do not run two agents on the same working tree. Use separate branches/worktrees 
 ## Safety: data, secrets, production
 
 - **Production data is off limits.** No agent writes to the production database: no cleanup, merge, reassignment, recovery, import or seed. A UI or code task never authorizes data writes. Data operations need a scope the owner approved for that specific operation and a reviewed runbook (`docs/management-cleanup-runbook.md`, `docs/business-metadata-recovery.md`). There is no agent DB connection to production; do not claim or invent one.
-- The October cleanup and the 2026-10-10 recovery were already applied by the operator. Never re-run them, and never use the legacy importers (`db:import`, `db:migrate:floot`, `db:recover:businesses`) to recreate deleted managements.
+- The October cleanup and the 2026-10-10 recovery were already applied by the operator. Never re-run them, and never use the legacy importers (`db:import`, `scripts/migrate-floot-snapshot.mjs`, `db:recover:businesses`) to recreate deleted managements.
 - `CRM_TEST_DATABASE=1` is a self-declaration, not a guard: the scripts do not check where `DATABASE_URL` points. Before any seed or `test:*`, confirm the exported `DATABASE_URL` is a local disposable database.
 - **Migrations are immutable once applied.** Editing an applied file breaks its checksum. Always add a new numbered migration. Applying migrations does not run cleanups or recoveries.
 - **Deploy is manual.** Production runs on Coolify; `deploy-vps.yml` is `workflow_dispatch` only. Never trigger it, and never treat a merge as a deploy.

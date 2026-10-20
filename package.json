@@ -17,7 +17,6 @@
     "db:seed:perf": "node scripts/perf/seed-synthetic.mjs",
     "db:import": "node scripts/import-data.mjs",
     "db:validate": "node scripts/validate-data.mjs",
-    "db:migrate:floot": "node scripts/migrate-floot-snapshot.mjs",
     "test:commercial": "node scripts/test-commercial-migration.mjs && node --import tsx scripts/test-commercial.ts && node --import tsx scripts/test-business-history.ts && node --import tsx scripts/test-global-history.ts && node scripts/test-business-recovery.mjs && node scripts/test-recovery-postgres.mjs",
     "test:browser": "playwright test",
     "test:work": "node scripts/test-work-migration.mjs && node --import tsx scripts/test-work.ts",

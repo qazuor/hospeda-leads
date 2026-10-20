@@ -5,7 +5,7 @@ import {db} from '../src/helpers/db';
 import {post,get} from '../src/endpoints/dataQuality';
 import {get as commercialGET} from '../src/endpoints/commercial';
 import {handle as list} from '../src/endpoints/leads_GET';
-import {handle as directImport} from '../src/endpoints/leads_import_POST';
+import {app} from '../src/server/app';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {businessFields} from '../src/helpers/dataNormalization';
 import type {ImportReview,ImportResult,MergePreview,QualityDetail} from '../src/endpoints/dataQuality.schema';
@@ -21,7 +21,7 @@ async function mutation<T>(body:unknown,status=200,cookie=admin.cookie){const r=
 async function detail(id:string){const r=await commercialGET(new Request('http://localhost/_api/commercial?accountId='+id,{headers:{cookie:admin.cookie}}));assert.equal(r.status,200);return superjson.parse<CommercialDetail>(await r.text());}
 try{
  assert.equal((await get(new Request('http://localhost/_api/data_quality'))).status,401);
- assert.equal((await directImport(new Request('http://localhost/_api/leads_import',{headers:{cookie:admin.cookie}}))).status,409);
+ for(const path of ['/_api/leads_import','/_api/leads_ingest'])assert.equal((await app.request(path,{method:'POST',headers:{cookie:admin.cookie,origin:'http://localhost'}})).status,404,path+' must stay removed');
  const source=await db.insertInto('crmAccounts').values({nombre:'Fusión origen '+stamp,ciudad:'Colón',telefono:'03442123456',email:'source@example.com',doNotContact:true,commercialStatus:'client',clientSince:new Date('2026-01-01'),assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
  const dest=await db.insertInto('crmAccounts').values({nombre:'Fusión destino '+stamp,ciudad:'Colón',telefono:'+543442123456',email:'destination@example.com'}).returningAll().executeTakeFirstOrThrow();
  const c1=await db.insertInto('crmContacts').values({accountId:source.id,name:'Persona origen',isPrimary:true}).returningAll().executeTakeFirstOrThrow();

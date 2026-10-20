@@ -7,13 +7,12 @@ export const DEFAULT_BODY_LIMIT = 256 * 1024;
 const MiB = 1024 * 1024;
 /**
  * Per-route caps for the legitimately large payloads. Each must stay >= the route's own check:
- * resources (2.9 MB raw, base64 file), business_import / data_quality (maxFileBytes 2 MiB of rows + envelope), leads_import (250 rows), settings_save (templates/variables).
+ * resources (2.9 MB raw, base64 file), business_import / data_quality (maxFileBytes 2 MiB of rows + envelope), settings_save (templates/variables).
  */
 export const ROUTE_BODY_LIMITS: Readonly<Record<string, number>> = {
   "/_api/resources": 3 * MiB,
   "/_api/business_import": 3 * MiB,
   "/_api/data_quality": 3 * MiB,
-  "/_api/leads_import": MiB,
   "/_api/settings_save": MiB,
 };
 
