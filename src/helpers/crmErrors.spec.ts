@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {z} from 'zod';
-import {crmError, isUnexpectedError} from './crmErrors';
+import {crmError, fallbackStatus, isUnexpectedError} from './crmErrors';
 const generic='No se pudo completar la acción. Intentá de nuevo.';
 const pgError=(code:string,message:string,extra:Record<string,unknown>={})=>Object.assign(new Error(message),{name:'PostgresError',severity:'ERROR',code,...extra});
 afterEach(()=>vi.restoreAllMocks());
@@ -16,4 +16,8 @@ describe('crmError',()=>{
 });
 describe('isUnexpectedError',()=>{
  it('classifies errors',()=>{expect(isUnexpectedError(pgError('42703','column'))).toBe(true);expect(isUnexpectedError(new RangeError('x'))).toBe(true);expect(isUnexpectedError(new SyntaxError('x'))).toBe(true);expect(isUnexpectedError(pgError('P0001','msg'))).toBe(false);expect(isUnexpectedError(new Error('Negocio no encontrado'))).toBe(false);expect(isUnexpectedError(new z.ZodError([]))).toBe(false)});
+});
+describe('fallbackStatus',()=>{
+ it('returns 500 for unexpected SQL and programming errors',()=>{expect(fallbackStatus(pgError('42P01','relation'))).toBe(500);expect(fallbackStatus(pgError('23502','null',{table_name:'leads'}))).toBe(500);expect(fallbackStatus(new TypeError('x'))).toBe(500)});
+ it('keeps 400 for business, trigger, validation and friendly SQL errors',()=>{expect(fallbackStatus(new Error('Elegí el motivo'))).toBe(400);expect(fallbackStatus(pgError('P0001','Revisá el negocio'))).toBe(400);expect(fallbackStatus(pgError('23502','Creá primero el negocio'))).toBe(400);expect(fallbackStatus(pgError('23505','dup'))).toBe(400);expect(fallbackStatus(z.string().safeParse(1).error)).toBe(400)});
 });

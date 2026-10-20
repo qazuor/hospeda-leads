@@ -23,3 +23,5 @@ export function isUnexpectedError(error:unknown):boolean{
  if(sqlState(error))return !isDeliberateTriggerError(error);
  return error instanceof TypeError||error instanceof RangeError||error instanceof SyntaxError;
 }
+/** Fallback HTTP status for errors that are not auth/forbidden/conflict: 500 for unexpected errors (SQL/programming), 400 otherwise (validation, business rules, trigger messages, friendly SQL states such as duplicates). */
+export function fallbackStatus(error:unknown):400|500{return isUnexpectedError(error)&&!friendlySqlState(error)?500:400}
