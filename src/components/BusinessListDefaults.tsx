@@ -9,14 +9,14 @@ import {BusinessListOptions} from './BusinessListOptions';
 import {FilterBuilderDialog,type FilterFieldDefinition} from './FilterBuilderDialog';
 import {Button} from './Button';
 import {Skeleton} from './Skeleton';
-import {defaultSystemViews,systemViewHelp} from '../helpers/businessSystemViews';
+import {resolveSystemViews,systemViewHelp} from '../helpers/businessSystemViews';
 import {ArrowUp,ArrowDown,Trash2} from 'lucide-react';
 import viewStyles from './BusinessListDefaults.module.css';
 import {toast} from 'sonner';
 import styles from '../pages/business-list.module.css';
 export function BusinessListDefaults(){const q=useQuery({queryKey:['business-list-defaults'],queryFn:getBusinessListDefaults});return q.isPending?<Skeleton className={styles.skeleton}/>:q.error?<p role="alert">{q.error.message}<Button onClick={()=>q.refetch()}>Reintentar</Button></p>:<DefaultsEditor key={q.dataUpdatedAt} initial={q.data!.defaults??{preferences:basePreferences(),presets:[],initialPresetId:null}}/>;}
 function DefaultsEditor({initial}:{initial:TeamDefaults}){
- const [value,setValue]=useState(()=>({...initial,systemViews:initial.systemViews??defaultSystemViews(),preferences:availableListPreferences(initial.preferences)})),[name,setName]=useState(''),[filterId,setFilterId]=useState<string|null>(null),[systemFilterId,setSystemFilterId]=useState<string|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const latch=useRef(false),qc=useQueryClient();
+ const [value,setValue]=useState(()=>({...initial,systemViews:resolveSystemViews(initial.systemViews),preferences:availableListPreferences(initial.preferences)})),[name,setName]=useState(''),[filterId,setFilterId]=useState<string|null>(null),[systemFilterId,setSystemFilterId]=useState<string|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const latch=useRef(false),qc=useQueryClient();
  const p=value.preferences;const change=(patch:Partial<typeof p>)=>setValue({...value,preferences:availableListPreferences({...p,...patch})});
  const fields:FilterFieldDefinition[]=BUSINESS_FILTER_COLUMNS.map(c=>({key:c.key as FilterFieldDefinition['key'],label:c.label,kind:c.key.startsWith('fecha')||c.key.endsWith('At')?'date':c.key==='id'?'number':c.key==='clientePotencialRecurrente'?'boolean':c.key==='notes'?'notes':'text'}));
  async function save(){if(latch.current)return;latch.current=true;setBusy(true);setError('');try{await saveBusinessListDefaults(value);toast.success('Configuraciones por defecto guardadas');await qc.invalidateQueries({queryKey:['business-list-defaults']});}catch(e){setError((e as Error).message);}finally{latch.current=false;setBusy(false);}}

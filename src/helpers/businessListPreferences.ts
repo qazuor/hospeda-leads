@@ -38,7 +38,7 @@ const TABLE_COLUMNS=[
   {key:"createdAt",label:"Creado en sistema"},
   {key:"updatedAt",label:"Actualizado"}
 ];
-const DEFAULT_WIDTHS:Record<string,number>={actions:150,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180,reviewStatus:140};
+const DEFAULT_WIDTHS:Record<string,number>={actions:150,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180,fechaUltimoContacto:170,reviewStatus:140};
 export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
 const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 export const BUSINESS_COLUMNS=[...BUSINESS_DATA_COLUMNS,{key:'actions',label:'Acciones'}];
@@ -48,18 +48,19 @@ export const listPreferencesSchema=z.object({
  presentation:z.enum(['table','grid']),columns:z.array(field).min(1).max(40).refine(v=>v.includes('nombre')&&new Set(v).size===v.length),
  widths:z.record(field,z.number().min(100).max(600)),pins:z.record(field,z.enum(['left','right'])),
  query:z.string().max(1000),filters:z.array(advancedFilterGroup).max(20).refine(groups=>!groups.some(g=>g.rules.some(r=>r.field==='deletedAt'))),
- sortBy:leadsSchema.shape.sortBy.unwrap().default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),columnLayoutVersion:z.union([z.literal(2),z.literal(3)]).optional(),legacyFilters:legacyFiltersSchema.optional()
+ sortBy:leadsSchema.shape.sortBy.unwrap().default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),columnLayoutVersion:z.union([z.literal(2),z.literal(3),z.literal(4)]).optional(),legacyFilters:legacyFiltersSchema.optional()
 });
 export type ListPreferences=z.infer<typeof listPreferencesSchema>;
 // Restore this switch to expose pagination again; schema, queries and return context support both modes.
 export const BUSINESS_PAGINATION_CONTROLS_ENABLED=false;
 export const BUSINESS_RESULTS_CONTROL_ENABLED=false;
 export function availableListPreferences(preferences:ListPreferences):ListPreferences{
- const layout=preferences.columnLayoutVersion===3?preferences:{...preferences,columnLayoutVersion:3 as const,columns:[...preferences.columns.filter(key=>key!=='actions'),...(preferences.columns.includes('reviewStatus')?[]:['reviewStatus']),'actions'],widths:{...preferences.widths,reviewStatus:preferences.widths.reviewStatus??DEFAULT_WIDTHS.reviewStatus,actions:150},pins:{...preferences.pins,actions:'right' as const}};
+ // Layout v4 (idempotent): drops the old default "Revisados" column, adds "Último contacto" once, keeps every personal width, pin, filter and order.
+ const layout=preferences.columnLayoutVersion===4?preferences:{...preferences,columnLayoutVersion:4 as const,columns:[...preferences.columns.filter(key=>key!=='actions'&&key!=='reviewStatus'),...(preferences.columns.includes('fechaUltimoContacto')?[]:['fechaUltimoContacto']),'actions'],widths:{...preferences.widths,fechaUltimoContacto:preferences.widths.fechaUltimoContacto??DEFAULT_WIDTHS.fechaUltimoContacto,actions:150},pins:{...preferences.pins,actions:'right' as const}};
  layout.widths={...layout.widths,actions:Math.max(150,layout.widths.actions??DEFAULT_WIDTHS.actions)};
  return normalizePinnedColumnOrder({...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50});
 }
-export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','businessStatus','reviewStatus','assignedUserEmail','ciudad','telefono','email','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS,businessStatus:190},pins:{actions:'right'},columnLayoutVersion:3,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
+export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','businessStatus','ciudad','telefono','fechaUltimoContacto','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS,businessStatus:190},pins:{actions:'right'},columnLayoutVersion:4,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
 export const teamDefaultsSchema=z.object({systemViews:systemViewsSchema.optional(),preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()})
  .refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId)))
  .refine(v=>!v.systemViews?.some(view=>view.id.startsWith('custom:')&&!listPreferencesSchema.safeParse(view.preferences).success),'Configuración de vista compartida inválida');
