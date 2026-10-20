@@ -1,7 +1,7 @@
 import {searchSql,normalizeSearchSql} from "../helpers/searchSql";
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {calendarDay} from '../helpers/workDates';
-import {crmError} from '../helpers/crmErrors';
+import {errorResponse} from "../helpers/errorResponse";
 import {localDay,argentinaInstant} from "../helpers/workDates";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -323,6 +323,6 @@ export async function handle(request: Request) {
     const out={rows,total:Number(count.count),page,pageSize:input.pageSize,...(anchorPage?{anchorPage}:{}),filters:{ciudades,estados,tipos,businessStatuses,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor}} satisfies OutputType;
     return new Response(superjson.stringify(out), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
-    return new Response(superjson.stringify({ error: crmError(error) }), { status: 401 });
+    return errorResponse(error);
   }
 }
