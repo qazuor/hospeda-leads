@@ -40,9 +40,9 @@ export default function MyDayPage(){
  const days=Array.from({length:Number(monthEnd.slice(8))},(_,i)=>month+'-'+String(i+1).padStart(2,'0'));
  const firstWeekday=(new Date(month+'-01T12:00:00Z').getUTCDay()+6)%7;
  return <><AppHeader/><main className={styles.shell}>
-  <div className={styles.heading+" "+ws.pageHeading}><div><span className={styles.eyebrow}>{agenda?"ENCUENTROS COMERCIALES":"TRABAJO DIARIO"}</span><h1>Hoy</h1><p className={styles.muted}>{agenda?"Visitas y reuniones planificadas y realizadas":retomar?"Gestiones cerradas con una fecha para volver a contactar":formatDate(localDay(now))+" · Priorizá lo vencido y lo que toca hoy"} · Horarios de Argentina</p></div>{!retomar&&<div className={styles.actions}><Button onClick={()=>setEditor({kind:'task'})}>{agenda?"Planificar encuentro":"Planificar una tarea"}</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity'})}>{agenda?"Anotar encuentro realizado":"Anotar qué ya hice"}</Button></div>}</div>
-  <SectionTabs value={view} onValueChange={next=>setSearchParams(next==='list'?{}:{view:next})}><SectionTabList aria-label="Vistas de Hoy">{todayViews.map(item=><SectionTab key={item.view} value={item.view}>{item.label}</SectionTab>)}</SectionTabList><SectionTabPanel value={view}>
-  {retomar?<React.Suspense fallback={<QueryLoadingNotice/>}><ReactivationContent/></React.Suspense>:<>
+  <div className={styles.heading+" "+ws.pageHeading}><div>{!retomar&&<span className={styles.eyebrow}>{agenda?"ENCUENTROS COMERCIALES":"TRABAJO DIARIO"}</span>}<h1>Hoy</h1>{!retomar&&<p className={styles.muted}>{agenda?"Visitas y reuniones planificadas y realizadas":formatDate(localDay(now))+" · Priorizá lo vencido y lo que toca hoy"} · Horarios de Argentina</p>}</div>{!retomar&&<div className={styles.actions}><Button onClick={()=>setEditor({kind:'task'})}>{agenda?"Planificar encuentro":"Planificar una tarea"}</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity'})}>{agenda?"Anotar encuentro realizado":"Anotar qué ya hice"}</Button></div>}</div>
+  <SectionTabs value={view} onValueChange={next=>setSearchParams(next==='list'?{}:{view:next})}><SectionTabList aria-label="Vistas de Hoy">{todayViews.map(item=><SectionTab key={item.view} value={item.view}>{item.label}</SectionTab>)}</SectionTabList>{todayViews.map(item=><SectionTabPanel key={item.view} value={item.view}>{item.view===view&&(
+  retomar?<React.Suspense fallback={<QueryLoadingNotice/>}><ReactivationContent/></React.Suspense>:<>
   <Disclosure className={ws.guide}><DisclosureSummary>Cómo usar {agenda?"el calendario":"esta lista"}</DisclosureSummary>{!agenda&&!selected&&<section className={styles.conversationContinue} aria-label="Cómo trabajar hoy"><h2>Una tarea por vez</h2><p>1. Revisá lo que corresponde hoy. 2. Contactá o hacé la tarea. 3. Registrá qué pasó y elegí cómo sigue.</p><Link to="/guide?topic=start&article=routine">Ver el recorrido con ejemplos →</Link></section>}<p>{agenda?'Planificá una visita o reunión como tarea y completala cuando ocurra. Las realizadas aparecen como actividades, sin duplicar el evento en el calendario.':'Atendé primero las vencidas, después las de hoy. Podés planificar llamada y visita simultáneamente; completar una conserva la otra. Registrar actividad guarda lo ocurrido y permite cargar fechas anteriores.'}</p></Disclosure>
   {!selected&&<>
   <p className={styles.scopeLine}>{responsible==='all'?'Trabajo de todo el equipo':responsible?'Trabajo de '+(d?.users.find(u=>u.email===responsible)?.displayName||responsible):'Mi trabajo'}{city?' · '+city:''}{vertical?' · '+vertical:''}</p>
@@ -68,6 +68,6 @@ export default function MyDayPage(){
    {!(agenda&&calendar)&&<WorkPagination data={d} page={page} onPage={setPage}/>}
    {editor&&<WorkEditor key={editor.kind+('item' in editor?editor.item?.id||'new':'new')} target={editor} data={d} onClose={()=>setEditor(null)}/>}
   </>}
-  </>}</SectionTabPanel></SectionTabs>
+  </>)}</SectionTabPanel>)}</SectionTabs>
  </main></>;
 }

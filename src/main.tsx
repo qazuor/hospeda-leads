@@ -42,8 +42,9 @@ function HomeEntry(){
 }
 
 function RouteBoundary({children}:{children:React.ReactNode}){
-  const {pathname}=useLocation();
-  return <AppErrorBoundary resetKey={pathname}>{children}</AppErrorBoundary>;
+  const {pathname,search}=useLocation();
+  // Hoy switches views through ?view, so a failed view must recover when the seller picks another tab.
+  return <AppErrorBoundary resetKey={pathname+'?view='+(new URLSearchParams(search).get('view')??'')}>{children}</AppErrorBoundary>;
 }
 
 installPreloadErrorHandler();

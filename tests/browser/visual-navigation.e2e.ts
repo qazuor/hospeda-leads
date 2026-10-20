@@ -8,7 +8,7 @@ for(const width of [320,390,1024,1280])test(`compact navigation and guide remain
   await page.route('**/_api/**',route=>route.fulfill({status:200,contentType:'application/json',body:superjson.stringify({user:{id:3,email:'admin@example.com',displayName:'Admin Test',role:'admin'}})}));
   for(const dark of [false,true]){
     await page.goto('/guide');await page.evaluate(dark=>localStorage.setItem('hospeda-theme-mode',dark?'dark':'light'),dark);await page.reload();
-    await expect(page.getByRole('heading',{name:'Usar Hospeda, paso a paso',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Usar Hospeda, paso a paso',exact:true})).toBeVisible();await expect(page).toHaveTitle('Ayuda · Hospeda CRM');
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if(width<768){
       await expect(page.getByText('Deslizá para ver los otros recorridos',{exact:true})).toBeVisible();

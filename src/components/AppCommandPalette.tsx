@@ -102,7 +102,8 @@ export function AppCommandPalette() {
       ] : []),
     ] },
   ].map(group => ({ ...group, actions: group.actions.filter(matches) }));
-  const navigationMatch=navigationGroups.some(group=>group.actions.some(matches));
+  // Hidden keywords never suppress guide results: only a visible label/description match counts.
+  const navigationMatch=navigationGroups.some(group=>group.actions.some(action=>normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))));
   const helpActions=query.trim().length>=2&&!navigationMatch?(guideTopics.data??[]).flatMap(topic=>topic.articles.flatMap(article=>{
     const text=[topic.title,article.title,article.when,...article.steps,article.result,...article.example,...article.notes].join(' ');
     const score=fuzzySearchScore(query,text);

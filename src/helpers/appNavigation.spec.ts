@@ -1,6 +1,6 @@
 // @vitest-environment node
 import {describe,expect,it} from 'vitest';
-import {mainNavigation,parseTodayView,sectionTitle,todayViews} from './appNavigation';
+import {documentTitle,mainNavigation,parseTodayView,sectionTitle,todayViews} from './appNavigation';
 
 describe('app navigation (owner decision 5A)',()=>{
  it('offers exactly Hoy · Negocios · Gestiones · Ayuda as main sections',()=>{
@@ -26,5 +26,10 @@ describe('app navigation (owner decision 5A)',()=>{
   expect(sectionTitle({pathname:'/sales/7'})).toBe('Gestiones');
   expect(sectionTitle({pathname:'/guide'})).toBe('Ayuda');
   expect(sectionTitle({pathname:'/settings'})).toBeNull();
+ });
+
+ it('titles the browser tab after the section',()=>{
+  expect(documentTitle({section:'Hoy'})).toBe('Hoy · Hospeda CRM');
+  expect(documentTitle({section:null})).toBe('Hospeda CRM');
  });
 });

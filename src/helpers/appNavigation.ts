@@ -24,3 +24,8 @@ export const parseTodayView = ({ value }: { value: string | null }): TodayView =
 /** Header label for the section of `pathname` (shown next to the hamburger on phones), or null outside the main sections. */
 export const sectionTitle = ({ pathname }: { pathname: string }): string | null =>
   pathname.startsWith('/sales/') ? VOCAB.managements : mainNavigation.find(item => pathname.startsWith(item.url))?.label ?? null;
+
+/** Product name used as the browser tab title outside a section. */
+export const APP_TITLE = 'Hospeda CRM';
+/** Browser tab title for a section: `"{section} · Hospeda CRM"`, or the product name alone. */
+export const documentTitle = ({ section }: { section: string | null | undefined }): string => section ? `${section} · ${APP_TITLE}` : APP_TITLE;

@@ -17,6 +17,8 @@ test('reactivation rows summarize the business date and link the actionable task
  await page.goto('/reactivation');
  await expect(page).toHaveURL(/\/my-day\?view=retomar$/);
  await expect(page.getByRole('tab',{name:'Para retomar',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tabpanel',{name:'Para retomar',exact:true})).toBeVisible();
+ await expect(page).toHaveTitle('Hoy · Hospeda CRM');
  await expect(page.getByRole('link',{name:'Ir a Gestiones',exact:true})).toHaveAttribute('href','/opportunities');
  const planned=page.locator('article').filter({hasText:'Cabañas del Río'});
  await expect(planned).toContainText('Estado del negocio: Recontactar');

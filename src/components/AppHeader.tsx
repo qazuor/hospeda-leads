@@ -2,7 +2,7 @@ import { Burger, Drawer, UnstyledButton } from '@mantine/core';
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Upload, Copy, BarChart3, ChevronDown, History, LogOut, Moon, Settings, Sun, SunMoon, Trash2, UserCircle, Search, Archive } from "lucide-react";
-import { mainNavigation, sectionTitle } from '../helpers/appNavigation';
+import { APP_TITLE, documentTitle, mainNavigation, sectionTitle } from '../helpers/appNavigation';
 import { openCommandPalette } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import { Button } from "./Button";
@@ -39,6 +39,7 @@ export const AppHeader=()=>{
   ];
   const isActive=(url:string)=>url.includes('?')?location.pathname+location.search===url:location.pathname.startsWith(url)||(url==='/opportunities'&&location.pathname.startsWith('/sales/'));
   const section=sectionTitle({pathname:location.pathname})??(isAdmin?[...archivedNavigation,...adminNavigation].find(item=>!item.url.includes('?')&&location.pathname.startsWith(item.url))?.label:null)??null;
+  React.useEffect(()=>{document.title=documentTitle({section});return ()=>{document.title=APP_TITLE};},[section]);
   const mobileLink=({url,label,icon:Icon}:Pick<typeof mainNavigation[number], 'url'|'label'|'icon'>)=><Link key={url} to={url} aria-current={isActive(url)?'page':undefined} onClick={()=>setNavigationOpen(false)}><Icon size={20} aria-hidden="true"/><span>{label}</span></Link>;
 
 
