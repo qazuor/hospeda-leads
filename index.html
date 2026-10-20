@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#3AA7D9" />
     <title>Hospeda CRM</title>
+    <!-- Declare layer order before any chunked stylesheet loads: Mantine CSS may arrive before src/styleLayers.css. -->
+    <style>@layer base, mantine;</style>
   </head>
   <body>
     <div id="root"></div>
