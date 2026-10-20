@@ -49,6 +49,9 @@ describe('MessageComposer reused draft (report item 1.14)',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Descartarlo y empezar de nuevo'}));
   expect((await screen.findByRole('alert')).textContent).toContain('Este borrador cambió en otra ventana.');
   expect(screen.queryByRole('group',{name:'Borrador anterior'})).toBeNull();
+  expect(screen.queryByRole('heading',{name:'Personalizá el mensaje'})).toBeNull();
+  expect(screen.queryByRole('heading',{name:'Revisá el contenido final'})).toBeNull();
+  expect(screen.queryByLabelText('Mensaje final')).toBeNull();
  });
  it('confirms without the "Abrir gestión" action when the draft has no management',async()=>{
   vi.mocked(postCommunication).mockResolvedValue(message({id:'44444444-4444-4444-8444-444444444444',leadId:null,purpose:'first_contact',reusedDraft:undefined}));

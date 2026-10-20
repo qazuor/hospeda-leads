@@ -30,19 +30,22 @@ export function channelRecipientChoice({contacts,channel,requestedId,legacy=fals
 
 /** Context needed to know whether a WhatsApp may still be confirmed as sent. */
 export type ConfirmSendContext={
- account:{doNotContact?:boolean|null;archivedAt?:unknown;status?:string|null}|null|undefined;
+ /** `undefined`/`null` while the business is still loading: confirming stays blocked. */
+ account:{doNotContact?:boolean|null;archivedAt?:unknown;deletedAt?:unknown;status?:string|null}|null|undefined;
  message:{channel:string;leadId:string|number|null;contactId:string|number|null};
  restrictions:readonly {channel:string;contactId?:string|number|null;leadId?:string|number|null;liftedAt?:unknown}[];
  /** Open managements of the business; `undefined` when unknown. */
  openManagementIds?:readonly (string|number)[];
 };
 /**
- * Why "Sí, se envió" cannot be recorded, mirroring the server check (report item 1.17): No contactar, archived business,
+ * Why "Sí, se envió" cannot be recorded, mirroring the server check (report item 1.17): business still loading or in the trash, No contactar, archived business,
  * closed management, or an active restriction for the channel on the person, the management or the whole business. Empty when allowed.
  */
 export function confirmSendBlockReason({account,message,restrictions,openManagementIds}:ConfirmSendContext):string{
- if(account?.doNotContact)return 'El negocio está marcado No contactar; un administrador debe levantar ese bloqueo antes de confirmar un envío.';
- if(account?.archivedAt||account?.status==='archived')return 'El negocio está archivado; un administrador debe desarchivarlo antes de confirmar un envío.';
+ if(!account)return 'Cargando los datos del negocio…';
+ if(account.deletedAt)return 'El negocio está en la papelera.';
+ if(account.doNotContact)return 'El negocio está marcado No contactar; un administrador debe levantar ese bloqueo antes de confirmar un envío.';
+ if(account.archivedAt||account.status==='archived')return 'El negocio está archivado; un administrador debe desarchivarlo antes de confirmar un envío.';
  if(message.leadId!=null&&openManagementIds&&!openManagementIds.some(id=>String(id)===String(message.leadId)))return 'La gestión está cerrada: solo admite registrar respuestas recibidas.';
  const same=(a:unknown,b:unknown)=>String(a??'')===String(b??'');
  const restricted=restrictions.some(r=>!r.liftedAt&&(r.channel==='all'||r.channel===message.channel)&&((r.contactId!=null&&message.contactId!=null&&same(r.contactId,message.contactId))||(r.contactId==null&&(r.leadId==null||same(r.leadId,message.leadId)))));

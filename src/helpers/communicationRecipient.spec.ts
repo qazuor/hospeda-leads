@@ -63,6 +63,11 @@ describe('confirmSendBlockReason',()=>{
  it('allows confirming when nothing blocks the contact',()=>{
   expect(confirmSendBlockReason(ok)).toBe('');
  });
+ it('blocks while the business is loading and when it is in the trash',()=>{
+  expect(confirmSendBlockReason({...ok,account:undefined})).toBe('Cargando los datos del negocio…');
+  expect(confirmSendBlockReason({...ok,account:null})).toBe('Cargando los datos del negocio…');
+  expect(confirmSendBlockReason({...ok,account:{deletedAt:new Date()}})).toBe('El negocio está en la papelera.');
+ });
  it('blocks a No contactar or archived business',()=>{
   expect(confirmSendBlockReason({...ok,account:{doNotContact:true}})).toContain('No contactar');
   expect(confirmSendBlockReason({...ok,account:{archivedAt:new Date()}})).toContain('archivado');
