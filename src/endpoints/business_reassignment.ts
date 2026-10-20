@@ -1,4 +1,5 @@
 import superjson from 'superjson';
+import {z} from 'zod';
 import {sql} from 'kysely';
 import type {Kysely,Transaction} from 'kysely';
 import {db} from '../helpers/db';
@@ -33,7 +34,7 @@ export async function post(request:Request){
  try{
   const {user}=await getServerUserSession(request);
   if(user.role!=='admin')return response({error:'Solo administradores pueden redistribuir negocios.'},403);
-  const input=await parseBody(request) as {fingerprint:string};
+  const input=z.object({fingerprint:z.string()}).parse(await parseBody(request));
   if(!/^[a-f0-9]{64}$/.test(input.fingerprint))return response({error:'Actualizá la vista previa antes de ejecutar.'},400);
   const result=await db.transaction().execute(async trx=>{
    const plan=await loadPlan(trx,true);

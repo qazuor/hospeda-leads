@@ -1,5 +1,5 @@
 import {CrmForbidden,assertBusinessAccess} from '../helpers/crmPermissions';
-import {crmError} from '../helpers/crmErrors';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {sql} from 'kysely';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
@@ -11,7 +11,7 @@ import {setWorkActor} from '../helpers/workAudit';
 import {communicationMutation} from './communication.schema';
 import {mutateCommunication,leadFor,communicationConfig,CommunicationForbidden,CommunicationConflict,digest,reconcileEvents,lockCommunication} from '../helpers/communicationService';
 const response=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json'}});
-const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:400);
+const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:fallbackStatus(e));
 const camelRows=(rows:Record<string,unknown>[])=>rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key.replace(/_([a-z])/g,(_,letter:string)=>letter.toUpperCase()),value])));
 export async function get(request:Request){
  try{
