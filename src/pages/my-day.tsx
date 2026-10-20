@@ -12,6 +12,7 @@ import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
 import {TaskRow,ActivityRow,WorkPagination} from '../components/WorkPanel';
 import {WorkEditor,type WorkTarget} from '../components/WorkEditor';
+import {PendingOutcomes} from '../components/PendingOutcomes';
 import {getWork} from '../endpoints/work.schema';
 import {localDay,taskBucket} from '../helpers/workDates';
 import {formatDate,formatTime} from '../helpers/crmDates';
@@ -56,6 +57,7 @@ export default function MyDayPage(){
   {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/> }
   {d&&selected&&<section className={styles.panel} aria-label="Pendiente seleccionado"><h2>Pendiente seleccionado</h2>{d.tasks.length?d.tasks.map(task=><TaskRow key={task.id} task={task} data={d} onEdit={setEditor}/>):<p>Este pendiente no está disponible en tu alcance. Puede haberse retirado o corresponder a otra persona.</p>}<Link to="/my-day">Ver todos mis pendientes</Link>{editor&&<WorkEditor key={editor.kind+('item' in editor?editor.item?.id||'new':'new')} target={editor} data={d} onClose={()=>setEditor(null)}/>}</section>}
   {d&&!selected&&<>
+   {!agenda&&<PendingOutcomes items={d.pendingOutcomes}/>}
    {!agenda&&<><div className={ws.queue}>{(['overdue','today','upcoming'] as const).map((bucket,i)=>{
     const tasks=d.tasks.filter(t=>taskBucket(t.dueDate,t.dueAt,now)===bucket);
     if(!tasks.length&&!(d.bucketCounts?.[bucket]??0))return null;

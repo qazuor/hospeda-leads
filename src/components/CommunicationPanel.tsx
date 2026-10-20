@@ -16,6 +16,7 @@ import {DisabledTooltip} from './Tooltip';
 import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle} from './Dialog';
 import {MessageComposer,messageLabels} from './MessageComposer';
 import {ManualCommunicationForm} from './ManualCommunicationForm';
+import {PendingOutcomes} from './PendingOutcomes';
 import {ManualAttemptResolution} from './ManualAttemptResolution';
 import {ResponseCorrectionForm,responseCategoryOptions} from './ResponseCorrectionForm';
 import {InteractionCorrectionForm} from './InteractionCorrectionForm';
@@ -77,6 +78,7 @@ export function CommunicationPanel({leadId,accountId,readOnly=false}:{leadId?:st
   </div></Disclosure>
   {liftedNotice&&<p role="status" tabIndex={-1} data-lifted-restriction={liftedNotice.id}>{liftedNotice.text}</p>}
   {admin&&liftTarget&&<LiftRestrictionDialog key={liftTarget.id} target={liftTarget} onClose={()=>setLiftTarget(null)} onLifted={()=>{setLiftedNotice({id:liftTarget.id,text:'Restricción levantada. No se enviaron mensajes.'});setLiftTarget(null)}}/>}
+  {!readOnly&&<PendingOutcomes items={q.data.pendingOutcomes} showBusiness={false}/>}
   <h4>Mensajes y borradores ({q.data.messages.length})</h4>
   {q.data.messages.map(msg=>{const unconfirmed=!readOnly&&(admin||msg.ownerEmail===userEmail)&&msg.channel==='whatsapp'&&msg.status==='whatsapp_opened';const sentBlock=unconfirmed?confirmSendBlockReason({account:detail.data?.account,message:msg,restrictions:q.data.activeRestrictions??q.data.restrictions,openManagementIds:q.data.openManagements.map(o=>o.id)}):'';return <React.Fragment key={msg.id}>
   {unconfirmed&&<div role="group" aria-label={'WhatsApp sin confirmar para '+(msg.recipientName||msg.recipient)} className={styles.panel}><p><strong>¿Lo enviaste?</strong> {msg.ownerEmail===userEmail?'Abriste':'Se abrió'} WhatsApp para {msg.recipientName||msg.recipient} ({msg.recipient}) el {formatDateTime(msg.lastInteractionAt??msg.updatedAt)}{msg.ownerEmail===userEmail?'':' · '+actorLabel(msg.ownerEmail,detail.data?.users)}. Abrir WhatsApp no confirma el envío.</p><div className={styles.actions}><Button disabled={m.isPending||!!sentBlock} disabledReason={m.isPending?'La operación está en curso. Esperá a que termine para continuar.':sentBlock} onClick={()=>m.mutate({action:'outcome',id:msg.id,event:'manual_sent',notes:''})}>{m.isPending&&m.variables?.action==='outcome'&&m.variables.id===msg.id&&m.variables.event==='manual_sent'?'Guardando…':'Sí, se envió'}</Button><Button variant="outline" disabled={m.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>m.mutate({action:'outcome',id:msg.id,event:'manual_not_sent',notes:''})}>{m.isPending&&m.variables?.action==='outcome'&&m.variables.id===msg.id&&m.variables.event==='manual_not_sent'?'Guardando…':'No se envió'}</Button></div></div>}

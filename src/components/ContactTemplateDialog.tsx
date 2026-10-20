@@ -17,7 +17,7 @@ import {formatDateTime} from '../helpers/crmDates';
 import {Mail,MessageCircle,Search,ArrowRight} from 'lucide-react';
 import styles from './ContactTemplateDialog.module.css';
 import {DisabledTooltip} from './Tooltip';
-import {OutcomeAfterContact,LEAVE_WITHOUT_OUTCOME} from './OutcomeAfterContact';
+import {OutcomeAfterContact,leaveWithoutOutcome} from './OutcomeAfterContact';
 import {canLogContactOutcome} from '../helpers/contactOutcome';
 import {VOCAB} from '../content/vocabulary';
 type Template={id:string;channel:string;name:string;subject:string|null;body:string;vertical:string|null;managementType?:string|null;commercialProfile:string|null;active?:boolean};
@@ -43,7 +43,7 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,
  const rendered=(source:string)=>renderMessageTemplate(source,{name:lead?.nombre,contact:person?.name,contact_name:person?.name,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:person?.phone??lead?.telefono,email:person?.email??lead?.email,website:lead?.sitioWeb,sender:authState.type==='authenticated'?(authState.user.fullName||authState.user.displayName):'',sender_short:authState.type==='authenticated'?authState.user.displayName:''});
  const [dirty,setDirty]=useState(false);const [busy,setBusy]=useState(false);const guard=useUnsavedChanges(dirty,()=>onOpenChange(false));
  const [outcome,setOutcome]=useState(false);const pendingOutcome=!onLog&&!!message&&canLogContactOutcome(message.status);
- const outcomeGuard=useUnsavedChanges(pendingOutcome&&!dirty,()=>onOpenChange(false),busy,LEAVE_WITHOUT_OUTCOME);const requestClose=()=>dirty?guard.requestClose():outcomeGuard.requestClose();
+ const outcomeGuard=useUnsavedChanges(pendingOutcome&&!dirty,()=>onOpenChange(false),busy,leaveWithoutOutcome(message?.status));const requestClose=()=>dirty?guard.requestClose():outcomeGuard.requestClose();
  const preparing=useRef(false),requestKeys=useRef(new Map<string,string>());
  const prepare=useMutation({mutationFn:postCommunication,onSuccess:d=>setMessage(d as PreparedMessage)});
  const prepareMessage=async(templateId:string|null)=>{if(preparing.current)return;preparing.current=true;const key=JSON.stringify([lead.id,effective,channel,templateId]);if(!requestKeys.current.has(key))requestKeys.current.set(key,crypto.randomUUID());try{await prepare.mutateAsync({action:'prepare',id:requestKeys.current.get(key)!,leadId:String(lead.id),contactId:effective||null,channel,templateId});requestKeys.current.delete(key)}catch{}finally{preparing.current=false}};

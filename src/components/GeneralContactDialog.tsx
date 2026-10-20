@@ -14,7 +14,7 @@ import {getCommunication} from '../endpoints/communication.schema';
 import {messageLabels} from '../helpers/messageLabels';
 import {formatDate,formatDateTime} from '../helpers/crmDates';
 import {ManualCommunicationForm} from './ManualCommunicationForm';
-import {OutcomeAfterContact,LEAVE_WITHOUT_OUTCOME} from './OutcomeAfterContact';
+import {OutcomeAfterContact,leaveWithoutOutcome} from './OutcomeAfterContact';
 import {useUnsavedChanges} from './UnsavedChanges';
 import {canLogContactOutcome} from '../helpers/contactOutcome';
 import {VOCAB} from '../content/vocabulary';
@@ -41,7 +41,7 @@ export function GeneralContactDialog({detail,templates,onClose,onFinished,chainO
  const disabledReason=prepare.isPending?'La operación está en curso. Esperá a que termine para continuar.':!allowed?'Solo la persona responsable del negocio o un administrador puede preparar un contacto.':detail.account.doNotContact?'El negocio está marcado No contactar; un administrador debe levantar el bloqueo.':detail.account.archivedAt?'El negocio está archivado; un administrador debe desarchivarlo.':!contactId&&candidates.length>0?'Elegí la persona de contacto que recibirá este mensaje.':!contactId&&!canUseBusiness?'No hay un dato válido para este canal. Agregá el email o teléfono al negocio o a una persona.':purpose==='other'&&!otherPurpose.trim()?'Escribí la aclaración del propósito.':purpose==='care'&&!detail.account.isClient&&!confirmedClient?'Confirmá que el negocio se marcará como Cliente cuando registres el contacto como realizado.':'';
  const start=()=>{if(!user||!allowed||manualChannel)return;prepare.mutate({action:'prepare_general',id:crypto.randomUUID(),accountId:String(detail.account.id),leadId:null,contactId:contactId||null,channel,purpose,otherPurpose:purpose==='other'?otherPurpose:null,templateId:templateId||null})};
  const [outcome,setOutcome]=useState(false),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);const pendingOutcome=chainOutcome&&!!message&&canLogContactOutcome(message.status);const finish=onFinished??onClose;
- const leaveGuard=useUnsavedChanges(pendingOutcome&&!dirty,onClose,busy,LEAVE_WITHOUT_OUTCOME);
+ const leaveGuard=useUnsavedChanges(pendingOutcome&&!dirty,onClose,busy,leaveWithoutOutcome(message?.status));
  if(outcome&&message)return <OutcomeAfterContact contact={{accountId:String(message.accountId),leadId:null,contactIds:message.contactId?[String(message.contactId)]:[],channel:message.channel,purpose:message.purpose,messageId:message.id,messageStatus:message.status}} onDone={finish}/>;
  const businessOwner=detail.users?.find(u=>u.email===detail.account.assignedUserEmail)?.displayName||detail.account.assignedUserEmail||'Sin asignar';
  return <Dialog open onOpenChange={open=>{if(!open&&!busy&&!prepare.isPending)leaveGuard.requestClose()}}><DialogContent><DialogHeader><DialogTitle>Contacto general</DialogTitle><DialogDescription>{detail.account.nombre} · sin asociar a una gestión · Relación del negocio: {businessOwner||'Sin asignar'}</DialogDescription></DialogHeader>
