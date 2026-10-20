@@ -14,6 +14,7 @@
     "perf:explain": "node scripts/perf/explain-hot.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed:test": "node scripts/seed-test.mjs",
+    "db:seed:perf": "node scripts/perf/seed-synthetic.mjs",
     "db:import": "node scripts/import-data.mjs",
     "db:validate": "node scripts/validate-data.mjs",
     "db:migrate:floot": "node scripts/migrate-floot-snapshot.mjs",
