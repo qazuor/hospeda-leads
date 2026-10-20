@@ -31,18 +31,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "./Popover";
 import { normalizeTemplateHtml } from "../helpers/renderMessageTemplate";
 import { WHATSAPP_EMOJI_GROUPS } from "../helpers/whatsappEmoji";
 import styles from "./RichTemplateEditor.module.css";
-
-const VARIABLE_LABELS:Record<string,string>={contact:"Persona de contacto",name:"Nombre del negocio",type:"Vertical o tipo",sender:"Responsable asignado",hospeda_url:"Enlace a ficha pública de Hospeda"};
-const VARIABLES=["contact","name","type","sender","hospeda_url"];
+import type { MessageVariableDefinition } from "../helpers/messageVariables";
 
 export const RichTemplateEditor=({
-  value,onChange,channel,showVariables=true,ariaLabel='Contenido del modelo'
+  value,onChange,channel,showVariables=true,ariaLabel='Contenido del modelo',messageVariables=[]
 }:{
   value:string;
   onChange:(html:string)=>void;
   channel:"whatsapp"|"email";
   showVariables?:boolean;
   ariaLabel?:string;
+  messageVariables?:MessageVariableDefinition[];
 })=>{
   const linkErrorId=useId();
   const [linkOpen,setLinkOpen]=useState(false),[linkUrl,setLinkUrl]=useState(''),[linkError,setLinkError]=useState('');
@@ -171,7 +170,7 @@ export const RichTemplateEditor=({
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="outline">Insertar variable</Button></DropdownMenuTrigger>
         <DropdownMenuContent className={styles.variableMenu}>
-          {VARIABLES.map(variable=><DropdownMenuItem key={variable} onSelect={()=>insert("{{"+variable+"}}")}><span className={styles.variableOption}><span>{VARIABLE_LABELS[variable]}</span><code>{"{{"+variable+"}}"}</code></span></DropdownMenuItem>)}
+          {messageVariables.filter(variable=>variable.active).map(variable=><DropdownMenuItem key={variable.key} onSelect={()=>insert("{{"+variable.key+"}}") }><span className={styles.variableOption}><span>{variable.label}</span><code>{"{{"+variable.key+"}}"}</code></span></DropdownMenuItem>)}
           <DropdownMenuItem onSelect={()=>insert("{{#if contact}}Hola {{contact}}, ¿cómo estás?{{else}}Hola, ¿cómo estás?{{/if}}")}>Saludo opcional</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

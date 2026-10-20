@@ -45,11 +45,11 @@ try{
   assert.equal(stateEvent.action,'leandro_referral_changed');
   assert.equal(stateEvent.actor_email,'fixture@example.com');
   assert.equal(stateEvent.metadata.before.status,'archived');
-  assert.equal(stateEvent.metadata.before.is_client,true);
+  assert.equal('is_client' in stateEvent.metadata.before,false,'unchanged is_client is not journaled');
   assert.equal(stateEvent.metadata.before.referred_to_leandro,false);
   assert.equal(stateEvent.metadata.after.status,'reviewed');
-  assert.equal(stateEvent.metadata.after.is_client,true);
-  assert.equal(stateEvent.metadata.after.do_not_contact,true);
+  assert.equal('is_client' in stateEvent.metadata.after,false,'unchanged is_client is not journaled');
+  assert.equal('do_not_contact' in stateEvent.metadata.after,false,'unchanged do_not_contact is not journaled');
   assert.equal(stateEvent.metadata.after.referred_to_leandro,true);
   assert.equal(stateEvent.metadata.after.recontact_at.slice(0,10),'2026-12-15');
   await tx`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','management_change',true)`;

@@ -17,20 +17,21 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
   await expect(page.getByText(/Sin gestiones iniciadas/)).toBeVisible();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
-  let dialog=page.getByRole('dialog',{name:'Preparar gestión'});
+  let dialog=page.getByRole('dialog',{name:'Iniciar gestión'});
   await expect(dialog.getByLabel('Nombre de la gestión')).toHaveValue('Presentación de Hospeda');
   await expect(dialog.getByText(/figura como Nuevo/)).toBeVisible();
   await expect(dialog.getByRole('combobox',{name:/^Tipo de gestión/})).toHaveValue('main');
   await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(dialog).toHaveCount(0);
   expect((await detail(id)).opportunities).toHaveLength(0);
-  await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:'Preparar gestión'});
-  await dialog.getByLabel('Propuesta (opcional)',{exact:true}).fill('Revisar la presentación antes de contactar');
+  await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:'Iniciar gestión'});
+  await dialog.getByText('Más datos (opcional)',{exact:true}).click();
+  await dialog.getByLabel('Propuesta o tema (opcional)',{exact:true}).fill('Revisar la presentación antes de contactar');
   let release!:()=>void;const gate=new Promise<void>(r=>release=r);
   await page.route('**/_api/commercial',async route=>{if(route.request().method()==='POST')await gate;await route.continue();});
   try{
    await dialog.getByRole('button',{name:'Marcar Revisado e iniciar gestión',exact:true}).click();
    await expect(dialog.getByRole('button',{name:'Guardando gestión…',exact:true})).toBeDisabled();
-   await expect(dialog.getByLabel('Propuesta (opcional)',{exact:true})).toBeDisabled();
+   await expect(dialog.getByLabel('Propuesta o tema (opcional)',{exact:true})).toBeDisabled();
    await expect(dialog.getByRole('button',{name:'Cancelar',exact:true})).toBeDisabled();
   }finally{release();}
   await expect(dialog).toHaveCount(0);await expect(page.getByRole('status').filter({hasText:'Gestión iniciada. Ahora planificá cómo empezar.'}).getByRole('link',{name:'Abrir gestión',exact:true})).toBeVisible();

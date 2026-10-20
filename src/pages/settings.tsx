@@ -12,9 +12,10 @@ import {ResourcesPanel} from "../components/ResourcesPanel";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
 import {BusinessReassignment} from "../components/BusinessReassignment";
+import {MessageVariablesSettings} from "../components/MessageVariablesSettings";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users } from "lucide-react";
+import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users, Variable } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
@@ -28,8 +29,8 @@ import { getSettings, type OperationalUser } from "../endpoints/settings_GET.sch
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"library"|"system";
-const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","library","system"];
+type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"variables"|"library"|"system";
+const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","variables","library","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -84,6 +85,7 @@ export default function SettingsPage(){
     {key:"process" as const,label:"Proceso comercial",icon:GitBranch},
     {key:"communication" as const,label:"Comunicación",icon:Mail},
     {key:"templates" as const,label:"Modelos de mensajes",icon:FileText},
+    {key:"variables" as const,label:"Variables de texto",icon:Variable},
     {key:"library" as const,label:"Biblioteca",icon:FileText},
     {key:"system" as const,label:"Sistema",icon:SlidersHorizontal},
   ];
@@ -143,6 +145,8 @@ export default function SettingsPage(){
       {section==="library"&&<section className={styles.content}><ResourcesPanel manageLibrary/></section>}
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
+
+      {section==="variables"&&data&&<section className={styles.templatesSection}><MessageVariablesSettings data={data}/></section>}
 
       {section==="system"&&<section className={styles.grid}>
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>
