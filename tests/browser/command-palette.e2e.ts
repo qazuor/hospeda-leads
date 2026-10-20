@@ -36,7 +36,13 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
     await search.fill('GESTIONES COMERCIALES');
     await expect(dialog.locator('[data-action]')).toHaveCount(1);
     await search.press('ArrowDown');
-    await expect(dialog.getByRole('status',{name:'Opción seleccionada',exact:true})).toContainText('Gestiones comerciales');
+    await expect(dialog.getByRole('status',{name:'Opción seleccionada',exact:true})).toContainText('Gestiones');
+    // Old names stay as aliases of the Hoy views.
+    for (const [alias, label] of [['AGENDA', 'Hoy · Calendario'], ['REACTIVACION', 'Hoy · Para retomar'], ['MI DIA', 'Hoy']]) {
+      await search.fill(alias);
+      await expect(dialog.locator('[data-action]')).toHaveCount(1);
+      await expect(dialog.getByRole('button', { name: label })).toBeVisible();
+    }
     await search.fill('zzzz');
     await expect(dialog.getByText('Sin opciones para esta búsqueda')).toBeVisible();
     await search.fill('revisar precargdo');

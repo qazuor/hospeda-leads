@@ -14,8 +14,7 @@ test('A stale lazy chunk reloads exactly once and then shows a recoverable fallb
     return route.fulfill({status: 404, headers: {'cache-control': 'no-store'}, body: 'Not found'});
   });
   page.on('load', () => { loads++; });
-  await page.getByRole('button', {name: 'Más opciones'}).click();
-  await page.getByRole('menuitem', {name: 'Guía de uso paso a paso'}).click();
+  await page.getByRole('link', {name: 'Ayuda', exact: true}).click();
   // First failure triggers the single guarded reload; the second failure must not loop.
   await expect(page.getByText('Algo salió mal al mostrar esta pantalla.')).toBeVisible({timeout: 20000});
   await page.waitForTimeout(1500);
