@@ -42,24 +42,25 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     const trigger = page.getByRole('group', { name: 'Acciones de Negocio de prueba' }).getByRole('button', { name: 'Contactar', exact: true });
     await trigger.click();
     const dialog = page.getByRole('dialog', { name: 'Contactar', exact: true });
-    const search = dialog.getByRole('combobox', { name: 'Gestión abierta', exact: true });
+    const search = dialog.getByRole('combobox', { name: '¿Sobre qué?', exact: true });
     await expect(search).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Continuar con el mensaje' })).toBeDisabled();
     await search.fill('CONCEPCION');
-    await expect(dialog.getByRole('listbox',{name:'Gestión abierta',exact:true}).getByRole('option')).toHaveCount(1);
+    await expect(dialog.getByRole('listbox',{name:'¿Sobre qué?',exact:true}).getByRole('option')).toHaveCount(1);
     await search.press('ArrowDown');
     await search.press('Enter');
-    await expect(search).toHaveValue('Presentación Concepción · Cargado');
+    await expect(search).toHaveValue('Una gestión: Presentación Concepción · Cargado');
     await expect(dialog.getByRole('button', { name: 'Continuar con el mensaje' })).toBeEnabled();
     await search.fill('zzz');
     await expect(dialog.getByText('Sin resultados', { exact: true })).toBeVisible();
     await search.fill('');
-    await expect(dialog.getByRole('listbox',{name:'Gestión abierta',exact:true}).getByRole('option')).toHaveCount(2);
-    await expect(dialog.getByRole('listbox',{name:'Gestión abierta',exact:true}).getByRole('option', { name: /Gestión cerrada/ })).toHaveCount(0);
+    await expect(dialog.getByRole('listbox',{name:'¿Sobre qué?',exact:true}).getByRole('option')).toHaveCount(3);
+    await expect(dialog.getByRole('listbox',{name:'¿Sobre qué?',exact:true}).getByRole('option',{ name: 'Sin gestión (contacto general)' })).toHaveCount(1);
+    await expect(dialog.getByRole('listbox',{name:'¿Sobre qué?',exact:true}).getByRole('option', { name: /Gestión cerrada/ })).toHaveCount(0);
     await search.press('Escape');
     await expect(dialog).toBeVisible();
     await search.press('Tab');
-    await expect(search).toHaveValue('Presentación Concepción · Cargado');
+    await expect(search).toHaveValue('Una gestión: Presentación Concepción · Cargado');
     await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('email');
     await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('social');
     await dialog.getByRole('button', { name: 'Continuar con red social', exact: true }).click();
@@ -69,11 +70,18 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await expect(manual.getByRole('status')).toContainText('Intento iniciado sin texto');
     expect(manualPayloads[0]).toMatchObject({ action: 'manual_start', channel: 'social', leadId: '11', purpose: null, destination: '@hospeda' });
     await manual.getByRole('button', { name: 'Volver a elegir canal', exact: true }).click();
-    await dialog.getByRole('button', { name: 'Contactar en general', exact: true }).click();
-    const general = page.getByRole('dialog', { name: 'Contacto general', exact: true });
-    await general.getByLabel('Canal').selectOption('call');
-    await general.getByLabel('Resumen obligatorio').fill('Llamada realizada para presentar Hospeda');
-    await general.getByRole('button', { name: 'Registrar llamada', exact: true }).click();
+    // The general case lives in the same dialog: "Sin gestión", the Llamada channel and the call panel.
+    await search.click();
+    await dialog.getByRole('listbox', { name: '¿Sobre qué?', exact: true }).getByRole('option', { name: 'Sin gestión (contacto general)' }).click();
+    await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('call');
+    await expect(dialog.getByLabel('Propósito del contacto')).toHaveValue('first_contact');
+    // Desktop: the number is shown to copy, there is no tel: link, and copying records nothing.
+    await expect(dialog.getByLabel('Número a llamar')).toHaveText('123');
+    await expect(dialog.locator('a[href^="tel:"]')).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Copiar número', exact: true }).click();
+    expect(writes).toEqual(['/_api/communication']);
+    await dialog.getByLabel('Nota de la llamada (opcional)').fill('Llamada realizada para presentar Hospeda');
+    await dialog.getByRole('button', { name: 'Ya llamé: anotar cómo salió', exact: true }).click();
     // The call goes straight to "¿Cómo salió?"; leaving it is never silent.
     const outcome = page.getByRole('dialog', { name: 'Registrar actividad', exact: true });
     await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por llamada');
@@ -81,10 +89,9 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     const leave = page.getByRole('dialog', { name: '¿Salir sin anotar cómo salió?', exact: true });
     await leave.getByRole('button', { name: 'Salir sin anotar', exact: true }).click();
     await expect(outcome).toHaveCount(0);
-    await expect(general.getByRole('button', { name: 'Llamada registrada', exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Ya llamé: anotar cómo salió', exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Anotar cómo salió', exact: true })).toBeVisible();
     expect(manualPayloads[1]).toMatchObject({ action: 'manual_start', channel: 'call', leadId: null, purpose: 'first_contact', body: 'Llamada realizada para presentar Hospeda', result: 'manual_sent' });
-    await general.getByLabel('Cerrar').click();
-    await expect(dialog).toBeVisible();
     await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('email');
     const secondary = dialog.getByRole('button', { name: 'Agregar o editar teléfono o email', exact: true });
     const colors = await secondary.evaluate(element => ({
