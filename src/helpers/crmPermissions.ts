@@ -1,4 +1,4 @@
-import type {Kysely, Transaction} from 'kysely';
+import {sql, type Kysely, type Transaction} from 'kysely';
 import type {DB} from './schema';
 
 type Actor = {email:string; role:'admin'|'user'};
@@ -25,6 +25,12 @@ export function assertAccountReadable(user:Actor, account:AccountAccess):void {
 export function assertAccountWritable(user:Actor, account:AccountAccess):void {
   assertAccountReadable(user, account);
   if(!canModifyBusiness(user, account))throw new CrmForbidden('Solo el responsable del negocio o un administrador puede modificarlo.');
+}
+
+/** Locks business rows FOR UPDATE in ascending id order so transactions locking several businesses cannot deadlock each other. */
+export async function lockAccounts(executor:Executor, ids:readonly unknown[]):Promise<void> {
+  const keys=[...new Set(ids.filter(v=>v!=null&&v!=='').map(String))];
+  if(keys.length)await sql`SELECT id FROM crm_accounts WHERE id=ANY(${keys}::bigint[]) ORDER BY id FOR UPDATE`.execute(executor);
 }
 
 export async function assertBusinessAccess(executor:Executor, accountId:string, user:Actor, write=false, lock=write) {
