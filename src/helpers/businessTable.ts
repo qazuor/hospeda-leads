@@ -2,7 +2,7 @@ import { sql } from "kysely";
 import type { Leads } from "./schema";
 
 // Columns of the leads table in table order. The business projection returns
-// exactly these columns plus business_status; scripts/test-business-list-defaults.ts
+// exactly these columns plus business_status; scripts/test-commercial.ts
 // fails when the leads table gains or loses a column without updating this list.
 export const BUSINESS_PROJECTION_LEAD_COLUMNS=["id","nombre","tipo","subtipo","ciudad","estado","suscripcion","email","telefono","sitio_web","url_gmap","perfil_instagram","perfil_facebook","perfil_airbnb","perfil_booking","perfil_turismo_entre_rios","origen","quien_cargo","asignado_a","fecha_creacion","fecha_ultimo_contacto","medio_contacto_preferido","resultado_ultimo_contacto","prioridad","fecha_proxima_accion","fuente_referencia","cliente_potencial_recurrente","archivo_adjunto","notas","creado_por","created_at","updated_at","contact_name","deleted_at","deleted_by_user_id","deleted_by_email","deleted_by_name","assigned_user_email","commercial_profile","account_id","opportunity_name","primary_contact_id","service_interest","estimated_close_date","assigned_at","contact_baseline_date","contact_baseline_result","stage_since","pipeline_revision","reactivated_from_id","creation_request_key","creation_request_hash","management_type","referred_previous_stage","referred_previous_assigned_user_email"] as const;
 
