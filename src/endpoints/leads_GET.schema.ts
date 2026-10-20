@@ -52,7 +52,7 @@ export const advancedFilterGroup=z.object({
 export type AdvancedFilterRule=z.infer<typeof advancedFilterRule>;
 export type AdvancedFilterGroup=z.infer<typeof advancedFilterGroup>;
 export const schema=z.object({
-  contactPresence:z.enum(["contacted","noContact"]).optional(),view:z.enum(["table","board"]).default("table"),classification:z.enum(["open","won","lost"]).optional(),commercialStatus:z.enum(["prospect","client"]).optional(),entity:z.enum(["opportunity","business"]).default("opportunity"),
+  contactPresence:z.enum(["contacted","noContact"]).optional(),view:z.enum(["table","board"]).default("table"),filterOptions:z.enum(["include","omit"]).default("omit"),classification:z.enum(["open","won","lost"]).optional(),commercialStatus:z.enum(["prospect","client"]).optional(),entity:z.enum(["opportunity","business"]).default("opportunity"),
   q:z.string().optional(),ciudad:z.string().optional(),estado:z.string().optional(),tipo:z.string().optional(),subtipo:z.string().optional(),commercialProfile:z.string().optional(),prioridad:z.string().optional(),asignado:z.string().optional(),assignedUser:z.string().optional(),
   ciudades:listSchema,excludeCiudades:listSchema,
   estados:listSchema,excludeEstados:listSchema,

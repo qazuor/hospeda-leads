@@ -43,7 +43,7 @@ export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key
 const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 export const BUSINESS_COLUMNS=[...BUSINESS_DATA_COLUMNS,{key:'actions',label:'Acciones'}];
 const field=z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key),'Campo desconocido');
-const legacyFiltersSchema=leadsSchema.omit({anchorAccountId:true,alignAnchorPage:true,entity:true,q:true,filterGroups:true,view:true,page:true,pageSize:true,sortBy:true,sortDir:true});
+const legacyFiltersSchema=leadsSchema.omit({anchorAccountId:true,alignAnchorPage:true,entity:true,q:true,filterGroups:true,view:true,filterOptions:true,page:true,pageSize:true,sortBy:true,sortDir:true});
 export const listPreferencesSchema=z.object({
  presentation:z.enum(['table','grid']),columns:z.array(field).min(1).max(40).refine(v=>v.includes('nombre')&&new Set(v).size===v.length),
  widths:z.record(field,z.number().min(100).max(600)),pins:z.record(field,z.enum(['left','right'])),

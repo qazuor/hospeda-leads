@@ -35,7 +35,7 @@ try{
   assert.equal((await get(new Request('http://localhost/_api/commercial'))).status,401);
   assert.equal((await post(request({action:'account_save',nombre:'No auth'},''))).status,401);
   await mutate({action:'account_save',nombre:'Forbidden',assignedUserEmail:user.email},user.value,403);
-  const accountId=await mutate({action:'account_save',nombre:`CRM test ${suffix}`,email:'generic@example.com',assignedUserEmail:admin.email},admin.value);
+  const accountId=await mutate({action:'account_save',nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com',assignedUserEmail:admin.email},admin.value);
   const otherId=await mutate({action:'account_save',nombre:`Other ${suffix}`});
   await mutate({action:'account_save',id:accountId,nombre:'Forbidden',assignedUserEmail:user.email},user.value,403);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com'},user.value,403);
@@ -120,7 +120,10 @@ try{
     const body=await r.text();assert.equal(r.status,200,body);return superjson.parse<ListOutput>(body);
   }
   let businessList=await businesses('q='+encodeURIComponent(`CRM test ${suffix}`));
+  assert.deepEqual(businessList.filters.ciudades,[],'Business list omits filter options by default');
   assert.equal(businessList.total,1);assert.equal(businessList.rows.length,1);
+  const businessFilters=await businesses('q='+encodeURIComponent(`CRM test ${suffix}`)+'&filterOptions=include');
+  assert(businessFilters.filters.ciudades.includes(`CRM city ${suffix}`),'Explicit filter options include available business cities');
   assert.equal(String(businessList.rows[0].id),accountId);assert.equal(businessList.rows[0].opportunityCount,2);
   assert.equal(businessList.rows[0].commercialStatus,'client');
   // The existing saved-view rules still match original lead IDs, then return one business.
