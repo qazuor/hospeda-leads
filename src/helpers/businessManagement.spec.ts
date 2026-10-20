@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {managementReasonCatalog,managementStageCatalog,managementTypes} from './businessManagement';
+import {managementLabel,managementReasonCatalog,managementStageCatalog,managementTypeHints,managementTypeLabels,managementTypes,suggestedStageForOutcome} from './businessManagement';
 
 describe('business management catalogs',()=>{
  it('offers Leandro referral as an open stage for every management type',()=>{
@@ -22,5 +22,56 @@ describe('business management catalogs',()=>{
     }
    }
   }
+ });
+});
+
+describe('management labels and hints',()=>{
+ it('resolves a stage key even when the management type is missing',()=>{
+  expect(managementLabel(null,'provider:interested')).toBe('Interesado en participar');
+  expect(managementLabel(undefined,'main:lost')).toBe('Cerrada perdida');
+  expect(managementLabel('main','main:won')).toBe('Cerrada ganada');
+  expect(managementLabel(null,'Prospecto')).toBe('Prospecto');
+  expect(managementLabel('main',null)).toBe('Sin etapa');
+ });
+
+ it('keeps type names and adds one hint line per type (decision 6b)',()=>{
+  expect(managementTypeLabels.partner).toBe('Partners');
+  for(const type of managementTypes){
+   expect(managementTypeHints[type].length,type).toBeGreaterThan(20);
+   expect(managementTypeHints[type],type).not.toMatch(/\n/);
+  }
+ });
+});
+
+describe('suggestedStageForOutcome (decision 9A)',()=>{
+ const key=(type:Parameters<typeof suggestedStageForOutcome>[0],current:string,outcome:string)=>suggestedStageForOutcome(type,current,outcome)?.key??null;
+ it('suggests the interested stage of each type, only forward',()=>{
+  expect(key('main','main:contact','interested')).toBe('main:interested');
+  expect(key('main','main:contacted','interested')).toBe('main:interested');
+  expect(key('partner','partner:conversation','interested')).toBe('partner:interest');
+  expect(key('provider','provider:information_sent','interested')).toBe('provider:interested');
+  expect(key('editor','editor:contact','interested')).toBe('editor:interested');
+  expect(key('accompaniment','accompaniment:pending','interested')).toBe('accompaniment:working');
+  expect(key('main','main:interested','interested')).toBeNull();
+  expect(key('main','main:evaluating_plan','interested')).toBeNull();
+  expect(key('partner','partner:negotiation','interested')).toBeNull();
+  expect(key('editor','editor:proposal_sent','interested')).toBeNull();
+  expect(key('main','main:leandro','interested')).toBeNull();
+ });
+
+ it('suggests Contactado for "later" only from the first stage',()=>{
+  for(const type of ['main','partner','provider','editor'] as const)expect(key(type,`${type}:contact`,'later')).toBe(`${type}:contacted`);
+  expect(key('accompaniment','accompaniment:pending','later')).toBe('accompaniment:contacted');
+  expect(key('main','main:contacted','later')).toBeNull();
+  expect(key('partner','partner:conversation','later')).toBeNull();
+ });
+
+ it('never suggests from closed stages, other types or other outcomes',()=>{
+  expect(key('main','main:won','interested')).toBeNull();
+  expect(key('main','main:lost','later')).toBeNull();
+  expect(key('main','partner:contact','interested')).toBeNull();
+  for(const outcome of ['no_answer','not_interested','do_not_contact','other','replied'])expect(key('main','main:contact',outcome),outcome).toBeNull();
+  expect(suggestedStageForOutcome(null,'main:contact','interested')).toBeNull();
+  expect(suggestedStageForOutcome('main',null,'interested')).toBeNull();
  });
 });

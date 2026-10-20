@@ -63,9 +63,30 @@ const stages:Record<ManagementType,ManagementStageDefinition[]>={
 
 export const managementStageCatalog=(type:ManagementType)=>stages[type];
 export const managementStageByKey=(key:string)=>Object.values(stages).flat().find(stage=>stage.key===key);
-export const managementLabel=(type:string|null|undefined,key:string|null|undefined)=>{
- if(!type||!key)return key||'Sin etapa';
+/** Stage label for a catalog key (`provider:interested` → "Interesado en participar"), even when `type` is missing; legacy free-text stages pass through. */
+export const managementLabel=(_type:string|null|undefined,key:string|null|undefined)=>{
+ if(!key)return 'Sin etapa';
  return managementStageByKey(key)?.label??key;
+};
+
+/** One plain line per management type (owner decision 6b: names stay, a hint explains them). */
+export const managementTypeHints:Record<ManagementType,string>={main:'Para que el negocio se sume a Hospeda con un plan. Si se gana, el negocio pasa a ser cliente.',partner:'Para acordar con el negocio una propuesta o un plan como socio de Hospeda.',provider:'Para que el negocio participe ofreciendo un servicio que Hospeda necesita.',editor:'Para que el negocio colabore con contenido o reciba una propuesta comercial como editor.',accompaniment:'Para ayudar a un negocio que ya es cliente a crear o mejorar su ficha.'};
+
+/** Outcome of a contact that may suggest moving the management forward (decision 9A). */
+export type StageSuggestingOutcome='interested'|'later';
+const interestedStage:Record<ManagementType,string>={main:'main:interested',partner:'partner:interest',provider:'provider:interested',editor:'editor:interested',accompaniment:'accompaniment:working'};
+const laterFrom:Record<ManagementType,string>={main:'main:contact',partner:'partner:contact',provider:'provider:contact',editor:'editor:contact',accompaniment:'accompaniment:pending'};
+/**
+ * Stage to offer (never apply) after a contact outcome, per decision 9A: only forward moves between open stages of the same type.
+ * `interested` → the type's interested stage; `later` → `*:contacted` only from `*:contact` / `accompaniment:pending`. Anything else → null.
+ */
+export const suggestedStageForOutcome=(type:ManagementType|null|undefined,currentKey:string|null|undefined,outcome:string|null|undefined):ManagementStageDefinition|null=>{
+ if(!type||!currentKey||!outcome)return null;
+ const current=stages[type].find(stage=>stage.key===currentKey);
+ if(!current||current.classification!=='open')return null;
+ const targetKey=outcome==='interested'?interestedStage[type]:outcome==='later'&&currentKey===laterFrom[type]?`${type}:contacted`:null;
+ const target=targetKey?stages[type].find(stage=>stage.key===targetKey):undefined;
+ return target&&target.classification==='open'&&target.order>current.order?target:null;
 };
 
 export type ManagementReasonDefinition={key:string;label:string;doNotContact?:boolean;requiresNote?:boolean};
