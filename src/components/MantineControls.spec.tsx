@@ -8,6 +8,7 @@ import { Button } from './Button';
 import { Checkbox } from './Checkbox';
 import { NativeSelect } from './NativeSelect';
 import { Input } from './Input';
+import { Textarea } from './Textarea';
 import { Dialog, DialogContent, DialogTitle } from './Dialog';
 import { Command, CommandInput, CommandList, CommandItem, CommandEmpty } from './Command';
 import { Disclosure, DisclosureSummary } from './Disclosure';
@@ -129,6 +130,16 @@ describe('Mantine migration preserves CRM interactions', () => {
     fireEvent.invalid(kind); expect(screen.getByText('Elegí una opción.')).toBeTruthy();
     fireEvent.change(name, { target: { value: 'Ana' } });
     expect(screen.queryByText('Completá este dato.')).toBeNull();
+  });
+  it('keeps the inline error out of the field accessible name and linked by aria-describedby', async () => {
+    mount(<form><label>Nombre<Input required /></label><label>Tipo<NativeSelect required><option value="">Elegir</option><option value="a">A</option></NativeSelect></label><label>Notas<Textarea required /></label></form>);
+    const name = screen.getByRole('textbox', { name: 'Nombre' }) as HTMLInputElement; const kind = screen.getByRole('combobox', { name: 'Tipo' }) as HTMLSelectElement; const notes = screen.getByRole('textbox', { name: 'Notas' }) as HTMLTextAreaElement;
+    fireEvent.invalid(name); fireEvent.invalid(kind); fireEvent.invalid(notes);
+    expect(screen.getAllByText('Completá este dato.').length).toBe(2);
+    expect(screen.getByRole('textbox', { name: 'Nombre' })).toBe(name); expect(screen.getByRole('combobox', { name: 'Tipo' })).toBe(kind); expect(screen.getByRole('textbox', { name: 'Notas' })).toBe(notes);
+    expect(document.getElementById(name.getAttribute('aria-describedby')!)?.textContent).toBe('Completá este dato.');
+    fireEvent.change(name, { target: { value: 'Ana' } });
+    expect(name.hasAttribute('aria-label')).toBe(false);
   });
   it('does not invent a reason for a disabled button without one', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

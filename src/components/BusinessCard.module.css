@@ -11,3 +11,7 @@
 
 .toggle{display:none}
 @media(max-width:767px){.card[data-expanded=false] .secondary{display:none}.toggle{display:inline-flex;margin-top:6px;min-height:44px;color:var(--primary)}.fields{grid-template-columns:minmax(0,1fr)}}
+
+/* Phones: the whole 44px square around the checkbox selects the card. */
+.select{display:flex;flex-shrink:0;margin-top:3px}
+@media(max-width:767px){.select{align-items:center;justify-content:center;min-width:44px;min-height:44px;margin:-10px 0 -10px -12px}.heading .name{min-height:44px;align-content:center}}
