@@ -28,7 +28,7 @@ test('a call is logged from the management page and chains into the outcome step
  await api('pipeline',{action:'transition',leadId:closedId,revision:closedPipeline.insights[0].pipelineRevision,stage:lost.name,reasonId:closedPipeline.lossReasons.find((item:any)=>item.active).id,comment:'Fixture de gestión cerrada',recontactDate:null});
  await page.goto('/sales/'+closedId);await page.getByRole('tab',{name:'Comunicación',exact:true}).click();await page.getByText('Registrar una llamada',{exact:true}).click();
  const blocked=page.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true});await expect(blocked).toBeDisabled();await expect(page.getByRole('button',{name:'Copiar número',exact:true})).toBeDisabled();
- await blocked.hover({force:true});await expect(page.getByRole('tooltip')).toContainText('La gestión está cerrada');
+ await expect(async()=>{await page.mouse.move(0,0);await blocked.hover({force:true});await expect(page.getByRole('tooltip')).toContainText('La gestión está cerrada',{timeout:2000})}).toPass({timeout:15000});
  expect((await api('communication?leadId='+closedId)).messages).toHaveLength(0);
  expect(errors).toEqual([]);
 });
