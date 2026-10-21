@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {waitForTransitions} from './support/transitions';
 import superjson from 'superjson';
+import {pickOutcome} from './support/outcome';
 test('a call is logged from the management page and chains into the outcome step',async({page})=>{
  test.setTimeout(120000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
@@ -13,16 +14,16 @@ test('a call is logged from the management page and chains into the outcome step
  await expect(page.getByLabel('Número a llamar')).toHaveText('+5493442000555');await expect(page.locator('a[href^="tel:"]')).toHaveCount(0);
  await page.getByRole('button',{name:'Copiar número',exact:true}).click();expect((await api('communication?leadId='+leadId)).messages).toHaveLength(0);
  await page.getByLabel('Nota de la llamada (opcional)').fill('Hablé con la dueña');await page.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true}).click();
- const outcome=page.getByRole('dialog',{name:'Registrar actividad',exact:true});await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por llamada');
+ const outcome=page.getByRole('dialog',{name:'Anotar lo que pasó',exact:true});await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por llamada');
  const messages=(await api('communication?leadId='+leadId)).messages;expect(messages).toHaveLength(1);expect(messages[0]).toMatchObject({channel:'call',status:'manual_sent',purpose:null});expect(String(messages[0].leadId)).toBe(String(leadId));
- await outcome.getByLabel('¿Qué pasó?').selectOption('no_answer');await outcome.getByLabel('¿Cómo sigue?').selectOption('done');await outcome.getByLabel('¿Por qué no agendás nada?').selectOption('Ya tengo otra tarea agendada');await outcome.getByRole('button',{name:'Guardar',exact:true}).click();await expect(outcome).toHaveCount(0);
+ await pickOutcome(outcome,'no_answer');await outcome.getByLabel('¿Cómo sigue?').selectOption('done');await outcome.getByLabel('¿Por qué no agendás nada?').selectOption('Ya tengo otra tarea agendada');await outcome.getByRole('button',{name:'Guardar',exact:true}).click();await expect(outcome).toHaveCount(0);
  await expect.poll(async()=>(await api('communication?leadId='+leadId)).messages[0].activityId).toBeTruthy();
  // After the outcome is saved the panel is clean again: the first call is not offered twice, and an explicit new call can be logged.
  await expect(page.getByText('Llamada anotada. Falta contar cómo salió.')).toHaveCount(0);
  await expect(page.getByLabel('Nota de la llamada (opcional)')).toHaveValue('');
  const second=page.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true});await expect(second).toBeEnabled();await second.click();
  await expect.poll(async()=>(await api('communication?leadId='+leadId)).messages.length).toBe(2);
- const again=page.getByRole('dialog',{name:'Registrar actividad',exact:true});await expect(again).toBeVisible();await again.getByRole('button',{name:'Volver',exact:true}).click();await page.getByRole('dialog',{name:'¿Salir sin anotar cómo salió?',exact:true}).getByRole('button',{name:'Salir sin anotar',exact:true}).click();
+ const again=page.getByRole('dialog',{name:'Anotar lo que pasó',exact:true});await expect(again).toBeVisible();await again.getByRole('button',{name:'Volver',exact:true}).click();await page.getByRole('dialog',{name:'¿Salir sin anotar cómo salió?',exact:true}).getByRole('button',{name:'Salir sin anotar',exact:true}).click();
  // A closed management cannot be called from here: the panel says why before anyone dials.
  const config=await api('pipeline?mode=config'),lost=config.stages.find((stage:any)=>stage.active&&stage.classification==='lost');expect(lost).toBeTruthy();
  const closedId=(await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Gestión cerrada '+stamp,estado:'Cargado'})).id;const closedPipeline=await api('pipeline?leadId='+closedId);

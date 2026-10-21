@@ -14,3 +14,9 @@ export function workGuidance(purpose:WorkPurpose|'',outcome:WorkOutcome|''){
  if(outcome==='not_interested')return {text:'Registrá el motivo, si lo conocés. Elegí si corresponde retomar más adelante o si preferís «No agendar nada»; la etapa se revisa por separado.',continuation:null};
  return {text:'Describí lo que ocurrió y elegí explícitamente cómo continuar.',continuation:null};
 }
+
+/**
+ * Who may save a NEW activity from the work editor: an admin, or the responsible of the management (or of the business when there is none).
+ * Mirrors the server rule of `activity_save`; a delegated task assignee or a reader does not pass. "Pidió no ser contactado" is only offered to whoever passes.
+ */
+export function canLogNewActivity({admin,ownerEmail,userEmail}:{admin:boolean;ownerEmail?:string|null;userEmail?:string|null}):boolean{return admin||(!!ownerEmail&&!!userEmail&&ownerEmail===userEmail);}
