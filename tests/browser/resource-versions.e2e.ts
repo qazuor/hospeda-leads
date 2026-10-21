@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForTransitions } from './support/transitions';
 
 test('material versions and Mantine retirement persist through the real API', async ({ page }) => {
   test.setTimeout(90000);
@@ -20,8 +21,7 @@ test('material versions and Mantine retirement persist through the real API', as
   const article = page.getByRole('article').filter({ hasText: title });
   await article.getByRole('button', { name: 'Nueva versión', exact: true }).click();
   await expect(page.getByText('Nueva versión de', { exact: false })).toContainText(title);
-  // The form sits in a clipped, still-growing accordion panel: scrolling to it mid-animation moves it under the pointer and the click is lost.
-  await page.waitForFunction(() => !document.getAnimations().some(a => a instanceof CSSTransition && a.playState === 'running'));
+  await waitForTransitions(page);
   await page.getByLabel('O archivo', { exact: true }).setInputFiles({ name: 'actualizado.txt', mimeType: 'text/plain', buffer: Buffer.from('Texto actualizado') });
   await page.getByRole('button', { name: 'Guardar versión', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Nueva versión guardada como borrador');
