@@ -87,3 +87,12 @@
  .filters>:is(button,[role=combobox]){flex:0 0 auto}
  .filterButton{padding-inline:10px}
 }
+
+/* Phones: row controls of the Gestiones/business table reach 44px; desktop keeps the dense look. */
+@media(max-width:767px){
+ .selectHead :global(.mantine-Checkbox-root),.selectCell :global(.mantine-Checkbox-root){display:flex;justify-content:center}
+ .scroller .rowActions button{min-height:44px;height:44px}
+ .scroller .rowActions button:has(svg){width:44px!important;min-width:44px}
+ .scroller td .inlineBadgeSelect{min-height:44px}
+ .scroller .quick :is(a,button){display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px}
+}

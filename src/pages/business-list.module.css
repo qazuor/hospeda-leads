@@ -92,3 +92,7 @@
 .table .cellActions button{min-height:32px;height:32px;padding:0 10px}.table .cellActions button[data-row-more]{padding:0;width:32px}
 @media(max-width:767px){.table .cellActions button{min-height:44px;height:44px}.table .cellActions button[data-row-more]{width:44px}}
 @media(max-width:767px){.fullscreen{min-width:44px}}
+
+/* viewport-fit=cover: the fixed full-screen results keep clear of notches and the home indicator. */
+.fullscreenResults{padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}
+@media(max-width:767px){.fullscreenResults{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}}

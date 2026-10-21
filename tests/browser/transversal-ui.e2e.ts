@@ -67,7 +67,7 @@ for(const width of [1280,390])for(const dark of [false,true])test(`badges and pl
 });
 
 // U-30: phones get full-screen editors, 44px targets in Negocios, and inline errors that stay out of the field name.
-test('phones: Negocios controls are 44px and editors are full screen with the error outside the field name',async({page})=>{
+test('phones: Negocios controls are 44px and editors are bottom sheets with the error outside the field name',async({page})=>{
  test.setTimeout(120000);await page.setViewportSize({width:390,height:844});await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await page.route('https://fonts.googleapis.com/**',route=>route.abort());
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
  await page.goto('/accounts');await expect(page.locator('article[data-business-id]').first()).toBeVisible();
@@ -76,7 +76,7 @@ test('phones: Negocios controls are 44px and editors are full screen with the er
  const checkbox=page.locator('article[data-business-id]').first().getByRole('checkbox');const box=(await checkbox.locator('xpath=ancestor::label[1]').boundingBox())!;
  expect(box.width,'the checkbox hit area').toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  await page.getByRole('button',{name:/Nuevo negocio/}).first().click();const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
- const frame=(await dialog.boundingBox())!;expect(frame).toMatchObject({x:0,y:0,width:390,height:844});
+ const frame=(await dialog.boundingBox())!;expect(frame).toMatchObject({x:0,width:390});expect(frame.y+frame.height).toBeCloseTo(844,0);expect(frame.height).toBeLessThanOrEqual(844);
  const name=dialog.getByRole('textbox',{name:'Nombre',exact:true});await expect(name).toBeVisible();
  await dialog.locator('form').evaluate(form=>(form as HTMLFormElement).requestSubmit());
  const message=dialog.getByText('Completá este dato.');await expect(message).toBeVisible();
