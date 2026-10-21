@@ -7,7 +7,7 @@ import {Button} from './Button';
 import {CrmDateInput} from './ui/CrmDateInput';
 import {ValueBadge} from './ValueBadge';
 import {saveCommercial} from '../endpoints/commercial.schema';
-import {recontactNotice,recontactScheduled,isPastDay,RECONTACT_PAST_HINT,RECONTACT_TASK_TITLE} from '../helpers/recontactTask';
+import {recontactNotice,recontactScheduled,isPastDay,RECONTACT_PAST_HINT} from '../helpers/recontactTask';
 import {crmSuccess} from '../helpers/crmFeedback';
 import {businessStatuses,businessStatusLabels,type BusinessStatus} from '../helpers/businessStatus';
 import {calendarDay} from '../helpers/workDates';
@@ -18,7 +18,7 @@ type SavedStatus=Awaited<ReturnType<typeof saveCommercial>>;
 /** Success toast of a status save; when it scheduled "Volver a contactar" it says so and links to Hoy (decision 7A). */
 export function notifyStatusSaved(result:SavedStatus|undefined,scheduledFor?:string|null){
  const task=result?.recontactTask;
- if(task)crmSuccess('Estado del negocio actualizado',{label:'Ver en Hoy',href:'/my-day'},task.action==='kept'?`Ya tenías «${RECONTACT_TASK_TITLE}» agendada para esa fecha.`:recontactScheduled(task.dueDate,scheduledFor));
+ if(task)crmSuccess('Estado del negocio actualizado',{label:'Ver en Hoy',href:'/my-day'},task.action==='kept'?`Ya tenías «${task.title}» agendada para esa fecha.`:recontactScheduled(task.dueDate,scheduledFor,task.title));
  else crmSuccess('Estado del negocio actualizado');
 }
 const directlyEditable:BusinessStatus[]=['reviewed','no_follow_up_scheduled','recontact'];

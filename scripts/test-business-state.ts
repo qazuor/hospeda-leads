@@ -382,5 +382,75 @@ try{
   assert.equal(await assigneeOf(task.id),sellerEmail,'undoing the referral moves it back');
  }
 
+ // Owner decisions 21/10: the management recontact reminder belongs to the business responsible, a re-save moves it, and a reassignment carries it.
+ {
+  const biz=await business('Recontacto dueño del negocio '+stamp,sellerEmail);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
+  const lead=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:biz,managementType:'main',opportunityName:'Gestión de otra persona',assignedUserEmail:colleagueEmail},admin);
+  assert.equal((await db.selectFrom('leads').select('assignedUserEmail').where('id','=',lead.id).executeTakeFirstOrThrow()).assignedUserEmail,colleagueEmail,'the management is assigned to seller A');
+  await transition(lead.id,'main:lost',{reasonId:lostNoResponse.id,recontactDate:'2027-08-01'},admin);
+  const closed=await pendingOn(biz,'2027-08-01');
+  assert.deepEqual(closed.map(t=>[t.title,t.assignedUserEmail]),[['Recontactar según lo acordado',sellerEmail]],'R1: closing with a date leaves exactly one pending task that day, for the business responsible (seller B)');
+  const reminderId=String(closed[0].id);
+  const allTasks=async()=>(await db.selectFrom('crmTasks').select('id').where('accountId','=',biz).execute()).length;
+  const before=await allTasks();
+  const moved=await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2027-08-05'},seller);
+  assert.deepEqual(moved.recontactTask,{id:reminderId,dueDate:'2027-08-05',action:'moved',title:'Recontactar según lo acordado'},'R2: the re-save moves the management reminder');
+  assert.deepEqual((await pendingOn(biz,'2027-08-05')).map(t=>String(t.id)),[reminderId],'R2: exactly one pending task on the new day: the management one');
+  assert.equal((await pendingOn(biz,'2027-08-01')).length,0,'R2: nothing left on the old day');
+  assert.equal((await recontactTasks(biz)).length,0,'R2: no business «Volver a contactar» is created');assert.equal(await allTasks(),before,'R2: no task is created');
+  const same=await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2027-08-05'},seller);
+  assert.equal(same.recontactTask.action,'kept');assert.equal(same.recontactTask.id,reminderId);
+  assert.deepEqual((await pendingOn(biz,'2027-08-05')).map(t=>String(t.id)),[reminderId],'R2: same date leaves it unchanged');assert.equal(await allTasks(),before);
+  await call(commercialPost,'commercial',{action:'account_save',id:biz,nombre:'Recontacto dueño del negocio '+stamp,assignedUserEmail:colleagueEmail},admin);
+  assert.equal(await assigneeOf(reminderId),colleagueEmail,'R2: a reassignment moves the untouched management reminder to the new responsible');
+  const again=await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2027-08-09'},admin);
+  assert.equal(again.recontactTask.id,reminderId,'the reassigned reminder still follows date changes');
+  assert.deepEqual((await pendingOn(biz,'2027-08-09')).map(t=>[String(t.id),t.assignedUserEmail]),[[reminderId,colleagueEmail]]);
+ }
+ {// A rescheduled management reminder is touched: a re-save leaves it and schedules the business task as before.
+  const biz=await business('Recontacto gestión tocada '+stamp,sellerEmail);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
+  const lead=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:biz,managementType:'main',opportunityName:'Recordatorio reprogramado'},admin);
+  await transition(lead.id,'main:lost',{reasonId:lostNoResponse.id,recontactDate:'2027-08-11'},admin);
+  const reminder=(await pendingOn(biz,'2027-08-11'))[0];
+  await db.updateTable('crmTasks').set({dueDate:'2027-08-12' as never}).where('id','=',reminder.id).execute();
+  const result=await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2027-08-20'},seller);
+  assert.equal(result.recontactTask.action,'created');assert.equal(result.recontactTask.title,'Volver a contactar');
+  assert.equal(dayOf((await db.selectFrom('crmTasks').select('dueDate').where('id','=',reminder.id).executeTakeFirstOrThrow()).dueDate),'2027-08-12','a rescheduled management reminder is left alone');
+  await call(commercialPost,'commercial',{action:'account_save',id:biz,nombre:'Recontacto gestión tocada '+stamp,assignedUserEmail:colleagueEmail},admin);
+  assert.equal(await assigneeOf(reminder.id),sellerEmail,'a rescheduled management reminder is not reassigned');
+ }
+
+ // Owner decision 21/10: leaving Recontactar (another status, date cleared, archived) cancels the untouched management reminder too; a touched one stays.
+ {
+  const closedWithDate=async(label:string,day:string)=>{
+   const biz=await business(`Recontacto salida ${label} ${stamp}`,sellerEmail);
+   await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
+   const lead=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:biz,managementType:'main',opportunityName:'Salida '+label,assignedUserEmail:colleagueEmail},admin);
+   await transition(lead.id,'main:lost',{reasonId:lostNoResponse.id,recontactDate:day},admin);
+   const onDay=await pendingOn(biz,day);assert.equal(onDay.length,1);
+   return {biz,reminderId:String(onDay[0].id)};
+  };
+  const stateOf=async(id:string)=>db.selectFrom('crmTasks').select(['status','result','dueDate']).where('id','=',id as never).executeTakeFirstOrThrow();
+  const leaves:[string,(biz:string)=>Promise<unknown>,RegExp][]=[
+   ['otro estado',biz=>call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'no_follow_up_scheduled'},seller),/dejó de ser Recontactar/],
+   ['sin fecha',biz=>call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact'},seller),/se quitó la fecha de recontacto/],
+   ['archivado',biz=>call(commercialPost,'commercial',{action:'account_archive',accountId:biz,archived:true,reason:'Prueba de archivo'},admin),/se archivó/]
+  ];
+  for(const [label,leave,reason] of leaves){
+   const {biz,reminderId}=await closedWithDate(label,'2027-09-01');
+   await leave(biz);
+   const cancelled=await stateOf(reminderId);
+   assert.equal(cancelled.status,'cancelled',`${label}: the untouched management reminder is cancelled when the business leaves Recontactar`);assert.match(String(cancelled.result),reason,`${label}: same reason as the business task`);
+   assert.equal((await pendingOn(biz,'2027-09-01')).length,0,`${label}: nothing pending is left on the old day`);
+   const touched=await closedWithDate(label+' tocada','2027-09-02');
+   await db.updateTable('crmTasks').set({dueDate:'2027-09-03' as never}).where('id','=',touched.reminderId as never).execute();
+   await leave(touched.biz);
+   const kept=await stateOf(touched.reminderId);
+   assert.equal(kept.status,'pending',`${label}: a rescheduled management reminder stays pending`);assert.equal(dayOf(kept.dueDate),'2027-09-03');
+  }
+ }
+
  console.log('Business state integration: New/review gate, derived active state, multiple open managements, required close reasons, scheduled recontact task, admin-only reopen with preserved closure history, Leandro referral, independent DNC, archive-on-DNC close, client conversion and accompaniment passed.');
 }finally{await db.destroy();}
