@@ -15,12 +15,12 @@ import {WorkEditor,type WorkTarget} from '../components/WorkEditor';
 import {PendingOutcomes} from '../components/PendingOutcomes';
 import {FirstStepsChecklist} from '../components/FirstStepsChecklist';
 import {firstStepItems,showFirstSteps,useFirstStepsStorage} from '../helpers/firstSteps';
-import {getWork} from '../endpoints/work.schema';
+import {getWork,URGENT_CAP} from '../endpoints/work.schema';
 import {localDay,taskBucket} from '../helpers/workDates';
 import {formatDate,formatTime} from '../helpers/crmDates';
 import {useAuth} from '../helpers/useAuth';
 import {VOCAB} from '../content/vocabulary';
-import {dayProgress} from '../helpers/dayProgress';
+import {dayProgress,urgentCapNotice} from '../helpers/dayProgress';
 import {parseTodayView,todayViews,type TodayView} from '../helpers/appNavigation';
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from '../components/SectionTabs';
 import styles from '../components/Commercial.module.css';
@@ -68,7 +68,7 @@ export default function MyDayPage(){
    {!agenda&&d.bucketCounts&&(()=>{const p=dayProgress({overdue:d.bucketCounts.overdue,today:d.bucketCounts.today,done:d.doneToday??0,waiting:d.pendingOutcomes?.length??0});
     if(p.kind==='finished')return <section className={ws.progress} role="status"><strong>¡Terminaste por hoy!</strong><span>Hoy: {p.done} de {p.total} hechas. Lo que sigue está en «Próximas tareas».</span></section>;
     return p.kind==='progress'?<section className={ws.progress} role="status"><strong>Hoy: {p.done} de {p.total} hechas</strong><progress value={p.done} max={p.total} aria-label="Avance de hoy"/></section>:null;})()}
-   {!agenda&&d.truncated&&<p className={styles.muted} role="status">Mostramos las primeras 300 tareas vencidas o de hoy. Usá los filtros para ver el resto.</p>}
+   {!agenda&&d.truncated&&d.bucketCounts&&<section className={styles.muted} role="status" aria-label="Tareas que no entran en la lista">{urgentCapNotice({overdue:d.bucketCounts.overdue,today:d.bucketCounts.today,cap:URGENT_CAP,admin}).map(line=><p key={line}>{line}</p>)}{!selected&&panel!=='filters'&&<Button size="sm" variant="outline" onClick={()=>setPanel('filters')}>Abrir filtros de trabajo</Button>}</section>}
    {!agenda&&<><div className={ws.queue}>{(['overdue','today','upcoming'] as const).map((bucket,i)=>{
     const tasks=d.tasks.filter(t=>taskBucket(t.dueDate,t.dueAt,now)===bucket);
     if(!tasks.length&&!(d.bucketCounts?.[bucket]??0))return null;
