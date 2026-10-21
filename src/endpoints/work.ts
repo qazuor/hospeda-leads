@@ -163,6 +163,8 @@ export async function post(request:Request){
    assertAccountReadable(user,account);
    // Decision 1C: a No contactar business is read-only for non-admins. The one exception is the outcome of a contact that already happened (messageId), which only records what occurred: next tasks and stage changes stay rejected below for No contactar.
    if(account.doNotContact&&user.role!=='admin'&&!messageId)throw new Forbidden(DO_NOT_CONTACT_READ_ONLY);
+   // The exception is for that contact's own task only: completing any other pending task of the business stays closed.
+   if(account.doNotContact&&user.role!=='admin'&&messageId&&input.action==='task_status'){const linkedTask=(await sql<{taskId:string|null}>`SELECT task_id FROM crm_messages WHERE id=${messageId}::uuid`.execute(trx)).rows[0]?.taskId;if(!linkedTask||String(linkedTask)!==String(input.id))throw new Forbidden(DO_NOT_CONTACT_READ_ONLY);}
    const commercialOwner=lead?lead.assignedUserEmail:account.assignedUserEmail;
    const delegatedTask=previous&&isTask&&'assignedUserEmail' in previous&&previous.assignedUserEmail===user.email;
    const linkedTask=previous&&!isTask&&'taskId' in previous&&previous.taskId?await trx.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',previous.taskId).executeTakeFirst():null;

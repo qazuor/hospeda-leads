@@ -85,3 +85,30 @@ test('1C: the same business without No contactar stays editable for its responsi
  await page.goto('/accounts/301');
  await expect(page.getByRole('button',{name:'Editar negocio',exact:true})).toBeVisible();
 });
+
+test('1C: only an admin can lift a No contactar block by correcting its response',async({page})=>{
+ const dnc={...response,category:'do_not_contact',summary:'Pidió no ser contactado'};
+ await mock(page,owner,{...account,doNotContact:true},{responses:[{...dnc,actorEmail:owner.email}]});
+ await page.goto('/accounts/301');
+ await page.getByText('Pidió no ser contactado · Negocio',{exact:false}).click();
+ await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ await expect(page.getByTestId('dnc-lift-denied')).toContainText('Solo un administrador puede levantar el bloqueo No contactar');
+ await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Respondió, le interesa',exact:true})).toHaveJSProperty('disabled',true);
+});
+
+test('1C: an admin can still change the category of a No contactar response',async({page})=>{
+ await mock(page,admin,{...account,doNotContact:true},{responses:[{...response,category:'do_not_contact',actorEmail:admin.email}]});
+ await page.goto('/accounts/301');
+ await page.getByText('Pidió no ser contactado · Negocio',{exact:false}).click();
+ await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ await expect(page.getByTestId('dnc-lift-denied')).toHaveCount(0);
+ await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Respondió, le interesa',exact:true})).toHaveJSProperty('disabled',false);
+});
+
+test('1C: the reminder of a "later" response is disabled with the reason on a No contactar business',async({page})=>{
+ await mock(page,owner,{...account,doNotContact:true});
+ const dialog=await openResponseDialog(page);
+ await dialog.getByLabel('¿Qué respondió?').selectOption('later');
+ await expect(dialog.getByRole('checkbox',{name:/Crear recordatorio/})).toBeDisabled();
+ await expect(dialog.getByText('Solo un administrador puede modificarlo.',{exact:false}).first()).toBeVisible();
+});

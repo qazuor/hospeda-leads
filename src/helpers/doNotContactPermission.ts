@@ -13,3 +13,6 @@ export function canRecordDoNotContact({admin,userEmail,businessOwnerEmail,manage
   if(!userEmail)return false;
   return businessOwnerEmail===userEmail||!!managementOwnerEmails?.some(email=>email===userEmail);
 }
+
+/** Decision 1C: only an administrator lifts a No contactar block, also by correcting the response that caused it. */
+export const DO_NOT_CONTACT_LIFT_DENIED='Solo un administrador puede levantar el bloqueo No contactar. Pedíselo a un administrador.';

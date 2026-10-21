@@ -416,6 +416,10 @@ try{
    const f=await mkBiz('lift');const blockResponse=resp(f.b,'do_not_contact');await call(owner,communicationPost,'communication',blockResponse);assert.equal(await dncOf(f.b),true);
    const correction=(category:string)=>({action:'response_correct',id:blockResponse.id,category,summary:'Lift attempt',exactText:null,otherDetail:null,reason:'D1 lift matrix',...(category==='do_not_contact'?{confirmDoNotContact:true}:{confirmLiftDoNotContact:true})});
    await call(owner,communicationPost,'communication',correction('do_not_contact'));assert.equal(await dncOf(f.b),true);
+   // 1C: the seller who recorded the block cannot lift it by correcting the response; nothing changes.
+   const liftSnapshot=JSON.stringify([await db.selectFrom('crmAccounts').selectAll().where('id','=',f.b).executeTakeFirstOrThrow(),await db.selectFrom('crmCommunicationResponses').selectAll().where('id','=',blockResponse.id).executeTakeFirstOrThrow()]);
+   assert.match((await call(owner,communicationPost,'communication',correction('interested'),403)).error,/administrador puede levantar/);
+   assert.equal(JSON.stringify([await db.selectFrom('crmAccounts').selectAll().where('id','=',f.b).executeTakeFirstOrThrow(),await db.selectFrom('crmCommunicationResponses').selectAll().where('id','=',blockResponse.id).executeTakeFirstOrThrow()]),liftSnapshot,'a rejected lift changed nothing');
    // Incoming responses keep working for her on a No contactar business, but a reminder task is admin-only.
    await call(owner,communicationPost,'communication',resp(f.b,'interested'));
    await call(owner,communicationPost,'communication',resp(f.b,'later',{reminder:{dueDate:'2027-03-01',assignedUserEmail:null}}),403);
@@ -427,6 +431,11 @@ try{
    const f=await mkBiz('readonly');
    const preTask=(await call(owner,workPost,'work',{action:'task_save',accountId:f.b,title:'Commitment before the block',typeId:'call',dueDate:'2027-01-15'})).id;
    await call(owner,commercialPost,'commercial',{action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Colón'});
+   // Item 5 fixtures: a contact of the management responsible (call) with its own task, plus an unrelated pending task of the same management.
+   const linkedTask=(await call(mgr,workPost,'work',{action:'task_save',accountId:f.b,leadId:f.l,title:'Linked to the contact',typeId:'call',dueDate:'2027-01-15'})).id;
+   const otherTask=(await call(mgr,workPost,'work',{action:'task_save',accountId:f.b,leadId:f.l,title:'Unrelated pending task',typeId:'call',dueDate:'2027-01-16'})).id;
+   const contact=await call(mgr,communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:f.b,leadId:f.l,contactId:null,channel:'call',purpose:null,otherPurpose:null,recipient:'+54 9 3447 400000',recipientName:'Person',destination:null,body:'Llamada realizada',result:'manual_sent',templateId:null});
+   await sql`UPDATE crm_messages SET task_id=${linkedTask} WHERE id=${contact.id}::uuid`.execute(db);
    await sql`UPDATE crm_accounts SET do_not_contact=true WHERE id=${f.b}`.execute(db);
    const account=await db.selectFrom('crmAccounts').selectAll().where('id','=',f.b).executeTakeFirstOrThrow();assert.equal(account.doNotContact,true);assert.equal(account.archivedAt,null);
    const lost=(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).managementReasons.find((r:any)=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey!=='do_not_contact');assert(lost);
@@ -472,6 +481,15 @@ try{
    // The business responsible, the responsible of its management and an unrelated seller are all rejected (the colleague already was).
    for(const seller of [owner,mgr,other])for(const [handler,url,body] of writes)await call(seller,handler,url,body,403);
    assert.equal(await snapshot(),before,'no rejected write changed the No contactar business');
+   // A single Leandro user is needed for the referral to resolve; it is created here and removed again below.
+   const existingLeandro=Number((await sql<{n:string}>`SELECT count(*) n FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro'`.execute(db)).rows[0].n);
+   const created=existingLeandro===0?await db.insertInto('users').values({email:`leandro-d1-${suffix}@example.com`,displayName:'Leandro',role:'user'}).returning('id').executeTakeFirstOrThrow():null;
+   // The referral to Leandro skips the write guard for readers: it must stay closed on a No contactar business too.
+   for(const seller of [owner,mgr,other])await call(seller,pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:rev,stage:'main:leandro'},403);
+   assert.equal(await snapshot(),before,'a rejected referral changed nothing');
+   // The management board and badges must not offer a stage change either.
+   for(const seller of [owner,mgr])assert.equal((await call(seller,pipelineGet,'pipeline?leadId='+f.l)).insights[0].canModify,false,'pipeline insight canModify is false on a No contactar business');
+   assert.equal((await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].canModify,true);
    // Reading stays as before: the owner and a colleague read the live business; only the write flags change.
    for(const reading of [owner,mgr,other,admin])for(const [handler,url] of [[commercialGet,'commercial?accountId='+f.b],[communicationGet,'communication?accountId='+f.b],[resourcesGet,'resources?accountId='+f.b],[workGet,'work?mode=detail&accountId='+f.b]] as const)await call(reading,handler,url);
    assert.equal((await call(owner,commercialGet,'commercial?accountId='+f.b)).canEditContactData,false);
@@ -481,8 +499,22 @@ try{
    assert.equal((await call(mgr,list,'leads?entity=opportunity&q='+encodeURIComponent('Mgmt readonly'))).rows[0].canModify,false,'the management responsible gets read-only too');
    // Incoming responses of other categories still work for the responsible seller.
    await call(owner,communicationPost,'communication',resp(f.b,'information'));
+   // The messageId exception only completes the task of that very contact.
+   const completion=(id:string)=>({action:'task_status',id,status:'completed',result:'Contact outcome',outcome:'interested',continuation:'done',continuationReason:'Nothing else to schedule',messageId:contact.id,messageSent:true});
+   await call(mgr,workPost,'work',completion(otherTask),403);assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',otherTask).executeTakeFirstOrThrow()).status,'pending','an unrelated pending task stays open');
+   await call(mgr,workPost,'work',completion(linkedTask));
    // The admin keeps full access and can lift the block, which gives the owner her edit rights back.
    for(const [handler,url,body] of [commercial({action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Concordia'}),commercial({action:'contact_save',accountId:f.b,name:'Admin person',isPrimary:false}),[quick,'leads_quick',{id:f.b,accountId:f.b,field:'ciudad',value:'Colón',expectedValue:'Concordia'}],[note,'lead_notes',{leadId:f.l,note:'Admin note'}],[workPost,'work',{action:'task_save',accountId:f.b,title:'Admin task',typeId:'call',dueDate:'2027-01-15'}],[resourcesPost,'resources',{action:'link',id:documentId,accountId:f.b,leadId:null,activityId:null}],[bulk,'leads_bulk',{entity:'business',ids:[f.b],changes:{ciudad:'Concordia'}}]] as W[])await call(admin,handler,url,body);
+   {// Admin referral on the No contactar business works.
+    try{
+     if(existingLeandro<=1){
+      const live=(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision as number;
+      await call(admin,pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:live,stage:'main:leandro'});
+      assert.equal((await db.selectFrom('crmAccounts').select('referredToLeandro').where('id','=',f.b).executeTakeFirstOrThrow()).referredToLeandro,true);
+      await call(admin,pipelinePost,'pipeline',{action:'unrefer',leadId:f.l,revision:(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision});
+     }
+    }finally{if(created)await db.deleteFrom('users').where('id','=',created.id).execute();}
+   }
    await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId:f.b,blocked:false,reason:'D1 lift'});
    await call(owner,commercialPost,'commercial',{action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Paraná'});
    assert.equal((await rowsFor(owner))[0].canModify,true,'after the admin lifts the block the owner edits again');

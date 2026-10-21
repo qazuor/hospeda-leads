@@ -104,7 +104,10 @@ try{
   const refused=async(change:Record<string,unknown>,cookie:string)=>{const r=await post(request({...body,...change},cookie));const text=await r.text();assert([403,409].includes(r.status),'same id for something else is refused, got '+r.status);assert(!text.includes('Solicitó'),'nothing leaks');};
   await refused({category:'interested'},user.cookie);await refused({},other.cookie);await refused({accountId:String(a.id)},user.cookie);
   assert.equal(await count('response_registered'),1);}
- await call({action:'response_correct',id:responseId,category:'interested',summary:'La respuesta se había clasificado por error',exactText:null,otherDetail:null,reason:'Revisión con la persona responsable',confirmLiftDoNotContact:true,closeLeadIds:[]},200,user.cookie);
+ // Decision 1C: the seller who recorded the block cannot lift it by correcting the response; an admin does.
+ await call({action:'response_correct',id:responseId,category:'interested',summary:'La respuesta se había clasificado por error',exactText:null,otherDetail:null,reason:'Revisión con la persona responsable',confirmLiftDoNotContact:true,closeLeadIds:[]},403,user.cookie);
+ assert.equal((await db.selectFrom('crmAccounts').select('doNotContact').where('id','=',generalAccount.id).executeTakeFirstOrThrow()).doNotContact,true,'a rejected lift leaves the block');
+ await call({action:'response_correct',id:responseId,category:'interested',summary:'La respuesta se había clasificado por error',exactText:null,otherDetail:null,reason:'Revisión con la persona responsable',confirmLiftDoNotContact:true,closeLeadIds:[]},200,admin.cookie);
  assert.equal((await db.selectFrom('crmAccounts').select(['doNotContact','status']).where('id','=',generalAccount.id).executeTakeFirstOrThrow()).doNotContact,false);
  // U-35: correcting a response to No contactar cancels the "Volver a contactar" task (and, per D3, the other pending tasks).
  {await db.updateTable('crmAccounts').set({status:'recontact',recontactAt:'2027-06-20' as never}).where('id','=',generalAccount.id).execute();
@@ -114,7 +117,7 @@ try{
   const rows=await db.selectFrom('crmTasks').select(['id','status','result']).where('id','in',[own.id,bystander.id]).execute();
   const mine=rows.find(r=>String(r.id)===String(own.id))!;assert.equal(mine.status,'cancelled','response_correct to No contactar cancels the recontact task');assert.match(String(mine.result),/No contactar/);
   assert.equal(rows.find(r=>String(r.id)===String(bystander.id))!.status,'cancelled','D3: every pending task of the business is cancelled');
-  await call({action:'response_correct',id:responseId,category:'interested',summary:'La respuesta se había clasificado por error',exactText:null,otherDetail:null,reason:'Revisión con la persona responsable',confirmLiftDoNotContact:true,closeLeadIds:[]},200,user.cookie);}
+  await call({action:'response_correct',id:responseId,category:'interested',summary:'La respuesta se había clasificado por error',exactText:null,otherDetail:null,reason:'Revisión con la persona responsable',confirmLiftDoNotContact:true,closeLeadIds:[]},200,admin.cookie);}
  // U-35: closing the last management of an ALREADY No contactar business archives it and cancels the recontact task.
  {const acc=await db.insertInto('crmAccounts').values({nombre:'DNC ya marcado '+stamp,email:'dnc-ya-'+stamp+'@example.com',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
   await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',acc.id).execute();
@@ -147,7 +150,7 @@ try{
   assert.equal(await dncOf(correct.acc.id),true);await assertDncCancelled(correct.fx,user.user.email,'response_correct to DNC');
   console.log('D3: response_create / response_correct DNC cancel every pending task with the factual reason (rolled back when rejected)');}
  const linkedJournal=await sql<{action:string;isAutomatic:boolean;triggeredByEmail:string|null}>`SELECT action,is_automatic,triggered_by_email FROM crm_communication_journal WHERE account_id=${generalAccount.id} ORDER BY id`.execute(db);
- assert(linkedJournal.rows.some(e=>e.action==='do_not_contact_activated'&&e.isAutomatic&&e.triggeredByEmail===user.user.email));assert(linkedJournal.rows.some(e=>e.action==='do_not_contact_lifted'&&e.isAutomatic&&e.triggeredByEmail===user.user.email));
+ assert(linkedJournal.rows.some(e=>e.action==='do_not_contact_activated'&&e.isAutomatic&&e.triggeredByEmail===user.user.email));assert(linkedJournal.rows.some(e=>e.action==='do_not_contact_lifted'&&e.isAutomatic&&e.triggeredByEmail===admin.user.email));
  const callAttempt=await call({action:'manual_start',id:randomUUID(),accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'call',purpose:'first_contact',otherPurpose:null,recipient:generalAccount.nombre,recipientName:generalAccount.nombre,destination:null,body:'Llamada realizada y registrada',result:'manual_sent',templateId:null},200,user.cookie);
  assert.equal(callAttempt.status,'manual_sent');assert(callAttempt.completedAt);assert.equal(callAttempt.completedByEmail,user.user.email);
  await call({action:'interaction_correct',id:callAttempt.id,result:'manual_no_contact',summary:'La llamada no tuvo respuesta',reason:'El resultado inicial se ingresó mal'},200,user.cookie);

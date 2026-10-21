@@ -1,7 +1,7 @@
 import {cancelRecontactTaskFor} from './recontactTask';
 import {templateCompatibility} from './messageTemplatePolicy';
 import {assertAccountReadable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
-import {DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
+import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
 import {createHash} from 'node:crypto';
 import {sql,type Kysely,type RawBuilder,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -210,9 +210,10 @@ async function correctResponse(e:Executor,input:Extract<CommunicationMutation,{a
  const row=(await sql<any>`SELECT * FROM crm_communication_responses WHERE id=${input.id}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row)throw new Error('Respuesta inexistente');
  if(user.role!=='admin'&&row.actorEmail!==user.email)throw new CommunicationForbidden('Solo quien registró la respuesta o un admin puede corregirla.');
  const {account}=await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);
- // Decision D1: changing a category TO do_not_contact needs the same standing as recording it. Lifting by correcting the response stays as before (open owner question, see the PR).
+ // Decision D1: changing a category TO do_not_contact needs the same standing as recording it. Decision 1C: only an admin changes it away (lifts the block).
  if(row.category!=='do_not_contact'&&input.category==='do_not_contact')await assertCanRecordDoNotContact(e,user,account);
  if(input.category==='other'&&!input.otherDetail?.trim())throw new Error('Aclaración obligatoria para Otra respuesta.');
+ if(row.category==='do_not_contact'&&input.category!=='do_not_contact'&&user.role!=='admin')throw new CommunicationForbidden(DO_NOT_CONTACT_LIFT_DENIED);
  if(row.category==='do_not_contact'&&input.category!=='do_not_contact'&&!input.confirmLiftDoNotContact)throw new CommunicationConflict('Confirmá que querés habilitar nuevamente los contactos.');
  if(row.category!=='do_not_contact'&&input.category==='do_not_contact'&&!input.confirmDoNotContact)throw new CommunicationConflict('Confirmá que querés bloquear todos los contactos del negocio.');
  const before={category:row.category,summary:row.summary,exactText:row.exactText,otherDetail:row.otherDetail};const after={category:input.category,summary:input.summary,exactText:input.exactText,otherDetail:input.otherDetail};

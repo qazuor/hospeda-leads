@@ -1,5 +1,6 @@
 import {cancelRecontactTaskFor} from '../helpers/recontactTask';
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
+import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import superjson from 'superjson';
@@ -37,7 +38,7 @@ export async function get(request:Request){
     l.deleted_at management_deleted_at,a.archived_at business_archived_at,a.deleted_at business_deleted_at,a.merged_into_id business_merged_into_id,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.status='pending' AND t.deleted_at IS NULL) pending_followup,l.fecha_proxima_accion,l.fecha_ultimo_contacto,l.estimated_close_date
     FROM leads l JOIN crm_accounts a ON a.id=l.account_id LEFT JOIN crm_stages s ON s.name=l.estado WHERE l.id IN (${sql.join(ids)}) AND l.deleted_at IS NULL`.execute(db);
-   insights=rows.map(r=>{const {managementDeletedAt,businessArchivedAt,businessDeletedAt,businessMergedIntoId,classification,fechaProximaAccion,fechaUltimoContacto,estimatedCloseDate,...insight}=r;return {...insight,canModify:canModifyManagement(user,{assignedUserEmail:r.assignedUserEmail,deletedAt:managementDeletedAt},{assignedUserEmail:null,archivedAt:businessArchivedAt,deletedAt:businessDeletedAt,mergedIntoId:businessMergedIntoId}),suggestion:suggestPriority(rules,{stage:r.estado,classification,pending:r.pendingFollowup,nextDay:fechaProximaAccion?calendarDay(fechaProximaAccion):null,lastContactDay:fechaUltimoContacto?calendarDay(fechaUltimoContacto):null,closeDay:estimatedCloseDate?calendarDay(estimatedCloseDate):null},localDay())}});
+   insights=rows.map(r=>{const {managementDeletedAt,businessArchivedAt,businessDeletedAt,businessMergedIntoId,classification,fechaProximaAccion,fechaUltimoContacto,estimatedCloseDate,...insight}=r;return {...insight,canModify:canModifyManagement(user,{assignedUserEmail:r.assignedUserEmail,deletedAt:managementDeletedAt},{assignedUserEmail:null,archivedAt:businessArchivedAt,deletedAt:businessDeletedAt,mergedIntoId:businessMergedIntoId,doNotContact:r.doNotContact}),suggestion:suggestPriority(rules,{stage:r.estado,classification,pending:r.pendingFollowup,nextDay:fechaProximaAccion?calendarDay(fechaProximaAccion):null,lastContactDay:fechaUltimoContacto?calendarDay(fechaUltimoContacto):null,closeDay:estimatedCloseDate?calendarDay(estimatedCloseDate):null},localDay())}});
    if(p.leadId){
     events=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${p.leadId} ORDER BY id DESC LIMIT 200`.execute(db)).rows.map(e=>({...e,managementReasonId:e.managementReasonId??null,managementNote:e.managementNote??null,recontactDate:e.recontactDate?calendarDay(e.recontactDate):null}));
     objections=(await sql<PipelineObjection>`SELECT * FROM crm_objections WHERE lead_id=${p.leadId} AND deleted_at IS NULL ORDER BY id DESC`.execute(db)).rows;
@@ -107,6 +108,8 @@ export async function post(request:Request){
    const referralRequested=p.action==='transition'&&!!typedLead.managementType&&p.stage===`${typedLead.managementType}:leandro`;
    await assertLeadAccess(trx,String(lead.id),user,!referralRequested);
    if(referralRequested&&account.archivedAt&&user.role!=='admin')throw new Forbidden('Este negocio está archivado. Solo un administrador puede modificarlo.');
+   // Decision 1C: the referral skips the write guard (any reader may refer a live business), so it must close the No contactar case itself.
+   if(referralRequested&&account.doNotContact&&user.role!=='admin')throw new Forbidden(DO_NOT_CONTACT_READ_ONLY);
    if(lead.pipelineRevision!==p.revision)throw new Conflict('La gestión cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
    if(p.action==='objection_save'){
     const type=(await sql<PipelineCatalog>`SELECT * FROM crm_objection_types WHERE id=${p.typeId} FOR SHARE`.execute(trx)).rows[0];
