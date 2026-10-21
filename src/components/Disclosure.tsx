@@ -12,6 +12,8 @@ type FormField = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 export function Disclosure({ children, open = false, onOpenChange, ...props }: Omit<React.HTMLAttributes<HTMLDivElement>, 'defaultValue' | 'onChange'> & { open?: boolean; onOpenChange?: (open: boolean) => void }) {
   const [value, setValueState] = useState<string | null>(open ? 'content' : null);
   const notify = useRef(onOpenChange); notify.current = onOpenChange;
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (focusTimer.current) clearTimeout(focusTimer.current); }, []);
   const setValue = (next: string | null) => { setValueState(next); notify.current?.(next !== null); };
   useEffect(() => { setValueState(open ? 'content' : null); }, [open]);
   const reveal = (event: React.FormEvent<HTMLDivElement>) => {
@@ -20,7 +22,7 @@ export function Disclosure({ children, open = false, onOpenChange, ...props }: O
     setValue('content');
     const first = Array.from(field.form?.elements ?? []).find(item => (item as FormField).willValidate && !(item as FormField).validity.valid);
     // The panel is display:none until it opens, so the field cannot take focus yet.
-    if (first === field) setTimeout(() => { field.focus({ preventScroll: true }); field.scrollIntoView?.({ block: 'center' }); }, 60);
+    if (first === field) { if (focusTimer.current) clearTimeout(focusTimer.current); focusTimer.current = setTimeout(() => { focusTimer.current = null; if (typeof document === 'undefined' || !field.isConnected) return; field.focus({ preventScroll: true }); field.scrollIntoView?.({ block: 'center' }); }, 60); }
   };
   const elements = React.Children.toArray(children);
   const summary = elements.find(child => React.isValidElement(child) && child.type === DisclosureSummary) as React.ReactElement<React.HTMLAttributes<HTMLButtonElement>> | undefined;

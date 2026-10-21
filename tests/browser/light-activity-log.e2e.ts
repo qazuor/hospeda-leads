@@ -10,11 +10,13 @@ async function login(page:Page){
 }
 async function api(page:Page,endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
 /** A business with one open management, a phone, and a logged call that now waits for "¿Cómo salió?". */
-async function startCall(page:Page,label:string,button:'Ya llamé: anotar cómo salió'|'No me atendieron'){
- const stamp=Date.now(),accountId=(await api(page,'commercial',{action:'account_save',nombre:label+' '+stamp,telefono:'+5493442000777',assignedUserEmail:'admin@example.com'})).id;
+async function startCall(page:Page,label:string,button:'Ya llamé: anotar cómo salió'|'No me atendieron',person?:string){
+ const stamp=Date.now(),accountId=(await api(page,'commercial',{action:'account_save',nombre:label+' '+stamp,telefono:'+5493442'+String(stamp).slice(-6),assignedUserEmail:'admin@example.com'})).id;
  const leadId=(await api(page,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Gestión '+label+' '+stamp,estado:'Cargado'})).id;
+ if(person)await api(page,'commercial',{action:'contact_save',accountId,name:person,phone:'+5493442000888',isPrimary:true});
  await page.goto('/sales/'+leadId);await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
  await page.getByText('Registrar una llamada',{exact:true}).click();await waitForTransitions(page);
+ if(person){const who=page.getByLabel('¿A quién llamás?');await who.selectOption((await who.locator('option',{hasText:person}).getAttribute('value'))!);}
  await page.getByRole('button',{name:button,exact:true}).click();
  const editor=page.getByRole('dialog',{name:'Anotar lo que pasó',exact:true});await expect(editor).toBeVisible();
  return {accountId,leadId,editor};
@@ -28,6 +30,11 @@ test('after "No me atendieron" the editor already says "No respondió" and sugge
  await expect(editor.getByRole('combobox',{name:'Propósito',exact:true})).toHaveCount(0);
  await expect(editor.getByRole('radio',{name:'No respondió',exact:true})).toBeChecked();
  await expect(editor.getByRole('radio')).toHaveCount(6);
+ // Moving to another result drops the suggested wait; a choice she made herself is kept.
+ await pickOutcome(editor,'interested');await expect(editor.getByRole('combobox',{name:/^¿Cómo sigue\?/})).toHaveValue('');
+ await pickOutcome(editor,'no_answer');await expect(editor.getByRole('combobox',{name:/^¿Cómo sigue\?/})).toHaveValue('wait');
+ await editor.getByRole('combobox',{name:/^¿Cómo sigue\?/}).selectOption('task');await pickOutcome(editor,'interested');await expect(editor.getByRole('combobox',{name:/^¿Cómo sigue\?/})).toHaveValue('task');
+ await pickOutcome(editor,'no_answer');await editor.getByRole('combobox',{name:/^¿Cómo sigue\?/}).selectOption('wait');
  await expect(editor.getByRole('combobox',{name:/^¿Cómo sigue\?/})).toHaveValue('wait');
  // The date is never invented: saving without one is refused until she picks it.
  await editor.getByRole('button',{name:'Guardar y programar',exact:true}).click();
@@ -55,7 +62,7 @@ test('a required field inside the closed "Fecha, canal y participantes" opens it
 
 test('"Pidió no ser contactado" asks for confirmation inline and blocks the whole business',async({page})=>{
  test.setTimeout(90000);await login(page);
- const {accountId,leadId,editor}=await startCall(page,'Bloqueo','Ya llamé: anotar cómo salió');
+ const {accountId,leadId,editor}=await startCall(page,'Bloqueo','Ya llamé: anotar cómo salió','Ana del bloqueo');
  const messageId=(await api(page,'communication?leadId='+leadId)).messages[0].id;
  await expect(api(page,'work?mode=day').then(day=>day.pendingOutcomes.map((p:any)=>p.id))).resolves.toContain(messageId);
  await pickOutcome(editor,'do_not_contact');
@@ -85,4 +92,13 @@ test('"Cambiar" next to the channel reveals the hidden fields in Mi día complet
  await dialog.getByRole('button',{name:'Cambiar',exact:true}).click();await waitForTransitions(page);await expect(dialog.getByLabel('Fecha y hora real')).toBeVisible();
  // The result is a group of big radio buttons and nothing is chosen for her.
  await expect(dialog.getByRole('radio')).toHaveCount(5);await expect(dialog.locator('input[name="outcome"]:checked')).toHaveCount(0);
+});
+
+test('the results group links its error to the radios',async({page})=>{
+ test.setTimeout(90000);await login(page);
+ const {editor}=await startCall(page,'Error de grupo','Ya llamé: anotar cómo salió');
+ await editor.getByRole('button',{name:'Guardar',exact:true}).click();
+ const first=editor.getByRole('radio').first();await expect(first).toBeFocused();await expect(first).toHaveAttribute('aria-invalid','true');
+ const errorId=await first.getAttribute('aria-describedby');expect(errorId).toBeTruthy();await expect(page.locator('#'+errorId)).toHaveText('Elegí qué pasó.');
+ await pickOutcome(editor,'other');await expect(first).not.toHaveAttribute('aria-invalid','true');
 });

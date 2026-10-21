@@ -88,6 +88,17 @@ describe('Mantine migration preserves CRM interactions', () => {
     expect(changes).toContain(true);
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Fecha real')));
   });
+  it('does not touch the DOM after unmounting within the focus delay', async () => {
+    vi.useFakeTimers();
+    try {
+      const view = mount(<form><Disclosure><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><button type="submit">Guardar</button></form>);
+      const field = screen.getByLabelText('Fecha real') as HTMLInputElement; const focus = vi.spyOn(field, 'focus');
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+      const before = focus.mock.calls.length; // the field's own inline handler already focused it once
+      view.unmount(); vi.advanceTimersByTime(200);
+      expect(focus.mock.calls.length).toBe(before);
+    } finally { vi.useRealTimers(); }
+  });
   it('requires resolving an unsaved message before changing tabs', async () => {
     function Example() { const [tab, setTab] = useState('message'); return <SectionTabs value={tab} onValueChange={setTab}>
       <SectionTabList><SectionTab value="message">Mensaje</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
