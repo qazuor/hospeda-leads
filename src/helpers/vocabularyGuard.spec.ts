@@ -8,7 +8,8 @@ import {describe,expect,it} from 'vitest';
  * Vocabulary guard (owner decision 6d): visible terms that the UX plan retires.
  * The final sweep (U-32) emptied BASELINE, so the guard is strict: any occurrence fails. BASELINE stays as an escape hatch (`path::term` → count, path relative to `src/`); only add to it with an owner-approved reason.
  */
-const BANNED_TERMS=['Gestión comercial inicial','Gestiones comerciales','Registrar qué pasó','Registrar actividad','Planificar','Dar de baja','Relación del negocio','Seguimiento general','Contacto general','Agregar contacto','AHORA CORRESPONDE','Sin seguimiento programado','Completá los campos obligatorios','Not authenticated','negocios u gestiones','Editar / reprogramar','Más opciones'] as const;
+const BANNED_TERMS=['Gestión comercial inicial','Gestiones comerciales','Registrar qué pasó','Registrar actividad','Planificar','Dar de baja','Relación del negocio','Seguimiento general','Contacto general','Agregar contacto','AHORA CORRESPONDE','Sin seguimiento programado','Completá los campos obligatorios','Not authenticated','negocios u gestiones','Editar / reprogramar','Más opciones',
+ 'alcance','Estado del pipeline','Pipeline, actividad','Cargando pipeline','"Pipeline"',"'Pipeline'",'||"Sistema"',"||'Sistema'",'uditoría','Journal de','del journal','Contactos participantes','Definí una acción con fecha','Negocio / contacto','Confirmar baja','dado de baja'] as const;
 
 const BASELINE:Readonly<Record<string,number>>={};
 
@@ -25,6 +26,12 @@ const findOccurrences=()=>listFiles(srcRoot).filter(scanned).flatMap(file=>{
 describe('vocabulary guard',()=>{
  it('adds no banned visible term outside the frozen baseline',()=>{
   expect(findOccurrences().filter(({key,count})=>count>(BASELINE[key]??0)).map(({key,count})=>`${key} (${count}, frozen ${BASELINE[key]??0})`)).toEqual([]);
+ });
+
+ it('flags the second-round terms (jargon, raw actor placeholder, retired phrases) in UI strings',()=>{
+  const samples=['Estado del pipeline','Revisá el alcance completo','{j.actorEmail||"Sistema"}','Auditoría de tareas','Contactos participantes','Definí una acción con fecha','Negocio / contacto','Historial del journal'];
+  expect(samples.filter(sample=>!BANNED_TERMS.some(term=>sample.includes(term)))).toEqual([]);
+  expect(BANNED_TERMS.some(term=>'Cargando el tablero…'.includes(term))).toBe(false);
  });
 
  it('actually scans the source tree',()=>{

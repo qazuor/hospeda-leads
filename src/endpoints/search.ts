@@ -12,8 +12,8 @@ export async function get(request:Request){
   const {q}=searchQuery.parse(Object.fromEntries(new URL(request.url).searchParams));
   // All entities use the same active-account scope. No file contents or binary data are returned.
   const accounts=sql`a.deleted_at IS NULL AND a.archived_at IS NULL AND a.merged_into_id IS NULL`;
-  // Businesses list also keeps the seller's OWN archived ones (read-only view, same rule as assertAccountViewable): she can still find and open them.
-  const ownOrActive=sql`a.deleted_at IS NULL AND a.merged_into_id IS NULL AND (a.archived_at IS NULL OR a.assigned_user_email=${user.email})`;
+  // The Negocios group mirrors assertAccountViewable: admins see any archived (non-trashed, non-merged) business, a seller only her own archived ones. They show "· Archivado".
+  const ownOrActive=sql`a.deleted_at IS NULL AND a.merged_into_id IS NULL AND (a.archived_at IS NULL OR ${user.role==='admin'} OR a.assigned_user_email=${user.email})`;
   const queries=[
    sql<SearchResult>`SELECT 'business:'||a.id AS id,'Negocios' AS kind,a.nombre AS label,CASE WHEN a.archived_at IS NULL THEN coalesce(a.ciudad,'') ELSE concat_ws(' · ',nullif(a.ciudad,''),'Archivado') END AS description,'/accounts/'||a.id AS url FROM crm_accounts a WHERE ${ownOrActive} AND ${multiFieldSearchSql(['a.nombre','a.email','a.telefono','a.ciudad'],q,{phoneColumns:['a.telefono','a.whatsapp']})} ORDER BY a.nombre,a.id LIMIT 8`,
    sql<SearchResult>`SELECT 'lead:'||l.id AS id,'Gestiones' AS kind,coalesce(l.opportunity_name,l.nombre) AS label,a.nombre AS description,'/sales/'||l.id AS url FROM leads l JOIN crm_accounts a ON a.id=l.account_id WHERE ${accounts} AND l.deleted_at IS NULL AND ${multiFieldSearchSql(['l.opportunity_name','l.service_interest','l.nombre','a.nombre','a.ciudad'],q)} ORDER BY l.updated_at DESC,l.id LIMIT 8`,

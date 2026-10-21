@@ -73,6 +73,7 @@ import styles from "./_index.module.css";
 import {QUERY_KEY, PRIORITY_OPTIONS, PROFILE_OPTIONS, CONTACT_OPTIONS, TEXT_FILTER_FIELDS, TextFilterField, DATE_FILTER_FIELDS, DateFilterField, TEXT_FILTER_LABELS, DATE_FILTER_LABELS, createTextFilters, createDateFilters, SortBy, TABLE_COLUMNS, DEFAULT_COLUMNS, DEFAULT_WIDTHS, TABLE_QUERY_STORAGE_KEY, TABLE_FILTERS_STORAGE_KEY, TABLE_SORT_STORAGE_KEY, readStoredQuery, readStoredFilterGroups, readStoredSort, emptyForm, str, dateInput, displayCalendarDate,displayDate, isUrl} from "../helpers/leadsTableModel";
 
 import {HeaderMenu} from "../components/LeadsTableHeader";
+import {managementDisplayName} from '../content/vocabulary';
 
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const navigate=useNavigate();
@@ -630,7 +631,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayCalendarDate(v):v).join(" · ");
       return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la gestión"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver gestiones":"Agregar gestión"}</small></UnstyledButton>;
     }
-    if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión sin nombre"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></UnstyledButton>;
+    if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{managementDisplayName(l)}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></UnstyledButton>;
     if(key==="id")return businessMode?(l.opportunityId||"—"):String(l.id);
     if(key==="ciudad")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
     if(key==="tipo")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;
@@ -765,7 +766,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             if(!col)return null;
             return <th key={key} className={styles.resizableTh}>{key==="estado"&&businessMode&&!advancedTable?<span>Relación</span>:<HeaderMenu label={key==="nombre"&&businessMode?"Negocio":key==="id"&&businessMode?"ID de entrada":key==="estado"&&businessMode&&!advancedTable?"Relación":key==="fechaProximaAccion"?"Próximo paso":col.label} field={key as SortBy} sortBy={sortBy} sortDir={sortDir} onSort={sort}/>}<span className={styles.resizeHandle} onMouseDown={e=>{e.preventDefault();e.stopPropagation();startResize(key,e.clientX)}}/></th>;
           })}
-          {(!businessMode||advancedTable)&&<th>Contacto</th>}<th>Acciones</th>
+          {(!businessMode||advancedTable)&&<th>Persona</th>}<th>Acciones</th>
         </tr></thead><tbody>
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt||l.canModify===false} disabledReason={l.deletedAt?'El negocio está en Papelera. Solo un administrador puede restaurarlo.':'Solo el responsable del negocio o un administrador puede modificarlo.'} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
@@ -784,7 +785,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <div className={styles.editIdentityRow}>
               <div className={styles.editIdentity}>
                 <div className={styles.editTitleLine}>
-                  <DialogTitle className={styles.editTitle}>{form.id?(form.opportunityName||"Gestión sin nombre"):"Nueva gestión"}</DialogTitle>
+                  <DialogTitle className={styles.editTitle}>{form.id?managementDisplayName(form):"Nueva gestión"}</DialogTitle>
                   <div className={styles.editTitleBadges}>
                     {form.tipo&&<ValueBadge value={str(form.tipo)} category="vertical"/>}
                     {form.subtipo&&<ValueBadge value={str(form.subtipo)} category="subtype"/>}

@@ -111,8 +111,8 @@ export function AppCommandPalette() {
   })).sort((a,b)=>a.score-b.score):[];
   const helpGroups=helpActions.length?[{label:'Ayuda',actions:helpActions}]:[];
   const contentGroups=contentCurrent?(content.data?.results??[]).reduce<Array<{label:string;actions:{id:string;label:string;description:string;icon:typeof BookOpen;run:()=>void}[]}>>((groups,result)=>{
-    let group=groups.find(group=>group.label===result.kind);
-    if(!group){group={label:result.kind,actions:[]};groups.push(group);}
+    const kindLabel=result.kind==='Contactos'?'Personas':result.kind;let group=groups.find(group=>group.label===kindLabel);
+    if(!group){group={label:kindLabel,actions:[]};groups.push(group);}
     group.actions.push({...result,icon:resultIcons[result.kind],run:()=>go(result.url)});return groups;
   },[]):[];
   const groups=[...helpGroups,...contentGroups,...navigationGroups];

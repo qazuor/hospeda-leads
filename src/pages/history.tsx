@@ -1,3 +1,4 @@
+import {actorLabel} from '../helpers/crmLabels';
 import {auditChanges} from '../helpers/auditChanges';
 import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
@@ -84,8 +85,8 @@ export default function HistoryPage(){
           <td>{formatDate(row.createdAt,true)}</td>
           <td>{row.accountId?<Link className={styles.leadLink} to={row.accountDeleted?"/trash":"/accounts/"+row.accountId}><strong>{row.accountName||row.leadName}</strong><small>{row.accountDeleted?"En Papelera":"Negocio #"+row.accountId}{row.leadId?" · Gestión #"+row.leadId:""}</small></Link>:row.leadId?<Link className={styles.leadLink} to={"/sales/"+row.leadId}><strong>{row.leadName}</strong><small>Gestión #{row.leadId}</small></Link>:<strong>{row.leadName}</strong>}</td>
           <td>{row.leadCity||"Vacío"}</td><td>{row.leadType||"Vacío"}</td>
-          <td><strong>{row.actorName}</strong><small>{row.actorEmail??""}</small></td>
-          <td><Badge variant={["deleted","soft_deleted","hard_deleted"].includes(row.action)?"destructive":row.action==="created"||row.action==="restored"?"success":"outline"}>{actionLabel[row.action]??row.action}</Badge>{row.source&&<small>{{lead:"Gestión histórica",business:"Negocio / contacto",work:"Tarea / actividad",resource:"Documento / comunicación",pipeline:"Pipeline",configuration:"Configuración"}[row.source]||row.source}</small>}</td>
+          <td><strong>{actorLabel(row.actorName||row.actorEmail)}</strong><small>{row.actorEmail??""}</small></td>
+          <td><Badge variant={["deleted","soft_deleted","hard_deleted"].includes(row.action)?"destructive":row.action==="created"||row.action==="restored"?"success":"outline"}>{actionLabel[row.action]??row.action}</Badge>{row.source&&<small>{{lead:"Gestión histórica",business:"Negocio / persona",work:"Tarea / actividad",resource:"Documento / comunicación",pipeline:"Etapas de gestiones",configuration:"Configuración"}[row.source]||row.source}</small>}</td>
           <td>{row.fieldName?fieldLabel[row.fieldName]??row.fieldName:"—"}</td>
           <td className={styles.change}>{row.fieldName?<><span>{journalValue(row.fieldName,row.oldValue)}</span><b>→</b><strong>{journalValue(row.fieldName,row.newValue)}</strong></>:auditChanges(row.metadata).length?<details><summary>Ver cambios</summary>{auditChanges(row.metadata).map((line,i)=><p key={i}>{line}</p>)}</details>:"—"}</td>
         </tr>)}
