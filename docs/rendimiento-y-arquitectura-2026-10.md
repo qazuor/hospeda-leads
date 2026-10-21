@@ -121,7 +121,7 @@ Mala práctica agravante: un request abandonado por el cliente seguía corriendo
 - Docker (C-01): el contenedor corre como `USER node`. Los scripts de operación con `docker exec` deben escribir en `/tmp`; escribir bajo `/app` falla con EACCES. Si Coolify tiene un volumen que no esté documentado en `docs/`, revisar su propietario.
 - Endpoints eliminados (M-02): `/_api/leads_import`, `/_api/leads_ingest` y `/_api/send_template_email` ahora dan 404 (antes solo devolvían 409/403/401). Si algún sistema externo los llamaba, hay que avisar. El alias `npm run db:migrate:floot` se quitó: usar `node scripts/migrate-floot-snapshot.mjs`. La fila `app_settings.ingest_token` quedó sin uso.
 - Versiones de TipTap: todas las `@tiptap/*` están fijadas en 3.31.3 con `overrides` para bubble-menu y floating-menu. Las 3.31.4 y 3.32.0 rompen el diálogo de links del editor de mensajes (el texto escrito después de insertar un link extiende el link; lo detecta `tests/browser/mantine-prompts.e2e.ts`).
-- Migraciones posteriores (027–034) y sus notas de deploy: ver [pendientes](pendientes.md); 034 en el PR de `perf/gestiones-search-rewrite`.
+- Migraciones posteriores (027–034) y sus notas de deploy: ver [pendientes](pendientes.md); 034 en #204.
 - Las migraciones 024 a 026 se aplicaron solo a la base sintética descartable. La réplica sigue en la 023.
 
 ## Decisiones tomadas por el coordinador
