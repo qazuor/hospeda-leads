@@ -11,6 +11,8 @@ import {getServerUserSession} from '../helpers/getServerUserSession';
 import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {calendarDay,localDay} from '../helpers/workDates';
 import {workMutation,workQuery,followupSettings} from './work.schema';
+/** Mi día returns every overdue and today task up to this many per bucket. */
+const URGENT_CAP=300;
 class Forbidden extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
 const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict?409:fallbackStatus(e));
@@ -44,6 +46,8 @@ export async function get(request:Request){
   if(input.taskId){if(input.mode!=='detail'||!input.accountId)throw new Error('Elegí el negocio del pendiente.');tasks=tasks.where('t.id','=',input.taskId);activities=activities.where('t.taskId','=',input.taskId);}
   if(input.city){tasks=tasks.where('a.ciudad','=',input.city);activities=activities.where('a.ciudad','=',input.city);attention=attention.where('a.ciudad','=',input.city);}
   if(input.vertical){tasks=tasks.where('l.tipo','=',input.vertical);activities=activities.where('l.tipo','=',input.vertical);attention=attention.where('l.tipo','=',input.vertical);}
+  // Decision U-22: progress "Hoy: N de M hechas" counts tasks completed today, so keep the pre-status builder.
+  const tasksAnyStatus=tasks;
   if(input.mode==='day')tasks=tasks.where('t.status','=','pending');
   if(input.mode==='agenda'){
    const agendaTypes=await db.selectFrom('crmWorkTypes').select('id').where('agenda','=',true).execute();
@@ -85,17 +89,19 @@ export async function get(request:Request){
    tasks.where(sql<string>`t.due_date`,'=',today).where(eb=>eb.or([eb('t.dueAt','is',null),eb('t.dueAt','>=',now)])),
    tasks.where(sql<string>`t.due_date`,'>',today)
   ];
-  const taskPage=(query:typeof tasks,limit:number)=>query.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName']).orderBy(sql`CASE WHEN t.status='pending' THEN 0 ELSE 1 END`).orderBy('t.dueDate').orderBy('t.dueAt').orderBy('t.id').$if(!input.calendar,q=>q.limit(limit).offset((input.page-1)*limit)).execute();
-  const taskRowsPromise=input.mode==='day'?Promise.all(dayQueries.map(query=>taskPage(query,25))).then(rows=>rows.flat()):taskPage(tasks,100);
+  const taskPage=(query:typeof tasks,limit:number,offset=(input.page-1)*limit)=>query.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName',sql<string|null>`(select ca.id from crm_activities ca where ca.task_id=t.id and ca.deleted_at is null order by ca.occurred_at desc, ca.id desc limit 1)`.as('activityId')]).orderBy(sql`CASE WHEN t.status='pending' THEN 0 ELSE 1 END`).orderBy('t.dueDate').orderBy('t.dueAt').orderBy('t.id').$if(!input.calendar,q=>q.limit(limit).offset(offset)).execute();
+  // Overdue and today are never paginated (capped at URGENT_CAP): hiding them on page 2 buried the urgent work. Only upcoming pages.
+  const taskRowsPromise=input.mode==='day'?Promise.all([taskPage(dayQueries[0],URGENT_CAP,0),taskPage(dayQueries[1],URGENT_CAP,0),taskPage(dayQueries[2],25)]).then(rows=>rows.flat()):taskPage(tasks,100);
+  const doneTodayPromise=input.mode==='day'?tasksAnyStatus.where('t.status','=','completed').where(sql<string>`(t.completed_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'=',today).select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow().then(r=>Number(r.n)):Promise.resolve(undefined);
   const bucketCountsPromise=input.mode==='day'?Promise.all(dayQueries.map(query=>query.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow())).then(rows=>({overdue:Number(rows[0].n),today:Number(rows[1].n),upcoming:Number(rows[2].n)})):Promise.resolve(undefined);
-  const [taskRows,activityRows,taskCount,activityCount,types,accounts,opportunities,users,needs,bucketCounts]=await Promise.all([
+  const [taskRows,activityRows,taskCount,activityCount,types,accounts,opportunities,users,needs,bucketCounts,doneToday]=await Promise.all([
 
    taskRowsPromise,
    activities.selectAll('t').select(['a.nombre as accountName','a.ciudad as city']).orderBy('t.occurredAt','desc').orderBy('t.id','desc').$if(!input.calendar,q=>q.limit(100).offset((input.page-1)*100)).execute(),
    tasks.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow(),activities.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow(),
    db.selectFrom('crmWorkTypes').selectAll().orderBy('name').execute(),Promise.resolve(selectedAccounts),opportunitiesQuery.execute(),
    db.selectFrom('users').select(['email','displayName']).orderBy('displayName').execute(),
-   attention.select(['l.id','l.accountId','a.nombre','l.opportunityName','l.createdAt','l.fechaUltimoContacto','l.estado']).where(eb=>eb.not(eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','l.id').where('status','=','pending').where('deletedAt','is',null)))).where(eb=>eb.or([eb('l.estado','in',followup.stages.length?followup.stages:['__none__']),eb.and([eb('l.fechaUltimoContacto','is',null),eb(sql`l.assigned_at AT TIME ZONE 'America/Argentina/Buenos_Aires'`,'>=',sql`${localDay()}::date - ${followup.newAssignmentDays}::integer`)])])).orderBy('l.createdAt','desc').execute(),bucketCountsPromise
+   attention.select(['l.id','l.accountId','a.nombre','l.opportunityName','l.createdAt','l.fechaUltimoContacto','l.estado']).where(eb=>eb.not(eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','l.id').where('status','=','pending').where('deletedAt','is',null)))).where(eb=>eb.or([eb('l.estado','in',followup.stages.length?followup.stages:['__none__']),eb.and([eb('l.fechaUltimoContacto','is',null),eb(sql`l.assigned_at AT TIME ZONE 'America/Argentina/Buenos_Aires'`,'>=',sql`${localDay()}::date - ${followup.newAssignmentDays}::integer`)])])).orderBy('l.createdAt','desc').execute(),bucketCountsPromise,doneTodayPromise
   ]);
   const cities=(await db.selectFrom('crmAccounts').select('ciudad').where('mergedIntoId','is',null).where('deletedAt','is',null).where('ciudad','is not',null).distinct().orderBy('ciudad').execute()).map(r=>r.ciudad).filter(Boolean);
   const verticals=(await db.selectFrom('leads').select('tipo').where('deletedAt','is',null).where('tipo','is not',null).distinct().orderBy('tipo').execute()).map(r=>r.tipo).filter(Boolean);
@@ -107,7 +113,7 @@ export async function get(request:Request){
   }
   // Decision 2B: the seller's own contacts still waiting for "¿Cómo salió?" stay visible in Hoy.
   const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin'}):[];
-  return reply({pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
+  return reply({pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,doneToday,truncated:bucketCounts?bucketCounts.overdue>URGENT_CAP||bucketCounts.today>URGENT_CAP:undefined,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
 }
 export async function post(request:Request){

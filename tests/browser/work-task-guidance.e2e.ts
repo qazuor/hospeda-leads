@@ -13,7 +13,7 @@ test('planning a task shows visible pending commitments and distinguishes task, 
   await route.fulfill({contentType:'application/json',body:superjson.stringify(path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:path.endsWith('/work')?data:{})});
  });
  await page.goto('/my-day');
- await page.getByRole('button',{name:'Planificar una tarea',exact:true}).click();
+ await page.getByRole('button',{name:'Agendar tarea',exact:true}).click();
  const dialog=page.getByRole('dialog');
  await dialog.getByRole('combobox',{name:'Negocio',exact:true}).selectOption('1');
  await expect(dialog.getByText(/Tarea: algo pendiente con fecha/)).toBeVisible();
