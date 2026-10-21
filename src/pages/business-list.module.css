@@ -91,3 +91,4 @@
 }
 .table .cellActions button{min-height:32px;height:32px;padding:0 10px}.table .cellActions button[data-row-more]{padding:0;width:32px}
 @media(max-width:767px){.table .cellActions button{min-height:44px;height:44px}.table .cellActions button[data-row-more]{width:44px}}
+@media(max-width:767px){.fullscreen{min-width:44px}}

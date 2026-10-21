@@ -8,3 +8,4 @@
 .container{min-width:0}.scrollHint{display:none}
 @media(min-width:768px){.row:has(>button:first-child:disabled)::after{content:'';flex:0 0 30px}}
 @media(max-width:767px){.scrollHint{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin:3px 4px 0;color:var(--muted-foreground);font-size:11px;line-height:1.4;white-space:nowrap}.scrollHint svg{flex:none;color:var(--primary)}}
+@media(max-width:767px){.badge{height:46px;max-width:calc(100cqw - 104px)}.row :global(.mantine-ActionIcon-root){--ai-size:44px!important}}
