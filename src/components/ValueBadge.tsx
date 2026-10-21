@@ -2,6 +2,7 @@ import React from "react";
 import { Badge } from "@mantine/core";
 import {businessStatusLabels} from "../helpers/businessStatus";
 import {managementStageCatalog,managementTypes} from "../helpers/businessManagement";
+import {verticalTone} from "../helpers/verticalColors";
 import styles from "./ValueBadge.module.css";
 
 type Category="vertical"|"subtype"|"status"|"priority"|"city"|"person"|"contact"|"profile"|"generic";
@@ -45,7 +46,7 @@ const stageTones=new Map<string,BadgeTone>(managementTypes.flatMap(type=>managem
 export const badgeTone=(category:Category,value:string):BadgeTone=>category==="status"?businessStatusTones.get(value)??stageTones.get(value)??"neutral":"neutral";
 
 export const valueBadgeColors=(category:Category,value:string)=>{
-  const [h,sat]=legacy.get(category+":"+value)??tones[badgeTone(category,value)]??tones.neutral;
+  const [h,sat]=legacy.get(category+":"+value)??(category==="vertical"?verticalTone(value):tones[badgeTone(category,value)]??tones.neutral);
   const tint=`hsl(${h} ${Math.max(45,sat)}% 52%)`;
   // Text colour comes from the .badge class (light-dark inside @supports; foreground colour otherwise) using these hue variables.
   return {

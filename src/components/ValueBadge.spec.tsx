@@ -17,10 +17,16 @@ describe('badgeTone',()=>{
   const expected={open:'progress',won:'success',lost:'dangerMuted'};
   for(const type of managementTypes)for(const stage of managementStageCatalog(type))expect(badgeTone('status',stage.label),`${type}:${stage.key}`).toBe(expected[stage.classification]);
  });
- it('keeps city, person, vertical and unknown values neutral instead of hashing a hue',()=>{
-  for(const category of ['city','person','vertical','subtype'] as const)expect(badgeTone(category,'Colón')).toBe('neutral');
+ it('keeps city, person, subtype and unknown values neutral instead of hashing a hue',()=>{
+  for(const category of ['city','person','subtype'] as const)expect(badgeTone(category,'Colón')).toBe('neutral');
   expect(valueBadgeColors('city','Colón')).toEqual(valueBadgeColors('city','Gualeguaychú'));
   expect(badgeTone('status','Valor desconocido')).toBe('neutral');
+ });
+ it('paints a vertical with its fixed rubro colour only in the vertical category',()=>{
+  expect(valueBadgeColors('vertical','Gastronomía')['--badge-h' as never]).toBe('24');
+  expect(valueBadgeColors('vertical','Alojamiento')).toEqual(valueBadgeColors('vertical','Alojamientos'));
+  expect(valueBadgeColors('vertical','Gastronomía')).not.toEqual(valueBadgeColors('vertical','Alojamiento'));
+  expect(valueBadgeColors('city','Gastronomía')).toEqual(valueBadgeColors('city','Colón'));
  });
  it('uses different hues for closed-won and closed-lost',()=>{
   expect(valueBadgeColors('status','Cerrada ganada')['--badge-h' as never]).not.toBe(valueBadgeColors('status','Cerrada perdida')['--badge-h' as never]);
