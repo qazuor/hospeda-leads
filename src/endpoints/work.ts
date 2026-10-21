@@ -15,13 +15,16 @@ import {suggestedStageForOutcome} from '../helpers/businessManagement';
 import {canModifyManagement} from '../helpers/crmPermissions';
 import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {outcomeLabel} from '../helpers/crmLabels';
+import {TASK_SAVE_CONFLICT_MESSAGE,TASK_SAVE_STALE_PAGE_MESSAGE,sameTaskVersion,taskAlreadySaved} from '../helpers/taskSaveConflict';
 class Forbidden extends Error {}
 /** The task changed since the client read it (409). */
 class RescheduleConflict extends Error {}
 /** The management moved on since the seller saw the suggested stage (409, decision 9A). */
 class StageSuggestionConflict extends Error {}
+/** The task changed since the editor loaded it (409): the edit is not applied over someone else's change. */
+class TaskSaveConflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict||e instanceof StageSuggestionConflict?409:fallbackStatus(e));
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict||e instanceof StageSuggestionConflict||e instanceof TaskSaveConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
 import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactOutcomes,resolveMessageForWork} from '../helpers/communicationService';
@@ -269,6 +272,8 @@ export async function post(request:Request){
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
     const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,description:input.description??null,typeId:input.typeId,assignedUserEmail:assignee,dueDate:input.dueDate,dueAt,priority:input.priority,participants:input.participants,contactIds:serialize(input.contactIds),updatedAt:new Date()};
+    // Optimistic concurrency: an edit carries the version the editor loaded. A stale one is refused unless the task already holds exactly this edit (a retry whose answer was lost).
+    if(existing){if(!input.expectedUpdatedAt)throw new Error(TASK_SAVE_STALE_PAGE_MESSAGE);if(!sameTaskVersion(existing.updatedAt,input.expectedUpdatedAt)){if(taskAlreadySaved({stored:existing,requested:fields}))return existing.id;throw new TaskSaveConflict(TASK_SAVE_CONFLICT_MESSAGE);}}
     const row=existing?await trx.updateTable('crmTasks').set(fields).where('id','=',input.id!).returning('id').executeTakeFirstOrThrow():await trx.insertInto('crmTasks').values(fields).returning('id').executeTakeFirstOrThrow();return row.id;
    }
    const occurredAt=new Date(input.occurredAt);

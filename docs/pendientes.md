@@ -4,10 +4,6 @@
 
 La revisión de UX está mergeada en `staging` y **no** desplegada ni promovida a `main` (ver [estado](estado-desarrollo.md)). Seguimientos abiertos, verificados contra el código de `staging` al cierre salvo indicación:
 
-**Decisión del propietario pendiente**
-
-- Contacto pasado en un negocio No contactar: `manual_complete` / `interaction_correct` con `manual_sent` sobre un mensaje de propósito `care` llama a `markClientForCare` y marca `is_client=true` (`communicationService.ts`, verificado). Opciones: permitirlo (registra lo ocurrido) o bloquear el marcado para no admins. Ver [decisiones](decisiones.md).
-
 **Recontacto y tareas (decisión 7A / D3)**
 
 - Si la fusión no deja el negocio en No contactar, la tarea «Volver a contactar» del negocio absorbido pasa al destino y queda pendiente; con No contactar se cancelan todas las pendientes (D3). Verificado leyendo el código, sin prueba.

@@ -95,6 +95,8 @@ try{
  const own=await db.insertInto('crmContacts').values({accountId:a.id,name:'Ana'}).returning('id').executeTakeFirstOrThrow();
  const foreign=await db.insertInto('crmContacts').values({accountId:b.id,name:'No corresponde'}).returning('id').executeTakeFirstOrThrow();
  const base={action:'task_save',accountId:a.id,leadId:l.id,title:'Llamar',typeId:'call',dueDate:'2026-10-01',contactIds:[own.id],participants:'Propietaria'};
+ /** The version token of a task as the editor gets it from GET /work. */
+ const taskVersion=async(id:string)=>(await read('mode=detail&responsible=all&accountId='+a.id+'&taskId='+id,admin.cookie)).tasks.find(t=>t.id===id)!.updatedAt!.toISOString();
  const liveBeforeTask=await liveVersions();
  const unassigned=await mutate({...base,title:'Sin responsable',leadId:null,assignedUserEmail:null},admin.cookie);
  const liveAfterTask=await liveVersions();
@@ -109,7 +111,7 @@ try{
  assert.notEqual(liveAfterTemplate.version,liveAfterTask.version,'Template writes keep bumping the legacy version');
  assert.equal(liveAfterTemplate.business,liveAfterTask.business,'Template writes do not bump business');
  assert.equal(liveAfterTemplate.work,liveAfterTask.work,'Template writes do not bump work');
- await mutate({...base,id:unassigned,title:'Sin responsable editada',leadId:null},admin.cookie);
+ await mutate({...base,id:unassigned,title:'Sin responsable editada',leadId:null,expectedUpdatedAt:await taskVersion(unassigned)},admin.cookie);
  assert.equal((await db.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',unassigned).executeTakeFirstOrThrow()).assignedUserEmail,null);
  await mutate({action:'task_delete',id:unassigned},admin.cookie);
  const call=await mutate(base);
@@ -184,8 +186,28 @@ try{
  // Full editor omission must not clear existing tasks.
  assert.equal((await save(request({id:l.id,scope:'opportunity',nombre:a.nombre,estado:'Interesado'}))).status,200);
  assert.equal((await db.selectFrom('leads').select('fechaProximaAccion').where('id','=',l.id).executeTakeFirstOrThrow()).fechaProximaAccion!.toISOString().slice(0,10),'2026-10-02');
- await mutate({...base,id:visit,title:'Visita reprogramada',typeId:'visit',dueDate:'2026-10-04',dueAt:null});
- await mutate({...base,id:visit,title:'Visit delegated',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:other.user.email},admin.cookie);
+ // #180 optimistic concurrency: an edit carries the version the editor loaded; a stale one answers 409 and changes nothing.
+ const loadedVisit=await taskVersion(visit);
+ await mutate({...base,id:visit,title:'Visita sin versión',typeId:'visit',dueDate:'2026-10-04',dueAt:null},user.cookie,400);
+ const rescheduled={...base,id:visit,title:'Visita reprogramada',typeId:'visit',dueDate:'2026-10-04',dueAt:null,expectedUpdatedAt:loadedVisit};
+ await mutate(rescheduled);
+ const afterFirstEdit=await db.selectFrom('crmTasks').selectAll().where('id','=',visit).executeTakeFirstOrThrow();
+ assert.notEqual(afterFirstEdit.updatedAt.toISOString(),loadedVisit,'A saved edit moves the version');
+ // A retry of the same edit whose answer was lost is accepted without writing again.
+ await mutate(rescheduled);
+ assert.equal((await db.selectFrom('crmTasks').select('updatedAt').where('id','=',visit).executeTakeFirstOrThrow()).updatedAt.getTime(),afterFirstEdit.updatedAt.getTime(),'The replay does not write');
+ // Someone else's editor still holds the old version: its different edit is refused and the saved one stays.
+ const stale=await post(request({...rescheduled,title:'Visita pisada',dueDate:'2026-10-09'}));
+ assert.equal(stale.status,409);assert.match(superjson.parse<{error:string}>(await stale.text()).error,/otra persona cambió esta tarea/);
+ const kept=await db.selectFrom('crmTasks').selectAll().where('id','=',visit).executeTakeFirstOrThrow();
+ assert.equal(kept.title,'Visita reprogramada');assert.equal(kept.dueDate instanceof Date?kept.dueDate.toISOString().slice(0,10):String(kept.dueDate),'2026-10-04');assert.equal(kept.updatedAt.getTime(),afterFirstEdit.updatedAt.getTime());
+ // A reschedule from the row also moves the version, so an editor opened before it is stale too.
+ await mutate({action:'task_reschedule',id:visit,expectedDueDate:'2026-10-04',expectedDueAt:null,dueDate:'2026-10-05',dueAt:null});
+ await mutate({...rescheduled,title:'Visita pisada',expectedUpdatedAt:afterFirstEdit.updatedAt.toISOString()},user.cookie,409);
+ // With the version reloaded, the same edit goes through.
+ await mutate({...rescheduled,dueDate:'2026-10-04',expectedUpdatedAt:await taskVersion(visit)});
+ assert.equal((await db.selectFrom('crmTasks').select('title').where('id','=',visit).executeTakeFirstOrThrow()).title,'Visita reprogramada');
+ await mutate({...base,id:visit,title:'Visit delegated',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:other.user.email,expectedUpdatedAt:await taskVersion(visit)},admin.cookie);
  await mutate({...base,id:visit,title:'No me apropio',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:user.user.email},user.cookie,403);
  const delegated=await read('',other.cookie);assert(delegated.tasks.some(t=>t.id===visit));assert(delegated.accounts.some(x=>x.id===a.id));
  await mutate({action:'task_status',id:visit,status:'completed',result:'Visita efectuada',completedAt:'2026-09-15T15:00:00-03:00',continuation:'done',continuationReason:'Ya quedó todo resuelto'},other.cookie);
@@ -230,7 +252,7 @@ try{
 
  // task_reschedule changes only the date/time: a stale client cannot revert other fields, a moved date answers 409, and nothing else is looked up.
  const resched=await mutate({...base,title:'Reprogramar solo fecha',description:'Original',priority:'media',dueDate:'2030-03-01'});
- await mutate({...base,id:resched,title:'Editada por otra persona',description:'Cambió mientras tanto',priority:'alta',dueDate:'2030-03-01',participants:'Otra gente'},admin.cookie);
+ await mutate({...base,id:resched,title:'Editada por otra persona',description:'Cambió mientras tanto',priority:'alta',dueDate:'2030-03-01',participants:'Otra gente',expectedUpdatedAt:await taskVersion(resched)},admin.cookie);
  await db.updateTable('crmTasks').set({contactIds:sql`'["999999"]'::jsonb`}).where('id','=',resched).execute();
  await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-05',dueAt:null});
  const moved=await db.selectFrom('crmTasks').selectAll().where('id','=',resched).executeTakeFirstOrThrow();

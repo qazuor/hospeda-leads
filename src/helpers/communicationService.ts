@@ -79,7 +79,8 @@ async function withAutomaticStateChange<T>(e:Executor,cause:string,action:()=>Pr
 }
 async function markClientForCare(e:Executor,m:Message,user:User){
  if(m.purpose!=='care')return;
- const changed=await withAutomaticStateChange(e,'care_contact',()=>sql<{id:string}>`UPDATE crm_accounts SET is_client=true,updated_at=now() WHERE id=${m.accountId} AND is_client=false RETURNING id`.execute(e));
+ // Decision D4: a past care send recorded on a No contactar business stays recorded, but only an admin's record marks it as client.
+ const changed=await withAutomaticStateChange(e,'care_contact',()=>sql<{id:string}>`UPDATE crm_accounts SET is_client=true,updated_at=now() WHERE id=${m.accountId} AND is_client=false AND (${user.role==='admin'} OR NOT do_not_contact) RETURNING id`.execute(e));
  if(changed.rows.length)await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'business',entityId:String(m.accountId),action:'client_marked_by_care_contact',actor:null,automatic:true,triggeredBy:user.email,before:{isClient:false},after:{isClient:true,interactionId:m.id}});
 }
 async function assertAccountContactAllowed(e:Executor,accountId:string,leadId:string|null,contactId:string|null,channel:string){

@@ -19,7 +19,8 @@ import {formatDate} from '../helpers/crmDates';
 import {suggestedStageForOutcome,managementLabel,type ManagementType} from '../helpers/businessManagement';
 import {stageChangeToSend,STAGE_CONFLICT_MESSAGE,type AcceptedStage} from '../helpers/stageSuggestion';
 import {CrmApiError} from '../helpers/apiClient';
-import React,{useId,useState} from 'react';
+import {TASK_SAVE_CONFLICT_MESSAGE,taskVersion} from '../helpers/taskSaveConflict';
+import React,{useEffect,useId,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {crmSuccess} from '../helpers/crmFeedback';
@@ -84,7 +85,11 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy}:{target:WorkT
  };
  const chooseContinuation=(value:'task'|'wait'|'done')=>{autoWait.current=false;setContinuation(value);setNext(value!=='done');if(value==='wait'&&!nextTitle)setNextTitle('Retomar conversación')};
  const values=JSON.stringify({accountId,leadId,title,typeId,description,date,time,occurred,assigned,priority,participants,contactIds,channel,result,outcome,purpose,continuation,next,nextTitle,nextDate,reasonChoice,reasonText});
- const [baseline]=useState(values);
+ const [baseline,setBaseline]=useState(values),resetBaseline=React.useRef(false);
+ // After loading the latest version of the task, that version is the new "nothing changed" point.
+ useEffect(()=>{if(resetBaseline.current){resetBaseline.current=false;setBaseline(values)}},[values]);
+ // Optimistic concurrency for editing a task: the version the editor loaded goes back as `expectedUpdatedAt`; a 409 keeps what she typed.
+ const [version,setVersion]=useState(item&&'updatedAt' in item?taskVersion(item.updatedAt):undefined),[taskConflict,setTaskConflict]=useState<'changed'|'gone'|null>(null),[reloading,setReloading]=useState(false);
  const nextTask=next&&outcome!=='do_not_contact'?{title:nextTitle,dueDate:nextDate,typeId:'followup',purpose:purpose||undefined}:undefined;
  const [search,setSearch]=useState('');const debouncedSearch=useDebounce(search,250);
  const lookup=useQuery({queryKey:['work','lookup',debouncedSearch,accountId],queryFn:()=>getWork({mode:'lookup',...(debouncedSearch?{q:debouncedSearch}:accountId?{accountId}:{})}),enabled:!['delete_task','delete_activity','cancel'].includes(target.kind)});
@@ -116,10 +121,21 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy}:{target:WorkT
  const statusAction=['complete','cancel','delete_task','delete_activity'].includes(target.kind);
  const names={task:item?'Cambiar fecha o datos':VOCAB.scheduleTask,activity:item?'Editar actividad':VOCAB.logWhatHappened,complete:VOCAB.logWhatHappened,cancel:VOCAB.noLongerNeeded,delete_task:VOCAB.deleteMistake,delete_activity:VOCAB.deleteMistake};
  const save=useGuardedMutation({mutationFn:postWork,onSuccess:async(result,input)=>{await Promise.all(['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','global-journal-filtered','communication','pipeline','analytics'].map(key=>qc.invalidateQueries({queryKey:[key]})));// The next pending comes from the server right after the write, never from cached lists (they may hold tasks already completed, cancelled or moved).
-const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:['work','next-pending',accountId,leadId||null],queryFn:()=>getWork({mode:'detail',accountId,...(leadId?{leadId}:{}),...(admin?{responsible:'all'}:{})}),staleTime:0,gcTime:0}).catch(()=>undefined);const remaining=pendingWork((fresh?.tasks??[]).filter(t=>t.accountId===accountId&&t.leadId===(leadId||null)));if(input.action==='task_save')crmSuccess((item?'Tarea actualizada: ':'Tarea agendada: ')+input.title+' · '+formatDate(input.dueDate),{label:'Ver en Hoy',href:'/my-day?accountId='+accountId+'&taskId='+result.id});else crmSuccess((target.kind==='complete'?(next?'Resultado guardado y próximo paso programado':'Resultado guardado; las otras tareas se conservan'):target.kind==='cancel'?'Tarea cerrada: ya no hacía falta':'Guardado')+('stageChange' in input&&input.stageChange?' · La gestión pasó a «'+managementLabel(null,input.stageChange.stage)+'»':''),remaining[0]?{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+remaining[0].id}:leadId?{label:'Abrir gestión',href:'/sales/'+leadId}:{label:'Ver historial',href:'/accounts/'+accountId+'?section=history'},remaining[0]?'Próximo pendiente: '+remaining[0].title+' · '+formatDate(remaining[0].dueDate):'No hay otro pendiente visible en este contexto.');onSaved?.();onClose();},onError:async(e,input)=>{if(e instanceof CrmApiError&&e.status===409&&'stageChange' in input&&input.stageChange){setStageConflict(true);setAcceptedStage(null);await Promise.all(['work','commercial-detail','leads','pipeline'].map(key=>qc.invalidateQueries({queryKey:[key]})));toast.error(STAGE_CONFLICT_MESSAGE);return;}toast.error(e.message)}});
+const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:['work','next-pending',accountId,leadId||null],queryFn:()=>getWork({mode:'detail',accountId,...(leadId?{leadId}:{}),...(admin?{responsible:'all'}:{})}),staleTime:0,gcTime:0}).catch(()=>undefined);const remaining=pendingWork((fresh?.tasks??[]).filter(t=>t.accountId===accountId&&t.leadId===(leadId||null)));if(input.action==='task_save')crmSuccess((item?'Tarea actualizada: ':'Tarea agendada: ')+input.title+' · '+formatDate(input.dueDate),{label:'Ver en Hoy',href:'/my-day?accountId='+accountId+'&taskId='+result.id});else crmSuccess((target.kind==='complete'?(next?'Resultado guardado y próximo paso programado':'Resultado guardado; las otras tareas se conservan'):target.kind==='cancel'?'Tarea cerrada: ya no hacía falta':'Guardado')+('stageChange' in input&&input.stageChange?' · La gestión pasó a «'+managementLabel(null,input.stageChange.stage)+'»':''),remaining[0]?{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+remaining[0].id}:leadId?{label:'Abrir gestión',href:'/sales/'+leadId}:{label:'Ver historial',href:'/accounts/'+accountId+'?section=history'},remaining[0]?'Próximo pendiente: '+remaining[0].title+' · '+formatDate(remaining[0].dueDate):'No hay otro pendiente visible en este contexto.');onSaved?.();onClose();},onError:async(e,input)=>{if(e instanceof CrmApiError&&e.status===409&&input.action==='task_save'&&input.id){setTaskConflict('changed');toast.error(TASK_SAVE_CONFLICT_MESSAGE);return;}if(e instanceof CrmApiError&&e.status===409&&'stageChange' in input&&input.stageChange){setStageConflict(true);setAcceptedStage(null);await Promise.all(['work','commercial-detail','leads','pipeline'].map(key=>qc.invalidateQueries({queryKey:[key]})));toast.error(STAGE_CONFLICT_MESSAGE);return;}toast.error(e.message)}});
  const dncManagements=useQuery({queryKey:['communication','dnc-confirm',accountId],queryFn:()=>getCommunication('',accountId),enabled:dncFlow&&!!accountId});
  const dnc=useGuardedMutation({mutationFn:postCommunication,onSuccess:async()=>{await Promise.all(['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','communication','pipeline','analytics'].map(key=>qc.invalidateQueries({queryKey:[key]})));crmSuccess('Se bloqueó el contacto de este negocio',{label:'Ver el negocio',href:'/accounts/'+accountId});onSaved?.();onClose();},onError:e=>toast.error(e.message)});
- const busy=save.isPending||dnc.isPending;
+ const busy=save.isPending||dnc.isPending||reloading;
+ /** Replaces the form with the task as it is now (her unsaved text is dropped only here, on her explicit request). */
+ const loadLatest=async()=>{
+  if(!item||reloading)return;setReloading(true);
+  try{
+   const latest=(await getWork({mode:'detail',accountId:item.accountId,taskId:item.id,...(admin?{responsible:'all'}:{})})).tasks.find(t=>t.id===item.id);
+   if(!latest||latest.status!=='pending'||latest.deletedAt){setTaskConflict('gone');return;}
+   setTitle(latest.title);setType(latest.typeId);setDescription(latest.description??'');setDate(latest.dueDate);setTime(latest.dueAt?localDateTime(latest.dueAt).slice(11):'');setAssigned(latest.assignedUserEmail??'');setPriority(latest.priority);setParticipants(latest.participants||'');setContacts(latest.contactIds||[]);setPurpose(latest.purpose||'');setDueConfirmed(false);
+   setVersion(taskVersion(latest.updatedAt));setTaskConflict(null);save.reset();resetBaseline.current=true;
+   void qc.invalidateQueries({queryKey:['work']});
+  }catch(e){toast.error(e instanceof Error?e.message:'No se pudo cargar la tarea. Intentá de nuevo.')}finally{setReloading(false)}
+ };
  const guard=useUnsavedChanges(values!==baseline||!!leaveCopy,onClose,busy,leaveCopy);
  const submit=(e:React.FormEvent)=>{
   e.preventDefault();
@@ -139,7 +155,7 @@ const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:[
   else if(target.kind==='delete_activity')body={action:'activity_delete',id:target.item.id};
   else{
    const common={purpose:purpose||undefined,id:item?.id,accountId,leadId:leadId||null,title,typeId,participants,contactIds};
-   body=target.kind==='task'?{action:'task_save',...common,description,dueDate:date,dueAt:time?argentinaInstant(date+'T'+time).toISOString():null,priority,...(admin?{assignedUserEmail:assigned===undefined?owner||null:assigned||null}:{})}:{action:'activity_save',...common,occurredAt:argentinaInstant(occurred).toISOString(),continuation:continuation||undefined,continuationReason,outcome:outcome||null,nextTask,channel:channel||null,...(stageChange?{stageChange}:{}),result:result||(outcome?outcomeLabel(outcome):'')||(item&&'result' in item?item.result:null),notes:description,...('messageId' in target&&target.messageId?{messageId:target.messageId,messageSent:target.messageSent}:{})};
+   body=target.kind==='task'?{action:'task_save',...common,description,dueDate:date,dueAt:time?argentinaInstant(date+'T'+time).toISOString():null,priority,...(item?{expectedUpdatedAt:version}:{}),...(admin?{assignedUserEmail:assigned===undefined?owner||null:assigned||null}:{})}:{action:'activity_save',...common,occurredAt:argentinaInstant(occurred).toISOString(),continuation:continuation||undefined,continuationReason,outcome:outcome||null,nextTask,channel:channel||null,...(stageChange?{stageChange}:{}),result:result||(outcome?outcomeLabel(outcome):'')||(item&&'result' in item?item.result:null),notes:description,...('messageId' in target&&target.messageId?{messageId:target.messageId,messageSent:target.messageSent}:{})};
   }
   save.mutate(body);
  };
@@ -196,10 +212,13 @@ const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:[
    {duplicates.error&&<div role="alert"><p>No pudimos revisar duplicados. Tus datos se conservan.</p><Button type="button" variant="outline" disabled={duplicates.isFetching} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>void duplicates.refetch()}>Reintentar revisión de pendientes</Button></div>}
    {!!duplicates.data?.total&&<div role="alert"><p>Ya hay {duplicates.data.total} pendiente{duplicates.data.total===1?'':'s'} con el mismo título, tipo, fecha y contexto, entre las tareas {admin?'del equipo':'visibles para vos'}. Revisá si hace falta otro; ninguna se reemplazará automáticamente.</p><ul>{duplicates.data.tasks.map(t=><li key={t.id}>{t.title} · {formatDate(t.dueDate)} · {data.users.find(u=>u.email===t.assignedUserEmail)?.displayName||t.assignedUserEmail||'Sin responsable'}</li>)}</ul></div>}
    {target.kind.startsWith('delete')&&<p>Se ocultará el registro. Su historial de cambios se conserva.</p>}
-   {save.error&&<p role="alert" className={styles.error}>{stageConflict?STAGE_CONFLICT_MESSAGE:save.error.message}</p>}
+   {taskConflict?<div role="alert" className={styles.error}><p>{taskConflict==='gone'?TASK_GONE_MESSAGE:TASK_SAVE_CONFLICT_MESSAGE}</p>{taskConflict==='changed'&&<Button type="button" variant="outline" size="sm" onClick={()=>void loadLatest()} disabled={busy} disabledReason="Se está cargando. Esperá a que termine.">{reloading?'Cargando…':'Cargar la versión más reciente'}</Button>}</div>:save.error&&<p role="alert" className={styles.error}>{stageConflict?STAGE_CONFLICT_MESSAGE:save.error.message}</p>}
    <DialogFooter><Button type="button" variant="outline" onClick={guard.requestClose} disabled={busy} disabledReason="La operación está en curso. Esperá a que termine para continuar.">Volver</Button><Button type="submit" disabled={busy} disabledReason="La operación está en curso. Esperá a que termine para continuar.">{busy?'Guardando…':dncFlow?'Bloquear contacto':next?'Guardar y programar':target.kind==='complete'?'Guardar resultado':target.kind==='task'?(item?'Guardar cambios':VOCAB.scheduleTask):'Guardar'}</Button></DialogFooter>
   </fieldset></form>
  </DialogContent>{guard.confirmation}</Dialog>;
 }
+
+/** The task left her list while she edited it (completed, cancelled, deleted or given to someone else). */
+const TASK_GONE_MESSAGE='Esta tarea ya no está pendiente para vos: alguien la completó, la canceló, la borró o se la pasó a otra persona. Tocá Volver para cerrar.';
 
 function statusActionPlaceholder(kind:WorkTarget['kind']){return ['complete','cancel','delete_task','delete_activity'].includes(kind)}
