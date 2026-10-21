@@ -3,7 +3,7 @@ import {Link} from 'react-router-dom';
 import {Button} from './Button';
 import {crmReadError} from '../helpers/crmFeedback';
 import {CrmApiError,isNotRetryable} from '../helpers/apiClient';
-const backLabels={'/accounts':'Volver a Negocios','/my-day':'Volver a Mi día'} as const;
+const backLabels={'/accounts':'Volver a Negocios','/my-day':'Volver a Hoy'} as const;
 /** 403/404 cannot be fixed by retrying, so they offer a way back instead of "Reintentar". 401 offers nothing here: the session-expired dialog handles re-login. */
 export function QueryErrorNotice({error,onRetry,busy=false,label='Reintentar',backTo='/accounts'}:{error:Error;onRetry:()=>unknown;busy?:boolean;label?:string;backTo?:keyof typeof backLabels}){
  const lock=useRef(false);

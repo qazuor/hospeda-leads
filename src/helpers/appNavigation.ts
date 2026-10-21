@@ -9,7 +9,7 @@ export const mainNavigation = [
   { url: '/guide', label: 'Ayuda', description: 'Guía de uso paso a paso', keywords: 'manual', icon: BookOpen },
 ];
 
-/** Views of "Hoy" (`/my-day?view=`): Lista was Mi día, Calendario absorbs Agenda and Para retomar absorbs Reactivación. */
+/** Views of "Hoy" (`/my-day?view=`): Lista was the old My day view, Calendario absorbs Agenda and Para retomar absorbs Reactivación. */
 export const todayViews = [
   { view: 'list', label: 'Lista', url: '/my-day', description: 'Tareas vencidas, de hoy y próximas', keywords: 'mi día', icon: CheckCheck },
   { view: 'calendar', label: 'Calendario', url: '/my-day?view=calendar', description: 'Visitas y reuniones con fecha', keywords: 'agenda encuentros', icon: CalendarDays },

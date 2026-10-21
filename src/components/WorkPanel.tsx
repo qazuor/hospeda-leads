@@ -98,7 +98,7 @@ export function WorkPanel({accountId,leadId}:{accountId:string;leadId?:string}){
    <SectionTabPanel value="activities"><p className={styles.muted}>Registro por fecha real. Podés cargar acciones anteriores.</p><div className={styles.rows}>{d.activities.map(a=><ActivityRow key={a.id} activity={a} data={d} onEdit={setEditor}/>)}{!d.activities.length&&<p className={styles.empty}>Sin actividades registradas.</p>}</div></SectionTabPanel>
   </SectionTabs>
   <WorkPagination data={d} page={page} onPage={setPage}/>
-  <footer className={ws.workFooter}><Link to="/my-day">Abrir Mi día</Link><Disclosure className={styles.history}><DisclosureSummary>Cambios registrados de tareas y actividades (últimos 200)</DisclosureSummary>{d.journal.map(j=>{
+  <footer className={ws.workFooter}><Link to="/my-day">Abrir Hoy</Link><Disclosure className={styles.history}><DisclosureSummary>Cambios registrados de tareas y actividades (últimos 200)</DisclosureSummary>{d.journal.map(j=>{
    const before=(j.beforeValue||{}) as Record<string,unknown>;const after=(j.afterValue||{}) as Record<string,unknown>;
    return <Disclosure key={j.id}><DisclosureSummary>{prettyInstant(j.createdAt)} · {j.entity==='crm_tasks'?'Tarea':'Actividad'} «{auditTitle(j.beforeValue,j.afterValue)}» · {j.action==='INSERT'?'Creada':j.action==='UPDATE'?'Editada':'Eliminada'} · {dataActor(d,j.actorEmail)}</DisclosureSummary><dl className={ws.auditChanges}>{Object.entries(auditFields).filter(([key])=>JSON.stringify(before[key])!==JSON.stringify(after[key])).map(([key,label])=><div key={key}><dt>{label}</dt><dd>{auditValue(key,before[key],d)} → {auditValue(key,after[key],d)}</dd></div>)}</dl></Disclosure>;
   })}</Disclosure></footer>

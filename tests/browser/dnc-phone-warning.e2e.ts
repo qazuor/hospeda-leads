@@ -58,6 +58,12 @@ test('a task Contactar dialog warns once about the chosen person phone and still
  const notes=dialog.getByRole('note',{name:NOTE});await expect(notes).toHaveCount(1);await expect(notes).toContainText(TEXT);
  await expect(dialog.getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true})).toBeEnabled();
  await expect(dialog.getByRole('button',{name:'Copiar número',exact:true})).toBeEnabled();await expect(dialog.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true})).toBeEnabled();
- await dialog.getByLabel('Destinatario').selectOption('22');await expect(dialog.getByRole('note',{name:NOTE})).toHaveCount(0);
+ await dialog.getByLabel('Destinatario').selectOption('22');await expect(dialog.getByRole('note',{name:NOTE})).toHaveCount(0);await dialog.getByLabel('Destinatario').selectOption('21');
+ // Social and other channels use no phone: the business contact dialog shows the notice only for WhatsApp (calls are covered by the call panel).
+ await dialog.getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();
+ const contact=page.getByRole('dialog',{name:'Contactar',exact:true});await expect(contact.getByLabel('Canal',{exact:true})).toHaveValue('whatsapp');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(1);
+ await contact.getByLabel('Canal',{exact:true}).selectOption('social');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(0);
+ await contact.getByLabel('Canal',{exact:true}).selectOption('other');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(0);
+ await contact.getByLabel('Canal',{exact:true}).selectOption('whatsapp');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(1);
  expect(writes).toEqual([]);expect(errors).toEqual([]);
 });
