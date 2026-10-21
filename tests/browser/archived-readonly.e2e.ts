@@ -18,7 +18,8 @@ async function mock(page:Page,user:typeof owner,detailStatus:number,business=acc
   if(path.endsWith('/commercial')){
    if(url.searchParams.has('historyPage'))data={events:[],total:0,page:1,pending:[],totalPending:0};
    else{detailRequests.push(url.search);status=detailStatus;data=detailStatus===200?{account:business,contacts:[],opportunities:[],journal:entries,leadJournal:[],managementJournal:[],stages:[],users:[{email:owner.email,displayName:'Marta'}]}:{error:'Este negocio está archivado. Solo su responsable o un administrador puede consultarlo.'};}
-  }else if(path.endsWith('/work'))data={tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}};
+  }else if(path.endsWith('/work'))data={tasks:[],activities:[],attention:[],contacts:[],journal:[],totalTasks:0,totalActivities:0,page:1,accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}};
+  else if(path.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
   else if(path.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[],managementReasons:[]};
   else if(path.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
   await route.fulfill({status,contentType:'application/json',body:superjson.stringify(data)});

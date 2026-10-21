@@ -15,7 +15,8 @@ async function mock(page:Page,canEditContactData:boolean){
    else if(url.searchParams.has('historyPage'))data={events:[],total:0,page:1,pending:[],totalPending:0};
    else data={account,contacts,opportunities:[],journal:[],leadJournal:[],managementJournal:[],stages:[],canEditContactData,users:[{email:'owner@example.com',displayName:'Marta'}]};
   }else if(path.endsWith('/settings'))data={types:[],subtypes:[],users:[],contactPositions:[],contactChannels:[]};
-  else if(path.endsWith('/work'))data={tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}};
+  else if(path.endsWith('/work'))data={tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],contacts:[],journal:[],totalTasks:0,totalActivities:0,page:1,followup:{stages:[],newAssignmentDays:7}};
+  else if(path.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
   else if(path.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[],managementReasons:[]};
   else if(path.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});

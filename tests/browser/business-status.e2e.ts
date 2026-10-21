@@ -15,6 +15,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}])test(`bus
    data={id:'1'};
   }else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{...account,status,recontactAt},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Owner'}]};
   else if(url.pathname.endsWith('/work'))data={tasks:[],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:0,totalActivities:0,page:1};
+  else if(url.pathname.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
   else if(url.pathname.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
   else if(url.pathname.endsWith('/settings'))data={users:[{id:3,email:'owner@example.com',displayName:'Owner',role:'admin'}],cities:[],types:['Alojamientos'],subtypes:[],templates:[],authorizedEmails:[],opportunityStages:[]};
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
@@ -60,6 +61,7 @@ test('a new business opens its status popover on Nuevo without preselecting anot
   if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',displayName:'Owner',role:'user'}};
   else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account,contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Owner'}]};
   else if(url.pathname.endsWith('/work'))data={tasks:[],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:0,totalActivities:0,page:1};
+  else if(url.pathname.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts/1');

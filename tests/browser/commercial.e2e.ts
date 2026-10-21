@@ -21,7 +21,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('link',{name:'Negocios',exact:true}).click();
   await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
   await page.getByRole('button',{name:'Negocio E2E',exact:true}).click();
-  await expect(page.getByRole('tab',{name:'Gestiones (0)',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(page.getByRole('tab',{name:'Qué pasó',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(page.getByRole('tablist',{name:'Secciones del negocio'}).getByRole('tab')).toHaveText(['Qué pasó','Gestiones (0)','Personas (0)','Datos y documentos']);
   await page.getByRole('tab',{name:'Personas (0)',exact:true}).click();
   for(const person of ['Ana','Luis']){
@@ -144,7 +144,8 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByRole('heading',{name:'Personas (1)',exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Qué pasó',exact:true}).click();
   await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
-  await expect(page.getByText(/Persona quitada/)).toBeVisible();
+  await expect(page.locator('[data-kind="change"]').getByText('Persona quitada')).toBeVisible();
+  await expect(page.locator('.mantine-Accordion-label').filter({hasText:/Persona quitada/})).toBeVisible();
   await page.getByText('Ayuda sobre negocios y gestiones',{exact:true}).click();await page.getByText('Cómo usar negocios, personas y gestiones',{exact:true}).click();
   await expect(page.getByText(/El recorrido y los motivos de cierre dependen del tipo/)).toBeVisible();
   await page.getByRole('link',{name:'Gestiones',exact:true}).click();

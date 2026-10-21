@@ -7,11 +7,11 @@ const legacySections:Readonly<Record<string,BusinessSection>>={history:'que-paso
 
 /**
  * Resolves a `?section=` value (current or legacy) to a business record tab.
- * Missing or unknown values open "Gestiones", the record's default tab.
+ * Missing or unknown values open "Qué pasó", the record's default tab.
  * @example businessSection('contacts') // 'personas'
  */
 export const businessSection=(value:string|null|undefined):BusinessSection=>{
- if(!value)return 'gestiones';
+ if(!value)return 'que-paso';
  if((businessSections as readonly string[]).includes(value))return value as BusinessSection;
- return Object.hasOwn(legacySections,value)?legacySections[value]:'gestiones';
+ return Object.hasOwn(legacySections,value)?legacySections[value]:'que-paso';
 };
