@@ -6,6 +6,6 @@ export async function resolveCommercialContact(executor:Kysely<DB>|Transaction<D
   if(!contactId){const account=await executor.selectFrom("crmAccounts").select(["telefono","email"]).where("id","=",String(lead.accountId)).executeTakeFirstOrThrow();return {contactId:null,name:null,phone:account.telefono,email:account.email};}
   const contact=await executor.selectFrom("crmContacts").selectAll().where("id","=",contactId)
     .where("accountId","=",String(lead.accountId)).where("deletedAt","is",null).executeTakeFirst();
-  if(!contact)throw new Error("El contacto no pertenece a esta cuenta o está dado de baja.");
+  if(!contact)throw new Error("La persona no pertenece a este negocio o fue quitada.");
   return {contactId:String(contact.id),name:contact.name,phone:contact.phone,email:contact.email};
 }

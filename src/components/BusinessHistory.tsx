@@ -29,7 +29,7 @@ export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:s
    {!d.pending.length?<p>No hay compromisos pendientes registrados.</p>:<ul>{d.pending.map(t=><li key={t.id}>
     <Link state={t.leadId?{from:'business'}:undefined} to={t.leadId?'/sales/'+t.leadId:'/accounts/'+accountId}>{t.title}</Link>
     <span>{t.dueAt?prettyInstant(t.dueAt):formatDate(calendarDay(t.dueDate))} · {actor(t.assignedUserEmail)}</span>
-    <span>{t.opportunityName||'Seguimiento general del negocio'}{t.continuation==='wait'?' · Recordatorio para retomar':''}</span>
+    <span>{t.opportunityName||'Del negocio en general'}{t.continuation==='wait'?' · Recordatorio para retomar':''}</span>
    </li>)}</ul>}
    {d.totalPending>d.pending.length&&<p>Se muestran los primeros {d.pending.length} por fecha.</p>}
   </div>}
@@ -38,7 +38,7 @@ export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:s
   {!d.events.length&&<p>{filter==='all'?'Todavía no hay nada registrado en este negocio.':'No hay nada registrado en esta categoría.'}</p>}
   <ol className={styles.events}>{d.events.map(e=><li key={e.id} data-kind={e.kind}>
    <div className={styles.meta}><time dateTime={new Date(e.occurredAt).toISOString()}>{prettyInstant(e.occurredAt)}</time><span>{actor(e.actorEmail)}</span></div>
-   <h4>{React.createElement(kindIcons[e.kind],{size:16,'aria-hidden':true})} {e.title}</h4><p className={styles.meta}>{e.opportunityName||'Seguimiento general del negocio'}{e.channel?' · '+(channels[e.channel]||e.channel):''}{e.recipientName?' · '+e.recipientName:''}</p>
+   <h4>{React.createElement(kindIcons[e.kind],{size:16,'aria-hidden':true})} {e.title}</h4><p className={styles.meta}>{e.opportunityName||'Del negocio en general'}{e.channel?' · '+(channels[e.channel]||e.channel):''}{e.recipientName?' · '+e.recipientName:''}</p>
    {e.messageStatus&&<p className={styles.status}>{messageLabels[e.messageStatus]||'Estado histórico: '+e.messageStatus}</p>}
    {e.outcome&&<p><strong>Resultado: </strong>{e.kind==='response'?responseCategoryLabel(e.outcome):outcomeLabel(e.outcome)}</p>}
    {e.result&&<p className={styles.text}>{e.result}</p>}

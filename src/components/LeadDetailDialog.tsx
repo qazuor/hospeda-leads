@@ -206,7 +206,7 @@ export const LeadDetailDialog=({
           </section>
 
           <section className={styles.panel}>
-            <SectionTitle icon={ShieldCheck} title="Gestión interna" description="Asignación, autoría y auditoría del registro."/>
+            <SectionTitle icon={ShieldCheck} title="Gestión interna" description="Asignación, autoría y cambios registrados."/>
             <div className={styles.fieldGrid}>
               <Field label="Responsable" value={lead.assignedUserEmail
                 ? <ValueBadge value={userLabel(users,lead.assignedUserEmail)} category="person"/>
@@ -265,7 +265,7 @@ export const LeadDetailDialog=({
 
                     <Disclosure className={styles.section}><DisclosureSummary>Historial de cambios</DisclosureSummary>
           <section className={styles.panel+" "+styles.widePanel}>
-            <SectionTitle icon={History} title="Journal de cambios" description="Auditoría cronológica de modificaciones y acciones."/>
+            <SectionTitle icon={History} title="Cambios registrados" description="Historial cronológico de modificaciones y acciones."/>
             {journalQ.isLoading?<Skeleton className={styles.notesLoading}/>:journalQ.error?<p className={styles.journalError}>{journalQ.error.message}</p>:<div className={styles.journalList}>
               {(journalQ.data?.rows??[]).length===0?<p className={styles.emptyState}>Sin cambios registrados todavía.</p>:(journalQ.data?.rows??[]).map(entry=><article key={entry.id}>
                 <div className={styles.journalLine}>

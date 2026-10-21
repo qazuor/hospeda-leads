@@ -159,9 +159,14 @@ try {
   assert.equal((await get(commercial, 'commercial', { q: `${marker} colon` })).total, 11);
   assert.equal((await get(work, 'work', { mode: 'lookup', q: `${marker} colon` })).accounts.length, 11);
   await get(commercial, 'commercial', { q: marker, archived: 'true' }, reader.cookie, 403);
+  const archivedHit=(await get(search,'search',{q:account.nombre})).results.find((r:any)=>r.id==='business:'+account.id);
+  assert(archivedHit,'Ctrl+K keeps the seller\'s own archived business'); assert.match(archivedHit.description,/Archivado/);
+  assert.equal((await get(search,'search',{q:account.nombre},admin.cookie)).results.some((r:any)=>r.id==='business:'+account.id),false,'Archived businesses of someone else stay out of Ctrl+K');
+  assert.doesNotMatch((await get(search,'search',{q:accounts[1].nombre})).results.find((r:any)=>r.id==='business:'+accounts[1].id).description,/Archivado/);
   assert.equal((await get(commercial, 'commercial', { q: `${marker} colon`, archived: 'true' }, admin.cookie)).total, 1);
   await trashBusiness([String(account.id)],true,admin.cookie);
   assert.equal((await get(commercial,'commercial',{q:account.nombre,archived:'true'},admin.cookie)).total,0,'Deleted archived businesses only appear in Trash');
+  assert.equal((await get(search,'search',{q:account.nombre})).results.some((r:any)=>r.id==='business:'+account.id),false,'Trashed businesses never appear in Ctrl+K');
   await trashBusiness([String(account.id)],false,admin.cookie);
   assert.equal((await get(commercial,'commercial',{q:account.nombre},admin.cookie)).total,0);
   assert.equal((await get(commercial,'commercial',{q:account.nombre,archived:'true'},admin.cookie)).total,1,'Restore preserves previous archive state');

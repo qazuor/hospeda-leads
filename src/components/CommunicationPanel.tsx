@@ -77,7 +77,7 @@ export function CommunicationPanel({leadId,accountId,readOnly=false}:{leadId?:st
    {q.data.restrictions.map(r=><article key={r.id}>
     <strong>{restrictionChannelLabel(r.channel)} · {r.liftedAt?'Levantada':'Restricción activa'}</strong>
     <p>{r.contactId?detail.data?.contacts.find(c=>String(c.id)===String(r.contactId))?.name:'Negocio o contexto original'} · {r.reason} · {actorLabel(r.actorEmail,detail.data?.users)} · {formatDateTime(r.createdAt)}</p>
-    {r.liftedAt?<p>{r.liftReason} · {actorLabel(r.liftedBy,detail.data?.users)} · {formatDateTime(r.liftedAt)}</p>:admin&&<Button variant="outline" disabled={m.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>{setLiftedNotice(null);setLiftTarget({id:String(r.id),channel:r.channel,reason:r.reason,contact:r.contactId?detail.data?.contacts.find(c=>String(c.id)===String(r.contactId))?.name||'Contacto #'+r.contactId:'Negocio o contexto original'})}}>Levantar restricción</Button>}
+    {r.liftedAt?<p>{r.liftReason} · {actorLabel(r.liftedBy,detail.data?.users)} · {formatDateTime(r.liftedAt)}</p>:admin&&<Button variant="outline" disabled={m.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>{setLiftedNotice(null);setLiftTarget({id:String(r.id),channel:r.channel,reason:r.reason,contact:r.contactId?detail.data?.contacts.find(c=>String(c.id)===String(r.contactId))?.name||'Persona #'+r.contactId:'Negocio o contexto original'})}}>Levantar restricción</Button>}
    </article>)}
   </div></Disclosure>
   {liftedNotice&&<p role="status" tabIndex={-1} data-lifted-restriction={liftedNotice.id}>{liftedNotice.text}</p>}

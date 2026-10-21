@@ -5,6 +5,7 @@ import { Link2 } from 'lucide-react';
 import { getCommercialDetail } from '../endpoints/commercial.schema';
 import { getWork } from '../endpoints/work.schema';
 import { postResource, type ResourceDocument, type ResourceVersion } from '../endpoints/resources.schema';
+import { formatDay } from '../helpers/crmDates';
 import { canModifyManagement } from '../helpers/crmPermissions';
 import { useAuth } from '../helpers/useAuth';
 import { Button } from './Button';
@@ -23,7 +24,7 @@ export function ResourceLinkForm({ accountId, leadId, documents, loading, error,
   const detail = useQuery({ queryKey: ['commercial-detail', accountId, ''], queryFn: () => getCommercialDetail(accountId) });
   const work = useQuery({ queryKey: ['work', 'resource-context', accountId], queryFn: () => getWork({ accountId, mode: 'detail', responsible: user?.role === 'admin' ? 'all' : undefined }) });
   const targetLead = leadId || selectedLead;
-  const targetName = targetLead ? detail.data?.opportunities.find(o => String(o.id) === targetLead)?.opportunityName || 'Gestión comercial inicial' : 'Documento general del negocio';
+  const targetName = targetLead ? detail.data?.opportunities.find(o => String(o.id) === targetLead)?.opportunityName || 'Gestión sin nombre' : 'Documento general del negocio';
   const selected = documents.find(d => d.id === documentId && d.status === 'approved');
   const mutation = useMutation({ mutationFn: postResource, onSuccess: (_result, input) => {
     if (input.action !== 'link') return;
@@ -49,10 +50,10 @@ export function ResourceLinkForm({ accountId, leadId, documents, loading, error,
     {contextLoading && <p role="status">Cargando contexto del material…</p>}
     {contextError && <div role="alert"><p>{contextError.message}</p><Button variant="outline" onClick={() => { void detail.refetch(); void work.refetch(); }}>Reintentar contexto</Button></div>}
     {!leadId && <Select label="Vincular a" value={selectedLead} allowDeselect={false} searchable disabled={blocked}
-      data={[{ value: '', label: 'Documento general del negocio' }, ...(detail.data?.opportunities.filter(o => canModifyManagement(user, o, detail.data?.account)).map(o => ({ value: String(o.id), label: o.opportunityName || 'Gestión comercial inicial' })) || [])]}
+      data={[{ value: '', label: 'Documento general del negocio' }, ...(detail.data?.opportunities.filter(o => canModifyManagement(user, o, detail.data?.account)).map(o => ({ value: String(o.id), label: o.opportunityName || 'Gestión sin nombre' })) || [])]}
       onChange={value => { setSelectedLead(value || ''); setActivityId(''); resetFeedback(); }}/>}
     <Select label="Actividad vinculada al material (opcional)" value={activityId} allowDeselect={false} searchable disabled={blocked}
-      data={[{ value: '', label: 'Sin actividad específica' }, ...(work.data?.activities.filter(a => !targetLead || String(a.leadId) === targetLead).map(a => ({ value: String(a.id), label: `${a.title} · ${new Date(a.occurredAt).toLocaleDateString('es-AR')}` })) || [])]}
+      data={[{ value: '', label: 'Sin actividad específica' }, ...(work.data?.activities.filter(a => !targetLead || String(a.leadId) === targetLead).map(a => ({ value: String(a.id), label: `${a.title} · ${formatDay(a.occurredAt)}` })) || [])]}
       onChange={value => { setActivityId(value || ''); resetFeedback(); }}/>
     <p className={styles.materialTarget}>Destino: <strong>{detail.data?.account.nombre || 'Negocio'} · {targetName}</strong></p>
     <div className={styles.actions}><Button disabled={blocked || !selected} disabledReason={"El negocio tiene un bloqueo de contacto activo. Un administrador debe levantarlo para habilitar esta acción."} onClick={link}>{busy ? 'Vinculando documento…' : leadId ? 'Vincular documento a la gestión' : 'Vincular documento al negocio'}</Button></div>
