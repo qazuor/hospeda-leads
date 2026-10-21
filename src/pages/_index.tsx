@@ -11,6 +11,7 @@ import {useUnsavedChanges} from "../components/UnsavedChanges";
 import {DataImportDialog} from '../components/DataImportDialog';
 import {AccountMergeDialog} from '../components/AccountMergeDialog';
 import {PipelineBoard} from "../components/Pipeline";
+import {HelpHint} from "../components/HelpHint";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -502,7 +503,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     fechaProximaAccion:dateInput(l.fechaProximaAccion),fuenteReferencia:l.fuenteReferencia,clientePotencialRecurrente:l.clientePotencialRecurrente,
     archivoAdjunto:l.archivoAdjunto,notas:null,creadoPor:l.creadoPor
   });setOpen(true)};
-  const openView=(l:any)=>{if(l.deletedAt){navigate("/trash");return}if(businessMode){navigate("/accounts/"+l.accountId);return}navigate("/sales/"+l.id)};
+  const openView=(l:any)=>{if(l.deletedAt){navigate("/trash");return}if(businessMode){navigate("/accounts/"+l.accountId);return}navigate("/sales/"+l.id,{state:{from:"opportunities"}})};
   const selectedIndex=selectedLead?leads.findIndex(lead=>String(lead.id)===String(selectedLead.id)):-1;
   const moveView=(offset:number)=>{
     const target=leads[selectedIndex+offset];if(target)openView(target);
@@ -671,7 +672,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Gestiones comerciales"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión."}</p></div>
+        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Gestiones comerciales"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
         <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
       </header>
 
@@ -748,7 +749,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las gestiones. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         {!businessMode&&!resultsBusy&&!leadsQ.error&&!leads.length&&<section className={styles.emptyState}>
           <h2>{appliedRuleCount||stats.total?"Sin resultados por los filtros actuales":"Sin gestiones iniciadas"}</h2>
-          <p>{appliedRuleCount||stats.total?"Revisá los filtros para encontrar la gestión que buscás.":"Cargar un negocio no inicia una gestión. Cuando prepares una propuesta, usá Iniciar gestión."}</p>
+          <p>{appliedRuleCount||stats.total?"Revisá los filtros para encontrar la gestión que buscás.":"Cargar un negocio no inicia una gestión. Una gestión es lo que querés lograr con un negocio, por ejemplo «Ej.: Plan anual 2027». Cuando prepares una propuesta, usá Iniciar gestión."}</p>
           <Button variant="outline" onClick={appliedRuleCount||stats.total?()=>{clearAllFilters();setAppliedFilterGroups([]);setQuery("")}:newLead}>{appliedRuleCount||stats.total?"Limpiar filtros":"Iniciar gestión"}</Button>
         </section>}
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
@@ -907,7 +908,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
       {legacyGuard.confirmation}
       {businessEditor&&<CommercialEditor target={{kind:"account",item:businessEditor.item}} onClose={()=>setBusinessEditor(null)} onSaved={id=>navigate("/accounts/"+id)}/>}
-      {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>navigate("/sales/"+id)}/>}
+      {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>navigate("/sales/"+id,{state:{from:"opportunities"}})}/>}
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Enviar {selectedIds.size} {businessMode?"grupos de gestiones":"gestiones"} a la papelera</DialogTitle><DialogDescription>{businessMode?"Todas las gestiones activas de los negocios seleccionados irán a Papelera, incluso las que no coincidan con el filtro actual.":"Los seleccionados dejarán de aparecer en la operación normal."}</DialogDescription></DialogHeader>

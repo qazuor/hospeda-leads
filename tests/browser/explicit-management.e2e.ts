@@ -16,10 +16,13 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   await page.goto('/accounts/'+id);
   await page.getByRole('tab',{name:/^Gestiones \(/}).click();
   await expect(page.getByText(/Sin gestiones iniciadas/)).toBeVisible();
+  await expect(page.getByText(/Ej\.: Plan anual 2027/)).toBeVisible();
+  await page.getByRole('button',{name:'¿Qué es esto? Estado'}).click();await expect(page.getByText(/Dice en qué situación está el negocio/)).toBeVisible();await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'Iniciar gestión'});
   await expect(dialog.getByLabel('Nombre de la gestión')).toHaveValue('Presentación de Hospeda');
   await expect(dialog.getByText(/figura como Nuevo/)).toBeVisible();
+  await expect(dialog.getByText(/Para que el negocio se sume a Hospeda con un plan/)).toBeVisible();
   await expect(dialog.getByRole('combobox',{name:/^Tipo de gestión/})).toHaveValue('main');
   await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(dialog).toHaveCount(0);
   expect((await detail(id)).opportunities).toHaveLength(0);

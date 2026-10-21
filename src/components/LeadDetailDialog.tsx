@@ -26,6 +26,7 @@ import { formatDate, journalValue, nextActionInfo } from "../helpers/crmDates";
 import {managementLabel} from '../helpers/businessManagement';
 import {actorLabel,userLabel} from '../helpers/crmLabels';
 import {managementDisplayName} from '../content/vocabulary';
+import {HelpHint} from './HelpHint';
 import styles from "./LeadDetailDialog.module.css";
 
 const text=(v:unknown)=>v==null||v===""?"—":String(v);
@@ -187,7 +188,7 @@ export const LeadDetailDialog=({
               <Field label="Vertical" value={lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:"—"}/>
               <Field label="Subtipo" value={lead.subtipo?<ValueBadge value={lead.subtipo} category="subtype"/>:"—"}/>
               <Field label="Perfil comercial" value={lead.commercialProfile?<ValueBadge value={lead.commercialProfile} category="profile"/>:"—"}/>
-              <Field label="Etapa de gestión" value={lead.estado?<ValueBadge value={lead.managementType?managementLabel(lead.managementType,lead.estado):lead.estado} category="status"/>:"—"}/>
+              <Field label="Etapa de gestión" value={lead.estado?<><ValueBadge value={lead.managementType?managementLabel(lead.managementType,lead.estado):lead.estado} category="status"/><HelpHint term="stage" iconOnly/></>:"—"}/>
               <Field label="Prioridad" value={lead.prioridad?<ValueBadge value={lead.prioridad} category="priority"/>:"—"}/>
               <Field label="Suscripción" value={text(lead.suscripcion)}/>
               <Field label="Origen" value={text(lead.origen)} full/>
