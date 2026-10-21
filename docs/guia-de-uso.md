@@ -1,6 +1,6 @@
 # Usar Hospeda, paso a paso
 
-Guía para personas sin experiencia en CRM o ventas. Disponible en Más opciones → Guía de uso paso a paso. El contenido se mantiene en src/content/user-guide.json.
+Guía para personas sin experiencia en CRM o ventas. Disponible en Ayuda (menú principal). El contenido se mantiene en src/content/user-guide.json.
 
 ## Empezar y orientarse
 

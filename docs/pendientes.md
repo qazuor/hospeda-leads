@@ -10,10 +10,9 @@ La revisión de UX está mergeada en `staging` y **no** desplegada ni promovida 
 
 **Recontacto y tareas (decisión 7A / D3)**
 
-- Fusionar negocios deja la tarea «Volver a contactar» del negocio absorbido (la fusión solo cancela la de la política No contactar del destino; `dataQualityService.ts`). Reportado en la revisión de #188; no reverificado con una prueba.
-- Reasignar el negocio puede dejar la tarea sin tocar asignada al responsable anterior (`recontactTask.ts` la localiza por el responsable actual). Reportado en la revisión; no reverificado con una prueba.
+- Si la fusión no deja el negocio en No contactar, la tarea «Volver a contactar» del negocio absorbido pasa al destino y queda pendiente; con No contactar se cancelan todas las pendientes (D3). Verificado leyendo el código, sin prueba.
+- Reasignar el negocio puede dejar la tarea «Volver a contactar» sin tocar asignada al responsable anterior (`recontactTask.ts` la localiza por el responsable actual). Verificado leyendo el código, sin prueba.
 - Cerrar una gestión con fecha de recontacto reescribe (o limpia) `crm_accounts.recontact_at` en `pipeline.ts` sin pasar por `syncRecontactTask`; una tarea «Volver a contactar» previa queda sin sincronizar. Verificado en el código: no hay llamada en esas líneas.
-- Un negocio No contactar acepta aún `task_save` para reprogramar tareas de contacto (solo `assertAccountReadable` y propiedad). Reportado en #180; no reverificado.
 
 **Móvil y accesibilidad (revisión de #179, #178)**
 
@@ -29,14 +28,14 @@ La revisión de UX está mergeada en `staging` y **no** desplegada ni promovida 
 **Concurrencia y rendimiento**
 
 - `task_save` desde el editor reemplaza todo el registro (última escritura gana, sin token de concurrencia). Reportado en #180.
-- `doneToday` (Hoy) recorre `crm_tasks`; el índice `crm_tasks_day` es solo de pendientes. Aceptable a ~50 mil filas; vigilar (`work.ts`, verificado la consulta).
+- `doneToday` (Hoy) recorre `crm_tasks`; el índice `crm_tasks_day` es solo de pendientes. Aceptable a ~50 mil filas; vigilar (`work.ts`, consulta verificada).
 - En Hoy, el recorte de urgentes (`mode=day`) conserva las 300 más antiguas vencidas y el aviso no dice cuáles se ocultan.
 - Cada carga de un negocio dispara dos consultas de historial con claves distintas (`BusinessSummary` y `BusinessHistory`). Verificado en el código.
 - La búsqueda (Ctrl+K y listados) no tiene índices `pg_trgm`/de expresión (seq scan de ~0,6–0,8 s con 50 mil filas, medido en el plan de rendimiento). Verificado: ninguna migración los crea.
 
 **Permisos y vistas de solo lectura**
 
-- `/sales/:id` sigue sin ser de solo lectura para el responsable archivado: `leads_GET` oculta las gestiones de negocios archivados a no admins (línea de filtro de oportunidades). Siguen en 403 para él la comunicación por `leadId` y la lectura individual de documentos. Ampliar con `assertAccountViewable` solo en lecturas; no aflojar `assertAccountReadable`.
+- `/sales/:id` sigue sin ser de solo lectura para el responsable archivado: `leads_GET.ts` (línea 66) oculta a no admins las gestiones de negocios archivados. La comunicación por `leadId` también sigue en 403 para él (`communicationService.ts` `leadFor` usa `assertAccountReadable`). Los documentos ya se pueden listar y descargar en solo lectura (#178). Ampliar con `assertAccountViewable` solo en lecturas; no aflojar `assertAccountReadable`.
 
 **Textos y código**
 
@@ -48,21 +47,27 @@ La revisión de UX está mergeada en `staging` y **no** desplegada ni promovida 
 
 **Notas de despliegue (cuando el propietario decida promover)**
 
-1. Ejecutar las migraciones 024–031 en horario de baja actividad. 027–031 son de esta revisión; 029, 030 y 031 son `CREATE INDEX` simples. Aplicar solo con respaldo y sobre el procedimiento de despliegue revisado; nada se aplicó en producción.
+1. Ejecutar las migraciones 024–031 en horario de baja actividad, con respaldo (nada se aplicó en producción). Detalle verificado en el SQL; ver también las [notas de deploy del plan de rendimiento](rendimiento-y-arquitectura-2026-10.md):
+   - 024: crea 4 índices sin `CONCURRENTLY` (bloquean escrituras de esas tablas mientras se crean), elimina `leads_nombre_idx` y ejecuta `ANALYZE`.
+   - 025: `UPDATE` sobre `sessions` (extiende `expires_at`).
+   - 026: reemplaza los triggers de versión en vivo (37 triggers `CREATE OR REPLACE TRIGGER` sobre las tablas del CRM).
+   - 027: `DROP`/`ADD CONSTRAINT` sobre `crm_tasks` y `crm_activities` (bloqueo exclusivo breve) y `VALIDATE`, que recorre ambas tablas; agrega `continuation_reason`.
+   - 028: guarda en `app_settings` el instante desde el cual se registra «Anotá cómo salió» (`crm_contact_outcome_since`): en producción es el momento de aplicarla; los contactos anteriores nunca aparecen.
+   - 029, 030, 031: `CREATE INDEX` simples (sin `CONCURRENTLY`).
 2. `JWT_SECRET` válido en Coolify (32 o más caracteres, sin valor de ejemplo) antes de arrancar; sin él el servidor no inicia.
 3. `PUBLIC_APP_URL` correcta en Coolify.
-4. El healthcheck ya apunta a `/_api/health/ready` (cambio del propietario).
+4. Healthcheck: el propietario informó el 21/10 que lo pasó a `/_api/health/ready` en Coolify; no se verificó desde el repo. El comentario de `src/server/app.ts` (línea ~83) todavía menciona `/health` como el que usa Coolify; conviene actualizarlo.
 5. Después del despliegue, verificar visualmente con el propietario y registrar el resultado aquí.
 
 ## Auditoría del flujo comercial — 19/10/2026
 
 - P0 1–4 de [la auditoría](auditoria-flujo-comercial.md) están corregidos; `d173889` ya está en `origin/staging`. P1 5 y 6 se corrigieron en `045ab36`; P1 7, 10 y 11 en `8e9e7ca`; ambos publicados en `origin/staging`. P1 12–16 están corregidos localmente: Reactivación anticipa opciones y resume la tarea; Archivar/Papelera distinguen usos y consecuencias; el resumen del negocio y el próximo paso de cada gestión reúnen la información para retomar el trabajo; los responsables del negocio, la gestión y la tarea se identifican por separado. #12–15 pasaron typecheck, build y E2E desktop/móvil con API interceptada; #16 pasó typecheck, build y `git diff --check`. Falta una revisión visual integral de los puntos anteriores y verificación con una base descartable.
 - Pendiente: recorrido integrado en navegador con datos descartables. No usar la réplica de producción para mutaciones ni marcar el proceso completo como probado hasta hacer ese recorrido.
-- Usar [guía de capacitación](guia-capacitacion-vendedores.md) como material base; validar el recorrido recomendado con un vendedor principiante y en una sesión visual real.
+- Usar la guía en pantalla («Ayuda», fuente `src/content/user-guide.json`, exportada a [guia-de-uso.md](guia-de-uso.md)) como fuente de verdad; la [guía de capacitación](guia-capacitacion-vendedores.md) es material de apoyo para el capacitador. Validar el recorrido recomendado con un vendedor principiante y en una sesión visual real.
 - La guía en pantalla y la capacitación explican que el estado Recontactar resume la fecha de la tarea y que el vendedor debe abrir esa tarea para registrar o consultar el resultado.
 - No se hicieron operaciones de escritura en base. El E2E del punto 15 usa Chromium con API interceptada; se revisaron capturas desktop/móvil. El recorrido integrado con datos descartables sigue pendiente.
 
-Corte: 16/10/2026. Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
+Corte histórico: 16/10/2026 (la sección sobre la revisión de UX arriba es más reciente). Actualizar al cerrar una tarea. No marcar como pendiente un bloque implementado solo porque un documento histórico aún use ese término.
 
 ## Compatibilidad «Revisados» — implementada en staging
 
@@ -147,7 +152,7 @@ No deducir esas decisiones de etapas históricas. No agregar automatismos de pag
 
 ## Estados de negocio y gestiones
 
-La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-business-and-management-state-model.md). El código y las migraciones 018–021 se integraron al branch local de integración; aún faltan pruebas de migración en PostgreSQL descartable y revisión del PR final. La migración conserva `review_status='filtered'` como Revisado, mantiene Papelera separada y no reconstruye gestiones eliminadas.
+La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-business-and-management-state-model.md). El código y las migraciones 018–021 se integraron al branch local de integración; (histórico) en su momento faltaban pruebas de migración en PostgreSQL descartable y la revisión del PR final; el trabajo se integró en `staging` (#99–#103) y las migraciones 018–031 corren en CI sobre PostgreSQL 17 descartable. Sigue pendiente aplicarlas en producción con el procedimiento revisado. La migración conserva `review_status='filtered'` como Revisado, mantiene Papelera separada y no reconstruye gestiones eliminadas.
 
 ## Pospuesto por el propietario: datos y multivertical
 

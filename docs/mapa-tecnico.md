@@ -6,7 +6,8 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 
 | Área | Ubicación |
 |---|---|
-| Rutas API, estáticos, MCP y arranque | `src/server/index.ts`, `src/server/mcp/` |
+| Rutas API y middleware (registro de rutas, salud, estáticos) | `src/server/app.ts` (desde #114; `src/server/index.ts` solo arranca el servidor) |
+| MCP | `src/server/mcp/` |
 | Páginas y estilos de página | `src/pages/` |
 | Componentes compartidos | `src/components/`, `src/components/ui/` |
 | Contratos cliente/servidor | `src/endpoints/` (schemas Zod, tipos y serializers SuperJSON) |
@@ -21,10 +22,21 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Historial global | `src/endpoints/lead_journal_GET.ts`, `src/helpers/globalHistoryServer.ts`, `auditChanges.ts`, `src/pages/history.tsx` |
 | DB/mapeo de identificadores | `src/helpers/db.tsx`, `src/helpers/schema.tsx` |
 | Permisos/autenticación | Helpers de sesión/usuario y guards compartidos; comprobar también el endpoint afectado |
+| Permisos de negocio (lectura/escritura, archivado, No contactar, datos de contacto 8A) | `src/helpers/crmPermissions.ts`: `assertAccountViewable` (solo lecturas; el responsable ve su negocio archivado/No contactar), `assertAccountReadable`/`assertAccountWritable` (escrituras; no aflojar) y `assertContactDataWritable` (8A) |
+| Quién registra/levanta No contactar (D1) | `src/helpers/doNotContactPermission.ts` (+ `.spec.ts`) |
+| Tarea «Volver a contactar» (7A) y cancelación al quedar No contactar (D3) | `src/helpers/recontactTask.ts` (`syncRecontactTask`, `cancelRecontactTaskFor`, `cancelPendingTasksForDnc`) |
+| Duplicados al crear negocio y aviso de teléfono No contactar (D2) | `src/endpoints/business_duplicate_check.ts` (+ `.schema.ts`) |
+| Vocabulario y su guardia | `src/content/vocabulary.ts`, `src/helpers/vocabularyGuard.spec.ts` (términos prohibidos) |
+| Guía en pantalla y exportada | `src/content/user-guide.json` (fuente), `scripts/export-user-guide.mjs` (genera `docs/guia-de-uso.md`; regenerar tras cambiar la fuente), `src/content/userGuideLabels.spec.ts` (cada etiqueta citada debe existir en la UI) |
+| Primeros pasos de Hoy | `src/helpers/firstSteps.ts` |
+| Etapa sugerida al anotar un resultado (9A) | `src/helpers/stageSuggestion.ts` |
+| Fechas rápidas y posponer tareas | `src/components/DueDateShortcuts.tsx`, `src/components/TaskPostponeMenu.tsx` |
+| Llamadas desde Contactar | `src/components/PhoneCallPanel.tsx` (+ `.spec.tsx`) |
+| Navegación por rol | `src/helpers/appNavigation.ts` |
 | Evolución de esquema | `migrations/`, `scripts/migrate.mjs` |
 | Unitarias | `*.spec.ts` / `*.spec.tsx` según configuración de Vitest |
 | Integración | `scripts/test-*.ts`, `scripts/test-*.mjs` y comandos de `package.json` |
-| Navegador | `tests/browser/`, `playwright.config.ts` |
+| Navegador | `tests/browser/`, `playwright.config.ts`; ayudante de transiciones/esperas en `tests/browser/support/transitions.ts` |
 | Checks/deploy | `.github/workflows/ci.yml`, `.github/workflows/deploy-vps.yml`, `Dockerfile` |
 
 ## Compatibilidad importante
@@ -60,6 +72,20 @@ Kysely transforma snake_case a camelCase mediante el plugin existente. Hay overr
 | 015 | Credenciales MCP; no activa el servicio |
 | 016 | Papelera propia de negocios |
 | 017 | Campos para recuperación selectiva de metadatos |
+| 018 | Estado del negocio (`crm_accounts.status`, `recontact_at`, `referred_to_leandro`), aditivo y nullable |
+| 019 | Flujos de gestión: `is_client`, tipo de gestión, catálogos de etapas y motivos por tipo |
+| 020 | Backfill idempotente del estado de negocio (se detiene ante etapas no clasificadas); no aplicado en producción |
+| 021 | Trigger de auditoría de cambios de estado del negocio |
+| 022 | Modelo de Comunicación; elimina datos atribuibles a secuencias de prueba |
+| 023 | Trigger que conserva el archivado al actualizar otros campos del negocio |
+| 024 | Índices de rendimiento (sin `CONCURRENTLY`) y retiro de `leads_nombre_idx` |
+| 025 | Rellena `sessions.expires_at` |
+| 026 | Versiones en vivo por dominio (37 triggers) |
+| 027 | Lista única de resultados (CHECKs ampliados) y `continuation_reason` (motivo de «No agendar nada») |
+| 028 | Guarda `crm_contact_outcome_since`: desde ahí se rastrea «Anotá cómo salió» |
+| 029 | Índice de eventos de etapa por negocio (línea «Qué pasó») |
+| 030 | Índices de usuario para Primeros pasos y contactos sin resultado |
+| 031 | Índice parcial de negocios No contactar (aviso de teléfono, D2) |
 
 El migrador lleva checksums. Aplicar migraciones no ejecuta la limpieza ni recupera campos históricos automáticamente.
 
