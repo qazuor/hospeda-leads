@@ -184,10 +184,10 @@ export async function post(request:Request){
     if(!stageChange||!lead)return;
     const chosen=(await sql<{name:string}>`SELECT name FROM crm_stages WHERE name=${stageChange.stage} AND active AND classification='open' AND management_type=${lead.managementType}`.execute(trx)).rows[0];
     if(!chosen)throw new Error('Elegí una etapa disponible.');
-    // Same audit trail as a manual transition: the guard triggers write the event and journals; the cause says the seller accepted it from a result.
-    await sql`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','work_outcome',true),set_config('crm.management_reason_id','',true),set_config('crm.loss_reason','',true),set_config('crm.loss_comment','',true),set_config('crm.recontact','',true),set_config('crm.management_note',${'Lo elegiste al registrar «'+outcomeLabel(stageOutcome)+'».'},true)`.execute(trx);
+    // Same audit trail as a manual transition: the guard triggers write the pipeline event (actor included); the note says it came from a result.
+    await sql`SELECT set_config('crm.management_reason_id','',true),set_config('crm.loss_reason','',true),set_config('crm.loss_comment','',true),set_config('crm.recontact','',true),set_config('crm.management_note',${'Elegido al anotar cómo salió: «'+outcomeLabel(stageOutcome)+'».'},true)`.execute(trx);
     await trx.updateTable('leads').set({estado:chosen.name,updatedAt:new Date()}).where('id','=',lead.id).execute();
-    await sql`SELECT set_config('crm.state_change_origin','',true),set_config('crm.state_change_cause','',true),set_config('crm.management_note','',true)`.execute(trx);
+    await sql`SELECT set_config('crm.management_note','',true)`.execute(trx);
    };
    if(input.action==='task_delete'){
     await trx.updateTable('crmTasks').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',input.id).execute();return input.id;

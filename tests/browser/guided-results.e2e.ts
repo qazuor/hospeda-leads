@@ -59,3 +59,49 @@ for(const accept of [false,true])test(`a suggested stage is offered unticked and
  expect(writes).toHaveLength(1);expect(writes[0]).toMatchObject({action:'task_status',outcome:'interested'});
  if(accept)expect(writes[0].stageChange).toEqual({stage:'main:interested',revision:4});else expect(writes[0].stageChange).toBeUndefined();
 });
+
+/** Opens "Anotar cómo salió" on a task of a main management at `main:contact`; `state.revision` is what the next /work reads return. */
+async function openSuggestion(page:import('@playwright/test').Page,state:{revision:number;reads:number;respond:(n:number)=>{status:number;body:unknown}},writes:any[]){
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.route('https://fonts.googleapis.com/**',route=>route.abort());
+ const task={id:'1',accountId:'1',leadId:'7',title:'Consultar necesidades',purpose:'commercial',description:null,typeId:'call',assignedUserEmail:'admin@example.com',dueDate:localDay(),dueAt:null,priority:'media',status:'pending',result:null,completedAt:null,legacy:false,participants:'',contactIds:['1'],accountName:'Negocio de prueba',city:'Colón',opportunityName:null,deletedAt:null};
+ const data=()=>({tasks:[task],activities:[],types:[{id:'call',name:'Llamada',active:true,agenda:false},{id:'followup',name:'Seguimiento',active:true,agenda:false}],accounts:[{id:'1',nombre:'Negocio de prueba',assignedUserEmail:'admin@example.com',doNotContact:false}],opportunities:[{id:'7',accountId:'1',opportunityName:'Plan principal',tipo:null,estado:'main:contact',managementType:'main',pipelineRevision:state.revision,assignedUserEmail:'admin@example.com',createdAt:new Date(),fechaUltimoContacto:null}],contacts:[{id:'1',accountId:'1',name:'Ana'}],users:[{email:'admin@example.com',displayName:'Admin'}],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:1,totalActivities:0,page:1,bucketCounts:{overdue:0,today:1,upcoming:0},cities:[],verticals:[]});
+ await page.route('**/_api/**',async route=>{
+  const path=new URL(route.request().url()).pathname;
+  if(path.endsWith('/work')&&route.request().method()==='POST'){writes.push(superjson.parse(route.request().postData()!));const r=state.respond(writes.length);await route.fulfill({status:r.status,contentType:'application/json',body:superjson.stringify(r.body)});return;}
+  if(path.endsWith('/work'))state.reads++;
+  await route.fulfill({contentType:'application/json',body:superjson.stringify(path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:path.endsWith('/work')?data():{})});
+ });
+ await page.goto('/my-day');await page.locator('article').filter({has:page.getByText('Consultar necesidades',{exact:true})}).getByRole('button',{name:'Anotar cómo salió',exact:true}).click();
+ const dialog=page.getByRole('dialog');await pickOutcome(dialog,'interested');
+ await dialog.getByLabel('Detalles del resultado',{exact:true}).fill('Le interesa mucho');
+ await dialog.getByRole('combobox',{name:/^¿Cómo sigue\?/}).selectOption('done');await dialog.getByRole('combobox',{name:'¿Por qué no agendás nada?',exact:true}).selectOption('Ya tengo otra tarea agendada');
+ return dialog;
+}
+// A concurrent change makes the server answer 409: say nothing was saved, keep what she typed, drop the tick, and let her save again.
+for(const retick of [false,true])test(`a stale suggested stage explains that nothing was saved and recovers (retick: ${retick})`,async({page})=>{
+ const writes:any[]=[];const state={revision:4,reads:0,respond:(n:number)=>n===1?{status:409,body:{error:'La gestión cambió; revisala.'}}:{status:200,body:{id:'1'}}};
+ const dialog=await openSuggestion(page,state,writes);const offer=dialog.getByRole('checkbox',{name:/¿Pasar la gestión a/});
+ await offer.check();state.revision=5;
+ await dialog.getByRole('button',{name:'Guardar resultado',exact:true}).click();
+ await expect(dialog.getByRole('alert').filter({hasText:'No se guardó nada'})).toContainText('Lo que escribiste sigue acá');
+ expect(writes[0].stageChange).toEqual({stage:'main:interested',revision:4});
+ await expect(dialog.getByRole('textbox',{name:'Detalles del resultado',exact:true})).toHaveValue('Le interesa mucho');
+ await expect(offer).not.toBeChecked();
+ if(retick){await expect.poll(()=>state.reads).toBeGreaterThan(2);await offer.check();}
+ await dialog.getByRole('button',{name:'Guardar resultado',exact:true}).click();await expect(dialog).toHaveCount(0);
+ expect(writes).toHaveLength(2);
+ if(retick)expect(writes[1].stageChange).toEqual({stage:'main:interested',revision:5});else expect(writes[1].stageChange).toBeUndefined();
+});
+// The revision sent is the one she saw when she ticked, even if the data refreshed afterwards, so the server can detect the change.
+test('the suggested stage keeps the revision seen at tick time',async({page})=>{
+ const writes:any[]=[];const state={revision:4,reads:0,respond:(_n:number)=>({status:200,body:{id:'1'}})};
+ // Queries stay fresh for a minute: move the clock so a reconnect really refetches the management with its new revision.
+ await page.clock.install();
+ const dialog=await openSuggestion(page,state,writes);
+ await dialog.getByRole('checkbox',{name:/¿Pasar la gestión a/}).check();
+ state.revision=5;const before=state.reads;await page.clock.fastForward(61000);await page.evaluate(()=>{window.dispatchEvent(new Event('offline'));window.dispatchEvent(new Event('online'))});
+ await expect.poll(()=>state.reads).toBeGreaterThan(before);
+ await dialog.getByRole('button',{name:'Guardar resultado',exact:true}).click();await expect(dialog).toHaveCount(0);
+ expect(writes[0].stageChange).toEqual({stage:'main:interested',revision:4});
+});
