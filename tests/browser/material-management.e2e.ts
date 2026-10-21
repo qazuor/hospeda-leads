@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForTransitions } from './support/transitions';
 import superjson from 'superjson';
 
 for (const width of [1280, 390]) test(`material management keeps drafts and locks pending actions at ${width}px`, async ({ page }) => {
@@ -38,6 +39,7 @@ for (const width of [1280, 390]) test(`material management keeps drafts and lock
   });
   await page.goto('/accounts/101?section=documents');
   await page.getByRole('button', { name: 'Agregar documento o recurso', exact: true }).click();
+  await waitForTransitions(page);
   const title = page.getByRole('textbox', { name: 'Título del documento', exact: true });
   await title.fill('Nuevo material');
   await page.getByRole('button', { name: 'Aprobar versión', exact: true }).click();
@@ -62,6 +64,7 @@ for (const width of [1280, 390]) test(`material management keeps drafts and lock
   await expect(title).toHaveValue('');
   expect(await file.evaluate((node: HTMLInputElement) => node.files?.length)).toBe(0);
   await page.getByRole('button', { name: 'Nueva versión', exact: true }).click();
+  await waitForTransitions(page);
   await page.getByRole('textbox', { name: 'Vínculo HTTP(S)', exact: true }).fill('https://example.com/version-2');
   await page.getByRole('button', { name: 'Cancelar versión', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Tenés cambios sin guardar');

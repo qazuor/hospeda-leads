@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {waitForTransitions} from './support/transitions';
 
 test('account with two contacts and independent opportunities preserves lead and communication flows',async({page})=>{
   test.setTimeout(180000);
@@ -83,7 +84,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.screenshot({path:'test-results/lead-commercial-detail.png',fullPage:true,animations:'disabled'});
   await expect(lead.getByRole('heading',{name:'Primera gestión',exact:true})).toBeVisible();
   await expect(lead.getByText('Por contactar',{exact:true}).first()).toBeVisible();
-  await lead.getByText('Otras acciones',{exact:true}).click();await lead.getByRole('button',{name:'Contactar ahora',exact:true}).click();let contactDialog=page.getByRole('dialog').last();await contactDialog.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Ana'});await contactDialog.getByRole('button',{name:'Preparar email con un mensaje modelo',exact:true}).click();
+  await lead.getByText('Otras acciones',{exact:true}).click();await waitForTransitions(page);await lead.getByRole('button',{name:'Contactar ahora',exact:true}).click();let contactDialog=page.getByRole('dialog').last();await contactDialog.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Ana'});await contactDialog.getByRole('button',{name:'Preparar email con un mensaje modelo',exact:true}).click();
   const communication=page.getByRole('dialog').last();
   await expect(communication.getByRole('combobox',{name:'Destinatario',exact:true})).toHaveValue(/\d+/);
   const emailRecipient=communication.getByRole('combobox',{name:'Destinatario',exact:true});
