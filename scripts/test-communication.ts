@@ -85,8 +85,15 @@ try{
  const generalAccount=await db.insertInto('crmAccounts').values({nombre:'General communication '+stamp,email:'general-'+stamp+'@example.com',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
  await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',generalAccount.id).execute();
  const generalMessage=await call({action:'prepare_general',id:randomUUID(),accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'email',purpose:'first_contact',otherPurpose:null,templateId:null},200,user.cookie);assert.equal(generalMessage.leadId,null);assert.equal(generalMessage.purpose,'first_contact');
+ // U-35: a No contactar response cancels the business's untouched "Volver a contactar" task and nothing else.
+ await db.updateTable('crmAccounts').set({status:'recontact',recontactAt:'2027-06-10' as never}).where('id','=',generalAccount.id).execute();
+ const recontactTask=await db.insertInto('crmTasks').values({accountId:generalAccount.id,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:user.user.email,dueDate:'2027-06-10' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
+ const unrelatedTask=await db.insertInto('crmTasks').values({accountId:generalAccount.id,leadId:null,title:'Otra tarea',typeId:'followup',assignedUserEmail:user.user.email,dueDate:'2027-06-10' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
  const responseId=randomUUID();await call({action:'response_create',id:responseId,accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'call',recipient:generalAccount.email,recipientName:generalAccount.nombre,destination:null,linkedMessageId:null,category:'do_not_contact',summary:'Solicitó que no la contactemos',exactText:null,otherDetail:null,confirmDoNotContact:true,closeLeadIds:[]},200,user.cookie);
  assert.equal((await db.selectFrom('crmAccounts').select('doNotContact').where('id','=',generalAccount.id).executeTakeFirstOrThrow()).doNotContact,true);
+ {const t=await db.selectFrom('crmTasks').select(['id','status','result']).where('accountId','=',generalAccount.id).execute();
+  const own=t.find(x=>String(x.id)===String(recontactTask.id))!;assert.equal(own.status,'cancelled');assert.match(String(own.result),/No contactar/);
+  assert.equal(t.find(x=>String(x.id)===String(unrelatedTask.id))!.status,'pending');}
  // Replay: retrying the same save after a lost answer returns the same response and changes nothing; the same id for another category, user or business is refused without revealing it.
  {const body={action:'response_create',id:responseId,accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'call',recipient:generalAccount.email,recipientName:generalAccount.nombre,destination:null,linkedMessageId:null,category:'do_not_contact',summary:'Solicitó que no la contactemos',exactText:null,otherDetail:null,confirmDoNotContact:true,closeLeadIds:[]};
   const again=await call(body,200,user.cookie);assert.equal(String(again.id),responseId);

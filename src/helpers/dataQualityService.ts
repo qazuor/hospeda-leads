@@ -1,3 +1,4 @@
+import {cancelRecontactTaskFor} from './recontactTask';
 import {assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Transaction,type Kysely} from 'kysely';
@@ -166,6 +167,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    await trx.updateTable('leads').set({accountId:input.destinationId,...Object.fromEntries(legacyBusinessFields.map(f=>[f,p.destination[f]])),updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
    for(const table of ['crmTasks','crmActivities','crmDataEvidence'] as const)await trx.updateTable(table).set({accountId:input.destinationId}).where('accountId','=',input.sourceId).execute();
    for(const table of ['crm_objections','crm_pipeline_events','crm_messages','crm_contact_restrictions','crm_communication_responses','crm_communication_response_corrections','crm_communication_interaction_corrections','crm_communication_journal','crm_documents','crm_document_links'])await sql`UPDATE ${sql.table(table)} SET account_id=${input.destinationId}::bigint WHERE account_id=${input.sourceId}::bigint`.execute(trx);
+   if(p.policy.doNotContact)await cancelRecontactTaskFor(trx,{accountId:input.destinationId,cause:'dnc'});
    const after=await trx.updateTable('crmAccounts').set({...fields,doNotContact:p.policy.doNotContact,commercialStatus:p.policy.commercialStatus as 'client'|'prospect',clientSince:p.policy.clientSince,updatedAt:new Date()}).where('id','=',input.destinationId).returningAll().executeTakeFirstOrThrow();
    await trx.insertInto('crmAccountMerges').values({sourceId:input.sourceId,destinationId:input.destinationId,actorEmail:user.email,reason:input.reason,snapshot:json(p.snapshot),selections:json(input.selections)}).execute();
    await trx.insertInto('crmCommercialJournal').values({accountId:input.destinationId,action:'account_merged',actorEmail:user.email,actorName:user.displayName,metadata:json({sourceId:input.sourceId,reason:input.reason,before:p.destination,after})}).execute();

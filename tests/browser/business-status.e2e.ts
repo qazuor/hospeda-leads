@@ -31,11 +31,15 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}])test(`bus
  await expect(popup.getByRole('button',{name:'Guardar',exact:true})).toHaveCount(0);
  await popup.getByRole('button',{name:/^Recontactar/}).click();
  await popup.getByLabel('Fecha de recontacto (opcional)').fill('2026-11-15');
- await expect(popup.getByRole('status')).toHaveText('Te agendamos «Volver a contactar» para el 15 de nov de 2026.');
+ await expect(popup.getByRole('status')).toContainText('Se va a agendar «Volver a contactar» para el 15 de nov de 2026.');
+ await popup.getByLabel('Fecha de recontacto (opcional)').fill('2020-01-02');
+ await expect(popup.getByRole('status')).toContainText('La fecha ya pasó: la tarea va a aparecer como vencida.');
+ await popup.getByLabel('Fecha de recontacto (opcional)').fill('2026-11-15');
+ await expect(popup.getByRole('status')).not.toContainText('La fecha ya pasó');
  await popup.getByRole('button',{name:'Guardar',exact:true}).click();
  await expect(popup).toHaveCount(0);
  const toast=page.locator('[data-sonner-toast]').filter({hasText:'Estado del negocio actualizado'});
- await expect(toast).toContainText('Te agendamos «Volver a contactar» para el 15 de nov de 2026.');
+ await expect(toast).toContainText('Agendamos «Volver a contactar» para el 15 de nov de 2026.');
  await expect(toast.getByRole('button',{name:'Ver en Hoy'})).toBeVisible();
  await expect(card).toContainText(/Estado:\s*Recontactar\s*Cambiar/);
  await expect(card.getByText(/Recontactar el 15 de nov de 2026/i)).toBeVisible();

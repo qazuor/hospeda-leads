@@ -36,6 +36,7 @@ const transition=async(leadId:string,stage:string,extra:Record<string,unknown>={
  return call(pipelinePost,'pipeline',{action:'transition',leadId,revision:data.insights[0].pipelineRevision,stage,...extra},cookie,status);
 };
 try{
+ const dayOf=(v:unknown)=>v instanceof Date?v.toISOString().slice(0,10):String(v).slice(0,10);
  const gated=await business('Estado Nuevo '+stamp);
  await call(commercialPost,'commercial',{action:'opportunity_save',accountId:gated,managementType:'main',opportunityName:'No debe iniciar'},admin,400);
  await call(commercialPost,'commercial',{action:'business_status',accountId:gated,status:'reviewed'});
@@ -53,7 +54,13 @@ try{
  assert.equal(restored.referredToLeandro,false);assert.equal(restored.assignedUserEmail,originalOwner);
 
  const reason=(await readPipeline(openLead.id)).managementReasons.find(r=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey==='do_not_contact')!;
+ // U-35: closing a management with the No contactar reason cancels the business's untouched "Volver a contactar" task.
+ const gatedNow=await db.selectFrom('crmAccounts').select('assignedUserEmail').where('id','=',gated).executeTakeFirstOrThrow();
+ await db.updateTable('crmAccounts').set({recontactAt:'2027-07-01' as never}).where('id','=',gated).execute();
+ const typedTask=await db.insertInto('crmTasks').values({accountId:gated,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:gatedNow.assignedUserEmail,dueDate:'2027-07-01' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
  await transition(openLead.id,'main:lost',{reasonId:reason.id,comment:''});
+ const typedAfter=await db.selectFrom('crmTasks').select(['status','result']).where('id','=',typedTask.id).executeTakeFirstOrThrow();
+ assert.equal(typedAfter.status,'cancelled');assert.match(String(typedAfter.result),/No contactar/);
  const blocked=await db.selectFrom('crmAccounts').select(['status','doNotContact','archivedAt']).where('id','=',gated).executeTakeFirstOrThrow();
  assert.equal(blocked.status,'archived');assert.equal(blocked.doNotContact,true);assert(blocked.archivedAt);
 
@@ -98,6 +105,23 @@ try{
  assert.equal(work.status,'recontact');assert(work.recontactAt);
  const reminder=await db.selectFrom('crmTasks').select(['title','purpose','dueDate','assignedUserEmail']).where('leadId','=',second.id).where('status','=','pending').executeTakeFirstOrThrow();
  assert.equal(reminder.title,'Recontactar según lo acordado');assert.equal(reminder.purpose,'reactivation');assert.equal(reminder.dueDate instanceof Date?reminder.dueDate.toISOString().slice(0,10):String(reminder.dueDate),'2026-12-15');assert.equal(reminder.assignedUserEmail,sellerEmail);
+
+ // U-35 review: a lost-management reminder of another person on the same day is never adopted, moved or cancelled by the business task.
+ const betoEmail=`state-admin-${stamp}@example.com`;
+ await db.updateTable('crmTasks').set({assignedUserEmail:betoEmail}).where('id','=',(await db.selectFrom('crmTasks').select('id').where('leadId','=',second.id).where('status','=','pending').executeTakeFirstOrThrow()).id).execute();
+ const ownPending=(accountId:string)=>db.selectFrom('crmTasks').selectAll().where('accountId','=',accountId).where('title','=','Volver a contactar').where('status','=','pending').execute();
+ const betoPending=()=>db.selectFrom('crmTasks').select(['id','assignedUserEmail','dueDate','status']).where('leadId','=',second.id).where('title','=','Recontactar según lo acordado').execute();
+ await call(commercialPost,'commercial',{action:'business_status',accountId:followupBusiness,status:'recontact',recontactAt:'2026-12-15'},seller);
+ assert.equal((await ownPending(followupBusiness)).length,1,'a lead-level reminder on the same day is not adopted: the business task is its own');
+ await call(commercialPost,'commercial',{action:'business_status',accountId:followupBusiness,status:'recontact',recontactAt:'2026-12-20'},seller);
+ const afterMove=await ownPending(followupBusiness);assert.equal(afterMove.length,1);assert.equal(dayOf(afterMove[0].dueDate),'2026-12-20');
+ await call(commercialPost,'commercial',{action:'business_status',accountId:followupBusiness,status:'recontact',recontactAt:'2026-12-15'},seller);
+ const backOnD=await ownPending(followupBusiness);assert.equal(backOnD.length,1,'moving back to the day of the other reminder keeps one business task');assert.equal(dayOf(backOnD[0].dueDate),'2026-12-15');assert.equal(backOnD[0].assignedUserEmail,sellerEmail);
+ assert.equal((await db.selectFrom('crmTasks').select('id').where('accountId','=',followupBusiness).where('title','=','Volver a contactar').where('status','=','cancelled').execute()).length,0,'nothing was cancelled with a false reason');
+ const betoTask=await betoPending();assert.equal(betoTask.length,1);assert.equal(betoTask[0].status,'pending');assert.equal(betoTask[0].assignedUserEmail,betoEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:followupBusiness,status:'recontact',recontactAt:null},seller);
+ assert.equal((await betoPending())[0].status,'pending','clearing the date cancels only the business task');
+ await call(commercialPost,'commercial',{action:'business_status',accountId:followupBusiness,status:'recontact',recontactAt:'2026-12-15'},seller);
  await transition(second.id,'main:contacted',{},seller,403);
  await transition(second.id,'main:contacted',{},admin);
  const reopened=await db.selectFrom('crmAccounts').select('status').where('id','=',followupBusiness).executeTakeFirstOrThrow();
@@ -116,7 +140,6 @@ try{
 
 
  // U-35 / decision 7A: Recontactar + date schedules "Volver a contactar" for the responsible seller.
- const dayOf=(v:unknown)=>v instanceof Date?v.toISOString().slice(0,10):String(v).slice(0,10);
  const recontactTasks=(accountId:string,status:string='pending')=>db.selectFrom('crmTasks').selectAll().where('accountId','=',accountId).where('title','=','Volver a contactar').where('status','=',status as 'pending').where('deletedAt','is',null).execute();
  const recontactBusiness=await business('Recontacto tarea '+stamp,sellerEmail);
  await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'reviewed'},admin);
@@ -171,6 +194,51 @@ try{
  await call(commercialPost,'commercial',{action:'business_status',accountId:unassigned,status:'reviewed'},admin);
  await call(commercialPost,'commercial',{action:'business_status',accountId:unassigned,status:'recontact',recontactAt:'2026-12-15'},admin);
  assert.equal((await recontactTasks(unassigned))[0].assignedUserEmail,`state-admin-${stamp}@example.com`);
+
+
+ // U-35 review: A -> B when this feature's task already exists on B; reassigned / timed tasks are never moved or cancelled.
+ const twoDays=await business('Recontacto dos fechas '+stamp,sellerEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:twoDays,status:'reviewed'},admin);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:twoDays,status:'recontact',recontactAt:'2027-03-01'},seller);
+ const onB=await db.insertInto('crmTasks').values({accountId:twoDays,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:sellerEmail,dueDate:'2027-03-05' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
+ const toB=await call(commercialPost,'commercial',{action:'business_status',accountId:twoDays,status:'recontact',recontactAt:'2027-03-05'},seller);
+ assert.equal(toB.recontactTask.action,'kept');assert.equal(toB.recontactTask.id,String(onB.id));
+ assert.deepEqual((await recontactTasks(twoDays)).map(t=>String(t.id)),[String(onB.id)],'A -> B leaves one pending task');
+ assert.match(String((await recontactTasks(twoDays,'cancelled'))[0].result),/cambió a otro día/,'the old day is cancelled with a date-change reason, not "date cleared"');
+ for(const [label,patch] of [['timed',{dueAt:new Date('2027-04-01T15:00:00Z')}],['reassigned',{assignedUserEmail:betoEmail}]] as const){
+  const biz=await business(`Recontacto ${label} ${stamp}`,sellerEmail);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2027-04-01'},seller);
+  const t=(await recontactTasks(biz))[0];
+  await db.updateTable('crmTasks').set(patch as never).where('id','=',t.id).execute();
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},seller);
+  assert.equal((await recontactTasks(biz)).length,1,`a ${label} task is never cancelled`);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2027-04-09'},seller);
+  assert.equal((await recontactTasks(biz)).filter(x=>String(x.id)===String(t.id)).length,1);
+  assert.equal(dayOf((await recontactTasks(biz)).find(x=>String(x.id)===String(t.id))!.dueDate),'2027-04-01',`a ${label} task is never moved`);
+ }
+ // Cleanup when the business stops being workable: only this feature's untouched task is cancelled.
+ const dncPaths:[string,(accountId:string)=>Promise<unknown>,RegExp][]=[
+  ['archive',accountId=>call(commercialPost,'commercial',{action:'account_archive',accountId,archived:true,reason:'Prueba de archivo'},admin),/se archivó/],
+  ['policy',accountId=>call(pipelinePost,'pipeline',{action:'contact_policy',accountId,blocked:true,reason:'Pidió no ser contactado'},admin),/No contactar/]
+ ];
+ for(const [label,act,reason] of dncPaths){
+  const biz=await business(`Recontacto limpieza ${label} ${stamp}`,sellerEmail);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2027-05-10'},seller);
+  const other=await db.insertInto('crmTasks').values({accountId:biz,leadId:null,title:'Otra tarea',typeId:'followup',assignedUserEmail:sellerEmail,dueDate:'2027-05-10' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
+  await act(biz);
+  assert.equal((await recontactTasks(biz)).length,0,`${label}: the recontact task is cancelled`);
+  assert.match(String((await recontactTasks(biz,'cancelled'))[0].result),reason);
+  assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',other.id).executeTakeFirstOrThrow()).status,'pending',`${label}: other tasks are untouched`);
+ }
+ // A touched task survives the cleanup.
+ const keep=await business('Recontacto limpieza tocada '+stamp,sellerEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:keep,status:'reviewed'},admin);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:keep,status:'recontact',recontactAt:'2027-05-10'},seller);
+ await db.updateTable('crmTasks').set({dueDate:'2027-05-12' as never}).where('accountId','=',keep).where('title','=','Volver a contactar').execute();
+ await call(commercialPost,'commercial',{action:'account_archive',accountId:keep,archived:true,reason:'Prueba de archivo'},admin);
+ assert.equal((await recontactTasks(keep)).length,1,'a rescheduled task survives the archive cleanup');
 
  console.log('Business state integration: New/review gate, derived active state, multiple open managements, required close reasons, scheduled recontact task, admin-only reopen with preserved closure history, Leandro referral, independent DNC, archive-on-DNC close, client conversion and accompaniment passed.');
 }finally{await db.destroy();}

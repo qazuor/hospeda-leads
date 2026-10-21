@@ -9,7 +9,7 @@ import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
-import {syncRecontactTask,type RecontactTaskResult} from '../helpers/recontactTask';
+import {cancelRecontactTaskFor,syncRecontactTask,type RecontactTaskResult} from '../helpers/recontactTask';
 import { z } from "zod";
 import {sql} from "kysely";
 import superjson from "superjson";
@@ -148,6 +148,7 @@ export async function post(request:Request){
         if(input.archived&&user.role!=="admin"&&account.assignedUserEmail!==user.email)throw new Forbidden("Solo el responsable o un administrador puede archivar este negocio.");
         if(!input.archived&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede desarchivar negocios.");
         const restoredStatus=account.status==='reviewed'||stateAccount.isClient?'reviewed':'new';
+        if(input.archived)await cancelRecontactTaskFor(trx,{accountId:input.accountId,cause:'archived'});
         const after=await trx.updateTable("crmAccounts").set({archivedAt:input.archived?new Date():null,status:input.archived?'archived':restoredStatus,updatedAt:new Date()}).where("id","=",input.accountId).returningAll().executeTakeFirstOrThrow();
         await audit(input.accountId,input.archived?"account_archived":"account_unarchived",account,{...after,reason:input.reason});return input.accountId;
       }

@@ -7,7 +7,7 @@ import {Button} from './Button';
 import {CrmDateInput} from './ui/CrmDateInput';
 import {ValueBadge} from './ValueBadge';
 import {saveCommercial} from '../endpoints/commercial.schema';
-import {recontactNotice,RECONTACT_TASK_TITLE} from '../helpers/recontactTask';
+import {recontactNotice,recontactScheduled,isPastDay,RECONTACT_PAST_HINT,RECONTACT_TASK_TITLE} from '../helpers/recontactTask';
 import {crmSuccess} from '../helpers/crmFeedback';
 import {businessStatuses,businessStatusLabels,type BusinessStatus} from '../helpers/businessStatus';
 import {calendarDay} from '../helpers/workDates';
@@ -16,9 +16,9 @@ import {DisabledTooltip} from './Tooltip';
 
 type SavedStatus=Awaited<ReturnType<typeof saveCommercial>>;
 /** Success toast of a status save; when it scheduled "Volver a contactar" it says so and links to Hoy (decision 7A). */
-export function notifyStatusSaved(result:SavedStatus|undefined){
+export function notifyStatusSaved(result:SavedStatus|undefined,scheduledFor?:string|null){
  const task=result?.recontactTask;
- if(task)crmSuccess('Estado del negocio actualizado',{label:'Ver en Hoy',href:'/my-day'},task.action==='kept'?`Ya tenías «${RECONTACT_TASK_TITLE}» agendada para esa fecha.`:recontactNotice(task.dueDate));
+ if(task)crmSuccess('Estado del negocio actualizado',{label:'Ver en Hoy',href:'/my-day'},task.action==='kept'?`Ya tenías «${RECONTACT_TASK_TITLE}» agendada para esa fecha.`:recontactScheduled(task.dueDate,scheduledFor));
  else crmSuccess('Estado del negocio actualizado');
 }
 const directlyEditable:BusinessStatus[]=['reviewed','no_follow_up_scheduled','recontact'];
@@ -27,10 +27,10 @@ const directlyEditable:BusinessStatus[]=['reviewed','no_follow_up_scheduled','re
  * "Guardar" only appears after choosing a different one (or a new recontact date).
  * `labelled` renders the business record variant: "Estado: {badge} ▾ Cambiar".
  */
-export function InlineBusinessStatus({accountId,status,recontactAt,disabled=false,labelled=false,onSaved}:{accountId:string;status:BusinessStatus|null|undefined;recontactAt:Date|string|null|undefined;disabled?:boolean;labelled?:boolean;onSaved?:(result:SavedStatus)=>Promise<void>|void}){
+export function InlineBusinessStatus({accountId,status,recontactAt,disabled=false,labelled=false,scheduledFor=null,onSaved}:{accountId:string;status:BusinessStatus|null|undefined;recontactAt:Date|string|null|undefined;disabled?:boolean;labelled?:boolean;/** Name of the responsible when the task goes to someone other than the saver. */scheduledFor?:string|null;onSaved?:(result:SavedStatus)=>Promise<void>|void}){
  const qc=useQueryClient();const current=status??'new';const savedRecontactDay=calendarDay(recontactAt);const [value,setValue]=useState<BusinessStatus>(current);const [date,setDate]=useState(savedRecontactDay);const [open,setOpen]=useState(false);
  useEffect(()=>{setValue(current);setDate(savedRecontactDay);},[current,savedRecontactDay]);
- const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async result=>{if(!onSaved)notifyStatusSaved(result);await qc.invalidateQueries({queryKey:['leads']});await qc.invalidateQueries({queryKey:['commercial-detail',accountId]});await qc.invalidateQueries({queryKey:['work']});await onSaved?.(result);setOpen(false);}});
+ const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async result=>{notifyStatusSaved(result,scheduledFor);await qc.invalidateQueries({queryKey:['leads']});await qc.invalidateQueries({queryKey:['commercial-detail',accountId]});await qc.invalidateQueries({queryKey:['work']});await onSaved?.(result);setOpen(false);}});
  const canEditStatus=current==='new'?['reviewed' as const]:directlyEditable;
  const canEdit=!disabled&&!mutation.isPending&&canEditStatus.length>0;
  const changed=value!==current||(value==='recontact'&&date!==savedRecontactDay);
@@ -45,7 +45,7 @@ export function InlineBusinessStatus({accountId,status,recontactAt,disabled=fals
      </UnstyledButton></DisabledTooltip>;})}
    </div>
    {value==='recontact'&&canEditStatus.includes('recontact')&&<label className={styles.date}>Fecha de recontacto (opcional)<CrmDateInput disabled={disabled||mutation.isPending} value={date} onValueChange={setDate}/></label>}
-   {value==='recontact'&&canEditStatus.includes('recontact')&&<span role="status" className={styles.notice}>{date?recontactNotice(date):'Con una fecha, te agendamos una tarea para volver a contactar.'}</span>}
+   {value==='recontact'&&canEditStatus.includes('recontact')&&<span role="status" className={styles.notice}>{date?recontactNotice(date,scheduledFor):'Con una fecha, se agenda una tarea para volver a contactar.'}{date&&isPastDay(date)&&<> {RECONTACT_PAST_HINT}</>}</span>}
    {changed&&<Button size="sm" disabled={disabled||mutation.isPending} disabledReason={mutation.isPending?"Guardando el estado. Esperá a que termine.":"Solo el responsable autorizado del negocio o un administrador puede cambiar este estado."} onClick={()=>mutation.mutate({action:'business_status',accountId,status:value,recontactAt:value==='recontact'?(date||null):null})}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
    {mutation.error&&<span role="alert" className={styles.error}>{mutation.error.message}</span>}
   </PopoverContent>
