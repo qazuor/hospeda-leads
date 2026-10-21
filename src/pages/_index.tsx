@@ -749,7 +749,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las gestiones. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         {!businessMode&&!resultsBusy&&!leadsQ.error&&!leads.length&&<section className={styles.emptyState}>
           <h2>{appliedRuleCount||stats.total?"Sin resultados por los filtros actuales":"Sin gestiones iniciadas"}</h2>
-          <p>{appliedRuleCount||stats.total?"Revisá los filtros para encontrar la gestión que buscás.":"Cargar un negocio no inicia una gestión. Una gestión es lo que querés lograr con un negocio, por ejemplo «Ej.: Plan anual 2027». Cuando prepares una propuesta, usá Iniciar gestión."}</p>
+          <p>{appliedRuleCount||stats.total?"Revisá los filtros para encontrar la gestión que buscás.":"Cargar un negocio no inicia una gestión. Una gestión es lo que querés lograr con un negocio, por ejemplo «Plan anual 2027». Cuando prepares una propuesta, usá Iniciar gestión."}</p>
           <Button variant="outline" onClick={appliedRuleCount||stats.total?()=>{clearAllFilters();setAppliedFilterGroups([]);setQuery("")}:newLead}>{appliedRuleCount||stats.total?"Limpiar filtros":"Iniciar gestión"}</Button>
         </section>}
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
