@@ -63,3 +63,31 @@ describe("JWT_SECRET boot validation", () => {
     await expect(other.getServerSessionOrThrow(new Request("http://x", { headers: { cookie: cookieOf(response) } }))).rejects.toThrow();
   });
 });
+
+describe("JWT_SECRET marker list and whitespace warning", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the placeholder markers identical to scripts/local/lib.mjs", async () => {
+    // @ts-expect-error plain ESM script without types
+    const lib = await import("../../scripts/local/lib.mjs");
+    const { PlaceholderMarkers } = await load();
+    expect([...lib.JwtPlaceholderMarkers]).toEqual([...PlaceholderMarkers]);
+  });
+
+  it.each([" ", '"', "'"])("warns but still accepts a secret with a surrounding %j", async (wrap) => {
+    const { requireJwtSecret } = await load();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const value = `${wrap}a8f3k2j9d0s7h1g5l4p6q8w2e3r4t5y6${wrap}`;
+    expect(requireJwtSecret(value)).toBe(value);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/surrounding whitespace or quotes/));
+  });
+
+  it("does not warn for a clean secret", async () => {
+    const { requireJwtSecret } = await load();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    requireJwtSecret("a8f3k2j9d0s7h1g5l4p6q8w2e3r4t5y6");
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
