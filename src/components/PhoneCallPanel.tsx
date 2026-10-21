@@ -14,9 +14,10 @@ import {callSummary,isDialable,telHref} from '../helpers/phoneCall';
 import {canLogContactOutcome} from '../helpers/contactOutcome';
 import type {ContactPurpose} from '../helpers/contactPurpose';
 import {VOCAB} from '../content/vocabulary';
+import {PersonPhoneDncNotice} from './PersonPhoneDncWarning';
 import styles from './PhoneCallPanel.module.css';
 
-type Person={id:string|number;name:string;phone:string|null;deletedAt?:Date|string|null};
+type Person={id:string|number;name:string;phone:string|null;deletedAt?:Date|string|null;dncPhoneBusinesses?:{nombre:string;ciudad:string|null}[]};
 /** State that must outlive the panel (it unmounts when the channel or a block reason changes): the saved call and the request key of the attempt in progress. */
 export type CallSession={logged:Message|null;setLogged:(message:Message|null)=>void;attempt:MutableRefObject<string|null>;reset:()=>void};
 /** Owner-side state of a call: keep it in the component that mounts the panel so a saved call stays saved and an uncertain save is retried with the same key. */
@@ -24,13 +25,13 @@ export function useCallSession():CallSession{
  const [logged,setLogged]=useState<Message|null>(null),attempt=useRef<string|null>(null);
  return {logged,setLogged:message=>{setLogged(message);if(message)attempt.current=null},attempt,reset:()=>{setLogged(null);attempt.current=null}};
 }
-type PanelProps={session?:CallSession;account:{id:string|number;nombre:string;telefono:string|null};contacts:Person[];leadId:string|null;purpose?:{purpose:ContactPurpose;otherPurpose:string}|null;blockedReason?:string;initialContactId?:string;fixedRecipient?:{id:string;mustChoose:boolean};onLog?:(contactId:string,channel:string)=>void;onFinished:()=>void};
+type PanelProps={session?:CallSession;account:{id:string|number;nombre:string;telefono:string|null};contacts:Person[];leadId:string|null;purpose?:{purpose:ContactPurpose;otherPurpose:string}|null;blockedReason?:string;initialContactId?:string;fixedRecipient?:{id:string;mustChoose:boolean};/** The caller already shows the No contactar phone notice for this person. */hideDncNotice?:boolean;onLog?:(contactId:string,channel:string)=>void;onFinished:()=>void};
 
 /**
  * One way to call, for a management or for the business alone. Showing, copying or opening the number never records anything:
  * only "Ya llamé" does, and it ends in "¿Cómo salió?" → "¿Cómo sigue?". `fixedRecipient` is for a caller that already asked who to call (a task): the panel then shows no person picker. With `onLog` (a task's own completion path) it hands over to that path instead of saving a call.
  */
-export function PhoneCallPanel({account,contacts,leadId,purpose=null,blockedReason='',initialContactId,fixedRecipient,onLog,onFinished,session}:PanelProps){
+export function PhoneCallPanel({account,contacts,leadId,purpose=null,blockedReason='',initialContactId,fixedRecipient,hideDncNotice,onLog,onFinished,session}:PanelProps){
  const own=useCallSession(),{logged,setLogged,attempt}=session??own;
  const qc=useQueryClient(),touch=useMediaQuery('(pointer: coarse)');
  const people=contacts.filter(c=>!c.deletedAt);
@@ -61,6 +62,7 @@ export function PhoneCallPanel({account,contacts,leadId,purpose=null,blockedReas
  return <div className={styles.panel} aria-busy={mutation.isPending}>
   {!fixedRecipient&&<CrmNativeSelect label="¿A quién llamás?" value={mustChoose?'':effective||'__business'} disabled={mutation.isPending||done} onChange={e=>{setNotice('');setPicked(e.target.value===''?null:e.target.value==='__business'?'':e.target.value)}} data={[...(mustChoose?[{value:'',label:'Elegí una persona o el teléfono del negocio'}]:[]),{value:'__business',label:'Teléfono del negocio'},...people.map(c=>({value:String(c.id),label:c.name+(c.phone?.trim()?' · '+c.phone.trim():' · sin teléfono')}))]}/>}
   {mustChoose?<p className={styles.numberHint}>Elegí a quién llamar para ver el número.</p>:phone?<p className={styles.number} aria-label="Número a llamar">{phone}</p>:<p role="status">Esta persona no tiene un teléfono cargado.</p>}
+  {!mustChoose&&!hideDncNotice&&<PersonPhoneDncNotice businesses={person?.dncPhoneBusinesses}/>}
   <p className={styles.numberHint}>Mostrar, copiar o abrir el número no anota nada: llamá y después tocá «Ya llamé».</p>
   <div className={styles.actions}>
    {touch?(dial?<Button variant="default" leftSection={<Phone size={18} aria-hidden="true"/>} disabled disabledReason={dial}>Llamar ahora</Button>:<ChannelLink component="a" variant="default" leftSection={<Phone size={18} aria-hidden="true"/>} href={telHref(phone)}>Llamar ahora</ChannelLink>):<Button variant="default" leftSection={<Copy size={18} aria-hidden="true"/>} disabled={!!dial} disabledReason={dial} onClick={()=>void copy()}>Copiar número</Button>}

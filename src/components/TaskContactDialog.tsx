@@ -10,6 +10,7 @@ import {WorkFlowSteps} from './WorkFlowSteps';
 import {ContactTemplateDialog} from './ContactTemplateDialog';
 import {BusinessContactDialog} from './BusinessContactDialog';
 import {PhoneCallPanel} from './PhoneCallPanel';
+import {PersonPhoneDncNotice} from './PersonPhoneDncWarning';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import {getCommunication} from '../endpoints/communication.schema';
 import {getCommercialDetail} from '../endpoints/commercial.schema';
@@ -54,6 +55,7 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
   {q.data&&!loading&&!error&&<div className={styles.form}>
    <CrmNativeSelect label="Destinatario" value={mustChooseRecipient?'':effective||'__business'} onChange={e=>{setContact(e.target.value);setUsedChannel('')}} data={[...(mustChooseRecipient?[{value:'',label:'Elegí una persona o el canal general'}]:[]),{value:'__business',label:'Canal general de '+q.data.account.nombre},...availableContacts.map(c=>({value:String(c.id),label:c.name}))]}/>
    <p>{mustChooseRecipient?'Elegí explícitamente a quién contactar.':<>Teléfono: {phone||'Sin datos'} · Email: {email||'Sin datos'}</>}</p>
+   {!mustChooseRecipient&&<PersonPhoneDncNotice businesses={contact?.dncPhoneBusinesses}/>}
    {(blocked('whatsapp')||blocked('email')||blocked('call'))&&<p role="status">Algunos canales están restringidos. Solo mostramos las acciones permitidas.</p>}
    {task.leadId&&!opportunity&&<p role="alert">La gestión de esta tarea ya no está disponible. Revisá la tarea antes de preparar un mensaje.</p>}
    {!canPrepare&&<p>La tarea asignada te permite registrar su resultado. Para preparar mensajes necesitás ser responsable de la gestión o administrador; la asignación de esta tarea no cambia esos permisos.</p>}
@@ -62,7 +64,7 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
     {!!phone?.replace(/\D/g,'')&&!blocked('whatsapp')&&<Button variant="default" leftSection={<MessageCircle size={18} aria-hidden="true"/>} disabled={!canPrepare||mustChooseRecipient} disabledReason={mustChooseRecipient?'Elegí explícitamente a quién contactar.':'Solo el responsable de esta gestión o un administrador puede preparar mensajes; la tarea asignada no otorga ese permiso.'} onClick={()=>{setUsedChannel('whatsapp');setMessageChannel('whatsapp')}}>Preparar WhatsApp con un mensaje modelo</Button>}
     {email&&!blocked('email')&&<Button variant="default" leftSection={<Mail size={18} aria-hidden="true"/>} disabled={!canPrepare||mustChooseRecipient} disabledReason={mustChooseRecipient?'Elegí explícitamente a quién contactar.':'Solo el responsable de esta gestión o un administrador puede preparar mensajes; la tarea asignada no otorga ese permiso.'} onClick={()=>{setUsedChannel('email');setMessageChannel('email')}}>Preparar email con un mensaje modelo</Button>}
    </div>
-   {!blocked('call')&&<PhoneCallPanel key={effective+(mustChooseRecipient?':choose':'')} account={q.data.account} contacts={q.data.contacts} leadId={task.leadId?String(task.leadId):null} fixedRecipient={{id:effective,mustChoose:mustChooseRecipient}} onLog={onLog} onFinished={onClose}/>}
+   {!blocked('call')&&<PhoneCallPanel key={effective+(mustChooseRecipient?':choose':'')} account={q.data.account} contacts={q.data.contacts} leadId={task.leadId?String(task.leadId):null} fixedRecipient={{id:effective,mustChoose:mustChooseRecipient}} hideDncNotice onLog={onLog} onFinished={onClose}/>}
    {!phone&&!email&&<p>Este destinatario no tiene teléfono ni email. <Link to={'/accounts/'+task.accountId}>Agregar o revisar personas</Link></p>}
    <section className={styles.conversationContinue}><h3>Después de hablar o intentar contactar</h3><p>Abrir un canal no confirma un envío. También podés registrar una llamada o un intento sin respuesta.</p><Button onClick={()=>onLog(effective,usedChannel)}>{VOCAB.logWhatHappened}</Button></section>
   </div>}

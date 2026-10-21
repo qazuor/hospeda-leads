@@ -18,8 +18,9 @@ import {useUnsavedChanges} from './UnsavedChanges';
 import {canLogContactOutcome} from '../helpers/contactOutcome';
 import {VOCAB} from '../content/vocabulary';
 import styles from './Communication.module.css';
+import {PersonPhoneDncNotice} from './PersonPhoneDncWarning';
 
-type Data={account:{id:string|number;nombre:string;email:string|null;telefono:string|null;whatsapp:string|null;tipo:string|null;status:string;archivedAt:Date|string|null;recontactAt:Date|string|null;doNotContact:boolean;isClient:boolean;assignedUserEmail:string|null};contacts:{id:string|number;name:string;email:string|null;phone:string|null;deletedAt:Date|string|null}[];users?:{email:string;displayName:string}[]};
+type Data={account:{id:string|number;nombre:string;email:string|null;telefono:string|null;whatsapp:string|null;tipo:string|null;status:string;archivedAt:Date|string|null;recontactAt:Date|string|null;doNotContact:boolean;isClient:boolean;assignedUserEmail:string|null};contacts:{id:string|number;name:string;email:string|null;phone:string|null;deletedAt:Date|string|null;dncPhoneBusinesses?:{nombre:string;ciudad:string|null}[]}[];users?:{email:string;displayName:string}[]};
 type Template={id:string|number;channel:string;name:string;subject:string|null;body:string;vertical:string|null;managementType:string|null;commercialProfile:string|null;active?:boolean};
 /**
  * Email or WhatsApp for a business without a management (the "Sin gestión" case of the Contactar dialog). The purpose comes already chosen.
@@ -49,6 +50,7 @@ export function GeneralMessageStep({detail,templates,channel,purpose,onClose,onF
    {detail.account.status==='recontact'&&detail.account.recontactAt&&<p>Fecha sugerida de recontacto: {formatDate(detail.account.recontactAt)}. Podés contactar antes si hace falta.</p>}
    {recent&&<p role="status"><strong>Contacto reciente</strong> · {formatDateTime(recent.lastInteractionAt!)} · {recent.channel} · {messageLabels[recent.status]??recent.status}. Revisalo antes de iniciar otro.</p>}
    <label>Persona de contacto<NativeSelect value={contactId} onChange={e=>setContactId(e.target.value)}><option value="">{candidates.length?'Elegí una persona':'Usar el dato general del negocio'}</option>{candidates.map(c=><option key={c.id} value={String(c.id)}>{c.name} · {channel==='email'?c.email:c.phone}</option>)}</NativeSelect></label>
+   {channel==='whatsapp'&&<PersonPhoneDncNotice businesses={target?.dncPhoneBusinesses}/>}
    {canUseBusiness&&<p>Destinatario: {businessTarget} · negocio</p>}{!candidates.length&&!businessTarget&&<p role="alert">No hay un dato válido para este canal. Agregalo a la ficha del negocio o a una persona.</p>}
    <label>Mensaje modelo (opcional)<NativeSelect value={templateId} onChange={e=>setTemplateId(e.target.value)}><option value="">Escribir desde cero</option>{applicable.map(t=><option key={t.id} value={String(t.id)}>{t.name}{t.managementType?` · ${t.managementType}`:t.vertical?` · ${t.vertical}`:''}</option>)}</NativeSelect></label>
    {blocked&&<p role="alert">{detail.account.doNotContact?'No contactar bloquea todos los canales.':'El negocio está archivado y requiere desarchivo administrativo.'}</p>}
