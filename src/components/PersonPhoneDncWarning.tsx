@@ -6,7 +6,7 @@ import styles from './Commercial.module.css';
 export function PersonPhoneDncWarning({matches,acknowledged,onAcknowledge,disabled}:{matches:readonly DuplicateCandidate[];acknowledged:boolean;onAcknowledge:(value:boolean)=>void;disabled?:boolean}){
  if(!matches.length)return null;
  return <section role="note" aria-label="Teléfono de un negocio No contactar" style={{display:'grid',gap:8,padding:12,border:'1px solid var(--error)',borderRadius:10}}>
-  <p style={{margin:0}}><strong>Este teléfono figura en un negocio marcado No contactar: {matches.map(c=>c.ciudad?`${c.nombre} (${c.ciudad})`:c.nombre).join(', ')}.</strong> Podés guardar a la persona, pero no contactes a ese negocio por este teléfono.</p>
+  <p style={{margin:0}}><strong>Este teléfono es de un negocio que pidió no ser contactado: {matches.map(c=>c.ciudad?`${c.nombre} (${c.ciudad})`:c.nombre).join(', ')}.</strong> Podés guardar a la persona. No uses este teléfono para contactar sin consultar a un administrador.</p>
   <label className={styles.checkbox}><Checkbox disabled={disabled} checked={acknowledged} onChange={e=>onAcknowledge(e.target.checked)}/>Entendido, no voy a contactar a ese negocio</label>
  </section>;
 }

@@ -50,7 +50,7 @@ test('A person phone shared with a No contactar business only warns: the seller 
  await dialog.getByLabel('Nombre',{exact:true}).fill(name);
  await dialog.getByLabel('Nombre de la persona',{exact:true}).fill('Ana con aviso');await dialog.getByLabel('Teléfono de la persona',{exact:true}).fill('3447 411999');
  const note=dialog.getByRole('note',{name:'Teléfono de un negocio No contactar'});
- await expect(note).toContainText('Este teléfono figura en un negocio marcado No contactar: Hostería Silenciosa (Colón)');
+ await expect(note).toContainText('Este teléfono es de un negocio que pidió no ser contactado: Hostería Silenciosa (Colón)');
  await expect(dialog.getByRole('alert')).toHaveCount(0);await expect(create).toBeDisabled();
  await page.screenshot({path:'test-results/business-quick-create-person-phone-dnc.png',fullPage:true});
  await dialog.getByLabel('Entendido, no voy a contactar a ese negocio',{exact:true}).check();await expect(create).toBeEnabled();

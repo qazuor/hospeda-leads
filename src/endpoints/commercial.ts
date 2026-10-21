@@ -130,7 +130,7 @@ export async function post(request:Request){
         await audit(String(row.id),contactOnly?"account_contact_data_updated":existing?"account_updated":"account_created",existing,row,null,contactOnly?{scope:access!.scope,leadIds:access!.leadIds}:{});
         if(input.primaryContact){// One-step creation: the person becomes Principal in the same transaction (a new business has no previous Principal).
           const contact=await trx.insertInto("crmContacts").values({accountId:String(row.id),name:input.primaryContact.name,phone:nullable(input.primaryContact.phone),email:nullable(input.primaryContact.email),isPrimary:true,updatedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
-          await audit(String(row.id),"contact_created",null,contact,String(contact.id));
+          await audit(String(row.id),"contact_created",null,input.personPhoneDncAcknowledged?{...contact,personPhoneDncAcknowledged:true}:contact,String(contact.id));
         }
         return String(row.id);
       }
@@ -196,7 +196,7 @@ export async function post(request:Request){
         }
         const fields={accountId:input.accountId,name:input.name,position:nullable(input.position),phone:nullable(input.phone),email:nullable(input.email),preferredChannel:nullable(input.preferredChannel),isPrimary:input.isPrimary,notes:nullable(input.notes),updatedAt:new Date()};
         const row=old?await trx.updateTable("crmContacts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmContacts").values(fields).returningAll().executeTakeFirstOrThrow();
-        await audit(input.accountId,old?"contact_updated":"contact_created",old,row,String(row.id),viaManagement?{scope:contactAccess!.scope,leadIds:contactAccess!.leadIds}:{});
+        await audit(input.accountId,old?"contact_updated":"contact_created",old,input.personPhoneDncAcknowledged?{...row,personPhoneDncAcknowledged:true}:row,String(row.id),viaManagement?{scope:contactAccess!.scope,leadIds:contactAccess!.leadIds}:{});
         return String(row.id);
       }
       const creationHash=input.creationRequestKey?createHash("sha256").update(JSON.stringify({...input,actorEmail:user.email})).digest("hex"):null;

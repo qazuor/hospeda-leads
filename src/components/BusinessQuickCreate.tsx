@@ -59,7 +59,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
   event.preventDefault();if(submitting.current||disabledReason)return;submitting.current=true;setError('');
   const text=(v:string)=>v.trim()||null;
   try{
-   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:text(draft.ciudad),telefono:text(draft.telefono),email:text(draft.email),tipo:text(draft.tipo),subtipo:text(draft.subtipo),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{})});
+   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:text(draft.ciudad),telefono:text(draft.telefono),email:text(draft.email),tipo:text(draft.tipo),subtipo:text(draft.subtipo),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{}),...(personKey&&personAcknowledged===personKey?{personPhoneDncAcknowledged:true}:{})});
   }catch(e){setError(e instanceof Error?e.message:'No se pudo crear el negocio.');}finally{submitting.current=false;}
  };
  const input=(key:keyof typeof draft,label:string,props:React.InputHTMLAttributes<HTMLInputElement>={})=><label key={key}>{label}<Input {...props} disabled={mutation.isPending} value={draft[key]} onChange={set(key)}/></label>;
