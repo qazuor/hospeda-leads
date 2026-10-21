@@ -5,7 +5,7 @@ import superjson from 'superjson';
 import { db } from '../src/helpers/db';
 import { setServerSession } from '../src/helpers/getSetServerSession';
 import { normalizeSearchText } from '../src/helpers/searchText';
-import { normalizeSearchSql } from '../src/helpers/searchSql';
+import { normalizeSearchSql, searchSql } from '../src/helpers/searchSql';
 import { handle as leads } from '../src/endpoints/leads_GET';
 import { handle as trash } from '../src/endpoints/leads_trash_GET';
 import { handle as journal } from '../src/endpoints/lead_journal_GET';
@@ -174,6 +174,13 @@ try {
   assert.equal((await get(commercial,'commercial',{q:account.nombre},admin.cookie)).total,0);
   assert.equal((await get(commercial,'commercial',{q:account.nombre,archived:'true'},admin.cookie)).total,1,'Restore preserves previous archive state');
   assert.equal((await db.selectFrom('leads').select('opportunityName').where('id', '=', proposal.id).executeTakeFirstOrThrow()).opportunityName, `${marker} Gastronomía`, 'Search never rewrites stored values');
+  // Migration 032 indexes the exact normalizeSearchSql() expression; if the helper drifts, the planner can no longer use them.
+  const indexed: Record<string, [string, string[]]> = { crm_accounts_search_trgm: ['crm_accounts', ['nombre', 'email', 'telefono', 'ciudad', 'business_notes']], crm_contacts_search_trgm: ['crm_contacts', ['name', 'email', 'phone']], crm_activities_search_trgm: ['crm_activities', ['title', 'notes', 'result']], lead_notes_search_trgm: ['lead_notes', ['note']] };
+  for (const [index, [table, columns]] of Object.entries(indexed)) for (const column of columns) await db.transaction().execute(async tx => {
+    await sql`SET LOCAL enable_seqscan = off`.execute(tx);
+    const plan = (await sql<{ 'QUERY PLAN': string }>`EXPLAIN SELECT 1 FROM ${sql.table(table)} AS t WHERE ${searchSql(`t.${column}`, 'Colón ñandú')}`.execute(tx)).rows.map(row => row['QUERY PLAN']).join('\n');
+    assert.match(plan, new RegExp(`Bitmap Index Scan on ${index}\\b`), `${table}.${column} search must use ${index}`);
+  });
   console.log('Accent-insensitive search: Latin Unicode, ñ, all free-search endpoints, pagination, AND/OR filters, deleted/archived visibility and permissions passed');
 } finally {
   await db.destroy();
