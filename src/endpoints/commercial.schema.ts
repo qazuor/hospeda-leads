@@ -38,4 +38,4 @@ export async function commercialRequest<T>(path:string,body?:unknown):Promise<T>
 }
 export const getCommercialDetail=(accountId?:string,leadId?:string)=>commercialRequest<CommercialDetail>("commercial?"+new URLSearchParams(accountId?{accountId}:{leadId:leadId!}));
 export const getCommercialList=(q:string,status:string,page:number)=>commercialRequest<CommercialList>("commercial?"+new URLSearchParams({q,...(status?{status}:{}),page:String(page)}));
-export const saveCommercial=(body:CommercialMutation)=>commercialRequest<{id:string;recontactTask?:{id:string;dueDate:string;action:'created'|'moved'|'kept'}}>("commercial",commercialMutation.parse(body));
+export const saveCommercial=(body:CommercialMutation)=>commercialRequest<{id:string;recontactTask?:{id:string;dueDate:string;action:'created'|'moved'|'kept';title:string}}>("commercial",commercialMutation.parse(body));

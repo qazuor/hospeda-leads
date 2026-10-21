@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {RECONTACT_TASK_TITLE,isPastDay,recontactCancelReason,recontactNotice,recontactScheduled,scheduledForName} from './recontactTask';
+import {MANAGEMENT_RECONTACT_TASK_TITLE,RECONTACT_TASK_TITLE,isPastDay,recontactCancelReason,recontactNotice,recontactScheduled,scheduledForName} from './recontactTask';
 
 describe('recontact task copy',()=>{
  it('tells the seller before and after saving which task is scheduled and on which Argentina calendar day',()=>{
@@ -7,6 +7,10 @@ describe('recontact task copy',()=>{
   expect(recontactNotice('2026-11-15')).toBe('Se va a agendar «Volver a contactar» para el 15 de nov de 2026.');
   expect(recontactScheduled('2026-11-15')).toBe('Agendamos «Volver a contactar» para el 15 de nov de 2026.');
   expect(recontactNotice('2026-01-01')).toContain('1 de ene de 2026');
+ });
+ it('names the management task when a re-save moved the management reminder instead of scheduling a business one',()=>{
+  expect(MANAGEMENT_RECONTACT_TASK_TITLE).toBe('Recontactar según lo acordado');
+  expect(recontactScheduled('2026-11-15',null,MANAGEMENT_RECONTACT_TASK_TITLE)).toBe('Agendamos «Recontactar según lo acordado» para el 15 de nov de 2026.');
  });
  it('names the assignee only when it is not the saver',()=>{
   expect(recontactNotice('2026-11-15','Marta')).toBe('Se va a agendar «Volver a contactar» para el 15 de nov de 2026 · a cargo de Marta.');

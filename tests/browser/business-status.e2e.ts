@@ -12,7 +12,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}])test(`bus
   else if(url.pathname.endsWith('/commercial')&&route.request().method()==='POST'){
    const body=superjson.parse<Record<string,unknown>>(route.request().postData()||'{}');writes.push(body);
    if(body.action==='business_status'){status=String(body.status);recontactAt=typeof body.recontactAt==='string'?new Date(`${body.recontactAt}T00:00:00.000Z`):null;}
-   data=body.action==='business_status'&&body.status==='recontact'&&body.recontactAt?{id:'1',recontactTask:{id:'9',dueDate:body.recontactAt,action:'created'}}:{id:'1'};
+   data=body.action==='business_status'&&body.status==='recontact'&&body.recontactAt?{id:'1',recontactTask:{id:'9',dueDate:body.recontactAt,action:'created',title:'Volver a contactar'}}:{id:'1'};
   }else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{...account,status,recontactAt},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Owner'}]};
   else if(url.pathname.endsWith('/work'))data={tasks:[],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:0,totalActivities:0,page:1};
   else if(url.pathname.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
