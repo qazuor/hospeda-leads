@@ -156,7 +156,7 @@ No deducir esas decisiones de etapas históricas. No agregar automatismos de pag
 
 ## Estados de negocio y gestiones
 
-La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-business-and-management-state-model.md). El código y las migraciones 018–021 se integraron al branch local de integración; (histórico) en su momento faltaban pruebas de migración en PostgreSQL descartable y la revisión del PR final; el trabajo se integró en `staging` (#99–#103) y las migraciones 018–031 corren en CI sobre PostgreSQL 17 descartable. Sigue pendiente aplicarlas en producción con el procedimiento revisado. La migración conserva `review_status='filtered'` como Revisado, mantiene Papelera separada y no reconstruye gestiones eliminadas.
+La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-business-and-management-state-model.md). El código y las migraciones 018–021 se integraron al branch local de integración; (histórico) en su momento faltaban pruebas de migración en PostgreSQL descartable y la revisión del PR final; el trabajo se integró en `staging` (#99–#103) y las migraciones 018–033 corren en CI sobre PostgreSQL 17 descartable. Sigue pendiente aplicarlas en producción con el procedimiento revisado. La migración conserva `review_status='filtered'` como Revisado, mantiene Papelera separada y no reconstruye gestiones eliminadas.
 
 ## Pospuesto por el propietario: datos y multivertical
 
