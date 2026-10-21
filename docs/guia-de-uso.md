@@ -1,6 +1,6 @@
 # Usar Hospeda, paso a paso
 
-Guía para personas sin experiencia en CRM o ventas. Disponible en Más opciones → Guía de uso paso a paso. El contenido se mantiene en src/content/user-guide.json.
+Guía para personas sin experiencia en CRM o ventas. Disponible en Ayuda (menú principal). El contenido se mantiene en src/content/user-guide.json.
 
 ## Empezar y orientarse
 
@@ -10,37 +10,61 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Cuándo usarlo:** Antes de cargar datos o cuando una palabra te genere dudas.
 
-1. Negocio: la empresa o establecimiento. Crealo una vez; después agregás personas y gestiones dentro de él.
-2. Contacto: una persona del negocio. Guardá su nombre y sus propios canales de comunicación.
-3. Gestión comercial: una propuesta o participación concreta y su seguimiento. Iniciarla no significa que ya se haya vendido.
-4. Estado del negocio: indica si está Nuevo, Revisado, En gestión, Sin seguimiento programado, Recontactar o Archivado. No es la etapa de una gestión.
-5. Estado de una gestión: describe su propio recorrido, que depende del tipo de gestión. Puede haber más de una abierta para el mismo negocio.
-6. Es cliente, No contactar y Derivado a Leandro son marcas independientes del estado. Papelera es la eliminación lógica y bloquea el uso hasta que un administrador restaure el negocio.
-7. Tarea o próximo paso: algo que falta hacer, con una fecha. Actividad: lo que ya hiciste y registraste. Responsable: quien se encarga del negocio, gestión o tarea.
+1. Negocio: el comercio o establecimiento. Se carga una sola vez; después le sumás personas y gestiones.
+2. Persona: alguien del negocio con quien hablás. Tiene sus propios datos (cargo, teléfono, email). Si todavía no conocés a nadie, podés usar el teléfono o el email del negocio.
+3. Gestión: lo que querés lograr con ese negocio, por ejemplo venderle un plan o sumarlo como proveedor. Un negocio puede tener varias gestiones a la vez. Iniciar una gestión no significa que ya se vendió.
+4. Estado y etapa no son lo mismo. El Estado es del negocio y dice en qué situación está en general: Nuevo, Revisado, En gestión, Sin tarea agendada, Recontactar o Archivado. La Etapa es de cada gestión y dice en qué punto va esa propuesta.
+5. Es cliente, No contactar y Derivado a Leandro son marcas aparte; no son estados. La Papelera es para registros inválidos o cargados por error.
+6. Tarea: algo que falta hacer, con una fecha. Cuando la hacés, la anotás con «Anotar cómo salió» y queda guardado lo que pasó en «Qué pasó», dentro del negocio.
+7. Responsable: la persona que se encarga del negocio, de la gestión o de la tarea.
 
-**Qué queda al terminar:** Podés distinguir el estado general del negocio, cada gestión y el trabajo pendiente.
+**Qué queda al terminar:** Podés distinguir negocio, persona, gestión y tarea, y no confundís el Estado del negocio con la Etapa de una gestión.
 
 **Ejemplo:**
 
-- Cabañas Camino Claro es el negocio. Ana es un contacto. Publicación de cabañas es una gestión. Llamar a Ana el jueves es una tarea. La llamada del jueves es una actividad.
+- Cabañas Camino Claro es el negocio. Ana es una persona. Publicación de cabañas es una gestión. Llamar a Ana el jueves es una tarea. Cuando la llamás y anotás cómo salió, queda registrado lo que pasó.
 
 **Tené en cuenta:**
 
-- Cerrar una gestión no siempre cierra las demás. Ganada no verifica cobros ni activa servicios del portal turístico.
+- Cerrar una gestión no cierra las demás. Ganada no verifica cobros ni activa servicios del portal turístico.
+- Si una palabra de la pantalla te genera dudas, buscá el ícono ⓘ al lado: explica el término en una frase.
 
-### Estado del negocio y estado de cada gestión
+### Tu primer día: la lista de Primeros pasos
 
-**Cuándo usarlo:** Cuando necesitás saber qué significa un estado o cuál cambiar.
+**Cuándo usarlo:** Cuando recién empezás a usar Hospeda y no sabés por dónde arrancar.
 
-1. Nuevo significa que el negocio todavía no fue verificado. Comprobá que exista y corresponda al registro antes de iniciar una gestión.
-2. Revisado confirma que el negocio fue comprobado y puede trabajarse. Si acabás de verificarlo al iniciar una gestión, podés confirmarlo en ese mismo formulario.
-3. En gestión aparece mientras haya al menos una gestión abierta. Al cerrar la última, el negocio pasa a Sin seguimiento programado; si corresponde retomarlo, elegí Recontactar y podés indicar una fecha opcional. Esa fecha orienta al equipo, pero no bloquea un contacto anticipado.
-4. Archivado aparta un negocio válido que no se trabajará por ahora. Solo un administrador puede desarchivarlo; vuelve a Revisado si ya había sido verificado y, si no, a Nuevo.
-5. Las etapas pertenecen a cada gestión y dependen de su tipo: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. No hace falta pasar por todas ni seguir un orden fijo entre etapas abiertas.
-6. Es cliente, No contactar y Derivado a Leandro son marcas independientes. En Verticales principales y Partners, cerrar una gestión como ganada marca al negocio como cliente; solo un administrador puede quitar esa marca. Derivar asigna el negocio a Leandro; solo un administrador puede desactivar la derivación.
-7. Papelera es distinta de Archivado. Un negocio en Papelera no se puede usar ni contactar hasta que un administrador lo restaure.
+1. Entrá en «Hoy». Si todavía no usaste la aplicación, arriba aparece el cuadro «Primeros pasos» con cuatro pasos.
+2. Los pasos son: abrir una tarea, contactar a un negocio, anotar cómo salió y agendar la próxima tarea. Se tildan solos a medida que trabajás; no hace falta marcarlos.
+3. Si todavía no tenés tareas, tocá «Agendar mi primera tarea» o entrá en «Negocios» para buscar un comercio y abrirlo.
+4. Cuando quieras sacar el cuadro, tocá «Ocultar». No se pierde nada: es solo una ayuda.
 
-**Qué queda al terminar:** Sabés qué estado cambiar y cuándo corresponde hacerlo, sin confundir el negocio con una gestión.
+**Qué queda al terminar:** Sabés qué hacer en tus primeros días y la aplicación te marca el avance sin que tengas que anotarlo.
+
+**Ejemplo:**
+
+- Abrís una tarea, tocás «Contactar», mandás el mensaje, anotás cómo salió y dejás la próxima tarea con fecha. Con eso completaste los cuatro pasos.
+
+**Tené en cuenta:**
+
+- Los pasos se tildan por lo que hacés de verdad, no por mirar una pantalla.
+- Si ya trabajaste antes, el cuadro no aparece.
+
+**Dónde ir:** Ir a Hoy (/my-day)
+
+### Estado del negocio y etapa de la gestión
+
+**Cuándo usarlo:** Cuando necesitás saber qué significa un estado, una etapa o cuál cambiar.
+
+1. Nuevo significa que nadie verificó todavía el negocio. Comprobá que exista y corresponda al registro antes de iniciar una gestión.
+2. Revisado confirma que el negocio fue comprobado y se puede trabajar. Si lo acabás de verificar al iniciar una gestión, podés confirmarlo en ese mismo formulario.
+3. En gestión aparece mientras haya al menos una gestión abierta. Al cerrar la última, el negocio pasa a Sin tarea agendada; si hay que volver a hablarle más adelante, elegí «Recontactar» y, si querés, ponele una «Fecha de recontacto (opcional)». Con fecha, el CRM agenda la tarea «Volver a contactar» para el responsable del negocio. Contactarlo antes sigue siendo posible.
+4. Para cambiar el Estado, tocá la etiqueta «Estado del negocio» y elegí una opción. Algunos estados se cambian solos al iniciar o cerrar gestiones.
+5. Archivado aparta un negocio válido que no vas a trabajar por ahora. Solo un administrador puede desarchivarlo; vuelve a Revisado si ya había sido verificado y, si no, a Nuevo.
+6. Las Etapas pertenecen a cada gestión y dependen de su tipo: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. No hace falta pasar por todas ni seguir un orden fijo entre etapas abiertas.
+7. Es cliente, No contactar y Derivado a Leandro son marcas independientes. En verticales principales y Partners, cerrar una gestión como ganada marca al negocio como cliente; solo un administrador puede quitar esa marca.
+8. La Papelera es distinta de Archivado. Un negocio en la Papelera no se puede usar ni contactar hasta que un administrador lo restaure.
+
+**Qué queda al terminar:** Sabés qué Estado o qué Etapa cambiar y cuándo corresponde, sin confundir el negocio con una gestión.
 
 **Ejemplo:**
 
@@ -48,7 +72,8 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Tené en cuenta:**
 
-- No contactar bloquea todos los contactos salientes hasta que un administrador levante la restricción.
+- No contactar bloquea todos los contactos salientes hasta que un administrador levante la restricción. Al marcarlo, el CRM cancela todas las tareas pendientes del negocio y deja anotado el motivo: el negocio quedó marcado No contactar. Si después se levanta el bloqueo, esas tareas no vuelven: si hace falta, agendá una nueva.
+- Cuando termina la última gestión, el negocio queda Sin tarea agendada: es un aviso para que le dejes una próxima tarea o lo marques Recontactar.
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
@@ -57,62 +82,70 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Cuándo usarlo:** Cuando ves campos que no sabés cómo completar.
 
 1. Vertical indica el rubro del negocio; Subtipo lo describe con más detalle. Usá las opciones del equipo y completá solo lo que conozcas.
-2. Perfil comercial ayuda a elegir mensajes modelo adecuados. No es la etapa de la gestión ni la relación Cliente/Potencial cliente.
-3. Prioridad indica qué merece atención antes. La aplicación puede mostrar una prioridad sugerida y explicar por qué; no reemplaza la prioridad manual.
+2. Perfil comercial ayuda a elegir mensajes modelo adecuados. No es la Etapa de la gestión ni la diferencia entre cliente y potencial cliente.
+3. Prioridad indica qué merece atención antes. La aplicación puede mostrar una prioridad sugerida y explicar por qué; no reemplaza la prioridad que elegís vos.
 4. Origen y Fuente de referencia explican de dónde salió el dato. Guardá la fuente real, no una suposición.
-5. Notas conserva información útil. Usá una actividad para una conversación realizada y una tarea para un compromiso pendiente.
+5. Notas conserva información útil. Para una conversación que ya tuviste usá «Anotar lo que pasó»; para un compromiso pendiente usá «Agendar tarea».
 6. Suscripción y Cierre estimado describen información comercial registrada. No prueban cobros ni activación de servicios.
 
 **Qué queda al terminar:** Cada campo ayuda a describir el caso, sin confundirse con el resultado de una gestión.
 
 **Ejemplo:**
 
-- Vertical: Alojamientos. Subtipo: Cabañas. Prioridad: la que realmente requiere el caso. Una propuesta abierta puede pertenecer a un negocio que ya es Cliente.
+- Vertical: Alojamientos. Subtipo: Cabañas. Prioridad: la que realmente requiere el caso. Una propuesta abierta puede pertenecer a un negocio que ya es cliente.
 
 **Tené en cuenta:**
 
-- No hace falta completar todos los campos para empezar. Ante un dato desconocido, dejalo pendiente y planificá cómo confirmarlo.
+- No hace falta completar todos los campos para empezar. Ante un dato desconocido, dejalo en blanco y agendá una tarea para confirmarlo.
 
 ### Dónde encuentro cada cosa
 
 **Cuándo usarlo:** Cuando no sabés qué pantalla abrir.
 
-1. Si ya tenés un compromiso pendiente, empezá en Mi día y abrí esa tarea. Desde ahí podés contactar y registrar qué pasó en el mismo contexto.
-2. Si todavía no hay una tarea, entrá a Negocios, buscá el comercio y abrí su ficha. Elegí Contactar para verificar datos o hacer un contacto general; elegí Iniciar gestión cuando ya haya una propuesta concreta.
-3. Negocios: buscá establecimientos, cargá uno nuevo y abrí sus contactos, gestiones, documentos e historial.
-4. Gestiones comerciales: consultá propuestas concretas. Abrí una para ver Resumen, Seguimiento, Notas, Mensajes y Documentos.
-5. Agenda: revisá encuentros configurados para el calendario, normalmente visitas y reuniones. No reemplaza todas las tareas de Mi día.
-6. Más opciones → Retomar gestiones pospuestas: revisá gestiones cerradas con una fecha para retomar y sus seguimientos pendientes. Reabrir una gestión cerrada requiere un administrador.
-7. Usá los materiales aprobados dentro de una gestión. Solo el admin administra materiales y consulta Negocios archivados.
-8. Búsqueda global, pipeline e historial son atajos para encontrar el mismo negocio o gestión; no son procesos comerciales distintos.
-9. Configuración, Estadísticas, Historial del equipo y Papelera son accesos de administración. Si no los ves, consultá al administrador.
+1. «Hoy» es tu punto de partida: tus tareas vencidas, las de hoy y las que vienen. Tiene tres solapas: «Lista», «Calendario» y «Para retomar».
+2. «Negocios»: buscá comercios, cargá uno nuevo con «Nuevo negocio» y abrilo para ver qué pasó, sus gestiones, sus personas y sus datos.
+3. «Gestiones»: mirá las propuestas concretas, ordenadas por etapa. Abrí una para ver Resumen, Seguimiento, Notas, Comunicación y Documentos.
+4. «Calendario» (dentro de Hoy) muestra visitas y reuniones con fecha. No reemplaza la lista de tareas.
+5. «Para retomar» (dentro de Hoy) reúne las gestiones cerradas que tienen una fecha para volver a hablar. Reabrir una gestión cerrada requiere un administrador.
+6. «Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.
+7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV» y «Buscar duplicados». Si no los ves, son del administrador.
 
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
 
-**Dónde ir:** Abrir Mi día (/my-day)
+**Ejemplo:**
+
+- Querés ver qué tenés que hacer hoy: «Hoy». Querés encontrar a un comercio: «Negocios». Querés ver todas las propuestas abiertas: «Gestiones».
+
+**Tené en cuenta:**
+
+- Los materiales aprobados se vinculan desde «Datos y documentos», dentro del negocio. Solo un administrador administra la biblioteca.
+
+**Dónde ir:** Ir a Hoy (/my-day)
 
 ### Qué hago al empezar y terminar el día
 
 **Cuándo usarlo:** Todos los días de trabajo.
 
-1. Si tenés tareas, abrí Mi día. Atendé primero Vencidas y después Para hoy. Revisá si cada compromiso todavía corresponde. Si aún no hay tarea, empezá por Negocios y abrí la ficha del comercio.
-2. Antes de contactar, leé la última conversación del negocio y el próximo paso. Comprobá el destinatario y las restricciones.
-3. Usá Contactar para hablar; después registrá qué pasó en la misma tarea o contexto desde donde empezaste.
-4. Elegí Cómo sigue. Si falta algo, dejá una acción concreta con fecha; si esperás una respuesta, programá cuándo retomarla.
-5. Abrí Próximas acciones para mirar fechas futuras. Revisá Filtros de trabajo si no encontrás algo.
-6. Al terminar, comprobá que los compromisos asumidos tengan una tarea y que las conversaciones estén registradas.
+1. Abrí «Hoy». Atendé primero «Vencidas» y después «Para hoy». Revisá si cada tarea todavía corresponde. Si aún no tenés tareas, empezá por «Negocios».
+2. Antes de contactar, leé lo último que pasó con el negocio y cuál es el próximo paso. Comprobá a quién le vas a escribir y si hay restricciones.
+3. En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».
+4. Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.
+5. Si no podés hacer una tarea hoy, tocá «Posponer» y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…».
+6. Mirá «Próximas acciones» para las fechas futuras. Si no encontrás algo, revisá «Filtros de trabajo».
+7. Al terminar, comprobá que no te queden contactos sin anotar: aparecen arriba, en «Anotá cómo salió».
 
 **Qué queda al terminar:** El equipo puede continuar el trabajo sin depender de tu memoria.
 
 **Ejemplo:**
 
-- Ana pidió que le envíes la propuesta mañana. No alcanza con escribirlo en una nota: dejá una tarea con esa fecha.
+- Ana pidió que le mandes la propuesta mañana. No alcanza con escribirlo en una nota: agendá una tarea con esa fecha.
 
 **Tené en cuenta:**
 
-- Una lista vacía solo indica que no hay tareas en ese alcance; no demuestra que toda la cartera esté atendida.
+- Una lista vacía solo significa que no tenés tareas con esos filtros; no demuestra que toda la cartera esté atendida.
+- Las gestiones que necesitan un próximo paso aparecen en «Gestiones sin tarea agendada». Agendá una tarea para sacarlas de esa lista.
 
-**Dónde ir:** Ir a Mi día (/my-day)
+**Dónde ir:** Ir a Hoy (/my-day)
 
 ## Negocio y primer contacto
 
@@ -122,17 +155,22 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando el establecimiento todavía no está en el CRM.
 
-1. Entrá en Negocios y buscá el nombre. Revisá ciudad y canales para evitar crear un duplicado.
-2. Si no existe, elegí Nuevo negocio. Completá el campo Negocio y los datos que conozcas. No inventes lo que falte.
-3. Guardá. Abrí su ficha y revisá el próximo paso, que permanece visible entre secciones.
-4. Para completar datos después, elegí Editar negocio. Usá los canales generales para recepción, central telefónica o email del establecimiento.
-5. Si falta responsable o la asignación es incorrecta, pedile al administrador que la revise.
+1. Entrá en «Negocios» y buscá el nombre. Revisá ciudad y canales para no crear un duplicado.
+2. Si no existe, tocá «Nuevo negocio». Alcanza con el nombre; sumá ciudad y teléfono si los conocés. No inventes lo que falte.
+3. Si ya hablaste con alguien, completá «Persona con la que hablaste (opcional)»: queda como persona principal del negocio.
+4. Mientras escribís, el CRM revisa si ya existe algo parecido. Si aparece el mismo negocio, abrilo en lugar de crear otro. Solo si ninguno es el tuyo, marcá «Ninguno de estos es mi negocio, crear igual».
+5. Tocá «Crear negocio». Después podés abrirlo y completar el resto con «Editar negocio».
+6. Usá los teléfonos y emails generales para recepción, central o email del establecimiento. Si falta responsable o la asignación es incorrecta, pedile al administrador que la revise.
 
-**Qué queda al terminar:** El negocio queda guardado; no se crea una gestión ni se envían mensajes por cargarlo.
+**Qué queda al terminar:** El negocio queda guardado. Cargarlo no crea una gestión, ni tareas, ni envía mensajes.
 
 **Ejemplo:**
 
-- Nombre: Cabañas Camino Claro. Ciudad: Colón. Email general: recepción del establecimiento. El email personal de Ana irá en su contacto.
+- Nombre: Cabañas Camino Claro. Ciudad: Colón. Teléfono: el de recepción. El email personal de Ana irá en su propia ficha de persona.
+
+**Tené en cuenta:**
+
+- Si el negocio parecido está marcado No contactar, el CRM no te deja crear un duplicado: abrilo en lugar de crear otro. Si ya existe con otro responsable, el aviso también lo dice.
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
@@ -140,45 +178,48 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando recibís una lista de negocios que todavía no se verificó.
 
-1. Entrá en Negocios y agregá la columna Revisados si no está visible. Filtrá por No para encontrar registros que todavía no verificaste.
-2. Abrí cada negocio y comprobá que exista y que corresponda al establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.
-3. Si confirmás que es real y debe permanecer en el CRM, registrá las fuentes y la fecha en Editar negocio → Ubicación y relevamiento. Después marcá Revisados desde la columna o el detalle; también podés confirmarlo al iniciar una gestión.
-4. Si no podés confirmarlo todavía, dejalo en Nuevo. Anotá qué falta comprobar en Notas del negocio y volvé a revisarlo cuando tengas información.
-5. Si confirmás que es un registro inválido, seleccioná solo ese negocio y elegí Enviar a papelera; también podés abrirlo y usar Más acciones del negocio → Eliminar negocio. Escribí un motivo concreto, por ejemplo: No existe en la dirección indicada, y confirmá.
-6. Cuando termines, volvé a filtrar Revisados por No para encontrar los registros pendientes. Si el negocio existe pero no se va a trabajar por ahora, usá Archivar en lugar de eliminarlo.
+1. Entrá en «Negocios» y agregá la columna «Revisados» si no está visible. Filtrá por No para encontrar los que todavía no verificaste.
+2. Abrí cada negocio y comprobá que exista y que sea el establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.
+3. Si confirmás que es real, guardá las fuentes y la fecha en «Editar negocio» → «Ubicación y relevamiento (opcional)». Después marcalo Revisado; también podés confirmarlo al iniciar una gestión.
+4. Si todavía no podés confirmarlo, dejalo en Nuevo. Anotá qué falta comprobar en «Notas del negocio» y volvé a revisarlo más tarde.
+5. Si es un registro inválido, seleccioná solo ese negocio y tocá «Enviar a papelera», o abrilo y usá «Más acciones del negocio» → «Enviar a Papelera · registro inválido». Escribí un motivo concreto y confirmá.
+6. Si el negocio existe pero no lo vas a trabajar por ahora, no lo mandes a la Papelera: usá «Archivar negocio válido».
 
-**Qué queda al terminar:** Los negocios verificados que deben permanecer quedan en estado Revisado. Los registros inválidos quedan en Papelera y los casos pendientes siguen visibles como Nuevo.
+**Qué queda al terminar:** Los negocios verificados quedan Revisados. Los inválidos quedan en la Papelera y los pendientes siguen visibles como Nuevo.
 
 **Ejemplo:**
 
-- Un perfil oficial confirma que Cabañas Camino Claro existe en Colón: guardás el vínculo y la fecha de revisión, y cambiás el estado a Revisado.
-- El domicilio y las fuentes consultadas muestran que otro registro no corresponde a un establecimiento real: lo enviás a Papelera con el motivo, sin borrar sus contactos ni su historial.
+- Un perfil oficial confirma que Cabañas Camino Claro existe en Colón: guardás el vínculo y la fecha de revisión, y lo pasás a Revisado.
+- El domicilio y las fuentes muestran que otro registro no es un establecimiento real: lo enviás a la Papelera con el motivo, sin borrar sus personas ni su historial.
 
 **Tené en cuenta:**
 
-- Revisado significa que se comprobó que el negocio existe y corresponde al registro. Es un estado del negocio, independiente de las etapas de sus gestiones.
-- Eliminar mueve el negocio a Papelera: conserva contactos, gestiones e historial y un administrador puede restaurarlo. Para conservar un negocio válido que solo se deja de trabajar, usá Archivar.
-- Solo podés eliminar negocios sobre los que tenés permiso de modificación. Si no aparece la acción o el servidor rechaza el cambio, pedile ayuda al responsable o al administrador.
+- Revisado significa que se comprobó que el negocio existe y corresponde al registro. Es un Estado del negocio, independiente de las etapas de sus gestiones.
+- Enviar a la Papelera conserva personas, gestiones e historial, y un administrador puede restaurarlo.
+- Solo podés enviar a la Papelera negocios que podés modificar. Si no aparece la acción o el servidor la rechaza, pedí ayuda al responsable o al administrador.
 
 **Dónde ir:** Revisar negocios (/accounts)
 
 ### Contactar desde la ficha del negocio
 
-**Cuándo usarlo:** Cuando querés preparar un mensaje sin buscar primero una tarea.
+**Cuándo usarlo:** Cuando querés escribir o llamar sin buscar primero una tarea.
 
-1. Abrí el negocio y elegí Contactar. Revisá su estado, los canales disponibles y las restricciones antes de continuar.
-2. Elegí General o una gestión abierta. Las gestiones cerradas sirven para registrar una respuesta recibida, pero no para iniciar un contacto nuevo. Si hay una sola gestión abierta puede quedar seleccionada; si hay varias, elegí la correcta.
-3. Si el negocio está Nuevo, solo podés hacer una verificación para comprobar que existe y que sus datos son correctos. Para iniciar una gestión, confirmá que ya lo verificaste: el formulario puede marcarlo Revisado y crear la gestión en el mismo paso.
-4. Para un contacto General elegí un propósito. Para una gestión, la gestión aporta el contexto. Acompañamiento/atención al cliente puede marcar Es cliente cuando el contacto se registra como realizado; leé la confirmación.
-5. Elegí canal, persona y dato concreto de destino. Si no hay una persona con ese canal, podés usar el canal general del negocio. Con varias personas o direcciones, seleccioná la que corresponde.
-6. Email se envía por Brevo desde el CRM. WhatsApp abre la aplicación externa y queda sin confirmar hasta que confirmes el envío. Revisá el contenido y el destino antes de continuar.
+1. Abrí el negocio y tocá «Contactar». Revisá su estado, los canales disponibles y las restricciones antes de seguir.
+2. En «¿Sobre qué?» elegí «Sin gestión (contacto general)» o una gestión abierta. Las gestiones cerradas solo sirven para anotar una respuesta recibida, no para empezar un contacto nuevo.
+3. Si es un contacto general, elegí el «Propósito del contacto». Si es sobre una gestión, la gestión ya da el contexto.
+4. Si el negocio es Nuevo, solo podés hacer una verificación para comprobar que existe. Para iniciar una gestión confirmá que ya lo verificaste con «Iniciar gestión y continuar»: queda Revisado y se crea la gestión en el mismo paso.
+5. Elegí el canal: «Email», «WhatsApp», «Llamada», «Red social» u «Otro canal». Después tocá «Continuar con el mensaje».
+6. Elegí la «Persona de contacto» o «Usar el dato general del negocio» si no hay una persona con ese canal. Con varias personas o direcciones, elegí la correcta.
+7. Elegí un «Mensaje modelo (opcional)» o «Escribir desde cero», revisá el texto y el destino, y tocá «Preparar email» o «Preparar WhatsApp».
+8. Al terminar, el CRM te pregunta «¿Cómo salió?» y «¿Cómo sigue?». Es el mismo recorrido para todos los canales.
 
-**Qué queda al terminar:** El contacto queda asociado al negocio y al propósito o gestión correctos, con el resultado del canal registrado.
+**Qué queda al terminar:** El contacto queda asociado al negocio y al propósito o gestión correctos, y siempre termina anotando cómo salió y cómo sigue.
 
 **Tené en cuenta:**
 
-- Archivado y No contactar bloquean salidas. Las restricciones técnicas también pueden bloquear un canal concreto.
-- Si falla abrir Email o WhatsApp, el CRM guarda un intento no confirmado. No lo reenvíes automáticamente: revisá su estado primero.
+- Archivado y No contactar bloquean las salidas. Las restricciones técnicas también pueden bloquear un canal concreto.
+- Si falla abrir el email o WhatsApp, el CRM guarda un intento sin confirmar. No lo reenvíes de nuevo: primero revisá su estado.
+- Si no ves «Contactar», puede ser porque el negocio es No contactar o porque no sos su responsable. Mirá el artículo No puedo modificar un negocio, en Resolver dudas y errores.
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
@@ -186,44 +227,46 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando conocés a alguien del negocio o hay varias personas involucradas.
 
-1. Abrí el negocio y entrá en Contactos. Elegí Agregar contacto. La persona es opcional: Contactar también permite usar el teléfono o email del negocio.
-2. Completá Nombre de la persona, teléfono o email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar sin completar.
-3. Marcá Principal del negocio si es la referencia habitual. Guardá.
-4. Agregá a las demás personas como contactos distintos. En una gestión podés elegir su Contacto principal de gestión.
-5. Antes de comunicarte, revisá Destinatario. El canal general del negocio y los canales de una persona son opciones diferentes.
-6. Al agregar una persona aparece Volver al próximo paso. Te devuelve al resumen del negocio para continuar sin buscarlo de nuevo.
+1. Abrí el negocio y entrá en la solapa «Personas». Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.
+2. Completá el nombre, el teléfono o el email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar vacíos.
+3. Marcá Principal si es la referencia habitual del negocio y guardá.
+4. Si el teléfono que cargás es el de un negocio que pidió no ser contactado, el CRM te muestra un aviso con el nombre del negocio. Podés guardar a la persona, pero antes tenés que tildar «Entendido, no voy a contactar a ese negocio». No uses ese teléfono para contactar sin consultar a un administrador.
+5. Agregá a las demás personas como fichas distintas. En una gestión podés elegir quién es su persona principal.
+6. Antes de escribir o llamar, revisá a quién va dirigido el mensaje. El canal general del negocio y los canales de una persona son opciones diferentes.
+7. Cuando agregás una persona desde el próximo paso aparece «Volver al próximo paso», que te lleva de nuevo al resumen del negocio para seguir.
 
-**Qué queda al terminar:** Cada persona conserva sus datos. Principal del negocio reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada gestión.
+**Qué queda al terminar:** Cada persona conserva sus datos. Principal reemplaza a la referencia anterior, sin cambiar la persona elegida en cada gestión.
 
 **Ejemplo:**
 
-- Ana administra las cabañas y Luis autoriza la contratación. Guardá a ambos; una propuesta puede tener a Luis como contacto aunque Ana siga siendo principal del negocio.
+- Ana administra las cabañas y Luis autoriza la contratación. Guardá a los dos; una propuesta puede tener a Luis como persona principal aunque Ana siga siendo la principal del negocio.
 
 **Tené en cuenta:**
 
-- No hace falta inventar una persona para usar el teléfono o email general.
+- No hace falta inventar una persona para usar el teléfono o el email general del negocio.
 
 ### Cuándo crear una gestión y cómo hacerlo
 
-**Cuándo usarlo:** Cuando vas a trabajar una propuesta concreta. No es necesario para cada llamada general.
+**Cuándo usarlo:** Cuando vas a trabajar una propuesta concreta. No hace falta para cada llamada general.
 
-1. Abrí el negocio → Gestiones comerciales → Iniciar gestión. Para empezar, el negocio debe estar Revisado.
-2. Si figura Nuevo pero acabás de verificarlo, iniciá el flujo desde Contactar o desde Iniciar gestión y confirmá la verificación en el formulario. Se marca Revisado al guardar la nueva gestión.
-3. Elegí el tipo correcto: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. Acompañamiento de ficha es para ayudar a un cliente con su ficha después de la aceptación.
-4. Escribí un nombre corto y concreto. Por ejemplo: Plan de alojamiento 2027, Propuesta para una institución, Servicios de fotografía o Completar la ficha de Hospeda. El responsable se toma del negocio; solo un administrador puede cambiarlo.
-5. Si hace falta, abrí Más datos (opcional) para agregar tema, fecha estimada o persona principal. Guardá para iniciar la gestión en su etapa inicial; esto no contacta al negocio ni registra una venta.
-6. Avanzá la etapa según lo que realmente ocurrió. Podés pasar entre etapas abiertas sin recorrerlas todas. Cerrá cuando tengas un resultado real y completá el motivo solicitado.
+1. Abrí el negocio, entrá en la solapa «Gestiones» y tocá «Iniciar gestión». Para empezar, el negocio tiene que estar Revisado.
+2. Si figura Nuevo pero acabás de verificarlo, confirmalo en el formulario con «Marcar Revisado e iniciar gestión»: queda Revisado al guardar la nueva gestión.
+3. Elegí el «Tipo de gestión»: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. Acompañamiento de ficha es para ayudar a un cliente con su ficha después de que aceptó.
+4. Escribí un «Nombre de la gestión» corto y concreto, por ejemplo: Plan de alojamiento 2027, Propuesta para una institución o Completar la ficha de Hospeda. El responsable se toma del negocio; solo un administrador puede cambiarlo.
+5. Si hace falta, abrí «Más datos (opcional)» para agregar tema, fecha estimada o persona principal. Guardá: la gestión empieza en su primera etapa. Esto no contacta al negocio ni registra una venta.
+6. A medida que avanza, cambiá la etapa según lo que realmente ocurrió. Podés pasar entre etapas abiertas sin recorrerlas todas. Cerrala cuando tengas un resultado real y completá el motivo que te pide.
 
-**Qué queda al terminar:** La gestión queda vinculada al negocio con un recorrido propio y separado de otras gestiones.
+**Qué queda al terminar:** La gestión queda vinculada al negocio con un recorrido propio y separado de las otras gestiones.
 
 **Ejemplo:**
 
-- Creá Publicación de cabañas para una oferta de publicación. Para averiguar quién atiende el establecimiento, podés usar una tarea general sin crear una gestión.
+- Creá Publicación de cabañas para una oferta de publicación. Para averiguar quién atiende el establecimiento, alcanza con una tarea general: no hace falta crear una gestión.
 
 **Tené en cuenta:**
 
 - Antes de crear otra, revisá si ya existe una gestión abierta sobre el mismo objetivo.
-- No se puede iniciar una gestión desde Archivado o Papelera.
+- No se puede iniciar una gestión desde un negocio Archivado ni en la Papelera.
+- Si al anotar un resultado ves una casilla que pregunta si querés pasar la gestión a otra etapa, es una sugerencia: la etapa solo cambia si la marcás.
 
 **Dónde ir:** Buscar el negocio (/accounts)
 
@@ -231,15 +274,15 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando hay algo pendiente: llamar, enviar una propuesta, visitar o confirmar una entrega.
 
-1. En el bloque del próximo paso elegí Planificar próximo paso. También podés usar Mi día → Agregar próximo paso o Seguimiento → Nueva tarea.
-2. Si empezaste desde Mi día, buscá y elegí el Negocio. En Contexto seleccioná una gestión o Seguimiento general del negocio.
-3. Antes de crearla, revisá las tareas pendientes que aparecen para ese negocio. Si ya existe una para el mismo compromiso, abrila y actualizala en lugar de duplicarla.
-4. Escribí un Título concreto. Elegí Tipo, Fecha de vencimiento y, si sirve, Hora (opcional). Revisá Propósito.
-5. Conversación comercial sirve para una oferta; Entrega para cumplir lo acordado; Acompañamiento para revisar cómo le va; Retomar una conversación para volver sobre un contacto anterior.
-6. En Participantes y notas (opcional) agregá detalles. Si partiste del negocio y querés vincular una gestión, abrí Vincular a una gestión (opcional).
-7. Elegí Guardar próximo paso.
+1. Desde «Hoy» tocá «Agendar tarea». También podés usar el botón de próximo paso dentro del negocio o «Agendar otra tarea» en su solapa «Qué pasó».
+2. Si empezaste desde Hoy, buscá y elegí el negocio. En «Contexto» elegí una gestión o «Sin gestión (general del negocio)».
+3. Antes de guardar, mirá si el CRM avisa «Ya hay tareas pendientes para este negocio». Si ya existe una para el mismo compromiso, abrila y actualizala en lugar de duplicarla.
+4. Escribí un título concreto en «Qué hay que hacer». Elegí «Tipo», la fecha de vencimiento y, si sirve, «Hora (opcional)». Revisá el «Propósito».
+5. Para la fecha podés usar los atajos «Mañana», «En 3 días», «Lunes», «En 1 semana» o «Elegir fecha».
+6. Conversación comercial sirve para una oferta; Entrega para cumplir lo acordado; Acompañamiento para ver cómo le va; Retomar conversación para volver sobre un contacto anterior.
+7. En «Participantes y notas (opcional)» agregá detalles. Después tocá «Agendar tarea».
 
-**Qué queda al terminar:** Se guarda una tarea pendiente. Aparece en Mi día según su fecha; si su tipo está configurado para agenda, también en el calendario.
+**Qué queda al terminar:** Se guarda una tarea pendiente. Aparece en Hoy según su fecha y, si su tipo está configurado para el calendario, también en «Calendario».
 
 **Ejemplo:**
 
@@ -247,22 +290,24 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Tené en cuenta:**
 
-- La fecha y hora se interpretan en horario de Argentina. Las notas no reemplazan una tarea con fecha.
+- La fecha y la hora se interpretan en horario de Argentina. Las notas no reemplazan una tarea con fecha.
+- Para cambiar la fecha de una tarea existente no hace falta crear otra: usá «Posponer» o «Cambiar fecha o datos».
 
-**Dónde ir:** Planificar en Mi día (/my-day)
+**Dónde ir:** Ir a Hoy (/my-day)
 
-### Contactar por Email, WhatsApp, llamada u otro canal
+### Contactar por email, WhatsApp, llamada u otro canal
 
-**Cuándo usarlo:** Cuando llega el momento de una tarea o una conversación necesaria.
+**Cuándo usarlo:** Cuando llega el momento de una tarea o de una conversación necesaria.
 
-1. Para iniciar un contacto desde la ficha del negocio, elegí Contactar y luego General o una gestión abierta; las gestiones cerradas solo admiten registrar respuestas entrantes. El selector ofrece Email, WhatsApp, Llamada, Red social y Otro.
-2. Para Email y WhatsApp, revisá destinatario, persona y dato exacto. Si no hay una persona con ese canal, pueden usar el canal general del negocio.
-3. Email se prepara y envía desde el CRM mediante Brevo. El CRM muestra si Brevo aceptó la solicitud; eso no confirma que llegó al destinatario.
-4. WhatsApp abre la aplicación con el texto preparado. Al volver, marcá Enviado solo si efectivamente lo enviaste; si no, marcá No enviado. Si no se pudo abrir, el intento queda No confirmado.
-5. Llamadas, redes sociales y Otros llevan al formulario de registro manual. Para llamada escribí un resumen; para redes y Otros podés iniciar un intento con texto o sin él y completar después el resultado y resumen. En Otro, aclarás el canal usado.
-6. Después de hablar o recibir una respuesta, registrá la comunicación en el CRM. Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta.
+1. Desde una tarea tocá «Contactar». Desde el negocio, tocá «Contactar» y elegí sobre qué es el contacto. Los canales son «Email», «WhatsApp», «Llamada», «Red social» y «Otro canal».
+2. Para email y WhatsApp, revisá la persona y el dato exacto. Si no hay una persona con ese canal, podés usar el canal general del negocio.
+3. El email se prepara y sale desde el CRM. El CRM te muestra si el servicio de envío aceptó el pedido; eso no confirma que llegó.
+4. WhatsApp abre la aplicación con el texto preparado. Al volver, el CRM pregunta «¿Lo enviaste?»: tocá «Sí, lo envié» solo si lo mandaste de verdad, «No, no lo envié» si no, o «Todavía no sé, lo anoto después».
+5. Para una llamada, elegí a quién llamás. En el celular tocá «Llamar ahora»; en la computadora tocá «Copiar número» y llamá desde tu teléfono. Cuando termines tocá «Ya llamé: anotar cómo salió». Si no te atendieron: desde el negocio podés tocar «No me atendieron»; desde una tarea tocá «Ya llamé: anotar cómo salió» y elegí «No respondió».
+6. Para «Red social» y «Otro canal», el CRM crea un intento pendiente (podés «Crear intento y copiar texto»). Cuando termines, completá cómo salió.
+7. En todos los casos el contacto termina en «¿Cómo salió?» y «¿Cómo sigue?». Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta.
 
-**Qué queda al terminar:** Abrir un canal inicia la comunicación fuera del CRM o prepara el mensaje; el resultado de la conversación se registra después.
+**Qué queda al terminar:** Abrir un canal solo prepara o inicia la comunicación; lo que realmente pasó se anota después, siempre con su próximo paso.
 
 **Ejemplo:**
 
@@ -270,30 +315,33 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Tené en cuenta:**
 
-- El canal debe estar disponible y sin restricciones. No contactar bloquea todas las salidas, sin excepción.
-- Para llamadas, redes sociales y Otros, el resumen es obligatorio. En Otros indicá qué canal usaste.
+- El canal tiene que estar disponible y sin restricciones. No contactar bloquea todas las salidas, sin excepción.
+- Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.
+- Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.
 
-### Registrar qué pasó y decidir cómo sigue
+### Anotar cómo salió y decidir cómo sigue
 
-**Cuándo usarlo:** Después de hacer la tarea, incluso si no hubo respuesta.
+**Cuándo usarlo:** Después de hacer la tarea o de un contacto, incluso si no hubo respuesta.
 
-1. Una tarea es algo pendiente con fecha; una actividad registra algo que ya ocurrió; la etapa describe la situación de la gestión.
-2. Para completar una tarea, elegí Registrar qué pasó y describí el resultado real. Esto guarda una actividad y completa esa tarea; no cierra la gestión ni completa otras tareas.
-3. Si recibiste una respuesta y no corresponde a una tarea, usá Registrar respuesta recibida en Comunicación. Elegí General o la gestión relacionada; también podés vincular el contacto saliente que la originó.
-4. Elegí la categoría que mejor describe la respuesta y escribí un resumen obligatorio. El texto exacto es opcional. “Otro” requiere aclaración.
-5. Si la respuesta fue “Quiere retomar más adelante”, podés crear un recordatorio con fecha y responsable. La respuesta no cambia etapas por sí sola.
-6. Si la persona pidió no contactar, registrá esa categoría. Se activa el bloqueo global; el diálogo permite elegir explícitamente si además querés cerrar gestiones abiertas que tengas permiso para cerrar.
+1. Una tarea es algo pendiente con fecha; lo que ya ocurrió se anota con «Anotar cómo salió» (en una tarea) o con «Anotar lo que pasó» (cuando no hay tarea). La etapa describe el punto en que está la gestión.
+2. En «¿Qué pasó?» elegí una opción: «No respondió», «Respondió, le interesa», «Pidió que lo contacte más adelante», «No le interesa» u «Otro (contame)». Cuando anotás algo nuevo con «Anotar lo que pasó» también aparece «Pidió no ser contactado» (ver el último paso). En entregas y acompañamientos suman «Entrega confirmada», «Falta confirmar», «Necesita ayuda» o «Revisión realizada».
+3. En «Detalles del resultado» escribí en pocas palabras qué ocurrió. «Otro (contame)» pide una aclaración.
+4. Respondé «¿Cómo sigue?»: «Agendar una tarea» (con título y fecha), «Esperar hasta una fecha y retomar» o «No agendar nada» (con un motivo). No se puede guardar sin elegir una.
+5. Si el CRM muestra una casilla para pasar la gestión a la etapa sugerida, marcala solo si es lo que pasó. Si no la marcás, la etapa no cambia.
+6. Revisá el resumen «Revisá lo que se guardará» y tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).
+7. Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar respuesta recibida». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador.
 
-**Qué queda al terminar:** Se completa esa tarea y se registra lo ocurrido. Si elegiste una continuación con fecha, se crea otra tarea. Las demás tareas se conservan.
+**Qué queda al terminar:** Se completa la tarea y queda guardado lo que pasó. Si dejaste una tarea nueva, se crea con su fecha. Las demás tareas se conservan.
 
 **Ejemplo:**
 
-- Resultado: Mostró interés. Detalles: Quiere revisar la propuesta con Luis. Cómo sigue: Planificar el próximo paso. Acción: Consultar la decisión con Ana.
+- Resultado: Respondió, le interesa. Detalles: Quiere revisar la propuesta con Luis. Cómo sigue: Agendar una tarea. Qué hay que hacer: Consultar la decisión con Ana.
 
 **Tené en cuenta:**
 
-- Registrar una respuesta en una gestión cerrada no la reabre ni cambia su estado.
-- Cualquier usuario puede registrar una respuesta y activar No contactar. Solo un administrador puede levantar el bloqueo.
+- Anotar una respuesta en una gestión cerrada no la reabre ni cambia su estado.
+- «Pidió no ser contactado» lo anota el responsable del negocio, el responsable de una de sus gestiones o un administrador. Solo un administrador puede levantar el bloqueo.
+- Si te equivocaste, buscá la tarea ya completada (en «Tareas finalizadas o canceladas», dentro del negocio), abrí su menú y tocá «Corregir cómo salió».
 
 ## Propuesta, decisión y cierre
 
@@ -303,13 +351,13 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 **Cuándo usarlo:** Cuando la persona quiere conocer la oferta.
 
-1. Abrí la gestión y revisá el tipo de gestión y su etapa actual.
-2. Usá la ayuda “Cómo avanzar con esta gestión” como orientación. Las etapas disponibles dependen del tipo y no hace falta pasar por todas.
-3. Registrá conversaciones, tareas y acuerdos en sus secciones correspondientes. Un mensaje abierto o enviado no cambia automáticamente la etapa.
-4. Cuando haya aceptación, cerrá con el resultado correcto: venta/aceptación, participación, colaboración o cierre de acompañamiento, según el tipo.
-5. Si no avanzó, elegí una etapa abierta que describa el momento real o cerrá como no concretada con el motivo correspondiente.
+1. Entrá en «Gestiones» y abrí la gestión. Revisá su tipo y su etapa actual.
+2. Usá la ayuda «Cómo avanzar con esta gestión» como orientación. Las etapas disponibles dependen del tipo y no hace falta pasar por todas.
+3. Anotá conversaciones, tareas y acuerdos en sus lugares: «Seguimiento», «Notas» y «Comunicación». Un mensaje abierto o enviado no cambia la etapa por sí solo.
+4. Cuando haya una aceptación, cerrá con el resultado correcto: venta o aceptación, participación, colaboración o cierre de acompañamiento, según el tipo.
+5. Si no avanzó, elegí una etapa abierta que describa el momento real o cerrá como no concretada con el motivo que corresponda.
 
-**Qué queda al terminar:** El estado describe la situación real de esa gestión, sin confundir actividad con aceptación.
+**Qué queda al terminar:** La etapa describe la situación real de esa gestión, sin confundir una actividad con una aceptación.
 
 **Ejemplo:**
 
@@ -317,43 +365,43 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 **Tené en cuenta:**
 
-- Abrir un paso de la guía no cambia la etapa. Las etapas disponibles son fijas y dependen del tipo de gestión.
-- Solo el responsable de esa gestión o un administrador puede cambiar su etapa. Si el botón está deshabilitado, el texto de ayuda indica quién puede hacerlo.
+- Abrir un paso de la ayuda no cambia la etapa. Las etapas disponibles son fijas y dependen del tipo de gestión.
+- Solo el responsable de esa gestión o un administrador puede cambiar su etapa. Si el botón está deshabilitado, el texto de ayuda dice quién puede hacerlo.
 
-**Dónde ir:** Abrir Gestiones comerciales (/opportunities)
+**Dónde ir:** Abrir Gestiones (/opportunities)
 
-### Registrar una duda u objeción
+### Anotar una duda u objeción
 
 **Cuándo usarlo:** Cuando algo impide decidir, pero todavía puede resolverse.
 
-1. Abrí la gestión y abrí Dudas y objeciones en Resumen.
-2. Elegí Agregar objeción. Seleccioná el tipo que corresponda y escribí Notas / resolución.
-3. Dejá Estado en Pendiente mientras falte resolverla y guardá.
-4. Planificá una tarea para responder esa duda. Cuando la resuelvan, elegí Editar / resolver y cambiá su Estado a Resuelta; si dejó de corresponder, usá Descartada.
+1. Abrí la gestión y desplegá «Dudas y objeciones» en el Resumen.
+2. Tocá «Agregar objeción», elegí el tipo que corresponda y escribí «Notas / resolución».
+3. Dejá el estado en Pendiente mientras falte resolverla y guardá.
+4. Agendá una tarea para responder esa duda. Cuando la resuelvan, tocá «Editar / resolver» y pasala a Resuelta; si dejó de corresponder, usá Descartada.
 
 **Qué queda al terminar:** La dificultad queda visible para el equipo sin dar la gestión por perdida.
 
 **Ejemplo:**
 
-- Ana dice: Tengo que consultarlo con Luis. Anotá quién decide y programá cuándo preguntar por la respuesta.
+- Ana dice: Tengo que consultarlo con Luis. Anotá quién decide y agendá cuándo preguntar por la respuesta.
 
 **Tené en cuenta:**
 
-- Una objeción no significa que la persona haya rechazado la oferta. No elijas Perdida solo porque surgió una duda.
+- Una objeción no significa que la persona haya rechazado la oferta. No cierres como perdida solo porque surgió una duda.
 
 ### Cerrar una gestión con resultado favorable
 
 **Cuándo usarlo:** Cuando hay una aceptación real de la propuesta.
 
-1. Abrí la gestión → Resumen → Etapa y prioridad → Cambiar etapa.
-2. Elegí el cierre favorable correspondiente al tipo: Cerrada ganada, Participa, Colabora o Cerrada completada.
-3. En los cierres comerciales o de participación, elegí el motivo obligatorio. Si elegís Otro, agregá una nota. Cerrada completada en Acompañamiento de ficha no requiere motivo.
-4. Completá los datos conocidos de Acuerdo y entrega cuando corresponda. Son evidencia útil; no inventes información faltante.
-5. En Editores, al ganar una propuesta comercial, indicá explícitamente si también corresponde marcar el negocio como cliente. En colaboración editorial no se marca automáticamente.
-6. Al cerrar como ganada una gestión de verticales principales o Partners, el negocio se marca automáticamente como cliente. Para una propuesta comercial de Editores el formulario pregunta; colaboración editorial y participación de Proveedores no lo marcan automáticamente.
-7. Guardá y revisá las demás gestiones y tareas del negocio. Solo se cierra esta gestión, salvo que decidas otra acción disponible.
+1. Abrí la gestión, andá a «Etapa y prioridad» y tocá «Cambiar etapa».
+2. Elegí el cierre favorable que corresponde al tipo: Cerrada ganada, Participa, Colabora o Cerrada completada.
+3. En los cierres comerciales o de participación, elegí el «Motivo de cierre». Si elegís Otro, agregá una nota. Cerrada completada en Acompañamiento de ficha no pide motivo.
+4. Completá lo que sepas de «Acuerdo y entrega» cuando corresponda. Es una evidencia útil; no inventes lo que falte.
+5. En Editores, al ganar una propuesta comercial el formulario te pregunta si querés «Marcar este negocio como cliente». En colaboración editorial no se marca solo.
+6. Al cerrar como ganada una gestión de verticales principales o Partners, el negocio se marca solo como cliente. En participación de Proveedores no.
+7. Guardá y revisá las otras gestiones y tareas del negocio. Solo se cierra esta gestión.
 
-**Qué queda al terminar:** La gestión conserva su motivo y su historial de cierre. El negocio y sus otras gestiones mantienen sus reglas independientes.
+**Qué queda al terminar:** La gestión conserva su motivo y su historial de cierre. El negocio y sus otras gestiones siguen con sus propias reglas.
 
 **Ejemplo:**
 
@@ -362,67 +410,74 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 **Tené en cuenta:**
 
 - Un resultado favorable no acredita pagos ni activa servicios del portal.
-- Si el negocio ya era cliente antes de registrar su seguimiento en el CRM, usá Más acciones del negocio → Registrar cliente previo y explicá la relación. Para una venta trabajada en el CRM, cerrá la gestión como ganada; no uses esta excepción.
+- Si el negocio ya era cliente antes de usar el CRM, usá «Más acciones del negocio» → «Registrar cliente previo» y explicá la relación. Para una venta trabajada acá, cerrá la gestión como ganada.
 
 ### Cerrar una gestión sin resultado favorable
 
 **Cuándo usarlo:** Cuando hay una decisión real de no avanzar con esa propuesta.
 
-1. Abrí la gestión → Resumen → Etapa y prioridad → Cambiar etapa.
-2. Elegí el cierre no favorable correspondiente al tipo y un motivo obligatorio. “Otro” exige una nota breve.
-3. Si es una gestión comercial perdida y querés retomarla más adelante, podés indicar una fecha de recontacto. Esa fecha queda en la gestión y programa un pendiente. La opción no aparece cuando el motivo es Pidió no ser contactado.
+1. Abrí la gestión, andá a «Etapa y prioridad» y tocá «Cambiar etapa».
+2. Elegí el cierre no favorable que corresponde al tipo y el «Motivo de cierre». Otro exige una nota breve.
+3. Si es una gestión comercial perdida y querés retomarla más adelante, tocá «Definir fecha para retomar» y elegí la «Fecha de recontacto». Esa fecha queda en la gestión y agenda una tarea. La opción no aparece cuando el motivo es Pidió no ser contactado.
 4. Si el motivo es Pidió no ser contactado, el negocio queda No contactar y se archiva automáticamente. Podés elegir si también se cierran otras gestiones abiertas para las que tengas permiso.
-5. Guardá y revisá los próximos pasos. Para una gestión ya cerrada, solo un administrador puede reabrirla; el cierre anterior queda en el historial.
+5. Guardá y revisá los próximos pasos. Una gestión ya cerrada solo la puede reabrir un administrador; el cierre anterior queda en el historial.
 
-**Qué queda al terminar:** La gestión se cierra sin concretarse y conserva su historia. Si dejaste fecha de recontacto, puede aparecer en la lista para retomar.
+**Qué queda al terminar:** La gestión se cierra sin concretarse y conserva su historia. Si dejaste fecha de recontacto, aparece en «Para retomar».
 
 **Ejemplo:**
 
-- No contratarán esta temporada por presupuesto. Registrá el motivo real y una fecha para retomar solo si tiene sentido.
+- No contratarán esta temporada por presupuesto. Anotá el motivo real y una fecha para retomar solo si tiene sentido.
 
 **Tené en cuenta:**
 
-- No respondió puede ser un motivo de cierre, pero registrar una respuesta o un intento sin respuesta no cierra por sí solo la gestión.
-- No le interesa no equivale a pedir que no lo contacten. Usá el motivo que represente lo que la persona dijo.
+- No respondió puede ser un motivo de cierre, pero anotar un intento sin respuesta no cierra por sí solo la gestión.
+- No le interesa no es lo mismo que pedir que no lo contacten. Usá el motivo que represente lo que la persona dijo.
 
 ### No respondió o pidió esperar
 
 **Cuándo usarlo:** Cuando falta una respuesta o acordaron conversar más adelante.
 
-1. Si no hubo respuesta a una actividad, registrá ese resultado en la tarea. Si la persona sí respondió, usá Registrar respuesta recibida.
-2. Elegí “Quiere retomar más adelante” cuando la persona pidió volver a hablar en otro momento. Podés crear un recordatorio con fecha y asignarlo al responsable del contexto.
-3. Si la gestión sigue abierta, elegí una etapa abierta que refleje lo que pasó; las etapas no se cambian automáticamente al registrar una respuesta.
-4. Si decidís cerrar la gestión como perdida, elegí el motivo correspondiente y, si querés, una fecha de recontacto. Esa fecha crea un pendiente.
-5. Si pidió que no la contacten, registrá Pidió no contactar. El bloqueo es global y solo un administrador puede levantarlo.
+1. Si no hubo respuesta a tu contacto, tocá «Anotar cómo salió», elegí «No respondió» y respondé «¿Cómo sigue?». Si la persona sí respondió, elegí la opción que corresponda.
+2. Si pidió que la vuelvas a llamar en otro momento, elegí «Pidió que lo contacte más adelante». El CRM te ofrece «Elegir una fecha para retomar»: tocalo, poné la fecha acordada y queda una tarea para ese día.
+3. Si el negocio no es para ahora pero hay que volver a hablarle, cambiá el Estado del negocio a «Recontactar» y poné una «Fecha de recontacto (opcional)». El CRM agenda la tarea «Volver a contactar» para esa fecha a nombre del responsable del negocio; si es otra persona, te avisa su nombre antes de guardar. Si cambiás la fecha, la tarea se mueve al nuevo día. Si borrás la fecha, cambiás el Estado a otro, lo marcás No contactar o lo archivás, la tarea se cancela sola y el historial dice por qué. Si alguien ya la renombró, la reprogramó o la completó, no se toca.
+4. Si la gestión sigue abierta, elegí una etapa abierta que refleje lo que pasó. Las etapas no cambian solas al anotar un resultado.
+5. Si decidís cerrar la gestión como perdida, elegí el motivo y, si querés, una fecha de recontacto. Esa fecha agenda una tarea.
+6. Si pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» para elegir «Pidió no ser contactado» (desde «Anotar cómo salió» de una tarea no aparece). Lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador; las demás personas no ven esa opción. El bloqueo es global y solo un administrador puede levantarlo; corregir esa respuesta más tarde también es cosa de un administrador.
 
-**Qué queda al terminar:** Queda registrado lo que ocurrió y un recordatorio accionable cuando corresponde. No se envían mensajes ni se reabre o cierra una gestión automáticamente.
+**Qué queda al terminar:** Queda anotado lo que ocurrió y una tarea concreta cuando corresponde. No se envían mensajes ni se reabre o cierra una gestión automáticamente.
 
 **Ejemplo:**
 
-- Ana pidió que la llames después de hablar con Luis. Acción: Consultar decisión de Ana y Luis. Fecha: la acordada.
+- Ana pidió que la llames después de hablar con Luis. Qué hay que hacer: Consultar decisión de Ana y Luis. Fecha: la acordada.
 
 **Tené en cuenta:**
 
-- Si eligió no recibir más contactos, usá Pidió no ser contactado y respetá el bloqueo, en lugar de planificar otro intento.
+- Si eligió no recibir más contactos, usá «Pidió no ser contactado» y respetá el bloqueo, en lugar de agendar otro intento.
+- Si más adelante querés volver a hablar con alguien de una gestión cerrada, mirá «Para retomar» dentro de Hoy.
 
 ### Retomar una conversación o reabrir una gestión
 
 **Cuándo usarlo:** Cuando querés retomar una gestión cerrada que tiene fecha de recontacto.
 
-1. En Reactivación, revisá qué acción existe. Si el cierre generó una tarea y dejó al negocio en Recontactar, su fecha resume el seguimiento y se muestra una sola vez; abrí la tarea enlazada para registrar o consultar el resultado. Si hay una gestión relacionada, abrila desde la fila.
-2. Elegí Elegir cómo retomar. Si solo querés volver a conversar, creá un seguimiento y conservá la gestión cerrada.
-3. Si la misma propuesta vuelve a negociarse, pedile a un administrador que elija Reabrir esta gestión y una etapa abierta del mismo tipo. El cierre anterior queda en el historial.
-4. Si querés trabajar otra propuesta del mismo tipo, elegí Crear otra gestión. Para una propuesta de otro tipo, iniciá la gestión desde la ficha del negocio.
-5. Si la fila ya muestra una acción creada, abrí la tarea o gestión relacionada; no vuelvas a planificar desde el mismo cierre. La tarea es lo que hay que completar; el estado del negocio solo resume la fecha acordada. El CRM no contacta ni reabre automáticamente.
-6. Antes de contactar, revisá Archivado, Papelera y No contactar. Archivado debe desarchivarse por un administrador y Papelera debe restaurarse por un administrador; No contactar requiere que un administrador levante el bloqueo.
+1. Entrá en «Hoy» y abrí la solapa «Para retomar». Ahí están las gestiones cerradas como perdidas con fecha para volver a hablar. Podés filtrar por «Estado de retoma».
+2. Revisá qué acción ya existe. Si el cierre generó una tarea, abrila desde «Abrir tarea» para anotar o consultar el resultado. Si hay una gestión relacionada, abrila desde la fila.
+3. Tocá «Elegir cómo retomar». Si solo querés volver a conversar, elegí «Crear seguimiento y conservar cerrada».
+4. Si la misma propuesta vuelve a negociarse, pedile a un administrador que elija «Reabrir esta gestión y crear seguimiento» con una etapa abierta del mismo tipo. El cierre anterior queda en el historial.
+5. Si querés trabajar otra propuesta del mismo tipo, elegí «Crear otra gestión del mismo tipo y seguimiento». Para una propuesta de otro tipo, iniciá la gestión desde la ficha del negocio.
+6. Antes de contactar, revisá si el negocio está Archivado, en la Papelera o marcado No contactar. Los tres los resuelve un administrador.
 
 **Qué queda al terminar:** Retomás el caso con su historia conservada y sin generar un contacto automático.
 
 **Ejemplo:**
 
-- La publicación fue rechazada hace meses. Primero consultás si cambió la necesidad; conservás la gestión cerrada hasta que realmente haya una nueva negociación.
+- La publicación fue rechazada hace meses. Primero consultás si cambió la necesidad; dejás la gestión cerrada hasta que realmente haya una nueva negociación.
 
-**Dónde ir:** Revisar gestiones para retomar (/reactivation)
+**Tené en cuenta:**
+
+- El CRM no contacta ni reabre nada automáticamente.
+- Si el negocio quedó Recontactar, su fecha resume el seguimiento; la tarea es lo que hay que completar.
+
+**Dónde ir:** Abrir Para retomar (/my-day?view=retomar)
 
 ## Entrega y clientes
 
@@ -432,54 +487,54 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 **Cuándo usarlo:** Después de concretar una gestión o cuando falta confirmar algo acordado.
 
-1. Abrí la gestión ganada y revisá Acuerdo y entrega. Usá Revisar acuerdo y entrega para completar o corregir lo conocido.
-2. Planificá una tarea con Propósito Entrega para comprobar que se cumplió lo acordado. Vinculala a esa gestión si corresponde.
-3. Al realizarla, elegí Registrar qué pasó. Según lo ocurrido, usá Entrega confirmada, Falta confirmar o Necesita ayuda.
-4. Detallá qué se entregó o qué falta. Elegí Cómo sigue y programá una acción para cada compromiso pendiente.
+1. Abrí la gestión ganada y revisá «Acuerdo y entrega». Tocá «Revisar acuerdo y entrega» para completar o corregir lo que sepas.
+2. Agendá una tarea con el propósito Entrega para comprobar que se cumplió lo acordado. Vinculala a esa gestión si corresponde.
+3. Cuando la hagas, tocá «Anotar cómo salió». Según lo ocurrido elegí «Entrega confirmada», «Falta confirmar» o «Necesita ayuda».
+4. Escribí qué se entregó o qué falta. En «¿Cómo sigue?» agendá una tarea para cada compromiso pendiente.
 
 **Qué queda al terminar:** El acuerdo y el trabajo de entrega quedan registrados sin reabrir la gestión.
 
 **Ejemplo:**
 
-- Falta confirmar las fotografías. Anotá esa falta y dejá una tarea para pedirlas, en lugar de marcar la entrega como confirmada.
+- Faltan confirmar las fotografías. Anotá esa falta y dejá una tarea para pedirlas, en lugar de marcar la entrega como confirmada.
 
 **Tené en cuenta:**
 
-- Si otra persona cambió el acuerdo mientras lo editabas, abrilo de nuevo y revisá la versión actual. El CRM no ejecuta por sí solo la entrega ni verifica pagos.
+- Si otra persona cambió el acuerdo mientras lo editabas, abrilo de nuevo y revisá la versión actual. El CRM no ejecuta la entrega ni verifica pagos.
 
 ### Acompañar a un cliente
 
 **Cuándo usarlo:** Cuando querés saber cómo le fue o ayudar con algo que ya contrató.
 
-1. Acompañamiento/atención al cliente es un propósito de contacto general. Si el negocio aún no es cliente, el CRM te pide confirmación y lo marca Es cliente cuando el contacto queda registrado como realizado.
-2. Acompañamiento de ficha es un tipo de gestión separado, para ayudar a un negocio que ya aceptó a crear o mejorar su ficha.
-3. Para abrir esa gestión, el negocio debe ser cliente y estar Revisado. Elegí Iniciar gestión → Acompañamiento de ficha y planificá el próximo paso.
-4. Registrá los avances en la etapa correspondiente: Pendiente de iniciar, Contactado o Trabajando en la ficha. No hace falta pasar por todas.
-5. Al terminar, cerrá como Cerrada completada. Si no se pudo completar, elegí Cerrada no completada y el motivo obligatorio.
+1. Acompañamiento / atención al cliente es un propósito de contacto general. Si el negocio todavía no es cliente, el CRM te pide confirmación y lo marca Es cliente cuando el contacto queda registrado como realizado.
+2. Acompañamiento de ficha es un tipo de gestión aparte, para ayudar a un negocio que ya aceptó a crear o mejorar su ficha.
+3. Para abrir esa gestión, el negocio tiene que ser cliente y estar Revisado. Tocá «Iniciar gestión», elegí Acompañamiento de ficha y agendá el próximo paso.
+4. Anotá los avances cambiando de etapa: Pendiente de iniciar, Contactado o Trabajando en la ficha. No hace falta pasar por todas.
+5. Al terminar, cerrá como Cerrada completada. Si no se pudo completar, elegí Cerrada no completada y el motivo.
 
 **Qué queda al terminar:** El seguimiento del cliente queda separado de una nueva propuesta comercial.
 
 **Ejemplo:**
 
-- Preguntás si recibió consultas y si necesita ayuda para actualizar el material. Eso es acompañamiento, no una nueva gestión.
+- Preguntás si recibió consultas y si necesita ayuda para actualizar el material. Eso es acompañamiento, no una gestión nueva.
 
 **Tené en cuenta:**
 
-- No crees una gestión solo para registrar una consulta general de atención. Usá el contexto General para ese contacto.
-- Si un contacto por Email o WhatsApp queda no confirmado, hace falta una confirmación administrativa posterior antes de marcar Es cliente.
+- No crees una gestión solo para registrar una consulta general de atención. Usá «Sin gestión (contacto general)» al contactar.
+- Si un contacto por email o WhatsApp queda sin confirmar, hace falta una confirmación posterior antes de marcar Es cliente.
 
 **Dónde ir:** Buscar un cliente (/accounts)
 
-### Iniciar gestión al mismo cliente
+### Iniciar otra gestión con el mismo cliente
 
-**Cuándo usarlo:** Cuando existe una propuesta nueva, diferente de la anterior.
+**Cuándo usarlo:** Cuando existe una propuesta nueva, distinta de la anterior.
 
 1. Abrí el negocio existente; no crees otro negocio por tratarse de una segunda gestión.
-2. En Gestiones comerciales elegí Iniciar gestión. Poné un nombre concreto y revisá su contacto opcional.
-3. Guardá y planificá una tarea con Propósito Conversación comercial vinculada a esta nueva gestión.
-4. Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo contratado anteriormente.
+2. En la solapa «Gestiones» tocá «Iniciar gestión». Poné un nombre concreto y revisá la persona principal.
+3. Guardá y agendá una tarea con propósito Conversación comercial vinculada a esta nueva gestión.
+4. Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo que contrató antes.
 
-**Qué queda al terminar:** La nueva propuesta tiene su propio recorrido. La anterior conserva su cierre, acuerdo e historial.
+**Qué queda al terminar:** La nueva propuesta tiene su propio recorrido. La anterior conserva su cierre, su acuerdo y su historial.
 
 **Ejemplo:**
 
@@ -487,20 +542,20 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 ## Mensajes y herramientas
 
-Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
+Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 
 ### Preparar y registrar una comunicación
 
 **Cuándo usarlo:** Cuando trabajás una gestión y querés usar un modelo o guardar un borrador.
 
-1. Elegí el canal y contexto: General con propósito o una gestión abierta. Para General, seleccioná un propósito; la gestión aporta el contexto por sí misma.
-2. Elegí una persona y un dato concreto o, si no hay persona con ese canal, el canal general del negocio. Comprobá el destinatario antes de continuar.
-3. Usá un modelo compartido o redactá desde cero. Podés editar el texto para este contacto. Si faltan variables del modelo, completalas con datos confiables o quitá esas variables.
-4. Email se envía por Brevo desde el CRM. WhatsApp abre la aplicación externa y requiere que confirmes luego si se envió. Las fallas de apertura también dejan un intento no confirmado.
-5. Llamadas se registran manualmente con un resumen. En Redes sociales u Otros podés copiar el texto; se crea un intento pendiente que luego debés completar como realizado/enviado, intento sin contacto/respuesta o no realizado.
-6. Si el contacto se registró como no confirmado o pendiente, resolvelo más tarde sin sobrescribir el texto. Para corregir un estado ya confirmado, usá la acción de corrección y explicá el motivo.
+1. Tocá «Contactar», elegí «¿Sobre qué?» (un contacto general con su propósito o una gestión abierta) y el canal.
+2. Elegí una «Persona de contacto» y el dato concreto o, si no hay persona con ese canal, «Usar el dato general del negocio». Comprobá el destinatario antes de seguir.
+3. Usá un «Mensaje modelo (opcional)» compartido o «Escribir desde cero». Podés editar el texto para este contacto. Si faltan datos del modelo, completalos o quitalos.
+4. El email sale desde el CRM. WhatsApp abre la aplicación y el CRM te pregunta después «¿Lo enviaste?». Si falla la apertura, queda un intento sin confirmar.
+5. Las llamadas se anotan a mano con un resumen. En «Red social» y «Otro canal» podés copiar el texto; queda un intento pendiente que después completás.
+6. Si el contacto quedó sin confirmar o pendiente, resolvelo más tarde sin sobrescribir el texto. Para corregir uno ya confirmado, usá la acción de corrección y explicá el motivo.
 
-**Qué queda al terminar:** El CRM conserva el contenido y el estado del mensaje. El resultado de la tarea y su continuación se registran por separado.
+**Qué queda al terminar:** El CRM conserva el contenido y el estado del mensaje. Lo que pasó y cómo sigue se anotan aparte, en «¿Cómo salió?» y «¿Cómo sigue?».
 
 **Ejemplo:**
 
@@ -509,15 +564,15 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 **Tené en cuenta:**
 
 - Los modelos compartidos los administra el equipo administrador. Editar el texto de un contacto no modifica el modelo.
-- Abrir o copiar no prueba que el contacto se haya realizado.
+- Abrir o copiar no prueba que el contacto se haya hecho.
 
 ### Guardar, retomar o cancelar un borrador
 
 **Cuándo usarlo:** Cuando el mensaje todavía no está listo para enviarse.
 
-1. Abrí Contactar y elegí una gestión abierta o General con su propósito. Guardar un borrador no inicia ni confirma un contacto.
-2. Volvé a Comunicación → Mensajes y borradores para retomar el mensaje guardado. Revisá de nuevo destinatario, datos y contenido antes de usarlo.
-3. Email se envía por Brevo; WhatsApp se abre externamente y queda sin confirmar hasta que informes el resultado.
+1. Tocá «Contactar» y elegí una gestión abierta o un contacto general con su propósito. Guardar un borrador no inicia ni confirma un contacto.
+2. Para retomarlo, entrá en la solapa «Qué pasó» del negocio y buscalo en «Comunicación». Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.
+3. El email sale desde el CRM; WhatsApp se abre afuera y queda sin confirmar hasta que informes el resultado.
 4. Si salís con cambios sin guardar, elegí volver o descartarlos. No reenvíes un mensaje cuyo resultado sea incierto: primero revisá el estado del intento.
 
 **Qué queda al terminar:** El borrador queda separado de los intentos de contacto y de las comunicaciones realizadas.
@@ -530,13 +585,13 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.
 
-1. Abrí el negocio o una gestión y entrá en Documentos. Allí podés consultar sus materiales y elegir documentos aprobados de la biblioteca.
-2. En el negocio o la gestión entrá en Documentos y buscá el recurso en el selector de biblioteca.
-3. Elegí el documento, revisá el destino y usá Vincular documento al negocio o Vincular documento a la gestión. Desde un negocio podés elegir una gestión propia o dejarlo como documento general.
-4. Si sos administrador y necesitás un documento específico del caso, abrí Agregar documento o recurso. Completá título, tipo y un vínculo HTTP(S) o archivo permitido, y guardá.
-5. Revisá la versión, el vencimiento y su aprobación antes de usarlo como material comercial.
+1. Abrí el negocio y entrá en la solapa «Datos y documentos», o abrí una gestión y entrá en «Documentos».
+2. Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.
+3. Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.
+4. Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.
+5. Revisá la versión, el vencimiento y la aprobación antes de usarlo como material comercial.
 
-**Qué queda al terminar:** El documento queda asociado al contexto elegido. Vincularlo no lo envía al cliente.
+**Qué queda al terminar:** El documento queda asociado al lugar elegido. Vincularlo no lo envía al cliente.
 
 **Ejemplo:**
 
@@ -544,49 +599,52 @@ Usá modelos, documentos, agenda y filtros cuando ayudan a tu trabajo.
 
 **Tené en cuenta:**
 
-- Solo un administrador carga y administra la biblioteca común en Configuración → Biblioteca. Los documentos particulares del negocio se gestionan dentro de su ficha. Una nueva versión conserva las anteriores y vuelve a borrador.
+- Solo un administrador carga y administra la biblioteca común, en «Configuración» → «Biblioteca». Una versión nueva conserva las anteriores y vuelve a borrador.
 
 **Dónde ir:** Elegir negocio para consultar materiales (/accounts)
 
-### Usar Agenda y reprogramar una tarea
+### Usar el Calendario y Posponer una tarea
 
-**Cuándo usarlo:** Para revisar encuentros y cambiar la fecha de un compromiso.
+**Cuándo usarlo:** Para revisar visitas y reuniones, y para cambiar la fecha de un compromiso.
 
-1. Abrí Agenda, revisá Mes y los filtros disponibles. Abrí la acción del calendario para consultar sus datos.
-2. Si no aparece una tarea, buscala en Mi día: solo los tipos configurados para agenda se muestran en el calendario.
-3. En la tarea abrí Más acciones de esa tarea → Editar / reprogramar. Cambiá la fecha y, si corresponde, la hora; guardá.
-4. Si ya no hay que hacerla, usá Cancelar tarea y anotá el motivo. Si la hiciste, usá Registrar qué pasó en lugar de cancelarla.
+1. En «Hoy» abrí la solapa «Calendario». Elegí el «Mes» y, si querés, alternás entre «Ver como calendario» y «Ver como lista».
+2. Para agendar una visita o reunión, tocá «Agendar encuentro». Cuando ocurra, tocá «Anotar encuentro realizado». Solo los tipos de tarea configurados para el calendario aparecen ahí; las demás están en «Lista».
+3. Para pasar una tarea a otro día, tocá «Posponer» en su fila y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…». El CRM te avisa con un cartel y podés tocar «Deshacer».
+4. Para cambiar también la hora o los datos, abrí el menú de la tarea y tocá «Cambiar fecha o datos».
+5. Si ya no hay que hacerla, tocá «Ya no hace falta» y escribí el motivo. Si la hiciste, usá «Anotar cómo salió» en lugar de cancelarla.
 
-**Qué queda al terminar:** Cambiar la fecha reorganiza la tarea existente. No registra una actividad realizada.
+**Qué queda al terminar:** Cambiar la fecha reorganiza la tarea que ya existe. No anota nada como hecho.
 
 **Ejemplo:**
 
-- La visita pasó del martes al jueves a las 15:00. Reprogramá esa visita; no crees una segunda que deje la primera vencida.
+- La visita pasó del martes al jueves a las 15:00. Posponé esa visita; no crees una segunda que deje la primera vencida.
 
-**Dónde ir:** Abrir Agenda (/agenda)
+**Tené en cuenta:**
+
+- Las fechas y horas son de Argentina.
+
+**Dónde ir:** Abrir Calendario (/my-day?view=calendar)
 
 ### Buscar, filtrar y usar las vistas de las listas
 
 **Cuándo usarlo:** Cuando necesitás encontrar negocios o propuestas sin revisar toda la cartera.
 
-1. Entrá en Negocios y buscá por nombre. Elegí Tabla o Grilla: ambas muestran los resultados de la vista actual.
-2. Usá Filtrar negocios y revisá los filtros aplicados. Guardar como vista conserva la búsqueda, filtros, orden y columnas de trabajo.
-3. Abrí Columnas para elegir y ordenar datos. Arrastrá una fila desde cualquier parte para reordenarla. La columna de selección permanece primera y fija a la izquierda.
-4. En la tabla de escritorio, las columnas fijadas quedan agrupadas en uno de los extremos: a la izquierda o a la derecha. No puede quedar una columna sin fijar por fuera de ellas.
-5. Las vistas guardadas se seleccionan en sus badges. Usá Administrar para editar todos sus filtros, duplicar o eliminar una vista; administradores también pueden convertir una vista personal en vista de sistema.
-6. Restablecer vista quita la configuración activa y devuelve las preferencias iniciales. El texto de vista aplicada aparece junto a los filtros manuales.
-7. Usá selección múltiple solo después de revisar la lista completa afectada. Revisá y confirmá los cambios masivos antes de aplicarlos.
+1. Entrá en «Negocios» y buscá por nombre. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual.
+2. Tocá «Filtrar negocios» y revisá los filtros aplicados. «Guardar como vista» conserva la búsqueda, los filtros, el orden y las columnas.
+3. Abrí «Columnas» para elegir y ordenar los datos que ves. La columna de selección queda primera y fija a la izquierda.
+4. Las vistas guardadas se eligen en sus etiquetas. Usá «Administrar tus vistas» (el ícono de la tuerca) para editar sus filtros, duplicar o eliminar una vista; los administradores también pueden convertir una vista personal en vista del equipo.
+5. «Restablecer vista» quita la configuración activa y vuelve a las preferencias iniciales.
+6. Usá la selección múltiple solo después de revisar la lista completa afectada. Revisá y confirmá los cambios masivos antes de aplicarlos.
 
-**Qué queda al terminar:** Guardar como vista, en la barra de filtros, conserva la configuración actual. Las vistas y filtros cambian lo que ves; no cambian datos por sí solos. Confirmar una edición masiva sí los modifica.
+**Qué queda al terminar:** Las vistas y los filtros cambian lo que ves, no los datos. Solo confirmar una edición masiva los modifica.
 
 **Ejemplo:**
 
-- Buscá Camino Claro y filtrá Colón: se muestran los registros que cumplen ambos criterios.
+- Buscá Camino Claro y filtrá Colón: se muestran los registros que cumplen los dos criterios.
 
 **Tené en cuenta:**
 
-- En mobile se comienza con grilla; podés elegir tabla. Las columnas se desplazan horizontalmente.
-- Las vistas y filtros cambian lo que ves; no modifican datos por sí solos.
+- En el celular se empieza con la grilla; podés elegir la tabla. Las columnas se desplazan hacia los costados.
 
 **Dónde ir:** Buscar en Negocios (/accounts)
 
@@ -598,26 +656,26 @@ Un caso ficticio para aprender a registrar una relación comercial completa.
 
 **Cuándo usarlo:** Para practicar el recorrido. Los nombres y acuerdos de este ejemplo son ficticios.
 
-1. Buscás Cabañas Camino Claro. Como no existe, elegís Nuevo negocio, completás los datos conocidos y guardás. El negocio queda Nuevo.
-2. Verificás que el establecimiento exista y sea el correcto. Guardás la fuente confiable y cambiás Estado del negocio a Revisado.
-3. En Contactos agregás a Ana, su teléfono y su preferencia. La marcás como persona principal si corresponde.
-4. Iniciás una gestión del tipo Verticales principales y elegís un nombre concreto. También podrías iniciarla desde Contactar; si verificás el negocio allí, el mismo paso lo marca Revisado.
-5. Planificás una llamada o iniciás el contacto desde la gestión. Revisás destinatario, canal y restricciones. Email sale por Brevo; WhatsApp requiere confirmación manual.
-6. Registrás la respuesta real. Si pidió retomar más adelante, podés crear un recordatorio con fecha. La respuesta no mueve la etapa automáticamente.
-7. Avanzás a la etapa abierta que refleje el caso. No hace falta recorrer todas las etapas.
-8. Cuando acepta, cerrás la gestión con el resultado y motivo que correspondan. En Verticales principales, el cierre ganado marca automáticamente al negocio como cliente. Completás los datos conocidos del acuerdo sin inventar los que falten.
-9. El CRM mantiene las otras gestiones del negocio. Al cerrarse la última gestión abierta, el negocio queda Sin seguimiento programado; podés marcar Recontactar si corresponde.
+1. Buscás Cabañas Camino Claro en «Negocios». Como no existe, tocás «Nuevo negocio», completás los datos que conocés y tocás «Crear negocio». El negocio queda Nuevo.
+2. Verificás que el establecimiento exista y sea el correcto. Guardás la fuente confiable y cambiás el Estado del negocio a Revisado.
+3. En la solapa «Personas» tocás «Agregar persona» y cargás a Ana, su teléfono y su preferencia. La marcás como principal si corresponde.
+4. Tocás «Iniciar gestión» y elegís el tipo verticales principales y un nombre concreto. También podrías iniciarla desde «Contactar»; si verificás el negocio ahí, el mismo paso lo deja Revisado.
+5. Agendás una llamada con «Agendar tarea» o tocás «Contactar» desde la gestión. Revisás destinatario, canal y restricciones. El email sale desde el CRM; WhatsApp pide que confirmes si lo enviaste.
+6. Después del contacto, el CRM te pregunta «¿Cómo salió?». Anotás la respuesta real. Si pidió retomar más adelante, elegís «Esperar hasta una fecha y retomar» y la fecha acordada.
+7. Cuando haya novedades, cambiás la gestión a la etapa abierta que refleje el caso. No hace falta recorrer todas las etapas.
+8. Cuando acepta, cerrás la gestión con «Cambiar etapa», el resultado y el motivo que correspondan. En verticales principales, el cierre ganado marca al negocio como cliente. Completás los datos del acuerdo sin inventar los que falten.
+9. El CRM mantiene las otras gestiones del negocio. Al cerrarse la última gestión abierta, el negocio queda Sin tarea agendada; podés marcarlo Recontactar si corresponde.
 10. Después de aceptar, iniciás una gestión separada de Acompañamiento de ficha para ayudar a crear o mejorar su perfil.
-11. Registrás la entrega y el acompañamiento como tareas y actividades reales, conservando sus fechas y resultados.
+11. Anotás la entrega y el acompañamiento con «Anotar cómo salió» y dejás siempre un próximo paso con fecha.
 12. Si más adelante hay una oportunidad distinta, iniciás otra gestión en el mismo negocio. No creás un duplicado.
 
-**Qué queda al terminar:** Un negocio, sus personas, dos propuestas distintas y una historia comprensible de compromisos, resultados y seguimiento.
+**Qué queda al terminar:** Un negocio, sus personas, dos propuestas distintas y una historia comprensible de compromisos, resultados y próximos pasos.
 
 **Ejemplo:**
 
-- Si no responde: registrá No respondió y programá cuándo retomar.
-- Si rechaza la oferta: cerrá esa gestión como Perdida con motivo real; una fecha de recontacto es opcional.
-- Si pide no recibir contactos: registrá Pidió no ser contactado y respetá el bloqueo.
+- Si no responde: anotá «No respondió» y agendá cuándo retomar.
+- Si rechaza la oferta: cerrá esa gestión como perdida con un motivo real; la fecha de recontacto es opcional.
+- Si pide no recibir contactos: anotá «Pidió no ser contactado» y respetá el bloqueo.
 
 **Tené en cuenta:**
 
@@ -631,68 +689,90 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 
 ### Falta un canal o alguien pidió no contactar
 
-**Cuándo usarlo:** Cuando faltan teléfono/email o el CRM bloquea la comunicación.
+**Cuándo usarlo:** Cuando faltan teléfono o email, o el CRM bloquea la comunicación.
 
-1. Revisá persona y canal. Si el dato falta, agregá el dato real; no uses el canal de otra persona. Si no hay una persona con ese canal, podés usar el canal general del negocio.
-2. Si el CRM muestra una restricción, revisá su alcance. Puede ser un bloqueo global o una restricción técnica para una persona o canal concreto.
-3. Si una persona pidió no ser contactada, registrá la respuesta “Pidió no contactar”. Cualquier usuario puede activar el bloqueo global; bloquea todas las salidas para el negocio.
-4. No cambies de persona, canal o propósito para eludir el bloqueo. Solo un administrador puede levantar No contactar y debe explicar el motivo.
-5. Una falla permanente comprobable puede restringir técnicamente el dato de destino. Las fallas temporales no deben bloquear el canal.
+1. Revisá la persona y el canal. Si el dato falta, tocá «Agregar o editar teléfono o email» y cargá el dato real; no uses el canal de otra persona. Si no hay una persona con ese canal, podés usar el canal general del negocio.
+2. Si el CRM muestra una restricción, fijate cuál es. Puede ser un bloqueo del negocio entero o una restricción técnica de una persona o canal.
+3. Si una persona pidió que no la contacten, anotá «Pidió no ser contactado» con «Anotar lo que pasó» desde el negocio. Lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador; si no te corresponde, avisale a alguno de ellos. El bloqueo alcanza a todas las salidas del negocio y cancela sus tareas pendientes.
+4. No cambies de persona, de canal ni de propósito para esquivar el bloqueo. Solo un administrador puede levantar No contactar y tiene que explicar el motivo.
+5. Si al contactar a una persona aparece el aviso «Este teléfono es de un negocio que pidió no ser contactado», es que ese número también pertenece a un negocio No contactar. Podés seguir, pero no uses ese teléfono sin consultar a un administrador.
+6. Una falla permanente comprobable puede restringir técnicamente un dato de destino. Las fallas temporales no deberían bloquear el canal.
 
-**Qué queda al terminar:** Se actualiza el dato real o se respeta el bloqueo correspondiente.
+**Qué queda al terminar:** Se actualiza el dato real o se respeta el bloqueo.
 
 **Tené en cuenta:**
 
-- No hay canal disponible no significa necesariamente que falten datos: puede haber una restricción o una verificación en curso.
+- Que no haya canal disponible no significa siempre que falten datos: puede haber una restricción o una verificación en curso.
+
+### No puedo modificar un negocio
+
+**Cuándo usarlo:** Cuando ves un negocio pero no aparecen los botones para editarlo o contactarlo.
+
+1. Mirá si arriba hay un cartel rojo. «No contactar» y «Negocio archivado» dejan el negocio solo para consulta: podés ver todo, pero no editar, contactar ni cambiar su gestión, ni siquiera si sos su responsable. Solo un administrador levanta el bloqueo o desarchiva.
+2. Si no hay cartel, aparece el aviso «Podés consultar este negocio». Significa que el negocio es de otra persona: solo su responsable o un administrador puede modificarlo. Con No contactar, el aviso aclara que solo un administrador puede modificarlo.
+3. Si tenés una gestión abierta en ese negocio y no está archivado ni es No contactar, igual podés corregir sus datos de contacto (teléfono, email, WhatsApp) y sus personas con «Corregir datos de contacto». Todo lo demás sigue siendo del responsable.
+4. Si buscás un negocio tuyo que archivaron, apretá Ctrl+K y escribí su nombre: los archivados aparecen marcados como Archivado (el administrador ve todos).
+5. Para cambiar algo que no te corresponde, pedíselo al responsable o al administrador. No dupliques el negocio ni la tarea para saltear esa regla.
+
+**Qué queda al terminar:** Sabés quién puede cambiar cada cosa y a quién pedírselo.
+
+**Ejemplo:**
+
+- Leíste en la ficha que el teléfono de recepción cambió. Tenés una gestión abierta con ese negocio: corregilo con «Corregir datos de contacto» y el cambio queda registrado.
+
+**Tené en cuenta:**
+
+- Leer un negocio nunca da permiso de modificarlo, de mandarle mensajes ni de administrar su gestión.
 
 ### No encuentro una tarea o no puedo editar
 
-**Cuándo usarlo:** Cuando falta una acción en la lista o no aparecen botones de edición.
+**Cuándo usarlo:** Cuando falta una tarea en la lista o no aparecen botones de edición.
 
-1. Abrí Mi día → Filtros de trabajo. Revisá ciudad, vertical y el alcance visible. Todo el equipo es una opción del administrador.
-2. Revisá Vencidas, Para hoy y Próximas acciones. La tarea puede tener una fecha distinta de la que recordabas.
-3. Abrí el negocio o gestión → Seguimiento. Comprobá si la tarea está pendiente, realizada o cancelada.
-4. Revisá el responsable. Si no tenés permiso, consultá al responsable o administrador; no dupliques la tarea para saltear esa asignación.
-5. Si los datos parecen viejos, elegí Actualizar. La flecha permite activar Actualizar automáticamente.
+1. Abrí «Hoy» → «Filtros de trabajo». Revisá localidad, rubro y de quién es el trabajo que ves. Ver «Todo el equipo» es una opción del administrador.
+2. Revisá «Vencidas», «Para hoy» y «Próximas acciones». La tarea puede tener otra fecha de la que recordabas.
+3. Abrí el negocio o la gestión y mirá «Tareas pendientes». Comprobá si la tarea está pendiente, realizada o cancelada.
+4. Revisá el responsable. Si no tenés permiso, consultá al responsable o al administrador; no dupliques la tarea para saltear esa asignación.
+5. Si los datos parecen viejos, tocá «Actualizar».
 
-**Qué queda al terminar:** Podés ubicar el compromiso y saber quién debe gestionarlo.
+**Qué queda al terminar:** Podés ubicar el compromiso y saber quién debe encargarse.
 
 **Tené en cuenta:**
 
-- Actualizar no guarda formularios ni envía mensajes. Archivar el negocio no elimina sus tareas pendientes.
+- Actualizar no guarda formularios ni envía mensajes. Revisá sus tareas pendientes en Hoy antes o después de archivar.
 
 ### Me equivoqué, hay cambios sin guardar o un envío incierto
 
 **Cuándo usarlo:** Cuando necesitás corregir un dato o comprobar qué se guardó.
 
 1. Antes de guardar un formulario, corregí el dato. Si hay cambios sin guardar, elegí volver al formulario o descartarlos.
-2. Para corregir una respuesta entrante o el resultado de una comunicación ya cerrada, usá la acción Corregir y escribí el motivo obligatorio. El historial conserva el valor anterior y quién/cuándo lo cambió.
-3. Si un envío de Email o WhatsApp quedó No confirmado, confirmalo como Enviado o No enviado solo cuando puedas verificar el resultado. No lo reenvíes automáticamente.
-4. El texto de un intento no confirmado no se sobrescribe. Si el mensaje debe cambiar, creá otro intento; conservá el anterior.
-5. Para un acuerdo ganado, usá Revisar acuerdo y entrega. No marques una actividad como hecha para quitar una tarea vencida: registrá el resultado real o cancelá lo que ya no corresponde.
+2. Para corregir un resultado ya anotado, abrí el menú de su tarea completada y tocá «Corregir cómo salió». Para una respuesta recibida, usá «Corregir respuesta» y escribí el motivo. El historial conserva el valor anterior, quién lo cambió y cuándo.
+3. Si un envío de email o WhatsApp quedó sin confirmar, confirmalo como enviado o no enviado solo cuando puedas verificarlo. No lo reenvíes automáticamente.
+4. El texto de un intento sin confirmar no se sobrescribe. Si el mensaje tiene que cambiar, creá otro intento y conservá el anterior.
+5. Para un acuerdo ganado, usá «Revisar acuerdo y entrega». No marques algo como hecho para sacar una tarea vencida: anotá el resultado real o tocá «Ya no hace falta» en lo que ya no corresponde.
+6. Si cargaste una tarea por error, abrí su menú y tocá «Borrar (cargada por error)».
 
 **Qué queda al terminar:** La corrección usa la acción adecuada y conserva el historial.
 
 **Tené en cuenta:**
 
-- Corregir una respuesta desde Pidió no contactar puede levantar el bloqueo global después de una confirmación explícita.
+- Corregir una respuesta «Pidió no ser contactado» puede levantar el bloqueo después de una confirmación explícita.
 
 ### Archivar, restaurar y usar la Papelera
 
-**Cuándo usarlo:** Cuando querés retirar algo de la vista habitual sin confundir negocio y gestión.
+**Cuándo usarlo:** Cuando querés sacar algo de la vista habitual sin confundir negocio y gestión.
 
-1. Archivar es para un negocio válido que dejás de trabajar por ahora: lo oculta de la lista activa y conserva sus contactos, gestiones, tareas e historial. Solo un administrador puede desarchivarlo.
-2. Solo un administrador puede desarchivar. El negocio vuelve a Revisado si ya había sido verificado; si no, vuelve a Nuevo.
-3. Enviar un negocio a Papelera es para un registro inválido o cargado por error. Se oculta de las listas habituales, conserva sus datos e historial y solo un administrador puede restaurarlo.
-4. Enviar una gestión a la Papelera es una acción separada del estado del negocio. Revisá cuidadosamente cuál entidad estás eliminando.
-5. Antes de fusionar o retirar duplicados, compará ciudad, canales, personas, gestiones e historial y pedí al administrador que evalúe la fusión.
+1. Archivar es para un negocio válido que dejás de trabajar por ahora: lo oculta de la lista activa y conserva sus personas, gestiones, tareas e historial. Se hace con «Archivar negocio válido».
+2. Solo un administrador puede desarchivar. El negocio vuelve a Revisado si ya había sido verificado y, si no, a Nuevo. Los archivados se consultan en «Negocios archivados».
+3. Enviar un negocio a la Papelera es para un registro inválido o cargado por error. Se oculta de las listas, conserva sus datos y su historial, y solo un administrador puede restaurarlo.
+4. Enviar una gestión a la Papelera es una acción distinta del estado del negocio. Fijate bien cuál de las dos estás eliminando.
+5. Antes de fusionar o retirar duplicados, compará ciudad, canales, personas, gestiones e historial y pedile al administrador que evalúe la fusión.
 
-**Qué queda al terminar:** Elegís Archivar para conservar un negocio válido que no se trabajará ahora, o Papelera para apartar un registro inválido. Ambas acciones conservan el historial y tienen recuperación administrativa.
+**Qué queda al terminar:** Elegís Archivar para conservar un negocio válido que no se trabaja ahora, o la Papelera para apartar un registro inválido. Las dos conservan el historial y tienen recuperación por un administrador.
 
 **Tené en cuenta:**
 
-- No contactar también impide salidas, aunque el negocio no esté archivado ni en Papelera.
-- Archivar no significa que una gestión esté Perdida ni que el cliente haya cancelado.
+- No contactar también impide las salidas, aunque el negocio no esté archivado ni en la Papelera.
+- Archivar no significa que una gestión esté perdida ni que el cliente se haya ido.
 
 ## Administrar el CRM
 
@@ -702,18 +782,19 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 **Cuándo usarlo:** Cuando el equipo necesita modificar accesos u opciones compartidas.
 
-1. Configuración → Usuarios: agregá usuarios y revisá sus datos y remitente.
-2. Clasificaciones permite administrar datos descriptivos como verticales, subtipos y ciudades.
-3. El estado del negocio, las marcas Es cliente/No contactar/Derivado a Leandro y las etapas y motivos de las gestiones son catálogos fijos del producto.
-4. Proceso comercial → Tareas y seguimiento administra tipos de actividad, su presencia en Agenda y otras reglas de trabajo.
-5. Comunicación configura el envío global de Email mediante Brevo. Templates administra modelos compartidos; Biblioteca administra materiales comunes.
-6. Los cambios de configuración no corrigen automáticamente información histórica. Revisá cuidadosamente los datos afectados antes de cualquier migración o cambio masivo.
+1. En el menú «Administración» entrá en «Configuración». Ahí están «Usuarios», «Redistribución», «Clasificaciones», «Proceso comercial», «Comunicación» y «Sistema».
+2. En «Usuarios» agregás gente con «Agregar usuario» y revisás sus datos y su remitente.
+3. «Clasificaciones» administra datos descriptivos como verticales, subtipos y ciudades.
+4. El Estado del negocio, las marcas Es cliente / No contactar / Derivado a Leandro, y las etapas y motivos de las gestiones son catálogos fijos del producto.
+5. «Proceso comercial» tiene «Etapas y resultados» y «Tareas y seguimiento», donde se administran los tipos de tarea, su presencia en el calendario y otras reglas de trabajo.
+6. «Comunicación» configura el envío global de email. «Modelos de mensajes» administra los modelos compartidos y «Biblioteca» los materiales comunes.
+7. Los cambios de configuración no corrigen la información histórica. Revisá con cuidado los datos afectados antes de hacer un cambio masivo.
 
-**Qué queda al terminar:** Las opciones compartidas quedan en el área correspondiente. Cambiar de sección no modifica datos.
+**Qué queda al terminar:** Las opciones compartidas quedan en la sección que corresponde. Cambiar de sección no modifica datos.
 
 **Tené en cuenta:**
 
-- Las etapas de las gestiones no se configuran libremente desde la app; dependen del tipo de gestión.
+- Las etapas de las gestiones no se configuran libremente: dependen del tipo de gestión.
 
 **Dónde ir:** Abrir Configuración (/settings)
 
@@ -721,12 +802,12 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 **Cuándo usarlo:** Cuando el equipo necesita materiales comunes para ofrecer.
 
-1. Solo los administradores crean, editan, duplican, publican, desactivan o reactivan modelos compartidos. Los modelos pueden ser para Email, WhatsApp, redes sociales u Otros; no para llamadas.
-2. Al crear o guardar un modelo queda disponible de inmediato. Los cambios se aplican a nuevos usos; los borradores que ya copiaron texto no cambian.
-3. Clasificá el modelo por canal y, cuando corresponda, vertical o tipo de gestión. Se muestran todos los que aplican, priorizando los más específicos y manteniendo disponibles los genéricos.
-4. Usá solo variables confiables del CRM. Quien prepara un contacto debe completar o quitar cada variable faltante antes de abrir o enviar el mensaje.
-5. El historial conserva versiones anteriores. Un administrador puede consultarlas o restaurarlas. Desactivar oculta un modelo para usos nuevos sin borrar su historial; también puede editarse y reactivarse.
-6. En Biblioteca agregá documentos o recursos, revisá su contenido y aprobá la versión cuando esté lista. Vincular un recurso al negocio o a la gestión no lo envía.
+1. Solo los administradores crean, editan, duplican, publican, desactivan o reactivan modelos compartidos. Los modelos pueden ser para email, WhatsApp, redes sociales u otros canales; no para llamadas.
+2. Al crear o guardar un modelo queda disponible enseguida. Los cambios se aplican a los usos nuevos; los borradores que ya copiaron texto no cambian.
+3. Clasificá el modelo por canal y, cuando corresponda, vertical o tipo de gestión. Se muestran todos los que aplican, primero los más específicos, y los genéricos siguen disponibles.
+4. Usá solo variables confiables del CRM. Quien prepara un contacto tiene que completar o quitar cada variable que falte antes de abrir o enviar el mensaje.
+5. El historial conserva las versiones anteriores y un administrador puede consultarlas o restaurarlas. Desactivar oculta un modelo para usos nuevos sin borrar su historial; también puede editarse y reactivarse.
+6. En «Biblioteca» agregá documentos o recursos, revisá su contenido y aprobá la versión cuando esté lista. Vincular un recurso a un negocio o una gestión no lo envía.
 
 **Qué queda al terminar:** El equipo dispone de modelos y recursos revisados, con sus versiones e historia.
 
@@ -740,16 +821,16 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 **Cuándo usarlo:** Cuando necesitás organizar datos o revisar la operación del equipo.
 
-1. Importar CSV carga negocios; no inicia gestiones, no crea tareas y no contacta a nadie. Los negocios importados comienzan como Nuevo y deben revisarse.
-2. Revisá que cada negocio exista y corresponda al registro. Marcá Revisado cuando la comprobación esté hecha; los inválidos se envían a Papelera según los permisos disponibles.
-3. Para duplicados, compará ciudad, canales, personas, gestiones e historial antes de decidir una fusión.
-4. En Historial del negocio revisá procedencia y calidad de los datos. Usá Estadísticas como apoyo y contrastá los indicadores con los registros reales.
+1. «Importar CSV» carga negocios; no inicia gestiones, no crea tareas ni contacta a nadie. Los negocios importados empiezan como Nuevo y hay que revisarlos.
+2. Revisá que cada negocio exista y corresponda al registro. Marcá Revisado cuando la comprobación esté hecha; los inválidos van a la Papelera según los permisos disponibles.
+3. Para duplicados usá «Buscar duplicados» y compará ciudad, canales, personas, gestiones e historial antes de decidir una fusión.
+4. En «Historial del negocio» revisá de dónde vienen los datos y su calidad. Usá «Estadísticas» como apoyo y contrastá los indicadores con los registros reales.
 5. Antes de cualquier cambio masivo, revisá todos los negocios afectados y confirmá solo si representa la decisión del equipo.
 
-**Qué queda al terminar:** Los cambios se apoyan en registros identificados, sin reemplazar la revisión del caso.
+**Qué queda al terminar:** Los cambios se apoyan en registros identificados, sin reemplazar la revisión de cada caso.
 
 **Tené en cuenta:**
 
-- Una gestión se crea por una acción explícita después de verificar el negocio. Los indicadores del CRM no acreditan pagos del portal turístico.
+- Una gestión se crea con una acción explícita, después de verificar el negocio. Los indicadores del CRM no acreditan pagos del portal turístico.
 
 **Dónde ir:** Revisar Negocios (/accounts)
