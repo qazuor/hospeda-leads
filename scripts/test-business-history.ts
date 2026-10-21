@@ -5,11 +5,12 @@ import superjson from 'superjson';
 import {db} from '../src/helpers/db';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {get} from '../src/endpoints/commercial';
+import {post as pipelinePost} from '../src/endpoints/pipeline';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable database');
 const stamp=randomUUID();
-async function session(role:'admin'|'user'){
- const u=await db.insertInto('users').values({email:stamp+role+'@example.com',displayName:'History test',role}).returningAll().executeTakeFirstOrThrow();
- const id=stamp+role;await db.insertInto('sessions').values({id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();
+async function session(role:'admin'|'user',tag=''){
+ const u=await db.insertInto('users').values({email:stamp+role+tag+'@example.com',displayName:'History test',role}).returningAll().executeTakeFirstOrThrow();
+ const id=stamp+role+tag;await db.insertInto('sessions').values({id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();
  const r=new Response();await setServerSession(r,{id,createdAt:Date.now(),lastAccessed:Date.now()});return r.headers.get('set-cookie')!.split(';')[0];
 }
 try{
@@ -42,5 +43,27 @@ try{
  await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',lead.id).execute();assert.equal((await history()).total,3,'only business-level data changes stay once the management is deleted (the status trigger added one more)');assert.equal((await history()).totalPending,0);
  await db.updateTable('crmAccounts').set({archivedAt:new Date()}).where('id','=',a.id).execute();await history(1,reader,403);await history(1,admin);
  const r=await get(new Request('http://localhost/_api/commercial?accountId='+a.id+'&historyPage=1'));assert.equal(r.status,401);
+ // U-28B: stage-change notes (and the reason's label) of managements reach the timeline for every business reader; the legacy comment still shows.
+ {
+  const colleague=await session('user','colleague'),ownerEmail=stamp+'user@example.com';
+  const b=await db.insertInto('crmAccounts').values({nombre:'Notes '+stamp,status:'reviewed',assignedUserEmail:ownerEmail}).returningAll().executeTakeFirstOrThrow();
+  const typed=await db.insertInto('leads').values({accountId:b.id,nombre:b.nombre,opportunityName:'Gestión con nota',managementType:'main',estado:'main:contact',assignedUserEmail:ownerEmail} as never).returningAll().executeTakeFirstOrThrow();
+  const legacy=await db.insertInto('leads').values({accountId:b.id,nombre:b.nombre,opportunityName:'Gestión heredada',estado:'Cargado',assignedUserEmail:ownerEmail}).returningAll().executeTakeFirstOrThrow();
+  const reason=await db.selectFrom('crmManagementReasons').selectAll().where('managementType','=','main').where('outcomeKey','=','lost').where('active','=',true).where('doNotContact','=',false).where('requiresNote','=',false).executeTakeFirstOrThrow();
+  const transition=async(leadId:string,stage:string,extra:object)=>{const rev=(await db.selectFrom('leads').select('pipelineRevision').where('id','=',leadId).executeTakeFirstOrThrow()).pipelineRevision;const r=await pipelinePost(new Request('http://localhost/_api/pipeline',{method:'POST',headers:{cookie:reader},body:superjson.stringify({action:'transition',leadId,revision:rev,stage,...extra})}));assert.equal(r.status,200,await r.text());};
+  await transition(typed.id,'main:lost',{reasonId:reason.id,comment:'Prefiere seguir con su proveedor actual'});
+  await transition(legacy.id,'En tratativas',{comment:'Nota de gestión anterior'});
+  const stored=await db.selectFrom('crmPipelineEvents').select(['managementNote','comment']).where('leadId','=',typed.id).where('newStage','=','main:lost').executeTakeFirstOrThrow();assert.equal(stored.managementNote,'Prefiere seguir con su proveedor actual');assert.equal(stored.comment,null,'a typed management keeps its note in management_note, not comment');
+  const historyOf=async(cookie:string|null,status=200)=>{const r=await get(new Request('http://localhost/_api/commercial?'+new URLSearchParams({accountId:b.id,historyPage:'1',historyKind:'management'}),{headers:cookie?{cookie}:{}}));const d=superjson.parse<any>(await r.text());assert.equal(r.status,status,d.error);return d;};
+  const checkNotes=(d:any)=>{
+   const t=d.events.find((e:any)=>e.opportunityName==='Gestión con nota'&&!e.title.startsWith('Gestión iniciada'));assert(t,'typed stage entry present');assert.equal(t.result,'Motivo: '+reason.name+' · Prefiere seguir con su proveedor actual','typed note shows with the reason label');
+   const l=d.events.find((e:any)=>e.opportunityName==='Gestión heredada'&&e.result);assert(l,'legacy stage entry with a note present');assert.equal(l.result,'Nota de gestión anterior','legacy comment still shows');
+   assert(d.events.every((e:any)=>typeof e.result!=='string'||!/[{}]|reason_id|^\d+$/.test(e.result)),'no raw ids or keys');
+  };
+  checkNotes(await historyOf(reader));checkNotes(await historyOf(colleague));checkNotes(await historyOf(admin));
+  await historyOf(null,401);
+  await db.updateTable('crmAccounts').set({archivedAt:new Date()}).where('id','=',b.id).execute();
+  checkNotes(await historyOf(reader));await historyOf(colleague,403);
+ }
  console.log('Commercial history: pagination, one event per linked message/activity, honest WhatsApp state, pending commitments and archived/deleted permissions passed');
 }finally{await db.destroy()}
