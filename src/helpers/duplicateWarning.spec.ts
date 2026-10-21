@@ -30,6 +30,14 @@ describe('duplicateWarning',()=>{
   expect(result.shown.map(c=>c.id)).toEqual(['4','1']);
   expect(result.dncWarning).toBe(true);
  });
+ it('moves a No contactar business that only shares the person phone to its own warning, never a block',()=>{
+  const person=candidate('7',{doNotContact:true,reasons:['Teléfono de la persona compartido']});
+  const result=duplicateWarning({candidates:[candidate('1'),person]});
+  expect(result.blocker).toBeNull();
+  expect(result.personPhoneDnc.map(c=>c.id)).toEqual(['7']);
+  expect(result.shown.map(c=>c.id)).toEqual(['1']);
+  expect(duplicateWarning({candidates:[candidate('8',{doNotContact:true,reasons:['Teléfono de la persona parecido']})]}).personPhoneDnc).toEqual([]);
+ });
  it('uses plain words for match reasons',()=>{
   expect(duplicateReasonLabel('Nombre y localidad normalizados coinciden')).toBe('Mismo nombre y ciudad');
   expect(duplicateReasonLabel('Teléfono de la persona compartido')).toBe('Mismo teléfono que la persona');

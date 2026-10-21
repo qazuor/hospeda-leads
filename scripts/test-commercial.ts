@@ -22,7 +22,7 @@ import {sql} from 'kysely';
 import {BUSINESS_PROJECTION_LEAD_COLUMNS,businessTableSource} from '../src/helpers/businessTable';
 import {calendarDay} from '../src/helpers/workDates';
 import type {CommercialDetail} from '../src/endpoints/commercial.schema';
-import {DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE} from '../src/endpoints/business_duplicate_check.schema';
+import {DNC_DUPLICATE_MESSAGE} from '../src/endpoints/business_duplicate_check.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable test database');
 const suffix=Date.now();
 async function cookie(role:'admin'|'user'){
@@ -123,26 +123,31 @@ try{
     const blocked=await post(request({action:'account_save',nombre:`Otro alta ${suffix}`,telefono:`3445 ${p6}`,primaryContact:{name:'Persona bloqueada'}}));
     assert.equal(blocked.status,409);assert.equal(superjson.parse<{error:string}>(await blocked.text()).error,DNC_DUPLICATE_MESSAGE);
     assert.equal((await db.selectFrom('crmContacts').select('id').where('name','=','Persona bloqueada').execute()).length,0);
-    // The duplicate check returns the server's block decision per candidate, also for the person's phone (decision 1C).
-    const check=async(q:Record<string,string>)=>{const r=await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?'+new URLSearchParams(q),{headers:{cookie:user.value}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<{candidates:{id:string;blocking:boolean;reasons:string[]}[]}>(t).candidates.find(c=>c.id===dnc)};
+    // The duplicate check returns the server's block decision per candidate. A person's phone never blocks, it only warns (decision 13B).
+    const check=async(q:Record<string,string>)=>{const r=await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?'+new URLSearchParams(q),{headers:{cookie:user.value}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<{candidates:{id:string;blocking:boolean;doNotContact:boolean;reasons:string[]}[]}>(t).candidates.find(c=>c.id===dnc)};
     assert.equal((await check({telefono:`3445 ${p6}`}))?.blocking,true);
     assert.equal((await check({telefono:`45${p6}`}))?.blocking,false,'A similar phone only warns');
-    let viaPerson=await check({nombre:'Sin relación',personPhone:`03445-${p6}`});assert.equal(viaPerson?.blocking,true);assert.deepEqual(viaPerson?.reasons,['Teléfono de la persona compartido']);
+    let viaPerson=await check({nombre:'Sin relación',personPhone:`03445-${p6}`});assert.equal(viaPerson?.blocking,false,'A person phone shared with a No contactar business only warns');assert.equal(viaPerson?.doNotContact,true);assert.deepEqual(viaPerson?.reasons,['Teléfono de la persona compartido']);
     viaPerson=await check({personPhone:`45${p6}`});assert.equal(viaPerson?.blocking,false);assert.deepEqual(viaPerson?.reasons,['Teléfono de la persona parecido']);
-    // The person's phone blocks creation and contact_save only on an exactly shared phone.
-    const personBlocked=await post(request({action:'account_save',nombre:`Alta persona ${suffix}`,primaryContact:{name:'Persona con teléfono bloqueado',phone:`3445 ${p6}`}}));
-    assert.equal(personBlocked.status,409);assert.equal(superjson.parse<{error:string}>(await personBlocked.text()).error,DNC_DUPLICATE_MESSAGE);
-    assert.equal((await db.selectFrom('crmAccounts').select('id').where('nombre','=',`Alta persona ${suffix}`).execute()).length,0);
+    const both=await check({telefono:`3445 ${p6}`,personPhone:`3445 ${p6}`});assert.equal(both?.blocking,true,'The business phone still blocks when the person phone is the same');
+    // The person's phone only warns (decision 13B): account_save and contact_save succeed; the business phone case above still blocks.
+    const personWarnId=await mutate({action:'account_save',nombre:`Alta persona ${suffix}`,primaryContact:{name:'Persona con teléfono de No contactar',phone:`3445 ${p6}`}});
+    assert.equal((await db.selectFrom('crmContacts').select('id').where('accountId','=',personWarnId).where('name','=','Persona con teléfono de No contactar').execute()).length,1);
+    const ackJournal=async(accountId:string,action:string)=>(await db.selectFrom('crmCommercialJournal').select('metadata').where('accountId','=',accountId).where('action','=',action).execute()).map(r=>(r.metadata as {after?:{personPhoneDncAcknowledged?:boolean}}).after?.personPhoneDncAcknowledged===true);
+    assert.deepEqual(await ackJournal(personWarnId,'contact_created'),[false],'No acknowledgement recorded when the client did not send it');
+    const ackAccount=await mutate({action:'account_save',nombre:`Alta reconocida ${suffix}`,primaryContact:{name:'Persona reconocida',phone:`3445 ${p6}`},personPhoneDncAcknowledged:true});
+    assert.deepEqual(await ackJournal(ackAccount,'contact_created'),[true],'account_save records the acknowledgement');
     const similarId=await mutate({action:'account_save',nombre:`Alta parecida ${suffix}`,primaryContact:{name:'Persona parecida',phone:`45${p6}`}});
-    const blockedContact=await post(request({action:'contact_save',accountId:quickId,name:'Luis bloqueado',phone:`+54 9 3445 ${p6}`}));
-    assert.equal(blockedContact.status,409);assert.equal(superjson.parse<{error:string}>(await blockedContact.text()).error,DNC_PERSON_PHONE_MESSAGE);
+    const ackedContact=await mutate({action:'contact_save',accountId:quickId,name:'Luis con teléfono de No contactar',phone:`+54 9 3445 ${p6}`,personPhoneDncAcknowledged:true});
+    assert.equal((await db.selectFrom('crmCommercialJournal').select('metadata').where('contactId','=',ackedContact).where('action','=','contact_created').executeTakeFirstOrThrow()).metadata.after.personPhoneDncAcknowledged,true,'contact_save records the acknowledgement');
+    assert.equal((await db.selectFrom('crmAccounts').select('doNotContact').where('id','=',dnc).executeTakeFirstOrThrow()).doNotContact,true,'A warned person phone never lifts No contactar');
     await mutate({action:'contact_save',accountId:quickId,name:'Luis parecido',phone:`45${p6}`});
     const legacy=await db.insertInto('crmContacts').values({accountId:quickId,name:'Legado',phone:`3445 ${p6}`,isPrimary:false}).returning('id').executeTakeFirstOrThrow();
     await mutate({action:'contact_save',accountId:quickId,id:String(legacy.id),name:'Legado editado',phone:`3445 ${p6}`});// an unchanged phone does not block
     await mutate({action:'contact_save',accountId:quickId,id:String(legacy.id),name:'Legado editado',phone:`+54 9 (3445) ${p6}`});// reformatting a phone that already matched does not block
-    assert.equal((await post(request({action:'contact_save',accountId:quickId,id:String(quick.contacts[0].id),name:'Ana del alta',phone:`03445-${p6}`}))).status,409,'Changing to a No contactar phone blocks');
+    await mutate({action:'contact_save',accountId:quickId,id:String(quick.contacts[0].id),name:'Ana del alta',phone:`03445-${p6}`});// changing to a No contactar phone only warns
     await mutate({action:'contact_save',accountId:dnc,name:'Persona del propio negocio',phone:`3445 ${p6}`},admin.value);// the business's own phone is not a duplicate
-    await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','in',[dnc,quickId,similarId]).execute();
+    await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','in',[dnc,quickId,similarId,personWarnId,ackAccount]).execute();
   }
   const ana=await mutate({action:'contact_save',accountId,name:'Ana',email:'ana@example.com',phone:'111',isPrimary:true});
   const luis=await mutate({action:'contact_save',accountId,name:'Luis',email:'luis@example.com',phone:'222',isPrimary:true});
