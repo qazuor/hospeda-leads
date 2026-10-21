@@ -9,8 +9,8 @@ describe('recontact task copy',()=>{
   expect(recontactNotice('2026-01-01')).toContain('1 de ene de 2026');
  });
  it('names the assignee only when it is not the saver',()=>{
-  expect(recontactNotice('2026-11-15','Marta')).toBe('Se va a agendar «Volver a contactar» para el 15 de nov de 2026 para Marta.');
-  expect(recontactScheduled('2026-11-15','Marta')).toContain(' para Marta.');
+  expect(recontactNotice('2026-11-15','Marta')).toBe('Se va a agendar «Volver a contactar» para el 15 de nov de 2026 · a cargo de Marta.');
+  expect(recontactScheduled('2026-11-15','Marta')).toContain(' · a cargo de Marta.');
   const users=[{email:'marta@example.com',displayName:'Marta'},{email:'sin@example.com',displayName:null}];
   expect(scheduledForName({responsibleEmail:'marta@example.com',currentUserEmail:'marta@example.com',users})).toBeNull();
   expect(scheduledForName({responsibleEmail:'marta@example.com',currentUserEmail:'ana@example.com',users})).toBe('Marta');

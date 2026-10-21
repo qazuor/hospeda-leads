@@ -147,13 +147,13 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
  const requested=[...new Set(selectedIds)];
  let closedAny=false;
  if(requested.length){
-  const open=(await sql<{id:string;management_type:string|null;estado:string;assigned_user_email:string|null}>`SELECT l.id,l.management_type,l.estado,l.assigned_user_email FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open' AND l.id=ANY(${requested}::bigint[]) FOR UPDATE OF l`.execute(e)).rows;
+  const open=(await sql<{id:string;managementType:string|null;estado:string;assignedUserEmail:string|null}>`SELECT l.id,l.management_type,l.estado,l.assigned_user_email FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open' AND l.id=ANY(${requested}::bigint[]) FOR UPDATE OF l`.execute(e)).rows;
   if(open.length!==requested.length)throw new CommunicationConflict('Una o más gestiones seleccionadas ya no están abiertas. Actualizá el detalle y volvé a intentarlo.');
-  if(open.some(item=>!item.management_type))throw new CommunicationConflict('Una gestión histórica seleccionada requiere un cierre manual desde el tablero.');
-  if(open.some(item=>user.role!=='admin'&&item.assigned_user_email!==user.email))throw new CommunicationForbidden('Solo podés cerrar las gestiones que tenés asignadas.');
+  if(open.some(item=>!item.managementType))throw new CommunicationConflict('Una gestión histórica seleccionada requiere un cierre manual desde el tablero.');
+  if(open.some(item=>user.role!=='admin'&&item.assignedUserEmail!==user.email))throw new CommunicationForbidden('Solo podés cerrar las gestiones que tenés asignadas.');
   await sql`SELECT set_config('crm.close_related_management','true',true)`.execute(e);
   for(const item of open){
-   const type=item.management_type!;
+   const type=item.managementType!;
    const outcome=type==='provider'?'not_participating':type==='accompaniment'?'not_completed':type==='editor'?(item.estado.includes('proposal')?'proposal_lost':'not_collaborating'):'lost';
    const stage=type==='provider'?'provider:not_participating':type==='accompaniment'?'accompaniment:not_completed':type==='editor'?(outcome==='proposal_lost'?'editor:proposal_lost':'editor:not_collaborating'):`${type}:lost`;
    const reason=(await sql<{id:string}>`SELECT id FROM crm_management_reasons WHERE management_type=${type} AND outcome_key=${outcome} AND reason_key='do_not_contact' AND active`.execute(e)).rows[0];

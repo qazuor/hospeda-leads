@@ -5,7 +5,7 @@ import {formatDate} from './crmDates';
 
 /** Title of the task that a business "Recontactar" date schedules (owner decision 7A). */
 export const RECONTACT_TASK_TITLE='Volver a contactar';
-const forWhom=(name?:string|null)=>name?` para ${name}`:'';
+const forWhom=(name?:string|null)=>name?` · a cargo de ${name}`:'';
 /** What the seller is told before saving a Recontactar date. `name` is the assignee, only when it is not the saver. */
 export const recontactNotice=(day:string,name?:string|null)=>`Se va a agendar «${RECONTACT_TASK_TITLE}» para el ${formatDate(day)}${forWhom(name)}.`;
 /** Same fact after the save. */
@@ -35,8 +35,15 @@ type Db=Kysely<DB>|Transaction<DB>;
 type Previous={status:string|null;recontactAt:Date|string|null};
 type Account={id:string|number;assignedUserEmail:string|null};
 
-/** This feature's own task that nobody touched: pending, no management, no time, on `day`, still with the business responsible. */
-const untouchedTask=(trx:Db,accountId:string,responsible:string|null,day:string)=>responsible?trx.selectFrom('crmTasks').selectAll().where('accountId','=',accountId).where('leadId','is',null).where('title','=',RECONTACT_TASK_TITLE).where('purpose','=','reactivation').where('status','=','pending').where('deletedAt','is',null).where('dueAt','is',null).where('assignedUserEmail','=',responsible).where('dueDate','=',day as never).orderBy('id','desc').forUpdate().executeTakeFirst():Promise.resolve(undefined);
+/**
+ * This feature's own task that nobody touched: pending, no management, no time, on `day`, still with the business responsible.
+ * A business without responsible gets the saver as assignee (not stored), so there any assignee matches (and moving keeps the assignee).
+ */
+const untouchedTask=(trx:Db,accountId:string,responsible:string|null,day:string)=>{
+ let q=trx.selectFrom('crmTasks').selectAll().where('accountId','=',accountId).where('leadId','is',null).where('title','=',RECONTACT_TASK_TITLE).where('purpose','=','reactivation').where('status','=','pending').where('deletedAt','is',null).where('dueAt','is',null).where('dueDate','=',day as never);
+ if(responsible)q=q.where('assignedUserEmail','=',responsible);
+ return q.orderBy('id','desc').forUpdate().executeTakeFirst();
+};
 const cancel=(trx:Db,id:string|number,cause:RecontactCancelCause)=>trx.updateTable('crmTasks').set({status:'cancelled',result:recontactCancelReason(cause),completedAt:null,updatedAt:new Date()}).where('id','=',id as never).execute();
 
 /**
@@ -55,13 +62,14 @@ export async function syncRecontactTask(trx:Db,{account,previous,status,recontac
   return null;
  }
  const assignee=account.assignedUserEmail??actorEmail;
- const same=await trx.selectFrom('crmTasks').select('id').where('accountId','=',accountId).where('leadId','is',null).where('title','=',RECONTACT_TASK_TITLE).where('purpose','=','reactivation').where('status','=','pending').where('deletedAt','is',null).where('assignedUserEmail','=',assignee).where('dueDate','=',recontactDay as never).orderBy('id','asc').executeTakeFirst();
+ const same=await trx.selectFrom('crmTasks').select('id').where('accountId','=',accountId).where('leadId','is',null).where('title','=',RECONTACT_TASK_TITLE)
+  .where('purpose','=','reactivation').where('status','=','pending').where('deletedAt','is',null).where('dueDate','=',recontactDay as never).$if(!!account.assignedUserEmail,qb=>qb.where('assignedUserEmail','=',assignee)).orderBy('id','asc').executeTakeFirst();
  if(same){// Idempotent: this feature's task already exists on that day.
   if(untouched&&String(untouched.id)!==String(same.id))await cancel(trx,untouched.id,'changed');
   return {id:String(same.id),dueDate:recontactDay,action:'kept'};
  }
  if(untouched){
-  await trx.updateTable('crmTasks').set({dueDate:recontactDay as never,dueAt:null,assignedUserEmail:assignee,updatedAt:new Date()}).where('id','=',untouched.id).execute();
+  await trx.updateTable('crmTasks').set({dueDate:recontactDay as never,dueAt:null,...(account.assignedUserEmail?{assignedUserEmail:assignee}:{}),updatedAt:new Date()}).where('id','=',untouched.id).execute();
   return {id:String(untouched.id),dueDate:recontactDay,action:'moved'};
  }
  const created=await trx.insertInto('crmTasks').values({accountId,leadId:null,title:RECONTACT_TASK_TITLE,typeId:'followup',purpose:'reactivation',assignedUserEmail:assignee,dueDate:recontactDay as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();

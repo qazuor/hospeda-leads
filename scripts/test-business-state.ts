@@ -194,6 +194,22 @@ try{
  await call(commercialPost,'commercial',{action:'business_status',accountId:unassigned,status:'reviewed'},admin);
  await call(commercialPost,'commercial',{action:'business_status',accountId:unassigned,status:'recontact',recontactAt:'2026-12-15'},admin);
  assert.equal((await recontactTasks(unassigned))[0].assignedUserEmail,`state-admin-${stamp}@example.com`);
+ // Review fix: without a responsible, the task is still found: a date change moves the same task, archive and No contactar cancel it.
+ const unassignedTask=(await recontactTasks(unassigned))[0];
+ const unassignedMoved=await call(commercialPost,'commercial',{action:'business_status',accountId:unassigned,status:'recontact',recontactAt:'2026-12-22'},admin);
+ assert.equal(unassignedMoved.recontactTask.action,'moved');assert.equal(unassignedMoved.recontactTask.id,String(unassignedTask.id));
+ assert.equal((await recontactTasks(unassigned)).length,1,'unassigned: a date change leaves one pending task');
+ await call(commercialPost,'commercial',{action:'account_archive',accountId:unassigned,archived:true,reason:'Prueba de archivo'},admin);
+ assert.equal((await recontactTasks(unassigned)).length,0,'unassigned: archive cancels the task');
+ for(const [label,act] of [['clear',(id:string)=>call(commercialPost,'commercial',{action:'business_status',accountId:id,status:'recontact',recontactAt:null},admin)],['No contactar',(id:string)=>call(pipelinePost,'pipeline',{action:'contact_policy',accountId:id,blocked:true,reason:'Pidió no ser contactado'},admin)]] as const){
+  const biz=await business(`Recontacto sin responsable ${label} ${stamp}`);
+  await db.updateTable('crmAccounts').set({assignedUserEmail:null}).where('id','=',biz).execute();
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'recontact',recontactAt:'2026-12-23'},admin);
+  assert.equal((await recontactTasks(biz)).length,1);
+  await act(biz);
+  assert.equal((await recontactTasks(biz)).length,0,`unassigned: ${label} cancels the task`);
+ }
 
 
  // U-35 review: A -> B when this feature's task already exists on B; reassigned / timed tasks are never moved or cancelled.
