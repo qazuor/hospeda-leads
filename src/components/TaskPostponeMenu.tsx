@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useRef,useState} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {CalendarClock,ChevronDown} from 'lucide-react';
@@ -18,9 +18,9 @@ export function postponeOptions({dueDate,now}:{dueDate:string;now?:Date}):{label
  return all.filter((option,i)=>option.day!==dueDate&&all.findIndex(o=>o.day===option.day)===i);
 }
 
-/** The `task_save` body that moves a pending task to `dueDate`, keeping every other field. A task with a time keeps the same time on the new day. */
-export function postponeBody({task,dueDate,dueAt}:{task:WorkTask;dueDate:string;dueAt?:string|null}):WorkMutation{
- return {action:'task_save',id:task.id,accountId:task.accountId,leadId:task.leadId,title:task.title,purpose:task.purpose??undefined,typeId:task.typeId,participants:task.participants,contactIds:task.contactIds,description:task.description,dueDate,dueAt:dueAt===undefined?null:dueAt,priority:task.priority};
+/** The `task_reschedule` body: only the date/time changes, and `expected*` is what the row showed, so a concurrent edit answers 409 instead of being overwritten. */
+export function rescheduleBody({task,dueDate,dueAt}:{task:WorkTask;dueDate:string;dueAt:string|null}):WorkMutation{
+ return {action:'task_reschedule',id:task.id,expectedDueDate:task.dueDate,expectedDueAt:task.dueAt?new Date(task.dueAt).toISOString():null,dueDate,dueAt};
 }
 /** Same time of day on another day (Argentina), or null when the task has no time. */
 export function movedDueAt({task,dueDate}:{task:WorkTask;dueDate:string}):string|null{
@@ -30,16 +30,18 @@ export function movedDueAt({task,dueDate}:{task:WorkTask;dueDate:string}):string
 const refreshed=['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','communication','pipeline','analytics'];
 
 /**
- * "Posponer ▾" of a pending task row: Mañana / En 3 días / Lunes / Elegir fecha. Saves through `task_save` and offers "Deshacer" in the toast.
+ * "Posponer ▾" of a pending task row: Mañana / En 3 días / Lunes / Elegir fecha. Saves through `task_reschedule` and offers "Deshacer" in the toast.
  */
 export function TaskPostponeMenu({task}:{task:WorkTask}){
  const qc=useQueryClient();
  const [pickerOpen,setPickerOpen]=useState(false),[picked,setPicked]=useState('');
  const refresh=()=>Promise.all(refreshed.map(key=>qc.invalidateQueries({queryKey:[key]})));
- // Runs outside any hook: the row (and this component) usually unmounts once the task moves to another list.
- const undo=async()=>{try{await postWork(postponeBody({task,dueDate:task.dueDate,dueAt:task.dueAt?new Date(task.dueAt).toISOString():null}));await refresh();toast.success('Volvió a su fecha: '+formatDate(task.dueDate));}catch(e){toast.error('No se pudo deshacer: '+(e instanceof Error?e.message:'probá de nuevo'));}};
- const save=useGuardedMutation({mutationFn:(dueDate:string)=>postWork(postponeBody({task,dueDate,dueAt:movedDueAt({task,dueDate})})),onSuccess:async(_,dueDate)=>{
+ const undoing=useRef(false);
+ const save=useGuardedMutation({mutationFn:(dueDate:string)=>postWork(rescheduleBody({task,dueDate,dueAt:movedDueAt({task,dueDate})})),onSuccess:async(_,dueDate)=>{
   await refresh();setPickerOpen(false);setPicked('');
+  const movedAt=movedDueAt({task,dueDate});
+  // Runs outside any hook: the row (and this component) usually unmounts once the task moves to another list. The postponed value is what Deshacer expects to find.
+  const undo=async()=>{if(undoing.current)return;undoing.current=true;try{await postWork(rescheduleBody({task:{...task,dueDate,dueAt:movedAt?new Date(movedAt):null},dueDate:task.dueDate,dueAt:task.dueAt?new Date(task.dueAt).toISOString():null}));await refresh();toast.success('Volvió a su fecha: '+formatDate(task.dueDate));}catch(e){toast.error('No se pudo deshacer: '+(e instanceof Error?e.message:'probá de nuevo'));}finally{undoing.current=false;}};
   toast.success('Tarea pospuesta para el '+formatDate(dueDate),{duration:8000,description:task.title,action:{label:'Deshacer',onClick:()=>{void undo();}}});
  },onError:e=>toast.error(e.message)});
  const today=localDay();

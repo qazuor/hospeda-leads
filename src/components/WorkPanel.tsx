@@ -32,7 +32,7 @@ async function findCompletionActivity({qc,task,data,admin}:{qc:ReturnType<typeof
  return fresh.activities.find(a=>a.id===task.activityId);
 }
 /** `from` is the section the management link is opened from, so the management page can offer the right "Volver". */
-export function TaskRow({task,data,onEdit,readOnly=false,from='my-day'}:{task:WorkTask;data:WorkData;onEdit:(t:WorkTarget)=>void;readOnly?:boolean;from?:SaleOrigin}){
+export function TaskRow({task,data,onEdit,readOnly=false,from}:{task:WorkTask;data:WorkData;onEdit:(t:WorkTarget)=>void;readOnly?:boolean;from?:SaleOrigin}){
  const [contactOpen,setContactOpen]=useState(false);const [loadingFix,setLoadingFix]=useState(false);const qc=useQueryClient();
  const pending=task.status==='pending';
  const {authState}=useAuth();const admin=authState.type==='authenticated'&&authState.user.role==='admin';const editable=!readOnly&&authState.type==='authenticated'&&(admin||task.assignedUserEmail===authState.user.email);
@@ -43,7 +43,7 @@ export function TaskRow({task,data,onEdit,readOnly=false,from='my-day'}:{task:Wo
  return <article data-work-task={task.id} tabIndex={-1} className={ws.row} data-tone={pending?bucket:task.status}>
   <div className={ws.rowBody}>
    <div className={ws.rowHeading}><strong>{task.title}</strong>{task.priority==='alta'&&<span className={ws.priority}>Alta prioridad</span>}{!pending&&<span className={ws.status}>{statusNames[task.status]}</span>}</div>
-   <Link className={ws.context} to={task.leadId?'/sales/'+task.leadId:'/accounts/'+task.accountId} state={task.leadId?{from}:undefined}>{task.accountName}{task.opportunityName?' · '+task.opportunityName:''}</Link>
+   <Link className={ws.context} to={task.leadId?'/sales/'+task.leadId:'/accounts/'+task.accountId} state={task.leadId&&from?{from}:undefined}>{task.accountName}{task.opportunityName?' · '+task.opportunityName:''}</Link>
    {pending&&task.continuation==='wait'&&<p className={ws.metadata}>{bucket==='upcoming'?'Esperando hasta la fecha acordada para retomar':'Ya corresponde retomar la conversación'}</p>}
    <div className={ws.due}><CalendarClock size={14} aria-hidden="true"/>{late&&<strong>{late} · </strong>}{task.dueAt?prettyInstant(task.dueAt):formatDate(task.dueDate)}</div>
    <div className={ws.metadata}><span>{task.purpose?purposeNames[task.purpose]:data.types.find(t=>t.id===task.typeId)?.name}</span><span>{data.users.find(u=>u.email===task.assignedUserEmail)?.displayName||'Sin responsable'}</span>{task.city&&<span>{task.city}</span>}</div>

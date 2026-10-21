@@ -8,7 +8,7 @@ const postWork=vi.hoisted(()=>vi.fn(async()=>({id:'7'})));
 const toastSuccess=vi.hoisted(()=>vi.fn());
 vi.mock('sonner',()=>({toast:{success:toastSuccess,error:vi.fn()}}));
 vi.mock('../endpoints/work.schema',async importOriginal=>({...(await importOriginal<typeof import('../endpoints/work.schema')>()),postWork}));
-import {TaskPostponeMenu,postponeBody,postponeOptions,movedDueAt} from './TaskPostponeMenu';
+import {TaskPostponeMenu,rescheduleBody,postponeOptions,movedDueAt} from './TaskPostponeMenu';
 import type {WorkTask} from '../endpoints/work.schema';
 
 beforeAll(()=>{
@@ -31,9 +31,9 @@ describe('postponeOptions',()=>{
  });
 });
 
-describe('postponeBody',()=>{
- it('moves only the date and keeps every other field',()=>{
-  expect(postponeBody({task:task(),dueDate:'2026-10-24'})).toEqual({action:'task_save',id:'7',accountId:'3',leadId:'9',title:'Llamar a Ana',purpose:undefined,typeId:'call',participants:'Ana',contactIds:['4'],description:'Notas',dueDate:'2026-10-24',dueAt:null,priority:'alta'});
+describe('rescheduleBody',()=>{
+ it('sends only the new date and what the row showed',()=>{
+  expect(rescheduleBody({task:task(),dueDate:'2026-10-24',dueAt:null})).toEqual({action:'task_reschedule',id:'7',expectedDueDate:'2026-10-19',expectedDueAt:null,dueDate:'2026-10-24',dueAt:null});
  });
  it('keeps the time of day on the new Argentina day',()=>{
   const timed=task({dueDate:'2026-10-19',dueAt:new Date('2026-10-19T17:30:00Z')});// 14:30 in Argentina
@@ -50,13 +50,13 @@ describe('TaskPostponeMenu',()=>{
   fireEvent.click(await screen.findByRole('menuitem',{name:/^Mañana/}));
   await waitFor(()=>expect(postWork).toHaveBeenCalledTimes(1));
   const body=(postWork.mock.calls[0] as unknown as [Record<string,unknown>])[0];
-  expect(body).toMatchObject({action:'task_save',id:'7',title:'Llamar a Ana',priority:'alta'});
+  expect(body).toMatchObject({action:'task_reschedule',id:'7',expectedDueDate:'2026-10-19',expectedDueAt:null});
   expect(body.dueDate).not.toBe('2026-10-19');
   await waitFor(()=>expect(toastSuccess).toHaveBeenCalled());
   const options=toastSuccess.mock.calls[0][1] as {action:{label:string;onClick:()=>void}};
   expect(options.action.label).toBe('Deshacer');
   options.action.onClick();
   await waitFor(()=>expect(postWork).toHaveBeenCalledTimes(2));
-  expect((postWork.mock.calls[1] as unknown as [Record<string,unknown>])[0]).toMatchObject({action:'task_save',id:'7',dueDate:'2026-10-19',dueAt:null});
+  expect((postWork.mock.calls[1] as unknown as [Record<string,unknown>])[0]).toMatchObject({action:'task_reschedule',id:'7',dueDate:'2026-10-19',dueAt:null,expectedDueDate:body.dueDate,expectedDueAt:null});
  });
 });

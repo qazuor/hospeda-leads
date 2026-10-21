@@ -14,8 +14,10 @@ import {workMutation,workQuery,followupSettings} from './work.schema';
 /** Mi día returns every overdue and today task up to this many per bucket. */
 const URGENT_CAP=300;
 class Forbidden extends Error {}
+/** The task changed since the client read it (409). */
+class RescheduleConflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict?409:fallbackStatus(e));
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
 import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactOutcomes,resolveMessageForWork} from '../helpers/communicationService';
@@ -92,7 +94,7 @@ export async function get(request:Request){
   const taskPage=(query:typeof tasks,limit:number,offset=(input.page-1)*limit)=>query.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName',sql<string|null>`(select ca.id from crm_activities ca where ca.task_id=t.id and ca.deleted_at is null order by ca.occurred_at desc, ca.id desc limit 1)`.as('activityId')]).orderBy(sql`CASE WHEN t.status='pending' THEN 0 ELSE 1 END`).orderBy('t.dueDate').orderBy('t.dueAt').orderBy('t.id').$if(!input.calendar,q=>q.limit(limit).offset(offset)).execute();
   // Overdue and today are never paginated (capped at URGENT_CAP): hiding them on page 2 buried the urgent work. Only upcoming pages.
   const taskRowsPromise=input.mode==='day'?Promise.all([taskPage(dayQueries[0],URGENT_CAP,0),taskPage(dayQueries[1],URGENT_CAP,0),taskPage(dayQueries[2],25)]).then(rows=>rows.flat()):taskPage(tasks,100);
-  const doneTodayPromise=input.mode==='day'?tasksAnyStatus.where('t.status','=','completed').where(sql<string>`(t.completed_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'=',today).select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow().then(r=>Number(r.n)):Promise.resolve(undefined);
+  const doneTodayPromise=input.mode==='day'?tasksAnyStatus.where('t.status','=','completed').where(sql<string>`t.due_date`,'<=',today).where(sql<string>`(t.completed_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'=',today).select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow().then(r=>Number(r.n)):Promise.resolve(undefined);
   const bucketCountsPromise=input.mode==='day'?Promise.all(dayQueries.map(query=>query.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow())).then(rows=>({overdue:Number(rows[0].n),today:Number(rows[1].n),upcoming:Number(rows[2].n)})):Promise.resolve(undefined);
   const [taskRows,activityRows,taskCount,activityCount,types,accounts,opportunities,users,needs,bucketCounts,doneToday]=await Promise.all([
 
@@ -203,6 +205,17 @@ export async function post(request:Request){
 
     }
     await createNextTask();
+    return input.id;
+   }
+   if(input.action==='task_reschedule'){
+    // Moves only the date/time. The client's expected current value guards against overwriting a concurrent change; no other field is read from the client.
+    const current=await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
+    if(current.status!=='pending')throw new Error('Solo se pueden reprogramar tareas pendientes.');
+    const sameDay=calendarDay(current.dueDate)===input.expectedDueDate,sameTime=(current.dueAt?current.dueAt.getTime():null)===(input.expectedDueAt?new Date(input.expectedDueAt).getTime():null);
+    if(!sameDay||!sameTime)throw new RescheduleConflict('La tarea cambió mientras tanto. Revisala.');
+    const dueAt=input.dueAt?new Date(input.dueAt):null;
+    if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
+    await trx.updateTable('crmTasks').set({dueDate:input.dueDate,dueAt,updatedAt:new Date()}).where('id','=',input.id).execute();
     return input.id;
    }
    const type=await trx.selectFrom('crmWorkTypes').selectAll().where('id','=',input.typeId).executeTakeFirstOrThrow();

@@ -17,6 +17,8 @@ export const workMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('task_save'),...common,description:z.string().max(10000).nullable().optional(),assignedUserEmail:z.string().email().nullable().optional(),dueDate:day,dueAt:instant.nullable().optional(),priority:z.enum(['alta','media','baja']).default('media')}),
  z.object({action:z.literal('task_status'),id,status:z.enum(['completed','cancelled']),purpose:purpose.optional(),contactIds:z.array(id).max(50).optional(),channel:z.string().max(100).nullable().optional(),outcome,continuation,continuationReason,nextTask,result:z.string().trim().min(1).max(4000),completedAt:instant.optional(),...messageLink}),
  z.object({action:z.literal('task_delete'),id}),
+ /** Moves only the due date/time; `expected*` is what the client saw, so a concurrent change answers 409 instead of being overwritten. */
+ z.object({action:z.literal('task_reschedule'),id,expectedDueDate:day,expectedDueAt:instant.nullable(),dueDate:day,dueAt:instant.nullable()}),
  z.object({action:z.literal('activity_save'),...common,occurredAt:instant,outcome,continuation,continuationReason,nextTask,channel:z.string().max(100).nullable().optional(),result:z.string().max(4000).nullable().optional(),notes:z.string().max(10000).nullable().optional(),...messageLink}),
  z.object({action:z.literal('activity_delete'),id}),
  followupSettings,
