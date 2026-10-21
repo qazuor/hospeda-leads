@@ -1,6 +1,7 @@
 import {cancelRecontactTaskFor} from './recontactTask';
 import {templateCompatibility} from './messageTemplatePolicy';
-import {assertAccountReadable,assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
+import {assertAccountReadable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
+import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
 import {createHash} from 'node:crypto';
 import {sql,type Kysely,type RawBuilder,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -176,6 +177,8 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
  // Replay: a retry whose answer was lost returns the same response (the first save already blocked the business and closed the chosen managements). Only the same user, business, management, category, person and linked contact; anything else is a conflict that reveals nothing.
  const replay=(await sql<ResponseReplay>`SELECT id,actor_email,account_id,lead_id,category,contact_id,linked_message_id FROM crm_communication_responses WHERE id=${input.id}::uuid`.execute(e)).rows[0];
  if(replay){if(replay.actorEmail!==user.email||String(replay.accountId)!==String(account.id)||String(replay.leadId??'')!==String(input.leadId??'')||replay.category!==input.category||String(replay.contactId??'')!==String(input.contactId??'')||String(replay.linkedMessageId??'')!==String(input.linkedMessageId??''))throw new CommunicationConflict('Ese registro ya existe para otro contacto. Reintentá desde cero.');return {id:String(replay.id)};}
+ // Decision D1: reading the business is not enough to block all its contact; recording incoming responses of any other category keeps the read-level rule.
+ if(input.category==='do_not_contact')await assertCanRecordDoNotContact(e,user,account);
  if(input.category==='do_not_contact'&&!input.confirmDoNotContact)throw new CommunicationConflict('Confirmá que se bloquearán todos los contactos del negocio.');
  if(input.leadId&&!lead)throw new Error('Contexto de gestión inválido');
  if(input.contactId){const contact=await e.selectFrom('crmContacts').select(['id','accountId','name','deletedAt']).where('id','=',input.contactId).where('accountId','=',input.accountId).executeTakeFirst();if(!contact||contact.deletedAt)throw new Error('La persona no pertenece a este negocio.');}
@@ -188,6 +191,7 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
  if(input.reminder){
   if(input.category!=='later')throw new Error(`El recordatorio solo aplica a “${responseCategoryLabel('later')}”.`);
   const parsed=new Date(input.reminder.dueDate+'T00:00:00Z');if(Number.isNaN(parsed.valueOf())||parsed.toISOString().slice(0,10)!==input.reminder.dueDate)throw new Error('Fecha de recordatorio inválida.');
+  if(account.doNotContact&&user.role!=='admin')throw new CommunicationForbidden(DO_NOT_CONTACT_READ_ONLY);// Decision 1C: tasks of a No contactar business are admin-only; the response itself is still recorded without a reminder.
   const contextOwner=lead?.assignedUserEmail??account.assignedUserEmail;
   if(user.role!=='admin'&&user.email!==contextOwner)throw new CommunicationForbidden('Solo el responsable del contexto o un administrador puede crear este recordatorio.');
   const assignee=input.reminder.assignedUserEmail??contextOwner??user.email;
@@ -206,7 +210,10 @@ async function correctResponse(e:Executor,input:Extract<CommunicationMutation,{a
  const row=(await sql<any>`SELECT * FROM crm_communication_responses WHERE id=${input.id}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row)throw new Error('Respuesta inexistente');
  if(user.role!=='admin'&&row.actorEmail!==user.email)throw new CommunicationForbidden('Solo quien registró la respuesta o un admin puede corregirla.');
  const {account}=await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);
+ // Decision D1: changing a category TO do_not_contact needs the same standing as recording it. Decision 1C: only an admin changes it away (lifts the block).
+ if(row.category!=='do_not_contact'&&input.category==='do_not_contact')await assertCanRecordDoNotContact(e,user,account);
  if(input.category==='other'&&!input.otherDetail?.trim())throw new Error('Aclaración obligatoria para Otra respuesta.');
+ if(row.category==='do_not_contact'&&input.category!=='do_not_contact'&&user.role!=='admin')throw new CommunicationForbidden(DO_NOT_CONTACT_LIFT_DENIED);
  if(row.category==='do_not_contact'&&input.category!=='do_not_contact'&&!input.confirmLiftDoNotContact)throw new CommunicationConflict('Confirmá que querés habilitar nuevamente los contactos.');
  if(row.category!=='do_not_contact'&&input.category==='do_not_contact'&&!input.confirmDoNotContact)throw new CommunicationConflict('Confirmá que querés bloquear todos los contactos del negocio.');
  const before={category:row.category,summary:row.summary,exactText:row.exactText,otherDetail:row.otherDetail};const after={category:input.category,summary:input.summary,exactText:input.exactText,otherDetail:input.otherDetail};

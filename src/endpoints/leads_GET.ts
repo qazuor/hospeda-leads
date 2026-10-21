@@ -271,14 +271,14 @@ export async function handle(request: Request) {
     const [loadedRows,grouped]=await Promise.all([rowsQuery.execute(),groupedTotals]);
     const rows:OutputType["rows"]=loadedRows;
     if(rows.length){
-      const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
+      const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId","doNotContact"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
       const permissionsById=new Map(permissions.map(a=>[String(a.id),a]));
       for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissionsById.get(String(row.accountId))):canModifyManagement(user,row,permissionsById.get(String(row.accountId))));
     }
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));
       const [accounts,opportunities,contacts,nextTasks]=await Promise.all([
-        db.selectFrom("crmAccounts").select(["id","commercialStatus","tipo","subtipo","status","recontactAt","isClient","referredToLeandro"]).where("id","in",ids).execute(),
+        db.selectFrom("crmAccounts").select(["id","commercialStatus","tipo","subtipo","status","recontactAt","isClient","referredToLeandro","doNotContact"]).where("id","in",ids).execute(),
         db.selectFrom("leads").selectAll().where("accountId","in",ids).where("deletedAt","is",null).orderBy("id").execute(),
         db.selectFrom("crmContacts").select(["accountId"]).where("accountId","in",ids).where("deletedAt","is",null).execute(),
         db.selectFrom("crmTasks as t").leftJoin("leads as l","l.id","t.leadId").select(["t.accountId","t.title","t.dueDate"]).where("t.accountId","in",ids).where("t.status","=","pending").where("t.deletedAt","is",null).where(eb=>eb.or([eb("t.leadId","is",null),eb("l.deletedAt","is",null)])).$if(user.role!=="admin",q=>q.where("t.assignedUserEmail","=",user.email)).orderBy("t.dueDate").orderBy("t.dueAt").orderBy("t.id").execute()
@@ -296,7 +296,7 @@ export async function handle(request: Request) {
         row.id=row.accountId;
         row.nextActionTitle=nextTasksByAccount.get(accountKey)?.find(t=>calendarDay(t.dueDate)===calendarDay(row.fechaProximaAccion))?.title??null;
         row.opportunityCount=related.length;
-        row.canModifyManagement=related.some(item=>user.role==='admin'||item.assignedUserEmail===user.email);
+        row.canModifyManagement=related.some(item=>user.role==='admin'||(item.assignedUserEmail===user.email&&!accountsById.get(accountKey)?.doNotContact));
         row.contactCount=contactCountByAccount.get(accountKey)??0;
         const account=accountsById.get(accountKey)!;
         row.commercialStatus=account.commercialStatus;
