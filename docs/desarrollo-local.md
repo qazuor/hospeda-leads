@@ -73,7 +73,7 @@ Solo si hace falta algo distinto de `npm run local`. Los scripts de DB y el serv
 docker compose -p hospeda-crm-local -f docker-compose.yml -f docs/compose.local.yml up -d postgres
 ~~~
 
-Variables mínimas: `DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads`, `PUBLIC_APP_URL=http://localhost:5173` (el origen que usa el navegador; si no coincide, los POST se rechazan), `ADMIN_EMAIL=admin@example.com`, `BREVO_API_KEY=` vacío y un `JWT_SECRET` aleatorio de al menos 32 caracteres. Exportar esas variables en la shell (o guardarlas en un archivo local no versionado y cargarlo) y luego:
+Variables mínimas: `DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads`, `PUBLIC_APP_URL=http://localhost:5173` (el origen que usa el navegador; si no coincide, los POST se rechazan), `ADMIN_EMAIL=admin@example.com`, `BREVO_API_KEY=` vacío y un `JWT_SECRET` aleatorio de al menos 32 caracteres (el servidor no arranca sin él, más corto, ni con valores de ejemplo como los de .env.example o docker-compose; generarlo con `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`). Exportar esas variables en la shell (o guardarlas en un archivo local no versionado y cargarlo) y luego:
 
 ~~~bash
 set -a

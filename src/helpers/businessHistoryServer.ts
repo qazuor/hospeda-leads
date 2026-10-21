@@ -38,9 +38,9 @@ export async function businessHistory(family:string[],page:number,filter:History
  FROM crm_communication_journal j LEFT JOIN leads l ON l.id=j.lead_id
  WHERE j.account_id IN (${ids}) AND (j.entity_type<>'response' OR j.action<>'response_registered') AND (j.lead_id IS NULL OR l.deleted_at IS NULL)
  UNION ALL
- SELECT 'stage:'||e.id::text,e.created_at,'stage',nullif(e.comment,''),NULL::text,NULL::text,NULL::text,NULL::text,e.actor_email,e.lead_id,l.opportunity_name,
+ SELECT 'stage:'||e.id::text,e.created_at,'stage',nullif(concat_ws(' · ',CASE WHEN mr.name IS NOT NULL THEN 'Motivo: '||mr.name END,coalesce(nullif(e.management_note,''),nullif(e.comment,''))),''),NULL::text,NULL::text,NULL::text,NULL::text,e.actor_email,e.lead_id,l.opportunity_name,
  'stage'::text,NULL::text,NULL::text,NULL::text,NULL::text,e.old_stage,e.new_stage
- FROM crm_pipeline_events e JOIN leads l ON l.id=e.lead_id
+ FROM crm_pipeline_events e JOIN leads l ON l.id=e.lead_id LEFT JOIN crm_management_reasons mr ON mr.id=e.management_reason_id
  WHERE e.account_id IN (${ids}) AND e.action='stage' AND l.deleted_at IS NULL
  UNION ALL
  SELECT 'change:'||c.id::text,c.created_at,c.action,NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,c.actor_email,NULL::bigint,NULL::text,
