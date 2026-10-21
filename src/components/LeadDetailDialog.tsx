@@ -14,6 +14,7 @@ import {
   MessageCircle, MoreHorizontal, Pencil, Phone, Plus, ShieldCheck, StickyNote, Trash2, X
 } from "lucide-react";
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from "./DropdownMenu";
+import { Alert } from "@mantine/core";
 import { Button } from "./Button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./Dialog";
 import { Skeleton } from "./Skeleton";
@@ -156,6 +157,7 @@ export const LeadDetailDialog=({
           {!page&&<Button size="sm" variant="ghost" onClick={()=>onOpenChange(false)}><X size={15}/>Cerrar</Button>}
           {!readOnly&&onEdit&&<Button size="sm" variant="outline" onClick={()=>{onOpenChange(false);onEdit(lead)}}><Pencil size={15}/>Editar datos de gestión</Button>}
         </div>
+        {readOnly&&lead.accountArchived&&<Alert color="red" variant="light" role="alert" data-testid="archived-management-banner"><strong>Negocio archivado</strong> · Podés consultar esta gestión; solo un administrador puede desarchivar el negocio para continuarla.</Alert>}
       </div>
 
       <SectionTabs key={String(lead.id)} defaultValue="overview" className={styles.detailTabs}>

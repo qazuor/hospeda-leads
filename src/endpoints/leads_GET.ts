@@ -11,7 +11,7 @@ import type { OutputType, AdvancedFilterRule } from "./leads_GET.schema";
 import { schema } from "./leads_GET.schema";
 import { sql, type Expression, type RawBuilder, type SqlBool } from "kysely";
 import { businessTableSource } from "../helpers/businessTable";
-import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS} from '../helpers/filterRules';
+import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS,singleRecordIdFilter} from '../helpers/filterRules';
 import {managementLabel} from '../helpers/businessManagement';
 import {isReviewedBusinessStatus,type BusinessStatus} from '../helpers/businessStatus';
 import {groupBy,countBy} from '../helpers/groupBy';
@@ -63,7 +63,9 @@ export async function handle(request: Request) {
     let query=source();
     if(!includeDeleted)query=query.where("deletedAt","is",null);
     if(input.entity==="opportunity")query=query.where("accountId","in",db.selectFrom("crmAccounts").select("id").where("deletedAt","is",null));
-    if(input.entity==="opportunity"&&user.role!=="admin")query=query.where(eb=>eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where("archivedAt","is",null)));
+    // Decision 1C: a single-management lookup (the /sales/:id detail) also returns a management of an archived business to that business's responsible seller, read-only (canModify stays false). Lists keep hiding archived businesses from sellers.
+    const detailLookup=input.entity==="opportunity"&&singleRecordIdFilter(input.filterGroups)!==null;
+    if(input.entity==="opportunity"&&user.role!=="admin")query=query.where(eb=>eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where(a=>detailLookup?a.or([a("archivedAt","is",null),a("assignedUserEmail","=",user.email)]):a("archivedAt","is",null))));
     if(input.q)query=query.where(multiFieldSearchSql(["nombre","opportunityName","contactName","email","telefono","ciudad","origen"],input.q!,{phoneColumns:["telefono"],extra:token=>sql<boolean>`exists(select 1 from lead_notes ln where ln.lead_id=leads.id and (${searchSql("ln.note",token)}${phoneSearchSql("ln.note",token)?sql` or ${phoneSearchSql("ln.note",token)}`:sql``}))`}));
 
     const includeCities=input.ciudades.length?input.ciudades:(input.ciudad?[input.ciudad]:[]);
@@ -273,7 +275,7 @@ export async function handle(request: Request) {
     if(rows.length){
       const permissions=await db.selectFrom("crmAccounts").select(["id","assignedUserEmail","archivedAt","deletedAt","mergedIntoId","doNotContact"]).where("id","in",[...new Set(rows.map(r=>String(r.accountId)))]).execute();
       const permissionsById=new Map(permissions.map(a=>[String(a.id),a]));
-      for(const row of rows)row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissionsById.get(String(row.accountId))):canModifyManagement(user,row,permissionsById.get(String(row.accountId))));
+      for(const row of rows){row.canModify=!row.deletedAt&&(input.entity==="business"?canModifyBusiness(user,permissionsById.get(String(row.accountId))):canModifyManagement(user,row,permissionsById.get(String(row.accountId))));if(input.entity==="opportunity")row.accountArchived=!!permissionsById.get(String(row.accountId))?.archivedAt;}
     }
     if(input.entity==="business"&&rows.length){
       const ids=rows.map(row=>String(row.accountId));

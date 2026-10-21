@@ -31,3 +31,12 @@ export function describeFilterRule(rule: AdvancedFilterRule, fields: FilterField
   const label = `${field?.label ?? rule.field} ${operatorLabels[rule.operator]}`;
   return !needsValue(rule.operator) ? label : rule.operator === 'between' ? `${label} ${value} y ${rule.value2 ?? ''}` : `${label} ${value}`;
 }
+
+/**
+ * The record id when the filter groups pin the query to exactly one record (a group holding only `id es <valor>`); groups are
+ * AND-ed, so such a group limits the result to that record. Used by the management detail lookup of /sales/:id.
+ */
+export function singleRecordIdFilter(groups:readonly AdvancedFilterGroup[]):string|null {
+  for(const group of groups){const [rule,...rest]=group.rules;const value=(rule?.value??'').trim();if(rule&&!rest.length&&rule.field==='id'&&rule.operator==='eq'&&value)return value;}
+  return null;
+}
