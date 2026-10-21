@@ -1,4 +1,4 @@
-import {cancelRecontactTaskFor} from '../helpers/recontactTask';
+import {cancelRecontactTaskFor,reassignRecontactTask,syncRecontactTask} from '../helpers/recontactTask';
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
 import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {parseBody} from '../helpers/parseBody';
@@ -153,6 +153,7 @@ export async function post(request:Request){
      await sql`SELECT set_config('crm.refer_management','true',true)`.execute(trx);
      await sql`UPDATE leads SET referred_previous_stage=estado,referred_previous_assigned_user_email=assigned_user_email,assigned_user_email=${leandro[0].email},estado=${p.stage},updated_at=now() WHERE id=${lead.id}`.execute(trx);
      await sql`UPDATE crm_accounts SET referred_to_leandro=true,referred_original_owner_email=assigned_user_email,assigned_user_email=${leandro[0].email},updated_at=now() WHERE id=${account.id}`.execute(trx);
+     await reassignRecontactTask(trx,{accountId:account.id,fromEmail:account.assignedUserEmail,toEmail:leandro[0].email});
      await sql`SELECT set_config('crm.refer_management','false',true)`.execute(trx);
     }else{
      if(typedDnc&&p.closeOtherOpen){
@@ -186,9 +187,17 @@ export async function post(request:Request){
       await sql`UPDATE crm_pipeline_events SET task_id=${task.id} WHERE id=(SELECT id FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='stage' ORDER BY id DESC LIMIT 1)`.execute(trx);
      }
      if(Number(remaining?.n)===0){
+      // Decision 7A: the business recontact date written here goes through the same task sync as a business status save.
+      // Opening a management moves the status to En gestión but keeps recontact_at, so a stored date still names the day of the pending task.
+      const before=await trx.selectFrom('crmAccounts').select(['status','recontactAt','assignedUserEmail']).where('id','=',account.id).executeTakeFirstOrThrow();
+      const previous={status:before.recontactAt?'recontact':before.status,recontactAt:before.recontactAt};
       if(p.recontactDate&&!typedDnc){
        await sql`UPDATE crm_accounts SET status='recontact',recontact_at=${p.recontactDate},updated_at=now() WHERE id=${account.id}`.execute(trx);
-      }else await sql`UPDATE crm_accounts SET recontact_at=NULL WHERE id=${account.id} AND status<>'archived'`.execute(trx);
+       await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:before.assignedUserEmail},previous,status:'recontact',recontactDay:p.recontactDate,actorEmail:user.email});
+      }else if(before.status!=='archived'){
+       await sql`UPDATE crm_accounts SET recontact_at=NULL WHERE id=${account.id} AND status<>'archived'`.execute(trx);
+       await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:before.assignedUserEmail},previous,status:before.status,recontactDay:null,actorEmail:user.email});
+      }
      }
     }
     if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false});
@@ -213,6 +222,7 @@ export async function post(request:Request){
     await sql`UPDATE leads SET estado=${restoredStage.name},assigned_user_email=${typedLead.referredPreviousAssignedUserEmail},referred_previous_stage=NULL,referred_previous_assigned_user_email=NULL,updated_at=now() WHERE id=${lead.id}`.execute(trx);
     await sql`SELECT set_config('crm.unrefer_management','false',true)`.execute(trx);
     await sql`UPDATE crm_accounts SET referred_to_leandro=false,referred_original_owner_email=NULL,assigned_user_email=${restoredAccountOwner},updated_at=now() WHERE id=${account.id}`.execute(trx);
+    await reassignRecontactTask(trx,{accountId:account.id,fromEmail:account.assignedUserEmail,toEmail:restoredAccountOwner});
     await log(trx,account.id,lead.id,'leandro_referral_removed',{restoredStage:restoredStage.displayName,accountOwner:restoredAccountOwner});
     return lead.id;
    }

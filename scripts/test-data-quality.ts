@@ -77,6 +77,16 @@ try{
   assert.equal(pv.policy.doNotContact,true);
   await mutation({action:'merge_confirm',sourceId:src.id,destinationId:dst.id,token:pv.token,selections:sel,reason:'Sobreviviente ya bloqueado',confirm:true});
   await assertDncCancelled(fx,admin.user.email,'merge into an already No contactar business');}
+ // Decision 7A / D3: without No contactar, the absorbed business's "Volver a contactar" task moves to the survivor and stays pending.
+ {const src=await db.insertInto('crmAccounts').values({nombre:'Zz Fusión recontacto origen '+stamp,ciudad:'Federación',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const dst=await db.insertInto('crmAccounts').values({nombre:'Zz Fusión recontacto destino '+stamp,ciudad:'Federación',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  await db.updateTable('crmAccounts').set({status:'recontact',recontactAt:'2027-09-01' as never}).where('id','=',src.id).execute();
+  const recontact=await db.insertInto('crmTasks').values({accountId:src.id,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:user.user.email,dueDate:'2027-09-01' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
+  const pv=await mutation<MergePreview>({action:'merge_preview',sourceId:src.id,destinationId:dst.id});
+  assert.equal(pv.policy.doNotContact,false);
+  await mutation({action:'merge_confirm',sourceId:src.id,destinationId:dst.id,token:pv.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Mismo negocio con recontacto',confirm:true});
+  const t=await db.selectFrom('crmTasks').select(['accountId','status','assignedUserEmail','result']).where('id','=',recontact.id).executeTakeFirstOrThrow();
+  assert.equal(t.accountId,dst.id,'the recontact task moves to the survivor');assert.equal(t.status,'pending','and stays pending when the survivor is not No contactar');assert.equal(t.assignedUserEmail,user.user.email);assert.equal(t.result,null);}
  const listing=await list(new Request('http://localhost/_api/leads?entity=business&q='+encodeURIComponent('Fusión'),{headers:{cookie:admin.cookie}}));const rows=superjson.parse<{rows:Array<{accountId:string}>}>(await listing.text());assert(!rows.rows.some(r=>r.accountId===source.id));assert(rows.rows.some(r=>r.accountId===dest.id));
  // U-09: imports cannot create or rename into a duplicate of a No contactar business (acknowledge does not lift it)
  {const dnc=await db.insertInto('crmAccounts').values({nombre:'Cabañas Bloqueo '+stamp,ciudad:'Colón',doNotContact:true}).returningAll().executeTakeFirstOrThrow();

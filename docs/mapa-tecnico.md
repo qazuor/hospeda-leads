@@ -24,7 +24,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Permisos/autenticación | Helpers de sesión/usuario y guards compartidos; comprobar también el endpoint afectado |
 | Permisos de negocio (lectura/escritura, archivado, No contactar, datos de contacto 8A) | `src/helpers/crmPermissions.ts`: `assertAccountViewable` (solo lecturas; el responsable ve su negocio archivado/No contactar), `assertAccountReadable`/`assertAccountWritable` (escrituras; no aflojar) y `assertContactDataWritable` (8A) |
 | Quién registra/levanta No contactar (D1) | `src/helpers/doNotContactPermission.ts` (+ `.spec.ts`) |
-| Tarea «Volver a contactar» (7A) y cancelación al quedar No contactar (D3) | `src/helpers/recontactTask.ts` (`syncRecontactTask`, `cancelRecontactTaskFor`, `cancelPendingTasksForDnc`) |
+| Tarea «Volver a contactar» (7A), reasignación con el responsable del negocio y cancelación al quedar No contactar (D3) | `src/helpers/recontactTask.ts` (`syncRecontactTask`, `reassignRecontactTask`, `cancelRecontactTaskFor`, `cancelPendingTasksForDnc`) |
 | Duplicados al crear negocio y aviso de teléfono No contactar (D2) | `src/endpoints/business_duplicate_check.ts` (+ `.schema.ts`) |
 | Vocabulario y su guardia | `src/content/vocabulary.ts`, `src/helpers/vocabularyGuard.spec.ts` (términos prohibidos) |
 | Guía en pantalla y exportada | `src/content/user-guide.json` (fuente), `scripts/export-user-guide.mjs` (genera `docs/guia-de-uso.md`; regenerar tras cambiar la fuente), `src/content/userGuideLabels.spec.ts` (cada etiqueta citada debe existir en la UI) |

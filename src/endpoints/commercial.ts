@@ -9,7 +9,7 @@ import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
-import {cancelRecontactTaskFor,syncRecontactTask,type RecontactTaskResult} from '../helpers/recontactTask';
+import {cancelRecontactTaskFor,reassignRecontactTask,syncRecontactTask,type RecontactTaskResult} from '../helpers/recontactTask';
 import { z } from "zod";
 import {sql} from "kysely";
 import superjson from "superjson";
@@ -131,6 +131,7 @@ export async function post(request:Request){
         }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fullFields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),contactOnly?"account_contact_data_updated":existing?"account_updated":"account_created",existing,row,null,contactOnly?{scope:access!.scope,leadIds:access!.leadIds}:{});
+        if(existing&&!contactOnly)await reassignRecontactTask(trx,{accountId:row.id,fromEmail:existing.assignedUserEmail,toEmail:row.assignedUserEmail});// Decision 7A: the untouched "Volver a contactar" task follows the new responsible.
         if(input.primaryContact){// One-step creation: the person becomes Principal in the same transaction (a new business has no previous Principal).
           const contact=await trx.insertInto("crmContacts").values({accountId:String(row.id),name:input.primaryContact.name,phone:nullable(input.primaryContact.phone),email:nullable(input.primaryContact.email),isPrimary:true,updatedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
           await audit(String(row.id),"contact_created",null,input.personPhoneDncAcknowledged?{...contact,personPhoneDncAcknowledged:true}:contact,String(contact.id));

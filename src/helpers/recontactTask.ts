@@ -98,3 +98,20 @@ export async function cancelRecontactTaskFor(trx:Db,{accountId,cause}:{accountId
  const task=await untouchedTask(trx,String(accountId),account.assignedUserEmail,calendarDay(account.recontactAt));
  if(task)await cancel(trx,task.id,cause);
 }
+
+/**
+ * Keeps the business "Volver a contactar" task with the business responsible when the responsible changes (decision 7A).
+ * Moves only this feature's untouched task (still assigned to the previous responsible, on the current recontact day) to the new one; tasks someone reassigned, rescheduled, timed or completed stay as they are.
+ * The day is the stored `recontact_at` even when an open management moved the status to En gestión (that keeps the date and its task).
+ * No-op without a stored date, when the responsible does not change, or when it is cleared (an unassigned business keeps the task with whoever has it).
+ * Runs in the caller's transaction, after its permission checks. Returns the moved task id, or null.
+ */
+export async function reassignRecontactTask(trx:Db,{accountId,fromEmail,toEmail}:{accountId:string|number;fromEmail:string|null;toEmail:string|null}):Promise<string|null> {
+ if(!toEmail||fromEmail===toEmail)return null;
+ const account=await trx.selectFrom('crmAccounts').select('recontactAt').where('id','=',String(accountId) as never).executeTakeFirst();
+ if(!account?.recontactAt)return null;
+ const task=await untouchedTask(trx,String(accountId),fromEmail,calendarDay(account.recontactAt));
+ if(!task||task.assignedUserEmail===toEmail)return null;
+ await trx.updateTable('crmTasks').set({assignedUserEmail:toEmail,updatedAt:new Date()}).where('id','=',task.id).execute();
+ return String(task.id);
+}
