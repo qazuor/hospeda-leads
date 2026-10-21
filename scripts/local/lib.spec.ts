@@ -96,7 +96,7 @@ describe("jwt secret", () => {
     expect(isValidJwtSecret({ secret })).toBe(true);
   });
 
-  it.each([undefined, "", "short", "x".repeat(31), "changeme-changeme-changeme-changeme-1"])("rejects %s", (secret) => {
+  it.each([undefined, "", "short", "x".repeat(31), "changeme-changeme-changeme-changeme-1", "your_secret-aaaaaaaaaaaaaaaaaaaaaaaaaaaa", "please-REPLACE-this-value-0000000000000"])("rejects %s", (secret) => {
     expect(isValidJwtSecret({ secret })).toBe(false);
   });
 });
