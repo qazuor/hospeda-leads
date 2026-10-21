@@ -19,6 +19,11 @@ const RATE_LIMIT_CONFIG = {
   cleanupProbability: 0.1,
 } as const;
 
+// Valid bcrypt hash (cost 10) of a random value. Compared against when no usable account exists so that
+// unknown, unauthorized and wrong-password logins take about the same time.
+const DUMMY_PASSWORD_HASH = "$2b$10$vzlrCNnoK1ZmfZkiqDxANOJH3/xciEAcJeThjgcnHAyJ3WwYNMH0m";
+const INVALID_CREDENTIALS_MESSAGE = "Correo o contraseña incorrectos.";
+
 // Helper function to safely convert union type to Date
 function safeToDate(
   value: string | number | bigint | Date | null | undefined
@@ -43,18 +48,6 @@ export async function handle(request: Request) {
 
     // Normalize email to lowercase for consistent handling
     const normalizedEmail = email.toLowerCase();
-    const allowed = await db
-      .selectFrom("authorizedEmails")
-      .select("id")
-      .where(sql`lower(email)`, "=", normalizedEmail)
-      .where("active", "=", true)
-      .executeTakeFirst();
-    if (!allowed) {
-      return new Response(
-        superjson.stringify({ message: "Este correo no está autorizado para acceder a Hospeda Leads." }),
-        { status: 403, headers: { "Content-Type": "application/json" } }
-      );
-    }
     const now = new Date();
     const windowStart = new Date(
       now.getTime() - RATE_LIMIT_CONFIG.lockoutWindowMinutes * 60 * 1000
@@ -76,7 +69,7 @@ export async function handle(request: Request) {
           trx.fn.countAll<number>().as("failedCount"),
           trx.fn.max(trx.dynamic.ref("attemptedAt")).as("lastFailedAt"),
         ])
-        .where("email", "=", normalizedEmail)
+        .where(sql`lower(email)`, "=", normalizedEmail)
         .where("success", "=", false)
         .where("attemptedAt", ">=", windowStart)
         .where("attemptedAt", "is not", null) // Ensure null safety
@@ -125,28 +118,20 @@ export async function handle(request: Request) {
         .limit(1)
         .execute();
 
-      if (userResults.length === 0) {
-        // Log failed attempt for non-existent user
-        await trx
-          .insertInto("loginAttempts")
-          .values({
-            email: normalizedEmail,
-            attemptedAt: now,
-            success: false,
-          })
-          .execute();
-
-        return {
-          type: "auth_failed" as const,
-        };
-      }
+      // Checked after the lockout so that unauthorized addresses are rate limited and indistinguishable from wrong passwords
+      const allowed = await trx
+        .selectFrom("authorizedEmails")
+        .select("id")
+        .where(sql`lower(email)`, "=", normalizedEmail)
+        .where("active", "=", true)
+        .executeTakeFirst();
 
       const user = userResults[0];
 
-      // Verify password
-      const passwordValid = await compare(password, user.passwordHash);
-      if (!passwordValid) {
-        // Log failed attempt for invalid password
+      // Always run one bcrypt compare (dummy hash when there is no account) to keep timing roughly constant
+      const passwordValid = await compare(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+      if (!user || !allowed || !passwordValid) {
+        // Log failed attempt for unknown, unauthorized or invalid credentials
         await trx
           .insertInto("loginAttempts")
           .values({
@@ -192,7 +177,7 @@ export async function handle(request: Request) {
       // This preserves audit trail of successful logins
       await trx
         .deleteFrom("loginAttempts")
-        .where("email", "=", normalizedEmail)
+        .where(sql`lower(email)`, "=", normalizedEmail)
         .where("success", "=", false)
         .execute();
 
@@ -225,7 +210,7 @@ export async function handle(request: Request) {
     if (result.type === "rate_limited") {
       return new Response(
         superjson.stringify({
-          message: `Too many failed login attempts. Account locked for ${result.remainingMinutes} more minutes.`,
+          message: `Demasiados intentos fallidos. Probá de nuevo en ${result.remainingMinutes} minutos.`,
         }),
         {
           status: 429,
@@ -238,7 +223,7 @@ export async function handle(request: Request) {
 
     if (result.type === "auth_failed") {
       return new Response(
-        superjson.stringify({ message: "Invalid email or password" }),
+        superjson.stringify({ message: INVALID_CREDENTIALS_MESSAGE }),
         {
           status: 401,
           headers: {

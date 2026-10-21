@@ -6,8 +6,9 @@ const ArchivedPage=React.lazy(()=>import('./pages/archived'));
 const GuidePage=React.lazy(()=>import('./pages/guide'));
 const LibraryPage=React.lazy(()=>import('./pages/library'));
 const PasswordRecoveryPage=React.lazy(()=>import("./pages/password-recovery"));
-const ReactivationPage=React.lazy(()=>import("./pages/reactivation"));
 import {RouteLoading} from "./components/RouteLoading";
+import {AppErrorBoundary} from "./components/AppErrorBoundary";
+import {installPreloadErrorHandler} from "./helpers/chunkReload";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { GlobalContextProviders } from "./components/_globalContextProviders";
@@ -40,12 +41,21 @@ function HomeEntry(){
   return <Navigate to={legacyLead?"/opportunities"+search:search?"/accounts"+search:"/my-day"} replace/>;
 }
 
+function RouteBoundary({children}:{children:React.ReactNode}){
+  const {pathname,search}=useLocation();
+  // Hoy switches views through ?view, so a failed view must recover when the seller picks another tab.
+  return <AppErrorBoundary resetKey={pathname+'?view='+(new URLSearchParams(search).get('view')??'')}>{children}</AppErrorBoundary>;
+}
+
+installPreloadErrorHandler();
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <GlobalContextProviders>
         <UnsavedNavigation/>
         <AppCommandPalette/>
+        <RouteBoundary>
         <React.Suspense fallback={<RouteLoading/>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -57,9 +67,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/opportunities" element={<UserRoute><OpportunityEntry/></UserRoute>} />
           <Route path="/accounts" element={<UserRoute><BusinessListPage /></UserRoute>} />
           <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
-          <Route path="/my-day" element={<UserRoute><MyDayPage key="day"/></UserRoute>} />
-          <Route path="/reactivation" element={<UserRoute><ReactivationPage/></UserRoute>} />
-          <Route path="/agenda" element={<UserRoute><MyDayPage key="agenda" agenda/></UserRoute>} />
+          <Route path="/my-day" element={<UserRoute><MyDayPage/></UserRoute>} />
+          {/* Agenda and Reactivación live inside Hoy (owner decision 5A); old bookmarks keep working. */}
+          <Route path="/reactivation" element={<Navigate to="/my-day?view=retomar" replace />} />
+          <Route path="/agenda" element={<Navigate to="/my-day?view=calendar" replace />} />
           <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
@@ -71,6 +82,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </React.Suspense>
+        </RouteBoundary>
       </GlobalContextProviders>
     </BrowserRouter>
   </React.StrictMode>,

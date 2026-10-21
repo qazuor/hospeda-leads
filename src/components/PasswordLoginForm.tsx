@@ -18,15 +18,22 @@ import {
   postLogin,
 } from "../endpoints/auth/login_with_password_POST.schema";
 import { useAuth } from "../helpers/useAuth";
+import { User } from "../helpers/User";
 
 export type LoginFormData = z.infer<typeof schema>;
 
 interface PasswordLoginFormProps {
   className?: string;
+  /** Prefills the email (re-login after the session expired). */
+  defaultEmail?: string;
+  /** Replaces the default "sign in and go home" behaviour; the caller decides what to do with the user. */
+  onSuccess?: (user: User) => void;
 }
 
 export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
   className,
+  defaultEmail = "",
+  onSuccess,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +42,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
 
   const form = useForm({
     defaultValues: {
-      email: "",
+      email: defaultEmail,
       password: "",
     },
     schema,
@@ -47,6 +54,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
 
     try {
       const result = await postLogin(data);
+      if (onSuccess) return onSuccess(result.user);
       onLogin(result.user);
       setTimeout(() => navigate("/"), 200);
     } catch (err) {
@@ -71,7 +79,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
           <FormLabel>Email</FormLabel>
           <FormControl>
             <Input
-              placeholder="your@email.com"
+              placeholder="tu@email.com"
               type="email"
               autoComplete="email"
               disabled={isLoading}

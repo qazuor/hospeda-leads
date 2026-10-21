@@ -1,10 +1,12 @@
 import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
-import {CrmForbidden,assertAccountReadable,assertAccountWritable,assertLeadAccess} from '../helpers/crmPermissions';
+import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertContactDataWritable,assertLeadAccess,canEditBusinessContactData,hasOpenManagement} from '../helpers/crmPermissions';
+import {findNewDncBlocker,findDncPersonPhoneBlocker,findNewDncPersonPhoneBlocker,DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
-import {crmError} from '../helpers/crmErrors';
+import {parseBody} from '../helpers/parseBody';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
 import { z } from "zod";
@@ -24,6 +26,10 @@ const response=(value:unknown,status=200)=>new Response(superjson.stringify(valu
 const nullable=(v:string|null|undefined)=>v?.trim()||null;
 const checkEmail=(next:string|null|undefined,previous?:string|null)=>{if(next&&next!==previous&&!z.string().email().safeParse(next).success)throw new Error("Email inválido.");};
 const json=(value:unknown)=>JSON.parse(JSON.stringify(value));
+/** Decision 8A: the only business fields a seller with an open management may change. */
+const CONTACT_DATA_FIELDS=['telefono','email','whatsapp'] as const;
+const CONTACT_DATA_DENIED='Podés corregir teléfono, email y WhatsApp. Para cambiar otros datos pedíselo al responsable del negocio.';
+const sameText=(a:unknown,b:unknown)=>(a instanceof Date?a.toISOString().slice(0,10):nullable(a==null?null:String(a)))===(b instanceof Date?b.toISOString().slice(0,10):nullable(b==null?null:String(b)));
 
 export async function get(request:Request){
   try{
@@ -37,7 +43,7 @@ export async function get(request:Request){
     if(accountId){
       accountId=await resolveAccount(db,accountId);
       const visibleAccount=await db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow();
-      assertAccountReadable(user,visibleAccount);
+      assertAccountViewable(user,visibleAccount);
       const family=await accountFamily(db,accountId);
       if(input.historyPage)return response(await businessHistory(family,input.historyPage));
       const [account,contacts,opportunities,journal,leadJournal,managementJournal,stages]=await Promise.all([
@@ -49,7 +55,7 @@ export async function get(request:Request){
         sql`SELECT e.id,e.lead_id AS "leadId",e.action,e.actor_email AS "actorEmail",coalesce(u.display_name,e.actor_email,'Sistema') AS "actorName",e.old_stage AS "oldStage",e.new_stage AS "newStage",e.comment,e.metadata,e.created_at AS "createdAt" FROM crm_pipeline_events e LEFT JOIN users u ON u.email=e.actor_email WHERE e.account_id IN (${sql.join(family.map(id=>sql`${id}::bigint`))}) AND e.lead_id IS NOT NULL AND e.action='stage' ORDER BY e.created_at DESC LIMIT 200`.execute(db),
         getOpportunityStages(db)
       ]);
-      return response({account,contacts,opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute()});
+      return response({account,contacts,opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute(),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
     }
     if((input.archived||input.deleted)&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados o eliminados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("deletedAt",input.deleted?"is not":"is",null);
@@ -64,18 +70,18 @@ export async function get(request:Request){
       ]).orderBy("nombre").limit(50).offset((input.page-1)*50).execute()
     ]);
     return response({rows:rows.map(r=>({...r,opportunityCount:Number(r.opportunityCount),contactCount:Number(r.contactCount)})),total:Number(count.total),page:input.page});
-  }catch(e){return response({error:crmError(e)},e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:fallbackStatus(e))}
 }
 
 export async function post(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=commercialMutation.parse(superjson.parse(await request.text()));
+    const input=commercialMutation.parse(await parseBody(request));
     const actor={id:user.id,email:user.email,displayName:user.displayName};
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
-      const audit=async(accountId:string,action:string,before:unknown,after:unknown,contactId:string|null=null)=>{
-        await trx.insertInto("crmCommercialJournal").values({accountId,contactId,action,actorEmail:user.email,actorName:user.displayName,metadata:json({before,after})}).execute();
+      const audit=async(accountId:string,action:string,before:unknown,after:unknown,contactId:string|null=null,extra:Record<string,unknown>={})=>{
+        await trx.insertInto("crmCommercialJournal").values({accountId,contactId,action,actorEmail:user.email,actorName:user.displayName,metadata:json({before,after,...extra})}).execute();
       };
       const checkResponsible=(next:string|null|undefined,previous:string|null)=>{
         if(next!==undefined&&nullable(next)!==previous&&user.role!=="admin")throw new Forbidden("Solo un administrador puede modificar el responsable.");
@@ -96,24 +102,45 @@ export async function post(request:Request){
       }
       if(input.action==="account_save"){
         const existing=input.id?await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.id).forUpdate().executeTakeFirstOrThrow():null;
-        if(existing)assertAccountWritable(user,existing);
+        const access=existing?await assertContactDataWritable(trx,user,existing):null;
+        const contactOnly=access?.scope==='open_management';
+        if(existing&&contactOnly){// Decision 8A: every field outside the whitelist must equal the stored value (omitted means unchanged).
+          const stored=existing as Record<string,unknown>,sent=input as Record<string,unknown>;
+          const changed=Object.keys(sent).filter(k=>!['action','id',...CONTACT_DATA_FIELDS].includes(k)&&sent[k]!==undefined&&!sameText(sent[k],stored[k]));
+          if(changed.length)throw new CrmForbidden(CONTACT_DATA_DENIED);
+        }
+        if(existing&&input.primaryContact)throw new Error("Las personas de un negocio existente se agregan desde su ficha.");
+        checkEmail(input.primaryContact?.email);
         checkResponsible(input.assignedUserEmail,existing?.assignedUserEmail??null);
         checkEmail(input.email,existing?.email);
         const extra=Object.fromEntries(accountExtraFields.filter(f=>input[f]!==undefined).map(f=>[f,nullable(input[f])]));
         const tipo=input.tipo===undefined?existing?.tipo??null:nullable(input.tipo);
         const subtipo=input.subtipo===undefined?(tipo===existing?.tipo?existing?.subtipo??null:null):nullable(input.subtipo);
-        const classification=await classificationErrors(trx,tipo,subtipo,existing??undefined);
+        const classification=contactOnly?[]:await classificationErrors(trx,tipo,subtipo,existing??undefined);
         if(classification.length)throw new Error(classification.join(' '));
-        if(input.verifiedOn&&input.verifiedOn>new Date().toISOString().slice(0,10))throw new Error('Fecha de verificación futura.');
-        const fields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
-        const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fields).returningAll().executeTakeFirstOrThrow();
-        await audit(String(row.id),existing?"account_updated":"account_created",existing,row);
+        if(!contactOnly&&input.verifiedOn&&input.verifiedOn>new Date().toISOString().slice(0,10))throw new Error('Fecha de verificación futura.');
+        const fullFields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
+        const fields=contactOnly?{telefono:input.telefono===undefined?existing!.telefono:nullable(input.telefono),email:input.email===undefined?existing!.email:nullable(input.email),...(input.whatsapp===undefined?{}:{whatsapp:nullable(input.whatsapp)}),updatedAt:new Date()}:fullFields;
+        {
+          const after={nombre:contactOnly?existing!.nombre:input.nombre,ciudad:contactOnly?existing!.ciudad:fullFields.ciudad,telefono:fields.telefono,email:fields.email,whatsapp:input.whatsapp===undefined?existing?.whatsapp:nullable(input.whatsapp)};
+          if(await findNewDncBlocker(trx,{after,before:existing??undefined,excludeId:existing?String(existing.id):undefined}))throw new Conflict(DNC_DUPLICATE_MESSAGE);
+          if(input.primaryContact&&await findDncPersonPhoneBlocker(trx,input.primaryContact.phone))throw new Conflict(DNC_DUPLICATE_MESSAGE);
+        }
+        const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fullFields).returningAll().executeTakeFirstOrThrow();
+        await audit(String(row.id),contactOnly?"account_contact_data_updated":existing?"account_updated":"account_created",existing,row,null,contactOnly?{scope:access!.scope,leadIds:access!.leadIds}:{});
+        if(input.primaryContact){// One-step creation: the person becomes Principal in the same transaction (a new business has no previous Principal).
+          const contact=await trx.insertInto("crmContacts").values({accountId:String(row.id),name:input.primaryContact.name,phone:nullable(input.primaryContact.phone),email:nullable(input.primaryContact.email),isPrimary:true,updatedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
+          await audit(String(row.id),"contact_created",null,contact,String(contact.id));
+        }
         return String(row.id);
       }
       // One account lock for all related mutations: prevents competing primary selections.
       const account=await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.accountId).forUpdate().executeTakeFirstOrThrow();
       const stateAccount=account as typeof account&{status:string|null;isClient:boolean;recontactAt:Date|string|null;referredToLeandro:boolean};
-      if(input.action!=="opportunity_save"||!input.id)assertAccountWritable(user,account);
+      let contactAccess:Awaited<ReturnType<typeof assertContactDataWritable>>|null=null;
+      if(input.action==="contact_save"){// Decision 8A: persons are contact data; contact_delete and everything else below stay owner/admin only.
+        contactAccess=await assertContactDataWritable(trx,user,account);
+      }else if(input.action!=="opportunity_save"||!input.id)assertAccountWritable(user,account);
       else await assertLeadAccess(trx,input.id,user,true);
       if(input.action==="account_archive"){
         if(input.archived&&user.role!=="admin"&&account.assignedUserEmail!==user.email)throw new Forbidden("Solo el responsable o un administrador puede archivar este negocio.");
@@ -160,6 +187,10 @@ export async function post(request:Request){
       if(input.action==="contact_save"){
         const old=input.id?await trx.selectFrom("crmContacts").selectAll().where("id","=",input.id).where("accountId","=",input.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow():null;
         checkEmail(input.email,old?.email);
+        const viaManagement=contactAccess?.scope==='open_management';
+        if(viaManagement&&input.isPrimary!==(old?.isPrimary??false))throw new CrmForbidden('El contacto principal solo lo cambia el responsable del negocio.');
+        // A person's phone exactly shared with a No contactar business blocks (decision 1C), unless the previous phone already matched it; the own business never does.
+        if(await findNewDncPersonPhoneBlocker(trx,{after:input.phone,before:old?.phone,excludeId:input.accountId}))throw new Conflict(DNC_PERSON_PHONE_MESSAGE);
         if(input.isPrimary){
           const previous=await trx.selectFrom("crmContacts").selectAll().where("accountId","=",input.accountId).where("isPrimary","=",true).where("deletedAt","is",null).execute();
           await trx.updateTable("crmContacts").set({isPrimary:false,updatedAt:new Date()}).where("accountId","=",input.accountId).where("isPrimary","=",true).execute();
@@ -167,7 +198,7 @@ export async function post(request:Request){
         }
         const fields={accountId:input.accountId,name:input.name,position:nullable(input.position),phone:nullable(input.phone),email:nullable(input.email),preferredChannel:nullable(input.preferredChannel),isPrimary:input.isPrimary,notes:nullable(input.notes),updatedAt:new Date()};
         const row=old?await trx.updateTable("crmContacts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmContacts").values(fields).returningAll().executeTakeFirstOrThrow();
-        await audit(input.accountId,old?"contact_updated":"contact_created",old,row,String(row.id));
+        await audit(input.accountId,old?"contact_updated":"contact_created",old,row,String(row.id),viaManagement?{scope:contactAccess!.scope,leadIds:contactAccess!.leadIds}:{});
         return String(row.id);
       }
       const creationHash=input.creationRequestKey?createHash("sha256").update(JSON.stringify({...input,actorEmail:user.email})).digest("hex"):null;
@@ -213,5 +244,5 @@ export async function post(request:Request){
       return String(row.id);
     });
     return response({id});
-  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:400)}
+  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:fallbackStatus(e))}
 }

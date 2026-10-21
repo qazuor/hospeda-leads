@@ -7,7 +7,7 @@ import postgres from 'postgres'
 // underscore directly before a digit (reminder_48h_sent -> reminder48hSent ->
 // reminder48h_sent). The generated schema exports the exact spelling for such
 // identifiers; everything else falls through to the default mapping.
-class FlootCamelCasePlugin extends CamelCasePlugin {
+class IdentifierCamelCasePlugin extends CamelCasePlugin {
   protected override snakeCase(str: string): string {
     return kyselyIdentifierOverrides[str] ?? super.snakeCase(str)
   }
@@ -21,7 +21,7 @@ if(!databaseUrl)throw new Error("DATABASE_URL is required");
 const positiveIntEnv=(name:string,fallback:number)=>{const n=Number.parseInt(process.env[name]??"",10);return Number.isFinite(n)&&n>0?n:fallback;};
 
 export const db = new Kysely<DB>({
-plugins: [new FlootCamelCasePlugin()],
+plugins: [new IdentifierCamelCasePlugin()],
 dialect: new PostgresJSDialect({
 postgres: postgres(databaseUrl, {
 prepare: false,

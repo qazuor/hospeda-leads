@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {assertAccountReadable,assertAccountWritable,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
+import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertLeadAccess,canEditBusinessContactData,canModifyBusiness,canModifyManagement,CrmForbidden} from './crmPermissions';
 const owner={email:'owner@example.com',role:'user' as const};
 const colleague={email:'colleague@example.com',role:'user' as const};
 const admin={email:'admin@example.com',role:'admin' as const};
@@ -25,6 +25,34 @@ describe('CRM shared reading and owner-only modifications',()=>{
   }
   expect(()=>assertAccountWritable(admin,archived)).not.toThrow();
  });
+ it('lets the responsible seller view her archived business read-only (decision 1C)',()=>{
+  const archived={...business,archivedAt:new Date(),doNotContact:true};
+  expect(()=>assertAccountViewable(owner,archived)).not.toThrow();
+  expect(()=>assertAccountViewable(admin,archived)).not.toThrow();
+  expect(()=>assertAccountViewable(colleague,archived)).toThrow('Solo su responsable o un administrador puede consultarlo');
+  expect(()=>assertAccountViewable(owner,{...archived,assignedUserEmail:null})).toThrow(CrmForbidden);
+  // Write guards stay closed for the owner: viewing never grants modifying.
+  expect(()=>assertAccountReadable(owner,archived)).toThrow(CrmForbidden);
+  expect(()=>assertAccountWritable(owner,archived)).toThrow(CrmForbidden);
+  expect(canModifyBusiness(owner,archived)).toBe(false);
+  expect(canModifyManagement(owner,{assignedUserEmail:owner.email},archived)).toBe(false);
+ });
+ it('tells the owner of an archived business that only an admin can modify it',async()=>{
+  const archived={id:'7',...business,archivedAt:new Date(),deletedAt:null};
+  const lead={id:'9',accountId:'7',assignedUserEmail:owner.email,deletedAt:null};
+  // Minimal stand-in for the Kysely chain used by assertLeadAccess/assertBusinessAccess.
+  const executor={selectFrom:(table:string)=>{const q={selectAll:()=>q,where:()=>q,forUpdate:()=>q,executeTakeFirstOrThrow:async()=>table==='leads'?lead:archived};return q;}} as unknown as Parameters<typeof assertLeadAccess>[0];
+  const message='Este negocio está archivado. Solo un administrador puede modificarlo.';
+  expect(()=>assertAccountWritable(owner,archived)).toThrow(message);
+  await expect(assertLeadAccess(executor,'9',owner,true)).rejects.toThrow(message);
+  await expect(assertLeadAccess(executor,'9',owner)).resolves.toBe(lead);
+  await expect(assertLeadAccess(executor,'9',colleague)).rejects.toThrow('Solo su responsable o un administrador puede consultarlo');
+  await expect(assertLeadAccess(executor,'9',admin,true)).resolves.toBe(lead);
+ });
+ it('keeps active and deleted businesses on the shared reading rules',()=>{
+  expect(()=>assertAccountViewable(colleague,business)).not.toThrow();
+  for(const actor of [owner,admin])expect(()=>assertAccountViewable(actor,{...business,archivedAt:new Date(),deletedAt:new Date()})).toThrow('papelera');
+ });
  it('preserves independent management ownership under a shared business',()=>{
   const management={assignedUserEmail:colleague.email,deletedAt:null};
   expect(canModifyManagement(colleague,management,business)).toBe(true);
@@ -41,5 +69,31 @@ describe('CRM shared reading and owner-only modifications',()=>{
  });
  it('prevents editing merged source businesses',()=>{
   expect(canModifyBusiness(admin,{...business,mergedIntoId:'42'})).toBe(false);
+ });
+});
+describe('contact data editing with an open management (decision 8A)',()=>{
+ it('lets owner and admin edit regardless of managements',()=>{
+  for(const actor of [owner,admin])expect(canEditBusinessContactData(actor,business,false)).toBe(true);
+ });
+ it('lets a colleague edit only with an open management',()=>{
+  expect(canEditBusinessContactData(colleague,business,true)).toBe(true);
+  expect(canEditBusinessContactData(colleague,business,false)).toBe(false);
+  expect(canModifyBusiness(colleague,business)).toBe(false);
+ });
+ it('never widens archived, trashed, merged or missing businesses for sellers',()=>{
+  for(const closed of [{...business,archivedAt:new Date()},{...business,deletedAt:new Date()},{...business,mergedIntoId:'42'}])expect(canEditBusinessContactData(colleague,closed,true)).toBe(false);
+  expect(canEditBusinessContactData(colleague,undefined,true)).toBe(false);
+  expect(canEditBusinessContactData(undefined,business,true)).toBe(false);
+ });
+ it('never applies to a No contactar business, but owner and admin keep editing it',()=>{
+  const dnc={...business,doNotContact:true};
+  expect(canEditBusinessContactData(colleague,dnc,true)).toBe(false);
+  for(const actor of [owner,admin])expect(canEditBusinessContactData(actor,dnc,false)).toBe(true);
+ });
+ it('keeps the strict read and view guards untouched',()=>{
+  const archived={...business,archivedAt:new Date()};
+  expect(()=>assertAccountReadable(colleague,archived)).toThrow(CrmForbidden);
+  expect(()=>assertAccountViewable(colleague,archived)).toThrow(CrmForbidden);
+  expect(()=>assertAccountWritable(colleague,business)).toThrow(CrmForbidden);
  });
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {apiJson} from "../helpers/apiClient";
 import type { Selectable } from "kysely";
 import type { Leads } from "../helpers/schema";
 const listSchema=z.preprocess(value=>{
@@ -92,7 +92,7 @@ export const schema=z.object({
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
 export type BusinessTableMetadata={canModify?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";isClient?:boolean;businessStatus?:"new"|"reviewed"|"in_management"|"no_follow_up_scheduled"|"recontact"|"archived"|null;reviewStatus?:boolean;businessRecontactAt?:string|null;referredToLeandro?:boolean;opportunityValues?:Record<string,string[]>};
-export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;filters:{
+export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;boardTotals?:{open:number;won:number;lost:number;total:number;groups:{estado:string|null;managementType:string|null;count:number}[]};truncated?:boolean;filters:{
   ciudades:string[];estados:string[];tipos:string[];businessStatuses:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];
 }};
@@ -102,10 +102,5 @@ export const getLeads = async (input:z.input<typeof schema>): Promise<OutputType
     if(Array.isArray(v)){if(v.length)qs.set(k,JSON.stringify(v));return}
     if(v!==undefined&&v!=="")qs.set(k,String(v));
   });
-  const result = await fetch("/_api/leads?"+qs.toString());
-  if (!result.ok) {
-    const error = superjson.parse<{ error: string }>(await result.text());
-    throw new Error(error.error);
-  }
-  return superjson.parse<OutputType>(await result.text());
+  return apiJson<OutputType>("/_api/leads?"+qs.toString());
 };

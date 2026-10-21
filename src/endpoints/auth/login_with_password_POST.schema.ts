@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { User } from "../../helpers/User";
 import superjson from "superjson";
+import {apiJson} from "../../helpers/apiClient";
 
 export const schema = z.object({
-  email: z.string().email("Email is required"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().email("Ingresá un email válido, por ejemplo tu@email.com."),
+  password: z.string().min(1, "Ingresá tu contraseña."),
 });
 
 export type OutputType = {
@@ -16,7 +17,7 @@ export const postLogin = async (
   init?: RequestInit
 ): Promise<OutputType> => {
   const validatedInput = schema.parse(body);
-  const result = await fetch(`/_api/auth/login_with_password`, {
+  return apiJson<OutputType>(`/_api/auth/login_with_password`, {
     method: "POST",
     body: superjson.stringify(validatedInput),
     ...init,
@@ -25,12 +26,5 @@ export const postLogin = async (
       ...(init?.headers ?? {}),
     },
     credentials: "include", // Important for cookies to be sent and received
-  });
-
-  if (!result.ok) {
-    const errorData = superjson.parse<{ message: string }>(await result.text());
-    throw new Error(errorData.message || "Login failed");
-  }
-
-  return superjson.parse<OutputType>(await result.text());
+  }, { fallback: "No se pudo ingresar. Intentá de nuevo.", sessionEvent: false });
 };

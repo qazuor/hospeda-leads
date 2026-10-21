@@ -9,6 +9,7 @@ for(const width of [1280,390])test(`commercial history separates conversations f
   const data=path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:
    path.endsWith('/commercial')?(url.searchParams.has('historyPage')?{events:[event],total:1,page:1,pending:[{id:'1',title:'Revisar propuesta',dueDate:'2026-10-12',dueAt:null,assignedUserEmail:'admin@example.com',leadId:null,opportunityName:null,continuation:'wait'}],totalPending:1}:{account,contacts:[],opportunities:[],journal:[{id:'1',action:'account_updated',actorName:'Admin',createdAt:new Date(),metadata:{before:{nombre:'Anterior'},after:{nombre:account.nombre}}}],leadJournal:[],stages:[],users:[{email:'admin@example.com',displayName:'Admin'}]}):
    path.endsWith('/work')?{tasks:[],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:0,totalActivities:0,page:1}:
+   path.endsWith('/communication')?{recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72}:
    path.endsWith('/settings')?{users:[],cities:[],types:[],subtypes:[],templates:[],authorizedEmails:[],opportunityStages:[]}:{};
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
@@ -22,12 +23,11 @@ for(const width of [1280,390])test(`commercial history separates conversations f
  await expect(page.getByRole('heading',{name:'Auditoría de cambios',exact:true})).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
  await page.getByRole('link',{name:'Revisar propuesta',exact:true}).click();
- await expect(page.getByRole('tab',{name:'Seguimiento',exact:true})).toHaveAttribute('aria-selected','true');
- await page.getByRole('tab',{name:'Historial',exact:true}).click();
+ await expect(page.getByRole('tab',{name:'Qué pasó',exact:true})).toHaveAttribute('aria-selected','true');
  await page.screenshot({path:`test-results/commercial-history-${width}.png`,fullPage:true});
  await page.goto('/accounts/1');await expect(page.getByRole('heading',{name:'Negocio de prueba',exact:true})).toBeVisible();
  await page.screenshot({path:`test-results/business-detail-hierarchy-${width}.png`,fullPage:true});
- await page.getByRole('tab',{name:/Gestiones comerciales/}).click();await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
+ await page.getByRole('tab',{name:/^Gestiones \(/}).click();await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
  const editor=page.getByRole('dialog');await expect(editor.getByText('Negocio:')).toBeVisible();
  await page.screenshot({path:`test-results/opportunity-editor-hierarchy-${width}.png`,fullPage:true});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

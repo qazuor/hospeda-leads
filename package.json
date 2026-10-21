@@ -12,12 +12,15 @@
     "perf:api": "node scripts/perf/api-baseline.mjs",
     "perf:bundle": "node scripts/perf/bundle-report.mjs",
     "perf:explain": "node scripts/perf/explain-hot.mjs",
+    "local": "node scripts/local/cli.mjs up",
+    "local:stop": "node scripts/local/cli.mjs stop",
+    "local:reset": "node scripts/local/cli.mjs reset",
+    "local:status": "node scripts/local/cli.mjs status",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed:test": "node scripts/seed-test.mjs",
     "db:seed:perf": "node scripts/perf/seed-synthetic.mjs",
     "db:import": "node scripts/import-data.mjs",
     "db:validate": "node scripts/validate-data.mjs",
-    "db:migrate:floot": "node scripts/migrate-floot-snapshot.mjs",
     "test:commercial": "node scripts/test-commercial-migration.mjs && node --import tsx scripts/test-commercial.ts && node --import tsx scripts/test-business-history.ts && node --import tsx scripts/test-global-history.ts && node scripts/test-business-recovery.mjs && node scripts/test-recovery-postgres.mjs",
     "test:browser": "playwright test",
     "test:work": "node scripts/test-work-migration.mjs && node --import tsx scripts/test-work.ts",
@@ -28,7 +31,7 @@
     "db:preflight:communication-sequences": "node scripts/communication-sequence-preflight.mjs",
     "test:auth": "node --import tsx scripts/test-password-recovery.ts",
     "test:quality": "node scripts/test-data-quality-migration.mjs && node scripts/test-business-import-migration.mjs && node --import tsx scripts/test-data-quality.ts && node --import tsx scripts/test-business-import.ts && node --import tsx scripts/test-business-import-api.ts",
-    "test:communication": "node scripts/test-communication-migration.mjs && node scripts/test-communication-product-migration.mjs && node --import tsx scripts/test-communication.ts && node --import tsx scripts/test-message-model-review.mjs",
+    "test:communication": "node scripts/test-communication-migration.mjs && node scripts/test-communication-product-migration.mjs && node --import tsx scripts/test-communication.ts && DB_LOCK_TIMEOUT_MS=2000 node --import tsx scripts/test-communication-locks.ts && node --import tsx scripts/test-message-model-review.mjs",
     "test:usability": "node --import tsx scripts/test-usability.ts",
     "test:permissions": "node --import tsx scripts/test-permissions.ts",
     "db:review:models": "node scripts/review-message-models.mjs",
@@ -100,6 +103,8 @@
   },
   "overrides": {
     "rollup": "4.63.5",
-    "baseline-browser-mapping": "2.9.19"
+    "@tiptap/extension-bubble-menu": "3.31.3",
+    "@tiptap/extension-floating-menu": "3.31.3",
+    "baseline-browser-mapping": "2.11.30"
   }
 }

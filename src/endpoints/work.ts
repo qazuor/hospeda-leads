@@ -1,8 +1,8 @@
 import {searchSql,normalizeSearchSql} from "../helpers/searchSql";
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess,assertAccountReadable} from '../helpers/crmPermissions';
-import {purposeOutcomes} from '../helpers/workOutcomes';
-import type {WorkPurpose} from '../helpers/nextStep';
-import {crmError} from '../helpers/crmErrors';
+import {outcomeOptions} from '../helpers/workOutcomes';
+import {parseBody} from '../helpers/parseBody';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily} from '../helpers/accountIdentity';
 import superjson from 'superjson';
 import {sql} from 'kysely';
@@ -13,9 +13,10 @@ import {calendarDay,localDay} from '../helpers/workDates';
 import {workMutation,workQuery,followupSettings} from './work.schema';
 class Forbidden extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
+import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactOutcomes,resolveMessageForWork} from '../helpers/communicationService';
 export async function get(request:Request){
  try{
   const {user}=await getServerUserSession(request);
@@ -31,7 +32,8 @@ export async function get(request:Request){
   let activities=db.selectFrom('crmActivities as t').innerJoin('crmAccounts as a','a.id','t.accountId').leftJoin('leads as l','l.id','t.leadId').where('t.deletedAt','is',null).where(eb=>eb.or([eb('t.leadId','is',null),eb('l.deletedAt','is',null)]));
   let attention=db.selectFrom('leads as l').innerJoin('crmAccounts as a','a.id','l.accountId').where('l.deletedAt','is',null).where(sql<string>`coalesce((select classification from crm_stages where name=l.estado),'open')`,'=','open');
   tasks=tasks.where('a.deletedAt','is',null);activities=activities.where('a.deletedAt','is',null);attention=attention.where('a.deletedAt','is',null);
-  if(user.role!=='admin'){tasks=tasks.where('a.archivedAt','is',null);activities=activities.where('a.archivedAt','is',null);attention=attention.where('a.archivedAt','is',null);}
+  // Detail of one business already passed assertBusinessAccess, which lets only its responsible seller view it once archived (decision 1C).
+  if(user.role!=='admin'&&!(input.mode==='detail'&&input.accountId)){tasks=tasks.where('a.archivedAt','is',null);activities=activities.where('a.archivedAt','is',null);attention=attention.where('a.archivedAt','is',null);}
   if(responsible!=='all'){
    tasks=tasks.where('t.assignedUserEmail','=',responsible);
    activities=activities.where(eb=>eb.or([eb('t.actorEmail','=',responsible),eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.id','=','t.taskId').where('crmTasks.assignedUserEmail','=',responsible)),eb('l.assignedUserEmail','=',responsible),eb.and([eb('t.leadId','is',null),eb('a.assignedUserEmail','=',responsible)])]));
@@ -103,13 +105,15 @@ export async function get(request:Request){
   if(input.accountId){
    if(user.role==='admin'||accounts.length){journal=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','in',await accountFamily(db,input.accountId)).orderBy('createdAt','desc').limit(200).execute();}
   }
-  return reply({cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
+  // Decision 2B: the seller's own contacts still waiting for "¿Cómo salió?" stay visible in Hoy.
+  const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin'}):[];
+  return reply({pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
 }
 export async function post(request:Request){
  try{
   const {user}=await getServerUserSession(request);
-  const input=workMutation.parse(superjson.parse(await request.text()));
+  const input=workMutation.parse(await parseBody(request));
   const id=await db.transaction().execute(async trx=>{
    await setWorkActor(trx,user);
    if(input.action==='followup_settings'){
@@ -128,13 +132,16 @@ export async function post(request:Request){
    const accountId='accountId' in input?input.accountId:previous!.accountId;
    const leadId='accountId' in input?(input.leadId??null):previous!.leadId;
    if(previous&&(String(previous.accountId)!==String(accountId)||String(previous.leadId??'')!==String(leadId??'')))throw new Error('No se puede mover un registro a otro contexto.');
+   // A contact outcome also writes its message: take the communication locks first, so the order stays account → lead → message.
+   const messageId='messageId' in input?input.messageId:undefined;
+   if(messageId)await lockCommunication(trx,async()=>({accountIds:[accountId]}));
    const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=leadId?await trx.selectFrom('leads').selectAll().where('id','=',leadId).where('accountId','=',accountId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow():null;
    assertAccountReadable(user,account);
    const commercialOwner=lead?lead.assignedUserEmail:account.assignedUserEmail;
    const delegatedTask=previous&&isTask&&'assignedUserEmail' in previous&&previous.assignedUserEmail===user.email;
    const linkedTask=previous&&!isTask&&'taskId' in previous&&previous.taskId?await trx.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',previous.taskId).executeTakeFirst():null;
-   if(user.role!=='admin'&&commercialOwner!==user.email&&!delegatedTask&&linkedTask?.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar trabajo de tus negocios u gestiones asignados.');
+   if(user.role!=='admin'&&commercialOwner!==user.email&&!delegatedTask&&linkedTask?.assignedUserEmail!==user.email)throw new Forbidden('Solo podés gestionar trabajo de tus negocios o gestiones asignados.');
    if(previous&&isTask){
     const old=await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id!).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
     if(user.role!=='admin'&&old.assignedUserEmail!==user.email)throw new Forbidden('La tarea corresponde a otro responsable.');
@@ -149,12 +156,25 @@ export async function post(request:Request){
    if('outcome' in input&&input.outcome){
     const purpose=('purpose' in input?input.purpose:undefined)??previous?.purpose;
     if(input.outcome==='do_not_contact'&&previous?.outcome!=='do_not_contact')throw new Error('Registrá “Pidió no contactar” en Comunicación para activar el bloqueo y elegir las gestiones que querés cerrar.');
-    if(purpose&&!([...purposeOutcomes[purpose as WorkPurpose]] as string[]).includes(input.outcome))throw new Error('Elegí un resultado que corresponda al propósito de esta acción.');
+    // One canonical list plus the purpose's own extras (decision 3A); an edit may keep its historical value.
+    if(input.outcome!==previous?.outcome&&!(outcomeOptions(purpose) as readonly string[]).includes(input.outcome))throw new Error('Elegí un resultado que corresponda al propósito de esta acción.');
    }
+   if(messageId){
+    if(input.action==='activity_save'&&input.id)throw new Error('Un registro ya guardado no se vincula a otro mensaje.');
+    if(input.action==='task_status'&&input.status!=='completed')throw new Error('Solo una tarea completada se vincula a un mensaje.');
+    if(!('outcome' in input)||!input.outcome)throw new Error('Elegí cómo salió el contacto.');
+    if('messageSent' in input&&input.messageSent===false)throw new Error('Si no se envió, marcalo como no enviado.');
+   }
+   // Decision 2B: a new result always says how it continues, including an edit that adds the first result. Other edits stay exempt.
+   const requiresNextStep=(input.action==='activity_save'&&!!input.outcome&&!previous?.outcome)||(input.action==='task_status'&&input.status==='completed');
+   if(requiresNextStep&&(!('continuation' in input)||!input.continuation))throw new Error('Elegí cómo sigue: agendá una tarea o elegí «No agendar nada» y contá por qué.');
+   if(requiresNextStep&&'continuation' in input&&input.continuation==='done'&&!input.continuationReason)throw new Error('Elegiste «No agendar nada»: contá por qué.');
    if('continuation' in input&&input.continuation){
     if(['task','wait'].includes(input.continuation)&&!('nextTask' in input&&input.nextTask))throw new Error('Elegí qué hacer y una fecha para continuar.');
-    if(input.continuation==='done'&&'nextTask' in input&&input.nextTask)throw new Error('Terminar por ahora no crea una próxima tarea.');
+    if(input.continuation==='done'&&'nextTask' in input&&input.nextTask)throw new Error('«No agendar nada» no crea otra tarea.');
    }
+   // The contact's message is resolved once and keeps a single activity: the one the communication service created, if any.
+   const linked=messageId&&(input.action==='activity_save'||input.action==='task_status')?await resolveMessageForWork(trx,user,{messageId,sent:input.messageSent,result:input.result??null,accountId:String(accountId),leadId:leadId==null?null:String(leadId)}):null;
    const createNextTask=async()=>{
     if(!('nextTask' in input)||!input.nextTask)return;
     if(input.outcome==='do_not_contact'||account.doNotContact)throw new Error('No se puede planificar contacto para un negocio bloqueado.');
@@ -168,9 +188,12 @@ export async function post(request:Request){
     for(const contactId of actualContacts)await trx.selectFrom('crmContacts').select('id').where('id','=',contactId).where('accountId','=',accountId).where('deletedAt','is',null).executeTakeFirstOrThrow();
     const completedAt=input.status==='completed'?new Date(input.completedAt??new Date().toISOString()):null;
     if(completedAt&&completedAt>new Date())throw new Error('La finalización no puede estar en el futuro.');
-    await trx.updateTable('crmTasks').set({status:input.status,purpose:input.purpose??task.purpose,continuation:input.continuation??null,outcome:input.outcome??null,result:input.result,completedAt,updatedAt:new Date()}).where('id','=',input.id).execute();
+    const continuationReason=input.continuation==='done'?input.continuationReason??null:null;
+    await trx.updateTable('crmTasks').set({status:input.status,purpose:input.purpose??task.purpose,continuation:input.continuation??null,continuationReason,outcome:input.outcome??null,result:input.result,completedAt,updatedAt:new Date()}).where('id','=',input.id).execute();
     if(completedAt){
-     await trx.insertInto('crmActivities').values({accountId,leadId,taskId:input.id,purpose:input.purpose??task.purpose,continuation:input.continuation??null,typeId:task.typeId,title:task.title,occurredAt:completedAt,outcome:input.outcome??null,result:input.result,notes:task.description,participants:task.participants,channel:input.channel??null,contactIds:serialize(actualContacts),actorEmail:user.email}).execute();
+     const values={accountId,leadId,taskId:input.id,purpose:input.purpose??task.purpose,continuation:input.continuation??null,continuationReason,typeId:task.typeId,title:task.title,occurredAt:completedAt,outcome:input.outcome??null,result:input.result,notes:task.description,participants:task.participants,channel:input.channel??null,contactIds:serialize(actualContacts)};
+     if(linked?.activityId)await trx.updateTable('crmActivities').set({...values,updatedAt:new Date()}).where('id','=',linked.activityId).execute();
+     else{const created=await trx.insertInto('crmActivities').values({...values,actorEmail:user.email}).returning('id').executeTakeFirstOrThrow();if(messageId)await linkMessageActivity(trx,messageId,created.id);}
 
     }
     await createNextTask();
@@ -192,10 +215,14 @@ export async function post(request:Request){
    }
    const occurredAt=new Date(input.occurredAt);
    if(occurredAt>new Date())throw new Error('Registrá una tarea para lo que todavía no ocurrió.');
-   const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,typeId:input.typeId,occurredAt,continuation:input.continuation??null,participants:input.participants,contactIds:serialize(input.contactIds),channel:input.channel??null,outcome:input.outcome??null,result:input.result??null,notes:input.notes??null,updatedAt:new Date()};
-   const row=input.id?await trx.updateTable('crmActivities').set(fields).where('id','=',input.id).returning('id').executeTakeFirstOrThrow():await trx.insertInto('crmActivities').values({...fields,actorEmail:user.email}).returning('id').executeTakeFirstOrThrow();
+   // An edit that does not choose a continuation keeps the stored one and its reason.
+   const continuation=input.continuation??(previous&&'continuation' in previous?previous.continuation:null)??null;
+   const continuationReason=continuation==='done'?input.continuationReason??(previous&&'continuationReason' in previous?previous.continuationReason:null)??null:null;
+   const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,typeId:input.typeId,occurredAt,continuation,continuationReason,participants:input.participants,contactIds:serialize(input.contactIds),channel:input.channel??null,outcome:input.outcome??null,result:input.result??null,notes:input.notes??null,updatedAt:new Date()};
+   const row=input.id?await trx.updateTable('crmActivities').set(fields).where('id','=',input.id).returning('id').executeTakeFirstOrThrow():linked?.activityId?await trx.updateTable('crmActivities').set({...fields,notes:input.notes?.trim()?input.notes:sql<string|null>`notes`}).where('id','=',linked.activityId).returning('id').executeTakeFirstOrThrow():await trx.insertInto('crmActivities').values({...fields,actorEmail:user.email}).returning('id').executeTakeFirstOrThrow();
+   if(messageId&&!linked?.activityId)await linkMessageActivity(trx,messageId,row.id);
    // The activity linked to a completion owns the factual completion date/result.
-   if(previous&&'taskId' in previous&&previous.taskId)await trx.updateTable('crmTasks').set({completedAt:occurredAt,purpose:input.purpose??previous.purpose,continuation:input.continuation??null,outcome:input.outcome??null,result:input.result??null,updatedAt:new Date()}).where('id','=',previous.taskId).where('status','=','completed').execute();
+   if(previous&&'taskId' in previous&&previous.taskId)await trx.updateTable('crmTasks').set({completedAt:occurredAt,purpose:input.purpose??previous.purpose,continuation,continuationReason,outcome:input.outcome??null,result:input.result??null,updatedAt:new Date()}).where('id','=',previous.taskId).where('status','=','completed').execute();
 
    await createNextTask();
    return row.id;

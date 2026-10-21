@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
+import {sql} from 'kysely';
 import {db} from '../src/helpers/db';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {get as commercialGet,post as commercialPost} from '../src/endpoints/commercial';
@@ -16,7 +17,8 @@ import {handle as notes} from '../src/endpoints/lead_notes_GET';
 import {handle as journal} from '../src/endpoints/lead_journal_GET';
 import {get as communicationGet,post as communicationPost} from '../src/endpoints/communication';
 import {get as qualityGet,post as qualityPost} from '../src/endpoints/dataQuality';
-import {get as pipelineGet} from '../src/endpoints/pipeline';
+import {get as pipelineGet,post as pipelinePost} from '../src/endpoints/pipeline';
+import {doNotContactSince} from '../src/helpers/doNotContactSince';
 import {get as resourcesGet,post as resourcesPost} from '../src/endpoints/resources';
 import {get as workGet,post as workPost} from '../src/endpoints/work';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable database with all migrations applied');
@@ -149,6 +151,122 @@ try{
  await call(other,quick,'leads_quick',{id:separateManagement,field:'ciudad',value:'Unauthorized business city'},403);
  await call(other,bulk,'leads_bulk',{entity:'opportunity',ids:[separateManagement],changes:{ciudad:'Unauthorized bulk projection'}},403);
  assert.equal((await db.selectFrom('crmAccounts').select('nombre').where('id','=',separateBusiness).executeTakeFirstOrThrow()).nombre,'Independent responsibility '+suffix);
+
+ // Decision 8A write-path matrix: a seller with an OPEN management corrects only phone, email, WhatsApp and persons.
+ {
+  const opener=await actor('user','opener'),closer=await actor('user','closer'),stranger=await actor('user','stranger');
+  const biz=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Contact data business '+suffix,ciudad:'Paraná',telefono:'+54 9 3447 100001',email:'old8a@example.com',whatsapp:'+54 9 3447 100002'})).id;
+  const primary=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId:biz,name:'Primary 8A',isPrimary:true,phone:'+54 9 3447 100003'})).id;
+  const secondary=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId:biz,name:'Secondary 8A',isPrimary:false})).id;
+  const openLead8a=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:biz,confirmReviewed:true,managementType:'main',opportunityName:'Open 8A',assignedUserEmail:opener.user.email})).id;
+  const closedLead8a=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:biz,confirmReviewed:true,managementType:'main',opportunityName:'Closed 8A',assignedUserEmail:closer.user.email})).id;
+  const closing=await call(closer,pipelineGet,'pipeline?leadId='+closedLead8a);
+  const lostReason=closing.managementReasons.find((r:any)=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey!=='do_not_contact');assert(lostReason);
+  await call(closer,pipelinePost,'pipeline',{action:'transition',leadId:closedLead8a,revision:closing.insights[0].pipelineRevision,stage:'main:lost',reasonId:lostReason.id,comment:''});
+  const account8a=()=>db.selectFrom('crmAccounts').selectAll().where('id','=',biz).executeTakeFirstOrThrow();
+  const contacts8a=async()=>(await db.selectFrom('crmContacts').selectAll().where('accountId','=',biz).orderBy('id').execute());
+  const audits8a=async()=>(await db.selectFrom('crmCommercialJournal').selectAll().where('accountId','=',biz).where('action','=','account_contact_data_updated').execute());
+  const contactBody={action:'account_save',id:biz,nombre:'Contact data business '+suffix,telefono:'+54 9 3447 200001',email:'new8a@example.com',whatsapp:'+54 9 3447 200002'};
+  // Who may edit: detail flag and write result per actor.
+  for(const [who,expected] of [[owner,true],[admin,true],[opener,true],[closer,false],[stranger,false]] as const)assert.equal((await call(who,commercialGet,'commercial?accountId='+biz)).canEditContactData,expected);
+  const snapshotBefore=JSON.stringify([await account8a(),await contacts8a()]);
+  for(const who of [closer,stranger]){
+   await call(who,commercialPost,'commercial',contactBody,403);
+   await call(who,commercialPost,'commercial',{action:'contact_save',accountId:biz,id:secondary,name:'Hijack',isPrimary:false},403);
+   await call(who,commercialPost,'commercial',{action:'contact_save',accountId:biz,name:'Hijack new',isPrimary:false},403);
+   await call(who,commercialPost,'commercial',{action:'contact_delete',accountId:biz,id:secondary},403);
+  }
+  assert.equal(JSON.stringify([await account8a(),await contacts8a()]),snapshotBefore,'closed-management and unrelated sellers changed nothing');
+  // Whitelist: any non-contact field, even next to a contact field, rejects the whole save.
+  for(const extra of [{nombre:'Renamed'},{ciudad:'Colón'},{sitioWeb:'https://x.example'},{tipo:verticalA},{provincia:'Entre Ríos'},{businessNotes:'notes'},{assignedUserEmail:opener.user.email},{primaryContact:{name:'X'}}]){
+   const r=await call(opener,commercialPost,'commercial',{...contactBody,...extra},403);
+   assert(typeof r.error==='string'&&r.error.length>0);
+  }
+  assert.match((await call(opener,commercialPost,'commercial',{...contactBody,ciudad:'Colón'},403)).error,/Podés corregir teléfono, email y WhatsApp/);
+  assert.equal(JSON.stringify([await account8a(),await contacts8a()]),snapshotBefore,'a rejected mixed save changed nothing');
+  assert.equal((await audits8a()).length,0);
+  // Allowed: phone, email, WhatsApp, with the unchanged name echoed back; omitted fields stay untouched.
+  await call(opener,commercialPost,'commercial',contactBody);
+  const edited=await account8a();
+  assert.equal(edited.telefono,'+54 9 3447 200001');assert.equal(edited.email,'new8a@example.com');assert.equal((edited as any).whatsapp,'+54 9 3447 200002');
+  assert.equal(edited.nombre,'Contact data business '+suffix);assert.equal(edited.ciudad,'Paraná');assert.equal(edited.assignedUserEmail,owner.user.email);
+  const rows8a=await audits8a();assert.equal(rows8a.length,1);assert.equal(rows8a[0].actorEmail,opener.user.email);
+  const meta8a=rows8a[0].metadata as any;assert.equal(meta8a.scope,'open_management');assert.deepEqual(meta8a.leadIds.map(String),[String(openLead8a)]);assert.equal(meta8a.before.telefono,'+54 9 3447 100001');assert.equal(meta8a.after.telefono,'+54 9 3447 200001');
+  await call(opener,commercialPost,'commercial',{action:'account_save',id:biz,nombre:'Contact data business '+suffix,whatsapp:null});
+  assert.equal((await account8a() as any).whatsapp,null);assert.equal((await account8a()).telefono,'+54 9 3447 200001');
+  // Owner keeps the regular audit action and full edit.
+  const contactAudits=(await audits8a()).length;
+  await call(owner,commercialPost,'commercial',{action:'account_save',id:biz,nombre:'Contact data business '+suffix,ciudad:'Paraná',telefono:'+54 9 3447 200001',email:'new8a@example.com'});
+  assert.equal((await audits8a()).length,contactAudits,'the owner save is audited as account_updated, not as contact data');
+  // Persons: create and edit allowed, primary flag fixed, delete forbidden.
+  const created=(await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,name:'Added by opener',isPrimary:false,phone:'+54 9 3447 300001'})).id;
+  await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,id:secondary,name:'Secondary renamed',isPrimary:false,email:'second8a@example.com'});
+  await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,id:primary,name:'Primary renamed',isPrimary:true,phone:'+54 9 3447 100003'});
+  const afterPersons=await contacts8a();
+  assert.equal(afterPersons.find(c=>String(c.id)===String(created))?.name,'Added by opener');assert.equal(afterPersons.find(c=>String(c.id)===String(secondary))?.email,'second8a@example.com');
+  assert.equal(afterPersons.find(c=>String(c.id)===String(primary))?.isPrimary,true);assert.equal(afterPersons.find(c=>String(c.id)===String(secondary))?.isPrimary,false);
+  const personAudit=await db.selectFrom('crmCommercialJournal').selectAll().where('accountId','=',biz).where('action','=','contact_created').where('contactId','=',created).executeTakeFirstOrThrow();assert.equal((personAudit.metadata as any).scope,'open_management');
+  const personsBefore=JSON.stringify(await contacts8a());
+  await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,id:secondary,name:'Secondary renamed',isPrimary:true},403);
+  await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,id:primary,name:'Primary renamed',isPrimary:false},403);
+  await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,name:'New primary',isPrimary:true},403);
+  await call(opener,commercialPost,'commercial',{action:'contact_delete',accountId:biz,id:secondary},403);
+  assert.equal(JSON.stringify(await contacts8a()),personsBefore,'primary toggles and person deletes stay owner/admin only');
+  // Everything else about the business and its managements stays owner/admin only, and reading never grants modifying.
+  const beforeRest=JSON.stringify([await account8a(),await db.selectFrom('leads').selectAll().where('accountId','=',biz).orderBy('id').execute()]);
+  for(const body of [
+   {action:'opportunity_save',accountId:biz,managementType:'main',opportunityName:'New by opener'},
+   {action:'opportunity_save',accountId:biz,id:closedLead8a,opportunityName:'Edit foreign management'},
+   {action:'convert_client',accountId:biz,reason:'Unauthorized conversion'},
+   {action:'set_client',accountId:biz,isClient:true,reason:'Unauthorized client mark'},
+   {action:'business_status',accountId:biz,status:'reviewed',recontactAt:null},
+   {action:'account_archive',accountId:biz,archived:true,reason:'Unauthorized archive'},
+   {action:'account_trash',accountIds:[biz],deleted:true,reason:'Unauthorized trash'},
+  ])await call(opener,commercialPost,'commercial',body,403);
+  await call(opener,quick,'leads_quick',{id:biz,accountId:biz,field:'ciudad',value:'Colón',expectedValue:'Paraná'},403);
+  await call(opener,quick,'leads_quick',{id:openLead8a,accountId:biz,field:'telefono',value:'+54 9 3447 999999'},400);
+  await call(opener,bulk,'leads_bulk',{entity:'business',ids:[biz],changes:{ciudad:'Unauthorized batch'}},403);
+  assert.equal(JSON.stringify([await account8a(),await db.selectFrom('leads').selectAll().where('accountId','=',biz).orderBy('id').execute()]),beforeRest);
+  // No contactar: a phone shared with a No contactar business still blocks the seller with an open management.
+  const dncPhone='+54 9 3447 '+String(suffix).slice(-6);
+  const dnc8a=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'DNC reference 8A '+suffix,telefono:dncPhone})).id;
+  await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId:dnc8a,blocked:true,reason:'Reference for 8A'});
+  await call(opener,commercialPost,'commercial',{...contactBody,telefono:dncPhone},409);
+  assert.equal((await account8a()).telefono,'+54 9 3447 200001');
+  // Archived businesses reject the seller with an open management for reads of the write path and for every contact write.
+  await call(admin,commercialPost,'commercial',{action:'account_archive',accountId:biz,archived:true,reason:'8A archived matrix'});
+  const archivedSnapshot=JSON.stringify([await account8a(),await contacts8a()]);
+  await call(opener,commercialPost,'commercial',contactBody,403);
+  await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,id:secondary,name:'Archived edit',isPrimary:false},403);
+  await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:biz,name:'Archived add',isPrimary:false},403);
+  await call(opener,commercialGet,'commercial?accountId='+biz,undefined,403);
+  assert.equal(JSON.stringify([await account8a(),await contacts8a()]),archivedSnapshot,'archived business stays closed to the seller with an open management');
+  await call(admin,commercialPost,'commercial',{...contactBody,telefono:'+54 9 3447 500001'});
+  assert.equal((await account8a()).telefono,'+54 9 3447 500001');
+  await call(admin,commercialPost,'commercial',{action:'account_archive',accountId:biz,archived:false,reason:'Restore 8A'});
+  // Closed-off variants: the open-management scope never applies to No contactar, trashed or merged businesses, to deleted managements or to managements of someone else.
+  const variant=async(label:string,prepare:(biz:string,lead:string)=>Promise<void>,assignTo=opener)=>{
+   const b=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:`8A ${label} ${suffix}`,telefono:'+54 9 3447 '+String(suffix+label.length).slice(-6),email:`${label.replace(/\W/g,'')}8a@example.com`})).id;
+   const c=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId:b,name:'Person '+label,isPrimary:false})).id;
+   const l=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:b,confirmReviewed:true,managementType:'main',opportunityName:'Mgmt '+label,assignedUserEmail:assignTo.user.email})).id;
+   await prepare(b,l);
+   const state=async()=>JSON.stringify([await db.selectFrom('crmAccounts').selectAll().where('id','=',b).executeTakeFirstOrThrow(),await db.selectFrom('crmContacts').selectAll().where('accountId','=',b).orderBy('id').execute()]);
+   const before=await state();const acc=await db.selectFrom('crmAccounts').selectAll().where('id','=',b).executeTakeFirstOrThrow();
+   await call(opener,commercialPost,'commercial',{action:'account_save',id:b,nombre:acc.nombre,telefono:null,whatsapp:null},403);
+   await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:b,id:c,name:'Edited '+label,isPrimary:false},403);
+   await call(opener,commercialPost,'commercial',{action:'contact_save',accountId:b,name:'Added '+label,isPrimary:false},403);
+   assert.equal(await state(),before,label+': nothing changed');
+   return {b,l};
+  };
+  const dncVariant=await variant('dnc',async b=>{await sql`UPDATE crm_accounts SET do_not_contact=true WHERE id=${b}`.execute(db);});
+  assert.equal((await call(opener,commercialGet,'commercial?accountId='+dncVariant.b)).canEditContactData,false,'the detail hides the correction for a No contactar business');
+  assert.equal((await call(admin,commercialGet,'commercial?accountId='+dncVariant.b)).canEditContactData,true);
+  await variant('trashed',async b=>{await call(owner,commercialPost,'commercial',{action:'account_trash',accountIds:[b],deleted:true,reason:'8A trashed variant'});});
+  await variant('merged',async b=>{await sql`UPDATE crm_accounts SET merged_into_id=${biz} WHERE id=${b}`.execute(db);});
+  await variant('deletedlead',async(_b,l)=>{await sql`UPDATE leads SET deleted_at=now() WHERE id=${l}`.execute(db);});
+  await variant('foreignlead',async()=>{},closer);
+  console.log('Decision 8A matrix: open-management seller edits only phone/email/WhatsApp/persons; closed, unrelated, archived and No contactar paths stay closed');
+ }
  // Materials are administered exclusively by admin and used in an authorized context.
  const documentId=crypto.randomUUID();
  const createDocument={action:'create',id:documentId,title:'Approved test material',type:'propuesta',library:true,accountId:null,leadId:null,activityId:null,categoryId:null,version:{url:'https://example.com/material.pdf'}};
@@ -167,12 +285,89 @@ try{
  const detail=await call(other,commercialGet,'commercial?accountId='+accountId);assert.equal(detail.opportunities.length,0);assert.equal(detail.leadJournal.length,0);
  for(const [handler,url] of [[commercialGet,'commercial?leadId='+leadId],[notes,'lead_notes?leadId='+leadId],[journal,'lead_journal?leadId='+leadId],[pipelineGet,'pipeline?leadId='+leadId]] as const)await call(other,handler,url,undefined,403);
  await call(admin,notes,'lead_notes?leadId='+leadId);
- // Archived access is forbidden through every contextual API, including its owner.
+ // Archived businesses are read-only for their responsible seller (decision 1C) and closed to every other seller.
  await call(owner,commercialPost,'commercial',{action:'account_archive',accountId,archived:true,reason:'Permission archive test'});
+ const archivedReads=[[commercialGet,'commercial?accountId='+accountId],[commercialGet,'commercial?accountId='+accountId+'&historyPage=1'],[qualityGet,'dataQuality?accountId='+accountId],[communicationGet,'communication?accountId='+accountId],[resourcesGet,'resources?accountId='+accountId],[workGet,'work?mode=detail&accountId='+accountId]] as const;
+ for(const [handler,url] of archivedReads){await call(owner,handler,url);await call(other,handler,url,undefined,403);}
  for(const seller of [owner,other]){
-  for(const [handler,url] of [[commercialGet,'commercial?accountId='+accountId],[commercialGet,'commercial?archived=true'],[qualityGet,'dataQuality?accountId='+accountId],[communicationGet,'communication?accountId='+accountId],[resourcesGet,'resources?accountId='+accountId],[workGet,'work?mode=detail&accountId='+accountId]] as const)await call(seller,handler,url,undefined,403);
+  await call(seller,commercialGet,'commercial?archived=true',undefined,403);
   await call(seller,workPost,'work',{action:'task_save',accountId,title:'Unauthorized task',typeId:'call',dueDate:'2027-01-15'},403);
+  await call(seller,commercialPost,'commercial',{action:'account_archive',accountId,archived:false,reason:'Unauthorized restore'},403);
  }
+ assert.equal((await call(owner,qualityGet,'dataQuality?accountId='+accountId)).canEdit,false);
+ // A management closed as "Pidió no ser contactado" archives the business: its owner still reads it, but no write or contact path opens.
+ const dncBusiness=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Do not contact business '+suffix,telefono:'+54 9 3447 412345',email:'dnc@example.com'})).id;
+ const dncContact=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId:dncBusiness,name:'Blocked person',isPrimary:true,email:'blocked@example.com'})).id;
+ const dncLead=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId:dncBusiness,confirmReviewed:true,managementType:'main',opportunityName:'Closed by request'})).id;
+ const openLead=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId:dncBusiness,managementType:'main',opportunityName:'Still open'})).id;
+ const dncTask=(await call(owner,workPost,'work',{action:'task_save',accountId:dncBusiness,leadId:openLead,title:'Commitment before the block',typeId:'call',dueDate:'2027-01-15'})).id;
+ const dncResponse=crypto.randomUUID();
+ await call(owner,communicationPost,'communication',{action:'response_create',id:dncResponse,accountId:dncBusiness,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Answered before the block',exactText:null,otherDetail:null});
+ const dncDocument=crypto.randomUUID();
+ await call(admin,resourcesPost,'resources',{action:'create',id:dncDocument,title:'Business own material',type:'propuesta',library:false,accountId:dncBusiness,leadId:null,activityId:null,categoryId:null,version:{url:'https://example.com/own.pdf'}});
+ await call(owner,resourcesPost,'resources',{action:'link',id:documentId,accountId:dncBusiness,leadId:null,activityId:null});
+ const revision=async(lead:string,a:Actor=owner)=>(await call(a,pipelineGet,'pipeline?leadId='+lead)).insights[0].pipelineRevision as number;
+ const dncReason=(await call(owner,pipelineGet,'pipeline?leadId='+dncLead)).managementReasons.find((r:any)=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey==='do_not_contact');assert(dncReason);
+ await call(owner,pipelinePost,'pipeline',{action:'transition',leadId:dncLead,revision:await revision(dncLead),stage:'main:lost',reasonId:dncReason.id,comment:''});
+ const blocked=await db.selectFrom('crmAccounts').selectAll().where('id','=',dncBusiness).executeTakeFirstOrThrow();assert.equal(blocked.doNotContact,true);assert(blocked.archivedAt);
+ const dncReads=[[commercialGet,'commercial?accountId='+dncBusiness],[commercialGet,'commercial?accountId='+dncBusiness+'&historyPage=1'],[commercialGet,'commercial?leadId='+openLead],[qualityGet,'dataQuality?accountId='+dncBusiness],[communicationGet,'communication?accountId='+dncBusiness],[resourcesGet,'resources?accountId='+dncBusiness],[workGet,'work?mode=detail&accountId='+dncBusiness],[notes,'lead_notes?leadId='+openLead],[journal,'lead_journal?leadId='+openLead],[pipelineGet,'pipeline?leadId='+openLead]] as const;
+ for(const [handler,url] of dncReads){await call(owner,handler,url);await call(other,handler,url,undefined,403);}
+ const dncDetail=await call(owner,commercialGet,'commercial?accountId='+dncBusiness);
+ assert.equal(dncDetail.account.doNotContact,true);assert.equal(doNotContactSince(dncDetail.journal)?.requested,true,'the banner says the business asked only because a DNC close recorded it');
+ assert((await call(owner,workGet,'work?mode=detail&accountId='+dncBusiness)).tasks.some((t:any)=>String(t.id)===String(dncTask)),'the owner still sees the commitments of her archived business');
+ const dncDocuments=(await call(owner,resourcesGet,'resources?accountId='+dncBusiness)).documents.map((d:any)=>d.id);assert(dncDocuments.includes(dncDocument)&&dncDocuments.includes(documentId),'the owner still sees the documents of her archived business');
+ const pipelineRevisions=new Map([[dncLead,await revision(dncLead)],[openLead,await revision(openLead)]]);
+ const documentLink={action:'link',id:documentId,accountId:dncBusiness,leadId:openLead,activityId:null};
+ const dncWrites:[(r:Request)=>Promise<Response>,string,unknown][]=[
+  ...[
+   {action:'account_save',id:dncBusiness,nombre:'Unauthorized edit'},
+   {action:'contact_save',accountId:dncBusiness,id:dncContact,name:'Unauthorized person',isPrimary:true},
+   {action:'contact_save',accountId:dncBusiness,name:'Unauthorized new person',isPrimary:false},
+   {action:'contact_delete',accountId:dncBusiness,id:dncContact},
+   {action:'opportunity_save',accountId:dncBusiness,id:openLead,opportunityName:'Unauthorized management'},
+   {action:'opportunity_save',accountId:dncBusiness,managementType:'main',opportunityName:'Unauthorized new management'},
+   {action:'convert_client',accountId:dncBusiness,reason:'Unauthorized conversion'},
+   {action:'set_client',accountId:dncBusiness,isClient:true,reason:'Unauthorized client mark'},
+   {action:'business_status',accountId:dncBusiness,status:'reviewed',recontactAt:null},
+   {action:'account_archive',accountId:dncBusiness,archived:false,reason:'Unauthorized restore'},
+   {action:'account_trash',accountIds:[dncBusiness],deleted:true,reason:'Unauthorized trash'},
+  ].map(body=>[commercialPost,'commercial',body] as [(r:Request)=>Promise<Response>,string,unknown]),
+  [quick,'leads_quick',{id:dncBusiness,accountId:dncBusiness,field:'ciudad',value:'Unauthorized city',expectedValue:null}],
+  [quick,'leads_quick',{id:openLead,accountId:dncBusiness,scope:'management',field:'origen',value:'Unauthorized origin',expectedValue:null}],
+  [save,'leads_save',{id:openLead,nombre:'Unauthorized legacy edit'}],
+  [legacy,'leads',{id:openLead,nombre:'Unauthorized compatibility edit'}],
+  [note,'lead_notes',{leadId:openLead,note:'Unauthorized note'}],
+  [remove,'leads_delete',{id:openLead}],
+  [bulk,'leads_bulk',{entity:'business',ids:[dncBusiness],changes:{ciudad:'Unauthorized batch'}}],
+  [bulk,'leads_bulk',{entity:'opportunity',ids:[openLead],changes:{prioridad:'alta'}}],
+  [bulkRemove,'leads_bulk_delete',{entity:'business',ids:[dncBusiness]}],
+  [bulkRemove,'leads_bulk_delete',{entity:'opportunity',ids:[openLead]}],
+  [workPost,'work',{action:'task_save',accountId:dncBusiness,leadId:openLead,title:'Unauthorized task',typeId:'call',dueDate:'2027-01-15'}],
+  [workPost,'work',{action:'task_save',id:dncTask,accountId:dncBusiness,leadId:openLead,title:'Unauthorized reschedule',typeId:'call',dueDate:'2027-02-15'}],
+  [workPost,'work',{action:'task_delete',id:dncTask}],
+  [workPost,'work',{action:'activity_save',accountId:dncBusiness,leadId:openLead,title:'Unauthorized call',typeId:'call',occurredAt:new Date().toISOString(),outcome:'interested',continuation:'done'}],
+  [communicationPost,'communication',{action:'prepare',id:crypto.randomUUID(),leadId:openLead,channel:'email',contactId:dncContact,templateId:null}],
+  [communicationPost,'communication',{action:'prepare_general',id:crypto.randomUUID(),accountId:dncBusiness,leadId:null,contactId:dncContact,channel:'whatsapp',purpose:'resume',otherPurpose:null,templateId:null}],
+  [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:dncBusiness,leadId:openLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:'+54 9 3447 412345',recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
+  [communicationPost,'communication',{action:'response_create',id:crypto.randomUUID(),accountId:dncBusiness,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Unauthorized response',exactText:null,otherDetail:null}],
+  [communicationPost,'communication',{action:'response_correct',id:dncResponse,category:'other',summary:'Unauthorized correction',exactText:null,otherDetail:'Changed',reason:'Unauthorized correction'}],
+  [resourcesPost,'resources',documentLink],
+  [qualityPost,'dataQuality',{action:'evidence',accountId:dncBusiness,leadId:openLead,field:'telefono',revision:blocked.updatedAt.toISOString(),source:'Unauthorized check',verifiedAt:null,validity:'valid',observations:''}],
+  [qualityPost,'dataQuality',{action:'evidence',accountId:dncBusiness,field:'telefono',revision:blocked.updatedAt.toISOString(),source:'Unauthorized check',verifiedAt:null,validity:'valid',observations:''}],
+  [pipelinePost,'pipeline',{action:'transition',leadId:openLead,revision:pipelineRevisions.get(openLead),stage:'main:leandro'}],
+  [pipelinePost,'pipeline',{action:'transition',leadId:openLead,revision:pipelineRevisions.get(openLead),stage:'main:lost'}],
+  [pipelinePost,'pipeline',{action:'transition',leadId:dncLead,revision:pipelineRevisions.get(dncLead),stage:'main:contacted'}],
+  [pipelinePost,'pipeline',{action:'unrefer',leadId:openLead,revision:pipelineRevisions.get(openLead)}],
+  [pipelinePost,'pipeline',{action:'contact_policy',accountId:dncBusiness,blocked:false,reason:'Unauthorized lift'}],
+ ];
+ const snapshot=async()=>({account:await db.selectFrom('crmAccounts').selectAll().where('id','=',dncBusiness).executeTakeFirstOrThrow(),leads:await db.selectFrom('leads').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),contacts:await db.selectFrom('crmContacts').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),tasks:await db.selectFrom('crmTasks').selectAll().where('accountId','=',dncBusiness).orderBy('id').execute(),activities:await db.selectFrom('crmActivities').select('id').where('accountId','=',dncBusiness).execute(),messages:(await sql`SELECT id FROM crm_messages WHERE account_id=${dncBusiness}`.execute(db)).rows,responses:(await sql`SELECT id,category,summary FROM crm_communication_responses WHERE account_id=${dncBusiness}`.execute(db)).rows,links:(await sql`SELECT id FROM crm_document_links WHERE account_id=${dncBusiness}`.execute(db)).rows,evidence:(await sql`SELECT id FROM crm_data_evidence WHERE account_id=${dncBusiness}`.execute(db)).rows});
+ const beforeWrites=await snapshot();
+ for(const seller of [owner,other])for(const [handler,url,body] of dncWrites)await call(seller,handler,url,body,403);
+ assert.deepEqual(await snapshot(),beforeWrites,'no rejected write changed the No contactar business');
+ await call(admin,commercialGet,'commercial?accountId='+dncBusiness);
+ await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId,blocked:true,reason:'Manual admin mark'});
+ assert.equal(doNotContactSince((await call(owner,commercialGet,'commercial?accountId='+accountId)).journal)?.requested,false,'a manual mark never claims the business asked');
+ await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId,blocked:false,reason:'Lift manual mark'});
  await call(admin,commercialGet,'commercial?accountId='+accountId);
  await call(admin,commercialPost,'commercial',{action:'account_archive',accountId,archived:false,reason:'Restore test business'});
  console.log(`Permissions API: ${checks} checks passed; shared reading, owner/admin writes, administrative settings, mixed-batch rollback, trash and archived protection. No communications dispatched.`);

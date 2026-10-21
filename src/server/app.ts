@@ -1,6 +1,7 @@
 import {get as searchGET} from '../endpoints/search';
 import {mcpRoutes} from './mcp/routes';
 import {handle as businessListDefaults} from '../endpoints/business_list_defaults';
+import {handle as businessDuplicateCheck} from '../endpoints/business_duplicate_check';
 import {handle as businessSystemViewConvert} from '../endpoints/business_system_view_convert';
 import {get as businessReassignmentGET,post as businessReassignmentPOST} from '../endpoints/business_reassignment';
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
@@ -9,9 +10,13 @@ import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
 import {get as businessImportGET,post as businessImportPOST} from '../endpoints/businessImport';
 import {request as passwordRecoveryRequest,reset as passwordRecoveryReset} from "../endpoints/auth/password_recovery";
 import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
-import { serveStatic } from "@hono/node-server/serve-static";
-import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
+import { applyAssetMiddleware, applyStaticFallback } from "./staticAssets";
+import { applyBodyLimit } from "./bodyLimit";
+import { applySecurity } from "./security";
+import { createHealthHandler, onError, requestContext } from "./observability";
+import { sql } from "kysely";
+import { db } from "../helpers/db";
 import { handle as h0 } from "../endpoints/analytics_GET";
 import { handle as h1 } from "../endpoints/auth/login_with_password_POST";
 import { handle as h2 } from "../endpoints/auth/logout_POST";
@@ -32,8 +37,6 @@ import { handle as leadsBulkDeletePOST } from "../endpoints/leads_bulk_delete_PO
 import { handle as h9 } from "../endpoints/leads_duplicates_GET";
 import { handle as h10 } from "../endpoints/leads_GET";
 import { handle as h11 } from "../endpoints/leads_hard_delete_POST";
-import { handle as h12 } from "../endpoints/leads_import_POST";
-import { handle as h13 } from "../endpoints/leads_ingest_POST";
 import { handle as h14 } from "../endpoints/leads_POST";
 import { handle as h15 } from "../endpoints/leads_quick_POST";
 import { handle as h16 } from "../endpoints/leads_restore_POST";
@@ -41,7 +44,6 @@ import { handle as h17 } from "../endpoints/leads_save_POST";
 import { handle as h18 } from "../endpoints/leads_stats_GET";
 import { handle as h19 } from "../endpoints/leads_trash_GET";
 import { handle as h20 } from "../endpoints/live_version_GET";
-import { handle as h21 } from "../endpoints/send_template_email_POST";
 import { handle as h22 } from "../endpoints/settings_GET";
 import { handle as h23 } from "../endpoints/settings_save_POST";
 
@@ -50,6 +52,11 @@ import { get as commercialGET, post as commercialPOST } from "../endpoints/comme
 import {get as workGET,post as workPOST} from "../endpoints/work";
 
 export const app=new Hono();
+app.use("*",requestContext);
+app.onError(onError);
+applyAssetMiddleware(app);
+applySecurity(app);
+applyBodyLimit(app);
 // Mount only MCP paths; the normal CRM API and static routes keep their behavior.
 const mcp=mcpRoutes();
 for(const path of ['/mcp','/mcp/*','/.well-known/oauth-authorization-server','/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'])app.all(path,c=>mcp.fetch(c.req.raw));
@@ -73,7 +80,10 @@ app.post("/_api/work",c=>workPOST(c.req.raw));
 app.get("/_api/commercial", c=>commercialGET(c.req.raw));
 app.post("/_api/commercial", c=>commercialPOST(c.req.raw));
 
-app.get("/_api/health",(c)=>c.json({ok:true,service:"hospeda-leads"}));
+// /health and /health/live: process liveness only (used by CI, docker-compose and Coolify). /health/ready adds a DB round trip (select 1, 2 s timeout).
+app.get("/_api/health",createHealthHandler({}));
+app.get("/_api/health/live",createHealthHandler({}));
+app.get("/_api/health/ready",createHealthHandler({ping:()=>sql`select 1`.execute(db),cacheMs:2000}));
 app.get("/_api/analytics", (c) => h0(c.req.raw));
 app.post("/_api/auth/login_with_password", (c) => h1(c.req.raw));
 app.post("/_api/auth/logout", (c) => h2(c.req.raw));
@@ -94,8 +104,6 @@ app.post("/_api/leads_bulk_delete", (c) => leadsBulkDeletePOST(c.req.raw));
 app.get("/_api/leads_duplicates", (c) => h9(c.req.raw));
 app.get("/_api/leads", (c) => h10(c.req.raw));
 app.post("/_api/leads_hard_delete", (c) => h11(c.req.raw));
-app.post("/_api/leads_import", (c) => h12(c.req.raw));
-app.post("/_api/leads_ingest", (c) => h13(c.req.raw));
 app.post("/_api/leads", (c) => h14(c.req.raw));
 app.post("/_api/leads_quick", (c) => h15(c.req.raw));
 app.post("/_api/leads_restore", (c) => h16(c.req.raw));
@@ -103,22 +111,13 @@ app.post("/_api/leads_save", (c) => h17(c.req.raw));
 app.get("/_api/leads_stats", (c) => h18(c.req.raw));
 app.get("/_api/leads_trash", (c) => h19(c.req.raw));
 app.get("/_api/live_version", (c) => h20(c.req.raw));
-app.post("/_api/send_template_email", (c) => h21(c.req.raw));
 app.get('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
 app.post('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
+app.get('/_api/business/duplicate-check',c=>businessDuplicateCheck(c.req.raw));
 app.post('/_api/business_system_view_convert',c=>businessSystemViewConvert(c.req.raw));
 app.get('/_api/business_reassignment',c=>businessReassignmentGET(c.req.raw));
 app.post('/_api/business_reassignment',c=>businessReassignmentPOST(c.req.raw));
 app.get("/_api/settings", (c) => h22(c.req.raw));
 app.post("/_api/settings_save", (c) => h23(c.req.raw));
 
-app.use("/*",serveStatic({root:"./dist"}));
-app.notFound(async(c)=>{
-  if(c.req.path.startsWith("/_api/")) return c.json({error:"Endpoint not found"},404);
-  try{
-    const html=await readFile("./dist/index.html","utf8");
-    return c.html(html);
-  }catch{
-    return c.text("Not found",404);
-  }
-});
+applyStaticFallback(app,{distDir:"./dist"});

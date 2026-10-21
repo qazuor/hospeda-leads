@@ -23,7 +23,7 @@ try {
   console.log(`Entrada: ${entry}`);
   console.log(`Chunks con TipTap: ${rows.filter(row => row && /tiptap/i.test(row.data.toString('utf8'))).map(row => row.name).join(', ') || 'ninguno'}`);
   const entryRow = rows.find(row => row?.isEntry);
-  console.log(`Texto user-guide en entrada: ${entryRow?.data.toString('utf8').includes('user-guide') ? 'sí' : 'no'}`);
+  console.log(`Texto de la guía de uso (user-guide) en entrada: ${entryRow?.data.toString('utf8').includes('Usar Hospeda, paso a paso') ? 'sí' : 'no'}`);
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

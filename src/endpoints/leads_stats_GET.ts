@@ -3,6 +3,7 @@ import { db } from "../helpers/db";
 import superjson from "superjson";
 import { sql } from "kysely";
 import type { OutputType } from "./leads_stats_GET.schema";
+import { errorResponse } from "../helpers/errorResponse";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 
 export async function handle(request:Request){
@@ -26,6 +27,6 @@ export async function handle(request:Request){
       vencidos:Number(r.vencidos),paraHoy:Number(r.paraHoy),misPendientesHoy:Number(r.misPendientesHoy)
     } satisfies OutputType));
   }catch(e){
-    return new Response(superjson.stringify({error:e instanceof Error?e.message:"No se pudieron cargar métricas"}),{status:401});
+    return errorResponse(e);
   }
 }

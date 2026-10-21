@@ -1,4 +1,4 @@
-import superjson from "superjson";
+import {apiJson} from "../helpers/apiClient";
 export type DuplicateGroup = {
   reason: string;
   key: string;
@@ -6,7 +6,5 @@ export type DuplicateGroup = {
 };
 export type OutputType = { groups: DuplicateGroup[] };
 export const getLeadDuplicates = async ():Promise<OutputType>=>{
-  const r=await fetch("/_api/leads_duplicates");
-  if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
-  return superjson.parse<OutputType>(await r.text());
+  return apiJson<OutputType>("/_api/leads_duplicates");
 };

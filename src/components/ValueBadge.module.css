@@ -1,3 +1,6 @@
-.badge{display:inline-flex;align-items:center;justify-content:center;height:auto;min-height:24px;max-width:100%;min-width:0;border:1px solid;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:500;line-height:1.4;vertical-align:middle}
+.badge{display:inline-flex;align-items:center;justify-content:center;height:auto;min-height:24px;max-width:100%;min-width:0;border:1px solid;border-radius:999px;padding:2px 8px;font-size:13px;font-weight:500;line-height:1.4;vertical-align:middle}
 .label{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;text-box-trim:none}
-.muted{opacity:.78}.empty{color:var(--muted-foreground)}
+.muted{border-style:dashed}.empty{color:var(--muted-foreground)}
+.badge,.tone{color:var(--foreground)}
+@supports (color:light-dark(#000,#fff)){.badge,.tone{color:light-dark(hsl(var(--badge-h) var(--badge-s) 24%),hsl(var(--badge-h) var(--badge-s) 82%))}}
+.toneNeutral{--badge-h:215;--badge-s:22%}.tonePrimary{--badge-h:199;--badge-s:80%}.toneDestructive{--badge-h:0;--badge-s:78%}.toneSuccess{--badge-h:145;--badge-s:70%}.toneWarning{--badge-h:32;--badge-s:100%}

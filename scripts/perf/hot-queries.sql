@@ -1,60 +1,24 @@
 -- SQL snapshots for representative hot paths. Real SQL captured via log_statement=all on the synthetic DB (parameters inlined as literals). Refresh from local synthetic query logs when schema/query plans change.
 -- query: business projection count
 select count(distinct "account_id") as "count" from (
-	  select (jsonb_populate_record(null::leads,
-	    coalesce(to_jsonb(l), '{}'::jsonb) || jsonb_build_object(
-	      'id', coalesce(l.id, -a.id), 'account_id', a.id, 'deleted_at', a.deleted_at,
-	      'tipo', a.tipo, 'subtipo', a.subtipo,
-	      'origen', coalesce(a.origin,l.origen), 'fuente_referencia', coalesce(a.source_reference,l.fuente_referencia),
-	      'estado', l.estado,
-	      'business_status', a.status,
-	      'suscripcion', coalesce(l.suscripcion,a.subscription_label),
-	      'nombre', a.nombre, 'ciudad', a.ciudad, 'telefono', a.telefono,
-	      'email', a.email, 'sitio_web', a.sitio_web, 'url_gmap', a.url_gmap,
-	      'perfil_instagram', a.perfil_instagram, 'perfil_facebook', a.perfil_facebook,
-	      'perfil_airbnb', a.perfil_airbnb, 'perfil_booking', a.perfil_booking,
-	      'perfil_turismo_entre_rios', a.perfil_turismo_entre_rios,
-	      'assigned_user_email', a.assigned_user_email,
-	      'created_at', a.created_at, 'updated_at', a.updated_at,
-	      'fecha_creacion', coalesce(l.fecha_creacion, a.created_at),
-	      'contact_name', coalesce((select c.name from crm_contacts c where c.account_id=a.id and c.deleted_at is null order by c.is_primary desc,c.id limit 1),l.contact_name),
-	      'fecha_proxima_accion', (select min(t.due_date) from crm_tasks t left join leads tl on tl.id=t.lead_id where t.account_id=a.id and t.status='pending' and t.deleted_at is null and (t.lead_id is null or tl.deleted_at is null)),
-	      'fecha_ultimo_contacto', coalesce((select max(ac.occurred_at) from crm_activities ac left join leads al on al.id=ac.lead_id where ac.account_id=a.id and ac.deleted_at is null and (ac.lead_id is null or al.deleted_at is null)),l.fecha_ultimo_contacto)
-	
-	    )
-	  )).*, a.status AS business_status
+	  select coalesce(l.id, -a.id) as id, a.nombre as nombre, a.tipo as tipo, a.subtipo as subtipo, a.ciudad as ciudad, l.estado as estado, coalesce(l.suscripcion,a.subscription_label) as suscripcion, a.email as email, a.telefono as telefono, a.sitio_web as sitio_web, a.url_gmap as url_gmap, a.perfil_instagram as perfil_instagram, a.perfil_facebook as perfil_facebook, a.perfil_airbnb as perfil_airbnb, a.perfil_booking as perfil_booking, a.perfil_turismo_entre_rios as perfil_turismo_entre_rios, coalesce(a.origin,l.origen) as origen, l.quien_cargo as quien_cargo, l.asignado_a as asignado_a, coalesce(l.fecha_creacion, a.created_at)::date as fecha_creacion, coalesce(la.occurred_at,l.fecha_ultimo_contacto)::date as fecha_ultimo_contacto, l.medio_contacto_preferido as medio_contacto_preferido, l.resultado_ultimo_contacto as resultado_ultimo_contacto, l.prioridad as prioridad, nt.due_date as fecha_proxima_accion, coalesce(a.source_reference,l.fuente_referencia) as fuente_referencia, l.cliente_potencial_recurrente as cliente_potencial_recurrente, l.archivo_adjunto as archivo_adjunto, l.notas as notas, l.creado_por as creado_por, a.created_at as created_at, a.updated_at as updated_at, coalesce(pc.name,l.contact_name) as contact_name, a.deleted_at as deleted_at, l.deleted_by_user_id as deleted_by_user_id, l.deleted_by_email as deleted_by_email, l.deleted_by_name as deleted_by_name, a.assigned_user_email as assigned_user_email, l.commercial_profile as commercial_profile, a.id as account_id, l.opportunity_name as opportunity_name, l.primary_contact_id as primary_contact_id, l.service_interest as service_interest, l.estimated_close_date as estimated_close_date, l.assigned_at as assigned_at, l.contact_baseline_date as contact_baseline_date, l.contact_baseline_result as contact_baseline_result, l.stage_since as stage_since, l.pipeline_revision as pipeline_revision, l.reactivated_from_id as reactivated_from_id, l.creation_request_key as creation_request_key, l.creation_request_hash as creation_request_hash, l.management_type as management_type, l.referred_previous_stage as referred_previous_stage, l.referred_previous_assigned_user_email as referred_previous_assigned_user_email, a.status AS business_status
 	  from crm_accounts a
 	  left join leads l on l.account_id = a.id and l.deleted_at is null
+	  left join (select distinct on (c.account_id) c.account_id, c.name from crm_contacts c where c.deleted_at is null order by c.account_id, c.is_primary desc, c.id) pc on pc.account_id = a.id
+	  left join (select t.account_id, min(t.due_date) as due_date from crm_tasks t left join leads tl on tl.id=t.lead_id where t.status='pending' and t.deleted_at is null and (t.lead_id is null or tl.deleted_at is null) group by t.account_id) nt on nt.account_id = a.id
+	  left join (select ac.account_id, max(ac.occurred_at) as occurred_at from crm_activities ac left join leads al on al.id=ac.lead_id where ac.deleted_at is null and (ac.lead_id is null or al.deleted_at is null) group by ac.account_id) la on la.account_id = a.id
 	  where a.merged_into_id is null and a.archived_at is null and (false or a.deleted_at is null)
 	) as "leads" where "deleted_at" is null;
 -- query: business projection page
 select * from (select distinct on ("account_id") * from (
-	  select (jsonb_populate_record(null::leads,
-	    coalesce(to_jsonb(l), '{}'::jsonb) || jsonb_build_object(
-	      'id', coalesce(l.id, -a.id), 'account_id', a.id, 'deleted_at', a.deleted_at,
-	      'tipo', a.tipo, 'subtipo', a.subtipo,
-	      'origen', coalesce(a.origin,l.origen), 'fuente_referencia', coalesce(a.source_reference,l.fuente_referencia),
-	      'estado', l.estado,
-	      'business_status', a.status,
-	      'suscripcion', coalesce(l.suscripcion,a.subscription_label),
-	      'nombre', a.nombre, 'ciudad', a.ciudad, 'telefono', a.telefono,
-	      'email', a.email, 'sitio_web', a.sitio_web, 'url_gmap', a.url_gmap,
-	      'perfil_instagram', a.perfil_instagram, 'perfil_facebook', a.perfil_facebook,
-	      'perfil_airbnb', a.perfil_airbnb, 'perfil_booking', a.perfil_booking,
-	      'perfil_turismo_entre_rios', a.perfil_turismo_entre_rios,
-	      'assigned_user_email', a.assigned_user_email,
-	      'created_at', a.created_at, 'updated_at', a.updated_at,
-	      'fecha_creacion', coalesce(l.fecha_creacion, a.created_at),
-	      'contact_name', coalesce((select c.name from crm_contacts c where c.account_id=a.id and c.deleted_at is null order by c.is_primary desc,c.id limit 1),l.contact_name),
-	      'fecha_proxima_accion', (select min(t.due_date) from crm_tasks t left join leads tl on tl.id=t.lead_id where t.account_id=a.id and t.status='pending' and t.deleted_at is null and (t.lead_id is null or tl.deleted_at is null)),
-	      'fecha_ultimo_contacto', coalesce((select max(ac.occurred_at) from crm_activities ac left join leads al on al.id=ac.lead_id where ac.account_id=a.id and ac.deleted_at is null and (ac.lead_id is null or al.deleted_at is null)),l.fecha_ultimo_contacto)
-	
-	    )
-	  )).*, a.status AS business_status
+	  select coalesce(l.id, -a.id) as id, a.nombre as nombre, a.tipo as tipo, a.subtipo as subtipo, a.ciudad as ciudad, l.estado as estado, coalesce(l.suscripcion,a.subscription_label) as suscripcion, a.email as email, a.telefono as telefono, a.sitio_web as sitio_web, a.url_gmap as url_gmap, a.perfil_instagram as perfil_instagram, a.perfil_facebook as perfil_facebook, a.perfil_airbnb as perfil_airbnb, a.perfil_booking as perfil_booking, a.perfil_turismo_entre_rios as perfil_turismo_entre_rios, coalesce(a.origin,l.origen) as origen, l.quien_cargo as quien_cargo, l.asignado_a as asignado_a, coalesce(l.fecha_creacion, a.created_at)::date as fecha_creacion, coalesce(la.occurred_at,l.fecha_ultimo_contacto)::date as fecha_ultimo_contacto, l.medio_contacto_preferido as medio_contacto_preferido, l.resultado_ultimo_contacto as resultado_ultimo_contacto, l.prioridad as prioridad, nt.due_date as fecha_proxima_accion, coalesce(a.source_reference,l.fuente_referencia) as fuente_referencia, l.cliente_potencial_recurrente as cliente_potencial_recurrente, l.archivo_adjunto as archivo_adjunto, l.notas as notas, l.creado_por as creado_por, a.created_at as created_at, a.updated_at as updated_at, coalesce(pc.name,l.contact_name) as contact_name, a.deleted_at as deleted_at, l.deleted_by_user_id as deleted_by_user_id, l.deleted_by_email as deleted_by_email, l.deleted_by_name as deleted_by_name, a.assigned_user_email as assigned_user_email, l.commercial_profile as commercial_profile, a.id as account_id, l.opportunity_name as opportunity_name, l.primary_contact_id as primary_contact_id, l.service_interest as service_interest, l.estimated_close_date as estimated_close_date, l.assigned_at as assigned_at, l.contact_baseline_date as contact_baseline_date, l.contact_baseline_result as contact_baseline_result, l.stage_since as stage_since, l.pipeline_revision as pipeline_revision, l.reactivated_from_id as reactivated_from_id, l.creation_request_key as creation_request_key, l.creation_request_hash as creation_request_hash, l.management_type as management_type, l.referred_previous_stage as referred_previous_stage, l.referred_previous_assigned_user_email as referred_previous_assigned_user_email, a.status AS business_status
 	  from crm_accounts a
 	  left join leads l on l.account_id = a.id and l.deleted_at is null
+	  left join (select distinct on (c.account_id) c.account_id, c.name from crm_contacts c where c.deleted_at is null order by c.account_id, c.is_primary desc, c.id) pc on pc.account_id = a.id
+	  left join (select t.account_id, min(t.due_date) as due_date from crm_tasks t left join leads tl on tl.id=t.lead_id where t.status='pending' and t.deleted_at is null and (t.lead_id is null or tl.deleted_at is null) group by t.account_id) nt on nt.account_id = a.id
+	  left join (select ac.account_id, max(ac.occurred_at) as occurred_at from crm_activities ac left join leads al on al.id=ac.lead_id where ac.deleted_at is null and (ac.lead_id is null or al.deleted_at is null) group by ac.account_id) la on la.account_id = a.id
 	  where a.merged_into_id is null and a.archived_at is null and (false or a.deleted_at is null)
-	) as "leads" where "deleted_at" is null order by "account_id", "id" asc) as "leads" order by "nombre" asc, "id" desc limit '50' offset '0';
+	) as "leads" where "deleted_at" is null order by "account_id", "id" asc) as "leads" order by "nombre" asc, "id" desc limit 50 offset 0;
 -- query: distinct cities
 SELECT DISTINCT ciudad FROM crm_accounts WHERE deleted_at IS NULL AND archived_at IS NULL AND merged_into_id IS NULL;
 -- query: work day pending (today bucket)

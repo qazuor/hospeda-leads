@@ -2,6 +2,7 @@ import {post as importLeads} from "../src/endpoints/dataQuality";
 import type {ImportReview} from "../src/endpoints/dataQuality.schema";
 import {localDay} from "../src/helpers/workDates";
 import assert from 'node:assert/strict';
+import {sql} from 'kysely';
 import superjson from 'superjson';
 import {db} from '../src/helpers/db';
 import {setServerSession} from '../src/helpers/getSetServerSession';
@@ -10,6 +11,10 @@ import {handle as quick} from '../src/endpoints/leads_quick_POST';
 import {handle as save} from '../src/endpoints/leads_save_POST';
 import {handle as contact} from '../src/endpoints/lead_contact_POST';
 import type {WorkData} from '../src/endpoints/work.schema';
+import {handle as liveVersion} from '../src/endpoints/live_version_GET';
+import {post as communicationPost} from '../src/endpoints/communication';
+import {reconcileEvents} from '../src/helpers/communicationService';
+import type {OutputType as LiveVersion} from '../src/endpoints/live_version_GET.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
 const suffix=Date.now();
 async function identity(role:'admin'|'user'){
@@ -21,8 +26,54 @@ const admin=await identity('admin'),user=await identity('user'),other=await iden
 const request=(body:unknown,cookie=user.cookie)=>new Request('http://localhost/_api/work',{method:'POST',headers:{cookie},body:superjson.stringify(body)});
 async function mutate(body:unknown,cookie=user.cookie,status=200){const r=await post(request(body,cookie));const value=superjson.parse<{id:string;error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value.id;}
 async function read(params='',cookie=user.cookie,status=200){const r=await get(new Request('http://localhost/_api/work?'+params,{headers:{cookie}}));const value=superjson.parse<WorkData&{error?:string}>(await r.text());assert.equal(r.status,status,value.error);return value;}
+const EXPECTED_LIVE_TRIGGERS=[
+  "CREATE TRIGGER authorized_emails_live_version AFTER INSERT OR DELETE OR UPDATE ON public.authorized_emails FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_accounts_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_accounts FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_activities_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_activities FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business', 'work')",
+  "CREATE TRIGGER crm_cities_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_cities FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_commercial_journal_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_commercial_journal FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('journal')",
+  "CREATE TRIGGER crm_communication_interaction_corrections_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_interaction_corrections FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_communication_journal_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_journal FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_communication_response_corrections_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_response_corrections FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_communication_responses_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_communication_responses FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_contacts_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_contacts FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_evidence_live AFTER INSERT ON public.crm_data_evidence FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_import_live AFTER INSERT OR UPDATE ON public.crm_import_batches FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_management_reasons_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_management_reasons FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_merge_live AFTER INSERT ON public.crm_account_merges FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_message_template_versions_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_message_template_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER crm_objection_types_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_objection_types FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_objections_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_objections FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_pipeline_events_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_pipeline_events FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_reasons_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_loss_reasons FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_stages_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_stages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_subtypes_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_subtypes FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_tasks_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_tasks FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business', 'work')",
+  "CREATE TRIGGER crm_verticals_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_verticals FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
+  "CREATE TRIGGER crm_work_settings_live AFTER INSERT OR UPDATE ON public.app_settings FOR EACH ROW WHEN ((new.key = 'crm_work_followup'::text)) EXECUTE FUNCTION bump_crm_live_domain('work')",
+  "CREATE TRIGGER crm_work_types_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_work_types FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('work')",
+  "CREATE TRIGGER email_outbox_live_version AFTER INSERT OR DELETE OR UPDATE ON public.email_outbox FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER lead_journal_live_version AFTER INSERT OR DELETE OR UPDATE ON public.lead_journal FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('journal')",
+  "CREATE TRIGGER lead_notes_live_version AFTER INSERT OR DELETE OR UPDATE ON public.lead_notes FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER leads_live_version AFTER INSERT OR DELETE OR UPDATE ON public.leads FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER message_templates_live_version AFTER INSERT OR DELETE OR UPDATE ON public.message_templates FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT ON public.crm_document_links FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_contact_restrictions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_document_categories FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_document_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_documents FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_messages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER users_live_version AFTER INSERT OR DELETE OR UPDATE ON public.users FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')"
+];
+async function liveVersions(){const r=await liveVersion(new Request('http://localhost/_api/live_version',{headers:{cookie:user.cookie}}));assert.equal(r.status,200);const value=superjson.parse<LiveVersion>(await r.text());assert(value.domains,'Live version must report domains');return {version:value.version,...value.domains};}
 try{
  assert.equal((await get(new Request('http://localhost/_api/work'))).status,401);
+ const legacyTriggers=await sql<{name:string}>`SELECT t.tgname AS name FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE NOT t.tgisinternal AND p.proname='bump_crm_live_version'`.execute(db);
+ assert.deepEqual(legacyTriggers.rows,[],'Every live trigger must bump a domain');
+ // Migration 026 must keep each trigger's events, level and WHEN exactly as migrations 001-022 defined them.
+ const domainTriggers=await sql<{def:string}>`SELECT pg_get_triggerdef(t.oid) AS def FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE NOT t.tgisinternal AND p.proname='bump_crm_live_domain'`.execute(db);
+ assert.deepEqual(domainTriggers.rows.map(row=>row.def).sort(),[...EXPECTED_LIVE_TRIGGERS].sort(),'Live trigger definitions drifted');
+ assert.deepEqual(Object.keys(await liveVersions()).sort(),['business','catalog','communication','journal','version','work']);
  const importName='Import without tasks '+suffix;
  const previewResponse=await importLeads(request({action:'import_preview',rows:[{nombre:importName,fechaProximaAccion:'01/10/2026'}],source:'Work test'},admin.cookie));
  assert.equal(previewResponse.status,200);
@@ -44,7 +95,20 @@ try{
  const own=await db.insertInto('crmContacts').values({accountId:a.id,name:'Ana'}).returning('id').executeTakeFirstOrThrow();
  const foreign=await db.insertInto('crmContacts').values({accountId:b.id,name:'No corresponde'}).returning('id').executeTakeFirstOrThrow();
  const base={action:'task_save',accountId:a.id,leadId:l.id,title:'Llamar',typeId:'call',dueDate:'2026-10-01',contactIds:[own.id],participants:'Propietaria'};
+ const liveBeforeTask=await liveVersions();
  const unassigned=await mutate({...base,title:'Sin responsable',leadId:null,assignedUserEmail:null},admin.cookie);
+ const liveAfterTask=await liveVersions();
+ assert.notEqual(liveAfterTask.work,liveBeforeTask.work,'Task writes bump the work domain');
+ assert.notEqual(liveAfterTask.business,liveBeforeTask.business,'Task writes bump the business domain');
+ assert.notEqual(liveAfterTask.version,liveBeforeTask.version,'Task writes keep bumping the legacy version');
+ assert.equal(liveAfterTask.communication,liveBeforeTask.communication,'Task writes do not bump communication');
+ assert.equal(liveAfterTask.catalog,liveBeforeTask.catalog,'Task writes do not bump catalog');
+ await db.updateTable('messageTemplates').set({updatedAt:new Date()}).where('id','=','0').execute();
+ const liveAfterTemplate=await liveVersions();
+ assert.notEqual(liveAfterTemplate.communication,liveAfterTask.communication,'Template writes bump communication');
+ assert.notEqual(liveAfterTemplate.version,liveAfterTask.version,'Template writes keep bumping the legacy version');
+ assert.equal(liveAfterTemplate.business,liveAfterTask.business,'Template writes do not bump business');
+ assert.equal(liveAfterTemplate.work,liveAfterTask.work,'Template writes do not bump work');
  await mutate({...base,id:unassigned,title:'Sin responsable editada',leadId:null},admin.cookie);
  assert.equal((await db.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',unassigned).executeTakeFirstOrThrow()).assignedUserEmail,null);
  await mutate({action:'task_delete',id:unassigned},admin.cookie);
@@ -60,19 +124,52 @@ try{
  assert.equal((await read('responsible=all',admin.cookie)).tasks.filter(t=>t.leadId===l.id).length,2);
  assert.equal((await read()).attention.some(x=>x.id===l.id),false);
  const completedAt='2026-09-01T13:30:00-03:00';
- await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt});
+ // Decision 2B: completing a task must say how it continues.
+ await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt},user.cookie,400);
+ await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt,continuation:'done'},user.cookie,400);
+ await mutate({action:'task_status',id:call,status:'completed',result:'Aceptó la visita',completedAt,continuation:'done',continuationReason:'Ya quedó todo resuelto'});
+ assert.equal((await db.selectFrom('crmTasks').select('continuationReason').where('id','=',call).executeTakeFirstOrThrow()).continuationReason,'Ya quedó todo resuelto');
  let lead=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();
  assert.equal(lead.fechaProximaAccion!.toISOString().slice(0,10),'2026-10-02');
  assert.equal(lead.assignedUserEmail,user.user.email);
- await mutate({action:'task_status',id:call,status:'completed',result:'Duplicado'},user.cookie,400);
- let activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',call).executeTakeFirstOrThrow();
+ await mutate({action:'task_status',id:call,status:'completed',result:'Duplicado',continuation:'done',continuationReason:'Ya quedó todo resuelto'},user.cookie,400);
+ let activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',call).executeTakeFirstOrThrow();assert.equal(activity.continuation,'done');assert.equal(activity.continuationReason,'Ya quedó todo resuelto');
  assert.equal(activity.occurredAt.toISOString(),new Date(completedAt).toISOString());assert.deepEqual(activity.contactIds,[own.id]);
  await mutate({action:'activity_save',id:activity.id,accountId:a.id,leadId:l.id,title:'Llamada real',typeId:'call',occurredAt:'2026-09-01T14:00:00-03:00',result:'Editado',contactIds:[own.id]});
- const completed=await db.selectFrom('crmTasks').selectAll().where('id','=',call).executeTakeFirstOrThrow();assert.equal(completed.result,'Editado');assert.equal(completed.completedAt!.toISOString(),'2026-09-01T17:00:00.000Z');
+ const completed=await db.selectFrom('crmTasks').selectAll().where('id','=',call).executeTakeFirstOrThrow();assert.equal(completed.result,'Editado');assert.equal(completed.continuationReason,'Ya quedó todo resuelto','An edit without a continuation keeps the linked task reason');
+ // Editing the activity of a completed task propagates the new continuation reason to that task.
+ await mutate({action:'activity_save',id:activity.id,accountId:a.id,leadId:l.id,title:'Llamada real',typeId:'call',occurredAt:'2026-09-01T14:00:00-03:00',result:'Editado',contactIds:[own.id],continuation:'done',continuationReason:'La gestión ya está cerrada'});
+ assert.equal((await db.selectFrom('crmTasks').select('continuationReason').where('id','=',call).executeTakeFirstOrThrow()).continuationReason,'La gestión ya está cerrada');
+ assert.equal((await db.selectFrom('crmActivities').select('continuationReason').where('id','=',activity.id).executeTakeFirstOrThrow()).continuationReason,'La gestión ya está cerrada');assert.equal(completed.completedAt!.toISOString(),'2026-09-01T17:00:00.000Z');
  const before=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();
- await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',result:'Conversamos'});
+ const retro=await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',result:'Conversamos'});
  await mutate({action:'activity_save',accountId:a.id,leadId:l.id,title:'Futuro',typeId:'meeting',occurredAt:'2099-01-01T09:00:00-03:00'},user.cookie,400);
  const after=await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();assert.equal(Number(after.n),Number(before.n)+1);
+ // Single outcome list (3A) and mandatory next step (2B) for new results.
+ const outcomeBase={action:'activity_save',accountId:a.id,leadId:l.id,title:'Llamada con resultado',typeId:'call',occurredAt:'2026-08-02T10:00:00-03:00',purpose:'commercial'};
+ const missing=await post(request({...outcomeBase,outcome:'no_answer'}));assert.equal(missing.status,400);assert.equal(superjson.parse<{error:string}>(await missing.text()).error,'Elegí cómo sigue: agendá una tarea o elegí «No agendar nada» y contá por qué.');
+ await mutate({...outcomeBase,outcome:'no_answer',continuation:'done',continuationReason:'  '},user.cookie,400);
+ await mutate({...outcomeBase,outcome:'replied',continuation:'done',continuationReason:'Ya quedó todo resuelto'},user.cookie,400);
+ await mutate({...outcomeBase,outcome:'delivered',continuation:'done',continuationReason:'Ya quedó todo resuelto'},user.cookie,400);
+ const later=await mutate({...outcomeBase,outcome:'later',continuation:'wait',nextTask:{title:'Retomar conversación',dueDate:'2026-11-02',typeId:'followup'}});
+ assert.equal((await db.selectFrom('crmActivities').select(['outcome','continuation']).where('id','=',later).executeTakeFirstOrThrow()).outcome,'later');
+ assert.equal((await db.selectFrom('crmTasks').select('continuation').where('leadId','=',l.id).where('title','=','Retomar conversación').where('status','=','pending').executeTakeFirstOrThrow()).continuation,'wait');
+ // `later` is canonical for every purpose, including delivery and care.
+ for(const purpose of ['delivery','care'])await mutate({...outcomeBase,purpose,outcome:'later',continuation:'wait',nextTask:{title:'Retomar '+purpose,dueDate:'2026-11-03',typeId:'followup'}});
+ // An edit that adds the first result to an activity is a new result: it must say how it continues.
+ const retroBase={action:'activity_save',id:retro,accountId:a.id,leadId:l.id,title:'Carga retrospectiva',typeId:'meeting',occurredAt:'2026-08-01T09:00:00-03:00',purpose:'commercial',outcome:'interested'};
+ await mutate(retroBase,user.cookie,400);
+ await mutate({...retroBase,continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ assert.equal((await db.selectFrom('crmActivities').select('continuationReason').where('id','=',retro).executeTakeFirstOrThrow()).continuationReason,'Ya tengo otra tarea agendada');
+ const closed=await mutate({...outcomeBase,outcome:'not_interested',continuation:'done',continuationReason:'Ya trabaja con otra empresa'});
+ // Editing an existing activity stays exempt and keeps its continuation and reason.
+ await mutate({...outcomeBase,id:closed,outcome:'not_interested',result:'Corrijo el detalle'});
+ const edited=await db.selectFrom('crmActivities').select(['continuation','continuationReason','result']).where('id','=',closed).executeTakeFirstOrThrow();
+ assert.deepEqual(edited,{continuation:'done',continuationReason:'Ya trabaja con otra empresa',result:'Corrijo el detalle'});
+ // The constraints keep every historical value and reject unknown ones and blank reasons (rolled back: no unaudited writes remain).
+ const rollback=async(statement:(t:typeof db)=>Promise<unknown>)=>assert.rejects(db.transaction().execute(async t=>{await statement(t);throw new Error('rollback');}),/rollback/);
+ await rollback(async t=>{for(const value of ['no_answer','interested','later','replied','not_interested','do_not_contact','other','delivered','needs_help','awaiting_confirmation','care_completed']){await sql`UPDATE crm_activities SET outcome=${value} WHERE id=${closed}::bigint`.execute(t);await sql`UPDATE crm_tasks SET outcome=${value} WHERE id=${call}::bigint`.execute(t);}});
+ for(const [statement,constraint] of [[sql`UPDATE crm_activities SET outcome='bogus' WHERE id=${closed}::bigint`,/crm_activities_outcome_check/],[sql`UPDATE crm_tasks SET outcome='bogus' WHERE id=${call}::bigint`,/crm_tasks_outcome_check/],[sql`UPDATE crm_activities SET continuation_reason=' a ' WHERE id=${closed}::bigint`,/crm_activities_continuation_reason_check/],[sql`UPDATE crm_tasks SET continuation_reason=' a ' WHERE id=${call}::bigint`,/crm_tasks_continuation_reason_check/]] as const)await assert.rejects(db.transaction().execute(async t=>{await statement.execute(t);}),constraint);
  lead=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();assert.equal(lead.fechaUltimoContacto!.toISOString().slice(0,10),'2026-09-01');
  const versionBefore=(await db.selectFrom('appSettings').select('value').where('key','=','crm_live_version').executeTakeFirstOrThrow()).value;
  await mutate({action:'followup_settings',stages:['Interesado'],newAssignmentDays:10},user.cookie,403);
@@ -91,7 +188,7 @@ try{
  await mutate({...base,id:visit,title:'Visit delegated',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:other.user.email},admin.cookie);
  await mutate({...base,id:visit,title:'No me apropio',typeId:'visit',dueDate:'2026-10-04',assignedUserEmail:user.user.email},user.cookie,403);
  const delegated=await read('',other.cookie);assert(delegated.tasks.some(t=>t.id===visit));assert(delegated.accounts.some(x=>x.id===a.id));
- await mutate({action:'task_status',id:visit,status:'completed',result:'Visita efectuada',completedAt:'2026-09-15T15:00:00-03:00'},other.cookie);
+ await mutate({action:'task_status',id:visit,status:'completed',result:'Visita efectuada',completedAt:'2026-09-15T15:00:00-03:00',continuation:'done',continuationReason:'Ya quedó todo resuelto'},other.cookie);
  assert.equal((await db.selectFrom('leads').select('assignedUserEmail').where('id','=',l.id).executeTakeFirstOrThrow()).assignedUserEmail,user.user.email);
  // A toast destination reads one exact task, including delegated work outside the inbox page.
  const exactTask='mode=detail&accountId='+a.id+'&taskId='+visit;
@@ -130,5 +227,130 @@ try{
  const generalParams={...duplicateParams};delete (generalParams as Partial<typeof duplicateParams>).leadId;assert.deepEqual((await findDuplicates(generalParams)).tasks.map(t=>t.id),[duplicateGeneral]);
  await mutate({action:'task_status',id:duplicate2,status:'cancelled',result:'La acción ya estaba planificada'});assert.equal((await findDuplicates(duplicateParams)).total,1);
  assert.equal((await get(new Request('http://localhost/_api/work?mode=duplicates',{headers:{cookie:user.cookie}}))).status,400);
+ // Decision 2B after a contact: the outcome links its message, resolves it once and keeps a single activity.
+ const contactMessage=async(v:{status:string;owner?:string;channel?:string;accountId?:string;leadId?:string|null;activity?:boolean;at?:Date|null})=>{const id=crypto.randomUUID();const accountId=v.accountId??a.id,leadId=v.leadId===undefined?l.id:v.leadId;const activity=v.activity?(await db.insertInto('crmActivities').values({accountId,leadId,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto · envío no confirmado',occurredAt:new Date(),notes:'Snapshot de mensaje #'+id,actorEmail:v.owner??user.user.email}).returning('id').executeTakeFirstOrThrow()).id:null;await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,owner_email,status,activity_id,last_interaction_at) VALUES(${id}::uuid,${accountId},${accountId},${leadId},${v.channel??'whatsapp'},'+5493447000000','Ana',${v.owner??user.user.email},${v.status},${activity},${v.at??null}::timestamptz)`.execute(db);return {id,activity};};
+ const messageRow=async(id:string)=>(await sql<{status:string;activityId:string|null;completedAt:Date|null;summary:string|null}>`SELECT status,activity_id,completed_at,summary FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0];
+ const activityCount=async()=>Number((await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).where('accountId','=',a.id).executeTakeFirstOrThrow()).n);
+ const contactOutcome={action:'activity_save',accountId:a.id,leadId:l.id,title:'Contacto por WhatsApp',typeId:'message',occurredAt:'2026-09-20T10:00:00-03:00',purpose:'commercial',channel:'whatsapp',contactIds:[own.id],outcome:'no_answer',result:'No respondió',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'};
+ const opened=await contactMessage({status:'whatsapp_opened',activity:true});
+ // Opening WhatsApp proves nothing: the seller must say whether it was sent, and an outcome is required.
+ const unanswered=await post(request({...contactOutcome,messageId:opened.id}));assert.equal(unanswered.status,400);assert.equal(superjson.parse<{error:string}>(await unanswered.text()).error,'Contá si el mensaje se envió.');
+ await mutate({...contactOutcome,outcome:null,messageId:opened.id,messageSent:true},user.cookie,400);
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true,continuation:undefined,continuationReason:undefined},user.cookie,400);
+ // A restriction on the channel blocks confirming the send (No contactar is respected).
+ const restriction=(await sql<{id:string}>`INSERT INTO crm_contact_restrictions(account_id,channel,reason,actor_email,source,evidence) VALUES(${a.id},'whatsapp','Pidió no recibir WhatsApp',${admin.user.email},'manual','test') RETURNING id`.execute(db)).rows[0].id;
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true},user.cookie,403);
+ assert.equal((await messageRow(opened.id)).status,'whatsapp_opened','A rejected outcome leaves the message untouched');
+ await sql`UPDATE crm_contact_restrictions SET lifted_at=now(),lifted_by=${admin.user.email},lift_reason='test' WHERE id=${restriction}`.execute(db);
+ const beforeLink=await activityCount();
+ const linkedActivity=await mutate({...contactOutcome,messageId:opened.id,messageSent:true});
+ assert.equal(linkedActivity,opened.activity,'The activity created when WhatsApp was opened records the outcome');
+ assert.equal(await activityCount(),beforeLink,'No second activity for the same contact');
+ assert.equal((await messageRow(opened.id)).status,'manual_sent');
+ const outcomeRow=await db.selectFrom('crmActivities').selectAll().where('id','=',linkedActivity).executeTakeFirstOrThrow();
+ assert.deepEqual({outcome:outcomeRow.outcome,continuation:outcomeRow.continuation,continuationReason:outcomeRow.continuationReason,result:outcomeRow.result,notes:outcomeRow.notes,actorEmail:outcomeRow.actorEmail},{outcome:'no_answer',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',result:'No respondió',notes:'Snapshot de mensaje #'+opened.id,actorEmail:user.user.email});
+ assert.equal((await sql<{n:string}>`SELECT count(*) AS n FROM crm_communication_journal WHERE entity_id=${opened.id} AND action='contact_resolved'`.execute(db)).rows[0].n,'1');
+ // The message is resolved once.
+ await mutate({...contactOutcome,messageId:opened.id,messageSent:true},user.cookie,409);
+ // Later communication results never overwrite what the seller wrote.
+ const replied=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:user.cookie},body:superjson.stringify({action:'outcome',id:opened.id,event:'replied',notes:'Respondió más tarde'})}));assert.equal(replied.status,200,await replied.text());
+ const afterReply=await db.selectFrom('crmActivities').select(['result','notes','outcome']).where('id','=',linkedActivity).executeTakeFirstOrThrow();assert.deepEqual(afterReply,{result:'No respondió',notes:'Snapshot de mensaje #'+opened.id,outcome:'no_answer'});
+ // A registered call has no activity yet: the outcome creates one and links it.
+ const callMessage=await contactMessage({status:'manual_sent',channel:'call'});
+ const callActivity=await mutate({...contactOutcome,channel:'phone',title:'Contacto por llamada',messageId:callMessage.id,outcome:'interested',continuation:'task',continuationReason:undefined,nextTask:{title:'Enviar propuesta',dueDate:'2026-10-05',typeId:'followup'}});
+ assert.equal(await activityCount(),beforeLink+1);
+ assert.equal((await messageRow(callMessage.id)).activityId,callActivity);
+ assert.equal((await messageRow(callMessage.id)).status,'manual_sent','An already resolved call keeps its status');
+ // A manual attempt that was not sent is closed as not done, without inferring a send.
+ const pendingAttempt=await contactMessage({status:'manual_pending',channel:'social'});
+ // "Not sent" is never recorded from the outcome step: the communication flow marks it.
+ const notSent=await post(request({...contactOutcome,channel:'other',messageId:pendingAttempt.id,messageSent:false,outcome:'other',result:'No lo pude mandar'}));assert.equal(notSent.status,400);assert.equal(superjson.parse<{error:string}>(await notSent.text()).error,'Si no se envió, marcalo como no enviado.');
+ assert.equal((await messageRow(pendingAttempt.id)).status,'manual_pending');
+ // A confirmed manual attempt is completed and keeps the outcome's words as its summary.
+ await mutate({...contactOutcome,channel:'other',messageId:pendingAttempt.id,messageSent:true,outcome:'interested',result:'Contestó por Instagram'});
+ const doneAttempt=await messageRow(pendingAttempt.id);assert.equal(doneAttempt.status,'manual_sent');assert(doneAttempt.completedAt);assert.equal(doneAttempt.summary,'Contestó por Instagram');
+ // Drafts and uncertain email sends are not contacts; other people's or other businesses' messages are refused.
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'draft'})).id,messageSent:true},user.cookie,409);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'unknown',channel:'email'})).id},user.cookie,409);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'whatsapp_opened',owner:admin.user.email})).id,messageSent:true},user.cookie,403);
+ await mutate({...contactOutcome,messageId:(await contactMessage({status:'manual_sent',channel:'call',accountId:b.id,leadId:null})).id},user.cookie,400);
+ await mutate({...contactOutcome,leadId:null,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
+ // Completing a task after a contact links the same way: one activity, carrying the task.
+ const callTask=await mutate({...base,title:'Llamar por la propuesta',dueDate:'2026-10-06'});
+ const taskCall=await contactMessage({status:'manual_sent',channel:'call'});
+ await mutate({action:'task_status',id:callTask,status:'cancelled',result:'Ya no hace falta',messageId:taskCall.id},user.cookie,400);
+ const beforeTask=await activityCount();
+ await mutate({action:'task_status',id:callTask,status:'completed',result:'Atendió Ana',outcome:'interested',completedAt:'2026-09-21T11:00:00-03:00',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',messageId:taskCall.id});
+ assert.equal(await activityCount(),beforeTask+1);
+ const taskActivity=await db.selectFrom('crmActivities').select(['id','taskId','outcome']).where('taskId','=',callTask).executeTakeFirstOrThrow();
+ assert.equal((await messageRow(taskCall.id)).activityId,taskActivity.id);assert.equal(taskActivity.outcome,'interested');
+ // Task completion also resolves an opened WhatsApp or a pending attempt, and the reused activity carries the task.
+ for(const [status,channel] of [['whatsapp_opened','whatsapp'],['manual_pending','social']] as const){
+  const task=await mutate({...base,title:'Seguir '+status,dueDate:'2026-10-07'});const m=await contactMessage({status,channel,activity:status==='whatsapp_opened'});
+  await mutate({action:'task_status',id:task,status:'completed',result:'Hecho',outcome:'no_answer',completedAt:'2026-09-22T11:00:00-03:00',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',messageId:m.id},user.cookie,400);
+  await mutate({action:'task_status',id:task,status:'completed',result:'Hecho',outcome:'no_answer',completedAt:'2026-09-22T11:00:00-03:00',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',messageId:m.id,messageSent:true});
+  const row=await messageRow(m.id);assert.equal(row.status,'manual_sent');const linkedTask=await db.selectFrom('crmActivities').select(['id','taskId','outcome']).where('id','=',row.activityId!).executeTakeFirstOrThrow();assert.equal(linkedTask.taskId,task);assert.equal(linkedTask.outcome,'no_answer');if(m.activity)assert.equal(linkedTask.id,m.activity);
+ }
+ // A delivery confirmed by Brevo after the outcome never overwrites what the seller wrote.
+ const emailMessage=await contactMessage({status:'accepted',channel:'email',activity:true});
+ const emailActivity=await mutate({...contactOutcome,channel:'email',title:'Contacto por email',messageId:emailMessage.id,outcome:'later',continuation:'done',result:'Pidió que le escriba en noviembre'});
+ const outbox=await db.insertInto('emailOutbox').values({recipientEmail:'brevo-'+suffix+'@example.com',senderEmail:'crm@example.com',senderName:'CRM',subject:'Hola',htmlBody:'<p>Hola</p>',textBody:'Hola',status:'accepted',messageId:'brevo-'+suffix}).returning('id').executeTakeFirstOrThrow();
+ await sql`UPDATE crm_messages SET outbox_id=${outbox.id} WHERE id=${emailMessage.id}::uuid`.execute(db);
+ await sql`INSERT INTO crm_email_events(fingerprint,message_id,recipient,event,occurred_at,payload) VALUES(${'fp-'+suffix},${'brevo-'+suffix},${'brevo-'+suffix+'@example.com'},'delivered',now(),'{}'::jsonb)`.execute(db);
+ await db.transaction().execute(t=>reconcileEvents(t,String(outbox.id)));
+ assert.equal((await messageRow(emailMessage.id)).status,'delivery_confirmed');
+ assert.equal((await db.selectFrom('crmActivities').select('result').where('id','=',emailActivity).executeTakeFirstOrThrow()).result,'Pidió que le escriba en noviembre');
+ // No contactar, archived businesses and closed managements block confirming a send.
+ const blockedAccount=async(name:string)=>{const acc=await db.insertInto('crmAccounts').values({nombre:name+' '+suffix,assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();const lead=await db.insertInto('leads').values({nombre:acc.nombre,accountId:acc.id,opportunityName:'Plan',estado:'Interesado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();return {acc,lead};};
+ const dnc=await blockedAccount('DNC');const dncMessage=await contactMessage({status:'whatsapp_opened',accountId:dnc.acc.id,leadId:dnc.lead.id});
+ await sql`UPDATE crm_accounts SET do_not_contact=true WHERE id=${dnc.acc.id}`.execute(db);
+ await mutate({...contactOutcome,accountId:dnc.acc.id,leadId:dnc.lead.id,messageId:dncMessage.id,messageSent:true},user.cookie,403);
+ const archived=await blockedAccount('Archivado');const archivedMessage=await contactMessage({status:'whatsapp_opened',owner:admin.user.email,accountId:archived.acc.id,leadId:archived.lead.id});
+ await sql`UPDATE crm_accounts SET archived_at=now(),status='archived' WHERE id=${archived.acc.id}`.execute(db);
+ await mutate({...contactOutcome,accountId:archived.acc.id,leadId:archived.lead.id,messageId:archivedMessage.id,messageSent:true},admin.cookie,403);
+ const closedStage=(await sql<{name:string}>`SELECT name FROM crm_stages WHERE classification NOT IN ('open','lost') AND active LIMIT 1`.execute(db)).rows[0].name;
+ const closedLead=await blockedAccount('Cerrada');const closedMessage=await contactMessage({status:'whatsapp_opened',accountId:closedLead.acc.id,leadId:closedLead.lead.id});
+ await db.updateTable('leads').set({estado:closedStage}).where('id','=',closedLead.lead.id).execute();
+ await mutate({...contactOutcome,accountId:closedLead.acc.id,leadId:closedLead.lead.id,messageId:closedMessage.id,messageSent:true},user.cookie,403);
+ for(const id of [dncMessage.id,archivedMessage.id,closedMessage.id])assert.equal((await messageRow(id)).status,'whatsapp_opened');
+ // Decision 14A: contacts left without an outcome stay in Hoy until resolved; only the seller's own, only since tracking started.
+ const pendingNow=await contactMessage({status:'manual_sent',channel:'call',at:new Date()});
+ const pendingOld=await contactMessage({status:'manual_sent',channel:'call',at:new Date('2020-01-01T00:00:00Z')});
+ const pendingForeign=await contactMessage({status:'manual_sent',channel:'call',owner:admin.user.email,at:new Date()});
+ const pendingDraft=await contactMessage({status:'draft',at:new Date()});
+ const pendingIds=async(cookie=user.cookie)=>(await read('',cookie)).pendingOutcomes!.map(p=>p.id);
+ const listed=await pendingIds();assert(listed.includes(pendingNow.id));for(const id of [pendingOld.id,pendingForeign.id,pendingDraft.id])assert(!listed.includes(id));
+ assert((await pendingIds(admin.cookie)).includes(pendingForeign.id));
+ await mutate({...contactOutcome,channel:'phone',messageId:pendingNow.id,occurredAt:new Date().toISOString()});
+ assert(!(await pendingIds()).includes(pendingNow.id),'A recorded outcome removes the pending item');
+ // Only items the seller can still resolve: her own business or management, still active.
+ const fresh=async(name:string,owner=user.user.email)=>db.insertInto('crmAccounts').values({nombre:name+' '+suffix,assignedUserEmail:owner}).returningAll().executeTakeFirstOrThrow();
+ const pendingCall=(accountId:string,leadId:string|null=null,status='manual_sent',channel='call')=>contactMessage({status,channel,accountId,leadId,at:new Date()});
+ const reassigned=await fresh('Reasignado');const reassignedCall=await pendingCall(reassigned.id);
+ assert((await pendingIds()).includes(reassignedCall.id));
+ await db.updateTable('crmAccounts').set({assignedUserEmail:other.user.email}).where('id','=',reassigned.id).execute();
+ assert(!(await pendingIds()).includes(reassignedCall.id),'A reassigned business leaves the list');
+ const foreignLead=await db.insertInto('leads').values({nombre:a.nombre,accountId:a.id,opportunityName:'De otra persona',estado:'Interesado',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
+ const foreignLeadCall=await pendingCall(a.id,foreignLead.id);
+ assert(!(await pendingIds()).includes(foreignLeadCall.id),'A management of another seller is not hers to resolve');
+ // No contactar and closed managements block confirming a send, so those unconfirmed sends stay out; confirmed contacts stay listed.
+ const dncOpened=await pendingCall(dnc.acc.id,dnc.lead.id,'whatsapp_opened','whatsapp'),dncCall=await pendingCall(dnc.acc.id,dnc.lead.id);
+ const closedOpened=await pendingCall(closedLead.acc.id,closedLead.lead.id,'manual_pending','social'),closedCall=await pendingCall(closedLead.acc.id,closedLead.lead.id);
+ let ids=await pendingIds();
+ for(const id of [dncOpened.id,closedOpened.id])assert(!ids.includes(id),'An unconfirmed send that cannot be confirmed is left to the communication panel');
+ for(const id of [dncCall.id,closedCall.id])assert(ids.includes(id),'A confirmed contact can still get its outcome');
+ // Archived or trashed businesses and trashed managements never appear.
+ const archivedCall=await pendingCall(archived.acc.id,archived.lead.id,'manual_sent','call');
+ const trashed=await fresh('Papelera');const trashedCall=await pendingCall(trashed.id);await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',trashed.id).execute();
+ const trashedLeadAccount=await blockedAccount('Gestión en papelera');const trashedLeadCall=await pendingCall(trashedLeadAccount.acc.id,trashedLeadAccount.lead.id);await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',trashedLeadAccount.lead.id).execute();
+ ids=await pendingIds();for(const id of [archivedCall.id,trashedCall.id,trashedLeadCall.id])assert(!ids.includes(id));
+ // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp.
+ const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await pendingCall(laterAccount.id,null,'whatsapp_opened','whatsapp');
+ assert((await pendingIds()).includes(laterCall.id));
+ await new Promise(r=>setTimeout(r,20));
+ await mutate({action:'activity_save',accountId:laterAccount.id,leadId:null,title:'Charla en la oficina',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
+ // Edits stay exempt from linking.
+ await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
 }finally{await db.destroy()}

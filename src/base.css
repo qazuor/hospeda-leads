@@ -202,7 +202,7 @@
 /* Shared readable control and focus baseline. Zoom remains controlled by the browser. */
 body{font-size:16px;line-height:1.5}
 input,select,textarea{font-family:inherit;font-size:16px;line-height:1.5}
-input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[data-disclosure-control]:focus-visible{outline:1.5px solid var(--crm-focus-color);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[data-disclosure-control]:focus-visible{outline:2px solid var(--crm-focus-color);outline-offset:2px}
 main{scroll-margin-top:100px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
@@ -211,3 +211,6 @@ main{scroll-margin-top:100px}
 @media(max-width:600px){:root{--crm-panel-padding:16px}}
 
 @media(max-width:767px){:root{--crm-control-height:44px;--crm-control-font:16px}}
+/* Placeholders must stay readable (>=4.5:1) in both themes; Mantine's default grey is ~2:1. */
+body{--input-placeholder-color:var(--muted-foreground)}
+input::placeholder,textarea::placeholder,.mantine-Input-input::placeholder{color:var(--muted-foreground);opacity:1}

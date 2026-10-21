@@ -1,9 +1,10 @@
-import {assertAccountWritable,assertLeadAccess} from './crmPermissions';
+import {assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Transaction,type Kysely} from 'kysely';
 import {z} from 'zod';
 import type {DB} from './schema';
 import {classificationErrors} from './accountClassification';
+import {findNewDncBlocker,DNC_DUPLICATE_MESSAGE} from '../endpoints/business_duplicate_check';
 import {businessImportFields,legacyBusinessFields,accountExtraFields,businessFields,importFields,normalizeField,matchAccounts,dataFieldLabels} from './dataNormalization';
 import {qualityMutation,type QualityMutation,type ReviewRow,type ImportResult} from '../endpoints/dataQuality.schema';
 import {setWorkActor} from './workAudit';
@@ -102,7 +103,8 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    if(batch.ownerEmail!==user.email&&user.role!=='admin')throw new QualityForbidden('Lote de otro usuario.');
    if(batch.status==='completed')return batch.result;
    if(batch.mode!=='business')throw new QualityConflict('Este lote histórico crearía gestiones automáticamente. Volvé a importar el archivo en modo Solo negocios.');
-   // Bounded manual imports serialize against writers to recheck duplicates and previews safely.
+   // Bounded manual imports serialize against writers to recheck duplicates and previews safely: duplicate detection must also block
+   // concurrent INSERTs into crm_accounts, which row locks cannot do, so this path keeps the table lock.
    await sql`LOCK TABLE crm_accounts, leads IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
    const values=z.array(z.record(z.string())).parse(batch.rows);const review=await reviewRows(trx,values,batch.mode);
    if(policy&&(values.length>30||values.some(r=>r.asignadoA?.trim())))throw new QualityForbidden('Solo negocios sin asignación, hasta 30 filas.');
@@ -118,6 +120,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
     const fields=Object.fromEntries(Object.entries(row.values).filter(([,v])=>v.trim()));
     if(user.role!=='admin'&&fields.asignadoA)throw new QualityForbidden('Solo admin importa responsables.');
     if(d.action==='create'&&batch.mode==='business'){
+     if(await findNewDncBlocker(trx,{after:fields}))throw new QualityConflict(`Fila ${row.index+1}: ${DNC_DUPLICATE_MESSAGE}`);
      const assigned=fields.asignadoA?await trx.selectFrom('users').select('email').where(eb=>eb.or([eb('email','=',fields.asignadoA.trim()),eb('displayName','=',fields.asignadoA.trim())])).executeTakeFirstOrThrow():null;
      const data=Object.fromEntries(Object.entries(fields).filter(([f])=>(businessFields as readonly string[]).includes(f)));
      const account=await trx.insertInto('crmAccounts').values({...data,nombre:fields.nombre,assignedUserEmail:assigned?.email??null}).returningAll().executeTakeFirstOrThrow();
@@ -131,6 +134,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',d.targetId).where('mergedIntoId','is',null).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
      if(account.updatedAt.toISOString()!==d.revision)throw new QualityConflict(`Fila ${row.index+1}: el destino cambió. Generá el preview nuevamente.`);
      if(user.role!=='admin'&&account.assignedUserEmail!==user.email)throw new QualityForbidden('Solo podés actualizar tus negocios asignados.');
+     if(await findNewDncBlocker(trx,{after:{...account,...fields},before:account,excludeId:d.targetId}))throw new QualityConflict(`Fila ${row.index+1}: ${DNC_DUPLICATE_MESSAGE}`);
      const unsupported=Object.keys(fields).filter(f=>!(businessFields as readonly string[]).includes(f));
      if(unsupported.length)throw new QualityValidation(`Fila ${row.index+1}: actualizar negocio solo acepta datos generales; quitá ${unsupported.map(f=>dataFieldLabels[f]||f).join(', ')} del mapeo o creá/omití la fila.`);
      const classification=await classificationErrors(trx,fields.tipo??account.tipo,fields.subtipo??account.subtipo,account);
@@ -147,6 +151,8 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
   if(input.action==='merge_confirm'){
    // Freeze all affected relationships, including legacy writers and JSON contact references.
    await sql`LOCK TABLE crm_accounts,leads,crm_contacts,crm_tasks,crm_activities,crm_objections,crm_pipeline_events,crm_data_evidence,crm_commercial_journal,lead_journal,crm_work_journal,lead_notes,email_outbox,crm_messages,crm_contact_restrictions,crm_communication_responses,crm_communication_response_corrections,crm_communication_interaction_corrections,crm_communication_journal,crm_documents,crm_document_links,crm_document_versions IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
+   // Merges keep the table lock (it excludes communication/resource writers, which take ROW EXCLUSIVE first) and also take both business rows, like every per-account writer.
+   await lockAccounts(trx,[input.sourceId,input.destinationId]);
    const p=await mergePreview(trx,input.sourceId,input.destinationId);
    if(p.token!==input.token)throw new QualityConflict('Cambió el negocio o sus relaciones. Revisá un nuevo preview antes de fusionar.');
    if(businessFields.some(f=>!input.selections[f]))throw new QualityValidation('Elegí el valor de cada campo.');

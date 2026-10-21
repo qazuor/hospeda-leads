@@ -14,7 +14,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   const {id}=await mutate({action:'account_save',nombre:'Preparación explícita '+viewport.width+' '+Date.now(),email:'business@example.com'});
   expect((await detail(id)).opportunities).toHaveLength(0);
   await page.goto('/accounts/'+id);
-  await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
+  await page.getByRole('tab',{name:/^Gestiones \(/}).click();
   await expect(page.getByText(/Sin gestiones iniciadas/)).toBeVisible();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'Iniciar gestión'});
@@ -39,7 +39,9 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   await page.screenshot({path:`test-results/explicit-management-${viewport.width}.png`,fullPage:true});
   if(viewport.width<768)await page.getByRole('button',{name:'Abrir menú de navegación',exact:true}).click();
-  await page.getByRole('link',{name:'Gestiones comerciales',exact:true}).click();
+  await page.getByRole('link',{name:'Gestiones',exact:true}).click();
+  // Phones start on the table; the board is one tap away.
+  if(viewport.width<768){await expect(page.locator('[aria-label="Pipeline comercial"]')).toHaveCount(0);await page.getByRole('button',{name:'Tablero comercial',exact:true}).click();}
   await expect(page.locator('[aria-label="Pipeline comercial"]')).toBeVisible();
   await expect(page.getByRole('heading',{name:'Gestiones comerciales',exact:true})).toBeVisible();
  });

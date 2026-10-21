@@ -41,9 +41,12 @@ export interface Session {
 
 const CookieName = "hospeda_leads_session";
 
+/** Spanish copy for a missing or expired session; the client keys behaviour off the 401 status, never this text. */
+export const SESSION_EXPIRED_SERVER_MESSAGE = "Tu sesión venció. Volvé a ingresar.";
+
 export class NotAuthenticatedError extends Error {
   constructor(message?: string) {
-    super(message ?? "Not authenticated");
+    super(message ?? SESSION_EXPIRED_SERVER_MESSAGE);
     this.name = "NotAuthenticatedError";
   }
 }

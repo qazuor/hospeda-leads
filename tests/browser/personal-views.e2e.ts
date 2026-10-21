@@ -5,7 +5,7 @@ for(const width of [1280,390])test(`manage personal views without changing the c
  await page.setViewportSize({width,height:844});
  const original={entity:'business',preferences:{...basePreferences(),query:'Guardada'}};
  let views=[{id:'personal-original',name:'Mi vista',config:original}],failUpdate=true;const mutations:any[]=[];let releaseUpdate!:()=>void;const slowUpdate=new Promise<void>(resolve=>{releaseUpdate=resolve;});
- await page.addInitScript(preferences=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},{...basePreferences(),query:'Actual'});
+ await page.addInitScript(preferences=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},{...basePreferences(),query:'Actual'});
  await page.route('**/_api/**',async route=>{
   const url=new URL(route.request().url());let data:unknown={},status=200;
   if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',role:'user',displayName:'Owner'}};

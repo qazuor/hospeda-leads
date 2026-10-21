@@ -1,5 +1,6 @@
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
-import {crmError} from '../helpers/crmErrors';
+import {parseBody} from '../helpers/parseBody';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -16,7 +17,7 @@ import {day} from './work.schema';
 class Forbidden extends Error {}
 class Conflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:fallbackStatus(e));
 const query=z.object({leadId:z.string().regex(/^\d+$/).optional(),ids:z.string().regex(/^\d+(,\d+)*$/).optional(),mode:z.enum(['detail','reactivation','config']).default('detail'),from:day.optional(),to:day.optional(),reasonId:z.string().regex(/^\d+$/).optional(),vertical:z.string().max(200).optional(),responsible:z.string().max(320).optional(),handled:z.enum(['yes','no','all']).default('no'),page:z.coerce.number().int().min(1).default(1)});
 export async function get(request:Request){
  try{
@@ -64,7 +65,7 @@ async function log(trx:Transaction<DB>,accountId:string,leadId:string|null,actio
 }
 export async function post(request:Request){
  try{
-  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(superjson.parse(await request.text()));
+  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(await parseBody(request));
   const id=await db.transaction().execute(async trx=>{
    await setWorkActor(trx,user);
    if(p.action==='stage_save'||p.action==='catalog_save'||p.action==='rules_save'){
@@ -103,6 +104,7 @@ export async function post(request:Request){
    const stateAccount=account as typeof account&{status:string;isClient:boolean;referredToLeandro:boolean;referredOriginalOwnerEmail:string|null};
    const referralRequested=p.action==='transition'&&!!typedLead.managementType&&p.stage===`${typedLead.managementType}:leandro`;
    await assertLeadAccess(trx,String(lead.id),user,!referralRequested);
+   if(referralRequested&&account.archivedAt&&user.role!=='admin')throw new Forbidden('Este negocio está archivado. Solo un administrador puede modificarlo.');
    if(lead.pipelineRevision!==p.revision)throw new Conflict('La gestión cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
    if(p.action==='objection_save'){
     const type=(await sql<PipelineCatalog>`SELECT * FROM crm_objection_types WHERE id=${p.typeId} FOR SHARE`.execute(trx)).rows[0];
@@ -130,7 +132,9 @@ export async function post(request:Request){
     if(!chosen)throw new Error('Elegí una etapa disponible.');
     const current=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${lead.estado}`.execute(trx)).rows[0];
     if(typed&&chosen.managementType!==typed)throw new Error('La etapa no pertenece a este tipo de gestión.');
-    if(typed&&current?.classification!=='open'&&(chosen.classification!=='open'||user.role!=='admin'))throw new Forbidden('Solo un administrador puede reabrir una gestión cerrada; elegí una etapa abierta.');
+    // A closed typed management only reopens (to an open stage) and only by an admin; each case has its own message (report item 1.10).
+    if(typed&&current?.classification!=='open'&&user.role!=='admin')throw new Forbidden('Solo un administrador puede reabrir una gestión cerrada.');
+    if(typed&&current?.classification!=='open'&&chosen.classification!=='open')throw new Error('Elegí una etapa disponible.');
     if(typed&&p.recontactDate&&chosen.classification==='open')throw new Error('La fecha de recontacto solo se registra al cerrar la gestión.');
     if(typed&&p.onboarding)throw new Error('El acompañamiento de ficha se inicia como una gestión independiente.');
     if((p.convertClient||p.onboarding||p.closing)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una gestión ganada.');

@@ -1,4 +1,5 @@
 import {setWorkActor} from "../helpers/workAudit";
+import {lockAccounts} from "../helpers/crmPermissions";
 import { createHash, randomBytes } from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -7,6 +8,8 @@ import {sql} from 'kysely';
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./settings_save_POST.schema";
 import { validateMessageVariables } from "../helpers/messageVariables";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 const INVITE_PREFIX="user_invitation:";
 const INVITE_TTL_MS=7*24*60*60*1000;
@@ -149,7 +152,7 @@ export async function handle(request:Request){
     if(user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo administradores pueden modificar Configuración."}),{status:403});
     }
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
 
     if(input.action==="addCity"){
       await db.insertInto("crmCities").values({name:input.name.trim()})
@@ -169,6 +172,11 @@ export async function handle(request:Request){
       const nextName=input.name.trim();
       await db.transaction().execute(async trx=>{
         await setWorkActor(trx,user);
+        // Lock the affected businesses first (before any write, which would also hold the live-version row), in id order: the leads active-account guard takes FOR SHARE on each business while
+        // updating its leads, so locking leads first would invert the business-then-management order used by every other writer.
+        let affected=trx.selectFrom("leads").select("accountId").distinct().where("subtipo","=",target.name);
+        if(target.typeName)affected=affected.where("tipo","=",target.typeName);
+        await lockAccounts(trx,(await affected.execute()).map(r=>r.accountId));
         await trx.updateTable("crmSubtypes").set({name:nextName,active:true}).where("id","=",target.id).execute();
         let leads=trx.updateTable("leads").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
         if(target.typeName)leads=leads.where("tipo","=",target.typeName);
@@ -343,8 +351,6 @@ export async function handle(request:Request){
 
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({
-      error:error instanceof Error?error.message:"No se pudo guardar configuración"
-    }),{status:400});
+    return errorResponse(error);
   }
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {postJson} from "../helpers/apiClient";
 
 const nullableSender=z.union([z.string().email(),z.literal(""),z.null()]).optional();
 const sex=z.enum(["masculino","femenino","otro","prefiero_no_decir"]);
@@ -48,7 +48,5 @@ export const schema=z.discriminatedUnion("action",[
 export type InputType=z.infer<typeof schema>;
 export type OutputType={ok:true};
 export const postSettingsSave=async(body:InputType):Promise<OutputType>=>{
-  const r=await fetch("/_api/settings_save",{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(schema.parse(body))});
-  if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
-  return superjson.parse<OutputType>(await r.text());
+  return postJson<OutputType>("/_api/settings_save",schema.parse(body));
 };

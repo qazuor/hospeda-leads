@@ -1,0 +1,30 @@
+[
+ {
+  "sql": "select count(*) as \"count\" from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and \"ciudad\" in ($1) and \"estado\" in ($2) and \"tipo\" in ($3) and \"subtipo\" in ($4) and \"commercial_profile\" in ($5) and \"prioridad\" in ($6) and \"asignado_a\" in ($7) and \"assigned_user_email\" in ($8)",
+  "parameters": [
+   "Paraná",
+   "Nuevo",
+   "Hotel",
+   "3",
+   "p",
+   "Alta",
+   "A",
+   "u@x.com"
+  ]
+ },
+ {
+  "sql": "select * from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and \"ciudad\" in ($1) and \"estado\" in ($2) and \"tipo\" in ($3) and \"subtipo\" in ($4) and \"commercial_profile\" in ($5) and \"prioridad\" in ($6) and \"asignado_a\" in ($7) and \"assigned_user_email\" in ($8) order by \"fecha_creacion\" desc, \"id\" desc limit $9 offset $10",
+  "parameters": [
+   "Paraná",
+   "Nuevo",
+   "Hotel",
+   "3",
+   "p",
+   "Alta",
+   "A",
+   "u@x.com",
+   50,
+   0
+  ]
+ }
+]

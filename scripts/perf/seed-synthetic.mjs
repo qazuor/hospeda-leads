@@ -167,7 +167,9 @@ try {
         RETURNING id
       `;
       for (const [batchIndex, row] of inserted.entries()) {
-        taskRecords.push({ id: row.id, leadId: batch[batchIndex].lead_id });
+        // crm_activities.task_id is unique and the app creates it when a task is completed,
+        // so only completed tasks may already own an activity.
+        if (batch[batchIndex].status === "completed") taskRecords.push({ id: row.id, leadId: batch[batchIndex].lead_id });
       }
     }
 

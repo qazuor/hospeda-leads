@@ -51,6 +51,7 @@ import {
 import { Textarea } from "../components/Textarea";
 import { UserBadgeSelect } from "../components/UserBadgeSelect";
 import { ValueBadge } from "../components/ValueBadge";
+import {initialSellerGroups,isMineFilter,sellerDefaultKey} from "../helpers/sellerDefault";
 import { getLeadDuplicates } from "../endpoints/leads_duplicates_GET.schema";
 import { advancedFilterGroup, getLeads, type AdvancedFilterGroup } from "../endpoints/leads_GET.schema";
 import { postLeadsDelete } from "../endpoints/leads_delete_POST.schema";
@@ -67,7 +68,7 @@ import { nextActionInfo, dateOnlyInput, toDateInput } from "../helpers/crmDates"
 import { useAuth } from "../helpers/useAuth";
 import styles from "./_index.module.css";
 
-import {QUERY_KEY, PRIORITY_OPTIONS, PROFILE_OPTIONS, CONTACT_OPTIONS, TEXT_FILTER_FIELDS, TextFilterField, DATE_FILTER_FIELDS, DateFilterField, TEXT_FILTER_LABELS, DATE_FILTER_LABELS, createTextFilters, createDateFilters, SortBy, TABLE_COLUMNS, DEFAULT_COLUMNS, DEFAULT_WIDTHS, TABLE_QUERY_STORAGE_KEY, TABLE_FILTERS_STORAGE_KEY, TABLE_SORT_STORAGE_KEY, readStoredQuery, readStoredFilterGroups, readStoredSort, emptyForm, str, dateInput, displayDate, isUrl} from "../helpers/leadsTableModel";
+import {QUERY_KEY, PRIORITY_OPTIONS, PROFILE_OPTIONS, CONTACT_OPTIONS, TEXT_FILTER_FIELDS, TextFilterField, DATE_FILTER_FIELDS, DateFilterField, TEXT_FILTER_LABELS, DATE_FILTER_LABELS, createTextFilters, createDateFilters, SortBy, TABLE_COLUMNS, DEFAULT_COLUMNS, DEFAULT_WIDTHS, TABLE_QUERY_STORAGE_KEY, TABLE_FILTERS_STORAGE_KEY, TABLE_SORT_STORAGE_KEY, readStoredQuery, readStoredFilterGroups, readStoredSort, emptyForm, str, dateInput, displayCalendarDate,displayDate, isUrl} from "../helpers/leadsTableModel";
 
 import {HeaderMenu} from "../components/LeadsTableHeader";
 
@@ -123,16 +124,26 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [contactLead,setContactLead]=useState<any|null>(null);
   const [pendingDelete,setPendingDelete]=useState<{id:string|number;nombre:string}|null>(null);
   const [tableFullscreen,setTableFullscreen]=useState(false);
-  const [pipelineView,setPipelineView]=useState(!businessMode);
+  // Phones start on the table: the board's columns do not fit a 390px screen.
+  const [pipelineView,setPipelineView]=useState(!businessMode&&!(typeof window!=='undefined'&&window.matchMedia('(max-width: 767px)').matches));
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
-  const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(()=>readStoredFilterGroups(entity));
+  // Decision 4A: a seller lands on "Mis gestiones" once (marker per user); afterwards the stored filters, including "Todos", are respected.
+  const sellerKey=!businessMode&&!isAdmin&&currentUser?sellerDefaultKey(currentUser.id):null;
+  const [initialGroups]=useState<AdvancedFilterGroup[]>(()=>{
+    const stored=readStoredFilterGroups(entity);
+    if(!sellerKey||!currentUser)return stored;
+    let storage:Storage|null=null;try{storage=window.localStorage}catch{/* private mode */}
+    return initialSellerGroups({stored,email:currentUser.email,userId:currentUser.id,deepLinked:!!(urlParams.get("quick")||urlParams.get("filterField")||urlParams.get("leadId")),storage});
+  });
+  useEffect(()=>{if(sellerKey)try{window.localStorage.setItem(sellerKey,"1")}catch{/* the default simply applies again next time */}},[sellerKey]);
+  const [appliedFilterGroups,setAppliedFilterGroups]=useState<AdvancedFilterGroup[]>(initialGroups);
   const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
   const [lastTouchedId,setLastTouchedId]=useState<string>("");
   const [cellState,setCellState]=useState<Record<string,"saving"|"saved">>({});
   const [bulkField,setBulkField]=useState<"estado"|"prioridad"|"assignedUserEmail"|"fechaProximaAccion"|"tipo"|"commercialProfile"|"ciudad">("estado");
   const [bulkValue,setBulkValue]=useState("");
   const [bulkDeleteOpen,setBulkDeleteOpen]=useState(false);
-  const [activeQuick,setActiveQuick]=useState("all");
+  const [activeQuick,setActiveQuick]=useState(!businessMode&&currentUser&&isMineFilter(initialGroups,currentUser.email)?"mine":"all");
   const [classification,setClassification]=useState<"open"|"won"|"lost"|undefined>();
   const [saveViewOpen,setSaveViewOpen]=useState(false);
   const [savedViewName,setSavedViewName]=useState("");
@@ -614,7 +625,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     if(key==="nombre"&&businessMode)return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.nombre}</strong><small>{l.contactCount} {l.contactCount===1?"contacto":"contactos"} · {l.opportunityCount} {l.opportunityCount===1?"gestión":"gestiones"}</small></UnstyledButton>;
     if(businessMode&&!["contactName","fechaProximaAccion","fechaUltimoContacto","id","nombre","ciudad","assignedUserEmail","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","createdAt","updatedAt"].includes(key)&&l.opportunityCount!==1){
       const values=l.opportunityValues?.[key]??[];
-      const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayDate(v):v).join(" · ");
+      const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayCalendarDate(v):v).join(" · ");
       return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la gestión"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver gestiones":"Agregar gestión"}</small></UnstyledButton>;
     }
     if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></UnstyledButton>;
@@ -733,7 +744,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
       {bulkReview&&<BulkChangeReview input={bulkReview} onClose={()=>setBulkReview(null)} onConfirm={applyBulk} pending={bulkM.isPending} error={bulkM.error?.message}/>}
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?"Tablero con todos los resultados":`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?(leadsQ.data?.truncated?"Tablero con las primeras 500":"Tablero con todos los resultados"):`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las gestiones. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         {!businessMode&&!resultsBusy&&!leadsQ.error&&!leads.length&&<section className={styles.emptyState}>
           <h2>{appliedRuleCount||stats.total?"Sin resultados por los filtros actuales":"Sin gestiones iniciadas"}</h2>
@@ -743,7 +754,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <div className={styles.resultsBody+(resultsBusy&&leadsQ.data?" "+styles.resultsUpdating:"")} aria-busy={resultsBusy}>
         {leadsQ.isFetching&&!leadsQ.data?<div className={styles.loading}>{Array.from({length:8}).map((_,i)=><Skeleton key={i} className={styles.skeleton}/>)}</div>:
         leadsQ.error?<div className={styles.error}>No pude cargar {businessMode?"los negocios":"las gestiones"}: {leadsQ.error.message}</div>:
-        pipelineView&&!businessMode&&!includesDeletedFilter?(leads.length?<PipelineBoard leads={leads} onOpen={openView}/>:null):<div className={styles.scroller}><Table style={{width:"100%",minWidth:tableWidth}}><colgroup>
+        pipelineView&&!businessMode&&!includesDeletedFilter?(leads.length?<PipelineBoard leads={leads} onOpen={openView} boardTotals={leadsQ.data?.boardTotals} truncated={leadsQ.data?.truncated}/>:null):<div className={styles.scroller}><Table style={{width:"100%",minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
           <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)} checked={leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)&&leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
