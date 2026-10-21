@@ -115,3 +115,16 @@ export async function reassignRecontactTask(trx:Db,{accountId,fromEmail,toEmail}
  await trx.updateTable('crmTasks').set({assignedUserEmail:toEmail,updatedAt:new Date()}).where('id','=',task.id).execute();
  return String(task.id);
 }
+
+/**
+ * Cancels the business's untouched "Volver a contactar" task of `previousDay` (if any) with the given reason. Never creates or moves a task.
+ * Used when a management close sets its own recontact date: the management task «Recontactar según lo acordado» is the only reminder (owner decision on #196).
+ * Runs in the caller's transaction, after its permission checks. Returns the cancelled task id, or null.
+ */
+export async function cancelUntouchedRecontactTask(trx:Db,{accountId,responsible,previousDay,cause}:{accountId:string|number;responsible:string|null;previousDay:string|null;cause:RecontactCancelCause}):Promise<string|null> {
+ if(!previousDay)return null;
+ const task=await untouchedTask(trx,String(accountId),responsible,previousDay);
+ if(!task)return null;
+ await cancel(trx,task.id,cause);
+ return String(task.id);
+}

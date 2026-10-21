@@ -278,7 +278,7 @@ try{
  await call(commercialPost,'commercial',{action:'account_archive',accountId:keep,archived:true,reason:'Prueba de archivo'},admin);
  assert.equal((await recontactTasks(keep)).length,1,'a rescheduled task survives the archive cleanup');
 
- // F1: closing a management writes the business recontact date through the same task sync (decision 7A).
+ // F1: closing a management keeps the business recontact task in step (decision 7A; owner: with a date only the management task remains).
  const recontactWithManagement=async(label:string,day:string)=>{
   const biz=await business(`Recontacto cierre ${label} ${stamp}`,sellerEmail);
   await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
@@ -289,14 +289,17 @@ try{
   assert.equal(state.status,'in_management');assert.equal(dayOf(state.recontactAt),day,'opening a management keeps the stored recontact date');
   return {biz,task,lead:lead.id as string};
  };
+ const pendingOn=(accountId:string,day:string)=>db.selectFrom('crmTasks').select(['id','title','assignedUserEmail']).where('accountId','=',accountId).where('status','=','pending').where('deletedAt','is',null).where('dueDate','=',day as never).orderBy('id').execute();
  const lostNoResponse=(await readPipeline(first.id)).managementReasons.find(r=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey==='no_response')!;
  {
   const {biz,task,lead}=await recontactWithManagement('mueve','2027-06-01');
   await transition(lead,'main:lost',{reasonId:lostNoResponse.id,recontactDate:'2027-06-10'},seller);
-  const pending=await recontactTasks(biz);
-  assert.deepEqual(pending.map(t=>String(t.id)),[String(task.id)],'closing with a new date moves the same task, no duplicate');
-  assert.equal(dayOf(pending[0].dueDate),'2027-06-10');assert.equal(pending[0].assignedUserEmail,sellerEmail);
-  assert.equal((await recontactTasks(biz,'cancelled')).length,0);
+  const onDay=await pendingOn(biz,'2027-06-10');
+  assert.deepEqual(onDay.map(t=>t.title),['Recontactar según lo acordado'],'closing with a date leaves exactly one pending task that day: the management one');
+  assert.equal((await recontactTasks(biz)).length,0,'no business task is created or moved');
+  const replaced=await db.selectFrom('crmTasks').select(['status','result']).where('id','=',task.id).executeTakeFirstOrThrow();
+  assert.equal(replaced.status,'cancelled');assert.match(String(replaced.result),/cambió a otro día/,'the earlier untouched business task is cancelled as a date change');
+  assert.equal(dayOf((await db.selectFrom('crmAccounts').select('recontactAt').where('id','=',biz).executeTakeFirstOrThrow()).recontactAt),'2027-06-10');
  }
  {
   const {biz,task,lead}=await recontactWithManagement('limpia','2027-06-01');
@@ -318,9 +321,19 @@ try{
   await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
   const lead=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:biz,managementType:'main',opportunityName:'Sin fecha previa'},admin);
   await transition(lead.id,'main:lost',{reasonId:lostNoResponse.id,recontactDate:'2027-06-15'},seller);
-  const created=await recontactTasks(biz);
-  assert.equal(created.length,1,'closing with a date schedules the business task like a status save');
-  assert.equal(dayOf(created[0].dueDate),'2027-06-15');assert.equal(created[0].assignedUserEmail,sellerEmail);assert.equal(created[0].leadId,null);
+  const onDay=await pendingOn(biz,'2027-06-15');
+  assert.deepEqual(onDay.map(t=>t.title),['Recontactar según lo acordado'],'closing with a date on a business without a task creates only the management task');
+  assert.equal(onDay[0].assignedUserEmail,sellerEmail);
+ }
+ {// An archived (not No contactar) business keeps its state: the stage guard refuses the close, so no date or task is written (the pipeline.ts archived guard is defense in depth).
+  const biz=await business('Recontacto cierre archivado '+stamp,sellerEmail);
+  await call(commercialPost,'commercial',{action:'business_status',accountId:biz,status:'reviewed'},admin);
+  const lead=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:biz,managementType:'main',opportunityName:'Archivado con fecha'},admin);
+  await call(commercialPost,'commercial',{action:'account_archive',accountId:biz,archived:true,reason:'Prueba de archivo'},admin);
+  await transition(lead.id,'main:lost',{reasonId:lostNoResponse.id,recontactDate:'2027-06-18'},admin,400);
+  const state=await db.selectFrom('crmAccounts').select(['status','recontactAt']).where('id','=',biz).executeTakeFirstOrThrow();
+  assert.equal(state.status,'archived','closing never turns an archived business into Recontactar');assert.equal(state.recontactAt,null);
+  assert.equal((await recontactTasks(biz)).length,0,'archived: no business task');
  }
 
  // F1: the untouched task follows the business responsible on every reassignment path; other tasks stay.

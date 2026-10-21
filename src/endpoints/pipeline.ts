@@ -1,4 +1,4 @@
-import {cancelRecontactTaskFor,reassignRecontactTask,syncRecontactTask} from '../helpers/recontactTask';
+import {cancelRecontactTaskFor,cancelUntouchedRecontactTask,reassignRecontactTask,syncRecontactTask} from '../helpers/recontactTask';
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
 import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {parseBody} from '../helpers/parseBody';
@@ -187,13 +187,16 @@ export async function post(request:Request){
       await sql`UPDATE crm_pipeline_events SET task_id=${task.id} WHERE id=(SELECT id FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='stage' ORDER BY id DESC LIMIT 1)`.execute(trx);
      }
      if(Number(remaining?.n)===0){
-      // Decision 7A: the business recontact date written here goes through the same task sync as a business status save.
+      // Decision 7A: the business recontact date written here keeps the business "Volver a contactar" task in step.
       // Opening a management moves the status to En gestión but keeps recontact_at, so a stored date still names the day of the pending task.
       const before=await trx.selectFrom('crmAccounts').select(['status','recontactAt','assignedUserEmail']).where('id','=',account.id).executeTakeFirstOrThrow();
       const previous={status:before.recontactAt?'recontact':before.status,recontactAt:before.recontactAt};
-      if(p.recontactDate&&!typedDnc){
+      // An archived business keeps its state: no recontact date and no task (No contactar closes land here too, already cleaned up).
+      if(before.status!=='archived'&&p.recontactDate&&!typedDnc){
        await sql`UPDATE crm_accounts SET status='recontact',recontact_at=${p.recontactDate},updated_at=now() WHERE id=${account.id}`.execute(trx);
-       await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:before.assignedUserEmail},previous,status:'recontact',recontactDay:p.recontactDate,actorEmail:user.email});
+       // Owner decision (#196): the management task above is the only reminder; an untouched business task of an earlier day is cancelled, none is created.
+       const previousDay=before.recontactAt?calendarDay(before.recontactAt):null;
+       if(previousDay!==p.recontactDate)await cancelUntouchedRecontactTask(trx,{accountId:account.id,responsible:before.assignedUserEmail,previousDay,cause:'changed'});
       }else if(before.status!=='archived'){
        await sql`UPDATE crm_accounts SET recontact_at=NULL WHERE id=${account.id} AND status<>'archived'`.execute(trx);
        await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:before.assignedUserEmail},previous,status:before.status,recontactDay:null,actorEmail:user.email});
