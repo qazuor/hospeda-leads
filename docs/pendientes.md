@@ -9,7 +9,10 @@ La revisión de UX y su tanda de seguimientos (#195–#201) están mergeadas en 
 - Si la fusión no deja el negocio en No contactar, la tarea «Volver a contactar» del negocio absorbido pasa al destino y queda pendiente; con No contactar se cancelan todas las pendientes (D3). Verificado leyendo el código, sin prueba.
 - ~~Si el responsable de la gestión no es el del negocio, cerrar con fecha deja la tarea «Recontactar según lo acordado» al responsable de la gestión.~~ Resuelto en #203 (decisión del 21/10): queda a cargo del responsable del negocio y lo sigue al reasignarlo. Sin mergear.
 - ~~Volver a guardar Recontactar después de un cierre con fecha recrea «Volver a contactar».~~ Resuelto en #203 (decisión del 21/10): se mueve la tarea de la gestión sin tocar. Sin mergear.
-- Decisión pendiente del propietario: al sacar el negocio de Recontactar (otro estado o sin fecha), la tarea «Recontactar según lo acordado» sin tocar sigue pendiente en su día; solo se cancela la «Volver a contactar». Además deja de seguir al responsable en reasignaciones posteriores, porque ya no coincide con la fecha guardada.
+- El recordatorio de gestión «Recontactar según lo acordado» se identifica por título, propósito y fecha (heurística); podría identificarse por `crm_pipeline_events.task_id` del cierre.
+- Al volver a guardar Recontactar, mover el recordatorio de gestión no revisa si ya existe una «Volver a contactar» pendiente en el nuevo día.
+- Si dos recordatorios de gestión sin tocar caen en el mismo día guardado, solo se mueve, reasigna o cancela uno (el más reciente).
+- «Para retomar» filtra a los vendedores por el responsable de la gestión, no por quien tiene la tarea: el responsable de la gestión ve la fila aunque la tarea sea del responsable del negocio.
 - Con varias gestiones, el negocio puede mostrar «Sin tarea agendada» mientras una tarea de recontacto de una gestión sigue pendiente.
 - La definición de tarea «sin tocar» ignora ediciones de descripción y prioridad: una tarea con esos cambios se sigue cancelando o moviendo.
 - `reassignRecontactTask` con responsable anterior nulo puede tomar una tarea asignada a cualquiera.
