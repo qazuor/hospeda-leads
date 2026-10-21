@@ -80,7 +80,7 @@ app.post("/_api/work",c=>workPOST(c.req.raw));
 app.get("/_api/commercial", c=>commercialGET(c.req.raw));
 app.post("/_api/commercial", c=>commercialPOST(c.req.raw));
 
-// /health and /health/live: process liveness only (used by CI, docker-compose and Coolify). /health/ready adds a DB round trip (select 1, 2 s timeout).
+// /health and /health/live: process liveness only (used by CI and docker-compose; the owner reported on 2026-10-21 that Coolify now uses /_api/health/ready, not verified from the repo). /health/ready adds a DB round trip (select 1, 2 s timeout).
 app.get("/_api/health",createHealthHandler({}));
 app.get("/_api/health/live",createHealthHandler({}));
 app.get("/_api/health/ready",createHealthHandler({ping:()=>sql`select 1`.execute(db),cacheMs:2000}));

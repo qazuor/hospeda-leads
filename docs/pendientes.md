@@ -2,57 +2,65 @@
 
 ## Tras la revisión de UX (21/10/2026)
 
-La revisión de UX está mergeada en `staging` y **no** desplegada ni promovida a `main` (ver [estado](estado-desarrollo.md)). Seguimientos abiertos, verificados contra el código de `staging` al cierre salvo indicación:
+La revisión de UX y su tanda de seguimientos (#195–#201) están mergeadas en `staging` y **no** desplegadas ni promovidas a `main` (ver [estado](estado-desarrollo.md)). Seguimientos abiertos, verificados contra el código de `staging` al cierre salvo indicación. Lo que cerró la tanda de seguimientos está en [estado](estado-desarrollo.md) y en el [historial](historial-desarrollo.md): contacto de acompañamiento en No contactar (D4, #195), recontacto al cerrar y al reasignar (#196), marcadores JWT, estabilización de e2e, `line-clamp` y chip de lunes (#197), diálogos móviles, teclado, `viewport-fit` y áreas táctiles de 44 px (#198), índices de búsqueda, `doneToday`, consulta de historial compartida y aviso del tope de Hoy (#199), concurrencia de `task_save` (#200) y lectura de la gestión por el responsable de un negocio archivado (#201). `createResponse` ya estaba tipado (sin `sql<any>`).
 
-**Recontacto y tareas (decisión 7A / D3)**
+**Recontacto y tareas (decisión 7A / D3 y recontacto al cerrar)**
 
 - Si la fusión no deja el negocio en No contactar, la tarea «Volver a contactar» del negocio absorbido pasa al destino y queda pendiente; con No contactar se cancelan todas las pendientes (D3). Verificado leyendo el código, sin prueba.
-- Reasignar el negocio puede dejar la tarea «Volver a contactar» sin tocar asignada al responsable anterior (`recontactTask.ts` la localiza por el responsable actual). Verificado leyendo el código, sin prueba.
-- Cerrar una gestión con fecha de recontacto reescribe (o limpia) `crm_accounts.recontact_at` en `pipeline.ts` sin pasar por `syncRecontactTask`; una tarea «Volver a contactar» previa queda sin sincronizar. Verificado en el código: no hay llamada en esas líneas.
+- Si el responsable de la gestión no es el del negocio, cerrar con fecha cancela el recordatorio del responsable del negocio y solo queda la tarea «Recontactar según lo acordado» del responsable de la gestión.
+- Volver a guardar Recontactar en el negocio después de un cierre con fecha recrea «Volver a contactar»: la idempotencia de `syncRecontactTask` ignora las tareas de gestión.
+- Con varias gestiones, el negocio puede mostrar «Sin tarea agendada» mientras una tarea de recontacto de una gestión sigue pendiente.
+- La definición de tarea «sin tocar» ignora ediciones de descripción y prioridad: una tarea con esos cambios se sigue cancelando o moviendo.
+- `reassignRecontactTask` con responsable anterior nulo puede tomar una tarea asignada a cualquiera.
+- Quitar la derivación a Leandro sin responsable restaurado deja la tarea «Volver a contactar» con Leandro.
+- Reabrir una gestión en un negocio Recontactar deja la tarea pendiente.
 
-**Móvil y accesibilidad (revisión de #179, #178)**
+**Búsqueda**
 
-- Los diálogos `.editor` se muestran a pantalla completa en móvil, incluso formularios cortos (Revisión masiva, Iniciar oportunidad, etapa y cierre de Gestiones): los botones quedan a mitad de pantalla. Valorar un pie fijo abajo o excluir los diálogos cortos. Reportado en #179.
-- El teclado en pantalla puede tapar «Guardar» (`100dvh` sin `visualViewport`; solo `AppCommandPalette` usa `visualViewport`). Verificado.
-- `index.html` no declara `viewport-fit=cover`, así que `env(safe-area-inset-*)` vale 0. Verificado.
-- Los errores de Textarea y NativeSelect no tienen `role="alert"` (preexistente). Reportado en #179.
-- `useInlineInvalid` fija el `aria-label` con el texto de la etiqueta al marcarse inválido; queda desactualizado si el texto cambia mientras el campo es inválido. Limitación conocida.
-- La ayuda de `managementTypeHints` se renderiza dentro de la etiqueta del campo y pasa al nombre accesible del combo; moverla a `aria-describedby`. Reportado en #178.
-- Controles menores de 44 px en móvil: casillas de la vista tabla, controles del tablero de Gestiones y el enlace «Revisar negocios» de Hoy. Reportado en #179.
-- Los Disclosure con formularios (Mantine Collapse con `overflow:hidden` durante ~200 ms) pueden perder un clic hecho justo al abrirlos (causa de la inestabilidad de #181). Valorar `overflow:visible` al abrir o sin animación.
+- Ctrl+K «Gestiones» y el `q=` del listado de negocios siguen calculando la expresión normalizada fila por fila (~70 ms); hace falta reescribir la consulta para que use los índices de la migración 032.
+- Las búsquedas con forma de teléfono y las de menos de 3 caracteres recorren la tabla (un índice trigram no ayuda).
+- El texto de `crm_messages` y `crm_tasks` no tiene índice de búsqueda.
+- Los índices de 032 dependen de que postgres.js use `prepare:false` (plan por sentencia con el parámetro incorporado); si se pasa a `prepare:true`, dejan de usarse. `scripts/test-search.ts` lo vigila con EXPLAIN.
 
-**Concurrencia y rendimiento**
+**Móvil y accesibilidad**
 
-- `task_save` desde el editor reemplaza todo el registro (última escritura gana, sin token de concurrencia). Reportado en #180.
-- `doneToday` (Hoy) recorre `crm_tasks`; el índice `crm_tasks_day` es solo de pendientes. Aceptable a ~50 mil filas; vigilar (`work.ts`, consulta verificada).
-- En Hoy, el recorte de urgentes (`mode=day`) conserva las 300 más antiguas vencidas y el aviso no dice cuáles se ocultan.
-- Cada carga de un negocio dispara dos consultas de historial con claves distintas (`BusinessSummary` y `BusinessHistory`). Verificado en el código.
-- La búsqueda (Ctrl+K y listados) no tiene índices `pg_trgm`/de expresión (seq scan de ~0,6–0,8 s con 50 mil filas, medido en el plan de rendimiento). Verificado: ninguna migración los crea.
+- Quedan abiertos, a decisión del propietario, los de accesibilidad: los errores de Textarea y NativeSelect no tienen `role="alert"` (reportado en #179); `useInlineInvalid` fija el `aria-label` con el texto de la etiqueta al marcarse inválido y queda desactualizado si el texto cambia mientras el campo es inválido; la ayuda de `managementTypeHints` se renderiza dentro de la etiqueta y pasa al nombre accesible del combo (moverla a `aria-describedby`, reportado en #178).
+- Los Disclosure con formularios (Mantine Collapse con `overflow:hidden` durante ~200 ms) pueden perder un clic hecho justo al abrirlos (causa de la inestabilidad de #181). #197 solo esperó las transiciones en los tests; valorar `overflow:visible` al abrir o sin animación.
+- Móvil apaisado (ajustes menores de #198): el fondo del header no se extiende hasta el borde del área segura lateral; el `Dialog` simple con ancho máximo `calc(100vw - 24px)` puede quedar bajo la muesca; comentario desactualizado en `tests/browser/transversal-ui.e2e.ts` (~línea 69); los botones de `.quickViewList` miden 34 px con ancho ≤ 620 px.
+- El teclado en pantalla se verificó con un `visualViewport` simulado, no con un teclado físico de iOS/Android; no se agregó `interactive-widget` al meta viewport. Confirmar en un teléfono real.
 
-**Permisos y vistas de solo lectura**
+**Archivados y No contactar**
 
-- `/sales/:id` sigue sin ser de solo lectura para el responsable archivado: `leads_GET.ts` (línea 66) oculta a no admins las gestiones de negocios archivados. La comunicación por `leadId` también sigue en 403 para él (`communicationService.ts` `leadFor` usa `assertAccountReadable`). Los documentos ya se pueden listar y descargar en solo lectura (#178). Ampliar con `assertAccountViewable` solo en lecturas; no aflojar `assertAccountReadable`.
+- El responsable de una gestión que no es responsable del negocio pierde el acceso cuando el negocio se archiva (coherente con 1C).
+- El banner de negocio archivado no menciona No contactar cuando se dan ambos.
+- Quedan `sql<any>` en `correctResponse` y en el levantamiento de la restricción.
 
-**Textos y código**
+**Editor de tareas**
 
-- «Mi día» ya se reemplazó por «Hoy» en los textos de la interfaz (#193, verificado: solo quedan menciones en los tests de guardia).
-- `communicationService.ts` `createResponse` usa `sql<any>` en el replay; tiparlo.
-- JWT: unificar marcadores de valores de ejemplo entre `getSetServerSession.tsx` y `scripts/local/lib.mjs`, valorar rechazar comillas/espacios alrededor y corregir el comentario de `vitest.config.ts`. No se endureció antes de integrar #131 por riesgo de rechazar el secreto productivo.
-- Pruebas: `business-view-badges.e2e.ts` es inestable en la suite completa (restauración del scroll tras recargar); `business-contact.e2e.ts` no es repetible sobre una base usada (títulos de tarea por ancho); `work.e2e.ts` tiene una aserción «Dar de baja = 0» que ya es vacua. Los Collapse de Mantine justifican el patrón de #181 para otros specs.
-- Cosmético: en lunes los atajos «Lunes» y «En 1 semana» caen el mismo día y ambos aparecen presionados; `BusinessCard .heading .name` con `-webkit-box`.
+- El mensaje 409 dice «otra persona» aunque haya sido el mismo vendedor desde otra pestaña.
+- «Cargar la versión más reciente» (`loadLatest`) no reinicia los indicadores de propósito del formulario.
+- El token de versión tiene precisión de milisegundo (lo que transporta superjson): dos escrituras en el mismo milisegundo no se distinguen.
+
+**Pruebas**
+
+- Pruebas de integración que no se pueden repetir sobre una base usada: `scripts/test-business-state.ts` (usuario Leandro), `scripts/test-permissions.ts` (teléfono No contactar fijo) y los fixtures de `scripts/test-communication.ts`. Usar una base descartable nueva en cada ejecución.
+- `business-view-badges.e2e.ts`: #197 lo reforzó (restauración del scroll, fuentes, transiciones) sin reproducir nunca el fallo; si reaparece en la suite completa, sospechar del reveal de una sola vez de `BusinessViewBadges`.
 
 **Notas de despliegue (cuando el propietario decida promover)**
 
-1. Ejecutar las migraciones 024–031 en horario de baja actividad, con respaldo (nada se aplicó en producción). Detalle verificado en el SQL; ver también las [notas de deploy del plan de rendimiento](rendimiento-y-arquitectura-2026-10.md):
+1. Ejecutar las migraciones 024–033 en horario de baja actividad, con respaldo (nada se aplicó en producción). Detalle verificado en el SQL; ver también las [notas de deploy del plan de rendimiento](rendimiento-y-arquitectura-2026-10.md):
    - 024: crea 4 índices sin `CONCURRENTLY` (bloquean escrituras de esas tablas mientras se crean), elimina `leads_nombre_idx` y ejecuta `ANALYZE`.
    - 025: `UPDATE` sobre `sessions` (extiende `expires_at`).
    - 026: reemplaza los triggers de versión en vivo (37 triggers `CREATE OR REPLACE TRIGGER` sobre las tablas del CRM).
    - 027: `DROP`/`ADD CONSTRAINT` sobre `crm_tasks` y `crm_activities` (bloqueo exclusivo breve) y `VALIDATE`, que recorre ambas tablas; agrega `continuation_reason`.
    - 028: guarda en `app_settings` el instante desde el cual se registra «Anotá cómo salió» (`crm_contact_outcome_since`): en producción es el momento de aplicarla; los contactos anteriores nunca aparecen.
    - 029, 030, 031: `CREATE INDEX` simples (sin `CONCURRENTLY`).
-2. `JWT_SECRET` válido en Coolify (32 o más caracteres, sin valor de ejemplo) antes de arrancar; sin él el servidor no inicia.
+   - 032: ejecuta `CREATE EXTENSION IF NOT EXISTS pg_trgm` y crea 4 índices GIN (`crm_accounts`, `crm_contacts`, `crm_activities`, `lead_notes`) más `ANALYZE`. **El rol de migración necesita `CREATE` sobre la base de datos** (no basta con el esquema). Si falta, 032 hace rollback y, como el contenedor corre `migrate && start`, la aplicación no arranca. Verificar antes con `SELECT has_database_privilege(current_user, current_database(), 'CREATE');` o crear la extensión de antemano con un rol administrador (`pg_trgm` es una extensión de confianza desde PostgreSQL 13). Requiere base UTF8 (ya exigido).
+   - 033: un índice parcial de `crm_tasks` para «hechas hoy».
+   - 032 y 033 usan `CREATE INDEX` simple (bloqueo `SHARE`: las escrituras de esa tabla esperan mientras se construye; segundos con el volumen de producción). `migrate.mjs` no define `lock_timeout`.
+2. `JWT_SECRET` válido en Coolify (32 o más caracteres, sin valor de ejemplo) antes de arrancar; sin él el servidor no inicia. Desde #197 un valor con espacios o comillas alrededor solo genera una advertencia en el log.
 3. `PUBLIC_APP_URL` correcta en Coolify.
-4. Healthcheck: el propietario informó el 21/10 que lo pasó a `/_api/health/ready` en Coolify; no se verificó desde el repo. El comentario de `src/server/app.ts` (línea ~83) todavía menciona `/health` como el que usa Coolify; conviene actualizarlo.
+4. Healthcheck: el propietario informó el 21/10 que lo pasó a `/_api/health/ready` en Coolify; **no se verificó desde el repo** (informado por el propietario). El comentario de `src/server/app.ts` ya lo refleja.
 5. Después del despliegue, verificar visualmente con el propietario y registrar el resultado aquí.
 
 ## Auditoría del flujo comercial — 19/10/2026
@@ -148,7 +156,7 @@ No deducir esas decisiones de etapas históricas. No agregar automatismos de pag
 
 ## Estados de negocio y gestiones
 
-La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-business-and-management-state-model.md). El código y las migraciones 018–021 se integraron al branch local de integración; (histórico) en su momento faltaban pruebas de migración en PostgreSQL descartable y la revisión del PR final; el trabajo se integró en `staging` (#99–#103) y las migraciones 018–031 corren en CI sobre PostgreSQL 17 descartable. Sigue pendiente aplicarlas en producción con el procedimiento revisado. La migración conserva `review_status='filtered'` como Revisado, mantiene Papelera separada y no reconstruye gestiones eliminadas.
+La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-business-and-management-state-model.md). El código y las migraciones 018–021 se integraron al branch local de integración; (histórico) en su momento faltaban pruebas de migración en PostgreSQL descartable y la revisión del PR final; el trabajo se integró en `staging` (#99–#103) y las migraciones 018–033 corren en CI sobre PostgreSQL 17 descartable. Sigue pendiente aplicarlas en producción con el procedimiento revisado. La migración conserva `review_status='filtered'` como Revisado, mantiene Papelera separada y no reconstruye gestiones eliminadas.
 
 ## Pospuesto por el propietario: datos y multivertical
 

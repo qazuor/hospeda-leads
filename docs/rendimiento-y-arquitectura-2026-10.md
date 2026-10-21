@@ -117,10 +117,11 @@ Mala práctica agravante: un request abandonado por el cliente seguía corriendo
 - Migración 026 (P-10): reenlaza 37 triggers en una sola transacción, con `SHARE ROW EXCLUSIVE` por tabla. Sin `lock_timeout` a propósito: el contenedor corre `migrate && start`, y una migración abortada por timeout dejaría la app caída. Desplegar en un momento de poco tráfico.
 - `JWT_SECRET` (S-04, #131, todavía abierto): al mergear, la app no arranca si el valor falta, tiene menos de 32 caracteres o contiene `change-me`, `changeme`, `not-for-production` o `example` (sin distinguir mayúsculas). Antes de mergear hay que confirmar que el de producción tiene 32 o más caracteres (solo el largo, sin pegar el valor). El valor de `.env.example` se rechaza a propósito: generar uno propio en desarrollo.
 - `PUBLIC_APP_URL=https://crm.hospeda.com.ar` debe estar como variable de runtime en Coolify. Con el chequeo de Origin (S-01), un POST desde cualquier otro dominio (sslip.io, alias, www) devuelve 403, salvo que sea el mismo origen. Los 403 quedan en el log como `warn`.
-- Salud: `/_api/health` quedó sin cambios (es el que usa Coolify hoy). Se agregó `/_api/health/ready`, que verifica la base con caché de 2 s. Decidir si el healthcheck de Coolify pasa a `/ready`.
+- Salud: `/_api/health` quedó sin cambios (es el que usa Coolify hoy). Se agregó `/_api/health/ready`, que verifica la base con caché de 2 s. El propietario informó el 21/10 que ya lo pasó a `/_api/health/ready` (no verificado desde el repo).
 - Docker (C-01): el contenedor corre como `USER node`. Los scripts de operación con `docker exec` deben escribir en `/tmp`; escribir bajo `/app` falla con EACCES. Si Coolify tiene un volumen que no esté documentado en `docs/`, revisar su propietario.
 - Endpoints eliminados (M-02): `/_api/leads_import`, `/_api/leads_ingest` y `/_api/send_template_email` ahora dan 404 (antes solo devolvían 409/403/401). Si algún sistema externo los llamaba, hay que avisar. El alias `npm run db:migrate:floot` se quitó: usar `node scripts/migrate-floot-snapshot.mjs`. La fila `app_settings.ingest_token` quedó sin uso.
 - Versiones de TipTap: todas las `@tiptap/*` están fijadas en 3.31.3 con `overrides` para bubble-menu y floating-menu. Las 3.31.4 y 3.32.0 rompen el diálogo de links del editor de mensajes (el texto escrito después de insertar un link extiende el link; lo detecta `tests/browser/mantine-prompts.e2e.ts`).
+- Migraciones posteriores (027–033) y sus notas de deploy: ver [pendientes](pendientes.md).
 - Las migraciones 024 a 026 se aplicaron solo a la base sintética descartable. La réplica sigue en la 023.
 
 ## Decisiones tomadas por el coordinador
@@ -157,7 +158,7 @@ Errores:
 
 Rendimiento, cuellos de botella restantes (con evidencia de la medición final):
 
-1. Búsqueda `search?q=`: 287-290 ms p50 y 510 ms en ráfaga. 10 consultas por request con `normalize(regexp_replace(normalize(lower(col),NFD),...),NFC) LIKE '%hot%'`, no sargables, sin índice posible. No estaba en el plan.
+1. Búsqueda `search?q=`: 287-290 ms p50 y 510 ms en ráfaga. 10 consultas por request con `normalize(regexp_replace(normalize(lower(col),NFD),...),NFC) LIKE '%hot%'`, no sargables sin un índice sobre la misma expresión. No estaba en el plan. Corrección del 21/10: sí había índice posible; la migración 032 (#199) crea índices GIN `pg_trgm` sobre la expresión exacta de `normalizeSearchSql()` para `crm_accounts`, `crm_contacts`, `crm_activities` y `lead_notes`. Ctrl+K «Gestiones» y el `q=` del listado de negocios siguen calculando la expresión fila por fila; ver [pendientes](pendientes.md).
 2. La página del listado calcula agregados de todas las cuentas antes del `LIMIT`: 64 ms de DB, 37 ms en un `HashAggregate` sobre un seq scan de 50.000 actividades. Crece linealmente con las actividades; producción tendrá más que la réplica (que tiene 0). Con `q` y sin grupos el listado tarda 264-268 ms p50.
 3. Peso inicial del bundle: unos 808 KB de JS (245 KB gzip) más 311 KB de CSS (47 KB gzip) antes del primer render; el CSS de Mantine (281 KB) bloquea el render. Chunks diferidos grandes: analytics (401 KB) y los pdf workers (1,26 MB y 436 KB).
 4. Abanico de `work?mode=day`: 19 sentencias SQL por request; la respuesta de seller pesa 104 KB contra 27 KB de admin; el feed de actividades hace seq scan de `crm_activities` (46,5 ms).
