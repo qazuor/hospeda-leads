@@ -81,4 +81,20 @@ describe('MessageComposer unconfirmed WhatsApp (report item 1.17)',()=>{
   show(message({status:'whatsapp_opened'}),{hideWhatsAppResolution:true});
   expect(screen.queryByRole('button',{name:'Sí, se envió'})).toBeNull();
  });
+ it('keeps "Sí, se envió" off while the contact is restricted, without blocking "No se envió" or the server check',async()=>{
+  vi.mocked(postCommunication).mockResolvedValue({message:message({status:'manual_sent'})});
+  show(message({status:'whatsapp_opened'}),{sentBlockReason:'El negocio está marcado No contactar; un administrador debe levantar ese bloqueo antes de confirmar un envío.'});
+  const yes=screen.getByRole('button',{name:'Sí, se envió'});
+  expect((yes as HTMLButtonElement).disabled||yes.getAttribute('aria-disabled')==='true').toBe(true);
+  fireEvent.click(yes);
+  expect(postCommunication).not.toHaveBeenCalled();
+  expect((screen.getByRole('button',{name:'No se envió'}) as HTMLButtonElement).disabled).toBe(false);
+ });
+ it('enables "Sí, se envió" without a block reason',async()=>{
+  vi.mocked(postCommunication).mockResolvedValue({message:message({status:'manual_sent'})});
+  show(message({status:'whatsapp_opened'}));
+  fireEvent.click(screen.getByRole('button',{name:'Sí, se envió'}));
+  await waitFor(()=>expect(postCommunication).toHaveBeenCalled());
+  expect(vi.mocked(postCommunication).mock.calls[0][0]).toMatchObject({action:'outcome',event:'manual_sent'});
+ });
 });

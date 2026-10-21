@@ -212,6 +212,9 @@ async function correctResponse(e:Executor,input:Extract<CommunicationMutation,{a
 }
 async function startManual(e:Executor,input:Extract<CommunicationMutation,{action:'manual_start'}>,user:User){
  const {account,lead}=await communicationContext(e,input.accountId,input.leadId,user,true);
+ // Replay: a retry of a save whose answer was lost returns the same record. Only the same user, business, management and channel; anything else is a conflict that reveals nothing.
+ const replay=(await sql<Message>`SELECT * FROM crm_messages WHERE id=${input.id}::uuid`.execute(e)).rows[0];
+ if(replay){if(replay.ownerEmail!==user.email||String(replay.accountId)!==String(account.id)||String(replay.leadId??'')!==String(input.leadId??'')||replay.channel!==input.channel)throw new CommunicationConflict('Ese registro ya existe para otro contacto. Reintentá desde cero.');return replay;}
  if(account.archivedAt)throw new CommunicationForbidden('Desarchivá el negocio antes de iniciar un contacto.');
  if(account.doNotContact)throw new CommunicationForbidden('El negocio tiene No contactar activo.');
  const activeRestriction=await sql<{reason:string}>`SELECT reason FROM crm_contact_restrictions WHERE account_id=${account.id} AND lifted_at IS NULL AND channel IN (${input.channel},'all') AND ((contact_id=${input.contactId}::bigint AND ${input.contactId}::bigint IS NOT NULL) OR (contact_id IS NULL AND lead_id IS NULL) OR (contact_id IS NULL AND lead_id IS NOT DISTINCT FROM ${input.leadId}::bigint)) LIMIT 1`.execute(e);

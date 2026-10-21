@@ -96,6 +96,20 @@ try{
  await call({action:'interaction_correct',id:callAttempt.id,result:'manual_no_contact',summary:'La llamada no tuvo respuesta',reason:'El resultado inicial se ingresó mal'},200,user.cookie);
  assert.equal((await message(callAttempt.id)).summary,'La llamada no tuvo respuesta');
  console.log('General communication: no-management contact, DNC activation/correction, automatic journal links and manual interaction correction passed');
+ // Replay by request id: a retried save returns the same call; another user, business, management or channel is a conflict that leaks nothing.
+ {const id=randomUUID(),callBody={action:'manual_start',id,accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'call',purpose:'first_contact',otherPurpose:null,recipient:generalAccount.nombre,recipientName:generalAccount.nombre,destination:null,body:'Llamada de prueba de reintento',result:'manual_sent',templateId:null};
+  const first=await call(callBody,200,user.cookie),again=await call({...callBody,body:'Otra nota tras reintentar'},200,user.cookie);
+  assert.equal(again.id,first.id);assert.equal(again.summary,'Llamada de prueba de reintento');
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) AS n FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].n),1);
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) AS n FROM crm_communication_journal WHERE entity_id=${id}::text AND action='contact_completed'`.execute(db)).rows[0].n),1);
+  const leak=async(body:unknown,cookie:string)=>{const r=await post(request(body,cookie));const text=await r.text();assert(r.status>=400,'conflicting replay must be refused');assert(!text.includes('Llamada de prueba de reintento'),'a refused replay must not return the stored call');assert(!text.includes(String(first.recipient)+'"'),'a refused replay must not echo the stored row');return r.status};
+  const otherAccount=await db.insertInto('crmAccounts').values({nombre:'Replay other account '+stamp,email:'replay-'+stamp+'@example.com',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',otherAccount.id).execute();
+  await leak({...callBody,accountId:String(otherAccount.id)},user.cookie);
+  await leak(callBody,other.cookie);
+  assert.equal(await leak(callBody,admin.cookie),409);
+  await leak({...callBody,channel:'social',destination:'@x',result:null},user.cookie);
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) AS n FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].n),1);}
+ console.log('Manual call replay: same request id returns the same call once; other user, business or channel is refused without leaking it');
  // Report item 1.14: a reused draft is flagged (never reopened silently) and discarding it cancels it under a revision check before starting again.
  {const ra=await db.insertInto('crmAccounts').values({nombre:'Reuse drafts '+stamp,telefono:'5493442000009',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',ra.id).execute();
   const rl=await db.insertInto('leads').values({accountId:ra.id,nombre:ra.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
