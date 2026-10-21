@@ -39,18 +39,18 @@ describe('StageBadgeButton', () => {
     state.pipeline.insights = [{ id: '1', estado: 'main:contact', canModify: false }];
     renderBadge();
     expect(await screen.findByText('Por contactar')).toBeTruthy();
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('button',{name:/Etapa:/})).toBeNull();expect(screen.getByRole('button',{name:'¿Qué es esto? Etapa'})).toBeTruthy();
   });
   it('is a plain badge in read-only mode', async () => {
     renderBadge(true);
     expect(await screen.findByText('Por contactar')).toBeTruthy();
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('button',{name:/Etapa:/})).toBeNull();expect(screen.getByRole('button',{name:'¿Qué es esto? Etapa'})).toBeTruthy();
   });
   it('shows the closed-management notice as visible text to a seller', async () => {
     state.pipeline.insights = [{ id: '1', estado: 'main:lost', canModify: true }];
     renderBadge();
     expect(await screen.findByText('Cerrada. Para reabrirla pedíselo a un administrador.')).toBeTruthy();
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('button',{name:/Etapa:/})).toBeNull();expect(screen.getByRole('button',{name:'¿Qué es esto? Etapa'})).toBeTruthy();
   });
   it('lets an admin open the dialog on a closed management', async () => {
     state.role = 'admin';

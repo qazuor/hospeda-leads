@@ -19,7 +19,7 @@ import {get as communicationGet,post as communicationPost} from '../src/endpoint
 import {get as qualityGet,post as qualityPost} from '../src/endpoints/dataQuality';
 import {get as pipelineGet,post as pipelinePost} from '../src/endpoints/pipeline';
 import {doNotContactSince} from '../src/helpers/doNotContactSince';
-import {get as resourcesGet,post as resourcesPost} from '../src/endpoints/resources';
+import {download as resourcesDownload,get as resourcesGet,post as resourcesPost} from '../src/endpoints/resources';
 import {get as workGet,post as workPost} from '../src/endpoints/work';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable database with all migrations applied');
 const suffix=Date.now();let checks=0;
@@ -316,6 +316,15 @@ try{
  assert.equal(dncDetail.account.doNotContact,true);assert.equal(doNotContactSince(dncDetail.journal)?.requested,true,'the banner says the business asked only because a DNC close recorded it');
  assert((await call(owner,workGet,'work?mode=detail&accountId='+dncBusiness)).tasks.some((t:any)=>String(t.id)===String(dncTask)),'the owner still sees the commitments of her archived business');
  const dncDocuments=(await call(owner,resourcesGet,'resources?accountId='+dncBusiness)).documents.map((d:any)=>d.id);assert(dncDocuments.includes(dncDocument)&&dncDocuments.includes(documentId),'the owner still sees the documents of her archived business');
+ // Downloading is a READ path: the responsible seller still gets the files of her archived business, nobody else does, and every write stays closed.
+ const fileDocument=crypto.randomUUID();
+ await call(admin,resourcesPost,'resources',{action:'create',id:fileDocument,title:'Business own file',type:'propuesta',library:false,accountId:dncBusiness,leadId:null,activityId:null,categoryId:null,version:{fileName:'own.txt',mimeType:'text/plain',fileData:Buffer.from('own file').toString('base64')}});
+ const fileVersion=(await call(owner,resourcesGet,'resources?accountId='+dncBusiness)).documents.find((d:any)=>d.id===fileDocument).versions[0].id as string;
+ const downloadAs=(a:Actor|null)=>resourcesDownload(new Request('http://localhost/_api/resources/download?versionId='+fileVersion,a?{headers:{cookie:a.cookie}}:{}));
+ const ownerDownload=await downloadAs(owner);assert.equal(ownerDownload.status,200,'the owner downloads the files of her archived business');assert.equal(await ownerDownload.text(),'own file');
+ assert.equal((await downloadAs(admin)).status,200);assert.equal((await downloadAs(other)).status,403,'a colleague still cannot download from an archived business');assert.equal((await downloadAs(null)).status,401);
+ for(const body of [{action:'version',id:fileDocument,revision:1,version:{url:'https://example.com/replacement.pdf'}},{action:'delete',id:fileDocument,revision:1},{action:'status',id:fileDocument,revision:1,status:'approved'}])await call(owner,resourcesPost,'resources',body,403);
+ assert.equal((await downloadAs(owner)).status,200,'rejected writes leave the file downloadable');
  const pipelineRevisions=new Map([[dncLead,await revision(dncLead)],[openLead,await revision(openLead)]]);
  const documentLink={action:'link',id:documentId,accountId:dncBusiness,leadId:openLead,activityId:null};
  const dncWrites:[(r:Request)=>Promise<Response>,string,unknown][]=[

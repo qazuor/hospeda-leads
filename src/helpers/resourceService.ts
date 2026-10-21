@@ -4,7 +4,7 @@ import type {DB} from './schema';import type {User} from './User';import {setWor
 import {communicationConfig,CommunicationForbidden,CommunicationConflict} from './communicationService';
 import type {ResourceMutation,ResourceDocument} from '../endpoints/resources.schema';
 type E=Kysely<DB>|Transaction<DB>;
-/** `view` is only for listing a business's documents: the responsible seller still sees them on her archived business. */
+/** `view` is only for READ paths (listing and downloading a business's documents): the responsible seller still gets them on her archived business. */
 export async function documentFor(e:E,id:string,user:User,write=false,view=false){const d=(await sql<ResourceDocument>`SELECT * FROM crm_documents WHERE id=${id}::uuid AND deleted_at IS NULL`.execute(e)).rows[0];if(!d)throw new Error('Documento inexistente');
  if(write&&d.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin administra la biblioteca');
  if(d.accountId){const account=await e.selectFrom('crmAccounts').selectAll().where('id','=',d.accountId).executeTakeFirstOrThrow();if(view&&!write)assertAccountViewable(user,account);else assertAccountReadable(user,account);if(write)assertAccountWritable(user,account);}
