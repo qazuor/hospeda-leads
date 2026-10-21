@@ -11,13 +11,18 @@ import {getServerUserSession} from '../helpers/getServerUserSession';
 import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {calendarDay,localDay} from '../helpers/workDates';
 import {workMutation,workQuery,followupSettings} from './work.schema';
+import {suggestedStageForOutcome} from '../helpers/businessManagement';
+import {canModifyManagement} from '../helpers/crmPermissions';
+import {outcomeLabel} from '../helpers/crmLabels';
 /** Mi día returns every overdue and today task up to this many per bucket. */
 const URGENT_CAP=300;
 class Forbidden extends Error {}
 /** The task changed since the client read it (409). */
 class RescheduleConflict extends Error {}
+/** The management moved on since the seller saw the suggested stage (409, decision 9A). */
+class StageSuggestionConflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict?409:fallbackStatus(e));
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict||e instanceof StageSuggestionConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
 import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactOutcomes,resolveMessageForWork} from '../helpers/communicationService';
@@ -67,8 +72,8 @@ export async function get(request:Request){
    const [rows,count]=await Promise.all([matches.selectAll('t').select(['a.nombre as accountName','a.ciudad as city','l.opportunityName']).orderBy('t.dueAt').orderBy('t.id').limit(5).execute(),matches.select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()]);
    return reply({tasks:rows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),total:Number(count.n)});
   }
-  let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail']).where('mergedIntoId','is',null).where('deletedAt','is',null);
-  let opportunitiesQuery=db.selectFrom('leads').select(['id','accountId','opportunityName','tipo','estado','assignedUserEmail','createdAt','fechaUltimoContacto']).where('deletedAt','is',null);
+  let accountsQuery=db.selectFrom('crmAccounts').select(['id','nombre','ciudad','assignedUserEmail','doNotContact']).where('mergedIntoId','is',null).where('deletedAt','is',null);
+  let opportunitiesQuery=db.selectFrom('leads').select(['id','accountId','opportunityName','tipo','estado','managementType','pipelineRevision','assignedUserEmail','createdAt','fechaUltimoContacto']).where('deletedAt','is',null);
   opportunitiesQuery=opportunitiesQuery.where('accountId','in',db.selectFrom('crmAccounts').select('id').where('deletedAt','is',null));
   if(user.role!=='admin'){
    accountsQuery=accountsQuery.where('archivedAt','is',null);
@@ -163,6 +168,27 @@ export async function post(request:Request){
     const old=await trx.selectFrom('crmTasks').selectAll().where('id','=',input.id!).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
     if(user.role!=='admin'&&old.assignedUserEmail!==user.email)throw new Forbidden('La tarea corresponde a otro responsable.');
    }
+   // Decision 9A: moving the stage is only ever the seller's explicit answer to the suggestion. It runs here, in the same transaction, but is validated against the same rules as the pipeline transition before anything is written.
+   const stageChange='stageChange' in input?input.stageChange:undefined,stageOutcome='outcome' in input?input.outcome:null;
+   if(stageChange){
+    if(!lead)throw new Error('La etapa pertenece a una gestión: elegí la gestión de este registro.');
+    if(input.action==='activity_save'&&input.id)throw new Error('La etapa solo se propone al registrar un resultado nuevo.');
+    if(input.action==='task_status'&&input.status!=='completed')throw new Error('La etapa solo se propone al registrar un resultado.');
+    if(!canModifyManagement(user,lead,account)||(account.archivedAt&&user.role!=='admin'))throw new Forbidden('Solo el responsable de esta gestión o un administrador puede cambiar su etapa.');
+    if(account.doNotContact)throw new Forbidden('Este negocio está marcado como No contactar: no se cambia la etapa desde un resultado.');
+    const suggestion=lead.managementType?suggestedStageForOutcome(lead.managementType as Parameters<typeof suggestedStageForOutcome>[0],lead.estado,stageOutcome):null;
+    if(!suggestion||suggestion.key!==stageChange.stage)throw new Error('Esa etapa ya no se sugiere para este resultado. Guardá el resultado sin cambiar la etapa o revisá la gestión.');
+    if(lead.pipelineRevision!==stageChange.revision)throw new StageSuggestionConflict('La gestión cambió; revisala.');
+   }
+   const moveStage=async()=>{
+    if(!stageChange||!lead)return;
+    const chosen=(await sql<{name:string}>`SELECT name FROM crm_stages WHERE name=${stageChange.stage} AND active AND classification='open' AND management_type=${lead.managementType}`.execute(trx)).rows[0];
+    if(!chosen)throw new Error('Elegí una etapa disponible.');
+    // Same audit trail as a manual transition: the guard triggers write the event and journals; the cause says the seller accepted it from a result.
+    await sql`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','work_outcome',true),set_config('crm.management_reason_id','',true),set_config('crm.loss_reason','',true),set_config('crm.loss_comment','',true),set_config('crm.recontact','',true),set_config('crm.management_note',${'Lo elegiste al registrar «'+outcomeLabel(stageOutcome)+'».'},true)`.execute(trx);
+    await trx.updateTable('leads').set({estado:chosen.name,updatedAt:new Date()}).where('id','=',lead.id).execute();
+    await sql`SELECT set_config('crm.state_change_origin','',true),set_config('crm.state_change_cause','',true),set_config('crm.management_note','',true)`.execute(trx);
+   };
    if(input.action==='task_delete'){
     await trx.updateTable('crmTasks').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',input.id).execute();return input.id;
    }
@@ -214,6 +240,7 @@ export async function post(request:Request){
 
     }
     await createNextTask();
+    await moveStage();
     return input.id;
    }
    if(input.action==='task_reschedule'){
@@ -253,6 +280,7 @@ export async function post(request:Request){
    if(previous&&'taskId' in previous&&previous.taskId)await trx.updateTable('crmTasks').set({completedAt:occurredAt,purpose:input.purpose??previous.purpose,continuation,continuationReason,outcome:input.outcome??null,result:input.result??null,updatedAt:new Date()}).where('id','=',previous.taskId).where('status','=','completed').execute();
 
    await createNextTask();
+   await moveStage();
    return row.id;
   });
   return reply({id});

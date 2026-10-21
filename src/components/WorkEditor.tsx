@@ -15,6 +15,7 @@ import {outcomeLabel} from '../helpers/crmLabels';
 import {VOCAB,NO_FOLLOW_UP_REASONS,OTHER_REASON,managementDisplayName} from '../content/vocabulary';
 import {workGuidance,canLogNewActivity} from '../helpers/workGuidance';
 import {formatDate} from '../helpers/crmDates';
+import {suggestedStageForOutcome,managementLabel,type ManagementType} from '../helpers/businessManagement';
 import React,{useId,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
@@ -70,7 +71,7 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy}:{target:WorkT
  const guidance=workGuidance(purpose,outcome);
  // "Pidió no ser contactado" is a communication response (it blocks the whole business), so it is only offered when recording a new activity.
  const pickOutcome=(value:WorkOutcome)=>{
-  setOutcomeError('');
+  setOutcomeError('');setAcceptedStage('');
   // A "wait" suggested by "No respondió" goes away when she moves to another result, unless she already touched it.
   if(autoWait.current&&value!=='no_answer'){setContinuation('');setNext(false);setNextTitle('');autoWait.current=false}
   if(outcome==='do_not_contact'&&value!=='do_not_contact'){setContinuation('');setNext(false);setDncConfirmed(false);setCloseLeadIds([])}
@@ -100,6 +101,12 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy}:{target:WorkT
  const canLogActivity=canLogNewActivity({admin,ownerEmail:owner,userEmail:authState.type==='authenticated'?authState.user.email:null});
  const dncAllowed=target.kind==='activity'&&!item&&canLogActivity;
  const dncFlow=dncAllowed&&outcome==='do_not_contact';
+ // Decision 9A: a suggestion the seller accepts with one tick (never preticked). `acceptedStage` holds the stage she accepted, so changing the result drops it.
+ const [acceptedStage,setAcceptedStage]=useState('');
+ const stageOpportunity=leadId?opportunities.find(o=>o.id===leadId):undefined;
+ const userEmail=authState.type==='authenticated'?authState.user.email:null;
+ const suggestedStage=!dncFlow&&!(target.kind==='activity'&&item)&&['activity','complete'].includes(target.kind)&&outcome&&stageOpportunity?.managementType&&(admin||stageOpportunity.assignedUserEmail===userEmail)&&!choices.find(a=>a.id===accountId)?.doNotContact?suggestedStageForOutcome(stageOpportunity.managementType as ManagementType,stageOpportunity.estado,outcome):null;
+ const stageChange=suggestedStage&&acceptedStage===suggestedStage.key&&stageOpportunity?{stage:suggestedStage.key,revision:stageOpportunity.pipelineRevision}:undefined;
  const displayUser=(email:string|undefined|null)=>data.users.find(u=>u.email===email)?.displayName||email||'Sin asignar';
  const statusAction=['complete','cancel','delete_task','delete_activity'].includes(target.kind);
  const names={task:item?'Cambiar fecha o datos':VOCAB.scheduleTask,activity:item?'Editar actividad':VOCAB.logWhatHappened,complete:VOCAB.logWhatHappened,cancel:VOCAB.noLongerNeeded,delete_task:VOCAB.deleteMistake,delete_activity:'Dar de baja actividad'};
@@ -122,12 +129,12 @@ const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:[
    return;
   }
   if(target.kind==='task'&&!date){toast.error('Elegí para cuándo es la tarea.');return;}if(next&&!nextDate){toast.error('Elegí cuándo vas a retomar esto.');return;}if(target.kind==='task'&&needsOverdueConfirmation(date,item&&'dueDate' in item?item.dueDate:undefined)&&!dueConfirmed){toast.error('Esa fecha ya pasó. Marcá "Sí, quiero dejarla vencida" o elegí otra fecha.');return;}if(next&&needsOverdueConfirmation(nextDate,undefined)&&!nextConfirmed){toast.error('Esa fecha ya pasó. Marcá "Sí, quiero dejarla vencida" o elegí otra fecha.');return;}if(target.kind==='cancel'&&!result.trim()){toast.error('Escribí un motivo para cancelar esta tarea.');return;}let body:WorkMutation;
-  if(target.kind==='complete'||target.kind==='cancel')body={action:'task_status',id:target.item.id,status:target.kind==='complete'?'completed':'cancelled',purpose:purpose||undefined,continuation:continuation||undefined,continuationReason,result:result.trim()||(outcome?outcomeLabel(outcome):'')||'Cancelada',outcome:outcome||null,nextTask,contactIds,channel:channel||null, ...(target.kind==='complete'?{completedAt:argentinaInstant(occurred).toISOString()}:{})};
+  if(target.kind==='complete'||target.kind==='cancel')body={action:'task_status',id:target.item.id,status:target.kind==='complete'?'completed':'cancelled',purpose:purpose||undefined,continuation:continuation||undefined,continuationReason,result:result.trim()||(outcome?outcomeLabel(outcome):'')||'Cancelada',outcome:outcome||null,nextTask,contactIds,channel:channel||null,...(stageChange?{stageChange}:{}), ...(target.kind==='complete'?{completedAt:argentinaInstant(occurred).toISOString()}:{})};
   else if(target.kind==='delete_task')body={action:'task_delete',id:target.item.id};
   else if(target.kind==='delete_activity')body={action:'activity_delete',id:target.item.id};
   else{
    const common={purpose:purpose||undefined,id:item?.id,accountId,leadId:leadId||null,title,typeId,participants,contactIds};
-   body=target.kind==='task'?{action:'task_save',...common,description,dueDate:date,dueAt:time?argentinaInstant(date+'T'+time).toISOString():null,priority,...(admin?{assignedUserEmail:assigned===undefined?owner||null:assigned||null}:{})}:{action:'activity_save',...common,occurredAt:argentinaInstant(occurred).toISOString(),continuation:continuation||undefined,continuationReason,outcome:outcome||null,nextTask,channel:channel||null,result:result||(outcome?outcomeLabel(outcome):'')||(item&&'result' in item?item.result:null),notes:description,...('messageId' in target&&target.messageId?{messageId:target.messageId,messageSent:target.messageSent}:{})};
+   body=target.kind==='task'?{action:'task_save',...common,description,dueDate:date,dueAt:time?argentinaInstant(date+'T'+time).toISOString():null,priority,...(admin?{assignedUserEmail:assigned===undefined?owner||null:assigned||null}:{})}:{action:'activity_save',...common,occurredAt:argentinaInstant(occurred).toISOString(),continuation:continuation||undefined,continuationReason,outcome:outcome||null,nextTask,channel:channel||null,...(stageChange?{stageChange}:{}),result:result||(outcome?outcomeLabel(outcome):'')||(item&&'result' in item?item.result:null),notes:description,...('messageId' in target&&target.messageId?{messageId:target.messageId,messageSent:target.messageSent}:{})};
   }
   save.mutate(body);
  };
@@ -169,13 +176,14 @@ const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:[
     {dnc.error&&<p role="alert" className={styles.error}>{dnc.error.message}</p>}</section>}
    {['activity','complete','cancel'].includes(target.kind)&&<label className={styles.fullField}>{target.kind==='cancel'?'Motivo de cancelación':'Detalles del resultado'}<Textarea required={target.kind==='cancel'} value={result} onChange={e=>setResult(e.target.value)} placeholder={target.kind==='cancel'?'Por qué ya no corresponde hacer esta tarea':item?.result||'Qué ocurrió'}/></label>}
    {['activity','complete'].includes(target.kind)&&outcome!=='do_not_contact'&&<fieldset className={styles.formSection}><legend>Próximo paso <HelpHint term="nextStep" iconOnly/></legend><label>{VOCAB.whatsNext}<NativeSelect required={continuationRequired} value={continuation} onChange={e=>{autoWait.current=false;setContinuation(e.target.value as typeof continuation);setNext(['task','wait'].includes(e.target.value));if(e.target.value==='wait'&&!nextTitle)setNextTitle('Retomar conversación');}}><option value="">{continuationRequired?'Elegí cómo sigue':'Dejar como está'}</option><option value="task">Agendar una tarea</option><option value="wait">Esperar hasta una fecha y retomar</option><option value="done">No agendar nada</option></NativeSelect></label>{next?<><label>Qué hay que hacer<Input required maxLength={200} value={nextTitle} onChange={e=>{autoWait.current=false;setNextTitle(e.target.value)}} placeholder="Por ejemplo: revisar la propuesta con Ana"/></label><DueDateShortcuts className={styles.fullField} label="Cuándo" value={nextDate} onChange={v=>{autoWait.current=false;setNextDate(v)}} overdueConfirmed={nextConfirmed} onOverdueConfirmedChange={setNextConfirmed}/></>:continuation==='done'?<><label>¿Por qué no agendás nada?<NativeSelect required={continuationRequired} value={reasonChoice} onChange={e=>setReasonChoice(e.target.value)}><option value="">Elegí un motivo</option>{NO_FOLLOW_UP_REASONS.map(r=><option key={r} value={r}>{r}</option>)}</NativeSelect></label>{reasonChoice===OTHER_REASON&&<label>Contá por qué<Input required minLength={3} maxLength={500} value={reasonText} onChange={e=>setReasonText(e.target.value)} placeholder="Ej.: ya trabaja con otra empresa"/></label>}<p>No se crea otra tarea. Las demás tareas se conservan.</p></>:<p>{continuation==='task'?'Definí una acción con fecha para que quede pendiente.':continuationRequired?'Antes de guardar, elegí si agendás una tarea o no agendás nada.':'Si no elegís nada, se conserva cómo seguía.'}</p>}</fieldset>}
+   {suggestedStage&&<label className={`${styles.checkbox} ${styles.fullField}`}><Checkbox checked={!!stageChange} onChange={e=>setAcceptedStage(e.target.checked?suggestedStage.key:'')}/><span>¿Pasar la {VOCAB.management.toLowerCase()} a «{suggestedStage.label}»? <small className={styles.muted}>Ahora está en «{managementLabel(null,stageOpportunity?.estado)}». Si no lo marcás, la {VOCAB.stage.toLowerCase()} no cambia.</small></span></label>}
    {next&&<p role="status">Al guardar se registrará el resultado y quedará pendiente “{nextTitle||'el próximo paso'}” para el {formatDate(nextDate)}. Las otras tareas se conservan.</p>}
    {['activity','complete'].includes(target.kind)&&outcome&&!dncFlow&&<section className={styles.formSection} aria-label="Revisión del resultado"><h3>Revisá lo que se guardará</h3><dl>
     <dt>Resultado</dt><dd>{outcomeLabel(outcome)}{result.trim()?' · '+result.trim():''}</dd>
     <dt>Fecha real</dt><dd>{occurred?formatDate(occurred.slice(0,10))+' · '+occurred.slice(11)+' (Argentina)':'Elegí una fecha'}</dd>
     <dt>Personas</dt><dd>{contactIds.length?contactIds.map(id=>availableContacts.find(c=>c.id===id)?.name||'Contacto #'+id).join(', '):'Sin persona registrada'}</dd>
     <dt>Próximo paso</dt><dd>{outcome==='do_not_contact'?'Respetar la restricción de contacto':next?(nextTitle||'Falta definir la acción')+' · '+formatDate(nextDate):continuation==='done'?'No agendar nada'+(continuationReason?' · '+continuationReason:''):'Falta elegir cómo continuar'}</dd>
-   </dl><p>{target.kind==='complete'?'Se completará esta tarea y se registrará una actividad.':'Se guardará esta actividad.'} La etapa de la gestión se conserva<HelpHint term="stage" iconOnly/>. Las otras tareas no se completan ni cancelan.</p></section>}
+   </dl><p>{target.kind==='complete'?'Se completará esta tarea y se registrará una actividad.':'Se guardará esta actividad.'} {stageChange&&suggestedStage?<>La gestión pasará a «{suggestedStage.label}» porque lo marcaste<HelpHint term="stage" iconOnly/>.</>:<>La etapa de la gestión se conserva<HelpHint term="stage" iconOnly/>.</>} Las otras tareas no se completan ni cancelan.</p></section>}
    {target.kind==='complete'&&<p className={styles.muted}>Se registrará una actividad con la fecha real, participantes y resultado. La fecha de vencimiento original se conserva.</p>}
    {target.kind==='task'&&date&&<p role="status">{item&&'dueDate' in item?'Vencimiento original: '+formatDate(item.dueDate)+(item.dueAt?' · '+localDateTime(item.dueAt).slice(11):'')+'. ':''}Se guardará para {formatDate(date)}{time?' a las '+time:' sin hora definida'} (Argentina).</p>}
    {duplicates.isFetching&&<p role="status">Revisando posibles pendientes duplicados…</p>}

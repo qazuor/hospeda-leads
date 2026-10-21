@@ -410,5 +410,36 @@ try{
  await mutate({action:'activity_save',accountId:rookieAccount.id,leadId:null,title:'Charla',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'},rookie.cookie);
  assert.equal((await rookieFlags())!.logged,true,'Noting how it went ticks step 3');
  assert.equal((await read('mode=agenda&from=2026-01-01&to=2026-01-31',rookie.cookie)).firstSteps,undefined,'Only day mode carries the flags');
+ // Decision 9A: a suggested stage moves only when the seller explicitly sends it, and then through the same rules as a manual transition.
+ const sugAccount=await db.insertInto('crmAccounts').values({nombre:'Suggestion '+suffix,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+ const sugLead=await db.insertInto('leads').values({nombre:sugAccount.nombre,accountId:sugAccount.id,opportunityName:'Plan sugerido',estado:'main:contact',managementType:'main',assignedUserEmail:user.user.email} as never).returningAll().executeTakeFirstOrThrow();
+ const sugState=async()=>(await db.selectFrom('leads').select(['estado','pipelineRevision']).where('id','=',sugLead.id).executeTakeFirstOrThrow());
+ const sugCount=async()=>Number((await db.selectFrom('crmActivities').select(eb=>eb.fn.countAll().as('n')).where('leadId','=',sugLead.id).executeTakeFirstOrThrow()).n);
+ const sugBody=(extra:Record<string,unknown>={})=>({action:'activity_save',accountId:sugAccount.id,leadId:sugLead.id,title:'Charla sugerida',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',...extra});
+ await mutate(sugBody(),user.cookie);
+ assert.equal((await sugState()).estado,'main:contact','Saving a result without the explicit choice never moves the stage');
+ let sugBefore=await sugState(),sugActivities=await sugCount();
+ await mutate(sugBody({stageChange:{stage:'main:won',revision:sugBefore.pipelineRevision}}),user.cookie,400);
+ await mutate(sugBody({outcome:'no_answer',stageChange:{stage:'main:interested',revision:sugBefore.pipelineRevision}}),user.cookie,400);
+ await mutate(sugBody({leadId:null,stageChange:{stage:'main:interested',revision:sugBefore.pipelineRevision}}),user.cookie,400);
+ await mutate(sugBody({stageChange:{stage:'main:interested',revision:sugBefore.pipelineRevision-1}}),user.cookie,409);
+ await mutate(sugBody({stageChange:{stage:'main:interested',revision:sugBefore.pipelineRevision}}),other.cookie,403);
+ const sugDelegated=await mutate({action:'task_save',accountId:sugAccount.id,leadId:sugLead.id,title:'Delegada',typeId:'call',dueDate:localDay(),contactIds:[],participants:'',assignedUserEmail:other.user.email},admin.cookie);
+ await mutate({action:'task_status',id:sugDelegated,status:'completed',purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada',result:'Le interesa',stageChange:{stage:'main:interested',revision:(await sugState()).pipelineRevision}},other.cookie,403);
+ assert.deepEqual([(await sugState()).estado,await sugCount()],['main:contact',sugActivities],'Every rejected request leaves both the stage and the sugActivities untouched');
+ await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',sugAccount.id).execute();
+ await mutate(sugBody({stageChange:{stage:'main:interested',revision:(await sugState()).pipelineRevision}}),user.cookie,403);
+ await db.updateTable('crmAccounts').set({doNotContact:false}).where('id','=',sugAccount.id).execute();
+ sugBefore=await sugState();
+ await mutate(sugBody({stageChange:{stage:'main:interested',revision:sugBefore.pipelineRevision}}),user.cookie);
+ assert.equal((await sugState()).estado,'main:interested','An accepted suggestion moves the stage');
+ assert.equal(await sugCount(),sugActivities+1,'The result is saved together with the stage');
+ const stageEvent=(await sql<{oldStage:string;newStage:string;managementNote:string|null;actorEmail:string|null}>`SELECT old_stage,new_stage,management_note,actor_email FROM crm_pipeline_events WHERE lead_id=${sugLead.id} AND action='stage' ORDER BY id DESC LIMIT 1`.execute(db)).rows[0];
+ assert.deepEqual([stageEvent.oldStage,stageEvent.newStage,stageEvent.actorEmail],['main:contact','main:interested',user.user.email]);
+ assert.match(stageEvent.managementNote??'',/Lo elegiste al registrar/,'The pipeline event says the seller chose it from a result');
+ await mutate(sugBody({stageChange:{stage:'main:interested',revision:(await sugState()).pipelineRevision}}),user.cookie,400);
+ const sugEditable=await mutate(sugBody({title:'Editable'}),user.cookie);
+ await mutate({...sugBody({title:'Editable',id:sugEditable}),stageChange:{stage:'main:interested',revision:(await sugState()).pipelineRevision}},user.cookie,400);
+ assert.equal((await sugState()).estado,'main:interested','An edit or a repeated suggestion cannot move the stage again');
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
 }finally{await db.destroy()}
