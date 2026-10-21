@@ -38,6 +38,8 @@ describe('DueDateShortcuts',()=>{
   setup({now:monday,value:'2026-11-02'});
   expect(screen.queryByRole('button',{name:'Lunes'})).toBeNull();
   expect(screen.getByRole('button',{name:'En 1 semana'}).getAttribute('aria-pressed')).toBe('true');
+  // On a Monday exactly one day chip (and not "Elegir fecha") appears pressed.
+  expect(screen.getAllByRole('button').filter(b=>b.getAttribute('aria-pressed')==='true').map(b=>b.textContent)).toEqual(['En 1 semana']);
  });
 
  it('marks the matching chip as pressed and the custom one for other days',()=>{

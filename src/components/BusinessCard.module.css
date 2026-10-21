@@ -2,7 +2,8 @@
 
 @media(max-width:767px){.header{flex-wrap:wrap}.actions{flex-basis:100%;order:3}}
 
-.heading .name{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+/* -webkit-box clamp for current engines plus the standard line-clamp for engines that drop the prefixed form; same 3-line look. */
+.heading .name{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;line-clamp:3;overflow:hidden;line-height:1.4}
 
 .wide:not(.next) .readValue{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
 
