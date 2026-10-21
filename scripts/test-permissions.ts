@@ -379,5 +379,115 @@ try{
  await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId,blocked:false,reason:'Lift manual mark'});
  await call(admin,commercialGet,'commercial?accountId='+accountId);
  await call(admin,commercialPost,'commercial',{action:'account_archive',accountId,archived:false,reason:'Restore test business'});
+ // Decisions D1 (who may record «Pidió no ser contactado») and 1C (a No contactar business is read-only for non-admins; the admin lifts it).
+ {
+  const mgr=await actor('user','mgr'),reader=await actor('user','reader'),deletedMgr=await actor('user','deletedmgr');
+  const mkBiz=async(label:string,assignTo:Actor=mgr)=>{
+   const b=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:`Zz D1 ${label} ${suffix}`})).id;
+   const c=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId:b,name:'Person '+label,isPrimary:true,email:`d1-${label}-${suffix}@example.com`})).id;
+   const l=(await call(admin,commercialPost,'commercial',{action:'opportunity_save',accountId:b,confirmReviewed:true,managementType:'main',opportunityName:'Mgmt '+label,assignedUserEmail:assignTo.user.email})).id;
+   return {b:b as string,c:c as string,l:l as string};
+  };
+  const resp=(b:string,category:string,extra:Record<string,unknown>={})=>({action:'response_create',id:crypto.randomUUID(),accountId:b,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category,summary:'D1 '+category,exactText:null,otherDetail:null,...(category==='do_not_contact'?{confirmDoNotContact:true}:{}),...extra});
+  const dncOf=async(b:string)=>(await db.selectFrom('crmAccounts').select('doNotContact').where('id','=',b).executeTakeFirstOrThrow()).doNotContact;
+  const dncResponses=async(b:string)=>Number((await db.selectFrom('crmCommunicationResponses').select(({fn})=>fn.countAll<string>().as('n')).where('accountId','=',b).where('category','=','do_not_contact').executeTakeFirstOrThrow()).n);
+  const roles:[string,Actor,boolean][]=[['owner',owner,true],['management responsible',mgr,true],['unrelated seller',other,false],['colleague reader',reader,false],['admin',admin,true]];
+  // D1, response_create: the business responsible, the responsible of one of its managements and admin may record it; everybody else reads only.
+  for(const [who,a,ok] of roles){
+   const f=await mkBiz('create'+who.replace(/\W/g,''));
+   await call(a,communicationPost,'communication',resp(f.b,'interested'));
+   const denied=await call(a,communicationPost,'communication',resp(f.b,'do_not_contact'),ok?200:403);
+   if(!ok)assert.match(denied.error,/responsable del negocio/,who+': the refusal names who may record it');
+   assert.equal(await dncOf(f.b),ok,who+': response_create do_not_contact');assert.equal(await dncResponses(f.b),ok?1:0,who+': stored responses');
+  }
+  // The responsible of a management that was deleted no longer counts.
+  const gone=await mkBiz('deletedmgr',deletedMgr);
+  await sql`UPDATE leads SET deleted_at=now() WHERE id=${gone.l}`.execute(db);
+  await call(deletedMgr,communicationPost,'communication',resp(gone.b,'do_not_contact'),403);assert.equal(await dncOf(gone.b),false);
+  // D1, response_correct changing a category TO do_not_contact needs the same standing.
+  for(const [who,a,ok] of roles){
+   const f=await mkBiz('correct'+who.replace(/\W/g,''));
+   const first=resp(f.b,'interested');await call(a,communicationPost,'communication',first);
+   await call(a,communicationPost,'communication',{action:'response_correct',id:first.id,category:'do_not_contact',summary:'Corrected to block',exactText:null,otherDetail:null,reason:'D1 matrix',confirmDoNotContact:true},ok?200:403);
+   assert.equal(await dncOf(f.b),ok,who+': response_correct to do_not_contact');
+  }
+  // 1C: the admin lifts the block; correcting the text of the same category keeps it.
+  {
+   const f=await mkBiz('lift');const blockResponse=resp(f.b,'do_not_contact');await call(owner,communicationPost,'communication',blockResponse);assert.equal(await dncOf(f.b),true);
+   const correction=(category:string)=>({action:'response_correct',id:blockResponse.id,category,summary:'Lift attempt',exactText:null,otherDetail:null,reason:'D1 lift matrix',...(category==='do_not_contact'?{confirmDoNotContact:true}:{confirmLiftDoNotContact:true})});
+   await call(owner,communicationPost,'communication',correction('do_not_contact'));assert.equal(await dncOf(f.b),true);
+   // Incoming responses keep working for her on a No contactar business, but a reminder task is admin-only.
+   await call(owner,communicationPost,'communication',resp(f.b,'interested'));
+   await call(owner,communicationPost,'communication',resp(f.b,'later',{reminder:{dueDate:'2027-03-01',assignedUserEmail:null}}),403);
+   await call(owner,communicationPost,'communication',resp(f.b,'later'));
+   await call(admin,communicationPost,'communication',correction('interested'));assert.equal(await dncOf(f.b),false,'the admin lifts the block');
+  }
+  // 1C, every write path of a NON-archived No contactar business is closed to the responsible sellers and open to the admin.
+  {
+   const f=await mkBiz('readonly');
+   const preTask=(await call(owner,workPost,'work',{action:'task_save',accountId:f.b,title:'Commitment before the block',typeId:'call',dueDate:'2027-01-15'})).id;
+   await call(owner,commercialPost,'commercial',{action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Colón'});
+   await sql`UPDATE crm_accounts SET do_not_contact=true WHERE id=${f.b}`.execute(db);
+   const account=await db.selectFrom('crmAccounts').selectAll().where('id','=',f.b).executeTakeFirstOrThrow();assert.equal(account.doNotContact,true);assert.equal(account.archivedAt,null);
+   const lost=(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).managementReasons.find((r:any)=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey!=='do_not_contact');assert(lost);
+   const rev=(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision as number;
+   type W=[(r:Request)=>Promise<Response>,string,unknown];
+   const commercial=(body:unknown):W=>[commercialPost,'commercial',body];
+   const writes:W[]=[
+    commercial({action:'account_save',id:f.b,nombre:'Unauthorized edit'}),
+    commercial({action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,telefono:'+54 9 3447 '+String(suffix).slice(-6)}),
+    commercial({action:'contact_save',accountId:f.b,id:f.c,name:'Unauthorized person',isPrimary:true}),
+    commercial({action:'contact_save',accountId:f.b,name:'Unauthorized new person',isPrimary:false}),
+    commercial({action:'contact_delete',accountId:f.b,id:f.c}),
+    commercial({action:'opportunity_save',accountId:f.b,id:f.l,opportunityName:'Unauthorized management'}),
+    commercial({action:'opportunity_save',accountId:f.b,managementType:'main',opportunityName:'Unauthorized new management'}),
+    commercial({action:'convert_client',accountId:f.b,reason:'Unauthorized conversion'}),
+    commercial({action:'set_client',accountId:f.b,isClient:true,reason:'Unauthorized client mark'}),
+    commercial({action:'business_status',accountId:f.b,status:'reviewed',recontactAt:null}),
+    commercial({action:'account_archive',accountId:f.b,archived:true,reason:'Unauthorized archive'}),
+    commercial({action:'account_trash',accountIds:[f.b],deleted:true,reason:'Unauthorized trash'}),
+    [quick,'leads_quick',{id:f.b,accountId:f.b,field:'ciudad',value:'Unauthorized city',expectedValue:'Colón'}],
+    [quick,'leads_quick',{id:f.l,accountId:f.b,scope:'management',field:'origen',value:'Unauthorized origin',expectedValue:null}],
+    [save,'leads_save',{id:f.l,nombre:'Unauthorized legacy edit'}],
+    [legacy,'leads',{id:f.l,nombre:'Unauthorized compatibility edit'}],
+    [note,'lead_notes',{leadId:f.l,note:'Unauthorized note'}],
+    [remove,'leads_delete',{id:f.l}],
+    [bulk,'leads_bulk',{entity:'business',ids:[f.b],changes:{ciudad:'Unauthorized batch'}}],
+    [bulk,'leads_bulk',{entity:'opportunity',ids:[f.l],changes:{prioridad:'alta'}}],
+    [bulkRemove,'leads_bulk_delete',{entity:'business',ids:[f.b]}],
+    [bulkRemove,'leads_bulk_delete',{entity:'opportunity',ids:[f.l]}],
+    [workPost,'work',{action:'task_save',accountId:f.b,title:'Unauthorized task',typeId:'call',dueDate:'2027-01-15'}],
+    [workPost,'work',{action:'task_save',id:preTask,accountId:f.b,title:'Unauthorized reschedule',typeId:'call',dueDate:'2027-02-15'}],
+    [workPost,'work',{action:'task_delete',id:preTask}],
+    [workPost,'work',{action:'task_status',id:preTask,status:'completed',result:'Unauthorized completion',outcome:'interested',continuation:'done'}],
+    [workPost,'work',{action:'activity_save',accountId:f.b,title:'Unauthorized call',typeId:'call',occurredAt:new Date().toISOString(),outcome:'interested',continuation:'done'}],
+    [resourcesPost,'resources',{action:'link',id:documentId,accountId:f.b,leadId:null,activityId:null}],
+    [pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:rev,stage:'main:lost',reasonId:lost.id,comment:''}],
+    [pipelinePost,'pipeline',{action:'contact_policy',accountId:f.b,blocked:false,reason:'Unauthorized lift'}],
+    [communicationPost,'communication',{action:'prepare_general',id:crypto.randomUUID(),accountId:f.b,leadId:null,contactId:f.c,channel:'whatsapp',purpose:'resume',otherPurpose:null,templateId:null}],
+    [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:f.b,leadId:f.l,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:'+54 9 3447 412345',recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
+   ];
+   const snapshot=async()=>JSON.stringify([await db.selectFrom('crmAccounts').selectAll().where('id','=',f.b).executeTakeFirstOrThrow(),await db.selectFrom('leads').selectAll().where('accountId','=',f.b).orderBy('id').execute(),await db.selectFrom('crmContacts').selectAll().where('accountId','=',f.b).orderBy('id').execute(),await db.selectFrom('crmTasks').selectAll().where('accountId','=',f.b).orderBy('id').execute(),await db.selectFrom('crmActivities').selectAll().where('accountId','=',f.b).orderBy('id').execute()]);
+   const before=await snapshot();
+   // The business responsible, the responsible of its management and an unrelated seller are all rejected (the colleague already was).
+   for(const seller of [owner,mgr,other])for(const [handler,url,body] of writes)await call(seller,handler,url,body,403);
+   assert.equal(await snapshot(),before,'no rejected write changed the No contactar business');
+   // Reading stays as before: the owner and a colleague read the live business; only the write flags change.
+   for(const reading of [owner,mgr,other,admin])for(const [handler,url] of [[commercialGet,'commercial?accountId='+f.b],[communicationGet,'communication?accountId='+f.b],[resourcesGet,'resources?accountId='+f.b],[workGet,'work?mode=detail&accountId='+f.b]] as const)await call(reading,handler,url);
+   assert.equal((await call(owner,commercialGet,'commercial?accountId='+f.b)).canEditContactData,false);
+   assert.equal((await call(owner,qualityGet,'dataQuality?accountId='+f.b)).canEdit,false);assert.equal((await call(admin,qualityGet,'dataQuality?accountId='+f.b)).canEdit,true);
+   const rowsFor=async(a:Actor)=>(await call(a,list,'leads?entity=business&q='+encodeURIComponent(`Zz D1 readonly ${suffix}`))).rows;
+   assert.equal((await rowsFor(owner))[0].canModify,false,'the list marks the No contactar business read-only for its owner');assert.equal((await rowsFor(owner))[0].canModifyManagement,false);assert.equal((await rowsFor(admin))[0].canModify,true);
+   assert.equal((await call(mgr,list,'leads?entity=opportunity&q='+encodeURIComponent('Mgmt readonly'))).rows[0].canModify,false,'the management responsible gets read-only too');
+   // Incoming responses of other categories still work for the responsible seller.
+   await call(owner,communicationPost,'communication',resp(f.b,'information'));
+   // The admin keeps full access and can lift the block, which gives the owner her edit rights back.
+   for(const [handler,url,body] of [commercial({action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Concordia'}),commercial({action:'contact_save',accountId:f.b,name:'Admin person',isPrimary:false}),[quick,'leads_quick',{id:f.b,accountId:f.b,field:'ciudad',value:'Colón',expectedValue:'Concordia'}],[note,'lead_notes',{leadId:f.l,note:'Admin note'}],[workPost,'work',{action:'task_save',accountId:f.b,title:'Admin task',typeId:'call',dueDate:'2027-01-15'}],[resourcesPost,'resources',{action:'link',id:documentId,accountId:f.b,leadId:null,activityId:null}],[bulk,'leads_bulk',{entity:'business',ids:[f.b],changes:{ciudad:'Concordia'}}]] as W[])await call(admin,handler,url,body);
+   await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId:f.b,blocked:false,reason:'D1 lift'});
+   await call(owner,commercialPost,'commercial',{action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Paraná'});
+   assert.equal((await rowsFor(owner))[0].canModify,true,'after the admin lifts the block the owner edits again');
+  }
+  console.log('Decisions D1 and 1C: No contactar recording needs the business/management responsible or an admin; non-archived No contactar businesses are read-only for sellers on every write path, the admin keeps and lifts it');
+ }
  console.log(`Permissions API: ${checks} checks passed; shared reading, owner/admin writes, administrative settings, mixed-batch rollback, trash and archived protection. No communications dispatched.`);
 }finally{await db.destroy()}

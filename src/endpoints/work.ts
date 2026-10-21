@@ -13,6 +13,7 @@ import {calendarDay,localDay} from '../helpers/workDates';
 import {workMutation,workQuery,followupSettings} from './work.schema';
 import {suggestedStageForOutcome} from '../helpers/businessManagement';
 import {canModifyManagement} from '../helpers/crmPermissions';
+import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {outcomeLabel} from '../helpers/crmLabels';
 /** Mi día returns every overdue and today task up to this many per bucket. */
 const URGENT_CAP=300;
@@ -160,6 +161,8 @@ export async function post(request:Request){
    const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=leadId?await trx.selectFrom('leads').selectAll().where('id','=',leadId).where('accountId','=',accountId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow():null;
    assertAccountReadable(user,account);
+   // Decision 1C: a No contactar business is read-only for non-admins. The one exception is the outcome of a contact that already happened (messageId), which only records what occurred: next tasks and stage changes stay rejected below for No contactar.
+   if(account.doNotContact&&user.role!=='admin'&&!messageId)throw new Forbidden(DO_NOT_CONTACT_READ_ONLY);
    const commercialOwner=lead?lead.assignedUserEmail:account.assignedUserEmail;
    const delegatedTask=previous&&isTask&&'assignedUserEmail' in previous&&previous.assignedUserEmail===user.email;
    const linkedTask=previous&&!isTask&&'taskId' in previous&&previous.taskId?await trx.selectFrom('crmTasks').select('assignedUserEmail').where('id','=',previous.taskId).executeTakeFirst():null;

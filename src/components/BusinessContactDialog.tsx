@@ -50,8 +50,8 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const managementPermissionReason='Solo la persona responsable de esta gestión o un administrador puede preparar su mensaje.';
  const noContactReason='El negocio está marcado No contactar; un administrador debe levantar ese bloqueo antes de preparar un contacto.';
  const archivedReason='El negocio está archivado; un administrador debe desarchivarlo antes de continuar.';
- const businessContactReason=!canModifyBusiness(user,detail.account)?businessPermissionReason:detail.account.doNotContact?noContactReason:archived?archivedReason:'';
- const managementContactReason=!canModifyManagement(user,opportunity,detail.account)?managementPermissionReason:detail.account.doNotContact?noContactReason:archived?archivedReason:'';
+ const businessContactReason=detail.account.doNotContact&&user?.role!=='admin'?noContactReason:!canModifyBusiness(user,detail.account)?businessPermissionReason:detail.account.doNotContact?noContactReason:archived?archivedReason:'';
+ const managementContactReason=detail.account.doNotContact&&user?.role!=='admin'?noContactReason:!canModifyManagement(user,opportunity,detail.account)?managementPermissionReason:detail.account.doNotContact?noContactReason:archived?archivedReason:'';
  const generalPurpose={purpose,otherPurpose};
  const contactReason=(general?businessContactReason||contactPurposeBlockReason({purpose,otherPurpose,isClient:detail.account.isClient,confirmedClient}):opportunity?managementContactReason:'Elegí sobre qué es el contacto.');
  const recentCandidate=history.data?.recentMessages.find(m=>String(m.leadId)===effective&&(m.channel==='email'||m.channel==='whatsapp'));

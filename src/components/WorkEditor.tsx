@@ -14,6 +14,7 @@ import {outcomeOptions,type WorkOutcome} from '../helpers/workOutcomes';
 import {outcomeLabel} from '../helpers/crmLabels';
 import {VOCAB,NO_FOLLOW_UP_REASONS,OTHER_REASON,managementDisplayName} from '../content/vocabulary';
 import {workGuidance,canLogNewActivity} from '../helpers/workGuidance';
+import {canRecordDoNotContact,DO_NOT_CONTACT_RECORD_DENIED} from '../helpers/doNotContactPermission';
 import {formatDate} from '../helpers/crmDates';
 import {suggestedStageForOutcome,managementLabel,type ManagementType} from '../helpers/businessManagement';
 import {stageChangeToSend,STAGE_CONFLICT_MESSAGE,type AcceptedStage} from '../helpers/stageSuggestion';
@@ -101,7 +102,9 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy}:{target:WorkT
  const managementOwner=opportunities.find(o=>o.id===leadId)?.assignedUserEmail;
  // Same rule the server applies to a new activity (admin or the responsible of the management/business); "No contactar" is a communication response and is only offered to whoever can log the activity here.
  const canLogActivity=canLogNewActivity({admin,ownerEmail:owner,userEmail:authState.type==='authenticated'?authState.user.email:null});
- const dncAllowed=target.kind==='activity'&&!item&&canLogActivity;
+ // Decision D1: the same shared rule as the server (business responsible, responsible of one of its managements, or admin); not tied to the management the activity is logged on.
+ const dncAccount=choices.find(a=>a.id===accountId),canRecordDnc=canRecordDoNotContact({admin,userEmail:authState.type==='authenticated'?authState.user.email:null,businessOwnerEmail:dncAccount?.assignedUserEmail,managementOwnerEmails:opportunities.filter(o=>o.accountId===accountId).map(o=>o.assignedUserEmail)});
+ const dncAllowed=target.kind==='activity'&&!item&&canLogActivity&&canRecordDnc&&!(dncAccount?.doNotContact&&!admin);
  const dncFlow=dncAllowed&&outcome==='do_not_contact';
  // Decision 9A: a suggestion the seller accepts with one tick (never preticked). `acceptedStage` holds the stage she accepted, so changing the result drops it.
  const [acceptedStage,setAcceptedStage]=useState<AcceptedStage|null>(null),[stageConflict,setStageConflict]=useState(false);
@@ -166,6 +169,7 @@ const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:[
     </fieldset></Disclosure>
    </>}
    {['activity','complete'].includes(target.kind)&&<fieldset className={styles.outcomeChoices} disabled={!purpose}><legend>¿Qué pasó?</legend>{[...new Set([...outcomeOptions(purpose).filter(id=>id!=='do_not_contact'||dncAllowed),...(outcome?[outcome]:[])])].map((id,i)=><label key={id} className={styles.outcomeChoice} data-checked={outcome===id||undefined}><input type="radio" name="outcome" value={id} required aria-invalid={outcomeError&&!outcome?true:undefined} aria-describedby={outcomeError&&!outcome?outcomeErrorId:undefined} checked={outcome===id} autoFocus={!!purpose&&(outcome?outcome===id:i===0)} data-autofocus={(!!purpose&&(outcome?outcome===id:i===0))||undefined} onChange={()=>pickOutcome(id)} onInvalid={e=>{e.preventDefault();setOutcomeError('Elegí qué pasó.');const field=e.currentTarget;if(Array.from(field.form?.elements??[]).find(item=>(item as HTMLInputElement).willValidate&&!(item as HTMLInputElement).validity.valid)===field){field.focus({preventScroll:true});field.scrollIntoView?.({block:'center'})}}}/>{outcomeLabel(id)}</label>)}{!purpose&&<p className={styles.muted}>Primero elegí el propósito.</p>}{outcomeError&&!outcome&&<p id={outcomeErrorId} role="alert" className={styles.error}>{outcomeError}</p>}</fieldset>}
+   {target.kind==='activity'&&!item&&!dncAllowed&&outcomeOptions(purpose).includes('do_not_contact')&&<p className={styles.contextNote} role="note" data-testid="dnc-record-denied">{DO_NOT_CONTACT_RECORD_DENIED}</p>}
    {['activity','complete'].includes(target.kind)&&<Disclosure className={styles.optionalFields} open={detailsOpen} onOpenChange={setDetailsOpen}><DisclosureSummary>Fecha, canal y participantes</DisclosureSummary>   {(target.kind==='activity'||target.kind==='complete')&&<label>Fecha y hora real<Input type="datetime-local" required max={localDateTime()} value={occurred} onChange={e=>setOccurred(e.target.value)}/></label>}
    {['activity','complete'].includes(target.kind)&&<label>Canal<NativeSelect value={channel} onChange={e=>setChannel(e.target.value)}><option value="">Sin especificar</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="presencial">Presencial</option><option value="videollamada">Videollamada</option><option value="other">Otro</option></NativeSelect></label>}
    {target.kind==='complete'&&availableContacts.some(c=>c.accountId===accountId)&&<Disclosure className={styles.optionalFields}><DisclosureSummary>Revisar con quién hablamos</DisclosureSummary><fieldset><legend>Personas que participaron</legend>{availableContacts.filter(c=>c.accountId===accountId).map(c=><label className={styles.checkbox} key={c.id}><Checkbox  checked={contactIds.includes(c.id)} onChange={e=>setContacts(e.target.checked?[...contactIds,c.id]:contactIds.filter(id=>id!==c.id))}/>{c.name}</label>)}</fieldset></Disclosure>}

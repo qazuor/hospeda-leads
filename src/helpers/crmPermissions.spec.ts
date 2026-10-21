@@ -85,10 +85,31 @@ describe('contact data editing with an open management (decision 8A)',()=>{
   expect(canEditBusinessContactData(colleague,undefined,true)).toBe(false);
   expect(canEditBusinessContactData(undefined,business,true)).toBe(false);
  });
- it('never applies to a No contactar business, but owner and admin keep editing it',()=>{
+ it('never applies to a No contactar business: only an admin edits it (decision 1C)',()=>{
   const dnc={...business,doNotContact:true};
   expect(canEditBusinessContactData(colleague,dnc,true)).toBe(false);
-  for(const actor of [owner,admin])expect(canEditBusinessContactData(actor,dnc,false)).toBe(true);
+  expect(canEditBusinessContactData(owner,dnc,false)).toBe(false);
+  expect(canEditBusinessContactData(owner,dnc,true)).toBe(false);
+  expect(canEditBusinessContactData(admin,dnc,false)).toBe(true);
+ });
+ it('makes a No contactar business read-only for its responsible seller, with the admin lifting it (decision 1C)',async()=>{
+  const dnc={id:'7',...business,doNotContact:true,deletedAt:null};
+  const lead={id:'9',accountId:'7',assignedUserEmail:owner.email,deletedAt:null};
+  const executor={selectFrom:(table:string)=>{const q={selectAll:()=>q,where:()=>q,forUpdate:()=>q,executeTakeFirstOrThrow:async()=>table==='leads'?lead:dnc};return q;}} as unknown as Parameters<typeof assertLeadAccess>[0];
+  expect(canModifyBusiness(owner,dnc)).toBe(false);
+  expect(canModifyManagement(owner,lead,dnc)).toBe(false);
+  expect(canModifyBusiness(admin,dnc)).toBe(true);
+  expect(canModifyManagement(admin,lead,dnc)).toBe(true);
+  expect(()=>assertAccountWritable(owner,dnc)).toThrow('pidió no ser contactado');
+  expect(()=>assertAccountWritable(colleague,dnc)).toThrow(CrmForbidden);
+  expect(()=>assertAccountWritable(admin,dnc)).not.toThrow();
+  await expect(assertLeadAccess(executor,'9',owner,true)).rejects.toThrow('pidió no ser contactado');
+  await expect(assertLeadAccess(executor,'9',admin,true)).resolves.toBe(lead);
+  // Reading is untouched.
+  expect(()=>assertAccountViewable(owner,dnc)).not.toThrow();
+  await expect(assertLeadAccess(executor,'9',owner)).resolves.toBe(lead);
+  // A business without the flag stays editable by its owner.
+  expect(canModifyBusiness(owner,{...dnc,doNotContact:false})).toBe(true);
  });
  it('keeps the strict read and view guards untouched',()=>{
   const archived={...business,archivedAt:new Date()};

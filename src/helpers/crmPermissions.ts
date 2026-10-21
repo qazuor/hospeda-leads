@@ -1,5 +1,6 @@
 import {sql, type Kysely, type Transaction} from 'kysely';
 import type {DB} from './schema';
+import {DO_NOT_CONTACT_READ_ONLY,DO_NOT_CONTACT_RECORD_DENIED,canRecordDoNotContact} from './doNotContactPermission';
 
 type Actor = {email:string; role:'admin'|'user'};
 type AccountAccess = {assignedUserEmail:string|null; archivedAt?:unknown; deletedAt?:unknown; mergedIntoId?:unknown; doNotContact?:unknown};
@@ -7,14 +8,15 @@ type Executor = Kysely<DB>|Transaction<DB>;
 
 export class CrmForbidden extends Error {}
 
+/** Decision 1C: a No contactar business is read-only for its responsible seller; only an admin modifies it (and lifts the block). */
 export function canModifyBusiness(user:Actor|undefined, account:AccountAccess|undefined):boolean {
   return !!user && !!account && !account.deletedAt && !account.mergedIntoId &&
-    (user.role==='admin' || (!account.archivedAt && account.assignedUserEmail===user.email));
+    (user.role==='admin' || (!account.archivedAt && !account.doNotContact && account.assignedUserEmail===user.email));
 }
 
 export function canModifyManagement(user:Actor|undefined, lead:{assignedUserEmail:string|null;deletedAt?:unknown}|undefined, account:AccountAccess|undefined):boolean {
   return !!user && !!lead && !!account && !lead.deletedAt && !account.deletedAt && !account.mergedIntoId &&
-    (user.role==='admin' || (!account.archivedAt && lead.assignedUserEmail===user.email));
+    (user.role==='admin' || (!account.archivedAt && !account.doNotContact && lead.assignedUserEmail===user.email));
 }
 
 export function assertAccountReadable(user:Actor, account:AccountAccess):void {
@@ -39,6 +41,7 @@ const archivedWriteMessage='Este negocio está archivado. Solo un administrador 
 
 export function assertAccountWritable(user:Actor, account:AccountAccess):void {
   if(account.archivedAt && !account.deletedAt && user.role!=='admin')throw new CrmForbidden(archivedWriteMessage);
+  if(account.doNotContact && !account.deletedAt && user.role!=='admin')throw new CrmForbidden(DO_NOT_CONTACT_READ_ONLY);
   assertAccountReadable(user, account);
   if(!canModifyBusiness(user, account))throw new CrmForbidden('Solo el responsable del negocio o un administrador puede modificarlo.');
 }
@@ -90,7 +93,18 @@ export async function assertLeadAccess(executor:Executor, leadId:string, user:Ac
   const account=await assertBusinessAccess(executor,String(lead.accountId),user,false,write);
   if(write)lead=await executor.selectFrom('leads').selectAll().where('id','=',leadId).where('accountId','=',account.id).forUpdate().executeTakeFirstOrThrow();
   if(write && account.archivedAt && user.role!=='admin')throw new CrmForbidden(archivedWriteMessage);
+  if(write && account.doNotContact && user.role!=='admin')throw new CrmForbidden(DO_NOT_CONTACT_READ_ONLY);
   if(lead.deletedAt && (write || user.role!=='admin'))throw new CrmForbidden('Esta gestión está en la papelera. Solo un administrador puede consultarla; restaurala antes de modificarla.');
   if(write&&!canModifyManagement(user,lead,account))throw new CrmForbidden("Solo el responsable de esta gestión o un administrador puede modificarla.");
   return lead;
+}
+
+/**
+ * Server side of decision D1: recording «Pidió no ser contactado» (response_create / a response_correct that changes the category to it)
+ * needs admin, the business responsible or the responsible of one of its not deleted managements. Reading the business is not enough.
+ */
+export async function assertCanRecordDoNotContact(executor:Executor, user:Actor, account:{id:unknown;assignedUserEmail:string|null}):Promise<void> {
+  if(user.role==='admin'||account.assignedUserEmail===user.email)return;
+  const owners=(await sql<{email:string}>`SELECT DISTINCT assigned_user_email AS email FROM leads WHERE account_id=${String(account.id)}::bigint AND deleted_at IS NULL AND assigned_user_email=${user.email}`.execute(executor)).rows.map(r=>r.email);
+  if(!canRecordDoNotContact({admin:false,userEmail:user.email,businessOwnerEmail:account.assignedUserEmail,managementOwnerEmails:owners}))throw new CrmForbidden(DO_NOT_CONTACT_RECORD_DENIED);
 }
