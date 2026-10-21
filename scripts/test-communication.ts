@@ -204,6 +204,22 @@ try{
   assert.equal(detail.restrictions.length,200);assert(!detail.restrictions.some((r:any)=>r.reason==='Activa y antigua'));
   assert.deepEqual(detail.activeRestrictions.map((r:any)=>r.reason),['Activa y antigua']);
   console.log('Reused drafts: flagged, stale, foreign-business, other-seller and No contactar discards refused, admin discard allowed like cancel_draft, discard cancels with revision check and restarts (lead and general)');}
+ // D4: recording a past care send (manual_complete / interaction_correct → manual_sent) on a No contactar business is still recorded, but only an admin's record marks it as client.
+ {const careCase=async(name:string,actor:typeof user,dnc:boolean,flow:'complete'|'correct')=>{
+   const acc=await db.insertInto('crmAccounts').values({nombre:`Care D4 ${name} ${stamp}`,email:`care-d4-${name}-${stamp}@example.com`,assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',acc.id).execute();
+   const start=flow==='complete'?{channel:'social',destination:'instagram.com/care-d4',body:'',result:null}:{channel:'call',destination:null,body:'Llamada de acompañamiento',result:'manual_no_contact'};
+   const m=await call({action:'manual_start',id:randomUUID(),accountId:String(acc.id),leadId:null,contactId:null,purpose:'care',otherPurpose:null,recipient:acc.nombre,recipientName:acc.nombre,templateId:null,...start},200,actor.cookie);
+   if(dnc)await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',acc.id).execute();
+   const done=flow==='complete'?await call({action:'manual_complete',id:m.id,result:'manual_sent',summary:'Se le escribió antes del pedido'},200,actor.cookie):await call({action:'interaction_correct',id:m.id,result:'manual_sent',summary:'Sí atendió la llamada',reason:'El resultado inicial se ingresó mal'},200,actor.cookie);
+   assert.equal(done.status,'manual_sent',`${name}: the send is recorded`);assert.equal((await message(m.id)).status,'manual_sent');
+   const marked=Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE account_id=${acc.id} AND action='client_marked_by_care_contact'`.execute(db)).rows[0].n);
+   return {isClient:(await db.selectFrom('crmAccounts').select('isClient').where('id','=',acc.id).executeTakeFirstOrThrow()).isClient,marked};};
+  for(const flow of ['complete','correct'] as const){
+   assert.deepEqual(await careCase(`seller-dnc-${flow}`,user,true,flow),{isClient:false,marked:0},`seller ${flow} on No contactar must not mark client`);
+   assert.deepEqual(await careCase(`admin-dnc-${flow}`,admin,true,flow),{isClient:true,marked:1},`admin ${flow} on No contactar marks client`);
+   assert.deepEqual(await careCase(`seller-open-${flow}`,user,false,flow),{isClient:true,marked:1},`seller ${flow} without No contactar marks client`);
+  }
+  console.log('D4: past care send on No contactar recorded; only admin marks client (manual_complete and interaction_correct)');}
  // Merge all new relationships while preserving original attribution and snapshots.
  const dest=await db.insertInto('crmAccounts').values({nombre:'Destino '+stamp,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();let r=await quality(request({action:'merge_preview',sourceId:a.id,destinationId:dest.id}));assert.equal(r.status,200);const p=superjson.parse<any>(await r.text());r=await quality(request({action:'merge_confirm',sourceId:a.id,destinationId:dest.id,token:p.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Revisado en fixture',confirm:true}));assert.equal(r.status,200,await r.text());assert.equal((await message(id)).accountId,dest.id);assert.equal((await sql<{originalAccountId:string}>`SELECT original_account_id FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].originalAccountId,a.id);assert.equal((await sql<{accountId:string}>`SELECT account_id FROM crm_documents WHERE id=${did}::uuid`.execute(db)).rows[0].accountId,dest.id);
  await resource({action:'delete',id:did,revision:2});assert.equal((await download(new Request('http://localhost/_api/resources/download?versionId='+versions[0].id,{headers:{cookie:admin.cookie}}))).status,400);assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_document_versions WHERE document_id=${did}::uuid`.execute(db)).rows[0].n),2);
