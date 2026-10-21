@@ -28,7 +28,16 @@ const labelExists=({label,corpus}:{label:string;corpus:string})=>new RegExp('(^|
 /** Every guillemet-quoted label of an article's visible text, in order and without repeats. */
 const quotedLabels=(article:Article)=>[...new Set([article.title,article.when,...article.steps,article.result,...article.example,...article.notes].flatMap(text=>[...text.matchAll(/«([^»]+)»/g)].map(match=>match[1])))];
 
-const corpus=listFiles(srcRoot).filter(isSource).map(file=>({path:relative(srcRoot,file).split(sep).join('/'),text:stripComments(readFileSync(file,'utf8'))}));
+/**
+ * Only files that render UI count: not the server, endpoints, history/journal label maps or audit-text maps (a renamed banner must not keep passing because the same words survive in an audit label).
+ * Helpers count only when they hold UI words the screens read (navigation, statuses, outcomes, guidance, labels).
+ */
+const uiHelpers=['appNavigation','businessStatus','businessSections','workOutcomes','workGuidance','crmLabels','messageLabels','contactOutcome','contactPurpose','nextStep','firstSteps','businessListPreferences'];
+const isUiSource=(path:string)=>/^(components|pages|content)\//.test(path)&&path!=='pages/history.tsx'||uiHelpers.some(name=>path==='helpers/'+name+'.ts');
+const isAuditMap=(line:string)=>/^\s*(export\s+)?const\s+(actionLabels|fieldLabels|auditFields|eventTitles|statusNames|channelNames)\b/.test(line);
+/** Single words so common that a literal match proves little. They stay checked, but only weakly: prefer citing a longer, more specific label. */
+const WEAKLY_CHECKED=['Actualizar','Contexto','Deshacer','Documentos','Email','Llamada','Lunes','Lista','Mañana','Mes','Notas','Propósito','Seguimiento','Sistema','Tipo','Usuarios'] as const;
+const corpus=listFiles(srcRoot).filter(isSource).map(file=>({path:relative(srcRoot,file).split(sep).join('/'),text:stripComments(readFileSync(file,'utf8')).split('\n').filter(line=>!isAuditMap(line)).join('\n')})).filter(file=>isUiSource(file.path));
 const allSource=corpus.map(file=>file.text).join('\n');
 
 describe('labelExists',()=>{
@@ -71,6 +80,15 @@ describe('user guide labels',()=>{
  it('only cites labels that still exist as literals in the app source',()=>{
   const missing=articles.flatMap(({article})=>article.uiLabels.filter(label=>!labelExists({label,corpus:allSource})).map(label=>article.id+': «'+label+'»'));
   expect(missing).toEqual([]);
+ });
+
+ it('keeps the weakly checked list honest: every entry is still cited, and the corpus excludes audit text',()=>{
+  const cited=new Set(articles.flatMap(({article})=>article.uiLabels));
+  expect(WEAKLY_CHECKED.filter(label=>!cited.has(label))).toEqual([]);
+  expect(corpus.some(file=>file.path.startsWith('server/')||file.path.startsWith('endpoints/')||file.path==='helpers/historyLabels.ts'||file.path==='pages/history.tsx')).toBe(false);
+  expect(corpus.length).toBeGreaterThan(50);
+  expect(isAuditMap('const actionLabels:Record<string,string>={account_archived:"Negocio archivado"};')).toBe(true);
+  expect(labelExists({label:'Negocio archivado',corpus:corpus.filter(file=>file.path==='components/CommercialPanel.tsx').map(file=>file.text).join('\n')})).toBe(true);
  });
 
  it('cites the navigation, the Hoy views and the core actions with their current names',()=>{

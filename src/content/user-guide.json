@@ -69,7 +69,7 @@
           "Nuevo significa que nadie verificó todavía el negocio. Comprobá que exista y corresponda al registro antes de iniciar una gestión.",
           "Revisado confirma que el negocio fue comprobado y se puede trabajar. Si lo acabás de verificar al iniciar una gestión, podés confirmarlo en ese mismo formulario.",
           "En gestión aparece mientras haya al menos una gestión abierta. Al cerrar la última, el negocio pasa a Sin tarea agendada; si hay que volver a hablarle más adelante, elegí Recontactar y, si querés, ponele una fecha. Esa fecha orienta al equipo pero no impide contactarlo antes.",
-          "Para cambiar el Estado, tocá el badge «Estado del negocio» y elegí una opción. Algunos estados se cambian solos al iniciar o cerrar gestiones.",
+          "Para cambiar el Estado, tocá la etiqueta «Estado del negocio» y elegí una opción. Algunos estados se cambian solos al iniciar o cerrar gestiones.",
           "Archivado aparta un negocio válido que no vas a trabajar por ahora. Solo un administrador puede desarchivarlo; vuelve a Revisado si ya había sido verificado y, si no, a Nuevo.",
           "Las Etapas pertenecen a cada gestión y dependen de su tipo: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. No hace falta pasar por todas ni seguir un orden fijo entre etapas abiertas.",
           "Es cliente, No contactar y Derivado a Leandro son marcas independientes. En verticales principales y Partners, cerrar una gestión como ganada marca al negocio como cliente; solo un administrador puede quitar esa marca.",
@@ -433,7 +433,7 @@
           "Para email y WhatsApp, revisá la persona y el dato exacto. Si no hay una persona con ese canal, podés usar el canal general del negocio.",
           "El email se prepara y sale desde el CRM. El CRM te muestra si el servicio de envío aceptó el pedido; eso no confirma que llegó.",
           "WhatsApp abre la aplicación con el texto preparado. Al volver, el CRM pregunta «¿Lo enviaste?»: tocá «Sí, lo envié» solo si lo mandaste de verdad, «No, no lo envié» si no, o «Todavía no sé, lo anoto después».",
-          "Para una llamada, elegí a quién llamás, tocá «Llamar ahora» o «Copiar número», y cuando termines tocá «Ya llamé: anotar cómo salió». Si no te atendieron, tocá «No me atendieron».",
+          "Para una llamada, elegí a quién llamás. En el celular tocá «Llamar ahora»; en la computadora tocá «Copiar número» y llamá desde tu teléfono. Cuando termines tocá «Ya llamé: anotar cómo salió». Si no te atendieron: desde el negocio podés tocar «No me atendieron»; desde una tarea tocá «Ya llamé: anotar cómo salió» y elegí «No respondió».",
           "Para «Red social» y «Otro canal», el CRM crea un intento pendiente (podés «Crear intento y copiar texto»). Cuando termines, completá cómo salió.",
           "En todos los casos el contacto termina en «¿Cómo salió?» y «¿Cómo sigue?». Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta."
         ],
@@ -462,6 +462,7 @@
           "Copiar número",
           "Ya llamé: anotar cómo salió",
           "No me atendieron",
+          "No respondió",
           "Crear intento y copiar texto",
           "¿Cómo salió?",
           "¿Cómo sigue?",
@@ -474,12 +475,12 @@
         "when": "Después de hacer la tarea o de un contacto, incluso si no hubo respuesta.",
         "steps": [
           "Una tarea es algo pendiente con fecha; lo que ya ocurrió se anota con «Anotar cómo salió» (en una tarea) o con «Anotar lo que pasó» (cuando no hay tarea). La etapa describe el punto en que está la gestión.",
-          "En «¿Qué pasó?» elegí una opción: «No respondió», «Respondió, le interesa», «Pidió que lo contacte más adelante», «No le interesa», «Pidió no ser contactado» u «Otro (contame)». En entregas y acompañamientos suman «Entrega confirmada», «Falta confirmar», «Necesita ayuda» o «Revisión realizada».",
+          "En «¿Qué pasó?» elegí una opción: «No respondió», «Respondió, le interesa», «Pidió que lo contacte más adelante», «No le interesa» u «Otro (contame)». Cuando anotás algo nuevo con «Anotar lo que pasó» también aparece «Pidió no ser contactado» (ver el último paso). En entregas y acompañamientos suman «Entrega confirmada», «Falta confirmar», «Necesita ayuda» o «Revisión realizada».",
           "En «Detalles del resultado» escribí en pocas palabras qué ocurrió. «Otro (contame)» pide una aclaración.",
           "Respondé «¿Cómo sigue?»: «Agendar una tarea» (con título y fecha), «Esperar hasta una fecha y retomar» o «No agendar nada» (con un motivo). No se puede guardar sin elegir una.",
           "Si el CRM muestra una casilla para pasar la gestión a la etapa sugerida, marcala solo si es lo que pasó. Si no la marcás, la etapa no cambia.",
           "Revisá el resumen «Revisá lo que se guardará» y tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).",
-          "Si la persona pidió que no la contacten, elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas."
+          "Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar respuesta recibida». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador."
         ],
         "result": "Se completa la tarea y queda guardado lo que pasó. Si dejaste una tarea nueva, se crea con su fecha. Las demás tareas se conservan.",
         "example": [
@@ -487,7 +488,7 @@
         ],
         "notes": [
           "Anotar una respuesta en una gestión cerrada no la reabre ni cambia su estado.",
-          "Cualquier usuario puede anotar «Pidió no ser contactado»; solo un administrador puede levantar el bloqueo.",
+          "«Pidió no ser contactado» lo anota el responsable del negocio, el responsable de una de sus gestiones o un administrador. Solo un administrador puede levantar el bloqueo.",
           "Si te equivocaste, buscá la tarea ya completada (en «Tareas finalizadas o canceladas», dentro del negocio), abrí su menú y tocá «Corregir cómo salió»."
         ],
         "url": "",
@@ -500,8 +501,8 @@
           "Respondió, le interesa",
           "Pidió que lo contacte más adelante",
           "No le interesa",
-          "Pidió no ser contactado",
           "Otro (contame)",
+          "Pidió no ser contactado",
           "Entrega confirmada",
           "Falta confirmar",
           "Necesita ayuda",
@@ -514,6 +515,8 @@
           "Revisá lo que se guardará",
           "Guardar resultado",
           "Guardar y programar",
+          "Comunicación",
+          "Registrar respuesta recibida",
           "Bloquear contacto",
           "Tareas finalizadas o canceladas",
           "Corregir cómo salió"
@@ -653,7 +656,7 @@
           "Si pidió que la vuelvas a llamar en otro momento, elegí «Pidió que lo contacte más adelante». El CRM te ofrece «Elegir una fecha para retomar»: tocalo, poné la fecha acordada y queda una tarea para ese día.",
           "Si la gestión sigue abierta, elegí una etapa abierta que refleje lo que pasó. Las etapas no cambian solas al anotar un resultado.",
           "Si decidís cerrar la gestión como perdida, elegí el motivo y, si querés, una fecha de recontacto. Esa fecha agenda una tarea.",
-          "Si pidió que no la contacten, elegí «Pidió no ser contactado». El bloqueo es global y solo un administrador puede levantarlo."
+          "Si pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» para elegir «Pidió no ser contactado» (desde «Anotar cómo salió» de una tarea no aparece). Lo hace el responsable o un administrador. El bloqueo es global y solo un administrador puede levantarlo."
         ],
         "result": "Queda anotado lo que ocurrió y una tarea concreta cuando corresponde. No se envían mensajes ni se reabre o cierra una gestión automáticamente.",
         "example": [
@@ -671,6 +674,7 @@
           "¿Cómo sigue?",
           "Pidió que lo contacte más adelante",
           "Elegir una fecha para retomar",
+          "Anotar lo que pasó",
           "Pidió no ser contactado",
           "Para retomar"
         ]
@@ -936,7 +940,7 @@
           "Entrá en «Negocios» y buscá por nombre. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual.",
           "Tocá «Filtrar negocios» y revisá los filtros aplicados. «Guardar como vista» conserva la búsqueda, los filtros, el orden y las columnas.",
           "Abrí «Columnas» para elegir y ordenar los datos que ves. La columna de selección queda primera y fija a la izquierda.",
-          "Las vistas guardadas se eligen en sus badges. Usá «Administrar tus vistas» (el ícono de la tuerca) para editar sus filtros, duplicar o eliminar una vista; los administradores también pueden convertir una vista personal en vista del equipo.",
+          "Las vistas guardadas se eligen en sus etiquetas. Usá «Administrar tus vistas» (el ícono de la tuerca) para editar sus filtros, duplicar o eliminar una vista; los administradores también pueden convertir una vista personal en vista del equipo.",
           "«Restablecer vista» quita la configuración activa y vuelve a las preferencias iniciales.",
           "Usá la selección múltiple solo después de revisar la lista completa afectada. Revisá y confirmá los cambios masivos antes de aplicarlos."
         ],
@@ -1027,7 +1031,7 @@
         "steps": [
           "Revisá la persona y el canal. Si el dato falta, tocá «Agregar o editar teléfono o email» y cargá el dato real; no uses el canal de otra persona. Si no hay una persona con ese canal, podés usar el canal general del negocio.",
           "Si el CRM muestra una restricción, fijate cuál es. Puede ser un bloqueo del negocio entero o una restricción técnica de una persona o canal.",
-          "Si una persona pidió que no la contacten, anotá «Pidió no ser contactado». Cualquier usuario puede activar el bloqueo, y alcanza a todas las salidas del negocio.",
+          "Si una persona pidió que no la contacten, anotá «Pidió no ser contactado» con «Anotar lo que pasó» desde el negocio. Lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador; si no te corresponde, avisale a alguno de ellos. El bloqueo alcanza a todas las salidas del negocio.",
           "No cambies de persona, de canal ni de propósito para esquivar el bloqueo. Solo un administrador puede levantar No contactar y tiene que explicar el motivo.",
           "Una falla permanente comprobable puede restringir técnicamente un dato de destino. Las fallas temporales no deberían bloquear el canal."
         ],
@@ -1040,7 +1044,8 @@
         "linkLabel": "",
         "uiLabels": [
           "Agregar o editar teléfono o email",
-          "Pidió no ser contactado"
+          "Pidió no ser contactado",
+          "Anotar lo que pasó"
         ]
       },
       {
@@ -1051,6 +1056,7 @@
           "Mirá si arriba hay un cartel rojo. «No contactar» y «Negocio archivado» dejan el negocio solo para consulta: podés ver todo, pero no editar, contactar ni cambiar su gestión. Solo un administrador levanta el bloqueo o desarchiva.",
           "Si no hay cartel, aparece el aviso «Podés consultar este negocio». Significa que el negocio es de otra persona: solo su responsable o un administrador puede modificarlo.",
           "Si tenés una gestión abierta en ese negocio y no está archivado ni es No contactar, igual podés corregir sus datos de contacto (teléfono, email, WhatsApp) y sus personas con «Corregir datos de contacto». Todo lo demás sigue siendo del responsable.",
+          "Si buscás un negocio tuyo que archivaron, apretá Ctrl+K y escribí su nombre: los archivados aparecen marcados como Archivado (el administrador ve todos).",
           "Para cambiar algo que no te corresponde, pedíselo al responsable o al administrador. No dupliques el negocio ni la tarea para saltear esa regla."
         ],
         "result": "Sabés quién puede cambiar cada cosa y a quién pedírselo.",
@@ -1083,7 +1089,7 @@
         "result": "Podés ubicar el compromiso y saber quién debe encargarse.",
         "example": [],
         "notes": [
-          "Actualizar no guarda formularios ni envía mensajes. Archivar el negocio no elimina sus tareas pendientes."
+          "Actualizar no guarda formularios ni envía mensajes. Revisá sus tareas pendientes en Hoy antes o después de archivar."
         ],
         "url": "",
         "linkLabel": "",
