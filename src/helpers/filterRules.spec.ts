@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeFilterRule, describeFilterRule } from './filterRules';
+import { changeFilterRule, describeFilterRule, singleRecordIdFilter } from './filterRules';
 import type { AdvancedFilterGroup } from '../endpoints/leads_GET.schema';
 
 const groups: AdvancedFilterGroup[] = [
@@ -20,5 +20,14 @@ describe('editing applied filter expressions', () => {
     expect(describeFilterRule({ field: 'assignedUserEmail', operator: 'eq', value: 'a@example.com' }, [{ key: 'assignedUserEmail', kind: 'category', label: 'Responsable', options: [{ value: 'a@example.com', label: 'Ana' }] }])).toBe('Responsable es Ana');
     expect(describeFilterRule({ field: 'id', operator: 'between', value: '1', value2: '9' }, [])).toBe('id entre 1 y 9');
     expect(describeFilterRule({ field: 'ciudad', operator: 'empty' }, [{ key: 'ciudad', kind: 'category', label: 'Ciudad' }])).toBe('Ciudad sin valor');
+  });
+
+  it('finds the single record a filter pins, and nothing when other rules could widen it', () => {
+    expect(singleRecordIdFilter([{ rules: [{ field: 'id', operator: 'eq', value: ' 42 ' }] }])).toBe('42');
+    expect(singleRecordIdFilter([{ rules: [{ field: 'ciudad', operator: 'eq', value: 'Colón' }] }, { rules: [{ field: 'id', operator: 'eq', value: '7' }] }])).toBe('7');
+    expect(singleRecordIdFilter([{ rules: [{ field: 'id', operator: 'eq', value: '7' }, { field: 'id', operator: 'eq', value: '8' }] }])).toBeNull();
+    expect(singleRecordIdFilter([{ rules: [{ field: 'id', operator: 'gte', value: '7' }] }])).toBeNull();
+    expect(singleRecordIdFilter([{ rules: [{ field: 'id', operator: 'eq', value: ' ' }] }])).toBeNull();
+    expect(singleRecordIdFilter([])).toBeNull();
   });
 });

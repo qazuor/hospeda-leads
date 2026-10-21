@@ -1,6 +1,6 @@
 import {cancelRecontactTaskFor} from './recontactTask';
 import {templateCompatibility} from './messageTemplatePolicy';
-import {assertAccountReadable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
+import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
 import {createHash} from 'node:crypto';
 import {sql,type Kysely,type RawBuilder,type Transaction} from 'kysely';
@@ -58,7 +58,8 @@ function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatc
  return messageScope(input.id)(e);
 };}
 export async function communicationConfig(e:Executor){const r=await e.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow();return z.object({recentContactHours:z.number().int().min(1).max(720),maxDocumentBytes:z.number().int().min(1).max(2097152)}).parse(JSON.parse(r.value));}
-export async function leadFor(e:Executor,id:string,user:User,write=true){const l=await e.selectFrom('leads').selectAll().where('id','=',id).where('deletedAt','is',null).executeTakeFirstOrThrow();const a=await e.selectFrom('crmAccounts').selectAll().where('id','=',l.accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();assertAccountReadable(user,a);if(write)await assertLeadAccess(e,String(l.id),user,true);return {lead:l,account:a};}
+/** Read mode (write=false) uses assertAccountViewable, so the responsible seller reads the communication of her archived business (decision 1C); write mode keeps the strict assertAccountReadable guard. */
+export async function leadFor(e:Executor,id:string,user:User,write=true){const l=await e.selectFrom('leads').selectAll().where('id','=',id).where('deletedAt','is',null).executeTakeFirstOrThrow();const a=await e.selectFrom('crmAccounts').selectAll().where('id','=',l.accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();if(write)assertAccountReadable(user,a);else assertAccountViewable(user,a);if(write)await assertLeadAccess(e,String(l.id),user,true);return {lead:l,account:a};}
 async function communicationContext(e:Executor,accountId:string,leadId:string|null,user:User,write:boolean){
  const account=await e.selectFrom('crmAccounts').selectAll().where('id','=',accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();assertAccountReadable(user,account);
  if(account.deletedAt)throw new CommunicationForbidden('El negocio está en la papelera.');

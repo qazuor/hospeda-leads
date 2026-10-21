@@ -21,6 +21,7 @@ import {get as pipelineGet,post as pipelinePost} from '../src/endpoints/pipeline
 import {doNotContactSince} from '../src/helpers/doNotContactSince';
 import {download as resourcesDownload,get as resourcesGet,post as resourcesPost} from '../src/endpoints/resources';
 import {get as workGet,post as workPost} from '../src/endpoints/work';
+import {handle as leadContact} from '../src/endpoints/lead_contact_POST';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable database with all migrations applied');
 const suffix=Date.now();let checks=0;
 async function actor(role:'admin'|'user',name:string){
@@ -285,8 +286,53 @@ try{
  const detail=await call(other,commercialGet,'commercial?accountId='+accountId);assert.equal(detail.opportunities.length,0);assert.equal(detail.leadJournal.length,0);
  for(const [handler,url] of [[commercialGet,'commercial?leadId='+leadId],[notes,'lead_notes?leadId='+leadId],[journal,'lead_journal?leadId='+leadId],[pipelineGet,'pipeline?leadId='+leadId]] as const)await call(other,handler,url,undefined,403);
  await call(admin,notes,'lead_notes?leadId='+leadId);
+ // A management of the business that gets archived below: its detail and communication must stay readable for the responsible seller only.
+ const archivedLead=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Archived management '+suffix,estado:'Cargado'})).id;
+ const archivedResponse=crypto.randomUUID();
+ await call(owner,communicationPost,'communication',{action:'response_create',id:archivedResponse,accountId,leadId:archivedLead,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Answered before the archive',exactText:null,otherDetail:null});
  // Archived businesses are read-only for their responsible seller (decision 1C) and closed to every other seller.
  await call(owner,commercialPost,'commercial',{action:'account_archive',accountId,archived:true,reason:'Permission archive test'});
+ // The /sales/:id detail (a single-management lookup) and the communication by management are READ paths: the responsible seller reads them
+ // read-only, a colleague gets nothing, the admin keeps full access, and lists keep hiding the archived business from sellers.
+ const detailUrl='leads?entity=opportunity&page=1&pageSize=10&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'id',operator:'eq',value:String(archivedLead)}]}]));
+ const ownerDetail=(await call(owner,list,detailUrl)).rows;
+ assert.equal(ownerDetail.length,1,'the responsible seller opens the management of her archived business');assert.equal(ownerDetail[0].canModify,false,'read-only for her');assert.equal(ownerDetail[0].accountArchived,true);
+ assert.equal((await call(other,list,detailUrl)).rows.length,0,'a colleague does not get the management of an archived business');
+ const adminDetail=(await call(admin,list,detailUrl)).rows;assert.equal(adminDetail.length,1);assert.equal(adminDetail[0].canModify,true,'the admin keeps modifying it');
+ assert.equal((await call(owner,list,'leads?entity=opportunity&page=1&pageSize=100&q='+encodeURIComponent('Archived management '+suffix))).rows.length,0,'the management list still hides archived businesses from sellers');
+ const archivedCommunication=await call(owner,communicationGet,'communication?leadId='+archivedLead);
+ assert(archivedCommunication.responses.some((r:any)=>r.id===archivedResponse),'the responsible seller reads the communication of her archived management');
+ await call(other,communicationGet,'communication?leadId='+archivedLead,undefined,403);
+ assert((await call(admin,communicationGet,'communication?leadId='+archivedLead)).responses.some((r:any)=>r.id===archivedResponse));
+ for(const [handler,url] of [[commercialGet,'commercial?leadId='+archivedLead],[notes,'lead_notes?leadId='+archivedLead],[journal,'lead_journal?leadId='+archivedLead],[pipelineGet,'pipeline?leadId='+archivedLead]] as const){await call(owner,handler,url);await call(other,handler,url,undefined,403);}
+ // Reading never opens a write: every mutation of that management and its communication stays rejected for both sellers.
+ const archivedRevision=(await call(admin,pipelineGet,'pipeline?leadId='+archivedLead)).insights[0].pipelineRevision as number;
+ const archivedWrites:[(r:Request)=>Promise<Response>,string,unknown][]=[
+  [commercialPost,'commercial',{action:'opportunity_save',accountId,id:archivedLead,opportunityName:'Unauthorized management'}],
+  [quick,'leads_quick',{id:archivedLead,accountId,scope:'management',field:'origen',value:'Unauthorized origin',expectedValue:null}],
+  [save,'leads_save',{id:archivedLead,nombre:'Unauthorized legacy edit'}],
+  [legacy,'leads',{id:archivedLead,nombre:'Unauthorized compatibility edit'}],
+  [note,'lead_notes',{leadId:archivedLead,note:'Unauthorized note'}],
+  [remove,'leads_delete',{id:archivedLead}],
+  [bulk,'leads_bulk',{entity:'opportunity',ids:[archivedLead],changes:{prioridad:'alta'}}],
+  [bulkRemove,'leads_bulk_delete',{entity:'opportunity',ids:[archivedLead]}],
+  [leadContact,'lead_contact',{leadId:archivedLead,channel:'phone',result:'Respondió'}],
+  [workPost,'work',{action:'task_save',accountId,leadId:archivedLead,title:'Unauthorized task',typeId:'call',dueDate:'2027-01-15'}],
+  [workPost,'work',{action:'activity_save',accountId,leadId:archivedLead,title:'Unauthorized call',typeId:'call',occurredAt:new Date().toISOString(),outcome:'interested',continuation:'done'}],
+  [communicationPost,'communication',{action:'prepare',id:crypto.randomUUID(),leadId:archivedLead,channel:'email',contactId,templateId:null}],
+  [communicationPost,'communication',{action:'prepare_general',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId,channel:'whatsapp',purpose:'resume',otherPurpose:null,templateId:null}],
+  [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:'+54 9 3447 412345',recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
+  [communicationPost,'communication',{action:'response_create',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Unauthorized response',exactText:null,otherDetail:null}],
+  [communicationPost,'communication',{action:'response_correct',id:archivedResponse,category:'other',summary:'Unauthorized correction',exactText:null,otherDetail:'Changed',reason:'Unauthorized correction'}],
+  [resourcesPost,'resources',{action:'link',id:documentId,accountId,leadId:archivedLead,activityId:null}],
+  [pipelinePost,'pipeline',{action:'transition',leadId:archivedLead,revision:archivedRevision,stage:'main:contacted'}],
+  [pipelinePost,'pipeline',{action:'unrefer',leadId:archivedLead,revision:archivedRevision}],
+ ];
+ const archivedSnapshotOf=async()=>({leads:await db.selectFrom('leads').selectAll().where('accountId','=',accountId).orderBy('id').execute(),notes:await db.selectFrom('leadNotes').select('id').where('leadId','=',archivedLead).execute(),tasks:await db.selectFrom('crmTasks').select('id').where('accountId','=',accountId).execute(),activities:await db.selectFrom('crmActivities').select('id').where('accountId','=',accountId).execute(),messages:(await sql`SELECT id FROM crm_messages WHERE account_id=${accountId}`.execute(db)).rows,responses:(await sql`SELECT id,category,summary FROM crm_communication_responses WHERE account_id=${accountId}`.execute(db)).rows,links:(await sql`SELECT id FROM crm_document_links WHERE account_id=${accountId}`.execute(db)).rows});
+ const beforeArchivedWrites=await archivedSnapshotOf();
+ for(const seller of [owner,other])for(const [handler,url,body] of archivedWrites)await call(seller,handler,url,body,403);
+ assert.deepEqual(await archivedSnapshotOf(),beforeArchivedWrites,'no rejected write changed the management of the archived business');
+ await call(admin,note,'lead_notes',{leadId:archivedLead,note:'Admin note on an archived management'});
  const archivedReads=[[commercialGet,'commercial?accountId='+accountId],[commercialGet,'commercial?accountId='+accountId+'&historyPage=1'],[qualityGet,'dataQuality?accountId='+accountId],[communicationGet,'communication?accountId='+accountId],[resourcesGet,'resources?accountId='+accountId],[workGet,'work?mode=detail&accountId='+accountId]] as const;
  for(const [handler,url] of archivedReads){await call(owner,handler,url);await call(other,handler,url,undefined,403);}
  for(const seller of [owner,other]){
