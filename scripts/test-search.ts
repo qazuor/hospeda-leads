@@ -5,12 +5,13 @@ import superjson from 'superjson';
 import { db } from '../src/helpers/db';
 import { setServerSession } from '../src/helpers/getSetServerSession';
 import { normalizeSearchText } from '../src/helpers/searchText';
-import { normalizeSearchSql, searchSql } from '../src/helpers/searchSql';
-import { handle as leads } from '../src/endpoints/leads_GET';
+import { multiFieldSearchSql, normalizeSearchSql, searchSql } from '../src/helpers/searchSql';
+import { handle as leads, managementSearchSql } from '../src/endpoints/leads_GET';
+import { businessTableSource, businessSearchSql } from '../src/helpers/businessTable';
 import { handle as trash } from '../src/endpoints/leads_trash_GET';
 import { handle as journal } from '../src/endpoints/lead_journal_GET';
 import { get as commercial } from '../src/endpoints/commercial';
-import {get as search} from '../src/endpoints/search';
+import {get as search, managementPaletteSearchSql} from '../src/endpoints/search';
 import {post as changeBusiness} from '../src/endpoints/commercial';
 import {get as resources} from '../src/endpoints/resources';
 import { get as work } from '../src/endpoints/work';
@@ -174,8 +175,57 @@ try {
   assert.equal((await get(commercial,'commercial',{q:account.nombre},admin.cookie)).total,0);
   assert.equal((await get(commercial,'commercial',{q:account.nombre,archived:'true'},admin.cookie)).total,1,'Restore preserves previous archive state');
   assert.equal((await db.selectFrom('leads').select('opportunityName').where('id', '=', proposal.id).executeTakeFirstOrThrow()).opportunityName, `${marker} Gastronomía`, 'Search never rewrites stored values');
-  // Migration 032 indexes the exact normalizeSearchSql() expression; if the helper drifts, the planner can no longer use them.
-  const indexed: Record<string, [string, string[]]> = { crm_accounts_search_trgm: ['crm_accounts', ['nombre', 'email', 'telefono', 'ciudad', 'business_notes']], crm_contacts_search_trgm: ['crm_contacts', ['name', 'email', 'phone']], crm_activities_search_trgm: ['crm_activities', ['title', 'notes', 'result']], lead_notes_search_trgm: ['lead_notes', ['note']] };
+  // Ctrl+K Gestiones and the business list match per-table id sets (idSetSearchSql). They must select exactly the rows of
+  // the joined predicate they replaced (still the opportunity-list predicate), over every row, not only the first page.
+  const eq = await db.insertInto('crmAccounts').values([
+    { nombre: `${marker} origen cuenta`, origin: `${marker} Feria Ñandú`, assignedUserEmail: reader.user.email },
+    { nombre: `${marker} orden contactos`, assignedUserEmail: reader.user.email },
+    { nombre: `${marker} sin contactos`, assignedUserEmail: reader.user.email },
+    { nombre: `${marker} con contactos`, telefono: '0343 15 466-1122', assignedUserEmail: reader.user.email },
+  ]).returningAll().execute();
+  // A business origin wins the coalesce over the management's origen; a management contact_name applies only without an active contact.
+  await db.insertInto('leads').values([
+    { accountId: eq[0].id, nombre: eq[0].nombre, origen: `${marker} referido Peña`, serviceInterest: `${marker} pauta anual`, estado: 'Cargado' },
+    { accountId: eq[1].id, nombre: eq[1].nombre, origen: `${marker} referido Peña`, contactName: `${marker} Muñoz propio`, estado: 'Cargado' },
+    { accountId: eq[2].id, nombre: eq[2].nombre, contactName: `${marker} Muñoz propio`, estado: 'Cargado' },
+    { accountId: eq[3].id, nombre: eq[3].nombre, contactName: `${marker} Muñoz propio`, estado: 'Cargado' },
+  ]).execute();
+  // Saving a management contact_name creates the business's primary contact; remove those so each case below is explicit.
+  await db.updateTable('crmContacts').set({ deletedAt: new Date() }).where('accountId', 'in', eq.map(a => a.id)).execute();
+  // Only the primary active contact (is_primary first, then lowest id) supplies contact_name: not a secondary or a deleted one.
+  await db.insertInto('crmContacts').values([
+    { accountId: eq[1].id, name: `${marker} Primera Albañil` }, { accountId: eq[1].id, name: `${marker} Segunda Quiñones` },
+    { accountId: eq[2].id, name: `${marker} Borrado Núñez`, isPrimary: true, deletedAt: new Date() },
+    { accountId: eq[3].id, name: `${marker} Secundaria Zúñiga` }, { accountId: eq[3].id, name: `${marker} Titular Ibáñez`, isPrimary: true },
+  ]).execute();
+  const terms = [marker, `${marker} colon`, `${marker} COLÓN`, `${marker} Colo\u0301n`, 'colon', 'concepcion del', 'caña', 'cana', 'can\u0303a', 'gastronomia', 'jose',
+    'reunion pinguino', `${marker} peña`, `${marker} pena`, 'feria ñandu', 'nandu', 'pauta anual', 'muñoz', 'munoz', 'ibañez', 'zuñiga', 'quiñones', 'albañil', 'nuñez',
+    '3515551234', '+54 9 351 555-1234', '0351 15 555 1234', '5551234', '4444', '2994447788', '0343 466 1122', `${marker} 12`, '12', 'ñ', 'a', 'ña', '%', '_', '   ',
+    'ribera', 'gomez', 'plan anual 12', 'a b c d e f'];
+  const ids = (rows: { key: unknown }[]) => rows.map(row => String(row.key)).sort();
+  let matchedTerms = 0;
+  for (const term of terms) {
+    for (const includeDeleted of [false, true]) {
+      const business = (predicate: typeof managementSearchSql) => db.selectFrom(businessTableSource(includeDeleted).as('leads')).select(sql<string>`account_id || ':' || id`.as('key')).where(predicate(term)).execute();
+      const [before, after] = [ids(await business(managementSearchSql)), ids(await business(businessSearchSql))];
+      assert.deepEqual(after, before, `business list "${term}" (includeDeleted=${includeDeleted})`);
+      if (before.length && !includeDeleted) matchedTerms++;
+    }
+    const palette = (predicate: typeof managementSearchSql) => sql<{ key: string }>`SELECT l.id AS key FROM leads l JOIN crm_accounts a ON a.id=l.account_id WHERE ${predicate(term)}`.execute(db);
+    const before = ids((await palette(q => multiFieldSearchSql(['l.opportunity_name', 'l.service_interest', 'l.nombre', 'a.nombre', 'a.ciudad'], q))).rows);
+    assert.deepEqual(ids((await palette(managementPaletteSearchSql)).rows), before, `Ctrl+K Gestiones "${term}"`);
+  }
+  assert(matchedTerms >= 25, `equivalence terms must hit rows (${matchedTerms})`);
+  const businessMatch = async (term: string) => (await get(leads, 'leads', { entity: 'business', q: term, pageSize: '100' })).rows.map((r: { accountId: string }) => String(r.accountId)).sort();
+  assert.deepEqual(await businessMatch(`${marker} muñoz`), [String(eq[2].id)], 'management contact_name only without an active contact');
+  assert.deepEqual(await businessMatch(`${marker} peña`), [String(eq[1].id)], 'management origen only without a business origin');
+  assert.deepEqual(await businessMatch(`${marker} ibañez`), [String(eq[3].id)]);
+  assert.deepEqual(await businessMatch(`${marker} zuñiga`), [], 'secondary contacts are not the projected contact');
+  assert.deepEqual(await businessMatch(`${marker} albañil`), [String(eq[1].id)], 'without is_primary the lowest id is the primary contact');
+  assert.deepEqual(await businessMatch(`${marker} feria nandu`), [], 'ñ stays distinct from n through the id sets');
+  assert((await get(search, 'search', { q: `${marker} pauta anual` })).results.some((r: { id: string }) => r.id.startsWith('lead:')), 'Ctrl+K Gestiones matches service_interest');
+  // Migrations 032 and 034 index the exact normalizeSearchSql() expression; if the helper drifts, the planner can no longer use them.
+  const indexed: Record<string, [string, string[]]> = { crm_accounts_search_trgm: ['crm_accounts', ['nombre', 'email', 'telefono', 'ciudad', 'business_notes']], crm_contacts_search_trgm: ['crm_contacts', ['name', 'email', 'phone']], crm_activities_search_trgm: ['crm_activities', ['title', 'notes', 'result']], lead_notes_search_trgm: ['lead_notes', ['note']], leads_search_trgm: ['leads', ['nombre', 'opportunity_name', 'service_interest', 'contact_name', 'origen']], crm_accounts_origin_search_trgm: ['crm_accounts', ['origin']] };
   for (const [index, [table, columns]] of Object.entries(indexed)) for (const column of columns) await db.transaction().execute(async tx => {
     await sql`SET LOCAL enable_seqscan = off`.execute(tx);
     const plan = (await sql<{ 'QUERY PLAN': string }>`EXPLAIN SELECT 1 FROM ${sql.table(table)} AS t WHERE ${searchSql(`t.${column}`, 'Colón ñandú')}`.execute(tx)).rows.map(row => row['QUERY PLAN']).join('\n');

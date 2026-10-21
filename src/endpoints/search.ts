@@ -3,9 +3,11 @@ import superjson from 'superjson';
 import {db} from '../helpers/db';
 import {getServerUserSession} from '../helpers/getServerUserSession';
 import {NotAuthenticatedError} from '../helpers/getSetServerSession';
-import {searchSql,multiFieldSearchSql} from '../helpers/searchSql';
+import {searchSql,multiFieldSearchSql,idSetSearchSql} from '../helpers/searchSql';
 import {searchQuery,type SearchResult} from './search.schema';
 const response=(value:unknown,status=200)=>new Response(superjson.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
+/** Ctrl+K Gestiones match over `leads l JOIN crm_accounts a`: the words of multiFieldSearchSql(['l.opportunity_name','l.service_interest','l.nombre','a.nombre','a.ciudad'],q), read per table (id sets) so each trigram index applies. */
+export const managementPaletteSearchSql=(q:string)=>idSetSearchSql([{key:'l.id',from:sql`leads s`,id:'s.id',columns:['s.opportunity_name','s.service_interest','s.nombre']},{key:'l.account_id',from:sql`crm_accounts s`,id:'s.id',columns:['s.nombre','s.ciudad']}],q);
 export async function get(request:Request){
  try{
   const {user}=await getServerUserSession(request);
@@ -16,7 +18,7 @@ export async function get(request:Request){
   const ownOrActive=sql`a.deleted_at IS NULL AND a.merged_into_id IS NULL AND (a.archived_at IS NULL OR ${user.role==='admin'} OR a.assigned_user_email=${user.email})`;
   const queries=[
    sql<SearchResult>`SELECT 'business:'||a.id AS id,'Negocios' AS kind,a.nombre AS label,CASE WHEN a.archived_at IS NULL THEN coalesce(a.ciudad,'') ELSE concat_ws(' · ',nullif(a.ciudad,''),'Archivado') END AS description,'/accounts/'||a.id AS url FROM crm_accounts a WHERE ${ownOrActive} AND ${multiFieldSearchSql(['a.nombre','a.email','a.telefono','a.ciudad'],q,{phoneColumns:['a.telefono','a.whatsapp']})} ORDER BY a.nombre,a.id LIMIT 8`,
-   sql<SearchResult>`SELECT 'lead:'||l.id AS id,'Gestiones' AS kind,coalesce(l.opportunity_name,l.nombre) AS label,a.nombre AS description,'/sales/'||l.id AS url FROM leads l JOIN crm_accounts a ON a.id=l.account_id WHERE ${accounts} AND l.deleted_at IS NULL AND ${multiFieldSearchSql(['l.opportunity_name','l.service_interest','l.nombre','a.nombre','a.ciudad'],q)} ORDER BY l.updated_at DESC,l.id LIMIT 8`,
+   sql<SearchResult>`SELECT 'lead:'||l.id AS id,'Gestiones' AS kind,coalesce(l.opportunity_name,l.nombre) AS label,a.nombre AS description,'/sales/'||l.id AS url FROM leads l JOIN crm_accounts a ON a.id=l.account_id WHERE ${accounts} AND l.deleted_at IS NULL AND ${managementPaletteSearchSql(q)} ORDER BY l.updated_at DESC,l.id LIMIT 8`,
    sql<SearchResult>`SELECT 'contact:'||c.id AS id,'Contactos' AS kind,c.name AS label,a.nombre AS description,'/accounts/'||a.id||'?section=contacts&contactId='||c.id AS url FROM crm_contacts c JOIN crm_accounts a ON a.id=c.account_id WHERE ${accounts} AND c.deleted_at IS NULL AND ${multiFieldSearchSql(['c.name','c.email','c.phone'],q,{phoneColumns:['c.phone']})} ORDER BY c.name,c.id LIMIT 8`,
    sql<SearchResult>`SELECT 'note:'||n.id AS id,'Notas' AS kind,left(regexp_replace(n.note,'<[^>]*>','','g'),120) AS label,a.nombre||' · '||coalesce(l.opportunity_name,'Gestión') AS description,'/sales/'||l.id AS url FROM lead_notes n JOIN leads l ON l.id=n.lead_id JOIN crm_accounts a ON a.id=l.account_id WHERE ${accounts} AND l.deleted_at IS NULL AND ${searchSql('n.note',q)} ORDER BY n.created_at DESC,n.id LIMIT 8`,
    sql<SearchResult>`SELECT 'business-note:'||a.id AS id,'Notas' AS kind,left(a.business_notes,120) AS label,a.nombre AS description,'/accounts/'||a.id AS url FROM crm_accounts a WHERE ${accounts} AND ${searchSql('a.business_notes',q)} ORDER BY a.updated_at DESC,a.id LIMIT 8`,
