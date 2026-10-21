@@ -41,7 +41,7 @@ describe('createShutdown',()=>{
 describe('server entrypoint',()=>{
   it('exits 0 on SIGTERM once started',async()=>{
     const port=String(await freePort());
-    const child=spawn(process.execPath,['--import','tsx','--input-type=module','-e',"await import('./src/server/index.ts')"],{env:{...process.env,PORT:port,DATABASE_URL:'postgres://x:x@127.0.0.1:1/x',JWT_SECRET:'test-secret',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']});
+    const child=spawn(process.execPath,['--import','tsx','--input-type=module','-e',"await import('./src/server/index.ts')"],{env:{...process.env,PORT:port,DATABASE_URL:'postgres://x:x@127.0.0.1:1/x',JWT_SECRET:'shutdown-spec-secret-0123456789abcdef',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']});
     let out='';child.stdout.on('data',(d)=>out+=d);child.stderr.on('data',(d)=>out+=d);
     const exited=new Promise<number|null>((r)=>child.on('exit',(code)=>r(code)));
     const started=Date.now();while(!out.includes('listening')&&Date.now()-started<20000&&child.exitCode===null)await sleep(100);
