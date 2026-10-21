@@ -79,6 +79,7 @@ test.describe('mobile dialogs and touch targets',()=>{
   // The business list in table view shares the same checkbox.
   await page.goto('/accounts');
   await page.getByRole('button',{name:'Tabla',exact:true}).click();
+  await page.getByPlaceholder(/Buscar/).first().fill(name);
   const businessRow=page.getByRole('row').filter({hasText:name});
   await expect(businessRow).toBeVisible();
   expect(await hasTouchArea(businessRow.getByRole('checkbox'))).toBe(true);
