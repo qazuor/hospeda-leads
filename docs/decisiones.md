@@ -73,7 +73,6 @@ Revisión de usabilidad para vendedores sin experiencia en CRM. Decisiones del 2
 - **Ctrl/Cmd+K y archivados (21/10, valor por defecto del coordinador).** Muestra los negocios archivados («· Archivado») a su responsable actual y a admins; nunca los de Papelera ni fusionados; los colegas no ven los archivados ajenos.
 - **Primeros pasos en Hoy (21/10, valor por defecto del coordinador).** «Contactá a un negocio» cuenta solo envíos confirmados (enviado manualmente, aceptado, entrega confirmada, respondido) o una actividad con resultado de contacto real. Un intento sin respuesta tilda solo «Anotá cómo salió». Abrir WhatsApp, guardar borradores o no enviar nunca cuentan.
 - **Sin email diario (20/10, decisión 10B)** por ahora.
-- **ABIERTA — registrar un contacto pasado en un negocio No contactar.** Con `manual_complete` o `interaction_correct` y `manual_sent` sobre un mensaje de propósito `care`, `markClientForCare` marca `is_client=true` (`communicationService.ts`). El propietario debe decidir si se permite (registra lo que pasó) o se bloquea para no admins (pendiente desde la revisión de #192).
 - Flujo de integración: cada PR a `staging` con CI verde y revisión fresca; nunca a `main` (decisión 11).
 
 ## Archivo, Papelera y metadatos recuperados
