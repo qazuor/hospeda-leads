@@ -56,4 +56,15 @@ describe('CrmDialog Escape', () => {
     fireEvent.keyDown(screen.getByLabelText('Dato'), { key: 'Escape', code: 'Escape' });
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('does not touch the document when the focus-restore timer fires after the environment is gone', () => {
+    const view = render(<MantineProvider><CrmDialog opened onClose={() => {}} title="Cerrar"><input aria-label="Dato" /></CrmDialog></MantineProvider>);
+    const timers = vi.spyOn(window, 'setTimeout');
+    view.unmount();
+    const restore = timers.mock.calls.filter(([, delay]) => delay === 10).map(([callback]) => callback as () => void);
+    timers.mockRestore();
+    expect(restore.length).toBeGreaterThan(0);
+    vi.stubGlobal('document', undefined);
+    try { for (const callback of restore) expect(callback).not.toThrow(); } finally { vi.unstubAllGlobals(); }
+  });
 });

@@ -20,6 +20,8 @@ export function CrmDialog({ opened, onClose, title, description, children, busy 
   const opener = useRef(returnFocusTo ?? (typeof document === 'undefined' ? null : document.activeElement as HTMLElement));
   useEffect(() => () => {
     window.setTimeout(() => {
+      // The timer outlives the unmount on purpose (focus returns after removal); it must not run once the document is gone (test teardown, navigation).
+      if (typeof document === 'undefined') return;
       if (opener.current?.isConnected && document.activeElement === document.body
         && !document.querySelector('[role="dialog"][aria-modal="true"]')) {
         opener.current.focus({ preventScroll: true });
