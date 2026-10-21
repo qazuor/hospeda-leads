@@ -10,16 +10,18 @@ const continuation=z.enum(['task','wait','done']).optional();
 const continuationReason=z.string().trim().min(3,'Contá en pocas palabras por qué no agendás nada.').max(500).optional();
 /** The prepared message a contact outcome belongs to, and the seller's explicit answer to "¿Lo enviaste?" (never inferred). */
 const messageLink={messageId:z.string().uuid().optional(),messageSent:z.boolean().optional()};
+/** Decision 9A: the seller's explicit "¿Pasar la gestión a …?" answer. Never sent unless she ticked the box; the server re-derives the suggestion and checks the revision she saw. */
+const stageChange=z.object({stage:z.string().trim().min(1).max(120),revision:z.number().int().min(0)}).optional();
 const nextTask=z.object({purpose:purpose.optional(),title:z.string().trim().min(1).max(200),dueDate:day,typeId:z.string().min(1).max(80)}).optional();
 const common={purpose:purpose.optional(),id:id.optional(),accountId:id,leadId:id.nullable().optional(),title:z.string().trim().min(1).max(200),typeId:z.string().min(1).max(80),participants:z.string().max(2000).default(''),contactIds:z.array(id).max(50).default([])};
 export const followupSettings=z.object({action:z.literal('followup_settings'),stages:z.array(z.string().trim().min(1)).max(50),newAssignmentDays:z.number().int().min(1).max(90)});
 export const workMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('task_save'),...common,description:z.string().max(10000).nullable().optional(),assignedUserEmail:z.string().email().nullable().optional(),dueDate:day,dueAt:instant.nullable().optional(),priority:z.enum(['alta','media','baja']).default('media')}),
- z.object({action:z.literal('task_status'),id,status:z.enum(['completed','cancelled']),purpose:purpose.optional(),contactIds:z.array(id).max(50).optional(),channel:z.string().max(100).nullable().optional(),outcome,continuation,continuationReason,nextTask,result:z.string().trim().min(1).max(4000),completedAt:instant.optional(),...messageLink}),
+ z.object({action:z.literal('task_status'),id,status:z.enum(['completed','cancelled']),purpose:purpose.optional(),contactIds:z.array(id).max(50).optional(),channel:z.string().max(100).nullable().optional(),outcome,continuation,continuationReason,nextTask,result:z.string().trim().min(1).max(4000),completedAt:instant.optional(),stageChange,...messageLink}),
  z.object({action:z.literal('task_delete'),id}),
  /** Moves only the due date/time; `expected*` is what the client saw, so a concurrent change answers 409 instead of being overwritten. */
  z.object({action:z.literal('task_reschedule'),id,expectedDueDate:day,expectedDueAt:instant.nullable(),dueDate:day,dueAt:instant.nullable()}),
- z.object({action:z.literal('activity_save'),...common,occurredAt:instant,outcome,continuation,continuationReason,nextTask,channel:z.string().max(100).nullable().optional(),result:z.string().max(4000).nullable().optional(),notes:z.string().max(10000).nullable().optional(),...messageLink}),
+ z.object({action:z.literal('activity_save'),...common,occurredAt:instant,outcome,continuation,continuationReason,nextTask,channel:z.string().max(100).nullable().optional(),result:z.string().max(4000).nullable().optional(),notes:z.string().max(10000).nullable().optional(),stageChange,...messageLink}),
  z.object({action:z.literal('activity_delete'),id}),
  followupSettings,
  z.object({action:z.literal('type_save'),id:z.string().regex(/^[a-z][a-z0-9_-]{0,79}$/),name:z.string().trim().min(1).max(100),agenda:z.boolean(),active:z.boolean()})
@@ -31,8 +33,8 @@ export interface WorkActivity {continuation?:'task'|'wait'|'done'|null;continuat
 export interface WorkData {
  tasks:WorkTask[];activities:WorkActivity[];
  types:{id:string;name:string;agenda:boolean;active:boolean}[];
- accounts:{id:string;nombre:string;ciudad:string|null;assignedUserEmail:string|null}[];
- opportunities:{id:string;accountId:string;opportunityName:string|null;tipo:string|null;estado:string|null;assignedUserEmail:string|null;createdAt:Date;fechaUltimoContacto:Date|null}[];
+ accounts:{id:string;nombre:string;ciudad:string|null;assignedUserEmail:string|null;doNotContact?:boolean}[];
+ opportunities:{id:string;accountId:string;opportunityName:string|null;tipo:string|null;estado:string|null;/** Type and revision feed the optional stage suggestion (decision 9A); the server re-checks both. */managementType:string|null;pipelineRevision:number;assignedUserEmail:string|null;createdAt:Date;fechaUltimoContacto:Date|null}[];
  contacts:{id:string;accountId:string;name:string}[];
  users:{email:string;displayName:string}[];
  attention:{id:string;accountId:string;nombre:string;opportunityName:string|null;reason:string}[];
