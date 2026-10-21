@@ -54,3 +54,24 @@ test('a past date needs its own confirmation and completing a purposeless task f
  await dialog.getByRole('button',{name:'Guardar resultado',exact:true}).click();await expect(dialog).toHaveCount(0);
  expect(writes).toHaveLength(1);expect(writes[0]).toMatchObject({action:'task_status',id:taskId,status:'completed',purpose:'care'});
 });
+
+test('a task changed by someone else while editing keeps what she typed and offers the latest version (#180)',async({page})=>{
+ test.setTimeout(120000);await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
+ async function api(endpoint:string,body?:unknown){const r=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return{status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(r.status,r.text).toBe(200);return superjson.parse<any>(r.text)}
+ const accountId=(await api('commercial',{action:'account_save',nombre:'Edición simultánea '+Date.now(),assignedUserEmail:'admin@example.com'})).id;
+ const title='Confirmar visita '+Date.now(),theirs=title+' (cambiada por otra persona)',mine=title+' con lo que escribí';
+ const taskId=(await api('work',{action:'task_save',accountId,title,typeId:'followup',dueDate:localDay()})).id;
+ const task=async()=>(await api('work?mode=detail&responsible=all&accountId='+accountId+'&taskId='+taskId)).tasks[0];
+ await page.goto('/my-day?accountId='+accountId+'&taskId='+taskId);const row=page.locator('article').filter({has:page.getByText(title,{exact:true})});await row.getByRole('button',{name:'Más acciones de '+title,exact:true}).click();await page.getByRole('menuitem',{name:'Cambiar fecha o datos',exact:true}).click();
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Título',{exact:true}).fill(mine);
+ // Someone else saves the same task from another editor before she does.
+ await api('work',{action:'task_save',id:taskId,accountId,title:theirs,typeId:'followup',dueDate:localDay(),expectedUpdatedAt:(await task()).updatedAt.toISOString()});
+ await dialog.getByRole('button',{name:'Guardar cambios',exact:true}).click();
+ await expect(dialog.getByRole('alert').filter({hasText:'otra persona cambió esta tarea'})).toContainText('Lo que escribiste sigue acá');
+ await expect(dialog.getByLabel('Título',{exact:true})).toHaveValue(mine);expect((await task()).title).toBe(theirs);
+ await dialog.getByRole('button',{name:'Cargar la versión más reciente',exact:true}).click();
+ await expect(dialog.getByLabel('Título',{exact:true})).toHaveValue(theirs);await expect(dialog.getByRole('alert').filter({hasText:'otra persona cambió esta tarea'})).toHaveCount(0);
+ await dialog.getByLabel('Título',{exact:true}).fill(mine);await dialog.getByRole('button',{name:'Guardar cambios',exact:true}).click();await expect(dialog).toHaveCount(0);
+ expect((await task()).title).toBe(mine);
+});
