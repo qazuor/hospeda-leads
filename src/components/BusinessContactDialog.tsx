@@ -10,6 +10,7 @@ import {ContactTemplateDialog} from './ContactTemplateDialog';
 import {GeneralMessageStep} from './GeneralMessageStep';
 import {PhoneCallPanel,useCallSession} from './PhoneCallPanel';
 import {Checkbox} from './Checkbox';
+import {PersonPhoneDncNotice} from './PersonPhoneDncWarning';
 import {Input} from './Input';
 import {ManualCommunicationForm} from './ManualCommunicationForm';
 import {getPipeline} from '../endpoints/pipeline.schema';
@@ -89,6 +90,7 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
     {manualChannel&&<p>Se creará un intento pendiente. El CRM no enviará el mensaje; al terminar, registrá si se realizó o quedó sin contacto.</p>}
     <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!!contactReason} disabledReason={contactReason} onClick={()=>manualChannel?setManualContact(true):general?setGeneralMessage(true):setComposing(true)}>{manualChannel?(channel==='social'?'Continuar con red social':'Continuar con otro canal'):'Continuar con el mensaje'}</Button>
    </>}
+   {channel!=='call'&&channel!=='email'&&<PersonPhoneDncNotice businesses={activeContacts.find(c=>initialContactId&&String(c.id)===initialContactId)?.dncPhoneBusinesses}/>}
    {archived&&<p role="status">Un administrador debe desarchivar este negocio antes de iniciar un contacto.</p>}
    {opportunity&&!canModifyManagement(user,opportunity,detail.account)&&<p>Solo el responsable de esta gestión o un administrador puede preparar sus mensajes.</p>}
    {detail.account.doNotContact&&<p role="alert">Este negocio pidió no recibir contactos. Revisá su restricción antes de continuar.</p>}

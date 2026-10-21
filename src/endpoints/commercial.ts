@@ -2,7 +2,7 @@ import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertContactDataWritable,assertLeadAccess,canEditBusinessContactData,hasOpenManagement} from '../helpers/crmPermissions';
-import {findNewDncBlocker,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
+import {findNewDncBlocker,findDncPhoneBusinessesForPeople,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {parseBody} from '../helpers/parseBody';
@@ -56,7 +56,8 @@ export async function get(request:Request){
         sql`SELECT e.id,e.lead_id AS "leadId",e.action,e.actor_email AS "actorEmail",coalesce(u.display_name,e.actor_email,'Sistema') AS "actorName",e.old_stage AS "oldStage",e.new_stage AS "newStage",e.comment,e.metadata,e.created_at AS "createdAt" FROM crm_pipeline_events e LEFT JOIN users u ON u.email=e.actor_email WHERE e.account_id IN (${sql.join(family.map(id=>sql`${id}::bigint`))}) AND e.lead_id IS NOT NULL AND e.action='stage' ORDER BY e.created_at DESC LIMIT 200`.execute(db),
         getOpportunityStages(db)
       ]);
-      return response({account,contacts,opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute(),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
+      const dncPhones=await findDncPhoneBusinessesForPeople(db,contacts.map(c=>({id:c.id,phone:c.phone})),accountId);
+      return response({account,contacts:contacts.map(c=>({...c,dncPhoneBusinesses:dncPhones.get(String(c.id))??[]})),opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute(),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
     }
     if((input.archived||input.deleted)&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados o eliminados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("deletedAt",input.deleted?"is not":"is",null);

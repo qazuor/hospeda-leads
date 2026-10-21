@@ -114,4 +114,21 @@ describe('PhoneCallPanel call session',()=>{
   await waitFor(()=>expect(postCommunication).toHaveBeenCalledTimes(2));
   const [first,second]=vi.mocked(postCommunication).mock.calls.map(c=>(c[0] as {id:string}).id);expect(second).toBe(first);
  });
+ it('warns, without blocking the call, when the chosen person\'s phone belongs to a No contactar business (D2)',async()=>{
+  const dnc={...ana,dncPhoneBusinesses:[{nombre:'Cabañas del Río',ciudad:'Colón'}]};
+  show({contacts:[dnc,leo],initialContactId:'7'});
+  const note=await screen.findByRole('note',{name:'Teléfono de un negocio No contactar'});
+  expect(note.textContent).toContain('Este teléfono es de un negocio que pidió no ser contactado: Cabañas del Río (Colón).');
+  expect(note.textContent).toContain('No uses este teléfono para contactar sin consultar a un administrador.');
+  await waitFor(()=>expect((screen.getByRole('button',{name:'Copiar número'}) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button',{name:'Copiar número'}));
+  await waitFor(()=>expect(navigator.clipboard.writeText).toHaveBeenCalledWith('+5493442000077'));
+  fireEvent.change(screen.getByLabelText('¿A quién llamás?'),{target:{value:'8'}});
+  await waitFor(()=>expect(screen.queryByRole('note',{name:'Teléfono de un negocio No contactar'})).toBeNull());
+ });
+ it('shows no notice for a person without a No contactar phone match',async()=>{
+  show({contacts:[{...ana,dncPhoneBusinesses:[]},leo],initialContactId:'7'});
+  await screen.findByLabelText('Número a llamar');
+  expect(screen.queryByRole('note')).toBeNull();
+ });
 });
