@@ -83,7 +83,7 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await dialog.getByLabel('Nota de la llamada (opcional)').fill('Llamada realizada para presentar Hospeda');
     await dialog.getByRole('button', { name: 'Ya llamé: anotar cómo salió', exact: true }).click();
     // The call goes straight to "¿Cómo salió?"; leaving it is never silent.
-    const outcome = page.getByRole('dialog', { name: 'Registrar actividad', exact: true });
+    const outcome = page.getByRole('dialog', { name: 'Anotar lo que pasó', exact: true });
     await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por llamada');
     await outcome.getByRole('button', { name: 'Volver', exact: true }).click();
     const leave = page.getByRole('dialog', { name: '¿Salir sin anotar cómo salió?', exact: true });

@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import superjson from 'superjson';
 import {localDay} from '../../src/helpers/workDates';
+import {pickOutcome} from './support/outcome';
 for(const width of [1280,390])test(`slow result prevents duplicate submissions and preserves the retry at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:844});await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());
@@ -17,12 +18,12 @@ for(const width of [1280,390])test(`slow result prevents duplicate submissions a
   await route.fulfill({contentType:'application/json',body:superjson.stringify(path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:path.endsWith('/work')?data:{})});
  });
  await page.goto('/my-day');await page.locator('article').filter({has:page.getByText('Consultar necesidades',{exact:true})}).getByRole('button',{name:'Anotar cómo salió',exact:true}).click();
- const dialog=page.getByRole('dialog');await dialog.getByRole('combobox',{name:'¿Qué pasó?',exact:true}).selectOption('interested');
+ const dialog=page.getByRole('dialog');await pickOutcome(dialog,'interested');
  const review=dialog.getByRole('region',{name:'Revisión del resultado',exact:true});
  await expect(review).toContainText('Respondió, le interesa');await expect(review).toContainText('Ana');await expect(review).toContainText('Falta elegir cómo continuar');
  await dialog.getByRole('textbox',{name:'Detalles del resultado',exact:true}).fill('Pidió una propuesta para su equipo');
- await dialog.getByRole('button',{name:'Planificar una acción con fecha',exact:true}).click();await dialog.getByLabel('Qué hay que hacer',{exact:true}).fill('Revisar la propuesta con Ana');await dialog.getByLabel('Cuándo',{exact:true}).fill('18/01/2027');
- await expect(review).toContainText('Revisar la propuesta con Ana');await expect(review).toContainText('La etapa comercial se conserva');
+ await dialog.getByRole('button',{name:'Agendar tarea',exact:true}).click();await dialog.getByLabel('Qué hay que hacer',{exact:true}).fill('Revisar la propuesta con Ana');await dialog.getByLabel('Cuándo',{exact:true}).fill('18/01/2027');
+ await expect(review).toContainText('Revisar la propuesta con Ana');await expect(review).toContainText('La etapa de la gestión se conserva');
  await dialog.locator('form').evaluate(form=>{(form as HTMLFormElement).requestSubmit();(form as HTMLFormElement).requestSubmit();});await expect(dialog.getByRole('button',{name:'Guardando…',exact:true})).toBeDisabled();await expect(dialog.getByRole('textbox',{name:'Detalles del resultado',exact:true})).toBeDisabled();await page.keyboard.press('Escape');await expect(dialog).toBeVisible();await page.evaluate(()=>window.dispatchEvent(new CustomEvent('crm:navigate',{detail:'/accounts'})));await expect(page).toHaveURL(/my-day$/);await expect(page.getByRole('heading',{name:'Tenés cambios sin guardar',exact:true})).toHaveCount(0);await expect.poll(()=>writes.length).toBe(1);release();await expect(dialog.getByRole('alert')).toContainText('No se pudo guardar');await expect(dialog.getByRole('textbox',{name:'Detalles del resultado',exact:true})).toHaveValue('Pidió una propuesta para su equipo');await expect(dialog.getByLabel('Cuándo',{exact:true})).toHaveValue('18/01/2027');
  await page.screenshot({path:`test-results/loading-result-${width}.png`,fullPage:true});
  await dialog.getByRole('button',{name:'Guardar y programar',exact:true}).click();await expect(dialog).toHaveCount(0);expect(writes).toHaveLength(2);expect(writes[0]).toEqual(writes[1]);expect(writes[1]).toMatchObject({action:'task_status',id:'1',status:'completed',outcome:'interested',continuation:'task',contactIds:['1'],nextTask:{title:'Revisar la propuesta con Ana',dueDate:'2027-01-18'}});

@@ -78,6 +78,16 @@ describe('Mantine migration preserves CRM interactions', () => {
     fireEvent.click(control); expect(control.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(control); expect(control.getAttribute('aria-expanded')).toBe('true');
   });
+  it('opens a closed disclosure when a required field inside it fails validation, and focuses that field', async () => {
+    const changes: boolean[] = [];
+    mount(<form data-testid="form"><Disclosure onOpenChange={value => changes.push(value)}><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><button type="submit">Guardar</button></form>);
+    const control = screen.getByRole('button', { name: 'Fecha y canal' });
+    expect(control.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(control.getAttribute('aria-expanded')).toBe('true'));
+    expect(changes).toContain(true);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Fecha real')));
+  });
   it('requires resolving an unsaved message before changing tabs', async () => {
     function Example() { const [tab, setTab] = useState('message'); return <SectionTabs value={tab} onValueChange={setTab}>
       <SectionTabList><SectionTab value="message">Mensaje</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>

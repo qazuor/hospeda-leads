@@ -375,6 +375,11 @@ try{
  const trashed=await fresh('Papelera');const trashedCall=await pendingCall(trashed.id);await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',trashed.id).execute();
  const trashedLeadAccount=await blockedAccount('Gestión en papelera');const trashedLeadCall=await pendingCall(trashedLeadAccount.acc.id,trashedLeadAccount.lead.id);await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',trashedLeadAccount.lead.id).execute();
  ids=await pendingIds();for(const id of [archivedCall.id,trashedCall.id,trashedLeadCall.id])assert(!ids.includes(id));
+ // A No contactar response linked to the contact resolves it (the work editor records that answer as a response, not as an activity); a response of another category does not.
+ const dncAnswer=await fresh('Pidió no contactar');const dncAnswerCall=await pendingCall(dncAnswer.id),plainAnswerCall=await pendingCall(dncAnswer.id);
+ assert((await pendingIds()).includes(dncAnswerCall.id));
+ for(const [message,category] of [[dncAnswerCall,'do_not_contact'],[plainAnswerCall,'interested']] as const)await sql`INSERT INTO crm_communication_responses(id,account_id,original_account_id,channel,recipient,recipient_name,linked_message_id,category,summary,actor_email) VALUES(${crypto.randomUUID()}::uuid,${dncAnswer.id},${dncAnswer.id},'call','x','x',${message.id}::uuid,${category},'x',${user.user.email})`.execute(db);
+ ids=await pendingIds();assert(!ids.includes(dncAnswerCall.id),'A linked No contactar response resolves the contact');assert(ids.includes(plainAnswerCall.id),'Another response category does not');
  // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp.
  const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await pendingCall(laterAccount.id,null,'whatsapp_opened','whatsapp');
  assert((await pendingIds()).includes(laterCall.id));

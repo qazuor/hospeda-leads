@@ -48,9 +48,9 @@ test('a past date needs its own confirmation and completing a purposeless task f
  await dialog.getByRole('button',{name:'Guardar cambios',exact:true}).click();expect(writes).toHaveLength(0);await expect(dialog).toBeVisible();
  await dialog.getByRole('button',{name:'Volver',exact:true}).click();const leave=page.getByRole('button',{name:'Descartar cambios y salir',exact:true});if(await leave.isVisible())await leave.click();await expect(dialog).toHaveCount(0);
  await row.getByRole('button',{name:'Anotar cómo salió',exact:true}).click();dialog=page.getByRole('dialog');
- const purpose=dialog.getByRole('combobox',{name:'Propósito',exact:true});const what=dialog.getByRole('combobox',{name:'¿Qué pasó?',exact:true});
+ const purpose=dialog.getByRole('combobox',{name:'Propósito',exact:true});const what=dialog.locator('input[name="outcome"]').first();
  await expect(purpose).toHaveValue('');await expect(what).toBeDisabled();
- await purpose.selectOption('care');await expect(what).toBeEnabled();await what.selectOption('no_answer');await dialog.getByRole('combobox',{name:'¿Cómo sigue?',exact:true}).selectOption('done');await dialog.getByRole('combobox',{name:'¿Por qué no agendás nada?',exact:true}).selectOption('Ya tengo otra tarea agendada');
+ await purpose.selectOption('care');await expect(what).toBeEnabled();await dialog.locator('input[name="outcome"][value="no_answer"]').check();await dialog.getByRole('combobox',{name:'¿Cómo sigue?',exact:true}).selectOption('done');await dialog.getByRole('combobox',{name:'¿Por qué no agendás nada?',exact:true}).selectOption('Ya tengo otra tarea agendada');
  await dialog.getByRole('button',{name:'Guardar resultado',exact:true}).click();await expect(dialog).toHaveCount(0);
  expect(writes).toHaveLength(1);expect(writes[0]).toMatchObject({action:'task_status',id:taskId,status:'completed',purpose:'care'});
 });

@@ -53,5 +53,5 @@ export function OutcomeAfterContact({contact,onDone}:{contact:ContactOutcomeTarg
   {guard.confirmation}
  </CrmDialog>;
  return <WorkEditor data={lookup.data} leaveCopy={leaveWithoutOutcome(contact.messageStatus)} onSaved={()=>{saved.current=true}} onClose={()=>onDone(saved.current?'saved':'left')}
-  target={{kind:'activity',accountId:contact.accountId,leadId:contact.leadId??undefined,contactIds:contact.contactIds,channel:contactWorkChannel(contact.channel),purpose:contactWorkPurpose(contact.purpose),title:contactTitle(contact.channel),...(contact.messageId?{messageId:contact.messageId,messageSent:needsSentAnswer(contact.messageStatus)?sent:undefined}:{})}}/>;
+  target={{kind:'activity',accountId:contact.accountId,leadId:contact.leadId??undefined,contactIds:contact.contactIds,channel:contactWorkChannel(contact.channel),purpose:contactWorkPurpose(contact.purpose),title:contactTitle(contact.channel),...(contact.messageStatus==='manual_no_contact'?{outcome:'no_answer' as const}:{}),...(contact.messageId?{messageId:contact.messageId,messageSent:needsSentAnswer(contact.messageStatus)?sent:undefined}:{})}}/>;
 }
