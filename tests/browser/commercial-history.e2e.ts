@@ -26,9 +26,9 @@ for(const width of [1280,390])test(`commercial history separates conversations f
  await expect(page.getByText('Pidió una propuesta',{exact:true})).toBeVisible();
  await expect(page.getByText('WhatsApp abierto · envío no confirmado',{exact:true})).toBeVisible();
  await expect(page.getByText('Revisar propuesta',{exact:true})).toHaveCount(1);
- await expect(page.getByRole('heading',{name:'Auditoría de cambios',exact:true})).not.toBeVisible();
- await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Auditoría de cambios',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Cambios registrados',exact:true})).not.toBeVisible();
+ await page.getByRole('button',{name:'Cambios registrados en los datos',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Cambios registrados',exact:true})).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({path:`test-results/commercial-history-${width}.png`,fullPage:true});
  await page.goto('/accounts/1');await expect(page.getByRole('heading',{name:'Negocio de prueba',exact:true})).toBeVisible();

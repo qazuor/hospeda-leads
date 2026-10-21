@@ -50,7 +50,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('dialog').getByRole('button',{name:'Registrar cliente previo',exact:true}).click();
   await expect(page.getByText(/· Cliente ·/)).toBeVisible();
   await page.getByRole('tab',{name:'Qué pasó',exact:true}).click();
-  await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
+  await page.getByRole('button',{name:'Cambios registrados en los datos',exact:true}).click();
   const conversion=page.getByRole('button',{name:/Conversión a cliente/});await expect(conversion).toBeVisible();await conversion.click();
   await expect(page.getByText(/Motivo: Acuerdo anterior al uso del CRM/)).toBeVisible();
   await page.getByRole('tab',{name:/^Gestiones \(\d+\)$/}).click();
@@ -141,10 +141,10 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto(accountUrl+'?section=contacts');await expect(page.getByRole('tab',{name:/^Personas \(/})).toHaveAttribute('aria-selected','true');
   const contact=page.locator('article').filter({has:page.getByText('Ana',{exact:true})});
   await contact.getByRole('button',{name:'Quitar persona',exact:true}).click();
-  await page.getByRole('button',{name:'Confirmar baja',exact:true}).click();
+  await page.getByRole('button',{name:'Confirmar y quitar',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Personas (1)',exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Qué pasó',exact:true}).click();
-  await page.getByRole('button',{name:'Auditoría de cambios de datos',exact:true}).click();
+  await page.getByRole('button',{name:'Cambios registrados en los datos',exact:true}).click();
   await expect(page.locator('[data-kind="change"]').getByText('Persona quitada')).toBeVisible();
   await expect(page.locator('.mantine-Accordion-label').filter({hasText:/Persona quitada/})).toBeVisible();
   await page.getByText('Ayuda sobre negocios y gestiones',{exact:true}).click();await page.getByText('Cómo usar negocios, personas y gestiones',{exact:true}).click();
@@ -176,7 +176,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.screenshot({path:'test-results/business-first-list.png',fullPage:true,animations:'disabled'});
   await page.goto(legacyOpportunityUrl);
   await expect(page.getByRole('heading',{name:'Tercera gestión',exact:true})).toBeVisible();
-  await page.getByRole('link',{name:'← Volver a Gestiones comerciales',exact:true}).click();
+  await page.getByRole('link',{name:'← Volver a Gestiones',exact:true}).click();
   await page.goto('/?quick=all');
   await expect(page).toHaveURL(/\/accounts/);
   await page.getByRole('link',{name:'Negocios',exact:true}).click();

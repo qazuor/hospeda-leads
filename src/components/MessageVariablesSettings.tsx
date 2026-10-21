@@ -6,6 +6,7 @@ import { Button } from "./Button";
 import { Input } from "./Input";
 import { NativeSelect } from "./NativeSelect";
 import { useOperationGuard } from "../helpers/useOperationGuard";
+import {crmError} from '../helpers/crmErrors';
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import type { SettingsOutput } from "../endpoints/settings_GET.schema";
 import { defaultMessageVariableSettings, MESSAGE_VARIABLE_CRM_SOURCES, MESSAGE_VARIABLE_SYSTEM_SOURCES, type MessageVariableDefinition, type MessageVariableAlternative } from "../helpers/messageVariables";
@@ -21,7 +22,7 @@ export function MessageVariablesSettings({ data }: Props) {
   const [variables, setVariables] = useState<MessageVariableDefinition[]>(data.messageVariables ?? defaultMessageVariableSettings());
   const [selectedKey, setSelectedKey] = useState(variables[0]?.key ?? "");
   const selected = variables.find(variable => variable.key === selectedKey);
-  const runOperation = useOperationGuard(error => toast.error(error instanceof Error ? error.message : "No se pudo guardar"));
+  const runOperation = useOperationGuard(error => toast.error(error instanceof Error ? crmError(error) : "No se pudo guardar"));
   const [saving, setSaving] = useState(false);
   useEffect(() => { setVariables(data.messageVariables ?? defaultMessageVariableSettings()); }, [data.messageVariables]);
 

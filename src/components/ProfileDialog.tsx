@@ -52,6 +52,6 @@ export function ProfileDialog({open,onOpenChange}:{open:boolean;onOpenChange:(op
       </fieldset>
       {save.error&&<div className={styles.error}>{save.error.message}</div>}
     </div>}
-    <DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>onOpenChange(false)}>Cancelar</Button><Button onClick={submit} disabled={save.isPending||!displayName.trim()||q.isLoading||!q.data} disabledReason={(save.isPending || q.isLoading) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{save.isPending?"Guardando…":"Guardar perfil"}</Button></DialogFooter>
+    <DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>onOpenChange(false)}>Cancelar</Button><Button onClick={submit} disabled={save.isPending||!displayName.trim()||q.isLoading||!q.data} disabledReason={(save.isPending || q.isLoading) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí tu nombre para guardar."}>{save.isPending?"Guardando…":"Guardar perfil"}</Button></DialogFooter>
   </DialogContent></Dialog>;
 }

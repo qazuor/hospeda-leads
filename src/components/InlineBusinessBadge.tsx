@@ -9,6 +9,7 @@ import {CrmButton as Button} from './ui/CrmButton';
 import {CrmNativeSelect} from './ui/CrmNativeSelect';
 import {ValueBadge} from './ValueBadge';
 import {useAuth} from '../helpers/useAuth';
+import {crmError} from '../helpers/crmErrors';
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {inlineBadgeFields,type InlineBadgeField} from '../helpers/inlineBadgeFields';
 import {getCommercialDetail} from '../endpoints/commercial.schema';
@@ -42,7 +43,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
  async function submit(nextDraft=draft){if(lock.current||!nextDraft||!allowed)return;lock.current=true;setProcessing(true);try{
   await save.mutateAsync({id:management?String(management.id):accountId,accountId,field,value:nextDraft.value||null,expectedValue:nextDraft.expected,scope,...(['tipo','subtipo'].includes(field)?{scope:'business',expectedClassification:nextDraft.classification}:{})});
   await Promise.all([qc.invalidateQueries({queryKey:['leads']}),qc.invalidateQueries({queryKey:['commercial-detail',accountId]})]);setOpen(false);toast.success(title+' actualizado',{duration:8000});
- }catch(error){toast.error((error as Error).message);}finally{lock.current=false;setProcessing(false);}}
+ }catch(error){toast.error(crmError(error));}finally{lock.current=false;setProcessing(false);}}
  function reload(){setDraft(null);save.reset();void detail.refetch();}
  return <Popover open={open} onOpenChange={next=>{if(lock.current)return;if(next){setDraft(null);setManagementId('');save.reset();void detail.refetch();}setOpen(next);}}>
   <Tooltip open={tooltipOpen&&!open} onOpenChange={setTooltipOpen}><TooltipTrigger asChild><PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={'Editar '+title.toLowerCase()+' de '+name}><ValueBadge category={category} value={label||empty} muted={!value} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/></UnstyledButton></PopoverTrigger></TooltipTrigger><TooltipContent className={styles.tooltip}>{label||empty}</TooltipContent></Tooltip>
@@ -72,7 +73,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
      <p className={styles.help}>{scope==='business'?'Se modifica este dato del negocio. Sus gestiones y compromisos se conservan.':'Se modifica únicamente esta gestión. Los demás datos, gestiones y compromisos se conservan.'} Con filtros activos, el negocio podría dejar de aparecer.</p>
      {['quienCargo','creadoPor','origen'].includes(field)&&<p className={styles.help}>Es un dato histórico importado. La autoría real de las acciones permanece en el historial.</p>}
      {save.error&&<div className={styles.error} role="alert"><p>{save.error.message}</p><Button type="button" size="sm" variant="outline" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={reload}>Recargar datos</Button></div>}
-     <div className={styles.actions}><Button variant="outline" size="sm" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" size="sm" disabled={processing||!draft||(draft.value||null)===current} disabledReason={(processing) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{processing&&<LoaderCircle size={14} aria-hidden="true"/>}{processing?'Guardando '+title.toLowerCase()+'…':'Guardar'}</Button></div>
+     <div className={styles.actions}><Button variant="outline" size="sm" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" size="sm" disabled={processing||!draft||(draft.value||null)===current} disabledReason={(processing) ? "La operación está en curso. Esperá a que termine para continuar." : "Elegí un valor distinto del actual."}>{processing&&<LoaderCircle size={14} aria-hidden="true"/>}{processing?'Guardando '+title.toLowerCase()+'…':'Guardar'}</Button></div>
     </form>}
    </>}
    {(loading||detail.error||settings.error||missingManagement||!allowed)&&<Button variant="outline" size="sm" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setOpen(false)}>Cerrar</Button>}
