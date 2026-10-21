@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {MANAGEMENT_RECONTACT_TASK_TITLE,RECONTACT_TASK_TITLE,isPastDay,recontactCancelReason,recontactNotice,recontactScheduled,scheduledForName} from './recontactTask';
+import {MANAGEMENT_RECONTACT_TASK_TITLE,RECONTACT_TASK_TITLE,isPastDay,managementRecontactFor,managementRecontactOwner,recontactCancelReason,recontactNotice,recontactScheduled,scheduledForName} from './recontactTask';
 
 describe('recontact task copy',()=>{
  it('tells the seller before and after saving which task is scheduled and on which Argentina calendar day',()=>{
@@ -11,6 +11,12 @@ describe('recontact task copy',()=>{
  it('names the management task when a re-save moved the management reminder instead of scheduling a business one',()=>{
   expect(MANAGEMENT_RECONTACT_TASK_TITLE).toBe('Recontactar según lo acordado');
   expect(recontactScheduled('2026-11-15',null,MANAGEMENT_RECONTACT_TASK_TITLE)).toBe('Agendamos «Recontactar según lo acordado» para el 15 de nov de 2026.');
+ });
+ it('gives the close reminder to the business responsible, then the management assignee, then the closer, and says so when it is someone else',()=>{
+  expect(managementRecontactOwner({accountOwner:'b@example.com',managementOwner:'a@example.com',actorEmail:'a@example.com'})).toBe('b@example.com');
+  expect(managementRecontactOwner({accountOwner:null,managementOwner:'a@example.com',actorEmail:'c@example.com'})).toBe('a@example.com');
+  expect(managementRecontactOwner({accountOwner:null,managementOwner:null,actorEmail:'c@example.com'})).toBe('c@example.com');
+  expect(managementRecontactFor('Beto')).toBe('La tarea «Recontactar según lo acordado» quedó agendada para Beto.');
  });
  it('names the assignee only when it is not the saver',()=>{
   expect(recontactNotice('2026-11-15','Marta')).toBe('Se va a agendar «Volver a contactar» para el 15 de nov de 2026 · a cargo de Marta.');

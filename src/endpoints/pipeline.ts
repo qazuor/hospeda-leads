@@ -1,4 +1,4 @@
-import {MANAGEMENT_RECONTACT_TASK_TITLE,cancelRecontactTaskFor,cancelUntouchedRecontactTask,reassignRecontactTask,syncRecontactTask} from '../helpers/recontactTask';
+import {MANAGEMENT_RECONTACT_TASK_TITLE,managementRecontactOwner,cancelRecontactTaskFor,cancelUntouchedRecontactTask,reassignRecontactTask,syncRecontactTask} from '../helpers/recontactTask';
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
 import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {parseBody} from '../helpers/parseBody';
@@ -183,7 +183,7 @@ export async function post(request:Request){
      const remaining=(await sql<{n:string}>`SELECT count(*) n FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open'`.execute(trx)).rows[0];
      if(p.recontactDate&&!typedDnc){
       // Owner decision 21/10: the recontact reminder belongs to the business responsible; without one, to the management assignee, then the actor.
-      const owner=account.assignedUserEmail??lead.assignedUserEmail??user.email;
+      const owner=managementRecontactOwner({accountOwner:account.assignedUserEmail,managementOwner:lead.assignedUserEmail,actorEmail:user.email});
       const task=await trx.insertInto('crmTasks').values({accountId:account.id,leadId:lead.id,title:MANAGEMENT_RECONTACT_TASK_TITLE,description:p.comment||null,typeId:'followup',purpose:'reactivation',assignedUserEmail:owner,dueDate:p.recontactDate,priority:lead.prioridad??'media'}).returning('id').executeTakeFirstOrThrow();
       await sql`UPDATE crm_pipeline_events SET task_id=${task.id} WHERE id=(SELECT id FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='stage' ORDER BY id DESC LIMIT 1)`.execute(trx);
      }

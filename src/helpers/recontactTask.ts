@@ -7,6 +7,10 @@ import {formatDate} from './crmDates';
 export const RECONTACT_TASK_TITLE='Volver a contactar';
 /** Title of the management task that a close with a recontact date schedules for the business responsible (owner decision 21/10). */
 export const MANAGEMENT_RECONTACT_TASK_TITLE='Recontactar según lo acordado';
+/** Who gets «Recontactar según lo acordado» when a management closes with a date: the business responsible, else the management assignee, else the actor (owner decision 21/10). */
+export const managementRecontactOwner=({accountOwner,managementOwner,actorEmail}:{accountOwner?:string|null;managementOwner?:string|null;actorEmail:string})=>accountOwner??managementOwner??actorEmail;
+/** Added to the close message when that reminder goes to someone other than the person closing. */
+export const managementRecontactFor=(name:string)=>`La tarea «${MANAGEMENT_RECONTACT_TASK_TITLE}» quedó agendada para ${name}.`;
 const forWhom=(name?:string|null)=>name?` · a cargo de ${name}`:'';
 /** What the seller is told before saving a Recontactar date. `name` is the assignee, only when it is not the saver. */
 export const recontactNotice=(day:string,name?:string|null)=>`Se va a agendar «${RECONTACT_TASK_TITLE}» para el ${formatDate(day)}${forWhom(name)}.`;
@@ -56,7 +60,7 @@ const cancel=(trx:Db,id:string|number,cause:RecontactCancelCause)=>trx.updateTab
  * - Anything else: an untouched task is cancelled with a factual reason. Tasks the seller renamed, rescheduled, timed, reassigned or completed are left alone.
  * - Recontactar + date when a management close left its untouched «Recontactar según lo acordado» on the stored day (owner decision 21/10): that task is the reminder, so it moves to the new day (same day: nothing changes) and no business task is created; an untouched business task of the stored day is cancelled.
  * Only this feature's own task (and that untouched management task) is ever reused, moved or cancelled: other reactivation tasks ("Retomar conversación", a reminder someone reassigned or rescheduled) are never adopted.
- * Leaving Recontactar never touches the management task.
+ * - Leaving Recontactar (another status or no date): the untouched business task and the untouched management «Recontactar según lo acordado» of the stored day are cancelled with the same reason (owner decision 21/10).
  * The assignee is the business responsible (`crm_accounts.assigned_user_email`), or the actor when the business has none.
  */
 export async function syncRecontactTask(trx:Db,{account,previous,status,recontactDay,actorEmail}:{account:Account;previous:Previous;status:string;recontactDay:string|null;actorEmail:string}):Promise<RecontactTaskResult> {
@@ -64,7 +68,10 @@ export async function syncRecontactTask(trx:Db,{account,previous,status,recontac
  const accountId=String(account.id);
  const untouched=previousDay?await untouchedTask(trx,accountId,account.assignedUserEmail,previousDay):undefined;
  if(status!=='recontact'||!recontactDay){
-  if(untouched)await cancel(trx,untouched.id,status!=='recontact'?'status':'date');
+  const cause=status!=='recontact'?'status':'date';
+  if(untouched)await cancel(trx,untouched.id,cause);
+  const managed=previousDay?await untouchedTask(trx,accountId,account.assignedUserEmail,previousDay,'management'):undefined;
+  if(managed)await cancel(trx,managed.id,cause);
   return null;
  }
  const managed=previousDay?await untouchedTask(trx,accountId,account.assignedUserEmail,previousDay,'management'):undefined;
@@ -100,15 +107,17 @@ export async function cancelPendingTasksForDnc(trx:Db,{accountId}:{accountId:str
 }
 
 /**
- * Cancels the business's untouched "Volver a contactar" task when the business stops being workable (No contactar or archived).
- * Call it BEFORE the account update so `recontact_at` still names the day. Never touches any other task.
+ * Cancels the business's untouched "Volver a contactar" task, and the untouched management «Recontactar según lo acordado» of the same day, when the business stops being workable (No contactar or archived).
+ * Call it BEFORE the account update so `recontact_at` still names the day. Never touches any other task (No contactar cancels every pending task anyway, D3).
  */
 export async function cancelRecontactTaskFor(trx:Db,{accountId,cause}:{accountId:string|number;cause:'dnc'|'archived'}):Promise<void> {
  if(cause==='dnc'){await cancelPendingTasksForDnc(trx,{accountId});return;}// D3: a No contactar business loses ALL its pending tasks, so the recontact task is cancelled there with the same reason.
  const account=await trx.selectFrom('crmAccounts').select(['assignedUserEmail','recontactAt']).where('id','=',String(accountId) as never).executeTakeFirst();
  if(!account?.recontactAt)return;
- const task=await untouchedTask(trx,String(accountId),account.assignedUserEmail,calendarDay(account.recontactAt));
- if(task)await cancel(trx,task.id,cause);
+ for(const kind of ['business','management'] as const){
+  const task=await untouchedTask(trx,String(accountId),account.assignedUserEmail,calendarDay(account.recontactAt),kind);
+  if(task)await cancel(trx,task.id,cause);
+ }
 }
 
 /**

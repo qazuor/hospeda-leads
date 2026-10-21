@@ -16,6 +16,7 @@ import {Link} from 'react-router-dom';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {crmSuccess} from '../helpers/crmFeedback';
+import {managementRecontactFor,managementRecontactOwner,scheduledForName} from '../helpers/recontactTask';
 import {getPipeline,postPipeline,type PipelineData,type PipelineMutation,type PipelineInsight,type ReactivationRow,type PipelineObjection} from '../endpoints/pipeline.schema';
 import type {Opportunity} from '../endpoints/commercial.schema';
 import {formatDate} from '../helpers/crmDates';
@@ -46,7 +47,10 @@ export function PipelineEditor({target,data,onClose}:{target:Target;data:Pipelin
  const m=useGuardedMutation({mutationFn:postPipeline,onSuccess:async(_result,input)=>{await qc.invalidateQueries();if(input.action!=='transition')toast.success('Cambio registrado');else{const accountOwner=insight?.accountAssignedUserEmail;
   // After a No contactar close the business is archived: only an admin or the business's responsible can keep reading it.
   const result=stageChangeMessage({stages:data.stages,reasons:data.managementReasons,from:target.kind==='stage'?target.lead.estado:null,to:input.stage,reasonId:input.reasonId,canViewArchived:user?.role==='admin'||(!!user&&accountOwner===user.email)});
-  if(result.openBusiness&&target.kind==='stage')crmSuccess(result.message,{label:'Abrir negocio',href:'/accounts/'+target.lead.accountId});else toast.success(result.message);}onClose();},onError:()=>{void qc.invalidateQueries({queryKey:['pipeline']});void qc.invalidateQueries({queryKey:['leads']});}});
+  // Owner decision 21/10: the recontact reminder goes to the business responsible; tell the closer plainly when that is someone else.
+  const reminderFor=input.recontactDate&&user&&target.kind==='stage'?scheduledForName({responsibleEmail:managementRecontactOwner({accountOwner,managementOwner:insight?.assignedUserEmail??target.lead.assignedUserEmail,actorEmail:user.email}),currentUserEmail:user.email,users:data.users}):null;
+  const message=reminderFor?`${result.message} ${managementRecontactFor(reminderFor)}`:result.message;
+  if(result.openBusiness&&target.kind==='stage')crmSuccess(message,{label:'Abrir negocio',href:'/accounts/'+target.lead.accountId});else toast.success(message);}onClose();},onError:()=>{void qc.invalidateQueries({queryKey:['pipeline']});void qc.invalidateQueries({queryKey:['leads']});}});
  const selectedStage=data.stages.find(s=>s.name===stage);
  const reactivationStages=target.kind==='reactivate'?getReactivationStages(data.stages,target.row.managementType):[];
  const canReopen=mayReopenManagement(user?.role);
