@@ -15,7 +15,7 @@ import {suggestedStageForOutcome} from '../helpers/businessManagement';
 import {canModifyManagement} from '../helpers/crmPermissions';
 import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {outcomeLabel} from '../helpers/crmLabels';
-/** Mi día returns every overdue and today task up to this many per bucket. */
+/** Hoy returns every overdue and today task up to this many per bucket. */
 const URGENT_CAP=300;
 class Forbidden extends Error {}
 /** The task changed since the client read it (409). */

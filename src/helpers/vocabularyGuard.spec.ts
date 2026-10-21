@@ -9,7 +9,7 @@ import guide from '../content/user-guide.json';
  * Vocabulary guard (owner decision 6d): visible terms that the UX plan retires.
  * The final sweep (U-32) emptied BASELINE, so the guard is strict: any occurrence fails. BASELINE stays as an escape hatch (`path::term` → count, path relative to `src/`); only add to it with an owner-approved reason.
  */
-const BANNED_TERMS=['Gestión comercial inicial','Gestiones comerciales','Registrar qué pasó','Registrar actividad','Planificar','Dar de baja','Relación del negocio','Seguimiento general','Contacto general','Agregar contacto','AHORA CORRESPONDE','Sin seguimiento programado','Completá los campos obligatorios','Not authenticated','negocios u gestiones','Editar / reprogramar','Más opciones',
+const BANNED_TERMS=['Mi día','Gestión comercial inicial','Gestiones comerciales','Registrar qué pasó','Registrar actividad','Planificar','Dar de baja','Relación del negocio','Seguimiento general','Contacto general','Agregar contacto','AHORA CORRESPONDE','Sin seguimiento programado','Completá los campos obligatorios','Not authenticated','negocios u gestiones','Editar / reprogramar','Más opciones',
  'alcance','Estado del pipeline','Pipeline, actividad','Cargando pipeline','"Pipeline"',"'Pipeline'",'||"Sistema"',"||'Sistema'",'uditoría','Journal de','del journal','Contactos participantes','Definí una acción con fecha','Negocio / contacto','Confirmar baja','dado de baja'] as const;
 
 /** Extra terms retired from the in-app guide only: old navigation names that some UI strings may still use. */

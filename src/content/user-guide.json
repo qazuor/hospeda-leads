@@ -68,7 +68,7 @@
         "steps": [
           "Nuevo significa que nadie verificó todavía el negocio. Comprobá que exista y corresponda al registro antes de iniciar una gestión.",
           "Revisado confirma que el negocio fue comprobado y se puede trabajar. Si lo acabás de verificar al iniciar una gestión, podés confirmarlo en ese mismo formulario.",
-          "En gestión aparece mientras haya al menos una gestión abierta. Al cerrar la última, el negocio pasa a Sin tarea agendada; si hay que volver a hablarle más adelante, elegí Recontactar y, si querés, ponele una fecha. Esa fecha orienta al equipo pero no impide contactarlo antes.",
+          "En gestión aparece mientras haya al menos una gestión abierta. Al cerrar la última, el negocio pasa a Sin tarea agendada; si hay que volver a hablarle más adelante, elegí «Recontactar» y, si querés, ponele una «Fecha de recontacto (opcional)». Con fecha, el CRM agenda la tarea «Volver a contactar» para el responsable del negocio. Contactarlo antes sigue siendo posible.",
           "Para cambiar el Estado, tocá la etiqueta «Estado del negocio» y elegí una opción. Algunos estados se cambian solos al iniciar o cerrar gestiones.",
           "Archivado aparta un negocio válido que no vas a trabajar por ahora. Solo un administrador puede desarchivarlo; vuelve a Revisado si ya había sido verificado y, si no, a Nuevo.",
           "Las Etapas pertenecen a cada gestión y dependen de su tipo: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. No hace falta pasar por todas ni seguir un orden fijo entre etapas abiertas.",
@@ -80,13 +80,16 @@
           "Un negocio puede estar En gestión y tener una gestión de Partners abierta y otra de Acompañamiento de ficha. Si una se cierra y la otra sigue abierta, el negocio continúa En gestión."
         ],
         "notes": [
-          "No contactar bloquea todos los contactos salientes hasta que un administrador levante la restricción.",
+          "No contactar bloquea todos los contactos salientes hasta que un administrador levante la restricción. Al marcarlo, el CRM cancela todas las tareas pendientes del negocio y deja anotado el motivo: el negocio quedó marcado No contactar. Si después se levanta el bloqueo, esas tareas no vuelven: si hace falta, agendá una nueva.",
           "Cuando termina la última gestión, el negocio queda Sin tarea agendada: es un aviso para que le dejes una próxima tarea o lo marques Recontactar."
         ],
         "url": "/accounts",
         "linkLabel": "Abrir Negocios",
         "uiLabels": [
-          "Estado del negocio"
+          "Estado del negocio",
+          "Recontactar",
+          "Fecha de recontacto (opcional)",
+          "Volver a contactar"
         ]
       },
       {
@@ -326,6 +329,7 @@
           "Abrí el negocio y entrá en la solapa «Personas». Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.",
           "Completá el nombre, el teléfono o el email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar vacíos.",
           "Marcá Principal si es la referencia habitual del negocio y guardá.",
+          "Si el teléfono que cargás es el de un negocio que pidió no ser contactado, el CRM te muestra un aviso con el nombre del negocio. Podés guardar a la persona, pero antes tenés que tildar «Entendido, no voy a contactar a ese negocio». No uses ese teléfono para contactar sin consultar a un administrador.",
           "Agregá a las demás personas como fichas distintas. En una gestión podés elegir quién es su persona principal.",
           "Antes de escribir o llamar, revisá a quién va dirigido el mensaje. El canal general del negocio y los canales de una persona son opciones diferentes.",
           "Cuando agregás una persona desde el próximo paso aparece «Volver al próximo paso», que te lleva de nuevo al resumen del negocio para seguir."
@@ -343,7 +347,8 @@
           "Personas",
           "Agregar persona",
           "Contactar",
-          "Volver al próximo paso"
+          "Volver al próximo paso",
+          "Entendido, no voy a contactar a ese negocio"
         ]
       },
       {
@@ -443,7 +448,8 @@
         ],
         "notes": [
           "El canal tiene que estar disponible y sin restricciones. No contactar bloquea todas las salidas, sin excepción.",
-          "Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes."
+          "Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.",
+          "Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador."
         ],
         "url": "",
         "linkLabel": "",
@@ -654,9 +660,10 @@
         "steps": [
           "Si no hubo respuesta a tu contacto, tocá «Anotar cómo salió», elegí «No respondió» y respondé «¿Cómo sigue?». Si la persona sí respondió, elegí la opción que corresponda.",
           "Si pidió que la vuelvas a llamar en otro momento, elegí «Pidió que lo contacte más adelante». El CRM te ofrece «Elegir una fecha para retomar»: tocalo, poné la fecha acordada y queda una tarea para ese día.",
+          "Si el negocio no es para ahora pero hay que volver a hablarle, cambiá el Estado del negocio a «Recontactar» y poné una «Fecha de recontacto (opcional)». El CRM agenda la tarea «Volver a contactar» para esa fecha a nombre del responsable del negocio; si es otra persona, te avisa su nombre antes de guardar. Si cambiás la fecha, la tarea se mueve al nuevo día. Si borrás la fecha, cambiás el Estado a otro, lo marcás No contactar o lo archivás, la tarea se cancela sola y el historial dice por qué. Si alguien ya la renombró, la reprogramó o la completó, no se toca.",
           "Si la gestión sigue abierta, elegí una etapa abierta que refleje lo que pasó. Las etapas no cambian solas al anotar un resultado.",
           "Si decidís cerrar la gestión como perdida, elegí el motivo y, si querés, una fecha de recontacto. Esa fecha agenda una tarea.",
-          "Si pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» para elegir «Pidió no ser contactado» (desde «Anotar cómo salió» de una tarea no aparece). Lo hace el responsable o un administrador. El bloqueo es global y solo un administrador puede levantarlo."
+          "Si pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» para elegir «Pidió no ser contactado» (desde «Anotar cómo salió» de una tarea no aparece). Lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador; las demás personas no ven esa opción. El bloqueo es global y solo un administrador puede levantarlo; corregir esa respuesta más tarde también es cosa de un administrador."
         ],
         "result": "Queda anotado lo que ocurrió y una tarea concreta cuando corresponde. No se envían mensajes ni se reabre o cierra una gestión automáticamente.",
         "example": [
@@ -676,7 +683,10 @@
           "Elegir una fecha para retomar",
           "Anotar lo que pasó",
           "Pidió no ser contactado",
-          "Para retomar"
+          "Para retomar",
+          "Recontactar",
+          "Fecha de recontacto (opcional)",
+          "Volver a contactar"
         ]
       },
       {
@@ -1031,8 +1041,9 @@
         "steps": [
           "Revisá la persona y el canal. Si el dato falta, tocá «Agregar o editar teléfono o email» y cargá el dato real; no uses el canal de otra persona. Si no hay una persona con ese canal, podés usar el canal general del negocio.",
           "Si el CRM muestra una restricción, fijate cuál es. Puede ser un bloqueo del negocio entero o una restricción técnica de una persona o canal.",
-          "Si una persona pidió que no la contacten, anotá «Pidió no ser contactado» con «Anotar lo que pasó» desde el negocio. Lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador; si no te corresponde, avisale a alguno de ellos. El bloqueo alcanza a todas las salidas del negocio.",
+          "Si una persona pidió que no la contacten, anotá «Pidió no ser contactado» con «Anotar lo que pasó» desde el negocio. Lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador; si no te corresponde, avisale a alguno de ellos. El bloqueo alcanza a todas las salidas del negocio y cancela sus tareas pendientes.",
           "No cambies de persona, de canal ni de propósito para esquivar el bloqueo. Solo un administrador puede levantar No contactar y tiene que explicar el motivo.",
+          "Si al contactar a una persona aparece el aviso «Este teléfono es de un negocio que pidió no ser contactado», es que ese número también pertenece a un negocio No contactar. Podés seguir, pero no uses ese teléfono sin consultar a un administrador.",
           "Una falla permanente comprobable puede restringir técnicamente un dato de destino. Las fallas temporales no deberían bloquear el canal."
         ],
         "result": "Se actualiza el dato real o se respeta el bloqueo.",
@@ -1045,7 +1056,8 @@
         "uiLabels": [
           "Agregar o editar teléfono o email",
           "Pidió no ser contactado",
-          "Anotar lo que pasó"
+          "Anotar lo que pasó",
+          "Este teléfono es de un negocio que pidió no ser contactado"
         ]
       },
       {
@@ -1053,8 +1065,8 @@
         "title": "No puedo modificar un negocio",
         "when": "Cuando ves un negocio pero no aparecen los botones para editarlo o contactarlo.",
         "steps": [
-          "Mirá si arriba hay un cartel rojo. «No contactar» y «Negocio archivado» dejan el negocio solo para consulta: podés ver todo, pero no editar, contactar ni cambiar su gestión. Solo un administrador levanta el bloqueo o desarchiva.",
-          "Si no hay cartel, aparece el aviso «Podés consultar este negocio». Significa que el negocio es de otra persona: solo su responsable o un administrador puede modificarlo.",
+          "Mirá si arriba hay un cartel rojo. «No contactar» y «Negocio archivado» dejan el negocio solo para consulta: podés ver todo, pero no editar, contactar ni cambiar su gestión, ni siquiera si sos su responsable. Solo un administrador levanta el bloqueo o desarchiva.",
+          "Si no hay cartel, aparece el aviso «Podés consultar este negocio». Significa que el negocio es de otra persona: solo su responsable o un administrador puede modificarlo. Con No contactar, el aviso aclara que solo un administrador puede modificarlo.",
           "Si tenés una gestión abierta en ese negocio y no está archivado ni es No contactar, igual podés corregir sus datos de contacto (teléfono, email, WhatsApp) y sus personas con «Corregir datos de contacto». Todo lo demás sigue siendo del responsable.",
           "Si buscás un negocio tuyo que archivaron, apretá Ctrl+K y escribí su nombre: los archivados aparecen marcados como Archivado (el administrador ve todos).",
           "Para cambiar algo que no te corresponde, pedíselo al responsable o al administrador. No dupliques el negocio ni la tarea para saltear esa regla."
