@@ -8,8 +8,8 @@ import {errorResponse} from '../helpers/errorResponse';
 import {normalizeSearchSql} from '../helpers/searchSql';
 import {matchAccounts,phoneSignificantKeys,strictComparisonName} from '../helpers/dataNormalization';
 import {assertAccountReadable} from '../helpers/crmPermissions';
-import {DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE,type DuplicateCandidate} from './business_duplicate_check.schema';
-export {DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE};
+import {DNC_DUPLICATE_MESSAGE,type DuplicateCandidate} from './business_duplicate_check.schema';
+export {DNC_DUPLICATE_MESSAGE};
 
 const text=z.string().trim().max(200).optional();
 const querySchema=z.object({nombre:text,ciudad:text,telefono:text,email:text,whatsapp:text,personPhone:text});
@@ -58,18 +58,10 @@ export async function findNewDncBlocker(executor:Executor,{after,before,excludeI
 }
 
 const personReasons:Record<string,string>={'Teléfono compartido':'Teléfono de la persona compartido','Teléfono parecido':'Teléfono de la persona parecido'};
-/** Businesses whose phone matches a person's phone (No contactar first). Only an exactly shared phone (national key) blocks. */
+/** Businesses whose phone matches a person's phone (No contactar first). Never blocking (decision 13B): a person's phone, even exactly shared with a No contactar business, only warns. Business phones are what block (`isBlockingMatch`). */
 export async function findPersonPhoneMatches(executor:Executor,phone:string|null|undefined,options:{excludeId?:string}={}){
  if(!phone?.trim())return [];
- return (await findDuplicateAccounts(executor,{telefono:phone},options)).map(f=>({...f,blocking:f.account.doNotContact&&f.match.reasons.includes('Teléfono compartido'),match:{...f.match,reasons:f.match.reasons.map(r=>personReasons[r]??r)}}));
-}
-/** First No contactar business whose phone is exactly the person's phone, or null. */
-export const findDncPersonPhoneBlocker=async(executor:Executor,phone:string|null|undefined,options:{excludeId?:string}={})=>(await findPersonPhoneMatches(executor,phone,options)).find(f=>f.blocking)?.account??null;
-/** Like `findNewDncBlocker` for a person's phone: only a No contactar business the new phone blocks on and the previous phone did not. */
-export async function findNewDncPersonPhoneBlocker(executor:Executor,{after,before,excludeId}:{after:string|null|undefined;before?:string|null;excludeId?:string}){
- const ids=async(phone:string|null|undefined)=>new Set((await findPersonPhoneMatches(executor,phone,{excludeId})).filter(f=>f.blocking).map(f=>String(f.account.id)));
- const previous=await ids(before),next=await findPersonPhoneMatches(executor,after,{excludeId});
- return next.find(f=>f.blocking&&!previous.has(String(f.account.id)))?.account??null;
+ return (await findDuplicateAccounts(executor,{telefono:phone},options)).map(f=>({...f,blocking:false,match:{...f.match,reasons:f.match.reasons.map(r=>personReasons[r]??r)}}));
 }
 
 /** GET /_api/business/duplicate-check: any authenticated user. Exposes only id, name, city, archived/No contactar flags and the match reasons; status and the responsible's display name (never email) only for businesses the caller can open. */

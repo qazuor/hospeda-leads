@@ -70,6 +70,23 @@ describe('BusinessQuickCreate',()=>{
   expect(screen.queryByLabelText('Ninguno de estos es mi negocio, crear igual')).toBeNull();
   expect(create().disabled).toBe(true);
  });
+ it('warns about a person phone shared with a No contactar business and saves only after the seller acknowledges it',async()=>{
+  mocks.check.mockResolvedValue({candidates:[candidate('8',{nombre:'Hostería Muda',doNotContact:true,reasons:['Teléfono de la persona compartido']})]});
+  mocks.save.mockResolvedValue({id:'56'});
+  const onSaved=vi.fn();
+  wrap(<BusinessQuickCreate onClose={()=>{}} onSaved={onSaved}/>);
+  type('Nombre','Otro nombre');type('Nombre de la persona','Ana');type('Teléfono de la persona','3447 412345');
+  const note=await screen.findByRole('note',{name:'Teléfono de un negocio No contactar'});
+  expect(note.textContent).toContain('Este teléfono es de un negocio que pidió no ser contactado: Hostería Muda (Colón)');
+  expect(screen.queryByRole('alert')).toBeNull();// it warns, it does not block
+  expect(screen.queryByText('Puede que ya exista:')).toBeNull();
+  await waitFor(()=>expect(create().disabled).toBe(true));
+  fireEvent.click(screen.getByLabelText('Entendido, no voy a contactar a ese negocio'));
+  await waitFor(()=>expect(create().disabled).toBe(false));
+  fireEvent.click(create());
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('56'));
+  expect(mocks.save.mock.calls[0][0]).toMatchObject({primaryContact:{name:'Ana',phone:'3447 412345'},personPhoneDncAcknowledged:true});
+ });
  it('does not save while the duplicate check is still running',async()=>{
   mocks.check.mockReturnValue(new Promise(()=>{}));
   wrap(<BusinessQuickCreate onClose={()=>{}}/>);
@@ -111,6 +128,35 @@ describe('CommercialEditor',()=>{
   cleanup();
   wrap(<CommercialEditor target={{kind:'account',item:account}} onClose={()=>{}}/>);
   expect(screen.getByRole('button',{name:'Guardar cambios'})).toBeTruthy();
+ });
+ it('warns about a person phone of a No contactar business (never the own one) and enables saving once acknowledged',async()=>{
+  mocks.check.mockResolvedValue({candidates:[candidate('5',{doNotContact:true,reasons:['Teléfono de la persona compartido']}),candidate('9',{nombre:'Posada Muda',doNotContact:true,reasons:['Teléfono de la persona compartido']})]});
+  wrap(<CommercialEditor target={{kind:'contact'}} detail={detail([])} onClose={()=>{}}/>);
+  type('Nombre de la persona','Luis');type('Teléfono','3447 412345');
+  const note=await screen.findByRole('note',{name:'Teléfono de un negocio No contactar'});
+  expect(note.textContent).toContain('Posada Muda (Colón)');expect(note.textContent).not.toContain('Cabañas del Río 5');
+  const save=screen.getByRole('button',{name:/Guardar/}) as HTMLButtonElement;
+  expect(save.disabled).toBe(true);
+  fireEvent.click(screen.getByLabelText('Entendido, no voy a contactar a ese negocio'));
+  expect(save.disabled).toBe(false);
+ });
+ it('does not save a person before the typed phone was checked, and warns only when the phone changed',async()=>{
+  mocks.check.mockReturnValue(new Promise(()=>{}));
+  wrap(<CommercialEditor target={{kind:'contact'}} detail={detail([])} onClose={()=>{}}/>);
+  type('Nombre de la persona','Luis');type('Teléfono','3447 412345');
+  const save=screen.getByRole('button',{name:/Guardar/}) as HTMLButtonElement;
+  expect(save.disabled).toBe(true);// debounce has not caught up yet
+  fireEvent.submit(save.closest('form')!);
+  await waitFor(()=>expect(mocks.check).toHaveBeenCalled());
+  expect(save.disabled).toBe(true);// request in flight
+  fireEvent.submit(save.closest('form')!);
+  expect(mocks.save).not.toHaveBeenCalled();
+  cleanup();mocks.check.mockReset();
+  wrap(<CommercialEditor target={{kind:'contact',item:{id:'3',name:'Ana',phone:'3447 400222',isPrimary:false} as never}} detail={detail([])} onClose={()=>{}}/>);
+  type('Nombre de la persona','Ana Maria');
+  await new Promise(r=>setTimeout(r,600));
+  expect(mocks.check).not.toHaveBeenCalled();expect(screen.queryByRole('note')).toBeNull();
+  expect((screen.getByRole('button',{name:/Guardar/}) as HTMLButtonElement).disabled).toBe(false);
  });
  it('marks the first person as Principal and mentions the replacement only when a Principal exists',()=>{
   wrap(<CommercialEditor target={{kind:'contact'}} detail={detail([])} onClose={()=>{}}/>);
