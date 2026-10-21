@@ -506,7 +506,7 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 **Cuándo usarlo:** Cuando querés saber cómo le fue o ayudar con algo que ya contrató.
 
-1. Acompañamiento / atención al cliente es un propósito de contacto general. Si el negocio todavía no es cliente, el CRM te pide confirmación y lo marca Es cliente cuando el contacto queda registrado como realizado.
+1. Acompañamiento / atención al cliente es un propósito de contacto general. Si el negocio todavía no es cliente, el CRM te pide confirmación y lo marca Es cliente cuando el contacto queda registrado como realizado. Si el negocio está marcado No contactar, solo un administrador lo marca Es cliente al registrarlo: para el resto, el contacto queda anotado y el negocio no cambia.
 2. Acompañamiento de ficha es un tipo de gestión aparte, para ayudar a un negocio que ya aceptó a crear o mejorar su ficha.
 3. Para abrir esa gestión, el negocio tiene que ser cliente y estar Revisado. Tocá «Iniciar gestión», elegí Acompañamiento de ficha y agendá el próximo paso.
 4. Anotá los avances cambiando de etapa: Pendiente de iniciar, Contactado o Trabajando en la ficha. No hace falta pasar por todas.
