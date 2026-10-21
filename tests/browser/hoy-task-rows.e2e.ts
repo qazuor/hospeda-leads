@@ -45,6 +45,6 @@ test('Hoy task rows: one primary action, Posponer with Deshacer, honest menu, ma
  await api('work',{action:'task_status',id:doneId,status:'completed',result:'Habló con Ana',continuation:'done',continuationReason:'Ya quedó todo resuelto'});
  await page.goto('/my-day?accountId='+accountId+'&taskId='+doneId);
  const done=page.locator('article').filter({has:page.getByText(doneTitle,{exact:true})});
- await done.getByRole('button',{name:'Más acciones de '+doneTitle,exact:true}).click();await page.getByRole('menuitem',{name:'Corregir resultado',exact:true}).click();
+ await done.getByRole('button',{name:'Más acciones de '+doneTitle,exact:true}).click();await page.getByRole('menuitem',{name:'Corregir cómo salió',exact:true}).click();
  await expect(page.getByRole('dialog').getByRole('heading',{name:'Editar actividad',exact:true})).toBeVisible();
 });

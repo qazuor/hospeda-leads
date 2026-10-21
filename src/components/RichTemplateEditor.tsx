@@ -161,7 +161,7 @@ export const RichTemplateEditor=({
       <form onSubmit={event=>{event.preventDefault();event.stopPropagation();if(linkUrl.trim())applyLink();}}>
         <label>URL del enlace<Input autoFocus value={linkUrl} maxLength={2000} onChange={event=>{setLinkUrl(event.target.value);setLinkError('')}} aria-invalid={!!linkError} aria-describedby={linkError?linkErrorId:undefined}/></label>
         {linkError&&<p role="alert" id={linkErrorId}>{linkError}</p>}
-        <DialogFooter><Button variant="outline" onClick={closeLink}>Cancelar</Button><Button type="submit" disabled={!linkUrl.trim()} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>Guardar enlace</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={closeLink}>Cancelar</Button><Button type="submit" disabled={!linkUrl.trim()} disabledReason={"Escribí la dirección del enlace."}>Guardar enlace</Button></DialogFooter>
       </form>
     </DialogContent></Dialog>}
 

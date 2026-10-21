@@ -18,7 +18,7 @@ async function openDelegatedTask(page:Page){
 test('delegated task explains communication permissions without expanding management access',async({page})=>{
  const {dialog,writes}=await openDelegatedTask(page);
  await expect(dialog.getByRole('button',{name:'Preparar email con un mensaje modelo',exact:true})).toBeDisabled();await expect(dialog.getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true})).toBeDisabled();await expect(dialog).toContainText('la asignación de esta tarea no cambia esos permisos');// Desktop: the number is shown to copy (no tel: link); the delegate can still say she called, which hands over to the task's own completion path.
- await expect(dialog.getByLabel('Número a llamar')).toHaveText('5493442000001');await expect(dialog.locator('a[href^="tel:"]')).toHaveCount(0);await expect(dialog.getByRole('button',{name:'Copiar número',exact:true})).toBeVisible();await expect(dialog.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true})).toBeEnabled();await expect(dialog.getByRole('button',{name:'Registrar qué pasó',exact:true})).toBeEnabled();expect(writes).toEqual([]);
+ await expect(dialog.getByLabel('Número a llamar')).toHaveText('5493442000001');await expect(dialog.locator('a[href^="tel:"]')).toHaveCount(0);await expect(dialog.getByRole('button',{name:'Copiar número',exact:true})).toBeVisible();await expect(dialog.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true})).toBeEnabled();await expect(dialog.getByRole('button',{name:'Anotar lo que pasó',exact:true})).toBeEnabled();expect(writes).toEqual([]);
 });
 test.describe('touch device',()=>{
  test.use({hasTouch:true,isMobile:true});

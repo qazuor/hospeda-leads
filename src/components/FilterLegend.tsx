@@ -39,7 +39,7 @@ function FilterBadge({ rule, search, fields, onChange, onRemove, readOnly = fals
           <strong>{field?.label ?? 'Búsqueda'}</strong>
           <label>{rule?.operator === 'between' ? 'Desde' : 'Valor'}{field?.kind === 'date' ? <CrmDateInput autoFocus aria-label="Valor del filtro" value={value} onValueChange={setValue}/> : <Input autoFocus aria-label={rule ? 'Valor del filtro' : 'Búsqueda aplicada'} inputMode={field?.kind === 'number' ? 'numeric' : undefined} value={value} onChange={e => setValue(e.target.value)} maxLength={1000}/>}</label>
           {rule?.operator === 'between' && <label>Hasta{field?.kind === 'date' ? <CrmDateInput aria-label="Hasta del filtro" value={value2} onValueChange={setValue2}/> : <Input aria-label="Hasta del filtro" inputMode={field?.kind === 'number' ? 'numeric' : undefined} value={value2} onChange={e => setValue2(e.target.value)}/>} </label>}
-          <div className={styles.formActions}><Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancelar</Button><Button size="sm" type="submit" disabled={!valid} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>Aplicar valor</Button></div>
+          <div className={styles.formActions}><Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancelar</Button><Button size="sm" type="submit" disabled={!valid} disabledReason={"Escribí el valor del filtro (y el segundo valor si elegiste un rango)."}>Aplicar valor</Button></div>
         </form>}
       </PopoverContent>
     </Popover> : <span className={styles.staticValue} title={label}>{content}</span>}
