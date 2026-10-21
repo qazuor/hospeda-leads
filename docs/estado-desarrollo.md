@@ -1,4 +1,33 @@
-# Estado del CRM — corte al 16 de octubre de 2026
+# Estado del CRM — corte al 21 de octubre de 2026
+
+## Revisión de UX y rendimiento — 20 y 21/10/2026 (mergeada en `staging`, sin desplegar)
+
+**Estado de cada hecho.** Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción: **nada**. Promoción de `staging` a `main`: **no hecha**; la decide el propietario más adelante. Verificación visual del propietario sobre un entorno real: pendiente. Las cifras de CI/pruebas pertenecen a cada PR, no son un contador vivo.
+
+Antes de promover hay que tener en cuenta:
+
+- **Migraciones nuevas, sin aplicar en producción:** 024–026 (rendimiento y sesiones) y 027–031 de esta revisión: 027 resultados unificados y próximo paso obligatorio, 028 seguimiento de resultados de contacto, 029 índice de eventos de pipeline por negocio y etapa, 030 índices de primeros pasos y usuarios, 031 índice parcial de negocios No contactar. 029, 030 y 031 son `CREATE INDEX` simples (toman bloqueo de escritura sobre la tabla mientras se crean): ejecutar en horario de baja actividad. Ver [pendientes](pendientes.md) para las notas de deploy.
+- `JWT_SECRET` ahora es obligatorio (32 o más caracteres, sin valor de ejemplo): el servidor no arranca sin él (#131). Debe estar bien definido en Coolify antes de desplegar.
+- Healthcheck de Coolify: el propietario lo pasó a `/_api/health/ready` el 21/10/2026 (verifica la base de datos).
+
+PRs mergeados a `staging`, agrupados (título resumido de cada uno):
+
+- **Rendimiento, seguridad y arquitectura (#120–#149, plan de rendimiento; ver [resultados](rendimiento-y-arquitectura-2026-10.md)):** carga diferida del editor y la guía; caché de recursos y estáticos con compresión; sondeo de versiones en vivo por dominio; sesiones con expiración y renovación en pestañas abiertas; login sin enumeración de cuentas; JWT obligatorio (#131); errores sin filtrar mensajes de Postgres; códigos HTTP correctos; límite de cuerpo; cabeceras de seguridad, CSP en modo reporte y verificación de Origin; id de petición, log de lentitud y salud con base de datos; bloqueo de filas en Comunicación en lugar de tablas; endpoints muertos retirados; imagen Docker sin root; error boundary.
+- **Entorno local (#150):** `npm run local`.
+- **Fundamentos de UX (#151–#155):** fechas en hora de Argentina (24 h); tonos de badge semánticos con contraste legible; Esc acotado a selectores, motivos de deshabilitado honestos y validación en línea; vocabulario, etiquetas y catálogo de resultados; cliente de API compartido con errores en español, timeout y reintentos.
+- **Negocios y Gestiones (#156–#158, #166, #167):** chequeo de duplicados y bloqueo ante un negocio No contactar; valores por defecto de vendedor, columnas y vista de contacto reciente; totales y tarjetas más calmas en el tablero; acciones por fila claras, esqueletos y tarjetas móviles; alta de negocio en un paso con aviso de duplicado.
+- **Permisos (#159, #172, #192):** negocio archivado o No contactar de solo lectura para su responsable; vendedor con gestión abierta corrige datos de contacto; D1 y 1C (solo responsable o admin registran «Pidió no ser contactado»; negocios No contactar de solo lectura para no admins).
+- **Sesión y contacto (#160, #161, #170, #174):** diálogo de nuevo ingreso al expirar la sesión conservando la página y los borradores; destinatario y borradores de WhatsApp; todo contacto termina en «¿Cómo salió?» → «¿Cómo sigue?»; un solo diálogo Contactar y llamadas.
+- **Resultados y tareas (#162, #163, #173, #180, #183, #184):** lista única de resultados y próximo paso obligatorio; Comunicación usa la misma lista; «Agendar tarea» con atajos de fecha; Hoy rehecho con tareas posponibles, progreso y trabajo urgente sin paginar; editor liviano «Anotar lo que pasó»; etapa sugerida como casilla explícita.
+- **Búsqueda y navegación (#164, #165):** teléfonos con cualquier formato y búsqueda por varias palabras (nombre + ciudad); navegación del vendedor Hoy, Negocios, Gestiones, Ayuda.
+- **Ficha y gestión (#168, #171, #175, #177, #178):** página de gestión con badge de etapa, diálogo de etapa agrupado y reglas de reapertura; ficha con un próximo paso, estado como badge-botón y cuatro pestañas; línea «Qué pasó» unificada como pestaña por defecto; notas de etapa visibles en esa línea; ayudas, estados vacíos que enseñan y descarga de documentos para el responsable archivado.
+- **Móvil, accesibilidad y primer uso (#179, #182):** pasada móvil y errores accesibles en línea; lista de primeros pasos y estado vacío didáctico en Hoy.
+- **Vocabulario y colores (#185, #186):** barrido final con guardia estricta de vocabulario; color fijo por rubro en los badges.
+- **No contactar y recontacto (#187, #188, #190, #191):** advertencia (sin bloqueo) por teléfono de persona de un negocio No contactar; «Recontactar» con fecha crea la tarea «Volver a contactar»; aviso al contactar un teléfono No contactar (D2); cancelación de tareas pendientes al quedar No contactar (D3).
+- **Guía y pruebas (#189, #169, #176, #181):** guía en pantalla sincronizada, con un test que verifica sus etiquetas; arreglos de pruebas inestables.
+- **Otros:** #133 (CI más rápida), #138 (actualizaciones de seguridad), #149 (documentación del plan de rendimiento).
+
+Este documento y [decisiones](decisiones.md) se actualizaron al cierre (U-34). Si el PR #193 («Hoy» en todos los textos y guía) se integró antes de leer esto, está incluido en la guía regenerada; si no, queda registrado en [pendientes](pendientes.md).
 
 ## Configuración de variables de texto para modelos — 19/10/2026
 
@@ -201,9 +230,12 @@ El branch `feat/ui-aesthetic-functional-tweaks` se reubicó sobre el `staging` a
 
 Validación en el branch: `pnpm run typecheck`, `pnpm test` (23 archivos, 110 pruebas), `pnpm run build` y `git diff --check`. El build conserva la advertencia existente de chunks mayores a 500 kB. Los tres commits de UI y la documentación/prueba complementaria quedaron integrados en `staging` mediante el commit `924d186` el 16/10/2026. Sin merge a `main` ni deploy confirmado.
 
-## Redistribución de responsables — 15/10/2026
+## Reparto de responsables en producción — 15/10/2026
 
-Por instrucción del propietario, se redistribuyeron en producción 2.460 negocios no filtrados ni eliminados por ID ascendente entre cuatro usuarios con rol `user`, excluyendo a Julián. Los 356 negocios filtrados o en Papelera conservaron sus responsables; quedaron 883 negocios asignados por usuario. Se generó un evento de auditoría por negocio y no se modificaron responsables de gestiones. El respaldo y el manifiesto de rollback quedaron fuera de Git. No repetir la operación como parte de un deploy o cambio de código.
+Por instrucción directa del propietario, se redistribuyeron los negocios no filtrados ni eliminados en orden ascendente por ID entre los cuatro usuarios con `role='user'`, excluyendo a Julián. Los 356 negocios filtrados o en Papelera conservaron su responsable. Quedaron 883 negocios asignados a cada usuario elegible. Se actualizaron 2.460 filas de `crm_accounts.assigned_user_email` y `updated_at`, con un evento `account_updated` por negocio en `crm_commercial_journal`. No se modificaron responsables de gestiones. La verificación posterior confirmó que cada uno de los cuatro usuarios tiene negocios de Alojamiento, Experiencias y Gastronomía. No repetir la operación como parte de un deploy o cambio de código.
+
+El respaldo completo, manifiesto de reversión y scripts de rollback quedaron fuera de Git. La validación consistió en consultas SQL de solo lectura antes y después, más verificaciones dentro de la transacción. No hubo cambios de código ni pruebas de aplicación en esta operación.
+
 ## Acciones de negocios siempre visibles
 
 En la rama `feat/ui-aesthetic-functional-tweaks`, las acciones Abrir, Contactar, Archivar y Eliminar quedan siempre visibles en tabla y grilla; las no permitidas se muestran deshabilitadas con explicación. La columna de acciones tiene un ancho mínimo de 150 px para evitar recortes. También se quitó el resaltado de columna que se activaba al pasar por un encabezado. `pnpm run typecheck` y `git diff --check` pasaron. Commits locales; sin push ni PR.

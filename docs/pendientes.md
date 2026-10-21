@@ -1,5 +1,59 @@
 # Pendientes y próximo trabajo
 
+## Tras la revisión de UX (21/10/2026)
+
+La revisión de UX está mergeada en `staging` y **no** desplegada ni promovida a `main` (ver [estado](estado-desarrollo.md)). Seguimientos abiertos, verificados contra el código de `staging` al cierre salvo indicación:
+
+**Decisión del propietario pendiente**
+
+- Contacto pasado en un negocio No contactar: `manual_complete` / `interaction_correct` con `manual_sent` sobre un mensaje de propósito `care` llama a `markClientForCare` y marca `is_client=true` (`communicationService.ts`, verificado). Opciones: permitirlo (registra lo ocurrido) o bloquear el marcado para no admins. Ver [decisiones](decisiones.md).
+
+**Recontacto y tareas (decisión 7A / D3)**
+
+- Fusionar negocios deja la tarea «Volver a contactar» del negocio absorbido (la fusión solo cancela la de la política No contactar del destino; `dataQualityService.ts`). Reportado en la revisión de #188; no reverificado con una prueba.
+- Reasignar el negocio puede dejar la tarea sin tocar asignada al responsable anterior (`recontactTask.ts` la localiza por el responsable actual). Reportado en la revisión; no reverificado con una prueba.
+- Cerrar una gestión con fecha de recontacto reescribe (o limpia) `crm_accounts.recontact_at` en `pipeline.ts` sin pasar por `syncRecontactTask`; una tarea «Volver a contactar» previa queda sin sincronizar. Verificado en el código: no hay llamada en esas líneas.
+- Un negocio No contactar acepta aún `task_save` para reprogramar tareas de contacto (solo `assertAccountReadable` y propiedad). Reportado en #180; no reverificado.
+
+**Móvil y accesibilidad (revisión de #179, #178)**
+
+- Los diálogos `.editor` se muestran a pantalla completa en móvil, incluso formularios cortos (Revisión masiva, Iniciar oportunidad, etapa y cierre de Gestiones): los botones quedan a mitad de pantalla. Valorar un pie fijo abajo o excluir los diálogos cortos. Reportado en #179.
+- El teclado en pantalla puede tapar «Guardar» (`100dvh` sin `visualViewport`; solo `AppCommandPalette` usa `visualViewport`). Verificado.
+- `index.html` no declara `viewport-fit=cover`, así que `env(safe-area-inset-*)` vale 0. Verificado.
+- Los errores de Textarea y NativeSelect no tienen `role="alert"` (preexistente). Reportado en #179.
+- `useInlineInvalid` fija el `aria-label` con el texto de la etiqueta al marcarse inválido; queda desactualizado si el texto cambia mientras el campo es inválido. Limitación conocida.
+- La ayuda de `managementTypeHints` se renderiza dentro de la etiqueta del campo y pasa al nombre accesible del combo; moverla a `aria-describedby`. Reportado en #178.
+- Controles menores de 44 px en móvil: casillas de la vista tabla, controles del tablero de Gestiones y el enlace «Revisar negocios» de Hoy. Reportado en #179.
+- Los Disclosure con formularios (Mantine Collapse con `overflow:hidden` durante ~200 ms) pueden perder un clic hecho justo al abrirlos (causa de la inestabilidad de #181). Valorar `overflow:visible` al abrir o sin animación.
+
+**Concurrencia y rendimiento**
+
+- `task_save` desde el editor reemplaza todo el registro (última escritura gana, sin token de concurrencia). Reportado en #180.
+- `doneToday` (Hoy) recorre `crm_tasks`; el índice `crm_tasks_day` es solo de pendientes. Aceptable a ~50 mil filas; vigilar (`work.ts`, verificado la consulta).
+- En Hoy, el recorte de urgentes (`mode=day`) conserva las 300 más antiguas vencidas y el aviso no dice cuáles se ocultan.
+- Cada carga de un negocio dispara dos consultas de historial con claves distintas (`BusinessSummary` y `BusinessHistory`). Verificado en el código.
+- La búsqueda (Ctrl+K y listados) no tiene índices `pg_trgm`/de expresión (seq scan de ~0,6–0,8 s con 50 mil filas, medido en el plan de rendimiento). Verificado: ninguna migración los crea.
+
+**Permisos y vistas de solo lectura**
+
+- `/sales/:id` sigue sin ser de solo lectura para el responsable archivado: `leads_GET` oculta las gestiones de negocios archivados a no admins (línea de filtro de oportunidades). Siguen en 403 para él la comunicación por `leadId` y la lectura individual de documentos. Ampliar con `assertAccountViewable` solo en lecturas; no aflojar `assertAccountReadable`.
+
+**Textos y código**
+
+- Textos con «Mi día»: PR #193 («Hoy» en todos los textos y guía de las últimas reglas No contactar) estaba abierto al escribir esto; si no se integró, queda pendiente `WorkPanel`, `WorkEditor`, `QueryErrorNotice` y `WorkTypesSettings`.
+- `communicationService.ts` `createResponse` usa `sql<any>` en el replay; tiparlo.
+- JWT: unificar marcadores de valores de ejemplo entre `getSetServerSession.tsx` y `scripts/local/lib.mjs`, valorar rechazar comillas/espacios alrededor y corregir el comentario de `vitest.config.ts`. No se endureció antes de integrar #131 por riesgo de rechazar el secreto productivo.
+- Pruebas: `business-view-badges.e2e.ts` es inestable en la suite completa (restauración del scroll tras recargar); `business-contact.e2e.ts` no es repetible sobre una base usada (títulos de tarea por ancho); `work.e2e.ts` tiene una aserción «Dar de baja = 0» que ya es vacua. Los Collapse de Mantine justifican el patrón de #181 para otros specs.
+- Cosmético: en lunes los atajos «Lunes» y «En 1 semana» caen el mismo día y ambos aparecen presionados; `BusinessCard .heading .name` con `-webkit-box`.
+
+**Notas de despliegue (cuando el propietario decida promover)**
+
+1. Ejecutar las migraciones 024–031 en horario de baja actividad. 027–031 son de esta revisión; 029, 030 y 031 son `CREATE INDEX` simples. Aplicar solo con respaldo y sobre el procedimiento de despliegue revisado; nada se aplicó en producción.
+2. `JWT_SECRET` válido en Coolify (32 o más caracteres, sin valor de ejemplo) antes de arrancar; sin él el servidor no inicia.
+3. `PUBLIC_APP_URL` correcta en Coolify.
+4. El healthcheck ya apunta a `/_api/health/ready` (cambio del propietario).
+5. Después del despliegue, verificar visualmente con el propietario y registrar el resultado aquí.
+
 ## Auditoría del flujo comercial — 19/10/2026
 
 - P0 1–4 de [la auditoría](auditoria-flujo-comercial.md) están corregidos; `d173889` ya está en `origin/staging`. P1 5 y 6 se corrigieron en `045ab36`; P1 7, 10 y 11 en `8e9e7ca`; ambos publicados en `origin/staging`. P1 12–16 están corregidos localmente: Reactivación anticipa opciones y resume la tarea; Archivar/Papelera distinguen usos y consecuencias; el resumen del negocio y el próximo paso de cada gestión reúnen la información para retomar el trabajo; los responsables del negocio, la gestión y la tarea se identifican por separado. #12–15 pasaron typecheck, build y E2E desktop/móvil con API interceptada; #16 pasó typecheck, build y `git diff --check`. Falta una revisión visual integral de los puntos anteriores y verificación con una base descartable.
@@ -150,3 +204,5 @@ Se refrescaron la guía en pantalla y el Markdown generado con los flujos actual
 ## Estado de ramas — 16/10/2026
 
 Los PRs #99–#110 revisados para estados, comunicación, UI y documentación están integrados en `staging`. Los tres ajustes adicionales de UI y la documentación/prueba complementaria se integraron mediante el commit `924d186` el 16/10/2026. Esto no implica merge a `main` ni deploy.
+
+La distribución de responsables entre los cuatro usuarios elegibles se ejecutó el 15/10/2026 en producción, conservando responsables de Filtrados y negocios en Papelera. Esto no completa la revisión pendiente de fusiones o multiverticales.

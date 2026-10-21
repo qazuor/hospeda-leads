@@ -8,9 +8,9 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - Alta manual/importación crea el negocio; no fabrica una gestión, actividad, conversación ni tarea.
 - Iniciar gestión es explícito. Cancelar su formulario no crea nada. El nombre inicial editable es Presentación de Hospeda; no se elige arbitrariamente una etapa histórica como etapa inicial.
 - El responsable del negocio y el de cada gestión se conservan como ámbitos distintos cuando ya difieren. Una tarea delegada no cambia el responsable comercial.
-- Contactar debe ser el mismo recorrido desde negocio, gestión, Mi día, Agenda y próximo paso: elegir contexto/persona/canal, preparar libre o con modelo, revisar y ejecutar.
+- Contactar debe ser el mismo recorrido desde negocio, gestión, Hoy y próximo paso: elegir contexto/persona/canal, preparar libre o con modelo, revisar y ejecutar. Siempre termina en «¿Cómo salió?» y «¿Cómo sigue?» (ver «UX de octubre de 2026»).
 - Abrir WhatsApp/email/llamada no prueba envío, respuesta ni contacto realizado. Preparar un borrador no completa una tarea.
-- Registrar actividad/resultado puede crear un próximo paso explícito en una transacción. No modifica otras tareas ni etapas por su cuenta.
+- Después de cada contacto o resultado hay que elegir cómo sigue: agendar una tarea o «No agendar nada» con motivo (2B, 20/10/2026). Se crea en una transacción. No modifica otras tareas; la etapa de una gestión solo cambia si la persona marca la casilla sugerida (9A).
 - Acuerdo comercial, condición Cliente, cierre Ganada, pago y entrega son hechos distintos. No inferir pagos ni activar servicios automáticamente.
 
 ## Permisos y comunicación
@@ -51,6 +51,30 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - Toasts pueden ofrecer destinos, reintento y Deshacer cuando sea realmente reversible. No prometer deshacer un envío o borrado definitivo.
 - Fechas de calendario comercial se presentan en Argentina; no desplazar el día por una conversión UTC implícita.
 
+## UX de octubre de 2026 — decisiones del propietario
+
+Revisión de usabilidad para vendedores sin experiencia en CRM. Decisiones del 20 y 21/10/2026; el estado de implementación está en [estado-desarrollo.md](estado-desarrollo.md) (mergeado en `staging`, sin deploy).
+
+- **1C (20/10) — Lectura para el responsable.** Un negocio archivado o No contactar sigue legible para su responsable (`crm_accounts.assigned_user_email`) con un banner rojo («No contactar · Pidió no ser contactado el {fecha}. Solo un administrador puede levantar el bloqueo.»); todas las acciones de contacto quedan deshabilitadas. Solo un administrador modifica o levanta el bloqueo. Desde #192 (21/10) un negocio No contactar es de solo lectura para quienes no son admin aunque no esté archivado. Quien solo tuvo una gestión sobre ese negocio no gana acceso. Crear un duplicado de un negocio No contactar se bloquea («Ese negocio pidió no ser contactado. Consultá con un administrador.»), también para admins, que levantan el bloqueo en el registro existente. Reemplaza la regla anterior de que solo un administrador consulta archivados.
+- **D1 (21/10, propietario) — Quién registra «Pidió no ser contactado».** Solo el responsable del negocio, el de alguna de sus gestiones o un admin; el servidor lo exige y la opción se oculta a los demás.
+- **16A (20/10) — Alcance del aviso.** El banner de No contactar también refleja una respuesta registrada como «Pidió no ser contactado» (`do_not_contact_response`), no solo el cierre de una gestión.
+- **D3 (21/10, propietario) — Tareas al quedar No contactar.** Se cancelan todas las tareas pendientes del negocio con el motivo «Se canceló porque el negocio quedó marcado No contactar.», que queda en el historial. Al levantar el bloqueo no se restauran.
+- **2B (20/10) — Después de contactar.** Tras cualquier contacto, desde cualquier entrada, la cadena «¿Cómo salió?» → «¿Cómo sigue?» no se puede omitir: hay que agendar una tarea o elegir «No agendar nada» con motivo (presets u «Otro (contame)» con texto). 14A: se puede salir del diálogo sin anotar el resultado tras confirmar, pero el contacto queda como pendiente visible en Hoy («Anotá cómo salió») hasta resolverlo.
+- **3A (20/10) — Una sola lista de resultados:** No respondió · Respondió, le interesa · Pidió que lo contacte más adelante · No le interesa · Pidió no ser contactado · Otro (contame), más los extras propios de cada propósito (p. ej. «Entrega confirmada»). Los valores antiguos se muestran mapeados; no se reescribe el historial. Migración 027.
+- **9A (20/10) — Etapa sugerida.** Al elegir un resultado se ofrece la casilla «¿Pasar la gestión a {etapa sugerida}?», desmarcada por defecto. Si se marca, la gestión pasa como un cambio de etapa común hecho por la persona, con una nota neutra. Solo sugiere avanzar a etapas abiertas; los resultados de cierre no sugieren nada.
+- **7A (20/10) — Recontactar con fecha.** Crea la tarea «Volver a contactar» para el responsable del negocio en esa fecha (una por negocio y fecha) y avisa «Se agendó una tarea para el {fecha}». Cambiar la fecha mueve la tarea. Se cancela, solo si sigue pendiente y sin tocar, al borrar la fecha, cambiar el estado, marcar No contactar o archivar.
+- **8A (20/10) — Datos de contacto con gestión abierta.** Quien tiene una gestión abierta sobre el negocio puede editar teléfono, email, WhatsApp y personas (agregar o editar; no borrar personas ni cambiar la Principal), no responsable, estado ni datos estructurales. Todo queda auditado. Excluye negocios No contactar (valor por defecto del coordinador, aplicado en #172 sin objeción), para que una gestión abierta no pueda borrar un teléfono No contactar y desactivar el bloqueo de re-alta.
+- **13B (20/10) — Teléfono de persona.** Si coincide exactamente con el de un negocio No contactar, solo se advierte al guardar («Este teléfono es de un negocio que pidió no ser contactado.»). El bloqueo duro queda para volver a dar de alta el mismo negocio (teléfono o WhatsApp exactos, o nombre y ciudad). **D2 (21/10, propietario):** además hay un aviso no bloqueante al contactar (Contactar, llamada, contacto desde tarea) cuando el teléfono de la persona elegida coincide con el de un negocio No contactar.
+- **4A y 5A (20/10) — Vistas y navegación del vendedor.** Por defecto «Mis negocios» y «Mis gestiones», con «Todos» a un clic; el admin conserva «Todos». Menú del vendedor: Hoy (pestañas Lista, Calendario y Para retomar, que absorben Agenda y Reactivación), Negocios, Gestiones y Ayuda. «Más opciones» es solo admin y se llama «Administración».
+- **6a–6d (20/10) — Vocabulario.** Se mantiene «Gestión» con una explicación; se mantienen los nombres de tipos de gestión con una línea de ayuda por tipo; «Sin seguimiento programado» pasa a «Sin tarea agendada» (solo la etiqueta; el valor no cambia). Términos: Negocio, Persona, Contactar solo como verbo, Gestión, Etapa (gestión) y Estado (negocio), Agendar tarea, Anotar lo que pasó / Anotar cómo salió, «¿Cómo salió?», Responsable del negocio / de la gestión / tarea «Asignada a», Borrar (cargada por error) y «Ya no hace falta». La fuente es `src/content/vocabulary.ts`, protegida por un test de términos prohibidos.
+- **15B (20/10) — Color por rubro.** Cada vertical tiene un color fijo y estable (contraste mínimo 4,5:1, tema claro y oscuro).
+- **Notas de etapa (20/10, 23:26).** Las notas de cambio de etapa de una gestión (`crm_pipeline_events.management_note`) se muestran en «Qué pasó» a todo usuario que pueda leer el negocio.
+- **Ctrl/Cmd+K y archivados (21/10, valor por defecto del coordinador).** Muestra los negocios archivados («· Archivado») a su responsable actual y a admins; nunca los de Papelera ni fusionados; los colegas no ven los archivados ajenos.
+- **Primeros pasos en Hoy (21/10, valor por defecto del coordinador).** «Contactá a un negocio» cuenta solo envíos confirmados (enviado manualmente, aceptado, entrega confirmada, respondido) o una actividad con resultado de contacto real. Un intento sin respuesta tilda solo «Anotá cómo salió». Abrir WhatsApp, guardar borradores o no enviar nunca cuentan.
+- **Sin email diario (20/10, decisión 10B)** por ahora.
+- **ABIERTA — registrar un contacto pasado en un negocio No contactar.** Con `manual_complete` o `interaction_correct` y `manual_sent` sobre un mensaje de propósito `care`, `markClientForCare` marca `is_client=true` (`communicationService.ts`). El propietario debe decidir si se permite (registra lo que pasó) o se bloquea para no admins (pendiente desde la revisión de #192).
+- Flujo de integración: cada PR a `staging` con CI verde y revisión fresca; nunca a `main` (decisión 11).
+
 ## Archivo, Papelera y metadatos recuperados
 
 - Archivar: conservar un negocio válido que ya no se trabajará activamente (`crm_accounts.archived_at`).
@@ -75,7 +99,7 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 - Los catálogos de etapas y motivos son fijos en la aplicación por ahora. Los motivos de cierre se separan por vertical y resultado; `Otro` siempre requiere nota.
 - Una propuesta comercial de Editor cerrada ganada pregunta si corresponde marcar el negocio como Cliente. La colaboración editorial no lo activa automáticamente.
 - El acompañamiento de ficha es una gestión separada: Pendiente de iniciar → Contactado (opcional) → Trabajando en la ficha → Cerrada completada / Cerrada no completada. La completada no exige motivo; la no completada sí.
-- Una fecha de recontacto acordada en una gestión crea una tarea/recordatorio visible para su responsable. `Recontactar` en el negocio puede llevar una fecha opcional como referencia.
+- Una fecha de recontacto acordada en una gestión crea una tarea/recordatorio visible para su responsable. `Recontactar` en el negocio con fecha crea además la tarea «Volver a contactar» (decisión 7A, 20/10/2026; ver «UX de octubre de 2026»). Sin fecha no se crea tarea.
 - Al derivar a Leandro, la gestión conserva su etapa previa; Leandro puede avanzar mientras esté derivada. Si un administrador desactiva la derivación, la gestión vuelve a la etapa previa y el negocio se reasigna al responsable original u otro elegido por el administrador.
 - Solo administradores desarchivan. Se restaura Revisado si existe evidencia histórica de revisión; en caso contrario, Nuevo.
 - Si se cierra una gestión con `Pidió no ser contactado`, se activa No contactar y se archiva el negocio; se pregunta si cerrar también las otras gestiones abiertas.
@@ -86,10 +110,22 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 
 - Comunicación es saliente y permite registrar manualmente respuestas; no es una bandeja sincronizada. Email se envía por Brevo; WhatsApp prepara y abre el canal externo; llamadas, redes y Otros se registran manualmente.
 - Se permiten contactos generales con propósito y contactos dentro de gestiones abiertas. Nuevo solo admite verificación; Archivado y No contactar bloquean salidas; Papelera bloquea todo hasta restauración administrativa.
-- Toda respuesta entrante requiere contexto. “Pidió no contactar” bloquea el negocio completo; solo admin levanta el bloqueo. Confirmaciones y correcciones quedan auditadas.
+- Toda respuesta entrante requiere contexto. “Pidió no contactar” bloquea el negocio completo; solo admin levanta el bloqueo. Quién puede registrarlo está en D1 («UX de octubre de 2026»). Confirmaciones y correcciones quedan auditadas.
 - Las etapas y motivos de gestión son catálogos fijos. Admin administra modelos compartidos; se conservan sus versiones y se pueden restaurar.
 - Se retiraron las secuencias asistidas. La limpieza de registros de prueba se limitó a los artefactos identificables al aplicar la migración 022 en la réplica local; no autoriza escrituras en producción.
 - El flujo acordado está en [spec 56 — Comunicación](crm-roadmap/56-communication-product-spec.md).
+
+## Modelo de estados de negocio y gestiones — qué está implementado
+
+Definición de producto en la [spec 53](crm-roadmap/53-business-and-management-state-model.md) (el documento original del propietario decía «no se ha revisado ni implementado todavía»; ya no es así). Está mergeado en `staging` (PRs #99–#103) y no desplegado a producción:
+
+- El ciclo del negocio está separado de las etapas de sus gestiones; un negocio puede tener varias gestiones abiertas.
+- Estados del negocio: Nuevo, Revisado, En gestión, Sin tarea agendada (antes «Sin seguimiento programado»; solo cambió la etiqueta), Recontactar y Archivado. Recontactar admite una fecha opcional; con fecha crea la tarea «Volver a contactar» (7A). La fecha de espera de una gestión pertenece a la gestión.
+- Cliente, No contactar, Derivado a Leandro y Eliminado (Papelera) son condiciones independientes del estado. La Papelera solo la ven administradores y no permite operar hasta restaurar. Derivar cambia la gestión a Derivado a Leandro y asigna el negocio a Leandro; cualquiera puede derivar y solo admin desactiva (ver definición aprobada más arriba).
+- Cada tipo de gestión tiene su catálogo fijo de etapas. Cerrar exige motivo (por vertical y resultado; «Otro» requiere nota). Entre etapas abiertas se permite cualquier cambio; solo un admin reabre una gestión cerrada. La matriz de transiciones que faltaba definir quedó resuelta así.
+- Los negocios históricamente Filtrados deben conservarse como Revisados sin borrar el dato ni su historial; está implementado en el código y las migraciones, pero la conversión sobre datos productivos no se ejecutó (ver «Migración del modelo de estados»).
+
+Sigue sin hacerse: el despliegue a producción, el backfill productivo con su preflight, y la revisión visual completa. No inferir ninguno de ellos del merge a `staging`.
 
 ## Datos reales, fusiones y multivertical
 
