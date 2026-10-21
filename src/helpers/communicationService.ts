@@ -18,6 +18,8 @@ import { withDefaultMessageVariables } from './messageVariables';
 import {responseCategoryLabel} from './crmLabels';
 import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
 type Executor=Kysely<DB>|Transaction<DB>;
+/** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
+type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
 export class CommunicationForbidden extends Error{}
 export class CommunicationConflict extends Error{}
 export const digest=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
@@ -147,7 +149,7 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
  if(requested.length){
   const open=(await sql<{id:string;management_type:string|null;estado:string;assigned_user_email:string|null}>`SELECT l.id,l.management_type,l.estado,l.assigned_user_email FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open' AND l.id=ANY(${requested}::bigint[]) FOR UPDATE OF l`.execute(e)).rows;
   if(open.length!==requested.length)throw new CommunicationConflict('Una o más gestiones seleccionadas ya no están abiertas. Actualizá el detalle y volvé a intentarlo.');
-  if(open.some(item=>!item.management_type))throw new CommunicationConflict('Una gestión histórica seleccionada requiere un cierre manual desde el pipeline.');
+  if(open.some(item=>!item.management_type))throw new CommunicationConflict('Una gestión histórica seleccionada requiere un cierre manual desde el tablero.');
   if(open.some(item=>user.role!=='admin'&&item.assigned_user_email!==user.email))throw new CommunicationForbidden('Solo podés cerrar las gestiones que tenés asignadas.');
   await sql`SELECT set_config('crm.close_related_management','true',true)`.execute(e);
   for(const item of open){
@@ -172,7 +174,7 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
 async function createResponse(e:Executor,input:Extract<CommunicationMutation,{action:'response_create'}>,user:User){
  const {account,lead}=await communicationContext(e,input.accountId,input.leadId,user,false);
  // Replay: a retry whose answer was lost returns the same response (the first save already blocked the business and closed the chosen managements). Only the same user, business, management, category, person and linked contact; anything else is a conflict that reveals nothing.
- const replay=(await sql<any>`SELECT id,actor_email,account_id,lead_id,category,contact_id,linked_message_id FROM crm_communication_responses WHERE id=${input.id}::uuid`.execute(e)).rows[0];
+ const replay=(await sql<ResponseReplay>`SELECT id,actor_email,account_id,lead_id,category,contact_id,linked_message_id FROM crm_communication_responses WHERE id=${input.id}::uuid`.execute(e)).rows[0];
  if(replay){if(replay.actorEmail!==user.email||String(replay.accountId)!==String(account.id)||String(replay.leadId??'')!==String(input.leadId??'')||replay.category!==input.category||String(replay.contactId??'')!==String(input.contactId??'')||String(replay.linkedMessageId??'')!==String(input.linkedMessageId??''))throw new CommunicationConflict('Ese registro ya existe para otro contacto. Reintentá desde cero.');return {id:String(replay.id)};}
  if(input.category==='do_not_contact'&&!input.confirmDoNotContact)throw new CommunicationConflict('Confirmá que se bloquearán todos los contactos del negocio.');
  if(input.leadId&&!lead)throw new Error('Contexto de gestión inválido');

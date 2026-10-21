@@ -19,10 +19,12 @@ for(const width of [1280,390,320])test(`remaining screens fit both themes at ${w
 });
 
 // WCAG contrast of badge text and field placeholders, measured from computed styles (no database needed).
-for(const dark of [false,true])test(`badges and placeholders reach 4.5:1 in ${dark?'dark':'light'} theme`,async({page})=>{
- await page.setViewportSize({width:1280,height:900});
+// U-37: the rubros (verticals) are painted with fixed colours, so they are measured too at desktop and phone width.
+const rubros=['Alojamientos','Gastronomía','Experiencias','Turismo rural','Partner','Rubro nuevo'];
+for(const width of [1280,390])for(const dark of [false,true])test(`badges and placeholders reach 4.5:1 in ${dark?'dark':'light'} theme at ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:900});
  const statuses=['new','reviewed','in_management','no_follow_up_scheduled','recontact','archived'];
- await page.addInitScript(({preferences,dark})=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-theme-mode',dark?'dark':'light');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},{dark,preferences:{...basePreferences(),columns:['nombre','ciudad','tipo','businessStatus']}});
+ await page.addInitScript(({preferences,dark})=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-theme-mode',dark?'dark':'light');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},{dark,preferences:{...basePreferences(width<600),columns:['nombre','ciudad','tipo','businessStatus']}});
  await page.route('**/_api/**',async route=>{
   const url=new URL(route.request().url());let data:unknown={};
   if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',displayName:'Owner',role:'user'}};
@@ -31,7 +33,7 @@ for(const dark of [false,true])test(`badges and placeholders reach 4.5:1 in ${da
   else if(url.pathname.endsWith('/settings'))data={users:[{id:3,email:'owner@example.com',displayName:'Owner',role:'user'}],cities:[{id:'1',name:'Colón'}],types:['Alojamientos'],subtypes:[],contactChannels:[],templates:[],authorizedEmails:[],opportunityStages:[]};
   else if(url.pathname.endsWith('/pipeline'))data={historicalReview:[],configJournal:[],stages:[],managementReasons:[],lossReasons:[],objectionTypes:[],rules:[],insights:[],events:[],objections:[],reactivations:[],total:0,page:1,users:[],verticals:[]};
   else if(url.pathname.endsWith('/leads_stats'))data={total:6,pendientes:0,suscriptos:0,vencidos:0,paraHoy:0,misPendientesHoy:0};
-  else if(url.pathname.endsWith('/leads'))data={rows:statuses.map((businessStatus,index)=>({id:String(index+1),accountId:String(index+1),nombre:'Negocio '+(index+1),ciudad:index%2?'Colón':'Gualeguaychú',tipo:'Alojamientos',businessStatus,assignedUserEmail:'owner@example.com',canModify:true,opportunityCount:0,contactCount:0,managementType:'main',estado:['main:contact','main:lost','main:won'][index%3]})),total:statuses.length,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
+  else if(url.pathname.endsWith('/leads'))data={rows:statuses.map((businessStatus,index)=>({id:String(index+1),accountId:String(index+1),nombre:'Negocio '+(index+1),ciudad:index%2?'Colón':'Gualeguaychú',tipo:['Alojamientos','Gastronomía','Experiencias','Turismo rural','Partner','Rubro nuevo'][index],businessStatus,assignedUserEmail:'owner@example.com',canModify:true,opportunityCount:0,contactCount:0,managementType:'main',estado:['main:contact','main:lost','main:won'][index%3]})),total:statuses.length,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
 
@@ -48,17 +50,20 @@ for(const dark of [false,true])test(`badges and placeholders reach 4.5:1 in ${da
   const badges=[...document.querySelectorAll('.mantine-Badge-root')].map(el=>{const s=getComputedStyle(el);return {text:el.textContent,ratio:ratio(rgb(s.color),rgb(opaqueBackground(el))),size:s.fontSize};});
   const input=document.querySelector('input[placeholder]') as HTMLInputElement;const placeholder=getComputedStyle(input,'::placeholder');
   const pageBackground=opaqueBackground(input);
-  return {badges,placeholder:{ratio:ratio(rgb(placeholder.color),rgb(pageBackground)),color:placeholder.color,opacity:placeholder.opacity},tableFont:getComputedStyle(document.querySelector('table td')!).fontSize};
+  const rubroHues=[...document.querySelectorAll<HTMLElement>('.mantine-Badge-root')].filter(el=>['Alojamientos','Gastronomía','Experiencias','Turismo rural','Partner'].includes(el.textContent??'')).sort((a,b)=>(a.textContent??'').localeCompare(b.textContent??'','es')).map(el=>el.style.getPropertyValue('--badge-h'));
+  return {rubroHues,badges,placeholder:{ratio:ratio(rgb(placeholder.color),rgb(pageBackground)),color:placeholder.color,opacity:placeholder.opacity},tableFont:document.querySelector('table td')?getComputedStyle(document.querySelector('table td')!).fontSize:null};
  });
  const result=await measure();
- await page.goto('/opportunities');await page.getByRole('button',{name:'Tabla',exact:true}).click();await expect(page.locator('td .mantine-Badge-root',{hasText:'Cerrada perdida'}).first()).toBeVisible();
- const stages=await measure();result.badges.push(...stages.badges);
+ if(width>=600){await page.goto('/opportunities');await page.getByRole('button',{name:'Tabla',exact:true}).click();await expect(page.locator('td .mantine-Badge-root',{hasText:'Cerrada perdida'}).first()).toBeVisible();
+ const stages=await measure();result.badges.push(...stages.badges);}
  console.log(JSON.stringify(result));
  expect(result.badges.length).toBeGreaterThan(5);
- for(const label of ['Por contactar','Cerrada perdida','Cerrada ganada'])expect(result.badges.map(badge=>badge.text),'stage badges are measured').toContain(label);
+ if(width>=600)for(const label of ['Por contactar','Cerrada perdida','Cerrada ganada'])expect(result.badges.map(badge=>badge.text),'stage badges are measured').toContain(label);
+ for(const label of rubros)expect(result.badges.map(badge=>badge.text),'rubro badges are measured').toContain(label);
+ const hues=result.rubroHues;expect(new Set(hues.slice(0,5)).size,'known rubros have distinct fixed colours').toBe(5);
  for(const badge of result.badges)expect(badge.ratio,`badge "${badge.text}"`).toBeGreaterThanOrEqual(4.5);
  expect(result.placeholder.ratio).toBeGreaterThanOrEqual(4.5);
- expect(result.tableFont).toBe('14px');
+ if(width>=600)expect(result.tableFont).toBe('14px');
 });
 
 // U-30: phones get full-screen editors, 44px targets in Negocios, and inline errors that stay out of the field name.

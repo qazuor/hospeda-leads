@@ -177,13 +177,13 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
   }
   const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',input.accountId).where('mergedIntoId','is',null).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
   if(input.leadId)await assertLeadAccess(trx,input.leadId,user,true);else assertAccountWritable(user,account);
-  if(input.contactId&&input.leadId)throw new QualityValidation('Elegí un único alcance.');
+  if(input.contactId&&input.leadId)throw new QualityValidation('Elegí una sola opción: persona o gestión.');
   const contact=input.contactId?await trx.selectFrom('crmContacts').selectAll().where('id','=',input.contactId).where('accountId','=',input.accountId).where('deletedAt','is',null).executeTakeFirstOrThrow():null;
   const lead=input.leadId?await trx.selectFrom('leads').selectAll().where('id','=',input.leadId).where('accountId','=',input.accountId).executeTakeFirstOrThrow():null;
   if(lead?.deletedAt)throw new QualityForbidden('La gestión está en la papelera.');
   const entity=contact??lead??account;
   const allowed=contact?['name','phone','email','position','preferredChannel']:lead?importFields:businessFields;
-  if(!(allowed as readonly string[]).includes(input.field))throw new QualityValidation('Campo fuera del alcance.');
+  if(!(allowed as readonly string[]).includes(input.field))throw new QualityValidation('Ese dato no se puede verificar.');
   if(entity.updatedAt.toISOString()!==input.revision)throw new QualityConflict('El dato cambió. Actualizá y revisá nuevamente.');
   for(const date of [input.obtainedAt,input.verifiedAt])if(date&&new Date(date)>new Date())throw new QualityValidation('No se permite una fecha futura.');
   const value=String(entity[input.field as keyof typeof entity]??'')||null,n=normalizeField(input.field,value);

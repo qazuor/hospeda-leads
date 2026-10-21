@@ -1,5 +1,6 @@
 import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {useOperationGuard} from '../helpers/useOperationGuard';
+import {crmError} from '../helpers/crmErrors';
 import { Table } from '@mantine/core';
 import { Disclosure, DisclosureSummary } from '../components/Disclosure';
 import { NativeSelect } from '../components/NativeSelect';
@@ -72,6 +73,7 @@ import styles from "./_index.module.css";
 import {QUERY_KEY, PRIORITY_OPTIONS, PROFILE_OPTIONS, CONTACT_OPTIONS, TEXT_FILTER_FIELDS, TextFilterField, DATE_FILTER_FIELDS, DateFilterField, TEXT_FILTER_LABELS, DATE_FILTER_LABELS, createTextFilters, createDateFilters, SortBy, TABLE_COLUMNS, DEFAULT_COLUMNS, DEFAULT_WIDTHS, TABLE_QUERY_STORAGE_KEY, TABLE_FILTERS_STORAGE_KEY, TABLE_SORT_STORAGE_KEY, readStoredQuery, readStoredFilterGroups, readStoredSort, emptyForm, str, dateInput, displayCalendarDate,displayDate, isUrl} from "../helpers/leadsTableModel";
 
 import {HeaderMenu} from "../components/LeadsTableHeader";
+import {managementDisplayName} from '../content/vocabulary';
 
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const navigate=useNavigate();
@@ -269,7 +271,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       qc.invalidateQueries({queryKey:["commercial-detail"]})
     ]);
   };
-  const runOperation=useOperationGuard(error=>toast.error(error instanceof Error?error.message:'No se pudo guardar'));
+  const runOperation=useOperationGuard(error=>toast.error(error instanceof Error?crmError(error):'No se pudo guardar'));
   const saveM=useMutation({mutationFn:postLeadsSave});
   const deleteM=useMutation({mutationFn:postLeadsDelete,onSuccess:invalidate});
   const quickM=useMutation({mutationFn:postLeadsQuick,onSuccess:invalidate});
@@ -466,7 +468,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     setSavedViews(next);
     void savedViewM.mutateAsync({action:"save",view:{name,config:{entity,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline,classification}}})
       .then(()=>toast.success("Vista guardada"))
-      .catch(error=>{setSavedViews(savedViews);toast.error(error instanceof Error?error.message:"No se pudo guardar la vista")});
+      .catch(error=>{setSavedViews(savedViews);toast.error(error instanceof Error?crmError(error):"No se pudo guardar la vista")});
     setSavedViewName("");setSaveViewOpen(false);
   };
   const applySavedView=(view:(typeof savedViews)[number])=>{
@@ -489,13 +491,13 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     const previous=savedViews;
     setSavedViews(savedViews.filter(view=>view.name!==name));
     void savedViewM.mutateAsync({action:"delete",name}).catch(error=>{
-      setSavedViews(previous);toast.error(error instanceof Error?error.message:"No se pudo eliminar la vista");
+      setSavedViews(previous);toast.error(error instanceof Error?crmError(error):"No se pudo eliminar la vista");
     });
   };
 
   const newLead=()=>{setEditingManagementType(null);if(businessMode)setBusinessEditor({});else setStartingOpportunity(true);};
-  const editLead=(l:any)=>{if(l.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede modificarlo.");return;}if(businessMode){void getCommercialDetail(String(l.accountId)).then(detail=>setBusinessEditor({item:detail.account})).catch(error=>toast.error(error.message));return}setLastTouchedId(String(l.id));setDuplicateCandidates([]);setEditingManagementType(l.managementType??null);setForm({
-    id:String(l.id),scope:"opportunity",opportunityName:l.opportunityName||"Gestión comercial inicial",serviceInterest:l.serviceInterest,primaryContactId:l.primaryContactId?String(l.primaryContactId):null,estimatedCloseDate:dateOnlyInput(l.estimatedCloseDate)||null,nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
+  const editLead=(l:any)=>{if(l.canModify===false){toast.info("Solo el responsable del negocio o un administrador puede modificarlo.");return;}if(businessMode){void getCommercialDetail(String(l.accountId)).then(detail=>setBusinessEditor({item:detail.account})).catch(error=>toast.error(crmError(error)));return}setLastTouchedId(String(l.id));setDuplicateCandidates([]);setEditingManagementType(l.managementType??null);setForm({
+    id:String(l.id),scope:"opportunity",opportunityName:l.opportunityName||"Gestión sin nombre",serviceInterest:l.serviceInterest,primaryContactId:l.primaryContactId?String(l.primaryContactId):null,estimatedCloseDate:dateOnlyInput(l.estimatedCloseDate)||null,nombre:l.nombre,contactName:l.contactName,tipo:l.tipo,subtipo:l.subtipo,ciudad:l.ciudad,estado:l.estado,suscripcion:l.suscripcion,
     email:l.email,telefono:l.telefono,sitioWeb:l.sitioWeb,urlGmap:l.urlGmap,perfilInstagram:l.perfilInstagram,perfilFacebook:l.perfilFacebook,
     perfilAirbnb:l.perfilAirbnb,perfilBooking:l.perfilBooking,perfilTurismoEntreRios:l.perfilTurismoEntreRios,origen:l.origen,
     quienCargo:l.quienCargo,asignadoA:l.asignadoA,assignedUserEmail:l.assignedUserEmail,commercialProfile:l.commercialProfile,fechaCreacion:dateInput(l.fechaCreacion),fechaUltimoContacto:dateInput(l.fechaUltimoContacto),
@@ -526,8 +528,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     else await deleteM.mutateAsync({id:target.id});
     if(selectedLead&&String(selectedLead.id)===String(target.id)){setViewOpen(false);setSelectedLead(null)}
     if(form.id&&String(form.id)===String(target.id))setOpen(false);
-    setPendingDelete(null);toast.success(businessMode?"Gestiones comerciales del negocio enviadas a la papelera":"Gestión enviada a la papelera");
-    }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar a Papelera")}
+    setPendingDelete(null);toast.success(businessMode?"Gestiones del negocio enviadas a la papelera":"Gestión enviada a la papelera");
+    }catch(error){toast.error(error instanceof Error?crmError(error):"No se pudo enviar a Papelera")}
     });
   };
   const quick=async(id:string|number,field:"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"prioridad"|"quienCargo"|"assignedUserEmail"|"medioContactoPreferido"|"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion",value:string)=>{
@@ -546,7 +548,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       toast.success("Cambio guardado",field==="tipo"?undefined:{action:{label:"Deshacer",onClick:()=>quickM.mutate({id:mutationId,accountId,field,value:oldValue||null})}});
     }catch(error){
       setCellState(prev=>{const next={...prev};delete next[key];return next});
-      toast.error(error instanceof Error?error.message:"No se pudo guardar");
+      toast.error(error instanceof Error?crmError(error):"No se pudo guardar");
     }
     });
   };
@@ -559,7 +561,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     await bulkM.mutateAsync({...bulkReview!,expectedFingerprint:fingerprint});
     setBulkReview(null);
     toast.success(`${selectedIds.size} ${businessMode?"negocios":"gestiones"} actualizados`);setSelectedIds(new Set());setBulkValue("");
-    }catch(error){toast.error(error instanceof Error?error.message:"No se pudieron aplicar los cambios")}
+    }catch(error){toast.error(error instanceof Error?crmError(error):"No se pudieron aplicar los cambios")}
     });
   };
   const bulkDeleteSelected=async()=>{
@@ -570,7 +572,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     await bulkDeleteM.mutateAsync({entity,ids:Array.from(selectedIds)});
     setSelectedIds(new Set());setBulkDeleteOpen(false);
     toast.success(count+(businessMode?" negocios: gestiones enviadas a papelera":" gestiones enviadas a la papelera"));
-    }catch(error){toast.error(error instanceof Error?error.message:"No se pudo enviar la selección a Papelera")}
+    }catch(error){toast.error(error instanceof Error?crmError(error):"No se pudo enviar la selección a Papelera")}
     });
   };
   const togglePageSelection=()=>{
@@ -629,7 +631,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       const label=values.map((v:string)=>["fechaCreacion","fechaUltimoContacto","fechaProximaAccion"].includes(key)?displayCalendarDate(v):v).join(" · ");
       return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)} title="Abrir negocio para elegir la gestión"><span>{label||"—"}</span><small>{l.opportunityCount?"Ver gestiones":"Agregar gestión"}</small></UnstyledButton>;
     }
-    if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{l.opportunityName||"Gestión comercial inicial"}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></UnstyledButton>;
+    if(key==="nombre")return <UnstyledButton className={styles.leadNameButton} onClick={()=>openView(l)}><strong>{managementDisplayName(l)}</strong><small>{l.nombre+" · "}{l.origen||"Sin origen"}</small></UnstyledButton>;
     if(key==="id")return businessMode?(l.opportunityId||"—"):String(l.id);
     if(key==="ciudad")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.ciudad??""} options={cityOptions} category="city" placeholder="Asignar ciudad" assignWhenEmpty onChange={v=>quick(l.id,"ciudad",v)}/>;
     if(key==="tipo")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.tipo??""} options={typeOptions} category="vertical" placeholder="Asignar vertical" assignWhenEmpty onChange={v=>quick(l.id,"tipo",v)}/>;
@@ -672,7 +674,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>GESTIÓN COMERCIAL</div><h1>{businessMode?"Negocios":"Gestiones comerciales"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
+        <div><div className={styles.eyebrow}>GESTIÓN</div><h1>{businessMode?"Negocios":"Gestiones"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
         <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
       </header>
 
@@ -693,9 +695,9 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       </section>
       <section className={styles.metrics}>
         <UnstyledButton type="button" onClick={()=>applyQuickView("all")}><Users/><div><strong>{stats.total.toLocaleString("es-AR")}</strong><span>{businessMode?"Total de negocios":"Total de gestiones"}</span></div></UnstyledButton>
-        <UnstyledButton type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con gestiones abiertas":"Gestiones comerciales abiertas"}</span></div></UnstyledButton>
-        <UnstyledButton type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción hoy":"Gestiones comerciales con acción hoy"}</span></div></UnstyledButton>
-        <UnstyledButton type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción atrasada":"Gestiones comerciales con acción atrasada"}</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("pending")}><Target/><div><strong>{stats.pendientes.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con gestiones abiertas":"Gestiones abiertas"}</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("today")}><CalendarClock/><div><strong>{stats.paraHoy.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción hoy":"Gestiones con acción hoy"}</span></div></UnstyledButton>
+        <UnstyledButton type="button" onClick={()=>applyQuickView("overdue")}><Clock3/><div><strong>{stats.vencidos.toLocaleString("es-AR")}</strong><span>{businessMode?"Negocios con acción atrasada":"Gestiones con acción atrasada"}</span></div></UnstyledButton>
         <UnstyledButton type="button" onClick={()=>applyQuickView("myToday")}><UserRound/><div><strong>{stats.misPendientesHoy.toLocaleString("es-AR")}</strong><span>Mis registros con acción hasta hoy</span></div></UnstyledButton>
         <UnstyledButton type="button" onClick={()=>applyQuickView("subscribed")}><CheckCircle2/><div><strong>{stats.suscriptos.toLocaleString("es-AR")}</strong><span>Suscriptos históricos</span></div></UnstyledButton>
       </section>
@@ -738,14 +740,14 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
               {bulkField==="ciudad"&&cityOptions.map(item=><option key={item}>{item}</option>)}
             </NativeSelect>}
         {businessMode&&<span className={styles.tableHint}>{["ciudad","assignedUserEmail"].includes(bulkField)?"Modifica los datos del negocio.":"Modifica TODAS las gestiones activas de estos negocios, incluso las que no coincidan con el filtro."}</span>}
-        <Button size="sm" onClick={()=>{bulkM.reset();setBulkReview({entity,ids:Array.from(selectedIds),changes:{[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)}})}} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)} disabledReason={(bulkM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
+        <Button size="sm" onClick={()=>{bulkM.reset();setBulkReview({entity,ids:Array.from(selectedIds),changes:{[bulkField]:bulkValue==="__CLEAR__"?null:(bulkValue||null)}})}} disabled={bulkM.isPending||(bulkField!=="fechaProximaAccion"&&!bulkValue)} disabledReason={(bulkM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Elegí el valor que querés aplicar."}>{bulkM.isPending?"Aplicando…":"Aplicar"}</Button>
         <Button size="sm" variant="destructive" onClick={()=>setBulkDeleteOpen(true)}><Trash2 size={14}/>Enviar a papelera</Button>
         <Button size="sm" variant="ghost" onClick={()=>setSelectedIds(new Set())}>Cancelar selección</Button>
       </section>}
 
       {bulkReview&&<BulkChangeReview input={bulkReview} onClose={()=>setBulkReview(null)} onConfirm={applyBulk} pending={bulkM.isPending} error={bulkM.error?.message}/>}
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?(leadsQ.data?.truncated?"Tablero con las primeras 500":"Tablero con todos los resultados"):`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?(leadsQ.data?.truncated?"Tablero con las primeras 500":"Tablero con todos los resultados"):`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"El tablero no muestra gestiones eliminadas. Sacá ese filtro para verlo."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las gestiones. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         {!businessMode&&!resultsBusy&&!leadsQ.error&&!leads.length&&<section className={styles.emptyState}>
           <h2>{appliedRuleCount||stats.total?"Sin resultados por los filtros actuales":"Sin gestiones iniciadas"}</h2>
@@ -764,7 +766,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             if(!col)return null;
             return <th key={key} className={styles.resizableTh}>{key==="estado"&&businessMode&&!advancedTable?<span>Relación</span>:<HeaderMenu label={key==="nombre"&&businessMode?"Negocio":key==="id"&&businessMode?"ID de entrada":key==="estado"&&businessMode&&!advancedTable?"Relación":key==="fechaProximaAccion"?"Próximo paso":col.label} field={key as SortBy} sortBy={sortBy} sortDir={sortDir} onSort={sort}/>}<span className={styles.resizeHandle} onMouseDown={e=>{e.preventDefault();e.stopPropagation();startResize(key,e.clientX)}}/></th>;
           })}
-          {(!businessMode||advancedTable)&&<th>Contacto</th>}<th>Acciones</th>
+          {(!businessMode||advancedTable)&&<th>Persona</th>}<th>Acciones</th>
         </tr></thead><tbody>
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt||l.canModify===false} disabledReason={l.deletedAt?'El negocio está en Papelera. Solo un administrador puede restaurarlo.':'Solo el responsable del negocio o un administrador puede modificarlo.'} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
@@ -783,7 +785,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <div className={styles.editIdentityRow}>
               <div className={styles.editIdentity}>
                 <div className={styles.editTitleLine}>
-                  <DialogTitle className={styles.editTitle}>{form.id?(form.opportunityName||"Gestión comercial inicial"):"Nueva gestión"}</DialogTitle>
+                  <DialogTitle className={styles.editTitle}>{form.id?managementDisplayName(form):"Nueva gestión"}</DialogTitle>
                   <div className={styles.editTitleBadges}>
                     {form.tipo&&<ValueBadge value={str(form.tipo)} category="vertical"/>}
                     {form.subtipo&&<ValueBadge value={str(form.subtipo)} category="subtype"/>}
@@ -803,12 +805,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             </div>
 
             <div className={styles.editActionBar}>
-              {form.id&&<Button size="sm" variant="destructive" onClick={()=>requestDelete(form.id!,form.nombre)} disabled={deleteM.isPending||bulkDeleteM.isPending} disabledReason={(deleteM.isPending || bulkDeleteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}><Trash2 size={15}/>Eliminar</Button>}
+              {form.id&&<Button size="sm" variant="destructive" onClick={()=>requestDelete(form.id!,form.nombre)} disabled={deleteM.isPending||bulkDeleteM.isPending} disabledReason={(deleteM.isPending || bulkDeleteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "La operación está en curso. Esperá a que termine para continuar."}><Trash2 size={15}/>Eliminar</Button>}
               <div className={styles.editActionSpacer}/>
               <Button size="sm" variant="ghost" onClick={legacyGuard.requestClose}><X size={15}/>Cancelar</Button>
               {duplicateCandidates.length>0
                 ? <Button size="sm" variant="secondary" onClick={()=>saveLead(true)} disabled={saveM.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">Guardar de todas formas</Button>
-                : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.opportunityName?.trim()} disabledReason={(saveM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{saveM.isPending?"Guardando…":"Guardar gestión"}</Button>}
+                : <Button size="sm" onClick={()=>saveLead(false)} disabled={saveM.isPending||!form.opportunityName?.trim()} disabledReason={(saveM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí el nombre de la gestión."}>{saveM.isPending?"Guardando…":"Guardar gestión"}</Button>}
             </div>
           </div>
 
@@ -888,7 +890,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       {mergePair&&<AccountMergeDialog {...mergePair} onClose={()=>setMergePair(null)}/>}
       <Dialog open={duplicatesOpen} onOpenChange={setDuplicatesOpen}><DialogContent className={styles.duplicatesDialog}>
         <DialogHeader><DialogTitle>Duplicados potenciales</DialogTitle><DialogDescription>Candidatos explicados. Teléfono o email compartido puede ser una persona que atiende varios negocios. Fusionar requiere verificar identidad y permiso admin.</DialogDescription></DialogHeader>
-        {duplicatesQ.isFetching?<Skeleton className={styles.duplicatesSkeleton}/>:duplicatesQ.error?<div className={styles.error}>{duplicatesQ.error.message}</div>:<div className={styles.duplicateGroups}>{(duplicatesQ.data?.groups??[]).length===0?<p>No encontré duplicados.</p>:(duplicatesQ.data?.groups??[]).map((g,i)=><section key={g.reason+g.key+i}><div className={styles.duplicateGroupTitle}><Badge variant="warning">{g.reason}</Badge><span>{g.leads.length} registros</span></div>{g.leads.map(l=><div className={styles.duplicateRow} key={l.id}><div><strong>{l.nombre}</strong><span>{l.ciudad||"—"} · {l.telefono||"sin teléfono"} · {l.email||"sin email"}</span></div>{authState.type==="authenticated"&&authState.user.role==="admin"&&g.leads.length>1&&<Button size="sm" variant="outline" onClick={()=>{setDuplicatesOpen(false);setMergePair({sourceId:l.accountId,destinationId:g.leads.find(x=>x.accountId!==l.accountId)!.accountId});}}>Revisar fusión</Button>}<Button size="sm" variant="outline" onClick={()=>{setAppliedFilterGroups([]);setQuery(l.nombre);setPage(1);setDuplicatesOpen(false)}}>Ver en tabla</Button></div>)}</section>)}</div>}
+        {duplicatesQ.isFetching?<Skeleton className={styles.duplicatesSkeleton}/>:duplicatesQ.error?<div className={styles.error}>{crmError(duplicatesQ.error)}</div>:<div className={styles.duplicateGroups}>{(duplicatesQ.data?.groups??[]).length===0?<p>No encontré duplicados.</p>:(duplicatesQ.data?.groups??[]).map((g,i)=><section key={g.reason+g.key+i}><div className={styles.duplicateGroupTitle}><Badge variant="warning">{g.reason}</Badge><span>{g.leads.length} registros</span></div>{g.leads.map(l=><div className={styles.duplicateRow} key={l.id}><div><strong>{l.nombre}</strong><span>{l.ciudad||"—"} · {l.telefono||"sin teléfono"} · {l.email||"sin email"}</span></div>{authState.type==="authenticated"&&authState.user.role==="admin"&&g.leads.length>1&&<Button size="sm" variant="outline" onClick={()=>{setDuplicatesOpen(false);setMergePair({sourceId:l.accountId,destinationId:g.leads.find(x=>x.accountId!==l.accountId)!.accountId});}}>Revisar fusión</Button>}<Button size="sm" variant="outline" onClick={()=>{setAppliedFilterGroups([]);setQuery(l.nombre);setPage(1);setDuplicatesOpen(false)}}>Ver en tabla</Button></div>)}</section>)}</div>}
       </DialogContent></Dialog>
 
       <FilterBuilderDialog
@@ -912,13 +914,13 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       <ContactTemplateDialog open={contactOpen} onOpenChange={setContactOpen} channel={contactChannel} lead={contactLead} templates={templates.filter(x=>x.channel===contactChannel)}/>
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>Enviar {selectedIds.size} {businessMode?"grupos de gestiones":"gestiones"} a la papelera</DialogTitle><DialogDescription>{businessMode?"Todas las gestiones activas de los negocios seleccionados irán a Papelera, incluso las que no coincidan con el filtro actual.":"Los seleccionados dejarán de aparecer en la operación normal."}</DialogDescription></DialogHeader>
-        <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán y podrán restaurarse desde Papelera.</span></div>
+        <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas e historial de cambios se conservarán y podrán restaurarse desde Papelera.</span></div>
         <DialogFooter><Button variant="outline" onClick={()=>setBulkDeleteOpen(false)} disabled={bulkDeleteM.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">Cancelar</Button><Button variant="destructive" onClick={bulkDeleteSelected} disabled={bulkDeleteM.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">{bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>
       <Dialog open={!!pendingDelete} onOpenChange={next=>{if(!next&&!deleteM.isPending&&!bulkDeleteM.isPending)setPendingDelete(null)}}><DialogContent className={styles.confirmDialog}>
         <DialogHeader><DialogTitle>{businessMode?"Enviar gestiones del negocio a papelera":"Enviar gestión a la papelera"}</DialogTitle><DialogDescription><strong>{pendingDelete?.nombre}</strong>: {businessMode?"todas sus gestiones activas irán a Papelera. El negocio y sus contactos conservarán su historial.":"dejará de aparecer en la tabla y en la operación normal."}</DialogDescription></DialogHeader>
-        <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas y journal se conservarán. El administrador podrá restaurarlo o eliminarlo definitivamente desde Papelera.</span></div>
-        <DialogFooter><Button variant="outline" onClick={()=>setPendingDelete(null)} disabled={deleteM.isPending||bulkDeleteM.isPending} disabledReason={(deleteM.isPending || bulkDeleteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete} disabled={deleteM.isPending||bulkDeleteM.isPending} disabledReason={(deleteM.isPending || bulkDeleteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{deleteM.isPending||bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
+        <div className={styles.confirmWarning}><AlertTriangle size={20}/><span>Sus datos, notas e historial de cambios se conservarán. El administrador podrá restaurarlo o eliminarlo definitivamente desde Papelera.</span></div>
+        <DialogFooter><Button variant="outline" onClick={()=>setPendingDelete(null)} disabled={deleteM.isPending||bulkDeleteM.isPending} disabledReason={(deleteM.isPending || bulkDeleteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "La operación está en curso. Esperá a que termine para continuar."}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete} disabled={deleteM.isPending||bulkDeleteM.isPending} disabledReason={(deleteM.isPending || bulkDeleteM.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "La operación está en curso. Esperá a que termine para continuar."}>{deleteM.isPending||bulkDeleteM.isPending?"Enviando…":"Enviar a papelera"}</Button></DialogFooter>
       </DialogContent></Dialog>
     </main>
   </>;

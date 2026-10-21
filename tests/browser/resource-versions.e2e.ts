@@ -38,9 +38,9 @@ test('material versions and Mantine retirement persist through the real API', as
   await article.getByRole('button', { name: 'Previsualizar original.txt · v1', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Texto original');
   await page.getByRole('button', { name: 'Cerrar vista previa', exact: true }).click();
-  await article.getByRole('button', { name: 'Dar de baja', exact: true }).click();
+  await article.getByRole('button', { name: 'Retirar', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText(title);
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar baja', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar retiro', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(article).toHaveCount(0);
   await page.reload();

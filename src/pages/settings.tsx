@@ -2,6 +2,7 @@ import {CrmResponsiveNavigation} from '../components/ui/CrmResponsiveNavigation'
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import {useOperationGuard} from '../helpers/useOperationGuard';
+import {crmError} from '../helpers/crmErrors';
 import {toast} from 'sonner';
 import { UnstyledButton } from '@mantine/core';
 import { NativeSelect } from '../components/NativeSelect';
@@ -38,7 +39,7 @@ export default function SettingsPage(){
   const requested=params.get("section") as Section|null;
   const section:Section=requested&&SECTIONS.includes(requested)?requested:"users";
   const q=useQuery({queryKey:["settings"],queryFn:getSettings});
-  const runOperation=useOperationGuard(error=>toast.error(error instanceof Error?error.message:'No se pudo guardar'));
+  const runOperation=useOperationGuard(error=>toast.error(error instanceof Error?crmError(error):'No se pudo guardar'));
   const save=useMutation({mutationFn:postSettingsSave,onSuccess:()=>qc.invalidateQueries({queryKey:["settings"]})});
   const [inviteOpen,setInviteOpen]=useState(false);
   const [inviteEmail,setInviteEmail]=useState("");
@@ -153,7 +154,7 @@ export default function SettingsPage(){
         <article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Apariencia</h2><p>Elegí tema claro, oscuro o el definido por el sistema operativo.</p></div></div><div className={styles.systemControl}><ThemeModeSwitch/></div></article>
       </section>}
 
-      <Dialog open={inviteOpen} onOpenChange={open=>{if(!save.isPending)setInviteOpen(open)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={inviteOpen} onOpenChange={open=>{if(!save.isPending)setInviteOpen(open)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí el email de la persona."}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
 
       <Dialog open={!!editingUser} onOpenChange={open=>{if(!open&&!save.isPending)setEditingUser(null)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Editar usuario</DialogTitle><DialogDescription>El email Hospeda se usa como From y Reply-To cuando esta persona envía correos desde el CRM.</DialogDescription></DialogHeader><div className={styles.editUserGrid}>
         <label className={styles.dialogField}><span>Nombre completo</span><Input value={editFullName} onChange={e=>setEditFullName(e.target.value)}/></label>
@@ -162,7 +163,7 @@ export default function SettingsPage(){
         <label className={styles.dialogField}><span>Sexo</span><NativeSelect value={editSex} onChange={e=>setEditSex(e.target.value)}><option value="">Sin completar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option><option value="otro">Otro</option><option value="prefiero_no_decir">Prefiere no decir</option></NativeSelect></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email real</span><Input type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)}/></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email Hospeda para enviar mails</span><Input type="email" value={editSenderEmail} onChange={e=>setEditSenderEmail(e.target.value)} placeholder="nombre@hospeda.com.ar"/></label>
-      </div><DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setEditingUser(null)}>Cancelar</Button><Button onClick={saveUser} disabled={save.isPending||!editEmail.trim()||!editDisplayName.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá los campos obligatorios o resolvé las condiciones indicadas en pantalla para habilitar esta acción."}>{save.isPending?"Guardando…":"Guardar cambios"}</Button></DialogFooter></DialogContent></Dialog>
+      </div><DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setEditingUser(null)}>Cancelar</Button><Button onClick={saveUser} disabled={save.isPending||!editEmail.trim()||!editDisplayName.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá el email y el nombre."}>{save.isPending?"Guardando…":"Guardar cambios"}</Button></DialogFooter></DialogContent></Dialog>
     </main>
   </>;
 }
