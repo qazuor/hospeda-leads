@@ -49,11 +49,14 @@ export async function businessHistory(family:string[],page:number,filter:History
  WHERE c.account_id IN (${ids}) AND c.action<>'stage'
  )`;
  const pending=sql`FROM crm_tasks t LEFT JOIN leads l ON l.id=t.lead_id WHERE t.account_id IN (${ids}) AND t.deleted_at IS NULL AND t.status='pending' AND (t.lead_id IS NULL OR l.deleted_at IS NULL)`;
- const [rows,count,tasks,taskCount]=await Promise.all([
+ // Page 1 of the full stream also carries the latest contact, so the business summary shares this request instead of fetching the "contact" filter separately.
+ const withLastContact=page===1&&filter==='all';
+ const [rows,count,tasks,taskCount,lastContact]=await Promise.all([
   sql<HistoryRow>`${events} SELECT * FROM events ${kinds} ORDER BY occurred_at DESC,id DESC LIMIT 50 OFFSET ${(page-1)*50}`.execute(db),
   sql<{total:string}>`${events} SELECT count(*) AS total FROM events ${kinds}`.execute(db),
   sql<CommercialHistoryData['pending'][number]>`SELECT t.id,t.title,t.due_date,t.due_at,t.assigned_user_email,t.lead_id,l.opportunity_name,t.continuation ${pending} ORDER BY t.due_date,t.due_at NULLS LAST,t.id LIMIT 10`.execute(db),
-  sql<{total:string}>`SELECT count(*) AS total ${pending}`.execute(db)
+  sql<{total:string}>`SELECT count(*) AS total ${pending}`.execute(db),
+  withLastContact?sql<HistoryRow>`${events} SELECT * FROM events WHERE kind IN (${sql.join(historyFilterKinds.contact)}) ORDER BY occurred_at DESC,id DESC LIMIT 1`.execute(db):null
  ]);
- return {events:rows.rows.map(present),total:Number(count.rows[0].total),page,pending:tasks.rows,totalPending:Number(taskCount.rows[0].total)};
+ return {events:rows.rows.map(present),total:Number(count.rows[0].total),page,pending:tasks.rows,totalPending:Number(taskCount.rows[0].total),...(lastContact?{lastContact:lastContact.rows[0]?present(lastContact.rows[0]):null}:{})};
 }

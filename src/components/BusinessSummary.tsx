@@ -11,11 +11,12 @@ import {managementDisplayName} from '../content/vocabulary';
 import styles from './Commercial.module.css';
 export function BusinessSummary({detail,onContact,onSale,readOnly=false,continuityOnly=false,onDirectContact,onEditChannels,onOpenWork}:{detail:CommercialDetail;onContact:()=>void;onSale:()=>void;readOnly?:boolean;continuityOnly?:boolean;onDirectContact?:()=>void;onEditChannels?:()=>void;onOpenWork?:()=>void}){
  const id=detail.account.id;
- const history=useQuery({queryKey:['commercial-detail','history',id,1,'contact'],queryFn:()=>getBusinessHistory(id,1,'contact')});
+ // Same key as BusinessHistory's first page and NextWork: one request feeds all three.
+ const history=useQuery({queryKey:['commercial-detail','history',id,1],queryFn:()=>getBusinessHistory(id,1)});
  const stages=useQuery({queryKey:['pipeline','config-summary'],queryFn:()=>getPipeline({mode:'config'})});
  const person=detail.contacts.find(c=>!c.deletedAt&&c.isPrimary&&(c.phone||c.email))||detail.contacts.find(c=>!c.deletedAt&&(c.phone||c.email))||detail.contacts.find(c=>!c.deletedAt);
 
- const last=history.data?.events[0];
+ const last=history.data?.lastContact;
  const sales=detail.opportunities.filter(o=>!o.deletedAt);
  const open=sales.filter(o=>(stages.data?.stages.find(s=>s.name===o.estado)?.classification??'open')==='open');
  return <div className={styles.section}>
