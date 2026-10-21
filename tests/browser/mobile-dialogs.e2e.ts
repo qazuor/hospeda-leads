@@ -67,6 +67,7 @@ test.describe('mobile dialogs and touch targets',()=>{
   await mutate(page,{action:'opportunity_save',accountId,confirmReviewed:true,managementType:'main',opportunityName:'Gestión toque',assignedUserEmail:'admin@example.com'});
   await page.goto('/opportunities');
   await page.getByRole('button',{name:'Tabla',exact:true}).click();
+  await page.getByPlaceholder(/Buscar/).first().fill(name);
   const row=page.getByRole('row').filter({hasText:name});
   await expect(row).toBeVisible();
   expect(await hasTouchArea(row.getByRole('checkbox'))).toBe(true);
@@ -94,5 +95,20 @@ test.describe('mobile dialogs and touch targets',()=>{
   const link=page.getByRole('link',{name:'Revisar negocios',exact:true});
   await expect(link).toBeVisible();
   expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+ });
+
+ test('landscape side insets keep the header and page content out of the notch',async({page})=>{
+  await page.setViewportSize({width:844,height:390});
+  await login(page);
+  const session=await page.context().newCDPSession(page);
+  await session.send('Emulation.setSafeAreaInsetsOverride',{insets:{left:47,right:47}});
+  await page.goto('/my-day');
+  const header=page.locator('header').first(),main=page.locator('main').first();
+  await expect(main).toBeVisible();
+  for(const target of [header,main]){
+   const box=(await target.boundingBox())!;
+   expect(box.x).toBeGreaterThanOrEqual(47);
+   expect(box.x+box.width).toBeLessThanOrEqual(844-47);
+  }
  });
 });

@@ -6,4 +6,4 @@
 .description{color:var(--muted-foreground);font-size:14px;line-height:1.5;margin-bottom:16px}
 @media(max-width:600px){.content{--crm-dialog-padding:18px;max-height:calc(100dvh - 24px)}.title{font-size:20px}.footer{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}}
 /* Phones: the on-screen keyboard shrinks the visual viewport but not 100dvh. useDialogLayer mirrors it into --crm-vv-*; the modal and drawer frames follow it so the footer stays reachable. */
-@media(max-width:767px){:global(.mantine-Modal-inner),:global(.mantine-Drawer-inner){top:var(--crm-vv-top,0px);height:var(--crm-vv-height,auto)}.content{max-height:calc(min(100dvh,var(--crm-vv-height,100dvh)) - 24px)}}
+@media(max-width:767px){:global(.mantine-Modal-inner),:global(.mantine-Drawer-inner){top:var(--crm-vv-top,0px);height:min(100dvh,var(--crm-vv-height,100dvh))}.content{max-height:calc(min(100dvh,var(--crm-vv-height,100dvh)) - 24px)}}
