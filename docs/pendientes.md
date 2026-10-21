@@ -40,7 +40,7 @@ La revisión de UX está mergeada en `staging` y **no** desplegada ni promovida 
 
 **Textos y código**
 
-- Textos con «Mi día»: PR #193 («Hoy» en todos los textos y guía de las últimas reglas No contactar) estaba abierto al escribir esto; si no se integró, queda pendiente `WorkPanel`, `WorkEditor`, `QueryErrorNotice` y `WorkTypesSettings`.
+- «Mi día» ya se reemplazó por «Hoy» en los textos de la interfaz (#193, verificado: solo quedan menciones en los tests de guardia).
 - `communicationService.ts` `createResponse` usa `sql<any>` en el replay; tiparlo.
 - JWT: unificar marcadores de valores de ejemplo entre `getSetServerSession.tsx` y `scripts/local/lib.mjs`, valorar rechazar comillas/espacios alrededor y corregir el comentario de `vitest.config.ts`. No se endureció antes de integrar #131 por riesgo de rechazar el secreto productivo.
 - Pruebas: `business-view-badges.e2e.ts` es inestable en la suite completa (restauración del scroll tras recargar); `business-contact.e2e.ts` no es repetible sobre una base usada (títulos de tarea por ancho); `work.e2e.ts` tiene una aserción «Dar de baja = 0» que ya es vacua. Los Collapse de Mantine justifican el patrón de #181 para otros specs.

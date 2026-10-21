@@ -10,7 +10,7 @@ Antes de promover hay que tener en cuenta:
 - `JWT_SECRET` ahora es obligatorio (32 o más caracteres, sin valor de ejemplo): el servidor no arranca sin él (#131). Debe estar bien definido en Coolify antes de desplegar.
 - Healthcheck de Coolify: el propietario lo pasó a `/_api/health/ready` el 21/10/2026 (verifica la base de datos).
 
-PRs mergeados a `staging`, agrupados (título resumido de cada uno):
+PRs mergeados a `staging` (#151–#193 de la revisión de UX más la base de rendimiento), agrupados (título resumido de cada uno):
 
 - **Rendimiento, seguridad y arquitectura (#120–#149, plan de rendimiento; ver [resultados](rendimiento-y-arquitectura-2026-10.md)):** carga diferida del editor y la guía; caché de recursos y estáticos con compresión; sondeo de versiones en vivo por dominio; sesiones con expiración y renovación en pestañas abiertas; login sin enumeración de cuentas; JWT obligatorio (#131); errores sin filtrar mensajes de Postgres; códigos HTTP correctos; límite de cuerpo; cabeceras de seguridad, CSP en modo reporte y verificación de Origin; id de petición, log de lentitud y salud con base de datos; bloqueo de filas en Comunicación en lugar de tablas; endpoints muertos retirados; imagen Docker sin root; error boundary.
 - **Entorno local (#150):** `npm run local`.
@@ -24,10 +24,10 @@ PRs mergeados a `staging`, agrupados (título resumido de cada uno):
 - **Móvil, accesibilidad y primer uso (#179, #182):** pasada móvil y errores accesibles en línea; lista de primeros pasos y estado vacío didáctico en Hoy.
 - **Vocabulario y colores (#185, #186):** barrido final con guardia estricta de vocabulario; color fijo por rubro en los badges.
 - **No contactar y recontacto (#187, #188, #190, #191):** advertencia (sin bloqueo) por teléfono de persona de un negocio No contactar; «Recontactar» con fecha crea la tarea «Volver a contactar»; aviso al contactar un teléfono No contactar (D2); cancelación de tareas pendientes al quedar No contactar (D3).
-- **Guía y pruebas (#189, #169, #176, #181):** guía en pantalla sincronizada, con un test que verifica sus etiquetas; arreglos de pruebas inestables.
+- **Guía y pruebas (#189, #193, #169, #176, #181):** guía en pantalla sincronizada con las últimas reglas No contactar y «Hoy» en todos los textos (#193), con un test que verifica sus etiquetas; arreglos de pruebas inestables.
 - **Otros:** #133 (CI más rápida), #138 (actualizaciones de seguridad), #149 (documentación del plan de rendimiento).
 
-Este documento y [decisiones](decisiones.md) se actualizaron al cierre (U-34). Si el PR #193 («Hoy» en todos los textos y guía) se integró antes de leer esto, está incluido en la guía regenerada; si no, queda registrado en [pendientes](pendientes.md).
+Este documento, [decisiones](decisiones.md), [pendientes](pendientes.md), el historial y la guía Markdown se actualizaron al cierre (U-34), con `staging` incluyendo #193.
 
 ## Configuración de variables de texto para modelos — 19/10/2026
 
