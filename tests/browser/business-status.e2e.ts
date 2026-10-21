@@ -12,7 +12,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}])test(`bus
   else if(url.pathname.endsWith('/commercial')&&route.request().method()==='POST'){
    const body=superjson.parse<Record<string,unknown>>(route.request().postData()||'{}');writes.push(body);
    if(body.action==='business_status'){status=String(body.status);recontactAt=typeof body.recontactAt==='string'?new Date(`${body.recontactAt}T00:00:00.000Z`):null;}
-   data={id:'1'};
+   data=body.action==='business_status'&&body.status==='recontact'&&body.recontactAt?{id:'1',recontactTask:{id:'9',dueDate:body.recontactAt,action:'created'}}:{id:'1'};
   }else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{...account,status,recontactAt},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Owner'}]};
   else if(url.pathname.endsWith('/work'))data={tasks:[],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:0,totalActivities:0,page:1};
   else if(url.pathname.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
@@ -31,10 +31,14 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}])test(`bus
  await expect(popup.getByRole('button',{name:'Guardar',exact:true})).toHaveCount(0);
  await popup.getByRole('button',{name:/^Recontactar/}).click();
  await popup.getByLabel('Fecha de recontacto (opcional)').fill('2026-11-15');
+ await expect(popup.getByRole('status')).toHaveText('Te agendamos «Volver a contactar» para el 15 de nov de 2026.');
  await popup.getByRole('button',{name:'Guardar',exact:true}).click();
  await expect(popup).toHaveCount(0);
+ const toast=page.locator('[data-sonner-toast]').filter({hasText:'Estado del negocio actualizado'});
+ await expect(toast).toContainText('Te agendamos «Volver a contactar» para el 15 de nov de 2026.');
+ await expect(toast.getByRole('button',{name:'Ver en Hoy'})).toBeVisible();
  await expect(card).toContainText(/Estado:\s*Recontactar\s*Cambiar/);
- await expect(card.getByText(/Fecha de referencia: 15 de nov de 2026/i)).toBeVisible();
+ await expect(card.getByText(/Recontactar el 15 de nov de 2026/i)).toBeVisible();
  await card.getByRole('button',{name:'Cambiar estado del negocio. Ahora: Recontactar',exact:true}).click();
  await expect(popup.getByLabel('Fecha de recontacto (opcional)')).toHaveValue('15/11/2026');
  await page.keyboard.press('Escape');

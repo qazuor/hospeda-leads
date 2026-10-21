@@ -114,5 +114,63 @@ try{
  assert(global.rows.some((entry:any)=>entry.source==='business'&&['business_status_changed','business_state_changed','contact_policy','leandro_referral_changed'].includes(entry.action)),'business state changes appear in generic journal');
  assert(global.rows.some((entry:any)=>entry.source==='pipeline'&&entry.action==='pipeline_stage'),'management stage changes appear in generic journal');
 
+
+ // U-35 / decision 7A: Recontactar + date schedules "Volver a contactar" for the responsible seller.
+ const dayOf=(v:unknown)=>v instanceof Date?v.toISOString().slice(0,10):String(v).slice(0,10);
+ const recontactTasks=(accountId:string,status:string='pending')=>db.selectFrom('crmTasks').selectAll().where('accountId','=',accountId).where('title','=','Volver a contactar').where('status','=',status as 'pending').where('deletedAt','is',null).execute();
+ const recontactBusiness=await business('Recontacto tarea '+stamp,sellerEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'reviewed'},admin);
+ assert.equal((await recontactTasks(recontactBusiness)).length,0,'Recontactar without a date creates no task');
+ const noDate=await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'recontact',recontactAt:null},seller);
+ assert.equal((await recontactTasks(recontactBusiness)).length,0);assert.equal(noDate.recontactTask,undefined);
+ const firstSave=await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'recontact',recontactAt:'2026-12-15'},seller);
+ let tasks=await recontactTasks(recontactBusiness);
+ assert.equal(tasks.length,1,'one task is created');assert.equal(firstSave.recontactTask.action,'created');assert.equal(firstSave.recontactTask.id,String(tasks[0].id));
+ assert.equal(dayOf(tasks[0].dueDate),'2026-12-15','the task is due on the exact Argentina calendar day');assert.equal(tasks[0].assignedUserEmail,sellerEmail,'assigned to the responsible seller');
+ assert.equal(tasks[0].leadId,null);assert.equal(tasks[0].purpose,'reactivation');assert.equal(tasks[0].typeId,'followup');
+ const repeat=await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'recontact',recontactAt:'2026-12-15'},seller);
+ assert.equal((await recontactTasks(recontactBusiness)).length,1,'repeating the same save does not duplicate');assert.equal(repeat.recontactTask.id,firstSave.recontactTask.id);
+ const moved=await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'recontact',recontactAt:'2026-12-20'},admin);
+ tasks=await recontactTasks(recontactBusiness);
+ assert.equal(tasks.length,1,'changing the date moves the task');assert.equal(dayOf(tasks[0].dueDate),'2026-12-20');assert.equal(String(tasks[0].id),firstSave.recontactTask.id);assert.equal(moved.recontactTask.action,'moved');assert.equal(tasks[0].assignedUserEmail,sellerEmail,'an admin saving it keeps the responsible seller as assignee');
+ const journal=await db.selectFrom('crmWorkJournal').select(['action','actorEmail']).where('entity','=','crm_tasks').where('entityId','=',String(tasks[0].id) as never).orderBy('id').execute();
+ assert.deepEqual(journal.map(j=>j.action),['INSERT','UPDATE']);assert.equal(journal[0].actorEmail,sellerEmail);assert.equal(journal[1].actorEmail,`state-admin-${stamp}@example.com`);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'recontact',recontactAt:null},seller);
+ assert.equal((await recontactTasks(recontactBusiness)).length,0,'clearing the date cancels the untouched task');
+ const cancelled=await recontactTasks(recontactBusiness,'cancelled');
+ assert.equal(cancelled.length,1);assert.match(String(cancelled[0].result),/se quitó la fecha/);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'recontact',recontactAt:'2027-01-10'},seller);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'reviewed'},seller);
+ assert.equal((await recontactTasks(recontactBusiness)).length,0,'leaving Recontactar cancels the untouched task');
+ assert.match(String((await recontactTasks(recontactBusiness,'cancelled')).at(-1)!.result),/dejó de ser Recontactar/);
+ // A task the seller rescheduled is hers: later status changes leave it alone and a new date schedules a separate one.
+ await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'recontact',recontactAt:'2027-02-01'},seller);
+ const touched=(await recontactTasks(recontactBusiness))[0];
+ await db.updateTable('crmTasks').set({dueDate:'2027-02-05' as never}).where('id','=',touched.id).execute();
+ await call(commercialPost,'commercial',{action:'business_status',accountId:recontactBusiness,status:'reviewed'},seller);
+ assert.equal((await recontactTasks(recontactBusiness)).length,1,'a rescheduled task is not cancelled by the system');
+ // Permission, No contactar and archived.
+ const colleague=await identity(`state-colleague-${stamp}@example.com`,'State colleague','user');
+ const owned=await business('Recontacto ajeno '+stamp,sellerEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:owned,status:'reviewed'},admin);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:owned,status:'recontact',recontactAt:'2026-12-15'},colleague,403);
+ assert.equal((await recontactTasks(owned)).length,0,'a non-owner seller creates no task');
+ const dnc=await business('Recontacto DNC '+stamp,sellerEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:dnc,status:'reviewed'},admin);
+ await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dnc).execute();
+ await call(commercialPost,'commercial',{action:'business_status',accountId:dnc,status:'recontact',recontactAt:'2026-12-15'},admin,400);
+ assert.equal((await recontactTasks(dnc)).length,0,'No contactar gets no task');
+ const archived=await business('Recontacto archivado '+stamp,sellerEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:archived,status:'reviewed'},admin);
+ await call(commercialPost,'commercial',{action:'account_archive',accountId:archived,archived:true,reason:'Prueba de archivo'},admin);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:archived,status:'recontact',recontactAt:'2026-12-15'},admin,400);
+ assert.equal((await recontactTasks(archived)).length,0,'archived gets no task');
+ // A unassigned business falls back to the actor.
+ const unassigned=await business('Recontacto sin responsable '+stamp);
+ await db.updateTable('crmAccounts').set({assignedUserEmail:null}).where('id','=',unassigned).execute();
+ await call(commercialPost,'commercial',{action:'business_status',accountId:unassigned,status:'reviewed'},admin);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:unassigned,status:'recontact',recontactAt:'2026-12-15'},admin);
+ assert.equal((await recontactTasks(unassigned))[0].assignedUserEmail,`state-admin-${stamp}@example.com`);
+
  console.log('Business state integration: New/review gate, derived active state, multiple open managements, required close reasons, scheduled recontact task, admin-only reopen with preserved closure history, Leandro referral, independent DNC, archive-on-DNC close, client conversion and accompaniment passed.');
 }finally{await db.destroy();}

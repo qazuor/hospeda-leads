@@ -9,6 +9,7 @@ import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
 import {setWorkActor} from "../helpers/workAudit";
+import {syncRecontactTask,type RecontactTaskResult} from '../helpers/recontactTask';
 import { z } from "zod";
 import {sql} from "kysely";
 import superjson from "superjson";
@@ -78,6 +79,7 @@ export async function post(request:Request){
     const {user}=await getServerUserSession(request);
     const input=commercialMutation.parse(await parseBody(request));
     const actor={id:user.id,email:user.email,displayName:user.displayName};
+    let recontactTask:RecontactTaskResult=null;
     const id=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
       const audit=async(accountId:string,action:string,before:unknown,after:unknown,contactId:string|null=null,extra:Record<string,unknown>={})=>{
@@ -159,6 +161,8 @@ export async function post(request:Request){
         if(Number(active?.n)>0)throw new Error('El negocio tiene gestiones abiertas; su estado es En gestión.');
         if(!['reviewed','recontact','no_follow_up_scheduled'].includes(input.status))throw new Error('Estado de negocio no disponible.');
         await sql`UPDATE crm_accounts SET status=${input.status},recontact_at=${input.status==='recontact'?input.recontactAt??null:null},updated_at=now() WHERE id=${account.id}`.execute(trx);
+        // Decision 7A: Recontactar + date schedules "Volver a contactar" for the responsible seller (same transaction, audited by the work journal).
+        recontactTask=await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:account.assignedUserEmail},previous:{status:stateAccount.status,recontactAt:stateAccount.recontactAt},status:input.status,recontactDay:input.status==='recontact'?input.recontactAt??null:null,actorEmail:user.email});
         return String(account.id);
       }
       if(input.action==="convert_client"){
@@ -243,6 +247,6 @@ export async function post(request:Request){
       await writeLeadJournal(trx,{leadId:row.id,leadName:row.nombre,actor,action:old?"updated":"created",changes:old?Object.entries(fields).filter(([key,value])=>String(old[key as keyof typeof old]??"")!==String(value??"")).map(([fieldName,newValue])=>({fieldName,oldValue:old[fieldName as keyof typeof old],newValue})):undefined,metadata:{accountId:input.accountId,opportunityName:input.opportunityName}});
       return String(row.id);
     });
-    return response({id});
+    return response(recontactTask?{id,recontactTask}:{id});
   }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:fallbackStatus(e))}
 }

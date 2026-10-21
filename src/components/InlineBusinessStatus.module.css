@@ -14,6 +14,7 @@
 .option :global(.mantine-Badge-root){pointer-events:none}
 .option:focus-visible{outline:1.5px solid var(--crm-focus-color)}
 .date{display:grid;gap:5px;font-size:12px;color:var(--muted-foreground)}
+.notice{font-size:12px;color:var(--foreground)}
 .error{font-size:12px;color:var(--destructive)}
 .label{font-size:13px;font-weight:600;color:var(--foreground)}
 .change{font-size:13px;color:var(--primary);text-decoration:underline;text-underline-offset:3px}
