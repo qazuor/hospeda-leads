@@ -29,7 +29,7 @@ describe('QueryErrorNotice',()=>{
  });
  it('honours backTo',()=>{
   wrap(<QueryErrorNotice error={new CrmApiError('x',404)} onRetry={vi.fn()} backTo="/my-day"/>);
-  expect(screen.getByRole('link',{name:'Volver a Mi día'}).getAttribute('href')).toBe('/my-day');
+  expect(screen.getByRole('link',{name:'Volver a Hoy'}).getAttribute('href')).toBe('/my-day');
  });
  it('offers no "Reintentar" on 401: the session-expired dialog handles it',()=>{
   wrap(<QueryErrorNotice error={new CrmApiError('Tu sesión venció. Volvé a ingresar para seguir.',401)} onRetry={vi.fn()}/>);

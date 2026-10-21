@@ -32,7 +32,7 @@ const quotedLabels=(article:Article)=>[...new Set([article.title,article.when,..
  * Only files that render UI count: not the server, endpoints, history/journal label maps or audit-text maps (a renamed banner must not keep passing because the same words survive in an audit label).
  * Helpers count only when they hold UI words the screens read (navigation, statuses, outcomes, guidance, labels).
  */
-const uiHelpers=['appNavigation','businessStatus','businessSections','workOutcomes','workGuidance','crmLabels','messageLabels','contactOutcome','contactPurpose','nextStep','firstSteps','businessListPreferences'];
+const uiHelpers=['appNavigation','businessStatus','businessSections','workOutcomes','workGuidance','crmLabels','messageLabels','contactOutcome','contactPurpose','nextStep','firstSteps','businessListPreferences','recontactTask'];
 const isUiSource=(path:string)=>/^(components|pages|content)\//.test(path)&&path!=='pages/history.tsx'||uiHelpers.some(name=>path==='helpers/'+name+'.ts');
 const isAuditMap=(line:string)=>/^\s*(export\s+)?const\s+(actionLabels|fieldLabels|auditFields|eventTitles|statusNames|channelNames)\b/.test(line);
 /** Single words so common that a literal match proves little. They stay checked, but only weakly: prefer citing a longer, more specific label. */
