@@ -17,6 +17,11 @@ function isOpenFloating(item: HTMLElement) {
   if (getComputedStyle(item).opacity === '0') return false;
   const trigger = item.getAttribute('aria-labelledby'); return !(trigger && document.getElementById(trigger)?.getAttribute('aria-expanded') === 'false');
 }
+/** True when an Escape belongs to an open picker, menu or dropdown (which closes first) and not to the dialog beneath it. Shared by both dialog components. */
+export function pickerOpen(event: KeyboardEvent) {
+  if (event.defaultPrevented || (event.target as Element | null)?.closest?.(FLOATING + ',[data-picker-open="true"]')) return true;
+  return Array.from(document.querySelectorAll<HTMLElement>(FLOATING)).some(isOpenFloating);
+}
 function useDialog() { const value = useContext(Context); if (!value) throw new Error('Dialog control requires Dialog'); return value; }
 export function Dialog({ children, open, defaultOpen = false, onOpenChange }: DialogProps) {
   const parent = useContext(Context);
@@ -95,10 +100,6 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   // Mantine owns focus trapping, scroll locking, portals and modal stacking.
   const close = () => ctx.change(false);
   // Escape closes an open picker or dropdown first (Mantine handles it); the dialog only reacts once nothing is floating above it.
-  const pickerOpen = (event: KeyboardEvent) => {
-    if (event.defaultPrevented || (event.target as Element | null)?.closest?.(FLOATING + ',[data-picker-open="true"]')) return true;
-    return Array.from(document.querySelectorAll<HTMLElement>(FLOATING)).some(isOpenFloating);
-  };
   const guard = (handler: ((event: Event) => void) | undefined) => { const event = new Event('dismiss', { cancelable: true }); handler?.(event); return !event.defaultPrevented; };
   useEffect(() => {
     if (!ctx.open || inline || !layer.active || ctx.hasOpenChild) return;

@@ -34,8 +34,6 @@ const BASELINE:Readonly<Record<string,number>>={
  'components/DataImportDialog.tsx::Completá los campos obligatorios':2,
  'components/DataQualityPanel.tsx::Completá los campos obligatorios':1,
  'components/FilterLegend.tsx::Completá los campos obligatorios':1,
- 'components/GeneralContactDialog.tsx::Contacto general':1,
- 'components/GeneralContactDialog.tsx::Relación del negocio':1,
  'components/InlineBusinessBadge.tsx::Completá los campos obligatorios':1,
  'components/InlineBusinessStatus.tsx::Completá los campos obligatorios':1,
  'components/LeadDetailDialog.tsx::Completá los campos obligatorios':3,
