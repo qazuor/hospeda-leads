@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {knownVerticalTones,verticalTone} from './verticalColors';
+import {fallbackHues,knownVerticalTones,verticalKey,verticalTone} from './verticalColors';
 
 const hslToRgb=(h:number,s:number,l:number)=>{s/=100;l/=100;const k=(n:number)=>(n+h/30)%12,a=s*Math.min(l,1-l),f=(n:number)=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return [f(0),f(8),f(4)].map(v=>v*255);};
 const luminance=(rgb:number[])=>{const [r,g,b]=rgb.map(v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;});return 0.2126*r+0.7152*g+0.0722*b;};
@@ -28,8 +28,22 @@ describe('verticalTone',()=>{
   expect(verticalTone('Rubro nuevo')).toEqual([expect.any(Number),55]);
   for(const value of ['constructor','__proto__','toString'])expect(verticalTone(value)).toEqual([expect.any(Number),55]);
  });
+ it('keeps ñ distinct from n while folding accents and case',()=>{
+  expect(verticalTone('Cabaña')).toEqual(verticalTone('cabaña'));
+  expect(verticalTone('Gastronomía')).toEqual(verticalTone('gastronomia'));
+  expect(verticalKey('Cabaña')).not.toBe(verticalKey('Cabana'));
+  expect(verticalKey('Cabaña')).toBe(verticalKey('CABAÑA'));
+  expect(verticalKey('Gastronomía')).toBe('gastronomia');
+ });
+ it('keeps reserve hues away from known rubros and the danger red',()=>{
+  const dist=(a:number,b:number)=>Math.min(Math.abs(a-b),360-Math.abs(a-b));
+  for(const h of fallbackHues){
+   for(const [known] of knownVerticalTones.values())expect(dist(h,known),`${h} vs ${known}`).toBeGreaterThanOrEqual(25);
+   expect(dist(h,0)).toBeGreaterThan(15);
+  }
+ });
  it('keeps badge text at WCAG AA (4.5:1) in light and dark for known and fallback hues',()=>{
-  const tones=[...knownVerticalTones.values(),...['a','b','c','d','e','f','g','h','Rubro 1','Rubro 2'].map(verticalTone)];
+  const tones=[...knownVerticalTones.values(),...fallbackHues.map(h=>[h,55] as const)];
   for(const tone of tones)for(const dark of [false,true])expect(ratio(tone,dark),`hue ${tone[0]} ${dark?'dark':'light'}`).toBeGreaterThanOrEqual(4.5);
  });
 });
