@@ -3,7 +3,8 @@ import { jwtVerify, SignJWT } from "jose";
 const encoder = new TextEncoder();
 export const MinJwtSecretLength = 32;
 
-const PlaceholderMarkers = ["change-me", "changeme", "not-for-production", "example"];
+/** Substrings (lowercase) that mark a JWT secret as an example value. Keep identical to `JwtPlaceholderMarkers` in scripts/local/lib.mjs (a unit test asserts it; that file is plain ESM and cannot import this one). */
+export const PlaceholderMarkers = ["change-me", "changeme", "not-for-production", "example", "replace", "placeholder", "secret-here", "your-secret", "your_secret", "yoursecret"] as const;
 const KnownPlaceholders = ["development-only-change-me"];
 
 const isPlaceholderSecret = (value: string) => {
@@ -17,6 +18,8 @@ export function requireJwtSecret(value: string | undefined): string {
     throw new Error(
       `JWT_SECRET must be set to a real random secret of at least ${MinJwtSecretLength} characters (got ${value ? value.length : 0}${value && isPlaceholderSecret(value) ? ", looks like a placeholder" : ""}). Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
     );
+  if (value !== value.trim() || /^["'`]|["'`]$/.test(value))
+    console.warn("JWT_SECRET has surrounding whitespace or quotes; they are part of the secret. Check the variable in the deployment settings (accepted as is to keep existing sessions valid).");
   return value;
 }
 

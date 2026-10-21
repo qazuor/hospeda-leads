@@ -191,6 +191,9 @@ export function redactUrl({ url }) {
   return url.replace(/:\/\/([^:]+):[^@]*@/, "://$1:***@");
 }
 
+/** Lowercase substrings that mark a JWT secret as an example value. Keep identical to `PlaceholderMarkers` in src/helpers/getSetServerSession.tsx (a unit test asserts it). */
+export const JwtPlaceholderMarkers = ["change-me", "changeme", "not-for-production", "example", "replace", "placeholder", "secret-here", "your-secret", "your_secret", "yoursecret"];
+
 /**
  * Checks a JWT secret: at least 32 chars and not an obvious placeholder.
  * @param {{secret: string | undefined}} input
@@ -198,7 +201,8 @@ export function redactUrl({ url }) {
  */
 export function isValidJwtSecret({ secret }) {
   if (!secret || secret.length < 32) return false;
-  return !/(changeme|change-me|replace|placeholder|example|secret-here|your[-_]?secret)/i.test(secret);
+  const lower = secret.toLowerCase();
+  return !JwtPlaceholderMarkers.some((marker) => lower.includes(marker));
 }
 
 /**
