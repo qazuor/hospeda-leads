@@ -2,7 +2,7 @@ import {calendarDay} from './workDates';
 /** Shown when the server refuses an edit because the task changed after the editor loaded it (409); nothing was saved. */
 export const TASK_SAVE_CONFLICT_MESSAGE='No se guardó: otra persona cambió esta tarea mientras la editabas. Lo que escribiste sigue acá. Podés copiarlo y cargar la versión más reciente para revisarla.';
 /** An edit sent without the version the editor loaded (for example, from a page opened before an update). */
-export const TASK_SAVE_STALE_PAGE_MESSAGE='Recargá la página para guardar los cambios de esta tarea.';
+export const TASK_SAVE_STALE_PAGE_MESSAGE='No se guardó: esta pantalla quedó desactualizada. Copiá lo que escribiste, recargá la página y volvé a guardar.';
 /** The version token of a task as the client sends it back in `expectedUpdatedAt`. */
 export const taskVersion=(updatedAt:Date|string|null|undefined):string|undefined=>updatedAt?new Date(updatedAt).toISOString():undefined;
 /** True when the stored version is the one the editor loaded. Both sides go through the same driver parsing, so millisecond equality is exact. */
