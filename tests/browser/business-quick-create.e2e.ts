@@ -39,3 +39,21 @@ test('Nuevo negocio warns about similar businesses, blocks No contactar duplicat
  expect(detail.contacts.map((c:any)=>[c.name,c.phone,c.isPrimary])).toEqual([['Ana del alta','3447 400222',true]]);
  expect(detail.opportunities).toHaveLength(0);
 });
+
+test('A person phone shared with a No contactar business only warns: the seller acknowledges it and the business is created',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);
+ await page.route('**/_api/business/duplicate-check?**',route=>route.fulfill({status:200,contentType:'application/json',body:superjson.stringify({candidates:[{id:'999998',nombre:'Hostería Silenciosa',ciudad:'Colón',doNotContact:true,archived:false,deleted:false,reasons:['Teléfono de la persona compartido'],canOpen:false,blocking:false}]})}));
+ const name='Alta con aviso '+Date.now();
+ await page.goto('/accounts');await page.getByRole('button',{name:'Nuevo negocio',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Nuevo negocio'});const create=dialog.getByRole('button',{name:'Crear negocio',exact:true});
+ await dialog.getByLabel('Nombre',{exact:true}).fill(name);
+ await dialog.getByLabel('Nombre de la persona',{exact:true}).fill('Ana con aviso');await dialog.getByLabel('Teléfono de la persona',{exact:true}).fill('3447 411999');
+ const note=dialog.getByRole('note',{name:'Teléfono de un negocio No contactar'});
+ await expect(note).toContainText('Este teléfono figura en un negocio marcado No contactar: Hostería Silenciosa (Colón)');
+ await expect(dialog.getByRole('alert')).toHaveCount(0);await expect(create).toBeDisabled();
+ await page.screenshot({path:'test-results/business-quick-create-person-phone-dnc.png',fullPage:true});
+ await dialog.getByLabel('Entendido, no voy a contactar a ese negocio',{exact:true}).check();await expect(create).toBeEnabled();
+ await create.click();
+ await expect(page).toHaveURL(/\/accounts\/\d+/);await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+});

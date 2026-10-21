@@ -2,7 +2,7 @@ import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertContactDataWritable,assertLeadAccess,canEditBusinessContactData,hasOpenManagement} from '../helpers/crmPermissions';
-import {findNewDncBlocker,findDncPersonPhoneBlocker,findNewDncPersonPhoneBlocker,DNC_DUPLICATE_MESSAGE,DNC_PERSON_PHONE_MESSAGE} from './business_duplicate_check';
+import {findNewDncBlocker,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
 import {parseBody} from '../helpers/parseBody';
@@ -124,7 +124,7 @@ export async function post(request:Request){
         {
           const after={nombre:contactOnly?existing!.nombre:input.nombre,ciudad:contactOnly?existing!.ciudad:fullFields.ciudad,telefono:fields.telefono,email:fields.email,whatsapp:input.whatsapp===undefined?existing?.whatsapp:nullable(input.whatsapp)};
           if(await findNewDncBlocker(trx,{after,before:existing??undefined,excludeId:existing?String(existing.id):undefined}))throw new Conflict(DNC_DUPLICATE_MESSAGE);
-          if(input.primaryContact&&await findDncPersonPhoneBlocker(trx,input.primaryContact.phone))throw new Conflict(DNC_DUPLICATE_MESSAGE);
+          // The primary contact's phone is not checked: a person's phone matching a No contactar business only warns in the dialog (decision 13B).
         }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fullFields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),contactOnly?"account_contact_data_updated":existing?"account_updated":"account_created",existing,row,null,contactOnly?{scope:access!.scope,leadIds:access!.leadIds}:{});
@@ -189,8 +189,6 @@ export async function post(request:Request){
         checkEmail(input.email,old?.email);
         const viaManagement=contactAccess?.scope==='open_management';
         if(viaManagement&&input.isPrimary!==(old?.isPrimary??false))throw new CrmForbidden('El contacto principal solo lo cambia el responsable del negocio.');
-        // A person's phone exactly shared with a No contactar business blocks (decision 1C), unless the previous phone already matched it; the own business never does.
-        if(await findNewDncPersonPhoneBlocker(trx,{after:input.phone,before:old?.phone,excludeId:input.accountId}))throw new Conflict(DNC_PERSON_PHONE_MESSAGE);
         if(input.isPrimary){
           const previous=await trx.selectFrom("crmContacts").selectAll().where("accountId","=",input.accountId).where("isPrimary","=",true).where("deletedAt","is",null).execute();
           await trx.updateTable("crmContacts").set({isPrimary:false,updatedAt:new Date()}).where("accountId","=",input.accountId).where("isPrimary","=",true).execute();

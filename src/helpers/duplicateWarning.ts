@@ -23,13 +23,19 @@ export const duplicateQuery=({nombre,ciudad,telefono,email,personPhone}:{nombre?
  return Object.keys(query).length?query:null;
 };
 
+const PERSON_SHARED='Teléfono de la persona compartido';
+/** A No contactar business whose phone is exactly the person's phone. It only warns (decision 13B). */
+export const isPersonPhoneDnc=(c:DuplicateCandidate)=>c.doNotContact&&!c.blocking&&c.reasons.includes(PERSON_SHARED);
+
 /**
  * Splits server candidates into the hard block (`blocking`, decided by the server) and the matches to show:
  * blocking first, then No contactar, at most `MAX_SHOWN_DUPLICATES`. `dncWarning` flags a shown No contactar match that does not block.
+ * `personPhoneDnc` lists No contactar businesses that only share the person's phone: they get their own warning and are not part of `shown`.
  */
-export const duplicateWarning=({candidates}:{candidates:readonly DuplicateCandidate[]}):{blocker:DuplicateCandidate|null;shown:DuplicateCandidate[];hidden:number;dncWarning:boolean}=>{
+export const duplicateWarning=({candidates:all}:{candidates:readonly DuplicateCandidate[]}):{blocker:DuplicateCandidate|null;shown:DuplicateCandidate[];hidden:number;dncWarning:boolean;personPhoneDnc:DuplicateCandidate[]}=>{
+ const personPhoneDnc=all.filter(isPersonPhoneDnc),candidates=all.filter(c=>!(isPersonPhoneDnc(c)&&c.reasons.every(r=>r===PERSON_SHARED)));
  const rank=(c:DuplicateCandidate)=>c.blocking?0:c.doNotContact?1:2;
  const sorted=candidates.map((c,i)=>({c,i})).sort((a,b)=>rank(a.c)-rank(b.c)||a.i-b.i).map(x=>x.c);
  const shown=sorted.slice(0,MAX_SHOWN_DUPLICATES);
- return {blocker:sorted.find(c=>c.blocking)??null,shown,hidden:Math.max(0,sorted.length-MAX_SHOWN_DUPLICATES),dncWarning:shown.some(c=>c.doNotContact&&!c.blocking)};
+ return {blocker:sorted.find(c=>c.blocking)??null,shown,hidden:Math.max(0,sorted.length-MAX_SHOWN_DUPLICATES),dncWarning:shown.some(c=>c.doNotContact&&!c.blocking),personPhoneDnc};
 };

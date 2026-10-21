@@ -7,6 +7,7 @@ import {Input} from './Input';
 import {NativeSelect} from './NativeSelect';
 import {Checkbox} from './Checkbox';
 import {ValueBadge} from './ValueBadge';
+import {PersonPhoneDncWarning} from './PersonPhoneDncWarning';
 import {Disclosure,DisclosureSummary} from './Disclosure';
 import {useUnsavedChanges} from './UnsavedChanges';
 import {useAuth} from '../helpers/useAuth';
@@ -34,6 +35,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
  const [draft,setDraft]=useState({...empty,assignedUserEmail:user?.email??''});
  const [acknowledged,setAcknowledged]=useState('');
+ const [personAcknowledged,setPersonAcknowledged]=useState('');
  const [error,setError]=useState('');
  const submitting=useRef(false);
  const currentKey=JSON.stringify(duplicateQuery(draft));
@@ -42,8 +44,8 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
  const duplicates=useQuery({queryKey:['business-duplicate-check',queryKey],queryFn:({signal})=>checkBusinessDuplicates(query!,{signal}),enabled:!!query,staleTime:30000,placeholderData:keepPreviousData});
  // Never save on a stale or missing check: wait until the typed values were checked (a failed check does not block).
  const checking=currentKey!=='null'&&(currentKey!==queryKey||duplicates.isFetching);
- const {blocker,shown,hidden,dncWarning}=duplicateWarning({candidates:query?duplicates.data?.candidates??[]:[]});
- const shownKey=shown.map(c=>c.id).join(',');
+ const {blocker,shown,hidden,dncWarning,personPhoneDnc}=duplicateWarning({candidates:query?duplicates.data?.candidates??[]:[]});
+ const shownKey=shown.map(c=>c.id).join(','),personKey=personPhoneDnc.map(c=>c.id).join(',');
  const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async result=>{
   await qc.cancelQueries({queryKey:['leads']});
   await Promise.all(invalidated.map(key=>qc.invalidateQueries({queryKey:[key],refetchType:'all'})));
@@ -52,7 +54,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
  }});
  const guard=useUnsavedChanges(Object.entries(empty).some(([k,v])=>draft[k as keyof typeof empty]!==v),onClose,mutation.isPending);
  const set=(key:keyof typeof draft)=>(e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement>)=>{const value=e.target.value;setDraft(d=>({...d,[key]:value,...(key==='tipo'?{subtipo:''}:{})}));};
- const disabledReason=mutation.isPending?'Estamos creando el negocio. Esperá a que termine.':checking?'Revisando si ya existe…':blocker?DNC_DUPLICATE_MESSAGE:shown.length&&acknowledged!==shownKey?'Revisá los negocios parecidos: abrí el que corresponde o marcá «Ninguno de estos es mi negocio, crear igual».':undefined;
+ const disabledReason=mutation.isPending?'Estamos creando el negocio. Esperá a que termine.':checking?'Revisando si ya existe…':blocker?DNC_DUPLICATE_MESSAGE:shown.length&&acknowledged!==shownKey?'Revisá los negocios parecidos: abrí el que corresponde o marcá «Ninguno de estos es mi negocio, crear igual».':personKey&&personAcknowledged!==personKey?'Leé el aviso del teléfono de la persona y marcá «Entendido» para seguir.':undefined;
  const submit=async(event:React.FormEvent)=>{
   event.preventDefault();if(submitting.current||disabledReason)return;submitting.current=true;setError('');
   const text=(v:string)=>v.trim()||null;
@@ -72,7 +74,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
     {shown.length>0&&<div id="quick-create-duplicates"><strong>Puede que ya exista:</strong><ul style={{margin:'8px 0 0',paddingInlineStart:18,display:'grid',gap:8}}>{shown.map(c=><li key={c.id}><span style={{display:'inline-flex',flexWrap:'wrap',gap:6,alignItems:'center'}}><strong>{c.nombre}</strong>{c.ciudad?` · ${c.ciudad}`:''}{c.doNotContact&&<ValueBadge value="No contactar" category="status"/>}{c.archived&&<ValueBadge value="Archivado" category="status"/>}{c.canOpen&&<Link to={'/accounts/'+c.id} target="_blank" rel="noopener" aria-label={'Abrir '+c.nombre+' (en otra pestaña)'}>Abrir</Link>}</span><small className={styles.muted} style={{display:'block'}}>{[c.reasons.map(duplicateReasonLabel).join(' · '),'responsibleName' in c?`${VOCAB.businessOwner}: ${c.responsibleName||'sin asignar'}`:null].filter(Boolean).join(' · ')}</small></li>)}</ul>{hidden>0&&<small className={styles.muted}>Y {hidden} más parecidos.</small>}{dncWarning&&!blocker&&<p style={{margin:'8px 0 0'}}><strong>Si es el mismo, no lo contactes.</strong></p>}</div>}
     {duplicates.isError&&<small className={styles.muted}>No pudimos revisar si ya existe. Igual podés crearlo.</small>}
     {shown.length>0&&!blocker&&<label className={styles.checkbox}><Checkbox disabled={mutation.isPending} aria-describedby="quick-create-duplicates" checked={acknowledged===shownKey} onChange={e=>setAcknowledged(e.target.checked?shownKey:'')}/>Ninguno de estos es mi negocio, crear igual</label>}
-   </section>}</div>
+   </section>}{query&&!blocker&&<PersonPhoneDncWarning matches={personPhoneDnc} acknowledged={!!personKey&&personAcknowledged===personKey} onAcknowledge={v=>setPersonAcknowledged(v?personKey:'')} disabled={mutation.isPending}/>}</div>
    <Disclosure className={styles.optionalFields}><DisclosureSummary>Más datos (opcional)</DisclosureSummary><div className={styles.formSection}>{input('email','Email del negocio',{type:'email'})}<label>Vertical<NativeSelect disabled={mutation.isPending} value={draft.tipo} onChange={set('tipo')}><option value="">Sin clasificar</option>{(settings.data?.types??[]).map(t=><option key={t}>{t}</option>)}</NativeSelect></label><label>Subtipo<NativeSelect disabled={mutation.isPending} value={draft.subtipo} onChange={set('subtipo')}><option value="">Sin asignar</option>{(settings.data?.subtypes??[]).filter(s=>s.typeName===draft.tipo).map(s=><option key={s.name} value={s.name}>{s.name}</option>)}</NativeSelect></label>{admin&&<label>{VOCAB.businessOwner}<NativeSelect disabled={mutation.isPending} value={draft.assignedUserEmail} onChange={set('assignedUserEmail')}><option value="">Sin asignar</option>{(settings.data?.users??[]).map(u=><option key={u.email} value={u.email}>{u.displayName}</option>)}</NativeSelect></label>}</div></Disclosure>
    {!admin&&<p className={styles.muted}>Vas a quedar como {VOCAB.businessOwner.toLowerCase()}.</p>}
    {(error||mutation.error)&&<p role="alert" className={styles.error}>{error||mutation.error?.message}</p>}

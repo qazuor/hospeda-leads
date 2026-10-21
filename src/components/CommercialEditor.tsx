@@ -4,6 +4,10 @@ import { Input } from './Input';
 import {CrmDateInput} from './ui/CrmDateInput';
 import { NativeSelect } from './NativeSelect';
 import { Checkbox } from './Checkbox';
+import {PersonPhoneDncWarning} from './PersonPhoneDncWarning';
+import {checkBusinessDuplicates} from '../endpoints/business_duplicate_check.schema';
+import {duplicateQuery,duplicateWarning} from '../helpers/duplicateWarning';
+import {useDebounce} from '../helpers/useDebounce';
 import {useUnsavedChanges} from "./UnsavedChanges";
 import React, { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,6 +61,12 @@ function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
   const [primary,setPrimary]=useState(target.kind==="contact"?(target.item?.isPrimary??(!contactOnly&&!detail?.contacts.some(c=>c.isPrimary&&!c.deletedAt))):false);
   const replacesPrimary=target.kind==="contact"&&!!detail?.contacts.some(c=>c.isPrimary&&!c.deletedAt&&String(c.id)!==String(target.item?.id??""));
   const [error,setError]=useState("");
+  // Decision 13B: the person's phone matching a No contactar business only warns; the seller confirms she read it.
+  const phoneQuery=useDebounce(target.kind==="contact"&&(draft.phone||"")!==(target.item?.phone??"")?JSON.stringify(duplicateQuery({personPhone:draft.phone})):"null",400);
+  const phoneCheck=useQuery({queryKey:["business-duplicate-check",phoneQuery],queryFn:({signal})=>checkBusinessDuplicates(JSON.parse(phoneQuery),{signal}),enabled:phoneQuery!=="null",staleTime:30000});
+  const personPhoneDnc=duplicateWarning({candidates:phoneQuery==="null"?[]:(phoneCheck.data?.candidates??[]).filter(c=>c.id!==String(detail?.account.id??""))}).personPhoneDnc;
+  const personKey=personPhoneDnc.map(c=>c.id).join(",");
+  const [personAcknowledged,setPersonAcknowledged]=useState("");
   const submitting=useRef(false);
   const [creationRequestKey]=useState(()=>crypto.randomUUID());
   const [baseline]=useState(()=>JSON.stringify({draft,primary}));
@@ -100,6 +110,7 @@ function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
         {!target.item?.managementType&&target.item&&<>{select("tipo","Tipo de negocio",(settings.data?.types??[]).map(value=>({value,label:value})))}{select("estado","Etapa histórica",(detail?.stages??[]).map(value=>({value,label:value})))}</>}
         {target.item&&<Disclosure className={styles.optionalFields}><DisclosureSummary>Datos opcionales de la gestión</DisclosureSummary><div className={styles.formSection}>{opportunityOptionalFields.map(([key,label])=>field(key,label))}{select("primaryContactId","Persona principal de esta gestión",(detail?.contacts??[]).filter(c=>!c.deletedAt).map(c=>({value:String(c.id),label:c.name})))}</div></Disclosure>}
       </>}
+      {target.kind==="contact"&&<PersonPhoneDncWarning matches={personPhoneDnc} acknowledged={!!personKey&&personAcknowledged===personKey} onAcknowledge={v=>setPersonAcknowledged(v?personKey:"")} disabled={mutation.isPending}/>}
       {target.kind==="contact"&&<p className={styles.muted}>Cargo indica el rol de esta persona. Canal preferido registra su preferencia; no envía mensajes automáticamente. Marcar Principal reemplaza la referencia general anterior, sin cambiar el contacto elegido en cada gestión.</p>}
       {target.kind==="opportunity"&&<p className={styles.muted}>{target.item?'El tipo y la etapa se consultan o cambian desde la gestión.':'La nueva gestión empieza en Por contactar.'} Contacto y cierre estimado son opcionales.</p>}
       {contactOnly&&<p className={styles.muted}>Queda registrado en el historial.</p>}
@@ -108,7 +119,7 @@ function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
       {target.kind==="delete_account"&&field("reason","Motivo para enviar a Papelera (al menos 3 caracteres)")}{target.kind==="convert"&&field("reason","¿Qué relación comercial previa tuvo?")}{target.kind==="unmark_client"&&field("reason","Motivo para quitar la marca")}{target.kind==="archive"&&<>{field("reason",detail?.account.archivedAt?"Motivo para desarchivar (al menos 3 caracteres)":"Motivo para archivar (al menos 3 caracteres)")}<p>{detail?.account.archivedAt?"El negocio volverá a la lista activa.":"Se conserva el negocio y sus tareas; no se envía a Papelera."}</p></>}
       {target.kind==="delete_contact"&&<p>{target.item.name}</p>}
       {(error||mutation.error)&&<p role="alert" className={styles.error}>{error||mutation.error?.message}</p>}
-      <div className={styles.actions}><Button variant="ghost" disabled={mutation.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={guard.requestClose}>Cancelar</Button><Button type="submit" variant={target.kind==="delete_account"?"destructive":"primary"} disabled={mutation.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">{target.kind==="delete_account"?(mutation.isPending?"Enviando a Papelera…":"Enviar a Papelera"):mutation.isPending?target.kind==="opportunity"?"Guardando gestión…":target.kind==="contact"?"Guardando contacto…":target.kind==="delete_contact"?"Dando de baja contacto…":target.kind==="archive"?detail?.account.archivedAt?"Recuperando negocio…":"Archivando negocio…":target.kind==="convert"||target.kind==="unmark_client"?"Guardando condición comercial…":"Guardando negocio…":target.kind==="archive"?detail?.account.archivedAt?"Desarchivar negocio":"Archivar negocio":target.kind==="delete_contact"?"Confirmar baja":target.kind==="convert"?"Registrar cliente previo":target.kind==="unmark_client"?"Quitar marca Cliente":confirmReviewed?"Marcar Revisado e iniciar gestión":target.kind==="opportunity"?"Iniciar gestión":target.kind==="account"?"Guardar cambios":"Guardar"}</Button></div>
+      <div className={styles.actions}><Button variant="ghost" disabled={mutation.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={guard.requestClose}>Cancelar</Button><Button type="submit" variant={target.kind==="delete_account"?"destructive":"primary"} disabled={mutation.isPending||(target.kind==="contact"&&!!personKey&&personAcknowledged!==personKey)} disabledReason={mutation.isPending?"La operación está en curso. Esperá a que termine para continuar.":"Leé el aviso del teléfono de la persona y marcá «Entendido» para seguir."}>{target.kind==="delete_account"?(mutation.isPending?"Enviando a Papelera…":"Enviar a Papelera"):mutation.isPending?target.kind==="opportunity"?"Guardando gestión…":target.kind==="contact"?"Guardando contacto…":target.kind==="delete_contact"?"Dando de baja contacto…":target.kind==="archive"?detail?.account.archivedAt?"Recuperando negocio…":"Archivando negocio…":target.kind==="convert"||target.kind==="unmark_client"?"Guardando condición comercial…":"Guardando negocio…":target.kind==="archive"?detail?.account.archivedAt?"Desarchivar negocio":"Archivar negocio":target.kind==="delete_contact"?"Confirmar baja":target.kind==="convert"?"Registrar cliente previo":target.kind==="unmark_client"?"Quitar marca Cliente":confirmReviewed?"Marcar Revisado e iniciar gestión":target.kind==="opportunity"?"Iniciar gestión":target.kind==="account"?"Guardar cambios":"Guardar"}</Button></div>
     </form>
   </DialogContent>{guard.confirmation}</Dialog>;
 }
