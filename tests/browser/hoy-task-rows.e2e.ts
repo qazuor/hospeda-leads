@@ -36,9 +36,9 @@ test('Hoy task rows: one primary action, Posponer with Deshacer, honest menu, ma
  await page.locator('article').filter({has:page.getByText(title,{exact:true})}).getByRole('link',{name:new RegExp(name)}).click();
  await expect(page).toHaveURL(new RegExp('/sales/'+sale+'$'));await expect(page.getByRole('link',{name:'← Volver a Hoy'})).toBeVisible();
  // From the business page the same link must NOT claim Hoy as its origin.
- await page.goto('/accounts/'+accountId);await page.getByRole('tab',{name:'Resumen',exact:true}).click();
- await page.locator('article').filter({has:page.getByText(title,{exact:true})}).getByRole('link',{name:new RegExp(name)}).click();
- await expect(page).toHaveURL(new RegExp('/sales/'+sale+'$'));await expect(page.getByRole('link',{name:'← Volver a Hoy'})).toHaveCount(0);
+ await page.goto('/accounts/'+accountId);
+ await page.locator('[data-work-task="'+taskId+'"]').first().getByRole('link',{name:new RegExp(name)}).click();
+ await expect(page).toHaveURL(new RegExp('/sales/'+sale+'$'));await expect(page.getByRole('link',{name:'← Volver al negocio'})).toBeVisible();await expect(page.getByRole('link',{name:'← Volver a Hoy'})).toHaveCount(0);
  // A completed task can have its result corrected: the menu opens the activity it created.
  const doneTitle='Completada por filas '+stamp;
  const doneId=(await api('work',{action:'task_save',accountId,leadId:sale,title:doneTitle,typeId:'call',purpose:'commercial',dueDate:localDay()})).id;
