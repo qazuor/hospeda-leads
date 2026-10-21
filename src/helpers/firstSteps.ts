@@ -4,10 +4,10 @@ import {useCallback,useEffect,useState} from 'react';
 export type FirstStepFlags={contacted:boolean;logged:boolean;scheduled:boolean};
 export type FirstStepItem={key:'opened'|'contacted'|'logged'|'scheduled';label:string;done:boolean};
 
-/** The four first-use steps in order; each one is done only from a real action (never from merely seeing a screen). */
+/** The four first-use steps in order (an experienced user with all three server flags counts as having opened a task, so the checklist never shows on a new browser); each one is done only from a real action (never from merely seeing a screen). */
 export function firstStepItems({flags,opened}:{flags:FirstStepFlags;opened:boolean}):FirstStepItem[]{
  return [
-  {key:'opened',label:'Abrí una tarea',done:opened},
+  {key:'opened',label:'Abrí una tarea',done:opened||(flags.contacted&&flags.logged&&flags.scheduled)},
   {key:'contacted',label:'Contactá a un negocio',done:flags.contacted},
   {key:'logged',label:'Anotá cómo salió',done:flags.logged},
   {key:'scheduled',label:'Agendá la próxima tarea',done:flags.scheduled}

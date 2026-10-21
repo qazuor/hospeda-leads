@@ -6,7 +6,7 @@ import {localDay} from '../../src/helpers/workDates';
 const seller={id:3,email:'marta@example.com',displayName:'Marta',fullName:null,avatarUrl:null,role:'user'};
 type Flags={contacted:boolean;logged:boolean;scheduled:boolean};
 const task={id:'41',accountId:'201',leadId:null,title:'Llamar a la panadería',description:null,typeId:'call',assignedUserEmail:seller.email,dueDate:localDay(),dueAt:null,priority:'media',status:'pending',result:null,completedAt:null,legacy:false,participants:'',contactIds:[],accountName:'Panadería Sol',city:'Colón',opportunityName:null,deletedAt:null};
-const base={activities:[],types:[{id:'call',name:'Llamada',agenda:false,active:true}],accounts:[{id:'201',nombre:'Panadería Sol',ciudad:'Colón',assignedUserEmail:seller.email}],opportunities:[],contacts:[],users:[{email:seller.email,displayName:'Marta'}],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalActivities:0,page:1,cities:[],verticals:[]};
+const base={activities:[],types:[{id:'call',name:'Llamada',agenda:false,active:true}],accounts:[{id:'201',nombre:'Panadería Sol',ciudad:'Colón',assignedUserEmail:seller.email}],opportunities:[],contacts:[],users:[{email:seller.email,displayName:'Marta'}],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalActivities:0,page:1,cities:['Colón'],verticals:[]};
 async function mock(page:Page,state:{flags:Flags;withTask?:boolean}){
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.route('**/_api/**',async route=>{
@@ -50,6 +50,19 @@ test('Primeros pasos: dismissible for good, hidden when everything is done, and 
  await page.evaluate(()=>localStorage.removeItem('hospeda-first-steps-dismissed:marta@example.com'));
  state.flags={contacted:true,logged:true,scheduled:true};await page.evaluate(()=>localStorage.setItem('hospeda-first-steps-opened:marta@example.com','1'));await page.reload();
  await expect(page.getByRole('heading',{name:'Hoy',exact:true})).toBeVisible();await expect(checklist(page)).toHaveCount(0);
+});
+
+test('An experienced user on a new browser never sees the checklist',async({page})=>{
+ await mock(page,{flags:{contacted:true,logged:true,scheduled:true},withTask:true});await page.goto('/my-day');
+ await expect(page.getByText('Llamar a la panadería')).toBeVisible();await expect(checklist(page)).toHaveCount(0);
+});
+
+test('Hoy with filters and no tasks says so and clears the filters instead of teaching',async({page})=>{
+ await mock(page,{flags:{contacted:true,logged:true,scheduled:true}});await page.goto('/my-day');
+ await page.getByRole('button',{name:/^Filtros de trabajo/}).click();await page.getByLabel('Localidad').selectOption('Colón');
+ const filtered=page.getByRole('region',{name:'Sin tareas con filtros'});
+ await expect(filtered.getByRole('heading',{name:'No hay tareas con estos filtros'})).toBeVisible();await expect(page.getByRole('region',{name:'Todavía no hay tareas'})).toHaveCount(0);
+ await filtered.getByRole('button',{name:'Limpiar filtros',exact:true}).click();await expect(page.getByRole('region',{name:'Todavía no hay tareas'})).toBeVisible();
 });
 
 test('Hoy without tasks teaches what each list is for and offers to schedule one',async({page})=>{

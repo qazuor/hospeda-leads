@@ -387,7 +387,15 @@ try{
  const rookie=await identity('user'),rookieFlags=async()=>(await read('mode=day',rookie.cookie)).firstSteps;
  assert.deepEqual(await rookieFlags(),{contacted:false,logged:false,scheduled:false},'A user with no history has nothing ticked');
  const rookieAccount=await fresh('Primeros pasos',rookie.user.email);
- await contactMessage({status:'whatsapp_opened',owner:rookie.user.email,channel:'whatsapp',accountId:rookieAccount.id,leadId:null,at:new Date()});
+ // Real snapshot behaviour: opening WhatsApp, a failed/denied send and a send marked not done each leave an activity WITH a channel; none of them is a contact.
+ for(const status of ['whatsapp_opened','manual_not_done','rejected'])await contactMessage({status,owner:rookie.user.email,channel:'whatsapp',accountId:rookieAccount.id,leadId:null,activity:true,at:new Date()});
+ assert.equal((await rookieFlags())!.contacted,false,'Opening WhatsApp, a rejected or not-done send is not a contact');
+ const attempt=await identity('user'),attemptAccount=await fresh('Sin respuesta',attempt.user.email);
+ await mutate({action:'activity_save',accountId:attemptAccount.id,leadId:null,title:'Llamada sin respuesta',typeId:'call',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'call',outcome:'no_answer',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'},attempt.cookie);
+ const attemptFlags=(await read('mode=day',attempt.cookie)).firstSteps!;
+ assert.equal(attemptFlags.logged,true,'An unanswered attempt still ticks "Anotá cómo salió"');assert.equal(attemptFlags.contacted,false,'An unanswered attempt is not a contact');
+ await mutate({action:'activity_save',accountId:attemptAccount.id,leadId:null,title:'Charla',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'call',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'},attempt.cookie);
+ assert.equal((await read('mode=day',attempt.cookie)).firstSteps!.contacted,true,'An activity with a real outcome is a contact');
  assert.equal((await rookieFlags())!.contacted,false,'Opening WhatsApp or saving a draft is not a contact');
  assert.deepEqual((await read('mode=day',user.cookie)).firstSteps!.scheduled,true,'Other users never tick the rookie flags and the seller with history does');
  await mutate({action:'task_save',accountId:rookieAccount.id,leadId:null,title:'Primera tarea',typeId:'call',dueDate:localDay(),contactIds:[],participants:''},rookie.cookie);

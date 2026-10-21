@@ -122,7 +122,7 @@ export async function get(request:Request){
 /** First-use checklist flags: true only from the user's own recorded actions (confirmed contact, outcome noted, task scheduled), never from opening a screen or saving a draft. */
 async function firstStepFlags(e:typeof db,email:string){
  const r=(await sql<{contacted:boolean;logged:boolean;scheduled:boolean}>`SELECT
-  (EXISTS(SELECT 1 FROM crm_messages WHERE owner_email=${email} AND status IN ('manual_sent','accepted','delivery_confirmed','replied')) OR EXISTS(SELECT 1 FROM crm_activities WHERE actor_email=${email} AND deleted_at IS NULL AND channel IS NOT NULL)) AS contacted,
+  (EXISTS(SELECT 1 FROM crm_messages WHERE owner_email=${email} AND status IN ('manual_sent','accepted','delivery_confirmed','replied')) OR EXISTS(SELECT 1 FROM crm_activities WHERE actor_email=${email} AND deleted_at IS NULL AND outcome IS NOT NULL AND outcome<>'no_answer')) AS contacted,
   EXISTS(SELECT 1 FROM crm_activities WHERE actor_email=${email} AND deleted_at IS NULL AND outcome IS NOT NULL) AS logged,
   EXISTS(SELECT 1 FROM crm_work_journal WHERE actor_email=${email} AND entity='crm_tasks' AND action='INSERT') AS scheduled`.execute(e)).rows[0];
  return {contacted:!!r?.contacted,logged:!!r?.logged,scheduled:!!r?.scheduled};
