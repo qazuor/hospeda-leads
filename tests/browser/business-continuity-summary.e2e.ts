@@ -16,7 +16,8 @@ for(const width of [1280,390])test(`business continuity summary is clear at ${wi
  await page.route('**/_api/**',async route=>{
   const url=new URL(route.request().url()),path=url.pathname;let data:unknown={};
   if(path.endsWith('/auth/session'))data={user:{id:1,email:'owner@example.com',displayName:'Responsable',role:'user'}};
-  else if(path.endsWith('/commercial'))data=url.searchParams.has('historyPage')?history:detail;
+  // Page 1 of the full history carries the latest contact the summary shows (one shared request).
+  else if(path.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{...history,...(url.searchParams.get('historyPage')==='1'&&!url.searchParams.has('historyKind')?{lastContact:history.events[0]}:{})}:detail;
   else if(path.endsWith('/work'))data=work;
   else if(path.endsWith('/pipeline'))data={stages:[{name:'main:contact',displayName:'Contactado',managementType:'main',classification:'open',active:true,historical:false,sortOrder:1}],insights:[{id:'55',estado:'main:contact',managementType:'main',businessStatus:'in_management',referredToLeandro:false,referredOriginalOwnerEmail:null,manualPriority:'media',assignedUserEmail:'owner@example.com',stageSince:new Date('2026-10-18T12:00:00-03:00'),pipelineRevision:1,pendingFollowup:true,doNotContact:false,canModify:!managementReadOnly,suggestion:{priority:null,factors:[]}}],events:[],objections:[],objectionTypes:[],lossReasons:[],managementReasons:[],rules:[],users:[{email:'owner@example.com',displayName:'Responsable'}],verticals:[],configJournal:[],reactivations:[],total:1,page:1};
   else if(path.endsWith('/leads'))data={rows:[{...management,canModify:!managementReadOnly}],total:1,page:1,pageSize:10,filters:{ciudades:[],estados:[],tipos:[],businessStatuses:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};

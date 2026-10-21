@@ -10,14 +10,12 @@ import {db} from '../helpers/db';
 import {getServerUserSession} from '../helpers/getServerUserSession';
 import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {calendarDay,localDay} from '../helpers/workDates';
-import {workMutation,workQuery,followupSettings} from './work.schema';
+import {workMutation,workQuery,followupSettings,URGENT_CAP} from './work.schema';
 import {suggestedStageForOutcome} from '../helpers/businessManagement';
 import {canModifyManagement} from '../helpers/crmPermissions';
 import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {outcomeLabel} from '../helpers/crmLabels';
 import {TASK_SAVE_CONFLICT_MESSAGE,TASK_SAVE_STALE_PAGE_MESSAGE,sameTaskVersion,taskAlreadySaved} from '../helpers/taskSaveConflict';
-/** Hoy returns every overdue and today task up to this many per bucket. */
-const URGENT_CAP=300;
 class Forbidden extends Error {}
 /** The task changed since the client read it (409). */
 class RescheduleConflict extends Error {}

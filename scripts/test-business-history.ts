@@ -39,6 +39,7 @@ try{
  assert(all.every(e=>![e.result,e.messageText].some(v=>typeof v==='string'&&/[{}]|"status"|outboxId|triggeredBy/.test(v))),'no raw JSON or internal keys in any entry');assert(all.filter(e=>e.kind==='communication').every(e=>e.messageText===null));
  const contacts=await history(1,reader,200,'contact'),managements=await history(1,reader,200,'management'),changes=await history(1,reader,200,'change');
  assert.equal(contacts.total,54);assert(contacts.events.every(e=>['activity','message','response','communication'].includes(e.kind)));assert.equal(managements.total,2);assert(managements.events.every(e=>e.kind==='stage'));assert.equal(changes.total,2,'the edit plus the status change the management trigger made');assert(changes.events.every(e=>e.kind==='change'));
+ assert.deepEqual(first.lastContact,contacts.events[0],'page 1 carries the latest contact the summary shows');assert(!('lastContact' in second)&&!('lastContact' in contacts),'only page 1 of the full stream computes it');
  assert.equal(first.totalPending,1);assert.equal(first.pending[0].title,'Revisar propuesta');assert.equal(first.pending[0].continuation,'wait');
  await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',lead.id).execute();assert.equal((await history()).total,3,'only business-level data changes stay once the management is deleted (the status trigger added one more)');assert.equal((await history()).totalPending,0);
  await db.updateTable('crmAccounts').set({archivedAt:new Date()}).where('id','=',a.id).execute();await history(1,reader,403);await history(1,admin);

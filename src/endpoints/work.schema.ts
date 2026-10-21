@@ -14,6 +14,8 @@ const messageLink={messageId:z.string().uuid().optional(),messageSent:z.boolean(
 const stageChange=z.object({stage:z.string().trim().min(1).max(120),revision:z.number().int().min(0)}).optional();
 const nextTask=z.object({purpose:purpose.optional(),title:z.string().trim().min(1).max(200),dueDate:day,typeId:z.string().min(1).max(80)}).optional();
 const common={purpose:purpose.optional(),id:id.optional(),accountId:id,leadId:id.nullable().optional(),title:z.string().trim().min(1).max(200),typeId:z.string().min(1).max(80),participants:z.string().max(2000).default(''),contactIds:z.array(id).max(50).default([])};
+/** Hoy returns every overdue and today task up to this many per bucket (oldest first); the page explains the cut. */
+export const URGENT_CAP=300;
 export const followupSettings=z.object({action:z.literal('followup_settings'),stages:z.array(z.string().trim().min(1)).max(50),newAssignmentDays:z.number().int().min(1).max(90)});
 export const workMutation=z.discriminatedUnion('action',[
  /** `expectedUpdatedAt` is the version the editor loaded; required to edit an existing task, so a concurrent change answers 409 instead of being overwritten. */
