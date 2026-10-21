@@ -1,3 +1,4 @@
+import {cancelRecontactTaskFor} from '../helpers/recontactTask';
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
 import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
@@ -93,6 +94,7 @@ export async function post(request:Request){
     if(user.role!=='admin')throw new Forbidden('Solo admin cambia la política de contacto.');
     const before=await trx.selectFrom('crmAccounts').selectAll().where('id','=',p.accountId).forUpdate().executeTakeFirstOrThrow();
     if(before.deletedAt)throw new Error('Restaurá el negocio de Papelera antes de modificarlo.');
+    if(p.blocked)await cancelRecontactTaskFor(trx,{accountId:p.accountId,cause:'dnc'});
     await trx.updateTable('crmAccounts').set({doNotContact:p.blocked,updatedAt:new Date()}).where('id','=',p.accountId).execute();
     await log(trx,p.accountId,null,'contact_policy',{before:before.doNotContact,blocked:p.blocked,reason:p.reason});
     return p.accountId;
@@ -172,7 +174,7 @@ export async function post(request:Request){
     }else if(!typed&&p.convertClient&&account.commercialStatus!=='client'){
      await trx.updateTable('crmAccounts').set({commercialStatus:'client',clientSince:new Date(),updatedAt:new Date()}).where('id','=',account.id).execute();
     }
-    if(typedDnc)await sql`UPDATE crm_accounts SET do_not_contact=true,status='archived',archived_at=coalesce(archived_at,now()),updated_at=now() WHERE id=${account.id}`.execute(trx);
+    if(typedDnc){await cancelRecontactTaskFor(trx,{accountId:account.id,cause:'dnc'});await sql`UPDATE crm_accounts SET do_not_contact=true,status='archived',archived_at=coalesce(archived_at,now()),updated_at=now() WHERE id=${account.id}`.execute(trx);}
     if(typed&&chosen.classification!=='open'){
      const remaining=(await sql<{n:string}>`SELECT count(*) n FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open'`.execute(trx)).rows[0];
      if(p.recontactDate&&!typedDnc){

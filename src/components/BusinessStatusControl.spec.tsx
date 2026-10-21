@@ -17,9 +17,9 @@ describe('BusinessStatusControl',()=>{
   expect(text(html)).toContain(businessStatusHelp.new);
   expect(html).not.toContain('<select');
  });
- it('shows the recontact date only as a reference',()=>{
+ it('shows the saved recontact day',()=>{
   const html=render({status:'recontact',recontactAt:'2026-11-15'});
-  expect(text(html)).toContain('Fecha de referencia: 15 de nov de 2026');
+  expect(text(html)).toContain('Recontactar el 15 de nov de 2026');
  });
  it('offers no change button when the status is automatic, archived or read-only',()=>{
   for(const [status,readOnly] of [['in_management',false],['archived',false],['reviewed',true]] as const){

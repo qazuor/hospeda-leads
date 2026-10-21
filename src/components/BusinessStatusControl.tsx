@@ -5,7 +5,7 @@ import {type Account} from '../endpoints/commercial.schema';
 import {businessStatusLabels,type BusinessStatus} from '../helpers/businessStatus';
 import {calendarDay} from '../helpers/workDates';
 import {formatDate} from '../helpers/crmDates';
-import {crmSuccess} from '../helpers/crmFeedback';
+import {scheduledForName} from '../helpers/recontactTask';
 import {HelpHint} from './HelpHint';
 import styles from './Commercial.module.css';
 
@@ -21,16 +21,16 @@ export const businessStatusHelp:Record<BusinessStatus,string>={
 
 /**
  * Business status on the business record: a single "Estado: X ▾ Cambiar" badge-button plus a one-line helper.
- * The optional recontact date is a reference only; saving it creates no task.
+ * Recontactar with a date schedules the task "Volver a contactar" (decision 7A); the server confirms it in the save response.
  */
-export function BusinessStatusControl({account,readOnly}:{account:Account;readOnly:boolean}){
+export function BusinessStatusControl({account,readOnly,users,currentUserEmail}:{account:Account;readOnly:boolean;users?:readonly {email:string;displayName?:string|null}[];currentUserEmail?:string|null}){
  const client=useQueryClient();
  const status=account.status??'new';
  const savedRecontactDay=calendarDay(account.recontactAt);
  const label=account.status?businessStatusLabels[account.status]:'Pendiente de migración';
  const editable=!readOnly&&!!account.status&&!['archived','in_management'].includes(account.status);
  return <section className={styles.stateCard} aria-label="Estado del negocio">
-  <div>{editable?<InlineBusinessStatus labelled accountId={String(account.id)} status={status} recontactAt={account.recontactAt} onSaved={async()=>{crmSuccess('Estado del negocio actualizado');await client.invalidateQueries();}}/>:<><strong>Estado:</strong><ValueBadge category="status" value={label} nativeTooltip={false}/></>}<HelpHint term="status" iconOnly/>{status==='recontact'&&savedRecontactDay&&<span className={styles.muted}>Fecha de referencia: {formatDate(savedRecontactDay)}</span>}</div>
+  <div>{editable?<InlineBusinessStatus labelled accountId={String(account.id)} status={status} recontactAt={account.recontactAt} scheduledFor={scheduledForName({responsibleEmail:account.assignedUserEmail,currentUserEmail,users})} onSaved={async()=>{await client.invalidateQueries();}}/>:<><strong>Estado:</strong><ValueBadge category="status" value={label} nativeTooltip={false}/></>}<HelpHint term="status" iconOnly/>{status==='recontact'&&savedRecontactDay&&<span className={styles.muted}>Recontactar el {formatDate(savedRecontactDay)}</span>}</div>
   <p className={styles.muted}>{account.status?businessStatusHelp[account.status]:'Este negocio todavía no tiene un estado asignado.'}</p>
  </section>;
 }

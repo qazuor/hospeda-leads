@@ -1,3 +1,4 @@
+import {cancelRecontactTaskFor} from './recontactTask';
 import {templateCompatibility} from './messageTemplatePolicy';
 import {assertAccountReadable,assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {createHash} from 'node:crypto';
@@ -146,13 +147,13 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
  const requested=[...new Set(selectedIds)];
  let closedAny=false;
  if(requested.length){
-  const open=(await sql<{id:string;management_type:string|null;estado:string;assigned_user_email:string|null}>`SELECT l.id,l.management_type,l.estado,l.assigned_user_email FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open' AND l.id=ANY(${requested}::bigint[]) FOR UPDATE OF l`.execute(e)).rows;
+  const open=(await sql<{id:string;managementType:string|null;estado:string;assignedUserEmail:string|null}>`SELECT l.id,l.management_type,l.estado,l.assigned_user_email FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open' AND l.id=ANY(${requested}::bigint[]) FOR UPDATE OF l`.execute(e)).rows;
   if(open.length!==requested.length)throw new CommunicationConflict('Una o más gestiones seleccionadas ya no están abiertas. Actualizá el detalle y volvé a intentarlo.');
-  if(open.some(item=>!item.management_type))throw new CommunicationConflict('Una gestión histórica seleccionada requiere un cierre manual desde el tablero.');
-  if(open.some(item=>user.role!=='admin'&&item.assigned_user_email!==user.email))throw new CommunicationForbidden('Solo podés cerrar las gestiones que tenés asignadas.');
+  if(open.some(item=>!item.managementType))throw new CommunicationConflict('Una gestión histórica seleccionada requiere un cierre manual desde el tablero.');
+  if(open.some(item=>user.role!=='admin'&&item.assignedUserEmail!==user.email))throw new CommunicationForbidden('Solo podés cerrar las gestiones que tenés asignadas.');
   await sql`SELECT set_config('crm.close_related_management','true',true)`.execute(e);
   for(const item of open){
-   const type=item.management_type!;
+   const type=item.managementType!;
    const outcome=type==='provider'?'not_participating':type==='accompaniment'?'not_completed':type==='editor'?(item.estado.includes('proposal')?'proposal_lost':'not_collaborating'):'lost';
    const stage=type==='provider'?'provider:not_participating':type==='accompaniment'?'accompaniment:not_completed':type==='editor'?(outcome==='proposal_lost'?'editor:proposal_lost':'editor:not_collaborating'):`${type}:lost`;
    const reason=(await sql<{id:string}>`SELECT id FROM crm_management_reasons WHERE management_type=${type} AND outcome_key=${outcome} AND reason_key='do_not_contact' AND active`.execute(e)).rows[0];
@@ -165,6 +166,7 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
  }
  const remaining=(await sql<{n:string}>`SELECT count(*) n FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open'`.execute(e)).rows[0];
  if(closedAny&&Number(remaining?.n)===0&&!account.archivedAt){
+  await cancelRecontactTaskFor(e,{accountId:account.id,cause:'dnc'});
   await withAutomaticStateChange(e,'do_not_contact_response',()=>sql`UPDATE crm_accounts SET status='archived',archived_at=coalesce(archived_at,now()),updated_at=now() WHERE id=${account.id}`.execute(e));
   await communicationJournal(e,{accountId:String(account.id),leadId,entityType:'business',entityId:String(account.id),action:'business_archived_by_do_not_contact',actor:null,automatic:true,triggeredBy:user.email,after:{status:'archived',responseId}});
  }
@@ -195,7 +197,7 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
   await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_reminder_created',actor:user,after:{taskId:task.rows[0].id,dueDate:input.reminder.dueDate,assignedUserEmail:assignee}});
  }
  if(input.category==='do_not_contact'){
-  if(!account.doNotContact){await withAutomaticStateChange(e,'do_not_contact_response',()=>sql`UPDATE crm_accounts SET do_not_contact=true,updated_at=now() WHERE id=${account.id}`.execute(e));await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'business',entityId:String(account.id),action:'do_not_contact_activated',actor:null,automatic:true,triggeredBy:user.email,after:{doNotContact:true,responseId}});}
+  if(!account.doNotContact){await cancelRecontactTaskFor(e,{accountId:account.id,cause:'dnc'});await withAutomaticStateChange(e,'do_not_contact_response',()=>sql`UPDATE crm_accounts SET do_not_contact=true,updated_at=now() WHERE id=${account.id}`.execute(e));await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'business',entityId:String(account.id),action:'do_not_contact_activated',actor:null,automatic:true,triggeredBy:user.email,after:{doNotContact:true,responseId}});}
   await closeForDoNotContact(e,account,input.closeLeadIds??[],user,responseId,input.leadId);
  }
  return {id:responseId};
@@ -211,7 +213,7 @@ async function correctResponse(e:Executor,input:Extract<CommunicationMutation,{a
  await sql`INSERT INTO crm_communication_response_corrections(response_id,account_id,lead_id,actor_email,reason,before_value,after_value) VALUES(${input.id}::uuid,${account.id},${row.leadId},${user.email},${input.reason},${json(before)}::text::jsonb,${json(after)}::text::jsonb)`.execute(e);
  await sql`UPDATE crm_communication_responses SET category=${input.category},summary=${input.summary},exact_text=${input.exactText},other_detail=${input.otherDetail},updated_at=now() WHERE id=${input.id}::uuid`.execute(e);
  const correctionJournalId=await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'response',entityId:input.id,action:'response_corrected',actor:user,before,after:{...after,correctionReason:input.reason}});
- if(row.category!==input.category&&((row.category==='do_not_contact')||(input.category==='do_not_contact'))){const value=input.category==='do_not_contact';if(account.doNotContact!==value){await withAutomaticStateChange(e,'response_correction',()=>sql`UPDATE crm_accounts SET do_not_contact=${value},updated_at=now() WHERE id=${account.id}`.execute(e));await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'business',entityId:String(account.id),action:value?'do_not_contact_activated':'do_not_contact_lifted',actor:null,automatic:true,triggeredBy:user.email,relatedEventId:correctionJournalId,before:{doNotContact:!value},after:{doNotContact:value,responseId:input.id}});}}
+ if(row.category!==input.category&&((row.category==='do_not_contact')||(input.category==='do_not_contact'))){const value=input.category==='do_not_contact';if(account.doNotContact!==value){if(value)await cancelRecontactTaskFor(e,{accountId:account.id,cause:'dnc'});await withAutomaticStateChange(e,'response_correction',()=>sql`UPDATE crm_accounts SET do_not_contact=${value},updated_at=now() WHERE id=${account.id}`.execute(e));await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'business',entityId:String(account.id),action:value?'do_not_contact_activated':'do_not_contact_lifted',actor:null,automatic:true,triggeredBy:user.email,relatedEventId:correctionJournalId,before:{doNotContact:!value},after:{doNotContact:value,responseId:input.id}});}}
  if(input.category==='do_not_contact')await closeForDoNotContact(e,account,input.closeLeadIds??[],user,input.id,row.leadId==null?null:String(row.leadId));
  return {id:input.id};
 }
