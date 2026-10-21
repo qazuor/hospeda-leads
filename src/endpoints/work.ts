@@ -114,9 +114,18 @@ export async function get(request:Request){
    if(user.role==='admin'||accounts.length){journal=await db.selectFrom('crmWorkJournal').selectAll().where('accountId','in',await accountFamily(db,input.accountId)).orderBy('createdAt','desc').limit(200).execute();}
   }
   // Decision 2B: the seller's own contacts still waiting for "¿Cómo salió?" stay visible in Hoy.
+  const firstSteps=input.mode==='day'?await firstStepFlags(db,user.email):undefined;
   const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin'}):[];
-  return reply({pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,doneToday,truncated:bucketCounts?bucketCounts.overdue>URGENT_CAP||bucketCounts.today>URGENT_CAP:undefined,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
+  return reply({firstSteps,pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,doneToday,truncated:bucketCounts?bucketCounts.overdue>URGENT_CAP||bucketCounts.today>URGENT_CAP:undefined,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
+}
+/** First-use checklist flags: true only from the user's own recorded actions (confirmed contact, outcome noted, task scheduled), never from opening a screen or saving a draft. */
+async function firstStepFlags(e:typeof db,email:string){
+ const r=(await sql<{contacted:boolean;logged:boolean;scheduled:boolean}>`SELECT
+  (EXISTS(SELECT 1 FROM crm_messages WHERE owner_email=${email} AND status IN ('manual_sent','accepted','delivery_confirmed','replied')) OR EXISTS(SELECT 1 FROM crm_activities WHERE actor_email=${email} AND deleted_at IS NULL AND channel IS NOT NULL)) AS contacted,
+  EXISTS(SELECT 1 FROM crm_activities WHERE actor_email=${email} AND deleted_at IS NULL AND outcome IS NOT NULL) AS logged,
+  EXISTS(SELECT 1 FROM crm_work_journal WHERE actor_email=${email} AND entity='crm_tasks' AND action='INSERT') AS scheduled`.execute(e)).rows[0];
+ return {contacted:!!r?.contacted,logged:!!r?.logged,scheduled:!!r?.scheduled};
 }
 export async function post(request:Request){
  try{

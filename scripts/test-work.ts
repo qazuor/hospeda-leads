@@ -383,5 +383,19 @@ try{
  ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
  // Edits stay exempt from linking.
  await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
+ // U-27 first-use checklist flags: true only from the user's own recorded actions.
+ const rookie=await identity('user'),rookieFlags=async()=>(await read('mode=day',rookie.cookie)).firstSteps;
+ assert.deepEqual(await rookieFlags(),{contacted:false,logged:false,scheduled:false},'A user with no history has nothing ticked');
+ const rookieAccount=await fresh('Primeros pasos',rookie.user.email);
+ await contactMessage({status:'whatsapp_opened',owner:rookie.user.email,channel:'whatsapp',accountId:rookieAccount.id,leadId:null,at:new Date()});
+ assert.equal((await rookieFlags())!.contacted,false,'Opening WhatsApp or saving a draft is not a contact');
+ assert.deepEqual((await read('mode=day',user.cookie)).firstSteps!.scheduled,true,'Other users never tick the rookie flags and the seller with history does');
+ await mutate({action:'task_save',accountId:rookieAccount.id,leadId:null,title:'Primera tarea',typeId:'call',dueDate:localDay(),contactIds:[],participants:''},rookie.cookie);
+ assert.deepEqual(await rookieFlags(),{contacted:false,logged:false,scheduled:true},'Scheduling a task ticks only step 4');
+ await contactMessage({status:'manual_sent',owner:rookie.user.email,channel:'call',accountId:rookieAccount.id,leadId:null,at:new Date()});
+ assert.equal((await rookieFlags())!.contacted,true,'A confirmed contact ticks step 2');
+ await mutate({action:'activity_save',accountId:rookieAccount.id,leadId:null,title:'Charla',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'},rookie.cookie);
+ assert.equal((await rookieFlags())!.logged,true,'Noting how it went ticks step 3');
+ assert.equal((await read('mode=agenda&from=2026-01-01&to=2026-01-31',rookie.cookie)).firstSteps,undefined,'Only day mode carries the flags');
  console.log('Work API: auth, assignee restriction/delegation, contact ownership, multiple tasks, retrospective completion/activity/audit, legacy quick/full editors, agenda/catalog, logical deletion passed');
 }finally{await db.destroy()}
