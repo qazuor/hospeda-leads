@@ -45,6 +45,8 @@ export interface WorkData {
  totalTasks:number;totalActivities:number;page:number;
  /** Day mode only: the seller's contacts still waiting for "¿Cómo salió?" (decision 2B). */
  pendingOutcomes?:import('./communication.schema').PendingOutcome[];
+ /** Day mode only: which first-use steps the user has really done (U-27). Step 1 (open a task) is client-side. */
+ firstSteps?:{contacted:boolean;logged:boolean;scheduled:boolean};
 }
 export async function getWork(params:Record<string,string|undefined>={}):Promise<WorkData>{
  const search=new URLSearchParams(Object.entries(params).filter((x):x is [string,string]=>x[1]!==undefined));
