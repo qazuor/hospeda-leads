@@ -30,6 +30,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Guía en pantalla y exportada | `src/content/user-guide.json` (fuente), `scripts/export-user-guide.mjs` (genera `docs/guia-de-uso.md`; regenerar tras cambiar la fuente), `src/content/userGuideLabels.spec.ts` (cada etiqueta citada debe existir en la UI) |
 | Primeros pasos de Hoy | `src/helpers/firstSteps.ts` |
 | Etapa sugerida al anotar un resultado (9A) | `src/helpers/stageSuggestion.ts` |
+| Concurrencia al editar una tarea (#180): versión `expectedUpdatedAt`, 409 y reintento ya aplicado | `src/helpers/taskSaveConflict.ts` (+ `.spec.ts`); servidor en `task_save` de `src/endpoints/work.ts`; aviso y «Cargar la versión más reciente» en `src/components/WorkEditor.tsx` |
 | Fechas rápidas y posponer tareas | `src/components/DueDateShortcuts.tsx`, `src/components/TaskPostponeMenu.tsx` |
 | Llamadas desde Contactar | `src/components/PhoneCallPanel.tsx` (+ `.spec.tsx`) |
 | Navegación por rol | `src/helpers/appNavigation.ts` |
