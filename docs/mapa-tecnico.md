@@ -89,6 +89,7 @@ Kysely transforma snake_case a camelCase mediante el plugin existente. Hay overr
 | 031 | Índice parcial de negocios No contactar (aviso de teléfono, D2) |
 | 032 | Extensión `pg_trgm` e índices GIN de trigramas sobre la expresión exacta de `normalizeSearchSql` (`crm_accounts`, `crm_contacts`, `crm_activities`, `lead_notes`) para la búsqueda sin acentos; si cambia la expresión en `searchSql.ts`, hace falta una migración nueva (`scripts/test-search.ts` lo verifica) |
 | 033 | Índice parcial de tareas completadas por día de Argentina (`doneToday` de Hoy) |
+| 034 | Índices GIN de trigramas de `leads` (nombre, opportunity_name, service_interest, contact_name, origen) y `crm_accounts.origin`, sobre la misma expresión que 032. Los usan Ctrl+K «Gestiones» y el `q=` del listado de negocios, que buscan cada tabla por separado con `idSetSearchSql` (`searchSql.ts`; fuentes del listado en `businessSearchSql`, `businessTable.ts`) |
 
 El migrador lleva checksums. Aplicar migraciones no ejecuta la limpieza ni recupera campos históricos automáticamente.
 
