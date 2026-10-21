@@ -64,6 +64,31 @@ export async function findPersonPhoneMatches(executor:Executor,phone:string|null
  return (await findDuplicateAccounts(executor,{telefono:phone},options)).map(f=>({...f,blocking:false,match:{...f.match,reasons:f.match.reasons.map(r=>personReasons[r]??r)}}));
 }
 
+/** Name and city of a No contactar business: the same exposure the duplicate check already gives every seller. */
+export type DncPhoneBusiness={nombre:string;ciudad:string|null};
+/**
+ * Decision D2: for each person, the No contactar businesses (archived included; trash, merged and `excludeAccountId` left out) whose phone is exactly the person's phone.
+ * One query for all people (the No contactar set is small and served by `crm_accounts_dnc_idx`); only an exactly shared phone counts, never a similar one. Never blocks and writes nothing.
+ */
+export async function findDncPhoneBusinessesForPeople(executor:Executor,people:readonly {id:string|number;phone:string|null|undefined}[],excludeAccountId:string):Promise<Map<string,DncPhoneBusiness[]>>{
+ const result=new Map<string,DncPhoneBusiness[]>();
+ const withPhone=people.filter(p=>p.phone?.trim());
+ const tails=[...new Set(withPhone.flatMap(p=>phoneSignificantKeys(p.phone)).map(k=>k.slice(-6)))];
+ if(!tails.length)return result;
+ const digits=(col:string)=>sql<string>`regexp_replace(coalesce(${sql.ref(col)},''),'\\D','','g')`;
+ const clauses=tails.flatMap(t=>[sql<boolean>`${digits('telefono')} like ${'%'+t+'%'}`,sql<boolean>`${digits('whatsapp')} like ${'%'+t+'%'}`]);
+ const rows=await executor.selectFrom('crmAccounts').selectAll().where('doNotContact','=',true).where('mergedIntoId','is',null).where('deletedAt','is',null).where('id','!=',excludeAccountId).where(sql<boolean>`(${sql.join(clauses,sql` or `)})`).orderBy('id').limit(200).execute();
+ if(!rows.length)return result;
+ const lower=(v:string|null|undefined)=>v?.toLowerCase()??v;
+ const candidates=rows.map(r=>({...r,email:lower(r.email)??null}));
+ const byId=new Map(rows.map(r=>[String(r.id),r]));
+ for(const p of withPhone){
+  const found=matchAccounts({telefono:p.phone!},candidates,{similarPhone:true}).filter(m=>m.reasons.includes('Teléfono compartido')).map(m=>byId.get(m.id)!);
+  if(found.length)result.set(String(p.id),found.map(a=>({nombre:a.nombre,ciudad:a.ciudad})));
+ }
+ return result;
+}
+
 /** GET /_api/business/duplicate-check: any authenticated user. Exposes only id, name, city, archived/No contactar flags and the match reasons; status and the responsible's display name (never email) only for businesses the caller can open. */
 export async function handle(request:Request){try{
  const {user}=await getServerUserSession(request);

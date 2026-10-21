@@ -1,4 +1,5 @@
 import {handle as saveSettings} from '../src/endpoints/settings_save_POST';
+import {seedDncTasks,assertDncCancelled,assertDncUntouched} from './lib/dnc-tasks';
 import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';import {sql} from 'kysely';import {db} from '../src/helpers/db';import {post,get,webhook} from '../src/endpoints/communication';import {post as resourcePost,get as resourcesGet,download} from '../src/endpoints/resources';import {app} from '../src/server/app';import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';import {post as quality} from '../src/endpoints/dataQuality';import {restartDraftRequest,type Message} from '../src/endpoints/communication.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1');const stamp=Date.now();
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`communication-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
@@ -85,7 +86,7 @@ try{
  const generalAccount=await db.insertInto('crmAccounts').values({nombre:'General communication '+stamp,email:'general-'+stamp+'@example.com',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
  await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',generalAccount.id).execute();
  const generalMessage=await call({action:'prepare_general',id:randomUUID(),accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'email',purpose:'first_contact',otherPurpose:null,templateId:null},200,user.cookie);assert.equal(generalMessage.leadId,null);assert.equal(generalMessage.purpose,'first_contact');
- // U-35: a No contactar response cancels the business's untouched "Volver a contactar" task and nothing else.
+ // U-35 + D3: a No contactar response cancels the business's "Volver a contactar" task and, per D3, every other pending task of the business.
  await db.updateTable('crmAccounts').set({status:'recontact',recontactAt:'2027-06-10' as never}).where('id','=',generalAccount.id).execute();
  const recontactTask=await db.insertInto('crmTasks').values({accountId:generalAccount.id,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:user.user.email,dueDate:'2027-06-10' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
  const unrelatedTask=await db.insertInto('crmTasks').values({accountId:generalAccount.id,leadId:null,title:'Otra tarea',typeId:'followup',assignedUserEmail:user.user.email,dueDate:'2027-06-10' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
@@ -93,7 +94,7 @@ try{
  assert.equal((await db.selectFrom('crmAccounts').select('doNotContact').where('id','=',generalAccount.id).executeTakeFirstOrThrow()).doNotContact,true);
  {const t=await db.selectFrom('crmTasks').select(['id','status','result']).where('accountId','=',generalAccount.id).execute();
   const own=t.find(x=>String(x.id)===String(recontactTask.id))!;assert.equal(own.status,'cancelled');assert.match(String(own.result),/No contactar/);
-  assert.equal(t.find(x=>String(x.id)===String(unrelatedTask.id))!.status,'pending');}
+  assert.equal(t.find(x=>String(x.id)===String(unrelatedTask.id))!.status,'cancelled','D3: unrelated pending tasks of the business are cancelled too');}
  // Replay: retrying the same save after a lost answer returns the same response and changes nothing; the same id for another category, user or business is refused without revealing it.
  {const body={action:'response_create',id:responseId,accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'call',recipient:generalAccount.email,recipientName:generalAccount.nombre,destination:null,linkedMessageId:null,category:'do_not_contact',summary:'Solicitó que no la contactemos',exactText:null,otherDetail:null,confirmDoNotContact:true,closeLeadIds:[]};
   const again=await call(body,200,user.cookie);assert.equal(String(again.id),responseId);
@@ -105,14 +106,14 @@ try{
   assert.equal(await count('response_registered'),1);}
  await call({action:'response_correct',id:responseId,category:'interested',summary:'La respuesta se había clasificado por error',exactText:null,otherDetail:null,reason:'Revisión con la persona responsable',confirmLiftDoNotContact:true,closeLeadIds:[]},200,user.cookie);
  assert.equal((await db.selectFrom('crmAccounts').select(['doNotContact','status']).where('id','=',generalAccount.id).executeTakeFirstOrThrow()).doNotContact,false);
- // U-35: correcting a response to No contactar cancels the untouched "Volver a contactar" task (and only that one).
+ // U-35: correcting a response to No contactar cancels the "Volver a contactar" task (and, per D3, the other pending tasks).
  {await db.updateTable('crmAccounts').set({status:'recontact',recontactAt:'2027-06-20' as never}).where('id','=',generalAccount.id).execute();
   const own=await db.insertInto('crmTasks').values({accountId:generalAccount.id,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:user.user.email,dueDate:'2027-06-20' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
   const bystander=await db.insertInto('crmTasks').values({accountId:generalAccount.id,leadId:null,title:'Otra tarea',typeId:'followup',assignedUserEmail:user.user.email,dueDate:'2027-06-20' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
   await call({action:'response_correct',id:responseId,category:'do_not_contact',summary:'Pidió que no la contactemos',exactText:null,otherDetail:null,reason:'Se había clasificado mal',confirmDoNotContact:true,closeLeadIds:[]},200,user.cookie);
   const rows=await db.selectFrom('crmTasks').select(['id','status','result']).where('id','in',[own.id,bystander.id]).execute();
   const mine=rows.find(r=>String(r.id)===String(own.id))!;assert.equal(mine.status,'cancelled','response_correct to No contactar cancels the recontact task');assert.match(String(mine.result),/No contactar/);
-  assert.equal(rows.find(r=>String(r.id)===String(bystander.id))!.status,'pending');
+  assert.equal(rows.find(r=>String(r.id)===String(bystander.id))!.status,'cancelled','D3: every pending task of the business is cancelled');
   await call({action:'response_correct',id:responseId,category:'interested',summary:'La respuesta se había clasificado por error',exactText:null,otherDetail:null,reason:'Revisión con la persona responsable',confirmLiftDoNotContact:true,closeLeadIds:[]},200,user.cookie);}
  // U-35: closing the last management of an ALREADY No contactar business archives it and cancels the recontact task.
  {const acc=await db.insertInto('crmAccounts').values({nombre:'DNC ya marcado '+stamp,email:'dnc-ya-'+stamp+'@example.com',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
@@ -120,9 +121,31 @@ try{
   const lead=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,opportunityName:'Gestión abierta',managementType:'main',estado:'main:contact',assignedUserEmail:user.user.email} as never).returningAll().executeTakeFirstOrThrow();
   await db.updateTable('crmAccounts').set({doNotContact:true,status:'recontact',recontactAt:'2027-06-25' as never}).where('id','=',acc.id).execute();
   const t=await db.insertInto('crmTasks').values({accountId:acc.id,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:user.user.email,dueDate:'2027-06-25' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
+  const bystander=await db.insertInto('crmAccounts').values({nombre:'Zz D3 ajeno '+stamp}).returningAll().executeTakeFirstOrThrow();
+  const fx=await seedDncTasks({accountId:acc.id,leadId:null,email:user.user.email,otherAccountId:bystander.id});
   await call({action:'response_create',id:randomUUID(),accountId:String(acc.id),leadId:null,contactId:null,channel:'call',recipient:acc.email,recipientName:acc.nombre,destination:null,linkedMessageId:null,category:'do_not_contact',summary:'Insistió en que no la contactemos',exactText:null,otherDetail:null,confirmDoNotContact:true,closeLeadIds:[String(lead.id)]},200,user.cookie);
   const after=await db.selectFrom('crmAccounts').select(['archivedAt']).where('id','=',acc.id).executeTakeFirstOrThrow();assert(after.archivedAt,'the business was archived by the close');
-  const task=await db.selectFrom('crmTasks').select(['status','result']).where('id','=',t.id).executeTakeFirstOrThrow();assert.equal(task.status,'cancelled','archiving an already No contactar business cancels the recontact task');assert.match(String(task.result),/No contactar/);}
+  const task=await db.selectFrom('crmTasks').select(['status','result']).where('id','=',t.id).executeTakeFirstOrThrow();assert.equal(task.status,'cancelled','archiving an already No contactar business cancels the recontact task');assert.match(String(task.result),/No contactar/);
+  await assertDncCancelled(fx,user.user.email,'closeForDoNotContact on an already No contactar business');}
+ // D3: response_create DNC and response_correct TO do_not_contact cancel every pending task of the business, in the same transaction and as the acting user.
+ {const mk=async(name:string)=>{const acc=await db.insertInto('crmAccounts').values({nombre:name+' '+stamp,email:`${name.replace(/\W/g,'').toLowerCase()}-${stamp}@example.com`,assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+   await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',acc.id).execute();
+   const lead=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,opportunityName:'Gestión D3',managementType:'main',estado:'main:contact',assignedUserEmail:user.user.email} as never).returningAll().executeTakeFirstOrThrow();
+   const bystander=await db.insertInto('crmAccounts').values({nombre:name+' ajeno '+stamp}).returningAll().executeTakeFirstOrThrow();
+   return {acc,lead,fx:await seedDncTasks({accountId:acc.id,leadId:lead.id,email:user.user.email,otherAccountId:bystander.id})};};
+  const body=(acc:{id:string|number;email:string|null;nombre:string},category:string,extra:Record<string,unknown>={})=>({action:'response_create',id:randomUUID(),accountId:String(acc.id),leadId:null,contactId:null,channel:'call',recipient:acc.email,recipientName:acc.nombre,destination:null,linkedMessageId:null,category,summary:'Respuesta D3',exactText:null,otherDetail:null,confirmDoNotContact:true,closeLeadIds:[],...extra});
+  const dncOf=async(id:string|number)=>(await db.selectFrom('crmAccounts').select('doNotContact').where('id','=',id as never).executeTakeFirstOrThrow()).doNotContact;
+  const create=await mk('Zz D3 respuesta');
+  await call(body(create.acc,'do_not_contact',{closeLeadIds:['999999999']}),409,user.cookie);// rejected after the cancel ran: everything rolls back
+  assert.equal(await dncOf(create.acc.id),false);await assertDncUntouched(create.fx,'response_create rejected');
+  await call(body(create.acc,'do_not_contact'),200,user.cookie);
+  assert.equal(await dncOf(create.acc.id),true);await assertDncCancelled(create.fx,user.user.email,'response_create DNC');
+  const correct=await mk('Zz D3 correccion');const original=body(correct.acc,'interested');await call(original,200,user.cookie);
+  const fix={action:'response_correct',id:original.id,category:'do_not_contact',summary:'Pidió que no la contactemos',exactText:null,otherDetail:null,reason:'Se había clasificado mal',confirmDoNotContact:true,closeLeadIds:['999999999']};
+  await call(fix,409,user.cookie);assert.equal(await dncOf(correct.acc.id),false);await assertDncUntouched(correct.fx,'response_correct rejected');
+  await call({...fix,closeLeadIds:[]},200,user.cookie);
+  assert.equal(await dncOf(correct.acc.id),true);await assertDncCancelled(correct.fx,user.user.email,'response_correct to DNC');
+  console.log('D3: response_create / response_correct DNC cancel every pending task with the factual reason (rolled back when rejected)');}
  const linkedJournal=await sql<{action:string;isAutomatic:boolean;triggeredByEmail:string|null}>`SELECT action,is_automatic,triggered_by_email FROM crm_communication_journal WHERE account_id=${generalAccount.id} ORDER BY id`.execute(db);
  assert(linkedJournal.rows.some(e=>e.action==='do_not_contact_activated'&&e.isAutomatic&&e.triggeredByEmail===user.user.email));assert(linkedJournal.rows.some(e=>e.action==='do_not_contact_lifted'&&e.isAutomatic&&e.triggeredByEmail===user.user.email));
  const callAttempt=await call({action:'manual_start',id:randomUUID(),accountId:String(generalAccount.id),leadId:null,contactId:null,channel:'call',purpose:'first_contact',otherPurpose:null,recipient:generalAccount.nombre,recipientName:generalAccount.nombre,destination:null,body:'Llamada realizada y registrada',result:'manual_sent',templateId:null},200,user.cookie);

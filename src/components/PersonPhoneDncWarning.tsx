@@ -10,3 +10,11 @@ export function PersonPhoneDncWarning({matches,acknowledged,onAcknowledge,disabl
   <label className={styles.checkbox}><Checkbox disabled={disabled} checked={acknowledged} onChange={e=>onAcknowledge(e.target.checked)}/>Entendido, no voy a contactar a ese negocio</label>
  </section>;
 }
+
+/** Decision D2: shown at contact time (Contactar, call panel, task, message composer) when the chosen person's phone is exactly a No contactar business's phone. It never blocks and has nothing to dismiss: the server computes it on every read, so the next viewer sees it too. */
+export function PersonPhoneDncNotice({businesses}:{businesses?:readonly {nombre:string;ciudad:string|null}[]|null}){
+ if(!businesses?.length)return null;
+ return <section role="note" aria-label="Teléfono de un negocio No contactar" style={{padding:12,border:'1px solid var(--error)',borderRadius:10}}>
+  <p style={{margin:0}}><strong>Este teléfono es de un negocio que pidió no ser contactado: {businesses.map(b=>b.ciudad?`${b.nombre} (${b.ciudad})`:b.nombre).join(', ')}.</strong> No uses este teléfono para contactar sin consultar a un administrador.</p>
+ </section>;
+}

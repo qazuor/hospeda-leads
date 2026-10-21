@@ -1,3 +1,4 @@
+import {seedDncTasks,assertDncCancelled,assertDncUntouched} from './lib/dnc-tasks';
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
 import {db} from '../src/helpers/db';
@@ -63,6 +64,26 @@ try{
  assert.equal(typedAfter.status,'cancelled');assert.match(String(typedAfter.result),/No contactar/);
  const blocked=await db.selectFrom('crmAccounts').select(['status','doNotContact','archivedAt']).where('id','=',gated).executeTakeFirstOrThrow();
  assert.equal(blocked.status,'archived');assert.equal(blocked.doNotContact,true);assert(blocked.archivedAt);
+
+ // D3: a business that becomes No contactar loses ALL its pending tasks (admin policy and the typed No contactar close), as the acting user.
+ {const adminEmail=`state-admin-${stamp}@example.com`;
+  const mk=async(label:string)=>{const id=await business(`Zz D3 ${label} ${stamp}`,sellerEmail);await call(commercialPost,'commercial',{action:'business_status',accountId:id,status:'reviewed'},admin);
+   const lead=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:id,managementType:'main',opportunityName:'Gestión D3'},admin);
+   const bystander=await business(`Zz D3 ajeno ${label} ${stamp}`);
+   return {id,lead,fx:await seedDncTasks({accountId:id,leadId:lead.id,email:sellerEmail,otherAccountId:bystander})};};
+  const policy=await mk('policy');
+  await call(pipelinePost,'pipeline',{action:'contact_policy',accountId:policy.id,blocked:true,reason:'Sin permiso'},seller,403);
+  await assertDncUntouched(policy.fx,'contact_policy refused to a seller');
+  await call(pipelinePost,'pipeline',{action:'contact_policy',accountId:policy.id,blocked:true,reason:'Pidió no ser contactado'},admin);
+  await assertDncCancelled(policy.fx,adminEmail,'contact_policy');
+  await call(pipelinePost,'pipeline',{action:'contact_policy',accountId:policy.id,blocked:false,reason:'Se levantó el bloqueo'},admin);
+  await assertDncCancelled(policy.fx,adminEmail,'lifting the block does not restore tasks');
+  const typed=await mk('typed');
+  await call(pipelinePost,'pipeline',{action:'transition',leadId:typed.lead.id,revision:(await readPipeline(typed.lead.id)).insights[0].pipelineRevision+5,stage:'main:lost',reasonId:reason.id,comment:''},admin,409);
+  await assertDncUntouched(typed.fx,'stale typed No contactar close');
+  await transition(typed.lead.id,'main:lost',{reasonId:reason.id,comment:''});
+  assert.equal((await db.selectFrom('crmAccounts').select('doNotContact').where('id','=',typed.id).executeTakeFirstOrThrow()).doNotContact,true);
+  await assertDncCancelled(typed.fx,adminEmail,'typed No contactar close');}
 
  const independent=await business('No contactar independiente '+stamp);
  await call(commercialPost,'commercial',{action:'business_status',accountId:independent,status:'reviewed'});
@@ -246,7 +267,7 @@ try{
   await act(biz);
   assert.equal((await recontactTasks(biz)).length,0,`${label}: the recontact task is cancelled`);
   assert.match(String((await recontactTasks(biz,'cancelled'))[0].result),reason);
-  assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',other.id).executeTakeFirstOrThrow()).status,'pending',`${label}: other tasks are untouched`);
+  assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',other.id).executeTakeFirstOrThrow()).status,label==='policy'?'cancelled':'pending',`${label}: other tasks follow D3 (cancelled when No contactar, untouched when only archived)`);
  }
  // A touched task survives the cleanup.
  const keep=await business('Recontacto limpieza tocada '+stamp,sellerEmail);

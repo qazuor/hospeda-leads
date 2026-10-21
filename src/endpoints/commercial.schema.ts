@@ -27,7 +27,7 @@ export const commercialMutation=z.discriminatedUnion("action",[
   z.object({action:z.literal("opportunity_save"),accountId:id,id:id.optional(),creationRequestKey:z.string().uuid().optional(),confirmReviewed:z.boolean().optional(),managementType:z.enum(managementTypes).optional(),opportunityName:z.string().trim().min(1).max(300),tipo:optionalText,estado:optionalText,assignedUserEmail:email,primaryContactId:id.nullable().optional(),serviceInterest:optionalText,estimatedCloseDate:date})
 ]);
 export type CommercialMutation=z.infer<typeof commercialMutation>;
-export type Contact=Selectable<CrmContacts>;
+export type Contact=Selectable<CrmContacts>&{/** Decision D2: No contactar businesses (name and city only) whose phone is exactly this person's phone. Computed on every detail read; empty or absent when none. */dncPhoneBusinesses?:{nombre:string;ciudad:string|null}[]};
 export type Account=Selectable<CrmAccounts>&{status:BusinessStatus|null;recontactAt:Date|string|null;isClient:boolean;referredToLeandro:boolean};
 export type Opportunity=Selectable<Leads>&{managementType:ManagementType|null;referredPreviousStage:string|null};
 export type CommercialDetail={account:Account;contacts:Contact[];opportunities:Opportunity[];journal:Selectable<CrmCommercialJournal>[];leadJournal:Selectable<LeadJournal>[];managementJournal?:{id:string;leadId:string;action:string;actorEmail:string|null;actorName:string;oldStage:string|null;newStage:string|null;comment:string|null;metadata:unknown;createdAt:Date|string}[];stages:string[];users?:{email:string;displayName:string}[];/** Decision 8A: the user may correct this business's contact data (owner, admin or a seller with an open management). */canEditContactData?:boolean};

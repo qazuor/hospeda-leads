@@ -77,10 +77,22 @@ export async function syncRecontactTask(trx:Db,{account,previous,status,recontac
 }
 
 /**
+ * Owner decision D3: when a business becomes No contactar, every pending task of it (business-level and management-level, any kind or assignee) is cancelled with a factual reason.
+ * Completed, cancelled and deleted tasks and tasks of other businesses are untouched. Lifting the block later does not restore them.
+ * Pending "Anotá cómo salió" items (contact outcomes) are not tasks and stay, so the seller can still record how a past contact went.
+ * Runs in the caller's transaction, after its permission checks; the audit trigger records the acting user (`setWorkActor`). Returns how many tasks it cancelled.
+ */
+export async function cancelPendingTasksForDnc(trx:Db,{accountId}:{accountId:string|number}):Promise<number> {
+ const rows=await trx.updateTable('crmTasks').set({status:'cancelled',result:recontactCancelReason('dnc'),completedAt:null,updatedAt:new Date()}).where('accountId','=',String(accountId) as never).where('status','=','pending').where('deletedAt','is',null).returning('id').execute();
+ return rows.length;
+}
+
+/**
  * Cancels the business's untouched "Volver a contactar" task when the business stops being workable (No contactar or archived).
  * Call it BEFORE the account update so `recontact_at` still names the day. Never touches any other task.
  */
 export async function cancelRecontactTaskFor(trx:Db,{accountId,cause}:{accountId:string|number;cause:'dnc'|'archived'}):Promise<void> {
+ if(cause==='dnc'){await cancelPendingTasksForDnc(trx,{accountId});return;}// D3: a No contactar business loses ALL its pending tasks, so the recontact task is cancelled there with the same reason.
  const account=await trx.selectFrom('crmAccounts').select(['assignedUserEmail','recontactAt']).where('id','=',String(accountId) as never).executeTakeFirst();
  if(!account?.recontactAt)return;
  const task=await untouchedTask(trx,String(accountId),account.assignedUserEmail,calendarDay(account.recontactAt));

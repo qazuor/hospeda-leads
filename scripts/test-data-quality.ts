@@ -8,6 +8,7 @@ import {handle as list} from '../src/endpoints/leads_GET';
 import {app} from '../src/server/app';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {businessFields} from '../src/helpers/dataNormalization';
+import {seedDncTasks,assertDncCancelled,assertDncUntouched} from './lib/dnc-tasks';
 import type {ImportReview,ImportResult,MergePreview,QualityDetail} from '../src/endpoints/dataQuality.schema';
 import type {CommercialDetail} from '../src/endpoints/commercial.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
@@ -32,6 +33,9 @@ try{
  const sibling=await db.insertInto('leads').values({accountId:source.id,nombre:source.nombre,estado:'Cargado',deletedAt:new Date(),reactivatedFromId:l.id}).returningAll().executeTakeFirstOrThrow();
  const note=await db.insertInto('leadNotes').values({leadId:l.id,note:'Nota vinculada'}).returningAll().executeTakeFirstOrThrow();
  const task=await db.insertInto('crmTasks').values({accountId:source.id,leadId:l.id,title:'Visitar',typeId:'visit',dueDate:'2026-10-10',contactIds:[String(c1.id)]}).returningAll().executeTakeFirstOrThrow();
+ // D3: pending tasks of both businesses (the source's move to the survivor) are cancelled when the merge leaves the survivor No contactar.
+ const bystander=await db.insertInto('crmAccounts').values({nombre:'Zz Fusión ajeno '+stamp}).returningAll().executeTakeFirstOrThrow();
+ const fxSource=await seedDncTasks({accountId:source.id,leadId:l.id,email:user.user.email,otherAccountId:bystander.id}),fxDest=await seedDncTasks({accountId:dest.id,leadId:null,email:user.user.email,otherAccountId:bystander.id});
  const activity=await db.insertInto('crmActivities').values({accountId:source.id,leadId:l.id,taskId:task.id,title:'Contacto realizado',typeId:'call',occurredAt:new Date('2026-09-01'),contactIds:[String(c1.id)]}).returningAll().executeTakeFirstOrThrow();
  await sql`INSERT INTO crm_objections(account_id,lead_id,type_id,notes) SELECT ${source.id},${l.id},id,'Objeción histórica' FROM crm_objection_types LIMIT 1`.execute(db);
  await db.insertInto('crmCommercialJournal').values({accountId:source.id,action:'original',actorName:'Histórico',metadata:{identity:source.nombre}}).execute();
@@ -48,9 +52,11 @@ try{
  await sql`CREATE TRIGGER quality_test_fail BEFORE INSERT ON crm_account_merges FOR EACH ROW EXECUTE FUNCTION quality_test_fail()`.execute(db);
  await mutation(mergeBody(),400);
  assert.equal((await detail(source.id)).account.id,source.id);assert.equal((await db.selectFrom('crmTasks').selectAll().where('id','=',task.id).executeTakeFirstOrThrow()).accountId,source.id);assert.equal((await db.selectFrom('crmContacts').selectAll().where('id','=',c1.id).executeTakeFirstOrThrow()).isPrimary,true);
+ await assertDncUntouched(fxSource,'failed merge (source)');await assertDncUntouched(fxDest,'failed merge (survivor)');
  await sql`DROP TRIGGER quality_test_fail ON crm_account_merges; DROP FUNCTION quality_test_fail()`.execute(db);
  p=await mutation<MergePreview>({action:'merge_preview',sourceId:source.id,destinationId:dest.id});await mutation(mergeBody());
  {const t=await db.selectFrom('crmTasks').select(['status','result']).where('id','=',destRecontact.id).executeTakeFirstOrThrow();assert.equal(t.status,'cancelled','a merge with the No contactar policy cancels the survivor recontact task');assert.match(String(t.result),/No contactar/);}
+ await assertDncCancelled(fxSource,admin.user.email,'merge (tasks moved from the source)');await assertDncCancelled(fxDest,admin.user.email,'merge (survivor tasks)');
  const d=await detail(source.id);assert.equal(d.account.id,dest.id);assert.equal(d.account.doNotContact,true);assert.equal(d.account.commercialStatus,'client');assert.equal(d.account.telefono,source.telefono);assert(d.journal.some(j=>j.action==='original'&&j.accountId===source.id));
  assert.equal(d.contacts.length,2);assert.equal(d.contacts.filter(c=>c.isPrimary).length,1);assert.equal(d.opportunities.length,1);assert.equal((await db.selectFrom("leads").selectAll().where("accountId","=",dest.id).execute()).length,2,"Fusion preserves deleted opportunities without exposing them in the active detail");
  const moved=await db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();assert.equal(moved.accountId,dest.id);assert.equal(moved.primaryContactId,c1.id);assert.equal(moved.archivoAdjunto,l.archivoAdjunto);assert.equal(moved.notas,l.notas);assert.equal(moved.assignedUserEmail,user.user.email);
@@ -62,6 +68,15 @@ try{
  const sourceAfter=await db.selectFrom('crmAccounts').selectAll().where('id','=',source.id).executeTakeFirstOrThrow();assert.equal(sourceAfter.mergedIntoId,dest.id);
  await assert.rejects(()=>db.insertInto('leads').values({nombre:'Reaparecer',accountId:source.id}).execute(),/fusionado/);
  await mutation(mergeBody(),409);
+ // D3: the SURVIVING business was already No contactar and the source is not: tasks moved from the source are cancelled too.
+ {const src=await db.insertInto('crmAccounts').values({nombre:'Zz Fusión fuente libre '+stamp,ciudad:'Gualeguaychú',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const dst=await db.insertInto('crmAccounts').values({nombre:'Zz Fusión sobreviviente DNC '+stamp,ciudad:'Gualeguaychú',doNotContact:true}).returningAll().executeTakeFirstOrThrow();
+  const fx=await seedDncTasks({accountId:src.id,leadId:null,email:user.user.email,otherAccountId:bystander.id});
+  const sel=Object.fromEntries(businessFields.map(f=>[f,'destination']));
+  const pv=await mutation<MergePreview>({action:'merge_preview',sourceId:src.id,destinationId:dst.id});
+  assert.equal(pv.policy.doNotContact,true);
+  await mutation({action:'merge_confirm',sourceId:src.id,destinationId:dst.id,token:pv.token,selections:sel,reason:'Sobreviviente ya bloqueado',confirm:true});
+  await assertDncCancelled(fx,admin.user.email,'merge into an already No contactar business');}
  const listing=await list(new Request('http://localhost/_api/leads?entity=business&q='+encodeURIComponent('Fusión'),{headers:{cookie:admin.cookie}}));const rows=superjson.parse<{rows:Array<{accountId:string}>}>(await listing.text());assert(!rows.rows.some(r=>r.accountId===source.id));assert(rows.rows.some(r=>r.accountId===dest.id));
  // U-09: imports cannot create or rename into a duplicate of a No contactar business (acknowledge does not lift it)
  {const dnc=await db.insertInto('crmAccounts').values({nombre:'Cabañas Bloqueo '+stamp,ciudad:'Colón',doNotContact:true}).returningAll().executeTakeFirstOrThrow();

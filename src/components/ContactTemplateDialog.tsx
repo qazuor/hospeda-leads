@@ -20,6 +20,7 @@ import {DisabledTooltip} from './Tooltip';
 import {OutcomeAfterContact,leaveWithoutOutcome} from './OutcomeAfterContact';
 import {canLogContactOutcome} from '../helpers/contactOutcome';
 import {VOCAB} from '../content/vocabulary';
+import {PersonPhoneDncNotice} from './PersonPhoneDncWarning';
 type Template={id:string;channel:string;name:string;subject:string|null;body:string;vertical:string|null;managementType?:string|null;commercialProfile:string|null;active?:boolean};
 /** Without `onLog`, a used message chains into "¿Cómo salió?" → "¿Cómo sigue?" (decision 2B); `onFinished` closes the whole contact flow afterwards. */
 export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,initialContactId,onLog,onAddChannel,onFinished}:{open:boolean;onOpenChange:(v:boolean)=>void;channel:'email'|'whatsapp';lead:any|null;templates:Template[];initialContactId?:string;onLog?:(contactId:string,channel:string)=>void;onAddChannel?:()=>void;onFinished?:()=>void}){
@@ -56,6 +57,7 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,
  {!message&&<>
  <section className={styles.recipientBox}><div className={styles.sectionHeading}><span className={styles.step}>1</span><h3>Destinatario</h3></div>
  <label className={styles.recipient}>Contacto<NativeSelect aria-label="Destinatario" value={mustChooseRecipient?'__choose__':effective} disabled={prepare.isPending||q.isPending} onChange={e=>setContactId(e.target.value==='__choose__'?null:e.target.value)}>{mustChooseRecipient&&<option value="__choose__" disabled>Elegí una persona</option>}<option value="">Canal general del negocio</option>{contacts.map(c=><option key={c.id} value={String(c.id)}>{c.name}{c.isPrimary?' · Principal':''}</option>)}</NativeSelect></label><p className={styles.recipientChannel}>{q.isPending?'Cargando contactos…':mustChooseRecipient?'Elegí a quién enviar este mensaje.':recipient||'Sin '+(channel==='email'?'email':'teléfono')+' cargado para este contacto'}</p><p className={styles.recipientHelp}>Usamos los datos del contacto elegido. Si no tiene nombre, el saludo queda sin nombre.</p>{!recipient&&onAddChannel&&<Button variant="outline" onClick={onAddChannel}>Agregar teléfono o email</Button>}</section>
+ {channel==='whatsapp'&&!mustChooseRecipient&&<PersonPhoneDncNotice businesses={person?.dncPhoneBusinesses}/>}
  {blocked&&<p className={styles.warning} role="alert"><strong>No contactar</strong><span>{restriction?.reason||'Restricción del negocio'}</span></p>}
  {q.data&&!canPrepare&&<p role="alert">Solo el responsable de esta gestión o un administrador puede preparar mensajes. Tener una tarea asignada no otorga ese permiso.</p>}
  {recent&&<p className={styles.notice} role="status"><strong>Contacto reciente · {recent.recipientName||'Sin nombre informado'}</strong><span>{formatDateTime(recent.lastInteractionAt!)} · {channelLabel(recent.channel)} · {messageLabels[recent.status]??recent.status} · {actorLabel(recent.lastActorEmail,q.data?.users)}</span><span>Revisá esta interacción antes de iniciar otro contacto.</span></p>}

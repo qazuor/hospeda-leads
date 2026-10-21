@@ -147,7 +147,28 @@ try{
     await mutate({action:'contact_save',accountId:quickId,id:String(legacy.id),name:'Legado editado',phone:`+54 9 (3445) ${p6}`});// reformatting a phone that already matched does not block
     await mutate({action:'contact_save',accountId:quickId,id:String(quick.contacts[0].id),name:'Ana del alta',phone:`03445-${p6}`});// changing to a No contactar phone only warns
     await mutate({action:'contact_save',accountId:dnc,name:'Persona del propio negocio',phone:`3445 ${p6}`},admin.value);// the business's own phone is not a duplicate
-    await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','in',[dnc,quickId,similarId,personWarnId,ackAccount]).execute();
+    // Decision D2: each person in the detail payload carries the No contactar businesses (name and city only) whose phone is exactly the person's phone.
+    const asAdmin=async(id:string)=>{const r=await get(new Request(`http://localhost/_api/commercial?accountId=${id}`,{headers:{cookie:admin.value}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<CommercialDetail>(t)};
+    const warned=async(id:string,name:string)=>(await detail(id)).contacts.find(c=>c.name===name)?.dncPhoneBusinesses;
+    assert.deepEqual(await warned(quickId,'Ana del alta'),[{nombre:`No contactar rápido ${suffix}`,ciudad:'Colón'}],'An exactly shared phone (digits-normalized: 03445-… vs 3445 …) is flagged with name and city only');
+    assert.deepEqual(await warned(quickId,'Luis con teléfono de No contactar'),[{nombre:`No contactar rápido ${suffix}`,ciudad:'Colón'}],'+54 9 formatting normalizes to the same phone');
+    assert.deepEqual(await warned(quickId,'Luis parecido'),[],'A similar phone is not flagged');
+    assert.deepEqual(await warned(quickId,'Legado editado'),[{nombre:`No contactar rápido ${suffix}`,ciudad:'Colón'}]);
+    assert.deepEqual(Object.keys((await detail(quickId)).contacts[0].dncPhoneBusinesses?.[0]??{}).sort(),['ciudad','nombre'],'Only name and city are exposed');
+    assert.deepEqual((await asAdmin(dnc)).contacts.find(c=>c.name==='Persona del propio negocio')?.dncPhoneBusinesses,[],'The own business is excluded');
+    const trashedPhone=`3449 ${p6}`,trashed=await db.insertInto('crmAccounts').values({nombre:`DNC en papelera ${suffix}`,ciudad:'Colón',telefono:trashedPhone}).returning('id').executeTakeFirstOrThrow();
+    const merged=await db.insertInto('crmAccounts').values({nombre:`DNC fusionado ${suffix}`,ciudad:'Colón',telefono:`3450 ${p6}`}).returning('id').executeTakeFirstOrThrow();
+    await db.updateTable('crmAccounts').set({doNotContact:true,deletedAt:new Date()}).where('id','=',trashed.id).execute();
+    await db.updateTable('crmAccounts').set({doNotContact:true,mergedIntoId:quickId}).where('id','=',merged.id).execute();
+    await mutate({action:'contact_save',accountId:quickId,name:'Persona de papelera',phone:trashedPhone});await mutate({action:'contact_save',accountId:quickId,name:'Persona de fusionado',phone:`3450 ${p6}`});
+    assert.deepEqual([await warned(quickId,'Persona de papelera'),await warned(quickId,'Persona de fusionado')],[[],[]],'Trashed and merged No contactar businesses are excluded');
+    assert.deepEqual(await warned(quickId,'Ana del alta'),[{nombre:`No contactar rápido ${suffix}`,ciudad:'Colón'}]);
+    await db.updateTable('crmAccounts').set({archivedAt:new Date()}).where('id','=',dnc).execute();
+    assert.equal((await warned(quickId,'Ana del alta'))?.length,1,'An archived No contactar business still warns');
+    await db.updateTable('crmAccounts').set({doNotContact:false}).where('id','=',dnc).execute();
+    assert.deepEqual(await warned(quickId,'Ana del alta'),[],'The warning is computed on every read: it disappears once the business is no longer No contactar');
+    await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dnc).execute();
+    await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','in',[dnc,trashed.id,quickId,similarId,personWarnId,ackAccount]).execute();
   }
   const ana=await mutate({action:'contact_save',accountId,name:'Ana',email:'ana@example.com',phone:'111',isPrimary:true});
   const luis=await mutate({action:'contact_save',accountId,name:'Luis',email:'luis@example.com',phone:'222',isPrimary:true});
