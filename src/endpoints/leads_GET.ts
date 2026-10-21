@@ -10,7 +10,7 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { OutputType, AdvancedFilterRule } from "./leads_GET.schema";
 import { schema } from "./leads_GET.schema";
 import { sql, type Expression, type RawBuilder, type SqlBool } from "kysely";
-import { businessTableSource } from "../helpers/businessTable";
+import { businessTableSource,businessSearchSql } from "../helpers/businessTable";
 import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS,singleRecordIdFilter} from '../helpers/filterRules';
 import {managementLabel} from '../helpers/businessManagement';
 import {isReviewedBusinessStatus,type BusinessStatus} from '../helpers/businessStatus';
@@ -53,6 +53,9 @@ const isCalendarDayField=(field:string)=>["fechaCreacion","fechaUltimoContacto",
 const dayStart=(field:string,day:string)=>isCalendarDayField(field)?new Date(day+"T00:00:00Z"):argentinaInstant(day+"T00:00");
 const dayEnd=(field:string,day:string)=>isCalendarDayField(field)?new Date(day+"T23:59:59.999Z"):new Date(argentinaInstant(day+"T23:59").getTime()+59999);
 
+/** Free search (`q=`) over leads columns: the opportunity list predicate (and, over the business projection, the joined reference businessSearchSql must match). */
+export const managementSearchSql=(query:string)=>multiFieldSearchSql(["nombre","opportunityName","contactName","email","telefono","ciudad","origen"],query,{phoneColumns:["telefono"],extra:token=>sql<boolean>`exists(select 1 from lead_notes ln where ln.lead_id=leads.id and (${searchSql("ln.note",token)}${phoneSearchSql("ln.note",token)?sql` or ${phoneSearchSql("ln.note",token)}`:sql``}))`});
+
 export async function handle(request: Request) {
   try {
     const {user}=await getServerUserSession(request);
@@ -66,7 +69,9 @@ export async function handle(request: Request) {
     // Decision 1C: a single-management lookup (the /sales/:id detail) also returns a management of an archived business to that business's responsible seller, read-only (canModify stays false). Lists keep hiding archived businesses from sellers.
     const detailLookup=input.entity==="opportunity"&&singleRecordIdFilter(input.filterGroups)!==null;
     if(input.entity==="opportunity"&&user.role!=="admin")query=query.where(eb=>eb.exists(eb.selectFrom("crmAccounts").select("id").whereRef("crmAccounts.id","=","leads.accountId").where(a=>detailLookup?a.or([a("archivedAt","is",null),a("assignedUserEmail","=",user.email)]):a("archivedAt","is",null))));
-    if(input.q)query=query.where(multiFieldSearchSql(["nombre","opportunityName","contactName","email","telefono","ciudad","origen"],input.q!,{phoneColumns:["telefono"],extra:token=>sql<boolean>`exists(select 1 from lead_notes ln where ln.lead_id=leads.id and (${searchSql("ln.note",token)}${phoneSearchSql("ln.note",token)?sql` or ${phoneSearchSql("ln.note",token)}`:sql``}))`}));
+    // Business rows join several tables: match per-table id sets so each table's trigram index applies (same matches as the joined predicate).
+    if(input.q&&input.entity==="business")query=query.where(businessSearchSql(input.q));
+    else if(input.q)query=query.where(managementSearchSql(input.q));
 
     const includeCities=input.ciudades.length?input.ciudades:(input.ciudad?[input.ciudad]:[]);
     const includeStates=input.estados.length?input.estados:(input.estado?[input.estado]:[]);

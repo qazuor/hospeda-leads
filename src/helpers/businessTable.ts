@@ -1,5 +1,6 @@
 import { sql } from "kysely";
 import type { Leads } from "./schema";
+import { idSetSearchSql } from "./searchSql";
 
 // Columns of the leads table in table order. The business projection returns
 // exactly these columns plus business_status; scripts/test-commercial.ts
@@ -40,3 +41,23 @@ export const businessTableSource = (includeDeleted=false) => sql<Leads>`(
   left join (select ac.account_id, max(ac.occurred_at) as occurred_at from crm_activities ac left join leads al on al.id=ac.lead_id where ac.deleted_at is null and (ac.lead_id is null or al.deleted_at is null) group by ac.account_id) la on la.account_id = a.id
   where a.merged_into_id is null and a.archived_at is null and (${includeDeleted} or a.deleted_at is null)
 )`;
+
+/**
+ * Free search (`q=`) of the business list over the projection aliased `leads`: the same matches as managementSearchSql
+ * (leads_GET.ts: nombre, opportunity name, contact name, email, telefono, ciudad, origen, phone and the management's notes)
+ * applied to the projection, but each column is read from its own table so the trigram indexes apply.
+ * Each source mirrors BUSINESS_OVERRIDES: contact_name is coalesce(pc.name,l.contact_name), origen is coalesce(a.origin,l.origen).
+ * scripts/test-search.ts compares it with the joined predicate on every projection row.
+ */
+export const businessSearchSql = (query: string) => idSetSearchSql([
+  // nombre, email, telefono, ciudad and a.origin (a non-null origin wins the coalesce); telefono also as a phone number.
+  { key: "leads.account_id", from: sql`crm_accounts s`, id: "s.id", columns: ["s.nombre", "s.email", "s.telefono", "s.ciudad", "s.origin"], phoneColumns: ["s.telefono"] },
+  // The primary contact (the pc row of the projection) supplies contact_name when the business has any active contact.
+  { key: "leads.account_id", from: sql`crm_contacts s`, id: "s.account_id", where: sql<boolean>`s.deleted_at is null and s.id = (select c.id from crm_contacts c where c.account_id = s.account_id and c.deleted_at is null order by c.is_primary desc, c.id limit 1)`, columns: ["s.name"] },
+  { key: "leads.id", from: sql`leads s`, id: "s.id", columns: ["s.opportunity_name"] },
+  // Without an active contact, the management's own contact_name.
+  { key: "leads.id", from: sql`leads s`, id: "s.id", where: sql<boolean>`not exists (select 1 from crm_contacts c where c.account_id = s.account_id and c.deleted_at is null)`, columns: ["s.contact_name"] },
+  // Without a business origin, the management's origen.
+  { key: "leads.id", from: sql`leads s join crm_accounts sa on sa.id = s.account_id`, id: "s.id", where: sql<boolean>`sa.origin is null`, columns: ["s.origen"] },
+  { key: "leads.id", from: sql`lead_notes s`, id: "s.lead_id", columns: ["s.note"], phoneColumns: ["s.note"] },
+], query);

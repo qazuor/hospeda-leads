@@ -39,6 +39,20 @@ export function phoneSearchSql(column: string, query: string): RawBuilder<boolea
   return sql<boolean>`(${sql.join(parts, sql` or `)})`;
 }
 
+/** The search pieces of a query, as in multiFieldSearchSql: the whole trimmed query when it is a phone number and phones are searched (digit groups are not separate words), otherwise its words. */
+function searchPieces(query: string, phoneAware: boolean): string[] {
+  return phoneAware && phoneSearchSql('phone', query) ? [query.trim()] : searchTokens(query);
+}
+/** Whether pg_trgm can extract a trigram from `%piece%` (a run of 3 letters or digits); only then can an index narrow the rows. */
+function trigramPiece(piece: string): boolean {
+  return /[\p{L}\p{N}]{3}/u.test(piece.normalize('NFC'));
+}
+/** Text columns OR phone columns matching one search piece; `false` when nothing applies. */
+function anyColumnSql(columns: readonly string[], phoneColumns: readonly string[], piece: string): RawBuilder<boolean> {
+  const parts = [...columns.map(c => searchSql(c, piece)), ...phoneColumns.map(c => phoneSearchSql(c, piece)).filter((p): p is RawBuilder<boolean> => p !== null)];
+  return parts.length ? sql<boolean>`(${sql.join(parts, sql` or `)})` : sql<boolean>`false`;
+}
+
 /**
  * Multi-word search: every word (max 5) must match at least one column (AND across words, OR across columns),
  * so "hotel colon" finds "Hotel X" in "Colón". Accent-insensitive with ñ distinct from n.
@@ -52,4 +66,45 @@ export function multiFieldSearchSql(columns: readonly string[], query: string, o
   if (whole.length) return sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, query.trim())), ...(extra ? [extra(query.trim())] : []), ...whole], sql` or `)})`;
   const tokens = searchTokens(query);
   return tokens.length ? sql<boolean>`(${sql.join(tokens.map(perToken), sql` and `)})` : sql<boolean>`false`;
+}
+
+/**
+ * One table a joined search can match, read on its own so its trigram index applies.
+ * The outer `key` is compared against `select <id> from <from> where <where> and <any column matches>`.
+ */
+export interface SearchIdSource {
+  /** Outer column holding the id, e.g. `l.account_id`. */
+  readonly key: string;
+  /** FROM clause of the id subquery, with its own aliases (never the outer query's). */
+  readonly from: RawBuilder<unknown>;
+  /** Id column the subquery returns, e.g. `s.id`. */
+  readonly id: string;
+  /** Text columns of `from` searched like multiFieldSearchSql columns. */
+  readonly columns: readonly string[];
+  /** Columns also matched as phone numbers. */
+  readonly phoneColumns?: readonly string[];
+  /** Extra condition of the subquery, e.g. a guard that reproduces a coalesce of the outer projection. */
+  readonly where?: RawBuilder<boolean>;
+}
+
+/**
+ * Same matching as multiFieldSearchSql (words ANDed, alternatives ORed, whole-query phone matching), but each
+ * alternative is a per-table id set: `key in (select id from table where <expr> like ...)`. A search that ORs
+ * columns of joined tables can then use each table's trigram index (migrations 032 and 034) instead of normalizing
+ * every joined row. Callers must express each joined column as a source whose ids select exactly the outer rows
+ * where that column matches.
+ * Each id set is a MATERIALIZED CTE inside the IN, so it is planned on its own: as a plain IN subquery inside the OR
+ * the planner chose a sequential scan that normalizes every row (measured on the synthetic dataset, PostgreSQL 17).
+ */
+export function idSetSearchSql(sources: readonly SearchIdSource[], query: string): RawBuilder<boolean> {
+  const pieces = searchPieces(query, sources.some(source => (source.phoneColumns?.length ?? 0) > 0));
+  const subquery = (source: SearchIdSource, piece: string, correlated: boolean) => sql`from ${source.from} where ${correlated ? sql`${sql.ref(source.id)} = ${sql.ref(source.key)} and ` : sql``}${source.where ? sql`${source.where} and ` : sql``}${anyColumnSql(source.columns, source.phoneColumns ?? [], piece)}`;
+  // A piece without a trigram (no run of 3 letters or digits, e.g. "12") cannot use the index: reading a whole table for it
+  // costs more than checking only the rows the other words kept, so it is matched per row (correlated) and ANDed last.
+  const perPiece = (piece: string) => trigramPiece(piece)
+    ? sql<boolean>`(${sql.join(sources.map(source => sql<boolean>`${sql.ref(source.key)} in (with ids as materialized (select ${sql.ref(source.id)} as id ${subquery(source, piece, false)}) select id from ids)`), sql` or `)})`
+    // OFFSET 0 keeps the EXISTS correlated: otherwise the planner turns it into a hashed scan of the whole table again.
+    : sql<boolean>`(${sql.join(sources.map(source => sql<boolean>`exists (select 1 ${subquery(source, piece, true)} offset 0)`), sql` or `)})`;
+  const ordered = [...pieces.filter(trigramPiece), ...pieces.filter(piece => !trigramPiece(piece))];
+  return ordered.length ? sql<boolean>`(${sql.join(ordered.map(perPiece), sql` and `)})` : sql<boolean>`false`;
 }

@@ -17,7 +17,7 @@ La revisión de UX y su tanda de seguimientos (#195–#201) están mergeadas en 
 
 **Búsqueda**
 
-- Ctrl+K «Gestiones» y el `q=` del listado de negocios siguen calculando la expresión normalizada fila por fila (~70 ms); hace falta reescribir la consulta para que use los índices de la migración 032.
+- ~~Ctrl+K «Gestiones» y el `q=` del listado de negocios siguen calculando la expresión normalizada fila por fila (~70 ms).~~ Resuelto en #204 (`perf/gestiones-search-rewrite`, sin mergear): cada tabla se busca por separado (`idSetSearchSql`) y la migración 034 agrega los índices de `leads` y `crm_accounts.origin`. Mismos resultados (`scripts/test-search.ts` compara el predicado anterior y el nuevo fila por fila). 034 se aplica con las mismas precauciones que 032 (`CREATE INDEX` simple, sin `CONCURRENTLY`).
 - Las búsquedas con forma de teléfono y las de menos de 3 caracteres recorren la tabla (un índice trigram no ayuda).
 - El texto de `crm_messages` y `crm_tasks` no tiene índice de búsqueda.
 - Los índices de 032 dependen de que postgres.js use `prepare:false` (plan por sentencia con el parámetro incorporado); si se pasa a `prepare:true`, dejan de usarse. `scripts/test-search.ts` lo vigila con EXPLAIN.
