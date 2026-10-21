@@ -210,7 +210,38 @@ try{
  // Many overdue items must not push today's work off the initial inbox page.
  await db.insertInto('crmTasks').values(Array.from({length:27},(_,i)=>({accountId:a.id,leadId:l.id,title:'Old backlog '+i,typeId:'call',assignedUserEmail:user.user.email,dueDate:'2020-01-01'}))).execute();
  const todays=await mutate({...base,title:'Hoy pese a vencidas',dueDate:localDay()});
- const inbox=await read();assert(inbox.tasks.some(t=>t.id===todays));assert(inbox.bucketCounts!.overdue>=27);assert(inbox.tasks.filter(t=>t.dueDate==='2020-01-01').length===25);
+ // U-22: overdue and today are never paginated, so a long backlog cannot hide them; only upcoming pages.
+ const inbox=await read();assert(inbox.tasks.some(t=>t.id===todays));assert(inbox.bucketCounts!.overdue>=27);assert.equal(inbox.tasks.filter(t=>t.dueDate==='2020-01-01').length,27);assert.equal(inbox.truncated,false);
+ const secondPage=await read('page=2');assert(secondPage.tasks.some(t=>t.id===todays),'page 2 still carries today');assert.equal(secondPage.tasks.filter(t=>t.dueDate==='2020-01-01').length,27,'page 2 still carries overdue');
+ // The urgent buckets are capped at 300 and say so.
+ await db.insertInto('crmTasks').values(Array.from({length:300},(_,i)=>({accountId:a.id,leadId:l.id,title:'Cap backlog '+i,typeId:'call',assignedUserEmail:user.user.email,dueDate:'2019-01-01'}))).execute();
+ const capped=await read();assert.equal(capped.tasks.filter(t=>t.dueDate<localDay()&&t.status==='pending').length,300);assert.equal(capped.truncated,true);assert(capped.bucketCounts!.overdue>300);
+ await db.deleteFrom('crmTasks').where('title','like','Cap backlog %').execute();
+ assert.equal((await read()).truncated,false);
+ // Progress counts tasks completed today; a completed task exposes its completion activity so the result can be corrected.
+ const beforeDone=(await read()).doneToday!;
+ const doneId=await mutate({...base,title:'Para completar hoy',dueDate:localDay()});
+ await mutate({action:'task_status',id:doneId,status:'completed',result:'Listo',continuation:'done',continuationReason:'Ya quedó todo resuelto'});
+ assert.equal((await read()).doneToday,beforeDone+1);assert(!(await read()).tasks.some(t=>t.id===doneId));
+ const early=await mutate({...base,title:'Hecha por adelantado',dueDate:'2030-06-01'});await mutate({action:'task_status',id:early,status:'completed',result:'Listo',continuation:'done',continuationReason:'Ya quedó todo resuelto'});assert.equal((await read()).doneToday,beforeDone+1,'a task due later does not count as today\'s progress');
+ const doneRows=await read('mode=detail&accountId='+a.id+'&taskId='+doneId);const doneTask=doneRows.tasks.find(t=>t.id===doneId)!;
+ assert(doneTask.activityId,'completed task has activityId');assert(doneRows.activities.some(x=>x.id===doneTask.activityId&&x.taskId===doneId));
+ assert.equal((await read('mode=detail&accountId='+a.id+'&taskId='+todays)).tasks[0].activityId,null);
+
+ // task_reschedule changes only the date/time: a stale client cannot revert other fields, a moved date answers 409, and nothing else is looked up.
+ const resched=await mutate({...base,title:'Reprogramar solo fecha',description:'Original',priority:'media',dueDate:'2030-03-01'});
+ await mutate({...base,id:resched,title:'Editada por otra persona',description:'Cambió mientras tanto',priority:'alta',dueDate:'2030-03-01',participants:'Otra gente'},admin.cookie);
+ await db.updateTable('crmTasks').set({contactIds:sql`'["999999"]'::jsonb`}).where('id','=',resched).execute();
+ await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-05',dueAt:null});
+ const moved=await db.selectFrom('crmTasks').selectAll().where('id','=',resched).executeTakeFirstOrThrow();
+ assert.equal(moved.dueDate.toISOString().slice(0,10),'2030-03-05');assert.equal(moved.title,'Editada por otra persona');assert.equal(moved.description,'Cambió mientras tanto');assert.equal(moved.priority,'alta');assert.equal(moved.participants,'Otra gente');assert.deepEqual(moved.contactIds,['999999']);
+ const conflictBody=await post(request({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-09',dueAt:null}));assert.equal(conflictBody.status,409);assert.match(superjson.parse<{error:string}>(await conflictBody.text()).error,/cambió mientras tanto/);
+ assert.equal((await db.selectFrom('crmTasks').select('dueDate').where('id','=',resched).executeTakeFirstOrThrow()).dueDate.toISOString().slice(0,10),'2030-03-05');
+ await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-05',expectedDueAt:null,dueDate:'2030-03-01',dueAt:null,},user.cookie);
+ await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-02',dueAt:'2030-03-03T15:00:00-03:00'},user.cookie,400);
+ await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-02',dueAt:null},other.cookie,403);
+ await db.updateTable('crmTasks').set({status:'cancelled'}).where('id','=',resched).execute();
+ await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-02',dueAt:null},user.cookie,400);
  await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',l.id).execute();assert(!(await read()).tasks.some(t=>t.leadId===l.id));
  await db.updateTable('leads').set({deletedAt:null}).where('id','=',l.id).execute();
  // Duplicate advice checks the whole matching scope, without depending on inbox pagination.

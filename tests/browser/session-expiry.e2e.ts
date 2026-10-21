@@ -9,7 +9,7 @@ test('an expired session re-logs in from a dialog and keeps the unsaved draft',a
  const name='Sesión E2E '+Date.now();const title='Llamar después del vencimiento '+Date.now();
  const r=await page.evaluate(async body=>{const response=await fetch('/_api/commercial',{method:'POST',body,headers:{'Content-Type':'application/json'}});return {status:response.status,text:await response.text()};},superjson.stringify({action:'account_save',nombre:name,ciudad:'Colón',assignedUserEmail:'admin@example.com'}));
  expect(r.status,r.text).toBe(200);const accountId=superjson.parse<{id:string}>(r.text).id;
- await page.getByRole('button',{name:'Planificar una tarea',exact:true}).click();const editor=page.getByRole('dialog');
+ await page.getByRole('button',{name:'Agendar tarea',exact:true}).click();const editor=page.getByRole('dialog');
  await editor.getByLabel('Buscar negocio',{exact:true}).fill(name);await editor.getByRole('combobox',{name:'Negocio',exact:true}).selectOption(accountId);await editor.getByLabel('Título',{exact:true}).fill(title);await editor.getByLabel('Fecha de vencimiento').fill(localDay());
  await editor.getByText('Participantes y notas (opcional)',{exact:true}).click();await editor.getByLabel('Descripción / notas').fill('Borrador que no se tiene que perder');
  // The session ends while the seller is typing: the save answers 401 (once; later saves reach the server).
@@ -31,7 +31,7 @@ test('re-login with another account discards the draft with a full reload',async
  test.setTimeout(120000);
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/\/my-day$/);
- await page.getByRole('button',{name:'Planificar una tarea',exact:true}).click();const editor=page.getByRole('dialog');
+ await page.getByRole('button',{name:'Agendar tarea',exact:true}).click();const editor=page.getByRole('dialog');
  const draft='Borrador de la cuenta anterior '+Date.now();await editor.getByLabel('Título',{exact:true}).fill(draft);
  await page.evaluate(()=>{(window as unknown as {previousPage:boolean}).previousPage=true;});
  // Same signal apiClient emits on any 401.

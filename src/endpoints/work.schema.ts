@@ -17,6 +17,8 @@ export const workMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('task_save'),...common,description:z.string().max(10000).nullable().optional(),assignedUserEmail:z.string().email().nullable().optional(),dueDate:day,dueAt:instant.nullable().optional(),priority:z.enum(['alta','media','baja']).default('media')}),
  z.object({action:z.literal('task_status'),id,status:z.enum(['completed','cancelled']),purpose:purpose.optional(),contactIds:z.array(id).max(50).optional(),channel:z.string().max(100).nullable().optional(),outcome,continuation,continuationReason,nextTask,result:z.string().trim().min(1).max(4000),completedAt:instant.optional(),...messageLink}),
  z.object({action:z.literal('task_delete'),id}),
+ /** Moves only the due date/time; `expected*` is what the client saw, so a concurrent change answers 409 instead of being overwritten. */
+ z.object({action:z.literal('task_reschedule'),id,expectedDueDate:day,expectedDueAt:instant.nullable(),dueDate:day,dueAt:instant.nullable()}),
  z.object({action:z.literal('activity_save'),...common,occurredAt:instant,outcome,continuation,continuationReason,nextTask,channel:z.string().max(100).nullable().optional(),result:z.string().max(4000).nullable().optional(),notes:z.string().max(10000).nullable().optional(),...messageLink}),
  z.object({action:z.literal('activity_delete'),id}),
  followupSettings,
@@ -24,7 +26,7 @@ export const workMutation=z.discriminatedUnion('action',[
 ]);
 export type WorkMutation=z.infer<typeof workMutation>;
 export const workQuery=z.object({accountId:id.optional(),leadId:id.optional(),responsible:z.string().optional(),city:z.string().optional(),vertical:z.string().optional(),calendar:z.preprocess(v=>v===true||v==="true",z.boolean()).default(false),q:z.string().max(200).optional(),mode:z.enum(['day','agenda','detail','lookup','duplicates']).default('day'),duplicateTitle:z.string().trim().min(1).max(200).optional(),duplicateType:z.string().min(1).max(80).optional(),excludeTaskId:id.optional(),taskId:id.optional(),from:day.optional(),to:day.optional(),page:z.coerce.number().int().min(1).default(1)});
-export interface WorkTask {continuation?:'task'|'wait'|'done'|null;continuationReason?:string|null;purpose?:import("../helpers/nextStep").WorkPurpose|null;id:string;accountId:string;leadId:string|null;title:string;description:string|null;typeId:string;assignedUserEmail:string|null;dueDate:string;dueAt:Date|null;priority:'alta'|'media'|'baja';status:'pending'|'completed'|'cancelled';outcome?:string|null;result:string|null;completedAt:Date|null;legacy:boolean;participants:string;contactIds:string[];accountName:string;city:string|null;opportunityName:string|null;deletedAt:Date|null;}
+export interface WorkTask {continuation?:'task'|'wait'|'done'|null;continuationReason?:string|null;purpose?:import("../helpers/nextStep").WorkPurpose|null;id:string;accountId:string;leadId:string|null;title:string;description:string|null;typeId:string;assignedUserEmail:string|null;dueDate:string;dueAt:Date|null;priority:'alta'|'media'|'baja';status:'pending'|'completed'|'cancelled';outcome?:string|null;result:string|null;completedAt:Date|null;legacy:boolean;participants:string;contactIds:string[];accountName:string;city:string|null;opportunityName:string|null;deletedAt:Date|null;/** The activity created when the task was completed (corrections edit it). */activityId?:string|null;}
 export interface WorkActivity {continuation?:'task'|'wait'|'done'|null;continuationReason?:string|null;purpose?:import("../helpers/nextStep").WorkPurpose|null;id:string;accountId:string;leadId:string|null;taskId:string|null;typeId:string;title:string;occurredAt:Date;participants:string;contactIds:string[];channel:string|null;outcome?:string|null;result:string|null;notes:string|null;actorEmail:string|null;accountName:string;city:string|null;}
 export interface WorkData {
  tasks:WorkTask[];activities:WorkActivity[];
@@ -37,6 +39,8 @@ export interface WorkData {
  journal:{id:string;entity:string;entityId:string;actorEmail:string|null;action:string;beforeValue:unknown;afterValue:unknown;createdAt:Date}[];
  followupStages:string[];newAssignmentDays:number;
  bucketCounts?:{overdue:number;today:number;upcoming:number};
+ /** Day mode: tasks completed today (Argentina) and whether overdue/today were cut at the cap. */
+ doneToday?:number;truncated?:boolean;
  cities?:string[];verticals?:string[];
  totalTasks:number;totalActivities:number;page:number;
  /** Day mode only: the seller's contacts still waiting for "¿Cómo salió?" (decision 2B). */

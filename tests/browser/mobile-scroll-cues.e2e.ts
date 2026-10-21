@@ -26,11 +26,11 @@ test('mobile guide, quick filters and daily actions are easy to discover',async(
   await expect.poll(()=>page.locator('div[class*="shortcuts"]').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true);
 
   await page.goto('/my-day');
-  await expect(page.getByRole('button',{name:'Planificar una tarea',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Anotar qué ya hice',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Agendar tarea',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Anotar lo que pasó',exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/my-day-actions-mobile.png',fullPage:true,animations:'disabled'});
   await page.goto('/agenda');
-  await expect(page.getByRole('button',{name:'Planificar encuentro',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Agendar encuentro',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Anotar encuentro realizado',exact:true})).toBeVisible();
 
   await page.goto('/accounts');

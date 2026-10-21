@@ -48,12 +48,12 @@ for(const width of [1280,390])test(`business continuity summary is clear at ${wi
  const next=page.getByRole('region',{name:'Próximo paso'});
  await expect(next).toContainText('Última actividad registrada: Llamada de seguimiento');
  await expect(next).toContainText('Acordó revisar la propuesta');
- await expect(next.getByRole('button',{name:'Registrar qué pasó',exact:true})).toBeVisible();
+ await expect(next.getByRole('button',{name:'Anotar cómo salió',exact:true})).toBeVisible();
  await page.screenshot({path:`test-results/business-continuity-management-${width}.png`,fullPage:true});
  managementReadOnly=true;await page.reload();
  const readOnlyNext=page.getByRole('region',{name:'Próximo paso'});
  await expect(readOnlyNext).toContainText('Última actividad registrada: Llamada de seguimiento');
- await expect(readOnlyNext.getByRole('button',{name:'Registrar qué pasó',exact:true})).toHaveCount(0);
+ await expect(readOnlyNext.getByRole('button',{name:'Anotar cómo salió',exact:true})).toHaveCount(0);
  await expect(readOnlyNext.getByRole('button',{name:'Contactar',exact:true})).toHaveCount(0);
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });
