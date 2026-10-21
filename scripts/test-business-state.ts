@@ -302,6 +302,13 @@ try{
   assert.equal(dayOf((await db.selectFrom('crmAccounts').select('recontactAt').where('id','=',biz).executeTakeFirstOrThrow()).recontactAt),'2027-06-10');
  }
  {
+  const {biz,task,lead}=await recontactWithManagement('mismo día','2027-06-01');
+  await transition(lead,'main:lost',{reasonId:lostNoResponse.id,recontactDate:'2027-06-01'},seller);
+  assert.deepEqual((await pendingOn(biz,'2027-06-01')).map(t=>t.title),['Recontactar según lo acordado'],'closing with the stored date leaves exactly one pending task that day: the management one');
+  const replaced=await db.selectFrom('crmTasks').select(['status','result']).where('id','=',task.id).executeTakeFirstOrThrow();
+  assert.equal(replaced.status,'cancelled');assert.match(String(replaced.result),/la gestión ya tiene su propia tarea de recontacto/,'same day: cancelled with the management reason, not as a date change');
+ }
+ {
   const {biz,task,lead}=await recontactWithManagement('limpia','2027-06-01');
   await transition(lead,'main:lost',{reasonId:lostNoResponse.id},seller);
   assert.equal((await db.selectFrom('crmAccounts').select('recontactAt').where('id','=',biz).executeTakeFirstOrThrow()).recontactAt,null);

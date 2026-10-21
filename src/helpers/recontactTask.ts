@@ -19,12 +19,13 @@ export function scheduledForName({responsibleEmail,currentUserEmail,users}:{resp
  if(!responsibleEmail||responsibleEmail===currentUserEmail)return null;
  return users?.find(u=>u.email===responsibleEmail)?.displayName||responsibleEmail;
 }
-export type RecontactCancelCause='status'|'date'|'changed'|'dnc'|'archived';
+export type RecontactCancelCause='status'|'date'|'changed'|'management'|'dnc'|'archived';
 /** Result written on a recontact task that the system cancels (factual, not a verdict about the business). */
 export const recontactCancelReason=(why:RecontactCancelCause)=>({
  status:'Se canceló porque el estado del negocio dejó de ser Recontactar.',
  date:'Se canceló porque se quitó la fecha de recontacto del negocio.',
  changed:'Se canceló porque la fecha de recontacto del negocio cambió a otro día.',
+ management:'Se canceló porque la gestión ya tiene su propia tarea de recontacto para ese día.',
  dnc:'Se canceló porque el negocio quedó marcado No contactar.',
  archived:'Se canceló porque el negocio se archivó.'
 })[why];

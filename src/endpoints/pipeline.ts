@@ -194,9 +194,9 @@ export async function post(request:Request){
       // An archived business keeps its state: no recontact date and no task (No contactar closes land here too, already cleaned up).
       if(before.status!=='archived'&&p.recontactDate&&!typedDnc){
        await sql`UPDATE crm_accounts SET status='recontact',recontact_at=${p.recontactDate},updated_at=now() WHERE id=${account.id}`.execute(trx);
-       // Owner decision (#196): the management task above is the only reminder; an untouched business task of an earlier day is cancelled, none is created.
+       // Owner decision (#196): the management task above is the only reminder; the untouched business task of the stored day is cancelled, none is created.
        const previousDay=before.recontactAt?calendarDay(before.recontactAt):null;
-       if(previousDay!==p.recontactDate)await cancelUntouchedRecontactTask(trx,{accountId:account.id,responsible:before.assignedUserEmail,previousDay,cause:'changed'});
+       await cancelUntouchedRecontactTask(trx,{accountId:account.id,responsible:before.assignedUserEmail,previousDay,cause:previousDay===p.recontactDate?'management':'changed'});
       }else if(before.status!=='archived'){
        await sql`UPDATE crm_accounts SET recontact_at=NULL WHERE id=${account.id} AND status<>'archived'`.execute(trx);
        await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:before.assignedUserEmail},previous,status:before.status,recontactDay:null,actorEmail:user.email});
