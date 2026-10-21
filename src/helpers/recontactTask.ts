@@ -19,12 +19,13 @@ export function scheduledForName({responsibleEmail,currentUserEmail,users}:{resp
  if(!responsibleEmail||responsibleEmail===currentUserEmail)return null;
  return users?.find(u=>u.email===responsibleEmail)?.displayName||responsibleEmail;
 }
-export type RecontactCancelCause='status'|'date'|'changed'|'dnc'|'archived';
+export type RecontactCancelCause='status'|'date'|'changed'|'management'|'dnc'|'archived';
 /** Result written on a recontact task that the system cancels (factual, not a verdict about the business). */
 export const recontactCancelReason=(why:RecontactCancelCause)=>({
  status:'Se canceló porque el estado del negocio dejó de ser Recontactar.',
  date:'Se canceló porque se quitó la fecha de recontacto del negocio.',
  changed:'Se canceló porque la fecha de recontacto del negocio cambió a otro día.',
+ management:'Se canceló porque la gestión ya tiene su propia tarea de recontacto para ese día.',
  dnc:'Se canceló porque el negocio quedó marcado No contactar.',
  archived:'Se canceló porque el negocio se archivó.'
 })[why];
@@ -97,4 +98,34 @@ export async function cancelRecontactTaskFor(trx:Db,{accountId,cause}:{accountId
  if(!account?.recontactAt)return;
  const task=await untouchedTask(trx,String(accountId),account.assignedUserEmail,calendarDay(account.recontactAt));
  if(task)await cancel(trx,task.id,cause);
+}
+
+/**
+ * Keeps the business "Volver a contactar" task with the business responsible when the responsible changes (decision 7A).
+ * Moves only this feature's untouched task (still assigned to the previous responsible, on the current recontact day) to the new one; tasks someone reassigned, rescheduled, timed or completed stay as they are.
+ * The day is the stored `recontact_at` even when an open management moved the status to En gestión (that keeps the date and its task).
+ * No-op without a stored date, when the responsible does not change, or when it is cleared (an unassigned business keeps the task with whoever has it).
+ * Runs in the caller's transaction, after its permission checks. Returns the moved task id, or null.
+ */
+export async function reassignRecontactTask(trx:Db,{accountId,fromEmail,toEmail}:{accountId:string|number;fromEmail:string|null;toEmail:string|null}):Promise<string|null> {
+ if(!toEmail||fromEmail===toEmail)return null;
+ const account=await trx.selectFrom('crmAccounts').select('recontactAt').where('id','=',String(accountId) as never).executeTakeFirst();
+ if(!account?.recontactAt)return null;
+ const task=await untouchedTask(trx,String(accountId),fromEmail,calendarDay(account.recontactAt));
+ if(!task||task.assignedUserEmail===toEmail)return null;
+ await trx.updateTable('crmTasks').set({assignedUserEmail:toEmail,updatedAt:new Date()}).where('id','=',task.id).execute();
+ return String(task.id);
+}
+
+/**
+ * Cancels the business's untouched "Volver a contactar" task of `previousDay` (if any) with the given reason. Never creates or moves a task.
+ * Used when a management close sets its own recontact date: the management task «Recontactar según lo acordado» is the only reminder (owner decision on #196).
+ * Runs in the caller's transaction, after its permission checks. Returns the cancelled task id, or null.
+ */
+export async function cancelUntouchedRecontactTask(trx:Db,{accountId,responsible,previousDay,cause}:{accountId:string|number;responsible:string|null;previousDay:string|null;cause:RecontactCancelCause}):Promise<string|null> {
+ if(!previousDay)return null;
+ const task=await untouchedTask(trx,String(accountId),responsible,previousDay);
+ if(!task)return null;
+ await cancel(trx,task.id,cause);
+ return String(task.id);
 }

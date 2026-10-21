@@ -27,6 +27,7 @@ describe('recontact task copy',()=>{
   expect(recontactCancelReason('status')).toMatch(/dejó de ser Recontactar/);
   expect(recontactCancelReason('date')).toMatch(/se quitó la fecha/);
   expect(recontactCancelReason('changed')).toMatch(/cambió a otro día/);
+  expect(recontactCancelReason('management')).toMatch(/la gestión ya tiene su propia tarea de recontacto/);
   expect(recontactCancelReason('dnc')).toMatch(/No contactar/);
   expect(recontactCancelReason('archived')).toMatch(/se archivó/);
  });
