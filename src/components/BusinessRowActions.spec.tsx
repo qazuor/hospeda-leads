@@ -20,10 +20,12 @@ function renderActions({ admin, canModify }: { admin: boolean; canModify: boolea
 const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Más acciones de Hotel Río' }));
 
 describe('BusinessRowActions', () => {
-  it('shows Abrir and Contactar as text buttons plus a menu', () => {
+  it('shows compact icon buttons with exact accessible names plus a menu', () => {
     renderActions({ admin: false, canModify: true });
-    expect(screen.getByRole('button', { name: 'Abrir' }).textContent).toContain('Abrir');
-    expect(screen.getByRole('button', { name: 'Contactar' }).textContent).toContain('Contactar');
+    expect(screen.getByRole('button', { name: 'Abrir' }).textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Contactar' }).textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Abrir' }).getAttribute('aria-label')).toBe('Abrir');
+    expect(screen.getByRole('button', { name: 'Contactar' }).getAttribute('aria-label')).toBe('Contactar');
     expect(screen.getAllByRole('button')).toHaveLength(3);
   });
   it('does not render Archivar for sellers and keeps Papelera in the menu', async () => {

@@ -41,8 +41,8 @@ const TABLE_COLUMNS=[
   {key:"createdAt",label:"Creado en sistema"},
   {key:"updatedAt",label:"Actualizado"}
 ];
-/** The actions column holds two text buttons and a menu, so it never shrinks below this. */
-export const ACTIONS_MIN_WIDTH=220;
+/** The actions column holds three compact icon buttons. */
+export const ACTIONS_MIN_WIDTH=120;
 /** Rendered width of a column: stored width (or 160) with the actions column clamped to its minimum. */
 export const columnWidthFor=(widths:Record<string,number>,key:string)=>Math.max(key==='actions'?ACTIONS_MIN_WIDTH:key.startsWith('group:')?180:100,widths[key]??160);
 const DEFAULT_WIDTHS:Record<string,number>={actions:ACTIONS_MIN_WIDTH,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180,fechaUltimoContacto:170,reviewStatus:140};
@@ -56,7 +56,7 @@ export const listPreferencesSchema=z.object({
  presentation:z.enum(['table','grid']),columns:z.array(field).min(1).max(40).refine(v=>v.includes('nombre')&&new Set(v).size===v.length),
  widths:z.record(field,z.number().min(100).max(600)),pins:z.record(field,z.enum(['left','right'])),
  query:z.string().max(1000),filters:z.array(advancedFilterGroup).max(20).refine(groups=>!groups.some(g=>g.rules.some(r=>r.field==='deletedAt'))),
- sortBy:z.union([leadsSchema.shape.sortBy.unwrap(),groupField]).default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),columnLayoutVersion:z.union([z.literal(2),z.literal(3),z.literal(4)]).optional(),legacyFilters:legacyFiltersSchema.optional()
+ sortBy:z.union([leadsSchema.shape.sortBy.unwrap(),groupField]).default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),columnLayoutVersion:z.union([z.literal(2),z.literal(3),z.literal(4),z.literal(5)]).optional(),legacyFilters:legacyFiltersSchema.optional()
 });
 export type ListPreferences=z.infer<typeof listPreferencesSchema>;
 // Restore this switch to expose pagination again; schema, queries and return context support both modes.
@@ -65,12 +65,12 @@ export const BUSINESS_RESULTS_CONTROL_ENABLED=false;
 /** The old default "Revisados" column counts as untouched (safe to drop) when it has no pin, default width, is not the sort and no filter uses it. */
 const untouchedReviewColumn=(p:ListPreferences)=>!p.pins.reviewStatus&&(p.widths.reviewStatus===undefined||p.widths.reviewStatus===DEFAULT_WIDTHS.reviewStatus)&&p.sortBy!=='reviewStatus'&&!p.filters.some(g=>g.rules.some(r=>r.field==='reviewStatus'));
 export function availableListPreferences(preferences:ListPreferences):ListPreferences{
- // Layout v4 (idempotent, deterministic): drops the old default "Revisados" column only when untouched, adds "Último contacto" once, keeps every personal width, pin, filter and order.
- const layout=preferences.columnLayoutVersion===4?preferences:{...preferences,columnLayoutVersion:4 as const,columns:[...preferences.columns.filter(key=>key!=='actions'&&!(key==='reviewStatus'&&untouchedReviewColumn(preferences))),...(preferences.columns.includes('fechaUltimoContacto')?[]:['fechaUltimoContacto']),'actions'],widths:{...preferences.widths,fechaUltimoContacto:preferences.widths.fechaUltimoContacto??DEFAULT_WIDTHS.fechaUltimoContacto,actions:150},pins:{...preferences.pins,actions:'right' as const}};
- layout.widths={...layout.widths,actions:Math.max(ACTIONS_MIN_WIDTH,layout.widths.actions??DEFAULT_WIDTHS.actions)};
+ // Layout v4 drops untouched "Revisados" and adds "Último contacto"; v5 normalizes legacy actions widths once.
+ const v4=preferences.columnLayoutVersion!==undefined&&preferences.columnLayoutVersion>=4?preferences:{...preferences,columnLayoutVersion:4 as const,columns:[...preferences.columns.filter(key=>key!=='actions'&&!(key==='reviewStatus'&&untouchedReviewColumn(preferences))),...(preferences.columns.includes('fechaUltimoContacto')?[]:['fechaUltimoContacto']),'actions'],widths:{...preferences.widths,fechaUltimoContacto:preferences.widths.fechaUltimoContacto??DEFAULT_WIDTHS.fechaUltimoContacto,actions:Math.max(preferences.widths.actions??0,ACTIONS_MIN_WIDTH)},pins:{...preferences.pins,actions:'right' as const}};
+ const layout=v4.columnLayoutVersion===5?v4:{...v4,columnLayoutVersion:5 as const,widths:{...v4.widths,actions:v4.widths.actions===undefined||v4.widths.actions<=220?ACTIONS_MIN_WIDTH:v4.widths.actions}};
  return normalizePinnedColumnOrder({...layout,loadMode:BUSINESS_PAGINATION_CONTROLS_ENABLED?preferences.loadMode:'continuous',pageSize:BUSINESS_RESULTS_CONTROL_ENABLED?preferences.pageSize:50});
 }
-export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','businessStatus','ciudad','telefono','fechaUltimoContacto','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS,businessStatus:190},pins:{actions:'right'},columnLayoutVersion:4,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
+export const basePreferences=(mobile=false):ListPreferences=>({presentation:mobile?'grid':'table',columns:['nombre','businessStatus','ciudad','telefono','fechaUltimoContacto','fechaProximaAccion','actions'],widths:{...DEFAULT_WIDTHS,businessStatus:190},pins:{actions:'right'},columnLayoutVersion:5,query:'',filters:[],sortBy:'nombre',sortDir:'asc',pageSize:50,loadMode:'continuous'});
 export const teamDefaultsSchema=z.object({systemViews:systemViewsSchema.optional(),preferences:listPreferencesSchema,presets:z.array(z.object({id:z.string().min(1).max(80),name:z.string().min(1).max(80),query:z.string().max(1000).optional(),filters:listPreferencesSchema.shape.filters})).max(30),initialPresetId:z.string().nullable()})
  .refine(v=>new Set(v.presets.map(p=>p.id)).size===v.presets.length&&(!v.initialPresetId||v.presets.some(p=>p.id===v.initialPresetId)))
  .refine(v=>!v.systemViews?.some(view=>view.id.startsWith('custom:')&&!listPreferencesSchema.safeParse(view.preferences).success),'Configuración de vista compartida inválida');
