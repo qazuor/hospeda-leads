@@ -42,6 +42,7 @@ Estas decisiones provienen del propietario y del comportamiento revisado. Cambia
 ## Diseño y UX
 
 - Mantine es la biblioteca elegida. Usar wrappers y clases compartidas para corregir el sistema, no una página aislada.
+- Los grupos del listado de Negocios pueden limitar cuántas líneas se ven en la tabla; sin límite se muestran todos. Los datos ocultos se consultan en un popover que conserva etiquetas, editores y permisos. La grilla muestra todos los miembros porque tiene espacio.
 - Header móvil de una fila con hamburguesa y menú Drawer. Mantener rutas, permisos, teclado y restauración de foco.
 - Jerarquía clara, controles compactos, badges centrados, menús con espacio entre icono/texto, acciones por icono sin borde innecesario y foco visible discreto.
 - No llenar cards con filas vacías; conservar contexto útil y acciones legibles en móvil.

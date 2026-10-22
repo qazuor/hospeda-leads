@@ -1,5 +1,5 @@
 import { Loader, UnstyledButton } from '@mantine/core';
-import React,{useRef,useState} from 'react';
+import React,{useId,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {Check,ChevronDown,LoaderCircle} from 'lucide-react';
@@ -24,7 +24,7 @@ type Draft={value:string;expected:string|null;classification:{tipo:string|null;s
 export function InlineBusinessBadge({accountId,name,field,value,label}:{accountId:string;name:string;field:InlineBadgeField;value:string|null;label:string}){
  const [tooltipOpen,setTooltipOpen]=useState(false);
  const [processing,setProcessing]=useState(false),[open,setOpen]=useState(false),[draft,setDraft]=useState<Draft|null>(null),[managementId,setManagementId]=useState('');
- const lock=useRef(false),qc=useQueryClient(),{authState}=useAuth();
+ const lock=useRef(false),inlineEditorId=useId(),qc=useQueryClient(),{authState}=useAuth();
  const detail=useQuery({queryKey:['commercial-detail',accountId],queryFn:()=>getCommercialDetail(accountId),enabled:open,refetchOnMount:'always',refetchOnWindowFocus:false});
  const filterOptions=useQuery({queryKey:['business-inline-filter-options'],queryFn:()=>getLeads({entity:'business',filterOptions:'include',page:1,pageSize:10}),enabled:open&&['origen','quienCargo','creadoPor'].includes(field),staleTime:5*60*1000});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings,enabled:open});const save=useMutation({mutationFn:postLeadsQuick});
@@ -46,8 +46,8 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
  }catch(error){toast.error(crmError(error));}finally{lock.current=false;setProcessing(false);}}
  function reload(){setDraft(null);save.reset();void detail.refetch();}
  return <Popover open={open} onOpenChange={next=>{if(lock.current)return;if(next){setDraft(null);setManagementId('');save.reset();void detail.refetch();}setOpen(next);}}>
-  <Tooltip open={tooltipOpen&&!open} onOpenChange={setTooltipOpen}><TooltipTrigger asChild><PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={'Editar '+title.toLowerCase()+' de '+name}><ValueBadge category={category} value={label||empty} muted={!value} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/></UnstyledButton></PopoverTrigger></TooltipTrigger><TooltipContent className={styles.tooltip}>{label||empty}</TooltipContent></Tooltip>
-  <PopoverContent aria-label={compact?'Opciones de '+title.toLowerCase():'Editar '+title.toLowerCase()} className={compact?styles.compactPopover:styles.popover} align="start" onEscapeKeyDown={event=>{if(lock.current)event.preventDefault();}} onInteractOutside={event=>{if(lock.current)event.preventDefault();}}>
+  <Tooltip open={tooltipOpen&&!open} onOpenChange={setTooltipOpen}><TooltipTrigger asChild><PopoverTrigger asChild><UnstyledButton type="button" className={styles.trigger} aria-label={'Editar '+title.toLowerCase()+' de '+name} aria-expanded={open} data-inline-editor-id={inlineEditorId}><ValueBadge category={category} value={label||empty} muted={!value} nativeTooltip={false} className={styles.badge}/><ChevronDown size={12} aria-hidden="true"/></UnstyledButton></PopoverTrigger></TooltipTrigger><TooltipContent className={styles.tooltip}>{label||empty}</TooltipContent></Tooltip>
+  <PopoverContent data-inline-editor-dropdown={inlineEditorId} aria-label={compact?'Opciones de '+title.toLowerCase():'Editar '+title.toLowerCase()} className={compact?styles.compactPopover:styles.popover} align="start" onEscapeKeyDown={event=>{if(lock.current)event.preventDefault();}} onInteractOutside={event=>{if(lock.current)event.preventDefault();}}>
    {compact?<>
     {loading?<p className={styles.compactStatus} role="status"><Loader size={13} aria-hidden="true"/> Cargando…</p>:detail.error||settings.error||filterOptions.error?<div className={styles.compactError} role="alert"><span>{detail.error?.message||settings.error?.message||filterOptions.error?.message}</span><Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();void filterOptions.refetch();}}>Reintentar</Button></div>:missingManagement?<div className={styles.compactError} role="alert">Sin gestiones iniciadas. <Link to={'/accounts/'+accountId}>Abrir negocio</Link></div>:!allowed?<p className={styles.compactError} role="alert">No tenés permiso para modificar este dato.</p>:<>
      <div className={styles.optionList} role="group" aria-label={'Opciones de '+title.toLowerCase()}>

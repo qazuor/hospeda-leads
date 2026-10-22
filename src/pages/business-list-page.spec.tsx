@@ -4,7 +4,7 @@ import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/reac
 import {MantineProvider} from '@mantine/core';
 import {MemoryRouter} from 'react-router-dom';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-import {basePreferences,preferenceKey} from '../helpers/businessListPreferences';
+import {basePreferences,preferenceKey,restoredListContext} from '../helpers/businessListPreferences';
 import {businessViewSelectionKey} from '../helpers/businessViewSelection';
 import {DEFAULT_BUSINESS_COLUMN_GROUPS} from '../helpers/businessColumnGroups';
 
@@ -45,6 +45,9 @@ beforeEach(()=>{window.scrollTo=vi.fn();window.matchMedia=vi.fn().mockImplementa
 afterEach(()=>{cleanup();currentQueryClient?.clear();vi.clearAllMocks();});
 
 describe('BusinessListPage group definition availability',()=>{
+ it('uses the corrected restoration page when building a persisted list context',()=>{
+  expect(restoredListContext({page:9,scrollY:180,scrollX:24},1)).toEqual({page:1,scrollY:180,scrollX:24});
+ });
  it('renders rows and preserves group preferences while definitions are delayed, then shows the loaded group',async()=>{
   const prefs=storedPrefs(),pending=defer<{groups:typeof DEFAULT_BUSINESS_COLUMN_GROUPS}>();api.getGroups.mockReturnValue(pending.promise);setup();
   expect(await screen.findByText('Negocio visible')).toBeTruthy();await waitFor(()=>expect(api.getLeads).toHaveBeenCalled());expect(api.getLeads.mock.calls.at(-1)?.[0].sortBy).toBe('nombre');expect(api.getLeads.mock.calls.at(-1)?.[0].sortDir).toBe('desc');expect(Array.from(document.querySelectorAll('th')).find(header=>header.textContent?.includes('Nombre'))?.getAttribute('aria-sort')).toBe('descending');
@@ -68,6 +71,22 @@ describe('BusinessListPage group definition availability',()=>{
   expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).toMatchObject({columns:expect.arrayContaining(['group:contact']),widths:{'group:contact':240},pins:{'group:contact':'left'}});
   expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).not.toHaveProperty('widths.group:missing');expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).not.toHaveProperty('pins.group:missing');
   expect(setItem.mock.calls.filter(([key])=>key===preferenceKey(8))).toHaveLength(1);setItem.mockRestore();
+ });
+ it('persists pruned preferences once with the corrected page after restoration settles',async()=>{
+  const prefs=storedPrefs(),groups=defer<{groups:typeof DEFAULT_BUSINESS_COLUMN_GROUPS}>(),leads=defer<Awaited<ReturnType<typeof api.getLeads>>>();
+  localStorage.setItem(preferenceKey(8),JSON.stringify({preferences:prefs,context:{page:9,scrollY:180,scrollX:24}}));api.getGroups.mockReturnValue(groups.promise);api.getLeads.mockReturnValue(leads.promise);setup();
+  const setItem=vi.spyOn(Storage.prototype,'setItem');setItem.mockClear();
+  await act(async()=>groups.resolve({groups:DEFAULT_BUSINESS_COLUMN_GROUPS}));await waitFor(()=>expect(Array.from(document.querySelectorAll('th')).some(header=>header.textContent?.trim()==='Contacto')).toBe(true));
+  expect(setItem.mock.calls.filter(([key])=>key===preferenceKey(8))).toHaveLength(0);
+  Object.defineProperty(window,'scrollY',{configurable:true,value:180});await act(async()=>leads.resolve({rows:[{id:'-1',accountId:'1',nombre:'Negocio visible',ciudad:'Colón',canModify:false,opportunityCount:0,contactCount:0}],total:1,page:1,pageSize:50,anchorPage:1,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}}));
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences.columns).not.toContain('group:missing'));
+  const preferenceWrites=()=>setItem.mock.calls.filter(([key])=>key===preferenceKey(8)).map(([,value])=>JSON.parse(String(value)) as {preferences:typeof prefs;context:{page:number;scrollY:number;scrollX:number}});
+  const prunedWrite=(write:{preferences:typeof prefs;context:{page:number;scrollY:number;scrollX:number}})=>!write.preferences.columns.includes('group:missing')&&write.context.page===1&&write.context.scrollY===180&&write.context.scrollX===24;
+  await waitFor(()=>expect(preferenceWrites().filter(prunedWrite)).toHaveLength(1));
+  fireEvent.click(Array.from(document.querySelectorAll('th')).find(header=>header.textContent?.includes('Ciudad'))!.querySelector('button')!);
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences.sortBy).toBe('ciudad'));
+  await waitFor(()=>expect(preferenceWrites().some(write=>write.preferences.sortBy==='ciudad')).toBe(true));
+  expect(preferenceWrites().filter(prunedWrite)).toHaveLength(1);expect(preferenceWrites().some(write=>write.preferences.sortBy==='ciudad')).toBe(true);setItem.mockRestore();
  });
 
 });
