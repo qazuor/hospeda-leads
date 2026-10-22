@@ -7,7 +7,7 @@ export const businessColumnGroupsSchema=z.array(businessColumnGroupSchema).max(3
 export type BusinessColumnGroup=z.infer<typeof businessColumnGroupSchema>;
 export const BUSINESS_COLUMN_GROUPS_KEY='business_list_column_groups_v1';
 export const DEFAULT_BUSINESS_COLUMN_GROUPS:BusinessColumnGroup[]=[
- {id:'classification',name:'Clasificación',members:['tipo','subtipo','commercialProfile']},
+ {id:'classification',name:'Tipo',members:['tipo','subtipo','commercialProfile']},
  {id:'contact',name:'Contacto',members:['contactName','telefono','contactPhone','whatsapp','email','contactEmail']}
 ];
 
