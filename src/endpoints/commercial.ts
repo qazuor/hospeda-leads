@@ -155,15 +155,17 @@ export async function post(request:Request){
         await audit(input.accountId,input.archived?"account_archived":"account_unarchived",account,{...after,reason:input.reason});return input.accountId;
       }
       if(input.action==='business_status'){
-        if(['new','in_management','archived'].includes(input.status))throw new Error('Este estado se define por revisión, gestión o archivo; no se modifica directamente.');
+        if(['in_management','archived'].includes(input.status))throw new Error('Este estado se define por gestión o archivo; no se modifica directamente.');
         if(account.deletedAt)throw new Error('Restaurá el negocio de Papelera antes de modificarlo.');
         if(account.archivedAt||stateAccount.status==='archived')throw new Error('Desarchivá el negocio antes de cambiar su estado.');
         if(account.doNotContact&&input.status!=='archived')throw new Error('Este negocio está marcado como No contactar.');
         if(stateAccount.status==='new'&&input.status!=='reviewed')throw new Error('Un negocio Nuevo debe pasar por Revisado antes de elegir seguimiento o iniciar una gestión.');
+        if(input.status==='new'&&!['reviewed','no_follow_up_scheduled','recontact'].includes(stateAccount.status))throw new Error('Solo podés quitar Revisado de un negocio con seguimiento y sin gestión abierta.');
         const active=(await sql<{n:string}>`SELECT count(*) n FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open'`.execute(trx)).rows[0];
         if(Number(active?.n)>0)throw new Error('El negocio tiene gestiones abiertas; su estado es En gestión.');
-        if(!['reviewed','recontact','no_follow_up_scheduled'].includes(input.status))throw new Error('Estado de negocio no disponible.');
-        await sql`UPDATE crm_accounts SET status=${input.status},recontact_at=${input.status==='recontact'?input.recontactAt??null:null},updated_at=now() WHERE id=${account.id}`.execute(trx);
+        if(!['new','reviewed','recontact','no_follow_up_scheduled'].includes(input.status))throw new Error('Estado de negocio no disponible.');
+        // Unreviewing also clears the legacy review_status flag; otherwise crm_sync_client_indicator (migration 023) restores 'reviewed'.
+        await sql`UPDATE crm_accounts SET status=${input.status},review_status=${input.status==='new'?null:sql`review_status`},recontact_at=${input.status==='recontact'?input.recontactAt??null:null},updated_at=now() WHERE id=${account.id}`.execute(trx);
         // Decision 7A: Recontactar + date schedules "Volver a contactar" for the responsible seller (same transaction, audited by the work journal).
         recontactTask=await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:account.assignedUserEmail},previous:{status:stateAccount.status,recontactAt:stateAccount.recontactAt},status:input.status,recontactDay:input.status==='recontact'?input.recontactAt??null:null,actorEmail:user.email});
         return String(account.id);
