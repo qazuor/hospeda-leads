@@ -2,7 +2,7 @@
 
 ## Columnas agrupadas de Negocios
 
-La implementación está en `feat/business-table-group-columns` (PR #206). Los dos blockers de revisión sobre esperar las definiciones y podar preferencias sin conocerlas quedaron corregidos localmente. Pasaron `npm run typecheck`, `npm test` (103 archivos, 808 pruebas) y `npm run build`. La spec de página cubre grupos demorados y fallidos. Se extendió `tests/browser/business-column-groups.e2e.ts` con respuestas demoradas y fallidas en Negocios, pero no se ejecutó. Falta correr esa suite e2e y `node --import tsx scripts/test-business-column-groups.ts` sobre una base descartable. Esta tarea no ejecutó integración ni e2e ni escribió en ninguna base. No se hizo commit ni push.
+La implementación está en `feat/business-table-group-columns` (PR #206). Los blockers de revisión sobre esperar las definiciones, resolver el sort visible y podar preferencias sin conocerlas quedaron corregidos localmente. Pasaron `npm run typecheck`, `npm test` (103 archivos, 809 pruebas) y `npm run build`. La spec de página cubre grupos demorados/fallidos, `aria-sort` y request fallback, ediciones pendientes, poda sólo de grupos faltantes y una escritura de preferencias al podar. Se extendió `tests/browser/business-column-groups.e2e.ts` con respuestas demoradas y fallidas en Negocios, pero no se ejecutó. Falta correr esa suite e2e y `node --import tsx scripts/test-business-column-groups.ts` sobre una base descartable. Esta tarea no ejecutó integración ni e2e ni escribió en ninguna base. No se hizo commit ni push.
 
 ## Tras la revisión de UX (21/10/2026)
 

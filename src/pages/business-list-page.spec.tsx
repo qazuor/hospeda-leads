@@ -1,6 +1,6 @@
 import React from 'react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {act,cleanup,render,screen,waitFor} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import {MemoryRouter} from 'react-router-dom';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
@@ -39,7 +39,7 @@ import BusinessListPage from './business-list';
 let currentQueryClient:QueryClient;
 function defer<T>(){let resolve!:(value:T)=>void;const promise=new Promise<T>(done=>resolve=done);return {promise,resolve};}
 function setup(){currentQueryClient=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<MantineProvider><QueryClientProvider client={currentQueryClient}><MemoryRouter><BusinessListPage/></MemoryRouter></QueryClientProvider></MantineProvider>);}
-function storedPrefs(){const prefs={...basePreferences(),columns:[...basePreferences().columns,'group:contact','group:missing'],widths:{...basePreferences().widths,'group:contact':240,'group:missing':260},pins:{...basePreferences().pins,'group:contact':'left' as const,'group:missing':'right' as const},sortBy:'group:contact'};localStorage.setItem(preferenceKey(8),JSON.stringify({preferences:prefs,context:{page:1,scrollY:0,scrollX:0}}));localStorage.setItem(businessViewSelectionKey(8),JSON.stringify({kind:'system',id:'mine',name:'Mis negocios',baseline:prefs}));localStorage.setItem('hospeda-business-seller-default-v1-user-8','1');return prefs;}
+function storedPrefs(){const prefs={...basePreferences(),columns:[...basePreferences().columns,'group:contact','group:missing'],widths:{...basePreferences().widths,'group:contact':240,'group:missing':260},pins:{...basePreferences().pins,'group:contact':'left' as const,'group:missing':'right' as const},sortBy:'group:contact',sortDir:'desc'};localStorage.setItem(preferenceKey(8),JSON.stringify({preferences:prefs,context:{page:1,scrollY:0,scrollX:0}}));localStorage.setItem(businessViewSelectionKey(8),JSON.stringify({kind:'system',id:'mine',name:'Mis negocios',baseline:prefs}));localStorage.setItem('hospeda-business-seller-default-v1-user-8','1');return prefs;}
 
 beforeEach(()=>{window.scrollTo=vi.fn();window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){}}));globalThis.ResizeObserver=class{observe(){}disconnect(){}unobserve(){}};localStorage.clear();api.getDefaults.mockResolvedValue({defaults:null});api.getSettings.mockResolvedValue({users:[],cities:[],types:[],templates:[],subtypes:[],authorizedEmails:[],opportunityStages:[]});api.getSavedViews.mockResolvedValue({views:[]});api.getLeads.mockResolvedValue({rows:[{id:'-1',accountId:'1',nombre:'Negocio visible',ciudad:'Colón',canModify:false,opportunityCount:0,contactCount:0}],total:1,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}});});
 afterEach(()=>{cleanup();currentQueryClient?.clear();vi.clearAllMocks();});
@@ -47,13 +47,27 @@ afterEach(()=>{cleanup();currentQueryClient?.clear();vi.clearAllMocks();});
 describe('BusinessListPage group definition availability',()=>{
  it('renders rows and preserves group preferences while definitions are delayed, then shows the loaded group',async()=>{
   const prefs=storedPrefs(),pending=defer<{groups:typeof DEFAULT_BUSINESS_COLUMN_GROUPS}>();api.getGroups.mockReturnValue(pending.promise);setup();
-  expect(await screen.findByText('Negocio visible')).toBeTruthy();await waitFor(()=>expect(api.getLeads).toHaveBeenCalled());expect(api.getLeads.mock.calls.at(-1)?.[0].sortBy).toBe('nombre');
+  expect(await screen.findByText('Negocio visible')).toBeTruthy();await waitFor(()=>expect(api.getLeads).toHaveBeenCalled());expect(api.getLeads.mock.calls.at(-1)?.[0].sortBy).toBe('nombre');expect(api.getLeads.mock.calls.at(-1)?.[0].sortDir).toBe('desc');expect(Array.from(document.querySelectorAll('th')).find(header=>header.textContent?.includes('Nombre'))?.getAttribute('aria-sort')).toBe('descending');
   expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).toMatchObject({sortBy:prefs.sortBy,columns:expect.arrayContaining(['group:contact','group:missing']),widths:{'group:contact':240,'group:missing':260},pins:{'group:contact':'left','group:missing':'right'}});expect(JSON.parse(localStorage.getItem(businessViewSelectionKey(8))!).baseline.columns).toContain('group:missing');expect(Array.from(document.querySelectorAll('th')).some(header=>header.textContent?.trim()==='Contacto')).toBe(false);
   await act(async()=>pending.resolve({groups:DEFAULT_BUSINESS_COLUMN_GROUPS}));await waitFor(()=>expect(api.getLeads.mock.calls.at(-1)?.[0].sortBy).toBe('contactName'));await waitFor(()=>expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences.columns).not.toContain('group:missing'));expect(JSON.parse(localStorage.getItem(businessViewSelectionKey(8))!).baseline.columns).not.toContain('group:missing');await waitFor(()=>expect(Array.from(document.querySelectorAll('th')).some(header=>header.textContent?.trim()==='Contacto')).toBe(true));
+  const headers=Array.from(document.querySelectorAll('th')),groupHeader=headers.find(header=>header.textContent?.trim()==='Contacto'),memberHeader=headers.find(header=>header.textContent?.includes('Persona de contacto'));
+  expect(groupHeader?.getAttribute('aria-sort')).toBe('descending');if(memberHeader)expect(memberHeader.getAttribute('aria-sort')).toBe('none');
  });
  it('keeps rows and stored group references when definitions fail',async()=>{
   const prefs=storedPrefs();api.getGroups.mockRejectedValue(new Error('Grupos no disponibles'));setup();
-  expect(await screen.findByText('Negocio visible')).toBeTruthy();await waitFor(()=>expect(api.getGroups).toHaveBeenCalled());expect(api.getLeads.mock.calls.at(-1)?.[0].sortBy).toBe('nombre');expect(Array.from(document.querySelectorAll('th')).some(header=>header.textContent?.trim()==='Contacto')).toBe(false);
+  expect(await screen.findByText('Negocio visible')).toBeTruthy();await waitFor(()=>expect(api.getGroups).toHaveBeenCalled());expect(api.getLeads.mock.calls.at(-1)?.[0].sortBy).toBe('nombre');expect(api.getLeads.mock.calls.at(-1)?.[0].sortDir).toBe('desc');expect(Array.from(document.querySelectorAll('th')).find(header=>header.textContent?.includes('Nombre'))?.getAttribute('aria-sort')).toBe('descending');expect(Array.from(document.querySelectorAll('th')).some(header=>header.textContent?.trim()==='Contacto')).toBe(false);
   expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).toMatchObject({sortBy:prefs.sortBy,columns:expect.arrayContaining(['group:contact','group:missing']),widths:{'group:contact':240,'group:missing':260},pins:{'group:contact':'left','group:missing':'right'}});expect(JSON.parse(localStorage.getItem(businessViewSelectionKey(8))!).baseline.columns).toContain('group:missing');
  });
+ it('preserves group references during edits while groups are pending and prunes only deleted groups with one preference write',async()=>{
+  const prefs=storedPrefs(),pending=defer<{groups:typeof DEFAULT_BUSINESS_COLUMN_GROUPS}>(),setItem=vi.spyOn(Storage.prototype,'setItem');api.getGroups.mockReturnValue(pending.promise);setup();
+  expect(await screen.findByText('Negocio visible')).toBeTruthy();fireEvent.click(Array.from(document.querySelectorAll('th')).find(header=>header.textContent?.includes('Ciudad'))!.querySelector('button')!);
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences.sortBy).toBe('ciudad'));
+  expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).toMatchObject({columns:expect.arrayContaining(['group:contact','group:missing']),widths:{'group:contact':240,'group:missing':260},pins:{'group:contact':'left','group:missing':'right'}});
+  setItem.mockClear();await act(async()=>pending.resolve({groups:DEFAULT_BUSINESS_COLUMN_GROUPS}));
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences.columns).not.toContain('group:missing'));
+  expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).toMatchObject({columns:expect.arrayContaining(['group:contact']),widths:{'group:contact':240},pins:{'group:contact':'left'}});
+  expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).not.toHaveProperty('widths.group:missing');expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences).not.toHaveProperty('pins.group:missing');
+  expect(setItem.mock.calls.filter(([key])=>key===preferenceKey(8))).toHaveLength(1);setItem.mockRestore();
+ });
+
 });
