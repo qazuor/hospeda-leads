@@ -87,7 +87,7 @@ Revisión de usabilidad para vendedores sin experiencia en CRM. Decisiones del 2
 - Papelera de gestiones: consulta su `leads.deleted_at`; no equivale a eliminar el negocio. El antiguo filtro de oportunidad eliminada sigue refiriéndose a la gestión.
 - Eliminación definitiva es una operación distinta y restringida. No sustituir soft delete por archivo ni presentar ambos como un cambio de nombre.
 - `origin` y `source_reference` preservan origen/ref histórica sin reemplazar `discovery_source` ni `verification_urls` actuales.
-- `status` es la única fuente de verdad para distinguir Nuevo de Revisado. `review_status` se conserva como dato histórico/compatibilidad para respaldar la migración, pero no se edita ni se ofrece como columna o filtro en la interfaz.
+- `status` es la única fuente de verdad para distinguir Nuevo de Revisado. `review_status` se conserva como dato histórico/compatibilidad para respaldar la migración. El Estado sigue siendo la única fuente de verdad; la columna/badge Revisados edita `status` entre Nuevo y Revisado (decisión del propietario, 22/10/2026).
 - `subscription_label` es etiqueta histórica; no acredita pago ni convierte a Cliente.
 - `source_lead_id` es referencia histórica/técnica, no autorización para recrear las gestiones eliminadas.
 

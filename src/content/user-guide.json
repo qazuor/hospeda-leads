@@ -67,7 +67,7 @@
         "when": "Cuando necesitás saber qué significa un estado, una etapa o cuál cambiar.",
         "steps": [
           "Nuevo significa que todavía no se verificó el negocio. Antes de iniciar una gestión, primero comprobá que exista y corresponda al registro, y pasalo a Revisado.",
-          "Revisado confirma que el negocio fue comprobado. La columna «Revisados» y su filtro solo muestran este dato: no cambian el Estado. Para pasar de Nuevo a Revisado, usá «Estado del negocio» en la tabla o ficha, o confirmalo al iniciar una gestión.",
+          "Revisado confirma que el negocio fue comprobado. El badge «Revisados» cambia el Estado entre Nuevo y Revisado; su filtro solo encuentra negocios. Status sigue siendo la única fuente de verdad.",
           "En gestión aparece mientras haya al menos una gestión abierta. Si cerrás la última sin fecha, el negocio pasa a Sin tarea agendada. Si cerrás con fecha para volver a hablar, el negocio queda automáticamente en Recontactar y se crea solo la tarea «Recontactar según lo acordado», a cargo del responsable del negocio (si no tiene, del responsable de la gestión o de quien hizo el cierre). Al guardar otra fecha de Recontactar, el CRM mueve esa misma tarea si nadie la modificó; salir de Recontactar la cancela si sigue intacta. No se crea una segunda tarea.",
           "Para cambiar el Estado, usá el badge «Estado del negocio» en la columna de la lista o en la ficha. Puede hacerlo el administrador o el responsable del negocio. Un negocio Nuevo solo puede pasar a Revisado; En gestión se actualiza al iniciar o cerrar gestiones.",
           "Archivado aparta un negocio válido que no vas a trabajar por ahora. Solo un administrador puede desarchivarlo; vuelve a Revisado si ya había sido verificado y, si no, a Nuevo.",
@@ -245,9 +245,9 @@
         "title": "Revisar negocios precargados",
         "when": "Cuando recibís una lista de negocios que todavía no se verificó.",
         "steps": [
-          "Entrá en «Negocios» y usá la columna «Revisados» o su filtro para encontrar los negocios verificados y los que todavía no. Esta columna es solo informativa; para cambiar el Estado usá el badge «Estado».",
+          "Entrá en «Negocios» y usá la columna «Revisados» o su filtro para encontrar los negocios verificados y los que todavía no. Si podés modificar el negocio, tocá el badge para pasar de Nuevo a Revisado o volver a No revisado.",
           "Abrí cada negocio y comprobá que exista y que sea el establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.",
-          "Si confirmás que es real, guardá las fuentes y la fecha en «Editar negocio» → «Ubicación y relevamiento (opcional)». Después cambiá el Estado a Revisado desde «Estado del negocio»; también podés confirmarlo al iniciar una gestión.",
+          "Si confirmás que es real, guardá las fuentes y la fecha en «Editar negocio» → «Ubicación y relevamiento (opcional)». Después marcá Revisado en esa columna o en el Estado del negocio; también podés confirmarlo al iniciar una gestión.",
           "Si todavía no podés confirmarlo, dejalo en Nuevo. Anotá qué falta comprobar en «Notas del negocio» y volvé a revisarlo más tarde.",
           "Si es un registro inválido, seleccioná solo ese negocio y tocá «Enviar a papelera», o abrilo y usá «Más acciones del negocio» → «Enviar a Papelera · registro inválido». Escribí un motivo concreto y confirmá.",
           "Si el negocio existe pero no lo vas a trabajar por ahora, no lo mandes a la Papelera: usá «Archivar negocio válido»."
@@ -258,7 +258,7 @@
           "El domicilio y las fuentes muestran que otro registro no es un establecimiento real: lo enviás a la Papelera con el motivo, sin borrar sus personas ni su historial."
         ],
         "notes": [
-          "Revisado significa que se comprobó que el negocio existe y corresponde al registro. La columna «Revisados» es un indicador de solo lectura; el Estado se cambia desde el badge «Estado del negocio».",
+          "Revisado significa que se comprobó que el negocio existe y corresponde al registro. La columna «Revisados» edita el Estado del negocio: de Nuevo a Revisado o de Revisado a No revisado.",
           "Enviar a la Papelera conserva personas, gestiones e historial, y un administrador puede restaurarlo.",
           "Solo podés enviar a la Papelera negocios que podés modificar. Si no aparece la acción o el servidor la rechaza, pedí ayuda al responsable o al administrador."
         ],
@@ -273,9 +273,7 @@
           "Enviar a papelera",
           "Más acciones del negocio",
           "Enviar a Papelera · registro inválido",
-          "Archivar negocio válido",
-          "Estado del negocio",
-          "Estado"
+          "Archivar negocio válido"
         ]
       },
       {
@@ -954,7 +952,7 @@
           "Tocá «Filtrar negocios» y revisá los filtros aplicados. «Guardar como vista» conserva la búsqueda, los filtros, el orden y las columnas.",
           "Abrí «Columnas» para elegir y ordenar los datos que ves. También están disponibles WhatsApp, Teléfono de la persona y Email de la persona. La columna de selección queda primera y fija a la izquierda.",
           "También podés elegir una columna agrupada para ver varios datos apilados. En «Configuración» → «Listado de negocios» → «Columnas agrupadas», un administrador define grupos y cuántas líneas mostrar en la tabla. Los valores se apilan en el orden definido; la tabla se ordena por el primer dato del grupo. Si hay datos ocultos, tocá el botón +N más (por ejemplo, +2 más) para verlos y editarlos. En la grilla se muestran todos. Los datos vacíos muestran — y cada dato conserva su propia edición.",
-          "En la tabla, algunos badges se pueden editar directamente: el responsable del negocio o un administrador cambia datos del negocio; solo un administrador cambia el Responsable. Los datos de gestión requieren permiso sobre esa gestión. El indicador Revisados es de solo lectura; para cambiar el Estado, usá el badge «Estado del negocio».",
+          "En la tabla, algunos badges se pueden editar directamente: el responsable del negocio o un administrador cambia datos del negocio; solo un administrador cambia el Responsable. Los datos de gestión requieren permiso sobre esa gestión. El badge Revisados cambia el Estado entre Nuevo y Revisado; no está disponible con una gestión abierta o un negocio archivado.",
           "Un administrador puede crear, renombrar, ordenar y quitar grupos en «Configuración» → «Listado de negocios» → «Columnas agrupadas», y elegir cuántas líneas se ven en la tabla. Después, cada persona elige qué grupos mostrar desde «Columnas».",
           "Las vistas guardadas se eligen en sus etiquetas. Usá «Administrar tus vistas» (ícono de tuerca) para editar filtros, duplicar o eliminar una vista; los administradores también pueden convertir una vista personal en vista del equipo.",
           "Los badges de filtros aplicados cambian solo el valor; el campo y la condición se mantienen. «Restablecer vista» quita la configuración activa y vuelve a las preferencias iniciales.",
@@ -980,8 +978,7 @@
           "Listado de negocios",
           "Columnas agrupadas",
           "Administrar tus vistas",
-          "Restablecer vista",
-          "Estado del negocio"
+          "Restablecer vista"
         ]
       }
     ]

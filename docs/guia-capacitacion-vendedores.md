@@ -37,7 +37,7 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 
 **Objetivo:** confirmar que cada registro es real antes de iniciar prospección.
 
-1. En la tabla o grilla, usá la columna/filtro **Revisados** para ver cuáles ya están comprobados y cuáles no. Esa columna es solo informativa: no cambia el Estado.
+1. En la tabla o grilla, usá la columna/filtro **Revisados** para ver cuáles ya están comprobados y cuáles no. El badge permite pasar de Nuevo a Revisado o volver a No revisado; status sigue siendo la única fuente de verdad.
 2. Abrí uno y comprobá que exista y corresponda al nombre/dirección. Contrastá fuentes oficiales cuando estén disponibles.
 3. Si es válido, registrá enlaces consultados y fecha de revisión. Cambiá el badge **Estado** a **Revisado** desde la lista o la ficha. También podés confirmar la revisión al iniciar una gestión.
 4. Si todavía no tenés certeza, dejalo **Nuevo** y anotá qué falta confirmar. No marques por intuición. Solo el responsable del negocio o un administrador puede cambiar su Estado.
@@ -145,13 +145,13 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 
 - En **Columnas**, podés agregar **WhatsApp**, **Teléfono de la persona** y **Email de la persona**. La búsqueda encuentra nombres, localidades y teléfonos sin importar las tildes; distingue **ñ** de **n**.
 - Las acciones de cada fila son iconos: **Abrir**, **Contactar** y **Más acciones**. Pasá el cursor o enfocá el icono para leer su ayuda.
-- Algunos badges se editan desde la tabla. El responsable del negocio o un administrador puede cambiar datos del negocio; **Responsable** solo lo cambia un administrador. Los campos de gestión requieren permiso para esa gestión. **Revisados** es solo un indicador; el Estado se cambia desde el badge **Estado**.
+- Algunos badges se editan desde la tabla. El responsable del negocio o un administrador puede cambiar datos del negocio; **Responsable** solo lo cambia un administrador. Los campos de gestión requieren permiso para esa gestión. **Revisados** cambia el Estado entre Nuevo y Revisado para quien puede modificar el negocio; status sigue siendo la única fuente de verdad.
 - En **Configuración → Listado de negocios → Columnas agrupadas**, el administrador puede armar grupos de datos que se apilan en una columna. En **Columnas**, cada persona elige qué grupos mostrar. La tabla se ordena por el primer dato del grupo; el administrador puede limitar las líneas visibles y el resto se abre con el botón **+N más** (por ejemplo, «+2 más»). En la grilla se ven todos los datos.
 - Los badges de filtros aplicados cambian el valor; no cambian el campo ni la condición.
 
 ## Guía del supervisor — simulación de 15 minutos
 
-1. Presentar un negocio precargado y pedir a la persona que lo busque, verifique y cambie el badge Estado a Revisado. Mostrar que la columna Revisados solo informa si ya se comprobó.
+1. Presentar un negocio precargado y pedir a la persona que lo busque, verifique y cambie el badge Estado a Revisado. Mostrar que el badge Revisados cambia entre Nuevo y Revisado y que status es la única fuente de verdad.
 2. Simular un primer contacto sin propuesta; pedirle que elija General y explique el propósito.
 3. Simular interés y pedirle que cree una gestión, sin registrar un contacto ficticio como real.
 4. Agendar una tarea para volver a llamar; revisar dónde aparece en Hoy.
