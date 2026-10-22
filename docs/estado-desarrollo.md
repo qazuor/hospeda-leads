@@ -1,5 +1,12 @@
 # Estado del CRM — corte al 21 de octubre de 2026
 
+## Acciones solo con icono y guías al día — 22/10/2026 (mergeado/en PR a `staging`, sin desplegar)
+
+- **#209 (mergeado a `staging`, `0e5d0fd`):** en Negocios, Abrir y Contactar pasan a botones solo con icono, con nombre accesible exacto y tooltip de propósito. La columna Acciones baja de 220 a 120 px; el layout de columnas pasa a v5 con una migración única (anchos guardados ≤ 220 → 120; mayores se conservan; después se respeta lo que elija el usuario). CI verde. El primer CI detectó que el foco no volvía a Contactar al cerrar el diálogo (el tooltip se montaba/desmontaba); se corrigió dejando el tooltip siempre montado.
+- **Guías (`docs/guides-sync`):** auditoría de `src/content/user-guide.json`, `docs/guia-de-uso.md` (regenerada) y `docs/guia-capacitacion-vendedores.md` contra el código: Revisado como indicador de solo lectura (el estado real se cambia en Estado), recontacto al cerrar gestión con y sin fecha, Es cliente en No contactar solo admin, archivado de solo lectura para el responsable, columnas de contacto, búsqueda sin tildes con ñ, acciones con icono, editores inline y columnas agrupadas con «+N más». Revisión con contexto nuevo: dos hallazgos corregidos. `prueba-con-principiantes.md` y `usability-validation.md` son históricos y no se tocaron.
+- Decisión del propietario: la columna y el filtro Revisado quedan de solo lectura por retrocompatibilidad; el estado lo cambia admin o responsable desde Estado.
+- Las secciones siguientes sobre #206–#208 describen trabajo que ya está mergeado a `staging` (#206, #207, #208), aunque su texto diga «local».
+
 ## Columnas agrupadas en Negocios — implementación local
 
 En `feat/business-table-group-columns` (PR #206) se implementó la columna agrupada para tabla y grilla, el editor en Configuración → Listado de negocios y el endpoint `/_api/business_column_groups`. Las definiciones usan `app_settings.business_list_column_groups_v1`; las semillas Tipo (id estable `classification`) y Contacto aparecen disponibles, pero no seleccionadas por defecto. Contacto incluye Persona de contacto, Teléfono, Teléfono de la persona, WhatsApp, Email y Email de la persona; Medio preferido queda afuera. Las preferencias aceptan IDs `group:<id>` y sólo quitan referencias a grupos eliminados después de cargar correctamente las definiciones. No hay actualización en vivo en otras pestañas.
