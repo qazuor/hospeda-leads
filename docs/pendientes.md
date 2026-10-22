@@ -2,7 +2,7 @@
 
 ## Columnas agrupadas de Negocios
 
-La implementación está en `feat/business-table-group-columns`, todavía sin PR. El coordinador debe correr `node --import tsx scripts/test-business-column-groups.ts` sobre una base descartable y `tests/browser/business-column-groups.e2e.ts` con el build/servidor de navegador del flujo CI. Esta tarea no ejecutó integración ni e2e y no escribió en ninguna base.
+La implementación está en `feat/business-table-group-columns` (PR #206). El blocker de revisión sobre podar preferencias antes de resolver las definiciones quedó corregido localmente y validado con typecheck, suite unitaria completa y build. Falta correr `node --import tsx scripts/test-business-column-groups.ts` sobre una base descartable y `tests/browser/business-column-groups.e2e.ts` con el build/servidor de navegador del flujo CI; esta tarea no ejecutó integración ni e2e ni escribió en ninguna base. No se hizo commit ni push.
 
 ## Tras la revisión de UX (21/10/2026)
 
