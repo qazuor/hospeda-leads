@@ -1,5 +1,9 @@
 # Pendientes y próximo trabajo
 
+## Columnas agrupadas de Negocios
+
+La implementación está en `feat/business-table-group-columns` (PR #206). Los blockers de revisión sobre esperar las definiciones, resolver el sort visible y podar preferencias sin conocerlas quedaron corregidos localmente. Pasaron `npm run typecheck`, `npm test` (103 archivos, 809 pruebas) y `npm run build`. La spec de página cubre grupos demorados/fallidos, `aria-sort` y request fallback, ediciones pendientes, poda sólo de grupos faltantes y una escritura de preferencias al podar. Se extendió `tests/browser/business-column-groups.e2e.ts` con respuestas demoradas y fallidas en Negocios, pero no se ejecutó. Falta correr esa suite e2e y `node --import tsx scripts/test-business-column-groups.ts` sobre una base descartable. Esta tarea no ejecutó integración ni e2e ni escribió en ninguna base. No se hizo commit ni push.
+
 ## Tras la revisión de UX (21/10/2026)
 
 La revisión de UX y su tanda de seguimientos (#195–#201) están mergeadas en `staging` y **no** desplegadas ni promovidas a `main` (ver [estado](estado-desarrollo.md)). Seguimientos abiertos, verificados contra el código de `staging` al cierre salvo indicación. Lo que cerró la tanda de seguimientos está en [estado](estado-desarrollo.md) y en el [historial](historial-desarrollo.md): contacto de acompañamiento en No contactar (D4, #195), recontacto al cerrar y al reasignar (#196), marcadores JWT, estabilización de e2e, `line-clamp` y chip de lunes (#197), diálogos móviles, teclado, `viewport-fit` y áreas táctiles de 44 px (#198), índices de búsqueda, `doneToday`, consulta de historial compartida y aviso del tope de Hoy (#199), concurrencia de `task_save` (#200) y lectura de la gestión por el responsable de un negocio archivado (#201). `createResponse` ya estaba tipado (sin `sql<any>`).

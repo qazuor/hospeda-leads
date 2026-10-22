@@ -125,6 +125,11 @@ jobs:
         run: node --import tsx scripts/test-business-list-defaults.ts
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Business list grouped columns and permissions
+        if: steps.filter.outputs.code == 'true'
+        run: node --import tsx scripts/test-business-column-groups.ts
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Guided usability integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:usability

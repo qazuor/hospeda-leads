@@ -10,6 +10,7 @@ vi.mock('../components/Tooltip', () => ({
   TooltipContent: () => null,
   DisabledTooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
+vi.mock('../components/InlineBusinessBadge',()=>({InlineBusinessBadge:({field}:{field:string})=><span data-testid={'editor-'+field}>{field}</span>}));
 import { BusinessTableRow, dateCell, joinedValues } from './business-list';
 import { businessCountsSummary } from '../components/BusinessCard';
 
@@ -22,9 +23,10 @@ type RowProps = React.ComponentProps<typeof BusinessTableRow>;
 const row = { id: '-7', accountId: '7', nombre: 'Hotel Río', telefono: '343 555', email: 'rio@example.test', canModify: true, opportunityCount: 0, contactCount: 1 } as unknown as RowProps['row'];
 const columns = ['telefono', 'email'];
 const pins = {};
+const groups:RowProps['groups']=[];
 const onToggle = vi.fn(), onOpen = vi.fn();
 function Harness({ selected }: { tick: number; selected: boolean }) {
-  return <MantineProvider><table><tbody><BusinessTableRow row={row} columns={columns} pins={pins} selected={selected} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen} /></tbody></table></MantineProvider>;
+  return <MantineProvider><table><tbody><BusinessTableRow row={row} columns={columns} groups={groups} pins={pins} selected={selected} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen} /></tbody></table></MantineProvider>;
 }
 
 describe('BusinessTableRow', () => {
@@ -38,6 +40,13 @@ describe('BusinessTableRow', () => {
     view.rerender(<Harness tick={3} selected />);
     expect(tooltipRenders.count).toBe(initial * 2);
     expect((screen.getByRole('checkbox', { name: 'Seleccionar Hotel Río' }) as HTMLInputElement).checked).toBe(true);
+  });
+  it('renders configured member values stacked and keeps each inline editor',()=>{
+    const groupedRow={...row,tipo:'Hospedaje',subtipo:'Cabañas',commercialProfile:'Consolidado',canModify:true,canModifyManagement:true};
+    const group={id:'classification',name:'Clasificación',members:['tipo','subtipo','commercialProfile']};
+    render(<MantineProvider><table><tbody><BusinessTableRow row={groupedRow} columns={['group:classification']} groups={[group]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
+    expect(screen.getByTestId('editor-tipo')).toBeTruthy();expect(screen.getByTestId('editor-subtipo')).toBeTruthy();expect(screen.getByTestId('editor-commercialProfile')).toBeTruthy();
+    expect(screen.getByText('Vertical')).toBeTruthy();expect(screen.getByText('Subtipo')).toBeTruthy();expect(screen.getByText('Perfil comercial')).toBeTruthy();
   });
 });
 

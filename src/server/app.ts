@@ -1,6 +1,7 @@
 import {get as searchGET} from '../endpoints/search';
 import {mcpRoutes} from './mcp/routes';
 import {handle as businessListDefaults} from '../endpoints/business_list_defaults';
+import {handle as businessColumnGroups} from '../endpoints/business_column_groups';
 import {handle as businessDuplicateCheck} from '../endpoints/business_duplicate_check';
 import {handle as businessSystemViewConvert} from '../endpoints/business_system_view_convert';
 import {get as businessReassignmentGET,post as businessReassignmentPOST} from '../endpoints/business_reassignment';
@@ -113,6 +114,8 @@ app.get("/_api/leads_trash", (c) => h19(c.req.raw));
 app.get("/_api/live_version", (c) => h20(c.req.raw));
 app.get('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
 app.post('/_api/business_list_defaults',c=>businessListDefaults(c.req.raw));
+app.get('/_api/business_column_groups',c=>businessColumnGroups(c.req.raw));
+app.post('/_api/business_column_groups',c=>businessColumnGroups(c.req.raw));
 app.get('/_api/business/duplicate-check',c=>businessDuplicateCheck(c.req.raw));
 app.post('/_api/business_system_view_convert',c=>businessSystemViewConvert(c.req.raw));
 app.get('/_api/business_reassignment',c=>businessReassignmentGET(c.req.raw));
