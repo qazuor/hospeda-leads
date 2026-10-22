@@ -80,7 +80,10 @@ describe('BusinessListPage group definition availability',()=>{
   expect(setItem.mock.calls.filter(([key])=>key===preferenceKey(8))).toHaveLength(0);
   Object.defineProperty(window,'scrollY',{configurable:true,value:180});await act(async()=>leads.resolve({rows:[{id:'-1',accountId:'1',nombre:'Negocio visible',ciudad:'Colón',canModify:false,opportunityCount:0,contactCount:0}],total:1,page:1,pageSize:50,anchorPage:1,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}}));
   await waitFor(()=>expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences.columns).not.toContain('group:missing'));
-  expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).context).toMatchObject({page:1,scrollY:180,scrollX:24});expect(setItem.mock.calls.filter(([key])=>key===preferenceKey(8))).toHaveLength(1);setItem.mockRestore();
+  expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).context).toMatchObject({page:1,scrollY:180,scrollX:24});expect(setItem.mock.calls.filter(([key])=>key===preferenceKey(8))).toHaveLength(1);
+  fireEvent.click(Array.from(document.querySelectorAll('th')).find(header=>header.textContent?.includes('Ciudad'))!.querySelector('button')!);
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem(preferenceKey(8))!).preferences.sortBy).toBe('ciudad'));
+  expect(setItem.mock.calls.filter(([key])=>key===preferenceKey(8))).toHaveLength(2);setItem.mockRestore();
  });
 
 });
