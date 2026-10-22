@@ -57,7 +57,7 @@ export async function get(request:Request){
         getOpportunityStages(db)
       ]);
       const dncPhones=await findDncPhoneBusinessesForPeople(db,contacts.map(c=>({id:c.id,phone:c.phone})),accountId);
-      return response({account,contacts:contacts.map(c=>({...c,dncPhoneBusinesses:dncPhones.get(String(c.id))??[]})),opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute(),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
+      return response({account,contacts:contacts.map(c=>({...c,dncPhoneBusinesses:dncPhones.get(String(c.id))??[]})),opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName","fullName"]).execute(),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
     }
     if((input.archived||input.deleted)&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados o eliminados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("deletedAt",input.deleted?"is not":"is",null);

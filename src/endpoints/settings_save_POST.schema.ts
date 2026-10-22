@@ -43,6 +43,7 @@ export const schema=z.discriminatedUnion("action",[
     vertical:z.string().nullable().optional(),
     managementType:z.enum(['main','partner','provider','editor','accompaniment']).nullable().optional(),
     commercialProfile:z.enum(["Independiente","Consolidado","Referente"]).nullable().optional()
+    ,purpose:z.enum(["verification","first_contact","resume","relationship","care","operations","other"]).nullable().optional()
   })
 ]);
 export type InputType=z.infer<typeof schema>;

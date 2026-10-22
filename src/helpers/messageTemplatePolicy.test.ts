@@ -23,4 +23,8 @@ describe('message template segmentation',()=>{
     expect(templateCompatibility({channel:'email',managementType:'partner'},{channel:'email'})).toBeNull();
     expect(orderTemplatesBySpecificity([{managementType:null,vertical:null,commercialProfile:null},{managementType:'partner',vertical:null,commercialProfile:null},{managementType:null,vertical:'Gastronomía',commercialProfile:'Referente'}]).map(t=>t.managementType??t.vertical??'general')).toEqual(['Gastronomía','partner','general']);
   });
+  it('filters templates when both selected and template purposes are set',()=>{
+    expect(templateCompatibility({channel:'email',purpose:'first_contact'},{channel:'email',purpose:'resume'})).toContain('propósito');
+    expect(templateCompatibility({channel:'email',purpose:'first_contact'},{channel:'email'})).toBeNull();
+  });
 });
