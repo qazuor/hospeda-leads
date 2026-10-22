@@ -27,6 +27,24 @@ test('admin creates a group, seller uses it, and deleting it preserves other col
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('hospeda-business-list-v1-user-2')??'null')?.preferences);expect(saved.columns).toContain('ciudad');expect(saved.columns).not.toContain('group:'+createdGroupId);
 });
 
+test('admin limits Tipo to two table lines and seller opens the remaining data',async({page})=>{
+ let role:'admin'|'user'='admin',groups=structuredClone(DEFAULT_BUSINESS_COLUMN_GROUPS);
+ const base=basePreferences(),defaults={preferences:{...base,columns:[...base.columns,'group:classification']},presets:[],initialPresetId:null};
+ const rows=[{id:'-1',accountId:'1',nombre:'Negocio de prueba',ciudad:'Colón',tipo:'Hospedaje',subtipo:'Cabañas',commercialProfile:'Consolidado',canModify:true,canModifyManagement:true,opportunityCount:0,contactCount:1}];
+ await page.route('**/_api/**',async route=>{const request=route.request(),url=new URL(request.url());let data:unknown={};let status=200;
+  if(url.pathname.endsWith('/auth/session'))data={user:{id:role==='admin'?11:12,email:role==='admin'?'admin@example.test':'seller@example.test',displayName:role==='admin'?'Admin':'Vendedora',role}};
+  else if(url.pathname.endsWith('/business_list_defaults'))data={defaults};
+  else if(url.pathname.endsWith('/business_column_groups')){if(request.method()==='POST'){if(role!=='admin')status=403;else groups=superjson.parse<BusinessColumnGroup[]>(request.postData()??'[]');data={ok:true};}else data={groups};}
+  else if(url.pathname.endsWith('/settings'))data={users:[],cities:['Colón'],types:['Hospedaje'],templates:[],subtypes:[{name:'Cabañas',typeName:'Hospedaje'}],authorizedEmails:[],opportunityStages:[]};
+  else if(url.pathname.endsWith('/leads'))data={rows,total:rows.length,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
+  else if(url.pathname.endsWith('/saved_views'))data={views:[]};else if(url.pathname.endsWith('/live_version'))data={versions:{}};
+  await route.fulfill({status,contentType:'application/json',body:superjson.stringify(data)});
+ });
+ await page.goto('/settings?section=businesses');await expect(page.getByRole('combobox',{name:'Líneas visibles de Tipo'})).toBeVisible();await page.getByRole('combobox',{name:'Líneas visibles de Tipo'}).selectOption('2');await page.getByRole('button',{name:'Guardar columnas agrupadas',exact:true}).click();await expect(page.getByText('Columnas agrupadas guardadas',{exact:true})).toBeVisible();expect(groups.find(group=>group.id==='classification')?.maxVisible).toBe(2);
+ role='user';await page.goto('/accounts');await expect(page.getByRole('columnheader',{name:/^Tipo Cambiar ancho de Tipo$/})).toBeVisible();const groupCell=page.getByRole('row').filter({hasText:'Negocio de prueba'}).locator('[data-group-cell]');await expect(groupCell).toContainText('Hospedaje');await expect(groupCell).toContainText('Cabañas');await expect(groupCell).not.toContainText('Perfil comercial');
+ const more=page.getByRole('button',{name:'Ver los 1 datos más de Tipo'});await expect(more).toHaveText('+1 más');await more.click();const popover=page.getByLabel('Datos de Tipo');await expect(popover).toContainText('Perfil comercial');await expect(popover).toContainText('Consolidado');await page.keyboard.press('Escape');await expect(popover).toHaveCount(0);await expect(more).toBeFocused();
+});
+
 test('Negocios stays available while grouped column definitions are delayed or fail',async({page})=>{
  const base=basePreferences(),stored={...base,columns:[...base.columns,'group:contact'],widths:{...base.widths,'group:contact':240},pins:{...base.pins,'group:contact':'left' as const},sortBy:'group:contact'};
  let holdGroups=true,failGroups=false,release!:()=>void;const groupGate=new Promise<void>(resolve=>release=resolve),sortRequests:string[]=[];

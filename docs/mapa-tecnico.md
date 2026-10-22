@@ -13,7 +13,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Contratos cliente/servidor | `src/endpoints/` (schemas Zod, tipos y serializers SuperJSON) |
 | Negocios/personas/gestiones | `src/endpoints/commercial.ts`, `commercial.schema.ts` |
 | Listado/proyección heredada compatible | `src/endpoints/leads_GET.ts`, `src/helpers/businessTable.ts` |
-| Columnas agrupadas de Negocios (definiciones y poda de preferencias) | `src/helpers/businessColumnGroups.ts`, `src/endpoints/business_column_groups.ts`, `src/components/BusinessColumnGroupsEditor.tsx`; preferencias en `businessListPreferences.ts` |
+| Columnas agrupadas de Negocios (definiciones, líneas visibles, popover de tabla y editor) | `src/helpers/businessColumnGroups.ts`, `src/endpoints/business_column_groups.ts`, `src/components/BusinessColumnGroupsEditor.tsx`, `src/components/BusinessColumnGroupCell.tsx`; renderizado de tabla/grilla en `src/pages/business-list.tsx`; preferencias en `businessListPreferences.ts` |
 | Trabajo y resultados | `src/endpoints/work.ts`, `work.schema.ts`, componentes de trabajo |
 | Pipeline/etapas/acuerdos | `src/endpoints/pipeline.ts`, helpers y schemas correspondientes |
 | Comunicación | `src/endpoints/communication.ts`, selector/editor compartido y componentes de modelos |

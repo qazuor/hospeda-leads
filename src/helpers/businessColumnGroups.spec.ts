@@ -1,6 +1,6 @@
 import {afterEach,describe,expect,it} from 'vitest';
 import {basePreferences,listPreferencesSchema} from './businessListPreferences';
-import {businessColumnGroupsSchema,DEFAULT_BUSINESS_COLUMN_GROUPS,pruneDeletedGroupPreferences,resolveBusinessColumnGroups,resolveBusinessColumnSort} from './businessColumnGroups';
+import {businessColumnGroupVisibleCount,businessColumnGroupsSchema,clampBusinessColumnGroup,DEFAULT_BUSINESS_COLUMN_GROUPS,pruneDeletedGroupPreferences,resolveBusinessColumnGroups,resolveBusinessColumnSort} from './businessColumnGroups';
 import {viewPreferencesFingerprint} from './businessViewSelection';
 
 describe('business column groups',()=>{
@@ -16,6 +16,21 @@ describe('business column groups',()=>{
   expect(DEFAULT_BUSINESS_COLUMN_GROUPS[0]).toEqual({id:'classification',name:'Tipo',members:['tipo','subtipo','commercialProfile']});
   expect(DEFAULT_BUSINESS_COLUMN_GROUPS[1].members).toEqual(['contactName','telefono','contactPhone','whatsapp','email','contactEmail']);
   expect(DEFAULT_BUSINESS_COLUMN_GROUPS[1].members).not.toContain('medioContactoPreferido');
+ });
+ it('keeps old definitions valid and validates optional visible line limits',()=>{
+  const oldValue=[{id:'old',name:'Viejo',members:['tipo','subtipo','commercialProfile']}];
+  expect(businessColumnGroupsSchema.parse(oldValue)).toEqual(oldValue);
+  expect(businessColumnGroupsSchema.safeParse([{...oldValue[0],maxVisible:1}]).success).toBe(true);
+  for(const maxVisible of [0,7,1.5])expect(businessColumnGroupsSchema.safeParse([{...oldValue[0],maxVisible}]).success).toBe(false);
+  expect(businessColumnGroupsSchema.safeParse([{...oldValue[0],maxVisible:4}]).success).toBe(false);
+  expect(DEFAULT_BUSINESS_COLUMN_GROUPS.every(group=>group.maxVisible===undefined)).toBe(true);
+ });
+ it('clamps a saved line count after member removal and treats Todos as all members',()=>{
+  const group={...DEFAULT_BUSINESS_COLUMN_GROUPS[0],maxVisible:3};
+  const shortened={...group,members:group.members.slice(0,2)} as typeof group;
+  expect(businessColumnGroupVisibleCount(shortened)).toBe(2);
+  expect(clampBusinessColumnGroup(shortened)).toEqual({...shortened,maxVisible:2});
+  expect(businessColumnGroupVisibleCount(DEFAULT_BUSINESS_COLUMN_GROUPS[0])).toBe(3);
  });
  it('accepts unknown group keys without resetting other preferences and prunes deleted group references',()=>{
   const preferences=listPreferencesSchema.parse({...basePreferences(),columns:['nombre','group:deleted','ciudad','actions'],widths:{...basePreferences().widths,'group:deleted':260,ciudad:177},pins:{actions:'right','group:deleted':'left'},sortBy:'group:deleted'});
