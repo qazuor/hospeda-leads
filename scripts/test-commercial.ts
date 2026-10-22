@@ -271,13 +271,13 @@ try{
   const leadColumns=(await sql<{columnName:string}>`select column_name from information_schema.columns where table_schema='public' and table_name='leads' order by ordinal_position`.execute(db)).rows.map(r=>r.columnName);
   assert.deepEqual([...BUSINESS_PROJECTION_LEAD_COLUMNS],leadColumns,'businessTable.ts must list every leads column in table order');
   const projectionColumns=Object.keys((await db.selectFrom(businessTableSource().as('p')).selectAll().limit(1).execute())[0]??{});
-  if(projectionColumns.length)assert.deepEqual(projectionColumns,[...leadColumns.map(c=>c.replace(/_([a-z0-9])/g,(_,x)=>x.toUpperCase())),'businessStatus']);
+  if(projectionColumns.length)assert.deepEqual(projectionColumns,[...leadColumns.map(c=>c.replace(/_([a-z0-9])/g,(_,x)=>x.toUpperCase())),'whatsapp','contactPhone','contactEmail','businessStatus']);
   const token=`Proyección ${suffix}`;const projected:string[]=[];
   for(let i=0;i<12;i++)projected.push((await db.insertInto('crmAccounts').values({nombre:`${token} ${String(i).padStart(2,'0')}`,assignedUserEmail:user.email}).returning('id').executeTakeFirstOrThrow()).id);
   const day=(offset:number)=>new Date(Date.UTC(2026,0,10+offset,15));
   for(let i=0;i<9;i++)await db.insertInto('crmActivities').values({accountId:projected[i],typeId:'call',title:'Llamada',occurredAt:day(i%5)}).execute();
   await db.insertInto('crmActivities').values({accountId:projected[0],typeId:'call',title:'Borrada',occurredAt:day(30),deletedAt:new Date()}).execute();
-  await db.insertInto('crmContacts').values([{accountId:projected[1],name:'Zoe Secundaria',isPrimary:false},{accountId:projected[1],name:'Íñigo Núñez',isPrimary:true},{accountId:projected[2],name:'Ana Única',isPrimary:false}]).execute();
+  await db.updateTable('crmAccounts').set({whatsapp:'5493447000001'}).where('id','=',projected[1]).execute();await db.insertInto('crmContacts').values([{accountId:projected[1],name:'Zoe Secundaria',phone:'222',email:'zoe@example.com',isPrimary:false},{accountId:projected[1],name:'Íñigo Núñez',phone:'111',email:'inigo@example.com',isPrimary:true},{accountId:projected[2],name:'Ana Única',phone:'333',email:'ana@example.com',isPrimary:false}]).execute();
   await db.insertInto('crmTasks').values([{accountId:projected[3],title:'Después',typeId:'call',dueDate:'2026-02-10',assignedUserEmail:user.email},{accountId:projected[3],title:'Antes',typeId:'call',dueDate:'2026-02-05',assignedUserEmail:user.email},{accountId:projected[4],title:'Borrada',typeId:'call',dueDate:'2026-01-01',deletedAt:new Date()}]).execute();
   const pageOf=(page:number,extra='')=>businesses(`q=${encodeURIComponent(token)}&pageSize=10&sortBy=fechaUltimoContacto&sortDir=desc&page=${page}${extra}`);
   const [pageOne,pageTwo]=[await pageOf(1),await pageOf(2)];
@@ -289,7 +289,7 @@ try{
   assert.equal(calendarDay(rowOf(0).fechaUltimoContacto),'2026-01-10','Deleted activities do not count as contact');
   assert.equal(rowOf(9).fechaUltimoContacto,null);assert.equal(rowOf(1).contactName,'Íñigo Núñez');assert.equal(rowOf(2).contactName,'Ana Única');
   assert.equal(calendarDay(rowOf(3).fechaProximaAccion),'2026-02-05');assert.equal(rowOf(3).nextActionTitle,'Antes');assert.equal(rowOf(4).fechaProximaAccion,null);
-  assert.equal(rowOf(1).contactCount,2);assert.equal(rowOf(0).contactCount,0);
+  assert.equal(rowOf(1).contactCount,2);assert.equal(rowOf(0).contactCount,0);assert.equal(rowOf(1).whatsapp,'5493447000001');assert.equal(rowOf(1).contactPhone,'111');assert.equal(rowOf(1).contactEmail,'inigo@example.com');assert.equal(rowOf(2).contactPhone,'333','First active contact is used when none is primary');
   const contacted=await pageOf(1,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'fechaUltimoContacto',operator:'not_empty'}]}])));
   assert.equal(contacted.total,9);assert.equal(contacted.rows.length,9);
   const accentless=await pageOf(1,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'contactName',operator:'contains',value:'IÑIGO NUÑEZ'},{field:'contactName',operator:'contains',value:'ANA UNICA'}]}])));

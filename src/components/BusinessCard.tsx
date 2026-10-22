@@ -12,8 +12,8 @@ import styles from './BusinessCard.module.css';
 
 type Business=OutputType['rows'][number];
 const metadata=new Set(['assignedUserEmail','ciudad','tipo','subtipo','commercialProfile','medioContactoPreferido']);
-const contactFields=new Set(['telefono','email','sitioWeb','urlGmap','perfilInstagram','perfilFacebook','perfilAirbnb','perfilBooking','perfilTurismoEntreRios']);
-const icons:Record<string,typeof Tag>={assignedUserEmail:UserRound,ciudad:MapPin,tipo:Tag,subtipo:Tag,commercialProfile:Tag,medioContactoPreferido:Phone,telefono:Phone,email:AtSign,urlGmap:MapPin,fechaProximaAccion:ArrowRight,fechaCreacion:CalendarDays,fechaUltimoContacto:CalendarDays,createdAt:CalendarDays,updatedAt:CalendarDays};
+const contactFields=new Set(['telefono','email','contactPhone','contactEmail','whatsapp','sitioWeb','urlGmap','perfilInstagram','perfilFacebook','perfilAirbnb','perfilBooking','perfilTurismoEntreRios']);
+const icons:Record<string,typeof Tag>={assignedUserEmail:UserRound,ciudad:MapPin,tipo:Tag,subtipo:Tag,commercialProfile:Tag,medioContactoPreferido:Phone,telefono:Phone,contactPhone:Phone,email:AtSign,contactEmail:AtSign,whatsapp:Phone,urlGmap:MapPin,fechaProximaAccion:ArrowRight,fechaCreacion:CalendarDays,fechaUltimoContacto:CalendarDays,createdAt:CalendarDays,updatedAt:CalendarDays};
 /** Fields a seller needs at a glance on a phone; the rest sit behind "Ver más datos". */
 const primary=new Set(['ciudad','businessStatus','estado','fechaProximaAccion','telefono','whatsapp']);
 /** "1 gestión · 1 persona · Cliente"; `always` keeps zero counts (table cell), otherwise zero parts are omitted (card). */
