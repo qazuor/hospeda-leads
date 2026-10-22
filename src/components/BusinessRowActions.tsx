@@ -3,6 +3,7 @@ import {useNavigate} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
 import {Archive,MoreHorizontal,Eye,MessageCircle,LoaderCircle,Trash2} from 'lucide-react';
 import {Button} from './Button';
+import {Tooltip,TooltipContent,TooltipTrigger} from './Tooltip';
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger} from './DropdownMenu';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './Dialog';
 import {BusinessContactDialog} from './BusinessContactDialog';
@@ -30,9 +31,11 @@ export function BusinessRowActions({accountId,name,canModify,admin,onOpen}:{acco
  // Sellers without modify rights would get a menu with only a disabled item: disable the trigger instead.
  const menuEmpty=!admin&&!canModify;
  const pick=(next:'contact')=>(event:React.MouseEvent<HTMLButtonElement>)=>{actionTrigger.current=event.currentTarget;setAction(next);};
+ const openButton=<Button size="icon-sm" variant="outline" className={styles.action} aria-label="Abrir" disabled={!!action} disabledReason={busyReason} onClick={event=>{actionTrigger.current=event.currentTarget;onOpen();}}><Eye size={15} aria-hidden="true"/></Button>;
+ const contactButton=<Button size="icon-sm" variant="outline" className={styles.action} aria-label="Contactar" disabled={!canModify||!!action} disabledReason={contactReason} onClick={pick('contact')}>{pending&&action==='contact'?<LoaderCircle size={15} className={styles.spinner} aria-hidden="true"/>:<MessageCircle size={15} aria-hidden="true"/>}</Button>;
  return <><div className={styles.actions} role="group" aria-label={'Acciones de '+name}>
-  <Button size="sm" variant="outline" className={styles.action} disabled={!!action} disabledReason={busyReason} title="Abrir negocio" onClick={event=>{actionTrigger.current=event.currentTarget;onOpen();}}><Eye size={15} aria-hidden="true"/>Abrir</Button>
-  <Button size="sm" variant="outline" className={styles.action} disabled={!canModify||!!action} disabledReason={contactReason} title="Contactar: elegir gestión, canal y mensaje" onClick={pick('contact')}>{pending&&action==='contact'?<LoaderCircle size={15} className={styles.spinner} aria-hidden="true"/>:<MessageCircle size={15} aria-hidden="true"/>}Contactar</Button>
+  {!!action?openButton:<Tooltip><TooltipTrigger asChild>{openButton}</TooltipTrigger><TooltipContent>Abrir negocio</TooltipContent></Tooltip>}
+  {!canModify||!!action?contactButton:<Tooltip><TooltipTrigger asChild>{contactButton}</TooltipTrigger><TooltipContent>Contactar: elegir gestión, canal y mensaje</TooltipContent></Tooltip>}
   <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" className={styles.more} aria-label={'Más acciones de '+name} data-row-more title="Más acciones" disabled={!!action||menuEmpty} disabledReason={action?busyReason:trashReason} onClick={event=>{actionTrigger.current=event.currentTarget;}}><MoreHorizontal size={18} aria-hidden="true"/></Button></DropdownMenuTrigger>
    <DropdownMenuContent align="end">
     {admin&&<><DropdownMenuItem onClick={()=>setAction('archive')} title="Negocio válido que no se trabajará ahora. Conserva datos y tareas; solo un administrador puede recuperarlo."><Archive size={15} aria-hidden="true"/>Archivar negocio…</DropdownMenuItem><DropdownMenuSeparator/></>}
