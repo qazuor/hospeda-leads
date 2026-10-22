@@ -1,4 +1,6 @@
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
@@ -43,10 +45,25 @@ describe('BusinessTableRow', () => {
   });
   it('renders configured member values stacked and keeps each inline editor',()=>{
     const groupedRow={...row,tipo:'Hospedaje',subtipo:'Cabañas',commercialProfile:'Consolidado',canModify:true,canModifyManagement:true};
-    const group={id:'classification',name:'Clasificación',members:['tipo','subtipo','commercialProfile']};
+    const group={id:'classification',name:'Tipo',members:['tipo','subtipo','commercialProfile']};
     render(<MantineProvider><table><tbody><BusinessTableRow row={groupedRow} columns={['group:classification']} groups={[group]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
     expect(screen.getByTestId('editor-tipo')).toBeTruthy();expect(screen.getByTestId('editor-subtipo')).toBeTruthy();expect(screen.getByTestId('editor-commercialProfile')).toBeTruthy();
-    expect(screen.getByText('Vertical')).toBeTruthy();expect(screen.getByText('Subtipo')).toBeTruthy();expect(screen.getByText('Perfil comercial')).toBeTruthy();
+    for(const label of ['Vertical','Subtipo','Perfil comercial'])expect(screen.getByText(label).className).toContain('groupMemberLabel');
+  });
+  it('renders an empty member as a dash and keeps its inline editor available',()=>{
+    const group={id:'classification',name:'Tipo',members:['tipo','subtipo','commercialProfile']};
+    render(<MantineProvider><table><tbody><BusinessTableRow row={{...row,tipo:'Hospedaje',subtipo:null,commercialProfile:null,canModify:true,canModifyManagement:true}} columns={['group:classification']} groups={[group]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
+    expect(screen.getByText('Subtipo').className).toContain('groupMemberLabel');expect(screen.getByTestId('editor-subtipo')).toBeTruthy();expect(screen.getByTestId('editor-commercialProfile')).toBeTruthy();
+  });
+  it('keeps an empty group member visible as a dash when it is not editable',()=>{
+    const group={id:'contact',name:'Contacto',members:['contactName','telefono']};
+    render(<MantineProvider><table><tbody><BusinessTableRow row={{...row,contactName:'Ana',telefono:null,canModify:false}} columns={['group:contact']} groups={[group]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
+    expect(screen.getByText('Persona de contacto')).toBeTruthy();expect(screen.getByText('Teléfono')).toBeTruthy();expect(screen.getByText('Ana')).toBeTruthy();expect(screen.getByText('—')).toBeTruthy();
+  });
+  it('defines compact labels and single-line ellipsis for group values and editors',()=>{
+    const css=readFileSync(resolve(__dirname,'business-list.module.css'),'utf8');
+    expect(css).toMatch(/\.groupMemberLabel\{[^}]*font-size:10px/);expect(css).toMatch(/\.groupMemberLabel\{[^}]*white-space:nowrap[^}]*overflow:hidden[^}]*text-overflow:ellipsis/);
+    expect(css).toMatch(/\.groupMember>div\{[^}]*white-space:nowrap[^}]*overflow:hidden[^}]*text-overflow:ellipsis/);expect(css).toMatch(/\.groupMember button\{[^}]*max-width:100%/);expect(css).not.toMatch(/\.groupMember button\{[^}]*overflow:hidden/);expect(css).toMatch(/\.groupMember button:focus-visible\{outline-offset:-2px\}/);
   });
 });
 

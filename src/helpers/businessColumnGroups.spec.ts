@@ -11,9 +11,9 @@ describe('business column groups',()=>{
   expect(businessColumnGroupsSchema.safeParse([{id:'bad',name:'Bad',members:['nombre','nombre']}]).success).toBe(false);
   expect(businessColumnGroupsSchema.safeParse([...DEFAULT_BUSINESS_COLUMN_GROUPS,...DEFAULT_BUSINESS_COLUMN_GROUPS]).success).toBe(false);
  });
- it('provides editable classification and contact seeds, excluding preferred contact method',()=>{
+ it('provides editable type and contact seeds, excluding preferred contact method',()=>{
   expect(resolveBusinessColumnGroups(null)).toEqual(DEFAULT_BUSINESS_COLUMN_GROUPS);
-  expect(DEFAULT_BUSINESS_COLUMN_GROUPS[0]).toEqual({id:'classification',name:'Clasificación',members:['tipo','subtipo','commercialProfile']});
+  expect(DEFAULT_BUSINESS_COLUMN_GROUPS[0]).toEqual({id:'classification',name:'Tipo',members:['tipo','subtipo','commercialProfile']});
   expect(DEFAULT_BUSINESS_COLUMN_GROUPS[1].members).toEqual(['contactName','telefono','contactPhone','whatsapp','email','contactEmail']);
   expect(DEFAULT_BUSINESS_COLUMN_GROUPS[1].members).not.toContain('medioContactoPreferido');
  });

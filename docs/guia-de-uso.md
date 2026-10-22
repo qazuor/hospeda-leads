@@ -632,7 +632,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 1. Entrá en «Negocios» y buscá por nombre. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual.
 2. Tocá «Filtrar negocios» y revisá los filtros aplicados. «Guardar como vista» conserva la búsqueda, los filtros, el orden y las columnas.
 3. Abrí «Columnas» para elegir y ordenar los datos que ves. La columna de selección queda primera y fija a la izquierda.
-4. También podés elegir una columna agrupada para ver varios datos apilados. Cada dato conserva su edición; el grupo se ordena por el primero y los filtros siguen siendo individuales.
+4. También podés elegir una columna agrupada, como Tipo, para ver varios datos apilados. Los datos largos se acortan en pantalla; enfocá o tocá el valor para consultar el texto completo. Los miembros vacíos muestran un guion y, si tenés permiso, podés editarlos desde ahí. Cada dato conserva su edición; el grupo se ordena por el primero y los filtros siguen siendo individuales.
 5. Un administrador puede crear, renombrar, ordenar y quitar grupos en «Configuración» → «Listado de negocios», en la sección «Columnas agrupadas». Los grupos disponibles no se muestran hasta que alguien los elija en «Columnas».
 6. Las vistas guardadas se eligen en sus etiquetas. Usá «Administrar tus vistas» (el ícono de la tuerca) para editar sus filtros, duplicar o eliminar una vista; los administradores también pueden convertir una vista personal en vista del equipo.
 7. «Restablecer vista» quita la configuración activa y vuelve a las preferencias iniciales.
