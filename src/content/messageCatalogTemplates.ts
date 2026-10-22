@@ -23,14 +23,13 @@ type Base = {
   purpose: ContactPurpose;
   managementType: ManagementType | null;
   subject: string;
-  /** Email blocks: can be longer and use bold, lists and links. Farewell and signature are appended. */
+  /** Email blocks: can be longer and use bold, lists and links. The farewell is appended; the signature comes from the email layout. */
   email: string[];
   /** WhatsApp and Instagram blocks: very short, one idea per block. Instagram drops the bold on copy. */
   chat: string[];
 };
 
 const CHANNEL_LABELS: Record<CatalogChannel, string> = { email: "Email", whatsapp: "WhatsApp", social: "Instagram" };
-const SIGNATURE = "{{sender}}<br>{{sender_email}} · {{telefono_hospeda}}<br>Equipo Hospeda";
 const EMAIL_OPENING = ["{{saludo}}", "{{presentacion}}"];
 const CHAT_OPENING = "{{saludo}} {{presentacion}}";
 const link = (key: string) => `<a href="{{${key}}}">{{${key}}}</a>`;
@@ -57,7 +56,7 @@ const BASES: Base[] = [
       `Toda la información está acá: ${link("link_presentacion")}`,
       "{{pregunta_presentacion}}",
     ],
-    chat: [CHAT_OPENING, "Me comunico por {{name}}. {{etapa_corta}}", "{{propuesta_corta}}", "{{pregunta_presentacion}}"],
+    chat: [CHAT_OPENING, "Me comunico por {{name}}. {{etapa_corta}}", "{{propuesta_corta}}", "<strong>{{prueba_corta}}</strong>", "{{pregunta_presentacion}}"],
   },
   {
     label: "Primer contacto · Aliados", purpose: "first_contact", managementType: "partner", subject: "Programa de aliados de Hospeda",
@@ -150,5 +149,5 @@ export const MESSAGE_CATALOG_TEMPLATES: CatalogTemplate[] = BASES.flatMap(base =
   purpose: base.purpose,
   managementType: base.managementType,
   subject: channel === "email" ? base.subject : null,
-  body: channel === "email" ? html([...base.email, "{{despedida}}", SIGNATURE]) : html(base.chat),
+  body: channel === "email" ? html([...base.email, "{{despedida}}"]) : html(base.chat),
 })));

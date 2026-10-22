@@ -1,3 +1,4 @@
+import { HOSPEDA_PHONE } from "../helpers/hospedaEmailLayout";
 import type { MessageVariableAlternative, MessageVariableCondition, MessageVariableDefinition } from "../helpers/messageVariables";
 
 /**
@@ -137,7 +138,9 @@ const propuestaCorta = [
 ];
 
 /** Follows a bold "Para probarlo:" label, so it starts in lowercase. */
-const pruebaGratis = pool("prueba", {}, ["los primeros 30 días son gratis y no se pide tarjeta.", "hay 30 días de prueba sin costo y sin tarjeta.", "son 30 días gratis, sin cargar tarjeta."]);
+const pruebaGratis = pool("prueba", {}, ["los primeros 30 días son sin costo y no se pide tarjeta.", "hay 30 días de prueba sin costo y sin tarjeta.", "son 30 días sin costo, sin cargar tarjeta."]);
+/** The hook of the chat first contact: the trial, without the word "gratis" (it reads as spam in a cold message). */
+const pruebaCorta = pool("prueba-corta", {}, ["Hay 30 días de prueba sin costo.", "Se puede probar 30 días sin costo.", "La prueba es de 30 días, sin costo."]);
 
 /** Follows a bold "Nos ocupamos de la carga:" label, so it starts in lowercase. */
 const ayudaFicha = [
@@ -175,7 +178,7 @@ const propuestaEditores = pool("editores", {}, [
 const preguntaPresentacion = [
   ...pool("pregunta-presentacion-vos", { commercialProfiles: VOS }, ["¿Te cuento cómo funciona?", "¿Te interesa que te pase más información?", "¿Te parece si lo charlamos un rato?"]),
   ...pool("pregunta-presentacion-consolidado", { commercialProfiles: ["Consolidado"] }, ["¿Les interesa que les comparta más información?", "¿Les parece si lo charlamos un rato?", "¿Les cuento cómo funciona?"]),
-  ...pool("pregunta-presentacion-referente", { commercialProfiles: ["Referente"] }, ["¿Con quién podríamos coordinar una breve charla para presentarles la propuesta?", "¿Les parece si coordinamos una charla corta para contarles la propuesta?"]),
+  ...pool("pregunta-presentacion-referente", { commercialProfiles: ["Referente"] }, ["¿Con quién podríamos coordinar una charla breve?", "¿Les parece si coordinamos una charla corta?"]),
 ];
 const preguntaRetomar = [
   ...pool("pregunta-retomar-vos", { commercialProfiles: VOS }, ["¿Pudiste verlo? Si te sirve, lo charlamos cuando te quede cómodo.", "¿Querés que lo retomemos? Te cuento lo que necesites.", "¿Te parece si lo retomamos esta semana?"]),
@@ -209,6 +212,7 @@ export const MESSAGE_CATALOG_VARIABLES: MessageVariableDefinition[] = [
   text("propuesta_valor", "Propuesta de valor", "Para email: qué tendría el negocio según su rubro y perfil.", propuestaValor),
   text("propuesta_corta", "Propuesta de valor (corta)", "Para WhatsApp e Instagram: la propuesta en una línea.", propuestaCorta),
   text("prueba_gratis", "Prueba gratis", "Los 30 días de prueba sin tarjeta (va después de «Para probarlo:»).", pruebaGratis),
+  text("prueba_corta", "Prueba sin costo (corta)", "Para WhatsApp e Instagram: los 30 días de prueba en una línea.", pruebaCorta),
   text("ayuda_ficha", "Ayuda con la ficha", "Ofrece armar la ficha con el material del negocio (va después de «Nos ocupamos de la carga:»).", ayudaFicha),
   text("temporada", "Temporada", "Referencia a la temporada según el mes; vacía el resto del año.", temporada),
   text("propuesta_aliados", "Propuesta para aliados", "Programa de aliados (Partners).", propuestaAliados),
@@ -223,5 +227,5 @@ export const MESSAGE_CATALOG_VARIABLES: MessageVariableDefinition[] = [
   fixed("link_editores", "Presentación para editores", "Página de la colaboración editorial.", `${BASE}/editores/`),
   fixed("link_hospeda", "Sitio de Hospeda", "Sitio principal.", "https://hospeda.com.ar"),
   fixed("link_instagram", "Instagram de Hospeda", "Cuenta de Instagram.", "https://www.instagram.com/hospeda.com.ar/"),
-  fixed("telefono_hospeda", "Teléfono de Hospeda", "Teléfono comercial que usan todos los vendedores.", "3442 470650"),
+  fixed("telefono_hospeda", "Teléfono de Hospeda", "Teléfono comercial que usan todos los vendedores.", HOSPEDA_PHONE),
 ];

@@ -152,6 +152,7 @@ export function TemplatesContent(){
   const previewLead=(leadsQ.data?.rows??[]).find(lead=>String(lead.id)===previewLeadId);
   const previewOwner=previewLead?.assignedUserEmail?data?.users.find(user=>user.email===previewLead.assignedUserEmail):undefined;
   const sender=previewOwner?.fullName?.trim()||previewOwner?.displayName||(authState.type==="authenticated"?(authState.user.fullName?.trim()||authState.user.displayName):"Responsable asignado");
+  const senderEmail=previewOwner?.email??(authState.type==="authenticated"?authState.user.email:null);
   const example=!previewLeadId;
   const context=buildMessageTemplateContext({accountId:example?'template-preview':previewLead?.accountId??previewLead?.id??'template-preview',contactId:example?'sample':previewLead?.primaryContactId??null,name:example?'Ruca Lihuén':previewLead?.nombre,contact:example?'María':previewLead?.contactName,city:example?'Colón':previewLead?.ciudad,type:example?vertical||'Alojamiento':previewLead?.tipo,subtype:example?'Hotel':previewLead?.subtipo,phone:example?'3447 000000':previewLead?.telefono,email:example?'contacto@ejemplo.com':previewLead?.email,website:example?'https://ejemplo.com':previewLead?.sitioWeb,sender,senderShort:previewOwner?.displayName??sender,senderEmail:previewOwner?.email??(example&&authState.type==='authenticated'?authState.user.email:''),hospedaUrl:'',managementType:example?managementType:previewLead?.managementType,commercialProfile:previewLead?.commercialProfile,isClient:!!previewLead?.isClient,channel,purpose:purpose||null,variation});
   const messageVariables=data?.messageVariables??defaultMessageVariableSettings();
@@ -240,7 +241,7 @@ export function TemplatesContent(){
           </label>
           {channel==="whatsapp"
             ? <div className={styles.whatsappPreview} dangerouslySetInnerHTML={{__html:whatsappPreviewHtml||"El mensaje aparecerá acá."}}/>
-            : channel==='email'?<><div className={styles.subjectPreview}>{renderedSubject||"Sin asunto"}</div><iframe className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderedBody,senderName:sender,subject:renderedSubject||"Mensaje de Hospeda",vertical:previewLead?.tipo??vertical,commercialProfile:previewLead?.commercialProfile??profile})}/></>:<pre className={styles.readable}>{htmlToPlainText(renderedBody)||"El mensaje aparecerá acá."}</pre>}
+            : channel==='email'?<><div className={styles.subjectPreview}>{renderedSubject||"Sin asunto"}</div><iframe className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderedBody,senderName:sender,senderEmail,subject:renderedSubject||"Mensaje de Hospeda",vertical:previewLead?.tipo??vertical,commercialProfile:previewLead?.commercialProfile??profile})}/></>:<pre className={styles.readable}>{htmlToPlainText(renderedBody)||"El mensaje aparecerá acá."}</pre>}
         </aside>
       </div>
     </div>

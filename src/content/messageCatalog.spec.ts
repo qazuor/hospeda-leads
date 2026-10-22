@@ -51,7 +51,7 @@ describe('message catalog', () => {
         }
         expect(body.length, where).toBeGreaterThan(80);
         // Chats must be read at a glance, not skipped: short, and a cold first contact carries no links.
-        if (template.channel !== 'email') expect(body.length, where).toBeLessThan(template.purpose === 'operations' ? 500 : 420);
+        if (template.channel !== 'email') expect(body.length, where).toBeLessThan(template.purpose === 'operations' ? 500 : 450);
         if (template.channel !== 'email' && template.purpose === 'first_contact') expect(body, where).not.toMatch(/https?:/);
         if (contact) expect(body, where).not.toContain('María');
         expect(body, where).not.toMatch(USTEDES.has(profile ?? '') ? VOS_MARKERS : USTEDES_MARKERS);
