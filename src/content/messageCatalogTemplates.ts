@@ -32,6 +32,9 @@ type Base = {
 const CHANNEL_LABELS: Record<CatalogChannel, string> = { email: "Email", whatsapp: "WhatsApp", social: "Instagram" };
 const EMAIL_OPENING = ["{{saludo}}", "{{presentacion}}"];
 const CHAT_OPENING = "{{saludo}} {{presentacion}}";
+/** Follow-up messages: the business already knows what Hospeda is, so only the name. */
+const EMAIL_FOLLOW_UP = ["{{saludo}}", "{{presentacion_breve}}"];
+const CHAT_FOLLOW_UP = "{{saludo}} {{presentacion_breve}}";
 const link = (key: string) => `<a href="{{${key}}}">{{${key}}}</a>`;
 const MATERIAL = ["Fotos (la principal y algunas más)", "Una descripción breve", "Horarios y datos de contacto", "Redes o sitio web, si los hay"];
 const list = (items: readonly string[]) => `<ul>${items.map(item => `<li>${item}</li>`).join("")}</ul>`;
@@ -95,18 +98,18 @@ const BASES: Base[] = [
   },
   {
     label: "Retomar conversación", purpose: "resume", managementType: null, subject: "Retomando lo de {{name}} y Hospeda",
-    email: [...EMAIL_OPENING, "Retomo lo que hablamos sobre {{name}} y Hospeda.", "{{#if temporada}}{{temporada}}{{/if}}", `Dejo de nuevo la información: ${link("link_presentacion")}`, "{{pregunta_retomar}}"],
-    chat: [CHAT_OPENING, "Retomo lo que hablamos sobre {{name}}.", "{{pregunta_retomar}}"],
+    email: [...EMAIL_FOLLOW_UP, "Retomo lo que hablamos sobre {{name}} y Hospeda.", "{{#if temporada}}{{temporada}}{{/if}}", `Dejo de nuevo la información: ${link("link_presentacion")}`, "{{pregunta_retomar}}"],
+    chat: [CHAT_FOLLOW_UP, "Retomo lo que hablamos sobre {{name}}.", "{{pregunta_retomar}}"],
   },
   {
     label: "Relación y novedades", purpose: "relationship", managementType: null, subject: "Novedades de Hospeda",
-    email: [...EMAIL_OPENING, "Comparto novedades de Hospeda: seguimos sumando alojamientos, gastronomía y experiencias de la región.", "La idea es que quien viaja encuentre todo en un solo lugar.", `Lo nuevo se publica en ${link("link_hospeda")} y en Instagram: ${link("link_instagram")}`],
-    chat: [CHAT_OPENING, "Seguimos sumando alojamientos, gastronomía y experiencias de la región.", "Lo nuevo lo publicamos en Instagram: {{link_instagram}}", "{{despedida}}"],
+    email: [...EMAIL_FOLLOW_UP, "Comparto novedades de Hospeda: seguimos sumando alojamientos, gastronomía y experiencias de la región.", "La idea es que quien viaja encuentre todo en un solo lugar.", `Lo nuevo se publica en ${link("link_hospeda")} y en Instagram: ${link("link_instagram")}`],
+    chat: [CHAT_FOLLOW_UP, "Seguimos sumando alojamientos, gastronomía y experiencias de la región.", "Lo nuevo lo publicamos en Instagram: {{link_instagram}}", "{{despedida}}"],
   },
   {
     label: "Acompañamiento · Bienvenida", purpose: "care", managementType: "accompaniment", subject: "Bienvenida a Hospeda · {{name}}",
     email: [
-      ...EMAIL_OPENING,
+      ...EMAIL_FOLLOW_UP,
       "Gracias por sumar {{name}} a Hospeda.",
       "Para armar la ficha necesitamos:",
       list(MATERIAL),
@@ -114,28 +117,28 @@ const BASES: Base[] = [
       "<ol><li>Se crea la cuenta en Hospeda.</li><li>Armamos la ficha con ese material.</li><li>Al publicarla empiezan los 30 días de prueba.</li><li>Antes de que terminen, ayudamos a elegir el plan.</li></ol>",
       "Cualquier consulta, estamos en el {{telefono_hospeda}}.",
     ],
-    chat: [CHAT_OPENING, "Gracias por sumar {{name}} a Hospeda.", "Para armar la ficha necesitamos fotos, una descripción breve, horarios y datos de contacto.", "Al publicarla empiezan los 30 días de prueba.", "{{despedida}}"],
+    chat: [CHAT_FOLLOW_UP, "Gracias por sumar {{name}} a Hospeda.", "Para armar la ficha necesitamos fotos, una descripción breve, horarios y datos de contacto.", "Al publicarla empiezan los 30 días de prueba.", "{{despedida}}"],
   },
   {
     label: "Acompañamiento · Fin de la prueba", purpose: "care", managementType: "accompaniment", subject: "La prueba de {{name}} en Hospeda está por terminar",
     email: [
-      ...EMAIL_OPENING,
+      ...EMAIL_FOLLOW_UP,
       "La prueba de 30 días de {{name}} en Hospeda está por terminar.",
       "Para que la ficha siga visible, hay que elegir un plan desde la cuenta.",
       "Si no se elige ninguno, la ficha deja de verse, pero no se borra: vuelve a publicarse al elegir un plan.",
       `Si hace falta, ayudamos a elegir el plan que mejor se ajuste. Planes y detalles: ${link("link_presentacion")}`,
     ],
-    chat: [CHAT_OPENING, "La prueba de 30 días de {{name}} en Hospeda está por terminar.", "Para que la ficha siga visible hay que elegir un plan desde la cuenta. Si hace falta, ayudamos con eso.", "{{despedida}}"],
+    chat: [CHAT_FOLLOW_UP, "La prueba de 30 días de {{name}} en Hospeda está por terminar.", "Para que la ficha siga visible hay que elegir un plan desde la cuenta. Si hace falta, ayudamos con eso.", "{{despedida}}"],
   },
   {
     label: "Coordinación · Pedido de material", purpose: "operations", managementType: null, subject: "Material para la ficha de {{name}}",
-    email: [...EMAIL_OPENING, "Para avanzar con la ficha de {{name}} en Hospeda necesitamos este material:", list(MATERIAL), "Se puede enviar respondiendo este correo o por WhatsApp al {{telefono_hospeda}}."],
-    chat: [CHAT_OPENING, "Para avanzar con la ficha de {{name}} necesitamos:", chatList(MATERIAL), "Se puede enviar por acá.", "{{despedida}}"],
+    email: [...EMAIL_FOLLOW_UP, "Para avanzar con la ficha de {{name}} en Hospeda necesitamos este material:", list(MATERIAL), "Se puede enviar respondiendo este correo o por WhatsApp al {{telefono_hospeda}}."],
+    chat: [CHAT_FOLLOW_UP, "Para avanzar con la ficha de {{name}} necesitamos:", chatList(MATERIAL), "Se puede enviar por acá.", "{{despedida}}"],
   },
   {
     label: "Coordinación · Revisión de la ficha", purpose: "operations", managementType: null, subject: "Revisión de la ficha de {{name}}",
-    email: [...EMAIL_OPENING, "La ficha de {{name}} ya está armada{{#if hospeda_url}}: {{hospeda_url}}{{/if}}.", "Antes de publicarla conviene revisar que los datos y las fotos estén bien.", "Cualquier cambio, lo corregimos enseguida."],
-    chat: [CHAT_OPENING, "La ficha de {{name}} ya está armada{{#if hospeda_url}}: {{hospeda_url}}{{/if}}.", "Antes de publicarla conviene darle una mirada. Cualquier cambio, lo corregimos.", "{{despedida}}"],
+    email: [...EMAIL_FOLLOW_UP, "La ficha de {{name}} ya está armada{{#if hospeda_url}}: {{hospeda_url}}{{/if}}.", "Antes de publicarla conviene revisar que los datos y las fotos estén bien.", "Cualquier cambio, lo corregimos enseguida."],
+    chat: [CHAT_FOLLOW_UP, "La ficha de {{name}} ya está armada{{#if hospeda_url}}: {{hospeda_url}}{{/if}}.", "Antes de publicarla conviene darle una mirada. Cualquier cambio, lo corregimos.", "{{despedida}}"],
   },
 ];
 

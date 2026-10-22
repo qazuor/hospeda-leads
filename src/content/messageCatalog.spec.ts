@@ -59,6 +59,15 @@ describe('message catalog', () => {
     }
   }, 60_000);
 
+  it('only explains what Hospeda is in the first message to a business', () => {
+    for (const template of MESSAGE_CATALOG_TEMPLATES) {
+      const first = template.purpose === 'verification' || template.purpose === 'first_contact';
+      expect(template.body.includes('{{presentacion}}'), template.name).toBe(first);
+      expect(template.body.includes('{{presentacion_breve}}'), template.name).toBe(!first);
+      if (!first) expect(render(template, { profile: 'Independiente', contact: 'Ana', city: 'Colón', type: 'Alojamientos' }).body, template.name).not.toMatch(/plataforma|Litoral/);
+    }
+  });
+
   it('keeps destination phrases out of the opening and chats', () => {
     for (const template of MESSAGE_CATALOG_TEMPLATES) {
       if (template.channel !== 'email') expect(template.body, template.name).not.toContain('{{ref_ciudad}}');

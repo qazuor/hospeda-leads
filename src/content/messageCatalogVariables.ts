@@ -63,6 +63,13 @@ const presentacion = [
   ...pool("presentacion-social", { channel: "social" }, ["Soy {{sender_short}}, de Hospeda, la plataforma turística integral del Litoral.", "Acá {{sender_short}}, del equipo de Hospeda, la plataforma turística integral del Litoral.", "Mi nombre es {{sender_short}} y trabajo en Hospeda, la plataforma turística integral del Litoral."]),
 ];
 
+/** Short self-introduction for follow-ups (resume, news, care, operations): no description of Hospeda. */
+const presentacionBreve = [
+  ...pool("presentacion-breve-email", { channel: "email" }, ["Soy {{sender}}, de Hospeda.", "Soy {{sender}}, del equipo de Hospeda."]),
+  ...pool("presentacion-breve-whatsapp", { channel: "whatsapp" }, ["Soy {{sender_short}}, de Hospeda.", "Acá {{sender_short}}, de Hospeda.", "Soy {{sender_short}}, del equipo de Hospeda."]),
+  ...pool("presentacion-breve-social", { channel: "social" }, ["Soy {{sender_short}}, de Hospeda.", "Acá {{sender_short}}, de Hospeda.", "Soy {{sender_short}}, del equipo de Hospeda."]),
+];
+
 const queEsHospeda = pool("que-es-hospeda", {}, [
   "Hospeda, la plataforma turística integral del Litoral",
   "Hospeda, una plataforma turística integral del Litoral que reúne alojamientos, gastronomía y experiencias",
@@ -181,8 +188,8 @@ const preguntaPresentacion = [
   ...pool("pregunta-presentacion-referente", { commercialProfiles: ["Referente"] }, ["¿Con quién podríamos coordinar una charla breve?", "¿Les parece si coordinamos una charla corta?"]),
 ];
 const preguntaRetomar = [
-  ...pool("pregunta-retomar-vos", { commercialProfiles: VOS }, ["¿Pudiste verlo? Si te sirve, lo charlamos cuando te quede cómodo.", "¿Querés que lo retomemos? Te cuento lo que necesites.", "¿Te parece si lo retomamos esta semana?"]),
-  ...pool("pregunta-retomar-ustedes", { commercialProfiles: USTEDES }, ["¿Pudieron verlo? Si les sirve, lo charlamos cuando les quede cómodo.", "¿Quieren que lo retomemos? Les cuento lo que necesiten.", "¿Les parece si lo retomamos esta semana?"]),
+  ...pool("pregunta-retomar-vos", { commercialProfiles: VOS }, ["¿Pudiste verlo? Si te sirve, lo charlamos cuando te quede cómodo.", "¿Querés que lo veamos juntos? Te cuento lo que necesites.", "¿Te parece si lo charlamos esta semana?"]),
+  ...pool("pregunta-retomar-ustedes", { commercialProfiles: USTEDES }, ["¿Pudieron verlo? Si les sirve, lo charlamos cuando les quede cómodo.", "¿Quieren que lo veamos juntos? Les cuento lo que necesiten.", "¿Les parece si lo charlamos esta semana?"]),
 ];
 
 /** Variables that read CRM or system data. `business_status` and `is_client` stay out: they are conditions, never printed. */
@@ -204,7 +211,8 @@ const dataVariables: MessageVariableDefinition[] = [
 export const MESSAGE_CATALOG_VARIABLES: MessageVariableDefinition[] = [
   ...dataVariables,
   text("saludo", "Saludo", "Saludo según la hora, el perfil y si hay nombre de contacto.", saludo),
-  text("presentacion", "Presentación", "Quién escribe y qué es Hospeda, según el canal.", presentacion),
+  text("presentacion", "Presentación", "Para el primer mensaje (verificación y primer contacto): quién escribe y qué es Hospeda, según el canal.", presentacion),
+  text("presentacion_breve", "Presentación breve", "Para mensajes de seguimiento: solo quién escribe, sin volver a explicar Hospeda.", presentacionBreve),
   text("que_es_hospeda", "Qué es Hospeda", "Descripción breve de Hospeda (se usa dentro de la presentación).", queEsHospeda),
   text("ref_ciudad", "Referencia a la ciudad", "Cierra una frase del email con la localidad; los 22 destinos de Hospeda tienen frases propias.", refCiudad),
   text("etapa_hospeda", "Etapa de Hospeda", "Para email: explica con honestidad que Hospeda recién arranca y tiene poco tráfico.", etapaHospeda),
