@@ -1,10 +1,19 @@
+import { strictComparisonName } from "./dataNormalization";
+import { canonicalVertical } from "./verticalColors";
+
 export type MessageVariableCondition = {
-  vertical?: string | null;
+  verticals?: string[];
   businessType?: string | null;
   managementType?: string | null;
   dayPeriod?: "morning" | "afternoon" | "evening" | null;
   channel?: "email" | "whatsapp" | "social" | "other" | null;
   contactName?: "present" | "missing" | null;
+  cities?: string[];
+  commercialProfiles?: ("Independiente" | "Consolidado" | "Referente" | "none")[];
+  purpose?: import("./contactPurpose").ContactPurpose | null;
+  weekdays?: number[];
+  months?: number[];
+  isClient?: boolean | null;
 };
 
 export type MessageVariableAlternative = {
@@ -61,8 +70,7 @@ export const MESSAGE_VARIABLE_CRM_SOURCES = [
   ["name", "Nombre del negocio"], ["city", "Localidad"], ["type", "Vertical"],
   ["subtype", "Tipo de negocio"], ["contact", "Nombre del contacto"], ["email", "Email elegido"],
   ["phone", "Teléfono elegido"], ["website", "Sitio web"], ["sender", "Responsable asignado"],
-  ["sender_short", "Nombre corto del responsable"], ["hospeda_url", "Enlace a la ficha pública"],
-  ["business_status", "Estado del negocio"], ["is_client", "Marca Es cliente"],
+  ["sender_short", "Nombre corto del responsable"], ["sender_email", "Email del responsable"], ["hospeda_url", "Enlace a la ficha pública"],
 ] as const;
 
 export const MESSAGE_VARIABLE_SYSTEM_SOURCES = [
@@ -79,10 +87,7 @@ export function defaultMessageVariableSettings(): MessageVariableDefinition[] {
 }
 
 export function withDefaultMessageVariables(stored: unknown): MessageVariableDefinition[] {
-  const variables = stored == null ? [] : validateMessageVariables(stored);
-  const present = new Set(variables.map(variable => variable.key));
-  for (const variable of defaultMessageVariableSettings()) if (!present.has(variable.key)) variables.push(variable);
-  return variables;
+  return stored == null ? defaultMessageVariableSettings() : validateMessageVariables(stored);
 }
 
 export function validateMessageVariables(value: unknown): MessageVariableDefinition[] {
@@ -99,12 +104,11 @@ export function validateMessageVariables(value: unknown): MessageVariableDefinit
     const sourceKind = raw?.source?.kind;
     const sourceKey = String(raw?.source?.key ?? "");
     if (!["text", "crm", "system", "variable"].includes(sourceKind)) throw new Error(`La fuente de {{${key}}} no es válida.`);
-    if (sourceKind === "crm" && !MESSAGE_VARIABLE_CRM_SOURCES.some(([field]) => field === sourceKey)) throw new Error(`El campo CRM de {{${key}}} no está permitido.`);
+    if (sourceKind === "crm" && !MESSAGE_VARIABLE_CRM_SOURCES.some(([field]) => field === sourceKey) && !["business_status","is_client"].includes(sourceKey)) throw new Error(`El campo CRM de {{${key}}} no está permitido.`);
     if (sourceKind === "system" && !MESSAGE_VARIABLE_SYSTEM_SOURCES.some(([field]) => field === sourceKey)) throw new Error(`El dato del sistema de {{${key}}} no está permitido.`);
     if (sourceKind === "variable" && (!/^[a-z][a-z0-9_]{1,39}$/.test(sourceKey) || sourceKey === key)) throw new Error(`La referencia anidada de {{${key}}} no es válida.`);
     if (sourceKind === "text" && sourceKey !== "") throw new Error(`La fuente de texto de {{${key}}} debe quedar vacía.`);
     if (!Array.isArray(raw?.alternatives) || raw.alternatives.length > 100) throw new Error(`Las alternativas de {{${key}}} no son válidas.`);
-    const alternativeScopes = new Set<string>();
     const alternatives = raw.alternatives.map((item: any, index: number) => {
       const text = String(item?.text ?? "");
       if (!text.trim() || text.length > 4000) throw new Error(`La alternativa ${index + 1} de {{${key}}} necesita texto (máximo 4000 caracteres).`);
@@ -117,17 +121,27 @@ export function validateMessageVariables(value: unknown): MessageVariableDefinit
       if (channel && !["email", "whatsapp", "social", "other"].includes(channel)) throw new Error(`La condición de canal de {{${key}}} no es válida.`);
       const contactName = c.contactName || null;
       if (contactName && !["present", "missing"].includes(contactName)) throw new Error(`La condición de contacto de {{${key}}} no es válida.`);
+      const profileValues=Array.isArray(c.commercialProfiles)?c.commercialProfiles:c.commercialProfile?[c.commercialProfile]:[];
+      if(profileValues.some((profile:unknown)=>!['Independiente','Consolidado','Referente','none'].includes(String(profile))))throw new Error(`La condición de perfil comercial de {{${key}}} no es válida.`);
+      const commercialProfiles=[...new Set(profileValues.map(String))] as NonNullable<MessageVariableCondition['commercialProfiles']>;
+      const purpose=c.purpose||null;
+      if(purpose&&!['verification','first_contact','resume','relationship','care','operations','other'].includes(purpose))throw new Error(`La condición de propósito de {{${key}}} no es válida.`);
+      const cities=Array.isArray(c.cities)?c.cities.map((city:unknown)=>String(city).trim()).filter(Boolean):[];
+      const weekdays=Array.isArray(c.weekdays)?c.weekdays.map(Number):[];
+      const months=Array.isArray(c.months)?c.months.map(Number):[];
+      if(weekdays.some((day:number)=>!Number.isInteger(day)||day<0||day>6))throw new Error(`Los días de {{${key}}} deben estar entre 0 y 6.`);
+      if(months.some((month:number)=>!Number.isInteger(month)||month<1||month>12))throw new Error(`Los meses de {{${key}}} deben estar entre 1 y 12.`);
+      const verticalValues=Array.isArray(c.verticals)?c.verticals:c.vertical?[c.vertical]:[];
+      const verticals=[...new Set(verticalValues.map((vertical:unknown)=>String(vertical).trim().slice(0,100)).filter(Boolean))];
       const conditions = {
-        vertical: c.vertical ? String(c.vertical).slice(0, 100) : null,
+        verticals,
         businessType: c.businessType ? String(c.businessType).slice(0, 100) : null,
         managementType: c.managementType ? String(c.managementType).slice(0, 40) : null,
         dayPeriod,
         channel,
         contactName,
+        cities,commercialProfiles,purpose,weekdays,months,isClient:typeof c.isClient==='boolean'?c.isClient:null,
       };
-      const scope = JSON.stringify(conditions);
-      if (alternativeScopes.has(scope)) throw new Error(`{{${key}}} tiene dos textos para las mismas condiciones; cada combinación debe tener una sola variante.`);
-      alternativeScopes.add(scope);
       return { id: String(item?.id || `${key}-${index + 1}`).slice(0, 80), text, conditions };
     });
     return { key, label, description: String(raw?.description ?? "").slice(0, 500), source: { kind: sourceKind, key: sourceKind === "text" ? "" : sourceKey }, alternatives, active: raw?.active !== false } as MessageVariableDefinition;
@@ -145,7 +159,9 @@ export function systemTemplateContext(now = new Date()) {
       greeting: dayPeriod === "morning" ? "Buen día" : dayPeriod === "afternoon" ? "Buenas tardes" : "Buenas noches",
       hour: `${String(hour).padStart(2, "0")}:${parts.find(part => part.type === "minute")?.value ?? "00"}`,
       weekday: new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long" }).format(now),
+      weekdayIndex: Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Argentina/Buenos_Aires", weekday: "short" }).format(now).replace(/Sun|Mon|Tue|Wed|Thu|Fri|Sat/, match => String(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(match)))),
       month: new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", month: "long" }).format(now),
+      monthIndex: Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Argentina/Buenos_Aires", month: "numeric" }).format(now)),
       date: local.format(now),
     },
   };
@@ -166,18 +182,29 @@ export function resolveMessageVariables(context: Record<string, unknown>, defini
     resolved.add(key);
     const matches = variable.alternatives.flatMap((alternative, index) => {
       const c = alternative.conditions;
-      if (c.vertical && c.vertical !== String(fullContext.type ?? "")) return [];
+      if (c.verticals?.length && !c.verticals.some(vertical=>canonicalVertical(vertical)===canonicalVertical(String(fullContext.type??"")))) return [];
       if (c.businessType && c.businessType !== String(fullContext.subtype ?? "")) return [];
       if (c.managementType && c.managementType !== String(fullContext.managementType ?? "")) return [];
       if (c.dayPeriod && c.dayPeriod !== system.__dayPeriod) return [];
       if (c.channel && c.channel !== String(fullContext.channel ?? "")) return [];
       if (c.contactName === "present" && !String(fullContext.contact ?? "").trim()) return [];
       if (c.contactName === "missing" && String(fullContext.contact ?? "").trim()) return [];
-      const specificity = Number(!!c.vertical) + Number(!!c.businessType) + Number(!!c.managementType) + Number(!!c.dayPeriod) + Number(!!c.channel) + Number(!!c.contactName);
+      if(c.cities?.length&&!c.cities.some(city=>normalizeCity(city)===normalizeCity(String(fullContext.city??''))))return [];
+      if(c.commercialProfiles?.length&&!c.commercialProfiles.some(profile=>profile==='none'?!String(fullContext.commercialProfile??'').trim():profile===fullContext.commercialProfile))return [];
+      if(c.purpose&&c.purpose!==fullContext.purpose)return [];
+      if(c.weekdays?.length&&!c.weekdays.includes(Number(system.__system.weekdayIndex)))return [];
+      if(c.months?.length&&!c.months.includes(Number(system.__system.monthIndex)))return [];
+      if(typeof c.isClient==='boolean'&&c.isClient!==Boolean(fullContext.isClient))return [];
+      const specificity = Number(!!c.verticals?.length) + Number(!!c.businessType) + Number(!!c.managementType) + Number(!!c.dayPeriod) + Number(!!c.channel) + Number(!!c.contactName)+Number(!!c.cities?.length)+Number(!!c.commercialProfiles?.length)+Number(!!c.purpose)+Number(!!c.weekdays?.length)+Number(!!c.months?.length)+Number(typeof c.isClient==='boolean');
       return [{ alternative, specificity, index }];
-    }).sort((a, b) => b.specificity - a.specificity || a.index - b.index);
+    });
+    const max=matches.length?Math.max(...matches.map(item=>item.specificity)):-1;
+    const group=matches.filter(item=>item.specificity===max);
+    const previous=(fullContext.__previousPicks as Record<string,string>|undefined)?.[key];
+    const eligible=group.length>1&&previous?group.filter(item=>item.alternative.id!==previous):group;
+    const chosen=eligible.length?eligible[hashSeed(String(fullContext.__seed??'message-preview')+'\0'+key)%eligible.length]:undefined;
     let output = "";
-    if (matches.length) output = matches[0].alternative.text.replace(/{{([a-zA-Z0-9_]+)}}/g, (_, nestedKey) => resolve(nestedKey, depth + 1));
+    if (chosen) { output = chosen.alternative.text.replace(/{{([a-zA-Z0-9_]+)}}/g, (_, nestedKey) => resolve(nestedKey, depth + 1)); const picks=fullContext.__chosenPicks as Record<string,string>|undefined;if(picks)picks[key]=chosen.alternative.id; }
     else if (variable.source.kind === "crm") output = values[variable.source.key] ?? "";
     else if (variable.source.kind === "system") output = String((system.__system as any)[variable.source.key] ?? "");
     else if (variable.source.kind === "variable") output = resolve(variable.source.key, depth + 1);
@@ -187,3 +214,6 @@ export function resolveMessageVariables(context: Record<string, unknown>, defini
   for (const variable of active) values[variable.key] = resolve(variable.key);
   return values;
 }
+
+const normalizeCity=(value:string)=>strictComparisonName(value);
+const hashSeed=(value:string)=>{let hash=2166136261;for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619);}return hash>>>0;};

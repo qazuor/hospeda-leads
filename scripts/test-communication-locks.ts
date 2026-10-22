@@ -115,7 +115,7 @@ try{
    assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE account_id=${acc.id} AND action='do_not_contact_activated'`.execute(db)).rows[0].n),0,'response_create must see No contactar already active and not activate it again');}
   {const {acc,lead}=await business('Scope prepare');const t=await db.insertInto('messageTemplates').values({name:'Locks scope '+stamp,channel:'whatsapp',body:'<p>Hola {{name}}</p>'}).returningAll().executeTakeFirstOrThrow();const id=randomUUID();
    const r=await underLock('lead prepare',String(acc.id),trx=>trx.updateTable('crmAccounts').set({isClient:true}).where('id','=',acc.id).execute(),()=>call(post,{action:'prepare',id,leadId:lead.id,contactId:null,channel:'whatsapp',templateId:t.id}));assert.equal(r.status,200,r.data.error);
-   assert.equal((await sql<{v:string}>`SELECT template_snapshot->'context'->>'is_client' AS v FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].v,'Sí','prepare must render with the business state committed while it waited');}
+   assert.equal((await sql<{v:string}>`SELECT template_snapshot->'context'->>'isClient' AS v FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].v,'true','prepare must render with the business state committed while it waited');}
   console.log('Every communication action locks its business before checking it');}
 
  // 6. A subtype rename touching managements of a locked business waits instead of deadlocking.

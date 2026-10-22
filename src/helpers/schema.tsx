@@ -184,6 +184,7 @@ export interface MessageTemplates {
   body: string;
   channel: string;
   commercialProfile: string | null;
+  purpose: string | null;
   createdAt: Generated<Timestamp>;
   id: Generated<Int8>;
   managementType: string | null;

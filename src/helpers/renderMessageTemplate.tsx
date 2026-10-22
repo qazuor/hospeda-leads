@@ -14,6 +14,7 @@ export type TemplateContext={
   sender?:unknown;
   sender_short?:unknown;
   managementType?:unknown;
+  commercialProfile?:unknown;isClient?:unknown;purpose?:unknown;channel?:unknown;contact_first?:unknown;__seed?:unknown;__previousPicks?:Record<string,string>;__chosenPicks?:Record<string,string>;
 };
 
 const text=(value:unknown)=>value==null?"":String(value).trim();

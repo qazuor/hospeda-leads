@@ -15,6 +15,7 @@ import {sql} from "kysely";
 import superjson from "superjson";
 import { getOpportunityStages } from "../helpers/commercialStages";
 import { db } from "../helpers/db";
+import type { db as dbClient } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { commercialQuery, commercialMutation } from "./commercial.schema";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
@@ -27,6 +28,8 @@ const response=(value:unknown,status=200)=>new Response(superjson.stringify(valu
 const nullable=(v:string|null|undefined)=>v?.trim()||null;
 const checkEmail=(next:string|null|undefined,previous?:string|null)=>{if(next&&next!==previous&&!z.string().email().safeParse(next).success)throw new Error("Email inválido.");};
 const json=(value:unknown)=>JSON.parse(JSON.stringify(value));
+/** Full names only for the responsibles of this business and its managements: message previews sign as them; the full user list stays admin-only (settings). */
+const senderProfilesFor=async(db:typeof dbClient,emails:(string|null|undefined)[])=>{const list=[...new Set(emails.filter((email):email is string=>!!email))];return list.length?db.selectFrom('users').select(['email','displayName','fullName']).where('email','in',list).execute():[];};
 /** Decision 8A: the only business fields a seller with an open management may change. */
 const CONTACT_DATA_FIELDS=['telefono','email','whatsapp'] as const;
 const CONTACT_DATA_DENIED='Podés corregir teléfono, email y WhatsApp. Para cambiar otros datos pedíselo al responsable del negocio.';
@@ -57,7 +60,7 @@ export async function get(request:Request){
         getOpportunityStages(db)
       ]);
       const dncPhones=await findDncPhoneBusinessesForPeople(db,contacts.map(c=>({id:c.id,phone:c.phone})),accountId);
-      return response({account,contacts:contacts.map(c=>({...c,dncPhoneBusinesses:dncPhones.get(String(c.id))??[]})),opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute(),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
+      return response({account,contacts:contacts.map(c=>({...c,dncPhoneBusinesses:dncPhones.get(String(c.id))??[]})),opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute(),senderProfiles:await senderProfilesFor(db,[account.assignedUserEmail,...opportunities.map(o=>o.assignedUserEmail)]),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
     }
     if((input.archived||input.deleted)&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados o eliminados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("deletedAt",input.deleted?"is not":"is",null);
