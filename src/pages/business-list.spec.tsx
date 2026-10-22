@@ -63,7 +63,7 @@ describe('BusinessTableRow', () => {
   it('defines compact labels and single-line ellipsis for group values and editors',()=>{
     const css=readFileSync(resolve(__dirname,'business-list.module.css'),'utf8');
     expect(css).toMatch(/\.groupMemberLabel\{[^}]*font-size:10px/);expect(css).toMatch(/\.groupMemberLabel\{[^}]*white-space:nowrap[^}]*overflow:hidden[^}]*text-overflow:ellipsis/);
-    expect(css).toMatch(/\.groupMember>div\{[^}]*white-space:nowrap[^}]*overflow:hidden[^}]*text-overflow:ellipsis/);expect(css).toMatch(/\.groupMember button\{[^}]*max-width:100%[^}]*overflow:hidden/);
+    expect(css).toMatch(/\.groupMember>div\{[^}]*white-space:nowrap[^}]*overflow:hidden[^}]*text-overflow:ellipsis/);expect(css).toMatch(/\.groupMember button\{[^}]*max-width:100%/);expect(css).not.toMatch(/\.groupMember button\{[^}]*overflow:hidden/);expect(css).toMatch(/\.groupMember button:focus-visible\{outline-offset:-2px\}/);
   });
 });
 
