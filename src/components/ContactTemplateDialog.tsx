@@ -18,6 +18,7 @@ import {Mail,MessageCircle,Search,ArrowRight} from 'lucide-react';
 import styles from './ContactTemplateDialog.module.css';
 import {DisabledTooltip} from './Tooltip';
 import {MissingCommercialProfileNotice} from './MissingCommercialProfileNotice';
+import {messageSender} from '../helpers/messageSender';
 import {OutcomeAfterContact,leaveWithoutOutcome} from './OutcomeAfterContact';
 import {canLogContactOutcome} from '../helpers/contactOutcome';
 import {VOCAB} from '../content/vocabulary';
@@ -43,7 +44,7 @@ export function ContactTemplateDialog({open,onOpenChange,channel,lead,templates,
  const excluded=templates.filter(t=>t.channel===channel).length-applicable.length;
  const normalizedSearch=normalizeSearchText(search);
  const visible=applicable.filter(t=>normalizeSearchText([t.name,t.subject,t.vertical,t.managementType,t.commercialProfile,htmlToPlainText(t.body)].join(' ')).includes(normalizedSearch));
- const rendered=(source:string,templateId?:string)=>renderMessageTemplate(source,buildMessageTemplateContext({accountId:q.data?.account.id??lead?.accountId??lead?.id??'',contactId:effective||null,name:lead?.nombre,contact:person?.name,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:person?.phone??lead?.telefono,email:person?.email??lead?.email,website:lead?.sitioWeb,sender:authState.type==='authenticated'?(authState.user.fullName||authState.user.displayName):'',senderShort:authState.type==='authenticated'?authState.user.displayName:'',senderEmail:authState.type==='authenticated'?authState.user.email:'',managementType:lead?.managementType,commercialProfile:lead?.commercialProfile,isClient:!!q.data?.account.isClient,channel,purpose:null,variation,previousPicks:(history.data?.templatePicks?.[String(templateId??'')]??{})}));
+ const rendered=(source:string,templateId?:string)=>renderMessageTemplate(source,buildMessageTemplateContext({accountId:q.data?.account.id??lead?.accountId??lead?.id??'',contactId:effective||null,name:lead?.nombre,contact:person?.name,city:lead?.ciudad,type:lead?.tipo,subtype:lead?.subtipo,phone:person?.phone??lead?.telefono,email:person?.email??lead?.email,website:lead?.sitioWeb,...messageSender({responsibleEmail:lead?.assignedUserEmail,profiles:q.data?.senderProfiles,currentUser:authState.type==='authenticated'?authState.user:null}),managementType:lead?.managementType,commercialProfile:lead?.commercialProfile,isClient:!!q.data?.account.isClient,channel,purpose:null,variation,previousPicks:(history.data?.templatePicks?.[String(templateId??'')]??{})}));
  const [dirty,setDirty]=useState(false);const [busy,setBusy]=useState(false);const guard=useUnsavedChanges(dirty,()=>onOpenChange(false));
  const [outcome,setOutcome]=useState(false);const pendingOutcome=!onLog&&!!message&&canLogContactOutcome(message.status);
  const outcomeGuard=useUnsavedChanges(pendingOutcome&&!dirty,()=>onOpenChange(false),busy,leaveWithoutOutcome(message?.status));const requestClose=()=>dirty?guard.requestClose():outcomeGuard.requestClose();
