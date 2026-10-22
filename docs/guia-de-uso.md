@@ -13,7 +13,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 1. Negocio: el comercio o establecimiento. Se carga una sola vez; después le sumás personas y gestiones.
 2. Persona: alguien del negocio con quien hablás. Tiene sus propios datos (cargo, teléfono, email). Si todavía no conocés a nadie, podés usar el teléfono o el email del negocio.
 3. Gestión: lo que querés lograr con ese negocio, por ejemplo venderle un plan o sumarlo como proveedor. Un negocio puede tener varias gestiones a la vez. Iniciar una gestión no significa que ya se vendió.
-4. Estado y etapa no son lo mismo. El Estado es del negocio y dice en qué situación está en general: Nuevo, Revisado, En gestión, Sin tarea agendada, Recontactar o Archivado. La Etapa es de cada gestión y dice en qué punto va esa propuesta.
+4. Estado y etapa no son lo mismo. El Estado es del negocio y dice en qué situación está: Nuevo, Revisado, En gestión, Sin tarea agendada, Recontactar o Archivado. La Etapa pertenece a cada gestión y muestra en qué punto va.
 5. Es cliente, No contactar y Derivado a Leandro son marcas aparte; no son estados. La Papelera es para registros inválidos o cargados por error.
 6. Tarea: algo que falta hacer, con una fecha. Cuando la hacés, la anotás con «Anotar cómo salió» y queda guardado lo que pasó en «Qué pasó», dentro del negocio.
 7. Responsable: la persona que se encarga del negocio, de la gestión o de la tarea.
@@ -55,10 +55,10 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Cuándo usarlo:** Cuando necesitás saber qué significa un estado, una etapa o cuál cambiar.
 
-1. Nuevo significa que nadie verificó todavía el negocio. Comprobá que exista y corresponda al registro antes de iniciar una gestión.
-2. Revisado confirma que el negocio fue comprobado y se puede trabajar. Si lo acabás de verificar al iniciar una gestión, podés confirmarlo en ese mismo formulario.
-3. En gestión aparece mientras haya al menos una gestión abierta. Al cerrar la última, el negocio pasa a Sin tarea agendada; si hay que volver a hablarle más adelante, elegí «Recontactar» y, si querés, ponele una «Fecha de recontacto (opcional)». Con fecha, el CRM agenda la tarea «Volver a contactar» para el responsable del negocio. Contactarlo antes sigue siendo posible.
-4. Para cambiar el Estado, tocá la etiqueta «Estado del negocio» y elegí una opción. Algunos estados se cambian solos al iniciar o cerrar gestiones.
+1. Nuevo significa que todavía no se verificó el negocio. Antes de iniciar una gestión, primero comprobá que exista y corresponda al registro, y pasalo a Revisado.
+2. Revisado confirma que el negocio fue comprobado. La columna «Revisados» y su filtro solo muestran este dato: no cambian el Estado. Para pasar de Nuevo a Revisado, usá «Estado del negocio» en la tabla o ficha, o confirmalo al iniciar una gestión.
+3. En gestión aparece mientras haya al menos una gestión abierta. Si cerrás la última sin fecha, el negocio pasa a Sin tarea agendada. Si cerrás con fecha para volver a hablar, el negocio queda automáticamente en Recontactar y se crea solo la tarea «Recontactar según lo acordado», a cargo del responsable del negocio (si no tiene, del responsable de la gestión o de quien hizo el cierre). Al guardar otra fecha de Recontactar, el CRM mueve esa misma tarea si nadie la modificó; salir de Recontactar la cancela si sigue intacta. No se crea una segunda tarea.
+4. Para cambiar el Estado, usá el badge «Estado del negocio» en la columna de la lista o en la ficha. Puede hacerlo el administrador o el responsable del negocio. Un negocio Nuevo solo puede pasar a Revisado; En gestión se actualiza al iniciar o cerrar gestiones.
 5. Archivado aparta un negocio válido que no vas a trabajar por ahora. Solo un administrador puede desarchivarlo; vuelve a Revisado si ya había sido verificado y, si no, a Nuevo.
 6. Las Etapas pertenecen a cada gestión y dependen de su tipo: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. No hace falta pasar por todas ni seguir un orden fijo entre etapas abiertas.
 7. Es cliente, No contactar y Derivado a Leandro son marcas independientes. En verticales principales y Partners, cerrar una gestión como ganada marca al negocio como cliente; solo un administrador puede quitar esa marca.
@@ -73,7 +73,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Tené en cuenta:**
 
 - No contactar bloquea todos los contactos salientes hasta que un administrador levante la restricción. Al marcarlo, el CRM cancela todas las tareas pendientes del negocio y deja anotado el motivo: el negocio quedó marcado No contactar. Si después se levanta el bloqueo, esas tareas no vuelven: si hace falta, agendá una nueva.
-- Cuando termina la última gestión, el negocio queda Sin tarea agendada: es un aviso para que le dejes una próxima tarea o lo marques Recontactar.
+- Si elegís Recontactar con fecha sin una tarea intacta de una gestión asociada, se agenda «Volver a contactar» para el responsable del negocio (o para quien hizo el cambio si no tiene responsable). Si ya existe la tarea intacta creada al cerrar una gestión, se actualiza esa tarea. Si alguien la editó o completó, el CRM no la mueve ni la cancela.
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
@@ -178,9 +178,9 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando recibís una lista de negocios que todavía no se verificó.
 
-1. Entrá en «Negocios» y agregá la columna «Revisados» si no está visible. Filtrá por No para encontrar los que todavía no verificaste.
+1. Entrá en «Negocios» y usá la columna «Revisados» o su filtro para encontrar los negocios verificados y los que todavía no. Esta columna es solo informativa; para cambiar el Estado usá el badge «Estado».
 2. Abrí cada negocio y comprobá que exista y que sea el establecimiento correcto. Contrastá nombre, ciudad y canales con fuentes confiables, como su sitio o perfil oficial.
-3. Si confirmás que es real, guardá las fuentes y la fecha en «Editar negocio» → «Ubicación y relevamiento (opcional)». Después marcalo Revisado; también podés confirmarlo al iniciar una gestión.
+3. Si confirmás que es real, guardá las fuentes y la fecha en «Editar negocio» → «Ubicación y relevamiento (opcional)». Después cambiá el Estado a Revisado desde «Estado del negocio»; también podés confirmarlo al iniciar una gestión.
 4. Si todavía no podés confirmarlo, dejalo en Nuevo. Anotá qué falta comprobar en «Notas del negocio» y volvé a revisarlo más tarde.
 5. Si es un registro inválido, seleccioná solo ese negocio y tocá «Enviar a papelera», o abrilo y usá «Más acciones del negocio» → «Enviar a Papelera · registro inválido». Escribí un motivo concreto y confirmá.
 6. Si el negocio existe pero no lo vas a trabajar por ahora, no lo mandes a la Papelera: usá «Archivar negocio válido».
@@ -194,7 +194,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Tené en cuenta:**
 
-- Revisado significa que se comprobó que el negocio existe y corresponde al registro. Es un Estado del negocio, independiente de las etapas de sus gestiones.
+- Revisado significa que se comprobó que el negocio existe y corresponde al registro. La columna «Revisados» es un indicador de solo lectura; el Estado se cambia desde el badge «Estado del negocio».
 - Enviar a la Papelera conserva personas, gestiones e historial, y un administrador puede restaurarlo.
 - Solo podés enviar a la Papelera negocios que podés modificar. Si no aparece la acción o el servidor la rechaza, pedí ayuda al responsable o al administrador.
 
@@ -418,7 +418,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 1. Abrí la gestión, andá a «Etapa y prioridad» y tocá «Cambiar etapa».
 2. Elegí el cierre no favorable que corresponde al tipo y el «Motivo de cierre». Otro exige una nota breve.
-3. Si es una gestión comercial perdida y querés retomarla más adelante, tocá «Definir fecha para retomar» y elegí la «Fecha de recontacto». Esa fecha queda en la gestión y agenda una tarea. La opción no aparece cuando el motivo es Pidió no ser contactado.
+3. Si acordaron volver a hablar, tocá «Definir fecha para retomar» y elegí la fecha. Al cerrar se crea una sola tarea «Recontactar según lo acordado», a cargo del responsable del negocio (si no tiene, del responsable de la gestión o de quien hizo el cierre). Si era la última gestión abierta, el negocio queda automáticamente en Recontactar. Guardar otra fecha de Recontactar mueve esa tarea solo mientras nadie la haya modificado. La opción no aparece cuando el motivo es Pidió no ser contactado.
 4. Si el motivo es Pidió no ser contactado, el negocio queda No contactar y se archiva automáticamente. Podés elegir si también se cierran otras gestiones abiertas para las que tengas permiso.
 5. Guardá y revisá los próximos pasos. Una gestión ya cerrada solo la puede reabrir un administrador; el cierre anterior queda en el historial.
 
@@ -460,7 +460,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 **Cuándo usarlo:** Cuando querés retomar una gestión cerrada que tiene fecha de recontacto.
 
 1. Entrá en «Hoy» y abrí la solapa «Para retomar». Ahí están las gestiones cerradas como perdidas con fecha para volver a hablar. Podés filtrar por «Estado de retoma».
-2. Revisá qué acción ya existe. Si el cierre generó una tarea, abrila desde «Abrir tarea» para anotar o consultar el resultado. Si hay una gestión relacionada, abrila desde la fila.
+2. Revisá qué acción ya existe. Si el cierre generó «Recontactar según lo acordado», abrila desde «Abrir tarea» para anotar o consultar el resultado. Si hay una gestión relacionada, abrila desde la fila.
 3. Tocá «Elegir cómo retomar». Si solo querés volver a conversar, elegí «Crear seguimiento y conservar cerrada».
 4. Si la misma propuesta vuelve a negociarse, pedile a un administrador que elija «Reabrir esta gestión y crear seguimiento» con una etapa abierta del mismo tipo. El cierre anterior queda en el historial.
 5. Si querés trabajar otra propuesta del mismo tipo, elegí «Crear otra gestión del mismo tipo y seguimiento». Para una propuesta de otro tipo, iniciá la gestión desde la ficha del negocio.
@@ -506,7 +506,7 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 
 **Cuándo usarlo:** Cuando querés saber cómo le fue o ayudar con algo que ya contrató.
 
-1. Acompañamiento / atención al cliente es un propósito de contacto general. Si el negocio todavía no es cliente, el CRM te pide confirmación y lo marca Es cliente cuando el contacto queda registrado como realizado. Si el negocio está marcado No contactar, solo un administrador lo marca Es cliente al registrarlo: para el resto, el contacto queda anotado y el negocio no cambia.
+1. Acompañamiento / atención al cliente es un propósito de contacto general. Si el negocio todavía no es cliente, confirmá la marca cuando registres el contacto como realizado. Si está marcado No contactar, solo un administrador puede marcarlo Es cliente desde un contacto de Acompañamiento; para el resto, el contacto queda anotado y el negocio no cambia.
 2. Acompañamiento de ficha es un tipo de gestión aparte, para ayudar a un negocio que ya aceptó a crear o mejorar su ficha.
 3. Para abrir esa gestión, el negocio tiene que ser cliente y estar Revisado. Tocá «Iniciar gestión», elegí Acompañamiento de ficha y agendá el próximo paso.
 4. Anotá los avances cambiando de etapa: Pendiente de iniciar, Contactado o Trabajando en la ficha. No hace falta pasar por todas.
@@ -521,7 +521,7 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 **Tené en cuenta:**
 
 - No crees una gestión solo para registrar una consulta general de atención. Usá «Sin gestión (contacto general)» al contactar.
-- Si un contacto por email o WhatsApp queda sin confirmar, hace falta una confirmación posterior antes de marcar Es cliente.
+- Si el negocio está No contactar, solo un administrador puede marcarlo Es cliente desde un contacto de Acompañamiento. Otros contactos no cambian esa marca.
 
 **Dónde ir:** Buscar un cliente (/accounts)
 
@@ -629,14 +629,15 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando necesitás encontrar negocios o propuestas sin revisar toda la cartera.
 
-1. Entrá en «Negocios» y buscá por nombre. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual.
+1. Entrá en «Negocios» y buscá por nombre, localidad, teléfono o email. La búsqueda ignora tildes, pero distingue ñ de n. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual. Las acciones de cada fila son iconos: Abrir, Contactar y Más acciones; pasá el cursor o enfocá cada uno para ver su ayuda.
 2. Tocá «Filtrar negocios» y revisá los filtros aplicados. «Guardar como vista» conserva la búsqueda, los filtros, el orden y las columnas.
-3. Abrí «Columnas» para elegir y ordenar los datos que ves. La columna de selección queda primera y fija a la izquierda.
-4. También podés elegir una columna agrupada, como Tipo, para ver varios datos apilados. En la tabla, un administrador puede elegir cuántas líneas mostrar; «Todos» es la opción inicial. Si quedan datos ocultos, tocá el botón que indica cuántos hay para ver el grupo completo. En la grilla se muestran todos los datos. Los miembros vacíos muestran un guion y, si tenés permiso, podés editarlos desde ahí. Cada dato conserva su edición; el grupo se ordena por el primero y los filtros siguen siendo individuales.
-5. Un administrador puede crear, renombrar, ordenar, limitar las líneas visibles y quitar grupos en «Configuración» → «Listado de negocios», en la sección «Columnas agrupadas». Los grupos disponibles no se muestran hasta que alguien los elija en «Columnas».
-6. Las vistas guardadas se eligen en sus etiquetas. Usá «Administrar tus vistas» (el ícono de la tuerca) para editar sus filtros, duplicar o eliminar una vista; los administradores también pueden convertir una vista personal en vista del equipo.
-7. «Restablecer vista» quita la configuración activa y vuelve a las preferencias iniciales.
-8. Usá la selección múltiple solo después de revisar la lista completa afectada. Revisá y confirmá los cambios masivos antes de aplicarlos.
+3. Abrí «Columnas» para elegir y ordenar los datos que ves. También están disponibles WhatsApp, Teléfono de la persona y Email de la persona. La columna de selección queda primera y fija a la izquierda.
+4. También podés elegir una columna agrupada para ver varios datos apilados. En «Configuración» → «Listado de negocios» → «Columnas agrupadas», un administrador define grupos y cuántas líneas mostrar en la tabla. Los valores se apilan en el orden definido; la tabla se ordena por el primer dato del grupo. Si hay datos ocultos, tocá el botón +N más (por ejemplo, +2 más) para verlos y editarlos. En la grilla se muestran todos. Los datos vacíos muestran — y cada dato conserva su propia edición.
+5. En la tabla, algunos badges se pueden editar directamente: el responsable del negocio o un administrador cambia datos del negocio; solo un administrador cambia el Responsable. Los datos de gestión requieren permiso sobre esa gestión. El indicador Revisados es de solo lectura; para cambiar el Estado, usá el badge «Estado del negocio».
+6. Un administrador puede crear, renombrar, ordenar y quitar grupos en «Configuración» → «Listado de negocios» → «Columnas agrupadas», y elegir cuántas líneas se ven en la tabla. Después, cada persona elige qué grupos mostrar desde «Columnas».
+7. Las vistas guardadas se eligen en sus etiquetas. Usá «Administrar tus vistas» (ícono de tuerca) para editar filtros, duplicar o eliminar una vista; los administradores también pueden convertir una vista personal en vista del equipo.
+8. Los badges de filtros aplicados cambian solo el valor; el campo y la condición se mantienen. «Restablecer vista» quita la configuración activa y vuelve a las preferencias iniciales.
+9. Usá la selección múltiple solo después de revisar la lista completa afectada. Revisá y confirmá los cambios masivos antes de aplicarlos.
 
 **Qué queda al terminar:** Las vistas y los filtros cambian lo que ves, no los datos. Solo confirmar una edición masiva los modifica.
 
@@ -666,7 +667,7 @@ Un caso ficticio para aprender a registrar una relación comercial completa.
 6. Después del contacto, el CRM te pregunta «¿Cómo salió?». Anotás la respuesta real. Si pidió retomar más adelante, elegís «Esperar hasta una fecha y retomar» y la fecha acordada.
 7. Cuando haya novedades, cambiás la gestión a la etapa abierta que refleje el caso. No hace falta recorrer todas las etapas.
 8. Cuando acepta, cerrás la gestión con «Cambiar etapa», el resultado y el motivo que correspondan. En verticales principales, el cierre ganado marca al negocio como cliente. Completás los datos del acuerdo sin inventar los que falten.
-9. El CRM mantiene las otras gestiones del negocio. Al cerrarse la última gestión abierta, el negocio queda Sin tarea agendada; podés marcarlo Recontactar si corresponde.
+9. El CRM mantiene las otras gestiones del negocio. Al cerrarse la última gestión abierta sin fecha para retomar, el negocio queda Sin tarea agendada. Si la cerrás con fecha, el negocio pasa solo a Recontactar y se crea la tarea «Recontactar según lo acordado».
 10. Después de aceptar, iniciás una gestión separada de Acompañamiento de ficha para ayudar a crear o mejorar su perfil.
 11. Anotás la entrega y el acompañamiento con «Anotar cómo salió» y dejás siempre un próximo paso con fecha.
 12. Si más adelante hay una oportunidad distinta, iniciás otra gestión en el mismo negocio. No creás un duplicado.
@@ -710,9 +711,9 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 
 **Cuándo usarlo:** Cuando ves un negocio pero no aparecen los botones para editarlo o contactarlo.
 
-1. Mirá si arriba hay un cartel rojo. «No contactar» y «Negocio archivado» dejan el negocio solo para consulta: podés ver todo, pero no editar, contactar ni cambiar su gestión, ni siquiera si sos su responsable. Solo un administrador levanta el bloqueo o desarchiva.
-2. Si no hay cartel, aparece el aviso «Podés consultar este negocio». Significa que el negocio es de otra persona: solo su responsable o un administrador puede modificarlo. Con No contactar, el aviso aclara que solo un administrador puede modificarlo.
-3. Si tenés una gestión abierta en ese negocio y no está archivado ni es No contactar, igual podés corregir sus datos de contacto (teléfono, email, WhatsApp) y sus personas con «Corregir datos de contacto». Todo lo demás sigue siendo del responsable.
+1. Si el negocio está marcado «No contactar», para quien no es administrador queda solo para consultar: no puede editar ni contactar, aunque sea responsable. Si está «Negocio archivado», su responsable puede consultar la ficha y la gestión en modo de solo lectura; solo un administrador puede cambiarlo o desarchivarlo.
+2. Si no hay cartel, aparece el aviso «Podés consultar este negocio». Significa que el negocio es de otra persona: solo su responsable o un administrador puede modificarlo. En un negocio No contactar, solo un administrador puede modificarlo.
+3. Si tenés una gestión abierta en un negocio ajeno, activo y que no está marcado No contactar, podés corregir teléfono, email, WhatsApp y personas con «Corregir datos de contacto». Lo demás sigue siendo del responsable.
 4. Si buscás un negocio tuyo que archivaron, apretá Ctrl+K y escribí su nombre: los archivados aparecen marcados como Archivado (el administrador ve todos).
 5. Para cambiar algo que no te corresponde, pedíselo al responsable o al administrador. No dupliques el negocio ni la tarea para saltear esa regla.
 

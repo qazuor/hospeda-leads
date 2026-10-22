@@ -1,6 +1,6 @@
 # Guía de capacitación para vendedores nuevos
 
-> **Fuente de verdad:** la guía en pantalla («Ayuda» en el menú; `src/content/user-guide.json`, exportada a [guia-de-uso.md](guia-de-uso.md)). Este documento es apoyo para quien capacita; si algo difiere, vale la guía en pantalla. Actualizado el 21/10/2026 tras la revisión de UX.
+> **Fuente de verdad:** la guía en pantalla («Ayuda» en el menú; `src/content/user-guide.json`, exportada a [guia-de-uso.md](guia-de-uso.md)). Este documento es apoyo para quien capacita; si algo difiere, vale la guía en pantalla. Actualizado el 22/10/2026 tras revisar los flujos actuales en código.
 
 Material para explicar el CRM a personas que nunca usaron uno. La idea central: **el CRM ayuda a recordar qué sabemos, qué pasó y qué toca hacer; no contacta ni cierra una venta por guardar datos**.
 
@@ -37,13 +37,13 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 
 **Objetivo:** confirmar que cada registro es real antes de iniciar prospección.
 
-1. En la tabla o grilla, usá la columna/filtro **Revisados** para encontrar los que todavía no están revisados.
+1. En la tabla o grilla, usá la columna/filtro **Revisados** para ver cuáles ya están comprobados y cuáles no. Esa columna es solo informativa: no cambia el Estado.
 2. Abrí uno y comprobá que exista y corresponda al nombre/dirección. Contrastá fuentes oficiales cuando estén disponibles.
-3. Si es válido, registrá enlaces consultados y fecha de revisión. Marcá **Revisado**.
-4. Si todavía no tenés certeza, dejalo sin revisar y anotá qué falta confirmar. No marques por intuición.
+3. Si es válido, registrá enlaces consultados y fecha de revisión. Cambiá el badge **Estado** a **Revisado** desde la lista o la ficha. También podés confirmar la revisión al iniciar una gestión.
+4. Si todavía no tenés certeza, dejalo **Nuevo** y anotá qué falta confirmar. No marques por intuición. Solo el responsable del negocio o un administrador puede cambiar su Estado.
 5. Si comprobaste que el registro es inválido, usá **Enviar a Papelera** y escribí el motivo. Si el negocio existe pero no se va a trabajar, se archiva; no se envía a Papelera.
 
-**Qué significa Revisado:** se comprobó el registro. No significa que el comercio ya fue contactado ni que aceptó una propuesta.
+**Qué significa Revisado:** se comprobó el registro. No significa que el comercio ya fue contactado ni que aceptó una propuesta. Para pasar un negocio de **Nuevo** a **Revisado**, primero hay que hacer esa comprobación; no se puede saltar directamente a otro Estado.
 
 ## Guía 3 — Preparar el primer contacto o iniciar una gestión
 
@@ -69,7 +69,7 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 2. Una tarea es algo pendiente con fecha. Si ya llamaste o escribiste, usá **Anotar lo que pasó**; no registres una tarea futura como si ya hubiera ocurrido.
 3. Al crear una tarea desde la ficha, revisá la lista de tareas pendientes que muestra el formulario. Si ya cubre el compromiso, abrí esa tarea en vez de duplicarla.
 4. Revisá **Hoy** para ver vencidas y próximas (pestañas Lista, Calendario y Para retomar). Si no podés hacer una tarea ese día, usá **Posponer** (Mañana, En 3 días, Lunes o Elegir fecha). Al terminar una tarea, anotá cómo salió y decidí cómo sigue. Completarla no cierra automáticamente la gestión ni otras tareas.
-5. La etapa indica la situación de la gestión. Cambiala solo cuando cambie esa situación; hacer o completar una tarea no la mueve automáticamente.
+5. La etapa indica la situación de la gestión. Cambiala solo cuando cambie esa situación; hacer o completar una tarea no la mueve automáticamente. Solo el responsable de esa gestión o un administrador puede cambiarla; un administrador también puede reabrir una gestión cerrada.
 
 ## Guía 5 — Contactar al comercio
 
@@ -125,7 +125,7 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 **Objetivo:** registrar por qué no avanzó y dejar claro si hay que volver.
 
 1. Elegí el cierre desfavorable y el motivo exacto. Si elegís **Otro**, agregá nota.
-2. Si acordaron volver a hablar, programá la fecha y completá la tarea que se genera; después la ves en **Para retomar**, dentro de Hoy. Esta opción no aparece si el motivo es **Pidió no ser contactado**.
+2. Si acordaron volver a hablar, elegí **Definir fecha para retomar**. Al cerrar con fecha se crea una sola tarea **Recontactar según lo acordado**, asignada al responsable del negocio; si no tiene, queda a cargo del responsable de la gestión o de quien hizo el cierre. Si era la última gestión abierta, el negocio queda automáticamente en **Recontactar**. La tarea aparece en **Hoy** y en **Para retomar**. Guardar otra fecha de Recontactar mueve esa tarea solo mientras nadie la haya modificado. Esta opción no aparece si el motivo es **Pidió no ser contactado**.
 3. Si pidió no ser contactado, el negocio queda Archivado y bloqueado para nuevos contactos; no programes otro intento. Podés elegir si se cierran también otras gestiones abiertas.
 4. Si queda otra gestión abierta para ese negocio, el negocio seguirá **En gestión**. Cerrar una gestión no cierra automáticamente las demás.
 5. Para crear una propuesta distinta, iniciá otra gestión desde la ficha después de revisar el caso.
@@ -137,12 +137,21 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 - **Archivar:** el negocio es válido, pero se deja de trabajar por ahora. Conserva contactos, gestiones, tareas e historial; solo un administrador puede desarchivarlo.
 - **Enviar a Papelera:** el registro es inválido o se cargó por error. Conserva contactos, gestiones, tareas e historial para posible restauración; solo un administrador puede restaurarlo y mientras tanto no se puede trabajar ni contactar.
 - **No contactar:** el negocio no se puede contactar y, para quien no es administrador, queda solo para consultar con un cartel rojo; las tareas pendientes se cancelan. No es una forma de borrar ni archivar el negocio. Solo un administrador lo levanta.
-- **Recontactar con fecha:** en el estado del negocio, **Recontactar** con una fecha agenda automáticamente la tarea **Volver a contactar** ese día para el responsable (7A) y lo avisa. Si borrás la fecha, cambiás el estado o archivás y nadie tocó la tarea, se cancela.
-- **Archivado o No contactar y datos de contacto:** si tenés una gestión abierta en un negocio ajeno (que no sea No contactar ni esté archivado) podés corregir sus datos de contacto con **Corregir datos de contacto**; no podés cambiar responsable ni estado.
+- **Recontactar con fecha:** desde el badge **Estado**, el responsable del negocio o un administrador puede elegir **Recontactar** y poner una fecha. Si no hay una tarea intacta de una gestión cerrada, se agenda **Volver a contactar** para el responsable del negocio. Si la tarea que se creó al cerrar una gestión sigue intacta, se mueve esa misma tarea y no se crea otra. Si salís de Recontactar o quitás la fecha, la tarea se cancela solo si nadie la modificó.
+- **Recontacto al cerrar una gestión:** la fecha elegida en **Definir fecha para retomar** crea la tarea de esa gestión **Recontactar según lo acordado**, asignada al responsable del negocio (o al responsable de la gestión o quien hizo el cierre si el negocio no tiene responsable); si era la última gestión abierta, el negocio también queda automáticamente en **Recontactar**. No se crea una segunda tarea para el negocio.
+- **Archivado o No contactar y datos de contacto:** un negocio Archivado queda en solo lectura para su responsable; No contactar también bloquea la edición del responsable. Si tenés una gestión abierta en un negocio ajeno activo y sin bloqueo, podés corregir teléfono, email, WhatsApp y personas con **Corregir datos de contacto**. No podés cambiar el responsable ni el Estado del negocio.
+
+## Guía 11 — Usar la tabla de Negocios
+
+- En **Columnas**, podés agregar **WhatsApp**, **Teléfono de la persona** y **Email de la persona**. La búsqueda encuentra nombres, localidades y teléfonos sin importar las tildes; distingue **ñ** de **n**.
+- Las acciones de cada fila son iconos: **Abrir**, **Contactar** y **Más acciones**. Pasá el cursor o enfocá el icono para leer su ayuda.
+- Algunos badges se editan desde la tabla. El responsable del negocio o un administrador puede cambiar datos del negocio; **Responsable** solo lo cambia un administrador. Los campos de gestión requieren permiso para esa gestión. **Revisados** es solo un indicador; el Estado se cambia desde el badge **Estado**.
+- En **Configuración → Listado de negocios → Columnas agrupadas**, el administrador puede armar grupos de datos que se apilan en una columna. En **Columnas**, cada persona elige qué grupos mostrar. La tabla se ordena por el primer dato del grupo; el administrador puede limitar las líneas visibles y el resto se abre con el botón **+N más** (por ejemplo, «+2 más»). En la grilla se ven todos los datos.
+- Los badges de filtros aplicados cambian el valor; no cambian el campo ni la condición.
 
 ## Guía del supervisor — simulación de 15 minutos
 
-1. Presentar un negocio precargado y pedir a la persona que lo busque, verifique y marque Revisado.
+1. Presentar un negocio precargado y pedir a la persona que lo busque, verifique y cambie el badge Estado a Revisado. Mostrar que la columna Revisados solo informa si ya se comprobó.
 2. Simular un primer contacto sin propuesta; pedirle que elija General y explique el propósito.
 3. Simular interés y pedirle que cree una gestión, sin registrar un contacto ficticio como real.
 4. Agendar una tarea para volver a llamar; revisar dónde aparece en Hoy.
@@ -152,4 +161,4 @@ La búsqueda global, el pipeline y el historial son atajos para encontrar el mis
 
 ### Nota para quien capacita
 
-**Para retomar** (dentro de Hoy) reúne las gestiones cerradas con una fecha para volver a hablar. Cuando el cierre generó una tarea y dejó al negocio en **Recontactar**, la fecha resume el seguimiento y aparece una sola vez; abrí la tarea enlazada para anotar o consultar qué pasó. Si hay una gestión relacionada, abrila desde la fila. Elegí **Elegir cómo retomar** para ver las opciones: crear solo un seguimiento o iniciar una nueva gestión del mismo tipo. Solo un administrador puede elegir **Reabrir esta gestión**. Si ya se creó una acción, abrila desde la fila; no repitas la planificación desde el mismo cierre. Si el motivo fue que pidió no ser contactado, respetá el bloqueo y no programes recontacto.
+**Para retomar** (dentro de Hoy) reúne las gestiones cerradas con una fecha para volver a hablar. El cierre con fecha crea una tarea **Recontactar según lo acordado**. Si era la última gestión abierta, el negocio queda automáticamente en **Recontactar** y su fecha muestra esa misma tarea sin crear otra; abrí la tarea enlazada para anotar o consultar qué pasó. Si hay una gestión relacionada, abrila desde la fila. Elegí **Elegir cómo retomar** para ver las opciones: crear solo un seguimiento o iniciar una nueva gestión del mismo tipo. Solo un administrador puede elegir **Reabrir esta gestión**. Si ya se creó una acción, abrila desde la fila; no repitas la planificación desde el mismo cierre. Si el motivo fue que pidió no ser contactado, respetá el bloqueo y no programes recontacto.
