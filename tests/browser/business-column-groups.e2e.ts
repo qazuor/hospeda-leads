@@ -26,3 +26,26 @@ test('admin creates a group, seller uses it, and deleting it preserves other col
  role='user';await page.goto('/accounts');await expect(page.getByRole('columnheader',{name:'Ciudad',exact:true})).toBeVisible();await expect(page.getByRole('columnheader',{name:'Mi grupo',exact:true})).toHaveCount(0);
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('hospeda-business-list-v1-user-2')??'null')?.preferences);expect(saved.columns).toContain('ciudad');expect(saved.columns).not.toContain('group:'+createdGroupId);
 });
+
+test('Negocios stays available while grouped column definitions are delayed or fail',async({page})=>{
+ const base=basePreferences(),stored={...base,columns:[...base.columns,'group:contact'],widths:{...base.widths,'group:contact':240},pins:{...base.pins,'group:contact':'left' as const},sortBy:'group:contact'};
+ let holdGroups=true,failGroups=false,release!:()=>void;const groupGate=new Promise<void>(resolve=>release=resolve),sortRequests:string[]=[];
+ const rows=[{id:'-1',accountId:'1',nombre:'Negocio visible',ciudad:'Colón',contactName:'Ana',canModify:false,opportunityCount:0,contactCount:1}];
+ await page.route('**/_api/**',async route=>{const url=new URL(route.request().url());let data:unknown={};
+  if(url.pathname.endsWith('/auth/session'))data={user:{id:8,email:'seller@example.test',displayName:'Vendedora',role:'user'}};
+  else if(url.pathname.endsWith('/business_list_defaults'))data={defaults:null};
+  else if(url.pathname.endsWith('/business_column_groups')){if(failGroups){await route.fulfill({status:500,body:superjson.stringify({error:'Grupos no disponibles'})});return;}if(holdGroups)await groupGate;data={groups:DEFAULT_BUSINESS_COLUMN_GROUPS};}
+  else if(url.pathname.endsWith('/settings'))data={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedEmails:[],opportunityStages:[]};
+  else if(url.pathname.endsWith('/leads')){sortRequests.push(url.searchParams.get('sortBy')??'');data={rows,total:rows.length,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};}
+  else if(url.pathname.endsWith('/saved_views'))data={views:[]};
+  await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
+ });
+ await page.addInitScript(preferences=>{localStorage.setItem('hospeda-business-seller-default-v1-user-8','1');localStorage.setItem('hospeda-business-list-v1-user-8',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}));},stored);
+ await page.goto('/accounts');await expect(page.locator('[data-business-id="1"]')).toBeVisible();await expect(page.getByRole('columnheader',{name:'Contacto',exact:true})).toHaveCount(0);
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hospeda-business-list-v1-user-8')!).preferences.sortBy)).toBe('group:contact');
+ expect(sortRequests.length).toBeGreaterThan(0);expect(sortRequests).not.toContain('group:contact');
+ release();holdGroups=false;await expect(page.getByRole('columnheader',{name:'Contacto',exact:true})).toBeVisible();await expect.poll(()=>sortRequests.at(-1)).toBe('contactName');
+ failGroups=true;await page.reload();await expect(page.locator('[data-business-id="1"]')).toBeVisible();await expect(page.getByRole('columnheader',{name:'Contacto',exact:true})).toHaveCount(0);
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hospeda-business-list-v1-user-8')!).preferences.sortBy)).toBe('group:contact');
+ expect(sortRequests.at(-1)).not.toBe('group:contact');
+});

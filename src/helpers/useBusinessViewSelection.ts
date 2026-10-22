@@ -24,13 +24,13 @@ export function refreshDateViewSelection({selection,preferences,email,now}:{sele
  const next=availableListPreferences(applyBusinessSystemView(preferences,selection.id,email,now));
  return {preferences:next,selection:{...selection,baseline:next}};
 }
-export function useBusinessViewSelection(userId:number,prefs:ListPreferences,systemViews:BusinessSystemView[]|undefined,defaultSelection?:BusinessViewSelection|null){
+export function useBusinessViewSelection(userId:number,prefs:ListPreferences,systemViews:BusinessSystemView[]|undefined,defaultSelection?:BusinessViewSelection|null,persistSelection=true){
  const [active,setActive]=useState<BusinessViewSelection|null>(()=>readBusinessViewSelection(userId)??defaultSelection??null);
  const [storageError,setStorageError]=useState(false);
  const views=useQuery({queryKey:['business-saved-views',userId],queryFn:getSavedLeadViews});
  const currentView=active?.kind==='personal'?views.data?.views.find(view=>view.id===active.id&&(!view.config.entity||view.config.entity==='business')):undefined;
  const currentSystemView=active?.kind==='system'?resolveSystemViews(systemViews).find(view=>view.enabled&&view.id===active.id):undefined;
- useEffect(()=>{setStorageError(!saveBusinessViewSelection(userId,active));},[userId,active]);
+ useEffect(()=>{if(persistSelection)setStorageError(!saveBusinessViewSelection(userId,active));},[userId,active,persistSelection]);
  useEffect(()=>{
   if(!active)return;
   const name=active.kind==='personal'?currentView?.name:currentSystemView?.name;
