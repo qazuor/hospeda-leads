@@ -1,5 +1,9 @@
 # Pendientes y próximo trabajo
 
+## Columnas agrupadas de Negocios
+
+La implementación está en `feat/business-table-group-columns`, todavía sin PR. El coordinador debe correr `node --import tsx scripts/test-business-column-groups.ts` sobre una base descartable y `tests/browser/business-column-groups.e2e.ts` con el build/servidor de navegador del flujo CI. Esta tarea no ejecutó integración ni e2e y no escribió en ninguna base.
+
 ## Tras la revisión de UX (21/10/2026)
 
 La revisión de UX y su tanda de seguimientos (#195–#201) están mergeadas en `staging` y **no** desplegadas ni promovidas a `main` (ver [estado](estado-desarrollo.md)). Seguimientos abiertos, verificados contra el código de `staging` al cierre salvo indicación. Lo que cerró la tanda de seguimientos está en [estado](estado-desarrollo.md) y en el [historial](historial-desarrollo.md): contacto de acompañamiento en No contactar (D4, #195), recontacto al cerrar y al reasignar (#196), marcadores JWT, estabilización de e2e, `line-clamp` y chip de lunes (#197), diálogos móviles, teclado, `viewport-fit` y áreas táctiles de 44 px (#198), índices de búsqueda, `doneToday`, consulta de historial compartida y aviso del tope de Hoy (#199), concurrencia de `task_save` (#200) y lectura de la gestión por el responsable de un negocio archivado (#201). `createResponse` ya estaba tipado (sin `sql<any>`).

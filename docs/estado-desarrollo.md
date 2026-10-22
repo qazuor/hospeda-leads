@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 21 de octubre de 2026
 
+## Columnas agrupadas en Negocios — implementación local
+
+En `feat/business-table-group-columns` se implementó la columna agrupada para tabla y grilla, el editor en Configuración → Listado de negocios y el endpoint `/_api/business_column_groups`. Las definiciones usan `app_settings.business_list_column_groups_v1`; las semillas Clasificación y Contacto aparecen disponibles, pero no seleccionadas por defecto. Contacto incluye Persona de contacto, Teléfono, Teléfono de la persona, WhatsApp, Email y Email de la persona; Medio preferido queda afuera. Las preferencias aceptan IDs `group:<id>` y quitan referencias a grupos eliminados al resolver la lista. No hay actualización en vivo en otras pestañas.
+
+Se agregaron pruebas unitarias, un script de integración y un e2e con API simulada. Validación local: `npm run typecheck` pasó; `npm test` pasó (101 archivos, 803 pruebas); `npm run build` pasó. Integración `scripts/test-business-column-groups.ts` y `business-column-groups.e2e.ts` quedan para el coordinador. Sin commit, PR, migración ni operación de base de datos.
+
 ## Revisión de UX y rendimiento — 20 y 21/10/2026 (mergeada en `staging`, sin desplegar)
 
 **Estado de cada hecho.** Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción: **nada**. Promoción de `staging` a `main`: **no hecha**; la decide el propietario más adelante. Verificación visual del propietario sobre un entorno real: pendiente. Las cifras de CI/pruebas pertenecen a cada PR, no son un contador vivo.

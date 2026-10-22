@@ -8,6 +8,7 @@ import {Tooltip,TooltipContent,TooltipTrigger} from './Tooltip';
 import {BUSINESS_COLUMNS} from '../helpers/businessListPreferences';
 import {plural} from '../content/vocabulary';
 import type {OutputType} from '../endpoints/leads_GET.schema';
+import type {BusinessColumnGroup} from '../helpers/businessColumnGroups';
 import styles from './BusinessCard.module.css';
 
 type Business=OutputType['rows'][number];
@@ -22,17 +23,19 @@ export function businessCountsSummary(row:{opportunityCount?:number|null;contact
 }
 const labels=new Map(BUSINESS_COLUMNS.map(column=>[column.key,column.label]));
 
-function hasCardValue(row:Business,key:string){
+function hasCardValue(row:Business,key:string,groups:BusinessColumnGroup[]=[]):boolean{
+ const group=groups.find(item=>'group:'+item.id===key);if(group)return true;
  const value=row.opportunityCount!==1&&row.opportunityValues?.[key]?.length?row.opportunityValues[key]:row[key as keyof Business];
  // False and zero are meaningful values; only absent data is omitted.
  return value!==null&&value!==undefined&&(typeof value!=='string'||value.trim()!=='')&&(!Array.isArray(value)||value.some(item=>item!==null&&item!==undefined&&String(item).trim()!==''));
 }
 
-export function BusinessCard({row,columns,selected,onSelect,onOpen,renderValue,describeValue,isEditable}:{
+export function BusinessCard({row,columns,groups=[],selected,onSelect,onOpen,renderValue,describeValue,isEditable}:{
  row:Business;columns:string[];selected:boolean;onSelect:()=>void;onOpen:()=>void;
+ groups?:BusinessColumnGroup[];
  renderValue:(key:string)=>React.ReactNode;describeValue:(key:string)=>string;isEditable:(key:string)=>boolean;
 }){
- const [expanded,setExpanded]=useState(false);const visible=columns.filter(key=>key!=='nombre'&&key!=='actions'&&hasCardValue(row,key)),hasSecondary=visible.some(key=>!primary.has(key));
+ const [expanded,setExpanded]=useState(false);const visible=columns.filter(key=>key!=='nombre'&&key!=='actions'&&hasCardValue(row,key,groups)),hasSecondary=visible.some(key=>!primary.has(key));
  return <Card component="article" id={'business-'+row.accountId} data-expanded={expanded} data-business-id={row.accountId} className={styles.card} padding={14} radius="md" withBorder>
   <div className={styles.header}>
    <label className={styles.select}><Checkbox aria-label={'Seleccionar '+row.nombre} disabled={row.canModify===false} disabledReason="Solo la persona responsable del negocio o un administrador puede modificarlo." checked={selected} onChange={onSelect}/></label>
@@ -42,7 +45,7 @@ export function BusinessCard({row,columns,selected,onSelect,onOpen,renderValue,d
   <p className={styles.summary}>{businessCountsSummary(row)}</p>
   <dl className={styles.fields}>
    {visible.map(key=>{
-    const label=labels.get(key)??key,compact=metadata.has(key),contact=contactFields.has(key),next=key==='fechaProximaAccion';
+    const label=groups.find(group=>'group:'+group.id===key)?.name??labels.get(key)??key,compact=metadata.has(key),contact=contactFields.has(key),next=key==='fechaProximaAccion';
     const Icon=icons[key]??(contact?Globe:Tag),description=describeValue(key);
     return <div key={key} data-card-field={key} className={[styles.field,compact?styles.metadata:'',contact?styles.contact:'',next?styles.next:'',primary.has(key)?'':styles.secondary,!compact?styles.wide:''].filter(Boolean).join(' ')}>
      <dt title={label}><Icon size={14} aria-hidden="true"/><span className={compact||contact?styles.srOnly:undefined}>{label}</span></dt>

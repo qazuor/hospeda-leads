@@ -5,9 +5,13 @@ import {Columns3,ChevronDown,GripVertical,X} from 'lucide-react';
 import {availableListPreferences,BUSINESS_COLUMNS,type ListPreferences} from '../helpers/businessListPreferences';
 import {Button} from './Button';
 import {Dialog,DialogClose,DialogContent,DialogDescription,DialogTitle,DialogTrigger} from './Dialog';
+import {useQuery} from '@tanstack/react-query';
+import {getBusinessColumnGroups} from '../endpoints/business_column_groups.schema';
+import {businessColumnLabel} from '../helpers/businessColumnGroups';
 import styles from './BusinessListOptions.module.css';
 export function BusinessListOptions({value,onChange}:{value:ListPreferences;onChange:(v:ListPreferences)=>void}){
  const [open,setOpen]=useState(false);
+ const groups=useQuery({queryKey:['business-column-groups'],queryFn:getBusinessColumnGroups}).data?.groups??[];
  const [draggingKey,setDraggingKey]=useState<string|null>(null);
  const dragPointer=React.useRef<number|null>(null);
  const dragCandidate=React.useRef<{pointerId:number;key:string;x:number;y:number}|null>(null);
@@ -48,10 +52,10 @@ export function BusinessListOptions({value,onChange}:{value:ListPreferences;onCh
   if(dragged.current)setTimeout(()=>{dragged.current=false;},0);
  }
  function suppressDragClick(event:React.MouseEvent<HTMLDivElement>){if(!dragged.current)return;event.preventDefault();event.stopPropagation();dragged.current=false;}
- const keys=[...value.columns,...BUSINESS_COLUMNS.map(c=>c.key).filter(k=>!value.columns.includes(k))];
+ const allKeys=[...BUSINESS_COLUMNS.map(c=>c.key),...groups.map(group=>'group:'+group.id)];const keys=[...value.columns,...allKeys.filter(k=>!value.columns.includes(k))];
  return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button variant="outline"><Columns3 size={16} aria-hidden="true"/>Columnas<ChevronDown size={14} aria-hidden="true"/></Button></DialogTrigger>
  <DialogContent className={styles.dialog} showCloseButton={false}><div className={styles.heading}><div><DialogTitle className={styles.dialogTitle}>Columnas del listado</DialogTitle><DialogDescription className={styles.dialogDescription}>Nombre siempre disponible. Si ocultás Acciones, abrí el negocio desde su nombre.</DialogDescription></div><DialogClose asChild><Button variant="ghost" size="icon-sm" aria-label="Cerrar columnas"><X size={16}/></Button></DialogClose></div>
-  <div className={styles.list} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer} onClickCapture={suppressDragClick}>{keys.map(key=>{const index=value.columns.indexOf(key);const label=BUSINESS_COLUMNS.find(c=>c.key===key)!.label;return <div key={key} data-column-key={index>=0?key:undefined} className={`${styles.row} ${draggingKey===key?styles.dragging:''}`}>
+  <div className={styles.list} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer} onClickCapture={suppressDragClick}>{keys.map(key=>{const index=value.columns.indexOf(key);const label=businessColumnLabel(key,groups);return <div key={key} data-column-key={index>=0?key:undefined} className={`${styles.row} ${draggingKey===key?styles.dragging:''}`}>
    <label className={styles.field}><Checkbox  checked={index>=0} disabled={key==='nombre'} disabledReason="La columna Nombre es obligatoria para identificar cada negocio." onChange={()=>change({columns:index>=0?value.columns.filter(k=>k!==key):[...value.columns,key]})}/><span>{label}</span></label>
    {index>=0&&<div className={styles.controls}><Button type="button" size="icon-sm" variant="ghost" className={styles.dragHandle} aria-label={'Reordenar '+label} title="Arrastrar para ordenar" data-column-drag-handle={key} onKeyDown={event=>{if(event.key==='ArrowUp'){event.preventDefault();move(index,-1);}else if(event.key==='ArrowDown'){event.preventDefault();move(index,1);}}}><GripVertical size={16} aria-hidden="true"/></Button><NativeSelect aria-label={'Fijar '+label} value={value.pins[key]??''} onChange={e=>{const pins={...value.pins};if(e.target.value)pins[key]=e.target.value as 'left'|'right';else delete pins[key];change({pins});}}><option value="">Sin fijar</option><option value="left">Izquierda</option><option value="right">Derecha</option></NativeSelect></div>}
   </div>;})}</div>

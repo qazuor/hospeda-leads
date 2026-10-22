@@ -44,18 +44,19 @@ const TABLE_COLUMNS=[
 /** The actions column holds two text buttons and a menu, so it never shrinks below this. */
 export const ACTIONS_MIN_WIDTH=220;
 /** Rendered width of a column: stored width (or 160) with the actions column clamped to its minimum. */
-export const columnWidthFor=(widths:Record<string,number>,key:string)=>Math.max(key==='actions'?ACTIONS_MIN_WIDTH:100,widths[key]??160);
+export const columnWidthFor=(widths:Record<string,number>,key:string)=>Math.max(key==='actions'?ACTIONS_MIN_WIDTH:key.startsWith('group:')?180:100,widths[key]??160);
 const DEFAULT_WIDTHS:Record<string,number>={actions:ACTIONS_MIN_WIDTH,nombre:220,assignedUserEmail:190,ciudad:170,telefono:150,email:220,fechaProximaAccion:180,fechaUltimoContacto:170,reviewStatus:140};
 export const BUSINESS_FILTER_COLUMNS=[...TABLE_COLUMNS.map(c=>({...c,label:c.key==='nombre'?'Nombre del negocio':c.key==='id'?'ID de entrada original':c.key==='estado'?'Etapas de gestiones':c.label})),{key:'notes',label:'Notas'}];
-const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
+export const BUSINESS_DATA_COLUMNS=TABLE_COLUMNS.filter(c=>!['id','estado','suscripcion','prioridad','resultadoUltimoContacto','archivoAdjunto'].includes(c.key)).map(c=>({...c,label:c.key==='nombre'?'Nombre':c.key==='fechaProximaAccion'?'Próximo paso':c.label}));
 export const BUSINESS_COLUMNS=[...BUSINESS_DATA_COLUMNS,{key:'actions',label:'Acciones'}];
-const field=z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key),'Campo desconocido');
+const groupField=z.string().regex(/^group:[a-z0-9][a-z0-9_-]{0,59}$/);
+const field=z.union([z.string().refine(key=>BUSINESS_COLUMNS.some(c=>c.key===key),'Campo desconocido'),groupField]);
 const legacyFiltersSchema=leadsSchema.omit({anchorAccountId:true,alignAnchorPage:true,entity:true,q:true,filterGroups:true,view:true,filterOptions:true,page:true,pageSize:true,sortBy:true,sortDir:true});
 export const listPreferencesSchema=z.object({
  presentation:z.enum(['table','grid']),columns:z.array(field).min(1).max(40).refine(v=>v.includes('nombre')&&new Set(v).size===v.length),
  widths:z.record(field,z.number().min(100).max(600)),pins:z.record(field,z.enum(['left','right'])),
  query:z.string().max(1000),filters:z.array(advancedFilterGroup).max(20).refine(groups=>!groups.some(g=>g.rules.some(r=>r.field==='deletedAt'))),
- sortBy:leadsSchema.shape.sortBy.unwrap().default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),columnLayoutVersion:z.union([z.literal(2),z.literal(3),z.literal(4)]).optional(),legacyFilters:legacyFiltersSchema.optional()
+ sortBy:z.union([leadsSchema.shape.sortBy.unwrap(),groupField]).default('nombre'),sortDir:z.enum(['asc','desc']),pageSize:z.number().int().min(10).max(100),loadMode:z.enum(['pages','continuous']),columnLayoutVersion:z.union([z.literal(2),z.literal(3),z.literal(4)]).optional(),legacyFilters:legacyFiltersSchema.optional()
 });
 export type ListPreferences=z.infer<typeof listPreferencesSchema>;
 // Restore this switch to expose pagination again; schema, queries and return context support both modes.
