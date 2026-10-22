@@ -2,9 +2,9 @@
 
 ## Columnas agrupadas de Negocios
 
-La implementación base está en `feat/business-table-group-columns` (PR #206); los cambios siguientes están locales en `feat/group-columns-max-lines`, sin PR. El seed **Tipo** conserva el id `classification`; Contacto mantiene sus seis miembros. `maxVisible` opcional configura el máximo de líneas de tabla (sin valor significa «Todos»), acepta definiciones guardadas previamente y se ajusta cuando se quitan miembros. La tabla ofrece los datos restantes en un popover con etiquetas, editores y permisos existentes; las tarjetas muestran todos los miembros. Se actualizó la guía y el mapa técnico, y se agregó el recorrido de navegador para Tipo.
+La implementación base está en `feat/business-table-group-columns` (PR #206); los cambios siguientes están locales en `feat/group-columns-max-lines`, PR #208. El seed **Tipo** conserva el id `classification`; Contacto mantiene sus seis miembros. `maxVisible` opcional configura el máximo de líneas de tabla (sin valor significa «Todos»), acepta definiciones guardadas previamente y se ajusta cuando se quitan miembros. La tabla ofrece los datos restantes en un popover con etiquetas, editores y permisos existentes; las tarjetas muestran todos los miembros. Se corrigieron los dos bloqueos de revisión: el editor inline puede usarse desde el popover anidado y la poda se persiste con el contexto corregido tras la restauración. Se actualizó la guía y el mapa técnico, y el E2E ahora cubre edición, guardado y la secuencia de Esc.
 
-Validación local: `npm run typecheck`, `npm test` (104 archivos, 817 pruebas) y `npm run build` pasaron. No se ejecutó `tests/browser/business-column-groups.e2e.ts` ni integración; esta tarea no escribió en ninguna base. Próximo paso: ejecutar el e2e de grupos y revisar el cambio antes de abrir PR. No se hizo commit ni push.
+Validación local: `npm run typecheck`, `npm test` (104 archivos, 819 pruebas) y `npm run build` pasaron. No se ejecutó `tests/browser/business-column-groups.e2e.ts` ni integración; esta tarea no escribió en ninguna base. Próximo paso: el coordinador ejecuta el E2E de grupos y revisa el cambio. No se hizo commit ni push.
 
 ## Tras la revisión de UX (21/10/2026)
 
