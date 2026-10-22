@@ -58,8 +58,8 @@ const despedida = PERIODS.flatMap(period => [
 
 const presentacion = [
   ...pool("presentacion-email", { channel: "email" }, ["Mi nombre es {{sender}} y formo parte del equipo de {{que_es_hospeda}}.", "Soy {{sender}}, del equipo de {{que_es_hospeda}}.", "Mi nombre es {{sender}}, de {{que_es_hospeda}}."]),
-  ...pool("presentacion-whatsapp", { channel: "whatsapp" }, ["Soy {{sender_short}}, de {{que_es_hospeda}}.", "Soy {{sender_short}}, del equipo de {{que_es_hospeda}}.", "Mi nombre es {{sender_short}} y formo parte de {{que_es_hospeda}}."]),
-  ...pool("presentacion-social", { channel: "social" }, ["Soy {{sender_short}}, de {{que_es_hospeda}}.", "Acá {{sender_short}}, del equipo de {{que_es_hospeda}}.", "Mi nombre es {{sender_short}} y formo parte de {{que_es_hospeda}}."]),
+  ...pool("presentacion-whatsapp", { channel: "whatsapp" }, ["Soy {{sender_short}}, de Hospeda, la plataforma turística integral del Litoral.", "Soy {{sender_short}}, del equipo de Hospeda, la plataforma turística integral del Litoral.", "Mi nombre es {{sender_short}} y trabajo en Hospeda, la plataforma turística integral del Litoral."]),
+  ...pool("presentacion-social", { channel: "social" }, ["Soy {{sender_short}}, de Hospeda, la plataforma turística integral del Litoral.", "Acá {{sender_short}}, del equipo de Hospeda, la plataforma turística integral del Litoral.", "Mi nombre es {{sender_short}} y trabajo en Hospeda, la plataforma turística integral del Litoral."]),
 ];
 
 const queEsHospeda = pool("que-es-hospeda", {}, [
@@ -68,7 +68,7 @@ const queEsHospeda = pool("que-es-hospeda", {}, [
   "Hospeda, la plataforma turística integral del Litoral donde los viajeros planifican su visita",
 ]);
 
-/** Short local references, taken from the descriptions of the 22 destinations published by Hospeda. Other cities use the generic text. */
+/** Short local references that close a sentence ("...qué hacer en Colón, con sus playas..."), never the opening. Taken from the descriptions of the 22 destinations published by Hospeda. Other cities use the generic text. */
 const CITY_REFERENCES: Record<string, string[]> = {
   "Colón": ["en Colón, con sus playas sobre el río Uruguay", "en Colón, ciudad de playas y termas"],
   "Concepción del Uruguay": ["en Concepción del Uruguay, primera capital histórica de Entre Ríos", "en Concepción del Uruguay, a orillas del río Uruguay"],
@@ -99,32 +99,50 @@ const refCiudad = [
   ...Object.entries(CITY_REFERENCES).flatMap(([city, texts]) => pool(`ref-ciudad-${city.toLocaleLowerCase("es-AR").replace(/\s+/g, "-")}`, { cities: [city] }, texts)),
 ];
 
+/** Honest stage of Hospeda for email: online, still early and with low traffic, adding supply so it becomes useful. */
 const etapaHospeda = pool("etapa-hospeda", {}, [
-  "Hospeda ya está en línea y estamos sumando alojamientos, gastronomía y experiencias de la región: cuanto más completa esté la oferta, más útil es para quien viaja.",
-  "Ya estamos en línea y el foco está en sumar alojamientos, restaurantes y experiencias de la zona, para que quien viaja encuentre todo en un solo lugar.",
-  "Estamos dando los primeros pasos en línea y sumando a los negocios turísticos de la región: mientras más completa sea la oferta, más útil resulta para quien viaja.",
+  "Hospeda ya está en línea, pero recién arranca y el tráfico todavía es bajo. Por eso hoy el foco está en sumar alojamientos, gastronomía y experiencias: cuanto más completa esté la oferta, más útil va a ser para quien viaja.",
+  "La plataforma está en línea hace poco y todavía tiene pocas visitas. Estamos sumando a los negocios turísticos de la región para que a quien viaja le sirva de verdad y las visitas crezcan.",
+  "Estamos dando los primeros pasos: el sitio ya está en línea y estamos sumando la oferta turística de la zona. Mientras más negocios se sumen, más útil va a ser para quien viaja, y eso es lo que hace crecer las visitas.",
+]);
+/** One-line version of the stage for WhatsApp and Instagram. */
+const etapaCorta = pool("etapa-corta", {}, [
+  "Estamos recién arrancando y sumando a los negocios de la zona.",
+  "Arrancamos hace poco y estamos sumando la oferta turística de la región.",
+  "Ya estamos en línea y estamos sumando a los negocios turísticos de la zona.",
 ]);
 
 const ALOJAMIENTOS = ["Alojamientos"], GASTRONOMIA = ["Gastronomía"], EXPERIENCIAS = ["Experiencias", "Turismo rural"];
+/** Email value proposition. The business is not in Hospeda yet: copy talks in conditional ("tendría") or about businesses in general. */
 const propuestaValor = [
-  ...pool("propuesta-general-vos", { commercialProfiles: VOS }, ["Tu negocio tiene su propia ficha y el contacto con el cliente es directo, sin comisiones.", "Publicás tu propuesta con fotos y datos de contacto, y el cliente te escribe directo, sin intermediarios."]),
-  ...pool("propuesta-general-ustedes", { commercialProfiles: USTEDES }, ["El negocio tiene su propia ficha y el contacto con el cliente es directo, sin comisiones.", "Publican su propuesta con fotos y datos de contacto, y el cliente les escribe directo, sin intermediarios."]),
-  ...pool("propuesta-alojamientos-vos", { verticals: ALOJAMIENTOS, commercialProfiles: VOS }, ["Publicar no tiene comisión: el huésped te contacta directo y vos acordás la reserva, la seña y las condiciones.", "No hay comisiones por reserva ni por consulta: es una cuota fija y el huésped te escribe directo.", "Tu alojamiento tiene su propia ficha con fotos, servicios y calendario, y el huésped te contacta sin intermediarios ni comisiones."]),
-  ...pool("propuesta-alojamientos-ustedes", { verticals: ALOJAMIENTOS, commercialProfiles: USTEDES }, ["Publicar no tiene comisión: el huésped los contacta directo y ustedes acuerdan la reserva, la seña y las condiciones.", "No hay comisiones por reserva ni por consulta: es una cuota fija y el huésped les escribe directo.", "El alojamiento tiene su propia ficha con fotos, servicios y calendario, y el huésped los contacta sin intermediarios ni comisiones."]),
-  ...pool("propuesta-gastronomia-vos", { verticals: GASTRONOMIA, commercialProfiles: VOS }, ["Tu local tiene su propia página con carta, horarios, fotos y mapa, y los clientes te contactan directo, sin comisiones.", "Es una forma simple de que quien llega a la zona encuentre tu carta, tus horarios y cómo contactarte, sin comisiones por pedido ni por reserva.", "Podés mostrar la carta plato por plato, el menú del día y tus eventos, y el contacto con el cliente es directo."]),
-  ...pool("propuesta-gastronomia-ustedes", { verticals: GASTRONOMIA, commercialProfiles: USTEDES }, ["El local tiene su propia página con carta, horarios, fotos y mapa, y los clientes los contactan directo, sin comisiones.", "Es una forma simple de que quien llega a la zona encuentre su carta, sus horarios y cómo contactarlos, sin comisiones por pedido ni por reserva.", "Pueden mostrar la carta plato por plato, el menú del día y sus eventos, y el contacto con el cliente es directo."]),
-  ...pool("propuesta-experiencias-vos", { verticals: EXPERIENCIAS, commercialProfiles: VOS }, ["Tu experiencia tiene su ficha con fotos, duración, punto de encuentro y precio de referencia, y el turista te contacta directo, sin comisiones.", "Quien ya reservó alojamiento en la zona entra a Hospeda a decidir qué hacer esos días: la idea es que tu propuesta esté ahí.", "Publicás tu salida con todos sus detalles y el contacto con el turista es directo: no cobramos comisión por reserva."]),
-  ...pool("propuesta-experiencias-ustedes", { verticals: EXPERIENCIAS, commercialProfiles: USTEDES }, ["La experiencia tiene su ficha con fotos, duración, punto de encuentro y precio de referencia, y el turista los contacta directo, sin comisiones.", "Quien ya reservó alojamiento en la zona entra a Hospeda a decidir qué hacer esos días: la idea es que su propuesta esté ahí.", "Publican la salida con todos sus detalles y el contacto con el turista es directo: no cobramos comisión por reserva."]),
+  ...pool("propuesta-general-vos", { commercialProfiles: VOS }, ["Tu negocio tendría su propia ficha en Hospeda y el contacto con el cliente sería directo, sin comisiones.", "Los negocios que se suman publican su propuesta con fotos y datos de contacto, y reciben las consultas directo, sin intermediarios."]),
+  ...pool("propuesta-general-ustedes", { commercialProfiles: USTEDES }, ["El negocio tendría su propia ficha en Hospeda y el contacto con el cliente sería directo, sin comisiones.", "Los negocios que se suman publican su propuesta con fotos y datos de contacto, y reciben las consultas directo, sin intermediarios."]),
+  ...pool("propuesta-alojamientos-vos", { verticals: ALOJAMIENTOS, commercialProfiles: VOS }, ["Tu alojamiento tendría su propia ficha, con fotos, servicios y calendario. El huésped te escribiría directo y vos acordarías la reserva y las condiciones, sin comisiones.", "Los alojamientos que se suman publican su ficha con fotos y servicios, y reciben las consultas directo, sin intermediarios ni comisiones por reserva.", "La propuesta es simple: una ficha para tu alojamiento y el contacto directo con el huésped. No hay comisiones por reserva ni por consulta."]),
+  ...pool("propuesta-alojamientos-ustedes", { verticals: ALOJAMIENTOS, commercialProfiles: USTEDES }, ["El alojamiento tendría su propia ficha, con fotos, servicios y calendario. El huésped les escribiría directo y ustedes acordarían la reserva y las condiciones, sin comisiones.", "Los alojamientos que se suman publican su ficha con fotos y servicios, y reciben las consultas directo, sin intermediarios ni comisiones por reserva.", "La propuesta es simple: una ficha para el alojamiento y el contacto directo con el huésped. No hay comisiones por reserva ni por consulta."]),
+  ...pool("propuesta-gastronomia-vos", { verticals: GASTRONOMIA, commercialProfiles: VOS }, ["Tu local tendría su propia página, con carta, horarios, fotos y ubicación. Los clientes te contactarían directo, sin comisiones por pedido ni por reserva.", "Los locales gastronómicos que se suman muestran su carta, el menú del día y sus horarios, y el cliente los contacta directo. No hay comisiones.", "La idea es que quien llega a la zona encuentre tu carta, tus horarios y cómo contactarte, sin comisiones de por medio."]),
+  ...pool("propuesta-gastronomia-ustedes", { verticals: GASTRONOMIA, commercialProfiles: USTEDES }, ["El local tendría su propia página, con carta, horarios, fotos y ubicación. Los clientes los contactarían directo, sin comisiones por pedido ni por reserva.", "Los locales gastronómicos que se suman muestran su carta, el menú del día y sus horarios, y el cliente los contacta directo. No hay comisiones.", "La idea es que quien llega a la zona encuentre su carta, sus horarios y cómo contactarlos, sin comisiones de por medio."]),
+  ...pool("propuesta-experiencias-vos", { verticals: EXPERIENCIAS, commercialProfiles: VOS }, ["Tu experiencia tendría su ficha con fotos, duración, punto de encuentro y precio de referencia. El turista te contactaría directo y no cobramos comisión por reserva.", "Quien ya tiene alojamiento en la zona entra a Hospeda a decidir qué hacer esos días. La idea es que tu propuesta esté ahí.", "Las experiencias que se suman publican su salida con todos los detalles, y el turista las contacta directo, sin comisiones."]),
+  ...pool("propuesta-experiencias-ustedes", { verticals: EXPERIENCIAS, commercialProfiles: USTEDES }, ["La experiencia tendría su ficha con fotos, duración, punto de encuentro y precio de referencia. El turista los contactaría directo y no cobramos comisión por reserva.", "Quien ya tiene alojamiento en la zona entra a Hospeda a decidir qué hacer esos días. La idea es que su propuesta esté ahí.", "Las experiencias que se suman publican su salida con todos los detalles, y el turista las contacta directo, sin comisiones."]),
+];
+/** One-line value proposition for WhatsApp and Instagram. */
+const propuestaCorta = [
+  ...pool("propuesta-corta-general-vos", { commercialProfiles: VOS }, ["La idea es que tu negocio tenga su ficha y que los clientes te escriban directo, sin comisiones.", "La propuesta es una ficha para tu negocio, con contacto directo con el cliente y sin comisiones."]),
+  ...pool("propuesta-corta-general-ustedes", { commercialProfiles: USTEDES }, ["La idea es que el negocio tenga su ficha y que los clientes les escriban directo, sin comisiones.", "La propuesta es una ficha para el negocio, con contacto directo con el cliente y sin comisiones."]),
+  ...pool("propuesta-corta-alojamientos-vos", { verticals: ALOJAMIENTOS, commercialProfiles: VOS }, ["La idea es que tu alojamiento tenga su ficha y que los huéspedes te escriban directo, sin comisiones por reserva.", "La propuesta es una ficha para tu alojamiento, con contacto directo con el huésped y sin comisiones."]),
+  ...pool("propuesta-corta-alojamientos-ustedes", { verticals: ALOJAMIENTOS, commercialProfiles: USTEDES }, ["La idea es que el alojamiento tenga su ficha y que los huéspedes les escriban directo, sin comisiones por reserva.", "La propuesta es una ficha para el alojamiento, con contacto directo con el huésped y sin comisiones."]),
+  ...pool("propuesta-corta-gastronomia-vos", { verticals: GASTRONOMIA, commercialProfiles: VOS }, ["La idea es que tu local tenga su página con carta y horarios, y que los clientes te contacten directo.", "Es una página para tu local, con la carta, los horarios y el contacto directo, sin comisiones."]),
+  ...pool("propuesta-corta-gastronomia-ustedes", { verticals: GASTRONOMIA, commercialProfiles: USTEDES }, ["La idea es que el local tenga su página con carta y horarios, y que los clientes los contacten directo.", "Es una página para el local, con la carta, los horarios y el contacto directo, sin comisiones."]),
+  ...pool("propuesta-corta-experiencias-vos", { verticals: EXPERIENCIAS, commercialProfiles: VOS }, ["La idea es que tu experiencia aparezca cuando el turista decide qué hacer en la zona, con contacto directo y sin comisiones.", "La propuesta es una ficha para tu salida, con contacto directo con el turista y sin comisiones."]),
+  ...pool("propuesta-corta-experiencias-ustedes", { verticals: EXPERIENCIAS, commercialProfiles: USTEDES }, ["La idea es que la experiencia aparezca cuando el turista decide qué hacer en la zona, con contacto directo y sin comisiones.", "La propuesta es una ficha para la salida, con contacto directo con el turista y sin comisiones."]),
 ];
 
-const pruebaGratis = [
-  ...pool("prueba-vos", { commercialProfiles: VOS }, ["Tenés 30 días gratis para probarlo, sin tarjeta.", "La prueba es de 30 días sin costo y no pide tarjeta.", "Podés probarlo 30 días gratis, sin cargar tarjeta."]),
-  ...pool("prueba-ustedes", { commercialProfiles: USTEDES }, ["Tienen 30 días gratis para probarlo, sin tarjeta.", "La prueba es de 30 días sin costo y no pide tarjeta.", "Pueden probarlo 30 días gratis, sin cargar tarjeta."]),
-];
+/** Follows a bold "Para probarlo:" label, so it starts in lowercase. */
+const pruebaGratis = pool("prueba", {}, ["los primeros 30 días son gratis y no se pide tarjeta.", "hay 30 días de prueba sin costo y sin tarjeta.", "son 30 días gratis, sin cargar tarjeta."]);
 
+/** Follows a bold "Nos ocupamos de la carga:" label, so it starts in lowercase. */
 const ayudaFicha = [
-  ...pool("ayuda-vos", { commercialProfiles: VOS }, ["Si querés, te armamos la ficha con las fotos y los datos que nos pases; vos solo creás la cuenta.", "No hace falta que cargues todo: nos pasás el material y armamos la ficha con vos.", "Te ayudamos con la carga: con tus fotos y datos dejamos la ficha lista para publicar."]),
-  ...pool("ayuda-ustedes", { commercialProfiles: USTEDES }, ["Si quieren, les armamos la ficha con las fotos y los datos que nos pasen; solo tienen que crear la cuenta.", "No hace falta que carguen todo: nos pasan el material y armamos la ficha juntos.", "Los ayudamos con la carga: con sus fotos y datos dejamos la ficha lista para publicar."]),
+  ...pool("ayuda-vos", { commercialProfiles: VOS }, ["nos pasás fotos y datos, armamos la ficha y vos solo creás la cuenta.", "con las fotos y los datos que nos mandes dejamos la ficha lista; solo hace falta que crees la cuenta.", "si querés, armamos la ficha con tu material y vos solo creás la cuenta."]),
+  ...pool("ayuda-ustedes", { commercialProfiles: USTEDES }, ["nos pasan fotos y datos, armamos la ficha y ustedes solo crean la cuenta.", "con las fotos y los datos que nos manden dejamos la ficha lista; solo hace falta que creen la cuenta.", "si quieren, armamos la ficha con su material y ustedes solo crean la cuenta."]),
 ];
 
 const temporada = [
@@ -141,18 +159,18 @@ const linkPresentacion = [
   ...pool("link-experiencias", { verticals: EXPERIENCIAS }, [`${BASE}/experiencias/`]),
 ];
 
-const propuestaAliados = [
-  ...pool("aliados-vos", { commercialProfiles: VOS }, ["El programa de aliados es para quien quiere acompañar al turismo del Litoral con una presencia estable en Hospeda: logo en la portada, difusión en nuestras redes y en el newsletter, con registro de cada aparición.", "La idea es que estés presente justo donde se decide el viaje: en la portada de Hospeda, en nuestras redes y en el newsletter, con constancia de cada publicación."]),
-  ...pool("aliados-ustedes", { commercialProfiles: USTEDES }, ["El programa de aliados es para quien quiere acompañar al turismo del Litoral con una presencia estable en Hospeda: logo en la portada, difusión en nuestras redes y en el newsletter, con registro de cada aparición.", "La idea es que estén presentes justo donde se decide el viaje: en la portada de Hospeda, en nuestras redes y en el newsletter, con constancia de cada publicación."]),
-];
-const propuestaProveedores = [
-  ...pool("proveedores-vos", { commercialProfiles: VOS }, ["Estamos armando un directorio de proveedores para los anfitriones de la zona: publicar es gratis, sin comisiones, y te contactan directo por WhatsApp a cambio de un beneficio que vos definís.", "Los anfitriones de Hospeda buscan servicios de confianza cerca de sus alojamientos: sumarte al directorio es gratis y el contacto es directo, ofreciendo un beneficio propio."]),
-  ...pool("proveedores-ustedes", { commercialProfiles: USTEDES }, ["Estamos armando un directorio de proveedores para los anfitriones de la zona: publicar es gratis, sin comisiones, y los contactan directo por WhatsApp a cambio de un beneficio que ustedes definen.", "Los anfitriones de Hospeda buscan servicios de confianza cerca de sus alojamientos: sumarse al directorio es gratis y el contacto es directo, ofreciendo un beneficio propio."]),
-];
-const propuestaEditores = [
-  ...pool("editores-vos", { commercialProfiles: VOS }, ["Buscamos personas que conozcan la región para escribir notas o cargar eventos en la agenda de Hospeda. Es una colaboración voluntaria: tenés tu página de autor, difusión en nuestras redes y el texto sigue siendo tuyo.", "Estamos sumando editores que quieran contar el Litoral: notas, eventos y recomendaciones. Es voluntario, sin exclusividad, con página de autor y difusión de lo que publiques."]),
-  ...pool("editores-ustedes", { commercialProfiles: USTEDES }, ["Buscamos a quienes conozcan la región para escribir notas o cargar eventos en la agenda de Hospeda. Es una colaboración voluntaria: tienen página de autor, difusión en nuestras redes y el contenido sigue siendo de ustedes.", "Estamos sumando editores que quieran contar el Litoral: notas, eventos y recomendaciones. Es voluntario, sin exclusividad, con página de autor y difusión de lo que publiquen."]),
-];
+const propuestaAliados = pool("aliados", {}, [
+  "El programa de aliados de Hospeda está pensado para marcas y empresas que buscan acompañar el turismo del Litoral con una presencia estable.",
+  "Estamos sumando aliados: marcas y empresas interesadas en estar presentes donde se planifica el viaje por el Litoral.",
+]);
+const propuestaProveedores = pool("proveedores", {}, [
+  "Estamos armando un directorio de proveedores para los anfitriones de Hospeda: servicios de confianza cerca de sus alojamientos.",
+  "Los anfitriones de Hospeda buscan servicios de confianza en la zona, y estamos armando un directorio de proveedores para ellos.",
+]);
+const propuestaEditores = pool("editores", {}, [
+  "Buscamos personas que conozcan la región para escribir notas o cargar eventos en la agenda de Hospeda.",
+  "Estamos sumando editores que quieran contar el Litoral: notas, eventos y recomendaciones en Hospeda.",
+]);
 
 const preguntaPresentacion = [
   ...pool("pregunta-presentacion-vos", { commercialProfiles: VOS }, ["¿Te cuento cómo funciona?", "¿Te interesa que te pase más información?", "¿Te parece si lo charlamos un rato?"]),
@@ -185,11 +203,13 @@ export const MESSAGE_CATALOG_VARIABLES: MessageVariableDefinition[] = [
   text("saludo", "Saludo", "Saludo según la hora, el perfil y si hay nombre de contacto.", saludo),
   text("presentacion", "Presentación", "Quién escribe y qué es Hospeda, según el canal.", presentacion),
   text("que_es_hospeda", "Qué es Hospeda", "Descripción breve de Hospeda (se usa dentro de la presentación).", queEsHospeda),
-  text("ref_ciudad", "Referencia a la ciudad", "Mención de la localidad; los 22 destinos de Hospeda tienen frases propias.", refCiudad),
-  text("etapa_hospeda", "Etapa de Hospeda", "Explica con honestidad que Hospeda está en línea y sumando oferta.", etapaHospeda),
-  text("propuesta_valor", "Propuesta de valor", "Qué gana el negocio según su rubro y perfil.", propuestaValor),
-  text("prueba_gratis", "Prueba gratis", "Los 30 días de prueba sin tarjeta.", pruebaGratis),
-  text("ayuda_ficha", "Ayuda con la ficha", "Ofrece armar la ficha con el material del negocio.", ayudaFicha),
+  text("ref_ciudad", "Referencia a la ciudad", "Cierra una frase del email con la localidad; los 22 destinos de Hospeda tienen frases propias.", refCiudad),
+  text("etapa_hospeda", "Etapa de Hospeda", "Para email: explica con honestidad que Hospeda recién arranca y tiene poco tráfico.", etapaHospeda),
+  text("etapa_corta", "Etapa de Hospeda (corta)", "Para WhatsApp e Instagram: una línea sobre la etapa de Hospeda.", etapaCorta),
+  text("propuesta_valor", "Propuesta de valor", "Para email: qué tendría el negocio según su rubro y perfil.", propuestaValor),
+  text("propuesta_corta", "Propuesta de valor (corta)", "Para WhatsApp e Instagram: la propuesta en una línea.", propuestaCorta),
+  text("prueba_gratis", "Prueba gratis", "Los 30 días de prueba sin tarjeta (va después de «Para probarlo:»).", pruebaGratis),
+  text("ayuda_ficha", "Ayuda con la ficha", "Ofrece armar la ficha con el material del negocio (va después de «Nos ocupamos de la carga:»).", ayudaFicha),
   text("temporada", "Temporada", "Referencia a la temporada según el mes; vacía el resto del año.", temporada),
   text("propuesta_aliados", "Propuesta para aliados", "Programa de aliados (Partners).", propuestaAliados),
   text("propuesta_proveedores", "Propuesta para proveedores", "Directorio de proveedores para anfitriones.", propuestaProveedores),

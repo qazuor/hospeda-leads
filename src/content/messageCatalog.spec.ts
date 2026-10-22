@@ -50,12 +50,26 @@ describe('message catalog', () => {
           expect(textValue, where).not.toMatch(/ {2,}| [,.:?!]|\(\)|, ,/);
         }
         expect(body.length, where).toBeGreaterThan(80);
-        if (template.channel !== 'email') expect(body.length, where).toBeLessThan(950);
+        // Chats must be read at a glance, not skipped: short, and a cold first contact carries no links.
+        if (template.channel !== 'email') expect(body.length, where).toBeLessThan(template.purpose === 'operations' ? 500 : 420);
+        if (template.channel !== 'email' && template.purpose === 'first_contact') expect(body, where).not.toMatch(/https?:/);
         if (contact) expect(body, where).not.toContain('María');
         expect(body, where).not.toMatch(USTEDES.has(profile ?? '') ? VOS_MARKERS : USTEDES_MARKERS);
       }
     }
   }, 60_000);
+
+  it('keeps destination phrases out of the opening and chats', () => {
+    for (const template of MESSAGE_CATALOG_TEMPLATES) {
+      if (template.channel !== 'email') expect(template.body, template.name).not.toContain('{{ref_ciudad}}');
+      expect(template.body, template.name).not.toMatch(/{{name}}[^.]*{{ref_ciudad}}/);
+    }
+  });
+
+  it('never talks as if the business were already in Hospeda in a first contact', () => {
+    const propuesta = MESSAGE_CATALOG_VARIABLES.filter(variable => ['propuesta_valor', 'propuesta_corta'].includes(variable.key)).flatMap(variable => variable.alternatives.map(alternative => alternative.text));
+    for (const value of propuesta) expect(value).not.toMatch(/^(Tu|El|La) (negocio|alojamiento|local|experiencia) tiene\b/);
+  });
 
   it('never uses retired vocabulary, prices or promises of results', () => {
     const all = JSON.stringify([MESSAGE_CATALOG_TEMPLATES, MESSAGE_CATALOG_VARIABLES]);
