@@ -34,8 +34,9 @@ export function BusinessRowActions({accountId,name,canModify,admin,onOpen}:{acco
  const openButton=<Button size="icon-sm" variant="outline" className={styles.action} aria-label="Abrir" disabled={!!action} disabledReason={busyReason} onClick={event=>{actionTrigger.current=event.currentTarget;onOpen();}}><Eye size={15} aria-hidden="true"/></Button>;
  const contactButton=<Button size="icon-sm" variant="outline" className={styles.action} aria-label="Contactar" disabled={!canModify||!!action} disabledReason={contactReason} onClick={pick('contact')}>{pending&&action==='contact'?<LoaderCircle size={15} className={styles.spinner} aria-hidden="true"/>:<MessageCircle size={15} aria-hidden="true"/>}</Button>;
  return <><div className={styles.actions} role="group" aria-label={'Acciones de '+name}>
-  {!!action?openButton:<Tooltip><TooltipTrigger asChild>{openButton}</TooltipTrigger><TooltipContent>Abrir negocio</TooltipContent></Tooltip>}
-  {!canModify||!!action?contactButton:<Tooltip><TooltipTrigger asChild>{contactButton}</TooltipTrigger><TooltipContent>Contactar: elegir gestión, canal y mensaje</TooltipContent></Tooltip>}
+  {/* Keep one stable tree so the focus-return ref survives opening and closing an action. */}
+  <Tooltip open={action?false:undefined}><TooltipTrigger asChild>{openButton}</TooltipTrigger><TooltipContent>Abrir negocio</TooltipContent></Tooltip>
+  <Tooltip open={!canModify||action?false:undefined}><TooltipTrigger asChild>{contactButton}</TooltipTrigger><TooltipContent>Contactar: elegir gestión, canal y mensaje</TooltipContent></Tooltip>
   <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" className={styles.more} aria-label={'Más acciones de '+name} data-row-more title="Más acciones" disabled={!!action||menuEmpty} disabledReason={action?busyReason:trashReason} onClick={event=>{actionTrigger.current=event.currentTarget;}}><MoreHorizontal size={18} aria-hidden="true"/></Button></DropdownMenuTrigger>
    <DropdownMenuContent align="end">
     {admin&&<><DropdownMenuItem onClick={()=>setAction('archive')} title="Negocio válido que no se trabajará ahora. Conserva datos y tareas; solo un administrador puede recuperarlo."><Archive size={15} aria-hidden="true"/>Archivar negocio…</DropdownMenuItem><DropdownMenuSeparator/></>}
