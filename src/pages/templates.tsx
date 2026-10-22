@@ -27,9 +27,12 @@ import { defaultMessageVariableSettings } from "../helpers/messageVariables";
 import styles from "./templates.module.css";
 import {DisabledTooltip} from '../components/Tooltip';
 import {formatDateTime} from '../helpers/crmDates';
+import {buildMessageTemplateContext} from '../helpers/messageTemplateContext';
 
 type Channel="email"|"whatsapp"|"social"|"other";
 type Profile=""|"Independiente"|"Consolidado"|"Referente";
+type TemplatePurpose='verification'|'first_contact'|'resume'|'relationship'|'care'|'operations'|'other';
+const purposeOptions:[string,string][]=[['','Cualquiera'],['verification','Verificar el negocio'],['first_contact','Presentación / primer contacto'],['resume','Retomar conversación'],['relationship','Relación y novedades'],['care','Acompañamiento / atención'],['operations','Coordinación operativa'],['other','Otro']];
 
 export function TemplatesContent(){
   const previewRef=useRef<HTMLElement>(null);
@@ -47,6 +50,8 @@ export function TemplatesContent(){
   const [vertical,setVertical]=useState("");
   const [managementType,setManagementType]=useState<ManagementType|"">("");
   const [profile,setProfile]=useState<Profile>("");
+  const [purpose,setPurpose]=useState<TemplatePurpose|"">("");
+  const [variation,setVariation]=useState(0);
   const [name,setName]=useState("");
   const [subject,setSubject]=useState("");
   const [body,setBody]=useState("<p></p>");
@@ -103,12 +108,12 @@ export function TemplatesContent(){
   };
 
   const reset=()=>{
-    setTemplateId(undefined);setChannel("whatsapp");setVertical("");setManagementType("");setProfile("");
+    setTemplateId(undefined);setChannel("whatsapp");setVertical("");setManagementType("");setProfile("");setPurpose("");
     setName("");setSubject("");setBody("<p></p>");
   };
   const selectTemplate=(template:(typeof filtered)[number])=>{
     setTemplateId(template.id);setChannel(template.channel as Channel);setVertical(template.vertical??"");setManagementType(template.managementType as ManagementType||"");
-    setProfile((template.commercialProfile as Profile)??"");setName(template.name);
+    setProfile((template.commercialProfile as Profile)??"");setPurpose((template.purpose as TemplatePurpose)??"");setName(template.name);
     setSubject(template.subject??"");setBody(normalizeTemplateHtml(template.body));
     setSelectedVersion('');
   };
@@ -127,7 +132,7 @@ export function TemplatesContent(){
     try{await save.mutateAsync({
       action:"saveTemplate",id:templateId,channel,name,
       subject:channel==="email"?subject:null,body,vertical:vertical||null,managementType:managementType||null,
-      commercialProfile:profile||null
+      commercialProfile:profile||null,purpose:purpose||null
     });
     if(!templateId)reset();
     }catch{}finally{writeLock.current=false;}
@@ -148,12 +153,7 @@ export function TemplatesContent(){
   const previewOwner=previewLead?.assignedUserEmail?data?.users.find(user=>user.email===previewLead.assignedUserEmail):undefined;
   const sender=previewOwner?.fullName?.trim()||previewOwner?.displayName||(authState.type==="authenticated"?(authState.user.fullName?.trim()||authState.user.displayName):"Responsable asignado");
   const example=!previewLeadId;
-  const context=example?{
-    name:"Ruca Lihuén",contact:"María",city:"Colón",type:vertical||"Alojamiento",subtype:"Hotel",phone:"3447 000000",email:"contacto@ejemplo.com",website:"https://ejemplo.com",sender,hospeda_url:"",managementType,channel
-  }:{
-    name:previewLead?.nombre??"",contact:previewLead?.contactName??"",city:previewLead?.ciudad??"",phone:previewLead?.telefono??"",email:previewLead?.email??"",website:previewLead?.sitioWeb??"",
-    type:previewLead?.tipo??"",subtype:previewLead?.subtipo??"",sender,hospeda_url:"",managementType:previewLead?.managementType,channel
-  };
+  const context=buildMessageTemplateContext({accountId:example?'template-preview':previewLead?.accountId??previewLead?.id??'template-preview',contactId:example?'sample':previewLead?.primaryContactId??null,name:example?'Ruca Lihuén':previewLead?.nombre,contact:example?'María':previewLead?.contactName,city:example?'Colón':previewLead?.ciudad,type:example?vertical||'Alojamiento':previewLead?.tipo,subtype:example?'Hotel':previewLead?.subtipo,phone:example?'3447 000000':previewLead?.telefono,email:example?'contacto@ejemplo.com':previewLead?.email,website:example?'https://ejemplo.com':previewLead?.sitioWeb,sender,senderShort:previewOwner?.displayName??sender,senderEmail:previewOwner?.email??(example&&authState.type==='authenticated'?authState.user.email:''),hospedaUrl:'',managementType:example?managementType:previewLead?.managementType,commercialProfile:previewLead?.commercialProfile,isClient:!!previewLead?.isClient,channel,purpose:purpose||null,variation});
   const messageVariables=data?.messageVariables??defaultMessageVariableSettings();
   const renderedBody=renderMessageTemplateHtml(body,context,messageVariables);
   const renderedSubject=renderMessageTemplate(subject,context,messageVariables);
@@ -217,6 +217,7 @@ export function TemplatesContent(){
             <label>Vertical<NativeSelect disabled={save.isPending} value={vertical} onChange={e=>setVertical(e.target.value)}><option value="">Todas las verticales</option>{historicalVertical&&<option value={vertical}>{vertical} · Valor histórico</option>}{data?.types.map(type=><option key={type}>{type}</option>)}</NativeSelect></label>
             <label>Tipo de gestión<NativeSelect disabled={save.isPending} value={managementType} onChange={e=>setManagementType(e.target.value as ManagementType|"")}><option value="">Todos los tipos</option>{managementTypes.map(type=><option key={type} value={type}>{managementTypeLabels[type]}</option>)}</NativeSelect></label>
             <label>Perfil comercial<NativeSelect disabled={save.isPending} value={profile} onChange={e=>setProfile(e.target.value as Profile)}><option value="">Todos los perfiles</option><option>Independiente</option><option>Consolidado</option><option>Referente</option></NativeSelect></label>
+            <label>Propósito<NativeSelect disabled={save.isPending} value={purpose} onChange={e=>setPurpose(e.target.value as TemplatePurpose|"")}>{purposeOptions.map(([value,label])=><option key={value} value={value}>{value?'Propósito: '+label:'Propósito: cualquiera'}</option>)}</NativeSelect></label>
           </div>
           <label className={styles.field}>Nombre del modelo<Input disabled={save.isPending} value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
           {channel==="email"&&<label className={styles.field}>Asunto<Input disabled={save.isPending} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Asunto del email"/></label>}
@@ -230,7 +231,7 @@ export function TemplatesContent(){
         </article>
 
         <aside ref={previewRef} tabIndex={-1} aria-label="Vista previa del modelo" className={styles.previewCard}>
-          <div className={styles.previewTitle}><strong>Vista previa</strong><span>Elegí un negocio para comprobar variables. Los datos de ejemplo son ficticios.</span></div>
+          <div className={styles.previewTitle}><strong>Vista previa</strong><span>Elegí un negocio para comprobar variables. Los datos de ejemplo son ficticios.</span><Button size="sm" variant="outline" onClick={()=>setVariation(value=>value+1)}>Otra redacción</Button></div>
           <label className={styles.previewLead}>Previsualizar como
             <NativeSelect disabled={save.isPending} value={previewLeadId} onChange={e=>setPreviewLeadId(e.target.value)}>
               <option value="">Datos de ejemplo</option>

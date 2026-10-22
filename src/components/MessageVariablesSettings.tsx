@@ -9,7 +9,7 @@ import { useOperationGuard } from "../helpers/useOperationGuard";
 import {crmError} from '../helpers/crmErrors';
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import type { SettingsOutput } from "../endpoints/settings_GET.schema";
-import { defaultMessageVariableSettings, MESSAGE_VARIABLE_CRM_SOURCES, MESSAGE_VARIABLE_SYSTEM_SOURCES, type MessageVariableDefinition, type MessageVariableAlternative } from "../helpers/messageVariables";
+import { defaultMessageVariableSettings, resolveMessageVariables, MESSAGE_VARIABLE_CRM_SOURCES, MESSAGE_VARIABLE_SYSTEM_SOURCES, type MessageVariableDefinition, type MessageVariableAlternative } from "../helpers/messageVariables";
 import styles from "./MessageVariablesSettings.module.css";
 
 type Props = { data: SettingsOutput };
@@ -24,6 +24,7 @@ export function MessageVariablesSettings({ data }: Props) {
   const selected = variables.find(variable => variable.key === selectedKey);
   const runOperation = useOperationGuard(error => toast.error(error instanceof Error ? crmError(error) : "No se pudo guardar"));
   const [saving, setSaving] = useState(false);
+  const [previewVariation,setPreviewVariation]=useState(0);
   useEffect(() => { setVariables(data.messageVariables ?? defaultMessageVariableSettings()); }, [data.messageVariables]);
 
   const updateSelected = (change: (variable: MessageVariableDefinition) => MessageVariableDefinition) => {
@@ -73,7 +74,7 @@ export function MessageVariablesSettings({ data }: Props) {
   return <div className={styles.root}>
     <section className={styles.intro}>
       <div className={styles.heading}><Variable size={21}/><div><h2>Variables de texto</h2><p>Administrá los valores que se insertan en los modelos. Podés usar datos del CRM, del sistema o textos con condiciones de contexto.</p></div></div>
-      <p className={styles.rule}>Las alternativas se eligen según las condiciones configuradas (vertical, tipo, gestión u hora local). Si varias coinciden, se usa la más específica; ante igual prioridad se toma la primera de la lista.</p>
+      <p className={styles.rule}>Las alternativas se eligen según las condiciones configuradas. Se prioriza el grupo más específico y, si hay varias redacciones equivalentes, se elige una de forma estable por negocio y día.</p>
     </section>
 
     <div className={styles.workspace}>
@@ -104,8 +105,9 @@ export function MessageVariablesSettings({ data }: Props) {
 
         <section className={styles.alternatives}>
           <header><div><h4>{selected.source.kind === "text" ? "Textos alternativos" : "Textos según contexto (opcional)"}</h4><p>{selected.source.kind === "text" ? "Agregá opciones generales o condicionadas para adaptar la frase." : "Si una condición coincide, este texto reemplaza el dato de origen."}</p></div><Button size="sm" variant="outline" onClick={() => updateSelected(variable => ({ ...variable, alternatives: [...variable.alternatives, { id: crypto.randomUUID(), text: "", conditions: {} }] }))}><Plus size={14}/>Agregar texto</Button></header>
-          {selected.alternatives.map((alternative, index) => <article className={styles.alternative} key={alternative.id}>
-            <div className={styles.alternativeTop}><strong>Texto {index + 1}</strong><Button variant="ghost" size="icon-sm" title="Eliminar texto" aria-label={`Eliminar texto ${index + 1}`} onClick={() => updateSelected(variable => ({ ...variable, alternatives: variable.alternatives.filter((_, i) => i !== index) }))}><Trash2 size={14}/></Button></div>
+          <div aria-label="Vista previa de la variable"><strong>Vista previa</strong><p>{resolveMessageVariables({__seed:`admin-preview:${previewVariation}`},variables)[selected.key]||'Agregá una alternativa general para ver el resultado.'}</p><Button size="sm" variant="outline" onClick={()=>setPreviewVariation(value=>value+1)}>Otra redacción</Button></div>
+          {selected.alternatives.map((alternative, index) => {const group=selected.alternatives.filter(item=>JSON.stringify(item.conditions)===JSON.stringify(alternative.conditions));const groupIndex=group.findIndex(item=>item.id===alternative.id)+1;return <article className={styles.alternative} key={alternative.id}>
+            <div className={styles.alternativeTop}><strong>{group.length>1?`Variante ${groupIndex} de un grupo`:`Texto ${index + 1}`}</strong><Button variant="ghost" size="icon-sm" title="Eliminar texto" aria-label={`Eliminar texto ${index + 1}`} onClick={() => updateSelected(variable => ({ ...variable, alternatives: variable.alternatives.filter((_, i) => i !== index) }))}><Trash2 size={14}/></Button></div>
             <textarea value={alternative.text} maxLength={4000} rows={3} onChange={event => updateAlternative(index, current => ({ ...current, text: event.target.value }))} placeholder="Escribí el texto que aparecerá en el mensaje"/>
             <div className={styles.conditions}>
               <label>Vertical<NativeSelect value={alternative.conditions.vertical ?? ""} onChange={event => updateAlternative(index, current => ({ ...current, conditions: { ...current.conditions, vertical: event.target.value || null } }))}><option value="">Cualquiera</option>{data.types.map(type => <option key={type} value={type}>{type}</option>)}</NativeSelect></label>
@@ -114,8 +116,14 @@ export function MessageVariablesSettings({ data }: Props) {
               <label>Hora local<NativeSelect value={alternative.conditions.dayPeriod ?? ""} onChange={event => updateAlternative(index, current => ({ ...current, conditions: { ...current.conditions, dayPeriod: (event.target.value || null) as MessageVariableAlternative["conditions"]["dayPeriod"] } }))}><option value="">Cualquier hora</option><option value="morning">Mañana</option><option value="afternoon">Tarde</option><option value="evening">Noche</option></NativeSelect></label>
               <label>Canal<NativeSelect value={alternative.conditions.channel ?? ""} onChange={event => updateAlternative(index, current => ({ ...current, conditions: { ...current.conditions, channel: (event.target.value || null) as MessageVariableAlternative["conditions"]["channel"] } }))}><option value="">Cualquier canal</option><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="social">Red social</option><option value="other">Otro</option></NativeSelect></label>
               <label>Nombre de contacto<NativeSelect value={alternative.conditions.contactName ?? ""} onChange={event => updateAlternative(index, current => ({ ...current, conditions: { ...current.conditions, contactName: (event.target.value || null) as MessageVariableAlternative["conditions"]["contactName"] } }))}><option value="">Con o sin nombre</option><option value="present">Hay nombre</option><option value="missing">No hay nombre</option></NativeSelect></label>
+              <label>Ciudades<Input aria-label="Ciudades (separadas por coma)" value={(alternative.conditions.cities??[]).join(', ')} onChange={event=>updateAlternative(index,current=>({...current,conditions:{...current.conditions,cities:event.target.value.split(',').map(value=>value.trim()).filter(Boolean)}}))}/></label>
+              <label>Perfil comercial<NativeSelect value={alternative.conditions.commercialProfile??''} onChange={event=>updateAlternative(index,current=>({...current,conditions:{...current.conditions,commercialProfile:(event.target.value||null) as MessageVariableAlternative['conditions']['commercialProfile']}}))}><option value="">Cualquiera</option><option>Independiente</option><option>Consolidado</option><option>Referente</option><option value="none">Sin perfil</option></NativeSelect></label>
+              <label>Propósito<NativeSelect value={alternative.conditions.purpose??''} onChange={event=>updateAlternative(index,current=>({...current,conditions:{...current.conditions,purpose:(event.target.value||null) as MessageVariableAlternative['conditions']['purpose']}}))}><option value="">Cualquiera</option>{[['verification','Verificar'],['first_contact','Primer contacto'],['resume','Retomar'],['relationship','Relación'],['care','Acompañamiento'],['operations','Operaciones'],['other','Otro']].map(([key,label])=><option key={key} value={key}>{label}</option>)}</NativeSelect></label>
+              <label>Días de semana (0–6)<Input aria-label="Días de semana, números separados por coma" value={(alternative.conditions.weekdays??[]).join(', ')} onChange={event=>updateAlternative(index,current=>({...current,conditions:{...current.conditions,weekdays:event.target.value?event.target.value.split(',').map(Number).filter(Number.isInteger):[]}}))}/></label>
+              <label>Meses (1–12)<Input aria-label="Meses, números separados por coma" value={(alternative.conditions.months??[]).join(', ')} onChange={event=>updateAlternative(index,current=>({...current,conditions:{...current.conditions,months:event.target.value?event.target.value.split(',').map(Number).filter(Number.isInteger):[]}}))}/></label>
+              <label>Es cliente<NativeSelect value={alternative.conditions.isClient==null?'':String(alternative.conditions.isClient)} onChange={event=>updateAlternative(index,current=>({...current,conditions:{...current.conditions,isClient:event.target.value===''?null:event.target.value==='true'}}))}><option value="">Cualquiera</option><option value="true">Sí</option><option value="false">No</option></NativeSelect></label>
             </div>
-          </article>)}
+          </article>})}
           {!selected.alternatives.length && <p className={styles.empty}>No hay textos alternativos. Si el dato de origen está vacío, la variable quedará pendiente.</p>}
         </section>
         <footer className={styles.footer}><Button variant="outline" onClick={() => setVariables(data.messageVariables ?? defaultMessageVariableSettings())} disabled={saving} disabledReason="Esperá a que termine el guardado."><Copy size={15}/>Descartar cambios</Button><Button onClick={save} disabled={saving} disabledReason="Esperá a que termine el guardado."><Save size={15}/>{saving ? "Guardando…" : "Guardar variables"}</Button></footer>
