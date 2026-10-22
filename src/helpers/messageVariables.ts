@@ -1,5 +1,6 @@
 import { strictComparisonName } from "./dataNormalization";
 import { canonicalVertical } from "./verticalColors";
+import { MESSAGE_CATALOG_VARIABLES } from "../content/messageCatalogVariables";
 
 export type MessageVariableCondition = {
   verticals?: string[];
@@ -31,44 +32,12 @@ export type MessageVariableDefinition = {
   active: boolean;
 };
 
-export const DEFAULT_MESSAGE_VARIABLES: MessageVariableDefinition[] = [
-  { key: "contact", label: "Persona de contacto", description: "Nombre de la persona elegida para el contacto.", source: { kind: "crm", key: "contact" }, alternatives: [], active: true },
-  { key: "name", label: "Nombre del negocio", description: "Nombre del negocio en el CRM.", source: { kind: "crm", key: "name" }, alternatives: [], active: true },
-  { key: "type", label: "Vertical o tipo", description: "Vertical o tipo de negocio registrado.", source: { kind: "crm", key: "type" }, alternatives: [], active: true },
-  { key: "sender", label: "Responsable asignado", description: "Nombre de quien tiene asignado el negocio.", source: { kind: "crm", key: "sender" }, alternatives: [], active: true },
-  { key: "hospeda_url", label: "Ficha pública", description: "Enlace a la ficha pública, si existe.", source: { kind: "crm", key: "hospeda_url" }, alternatives: [], active: true },
-  { key: "saludo", label: "Saludo", description: "Saluda según la hora local de Argentina.", source: { kind: "text", key: "" }, alternatives: [
-    { id: "saludo-manana", text: "Buen día", conditions: { dayPeriod: "morning" } },
-    { id: "saludo-tarde", text: "Buenas tardes", conditions: { dayPeriod: "afternoon" } },
-    { id: "saludo-noche", text: "Buenas noches", conditions: { dayPeriod: "evening" } },
-  ], active: true },
-  { key: "gracias", label: "Agradecimiento", description: "Agradecimiento breve que se adapta al canal.", source: { kind: "text", key: "" }, alternatives: [
-    { id: "gracias-general", text: "Gracias por tu tiempo.", conditions: {} },
-    { id: "gracias-whatsapp", text: "¡Gracias por leerme!", conditions: { channel: "whatsapp" } },
-    { id: "gracias-email", text: "Muchas gracias por tu atención.", conditions: { channel: "email" } },
-  ], active: true },
-  { key: "despedida", label: "Despedida", description: "Cierre cordial según el momento del día.", source: { kind: "text", key: "" }, alternatives: [
-    { id: "despedida-general", text: "Saludos.", conditions: {} },
-    { id: "despedida-manana", text: "¡Que tengas un buen día!", conditions: { dayPeriod: "morning" } },
-    { id: "despedida-tarde", text: "¡Que tengas una buena tarde!", conditions: { dayPeriod: "afternoon" } },
-    { id: "despedida-noche", text: "¡Que tengas una linda noche!", conditions: { dayPeriod: "evening" } },
-  ], active: true },
-  { key: "presentacion", label: "Presentación", description: "Presentación breve de quien escribe y de Hospeda.", source: { kind: "text", key: "" }, alternatives: [
-    { id: "presentacion-base", text: "Soy {{sender}}, de Hospeda.", conditions: {} },
-  ], active: true },
-  { key: "pregunta_cierre", label: "Pregunta de cierre", description: "Invita a responder con una pregunta sencilla, ajustada al canal.", source: { kind: "text", key: "" }, alternatives: [
-    { id: "pregunta-general", text: "¿Te gustaría que te cuente un poco más?", conditions: {} },
-    { id: "pregunta-whatsapp", text: "¿Querés que te cuente un poco más por acá?", conditions: { channel: "whatsapp" } },
-    { id: "pregunta-email", text: "¿Te interesaría recibir más información?", conditions: { channel: "email" } },
-  ], active: true },
-  { key: "firma", label: "Firma", description: "Nombre del responsable y equipo.", source: { kind: "text", key: "" }, alternatives: [
-    { id: "firma-base", text: "{{sender}}\nEquipo Hospeda", conditions: {} },
-  ], active: true },
-];
+/** Built-in variables: the catalog approved in October 2026 (src/content/messageCatalogVariables.ts). */
+export const DEFAULT_MESSAGE_VARIABLES: MessageVariableDefinition[] = MESSAGE_CATALOG_VARIABLES;
 
 export const MESSAGE_VARIABLE_CRM_SOURCES = [
   ["name", "Nombre del negocio"], ["city", "Localidad"], ["type", "Vertical"],
-  ["subtype", "Tipo de negocio"], ["contact", "Nombre del contacto"], ["email", "Email elegido"],
+  ["subtype", "Tipo de negocio"], ["contact", "Nombre del contacto"], ["contact_first", "Nombre de pila del contacto"], ["email", "Email elegido"],
   ["phone", "Teléfono elegido"], ["website", "Sitio web"], ["sender", "Responsable asignado"],
   ["sender_short", "Nombre corto del responsable"], ["sender_email", "Email del responsable"], ["hospeda_url", "Enlace a la ficha pública"],
 ] as const;
