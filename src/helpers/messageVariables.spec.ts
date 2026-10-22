@@ -38,21 +38,22 @@ describe("message variables", () => {
     expect(values.dia).toBe("lunes");
   });
 
-  it("ships generic greeting, thanks, sign-off and presentation defaults", () => {
-    const defaults = defaultMessageVariableSettings();
-    expect(resolveMessageVariables({ sender: "Ana", channel: "whatsapp" }, defaults, new Date("2026-10-19T11:00:00.000Z"))).toMatchObject({
-      saludo: "Buen día", gracias: "¡Gracias por leerme!", despedida: "¡Que tengas un buen día!",
-      presentacion: "Soy Ana, de Hospeda.", firma: "Ana\nEquipo Hospeda",
-      pregunta_cierre: "¿Querés que te cuente un poco más por acá?",
-    });
+  it("ships the October 2026 catalog as built-in variables", () => {
+    const values = resolveMessageVariables({ __seed: "catalog", contact: "Ana María", contact_first: "Ana", sender: "Leandro Pérez", sender_short: "Leo", channel: "whatsapp", commercialProfile: "Independiente", city: "Colón", type: "Alojamientos" }, defaultMessageVariableSettings(), new Date("2026-10-19T11:00:00.000Z"));
+    expect(values.saludo).toMatch(/Ana/);
+    expect(values.saludo).not.toMatch(/María|tardes|noches/);
+    expect(values.presentacion).toMatch(/^(Soy Leo|Mi nombre es Leo)/);
+    expect(values.presentacion).toContain("plataforma turística integral del Litoral");
+    expect(values.ref_ciudad).toMatch(/^en Colón, /);
+    expect(values.link_presentacion).toBe("https://hospeda.com.ar/es/presentacion/alojamientos/");
+    expect(values.telefono_hospeda).toBe("3442 470650");
   });
 
   it("does not re-add defaults to a previously saved catalog", () => {
-    const oldCatalog = defaultMessageVariableSettings().slice(0, 5);
-    oldCatalog.push({ ...defaultMessageVariableSettings()[5], active: false });
-    const merged = withDefaultMessageVariables(oldCatalog);
+    const saved = defaultMessageVariableSettings().filter(variable => variable.key !== "despedida").map(variable => variable.key === "saludo" ? { ...variable, active: false } : variable);
+    const merged = withDefaultMessageVariables(saved);
     expect(merged.find(variable => variable.key === "saludo")?.active).toBe(false);
-    expect(merged.some(variable => variable.key === "gracias")).toBe(false);
+    expect(merged.some(variable => variable.key === "despedida")).toBe(false);
   });
 
   it("chooses deterministically among equally specific alternatives and honors previous picks",()=>{

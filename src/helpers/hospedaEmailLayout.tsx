@@ -1,5 +1,7 @@
 const DEFAULT_LOGO_URL="/hospeda-logo.jpg";
 const SITE_URL="https://hospeda.com.ar";
+/** Commercial phone shared by every seller; part of the signature in every email. */
+export const HOSPEDA_PHONE="3442 470650";
 
 const escapeHtml=(value:string)=>value
   .replaceAll("&","&amp;")
@@ -29,6 +31,7 @@ const styleBodyHtml=(html:string)=>html
 export function buildHospedaEmailHtml({
   bodyHtml,
   senderName,
+  senderEmail,
   subject,
   vertical,
   commercialProfile,
@@ -36,12 +39,15 @@ export function buildHospedaEmailHtml({
 }:{
   bodyHtml:string;
   senderName:string;
+  /** Shown in the signature next to the phone; templates no longer carry their own signature. */
+  senderEmail?:string|null;
   subject:string;
   vertical?:string|null;
   commercialProfile?:string|null;
   logoUrl?:string;
 }){
   const safeSender=escapeHtml(senderName||"Equipo Hospeda");
+  const contactLine=escapeHtml([senderEmail?.trim(),HOSPEDA_PHONE].filter(Boolean).join(" · "));
   const safeSubject=escapeHtml(subject);
   const safeVertical=escapeHtml(vertical||"Turismo");
   const overline=profileLabel(commercialProfile);
@@ -111,6 +117,7 @@ export function buildHospedaEmailHtml({
                   <tr>
                     <td style="font-size:13px;line-height:1.55;color:#405565;">
                       <strong style="color:#203747;">${safeSender}</strong><br>
+                      ${contactLine}<br>
                       Equipo Hospeda<br>
                       <a href="${SITE_URL}" style="color:#3AA7D9;text-decoration:none;">hospeda.com.ar</a>
                     </td>
@@ -134,10 +141,12 @@ export function buildHospedaEmailHtml({
 
 export function buildHospedaEmailText({
   bodyText,
-  senderName
+  senderName,
+  senderEmail
 }:{
   bodyText:string;
   senderName:string;
+  senderEmail?:string|null;
 }){
   return [
     bodyText.trim(),
@@ -145,6 +154,7 @@ export function buildHospedaEmailText({
     "Conocer Hospeda: https://hospeda.com.ar",
     "",
     senderName||"Equipo Hospeda",
+    [senderEmail?.trim(),HOSPEDA_PHONE].filter(Boolean).join(" · "),
     "Equipo Hospeda",
     "https://hospeda.com.ar"
   ].join("\n");
