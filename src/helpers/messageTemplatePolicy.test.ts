@@ -14,9 +14,9 @@ describe('message template segmentation',()=>{
     expect(templateCompatibility(scoped,{channel:'email'})).toContain('canal');
     expect(templateCompatibility({channel:'email'},{channel:'email',vertical:'Gastronomía',commercialProfile:'Referente'})).toBeNull();
   });
-  it('treats blank scopes as unset but does not invent classification aliases',()=>{
+  it('treats blank scopes as unset and matches canonical vertical aliases',()=>{
     expect(templateCompatibility({channel:'email',vertical:' ',commercialProfile:' '},{channel:'email',vertical:'Alojamientos',commercialProfile:'Referente'})).toBeNull();
-    expect(templateCompatibility({channel:'email',vertical:'Alojamiento'},{channel:'email',vertical:'Alojamientos'})).toContain('vertical');
+    expect(templateCompatibility({channel:'email',vertical:'Alojamiento'},{channel:'email',vertical:'Alojamientos'})).toBeNull();
   });
   it('filters by management type when known and lists specialized models first',()=>{
     expect(templateCompatibility({channel:'email',managementType:'partner'},{channel:'email',managementType:'main'})).toContain('tipo de gestión');

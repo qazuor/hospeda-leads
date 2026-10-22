@@ -1,14 +1,15 @@
 import { strictComparisonName } from "./dataNormalization";
+import { canonicalVertical } from "./verticalColors";
 
 export type MessageVariableCondition = {
-  vertical?: string | null;
+  verticals?: string[];
   businessType?: string | null;
   managementType?: string | null;
   dayPeriod?: "morning" | "afternoon" | "evening" | null;
   channel?: "email" | "whatsapp" | "social" | "other" | null;
   contactName?: "present" | "missing" | null;
   cities?: string[];
-  commercialProfile?: "Independiente" | "Consolidado" | "Referente" | "none" | null;
+  commercialProfiles?: ("Independiente" | "Consolidado" | "Referente" | "none")[];
   purpose?: import("./contactPurpose").ContactPurpose | null;
   weekdays?: number[];
   months?: number[];
@@ -120,8 +121,9 @@ export function validateMessageVariables(value: unknown): MessageVariableDefinit
       if (channel && !["email", "whatsapp", "social", "other"].includes(channel)) throw new Error(`La condición de canal de {{${key}}} no es válida.`);
       const contactName = c.contactName || null;
       if (contactName && !["present", "missing"].includes(contactName)) throw new Error(`La condición de contacto de {{${key}}} no es válida.`);
-      const commercialProfile=c.commercialProfile||null;
-      if(commercialProfile&&!['Independiente','Consolidado','Referente','none'].includes(commercialProfile))throw new Error(`La condición de perfil comercial de {{${key}}} no es válida.`);
+      const profileValues=Array.isArray(c.commercialProfiles)?c.commercialProfiles:c.commercialProfile?[c.commercialProfile]:[];
+      if(profileValues.some((profile:unknown)=>!['Independiente','Consolidado','Referente','none'].includes(String(profile))))throw new Error(`La condición de perfil comercial de {{${key}}} no es válida.`);
+      const commercialProfiles=[...new Set(profileValues.map(String))] as NonNullable<MessageVariableCondition['commercialProfiles']>;
       const purpose=c.purpose||null;
       if(purpose&&!['verification','first_contact','resume','relationship','care','operations','other'].includes(purpose))throw new Error(`La condición de propósito de {{${key}}} no es válida.`);
       const cities=Array.isArray(c.cities)?c.cities.map((city:unknown)=>String(city).trim()).filter(Boolean):[];
@@ -129,14 +131,16 @@ export function validateMessageVariables(value: unknown): MessageVariableDefinit
       const months=Array.isArray(c.months)?c.months.map(Number):[];
       if(weekdays.some((day:number)=>!Number.isInteger(day)||day<0||day>6))throw new Error(`Los días de {{${key}}} deben estar entre 0 y 6.`);
       if(months.some((month:number)=>!Number.isInteger(month)||month<1||month>12))throw new Error(`Los meses de {{${key}}} deben estar entre 1 y 12.`);
+      const verticalValues=Array.isArray(c.verticals)?c.verticals:c.vertical?[c.vertical]:[];
+      const verticals=[...new Set(verticalValues.map((vertical:unknown)=>String(vertical).trim().slice(0,100)).filter(Boolean))];
       const conditions = {
-        vertical: c.vertical ? String(c.vertical).slice(0, 100) : null,
+        verticals,
         businessType: c.businessType ? String(c.businessType).slice(0, 100) : null,
         managementType: c.managementType ? String(c.managementType).slice(0, 40) : null,
         dayPeriod,
         channel,
         contactName,
-        cities,commercialProfile,purpose,weekdays,months,isClient:typeof c.isClient==='boolean'?c.isClient:null,
+        cities,commercialProfiles,purpose,weekdays,months,isClient:typeof c.isClient==='boolean'?c.isClient:null,
       };
       return { id: String(item?.id || `${key}-${index + 1}`).slice(0, 80), text, conditions };
     });
@@ -178,7 +182,7 @@ export function resolveMessageVariables(context: Record<string, unknown>, defini
     resolved.add(key);
     const matches = variable.alternatives.flatMap((alternative, index) => {
       const c = alternative.conditions;
-      if (c.vertical && c.vertical !== String(fullContext.type ?? "")) return [];
+      if (c.verticals?.length && !c.verticals.some(vertical=>canonicalVertical(vertical)===canonicalVertical(String(fullContext.type??"")))) return [];
       if (c.businessType && c.businessType !== String(fullContext.subtype ?? "")) return [];
       if (c.managementType && c.managementType !== String(fullContext.managementType ?? "")) return [];
       if (c.dayPeriod && c.dayPeriod !== system.__dayPeriod) return [];
@@ -186,12 +190,12 @@ export function resolveMessageVariables(context: Record<string, unknown>, defini
       if (c.contactName === "present" && !String(fullContext.contact ?? "").trim()) return [];
       if (c.contactName === "missing" && String(fullContext.contact ?? "").trim()) return [];
       if(c.cities?.length&&!c.cities.some(city=>normalizeCity(city)===normalizeCity(String(fullContext.city??''))))return [];
-      if(c.commercialProfile&&(c.commercialProfile==='none'?!!fullContext.commercialProfile:c.commercialProfile!==fullContext.commercialProfile))return [];
+      if(c.commercialProfiles?.length&&!c.commercialProfiles.some(profile=>profile==='none'?!String(fullContext.commercialProfile??'').trim():profile===fullContext.commercialProfile))return [];
       if(c.purpose&&c.purpose!==fullContext.purpose)return [];
       if(c.weekdays?.length&&!c.weekdays.includes(Number(system.__system.weekdayIndex)))return [];
       if(c.months?.length&&!c.months.includes(Number(system.__system.monthIndex)))return [];
       if(typeof c.isClient==='boolean'&&c.isClient!==Boolean(fullContext.isClient))return [];
-      const specificity = Number(!!c.vertical) + Number(!!c.businessType) + Number(!!c.managementType) + Number(!!c.dayPeriod) + Number(!!c.channel) + Number(!!c.contactName)+Number(!!c.cities?.length)+Number(!!c.commercialProfile)+Number(!!c.purpose)+Number(!!c.weekdays?.length)+Number(!!c.months?.length)+Number(typeof c.isClient==='boolean');
+      const specificity = Number(!!c.verticals?.length) + Number(!!c.businessType) + Number(!!c.managementType) + Number(!!c.dayPeriod) + Number(!!c.channel) + Number(!!c.contactName)+Number(!!c.cities?.length)+Number(!!c.commercialProfiles?.length)+Number(!!c.purpose)+Number(!!c.weekdays?.length)+Number(!!c.months?.length)+Number(typeof c.isClient==='boolean');
       return [{ alternative, specificity, index }];
     });
     const max=matches.length?Math.max(...matches.map(item=>item.specificity)):-1;

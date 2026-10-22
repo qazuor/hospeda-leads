@@ -17,7 +17,7 @@ describe("message variables", () => {
     const definitions: MessageVariableDefinition[] = [
       { key: "saludo", label: "Saludo", description: "", source: { kind: "text", key: "" }, active: true, alternatives: [
         { id: "generic", text: "Hola", conditions: {} },
-        { id: "hotel", text: "Buen día, {{contact}}", conditions: { vertical: "Alojamientos", businessType: "Hotel" } },
+        { id: "hotel", text: "Buen día, {{contact}}", conditions: { verticals: ["Alojamientos"], businessType: "Hotel" } },
       ] },
       { key: "apertura", label: "Apertura", description: "", source: { kind: "text", key: "" }, active: true, alternatives: [
         { id: "nested", text: "{{saludo}}. Te escribo de Hospeda.", conditions: {} },
@@ -65,7 +65,7 @@ describe("message variables", () => {
   });
 
   it("matches city accents while preserving ñ, profile absence and purpose conditions",()=>{
-    const defs:MessageVariableDefinition[]=[{key:'texto',label:'Texto',description:'',source:{kind:'text',key:''},active:true,alternatives:[{id:'city',text:'Ciudad',conditions:{cities:['Café']}},{id:'none',text:'Sin perfil',conditions:{commercialProfile:'none',purpose:'first_contact'}}]}];
+    const defs:MessageVariableDefinition[]=[{key:'texto',label:'Texto',description:'',source:{kind:'text',key:''},active:true,alternatives:[{id:'city',text:'Ciudad',conditions:{cities:['Café']}},{id:'none',text:'Sin perfil',conditions:{commercialProfiles:['none'],purpose:'first_contact'}}]}];
     expect(resolveMessageVariables({city:'Cafe',commercialProfile:'',purpose:'first_contact'},defs).texto).toBe('Sin perfil');
     expect(resolveMessageVariables({city:'Café',commercialProfile:'Referente'},defs).texto).toBe('Ciudad');
     expect(resolveMessageVariables({city:'Cabanas',commercialProfile:'Referente'},[{...defs[0],alternatives:[{id:'n',text:'N',conditions:{cities:['Cabañas']}}]}]).texto).toBe('');
@@ -79,6 +79,28 @@ describe("message variables", () => {
   it("accepts multiple alternatives with identical conditions",()=>{
     const variable=defaultMessageVariableSettings()[5];
     expect(()=>validateMessageVariables([{...variable,alternatives:[...variable.alternatives,{id:'other',text:'Hola también',conditions:{dayPeriod:'morning'}}]}])).not.toThrow();
+  });
+
+  it('matches multiple profile and vertical values and counts each list as one specificity condition',()=>{
+    const defs:MessageVariableDefinition[]=[{key:'texto',label:'Texto',description:'',source:{kind:'text',key:''},active:true,alternatives:[
+      {id:'lists',text:'Lista',conditions:{verticals:['Alojamientos','Experiencias'],commercialProfiles:['Independiente','Referente']}},
+      {id:'more-specific',text:'Más específica',conditions:{verticals:['Alojamientos'],commercialProfiles:['Referente'],channel:'email'}},
+    ]}];
+    expect(resolveMessageVariables({type:'Experiencia',commercialProfile:'Independiente',channel:'social',__seed:'x'},defs).texto).toBe('Lista');
+    expect(resolveMessageVariables({type:'Alojamiento',commercialProfile:'Referente',channel:'email',__seed:'x'},defs).texto).toBe('Más específica');
+  });
+
+  it('normalizes stored legacy single vertical and profile conditions into lists',()=>{
+    const variable=defaultMessageVariableSettings()[5];
+    const legacy:unknown=[{...variable,alternatives:[{id:'legacy',text:'Legacy',conditions:{vertical:'Alojamiento',commercialProfile:'Referente'}}]}];
+    expect(validateMessageVariables(legacy).at(-1)?.alternatives[0].conditions).toMatchObject({verticals:['Alojamiento'],commercialProfiles:['Referente']});
+  });
+
+  it('matches canonical known vertical aliases but keeps ñ distinct from n',()=>{
+    const variable:MessageVariableDefinition={key:'texto',label:'Texto',description:'',source:{kind:'text',key:''},active:true,alternatives:[{id:'vertical',text:'Coincide',conditions:{verticals:['Proveedores de servicios']}}]};
+    expect(resolveMessageVariables({type:'Proveedor de servicios'},[variable]).texto).toBe('Coincide');
+    expect(resolveMessageVariables({type:'PROVEEDÓR DE SERVÍCIOS'},[variable]).texto).toBe('Coincide');
+    expect(resolveMessageVariables({type:'Cabañas'},[{...variable,alternatives:[{id:'n',text:'No coincide',conditions:{verticals:['Cabanas']}}]}]).texto).toBe('');
   });
 
   it("ignores removed printable CRM sources in legacy stored settings",()=>{

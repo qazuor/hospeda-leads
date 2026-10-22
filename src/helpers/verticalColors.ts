@@ -19,6 +19,12 @@ export const knownVerticalTones=new Map<string,VerticalTone>([
   ["editor",editor],["editores",editor],
 ]);
 
+/** Canonical comparison key for known rubros, including catalog singular/plural aliases. Unknown values retain strict accent-insensitive comparison. */
+export const canonicalVertical=(name:string):string=>{
+  const key=verticalKey(name),tone=knownVerticalTones.get(key);
+  return tone?([...knownVerticalTones].find(([,candidate])=>candidate===tone)?.[0]??key):key;
+};
+
 /** Reserve hues for new rubros: at least 25 degrees from every known rubro hue and outside the danger red range (345-15); they still sit near some status tints (amber, green, blue), which is accepted since only 4 slots fit. */
 export const fallbackHues=[55,115,240,300] as const;
 

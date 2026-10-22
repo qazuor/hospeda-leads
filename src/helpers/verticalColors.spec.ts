@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {fallbackHues,knownVerticalTones,verticalKey,verticalTone} from './verticalColors';
+import {canonicalVertical,fallbackHues,knownVerticalTones,verticalKey,verticalTone} from './verticalColors';
 
 const hslToRgb=(h:number,s:number,l:number)=>{s/=100;l/=100;const k=(n:number)=>(n+h/30)%12,a=s*Math.min(l,1-l),f=(n:number)=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return [f(0),f(8),f(4)].map(v=>v*255);};
 const luminance=(rgb:number[])=>{const [r,g,b]=rgb.map(v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;});return 0.2126*r+0.7152*g+0.0722*b;};
@@ -34,6 +34,10 @@ describe('verticalTone',()=>{
   expect(verticalKey('Cabaña')).not.toBe(verticalKey('Cabana'));
   expect(verticalKey('Cabaña')).toBe(verticalKey('CABAÑA'));
   expect(verticalKey('Gastronomía')).toBe('gastronomia');
+ });
+ it('canonicalizes known singular and plural rubro names',()=>{
+  for(const [singular,plural] of [['Alojamiento','Alojamientos'],['Experiencia','Experiencias'],['Partner','Partners'],['Proveedor de servicios','Proveedores de servicios'],['Editor','Editores']])expect(canonicalVertical(singular)).toBe(canonicalVertical(plural));
+  expect(canonicalVertical('Cabaña')).not.toBe(canonicalVertical('Cabana'));
  });
  it('keeps reserve hues away from known rubros and the danger red',()=>{
   const dist=(a:number,b:number)=>Math.min(Math.abs(a-b),360-Math.abs(a-b));
