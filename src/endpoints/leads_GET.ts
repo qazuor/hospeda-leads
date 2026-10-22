@@ -314,6 +314,7 @@ export async function handle(request: Request) {
         row.reviewStatus=isReviewedBusinessStatus(account.status);
         row.businessRecontactAt=account.recontactAt?calendarDay(account.recontactAt):null;
         row.isClient=account.isClient;
+        row.doNotContact=account.doNotContact;
         row.referredToLeandro=account.referredToLeandro;
         row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return field==='estado'&&o.managementType?managementLabel(o.managementType,String(v)):v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
         for(const f of ['tipo','subtipo'] as const)row.opportunityValues[f]=account[f]?[account[f]!]:[];

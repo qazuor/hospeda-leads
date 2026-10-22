@@ -161,6 +161,15 @@ try{
  assert(global.rows.some((entry:any)=>entry.source==='pipeline'&&entry.action==='pipeline_stage'),'management stage changes appear in generic journal');
 
 
+ // Review badge transitions update status and clear/cancel an untouched recontact reminder.
+ const reviewToggle=await business('Revisión editable '+stamp,sellerEmail);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:reviewToggle,status:'reviewed'},seller);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:reviewToggle,status:'recontact',recontactAt:'2027-03-15'},seller);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:reviewToggle,status:'new',recontactAt:null},seller);
+ const toggled=await db.selectFrom('crmAccounts').select(['status','recontactAt']).where('id','=',reviewToggle).executeTakeFirstOrThrow();
+ assert.equal(toggled.status,'new');assert.equal(toggled.recontactAt,null);
+ assert.equal((await db.selectFrom('crmTasks').select('id').where('accountId','=',reviewToggle).where('title','=','Volver a contactar').where('status','=','cancelled').execute()).length,1);
+ await call(commercialPost,'commercial',{action:'business_status',accountId:reviewToggle,status:'new',recontactAt:null},seller,400);
  // U-35 / decision 7A: Recontactar + date schedules "Volver a contactar" for the responsible seller.
  const recontactTasks=(accountId:string,status:string='pending')=>db.selectFrom('crmTasks').selectAll().where('accountId','=',accountId).where('title','=','Volver a contactar').where('status','=',status as 'pending').where('deletedAt','is',null).execute();
  const recontactBusiness=await business('Recontacto tarea '+stamp,sellerEmail);
