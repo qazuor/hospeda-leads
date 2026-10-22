@@ -185,7 +185,7 @@ const BUSINESS_COLUMNS_LABELS:Record<string,string>={...Object.fromEntries(NORMA
 function groupMemberHasValue(row:Row,key:string){const value=row.opportunityCount!==1&&row.opportunityValues?.[key]?.length?row.opportunityValues[key]:row[key as keyof typeof row];return value!==null&&value!==undefined&&String(value).trim()!=='';}
 function renderBusinessColumnValue(row:Row,key:string,groups:BusinessColumnGroup[],admin:boolean,users:Users,open:(row:Row)=>void):React.ReactNode{
  const group=groups.find(item=>'group:'+item.id===key);if(!group)return cellValue(row,key,admin,users,open);
- const members=group.members.filter(member=>groupMemberHasValue(row,member));return members.length?<div className={styles.groupCell}>{members.map(member=><div className={styles.groupMember} key={member}><span>{BUSINESS_COLUMNS_LABELS[member]??member}</span><div>{cellValue(row,member,admin,users,open)}</div></div>)}</div>:'—';
+ const members=group.members.filter(member=>groupMemberHasValue(row,member));return members.length?<div className={styles.groupCell} data-group-cell="">{members.map(member=><div className={styles.groupMember} key={member}><span>{BUSINESS_COLUMNS_LABELS[member]??member}</span><div>{cellValue(row,member,admin,users,open)}</div></div>)}</div>:'—';
 }
 type RowProps={row:Row;columns:string[];groups:BusinessColumnGroup[];selected:boolean;admin:boolean;users:Users;onToggle:(id:string)=>void;onOpen:(row:Row)=>void};
 /** Table row of the business list; memoized so list-level state changes (scroll, resize, sticky header, paging) skip unchanged rows. */
