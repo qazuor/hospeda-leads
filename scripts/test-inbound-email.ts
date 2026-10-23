@@ -18,7 +18,8 @@ try{
  const openStage=await db.selectFrom('crmStages').select('name').where('classification','=','open').executeTakeFirstOrThrow();
  await db.insertInto('leads').values({accountId:account.id,nombre:account.nombre,estado:openStage.name}).execute();
  const key=`inbound-${randomUUID()}@example.test`;await db.updateTable('crmAccounts').set({email:key}).where('id','=',account.id).execute();
- const senderPayload={...base('good'),from:{email:key,name:'Fixture Sender'},headers:{autoSubmitted:'auto-replied'}};
+ const spoofed=await post(request({...base('spoof'),from:{email:key,name:'Spoofed'},envelopeFrom:'attacker@evil.test'}));assert.equal((await spoofed.json() as {matched:boolean}).matched,false,'A From header without an aligned envelope sender is not trusted');
+ const senderPayload={...base('good'),from:{email:key,name:'Fixture Sender'},envelopeFrom:'bounce@example.test',headers:{autoSubmitted:'auto-replied'}};
  const received=await post(request(senderPayload));assert.equal(received.status,200);const result=await received.json() as {id:string;matched:boolean;matchMethod:string;duplicate:boolean};assert.equal(result.matched,true);assert.equal(result.matchMethod,'sender_email');assert.equal(result.duplicate,false);
  const duplicate=await post(request(senderPayload));assert.equal(duplicate.status,200);assert.equal((await duplicate.json() as {duplicate:boolean}).duplicate,true);
  const count=await sql<{count:string}>`SELECT count(*)::text AS count FROM crm_inbound_messages WHERE external_id=${senderPayload.messageId.replace(/[<>]/g,'')}`.execute(db);
@@ -40,7 +41,7 @@ try{
  const viaRefs=await post(request({...base('refs-'+randomUUID()),from:{email:'third@example.test',name:''},references:['<unrelated@example.test>',`<${outboxId}>`]}));assert.equal((await viaRefs.json() as {matchMethod:string}).matchMethod,'references');
  const chained=await post(request({...base('chain-'+randomUUID()),from:{email:'fourth@example.test',name:''},references:[senderPayload.messageId]}));assert.equal((await chained.json() as {matchMethod:string}).matchMethod,'references','An already matched inbound email anchors later replies');
  const shared=`shared-${randomUUID()}@example.test`;for(const n of [1,2])await db.insertInto('crmAccounts').values({nombre:`Inbound shared ${n} ${randomUUID()}`,email:shared,ciudad:'Colón'}).execute();
- const ambiguous=await post(request({...base('ambiguous-'+randomUUID()),from:{email:shared.toUpperCase(),name:''}}));const ambiguousResult=await ambiguous.json() as {id:string;matched:boolean;matchMethod:string};assert.equal(ambiguousResult.matched,false);assert.equal(ambiguousResult.matchMethod,'none');
+ const ambiguous=await post(request({...base('ambiguous-'+randomUUID()),from:{email:shared.toUpperCase(),name:''},envelopeFrom:'bounce@example.test'}));const ambiguousResult=await ambiguous.json() as {id:string;matched:boolean;matchMethod:string};assert.equal(ambiguousResult.matched,false);assert.equal(ambiguousResult.matchMethod,'none');
  const unmatchedRow=(await sql<{accountId:string|null;status:string}>`SELECT account_id AS "accountId",status FROM crm_inbound_messages WHERE id=${ambiguousResult.id}::uuid`.execute(db)).rows[0];assert.equal(unmatchedRow.accountId,null);assert.equal(unmatchedRow.status,'unmatched');assert.equal(await journal(ambiguousResult.id),0,'Unmatched inbound emails do not write a business journal entry');
  const unknown=await post(request(base('unknown-'+randomUUID())));assert.equal((await unknown.json() as {matched:boolean}).matched,false);
  const senderLocal=`inbound.${randomUUID().slice(0,8)}`;await db.updateTable('users').set({senderEmail:`${senderLocal}@hospeda.com.ar`}).where('id','=',owner.id).execute();

@@ -62,6 +62,7 @@ const EXPECTED_LIVE_TRIGGERS=[
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_document_categories FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_document_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_documents FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_inbound_messages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_messages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER users_live_version AFTER INSERT OR DELETE OR UPDATE ON public.users FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')"
 ];
