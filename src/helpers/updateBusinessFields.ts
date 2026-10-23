@@ -15,7 +15,7 @@ export async function updateBusinessFields(trx:Transaction<DB>,ids:string[],chan
     }
     if(!Object.keys(changes).some(key=>before[key as keyof typeof changes]!==changes[key as keyof typeof changes]))continue;
     const after=await trx.updateTable("crmAccounts").set({...changes,updatedAt:new Date()}).where("id","=",String(before.id)).returningAll().executeTakeFirstOrThrow();
-    await trx.insertInto("crmCommercialJournal").values({accountId:before.id,contactId:null,action:"account_updated",actorEmail:actor.email,actorName:actor.displayName,metadata:sql`${JSON.stringify({before,after})}::jsonb`}).execute();
+    await trx.insertInto("crmCommercialJournal").values({accountId:before.id,contactId:null,action:"account_updated",actorEmail:actor.email,actorName:actor.displayName,metadata:sql`${JSON.stringify({before,after})}::text::jsonb`}).execute();
     if(changes.assignedUserEmail!==undefined)await reassignRecontactTask(trx,{accountId:before.id,fromEmail:before.assignedUserEmail,toEmail:after.assignedUserEmail});// Decision 7A: the untouched "Volver a contactar" task follows the new responsible.
   }
   return accounts;

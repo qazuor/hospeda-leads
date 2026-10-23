@@ -307,7 +307,9 @@ try{
   d=await detail(accountId);assert.equal(d.account.assignedUserEmail,user.email);assert.equal(d.opportunities.find(o=>String(o.id)===first)!.assignedUserEmail,originalOppOwner);
   assert.equal((await bulk(request({entity:'business',ids:[accountId,empty],changes:{ciudad:'Colón'}}))).status,200);
   assert.equal((await detail(empty)).account.ciudad,'Colón');d=await detail(accountId);
-  assert(d.opportunities.every(o=>o.ciudad==='Colón'));assert(d.journal.some(j=>j.action==='account_updated'));
+  assert(d.opportunities.every(o=>o.ciudad==='Colón'));
+  // Regression: the bulk edit journal stored its metadata as a JSON string, so the history showed no detail.
+  const bulkEdit=d.journal.find(j=>j.action==='account_updated') as {metadata:any}|undefined;assert(bulkEdit);assert.equal(typeof bulkEdit.metadata,'object');assert.equal(bulkEdit.metadata.after.ciudad,'Colón');
   assert.equal((await bulk(request({entity:'business',ids:[accountId],changes:{estado:stage}}))).status,403);
   assert.equal((await bulk(request({entity:'business',ids:[accountId],changes:{estado:stage}},admin.value))).status,200);
   d=await detail(accountId);assert(d.opportunities.every(o=>o.estado===stage));
