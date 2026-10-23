@@ -15,7 +15,7 @@ export function redactedSnapshot(doc: Document = document): string {
     tag: node.tagName.toLowerCase(), classes: [...node.classList],
     attrs: [...node.attributes].map(attr => ({
       name: attr.name,
-      value: attr.name === "data-id" ? attr.value.replace(/(true|false)_(\d+)@/, (_, direction: string, digits: string) => `${direction}_${"*".repeat(Math.max(0, digits.length - 3))}${digits.slice(-3)}@`).replace(/_[^_]+$/, "_…") : attr.name === "data-pre-plain-text" ? "[redactado]" : attr.name === "title" ? `${attr.value.length} caracteres` : attr.name,
+      value: attr.name === "data-id" ? attr.value.replace(/\d{4,}/g, digits => `${"*".repeat(digits.length - 3)}${digits.slice(-3)}`).replace(/_[^_]+$/, "_…") : attr.name === "data-pre-plain-text" ? "[redactado]" : attr.name === "title" ? `${attr.value.length} caracteres` : attr.name,
       length: attr.name === "data-pre-plain-text" || attr.name === "title" ? attr.value.length : undefined,
     })),
     children: [...node.children].slice(0, 100).map(snapshot),

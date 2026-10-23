@@ -5,7 +5,9 @@ import { filterCached, RegisterController, summarizeResults } from "./register";
 
 const ID = "hospeda-userscript-banner";
 const MIN_KEY = "hospeda-userscript-minimized";
-export type UiOptions = { context: ContextResponse | null; selected: Match | null; unreadable?: boolean; error?: string; onSelect: (match: Match) => void; register: RegisterController | null; title?: string; phone?: string | null; readMessages?: () => ChatMessage[]; lastRegistered?: string | null; onPreviewChange?: (open: boolean) => void };
+// Messages are bound to the chat the banner was rendered for; a chat switch must never register them to the previous business.
+const CHAT_CHANGED = "El chat cambió. Volvé a abrir «Registrar en CRM» en este chat.";
+export type UiOptions = { isCurrentChat?: () => boolean; context: ContextResponse | null; selected: Match | null; unreadable?: boolean; error?: string; onSelect: (match: Match) => void; register: RegisterController | null; title?: string; phone?: string | null; readMessages?: () => ChatMessage[]; lastRegistered?: string | null; onPreviewChange?: (open: boolean) => void };
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] { const node = document.createElement(tag); if (text) node.textContent = text; return node; }
 export function renderBanner(options: UiOptions): HTMLElement {
   let host = document.getElementById(ID) as HTMLElement | null;
@@ -32,7 +34,7 @@ export function renderBanner(options: UiOptions): HTMLElement {
   if (!GM_getValue<string>("hospeda-userscript-token", "")) section.append(element("p", "Configurá el token desde el menú de Tampermonkey"));
   if (options.selected && options.register && options.readMessages) {
     const button = element("button", "Registrar en CRM"); section.append(button);
-    button.addEventListener("click", () => { const fresh = filterCached(options.readMessages!()); if (!fresh.length) { status.textContent = "No hay mensajes nuevos para registrar."; return; } options.onPreviewChange?.(true); showPreview(fresh, options, button, status); });
+    button.addEventListener("click", () => { if (options.isCurrentChat && !options.isCurrentChat()) { status.textContent = CHAT_CHANGED; return; } const fresh = filterCached(options.readMessages!()); if (!fresh.length) { status.textContent = "No hay mensajes nuevos para registrar."; return; } options.onPreviewChange?.(true); showPreview(fresh, options, button, status); });
   }
   root.append(style, section);
   return host;
@@ -45,7 +47,7 @@ function showPreview(messages: ChatMessage[], options: UiOptions, button: HTMLBu
   all.addEventListener("click", () => inputs.forEach(input => input.checked = true)); none.addEventListener("click", () => inputs.forEach(input => input.checked = false));
   const close = () => { box.remove(); options.onPreviewChange?.(false); };
   cancel.addEventListener("click", close);
-  confirm.addEventListener("click", async () => { const selected = messages.filter((_, index) => inputs[index].checked); if (!selected.length || options.register?.isSubmitting) return; confirm.disabled = true; button.disabled = true; status.textContent = "Registrando…";
+  confirm.addEventListener("click", async () => { const selected = messages.filter((_, index) => inputs[index].checked); if (!selected.length || options.register?.isSubmitting) return; if (options.isCurrentChat && !options.isCurrentChat()) { status.textContent = CHAT_CHANGED; close(); return; } confirm.disabled = true; button.disabled = true; status.textContent = "Registrando…";
     try { const results = await options.register!.submit(options.selected!.accountId, { title: options.title || "", phone: options.phone || null }, selected); status.textContent = summarizeResults(results); const rejected = results.filter(item => item.status === "rejected"); for (const item of rejected) { const original = messages.find(message => message.externalId === item.externalId); const row = element("p", `${original?.sentAt ? new Date(original.sentAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "Sin hora"} · ${(original?.text || "").slice(0, 120)} · ${item.reason || "Motivo no informado"}`); box.append(row); } confirm.remove(); cancel.textContent = "Cerrar"; } catch (error) { status.textContent = `${error instanceof Error ? error.message : "Error al registrar."} Podés reintentar.`; confirm.disabled = false; button.disabled = false; }
   });
   box.append(all, none, cancel, confirm, list); button.after(box);

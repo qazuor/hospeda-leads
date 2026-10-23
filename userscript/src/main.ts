@@ -1,7 +1,6 @@
 import { fetchContext, type ContextResponse, type Match, ApiError } from "./api";
 import { parseCode } from "./parse";
 import { getAppRoot, getConversationPanel, readChat, redactedSnapshot } from "./selectors";
-import { recalledAccount, rememberOpenedAccount } from "./session";
 import { messageFingerprint, RegisterController } from "./register";
 import { copyDiagnostic } from "./diagnostic";
 import { renderBanner } from "./ui";
@@ -54,19 +53,18 @@ async function update(): Promise<void> {
   if (fingerprint === lastFingerprint && document.getElementById("hospeda-userscript-banner")) return;
   const changedChat = activeChat !== chatKey; if (changedChat) previewOpen = false; activeChat = chatKey; lastFingerprint = fingerprint;
   const code = parseCode(chat.title); let context: ContextResponse | null = null, error: string | undefined;
-  const sessionAccount = recalledAccount(chat.phone);
-  try { context = sessionAccount ? await resolveContext(`H${sessionAccount}`, null) : await resolveContext(code, chat.phone); }
+  try { context = await resolveContext(code, chat.phone); }
   catch (cause) {
     if (cause instanceof ApiError && cause.status === 401) { cache.clear(); error = "Token inválido o revocado. Configurá uno nuevo desde el menú de Tampermonkey."; }
     else if (cause instanceof ApiError && cause.status === 426) error = "Actualizá el script desde el menú de Tampermonkey";
     else { error = "No se pudo consultar el CRM. Reintentando en el próximo cambio."; const existing = document.getElementById("hospeda-userscript-banner"); if (existing && !changedChat) { const status = existing.shadowRoot?.querySelector<HTMLElement>("[aria-live]"); if (status) status.textContent = error; return; } }
   }
   const matches = context?.matches || [], chosenId = GM_getValue<string>(choicesKey(chat.phone), "");
-  const selected = matches.find(match => match.accountId === (sessionAccount || chosenId)) || (matches.length === 1 ? matches[0] : null);
+  const selected = matches.find(match => match.accountId === chosenId) || (matches.length === 1 ? matches[0] : null);
   const controller = token() ? new RegisterController(BASE, token()) : null, lastRegister = GM_getValue<string | null>("hospeda-userscript-last-register", null);
-  const host = renderBanner({ context, selected, error, register: controller, title: chat.title, phone: chat.phone, readMessages: () => { const current = readChat(document); return current.ok ? current.messages : []; }, lastRegistered: lastRegister ? new Date(lastRegister).toLocaleString("es-AR") : null, onPreviewChange: open => { previewOpen = open; if (!open) { lastFingerprint = ""; void update(); } }, onSelect: match => { setChoice(chat.phone, match); lastFingerprint = ""; void update(); } });
+  const host = renderBanner({ context, selected, error, register: controller, title: chat.title, phone: chat.phone, isCurrentChat: () => { const current = readChat(document); return current.ok && `${current.title}:${current.phone || ""}` === chatKey; }, readMessages: () => { const current = readChat(document); return current.ok ? current.messages : []; }, lastRegistered: lastRegister ? new Date(lastRegister).toLocaleString("es-AR") : null, onPreviewChange: open => { previewOpen = open; if (!open) { lastFingerprint = ""; void update(); } }, onSelect: match => { setChoice(chat.phone, match); lastFingerprint = ""; void update(); } });
   main.prepend(host);
 }
 function schedule(): void { window.clearTimeout(timer); timer = window.setTimeout(() => { void update(); }, 500); }
-function start(): void { rememberOpenedAccount(location.search); registerMenu(); const root = getAppRoot(); observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-id", "title", "data-pre-plain-text"] }); void update(); window.addEventListener("pagehide", () => observer?.disconnect(), { once: true }); }
+function start(): void { registerMenu(); const root = getAppRoot(); observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-id", "title", "data-pre-plain-text"] }); void update(); window.addEventListener("pagehide", () => observer?.disconnect(), { once: true }); }
 start();

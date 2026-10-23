@@ -5,7 +5,8 @@ import missing from "../fixtures/missing-metadata.html?raw";
 import group from "../fixtures/group.html?raw";
 import unknown from "../fixtures/unrecognizable.html?raw";
 import { compareSemver, normalizePhone, parseCode } from "./parse";
-import { readChat } from "./selectors";
+import { readChat, redactedSnapshot } from "./selectors";
+import { renderBanner } from "./ui";
 import { batches, filterCached, mergeResults, RegisterController, summarizeResults, messageFingerprint } from "./register";
 import { request, ApiError } from "./api";
 import { copyDiagnostic } from "./diagnostic";
@@ -116,5 +117,25 @@ describe("userscript API transport", () => {
     vi.restoreAllMocks();
     vi.spyOn(globalThis, "GM_xmlhttpRequest").mockImplementation(options => { options.ontimeout(); return { abort() {} }; });
     await expect(request("https://crm.test", "token")).rejects.toThrow("tardó demasiado");
+  });
+});
+
+describe("userscript safety", () => {
+  it("masks every long digit run in the diagnostic snapshot", () => {
+    const doc = new DOMParser().parseFromString('<div id="main"><div data-id="false_5493442123456@c.us_3EB0ABC123"></div><div data-id="true_120363041234567890@g.us_3EB0DEF456_5493442999888@c.us"></div></div>', "text/html");
+    const snapshot = redactedSnapshot(doc);
+    expect(snapshot).not.toMatch(/\d{4,}/);
+    expect(snapshot).toContain("456@");
+  });
+  it("refuses to open the preview when the chat changed since the banner was rendered", () => {
+    gmValues.set("hospeda-userscript-token", "hcu_test");
+    const match = { accountId: "1234", code: "H1234", name: "Cabañas del Río", city: null, assignedUserName: null, doNotContact: false, restrictionActive: false, archived: false, leads: [], url: "https://crm.example/accounts/1234" };
+    const readMessages = vi.fn(() => [{ externalId: "false_1@c.us_X", direction: "in" as const, text: "Hola", sentAt: null, author: null }]);
+    const host = renderBanner({ context: { minVersion: "1.0.0", user: { email: "a@b.c", displayName: "Ana" }, matches: [match] }, selected: match, register: new RegisterController("https://crm.example", "hcu_test"), title: "Cabañas del Río · H1234", phone: null, readMessages, isCurrentChat: () => false, onSelect: () => {} });
+    const button = [...host.shadowRoot!.querySelectorAll("button")].find(item => item.textContent === "Registrar en CRM")!;
+    button.click();
+    expect(readMessages).not.toHaveBeenCalled();
+    expect(host.shadowRoot!.textContent).toContain("El chat cambió");
+    expect(host.shadowRoot!.querySelector(".preview")).toBeNull();
   });
 });
