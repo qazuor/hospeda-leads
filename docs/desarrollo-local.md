@@ -69,6 +69,8 @@ Brevo sin clave real no permite envío productivo. Para probar recorridos, usar 
 
 La integración de email entrante requiere `INBOUND_EMAIL_TOKEN` (secreto aleatorio de al menos 32 caracteres, compartido con el Worker Cloudflare). En local puede omitirse si no se prueba ese endpoint.
 
+Responder emails entrantes requiere `BREVO_SMTP_LOGIN` y `BREVO_SMTP_KEY` (clave SMTP propia del CRM). `BREVO_SMTP_PORT` es opcional y usa `587` por defecto. Sin estas variables, la aplicación inicia normalmente y oculta la acción de responder.
+
 Solo si hace falta algo distinto de `npm run local`. Los scripts de DB y el servidor leen `process.env`: no cargan `.env` solos.
 
 ~~~bash

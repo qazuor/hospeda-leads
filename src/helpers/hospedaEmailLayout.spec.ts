@@ -13,4 +13,9 @@ describe("Hospeda email layout", () => {
   it("keeps the phone when the sender email is unknown", () => {
     expect(buildHospedaEmailHtml({ bodyHtml: "<p>Hola</p>", senderName: "", subject: "Prueba" })).toContain(`${HOSPEDA_PHONE}<br>`);
   });
+
+  it("renders replies with the seller signature and without the brand header",()=>{
+    const html=buildHospedaEmailHtml({bodyHtml:"<p>Respuesta</p>",senderName:"Leandro",subject:"Re: Consulta",variant:"reply"});
+    expect(html).toContain("Respuesta");expect(html).toContain("Leandro</strong>");expect(html).not.toContain("Conocer Hospeda</a>");expect(html).not.toContain("INVITACIÓN");
+  });
 });

@@ -1,0 +1,12 @@
+import {describe,it,expect} from 'vitest';
+import {classifySmtpOutcome,newMessageId,quotedHistory,replySubject,threadHeaders} from './emailReplyPure';
+import {communicationMutation} from '../endpoints/communication.schema';
+
+describe('email reply helpers',()=>{
+ it('normalizes Re prefixes and empty subjects',()=>{expect(replySubject('Oferta')).toBe('Re: Oferta');expect(replySubject('RE: Oferta')).toBe('Re: Oferta');expect(replySubject('Re : RE: Oferta')).toBe('Re: Oferta');expect(replySubject('  ')).toBe('Re: (sin asunto)');});
+ it('builds deduplicated thread headers with the inbound id last',()=>{expect(threadHeaders({inboundMessageId:'<in@hospeda.com.ar>',inboundReferences:'<a@x> <in@hospeda.com.ar> <b@x>'})).toEqual({inReplyTo:'<in@hospeda.com.ar>',references:'<a@x> <b@x> <in@hospeda.com.ar>'});});
+ it('creates Hospeda message ids',()=>{expect(newMessageId()).toMatch(/^<[0-9a-f-]{36}@hospeda\.com\.ar>$/);});
+ it('quotes only escaped plain text',()=>{const q=quotedHistory({receivedAt:'2026-10-23T12:00:00Z',fromName:'<img>',fromAddress:'x@y.com',textBody:'<script>x</script>\nline'});expect(q.html).toContain('&lt;script&gt;x&lt;/script&gt;<br>line');expect(q.html).not.toContain('<script>');expect(q.text).toContain('> <script>x</script>');});
+ it('marks only known pre-DATA rejections as definitive',()=>{expect(classifySmtpOutcome({code:'EAUTH'})).toBe('failed');expect(classifySmtpOutcome({code:'ECONNREFUSED'})).toBe('failed');expect(classifySmtpOutcome({command:'RCPT TO',responseCode:550})).toBe('failed');expect(classifySmtpOutcome({command:'RCPT TO',responseCode:450})).toBe('failed');expect(classifySmtpOutcome({code:'ESOCKET',originalCode:'ECONNREFUSED'})).toBe('failed');expect(classifySmtpOutcome({code:'ETIMEDOUT',timeoutType:'GREETING_TIMEOUT'})).toBe('failed');expect(classifySmtpOutcome({code:'ETIMEDOUT',timeoutType:'SOCKET_TIMEOUT'})).toBe('unknown');expect(classifySmtpOutcome({code:'ESOCKET'})).toBe('unknown');expect(classifySmtpOutcome({command:'DATA',responseCode:550})).toBe('unknown');expect(classifySmtpOutcome({code:'ETIMEDOUT'})).toBe('unknown');});
+ it('validates reply mutation fields',()=>{expect(communicationMutation.safeParse({action:'inbound_reply',id:'8b0d46f9-68f1-4d8a-a044-e305bef5f185',inboundId:'8b0d46f9-68f1-4d8a-a044-e305bef5f185',bodyHtml:'<p>Hola</p>'}).success).toBe(true);expect(communicationMutation.safeParse({action:'inbound_reply',id:'bad',inboundId:'bad',bodyHtml:'x'}).success).toBe(false);});
+});

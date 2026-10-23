@@ -88,6 +88,10 @@ export interface EmailOutbox {
   subject: string;
   templateId: Int8 | null;
   textBody: string;
+  transport: Generated<'api'|'smtp'>;
+  inReplyTo: Generated<string|null>;
+  referencesHeader: Generated<string|null>;
+  inboundMessageId: Generated<string|null>;
   updatedAt: Generated<Timestamp>;
 }
 

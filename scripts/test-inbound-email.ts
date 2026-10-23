@@ -48,5 +48,8 @@ try{
  const senderLocal=`inbound.${randomUUID().slice(0,8)}`;await db.updateTable('users').set({senderEmail:`${senderLocal}@hospeda.com.ar`}).where('id','=',owner.id).execute();
  const list=await (await addresses(new Request('http://localhost/_api/inbound/addresses',{headers:{Authorization:`Bearer ${token}`}}))).json() as {addresses:string[]};assert(list.addresses.includes(`${senderLocal}@hospeda.com.ar`),'Seller addresses are listed');
  assert.equal((await addresses(new Request('http://localhost/_api/inbound/addresses',{headers:{Authorization:'Bearer wrong'}}))).status,401);
+ // Regression: headers/attachments must be stored as JSON objects/arrays, not JSON strings (the reply path reads headers->references).
+ const shapes=(await sql<{h:string;a:string;n:string}>`SELECT jsonb_typeof(headers) h,jsonb_typeof(attachments) a,count(*)::text n FROM crm_inbound_messages WHERE source='email_worker' GROUP BY 1,2`.execute(db)).rows;
+ assert(shapes.length>0&&shapes.every(r=>r.h==='object'&&r.a==='array'),'Inbound headers and attachments are stored as jsonb object/array: '+JSON.stringify(shapes));
  console.log('Inbound email auth, validation, In-Reply-To/References/sender matching, ambiguity, idempotency, auto replies, journal and address listing passed');
 }finally{if(previous===undefined)delete process.env.INBOUND_EMAIL_TOKEN;else process.env.INBOUND_EMAIL_TOKEN=previous;await db.destroy();}

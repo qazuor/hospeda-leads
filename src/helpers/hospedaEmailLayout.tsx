@@ -35,7 +35,8 @@ export function buildHospedaEmailHtml({
   subject,
   vertical,
   commercialProfile,
-  logoUrl=DEFAULT_LOGO_URL
+  logoUrl=DEFAULT_LOGO_URL,
+  variant='full'
 }:{
   bodyHtml:string;
   senderName:string;
@@ -45,6 +46,7 @@ export function buildHospedaEmailHtml({
   vertical?:string|null;
   commercialProfile?:string|null;
   logoUrl?:string;
+  variant?:'full'|'reply';
 }){
   const safeSender=escapeHtml(senderName||"Equipo Hospeda");
   const contactLine=escapeHtml([senderEmail?.trim(),HOSPEDA_PHONE].filter(Boolean).join(" · "));
@@ -52,6 +54,7 @@ export function buildHospedaEmailHtml({
   const safeVertical=escapeHtml(vertical||"Turismo");
   const overline=profileLabel(commercialProfile);
   const styledBody=styleBodyHtml(bodyHtml);
+  if(variant==='reply')return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>${safeSubject}</title></head><body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#24313d;"><div style="font-size:15px;line-height:1.65;color:#314454;">${styledBody}</div><footer style="margin-top:24px;padding-top:16px;border-top:1px solid #e7edf1;font-size:13px;line-height:1.55;color:#405565;"><strong>${safeSender}</strong><br>${contactLine}<br>Equipo Hospeda<br><a href="${SITE_URL}">hospeda.com.ar</a></footer></body></html>`;
   return `<!doctype html>
 <html>
   <head>
@@ -142,12 +145,15 @@ export function buildHospedaEmailHtml({
 export function buildHospedaEmailText({
   bodyText,
   senderName,
-  senderEmail
+  senderEmail,
+  variant='full'
 }:{
   bodyText:string;
   senderName:string;
   senderEmail?:string|null;
+  variant?:'full'|'reply';
 }){
+  if(variant==='reply')return [bodyText.trim(),"",senderName||"Equipo Hospeda",[senderEmail?.trim(),HOSPEDA_PHONE].filter(Boolean).join(" · "),"Equipo Hospeda","https://hospeda.com.ar"].join("\n");
   return [
     bodyText.trim(),
     "",
