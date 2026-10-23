@@ -44,7 +44,7 @@ export function InlineBusinessStatus({accountId,status,recontactAt,disabled=fals
       <ValueBadge category="status" value={businessStatusLabels[option]} nativeTooltip={false}/>{selected&&<Check size={14} aria-label="Estado seleccionado"/>}
      </UnstyledButton></DisabledTooltip>;})}
    </div>
-   {value==='recontact'&&canEditStatus.includes('recontact')&&<label className={styles.date}>Fecha de recontacto (opcional)<CrmDateInput disabled={disabled||mutation.isPending} value={date} onValueChange={setDate}/></label>}
+   {value==='recontact'&&canEditStatus.includes('recontact')&&<label className={styles.date}>Fecha de recontacto (opcional)<CrmDateInput disabled={disabled||mutation.isPending} value={date} onValueChange={setDate} popoverProps={{position:'top-start'}}/></label>}
    {value==='recontact'&&canEditStatus.includes('recontact')&&<span role="status" className={styles.notice}>{date?recontactNotice(date,scheduledFor):'Con una fecha, se agenda una tarea para volver a contactar.'}{date&&isPastDay(date)&&<> {RECONTACT_PAST_HINT}</>}</span>}
    {changed&&<Button size="sm" disabled={disabled||mutation.isPending} disabledReason={mutation.isPending?"Guardando el estado. Esperá a que termine.":"Solo el responsable autorizado del negocio o un administrador puede cambiar este estado."} onClick={()=>mutation.mutate({action:'business_status',accountId,status:value,recontactAt:value==='recontact'?(date||null):null})}>{mutation.isPending?'Guardando…':'Guardar'}</Button>}
    {mutation.error&&<span role="alert" className={styles.error}>{mutation.error.message}</span>}
