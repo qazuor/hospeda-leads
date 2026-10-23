@@ -1,2 +1,2 @@
-export const USERSCRIPT_VERSION = "1.0.0";
+export const USERSCRIPT_VERSION = "1.1.0";
 

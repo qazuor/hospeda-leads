@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {sql} from 'kysely';
 import {assertBusinessAccess,CrmForbidden} from './crmPermissions';
-import {communicationJournal,completeUserscriptManual,lockCommunication,registerUserscriptSent} from './communicationService';
+import {communicationJournal,completeUserscriptManual,completeUserscriptOpened,lockCommunication,registerUserscriptSent} from './communicationService';
 import {phoneSearchSql} from './searchSql';
 import {codeFromTitle} from './userscriptPure';
 import type {Executor} from './communicationService';
@@ -12,6 +12,8 @@ export type UserscriptBatch={accountId:string;chat:{title:string;phone?:string|n
 export type UserscriptResult={externalId:string;status:'created'|'duplicate'|'rejected';kind?:'inbound'|'message';id?:string;reason?:string};
 
 const MAX_FUTURE_MS=10*60_000,MAX_PAST_MS=2*365.25*24*60*60_000;
+/** A WhatsApp opened from "Contactar" matches a sent message prepared at most this long before it (and at most a few minutes after). */
+const OPENED_WINDOW_MS=24*60*60_000,OPENED_SKEW_MS=10*60_000;
 const isUniqueViolation=(error:unknown)=>typeof error==='object'&&error!==null&&(error as {code?:string}).code==='23505';
 
 /** An already registered WhatsApp id: a duplicate when it belongs to this business; never reveals rows of another business. */
@@ -32,20 +34,34 @@ async function registerInbound(e:Executor,b:UserscriptBatch,m:UserscriptMessage,
  return {externalId:m.externalId,status:'created',kind:'inbound',id};
 }
 
-/** The oldest pending WhatsApp attempt of this business addressed to the chat's phone; without a phone no attempt is completed. */
-async function matchingPending(e:Executor,b:UserscriptBatch,user:User):Promise<string|null>{
+type PendingMatch={id:string;kind:'manual'|'opened'};
+/**
+ * The CRM attempt a sent message completes, so it is not recorded twice. Without a phone nothing matches. In order:
+ * the oldest manual attempt (manual_pending) to the chat's phone; else the oldest WhatsApp opened from "Contactar" (whatsapp_opened),
+ * or confirmed by hand without a WhatsApp id (manual_sent), prepared within OPENED_WINDOW_MS before the message was sent.
+ */
+async function matchingPending(e:Executor,b:UserscriptBatch,sentAt:Date,user:User):Promise<PendingMatch|null>{
  const phone=b.chat.phone?.trim();if(!phone)return null;
  const recipient=phoneSearchSql('m.recipient',phone);if(!recipient)return null;
- const row=(await sql<{id:string}>`SELECT m.id::text AS id FROM crm_messages m WHERE m.account_id=${b.accountId}::bigint AND m.channel='whatsapp' AND m.status='manual_pending' AND (${user.role==='admin'} OR m.owner_email=${user.email}) AND ${recipient} ORDER BY m.created_at LIMIT 1 FOR UPDATE`.execute(e)).rows[0];
- return row?.id??null;
+ const mine=sql`m.account_id=${b.accountId}::bigint AND m.channel='whatsapp' AND (${user.role==='admin'} OR m.owner_email=${user.email}) AND ${recipient}`;
+ const manual=(await sql<{id:string}>`SELECT m.id::text AS id FROM crm_messages m WHERE ${mine} AND m.status='manual_pending' ORDER BY m.created_at LIMIT 1 FOR UPDATE`.execute(e)).rows[0];
+ if(manual)return {id:manual.id,kind:'manual'};
+ const from=new Date(sentAt.getTime()-OPENED_WINDOW_MS),to=new Date(sentAt.getTime()+OPENED_SKEW_MS);
+ const opened=(await sql<{id:string}>`SELECT m.id::text AS id FROM crm_messages m WHERE ${mine} AND (m.status='whatsapp_opened' OR (m.status='manual_sent' AND m.external_id IS NULL)) AND m.created_at BETWEEN ${from} AND ${to} ORDER BY (m.status='whatsapp_opened') DESC,m.created_at LIMIT 1 FOR UPDATE`.execute(e)).rows[0];
+ return opened?{id:opened.id,kind:'opened'}:null;
 }
 
 async function registerOutbound(e:Executor,b:UserscriptBatch,m:UserscriptMessage,sentAt:Date,user:User):Promise<UserscriptResult>{
  // Same guard as the manual "lo envié" flow: a recorded send needs write access to the business.
  await assertBusinessAccess(e,b.accountId,user,true,false);
- const pending=await matchingPending(e,b,user);
+ const pending=await matchingPending(e,b,sentAt,user);
+ if(pending?.kind==='opened'){
+  const done=await completeUserscriptOpened(e,pending.id,m.externalId,m.text,user);
+  // A send the seller had already confirmed by hand was in the CRM before: report it as such.
+  return {externalId:m.externalId,status:done.linked?'duplicate':'created',kind:'message',id:done.id};
+ }
  const id=pending
-  ?await completeUserscriptManual(e,pending,m.externalId,m.text,user)
+  ?await completeUserscriptManual(e,pending.id,m.externalId,m.text,user)
   :await registerUserscriptSent(e,{accountId:b.accountId,externalId:m.externalId,phone:b.chat.phone??'',title:b.chat.title,text:m.text,sentAt},user);
  if(!id)return (await existing(e,b,m))??{externalId:m.externalId,status:'rejected',reason:'No se pudo registrar el mensaje.'};
  return {externalId:m.externalId,status:'created',kind:'message',id};

@@ -1,6 +1,6 @@
 import { USERSCRIPT_VERSION } from "./version";
 
-export type Match = { accountId: string; code: string; name: string; city: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string };
+export type Match = { accountId: string; code: string; name: string; city: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string }[] };
 export type ContextResponse = { minVersion: string; user: { email: string; displayName: string }; matches: Match[] };
 export type RegisterResult = { externalId: string; status: "created" | "duplicate" | "rejected"; kind?: "message" | "inbound"; id?: string; reason?: string };
 export type RegisterResponse = { results: RegisterResult[] };

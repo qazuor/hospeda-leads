@@ -531,7 +531,7 @@
           "Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.",
           "Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.",
           "Si el negocio contesta tu email, la respuesta llega sola a «Mensajes recibidos» en su ficha. No hace falta copiarla a mano.",
-          "Si abriste WhatsApp desde «Contactar», respondé «¿Lo enviaste?» en el CRM como siempre. Si después usás el script de WhatsApp en ese chat, destildá ese mensaje en la vista previa para no registrarlo dos veces."
+          "Si abriste WhatsApp desde «Contactar» y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces. Igual te falta «Anotá cómo salió»."
         ],
         "url": "",
         "linkLabel": "",
@@ -1470,7 +1470,7 @@
         "notes": [
           "Registrar un mensaje recibido no lo convierte en respuesta: vos decidís con «Registrar respuesta» o «No es una respuesta».",
           "Para registrar mensajes enviados tenés que poder modificar el negocio. Para los recibidos alcanza con poder verlo.",
-          "Si abriste WhatsApp desde «Contactar» y ya respondiste «¿Lo enviaste?» en el CRM, destildá ese mensaje en la vista previa.",
+          "Si abriste WhatsApp desde «Contactar» en las últimas 24 horas, la vista previa te avisa: el mensaje enviado completa ese WhatsApp abierto en lugar de crear otro. Si ya habías respondido «¿Lo enviaste?», el CRM lo reconoce y lo cuenta entre los que \"ya estaban\".",
           "Fotos, audios y archivos no se copian al CRM. El CRM rechaza mensajes con fecha futura o de hace más de dos años."
         ],
         "url": "/my-day",

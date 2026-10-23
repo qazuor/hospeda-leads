@@ -34,7 +34,7 @@ function registerMenu(): void {
   GM_registerMenuCommand("Copiar diagnóstico del chat", async () => { await copyDiagnostic(diagnostic(), navigator.clipboard, showDiagnostic, () => toast("Diagnóstico copiado.")); });
 }
 async function resolveContext(code: string | null, phone: string | null): Promise<ContextResponse | null> {
-  const query = code ? { code } : phone ? { phone } : null; if (!query || !token()) return null;
+  const query = code ? (phone ? { code, phone } : { code }) : phone ? { phone } : null; if (!query || !token()) return null;
   const key = JSON.stringify(query), cached = cache.get(key); if (cached && cached.expiresAt > Date.now()) return cached.value;
   const value = await fetchContext(BASE, query, token()); cache.set(key, { value, expiresAt: Date.now() + 60_000 }); return value;
 }
