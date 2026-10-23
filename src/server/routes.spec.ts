@@ -16,10 +16,12 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'POST /_api/brevo/events':503,
 'GET /_api/business_import':503,
 'POST /_api/business_import':503,
+'POST /_api/inbound/email':503,
+'GET /_api/inbound/addresses':503,
 };
 // Wildcard or ALL routes under /_api are not probed, so none are allowed.
 const WILDCARD_ALLOWLIST=new Set<string>();
-const TOUCHED_ENV=['DATABASE_URL','JWT_SECRET','BREVO_WEBHOOK_TOKEN','BUSINESS_IMPORT_TOKEN_SHA256','BUSINESS_IMPORT_ACTOR_EMAIL'];
+const TOUCHED_ENV=['DATABASE_URL','JWT_SECRET','BREVO_WEBHOOK_TOKEN','BUSINESS_IMPORT_TOKEN_SHA256','BUSINESS_IMPORT_ACTOR_EMAIL','INBOUND_EMAIL_TOKEN'];
 const savedEnv:Record<string,string|undefined>={};
 let app:Hono;
 const probe=(path:string,method:string)=>app.request(path,{method,...(method==='POST'?{headers:{'content-type':'application/json'},body:'{}'}:{})});

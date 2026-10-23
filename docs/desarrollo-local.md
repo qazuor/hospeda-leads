@@ -67,6 +67,8 @@ Brevo sin clave real no permite envío productivo. Para probar recorridos, usar 
 
 ## Apéndice: arranque manual
 
+La integración de email entrante requiere `INBOUND_EMAIL_TOKEN` (secreto aleatorio de al menos 32 caracteres, compartido con el Worker Cloudflare). En local puede omitirse si no se prueba ese endpoint.
+
 Solo si hace falta algo distinto de `npm run local`. Los scripts de DB y el servidor leen `process.env`: no cargan `.env` solos.
 
 ~~~bash

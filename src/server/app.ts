@@ -6,6 +6,7 @@ import {handle as businessDuplicateCheck} from '../endpoints/business_duplicate_
 import {handle as businessSystemViewConvert} from '../endpoints/business_system_view_convert';
 import {get as businessReassignmentGET,post as businessReassignmentPOST} from '../endpoints/business_reassignment';
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
+import {post as inboundEmailPOST,addresses as inboundAddressesGET} from '../endpoints/inbound';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
 import {get as businessImportGET,post as businessImportPOST} from '../endpoints/businessImport';
@@ -67,6 +68,8 @@ app.post('/_api/business_import',c=>businessImportPOST(c.req.raw));
 app.get('/_api/communication',c=>communicationGET(c.req.raw));
 app.post('/_api/communication',c=>communicationPOST(c.req.raw));
 app.post('/_api/brevo/events',c=>brevoWebhook(c.req.raw));
+app.post('/_api/inbound/email',c=>inboundEmailPOST(c.req.raw));
+app.get('/_api/inbound/addresses',c=>inboundAddressesGET(c.req.raw));
 app.get('/_api/resources',c=>resourcesGET(c.req.raw));
 app.post('/_api/resources',c=>resourcesPOST(c.req.raw));
 app.get('/_api/resources/download',c=>resourceDownload(c.req.raw));

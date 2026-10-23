@@ -109,9 +109,10 @@ Hoy el `Reply-To` de los emails del CRM es el `sender_email` del vendedor o, si 
 
 - Vive en este repo, en `workers/inbound-email/` (Wrangler, TypeScript, sin dependencias del servidor). Deploy manual por el propietario; no entra al deploy de Coolify.
 - Secrets: `INBOUND_EMAIL_TOKEN` (≥32 caracteres), `FORWARD_TO`, `CRM_INBOUND_URL`.
-- Orden obligatorio: `forward` antes de leer o llamar al CRM. Cualquier error posterior se registra en los logs del Worker y **no** rechaza el mensaje (`setReject` nunca se usa).
+- Orden: el Worker copia el email en memoria (como el ejemplo oficial de Cloudflare, que lee `raw` antes de `forward`) y reenvía a Gmail antes de llamar al CRM; si la lectura falla, reenvía igual. Si `forward` falla, reintenta una vez y después lanza el error para que Email Routing lo informe en lugar de perder el mensaje en silencio. Cualquier error posterior al reenvío se registra en los logs del Worker y **no** rechaza el mensaje (`setReject` nunca se usa).
+- El filtro usa el destinatario de sobre (`message.to`): Email Routing ejecuta el Worker por cada destinatario del dominio, incluidos los que van en Cc.
 - Si el CRM responde 5xx o hay timeout: hasta 2 reintentos con espera corta dentro del mismo evento. Si siguen fallando, el email ya está en Gmail; queda logueado para reingesta manual (ver 6.5).
-- Tamaño: cuerpo de texto ≤ 50 000 caracteres, HTML ≤ 200 000; adjuntos solo metadata. Payload total ≤ 512 KB.
+- Tamaño: cuerpo de texto ≤ 50 000 caracteres, HTML ≤ 200 000; adjuntos solo metadata. Payload total ≤ 1 MB.
 - Solo pasa al CRM el correo dirigido (To o Cc) a casillas de usuarios del CRM (`users.sender_email`) o a la dirección de respuesta general (`brevo_reply_to_email`). El Worker obtiene esa lista del CRM (`GET /_api/inbound/addresses`, mismo token, cacheada 10 minutos). El resto solo se reenvía a Gmail. Decisión del 22/10/2026.
 
 ### 6.3 Endpoint `POST /_api/inbound/email`
@@ -125,8 +126,14 @@ Hoy el `Reply-To` de los emails del CRM es el `sender_email` del vendedor o, si 
 
 1. `In-Reply-To` = `email_outbox.message_id` (comparando sin `<>`) → negocio, gestión y contacto del `crm_messages` vinculado. `match_method='in_reply_to'`.
 2. Algún id de `References` coincide con un `email_outbox.message_id` o con un `crm_inbound_messages.external_id` ya asociado. `references`.
-3. Email del remitente coincide exactamente (sin mayúsculas) con el email de **un solo** negocio o persona activa. `sender_email`. La gestión solo se completa si el negocio tiene exactamente una gestión abierta.
+3. Solo con autenticación del remitente según `Authentication-Results`: `dmarc=pass` para el dominio del `From`, o `spf=pass` para un remitente de sobre del mismo dominio o de un subdominio (nunca de un dominio padre). En ese caso, el email del remitente coincide exactamente (sin mayúsculas) con el email de **un solo** negocio o persona activa. `sender_email`. La gestión solo se completa si el negocio tiene exactamente una gestión abierta.
 4. Si no: `account_id = null`, `status='unmatched'`.
+
+El `From` no está autenticado: sin esa evidencia, un tercero podría hacerse pasar por un negocio, así que el mensaje queda Sin asociar. `In-Reply-To`/`References` no lo exigen porque requieren conocer el Message-ID de un email del CRM, que solo tiene quien lo recibió.
+
+**A verificar en la prueba real:** si Email Routing entrega `Authentication-Results` al Worker y con qué identificador del servidor de autenticación. Si no lo entrega, la asociación por remitente no ocurre y esos mensajes quedan Sin asociar. El Worker solo pasa el `Authentication-Results` de más arriba y solo si su identificador coincide con `TRUSTED_AUTHSERV_ID`; mientras esa variable esté vacía, la asociación por remitente está desactivada.
+
+Si una etapa apunta a más de un negocio, la asociación se detiene ahí y el mensaje queda Sin asociar: una evidencia más débil no desempata.
 
 Auto-respuestas: `Auto-Submitted` distinto de `no`, `X-Autoreply`, `Precedence: auto_reply|bulk|junk` → `is_automatic=true`. Se asocian igual, pero no generan aviso ni cuentan como respuesta.
 

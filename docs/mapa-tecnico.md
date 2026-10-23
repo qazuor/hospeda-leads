@@ -17,6 +17,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Trabajo y resultados | `src/endpoints/work.ts`, `work.schema.ts`, componentes de trabajo |
 | Pipeline/etapas/acuerdos | `src/endpoints/pipeline.ts`, helpers y schemas correspondientes |
 | Comunicación | `src/endpoints/communication.ts`, selector/editor compartido y componentes de modelos |
+| Email entrante F1 | `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, migración `037_inbound_messages.sql`, Worker Cloudflare en `workers/inbound-email/` |
 | Recursos/versiones/descarga | `src/endpoints/resources.ts`, miniaturas/visor y biblioteca |
 | Calidad e importación | `src/endpoints/dataQuality.ts`, `businessImport.ts` y schemas |
 | Búsqueda global de entidades | `src/endpoints/search.ts`, `search.schema.ts`, paleta del header |
