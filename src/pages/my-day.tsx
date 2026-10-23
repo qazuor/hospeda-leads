@@ -41,7 +41,7 @@ export default function MyDayPage(){
  const params={responsible:responsible||undefined,city:city||undefined,vertical:vertical||undefined,mode:agenda?'agenda':'day',calendar:agenda&&calendar?'true':undefined,page:String(page),from:agenda?month+'-01':undefined,to:agenda?monthEnd:undefined};
  const queryParams=selected?{mode:'detail',accountId:requestedAccount!,taskId:requestedTask!,responsible:admin?'all':undefined}:params;
  const q=useQuery({queryKey:['work',queryParams],queryFn:()=>getWork(queryParams),enabled:!retomar});const d=q.data;
- const inbound=useQuery({queryKey:['communication','inbound-review'],queryFn:getInboundReview,enabled:!agenda&&!retomar});
+ const inbound=useQuery({queryKey:['communication','inbound-review'],queryFn:getInboundReview,enabled:!agenda&&!retomar});const inboundRows=Array.isArray(inbound.data?.rows)?inbound.data.rows:[];
  useEffect(()=>setEditor(null),[requestedTask,requestedAccount]);
  const {markOpened}=first;useEffect(()=>{if(editor?.kind==='task'&&'item' in editor&&editor.item)markOpened();},[editor,markOpened]);useEffect(()=>{if(selected&&d?.tasks.length)markOpened();},[selected,d,markOpened]);
  useEffect(()=>{if(!selected||q.isPending)return;const frame=requestAnimationFrame(()=>{const node=document.querySelector<HTMLElement>('[data-work-task="'+requestedTask!.replace(/[^0-9]/g,'')+'"]');node?.scrollIntoView({block:'center'});node?.focus({preventScroll:true})});return()=>cancelAnimationFrame(frame)},[selected,requestedTask,q.isPending]);
@@ -67,9 +67,9 @@ export default function MyDayPage(){
   {d&&!selected&&<>
    {!agenda&&d.firstSteps&&(()=>{const items=firstStepItems({flags:d.firstSteps,opened:first.opened});return showFirstSteps({items,dismissed:first.dismissed})?<FirstStepsChecklist items={items} onDismiss={first.dismiss}/>:null;})()}
    {!agenda&&<PendingOutcomes items={d.pendingOutcomes}/>}
-   {!agenda&&inbound.isPending&&<section className={styles.panel} aria-label="Respuestas nuevas"><h2>Respuestas nuevas</h2><QueryLoadingNotice/></section>}
    {!agenda&&inbound.error&&<section className={styles.panel} aria-label="Respuestas nuevas"><h2>Respuestas nuevas</h2><QueryErrorNotice error={inbound.error} onRetry={inbound.refetch} busy={inbound.isFetching}/></section>}
-   {!agenda&&!!inbound.data?.rows.length&&<section className={styles.panel} aria-label="Respuestas nuevas"><h2>Respuestas nuevas ({inbound.data.rows.length})</h2><div className={ws.rows}>{inbound.data.rows.map(row=><article key={row.id}><div><Link to={'/accounts/'+row.accountId}><strong>{row.accountName}</strong></Link><span>{row.fromName||row.fromAddress} · {row.subject||'(sin asunto)'} · {relativeAgo(row.receivedAt)}</span></div></article>)}</div></section>}
+   {/* Shown only when there is something new: no loading panel, so Hoy does not jump on every load. */}
+   {!agenda&&!!inboundRows.length&&<section className={styles.panel} aria-label="Respuestas nuevas"><h2>Respuestas nuevas ({inboundRows.length})</h2><div className={ws.rows}>{inboundRows.map(row=><article key={row.id}><div><Link to={'/accounts/'+row.accountId}><strong>{row.accountName}</strong></Link><span>{row.fromName||row.fromAddress} · {row.subject||'(sin asunto)'} · {relativeAgo(row.receivedAt)}</span></div></article>)}</div></section>}
    {!agenda&&d.bucketCounts&&(()=>{const p=dayProgress({overdue:d.bucketCounts.overdue,today:d.bucketCounts.today,done:d.doneToday??0,waiting:d.pendingOutcomes?.length??0});
     if(p.kind==='finished')return <section className={ws.progress} role="status"><strong>¡Terminaste por hoy!</strong><span>Hoy: {p.done} de {p.total} hechas. Lo que sigue está en «Próximas tareas».</span></section>;
     return p.kind==='progress'?<section className={ws.progress} role="status"><strong>Hoy: {p.done} de {p.total} hechas</strong><progress value={p.done} max={p.total} aria-label="Avance de hoy"/></section>:null;})()}
