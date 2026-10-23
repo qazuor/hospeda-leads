@@ -1,4 +1,17 @@
-# Estado del CRM — corte al 21 de octubre de 2026
+# Estado del CRM — corte al 23 de octubre de 2026
+
+## Mensajes y emails recibidos — 22 y 23/10/2026 (mergeado a `staging`, sin desplegar)
+
+Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción: **nada**. Producción sigue sin las migraciones 024–037.
+
+- **#211 (`2aaf63b`):** los badges no semánticos de Negocios vuelven a tener color estable por valor. Revisados pasa a editable para el responsable o un admin: «Revisado» desde Nuevo, «No revisado» desde Revisado, Sin tarea agendada o Recontactar (limpia la fecha y cancela la tarea «Volver a contactar» sin tocar). Sin migración.
+- **#212 (`1ee2691`):** motor de variantes de mensajes con azar estable por negocio, persona y día, sin repetir la variante anterior del mismo modelo; condiciones nuevas (ciudad, perfil, propósito, día, mes, es cliente); propósito en modelos (migración 035); contexto único entre vista previa y servidor; modelo de red social con «Copiar texto».
+- **#213 (`e42bd6d`):** catálogo nuevo de 33 modelos (11 × Email, WhatsApp, Instagram) y variables. **La migración 036 borra todos los modelos y la configuración de variables existentes** e inserta el catálogo; los mensajes enviados conservan su texto. La firma del email pasa al pie del diseño.
+- **#214:** spec 83 de registro automático de canales (email, WhatsApp con user script de Tampermonkey, Instagram).
+- **#215:** F1a de la spec 83. Migración 037 (`crm_inbound_messages`), `POST /_api/inbound/email` y `GET /_api/inbound/addresses` con `INBOUND_EMAIL_TOKEN`, y el Email Worker de Cloudflare (`workers/inbound-email/`) que reenvía a Gmail y entrega al CRM. Asociación por `In-Reply-To`, `References` y remitente autenticado (DMARC o SPF alineado según el `Authentication-Results` superior de `mx.cloudflare.net`); ante ambigüedad queda Sin asociar.
+- **#216 (`e28bfd4`):** F1b. Emails recibidos en Comunicación del negocio (texto plano), «Registrar respuesta» y «No es una respuesta», bloque «Respuestas nuevas» en Hoy y página admin «Emails sin asociar» (`/inbound`) para asociar a mano.
+
+Pruebas: las de cada PR (typecheck, `npm test`, build, integración sobre bases descartables, e2e y tests del Worker). F1 se probó de punta a punta el 23/10/2026 con emails reales, el Worker desplegado y un servidor local expuesto por túnel temporal: la respuesta en hilo se asoció por `In-Reply-To` y los remitentes desconocidos quedaron Sin asociar. Pendiente: prueba real de asociación por remitente, verificación visual del propietario y lo listado en [pendientes](pendientes.md).
 
 ## Acciones solo con icono y guías al día — 22/10/2026 (mergeado/en PR a `staging`, sin desplegar)
 
