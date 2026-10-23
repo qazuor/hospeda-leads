@@ -39,11 +39,18 @@ export function renderBanner(options: UiOptions): HTMLElement {
   root.append(style, section);
   return host;
 }
-/** Warns that a sent message completes the WhatsApp the seller opened from "Contactar" instead of being recorded twice; null when none is open. */
-export function openWhatsappNotice(open: readonly { openedAt: string }[] | undefined, messages: readonly ChatMessage[]): string | null {
-  if (!open?.length || !messages.some(message => message.direction === "out")) return null;
-  const first = new Date(open[0]!.openedAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
-  const count = open.length === 1 ? "un WhatsApp abierto" : `${open.length} WhatsApp abiertos`;
+/** Same window the CRM uses to complete an opened WhatsApp: prepared at most 24 h before the send and at most 10 min after it. */
+const OPENED_WINDOW_MS = 24 * 60 * 60_000, OPENED_SKEW_MS = 10 * 60_000;
+/**
+ * Warns that a sent message completes the WhatsApp the seller opened from "Contactar" instead of being recorded twice. Only attempts a
+ * previewed sent message can actually complete count (a message without time is treated as sent now, as the CRM does); null when none.
+ */
+export function openWhatsappNotice(open: readonly { openedAt: string }[] | undefined, messages: readonly ChatMessage[], now = Date.now()): string | null {
+  const sends = messages.filter(message => message.direction === "out").map(message => message.sentAt ? new Date(message.sentAt).getTime() : now);
+  const matching = (open || []).filter(item => { const opened = new Date(item.openedAt).getTime(); return sends.some(sent => opened >= sent - OPENED_WINDOW_MS && opened <= sent + OPENED_SKEW_MS); });
+  if (!matching.length) return null;
+  const first = new Date(matching[0]!.openedAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+  const count = matching.length === 1 ? "un WhatsApp abierto" : `${matching.length} WhatsApp abiertos`;
   return `Tenés ${count} desde el CRM para este número (el primero, ${first}). El mensaje enviado lo completa en el CRM y no se registra dos veces.`;
 }
 function showPreview(messages: ChatMessage[], options: UiOptions, button: HTMLButtonElement, status: HTMLElement): void {

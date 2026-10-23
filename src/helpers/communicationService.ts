@@ -301,7 +301,8 @@ export async function completeUserscriptOpened(e:Executor,id:string,externalId:s
  const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp')throw new CommunicationConflict('Este intento ya fue completado.');
  const linkedId=(await sql<{externalId:string|null}>`SELECT external_id FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]?.externalId;
  if(m.status==='manual_sent'&&!linkedId){
-  await sql`UPDATE crm_messages SET external_id=${externalId},updated_at=now() WHERE id=${m.id}::uuid AND external_id IS NULL`.execute(e);
+  const updated=await sql<{id:string}>`UPDATE crm_messages SET external_id=${externalId},updated_at=now() WHERE id=${m.id}::uuid AND external_id IS NULL RETURNING id`.execute(e);
+  if(!updated.rows[0])throw new CommunicationConflict('Este envío ya está vinculado a otro mensaje de WhatsApp.');
   await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_linked',actor:user,triggeredBy:'userscript',after:{externalId}});
   return {id:m.id,linked:true};
  }

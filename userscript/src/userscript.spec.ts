@@ -144,11 +144,17 @@ describe("userscript safety", () => {
 describe("open WhatsApp notice", () => {
   const out = { externalId: "true_1", direction: "out" as const, text: "Hola", sentAt: null, author: null };
   const incoming = { ...out, externalId: "false_1", direction: "in" as const };
+  const now = new Date("2026-10-23T15:00:00.000Z").getTime();
   it("warns only when an attempt is open and the preview has a sent message", () => {
-    expect(openWhatsappNotice(undefined, [out])).toBeNull();
-    expect(openWhatsappNotice([], [out])).toBeNull();
-    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }], [incoming])).toBeNull();
-    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }], [out])).toMatch(/^Tenés un WhatsApp abierto desde el CRM .* no se registra dos veces\.$/);
-    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }, { openedAt: "2026-10-23T14:00:00.000Z" }], [out])).toMatch(/^Tenés 2 WhatsApp abiertos/);
+    expect(openWhatsappNotice(undefined, [out], now)).toBeNull();
+    expect(openWhatsappNotice([], [out], now)).toBeNull();
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }], [incoming], now)).toBeNull();
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }], [out], now)).toMatch(/^Tenés un WhatsApp abierto desde el CRM .* no se registra dos veces\.$/);
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }, { openedAt: "2026-10-23T14:00:00.000Z" }], [out], now)).toMatch(/^Tenés 2 WhatsApp abiertos/);
+  });
+  it("counts only attempts the CRM would complete: opened within 24 h before a previewed send", () => {
+    expect(openWhatsappNotice([{ openedAt: "2026-10-20T15:00:00.000Z" }], [out], now)).toBeNull();
+    expect(openWhatsappNotice([{ openedAt: "2026-10-20T15:00:00.000Z" }], [{ ...out, sentAt: "2026-10-21T10:00:00.000Z" }], now)).toMatch(/^Tenés un WhatsApp abierto/);
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T16:00:00.000Z" }], [out], now)).toBeNull();
   });
 });
