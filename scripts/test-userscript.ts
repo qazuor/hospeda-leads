@@ -37,13 +37,17 @@ try{
  // One failing message (NUL byte is rejected by PostgreSQL) does not abort the rest of the batch.
  const isolated=await statuses(await post({...body,messages:[{externalId:`false_${randomUUID()}`,direction:'in',text:'Antes',sentAt:null,author:null},{externalId:`false_${randomUUID()}`,direction:'in',text:'Con\u0000nulo',sentAt:null,author:null},{externalId:`false_${randomUUID()}`,direction:'in',text:'Después',sentAt:null,author:null}]}));
  assert.deepEqual(isolated.map(r=>r.status),['created','rejected','created'],'A DB error rejects only its own message');
+ // A WhatsApp id already registered on another business is rejected without revealing that row.
+ const elsewhere=await db.insertInto('crmAccounts').values({nombre:`Zz inbound userscript elsewhere ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email}).returningAll().executeTakeFirstOrThrow();
+ const squat=(await statuses(await post({...body,accountId:String(elsewhere.id),messages:[body.messages[0]!]})))[0]!;
+ assert.equal(squat.status,'rejected');assert.equal(squat.id,undefined,'No id from another business');
  // Absurd timestamps are rejected per message.
  assert.equal((await statuses(await post({...body,messages:[{externalId:`false_${randomUUID()}`,direction:'in',text:'Del futuro',sentAt:new Date(Date.now()+3600_000).toISOString(),author:null}]})))[0]!.status,'rejected');
  // Phone lookup: invalid numbers are refused, and unreadable matches never use up the result limit.
  assert.equal((await context(new Request('http://localhost/_api/userscript/context?phone=123',{headers:scripted(token)}))).status,400);
- const sharedPhone='+5493442555777';
+ const phoneTail=String(100000+Math.floor(Math.random()*900000)),sharedPhone=`+5493442${phoneTail}`; // unique per run so reruns on the same DB stay exact
  for(let i=0;i<12;i++)await db.insertInto('crmAccounts').values({nombre:`Zz inbound userscript archived ${i} ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:other.user.email,telefono:sharedPhone,archivedAt:new Date()}).execute();
- const readable=await db.insertInto('crmAccounts').values({nombre:`Zz inbound userscript zz readable ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:other.user.email,whatsapp:'3442 555777'}).returningAll().executeTakeFirstOrThrow();
+ const readable=await db.insertInto('crmAccounts').values({nombre:`Zz inbound userscript zz readable ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:other.user.email,whatsapp:`3442 ${phoneTail}`}).returningAll().executeTakeFirstOrThrow();
  const phoneMatches=(await (await context(new Request(`http://localhost/_api/userscript/context?phone=${encodeURIComponent(sharedPhone)}`,{headers:scripted(token)}))).json() as {matches:{accountId:string}[]}).matches;
  assert.deepEqual(phoneMatches.map(m=>m.accountId),[String(readable.id)],'Only the readable business matches; archived ones of another seller are filtered before the limit');
  // At most five active tokens per user.
