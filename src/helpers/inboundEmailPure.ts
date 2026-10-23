@@ -7,9 +7,12 @@ const domainOf=(email:string)=>email.trim().toLowerCase().split('@').pop()??'';
 export function senderDomainAligned(from:string,envelopeFrom:string|undefined):boolean{const a=domainOf(from),b=envelopeFrom?domainOf(envelopeFrom):'';return !!a&&!!b&&(a===b||b.endsWith('.'+a));}
 /** The From header is unauthenticated: trust it only with DMARC pass for its domain, or SPF pass for an aligned envelope sender, as reported in Authentication-Results. */
 export function senderAuthenticated(from:string,envelopeFrom:string|undefined,authenticationResults:string|undefined):boolean{
- const results=(authenticationResults??'').toLowerCase(),domain=domainOf(from);if(!results||!domain)return false;
- const dmarc=[...results.matchAll(/dmarc=pass\b[^;]*?header\.from=([^\s;]+)/g)].some(m=>m[1]===domain);
- const spf=senderDomainAligned(from,envelopeFrom)&&[...results.matchAll(/spf=pass\b[^;]*?smtp\.mailfrom=([^\s;]+)/g)].some(m=>{const v=m[1].includes('@')?domainOf(m[1]):m[1];return v===domainOf(envelopeFrom??'');});
+ // The Worker passes only Cloudflare's own header (trusted authserv-id); each result is read on its own, without comments.
+ const domain=domainOf(from);if(!authenticationResults||!domain)return false;
+ const results=authenticationResults.toLowerCase().replace(/\([^)]*\)/g,' ').split(';').slice(1).map(r=>r.trim().split(/\s+/));
+ const prop=(parts:string[],key:string)=>parts.find(p=>p.startsWith(key+'='))?.slice(key.length+1);
+ const dmarc=results.some(r=>r[0]==='dmarc=pass'&&prop(r,'header.from')===domain);
+ const spf=senderDomainAligned(from,envelopeFrom)&&results.some(r=>{const v=r[0]==='spf=pass'?prop(r,'smtp.mailfrom'):undefined;return !!v&&(v.includes('@')?domainOf(v):v)===domainOf(envelopeFrom??'');});
  return dmarc||spf;
 }
 export function normalizeMessageId(value:string):string{return value.trim().replace(/^<|>$/g,'').trim();}

@@ -11,3 +11,6 @@ npx wrangler deploy
 ```
 
 En Cloudflare Email Routing, apuntar el catch-all y las reglas específicas de vendedores a este Worker. El Worker conserva el reenvío a Gmail. Para verificarlo, enviar un mensaje de prueba a una dirección cubierta por las reglas y confirmar que aparece en Gmail aunque la entrega al CRM falle; revisar también los logs del Worker por el Message-ID, nunca por el contenido.
+
+
+`TRUSTED_AUTHSERV_ID` (en `wrangler.toml`) habilita la asociación por remitente. Dejarlo vacío hasta mandar un email real: en Gmail, «Mostrar original», tomar del encabezado `Authentication-Results` de más arriba el identificador que va antes del primer `;` y cargarlo. Sin ese valor, los emails que solo coinciden por remitente quedan Sin asociar.

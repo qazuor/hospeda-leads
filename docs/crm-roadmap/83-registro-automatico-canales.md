@@ -131,7 +131,7 @@ Hoy el `Reply-To` de los emails del CRM es el `sender_email` del vendedor o, si 
 
 El `From` no está autenticado: sin esa evidencia, un tercero podría hacerse pasar por un negocio, así que el mensaje queda Sin asociar. `In-Reply-To`/`References` no lo exigen porque requieren conocer el Message-ID de un email del CRM, que solo tiene quien lo recibió.
 
-**A verificar en la prueba real:** si Email Routing entrega `Authentication-Results` al Worker y con qué identificador del servidor de autenticación. Si no lo entrega, la asociación por remitente no ocurre y esos mensajes quedan Sin asociar. Si lo entrega, conviene validar ese identificador para no confiar en un encabezado agregado por el remitente.
+**A verificar en la prueba real:** si Email Routing entrega `Authentication-Results` al Worker y con qué identificador del servidor de autenticación. Si no lo entrega, la asociación por remitente no ocurre y esos mensajes quedan Sin asociar. El Worker solo pasa el `Authentication-Results` de más arriba y solo si su identificador coincide con `TRUSTED_AUTHSERV_ID`; mientras esa variable esté vacía, la asociación por remitente está desactivada.
 
 Si una etapa apunta a más de un negocio, la asociación se detiene ahí y el mensaje queda Sin asociar: una evidencia más débil no desempata.
 
