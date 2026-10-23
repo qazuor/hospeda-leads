@@ -37,7 +37,10 @@ const isUiSource=(path:string)=>/^(components|pages|content)\//.test(path)&&path
 const isAuditMap=(line:string)=>/^\s*(export\s+)?const\s+(actionLabels|fieldLabels|auditFields|eventTitles|statusNames|channelNames)\b/.test(line);
 /** Single words so common that a literal match proves little. They stay checked, but only weakly: prefer citing a longer, more specific label. */
 const WEAKLY_CHECKED=['Actualizar','Contexto','Deshacer','Documentos','Email','Llamada','Lunes','Lista','Mañana','Mes','Notas','Propósito','Seguimiento','Sistema','Tipo','Usuarios'] as const;
-const corpus=listFiles(srcRoot).filter(isSource).map(file=>({path:relative(srcRoot,file).split(sep).join('/'),text:stripComments(readFileSync(file,'utf8')).split('\n').filter(line=>!isAuditMap(line)).join('\n')})).filter(file=>isUiSource(file.path));
+/** The WhatsApp user script renders its own UI inside WhatsApp Web; the guide cites its labels too. */
+const userscriptRoot=fileURLToPath(new URL('../../userscript/src',import.meta.url));
+const readSource=(root:string,prefix:string)=>listFiles(root).filter(isSource).map(file=>({path:prefix+relative(root,file).split(sep).join('/'),text:stripComments(readFileSync(file,'utf8')).split('\n').filter(line=>!isAuditMap(line)).join('\n')}));
+const corpus=[...readSource(srcRoot,'').filter(file=>isUiSource(file.path)),...readSource(userscriptRoot,'userscript/')];
 const allSource=corpus.map(file=>file.text).join('\n');
 
 describe('labelExists',()=>{
