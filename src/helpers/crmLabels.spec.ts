@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {actorLabel,channelLabel,outcomeLabel,responseCategoryLabel,stageLabel,userLabel} from './crmLabels';
+import {actorLabel,channelLabel,inboundMeta,inboundNoun,outcomeLabel,responseCategoryLabel,stageLabel,userLabel} from './crmLabels';
 
 describe('crm labels',()=>{
  it('resolves stage keys of any type and passes legacy names through',()=>{
@@ -46,5 +46,13 @@ describe('crm labels',()=>{
   expect(actorLabel('marta@example.test',users)).toBe('Marta');
   expect(actorLabel('seller1@example.test')).toBe('Otra persona del equipo');
   expect(actorLabel('Leandro')).toBe('Leandro');
+ });
+ it('names received WhatsApp messages without an email subject',()=>{
+  expect(inboundNoun('whatsapp')).toBe('mensaje');
+  expect(inboundNoun('email')).toBe('email');
+  expect(inboundMeta({item:{channel:'whatsapp',fromAddress:'+54 9 345 1234567',subject:null},when:'hoy'})).toBe('+54 9 345 1234567 · hoy');
+  expect(inboundMeta({item:{channel:'whatsapp',fromAddress:'',subject:null},when:'hoy'})).toBe('hoy');
+  expect(inboundMeta({item:{channel:'email',fromAddress:'ana@example.com',subject:''},when:'hoy'})).toBe('ana@example.com · (sin asunto) · hoy');
+  expect(inboundMeta({item:{channel:'email',fromAddress:'ana@example.com',subject:'Precios'},when:'hoy'})).toBe('ana@example.com · Precios · hoy');
  });
 });
