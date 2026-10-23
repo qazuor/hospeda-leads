@@ -284,3 +284,12 @@ El respaldo completo, manifiesto de reversión y scripts de rollback quedaron fu
 ## Acciones de negocios siempre visibles
 
 En la rama `feat/ui-aesthetic-functional-tweaks`, las acciones Abrir, Contactar, Archivar y Eliminar quedan siempre visibles en tabla y grilla; las no permitidas se muestran deshabilitadas con explicación. La columna de acciones tiene un ancho mínimo de 150 px para evitar recortes. También se quitó el resaltado de columna que se activaba al pasar por un encabezado. `pnpm run typecheck` y `git diff --check` pasaron. Commits locales; sin push ni PR.
+
+
+## Pulido visual de la ficha de negocio · PR 1/2 · 23/10/2026
+
+Rama `ux/business-page-polish`. Primer paso del rediseño de `/accounts/:accountId` pedido por el propietario (falta de jerarquía visual). Cambios: escala tipográfica y ritmo de secciones bajo `.businessDetail` (títulos de sección 18 px, subsecciones 15 px, texto secundario 13 px) y limpieza de reglas CSS repetidas sin cambiar el resto de pantallas; el historial muestra 5 eventos y «Ver N más»; Datos del negocio muestra solo campos cargados y resume los vacíos en «Sin cargar: …»; los selectores de gestión/actividad de un documento nuevo pasan dentro de «Agregar documento o recurso»; «Registrar respuesta recibida» y «Ver tareas» dejan de ocupar todo el ancho. Sin cambios de API, permisos ni etiquetas existentes.
+
+Medido sobre un negocio sintético con 34 eventos (solapa «Qué pasó»): 9657 → 3594 px de alto a 1280 px y 10614 → 4510 px a 390 px, sin scroll horizontal.
+
+Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. E2E de la ficha sobre base Docker descartable: 38 de 39 pasaron; `commercial.e2e.ts` falla en el paso «CRM template» también con el build de `staging` en el mismo entorno local (en CI depende de datos que crean las integraciones previas), por lo que no se atribuye a este cambio. Pendiente: PR 2/2 (encabezado compacto y una solapa por tarea).
