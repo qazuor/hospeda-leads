@@ -55,6 +55,7 @@ function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatc
  if(input.action==='prepare')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`);
  if(input.action==='prepare_general'||input.action==='manual_start'||input.action==='response_create')return {accountIds:[input.accountId]};
  if(input.action==='inbound_register'||input.action==='inbound_dismiss'||input.action==='inbound_reply')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid AND account_id IS NOT NULL`);
+ if(input.action==='email_resolve_uncertain')return messageScope(input.messageId)(e);
  if(input.action==='response_correct')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_communication_responses WHERE id=${input.id}::uuid`);
  if(input.action==='restrict')return input.accountId?{accountIds:[input.accountId]}:input.leadId?accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`):{accountIds:[]};
  if(input.action==='lift')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_contact_restrictions WHERE id=${input.id}`);
@@ -275,7 +276,9 @@ export async function renderFinal(e:Executor,m:Message,user:User){const {lead,ac
 async function activity(e:Executor,m:Message,user:User,result:string){
  const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);
  const current=(await sql<{activityId:string|null;status:string}>`SELECT activity_id,status FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0];
- const existingId=current?.activityId??m.activityId;
+ const replyInboundId=m.templateSnapshot?.inboundId;
+ const replyActivity=replyInboundId&&!current?.activityId?await e.selectFrom('crmActivities').select('id').where('accountId','=',m.accountId).where('notes','=','Respuesta al email entrante '+replyInboundId).where('outcome','is',null).executeTakeFirst():undefined;
+ const existingId=current?.activityId??m.activityId??replyActivity?.id;
  if(existingId){const providerResult=result.startsWith('Email aceptado')||result==='Rechazo de Brevo';if(!(providerResult&&['replied','rejected'].includes(current?.status??'')))await e.updateTable('crmActivities').set({result,updatedAt:new Date()}).where('id','=',existingId).where('outcome','is',null).execute();return existingId;}
  const a=await e.insertInto('crmActivities').values({accountId:account.id,leadId:lead?.id??null,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':'Comunicación '+m.channel,channel:m.channel,result,occurredAt:new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
  await sql`UPDATE crm_messages SET activity_id=${a.id} WHERE id=${m.id}::uuid`.execute(e);
@@ -399,6 +402,22 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,true);
   await sql`UPDATE crm_inbound_messages SET status='dismissed',updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
   await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_dismissed',actor:user,after:{status:'dismissed',reason:input.reason}});return {ok:true};
+ }
+ if(input.action==='email_resolve_uncertain'){
+  if(user.role!=='admin')throw new CommunicationForbidden('Solo un administrador puede resolver un resultado incierto de email.');
+  const m=await messageFor(e,input.messageId,user,true);
+  const replay=(await sql<{afterValue:Record<string,unknown>}>`SELECT after_value AS "afterValue" FROM crm_communication_journal WHERE entity_type='interaction' AND entity_id=${m.id} AND action='email_uncertain_resolved' AND after_value->>'resolutionId'=${input.id} ORDER BY id DESC LIMIT 1`.execute(e)).rows[0];
+  if(replay)return {ok:true,duplicate:true,message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]};
+  const allowed=m.channel==='email'&&(m.status==='unknown'||m.status==='submitting'&&m.updatedAt.getTime()<Date.now()-15*60*1000);
+  if(!allowed)throw new CommunicationConflict('Este email no tiene un resultado incierto que pueda resolverse; un envío en curso debe terminar primero.');
+  const out=(await sql<{id:string;status:string}>`SELECT id,status FROM email_outbox WHERE id=${m.outboxId} FOR UPDATE`.execute(e)).rows[0];
+  if(!out||!['unknown','submitting'].includes(out.status))throw new CommunicationConflict('El envío asociado ya no está en un estado incierto.');
+  const before={status:m.status,outboxStatus:out.status};const status=input.outcome==='sent'?'accepted':'failed',outboxStatus=input.outcome==='sent'?'accepted':'error';
+  await sql`UPDATE crm_messages SET status=${status},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+  await sql`UPDATE email_outbox SET status=${outboxStatus},last_error=${input.outcome==='not_sent'?input.reason:null},sent_at=CASE WHEN ${input.outcome==='sent'} THEN coalesce(sent_at,now()) ELSE sent_at END,updated_at=now() WHERE id=${out.id}`.execute(e);
+  await activity(e,m,user,input.outcome==='sent'?'Email aceptado por proveedor · entrega no confirmada':'Email marcado como no enviado por un administrador');
+  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_uncertain_resolved',actor:user,before,after:{status,outboxStatus,outcome:input.outcome,reason:input.reason,resolutionId:input.id}});
+  return {ok:true,message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]};
  }
  if(input.action==='response_correct')return correctResponse(e,input,user);
  if(input.action==='manual_complete'){
