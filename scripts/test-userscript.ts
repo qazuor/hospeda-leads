@@ -34,6 +34,25 @@ try{
  const completedPending=(await statuses(await post({...body,messages:[{externalId:`true_${randomUUID()}`,direction:'out',text:'Te paso la info',sentAt:null,author:null}]})))[0]!;
  assert.equal(completedPending.status,'created');assert.equal(completedPending.id,samePending,'Completes the attempt addressed to this chat');
  assert.equal((await sql<{status:string}>`SELECT status FROM crm_messages WHERE id=${otherPending}::uuid`.execute(db)).rows[0]!.status,'manual_pending','Another contact attempt stays pending');
+ // A WhatsApp opened from "Contactar" is completed by the message sent in the chat instead of being recorded twice; only the owner's
+ // attempts within a day before the send match, and one confirmed by hand ("Sí, lo envié") is only linked to the WhatsApp id.
+ const opened=randomUUID(),stale=randomUUID(),colleague=randomUUID(),confirmed=randomUUID(),chatPhone='+5493442123456';
+ await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,created_at) VALUES(${stale}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${seller.user.email},'whatsapp_opened','Viejo',now()-interval '3 days'),(${colleague}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${other.user.email},'whatsapp_opened','Ajeno',now()-interval '30 minutes'),(${opened}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${seller.user.email},'whatsapp_opened','Texto preparado',now()-interval '20 minutes')`.execute(db);
+ const openCtx=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}&phone=${encodeURIComponent(chatPhone)}`,{headers:scripted(token)}));assert.equal(openCtx.status,200);
+ assert.equal((await openCtx.json() as {matches:{openWhatsapp:unknown[]}[]}).matches[0]!.openWhatsapp.length,2,'The preview lists the seller\'s own open WhatsApps of the last week');
+ const sent=(text:string)=>({...body,messages:[{externalId:`true_${randomUUID()}`,direction:'out',text,sentAt:new Date().toISOString(),author:null}]});
+ const completedOpened=(await statuses(await post(sent('Texto que salió'))))[0]!;
+ assert.equal(completedOpened.status,'created');assert.equal(completedOpened.id,opened,'Completes the WhatsApp opened from Contactar');
+ const openedRow=(await sql<{status:string;body:string;textBody:string;externalId:string|null}>`SELECT status,body,text_body AS "textBody",external_id AS "externalId" FROM crm_messages WHERE id=${opened}::uuid`.execute(db)).rows[0]!;
+ assert.deepEqual([openedRow.status,openedRow.body,openedRow.textBody,!!openedRow.externalId],['manual_sent','Texto preparado','Texto que salió',true],'Keeps the prepared text and records what was actually sent');
+ assert.equal((await sql<{n:string}>`SELECT count(*)::text AS n FROM crm_communication_journal WHERE entity_id=${opened} AND action='contact_resolved' AND triggered_by_email='userscript'`.execute(db)).rows[0]!.n,'1');
+ for(const id of [stale,colleague])assert.equal((await sql<{status:string}>`SELECT status FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0]!.status,'whatsapp_opened','Old or another seller\'s attempts stay open');
+ await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,created_at) VALUES(${confirmed}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${seller.user.email},'manual_sent','Confirmado a mano',now()-interval '10 minutes')`.execute(db);
+ const linkedMessage=sent('Ya lo había confirmado'),linked=(await statuses(await post(linkedMessage)))[0]!;
+ assert.equal(linked.status,'duplicate');assert.equal(linked.id,confirmed,'A send confirmed by hand is reported as already in the CRM');
+ assert.equal((await sql<{n:string}>`SELECT count(*)::text AS n FROM crm_messages WHERE external_id=${linkedMessage.messages[0]!.externalId}`.execute(db)).rows[0]!.n,'1','No second message is created');
+ const fresh=(await statuses(await post(sent('Sin intento abierto'))))[0]!;
+ assert.equal(fresh.status,'created');assert(![stale,colleague,confirmed,opened].includes(fresh.id!),'Without a matching attempt a new sent message is recorded');
  // One failing message (NUL byte is rejected by PostgreSQL) does not abort the rest of the batch.
  const isolated=await statuses(await post({...body,messages:[{externalId:`false_${randomUUID()}`,direction:'in',text:'Antes',sentAt:null,author:null},{externalId:`false_${randomUUID()}`,direction:'in',text:'Con\u0000nulo',sentAt:null,author:null},{externalId:`false_${randomUUID()}`,direction:'in',text:'Después',sentAt:null,author:null}]}));
  assert.deepEqual(isolated.map(r=>r.status),['created','rejected','created'],'A DB error rejects only its own message');

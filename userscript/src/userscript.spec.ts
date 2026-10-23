@@ -6,9 +6,10 @@ import group from "../fixtures/group.html?raw";
 import unknown from "../fixtures/unrecognizable.html?raw";
 import { compareSemver, normalizePhone, parseCode } from "./parse";
 import { readChat, redactedSnapshot } from "./selectors";
-import { renderBanner } from "./ui";
+import { openWhatsappNotice, renderBanner } from "./ui";
 import { batches, filterCached, mergeResults, RegisterController, summarizeResults, messageFingerprint } from "./register";
 import { request, ApiError } from "./api";
+import { USERSCRIPT_VERSION } from "./version";
 import { copyDiagnostic } from "./diagnostic";
 
 const gmValues = new Map<string, unknown>();
@@ -104,7 +105,7 @@ describe("chat refresh and diagnostic fallback", () => {
 describe("userscript API transport", () => {
   afterEach(() => vi.restoreAllMocks());
   it("sends token and version headers", async () => {
-    const stub = vi.spyOn(globalThis, "GM_xmlhttpRequest").mockImplementation(options => { expect(options.headers).toMatchObject({ Authorization: "Bearer private-token", "X-Hospeda-Userscript-Version": "1.0.0" }); options.onload({ status: 200, response: { ok: true }, responseText: "" }); return { abort() {} }; });
+    const stub = vi.spyOn(globalThis, "GM_xmlhttpRequest").mockImplementation(options => { expect(options.headers).toMatchObject({ Authorization: "Bearer private-token", "X-Hospeda-Userscript-Version": USERSCRIPT_VERSION }); options.onload({ status: 200, response: { ok: true }, responseText: "" }); return { abort() {} }; });
     await expect(request("https://crm.test", "private-token")).resolves.toEqual({ ok: true }); expect(stub).toHaveBeenCalledTimes(1);
   });
   it.each([[401, "Token inválido"], [403, "permiso"], [503, "no está disponible"]] as const)("maps HTTP %s", async (status, message) => {
@@ -137,5 +138,23 @@ describe("userscript safety", () => {
     expect(readMessages).not.toHaveBeenCalled();
     expect(host.shadowRoot!.textContent).toContain("El chat cambió");
     expect(host.shadowRoot!.querySelector(".preview")).toBeNull();
+  });
+});
+
+describe("open WhatsApp notice", () => {
+  const out = { externalId: "true_1", direction: "out" as const, text: "Hola", sentAt: null, author: null };
+  const incoming = { ...out, externalId: "false_1", direction: "in" as const };
+  const now = new Date("2026-10-23T15:00:00.000Z").getTime();
+  it("warns only when an attempt is open and the preview has a sent message", () => {
+    expect(openWhatsappNotice(undefined, [out], now)).toBeNull();
+    expect(openWhatsappNotice([], [out], now)).toBeNull();
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }], [incoming], now)).toBeNull();
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }], [out], now)).toMatch(/^Tenés un WhatsApp abierto desde el CRM .* no se registra dos veces\.$/);
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T13:15:00.000Z" }, { openedAt: "2026-10-23T14:00:00.000Z" }], [out], now)).toMatch(/^Tenés 2 WhatsApp abiertos/);
+  });
+  it("counts only attempts the CRM would complete: opened within 24 h before a previewed send", () => {
+    expect(openWhatsappNotice([{ openedAt: "2026-10-20T15:00:00.000Z" }], [out], now)).toBeNull();
+    expect(openWhatsappNotice([{ openedAt: "2026-10-20T15:00:00.000Z" }], [{ ...out, sentAt: "2026-10-21T10:00:00.000Z" }], now)).toMatch(/^Tenés un WhatsApp abierto/);
+    expect(openWhatsappNotice([{ openedAt: "2026-10-23T16:00:00.000Z" }], [out], now)).toBeNull();
   });
 });

@@ -39,6 +39,20 @@ export function renderBanner(options: UiOptions): HTMLElement {
   root.append(style, section);
   return host;
 }
+/** Same window the CRM uses to complete an opened WhatsApp: prepared at most 24 h before the send and at most 10 min after it. */
+const OPENED_WINDOW_MS = 24 * 60 * 60_000, OPENED_SKEW_MS = 10 * 60_000;
+/**
+ * Warns that a sent message completes the WhatsApp the seller opened from "Contactar" instead of being recorded twice. Only attempts a
+ * previewed sent message can actually complete count (a message without time is treated as sent now, as the CRM does); null when none.
+ */
+export function openWhatsappNotice(open: readonly { openedAt: string }[] | undefined, messages: readonly ChatMessage[], now = Date.now()): string | null {
+  const sends = messages.filter(message => message.direction === "out").map(message => message.sentAt ? new Date(message.sentAt).getTime() : now);
+  const matching = (open || []).filter(item => { const opened = new Date(item.openedAt).getTime(); return sends.some(sent => opened >= sent - OPENED_WINDOW_MS && opened <= sent + OPENED_SKEW_MS); });
+  if (!matching.length) return null;
+  const first = new Date(matching[0]!.openedAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+  const count = matching.length === 1 ? "un WhatsApp abierto" : `${matching.length} WhatsApp abiertos`;
+  return `Tenés ${count} desde el CRM para este número (el primero, ${first}). El mensaje enviado lo completa en el CRM y no se registra dos veces.`;
+}
 function showPreview(messages: ChatMessage[], options: UiOptions, button: HTMLButtonElement, status: HTMLElement): void {
   const box = element("div"); box.className = "preview"; const inputs: HTMLInputElement[] = [];
   const list = element("div");
@@ -50,5 +64,6 @@ function showPreview(messages: ChatMessage[], options: UiOptions, button: HTMLBu
   confirm.addEventListener("click", async () => { const selected = messages.filter((_, index) => inputs[index].checked); if (!selected.length || options.register?.isSubmitting) return; if (options.isCurrentChat && !options.isCurrentChat()) { status.textContent = CHAT_CHANGED; close(); return; } confirm.disabled = true; button.disabled = true; status.textContent = "Registrando…";
     try { const results = await options.register!.submit(options.selected!.accountId, { title: options.title || "", phone: options.phone || null }, selected); status.textContent = summarizeResults(results); const rejected = results.filter(item => item.status === "rejected"); for (const item of rejected) { const original = messages.find(message => message.externalId === item.externalId); const row = element("p", `${original?.sentAt ? new Date(original.sentAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "Sin hora"} · ${(original?.text || "").slice(0, 120)} · ${item.reason || "Motivo no informado"}`); box.append(row); } confirm.remove(); cancel.textContent = "Cerrar"; } catch (error) { status.textContent = `${error instanceof Error ? error.message : "Error al registrar."} Podés reintentar.`; confirm.disabled = false; button.disabled = false; }
   });
+  const notice = openWhatsappNotice(options.selected?.openWhatsapp, messages); if (notice) { const note = element("p", notice); note.setAttribute("role", "note"); box.append(note); }
   box.append(all, none, cancel, confirm, list); button.after(box);
 }

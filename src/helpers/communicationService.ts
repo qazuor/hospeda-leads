@@ -292,6 +292,29 @@ export async function completeUserscriptManual(e:Executor,id:string,externalId:s
  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_completed',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId}});
  return m.id;
 }
+/**
+ * Completes a WhatsApp the seller opened from "Contactar" (status whatsapp_opened) with the message the user script saw as sent in that
+ * chat, with the same effects as answering "Sí, lo envié": the prepared body stays, the text actually sent is kept in text_body/summary.
+ * A WhatsApp already confirmed by hand (manual_sent without a WhatsApp id) is only linked to the message id, so it is not recorded twice.
+ */
+export async function completeUserscriptOpened(e:Executor,id:string,externalId:string,text:string,user:User){
+ const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp')throw new CommunicationConflict('Este intento ya fue completado.');
+ const linkedId=(await sql<{externalId:string|null}>`SELECT external_id FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]?.externalId;
+ if(m.status==='manual_sent'&&!linkedId){
+  const updated=await sql<{id:string}>`UPDATE crm_messages SET external_id=${externalId},updated_at=now() WHERE id=${m.id}::uuid AND external_id IS NULL RETURNING id`.execute(e);
+  if(!updated.rows[0])throw new CommunicationConflict('Este envío ya está vinculado a otro mensaje de WhatsApp.');
+  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_linked',actor:user,triggeredBy:'userscript',after:{externalId}});
+  return {id:m.id,linked:true};
+ }
+ if(m.status!=='whatsapp_opened')throw new CommunicationConflict('Este intento ya fue completado.');
+ await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),'whatsapp');
+ await sql`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},text_body=${text},summary=${text},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+ await activity(e,m,user,'Envío confirmado manualmente');
+ if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
+ await markClientForCare(e,m,user);
+ await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_resolved',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,source:'userscript'}});
+ return {id:m.id,linked:false};
+}
 /** Records an already-sent WhatsApp message when no CRM manual attempt exists for it. */
 export async function registerUserscriptSent(e:Executor,v:{accountId:string;externalId:string;phone:string;title:string;text:string;sentAt:Date},user:User){
  await assertAccountContactAllowed(e,v.accountId,null,null,'whatsapp');
