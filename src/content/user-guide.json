@@ -1299,5 +1299,38 @@
         ]
       }
     ]
+  },
+  {
+    "id": "whatsapp-userscript",
+    "title": "Registrar mensajes de WhatsApp",
+    "description": "Conectá Tampermonkey al CRM para registrar lo que ya se envió y recibió.",
+    "articles": [
+      {
+        "id": "install-userscript",
+        "title": "Instalar el user script de WhatsApp",
+        "when": "Cuando quieras registrar desde WhatsApp Web los mensajes de un negocio.",
+        "steps": [
+          "Instalá Tampermonkey en Chrome o Edge 138 o posterior y activá la opción para permitir scripts de usuario. Firefox no es compatible por ahora.",
+          "También lo encontrás con Ctrl+K escribiendo «User script de WhatsApp».",
+          "Abrí «User script de WhatsApp» desde tu menú personal y tocá el enlace de instalación.",
+          "Creá un token con un nombre para este dispositivo. Copialo en ese momento: el CRM no lo vuelve a mostrar.",
+          "En WhatsApp Web abrí el menú de Tampermonkey y configurá el token.",
+          "Para reconocer el negocio, agendalo con «Copiar nombre para agendar» desde su ficha.",
+          "En el chat revisá la vista previa y confirmá el registro. El script no envía mensajes ni modifica WhatsApp."
+        ],
+        "result": "El CRM registra los mensajes visibles que confirmaste y evita duplicarlos.",
+        "example": [],
+        "notes": [
+          "Registrar un mensaje no implica que el negocio haya respondido ni aceptado una propuesta.",
+          "Revocá el token desde el CRM si dejás de usar el dispositivo."
+        ],
+        "url": "/userscript",
+        "linkLabel": "User script de WhatsApp",
+        "uiLabels": [
+          "User script de WhatsApp",
+          "Copiar nombre para agendar"
+        ]
+      }
+    ]
   }
 ]

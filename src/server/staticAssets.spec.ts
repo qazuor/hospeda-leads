@@ -30,6 +30,7 @@ describe("applyAssetMiddleware + applyStaticFallback", () => {
     const assetsDir = join(distDir, "assets");
     mkdirSync(assetsDir);
     writeFileSync(join(assetsDir, "app-abc123.js"), `window.payload = "${"x".repeat(2048)}";`);
+    const userscriptsDir=join(distDir,"userscripts");mkdirSync(userscriptsDir);writeFileSync(join(userscriptsDir,"hospeda-crm.user.js"),"// ==UserScript==\n");
 
     applyAssetMiddleware(app);
     app.get("/_api/x", (c) => c.json({ payload: "x".repeat(2048) }));
@@ -45,6 +46,8 @@ describe("applyAssetMiddleware + applyStaticFallback", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toContain("immutable");
   });
+
+  it("serves the public user script as JavaScript without caching it",async()=>{const response=await app.request('/userscripts/hospeda-crm.user.js');expect(response.status).toBe(200);expect(response.headers.get('Content-Type')).toContain('text/javascript');expect(response.headers.get('Cache-Control')).toBe('no-cache');expect(await response.text()).toContain('UserScript');});
 
   it("does not return the SPA shell for missing assets", async () => {
     const response = await app.request("/assets/missing.js");
