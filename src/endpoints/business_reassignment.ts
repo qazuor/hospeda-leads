@@ -50,7 +50,7 @@ export async function post(request:Request){
    const actor=await trx.selectFrom('users').select('displayName').where('email','=',user.email).executeTakeFirst();
    for(let offset=0;offset<plan.moves.length;offset+=100){
     const chunk=plan.moves.slice(offset,offset+100);
-    await trx.insertInto('crmCommercialJournal').values(chunk.map(move=>({accountId:move.accountId,contactId:null,action:'business_assignment_rebalanced',actorEmail:user.email,actorName:actor?.displayName??user.displayName,metadata:sql`${JSON.stringify({before:{assignedUserEmail:move.fromEmail},after:{assignedUserEmail:move.toEmail},reason:'business_state_new_rebalance'})}::jsonb`}))).execute();
+    await trx.insertInto('crmCommercialJournal').values(chunk.map(move=>({accountId:move.accountId,contactId:null,action:'business_assignment_rebalanced',actorEmail:user.email,actorName:actor?.displayName??user.displayName,metadata:sql`${JSON.stringify({before:{assignedUserEmail:move.fromEmail},after:{assignedUserEmail:move.toEmail},reason:'business_state_new_rebalance'})}::text::jsonb`}))).execute();
    }
    return {ok:true,moved:plan.moves.length,plan};
   });
