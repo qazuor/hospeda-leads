@@ -2,7 +2,7 @@
 
 ## Mensajes y emails recibidos — 22 y 23/10/2026 (mergeado a `staging`, sin desplegar)
 
-Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción: **nada**. Producción sigue sin las migraciones 024–039.
+Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción: **nada**. Producción sigue sin las migraciones 024–040.
 
 - **#211 (`2aaf63b`):** los badges no semánticos de Negocios vuelven a tener color estable por valor. Revisados pasa a editable para el responsable o un admin: «Revisado» desde Nuevo, «No revisado» desde Revisado, Sin tarea agendada o Recontactar (limpia la fecha y cancela la tarea «Volver a contactar» sin tocar). Sin migración.
 - **#212 (`1ee2691`):** motor de variantes de mensajes con azar estable por negocio, persona y día, sin repetir la variante anterior del mismo modelo; condiciones nuevas (ciudad, perfil, propósito, día, mes, es cliente); propósito en modelos (migración 035); contexto único entre vista previa y servidor; modelo de red social con «Copiar texto».
@@ -16,7 +16,10 @@ Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción
 - **#221 (`7705b46`):** Ayuda. Cuatro artículos del script de WhatsApp (instalar, vincular un chat, registrar y problemas), «Responder un email desde el CRM», «Asociar emails que llegaron sin negocio» y actualizaciones de los artículos de rutina, pantallas, contacto y correcciones. El control de textos de la Ayuda ahora también verifica la interfaz del script.
 - **#222 (`e76b031`):** los WhatsApp recibidos ya no muestran «(sin asunto)», y el descarte dice «mensaje» en vez de «email».
 - **#223 (`2eff9c6`):** la edición de negocios en lote y la redistribución de responsables guardaban su metadata del historial como string JSON, el mismo bug que corrigió #218. Ahora guardan objetos, y un control de código impide el cast directo `::jsonb`. **Las filas viejas siguen como string**; repararlas requiere una migración que aún no se decidió.
-- **#224:** pruebas de componente de «Mensajes recibidos», «Responder email» y «Emails sin asociar» (en PR).
+- **#224 (`b0c5545`):** pruebas de componente de «Mensajes recibidos», «Responder email» y «Emails sin asociar».
+- **#226 (`13d26a8`):** migración 040. Repara la metadata vieja guardada como string en `account_updated` y `business_assignment_rebalanced`; es idempotente y no toca otras acciones. **Escribe sobre datos de producción en el deploy.**
+- **#227 (`812fd71`):** el user script (1.1.0) completa el WhatsApp abierto desde «Contactar» en vez de duplicarlo, vincula un envío confirmado a mano, y la vista previa lo avisa.
+- **#228:** el admin resuelve un email con resultado incierto («Marcar como enviado» / «Marcar como no enviado», con motivo y journal). Libera «Responder» en las respuestas inciertas. Nunca reenvía.
 
 Pruebas: las de cada PR (typecheck, `npm test`, build, integración sobre bases descartables, e2e y tests del Worker). F1 se probó de punta a punta el 23/10/2026 con emails reales, el Worker desplegado y un servidor local expuesto por túnel temporal: la respuesta en hilo se asoció por `In-Reply-To` y los remitentes desconocidos quedaron Sin asociar. Pendiente: prueba real de asociación por remitente, verificación visual del propietario y lo listado en [pendientes](pendientes.md).
 

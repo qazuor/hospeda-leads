@@ -171,3 +171,10 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - La spec se mantiene agnóstica a proveedor/modelo; habrá que elegirlos antes de implementar la conexión real. Antes de enviar datos reales, verificar condiciones de privacidad, retención, entrenamiento, región y contrato.
 - Configurar límites antes de habilitar el servicio, informar uso y errores y bloquear solicitudes al alcanzar el límite. Dictado queda fuera de la primera etapa.
 - Estas decisiones completan la definición funcional documental; no autorizan todavía la implementación ni el acceso/escritura a datos productivos.
+
+## Spec 83, decisiones tras F3 (23/10/2026, propietario)
+
+- **WhatsApp abierto y el user script.** Un mensaje enviado que se registra con el script completa el intento `whatsapp_opened` más antiguo del mismo vendedor (o de cualquiera si es admin), del mismo negocio y al teléfono del chat, preparado entre 24 h antes y 10 min después del envío, con los mismos efectos que «Sí, lo envié». La evidencia del envío es el mensaje visto en el chat más la confirmación explícita en la vista previa, no la apertura del canal. Un `manual_sent` sin id de WhatsApp en esa ventana solo se vincula. La vista previa avisa antes de confirmar.
+- **Email con resultado incierto.** Primero lo resuelve el webhook de Brevo si llega un evento. Si no, un administrador lo marca como enviado (`accepted`, entrega no confirmada) o no enviado (`failed`), con un motivo obligatorio de lo que revisó, y queda en el journal. Aplica a `unknown` y a `submitting` sin cambios por más de 15 minutos. Nunca se reenvía automáticamente.
+- **Metadata del historial guardada como string.** Se repara con la migración 040, idempotente y limitada a `account_updated` y `business_assignment_rebalanced`. Se aplica en el deploy.
+
