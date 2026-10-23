@@ -19,6 +19,7 @@ import { withDefaultMessageVariables } from './messageVariables';
 import {buildMessageTemplateContext} from './messageTemplateContext';
 import {responseCategoryLabel} from './crmLabels';
 import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
+import {sendInboundReply} from './emailReply';
 type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
@@ -53,7 +54,7 @@ const messageScope=(id:string)=>(e:Executor)=>accountsOf(e,sql<{accountId:string
 function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatch'}>){return async(e:Executor):Promise<CommunicationLockScope>=>{
  if(input.action==='prepare')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`);
  if(input.action==='prepare_general'||input.action==='manual_start'||input.action==='response_create')return {accountIds:[input.accountId]};
- if(input.action==='inbound_register'||input.action==='inbound_dismiss')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid AND account_id IS NOT NULL`);
+ if(input.action==='inbound_register'||input.action==='inbound_dismiss'||input.action==='inbound_reply')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid AND account_id IS NOT NULL`);
  if(input.action==='response_correct')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_communication_responses WHERE id=${input.id}::uuid`);
  if(input.action==='restrict')return input.accountId?{accountIds:[input.accountId]}:input.leadId?accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`):{accountIds:[]};
  if(input.action==='lift')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_contact_restrictions WHERE id=${input.id}`);
@@ -62,7 +63,7 @@ function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatc
 export async function communicationConfig(e:Executor){const r=await e.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow();return z.object({recentContactHours:z.number().int().min(1).max(720),maxDocumentBytes:z.number().int().min(1).max(2097152)}).parse(JSON.parse(r.value));}
 /** Read mode (write=false) uses assertAccountViewable, so the responsible seller reads the communication of her archived business (decision 1C); write mode keeps the strict assertAccountReadable guard. */
 export async function leadFor(e:Executor,id:string,user:User,write=true){const l=await e.selectFrom('leads').selectAll().where('id','=',id).where('deletedAt','is',null).executeTakeFirstOrThrow();const a=await e.selectFrom('crmAccounts').selectAll().where('id','=',l.accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();if(write)assertAccountReadable(user,a);else assertAccountViewable(user,a);if(write)await assertLeadAccess(e,String(l.id),user,true);return {lead:l,account:a};}
-async function communicationContext(e:Executor,accountId:string,leadId:string|null,user:User,write:boolean){
+export async function communicationContext(e:Executor,accountId:string,leadId:string|null,user:User,write:boolean){
  const account=await e.selectFrom('crmAccounts').selectAll().where('id','=',accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();assertAccountReadable(user,account);
  if(account.deletedAt)throw new CommunicationForbidden('El negocio está en la papelera.');
  if(!leadId){if(write)assertAccountWritable(user,account);return {account,lead:null};}
@@ -332,6 +333,7 @@ export async function pendingContactOutcomes(e:Executor,{ownerEmail,isAdmin,acco
 /** Points a message at the activity that records its outcome (see {@link resolveMessageForWork}). */
 export async function linkMessageActivity(e:Executor,messageId:string,activityId:string){await sql`UPDATE crm_messages SET activity_id=${activityId} WHERE id=${messageId}::uuid`.execute(e);}
 export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutation,user:User){
+ if(input.action==='inbound_reply')return sendInboundReply(db,input,user);
  if(input.action==='dispatch')return dispatch(db,input,user);
  return db.transaction().execute(async e=>{
  await setWorkActor(e,user);
