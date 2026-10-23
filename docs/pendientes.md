@@ -242,3 +242,8 @@ Se refrescaron la guía en pantalla y el Markdown generado con los flujos actual
 Los PRs #99–#110 revisados para estados, comunicación, UI y documentación están integrados en `staging`. Los tres ajustes adicionales de UI y la documentación/prueba complementaria se integraron mediante el commit `924d186` el 16/10/2026. Esto no implica merge a `main` ni deploy.
 
 La distribución de responsables entre los cuatro usuarios elegibles se ejecutó el 15/10/2026 en producción, conservando responsables de Filtrados y negocios en Papelera. Esto no completa la revisión pendiente de fusiones o multiverticales.
+
+
+### Ficha de negocio · PR 2/2 pendiente (23/10/2026)
+
+Tras el PR 1/2 (pulido visual), falta la reorganización elegida por el propietario: encabezado compacto con el estado junto al nombre, Próximo paso como única tarjeta destacada y solapas por tarea («Historial», «Tareas», «Comunicación», «Gestiones · Personas · Datos»). Requiere actualizar `?section=`, e2e `business-*` y la Ayuda (`user-guide.json` + `node scripts/export-user-guide.mjs`). Después, revisar de nuevo con el propietario si conviene la variante de dos columnas en escritorio.
