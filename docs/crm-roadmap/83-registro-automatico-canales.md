@@ -112,7 +112,7 @@ Hoy el `Reply-To` de los emails del CRM es el `sender_email` del vendedor o, si 
 - Orden obligatorio: `forward` antes de leer o llamar al CRM. Cualquier error posterior se registra en los logs del Worker y **no** rechaza el mensaje (`setReject` nunca se usa).
 - Si el CRM responde 5xx o hay timeout: hasta 2 reintentos con espera corta dentro del mismo evento. Si siguen fallando, el email ya está en Gmail; queda logueado para reingesta manual (ver 6.5).
 - Tamaño: cuerpo de texto ≤ 50 000 caracteres, HTML ≤ 200 000; adjuntos solo metadata. Payload total ≤ 512 KB.
-- No reenvía al CRM correo de direcciones que no son de vendedores ni de contacto (lista `CRM_ADDRESSES` o todas las de `@hospeda.com.ar` excepto `noreply@`/`notificaciones@`, a definir en implementación).
+- Solo pasa al CRM el correo dirigido (To o Cc) a casillas de usuarios del CRM (`users.sender_email`) o a la dirección de respuesta general (`brevo_reply_to_email`). El Worker obtiene esa lista del CRM (`GET /_api/inbound/addresses`, mismo token, cacheada 10 minutos). El resto solo se reenvía a Gmail. Decisión del 22/10/2026.
 
 ### 6.3 Endpoint `POST /_api/inbound/email`
 
@@ -163,12 +163,13 @@ Efectos observados de Brevo: agregó `List-Unsubscribe` + `List-Unsubscribe-Post
 - Layout liviano aprobado: sin cabecera de marca, solo la firma del vendedor (`buildHospedaEmailHtml` con variante `reply`).
 - Envío por SMTP de Brevo con `Message-ID` propio `<uuid@hospeda.com.ar>`, `In-Reply-To` = Message-ID del entrante, `References` = References del entrante + su Message-ID.
 - Se registra como `crm_messages` (canal email) + `email_outbox` con `transport='smtp'`, `inbound_message_id` y `message_id` = el propio. Los eventos del webhook de Brevo se siguen reconciliando por `message_id`.
-- Mismos permisos, bloqueo de doble envío, estados (`submitting`, `accepted`, `unknown`, `failed`) y restricciones No contactar que el envío actual. No se reintenta automáticamente un envío incierto.
+- Mismos permisos, bloqueo de doble envío y estados (`submitting`, `accepted`, `unknown`, `failed`) que el envío actual. No se reintenta automáticamente un envío incierto.
+- **No contactar (decisión del 22/10/2026):** si el negocio tiene la restricción activa y escribió primero, se permite **solo responder**: únicamente con "Responder" sobre un entrante recibido mientras la restricción está activa, al remitente de ese entrante y en su hilo. La restricción no se levanta ni habilita otros envíos (primer contacto, plantillas, WhatsApp asistido). El editor muestra el aviso «Este negocio pidió no ser contactado. Solo podés responder a su mensaje.» y el journal registra `email_reply_under_restriction`. Para F3 el banner muestra el mismo aviso; la extensión no envía, así que no hay bloqueo técnico en WhatsApp.
 
 ### 7.3 Configuración
 
 - Env: `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` (clave SMTP **propia del CRM**, revocable sin afectar al portal), `BREVO_SMTP_PORT` (587; 2525 si el VPS bloquea 587).
-- Dependencia: cliente SMTP (`nodemailer` propuesto). Requiere aprobación del propietario antes de agregarla.
+- Dependencia: `nodemailer`, aprobada por el propietario el 22/10/2026.
 - Impacto en otras instancias del VPS: ninguno técnico. El portal envía por la API de Brevo, no por SMTP. Se comparten cuota y reputación de la cuenta Brevo, igual que hoy.
 
 ### 7.4 Validación F2
@@ -215,7 +216,7 @@ No hace: enviar, hacer clics, cambiar etiquetas o nombres, leer chats que no se 
 - Endpoints nuevos, autenticados con el token y con CORS solo para el origen de la extensión:
   - `GET /_api/extension/context?code=H1234` o `?phone=+549…` → negocio, responsable, gestiones abiertas, restricciones.
   - `POST /_api/extension/register` → lote de mensajes (≤ 50) con `external_id`, dirección, texto, hora; respuesta por mensaje: `created` / `duplicate` / `rejected` con motivo.
-- Distribución: modo desarrollador ("cargar descomprimida") o Chrome Web Store sin listar. A decidir (ver 11).
+- Distribución (decisión del 22/10/2026): **descomprimida** (modo desarrollador), sin Chrome Web Store. El build genera un zip versionado. Como no se actualiza sola, `GET /_api/extension/context` devuelve la versión mínima admitida; si la instalada es menor, la extensión muestra «Actualizá la extensión» y no registra. La guía de instalación vive en `extension/README.md`.
 
 ### 8.5 Riesgos
 
@@ -237,13 +238,13 @@ Misma extensión, `content script` en `https://www.instagram.com/direct/*`. Asoc
 
 Con F3 estable, la extensión puede encolar sola los mensajes nuevos de chats asociados mientras el vendedor los mira, sin clic. Sigue sin enviar ni escribir nada. Se decide con datos de uso de F3.
 
-## 11. Decisiones abiertas (se consultan una por una al llegar a cada fase)
+## 11. Decisiones (propietario, 22/10/2026)
 
-1. Dependencia SMTP para F2 (`nodemailer` u otra).
-2. Responder a un negocio con restricción No contactar que escribió primero. Hoy No contactar bloquea toda salida y solo admin lo levanta; por defecto se mantiene así y el entrante se puede registrar igual.
-3. Retención de cuerpos de email y mensajes entrantes (¿indefinida, como el resto de comunicación?).
-4. Distribución de la extensión (descomprimida vs Chrome Web Store sin listar).
-5. Qué direcciones de `@hospeda.com.ar` pasa el Worker al CRM.
+1. **Cliente SMTP:** `nodemailer`.
+2. **No contactar:** se permite solo responder a un mensaje que el negocio inició (ver 7.2); no se levanta la restricción.
+3. **Retención:** indefinida, igual que el resto de comunicación.
+4. **Distribución de la extensión:** descomprimida, con control de versión mínima desde el CRM (ver 8.4).
+5. **Direcciones que pasa el Worker:** solo casillas de usuarios del CRM y la dirección de respuesta general (ver 6.2).
 
 ## 12. Fuera de alcance
 
