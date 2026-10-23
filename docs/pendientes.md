@@ -1,5 +1,9 @@
 # Pendientes y próximo trabajo
 
+## Registro automático de canales (spec 83)
+
+Spec propuesta en [`crm-roadmap/83-registro-automatico-canales.md`](crm-roadmap/83-registro-automatico-canales.md), sin implementar. Orden: F1 email entrante (Cloudflare Email Worker), F2 responder en hilo por SMTP de Brevo, F3 user script de WhatsApp Web (Tampermonkey), F4 Instagram. Verificado el 22/10/2026 con una prueba real: el relay SMTP de Brevo conserva `Message-ID`, `In-Reply-To` y `References` y Gmail arma el hilo. Las cinco decisiones abiertas quedaron resueltas el 22/10/2026 (sección 11 de la spec y `decisiones.md`). Próximo paso: implementar F1.
+
 ## Columnas agrupadas de Negocios
 
 La implementación base está en `feat/business-table-group-columns` (PR #206); los cambios siguientes están locales en `feat/group-columns-max-lines`, PR #208. El seed **Tipo** conserva el id `classification`; Contacto mantiene sus seis miembros. `maxVisible` opcional configura el máximo de líneas de tabla (sin valor significa «Todos»), acepta definiciones guardadas previamente y se ajusta cuando se quitan miembros. La tabla ofrece los datos restantes en un popover con etiquetas, editores y permisos existentes; las tarjetas muestran todos los miembros. Se corrigieron tres bloqueos de revisión: el editor inline puede usarse desde el popover anidado, la poda se persiste con el contexto corregido tras la restauración y una huella de preferencias/contexto evita duplicar esa escritura sin perder una edición posterior. La regresión prueba una escritura de poda y otra para un cambio de ordenamiento. Se actualizó la guía y el mapa técnico, y el E2E cubre edición, guardado y la secuencia de Esc.
