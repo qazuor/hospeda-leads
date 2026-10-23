@@ -2,7 +2,7 @@
 
 ## Registro automático de canales (spec 83)
 
-Spec propuesta en [`crm-roadmap/83-registro-automatico-canales.md`](crm-roadmap/83-registro-automatico-canales.md), sin implementar. Orden: F1 email entrante (Cloudflare Email Worker), F2 responder en hilo por SMTP de Brevo, F3 extensión de WhatsApp Web, F4 Instagram. Verificado el 22/10/2026 con una prueba real: el relay SMTP de Brevo conserva `Message-ID`, `In-Reply-To` y `References` y Gmail arma el hilo. Las cinco decisiones abiertas quedaron resueltas el 22/10/2026 (sección 11 de la spec y `decisiones.md`). Próximo paso: implementar F1.
+Spec propuesta en [`crm-roadmap/83-registro-automatico-canales.md`](crm-roadmap/83-registro-automatico-canales.md), sin implementar. Orden: F1 email entrante (Cloudflare Email Worker), F2 responder en hilo por SMTP de Brevo, F3 user script de WhatsApp Web (Tampermonkey), F4 Instagram. Verificado el 22/10/2026 con una prueba real: el relay SMTP de Brevo conserva `Message-ID`, `In-Reply-To` y `References` y Gmail arma el hilo. Las cinco decisiones abiertas quedaron resueltas el 22/10/2026 (sección 11 de la spec y `decisiones.md`). Próximo paso: implementar F1.
 
 ## Columnas agrupadas de Negocios
 

@@ -1,4 +1,4 @@
-# Registro automático de canales: email entrante, respuestas en hilo y extensión de WhatsApp/Instagram
+# Registro automático de canales: email entrante, respuestas en hilo y user script de WhatsApp/Instagram
 
 **Estado:** Propuesto; no implementado
 **Fecha:** 2026-10-22
@@ -28,10 +28,10 @@ Consecuencias: las respuestas se pierden o se cargan tarde, el vendedor no respo
 
 - **Fallar hacia el lado seguro.** El email entrante se reenvía a la casilla del propietario **antes** de cualquier otro paso. Si el CRM está caído, no se pierde nada.
 - **Recibir no es clasificar.** Que llegue un mensaje es un hecho y se registra solo. La categoría de la respuesta (interesado, más adelante, rechazo, No contactar…) la decide una persona. Coherente con «No inferir contacto, respuesta, aceptación…» de `AGENTS.md`.
-- **La extensión lee; nunca escribe ni envía.** No hace clics, no envía mensajes, no cambia etiquetas ni contactos en WhatsApp/Instagram. Todo envío lo hace la persona.
+- **El user script lee; nunca escribe ni envía.** No hace clics, no envía mensajes, no cambia etiquetas ni contactos en WhatsApp/Instagram. Todo envío lo hace la persona.
 - **Sin asociación ambigua.** Si un mensaje coincide con más de un negocio o con ninguno, queda "Sin asociar" para que alguien lo resuelva.
 - **Permisos del servidor.** Ver, responder o registrar respetan `assertBusinessAccess`, las reglas de gestión y las restricciones No contactar existentes.
-- **Idempotencia.** Reintentos del Worker o clics repetidos en la extensión no duplican mensajes.
+- **Idempotencia.** Reintentos del Worker o clics repetidos en el user script no duplican mensajes.
 
 ## 4. Fases y orden
 
@@ -40,9 +40,9 @@ Consecuencias: las respuestas se pierden o se cargan tarde, el vendedor no respo
 | F0 | Preparación operativa (WhatsApp Business, etiquetas, claves) | — |
 | F1 | Email entrante: Cloudflare Email Worker → CRM | F0 (token) |
 | F2 | Responder email desde el CRM en el mismo hilo (SMTP de Brevo) | F1 |
-| F3 | Extensión de navegador para WhatsApp Web (semi-automática) | modelo de F1 |
-| F4 | Extensión para Instagram Direct | F3 |
-| F5 (opcional) | Captura automática en la extensión, sin clic | F3 estable 2–4 semanas |
+| F3 | User script (Tampermonkey) para WhatsApp Web (semi-automático) | modelo de F1 |
+| F4 | User script para Instagram Direct | F3 |
+| F5 (opcional) | Captura automática en el user script, sin clic | F3 estable 2–4 semanas |
 
 Cada fase es un PR (o una cadena corta) mergeable por separado.
 
@@ -74,8 +74,8 @@ Un registro por mensaje recibido, de cualquier canal.
 | `received_at` | timestamptz | fecha del mensaje |
 | `status` | text | `unmatched`, `pending_review`, `registered`, `dismissed` |
 | `response_id` | uuid null FK `crm_communication_responses` | se completa al clasificar |
-| `source` | text | `email_worker`, `extension` |
-| `captured_by_email` | text null FK `users(email)` | quien lo registró con la extensión |
+| `source` | text | `email_worker`, `userscript` |
+| `captured_by_email` | text null FK `users(email)` | quien lo registró con el user script |
 | `created_at`, `updated_at` | timestamptz | |
 
 Índices: `(account_id, received_at DESC)`, `(status) WHERE status IN ('unmatched','pending_review')`. Triggers de auditoría y `bump_crm_live_domain('communication')` como el resto de comunicación.
@@ -85,7 +85,7 @@ Un registro por mensaje recibido, de cualquier canal.
 - `email_outbox`: `transport text NOT NULL DEFAULT 'api' CHECK (transport IN ('api','smtp'))`, `in_reply_to text`, `references_header text`, `inbound_message_id uuid FK crm_inbound_messages`.
 - `crm_communication_journal`: `entity_type` suma `'inbound'`. Acciones nuevas: `inbound_received`, `inbound_matched`, `inbound_registered`, `inbound_dismissed`, `email_reply_sent`.
 - `crm_communication_responses`: sin cambios de estructura. Al clasificar un entrante se crea una respuesta normal con `exact_text` = texto recibido y `linked_message_id` del saliente.
-- `crm_extension_tokens` (nueva, F3): `id`, `user_id`, `token_hash` (sha256), `label`, `created_at`, `last_used_at`, `revoked_at`. El token se muestra una sola vez.
+- `crm_userscript_tokens` (nueva, F3): `id`, `user_id`, `token_hash` (sha256), `label`, `created_at`, `last_used_at`, `revoked_at`. El token se muestra una sola vez.
 
 No se edita ninguna migración aplicada.
 
@@ -164,7 +164,7 @@ Efectos observados de Brevo: agregó `List-Unsubscribe` + `List-Unsubscribe-Post
 - Envío por SMTP de Brevo con `Message-ID` propio `<uuid@hospeda.com.ar>`, `In-Reply-To` = Message-ID del entrante, `References` = References del entrante + su Message-ID.
 - Se registra como `crm_messages` (canal email) + `email_outbox` con `transport='smtp'`, `inbound_message_id` y `message_id` = el propio. Los eventos del webhook de Brevo se siguen reconciliando por `message_id`.
 - Mismos permisos, bloqueo de doble envío y estados (`submitting`, `accepted`, `unknown`, `failed`) que el envío actual. No se reintenta automáticamente un envío incierto.
-- **No contactar (decisión del 22/10/2026):** si el negocio tiene la restricción activa y escribió primero, se permite **solo responder**: únicamente con "Responder" sobre un entrante recibido mientras la restricción está activa, al remitente de ese entrante y en su hilo. La restricción no se levanta ni habilita otros envíos (primer contacto, plantillas, WhatsApp asistido). El editor muestra el aviso «Este negocio pidió no ser contactado. Solo podés responder a su mensaje.» y el journal registra `email_reply_under_restriction`. Para F3 el banner muestra el mismo aviso; la extensión no envía, así que no hay bloqueo técnico en WhatsApp.
+- **No contactar (decisión del 22/10/2026):** si el negocio tiene la restricción activa y escribió primero, se permite **solo responder**: únicamente con "Responder" sobre un entrante recibido mientras la restricción está activa, al remitente de ese entrante y en su hilo. La restricción no se levanta ni habilita otros envíos (primer contacto, plantillas, WhatsApp asistido). El editor muestra el aviso «Este negocio pidió no ser contactado. Solo podés responder a su mensaje.» y el journal registra `email_reply_under_restriction`. Para F3 el banner muestra el mismo aviso; el user script no envía, así que no hay bloqueo técnico en WhatsApp.
 
 ### 7.3 Configuración
 
@@ -178,7 +178,7 @@ Efectos observados de Brevo: agregó `List-Unsubscribe` + `List-Unsubscribe-Post
 - Integración: envío contra un servidor SMTP falso local (no Brevo), estados de outbox, permisos y No contactar.
 - Prueba real: responder a un email de prueba y verificar el hilo en Gmail y en otro cliente (Outlook).
 
-## 8. F3: extensión de navegador para WhatsApp Web
+## 8. F3: user script (Tampermonkey) para WhatsApp Web
 
 ### 8.1 Operación del número (F0)
 
@@ -191,11 +191,11 @@ Efectos observados de Brevo: agregó `List-Unsubscribe` + `List-Unsubscribe-Post
 
 - **Código CRM:** `H` + `crm_accounts.id` (ej. `H1234`).
 - En la ficha, botón "Copiar nombre para agendar" → `Cabañas del Río · H1234`. El vendedor agenda el contacto con ese nombre.
-- La extensión busca el código en el título del chat con `/·\s*H(\d+)\s*$/`.
+- El user script busca el código en el título del chat con `/·\s*H(\d+)\s*$/`.
 - Si no hay código: busca el teléfono del chat (normalizado E.164) entre teléfonos y WhatsApp de negocios y personas. Una coincidencia única asocia; varias → el vendedor elige; ninguna → "Sin asociar".
-- Al abrir un chat desde el CRM (`web.whatsapp.com/send?phone=…`), la extensión recuerda durante la sesión qué negocio abrió ese teléfono, para no depender de que el contacto ya esté agendado.
+- Al abrir un chat desde el CRM (`web.whatsapp.com/send?phone=…`), el user script recuerda durante la sesión qué negocio abrió ese teléfono, para no depender de que el contacto ya esté agendado.
 
-### 8.3 Funciones de la extensión (v1, semi-automática)
+### 8.3 Funciones del user script (v1, semi-automático)
 
 1. **Banner en el chat:** nombre del negocio, responsable, gestión y etapa, y aviso rojo si hay restricción No contactar. Enlace "Abrir en CRM".
 2. **"Registrar en CRM":** lee los mensajes visibles del chat que todavía no están en el CRM y muestra una vista previa:
@@ -209,18 +209,32 @@ No hace: enviar, hacer clics, cambiar etiquetas o nombres, leer chats que no se 
 
 ### 8.4 Arquitectura
 
-- Chrome/Edge Manifest V3, en `extension/` dentro de este repo, TypeScript + build con Vite.
-- `content script` en `https://web.whatsapp.com/*`. Selectores DOM aislados en un único módulo con tests sobre fixtures HTML guardados, para corregir rápido cuando WhatsApp cambie.
-- `service worker` de la extensión hace las llamadas al CRM; el content script no tiene el token.
-- Autenticación: token personal generado en "Mi perfil → Extensión" (`crm_extension_tokens`, guardado con hash, revocable, `last_used_at`). No usa cookies de sesión del CRM.
-- Endpoints nuevos, autenticados con el token y con CORS solo para el origen de la extensión:
-  - `GET /_api/extension/context?code=H1234` o `?phone=+549…` → negocio, responsable, gestiones abiertas, restricciones.
-  - `POST /_api/extension/register` → lote de mensajes (≤ 50) con `external_id`, dirección, texto, hora; respuesta por mensaje: `created` / `duplicate` / `rejected` con motivo.
-- Distribución (decisión del 22/10/2026): **descomprimida** (modo desarrollador), sin Chrome Web Store. El build genera un zip versionado. Como no se actualiza sola, `GET /_api/extension/context` devuelve la versión mínima admitida; si la instalada es menor, la extensión muestra «Actualizá la extensión» y no registra. La guía de instalación vive en `extension/README.md`.
+Decisión del 22/10/2026: **user script para Tampermonkey** en lugar de una extensión propia. Motivos: se instala con un link, se actualiza solo, el mismo archivo sirve en Chrome, Edge y Firefox, y no pasa por la revisión de la Chrome Web Store ni por la firma de Mozilla.
+
+- Código en `userscript/` dentro de este repo, TypeScript, compilado con Vite a un único archivo `hospeda-crm.user.js` (IIFE con el bloque `// ==UserScript==`).
+- Metadatos:
+  - `@match https://web.whatsapp.com/*` (F3) y `@match https://www.instagram.com/direct/*` (F4).
+  - `@grant GM_xmlhttpRequest`, `GM_getValue`, `GM_setValue`, `GM_registerMenuCommand`; `@connect <dominio del CRM>`.
+  - `@version` semántica; `@updateURL` y `@downloadURL` apuntan a `https://<crm>/userscripts/hospeda-crm.user.js`.
+- Solo APIs `GM_*` estándar, sin funciones propias de un navegador, para que corra también en Violentmonkey.
+- El CRM sirve el archivo como estático público. No contiene secretos; el token lo carga cada vendedor.
+- Selectores DOM aislados en un único módulo con tests sobre fixtures HTML guardados, para corregir rápido cuando WhatsApp cambie.
+- Llamadas al CRM con `GM_xmlhttpRequest` (no `fetch` de la página): no dependen de CORS y no exponen el token al código de WhatsApp.
+- Autenticación: token personal generado en "Mi perfil → User script" (`crm_userscript_tokens`, guardado con hash, revocable, `last_used_at`). El vendedor lo pega una vez desde el menú de Tampermonkey (`GM_registerMenuCommand` → "Configurar token") y queda en `GM_setValue`. No usa cookies de sesión del CRM.
+- Endpoints nuevos, autenticados con el token (`Authorization: Bearer`), exentos del origin guard:
+  - `GET /_api/userscript/context?code=H1234` o `?phone=+549…` → negocio, responsable, gestiones abiertas, restricciones y versión mínima admitida.
+  - `POST /_api/userscript/register` → lote de mensajes (≤ 50) con `external_id`, dirección, texto, hora; respuesta por mensaje: `created` / `duplicate` / `rejected` con motivo.
+- Versión mínima: si `@version` es menor que la que informa el CRM, el script muestra «Actualizá el script desde el menú de Tampermonkey» y no registra.
+- Instalación (guía en `userscript/README.md`):
+  1. Instalar Tampermonkey (Chrome, Edge o Firefox).
+  2. Solo en Chrome/Edge 138 o posterior: en los detalles de Tampermonkey activar "Permitir scripts de usuario" (o el modo desarrollador). Firefox no lo pide.
+  3. Abrir el link del script desde el CRM e instalar.
+  4. Cargar el token desde el menú de Tampermonkey.
+- Dependencia operativa: Tampermonkey es de terceros y tiene acceso a las páginas donde corre. Alternativa de código abierto compatible: Violentmonkey.
 
 ### 8.5 Riesgos
 
-- **Términos de WhatsApp:** prohíben medios automatizados o no autorizados. La extensión solo lee lo que la persona ya ve y nunca envía ni automatiza, lo que reduce el riesgo pero no lo elimina. Decisión del propietario del 22/10/2026: avanzar con la extensión. El PRD de Coexistence anterior la descartaba; se elimina y Coexistence queda como alternativa futura.
+- **Términos de WhatsApp:** prohíben medios automatizados o no autorizados. El user script solo lee lo que la persona ya ve y nunca envía ni automatiza, lo que reduce el riesgo pero no lo elimina. Decisión del propietario del 22/10/2026: avanzar con un registro desde el navegador (primero se eligió extensión, después user script). El PRD de Coexistence anterior la descartaba; se elimina y Coexistence queda como alternativa futura.
 - **Fragilidad:** WhatsApp Web cambia su DOM sin aviso. Mitigación: selectores aislados, fixtures, mensaje de error explícito y el registro manual del CRM siempre disponible.
 - **Privacidad:** solo se leen chats que la persona abre y que se asocian a un negocio; los mensajes se guardan con los mismos permisos que el resto de comunicación.
 
@@ -232,25 +246,26 @@ No hace: enviar, hacer clics, cambiar etiquetas o nombres, leer chats que no se 
 
 ## 9. F4: Instagram Direct
 
-Misma extensión, `content script` en `https://www.instagram.com/direct/*`. Asociación por el usuario de Instagram del negocio (`crm_accounts.perfil_instagram`, normalizado a usuario sin `@` ni URL). Banner y "Registrar en CRM" iguales a F3, canal `social` con `channel_detail='instagram'`. Instagram cambia su DOM con más frecuencia que WhatsApp: se especifica en detalle al terminar F3.
+Mismo user script, con `@match https://www.instagram.com/direct/*`. Asociación por el usuario de Instagram del negocio (`crm_accounts.perfil_instagram`, normalizado a usuario sin `@` ni URL). Banner y "Registrar en CRM" iguales a F3, canal `social` con `channel_detail='instagram'`. Instagram cambia su DOM con más frecuencia que WhatsApp: se especifica en detalle al terminar F3.
 
 ## 10. F5 (opcional): captura automática
 
-Con F3 estable, la extensión puede encolar sola los mensajes nuevos de chats asociados mientras el vendedor los mira, sin clic. Sigue sin enviar ni escribir nada. Se decide con datos de uso de F3.
+Con F3 estable, el user script puede encolar sola los mensajes nuevos de chats asociados mientras el vendedor los mira, sin clic. Sigue sin enviar ni escribir nada. Se decide con datos de uso de F3.
 
 ## 11. Decisiones (propietario, 22/10/2026)
 
 1. **Cliente SMTP:** `nodemailer`.
 2. **No contactar:** se permite solo responder a un mensaje que el negocio inició (ver 7.2); no se levanta la restricción.
 3. **Retención:** indefinida, igual que el resto de comunicación.
-4. **Distribución de la extensión:** descomprimida, con control de versión mínima desde el CRM (ver 8.4).
+4. **Distribución:** user script para Tampermonkey, servido y actualizado desde el CRM, con control de versión mínima (ver 8.4). Reemplaza la elección previa de extensión descomprimida.
 5. **Direcciones que pasa el Worker:** solo casillas de usuarios del CRM y la dirección de respuesta general (ver 6.2).
 
 ## 12. Fuera de alcance
 
 - WhatsApp Cloud API, Coexistence o proveedores BSP.
 - Guardar adjuntos y medios.
-- Envío automático desde la extensión.
+- Envío automático desde el user script.
+- Extensión de navegador propia (Chrome Web Store, `.crx` con políticas de empresa).
 - Bandeja de email completa (carpetas, búsqueda tipo cliente de correo).
 - Cambiar el envío de primeros contactos de la API al SMTP.
 
@@ -258,4 +273,4 @@ Con F3 estable, la extensión puede encolar sola los mensajes nuevos de chats as
 
 - F1: crear el Worker con Wrangler (o desde el panel), cargar secrets, asignarlo al catch-all y a las reglas específicas de direcciones de vendedores en Email Routing, y verificar que el reenvío a Gmail siga funcionando.
 - F2: generar una clave SMTP de Brevo para el CRM y cargarla en Coolify.
-- F0/F3: pasar el número a WhatsApp Business, vincular los 4 dispositivos e instalar la extensión en cada PC con su token.
+- F0/F3: pasar el número a WhatsApp Business, vincular los 4 dispositivos e instalar Tampermonkey y el user script en cada PC con su token.
