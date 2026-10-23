@@ -126,10 +126,12 @@ Hoy el `Reply-To` de los emails del CRM es el `sender_email` del vendedor o, si 
 
 1. `In-Reply-To` = `email_outbox.message_id` (comparando sin `<>`) → negocio, gestión y contacto del `crm_messages` vinculado. `match_method='in_reply_to'`.
 2. Algún id de `References` coincide con un `email_outbox.message_id` o con un `crm_inbound_messages.external_id` ya asociado. `references`.
-3. Solo si el dominio del remitente de sobre (`MAIL FROM`, verificado por SPF) coincide con el del `From` (o es un subdominio): email del remitente coincide exactamente (sin mayúsculas) con el email de **un solo** negocio o persona activa. `sender_email`. La gestión solo se completa si el negocio tiene exactamente una gestión abierta.
+3. Solo con autenticación del remitente según `Authentication-Results`: `dmarc=pass` para el dominio del `From`, o `spf=pass` para un remitente de sobre del mismo dominio o de un subdominio (nunca de un dominio padre). En ese caso, el email del remitente coincide exactamente (sin mayúsculas) con el email de **un solo** negocio o persona activa. `sender_email`. La gestión solo se completa si el negocio tiene exactamente una gestión abierta.
 4. Si no: `account_id = null`, `status='unmatched'`.
 
-El `From` no está autenticado: sin esa alineación, un tercero podría hacerse pasar por un negocio, así que el mensaje queda Sin asociar. `In-Reply-To`/`References` no lo exigen porque requieren conocer el Message-ID de un email del CRM, que solo tiene quien lo recibió.
+El `From` no está autenticado: sin esa evidencia, un tercero podría hacerse pasar por un negocio, así que el mensaje queda Sin asociar. `In-Reply-To`/`References` no lo exigen porque requieren conocer el Message-ID de un email del CRM, que solo tiene quien lo recibió.
+
+**A verificar en la prueba real:** si Email Routing entrega `Authentication-Results` al Worker y con qué identificador del servidor de autenticación. Si no lo entrega, la asociación por remitente no ocurre y esos mensajes quedan Sin asociar. Si lo entrega, conviene validar ese identificador para no confiar en un encabezado agregado por el remitente.
 
 Si una etapa apunta a más de un negocio, la asociación se detiene ahí y el mensaje queda Sin asociar: una evidencia más débil no desempata.
 
