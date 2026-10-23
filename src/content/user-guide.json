@@ -14,7 +14,7 @@
           "Gestión: lo que querés lograr con ese negocio, por ejemplo venderle un plan o sumarlo como proveedor. Un negocio puede tener varias gestiones a la vez. Iniciar una gestión no significa que ya se vendió.",
           "Estado y etapa no son lo mismo. El Estado es del negocio y dice en qué situación está: Nuevo, Revisado, En gestión, Sin tarea agendada, Recontactar o Archivado. La Etapa pertenece a cada gestión y muestra en qué punto va.",
           "Es cliente, No contactar y Derivado a Leandro son marcas aparte; no son estados. La Papelera es para registros inválidos o cargados por error.",
-          "Tarea: algo que falta hacer, con una fecha. Cuando la hacés, la anotás con «Anotar cómo salió» y queda guardado lo que pasó en «Qué pasó», dentro del negocio.",
+          "Tarea: algo que falta hacer, con una fecha. Cuando la hacés, la anotás con «Anotar cómo salió» y queda guardado en «Historial», dentro del negocio.",
           "Responsable: la persona que se encarga del negocio, de la gestión o de la tarea."
         ],
         "result": "Podés distinguir negocio, persona, gestión y tarea, y no confundís el Estado del negocio con la Etapa de una gestión.",
@@ -29,7 +29,7 @@
         "linkLabel": "",
         "uiLabels": [
           "Anotar cómo salió",
-          "Qué pasó"
+          "Historial"
         ]
       },
       {
@@ -137,7 +137,7 @@
           "Querés ver qué tenés que hacer hoy: «Hoy». Querés encontrar a un comercio: «Negocios». Querés ver todas las propuestas abiertas: «Gestiones»."
         ],
         "notes": [
-          "Los materiales aprobados se vinculan desde «Datos y documentos», dentro del negocio. Solo un administrador administra la biblioteca."
+          "Los materiales aprobados se vinculan desde «Gestiones · Personas · Datos», dentro del negocio. Solo un administrador administra la biblioteca."
         ],
         "url": "/my-day",
         "linkLabel": "Ir a Hoy",
@@ -160,7 +160,7 @@
           "Buscar duplicados",
           "Emails sin asociar",
           "User script de WhatsApp",
-          "Datos y documentos"
+          "Gestiones · Personas · Datos"
         ]
       },
       {
@@ -408,7 +408,7 @@
         "title": "Agregar personas y elegir con quién hablar",
         "when": "Cuando conocés a alguien del negocio o hay varias personas involucradas.",
         "steps": [
-          "Abrí el negocio y entrá en la solapa «Personas». Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.",
+          "Abrí el negocio y entrá en la pestaña «Gestiones · Personas · Datos», en la sección «Personas». Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.",
           "Completá el nombre, el teléfono o el email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar vacíos.",
           "Marcá Principal si es la referencia habitual del negocio y guardá.",
           "Si el teléfono que cargás es el de un negocio que pidió no ser contactado, el CRM te muestra un aviso con el nombre del negocio. Podés guardar a la persona, pero antes tenés que tildar «Entendido, no voy a contactar a ese negocio». No uses ese teléfono para contactar sin consultar a un administrador.",
@@ -430,7 +430,8 @@
           "Agregar persona",
           "Contactar",
           "Volver al próximo paso",
-          "Entendido, no voy a contactar a ese negocio"
+          "Entendido, no voy a contactar a ese negocio",
+          "Gestiones · Personas · Datos"
         ]
       },
       {
@@ -438,7 +439,7 @@
         "title": "Cuándo crear una gestión y cómo hacerlo",
         "when": "Cuando vas a trabajar una propuesta concreta. No hace falta para cada llamada general.",
         "steps": [
-          "Abrí el negocio, entrá en la solapa «Gestiones» y tocá «Iniciar gestión». Para empezar, el negocio tiene que estar Revisado.",
+          "Abrí el negocio, entrá en la pestaña «Gestiones · Personas · Datos», en la sección «Gestiones» y tocá «Iniciar gestión». Para empezar, el negocio tiene que estar Revisado.",
           "Si figura Nuevo pero acabás de verificarlo, confirmalo en el formulario con «Marcar Revisado e iniciar gestión»: queda Revisado al guardar la nueva gestión.",
           "Elegí el «Tipo de gestión»: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. Acompañamiento de ficha es para ayudar a un cliente con su ficha después de que aceptó.",
           "Escribí un «Nombre de la gestión» corto y concreto, por ejemplo: Plan de alojamiento 2027, Propuesta para una institución o Completar la ficha de Hospeda. El responsable se toma del negocio; solo un administrador puede cambiarlo.",
@@ -462,7 +463,8 @@
           "Marcar Revisado e iniciar gestión",
           "Tipo de gestión",
           "Nombre de la gestión",
-          "Más datos (opcional)"
+          "Más datos (opcional)",
+          "Gestiones · Personas · Datos"
         ]
       },
       {
@@ -470,7 +472,7 @@
         "title": "Dejar un próximo paso con fecha",
         "when": "Cuando hay algo pendiente: llamar, enviar una propuesta, visitar o confirmar una entrega.",
         "steps": [
-          "Desde «Hoy» tocá «Agendar tarea». También podés usar el botón de próximo paso dentro del negocio o «Agendar otra tarea» en su solapa «Qué pasó».",
+          "Desde «Hoy» tocá «Agendar tarea». También podés usar el botón de próximo paso dentro del negocio o «Agendar otra tarea» en la pestaña «Tareas».",
           "Si empezaste desde Hoy, buscá y elegí el negocio. En «Contexto» elegí una gestión o «Sin gestión (general del negocio)».",
           "Antes de guardar, mirá si el CRM avisa «Ya hay tareas pendientes para este negocio». Si ya existe una para el mismo compromiso, abrila y actualizala en lugar de duplicarla.",
           "Escribí un título concreto en «Qué hay que hacer». Elegí «Tipo», la fecha de vencimiento y, si sirve, «Hora (opcional)». Revisá el «Propósito».",
@@ -492,7 +494,6 @@
           "Hoy",
           "Agendar tarea",
           "Agendar otra tarea",
-          "Qué pasó",
           "Contexto",
           "Sin gestión (general del negocio)",
           "Ya hay tareas pendientes para este negocio",
@@ -508,7 +509,8 @@
           "Participantes y notas (opcional)",
           "Calendario",
           "Posponer",
-          "Cambiar fecha o datos"
+          "Cambiar fecha o datos",
+          "Tareas"
         ]
       },
       {
@@ -876,7 +878,7 @@
         "when": "Cuando existe una propuesta nueva, distinta de la anterior.",
         "steps": [
           "Abrí el negocio existente; no crees otro negocio por tratarse de una segunda gestión.",
-          "En la solapa «Gestiones» tocá «Iniciar gestión». Poné un nombre concreto y revisá la persona principal.",
+          "En la pestaña «Gestiones · Personas · Datos», en la sección «Gestiones» tocá «Iniciar gestión». Poné un nombre concreto y revisá la persona principal.",
           "Guardá y agendá una tarea con propósito Conversación comercial vinculada a esta nueva gestión.",
           "Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo que contrató antes."
         ],
@@ -889,7 +891,8 @@
         "linkLabel": "",
         "uiLabels": [
           "Gestiones",
-          "Iniciar gestión"
+          "Iniciar gestión",
+          "Gestiones · Personas · Datos"
         ]
       }
     ]
@@ -941,7 +944,7 @@
         "when": "Cuando el mensaje todavía no está listo para enviarse.",
         "steps": [
           "Tocá «Contactar» y elegí una gestión abierta o un contacto general con su propósito. Guardar un borrador no inicia ni confirma un contacto.",
-          "Para retomarlo, entrá en la solapa «Qué pasó» del negocio y buscalo en «Comunicación». Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.",
+          "Para retomarlo, entrá en la pestaña «Comunicación» del negocio. Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.",
           "El email sale desde el CRM; WhatsApp se abre afuera y queda sin confirmar hasta que informes el resultado.",
           "Si salís con cambios sin guardar, elegí volver o descartarlos. No reenvíes un mensaje cuyo resultado sea incierto: primero revisá el estado del intento."
         ],
@@ -954,7 +957,6 @@
         "linkLabel": "",
         "uiLabels": [
           "Contactar",
-          "Qué pasó",
           "Comunicación"
         ]
       },
@@ -963,7 +965,7 @@
         "title": "Buscar y vincular materiales al negocio",
         "when": "Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.",
         "steps": [
-          "Abrí el negocio y entrá en la solapa «Datos y documentos», o abrí una gestión y entrá en «Documentos».",
+          "Abrí el negocio y entrá en la solapa «Gestiones · Personas · Datos», o abrí una gestión y entrá en «Documentos».",
           "Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.",
           "Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.",
           "Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.",
@@ -979,7 +981,7 @@
         "url": "/accounts",
         "linkLabel": "Elegir negocio para consultar materiales",
         "uiLabels": [
-          "Datos y documentos",
+          "Gestiones · Personas · Datos",
           "Documentos",
           "Vincular documento al negocio",
           "Vincular documento a la gestión",
@@ -1080,7 +1082,7 @@
         "steps": [
           "Buscás Cabañas Camino Claro en «Negocios». Como no existe, tocás «Nuevo negocio», completás los datos que conocés y tocás «Crear negocio». El negocio queda Nuevo.",
           "Verificás que el establecimiento exista y sea el correcto. Guardás la fuente confiable y cambiás el Estado del negocio a Revisado.",
-          "En la solapa «Personas» tocás «Agregar persona» y cargás a Ana, su teléfono y su preferencia. La marcás como principal si corresponde.",
+          "En la pestaña «Gestiones · Personas · Datos», en la sección «Personas» tocás «Agregar persona» y cargás a Ana, su teléfono y su preferencia. La marcás como principal si corresponde.",
           "Tocás «Iniciar gestión» y elegís el tipo verticales principales y un nombre concreto. También podrías iniciarla desde «Contactar»; si verificás el negocio ahí, el mismo paso lo deja Revisado.",
           "Agendás una llamada con «Agendar tarea» o tocás «Contactar» desde la gestión. Revisás destinatario, canal y restricciones. El email sale desde el CRM; WhatsApp pide que confirmes si lo enviaste.",
           "Después del contacto, el CRM te pregunta «¿Cómo salió?». Anotás la respuesta real. Si pidió retomar más adelante, elegís «Esperar hasta una fecha y retomar» y la fecha acordada.",
@@ -1117,7 +1119,8 @@
           "Anotar cómo salió",
           "No respondió",
           "Pidió no ser contactado",
-          "Recontactar según lo acordado"
+          "Recontactar según lo acordado",
+          "Gestiones · Personas · Datos"
         ]
       }
     ]
@@ -1450,7 +1453,7 @@
         "when": "Antes de registrar mensajes de un contacto nuevo, o cuando el panel de Hospeda dice «Sin asociar».",
         "steps": [
           "El script reconoce el negocio de dos formas: por el código del negocio en el nombre del contacto (por ejemplo \"· H1234\") o por el teléfono del chat, si coincide con el del negocio, su WhatsApp o el de una persona cargada.",
-          "La forma más segura es el código. Abrí la ficha del negocio en el CRM y tocá «Copiar nombre para agendar». Se copia el nombre con el código, por ejemplo \"Cabañas Camino Claro · H1234\".",
+          "La forma más segura es el código. Abrí la ficha del negocio en el CRM, desplegá «Más acciones del negocio» y elegí «Copiar nombre para agendar». Se copia el nombre con el código, por ejemplo \"Cabañas Camino Claro · H1234\".",
           "En el teléfono de Hospeda, guardá o editá ese contacto y pegá el nombre copiado. WhatsApp Web puede tardar un rato en mostrar el nombre nuevo.",
           "Abrí el chat en WhatsApp Web. El panel muestra el negocio, su código, el responsable y las gestiones abiertas.",
           "Si el teléfono coincide con más de un negocio, elegí el correcto en «Elegir negocio». El script recuerda esa elección para ese teléfono en esta computadora.",
@@ -1464,7 +1467,8 @@
           "Elegir negocio",
           "Abrir en CRM",
           "Minimizar",
-          "Este negocio pidió no ser contactado."
+          "Este negocio pidió no ser contactado.",
+          "Más acciones del negocio"
         ]
       },
       {

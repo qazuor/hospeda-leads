@@ -19,9 +19,9 @@ test('seller can read a colleague business without editing or administrative con
  await expect(page.getByRole('button',{name:'Editar negocio',exact:true})).toHaveCount(0);
  await expect(page.getByRole('heading',{name:/Compromisos pendientes \(1\)/})).toBeVisible();
  await expect(page.getByRole('link',{name:'Llamar a la dueña',exact:true})).toBeVisible();
- await page.getByRole('tab',{name:'Personas (0)',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
  await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toHaveCount(0);
- await page.getByRole('tab',{name:'Datos y documentos',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
  await expect(page.getByRole('button',{name:'Vincular documento al negocio',exact:true})).toHaveCount(0);
  await expect(page.getByText('Agregar documento o recurso',{exact:true})).toHaveCount(0);
  // Sellers get only Hoy · Negocios · Gestiones · Ayuda: no "Administración" menu at all.

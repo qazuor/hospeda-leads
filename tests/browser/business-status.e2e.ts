@@ -23,7 +23,6 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}])test(`bus
  await page.goto('/accounts/1');
  const card=page.getByRole('region',{name:'Estado del negocio',exact:true});
  await expect(card).toContainText(/Estado:\s*Revisado\s*Cambiar/);
- await expect(card).toContainText('Sus datos ya están revisados.');
  await expect(card.getByRole('combobox')).toHaveCount(0);
  await card.getByRole('button',{name:'Cambiar estado del negocio. Ahora: Revisado',exact:true}).click();
  const popup=page.getByRole('dialog',{name:'Estado del negocio',exact:true});

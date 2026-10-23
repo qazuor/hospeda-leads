@@ -23,7 +23,7 @@ async function mock(page:Page,user:typeof owner,business=account,{responses=[] a
  });
 }
 const openResponseDialog=async(page:Page)=>{
- await page.goto('/accounts/301');
+ await page.goto('/accounts/301?section=communication');
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Registrar respuesta recibida',exact:true}).click();
  return page.getByRole('dialog').last();
@@ -47,7 +47,7 @@ for(const [who,user,allowed] of [['the business responsible',owner,true],['the r
 
 test('D1: correcting a response to «Pidió no ser contactado» is disabled for an unrelated seller and enabled for the responsible',async({page})=>{
  await mock(page,stranger,account,{responses:[{...response,actorEmail:stranger.email}]});
- await page.goto('/accounts/301');
+ await page.goto('/accounts/301?section=communication');
  await page.getByText('Respondió, le interesa · Negocio',{exact:false}).click();
  await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Pidió no ser contactado',exact:true})).toHaveJSProperty('disabled',true);
@@ -55,7 +55,7 @@ test('D1: correcting a response to «Pidió no ser contactado» is disabled for 
 
 test('D1: the responsible can pick «Pidió no ser contactado» while correcting a response',async({page})=>{
  await mock(page,owner,account,{responses:[{...response,actorEmail:owner.email}]});
- await page.goto('/accounts/301');
+ await page.goto('/accounts/301?section=communication');
  await page.getByText('Respondió, le interesa · Negocio',{exact:false}).click();
  await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Pidió no ser contactado',exact:true})).toHaveJSProperty('disabled',false);
@@ -68,7 +68,7 @@ test('1C: a non-archived No contactar business is read-only for its responsible 
  await expect(page.getByTestId('do-not-contact-banner')).toContainText('Solo un administrador puede levantar el bloqueo.');
  await expect(page.getByRole('status').filter({hasText:'Mientras tenga No contactar, solo un administrador puede modificarlo.'})).toBeVisible();
  for(const name of ['Contactar','Editar negocio','Más acciones del negocio','Iniciar gestión','Agendar otra tarea'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
- await page.getByRole('tab',{name:'Personas (0)',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
  await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toHaveCount(0);
 });
 
@@ -89,7 +89,7 @@ test('1C: the same business without No contactar stays editable for its responsi
 test('1C: only an admin can lift a No contactar block by correcting its response',async({page})=>{
  const dnc={...response,category:'do_not_contact',summary:'Pidió no ser contactado'};
  await mock(page,owner,{...account,doNotContact:true},{responses:[{...dnc,actorEmail:owner.email}]});
- await page.goto('/accounts/301');
+ await page.goto('/accounts/301?section=communication');
  await page.getByText('Pidió no ser contactado · Negocio',{exact:false}).click();
  await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByTestId('dnc-lift-denied')).toContainText('Solo un administrador puede levantar el bloqueo No contactar');
@@ -98,7 +98,7 @@ test('1C: only an admin can lift a No contactar block by correcting its response
 
 test('1C: an admin can still change the category of a No contactar response',async({page})=>{
  await mock(page,admin,{...account,doNotContact:true},{responses:[{...response,category:'do_not_contact',actorEmail:admin.email}]});
- await page.goto('/accounts/301');
+ await page.goto('/accounts/301?section=communication');
  await page.getByText('Pidió no ser contactado · Negocio',{exact:false}).click();
  await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByTestId('dnc-lift-denied')).toHaveCount(0);

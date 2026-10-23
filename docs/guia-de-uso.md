@@ -15,7 +15,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 3. Gestión: lo que querés lograr con ese negocio, por ejemplo venderle un plan o sumarlo como proveedor. Un negocio puede tener varias gestiones a la vez. Iniciar una gestión no significa que ya se vendió.
 4. Estado y etapa no son lo mismo. El Estado es del negocio y dice en qué situación está: Nuevo, Revisado, En gestión, Sin tarea agendada, Recontactar o Archivado. La Etapa pertenece a cada gestión y muestra en qué punto va.
 5. Es cliente, No contactar y Derivado a Leandro son marcas aparte; no son estados. La Papelera es para registros inválidos o cargados por error.
-6. Tarea: algo que falta hacer, con una fecha. Cuando la hacés, la anotás con «Anotar cómo salió» y queda guardado lo que pasó en «Qué pasó», dentro del negocio.
+6. Tarea: algo que falta hacer, con una fecha. Cuando la hacés, la anotás con «Anotar cómo salió» y queda guardado en «Historial», dentro del negocio.
 7. Responsable: la persona que se encarga del negocio, de la gestión o de la tarea.
 
 **Qué queda al terminar:** Podés distinguir negocio, persona, gestión y tarea, y no confundís el Estado del negocio con la Etapa de una gestión.
@@ -119,7 +119,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Tené en cuenta:**
 
-- Los materiales aprobados se vinculan desde «Datos y documentos», dentro del negocio. Solo un administrador administra la biblioteca.
+- Los materiales aprobados se vinculan desde «Gestiones · Personas · Datos», dentro del negocio. Solo un administrador administra la biblioteca.
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
@@ -279,7 +279,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando conocés a alguien del negocio o hay varias personas involucradas.
 
-1. Abrí el negocio y entrá en la solapa «Personas». Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.
+1. Abrí el negocio y entrá en la pestaña «Gestiones · Personas · Datos», en la sección «Personas». Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.
 2. Completá el nombre, el teléfono o el email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar vacíos.
 3. Marcá Principal si es la referencia habitual del negocio y guardá.
 4. Si el teléfono que cargás es el de un negocio que pidió no ser contactado, el CRM te muestra un aviso con el nombre del negocio. Podés guardar a la persona, pero antes tenés que tildar «Entendido, no voy a contactar a ese negocio». No uses ese teléfono para contactar sin consultar a un administrador.
@@ -301,7 +301,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando vas a trabajar una propuesta concreta. No hace falta para cada llamada general.
 
-1. Abrí el negocio, entrá en la solapa «Gestiones» y tocá «Iniciar gestión». Para empezar, el negocio tiene que estar Revisado.
+1. Abrí el negocio, entrá en la pestaña «Gestiones · Personas · Datos», en la sección «Gestiones» y tocá «Iniciar gestión». Para empezar, el negocio tiene que estar Revisado.
 2. Si figura Nuevo pero acabás de verificarlo, confirmalo en el formulario con «Marcar Revisado e iniciar gestión»: queda Revisado al guardar la nueva gestión.
 3. Elegí el «Tipo de gestión»: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. Acompañamiento de ficha es para ayudar a un cliente con su ficha después de que aceptó.
 4. Escribí un «Nombre de la gestión» corto y concreto, por ejemplo: Plan de alojamiento 2027, Propuesta para una institución o Completar la ficha de Hospeda. El responsable se toma del negocio; solo un administrador puede cambiarlo.
@@ -326,7 +326,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando hay algo pendiente: llamar, enviar una propuesta, visitar o confirmar una entrega.
 
-1. Desde «Hoy» tocá «Agendar tarea». También podés usar el botón de próximo paso dentro del negocio o «Agendar otra tarea» en su solapa «Qué pasó».
+1. Desde «Hoy» tocá «Agendar tarea». También podés usar el botón de próximo paso dentro del negocio o «Agendar otra tarea» en la pestaña «Tareas».
 2. Si empezaste desde Hoy, buscá y elegí el negocio. En «Contexto» elegí una gestión o «Sin gestión (general del negocio)».
 3. Antes de guardar, mirá si el CRM avisa «Ya hay tareas pendientes para este negocio». Si ya existe una para el mismo compromiso, abrila y actualizala en lugar de duplicarla.
 4. Escribí un título concreto en «Qué hay que hacer». Elegí «Tipo», la fecha de vencimiento y, si sirve, «Hora (opcional)». Revisá el «Propósito».
@@ -584,7 +584,7 @@ Cumplí lo acordado, acompañá al cliente y ofrecé una nueva propuesta cuando 
 **Cuándo usarlo:** Cuando existe una propuesta nueva, distinta de la anterior.
 
 1. Abrí el negocio existente; no crees otro negocio por tratarse de una segunda gestión.
-2. En la solapa «Gestiones» tocá «Iniciar gestión». Poné un nombre concreto y revisá la persona principal.
+2. En la pestaña «Gestiones · Personas · Datos», en la sección «Gestiones» tocá «Iniciar gestión». Poné un nombre concreto y revisá la persona principal.
 3. Guardá y agendá una tarea con propósito Conversación comercial vinculada a esta nueva gestión.
 4. Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo que contrató antes.
 
@@ -625,7 +625,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Cuándo usarlo:** Cuando el mensaje todavía no está listo para enviarse.
 
 1. Tocá «Contactar» y elegí una gestión abierta o un contacto general con su propósito. Guardar un borrador no inicia ni confirma un contacto.
-2. Para retomarlo, entrá en la solapa «Qué pasó» del negocio y buscalo en «Comunicación». Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.
+2. Para retomarlo, entrá en la pestaña «Comunicación» del negocio. Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.
 3. El email sale desde el CRM; WhatsApp se abre afuera y queda sin confirmar hasta que informes el resultado.
 4. Si salís con cambios sin guardar, elegí volver o descartarlos. No reenvíes un mensaje cuyo resultado sea incierto: primero revisá el estado del intento.
 
@@ -639,7 +639,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.
 
-1. Abrí el negocio y entrá en la solapa «Datos y documentos», o abrí una gestión y entrá en «Documentos».
+1. Abrí el negocio y entrá en la solapa «Gestiones · Personas · Datos», o abrí una gestión y entrá en «Documentos».
 2. Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.
 3. Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.
 4. Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.
@@ -715,7 +715,7 @@ Un caso ficticio para aprender a registrar una relación comercial completa.
 
 1. Buscás Cabañas Camino Claro en «Negocios». Como no existe, tocás «Nuevo negocio», completás los datos que conocés y tocás «Crear negocio». El negocio queda Nuevo.
 2. Verificás que el establecimiento exista y sea el correcto. Guardás la fuente confiable y cambiás el Estado del negocio a Revisado.
-3. En la solapa «Personas» tocás «Agregar persona» y cargás a Ana, su teléfono y su preferencia. La marcás como principal si corresponde.
+3. En la pestaña «Gestiones · Personas · Datos», en la sección «Personas» tocás «Agregar persona» y cargás a Ana, su teléfono y su preferencia. La marcás como principal si corresponde.
 4. Tocás «Iniciar gestión» y elegís el tipo verticales principales y un nombre concreto. También podrías iniciarla desde «Contactar»; si verificás el negocio ahí, el mismo paso lo deja Revisado.
 5. Agendás una llamada con «Agendar tarea» o tocás «Contactar» desde la gestión. Revisás destinatario, canal y restricciones. El email sale desde el CRM; WhatsApp pide que confirmes si lo enviaste.
 6. Después del contacto, el CRM te pregunta «¿Cómo salió?». Anotás la respuesta real. Si pidió retomar más adelante, elegís «Esperar hasta una fecha y retomar» y la fecha acordada.
@@ -953,7 +953,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 **Cuándo usarlo:** Antes de registrar mensajes de un contacto nuevo, o cuando el panel de Hospeda dice «Sin asociar».
 
 1. El script reconoce el negocio de dos formas: por el código del negocio en el nombre del contacto (por ejemplo "· H1234") o por el teléfono del chat, si coincide con el del negocio, su WhatsApp o el de una persona cargada.
-2. La forma más segura es el código. Abrí la ficha del negocio en el CRM y tocá «Copiar nombre para agendar». Se copia el nombre con el código, por ejemplo "Cabañas Camino Claro · H1234".
+2. La forma más segura es el código. Abrí la ficha del negocio en el CRM, desplegá «Más acciones del negocio» y elegí «Copiar nombre para agendar». Se copia el nombre con el código, por ejemplo "Cabañas Camino Claro · H1234".
 3. En el teléfono de Hospeda, guardá o editá ese contacto y pegá el nombre copiado. WhatsApp Web puede tardar un rato en mostrar el nombre nuevo.
 4. Abrí el chat en WhatsApp Web. El panel muestra el negocio, su código, el responsable y las gestiones abiertas.
 5. Si el teléfono coincide con más de un negocio, elegí el correcto en «Elegir negocio». El script recuerda esa elección para ese teléfono en esta computadora.
