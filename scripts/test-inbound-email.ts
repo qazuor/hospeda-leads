@@ -5,6 +5,7 @@ import {db} from '../src/helpers/db';
 import {addresses,post} from '../src/endpoints/inbound';
 
 assert.equal(process.env.CRM_TEST_DATABASE,'1');
+// Fixture businesses sort after the browser suite's names: the Negocios list is name-ordered and loads a first batch only.
 const previous=process.env.INBOUND_EMAIL_TOKEN,token='inbound-test-token-'+randomUUID().replaceAll('-','');
 process.env.INBOUND_EMAIL_TOKEN=token;
 const request=(body?:unknown,auth=`Bearer ${token}`)=>new Request('http://localhost/_api/inbound/email',{method:'POST',headers:{Authorization:auth,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
@@ -14,7 +15,7 @@ try{
  assert.equal((await post(request(base('bad'),'Bearer wrong'))).status,401);
  assert.equal((await post(request())).status,400);
  assert.equal((await post(new Request('http://localhost/_api/inbound/email',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:' '.repeat(1048577)}))).status,413);
- const account=await db.insertInto('crmAccounts').values({nombre:`Inbound ${randomUUID()}`,email:`inbound-${randomUUID()}@example.test`,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();
+ const account=await db.insertInto('crmAccounts').values({nombre:`Zz inbound fixture ${randomUUID()}`,email:`inbound-${randomUUID()}@example.test`,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();
  const openStage=await db.selectFrom('crmStages').select('name').where('classification','=','open').executeTakeFirstOrThrow();
  await db.insertInto('leads').values({accountId:account.id,nombre:account.nombre,estado:openStage.name}).execute();
  const key=`inbound-${randomUUID()}@example.test`;await db.updateTable('crmAccounts').set({email:key}).where('id','=',account.id).execute();
@@ -40,7 +41,7 @@ try{
  assert.equal((await sql<{status:string}>`SELECT status FROM crm_messages WHERE id=${messageRow}::uuid`.execute(db)).rows[0].status,'accepted','Receiving a reply never changes the linked message status');
  const viaRefs=await post(request({...base('refs-'+randomUUID()),from:{email:'third@example.test',name:''},references:['<unrelated@example.test>',`<${outboxId}>`]}));assert.equal((await viaRefs.json() as {matchMethod:string}).matchMethod,'references');
  const chained=await post(request({...base('chain-'+randomUUID()),from:{email:'fourth@example.test',name:''},references:[senderPayload.messageId]}));assert.equal((await chained.json() as {matchMethod:string}).matchMethod,'references','An already matched inbound email anchors later replies');
- const shared=`shared-${randomUUID()}@example.test`;for(const n of [1,2])await db.insertInto('crmAccounts').values({nombre:`Inbound shared ${n} ${randomUUID()}`,email:shared,ciudad:'Colón'}).execute();
+ const shared=`shared-${randomUUID()}@example.test`;for(const n of [1,2])await db.insertInto('crmAccounts').values({nombre:`Zz inbound fixture shared ${n} ${randomUUID()}`,email:shared,ciudad:'Colón'}).execute();
  const ambiguous=await post(request({...base('ambiguous-'+randomUUID()),from:{email:shared.toUpperCase(),name:''},envelopeFrom:'bounce@example.test',headers:{authenticationResults:'mx.cloudflare.net; dmarc=pass header.from=example.test'}}));const ambiguousResult=await ambiguous.json() as {id:string;matched:boolean;matchMethod:string};assert.equal(ambiguousResult.matched,false);assert.equal(ambiguousResult.matchMethod,'none');
  const unmatchedRow=(await sql<{accountId:string|null;status:string}>`SELECT account_id AS "accountId",status FROM crm_inbound_messages WHERE id=${ambiguousResult.id}::uuid`.execute(db)).rows[0];assert.equal(unmatchedRow.accountId,null);assert.equal(unmatchedRow.status,'unmatched');assert.equal(await journal(ambiguousResult.id),0,'Unmatched inbound emails do not write a business journal entry');
  const unknown=await post(request(base('unknown-'+randomUUID())));assert.equal((await unknown.json() as {matched:boolean}).matched,false);
