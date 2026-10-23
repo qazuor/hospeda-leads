@@ -15,6 +15,7 @@ export const cacheHeadersMiddleware: MiddlewareHandler = async (c, next) => {
     if (c.res.status === 200) c.res.headers.set("Cache-Control", "public, max-age=31536000, immutable");
     return;
   }
+  if(c.req.path.startsWith('/userscripts/')){c.res.headers.set('Cache-Control','no-cache');if(c.res.status===200)c.res.headers.set('Content-Type','text/javascript; charset=utf-8');return;}
   // Never weaken a policy the handler chose (e.g. the MCP consent page sends no-store).
   if (c.res.headers.has("Cache-Control")) return;
   if (c.req.path === "/" || c.req.path === "/index.html" || c.res.headers.get("Content-Type")?.includes("text/html")) {

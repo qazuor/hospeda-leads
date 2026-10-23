@@ -97,6 +97,7 @@ export function AppCommandPalette() {
       { id: 'light', label: 'Tema claro', description: 'Usar colores claros', icon: Sun, run: switchToLightMode },
       { id: 'dark', label: 'Tema oscuro', description: 'Usar colores oscuros', icon: Moon, run: switchToDarkMode },
       { id: 'auto', label: 'Usar tema del sistema', description: 'Seguir la preferencia del dispositivo', icon: SunMoon, run: switchToAutoMode },
+      { id: 'userscript', label: 'User script de WhatsApp', description: 'Instalar el script y crear tu token', icon: MessageCircle, run: () => go('/userscript') },
       ...(isAdmin ? [
         { id: 'import', label: 'Importar CSV', description: 'Abrir revisión de importación de negocios', icon: Upload, run: () => go('/accounts?adminTool=import') },
         { id: 'duplicates', label: 'Buscar duplicados', description: 'Abrir revisión de coincidencias', icon: Copy, run: () => go('/accounts?adminTool=duplicates') },

@@ -861,3 +861,28 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 - Una gestión se crea con una acción explícita, después de verificar el negocio. Los indicadores del CRM no acreditan pagos del portal turístico.
 
 **Dónde ir:** Revisar Negocios (/accounts)
+
+## Registrar mensajes de WhatsApp
+
+Conectá Tampermonkey al CRM para registrar lo que ya se envió y recibió.
+
+### Instalar el user script de WhatsApp
+
+**Cuándo usarlo:** Cuando quieras registrar desde WhatsApp Web los mensajes de un negocio.
+
+1. Instalá Tampermonkey en Chrome o Edge 138 o posterior y activá la opción para permitir scripts de usuario. Firefox no es compatible por ahora.
+2. También lo encontrás con Ctrl+K escribiendo «User script de WhatsApp».
+3. Abrí «User script de WhatsApp» desde tu menú personal y tocá el enlace de instalación.
+4. Creá un token con un nombre para este dispositivo. Copialo en ese momento: el CRM no lo vuelve a mostrar.
+5. En WhatsApp Web abrí el menú de Tampermonkey y configurá el token.
+6. Para reconocer el negocio, agendalo con «Copiar nombre para agendar» desde su ficha.
+7. En el chat revisá la vista previa y confirmá el registro. El script no envía mensajes ni modifica WhatsApp.
+
+**Qué queda al terminar:** El CRM registra los mensajes visibles que confirmaste y evita duplicarlos.
+
+**Tené en cuenta:**
+
+- Registrar un mensaje no implica que el negocio haya respondido ni aceptado una propuesta.
+- Revocá el token desde el CRM si dejás de usar el dispositivo.
+
+**Dónde ir:** User script de WhatsApp (/userscript)

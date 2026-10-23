@@ -2,7 +2,7 @@ import {cancelRecontactTaskFor} from './recontactTask';
 import {templateCompatibility} from './messageTemplatePolicy';
 import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Kysely,type RawBuilder,type Transaction} from 'kysely';
 import {z} from 'zod';
 import type {DB} from './schema';
@@ -20,7 +20,7 @@ import {buildMessageTemplateContext} from './messageTemplateContext';
 import {responseCategoryLabel} from './crmLabels';
 import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
 import {sendInboundReply} from './emailReply';
-type Executor=Kysely<DB>|Transaction<DB>;
+export type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
 export class CommunicationForbidden extends Error{}
@@ -87,7 +87,7 @@ async function markClientForCare(e:Executor,m:Message,user:User){
  const changed=await withAutomaticStateChange(e,'care_contact',()=>sql<{id:string}>`UPDATE crm_accounts SET is_client=true,updated_at=now() WHERE id=${m.accountId} AND is_client=false AND (${user.role==='admin'} OR NOT do_not_contact) RETURNING id`.execute(e));
  if(changed.rows.length)await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'business',entityId:String(m.accountId),action:'client_marked_by_care_contact',actor:null,automatic:true,triggeredBy:user.email,before:{isClient:false},after:{isClient:true,interactionId:m.id}});
 }
-async function assertAccountContactAllowed(e:Executor,accountId:string,leadId:string|null,contactId:string|null,channel:string){
+export async function assertAccountContactAllowed(e:Executor,accountId:string,leadId:string|null,contactId:string|null,channel:string){
  const account=await e.selectFrom('crmAccounts').selectAll().where('id','=',accountId).where('mergedIntoId','is',null).executeTakeFirstOrThrow();const lead=leadId?await e.selectFrom('leads').selectAll().where('id','=',leadId).where('accountId','=',accountId).where('deletedAt','is',null).executeTakeFirstOrThrow():null;
  if(account.deletedAt)throw new CommunicationForbidden('El negocio está en la papelera.');if(account.doNotContact)throw new CommunicationForbidden('El negocio tiene una restricción de no contactar.');if(account.archivedAt)throw new CommunicationForbidden('El negocio está archivado.');
  if(lead){const stage=(await sql<{classification:string}>`SELECT classification FROM crm_stages WHERE name=${lead.estado}`.execute(e)).rows[0];if(!stage||stage.classification!=='open')throw new CommunicationForbidden('Una gestión cerrada solo permite registrar respuestas recibidas.');}
@@ -281,6 +281,25 @@ async function activity(e:Executor,m:Message,user:User,result:string){
  await sql`UPDATE crm_messages SET activity_id=${a.id} WHERE id=${m.id}::uuid`.execute(e);
  if(lead)await writeLeadJournal(e as Transaction<DB>,{leadId:String(lead.id),leadName:lead.nombre,actor:user,action:'contact_logged',metadata:{activityId:a.id,messageId:m.id,channel:m.channel,result,template:m.templateSnapshot?.name??null}});return a.id;
 }
+/** Completes a WhatsApp manual attempt that the user script observed as sent, reusing CRM completion rules and journal effects. */
+export async function completeUserscriptManual(e:Executor,id:string,externalId:string,text:string,user:User){
+ const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp'||m.status!=='manual_pending')throw new CommunicationConflict('Este intento ya fue completado.');
+ await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),'whatsapp');
+ await sql`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},body=${text},text_body=${text},summary=${text},completed_at=now(),completed_by_email=${user.email},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+ await activity(e,m,user,'Envío confirmado manualmente');
+ if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
+ await markClientForCare(e,m,user);
+ await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_completed',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId}});
+ return m.id;
+}
+/** Records an already-sent WhatsApp message when no CRM manual attempt exists for it. */
+export async function registerUserscriptSent(e:Executor,v:{accountId:string;externalId:string;phone:string;title:string;text:string;sentAt:Date},user:User){
+ await assertAccountContactAllowed(e,v.accountId,null,null,'whatsapp');
+ const account=await e.selectFrom('crmAccounts').select('status').where('id','=',v.accountId).executeTakeFirstOrThrow();if(account.status==='new')throw new CommunicationForbidden('En estado Nuevo solo se permite verificar los datos.');
+ const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,body,text_body,owner_email,status,external_id,created_at,updated_at,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${v.accountId}::bigint,${v.accountId}::bigint,'whatsapp',${v.phone},${v.title},${v.text},${v.text},${user.email},'manual_sent',${v.externalId},${v.sentAt},now(),now(),${user.email}) ON CONFLICT(channel,external_id) WHERE external_id IS NOT NULL DO NOTHING RETURNING *`.execute(e)).rows[0];
+ if(!created)return (await sql<{id:string}>`SELECT id::text AS id FROM crm_messages WHERE channel='whatsapp' AND external_id=${v.externalId}`.execute(e)).rows[0]?.id;
+ await activity(e,created,user,'Envío confirmado manualmente');await markClientForCare(e,created,user);await communicationJournal(e,{accountId:v.accountId,leadId:null,entityType:'interaction',entityId:created.id,action:'contact_completed',actor:user,triggeredBy:'userscript',after:{status:'manual_sent',externalId:v.externalId,channel:'whatsapp'}});return created.id;
+}
 /**
  * Links the outcome a seller writes after a contact (work.ts, decision 2B) to its message, inside the caller's transaction.
  * The caller locks the business and the management first, so the lock order stays account → lead → message.
@@ -347,7 +366,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
   if(row.status==='registered'&&row.responseId){await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);return {id:String(row.responseId),duplicate:true};}
   if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
-  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user);
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user);
   await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
   await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
  }
