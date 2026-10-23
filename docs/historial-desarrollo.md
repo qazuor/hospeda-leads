@@ -123,3 +123,7 @@ La ficha muestra en un vistazo la última interacción registrada, la próxima t
 ## 19/10/2026 — responsables visibles por contexto (P1 16)
 
 Contactar distingue la relación general del negocio de la persona responsable de la gestión; el pipeline muestra ambas en cada tarjeta. La asignación y el diálogo de contacto desde tareas identifican también al responsable de la tarea y explican que delegarla no cambia responsables comerciales ni permisos. No se alteraron reglas de acceso. Pasaron `pnpm run typecheck`, `pnpm run build` y `git diff --check`; no se probó con base ni navegador. Falta revisión visual manual. Cambio local en `staging`, sin commit.
+
+## 23/10/2026 — ficha del negocio con jerarquía visual
+
+A pedido del propietario («no hay jerarquía visual»), la ficha se rehízo en dos PRs. El primero (#230) unificó la escala tipográfica, limitó el historial a 5 eventos con «Ver N más» y compactó datos vacíos y acciones secundarias. El segundo reorganizó encabezado y solapas por tarea. En un negocio sintético con 34 eventos, la solapa por defecto pasó de 9657 px a cerca de 2200 px de alto en escritorio.
