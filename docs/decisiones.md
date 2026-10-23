@@ -113,7 +113,9 @@ Revisión de usabilidad para vendedores sin experiencia en CRM. Decisiones del 2
 
 ## Comunicación — producto aprobado
 
-- Comunicación es saliente y permite registrar manualmente respuestas; no es una bandeja sincronizada. Email se envía por Brevo; WhatsApp prepara y abre el canal externo; llamadas, redes y Otros se registran manualmente.
+- Comunicación es saliente y permite registrar manualmente respuestas. Email se envía por Brevo; WhatsApp prepara y abre el canal externo; llamadas, redes y Otros se registran manualmente. **Revisión del 22/10/2026 (propietario):** se suma el registro automático de entrantes según la spec 83 (`docs/crm-roadmap/83-registro-automatico-canales.md`), todavía no implementada.
+- **Registro automático (22/10/2026, propietario).** Email entrante por un Cloudflare Email Worker en el catch-all de `hospeda.com.ar`, que siempre reenvía primero a la casilla del propietario y después avisa al CRM. Las respuestas desde el CRM salen por el relay SMTP de Brevo para conservar el hilo (la API no acepta `In-Reply-To`/`References`; probado el 22/10). WhatsApp e Instagram se registran con una extensión de navegador que solo lee y nunca envía; un número de WhatsApp Business compartido, con código CRM (`H<id>`) en el nombre del contacto. Recibir un mensaje se registra solo; clasificarlo como respuesta lo decide una persona.
+- **WhatsApp Coexistence / Cloud API:** queda como opción futura, no planificada. Su PRD se eliminó para no confundir.
 - Se permiten contactos generales con propósito y contactos dentro de gestiones abiertas. Nuevo solo admite verificación; Archivado y No contactar bloquean salidas; Papelera bloquea todo hasta restauración administrativa.
 - Toda respuesta entrante requiere contexto. “Pidió no contactar” bloquea el negocio completo; solo admin levanta el bloqueo. Quién puede registrarlo está en D1 («UX de octubre de 2026»). Confirmaciones y correcciones quedan auditadas.
 - Las etapas y motivos de gestión son catálogos fijos. Admin administra modelos compartidos; se conservan sus versiones y se pueden restaurar.
@@ -144,7 +146,7 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 
 - El estado del negocio y la etapa de cada gestión son independientes; un negocio puede tener varias gestiones abiertas. Cliente, No contactar, Eliminado y Derivado a Leandro son marcas separadas del estado general según la spec 53.
 - Las gestiones usan catálogos fijos por tipo. Los cierres exigen motivo; la derivación a Leandro conserva historial y solo admin puede desactivarla. La migración debe preservar los negocios Filtrados como Revisados y no restaurar elementos de Papelera.
-- Comunicación prepara contactos salientes y registra respuestas manualmente; no es una bandeja sincronizada. Canales: Email por Brevo, WhatsApp asistido, llamadas, redes y Otros con aclaración.
+- Comunicación prepara contactos salientes y registra respuestas manualmente. Canales: Email por Brevo, WhatsApp asistido, llamadas, redes y Otros con aclaración. Ver la revisión del 22/10/2026 más arriba.
 - Las salidas respetan contexto, permisos y bloqueos; respuestas entrantes se pueden registrar sin habilitar envíos. No contactar bloquea el negocio completo y solo admin levanta el bloqueo.
 - Se retiran las secuencias asistidas. El usuario autorizó limpiar sus registros de prueba con una migración que limita la eliminación a artefactos atribuibles y se detiene si detecta referencias independientes.
 - Especificaciones aprobadas: [estados](crm-roadmap/53-business-and-management-state-model.md) y [Comunicación](crm-roadmap/56-communication-product-spec.md).
