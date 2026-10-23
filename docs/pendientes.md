@@ -5,7 +5,8 @@
 Spec propuesta en [`crm-roadmap/83-registro-automatico-canales.md`](crm-roadmap/83-registro-automatico-canales.md), sin implementar. Orden: F1 email entrante (Cloudflare Email Worker), F2 responder en hilo por SMTP de Brevo, F3 user script de WhatsApp Web (Tampermonkey), F4 Instagram. Verificado el 22/10/2026 con una prueba real: el relay SMTP de Brevo conserva `Message-ID`, `In-Reply-To` y `References` y Gmail arma el hilo. Las cinco decisiones abiertas quedaron resueltas el 22/10/2026 (sección 11 de la spec y `decisiones.md`).
 
 - **F1a (servidor + Worker), rama `feat/inbound-email`:** migración 037 (`crm_inbound_messages`), `POST /_api/inbound/email`, `GET /_api/inbound/addresses`, reglas de asociación y Worker `workers/inbound-email/`. Validado en local: `test:inbound`, `test:communication`, unitarias, build y tests del Worker. Falta: deploy del Worker y alta en Email Routing (propietario), `INBOUND_EMAIL_TOKEN` en Coolify, y una prueba real respondiendo desde Gmail.
-- **F1b (interfaz):** línea de tiempo en la ficha, «Respuestas nuevas» en Hoy y «Sin asociar» para admin. Pendiente.
+- **F1a mergeado** en `staging` (#215) y probado de punta a punta el 23/10/2026 con un túnel temporal: respuesta en hilo asociada por `In-Reply-To`, remitente desconocido Sin asociar, reenvío a Gmail con SPF/DKIM/ARC/DMARC en pass. `TRUSTED_AUTHSERV_ID = mx.cloudflare.net`.
+- **F1b (interfaz), rama `feat/inbound-email-ui`:** emails recibidos en la ficha (texto plano), «Registrar respuesta» (mismo camino que `response_create`), «No es una respuesta» (responsable o admin), «Respuestas nuevas» en Hoy y página admin «Emails sin asociar» (`/inbound`). Falta: «Reingresar» un email manualmente, y verificación visual del propietario.
 
 ## Columnas agrupadas de Negocios
 

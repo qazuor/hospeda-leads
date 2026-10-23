@@ -110,6 +110,10 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 6. «Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.
 7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV» y «Buscar duplicados». Si no los ves, son del administrador.
 
+### Emails entrantes
+
+Los emails asociados aparecen en «Comunicación» del negocio. «Ver completo» muestra texto plano; abrirlo no registra ni clasifica una respuesta. Si requiere clasificación, elegí «Registrar respuesta», completá categoría y resumen, y guardá. Si no corresponde a una respuesta, «No es una respuesta» pide un motivo. En Hoy aparece el bloque «Respuestas nuevas» para los emails pendientes que te corresponden. Administración puede asociar los mensajes de «Papelera» → «Sin asociar».
+
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
 
 **Ejemplo:**

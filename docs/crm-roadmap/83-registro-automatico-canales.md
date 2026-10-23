@@ -143,8 +143,9 @@ Un entrante asociado queda `pending_review`. El estado del `crm_messages` vincul
 
 - **Ficha del negocio → Comunicación:** los entrantes aparecen en la línea de tiempo junto a los salientes, con remitente, asunto, extracto y "Ver completo". El HTML se muestra sanitizado (sin scripts, sin imágenes remotas por defecto, con "Mostrar imágenes").
 - **Acciones sobre un entrante:** "Registrar respuesta" (abre el formulario de respuesta existente con categoría a elegir y `exact_text` precargado), "Responder" (F2), "No es una respuesta" (`dismissed`, pide motivo corto).
+- **Permisos:** "Registrar respuesta" usa el mismo camino que `response_create`: puede hacerlo quien puede ver el negocio, y «Pidió no ser contactado» sigue limitado por D1 (responsable del negocio o de una gestión, o admin). "No es una respuesta" es más estricto (responsable o admin), porque saca el email de la bandeja del responsable. Asociar a mano es solo de admin; al cambiar de negocio se descarta el vínculo con el mensaje del negocio anterior.
 - **Hoy:** bloque "Respuestas nuevas" con los `pending_review` de negocios donde el usuario es responsable. Admin ve además los `unmatched`.
-- **Sin asociar (admin):** lista con buscador de negocio para asociar a mano (`match_method='manual'`, queda en el journal). Incluye "Reingresar" para pegar el código fuente de un email que el Worker no pudo entregar.
+- **Emails sin asociar (admin, `/inbound`):** lista con buscador de negocio y, opcionalmente, gestión abierta y persona, para asociar a mano (`match_method='manual'`, queda en el journal). "Reingresar" (pegar el código fuente de un email que el Worker no pudo entregar) queda pendiente.
 
 ### 6.6 Validación F1
 

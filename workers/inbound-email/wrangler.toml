@@ -5,8 +5,8 @@ compatibility_date = "2026-10-01"
 [vars]
 CRM_BASE_URL = "https://crm.hospeda.com.ar"
 # authserv-id of the Authentication-Results header Cloudflare adds (first token, before ";").
-# Leave empty until a real inbound email confirms it: without it the CRM never matches by sender.
-TRUSTED_AUTHSERV_ID = ""
+# Confirmed with a real inbound email on 2026-10-23. Empty disables matching by sender.
+TRUSTED_AUTHSERV_ID = "mx.cloudflare.net"
 
 # Configure with: npx wrangler secret put INBOUND_EMAIL_TOKEN
 # Configure with: npx wrangler secret put FORWARD_TO
