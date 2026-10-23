@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n web,api \"vite\" \"tsx watch src/server/index.ts\"",
-    "build": "vite build && tsup src/server/index.ts --format esm --platform node --out-dir dist-server --clean",
+    "build": "vite build && tsup src/server/index.ts --format esm --platform node --out-dir dist-server --clean && npm run build:userscript",
+    "build:userscript": "vite build --config userscript/vite.config.ts && node scripts/verify-userscript-build.mjs",
     "start": "node dist-server/index.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p userscript/tsconfig.json",
     "test": "vitest run",
     "perf:api": "node scripts/perf/api-baseline.mjs",
     "perf:bundle": "node scripts/perf/bundle-report.mjs",

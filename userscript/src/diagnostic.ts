@@ -1,0 +1,1 @@
+export async function copyDiagnostic(text: string, clipboard: Pick<Clipboard, "writeText">, fallback: (value: string) => void, success: () => void): Promise<void> { try { await clipboard.writeText(text); success(); } catch { fallback(text); } }
