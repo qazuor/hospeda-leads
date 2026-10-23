@@ -227,6 +227,16 @@ export interface Users {
   updatedAt: Generated<Timestamp | null>;
 }
 
+export interface CrmUserscriptTokens {
+  id:string;
+  userId:number;
+  tokenHash:string;
+  label:string;
+  createdAt:Generated<Timestamp>;
+  lastUsedAt:Timestamp|null;
+  revokedAt:Timestamp|null;
+}
+
 export interface CrmAccounts {
   origin: Generated<string | null>;
   sourceReference: Generated<string | null>;
@@ -326,6 +336,7 @@ export interface CrmAccountMerges {
  snapshot:Json; selections:Json; createdAt:Generated<Timestamp>;
 }
 export interface DB {
+  crmUserscriptTokens:CrmUserscriptTokens;
  crmImportBatches:CrmImportBatches;
  crmDataEvidence:CrmDataEvidence;
  crmAccountMerges:CrmAccountMerges;

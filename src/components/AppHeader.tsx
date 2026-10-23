@@ -66,6 +66,7 @@ export const AppHeader=()=>{
           <DropdownMenuLabel>{displayName||"Usuario"}</DropdownMenuLabel>
           <DropdownMenuSeparator/>
           <DropdownMenuItem onClick={()=>setProfileOpen(true)}><UserCircle size={16}/>Mi perfil</DropdownMenuItem>
+          <DropdownMenuItem asChild><Link to="/userscript">User script de WhatsApp</Link></DropdownMenuItem>
           <DropdownMenuSeparator/>
           <DropdownMenuItem onClick={switchToLightMode}><Sun size={16}/>Tema claro{mode==="light"&&<b className={styles.menuCheck}>✓</b>}</DropdownMenuItem>
           <DropdownMenuItem onClick={switchToDarkMode}><Moon size={16}/>Tema oscuro{mode==="dark"&&<b className={styles.menuCheck}>✓</b>}</DropdownMenuItem>

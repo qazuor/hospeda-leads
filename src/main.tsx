@@ -25,6 +25,7 @@ const SettingsPage=React.lazy(()=>import("./pages/settings"));
 const TemplatesPage=React.lazy(()=>import("./pages/templates"));
 const TrashPage=React.lazy(()=>import("./pages/trash"));
 const InboundPage=React.lazy(()=>import("./pages/inbound"));
+const UserscriptPage=React.lazy(()=>import("./pages/userscript"));
 import './styleLayers.css';
 import '@mantine/core/styles.layer.css';
 import '@mantine/spotlight/styles.layer.css';
@@ -77,6 +78,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
           <Route path="/archived" element={<AdminRoute><ArchivedPage/></AdminRoute>} />
           <Route path="/guide" element={<UserRoute><GuidePage/></UserRoute>} />
+          <Route path="/userscript" element={<UserRoute><UserscriptPage/></UserRoute>} />
           <Route path="/library" element={<AdminRoute><LibraryPage/></AdminRoute>} />
           <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
           <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
