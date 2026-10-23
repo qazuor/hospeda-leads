@@ -1,0 +1,9 @@
+name = "hospeda-inbound-email"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+CRM_BASE_URL = "https://crm.hospeda.com.ar"
+
+# Configure with: npx wrangler secret put INBOUND_EMAIL_TOKEN
+# Configure with: npx wrangler secret put FORWARD_TO

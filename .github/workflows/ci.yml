@@ -64,6 +64,9 @@ jobs:
       - if: steps.filter.outputs.code == 'true'
         run: npm test
       - if: steps.filter.outputs.code == 'true'
+        working-directory: workers/inbound-email
+        run: npm ci && npm run typecheck && npm test
+      - if: steps.filter.outputs.code == 'true'
         run: npm run db:migrate
       - name: Seed disposable test database
         if: steps.filter.outputs.code == 'true'
@@ -98,6 +101,11 @@ jobs:
       - name: Communication and resources migration and integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:communication
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Inbound email integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:inbound
         env:
           CRM_TEST_DATABASE: "1"
       - name: Shared reading and owner permissions integration tests

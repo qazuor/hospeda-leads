@@ -70,7 +70,7 @@ async function communicationContext(e:Executor,accountId:string,leadId:string|nu
  if(write)await assertLeadAccess(e,leadId,user,true);
  return {account,lead};
 }
-async function communicationJournal(e:Executor,v:{accountId:string;leadId:string|null;entityType:string;entityId:string;action:string;actor:User|null;automatic?:boolean;triggeredBy?:string|null;before?:unknown;after?:unknown;relatedEventId?:string|null}){
+export async function communicationJournal(e:Executor,v:{accountId:string;leadId:string|null;entityType:string;entityId:string;action:string;actor:User|null;automatic?:boolean;triggeredBy?:string|null;before?:unknown;after?:unknown;relatedEventId?:string|null}){
  const row=await sql<{id:string}>`INSERT INTO crm_communication_journal(account_id,original_account_id,lead_id,entity_type,entity_id,action,actor_email,actor_name,is_automatic,triggered_by_email,related_event_id,before_value,after_value) VALUES(${v.accountId},${v.accountId},${v.leadId},${v.entityType},${v.entityId},${v.action},${v.actor?.email??null},${v.actor?.displayName??null},${v.automatic??false},${v.triggeredBy??null},${v.relatedEventId??null},${v.before===undefined?null:json(v.before)}::text::jsonb,${v.after===undefined?null:json(v.after)}::text::jsonb) RETURNING id`.execute(e);
  return row.rows[0].id;
 }

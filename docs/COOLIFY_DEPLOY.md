@@ -40,6 +40,7 @@ JWT_SECRET=<random secret, minimum 32 characters; the server refuses to start wi
 ADMIN_EMAIL=<email administrador>
 BREVO_API_KEY=<Hospeda Brevo API key>
 PUBLIC_APP_URL=https://crm.hospeda.com.ar
+INBOUND_EMAIL_TOKEN=<random secret, minimum 32 characters; shared with the Cloudflare Email Worker>
 ```
 
 No versionar valores reales.
