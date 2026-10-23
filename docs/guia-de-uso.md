@@ -108,7 +108,8 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 4. «Calendario» (dentro de Hoy) muestra visitas y reuniones con fecha. No reemplaza la lista de tareas.
 5. «Para retomar» (dentro de Hoy) reúne las gestiones cerradas que tienen una fecha para volver a hablar. Reabrir una gestión cerrada requiere un administrador.
 6. «Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.
-7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV» y «Buscar duplicados». Si no los ves, son del administrador.
+7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Emails sin asociar». Si no los ves, son del administrador.
+8. En tu menú personal, arriba a la derecha, está «User script de WhatsApp»: ahí instalás el script para WhatsApp Web y creás tu token.
 
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
 
@@ -127,12 +128,13 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Cuándo usarlo:** Todos los días de trabajo.
 
 1. Abrí «Hoy». Atendé primero «Vencidas» y después «Para hoy». Revisá si cada tarea todavía corresponde. Si aún no tenés tareas, empezá por «Negocios».
-2. Antes de contactar, leé lo último que pasó con el negocio y cuál es el próximo paso. Comprobá a quién le vas a escribir y si hay restricciones.
-3. En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».
-4. Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.
-5. Si no podés hacer una tarea hoy, tocá «Posponer» y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…».
-6. Mirá «Próximas acciones» para las fechas futuras. Si no encontrás algo, revisá «Filtros de trabajo».
-7. Al terminar, comprobá que no te queden contactos sin anotar: aparecen arriba, en «Anotá cómo salió».
+2. Si arriba aparece «Respuestas nuevas», abrí cada negocio y revisá lo que llegó: registralo como respuesta o descartalo.
+3. Antes de contactar, leé lo último que pasó con el negocio y cuál es el próximo paso. Comprobá a quién le vas a escribir y si hay restricciones.
+4. En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».
+5. Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.
+6. Si no podés hacer una tarea hoy, tocá «Posponer» y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…».
+7. Mirá «Próximas acciones» para las fechas futuras. Si no encontrás algo, revisá «Filtros de trabajo».
+8. Al terminar, comprobá que no te queden contactos sin anotar: aparecen arriba, en «Anotá cómo salió».
 
 **Qué queda al terminar:** El equipo puede continuar el trabajo sin depender de tu memoria.
 
@@ -147,29 +149,55 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
-### Respuestas por email
+### Emails y mensajes recibidos
 
-**Cuándo usarlo:** Cuando llega un email de un negocio al CRM.
+**Cuándo usarlo:** Cuando un negocio te responde por email o registraste mensajes de WhatsApp con el script.
 
-1. Los emails recibidos aparecen en «Comunicación» dentro de la ficha del negocio. El texto se muestra como texto plano.
-2. Usá «Registrar respuesta» para guardar el email como una respuesta recibida: completá el resumen y revisá el texto exacto antes de guardar. No se envía ningún mensaje.
-3. Si aparece «Responder», podés contestar desde el CRM en el mismo hilo. El destinatario queda fijo para vendedores; administración puede editarlo. El email citado se agrega debajo de tu mensaje.
-4. Si el negocio pidió no ser contactado, solo podés responder a un email que llegó después de la restricción y a esa misma dirección. El bloqueo sigue activo.
-5. Si el email no es una respuesta, elegí «No es una respuesta» y escribí un motivo.
-6. En Hoy, «Respuestas nuevas» reúne emails pendientes de revisar de tus negocios.
-7. Administración puede revisar «Emails sin asociar», elegir un negocio y asociar el email para que aparezca en su Comunicación.
+1. Los emails que un negocio manda a Hospeda llegan solos al CRM. Se asocian al negocio cuando responden a un email enviado desde el CRM o cuando llegan desde un email cargado en un único negocio.
+2. Los vas a ver en la ficha del negocio, en «Comunicación», dentro de «Mensajes recibidos». En Hoy, «Respuestas nuevas» reúne los que todavía están por revisar en tus negocios.
+3. Cada mensaje muestra quién lo mandó, la fecha y un extracto. Tocá «Ver completo» para leer todo el texto. Se muestra como texto plano, sin imágenes ni adjuntos.
+4. Si el mensaje es una respuesta del negocio, tocá «Registrar respuesta». Completá el resumen, revisá el texto exacto y guardá. Así queda como respuesta recibida, igual que si la anotaras a mano.
+5. Si no es una respuesta (publicidad, un aviso, algo que no corresponde), tocá «No es una respuesta» y escribí el motivo.
+6. Cada mensaje muestra su estado: «Por revisar», «Registrada» o «Descartada». «Respuesta automática» marca los avisos de ausencia o similares, que no se pueden contestar.
+7. Los mensajes de WhatsApp que registrás con el script aparecen en la misma lista y se revisan igual.
 
-**Qué queda al terminar:** Sabés dónde revisar los emails recibidos y cómo registrarlos o descartarlos.
+**Qué queda al terminar:** Ningún email ni mensaje registrado queda sin revisar: cada uno termina como respuesta registrada o descartado con un motivo.
 
 **Ejemplo:**
 
-- Leés el email en la ficha, escribís un resumen y registrás la respuesta.
+- Llega un email de Ana Pérez a Cabañas Camino Claro. Lo leés, escribís "Pidió precios del plan anual" como resumen y tocás «Registrar respuesta».
 
 **Tené en cuenta:**
 
-- Registrar una respuesta no confirma pagos ni entregas.
+- Registrar una respuesta no confirma pagos, aceptación ni entregas. La etapa de la gestión no cambia sola.
+- Si el CRM no puede saber de qué negocio es un email, lo deja en «Emails sin asociar» para que un administrador lo asocie.
 
 **Dónde ir:** Ir a Hoy (/my-day)
+
+### Responder un email desde el CRM
+
+**Cuándo usarlo:** Cuando un negocio te escribió por email y querés contestarle en el mismo hilo.
+
+1. Abrí el negocio y entrá en «Comunicación». En «Mensajes recibidos» buscá el email y tocá «Responder».
+2. Se abre «Responder email». «Para» trae la dirección que te escribió y «Asunto» agrega "Re:" al asunto original. Los vendedores no pueden cambiar el destinatario; un administrador sí.
+3. Escribí tu respuesta. Con «Ver mensaje citado» revisás lo que te escribieron: ese texto se agrega solo debajo de tu mensaje.
+4. Tocá «Enviar respuesta» una sola vez y esperá. El email sale desde Hospeda y llega dentro de la misma conversación que el negocio ve en su casilla.
+5. Al terminar, la respuesta aparece en «Mensajes y borradores» como respuesta con el estado «Email aceptado por proveedor · entrega no confirmada». Eso significa que el servicio de envío lo tomó; no confirma que lo hayan leído.
+6. Si el CRM avisa que el resultado es incierto, no lo vuelvas a escribir ni a mandar. «Responder» deja de estar disponible para ese email, así nunca sale dos veces. Avisale al administrador para que revise en el servicio de envío si salió.
+
+**Qué queda al terminar:** El negocio recibe tu respuesta en el mismo hilo y el CRM guarda qué se mandó, cuándo y quién lo mandó.
+
+**Ejemplo:**
+
+- Ana preguntó por los precios. Tocás «Responder», escribís el detalle de los planes y tocás «Enviar respuesta». Ana ve tu email debajo de su pregunta.
+
+**Tené en cuenta:**
+
+- «Responder» aparece solo si sos responsable del negocio o de la gestión, la gestión sigue abierta y el email no es una «Respuesta automática».
+- Si el negocio pidió no ser contactado, solo podés responder a un email que te mandó después de esa restricción y a esa misma dirección. La restricción sigue activa.
+- Responder no registra el email recibido como respuesta. Si corresponde, usá también «Registrar respuesta».
+
+**Dónde ir:** Ir a Negocios (/accounts)
 
 ## Negocio y primer contacto
 
@@ -342,6 +370,8 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 - El canal tiene que estar disponible y sin restricciones. No contactar bloquea todas las salidas, sin excepción.
 - Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.
 - Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.
+- Si el negocio contesta tu email, la respuesta llega sola a «Mensajes recibidos» en su ficha. No hace falta copiarla a mano.
+- Si abriste WhatsApp desde «Contactar», respondé «¿Lo enviaste?» en el CRM como siempre. Si después usás el script de WhatsApp en ese chat, destildá ese mensaje en la vista previa para no registrarlo dos veces.
 
 ### Anotar cómo salió y decidir cómo sigue
 
@@ -774,9 +804,10 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 1. Antes de guardar un formulario, corregí el dato. Si hay cambios sin guardar, elegí volver al formulario o descartarlos.
 2. Para corregir un resultado ya anotado, abrí el menú de su tarea completada y tocá «Corregir cómo salió». Para una respuesta recibida, usá «Corregir respuesta» y escribí el motivo. El historial conserva el valor anterior, quién lo cambió y cuándo.
 3. Si un envío de email o WhatsApp quedó sin confirmar, confirmalo como enviado o no enviado solo cuando puedas verificarlo. No lo reenvíes automáticamente.
-4. El texto de un intento sin confirmar no se sobrescribe. Si el mensaje tiene que cambiar, creá otro intento y conservá el anterior.
-5. Para un acuerdo ganado, usá «Revisar acuerdo y entrega». No marques algo como hecho para sacar una tarea vencida: anotá el resultado real o tocá «Ya no hace falta» en lo que ya no corresponde.
-6. Si cargaste una tarea por error, abrí su menú y tocá «Borrar (cargada por error)».
+4. Si una respuesta a un email quedó con resultado incierto, no la reenvíes ni la escribas de nuevo. «Responder» deja de estar disponible para ese email. Avisale al administrador para que revise en el servicio de envío si salió.
+5. El texto de un intento sin confirmar no se sobrescribe. Si el mensaje tiene que cambiar, creá otro intento y conservá el anterior.
+6. Para un acuerdo ganado, usá «Revisar acuerdo y entrega». No marques algo como hecho para sacar una tarea vencida: anotá el resultado real o tocá «Ya no hace falta» en lo que ya no corresponde.
+7. Si cargaste una tarea por error, abrí su menú y tocá «Borrar (cargada por error)».
 
 **Qué queda al terminar:** La corrección usa la acción adecuada y conserva el historial.
 
@@ -862,27 +893,134 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 **Dónde ir:** Revisar Negocios (/accounts)
 
-## Registrar mensajes de WhatsApp
+### Asociar emails que llegaron sin negocio
 
-Conectá Tampermonkey al CRM para registrar lo que ya se envió y recibió.
+**Cuándo usarlo:** Cuando llega un email y el CRM no puede saber de qué negocio es.
 
-### Instalar el user script de WhatsApp
+1. Abrí el menú «Administración» y elegí «Emails sin asociar». También lo encontrás con Ctrl+K.
+2. Cada email muestra remitente, asunto, fecha y extracto. Leelo para saber de qué negocio es.
+3. En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».
+4. Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Si no sabés, dejá «Sin gestión» y «Sin persona».
+5. Tocá «Asociar». El email pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial.
 
-**Cuándo usarlo:** Cuando quieras registrar desde WhatsApp Web los mensajes de un negocio.
+**Qué queda al terminar:** Cada email recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.
 
-1. Instalá Tampermonkey en Chrome o Edge 138 o posterior y activá la opción para permitir scripts de usuario. Firefox no es compatible por ahora.
-2. También lo encontrás con Ctrl+K escribiendo «User script de WhatsApp».
-3. Abrí «User script de WhatsApp» desde tu menú personal y tocá el enlace de instalación.
-4. Creá un token con un nombre para este dispositivo. Copialo en ese momento: el CRM no lo vuelve a mostrar.
-5. En WhatsApp Web abrí el menú de Tampermonkey y configurá el token.
-6. Para reconocer el negocio, agendalo con «Copiar nombre para agendar» desde su ficha.
-7. En el chat revisá la vista previa y confirmá el registro. El script no envía mensajes ni modifica WhatsApp.
+**Ejemplo:**
 
-**Qué queda al terminar:** El CRM registra los mensajes visibles que confirmaste y evita duplicarlos.
+- Llega un email de una dirección nueva que no está cargada en ningún negocio. Por la firma ves que es de Cabañas Camino Claro: lo buscás, lo asociás y Ana lo ve en su próxima revisión.
 
 **Tené en cuenta:**
 
-- Registrar un mensaje no implica que el negocio haya respondido ni aceptado una propuesta.
-- Revocá el token desde el CRM si dejás de usar el dispositivo.
+- Un email queda sin asociar cuando la dirección no está cargada, está en más de un negocio o el remitente no se pudo verificar.
+- Si la dirección del remitente es la buena, cargala en el negocio o en la persona para que los próximos emails se asocien solos.
+
+**Dónde ir:** Emails sin asociar (/inbound)
+
+## Registrar mensajes de WhatsApp
+
+Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar.
+
+### Instalar el user script de WhatsApp
+
+**Cuándo usarlo:** Una sola vez por computadora, antes de registrar mensajes desde WhatsApp Web.
+
+1. Usá una computadora con Chrome, Edge o Firefox. El script funciona en WhatsApp Web (web.whatsapp.com), no en la aplicación del celular ni en WhatsApp de escritorio.
+2. Instalá la extensión Tampermonkey desde la tienda de tu navegador: Chrome Web Store, Microsoft Edge Add-ons o Firefox Add-ons. Es gratuita.
+3. Solo en Chrome o Edge: abrí la página de extensiones (chrome://extensions o edge://extensions), entrá en "Detalles" de Tampermonkey y activá "Permitir scripts de usuario". Si esa opción no aparece, activá "Modo de desarrollador" arriba a la derecha. En Firefox no hace falta este paso.
+4. En el CRM abrí tu menú personal, arriba a la derecha, y elegí «User script de WhatsApp». También lo encontrás con Ctrl+K.
+5. Tocá «Instalar el user script de Hospeda CRM». Tampermonkey abre una pestaña con los datos del script: tocá "Instalar".
+6. Volvé a la página del CRM. En «Nombre del dispositivo» escribí algo que identifique esta computadora (por ejemplo "Notebook oficina") y tocá «Crear token».
+7. Tocá «Copiar token». El token se muestra una sola vez: si cerrás la página sin copiarlo, creá otro.
+8. Abrí WhatsApp Web e iniciá sesión. Tocá el ícono de Tampermonkey en la barra del navegador, elegí «Configurar token», pegá el token y tocá «Guardar».
+9. Abrí un chat individual. Arriba del chat aparece el panel de Hospeda con tu nombre ("Conectado como …"). Si ves «Sin asociar», el script ya funciona: falta vincular ese chat con su negocio.
+
+**Qué queda al terminar:** El script queda instalado y conectado con tu usuario. Se actualiza solo cuando Hospeda publica una versión nueva.
+
+**Ejemplo:**
+
+- Leo instala Tampermonkey en Chrome, activa "Permitir scripts de usuario", instala el script, crea el token "Notebook oficina" y lo pega en WhatsApp Web. Al abrir el chat de Ana ve el panel de Hospeda.
+
+**Tené en cuenta:**
+
+- El token es personal: no lo compartas. Todo lo que registres con él queda a tu nombre.
+- Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token.
+- El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.
+
+**Dónde ir:** User script de WhatsApp (/userscript)
+
+### Vincular un chat de WhatsApp con su negocio
+
+**Cuándo usarlo:** Antes de registrar mensajes de un contacto nuevo, o cuando el panel de Hospeda dice «Sin asociar».
+
+1. El script reconoce el negocio de dos formas: por el código del negocio en el nombre del contacto (por ejemplo "· H1234") o por el teléfono del chat, si coincide con el del negocio, su WhatsApp o el de una persona cargada.
+2. La forma más segura es el código. Abrí la ficha del negocio en el CRM y tocá «Copiar nombre para agendar». Se copia el nombre con el código, por ejemplo "Cabañas Camino Claro · H1234".
+3. En el teléfono de Hospeda, guardá o editá ese contacto y pegá el nombre copiado. WhatsApp Web puede tardar un rato en mostrar el nombre nuevo.
+4. Abrí el chat en WhatsApp Web. El panel muestra el negocio, su código, el responsable y las gestiones abiertas.
+5. Si el teléfono coincide con más de un negocio, elegí el correcto en «Elegir negocio». El script recuerda esa elección para ese teléfono en esta computadora.
+6. Tocá «Abrir en CRM» para ir directo a la ficha del negocio.
+7. Para achicar el panel tocá «Minimizar». Queda una etiqueta "Hospeda · H1234"; tocala para volver a abrirlo.
+
+**Qué queda al terminar:** Cada chat muestra a qué negocio pertenece, quién es su responsable y si tiene restricciones.
+
+**Ejemplo:**
+
+- Copiás "Cabañas Camino Claro · H1234" desde la ficha, lo agendás en el teléfono de Hospeda y, al abrir el chat, el panel muestra el negocio y sus gestiones abiertas.
+
+**Tené en cuenta:**
+
+- Si el panel muestra «Este negocio pidió no ser contactado.», no le escribas. Podés registrar los mensajes que el negocio te mande.
+- Solo ves negocios que también podés ver en el CRM. Los chats grupales no se pueden vincular.
+
+**Dónde ir:** Ir a Negocios (/accounts)
+
+### Registrar mensajes de un chat en el CRM
+
+**Cuándo usarlo:** Después de hablar con un negocio por WhatsApp, para que la conversación quede en su ficha.
+
+1. Abrí el chat del negocio en WhatsApp Web. Si hace falta, subí en la conversación hasta ver los mensajes que querés registrar: el script solo lee los que están cargados en pantalla.
+2. En el panel de Hospeda tocá «Registrar en CRM». Se abre una vista previa con cada mensaje marcado «Entrante» o «Saliente», con su fecha y hora.
+3. Revisá la lista. Destildá lo que no quieras guardar o usá «Seleccionar todos». Los mensajes que ya registraste desde esta computadora no aparecen; si queda alguno repetido, el CRM lo detecta y no lo duplica.
+4. Tocá «Confirmar registro» y esperá. Al terminar ves un resumen: cuántos se registraron, cuántos ya estaban y cuántos se rechazaron, con el motivo.
+5. Los entrantes quedan en la ficha, en «Comunicación», dentro de «Mensajes recibidos» con «Por revisar». También aparecen en Hoy, en «Respuestas nuevas». Revisalos como un email: «Registrar respuesta» o «No es una respuesta».
+6. Los salientes quedan en «Mensajes y borradores» como «Envío confirmado manualmente», a tu nombre.
+7. Si cambiás de chat antes de confirmar, el script no registra nada y te pide volver a abrir el registro en el chat correcto. Así un mensaje nunca termina en otro negocio.
+
+**Qué queda al terminar:** La conversación queda en la ficha del negocio, sin duplicados, y los mensajes recibidos esperan tu revisión.
+
+**Ejemplo:**
+
+- Ana te escribió por WhatsApp preguntando por precios y le contestaste. Tocás «Registrar en CRM», dejás los dos mensajes tildados y confirmás. En la ficha queda tu mensaje enviado y la pregunta de Ana por revisar.
+
+**Tené en cuenta:**
+
+- Registrar un mensaje recibido no lo convierte en respuesta: vos decidís con «Registrar respuesta» o «No es una respuesta».
+- Para registrar mensajes enviados tenés que poder modificar el negocio. Para los recibidos alcanza con poder verlo.
+- Si abriste WhatsApp desde «Contactar» y ya respondiste «¿Lo enviaste?» en el CRM, destildá ese mensaje en la vista previa.
+- Fotos, audios y archivos no se copian al CRM. El CRM rechaza mensajes con fecha futura o de hace más de dos años.
+
+**Dónde ir:** Ir a Hoy (/my-day)
+
+### Problemas con el script de WhatsApp
+
+**Cuándo usarlo:** Cuando el panel de Hospeda no aparece, muestra un error o no puede leer un chat.
+
+1. No aparece el panel: revisá que Tampermonkey y el script "Hospeda CRM" estén activados. En Chrome o Edge, revisá que "Permitir scripts de usuario" siga activo. Después recargá WhatsApp Web.
+2. Si ves «Configurá el token desde el menú de Tampermonkey», cargá tu token con «Configurar token».
+3. Si ves «Token inválido o revocado. Configurá uno nuevo desde el menú de Tampermonkey.», creá un token nuevo en «User script de WhatsApp» y cargalo con «Configurar token».
+4. Si ves «Actualizá el script desde el menú de Tampermonkey», abrí el panel de Tampermonkey y buscá actualizaciones, o reinstalá desde «Instalar el user script de Hospeda CRM».
+5. Si ves «No se pudo consultar el CRM. Reintentando en el próximo cambio.», revisá tu conexión. El script vuelve a intentar cuando cambiás de chat.
+6. Si ves «No pude leer este chat. Registrá a mano desde el CRM.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha con «Registrar respuesta recibida». Después, en el menú de Tampermonkey elegí «Copiar diagnóstico del chat» y mandáselo al administrador.
+7. Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio.
+
+**Qué queda al terminar:** Sabés qué hacer ante cada aviso del script, sin perder lo que se habló.
+
+**Ejemplo:**
+
+- Cambiaste de computadora: en la vieja tocás «Revocar» junto a su token, creás uno nuevo para la computadora nueva y lo cargás con «Configurar token».
+
+**Tené en cuenta:**
+
+- El diagnóstico copia solo la estructura de la pantalla, sin textos de los mensajes y con los teléfonos ocultos.
+- Para desconectar el script de una computadora sin revocar el token, elegí «Borrar token» en el menú de Tampermonkey.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
