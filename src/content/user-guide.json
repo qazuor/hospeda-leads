@@ -202,6 +202,34 @@
           "Anotá cómo salió",
           "Gestiones sin tarea agendada"
         ]
+      },
+      {
+        "id": "received-email",
+        "title": "Respuestas por email",
+        "when": "Cuando llega un email de un negocio al CRM.",
+        "steps": [
+          "Los emails recibidos aparecen en «Comunicación» dentro de la ficha del negocio. El texto se muestra como texto plano.",
+          "Usá «Registrar respuesta» para guardar el email como una respuesta recibida: completá el resumen y revisá el texto exacto antes de guardar. No se envía ningún mensaje.",
+          "Si el email no es una respuesta, elegí «No es una respuesta» y escribí un motivo.",
+          "En Hoy, «Respuestas nuevas» reúne emails pendientes de revisar de tus negocios.",
+          "Administración puede revisar «Emails sin asociar», elegir un negocio y asociar el email para que aparezca en su Comunicación."
+        ],
+        "result": "Sabés dónde revisar los emails recibidos y cómo registrarlos o descartarlos.",
+        "example": [
+          "Leés el email en la ficha, escribís un resumen y registrás la respuesta."
+        ],
+        "notes": [
+          "Registrar una respuesta no confirma pagos ni entregas."
+        ],
+        "url": "/my-day",
+        "linkLabel": "Ir a Hoy",
+        "uiLabels": [
+          "Comunicación",
+          "Registrar respuesta",
+          "No es una respuesta",
+          "Respuestas nuevas",
+          "Emails sin asociar"
+        ]
       }
     ]
   },

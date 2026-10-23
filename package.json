@@ -32,7 +32,7 @@
     "test:auth": "node --import tsx scripts/test-password-recovery.ts",
     "test:quality": "node scripts/test-data-quality-migration.mjs && node scripts/test-business-import-migration.mjs && node --import tsx scripts/test-data-quality.ts && node --import tsx scripts/test-business-import.ts && node --import tsx scripts/test-business-import-api.ts",
     "test:communication": "node scripts/test-communication-migration.mjs && node scripts/test-communication-product-migration.mjs && node scripts/test-message-catalog-migration.mjs && node --import tsx scripts/test-communication.ts && DB_LOCK_TIMEOUT_MS=2000 node --import tsx scripts/test-communication-locks.ts",
-    "test:inbound": "node --import tsx scripts/test-inbound-email.ts",
+    "test:inbound": "node --import tsx scripts/test-inbound-email.ts && node --import tsx scripts/test-inbound-email-ui.ts",
     "test:usability": "node --import tsx scripts/test-usability.ts",
     "test:permissions": "node --import tsx scripts/test-permissions.ts",
     "build:message-catalog": "node --import tsx scripts/build-message-catalog-migration.ts",

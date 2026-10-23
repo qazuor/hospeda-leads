@@ -16,7 +16,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Columnas agrupadas de Negocios (definiciones, líneas visibles, popover de tabla y editor) | `src/helpers/businessColumnGroups.ts`, `src/endpoints/business_column_groups.ts`, `src/components/BusinessColumnGroupsEditor.tsx`, `src/components/BusinessColumnGroupCell.tsx`; renderizado de tabla/grilla en `src/pages/business-list.tsx`; preferencias en `businessListPreferences.ts` |
 | Trabajo y resultados | `src/endpoints/work.ts`, `work.schema.ts`, componentes de trabajo |
 | Pipeline/etapas/acuerdos | `src/endpoints/pipeline.ts`, helpers y schemas correspondientes |
-| Comunicación | `src/endpoints/communication.ts`, selector/editor compartido y componentes de modelos |
+| Comunicación e email entrante | `src/endpoints/communication.ts`, `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, `src/helpers/communicationService.ts` y `src/components/CommunicationPanel.tsx` |
 | Email entrante F1 | `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, migración `037_inbound_messages.sql`, Worker Cloudflare en `workers/inbound-email/` |
 | Recursos/versiones/descarga | `src/endpoints/resources.ts`, miniaturas/visor y biblioteca |
 | Calidad e importación | `src/endpoints/dataQuality.ts`, `businessImport.ts` y schemas |

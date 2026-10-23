@@ -53,6 +53,7 @@ const messageScope=(id:string)=>(e:Executor)=>accountsOf(e,sql<{accountId:string
 function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatch'}>){return async(e:Executor):Promise<CommunicationLockScope>=>{
  if(input.action==='prepare')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`);
  if(input.action==='prepare_general'||input.action==='manual_start'||input.action==='response_create')return {accountIds:[input.accountId]};
+ if(input.action==='inbound_register'||input.action==='inbound_dismiss')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid AND account_id IS NOT NULL`);
  if(input.action==='response_correct')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_communication_responses WHERE id=${input.id}::uuid`);
  if(input.action==='restrict')return input.accountId?{accountIds:[input.accountId]}:input.leadId?accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`):{accountIds:[]};
  if(input.action==='lift')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_contact_restrictions WHERE id=${input.id}`);
@@ -340,6 +341,21 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  if(input.action==='prepare_general')return prepareGeneral(e,input,user);
  if(input.action==='manual_start')return startManual(e,input,user);
  if(input.action==='response_create')return createResponse(e,input,user);
+ if(input.action==='inbound_register'){
+  const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
+  if(row.status==='registered'&&row.responseId){await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);return {id:String(row.responseId),duplicate:true};}
+  if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user);
+  await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
+  await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
+ }
+ if(input.action==='inbound_dismiss'){
+  const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
+  if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
+  await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,true);
+  await sql`UPDATE crm_inbound_messages SET status='dismissed',updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
+  await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_dismissed',actor:user,after:{status:'dismissed',reason:input.reason}});return {ok:true};
+ }
  if(input.action==='response_correct')return correctResponse(e,input,user);
  if(input.action==='manual_complete'){
   const m=await messageFor(e,input.id,user,true);if(m.status!=='manual_pending')throw new CommunicationConflict('Este intento ya fue completado.');

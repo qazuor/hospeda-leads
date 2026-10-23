@@ -18,6 +18,9 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'POST /_api/business_import':503,
 'POST /_api/inbound/email':503,
 'GET /_api/inbound/addresses':503,
+'GET /_api/inbound/review':401,
+'GET /_api/inbound/unmatched':401,
+'POST /_api/inbound/assign':401,
 };
 // Wildcard or ALL routes under /_api are not probed, so none are allowed.
 const WILDCARD_ALLOWLIST=new Set<string>();

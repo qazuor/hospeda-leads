@@ -36,6 +36,7 @@ export const AppHeader=()=>{
     {url:'/settings',label:'Configuración',icon:Settings},
     {url:'/history',label:'Historial del equipo',icon:History},
     {url:'/trash',label:'Papelera',icon:Trash2},
+    {url:'/inbound',label:'Emails sin asociar',icon:Upload},
   ];
   const isActive=(url:string)=>url.includes('?')?location.pathname+location.search===url:location.pathname.startsWith(url)||(url==='/opportunities'&&location.pathname.startsWith('/sales/'));
   const section=sectionTitle({pathname:location.pathname})??(isAdmin?[...archivedNavigation,...adminNavigation].find(item=>!item.url.includes('?')&&location.pathname.startsWith(item.url))?.label:null)??null;
