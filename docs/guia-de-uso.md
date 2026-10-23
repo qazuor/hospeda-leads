@@ -183,7 +183,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 3. Escribí tu respuesta. Con «Ver mensaje citado» revisás lo que te escribieron: ese texto se agrega solo debajo de tu mensaje.
 4. Tocá «Enviar respuesta» una sola vez y esperá. El email sale desde Hospeda y llega dentro de la misma conversación que el negocio ve en su casilla.
 5. Al terminar, la respuesta aparece en «Mensajes y borradores» como respuesta con el estado «Email aceptado por proveedor · entrega no confirmada». Eso significa que el servicio de envío lo tomó; no confirma que lo hayan leído.
-6. Si el CRM avisa que el resultado es incierto, no lo vuelvas a escribir ni a mandar. «Responder» deja de estar disponible para ese email, así nunca sale dos veces. Avisale al administrador para que revise en el servicio de envío si salió.
+6. Si el CRM avisa que el resultado es incierto, no lo vuelvas a escribir ni a mandar. «Responder» deja de estar disponible para ese email, así nunca sale dos veces. El administrador revisa el servicio de envío y resuelve el resultado desde el mensaje con «Marcar como enviado» o «Marcar como no enviado».
 
 **Qué queda al terminar:** El negocio recibe tu respuesta en el mismo hilo y el CRM guarda qué se mandó, cuándo y quién lo mandó.
 
@@ -804,7 +804,7 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 1. Antes de guardar un formulario, corregí el dato. Si hay cambios sin guardar, elegí volver al formulario o descartarlos.
 2. Para corregir un resultado ya anotado, abrí el menú de su tarea completada y tocá «Corregir cómo salió». Para una respuesta recibida, usá «Corregir respuesta» y escribí el motivo. El historial conserva el valor anterior, quién lo cambió y cuándo.
 3. Si un envío de email o WhatsApp quedó sin confirmar, confirmalo como enviado o no enviado solo cuando puedas verificarlo. No lo reenvíes automáticamente.
-4. Si una respuesta a un email quedó con resultado incierto, no la reenvíes ni la escribas de nuevo. «Responder» deja de estar disponible para ese email. Avisale al administrador para que revise en el servicio de envío si salió.
+4. Si una respuesta a un email quedó con resultado incierto, no la reenvíes ni la escribas de nuevo. «Responder» deja de estar disponible para ese email. El administrador revisa el servicio de envío y resuelve el resultado desde el mensaje con «Marcar como enviado» o «Marcar como no enviado».
 5. El texto de un intento sin confirmar no se sobrescribe. Si el mensaje tiene que cambiar, creá otro intento y conservá el anterior.
 6. Para un acuerdo ganado, usá «Revisar acuerdo y entrega». No marques algo como hecho para sacar una tarea vencida: anotá el resultado real o tocá «Ya no hace falta» en lo que ya no corresponde.
 7. Si cargaste una tarea por error, abrí su menú y tocá «Borrar (cargada por error)».

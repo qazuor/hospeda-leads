@@ -15,6 +15,7 @@ export const historyFilter=(value:string|null|undefined):HistoryFilter=>(history
 const communicationTitles:Readonly<Record<string,string>>={
  contact_completed:'Contacto realizado',contact_started:'Contacto iniciado',contact_logged:'Contacto anotado',contact_resolved:'Contacto resuelto',contact_linked:'Mensaje de WhatsApp vinculado',draft_prepared:'Mensaje preparado',draft_cancelled:'Mensaje descartado',
  email_submission_started:'Envío de email en curso',email_result_uncertain:'Resultado del email incierto',whatsapp_opened_unconfirmed:'WhatsApp abierto, envío sin confirmar',interaction_corrected:'Contacto corregido',
+ email_uncertain_resolved:'Resultado incierto resuelto por un administrador',
  brevo_accepted:'Email aceptado por el proveedor',brevo_rejected:'Email rechazado por el proveedor',response_registered:'Respuesta anotada',response_corrected:'Respuesta corregida',response_reminder_created:'Recordatorio agendado desde una respuesta',
  do_not_contact_activated:'Se marcó No contactar',do_not_contact_lifted:'Se levantó No contactar',business_archived_by_do_not_contact:'Negocio archivado por No contactar',client_marked_by_care_contact:'Marcado como cliente',
  technical_restriction_added:'Se bloqueó un canal de contacto',technical_restriction_lifted:'Se habilitó un canal de contacto'
