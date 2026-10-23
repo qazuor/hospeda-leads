@@ -44,3 +44,9 @@ export const actorLabel=(actor:string|null|undefined,users?:readonly LabelUser[]
  if(!value||value.toLowerCase()==='sistema')return 'Automático';
  return value.includes('@')?userLabel(users,value):value;
 };
+
+type InboundLabelItem={channel:string;fromAddress:string;subject?:string|null};
+/** What a received item is called in copy: WhatsApp messages are "mensaje", everything else "email". */
+export const inboundNoun=(channel:string):'mensaje'|'email'=>channel==='whatsapp'?'mensaje':'email';
+/** Sender, subject and time of a received item; WhatsApp has no subject and may have no phone, so those parts are omitted. */
+export const inboundMeta=({item,when}:{item:InboundLabelItem;when:string}):string=>[item.fromAddress,item.channel==='whatsapp'?'':item.subject||'(sin asunto)',when].filter(Boolean).join(' · ');
