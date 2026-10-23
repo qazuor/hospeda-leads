@@ -2,6 +2,10 @@
 
 Registro de hitos para trasladar el proyecto entre herramientas. No es una transcripción completa del chat ni el journal de usuarios comerciales. Fechas y estados se indican cuando se conocen; para la historia íntegra de código consultar GitHub y los PRs.
 
+## 23/10/2026 — respuestas por email y WhatsApp Web en staging
+
+Se mergearon a `staging` la respuesta a emails en el mismo hilo por SMTP de Brevo (#218), el user script de WhatsApp Web con su lado CRM (#219, #220), la Ayuda paso a paso de ambos canales (#221), los textos de WhatsApp en «Mensajes recibidos» (#222) y la corrección de la metadata del historial en ediciones en lote (#223). El servidor de prueba local quedó en `staging` para la verificación del propietario. No hubo deploy ni escrituras productivas.
+
 ## 22 y 23/10/2026 — catálogo de mensajes y emails recibidos en staging
 
 Se mergearon a `staging` el motor de variantes de mensajes (#212), el catálogo nuevo de 33 modelos con la migración 036, que reemplaza los modelos y variables existentes (#213), y la recepción de emails de la spec 83 (#214–#216): un Email Worker de Cloudflare reenvía cada email a Gmail y lo entrega al CRM, que lo asocia al negocio y lo deja para revisar. El 22/10 se verificó con una prueba real que el relay SMTP de Brevo conserva los encabezados de hilo; el 23/10 se probó F1 de punta a punta con emails reales y un servidor local expuesto por túnel. No hubo deploy ni escrituras productivas.

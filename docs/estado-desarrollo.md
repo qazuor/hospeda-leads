@@ -2,7 +2,7 @@
 
 ## Mensajes y emails recibidos — 22 y 23/10/2026 (mergeado a `staging`, sin desplegar)
 
-Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción: **nada**. Producción sigue sin las migraciones 024–037.
+Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción: **nada**. Producción sigue sin las migraciones 024–039.
 
 - **#211 (`2aaf63b`):** los badges no semánticos de Negocios vuelven a tener color estable por valor. Revisados pasa a editable para el responsable o un admin: «Revisado» desde Nuevo, «No revisado» desde Revisado, Sin tarea agendada o Recontactar (limpia la fecha y cancela la tarea «Volver a contactar» sin tocar). Sin migración.
 - **#212 (`1ee2691`):** motor de variantes de mensajes con azar estable por negocio, persona y día, sin repetir la variante anterior del mismo modelo; condiciones nuevas (ciudad, perfil, propósito, día, mes, es cliente); propósito en modelos (migración 035); contexto único entre vista previa y servidor; modelo de red social con «Copiar texto».
@@ -10,6 +10,13 @@ Implementado y mergeado a `staging`: todo lo que sigue. Desplegado a producción
 - **#214:** spec 83 de registro automático de canales (email, WhatsApp con user script de Tampermonkey, Instagram).
 - **#215:** F1a de la spec 83. Migración 037 (`crm_inbound_messages`), `POST /_api/inbound/email` y `GET /_api/inbound/addresses` con `INBOUND_EMAIL_TOKEN`, y el Email Worker de Cloudflare (`workers/inbound-email/`) que reenvía a Gmail y entrega al CRM. Asociación por `In-Reply-To`, `References` y remitente autenticado (DMARC o SPF alineado según el `Authentication-Results` superior de `mx.cloudflare.net`); ante ambigüedad queda Sin asociar.
 - **#216 (`e28bfd4`):** F1b. Emails recibidos en Comunicación del negocio (texto plano), «Registrar respuesta» y «No es una respuesta», bloque «Respuestas nuevas» en Hoy y página admin «Emails sin asociar» (`/inbound`) para asociar a mano.
+
+- **#218 (`65f43ea`):** F2. «Responder» en emails recibidos, por el relay SMTP de Brevo y en el mismo hilo (`Message-ID` propio, `In-Reply-To`, `References`). Si el resultado es incierto, no se puede responder otra vez ese email. La migración 038 agrega columnas a `email_outbox` y repara `headers`/`attachments` que F1 guardaba como string JSON. Requiere `BREVO_SMTP_LOGIN`/`BREVO_SMTP_KEY`; sin ellas «Responder» queda oculto.
+- **#219 (`17953b7`) y #220 (`060deaa`):** F3. El lado CRM (migración 039, tokens en «User script de WhatsApp» `/userscript`, contexto y registro por token, «Copiar nombre para agendar») y el user script de Tampermonkey (`userscript/`, servido en `/userscripts/hospeda-crm.user.js`, se actualiza solo). Lee el chat abierto en WhatsApp Web y registra lo visible solo después de una vista previa y una confirmación. Nunca escribe en WhatsApp.
+- **#221 (`7705b46`):** Ayuda. Cuatro artículos del script de WhatsApp (instalar, vincular un chat, registrar y problemas), «Responder un email desde el CRM», «Asociar emails que llegaron sin negocio» y actualizaciones de los artículos de rutina, pantallas, contacto y correcciones. El control de textos de la Ayuda ahora también verifica la interfaz del script.
+- **#222 (`e76b031`):** los WhatsApp recibidos ya no muestran «(sin asunto)», y el descarte dice «mensaje» en vez de «email».
+- **#223 (`2eff9c6`):** la edición de negocios en lote y la redistribución de responsables guardaban su metadata del historial como string JSON, el mismo bug que corrigió #218. Ahora guardan objetos, y un control de código impide el cast directo `::jsonb`. **Las filas viejas siguen como string**; repararlas requiere una migración que aún no se decidió.
+- **#224:** pruebas de componente de «Mensajes recibidos», «Responder email» y «Emails sin asociar» (en PR).
 
 Pruebas: las de cada PR (typecheck, `npm test`, build, integración sobre bases descartables, e2e y tests del Worker). F1 se probó de punta a punta el 23/10/2026 con emails reales, el Worker desplegado y un servidor local expuesto por túnel temporal: la respuesta en hilo se asoció por `In-Reply-To` y los remitentes desconocidos quedaron Sin asociar. Pendiente: prueba real de asociación por remitente, verificación visual del propietario y lo listado en [pendientes](pendientes.md).
 
