@@ -41,9 +41,14 @@ ADMIN_EMAIL=<email administrador>
 BREVO_API_KEY=<Hospeda Brevo API key>
 PUBLIC_APP_URL=https://crm.hospeda.com.ar
 INBOUND_EMAIL_TOKEN=<random secret, minimum 32 characters; shared with the Cloudflare Email Worker>
+BREVO_SMTP_LOGIN=<Brevo SMTP login for the CRM>
+BREVO_SMTP_KEY=<dedicated, revocable CRM SMTP key>
+BREVO_SMTP_PORT=587
 ```
 
 No versionar valores reales.
+
+Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` y, opcionalmente, `BREVO_SMTP_PORT` en Coolify. La clave debe ser propia del CRM y revocable. Si falta el usuario o la clave, el servidor inicia igual y oculta la acción.
 
 ## Migraciones
 

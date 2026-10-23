@@ -210,6 +210,8 @@
         "steps": [
           "Los emails recibidos aparecen en «Comunicación» dentro de la ficha del negocio. El texto se muestra como texto plano.",
           "Usá «Registrar respuesta» para guardar el email como una respuesta recibida: completá el resumen y revisá el texto exacto antes de guardar. No se envía ningún mensaje.",
+          "Si aparece «Responder», podés contestar desde el CRM en el mismo hilo. El destinatario queda fijo para vendedores; administración puede editarlo. El email citado se agrega debajo de tu mensaje.",
+          "Si el negocio pidió no ser contactado, solo podés responder a un email que llegó después de la restricción y a esa misma dirección. El bloqueo sigue activo.",
           "Si el email no es una respuesta, elegí «No es una respuesta» y escribí un motivo.",
           "En Hoy, «Respuestas nuevas» reúne emails pendientes de revisar de tus negocios.",
           "Administración puede revisar «Emails sin asociar», elegir un negocio y asociar el email para que aparezca en su Comunicación."
@@ -226,6 +228,7 @@
         "uiLabels": [
           "Comunicación",
           "Registrar respuesta",
+          "Responder",
           "No es una respuesta",
           "Respuestas nuevas",
           "Emails sin asociar"

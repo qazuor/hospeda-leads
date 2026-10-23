@@ -16,7 +16,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Columnas agrupadas de Negocios (definiciones, líneas visibles, popover de tabla y editor) | `src/helpers/businessColumnGroups.ts`, `src/endpoints/business_column_groups.ts`, `src/components/BusinessColumnGroupsEditor.tsx`, `src/components/BusinessColumnGroupCell.tsx`; renderizado de tabla/grilla en `src/pages/business-list.tsx`; preferencias en `businessListPreferences.ts` |
 | Trabajo y resultados | `src/endpoints/work.ts`, `work.schema.ts`, componentes de trabajo |
 | Pipeline/etapas/acuerdos | `src/endpoints/pipeline.ts`, helpers y schemas correspondientes |
-| Comunicación e email entrante | `src/endpoints/communication.ts`, `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, `src/helpers/communicationService.ts` y `src/components/CommunicationPanel.tsx` |
+| Comunicación e email entrante | `src/endpoints/communication.ts`, `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, `src/helpers/emailReply.ts`, `src/helpers/emailReplyPure.ts`, `src/helpers/smtpTransport.ts`, `src/helpers/communicationService.ts` y `src/components/CommunicationPanel.tsx` |
 | Email entrante F1 | `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, migración `037_inbound_messages.sql`, Worker Cloudflare en `workers/inbound-email/` |
 | Recursos/versiones/descarga | `src/endpoints/resources.ts`, miniaturas/visor y biblioteca |
 | Calidad e importación | `src/endpoints/dataQuality.ts`, `businessImport.ts` y schemas |
@@ -92,6 +92,8 @@ Kysely transforma snake_case a camelCase mediante el plugin existente. Hay overr
 | 032 | Extensión `pg_trgm` e índices GIN de trigramas sobre la expresión exacta de `normalizeSearchSql` (`crm_accounts`, `crm_contacts`, `crm_activities`, `lead_notes`) para la búsqueda sin acentos; si cambia la expresión en `searchSql.ts`, hace falta una migración nueva (`scripts/test-search.ts` lo verifica) |
 | 033 | Índice parcial de tareas completadas por día de Argentina (`doneToday` de Hoy) |
 | 034 | Índices GIN de trigramas de `leads` (nombre, opportunity_name, service_interest, contact_name, origen) y `crm_accounts.origin`, sobre la misma expresión que 032. Los usan Ctrl+K «Gestiones» y el `q=` del listado de negocios, que buscan cada tabla por separado con `idSetSearchSql` (`searchSql.ts`; fuentes del listado en `businessSearchSql`, `businessTable.ts`) |
+| 037 | Registro de emails entrantes y estado de revisión |
+| 038 | Transporte SMTP para respuestas en hilo y vínculo con el email entrante |
 
 El migrador lleva checksums. Aplicar migraciones no ejecuta la limpieza ni recupera campos históricos automáticamente.
 

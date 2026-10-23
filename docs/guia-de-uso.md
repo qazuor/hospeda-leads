@@ -110,10 +110,6 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 6. «Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.
 7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV» y «Buscar duplicados». Si no los ves, son del administrador.
 
-### Emails entrantes
-
-Los emails asociados aparecen en «Comunicación» del negocio. «Ver completo» muestra texto plano; abrirlo no registra ni clasifica una respuesta. Si requiere clasificación, elegí «Registrar respuesta», completá categoría y resumen, y guardá. Si no corresponde a una respuesta, «No es una respuesta» pide un motivo. En Hoy aparece el bloque «Respuestas nuevas» para los emails pendientes que te corresponden. Administración puede asociar los mensajes de «Papelera» → «Sin asociar».
-
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
 
 **Ejemplo:**
@@ -148,6 +144,30 @@ Los emails asociados aparecen en «Comunicación» del negocio. «Ver completo»
 
 - Una lista vacía solo significa que no tenés tareas con esos filtros; no demuestra que toda la cartera esté atendida.
 - Las gestiones que necesitan un próximo paso aparecen en «Gestiones sin tarea agendada». Agendá una tarea para sacarlas de esa lista.
+
+**Dónde ir:** Ir a Hoy (/my-day)
+
+### Respuestas por email
+
+**Cuándo usarlo:** Cuando llega un email de un negocio al CRM.
+
+1. Los emails recibidos aparecen en «Comunicación» dentro de la ficha del negocio. El texto se muestra como texto plano.
+2. Usá «Registrar respuesta» para guardar el email como una respuesta recibida: completá el resumen y revisá el texto exacto antes de guardar. No se envía ningún mensaje.
+3. Si aparece «Responder», podés contestar desde el CRM en el mismo hilo. El destinatario queda fijo para vendedores; administración puede editarlo. El email citado se agrega debajo de tu mensaje.
+4. Si el negocio pidió no ser contactado, solo podés responder a un email que llegó después de la restricción y a esa misma dirección. El bloqueo sigue activo.
+5. Si el email no es una respuesta, elegí «No es una respuesta» y escribí un motivo.
+6. En Hoy, «Respuestas nuevas» reúne emails pendientes de revisar de tus negocios.
+7. Administración puede revisar «Emails sin asociar», elegir un negocio y asociar el email para que aparezca en su Comunicación.
+
+**Qué queda al terminar:** Sabés dónde revisar los emails recibidos y cómo registrarlos o descartarlos.
+
+**Ejemplo:**
+
+- Leés el email en la ficha, escribís un resumen y registrás la respuesta.
+
+**Tené en cuenta:**
+
+- Registrar una respuesta no confirma pagos ni entregas.
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
