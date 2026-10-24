@@ -184,3 +184,12 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - Los valores viejos de `?section=` siguen funcionando: `que-paso`/`history` → Historial; `work` → Tareas (Historial en solo lectura); `communication` → Comunicación; `gestiones`, `opportunities`, `personas`, `contacts`, `datos`, `documents`, `summary` → la cuarta solapa.
 - La explicación de cada estado del negocio queda en la ayuda «?» junto al badge; la tarjeta de estado completa ya no se muestra en la ficha.
 - Pendiente de revisar con el propietario: si conviene una variante de dos columnas en escritorio.
+
+## Rediseño visual del CRM (24/10/2026, propietario)
+
+- Identidad de colores vivos (referencia FlowTask): primario azul `#2563EB` sobre fondo gris azulado `#EEF2F8`, tarjetas blancas, ocho tonos (azul, celeste, verde, naranja, rojo, violeta, rosa, pizarra) en versión sólida, suave y de texto. Tipografía única Plus Jakarta Sans.
+- Estados del negocio: Nuevo pizarra, Revisado celeste, En gestión azul, Sin tarea agendada naranja, Recontactar violeta, Archivado pizarra. Etapas: abiertas azul, ganadas verde, perdidas rojo. `src/helpers/tones.ts` es la fuente única.
+- Botones en cuatro niveles: primario sólido, secundario neutro con borde, texto y destructivo rojo suave.
+- La v1 del rediseño es solo visual/UX sobre datos y endpoints existentes. Se entrega por fases a `staging`, cada una con un mockup aprobado antes. Orden: sistema de diseño, shell (sidebar, breadcrumbs, nav inferior en el celular), ficha, listas, Hoy, kanban, drawers de alta y edición.
+- Se pueden renombrar etiquetas si el propietario las aprueba en el mockup; la Ayuda, la guía y los e2e se actualizan en el mismo PR.
+- Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.

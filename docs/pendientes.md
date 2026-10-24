@@ -1,5 +1,11 @@
 # Pendientes y próximo trabajo
 
+## Rediseño visual (v1 por fases)
+
+Plan aprobado el 24/10/2026 (ver `decisiones.md`, «Rediseño visual del CRM»). Fase 0 (sistema de diseño) en PR a `staging`. Siguen: shell (sidebar, breadcrumbs, nav inferior), ficha del negocio, listas, Hoy, kanban y drawers de alta y edición, cada una con mockup aprobado antes de implementar.
+
+- **Después de la v1, cada uno con análisis propio:** contadores en la sidebar (endpoint liviano), KPIs con agregados nuevos, Bandeja unificada de conversaciones (endpoint agregado nuevo), drag & drop en kanban y columnas (dependencia nueva), destacados por usuario.
+
 ## Registro automático de canales (spec 83)
 
 Spec en [`crm-roadmap/83-registro-automatico-canales.md`](crm-roadmap/83-registro-automatico-canales.md) (#214). F1 y F2 mergeados a `staging` (#215, #216, #218), sin desplegar; F3 mergeado (#219 lado CRM, `17953b7`; #220 el script); F4 sin implementar. Orden: F1 email entrante (Cloudflare Email Worker), F2 responder en hilo por SMTP de Brevo, F3 user script de WhatsApp Web (Tampermonkey), F4 Instagram. Verificado el 22/10/2026 con una prueba real: el relay SMTP de Brevo conserva `Message-ID`, `In-Reply-To` y `References` y Gmail arma el hilo. Las cinco decisiones abiertas quedaron resueltas el 22/10/2026 (sección 11 de la spec y `decisiones.md`).

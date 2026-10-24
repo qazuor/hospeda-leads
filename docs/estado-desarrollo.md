@@ -1,4 +1,16 @@
-# Estado del CRM — corte al 23 de octubre de 2026
+# Estado del CRM — corte al 24 de octubre de 2026
+
+## Rediseño visual v1, Fase 0: sistema de diseño — 24/10/2026 (en PR a `staging`, sin desplegar)
+
+Primera fase del rediseño aprobado por el propietario (ver [decisiones](decisiones.md)). Solo visual: no cambia rutas, etiquetas, permisos ni contratos.
+
+- Tipografía Plus Jakarta Sans; primario #2563EB sobre fondo #EEF2F8 con tarjetas blancas de radio 16 px; modo oscuro con fondo #0A0F1C y tarjetas #111827.
+- Tonos `--tone-{blue,green,orange,red,violet,sky,pink,slate}` (sólido, suave y tinta) y mapa único valor → tono en `src/helpers/tones.ts` para estado del negocio, etapa, revisión y prioridad.
+- Badges sin borde con fondo suave; los de estado llevan un punto decorativo.
+- Botones en cuatro niveles: primario sólido, secundario con borde neutro, texto y destructivo (rojo suave, sólido al hover).
+- Overlay de diálogos derivado de tokens.
+
+Pruebas: typecheck, `npm test` (932), build y capturas a 1280 px (claro y oscuro) y 390 px sin scroll horizontal. E2e completos sobre Postgres 17 descartable: 186/194 en la primera corrida; seis fallos fijaban la opacidad y el color viejos y se actualizaron al diseño aprobado, uno era el área táctil del «?» de Gestiones (se separó del botón primario y se esperó al tablero antes de medir) y `commercial.e2e.ts` es el fallo local conocido de entorno. Los specs corregidos pasan 11/11. Pendiente: revisión visual del propietario en staging y la Fase 1 (estructura general).
 
 ## Mensajes y emails recibidos — 22 y 23/10/2026 (mergeado a `staging`, sin desplegar)
 
