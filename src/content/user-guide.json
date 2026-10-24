@@ -137,7 +137,7 @@
           "Querés ver qué tenés que hacer hoy: «Hoy». Querés encontrar a un comercio: «Negocios». Querés ver todas las propuestas abiertas: «Gestiones»."
         ],
         "notes": [
-          "Los materiales aprobados se vinculan desde «Gestiones · Personas · Datos», dentro del negocio. Solo un administrador administra la biblioteca."
+          "Los materiales aprobados se vinculan desde la pestaña «Documentos» del negocio. Solo un administrador administra la biblioteca."
         ],
         "url": "/my-day",
         "linkLabel": "Ir a Hoy",
@@ -160,7 +160,7 @@
           "Buscar duplicados",
           "Emails sin asociar",
           "User script de WhatsApp",
-          "Gestiones · Personas · Datos"
+          "Documentos"
         ]
       },
       {
@@ -408,7 +408,7 @@
         "title": "Agregar personas y elegir con quién hablar",
         "when": "Cuando conocés a alguien del negocio o hay varias personas involucradas.",
         "steps": [
-          "Abrí el negocio y entrá en la pestaña «Gestiones · Personas · Datos», en la sección «Personas». Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.",
+          "Abrí el negocio y buscá «Personas» en la ficha. Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.",
           "Completá el nombre, el teléfono o el email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar vacíos.",
           "Marcá Principal si es la referencia habitual del negocio y guardá.",
           "Si el teléfono que cargás es el de un negocio que pidió no ser contactado, el CRM te muestra un aviso con el nombre del negocio. Podés guardar a la persona, pero antes tenés que tildar «Entendido, no voy a contactar a ese negocio». No uses ese teléfono para contactar sin consultar a un administrador.",
@@ -430,8 +430,7 @@
           "Agregar persona",
           "Contactar",
           "Volver al próximo paso",
-          "Entendido, no voy a contactar a ese negocio",
-          "Gestiones · Personas · Datos"
+          "Entendido, no voy a contactar a ese negocio"
         ]
       },
       {
@@ -439,7 +438,7 @@
         "title": "Cuándo crear una gestión y cómo hacerlo",
         "when": "Cuando vas a trabajar una propuesta concreta. No hace falta para cada llamada general.",
         "steps": [
-          "Abrí el negocio, entrá en la pestaña «Gestiones · Personas · Datos», en la sección «Gestiones» y tocá «Iniciar gestión». Para empezar, el negocio tiene que estar Revisado.",
+          "Abrí el negocio, entrá en la pestaña «Gestiones» y tocá «Iniciar gestión». Para empezar, el negocio tiene que estar Revisado.",
           "Si figura Nuevo pero acabás de verificarlo, confirmalo en el formulario con «Marcar Revisado e iniciar gestión»: queda Revisado al guardar la nueva gestión.",
           "Elegí el «Tipo de gestión»: verticales principales, Partners, Proveedores, Editores o Acompañamiento de ficha. Acompañamiento de ficha es para ayudar a un cliente con su ficha después de que aceptó.",
           "Escribí un «Nombre de la gestión» corto y concreto, por ejemplo: Plan de alojamiento 2027, Propuesta para una institución o Completar la ficha de Hospeda. El responsable se toma del negocio; solo un administrador puede cambiarlo.",
@@ -463,8 +462,7 @@
           "Marcar Revisado e iniciar gestión",
           "Tipo de gestión",
           "Nombre de la gestión",
-          "Más datos (opcional)",
-          "Gestiones · Personas · Datos"
+          "Más datos (opcional)"
         ]
       },
       {
@@ -878,7 +876,7 @@
         "when": "Cuando existe una propuesta nueva, distinta de la anterior.",
         "steps": [
           "Abrí el negocio existente; no crees otro negocio por tratarse de una segunda gestión.",
-          "En la pestaña «Gestiones · Personas · Datos», en la sección «Gestiones» tocá «Iniciar gestión». Poné un nombre concreto y revisá la persona principal.",
+          "En la pestaña «Gestiones» tocá «Iniciar gestión». Poné un nombre concreto y revisá la persona principal.",
           "Guardá y agendá una tarea con propósito Conversación comercial vinculada a esta nueva gestión.",
           "Trabajá propuesta, decisión y cierre dentro de ella. Seguí usando las tareas de acompañamiento para lo que contrató antes."
         ],
@@ -891,8 +889,7 @@
         "linkLabel": "",
         "uiLabels": [
           "Gestiones",
-          "Iniciar gestión",
-          "Gestiones · Personas · Datos"
+          "Iniciar gestión"
         ]
       }
     ]
@@ -965,7 +962,7 @@
         "title": "Buscar y vincular materiales al negocio",
         "when": "Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.",
         "steps": [
-          "Abrí el negocio y entrá en la solapa «Gestiones · Personas · Datos», o abrí una gestión y entrá en «Documentos».",
+          "Abrí el negocio y entrá en la pestaña «Documentos», o abrí una gestión y entrá en «Documentos».",
           "Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.",
           "Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.",
           "Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.",
@@ -981,7 +978,6 @@
         "url": "/accounts",
         "linkLabel": "Elegir negocio para consultar materiales",
         "uiLabels": [
-          "Gestiones · Personas · Datos",
           "Documentos",
           "Vincular documento al negocio",
           "Vincular documento a la gestión",
@@ -1082,7 +1078,7 @@
         "steps": [
           "Buscás Cabañas Camino Claro en «Negocios». Como no existe, tocás «Nuevo negocio», completás los datos que conocés y tocás «Crear negocio». El negocio queda Nuevo.",
           "Verificás que el establecimiento exista y sea el correcto. Guardás la fuente confiable y cambiás el Estado del negocio a Revisado.",
-          "En la pestaña «Gestiones · Personas · Datos», en la sección «Personas» tocás «Agregar persona» y cargás a Ana, su teléfono y su preferencia. La marcás como principal si corresponde.",
+          "En la sección «Personas» de la ficha, tocás «Agregar persona» y cargás a Ana, su teléfono y su preferencia. La marcás como principal si corresponde.",
           "Tocás «Iniciar gestión» y elegís el tipo verticales principales y un nombre concreto. También podrías iniciarla desde «Contactar»; si verificás el negocio ahí, el mismo paso lo deja Revisado.",
           "Agendás una llamada con «Agendar tarea» o tocás «Contactar» desde la gestión. Revisás destinatario, canal y restricciones. El email sale desde el CRM; WhatsApp pide que confirmes si lo enviaste.",
           "Después del contacto, el CRM te pregunta «¿Cómo salió?». Anotás la respuesta real. Si pidió retomar más adelante, elegís «Esperar hasta una fecha y retomar» y la fecha acordada.",
@@ -1119,8 +1115,7 @@
           "Anotar cómo salió",
           "No respondió",
           "Pidió no ser contactado",
-          "Recontactar según lo acordado",
-          "Gestiones · Personas · Datos"
+          "Recontactar según lo acordado"
         ]
       }
     ]

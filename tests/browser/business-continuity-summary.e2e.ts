@@ -40,7 +40,7 @@ for(const width of [1280,390])test(`business continuity summary is clear at ${wi
  await expect(header).not.toContainText('Enviar información del plan');
  await expect(header).not.toContainText('Próximo paso');
  expect(await header.evaluate((node,next)=>!!(node.compareDocumentPosition(next!)&Node.DOCUMENT_POSITION_FOLLOWING),await accountNext.elementHandle())).toBe(true);
- await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones',exact:true}).click();
  await accountNext.getByRole('button',{name:'Ver tareas',exact:true}).click();
  await expect(page.getByRole('tab',{name:'Tareas',exact:true})).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#business-work')).toBeInViewport();

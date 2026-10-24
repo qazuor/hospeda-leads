@@ -2,7 +2,7 @@ import React from 'react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
-import {MemoryRouter} from 'react-router-dom';
+import {Link,MemoryRouter,Route,Routes} from 'react-router-dom';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {basePreferences,preferenceKey,restoredListContext} from '../helpers/businessListPreferences';
 import {businessViewSelectionKey} from '../helpers/businessViewSelection';
@@ -88,4 +88,16 @@ describe('BusinessListPage group definition availability',()=>{
   expect(preferenceWrites().filter(prunedWrite)).toHaveLength(1);expect(preferenceWrites().some(write=>write.preferences.sortBy==='ciudad')).toBe(true);setItem.mockRestore();
  });
 
+});
+
+describe('BusinessListPage restoration after a suspended navigation',()=>{
+ it('focuses the opened business again when a shell link reveals the list that a pending lazy page only hid',async()=>{
+  localStorage.setItem('hospeda-business-seller-default-v1-user-8','1');api.getGroups.mockResolvedValue({groups:[]});currentQueryClient=new QueryClient({defaultOptions:{queries:{retry:false}}});
+  // The business page chunk never loads, so React keeps the list mounted but hidden inside the route Suspense.
+  const never=new Promise<never>(()=>undefined);function PendingBusiness():React.ReactElement{throw never;}
+  render(<MantineProvider><QueryClientProvider client={currentQueryClient}><MemoryRouter initialEntries={['/accounts']}><Link to="/accounts">Negocios</Link><React.Suspense fallback={<p>Cargando página…</p>}><Routes><Route path="/accounts" element={<BusinessListPage/>}/><Route path="/accounts/:accountId" element={<PendingBusiness/>}/></Routes></React.Suspense></MemoryRouter></QueryClientProvider></MantineProvider>);
+  fireEvent.click(await screen.findByRole('button',{name:'Negocio visible'}));expect(await screen.findByText('Cargando página…')).toBeTruthy();
+  const shellLink=screen.getByRole('link',{name:'Negocios'});shellLink.focus();fireEvent.click(shellLink);
+  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('button',{name:'Negocio visible'})));
+ });
 });

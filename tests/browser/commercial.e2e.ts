@@ -22,9 +22,8 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
   await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
   await page.getByRole('button',{name:'Negocio E2E',exact:true}).click();
-  await expect(page.getByRole('tab',{name:'Historial',exact:true})).toHaveAttribute('aria-selected','true');
-  await expect(page.getByRole('tablist',{name:'Secciones del negocio'}).getByRole('tab')).toHaveText(['Historial','Tareas','Comunicación','Gestiones · Personas · Datos']);
-  await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
+  await expect(page.getByRole('tab',{name:'Resumen',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(page.getByRole('tablist',{name:'Secciones del negocio'}).getByRole('tab')).toHaveText(['Resumen','Historial',/^Tareas\s*\d+$/,'Comunicación',/^Gestiones\s*\d+$/,'Documentos']);
   for(const person of ['Ana','Luis']){
     await page.getByRole('button',{name:'Agregar persona',exact:true}).click();
     await page.getByLabel('Nombre de la persona').fill(person);
@@ -53,7 +52,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Cambios registrados en los datos',exact:true}).click();
   const conversion=page.getByRole('button',{name:/Conversión a cliente/});await expect(conversion).toBeVisible();await conversion.click();
   await expect(page.getByText(/Motivo: Acuerdo anterior al uso del CRM/)).toBeVisible();
-  await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
+  await page.getByRole('tab',{name:'Gestiones',exact:true}).click();
   for(const [name,person] of [['Primera gestión','Ana'],['Segunda gestión','Luis']]){
     await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
     await page.getByLabel('Nombre de la gestión').fill(name);
@@ -64,7 +63,7 @@ test('account with two contacts and independent opportunities preserves lead and
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
   await expect(page.getByRole('heading',{name:'Gestiones (2)',exact:true})).toBeVisible();
-  await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
+  await page.getByRole('tab',{name:'Gestiones',exact:true}).click();
   await page.screenshot({path:'test-results/commercial-light.png',fullPage:true});
   await page.getByRole('button',{name:'Admin Test',exact:true}).click();
   await page.getByRole('menuitem',{name:'Tema oscuro'}).click();
@@ -128,7 +127,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByLabel('Nombre de gestión',{exact:true}).fill('Primera gestión actualizada');
   await page.getByRole('button',{name:'Guardar gestión',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.goto(accountUrl);await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
+  await page.goto(accountUrl);await page.getByRole('tab',{name:'Gestiones',exact:true}).click();
   const row=page.locator('article').filter({has:page.getByRole('link',{name:'Primera gestión actualizada',exact:true})});
   await row.getByRole('button',{name:'Editar datos de gestión',exact:true}).click();
   await page.getByRole('dialog').getByText('Datos opcionales de la gestión',{exact:true}).click();
@@ -137,8 +136,8 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(row.getByText(/Por contactar/)).toBeVisible();
   await expect(page.locator('article').filter({has:page.getByRole('link',{name:'Segunda gestión',exact:true})}).getByText(/Por contactar/)).toBeVisible();
   await expect(row.getByText(/#\d/)).toHaveCount(0);
-  await page.goto(accountUrl+'?section=documents');await expect(page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true})).toHaveAttribute('aria-selected','true');
-  await page.goto(accountUrl+'?section=contacts');await expect(page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.goto(accountUrl+'?section=documents');await expect(page.getByRole('tab',{name:'Documentos',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.goto(accountUrl+'?section=contacts');await expect(page.getByRole('tab',{name:'Resumen',exact:true})).toHaveAttribute('aria-selected','true');
   const contact=page.locator('article').filter({has:page.getByText('Ana',{exact:true})});
   await contact.getByRole('button',{name:'Quitar persona',exact:true}).click();
   await page.getByRole('button',{name:'Confirmar y quitar',exact:true}).click();
@@ -147,7 +146,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Cambios registrados en los datos',exact:true}).click();
   await expect(page.locator('[data-kind="change"]').getByText('Persona quitada')).toBeVisible();
   await expect(page.locator('.mantine-Accordion-label').filter({hasText:/Persona quitada/})).toBeVisible();
-  await page.getByText('Ayuda sobre negocios y gestiones',{exact:true}).click();await page.getByText('Cómo usar negocios, personas y gestiones',{exact:true}).click();
+  await page.getByRole('button',{name:'Ayuda sobre negocios y gestiones',exact:true}).click();await page.getByText('Cómo usar negocios, personas y gestiones',{exact:true}).click();
   await expect(page.getByText(/El recorrido y los motivos de cierre dependen del tipo/)).toBeVisible();
   await page.getByRole('link',{name:'Gestiones',exact:true}).click();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
@@ -157,7 +156,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('dialog').getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Tercera gestión',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'← Volver a Gestiones',exact:true}).click();
-  await page.goto(accountUrl);await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
+  await page.goto(accountUrl);await page.getByRole('tab',{name:'Gestiones',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Gestiones (3)',exact:true})).toBeVisible();
   const legacyOpportunityUrl=(await page.getByRole('tabpanel').getByRole('link',{name:'Tercera gestión',exact:true}).getAttribute('href'))!.replace(/^\/sales\/(\d+)$/, '/?leadId=$1');
   await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();

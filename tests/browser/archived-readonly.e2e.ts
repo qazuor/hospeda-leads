@@ -34,10 +34,9 @@ test('the responsible seller reads her No contactar business with a red banner a
  const banner=page.getByTestId('do-not-contact-banner');
  await expect(banner).toHaveAttribute('role','alert');
  await expect(banner).toHaveText('No contactar · Pidió no ser contactado el 5 de oct de 2026. Solo un administrador puede levantar el bloqueo.');
- for(const name of ['Contactar','Editar negocio','Más acciones del negocio','Iniciar gestión'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ for(const name of ['Contactar','Editar negocio','Más acciones del negocio','WhatsApp','Email','Agendar tarea','Anotar lo que pasó','Iniciar gestión'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
  await expect(page.getByText('Podés consultar este negocio. Solo su responsable o un administrador puede modificarlo.')).toHaveCount(0);
- await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
- await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toHaveCount(0);
  await expect(page.getByRole('alert').filter({hasText:'archivado'})).toHaveCount(0);
  expect(requests.length).toBe(1);
 });

@@ -91,7 +91,7 @@ describe('user guide labels',()=>{
   expect(corpus.some(file=>file.path.startsWith('server/')||file.path.startsWith('endpoints/')||file.path==='helpers/historyLabels.ts'||file.path==='pages/history.tsx')).toBe(false);
   expect(corpus.length).toBeGreaterThan(50);
   expect(isAuditMap('const actionLabels:Record<string,string>={account_archived:"Negocio archivado"};')).toBe(true);
-  expect(labelExists({label:'Negocio archivado',corpus:corpus.filter(file=>file.path==='components/CommercialPanel.tsx').map(file=>file.text).join('\n')})).toBe(true);
+  expect(labelExists({label:'Negocio archivado',corpus:corpus.filter(file=>['components/CommercialPanel.tsx','components/BusinessSidebar.tsx'].includes(file.path)).map(file=>file.text).join('\n')})).toBe(true);
  });
 
  it('cites the navigation, the Hoy views and the core actions with their current names',()=>{

@@ -40,9 +40,9 @@ for(const width of [1280,390])test(`commercial history separates conversations f
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({path:`test-results/commercial-history-${width}.png`,fullPage:true});
  await page.goto('/accounts/1');await expect(page.getByRole('heading',{name:'Negocio de prueba',exact:true})).toBeVisible();
- await expect(page.getByRole('tab',{name:'Historial',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tab',{name:'Resumen',exact:true})).toHaveAttribute('aria-selected','true');
  await page.screenshot({path:`test-results/business-detail-hierarchy-${width}.png`,fullPage:true});
- await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones',exact:true}).click();await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
  const editor=page.getByRole('dialog');await expect(editor.getByText('Negocio:')).toBeVisible();
  await page.screenshot({path:`test-results/opportunity-editor-hierarchy-${width}.png`,fullPage:true});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

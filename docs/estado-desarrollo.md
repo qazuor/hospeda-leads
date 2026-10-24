@@ -1,6 +1,19 @@
 # Estado del CRM — corte al 24 de octubre de 2026
 
-## Rediseño visual v1, Fase 1: estructura general — 24/10/2026 (en PR a `staging`, sin desplegar)
+## Rediseño visual v1, Fase 2a: ficha del negocio, estructura — 24/10/2026 (en PR a `staging`, sin desplegar)
+
+Mockup aprobado sin cambios. Solo visual: no cambian permisos, No contactar, endpoints ni qué cuenta como contacto; no hay pedidos nuevos (el Resumen reutiliza las consultas que la ficha ya hacía).
+
+- Encabezado: nombre, estado, código `H{id}`, datos y responsable; Contactar, Editar negocio y «⋯» arriba a la derecha. Se quitó «← Volver al listado de negocios»: lo reemplaza el breadcrumb (en el celular, la barra inferior).
+- Columna de datos del negocio (arriba en el celular): identidad, acciones rápidas (WhatsApp y Email abren el mismo diálogo de contacto; Agendar tarea y Anotar lo que pasó abren los mismos editores que la pestaña Tareas), No contactar o archivado una sola vez, preferencias de contacto, Contacto, Personas y Datos plegables.
+- Pestañas: Resumen (nueva y de entrada), Historial, Tareas, Comunicación, Gestiones y Documentos; Tareas y Gestiones muestran contador. Desaparece «Gestiones · Personas · Datos»; los `?section=` viejos siguen llevando al contenido correspondiente.
+- La Ayuda de negocios pasa a un botón «?» en la barra superior (API `usePageHelp` del shell).
+- La vista compacta dentro de la gestión no cambia, incluido el aviso de No contactar.
+- Corrección: volver a la lista por un link del shell antes de que cargue la ficha ya no pierde el foco ni la posición de la fila abierta.
+
+Pruebas: typecheck, `npm test` (936), build, capturas a 320, 390 y 1280 px (sin scroll horizontal) y e2e completos sobre Postgres 17 descartable. Sigue la Fase 2b (timeline con íconos, tareas en una lista, email en vista de lectura, stepper de etapas y composer flotante).
+
+## Rediseño visual v1, Fase 1: estructura general — 24/10/2026 (mergeado a `staging` en #233, `8ffa1c0`, sin desplegar)
 
 Un solo layout (`AppLayout`) envuelve todas las rutas con sesión; cada página dejó de montar su propia cabecera. Las guardas `UserRoute`/`AdminRoute`, las rutas, los permisos y las etiquetas no cambian.
 
