@@ -29,7 +29,6 @@ import { CommercialHelp } from "../components/CommercialHelp";
 import {businessStatusLabels} from '../helpers/businessStatus';
 import {managementLabel,managementTypes,managementStageCatalog} from '../helpers/businessManagement';
 import { getCommercialDetail } from "../endpoints/commercial.schema";
-import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
 import { BadgeSelect } from "../components/BadgeSelect";
 import {DisabledTooltip} from "../components/Tooltip";
@@ -671,7 +670,6 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   };
 
   return <>
-    <AppHeader/>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
         <div><div className={styles.eyebrow}>GESTIÓN</div><h1>{businessMode?"Negocios":"Gestiones"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>

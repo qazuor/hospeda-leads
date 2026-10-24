@@ -9,7 +9,6 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { History, Search } from "lucide-react";
 import { Link } from "react-router-dom";
-import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
@@ -64,7 +63,7 @@ export default function HistoryPage(){
   const reset=()=>setPage(1);
   const clear=()=>{setLeadLabel("");setActor("_all");setCity("_all");setType("_all");setAction("_all");setQ("");setDatePreset("all");setFrom("");setTo("");setPage(1)};
 
-  return <><AppHeader/><main className={styles.shell}>
+  return <><main className={styles.shell}>
     <header className={styles.pageHeader}><div><div className={styles.eyebrow}>CAMBIOS REGISTRADOS</div><h1>Historial global</h1><p>Acciones sobre negocios, contactos, gestiones, tareas y documentos, con usuario y fecha.</p></div><History size={30}/></header>
     <section className={styles.toolbar}>
       <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar negocio, campo, valor o usuario…"/></div>

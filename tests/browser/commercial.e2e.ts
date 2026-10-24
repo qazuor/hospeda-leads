@@ -11,7 +11,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page).toHaveURL(/\/my-day$/);await page.goto("/accounts");
   await expect(page.getByRole('heading',{name:'Negocios',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'Negocios',exact:true})).toBeVisible();
-  await page.getByRole('link',{name:'Negocios',exact:true}).click();
+  await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
   await page.getByRole('button',{name:'Nuevo negocio',exact:true}).click();
   await page.getByLabel('Nombre',{exact:true}).fill('Negocio E2E');
   await page.getByText('Más datos (opcional)',{exact:true}).click();await page.getByLabel('Email del negocio').fill('negocio@example.com');
@@ -19,7 +19,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Crear negocio',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Negocio E2E',exact:true})).toBeVisible();
   const accountUrl=page.url();
-  await page.getByRole('link',{name:'Negocios',exact:true}).click();
+  await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
   await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
   await page.getByRole('button',{name:'Negocio E2E',exact:true}).click();
   await expect(page.getByRole('tab',{name:'Historial',exact:true})).toHaveAttribute('aria-selected','true');
@@ -160,7 +160,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.goto(accountUrl);await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Gestiones (3)',exact:true})).toBeVisible();
   const legacyOpportunityUrl=(await page.getByRole('tabpanel').getByRole('link',{name:'Tercera gestión',exact:true}).getAttribute('href'))!.replace(/^\/sales\/(\d+)$/, '/?leadId=$1');
-  await page.getByRole('link',{name:'Negocios',exact:true}).click();
+  await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
   const businessRow=page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})});
   await expect(businessRow).toHaveCount(1);
   await expect(businessRow.getByText(/3 gestiones/)).toBeVisible();
@@ -179,7 +179,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('link',{name:'← Volver a Gestiones',exact:true}).click();
   await page.goto('/?quick=all');
   await expect(page).toHaveURL(/\/accounts/);
-  await page.getByRole('link',{name:'Negocios',exact:true}).click();
+  await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
   await page.getByRole('link',{name:'Gestiones',exact:true}).click();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await page.getByRole('button',{name:'Crear negocio nuevo',exact:true}).click();

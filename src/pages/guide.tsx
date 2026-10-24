@@ -2,7 +2,6 @@ import {normalizeSearchText} from '../helpers/searchText';
 import {useEffect, useRef, useState} from 'react';
 import {Link, useSearchParams} from 'react-router-dom';
 import {ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lightbulb, Search} from 'lucide-react';
-import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
 import {Input} from '../components/Input';
 import {useAuth} from '../helpers/useAuth';
@@ -32,7 +31,7 @@ export default function GuidePage() {
       title.current?.scrollIntoView({block: 'start'});
     }
   }, [article.id]);
-  return <><AppHeader/><main className={styles.shell}>
+  return <><main className={styles.shell}>
     <header className={styles.hero}><div className={styles.heroIcon}><BookOpen size={26}/></div><div><span className={styles.eyebrow}>AYUDA PARA EL TRABAJO DIARIO</span><h1>Usar Hospeda, paso a paso</h1><p>Qué hacer, cómo registrarlo y cuál es el siguiente paso. No necesitás experiencia con un CRM ni con gestiones.</p></div></header>
     <div className={styles.shortcuts} aria-label="Por dónde empezar">
       <Link to={url('first', 'business')} onClick={() => setSearch('')}><strong>Quiero cargar un negocio</strong><span>Desde los datos hasta el primer contacto<ArrowRight size={16}/></span></Link>

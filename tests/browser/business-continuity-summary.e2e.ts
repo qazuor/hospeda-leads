@@ -29,7 +29,7 @@ for(const width of [1280,390])test(`business continuity summary is clear at ${wi
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts/1');
- const header=page.locator('header').filter({hasText:'Hostería del Parque'});
+ const header=page.locator('main header').filter({hasText:'Hostería del Parque'});
  await expect(header).toBeVisible();
  await expect(header).toContainText('Último contacto: Email enviado');
  await expect(header).toContainText('18 de oct de 2026');

@@ -18,7 +18,6 @@ import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users, Variable } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { AppHeader } from "../components/AppHeader";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/Dialog";
@@ -92,7 +91,7 @@ export default function SettingsPage(){
   ];
 
   return <>
-    <AppHeader/>
+    
     <main className={styles.shell}>
       <header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Configuración</h1><p>Usuarios, clasificaciones, comunicación y comportamiento general del CRM.</p></div></header>
       <CrmResponsiveNavigation label="Sección de configuración" value={section} options={tabs.map(tab=>({value:tab.key,label:tab.label}))} onChange={value=>go(value as Section)}><nav aria-label="Secciones de configuración" className={styles.sectionNav}>{tabs.map(tab=>{const Icon=tab.icon;return <UnstyledButton key={tab.key} aria-current={section===tab.key?"page":undefined} type="button" className={section===tab.key?styles.sectionActive:""} onClick={()=>go(tab.key)}><Icon size={15}/>{tab.label}</UnstyledButton>})}</nav></CrmResponsiveNavigation>

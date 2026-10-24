@@ -22,3 +22,6 @@
 .dialogField{gap:7px}
 .stackForm{gap:10px}
 @media(max-width:700px){.shell{padding:16px 12px 32px}.pageHeader{margin-bottom:16px}.content{gap:20px}.usersHeader{gap:12px}.userRow{position:relative;padding:12px 0;gap:6px}.userActions{position:absolute;right:0;top:8px}.userMain{padding-right:48px}.userCell{font-size:13px}.userMain strong{font-size:14px}}
+/* The shell sidebar narrows the content: switch the users table by its own width, not the viewport. */
+.usersCard{container-type:inline-size}
+@container (max-width:960px){.userTableHeader{display:none}.userRow{grid-template-columns:1fr 1fr 120px}.userMain{grid-column:1/-1}.userActions{grid-column:3;grid-row:1}}

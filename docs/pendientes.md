@@ -2,7 +2,7 @@
 
 ## Rediseño visual (v1 por fases)
 
-Plan aprobado el 24/10/2026 (ver `decisiones.md`, «Rediseño visual del CRM»). Fase 0 (sistema de diseño) en PR a `staging`. Siguen: shell (sidebar, breadcrumbs, nav inferior), ficha del negocio, listas, Hoy, kanban y drawers de alta y edición, cada una con mockup aprobado antes de implementar.
+Plan aprobado el 24/10/2026 (ver `decisiones.md`, «Rediseño visual del CRM»). Fase 0 (sistema de diseño) mergeada a `staging` (#232); Fase 1 (estructura general: barra lateral, breadcrumbs, barra inferior) en PR. Siguen: ficha del negocio, listas, Hoy, kanban y drawers de alta y edición, cada una con mockup aprobado antes de implementar.
 
 - **Después de la v1, cada uno con análisis propio:** contadores en la sidebar (endpoint liviano), KPIs con agregados nuevos, Bandeja unificada de conversaciones (endpoint agregado nuevo), drag & drop en kanban y columnas (dependencia nueva), destacados por usuario.
 

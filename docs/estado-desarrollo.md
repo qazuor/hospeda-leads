@@ -1,6 +1,17 @@
 # Estado del CRM — corte al 24 de octubre de 2026
 
-## Rediseño visual v1, Fase 0: sistema de diseño — 24/10/2026 (en PR a `staging`, sin desplegar)
+## Rediseño visual v1, Fase 1: estructura general — 24/10/2026 (en PR a `staging`, sin desplegar)
+
+Un solo layout (`AppLayout`) envuelve todas las rutas con sesión; cada página dejó de montar su propia cabecera. Las guardas `UserRoute`/`AdminRoute`, las rutas, los permisos y las etiquetas no cambian.
+
+- Escritorio: barra lateral con buscador (abre los accesos rápidos), Trabajo (Hoy), Registros (Negocios, Gestiones), Administración plegable solo para admins (se recuerda abierta o cerrada y se abre sola en una página de administración), Ayuda, User script, indicador en vivo y menú de usuario. Se contrae a una columna de íconos con tooltips. Barra superior fina con breadcrumbs (`Negocios › nombre del negocio`, `Gestiones › nombre de la gestión`).
+- Celular (< 768 px): cabecera de una línea y barra inferior Hoy, Negocios, Gestiones, Ayuda y Más; «Más» abre el panel «Otras secciones» con Administración, User script y el indicador en vivo. Los avisos emergentes suben por encima de la barra inferior.
+- La tabla de usuarios de Configuración cambia a su versión compacta según el ancho de su tarjeta, porque la barra lateral reduce el espacio disponible.
+- Los contadores de la navegación quedan para después de v1; no se muestran lugares vacíos.
+
+Pruebas: typecheck, `npm test`, build, e2e completos sobre Postgres 17 descartable y capturas a 1280 px (claro, oscuro y barra contraída) y 390 px. Los e2e que buscaban el menú hamburguesa, el desplegable de Administración o un único enlace «Negocios» se adaptaron a la navegación nueva. Pendiente: revisión visual del propietario en staging.
+
+## Rediseño visual v1, Fase 0: sistema de diseño — 24/10/2026 (mergeado a `staging` en #232, `213434b`, sin desplegar)
 
 Primera fase del rediseño aprobado por el propietario (ver [decisiones](decisiones.md)). Solo visual: no cambia rutas, etiquetas, permisos ni contratos.
 
