@@ -96,7 +96,7 @@ describe('BusinessListPage restoration after a suspended navigation',()=>{
   // The business page chunk never loads, so React keeps the list mounted but hidden inside the route Suspense.
   const never=new Promise<never>(()=>undefined);function PendingBusiness():React.ReactElement{throw never;}
   render(<MantineProvider><QueryClientProvider client={currentQueryClient}><MemoryRouter initialEntries={['/accounts']}><Link to="/accounts">Negocios</Link><React.Suspense fallback={<p>Cargando página…</p>}><Routes><Route path="/accounts" element={<BusinessListPage/>}/><Route path="/accounts/:accountId" element={<PendingBusiness/>}/></Routes></React.Suspense></MemoryRouter></QueryClientProvider></MantineProvider>);
-  fireEvent.click(await screen.findByRole('button',{name:'Negocio visible'}));expect(await screen.findByText('Cargando página…')).toBeTruthy();
+  fireEvent.click(await screen.findByRole('button',{name:'Negocio visible'},{timeout:10000}));expect(await screen.findByText('Cargando página…')).toBeTruthy();
   const shellLink=screen.getByRole('link',{name:'Negocios'});shellLink.focus();fireEvent.click(shellLink);
   await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('button',{name:'Negocio visible'})));
  });

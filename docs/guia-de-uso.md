@@ -787,7 +787,7 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 
 1. Abrí «Hoy» → «Filtros de trabajo». Revisá localidad, rubro y de quién es el trabajo que ves. Ver «Todo el equipo» es una opción del administrador.
 2. Revisá «Vencidas», «Para hoy» y «Próximas acciones». La tarea puede tener otra fecha de la que recordabas.
-3. Abrí el negocio o la gestión y mirá «Tareas pendientes». Comprobá si la tarea está pendiente, realizada o cancelada.
+3. Abrí el negocio o la gestión y mirá «Pendientes». Comprobá si la tarea está pendiente, realizada o cancelada.
 4. Revisá el responsable. Si no tenés permiso, consultá al responsable o al administrador; no dupliques la tarea para saltear esa asignación.
 5. Si los datos parecen viejos, tocá «Actualizar».
 

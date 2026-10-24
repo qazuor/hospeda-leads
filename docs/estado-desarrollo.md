@@ -1,6 +1,18 @@
 # Estado del CRM — corte al 24 de octubre de 2026
 
-## Rediseño visual v1, Fase 2a: ficha del negocio, estructura — 24/10/2026 (en PR a `staging`, sin desplegar)
+## Rediseño visual v1, Fase 2b: contenido de las pestañas de la ficha — 24/10/2026 (en PR a `staging`, sin desplegar)
+
+Solo visual: sin cambios de permisos, endpoints ni acciones.
+
+- Historial: timeline con un ícono y un tono por tipo de evento (y por canal en emails y WhatsApp), fecha a la derecha y filtros como chips; se conservan detalle desplegable, compromisos pendientes y paginación.
+- Tareas: pendientes y realizadas en una sola lista agrupada («Pendientes · N», «Realizadas · N»), sin pestañas anidadas; las realizadas muestran 5 y se expanden en el lugar.
+- Comunicación: el email recibido se lee como una tarjeta (asunto, remitente, estado, cuerpo) con las mismas acciones. No se muestra destinatario porque el dato no existe, y «Por revisar» no se presenta como respuesta.
+- Gestiones: `StageStepper` muestra la etapa como pasos según el catálogo de cada tipo, con la etiqueta propia de la etapa («Participa», «Colabora», «Cerrada completada»…). «Derivada a Leandro», las etapas heredadas y las cerradas se muestran como «Etapa: …».
+- Documentos sin cambios: mostrar el formulario solo a pedido necesita un botón con un nombre nuevo, a decidir por el propietario.
+
+Pruebas: typecheck, `npm test`, build, capturas de cada pestaña a 1280 y 390 px sin scroll horizontal y e2e completos sobre Postgres 17 descartable.
+
+## Rediseño visual v1, Fase 2a: ficha del negocio, estructura — 24/10/2026 (mergeado a `staging` en #234, `797aec9`, sin desplegar)
 
 Mockup aprobado sin cambios. Solo visual: no cambian permisos, No contactar, endpoints ni qué cuenta como contacto; no hay pedidos nuevos (el Resumen reutiliza las consultas que la ficha ya hacía).
 
