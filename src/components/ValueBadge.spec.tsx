@@ -5,23 +5,23 @@ import {managementStageCatalog,managementTypes} from '../helpers/businessManagem
 
 describe('badgeTone',()=>{
  it('gives each business status its fixed semantic tone',()=>{
-  expect(businessStatuses.map(key=>badgeTone('status',businessStatusLabels[key]))).toEqual(['info','neutral','progress','warning','violet','muted']);
-  expect(badgeTone('status','Sin tarea agendada')).toBe('warning');
+  expect(businessStatuses.map(key=>badgeTone('status',businessStatusLabels[key]))).toEqual(['slate','sky','blue','orange','violet','slate']);
+  expect(badgeTone('status','Sin tarea agendada')).toBe('orange');
  });
  it('does not paint a lost stage as success nor Revisado as danger',()=>{
-  expect(badgeTone('status','Cerrada perdida')).not.toBe('success');
-  expect(badgeTone('status','Cerrada perdida')).toBe('dangerMuted');
-  expect(badgeTone('status','Revisado')).not.toBe('dangerMuted');
+  expect(badgeTone('status','Cerrada perdida')).not.toBe('green');
+  expect(badgeTone('status','Cerrada perdida')).toBe('red');
+  expect(badgeTone('status','Revisado')).not.toBe('red');
  });
  it('derives every stage tone from its classification',()=>{
-  const expected={open:'progress',won:'success',lost:'dangerMuted'};
+  const expected={open:'blue',won:'green',lost:'red'};
   for(const type of managementTypes)for(const stage of managementStageCatalog(type))expect(badgeTone('status',stage.label),`${type}:${stage.key}`).toBe(expected[stage.classification]);
  });
  it('assigns stable value-dependent hues to non-semantic values',()=>{
   for(const category of ['city','person','subtype','contact','generic'] as const){expect(valueBadgeColors(category,'Colón')).toEqual(valueBadgeColors(category,'Colón'));expect(valueBadgeColors(category,'Colón')['--badge-h' as never]).not.toBe(valueBadgeColors(category,'Gualeguaychú')['--badge-h' as never]);}
   expect(valueBadgeColors('city','Sin responsable')).toEqual(valueBadgeColors('status',''));
   expect(valueBadgeColors('city','Colón')).not.toEqual(valueBadgeColors('city','Gualeguaychú'));
-  expect(badgeTone('status','Valor desconocido')).toBe('neutral');
+  expect(badgeTone('status','Valor desconocido')).toBe('slate');
  });
  it('paints a vertical with its fixed rubro colour only in the vertical category',()=>{
   expect(valueBadgeColors('vertical','Gastronomía')['--badge-h' as never]).toBe('24');
@@ -34,7 +34,7 @@ describe('badgeTone',()=>{
  });
  it('treats prototype property names as plain unknown values',()=>{
   for(const value of ['constructor','__proto__','toString','hasOwnProperty'])for(const category of ['status','city','generic'] as const){
-   expect(badgeTone(category,value)).toBe('neutral');
+   expect(badgeTone(category,value)).toBe('slate');
    expect(valueBadgeColors(category,value)).toEqual(valueBadgeColors(category,value));
   }
  });

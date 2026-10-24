@@ -25,3 +25,5 @@
 
 .menuLabel { display: flex; align-items: center; gap: 10px; min-width: 0; line-height: 1.4; }
 .menuLabel svg,.buttonLabel svg { flex-shrink: 0; }
+
+.button{border-radius:10px;font-weight:600}.button:where([data-variant="filled"]):where(:not([data-tone="danger"])){box-shadow:0 1px 2px rgba(37,99,235,.3)}.button:where([data-variant="outline"]):where(:not([data-disabled])){background:var(--card);border-color:var(--border-strong);color:var(--foreground)}.button:where([data-variant="outline"]):hover{background:var(--surface)}.button:where([data-variant="subtle"]):where(:not([data-disabled])){color:var(--muted-foreground)}.button:where([data-variant="subtle"]):hover{background:var(--surface);color:var(--foreground)}.button:where([data-variant="light"]){background:var(--primary-soft);color:var(--primary-ink)}.button:where([data-tone="danger"]):where(:not([data-disabled])){background:var(--tone-red-soft);color:var(--tone-red-ink)}.button:where([data-tone="danger"]):where(:not([data-disabled])):hover{background:var(--tone-red);color:#fff}

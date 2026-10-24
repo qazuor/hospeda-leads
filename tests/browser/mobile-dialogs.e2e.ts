@@ -76,7 +76,10 @@ test.describe('mobile dialogs and touch targets',()=>{
   expect((await open.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   for(const control of await row.locator('button').all()){const box=await control.boundingBox();if(box)expect(box.height,await control.innerHTML()).toBeGreaterThanOrEqual(44);}
   await page.getByRole('button',{name:'Tablero comercial',exact:true}).click();
-  expect(await hasTouchArea(page.getByRole('button',{name:'¿Qué es esto? Tipo de gestión'}))).toBe(true);
+  const boardHint=page.getByRole('button',{name:'¿Qué es esto? Tipo de gestión'});
+  // The board renders after the view switch; probing before it exists measures an empty box.
+  await expect(boardHint).toBeVisible();
+  expect(await hasTouchArea(boardHint)).toBe(true);
   // The business list in table view shares the same checkbox.
   await page.goto('/accounts');
   await page.getByRole('button',{name:'Tabla',exact:true}).click();

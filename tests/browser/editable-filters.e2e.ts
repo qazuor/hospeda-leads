@@ -64,7 +64,7 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
   await popup.getByRole('textbox', { name: 'Búsqueda aplicada', exact: true }).fill('Revisada'); await popup.getByRole('button', { name: 'Aplicar valor', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Buscar negocios', exact: true })).toHaveValue('Revisada');
   await page.getByRole('button', { name: 'Editar filtros', exact: true }).click(); const builder = page.getByRole('dialog', { name: 'Filtrar negocios', exact: true });
-  const overlay=page.locator('.crm-dialog-overlay');await expect(overlay).toBeVisible();await expect(overlay).toHaveCSS('backdrop-filter','blur(2px)');await expect.poll(()=>overlay.evaluate(element=>getComputedStyle(element).backgroundColor)).toContain('0.62)');
+  const overlay=page.locator('.crm-dialog-overlay');await expect(overlay).toBeVisible();await expect(overlay).toHaveCSS('backdrop-filter','blur(2px)');await expect.poll(()=>overlay.evaluate(element=>getComputedStyle(element).backgroundColor)).toContain(width===390?'0.65)':'0.45)');
   await builder.getByRole('textbox', { name: 'Texto libre de búsqueda', exact: true }).fill('Contextual');
   await builder.getByRole('button', { name: 'Aplicar y guardar como vista', exact: true }).click();
   const save = page.getByRole('dialog', { name: 'Guardar como vista', exact: true }); await expect(save).toBeVisible(); await expect(builder).toHaveCount(0);

@@ -9,11 +9,10 @@ import './CrmTheme.css';
 
 const theme = createTheme({
   primaryColor: 'hospeda',
-  primaryShade: { light: 7, dark: 7 },
+  primaryShade: { light: 6, dark: 6 },
   autoContrast: true,
   colors: {
-    hospeda: ['#edf8fd', '#d7effa', '#afdff2', '#7ecbe8', '#3aa7d9',
-      '#2494c4', '#167da8', '#126c92', '#115976', '#104b62'],
+    hospeda: ['#eff6ff', '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a'],
   },
   fontFamily: 'var(--font-family-base)',
   headings: { fontFamily: 'var(--font-family-heading)' },

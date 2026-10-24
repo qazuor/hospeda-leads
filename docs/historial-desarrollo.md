@@ -127,3 +127,7 @@ Contactar distingue la relación general del negocio de la persona responsable d
 ## 23/10/2026 — ficha del negocio con jerarquía visual
 
 A pedido del propietario («no hay jerarquía visual»), la ficha se rehízo en dos PRs. El primero (#230) unificó la escala tipográfica, limitó el historial a 5 eventos con «Ver N más» y compactó datos vacíos y acciones secundarias. El segundo reorganizó encabezado y solapas por tarea. En un negocio sintético con 34 eventos, la solapa por defecto pasó de 9657 px a cerca de 2200 px de alto en escritorio.
+
+## 24/10/2026 — rediseño visual v1, Fase 0
+
+El propietario pidió llevar todo el CRM a una interfaz profesional y fácil de usar, a partir de 28 referencias. Se aprobó un plan de ocho fases solo visual (sin funciones nuevas) y el mockup de sistema de diseño y estructura general. La Fase 0 cambió tokens, tipografía, tonos, badges y jerarquía de botones de forma global, sin tocar layouts ni etiquetas, para mantener bajo el riesgo sobre los e2e.
