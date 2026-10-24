@@ -5,7 +5,8 @@
 Mockup aprobado sin cambios. Solo visual: no cambian permisos, No contactar, endpoints ni qué cuenta como contacto; no hay pedidos nuevos (el Resumen reutiliza las consultas que la ficha ya hacía).
 
 - Encabezado: nombre, estado, código `H{id}`, datos y responsable; Contactar, Editar negocio y «⋯» arriba a la derecha. Se quitó «← Volver al listado de negocios»: lo reemplaza el breadcrumb (en el celular, la barra inferior).
-- Columna de datos del negocio (arriba en el celular): identidad, acciones rápidas (WhatsApp y Email abren el mismo diálogo de contacto; Agendar tarea y Anotar lo que pasó abren los mismos editores que la pestaña Tareas), No contactar o archivado una sola vez, preferencias de contacto, Contacto, Personas y Datos plegables.
+- Columna de datos del negocio (en el celular y en anchos angostos va después del Próximo paso y las pestañas, por decisión del propietario): identidad, acciones rápidas (WhatsApp y Email abren el mismo diálogo de contacto; Agendar tarea y Anotar lo que pasó abren los mismos editores que la pestaña Tareas), preferencias de contacto, Contacto, Personas y Datos plegables.
+- El aviso de No contactar o archivado aparece una sola vez, arriba de las columnas, en todos los anchos.
 - Pestañas: Resumen (nueva y de entrada), Historial, Tareas, Comunicación, Gestiones y Documentos; Tareas y Gestiones muestran contador. Desaparece «Gestiones · Personas · Datos»; los `?section=` viejos siguen llevando al contenido correspondiente.
 - La Ayuda de negocios pasa a un botón «?» en la barra superior (API `usePageHelp` del shell).
 - La vista compacta dentro de la gestión no cambia, incluido el aviso de No contactar.

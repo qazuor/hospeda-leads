@@ -148,6 +148,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.locator('.mantine-Accordion-label').filter({hasText:/Persona quitada/})).toBeVisible();
   await page.getByRole('button',{name:'Ayuda sobre negocios y gestiones',exact:true}).click();await page.getByText('Cómo usar negocios, personas y gestiones',{exact:true}).click();
   await expect(page.getByText(/El recorrido y los motivos de cierre dependen del tipo/)).toBeVisible();
+  await page.getByRole('button',{name:'Cerrar ayuda',exact:true}).click();await expect(page.getByRole('dialog',{name:'Ayuda sobre negocios y gestiones'})).toHaveCount(0);
   await page.getByRole('link',{name:'Gestiones',exact:true}).click();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
   await page.getByLabel('Buscar negocio',{exact:true}).fill('Negocio E2E');

@@ -41,7 +41,6 @@ export interface BusinessWorkState {
 /** Props of {@link BusinessSidebar}. */
 export interface BusinessSidebarProps {
   readonly detail:CommercialDetail;
-  readonly dncMark:DoNotContactMark|null;
   readonly mainContact:Contact|undefined;
   readonly contactCount:number;
   /** People section (rows and their actions), shared with the compact record. */
@@ -58,13 +57,13 @@ export interface BusinessSidebarProps {
 }
 
 /**
- * Persistent column of the business record: identity, quick actions, restrictions, contact, people and business data.
+ * Persistent column of the business record: identity, quick actions, contact preferences, contact, people and business data.
+ * The No contactar / archived banner stays above the columns so it is seen first on every width.
  * Stacks above the tabs on narrow containers (see `.recordColumns` in Commercial.module.css).
  */
-export function BusinessSidebar({detail:d,dncMark,mainContact,contactCount,contactSection,facts,emptyFactLabels,readOnly,contactEditable,canDoWork,work,onContact,onWork,onEditAccount}:BusinessSidebarProps){
+export function BusinessSidebar({detail:d,mainContact,contactCount,contactSection,facts,emptyFactLabels,readOnly,contactEditable,canDoWork,work,onContact,onWork,onEditAccount}:BusinessSidebarProps){
   const initials=d.account.nombre.split(/\s+/).slice(0,2).map(word=>word[0]?.toUpperCase()).join('');
   return <aside className={styles.businessAside} aria-label={BUSINESS_SIDEBAR_LABEL}>
-    <BusinessRestrictionBanner account={d.account} dncMark={dncMark}/>
     <section className={styles.identityCard} aria-label="Identidad del negocio">
       <span className={styles.identityAvatar} style={{'--identity-hue':toneHue(toneOfStatus(d.account.status))[0]} as React.CSSProperties} aria-hidden="true">{initials}</span>
       <strong>{d.account.nombre}</strong>
