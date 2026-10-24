@@ -8,6 +8,8 @@
 /* Mantine centres button content; the user block reads left-aligned like the nav items. */
 .userTrigger :global(.mantine-Button-inner){justify-content:flex-start;width:100%}.userTrigger :global(.mantine-Button-label){gap:9px;min-width:0}
 .mobileUserTrigger :global(.mantine-Button-inner){justify-content:center}
+.helpButton{margin-left:auto;flex:none;width:40px;height:40px;min-height:40px;padding:0!important}
+@media(max-width:767px){.helpButton{width:44px;height:44px;min-height:44px;margin-left:0}}
 @media(max-width:767px){.mobileBrand{min-height:44px}}
 /* In the rail the Administración toggle keeps a visible icon target. */
 .railIcon{display:none}.collapsed .railIcon{display:block}.collapsed .groupToggle{justify-content:center;min-height:40px;border-radius:9px;color:var(--muted-foreground)}.collapsed .groupToggle:hover{background:var(--surface);color:var(--foreground)}

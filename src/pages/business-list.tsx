@@ -99,6 +99,10 @@ function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{u
   const lastPage=Math.min(results.data.pages[0].page,Math.max(1,Math.ceil(total/prefs.pageSize)));
   if(page!==lastPage){if(restore.current)restore.current={...restore.current,page:lastPage};setPage(lastPage);}
  },[prefs.loadMode,prefs.pageSize,busy,results.error,results.data,page,total]);
+ // Leaving before the lazy business page loads only hides this list inside the route Suspense; a shell link back
+ // reveals the same instance instead of remounting it. Hiding runs layout cleanups and revealing re-runs layout
+ // effects, so re-arm the restore here to scroll and focus the opened business again.
+ useLayoutEffect(()=>()=>{restore.current=lastContext.current;},[]);
  useLayoutEffect(()=>{
   const target=restore.current;if(!target||busy||!results.data)return;
   if(prefs.loadMode==='pages'&&(page!==target.page||results.data.pages[0].page!==target.page))return;
