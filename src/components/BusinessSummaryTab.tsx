@@ -5,10 +5,9 @@ import type { CommercialHistoryData } from '../endpoints/businessHistory.schema'
 import type { WorkTask } from '../endpoints/work.schema';
 import { prettyInstant, taskBucket } from '../helpers/workDates';
 import { formatDate, relativeAgo } from '../helpers/crmDates';
-import { stageLabel } from '../helpers/crmLabels';
 import { VOCAB, managementDisplayName } from '../content/vocabulary';
 import { Button } from './Button';
-import { ValueBadge } from './ValueBadge';
+import { StageStepper } from './StageStepper';
 import { QueryErrorNotice } from './QueryErrorNotice';
 import { QueryLoadingNotice } from './QueryLoadingNotice';
 import type { BusinessWorkState } from './BusinessSidebar';
@@ -50,7 +49,7 @@ export function BusinessSummaryTab({detail:d,opportunities,openTasks,workQuery,h
     </section>
     <section className={styles.section}>
       <h3>Gestiones</h3>
-      {opportunities.slice(0,5).map(o=><p key={o.id}><Link to={'/sales/'+o.id} state={{from:'business'}}>{managementDisplayName(o)}</Link> · <ValueBadge category="status" value={stageLabel(o.estado)}/></p>)}
+      {opportunities.slice(0,5).map(o=><p key={o.id}><Link to={'/sales/'+o.id} state={{from:'business'}}>{managementDisplayName(o)}</Link><StageStepper stage={o.estado} type={o.managementType}/></p>)}
       {!opportunities.length&&<p className={styles.muted}>Todavía no hay gestiones.</p>}
       <Button variant="outline" onClick={()=>onSection('gestiones')}>Ver todas</Button>
     </section>

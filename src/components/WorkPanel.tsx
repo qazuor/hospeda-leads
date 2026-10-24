@@ -2,7 +2,7 @@ import {QueryLoadingNotice} from './QueryLoadingNotice';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import {QueryErrorNotice} from './QueryErrorNotice';
 import {purposeNames} from '../helpers/nextStep';
-import React,{useState} from 'react';
+import React,{useEffect,useId,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
@@ -17,7 +17,6 @@ import {useAuth} from '../helpers/useAuth';
 import {Button} from './Button';
 import {TaskContactDialog} from './TaskContactDialog';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,DropdownMenuSeparator} from './DropdownMenu';
-import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from './SectionTabs';
 import {WorkEditor,type WorkTarget} from './WorkEditor';
 import styles from './Commercial.module.css';
 import ws from './Work.module.css';
@@ -84,7 +83,7 @@ function auditValue(key:string,value:unknown,data:WorkData):string{
 }
 export function WorkPanel({accountId,leadId}:{accountId:string;leadId?:string}){
  const {authState}=useAuth();const admin=authState.type==='authenticated'&&authState.user.role==='admin';
- const [editor,setEditor]=useState<WorkTarget|null>(null);const [page,setPage]=useState(1);
+ const [editor,setEditor]=useState<WorkTarget|null>(null);const [page,setPage]=useState(1),[showActivities,setShowActivities]=useState(false);const id=useId();const pendingHeading=id+'-pending',completedHeading=id+'-completed';useEffect(()=>setShowActivities(false),[accountId,leadId,page]);
  const params={accountId,leadId,responsible:admin?'all':undefined,mode:'detail',page:String(page)};
  const q=useQuery({queryKey:['work',params],queryFn:()=>getWork(params)});
  if(!q.data&&q.isPending)return <QueryLoadingNotice>Cargando tareas y actividades…</QueryLoadingNotice>;
@@ -93,10 +92,8 @@ export function WorkPanel({accountId,leadId}:{accountId:string;leadId?:string}){
  return <section className={styles.section}>{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}
   <header className={styles.heading}><div><h3>Tareas y actividades comerciales</h3><p className={styles.muted}>Tareas: lo que falta hacer. Actividades: lo que ya ocurrió.</p></div><div className={styles.actions}><Button size="sm" onClick={()=>setEditor({kind:'task',accountId,leadId})}>Agendar otra tarea</Button><Button size="sm" variant="outline" onClick={()=>setEditor({kind:'activity',accountId,leadId})}>{VOCAB.logWhatHappened}</Button></div></header>
   {Math.max(d.totalTasks,d.totalActivities)>100&&<p className={styles.muted}>Conteos de tareas correspondientes a esta página. Usá los controles inferiores para consultar el resto.</p>}
-  <SectionTabs defaultValue="tasks"><SectionTabList aria-label="Seguimiento comercial"><SectionTab value="tasks">Tareas pendientes ({pending.length})</SectionTab><SectionTab value="activities">Actividades realizadas ({d.totalActivities})</SectionTab></SectionTabList>
-   <SectionTabPanel value="tasks"><div className={styles.rows}>{pending.map(t=><TaskRow key={t.id} task={t} data={d} onEdit={setEditor} from="business"/>)}{!pending.length&&<p className={styles.empty}>Sin tareas pendientes. Creá una para planificar el próximo paso.</p>}</div><Disclosure className={styles.relatedSection}><DisclosureSummary>Tareas finalizadas o canceladas ({finished.length} en esta página)</DisclosureSummary><div className={styles.rows}>{finished.map(t=><TaskRow key={t.id} task={t} data={d} onEdit={setEditor} from="business"/>)}</div></Disclosure></SectionTabPanel>
-   <SectionTabPanel value="activities"><p className={styles.muted}>Registro por fecha real. Podés cargar acciones anteriores.</p><div className={styles.rows}>{d.activities.map(a=><ActivityRow key={a.id} activity={a} data={d} onEdit={setEditor}/>)}{!d.activities.length&&<p className={styles.empty}>Sin actividades registradas.</p>}</div></SectionTabPanel>
-  </SectionTabs>
+  <section aria-labelledby={pendingHeading}><h4 id={pendingHeading}>Pendientes · {pending.length}</h4><div className={styles.rows}>{pending.map(t=><TaskRow key={t.id} task={t} data={d} onEdit={setEditor} from="business"/>)}{!pending.length&&<p className={styles.empty}>Sin tareas pendientes. Creá una para planificar el próximo paso.</p>}</div><Disclosure className={styles.relatedSection}><DisclosureSummary>Tareas finalizadas o canceladas ({finished.length} en esta página)</DisclosureSummary><div className={styles.rows}>{finished.map(t=><TaskRow key={t.id} task={t} data={d} onEdit={setEditor} from="business"/>)}</div></Disclosure></section>
+  <section aria-labelledby={completedHeading}><h4 id={completedHeading}>Realizadas · {d.totalActivities}</h4><p className={styles.muted}>Registro por fecha real. Podés cargar acciones anteriores.</p><div className={styles.rows}>{(showActivities?d.activities:d.activities.slice(0,5)).map(a=><ActivityRow key={a.id} activity={a} data={d} onEdit={setEditor}/>)}{!d.activities.length&&<p className={styles.empty}>Sin actividades registradas.</p>}</div>{d.activities.length>5&&<Button size="sm" variant="outline" onClick={()=>setShowActivities(value=>!value)}>{showActivities?'Ver menos':'Ver '+(d.activities.length-5)+' más'}</Button>}</section>
   <WorkPagination data={d} page={page} onPage={setPage}/>
   <footer className={ws.workFooter}><Link to="/my-day">Abrir Hoy</Link><Disclosure className={styles.history}><DisclosureSummary>Cambios registrados de tareas y actividades (últimos 200)</DisclosureSummary>{d.journal.map(j=>{
    const before=(j.beforeValue||{}) as Record<string,unknown>;const after=(j.afterValue||{}) as Record<string,unknown>;
