@@ -20,14 +20,14 @@ window.matchMedia=window.matchMedia||((query:string)=>({matches:false,media:quer
 afterEach(()=>{cleanup();getBusinessHistory.mockClear();});
 
 describe('BusinessSummary with BusinessHistory',()=>{
- it('loads the business history once for the summary and the timeline',async()=>{
+ it('loads the latest contact once for the summary and the timeline',async()=>{
   const detail={account:{id:'7',commercialStatus:'prospect'},contacts:[],opportunities:[]} as unknown as CommercialDetail;
   render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter>
-   <BusinessSummary continuityOnly detail={detail} onContact={()=>{}} onSale={()=>{}}/>
+   <BusinessSummary detail={detail} onContact={()=>{}} onSale={()=>{}}/>
    <BusinessHistory accountId="7"/>
   </MemoryRouter></QueryClientProvider></MantineProvider>);
   expect(await screen.findByText('Datos del negocio editados')).toBeTruthy();
-  const summary=screen.getByLabelText('Resumen para retomar');
+  const summary=screen.getByText('Última conversación o acción').parentElement!;
   expect(summary.textContent).toContain('Llamada a la dueña');
   expect(summary.textContent).not.toContain('Datos del negocio editados');
   expect(getBusinessHistory).toHaveBeenCalledTimes(1);

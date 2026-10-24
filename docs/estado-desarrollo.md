@@ -292,4 +292,13 @@ Rama `ux/business-page-polish`. Primer paso del rediseño de `/accounts/:account
 
 Medido sobre un negocio sintético con 34 eventos (solapa «Qué pasó»): 9657 → 3594 px de alto a 1280 px y 10614 → 4510 px a 390 px, sin scroll horizontal.
 
-Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. E2E de la ficha sobre base Docker descartable: 38 de 39 pasaron; `commercial.e2e.ts` falla en el paso «CRM template» también con el build de `staging` en el mismo entorno local (en CI depende de datos que crean las integraciones previas), por lo que no se atribuye a este cambio. Pendiente: PR 2/2 (encabezado compacto y una solapa por tarea).
+Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. E2E de la ficha sobre base Docker descartable: 38 de 39 pasaron; `commercial.e2e.ts` falla en el paso «CRM template» también con el build de `staging` en el mismo entorno local (en CI depende de datos que crean las integraciones previas), por lo que no se atribuye a este cambio. PR 1/2 mergeado en `staging` como #230 (`18db09c`).
+
+## Ficha de negocio · PR 2/2 · 23/10/2026
+
+Rama `ux/business-page-tabs`. Encabezado compacto (estado junto al nombre; datos y responsable; persona y canales; «Último contacto» desde la misma consulta del historial), Próximo paso como única tarjeta destacada y solapas «Historial», «Tareas», «Comunicación» y «Gestiones · Personas · Datos», con los `?section=` viejos redirigidos. «Copiar nombre para agendar» pasa a «Más acciones del negocio» (sigue visible en solo lectura). Se quitó «Resumen para retomar». El calendario de la fecha de recontacto se abre hacia arriba para no tapar «Guardar». La Ayuda y `docs/guia-de-uso.md` se actualizaron. Sin cambios de API ni permisos.
+
+Medido sobre el negocio sintético: solapa Historial 2192 px a 1280 px y 2630 px a 390 px, sin scroll horizontal; a 390 px las solapas aparecen en y≈772 cuando Próximo paso está vacío y en y≈1057 con una tarea.
+
+Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. Suite de navegador completa sobre base Docker descartable: 193 de 194; `commercial.e2e.ts` se detiene en el paso «CRM template», igual que con el build de `staging` en este entorno (en CI pasó con #230).
+

@@ -178,3 +178,9 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - **Email con resultado incierto.** Primero lo resuelve el webhook de Brevo si llega un evento. Si no, un administrador lo marca como enviado (`accepted`, entrega no confirmada) o no enviado (`failed`), con un motivo obligatorio de lo que revisó, y queda en el journal. Aplica a `unknown` y a `submitting` sin cambios por más de 15 minutos. Nunca se reenvía automáticamente.
 - **Metadata del historial guardada como string.** Se repara con la migración 040, idempotente y limitada a `account_updated` y `business_assignment_rebalanced`. Se aplica en el deploy.
 
+## Ficha del negocio: estructura (23/10/2026, propietario)
+
+- La ficha `/accounts/:accountId` tiene un encabezado compacto (nombre y estado, datos con responsable, persona principal y canales, último contacto), luego Próximo paso como única tarjeta destacada, y cuatro solapas por tarea: «Historial» (por defecto), «Tareas» (oculta en solo lectura), «Comunicación» y «Gestiones · Personas · Datos».
+- Los valores viejos de `?section=` siguen funcionando: `que-paso`/`history` → Historial; `work` → Tareas (Historial en solo lectura); `communication` → Comunicación; `gestiones`, `opportunities`, `personas`, `contacts`, `datos`, `documents`, `summary` → la cuarta solapa.
+- La explicación de cada estado del negocio queda en la ayuda «?» junto al badge; la tarjeta de estado completa ya no se muestra en la ficha.
+- Pendiente de revisar con el propietario: si conviene una variante de dos columnas en escritorio.

@@ -14,7 +14,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   const {id}=await mutate({action:'account_save',nombre:'Preparación explícita '+viewport.width+' '+Date.now(),email:'business@example.com'});
   expect((await detail(id)).opportunities).toHaveLength(0);
   await page.goto('/accounts/'+id);
-  await page.getByRole('tab',{name:/^Gestiones \(/}).click();
+  await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
   await expect(page.getByText(/Sin gestiones iniciadas/)).toBeVisible();
   await expect(page.getByText(/por ejemplo «Plan anual 2027»/)).toBeVisible();
   await page.getByRole('button',{name:'¿Qué es esto? Estado'}).click();await expect(page.getByText(/Dice en qué situación está el negocio/)).toBeVisible();await page.keyboard.press('Escape');

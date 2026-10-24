@@ -30,7 +30,7 @@ test('a seller with an open management corrects only phone, email and WhatsApp',
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Editar negocio',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Más acciones del negocio',exact:true})).toHaveCount(0);
- await page.getByRole('tab',{name:'Datos y documentos',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
  await page.getByRole('button',{name:'Corregir datos de contacto',exact:true}).click();
  const dialog=page.getByRole('dialog');
  await expect(dialog.getByText('Queda registrado en el historial.').first()).toBeVisible();
@@ -46,7 +46,7 @@ test('a seller with an open management corrects only phone, email and WhatsApp',
 test('the same seller adds and edits persons but cannot remove them or change the primary one',async({page})=>{
  const posts=await mock(page,true);
  await page.goto('/accounts/301');
- await page.getByRole('tab',{name:'Personas (2)',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
  await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Quitar persona',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Editar',exact:true}).first().click();
@@ -65,6 +65,6 @@ test('without an open management the business stays read-only and offers no corr
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
  for(const name of ['Corregir datos de contacto','Editar negocio'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
  await expect(page.getByText('Podés consultar este negocio. Solo su responsable o un administrador puede modificarlo.')).toBeVisible();
- await page.getByRole('tab',{name:'Personas (2)',exact:true}).click();
+ await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
  for(const name of ['Agregar persona','Editar','Quitar persona'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
 });

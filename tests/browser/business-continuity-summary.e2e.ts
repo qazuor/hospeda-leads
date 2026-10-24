@@ -22,27 +22,27 @@ for(const width of [1280,390])test(`business continuity summary is clear at ${wi
   else if(path.endsWith('/pipeline'))data={stages:[{name:'main:contact',displayName:'Contactado',managementType:'main',classification:'open',active:true,historical:false,sortOrder:1}],insights:[{id:'55',estado:'main:contact',managementType:'main',businessStatus:'in_management',referredToLeandro:false,referredOriginalOwnerEmail:null,manualPriority:'media',assignedUserEmail:'owner@example.com',stageSince:new Date('2026-10-18T12:00:00-03:00'),pipelineRevision:1,pendingFollowup:true,doNotContact:false,canModify:!managementReadOnly,suggestion:{priority:null,factors:[]}}],events:[],objections:[],objectionTypes:[],lossReasons:[],managementReasons:[],rules:[],users:[{email:'owner@example.com',displayName:'Responsable'}],verticals:[],configJournal:[],reactivations:[],total:1,page:1};
   else if(path.endsWith('/leads'))data={rows:[{...management,canModify:!managementReadOnly}],total:1,page:1,pageSize:10,filters:{ciudades:[],estados:[],tipos:[],businessStatuses:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
   else if(path.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
+  else if(path.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
   else if(path.endsWith('/lead_notes'))data={notes:[]};
   else if(path.endsWith('/lead_journal'))data={rows:[],total:0,page:1,pageSize:100,filters:{actions:[],actors:[],cities:[],types:[],leads:[]}};
   else if(path.endsWith('/settings'))data={users:[],cities:[],types:[],templates:[],authorizedEmails:[],opportunityStages:[]};
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts/1');
- const summary=page.getByRole('region',{name:'Resumen para retomar'});
- await expect(summary).toBeVisible();
- await expect(summary).toContainText('Último contacto o actividad');
- await expect(summary).toContainText('Email enviado');
- await expect(summary.getByRole('link',{name:'Plan de alojamiento'})).toHaveAttribute('href','/sales/55');
- // The next step is shown once, above the summary strip.
+ const header=page.locator('header').filter({hasText:'Hostería del Parque'});
+ await expect(header).toBeVisible();
+ await expect(header).toContainText('Último contacto: Email enviado');
+ await expect(header).toContainText('18 de oct de 2026');
+ // The next step is shown once, below the compact business header.
  const accountNext=page.getByRole('region',{name:'Próximo paso'});
  await expect(accountNext).toContainText('PRÓXIMO PASO');
  await expect(accountNext).toContainText('Enviar información del plan');
- await expect(summary).not.toContainText('Enviar información del plan');
- await expect(summary).not.toContainText('Próximo paso');
- expect(await accountNext.evaluate((next,strip)=>!!(next.compareDocumentPosition(strip!)&Node.DOCUMENT_POSITION_FOLLOWING),await summary.elementHandle())).toBe(true);
- await page.getByRole('tab',{name:'Gestiones (1)',exact:true}).click();
+ await expect(header).not.toContainText('Enviar información del plan');
+ await expect(header).not.toContainText('Próximo paso');
+ expect(await header.evaluate((node,next)=>!!(node.compareDocumentPosition(next!)&Node.DOCUMENT_POSITION_FOLLOWING),await accountNext.elementHandle())).toBe(true);
+ await page.getByRole('tab',{name:'Gestiones · Personas · Datos',exact:true}).click();
  await accountNext.getByRole('button',{name:'Ver tareas',exact:true}).click();
- await expect(page.getByRole('tab',{name:'Qué pasó',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tab',{name:'Tareas',exact:true})).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#business-work')).toBeInViewport();
  await page.screenshot({path:`test-results/business-continuity-account-${width}.png`,fullPage:true});
  await page.goto('/sales/55');
