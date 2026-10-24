@@ -1,5 +1,4 @@
 import {useEffect, useState} from 'react';
-import {AppHeader} from './AppHeader';
 import styles from './RouteLoading.module.css';
 
 export function RouteLoading() {
@@ -10,7 +9,6 @@ export function RouteLoading() {
   }, []);
 
   return <>
-    <AppHeader />
     <main className={styles.shell} role="status" aria-busy="true" data-route-loading>
       <div className={showNotice ? styles.notice : styles.hidden}>
         Cargando pantalla…

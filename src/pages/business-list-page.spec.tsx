@@ -15,7 +15,6 @@ vi.mock('../endpoints/business_column_groups.schema',()=>({getBusinessColumnGrou
 vi.mock('../endpoints/leads_GET.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/leads_GET.schema')>(),getLeads:api.getLeads}));
 vi.mock('../endpoints/settings_GET.schema',()=>({getSettings:api.getSettings}));
 vi.mock('../endpoints/saved_views_GET.schema',()=>({getSavedLeadViews:api.getSavedViews}));
-vi.mock('../components/AppHeader',()=>({AppHeader:()=>null}));
 vi.mock('../components/Button',()=>({Button:({children,variant,disabledReason,...props}:React.ButtonHTMLAttributes<HTMLButtonElement>&{variant?:string;disabledReason?:string})=><button {...props}>{children}</button>}));
 vi.mock('../components/Checkbox',()=>({Checkbox:({checked,onChange,indeterminate,disabledReason,...props}:React.InputHTMLAttributes<HTMLInputElement>&{indeterminate?:boolean;disabledReason?:string})=><input type="checkbox" checked={checked} onChange={onChange} {...props}/> }));
 vi.mock('../components/Input',()=>({Input:(props:React.InputHTMLAttributes<HTMLInputElement>)=><input {...props}/> }));

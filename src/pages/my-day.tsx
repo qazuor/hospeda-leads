@@ -8,7 +8,6 @@ import { UnstyledButton } from '@mantine/core';
 import React,{useState,useEffect} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
-import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
 import {TaskRow,ActivityRow,WorkPagination} from '../components/WorkPanel';
 import {WorkEditor,type WorkTarget} from '../components/WorkEditor';
@@ -48,7 +47,7 @@ export default function MyDayPage(){
  const reset=(fn:()=>void)=>{fn();setPage(1);};
  const days=Array.from({length:Number(monthEnd.slice(8))},(_,i)=>month+'-'+String(i+1).padStart(2,'0'));
  const firstWeekday=(new Date(month+'-01T12:00:00Z').getUTCDay()+6)%7;
- return <><AppHeader/><main className={styles.shell}>
+ return <><main className={styles.shell}>
   <div className={styles.heading+" "+ws.pageHeading}><div>{!retomar&&<span className={styles.eyebrow}>{agenda?"ENCUENTROS COMERCIALES":"TRABAJO DIARIO"}</span>}<h1>Hoy</h1>{!retomar&&<p className={styles.muted}>{agenda?"Visitas y reuniones planificadas y realizadas":formatDate(localDay(now))+" · Priorizá lo vencido y lo que toca hoy"} · Horarios de Argentina</p>}</div>{!retomar&&<div className={styles.actions}><Button onClick={()=>setEditor({kind:'task'})}>{agenda?"Agendar encuentro":VOCAB.scheduleTask}</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity'})}>{agenda?"Anotar encuentro realizado":VOCAB.logWhatHappened}</Button></div>}</div>
   <SectionTabs value={view} onValueChange={next=>setSearchParams(next==='list'?{}:{view:next})}><SectionTabList aria-label="Vistas de Hoy">{todayViews.map(item=><SectionTab key={item.view} value={item.view}>{item.label}</SectionTab>)}</SectionTabList>{todayViews.map(item=><SectionTabPanel key={item.view} value={item.view}>{item.view===view&&(
   retomar?<React.Suspense fallback={<QueryLoadingNotice/>}><ReactivationContent/></React.Suspense>:<>

@@ -6,7 +6,6 @@ import { Table } from '@mantine/core';
 import React, { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Eye, RotateCcw, Search, Trash2 } from "lucide-react";
-import { AppHeader } from "../components/AppHeader";
 import { Button } from "../components/Button";
 import { Checkbox } from "../components/Checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/Dialog";
@@ -25,7 +24,7 @@ import {formatDateTime} from "../helpers/crmDates";
 
 export default function TrashPage(){
  const [entity,setEntity]=useState('business');
- return <><AppHeader/><main className={styles.shell}><header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Papelera</h1><p>Recuperá registros eliminados. Archivar y eliminar son acciones diferentes.</p></div><Trash2 size={30}/></header><SegmentedControl aria-label="Registros de Papelera" value={entity} onChange={setEntity} data={[{value:'business',label:'Negocios'},{value:'management',label:'Gestiones'}]}/>{entity==='business'?<BusinessTrashPanel/>:<ManagementTrashPanel/>}</main></>;
+ return <><main className={styles.shell}><header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Papelera</h1><p>Recuperá registros eliminados. Archivar y eliminar son acciones diferentes.</p></div><Trash2 size={30}/></header><SegmentedControl aria-label="Registros de Papelera" value={entity} onChange={setEntity} data={[{value:'business',label:'Negocios'},{value:'management',label:'Gestiones'}]}/>{entity==='business'?<BusinessTrashPanel/>:<ManagementTrashPanel/>}</main></>;
 }
 function ManagementTrashPanel(){
   const qc=useQueryClient();

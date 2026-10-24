@@ -5,7 +5,6 @@ import { NativeSelect } from '../components/NativeSelect';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {useInfiniteQuery,useQuery,useQueryClient} from '@tanstack/react-query';
 import {useNavigate,useSearchParams} from 'react-router-dom';
-import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
 import {Dialog,DialogContent,DialogTitle} from '../components/Dialog';
 import {Tooltip,TooltipTrigger,TooltipContent} from '../components/Tooltip';
@@ -46,7 +45,7 @@ import {viewPreferencesFingerprint,readBusinessViewSelection,saveBusinessViewSel
 import {resolveSystemViews} from '../helpers/businessSystemViews';
 import styles from './business-list.module.css';
 export default function BusinessListPage(){const {authState}=useAuth();const defaults=useQuery({queryKey:['business-list-defaults'],queryFn:getBusinessListDefaults,refetchOnWindowFocus:false}),groupsQuery=useQuery({queryKey:['business-column-groups'],queryFn:getBusinessColumnGroups,refetchOnWindowFocus:false});const [ready,setReady]=useState(false);useEffect(()=>{if(defaults.isSuccess&&!defaults.isFetching)setReady(true);},[defaults.isSuccess,defaults.isFetching]);if(authState.type!=='authenticated')return null;
- return <><div className={styles.navigation}><AppHeader/></div>{defaults.isPending||!ready&&!defaults.error?<main className={styles.shell} aria-busy="true"><h1>Negocios</h1><p>Cargando configuraciones por defecto…</p><Skeleton className={styles.skeleton}/></main>:defaults.error?<main className={styles.shell}><p role="alert">No pude cargar las configuraciones por defecto: {defaults.error.message}</p><Button onClick={()=>defaults.refetch()}>Reintentar</Button></main>:<BusinessList key={authState.user.id} userId={authState.user.id} userEmail={authState.user.email} admin={authState.user.role==='admin'} defaults={defaults.data!} groups={groupsQuery.data?resolveBusinessColumnGroups(groupsQuery.data.groups):[]} groupsResolved={groupsQuery.isSuccess&&!!groupsQuery.data}/>}</>;
+ return <>{defaults.isPending||!ready&&!defaults.error?<main className={styles.shell} aria-busy="true"><h1>Negocios</h1><p>Cargando configuraciones por defecto…</p><Skeleton className={styles.skeleton}/></main>:defaults.error?<main className={styles.shell}><p role="alert">No pude cargar las configuraciones por defecto: {defaults.error.message}</p><Button onClick={()=>defaults.refetch()}>Reintentar</Button></main>:<BusinessList key={authState.user.id} userId={authState.user.id} userEmail={authState.user.email} admin={authState.user.role==='admin'} defaults={defaults.data!} groups={groupsQuery.data?resolveBusinessColumnGroups(groupsQuery.data.groups):[]} groupsResolved={groupsQuery.isSuccess&&!!groupsQuery.data}/>}</>;
 }
 function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{userId:number;userEmail:string;admin:boolean;defaults:Awaited<ReturnType<typeof getBusinessListDefaults>>;groups:BusinessColumnGroup[];groupsResolved:boolean}){
  const BUSINESS_COLUMNS=[...NORMAL_BUSINESS_COLUMNS,...groups.map(group=>({key:'group:'+group.id,label:group.name}))];

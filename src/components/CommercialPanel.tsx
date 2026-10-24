@@ -35,6 +35,7 @@ import { Ban } from "lucide-react";
 import {toast} from 'sonner';
 import {agendaName} from '../helpers/userscriptPure';
 import {splitEmptyFields} from '../helpers/emptyFields';
+import { usePageCrumb } from './AppLayout';
 import styles from "./Commercial.module.css";
 
 const actionLabels:Record<string,string>={account_deleted:"Negocio enviado a Papelera",account_restored:"Negocio restaurado",account_archived:"Negocio archivado",account_unarchived:"Negocio recuperado",contact_policy:"Política de recontacto",leandro_referral_changed:"Derivación a Leandro actualizada",account_merged:"Negocios fusionados",import_updated:"Actualizado desde lote",account_created:"Negocio creado",account_updated:"Negocio editado",account_contact_data_updated:"Datos de contacto corregidos",business_assignment_rebalanced:"Responsable actualizado por redistribución",converted_to_client:"Conversión a cliente",business_status_changed:"Estado del negocio actualizado",business_state_changed:"Estado o indicador del negocio actualizado",client_marked:"Marcado como Cliente",client_unmarked:"Marca Cliente quitada",stage:"Etapa de gestión actualizada",contact_created:"Persona agregada",contact_updated:"Persona editada",contact_deleted:"Persona quitada",contact_primary_changed:"Persona principal reemplazada",created:"Creada",updated:"Editada",inline_updated:"Cambio rápido",bulk_updated:"Edición masiva",note_added:"Nota agregada",email_sent:"Email enviado",contact_logged:"Contacto registrado",soft_deleted:"Enviada a papelera",restored:"Restaurada",hard_deleted:"Eliminada definitivamente"};
@@ -65,6 +66,7 @@ function auditDetail(metadata:unknown){
 export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:{accountId?:string;leadId?:string;compact?:boolean;readOnly?:boolean}){
   const {authState}=useAuth();
   const q=useQuery({queryKey:["commercial-detail",accountId??"",leadId??""],queryFn:()=>getCommercialDetail(accountId,leadId)});
+  usePageCrumb(accountId ? q.data?.account.nombre : null);
   const historySummary=useQuery({queryKey:['commercial-detail','history',q.data?.account.id??'',1],queryFn:()=>getBusinessHistory(String(q.data!.account.id),1),enabled:!!accountId&&!!q.data?.account.id});
   const [savedStep,setSavedStep]=useState<{kind:'contact'|'opportunity';id:string}|null>(null);
   const [params]=useSearchParams();

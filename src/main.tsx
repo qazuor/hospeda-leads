@@ -7,6 +7,7 @@ const GuidePage=React.lazy(()=>import('./pages/guide'));
 const LibraryPage=React.lazy(()=>import('./pages/library'));
 const PasswordRecoveryPage=React.lazy(()=>import("./pages/password-recovery"));
 import {RouteLoading} from "./components/RouteLoading";
+import { AppLayout } from "./components/AppLayout";
 import {AppErrorBoundary} from "./components/AppErrorBoundary";
 import {installPreloadErrorHandler} from "./helpers/chunkReload";
 import ReactDOM from "react-dom/client";
@@ -64,25 +65,27 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
           <Route path="/reset-password" element={<PasswordRecoveryPage reset />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
-          <Route path="/sales/:leadId" element={<UserRoute><SalePage/></UserRoute>} />
-          <Route path="/opportunities" element={<UserRoute><OpportunityEntry/></UserRoute>} />
-          <Route path="/accounts" element={<UserRoute><BusinessListPage /></UserRoute>} />
-          <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
-          <Route path="/my-day" element={<UserRoute><MyDayPage/></UserRoute>} />
-          {/* Agenda and Reactivación live inside Hoy (owner decision 5A); old bookmarks keep working. */}
-          <Route path="/reactivation" element={<Navigate to="/my-day?view=retomar" replace />} />
-          <Route path="/agenda" element={<Navigate to="/my-day?view=calendar" replace />} />
-          <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
-          <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
-          <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-          <Route path="/archived" element={<AdminRoute><ArchivedPage/></AdminRoute>} />
-          <Route path="/guide" element={<UserRoute><GuidePage/></UserRoute>} />
-          <Route path="/userscript" element={<UserRoute><UserscriptPage/></UserRoute>} />
-          <Route path="/library" element={<AdminRoute><LibraryPage/></AdminRoute>} />
-          <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
-          <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
-          <Route path="/inbound" element={<AdminRoute><InboundPage /></AdminRoute>} />
+          <Route element={<UserRoute><AppLayout /></UserRoute>}>
+            <Route path="/" element={<UserRoute><HomeEntry /></UserRoute>} />
+            <Route path="/sales/:leadId" element={<UserRoute><SalePage/></UserRoute>} />
+            <Route path="/opportunities" element={<UserRoute><OpportunityEntry/></UserRoute>} />
+            <Route path="/accounts" element={<UserRoute><BusinessListPage /></UserRoute>} />
+            <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
+            <Route path="/my-day" element={<UserRoute><MyDayPage/></UserRoute>} />
+            {/* Agenda and Reactivación live inside Hoy (owner decision 5A); old bookmarks keep working. */}
+            <Route path="/reactivation" element={<Navigate to="/my-day?view=retomar" replace />} />
+            <Route path="/agenda" element={<Navigate to="/my-day?view=calendar" replace />} />
+            <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
+            <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
+            <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+            <Route path="/archived" element={<AdminRoute><ArchivedPage/></AdminRoute>} />
+            <Route path="/guide" element={<UserRoute><GuidePage/></UserRoute>} />
+            <Route path="/userscript" element={<UserRoute><UserscriptPage/></UserRoute>} />
+            <Route path="/library" element={<AdminRoute><LibraryPage/></AdminRoute>} />
+            <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
+            <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
+            <Route path="/inbound" element={<AdminRoute><InboundPage /></AdminRoute>} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </React.Suspense>

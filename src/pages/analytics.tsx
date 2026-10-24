@@ -9,7 +9,6 @@ import { useQuery } from "@tanstack/react-query";
 import { BarChart3, CheckCircle2, Clock3, ContactRound, Sparkles, Target, UserRoundCheck, Users, Webhook, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AppHeader } from "../components/AppHeader";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Skeleton } from "../components/Skeleton";
@@ -31,12 +30,12 @@ export default function AnalyticsPage(){
   const cohort=new URLSearchParams({...(effectiveFrom?{cohortFrom:effectiveFrom}:{}),...(effectiveTo?{cohortTo:effectiveTo}:{}),...(responsible?{cohortOwner:responsible}:{}),...(type?{cohortType:type}:{}),...(city?{cohortCity:city}:{})}).toString();
   const drill=(field:string,value:string)=>navigate("/opportunities?"+cohort+"&filterField="+encodeURIComponent(field)+"&filterValue="+encodeURIComponent(value));
   const quick=(name:string)=>navigate("/opportunities?"+cohort+"&quick="+encodeURIComponent(name));
-  if(q.isPending)return <><AppHeader/><main className={styles.shell}><QueryLoadingNotice>Cargando informe…</QueryLoadingNotice></main></>;
-  if(!q.data)return <><AppHeader/><main className={styles.shell}><QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching}/></main></>;
+  if(q.isPending)return <><main className={styles.shell}><QueryLoadingNotice>Cargando informe…</QueryLoadingNotice></main></>;
+  if(!q.data)return <><main className={styles.shell}><QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching}/></main></>;
   const d=q.data!;
   const coverage=[{name:"Con teléfono",count:d.withPhone},{name:"Con email",count:d.withEmail},{name:"Con web",count:d.withWebsite}];
 
-  return <><AppHeader/><main className={styles.shell}>
+  return <><main className={styles.shell}>
  {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}
     <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Etapas, actividad y conversión con acceso directo a las gestiones que explican cada número; los estados comerciales no acreditan pagos.</p></div><BarChart3 size={28}/></header>
     <section className={styles.filters}>
