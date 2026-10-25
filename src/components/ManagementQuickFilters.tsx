@@ -1,6 +1,7 @@
 import {ListQuickFilters} from './ListQuickFilters';
 import {CURRENT_USER_FILTER_VALUE} from '../helpers/filterRules';
 import {localDay} from '../helpers/workDates';
+import {managementTypeLabels} from '../helpers/businessManagement';
 import type {AdvancedFilterGroup,AdvancedFilterRule} from '../endpoints/leads_GET.schema';
 
 /** Next-step shortcuts of the Gestiones quick filters. */
@@ -18,16 +19,22 @@ export function nextStepPreset(preset:NextStepPreset,now=new Date()):AdvancedFil
  return [{field,operator:'between',value:today,value2:shift(preset==='week'?daysToSunday:6)}];
 }
 
+/** True when the «Próximo paso» quick filter holds exactly the «Vencidas» or «Hoy» rule of today: those count only open managements, like the summary tiles. */
+export function nextStepNeedsOpen(groups:readonly AdvancedFilterGroup[],now=new Date()):boolean{
+ const today=localDay(now);
+ return groups.some(group=>group.rules.length===1&&group.rules[0].field==='fechaProximaAccion'&&!group.rules[0].value2&&(group.rules[0].operator==='before'&&group.rules[0].value===today||group.rules[0].operator==='on'&&group.rules[0].value===today));
+}
+
 const presets:readonly [NextStepPreset,string][]=[['overdue','Vencidas'],['today','Hoy'],['week','Esta semana'],['7days','Próximos 7 días'],['none','Sin próximo paso']];
 
 /** Props of {@link ManagementQuickFilters}. */
 export interface ManagementQuickFiltersProps{readonly groups:AdvancedFilterGroup[];readonly stages:{value:string;label:string}[];readonly users:{email:string;displayName:string}[];readonly currentUser?:boolean;readonly className?:string;readonly onChange:(groups:AdvancedFilterGroup[])=>void}
 
-/** Gestiones quick filters (Etapa, Responsable, Próximo paso); «Tipo de gestión» is not a supported filter field of the leads search. */
+/** Gestiones quick filters (Tipo de gestión, Etapa, Responsable, Próximo paso). */
 export function ManagementQuickFilters({groups,stages,users,currentUser,className,onChange}:ManagementQuickFiltersProps){
  const responsible=[...(currentUser?[{value:CURRENT_USER_FILTER_VALUE,label:'Yo'}]:[]),...users.filter(user=>user.email).map(user=>({value:user.email,label:user.displayName||user.email}))];
  return <ListQuickFilters groups={groups} className={className} onChange={onChange}
-  fields={[{key:'estado',options:stages},{key:'assignedUserEmail',options:responsible}]}
-  categories={[{field:'estado',label:'Etapa'},{field:'assignedUserEmail',label:'Responsable'}]}
-  date={{field:'fechaProximaAccion',label:'Próximo paso',operators:NEXT_STEP_OPERATORS,presets:presets.map(([key,label])=>({key,label,build:()=>nextStepPreset(key)}))}}/>;
+  fields={[{key:'managementType',options:Object.entries(managementTypeLabels).map(([value,label])=>({value,label}))},{key:'estado',options:stages},{key:'assignedUserEmail',options:responsible}]}
+  categories={[{field:'managementType',label:'Tipo de gestión'},{field:'estado',label:'Etapa'},{field:'assignedUserEmail',label:'Responsable'}]}
+  date={{field:'fechaProximaAccion',label:'Próximo paso',operators:NEXT_STEP_OPERATORS,note:'«Vencidas» y «Hoy» muestran solo gestiones abiertas.',presets:presets.map(([key,label])=>({key,label,build:()=>nextStepPreset(key)}))}}/>;
 }

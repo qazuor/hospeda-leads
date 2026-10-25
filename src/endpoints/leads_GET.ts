@@ -43,9 +43,9 @@ type SetFilterColumn=CategoryColumn;
 const isTextFilterField=(field:string):field is TextFilterField=>Object.prototype.hasOwnProperty.call(TEXT_FILTER_EXPRESSIONS,field);
 type RuleField=AdvancedFilterRule["field"];
 type DateRuleField=Extract<RuleField,"fechaCreacion"|"fechaUltimoContacto"|"fechaProximaAccion"|"createdAt"|"updatedAt">;
-type CategoryRuleField=Extract<RuleField,"assignedUserEmail"|"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"businessStatus"|"suscripcion"|"origen"|"quienCargo"|"asignadoA"|"medioContactoPreferido"|"prioridad"|"creadoPor">;
+type CategoryRuleField=Extract<RuleField,"assignedUserEmail"|"managementType"|"tipo"|"subtipo"|"commercialProfile"|"ciudad"|"estado"|"businessStatus"|"suscripcion"|"origen"|"quienCargo"|"asignadoA"|"medioContactoPreferido"|"prioridad"|"creadoPor">;
 const CATEGORY_FIELDS:ReadonlySet<string>=new Set<CategoryRuleField>([
-  "assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus","suscripcion","origen",
+  "assignedUserEmail","managementType","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus","suscripcion","origen",
   "quienCargo","asignadoA","medioContactoPreferido","prioridad","creadoPor"
 ]);
 const DATE_FIELDS:ReadonlySet<string>=new Set<DateRuleField>(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"]);
@@ -65,6 +65,8 @@ export async function handle(request: Request) {
     const url=new URL(request.url); const input=schema.parse(Object.fromEntries(url.searchParams));
     const includeDeleted=input.filterGroups.some(group=>group.rules.some(rule=>rule.field==="deletedAt"));
     if(includeDeleted&&user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden acceder a registros eliminados."}),{status:403});
+    // The management type is a column of each management; the business projection has no single value for it.
+    if(input.entity==="business"&&input.filterGroups.some(group=>group.rules.some(rule=>rule.field==="managementType")))return new Response(superjson.stringify({error:"El tipo de gestión solo se filtra en Gestiones."}),{status:400});
     const source=()=>input.entity==="business" ? db.selectFrom(businessTableSource(includeDeleted).as("leads")) : db.selectFrom("leads");
     let query=source();
     if(!includeDeleted)query=query.where("deletedAt","is",null);

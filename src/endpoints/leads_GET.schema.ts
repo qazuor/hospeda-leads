@@ -30,7 +30,7 @@ const textField=z.enum([
 const textMode=z.enum(["contains","not_contains","equals","not_equals","empty","not_empty"]);
 const dateField=z.enum(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"]);
 export const advancedFilterField=z.enum([
-  "id","nombre","contactName","assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus",
+  "id","nombre","contactName","assignedUserEmail","managementType","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus",
   "suscripcion","email","telefono","contactPhone","contactEmail","whatsapp","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb",
   "perfilBooking","perfilTurismoEntreRios","origen","quienCargo","asignadoA","reviewStatus","fechaCreacion",
   "fechaUltimoContacto","medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",

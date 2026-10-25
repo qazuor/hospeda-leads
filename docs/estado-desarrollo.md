@@ -1,6 +1,14 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
-## Rediseño visual v1, Fase 5 lista para PR — Hoy — 25/10/2026
+## Ajustes de Gestiones y Hoy pedidos por el propietario — listos para PR — 25/10/2026
+
+Tres cambios chicos decididos el 25/10/2026 (fuera de la v1 solo visual, aprobados aparte):
+
+- Gestiones tiene el filtro rápido «Tipo de gestión» (y el mismo campo en «Filtrar»). El servidor acepta `managementType` como campo del filtro avanzado solo en Gestiones; en Negocios responde 400.
+- «Vencidas» y «Hoy» del filtro «Próximo paso» muestran solo gestiones abiertas, como el resumen. La restricción se deriva del filtro: dura lo que dura «Vencidas» u «Hoy» y no pisa una clasificación elegida por un indicador o una vista guardada; el desplegable lo explica.
+- El mini calendario de Hoy marca todas las tareas pendientes del mes mostrado, con los mismos filtros de trabajo, mediante el modo nuevo de solo lectura `GET /_api/work?mode=month` (la grilla visible, hasta 42 días, mismo alcance que la lista; avisa si el tope de 3000 tareas la corta).
+
+## Rediseño visual v1, Fase 5 mergeada a `staging` (#239, `eecd391`; sin desplegar) — Hoy — 25/10/2026
 
 Solo visual: sin endpoints ni pedidos nuevos, sin cambios de permisos ni de No contactar. Mockup aprobado el 25/10/2026.
 
@@ -8,7 +16,7 @@ Solo visual: sin endpoints ni pedidos nuevos, sin cambios de permisos ni de No c
 - Dos columnas desde 1100 px: a la izquierda Anotá cómo salió, Vencidas, Para hoy, Próximas acciones (agrupadas por día) y Gestiones sin tarea agendada; a la derecha Respuestas nuevas, mini calendario y Primeros pasos. Más angosto, una columna intercalada.
 - Filtros de trabajo siempre visibles (Responsable solo admin, Localidad, Rubro; Mes y vista en Calendario). La ayuda «Cómo usar esta lista» pasó al «?» («Ayuda sobre Hoy»).
 - Filas de tarea con ícono por tipo (también en la ficha); los botones bajan debajo del texto cuando la columna es angosta.
-- Mini calendario: puntos por día solo con las tareas que la Lista ya trae (vencidas y de hoy hasta el tope más la primera página de próximas); el mes completo de visitas y reuniones sigue en «Calendario».
+- Mini calendario: al mergear marcaba solo las tareas que la Lista ya trae; el ajuste posterior lo pasa al mes completo.
 - Pruebas: ver el PR.
 
 ## Rediseño visual v1, Fase 3b mergeada a `staging` (#238, `b8841e4`; sin desplegar) — tabla de Gestiones — 25/10/2026

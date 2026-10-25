@@ -27,7 +27,8 @@ import { CommercialEditor } from "../components/CommercialEditor";
 import type { Account } from "../endpoints/commercial.schema";
 import { CommercialHelp } from "../components/CommercialHelp";
 import {usePageHelp} from '../components/AppLayout';
-import {ManagementQuickFilters} from '../components/ManagementQuickFilters';
+import {ManagementQuickFilters,nextStepNeedsOpen} from '../components/ManagementQuickFilters';
+import {managementTypeLabels} from '../helpers/businessManagement';
 import {ManagementStatTiles} from '../components/ManagementStatTiles';
 import {ManagementViewTabs} from '../components/ManagementViewTabs';
 import {StageStepper} from '../components/StageStepper';
@@ -155,6 +156,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [bulkDeleteOpen,setBulkDeleteOpen]=useState(false);
   const [activeQuick,setActiveQuick]=useState(!businessMode&&currentUser&&isMineFilter(initialGroups,currentUser.email)?"mine":"all");
   const [classification,setClassification]=useState<"open"|"won"|"lost"|undefined>();
+  // «Vencidas»/«Hoy» of the quick filter imply open managements, like the tiles; derived, so it never outlives the filter or overrides a chosen classification.
+  const queryClassification=classification??(!businessMode&&nextStepNeedsOpen(appliedFilterGroups)?'open':undefined);
   const [saveViewOpen,setSaveViewOpen]=useState(false);
   const [savedViewName,setSavedViewName]=useState("");
   const [savedViews,setSavedViews]=useState<Array<{
@@ -234,7 +237,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const settingsQ=useQuery({queryKey:["settings"],queryFn:getSettings});
   const savedViewsQ=useQuery({queryKey:["saved-views",currentUser?.id],queryFn:getSavedLeadViews,enabled:!!currentUser});
   const leadsQ=useQuery({
-    queryKey:[...QUERY_KEY,entity,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page,pipelineView,classification,activeQuick],
+    queryKey:[...QUERY_KEY,entity,debouncedQuery,appliedFilterGroups,cityFilter,statusFilter,typeFilter,subtypeFilter,commercialProfileFilter,priorityFilter,assignedUserFilter,subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction,sortBy,sortDir,page,pipelineView,queryClassification,activeQuick],
     queryFn:()=>getLeads({
       entity,
       filterOptions:"include",
@@ -258,7 +261,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       notesMode:notesFilter.mode==="none"?undefined:notesFilter.mode,
       notesText:notesFilter.value||undefined,
       nextAction:nextAction==="_all"?undefined:nextAction,
-      classification,contactPresence:activeQuick==='contacted'||activeQuick==='noContact'?activeQuick:undefined,sortBy,sortDir,page,inactiveDays:activeQuick==='inactive30'?30:undefined,pageSize:50,view:pipelineView?"board":"table"
+      classification:queryClassification,contactPresence:activeQuick==='contacted'||activeQuick==='noContact'?activeQuick:undefined,sortBy,sortDir,page,inactiveDays:activeQuick==='inactive30'?30:undefined,pageSize:50,view:pipelineView?"board":"table"
     }),
     placeholderData:(previous)=>previous
   });
@@ -320,6 +323,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     {key:"subtipo",label:"Subtipo",kind:"category",options:optionList(allSubtypeOptions)},
     {key:"commercialProfile",label:"Perfil comercial",kind:"category",options:optionList(PROFILE_OPTIONS)},
     {key:"ciudad",label:"Ciudad",kind:"category",options:optionList(cityOptions)},
+    ...(businessMode?[]:[{key:"managementType",label:"Tipo de gestión",kind:"category",options:Object.entries(managementTypeLabels).map(([value,label])=>({value,label}))} as FilterFieldDefinition]),
     {key:"estado",label:"Etapa de gestión",kind:"category",options:FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))},
     {key:"businessStatus",label:"Estado del negocio",kind:"category",options:Object.entries(businessStatusLabels).map(([value,label])=>({value,label}))},
     {key:"suscripcion",label:"Suscripción",kind:"category",options:optionList(filters.suscripciones)},

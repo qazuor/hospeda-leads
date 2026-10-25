@@ -34,6 +34,7 @@ export async function get(request:Request){
   const input=workQuery.parse(Object.fromEntries(new URL(request.url).searchParams));
   if(input.accountId)await assertBusinessAccess(db,input.accountId,user);
   if(input.leadId)await assertLeadAccess(db,input.leadId,user);
+  if(input.mode==='month'&&(!input.from||!input.to||input.from>input.to||Date.parse(input.to)-Date.parse(input.from)>41*86400000))throw new Error('Elegí un mes para el calendario.');
   if(input.calendar&&(input.mode!=='agenda'||!input.from||!input.to||Date.parse(input.to)-Date.parse(input.from)>31*86400000||input.from&&input.to&&input.from>input.to))throw new Error('Elegí un mes para el calendario.');
   const setting=await db.selectFrom('appSettings').select('value').where('key','=','crm_work_followup').executeTakeFirstOrThrow();
   const followup=followupSettings.parse({action:'followup_settings',...JSON.parse(setting.value)});
@@ -66,6 +67,11 @@ export async function get(request:Request){
   }
   if(input.from){tasks=tasks.where(sql<string>`t.due_date`,'>=',input.from);activities=activities.where(sql<string>`(t.occurred_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'>=',input.from);}
   if(input.to){tasks=tasks.where(sql<string>`t.due_date`,'<=',input.to);activities=activities.where(sql<string>`(t.occurred_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,'<=',input.to);}
+  // Hoy's mini calendar: every pending task of the visible grid (up to six weeks) in the same scope as the day list, only the fields the calendar draws.
+  if(input.mode==='month'){
+   const limit=3000,rows=await tasks.where('t.status','=','pending').select(['t.id','t.title','t.dueDate','t.dueAt','t.typeId','a.nombre as accountName']).orderBy('t.dueDate').orderBy('t.dueAt').orderBy('t.id').limit(limit+1).execute();
+   return reply({tasks:rows.slice(0,limit).map(t=>({...t,dueDate:calendarDay(t.dueDate)})),truncated:rows.length>limit});
+  }
   if(input.mode==='duplicates'){
    if(!input.accountId||!input.duplicateTitle||!input.duplicateType||!input.from||input.from!==input.to)throw new Error('Falta el contexto, título, tipo o fecha para revisar pendientes.');
    let matches=tasks.where('t.status','=','pending').where('t.typeId','=',input.duplicateType).where(sql<boolean>`${normalizeSearchSql(sql<string>`trim(t.title)`)} = ${normalizeSearchSql(sql<string>`${input.duplicateTitle}`)}`);

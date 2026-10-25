@@ -4,7 +4,7 @@ Registro de hitos para trasladar el proyecto entre herramientas. No es una trans
 
 ## 24 y 25/10/2026 — rediseño visual v1: ficha completa, listas y Hoy
 
-Se mergearon a `staging` las fases 2a, 2b y 2c del rediseño de la ficha (#234, #235, #236). Fase 3a (lista de Negocios: vistas en una fila, filtros rápidos, vista previa al tocar una fila, barra de último contacto, canales con ícono, barra de selección flotante y tarjetas agrupadas en el celular) se mergeó (#237). Fase 3b (tabla de Gestiones: resumen visible, vistas en una fila, filtros rápidos, etapa con pasos y tabla primero) se mergeó (#238). Fase 5 (Hoy: indicadores, dos columnas, filtros visibles, mini calendario y Primeros pasos compacto) quedó lista para PR. Nada se desplegó.
+Se mergearon a `staging` las fases 2a, 2b y 2c del rediseño de la ficha (#234, #235, #236). Fase 3a (lista de Negocios: vistas en una fila, filtros rápidos, vista previa al tocar una fila, barra de último contacto, canales con ícono, barra de selección flotante y tarjetas agrupadas en el celular) se mergeó (#237). Fase 3b (tabla de Gestiones: resumen visible, vistas en una fila, filtros rápidos, etapa con pasos y tabla primero) se mergeó (#238). Fase 5 (Hoy: indicadores, dos columnas, filtros visibles, mini calendario y Primeros pasos compacto) se mergeó (#239). Después quedaron listos para PR el filtro «Tipo de gestión», «Vencidas»/«Hoy» solo abiertas y el mini calendario con el mes completo. Nada se desplegó.
 
 ## 23/10/2026 — respuestas por email y WhatsApp Web en staging
 

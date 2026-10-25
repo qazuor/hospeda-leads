@@ -30,7 +30,7 @@ export const workMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('type_save'),id:z.string().regex(/^[a-z][a-z0-9_-]{0,79}$/),name:z.string().trim().min(1).max(100),agenda:z.boolean(),active:z.boolean()})
 ]);
 export type WorkMutation=z.infer<typeof workMutation>;
-export const workQuery=z.object({accountId:id.optional(),leadId:id.optional(),responsible:z.string().optional(),city:z.string().optional(),vertical:z.string().optional(),calendar:z.preprocess(v=>v===true||v==="true",z.boolean()).default(false),q:z.string().max(200).optional(),mode:z.enum(['day','agenda','detail','lookup','duplicates']).default('day'),duplicateTitle:z.string().trim().min(1).max(200).optional(),duplicateType:z.string().min(1).max(80).optional(),excludeTaskId:id.optional(),taskId:id.optional(),from:day.optional(),to:day.optional(),page:z.coerce.number().int().min(1).default(1)});
+export const workQuery=z.object({accountId:id.optional(),leadId:id.optional(),responsible:z.string().optional(),city:z.string().optional(),vertical:z.string().optional(),calendar:z.preprocess(v=>v===true||v==="true",z.boolean()).default(false),q:z.string().max(200).optional(),mode:z.enum(['day','agenda','month','detail','lookup','duplicates']).default('day'),duplicateTitle:z.string().trim().min(1).max(200).optional(),duplicateType:z.string().min(1).max(80).optional(),excludeTaskId:id.optional(),taskId:id.optional(),from:day.optional(),to:day.optional(),page:z.coerce.number().int().min(1).default(1)});
 export interface WorkTask {continuation?:'task'|'wait'|'done'|null;continuationReason?:string|null;purpose?:import("../helpers/nextStep").WorkPurpose|null;id:string;accountId:string;leadId:string|null;title:string;description:string|null;typeId:string;assignedUserEmail:string|null;dueDate:string;dueAt:Date|null;priority:'alta'|'media'|'baja';status:'pending'|'completed'|'cancelled';outcome?:string|null;result:string|null;completedAt:Date|null;/** Version token sent back as `expectedUpdatedAt` when the task is edited. */updatedAt?:Date;legacy:boolean;participants:string;contactIds:string[];accountName:string;city:string|null;opportunityName:string|null;deletedAt:Date|null;/** The activity created when the task was completed (corrections edit it). */activityId?:string|null;}
 export interface WorkActivity {continuation?:'task'|'wait'|'done'|null;continuationReason?:string|null;purpose?:import("../helpers/nextStep").WorkPurpose|null;id:string;accountId:string;leadId:string|null;taskId:string|null;typeId:string;title:string;occurredAt:Date;participants:string;contactIds:string[];channel:string|null;outcome?:string|null;result:string|null;notes:string|null;actorEmail:string|null;accountName:string;city:string|null;}
 export interface WorkData {
@@ -52,6 +52,13 @@ export interface WorkData {
  pendingOutcomes?:import('./communication.schema').PendingOutcome[];
  /** Day mode only: which first-use steps the user has really done (U-27). Step 1 (open a task) is client-side. */
  firstSteps?:{contacted:boolean;logged:boolean;scheduled:boolean};
+}
+/** A pending task as Hoy's mini calendar draws it (`dueDate` is an Argentina calendar day). */
+export type WorkMonthTask=Pick<WorkTask,'id'|'title'|'dueDate'|'dueAt'|'typeId'|'accountName'>;
+/** Every pending task between `from` and `to` (a calendar grid, at most 42 days) in the same scope as Hoy's list; `truncated` when the server cap cut it. */
+export async function getWorkMonth(params:{from:string;to:string;responsible?:string;city?:string;vertical?:string}):Promise<{tasks:WorkMonthTask[];truncated?:boolean}>{
+ const search=new URLSearchParams(Object.entries({mode:'month',...params}).filter((x):x is [string,string]=>x[1]!==undefined));
+ return apiJson<{tasks:WorkMonthTask[];truncated?:boolean;error?:string}>('/_api/work?'+search);
 }
 export async function getWork(params:Record<string,string|undefined>={}):Promise<WorkData>{
  const search=new URLSearchParams(Object.entries(params).filter((x):x is [string,string]=>x[1]!==undefined));
