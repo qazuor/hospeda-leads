@@ -6,7 +6,6 @@ export type ChatRead = { ok: true; title: string; phone: string | null; code: st
 export function getConversationPanel(doc: Document = document): HTMLElement | null { return doc.querySelector<HTMLElement>("#main"); }
 export function getAppRoot(doc: Document = document): HTMLElement { return doc.querySelector<HTMLElement>("#app") || doc.body; }
 export function getConversationHeader(doc: Document = document): HTMLElement | null { return getConversationPanel(doc)?.querySelector<HTMLElement>("header") || null; }
-export function getConversationHeaderBottom(doc: Document = document): number { const header = getConversationHeader(doc); if (!header) return 64; const bottom = header.getBoundingClientRect().bottom; return Number.isFinite(bottom) && bottom > 0 ? Math.ceil(bottom + 4) : 64; }
 
 /** Attributes that describe structure, not content: their values are kept (digit runs masked) so selectors can be fixed from a diagnostic. */
 const STRUCTURAL_ATTRS = new Set(["data-testid", "data-icon", "role", "dir", "data-tab", "data-virtualized"]);
