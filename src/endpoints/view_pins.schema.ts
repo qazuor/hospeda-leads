@@ -1,0 +1,11 @@
+import {z} from 'zod';
+import {apiJson,postJson} from '../helpers/apiClient';
+const uuid='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const viewKey=z.string().max(200).regex(new RegExp(`^(system:(all|mine|today|overdue|unassigned|noNext|recent|custom:${uuid})|quick:(all|mine|today|overdue|unassigned|noNext)|personal:[A-Za-z0-9_-]{1,120})$`));
+export const configSchema=z.object({order:z.array(viewKey).max(200),hidden:z.array(viewKey).max(200)});
+export const schema=z.object({entity:z.enum(['business','opportunity']),config:configSchema.nullable()});
+export type InputType=z.infer<typeof schema>;
+export type ViewPinsConfig=z.infer<typeof configSchema>;
+export type OutputType={business?:ViewPinsConfig;opportunity?:ViewPinsConfig};
+export const getViewPins=async():Promise<OutputType>=>apiJson<OutputType>('/_api/view_pins');
+export const postViewPins=async(body:InputType):Promise<{ok:true}>=>postJson<{ok:true}>('/_api/view_pins',schema.parse(body));

@@ -138,6 +138,11 @@ jobs:
         run: node --import tsx scripts/test-business-column-groups.ts
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Per-user pinned views
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:view-pins
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Guided usability integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:usability
