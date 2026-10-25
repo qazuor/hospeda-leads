@@ -29,7 +29,7 @@ describe('floating composer',()=>{
  it('ends the floating flow on close only after the unsaved-changes guard approves it',async()=>{
   const onOpenChange=vi.fn(),onFloatingClose=vi.fn();setup('floating',{onOpenChange,onFloatingClose});
   const prepareButton=screen.getByRole('button',{name:'Escribir un mensaje nuevo'});await waitFor(()=>expect((prepareButton as HTMLButtonElement).disabled).toBe(false));fireEvent.click(prepareButton);const field=await screen.findByRole('textbox',{name:'Asunto final'});fireEvent.change(field,{target:{value:'Sin guardar'}});
-  fireEvent.click(screen.getAllByRole('button',{name:'Cerrar',exact:true})[0]);
+  fireEvent.click(screen.getAllByRole('button',{name:'Cerrar'})[0]);
   expect(await screen.findByText('Tenés cambios sin guardar')).toBeTruthy();expect(onFloatingClose).not.toHaveBeenCalled();expect(onOpenChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button',{name:'Descartar cambios y salir'}));
   await waitFor(()=>expect(onFloatingClose).toHaveBeenCalledWith(true));expect(onOpenChange).toHaveBeenCalledWith(false);
