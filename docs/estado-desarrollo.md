@@ -1,6 +1,16 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
-## Ajustes de Gestiones y Hoy pedidos por el propietario — listos para PR — 25/10/2026
+## Rediseño visual v1, Fase 4 lista para PR — tablero de Gestiones — 25/10/2026
+
+Solo visual: sin endpoints ni pedidos nuevos, sin cambios de permisos. Mockup aprobado el 25/10/2026 (con acordeón en el celular a pedido del propietario).
+
+- Columnas con color propio por etapa (las abiertas por su orden: gris, celeste, violeta, ámbar, rosa, azul; ganada verde y perdida roja), fondo teñido, banda superior y contador. Cada columna se colapsa a una tira y el estado se recuerda en el navegador.
+- Tarjetas: nombre de la gestión (abre la gestión), negocio, vertical, días en la etapa, próximo paso con color, avisos de seguimiento y prioridad, responsable y «Cambiar etapa» con los mismos permisos.
+- Tocar una tarjeta abre «Vista previa de la gestión» (a la derecha; abajo en el celular) con los pasos de la etapa y los datos clave, «Cambiar etapa» y «Abrir gestión». Sigue a la fila actualizada y se cierra si la gestión deja la lista.
+- El tablero ya no tiene selector propio de «Tipo de gestión»: lo toma del filtro rápido cuando hay un solo tipo elegido.
+- En el celular (hasta 700 px) el tablero es un acordeón por etapa; arrancan desplegadas las etapas abiertas con gestiones.
+
+## Ajustes de Gestiones y Hoy pedidos por el propietario — mergeados a `staging` (#240, `ee7c006`; sin desplegar) — 25/10/2026
 
 Tres cambios chicos decididos el 25/10/2026 (fuera de la v1 solo visual, aprobados aparte):
 

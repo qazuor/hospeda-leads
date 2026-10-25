@@ -102,3 +102,5 @@
 @media(max-width:600px){.toolbar{flex-wrap:wrap}.search{flex:1 1 100%}.filters{flex:1 1 100%;flex-wrap:wrap;min-width:0}.filters .quickFilters{order:3;flex:1 1 100%;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.filters .quickFilters>*{flex:none}}
 /* Stage labels wrap inside narrow columns instead of being cut mid-word. */
 .tableCard td [data-stage-label]{white-space:normal;overflow-wrap:anywhere}
+/* Desktop toolbar: the quick-filter strip shrinks and scrolls inside the filters row instead of widening the page (four Gestiones quick filters + sidebar at 1280px). */
+@media(min-width:601px){.toolbar .filters{flex:1 1 auto;min-width:0;justify-content:flex-end}.toolbar .filters [role="group"][aria-label="Filtros rápidos"]{flex:0 1 auto;min-width:0;max-width:none}}

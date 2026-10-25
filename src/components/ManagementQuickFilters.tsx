@@ -25,6 +25,11 @@ export function nextStepNeedsOpen(groups:readonly AdvancedFilterGroup[],now=new 
  return groups.some(group=>group.rules.length===1&&group.rules[0].field==='fechaProximaAccion'&&!group.rules[0].value2&&(group.rules[0].operator==='before'&&group.rules[0].value===today||group.rules[0].operator==='on'&&group.rules[0].value===today));
 }
 
+/** Returns the sole selected management type when exactly one equality filter rule sets it. */
+export function singleManagementType(groups:readonly AdvancedFilterGroup[]):import('../helpers/businessManagement').ManagementType|undefined{
+ const matching=groups.filter(group=>group.rules.some(rule=>rule.field==='managementType'));if(matching.length!==1)return undefined;const group=matching[0];if(group.rules.length!==1)return undefined;const rule=group.rules[0];return rule.field==='managementType'&&rule.operator==='eq'&&!!rule.value&&['main','partner','provider','editor','accompaniment'].includes(rule.value)?rule.value as import('../helpers/businessManagement').ManagementType:undefined;
+}
+
 const presets:readonly [NextStepPreset,string][]=[['overdue','Vencidas'],['today','Hoy'],['week','Esta semana'],['7days','Próximos 7 días'],['none','Sin próximo paso']];
 
 /** Props of {@link ManagementQuickFilters}. */

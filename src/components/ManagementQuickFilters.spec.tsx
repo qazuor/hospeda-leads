@@ -1,7 +1,7 @@
 import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
-import {ManagementQuickFilters,nextStepNeedsOpen,nextStepPreset} from './ManagementQuickFilters';
+import {ManagementQuickFilters,nextStepNeedsOpen,nextStepPreset,singleManagementType} from './ManagementQuickFilters';
 import {BusinessQuickFilters} from './BusinessQuickFilters';
 import {CURRENT_USER_FILTER_VALUE} from '../helpers/filterRules';
 import type {AdvancedFilterGroup} from '../endpoints/leads_GET.schema';
@@ -80,4 +80,8 @@ describe('open-only next step',()=>{
   expect(nextStepNeedsOpen([{rules:[{field:'fechaProximaAccion',operator:'on',value:'2026-10-25',value2:'2026-10-30'}]}],sunday)).toBe(false);
  });
 
+});
+
+describe('singleManagementType',()=>{
+ it('returns only one exact equality rule for one management type',()=>{expect(singleManagementType([{rules:[{field:'managementType',operator:'eq',value:'partner'}]},{rules:[{field:'estado',operator:'eq',value:'x'}]}])).toBe('partner');expect(singleManagementType([{rules:[{field:'managementType',operator:'eq',value:'partner'},{field:'estado',operator:'eq',value:'x'}]}])).toBeUndefined();expect(singleManagementType([{rules:[{field:'managementType',operator:'eq',value:'partner'}]},{rules:[{field:'managementType',operator:'eq',value:'main'}]}])).toBeUndefined()});
 });

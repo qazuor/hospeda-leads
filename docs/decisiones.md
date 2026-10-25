@@ -195,6 +195,13 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.
 
 
+## Rediseño visual v1, Fase 4: tablero de Gestiones — 25/10/2026
+
+- El color de cada columna sale del orden de la etapa abierta dentro de su tipo de gestión (paleta cíclica), ganada verde y perdida roja; no se cargan colores por etapa.
+- El tipo de gestión del tablero lo define el filtro rápido (un único valor); el tablero no tiene selector propio.
+- En el celular el tablero es un acordeón por etapa en lugar de columnas deslizables.
+- La vista previa guarda solo el id de la gestión y se deriva de la lista actual.
+
 ## Gestiones y Hoy: tipo de gestión, vencidas abiertas y mes completo — 25/10/2026
 
 - `managementType` es campo del filtro avanzado de Gestiones (igualdad por categoría); en Negocios se rechaza porque un negocio puede tener gestiones de varios tipos.
