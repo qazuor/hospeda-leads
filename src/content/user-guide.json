@@ -963,7 +963,7 @@
         "when": "Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.",
         "steps": [
           "Abrí el negocio y entrá en la pestaña «Documentos», o abrí una gestión y entrá en «Documentos».",
-          "Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.",
+          "Tocá «Agregar documento o recurso» para crear un documento propio, o usá «Agregar documento» para mostrar el formulario de vinculación. Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.",
           "Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.",
           "Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.",
           "Revisá la versión, el vencimiento y la aprobación antes de usarlo como material comercial."
@@ -979,9 +979,10 @@
         "linkLabel": "Elegir negocio para consultar materiales",
         "uiLabels": [
           "Documentos",
+          "Agregar documento",
+          "Agregar documento o recurso",
           "Vincular documento al negocio",
           "Vincular documento a la gestión",
-          "Agregar documento o recurso",
           "Configuración",
           "Biblioteca"
         ]

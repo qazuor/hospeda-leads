@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Paper, Select } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2 } from 'lucide-react';
@@ -13,9 +13,9 @@ import { LibraryResourceSelect } from './LibraryResourceSelect';
 import styles from './Communication.module.css';
 import {managementDisplayName} from '../content/vocabulary';
 
-export function ResourceLinkForm({ accountId, leadId, documents, loading, error, onRetry, onPreview }: {
+export function ResourceLinkForm({ accountId, leadId, documents, loading, error, onRetry, onPreview, onLinked, onStateChange }: {
   accountId: string; leadId?: string; documents: ResourceDocument[]; loading: boolean;
-  error?: Error | null; onRetry: () => void; onPreview: (version: ResourceVersion) => void;
+  error?: Error | null; onRetry: () => void; onPreview: (version: ResourceVersion) => void; onLinked?: () => void; onStateChange?:(busy:boolean,error:boolean,confirmation:string)=>void;
 }) {
   const { authState } = useAuth();
   const user = authState.type === 'authenticated' ? authState.user : undefined;
@@ -31,16 +31,17 @@ export function ResourceLinkForm({ accountId, leadId, documents, loading, error,
     if (input.action !== 'link') return;
     setConfirmation(`«${selected?.title || 'Documento'}» quedó vinculado a ${targetName}. No se envió al cliente.`);
     setDocumentId('');
-    void qc.invalidateQueries({ queryKey: ['resources'] });
+    void qc.invalidateQueries({ queryKey: ['resources'] }); onLinked?.();
   }, onSettled: () => { lock.current = false; } });
   const busy = mutation.isPending;
   const contextLoading = detail.isPending || work.isPending;
   const contextError = detail.error || work.error;
   const blocked = busy || loading || contextLoading || !!error || !!contextError;
+  useEffect(()=>{onStateChange?.(busy,!!mutation.error,confirmation)},[busy,mutation.error,error,contextError,confirmation,onStateChange]);
   function resetFeedback() { mutation.reset(); setConfirmation(''); }
   function link() {
     if (lock.current || blocked || !selected) return;
-    lock.current = true; setConfirmation('');
+    lock.current = true; setConfirmation('');onStateChange?.(true,false,'');
     mutation.mutate({ action: 'link', id: selected.id, accountId, leadId: targetLead || null, activityId: activityId || null });
   }
   return <Paper component="section" withBorder p="md" radius="md" className={styles.materialContext} aria-label="Vincular material aprobado" aria-busy={busy}>
@@ -59,7 +60,6 @@ export function ResourceLinkForm({ accountId, leadId, documents, loading, error,
     <p className={styles.materialTarget}>Destino: <strong>{detail.data?.account.nombre || 'Negocio'} · {targetName}</strong></p>
     <div className={styles.actions}><Button disabled={blocked || !selected} disabledReason={"El negocio tiene un bloqueo de contacto activo. Un administrador debe levantarlo para habilitar esta acción."} onClick={link}>{busy ? 'Vinculando documento…' : leadId ? 'Vincular documento a la gestión' : 'Vincular documento al negocio'}</Button></div>
     {mutation.error && <p role="alert">{mutation.error.message} Tu selección se conserva; podés volver a intentar.</p>}
-    {confirmation && <p role="status">{confirmation}</p>}
-    {busy && <span hidden data-unsaved="true"/>}
+        {busy && <span hidden data-unsaved="true"/>}
   </Paper>;
 }

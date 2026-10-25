@@ -1,4 +1,4 @@
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {CrmNativeSelect} from './ui/CrmNativeSelect';
 import {MessageCircle,Mail,ArrowRight,Plus} from 'lucide-react';
@@ -30,7 +30,7 @@ const GENERAL='__general';
  * Then channel and recipient: a call is made right here (`PhoneCallPanel`), a message goes through its composer, social and other channels through the manual form.
  * Opening or choosing a channel records nothing; every contact ends in "¿Cómo salió?" → "¿Cómo sigue?" unless `onLog` (a task's own completion path) takes over.
  */
-export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,onLog}:{detail:CommercialDetail;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:'email'|'whatsapp'|'call'|'social'|'other';initialContactId?:string;onLog?:(contactId:string,channel:string)=>void}){
+export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,onLog,floatingComposer=false,onFloatingClose,onFloatingOpen}:{detail:CommercialDetail;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:'email'|'whatsapp'|'call'|'social'|'other';initialContactId?:string;onLog?:(contactId:string,channel:string)=>void;floatingComposer?:boolean;onFloatingClose?:(floating:boolean)=>void;onFloatingOpen?:(leadId:string)=>void}){
  const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:undefined;
  const stages=useQuery({queryKey:['pipeline','config-summary'],queryFn:()=>getPipeline({mode:'config'})});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
@@ -62,13 +62,14 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const manualChannel=channel==='social'||channel==='other';
  // Only undefined means "no request" (report item 1.4): '' is an explicit choice of the business general channel.
  const recipient=initialContactId??(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:undefined);
+ 
  const resetSteps=()=>{setManualContact(false);setComposing(false);setGeneralMessage(false)};
  if(editor)return <CommercialEditor target={editor} detail={detail} onSaved={id=>{if(editor.kind==='opportunity'){setChosen(id);setCreated(true)}}} onClose={()=>setEditor(null)}/>;
  if(manualContact&&manualChannel&&(opportunity||general))return <CrmDialog opened onClose={()=>setManualContact(false)} title={channel==='social'?'Registrar contacto por red social':'Registrar contacto por otro canal'} description={<>{detail.account.nombre} · {opportunity?managementDisplayName(opportunity):'sin gestión'} · se guardará el resultado que registres, sin inferir envío o respuesta.</>}>
   <ManualCommunicationForm key={channel+sobre} detail={opportunity?detail:{...detail,opportunities:[]}} currentLeadId={opportunity?String(opportunity.id):null} userEmail={user?.email??''} isAdmin={user?.role==='admin'} embedded fixedContext initialChannel={channel} initialContactId={initialContactId} fixedPurpose={general?generalPurpose:undefined} chainOutcome={!onLog} onFinished={onClose}/>
   <Button mt="md" variant="outline" onClick={()=>setManualContact(false)}>Volver a elegir canal</Button>
  </CrmDialog>;
- if(composing&&opportunity&&(channel==='email'||channel==='whatsapp'))return <ContactTemplateDialog open channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onFinished={onClose} onAddChannel={canModifyBusiness(user,detail.account)?()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}:undefined} onOpenChange={v=>{if(!v)setComposing(false)}}/>;
+ if(composing&&opportunity&&(channel==='email'||channel==='whatsapp'))return <ContactTemplateDialog open presentation={floatingComposer?'floating':'dialog'} returnFocusTo={returnFocusTo} channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onFinished={onClose} onAddChannel={canModifyBusiness(user,detail.account)?()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}:undefined} onOpenChange={v=>{if(!v)setComposing(false)}} onFloatingClose={floating=>{onFloatingClose?.(floating);if(!floating)setComposing(false)}} onFloatingOpen={()=>onFloatingOpen?.(String(opportunity.id))}/>;
  if(generalMessage&&general&&(channel==='email'||channel==='whatsapp'))return <GeneralMessageStep detail={detail} templates={settings.data?.templates??[]} channel={channel} purpose={generalPurpose} onClose={()=>setGeneralMessage(false)} onFinished={onClose} onLog={onLog}/>;
  return <CrmDialog opened onClose={onClose} title="Contactar" returnFocusTo={returnFocusTo}
   description={<>{detail.account.nombre} · Elegí sobre qué es el contacto y el canal. Después verificá el destinatario y revisá el mensaje.<br/>{VOCAB.businessOwner}: <strong>{businessOwner}</strong>{opportunity&&<> · {VOCAB.managementOwner}: <strong>{managementOwner}</strong></>}</>}>

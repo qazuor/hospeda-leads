@@ -24,6 +24,7 @@ for (const width of [1280, 390]) test(`PDF pages, zoom, corrupt retry and permis
    await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
   });
   await page.goto('/accounts/101?section=documents');
+  await page.getByRole('button',{name:'Agregar documento',exact:true}).click();
   const form = page.getByRole('region', { name: 'Vincular material aprobado', exact: true });
   await expect(form).toBeVisible();
   await form.getByRole('combobox', { name: 'Documento de biblioteca', exact: true }).click();

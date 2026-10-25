@@ -1,4 +1,7 @@
 .dialog{width:min(860px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:90dvh;padding:0;overflow:hidden;display:flex;flex-direction:column}
+.floating{position:fixed;right:24px;bottom:24px;z-index:200;width:min(440px,calc(100vw - 32px));max-height:80vh;padding:0;overflow:hidden;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 55px rgb(0 0 0 / 24%)}
+.windowControls{margin-left:auto;display:flex;align-items:center;gap:4px}.windowControls button{font-size:12px}
+.hiddenContent{display:none!important}
 .header{padding:22px 58px 18px 24px;margin:0;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--popup)}
 .heading{display:flex;align-items:center;gap:12px}.heading h2,.heading p{margin:0}.heading h2{font-size:19px}.heading p{font-size:13px;margin-top:2px}
 .channelIcon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:color-mix(in srgb,var(--primary) 10%,var(--card));color:var(--primary);flex-shrink:0}
@@ -17,3 +20,6 @@
 
 /* Comfortable reading and controls in the commercial workflow. */
 :is(.dialog) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:1rem;min-height:40px} :is(.dialog) :is(p,label){font-size:1rem;line-height:1.6}
+/* Floating panel: title and window controls share one row (the dialog header stacks them). */
+.floating .header{display:flex;flex-direction:row;align-items:center;gap:8px;padding:14px 12px 12px 16px}.floating .heading{flex:1;min-width:0}.floating .heading h2{overflow-wrap:anywhere}.floating .windowControls{flex:none}
+.minimizedHeader{min-height:56px;padding:7px 12px;gap:8px}.minimizedHeader .channelIcon{width:32px;height:32px;border-radius:8px}.minimizedHeader .heading{gap:8px}.minimizedHeader .heading h2{font-size:14px}.minimizedHeader .windowControls{gap:2px}.warningDot{font-size:11px;color:var(--error);white-space:nowrap}

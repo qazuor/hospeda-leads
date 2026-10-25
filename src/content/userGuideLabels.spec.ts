@@ -120,3 +120,5 @@ describe('user guide labels',()=>{
   expect(bad).toEqual([]);
  });
 });
+
+describe('document guide controls',()=>{it('names both linking and own-document controls',()=>{const article=guide.flatMap(topic=>topic.articles).find(item=>item.id==='documents');expect(article?.steps.join(' ')).toContain('«Agregar documento o recurso»');expect(article?.uiLabels).toContain('Agregar documento o recurso');expect(article?.steps.join(' ')).toContain('«Agregar documento»');expect(article?.uiLabels).toContain('Agregar documento')})});

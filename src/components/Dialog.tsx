@@ -23,6 +23,7 @@ export function pickerOpen(event: KeyboardEvent) {
   return Array.from(document.querySelectorAll<HTMLElement>(FLOATING)).some(isOpenFloating);
 }
 function useDialog() { const value = useContext(Context); if (!value) throw new Error('Dialog control requires Dialog'); return value; }
+export function useDialogState() { return useDialog(); }
 export function Dialog({ children, open, defaultOpen = false, onOpenChange }: DialogProps) {
   const parent = useContext(Context);
   const [local, setLocal] = useState(defaultOpen); const titleId = useId(); const opener = useRef<HTMLElement | null>(null);
@@ -127,6 +128,6 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <Box {...props} className={[styles.footer, className].filter(Boolean).join(' ')} />; }
 export const DialogTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(({ className, ...props }, ref) => {
   const ctx = useDialog(); const inline = useContext(InlineContext);
-  return inline ? <Title {...props} ref={ref} order={2} id={ctx.titleId} className={[styles.title, className].filter(Boolean).join(' ')} /> : <Modal.Title {...props} ref={ref} className={[styles.title, className].filter(Boolean).join(' ')} />;
+  return inline ? <Title {...props} ref={ref} order={2} id={props.id??ctx.titleId} className={[styles.title, className].filter(Boolean).join(' ')} /> : <Modal.Title {...props} ref={ref} className={[styles.title, className].filter(Boolean).join(' ')} />;
 });
 export const DialogDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(({ className, ...props }, ref) => <Text {...props} component="p" ref={ref} className={[styles.description, className].filter(Boolean).join(' ')} />);
