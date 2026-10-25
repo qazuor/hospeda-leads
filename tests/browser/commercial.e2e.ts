@@ -20,8 +20,8 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByRole('heading',{name:'Negocio E2E',exact:true})).toBeVisible();
   const accountUrl=page.url();
   await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
-  await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
-  await page.getByRole('button',{name:'Negocio E2E',exact:true}).click();
+  await expect(page.getByRole('row').filter({has:page.getByRole('link',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
+  await page.getByRole('link',{name:'Negocio E2E',exact:true}).click();
   await expect(page.getByRole('tab',{name:'Resumen',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(page.getByRole('tablist',{name:'Secciones del negocio'}).getByRole('tab')).toHaveText(['Resumen','Historial',/^Tareas\s*\d+$/,'Comunicación',/^Gestiones\s*\d+$/,'Documentos']);
   for(const person of ['Ana','Luis']){
@@ -161,14 +161,14 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(page.getByRole('heading',{name:'Gestiones (3)',exact:true})).toBeVisible();
   const legacyOpportunityUrl=(await page.getByRole('tabpanel').getByRole('link',{name:'Tercera gestión',exact:true}).getAttribute('href'))!.replace(/^\/sales\/(\d+)$/, '/?leadId=$1');
   await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
-  const businessRow=page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})});
+  const businessRow=page.getByRole('row').filter({has:page.getByRole('link',{name:'Negocio E2E',exact:true})});
   await expect(businessRow).toHaveCount(1);
   await expect(businessRow.getByText(/3 gestiones/)).toBeVisible();
   await expect(page.getByRole('button',{name:'Filtrar negocios',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Pantalla completa',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Vista avanzada',exact:true})).toHaveCount(0);
   await page.getByRole('textbox',{name:'Buscar negocios',exact:true}).fill('Negocio E2E');
-  await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({has:page.getByRole('link',{name:'Negocio E2E',exact:true})})).toHaveCount(1);
   await page.getByRole('button',{name:'Guardar como vista',exact:true}).click();
   await page.getByLabel('Nombre de la vista',{exact:true}).fill('Negocios E2E guardados');
   await page.getByRole('dialog').getByRole('button',{name:'Guardar vista',exact:true}).click();

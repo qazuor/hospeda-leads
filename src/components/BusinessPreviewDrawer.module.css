@@ -1,0 +1,7 @@
+.body{display:flex;flex-direction:column;min-height:calc(100% - 60px);padding-bottom:0}.content{display:grid;gap:14px;padding:4px 0 16px;flex:1;align-content:start;min-width:0}
+.loading{display:grid;gap:10px}.meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;color:var(--muted-foreground)}
+.facts{display:grid;grid-template-columns:minmax(96px,auto) 1fr;gap:8px 12px;margin:0}.facts dt{color:var(--muted-foreground);font-size:13px}.facts dd{margin:0;min-width:0;overflow-wrap:anywhere}.channels{display:grid;gap:4px}
+.section{display:grid;gap:6px;border-top:1px solid var(--border);padding-top:12px}.section h3{margin:0;font-size:14px}.section p{margin:0}.management{display:grid;gap:4px}
+.muted{color:var(--muted-foreground)}.overdue{color:var(--tone-red-ink);font-weight:600}
+.footer{position:sticky;bottom:0;display:flex;gap:8px;flex-wrap:wrap;padding:12px 0 max(12px,env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--border)}
+.sheet{border-radius:18px 18px 0 0}

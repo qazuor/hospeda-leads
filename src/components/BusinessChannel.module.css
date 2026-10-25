@@ -1,0 +1,2 @@
+.channel{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%}.channel svg{flex:none;color:var(--muted-foreground)}.value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.channel[data-blocked]{color:var(--tone-red-ink)}.channel[data-blocked] svg{color:var(--tone-red-ink)}.blocked{flex:none;font-size:11px;font-weight:600;padding:1px 6px;border-radius:999px;background:var(--tone-red-soft,color-mix(in srgb,var(--tone-red) 14%,transparent))}

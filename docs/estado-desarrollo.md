@@ -1,6 +1,17 @@
-# Estado del CRM — corte al 24 de octubre de 2026
+# Estado del CRM — corte al 25 de octubre de 2026
 
-## Rediseño visual v1, Fase 2c lista para PR — composer flotante y formulario de documentos — 24/10/2026
+## Rediseño visual v1, Fase 3a lista para PR — lista de Negocios — 25/10/2026
+
+Solo visual: sin cambios de endpoints, permisos ni reglas de No contactar. Mockup aprobado por el propietario el 24/10/2026.
+
+- Vistas del equipo y personales en una sola fila desplazable.
+- Filtros rápidos Responsable, Estado, Ciudad y Último contacto junto a «Filtrar negocios» (en el celular, una tira desplazable). Cada uno edita solo su propio grupo (valores en «o»); si el campo ya tiene otra regla, avisa que se edita en «Filtrar negocios». Último contacto tiene atajos en días de Argentina (Hoy, Ayer, Esta semana, Últimos 7 y 30 días, Sin contacto) y «Rango…».
+- Tocar una fila (o «Vista previa» en el menú «⋯») abre una vista previa lateral (hoja inferior en el celular) con el mismo pedido que ya usaba «Contactar»: estado, datos, canales, próximo paso, actividad reciente y gestiones abiertas, con «Abrir ficha», «Contactar» y «Editar» (mismas reglas que la fila y que la ficha). Abrirla no registra contacto. El nombre sigue abriendo la ficha y la lista recupera el negocio al volver.
+- Último contacto con barra de antigüedad (≤7, ≤30, >30 días, sin contacto) y canales con ícono y valor visible; «No contactar» en rojo.
+- Se quitó el botón «Abrir» (ojo) de filas y tarjetas; «Contactar» y «⋯» aparecen al pasar el mouse en la tabla. La selección múltiple usa una barra flotante. En el celular, las tarjetas se agrupan en Vencidos, Hoy, Próximos y Sin próximo paso.
+- Pruebas: typecheck, `npm test` (990), build y e2e completos sobre Postgres 17 descartable (193/194; `commercial.e2e.ts` en «CRM template» falla solo en local). Se actualizaron la guía y los e2e que usaban el ojo «Abrir» o el nombre como botón.
+
+## Rediseño visual v1, Fase 2c — composer flotante y formulario de documentos — 24/10/2026 (mergeada a `staging`, #236, `a1c3bbf`; sin desplegar)
 
 - En la ficha completa, WhatsApp y Email de la barra lateral abren «Contactar» con el canal elegido. El composer de email/WhatsApp puede mostrarse como panel flotante desde ≥768 px; conserva el composer compartido y las guardas de borrador. «Contactar» restaura el panel existente; cerrar el composer flotante termina el flujo de contacto en escritorio. El composer modal conserva el comportamiento del caller; otras rutas mantienen la presentación modal.
 - Documentos muestra primero la lista; «Agregar documento» revela el formulario de vinculación en la ficha de negocio o gestión. Al vincular, se pliega, la confirmación queda visible encima de la lista y el foco vuelve al botón. Se actualizó la guía y se exportó.

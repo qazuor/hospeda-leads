@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
 import {Card,UnstyledButton} from '@mantine/core';
+import {Link} from 'react-router-dom';
 import {ArrowRight,AtSign,CalendarDays,Globe,MapPin,Phone,Tag,UserRound} from 'lucide-react';
 import {Button} from './Button';
 import {Checkbox} from './Checkbox';
@@ -30,16 +31,16 @@ function hasCardValue(row:Business,key:string,groups:BusinessColumnGroup[]=[]):b
  return value!==null&&value!==undefined&&(typeof value!=='string'||value.trim()!=='')&&(!Array.isArray(value)||value.some(item=>item!==null&&item!==undefined&&String(item).trim()!==''));
 }
 
-export function BusinessCard({row,columns,groups=[],selected,onSelect,onOpen,renderValue,describeValue,isEditable}:{
- row:Business;columns:string[];selected:boolean;onSelect:()=>void;onOpen:()=>void;
+export function BusinessCard({row,columns,groups=[],selected,onSelect,onOpen,onOpenRecord,renderValue,describeValue,isEditable}:{
+ row:Business;columns:string[];selected:boolean;onSelect:()=>void;onOpen:()=>void;/** Called before the name link navigates to the record. */onOpenRecord?:()=>void;
  groups?:BusinessColumnGroup[];
  renderValue:(key:string)=>React.ReactNode;describeValue:(key:string)=>string;isEditable:(key:string)=>boolean;
 }){
  const [expanded,setExpanded]=useState(false);const visible=columns.filter(key=>key!=='nombre'&&key!=='actions'&&hasCardValue(row,key,groups)),hasSecondary=visible.some(key=>!primary.has(key));
- return <Card component="article" id={'business-'+row.accountId} data-expanded={expanded} data-business-id={row.accountId} className={styles.card} padding={14} radius="md" withBorder>
+ return <Card component="article" id={'business-'+row.accountId} data-expanded={expanded} data-business-id={row.accountId} className={styles.card} padding={14} radius="md" withBorder onClick={event=>{if(!event.currentTarget.contains(event.target as Node))return;if(event.target instanceof Element&&event.target.closest('a[data-business-open]')){onOpenRecord?.();return;}if(window.getSelection()?.toString()||event.target instanceof Element&&event.target.closest('label'))return;if(!(event.target as Element).closest('a,button,input,label,select,textarea'))onOpen();}}>
   <div className={styles.header}>
    <label className={styles.select}><Checkbox aria-label={'Seleccionar '+row.nombre} disabled={row.canModify===false} disabledReason="Solo la persona responsable del negocio o un administrador puede modificarlo." checked={selected} onChange={onSelect}/></label>
-   <h2 className={styles.heading}><UnstyledButton data-business-open className={styles.name} aria-label={'Abrir negocio '+row.nombre} onClick={onOpen}>{row.nombre}</UnstyledButton></h2>
+   <h2 className={styles.heading}><Link to={'/accounts/'+row.accountId} data-business-open className={styles.name}>{row.nombre}</Link></h2>
    {columns.includes('actions')&&<div className={styles.actions}>{renderValue('actions')}</div>}
   </div>
   <p className={styles.summary}>{businessCountsSummary(row)}</p>
