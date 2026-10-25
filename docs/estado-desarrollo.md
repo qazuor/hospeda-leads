@@ -1,6 +1,15 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
-## Rediseño visual v1, Fase 4 lista para PR — tablero de Gestiones — 25/10/2026
+## Rediseño visual v1, Fase 7 lista para PR — crear y editar en paneles — 25/10/2026
+
+Solo visual: sin cambios de campos, validaciones, endpoints ni permisos. Mockup aprobado el 25/10/2026.
+
+- Nuevo negocio, Datos del negocio, Persona de contacto, Iniciar gestión, Agendar tarea, Cambiar fecha o datos, Anotar lo que pasó y Editar actividad se abren como panel lateral derecho (560 px, pantalla completa en el celular), con el título y el pie de acciones fijos.
+- Las confirmaciones cortas (Archivar, Enviar a Papelera, Quitar persona, Ya no hace falta, Borrar) y el editor amplio de gestión siguen siendo ventanas centradas.
+- Es una variante (`side`) del mismo `DialogContent`: mismo rol de diálogo, foco atrapado, Escape y protección de cambios sin guardar.
+- En los formularios cortos el pie queda debajo del contenido; queda fijo abajo cuando el formulario es más largo que la pantalla.
+
+## Rediseño visual v1, Fase 4 mergeada a `staging` (#241, `b56f177`; sin desplegar) — tablero de Gestiones — 25/10/2026
 
 Solo visual: sin endpoints ni pedidos nuevos, sin cambios de permisos. Mockup aprobado el 25/10/2026 (con acordeón en el celular a pedido del propietario).
 

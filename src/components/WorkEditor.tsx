@@ -159,7 +159,7 @@ const fresh=input.action==='task_save'?undefined:await qc.fetchQuery({queryKey:[
   }
   save.mutate(body);
  };
- return <Dialog open onOpenChange={open=>{if(!open&&!busy)guard.requestClose();}}><DialogContent className={styles.editor}>
+ return <Dialog open onOpenChange={open=>{if(!open&&!busy)guard.requestClose();}}><DialogContent side={target.kind==='task'||target.kind==='activity'||target.kind==='complete'} className={styles.editor}>
   <DialogHeader><DialogTitle>{names[target.kind]}</DialogTitle><DialogDescription>{statusAction?item?.title:target.kind==='task'?(item?'Cambiá la fecha, la hora o los datos de la tarea. Horarios de Argentina.':'Contá qué hay que hacer y para cuándo. Horarios de Argentina.'):'Registrá una acción realizada, también de días anteriores. Horarios de Argentina.'}</DialogDescription></DialogHeader>
   {['complete','activity'].includes(target.kind)&&<><WorkFlowSteps current={continuation||dncFlow?2:1} blocked={outcome==='do_not_contact'}/>{target.kind==='complete'&&<p className={styles.contextNote}><strong>{'accountName' in target.item?target.item.accountName:'Negocio seleccionado'}</strong> · {target.item.leadId?(target.item.opportunityName||'Esta gestión'):'Sin gestión (general del negocio)'}</p>}</>}
   {['activity','complete'].includes(target.kind)&&<p className={styles.contextNote}>Canal: <strong>{channel?channelNames[channel]||'Otro':'Sin especificar'}</strong> · <Button type="button" variant="link" size="sm" disabled={busy} disabledReason="Se está guardando. Esperá a que termine." onClick={()=>setDetailsOpen(true)}>Cambiar</Button></p>}
