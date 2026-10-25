@@ -203,7 +203,7 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 ## Rediseño visual v1, Fase 4: tablero de Gestiones — 25/10/2026
 
 - El color de cada columna sale del orden de la etapa abierta dentro de su tipo de gestión (paleta cíclica), ganada verde y perdida roja; no se cargan colores por etapa.
-- El tipo de gestión del tablero lo define el filtro rápido (un único valor); el tablero no tiene selector propio.
+- El tipo de gestión del tablero lo define el filtro rápido (un único valor); el tablero no tiene selector propio. Sin un único tipo, la vista por etapas pide elegir uno; «Vista simple» sigue mostrando todos los tipos.
 - En el celular el tablero es un acordeón por etapa en lugar de columnas deslizables.
 - La vista previa guarda solo el id de la gestión y se deriva de la lista actual.
 

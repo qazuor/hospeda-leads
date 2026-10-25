@@ -109,3 +109,4 @@
 
 /* Side panel (Dialog side): the forms' own sticky action bar spans the panel edge to edge, flush with the bottom. */
 .editor[data-side] .form>.actions{bottom:calc(-1 * var(--crm-dialog-padding));margin-inline:calc(-1 * var(--crm-dialog-padding));padding-inline:var(--crm-dialog-padding);border-top:1px solid var(--border);box-shadow:none;background:var(--popup)}
+@media(min-width:768px){.editor[data-side] .form>.actions{position:fixed;right:0;bottom:0;width:min(560px,100vw);margin:0;z-index:4}}

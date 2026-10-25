@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { within, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -67,5 +67,20 @@ describe('PipelineBoard', () => {
     const client=new QueryClient();const tree=(leads:never[])=><MantineProvider><QueryClientProvider client={client}><MemoryRouter><PipelineBoard leads={leads} onOpen={()=>{}}/></MemoryRouter></QueryClientProvider></MantineProvider>;
     const {rerender}=render(tree([lead()]));fireEvent.click(await screen.findByRole('article',{name:'Alta · Hotel Sol'}));expect(await screen.findByRole('dialog',{name:'Alta'})).toBeTruthy();
     rerender(tree([lead({id:2,opportunityName:'Otra'})]));await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Alta'})).toBeNull());
+  });
+  it('asks for one management type in the stage view instead of mixing every type', async () => {
+    const onPick = vi.fn(); renderBoard({ onPickManagementType: onPick });
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver etapas del equipo' }));
+    const picker = screen.getByRole('region', { name: 'Elegí un tipo de gestión' });
+    expect(screen.queryByLabelText('Pipeline comercial')).toBeNull();
+    fireEvent.click(within(picker).getByRole('button', { name: 'Verticales principales · 1' }));
+    expect(onPick).toHaveBeenCalledWith('main');
+    expect((within(picker).getByRole('button', { name: 'Partners · 0' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it('shows the stage columns once a single type is chosen', async () => {
+    renderBoard({ onPickManagementType: vi.fn(), managementType: 'main' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver etapas del equipo' }));
+    expect(screen.queryByRole('region', { name: 'Elegí un tipo de gestión' })).toBeNull();
+    expect(screen.getByLabelText('Pipeline comercial')).toBeTruthy();
   });
 });
