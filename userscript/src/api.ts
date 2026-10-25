@@ -1,7 +1,7 @@
 import { USERSCRIPT_VERSION } from "./version";
 
-export type Match = { accountId: string; code: string; name: string; city: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string }[] };
-export type ContextResponse = { minVersion: string; user: { email: string; displayName: string }; matches: Match[] };
+export type Match = { accountId: string; code: string; name: string; city: string | null; status?: string | null; statusLabel?: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string }[] };
+export type ContextResponse = { minVersion: string; latestVersion?: string; user: { email: string; displayName: string }; matches: Match[] };
 export type RegisterResult = { externalId: string; status: "created" | "duplicate" | "rejected"; kind?: "message" | "inbound"; id?: string; reason?: string };
 export type RegisterResponse = { results: RegisterResult[] };
 export class ApiError extends Error { constructor(message: string, public status: number, public minVersion?: string) { super(message); } }
@@ -25,6 +25,9 @@ export function fetchContext(base: string, query: { code?: string; phone?: strin
   const params = new URLSearchParams(query as Record<string, string>);
   return request(`${base}/_api/userscript/context?${params}`, token);
 }
+
+export type StatusResponse = Omit<ContextResponse, "matches">;
+export function fetchStatus(base: string, token: string): Promise<StatusResponse> { return request(`${base}/_api/userscript/status`, token); }
 
 export function registerBatch(base: string, token: string, payload: { accountId: string; chat: { title: string; phone: string | null }; messages: unknown[] }): Promise<RegisterResponse> {
   return request(`${base}/_api/userscript/register`, token, "POST", payload);

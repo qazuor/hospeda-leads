@@ -1,5 +1,18 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
+## User script de WhatsApp 1.2.0, revisión y panel nuevo — lista para PR — 25/10/2026
+
+Probado de punta a punta en local contra WhatsApp Business real (Chrome + Tampermonkey): 4 recibidos en `crm_inbound_messages` (`pending_review`, por teléfono, horas correctas) y 4 enviados en `crm_messages` (`manual_sent` con id real de WhatsApp).
+
+- **Lectura del DOM actual de WhatsApp**: `data-id` sin prefijo, título por `conversation-info-header-chat-title`, dirección por `tail-in`/`tail-out` o el lado del mensaje, texto en `selectable-text`. Los chats sin código ni teléfono visible (`@lid`) toman el teléfono del estado interno de WhatsApp (`unsafeWindow`, fiber de React), y si no lo encuentran no adivinan. Fixtures nuevos con la estructura real.
+- **Instalar desde el CRM**: «Instalar user script» en `/userscript`. La página detecta el script en este navegador («Instalado», «Desactualizado» o «No detectado») porque el script corre también en el origen del CRM y solo marca `<html>` con su versión.
+- **Panel nuevo** (mockup aprobado): botón con el logo en la barra izquierda de WhatsApp (capa propia superpuesta; aparece directo ahí y la sigue si se mueve; flotante si la barra no aparece en 15 s), panel con negocio, estado, gestiones, avisos de No contactar y de estado Nuevo, vista previa con selección y resumen. Token, versión, tema y diagnóstico en «Ajustes», sin depender de un chat abierto (`GET /_api/userscript/status`). Tema automático según WhatsApp, o claro/oscuro forzado. Variables CSS propias (`--hc-*`) porque las de WhatsApp pisaban el color del botón principal.
+- **Actualizaciones:** el script consulta la versión publicada al cargar, cada 30 minutos y al volver a la pestaña (máximo cada 2 minutos), y avisa con una tarjeta propia («Actualizar» / «Más tarde» por 24 h y por versión). Una versión por debajo del mínimo (426) no se puede posponer más allá de la página. Versión mínima: 1.2.0.
+- **Versión por token:** migración `041_userscript_token_version.sql` (`last_version`). La lista de tokens muestra la versión que usó cada uno y marca los desactualizados.
+- Ayuda actualizada (instalación en Chrome/Edge y Firefox, nuevo flujo del token y de las actualizaciones).
+
+Validación local: `npm run typecheck`, `npm test`, `npm run build`, `scripts/test-userscript.ts` contra la base local descartable con la 041 aplicada. Firefox: pasos documentados, no probado en un Firefox real.
+
 ## Rediseño visual v1, Fase 7 mergeada a `staging` (#242, `2975cba`; sin desplegar) — crear y editar en paneles — 25/10/2026
 
 Solo visual: sin cambios de campos, validaciones, endpoints ni permisos. Mockup aprobado el 25/10/2026.

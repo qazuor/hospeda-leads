@@ -7,7 +7,7 @@ import {handle as businessSystemViewConvert} from '../endpoints/business_system_
 import {get as businessReassignmentGET,post as businessReassignmentPOST} from '../endpoints/business_reassignment';
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
 import {post as inboundEmailPOST,addresses as inboundAddressesGET,reviewGET as inboundReviewGET,unmatchedGET as inboundUnmatchedGET,assignPOST as inboundAssignPOST} from '../endpoints/inbound';
-import {context as userscriptContext,register as userscriptRegister,tokenList as userscriptTokenList,tokenCreate as userscriptTokenCreate,tokenRevoke as userscriptTokenRevoke} from '../endpoints/userscript';
+import {context as userscriptContext,status as userscriptStatus,register as userscriptRegister,tokenList as userscriptTokenList,tokenCreate as userscriptTokenCreate,tokenRevoke as userscriptTokenRevoke} from '../endpoints/userscript';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
 import {get as businessImportGET,post as businessImportPOST} from '../endpoints/businessImport';
@@ -75,6 +75,7 @@ app.get('/_api/inbound/review',c=>inboundReviewGET(c.req.raw));
 app.get('/_api/inbound/unmatched',c=>inboundUnmatchedGET(c.req.raw));
 app.post('/_api/inbound/assign',c=>inboundAssignPOST(c.req.raw));
 app.get('/_api/userscript/context',c=>userscriptContext(c.req.raw));
+app.get('/_api/userscript/status',c=>userscriptStatus(c.req.raw));
 app.post('/_api/userscript/register',c=>userscriptRegister(c.req.raw));
 app.get('/_api/userscript/tokens',c=>userscriptTokenList(c.req.raw));
 app.post('/_api/userscript/tokens',c=>userscriptTokenCreate(c.req.raw));

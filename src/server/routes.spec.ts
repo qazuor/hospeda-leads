@@ -19,6 +19,7 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'POST /_api/inbound/email':503,
 'GET /_api/inbound/addresses':503,
 'GET /_api/userscript/context':401,
+'GET /_api/userscript/status':401,
 'POST /_api/userscript/register':401,
 'GET /_api/userscript/tokens':401,
 'POST /_api/userscript/tokens':401,

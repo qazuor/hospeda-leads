@@ -945,39 +945,40 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 1. Usá una computadora con Chrome, Edge o Firefox. El script funciona en WhatsApp Web (web.whatsapp.com), no en la aplicación del celular ni en WhatsApp de escritorio.
 2. Instalá la extensión Tampermonkey desde la tienda de tu navegador: Chrome Web Store, Microsoft Edge Add-ons o Firefox Add-ons. Es gratuita.
-3. Solo en Chrome o Edge: abrí la página de extensiones (chrome://extensions o edge://extensions), entrá en "Detalles" de Tampermonkey y activá "Permitir scripts de usuario". Si esa opción no aparece, activá "Modo de desarrollador" arriba a la derecha. En Firefox no hace falta este paso.
-4. En el CRM abrí tu menú personal, arriba a la derecha, y elegí «User script de WhatsApp». También lo encontrás con Ctrl+K.
-5. Tocá «Instalar el user script de Hospeda CRM». Tampermonkey abre una pestaña con los datos del script: tocá "Instalar".
-6. Volvé a la página del CRM. En «Nombre del dispositivo» escribí algo que identifique esta computadora (por ejemplo "Notebook oficina") y tocá «Crear token».
-7. Tocá «Copiar token». El token se muestra una sola vez: si cerrás la página sin copiarlo, creá otro.
-8. Abrí WhatsApp Web e iniciá sesión. Tocá el ícono de Tampermonkey en la barra del navegador, elegí «Configurar token», pegá el token y tocá «Guardar».
-9. Abrí un chat individual. Arriba del chat aparece el panel de Hospeda con tu nombre ("Conectado como …"). Si ves «Sin asociar», el script ya funciona: falta vincular ese chat con su negocio.
+3. Solo en Chrome o Edge: hacé clic derecho en el ícono de Tampermonkey, elegí "Administrar extensión" y activá "Permitir scripts de usuario". Si esa opción no aparece, activá "Modo de desarrollador" en chrome://extensions. Sin ese permiso el script no corre y no muestra ningún error.
+4. Solo en Firefox: aceptá los permisos de Tampermonkey, incluido "Acceder a tus datos de todos los sitios web". Si el script no corre, revisalo en about:addons, en los permisos de Tampermonkey.
+5. En el CRM abrí tu menú personal, arriba a la derecha, y elegí «User script de WhatsApp». También lo encontrás con Ctrl+K.
+6. Tocá «Instalar user script». Tampermonkey abre una pestaña con los datos del script: tocá "Instalar". Al volver al CRM y recargar, «En este navegador» muestra «Instalado».
+7. En «Nombre del dispositivo» escribí algo que identifique esta computadora (por ejemplo "Notebook oficina") y tocá «Crear token».
+8. Tocá «Copiar token». El token se muestra una sola vez: si cerrás la página sin copiarlo, creá otro.
+9. Abrí WhatsApp Web e iniciá sesión. En la barra izquierda de WhatsApp aparece el botón de Hospeda: tocalo, pegá el token en «Token» y tocá «Conectar».
+10. Abrí un chat individual. El panel muestra el negocio de ese chat. Si ves «SIN ASOCIAR», el script ya funciona: falta vincular ese chat con su negocio.
 
-**Qué queda al terminar:** El script queda instalado y conectado con tu usuario. Se actualiza solo cuando Hospeda publica una versión nueva.
+**Qué queda al terminar:** El script queda instalado y conectado con tu usuario. Tampermonkey lo actualiza solo y, si sale una versión nueva mientras usás WhatsApp, el script te avisa con «Hay una versión nueva de Hospeda».
 
 **Ejemplo:**
 
-- Leo instala Tampermonkey en Chrome, activa "Permitir scripts de usuario", instala el script, crea el token "Notebook oficina" y lo pega en WhatsApp Web. Al abrir el chat de Ana ve el panel de Hospeda.
+- Leo instala Tampermonkey en Chrome, activa "Permitir scripts de usuario", instala el script desde el CRM, crea el token "Notebook oficina" y lo pega en el panel de Hospeda dentro de WhatsApp Web. Al abrir el chat de Ana ve su negocio.
 
 **Tené en cuenta:**
 
 - El token es personal: no lo compartas. Todo lo que registres con él queda a tu nombre.
-- Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token.
+- Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.
 - El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
 ### Vincular un chat de WhatsApp con su negocio
 
-**Cuándo usarlo:** Antes de registrar mensajes de un contacto nuevo, o cuando el panel de Hospeda dice «Sin asociar».
+**Cuándo usarlo:** Antes de registrar mensajes de un contacto nuevo, o cuando el panel de Hospeda dice «SIN ASOCIAR».
 
 1. El script reconoce el negocio de dos formas: por el código del negocio en el nombre del contacto (por ejemplo "· H1234") o por el teléfono del chat, si coincide con el del negocio, su WhatsApp o el de una persona cargada.
 2. La forma más segura es el código. Abrí la ficha del negocio en el CRM, desplegá «Más acciones del negocio» y elegí «Copiar nombre para agendar». Se copia el nombre con el código, por ejemplo "Cabañas Camino Claro · H1234".
 3. En el teléfono de Hospeda, guardá o editá ese contacto y pegá el nombre copiado. WhatsApp Web puede tardar un rato en mostrar el nombre nuevo.
-4. Abrí el chat en WhatsApp Web. El panel muestra el negocio, su código, el responsable y las gestiones abiertas.
+4. Abrí el chat en WhatsApp Web. El panel muestra el negocio, su código, el responsable, el estado y las gestiones abiertas.
 5. Si el teléfono coincide con más de un negocio, elegí el correcto en «Elegir negocio». El script recuerda esa elección para ese teléfono en esta computadora.
 6. Tocá «Abrir en CRM» para ir directo a la ficha del negocio.
-7. Para achicar el panel tocá «Minimizar». Queda una etiqueta "Hospeda · H1234"; tocala para volver a abrirlo.
+7. Para achicar el panel tocá «Minimizar». El botón de Hospeda de la barra izquierda lo vuelve a abrir.
 
 **Qué queda al terminar:** Cada chat muestra a qué negocio pertenece, quién es su responsable y si tiene restricciones.
 
@@ -987,7 +988,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Tené en cuenta:**
 
-- Si el panel muestra «Este negocio pidió no ser contactado.», no le escribas. Podés registrar los mensajes que el negocio te mande.
+- Si el panel muestra «Este negocio pidió no ser contactado. Los mensajes enviados no se van a registrar.», no le escribas. Podés registrar los mensajes que el negocio te mande.
 - Solo ves negocios que también podés ver en el CRM. Los chats grupales no se pueden vincular.
 
 **Dónde ir:** Ir a Negocios (/accounts)
@@ -997,23 +998,23 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 **Cuándo usarlo:** Después de hablar con un negocio por WhatsApp, para que la conversación quede en su ficha.
 
 1. Abrí el chat del negocio en WhatsApp Web. Si hace falta, subí en la conversación hasta ver los mensajes que querés registrar: el script solo lee los que están cargados en pantalla.
-2. En el panel de Hospeda tocá «Registrar en CRM». Se abre una vista previa con cada mensaje marcado «Entrante» o «Saliente», con su fecha y hora.
-3. Revisá la lista. Destildá lo que no quieras guardar o usá «Seleccionar todos». Los mensajes que ya registraste desde esta computadora no aparecen; si queda alguno repetido, el CRM lo detecta y no lo duplica.
-4. Tocá «Confirmar registro» y esperá. Al terminar ves un resumen: cuántos se registraron, cuántos ya estaban y cuántos se rechazaron, con el motivo.
-5. Los entrantes quedan en la ficha, en «Comunicación», dentro de «Mensajes recibidos» con «Por revisar». También aparecen en Hoy, en «Respuestas nuevas». Revisalos como un email: «Registrar respuesta» o «No es una respuesta».
-6. Los salientes quedan en «Mensajes y borradores» como «Envío confirmado manualmente», a tu nombre.
-7. Si cambiás de chat antes de confirmar, el script no registra nada y te pide volver a abrir el registro en el chat correcto. Así un mensaje nunca termina en otro negocio.
+2. En el panel de Hospeda tocá «Registrar mensajes». Se abre «Registrar en el CRM» con cada mensaje marcado «Enviado» o «Recibido», con su fecha y hora.
+3. Revisá la lista. Destildá lo que no quieras guardar o usá «Mensajes a registrar» para tildar o destildar todos. Los mensajes que ya registraste desde esta computadora no aparecen; si queda alguno repetido, el CRM lo detecta y no lo duplica.
+4. Tocá el botón que dice cuántos mensajes vas a registrar y esperá. Al terminar ves un resumen: cuántos se registraron, cuántos ya estaban y cuántos se rechazaron, con el motivo.
+5. Los recibidos quedan en la ficha, en «Comunicación», dentro de «Mensajes recibidos» con «Por revisar». También aparecen en Hoy, en «Respuestas nuevas». Revisalos como un email: «Registrar respuesta» o «No es una respuesta».
+6. Los enviados quedan en «Mensajes y borradores» como «Envío confirmado manualmente», a tu nombre.
+7. Si cambiás de chat antes de confirmar, el script no registra nada y te pide volver a abrir «Registrar mensajes» en el chat correcto. Así un mensaje nunca termina en otro negocio.
 
 **Qué queda al terminar:** La conversación queda en la ficha del negocio, sin duplicados, y los mensajes recibidos esperan tu revisión.
 
 **Ejemplo:**
 
-- Ana te escribió por WhatsApp preguntando por precios y le contestaste. Tocás «Registrar en CRM», dejás los dos mensajes tildados y confirmás. En la ficha queda tu mensaje enviado y la pregunta de Ana por revisar.
+- Ana te escribió por WhatsApp preguntando por precios y le contestaste. Tocás «Registrar mensajes», dejás los dos mensajes tildados y confirmás. En la ficha queda tu mensaje enviado y la pregunta de Ana por revisar.
 
 **Tené en cuenta:**
 
 - Registrar un mensaje recibido no lo convierte en respuesta: vos decidís con «Registrar respuesta» o «No es una respuesta».
-- Para registrar mensajes enviados tenés que poder modificar el negocio. Para los recibidos alcanza con poder verlo.
+- Para registrar mensajes enviados tenés que poder modificar el negocio. Para los recibidos alcanza con poder verlo. Si el negocio está en estado Nuevo, el panel avisa que solo se registran los recibidos.
 - Si abriste WhatsApp desde «Contactar» en las últimas 24 horas, la vista previa te avisa: el mensaje enviado completa ese WhatsApp abierto en lugar de crear otro. Si ya habías respondido «¿Lo enviaste?», el CRM lo reconoce y lo cuenta entre los que "ya estaban".
 - Fotos, audios y archivos no se copian al CRM. El CRM rechaza mensajes con fecha futura o de hace más de dos años.
 
@@ -1023,23 +1024,23 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Cuándo usarlo:** Cuando el panel de Hospeda no aparece, muestra un error o no puede leer un chat.
 
-1. No aparece el panel: revisá que Tampermonkey y el script "Hospeda CRM" estén activados. En Chrome o Edge, revisá que "Permitir scripts de usuario" siga activo. Después recargá WhatsApp Web.
-2. Si ves «Configurá el token desde el menú de Tampermonkey», cargá tu token con «Configurar token».
-3. Si ves «Token inválido o revocado. Configurá uno nuevo desde el menú de Tampermonkey.», creá un token nuevo en «User script de WhatsApp» y cargalo con «Configurar token».
-4. Si ves «Actualizá el script desde el menú de Tampermonkey», abrí el panel de Tampermonkey y buscá actualizaciones, o reinstalá desde «Instalar el user script de Hospeda CRM».
+1. No aparece el botón de Hospeda: en el CRM abrí «User script de WhatsApp». Si «En este navegador» dice «No detectado», revisá que Tampermonkey y el script "Hospeda CRM" estén activados y, en Chrome o Edge, que "Permitir scripts de usuario" siga activo. Después recargá WhatsApp Web.
+2. Si el botón dice «Falta el token», tocalo y pegá tu token en «Ajustes».
+3. Si ves «Token inválido o revocado. Conectá uno nuevo desde Ajustes.», creá un token nuevo en «User script de WhatsApp», tocá «Cambiar token» en el panel y pegalo.
+4. Si ves «Hay una versión nueva de Hospeda» o «Actualizá el script de Hospeda», tocá «Actualizar», confirmá en Tampermonkey y recargá WhatsApp Web. Con «Más tarde» el aviso vuelve al día siguiente; si el CRM ya no acepta tu versión, vuelve al recargar.
 5. Si ves «No se pudo consultar el CRM. Reintentando en el próximo cambio.», revisá tu conexión. El script vuelve a intentar cuando cambiás de chat.
-6. Si ves «No pude leer este chat. Registrá a mano desde el CRM.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha con «Registrar respuesta recibida». Después, en el menú de Tampermonkey elegí «Copiar diagnóstico del chat» y mandáselo al administrador.
+6. Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha con «Registrar respuesta recibida». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.
 7. Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio.
 
 **Qué queda al terminar:** Sabés qué hacer ante cada aviso del script, sin perder lo que se habló.
 
 **Ejemplo:**
 
-- Cambiaste de computadora: en la vieja tocás «Revocar» junto a su token, creás uno nuevo para la computadora nueva y lo cargás con «Configurar token».
+- Cambiaste de computadora: en la vieja tocás «Revocar» junto a su token, creás uno nuevo para la computadora nueva y lo pegás en el panel de Hospeda.
 
 **Tené en cuenta:**
 
 - El diagnóstico copia solo la estructura de la pantalla, sin textos de los mensajes y con los teléfonos ocultos.
-- Para desconectar el script de una computadora sin revocar el token, elegí «Borrar token» en el menú de Tampermonkey.
+- Para desconectar el script de una computadora sin revocar el token, abrí «Ajustes» en el panel y tocá «Desconectar».
 
 **Dónde ir:** User script de WhatsApp (/userscript)
