@@ -1,4 +1,4 @@
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Link} from 'react-router-dom';
 import {Loader} from '@mantine/core';
@@ -21,10 +21,14 @@ import {initialCommunicationRecipient} from '../helpers/communicationRecipient';
 import {userLabel} from '../helpers/crmLabels';
 import {VOCAB} from '../content/vocabulary';
 import styles from './Commercial.module.css';
+import {useFloatingComposer} from './FloatingComposerContext';
 
 /** A task keeps its scope, including closed managements and general business work. */
 export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()=>void;onLog:(contactId:string,channel:string)=>void}){
- const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:undefined;
+ const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:undefined;const floatingComposer=useFloatingComposer();
+ const restoreExisting=floatingComposer?.active&&task.typeId==='message'&&String(task.leadId)===floatingComposer.leadId;
+ // Restore after render: calling the parent's state setters while rendering triggers React warnings.
+ useEffect(()=>{if(!restoreExisting)return;floatingComposer?.restore();onClose()},[restoreExisting]);
  const q=useQuery({queryKey:['commercial-detail',task.accountId,''],queryFn:()=>getCommercialDetail(task.accountId)});
  const restrictions=useQuery({queryKey:['communication','account',task.accountId],queryFn:()=>getCommunication('',task.accountId)});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings,enabled:!!task.leadId});
@@ -43,6 +47,7 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
  const loading=q.isPending||restrictions.isPending||(!!task.leadId&&settings.isPending);
  const error=q.error||restrictions.error||(task.leadId?settings.error:null);
  const closeMessage=()=>setMessageChannel(null);
+ if(restoreExisting)return null;
  if(messageChannel&&q.data){
   if(!task.leadId)return <BusinessContactDialog detail={q.data} initialChannel={messageChannel} initialContactId={effective} onLog={onLog} onClose={closeMessage}/>;
   if(opportunity)return <ContactTemplateDialog open channel={messageChannel} initialContactId={effective} lead={{...q.data.account,...opportunity,nombre:q.data.account.nombre,email:q.data.account.email,telefono:q.data.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onOpenChange={v=>{if(!v)closeMessage()}}/>;

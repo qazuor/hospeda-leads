@@ -16,6 +16,7 @@ import {TaskPostponeMenu} from './TaskPostponeMenu';
 import {useAuth} from '../helpers/useAuth';
 import {Button} from './Button';
 import {TaskContactDialog} from './TaskContactDialog';
+import {useFloatingComposer} from './FloatingComposerContext';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,DropdownMenuSeparator} from './DropdownMenu';
 import {WorkEditor,type WorkTarget} from './WorkEditor';
 import styles from './Commercial.module.css';
@@ -34,7 +35,7 @@ async function findCompletionActivity({qc,task,data,admin}:{qc:ReturnType<typeof
 export const dncLocked=(data:WorkData,accountId:string,admin:boolean)=>!admin&&!!data.accounts.find(a=>a.id===accountId)?.doNotContact;
 /** `from` is the section the management link is opened from, so the management page can offer the right "Volver". */
 export function TaskRow({task,data,onEdit,readOnly=false,from}:{task:WorkTask;data:WorkData;onEdit:(t:WorkTarget)=>void;readOnly?:boolean;from?:SaleOrigin}){
- const [contactOpen,setContactOpen]=useState(false);const [loadingFix,setLoadingFix]=useState(false);const qc=useQueryClient();
+ const floatingComposer=useFloatingComposer();const [contactOpen,setContactOpen]=useState(false);const [loadingFix,setLoadingFix]=useState(false);const qc=useQueryClient();
  const pending=task.status==='pending';
  const {authState}=useAuth();const admin=authState.type==='authenticated'&&authState.user.role==='admin';const editable=!readOnly&&!dncLocked(data,task.accountId,admin)&&authState.type==='authenticated'&&(admin||task.assignedUserEmail===authState.user.email);
  const needsContact=['call','message','followup'].includes(task.typeId);
@@ -52,7 +53,7 @@ export function TaskRow({task,data,onEdit,readOnly=false,from}:{task:WorkTask;da
   </div>
   {editable&&<div className={ws.rowActions}>
    {pending&&<Button size="sm" onClick={()=>onEdit({kind:'complete',item:task})}><Check size={14}/>{VOCAB.logOutcome}</Button>}
-   {pending&&<Button size="sm" variant="outline" onClick={()=>setContactOpen(true)}><Phone size={14}/>{VOCAB.contact}</Button>}
+   {pending&&<Button size="sm" variant="outline" onClick={()=>floatingComposer?.active&&task.typeId==='message'&&String(task.leadId)===floatingComposer.leadId?floatingComposer.restore():setContactOpen(true)}><Phone size={14}/>{VOCAB.contact}</Button>}
    {pending&&<TaskPostponeMenu task={task}/>}
    <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon-sm" variant="ghost" aria-label={'Más acciones de '+task.title}><MoreHorizontal size={18}/></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
     {pending&&<><DropdownMenuItem onSelect={()=>onEdit({kind:'task',item:task})}>Cambiar fecha o datos</DropdownMenuItem><DropdownMenuItem onSelect={()=>onEdit({kind:'cancel',item:task})}>{VOCAB.noLongerNeeded}</DropdownMenuItem></>}

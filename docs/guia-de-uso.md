@@ -640,7 +640,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Cuándo usarlo:** Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.
 
 1. Abrí el negocio y entrá en la pestaña «Documentos», o abrí una gestión y entrá en «Documentos».
-2. Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.
+2. Tocá «Agregar documento o recurso» para crear un documento propio, o usá «Agregar documento» para mostrar el formulario de vinculación. Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.
 3. Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.
 4. Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.
 5. Revisá la versión, el vencimiento y la aprobación antes de usarlo como material comercial.

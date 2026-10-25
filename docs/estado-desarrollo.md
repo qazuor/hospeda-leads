@@ -1,6 +1,13 @@
 # Estado del CRM — corte al 24 de octubre de 2026
 
-## Rediseño visual v1, Fase 2b: contenido de las pestañas de la ficha — 24/10/2026 (en PR a `staging`, sin desplegar)
+## Rediseño visual v1, Fase 2c lista para PR — composer flotante y formulario de documentos — 24/10/2026
+
+- En la ficha completa, WhatsApp y Email de la barra lateral abren «Contactar» con el canal elegido. El composer de email/WhatsApp puede mostrarse como panel flotante desde ≥768 px; conserva el composer compartido y las guardas de borrador. «Contactar» restaura el panel existente; cerrar el composer flotante termina el flujo de contacto en escritorio. El composer modal conserva el comportamiento del caller; otras rutas mantienen la presentación modal.
+- Documentos muestra primero la lista; «Agregar documento» revela el formulario de vinculación en la ficha de negocio o gestión. Al vincular, se pliega, la confirmación queda visible encima de la lista y el foco vuelve al botón. Se actualizó la guía y se exportó.
+- Pruebas: typecheck, `npm test` (959, incluidos los specs del panel flotante y de Documentos; el de cierre falla si el aviso de cierre vuelve a saltear la guarda), build, capturas del panel abierto y minimizado a 1280 px y del diálogo a 390 px, y e2e completos sobre Postgres 17 descartable (192/194: `business-contact` a 1280 se corrigió después y pasa aislado; `commercial.e2e.ts` en «CRM template» falla solo en local).
+
+
+## Rediseño visual v1, Fase 2b: contenido de las pestañas de la ficha — 24/10/2026 (mergeada a `staging`, #235, `5e0a965`; sin desplegar)
 
 Solo visual: sin cambios de permisos, endpoints ni acciones.
 
@@ -24,7 +31,7 @@ Mockup aprobado sin cambios. Solo visual: no cambian permisos, No contactar, end
 - La vista compacta dentro de la gestión no cambia, incluido el aviso de No contactar.
 - Corrección: volver a la lista por un link del shell antes de que cargue la ficha ya no pierde el foco ni la posición de la fila abierta.
 
-Pruebas: typecheck, `npm test` (936), build, capturas a 320, 390 y 1280 px (sin scroll horizontal) y e2e completos sobre Postgres 17 descartable. Sigue la Fase 2b (timeline con íconos, tareas en una lista, email en vista de lectura, stepper de etapas y composer flotante).
+Pruebas: typecheck, `npm test` (936), build, capturas a 320, 390 y 1280 px (sin scroll horizontal) y e2e completos sobre Postgres 17 descartable. Sigue la Fase 2b (timeline con íconos, tareas en una lista, email en vista de lectura y stepper de etapas).
 
 ## Rediseño visual v1, Fase 1: estructura general — 24/10/2026 (mergeado a `staging` en #233, `8ffa1c0`, sin desplegar)
 

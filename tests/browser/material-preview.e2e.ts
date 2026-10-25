@@ -15,7 +15,7 @@ for(const width of [1280,390])test(`selected material preview, retry and image z
  const text=await material('Texto '+stamp,{fileData:Buffer.from('Contenido seguro <script>no ejecutar</script>').toString('base64'),fileName:'contenido.txt',mimeType:'text/plain'});
  const pdf=await material('PDF '+stamp,{fileData:twoPagePdf().toString('base64'),fileName:'propuesta.pdf',mimeType:'application/pdf'});
  const external=await material('Enlace '+stamp,{url:'https://example.com/material.pdf'});
- await page.goto('/sales/'+leadId);await page.getByRole('tab',{name:'Documentos',exact:true}).click();
+ await page.goto('/sales/'+leadId);await page.getByRole('tab',{name:'Documentos',exact:true}).click();await page.getByRole('button',{name:'Agregar documento',exact:true}).click();
  async function select(title:string){await page.getByRole('combobox',{name:'Documento de biblioteca',exact:true}).click();await page.getByLabel('Buscar documento en biblioteca',{exact:true}).fill(title);await page.getByRole('option',{name:new RegExp(title)}).click();}
  await select(picture.title);await expect.poll(()=>page.getByRole('img',{name:'Miniatura de imagen.png',exact:true}).evaluate((el:HTMLImageElement)=>el.complete&&el.naturalWidth===400)).toBe(true);
  const download='**/_api/resources/download?versionId='+picture.versions[0].id;let attempts=0;

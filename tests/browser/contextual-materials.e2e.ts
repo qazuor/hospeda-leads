@@ -28,6 +28,7 @@ for (const width of [1280, 390]) test(`contextual materials preserve destination
     await route.fulfill({ contentType: 'application/json', body: superjson.stringify(data) });
   });
   await page.goto('/accounts/101?section=documents');
+  await page.getByRole('button',{name:'Agregar documento',exact:true}).click();
   const form = page.getByRole('region', { name: 'Vincular material aprobado', exact: true });
   await expect(form).toBeVisible();
   await form.getByRole('combobox', { name: 'Documento de biblioteca', exact: true }).click();
@@ -44,7 +45,7 @@ for (const width of [1280, 390]) test(`contextual materials preserve destination
   expect(writes).toHaveLength(1); release();
   await expect(form.getByRole('alert')).toContainText('Tu selección se conserva');
   await expect(form.getByRole('combobox', { name: 'Documento de biblioteca', exact: true })).toContainText(material.title);
-  await save.click(); await expect(form.getByRole('status')).toContainText('quedó vinculado a Propuesta propia. No se envió al cliente.');
+  await save.click(); await expect(page.getByRole('button', { name: 'Agregar documento', exact: true })).toBeFocused(); await expect(page.getByRole('status')).toContainText('«Folleto aprobado» quedó vinculado a Propuesta propia. No se envió al cliente.');
   expect(writes).toEqual(Array(2).fill({ action: 'link', id: material.id, accountId: '101', leadId: '201', activityId: '301' }));
   await expect(page.getByRole('article').filter({ hasText: material.title })).toContainText('Gestión: Propuesta propia · Actividad: Reunión de propuesta');
   await page.screenshot({ path: `test-results/contextual-materials-${width}-light.png`, fullPage: true });
@@ -54,6 +55,7 @@ for (const width of [1280, 390]) test(`contextual materials preserve destination
   account.assignedUserEmail = 'other@example.com';
   await page.reload();
   await expect(page.getByRole('region', { name: 'Vincular material aprobado', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Agregar documento', exact: true })).toHaveCount(0);
   await expect(page.getByRole('article').filter({ hasText: material.title })).toBeVisible();
   await page.goto('/library'); await expect(page.getByRole('heading', { name: 'Acceso denegado', exact: true })).toBeVisible();
   expect(errors).toEqual([]);

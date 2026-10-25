@@ -51,7 +51,7 @@ export interface BusinessSidebarProps {
   readonly contactEditable:boolean;
   readonly canDoWork:boolean;
   readonly work:BusinessWorkState;
-  readonly onContact:()=>void;
+  readonly onContact:(channel:'email'|'whatsapp')=>void;
   readonly onWork:(target:WorkTarget)=>void;
   readonly onEditAccount:()=>void;
 }
@@ -70,8 +70,8 @@ export function BusinessSidebar({detail:d,mainContact,contactCount,contactSectio
       <span>H{d.account.id} · {d.account.ciudad||'Sin ciudad'}</span>
     </section>
     {!readOnly&&!d.account.doNotContact&&<div className={styles.quickActions}>
-      <Button variant="outline" onClick={onContact}><MessageCircle size={16} aria-hidden="true"/>WhatsApp</Button>
-      <Button variant="outline" onClick={onContact}><Mail size={16} aria-hidden="true"/>Email</Button>
+      <Button variant="outline" onClick={()=>onContact('whatsapp')}><MessageCircle size={16} aria-hidden="true"/>WhatsApp</Button>
+      <Button variant="outline" onClick={()=>onContact('email')}><Mail size={16} aria-hidden="true"/>Email</Button>
     </div>}
     {canDoWork&&<div className={styles.quickActions}>
       {work.error&&<QueryErrorNotice error={work.error} onRetry={work.retry} busy={work.retrying}/>}

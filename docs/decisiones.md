@@ -193,3 +193,9 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - La v1 del rediseño es solo visual/UX sobre datos y endpoints existentes. Se entrega por fases a `staging`, cada una con un mockup aprobado antes. Orden: sistema de diseño, shell (sidebar, breadcrumbs, nav inferior en el celular), ficha, listas, Hoy, kanban, drawers de alta y edición.
 - Se pueden renombrar etiquetas si el propietario las aprueba en el mockup; la Ayuda, la guía y los e2e se actualizan en el mismo PR.
 - Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.
+
+
+## Rediseño visual v1, Fase 2c — 24/10/2026
+
+- En la ficha completa, las acciones rápidas preseleccionan email o WhatsApp. El composer compartido usa presentación flotante solo desde esa ficha y en viewport de 768 px o más; el resto conserva el diálogo actual. El panel puede minimizarse manteniendo el borrador. Escape y el cierre siguen las mismas reglas que los diálogos: respetan pickers, diálogos hijos, operaciones en curso, pasos de resultado y la guarda de cambios sin guardar. Cerrar el composer flotante termina el flujo de contacto en escritorio; el composer modal no flotante conserva el comportamiento previo del caller (desde ficha, vuelve a «Contactar»). En teléfonos se conserva el diálogo.
+- En Documentos, «Agregar documento» revela el formulario de vinculación sin alterar sus avisos ni permisos. Tras vincular, el formulario se pliega, la confirmación queda visible fuera del formulario y el foco vuelve al botón. Crear un documento propio sigue en «Agregar documento o recurso».
