@@ -234,6 +234,7 @@ export interface CrmUserscriptTokens {
   label:string;
   createdAt:Generated<Timestamp>;
   lastUsedAt:Timestamp|null;
+  lastVersion:string|null;
   revokedAt:Timestamp|null;
 }
 
