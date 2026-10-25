@@ -68,9 +68,9 @@ En la vista del negocio, junto a «Registrar mensajes», el botón «Mandar un m
 
 1. Verificar que el chat abierto sigue siendo el del negocio (`isCurrentChat`) y, si el teléfono del chat se conoce, que coincide con `recipient` (comparando solo dígitos). Si no, aviso y no se pega.
 2. `dispatch`.
-3. Escribir el texto en la caja de WhatsApp: foco en el editor del pie del chat y `document.execCommand('insertText', …)`, con un evento `paste` sintético como alternativa. Si la caja ya tenía texto, se avisa y no se pisa.
+3. Escribir el texto en la caja de WhatsApp conservando los saltos de línea: primero un `paste` nativo (lo que hace Ctrl+V) y, si no entra, línea por línea con `insertText` e `insertLineBreak` (nunca Enter). Si la caja ya tenía texto: el modelo que pegó el script se reemplaza sin preguntar; cualquier otro texto se reemplaza solo si el vendedor confirma «Reemplazar». Todo reemplazo cierra como no enviado el intento pegado antes (el script lo recuerda por negocio durante una semana, aunque se recargue WhatsApp).
 4. Verificar que la caja contiene el texto. Si no, mostrar «No pude escribir en la caja de WhatsApp. Copialo y pegalo con Ctrl+V.» con «Copiar texto» y «Reintentar» (mockup 3c).
-5. Vista «Listo, está en el chat» con «Volver al negocio» y «No lo voy a enviar».
+5. Vista «Listo, está en el chat» con «Volver al negocio», «Cambiar de modelo» y «No lo voy a enviar».
 
 «Copiar» hace `dispatch` y copia al portapapeles, con la misma confirmación.
 
@@ -88,3 +88,5 @@ Editar el texto dentro del panel (se edita en la caja de WhatsApp), email, adjun
 
 - Aprobado con el mockup 3a–3c. El script no envía; pegar equivale a «WhatsApp abierto».
 - Va antes que el registro automático (spec siguiente) y las insignias en la lista de chats.
+- Ajustes tras la prueba en WhatsApp real: botones fijos al pie con la lista con scroll propio; pegar reemplaza el texto como se describe en 5.3; al pasar el mouse por un modelo, un popover muestra la plantilla cruda con las variables sin completar (sin preparar borradores).
+- Registrar un enviado completa un «WhatsApp abierto» (o un envío confirmado a mano sin id de WhatsApp) solo si su texto se parece al preparado: comparten al menos la mitad de las palabras (`userscript/src/textMatch.ts`). Un mensaje escrito a mano se registra como envío suelto y el intento queda abierto para cerrarlo. Rige también para «Contactar» del CRM.
