@@ -1,0 +1,43 @@
+import {useEffect,useState} from 'react';
+import {useQuery} from '@tanstack/react-query';
+import {HelpHint} from './HelpHint';
+import {Button} from './Button';
+import {PipelineEditor} from './Pipeline';
+import {PipelineCard} from './PipelineCard';
+import {ManagementPreviewDrawer} from './ManagementPreviewDrawer';
+import {PipelineColumn} from './PipelineColumn';
+import {QueryErrorNotice} from './QueryErrorNotice';
+import {QueryLoadingNotice} from './QueryLoadingNotice';
+import {useAuth} from '../helpers/useAuth';
+import {getPipeline,type PipelineStage} from '../endpoints/pipeline.schema';
+import type {Opportunity} from '../endpoints/commercial.schema';
+import type {OutputType} from '../endpoints/leads_GET.schema';
+import {managementTypeHints,managementTypeLabels,type ManagementType} from '../helpers/businessManagement';
+import {stageLabel} from '../helpers/crmLabels';
+import {stageTone,type ToneName} from '../helpers/stageTones';
+import styles from './PipelineBoard.module.css';
+
+type Totals=NonNullable<OutputType['boardTotals']>;
+const classificationNames:Record<string,string>={open:'Abierta',won:'Ganada',lost:'Perdida'};
+interface ColumnModel{key:string;name:string;displayName?:string;classification:string;tone:ToneName;stage?:PipelineStage}
+/** Commercial kanban board. */
+export function PipelineBoard({leads,onOpen,boardTotals,truncated=false,managementType}:{leads:Opportunity[];onOpen:(lead:Opportunity)=>void;boardTotals?:Totals;truncated?:boolean;managementType?:ManagementType}){
+ const {authState}=useAuth();const role=authState.type==='authenticated'?authState.user.role:null;const ids=leads.map(lead=>lead.id).join(',');const query=useQuery({queryKey:['pipeline','board',ids],queryFn:async()=>{if(!ids)return getPipeline({});const chunks=Array.from({length:Math.ceil(leads.length/100)},(_,index)=>leads.slice(index*100,index*100+100).map(lead=>lead.id).join(','));const result=await Promise.all(chunks.map(chunk=>getPipeline({ids:chunk})));return {...result[0],insights:result.flatMap(item=>item.insights)}}});const [target,setTarget]=useState<Parameters<typeof PipelineEditor>[0]['target']|null>(null);const [previewId,setPreviewId]=useState<string|null>(null);const [returnFocusTo,setReturnFocusTo]=useState<HTMLElement|null>(null);const [simple,setSimple]=useState(true);const [phone,setPhone]=useState(false);const [phoneOpen,setPhoneOpen]=useState<Record<string,boolean>>({});
+ useEffect(()=>{if(typeof window.matchMedia!=='function')return;const media=window.matchMedia('(max-width: 700px)');const update=()=>setPhone(media.matches);update();media.addEventListener?.('change',update);media.addListener?.(update);return()=>{media.removeEventListener?.('change',update);media.removeListener?.(update)}},[]);
+ // The preview follows the current list: it shows the refetched row and closes when the management leaves it (moved out of the filter, deleted).
+ const preview=previewId?leads.find(lead=>String(lead.id)===previewId)??null:null;useEffect(()=>{if(previewId&&!preview)setPreviewId(null)},[previewId,preview]);
+ if(!query.data&&query.error)return <QueryErrorNotice error={query.error} onRetry={query.refetch} busy={query.isFetching}/>;if(!query.data)return <QueryLoadingNotice>Cargando el tablero…</QueryLoadingNotice>;const data=query.data;
+ const visible=managementType?leads.filter(lead=>lead.managementType===managementType):leads;const filteredStages=data.stages.filter(stage=>(stage.active||visible.some(lead=>lead.estado===stage.name))&&(!managementType||stage.managementType===managementType));
+ const stageColumns:ColumnModel[]=[...filteredStages.map(stage=>({key:stage.name,name:stage.displayName||stage.name,displayName:stage.displayName||stage.name,classification:classificationNames[stage.classification],tone:stageTone({stage,stages:data.stages}),stage})),...(visible.some(lead=>lead.estado===null)?[{key:'__null',name:'Sin etapa histórica',classification:'Sin clasificar',tone:'slate' as ToneName}]:[])];
+ const columns:ColumnModel[]=simple?(['open','won','lost'] as const).map(classification=>({key:classification,name:classificationNames[classification],classification:classificationNames[classification],tone:({open:'blue',won:'green',lost:'red'} as const)[classification]})):stageColumns;
+ const rowsFor=(column:ColumnModel)=>visible.filter(lead=>simple?(data.stages.find(stage=>stage.name===lead.estado)?.classification??'open')===column.key:column.key==='__null'?lead.estado===null:lead.estado===column.key);
+ const totalFor=(column:ColumnModel,rows:Opportunity[])=>boardTotals?boardTotals.groups.filter(group=>(!managementType||group.managementType===managementType)&&(simple?(data.stages.find(stage=>stage.name===group.estado)?.classification??'open')===column.key:column.key==='__null'?group.estado===null:group.estado===column.key)).reduce((sum,group)=>sum+group.count,0):rows.length;
+ const controlLabel=managementType?`${managementTypeLabels[managementType]} · ${leads.length.toLocaleString('es-AR')} gestiones`:`Todas las gestiones filtradas · ${leads.length.toLocaleString('es-AR')}`;
+ return <>
+  <div className={styles.boardControls} aria-label="Vista del tablero"><div className={styles.segmented}><Button aria-pressed={simple} variant={simple?'secondary':'ghost'} onClick={()=>setSimple(true)}>Vista simple: abiertas, ganadas y perdidas</Button><Button aria-pressed={!simple} variant={!simple?'secondary':'ghost'} onClick={()=>setSimple(false)}>Ver etapas del equipo</Button></div><HelpHint term="managementType" iconOnly/><span className={styles.typeHint}>{controlLabel}</span>{managementType&&<span className={styles.typeHint}>{managementTypeHints[managementType]}</span>}</div>
+  <p className={styles.intro}>Todas las gestiones que coinciden con los filtros actuales. Abrí una gestión para revisar su próximo paso.</p>
+  {truncated&&boardTotals&&<p className={styles.warning} role="status">Mostramos las primeras {leads.length.toLocaleString('es-AR')} de {boardTotals.total.toLocaleString('es-AR')}. Filtrá para ver el resto.</p>}
+  <div className={`${styles.board} ${simple?styles.simpleBoard:''} ${phone?styles.phoneBoard:''}`} aria-label="Pipeline comercial">{columns.map(column=>{const rows=rowsFor(column);const total=totalFor(column,rows);const initiallyOpen=simple?column.key==='open'&&rows.length>0:column.stage?.classification==='open'&&rows.length>0;const expanded=phoneOpen[column.key]??initiallyOpen;return <PipelineColumn key={column.key} columnKey={column.key} name={column.displayName?(column.displayName===column.stage?.name?stageLabel(column.stage.name):column.displayName):column.name} count={total} tone={column.tone} classification={column.classification} simple={simple} phoneLayout={phone} phoneExpanded={expanded} onPhoneToggle={()=>setPhoneOpen(value=>({...value,[column.key]:!expanded}))}>{rows.length<total&&<span className={styles.meta}>Mostrando {rows.length.toLocaleString('es-AR')} de {total.toLocaleString('es-AR')}</span>}{rows.map(lead=>{const insight=data.insights.find(item=>String(item.id)===String(lead.id)),stage=data.stages.find(item=>item.name===lead.estado);return <PipelineCard key={lead.id} lead={lead} insight={insight} data={data} stage={stage} role={role} simple={simple} onOpen={onOpen} onPreview={(selected,card)=>{setPreviewId(String(selected.id));setReturnFocusTo(card)}} previewOpen={preview?.id===lead.id} onChangeStage={()=>setTarget({kind:'stage',lead})}/>})}{!rows.length&&<p className={styles.empty}>Sin gestiones en esta etapa</p>}</PipelineColumn>})}</div>
+  <ManagementPreviewDrawer lead={preview} insight={preview?data.insights.find(item=>String(item.id)===String(preview.id)):undefined} data={data} stage={preview?data.stages.find(item=>item.name===preview.estado):undefined} role={role} opened={!!preview} onClose={()=>setPreviewId(null)} onOpen={lead=>{setReturnFocusTo(null);setPreviewId(null);onOpen(lead)}} onChangeStage={()=>{if(preview)setTarget({kind:'stage',lead:preview})}} returnFocusTo={returnFocusTo} nestedDialogOpen={!!target}/>
+  {target&&<PipelineEditor target={target} data={data} onClose={()=>setTarget(null)}/>}</>;
+}
