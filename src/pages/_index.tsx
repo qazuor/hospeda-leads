@@ -39,6 +39,7 @@ import { getCommercialDetail } from "../endpoints/commercial.schema";
 import { Badge } from "../components/Badge";
 import { BadgeSelect } from "../components/BadgeSelect";
 import {DisabledTooltip} from "../components/Tooltip";
+import {resolveManagementSavedViewId} from "../helpers/managementSavedView";
 import { Button } from "../components/Button";
 import { Checkbox } from "../components/Checkbox";
 import { ColumnPicker, type TableColumnOption } from "../components/ColumnPicker";
@@ -162,7 +163,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [saveViewOpen,setSaveViewOpen]=useState(false);
   const [savedViewName,setSavedViewName]=useState("");
   const [savedViews,setSavedViews]=useState<Array<{
-    name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc";classification?:"open"|"won"|"lost";
+    id:string;name:string;query:string;filterGroups:AdvancedFilterGroup[];sortBy:SortBy;sortDir:"asc"|"desc";classification?:"open"|"won"|"lost";
     inline?:{
       cityFilter:SmartFilterState;statusFilter:SmartFilterState;typeFilter:SmartFilterState;subtypeFilter:SmartFilterState;
       commercialProfileFilter:SmartFilterState;priorityFilter:SmartFilterState;assignedUserFilter:SmartFilterState;
@@ -292,7 +293,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
   useEffect(()=>{
     if(!savedViewsQ.data)return;
-    setSavedViews(savedViewsQ.data.views.filter(({config})=>!(config as any).entity||(config as any).entity===entity).map(({name,config})=>({name,...(config as any)})));
+    setSavedViews(savedViewsQ.data.views.filter(({config})=>!(config as any).entity||(config as any).entity===entity).map(({id,name,config})=>({id:id??name,name,...(config as any)})));
   },[savedViewsQ.data]);
 
   const leads=leadsQ.data?.rows??[];
@@ -475,12 +476,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       subscriptionFilter,originFilter,loadedByFilter,contactMethodFilter,createdByFilter,
       textFilters,dateFilters,idFilter,recurrentFilter,notesFilter,nextAction
     };
-    const view={name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline,classification};
-    const next=[...savedViews.filter(item=>item.name!==name),view];
-    setSavedViews(next);
+    const view={id:'pending:'+Date.now(),name,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline,classification};
     void savedViewM.mutateAsync({action:"save",view:{name,config:{entity,query,filterGroups:appliedFilterGroups,sortBy,sortDir,inline,classification}}})
-      .then(()=>toast.success("Vista guardada"))
-      .catch(error=>{setSavedViews(savedViews);toast.error(error instanceof Error?crmError(error):"No se pudo guardar la vista")});
+      .then(result=>{const serverId=resolveManagementSavedViewId(result.view?.id);if(!serverId){void savedViewsQ.refetch().then(({data})=>{const recovered=data?.views.find(item=>item.name===name&&(!item.config.entity||item.config.entity===entity));if(recovered?.id){const recoveredView={...view,id:recovered.id};setSavedViews(previous=>[...previous.filter(item=>item.name!==name),recoveredView]);setActiveQuick("saved:"+recovered.id);}});toast.error("La vista se guardó, pero no pude recuperar su identificador. Actualizá la lista.");return;}const serverView={...view,id:serverId};setSavedViews(previous=>[...previous.filter(item=>item.name!==name),serverView]);setActiveQuick("saved:"+serverId);toast.success("Vista guardada");})
+      .catch(error=>toast.error(error instanceof Error?crmError(error):"No se pudo guardar la vista"));
     setSavedViewName("");setSaveViewOpen(false);
   };
   const applySavedView=(view:(typeof savedViews)[number])=>{
@@ -496,7 +495,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       setNextAction(view.inline.nextAction);
     }
     setQuery(view.query);setAppliedFilterGroups(view.filterGroups);setSortBy(view.sortBy);setSortDir(view.sortDir);
-    setActiveQuick("saved:"+view.name);setPage(1);
+    setActiveQuick("saved:"+view.id);setPage(1);
   };
   const removeSavedView=(name:string)=>{
     if(!currentUser)return;
@@ -717,12 +716,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       <section className={styles.quickViews}>
         <div className={styles.quickViewList}>
           {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis gestiones"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><UnstyledButton type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</UnstyledButton>)}
-          {savedViews.map(view=><div className={styles.savedView} key={view.name}><UnstyledButton type="button" className={activeQuick==="saved:"+view.name?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</UnstyledButton><UnstyledButton type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</UnstyledButton></div>)}
+          {savedViews.map(view=><div className={styles.savedView} key={view.id}><UnstyledButton type="button" className={activeQuick==="saved:"+view.id?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</UnstyledButton><UnstyledButton type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</UnstyledButton></div>)}
         </div>
         <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
-      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>key.startsWith('saved:')?applySavedView(savedViews.find(view=>view.name===key.slice(6))!):applyQuickView(key)} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)}/></>}
+      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/></>}
       <FilterLegend
         groups={appliedFilterGroups}
         onChange={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);resetPage();}}

@@ -38,7 +38,7 @@
         "when": "Cuando quieras revisar, filtrar o guardar una vista de tus gestiones.",
         "steps": [
           "El resumen muestra seis indicadores: «Total de gestiones», «Gestiones abiertas», «Gestiones con acción hoy», «Gestiones con acción atrasada», «Mis registros con acción hasta hoy» y «Suscriptos históricos». Tocá uno para aplicar ese filtro.",
-          "La fila de vistas reúne «Todos», «Mis gestiones», «Para hoy», «Vencidos», «Sin responsable», «Sin próxima acción» y tus vistas guardadas. Usá «Guardar vista» para guardar una vista o el control de eliminar junto a una vista guardada para quitarla.",
+          "La fila de vistas reúne «Todos», «Mis gestiones», «Para hoy», «Vencidos», «Sin responsable», «Sin próxima acción» y tus vistas guardadas. Usá «Guardar vista» para guardar una vista o el control de eliminar junto a una vista guardada para quitarla. «Más vistas» reúne las que sacaste de la barra; desde ahí podés fijarlas otra vez o aplicarlas. En «Elegir vistas de la barra» podés fijar o desfijar vistas, arrastrar con la manija o usar el teclado para ordenarlas y elegir «Volver a la barra del equipo» para restaurar el orden predeterminado. Esta configuración es personal y no cambia la barra de otras personas.",
           "Usá los filtros rápidos «Tipo de gestión», «Etapa», «Responsable» y «Próximo paso» junto a «Filtrar». «Próximo paso» ofrece Vencidas, Hoy, Esta semana (de hoy al domingo), Próximos 7 días, Sin próximo paso y «Rango…». «Vencidas» y «Hoy» muestran solo gestiones abiertas, igual que el resumen; al cambiar o quitar ese filtro vuelven a verse todas. Para reglas combinadas, exclusiones y grupos AND/OR, abrí «Filtrar».",
           "La tabla es la vista inicial. Tocá «Tablero comercial» para organizar las gestiones por etapa. Las columnas tienen colores propios y se pueden plegar desde su encabezado. Cada tarjeta muestra la gestión, el negocio, la vertical, los días en etapa, la próxima fecha, las marcas de seguimiento y prioridad, y la persona responsable.",
           "Tocá el cuerpo de una tarjeta para abrir «Vista previa de la gestión». Allí podés revisar la etapa y los datos principales, usar «Cambiar etapa» si tenés permiso o entrar con «Abrir gestión». El tipo se elige con el filtro rápido «Tipo de gestión» de la lista; el tablero no tiene un selector propio. «Ver etapas del equipo» muestra las etapas de un solo tipo: si no elegiste uno (o elegiste varios), te pide que elijas uno y lo aplica en ese filtro. «Vista simple: abiertas, ganadas y perdidas» muestra todos los tipos juntos. En el teléfono, las etapas se despliegan como un acordeón.",
@@ -75,6 +75,9 @@
           "Cambiar etapa",
           "Abrir gestión",
           "Guardar vista",
+          "Más vistas",
+          "Elegir vistas de la barra",
+          "Volver a la barra del equipo",
           "Ayuda sobre gestiones",
           "Sin próxima acción",
           "Mis registros con acción hasta hoy",
