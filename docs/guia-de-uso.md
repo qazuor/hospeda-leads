@@ -29,6 +29,24 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 - Cerrar una gestión no cierra las demás. Ganada no verifica cobros ni activa servicios del portal turístico.
 - Si una palabra de la pantalla te genera dudas, buscá el ícono ⓘ al lado: explica el término en una frase.
 
+### Usar la lista de Gestiones
+
+**Cuándo usarlo:** Cuando quieras revisar, filtrar o guardar una vista de tus gestiones.
+
+1. El resumen muestra seis indicadores: «Total de gestiones», «Gestiones abiertas», «Gestiones con acción hoy», «Gestiones con acción atrasada», «Mis registros con acción hasta hoy» y «Suscriptos históricos». Tocá uno para aplicar ese filtro.
+2. La fila de vistas reúne «Todos», «Mis gestiones», «Para hoy», «Vencidos», «Sin responsable», «Sin próxima acción» y tus vistas guardadas. Usá «Guardar vista» para guardar una vista o el control de eliminar junto a una vista guardada para quitarla.
+3. Usá los filtros rápidos «Etapa», «Responsable» y «Próximo paso» junto a «Filtrar». «Próximo paso» ofrece Vencidas, Hoy, Esta semana (de hoy al domingo), Próximos 7 días, Sin próximo paso y «Rango…». Para reglas combinadas, exclusiones y grupos AND/OR, abrí «Filtrar».
+4. La tabla es la vista inicial. Tocá «Tablero comercial» para organizar las gestiones por etapa.
+5. Abrí «Ayuda sobre gestiones» para consultar la ayuda contextual.
+
+**Qué queda al terminar:** Podés encontrar y guardar el conjunto de gestiones que necesitás revisar.
+
+**Tené en cuenta:**
+
+- Los filtros rápidos modifican solo la regla del campo que controlan; las demás reglas y exclusiones se conservan.
+
+**Dónde ir:** Abrir Gestiones (/opportunities)
+
 ### Tu primer día: la lista de Primeros pasos
 
 **Cuándo usarlo:** Cuando recién empezás a usar Hospeda y no sabés por dónde arrancar.

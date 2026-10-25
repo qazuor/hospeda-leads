@@ -195,6 +195,12 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.
 
 
+## Rediseño visual v1, Fase 3b: tabla de Gestiones — 25/10/2026
+
+- Los filtros rápidos son un componente compartido (`ListQuickFilters`); cada filtro de fecha declara qué operadores le pertenecen (`on`/`between`/`empty` por defecto; «Próximo paso» suma `before` para «Vencidas»), así no pisa reglas del editor en otras listas.
+- La tabla es la vista inicial de Gestiones en todos los anchos.
+- Sin filtro rápido «Tipo de gestión» hasta que el servidor admita `managementType` como campo del filtro avanzado (cambio de contrato, fuera de la v1 visual).
+
 ## Rediseño visual v1, Fase 3a: lista de Negocios — 25/10/2026
 
 - Tocar una fila abre una vista previa de solo lectura (aprobado por el propietario); el nombre sigue llevando a la ficha. La vista previa usa `getCommercialDetail` con la misma clave de consulta que las acciones de fila. «Contactar» sigue las reglas de la fila (`canActOnBusiness`) y «Editar» la regla canónica `canModifyBusiness`.

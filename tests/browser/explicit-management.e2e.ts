@@ -44,7 +44,7 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   
   await page.getByRole('link',{name:'Gestiones',exact:true}).click();
   // Phones start on the table; the board is one tap away.
-  if(viewport.width<768){await expect(page.locator('[aria-label="Pipeline comercial"]')).toHaveCount(0);await page.getByRole('button',{name:'Tablero comercial',exact:true}).click();}
+  if(viewport.width<768)await expect(page.locator('[aria-label="Pipeline comercial"]')).toHaveCount(0);await page.getByRole('button',{name:'Tablero comercial',exact:true}).click();
   await expect(page.locator('[aria-label="Pipeline comercial"]')).toBeVisible();
   await expect(page.getByRole('heading',{name:'Gestiones',exact:true})).toBeVisible();
   const typeHint=page.getByRole('button',{name:'¿Qué es esto? Tipo de gestión'});await expect(typeHint).toBeVisible();expect((await typeHint.boundingBox())!.width).toBeLessThan(80);

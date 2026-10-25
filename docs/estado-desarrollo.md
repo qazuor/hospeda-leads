@@ -1,6 +1,17 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
-## Rediseño visual v1, Fase 3a lista para PR — lista de Negocios — 25/10/2026
+## Rediseño visual v1, Fase 3b lista para PR — tabla de Gestiones — 25/10/2026
+
+Solo visual: sin cambios de endpoints, permisos ni reglas de No contactar. Mockup aprobado el 24/10/2026.
+
+- Los seis indicadores del resumen quedan visibles como tiles y filtran al tocarlos; las vistas rápidas y las guardadas van en una sola fila con «Guardar vista». El desplegable «Resumen, vistas guardadas y ayuda» se quitó en Gestiones y la ayuda comercial pasó al «?» («Ayuda sobre gestiones»).
+- Filtros rápidos Etapa, Responsable (con «Yo») y Próximo paso (Vencidas, Hoy, Esta semana de hoy al domingo, Próximos 7 días, Sin próximo paso, «Rango…»), con las mismas reglas de pertenencia que Negocios (componente compartido `ListQuickFilters`). «Tipo de gestión» no se agregó: `managementType` no es un campo del filtro avanzado y sumarlo cambiaría la API.
+- La columna Etapa muestra la etapa con pasos y la tabla es la vista inicial en todos los anchos; «Tablero comercial» sigue llevando al tablero.
+- En el celular: búsqueda a lo ancho, «Filtrar» y «Columnas» debajo y la tira de filtros rápidos desplazable; sin scroll horizontal a 390 y 320 px.
+- «Vencidas» y «Hoy» del filtro rápido no limitan a gestiones abiertas (los tiles y vistas sí).
+- Pruebas: typecheck, `npm test` (1000), build y e2e completos sobre Postgres 17 descartable (193/194; `commercial.e2e.ts` en «CRM template» falla solo en local).
+
+## Rediseño visual v1, Fase 3a mergeada a `staging` (#237, `a32ed00`; sin desplegar) — lista de Negocios — 25/10/2026
 
 Solo visual: sin cambios de endpoints, permisos ni reglas de No contactar. Mockup aprobado por el propietario el 24/10/2026.
 

@@ -33,6 +33,47 @@
         ]
       },
       {
+        "id": "management-list",
+        "title": "Usar la lista de Gestiones",
+        "when": "Cuando quieras revisar, filtrar o guardar una vista de tus gestiones.",
+        "steps": [
+          "El resumen muestra seis indicadores: «Total de gestiones», «Gestiones abiertas», «Gestiones con acción hoy», «Gestiones con acción atrasada», «Mis registros con acción hasta hoy» y «Suscriptos históricos». Tocá uno para aplicar ese filtro.",
+          "La fila de vistas reúne «Todos», «Mis gestiones», «Para hoy», «Vencidos», «Sin responsable», «Sin próxima acción» y tus vistas guardadas. Usá «Guardar vista» para guardar una vista o el control de eliminar junto a una vista guardada para quitarla.",
+          "Usá los filtros rápidos «Etapa», «Responsable» y «Próximo paso» junto a «Filtrar». «Próximo paso» ofrece Vencidas, Hoy, Esta semana (de hoy al domingo), Próximos 7 días, Sin próximo paso y «Rango…». Para reglas combinadas, exclusiones y grupos AND/OR, abrí «Filtrar».",
+          "La tabla es la vista inicial. Tocá «Tablero comercial» para organizar las gestiones por etapa.",
+          "Abrí «Ayuda sobre gestiones» para consultar la ayuda contextual."
+        ],
+        "result": "Podés encontrar y guardar el conjunto de gestiones que necesitás revisar.",
+        "example": [],
+        "notes": [
+          "Los filtros rápidos modifican solo la regla del campo que controlan; las demás reglas y exclusiones se conservan."
+        ],
+        "url": "/opportunities",
+        "linkLabel": "Abrir Gestiones",
+        "uiLabels": [
+          "Total de gestiones",
+          "Gestiones abiertas",
+          "Gestiones con acción hoy",
+          "Gestiones con acción atrasada",
+          "Todos",
+          "Mis gestiones",
+          "Para hoy",
+          "Vencidos",
+          "Sin responsable",
+          "Próximo paso",
+          "Etapa",
+          "Responsable",
+          "Filtrar",
+          "Tablero comercial",
+          "Guardar vista",
+          "Ayuda sobre gestiones",
+          "Sin próxima acción",
+          "Mis registros con acción hasta hoy",
+          "Suscriptos históricos",
+          "Rango…"
+        ]
+      },
+      {
         "id": "first-day",
         "title": "Tu primer día: la lista de Primeros pasos",
         "when": "Cuando recién empezás a usar Hospeda y no sabés por dónde arrancar.",
