@@ -1,10 +1,12 @@
 import type { Match, ContextResponse, RegisterResult } from "./api";
 import type { ChatMessage } from "./selectors";
 import { filterCached, RegisterController, summarizeResults } from "./register";
+import { sentMatchesPrepared } from "./textMatch";
 import { PANEL_CSS } from "./styles";
 import { LOGO_SRC } from "./logo";
 import { compareSemver } from "./parse";
 import { UPDATE_PROMPT_ID } from "./updatePrompt";
+import { openCompose } from "./compose";
 
 const ID = "hospeda-userscript-banner";
 const OPEN_KEY = "hospeda-userscript-open", AUTO_OPEN_KEY = "hospeda-userscript-auto-open", TOKEN_KEY = "hospeda-userscript-token", THEME_KEY = "hospeda-userscript-theme";
@@ -25,7 +27,7 @@ export type UiOptions = {
   /** Set when the server rejected this version (HTTP 426): updating is the only way forward. */
   requiredVersion?: string | null;
 };
-type View = "chat" | "settings" | "preview";
+type View = "chat" | "settings" | "preview" | "compose";
 let view: View = "chat", editingToken = false;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] { const node = document.createElement(tag); if (className) node.className = className; if (text) node.textContent = text; return node; }
@@ -69,7 +71,7 @@ export function renderBanner(options: UiOptions): HTMLElement {
   let host = document.getElementById(ID) as HTMLElement | null;
   // An own tag, not a div: WhatsApp's element selectors and variables must not style the host.
   if (!host) { host = document.createElement("hospeda-crm"); host.id = ID; host.attachShadow({ mode: "open" }); }
-  if (view === "preview") view = "chat";
+  if (view === "preview" || view === "compose") view = "chat"; // both belong to the chat they were opened from
   host.classList.toggle("dark", isDark());
   const root = host.shadowRoot!, open = GM_getValue<boolean>(OPEN_KEY, true);
   root.replaceChildren(el("style", undefined, PANEL_CSS), launcher(options, open));
@@ -110,7 +112,7 @@ function launcher(options: UiOptions, open: boolean): HTMLButtonElement {
   const button = el("button", "launcher"); button.type = "button"; button.setAttribute("aria-expanded", String(open)); button.setAttribute("aria-label", `Hospeda CRM: ${label}. ${open ? "Ocultar" : "Mostrar"} panel`);
   button.title = `Hospeda CRM: ${label}`; button.append(logo("logo"), el("span", "label", label), el("span", `dot ${tone}`)); placeLauncher(button);
   if (!resizeBound) { resizeBound = true; window.addEventListener("resize", () => { const current = document.getElementById(ID)?.shadowRoot?.querySelector<HTMLElement>(".launcher"); if (current) placeLauncher(current); }); }
-  button.addEventListener("click", () => { setPanelOpen(!open); const wasPreview = view === "preview"; view = "chat"; if (wasPreview && options.onPreviewChange) options.onPreviewChange(false); else renderBanner(options); });
+  button.addEventListener("click", () => { setPanelOpen(!open); const wasPreview = view === "preview" || view === "compose"; view = "chat"; if (wasPreview && options.onPreviewChange) options.onPreviewChange(false); else renderBanner(options); });
   return button;
 }
 
@@ -120,6 +122,7 @@ function bar(options: UiOptions, title?: { main: string; sub?: string }): HTMLEl
   else { const brand = el("div", "brand"); brand.append(logo("mark"), document.createTextNode("Hospeda CRM")); header.append(brand); }
   const actions = el("div", "actions");
   if (view === "settings" && hasToken()) actions.append(icon("Volver al chat", BACK, () => { view = "chat"; editingToken = false; renderBanner(options); }));
+  else if (view === "compose") actions.append(icon("Volver al negocio", BACK, () => { view = "chat"; if (options.onPreviewChange) options.onPreviewChange(false); else renderBanner(options); }));
   else if (view === "chat") actions.append(icon("Ajustes", GEAR, () => { view = "settings"; renderBanner(options); }));
   actions.append(icon("Minimizar", MINUS, () => { setPanelOpen(false); renderBanner(options); }));
   header.append(actions); return header;
@@ -129,6 +132,7 @@ function panel(options: UiOptions): HTMLElement {
   const wrap = el("div", "panel"), card = el("section", "card"); card.setAttribute("aria-label", "Hospeda CRM"); wrap.append(card);
   if (!hasToken()) { view = "settings"; editingToken = true; }
   if (view === "settings") card.append(bar(options, { main: "Ajustes de Hospeda CRM" }), settings(options));
+  else if (view === "compose") card.append(bar(options, { main: "Mandar un mensaje", sub: options.selected?.name }), el("div", "body"));
   else card.append(bar(options), chat(options, card));
   return wrap;
 }
@@ -181,7 +185,7 @@ function business(options: UiOptions, selected: Match, body: HTMLElement, card: 
   const fresh = freshMessages(options).length, meta = el("div", "meta");
   meta.append(el("span", undefined, fresh ? `${plural(fresh, "mensaje nuevo", "mensajes nuevos")} en este chat` : "Sin mensajes nuevos"), el("span", undefined, options.lastRegistered ? `Último registro: ${options.lastRegistered}` : ""));
   body.append(meta);
-  const actions = el("div", "actions");
+  const actions = el("div", "actions grid");
   if (options.register && options.readMessages) {
     const button = el("button", "btn primary", "Registrar mensajes"); button.type = "button";
     button.addEventListener("click", () => {
@@ -192,6 +196,11 @@ function business(options: UiOptions, selected: Match, body: HTMLElement, card: 
     actions.append(button);
   }
   const link = el("a", "btn", "Abrir en CRM"); link.href = selected.url; link.target = "_blank"; link.rel = "noopener noreferrer"; actions.append(link);
+  // Spec 84: the same rules as «Contactar» in the CRM; the server checks them again when preparing.
+  const blockedReason = !options.crmBase || !hasToken() ? "Conectá el script para usar los modelos." : selected.status === "new" ? NEW_STATUS : selected.doNotContact || selected.restrictionActive ? DO_NOT_CONTACT : !selected.leads.length ? "No hay gestiones abiertas para preparar un mensaje." : "";
+  const send = el("button", "btn", "Mandar un mensaje"); send.type = "button"; send.disabled = !!blockedReason; send.title = blockedReason || "Elegí un modelo del CRM y pegalo en el chat";
+  send.addEventListener("click", () => { view = "compose"; options.onPreviewChange?.(true); openCompose(card, options, selected, () => { view = "chat"; options.onPreviewChange?.(false); }, title => bar(options, { main: title, sub: `${selected.name} · ${selected.code}` })); });
+  actions.insertBefore(send, link);
   body.append(actions);
 }
 
@@ -235,9 +244,9 @@ const OPENED_WINDOW_MS = 24 * 60 * 60_000, OPENED_SKEW_MS = 10 * 60_000;
  * Warns that a sent message completes the WhatsApp the seller opened from "Contactar" instead of being recorded twice. Only attempts a
  * previewed sent message can actually complete count (a message without time is treated as sent now, as the CRM does); null when none.
  */
-export function openWhatsappNotice(open: readonly { openedAt: string }[] | undefined, messages: readonly ChatMessage[], now = Date.now()): string | null {
-  const sends = messages.filter(message => message.direction === "out").map(message => message.sentAt ? new Date(message.sentAt).getTime() : now);
-  const matching = (open || []).filter(item => { const opened = new Date(item.openedAt).getTime(); return sends.some(sent => opened >= sent - OPENED_WINDOW_MS && opened <= sent + OPENED_SKEW_MS); });
+export function openWhatsappNotice(open: readonly { openedAt: string; body?: string | null }[] | undefined, messages: readonly ChatMessage[], now = Date.now()): string | null {
+  const sends = messages.filter(message => message.direction === "out").map(message => ({ at: message.sentAt ? new Date(message.sentAt).getTime() : now, text: message.text }));
+  const matching = (open || []).filter(item => { const opened = new Date(item.openedAt).getTime(); return sends.some(sent => opened >= sent.at - OPENED_WINDOW_MS && opened <= sent.at + OPENED_SKEW_MS && sentMatchesPrepared(item.body, sent.text)); });
   if (!matching.length) return null;
   const first = new Date(matching[0]!.openedAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
   const count = matching.length === 1 ? "un WhatsApp abierto" : `${matching.length} WhatsApp abiertos`;
