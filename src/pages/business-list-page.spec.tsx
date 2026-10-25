@@ -25,8 +25,9 @@ vi.mock('../components/BusinessCard',()=>({BusinessCard:({row}:{row:{nombre:stri
 vi.mock('../components/BusinessRowActions',()=>({BusinessRowActions:()=>null}));
 vi.mock('../components/BusinessStickyHeader',()=>({BusinessStickyHeader:({children}:{children:React.ReactNode})=><>{children}</>}));
 vi.mock('../components/InlineBusinessBadge',()=>({InlineBusinessBadge:()=>null}));
-vi.mock('../components/InlineBusinessStatus',()=>({InlineBusinessStatus:()=>null}));
+vi.mock('../components/InlineBusinessStatus',async()=>{const {createPortal}=await import('react-dom');return {InlineBusinessStatus:()=>createPortal(<span>Contenido del editor de estado</span>,document.body)};});
 vi.mock('../components/ValueBadge',()=>({ValueBadge:({value}:{value:string})=><span>{value}</span>}));
+vi.mock('../components/BusinessPreviewDrawer',()=>({BusinessPreviewDrawer:({row,opened}:{row:{nombre:string}|null;opened:boolean})=>opened&&row?<div role="dialog" aria-label={'Vista previa de '+row.nombre}/>:null}));
 vi.mock('../components/CommercialEditor',()=>({CommercialEditor:()=>null}));
 vi.mock('../components/DataImportDialog',()=>({DataImportDialog:()=>null}));
 vi.mock('../components/FilterBuilderDialog',()=>({FilterBuilderDialog:()=>null,FilterLegend:()=>null}));
@@ -96,8 +97,24 @@ describe('BusinessListPage restoration after a suspended navigation',()=>{
   // The business page chunk never loads, so React keeps the list mounted but hidden inside the route Suspense.
   const never=new Promise<never>(()=>undefined);function PendingBusiness():React.ReactElement{throw never;}
   render(<MantineProvider><QueryClientProvider client={currentQueryClient}><MemoryRouter initialEntries={['/accounts']}><Link to="/accounts">Negocios</Link><React.Suspense fallback={<p>Cargando página…</p>}><Routes><Route path="/accounts" element={<BusinessListPage/>}/><Route path="/accounts/:accountId" element={<PendingBusiness/>}/></Routes></React.Suspense></MemoryRouter></QueryClientProvider></MantineProvider>);
-  fireEvent.click(await screen.findByRole('button',{name:'Negocio visible'},{timeout:10000}));expect(await screen.findByText('Cargando página…')).toBeTruthy();
+  fireEvent.click(await screen.findByRole('link',{name:'Negocio visible'},{timeout:10000}));expect(await screen.findByText('Cargando página…')).toBeTruthy();
   const shellLink=screen.getByRole('link',{name:'Negocios'});shellLink.focus();fireEvent.click(shellLink);
-  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('button',{name:'Negocio visible'})));
+  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('link',{name:'Negocio visible'})));
+ });
+});
+
+describe('BusinessListPage row preview',()=>{
+ it('opens the preview from the row body but not from the name link or the selection checkbox',async()=>{
+  // Arrange
+  localStorage.setItem('hospeda-business-seller-default-v1-user-8','1');api.getGroups.mockResolvedValue({groups:[]});setup();
+  const name=await screen.findByRole('link',{name:'Negocio visible'});
+  const row=name.closest('tr')!;const checkbox=row.querySelector('input[type="checkbox"]')!;const city=Array.from(row.querySelectorAll('td')).find(cell=>cell.textContent?.includes('Colón'))!;
+  // Act + Assert: interactive targets keep their own behaviour
+  fireEvent.click(checkbox);expect(screen.queryByRole('dialog',{name:'Vista previa de Negocio visible'})).toBeNull();
+  name.addEventListener('click',event=>event.preventDefault(),{once:true});fireEvent.click(name);expect(screen.queryByRole('dialog',{name:'Vista previa de Negocio visible'})).toBeNull();
+  // Act + Assert: a plain cell opens the preview
+  // Act + Assert: a click inside a portal rendered by a cell (inline editor popover) stays out of the row
+  fireEvent.click(screen.getByText('Contenido del editor de estado'));expect(screen.queryByRole('dialog',{name:'Vista previa de Negocio visible'})).toBeNull();
+  fireEvent.click(city);expect(await screen.findByRole('dialog',{name:'Vista previa de Negocio visible'})).toBeTruthy();
  });
 });

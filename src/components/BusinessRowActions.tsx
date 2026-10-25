@@ -1,7 +1,7 @@
 import React,{useLayoutEffect,useRef,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
-import {Archive,MoreHorizontal,Eye,MessageCircle,LoaderCircle,Trash2} from 'lucide-react';
+import {Archive,MoreHorizontal,MessageCircle,LoaderCircle,Trash2} from 'lucide-react';
 import {Button} from './Button';
 import {Tooltip,TooltipContent,TooltipTrigger} from './Tooltip';
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger} from './DropdownMenu';
@@ -11,13 +11,14 @@ import {CommercialEditor} from './CommercialEditor';
 import {getCommercialDetail} from '../endpoints/commercial.schema';
 import {useAuth} from '../helpers/useAuth';
 import {toast} from 'sonner';
+import {canActOnBusiness,commercialDetailKey} from '../helpers/businessActionGates';
 import styles from './BusinessRowActions.module.css';
-export function BusinessRowActions({accountId,name,canModify,admin,onOpen}:{accountId:string;name:string;canModify:boolean;admin:boolean;onOpen:()=>void}){
+export function BusinessRowActions({accountId,name,canModify,admin,onPreview}:{accountId:string;name:string;canModify:boolean;admin:boolean;onPreview?:()=>void}){
  const navigate=useNavigate();const [action,setAction]=useState<'contact'|'archive'|'delete_account'|null>(null);const {authState}=useAuth();
  const actionTrigger=useRef<HTMLButtonElement|null>(null);
  const restoreActionFocus=useRef(false);
- const detail=useQuery({queryKey:['commercial-detail',accountId],queryFn:()=>getCommercialDetail(accountId),enabled:!!action});
- const allowed=detail.data&&authState.type==='authenticated'&&!detail.data.account.archivedAt&&(authState.user.role==='admin'||detail.data.account.assignedUserEmail===authState.user.email);
+ const detail=useQuery({queryKey:commercialDetailKey(accountId),queryFn:()=>getCommercialDetail(accountId),enabled:!!action});
+ const allowed=canActOnBusiness(detail.data,authState);
  const close=()=>{restoreActionFocus.current=true;setAction(null);};
  useLayoutEffect(()=>{
   if(action||!restoreActionFocus.current)return;
@@ -29,17 +30,16 @@ export function BusinessRowActions({accountId,name,canModify,admin,onOpen}:{acco
  const contactReason=action?busyReason:'Solo el responsable del negocio o un administrador puede contactar.';
  const trashReason='Solo el responsable del negocio o un administrador puede enviarlo a Papelera.';
  // Sellers without modify rights would get a menu with only a disabled item: disable the trigger instead.
- const menuEmpty=!admin&&!canModify;
+ const menuEmpty=!admin&&!canModify&&!onPreview;
  const pick=(next:'contact')=>(event:React.MouseEvent<HTMLButtonElement>)=>{actionTrigger.current=event.currentTarget;setAction(next);};
- const openButton=<Button size="icon-sm" variant="outline" className={styles.action} aria-label="Abrir" disabled={!!action} disabledReason={busyReason} onClick={event=>{actionTrigger.current=event.currentTarget;onOpen();}}><Eye size={15} aria-hidden="true"/></Button>;
  const contactButton=<Button size="icon-sm" variant="outline" className={styles.action} aria-label="Contactar" disabled={!canModify||!!action} disabledReason={contactReason} onClick={pick('contact')}>{pending&&action==='contact'?<LoaderCircle size={15} className={styles.spinner} aria-hidden="true"/>:<MessageCircle size={15} aria-hidden="true"/>}</Button>;
  return <><div className={styles.actions} role="group" aria-label={'Acciones de '+name}>
   {/* Keep one stable tree so the focus-return ref survives opening and closing an action. */}
-  <Tooltip open={action?false:undefined}><TooltipTrigger asChild>{openButton}</TooltipTrigger><TooltipContent>Abrir negocio</TooltipContent></Tooltip>
   <Tooltip open={!canModify||action?false:undefined}><TooltipTrigger asChild>{contactButton}</TooltipTrigger><TooltipContent>Contactar: elegir gestión, canal y mensaje</TooltipContent></Tooltip>
   <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" className={styles.more} aria-label={'Más acciones de '+name} data-row-more title="Más acciones" disabled={!!action||menuEmpty} disabledReason={action?busyReason:trashReason} onClick={event=>{actionTrigger.current=event.currentTarget;}}><MoreHorizontal size={18} aria-hidden="true"/></Button></DropdownMenuTrigger>
    <DropdownMenuContent align="end">
-    {admin&&<><DropdownMenuItem onClick={()=>setAction('archive')} title="Negocio válido que no se trabajará ahora. Conserva datos y tareas; solo un administrador puede recuperarlo."><Archive size={15} aria-hidden="true"/>Archivar negocio…</DropdownMenuItem><DropdownMenuSeparator/></>}
+   {admin&&<><DropdownMenuItem onClick={()=>setAction('archive')} title="Negocio válido que no se trabajará ahora. Conserva datos y tareas; solo un administrador puede recuperarlo."><Archive size={15} aria-hidden="true"/>Archivar negocio…</DropdownMenuItem><DropdownMenuSeparator/></>}
+    {onPreview&&<DropdownMenuItem onClick={onPreview}>Vista previa</DropdownMenuItem>}
     {!canModify&&<DropdownMenuLabel>{trashReason}</DropdownMenuLabel>}<DropdownMenuItem className={styles.danger} disabled={!canModify} onClick={()=>setAction('delete_account')} title={canModify?'Solo para registros inválidos o mal cargados. Conserva datos; solo un administrador puede restaurarlo.':trashReason}><Trash2 size={15} aria-hidden="true"/>Enviar a Papelera…</DropdownMenuItem>
    </DropdownMenuContent></DropdownMenu>
  </div>

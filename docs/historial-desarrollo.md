@@ -2,6 +2,10 @@
 
 Registro de hitos para trasladar el proyecto entre herramientas. No es una transcripción completa del chat ni el journal de usuarios comerciales. Fechas y estados se indican cuando se conocen; para la historia íntegra de código consultar GitHub y los PRs.
 
+## 24 y 25/10/2026 — rediseño visual v1: ficha completa y lista de Negocios
+
+Se mergearon a `staging` las fases 2a, 2b y 2c del rediseño de la ficha (#234, #235, #236). Fase 3a (lista de Negocios: vistas en una fila, filtros rápidos, vista previa al tocar una fila, barra de último contacto, canales con ícono, barra de selección flotante y tarjetas agrupadas en el celular) quedó lista para PR. Nada se desplegó.
+
 ## 23/10/2026 — respuestas por email y WhatsApp Web en staging
 
 Se mergearon a `staging` la respuesta a emails en el mismo hilo por SMTP de Brevo (#218), el user script de WhatsApp Web con su lado CRM (#219, #220), la Ayuda paso a paso de ambos canales (#221), los textos de WhatsApp en «Mensajes recibidos» (#222) y la corrección de la metadata del historial en ediciones en lote (#223). El servidor de prueba local quedó en `staging` para la verificación del propietario. No hubo deploy ni escrituras productivas.

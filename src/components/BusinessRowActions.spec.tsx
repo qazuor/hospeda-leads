@@ -14,19 +14,22 @@ beforeAll(() => {
 });
 afterEach(cleanup);
 
-function renderActions({ admin, canModify }: { admin: boolean; canModify: boolean }) {
-  return render(<MantineProvider><QueryClientProvider client={new QueryClient()}><MemoryRouter><BusinessRowActions accountId="1" name="Hotel Río" canModify={canModify} admin={admin} onOpen={vi.fn()} /></MemoryRouter></QueryClientProvider></MantineProvider>);
+function renderActions({ admin, canModify, onPreview }: { admin: boolean; canModify: boolean; onPreview?:()=>void }) {
+  return render(<MantineProvider><QueryClientProvider client={new QueryClient()}><MemoryRouter><BusinessRowActions accountId="1" name="Hotel Río" canModify={canModify} admin={admin} onPreview={onPreview}/></MemoryRouter></QueryClientProvider></MantineProvider>);
 }
 const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Más acciones de Hotel Río' }));
 
 describe('BusinessRowActions', () => {
-  it('shows compact icon buttons with exact accessible names plus a menu', () => {
+  it('offers Vista previa as the first menu action and enables an otherwise empty menu', async () => {
+    const onPreview=vi.fn(); renderActions({admin:false,canModify:false,onPreview}); openMenu();
+    const items=await screen.findAllByRole('menuitem'); expect(items[0].textContent).toBe('Vista previa'); fireEvent.click(items[0]); expect(onPreview).toHaveBeenCalledOnce();
+  });
+  it('keeps Contactar and the actions menu without an Abrir button', () => {
     renderActions({ admin: false, canModify: true });
-    expect(screen.getByRole('button', { name: 'Abrir' }).textContent).toBe('');
+    expect(screen.queryByRole('button', { name: 'Abrir' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Contactar' }).textContent).toBe('');
-    expect(screen.getByRole('button', { name: 'Abrir' }).getAttribute('aria-label')).toBe('Abrir');
     expect(screen.getByRole('button', { name: 'Contactar' }).getAttribute('aria-label')).toBe('Contactar');
-    expect(screen.getAllByRole('button')).toHaveLength(3);
+    expect(screen.getAllByRole('button')).toHaveLength(2);
   });
   it('does not render Archivar for sellers and keeps Papelera in the menu', async () => {
     renderActions({ admin: false, canModify: true });

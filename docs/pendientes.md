@@ -2,9 +2,9 @@
 
 ## Rediseño visual (v1 por fases)
 
-Plan aprobado el 24/10/2026 (ver `decisiones.md`, «Rediseño visual del CRM»). Fase 0 (sistema de diseño), Fase 1 (estructura general), Fase 2a (estructura de la ficha) y Fase 2b (contenido de las pestañas) están mergeadas a `staging` (#232, #233, #234 y #235; Fase 2b: `5e0a965`). Fase 2c (composer flotante y formulario de documentos a pedido) lista para PR. Siguen: listas, Hoy, kanban y drawers de alta y edición, cada una con mockup aprobado antes de implementar.
+Plan aprobado el 24/10/2026 (ver `decisiones.md`, «Rediseño visual del CRM»). Fase 0 (sistema de diseño), Fase 1 (estructura general), Fase 2a (estructura de la ficha) y Fase 2b (contenido de las pestañas) están mergeadas a `staging` (#232, #233, #234 y #235; Fase 2b: `5e0a965`). Fase 2c (composer flotante y documentos a pedido) mergeada (#236, `a1c3bbf`). Fase 3a (lista de Negocios) lista para PR. Siguen: Fase 3b (tabla de Gestiones con las mismas vistas, filtros y resumen), Hoy, kanban y drawers de alta y edición, cada una con mockup aprobado antes de implementar.
 
-- **Después de la v1, cada uno con análisis propio:** contadores en la sidebar (endpoint liviano), KPIs con agregados nuevos, Bandeja unificada de conversaciones (endpoint agregado nuevo), drag & drop en kanban y columnas (dependencia nueva), destacados por usuario.
+- **Después de la v1, cada uno con análisis propio:** fila de totales, agrupar la tabla por estado o etapa, elegir qué vistas fijar en la barra, arrastrar columnas, contadores en la sidebar (endpoint liviano), KPIs con agregados nuevos, Bandeja unificada de conversaciones (endpoint agregado nuevo), drag & drop en kanban y columnas (dependencia nueva), destacados por usuario.
 
 ## Registro automático de canales (spec 83)
 

@@ -195,6 +195,13 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.
 
 
+## Rediseño visual v1, Fase 3a: lista de Negocios — 25/10/2026
+
+- Tocar una fila abre una vista previa de solo lectura (aprobado por el propietario); el nombre sigue llevando a la ficha. La vista previa usa `getCommercialDetail` con la misma clave de consulta que las acciones de fila. «Contactar» sigue las reglas de la fila (`canActOnBusiness`) y «Editar» la regla canónica `canModifyBusiness`.
+- Los filtros rápidos solo son dueños de un grupo: para campos de catálogo, el único grupo formado solo por reglas «es» sobre ese campo; para Último contacto, el único grupo con una regla `on`/`between`/`empty`. Si hay más de un candidato o reglas ajenas sobre el campo, el filtro rápido queda de solo lectura. Nunca modifica otros grupos ni exclusiones.
+- Las fechas SQL `date` llegan como medianoche UTC: se comparan con `calendarDay`, no con `localDay`.
+- Se quita el botón «Abrir» (ojo) de filas y tarjetas: el nombre y «Abrir ficha» lo cubren.
+
 ## Rediseño visual v1, Fase 2c — 24/10/2026
 
 - En la ficha completa, las acciones rápidas preseleccionan email o WhatsApp. El composer compartido usa presentación flotante solo desde esa ficha y en viewport de 768 px o más; el resto conserva el diálogo actual. El panel puede minimizarse manteniendo el borrador. Escape y el cierre siguen las mismas reglas que los diálogos: respetan pickers, diálogos hijos, operaciones en curso, pasos de resultado y la guarda de cambios sin guardar. Cerrar el composer flotante termina el flujo de contacto en escritorio; el composer modal no flotante conserva el comportamiento previo del caller (desde ficha, vuelve a «Contactar»). En teléfonos se conserva el diálogo.

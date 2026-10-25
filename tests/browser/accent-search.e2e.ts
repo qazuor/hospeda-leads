@@ -25,7 +25,7 @@ test('free business search matches accents and preserves the original label', as
       await search.fill(query);
       expect((await response).status()).toBe(200);
       await expect(page.locator(`[data-business-id="${id}"]`)).toBeVisible();
-      await expect(page.getByRole('button', { name: `Abrir negocio ${name}`, exact: true })).toBeVisible();
+      await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
       await expect(search).toHaveValue(query);
     }
     await search.fill(`${marker} inexistente`);
