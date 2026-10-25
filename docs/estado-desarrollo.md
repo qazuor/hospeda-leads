@@ -1,5 +1,10 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
+## Vistas fijadas y orden de columnas — 25/10/2026
+
+- PR #245 de vistas fijadas por usuario mergeado a `staging` como `c7cd1d7`; no desplegado. Validación: pruebas unitarias, `test:view-pins` y e2e 195/197. Fallos conocidos: `commercial.e2e.ts` solo local y `contextual-materials` a 390 px con inestabilidad conocida.
+- Orden de columnas por arrastre para Negocios y Gestiones: implementado en `ux/column-order-v1`. Validación local: tests unitarios/componentes, `npm run typecheck`, `npm test` (157 archivos, 1105 pruebas) y `npm run build`; e2e nuevo y e2e ajustado pendientes de ejecución del propietario.
+
 ## User script de WhatsApp 1.2.0, revisión y panel nuevo — lista para PR — 25/10/2026
 
 Probado de punta a punta en local contra WhatsApp Business real (Chrome + Tampermonkey): 4 recibidos en `crm_inbound_messages` (`pending_review`, por teléfono, horas correctas) y 4 enviados en `crm_messages` (`manual_sent` con id real de WhatsApp).
@@ -430,4 +435,3 @@ Rama `ux/business-page-tabs`. Encabezado compacto (estado junto al nombre; datos
 Medido sobre el negocio sintético: solapa Historial 2192 px a 1280 px y 2630 px a 390 px, sin scroll horizontal; a 390 px las solapas aparecen en y≈772 cuando Próximo paso está vacío y en y≈1057 con una tarea.
 
 Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. Suite de navegador completa sobre base Docker descartable: 193 de 194; `commercial.e2e.ts` se detiene en el paso «CRM template», igual que con el build de `staging` en este entorno (en CI pasó con #230).
-
