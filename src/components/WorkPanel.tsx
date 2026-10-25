@@ -21,6 +21,7 @@ import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,Dr
 import {WorkEditor,type WorkTarget} from './WorkEditor';
 import styles from './Commercial.module.css';
 import ws from './Work.module.css';
+import {WorkTypeIcon} from './WorkTypeIcon';
 
 const statusNames={pending:'Pendiente',completed:'Completada',cancelled:'Cancelada'};
 const channelNames:Record<string,string>={phone:'Teléfono',whatsapp:'WhatsApp',email:'Email',presencial:'Presencial',videollamada:'Videollamada',other:'Otro'};
@@ -43,6 +44,7 @@ export function TaskRow({task,data,onEdit,readOnly=false,from}:{task:WorkTask;da
  const late=pending&&bucket==='overdue'?(overdueLabel(task.dueDate)??'Venció hoy'):null;
  const fixResult=async()=>{if(loadingFix)return;setLoadingFix(true);try{const activity=await findCompletionActivity({qc,task,data,admin});if(activity)onEdit({kind:'activity',item:activity});else toast.error('No encontramos lo que se anotó al completar esta tarea.');}catch(e){toast.error(e instanceof Error?e.message:'No se pudo abrir el resultado.');}finally{setLoadingFix(false);}};
  return <article data-work-task={task.id} tabIndex={-1} className={ws.row} data-tone={pending?bucket:task.status}>
+  <WorkTypeIcon typeId={task.typeId} data={data} className={ws.rowIcon}/>
   <div className={ws.rowBody}>
    <div className={ws.rowHeading}><strong>{task.title}</strong>{task.priority==='alta'&&<span className={ws.priority}>Alta prioridad</span>}{!pending&&<span className={ws.status}>{statusNames[task.status]}</span>}</div>
    <Link className={ws.context} to={task.leadId?'/sales/'+task.leadId:'/accounts/'+task.accountId} state={task.leadId&&from?{from}:undefined}>{task.accountName}{task.opportunityName?' · '+task.opportunityName:''}</Link>

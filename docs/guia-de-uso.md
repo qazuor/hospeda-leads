@@ -51,7 +51,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Cuándo usarlo:** Cuando recién empezás a usar Hospeda y no sabés por dónde arrancar.
 
-1. Entrá en «Hoy». Si todavía no usaste la aplicación, arriba aparece el cuadro «Primeros pasos» con cuatro pasos.
+1. Entrá en «Hoy». Si todavía no usaste la aplicación, en la columna derecha aparece «Primeros pasos» con cuatro pasos.
 2. Los pasos son: abrir una tarea, contactar a un negocio, anotar cómo salió y agendar la próxima tarea. Se tildan solos a medida que trabajás; no hace falta marcarlos.
 3. Si todavía no tenés tareas, tocá «Agendar mi primera tarea» o entrá en «Negocios» para buscar un comercio y abrirlo.
 4. Cuando quieras sacar el cuadro, tocá «Ocultar». No se pierde nada: es solo una ayuda.
@@ -145,13 +145,13 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Cuándo usarlo:** Todos los días de trabajo.
 
-1. Abrí «Hoy». Atendé primero «Vencidas» y después «Para hoy». Revisá si cada tarea todavía corresponde. Si aún no tenés tareas, empezá por «Negocios».
-2. Si arriba aparece «Respuestas nuevas», abrí cada negocio y revisá lo que llegó: registralo como respuesta o descartalo.
+1. Abrí «Hoy». Arriba ves el resumen: «Vencidas», «Para hoy», «Respuestas nuevas», «Gestiones sin tarea agendada» y Hoy: N de M hechas. Atendé primero «Vencidas» y después «Para hoy». Si no tenés tareas, empezá por «Negocios».
+2. Los «Filtros de trabajo» quedan siempre visibles encima de la lista. La ayuda de esta pantalla está en «Ayuda sobre Hoy», en el botón con el signo de ayuda. La columna derecha reúne «Respuestas nuevas», el mini calendario y «Primeros pasos» cuando corresponde.
 3. Antes de contactar, leé lo último que pasó con el negocio y cuál es el próximo paso. Comprobá a quién le vas a escribir y si hay restricciones.
 4. En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».
 5. Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.
 6. Si no podés hacer una tarea hoy, tocá «Posponer» y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…».
-7. Mirá «Próximas acciones» para las fechas futuras. Si no encontrás algo, revisá «Filtros de trabajo».
+7. Mirá «Próximas acciones» para las fechas futuras. El mini calendario muestra únicamente tareas cargadas en esta lista; en la vista diaria puede incluir vencidas y de hoy hasta el límite, más la primera página de próximas. Al final del calendario podés «Ver visitas y reuniones en Calendario →».
 8. Al terminar, comprobá que no te queden contactos sin anotar: aparecen arriba, en «Anotá cómo salió».
 
 **Qué queda al terminar:** El equipo puede continuar el trabajo sin depender de tu memoria.
@@ -803,7 +803,7 @@ Elegí el problema y revisá el siguiente paso antes de volver a intentar.
 
 **Cuándo usarlo:** Cuando falta una tarea en la lista o no aparecen botones de edición.
 
-1. Abrí «Hoy» → «Filtros de trabajo». Revisá localidad, rubro y de quién es el trabajo que ves. Ver «Todo el equipo» es una opción del administrador.
+1. Usá los «Filtros de trabajo», siempre visibles encima de la lista de «Hoy». Revisá localidad, rubro y de quién es el trabajo que ves. Ver «Todo el equipo» es una opción del administrador.
 2. Revisá «Vencidas», «Para hoy» y «Próximas acciones». La tarea puede tener otra fecha de la que recordabas.
 3. Abrí el negocio o la gestión y mirá «Pendientes». Comprobá si la tarea está pendiente, realizada o cancelada.
 4. Revisá el responsable. Si no tenés permiso, consultá al responsable o al administrador; no dupliques la tarea para saltear esa asignación.

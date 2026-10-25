@@ -78,7 +78,7 @@
         "title": "Tu primer día: la lista de Primeros pasos",
         "when": "Cuando recién empezás a usar Hospeda y no sabés por dónde arrancar.",
         "steps": [
-          "Entrá en «Hoy». Si todavía no usaste la aplicación, arriba aparece el cuadro «Primeros pasos» con cuatro pasos.",
+          "Entrá en «Hoy». Si todavía no usaste la aplicación, en la columna derecha aparece «Primeros pasos» con cuatro pasos.",
           "Los pasos son: abrir una tarea, contactar a un negocio, anotar cómo salió y agendar la próxima tarea. Se tildan solos a medida que trabajás; no hace falta marcarlos.",
           "Si todavía no tenés tareas, tocá «Agendar mi primera tarea» o entrá en «Negocios» para buscar un comercio y abrirlo.",
           "Cuando quieras sacar el cuadro, tocá «Ocultar». No se pierde nada: es solo una ayuda."
@@ -209,13 +209,13 @@
         "title": "Qué hago al empezar y terminar el día",
         "when": "Todos los días de trabajo.",
         "steps": [
-          "Abrí «Hoy». Atendé primero «Vencidas» y después «Para hoy». Revisá si cada tarea todavía corresponde. Si aún no tenés tareas, empezá por «Negocios».",
-          "Si arriba aparece «Respuestas nuevas», abrí cada negocio y revisá lo que llegó: registralo como respuesta o descartalo.",
+          "Abrí «Hoy». Arriba ves el resumen: «Vencidas», «Para hoy», «Respuestas nuevas», «Gestiones sin tarea agendada» y Hoy: N de M hechas. Atendé primero «Vencidas» y después «Para hoy». Si no tenés tareas, empezá por «Negocios».",
+          "Los «Filtros de trabajo» quedan siempre visibles encima de la lista. La ayuda de esta pantalla está en «Ayuda sobre Hoy», en el botón con el signo de ayuda. La columna derecha reúne «Respuestas nuevas», el mini calendario y «Primeros pasos» cuando corresponde.",
           "Antes de contactar, leé lo último que pasó con el negocio y cuál es el próximo paso. Comprobá a quién le vas a escribir y si hay restricciones.",
           "En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».",
           "Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.",
           "Si no podés hacer una tarea hoy, tocá «Posponer» y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…».",
-          "Mirá «Próximas acciones» para las fechas futuras. Si no encontrás algo, revisá «Filtros de trabajo».",
+          "Mirá «Próximas acciones» para las fechas futuras. El mini calendario muestra únicamente tareas cargadas en esta lista; en la vista diaria puede incluir vencidas y de hoy hasta el límite, más la primera página de próximas. Al final del calendario podés «Ver visitas y reuniones en Calendario →».",
           "Al terminar, comprobá que no te queden contactos sin anotar: aparecen arriba, en «Anotá cómo salió»."
         ],
         "result": "El equipo puede continuar el trabajo sin depender de tu memoria.",
@@ -244,9 +244,12 @@
           "Lunes",
           "Elegir fecha…",
           "Próximas acciones",
-          "Filtros de trabajo",
           "Anotá cómo salió",
-          "Gestiones sin tarea agendada"
+          "Gestiones sin tarea agendada",
+          "Filtros de trabajo",
+          "Ayuda sobre Hoy",
+          "Primeros pasos",
+          "Ver visitas y reuniones en Calendario →"
         ]
       },
       {
@@ -1228,7 +1231,7 @@
         "title": "No encuentro una tarea o no puedo editar",
         "when": "Cuando falta una tarea en la lista o no aparecen botones de edición.",
         "steps": [
-          "Abrí «Hoy» → «Filtros de trabajo». Revisá localidad, rubro y de quién es el trabajo que ves. Ver «Todo el equipo» es una opción del administrador.",
+          "Usá los «Filtros de trabajo», siempre visibles encima de la lista de «Hoy». Revisá localidad, rubro y de quién es el trabajo que ves. Ver «Todo el equipo» es una opción del administrador.",
           "Revisá «Vencidas», «Para hoy» y «Próximas acciones». La tarea puede tener otra fecha de la que recordabas.",
           "Abrí el negocio o la gestión y mirá «Pendientes». Comprobá si la tarea está pendiente, realizada o cancelada.",
           "Revisá el responsable. Si no tenés permiso, consultá al responsable o al administrador; no dupliques la tarea para saltear esa asignación.",

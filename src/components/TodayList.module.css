@@ -1,0 +1,3 @@
+/* Desktop: work column + 340px context column. Narrower, both columns dissolve (display:contents) and the inline `order` interleaves them. */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start;min-width:0}.layout .work,.layout .context{display:flex;flex-direction:column;gap:16px;min-width:0}.slot{min-width:0}
+@media(max-width:1099px){.layout{display:flex;flex-direction:column}.layout .work,.layout .context{display:contents}.layout>*>*{width:100%}}

@@ -59,7 +59,7 @@ test('An experienced user on a new browser never sees the checklist',async({page
 
 test('Hoy with filters and no tasks says so and clears the filters instead of teaching',async({page})=>{
  await mock(page,{flags:{contacted:true,logged:true,scheduled:true}});await page.goto('/my-day');
- await page.getByRole('button',{name:/^Filtros de trabajo/}).click();await page.getByLabel('Localidad').selectOption('Colón');
+ await page.getByLabel('Localidad').selectOption('Colón');
  const filtered=page.getByRole('region',{name:'Sin tareas con filtros'});
  await expect(filtered.getByRole('heading',{name:'No hay tareas con estos filtros'})).toBeVisible();await expect(page.getByRole('region',{name:'Todavía no hay tareas'})).toHaveCount(0);
  await filtered.getByRole('button',{name:'Limpiar filtros',exact:true}).click();await expect(page.getByRole('region',{name:'Todavía no hay tareas'})).toBeVisible();

@@ -28,7 +28,7 @@ for(const width of [1280,390])test(`slow result prevents duplicate submissions a
  await page.screenshot({path:`test-results/loading-result-${width}.png`,fullPage:true});
  await dialog.getByRole('button',{name:'Guardar y programar',exact:true}).click();await expect(dialog).toHaveCount(0);expect(writes).toHaveLength(2);expect(writes[0]).toEqual(writes[1]);expect(writes[1]).toMatchObject({action:'task_status',id:'1',status:'completed',outcome:'interested',continuation:'task',contactIds:['1'],nextTask:{title:'Revisar la propuesta con Ana',dueDate:'2027-01-18'}});
  await page.goto('/agenda');await expect(page).toHaveURL(/\/my-day\?view=calendar$/);await expect(page.getByRole('heading',{name:'Hoy',exact:true})).toBeVisible();await expect(page.getByRole('tab',{name:'Calendario',exact:true})).toHaveAttribute('aria-selected','true');
- if(width===390)await expect.poll(()=>page.getByRole('region',{name:'Filtros de trabajo',exact:true}).locator('label').evaluateAll(labels=>labels.every(label=>label.getBoundingClientRect().width>=200))).toBe(true);
+ if(width===390)await expect.poll(()=>page.getByRole('region',{name:'Filtros de trabajo',exact:true}).evaluate(section=>{const rect=section.getBoundingClientRect();const labels=[...section.querySelectorAll('label')].map(label=>label.getBoundingClientRect());return rect.left>=0&&rect.right<=window.innerWidth&&labels.every(label=>label.left>=rect.left&&label.right<=rect.right)&&getComputedStyle(section.querySelectorAll('div')[1]).display==='grid'})).toBe(true);
  await expect(page.getByRole('button',{name:'Ver como calendario',exact:true})).toHaveAttribute('aria-pressed','true');await page.screenshot({path:`test-results/agenda-filters-${width}.png`,fullPage:true,animations:'disabled'});
 
 });

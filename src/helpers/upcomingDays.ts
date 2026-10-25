@@ -1,0 +1,3 @@
+import {localDay} from './workDates';
+/** Formats a task's Argentina due day for the upcoming work list. */
+export function upcomingDayLabel(dueDate:string,dueAt:Date|string|null,now:Date):string{const day=dueAt?localDay(new Date(dueAt)):dueDate;const current=localDay(now);const next=new Date(`${current}T12:00:00Z`);next.setUTCDate(next.getUTCDate()+1);const tomorrow=localDay(next);const date=new Date(`${day}T12:00:00Z`);const weekday=new Intl.DateTimeFormat('es-AR',{weekday:'long',timeZone:'UTC'}).format(date);const label=`${weekday} ${day.slice(8,10)}/${day.slice(5,7)}`;return day===tomorrow?'Mañana · '+label[0].toLocaleUpperCase('es-AR')+label.slice(1):label}
