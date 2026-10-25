@@ -1,7 +1,7 @@
 import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
-import {ManagementQuickFilters,nextStepPreset} from './ManagementQuickFilters';
+import {ManagementQuickFilters,nextStepNeedsOpen,nextStepPreset} from './ManagementQuickFilters';
 import {BusinessQuickFilters} from './BusinessQuickFilters';
 import {CURRENT_USER_FILTER_VALUE} from '../helpers/filterRules';
 import type {AdvancedFilterGroup} from '../endpoints/leads_GET.schema';
@@ -41,6 +41,12 @@ describe('ManagementQuickFilters',()=>{
   const onChange=mount([]);
   fireEvent.click(screen.getByRole('button',{name:/Responsable/}));fireEvent.click(await screen.findByRole('checkbox',{name:'Yo'}));
   expect(onChange).toHaveBeenCalledWith([{rules:[{field:'assignedUserEmail',operator:'eq',value:CURRENT_USER_FILTER_VALUE}]}]);
+ }); it('filters by management type and explains the open-only presets',async()=>{
+  const onChange=mount([]);
+  fireEvent.click(screen.getByRole('button',{name:/Tipo de gestión/}));fireEvent.click(await screen.findByRole('checkbox',{name:'Partners'}));
+  expect(onChange).toHaveBeenCalledWith([{rules:[{field:'managementType',operator:'eq',value:'partner'}]}]);
+  fireEvent.click(screen.getByRole('button',{name:/Próximo paso/}));
+  expect(await screen.findByText('«Vencidas» y «Hoy» muestran solo gestiones abiertas.')).toBeTruthy();
  });
 });
 
@@ -60,4 +66,18 @@ describe('BusinessQuickFilters ownership after the generalisation',()=>{
   expect(await screen.findByText(/Editala en «Filtrar negocios»/)).toBeTruthy();
   expect(screen.queryByRole('button',{name:'Hoy'})).toBeNull();
  });
+});
+
+describe('open-only next step',()=>{
+ const overdue:AdvancedFilterGroup[]=[{rules:nextStepPreset('overdue',sunday)}],today:AdvancedFilterGroup[]=[{rules:nextStepPreset('today',sunday)}],week:AdvancedFilterGroup[]=[{rules:nextStepPreset('week',sunday)}];
+ it('flags «Vencidas» and «Hoy» but not other presets or combined rules',()=>{
+  expect(nextStepNeedsOpen(overdue,sunday)).toBe(true);
+  expect(nextStepNeedsOpen(today,sunday)).toBe(true);
+  expect(nextStepNeedsOpen(week,sunday)).toBe(false);
+  expect(nextStepNeedsOpen([{rules:[...nextStepPreset('overdue',sunday),{field:'estado',operator:'eq',value:'x'}]}],sunday)).toBe(false);
+ });
+ it('ignores a «Rango…» rule that only shares the field',()=>{
+  expect(nextStepNeedsOpen([{rules:[{field:'fechaProximaAccion',operator:'on',value:'2026-10-25',value2:'2026-10-30'}]}],sunday)).toBe(false);
+ });
+
 });

@@ -227,6 +227,9 @@ try{
  await mutate({action:'type_save',id:'demo',name:'Demostración',agenda:true,active:true},admin.cookie);
  const demo=await mutate({...base,typeId:'demo',dueDate:'2026-10-02'});
  const agenda=await read('mode=agenda&from=2026-10-01&to=2026-10-31');assert(agenda.tasks.some(t=>t.id===demo));assert(agenda.tasks.every(t=>t.typeId!=='call'));
+ const month=await read('mode=month&from=2026-10-01&to=2026-10-31');assert(month.tasks.some(t=>t.id===demo),'Month mode lists pending tasks of the month');assert(month.tasks.every(t=>t.dueDate>='2026-10-01'&&t.dueDate<='2026-10-31'),'Month mode keeps the Argentina calendar range');
+ assert(!(await read('mode=month&from=2026-10-01&to=2026-10-31',other.cookie)).tasks.some(t=>t.id===demo),'Month mode keeps the responsible scope');
+ await read('mode=month&from=2026-09-28&to=2026-11-08');await read('mode=month&from=2026-10-01&to=2026-12-31',user.cookie,400);await read('mode=month',user.cookie,400);
  await mutate({action:'type_save',id:'demo',name:'Demostración',agenda:true,active:false},admin.cookie);
  await mutate({...base,typeId:'demo'},user.cookie,400);
  await mutate({action:'task_delete',id:demo});assert(!(await read()).tasks.some(t=>t.id===demo));

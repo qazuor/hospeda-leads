@@ -195,9 +195,15 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.
 
 
+## Gestiones y Hoy: tipo de gestión, vencidas abiertas y mes completo — 25/10/2026
+
+- `managementType` es campo del filtro avanzado de Gestiones (igualdad por categoría); en Negocios se rechaza porque un negocio puede tener gestiones de varios tipos.
+- «Vencidas» y «Hoy» del filtro rápido «Próximo paso» implican gestiones abiertas, igual que los tiles: la clasificación se deriva del filtro en cada consulta y nunca reemplaza una elegida.
+- El mini calendario de Hoy consulta `mode=month` (solo tareas pendientes, campos mínimos, la grilla visible de hasta 42 días, mismo alcance de responsable, localidad y rubro que la lista).
+
 ## Rediseño visual v1, Fase 5: Hoy — 25/10/2026
 
-- Hoy usa solo los datos que ya carga (`getWork` modo día y `getInboundReview`): los indicadores y el mini calendario no agregan pedidos. El mini calendario marca únicamente las tareas cargadas en la Lista.
+- Hoy usa los datos que ya carga (`getWork` modo día y `getInboundReview`) para los indicadores. El mini calendario pasó luego a `mode=month` (ver la decisión siguiente en el tiempo).
 - Un indicador cuya sección no se muestra queda deshabilitado; un conteo desconocido se muestra «–», nunca 0.
 - Los filtros de trabajo quedan siempre visibles y la ayuda de Hoy vive en el «?» del encabezado.
 

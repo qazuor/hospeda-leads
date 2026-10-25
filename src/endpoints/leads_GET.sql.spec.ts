@@ -71,6 +71,7 @@ const cases:Record<string,{query:Record<string,string>;user?:typeof user}>={
   'board view':{query:{entity:'business',view:'board'}},
   'board view opportunity totals':{query:{entity:'opportunity',view:'board',classification:'open'}},
   'filter options include':{query:{entity:'business',filterOptions:'include'}},
+  'filter groups management type':{query:{filterGroups:json([{rules:[rule('managementType','eq','partner'),rule('managementType','eq','editor')]},{rules:[rule('managementType','neq','main')]}])}},
 };
 
 describe('leads_GET compiled SQL (no behavior change)',()=>{
@@ -85,4 +86,10 @@ describe('leads_GET compiled SQL (no behavior change)',()=>{
       await expect(JSON.stringify(normalized,null,1)+'\n').toMatchFileSnapshot(`./__sql_snapshots__/leads_GET/${name.replace(/[^a-z0-9]+/gi,'-')}.json`);
     });
   }
+  it('rejects a management type filter on the business list',async()=>{
+    h.session.getServerUserSession.mockResolvedValue({user});
+    const response=await handle(new Request('http://x/_api/leads?'+new URLSearchParams({entity:'business',filterGroups:json([{rules:[rule('managementType','eq','main')]}])})));
+    expect(response.status).toBe(400);
+    expect(h.compiled).toHaveLength(0);
+  });
 });

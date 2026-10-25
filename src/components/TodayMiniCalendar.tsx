@@ -1,7 +1,9 @@
 import React,{useMemo,useState} from 'react';
 import {ChevronLeft,ChevronRight} from 'lucide-react';
 import {Link} from 'react-router-dom';
-import type {WorkTask} from '../endpoints/work.schema';
+import {useQuery} from '@tanstack/react-query';
+import {getWorkMonth} from '../endpoints/work.schema';
+import type {WorkMonthTask} from '../endpoints/work.schema';
 import {localDay,taskBucket} from '../helpers/workDates';
 import styles from './TodayMiniCalendar.module.css';
 
@@ -16,16 +18,21 @@ export function miniCalendarDays(month:string):MiniCalendarDay[]{
 const monthTitle=(month:string)=>new Date(`${month}-01T12:00:00Z`).toLocaleDateString('es-AR',{month:'long',year:'numeric',timeZone:'UTC'});
 const dayLabel=(date:string,day:number,count:number)=>`${day} de ${new Date(`${date}T12:00:00Z`).toLocaleDateString('es-AR',{month:'long',timeZone:'UTC'})}${count?`, ${count} ${count===1?'tarea':'tareas'}`:''}`;
 const shiftMonth=(month:string,delta:number)=>{const date=new Date(`${month}-01T12:00:00Z`);date.setUTCMonth(date.getUTCMonth()+delta);return date.toISOString().slice(0,7)};
-/** Compact calendar of only the tasks already loaded by the Lista query. */
-export function TodayMiniCalendar({tasks,now}:{tasks:readonly WorkTask[];now:Date}){
+/** Hoy's work filters, so the calendar shows the same scope as the list. */
+export interface MiniCalendarScope{responsible?:string;city?:string;vertical?:string}
+/** Compact calendar of every pending task of the shown month, in the list's scope; until that month loads it shows the tasks the list already has. */
+export function TodayMiniCalendar({tasks,now,scope={}}:{tasks:readonly WorkMonthTask[];now:Date;scope?:MiniCalendarScope}){
  const today=localDay(now);const [month,setMonth]=useState(today.slice(0,7));const [selected,setSelected]=useState<string|null>(null);const days=useMemo(()=>miniCalendarDays(month),[month]);
- const byDay=useMemo(()=>tasks.reduce<Record<string,WorkTask[]>>((groups,task)=>{(groups[task.dueDate]??=[]).push(task);return groups;},{}),[tasks]);
+ const params={from:days[0].date,to:days[days.length-1].date,...scope};
+ const monthTasks=useQuery({queryKey:['work','month',params],queryFn:()=>getWorkMonth(params)});
+ const shown=monthTasks.data?.tasks??tasks;
+ const byDay=useMemo(()=>shown.reduce<Record<string,WorkMonthTask[]>>((groups,task)=>{(groups[task.dueDate]??=[]).push(task);return groups;},{}),[shown]);
  const selectedTasks=selected?byDay[selected]??[]:[];
  return <section className={styles.card} aria-label="Calendario de tareas">
   <header className={styles.header}><button type="button" aria-label="Mes anterior" onClick={()=>setMonth(value=>shiftMonth(value,-1))}><ChevronLeft size={16}/></button><h2>{monthTitle(month)}</h2><button type="button" aria-label="Mes siguiente" onClick={()=>setMonth(value=>shiftMonth(value,1))}><ChevronRight size={16}/></button></header>
   <div className={styles.grid} role="group" aria-label={monthTitle(month)}>{['L','M','X','J','V','S','D'].map((label,index)=><span className={styles.weekday} aria-hidden="true" key={index}>{label}</span>)}{days.map(({date,day,outside})=>{const dayTasks=byDay[date]??[];const buckets=dayTasks.slice(0,3).map(task=>taskBucket(task.dueDate,task.dueAt,now));return <button className={styles.day} type="button" key={date} data-outside={outside||undefined} data-today={date===today||undefined} data-selected={date===selected||undefined} aria-label={dayLabel(date,day,dayTasks.length)} aria-pressed={date===selected} onClick={()=>setSelected(value=>value===date?null:date)}><span>{day}</span>{buckets.length>0&&<span className={styles.dots} aria-hidden="true">{buckets.map((bucket,index)=><i key={index} data-bucket={bucket}/>)}</span>}</button>;})}</div>
   <div className={styles.legend}><span data-bucket="overdue">Vencida</span><span data-bucket="today">Hoy</span><span data-bucket="upcoming">Próxima</span></div>
   {selected&&<div className={styles.selected} aria-live="polite">{selectedTasks.length?<ul>{selectedTasks.slice(0,5).map(task=><li key={task.id}>{task.title} · {task.accountName}</li>)}</ul>:<p>Sin tareas en esta lista.</p>}{selectedTasks.length>5&&<p>y {selectedTasks.length-5} más</p>}</div>}
-  <p className={styles.note}>Muestra las tareas cargadas en esta lista.</p><Link className={styles.link} to="/my-day?view=calendar">Ver visitas y reuniones en Calendario →</Link>
+  <p className={styles.note}>{monthTasks.data?.truncated?'Hay más tareas de las que entran: faltan puntos en los últimos días.':monthTasks.data?'Tareas pendientes del mes.':monthTasks.error?'No se pudo cargar el mes: se muestran las tareas de esta lista.':'Cargando el mes…'}</p><Link className={styles.link} to="/my-day?view=calendar">Ver visitas y reuniones en Calendario →</Link>
  </section>;
 }

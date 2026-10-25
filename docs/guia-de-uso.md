@@ -35,7 +35,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 1. El resumen muestra seis indicadores: «Total de gestiones», «Gestiones abiertas», «Gestiones con acción hoy», «Gestiones con acción atrasada», «Mis registros con acción hasta hoy» y «Suscriptos históricos». Tocá uno para aplicar ese filtro.
 2. La fila de vistas reúne «Todos», «Mis gestiones», «Para hoy», «Vencidos», «Sin responsable», «Sin próxima acción» y tus vistas guardadas. Usá «Guardar vista» para guardar una vista o el control de eliminar junto a una vista guardada para quitarla.
-3. Usá los filtros rápidos «Etapa», «Responsable» y «Próximo paso» junto a «Filtrar». «Próximo paso» ofrece Vencidas, Hoy, Esta semana (de hoy al domingo), Próximos 7 días, Sin próximo paso y «Rango…». Para reglas combinadas, exclusiones y grupos AND/OR, abrí «Filtrar».
+3. Usá los filtros rápidos «Tipo de gestión», «Etapa», «Responsable» y «Próximo paso» junto a «Filtrar». «Próximo paso» ofrece Vencidas, Hoy, Esta semana (de hoy al domingo), Próximos 7 días, Sin próximo paso y «Rango…». «Vencidas» y «Hoy» muestran solo gestiones abiertas, igual que el resumen; al cambiar o quitar ese filtro vuelven a verse todas. Para reglas combinadas, exclusiones y grupos AND/OR, abrí «Filtrar».
 4. La tabla es la vista inicial. Tocá «Tablero comercial» para organizar las gestiones por etapa.
 5. Abrí «Ayuda sobre gestiones» para consultar la ayuda contextual.
 
@@ -151,7 +151,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 4. En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».
 5. Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.
 6. Si no podés hacer una tarea hoy, tocá «Posponer» y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…».
-7. Mirá «Próximas acciones» para las fechas futuras. El mini calendario muestra únicamente tareas cargadas en esta lista; en la vista diaria puede incluir vencidas y de hoy hasta el límite, más la primera página de próximas. Al final del calendario podés «Ver visitas y reuniones en Calendario →».
+7. Mirá «Próximas acciones» para las fechas futuras. El mini calendario marca todas las tareas pendientes del mes que estás viendo, con los mismos filtros de trabajo; tocá un día para ver cuáles son. Al final del calendario podés «Ver visitas y reuniones en Calendario →».
 8. Al terminar, comprobá que no te queden contactos sin anotar: aparecen arriba, en «Anotá cómo salió».
 
 **Qué queda al terminar:** El equipo puede continuar el trabajo sin depender de tu memoria.
