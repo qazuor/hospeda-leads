@@ -18,6 +18,8 @@ import { batches, filterCached, mergeResults, RegisterController, summarizeResul
 import { request, ApiError } from "./api";
 import { USERSCRIPT_VERSION } from "./version";
 import { copyDiagnostic } from "./diagnostic";
+import {chatMatchesRecipient,getWhatsAppComposer,pasteIntoComposer} from './selectors';
+import {initialComposeChoice,canPasteTemplate} from './compose';
 
 const gmValues = new Map<string, unknown>();
 beforeAll(() => {
@@ -42,6 +44,13 @@ describe("userscript parsing", () => {
     expect(compareSemver("1.2.0", "1.1.9")).toBe(1);
     expect(compareSemver("1.0.0", "1.0.0")).toBe(0);
   });
+});
+
+describe('CRM template compose helpers',()=>{
+ it('starts with the recommended model and default person',()=>{expect(initialComposeChoice([{id:'l1',name:'Gestión',type:null,stage:'Nueva',templates:[{id:'t1',name:'General',recommended:false,body:"Hola"},{id:'t2',name:'Etapa',recommended:true,body:"Hola"}],contacts:[{id:'c1',name:'Ana',phone:'+5491111111111',default:true}]}])).toEqual({leadId:'l1',templateId:'t2',contactId:'c1'});});
+ it('blocks pasting when CRM says blocked or variables remain unresolved',()=>{const prepared={messageId:'id',revision:1,body:'Hola {{nombre}}',recipient:'54911111111',recipientName:'Ana',unresolved:[]};expect(canPasteTemplate(prepared,'No contactar')).toBe(false);expect(canPasteTemplate({...prepared,unresolved:['nombre']},null)).toBe(false);expect(canPasteTemplate(prepared,null)).toBe(true);});
+ it('blocks known phone mismatches and permits an unknown chat phone',()=>{expect(chatMatchesRecipient('+54 9 11 1234-5678','5491112345678')).toBe(true);expect(chatMatchesRecipient('+54 9 3442 45-3797','3442 453797')).toBe(true);expect(chatMatchesRecipient('+54 9 3442 45-3797','03442 15 453797')).toBe(true);expect(chatMatchesRecipient('+54 9 11 1234-5678','5491112345679')).toBe(false);expect(chatMatchesRecipient(null,'5491112345678')).toBe(true);});
+ it('writes only into an empty footer composer and never invokes WhatsApp send controls',()=>{document.body.innerHTML='<div id="main"><footer><div contenteditable="true"></div><button data-testid="send">Enviar</button></footer></div>';const editor=getWhatsAppComposer()!;const exec=vi.fn((_command:string,_show?:boolean,value?:string)=>{editor.textContent=value||'';return true;});Object.defineProperty(document,'execCommand',{configurable:true,value:exec});const send=document.querySelector('button')!,clicked=vi.fn();send.addEventListener('click',clicked);const pressed: string[]=[];editor.addEventListener('keydown',event=>pressed.push(event.key));expect(pasteIntoComposer(editor,'Texto de prueba')).toBe(true);expect(editor.textContent).toBe('Texto de prueba');expect(pasteIntoComposer(editor,'No pisar')).toBe(false);expect(exec).toHaveBeenCalledTimes(1);expect(clicked).not.toHaveBeenCalled();expect(pressed).toEqual([]);});
 });
 
 describe("WhatsApp fixture readers", () => {

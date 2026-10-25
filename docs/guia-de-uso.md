@@ -1020,6 +1020,27 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
+### Mandar un modelo del CRM desde WhatsApp
+
+**Cuándo usarlo:** Cuando querés escribirle a un negocio con uno de los modelos del CRM sin salir de WhatsApp Web.
+
+1. Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Hace falta una gestión abierta; con No contactar activo o en estado Nuevo el botón queda deshabilitado.
+2. Elegí el modelo: el primero es el «Recomendado para la etapa actual». Pasá el mouse por un modelo para ver su texto con las variables sin completar. Elegí también la persona.
+3. Revisá la vista previa con los datos del CRM. Si falta un dato, completalo en el CRM o elegí otra persona.
+4. Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.
+5. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
+6. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».
+
+**Qué queda al terminar:** El mensaje queda en «Mensajes y borradores» como «WhatsApp abierto · envío no confirmado» hasta que registrás el envío.
+
+**Ejemplo:**
+
+- Le escribís por primera vez a una cabaña: elegís el modelo de primer contacto, revisás que diga el nombre de la persona, pegás, agregás un saludo y apretás Enter.
+
+**Tené en cuenta:**
+
+- Si borrás el modelo y escribís otro mensaje a mano, se registra como un envío aparte y el modelo queda pendiente: cerralo con «No lo voy a enviar».
+
 ### Problemas con el script de WhatsApp
 
 **Cuándo usarlo:** Cuando el panel de Hospeda no aparece, muestra un error o no puede leer un chat.

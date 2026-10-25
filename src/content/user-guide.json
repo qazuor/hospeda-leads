@@ -1575,6 +1575,36 @@
         ]
       },
       {
+        "id": "send-whatsapp-template",
+        "title": "Mandar un modelo del CRM desde WhatsApp",
+        "when": "Cuando querés escribirle a un negocio con uno de los modelos del CRM sin salir de WhatsApp Web.",
+        "steps": [
+          "Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Hace falta una gestión abierta; con No contactar activo o en estado Nuevo el botón queda deshabilitado.",
+          "Elegí el modelo: el primero es el «Recomendado para la etapa actual». Pasá el mouse por un modelo para ver su texto con las variables sin completar. Elegí también la persona.",
+          "Revisá la vista previa con los datos del CRM. Si falta un dato, completalo en el CRM o elegí otra persona.",
+          "Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.",
+          "Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.",
+          "Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar»."
+        ],
+        "result": "El mensaje queda en «Mensajes y borradores» como «WhatsApp abierto · envío no confirmado» hasta que registrás el envío.",
+        "example": [
+          "Le escribís por primera vez a una cabaña: elegís el modelo de primer contacto, revisás que diga el nombre de la persona, pegás, agregás un saludo y apretás Enter."
+        ],
+        "notes": [
+          "Si borrás el modelo y escribís otro mensaje a mano, se registra como un envío aparte y el modelo queda pendiente: cerralo con «No lo voy a enviar»."
+        ],
+        "uiLabels": [
+          "Mandar un mensaje",
+          "Recomendado para la etapa actual",
+          "Pegar en el chat",
+          "Cambiar de modelo",
+          "No lo voy a enviar",
+          "Registrar mensajes",
+          "Mensajes y borradores",
+          "WhatsApp abierto · envío no confirmado"
+        ]
+      },
+      {
         "example": [
           "Cambiaste de computadora: en la vieja tocás «Revocar» junto a su token, creás uno nuevo para la computadora nueva y lo pegás en el panel de Hospeda."
         ],

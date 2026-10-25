@@ -4,6 +4,7 @@ import {assertBusinessAccess,CrmForbidden} from './crmPermissions';
 import {communicationJournal,completeUserscriptManual,completeUserscriptOpened,lockCommunication,registerUserscriptSent} from './communicationService';
 import {phoneSearchSql} from './searchSql';
 import {codeFromTitle} from './userscriptPure';
+import {sentMatchesPrepared} from '../../userscript/src/textMatch';
 import type {Executor} from './communicationService';
 import type {User} from './User';
 
@@ -38,23 +39,24 @@ type PendingMatch={id:string;kind:'manual'|'opened'};
 /**
  * The CRM attempt a sent message completes, so it is not recorded twice. Without a phone nothing matches. In order:
  * the oldest manual attempt (manual_pending) to the chat's phone; else the oldest WhatsApp opened from "Contactar" (whatsapp_opened),
- * or confirmed by hand without a WhatsApp id (manual_sent), prepared within OPENED_WINDOW_MS before the message was sent.
+ * or confirmed by hand without a WhatsApp id (manual_sent), prepared within OPENED_WINDOW_MS before the message was sent and whose prepared
+ * text the sent one matches: a message written by hand instead is recorded on its own and the attempt stays open (spec 84).
  */
-async function matchingPending(e:Executor,b:UserscriptBatch,sentAt:Date,user:User):Promise<PendingMatch|null>{
+async function matchingPending(e:Executor,b:UserscriptBatch,sentAt:Date,text:string,user:User):Promise<PendingMatch|null>{
  const phone=b.chat.phone?.trim();if(!phone)return null;
  const recipient=phoneSearchSql('m.recipient',phone);if(!recipient)return null;
  const mine=sql`m.account_id=${b.accountId}::bigint AND m.channel='whatsapp' AND (${user.role==='admin'} OR m.owner_email=${user.email}) AND ${recipient}`;
  const manual=(await sql<{id:string}>`SELECT m.id::text AS id FROM crm_messages m WHERE ${mine} AND m.status='manual_pending' ORDER BY m.created_at LIMIT 1 FOR UPDATE`.execute(e)).rows[0];
  if(manual)return {id:manual.id,kind:'manual'};
  const from=new Date(sentAt.getTime()-OPENED_WINDOW_MS),to=new Date(sentAt.getTime()+OPENED_SKEW_MS);
- const opened=(await sql<{id:string}>`SELECT m.id::text AS id FROM crm_messages m WHERE ${mine} AND (m.status='whatsapp_opened' OR (m.status='manual_sent' AND m.external_id IS NULL)) AND m.created_at BETWEEN ${from} AND ${to} ORDER BY (m.status='whatsapp_opened') DESC,m.created_at LIMIT 1 FOR UPDATE`.execute(e)).rows[0];
+ const opened=(await sql<{id:string;body:string|null}>`SELECT m.id::text AS id,m.body FROM crm_messages m WHERE ${mine} AND (m.status='whatsapp_opened' OR (m.status='manual_sent' AND m.external_id IS NULL)) AND m.created_at BETWEEN ${from} AND ${to} ORDER BY (m.status='whatsapp_opened') DESC,m.created_at LIMIT 20 FOR UPDATE`.execute(e)).rows.find(row=>sentMatchesPrepared(row.body,text));
  return opened?{id:opened.id,kind:'opened'}:null;
 }
 
 async function registerOutbound(e:Executor,b:UserscriptBatch,m:UserscriptMessage,sentAt:Date,user:User):Promise<UserscriptResult>{
  // Same guard as the manual "lo envié" flow: a recorded send needs write access to the business.
  await assertBusinessAccess(e,b.accountId,user,true,false);
- const pending=await matchingPending(e,b,sentAt,user);
+ const pending=await matchingPending(e,b,sentAt,m.text,user);
  if(pending?.kind==='opened'){
   const done=await completeUserscriptOpened(e,pending.id,m.externalId,m.text,user);
   // A send the seller had already confirmed by hand was in the CRM before: report it as such.

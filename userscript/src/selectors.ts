@@ -6,6 +6,37 @@ export type ChatRead = { ok: true; title: string; phone: string | null; code: st
 export function getConversationPanel(doc: Document = document): HTMLElement | null { return doc.querySelector<HTMLElement>("#main"); }
 export function getAppRoot(doc: Document = document): HTMLElement { return doc.querySelector<HTMLElement>("#app") || doc.body; }
 export function getConversationHeader(doc: Document = document): HTMLElement | null { return getConversationPanel(doc)?.querySelector<HTMLElement>("header") || null; }
+export function getWhatsAppComposer(doc:Document=document):HTMLElement|null{return doc.querySelector<HTMLElement>("footer [contenteditable='true']");}
+export function phoneDigits(phone:string|null):string{return(phone||"").replace(/\D/g,"");}
+/** Like the CRM's phone search: the same number in another format shares its last 8 digits, also when stored with the local "15" after the area code. */
+const phoneKeys=(digits:string)=>new Set([digits,digits.replace(/^(\d*?\d{2,4})15(\d{6,8})$/,"$1$2")].map(value=>value.slice(-8)));
+/** True unless both phones are known and are different numbers: an unknown chat phone cannot be checked, and the CRM match already chose the business. */
+export function chatMatchesRecipient(chatPhone:string|null,recipient:string):boolean{const chat=phoneDigits(chatPhone),target=phoneDigits(recipient);if(chat.length<8||target.length<8)return true;const keys=phoneKeys(target);return [...phoneKeys(chat)].some(key=>keys.has(key));}
+const composerText=(editor:HTMLElement)=>editor.innerText||editor.textContent||"";
+/** Compared without whitespace: WhatsApp's editor turns line breaks into paragraphs, so its text spacing differs from the source. */
+const holdsText=(editor:HTMLElement,text:string)=>composerText(editor).replace(/\s+/g,"").includes(text.replace(/\s+/g,""));
+/** The composer holds exactly `text` (spacing aside): nothing typed before or after it. */
+export const composerEquals=(editor:HTMLElement,text:string)=>!!text.trim()&&composerText(editor).replace(/\s+/g,"")===text.replace(/\s+/g,"");
+/** Selects everything in the composer and deletes it, as the seller would with Ctrl+A and Delete. True when it ends up empty. */
+export function clearComposer(editor:HTMLElement):boolean{
+ editor.focus();const selection=document.getSelection();
+ if(selection){const range=document.createRange();range.selectNodeContents(editor);selection.removeAllRanges();selection.addRange(range);}
+ try{document.execCommand("delete");}catch{}
+ return !composerText(editor).trim();
+}
+/**
+ * Writes `text` into an empty composer, keeping its line breaks. First a native paste (what Ctrl+V does, WhatsApp's editor keeps the lines),
+ * then line by line with soft line breaks (Shift+Enter semantics). Never Enter, which would send. Never over text the seller already typed.
+ */
+export function pasteIntoComposer(editor:HTMLElement,text:string):boolean{
+ if(composerText(editor).trim())return false;
+ editor.focus();
+ try{const data=new DataTransfer();data.setData("text/plain",text);editor.dispatchEvent(new ClipboardEvent("paste",{clipboardData:data,bubbles:true,cancelable:true}));}catch{}
+ if(holdsText(editor,text))return true;
+ if(composerText(editor).trim())return false;
+ text.split("\n").forEach((line,index)=>{try{if(index)document.execCommand("insertLineBreak");if(line)document.execCommand("insertText",false,line);}catch{}});
+ return holdsText(editor,text);
+}
 
 /** Attributes that describe structure, not content: their values are kept (digit runs masked) so selectors can be fixed from a diagnostic. */
 const STRUCTURAL_ATTRS = new Set(["data-testid", "data-icon", "role", "dir", "data-tab", "data-virtualized"]);

@@ -1,6 +1,16 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
-## User script de WhatsApp 1.2.0, revisión y panel nuevo — lista para PR — 25/10/2026
+## Spec 84 — modelos del CRM desde WhatsApp Web — lista para PR — 25/10/2026
+
+«Mandar un mensaje» en el panel del user script (`docs/crm-roadmap/84-userscript-templates.md`): elegir un modelo compatible con la gestión abierta, vista previa con los datos del CRM y «Pegar en el chat» sin enviar (o «Copiar»). Rutas `GET /_api/userscript/templates` y `POST /_api/userscript/{prepare,dispatch,outcome}` sobre `mutateCommunication`, con los mismos permisos y restricciones que «Contactar»; pegar deja el intento en «WhatsApp abierto · envío no confirmado» y «No lo voy a enviar» lo cierra.
+
+- Pegar conserva los saltos de línea y reemplaza el texto de la caja: el modelo pegado por el script sin preguntar, otro texto solo con confirmación. Cada reemplazo cierra el intento anterior.
+- Popover con la plantilla cruda al pasar el mouse por un modelo.
+- Registrar un enviado completa un intento abierto solo si el texto se parece al preparado; un mensaje escrito a mano queda como envío suelto (afecta también a «Contactar»).
+
+Probado en local contra WhatsApp real por el propietario (versiones 1.2.11 a 1.2.15). Validación: `npm run typecheck`, `npx vitest run userscript src/server/routes.spec.ts` (84), `scripts/test-userscript.ts`, `scripts/test-work.ts` y `scripts/test-business-history.ts` contra la base local descartable.
+
+## User script de WhatsApp 1.2.0, revisión y panel nuevo — mergeado (#244, `05943cf`) — 25/10/2026
 
 Probado de punta a punta en local contra WhatsApp Business real (Chrome + Tampermonkey): 4 recibidos en `crm_inbound_messages` (`pending_review`, por teléfono, horas correctas) y 4 enviados en `crm_messages` (`manual_sent` con id real de WhatsApp).
 
@@ -430,4 +440,3 @@ Rama `ux/business-page-tabs`. Encabezado compacto (estado junto al nombre; datos
 Medido sobre el negocio sintético: solapa Historial 2192 px a 1280 px y 2630 px a 390 px, sin scroll horizontal; a 390 px las solapas aparecen en y≈772 cuando Próximo paso está vacío y en y≈1057 con una tarea.
 
 Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. Suite de navegador completa sobre base Docker descartable: 193 de 194; `commercial.e2e.ts` se detiene en el paso «CRM template», igual que con el build de `staging` en este entorno (en CI pasó con #230).
-

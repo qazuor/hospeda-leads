@@ -33,7 +33,7 @@ a{color:var(--hc-primary-ink)}
 .title span{font-size:12px;color:var(--hc-muted)}
 .icon{width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:var(--hc-muted);display:grid;place-items:center;flex:none}
 .icon:hover{background:var(--hc-chip)}
-.body{padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.body{padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto;min-height:0;flex:1 1 auto}
 .eyebrow{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--hc-primary-ink)}
 .name{font-size:17px;font-weight:700}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -46,7 +46,12 @@ a{color:var(--hc-primary-ink)}
 .meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--hc-muted)}
 .muted{color:var(--hc-muted);font-size:13px;line-height:1.45}
 .actions{display:flex;gap:8px;align-items:center}
-.btn{height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--hc-border);background:transparent;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:var(--hc-text)}
+.popover{position:fixed;z-index:2147483001;width:300px;max-height:60vh;overflow:auto;box-sizing:border-box;padding:12px;border:1px solid var(--hc-border);border-radius:12px;background:var(--hc-surface);color:var(--hc-text);box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;line-height:1.5;white-space:pre-line;pointer-events:none}
+.popover strong{display:block;margin-bottom:6px}
+.popover mark{background:var(--hc-warn-bg);color:var(--hc-warn-text);border-radius:4px;padding:0 3px}
+.actions.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.actions.grid .btn.primary{grid-column:1/-1}
+.btn{min-height:40px;padding:8px 14px;line-height:1.2;text-align:center;border-radius:10px;border:1px solid var(--hc-border);background:transparent;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:var(--hc-text)}
 .btn.primary{flex:1;border:0;background:var(--hc-primary);color:var(--hc-primary-text);font-weight:600}
 .btn.primary:hover{background:#1d4ed8}
 .btn.danger{color:var(--hc-danger-text);border-color:color-mix(in srgb,var(--hc-red) 45%,var(--hc-border))}
