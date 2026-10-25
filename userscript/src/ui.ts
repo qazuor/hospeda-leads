@@ -7,7 +7,8 @@ const ID = "hospeda-userscript-banner";
 const MIN_KEY = "hospeda-userscript-minimized";
 // Messages are bound to the chat the banner was rendered for; a chat switch must never register them to the previous business.
 const CHAT_CHANGED = "El chat cambió. Volvé a abrir «Registrar en CRM» en este chat.";
-export type UiOptions = { isCurrentChat?: () => boolean; context: ContextResponse | null; selected: Match | null; unreadable?: boolean; error?: string; onSelect: (match: Match) => void; register: RegisterController | null; title?: string; phone?: string | null; readMessages?: () => ChatMessage[]; lastRegistered?: string | null; onPreviewChange?: (open: boolean) => void };
+export const NO_MATCH = "No encontré el negocio de este chat. En el CRM usá «Copiar nombre para agendar» y agendá el contacto con ese nombre.";
+export type UiOptions = { isCurrentChat?: () => boolean; context: ContextResponse | null; selected: Match | null; unreadable?: boolean; error?: string; onSelect: (match: Match) => void; register: RegisterController | null; title?: string; phone?: string | null; readMessages?: () => ChatMessage[]; lastRegistered?: string | null; onPreviewChange?: (open: boolean) => void; onConfigureToken?: () => void };
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] { const node = document.createElement(tag); if (text) node.textContent = text; return node; }
 export function renderBanner(options: UiOptions): HTMLElement {
   let host = document.getElementById(ID) as HTMLElement | null;
@@ -31,7 +32,12 @@ export function renderBanner(options: UiOptions): HTMLElement {
   if (options.selected) { section.append(element("p", `Responsable: ${options.selected.assignedUserName || "Sin asignar"}`), element("p", `Gestiones abiertas: ${options.selected.leads.map(lead => `${lead.name} (${lead.stage})`).join(", ") || "Ninguna"}`)); if (options.selected.doNotContact || options.selected.restrictionActive) { const warning = element("p", "Este negocio pidió no ser contactado."); warning.className = "warn"; section.append(warning); } }
   section.append(element("p", `Conectado como ${options.context?.user.displayName || "—"}`)); if (options.lastRegistered) section.append(element("p", `Último registro: ${options.lastRegistered}`));
   const status = element("p", options.unreadable ? "No pude leer este chat. Registrá a mano desde el CRM." : options.error || ""); status.setAttribute("aria-live", "polite"); section.append(status);
-  if (!GM_getValue<string>("hospeda-userscript-token", "")) section.append(element("p", "Configurá el token desde el menú de Tampermonkey"));
+  if (!GM_getValue<string>("hospeda-userscript-token", "")) {
+    // The extension menu lives in the browser toolbar, not in WhatsApp: offer the same action where the seller is looking.
+    section.append(element("p", "Falta el token: crealo en el CRM, en «User script de WhatsApp», y pegalo acá."));
+    if (options.onConfigureToken) { const configure = element("button", "Configurar token"); configure.addEventListener("click", options.onConfigureToken); section.append(configure); }
+  }
+  else if (!options.unreadable && !options.error && !matches.length) section.append(element("p", NO_MATCH));
   if (options.selected && options.register && options.readMessages) {
     const button = element("button", "Registrar en CRM"); section.append(button);
     button.addEventListener("click", () => { if (options.isCurrentChat && !options.isCurrentChat()) { status.textContent = CHAT_CHANGED; return; } const fresh = filterCached(options.readMessages!()); if (!fresh.length) { status.textContent = "No hay mensajes nuevos para registrar."; return; } options.onPreviewChange?.(true); showPreview(fresh, options, button, status); });

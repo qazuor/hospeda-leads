@@ -1,4 +1,4 @@
-export const USERSCRIPT_MIN_VERSION='1.0.0';
+export const USERSCRIPT_MIN_VERSION='1.2.0';
 export function compareSemver(a:string,b:string):number{const parse=(v:string)=>v.split('.').map(Number);const x=parse(a),y=parse(b);for(let i=0;i<3;i++){const d=(x[i]??0)-(y[i]??0);if(d)return d;}return 0;}
 export function codeFromTitle(title:string):string|null{return title.match(/·\s*H(\d+)\s*$/i)?.[1]??null;}
 export function codeFromParam(code:string):string|null{return code.match(/^H(\d+)$/i)?.[1]??null;}

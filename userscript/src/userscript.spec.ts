@@ -4,9 +4,13 @@ import mixed from "../fixtures/mixed-media.html?raw";
 import missing from "../fixtures/missing-metadata.html?raw";
 import group from "../fixtures/group.html?raw";
 import unknown from "../fixtures/unrecognizable.html?raw";
+import currentSaved from "../fixtures/current-saved-name.html?raw";
+import currentNumber from "../fixtures/current-unsaved-number.html?raw";
+import currentGroup from "../fixtures/current-group.html?raw";
+import { fromChatModel, internalChat } from "./internals";
 import { compareSemver, normalizePhone, parseCode } from "./parse";
-import { readChat, redactedSnapshot } from "./selectors";
-import { openWhatsappNotice, renderBanner } from "./ui";
+import { parsePrePlainText, readChat, redactedSnapshot } from "./selectors";
+import { NO_MATCH, openWhatsappNotice, renderBanner } from "./ui";
 import { batches, filterCached, mergeResults, RegisterController, summarizeResults, messageFingerprint } from "./register";
 import { request, ApiError } from "./api";
 import { USERSCRIPT_VERSION } from "./version";
@@ -65,6 +69,57 @@ describe("WhatsApp fixture readers", () => {
   it("marks group chats unsupported and unknown DOM unreadable", () => {
     expect(parse(group)).toEqual({ ok: false, reason: "unsupported-group" });
     expect(parse(unknown)).toEqual({ ok: false, reason: "unreadable" });
+  });
+});
+
+describe("current WhatsApp Web DOM (captured 25/10/2026)", () => {
+  it("reads the chat name instead of the avatar button title and the inner time/author attribute", () => {
+    const result = parse(currentSaved);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.title).toBe("Cabañas del Río · H1234");
+    expect(result.code).toBe("H1234");
+    expect(result.phone).toBeNull();
+    expect(result.messages[0]).toMatchObject({ externalId: "3EB0A1B2C3D4E5F60001", direction: "out", text: "Hola, te escribo de Hospeda", author: "Negocio" });
+    expect(result.messages[0].sentAt).toBe(new Date(2026, 9, 25, 15, 12).toISOString());
+    expect(result.messages.at(-1)).toMatchObject({ direction: "in", text: "Sí, contame", author: "Juan Pérez" });
+  });
+  it("skips a bubble without tail when the layout cannot tell its side, and uses the side when it can", () => {
+    const doc = new DOMParser().parseFromString(currentSaved, "text/html");
+    expect((() => { const result = readChat(doc); return result.ok ? result.messages.map(message => message.externalId) : []; })()).toEqual(["3EB0A1B2C3D4E5F60001", "3EB0A1B2C3D4E5F60003"]);
+    const rect = (left: number, right: number) => ({ left, right, width: right - left, top: 0, bottom: 10, height: 10, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
+    doc.querySelector<HTMLElement>("#main")!.getBoundingClientRect = () => rect(0, 1000);
+    for (const bubble of doc.querySelectorAll<HTMLElement>("[data-testid='msg-container']")) bubble.getBoundingClientRect = () => rect(700, 980);
+    const result = readChat(doc);
+    expect(result.ok && result.messages.map(message => [message.externalId, message.direction])).toEqual([["3EB0A1B2C3D4E5F60001", "out"], ["3EB0A1B2C3D4E5F60002", "out"], ["3EB0A1B2C3D4E5F60003", "in"]]);
+  });
+  it("keeps only the message text, not the bubble time", () => {
+    const result = parse(currentNumber);
+    expect(result.ok && result.messages.map(message => message.text)).toEqual(["Buenas"]);
+    expect(result.ok && result.phone).toBe("+5493442123456");
+  });
+  it("treats received messages from several senders as a group", () => { expect(parse(currentGroup)).toEqual({ ok: false, reason: "unsupported-group" }); });
+  it("parses 24-hour, 12-hour and two-digit-year headers as local time and rejects impossible dates", () => {
+    expect(parsePrePlainText("[2:05 p. m., 23/10/26] Juan: ")).toEqual({ sentAt: new Date(2026, 9, 23, 14, 5).toISOString(), author: "Juan" });
+    expect(parsePrePlainText("[12:30\u202fa.\u00a0m., 1/2/2026] Ana: ").sentAt).toBe(new Date(2026, 1, 1, 0, 30).toISOString());
+    expect(parsePrePlainText("[14:05, 31/02/2026] Juan: ")).toEqual({ sentAt: null, author: "Juan" });
+    expect(parsePrePlainText(null)).toEqual({ sentAt: null, author: null });
+  });
+});
+
+describe("internal chat fallback", () => {
+  it("reads the real number of a @lid chat and flags groups", () => {
+    expect(fromChatModel({ contact: { id: { _serialized: "123456789012345@lid" }, phoneNumber: { _serialized: "5493442453797@c.us", user: "5493442453797" } } })).toEqual({ phone: "+5493442453797", group: false });
+    expect(fromChatModel({ id: { _serialized: "5493442123456@c.us" } })).toEqual({ phone: "+5493442123456", group: false });
+    expect(fromChatModel({ id: { _serialized: "120363041234567890@g.us" } })).toEqual({ phone: null, group: true });
+    expect(fromChatModel({ id: { _serialized: "123456789012345@lid" } })).toEqual({ phone: null, group: false });
+  });
+  it("walks the header's fiber ancestors and fails closed", () => {
+    const header = document.createElement("header");
+    Object.assign(header, { "__reactFiber$abc": { memoizedProps: {}, return: { memoizedProps: { chat: { contact: { phoneNumber: { user: "5493442453797" } } } } } } });
+    expect(internalChat(header)).toEqual({ phone: "+5493442453797", group: false });
+    expect(internalChat(document.createElement("header"))).toBeNull();
+    expect(internalChat(null)).toBeNull();
   });
 });
 
@@ -138,6 +193,19 @@ describe("userscript safety", () => {
     expect(readMessages).not.toHaveBeenCalled();
     expect(host.shadowRoot!.textContent).toContain("El chat cambió");
     expect(host.shadowRoot!.querySelector(".preview")).toBeNull();
+  });
+  it("offers to configure the token from the banner when it is missing", () => {
+    gmValues.set("hospeda-userscript-token", "");
+    const onConfigureToken = vi.fn();
+    const host = renderBanner({ context: null, selected: null, register: null, onSelect: () => {}, onConfigureToken });
+    [...host.shadowRoot!.querySelectorAll("button")].find(item => item.textContent === "Configurar token")!.click();
+    expect(onConfigureToken).toHaveBeenCalledTimes(1);
+    expect(host.shadowRoot!.textContent).not.toContain(NO_MATCH);
+  });
+  it("explains how to link a chat the CRM could not match", () => {
+    gmValues.set("hospeda-userscript-token", "hcu_test");
+    const host = renderBanner({ context: { minVersion: "1.2.0", user: { email: "a@b.c", displayName: "Ana" }, matches: [] }, selected: null, register: null, onSelect: () => {} });
+    expect(host.shadowRoot!.textContent).toContain(NO_MATCH);
   });
 });
 

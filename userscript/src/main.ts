@@ -1,6 +1,7 @@
 import { fetchContext, type ContextResponse, type Match, ApiError } from "./api";
 import { parseCode } from "./parse";
-import { getAppRoot, getConversationPanel, readChat, redactedSnapshot } from "./selectors";
+import { getAppRoot, getConversationPanel, readChat, redactedSnapshot, type ChatRead } from "./selectors";
+import { internalChat, pageHeader } from "./internals";
 import { messageFingerprint, RegisterController } from "./register";
 import { copyDiagnostic } from "./diagnostic";
 import { renderBanner } from "./ui";
@@ -28,8 +29,9 @@ function showDiagnostic(text: string): void {
 }
 function toast(text: string): void { const host = document.createElement("div"), shadow = host.attachShadow({ mode: "open" }), style = document.createElement("style"), message = document.createElement("div"); style.textContent = `:host{position:fixed;right:20px;bottom:20px;z-index:2147483647;font:14px system-ui}.toast{background:#18212f;color:white;padding:10px 14px;border-radius:8px}`; message.className = "toast"; message.textContent = text; shadow.append(style, message); document.body.append(host); window.setTimeout(() => host.remove(), 2400); }
 function diagnostic(): string { return redactedSnapshot(); }
+async function configureToken(): Promise<void> { const value = await showDialog("Configurar token de Hospeda CRM", "password", "", "Lo creás en el CRM → User script de WhatsApp"); if (value) { GM_setValue(TOKEN_KEY, value); cache.clear(); lastFingerprint = ""; void update(); } }
 function registerMenu(): void {
-  GM_registerMenuCommand("Configurar token", async () => { const value = await showDialog("Configurar token de Hospeda CRM", "password", "", "Lo creás en el CRM → User script de WhatsApp"); if (value) { GM_setValue(TOKEN_KEY, value); cache.clear(); lastFingerprint = ""; void update(); } });
+  GM_registerMenuCommand("Configurar token", () => { void configureToken(); });
   GM_registerMenuCommand("Borrar token", () => { GM_setValue(TOKEN_KEY, ""); cache.clear(); lastFingerprint = ""; void update(); });
   GM_registerMenuCommand("Copiar diagnóstico del chat", async () => { await copyDiagnostic(diagnostic(), navigator.clipboard, showDiagnostic, () => toast("Diagnóstico copiado.")); });
 }
@@ -38,13 +40,23 @@ async function resolveContext(code: string | null, phone: string | null): Promis
   const key = JSON.stringify(query), cached = cache.get(key); if (cached && cached.expiresAt > Date.now()) return cached.value;
   const value = await fetchContext(BASE, query, token()); cache.set(key, { value, expiresAt: Date.now() + 60_000 }); return value;
 }
+/** The open chat. Only when neither the saved name (`· H123`) nor the title gives a phone, WhatsApp's internal state is read for it. */
+function currentChat(): ChatRead {
+  const chat = readChat(document);
+  if (!chat.ok || chat.code || chat.phone) return chat;
+  const internal = internalChat(pageHeader());
+  if (internal?.group) return { ok: false, reason: "unsupported-group" };
+  return internal?.phone ? { ...chat, phone: internal.phone } : chat;
+}
+/** Re-inserting the banner on every pass is itself a mutation the observer reacts to; insert it only when it is not there yet. */
+function mount(main: HTMLElement, host: HTMLElement): void { if (host.parentElement !== main) main.prepend(host); }
 function setChoice(phone: string | null, match: Match): void { GM_setValue(choicesKey(phone), match.accountId); }
 async function update(): Promise<void> {
   const main = getConversationPanel();
   if (!main) { document.getElementById("hospeda-userscript-banner")?.remove(); lastFingerprint = ""; activeChat = ""; previewOpen = false; return; }
-  const chat = readChat(document);
+  const chat = currentChat();
   if (!chat.ok) {
-    if (chat.reason === "unreadable" && main) { const host = renderBanner({ context: null, selected: null, unreadable: true, register: null, onSelect: () => {} }); main.prepend(host); }
+    if (chat.reason === "unreadable" && main) { const host = renderBanner({ context: null, selected: null, unreadable: true, register: null, onSelect: () => {} }); mount(main, host); }
     else document.getElementById("hospeda-userscript-banner")?.remove();
     return;
   }
@@ -62,8 +74,8 @@ async function update(): Promise<void> {
   const matches = context?.matches || [], chosenId = GM_getValue<string>(choicesKey(chat.phone), "");
   const selected = matches.find(match => match.accountId === chosenId) || (matches.length === 1 ? matches[0] : null);
   const controller = token() ? new RegisterController(BASE, token()) : null, lastRegister = GM_getValue<string | null>("hospeda-userscript-last-register", null);
-  const host = renderBanner({ context, selected, error, register: controller, title: chat.title, phone: chat.phone, isCurrentChat: () => { const current = readChat(document); return current.ok && `${current.title}:${current.phone || ""}` === chatKey; }, readMessages: () => { const current = readChat(document); return current.ok ? current.messages : []; }, lastRegistered: lastRegister ? new Date(lastRegister).toLocaleString("es-AR") : null, onPreviewChange: open => { previewOpen = open; if (!open) { lastFingerprint = ""; void update(); } }, onSelect: match => { setChoice(chat.phone, match); lastFingerprint = ""; void update(); } });
-  main.prepend(host);
+  const host = renderBanner({ context, selected, error, register: controller, onConfigureToken: () => { void configureToken(); }, title: chat.title, phone: chat.phone, isCurrentChat: () => { const current = currentChat(); return current.ok && `${current.title}:${current.phone || ""}` === chatKey; }, readMessages: () => { const current = currentChat(); return current.ok ? current.messages : []; }, lastRegistered: lastRegister ? new Date(lastRegister).toLocaleString("es-AR") : null, onPreviewChange: open => { previewOpen = open; if (!open) { lastFingerprint = ""; void update(); } }, onSelect: match => { setChoice(chat.phone, match); lastFingerprint = ""; void update(); } });
+  mount(main, host);
 }
 function schedule(): void { window.clearTimeout(timer); timer = window.setTimeout(() => { void update(); }, 500); }
 function start(): void { registerMenu(); const root = getAppRoot(); observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-id", "title", "data-pre-plain-text"] }); void update(); window.addEventListener("pagehide", () => observer?.disconnect(), { once: true }); }
