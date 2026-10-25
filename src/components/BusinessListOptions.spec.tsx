@@ -1,0 +1,10 @@
+import {fireEvent,render,screen} from '@testing-library/react';
+import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {describe,it,expect,vi,beforeAll} from 'vitest';
+import {MantineProvider} from '@mantine/core';
+import {BusinessListOptions} from './BusinessListOptions';
+import {basePreferences} from '../helpers/businessListPreferences';
+vi.mock('../endpoints/business_column_groups.schema',()=>({getBusinessColumnGroups:async()=>({groups:[]})}));
+beforeAll(()=>{window.matchMedia=vi.fn().mockReturnValue({matches:false,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn()}) as unknown as typeof window.matchMedia;});
+describe('BusinessListOptions',()=>{it('shows nonempty pin zones, keeps Nombre checked, and moves zone using Fijar',async()=>{const onChange=vi.fn();const value={...basePreferences(),columns:['nombre','ciudad','telefono','actions'],pins:{actions:'right' as const}};render(<MantineProvider><QueryClientProvider client={new QueryClient()}><BusinessListOptions value={value} onChange={onChange}/></QueryClientProvider></MantineProvider>);fireEvent.click(screen.getByRole('button',{name:/Columnas/}));expect(await screen.findByText('Sin fijar · arrastrá para ordenar')).toBeTruthy();expect(screen.getByText('Fijadas a la derecha')).toBeTruthy();const nombre=screen.getByRole('checkbox',{name:'Nombre'});expect((nombre as HTMLInputElement).disabled).toBe(true);fireEvent.change(screen.getByRole('combobox',{name:'Fijar Ciudad'}),{target:{value:'left'}});expect(onChange).toHaveBeenCalledWith(expect.objectContaining({pins:expect.objectContaining({ciudad:'left'})}));});
+ it('reorders inside a zone while preserving columns in other zones',async()=>{const {reorderWithinZone}=await import('./sortableList');expect(reorderWithinZone(['left','ciudad','telefono','right'],['ciudad','telefono'],'telefono','ciudad')).toEqual(['left','telefono','ciudad','right']);expect(reorderWithinZone(['left','ciudad','right'],['left'],'left','ciudad')).toEqual(['left','ciudad','right']);});});

@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {DndContext,MouseSensor,TouchSensor,KeyboardSensor,DragOverlay,useSensor,useSensors,type DragEndEvent,type DragOverEvent,type Modifier} from '@dnd-kit/core';
-import {SortableContext,verticalListSortingStrategy,sortableKeyboardCoordinates,arrayMove} from '@dnd-kit/sortable';
+import {SortableContext,verticalListSortingStrategy,sortableKeyboardCoordinates} from '@dnd-kit/sortable';
 import {restrictToVerticalAxis} from '@dnd-kit/modifiers';
 import {Button} from './Button';
 import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogTitle} from './Dialog';
@@ -8,11 +8,12 @@ import {SortableViewRow} from './SortableViewRow';
 import {quickViewKey,resolveViewPins,systemViewKey, type ViewPinConfig} from '../helpers/viewPins';
 import type {ViewPinsConfig} from '../endpoints/view_pins.schema';
 import styles from './PinnedViewsPanel.module.css';
+import {dropIndicatorPosition,reorderItems,restrictToList} from './sortableList';
 
 export interface PinnedView {key:string;name:string;kind:string}
-export function restrictToList(getElement:()=>HTMLElement|null):Modifier{ return ({transform,activeNodeRect})=>{const element=getElement();if(!element||!activeNodeRect)return transform;const bounds=element.getBoundingClientRect(),min=bounds.top-activeNodeRect.top,max=bounds.bottom-activeNodeRect.bottom;return {...transform,y:Math.max(min,Math.min(max,transform.y))};}; }
-export function reorderPinnedViews(keys:string[],active:string,over:string|null){if(!over||active===over)return keys;const from=keys.indexOf(active),to=keys.indexOf(over);return from<0||to<0?keys:arrayMove(keys,from,to);}
-export function dropIndicatorPosition(keys:string[],active:string,over:string|null){if(!over||active===over)return null;const from=keys.indexOf(active),to=keys.indexOf(over);if(from<0||to<0)return null;return {key:active,position:from<to?'bottom' as const:'top' as const};}
+export {restrictToList};
+export function reorderPinnedViews(keys:string[],active:string,over:string|null){return reorderItems(keys,active,over);}
+export {dropIndicatorPosition};
 export function PinnedViewsPanel({open,onClose,entity,views,config,onSave,onReset,externalBusy=false}:{open:boolean;onClose:()=>void;entity:'business'|'opportunity';views:PinnedView[];config:ViewPinsConfig|null;onSave:(config:ViewPinsConfig)=>Promise<void>;onReset:()=>Promise<void>;externalBusy?:boolean}) {
  const [draft,setDraft]=useState<ViewPinConfig>({order:[],hidden:[]}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[active,setActive]=useState<string|null>(null),[over,setOver]=useState<string|null>(null),[retry,setRetry]=useState<()=>void>(()=>()=>{});const wasOpen=useRef(false),dirty=useRef(false),list=useRef<HTMLElement>(null);
  useEffect(()=>{if(open&&(!wasOpen.current||!dirty.current)){const resolved=resolveViewPins(views,config);setDraft({order:resolved.pinned.map(view=>view.key),hidden:resolved.unpinned.map(view=>view.key)});setError('');dirty.current=false;}wasOpen.current=open;},[open,views,config]);
