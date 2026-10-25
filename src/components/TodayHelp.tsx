@@ -1,0 +1,4 @@
+import {Link} from 'react-router-dom';
+
+/** Contextual help for the list and calendar views in Hoy. */
+export function TodayHelp({calendar}:{calendar:boolean}){return <>{!calendar&&<section aria-label="Cómo trabajar hoy"><h2>Una tarea por vez</h2><p>1. Revisá lo que corresponde hoy. 2. Contactá o hacé la tarea. 3. Anotá cómo salió y elegí cómo sigue.</p><Link to="/guide?topic=start&article=routine">Ver el recorrido con ejemplos →</Link></section>}<p>{calendar?'Agendá una visita o reunión como tarea y completala cuando ocurra. Las realizadas aparecen como actividades, sin duplicar el evento en el calendario.':'Atendé primero las vencidas, después las de hoy. Podés agendar llamada y visita simultáneamente; completar una conserva la otra. Anotar lo que pasó guarda lo ocurrido y permite cargar fechas anteriores.'}</p></>}

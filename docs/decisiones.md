@@ -195,6 +195,12 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.
 
 
+## Rediseño visual v1, Fase 5: Hoy — 25/10/2026
+
+- Hoy usa solo los datos que ya carga (`getWork` modo día y `getInboundReview`): los indicadores y el mini calendario no agregan pedidos. El mini calendario marca únicamente las tareas cargadas en la Lista.
+- Un indicador cuya sección no se muestra queda deshabilitado; un conteo desconocido se muestra «–», nunca 0.
+- Los filtros de trabajo quedan siempre visibles y la ayuda de Hoy vive en el «?» del encabezado.
+
 ## Rediseño visual v1, Fase 3b: tabla de Gestiones — 25/10/2026
 
 - Los filtros rápidos son un componente compartido (`ListQuickFilters`); cada filtro de fecha declara qué operadores le pertenecen (`on`/`between`/`empty` por defecto; «Próximo paso» suma `before` para «Vencidas»), así no pisa reglas del editor en otras listas.

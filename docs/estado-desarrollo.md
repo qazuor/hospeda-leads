@@ -1,6 +1,17 @@
 # Estado del CRM — corte al 25 de octubre de 2026
 
-## Rediseño visual v1, Fase 3b lista para PR — tabla de Gestiones — 25/10/2026
+## Rediseño visual v1, Fase 5 lista para PR — Hoy — 25/10/2026
+
+Solo visual: sin endpoints ni pedidos nuevos, sin cambios de permisos ni de No contactar. Mockup aprobado el 25/10/2026.
+
+- Indicadores arriba: Vencidas, Para hoy, Respuestas nuevas, Gestiones sin tarea agendada y el avance «Hoy: N de M hechas» (o «¡Terminaste por hoy!»). Tocar uno lleva a su sección; quedan deshabilitados cuando la sección no aparece y «Respuestas nuevas» muestra «–» mientras carga o si falló.
+- Dos columnas desde 1100 px: a la izquierda Anotá cómo salió, Vencidas, Para hoy, Próximas acciones (agrupadas por día) y Gestiones sin tarea agendada; a la derecha Respuestas nuevas, mini calendario y Primeros pasos. Más angosto, una columna intercalada.
+- Filtros de trabajo siempre visibles (Responsable solo admin, Localidad, Rubro; Mes y vista en Calendario). La ayuda «Cómo usar esta lista» pasó al «?» («Ayuda sobre Hoy»).
+- Filas de tarea con ícono por tipo (también en la ficha); los botones bajan debajo del texto cuando la columna es angosta.
+- Mini calendario: puntos por día solo con las tareas que la Lista ya trae (vencidas y de hoy hasta el tope más la primera página de próximas); el mes completo de visitas y reuniones sigue en «Calendario».
+- Pruebas: ver el PR.
+
+## Rediseño visual v1, Fase 3b mergeada a `staging` (#238, `b8841e4`; sin desplegar) — tabla de Gestiones — 25/10/2026
 
 Solo visual: sin cambios de endpoints, permisos ni reglas de No contactar. Mockup aprobado el 24/10/2026.
 
