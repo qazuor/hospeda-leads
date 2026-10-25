@@ -5,6 +5,7 @@ import { MantineProvider, Menu } from '@mantine/core';
 import 'dayjs/locale/es';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from './Dialog';
 import { CrmDateInput } from './ui/CrmDateInput';
+import styles from './Dialog.module.css';
 
 beforeAll(() => {
   window.matchMedia = vi.fn().mockImplementation(query => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
@@ -94,5 +95,21 @@ describe('Dialog Escape', () => {
     await waitFor(() => expect(screen.queryByText('Tenés cambios')).toBeNull());
     fireEvent.keyDown(screen.getByText('Editor'), { key: 'Escape', code: 'Escape' });
     expect(editor).toEqual([false]);
+  });
+});
+
+describe('Dialog side panel', () => {
+  it('opens long forms as a side panel and keeps short dialogs centered', async () => {
+    render(<MantineProvider><Dialog open><DialogContent side><DialogTitle>Nuevo negocio</DialogTitle><p>Formulario</p></DialogContent></Dialog></MantineProvider>);
+    const panel = await screen.findByRole('dialog', { name: 'Nuevo negocio' });
+    expect(panel.getAttribute('data-side')).toBe('true');
+    expect(panel.className).toContain(styles.side);
+    expect(panel.parentElement?.className).toContain(styles.sideInner);
+    cleanup();
+    render(<MantineProvider><Dialog open><DialogContent><DialogTitle>Enviar a Papelera</DialogTitle></DialogContent></Dialog></MantineProvider>);
+    const confirm = await screen.findByRole('dialog', { name: 'Enviar a Papelera' });
+    expect(confirm.hasAttribute('data-side')).toBe(false);
+    expect(confirm.className).not.toContain(styles.side);
+    expect(confirm.parentElement?.className).not.toContain(styles.sideInner);
   });
 });

@@ -62,13 +62,15 @@ export const DialogClose = React.forwardRef<HTMLButtonElement, TriggerProps>(({ 
 });
 interface ContentProps extends React.HTMLAttributes<HTMLDivElement> {
   inline?: boolean; fullScreen?: boolean; showCloseButton?: boolean; container?: HTMLElement | null;
+  /** Opens as a right-side panel (full screen on phones) with sticky title and footer: for long create/edit forms; short confirmations stay centered. */
+  side?: boolean;
   onEscapeKeyDown?: (event: Event) => void; onInteractOutside?: (event: Event) => void;
   /** Hides the page behind the dialog completely (e.g. re-login, where the previous page may hold another user's data). */
   opaqueOverlay?: boolean;
   onOpenAutoFocus?: (event: Event) => void; onCloseAutoFocus?: (event: Event) => void;
 }
 export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
-  className, children, container, inline = false, fullScreen = false, showCloseButton = true,
+  className, children, container, inline = false, fullScreen = false, showCloseButton = true, side = false,
   onEscapeKeyDown, onInteractOutside, onOpenAutoFocus, onCloseAutoFocus, opaqueOverlay = false, ...props
 }, ref) => {
   const ctx = useDialog();
@@ -111,13 +113,13 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
 
   const focus = () => { const event = new Event('focus', { cancelable: true }); onOpenAutoFocus?.(event); };
   if (inline) return <InlineContext.Provider value><Box {...props} ref={ref} className={className}>{children}</Box></InlineContext.Provider>;
-  return <InlineContext.Provider value={false}><Modal.Root opened={ctx.open} onClose={close} size="auto" centered fullScreen={fullScreen} scrollAreaComponent={ModalSurface}
+  return <InlineContext.Provider value={false}><Modal.Root opened={ctx.open} onClose={close} size="auto" centered={!side} fullScreen={fullScreen} classNames={side ? { inner: styles.sideInner } : undefined} scrollAreaComponent={ModalSurface}
     transitionProps={{ duration: 0 }} zIndex={layer.zIndex} trapFocus={layer.active} portalProps={container ? { target: container } : undefined}
     closeOnEscape={false} closeOnClickOutside={layer.active && !onInteractOutside && !ctx.hasOpenChild}
     onEnterTransitionEnd={focus} returnFocus={!onCloseAutoFocus}
     onExitTransitionEnd={() => { const event = new Event('focus', { cancelable: true }); onCloseAutoFocus?.(event); }}>
     <Modal.Overlay className="crm-dialog-overlay" data-opaque={opaqueOverlay || undefined} backgroundOpacity={opaqueOverlay ? 1 : 0.62} blur={opaqueOverlay ? 0 : 2} color={opaqueOverlay ? "var(--background)" : undefined} onClick={onInteractOutside ? () => { if (layer.active && guard(onInteractOutside)) close(); } : undefined} />
-    <Modal.Content {...props} ref={ref} classNames={{ content: [styles.content, className].filter(Boolean).join(' ') }}>
+    <Modal.Content {...props} ref={ref} data-side={side || undefined} classNames={{ content: [styles.content, side ? styles.side : '', className].filter(Boolean).join(' ') }}>
       {children}
       {showCloseButton && <CloseButton aria-label="Cerrar" className={styles.close} size="lg" onClick={close} />}
     </Modal.Content>

@@ -195,6 +195,11 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - Quedan para después de la v1, con análisis propio: contadores en la sidebar, KPIs con agregados nuevos, Bandeja unificada de conversaciones, drag & drop (kanban y columnas) y destacados por usuario.
 
 
+## Rediseño visual v1, Fase 7: crear y editar en paneles — 25/10/2026
+
+- Los formularios largos de alta y edición usan `DialogContent side` (panel derecho; pantalla completa en el celular). Las confirmaciones cortas siguen centradas para distinguir completar un formulario de confirmar una acción.
+- El editor amplio de gestión (`_index.tsx`, 1060 px) queda como ventana grande: no entra en un panel de 560 px.
+
 ## Rediseño visual v1, Fase 4: tablero de Gestiones — 25/10/2026
 
 - El color de cada columna sale del orden de la etapa abierta dentro de su tipo de gestión (paleta cíclica), ganada verde y perdida roja; no se cargan colores por etapa.

@@ -63,7 +63,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
   }catch(e){setError(e instanceof Error?e.message:'No se pudo crear el negocio.');}finally{submitting.current=false;}
  };
  const input=(key:keyof typeof draft,label:string,props:React.InputHTMLAttributes<HTMLInputElement>={})=><label key={key}>{label}<Input {...props} disabled={mutation.isPending} value={draft[key]} onChange={set(key)}/></label>;
- return <Dialog open onOpenChange={open=>{if(!open&&!mutation.isPending)guard.requestClose()}}><DialogContent className={styles.editor}>
+ return <Dialog open onOpenChange={open=>{if(!open&&!mutation.isPending)guard.requestClose()}}><DialogContent side className={styles.editor}>
   <DialogTitle>Nuevo negocio</DialogTitle>
   <DialogDescription>Con el nombre alcanza para crearlo. No crea una gestión: para ofrecerle algo, después usá Iniciar gestión.</DialogDescription>
   <form onSubmit={submit} className={styles.form} aria-busy={mutation.isPending}>

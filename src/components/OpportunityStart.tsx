@@ -25,7 +25,7 @@ export function OpportunityStart({onClose,onCreated}:{onClose:()=>void;onCreated
   const detail=useQuery({queryKey:["commercial-detail",accountId,""],queryFn:()=>getCommercialDetail(accountId),enabled:!!accountId});
   if(creatingBusiness)return <CommercialEditor target={{kind:"account"}} onSaved={setAccountId} onClose={()=>setCreatingBusiness(false)}/>;
   if(accountId&&detail.data)return <CommercialEditor target={{kind:"opportunity"}} detail={detail.data} onSaved={onCreated} onClose={onClose}/>;
-  return <Dialog open onOpenChange={open=>{if(!open)onClose()}}><DialogContent className={`${styles.editor} ${styles.startEditor}`}>
+  return <Dialog open onOpenChange={open=>{if(!open)onClose()}}><DialogContent side className={`${styles.editor} ${styles.startEditor}`}>
     <DialogTitle>Iniciar gestión</DialogTitle>
     <DialogDescription>Elegí el negocio al que querés ofrecerle un servicio. Buscalo antes de crear uno nuevo.</DialogDescription>
     <p className={styles.muted}>Una gestión es lo que querés lograr con ese negocio. <HelpHint term="management"/></p>

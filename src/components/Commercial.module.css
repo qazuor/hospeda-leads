@@ -106,3 +106,6 @@
 
 .tabCount{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--surface);color:var(--muted-foreground);font-size:11px;font-weight:600}
 .businessAside [data-disclosure-summary]{display:flex;align-items:center}.businessAside [data-disclosure-summary] h3{margin:0;font:inherit}
+
+/* Side panel (Dialog side): the forms' own sticky action bar spans the panel edge to edge, flush with the bottom. */
+.editor[data-side] .form>.actions{bottom:calc(-1 * var(--crm-dialog-padding));margin-inline:calc(-1 * var(--crm-dialog-padding));padding-inline:var(--crm-dialog-padding);border-top:1px solid var(--border);box-shadow:none;background:var(--popup)}
