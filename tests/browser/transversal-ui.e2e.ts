@@ -47,14 +47,14 @@ for(const width of [1280,390])for(const dark of [false,true])test(`badges and pl
   const opaqueBackground=(el:Element)=>{for(let node:Element|null=el;node;node=node.parentElement){const color=getComputedStyle(node).backgroundColor;if(rgba(color))return color;}return 'rgb(255, 255, 255)';};
   const lum=([r,g,b]:number[])=>{const f=(v:number)=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);};
   const ratio=(a:number[],b:number[])=>{const [x,y]=[lum(a),lum(b)].sort((m,n)=>n-m);return (x+0.05)/(y+0.05);};
-  const badges=[...document.querySelectorAll('.mantine-Badge-root')].map(el=>{const s=getComputedStyle(el);return {text:el.textContent,ratio:ratio(rgb(s.color),rgb(opaqueBackground(el))),size:s.fontSize};});
+  const badges=[...document.querySelectorAll<HTMLElement>('.mantine-Badge-root,[data-stage-label]')].map(el=>{const s=getComputedStyle(el);return {text:el.dataset.stageLabel??el.textContent,ratio:ratio(rgb(s.color),rgb(opaqueBackground(el))),size:s.fontSize};});
   const input=document.querySelector('input[placeholder]') as HTMLInputElement;const placeholder=getComputedStyle(input,'::placeholder');
   const pageBackground=opaqueBackground(input);
   const rubroHues=[...document.querySelectorAll<HTMLElement>('.mantine-Badge-root')].filter(el=>['Alojamientos','Gastronomía','Experiencias','Turismo rural','Partner'].includes(el.textContent??'')).sort((a,b)=>(a.textContent??'').localeCompare(b.textContent??'','es')).map(el=>el.style.getPropertyValue('--badge-h'));
   return {rubroHues,badges,placeholder:{ratio:ratio(rgb(placeholder.color),rgb(pageBackground)),color:placeholder.color,opacity:placeholder.opacity},tableFont:document.querySelector('table td')?getComputedStyle(document.querySelector('table td')!).fontSize:null};
  });
  const result=await measure();
- if(width>=600){await page.goto('/opportunities');await page.getByRole('button',{name:'Tabla',exact:true}).click();await expect(page.locator('td .mantine-Badge-root',{hasText:'Cerrada perdida'}).first()).toBeVisible();
+ if(width>=600){await page.goto('/opportunities');await page.getByRole('button',{name:'Tabla',exact:true}).click();await expect(page.locator('td [data-stage-label="Cerrada perdida"]').first()).toBeVisible();
  const stages=await measure();result.badges.push(...stages.badges);}
  console.log(JSON.stringify(result));
  expect(result.badges.length).toBeGreaterThan(5);

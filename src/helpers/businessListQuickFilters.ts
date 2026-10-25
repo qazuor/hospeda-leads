@@ -1,22 +1,28 @@
 import type {AdvancedFilterGroup,AdvancedFilterRule} from '../endpoints/leads_GET.schema';
 import {calendarDay,localDay} from './workDates';
 
-/** Replace only a quick filter's group when it is made entirely of `eq` rules for that field. */
-export function setOwnedQuickFilter(groups:AdvancedFilterGroup[],field:AdvancedFilterRule['field'],rules:AdvancedFilterRule[]):AdvancedFilterGroup[]{
- const owned=groups.filter(group=>group.rules.length>0&&(field==='fechaUltimoContacto'?group.rules.length===1&&group.rules[0]?.field===field&&['on','between','empty'].includes(group.rules[0].operator):group.rules.every(rule=>rule.field===field&&rule.operator==='eq')));
+/** Date operators a quick filter owns by default; a field can opt into more (e.g. `before` for overdue next steps). */
+export const QUICK_DATE_OPERATORS:readonly AdvancedFilterRule['operator'][]=['on','between','empty'];
+/** Whether a group belongs to a quick filter: one `eq`-only group for category fields, or exactly one rule with an owned operator for date fields. */
+export function quickFilterOwns(field:AdvancedFilterRule['field'],dateOperators?:readonly AdvancedFilterRule['operator'][]){
+ return (group:AdvancedFilterGroup)=>group.rules.length>0&&(dateOperators?group.rules.length===1&&group.rules[0]!.field===field&&dateOperators.includes(group.rules[0]!.operator):group.rules.every(rule=>rule.field===field&&rule.operator==='eq'));
+}
+/** Replace only the quick filter's own group (see {@link quickFilterOwns}); with several candidate groups nothing changes. */
+export function setOwnedQuickFilter(groups:AdvancedFilterGroup[],field:AdvancedFilterRule['field'],rules:AdvancedFilterRule[],dateOperators:readonly AdvancedFilterRule['operator'][]|undefined=field==='fechaUltimoContacto'||field==='fechaProximaAccion'?QUICK_DATE_OPERATORS:undefined):AdvancedFilterGroup[]{
+ const owns=quickFilterOwns(field,dateOperators),owned=groups.filter(owns);
+ if(owned.length>1)return groups;
  const rest=groups.filter(group=>!owned.includes(group));
- if(owned.length!==1&&owned.length>0)return groups;
  return rules.length?[...rest,{rules}]:rest;
 }
 
 /** Build Argentina calendar date rules for the business list's last-contact shortcuts. */
-export function lastContactPreset(preset:'today'|'yesterday'|'week'|'7days'|'30days'|'never',now=new Date()):AdvancedFilterRule[]{
+export function lastContactPreset(preset:'today'|'yesterday'|'week'|'7days'|'30days'|'never',now=new Date(),field:AdvancedFilterRule['field']='fechaUltimoContacto'):AdvancedFilterRule[]{
  const today=localDay(now),shift=(day:string,amount:number)=>{const value=new Date(`${day}T12:00:00Z`);value.setUTCDate(value.getUTCDate()+amount);return value.toISOString().slice(0,10);};
- if(preset==='never')return [{field:'fechaUltimoContacto',operator:'empty',value:'',value2:''}];
- if(preset==='today')return [{field:'fechaUltimoContacto',operator:'on',value:today,value2:''}];
- if(preset==='yesterday')return [{field:'fechaUltimoContacto',operator:'on',value:shift(today,-1),value2:''}];
+ if(preset==='never')return [{field,operator:'empty',value:'',value2:''}];
+ if(preset==='today')return [{field,operator:'on',value:today,value2:''}];
+ if(preset==='yesterday')return [{field,operator:'on',value:shift(today,-1),value2:''}];
  const start=preset==='week'?shift(today,-((new Date(`${today}T12:00:00Z`).getUTCDay()+6)%7)):shift(today,preset==='7days'?-6:-29);
- return [{field:'fechaUltimoContacto',operator:'between',value:start,value2:today}];
+ return [{field,operator:'between',value:start,value2:today}];
 }
 
 /** Assign a next-step date to its Argentina calendar bucket while preserving the input order. */

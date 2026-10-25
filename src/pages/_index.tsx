@@ -26,6 +26,11 @@ import { OpportunityStart } from "../components/OpportunityStart";
 import { CommercialEditor } from "../components/CommercialEditor";
 import type { Account } from "../endpoints/commercial.schema";
 import { CommercialHelp } from "../components/CommercialHelp";
+import {usePageHelp} from '../components/AppLayout';
+import {ManagementQuickFilters} from '../components/ManagementQuickFilters';
+import {ManagementStatTiles} from '../components/ManagementStatTiles';
+import {ManagementViewTabs} from '../components/ManagementViewTabs';
+import {StageStepper} from '../components/StageStepper';
 import {businessStatusLabels} from '../helpers/businessStatus';
 import {managementLabel,managementTypes,managementStageCatalog} from '../helpers/businessManagement';
 import { getCommercialDetail } from "../endpoints/commercial.schema";
@@ -75,6 +80,9 @@ import {HeaderMenu} from "../components/LeadsTableHeader";
 import {managementDisplayName} from '../content/vocabulary';
 
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
+  // Memoized like the business record's help: usePageHelp re-registers whenever the content identity changes.
+  const pageHelp=React.useMemo(()=>businessMode?null:{label:'Ayuda sobre gestiones',content:<CommercialHelp/>},[businessMode]);
+  usePageHelp(pageHelp);
   const navigate=useNavigate();
   const entity=businessMode?"business":"opportunity";
   const tableColumns=TABLE_COLUMNS.map(column=>({...column,label:businessMode?(column.key==="nombre"?"Negocio":column.key==="id"?"ID de entrada":column.key==="assignedUserEmail"?"Responsable del negocio":column.key==="estado"?"Etapas de gestiones":column.label):column.label}));
@@ -126,8 +134,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const [contactLead,setContactLead]=useState<any|null>(null);
   const [pendingDelete,setPendingDelete]=useState<{id:string|number;nombre:string}|null>(null);
   const [tableFullscreen,setTableFullscreen]=useState(false);
-  // Phones start on the table: the board's columns do not fit a 390px screen.
-  const [pipelineView,setPipelineView]=useState(!businessMode&&!(typeof window!=='undefined'&&window.matchMedia('(max-width: 767px)').matches));
+  // The table is the default presentation on every width; «Tablero comercial» switches to the board.
+  const [pipelineView,setPipelineView]=useState(false);
   const [filterDialogOpen,setFilterDialogOpen]=useState(false);
   // Decision 4A: a seller lands on "Mis gestiones" once (marker per user); afterwards the stored filters, including "Todos", are respected.
   const sellerKey=!businessMode&&!isAdmin&&currentUser?sellerDefaultKey(currentUser.id):null;
@@ -638,7 +646,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       ? <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.subtipo??""} options={(settings?.subtypes??[]).filter(x=>!x.typeName||x.typeName===l.tipo).map(x=>x.name)} category="subtype" placeholder="Asignar subtipo" emptyLabel="Sin subtipo" assignWhenEmpty onChange={v=>quick(l.id,"subtipo",v)}/>
       : <span className={styles.assignDependency}>Asigná vertical primero</span>;
     if(key==="commercialProfile")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.commercialProfile??""} options={PROFILE_OPTIONS} category="profile" placeholder="Asignar perfil" emptyLabel="Sin perfil" assignWhenEmpty onChange={v=>quick(l.id,"commercialProfile",v)}/>;
-    if(key==="estado"&&l.managementType)return <ValueBadge value={managementLabel(l.managementType,l.estado)} category="status"/>;
+    if(key==="estado"&&l.managementType)return businessMode?<ValueBadge value={managementLabel(l.managementType,l.estado)} category="status"/>:<StageStepper stage={l.estado} type={l.managementType}/>;
     if(key==="estado")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.estado??""} options={STATUS_OPTIONS} category="status" placeholder="Asignar estado" assignWhenEmpty onChange={v=>quick(l.id,"estado",v)}/>;
     if(key==="prioridad")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.prioridad??""} options={PRIORITY_OPTIONS} category="priority" placeholder="Asignar prioridad" emptyLabel="Sin prioridad" assignWhenEmpty onChange={v=>quick(l.id,"prioridad",v)}/>;
     if(key==="quienCargo")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.quienCargo??""} options={peopleOptions} category="person" placeholder="Asignar persona" assignWhenEmpty onChange={v=>quick(l.id,"quienCargo",v)}/>;
@@ -682,11 +690,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           <Button variant="outline" onClick={()=>setFilterDialogOpen(true)} className={styles.filterButton}>
             <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
           </Button>
+          {!businessMode&&<ManagementQuickFilters className={styles.quickFilters} groups={appliedFilterGroups} stages={FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))} users={userOptions} currentUser={!!currentUser} onChange={groups=>{setAppliedFilterGroups(groups);setActiveQuick('custom');resetPage()}}/>}
           {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(businessMode?advancedTable:!pipelineView)&&<ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/>}
         </div>
       </section>
 
-      <Disclosure className={styles.advancedWorkspace}><DisclosureSummary>Resumen, vistas guardadas y ayuda</DisclosureSummary>      <section className={styles.commercialGuide} aria-label="Ayuda comercial">
+      {businessMode?<Disclosure className={styles.advancedWorkspace}><DisclosureSummary>Resumen, vistas guardadas y ayuda</DisclosureSummary><section className={styles.commercialGuide} aria-label="Ayuda comercial">
       <CommercialHelp>
       {businessMode&&<p>Abrí un negocio para ver su persona de contacto, el próximo paso y sus gestiones. La próxima acción incluye las tareas generales del negocio.</p>}
       </CommercialHelp>
@@ -708,7 +717,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
-</Disclosure>
+      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>key.startsWith('saved:')?applySavedView(savedViews.find(view=>view.name===key.slice(6))!):applyQuickView(key)} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)}/></>}
       <FilterLegend
         groups={appliedFilterGroups}
         onChange={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);resetPage();}}
