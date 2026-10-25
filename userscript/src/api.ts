@@ -1,6 +1,6 @@
 import { USERSCRIPT_VERSION } from "./version";
 
-export type Match = { accountId: string; code: string; name: string; city: string | null; status?: string | null; statusLabel?: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string }[] };
+export type Match = { accountId: string; code: string; name: string; city: string | null; status?: string | null; statusLabel?: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string; body?: string | null }[] };
 export type ContextResponse = { minVersion: string; latestVersion?: string; user: { email: string; displayName: string }; matches: Match[] };
 export type RegisterResult = { externalId: string; status: "created" | "duplicate" | "rejected"; kind?: "message" | "inbound"; id?: string; reason?: string };
 export type RegisterResponse = { results: RegisterResult[] };
@@ -33,3 +33,10 @@ export function registerBatch(base: string, token: string, payload: { accountId:
   return request(`${base}/_api/userscript/register`, token, "POST", payload);
 }
 
+export type TemplateLead={id:string;name:string;type:string|null;stage:string;templates:{id:string;name:string;recommended:boolean;body:string}[];contacts:{id:string;name:string;phone:string;default:boolean}[]};
+export type TemplatesResponse={leads:TemplateLead[];blocked:string|null};
+export type PreparedTemplate={messageId:string;revision:number;body:string;recipient:string;recipientName:string;unresolved:string[]};
+export const fetchTemplates=(base:string,token:string,accountId:string)=>request<TemplatesResponse>(`${base}/_api/userscript/templates?accountId=${encodeURIComponent(accountId)}`,token);
+export const prepareTemplate=(base:string,token:string,payload:{id:string;leadId:string;contactId:string|null;templateId:string})=>request<PreparedTemplate>(`${base}/_api/userscript/prepare`,token,"POST",payload);
+export const dispatchTemplate=(base:string,token:string,payload:{id:string;revision:number})=>request(`${base}/_api/userscript/dispatch`,token,"POST",payload);
+export const markTemplateNotSent=(base:string,token:string,id:string)=>request(`${base}/_api/userscript/outcome`,token,"POST",{id,event:"manual_not_sent"});

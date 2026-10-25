@@ -207,6 +207,13 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - En el celular el tablero es un acordeón por etapa en lugar de columnas deslizables.
 - La vista previa guarda solo el id de la gestión y se deriva de la lista actual.
 
+## Modelos desde WhatsApp y registro por texto — 25/10/2026 (propietario)
+
+- Pegar un modelo desde el user script deja el intento en «WhatsApp abierto», igual que «Contactar»; el envío se registra recién con el mensaje enviado. El script nunca envía.
+- Pegar reemplaza el texto de la caja: el modelo que pegó el script sin preguntar, cualquier otro texto solo con confirmación. Todo reemplazo cierra como no enviado el intento anterior.
+- El popover de los modelos muestra la plantilla cruda (variables sin completar), para no crear borradores al mirar.
+- Registrar un enviado completa un intento abierto solo si el texto se parece al preparado (al menos la mitad de las palabras en común). Un mensaje escrito a mano se registra suelto y no se atribuye al modelo. Rige también para «Contactar».
+
 ## User script de WhatsApp: revisión y próximos pasos — 25/10/2026 (propietario)
 
 - **Teléfono de chats `@lid`:** primero el código y el teléfono visibles en el DOM; solo si no hay ninguno, el teléfono del estado interno de WhatsApp (fiber de React vía `unsafeWindow`). Si no se encuentra, el chat queda sin asociar: nunca se adivina.
