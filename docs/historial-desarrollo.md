@@ -135,3 +135,7 @@ A pedido del propietario («no hay jerarquía visual»), la ficha se rehízo en 
 ## 24/10/2026 — rediseño visual v1, Fase 0
 
 El propietario pidió llevar todo el CRM a una interfaz profesional y fácil de usar, a partir de 28 referencias. Se aprobó un plan de ocho fases solo visual (sin funciones nuevas) y el mockup de sistema de diseño y estructura general. La Fase 0 cambió tokens, tipografía, tonos, badges y jerarquía de botones de forma global, sin tocar layouts ni etiquetas, para mantener bajo el riesgo sobre los e2e.
+
+## 25/10/2026 — user script de WhatsApp probado contra WhatsApp real
+
+Al probar el script con el WhatsApp Business de Hospeda apareció que los selectores se habían escrito sin el DOM real: no leía ningún chat. Se reescribieron con la estructura actual y se probó el registro de punta a punta. En la misma revisión el propietario pidió instalarlo desde el CRM, un panel más prolijo con ajustes globales, el botón en la barra de WhatsApp, tema automático y avisos de actualización. Quedaron aprobadas, con mockups, tres specs siguientes: templates desde WhatsApp, registro automático con reversión e insignias propias en la lista de chats.

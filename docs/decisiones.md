@@ -207,6 +207,15 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - En el celular el tablero es un acordeón por etapa en lugar de columnas deslizables.
 - La vista previa guarda solo el id de la gestión y se deriva de la lista actual.
 
+## User script de WhatsApp: revisión y próximos pasos — 25/10/2026 (propietario)
+
+- **Teléfono de chats `@lid`:** primero el código y el teléfono visibles en el DOM; solo si no hay ninguno, el teléfono del estado interno de WhatsApp (fiber de React vía `unsafeWindow`). Si no se encuentra, el chat queda sin asociar: nunca se adivina.
+- **Instalación desde el CRM:** el script se instala con el botón de `/userscript` y se actualiza desde el mismo origen. El script corre también en el CRM, donde solo deja su versión en `<html>` para que la página lo detecte; no hace nada más ahí.
+- **Botón en la barra de WhatsApp:** se dibuja en una capa propia, superpuesta a la barra izquierda, sin insertar nodos en el árbol de React de WhatsApp. El panel sigue arriba a la derecha.
+- **Token y ajustes globales:** el token se pega en el panel («Ajustes»), no en el menú de Tampermonkey, y funciona sin un chat abierto.
+- **Versión mínima 1.2.0** y aviso proactivo de versión nueva (al cargar, cada 30 minutos y al volver a la pestaña). Cada token guarda la última versión reportada, aunque el CRM la haya rechazado.
+- **Aprobado para las próximas specs:** registro automático también de los enviados, solo con un único negocio emparejado y gestión abierta. Esto reemplaza, para esos chats, la regla de spec 83 de que un envío por el script necesita confirmación en la vista previa. Condición: cada registro automático se marca como tal y se puede anular con motivo, deshaciendo sus efectos (por ejemplo, reabrir el `whatsapp_opened` que completó). Los templates desde WhatsApp se pegan en la caja sin enviarse: el script sigue sin enviar mensajes. Las insignias del CRM son propias; no se tocan las etiquetas de WhatsApp Business.
+
 ## Gestiones y Hoy: tipo de gestión, vencidas abiertas y mes completo — 25/10/2026
 
 - `managementType` es campo del filtro avanzado de Gestiones (igualdad por categoría); en Negocios se rechaza porque un negocio puede tener gestiones de varios tipos.
