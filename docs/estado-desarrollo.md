@@ -1,6 +1,12 @@
-# Estado del CRM — corte al 25 de octubre de 2026
+# Estado del CRM — corte al 26 de octubre de 2026
 
-## Bandeja de conversaciones — B1 y B2 en `ux/inbox-v1` — 26/10/2026
+## Orden original de columnas en Gestiones — 26/10/2026
+
+- «Columnas» de Gestiones suma «Orden original»: vuelve las columnas visibles al orden de fábrica sin mostrar ni ocultar ninguna (desde #247, «Mostrar todas» ya no reordena). Rama `ux/column-default-order`. Validación: `npm run typecheck`, `npm test` (170 archivos, 1222 pruebas), `npm run build`, e2e `column-order.e2e.ts` 2/2.
+
+## Bandeja de conversaciones — mergeada (#249, `53b14a0`) — 26/10/2026
+
+- Mergeada a `staging`, sin deploy. CI verde sobre `4b9b02b`. Validación final sobre base nueva: `test:inbox`, `test-communication.ts`, `test:inbound`, `test:permissions`; e2e focalizados 27/27 (1 omitido) y suite completa 201 OK, 1 omitido y solo la falla local conocida de `commercial.e2e.ts` («CRM template»). Al desplegar, la migración `043` construye índices trigram sobre `crm_messages` y `crm_inbound_messages`: hacerlo en un momento tranquilo.
 
 - API (`/_api/inbox/*`) y página `/inbox` (B1) commiteadas en `ux/inbox-v1`; B2 implementada en la misma rama, sin commit, PR, merge ni deploy.
 - B2: acciones de mensaje recibido compartidas con «Comunicación» (`InboundMessageActions` + `ResponseRecordDialog`), «Nuevo mensaje» con el «Contactar» de siempre y la gestión preseleccionada, búsqueda con debounce de 300 ms, mínimo 3 letras, filtros, «Cargar más», resaltado con `<mark>` (acentos no, ñ sí) y apertura del resultado en su mensaje. Guía actualizada.
@@ -8,7 +14,7 @@
 - Integrado `origin/staging` (spec 85, registro automático) por merge: nuestra migración pasó a `043_inbox_indexes.sql`; `voided` queda fuera de la Bandeja salvo «Anulados» de admin en el hilo; «Automático» y «Anular registro» también en la Bandeja.
 - Correcciones de revisión: «Cargar más» e hilo sobre consultas infinitas, intento de respuesta que sobrevive al cambio de conversación, etapa del teléfono desde la URL, nombre del negocio en `inbox_threads`, filtros de búsqueda persistentes y mínimo por caracteres visibles, acciones desde las filas del hilo, diálogo de respuesta que se reinicia al abrir.
 - Validación tras la integración: `npm run typecheck`, `npm test` (170 archivos, 1221 pruebas), `npm run build`. Falta `test:inbox` y e2e sobre una base nueva (la local tiene la vieja `042_inbox_indexes` aplicada).
-- Próximo paso: base de prueba nueva, `test:inbox` + e2e, revisión del propietario y PR a `staging`.
+- Próximo paso: revisión del propietario en `staging` y su «terminamos» para pasar a `main`.
 
 ## Vistas fijadas y orden de columnas — 25/10/2026
 
