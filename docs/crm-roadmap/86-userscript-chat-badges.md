@@ -14,7 +14,7 @@ Debajo de cada chat individual de la lista, una insignia propia del CRM con lo j
 
 - **Solo lectura.** Las insignias no registran nada, no cambian estados y no hacen clics en WhatsApp.
 - **Datos que salen de WhatsApp:** el título del chat y su teléfono, cuando el script lo puede leer. Nunca el texto del último mensaje ni el contenido de chats sin abrir.
-- **Mismas reglas de lectura que `context`:** lo que un vendedor no puede ver en el CRM tampoco aparece en la insignia.
+- **Mismas reglas de lectura que `context`:** lo que un vendedor no puede ver en el CRM tampoco aparece en la insignia. Si el chat coincide con un negocio que no puede leer, no se muestran datos, pero tampoco se lo presenta como un contacto nuevo. Tradeoff aceptado: se revela que el número existe (decisión del 26/10/2026, `decisiones.md`).
 - **No ensuciar:** los grupos, los chats archivados y los chats sin teléfono ni código no llevan insignia.
 
 ## 4. Qué muestra
@@ -27,7 +27,7 @@ Una insignia compacta por chat, en la primera línea de la fila, alineada a la d
 | No contactar o restricción activa de WhatsApp | El código: «H2201» | rojo |
 | Varios negocios con ese teléfono o código | «2 negocios» | ámbar |
 | Chat individual con teléfono y sin negocio | «Sin CRM», con borde punteado | gris |
-| Negocio que el vendedor no puede leer | Sin insignia | — |
+| Negocio que el vendedor no puede leer (archivado y de otro responsable) | Sin insignia, nunca «Sin CRM». El panel del chat avisa «Este número está en un negocio que no podés ver…» | — |
 
 No se agranda la fila de WhatsApp. La lista es virtualizada y tiene alto fijo, así que cambiarle el alto rompe el scroll (decisión del 26/10/2026).
 
