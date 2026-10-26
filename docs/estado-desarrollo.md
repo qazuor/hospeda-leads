@@ -5,7 +5,10 @@
 - API (`/_api/inbox/*`) y página `/inbox` (B1) commiteadas en `ux/inbox-v1`; B2 implementada en la misma rama, sin commit, PR, merge ni deploy.
 - B2: acciones de mensaje recibido compartidas con «Comunicación» (`InboundMessageActions` + `ResponseRecordDialog`), «Nuevo mensaje» con el «Contactar» de siempre y la gestión preseleccionada, búsqueda con debounce de 300 ms, mínimo 3 letras, filtros, «Cargar más», resaltado con `<mark>` (acentos no, ñ sí) y apertura del resultado en su mensaje. Guía actualizada.
 - Validación local: `npm run typecheck`, `npm test` (162 archivos, 1166 pruebas), `npm run build`, `npm run test:inbox`; e2e `inbox.e2e.ts` 3/3 (el escenario de vendedor se omite: el seed no tiene vendedor) y suite e2e completa 201 pasan, 1 omitida, 1 falla (`commercial.e2e.ts`, solo local, por datos que quedaron en la base local).
-- Próximo paso: revisión del propietario, commit y PR a `staging`.
+- Integrado `origin/staging` (spec 85, registro automático) por merge: nuestra migración pasó a `043_inbox_indexes.sql`; `voided` queda fuera de la Bandeja salvo «Anulados» de admin en el hilo; «Automático» y «Anular registro» también en la Bandeja.
+- Correcciones de revisión: «Cargar más» e hilo sobre consultas infinitas, intento de respuesta que sobrevive al cambio de conversación, etapa del teléfono desde la URL, nombre del negocio en `inbox_threads`, filtros de búsqueda persistentes y mínimo por caracteres visibles, acciones desde las filas del hilo, diálogo de respuesta que se reinicia al abrir.
+- Validación tras la integración: `npm run typecheck`, `npm test` (170 archivos, 1221 pruebas), `npm run build`. Falta `test:inbox` y e2e sobre una base nueva (la local tiene la vieja `042_inbox_indexes` aplicada).
+- Próximo paso: base de prueba nueva, `test:inbox` + e2e, revisión del propietario y PR a `staging`.
 
 ## Vistas fijadas y orden de columnas — 25/10/2026
 

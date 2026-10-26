@@ -263,4 +263,4 @@ PR 1/2 (#230) y PR 2/2 implementados. Falta que el propietario revise la ficha n
 
 ### Bandeja de conversaciones (26/10/2026)
 
-B1 y B2 implementadas en `ux/inbox-v1`, sin PR. Falta: revisión del propietario, commit y PR a `staging`. Límites conocidos: el e2e del vendedor se omite porque el seed no tiene vendedor (la visibilidad la cubre `test:inbox`); el e2e del descarte sirve el mensaje recibido con mocks porque la app no puede crear uno sin el token del webhook; la búsqueda solo lleva al mensaje si aparece en las primeras 4 páginas del hilo.
+B1 y B2 implementadas en `ux/inbox-v1`, sin PR. Falta: revisión del propietario, commit y PR a `staging`. Límites conocidos: el e2e del vendedor se omite porque el seed no tiene vendedor (la visibilidad la cubre `test:inbox`); el e2e del descarte sirve el mensaje recibido con mocks porque la app no puede crear uno sin el token del webhook; la búsqueda solo lleva al mensaje si aparece en las primeras 4 páginas del hilo (si no, avisa). Las subconsultas de registro automático por fila del hilo no tienen índice por `message_id`/`inbound_id` (igual que `communication` en staging); revisar si `crm_auto_registrations` crece.
