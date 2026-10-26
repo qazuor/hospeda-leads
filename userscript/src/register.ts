@@ -8,6 +8,7 @@ export function getCachedIds(): string[] { return GM_getValue<string[]>(CACHE_KE
 export function filterCached(messages: ChatMessage[], cached = getCachedIds()): ChatMessage[] { const ids = new Set(cached); return messages.filter(message => !ids.has(message.externalId)); }
 export function batches<T>(items: T[], size = 50): T[][] { const result: T[][] = []; for (let i = 0; i < items.length; i += size) result.push(items.slice(i, i + size)); return result; }
 export function mergeResults(cached: string[], results: RegisterResult[]): string[] { return [...new Set([...cached, ...results.filter(result => result.status !== "rejected").map(result => result.externalId)])].slice(-CACHE_LIMIT); }
+export function cacheAccepted(results:RegisterResult[]):void{GM_setValue(CACHE_KEY,mergeResults(getCachedIds(),results));}
 export function summarizeResults(results: RegisterResult[]): string { const created = results.filter(item => item.status === "created").length; const duplicate = results.filter(item => item.status === "duplicate").length; const rejected = results.filter(item => item.status === "rejected").length; return `${created} registrados · ${duplicate} ya estaban · ${rejected} rechazados`; }
 
 export class RegisterController {

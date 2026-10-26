@@ -149,6 +149,7 @@ export default function SettingsPage(){
       {section==="variables"&&data&&<section className={styles.templatesSection}><MessageVariablesSettings data={data}/></section>}
 
       {section==="system"&&<section className={styles.grid}>
+        {data?.userscriptAutoRegister&&<article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Registro automático de WhatsApp</h2><p>Permite registrar mensajes de chats asociados a un único negocio elegible.</p></div></div><div className={styles.systemControl}><label><input type="checkbox" checked={data.userscriptAutoRegister.enabled} disabled={save.isPending} onChange={e=>void runOperation('settings',()=>save.mutateAsync({action:'saveUserscriptAutoRegister',enabled:e.currentTarget.checked}))}/> Activar registro automático</label></div></article>}
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>
         <article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Apariencia</h2><p>Elegí tema claro, oscuro o el definido por el sistema operativo.</p></div></div><div className={styles.systemControl}><ThemeModeSwitch/></div></article>
       </section>}

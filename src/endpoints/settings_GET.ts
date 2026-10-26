@@ -22,7 +22,7 @@ export async function handle(request:Request){
       admin?db.selectFrom("messageTemplates").select(["id","channel","name","subject","body","vertical","managementType","commercialProfile","purpose","active"]).orderBy("managementType").orderBy("vertical").orderBy("commercialProfile").orderBy("purpose").orderBy("channel").orderBy("name").execute():db.selectFrom("messageTemplates").select(["id","channel","name","subject","body","vertical","managementType","commercialProfile","purpose","active"]).where("active","=",true).orderBy("managementType").orderBy("vertical").orderBy("commercialProfile").orderBy("purpose").orderBy("channel").orderBy("name").execute(),
       db.selectFrom("crmVerticals").select("name").where("active","=",true).orderBy("sortOrder").orderBy("name").execute(),
       db.selectFrom("appSettings").select(["key","value"]).where("key","in",[
-        ...(admin?["brevo_sender_name","brevo_sender_email","brevo_reply_to_email"]:[]),"crm_contact_positions","crm_contact_channels"
+        ...(admin?["brevo_sender_name","brevo_sender_email","brevo_reply_to_email","crm_userscript_auto_register"]:[]),"crm_contact_positions","crm_contact_channels"
       ]).execute(),
       admin?db.selectFrom("appSettings").select(["key","value"]).where("key","like","user_invitation:%").execute():Promise.resolve([]),
       getOpportunityStages(db),
@@ -59,6 +59,7 @@ export async function handle(request:Request){
         replyToEmail:emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar",
         brevoConnected:!!(process.env as Record<string,string|undefined>).BREVO_API_KEY
       }}:{}),
+      ...(admin?{userscriptAutoRegister:(()=>{try{return JSON.parse(emailConfig.crm_userscript_auto_register||'{"enabled":false}') as {enabled:boolean};}catch{return {enabled:false};}})()}:{}),
       contactPositions:JSON.parse(emailConfig.crm_contact_positions||"[]"),
       contactChannels:JSON.parse(emailConfig.crm_contact_channels||"[]"),
       opportunityStages,
