@@ -3,7 +3,6 @@ import {useCallbackRef} from '../helpers/useCallbackRef';
 import React, { createContext, useContext, useId, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Box, CloseButton, Modal, Text, Title } from '@mantine/core';
 import { ControlTarget } from './ui/ControlTarget';
-import { useReducedMotion } from '@mantine/hooks';
 import { Button } from './Button';
 import styles from './Dialog.module.css';
 
@@ -75,7 +74,6 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   onEscapeKeyDown, onInteractOutside, onOpenAutoFocus, onCloseAutoFocus, opaqueOverlay = false, ...props
 }, ref) => {
   const ctx = useDialog();
-  const reduceMotion = useReducedMotion();
   const layer=useDialogLayer(ctx.open&&!inline);
   const opener = useRef(typeof document === 'undefined' ? null : document.activeElement as HTMLElement);
   const wasInline = useRef(inline);
@@ -116,7 +114,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, ContentProps>(({
   const focus = () => { const event = new Event('focus', { cancelable: true }); onOpenAutoFocus?.(event); };
   if (inline) return <InlineContext.Provider value><Box {...props} ref={ref} className={className}>{children}</Box></InlineContext.Provider>;
   return <InlineContext.Provider value={false}><Modal.Root opened={ctx.open} onClose={close} size="auto" centered={!side} fullScreen={fullScreen} classNames={side ? { inner: styles.sideInner } : undefined} scrollAreaComponent={ModalSurface}
-    transitionProps={side ? { transition: 'slide-left', duration: reduceMotion ? 0 : 220 } : { duration: 0 }} zIndex={layer.zIndex} trapFocus={layer.active} portalProps={container ? { target: container } : undefined}
+    transitionProps={{ duration: 0 }} zIndex={layer.zIndex} trapFocus={layer.active} portalProps={container ? { target: container } : undefined}
     closeOnEscape={false} closeOnClickOutside={layer.active && !onInteractOutside && !ctx.hasOpenChild}
     onEnterTransitionEnd={focus} returnFocus={!onCloseAutoFocus}
     onExitTransitionEnd={() => { const event = new Event('focus', { cancelable: true }); onCloseAutoFocus?.(event); }}>

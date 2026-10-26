@@ -9,13 +9,13 @@ const subscribeOnline=(notify:()=>void)=>{window.addEventListener("online",notif
 export const useOnline=()=>useSyncExternalStore(subscribeOnline,()=>navigator.onLine,()=>true);
 
 export const LiveModeSwitch=()=>{
-  const {enabled,status,checkingNow,lastCheckedAt}=useLiveMode();
+  const {status,refreshing,lastCheckedAt}=useLiveMode();
   const online=useOnline();
-  const state=!online||!enabled||status==='error'?'error':status==='checking'||checkingNow?'refreshing':'live';
-  const label=state==='error'?'En vivo · Sin conexión':state==='refreshing'?'En vivo · Actualizando':'En vivo';
+  const state=!online||status==='error'?'error':refreshing?'refreshing':'live';
+  const label=state==='error'?(!online?'En vivo · Sin conexión':'En vivo · Con problemas'):state==='refreshing'?'En vivo · Actualizando':'En vivo';
   const checked=lastCheckedAt?lastCheckedAt.toLocaleString('es-AR',{timeZone:CRM_TIME_ZONE}):'Todavía no hubo una actualización correcta';
   const message=`${state==='error'?'No está funcionando':state==='refreshing'?'Actualizando ahora':'Actualización en vivo activa'} · Última actualización correcta: ${checked}`;
-  return <Tooltip label={message} position="right"><div className={styles.controls} title={message} aria-label={message}>
-    <span className={`${styles.indicator} ${styles[state]}`} aria-hidden="true"/><span className={styles.label}>{label}</span>
+  return <Tooltip label={message} position="right"><div className={styles.controls} aria-label={message}>
+    <span className={`${styles.indicator} ${styles[state]}`} aria-hidden="true"/><span className={styles.label} data-live-label>{label}</span>
   </div></Tooltip>;
 };

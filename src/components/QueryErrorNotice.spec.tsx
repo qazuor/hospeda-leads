@@ -10,7 +10,7 @@ import {crmReadError} from '../helpers/crmFeedback';
 import {CrmApiError} from '../helpers/apiClient';
 
 vi.mock('sonner',()=>({toast:{error:vi.fn(),success:vi.fn(),info:vi.fn()}}));
-vi.mock('../helpers/liveMode',()=>({useLiveMode:()=>({enabled:true,status:'ok',setEnabled:vi.fn(),lastCheckedAt:null,refresh:vi.fn()})}));
+vi.mock('../helpers/liveMode',()=>({useLiveMode:()=>({status:'live',refreshing:false,lastCheckedAt:null})}));
 beforeAll(()=>{
  window.matchMedia=window.matchMedia||((query:string)=>({matches:false,media:query,addEventListener:()=>{},removeEventListener:()=>{},addListener:()=>{},removeListener:()=>{},dispatchEvent:()=>false,onchange:null}) as MediaQueryList);
  window.ResizeObserver=window.ResizeObserver||class{observe(){}unobserve(){}disconnect(){}};

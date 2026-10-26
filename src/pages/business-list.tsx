@@ -40,7 +40,7 @@ import {getLeads,type OutputType} from '../endpoints/leads_GET.schema';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import {getBusinessListDefaults} from '../endpoints/business_list_defaults.schema';
 import {getBusinessColumnGroups} from '../endpoints/business_column_groups.schema';
-import {LIVE_MANUAL_WHEN_PAGED,useLiveModeRefreshing,useLivePendingRefresh} from '../helpers/liveMode';
+import {LIVE_MANUAL_WHEN_PAGED,useLivePendingRefresh} from '../helpers/liveMode';
 import {useAuth} from '../helpers/useAuth';
 import {formatDate,formatDay} from '../helpers/crmDates';
 import {useDebounce} from '../helpers/useDebounce';
@@ -56,7 +56,7 @@ export default function BusinessListPage(){const {authState}=useAuth();const def
 }
 function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{userId:number;userEmail:string;admin:boolean;defaults:Awaited<ReturnType<typeof getBusinessListDefaults>>;groups:BusinessColumnGroup[];groupsResolved:boolean}){
  const BUSINESS_COLUMNS=[...NORMAL_BUSINESS_COLUMNS,...groups.map(group=>({key:'group:'+group.id,label:group.name}))];
- const manualRefreshing=useLiveModeRefreshing();const [retryLoading,setRetryLoading]=useState(false);const retryLock=useRef(false);
+ const [retryLoading,setRetryLoading]=useState(false);const retryLock=useRef(false);
  const navigate=useNavigate(),qc=useQueryClient();const [searchParams,setSearchParams]=useSearchParams();const [duplicatesOpen,setDuplicatesOpen]=useState(false);
  const persistPrunedPreferences=useRef(false),lastPrunedPreferenceWrite=useRef<string|null>(null),lastSavedPreferenceSnapshot=useRef<string|null>(null);
  const [initial]=useState(()=>{const personal=readPersonalPreferences(userId),storedValue=readBusinessViewSelection(userId),stored=storedValue?(groupsResolved?{...storedValue,baseline:pruneDeletedGroupPreferences(storedValue.baseline,groups)}:storedValue):null,marker=readSellerDefaultMarker(userId),team=defaults.defaults?{...defaults.defaults,preferences:groupsResolved?pruneDeletedGroupPreferences(defaults.defaults.preferences,groups):defaults.defaults.preferences,systemViews:groupsResolved?defaults.defaults.systemViews?.map(view=>{const parsed=listPreferencesSchema.safeParse(view.preferences);return parsed.success?{...view,preferences:pruneDeletedGroupPreferences(parsed.data,groups)}:view;}):defaults.defaults.systemViews}:undefined,systemViews=team?.systemViews,rawBase=personal?.preferences??initialPreferences(team,window.innerWidth<768),base=groupsResolved?pruneDeletedGroupPreferences(rawBase,groups):rawBase,context=personal?.context??{page:1,scrollY:0,scrollX:0} as ListContext;
@@ -94,7 +94,7 @@ function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{u
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
  const rows=results.data?.pages.flatMap(p=>p.rows)??[],total=results.data?.pages[0]?.total??0;
  useEffect(()=>{if(!results.isFetching)settledRequest.current=requestSignature;},[requestSignature,results.isFetching]);
- const busy=results.isPending||query!==prefs.query||((manualRefreshing||retryLoading||liveRefreshing||settledRequest.current!==requestSignature)&&results.isFetching&&!results.isFetchingNextPage);
+ const busy=results.isPending||query!==prefs.query||((retryLoading||liveRefreshing||settledRequest.current!==requestSignature)&&results.isFetching&&!results.isFetchingNextPage);
  const refreshLiveChanges=async()=>{if(liveRefreshLock.current)return;liveRefreshLock.current=true;setLiveRefreshing(true);livePending.clear();try{await results.refetch();}finally{liveRefreshLock.current=false;setLiveRefreshing(false);}};
  const retryResults=async()=>{if(retryLock.current)return;retryLock.current=true;setRetryLoading(true);try{if(results.isFetchNextPageError)await results.fetchNextPage();else await results.refetch();}finally{retryLock.current=false;setRetryLoading(false);}};
  const persistPreferences=(preferences:ListPreferences,context:ListContext)=>{const snapshot=JSON.stringify({preferences,context});if(lastSavedPreferenceSnapshot.current===snapshot)return true;const ok=savePersonalPreferences(userId,preferences,context);if(ok)lastSavedPreferenceSnapshot.current=snapshot;return ok;};

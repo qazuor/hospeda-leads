@@ -1,7 +1,7 @@
 import { MutationCache, QueryClient, QueryClientProvider, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StrictMode } from "react";
-import { act, render, screen } from "@testing-library/react";
-import { useLiveMode, useLiveModeRefreshing, useLivePendingRefresh, shouldDeferLiveRefetch, LiveModeProvider, LIVE_MANUAL_WHEN_PAGED } from "./liveMode";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { useLiveMode, useLivePendingRefresh, shouldDeferLiveRefetch, LiveModeProvider, LIVE_MANUAL_WHEN_PAGED } from "./liveMode";
 import { vi } from "vitest";
 
 vi.mock("./useAuth", () => ({ useAuth: () => ({ authState: { type: "authenticated" } }) }));
@@ -54,10 +54,15 @@ describe("LiveModeProvider polling", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("starts enabled for a user without a saved live-mode preference", () => {
-    function EnabledProbe() { const { enabled, status } = useLiveMode(); return <span>{`${enabled}:${status}`}</span>; }
-    renderWithProvider(<EnabledProbe/>);
-    expect(screen.getByText("true:checking")).toBeTruthy();
+  it("is always on: ignores and removes a stored opt-out", async () => {
+    window.localStorage.setItem("hospeda-live-mode", "off");
+    function Probe() { const { refreshing, status } = useLiveMode(); return <span>{`${refreshing}:${status}`}</span>; }
+    renderWithProvider(<Probe/>);
+    expect(screen.getByText("true:live")).toBeTruthy();
+    expect(window.localStorage.getItem("hospeda-live-mode")).toBeNull();
+    await act(async () => {});
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("false:live")).toBeTruthy();
   });
 
   it("skips hidden intervals and checks on return when the throttle allows", async () => {
@@ -142,18 +147,6 @@ describe("LiveModeProvider polling", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("stops polling when a consumer disables live mode", async () => {
-    function Consumer() {
-      const { setEnabled } = useLiveMode();
-      return <button onClick={() => setEnabled(false)}>Turn off</button>;
-    }
-    renderWithProvider(<Consumer />);
-    await act(async () => {});
-    await act(async () => { screen.getByText("Turn off").click(); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
   it("does not start overlapping checks while a fetch is unresolved", async () => {
     fetchMock.mockImplementation(() => new Promise<Response>(() => {}));
     renderWithProvider(<span>consumer</span>);
@@ -162,65 +155,48 @@ describe("LiveModeProvider polling", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("ignores a pending response after live mode is switched off", async () => {
-    let resolveFetch!: (response: Response) => void;
-    fetchMock.mockImplementation(() => new Promise<Response>(resolve => { resolveFetch = resolve; }));
-    function Consumer() {
-      const { setEnabled, status } = useLiveMode();
-      return <><button onClick={() => setEnabled(false)}>Turn off</button><span>{status}</span></>;
-    }
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue();
-    renderWithProvider(<Consumer />, queryClient);
+  it("reports a failing check as an error and recovers on the next success", async () => {
+    function Probe() { const { status } = useLiveMode(); return <span>{status}</span>; }
+    fetchMock.mockImplementationOnce(async () => new Response("boom", { status: 500 }));
+    renderWithProvider(<Probe/>);
     await act(async () => {});
-    await act(async () => { screen.getByText("Turn off").click(); });
-    version = "v2";
-    await act(async () => { resolveFetch(new Response(JSON.stringify({ json: { version } }), { status: 200 })); });
-    expect(screen.getByText("off")).toBeTruthy();
-    expect(invalidate).not.toHaveBeenCalled();
-  });
-
-  it("does not rerender manual-refresh consumers when a background check finds no new version", async () => {
-    let renders = 0;
-    function Consumer() { useLiveModeRefreshing(); renders += 1; return <span>consumer</span>; }
-    renderWithProvider(<Consumer />);
-    await act(async () => {});
-    const afterInitialCheck = renders;
+    expect(screen.getByText("error")).toBeTruthy();
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(renders).toBe(afterInitialCheck);
+    expect(screen.getByText("live")).toBeTruthy();
   });
 
-  it("rerenders useLiveMode consumers when lastCheckedAt changes", async () => {
+  it("shows refreshing during the first check and while refetching after a change, not for routine polls", async () => {
+    const seen: boolean[] = [];
+    function Probe() { const { refreshing } = useLiveMode(); seen.push(refreshing); return <span>{String(refreshing)}</span>; }
+    renderWithProvider(<Probe/>);
+    expect(screen.getByText("true")).toBeTruthy();
+    await act(async () => {});
+    expect(screen.getByText("false")).toBeTruthy();
+    seen.length = 0;
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(seen).not.toContain(true);
+    version = "v2";
+    const releases: Array<() => void> = [];
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.spyOn(queryClient, "invalidateQueries").mockImplementation(() => new Promise<void>(resolve => { releases.push(resolve); }));
+    cleanup();
+    renderWithProvider(<Probe/>, queryClient);
+    await act(async () => {});
+    version = "v3";
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(screen.getByText("true")).toBeTruthy();
+    await act(async () => { releases.forEach(release => release()); });
+    expect(screen.getByText("false")).toBeTruthy();
+  });
+
+  it("rerenders useLiveMode consumers once per routine poll", async () => {
     let renders = 0;
     function Consumer() { useLiveMode(); renders += 1; return <span>{renders}</span>; }
     renderWithProvider(<Consumer />);
     await act(async () => {});
     const afterInitialCheck = renders;
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
-    expect(renders).toBeGreaterThan(afterInitialCheck);
-  });
-
-  it("keeps background status stable while manual check exposes checking", async () => {
-    let resolveBackground!: (response: Response) => void;
-    let resolveManual!: (response: Response) => void;
-    function Consumer() {
-      const { status, checkNow } = useLiveMode();
-      return <><span>{status}</span><button onClick={() => void checkNow()}>Check now</button></>;
-    }
-    renderWithProvider(<Consumer />);
-    await act(async () => {});
-    fetchMock.mockImplementationOnce(() => new Promise<Response>(resolve => { resolveBackground = resolve; }));
-    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
-    expect(screen.getByText("live")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    await act(async () => { resolveBackground(new Response(JSON.stringify({ json: { version } }), { status: 200 })); });
-    fetchMock.mockImplementationOnce(() => new Promise<Response>(resolve => { resolveManual = resolve; }));
-    await act(async () => { screen.getByText("Check now").click(); });
-    expect(screen.getByText("checking")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    await act(async () => { resolveManual(new Response(JSON.stringify({ json: { version } }), { status: 200 })); });
-    expect(screen.getByText("live")).toBeTruthy();
+    expect(renders).toBe(afterInitialCheck + 1);
   });
 
   describe("paged infinite lists (manual refresh chip)", () => {
@@ -229,13 +205,12 @@ describe("LiveModeProvider polling", () => {
     function List({ fetched }: { fetched: number[] }) {
       const results = useInfiniteQuery({ queryKey: listKey, initialPageParam: 1, queryFn: async ({ pageParam }) => { fetched.push(pageParam); if (delay) await new Promise(resolve => setTimeout(resolve, delay)); return { page: pageParam }; }, getNextPageParam: last => last.page < 3 ? last.page + 1 : undefined, meta: LIVE_MANUAL_WHEN_PAGED });
       const { pending, clear } = useLivePendingRefresh(listKey);
-      const { refresh } = useLiveMode();
       const queryClient = useQueryClient();
       // An own edit: the write is stamped first, the response arrives 300 ms later, then the list is refetched.
       const edit = useMutation({ mutationFn: async () => { write("business"); await new Promise(resolve => setTimeout(resolve, 300)); }, onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); } });
       // A failed own edit: the statement ran but the response is an error; the list is refetched anyway.
       const failed = useMutation({ mutationFn: async () => { write("business"); await new Promise(resolve => setTimeout(resolve, 300)); throw new Error("rejected"); }, onError: async () => { await queryClient.invalidateQueries({ queryKey: ["leads"] }); } });
-      return <><button onClick={() => edit.mutate()}>Edit</button><button onClick={() => failed.mutate()}>Fail</button><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button><button onClick={() => void refresh()}>Refresh all</button></>;
+      return <><button onClick={() => edit.mutate()}>Edit</button><button onClick={() => failed.mutate()}>Fail</button><span>pages:{results.data?.pages.length ?? 0}</span><span>{pending ? "pending" : "fresh"}</span><button onClick={() => void results.fetchNextPage()}>More</button><button onClick={clear}>Clear</button></>;
     }
     async function renderList(pages: number) {
       domains = { business: "1", work: "1", communication: "1", catalog: "1", journal: "1" };
@@ -283,15 +258,6 @@ describe("LiveModeProvider polling", () => {
       const { fetched, queryClient } = await renderList(2);
       await liveChange("journal");
       expect(fetched).toEqual([]);
-      expect(screen.getByText("fresh")).toBeTruthy();
-    });
-
-    it("refetches every loaded page and clears the flag on a manual refresh", async () => {
-      const { fetched, queryClient } = await renderList(2);
-      await liveChange("business");
-      expect(screen.getByText("pending")).toBeTruthy();
-      await act(async () => { screen.getByText("Refresh all").click(); await vi.advanceTimersByTimeAsync(0); });
-      expect(fetched).toEqual([1, 2]);
       expect(screen.getByText("fresh")).toBeTruthy();
     });
 
