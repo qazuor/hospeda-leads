@@ -106,3 +106,6 @@
 @media(max-width:767px){.searchRow>button{flex:0 0 auto}.searchRow>[role=group]{flex:1 1 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.searchRow>[role=group]>*{flex:none}}
 .businessName{display:inline}
 @media(pointer:coarse){.table .businessName{display:inline-flex;align-items:center}}
+/* Pinned selection and action cells follow the row tint, including the sticky header. */
+th.selectionPinned{background:var(--surface)!important}
+@media(min-width:768px){.table td.pinned{background:var(--row-background,var(--card))}.table td.pinnedRight{background:var(--row-background,var(--card))!important}}
