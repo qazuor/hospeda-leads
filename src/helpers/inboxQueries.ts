@@ -9,7 +9,7 @@ import {CrmForbidden,assertAccountViewable} from './crmPermissions';
 import {crmError,fallbackStatus} from './crmErrors';
 import {ZodError} from 'zod';
 import {inboxBusinessesInput,inboxThreadsInput,inboxThreadInput,inboxSearchInput} from '../endpoints/inbox.schema';
-import {buildInboxSnippet,decodeInboxCursor,encodeInboxCursor,escapeLikePattern} from '../endpoints/inboxPure';
+import {buildInboxSnippet,decodeInboxCursor,encodeInboxCursor,escapeLikePattern,inboxSearchLength,INBOX_SEARCH_MIN} from '../endpoints/inboxPure';
 import {inboxReplyAvailability} from './inboxReplyAvailability';
 import {smtpConfigured} from './smtpTransport';
 
@@ -22,10 +22,10 @@ async function auth(request:Request){return getServerUserSession(request);}
 const params=(request:Request)=>Object.fromEntries(new URL(request.url).searchParams);
 /** Single-business read access (assertAccountViewable: archived only for admin or its own seller; deleted forbidden); a missing business is 404. */
 async function viewableAccount(user:InboxUser,accountId:string){
- const account=await db.selectFrom('crmAccounts').select(['id','assignedUserEmail','archivedAt','deletedAt','mergedIntoId','doNotContact']).where('id','=',accountId).executeTakeFirst();
+ const account=await db.selectFrom('crmAccounts').select(['id','nombre','assignedUserEmail','archivedAt','deletedAt','mergedIntoId','doNotContact']).where('id','=',accountId).executeTakeFirst();
  if(!account)throw new InboxNotFound('No encontramos ese negocio.');
  assertAccountViewable(user,account);
- return {accountOwner:user.role==='admin'||account.assignedUserEmail===user.email};
+ return {accountOwner:user.role==='admin'||account.assignedUserEmail===user.email,accountName:account.nombre};
 }
 /**
  * Keyset cursor instant with full timestamptz (microsecond) precision. It is compared back as `${at}::text::timestamptz`:
@@ -41,12 +41,13 @@ export async function inboxBusinesses(request:Request){try{
 }catch(e){return fail(e);}}
 
 export async function inboxThreads(request:Request){try{
- const {user}=await auth(request),{accountId}=inboxThreadsInput.parse(params(request));await viewableAccount(user,accountId);
- const rows=await queryInboxThreads(user,accountId);return json({rows:rows.rows});
+ const {user}=await auth(request),{accountId}=inboxThreadsInput.parse(params(request)),{accountName}=await viewableAccount(user,accountId);
+ // accountName lets the Bandeja title the business even when it is not in the loaded list page (deep link, left «A revisar»).
+ const rows=await queryInboxThreads(user,accountId);return json({rows:rows.rows,accountName});
 }catch(e){return fail(e);}}
 
 export async function inboxThread(request:Request){try{
- const {user}=await auth(request),a=inboxThreadInput.parse(params(request)),cursor=decodeInboxCursor(a.cursor),leadId=a.leadId==='none'?null:a.leadId,admin=user.role==='admin';
+ const {user}=await auth(request),a=inboxThreadInput.parse(params(request)),cursor=decodeInboxCursor(a.cursor),leadId=a.leadId==='none'?null:a.leadId,admin=user.role==='admin',includeVoided=admin&&a.includeVoided==='1';
  if(cursor&&String(cursor.kind)==='business')throw new Error('Cursor inválido.');
  const {accountOwner}=await viewableAccount(user,a.accountId);
  if(leadId===null&&!accountOwner)throw new CrmForbidden('Solo el responsable del negocio o un administrador puede consultar la actividad general.');
@@ -56,14 +57,14 @@ export async function inboxThread(request:Request){try{
   if(lead.deletedAt&&!admin)throw new CrmForbidden('Esta gestión está en la papelera. Solo un administrador puede consultarla.');
   if(!accountOwner&&lead.assignedUserEmail!==user.email)throw new CrmForbidden('No tenés acceso a esta gestión.');
  }
- const availability=inboxReplyAvailability(smtpConfigured(),admin,user.email),rows=await queryInboxThreadEvents(a.accountId,leadId,a.channel,availability,cursor?{at:cursor.at,id:cursor.id,kind:cursor.kind as 'in'|'out'}:undefined,a.limit),items=rows.rows as Record<string,unknown>[],page=items.slice(0,a.limit),last=page.at(-1),visible=page.map(({cursorAt:_cursorAt,...item})=>item);
+ const availability=inboxReplyAvailability(smtpConfigured(),admin,user.email),rows=await queryInboxThreadEvents(a.accountId,leadId,a.channel,availability,includeVoided,cursor?{at:cursor.at,id:cursor.id,kind:cursor.kind as 'in'|'out'}:undefined,a.limit),items=rows.rows as Record<string,unknown>[],page=items.slice(0,a.limit),last=page.at(-1),visible=page.map(({cursorAt:_cursorAt,...item})=>item);
  return json({rows:visible,nextCursor:items.length>a.limit&&last?encodeInboxCursor({at:String(last.cursorAt),id:String(last.id),kind:String(last.kind) as 'in'|'out'}):null});
 }catch(e){return fail(e);}}
 
 export async function inboxSearch(request:Request){try{
  const {user}=await auth(request),a=inboxSearchInput.parse(params(request)),cursor=decodeInboxCursor(a.cursor),term=a.q.trim(),all=a.scope==='all'&&user.role==='admin';
  if(cursor&&String(cursor.kind)==='business')throw new Error('Cursor inválido.');
- if(term.length<3)return json({rows:[],nextCursor:null,queryTooShort:true});if(a.from&&a.to&&a.from>a.to)throw new Error('Rango de fechas inválido.');
+ if(inboxSearchLength(term)<INBOX_SEARCH_MIN)return json({rows:[],nextCursor:null,queryTooShort:true});if(a.from&&a.to&&a.from>a.to)throw new Error('Rango de fechas inválido.');
  const result=await queryInboxSearch(
   user,all,term,a.direction,a.channel,a.from,a.to,
   cursor?{at:cursor.at,id:cursor.id,kind:cursor.kind as 'in'|'out'}:undefined,a.limit
@@ -81,11 +82,16 @@ export async function inboxSearch(request:Request){try{
  }):null,queryTooShort:false});
 }catch(e){return fail(e);}}
 
-/** Shared literal predicates keep every inbox query on the same status rules. */
+/**
+ * Shared literal predicates keep every inbox query on the same status rules. A voided automatic registration (migration 042)
+ * is out of every list, count, last activity and search, in both directions; the thread detail shows it only to an admin who
+ * asks for it, like the «Anulados» filter of the business «Comunicación» tab.
+ */
 const listedInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered')`;
-const detailInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed')`;
+const detailInbound=(alias:'i',includeVoided:boolean)=>includeVoided?sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed','voided')`:sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed')`;
 const pendingInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)}='pending_review' AND ${sql.ref(`${alias}.is_automatic`)}=false`;
-const includedOutbound=(alias:'m')=>sql<boolean>`${sql.ref(`${alias}.status`)} NOT IN ('draft','cancelled')`;
+const includedOutbound=(alias:'m')=>sql<boolean>`${sql.ref(`${alias}.status`)} NOT IN ('draft','cancelled','voided')`;
+const detailOutbound=(alias:'m',includeVoided:boolean)=>includeVoided?sql<boolean>`${sql.ref(`${alias}.status`)} NOT IN ('draft','cancelled')`:includedOutbound(alias);
 const channelIs=(alias:'m'|'i',channel:string|undefined)=>channel?sql<boolean>`AND ${sql.ref(`${alias}.channel`)}=${channel}`:sql<boolean>``;
 
 /**
@@ -161,21 +167,28 @@ export async function queryInboxThreads(user:InboxUser,accountId:string){
 
 // Thread detail is assembled in the endpoint from this single SQL union so both directions share keyset ordering.
 // Every row of one conversation shares the same business and management, so the endpoint's access check covers them all.
-export async function queryInboxThreadEvents(accountId:string,leadId:string|null,channel:string,replySql:ReturnType<typeof inboxReplyAvailability>,cursor:{at:string;id:string;kind:'in'|'out'}|undefined,limit:number){
+// Inbound rows carry everything the shared inbound actions need (subject, automatic flag, linked message, reply
+// availability), so the Bandeja never depends on the 200-row window of GET /_api/communication.
+export async function queryInboxThreadEvents(accountId:string,leadId:string|null,channel:string,replySql:ReturnType<typeof inboxReplyAvailability>,includeVoided:boolean,cursor:{at:string;id:string;kind:'in'|'out'}|undefined,limit:number){
  return sql`WITH events AS (
   SELECT 'out'::text AS kind,m.id::text AS id,coalesce(m.last_interaction_at,m.created_at) AS at,m.channel,m.status,coalesce(m.body,'') AS text,m.summary,m.owner_email AS "authorEmail",
    NULL::text AS "fromName",NULL::text AS "fromAddress",false AS pending,false AS dismissed,
-   (m.channel IN ('call','social','other') OR m.status LIKE 'manual_%') AS "isManualLog",false AS "replyAvailable",false AS "replyRestricted"
+   (m.channel IN ('call','social','other') OR m.status LIKE 'manual_%') AS "isManualLog",false AS "replyAvailable",false AS "replyRestricted",
+   coalesce(m.subject,'') AS subject,false AS "isAutomatic",NULL::text AS "linkedMessageId",m.status='voided' AS voided,
+   ar.id::text AS "autoRegistrationId",ar.user_email AS "autoRegistrationUserEmail"
   FROM crm_messages m
+  LEFT JOIN LATERAL (SELECT r.id,r.user_email FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) ar ON true
   WHERE m.account_id=${accountId} AND m.lead_id IS NOT DISTINCT FROM ${leadId}::bigint AND m.channel=${channel}
-   AND ${includedOutbound('m')}
+   AND ${detailOutbound('m',includeVoided)}
   UNION ALL
   SELECT 'in',i.id::text,i.received_at,i.channel,i.status,i.text_body,NULL::text,NULL::text,i.from_name,i.from_address,
-   ${pendingInbound('i')},i.status='dismissed',false,${replySql.canReply},${replySql.replyRestricted}
+   ${pendingInbound('i')},i.status='dismissed',false,${replySql.canReply},${replySql.replyRestricted},
+   coalesce(i.subject,''),i.is_automatic,i.linked_message_id::text,i.status='voided',ar.id::text,ar.user_email
   FROM crm_inbound_messages i
   JOIN crm_accounts a ON a.id=i.account_id LEFT JOIN leads l ON l.id=i.lead_id
+  LEFT JOIN LATERAL (SELECT r.id,r.user_email FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) ar ON true
   WHERE i.account_id=${accountId} AND i.lead_id IS NOT DISTINCT FROM ${leadId}::bigint AND i.channel=${channel}
-   AND ${detailInbound('i')} -- dismissed messages are visible only in detail
+   AND ${detailInbound('i',includeVoided)} -- dismissed messages are visible only in detail
  )
  SELECT events.*,${cursorAt(sql`events.at`)} AS "cursorAt" FROM events
  ${cursor?sql`WHERE (at,id,kind)<(${cursor.at}::text::timestamptz,${cursor.id},${cursor.kind})`:sql``}

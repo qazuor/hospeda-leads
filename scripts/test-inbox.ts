@@ -25,9 +25,9 @@ async function inbound(fixture:InboundFixture){
  await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,lead_id,match_method,from_address,from_name,subject,text_body,headers,is_automatic,received_at,status,source) VALUES(${id}::uuid,${channel},${'inbox-'+stamp+'-'+id},${fixture.accountId},${fixture.leadId??null},'sender_email','guest@example.test','Guest',${fixture.subject??'Consulta'},${fixture.text},'{}'::jsonb,${fixture.automatic??false},${fixture.at??sql`now()`},${fixture.status??'registered'},${channel==='whatsapp'?'userscript':'email_worker'})`.execute(db);
  return id;
 }
-async function outbound(fixture:{accountId:string;leadId:string|null;owner:string;status?:string;at?:RawBuilder<unknown>;body:string}){
+async function outbound(fixture:{accountId:string;leadId:string|null;owner:string;status?:string;channel?:'email'|'whatsapp';at?:RawBuilder<unknown>;body:string}){
  const id=randomUUID();
- await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,subject,body,owner_email,status,last_interaction_at,created_at) VALUES(${id}::uuid,${fixture.accountId},${fixture.accountId},${fixture.leadId},'email','guest@example.test','Guest','Saliente',${fixture.body},${fixture.owner},${fixture.status??'manual_sent'},${fixture.at??sql`now()`},${fixture.at??sql`now()`})`.execute(db);
+ await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,subject,body,owner_email,status,last_interaction_at,created_at) VALUES(${id}::uuid,${fixture.accountId},${fixture.accountId},${fixture.leadId},${fixture.channel??'email'},'guest@example.test','Guest','Saliente',${fixture.body},${fixture.owner},${fixture.status??'manual_sent'},${fixture.at??sql`now()`},${fixture.at??sql`now()`})`.execute(db);
  return id;
 }
 /** Pages through a cursor endpoint (failing on loops) and returns every row in order plus the page count. */
@@ -38,7 +38,7 @@ async function allPages<T>(path:string,who:Identity){
 }
 type BusinessRow={accountId:string;pendingCount:number;lastDirection:string;lastPreview:string};
 type ThreadsRow={leadId:string|null;leadTitle:string;channel:string;pendingCount:number;messageCount:number};
-type ThreadItem={id:string;kind:string;dismissed:boolean;replyAvailable:boolean;replyRestricted:boolean};
+type ThreadItem={id:string;kind:string;dismissed:boolean;replyAvailable:boolean;replyRestricted:boolean;voided:boolean;subject:string;isAutomatic:boolean;linkedMessageId:string|null;autoRegistrationId:string|null;autoRegistrationUserEmail:string|null};
 type SearchRow={id:string;kind:string;accountId:string;accountName:string;leadId:string|null;leadTitle:string|null};
 const businesses=async(query:string,who:Identity)=>(await ok<{rows:BusinessRow[]}>(`businesses?${query}`,who)).rows;
 const search=async(q:string,who:Identity,extra='')=>(await ok<{rows:SearchRow[]}>(`search?q=${encodeURIComponent(q)}&limit=100${extra}`,who)).rows;
@@ -118,9 +118,11 @@ try{
  assert.deepEqual(pagedBusinesses.rows.map(row=>row.accountId),[...pagerIds].sort((a,b)=>Number(b)-Number(a)),'Businesses cursor keeps rows sharing the boundary instant, no gaps or duplicates');assert.equal(pagedBusinesses.pages,3);
 
  // Threads of a business.
- const threads=(await ok<{rows:ThreadsRow[]}>(`threads?accountId=${mainId}`,seller)).rows,thread=(leadId:string|null,channel='email')=>threads.find(row=>row.leadId===leadId&&row.channel===channel);
+ const threadsBody=await ok<{rows:ThreadsRow[];accountName:string}>(`threads?accountId=${mainId}`,seller),threads=threadsBody.rows,thread=(leadId:string|null,channel='email')=>threads.find(row=>row.leadId===leadId&&row.channel===channel);
  assert(thread(null)&&thread(String(lead.id))&&thread(null,'whatsapp')&&thread(String(lead.id),'whatsapp'),'General and management conversations are grouped per channel');
  assert.equal(thread(null)?.leadTitle,'General');
+ assert.equal(threadsBody.accountName,`Inbox fixture ${stamp}`,'Threads carry the business name for deep links');
+ assert.equal((await ok<{accountName:string}>(`threads?accountId=${hiddenId}`,seller)).accountName,`Inbox hidden ${stamp}`,'A management owner gets the business name too');
  assert.equal(thread(String(otherLead.id))?.messageCount,2,'Business owner sees inbound and outbound of another seller management');
  assert.equal(thread(String(lead.id))!.pendingCount,1,'Only non-automatic pending_review items count');assert.equal(thread(String(lead.id))!.messageCount,55,'Draft and cancelled outbounds do not count');
  assert(!thread(String(trashedLead.id)),'Deleted management is hidden from sellers');
@@ -145,6 +147,34 @@ try{
  assert(!excludedIds.some(id=>pageIds.includes(id)),'Draft and cancelled outbounds are excluded');
  const generalDetail=await ok<{rows:ThreadItem[]}>(`thread?accountId=${mainId}&leadId=none&channel=email`,seller);
  assert(generalDetail.rows.some(row=>row.id===dismissedId&&row.dismissed),'Dismissed inbound appears in detail');assert(!generalDetail.rows.some(row=>row.id===unmatchedId),'Unmatched inbound is never visible');
+
+ // Inbound rows carry what the shared inbound actions need, without GET /_api/communication.
+ const generalRow=generalDetail.rows.find(row=>row.id===generalPending);
+ assert.equal(generalRow?.subject,'Consulta');assert.equal(generalRow?.isAutomatic,false);assert.equal(generalRow?.linkedMessageId,null);assert.equal(generalRow?.voided,false);assert.equal(generalRow?.autoRegistrationId,null);
+
+ // Voided automatic registrations (migration 042): out of lists, counts, last activity and search; detail only for an admin who asks.
+ const voidAccount=await account('Inbox voided',seller.user.email),voidAccountId=String(voidAccount.id);
+ const keptIn=await inbound({accountId:voidAccountId,channel:'whatsapp',status:'pending_review',text:'kept voidcheck fixture',at:sql`now()-interval '1 hour'`});
+ const autoOut=await outbound({accountId:voidAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',at:sql`now()-interval '30 minutes'`,body:'auto voidcheck outbound'});
+ const voidedIn=randomUUID(),voidedOut=await outbound({accountId:voidAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',status:'voided',at:sql`now()+interval '1 hour'`,body:'gone voidcheck outbound'});
+ await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,match_method,from_address,from_name,subject,text_body,headers,is_automatic,received_at,status,source) VALUES(${voidedIn}::uuid,'whatsapp',NULL,${voidAccountId},'sender_email','guest@example.test','Guest','','gone voidcheck inbound','{}'::jsonb,false,now()+interval '2 hours','voided','userscript')`.execute(db);
+ const registration=async(fixture:{direction:'in'|'out';messageId?:string;inboundId?:string;voided:boolean})=>{const id=randomUUID();await sql`INSERT INTO crm_auto_registrations(id,account_id,user_email,channel,direction,external_id,message_id,inbound_id,effects,voided_at,voided_by_email,void_reason) VALUES(${id}::uuid,${voidAccountId},${seller.user.email},'whatsapp',${fixture.direction},${'inbox-auto-'+stamp+'-'+id},${fixture.messageId??null}::uuid,${fixture.inboundId??null}::uuid,'{}'::jsonb,${fixture.voided?sql`now()`:null},${fixture.voided?seller.user.email:null},${fixture.voided?'Mensaje personal':null})`.execute(db);return id;};
+ const autoInRegistration=await registration({direction:'in',inboundId:keptIn,voided:false}),autoOutRegistration=await registration({direction:'out',messageId:autoOut,voided:false});
+ await registration({direction:'in',inboundId:voidedIn,voided:true});await registration({direction:'out',messageId:voidedOut,voided:true});
+ const voidBusiness=(await businesses('filter=all&limit=100',seller)).find(row=>row.accountId===voidAccountId);
+ assert.equal(voidBusiness?.lastPreview,'auto voidcheck outbound','A voided registration never becomes last activity');assert.equal(voidBusiness?.pendingCount,1,'Voided inbound is not pending');
+ const voidThreads=(await ok<{rows:ThreadsRow[]}>(`threads?accountId=${voidAccountId}`,seller)).rows;
+ assert.deepEqual(voidThreads.map(row=>[row.leadId,row.channel,row.messageCount]),[[null,'whatsapp',2]],'Voided rows do not count in conversations');
+ const voidPath=`thread?accountId=${voidAccountId}&leadId=none&channel=whatsapp`;
+ for(const who of [seller,admin])assert.deepEqual((await ok<{rows:ThreadItem[]}>(voidPath,who)).rows.map(row=>row.id).sort(),[keptIn,autoOut].sort(),'Detail hides voided rows by default');
+ assert.deepEqual((await ok<{rows:ThreadItem[]}>(voidPath+'&includeVoided=1',seller)).rows.map(row=>row.id).sort(),[keptIn,autoOut].sort(),'includeVoided is ignored for a seller');
+ const adminVoided=(await ok<{rows:ThreadItem[]}>(voidPath+'&includeVoided=1',admin)).rows;
+ assert.deepEqual(adminVoided.filter(row=>row.voided).map(row=>row.id).sort(),[voidedIn,voidedOut].sort(),'An admin who asks sees voided rows flagged');
+ assert.equal(adminVoided.find(row=>row.id===voidedIn)?.autoRegistrationId,null,'A voided registration is no longer active');
+ const keptRow=adminVoided.find(row=>row.id===keptIn),autoRow=adminVoided.find(row=>row.id===autoOut);
+ assert.equal(keptRow?.autoRegistrationId,autoInRegistration);assert.equal(keptRow?.autoRegistrationUserEmail,seller.user.email);assert.equal(autoRow?.autoRegistrationId,autoOutRegistration,'Outbound rows carry their active automatic registration');
+ assert.deepEqual((await search('voidcheck',seller)).map(row=>row.id).sort(),[keptIn,autoOut].sort(),'Search excludes voided rows in both directions');
+ assert.equal((await ok<{rows:BusinessRow[]}>('businesses?filter=all&channel=whatsapp&limit=100',seller)).rows.find(row=>row.accountId===voidAccountId)?.lastPreview,'auto voidcheck outbound');
 
  // Reply availability parity with GET /_api/communication, including a restricted management.
  for(const leadId of [String(lead.id),String(restrictedLead.id)]){
@@ -198,6 +228,8 @@ try{
  assert.equal((await request('search?q=datefilter&from=2026-10-15&to=2026-10-14',pager.cookie)).status,400,'Inverted range');
  assert.equal((await request('search?q=precio&cursor=invalid',seller.cookie)).status,400);
  const short=await ok<{queryTooShort:boolean;rows:unknown[]}>('search?q=ab',seller);assert.equal(short.queryTooShort,true);assert.deepEqual(short.rows,[]);
+ for(const q of ['a b','  a  b  ','😀','👍🏽x'])assert.equal((await ok<{queryTooShort:boolean}>(`search?q=${encodeURIComponent(q)}`,seller)).queryTooShort,true,`«${q}» is below the visible minimum`);
+ assert.equal((await ok<{queryTooShort:boolean}>(`search?q=${encodeURIComponent('a b c')}`,seller)).queryTooShort,false,'Three visible characters search');
 }catch(error){
  testError=error;
 }finally{
@@ -212,8 +244,10 @@ try{
    await sql`DELETE FROM crm_communication_responses WHERE account_id IN (${ids}) OR original_account_id IN (${ids})`.execute(db);
    await sql`DELETE FROM crm_document_links WHERE account_id IN (${ids}) OR original_account_id IN (${ids})`.execute(db);
    await sql`DELETE FROM crm_documents WHERE account_id IN (${ids}) OR original_account_id IN (${ids})`.execute(db);
+   // Registrations first: deleting their message or inbound would null the reference and break their one-target check.
+   await sql`DELETE FROM crm_auto_registrations WHERE account_id IN (${ids})`.execute(db);
    await sql`DELETE FROM crm_messages WHERE account_id IN (${ids}) OR original_account_id IN (${ids})`.execute(db);
-   await sql`DELETE FROM crm_inbound_messages WHERE external_id LIKE ${`inbox-${stamp}-%`}`.execute(db);
+   await sql`DELETE FROM crm_inbound_messages WHERE external_id LIKE ${`inbox-${stamp}-%`} OR account_id IN (${ids})`.execute(db);
    await sql`DELETE FROM crm_contact_restrictions WHERE account_id IN (${ids})`.execute(db);
    await sql`DELETE FROM crm_contacts WHERE account_id IN (${ids})`.execute(db);
    await sql`DELETE FROM crm_activities WHERE account_id IN (${ids})`.execute(db);
