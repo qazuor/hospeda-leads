@@ -26,4 +26,20 @@ describe('findSearchMatch',()=>{
   const match=findSearchMatch({text,query:'llego'});
   expect(match&&text.slice(match.start,match.end)).toBe('llegó');
  });
+ it('maps matches around and on emoji, including surrogate pairs and skin tones',()=>{
+  expect(marked('Te mando 👍 y el precio','precio')).toBe('precio');
+  expect(marked('Gracias 👍🏽 saludos','👍🏽')).toBe('👍🏽');
+  expect(marked('🎉🎉 Ampliación lista','ampliacion')).toBe('Ampliación');
+ });
+ it('keeps a combining mark with its base letter when the match ends mid-cluster',()=>{
+  expect(marked('Los cafe\u0301s de hoy','cafe')).toBe('cafe\u0301');
+  expect(marked('Hasta man\u0303ana','man\u0303')).toBe('man\u0303');
+  expect(marked('Hasta man\u0303ana','man')).toBeNull();
+  expect(marked('Con e\u0301\u0302nfasis','enfasis')).toBe('e\u0301\u0302nfasis');
+ });
+ it('returns null when the query is empty after normalization',()=>{
+  expect(findSearchMatch({text:'Café',query:'\u0301'})).toBeNull();
+  expect(findSearchMatch({text:'Café',query:' \u0301\u0302 '})).toBeNull();
+  expect(findSearchMatch({text:'',query:'cafe'})).toBeNull();
+ });
 });
