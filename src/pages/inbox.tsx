@@ -21,6 +21,8 @@ function usePhone(){const [phone,setPhone]=useState(()=>typeof window!=='undefin
 /** Debounced copy of `value`, so typing does not fire one search per keystroke. */
 function useDebounced(value:string,ms:number){const [debounced,setDebounced]=useState(value);useEffect(()=>{const timer=window.setTimeout(()=>setDebounced(value),ms);return()=>window.clearTimeout(timer)},[value,ms]);return debounced}
 const isChannel=(value:string|null):value is InboxChannel=>!!value&&(INBOX_CHANNELS as readonly string[]).includes(value);
+const isDirection=(value:string|null)=>value==='in'||value==='out'||value==='all';
+const isDay=(value:string|null)=>!!value&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value));
 const sameThread=(row:InboxThreadRow,lead:string|null,channel:InboxChannel|null)=>(row.leadId??'none')===(lead??'')&&(!channel||row.channel===channel);
 /** The phone shows one pane, derived from the URL so browser/OS Back and in-app back stay in sync. */
 export function inboxStage({accountId,leadId,channel}:{accountId:string|null;leadId:string|null;channel:InboxChannel|null}):Stage{
@@ -33,7 +35,7 @@ export default function InboxPage(){
  // The list's «Canal» filter is its own state: the URL `channel` belongs to the selected conversation.
  const [filter,setFilter]=useState<'pending'|'all'>('pending'),[listChannel,setListChannel]=useState<InboxChannel|null>(null),[scope,setScope]=useState<'mine'|'all'>('mine'),[filtersOpen,setFiltersOpen]=useState(false);
  // Search filters live here, so they survive the results unmounting while the text is below the minimum.
- const searchText=params.get('q')??'',searchFilters:InboxSearchFilters={direction:(params.get('direction') as InboxSearchFilters['direction'])||'all',channel:isChannel(params.get('searchChannel'))?params.get('searchChannel') as InboxChannel:'',from:params.get('from')??'',to:params.get('to')??'',scope:params.get('scope')==='all'?'all':'mine'};
+ const searchText=params.get('q')??'',searchFilters:InboxSearchFilters={direction:isDirection(params.get('direction'))?params.get('direction') as InboxSearchFilters['direction']:'all',channel:isChannel(params.get('searchChannel'))?params.get('searchChannel') as InboxChannel:'',from:isDay(params.get('from'))?params.get('from') as string:'',to:isDay(params.get('to'))?params.get('to') as string:'',scope:params.get('scope')==='all'?'all':'mine'};
  const searchScroll=useMemo(()=>({top:0}),[]);
  function setSearchText(value:string){const next=new URLSearchParams(params);if(value)next.set('q',value);else next.delete('q');setParams(next,{replace:true})}
  function setSearchFilters(filters:InboxSearchFilters){const next=new URLSearchParams(params);for(const [key,value] of Object.entries({direction:filters.direction,searchChannel:filters.channel,from:filters.from,to:filters.to,scope:filters.scope})){if(value&&!(key==='direction'&&value==='all')&&!(key==='scope'&&value==='mine'))next.set(key,value);else next.delete(key)}setParams(next,{replace:true})}
@@ -53,7 +55,7 @@ export default function InboxPage(){
  const selectBusiness=(row:InboxBusinessRow)=>update({account:row.accountId,lead:null,channel:null});
  const selectThread=(row:InboxThreadRow)=>update({lead:row.leadId??'none',channel:row.channel});
  function openResult(row:InboxSearchRow){searchScroll.top=window.scrollY;update({account:row.accountId,lead:row.leadId??'none',channel:row.channel,message:inboxMessageKey(row)})}
- useEffect(()=>{if(!accountId&&searching){window.scrollTo(0,searchScroll.top)}},[accountId,searching,searchScroll])
+ useEffect(()=>{if(!accountId&&searching&&searchScroll.top){window.scrollTo(0,searchScroll.top);searchScroll.top=0}},[accountId,searching,searchScroll])
  function backToResults(){const next=new URLSearchParams(params);for(const key of ['account','lead','channel','message'])next.delete(key);setParams(next)}
  const loadMoreBusinesses=()=>{if(businesses.hasNextPage&&!businesses.isFetchingNextPage)void businesses.fetchNextPage()};
  const isVisible=(pane:Stage)=>!phone||stage===pane;
