@@ -189,7 +189,7 @@ function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{u
 type Row=OutputType['rows'][number];type Users=Awaited<ReturnType<typeof getSettings>>['users']|undefined;type Pins=ReturnType<typeof effectivePins>;
 const badgeCategories:Record<string,BadgeCategory>={tipo:'vertical',subtipo:'subtype',ciudad:'city',assignedUserEmail:'person',commercialProfile:'profile',medioContactoPreferido:'contact',quienCargo:'person',creadoPor:'person',origen:'generic'};
 const pinnedStyleFor=(pins:Pins,key:string):React.CSSProperties=>key==='selection'?{left:0}:pins[key]?{[pins[key].side]:pins[key].offset}:{};
-const columnClassFor=(pins:Pins,key:string)=>[pins[key]||key==='selection'?styles.pinned:'',pins[key]?.side==='right'?styles.pinnedRight:'',key==='selection'?styles.selectionPinned:''].filter(Boolean).join(' ');
+const columnClassFor=(pins:Pins,key:string)=>[pins[key]||key==='selection'?styles.pinned:'',pins[key]?.side==='right'?styles.pinnedRight:'',key==='selection'?styles.selectionPinned:'',key==='actions'?styles.actionsPinned:''].filter(Boolean).join(' ');
 function showInlineCell(row:Row,key:string,admin:boolean){return key==='businessStatus'?true:key==='reviewStatus'?row.canModify!==false:isInlineBadgeField(key)&&(inlineBadgeFields[key].scope==='management'?(row.opportunityCount===0?row.canModify!==false:row.canModifyManagement!==false):key==='assignedUserEmail'?admin:row.canModify!==false);}
 const DATE_ONLY_KEYS=['fechaCreacion','fechaUltimoContacto','fechaProximaAccion'];
 export const dateCell=(key:string,v:unknown)=>DATE_ONLY_KEYS.includes(key)?formatDate(v):formatDay(v);
