@@ -4,7 +4,7 @@ import {autoEffectsMatch,autoRegisterReason} from './autoRegistration';
 describe('automatic registration helpers',()=>{
  const eligible={global:true,preference:true,accountExists:true,status:'reviewed',doNotContact:false,restricted:false,archived:false,merged:false,writeAccess:true};
  it('returns the global disabled reason before business eligibility',()=>{
-  expect(autoRegisterReason({...eligible,global:false,status:'new'})).toBe('auto_disabled');
+  expect(autoRegisterReason({...eligible,global:false,status:'new'})).toBe('global_disabled');
   expect(autoRegisterReason({...eligible,preference:false})).toBe('auto_disabled');
  });
  it('rejects unsafe business states and missing write access',()=>{

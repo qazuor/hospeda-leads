@@ -1,4 +1,4 @@
-import { fetchContext, fetchStatus, type ContextResponse, type Match, type StatusResponse, ApiError } from "./api";
+import { fetchContext, fetchStatus, fetchAutoRegistrations, saveAutoRegisterPreference, type ContextResponse, type Match, type StatusResponse, ApiError } from "./api";
 import { parseCode } from "./parse";
 import { getAppRoot, getConversationPanel, readChat, redactedSnapshot, type ChatRead } from "./selectors";
 import { internalChat, pageHeader } from "./internals";
@@ -8,10 +8,14 @@ import { applyTheme, isAutoOpen, isDark, isEditing, openSettings, renderBanner, 
 import { USERSCRIPT_VERSION } from "./version";
 import { announceInstalled } from "./announce";
 import { showUpdatePrompt, throttled } from "./updatePrompt";
+import { AutoRegisterController, autoEligibility } from "./autoRegister";
 
 const BASE = (import.meta as ImportMeta & { env: { USERSCRIPT_CRM_BASE_URL?: string } }).env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const TOKEN_KEY = "hospeda-userscript-token", choicesKey = (phone: string | null) => `hospeda-userscript-choice:${phone || "unknown"}`;
 let observer: MutationObserver | null = null, timer = 0, lastFingerprint = "", activeChat = "", previewOpen = false;
+let autoController:AutoRegisterController|null=null,autoMessage="";
+let autoPreference=GM_getValue<boolean>("hospeda-userscript-auto-register",true);
+let autoCount:{accountId:string;value:number;expiresAt:number}|null=null;
 const cache = new Map<string, { expiresAt: number; value: ContextResponse }>();
 let status: { expiresAt: number; value: StatusResponse } | null = null;
 function token(): string { return GM_getValue<string>(TOKEN_KEY, ""); }
@@ -62,7 +66,7 @@ async function update(): Promise<void> {
   if (!chat || !chat.ok) {
     const state = !chat ? "none" : chat.reason;
     if (state === lastFingerprint && document.getElementById("hospeda-userscript-banner")) return;
-    lastFingerprint = state; activeChat = ""; previewOpen = false;
+    lastFingerprint = state; activeChat = ""; previewOpen = false;autoController?.stop();autoController=null;autoMessage="";
     const known = await resolveStatus(); if (lastFingerprint !== state || isEditing()) return;
     renderBanner({ ...baseOptions(), ...known, unreadable: state === "unreadable", group: state === "unsupported-group" });
     return;
@@ -70,7 +74,7 @@ async function update(): Promise<void> {
   const fingerprint = messageFingerprint(chat.title, chat.messages), chatKey = `${chat.title}:${chat.phone || ""}`;
   if (chatKey === activeChat && previewOpen) { lastFingerprint = fingerprint; return; }
   if (fingerprint === lastFingerprint && document.getElementById("hospeda-userscript-banner")) return;
-  const changedChat = activeChat !== chatKey; if (changedChat) { previewOpen = false; if (isAutoOpen()) setPanelOpen(true); } activeChat = chatKey; lastFingerprint = fingerprint;
+  const changedChat = activeChat !== chatKey; if (changedChat) { autoController?.stop();autoController=null;autoMessage="";previewOpen = false; if (isAutoOpen()) setPanelOpen(true); } activeChat = chatKey; lastFingerprint = fingerprint;
   const code = parseCode(chat.title); let context: ContextResponse | null = null, error: string | undefined, requiredVersion: string | null = null;
   try { context = await resolveContext(code, chat.phone); }
   catch (cause) {
@@ -84,13 +88,19 @@ async function update(): Promise<void> {
   if (context || requiredVersion) promptUpdate(context?.latestVersion, requiredVersion);
   const matches = context?.matches || [], chosenId = GM_getValue<string>(choicesKey(chat.phone), "");
   const selected = matches.find(match => match.accountId === chosenId) || (matches.length === 1 ? matches[0] : null);
+  // The server keeps the seller's preference (it may change from the CRM or another computer).
+  if (typeof context?.autoRegister === "boolean" && context.autoRegister !== autoPreference) { autoPreference = context.autoRegister; GM_setValue("hospeda-userscript-auto-register", autoPreference); }
+  const auto=autoEligibility(selected,matches,autoPreference);
+  const autoTodayCount=autoCount&&autoCount.accountId===selected?.accountId&&autoCount.expiresAt>Date.now()?autoCount.value:0;
+  if(auto.active&&selected?.autoRegister?.since&&token()&&!autoController){autoController=new AutoRegisterController(BASE,token(),selected.accountId,selected.autoRegister.since,chatKey,()=>activeChat,message=>{autoMessage=message;lastFingerprint="";void update();});autoController.start();}else if(!auto.active){autoController?.stop();autoController=null;}
   const controller = token() ? new RegisterController(BASE, token()) : null, lastRegister = GM_getValue<string | null>("hospeda-userscript-last-register", null);
   renderBanner({ ...baseOptions(), context, selected, error, requiredVersion, register: controller, title: chat.title, phone: chat.phone,
     isCurrentChat: () => { const current = currentChat(); return current.ok && `${current.title}:${current.phone || ""}` === chatKey; },
     readMessages: () => { const current = currentChat(); return current.ok ? current.messages : []; },
     lastRegistered: lastRegister ? new Date(lastRegister).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : null,
     onPreviewChange: open => { previewOpen = open; if (!open) { lastFingerprint = ""; void update(); } },
-    onSelect: match => { setChoice(chat.phone, match); lastFingerprint = ""; void update(); } });
+    autoStatus: autoMessage||auto.message,autoTodayCount,autoPreference,autoDisabled:selected?.autoRegister?.reason==="global_disabled",onAutoPreference:async enabled=>{const previous=autoPreference;try{if(token())await saveAutoRegisterPreference(BASE,token(),enabled);autoPreference=enabled;GM_setValue("hospeda-userscript-auto-register",enabled);lastFingerprint="";}catch(error){autoPreference=previous;throw error;}}, onSelect: match => { setChoice(chat.phone, match); lastFingerprint = ""; void update(); } });
+  if(auto.active&&selected&&token()&&(!autoCount||autoCount.accountId!==selected.accountId||autoCount.expiresAt<=Date.now()))void fetchAutoRegistrations(BASE,token(),selected.accountId).then(({registrations})=>{if(activeChat!==chatKey)return;const today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Argentina/Buenos_Aires"}),count=registrations.filter(item=>new Date(item.sentAt||item.receivedAt||0).toLocaleDateString("en-CA",{timeZone:"America/Argentina/Buenos_Aires"})===today).length;autoCount={accountId:selected!.accountId,value:count,expiresAt:Date.now()+60_000};lastFingerprint="";void update();}).catch(()=>{});
 }
 function schedule(): void { window.clearTimeout(timer); timer = window.setTimeout(() => { void update(); }, 500); }
 /** WhatsApp switches theme by toggling a class on <body>; the system preference covers the moment before it does. */

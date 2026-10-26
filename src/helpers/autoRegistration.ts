@@ -9,9 +9,10 @@ import {setWorkActor} from './workAudit';
 import type {Kysely} from 'kysely';
 import type {DB} from './schema';
 
-export type AutoRegisterEligibility={enabled:boolean;reason?:'auto_disabled'|'not_eligible';since:string};
+export type AutoRegisterEligibility={enabled:boolean;reason?:'global_disabled'|'auto_disabled'|'not_eligible';since:string};
 export function autoRegisterReason(input:{global:boolean;preference:boolean;accountExists:boolean;status:string|null;doNotContact:boolean;restricted:boolean;archived:boolean;merged:boolean;writeAccess:boolean}){
- if(!input.global||!input.preference)return 'auto_disabled' as const;
+ if(!input.global)return 'global_disabled' as const;
+ if(!input.preference)return 'auto_disabled' as const;
  if(!input.accountExists||input.status==='new'||input.doNotContact||input.restricted||input.archived||input.merged||!input.writeAccess)return 'not_eligible' as const;
  return null;
 }

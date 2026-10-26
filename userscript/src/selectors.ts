@@ -1,6 +1,7 @@
 import { normalizePhone, parseCode } from "./parse";
 
 export type ChatMessage = { externalId: string; direction: "in" | "out"; text: string; sentAt: string | null; author: string | null };
+export function outboundDeliveryState(row:Element):"pending"|"failed"|"sent" { if(row.querySelector("[data-icon*='error'], [data-testid='msg-error']"))return "failed";if(row.querySelector("[data-icon='msg-time']"))return "pending";return "sent"; }
 export type ChatRead = { ok: true; title: string; phone: string | null; code: string | null; group: false; messages: ChatMessage[] } | { ok: false; reason: "unsupported-group" | "unreadable" };
 
 export function getConversationPanel(doc: Document = document): HTMLElement | null { return doc.querySelector<HTMLElement>("#main"); }

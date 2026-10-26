@@ -83,7 +83,7 @@ try{
  const settingKey='crm_userscript_auto_register';await db.insertInto('appSettings').values({key:settingKey,value:JSON.stringify({enabled:false})}).onConflict(oc=>oc.column('key').doUpdateSet({value:JSON.stringify({enabled:false}),updatedAt:new Date()})).execute();
  const autoMessage={externalId:`auto_${randomUUID()}`,direction:'in' as const,text:'Respuesta automática de prueba',sentAt:new Date().toISOString(),author:'Contacto'};
  const autoRequest=(automatic:boolean,externalId=autoMessage.externalId)=>register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(token),body:JSON.stringify({...body,automatic,messages:[{...autoMessage,externalId}]})}));
- const globalOff=await autoRequest(true);assert.equal(globalOff.status,409);assert.equal((await globalOff.json() as {reason:string}).reason,'auto_disabled');
+ const globalOff=await autoRequest(true);assert.equal(globalOff.status,409);assert.equal((await globalOff.json() as {reason:string}).reason,'global_disabled','The panel can tell an administrator turned it off');
  await db.insertInto('appSettings').values({key:settingKey,value:JSON.stringify({enabled:true})}).onConflict(oc=>oc.column('key').doUpdateSet({value:JSON.stringify({enabled:true}),updatedAt:new Date()})).execute();
  await db.updateTable('users').set({userscriptAutoRegister:false}).where('id','=',seller.user.id).execute();const userOff=await autoRequest(true);assert.equal(userOff.status,409);assert.equal((await userOff.json() as {reason:string}).reason,'auto_disabled');
  await db.updateTable('users').set({userscriptAutoRegister:true,userscriptAutoRegisterSince:new Date(Date.now()-60_000)}).where('id','=',seller.user.id).execute();
