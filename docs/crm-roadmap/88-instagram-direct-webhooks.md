@@ -115,7 +115,7 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
    - en contra: guarda un secreto en la base y agrega un proceso programado nuevo, que hoy el servidor no tiene.
 - Recomendación original: 1. El propietario eligió la 2.
 
-**D2. Ecos sin negocio asociado.**
+**D2. Ecos sin negocio asociado.** → **Resuelta: opción 1** (propietario, 26/10/2026). Al asociar el chat a mano, sus mensajes entrantes y salientes Sin asociar del mismo usuario pasan juntos al negocio.
 1. **Guardarlos en «Sin asociar»** junto a los entrantes, para asociarlos a mano.
 2. **Descartarlos.**
 - **Recomendación: 1:** no se pierde lo que dijo Hospeda.
