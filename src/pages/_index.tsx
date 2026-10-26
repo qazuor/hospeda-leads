@@ -27,7 +27,6 @@ import { OpportunityStart } from "../components/OpportunityStart";
 import { CommercialEditor } from "../components/CommercialEditor";
 import type { Account } from "../endpoints/commercial.schema";
 import { CommercialHelp } from "../components/CommercialHelp";
-import {usePageHelp} from '../components/AppLayout';
 import {ManagementQuickFilters,nextStepNeedsOpen,singleManagementType} from '../components/ManagementQuickFilters';
 import {setOwnedQuickFilter} from '../helpers/businessListQuickFilters';
 import {managementTypeLabels} from '../helpers/businessManagement';
@@ -84,9 +83,6 @@ import {HeaderMenu} from "../components/LeadsTableHeader";
 import {managementDisplayName} from '../content/vocabulary';
 
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
-  // Memoized like the business record's help: usePageHelp re-registers whenever the content identity changes.
-  const pageHelp=React.useMemo(()=>businessMode?null:{label:'Ayuda sobre gestiones',content:<CommercialHelp/>},[businessMode]);
-  usePageHelp(pageHelp);
   const navigate=useNavigate();
   const entity=businessMode?"business":"opportunity";
   const tableColumns=TABLE_COLUMNS.map(column=>({...column,label:businessMode?(column.key==="nombre"?"Negocio":column.key==="id"?"ID de entrada":column.key==="assignedUserEmail"?"Responsable del negocio":column.key==="estado"?"Etapas de gestiones":column.label):column.label}));
@@ -722,7 +718,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <HelpLink topic="filters"/><Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
-      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><HelpLink topic="filters"/><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/></>}
+      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><div className={styles.managementViewsRow}><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/><HelpLink topic="filters"/></div></>}
       <FilterLegend
         groups={appliedFilterGroups}
         onChange={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);resetPage();}}

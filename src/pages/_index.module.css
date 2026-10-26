@@ -112,3 +112,4 @@
 .scroller th:last-child{padding:8px 12px}
 .squareCheckbox:global(.mantine-Checkbox-input){border-radius:3px}
 .selectHead{background:var(--surface)!important}
+.managementViewsRow{display:flex;align-items:center;gap:8px;max-width:var(--crm-content-width);margin:0 auto 12px}.managementViewsRow>div:first-child{flex:1;min-width:0}

@@ -1,6 +1,6 @@
 import {normalizeSearchText} from '../helpers/searchText';
 import {useEffect, useRef, useState} from 'react';
-import {Link, useSearchParams} from 'react-router-dom';
+import {Link, useLocation, useSearchParams} from 'react-router-dom';
 import {ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lightbulb, Search} from 'lucide-react';
 import {Button} from '../components/Button';
 import {Input} from '../components/Input';
@@ -13,9 +13,10 @@ const entries = topics.flatMap(topic => topic.articles.map(article => ({topic, a
 
 export default function GuidePage() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const [search, setSearch] = useState('');
-  const hashArticle=window.location.hash.slice(1);
-  const hashTopic=topics.find(item=>item.articles.some(entry=>entry.id===hashArticle));
+  const hashArticle=location.hash.slice(1);
+  const hashTopic=hashArticle?topics.find(item=>item.articles.some(entry=>entry.id===hashArticle)):undefined;
   const topic = hashTopic??topics.find(item => item.id === params.get('topic')) ?? topics[0];
   const article = topic.articles.find(item => item.id === (hashTopic?hashArticle:params.get('article'))) ?? topic.articles[0];
   const index = topic.articles.indexOf(article);
@@ -47,7 +48,7 @@ export default function GuidePage() {
       <div className={styles.reading}>
         <section className={styles.topicIntro}><span className={styles.eyebrow}>TEMA</span><h2>{topic.title}</h2><p>{topic.description}</p></section>
         <article className={styles.article} id={article.id} aria-labelledby="guide-article-title">
-          <header><a className={styles.backToTopics} href="#guide-topics">Ver los temas de la guía</a><span className={styles.eyebrow}>EXPLICACIÓN {index+1} DE {topic.articles.length}</span><h2 id="guide-article-title" tabIndex={-1} ref={title}>{article.title}</h2><p className={styles.when}><strong>Cuándo usarlo</strong>{article.when}</p></header>
+          <header><button type="button" className={styles.backToTopics} onClick={() => document.getElementById('guide-topics')?.scrollIntoView({block:'start'})}>Ver los temas de la guía</button><span className={styles.eyebrow}>EXPLICACIÓN {index+1} DE {topic.articles.length}</span><h2 id="guide-article-title" tabIndex={-1} ref={title}>{article.title}</h2><p className={styles.when}><strong>Cuándo usarlo</strong>{article.when}</p></header>
           <section><h3>Cómo hacerlo</h3><ol className={styles.steps}>{article.steps.map((step, i) => <li key={i}><span aria-hidden="true">{i+1}</span><p>{step}</p></li>)}</ol></section>
           <section className={styles.result}><CheckCircle2 size={21}/><div><h3>Qué queda al terminar</h3><p>{article.result}</p></div></section>
           {article.example.length > 0 && <section className={styles.example}><h3><Lightbulb size={20}/>Ejemplo práctico</h3>{article.example.map(line => <p key={line}>{line}</p>)}</section>}
