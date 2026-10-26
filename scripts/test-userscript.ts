@@ -3,12 +3,14 @@ import {randomUUID} from 'node:crypto';
 import {db} from '../src/helpers/db';
 import {sql} from 'kysely';
 import {setServerSession} from '../src/helpers/getSetServerSession';
+import superjson from 'superjson';
+import {get as getCommunication} from '../src/endpoints/communication';
 import {tokenCreate,tokenRevoke,tokenList,context,status,register,templates,prepare,dispatch,outcome,voidRegistration} from '../src/endpoints/userscript';
 import {USERSCRIPT_VERSION} from '../userscript/src/version';
 
 assert.equal(process.env.CRM_TEST_DATABASE,'1');
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`userscript-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
-const seller=await identity('user'),other=await identity('user');
+const seller=await identity('user'),other=await identity('user'),admin=await identity('admin');
 const account=await db.insertInto('crmAccounts').values({nombre:`Zz inbound userscript ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:'+5493442123456'}).returningAll().executeTakeFirstOrThrow();const stage=await db.selectFrom('crmStages').select('name').where('classification','=','open').executeTakeFirstOrThrow();await db.insertInto('leads').values({accountId:account.id,nombre:account.nombre,estado:stage.name,assignedUserEmail:seller.user.email}).execute();
 const session=(cookie:string,body:unknown)=>new Request('http://localhost/_api/userscript/tokens',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify(body)});
 const scripted=(token:string,version='1.2.0')=>({Authorization:`Bearer ${token}`,'X-Hospeda-Userscript-Version':version,'Content-Type':'application/json'});
@@ -101,6 +103,10 @@ try{
  assert.equal((await voidAs(token,looseReg.id)).status,200);
  const looseRow=(await sql<{status:string;externalId:string|null;deletedAt:Date|null}>`SELECT m.status,m.external_id AS "externalId",a.deleted_at AS "deletedAt" FROM crm_messages m JOIN crm_activities a ON a.id=m.activity_id WHERE m.id=${loose.id}::uuid`.execute(db)).rows[0]!;
  assert.deepEqual([looseRow.status,looseRow.externalId,!!looseRow.deletedAt],['voided',null,true],'Voiding a standalone send hides it and its activity');
+ const communicationList=async(includeVoided:boolean)=>{const result=await getCommunication(new Request(`http://localhost/_api/communication?accountId=${account.id}${includeVoided?'&includeVoided=1':''}`,{headers:{Cookie:admin.cookie}}));assert.equal(result.status,200);return superjson.parse(await result.text()) as {messages:{id:string;status:string;autoRegistrationId:string|null}[];inbound:{id:string;status:string;autoRegistrationId:string|null}[]};};
+ const hiddenVoided=await communicationList(false);assert.equal(hiddenVoided.messages.some(row=>row.id===loose.id),false,'Voided messages stay hidden by default');
+ assert.equal(hiddenVoided.inbound.some(row=>row.id===autoResult.id),false,'Voided inbound messages stay hidden by default');
+ const shownVoided=await communicationList(true);assert.ok(shownVoided.messages.some(row=>row.id===loose.id&&row.status==='voided'&&!row.autoRegistrationId),'Admin includeVoided returns the voided row, without a registration to void again');assert.ok(shownVoided.inbound.some(row=>row.id===autoResult.id&&row.status==='voided'&&!row.autoRegistrationId),'Admin includeVoided returns voided inbound rows too');
  assert.equal((await voidAs(token,looseReg.id)).status,409,'A registration is voided only once');
  // Sent message that completed an opened attempt: the attempt goes back to «WhatsApp abierto».
  const reopened=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,created_at) VALUES(${reopened}::uuid,${account.id},${account.id},'whatsapp','+5493442123456',${seller.user.email},'whatsapp_opened','Hola, te paso la propuesta de Hospeda para tu alojamiento',now()-interval '2 minutes')`.execute(db);
