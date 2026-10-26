@@ -30,6 +30,8 @@ export type UiOptions = {
   autoStatus?:string;
   autoTodayCount?:number;
   autoPreference?:boolean;autoDisabled?:boolean;onAutoPreference?:(enabled:boolean)=>Promise<void>|void;
+  badgePreference?:boolean;badgeError?:string;onBadgePreference?:(enabled:boolean)=>void;
+  onRegistered?:()=>void;
 };
 type View = "chat" | "settings" | "preview" | "compose" | "autoList";
 let view: View = "chat", editingToken = false;
@@ -229,7 +231,8 @@ function settings(options: UiOptions): HTMLElement {
   const update = updateNotice(options), installed = el("span", undefined, `Versión ${options.version || "—"}${update ? "" : options.context ? " · al día" : ""}`);
   const autoSection=el("div","section"),autoToggle=el("label","toggle","Registrar solo los chats seguros"),autoInput=el("input"),autoError=el("p","note warn");autoInput.type="checkbox";autoInput.checked=options.autoPreference??false;autoInput.disabled=options.autoDisabled??false;autoInput.title=autoInput.disabled?"Desactivado por un administrador":"";autoToggle.append(autoInput);autoInput.addEventListener("change",()=>{const before=!!options.autoPreference,next=autoInput.checked;autoInput.disabled=true;autoError.textContent="";void Promise.resolve(options.onAutoPreference?.(next)).catch(error=>{autoInput.checked=before;autoError.textContent=error instanceof Error?error.message:"No se pudo guardar la preferencia.";}).finally(()=>{autoInput.disabled=options.autoDisabled??false;});});autoSection.append(autoToggle);if(autoInput.disabled)autoSection.append(el("span","muted","Desactivado por un administrador"));autoSection.append(autoError);
   const reasons=el("span","muted",["Registrados solos","Era de otro negocio","No era de esta gestión","Mensaje personal","Otro"].join(" · "));
-  script.append(el("h3", undefined, "SCRIPT"), installed); if (update) script.append(update); script.append(themeField, toggle,autoSection,reasons);
+  const badgeToggle=el("label","toggle","Mostrar insignias en la lista de chats"),badgeInput=el("input");badgeInput.type="checkbox";badgeInput.checked=options.badgePreference??true;badgeInput.addEventListener("change",()=>options.onBadgePreference?.(badgeInput.checked));badgeToggle.append(badgeInput);
+  script.append(el("h3", undefined, "SCRIPT"), installed); if (update) script.append(update); script.append(themeField, toggle,autoSection,badgeToggle);if(options.badgeError)script.append(el("p","note warn",options.badgeError));script.append(reasons);
   const help = el("div", "section"), copy = el("button", "btn small", "Copiar diagnóstico del chat"); copy.type = "button"; copy.addEventListener("click", () => options.onCopyDiagnostic?.());
   help.append(el("h3", undefined, "AYUDA"), copy);
   if (options.crmBase) { const guide = el("a", undefined, "Guía de instalación y problemas frecuentes"); guide.href = `${options.crmBase}/guide?topic=whatsapp-userscript&article=install-userscript`; guide.target = "_blank"; guide.rel = "noopener noreferrer"; help.append(guide); }
@@ -282,6 +285,7 @@ function showPreview(card: HTMLElement, messages: ChatMessage[], options: UiOpti
     confirm.disabled = cancel.disabled = true; confirm.textContent = "Registrando…"; status.textContent = "";
     try {
       const results: RegisterResult[] = await options.register!.submit(selected.accountId, { title: options.title || "", phone: options.phone || null }, chosen);
+      options.onRegistered?.();
       status.textContent = summarizeResults(results);
       for (const item of results.filter(result => result.status === "rejected")) { const original = messages.find(message => message.externalId === item.externalId); footer.insertBefore(el("p", "note warn", `${original ? timeOf(original) : "Sin hora"} · ${(original?.text || "").slice(0, 80)} · ${item.reason || "Motivo no informado"}`), actions); }
       inputs.forEach(input => input.disabled = true); toggle.disabled = true; confirm.remove(); cancel.disabled = false; cancel.textContent = "Cerrar";
