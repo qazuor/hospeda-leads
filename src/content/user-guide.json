@@ -42,7 +42,7 @@
           "Usá los filtros rápidos «Tipo de gestión», «Etapa», «Responsable» y «Próximo paso» junto a «Filtrar». «Próximo paso» ofrece Vencidas, Hoy, Esta semana (de hoy al domingo), Próximos 7 días, Sin próximo paso y «Rango…». «Vencidas» y «Hoy» muestran solo gestiones abiertas, igual que el resumen; al cambiar o quitar ese filtro vuelven a verse todas. Para reglas combinadas, exclusiones y grupos AND/OR, abrí «Filtrar».",
           "La tabla es la vista inicial. En «Columnas», arrastrá el control de puntos para ordenar las columnas visibles; «Orden original» las vuelve al orden de fábrica sin mostrar ni ocultar ninguna. Tocá «Tablero comercial» para organizar las gestiones por etapa. Las columnas tienen colores propios y se pueden plegar desde su encabezado. Cada tarjeta muestra la gestión, el negocio, la vertical, los días en etapa, la próxima fecha, las marcas de seguimiento y prioridad, y la persona responsable.",
           "Tocá el cuerpo de una tarjeta para abrir «Vista previa de la gestión». Allí podés revisar la etapa y los datos principales, usar «Cambiar etapa» si tenés permiso o entrar con «Abrir gestión». El tipo se elige con el filtro rápido «Tipo de gestión» de la lista; el tablero no tiene un selector propio. «Ver etapas del equipo» muestra las etapas de un solo tipo: si no elegiste uno (o elegiste varios), te pide que elijas uno y lo aplica en ese filtro. «Vista simple: abiertas, ganadas y perdidas» muestra todos los tipos juntos. En el teléfono, las etapas se despliegan como un acordeón.",
-          "Abrí «Ayuda sobre gestiones» para consultar la ayuda contextual."
+          "Tocá el signo «Cómo funciona» para consultar la guía desde esta pantalla."
         ],
         "result": "Podés encontrar y guardar el conjunto de gestiones que necesitás revisar.",
         "example": [],
@@ -79,7 +79,7 @@
           "Más vistas",
           "Elegir vistas de la barra",
           "Volver a la barra del equipo",
-          "Ayuda sobre gestiones",
+          "Cómo funciona",
           "Sin próxima acción",
           "Mis registros con acción hasta hoy",
           "Suscriptos históricos",
@@ -266,7 +266,7 @@
         "when": "Todos los días de trabajo.",
         "steps": [
           "Abrí «Hoy». Arriba ves el resumen: «Vencidas», «Para hoy», «Respuestas nuevas», «Gestiones sin tarea agendada» y Hoy: N de M hechas. Atendé primero «Vencidas» y después «Para hoy». Si no tenés tareas, empezá por «Negocios».",
-          "Los «Filtros de trabajo» quedan siempre visibles encima de la lista. La ayuda de esta pantalla está en «Ayuda sobre Hoy», en el botón con el signo de ayuda. La columna derecha reúne «Respuestas nuevas», el mini calendario y «Primeros pasos» cuando corresponde.",
+          "Los «Filtros de trabajo» quedan siempre visibles encima de la lista. Tocá el signo «Cómo funciona» para consultar la guía desde esta pantalla. La columna derecha reúne «Respuestas nuevas», el mini calendario y «Primeros pasos» cuando corresponde.",
           "Antes de contactar, leé lo último que pasó con el negocio y cuál es el próximo paso. Comprobá a quién le vas a escribir y si hay restricciones.",
           "En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».",
           "Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.",
@@ -303,7 +303,7 @@
           "Anotá cómo salió",
           "Gestiones sin tarea agendada",
           "Filtros de trabajo",
-          "Ayuda sobre Hoy",
+          "Cómo funciona",
           "Primeros pasos",
           "Ver visitas y reuniones en Calendario →"
         ]

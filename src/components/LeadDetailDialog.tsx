@@ -28,6 +28,7 @@ import {managementLabel} from '../helpers/businessManagement';
 import {actorLabel,userLabel} from '../helpers/crmLabels';
 import {managementDisplayName} from '../content/vocabulary';
 import styles from "./LeadDetailDialog.module.css";
+import {HelpLink} from './HelpLink';
 
 const text=(v:unknown)=>v==null||v===""?"—":String(v);
 const date=(v:unknown)=>v?formatDate(v):"—";
@@ -184,7 +185,7 @@ export const LeadDetailDialog=({
           </section>
 
           <section className={styles.panel}>
-            <SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y etapa de esta gestión, independientes de otras gestiones del negocio."/>
+            <HelpLink topic="stage"/><SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y etapa de esta gestión, independientes de otras gestiones del negocio."/>
             <div className={styles.fieldGrid}>
               <Field label="Vertical" value={lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:"—"}/>
               <Field label="Subtipo" value={lead.subtipo?<ValueBadge value={lead.subtipo} category="subtype"/>:"—"}/>
@@ -197,7 +198,7 @@ export const LeadDetailDialog=({
           </section>
 
           <section className={styles.panel}>
-            <SectionTitle icon={CalendarClock} title="Seguimiento" description="Fechas y próximos pasos comerciales."/>
+            <HelpLink topic="nextStep"/><SectionTitle icon={CalendarClock} title="Seguimiento" description="Fechas y próximos pasos comerciales."/>
             <div className={styles.fieldGrid}>
               <Field label="Fecha creación" value={date(lead.fechaCreacion)}/>
               <Field label="Último contacto" value={date(lead.fechaUltimoContacto)}/>

@@ -1,3 +1,4 @@
+import {HelpLink} from "../components/HelpLink";
 import {actorLabel} from '../helpers/crmLabels';
 import {auditChanges} from '../helpers/auditChanges';
 import {CrmDateInput} from '../components/ui/CrmDateInput';
@@ -64,7 +65,7 @@ export default function HistoryPage(){
   const clear=()=>{setLeadLabel("");setActor("_all");setCity("_all");setType("_all");setAction("_all");setQ("");setDatePreset("all");setFrom("");setTo("");setPage(1)};
 
   return <><main className={styles.shell}>
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>CAMBIOS REGISTRADOS</div><h1>Historial global</h1><p>Acciones sobre negocios, contactos, gestiones, tareas y documentos, con usuario y fecha.</p></div><History size={30}/></header>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>CAMBIOS REGISTRADOS</div><h1>Historial global</h1><p>Acciones sobre negocios, contactos, gestiones, tareas y documentos, con usuario y fecha.</p></div><History size={30}/><HelpLink topic="history"/></header>
     <section className={styles.toolbar}>
       <div className={styles.search}><Search size={17}/><Input value={q} onChange={e=>{setQ(e.target.value);reset()}} placeholder="Buscar negocio, campo, valor o usuario…"/></div>
       <div className={styles.leadFilter}><SearchSelect value={leadLabel} options={leadOptions} onChange={v=>{setLeadLabel(v);reset()}} placeholder="Filtrar por negocio…"/></div>
