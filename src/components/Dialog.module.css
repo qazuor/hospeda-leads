@@ -18,7 +18,7 @@
 @media(max-width:767px){.content.side{width:100vw;border-width:0;height:min(100dvh,var(--crm-vv-height,100dvh))}.side>.close{top:calc(var(--crm-vv-top,0px) + max(12px,env(safe-area-inset-top,0px)))}.side>.title:first-child,.side>.header:first-child{padding-top:max(var(--crm-dialog-padding),env(safe-area-inset-top,0px))}}
 /* Desktop side panel: the action bar is pinned to the panel's bottom edge even when the form is short (no transform on the modal content, so fixed stays inside the panel); the content reserves its height. Phones keep the sticky bar so it follows the on-screen keyboard. */
 @media(min-width:768px){.content.side{padding-bottom:calc(var(--crm-dialog-padding) + 76px)}.content.side .footer{position:fixed;right:0;bottom:0;width:min(560px,100vw);margin:0;z-index:4}}
-/* Slide-in is a plain keyframe animation (Mantine's transition keeps transform:translateX(0) on the content, which would make it the containing block of the fixed footer and close button). It ends with no transform; Mantine's transition duration is 0. */
+/* Slide-in is a plain keyframe animation (Mantine's transition keeps transform:translateX(0) on the content, which would make it the containing block of the fixed footer and close button). It ends with no transform and only runs on desktop, where the panel docks to the right; phones use a full-screen sheet. Mantine's transition duration is 0. */
 @keyframes crmSideIn{from{transform:translateX(100%)}to{transform:none}}
-.content.side{animation:crmSideIn 220ms cubic-bezier(.2,.8,.2,1)}
+@media(min-width:768px){.content.side{animation:crmSideIn 220ms cubic-bezier(.2,.8,.2,1)}}
 @media(prefers-reduced-motion:reduce){.content.side{animation:none}}
