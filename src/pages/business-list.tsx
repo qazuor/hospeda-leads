@@ -1,3 +1,4 @@
+import {PageHeader} from '../components/PageHeader';
 import { SimpleGrid,Table } from '@mantine/core';
 import { Checkbox } from '../components/Checkbox';
 import { Input } from '../components/Input';
@@ -52,7 +53,7 @@ import {viewPreferencesFingerprint,readBusinessViewSelection,saveBusinessViewSel
 import {resolveSystemViews} from '../helpers/businessSystemViews';
 import styles from './business-list.module.css';
 export default function BusinessListPage(){const {authState}=useAuth();const defaults=useQuery({queryKey:['business-list-defaults'],queryFn:getBusinessListDefaults,refetchOnWindowFocus:false}),groupsQuery=useQuery({queryKey:['business-column-groups'],queryFn:getBusinessColumnGroups,refetchOnWindowFocus:false});const [ready,setReady]=useState(false);useEffect(()=>{if(defaults.isSuccess&&!defaults.isFetching)setReady(true);},[defaults.isSuccess,defaults.isFetching]);if(authState.type!=='authenticated')return null;
- return <>{defaults.isPending||!ready&&!defaults.error?<main className={styles.shell} aria-busy="true"><h1>Negocios</h1><p>Cargando configuraciones por defecto…</p><Skeleton className={styles.skeleton}/></main>:defaults.error?<main className={styles.shell}><p role="alert">No pude cargar las configuraciones por defecto: {defaults.error.message}</p><Button onClick={()=>defaults.refetch()}>Reintentar</Button></main>:<BusinessList key={authState.user.id} userId={authState.user.id} userEmail={authState.user.email} admin={authState.user.role==='admin'} defaults={defaults.data!} groups={groupsQuery.data?resolveBusinessColumnGroups(groupsQuery.data.groups):[]} groupsResolved={groupsQuery.isSuccess&&!!groupsQuery.data}/>}</>;
+ return <>{defaults.isPending||!ready&&!defaults.error?<main className={styles.shell} aria-busy="true"><PageHeader eyebrow="REGISTROS" title="Negocios" description="Establecimientos y sus datos. Abrí un negocio para consultar qué pasó y cómo continuar." topic="businesses"/><Skeleton className={styles.skeleton}/></main>:defaults.error?<main className={styles.shell}><p role="alert">No pude cargar las configuraciones por defecto: {defaults.error.message}</p><Button onClick={()=>defaults.refetch()}>Reintentar</Button></main>:<BusinessList key={authState.user.id} userId={authState.user.id} userEmail={authState.user.email} admin={authState.user.role==='admin'} defaults={defaults.data!} groups={groupsQuery.data?resolveBusinessColumnGroups(groupsQuery.data.groups):[]} groupsResolved={groupsQuery.isSuccess&&!!groupsQuery.data}/>}</>;
 }
 function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{userId:number;userEmail:string;admin:boolean;defaults:Awaited<ReturnType<typeof getBusinessListDefaults>>;groups:BusinessColumnGroup[];groupsResolved:boolean}){
  const BUSINESS_COLUMNS=[...NORMAL_BUSINESS_COLUMNS,...groups.map(group=>({key:'group:'+group.id,label:group.name}))];
@@ -145,7 +146,7 @@ function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{u
  // Placeholder shapes follow the real cells: a checkbox, a two-line name, three action buttons, text elsewhere.
  const skeletonCell=(k:string)=>k==='selection'?<Skeleton className={styles.skeletonCheck}/>:k==='actions'?<div className={styles.skeletonActions}><Skeleton className={styles.skeletonButton}/><Skeleton className={styles.skeletonButton}/><Skeleton className={styles.skeletonDot}/></div>:k==='nombre'?<><Skeleton className={styles.skeletonName}/><Skeleton className={styles.skeletonSub}/></>:<Skeleton className={styles.skeleton}/>;
  return <main className={styles.shell}>
- <div className={styles.heading}><div><h1>Negocios</h1><p>Establecimientos y sus datos. Abrí un negocio para consultar qué pasó y cómo continuar.</p></div><Button onClick={()=>setEditor(true)}><Plus size={17} aria-hidden="true"/>Nuevo negocio</Button></div>
+ <PageHeader eyebrow="REGISTROS" title="Negocios" description="Establecimientos y sus datos. Abrí un negocio para consultar qué pasó y cómo continuar." topic="businesses" actions={<Button onClick={()=>setEditor(true)}><Plus size={17} aria-hidden="true"/>Nuevo negocio</Button>}/>
  {storageError&&<p role="alert">No pude guardar las preferencias en este navegador. Podés seguir trabajando, pero al volver podrían perderse.</p>}
  <section className={styles.listControls} aria-label="Búsqueda y presentación de negocios">
    <div className={styles.searchRow}>

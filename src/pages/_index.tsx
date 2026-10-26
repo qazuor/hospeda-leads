@@ -13,6 +13,7 @@ import {DataImportDialog} from '../components/DataImportDialog';
 import {AccountMergeDialog} from '../components/AccountMergeDialog';
 import {PipelineBoard} from "../components/Pipeline";
 import {HelpHint} from "../components/HelpHint";
+import {HelpLink} from '../components/HelpLink';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -684,8 +685,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   return <>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>GESTIÓN</div><h1>{businessMode?"Negocios":"Gestiones"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
-        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
+        <div><div className={styles.eyebrow}>{businessMode?"REGISTROS":"REGISTROS"}</div><h1>{businessMode?"Negocios":"Gestiones"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
+        <div className={styles.pageActions}><HelpLink topic={businessMode?'businesses':'managements'}/><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
       </header>
 
       <section className={styles.toolbar}>
@@ -695,7 +696,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
           </Button>
           {!businessMode&&<ManagementQuickFilters className={styles.quickFilters} groups={appliedFilterGroups} stages={FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))} users={userOptions} currentUser={!!currentUser} onChange={groups=>{setAppliedFilterGroups(groups);setActiveQuick('custom');resetPage()}}/>}
-          {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(businessMode?advancedTable:!pipelineView)&&<ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/>}
+          {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(businessMode?advancedTable:!pipelineView)&&<><HelpLink topic="columns"/><ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/></>}
         </div>
       </section>
 
@@ -718,10 +719,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis gestiones"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><UnstyledButton type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</UnstyledButton>)}
           {savedViews.map(view=><div className={styles.savedView} key={view.id}><UnstyledButton type="button" className={activeQuick==="saved:"+view.id?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</UnstyledButton><UnstyledButton type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</UnstyledButton></div>)}
         </div>
-        <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
+        <HelpLink topic="filters"/><Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
-      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/></>}
+      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><HelpLink topic="filters"/><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/></>}
       <FilterLegend
         groups={appliedFilterGroups}
         onChange={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);resetPage();}}
@@ -758,7 +759,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
       {bulkReview&&<BulkChangeReview input={bulkReview} onClose={()=>setBulkReview(null)} onConfirm={applyBulk} pending={bulkM.isPending} error={bulkM.error?.message}/>}
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?(leadsQ.data?.truncated?"Tablero con las primeras 500":"Tablero con todos los resultados"):`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"El tablero no muestra gestiones eliminadas. Sacá ese filtro para verlo."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?(leadsQ.data?.truncated?"Tablero con las primeras 500":"Tablero con todos los resultados"):`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"El tablero no muestra gestiones eliminadas. Sacá ese filtro para verlo."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button><HelpLink topic="board"/></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las gestiones. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         {!businessMode&&!resultsBusy&&!leadsQ.error&&!leads.length&&<section className={styles.emptyState}>
           <h2>{appliedRuleCount||stats.total?"Sin resultados por los filtros actuales":"Sin gestiones iniciadas"}</h2>

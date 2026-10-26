@@ -19,6 +19,7 @@ import {usePageHelp} from '../components/AppLayout';
 import {WorkFilters} from '../components/WorkFilters';
 import {TodayStatTiles} from '../components/TodayStatTiles';
 import {TodayHelp} from '../components/TodayHelp';
+import {HelpLink} from '../components/HelpLink';
 import {TodayList} from '../components/TodayList';
 import {TodayMiniCalendar} from '../components/TodayMiniCalendar';
 import {parseTodayView,todayViews,type TodayView} from '../helpers/appNavigation';
@@ -50,7 +51,7 @@ export default function MyDayPage(){
  const days=Array.from({length:Number(monthEnd.slice(8))},(_,i)=>month+'-'+String(i+1).padStart(2,'0'));
  const firstWeekday=(new Date(month+'-01T12:00:00Z').getUTCDay()+6)%7;
  return <><main className={styles.shell}>
-  <div className={styles.heading+" "+ws.pageHeading}><div>{!retomar&&<span className={styles.eyebrow}>{agenda?"ENCUENTROS COMERCIALES":"TRABAJO DIARIO"}</span>}<h1>Hoy</h1>{!retomar&&<p className={styles.muted}>{agenda?"Visitas y reuniones planificadas y realizadas":formatDate(localDay(now))+" · Priorizá lo vencido y lo que toca hoy"} · Horarios de Argentina</p>}</div>{!retomar&&<div className={styles.actions}><Button onClick={()=>setEditor({kind:'task'})}>{agenda?"Agendar encuentro":VOCAB.scheduleTask}</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity'})}>{agenda?"Anotar encuentro realizado":VOCAB.logWhatHappened}</Button></div>}</div>
+  <div className={styles.heading+" "+ws.pageHeading}><div><span className={ws.eyebrow}>TRABAJO</span><h1>Hoy</h1><p className={styles.muted}>{retomar?"Gestiones cerradas con fecha para volver a conversar.":agenda?"Visitas y reuniones planificadas y realizadas":formatDate(localDay(now))+" · Priorizá lo vencido y lo que toca hoy"} · Horarios de Argentina</p></div><div className={styles.actions}><HelpLink topic={retomar?'reactivation':'today'}/>{!retomar&&<><Button onClick={()=>setEditor({kind:'task'})}>{agenda?"Agendar encuentro":VOCAB.scheduleTask}</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity'})}>{agenda?"Anotar encuentro realizado":VOCAB.logWhatHappened}</Button></>}</div></div>
   <SectionTabs value={view} onValueChange={next=>setSearchParams(next==='list'?{}:{view:next})}><SectionTabList aria-label="Vistas de Hoy">{todayViews.map(item=><SectionTab key={item.view} value={item.view}>{item.label}</SectionTab>)}</SectionTabList>{todayViews.map(item=><SectionTabPanel key={item.view} value={item.view}>{item.view===view&&(
   retomar?<React.Suspense fallback={<QueryLoadingNotice/>}><ReactivationContent/></React.Suspense>:<>
   {!selected&&<WorkFilters data={d} admin={admin} agenda={agenda} responsible={responsible} city={city} vertical={vertical} month={month} calendar={calendar} onResponsible={value=>reset(()=>setResponsible(value))} onCity={value=>reset(()=>setCity(value))} onVertical={value=>reset(()=>setVertical(value))} onMonth={value=>reset(()=>setMonth(value))} onCalendar={setCalendar} onClear={clearFilters}/>}
