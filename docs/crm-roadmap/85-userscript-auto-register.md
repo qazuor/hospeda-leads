@@ -45,7 +45,7 @@ Si falla una condición, el panel dice por qué en una línea («Registro manual
 
 - `registerSchema` admite `automatic?: boolean`. Con `true`:
   - el servidor exige las condiciones 1, 3 y 4 de §4 (sin gestión abierta);
-  - rechaza el lote entero con `{ error, reason: "auto_disabled" | "not_eligible" }` y estado 409, sin registrar nada;
+  - rechaza el lote entero con `{ error, reason: "global_disabled" | "auto_disabled" | "not_eligible" }` (apagado por un admin, por el vendedor, o negocio no apto) y estado 409, sin registrar nada;
   - y rechaza por mensaje los ids anulados antes (`status: 'rejected'`, `reason: 'Anulado antes; registralo a mano si corresponde.'`).
 - Cada mensaje creado en modo automático deja una fila en `crm_auto_registrations` con `effects`, la lista exacta de lo que cambió:
   - **Recibido:** `{ inboundId }`. Sigue entrando como `pending_review`, para que el vendedor lo revise como hoy.
