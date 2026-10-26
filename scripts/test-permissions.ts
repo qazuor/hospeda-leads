@@ -23,7 +23,7 @@ import {download as resourcesDownload,get as resourcesGet,post as resourcesPost}
 import {get as workGet,post as workPost} from '../src/endpoints/work';
 import {handle as leadContact} from '../src/endpoints/lead_contact_POST';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable database with all migrations applied');
-const suffix=Date.now();let checks=0;
+const suffix=Date.now(),dncPhone=`+54 9 3446 ${String(suffix).slice(-6)}`;let checks=0;
 async function actor(role:'admin'|'user',name:string){
  const user=await db.insertInto('users').values({email:`permissions-${name}-${suffix}@example.com`,displayName:name,fullName:'Private full name',phone:'private-phone',sex:'otro',senderEmail:`permissions-${name}@hospeda.com.ar`,role}).returningAll().executeTakeFirstOrThrow();
  const sid='permission-'+user.id;
@@ -321,7 +321,7 @@ try{
   [workPost,'work',{action:'activity_save',accountId,leadId:archivedLead,title:'Unauthorized call',typeId:'call',occurredAt:new Date().toISOString(),outcome:'interested',continuation:'done'}],
   [communicationPost,'communication',{action:'prepare',id:crypto.randomUUID(),leadId:archivedLead,channel:'email',contactId,templateId:null}],
   [communicationPost,'communication',{action:'prepare_general',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId,channel:'whatsapp',purpose:'resume',otherPurpose:null,templateId:null}],
-  [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:'+54 9 3447 412345',recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
+  [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:dncPhone,recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
   [communicationPost,'communication',{action:'response_create',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Unauthorized response',exactText:null,otherDetail:null}],
   [communicationPost,'communication',{action:'response_correct',id:archivedResponse,category:'other',summary:'Unauthorized correction',exactText:null,otherDetail:'Changed',reason:'Unauthorized correction'}],
   [resourcesPost,'resources',{action:'link',id:documentId,accountId,leadId:archivedLead,activityId:null}],
@@ -342,7 +342,7 @@ try{
  }
  assert.equal((await call(owner,qualityGet,'dataQuality?accountId='+accountId)).canEdit,false);
  // A management closed as "Pidió no ser contactado" archives the business: its owner still reads it, but no write or contact path opens.
- const dncBusiness=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Do not contact business '+suffix,telefono:'+54 9 3447 412345',email:'dnc@example.com'})).id;
+ const dncBusiness=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Do not contact business '+suffix,telefono:dncPhone,email:`dnc-${suffix}@example.com`})).id;
  const dncContact=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId:dncBusiness,name:'Blocked person',isPrimary:true,email:'blocked@example.com'})).id;
  const dncLead=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId:dncBusiness,confirmReviewed:true,managementType:'main',opportunityName:'Closed by request'})).id;
  const openLead=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId:dncBusiness,managementType:'main',opportunityName:'Still open'})).id;
@@ -403,7 +403,7 @@ try{
   [workPost,'work',{action:'activity_save',accountId:dncBusiness,leadId:openLead,title:'Unauthorized call',typeId:'call',occurredAt:new Date().toISOString(),outcome:'interested',continuation:'done'}],
   [communicationPost,'communication',{action:'prepare',id:crypto.randomUUID(),leadId:openLead,channel:'email',contactId:dncContact,templateId:null}],
   [communicationPost,'communication',{action:'prepare_general',id:crypto.randomUUID(),accountId:dncBusiness,leadId:null,contactId:dncContact,channel:'whatsapp',purpose:'resume',otherPurpose:null,templateId:null}],
-  [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:dncBusiness,leadId:openLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:'+54 9 3447 412345',recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
+  [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:dncBusiness,leadId:openLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:dncPhone,recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
   [communicationPost,'communication',{action:'response_create',id:crypto.randomUUID(),accountId:dncBusiness,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Unauthorized response',exactText:null,otherDetail:null}],
   [communicationPost,'communication',{action:'response_correct',id:dncResponse,category:'other',summary:'Unauthorized correction',exactText:null,otherDetail:'Changed',reason:'Unauthorized correction'}],
   [resourcesPost,'resources',documentLink],
@@ -520,16 +520,24 @@ try{
     [pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:rev,stage:'main:lost',reasonId:lost.id,comment:''}],
     [pipelinePost,'pipeline',{action:'contact_policy',accountId:f.b,blocked:false,reason:'Unauthorized lift'}],
     [communicationPost,'communication',{action:'prepare_general',id:crypto.randomUUID(),accountId:f.b,leadId:null,contactId:f.c,channel:'whatsapp',purpose:'resume',otherPurpose:null,templateId:null}],
-    [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:f.b,leadId:f.l,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:'+54 9 3447 412345',recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
+    [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:f.b,leadId:f.l,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:dncPhone,recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
    ];
    const snapshot=async()=>JSON.stringify([await db.selectFrom('crmAccounts').selectAll().where('id','=',f.b).executeTakeFirstOrThrow(),await db.selectFrom('leads').selectAll().where('accountId','=',f.b).orderBy('id').execute(),await db.selectFrom('crmContacts').selectAll().where('accountId','=',f.b).orderBy('id').execute(),await db.selectFrom('crmTasks').selectAll().where('accountId','=',f.b).orderBy('id').execute(),await db.selectFrom('crmActivities').selectAll().where('accountId','=',f.b).orderBy('id').execute()]);
    const before=await snapshot();
    // The business responsible, the responsible of its management and an unrelated seller are all rejected (the colleague already was).
    for(const seller of [owner,mgr,other])for(const [handler,url,body] of writes)await call(seller,handler,url,body,403);
    assert.equal(await snapshot(),before,'no rejected write changed the No contactar business');
-   // A single Leandro user is needed for the referral to resolve; it is created here and removed again below.
-   const existingLeandro=Number((await sql<{n:string}>`SELECT count(*) n FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro'`.execute(db)).rows[0].n);
-   const created=existingLeandro===0?await db.insertInto('users').values({email:`leandro-d1-${suffix}@example.com`,displayName:'Leandro',role:'user'}).returning('id').executeTakeFirstOrThrow():null;
+   // A single Leandro user is needed for the referral to resolve: it is created here, any leftover Leandro is renamed for the duration, and everything is restored below.
+   const isolateLeandro=async(keepEmail:string,tag:string|number)=>{// pipeline.ts resolves the referral target by display name and fails unless exactly one user matches; leftovers of earlier runs are renamed for this run only and restored by the returned function.
+    const rows=(await sql<{id:string;displayName:string|null;fullName:string|null}>`SELECT id,display_name,full_name FROM users WHERE email<>${keepEmail} AND (lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro')`.execute(db)).rows;
+    const hidden=(v:string|null)=>v&&v.trim().toLowerCase()==='leandro'?`${v} (isolated ${tag})`:v;
+    for(const r of rows)await sql`UPDATE users SET display_name=${hidden(r.displayName)},full_name=${hidden(r.fullName)} WHERE id=${r.id}`.execute(db);
+    assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro'`.execute(db)).rows[0].n),1,'exactly one Leandro user while the referral runs');
+    return async()=>{for(const r of rows)await sql`UPDATE users SET display_name=${r.displayName},full_name=${r.fullName} WHERE id=${r.id}`.execute(db);};
+   };
+   const leandroEmail=`leandro-d1-${suffix}@example.com`;
+   const created=await db.insertInto('users').values({email:leandroEmail,displayName:'Leandro',role:'user'}).returning('id').executeTakeFirstOrThrow();
+   const restoreLeandro=await isolateLeandro(leandroEmail,suffix);
    // The referral to Leandro skips the write guard for readers: it must stay closed on a No contactar business too.
    for(const seller of [owner,mgr,other])await call(seller,pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:rev,stage:'main:leandro'},403);
    assert.equal(await snapshot(),before,'a rejected referral changed nothing');
@@ -553,13 +561,11 @@ try{
    for(const [handler,url,body] of [commercial({action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Concordia'}),commercial({action:'contact_save',accountId:f.b,name:'Admin person',isPrimary:false}),[quick,'leads_quick',{id:f.b,accountId:f.b,field:'ciudad',value:'Colón',expectedValue:'Concordia'}],[note,'lead_notes',{leadId:f.l,note:'Admin note'}],[workPost,'work',{action:'task_save',accountId:f.b,title:'Admin task',typeId:'call',dueDate:'2027-01-15'}],[resourcesPost,'resources',{action:'link',id:documentId,accountId:f.b,leadId:null,activityId:null}],[bulk,'leads_bulk',{entity:'business',ids:[f.b],changes:{ciudad:'Concordia'}}]] as W[])await call(admin,handler,url,body);
    {// Admin referral on the No contactar business works.
     try{
-     if(existingLeandro<=1){
-      const live=(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision as number;
-      await call(admin,pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:live,stage:'main:leandro'});
-      assert.equal((await db.selectFrom('crmAccounts').select('referredToLeandro').where('id','=',f.b).executeTakeFirstOrThrow()).referredToLeandro,true);
-      await call(admin,pipelinePost,'pipeline',{action:'unrefer',leadId:f.l,revision:(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision});
-     }
-    }finally{if(created)await db.deleteFrom('users').where('id','=',created.id).execute();}
+     const live=(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision as number;
+     await call(admin,pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:live,stage:'main:leandro'});
+     assert.equal((await db.selectFrom('crmAccounts').select('referredToLeandro').where('id','=',f.b).executeTakeFirstOrThrow()).referredToLeandro,true);
+     await call(admin,pipelinePost,'pipeline',{action:'unrefer',leadId:f.l,revision:(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision});
+    }finally{await restoreLeandro();await db.deleteFrom('users').where('id','=',created.id).execute();}
    }
    await call(admin,pipelinePost,'pipeline',{action:'contact_policy',accountId:f.b,blocked:false,reason:'D1 lift'});
    await call(owner,commercialPost,'commercial',{action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Paraná'});

@@ -40,12 +40,13 @@ try{
   assert.equal((await get(new Request('http://localhost/_api/commercial'))).status,401);
   assert.equal((await post(request({action:'account_save',nombre:'No auth'},''))).status,401);
   await mutate({action:'account_save',nombre:'Forbidden',assignedUserEmail:user.email},user.value,403);
-  const accountId=await mutate({action:'account_save',nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com',assignedUserEmail:admin.email},admin.value);
+  const genericEmail=`generic-${suffix}@example.com`;
+  const accountId=await mutate({action:'account_save',nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:genericEmail,assignedUserEmail:admin.email},admin.value);
   const otherId=await mutate({action:'account_save',nombre:`Other ${suffix}`});
   await mutate({action:'account_save',id:accountId,nombre:'Forbidden',assignedUserEmail:user.email},user.value,403);
-  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:'generic@example.com'},user.value,403);
-  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com',assignedUserEmail:user.email},admin.value);
-  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:'generic@example.com'});
+  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:genericEmail},user.value,403);
+  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:genericEmail,assignedUserEmail:user.email},admin.value);
+  await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:genericEmail});
   assert.equal((await detail(accountId)).account.assignedUserEmail,user.email);
   {// U-09: duplicate check hides private data and No contactar duplicates cannot be created or edited into (admins included)
     const check=async(q:Record<string,string>,who=user.value)=>{const r=await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?'+new URLSearchParams(q),{headers:{cookie:who}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<{candidates:Record<string,any>[]}>(t).candidates};
@@ -193,7 +194,7 @@ try{
   const protectedBusiness=d.account.nombre;
   const scoped=await saveLead(request({id:first,scope:'opportunity',nombre:'Stale business',telefono:'stale',email:'stale@example.com',opportunityName:'Primera venta',estado:stage,tipo:vertical.name,assignedUserEmail:admin.email,primaryContactId:ana,serviceInterest:'Publicación',estimatedCloseDate:'2027-01-15'},admin.value));
   assert.equal(scoped.status,200);d=await detail(accountId);
-  assert.equal(d.account.nombre,protectedBusiness);assert.equal(d.account.email,'generic@example.com');
+  assert.equal(d.account.nombre,protectedBusiness);assert.equal(d.account.email,genericEmail);
   assert.equal(String(d.opportunities.find(o=>String(o.id)===first)!.primaryContactId),ana);
   assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,primaryContactId:foreign},admin.value))).status,400);
   assert.equal((await saveLead(request({id:first,scope:'opportunity',nombre:protectedBusiness,assignedUserEmail:user.email}))).status,403);
@@ -204,8 +205,8 @@ try{
   await mutate({action:'convert_client',accountId,reason:'Repetido'});assert.equal((await detail(accountId)).journal.filter(j=>j.action==='converted_to_client').length,1);
   const invalidLog=await contactLog(request({leadId:first,contactId:foreign,channel:'email',result:'Respondió'},admin.value));assert.equal(invalidLog.status,400);
   assert.equal((await contactLog(request({leadId:first,contactId:ana,channel:'email',result:'Respondió'},admin.value))).status,200);
-  const template=await db.insertInto('messageTemplates').values({name:'CRM template',channel:'email',subject:'Hola {{contact}}',body:'<p>{{contact}} · {{email}} · {{sender_short}}</p>'}).returningAll().executeTakeFirstOrThrow();
-  await db.insertInto('messageTemplates').values({name:'CRM WhatsApp template',channel:'whatsapp',body:'<p>Hola {{contact}} {{email}}</p>'}).execute();
+  const template=await db.insertInto('messageTemplates').values({name:`CRM template ${suffix}`,channel:'email',subject:'Hola {{contact}}',body:'<p>{{contact}} · {{email}} · {{sender_short}}</p>'}).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto('messageTemplates').values({name:`CRM WhatsApp template ${suffix}`,channel:'whatsapp',body:'<p>Hola {{contact}} {{email}}</p>'}).execute();
   process.env.BREVO_API_KEY='test-placeholder';
   const realFetch=globalThis.fetch;
   const outbound:Record<string,any>[]=[];
@@ -214,10 +215,10 @@ try{
     assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:luis},admin.value))).status,200);
     assert.equal(outbound[0].to[0].email,'luis@example.com');assert.match(outbound[0].htmlContent,/Luis/);assert.match(outbound[0].htmlContent,/luis@example.com/);assert(!outbound[0].htmlContent.includes('ana@example.com'));
     assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:foreign},admin.value))).status,400);assert.equal(outbound.length,1);
-    const genericTemplate=await db.insertInto('messageTemplates').values({name:'CRM generic template',channel:'email',subject:'Hola',body:'<p>Mensaje general</p>'}).returningAll().executeTakeFirstOrThrow();
+    const genericTemplate=await db.insertInto('messageTemplates').values({name:`CRM generic template ${suffix}`,channel:'email',subject:'Hola',body:'<p>Mensaje general</p>'}).returningAll().executeTakeFirstOrThrow();
     const generalRecipient=await sendEmail(request({leadId:first,templateId:genericTemplate.id},admin.value));
     assert.equal(generalRecipient.status,200,await generalRecipient.text());
-    assert.equal(outbound[1].to[0].email,'generic@example.com');assert(!outbound[1].subject.includes('Luis'));assert(!outbound[1].subject.includes('Ana'));
+    assert.equal(outbound[1].to[0].email,genericEmail);assert(!outbound[1].subject.includes('Luis'));assert(!outbound[1].subject.includes('Ana'));
     const noChannel=await mutate({action:'contact_save',accountId,name:'Sin email'});
     assert.equal((await sendEmail(request({leadId:first,templateId:template.id,contactId:noChannel},admin.value))).status,400);assert.equal(outbound.length,2);
     await db.updateTable('messageTemplates').set({commercialProfile:'Consolidado'}).where('id','=',template.id).execute();
@@ -261,11 +262,11 @@ try{
   businessList=await businesses('q=Segunda%20venta');assert(businessList.rows.some(a=>String(a.id)===accountId));
   assert.equal((await businesses('q=Segunda%20venta&filterGroups='+encodeURIComponent(filterGroups))).total,0,'Free search AND filters must match the same opportunity');
   assert.equal((await businesses('q='+encodeURIComponent(`CRM test ${suffix}`)+'&filterGroups='+encodeURIComponent(filterGroups))).total,1,'Free search combines with matching dialog filters');
-  const empty=await mutate({action:'account_save',nombre:`Empty business ${suffix}`,email:'generic@example.com'});
+  const empty=await mutate({action:'account_save',nombre:`Empty business ${suffix}`,email:genericEmail});
   businessList=await businesses('q='+encodeURIComponent(`Empty business ${suffix}`));
   assert.equal(businessList.total,1);assert.equal(businessList.rows[0].opportunityCount,0);assert.equal(businessList.rows[0].opportunityId,null);
   // Shared emails never merge unrelated businesses.
-  const sharedEmail=await businesses('textFilters='+encodeURIComponent(JSON.stringify([{field:'email',mode:'equals',value:'generic@example.com'}])));
+  const sharedEmail=await businesses('textFilters='+encodeURIComponent(JSON.stringify([{field:'email',mode:'equals',value:genericEmail}])));
   assert(sharedEmail.rows.some(a=>String(a.id)===accountId));assert(sharedEmail.rows.some(a=>String(a.id)===empty));
   // Business projection: one column per leads column plus business_status, derived values computed once and shared by filters, sort and count.
   const leadColumns=(await sql<{columnName:string}>`select column_name from information_schema.columns where table_schema='public' and table_name='leads' order by ordinal_position`.execute(db)).rows.map(r=>r.columnName);
