@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {formatDate,formatDateTime,formatDay,formatTime,relativeAgo,overdueLabel,nextActionInfo} from './crmDates';
+import {formatDate,formatDateShort,formatDateTime,formatDay,formatTime,relativeAgo,overdueLabel,nextActionInfo} from './crmDates';
 import {displayCalendarDate,displayDate} from './leadsTableModel';
 
 describe('Argentina date and time formatting',()=>{
@@ -15,6 +15,10 @@ describe('Argentina date and time formatting',()=>{
   expect(formatDay('2026-10-01')).toMatch(/^1 de oct\.? de 2026$/);
   expect(formatDate(new Date('2026-10-01T00:00:00Z'))).toMatch(/^1 de oct\.? de 2026$/);
   expect(formatDay('2026-10-02T01:30:00Z')).toMatch(/^1 de oct\.? de 2026$/);
+ });
+ it('formats compact timestamp dates in the Argentina calendar',()=>{
+  expect(formatDateShort('2026-10-02T01:30:00Z')).toBe('01/10');
+  expect(formatDateShort(null)).toBe('Vacío');
  });
  it('renders SQL DATE values (UTC midnight Date, as postgres.js returns them) on their own day',()=>{
   const sqlDate=new Date('2026-10-01T00:00:00Z');

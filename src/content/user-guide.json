@@ -116,6 +116,34 @@
         ]
       },
       {
+        "id": "inbox-overview",
+        "title": "Revisar conversaciones en la Bandeja",
+        "when": "Cuando quieras ver mensajes y registros de llamada de tus negocios en un solo lugar.",
+        "steps": [
+          "Entrá en «Bandeja». La lista empieza en «A revisar» y reúne los negocios con mensajes pendientes; «Todas» muestra el resto de las conversaciones disponibles para tu usuario.",
+          "Elegí un negocio para ver sus conversaciones por gestión y canal. «General» reúne la actividad que no pertenece a una gestión. Desde ahí usá «Abrir ficha del negocio» o «Abrir gestión».",
+          "El detalle ordena los eventos del más antiguo al más reciente. Los mensajes recibidos pendientes se distinguen de los descartados y de los registros manuales de llamadas u otros canales.",
+          "La búsqueda y las acciones de respuesta se habilitarán en una próxima versión. La Bandeja de esta versión permite consultar la actividad sin modificarla."
+        ],
+        "result": "Podés ubicar una conversación y leer su actividad sin confundir un mensaje abierto o un intento con un contacto confirmado.",
+        "example": [
+          "Elegís un negocio con «A revisar», abrís su conversación de Email y revisás el mensaje entrante antes de continuar el trabajo desde la ficha o la gestión."
+        ],
+        "notes": [
+          "La lista y las conversaciones respetan el acceso por responsable. Un negocio o una gestión que no podés consultar no aparece como opción disponible."
+        ],
+        "url": "/inbox",
+        "linkLabel": "Ir a Bandeja",
+        "uiLabels": [
+          "Bandeja",
+          "A revisar",
+          "Todas",
+          "General",
+          "Abrir ficha del negocio",
+          "Abrir gestión"
+        ]
+      },
+      {
         "id": "business-states",
         "title": "Estado del negocio y etapa de la gestión",
         "when": "Cuando necesitás saber qué significa un estado, una etapa o cuál cambiar.",

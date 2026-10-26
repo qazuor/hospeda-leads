@@ -15,6 +15,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { GlobalContextProviders } from "./components/_globalContextProviders";
 import { AdminRoute, UserRoute } from "./components/ProtectedRoute";
 const MyDayPage=React.lazy(()=>import("./pages/my-day"));
+const InboxPage=React.lazy(()=>import('./pages/inbox'));
 const AccountsPage=React.lazy(()=>import("./pages/accounts"));
 const BusinessListPage=React.lazy(()=>import("./pages/business-list"));
 const LeadsPage=React.lazy(()=>import("./pages/_index"));
@@ -72,6 +73,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/accounts" element={<UserRoute><BusinessListPage /></UserRoute>} />
             <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
             <Route path="/my-day" element={<UserRoute><MyDayPage/></UserRoute>} />
+            <Route path="/inbox" element={<UserRoute><InboxPage/></UserRoute>} />
             {/* Agenda and Reactivación live inside Hoy (owner decision 5A); old bookmarks keep working. */}
             <Route path="/reactivation" element={<Navigate to="/my-day?view=retomar" replace />} />
             <Route path="/agenda" element={<Navigate to="/my-day?view=calendar" replace />} />

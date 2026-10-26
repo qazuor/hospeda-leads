@@ -4,9 +4,9 @@ import {adminNavigation,breadcrumbTrail,documentTitle,mainNavigation,parseTodayV
 
 describe('app navigation',()=>{
  it('keeps the work and record groups and admin-only destinations as typed data',()=>{
-  expect(workNavigation.map(({label,url})=>[label,url])).toEqual([['Hoy','/my-day']]);
+  expect(workNavigation.map(({label,url})=>[label,url])).toEqual([['Hoy','/my-day'],['Bandeja','/inbox']]);
   expect(recordNavigation.map(({label,url})=>[label,url])).toEqual([['Negocios','/accounts'],['Gestiones','/opportunities']]);
-  expect(mainNavigation.map(({label,url})=>[label,url])).toEqual([['Hoy','/my-day'],['Negocios','/accounts'],['Gestiones','/opportunities'],['Ayuda','/guide']]);
+  expect(mainNavigation.map(({label,url})=>[label,url])).toEqual([['Hoy','/my-day'],['Bandeja','/inbox'],['Negocios','/accounts'],['Gestiones','/opportunities'],['Ayuda','/guide']]);
   expect(adminNavigation.map(({label,url})=>[label,url])).toEqual([['Negocios archivados','/archived'],['Importar CSV','/accounts?adminTool=import'],['Buscar duplicados','/accounts?adminTool=duplicates'],['Estadísticas','/analytics'],['Configuración','/settings'],['Historial del equipo','/history'],['Papelera','/trash'],['Emails sin asociar','/inbound']]);
   expect(adminNavigation.find(item=>item.url==='/inbound')?.icon).toBeDefined();
  });

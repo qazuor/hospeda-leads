@@ -1,9 +1,10 @@
-import { Archive, BookOpen, CalendarDays, CheckCheck, Copy, History, Mail, RotateCcw, Settings, Store, Trash2, Upload, Workflow, BarChart3 } from 'lucide-react';
+import { Archive, BookOpen, CalendarDays, CheckCheck, Copy, History, Inbox, Mail, RotateCcw, Settings, Store, Trash2, Upload, Workflow, BarChart3 } from 'lucide-react';
 import { VOCAB } from '../content/vocabulary';
 
 /** Destinations in the work section. */
 export const workNavigation = [
   { url: '/my-day', label: 'Hoy', description: 'Tareas pendientes y próximos pasos', keywords: 'mi día tareas', icon: CheckCheck },
+  { url: '/inbox', label: 'Bandeja', description: 'Conversaciones por revisar', keywords: 'mensajes conversaciones email whatsapp', icon: Inbox },
 ] as const;
 /** Destinations for business and management records. */
 export const recordNavigation = [

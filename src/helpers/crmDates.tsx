@@ -25,6 +25,13 @@ export const formatDate=(value:unknown,withTime=false)=>{
 
 /** Date and time of an instant in Argentina time ("20 oct 2026, 13:11"). */
 export const formatDateTime=(value:unknown)=>formatDate(value,true);
+/** Day/month for compact inbox rows, using the Argentina day of a timestamp. */
+export const formatDateShort=(value:unknown)=>{
+  const d=parseDate(value);
+  if(!d)return "Vacío";
+  const parts=new Intl.DateTimeFormat("es-AR",{day:"2-digit",month:"2-digit",timeZone:CRM_TIME_ZONE}).formatToParts(d);
+  return `${parts.find(part=>part.type==="day")?.value.padStart(2,"0")}/${parts.find(part=>part.type==="month")?.value.padStart(2,"0")}`;
+};
 /** Calendar day of an instant (timestamp) in Argentina time, so late-evening events do not jump to the next UTC day. For timestamps only: NOT for SQL DATE values (a Date at UTC midnight would show the previous day); use `formatDate` for those. */
 export const formatDay=(value:unknown)=>{
   const d=parseDate(value);
