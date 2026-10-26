@@ -16,7 +16,6 @@ import {AutoRegistrationVoidButton,canVoidAutoRegistration} from '../AutoRegistr
 import {ResponseRecordDialog,type ResponseDialogRequest} from '../ResponseRecordDialog';
 import {inboxChannelLabel,inboxEventInbound,inboxMessageKey,type InboxChannel,type InboxEvent,type InboxPage,type InboxThreadRow} from './inboxTypes';
 import styles from './Inbox.module.css';
-import {HelpLink} from '../HelpLink';
 
 /** Older pages loaded automatically while looking for the message a search result points at. */
 export const MAX_AUTO_PAGES=3;
@@ -76,7 +75,7 @@ export function InboxDetail({accountId,thread,channel,accountName,message,back}:
  const label=(event:InboxEvent)=>event.kind==='out'?(event.isManualLog?`Registro · ${inboxChannelLabel(event.channel)}`:`Vos · ${messageLabels[event.status]??event.status}`):event.voided?'Anulado':event.dismissed?'Descartado':`${event.pending?'Recibido · a revisar':'Recibido'} · ${formatTime(event.at)}`;
  return <>
   {back}
-  <header><HelpLink topic="inbox"/><h2>{thread.leadId?thread.leadTitle:'General'} · {inboxChannelLabel(threadChannel??thread.channel)}</h2><p>{accountName||commercial.data?.account.nombre} · {contact?.fromName||contact?.fromAddress||'Contacto no identificado'}</p>{thread.leadId&&<a href={`/sales/${thread.leadId}`}>Abrir gestión</a>}{admin&&<Button size="sm" variant={includeVoided?'primary':'outline'} aria-pressed={includeVoided} onClick={()=>setIncludeVoided(value=>!value)}>Anulados</Button>}</header>
+  <header><h2>{thread.leadId?thread.leadTitle:'General'} · {inboxChannelLabel(threadChannel??thread.channel)}</h2><p>{accountName||commercial.data?.account.nombre} · {contact?.fromName||contact?.fromAddress||'Contacto no identificado'}</p>{thread.leadId&&<a href={`/sales/${thread.leadId}`}>Abrir gestión</a>}{admin&&<Button size="sm" variant={includeVoided?'primary':'outline'} aria-pressed={includeVoided} onClick={()=>setIncludeVoided(value=>!value)}>Anulados</Button>}</header>
   {detail.isPending?<div className={styles.skeleton} role="status" aria-label="Cargando mensajes"><i/><i/><i/></div>:detail.error&&!detail.data?<QueryErrorNotice error={detail.error} onRetry={detail.refetch} busy={detail.isFetching}/>:<div className={styles.timeline} ref={timeline}>
    {detail.hasNextPage&&<Button variant="outline" disabled={detail.isFetchingNextPage} disabledReason="Estamos cargando mensajes anteriores." onClick={loadOlder}>{detail.isFetchingNextPage?'Cargando…':'Cargar anteriores'}</Button>}
    {detail.isFetchNextPageError&&<p role="alert">No pudimos cargar los mensajes anteriores. Probá de nuevo con «Cargar anteriores».</p>}
