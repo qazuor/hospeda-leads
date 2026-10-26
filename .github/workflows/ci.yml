@@ -108,6 +108,11 @@ jobs:
         run: npm run test:inbound
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Unified inbox integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:inbox
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Shared reading and owner permissions integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:permissions
