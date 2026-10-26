@@ -260,3 +260,7 @@ La distribución de responsables entre los cuatro usuarios elegibles se ejecutó
 ### Ficha de negocio · revisión con el propietario (23/10/2026)
 
 PR 1/2 (#230) y PR 2/2 implementados. Falta que el propietario revise la ficha nueva y decida si avanzar con la variante de dos columnas en escritorio. Límites conocidos: a 390 px la cuarta solapa queda parcialmente visible y la lista se desplaza dentro de sí; no se revisó la vista de vendedor ni Comunicación con mensajes recibidos reales.
+
+### Bandeja de conversaciones (26/10/2026)
+
+B1 y B2 implementadas en `ux/inbox-v1`, sin PR. Falta: revisión del propietario, commit y PR a `staging`. Límites conocidos: el e2e del vendedor se omite porque el seed no tiene vendedor (la visibilidad la cubre `test:inbox`); el e2e del descarte sirve el mensaje recibido con mocks porque la app no puede crear uno sin el token del webhook; la búsqueda solo lleva al mensaje si aparece en las primeras 4 páginas del hilo.

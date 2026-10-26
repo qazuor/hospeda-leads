@@ -70,6 +70,30 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
+### Revisar conversaciones en la Bandeja
+
+**Cuándo usarlo:** Cuando quieras ver y responder los mensajes y registros de llamada de tus negocios en un solo lugar.
+
+1. Entrá en «Bandeja». La lista empieza en «A revisar»: son los negocios con mensajes recibidos que todavía nadie registró ni descartó. «Todas» muestra el resto de las conversaciones disponibles para tu usuario.
+2. Elegí un negocio para ver sus conversaciones. Cada conversación es una gestión y un canal: la misma gestión por Email y por WhatsApp son dos conversaciones. «General» reúne la actividad que no pertenece a una gestión. Desde ahí usá «Abrir ficha del negocio» o «Abrir gestión».
+3. El detalle ordena los eventos del más antiguo al más reciente. Los mensajes recibidos pendientes se distinguen de los descartados y de los registros manuales de llamadas u otros canales.
+4. En un mensaje recibido pendiente tenés las mismas acciones que en la ficha: «Registrar respuesta» para anotar lo que contestó, «Responder» para contestar un email en el mismo hilo (solo aparece cuando se puede) y «Descartar» si no es una respuesta. Con «Nuevo mensaje» abrís el contacto habitual para ese negocio y esa gestión.
+5. Para buscar, escribí arriba qué dijiste o qué te dijeron. Busca desde 3 letras («Escribí al menos 3 letras» te avisa si falta). No importan los acentos: "ampliacion" encuentra "ampliación". La ñ sí cuenta: "sena" no encuentra "seña".
+6. Los resultados reemplazan la lista. Podés filtrar por dirección, canal y fechas, y con «Cargar más» traés los siguientes. Tocá un resultado para abrir su conversación en ese mensaje; «Limpiar» vuelve a la lista.
+
+**Qué queda al terminar:** Podés ubicar una conversación, revisar lo que llegó y dejar cada mensaje registrado o descartado sin confundir un mensaje abierto o un intento con un contacto confirmado.
+
+**Ejemplo:**
+
+- Elegís un negocio con «A revisar», abrís su conversación de Email, leés el mensaje y tocás «Registrar respuesta» para anotar que pidió precios.
+
+**Tené en cuenta:**
+
+- La lista, la búsqueda y las conversaciones respetan el acceso por responsable. Un negocio o una gestión que no podés consultar no aparece como opción disponible.
+- Descartar o registrar un mensaje no envía nada ni cambia la etapa de la gestión. Si el negocio pidió no ser contactado, «Responder» solo aparece para contestar su propio mensaje.
+
+**Dónde ir:** Ir a Bandeja (/inbox)
+
 ### Estado del negocio y etapa de la gestión
 
 **Cuándo usarlo:** Cuando necesitás saber qué significa un estado, una etapa o cuál cambiar.

@@ -30,7 +30,7 @@ const GENERAL='__general';
  * Then channel and recipient: a call is made right here (`PhoneCallPanel`), a message goes through its composer, social and other channels through the manual form.
  * Opening or choosing a channel records nothing; every contact ends in "¿Cómo salió?" → "¿Cómo sigue?" unless `onLog` (a task's own completion path) takes over.
  */
-export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,onLog,floatingComposer=false,onFloatingClose,onFloatingOpen}:{detail:CommercialDetail;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:'email'|'whatsapp'|'call'|'social'|'other';initialContactId?:string;onLog?:(contactId:string,channel:string)=>void;floatingComposer?:boolean;onFloatingClose?:(floating:boolean)=>void;onFloatingOpen?:(leadId:string)=>void}){
+export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,initialLeadId,onLog,floatingComposer=false,onFloatingClose,onFloatingOpen}:{detail:CommercialDetail;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:'email'|'whatsapp'|'call'|'social'|'other';initialContactId?:string;/** Preselects «¿Sobre qué?» when that management is open; otherwise the usual default applies. */initialLeadId?:string;onLog?:(contactId:string,channel:string)=>void;floatingComposer?:boolean;onFloatingClose?:(floating:boolean)=>void;onFloatingOpen?:(leadId:string)=>void}){
  const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:undefined;
  const stages=useQuery({queryKey:['pipeline','config-summary'],queryFn:()=>getPipeline({mode:'config'})});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
@@ -40,7 +40,7 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const [created,setCreated]=useState(false),callSession=useCallSession();
  const [composing,setComposing]=useState(false),[manualContact,setManualContact]=useState(false),[generalMessage,setGeneralMessage]=useState(false),[editor,setEditor]=useState<EditorTarget|null>(null);
  const open=detail.opportunities.filter(o=>!o.deletedAt&&(stages.data?.stages.find(s=>s.name===o.estado)?.classification??'open')==='open');
- const sobre=chosen||(!open.length?GENERAL:open.length===1?String(open[0].id):'');
+ const sobre=chosen||(initialLeadId&&open.some(o=>String(o.id)===initialLeadId)?initialLeadId:!open.length?GENERAL:open.length===1?String(open[0].id):'');
  const general=sobre===GENERAL;
  const opportunity=general?undefined:open.find(o=>String(o.id)===sobre);
  const effective=opportunity?String(opportunity.id):'';
