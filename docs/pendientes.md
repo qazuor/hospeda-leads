@@ -188,16 +188,14 @@ El propietario sigue detectando detalles pese a varias rondas de mejoras. El pri
 
 Recorrer desktop y 320/390px, claro/oscuro, teclado y contenidos largos. Operar los recorridos, no limitarse a screenshots de páginas. Usar componentes/primitivas compartidos. Guardar evidencia de qué se probó; fixtures no prueban todas las combinaciones productivas. Ver [sistema visual](ui-visual-system.md) y `tests/browser/`.
 
-## Reglas comerciales: decisiones pendientes
+## Reglas comerciales (spec 87)
 
-Implementación/revisión existente: [documento 48](crm-roadmap/48-commercial-rules-review.md). Faltan definiciones del propietario sobre:
+Las cuatro preguntas de la [revisión 48](crm-roadmap/48-commercial-rules-review.md) quedaron resueltas el 26/10/2026 (`decisiones.md`). La [spec 87](crm-roadmap/87-commercial-rules-decisions.md) implementa:
+- el acuerdo mínimo al ganar como Cliente;
+- las tareas al registrar una respuesta;
+- los mensajes por delegación.
 
-1. Evidencia necesaria para aceptación/cierre y campos obligatorios del acuerdo.
-2. Si registrar una respuesta espontánea debe proponer completar una tarea seleccionada.
-3. Si un delegado puede preparar/enviar mensajes solo para su tarea y con qué restricciones/auditoría.
-4. Si habrá registro estructurado de pagos, fuente y responsable de confirmación.
-
-No deducir esas decisiones de etapas históricas. No agregar automatismos de pago/entrega/cierre ni permisos nuevos mientras sigan abiertas.
+Pagos: no se registran en el CRM. Sin implementar.
 
 ## Estados de negocio y gestiones
 

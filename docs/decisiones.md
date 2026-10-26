@@ -232,6 +232,14 @@ Detalle en la [spec 88](crm-roadmap/88-instagram-direct-webhooks.md). Reemplaza 
 - **D3:** los mensajes de clientes asociados quedan «Por revisar», como el email. Nada se registra ni se clasifica solo.
 - Sin envío por la API en esta fase.
 
+## Reglas comerciales: preguntas abiertas resueltas — 26/10/2026 (propietario)
+
+Detalle en la [spec 87](crm-roadmap/87-commercial-rules-decisions.md).
+1. **Ganar y convertir en Cliente exige un mínimo de acuerdo:** «Qué se acordó» y «Persona que aceptó». Los cierres ganados que no convierten en Cliente siguen sin exigirlo. No se pide evidencia documental ni una respuesta previa.
+2. **Una respuesta del cliente propone, no decide:** el diálogo lista las tareas pendientes de la gestión y el vendedor tilda las que da por resueltas. Nada se completa solo.
+3. **Mensajes por delegación:** el asignado de una tarea pendiente puede preparar y enviar mensajes desde esa tarea, a ese negocio y con los mismos controles, con la constancia «por delegación de». No puede cambiar etapas ni escribir fuera de la tarea.
+4. **El CRM no registra pagos:** los pagos viven en su sistema de origen. Ninguna etapa, marca ni entrega acredita pago. Si hiciera falta verlos en la ficha, la vía es una integración de solo lectura, con análisis propio.
+
 ## User script de WhatsApp: negocio no visible — 26/10/2026 (propietario)
 
 - Si el teléfono o el código de un chat coincide con un negocio que el vendedor no puede leer (archivado y de otro responsable), el script no muestra ningún dato de ese negocio. Tampoco dice «Sin CRM» ni «Sin asociar».
