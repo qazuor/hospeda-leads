@@ -112,4 +112,9 @@ describe('Dialog side panel', () => {
     expect(confirm.className).not.toContain(styles.side);
     expect(confirm.parentElement?.className).not.toContain(styles.sideInner);
   });
+  it('leaves no transform on the side panel or its ancestors so the fixed footer and close button stay pinned', () => {
+    render(<MantineProvider><Dialog open><DialogContent side><DialogTitle>Nuevo negocio</DialogTitle><p>Formulario</p></DialogContent></Dialog></MantineProvider>);
+    const panel = screen.getByRole('dialog');
+    for (let node: HTMLElement | null = panel; node && node !== document.body; node = node.parentElement) expect(node.style.transform).toBe('');
+  });
 });
