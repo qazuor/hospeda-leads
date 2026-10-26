@@ -22,6 +22,7 @@ const location=()=>screen.getByTestId('location').textContent;
 const paneHidden=(element:HTMLElement)=>/hidden/.test(element.closest('[class*="pane"]')?.className??'');
 const phone=()=>Object.defineProperty(window,'innerWidth',{value:390,writable:true});
 beforeEach(()=>{
+ window.scrollTo=vi.fn();
  Object.defineProperty(window,'innerWidth',{value:1024,writable:true});
  mocks.businesses.mockReset().mockResolvedValue({rows:[business('11','Hotel Norte')],nextCursor:'opaque-b'});
  mocks.threads.mockReset().mockResolvedValue({rows:[thread],accountName:'Hotel Norte'});
@@ -121,8 +122,10 @@ describe('Bandeja search input',()=>{
  it('keeps the search filters when the text drops below the minimum and comes back',async()=>{
   wrap();await screen.findAllByText('Hotel Norte');
   fireEvent.change(searchBox(),{target:{value:'quincho'}});
+  await waitFor(()=>expect(location()).toContain('q=quincho'));
   const results=await screen.findByRole('region',{name:'Resultados de la búsqueda'});
   fireEvent.change(within(results).getByLabelText('Dirección'),{target:{value:'in'}});
+  await waitFor(()=>expect(location()).toContain('direction=in'));
   await waitFor(()=>expect(mocks.search).toHaveBeenLastCalledWith(expect.objectContaining({q:'quincho',direction:'in'})));
   fireEvent.change(searchBox(),{target:{value:'qu'}});
   expect(await screen.findByText('Escribí al menos 3 letras')).toBeTruthy();
@@ -130,6 +133,20 @@ describe('Bandeja search input',()=>{
   const again=await screen.findByRole('region',{name:'Resultados de la búsqueda'});
   expect((within(again).getByLabelText('Dirección') as HTMLSelectElement).value).toBe('in');
   await waitFor(()=>expect(mocks.search).toHaveBeenLastCalledWith(expect.objectContaining({q:'quinta',direction:'in'})));
+ });
+ it('returns to the same URL-backed results after opening a result and with browser Back',async()=>{
+  mocks.search.mockResolvedValue({rows:[{id:'message-1',kind:'in',accountId:'11',accountName:'Hotel Norte',leadId:null,leadTitle:'General',channel:'email',at:'2026-10-26T13:00:00Z',snippet:'Consulta hotel'}],nextCursor:null});
+  wrap();fireEvent.change(searchBox(),{target:{value:'hotel'}});
+  const results=await screen.findByRole('region',{name:'Resultados de la búsqueda'});
+  fireEvent.click(await within(results).findByRole('button',{name:/Hotel Norte/}));
+  await waitFor(()=>expect(location()).toContain('q=hotel&account=11'));
+  fireEvent.click(screen.getByRole('button',{name:'← Volver a los resultados'}));
+  await waitFor(()=>expect(location()).toBe('/inbox?q=hotel'));
+  expect(await screen.findByRole('region',{name:'Resultados de la búsqueda'})).toBeTruthy();
+  fireEvent.click(await within(screen.getByRole('region',{name:'Resultados de la búsqueda'})).findByRole('button',{name:/Hotel Norte/}));
+  fireEvent.click(screen.getByRole('button',{name:'history-back'}));
+  await waitFor(()=>expect(location()).toBe('/inbox?q=hotel'));
+  expect(await screen.findByRole('region',{name:'Resultados de la búsqueda'})).toBeTruthy();
  });
  it('counts visible characters, so «a b» or a lone emoji does not search',async()=>{
   wrap();await screen.findAllByText('Hotel Norte');

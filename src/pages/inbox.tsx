@@ -33,7 +33,10 @@ export default function InboxPage(){
  // The list's «Canal» filter is its own state: the URL `channel` belongs to the selected conversation.
  const [filter,setFilter]=useState<'pending'|'all'>('pending'),[listChannel,setListChannel]=useState<InboxChannel|null>(null),[scope,setScope]=useState<'mine'|'all'>('mine'),[filtersOpen,setFiltersOpen]=useState(false);
  // Search filters live here, so they survive the results unmounting while the text is below the minimum.
- const [searchText,setSearchText]=useState(''),[searchFilters,setSearchFilters]=useState<InboxSearchFilters>(INBOX_SEARCH_DEFAULTS);
+ const searchText=params.get('q')??'',searchFilters:InboxSearchFilters={direction:(params.get('direction') as InboxSearchFilters['direction'])||'all',channel:isChannel(params.get('searchChannel'))?params.get('searchChannel') as InboxChannel:'',from:params.get('from')??'',to:params.get('to')??'',scope:params.get('scope')==='all'?'all':'mine'};
+ const searchScroll=useMemo(()=>({top:0}),[]);
+ function setSearchText(value:string){const next=new URLSearchParams(params);if(value)next.set('q',value);else next.delete('q');setParams(next,{replace:true})}
+ function setSearchFilters(filters:InboxSearchFilters){const next=new URLSearchParams(params);for(const [key,value] of Object.entries({direction:filters.direction,searchChannel:filters.channel,from:filters.from,to:filters.to,scope:filters.scope})){if(value&&!(key==='direction'&&value==='all')&&!(key==='scope'&&value==='mine'))next.set(key,value);else next.delete(key)}setParams(next,{replace:true})}
  const typed=searchText.trim(),term=useDebounced(typed,300),searching=inboxSearchLength(typed)>=INBOX_SEARCH_MIN&&inboxSearchLength(term)>=INBOX_SEARCH_MIN;
  const listScope=admin?scope:undefined;
  // Keyed by every filter: a filter change starts a new list, and an invalidation refetches every loaded page.
@@ -49,14 +52,17 @@ export default function InboxPage(){
  function update(next:Selection){const value=new URLSearchParams(params);if(next.message===undefined)value.delete('message');for(const key of ['account','lead','channel','message'] as const){const v=next[key];if(v!==undefined){if(v===null)value.delete(key);else value.set(key,v)}}setParams(value)}
  const selectBusiness=(row:InboxBusinessRow)=>update({account:row.accountId,lead:null,channel:null});
  const selectThread=(row:InboxThreadRow)=>update({lead:row.leadId??'none',channel:row.channel});
- function openResult(row:InboxSearchRow){setSearchText('');update({account:row.accountId,lead:row.leadId??'none',channel:row.channel,message:inboxMessageKey(row)})}
+ function openResult(row:InboxSearchRow){searchScroll.top=window.scrollY;update({account:row.accountId,lead:row.leadId??'none',channel:row.channel,message:inboxMessageKey(row)})}
+ useEffect(()=>{if(!accountId&&searching){window.scrollTo(0,searchScroll.top)}},[accountId,searching,searchScroll])
+ function backToResults(){const next=new URLSearchParams(params);for(const key of ['account','lead','channel','message'])next.delete(key);setParams(next)}
  const loadMoreBusinesses=()=>{if(businesses.hasNextPage&&!businesses.isFetchingNextPage)void businesses.fetchNextPage()};
  const isVisible=(pane:Stage)=>!phone||stage===pane;
  const backButton=(to:Selection)=>phone?<button className={styles.back} onClick={()=>update(to)} aria-label="Volver"><ArrowLeft/></button>:null;
  // The business name comes with the threads response, so a deep link or a business that left «A revisar» keeps its title.
  const accountName=threads.data?.accountName??selectedBusiness?.accountName;
  const filters=<div className={styles.filters}><label>Canal<select value={listChannel??''} onChange={e=>setListChannel(isChannel(e.target.value)?e.target.value:null)}><option value="">Todos los canales</option>{INBOX_CHANNELS.map(c=><option key={c} value={c}>{inboxChannelLabel(c)}</option>)}</select></label>{admin&&<label>Responsable<select value={scope} onChange={e=>setScope(e.target.value as 'mine'|'all')}><option value="mine">Mis negocios</option><option value="all">Todos</option></select></label>}</div>;
- const showSearch=!phone||stage==='list';
+ const showSearch=(!phone||stage==='list')&&!accountId;
+ const searchActive=inboxSearchLength(searchText.trim())>=INBOX_SEARCH_MIN;
  return <main className={styles.page}><header className={`${styles.heading} ${layout.pageHeading}`}><h1>Bandeja</h1></header>
  {showSearch&&<><label className={styles.search}><Search size={18}/><input aria-label="Buscar en todas las conversaciones" value={searchText} onChange={e=>setSearchText(e.target.value)} placeholder="Buscar en todas las conversaciones: qué dijiste, a quién, cuándo…"/>{!!searchText&&<Button variant="ghost" size="sm" onClick={()=>setSearchText('')}>Limpiar</Button>}</label>
  {typed.length>0&&inboxSearchLength(typed)<INBOX_SEARCH_MIN&&<p className={styles.searchHint} role="status">Escribí al menos 3 letras</p>}</>}
@@ -73,6 +79,6 @@ export default function InboxPage(){
  {!accountId?<CrmEmptyState>Elegí un negocio para ver sus conversaciones.</CrmEmptyState>:threads.isPending?<PaneSkeleton label="Cargando conversaciones"/>:threads.error?<QueryErrorNotice error={threads.error} onRetry={threads.refetch} busy={threads.isFetching}/>:!threads.data?.rows.length?<CrmEmptyState>No hay conversaciones para este negocio.</CrmEmptyState>:<div className={styles.rows}>{threads.data.rows.map(row=><button key={`${row.leadId??'none'}-${row.channel}`} className={`${styles.row} ${(row.leadId??'none')===leadId&&row.channel===channel?styles.active:''}`} onClick={()=>selectThread(row)}><strong>{row.leadId?row.leadTitle:'General'}</strong><span className={styles.meta}>{inboxChannelLabel(row.channel)} · {inboxDateLabel(row.lastActivityAt)} · {row.messageCount} mensajes</span>{row.pendingCount>0&&<b className={styles.pending}>A revisar · {row.pendingCount}</b>}</button>)}</div>}
  </div>
  <div className={`${styles.pane} ${styles.detail} ${isVisible('detail')?'':styles.hidden}`}>
- {accountId?<InboxDetail key={`${accountId}-${leadId}-${channel}`} accountId={accountId} thread={selectedThread} channel={channel} accountName={accountName} message={message} back={backButton({lead:null,channel:null})}/>:<CrmEmptyState>Elegí una conversación para ver el detalle.</CrmEmptyState>}
+ {accountId?<InboxDetail key={`${accountId}-${leadId}-${channel}`} accountId={accountId} thread={selectedThread} channel={channel} accountName={accountName} message={message} back={searchActive?<Button variant="outline" onClick={backToResults}>← Volver a los resultados</Button>:backButton({lead:null,channel:null})}/>:<CrmEmptyState>Elegí una conversación para ver el detalle.</CrmEmptyState>}
  </div></section>}</main>
 }
