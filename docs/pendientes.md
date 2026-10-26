@@ -1,5 +1,9 @@
 # Pendientes y próximo trabajo
 
+## Spec 87 — reglas comerciales
+
+Implementada localmente en `feat/commercial-rules-87`, sin PR ni merge. La migración 044 está escrita pero no aplicada. Verificación local: typecheck, suite unitaria completa (175 archivos / 1.246 pruebas), build y compilación esbuild de los dos scripts de integración modificados. Las suites `test-pipeline.ts` y `test-communication.ts` no se ejecutaron por instrucción; siguiente paso: correrlas con una base local descartable, después revisar el cambio y preparar PR a `staging` según el flujo habitual.
+
 ## Rediseño visual (v1 por fases)
 
 Vistas fijadas por usuario: mergeadas (#245, `c7cd1d7`). Orden de columnas por arrastre: en progreso en `ux/column-order-v1`.
@@ -190,10 +194,7 @@ Recorrer desktop y 320/390px, claro/oscuro, teclado y contenidos largos. Operar 
 
 ## Reglas comerciales (spec 87)
 
-Las cuatro preguntas de la [revisión 48](crm-roadmap/48-commercial-rules-review.md) quedaron resueltas el 26/10/2026 (`decisiones.md`). La [spec 87](crm-roadmap/87-commercial-rules-decisions.md) implementa:
-- el acuerdo mínimo al ganar como Cliente;
-- las tareas al registrar una respuesta;
-- los mensajes por delegación.
+Las cuatro preguntas de la [revisión 48](crm-roadmap/48-commercial-rules-review.md) quedaron resueltas el 26/10/2026 (`decisiones.md`). La [spec 87](crm-roadmap/87-commercial-rules-decisions.md) está implementada localmente en `feat/commercial-rules-87`: acuerdo mínimo al ganar como Cliente, tareas elegidas al registrar una respuesta y mensajes enviados desde la tarea delegada. Migración `044` usa `bigint`, el tipo real de `crm_tasks.id`. Guía y exportación Markdown actualizadas. Ver comandos y límites de verificación en `/tmp/.../spec87-report.md`.
 
 Pagos: no se registran en el CRM. Sin implementar.
 

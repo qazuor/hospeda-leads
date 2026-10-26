@@ -1,5 +1,15 @@
 # Estado del CRM — corte al 26 de octubre de 2026
 
+## Spec 87 — reglas comerciales implementadas localmente (26/10/2026)
+
+- Cerrar como Cliente exige acuerdo y persona aceptante (3 caracteres útiles); editar ese acuerdo no permite vaciar los dos datos. Se marca la evidencia nueva con `markedClient` en el evento `closing_checklist`, sin inferir decisiones para eventos antiguos.
+- Registrar respuesta permite seleccionar tareas pendientes de la gestión; solo las seleccionadas se completan y se vinculan a la respuesta en la misma transacción. La repetición idempotente no vuelve a completar tareas.
+- El asignado a una tarea pendiente puede preparar, editar y enviar email/WhatsApp desde «Contactar» de esa tarea. Se valida de nuevo en cada escritura y envío; el historial identifica al delegado y al responsable.
+- Migración `044_delegated_messages.sql`: `delegated_task_id bigint` (tipo real de `crm_tasks.id`) y su índice. Pagos no se registran.
+- Guía en pantalla y Markdown actualizados. Suites de integración extendidas en `test-pipeline.ts` y `test-communication.ts`.
+- Verificación local: `npm run typecheck`, `npm test -- --maxWorkers=2` (175 archivos, 1.246 pruebas) y `npm run build` pasaron. El reporte indica comandos y límites. Las suites de integración se ampliaron, pero no se ejecutaron por instrucción.
+
+
 ## Orden original de columnas en Gestiones — 26/10/2026
 
 - «Columnas» de Gestiones suma «Orden original»: vuelve las columnas visibles al orden de fábrica sin mostrar ni ocultar ninguna (desde #247, «Mostrar todas» ya no reordena). Rama `ux/column-default-order`. Validación: `npm run typecheck`, `npm test` (170 archivos, 1222 pruebas), `npm run build`, e2e `column-order.e2e.ts` 2/2.

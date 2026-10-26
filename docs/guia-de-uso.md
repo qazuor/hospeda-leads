@@ -204,6 +204,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 5. Si no es una respuesta (publicidad, un aviso, algo que no corresponde), tocá «No es una respuesta» y escribí el motivo.
 6. Cada mensaje muestra su estado: «Por revisar», «Registrada» o «Descartada». «Respuesta automática» marca los avisos de ausencia o similares, que no se pueden contestar.
 7. Los mensajes de WhatsApp que registrás con el script aparecen en la misma lista y se revisan igual.
+8. Si la respuesta resolvió una tarea pendiente de esa gestión, elegila en «¿Esta respuesta resuelve alguna tarea?». Ninguna tarea viene marcada; solo se completan las que tildes.
 
 **Qué queda al terminar:** Ningún email ni mensaje registrado queda sin revisar: cada uno termina como respuesta registrada o descartado con un motivo.
 
@@ -215,6 +216,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 - Registrar una respuesta no confirma pagos, aceptación ni entregas. La etapa de la gestión no cambia sola.
 - Si el CRM no puede saber de qué negocio es un email, lo deja en «Emails sin asociar» para que un administrador lo asocie.
+- Una tarea seleccionada se completa con «Resuelta por la respuesta del cliente». Si una tarea ya cambió o no corresponde a esa gestión, no se guarda la respuesta ni se completa ninguna tarea.
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
@@ -498,6 +500,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 5. En Editores, al ganar una propuesta comercial el formulario te pregunta si querés «Marcar este negocio como cliente». En colaboración editorial no se marca solo.
 6. Al cerrar como ganada una gestión de verticales principales o Partners, el negocio se marca solo como cliente. En participación de Proveedores no.
 7. Guardá y revisá las otras gestiones y tareas del negocio. Solo se cierra esta gestión.
+8. Si el cierre como ganada marca al negocio como cliente, completá «Qué se acordó» y «Persona que aceptó» con al menos 3 caracteres útiles en cada campo. Esto es obligatorio en verticales principales y Partners; en una propuesta de Editores, solo si elegís «Marcar este negocio como cliente».
 
 **Qué queda al terminar:** La gestión conserva su motivo y su historial de cierre. El negocio y sus otras gestiones siguen con sus propias reglas.
 
@@ -509,6 +512,7 @@ Avanzá según lo que realmente ocurrió, con dudas y acuerdos visibles.
 
 - Un resultado favorable no acredita pagos ni activa servicios del portal.
 - Si el negocio ya era cliente antes de usar el CRM, usá «Más acciones del negocio» → «Registrar cliente previo» y explicá la relación. Para una venta trabajada acá, cerrá la gestión como ganada.
+- Proveedores, colaboración de Editores y acompañamiento pueden cerrarse sin convertir al negocio en Cliente y no requieren esos campos. El acuerdo no acredita pagos.
 
 ### Cerrar una gestión sin resultado favorable
 
@@ -710,6 +714,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 3. Para pasar una tarea a otro día, tocá «Posponer» en su fila y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…». El CRM te avisa con un cartel y podés tocar «Deshacer».
 4. Para cambiar también la hora o los datos, abrí el menú de la tarea y tocá «Cambiar fecha o datos».
 5. Si ya no hay que hacerla, tocá «Ya no hace falta» y escribí el motivo. Si la hiciste, usá «Anotar cómo salió» en lugar de cancelarla.
+6. Si te asignaron una tarea de una gestión ajena, abrí «Contactar» desde esa tarea pendiente para preparar o enviar un mensaje por delegación. La tarea debe seguir pendiente y asignada a vos al momento del envío.
 
 **Qué queda al terminar:** Cambiar la fecha reorganiza la tarea que ya existe. No anota nada como hecho.
 
@@ -720,6 +725,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Tené en cuenta:**
 
 - Las fechas y horas son de Argentina.
+- El CRM deja constancia de quién envió el mensaje y de quién es responsable de la gestión. No podés usar esa tarea para cambiar la etapa. No contactar, restricciones de canal y controles de destinatario siguen vigentes.
 
 **Dónde ir:** Abrir Calendario (/my-day?view=calendar)
 
