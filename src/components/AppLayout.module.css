@@ -7,8 +7,9 @@
 @media(max-width:767px){.mobileSearch,.mobileUserTrigger{width:44px!important;height:44px!important;min-height:44px!important}.sheetContent :global(button){min-height:44px}.sheet :global(.mantine-Drawer-close){min-width:44px;min-height:44px}}
 /* Mantine centres button content; the user block reads left-aligned like the nav items. */
 .userTrigger :global(.mantine-Button-inner){justify-content:flex-start;width:100%}.userTrigger :global(.mantine-Button-label){gap:9px;min-width:0}
+.userTrigger{width:auto;max-width:240px}.avatar{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;background:var(--tone-slate-soft);color:var(--tone-slate-ink);font-size:11px;font-weight:700}.topbarActions,.mobileActions{display:flex;align-items:center;gap:4px;margin-left:auto;flex:none}
 .mobileUserTrigger :global(.mantine-Button-inner){justify-content:center}
-.topbar>.userTrigger{margin-left:auto;width:auto;max-width:240px}.helpButton{margin-left:4px;flex:none;width:40px;height:40px;min-height:40px;padding:0!important}
+.helpButton{margin-left:4px;flex:none;width:40px;height:40px;min-height:40px;padding:0!important}
 @media(max-width:767px){.helpButton{width:44px;height:44px;min-height:44px;margin-left:0}}
 @media(max-width:767px){.mobileBrand{min-height:44px}}
 /* In the rail the Administración toggle keeps a visible icon target. */

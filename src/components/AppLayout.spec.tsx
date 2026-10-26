@@ -32,6 +32,11 @@ describe('AppLayout breadcrumbs', () => {
     render(<MantineProvider><MemoryRouter initialEntries={['/accounts/1']}><Routes><Route element={<AppLayout/>}><Route path="/accounts/:accountId" element={<CachedBusiness/>}/></Route></Routes></MemoryRouter></MantineProvider>);
     const triggers=screen.getAllByRole('button',{name:'Admin Test'});
     expect(triggers.length).toBeGreaterThan(0);
+    const desktopTrigger=triggers[0];
+    expect(desktopTrigger.querySelector('span[class*="avatar"]')?.textContent).toBe('AT');
+    const topbarActions=document.querySelector('header nav[aria-label="Ruta"]')?.parentElement?.querySelector('div[class*="topbarActions"]');
+    expect(topbarActions?.contains(desktopTrigger)).toBe(true);
+    expect(topbarActions?.querySelector('button[aria-label="Ayuda sobre negocios y gestiones"]')).toBeTruthy();
     expect(document.querySelector('aside')?.querySelector('[aria-label="User script de WhatsApp"]')).toBeNull();
     fireEvent.click(triggers[0]);
     expect(await screen.findByRole('menuitem',{name:'User script de WhatsApp'})).toBeTruthy();

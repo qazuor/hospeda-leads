@@ -54,6 +54,12 @@ describe("LiveModeProvider polling", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("starts enabled for a user without a saved live-mode preference", () => {
+    function EnabledProbe() { const { enabled, status } = useLiveMode(); return <span>{`${enabled}:${status}`}</span>; }
+    renderWithProvider(<EnabledProbe/>);
+    expect(screen.getByText("true:checking")).toBeTruthy();
+  });
+
   it("skips hidden intervals and checks on return when the throttle allows", async () => {
     renderWithProvider(<span>consumer</span>);
     await act(async () => {});

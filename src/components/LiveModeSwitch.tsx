@@ -1,5 +1,4 @@
 import React,{useSyncExternalStore} from "react";
-import { Radio } from "lucide-react";
 import { useLiveMode } from "../helpers/liveMode";
 import styles from "./LiveModeSwitch.module.css";
 import { CRM_TIME_ZONE } from "../helpers/workDates";
@@ -17,6 +16,6 @@ export const LiveModeSwitch=()=>{
   const checked=lastCheckedAt?lastCheckedAt.toLocaleString('es-AR',{timeZone:CRM_TIME_ZONE}):'Todavía no hubo una actualización correcta';
   const message=`${state==='error'?'No está funcionando':state==='refreshing'?'Actualizando ahora':'Actualización en vivo activa'} · Última actualización correcta: ${checked}`;
   return <Tooltip label={message} position="right"><div className={styles.controls} title={message} aria-label={message}>
-    <span className={`${styles.indicator} ${styles[state]}`} aria-hidden="true"/><Radio size={15}/><span className={styles.label}>{label}</span>
+    <span className={`${styles.indicator} ${styles[state]}`} aria-hidden="true"/><span className={styles.label}>{label}</span>
   </div></Tooltip>;
 };
