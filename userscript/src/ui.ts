@@ -7,6 +7,7 @@ import { LOGO_SRC } from "./logo";
 import { compareSemver } from "./parse";
 import { UPDATE_PROMPT_ID } from "./updatePrompt";
 import { openCompose } from "./compose";
+import { openAutoList } from "./autoList";
 
 const ID = "hospeda-userscript-banner";
 const OPEN_KEY = "hospeda-userscript-open", AUTO_OPEN_KEY = "hospeda-userscript-auto-open", TOKEN_KEY = "hospeda-userscript-token", THEME_KEY = "hospeda-userscript-theme";
@@ -26,8 +27,11 @@ export type UiOptions = {
   onSaveToken?: (token: string) => void; onClearToken?: () => void; onCopyDiagnostic?: () => void;
   /** Set when the server rejected this version (HTTP 426): updating is the only way forward. */
   requiredVersion?: string | null;
+  autoStatus?:string;
+  autoTodayCount?:number;
+  autoPreference?:boolean;autoDisabled?:boolean;onAutoPreference?:(enabled:boolean)=>Promise<void>|void;
 };
-type View = "chat" | "settings" | "preview" | "compose";
+type View = "chat" | "settings" | "preview" | "compose" | "autoList";
 let view: View = "chat", editingToken = false;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] { const node = document.createElement(tag); if (className) node.className = className; if (text) node.textContent = text; return node; }
@@ -71,7 +75,7 @@ export function renderBanner(options: UiOptions): HTMLElement {
   let host = document.getElementById(ID) as HTMLElement | null;
   // An own tag, not a div: WhatsApp's element selectors and variables must not style the host.
   if (!host) { host = document.createElement("hospeda-crm"); host.id = ID; host.attachShadow({ mode: "open" }); }
-  if (view === "preview" || view === "compose") view = "chat"; // both belong to the chat they were opened from
+  if (view === "preview" || view === "compose" || view === "autoList") view = "chat"; // detail views belong to the chat they were opened from
   host.classList.toggle("dark", isDark());
   const root = host.shadowRoot!, open = GM_getValue<boolean>(OPEN_KEY, true);
   root.replaceChildren(el("style", undefined, PANEL_CSS), launcher(options, open));
@@ -122,7 +126,7 @@ function bar(options: UiOptions, title?: { main: string; sub?: string }): HTMLEl
   else { const brand = el("div", "brand"); brand.append(logo("mark"), document.createTextNode("Hospeda CRM")); header.append(brand); }
   const actions = el("div", "actions");
   if (view === "settings" && hasToken()) actions.append(icon("Volver al chat", BACK, () => { view = "chat"; editingToken = false; renderBanner(options); }));
-  else if (view === "compose") actions.append(icon("Volver al negocio", BACK, () => { view = "chat"; if (options.onPreviewChange) options.onPreviewChange(false); else renderBanner(options); }));
+  else if (view === "compose" || view === "autoList") actions.append(icon("Volver al negocio", BACK, () => { const wasList = view === "autoList"; view = "chat"; if (wasList && options.onPreviewChange) options.onPreviewChange(false); else if (options.onPreviewChange) options.onPreviewChange(false); else renderBanner(options); }));
   else if (view === "chat") actions.append(icon("Ajustes", GEAR, () => { view = "settings"; renderBanner(options); }));
   actions.append(icon("Minimizar", MINUS, () => { setPanelOpen(false); renderBanner(options); }));
   header.append(actions); return header;
@@ -133,6 +137,7 @@ function panel(options: UiOptions): HTMLElement {
   if (!hasToken()) { view = "settings"; editingToken = true; }
   if (view === "settings") card.append(bar(options, { main: "Ajustes de Hospeda CRM" }), settings(options));
   else if (view === "compose") card.append(bar(options, { main: "Mandar un mensaje", sub: options.selected?.name }), el("div", "body"));
+  else if (view === "autoList" && options.selected) openAutoList(card, options, options.selected, () => { view = "chat"; if (options.onPreviewChange) options.onPreviewChange(false); else renderBanner(options); }, title => bar(options, { main: title, sub: options.selected?.name }));
   else card.append(bar(options), chat(options, card));
   return wrap;
 }
@@ -176,6 +181,7 @@ function chat(options: UiOptions, card: HTMLElement): HTMLElement {
 
 function business(options: UiOptions, selected: Match, body: HTMLElement, card: HTMLElement, status: HTMLElement): void {
   body.append(el("span", "eyebrow", `${selected.code}${selected.city ? ` · ${selected.city}` : ""}`), el("span", "name", selected.name));
+  if(options.autoStatus) { const line=el("div","meta");const label=options.autoStatus.startsWith("Registro automático activo")?`${options.autoStatus} · ${options.autoTodayCount??0} registrados hoy`:options.autoStatus;line.append(el("span","muted",label));if(options.autoStatus.startsWith("Registro automático activo")){const see=el("button","btn small","Ver");see.type="button";see.addEventListener("click",()=>{view="autoList";options.onPreviewChange?.(true);openAutoList(card,options,selected,()=>{view="chat";options.onPreviewChange?.(false);},title=>bar(options,{main:title,sub:selected.name}));});line.append(see);}body.append(line); }
   const chips = el("div", "chips"); chips.append(el("span", "chip", `Responsable: ${selected.assignedUserName || "Sin asignar"}`));
   if (selected.statusLabel) chips.append(el("span", "chip", selected.statusLabel));
   chips.append(el("span", "chip", selected.leads.length ? plural(selected.leads.length, "gestión abierta", "gestiones abiertas") : "Sin gestiones abiertas")); body.append(chips);
@@ -221,7 +227,9 @@ function settings(options: UiOptions): HTMLElement {
   for (const [value, label] of THEMES) { const option = el("option", undefined, label); option.value = value; option.selected = value === getTheme(); theme.append(option); }
   theme.addEventListener("change", () => { GM_setValue(THEME_KEY, theme.value); applyTheme(); }); themeField.append(theme);
   const update = updateNotice(options), installed = el("span", undefined, `Versión ${options.version || "—"}${update ? "" : options.context ? " · al día" : ""}`);
-  script.append(el("h3", undefined, "SCRIPT"), installed); if (update) script.append(update); script.append(themeField, toggle);
+  const autoSection=el("div","section"),autoToggle=el("label","toggle","Registrar solo los chats seguros"),autoInput=el("input"),autoError=el("p","note warn");autoInput.type="checkbox";autoInput.checked=options.autoPreference??false;autoInput.disabled=options.autoDisabled??false;autoInput.title=autoInput.disabled?"Desactivado por un administrador":"";autoToggle.append(autoInput);autoInput.addEventListener("change",()=>{const before=!!options.autoPreference,next=autoInput.checked;autoInput.disabled=true;autoError.textContent="";void Promise.resolve(options.onAutoPreference?.(next)).catch(error=>{autoInput.checked=before;autoError.textContent=error instanceof Error?error.message:"No se pudo guardar la preferencia.";}).finally(()=>{autoInput.disabled=options.autoDisabled??false;});});autoSection.append(autoToggle);if(autoInput.disabled)autoSection.append(el("span","muted","Desactivado por un administrador"));autoSection.append(autoError);
+  const reasons=el("span","muted",["Registrados solos","Era de otro negocio","No era de esta gestión","Mensaje personal","Otro"].join(" · "));
+  script.append(el("h3", undefined, "SCRIPT"), installed); if (update) script.append(update); script.append(themeField, toggle,autoSection,reasons);
   const help = el("div", "section"), copy = el("button", "btn small", "Copiar diagnóstico del chat"); copy.type = "button"; copy.addEventListener("click", () => options.onCopyDiagnostic?.());
   help.append(el("h3", undefined, "AYUDA"), copy);
   if (options.crmBase) { const guide = el("a", undefined, "Guía de instalación y problemas frecuentes"); guide.href = `${options.crmBase}/guide?topic=whatsapp-userscript&article=install-userscript`; guide.target = "_blank"; guide.rel = "noopener noreferrer"; help.append(guide); }

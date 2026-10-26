@@ -30,6 +30,7 @@ export type SettingsOutput = {
     replyToEmail:string;
     brevoConnected:boolean;
   };
+  userscriptAutoRegister?:{enabled:boolean};
   contactPositions:string[];
   contactChannels:string[];
   opportunityStages:string[];

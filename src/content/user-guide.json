@@ -1572,6 +1572,29 @@
       },
       {
         "example": [
+          "En un chat asociado a un solo negocio elegible, activás «Registrar solo los chats seguros». Después de un mensaje nuevo, el panel muestra «Registro automático activo»; si te equivocás, abrís «Registrados solos» y lo anulás con un motivo."
+        ],
+        "notes": [
+          "El registro automático requiere que lo habilite un administrador y que el chat corresponda a un único negocio elegible. Los mensajes viejos, los chats grupales y los enviados pendientes o con error no se registran automáticamente.",
+          "Cada mensaje automático se puede anular con «Deshacer» y un motivo: «Era de otro negocio», «No era de esta gestión», «Mensaje personal» u «Otro». Si el mensaje recibido ya se convirtió en respuesta registrada, primero corregí esa respuesta."
+        ],
+        "url": "/userscript",
+        "linkLabel": "User script de WhatsApp",
+        "id": "automatic-whatsapp-registration",
+        "title": "Registrar automáticamente chats seguros",
+        "when": "Cuando el administrador habilitó el registro automático y querés registrar mensajes recientes sin confirmar cada lote.",
+        "steps": [
+          "En el CRM, abrí «User script de WhatsApp» y activá «Registrar solo los chats seguros».",
+          "En WhatsApp Web abrí un chat individual asociado a un único negocio. El panel indica si el registro automático está activo o por qué corresponde registrar a mano.",
+          "El script espera cinco segundos sin cambios y registra los mensajes elegibles en lotes. Los enviados se registran cuando WhatsApp los muestra como enviados.",
+          "Tocá «Registrados solos» para revisar los registros recientes. Si uno corresponde a otro negocio o era personal, tocá «Deshacer», elegí el motivo y confirmá.",
+          "También podés anularlo desde la ficha del negocio: los mensajes registrados solos llevan la marca «Automático» y el menú «Anular registro». Si el envío había completado un WhatsApp abierto desde el CRM, ese intento vuelve a quedar pendiente."
+        ],
+        "result": "Los mensajes nuevos de chats seguros quedan registrados en el negocio y pueden anularse desde el panel.",
+        "uiLabels": ["User script de WhatsApp", "Registrar solo los chats seguros", "Registro automático activo", "Registrados solos", "Deshacer", "Era de otro negocio", "No era de esta gestión", "Mensaje personal", "Otro", "Automático", "Anular registro"]
+      },
+      {
+        "example": [
           "Ana te escribió por WhatsApp preguntando por precios y le contestaste. Tocás «Registrar mensajes», dejás los dos mensajes tildados y confirmás. En la ficha queda tu mensaje enviado y la pregunta de Ana por revisar."
         ],
         "notes": [

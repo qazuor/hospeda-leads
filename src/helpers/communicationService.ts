@@ -18,6 +18,7 @@ import {writeLeadJournal} from './writeLeadJournal';
 import { withDefaultMessageVariables } from './messageVariables';
 import {buildMessageTemplateContext} from './messageTemplateContext';
 import {responseCategoryLabel} from './crmLabels';
+import {voidAutoRegistration} from './autoRegistration';
 import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
 import {sendInboundReply} from './emailReply';
 export type Executor=Kysely<DB>|Transaction<DB>;
@@ -380,6 +381,7 @@ export async function linkMessageActivity(e:Executor,messageId:string,activityId
 export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutation,user:User){
  if(input.action==='inbound_reply')return sendInboundReply(db,input,user);
  if(input.action==='dispatch')return dispatch(db,input,user);
+ if(input.action==='auto_registration_void')return voidAutoRegistration(db,input,user);
  return db.transaction().execute(async e=>{
  await setWorkActor(e,user);
  // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.
@@ -454,6 +456,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  if(input.action==='outcome'){
   const m=await messageFor(e,input.id,user,true);
   if(['manual_sent','manual_not_sent'].includes(input.event)&&(m.channel!=='whatsapp'||m.status!=='whatsapp_opened'))throw new Error('Solo podés resolver un intento de WhatsApp No confirmado.');
+  if(m.status==='voided')throw new CommunicationConflict('Este registro fue anulado.');
   if(input.event!=='manual_sent'&&['draft','cancelled'].includes(m.status))throw new Error('El mensaje todavía no fue utilizado');
   if(input.event==='manual_sent')await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
   const status=input.event==='replied'?'replied':input.event==='rejected'?'rejected':input.event==='manual_not_sent'?'manual_not_done':'manual_sent';

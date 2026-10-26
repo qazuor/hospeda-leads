@@ -12,6 +12,7 @@ import {Input} from './Input';
 import {DialogFooter} from './Dialog';
 import {CrmDialog} from './ui/CrmDialog';
 import {RichTemplateEditor} from './RichTemplateEditor';
+import {AutoRegistrationVoidButton,canVoidAutoRegistration} from './AutoRegistrationVoid';
 import styles from './Communication.module.css';
 
 /** Shown wherever a reply is offered to a business that asked not to be contacted: replying to its own message stays allowed. */
@@ -35,22 +36,25 @@ export function canWriteInbound({admin,userEmail,detail,leadId}:{admin:boolean;u
 
 /**
  * Per-inbound actions shared by the business «Comunicación» tab and the Bandeja: «Responder» (only when the server offers a
- * reply), «Registrar respuesta» (the host opens its response dialog through `onRegister`) and the dismissal. The reply never
+ * reply), «Registrar respuesta» (the host opens its response dialog through `onRegister`), the dismissal and «Anular registro»
+ * for an automatic registration (same rule as the panel's outbound rows). The reply never
  * auto-retries: an uncertain outcome blocks a second send, and a retry after a failure reuses the same attempt id.
  */
 export function InboundMessageActions({item,readOnly=false,canWrite,onRegister,dismissLabel='No es una respuesta',registerLabel='Registrar respuesta'}:{item:InboundMessage;readOnly?:boolean;canWrite:boolean;onRegister:(item:InboundMessage)=>void;dismissLabel?:string;registerLabel?:string}){
  const {authState}=useAuth(),qc=useQueryClient();
- const admin=authState.type==='authenticated'&&authState.user.role==='admin';
+ const admin=authState.type==='authenticated'&&authState.user.role==='admin',userEmail=authState.type==='authenticated'?authState.user.email:'';
  const noun=inboundNoun(item.channel);
  const [replyOpen,setReplyOpen]=useState(false),[replyBody,setReplyBody]=useState(''),[replyRecipient,setReplyRecipient]=useState(''),[replyAttempt,setReplyAttempt]=useState<string|null>(null),[replyError,setReplyError]=useState(''),[replyUncertain,setReplyUncertain]=useState(false);
  const [dismissOpen,setDismissOpen]=useState(false),[dismissReason,setDismissReason]=useState('');
  const reply=useMutation({mutationFn:postCommunication,onSuccess:(data)=>{void qc.invalidateQueries({queryKey:['communication']});void qc.invalidateQueries({queryKey:['inbox']});if(data.error){setReplyError(data.error);setReplyUncertain(data.message?.status!=='failed');if(data.message?.status==='failed')setReplyAttempt(null);return;}if(data.message&&data.message.status!=='accepted'&&data.message.status!=='delivery_confirmed'){setReplyError(UNCERTAIN_REPLY);setReplyUncertain(true);return;}setReplyOpen(false);setReplyBody('');setReplyAttempt(null);crmSuccess('Email aceptado por el proveedor · entrega no confirmada');},onError:(error)=>{setReplyError(error instanceof Error?error.message:'No pudimos confirmar la respuesta del servidor. Podés reintentar con el mismo intento.');}});
  const dismiss=useGuardedMutation({mutationFn:postCommunication,onSuccess:()=>{invalidateInboundViews({queryClient:qc});setDismissOpen(false);setDismissReason('');crmSuccess(noun==='mensaje'?'Mensaje descartado':'Email descartado')}});
  const canReview=!readOnly&&canWrite&&item.status==='pending_review';
- if(readOnly||(!item.canReply&&!canReview))return null;
+ const canVoid=canVoidAutoRegistration({readOnly,canWrite,admin,userEmail,registrationId:item.autoRegistrationId,registrationUserEmail:item.autoRegistrationUserEmail,status:item.status});
+ if(readOnly||(!item.canReply&&!canReview&&!canVoid))return null;
  return <>
   {item.canReply&&<Button size="sm" onClick={()=>{setReplyBody('');setReplyRecipient(item.fromAddress);setReplyAttempt(crypto.randomUUID());setReplyError('');setReplyUncertain(false);setReplyOpen(true)}}>Responder</Button>}
   {canReview&&<><Button size="sm" disabled={dismiss.isPending} onClick={()=>onRegister(item)}>{registerLabel}</Button><Button size="sm" variant="outline" disabled={dismiss.isPending} onClick={()=>{setDismissReason('');setDismissOpen(true)}}>{dismissLabel}</Button></>}
+  {canVoid&&item.autoRegistrationId&&<AutoRegistrationVoidButton registrationId={item.autoRegistrationId}/>}
   <CrmDialog opened={replyOpen} onClose={()=>{if(!reply.isPending)setReplyOpen(false)}} title="Responder email" description="Tu respuesta se envía dentro del mismo hilo." busy={reply.isPending}>
    {replyOpen&&<div className={styles.panel}>
     {item.replyRestricted&&<p role="note">{INBOUND_REPLY_RESTRICTED}</p>}

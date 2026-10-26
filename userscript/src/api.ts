@@ -1,7 +1,7 @@
 import { USERSCRIPT_VERSION } from "./version";
 
-export type Match = { accountId: string; code: string; name: string; city: string | null; status?: string | null; statusLabel?: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string; body?: string | null }[] };
-export type ContextResponse = { minVersion: string; latestVersion?: string; user: { email: string; displayName: string }; matches: Match[] };
+export type Match = { accountId: string; code: string; name: string; city: string | null; status?: string | null; statusLabel?: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string; body?: string | null }[]; autoRegister?: {enabled:boolean;reason?:"global_disabled"|"auto_disabled"|"not_eligible"|string;since:string} };
+export type ContextResponse = { minVersion: string; latestVersion?: string; user: { email: string; displayName: string }; autoRegister?:boolean; matches: Match[] };
 export type RegisterResult = { externalId: string; status: "created" | "duplicate" | "rejected"; kind?: "message" | "inbound"; id?: string; reason?: string };
 export type RegisterResponse = { results: RegisterResult[] };
 export class ApiError extends Error { constructor(message: string, public status: number, public minVersion?: string) { super(message); } }
@@ -29,9 +29,13 @@ export function fetchContext(base: string, query: { code?: string; phone?: strin
 export type StatusResponse = Omit<ContextResponse, "matches">;
 export function fetchStatus(base: string, token: string): Promise<StatusResponse> { return request(`${base}/_api/userscript/status`, token); }
 
-export function registerBatch(base: string, token: string, payload: { accountId: string; chat: { title: string; phone: string | null }; messages: unknown[] }): Promise<RegisterResponse> {
+export function registerBatch(base: string, token: string, payload: { accountId: string; chat: { title: string; phone: string | null }; messages: unknown[]; automatic?:boolean }): Promise<RegisterResponse> {
   return request(`${base}/_api/userscript/register`, token, "POST", payload);
 }
+export type AutoRegistration={id:string;direction:"in"|"out";excerpt:string;sentAt:string|null;receivedAt:string|null;status:string};
+export const fetchAutoRegistrations=(base:string,token:string,accountId:string)=>request<{registrations:AutoRegistration[]}>(`${base}/_api/userscript/auto-registrations?accountId=${encodeURIComponent(accountId)}`,token);
+export const voidAutoRegistration=(base:string,token:string,payload:{id:string;reason:string})=>request<{voided:boolean;skipped:string[]}>(`${base}/_api/userscript/void`,token,"POST",payload);
+export const saveAutoRegisterPreference=(base:string,token:string,autoRegister:boolean)=>request<{autoRegister:boolean}>(`${base}/_api/userscript/preferences`,token,"POST",{autoRegister});
 
 export type TemplateLead={id:string;name:string;type:string|null;stage:string;templates:{id:string;name:string;recommended:boolean;body:string}[];contacts:{id:string;name:string;phone:string;default:boolean}[]};
 export type TemplatesResponse={leads:TemplateLead[];blocked:string|null};

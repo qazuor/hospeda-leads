@@ -187,7 +187,7 @@ export async function queryInboxSearch(user:InboxUser,seesAll:boolean,query:stri
  const nextDay=(day:string)=>{const date=new Date(`${day}T12:00:00Z`);date.setUTCDate(date.getUTCDate()+1);return date.toISOString().slice(0,10);};
  const fromAt=from?argentinaInstant(`${from}T00:00`):null,toAt=to?argentinaInstant(`${nextDay(to)}T00:00`):null;
  // The term is a literal substring: %, _ and \ are escaped so they never act as LIKE wildcards. Both sides keep the
- // normalizeSearchSql() expression of migration 042, so the trigram indexes still apply.
+ // normalizeSearchSql() expression of migration 043, so the trigram indexes still apply.
  const pattern=normalizeSearchSql(sql<string>`${'%'+escapeLikePattern(query)+'%'}`);
  const matches=(column:string)=>sql<boolean>`${normalizeSearchSql(sql<string>`${sql.ref(column)}`)} LIKE ${pattern} ESCAPE '\\'`;
  return sql`WITH hits AS (

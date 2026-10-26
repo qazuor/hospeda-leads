@@ -12,7 +12,22 @@
 - PR #245 de vistas fijadas por usuario mergeado a `staging` como `c7cd1d7`; no desplegado. Validación: pruebas unitarias, `test:view-pins` y e2e 195/197. Fallos conocidos: `commercial.e2e.ts` solo local y `contextual-materials` a 390 px con inestabilidad conocida.
 - Orden de columnas por arrastre para Negocios y Gestiones: implementado en `ux/column-order-v1`. Validación local: tests unitarios/componentes, `npm run typecheck`, `npm test` (157 archivos, 1105 pruebas) y `npm run build`; e2e `column-order.e2e.ts` 4/4 y `business-cards.e2e.ts` en verde; suite e2e completa 197/199 (`commercial.e2e.ts` solo local y `seller-flow` con un timeout de carga que pasa 3/3 aislado). PR #247.
 
-## Spec 84 — modelos del CRM desde WhatsApp Web — lista para PR — 25/10/2026
+## Spec 85 — registro automático desde el user script, con anulación — lista para PR — 26/10/2026
+
+`docs/crm-roadmap/85-userscript-auto-register.md` (fase F5 de la spec 83).
+- **Cuándo registra solo:** el script registra sin clic los mensajes nuevos del chat abierto cuando hay un único negocio emparejado, que no esté en Nuevo ni tenga No contactar. No exige gestión abierta. Toma solo mensajes posteriores a la activación y de las últimas 24 horas; los enviados, recién con la tilde de enviado.
+- **Interruptores:** uno global de admin en Ajustes, apagado por defecto, y uno por vendedor, en el panel y en `/userscript`.
+- **Efectos y anulación:** cada registro automático guarda sus efectos en `crm_auto_registrations` (migración `042`). Se puede anular con motivo desde el panel («Registrados solos» → «Deshacer») o desde la ficha («Automático» → «Anular registro»). Anular devuelve cada efecto que no cambió después: el intento vuelve a «WhatsApp abierto», se reabre la tarea y se borra la actividad. Además libera el id de WhatsApp y el automático no vuelve a registrarlo.
+- **Estado `voided`:** queda oculto como `cancelled`. Admin lo ve con «Anulados».
+
+Validación local:
+- `npm run typecheck`, tests del script, del helper y de la guía.
+- `scripts/test-userscript.ts` contra la base local con la `042` aplicada: registro automático, interruptores, Nuevo, cada caso de anulación, permisos y mensaje reasignado a otro negocio.
+- También pasaron `test-work`, `test-communication-locks`, `test-commercial`, `test-inbound-email` y `test-business-history`.
+- `test-communication` no se pudo volver a correr sobre la base local (crea plantillas con nombres fijos). Queda para CI.
+- Pendiente: prueba manual en WhatsApp real (versión local 1.2.16). Para producción hay que aplicar las migraciones `041` y `042`.
+
+## Spec 84 — modelos del CRM desde WhatsApp Web — mergeado (#246, `343d024`) — 25/10/2026
 
 «Mandar un mensaje» en el panel del user script (`docs/crm-roadmap/84-userscript-templates.md`): elegir un modelo compatible con la gestión abierta, vista previa con los datos del CRM y «Pegar en el chat» sin enviar (o «Copiar»). Rutas `GET /_api/userscript/templates` y `POST /_api/userscript/{prepare,dispatch,outcome}` sobre `mutateCommunication`, con los mismos permisos y restricciones que «Contactar»; pegar deja el intento en «WhatsApp abierto · envío no confirmado» y «No lo voy a enviar» lo cierra.
 

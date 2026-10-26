@@ -30,14 +30,15 @@ export async function get(request:Request){
    lead={id:'',accountId};
   }
   const cfg=await communicationConfig(db);
-  const recentMessages=(await sql`SELECT * FROM crm_messages WHERE account_id=${lead.accountId}
-   AND (${user.role==='admin'} OR lead_id IS NULL OR EXISTS(SELECT 1 FROM leads l WHERE l.id=crm_messages.lead_id AND l.deleted_at IS NULL))
-   AND status NOT IN ('draft','cancelled') AND last_interaction_at IS NOT NULL
-   ORDER BY last_interaction_at DESC LIMIT 200`.execute(db)).rows;
+  const includeVoided=user.role==='admin'&&params.get('includeVoided')==='1';
+  const recentMessages=(await sql`SELECT m.*, (SELECT r.id::text FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_id FROM crm_messages m WHERE m.account_id=${lead.accountId}
+   AND (${user.role==='admin'} OR m.lead_id IS NULL OR EXISTS(SELECT 1 FROM leads l WHERE l.id=m.lead_id AND l.deleted_at IS NULL))
+   AND m.status NOT IN ('draft','cancelled','voided') AND m.last_interaction_at IS NOT NULL
+   ORDER BY m.last_interaction_at DESC LIMIT 200`.execute(db)).rows;
   const templatePicks=(await sql<{templateId:string;picks:Record<string,string>}>`SELECT DISTINCT ON (template_snapshot->>'id') template_snapshot->>'id' AS "templateId",template_snapshot->'variantPicks' AS picks FROM crm_messages WHERE account_id=${lead.accountId} AND template_snapshot ? 'variantPicks' AND jsonb_typeof(template_snapshot->'variantPicks')='object' ORDER BY template_snapshot->>'id',created_at DESC`.execute(db)).rows;
-  const messages=(await sql`SELECT * FROM crm_messages WHERE account_id=${lead.accountId}
-   AND (CAST(NULLIF(${lead.id},'') AS bigint) IS NULL OR lead_id=CAST(NULLIF(${lead.id},'') AS bigint))
-   ORDER BY created_at DESC LIMIT 200`.execute(db)).rows;
+  const messages=(await sql`SELECT m.*, (SELECT r.id::text FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_id, (SELECT r.user_email FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_user_email FROM crm_messages m WHERE m.account_id=${lead.accountId} AND (${includeVoided} OR m.status<>'voided')
+   AND (CAST(NULLIF(${lead.id},'') AS bigint) IS NULL OR m.lead_id=CAST(NULLIF(${lead.id},'') AS bigint))
+   ORDER BY m.created_at DESC LIMIT 200`.execute(db)).rows;
   const restrictions=(await sql`SELECT * FROM crm_contact_restrictions WHERE account_id=${lead.accountId}
    ORDER BY created_at DESC LIMIT 200`.execute(db)).rows;
   // Uncapped: blocking checks must never miss an active restriction hidden behind 200 newer lifted ones.
@@ -45,10 +46,10 @@ export async function get(request:Request){
   const responses=(await sql`SELECT r.*,coalesce(l.opportunity_name,'General') AS context_name FROM crm_communication_responses r LEFT JOIN leads l ON l.id=r.lead_id WHERE r.account_id=${lead.accountId} AND (r.lead_id IS NULL OR l.deleted_at IS NULL) ORDER BY r.occurred_at DESC LIMIT 200`.execute(db)).rows;
   const repliesAvailable=smtpConfigured();
   const replySql=inboxReplyAvailability(repliesAvailable,user.role==='admin',user.email);
-  const inbound=(await sql`SELECT i.id,i.channel,i.received_at,i.from_address,i.from_name,i.subject,i.text_body,i.status,i.is_automatic,i.match_method,i.lead_id,coalesce(l.opportunity_name,'General') AS context_name,i.linked_message_id,i.response_id,i.attachments,
+  const inbound=(await sql`SELECT i.id,i.channel,i.received_at,i.from_address,i.from_name,i.subject,i.text_body,i.status,i.is_automatic,i.match_method,i.lead_id,coalesce(l.opportunity_name,'General') AS context_name,i.linked_message_id,i.response_id,i.attachments,(SELECT r.id::text FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_id, (SELECT r.user_email FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_user_email,
    ${replySql.canReply} AS can_reply,
    ${replySql.replyRestricted} AS reply_restricted
-   FROM crm_inbound_messages i JOIN crm_accounts a ON a.id=i.account_id LEFT JOIN leads l ON l.id=i.lead_id WHERE i.account_id=${lead.accountId} AND (${user.role==='admin'} OR i.lead_id IS NULL OR l.deleted_at IS NULL) ORDER BY i.received_at DESC LIMIT 200`.execute(db)).rows;
+   FROM crm_inbound_messages i JOIN crm_accounts a ON a.id=i.account_id LEFT JOIN leads l ON l.id=i.lead_id WHERE i.account_id=${lead.accountId} AND (${includeVoided} OR i.status<>'voided') AND (${user.role==='admin'} OR i.lead_id IS NULL OR l.deleted_at IS NULL) ORDER BY i.received_at DESC LIMIT 200`.execute(db)).rows;
   const openManagements=(await sql`SELECT l.id,l.opportunity_name,l.management_type,l.estado,l.assigned_user_email,s.classification FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${lead.accountId} AND l.deleted_at IS NULL AND s.classification='open' ORDER BY l.id`.execute(db)).rows.map((item:any)=>({id:item.id,opportunityName:item.opportunity_name,managementType:item.management_type,estado:item.estado,assignedUserEmail:item.assigned_user_email,classification:item.classification,canClose:user.role==='admin'||item.assigned_user_email===user.email}));
   // Decision 2B: the viewer's own contacts here that still wait for "¿Cómo salió?".
   const pendingOutcomes=await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin',accountId:lead.accountId,leadId:lead.id||null});

@@ -207,6 +207,14 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 - En el celular el tablero es un acordeón por etapa en lugar de columnas deslizables.
 - La vista previa guarda solo el id de la gestión y se deriva de la lista actual.
 
+## Registro automático desde el user script — 26/10/2026 (propietario)
+
+Spec 85 (`docs/crm-roadmap/85-userscript-auto-register.md`) aprobada.
+- Registra solo los mensajes nuevos de chats con un único negocio emparejado, que no esté en Nuevo ni tenga No contactar. **No exige gestión abierta**, lo que reemplaza la condición «y están en gestión» del 25/10/2026.
+- Interruptor global apagado por defecto (lo activa un admin) y uno por vendedor, encendido por defecto.
+- Solo mensajes posteriores a la activación y de las últimas 24 horas.
+- Cada registro automático guarda sus efectos y se puede anular con motivo. Pueden anularlo el vendedor que lo generó o un admin, sin límite de tiempo. Anular deshace los efectos que no cambiaron después, y el automático no vuelve a registrar ese mensaje.
+
 ## Modelos desde WhatsApp y registro por texto — 25/10/2026 (propietario)
 
 - Pegar un modelo desde el user script deja el intento en «WhatsApp abierto», igual que «Contactar»; el envío se registra recién con el mensaje enviado. El script nunca envía.
@@ -263,6 +271,6 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 - Errores: entrada inválida (Zod, cursor, rango de fechas) → 400 antes de consultar datos; negocio o gestión inexistente (o gestión de otro negocio) → 404 con mensaje en castellano; sin acceso, archivado ajeno, borrado → 403.
 - Los cursores guardan el instante con microsegundos y se comparan como `texto::timestamptz`: postgres.js serializa un parámetro tipado `timestamptz` con `new Date()` y perdería los microsegundos.
 - La búsqueda incluye `crm_messages.subject/body/summary` y `crm_inbound_messages.subject/text_body`, usando `normalizeSearchSql()` (acentos insensibles y ñ distinta de n). El término es literal: `%`, `_` y `\` se escapan (`ESCAPE '\'`), y los índices trigram se siguen usando.
-- La migración 042 agrega solo índices trigram (sin índices de orden temporal: ninguna consulta los usaba para ordenar, y con datos sintéticos el planner recorría el índice temporal parcial en lugar de los trigram, con una búsqueda unas 10 veces más lenta). Son índices transaccionales: las escrituras en cada tabla esperan durante la construcción de su índice.
+- La migración 043 (`043_inbox_indexes.sql`; era 042 antes de integrar la 042 de registro automático) agrega solo índices trigram (sin índices de orden temporal: ninguna consulta los usaba para ordenar, y con datos sintéticos el planner recorría el índice temporal parcial en lugar de los trigram, con una búsqueda unas 10 veces más lenta). Son índices transaccionales: las escrituras en cada tabla esperan durante la construcción de su índice.
 - Pantalla (B2): las acciones sobre un mensaje recibido («Responder», «Registrar respuesta», descartar) son un único componente, `InboundMessageActions`, y el registro usa `ResponseRecordDialog`; la pestaña «Comunicación» y la Bandeja usan los mismos, con las mismas mutaciones y la misma invalidación (`communication`, que incluye Hoy, e `inbox`). La Bandeja lee el mensaje completo de la misma consulta `communication` que la pestaña. «Nuevo mensaje» abre el «Contactar» de siempre (`BusinessContactDialog`) con la gestión de la conversación preseleccionada.
 - Pantalla (B2): el resaltado de la búsqueda ubica la coincidencia con el mismo normalizador que el servidor (`normalizeSearchText`, acentos no, ñ sí) mapeado al texto original (`findSearchMatch`). El contador dice «N resultados cargados» mientras haya cursor, porque la API no devuelve un total. En la URL, `channel` es el canal de la conversación elegida; el filtro «Canal» de la lista de negocios es estado propio de la pantalla.

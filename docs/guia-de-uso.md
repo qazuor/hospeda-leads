@@ -1017,6 +1017,29 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Dónde ir:** Ir a Negocios (/accounts)
 
+### Registrar automáticamente chats seguros
+
+**Cuándo usarlo:** Cuando el administrador habilitó el registro automático y querés registrar mensajes recientes sin confirmar cada lote.
+
+1. En el CRM, abrí «User script de WhatsApp» y activá «Registrar solo los chats seguros».
+2. En WhatsApp Web abrí un chat individual asociado a un único negocio. El panel indica si el registro automático está activo o por qué corresponde registrar a mano.
+3. El script espera cinco segundos sin cambios y registra los mensajes elegibles en lotes. Los enviados se registran cuando WhatsApp los muestra como enviados.
+4. Tocá «Registrados solos» para revisar los registros recientes. Si uno corresponde a otro negocio o era personal, tocá «Deshacer», elegí el motivo y confirmá.
+5. También podés anularlo desde la ficha del negocio: los mensajes registrados solos llevan la marca «Automático» y el menú «Anular registro». Si el envío había completado un WhatsApp abierto desde el CRM, ese intento vuelve a quedar pendiente.
+
+**Qué queda al terminar:** Los mensajes nuevos de chats seguros quedan registrados en el negocio y pueden anularse desde el panel.
+
+**Ejemplo:**
+
+- En un chat asociado a un solo negocio elegible, activás «Registrar solo los chats seguros». Después de un mensaje nuevo, el panel muestra «Registro automático activo»; si te equivocás, abrís «Registrados solos» y lo anulás con un motivo.
+
+**Tené en cuenta:**
+
+- El registro automático requiere que lo habilite un administrador y que el chat corresponda a un único negocio elegible. Los mensajes viejos, los chats grupales y los enviados pendientes o con error no se registran automáticamente.
+- Cada mensaje automático se puede anular con «Deshacer» y un motivo: «Era de otro negocio», «No era de esta gestión», «Mensaje personal» u «Otro». Si el mensaje recibido ya se convirtió en respuesta registrada, primero corregí esa respuesta.
+
+**Dónde ir:** User script de WhatsApp (/userscript)
+
 ### Registrar mensajes de un chat en el CRM
 
 **Cuándo usarlo:** Después de hablar con un negocio por WhatsApp, para que la conversación quede en su ficha.
