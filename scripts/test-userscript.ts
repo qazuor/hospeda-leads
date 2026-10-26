@@ -4,8 +4,8 @@ import {db} from '../src/helpers/db';
 import {sql} from 'kysely';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import superjson from 'superjson';
-import {get as getCommunication} from '../src/endpoints/communication';
-import {tokenCreate,tokenRevoke,tokenList,context,status,register,templates,prepare,dispatch,outcome,voidRegistration} from '../src/endpoints/userscript';
+import {get as getCommunication,post as communicationPost} from '../src/endpoints/communication';
+import {tokenCreate,tokenRevoke,tokenList,context,status,register,templates,prepare,dispatch,outcome,voidRegistration,autoRegistrations} from '../src/endpoints/userscript';
 import {USERSCRIPT_VERSION} from '../userscript/src/version';
 
 assert.equal(process.env.CRM_TEST_DATABASE,'1');
@@ -103,6 +103,25 @@ try{
  assert.equal((await voidAs(token,looseReg.id)).status,200);
  const looseRow=(await sql<{status:string;externalId:string|null;deletedAt:Date|null}>`SELECT m.status,m.external_id AS "externalId",a.deleted_at AS "deletedAt" FROM crm_messages m JOIN crm_activities a ON a.id=m.activity_id WHERE m.id=${loose.id}::uuid`.execute(db)).rows[0]!;
  assert.deepEqual([looseRow.status,looseRow.externalId,!!looseRow.deletedAt],['voided',null,true],'Voiding a standalone send hides it and its activity');
+
+ // A voided message cannot be revived through the outcome action.
+ const revive=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:admin.cookie},body:superjson.stringify({action:'outcome',id:loose.id,event:'replied',notes:'Respondió'})}));assert.equal(revive.status,409,'A voided message stays voided');
+ assert.equal((await sql<{status:string}>`SELECT status FROM crm_messages WHERE id=${loose.id}::uuid`.execute(db)).rows[0]!.status,'voided');
+ // The panel list answers (regression: ambiguous id) and only shows live registrations.
+ const crmVoid=(await (await autoOut('Mensaje suelto para anular desde la ficha')).json() as {results:{id:string}[]}).results[0]!;const crmVoidReg=await registrationOf(crmVoid.id);
+ const panelList=await autoRegistrations(new Request(`http://localhost/_api/userscript/auto-registrations?accountId=${account.id}`,{headers:scripted(token)}));assert.equal(panelList.status,200,await panelList.clone().text());
+ const listedIds=(await panelList.json() as {registrations:{id:string}[]}).registrations.map(r=>r.id);assert.ok(listedIds.includes(crmVoidReg.id)&&!listedIds.includes(looseReg.id),'The list shows live registrations and hides voided ones');
+ // The CRM void action uses the registration id (regression: it sent a random id).
+ const fromCrm=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:admin.cookie},body:superjson.stringify({action:'auto_registration_void',id:crmVoidReg.id,reason:'Mensaje personal'})}));assert.equal(fromCrm.status,200,await fromCrm.clone().text());
+ assert.equal((await sql<{status:string}>`SELECT status FROM crm_messages WHERE id=${crmVoid.id}::uuid`.execute(db)).rows[0]!.status,'voided','Voiding from the CRM hides the message');
+ // A standalone send changed after its registration is not voided.
+ const edited=(await (await autoOut('Mensaje suelto que se corrige después')).json() as {results:{id:string}[]}).results[0]!;const editedReg=await registrationOf(edited.id);
+ await sql`UPDATE crm_messages SET revision=revision+1 WHERE id=${edited.id}::uuid`.execute(db);
+ const editedVoid=await voidAs(token,editedReg.id);assert.equal(editedVoid.status,200);assert.ok((await editedVoid.json() as {skipped:string[]}).skipped.length>0,'The changed send is reported as skipped');
+ assert.equal((await sql<{status:string}>`SELECT status FROM crm_messages WHERE id=${edited.id}::uuid`.execute(db)).rows[0]!.status,'manual_sent','A send changed after the registration keeps its status');
+ // Automatic mode needs the message time: no history replayed as "now".
+ const timeless=await register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(token),body:JSON.stringify({...body,automatic:true,messages:[{externalId:`true_${randomUUID()}`,direction:'in',text:'Mensaje viejo sin hora',sentAt:null,author:null}]})}));
+ assert.equal((await timeless.json() as {results:{status:string}[]}).results[0]!.status,'rejected','An automatic message without time is rejected');
  const communicationList=async(includeVoided:boolean)=>{const result=await getCommunication(new Request(`http://localhost/_api/communication?accountId=${account.id}${includeVoided?'&includeVoided=1':''}`,{headers:{Cookie:admin.cookie}}));assert.equal(result.status,200);return superjson.parse(await result.text()) as {messages:{id:string;status:string;autoRegistrationId:string|null}[];inbound:{id:string;status:string;autoRegistrationId:string|null}[]};};
  const hiddenVoided=await communicationList(false);assert.equal(hiddenVoided.messages.some(row=>row.id===loose.id),false,'Voided messages stay hidden by default');
  assert.equal(hiddenVoided.inbound.some(row=>row.id===autoResult.id),false,'Voided inbound messages stay hidden by default');

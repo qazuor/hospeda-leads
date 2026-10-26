@@ -42,6 +42,7 @@ export async function voidAutoRegistration(database:Kysely<DB>,input:{id:string;
   const registration=(await sql<{id:string;accountId:string;userEmail:string;direction:'in'|'out';messageId:string|null;inboundId:string|null;effects:Record<string,unknown>;externalId:string;voidedAt:Date|null}>`SELECT id::text,account_id::text AS "accountId",user_email AS "userEmail",direction,message_id::text AS "messageId",inbound_id::text AS "inboundId",effects,external_id AS "externalId",voided_at AS "voidedAt" FROM crm_auto_registrations WHERE id=${input.id}::uuid FOR UPDATE`.execute(e)).rows[0];
   if(!registration)throw new Error('No se encontró el registro automático.');
   await lockCommunication(e,async()=>({accountIds:[registration.accountId]}));
+  await setWorkActor(e,user);
   const account=await assertBusinessAccess(e,registration.accountId,user,true,false);
   if(user.role!=='admin'&&registration.userEmail!==user.email)throw new CommunicationForbidden('Solo quien registró el mensaje o un administrador puede anularlo.');
   if(account.mergedIntoId)throw new CommunicationForbidden('Este negocio se fusionó con otro.');
@@ -58,13 +59,14 @@ export async function voidAutoRegistration(database:Kysely<DB>,input:{id:string;
    const effects=registration.effects;
    if(effects.linkedOnly===true){if(row?.externalId===registration.externalId){before={externalId:row.externalId};await sql`UPDATE crm_messages SET external_id=NULL,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);after={externalId:null};}else skipped.push('El vínculo no se liberó porque cambió después del registro.');}
    else if(effects.created===true){
-    if(row?.externalId===registration.externalId){before={status:row.status,externalId:row.externalId};await sql`UPDATE crm_messages SET status='voided',external_id=NULL,updated_at=now(),revision=revision+1 WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);after={status:'voided',externalId:null};
+    if(row?.externalId===registration.externalId&&row.status==='manual_sent'&&row.revision===Number(effects.revision??row.revision)){before={status:row.status,externalId:row.externalId};await sql`UPDATE crm_messages SET status='voided',external_id=NULL,updated_at=now(),revision=revision+1 WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);after={status:'voided',externalId:null};
      if(row.activityId){const deleted=await e.updateTable('crmActivities').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',row.activityId).where('result','=','Envío confirmado manualmente').where('deletedAt','is',null).executeTakeFirst();if(!deleted.numUpdatedRows)skipped.push('La actividad no se anuló porque fue modificada después.');}
     }else skipped.push('El mensaje no se modificó porque cambió después del registro.');
    }else if(row?.externalId===registration.externalId&&row.status==='manual_sent'){
     const old=effects.before as {status:string;body:string|null;textBody:string|null;summary:string|null;completedAt:Date|null;completedByEmail:string|null;lastInteractionAt:Date|null;revision:number};
     if(row.revision===old.revision+1){before={status:row.status,externalId:row.externalId};await sql`UPDATE crm_messages SET status=${old.status},body=${old.body},text_body=${old.textBody},summary=${old.summary},completed_at=${old.completedAt},completed_by_email=${old.completedByEmail},last_interaction_at=${old.lastInteractionAt},external_id=NULL,revision=revision+1,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);after={status:old.status,externalId:null};}
-    else{await sql`UPDATE crm_messages SET external_id=NULL,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);skipped.push('El mensaje no se restauró porque fue modificado después.');}
+    else{await sql`UPDATE crm_messages SET external_id=NULL,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);skipped.push('El mensaje no se restauró porque fue modificado después; la actividad, la tarea y la marca de cliente quedan como están.');}
+    if(row.revision===old.revision+1){
     const activity=effects.activity as {id:string|null;created?:boolean;previousResult?:string|null}|undefined;
     if(activity?.id&&row.activityId===activity.id&&row.activityResult==='Envío confirmado manualmente'){
      if(activity.created)await e.updateTable('crmActivities').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',activity.id).where('deletedAt','is',null).execute();
@@ -72,11 +74,12 @@ export async function voidAutoRegistration(database:Kysely<DB>,input:{id:string;
     }else if(activity?.id)skipped.push('La actividad no se revirtió porque fue modificada después.');
     const taskId=effects.taskId;
     if(typeof taskId==='string'){const restored=await e.updateTable('crmTasks').set({status:'pending',completedAt:null,result:null,updatedAt:new Date()}).where('id','=',taskId).where('status','=','completed').where('result','=','Envío confirmado manualmente').executeTakeFirst();if(!restored.numUpdatedRows)skipped.push('La tarea no se reabrió porque se modificó después.');}
-    if(effects.clientMarked===true){const changed=await sql`UPDATE crm_accounts SET is_client=false,updated_at=now() WHERE id=${registration.accountId}::bigint AND is_client=true`.execute(e);if(!changed.numAffectedRows)skipped.push('El negocio no se desmarcó como cliente porque se modificó después.');}
-   }else skipped.push('El mensaje no se modificó porque cambió después del registro.');
+    if(effects.clientMarked===true){const changed=await sql`UPDATE crm_accounts SET is_client=false,updated_at=now() WHERE id=${registration.accountId}::bigint AND is_client=true AND client_since IS NOT DISTINCT FROM ${typeof effects.clientSince==='string'?effects.clientSince:null}::timestamptz`.execute(e);if(!changed.numAffectedRows)skipped.push('El negocio no se desmarcó como cliente porque se modificó después.');}
+    }
+   }else if(row?.externalId===registration.externalId){await sql`UPDATE crm_messages SET external_id=NULL,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);skipped.push('El mensaje no se restauró porque fue modificado después.');}
+   else skipped.push('El mensaje no se modificó porque cambió después del registro.');
   }
   await sql`UPDATE crm_auto_registrations SET voided_at=now(),voided_by_email=${user.email},void_reason=${input.reason} WHERE id=${input.id}::uuid`.execute(e);
-  await setWorkActor(e,user);
   await communicationJournal(e,{accountId:registration.accountId,leadId:null,entityType:'auto_registration',entityId:registration.id,action:'auto_registration_voided',actor:user,before:{effects:registration.effects,before},after:{reason:input.reason,effects:after,skipped}});
   return {voided:true,skipped};
  });

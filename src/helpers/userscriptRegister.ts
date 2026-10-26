@@ -72,6 +72,7 @@ async function registerOutbound(e:Executor,b:UserscriptBatch,m:UserscriptMessage
 
 async function registerOne(e:Executor,b:UserscriptBatch,m:UserscriptMessage,user:User):Promise<UserscriptResult>{
  if(!m.text.trim())return {externalId:m.externalId,status:'rejected',reason:'El mensaje no puede estar vacío.'};
+ if(b.automatic&&!m.sentAt)return {externalId:m.externalId,status:'rejected',reason:'Sin hora; registralo a mano si corresponde.'};
  const sentAt=m.sentAt?new Date(m.sentAt):new Date();
  if(m.sentAt&&(sentAt.getTime()>Date.now()+MAX_FUTURE_MS||sentAt.getTime()<Date.now()-MAX_PAST_MS))return {externalId:m.externalId,status:'rejected',reason:'Fecha del mensaje inválida'};
  if(b.automatic){
@@ -85,12 +86,13 @@ async function registerOne(e:Executor,b:UserscriptBatch,m:UserscriptMessage,user
  const before=pending?(await sql<{id:string;status:string;body:string|null;textBody:string|null;summary:string|null;completedAt:Date|null;completedByEmail:string|null;lastInteractionAt:Date|null;revision:number;activityId:string|null;taskId:string|null;purpose:string|null;taskStatus:string|null;taskResult:string|null;taskCompletedAt:Date|null;activityResult:string|null;isClient:boolean}>`SELECT m.id::text,m.status,m.body,m.text_body AS "textBody",m.summary,m.completed_at AS "completedAt",m.completed_by_email AS "completedByEmail",m.last_interaction_at AS "lastInteractionAt",m.revision,m.activity_id::text AS "activityId",m.task_id::text AS "taskId",m.purpose,t.status AS "taskStatus",t.result AS "taskResult",t.completed_at AS "taskCompletedAt",a.result AS "activityResult",b.is_client AS "isClient" FROM crm_messages m JOIN crm_accounts b ON b.id=m.account_id LEFT JOIN crm_tasks t ON t.id=m.task_id LEFT JOIN crm_activities a ON a.id=m.activity_id WHERE m.id=${pending.id}::uuid`.execute(e)).rows[0]:undefined;
  const result=m.direction==='in'?await registerInbound(e,b,m,sentAt,user):await registerOutbound(e,b,m,sentAt,user);
  if(b.automatic&&result.id&&(result.status==='created'||pending?.kind==='opened'&&before?.status==='manual_sent')){
-  const activityId=m.direction==='out'?(await sql<{id:string|null}>`SELECT activity_id::text AS id FROM crm_messages WHERE id=${result.id}::uuid`.execute(e)).rows[0]?.id??null:null;
+  const created=m.direction==='out'?(await sql<{id:string|null;revision:number}>`SELECT activity_id::text AS id,revision FROM crm_messages WHERE id=${result.id}::uuid`.execute(e)).rows[0]:undefined,activityId=created?.id??null;
+  const client=m.direction==='out'&&before?.purpose==='care'&&!before.isClient?(await sql<{isClient:boolean;clientSince:string|null}>`SELECT is_client AS "isClient",client_since::text AS "clientSince" FROM crm_accounts WHERE id=${b.accountId}::bigint`.execute(e)).rows[0]:undefined;
   let effects:Record<string,unknown>;
   if(m.direction==='in')effects={inboundId:result.id};
   else if(pending?.kind==='opened'&&before?.status==='manual_sent')effects={messageId:result.id,linkedOnly:true};
-  else if(before){const activity=before.activityId?{id:activityId,previousResult:before.activityResult}:{id:activityId,created:true};effects={messageId:result.id,before:{status:before.status,body:before.body,textBody:before.textBody,summary:before.summary,completedAt:before.completedAt,completedByEmail:before.completedByEmail,lastInteractionAt:before.lastInteractionAt,revision:before.revision},activity,...(before.taskId&&before.taskStatus==='pending'?{taskId:before.taskId}:{}),...(before.purpose==='care'&&!before.isClient?{clientMarked:true}:{})};}
-  else effects={messageId:result.id,created:true,activityId};
+  else if(before){const activity=before.activityId?{id:activityId,previousResult:before.activityResult}:{id:activityId,created:true};effects={messageId:result.id,before:{status:before.status,body:before.body,textBody:before.textBody,summary:before.summary,completedAt:before.completedAt,completedByEmail:before.completedByEmail,lastInteractionAt:before.lastInteractionAt,revision:before.revision},activity,...(before.taskId&&before.taskStatus==='pending'?{taskId:before.taskId}:{}),...(client?.isClient?{clientMarked:true,clientSince:client.clientSince}:{})};}
+  else effects={messageId:result.id,created:true,activityId,revision:created?.revision};
   await sql`INSERT INTO crm_auto_registrations(id,account_id,user_email,channel,direction,external_id,message_id,inbound_id,effects) VALUES(${randomUUID()}::uuid,${b.accountId}::bigint,${user.email},'whatsapp',${m.direction},${m.externalId},${m.direction==='out'?result.id:null}::uuid,${m.direction==='in'?result.id:null}::uuid,${JSON.stringify(effects)}::text::jsonb)`.execute(e);
  }
  return result;
