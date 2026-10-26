@@ -96,6 +96,11 @@ test('(b) search ignores accents, keeps ñ distinct, marks the match and opens t
   const bubble=page.locator('article').filter({hasText:`señal${stamp}`});
   await expect(bubble).toBeVisible();await expect(bubble).toBeInViewport();
   await expect(bubble).toHaveAttribute('data-highlighted','true');
+  await page.getByRole('button',{name:'← Volver a los resultados'}).click();
+  await expect.poll(()=>page.evaluate(()=>new URLSearchParams(location.search).get('q'))).toBe(`señal${stamp}`);
+  await expect(results).toBeVisible();await expect(row).toBeVisible();
+  await row.click();await page.goBack();
+  await expect(results).toBeVisible();await expect(row).toBeVisible();
  }finally{await trash(api,fixture.accountId);}
 });
 
