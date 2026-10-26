@@ -109,3 +109,5 @@
 /* Pinned selection and action cells follow the row tint, including the sticky header. */
 th.selectionPinned{background:var(--surface)!important}
 @media(min-width:768px){.table td.pinned{background:var(--row-background,var(--card))}.table td.pinnedRight{background:var(--row-background,var(--card))!important}}
+
+.squareCheckbox:global(.mantine-Checkbox-input){border-radius:3px}

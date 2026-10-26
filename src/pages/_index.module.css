@@ -108,7 +108,7 @@
 .scroller th{background:var(--surface)}
 .headerButton{min-height:36px;padding:8px 12px;color:var(--muted-foreground);font:500 13px/1.4 var(--font-family-base);text-transform:none;letter-spacing:normal}
 .scroller th{font:650 14px/1.4 var(--font-family-base);color:var(--muted-foreground);text-transform:none;letter-spacing:normal}
-.scroller th .headerButton{font:650 14px/1.4 var(--font-family-base);color:var(--muted-foreground);text-transform:none;letter-spacing:normal}
-.scroller th:last-child{padding:8px 12px;font:650 14px/1.4 var(--font-family-base);color:var(--muted-foreground);text-transform:none;letter-spacing:normal}
+.scroller th .headerButton,.scroller th:last-child{font:650 14px/1.4 var(--font-family-base);color:var(--muted-foreground);text-transform:none;letter-spacing:normal}
+.scroller th:last-child{padding:8px 12px}
 .squareCheckbox:global(.mantine-Checkbox-input){border-radius:3px}
 .selectHead{background:var(--surface)!important}
