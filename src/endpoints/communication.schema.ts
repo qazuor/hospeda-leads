@@ -16,6 +16,7 @@ export const communicationMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('inbound_reply'),id:uuid,inboundId:uuid,bodyHtml:z.string().max(50000),recipient:z.string().email().max(320).optional()}),
  z.object({action:z.literal('response_correct'),id:uuid,category:z.enum(['interested','information','later','rejected','not_now','operational','do_not_contact','other']),summary:z.string().trim().min(1).max(4000),exactText:z.string().max(20000).nullable(),otherDetail:z.string().trim().max(500).nullable(),reason:z.string().trim().min(3).max(1000),confirmDoNotContact:z.literal(true).optional(),confirmLiftDoNotContact:z.literal(true).optional(),closeLeadIds:z.array(id).max(100).optional()}),
  z.object({action:z.literal('interaction_correct'),id:uuid,result:z.enum(['manual_sent','manual_no_contact','manual_not_done']),summary:z.string().trim().max(4000),reason:z.string().trim().min(3).max(1000)}),
+ z.object({action:z.literal('auto_registration_void'),id:uuid,reason:z.string().trim().min(3).max(500)}),
  z.object({action:z.literal('cancel_draft'),id:uuid,revision:z.number().int()}),
  z.object({action:z.literal('edit'),id:uuid,revision:z.number().int(),subject:z.string().max(500),body:z.string().max(50000)}),
  z.object({action:z.literal('dispatch'),id:uuid,revision:z.number().int(),confirm:z.literal(true)}),

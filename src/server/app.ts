@@ -7,7 +7,7 @@ import {handle as businessSystemViewConvert} from '../endpoints/business_system_
 import {get as businessReassignmentGET,post as businessReassignmentPOST} from '../endpoints/business_reassignment';
 import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
 import {post as inboundEmailPOST,addresses as inboundAddressesGET,reviewGET as inboundReviewGET,unmatchedGET as inboundUnmatchedGET,assignPOST as inboundAssignPOST} from '../endpoints/inbound';
-import {context as userscriptContext,status as userscriptStatus,register as userscriptRegister,tokenList as userscriptTokenList,tokenCreate as userscriptTokenCreate,tokenRevoke as userscriptTokenRevoke,templates as userscriptTemplates,prepare as userscriptPrepare,dispatch as userscriptDispatch,outcome as userscriptOutcome} from '../endpoints/userscript';
+import {context as userscriptContext,status as userscriptStatus,register as userscriptRegister,tokenList as userscriptTokenList,tokenCreate as userscriptTokenCreate,tokenRevoke as userscriptTokenRevoke,templates as userscriptTemplates,prepare as userscriptPrepare,dispatch as userscriptDispatch,outcome as userscriptOutcome,preferences as userscriptPreferences,autoRegistrations as userscriptAutoRegistrations,voidRegistration as userscriptVoid} from '../endpoints/userscript';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
 import {get as businessImportGET,post as businessImportPOST} from '../endpoints/businessImport';
@@ -83,6 +83,9 @@ app.get('/_api/userscript/templates',c=>userscriptTemplates(c.req.raw));
 app.post('/_api/userscript/prepare',c=>userscriptPrepare(c.req.raw));
 app.post('/_api/userscript/dispatch',c=>userscriptDispatch(c.req.raw));
 app.post('/_api/userscript/outcome',c=>userscriptOutcome(c.req.raw));
+app.post('/_api/userscript/preferences',c=>userscriptPreferences(c.req.raw));
+app.get('/_api/userscript/auto-registrations',c=>userscriptAutoRegistrations(c.req.raw));
+app.post('/_api/userscript/void',c=>userscriptVoid(c.req.raw));
 app.get('/_api/userscript/tokens',c=>userscriptTokenList(c.req.raw));
 app.post('/_api/userscript/tokens',c=>userscriptTokenCreate(c.req.raw));
 app.post('/_api/userscript/tokens/revoke',c=>userscriptTokenRevoke(c.req.raw));

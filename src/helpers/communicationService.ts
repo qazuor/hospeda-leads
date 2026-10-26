@@ -18,6 +18,7 @@ import {writeLeadJournal} from './writeLeadJournal';
 import { withDefaultMessageVariables } from './messageVariables';
 import {buildMessageTemplateContext} from './messageTemplateContext';
 import {responseCategoryLabel} from './crmLabels';
+import {voidAutoRegistration} from './autoRegistration';
 import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
 import {sendInboundReply} from './emailReply';
 export type Executor=Kysely<DB>|Transaction<DB>;
@@ -380,6 +381,7 @@ export async function linkMessageActivity(e:Executor,messageId:string,activityId
 export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutation,user:User){
  if(input.action==='inbound_reply')return sendInboundReply(db,input,user);
  if(input.action==='dispatch')return dispatch(db,input,user);
+ if(input.action==='auto_registration_void')return voidAutoRegistration(db,input,user);
  return db.transaction().execute(async e=>{
  await setWorkActor(e,user);
  // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.

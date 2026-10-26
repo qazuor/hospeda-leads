@@ -31,7 +31,7 @@ export async function get(request:Request){
   const cfg=await communicationConfig(db);
   const recentMessages=(await sql`SELECT * FROM crm_messages WHERE account_id=${lead.accountId}
    AND (${user.role==='admin'} OR lead_id IS NULL OR EXISTS(SELECT 1 FROM leads l WHERE l.id=crm_messages.lead_id AND l.deleted_at IS NULL))
-   AND status NOT IN ('draft','cancelled') AND last_interaction_at IS NOT NULL
+   AND status NOT IN ('draft','cancelled','voided') AND last_interaction_at IS NOT NULL
    ORDER BY last_interaction_at DESC LIMIT 200`.execute(db)).rows;
   const templatePicks=(await sql<{templateId:string;picks:Record<string,string>}>`SELECT DISTINCT ON (template_snapshot->>'id') template_snapshot->>'id' AS "templateId",template_snapshot->'variantPicks' AS picks FROM crm_messages WHERE account_id=${lead.accountId} AND template_snapshot ? 'variantPicks' AND jsonb_typeof(template_snapshot->'variantPicks')='object' ORDER BY template_snapshot->>'id',created_at DESC`.execute(db)).rows;
   const messages=(await sql`SELECT * FROM crm_messages WHERE account_id=${lead.accountId}

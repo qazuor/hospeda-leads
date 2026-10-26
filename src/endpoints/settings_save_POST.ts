@@ -154,6 +154,11 @@ export async function handle(request:Request){
     }
     const input=schema.parse(await parseBody(request));
 
+    if(input.action==="saveUserscriptAutoRegister"){
+      await db.insertInto("appSettings").values({key:"crm_userscript_auto_register",value:JSON.stringify({enabled:input.enabled})})
+        .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify({enabled:input.enabled}),updatedAt:new Date()})).execute();
+    }
+
     if(input.action==="addCity"){
       await db.insertInto("crmCities").values({name:input.name.trim()})
         .onConflict(oc=>oc.column("name").doUpdateSet({active:true})).execute();

@@ -5,6 +5,7 @@ const nullableSender=z.union([z.string().email(),z.literal(""),z.null()]).option
 const sex=z.enum(["masculino","femenino","otro","prefiero_no_decir"]);
 
 export const schema=z.discriminatedUnion("action",[
+  z.object({action:z.literal("saveUserscriptAutoRegister"),enabled:z.boolean()}),
   z.object({action:z.literal("addCity"),name:z.string().min(1)}),
   z.object({action:z.literal("addSubtype"),name:z.string().min(1),typeName:z.string().nullable().optional()}),
   z.object({action:z.literal("editSubtype"),id:z.union([z.string(),z.number()]),name:z.string().min(1)}),
