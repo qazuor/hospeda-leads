@@ -39,6 +39,9 @@ try{
  assert.equal(byKey.get('open')?.openManagement?.stageLabel,stageLabel(stage.name));assert.equal(byKey.get('open')?.openManagement?.typeLabel,managementTypeLabels.main);assert.equal(byKey.get('status')?.kind,'single');assert.equal(byKey.get('status')?.openManagement,null);
  assert.equal(byKey.get('dnc')?.doNotContact,true);assert.equal(byKey.get('restriction')?.restricted,true);assert.equal(byKey.get('multiple')?.kind,'multiple');assert.equal(byKey.get('multiple')?.businesses?.length,2);assert.equal(byKey.get('none')?.kind,'none');
  assert.equal(byKey.get('hidden')?.kind,'hidden','An existing unreadable business is distinguished from no match');
+ // The panel follows the same rule: no data, but the seller learns the number is taken before writing to it.
+ for(const query of [`phone=${encodeURIComponent(badgePhone(7))}`,`code=H${unreadable.id}`]){const hiddenContext=await (await context(new Request(`http://localhost/_api/userscript/context?${query}`,{headers:scripted(token)}))).json() as {matches:unknown[];hiddenMatches:number};assert.deepEqual([hiddenContext.matches.length,hiddenContext.hiddenMatches],[0,1],`Context reports a hidden business by ${query.split('=')[0]} without its data`);}
+ const unmatchedContext=await (await context(new Request(`http://localhost/_api/userscript/context?phone=${encodeURIComponent(badgePhone(8))}`,{headers:scripted(token)}))).json() as {hiddenMatches:number};assert.equal(unmatchedContext.hiddenMatches,0,'A number nobody has reports no hidden business');
  assert.equal(byKey.get('split-a')?.accountId,String(splitA.id));assert.equal(byKey.get('split-b')?.accountId,String(splitB.id),'Each chat is matched only against its own phone');
  assert.equal((await badgeCall(Array.from({length:51},(_,i)=>({key:String(i),title:'Chat'})))).status,400);
 

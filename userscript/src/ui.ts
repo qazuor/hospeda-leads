@@ -172,6 +172,9 @@ function chat(options: UiOptions, card: HTMLElement): HTMLElement {
       select.addEventListener("change", () => { const match = matches.find(item => item.accountId === select.value); if (match) options.onSelect(match); }); field.append(select); body.append(field);
     }
     if (selected) business(options, selected, body, card, status);
+    else if (!options.error && !matches.length && (options.context?.hiddenMatches ?? 0) > 0) {
+      body.append(el("span", "eyebrow", "NEGOCIO NO VISIBLE"), el("span", "name", options.title), el("p", "note warn", "Este número está en un negocio que no podés ver. Consultá a un administrador antes de escribirle."));
+    }
     else if (!options.error && matches.length < 2) {
       body.append(el("span", "eyebrow", "SIN ASOCIAR"), el("span", "name", options.title), el("p", "note info", `No encontré el negocio de este chat. ${NO_MATCH}`));
       if (options.crmBase) { const link = el("a", "btn", "Buscar en Negocios del CRM"); link.href = `${options.crmBase}/accounts`; link.target = "_blank"; link.rel = "noopener noreferrer"; body.append(link); }
