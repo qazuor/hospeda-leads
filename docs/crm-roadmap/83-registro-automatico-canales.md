@@ -254,6 +254,8 @@ Decisión del 22/10/2026: **user script para Tampermonkey** en lugar de una exte
 
 ## 9. F4: Instagram Direct
 
+> **Reemplazada (26/10/2026):** F4 se hace con la API oficial de Meta, no con un user script. Ver la [spec 88](88-instagram-direct-webhooks.md).
+
 Mismo user script, con `@match https://www.instagram.com/direct/*`. Asociación por el usuario de Instagram del negocio (`crm_accounts.perfil_instagram`, normalizado a usuario sin `@` ni URL). Banner y "Registrar en CRM" iguales a F3, canal `social` con `channel_detail='instagram'`. Instagram cambia su DOM con más frecuencia que WhatsApp: se especifica en detalle al terminar F3.
 
 ## 10. F5 (opcional): captura automática
