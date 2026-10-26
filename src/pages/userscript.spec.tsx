@@ -33,7 +33,8 @@ describe('UserscriptPage',()=>{
  });
  it('shows the version each token last reported and flags outdated devices',async()=>{
   vi.stubGlobal('fetch',tokens([{id:'1',label:'Chrome oficina',createdAt:'2026-10-25T12:00:00Z',lastUsedAt:'2026-10-25T15:00:00Z',lastVersion:'0.9.0',revokedAt:null}]));renderPage();
-  expect(await screen.findByText(/Chrome oficina .* versión 0\.9\.0/)).toBeTruthy();
+  expect(await screen.findByText('Chrome oficina')).toBeTruthy();
+  expect(screen.getByText(/versión 0\.9\.0/)).toBeTruthy();
   expect(screen.getByText('Desactualizado')).toBeTruthy();
  });
 });

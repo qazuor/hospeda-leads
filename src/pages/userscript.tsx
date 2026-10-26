@@ -1,12 +1,14 @@
 import React from 'react';
 import {TextInput} from '@mantine/core';
 import {Link} from 'react-router-dom';
+import {AlertCircle,Check,ChevronRight,CircleHelp,Download,ExternalLink,KeyRound,MessageCircle,ShieldCheck,Workflow} from 'lucide-react';
 import {Button} from '../components/Button';
 import {Badge} from '../components/Badge';
 import {CrmDialog} from '../components/ui/CrmDialog';
 import {compareSemver} from '../helpers/userscriptPure';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
 import {INSTALLED_ATTRIBUTE,INSTALLED_EVENT} from '../../userscript/src/announce';
+import styles from './userscript.module.css';
 /** Served by the same CRM origin, so the installed script updates itself from the instance that issued its tokens. */
 export const USERSCRIPT_URL='/userscripts/hospeda-crm.user.js';
 /** How long the page waits for the script to announce itself before reporting it as not detected. */
@@ -26,15 +28,16 @@ export function useInstalledUserscript():string|null|undefined{
 const outdated=(version:string|null|undefined)=>!!version&&compareSemver(version,USERSCRIPT_VERSION)<0;
 function InstallStatus({installed}:{installed:string|null|undefined}){
  const label=!installed?'Instalar user script':outdated(installed)?'Actualizar user script':'Reinstalar user script';
- return <section aria-labelledby="userscript-status" style={{display:'flex',flexDirection:'column',gap:10,margin:'16px 0'}}>
-  <h2 id="userscript-status" style={{margin:0}}>En este navegador</h2>
-  <div role="status" style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-   {installed===undefined?<span>Buscando el user script…</span>
-   :installed===null?<><Badge variant="warning">No detectado</Badge><span>Si ya lo instalaste, revisá que Tampermonkey esté activo (en Chrome o Edge, con «Permitir scripts de usuario») y recargá esta página.</span></>
+ return <section className={styles.panel} aria-labelledby="userscript-status">
+  <div className={styles.sectionTitle}><span className={styles.icon}><Workflow size={18}/></span><div><span className={styles.kicker}>ESTADO</span><h2 id="userscript-status">En este navegador</h2></div></div>
+  <div className={styles.statusLine} role="status">
+   {installed===undefined?<><span className={styles.spinner}/><span>Buscando el user script…</span></>
+   :installed===null?<><Badge variant="warning">No detectado</Badge><span>Si ya lo instalaste, revisá que Tampermonkey esté activo y recargá esta página.</span></>
    :outdated(installed)?<><Badge variant="warning">Desactualizado</Badge><span>Tenés la versión {installed}; la actual es {USERSCRIPT_VERSION}.</span></>
    :<><Badge variant="success">Instalado</Badge><span>Versión {installed}, al día.</span></>}
   </div>
-  <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><Button asChild variant={installed&&!outdated(installed)?'outline':'primary'}><a href={USERSCRIPT_URL} target="_blank" rel="noopener">{label}</a></Button><span>Tampermonkey abre la instalación. Después creá un token acá abajo y pegalo en el panel de Hospeda dentro de WhatsApp Web.</span></div>
+  <div className={styles.installAction}><Button asChild variant={installed&&!outdated(installed)?'outline':'primary'}><a href={USERSCRIPT_URL} target="_blank" rel="noopener"><Download size={16}/>{label}<ExternalLink size={14}/></a></Button><p>Tampermonkey abre la instalación. Después creá un token y pegalo en el panel de Hospeda dentro de WhatsApp Web.</p></div>
+  <div className={styles.version}><span>Versión actual</span><strong>{USERSCRIPT_VERSION}</strong></div>
  </section>;
 }
 export default function UserscriptPage(){
@@ -45,13 +48,26 @@ export default function UserscriptPage(){
  const create=async()=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{const v=await api('/_api/userscript/tokens',{label});setShown(v.token);setLabel('');}catch(e){setError(e instanceof Error?e.message:'No se pudo crear el token.');}finally{lock.current=false;setBusy(false);}await load();};
  const revoke=async(id:string)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await api('/_api/userscript/tokens/revoke',{id});await load();setRevokeTarget(null);}catch(e){setError(e instanceof Error?e.message:'No se pudo revocar.');}finally{lock.current=false;setBusy(false);}};
  const usage=(t:Token)=>t.revokedAt?'Revocado':t.lastUsedAt?`Usado ${new Date(t.lastUsedAt).toLocaleString('es-AR')}${t.lastVersion?` · versión ${t.lastVersion}`:''}`:'Sin usar';
- return <main style={{maxWidth:900,margin:'24px auto',padding:20}}><h1>User script de WhatsApp</h1>
-  <p>Registra en el CRM los mensajes de WhatsApp Web que elijas, después de revisarlos. <Link to="/guide?topic=whatsapp-userscript&article=install-userscript">Ver la guía paso a paso</Link>.</p>
-  <section aria-labelledby="userscript-before"><h2 id="userscript-before">Antes de instalar</h2><ul>
-   <li><strong>Chrome o Edge:</strong> instalá Tampermonkey. Desde la versión 138, hacé clic derecho en su ícono → «Administrar extensión» y activá «Permitir scripts de usuario». Si no aparece, activá el «Modo de desarrollador» en <code>chrome://extensions</code>. Sin eso el script no corre y no muestra ningún error.</li>
-   <li><strong>Firefox:</strong> instalá Tampermonkey y aceptá sus permisos, incluido «Acceder a tus datos de todos los sitios web». No hace falta ningún otro paso; si el script no corre, revisá ese permiso en <code>about:addons</code> → Tampermonkey → Permisos.</li>
-  </ul></section>
-  <InstallStatus installed={installed}/>
-  <h2>Tokens</h2>{!loading&&<label style={{display:"flex",gap:8,alignItems:"center",margin:"12px 0"}}><input type="checkbox" checked={autoRegister} disabled={busy} onChange={e=>void toggleAuto(e.currentTarget.checked)}/> Registrar solo los chats seguros</label>}{error&&<p role="alert">{error} <Button variant="outline" disabled={loading} onClick={()=>void load()}>Reintentar</Button></p>}{loading?<p role="status">Cargando tokens…</p>:<><div style={{display:'flex',gap:8,alignItems:'end'}}><TextInput label="Nombre del dispositivo" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>{shown&&<section role="status"><p>Copialo ahora: no se vuelve a mostrar.</p><code>{shown}</code> <Button onClick={()=>void navigator.clipboard.writeText(shown)}>Copiar token</Button></section>}<ul>{tokens.map(t=><li key={t.id}>{t.label} · creado {new Date(t.createdAt).toLocaleDateString('es-AR')} · {usage(t)}{!t.revokedAt&&outdated(t.lastVersion)&&<> <Badge variant="warning">Desactualizado</Badge></>} {!t.revokedAt&&<Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(t)}>Revocar</Button>}</li>)}</ul></>}
-  <CrmDialog opened={!!revokeTarget} onClose={()=>setRevokeTarget(null)} title="Revocar token" description="El user script dejará de conectarse con este token." busy={busy}><div style={{display:'flex',justifyContent:'flex-end',gap:8}}><Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(null)}>Cancelar</Button><Button disabled={busy} onClick={()=>{if(revokeTarget)void revoke(revokeTarget.id);}}>Revocar token</Button></div></CrmDialog></main>;
+ return <main className={styles.shell}>
+  <header className={styles.pageHeader}><div><span className={styles.eyebrow}>HERRAMIENTAS</span><h1>User script de WhatsApp</h1><p>Revisá los mensajes de WhatsApp Web que elijas y registralos en el CRM desde el panel. <Link to="/guide?topic=whatsapp-userscript&article=install-userscript">Ver la guía paso a paso <ChevronRight size={14}/></Link></p></div><div className={styles.heroIcon}><MessageCircle size={25}/></div></header>
+  <div className={styles.mainGrid}>
+   <div className={styles.primaryColumn}>
+    <InstallStatus installed={installed}/>
+    <section className={styles.panel} aria-labelledby="userscript-tokens"><div className={styles.sectionTitle}><span className={styles.icon}><KeyRound size={18}/></span><div><span className={styles.kicker}>CONEXIÓN</span><h2 id="userscript-tokens">Tokens de este usuario</h2></div></div><p className={styles.intro}>Creá un token por computadora para conectar el panel de WhatsApp con tu cuenta.</p>
+     {!loading&&<label className={styles.preference}><input type="checkbox" checked={autoRegister} disabled={busy} onChange={e=>void toggleAuto(e.currentTarget.checked)}/><span><strong>Registrar solo los chats seguros</strong><small>Cuando está habilitado, los chats elegibles pueden registrarse automáticamente.</small></span></label>}
+     {error&&<p className={styles.error} role="alert"><AlertCircle size={17}/>{error}<Button variant="outline" disabled={loading} onClick={()=>void load()}>Reintentar</Button></p>}
+     {loading?<p className={styles.loading} role="status">Cargando tokens…</p>:<><div className={styles.createToken}><TextInput label="Nombre del dispositivo" placeholder="Por ejemplo, Notebook oficina" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>
+      {shown&&<section className={styles.tokenReveal} role="status"><div><strong>Copialo ahora</strong><p>El token no se vuelve a mostrar.</p></div><code>{shown}</code><Button onClick={()=>void navigator.clipboard.writeText(shown)}>Copiar token</Button></section>}
+      {tokens.length?<ul className={styles.tokenList}>{tokens.map(t=><li key={t.id}><span className={styles.tokenIcon}><KeyRound size={16}/></span><div className={styles.tokenInfo}><strong>{t.label}</strong><span>Creado {new Date(t.createdAt).toLocaleDateString('es-AR')} · {usage(t)}</span></div>{!t.revokedAt&&outdated(t.lastVersion)&&<Badge variant="warning">Desactualizado</Badge>}{!t.revokedAt&&<Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(t)}>Revocar</Button>}</li>)}</ul>:<p className={styles.empty}>Todavía no hay tokens. Creá uno para conectar esta computadora.</p>}
+     </>}
+    </section>
+   </div>
+   <aside className={styles.sideColumn}>
+    <section className={styles.panel} aria-labelledby="userscript-before"><div className={styles.sectionTitle}><span className={styles.icon}><ShieldCheck size={18}/></span><div><span className={styles.kicker}>REQUISITOS</span><h2 id="userscript-before">Antes de instalar</h2></div></div><ul className={styles.requirements}><li><strong>Chrome o Edge</strong><span>Instalá Tampermonkey. Activá «Permitir scripts de usuario» desde «Administrar extensión». Si no aparece, habilitá «Modo de desarrollador» en <code>chrome://extensions</code>.</span></li><li><strong>Firefox</strong><span>Instalá Tampermonkey y aceptá sus permisos, incluido «Acceder a tus datos de todos los sitios web». Podés revisarlos en <code>about:addons</code>.</span></li></ul></section>
+    <section className={styles.panel} aria-labelledby="userscript-usage"><div className={styles.sectionTitle}><span className={styles.icon}><MessageCircle size={18}/></span><div><span className={styles.kicker}>EN WHATSAPP WEB</span><h2 id="userscript-usage">Cómo se usa</h2></div></div><ol className={styles.steps}><li><span>1</span><p>Instalá el script y creá un token para esta computadora.</p></li><li><span>2</span><p>En WhatsApp Web, abrí el panel de Hospeda y pegá el token en «Ajustes».</p></li><li><span>3</span><p>Conectate y abrí un chat individual. El panel muestra el negocio asociado.</p></li></ol><p className={styles.note}><Check size={15}/> El script no manda mensajes ni modifica contactos o etiquetas.</p></section>
+    <section className={styles.panel} aria-labelledby="userscript-help"><div className={styles.sectionTitle}><span className={styles.icon}><CircleHelp size={18}/></span><div><span className={styles.kicker}>AYUDA</span><h2 id="userscript-help">Si algo no funciona</h2></div></div><ul className={styles.troubleshooting}><li><strong>No aparece el botón:</strong> confirmá que Tampermonkey y «Hospeda CRM» estén activos. En Chrome o Edge revisá «Permitir scripts de usuario» y recargá WhatsApp Web.</li><li><strong>Falta el token o fue revocado:</strong> creá uno nuevo acá y cargalo en «Ajustes» del panel.</li><li><strong>Hay una versión nueva:</strong> tocá «Actualizar» en el aviso de Tampermonkey y recargá WhatsApp Web.</li><li><strong>No puede consultar o leer el chat:</strong> revisá tu conexión. Si sigue, registrá desde el CRM y compartí el diagnóstico del chat con el administrador.</li></ul><Link className={styles.helpLink} to="/guide?topic=whatsapp-userscript&article=whatsapp-problems">Ver todos los problemas y soluciones <ChevronRight size={15}/></Link></section>
+   </aside>
+  </div>
+  <CrmDialog opened={!!revokeTarget} onClose={()=>setRevokeTarget(null)} title="Revocar token" description="El user script dejará de conectarse con este token." busy={busy}><div className={styles.dialogActions}><Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(null)}>Cancelar</Button><Button disabled={busy} onClick={()=>{if(revokeTarget)void revoke(revokeTarget.id);}}>Revocar token</Button></div></CrmDialog>
+ </main>;
 }
