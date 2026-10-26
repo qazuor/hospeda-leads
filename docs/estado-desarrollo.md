@@ -5,7 +5,7 @@
 - PR #245 de vistas fijadas por usuario mergeado a `staging` como `c7cd1d7`; no desplegado. Validación: pruebas unitarias, `test:view-pins` y e2e 195/197. Fallos conocidos: `commercial.e2e.ts` solo local y `contextual-materials` a 390 px con inestabilidad conocida.
 - Orden de columnas por arrastre para Negocios y Gestiones: implementado en `ux/column-order-v1`. Validación local: tests unitarios/componentes, `npm run typecheck`, `npm test` (157 archivos, 1105 pruebas) y `npm run build`; e2e `column-order.e2e.ts` 4/4 y `business-cards.e2e.ts` en verde; suite e2e completa 197/199 (`commercial.e2e.ts` solo local y `seller-flow` con un timeout de carga que pasa 3/3 aislado). PR #247.
 
-## Spec 84 — modelos del CRM desde WhatsApp Web — lista para PR — 25/10/2026
+## Spec 84 — modelos del CRM desde WhatsApp Web — mergeado (#246, `343d024`) — 25/10/2026
 
 «Mandar un mensaje» en el panel del user script (`docs/crm-roadmap/84-userscript-templates.md`): elegir un modelo compatible con la gestión abierta, vista previa con los datos del CRM y «Pegar en el chat» sin enviar (o «Copiar»). Rutas `GET /_api/userscript/templates` y `POST /_api/userscript/{prepare,dispatch,outcome}` sobre `mutateCommunication`, con los mismos permisos y restricciones que «Contactar»; pegar deja el intento en «WhatsApp abierto · envío no confirmado» y «No lo voy a enviar» lo cierra.
 
