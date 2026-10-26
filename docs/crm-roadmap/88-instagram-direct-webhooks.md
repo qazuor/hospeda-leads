@@ -81,7 +81,11 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
 ## 6. Token de la cuenta
 
 - La consulta del usuario necesita el token de la cuenta de Hospeda. El token de larga duración vence a los 60 días y se renueva con `GET graph.instagram.com/refresh_access_token`, que devuelve uno nuevo.
-- Cómo se guarda y se renueva se decide en D1.
+- **Se guarda en la base, cifrado, y se renueva solo** (D1, propietario, 26/10/2026):
+  - **Tabla `crm_integration_secrets`:** una fila `instagram`, con el token cifrado con AES-256-GCM (texto cifrado, IV y tag), `expires_at`, `refreshed_at` y `last_error`. La clave sale de `INTEGRATION_SECRETS_KEY` en Coolify (32 bytes en base64). Sin la clave, la integración queda desactivada, con aviso.
+  - **Carga inicial:** un admin pega el token en Configuración → Integraciones → Instagram. El campo es de solo escritura: el token nunca se vuelve a mostrar, ni en la interfaz, ni en logs, ni en el journal. El journal registra solo «token actualizado» y quién lo cargó.
+  - **Renovación diaria:** al arrancar, el servidor programa un temporizador interno cada 24 h, sin dependencias nuevas. Un `pg_try_advisory_lock` evita que dos instancias renueven a la vez. Renueva si el token tiene más de 24 h, que es lo que exige Meta, y guarda el nuevo y su vencimiento en la misma transacción.
+  - **Si la renovación falla:** guarda `last_error`, reintenta al día siguiente y Configuración muestra el error. Si quedan menos de 7 días, el aviso pasa a «Instagram: renová la conexión».
 - **Si el token vence o es revocado:** los mensajes se siguen guardando como Sin asociar con el IGSID, porque la firma no depende del token, y Configuración → Integraciones muestra «Instagram: renová la conexión».
 
 ## 7. Configuración y producción
@@ -90,7 +94,7 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
   - `INSTAGRAM_APP_SECRET`;
   - `INSTAGRAM_VERIFY_TOKEN` (32 o más caracteres);
   - `INSTAGRAM_ACCOUNT_ID`;
-  - más lo que defina D1.
+  - `INTEGRATION_SECRETS_KEY`.
   - **Sin `INSTAGRAM_APP_SECRET`:** el endpoint responde 503 y no registra nada.
 - **En Meta:**
   - Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram`, con el mismo verify token;
@@ -100,7 +104,7 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
 
 ## 8. Decisiones abiertas (propietario)
 
-**D1. Cómo guardar y renovar el token.**
+**D1. Cómo guardar y renovar el token.** → **Resuelta: opción 2** (propietario, 26/10/2026). Detalle en la sección 6.
 1. **Variable de entorno y renovación manual:**
    - qué es: `INSTAGRAM_ACCESS_TOKEN` en Coolify; cada menos de 60 días un admin genera uno nuevo y lo reemplaza;
    - a favor: simple, y el secreto vive donde viven los demás;
@@ -109,7 +113,7 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
    - qué es: el token se guarda cifrado con una clave de Coolify y un proceso diario lo renueva;
    - a favor: no se vence;
    - en contra: guarda un secreto en la base y agrega un proceso programado nuevo, que hoy el servidor no tiene.
-- **Recomendación: 1** para empezar, con el aviso de vencimiento. Se pasa a la 2 si la renovación manual molesta.
+- Recomendación original: 1. El propietario eligió la 2.
 
 **D2. Ecos sin negocio asociado.**
 1. **Guardarlos en «Sin asociar»** junto a los entrantes, para asociarlos a mano.
@@ -129,6 +133,10 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
   - eco asociado, con y sin gestión abierta;
   - el mismo `mid` dos veces;
   - token vencido, que deja Sin asociar con el IGSID;
+  - cifrado y descifrado del token, con la clave equivocada fallando;
+  - renovación con el lock tomado, que no se repite;
+  - renovación fallida, que guarda el error;
+  - el token nunca aparece en respuestas, logs ni journal;
   - `entry.id` ajeno, que se descarta;
   - sin secreto, que responde 503.
 - **Componentes:** el mensaje de Instagram en «Mensajes recibidos» y en la ficha, el eco con «Enviado desde Instagram de Hospeda» y el aviso de token en Configuración.
