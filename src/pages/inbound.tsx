@@ -1,3 +1,4 @@
+import {PageHeader} from '../components/PageHeader';
 import {InboundUnmatchedPanel} from '../components/InboundUnmatchedPanel';
 import styles from './trash.module.css';
-export default function InboundPage(){return <><main className={styles.shell}><header className={styles.pageHeader}><div><div className={styles.eyebrow}>ADMINISTRACIÓN</div><h1>Emails sin asociar</h1></div></header><InboundUnmatchedPanel/></main></>}
+export default function InboundPage(){return <><main className={styles.shell}><PageHeader eyebrow="ADMINISTRACIÓN" title="Emails sin asociar" description="Revisá los emails que todavía no están asociados a un negocio o gestión." topic="inbound"/><InboundUnmatchedPanel/></main></>}

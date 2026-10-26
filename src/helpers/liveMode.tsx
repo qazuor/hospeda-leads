@@ -8,24 +8,15 @@ const STORAGE_KEY="hospeda-live-mode";
 const CHECK_INTERVAL=10000;
 const EVENT_THROTTLE=2000;
 
-type LiveStatus="live"|"checking"|"off"|"error";
+type LiveStatus="live"|"error";
+/** Live updates are always on; this state is informational. `refreshing` is true only during the first check after load and while data is refetched after a detected change, never for a routine poll. */
 type LiveModeState={
-  enabled:boolean;
-  manualRefreshing:boolean;
+  refreshing:boolean;
   status:LiveStatus;
   lastCheckedAt:Date|null;
 };
-type LiveModeContextValue=LiveModeState&{
-  setEnabled:(enabled:boolean)=>void;
-  toggle:()=>void;
-  checkNow:()=>Promise<void>;
-  refresh:()=>Promise<void>;
-};
-type LiveModeActions=Omit<LiveModeContextValue,keyof LiveModeState>;
 
 const LiveModeStateContext=createContext<LiveModeState|null>(null);
-const LiveModeActionsContext=createContext<LiveModeActions|null>(null);
-const ManualRefreshingContext=createContext(false);
 
 /** Query `meta` for infinite lists that must not refetch every loaded page on a live change: they show a manual refresh instead. */
 export const LIVE_MANUAL_WHEN_PAGED={liveRefresh:"manual-when-paged"} as const;
@@ -59,19 +50,13 @@ const stampWrappers=new WeakMap<MutationSuccessHandler,{previous:MutationSuccess
 const LivePendingContext=createContext<PendingStore|null>(null);
 const noSubscription=()=>()=>{};
 
-const initialEnabled=()=>{
-  if(typeof window==="undefined")return true;
-  return window.localStorage.getItem(STORAGE_KEY)!=="off";
-};
-
 export function LiveModeProvider({children}:{children:ReactNode}){
   const queryClient=useQueryClient();
   const {authState}=useAuth();
-  const [enabledState,setEnabledState]=useState(initialEnabled);
-  const [status,setStatus]=useState<LiveStatus>(enabledState?"checking":"off");
+  const [status,setStatus]=useState<LiveStatus>("live");
   const [lastCheckedAt,setLastCheckedAt]=useState<Date|null>(null);
-  const [manualRefreshing,setManualRefreshing]=useState(false);
-  const manualRefreshLock=useRef(false);
+  const [refreshing,setRefreshing]=useState(true);
+  const firstCheckDone=useRef(false);
   const lastSnapshot=useRef<LiveSnapshot|null>(null);
   const checking=useRef(false);
   const lastCheckStartedAt=useRef(0);
@@ -113,11 +98,14 @@ export function LiveModeProvider({children}:{children:ReactNode}){
     if(markedAt!==undefined&&startedAt!==undefined&&startedAt>=markedAt)pending.clear(hash);
   }),[queryClient,pending]);
 
+  // Live updates have no opt-out any more: drop a preference stored by older versions.
+  useEffect(()=>{try{window.localStorage.removeItem(STORAGE_KEY);}catch{/* storage unavailable */}},[]);
+
   const updateStatus=useCallback((next:LiveStatus)=>setStatus(current=>current===next?current:next),[]);
 
-  const invalidateLiveQueries=useCallback(async(keys:readonly string[],deferPaged:boolean,change:LiveChange|null=null,markedAt=Date.now())=>{
+  const invalidateLiveQueries=useCallback(async(keys:readonly string[],change:LiveChange|null=null,markedAt=Date.now())=>{
     const deferred=new Set<string>();
-    if(deferPaged)for(const query of queryClient.getQueryCache().getAll())if(keys.includes(String(query.queryKey[0]))&&shouldDeferLiveRefetch(query)){
+    for(const query of queryClient.getQueryCache().getAll())if(keys.includes(String(query.queryKey[0]))&&shouldDeferLiveRefetch(query)){
       deferred.add(query.queryHash);
       // Data whose last full fetch already includes the change (after the margin, or after the user's own edit response) stays as is.
       if(!liveLoadIncludes({startedAt:freshFrom.current.get(query.queryHash),change,lastOwnMutationAt:lastOwnMutationAt.current}))pending.mark(query.queryHash,markedAt);
@@ -125,19 +113,12 @@ export function LiveModeProvider({children}:{children:ReactNode}){
     await Promise.all(keys.map(key=>queryClient.invalidateQueries(deferred.size?{queryKey:[key],predicate:query=>!deferred.has(query.queryHash)}:{queryKey:[key]})));
   },[queryClient,pending]);
 
-  const refresh=useCallback(async()=>{
-    if(manualRefreshLock.current)return;
-    manualRefreshLock.current=true;setManualRefreshing(true);
-    pending.clear();
-    try{await invalidateLiveQueries(LIVE_QUERY_KEYS,false);}finally{manualRefreshLock.current=false;setManualRefreshing(false);}
-  },[invalidateLiveQueries,pending]);
-
-  const checkVersion=useCallback(async(manual:boolean)=>{
-    if(!enabledState||authState.type!=="authenticated"||checking.current)return;
+  const checkVersion=useCallback(async()=>{
+    if(authState.type!=="authenticated"||checking.current)return;
     checking.current=true;
     const checkGeneration=generation.current;
     lastCheckStartedAt.current=Date.now();
-    if(manual)updateStatus("checking");
+    let showedRefreshing=false;
     try{
       const sentAt=Date.now();
       const next=await getLiveVersion();
@@ -149,38 +130,25 @@ export function LiveModeProvider({children}:{children:ReactNode}){
       updateStatus("live");
       const keys=liveQueryKeysToInvalidate({previous,next});
       if(keys.length>0){
+        setRefreshing(true);showedRefreshing=true;
         const serverTime=liveChangeTime({previous,next});
-        await invalidateLiveQueries(keys,true,serverTime===null?null:liveChangeWindow({serverTime,snapshot:next,sentAt,receivedAt}),receivedAt);
+        await invalidateLiveQueries(keys,serverTime===null?null:liveChangeWindow({serverTime,snapshot:next,sentAt,receivedAt}),receivedAt);
       }
     }catch{
       if(checkGeneration===generation.current)updateStatus("error");
     }finally{
       checking.current=false;
+      if(showedRefreshing||!firstCheckDone.current){firstCheckDone.current=true;setRefreshing(false);}
     }
-  },[enabledState,authState.type,invalidateLiveQueries,updateStatus]);
-
-  const checkNow=useCallback(()=>checkVersion(true),[checkVersion]);
-
-  const setEnabled=useCallback((next:boolean)=>{
-    setEnabledState(next);
-    window.localStorage.setItem(STORAGE_KEY,next?"on":"off");
-    if(!next)updateStatus("off");
-    else{
-      lastSnapshot.current=null;
-      updateStatus("checking");
-    }
-  },[updateStatus]);
+  },[authState.type,invalidateLiveQueries,updateStatus]);
 
   useEffect(()=>{
-    if(!enabledState||authState.type!=="authenticated"){
-      if(!enabledState)updateStatus("off");
-      return;
-    }
-    void checkVersion(false);
-    const interval=window.setInterval(()=>{if(document.visibilityState!=="hidden")void checkVersion(false)},CHECK_INTERVAL);
+    if(authState.type!=="authenticated")return;
+    void checkVersion();
+    const interval=window.setInterval(()=>{if(document.visibilityState!=="hidden")void checkVersion()},CHECK_INTERVAL);
     const checkOnReturn=()=>{
       if(document.visibilityState==="hidden"||Date.now()-lastCheckStartedAt.current<EVENT_THROTTLE)return;
-      void checkVersion(false);
+      void checkVersion();
     };
     const onFocus=checkOnReturn;
     const onVisibility=checkOnReturn;
@@ -192,11 +160,10 @@ export function LiveModeProvider({children}:{children:ReactNode}){
       window.removeEventListener("focus",onFocus);
       document.removeEventListener("visibilitychange",onVisibility);
     };
-  },[enabledState,authState.type,checkVersion,updateStatus]);
+  },[authState.type,checkVersion]);
 
-  const state=useMemo(()=>({enabled:enabledState,manualRefreshing,status,lastCheckedAt}),[enabledState,manualRefreshing,status,lastCheckedAt]);
-  const actions=useMemo(()=>({setEnabled,toggle:()=>setEnabled(!enabledState),checkNow,refresh}),[setEnabled,enabledState,checkNow,refresh]);
-  return <LivePendingContext.Provider value={pending}><ManualRefreshingContext.Provider value={manualRefreshing}><LiveModeStateContext.Provider value={state}><LiveModeActionsContext.Provider value={actions}>{children}</LiveModeActionsContext.Provider></LiveModeStateContext.Provider></ManualRefreshingContext.Provider></LivePendingContext.Provider>;
+  const state=useMemo(()=>({refreshing,status,lastCheckedAt}),[refreshing,status,lastCheckedAt]);
+  return <LivePendingContext.Provider value={pending}><LiveModeStateContext.Provider value={state}>{children}</LiveModeStateContext.Provider></LivePendingContext.Provider>;
 }
 
 /** Whether live mode skipped refetching this query because of `LIVE_MANUAL_WHEN_PAGED`; `clear` hides the notice. */
@@ -208,13 +175,9 @@ export function useLivePendingRefresh(queryKey:QueryKey){
   return {pending,clear};
 }
 
-export function useLiveModeRefreshing(){
-  return useContext(ManualRefreshingContext);
-}
-
+/** Informational live-update state for the status indicator. */
 export function useLiveMode(){
   const state=useContext(LiveModeStateContext);
-  const actions=useContext(LiveModeActionsContext);
-  if(!state||!actions)throw new Error("useLiveMode must be used within LiveModeProvider");
-  return useMemo(()=>({...state,...actions}),[state,actions]);
+  if(!state)throw new Error("useLiveMode must be used within LiveModeProvider");
+  return state;
 }

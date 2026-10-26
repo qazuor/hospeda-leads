@@ -4,6 +4,7 @@
 .backToTopics{display:block;width:fit-content;font-size:13px;color:var(--primary);text-decoration:none;margin-bottom:18px}.backToTopics:hover{text-decoration:underline}.sidebar{scroll-margin-top:110px}@media(max-width:700px){.sidebar{scroll-margin-top:240px}}@media(max-width:700px){.shortcuts{display:flex;overflow-x:auto;gap:8px}.shortcuts>a{flex:0 0 230px}.sidebar nav{display:flex;overflow-x:auto;padding:8px;gap:4px}.sidebar nav h2{display:none}.sidebar nav a{flex:0 0 auto;white-space:nowrap}.topicIntro nav{flex-wrap:nowrap;overflow-x:auto}.topicIntro nav a{flex:0 0 auto;width:auto}.article h2{scroll-margin-top:120px}.sidebar{scroll-margin-top:120px}}
 
 .workspace>*,.shortcuts,.sidebar,.topicIntro,.topicIntro nav{min-width:0;max-width:100%}
+.backToTopics{padding:0;border:0;background:transparent;font:inherit;font-size:13px;cursor:pointer}
 .sidebar nav{max-height:calc(100vh - 120px);overflow-y:auto;align-content:start}
 .sidebar nav>details{min-width:0;border-radius:12px}
 .sidebar nav>details>summary{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;padding:10px;border-radius:12px;cursor:pointer;list-style:none;color:var(--foreground);font-size:14px}

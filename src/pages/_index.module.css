@@ -104,3 +104,12 @@
 .tableCard td [data-stage-label]{white-space:normal;overflow-wrap:anywhere}
 /* Desktop toolbar: the quick-filter strip shrinks and scrolls inside the filters row instead of widening the page (four Gestiones quick filters + sidebar at 1280px). */
 @media(min-width:601px){.toolbar .filters{flex:1 1 auto;min-width:0;justify-content:flex-end}.toolbar .filters [role="group"][aria-label="Filtros rápidos"]{flex:0 1 auto;min-width:0;max-width:none}}
+/* Match the Negocios table's muted, regular-weight header and selection column. */
+.scroller th{background:var(--surface)}
+.headerButton{min-height:36px;padding:8px 12px;color:var(--muted-foreground);font:500 13px/1.4 var(--font-family-base);text-transform:none;letter-spacing:normal}
+.scroller th{font:650 14px/1.4 var(--font-family-base);color:var(--muted-foreground);text-transform:none;letter-spacing:normal}
+.scroller th .headerButton,.scroller th:last-child{font:650 14px/1.4 var(--font-family-base);color:var(--muted-foreground);text-transform:none;letter-spacing:normal}
+.scroller th:last-child{padding:8px 12px}
+.squareCheckbox:global(.mantine-Checkbox-input){border-radius:3px}
+.selectHead{background:var(--surface)!important}
+.managementViewsRow{display:flex;align-items:center;gap:8px;max-width:var(--crm-content-width);margin:0 auto 12px}.managementViewsRow>div:first-child{flex:1;min-width:0}
