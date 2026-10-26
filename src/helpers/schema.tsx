@@ -225,6 +225,8 @@ export interface Users {
   senderEmail: string | null;
   sex: string | null;
   updatedAt: Generated<Timestamp | null>;
+  userscriptAutoRegister: Generated<boolean>;
+  userscriptAutoRegisterSince: Generated<Timestamp>;
 }
 
 export interface CrmUserscriptTokens {
@@ -236,6 +238,12 @@ export interface CrmUserscriptTokens {
   lastUsedAt:Timestamp|null;
   lastVersion:string|null;
   revokedAt:Timestamp|null;
+}
+
+export interface CrmAutoRegistrations {
+ id:string; accountId:Int8; userEmail:string; channel:'whatsapp'; direction:'in'|'out'; externalId:string;
+ messageId:string|null; inboundId:string|null; effects:Json; createdAt:Generated<Timestamp>; voidedAt:Timestamp|null;
+ voidedByEmail:string|null; voidReason:string|null;
 }
 
 export interface CrmAccounts {
@@ -337,6 +345,7 @@ export interface CrmAccountMerges {
  snapshot:Json; selections:Json; createdAt:Generated<Timestamp>;
 }
 export interface DB {
+ crmAutoRegistrations:CrmAutoRegistrations;
   crmUserscriptTokens:CrmUserscriptTokens;
  crmImportBatches:CrmImportBatches;
  crmDataEvidence:CrmDataEvidence;
