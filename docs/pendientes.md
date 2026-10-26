@@ -88,7 +88,7 @@ La revisión de UX y su tanda de seguimientos (#195–#201) están mergeadas en 
 
 **Pruebas**
 
-- Pruebas de integración que no se pueden repetir sobre una base usada: `scripts/test-business-state.ts` (usuario Leandro), `scripts/test-permissions.ts` (teléfono No contactar fijo) y los fixtures de `scripts/test-communication.ts`. Usar una base descartable nueva en cada ejecución.
+- Repetibilidad de integración: `test-business-state`, `test-permissions`, `test-communication`, `test-commercial` y `test-userscript` pasaron dos veces seguidas sobre la misma base local descartable (también `test-work`, `test-inbound-email` y `test-business-history` en una pasada). Fixtures por ejecución: plantillas, teléfonos/emails No contactar, `message-id` de Brevo simulados y teléfono del chat del userscript. La derivación a Leandro (`pipeline.ts` la resuelve por nombre visible y exige un único usuario) se prueba creando un Leandro propio, renombrando temporalmente los de ejecuciones previas y restaurándolos al terminar. Verificado solo con esas suites; el resto de `scripts/test-*` no se repitió en esta tarea.
 - `business-view-badges.e2e.ts`: #197 lo reforzó (restauración del scroll, fuentes, transiciones) sin reproducir nunca el fallo; si reaparece en la suite completa, sospechar del reveal de una sola vez de `BusinessViewBadges`.
 
 **Notas de despliegue (cuando el propietario decida promover)**

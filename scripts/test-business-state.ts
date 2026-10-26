@@ -1,6 +1,7 @@
 import {seedDncTasks,assertDncCancelled,assertDncUntouched} from './lib/dnc-tasks';
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
+import {sql} from 'kysely';
 import {db} from '../src/helpers/db';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {get as commercialGet,post as commercialPost} from '../src/endpoints/commercial';
@@ -19,6 +20,14 @@ async function identity(email:string,displayName:string,role:'admin'|'user'='adm
 }
 const admin=await identity(`state-admin-${stamp}@example.com`,'State admin');
 await identity(`leandro-${stamp}@example.com`,'Leandro');
+const isolateLeandro=async(keepEmail:string,tag:string|number)=>{// pipeline.ts resolves the referral target by display name and fails unless exactly one user matches; leftovers of earlier runs are renamed for this run only and restored by the returned function.
+ const rows=(await sql<{id:string;displayName:string|null;fullName:string|null}>`SELECT id,display_name,full_name FROM users WHERE email<>${keepEmail} AND (lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro')`.execute(db)).rows;
+ const hidden=(v:string|null)=>v&&v.trim().toLowerCase()==='leandro'?`${v} (isolated ${tag})`:v;
+ for(const r of rows)await sql`UPDATE users SET display_name=${hidden(r.displayName)},full_name=${hidden(r.fullName)} WHERE id=${r.id}`.execute(db);
+ assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro'`.execute(db)).rows[0].n),1,'exactly one Leandro user while the referral runs');
+ return async()=>{for(const r of rows)await sql`UPDATE users SET display_name=${r.displayName},full_name=${r.fullName} WHERE id=${r.id}`.execute(db);};
+};
+const restoreLeandro=await isolateLeandro(`leandro-${stamp}@example.com`,stamp);
 const sellerEmail=`state-seller-${stamp}@example.com`;
 const seller=await identity(sellerEmail,'State seller','user');
 async function call(handler:(r:Request)=>Promise<Response>,url:string,body?:unknown,cookie=admin,status=200){
@@ -462,4 +471,4 @@ try{
  }
 
  console.log('Business state integration: New/review gate, derived active state, multiple open managements, required close reasons, scheduled recontact task, admin-only reopen with preserved closure history, Leandro referral, independent DNC, archive-on-DNC close, client conversion and accompaniment passed.');
-}finally{await db.destroy();}
+}finally{await restoreLeandro();await db.destroy();}

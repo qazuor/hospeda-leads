@@ -65,6 +65,10 @@ Esa base contiene datos personales reales y el login es con usuarios reales: no 
 
 Brevo sin clave real no permite envío productivo. Para probar recorridos, usar mocks/fixtures existentes; no probar comunicación con destinatarios reales desde una base de desarrollo.
 
+### Repetir las suites de integración
+
+Las suites `scripts/test-*.ts|mjs` pueden volver a ejecutarse sobre la misma base local descartable. Sus fixtures persistentes usan valores únicos por ejecución (UUID o sufijo temporal) para no chocar con restricciones únicas ni alterar búsquedas exactas por teléfono, email o nombre. La derivación a Leandro exige un único usuario con ese nombre visible: `test-business-state` y `test-permissions` crean el suyo, renombran temporalmente los Leandro que hayan quedado de ejecuciones previas y los restauran al terminar. Las comprobaciones se acotan a las filas creadas por la ejecución.
+
 ## Apéndice: arranque manual
 
 La integración de email entrante requiere `INBOUND_EMAIL_TOKEN` (secreto aleatorio de al menos 32 caracteres, compartido con el Worker Cloudflare). En local puede omitirse si no se prueba ese endpoint.
