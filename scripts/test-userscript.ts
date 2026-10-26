@@ -115,6 +115,13 @@ try{
  const usedReg=(await sql<{id:string}>`SELECT id::text FROM crm_auto_registrations WHERE inbound_id=${usedIn.id}::uuid`.execute(db)).rows[0]!;
  await sql`UPDATE crm_inbound_messages SET status='registered' WHERE id=${usedIn.id}::uuid`.execute(db);
  assert.equal((await voidAs(token,usedReg.id)).status,409,'An inbound used for a response must be corrected first');
+ // A row moved to another business (admin reassignment) is not voided through the original registration.
+ const movedIn=(await (await autoRequest(true,`auto_${randomUUID()}`)).json() as {results:{id:string}[]}).results[0]!;
+ const movedReg=(await sql<{id:string}>`SELECT id::text FROM crm_auto_registrations WHERE inbound_id=${movedIn.id}::uuid`.execute(db)).rows[0]!;
+ const movedTo=await db.insertInto('crmAccounts').values({nombre:`Zz moved userscript ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:other.user.email}).returning('id').executeTakeFirstOrThrow();
+ await sql`UPDATE crm_inbound_messages SET account_id=${movedTo.id} WHERE id=${movedIn.id}::uuid`.execute(db);
+ assert.equal((await voidAs(token,movedReg.id)).status,409,'Voiding never touches a message that now belongs to another business');
+ assert.equal((await sql<{status:string}>`SELECT status FROM crm_inbound_messages WHERE id=${movedIn.id}::uuid`.execute(db)).rows[0]?.status,'pending_review');
  await db.updateTable('appSettings').set({value:JSON.stringify({enabled:false})}).where('key','=',settingKey).execute();
  const revoked=await tokenRevoke(session(seller.cookie,{id:tokenRow.id}));assert.equal(revoked.status,200);
  const denied=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token)}));assert.equal(denied.status,401);
