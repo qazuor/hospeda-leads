@@ -25,7 +25,7 @@ try{
   assert.equal(completed.status,'completed');assert.equal(completed.result,'Resuelta por la respuesta del cliente');assert.equal((completed as unknown as {communicationResponseId:string|null}).communicationResponseId??null,null,'H1: resolved tasks keep communication_response_id free (UNIQUE, reserved for the later reminder)');
   const activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',task.id).executeTakeFirstOrThrow();assert.equal(activity.actorEmail,user.user.email);const linkJournal=(await sql<{after:{taskId:string;activityId:string}}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_type='response' AND entity_id=${String(created.id)} AND action='response_task_resolved'`.execute(db)).rows;assert.equal(linkJournal.length,1);assert.equal(String(linkJournal[0].after.taskId),String(task.id));assert.equal(String(linkJournal[0].after.activityId),String(activity.id));assert.equal(activity.result,'Resuelta por la respuesta del cliente');
   await call(response,200,user.cookie);assert.equal((await db.selectFrom('crmActivities').select('id').where('taskId','=',task.id).execute()).length,1,'Replay must not complete or journal the task twice');
-  const otherBusiness=await db.insertInto('crmAccounts').values({nombre:'Other business '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();const unrelated=await db.insertInto('crmTasks').values({accountId:otherBusiness.id,leadId:null,title:'Tarea de otro negocio '+stamp,typeId:'followup',assignedUserEmail:user.user.email,dueDate:'2026-10-28' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const otherBusiness=await db.insertInto('crmAccounts').values({nombre:'Zz other business '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();const unrelated=await db.insertInto('crmTasks').values({accountId:otherBusiness.id,leadId:null,title:'Tarea de otro negocio '+stamp,typeId:'followup',assignedUserEmail:user.user.email,dueDate:'2026-10-28' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
   const rejectedId=randomUUID();await call({...response,id:rejectedId,resolveTaskIds:[String(unrelated.id)]},409,user.cookie);
   assert.equal((await db.selectFrom('crmCommunicationResponses').select('id').where('id','=',rejectedId).execute()).length,0,'Bad task rejects the entire response');
   assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',unrelated.id).executeTakeFirstOrThrow()).status,'pending');
@@ -53,7 +53,7 @@ try{
  }
  // Spec 87: a delegate can prepare/send only through their own pending task, for its management and business contacts.
  {
-  const delegatedAccount=await db.insertInto('crmAccounts').values({nombre:`Delegated ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email,telefono:'+5493442000031'}).returningAll().executeTakeFirstOrThrow();
+  const delegatedAccount=await db.insertInto('crmAccounts').values({nombre:`Zz delegated ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email,telefono:'+5493442000031'}).returningAll().executeTakeFirstOrThrow();
   const delegatedLead=await db.insertInto('leads').values({accountId:delegatedAccount.id,nombre:delegatedAccount.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
   const delegatedContact=await db.insertInto('crmContacts').values({accountId:delegatedAccount.id,name:'Delegated contact',phone:'+5493442000032'}).returningAll().executeTakeFirstOrThrow();
   const delegated=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Mensaje delegado '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-10-29' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
@@ -69,11 +69,11 @@ try{
   await delegatedCall({action:'edit',id:edited.id,revision:edited.revision,taskId:String(delegated.id),subject:'',body:'<p>Mensaje revisado</p>'});
   await db.updateTable('crmTasks').set({status:'completed',completedAt:new Date()}).where('id','=',delegated.id).execute();
   await delegatedCall({action:'dispatch',id:edited.id,revision:edited.revision+1,confirm:true,taskId:String(delegated.id)},403);
-  const foreign=await db.insertInto('crmAccounts').values({nombre:'Foreign contact '+stamp,status:'reviewed',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
+  const foreign=await db.insertInto('crmAccounts').values({nombre:'Zz foreign contact '+stamp,status:'reviewed',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
   const foreignContact=await db.insertInto('crmContacts').values({accountId:foreign.id,name:'Foreign',phone:'+5493442000099'}).returningAll().executeTakeFirstOrThrow();
   const pending=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Delegated mismatch '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-10-30' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
   await delegatedCall({...base,id:randomUUID(),taskId:String(pending.id),contactId:String(foreignContact.id)},400);
-  const blockedAccount=await db.insertInto('crmAccounts').values({nombre:`Delegated DNC ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email,doNotContact:true}).returningAll().executeTakeFirstOrThrow();
+  const blockedAccount=await db.insertInto('crmAccounts').values({nombre:`Zz delegated DNC ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email,doNotContact:true}).returningAll().executeTakeFirstOrThrow();
   const blockedLead=await db.insertInto('leads').values({accountId:blockedAccount.id,nombre:blockedAccount.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
   const blockedTask=await db.insertInto('crmTasks').values({accountId:blockedAccount.id,leadId:blockedLead.id,title:'Blocked delegated '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-10-31' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
   await delegatedCall({...base,id:randomUUID(),leadId:String(blockedLead.id),taskId:String(blockedTask.id),contactId:null},403);
