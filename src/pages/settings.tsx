@@ -14,6 +14,7 @@ import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
 import {BusinessReassignment} from "../components/BusinessReassignment";
 import {MessageVariablesSettings} from "../components/MessageVariablesSettings";
+import {InstagramIntegration} from '../components/InstagramIntegration';
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users, Variable } from "lucide-react";
@@ -130,7 +131,7 @@ export default function SettingsPage(){
         </SectionTabs>
       </section>}
 
-      {section==="communication"&&<section className={styles.content}><header className={styles.processHeading}><h2>Comunicación</h2><p>Configuración del envío de Email por Brevo.</p></header>
+      {section==="communication"&&<section className={styles.content}><header className={styles.processHeading}><h2>Comunicación</h2><p>Configuración de los canales conectados.</p></header><InstagramIntegration/>
         <article className={styles.card}>
           <div className={styles.cardTitle}><Mail/><div><h2>Envío de email</h2><p>Configuración global de Brevo. El remitente personal de cada usuario sigue teniendo prioridad.</p></div><Badge variant={data?.emailDelivery?.brevoConnected?"success":"warning"}>{data?.emailDelivery?.brevoConnected?"Brevo conectado":"Falta API key"}</Badge></div>
           <div className={styles.deliveryGrid}>

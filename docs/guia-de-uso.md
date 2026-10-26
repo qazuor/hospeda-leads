@@ -152,7 +152,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 4. «Calendario» (dentro de Hoy) muestra visitas y reuniones con fecha. No reemplaza la lista de tareas.
 5. «Para retomar» (dentro de Hoy) reúne las gestiones cerradas que tienen una fecha para volver a hablar. Reabrir una gestión cerrada requiere un administrador.
 6. «Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.
-7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Emails sin asociar». Si no los ves, son del administrador.
+7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Mensajes sin asociar». Si no los ves, son del administrador.
 8. En tu menú personal, arriba a la derecha, está «User script de WhatsApp»: ahí instalás el script para WhatsApp Web y creás tu token.
 
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
@@ -214,7 +214,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Tené en cuenta:**
 
 - Registrar una respuesta no confirma pagos, aceptación ni entregas. La etapa de la gestión no cambia sola.
-- Si el CRM no puede saber de qué negocio es un email, lo deja en «Emails sin asociar» para que un administrador lo asocie.
+- Si el CRM no puede saber de qué negocio es un email, lo deja en «Mensajes sin asociar» para que un administrador lo asocie.
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
@@ -937,17 +937,17 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 **Dónde ir:** Revisar Negocios (/accounts)
 
-### Asociar emails que llegaron sin negocio
+### Asociar mensajes que llegaron sin negocio
 
-**Cuándo usarlo:** Cuando llega un email y el CRM no puede saber de qué negocio es.
+**Cuándo usarlo:** Cuando llega un email o un mensaje de Instagram y el CRM no puede saber de qué negocio es.
 
-1. Abrí el menú «Administración» y elegí «Emails sin asociar». También lo encontrás con Ctrl+K.
-2. Cada email muestra remitente, asunto, fecha y extracto. Leelo para saber de qué negocio es.
+1. Abrí el menú «Administración» y elegí «Mensajes sin asociar». También lo encontrás con Ctrl+K.
+2. Cada mensaje muestra remitente, asunto cuando corresponde, fecha y extracto. Leelo para saber de qué negocio es.
 3. En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».
 4. Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Si no sabés, dejá «Sin gestión» y «Sin persona».
-5. Tocá «Asociar». El email pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial.
+5. Tocá «Asociar». El mensaje entrante pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio.
 
-**Qué queda al terminar:** Cada email recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.
+**Qué queda al terminar:** Cada mensaje recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.
 
 **Ejemplo:**
 
@@ -958,7 +958,7 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 - Un email queda sin asociar cuando la dirección no está cargada, está en más de un negocio o el remitente no se pudo verificar.
 - Si la dirección del remitente es la buena, cargala en el negocio o en la persona para que los próximos emails se asocien solos.
 
-**Dónde ir:** Emails sin asociar (/inbound)
+**Dónde ir:** Mensajes sin asociar (/inbound)
 
 ## Registrar mensajes de WhatsApp
 

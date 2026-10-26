@@ -17,6 +17,8 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'GET /_api/business_import':503,
 'POST /_api/business_import':503,
 'POST /_api/inbound/email':503,
+'POST /_api/inbound/instagram':503,
+'GET /_api/inbound/instagram':503,
 'GET /_api/inbound/addresses':503,
 'GET /_api/userscript/context':401,
 'GET /_api/userscript/status':401,
@@ -38,7 +40,7 @@ const PUBLIC_EXPECTED:Record<string,number>={
 };
 // Wildcard or ALL routes under /_api are not probed, so none are allowed.
 const WILDCARD_ALLOWLIST=new Set<string>();
-const TOUCHED_ENV=['DATABASE_URL','JWT_SECRET','BREVO_WEBHOOK_TOKEN','BUSINESS_IMPORT_TOKEN_SHA256','BUSINESS_IMPORT_ACTOR_EMAIL','INBOUND_EMAIL_TOKEN'];
+const TOUCHED_ENV=['DATABASE_URL','JWT_SECRET','BREVO_WEBHOOK_TOKEN','BUSINESS_IMPORT_TOKEN_SHA256','BUSINESS_IMPORT_ACTOR_EMAIL','INBOUND_EMAIL_TOKEN','INSTAGRAM_APP_SECRET','INSTAGRAM_ACCOUNT_ID','INSTAGRAM_VERIFY_TOKEN','INTEGRATION_SECRETS_KEY'];
 const savedEnv:Record<string,string|undefined>={};
 let app:Hono;
 const probe=(path:string,method:string)=>app.request(path,{method,...(method==='POST'?{headers:{'content-type':'application/json'},body:'{}'}:{})});

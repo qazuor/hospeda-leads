@@ -20,7 +20,7 @@ export const CSP_REPORT_ONLY = [
 ].join("; ");
 
 /** Bearer-token clients without browser cookies: they are not CSRF-able, so the Origin check skips them. */
-export const ORIGIN_GUARD_EXEMPT_PATHS: ReadonlySet<string> = new Set(["/_api/brevo/events", "/_api/business_import", "/_api/inbound/email", "/_api/inbound/addresses", "/_api/userscript/register"]);
+export const ORIGIN_GUARD_EXEMPT_PATHS: ReadonlySet<string> = new Set(["/_api/brevo/events", "/_api/business_import", "/_api/inbound/email", "/_api/inbound/addresses", "/_api/inbound/instagram", "/_api/userscript/register"]);
 const STATE_CHANGING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const originOf = (value: string | undefined | null): string | null => {
