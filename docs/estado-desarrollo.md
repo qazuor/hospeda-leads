@@ -21,7 +21,7 @@
 - PR #245 de vistas fijadas por usuario mergeado a `staging` como `c7cd1d7`; no desplegado. Validación: pruebas unitarias, `test:view-pins` y e2e 195/197. Fallos conocidos: `commercial.e2e.ts` solo local y `contextual-materials` a 390 px con inestabilidad conocida.
 - Orden de columnas por arrastre para Negocios y Gestiones: implementado en `ux/column-order-v1`. Validación local: tests unitarios/componentes, `npm run typecheck`, `npm test` (157 archivos, 1105 pruebas) y `npm run build`; e2e `column-order.e2e.ts` 4/4 y `business-cards.e2e.ts` en verde; suite e2e completa 197/199 (`commercial.e2e.ts` solo local y `seller-flow` con un timeout de carga que pasa 3/3 aislado). PR #247.
 
-## Spec 86 — insignias del CRM en la lista de chats de WhatsApp — lista para PR — 26/10/2026
+## Spec 86 — insignias del CRM en la lista de chats de WhatsApp — cerrada: mergeada en `staging` (PR #251, `e21cfb2`) — 26/10/2026
 
 `docs/crm-roadmap/86-userscript-chat-badges.md`.
 - **Qué se ve:** cada chat individual de la lista muestra una insignia compacta junto a la hora. Muestra el código del negocio (azul normal, rojo No contactar), «2 negocios» (ámbar) o «Sin CRM». Al costado se abre un detalle con estado, responsable, gestión abierta, último WhatsApp y «Abrir en el CRM».
@@ -30,8 +30,9 @@
 - **Teléfono:** el script lo lee del modelo de chat de React de cada fila. Lo verificó un diagnóstico en WhatsApp real, incluso en contactos guardados `@lid`.
 - **Validación local:** `npm run typecheck`, tests del script, del servidor y de la guía. `scripts/test-userscript.ts` pasó contra la base local, con cada tipo de insignia, `hidden`, el caso de dos chats en un pedido, códigos con ceros, el límite de 50 y el token revocado.
 - **Prueba en WhatsApp real:** OK (propietario, 26/10/2026, versión local 1.2.21).
+- CI verde en el head `59f272f`. Una revisión de seguridad posterior llevó a la regla del negocio no visible (`decisiones.md`, 26/10/2026). No está desplegado.
 
-## Spec 85 — registro automático desde el user script, con anulación — mergeada en `staging` (PR #248) — 26/10/2026
+## Spec 85 — registro automático desde el user script, con anulación — cerrada: mergeada en `staging` (PR #248) — 26/10/2026
 
 `docs/crm-roadmap/85-userscript-auto-register.md` (fase F5 de la spec 83).
 - **Cuándo registra solo:** el script registra sin clic los mensajes nuevos del chat abierto cuando hay un único negocio emparejado, que no esté en Nuevo ni tenga No contactar. No exige gestión abierta. Toma solo mensajes posteriores a la activación y de las últimas 24 horas; los enviados, recién con la tilde de enviado.
