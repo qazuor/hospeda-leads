@@ -1,6 +1,6 @@
 # Spec 88 — Instagram Direct por la API oficial de Meta (F4 de la spec 83)
 
-Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sección 9 de la [spec 83](83-registro-automatico-canales.md), que proponía un user script en `instagram.com/direct`.
+Estado: aprobada por el propietario — 26/10/2026 (D1–D3 resueltas). Reemplaza la sección 9 de la [spec 83](83-registro-automatico-canales.md), que proponía un user script en `instagram.com/direct`.
 
 ## 1. Por qué la API oficial
 
@@ -102,7 +102,7 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
   - la app queda publicada.
 - **Datos personales:** la app ya publicada exige URLs de política de privacidad y de eliminación de datos. Hay que confirmar que las URLs cargadas sean las definitivas de Hospeda.
 
-## 8. Decisiones abiertas (propietario)
+## 8. Decisiones (propietario, 26/10/2026)
 
 **D1. Cómo guardar y renovar el token.** → **Resuelta: opción 2** (propietario, 26/10/2026). Detalle en la sección 6.
 1. **Variable de entorno y renovación manual:**
@@ -120,7 +120,7 @@ Estado: borrador para revisión del propietario — 26/10/2026. Reemplaza la sec
 2. **Descartarlos.**
 - **Recomendación: 1:** no se pierde lo que dijo Hospeda.
 
-**D3. Mensajes de clientes asociados: ¿se registran solos?**
+**D3. Mensajes de clientes asociados: ¿se registran solos?** → **Resuelta: opción 1** (propietario, 26/10/2026).
 1. **Quedan en «Por revisar»,** como el email. El vendedor decide si es una respuesta y de qué categoría.
 2. **Se registran solos como respuesta,** como el registro automático de WhatsApp de la spec 85.
 - **Recomendación: 1:** la categoría de la respuesta (interesado, rechaza, etc.) la tiene que elegir una persona. El registro automático de la 85 registra el mensaje, no clasifica la respuesta.

@@ -222,6 +222,16 @@ Spec 85 (`docs/crm-roadmap/85-userscript-auto-register.md`) aprobada.
 - El popover de los modelos muestra la plantilla cruda (variables sin completar), para no crear borradores al mirar.
 - Registrar un enviado completa un intento abierto solo si el texto se parece al preparado (al menos la mitad de las palabras en común). Un mensaje escrito a mano se registra suelto y no se atribuye al modelo. Rige también para «Contactar».
 
+## Instagram Direct por la API oficial de Meta — 26/10/2026 (propietario)
+
+Detalle en la [spec 88](crm-roadmap/88-instagram-direct-webhooks.md). Reemplaza el user script de Instagram que preveía la spec 83.
+- Los vendedores escriben desde la cuenta oficial de Hospeda. El CRM recibe por webhook los mensajes de los clientes y las respuestas de Hospeda, y los asocia por `perfil_instagram`.
+- Probado el 26/10/2026: no hace falta la revisión de Meta, pero la app tiene que estar publicada.
+- **D1:** el token de la cuenta se guarda cifrado en la base y se renueva solo todos los días.
+- **D2:** las respuestas de Hospeda sin negocio asociado quedan en «Sin asociar».
+- **D3:** los mensajes de clientes asociados quedan «Por revisar», como el email. Nada se registra ni se clasifica solo.
+- Sin envío por la API en esta fase.
+
 ## User script de WhatsApp: negocio no visible — 26/10/2026 (propietario)
 
 - Si el teléfono o el código de un chat coincide con un negocio que el vendedor no puede leer (archivado y de otro responsable), el script no muestra ningún dato de ese negocio. Tampoco dice «Sin CRM» ni «Sin asociar».
