@@ -1534,6 +1534,28 @@
       },
       {
         "example": [
+          "En la lista de chats ves el código H1234 en rojo junto a un chat: antes de escribirle pasás el mouse, el detalle dice «No contactar» y no le escribís."
+        ],
+        "notes": [
+          "Las insignias son solo lectura: no registran mensajes ni cambian estados. Un negocio que no podés ver en el CRM no muestra insignia, y los grupos tampoco llevan.",
+          "El color dice el estado: azul es un negocio normal, rojo es No contactar, ámbar indica varios negocios posibles para ese chat y «Sin CRM» es un chat que no está asociado."
+        ],
+        "url": "/userscript",
+        "linkLabel": "User script de WhatsApp",
+        "id": "whatsapp-chat-badges",
+        "title": "Ver el estado del CRM en la lista de chats",
+        "when": "Cuando querés saber de qué negocio es un chat de WhatsApp, y si se le puede escribir, sin abrirlo.",
+        "steps": [
+          "Con el script conectado desde «User script de WhatsApp», mirá la lista de chats de WhatsApp Web: cada chat individual asociado muestra una insignia con el código del negocio junto a la hora.",
+          "Pasá el mouse por la insignia para ver el detalle al costado: ciudad, nombre, estado, responsable, gestión abierta y el último WhatsApp registrado.",
+          "Tocá «Abrir en el CRM» para ir a la ficha del negocio.",
+          "Si no las querés ver, apagá «Mostrar insignias en la lista de chats» en los Ajustes del panel."
+        ],
+        "result": "Sabés de qué negocio es cada chat y si se le puede escribir antes de abrirlo.",
+        "uiLabels": ["User script de WhatsApp", "Abrir en el CRM", "Mostrar insignias en la lista de chats", "Sin CRM", "No contactar"]
+      },
+      {
+        "example": [
           "En un chat asociado a un solo negocio elegible, activás «Registrar solo los chats seguros». Después de un mensaje nuevo, el panel muestra «Registro automático activo»; si te equivocás, abrís «Registrados solos» y lo anulás con un motivo."
         ],
         "notes": [

@@ -19,20 +19,22 @@ Debajo de cada chat individual de la lista, una insignia propia del CRM con lo j
 
 ## 4. Qué muestra
 
-Una insignia por chat, de 20 px, debajo del texto del último mensaje. Lleva el círculo «H» con el color del estado:
+Una insignia compacta por chat, en la primera línea de la fila, alineada a la derecha justo antes de la hora. Mide 18 px de alto, con letra de 10 px y el círculo «H» con el color del estado. El color dice el estado de un vistazo y el detalle al costado dice el resto. Cambio aprobado por el propietario el 26/10/2026, tras probarlo en WhatsApp real: el mockup la ponía debajo del texto, con etapa y responsable.
 
 | Caso | Insignia | Color |
 |---|---|---|
-| Un negocio con gestión abierta | «Etapa · Responsable». Si el código no está en el título, va adelante: «H3502 · Primer contacto · Ana» | azul |
-| Un negocio sin gestión abierta | «H3502 · Revisado · sin gestión», con el estado del negocio | azul |
-| No contactar o restricción activa de WhatsApp | «H2201 · No contactar» (pisa a las anteriores) | rojo |
-| Varios negocios con ese teléfono o código | «2 negocios posibles» | ámbar |
-| Chat individual con teléfono y sin negocio | «Sin asociar al CRM», con borde punteado | gris |
+| Un negocio, normal (con o sin gestión abierta) | El código: «H3502» | azul |
+| No contactar o restricción activa de WhatsApp | El código: «H2201» | rojo |
+| Varios negocios con ese teléfono o código | «2 negocios» | ámbar |
+| Chat individual con teléfono y sin negocio | «Sin CRM», con borde punteado | gris |
 | Negocio que el vendedor no puede leer | Sin insignia | — |
 
-**Detalle al pasar el mouse o con foco** (tarjeta flotante como en el mockup):
+No se agranda la fila de WhatsApp. La lista es virtualizada y tiene alto fijo, así que cambiarle el alto rompe el scroll (decisión del 26/10/2026).
+
+**Detalle al pasar el mouse o con foco** (tarjeta flotante al costado derecho de la insignia):
 - código · ciudad;
 - nombre;
+- «No contactar», si corresponde;
 - estado y responsable;
 - la gestión abierta (etapa · tipo);
 - el último registro de WhatsApp, con «(automático)» si lo registró la spec 85;
@@ -45,7 +47,7 @@ Con varios negocios, el detalle los lista con su código y su estado. Elegir cu�
 - `POST /_api/userscript/badges`, con token del script y control de versión como las demás rutas. El cuerpo es `{ chats: [{ key, title, phone? }] }`, con hasta 50 por pedido y cada `key` opaca para el script.
 - Empareja cada chat con la misma función que `context`: código en el título y teléfono normalizado, con el mismo límite y las mismas reglas de lectura.
 - Por chat devuelve:
-  - `{ key, kind: 'single' | 'multiple' | 'none' }`;
+  - `{ key, kind: 'single' | 'multiple' | 'none' | 'hidden' }`; `hidden` cuando el negocio existe pero el vendedor no puede leerlo, sin datos;
   - con un negocio, `{ accountId, code, name, city, statusLabel, assignedUserName, doNotContact, restricted, openManagement: { stageLabel, typeLabel } | null, lastWhatsappAt, lastWhatsappAutomatic }`;
   - con varios, la lista corta de `{ accountId, code, name, statusLabel }`.
 - Una consulta por lote, sin N+1. Sin escrituras ni journal.
