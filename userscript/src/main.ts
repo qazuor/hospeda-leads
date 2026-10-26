@@ -9,11 +9,13 @@ import { USERSCRIPT_VERSION } from "./version";
 import { announceInstalled } from "./announce";
 import { showUpdatePrompt, throttled } from "./updatePrompt";
 import { AutoRegisterController, autoEligibility } from "./autoRegister";
+import {ChatBadges,badgePreference,toggleBadgePreference} from './badges';
 
 const BASE = (import.meta as ImportMeta & { env: { USERSCRIPT_CRM_BASE_URL?: string } }).env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const TOKEN_KEY = "hospeda-userscript-token", choicesKey = (phone: string | null) => `hospeda-userscript-choice:${phone || "unknown"}`;
 let observer: MutationObserver | null = null, timer = 0, lastFingerprint = "", activeChat = "", previewOpen = false;
 let autoController:AutoRegisterController|null=null,autoMessage="";
+let chatBadges:ChatBadges|null=null,badgeError:string|undefined,badgePane:HTMLElement|null=null;
 let autoPreference=GM_getValue<boolean>("hospeda-userscript-auto-register",true);
 let autoCount:{accountId:string;value:number;expiresAt:number}|null=null;
 const cache = new Map<string, { expiresAt: number; value: ContextResponse }>();
@@ -58,7 +60,7 @@ function currentChat(): ChatRead {
 function setChoice(phone: string | null, match: Match): void { GM_setValue(choicesKey(phone), match.accountId); }
 /** What every render shares: the launcher and its settings work with or without an open chat. */
 function baseOptions(): UiOptions {
-  return { crmBase: BASE, version: USERSCRIPT_VERSION, onSaveToken: saveToken, onClearToken: () => saveToken(""), onCopyDiagnostic: copyChatDiagnostic, onSelect: () => {}, register: null, context: null, selected: null };
+  return { crmBase: BASE, version: USERSCRIPT_VERSION, onSaveToken: saveToken, onClearToken: () => saveToken(""), onCopyDiagnostic: copyChatDiagnostic, onSelect: () => {}, register: null, context: null, selected: null,badgePreference:badgePreference(),badgeError,onBadgePreference:enabled=>{const pane=enabled?document.querySelector<HTMLElement>('#pane-side'):null;badgePane=pane; if(chatBadges)toggleBadgePreference(enabled,chatBadges,pane);else if(!enabled)document.querySelectorAll('[data-hospeda-badge-host]').forEach(node=>node.remove());lastFingerprint="";void update();} };
 }
 async function update(): Promise<void> {
   if (isEditing()) return;
@@ -92,13 +94,13 @@ async function update(): Promise<void> {
   if (typeof context?.autoRegister === "boolean" && context.autoRegister !== autoPreference) { autoPreference = context.autoRegister; GM_setValue("hospeda-userscript-auto-register", autoPreference); }
   const auto=autoEligibility(selected,matches,autoPreference);
   const autoTodayCount=autoCount&&autoCount.accountId===selected?.accountId&&autoCount.expiresAt>Date.now()?autoCount.value:0;
-  if(auto.active&&selected?.autoRegister?.since&&token()&&!autoController){autoController=new AutoRegisterController(BASE,token(),selected.accountId,selected.autoRegister.since,chatKey,()=>activeChat,message=>{autoMessage=message;lastFingerprint="";void update();});autoController.start();}else if(!auto.active){autoController?.stop();autoController=null;}
+  if(auto.active&&selected?.autoRegister?.since&&token()&&!autoController){autoController=new AutoRegisterController(BASE,token(),selected.accountId,selected.autoRegister.since,chatKey,()=>activeChat,message=>{autoMessage=message;lastFingerprint="";void update();},()=>chatBadges?.refreshChat(chat.title,chat.phone));autoController.start();}else if(!auto.active){autoController?.stop();autoController=null;}
   const controller = token() ? new RegisterController(BASE, token()) : null, lastRegister = GM_getValue<string | null>("hospeda-userscript-last-register", null);
   renderBanner({ ...baseOptions(), context, selected, error, requiredVersion, register: controller, title: chat.title, phone: chat.phone,
     isCurrentChat: () => { const current = currentChat(); return current.ok && `${current.title}:${current.phone || ""}` === chatKey; },
     readMessages: () => { const current = currentChat(); return current.ok ? current.messages : []; },
     lastRegistered: lastRegister ? new Date(lastRegister).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : null,
-    onPreviewChange: open => { previewOpen = open; if (!open) { lastFingerprint = ""; void update(); } },
+    onPreviewChange: open => { previewOpen = open; if (!open) { lastFingerprint = ""; void update(); } },onRegistered:()=>chatBadges?.refreshChat(chat.title,chat.phone),
     autoStatus: autoMessage||auto.message,autoTodayCount,autoPreference,autoDisabled:selected?.autoRegister?.reason==="global_disabled",onAutoPreference:async enabled=>{const previous=autoPreference;try{if(token())await saveAutoRegisterPreference(BASE,token(),enabled);autoPreference=enabled;GM_setValue("hospeda-userscript-auto-register",enabled);lastFingerprint="";}catch(error){autoPreference=previous;throw error;}}, onSelect: match => { setChoice(chat.phone, match); lastFingerprint = ""; void update(); } });
   if(auto.active&&selected&&token()&&(!autoCount||autoCount.accountId!==selected.accountId||autoCount.expiresAt<=Date.now()))void fetchAutoRegistrations(BASE,token(),selected.accountId).then(({registrations})=>{if(activeChat!==chatKey)return;const today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Argentina/Buenos_Aires"}),count=registrations.filter(item=>new Date(item.sentAt||item.receivedAt||0).toLocaleDateString("en-CA",{timeZone:"America/Argentina/Buenos_Aires"})===today).length;autoCount={accountId:selected!.accountId,value:count,expiresAt:Date.now()+60_000};lastFingerprint="";void update();}).catch(()=>{});
 }
@@ -109,7 +111,9 @@ function start(): void {
   // On the CRM's own page the script does nothing but say it is here: no WhatsApp logic, no requests.
   if (location.hostname !== "web.whatsapp.com") { announceInstalled(document); return; }
   registerMenu(); watchTheme();
+  chatBadges=new ChatBadges(BASE,token, message=>{badgeError=message;lastFingerprint="";void update();},()=>{badgeError="Token inválido o revocado. Conectá uno nuevo desde Ajustes.";lastFingerprint="";void update();},()=>{badgeError="Esta versión del script ya no funciona con el CRM. Actualizá desde el aviso del script.";void checkForUpdate();lastFingerprint="";void update();});
+  const badgesRootObserver=new MutationObserver(records=>{if(records.every(record=>[...record.addedNodes,...record.removedNodes].every(node=>node instanceof HTMLElement&&node.hasAttribute('data-hospeda-badge-host'))))return;const pane=document.querySelector<HTMLElement>('#pane-side');if(pane&&pane!==badgePane&&badgePreference()){badgePane=pane;chatBadges?.start(pane);}});badgesRootObserver.observe(document.body,{subtree:true,childList:true});
   // On load, every half hour, and when the seller comes back to the WhatsApp tab (at most every two minutes).
   const check = throttled(() => { void checkForUpdate(); }, 2 * 60_000); check(); window.setInterval(check, UPDATE_CHECK_MS);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); }); const root = getAppRoot(); observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-id", "title", "data-pre-plain-text"] }); void update(); window.addEventListener("pagehide", () => observer?.disconnect(), { once: true }); }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); }); const root = getAppRoot(); observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-id", "title", "data-pre-plain-text"] }); void update(); window.addEventListener("pagehide", () => {observer?.disconnect();chatBadges?.stop();badgesRootObserver.disconnect();}, { once: true }); }
 start();

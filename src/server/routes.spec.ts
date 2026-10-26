@@ -21,6 +21,7 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'GET /_api/userscript/context':401,
 'GET /_api/userscript/status':401,
 'POST /_api/userscript/register':401,
+'POST /_api/userscript/badges':401,
 'GET /_api/userscript/templates':401,
 'POST /_api/userscript/prepare':401,
 'POST /_api/userscript/dispatch':401,

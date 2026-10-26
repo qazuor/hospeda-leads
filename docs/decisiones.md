@@ -222,6 +222,13 @@ Spec 85 (`docs/crm-roadmap/85-userscript-auto-register.md`) aprobada.
 - El popover de los modelos muestra la plantilla cruda (variables sin completar), para no crear borradores al mirar.
 - Registrar un enviado completa un intento abierto solo si el texto se parece al preparado (al menos la mitad de las palabras en común). Un mensaje escrito a mano se registra suelto y no se atribuye al modelo. Rige también para «Contactar».
 
+## User script de WhatsApp: negocio no visible — 26/10/2026 (propietario)
+
+- Si el teléfono o el código de un chat coincide con un negocio que el vendedor no puede leer (archivado y de otro responsable), el script no muestra ningún dato de ese negocio. Tampoco dice «Sin CRM» ni «Sin asociar».
+- **En la lista de chats:** el chat queda sin insignia (`kind: 'hidden'`).
+- **En el panel:** aparece «Este número está en un negocio que no podés ver. Consultá a un administrador antes de escribirle.» (`hiddenMatches` en `context`).
+- **Tradeoff aceptado:** un vendedor puede saber que el número existe en el CRM. Se prefiere eso al riesgo de tratarlo como un contacto nuevo y escribirle a un negocio con No contactar.
+
 ## User script de WhatsApp: revisión y próximos pasos — 25/10/2026 (propietario)
 
 - **Teléfono de chats `@lid`:** primero el código y el teléfono visibles en el DOM; solo si no hay ninguno, el teléfono del estado interno de WhatsApp (fiber de React vía `unsafeWindow`). Si no se encuentra, el chat queda sin asociar: nunca se adivina.

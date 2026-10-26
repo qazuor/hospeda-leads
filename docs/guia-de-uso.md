@@ -1018,6 +1018,28 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Dónde ir:** Ir a Negocios (/accounts)
 
+### Ver el estado del CRM en la lista de chats
+
+**Cuándo usarlo:** Cuando querés saber de qué negocio es un chat de WhatsApp, y si se le puede escribir, sin abrirlo.
+
+1. Con el script conectado desde «User script de WhatsApp», mirá la lista de chats de WhatsApp Web: cada chat individual asociado muestra una insignia con el código del negocio junto a la hora.
+2. Pasá el mouse por la insignia para ver el detalle al costado: ciudad, nombre, estado, responsable, gestión abierta y el último WhatsApp registrado.
+3. Tocá «Abrir en el CRM» para ir a la ficha del negocio.
+4. Si no las querés ver, apagá «Mostrar insignias en la lista de chats» en los Ajustes del panel.
+
+**Qué queda al terminar:** Sabés de qué negocio es cada chat y si se le puede escribir antes de abrirlo.
+
+**Ejemplo:**
+
+- En la lista de chats ves el código H1234 en rojo junto a un chat: antes de escribirle pasás el mouse, el detalle dice «No contactar» y no le escribís.
+
+**Tené en cuenta:**
+
+- Las insignias son solo lectura: no registran mensajes ni cambian estados. Un negocio que no podés ver en el CRM no muestra insignia, y los grupos tampoco llevan.
+- El color dice el estado: azul es un negocio normal, rojo es No contactar, ámbar indica varios negocios posibles para ese chat y «Sin CRM» es un chat que no está asociado.
+
+**Dónde ir:** User script de WhatsApp (/userscript)
+
 ### Registrar automáticamente chats seguros
 
 **Cuándo usarlo:** Cuando el administrador habilitó el registro automático y querés registrar mensajes recientes sin confirmar cada lote.

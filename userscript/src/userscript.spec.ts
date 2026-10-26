@@ -229,6 +229,11 @@ describe("panel", () => {
     expect(shadow(host).querySelector<HTMLAnchorElement>("a")!.href).toBe("https://crm.example/guide?topic=whatsapp-userscript&article=install-userscript");
     button(host, "Desconectar")!.click(); expect(onClearToken).toHaveBeenCalledTimes(1);
   });
+  it("warns that the number belongs to a business the seller cannot see, without offering to link it", () => {
+    const host = renderBanner({ context: { ...context([]), hiddenMatches: 1 }, selected: null, register: null, title: "Juan", crmBase: "https://crm.example", onSelect: () => {} });
+    expect(shadow(host).textContent).toContain("NEGOCIO NO VISIBLE"); expect(shadow(host).textContent).toContain("Consultá a un administrador antes de escribirle.");
+    expect(shadow(host).textContent).not.toContain("SIN ASOCIAR"); expect(shadow(host).querySelector(".body a")).toBeNull();
+  });
   it("explains how to link a chat the CRM could not match, even when there was nothing to look up", () => {
     for (const lookup of [context([]), null]) {
       const host = renderBanner({ context: lookup, selected: null, register: null, title: "Juan", crmBase: "https://crm.example", onSelect: () => {} });
