@@ -28,6 +28,14 @@ describe('AppLayout breadcrumbs', () => {
     expect(trail.textContent).toContain('Negocios');
     expect(trail.querySelector('[aria-current="page"]')?.textContent).toBe('Casa del Río');
   });
+  it('keeps the user menu in the top bar with the WhatsApp script destination inside it', async () => {
+    render(<MantineProvider><MemoryRouter initialEntries={['/accounts/1']}><Routes><Route element={<AppLayout/>}><Route path="/accounts/:accountId" element={<CachedBusiness/>}/></Route></Routes></MemoryRouter></MantineProvider>);
+    const triggers=screen.getAllByRole('button',{name:'Admin Test'});
+    expect(triggers.length).toBeGreaterThan(0);
+    expect(document.querySelector('aside')?.querySelector('[aria-label="User script de WhatsApp"]')).toBeNull();
+    fireEvent.click(triggers[0]);
+    expect(await screen.findByRole('menuitem',{name:'User script de WhatsApp'})).toBeTruthy();
+  });
   it('shows contextual page help in a drawer', async () => {
     render(<MantineProvider><MemoryRouter initialEntries={['/accounts/1']}><Routes><Route element={<AppLayout/>}><Route path="/accounts/:accountId" element={<CachedBusiness/>}/></Route></Routes></MemoryRouter></MantineProvider>);
     fireEvent.click(screen.getAllByRole('button', { name: 'Ayuda sobre negocios y gestiones' })[0]);

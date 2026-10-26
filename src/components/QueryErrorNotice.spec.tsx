@@ -61,12 +61,12 @@ describe('crmReadError',()=>{
 });
 
 describe('LiveModeSwitch',()=>{
- it('shows "Sin conexión" while the browser is offline and recovers when back online',()=>{
+ it('shows informative live state while offline and recovers when back online',()=>{
   const online=vi.spyOn(navigator,'onLine','get').mockReturnValue(false);
   wrap(<LiveModeSwitch/>);
-  expect(screen.getByText('Sin conexión')).toBeTruthy();
-  expect(screen.getByRole('button',{name:'Sin conexión. Actualizar'})).toBeTruthy();
+  expect(screen.getByText('En vivo · Sin conexión')).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Opciones de actualización'})).toBeNull();
   online.mockReturnValue(true);act(()=>{window.dispatchEvent(new Event('online'))});
-  expect(screen.queryByText('Sin conexión')).toBeNull();expect(screen.getByRole('button',{name:'Actualizar'})).toBeTruthy();
+  expect(screen.queryByText('En vivo · Sin conexión')).toBeNull();expect(screen.getByText('En vivo')).toBeTruthy();
  });
 });

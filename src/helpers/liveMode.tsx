@@ -12,6 +12,7 @@ type LiveStatus="live"|"checking"|"off"|"error";
 type LiveModeState={
   enabled:boolean;
   manualRefreshing:boolean;
+  checkingNow:boolean;
   status:LiveStatus;
   lastCheckedAt:Date|null;
 };
@@ -71,6 +72,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
   const [status,setStatus]=useState<LiveStatus>(enabledState?"checking":"off");
   const [lastCheckedAt,setLastCheckedAt]=useState<Date|null>(null);
   const [manualRefreshing,setManualRefreshing]=useState(false);
+  const [checkingNow,setCheckingNow]=useState(false);
   const manualRefreshLock=useRef(false);
   const lastSnapshot=useRef<LiveSnapshot|null>(null);
   const checking=useRef(false);
@@ -135,6 +137,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
   const checkVersion=useCallback(async(manual:boolean)=>{
     if(!enabledState||authState.type!=="authenticated"||checking.current)return;
     checking.current=true;
+    setCheckingNow(true);
     const checkGeneration=generation.current;
     lastCheckStartedAt.current=Date.now();
     if(manual)updateStatus("checking");
@@ -156,6 +159,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
       if(checkGeneration===generation.current)updateStatus("error");
     }finally{
       checking.current=false;
+      setCheckingNow(false);
     }
   },[enabledState,authState.type,invalidateLiveQueries,updateStatus]);
 
@@ -194,7 +198,7 @@ export function LiveModeProvider({children}:{children:ReactNode}){
     };
   },[enabledState,authState.type,checkVersion,updateStatus]);
 
-  const state=useMemo(()=>({enabled:enabledState,manualRefreshing,status,lastCheckedAt}),[enabledState,manualRefreshing,status,lastCheckedAt]);
+  const state=useMemo(()=>({enabled:enabledState,manualRefreshing,checkingNow,status,lastCheckedAt}),[enabledState,manualRefreshing,checkingNow,status,lastCheckedAt]);
   const actions=useMemo(()=>({setEnabled,toggle:()=>setEnabled(!enabledState),checkNow,refresh}),[setEnabled,enabledState,checkNow,refresh]);
   return <LivePendingContext.Provider value={pending}><ManualRefreshingContext.Provider value={manualRefreshing}><LiveModeStateContext.Provider value={state}><LiveModeActionsContext.Provider value={actions}>{children}</LiveModeActionsContext.Provider></LiveModeStateContext.Provider></ManualRefreshingContext.Provider></LivePendingContext.Provider>;
 }
