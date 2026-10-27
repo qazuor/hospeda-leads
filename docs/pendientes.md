@@ -16,9 +16,17 @@ Specs 87 (#262) y 88 (#260), mergeadas en `staging` el 26/10/2026. **Para produc
 
 Límites conocidos de la 88: el token pegado no se valida contra Meta al guardarlo, y viaja como parámetro de la URL a `graph.instagram.com`.
 
-## Material de venta (spec 89)
+## Material de venta (spec 89) — cerrada en `staging`, pendiente de producción
 
-- F1 (#265) y F2 (#267) mergeados a `staging`; F3 (composer, adjunto por email, registro y «Revocar enlace») en `feat/sales-material-f3`, sin PR. F4 (materiales en modelos con `{{material:<uuid>}}` resuelto en `prepare`, `materialWarnings`, user script 1.3.0 con «Agregar material») en `feat/sales-material-f4`, sin PR. Al desplegar F4, publicar el script 1.3.0 (el aviso de versión nueva aparece solo). A verificar con Brevo real: que acepte `attachment.url` prefirmado de R2, y el tope de tamaño (hoy `maxEmailAttachmentBytes` = 10 MB); las extensiones ya salen de la documentación de Brevo (`BREVO_ATTACHMENT_EXTENSIONS`). Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
+- F1 (#265), F2 (#267), F3 (#271) y F4 (#272) mergeadas en `staging` el 26 y 27/10/2026. Sin desplegar.
+- **Para producción**, cuando el propietario promueva `staging`:
+  - aplicar las migraciones `046_sales_material.sql` y `047_sales_material_share_triggers.sql`;
+  - crear el bucket R2 con su CORS y cargar en Coolify las variables `R2_*` (ver `COOLIFY_DEPLOY.md`);
+  - confirmar `PUBLIC_APP_URL`: sin ella, la vista previa de los enlaces sale sin imagen y los enlaces no se pueden armar;
+  - definir `CRM_CLIENT_IP_HEADER` según si `crm.hospeda.com.ar` pasa por el proxy de Cloudflare (`cf-connecting-ip`) o llega directo al VPS (`x-real-ip`); falta la respuesta del propietario;
+  - borrar a mano las subidas de prueba de la biblioteca vieja antes del deploy;
+  - distribuir el user script 1.3.0.
+- **A verificar con servicios reales:** los `response-content-*` de R2, el PUT firmado con `Content-Length`, la vista previa en WhatsApp, que Brevo acepte un `attachment.url` firmado de R2 y su tope de tamaño (hoy 10 MB).
 - Decisiones del propietario sobre F4 (quedan así a propósito):
   - `USERSCRIPT_MIN_VERSION` sigue en 1.2.0: un script 1.2.x prepara modelos con material pero no muestra los `materialWarnings` (el texto sale sin el material que quedó afuera, sin aviso). Subir el mínimo a 1.3.0 cuando el propietario lo decida.
   - Los avisos del modelo muestran a los vendedores el título del material archivado («“X” ya no está disponible»), como pide la spec.

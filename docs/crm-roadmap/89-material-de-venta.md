@@ -1,6 +1,6 @@
 # Spec 89 — Material de venta
 
-Estado: aprobada por el propietario — 26/10/2026. Decisiones D1–D9 y las cuatro confirmaciones de §17 resueltas.
+Estado: **cerrada** — implementada en cuatro fases mergeadas en `staging` el 26 y 27/10/2026: F1 (#265), F2 (#267), F3 (#271) y F4 (#272). Sin desplegar. Aprobada por el propietario el 26/10/2026 (decisiones D1–D9 y las cuatro confirmaciones de §17).
 
 ## 1. Problema
 
