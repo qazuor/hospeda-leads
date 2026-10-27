@@ -48,6 +48,12 @@ Spec 90 made the «Comunicación» tab one chronological conversation, but on a 
     - The client marks the visit through a new `POST /_api/communication/seen` (Zod input `{ accountId, seenAt }`). It upserts `GREATEST(existing, seenAt)` and caps `seenAt` at the server's `now()`. It requires read access to the business, the same check as the GET. It writes only the caller's own read state: it is not a business write, not contact, and does not touch the journal or history.
     - The client sends the newest loaded item's timestamp after the tab renders, not the client clock. The divider for the current visit is computed from the value fetched before marking.
 
+13. **Business tabs in the URL (owner request, 27/10/2026).** On `/accounts/:accountId` the open tab is `?tab=<slug>` (`resumen`, `historial`, `tareas`, `comunicacion`, `gestiones`, `documentos`), so a reload or a shared link opens it again.
+    - Reading: `?tab=` first, then the legacy `?section=` (search results, toasts, old links, with its aliases). Missing or unknown values open Resumen; a tab the user cannot see (Tareas on a read-only business) falls back to Resumen.
+    - Writing: a tab change replaces the history entry (Back leaves the business page instead of walking through tabs), keeps every other param, drops the legacy `section` and omits `tab` for Resumen. The page keeps the panel mounted on a tab change (the panel's key travels in the location state); a real navigation to the same business still remounts it.
+    - «Mensajes por revisar» in Hoy links to `?tab=comunicacion`. Search results keep their `?section=` links, which still work.
+    - The management page (`/sales/:leadId`) has its own tabs and embeds the business panel without tabs, so it is unchanged.
+
 ## 3. Rules that do not change
 
 - Opening a channel, preparing a reply, saving a draft or moving a stage is not evidence of contact, reply, acceptance, payment or delivery. «Responder» only opens the composer.
