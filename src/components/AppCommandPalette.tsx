@@ -4,17 +4,17 @@ import {searchCrm} from '../endpoints/search.schema';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spotlight, useSpotlight } from '@mantine/spotlight';
-import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Library, Mail, Moon, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
+import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Mail, Presentation, Moon, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
 import { useAuth } from '../helpers/useAuth';
 import { useThemeMode } from '../helpers/themeMode';
 import { fuzzySearchScore, normalizeSearchText } from '../helpers/searchText';
-import { mainNavigation, todayViews } from '../helpers/appNavigation';
+import { mainNavigation, todayViews, toolNavigation } from '../helpers/appNavigation';
 import { commandPalette, commandStore, openCommandPalette, restoreCommandFocus } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import styles from './AppCommandPalette.module.css';
 type GuideTopics=typeof import('../content/user-guide.json');
 
-const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
+const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,'Material de venta':Presentation,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
 
 export function AppCommandPalette() {
   const { authState } = useAuth();
@@ -72,6 +72,7 @@ export function AppCommandPalette() {
   if (!authenticated) return null;
   const destinations = [
     ...mainNavigation,
+    ...toolNavigation,
     // Hoy views keep the old names (Agenda, Reactivación) as search aliases.
     ...todayViews.filter(item => item.view !== 'list').map(({ url, label, description, keywords, icon }) => ({ url, label: 'Hoy · ' + label, description, keywords, icon })),
     ...(isAdmin ? [
@@ -79,7 +80,6 @@ export function AppCommandPalette() {
       { url: '/analytics', label: 'Estadísticas', description: 'Resultados comerciales del equipo', icon: BarChart3 },
       { url: '/settings', label: 'Configuración', description: 'Usuarios y catálogos del CRM', icon: Settings },
       { url: '/templates', label: 'Mensajes modelo', description: 'Plantillas de WhatsApp y email', icon: Mail },
-      { url: '/settings?section=library', label: 'Biblioteca comercial', description: 'Materiales y documentos del equipo', icon: Library },
       { url: '/history', label: 'Historial del equipo', description: 'Actividad y cambios registrados', icon: History },
       { url: '/trash', label: 'Papelera', description: 'Registros eliminados y recuperación', icon: Trash2 },
       { url: '/inbound', label: 'Emails sin asociar', description: 'Asociar emails recibidos', icon: Trash2 },

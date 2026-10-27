@@ -1,6 +1,6 @@
 // @vitest-environment node
 import {describe,expect,it} from 'vitest';
-import {adminNavigation,breadcrumbTrail,documentTitle,mainNavigation,parseTodayView,recordNavigation,sectionTitle,todayViews,workNavigation} from './appNavigation';
+import {adminNavigation,breadcrumbTrail,documentTitle,mainNavigation,parseTodayView,recordNavigation,sectionTitle,todayViews,toolNavigation,workNavigation} from './appNavigation';
 
 describe('app navigation',()=>{
  it('keeps the work and record groups and admin-only destinations as typed data',()=>{
@@ -28,5 +28,12 @@ describe('app navigation',()=>{
  it('names main sections for mobile and document titles',()=>{
   expect(sectionTitle({pathname:'/my-day'})).toBe('Hoy');expect(sectionTitle({pathname:'/accounts/12'})).toBe('Negocios');expect(sectionTitle({pathname:'/sales/7'})).toBe('Gestiones');expect(sectionTitle({pathname:'/guide'})).toBe('Ayuda');expect(sectionTitle({pathname:'/settings'})).toBeNull();
   expect(documentTitle({section:'Hoy'})).toBe('Hoy · Hospeda CRM');expect(documentTitle({section:null})).toBe('Hospeda CRM');
+ });
+ it('lists «Material de venta» as a tool for every user (spec 89)',()=>{
+  expect(toolNavigation.map(({label,url})=>[label,url])).toEqual([['Material de venta','/sales-material']]);
+  expect(toolNavigation[0].keywords).toContain('biblioteca');
+  expect(sectionTitle({pathname:'/sales-material'})).toBe('Material de venta');
+  expect(breadcrumbTrail({pathname:'/sales-material',search:'',isAdmin:false})).toEqual([{label:'Material de venta'}]);
+  expect(breadcrumbTrail({pathname:'/library',search:'',isAdmin:true})).toEqual([{label:'Hospeda CRM'}]);
  });
 });
