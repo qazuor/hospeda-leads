@@ -71,11 +71,28 @@ describe('«Responder» (spec 91 §10)',()=>{
   expect(lastReceived([inbound({id:'b',receivedAt:at(3),isAutomatic:true})])?.id).toBe('b');
   expect(lastReceived([inbound({id:'c',status:'voided'})])).toBeNull();expect(lastReceived(undefined)).toBeNull();
  });
- it('preselects the person whose phone or email sent it, or the business own channel',()=>{
+ it('preselects the person whose phone or email sent it, or the business own channel when the composer uses exactly it',()=>{
   expect(replyTarget({item:inbound({id:'a'}),recipients,restrictions:[]})).toEqual({channel:'whatsapp',contactId:'7',reason:''});
   expect(replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'Julia@Example.com '}),recipients,restrictions:[]})).toEqual({channel:'email',contactId:'7',reason:''});
-  expect(replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'hotel@example.com'}),recipients,restrictions:[]})).toEqual({channel:'email',contactId:'',reason:''});
-  expect(replyTarget({item:inbound({id:'a',fromAddress:'5493442111111'}),recipients,restrictions:[]})).toEqual({channel:'whatsapp',contactId:'',reason:''});
+  const alone={...recipients,contacts:[]};
+  expect(replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'hotel@example.com'}),recipients:alone,restrictions:[]})).toEqual({channel:'email',contactId:'',reason:''});
+  expect(replyTarget({item:inbound({id:'a',fromAddress:'5493442111111'}),recipients:alone,restrictions:[]})).toEqual({channel:'whatsapp',contactId:'',reason:''});
+  expect(replyTarget({item:inbound({id:'a',fromAddress:'5493442111111'}),recipients:{...alone,account:{...alone.account,whatsapp:'+54 9 3442 15-111111'}},restrictions:[]})).toEqual({channel:'whatsapp',contactId:'',reason:''});
+ });
+ it('does not preselect the business own channel when the composer would pick someone else',()=>{
+  // People can receive on the channel: the composer would default to them, not to the business.
+  const mail=replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'hotel@example.com'}),recipients,restrictions:[]});
+  expect(mail.channel).toBe('email');expect(mail.contactId).toBeUndefined();expect(mail.reason).toMatch(/elegí el destinatario/);
+  const phone=replyTarget({item:inbound({id:'a',fromAddress:'5493442111111'}),recipients,restrictions:[]});
+  expect(phone.channel).toBe('whatsapp');expect(phone.contactId).toBeUndefined();expect(phone.reason).toMatch(/elegí el destinatario/);
+  // The sender is the business WhatsApp but the management composer would write to `telefono`.
+  const whatsapp=replyTarget({item:inbound({id:'a',fromAddress:'+5493442999999'}),recipients:{account:{email:null,telefono:'03442 15-111111',whatsapp:'+5493442999999'},contacts:[]},restrictions:[]});
+  expect(whatsapp.channel).toBe('whatsapp');expect(whatsapp.contactId).toBeUndefined();expect(whatsapp.reason).toMatch(/elegí el destinatario/);
+ });
+ it('honours restrictions for every channel (channel «all»)',()=>{
+  expect(replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'all',contactId:'7',liftedAt:null}]})).toEqual({reason:expect.stringMatching(/restricción activa/)});
+  expect(replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'julia@example.com'}),recipients,restrictions:[{channel:'all',contactId:null}]}).channel).toBeUndefined();
+  expect(replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'all',contactId:'9',liftedAt:null}]})).toEqual({channel:'whatsapp',contactId:'7',reason:''});
  });
  it('falls back to the composer defaults and says why',()=>{
   const unknown=replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'baja@example.com'}),recipients,restrictions:[]});

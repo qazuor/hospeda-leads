@@ -217,10 +217,19 @@ export function replyTarget({item,recipients,restrictions}:{item:InboundMessage;
  const channel=item.channel,from=(item.fromAddress||'').trim();
  const people=recipients.contacts.filter(c=>!c.deletedAt);
  const person=people.find(c=>channel==='email'?!!c.email&&c.email.trim().toLowerCase()===from.toLowerCase():samePhone(c.phone,from));
- const own=!person&&(channel==='email'?!!recipients.account.email&&recipients.account.email.trim().toLowerCase()===from.toLowerCase():samePhone(recipients.account.whatsapp,from)||samePhone(recipients.account.telefono,from));
+ const {email,telefono,whatsapp}=recipients.account;
+ const own=!person&&(channel==='email'?!!email&&email.trim().toLowerCase()===from.toLowerCase():samePhone(whatsapp,from)||samePhone(telefono,from));
  const contactId=person?String(person.id):own?'':undefined;
- const blocked=restrictions.some(r=>!r.liftedAt&&r.channel===channel&&(r.contactId==null||String(r.contactId)===contactId));
+ const blocked=restrictions.some(r=>!r.liftedAt&&(r.channel==='all'||r.channel===channel)&&(r.contactId==null||String(r.contactId)===contactId));
  if(blocked)return {reason:`Hay una restricción activa de ${label} para ese destinatario: «Contactar» se abre sin preseleccionarlo.`};
  if(contactId===undefined)return {channel,reason:`${from||'El remitente'} no está cargado como persona ni como canal del negocio: elegí el destinatario en «Contactar».`};
+ if(contactId===''){
+  // The composers only use the business own channel when no person can receive on it, and they resolve it to `email` or, for
+  // WhatsApp, to `telefono` (the management composer) or `whatsapp||telefono` (the general one). Anything else would
+  // preselect a different recipient than the sender, so only the channel is prepared and the user picks.
+  const reachable=people.some(c=>String(channel==='email'?c.email??'':c.phone??'').trim());
+  const exact=channel==='email'||(samePhone(telefono,from)&&(!String(whatsapp??'').trim()||samePhone(whatsapp,from)));
+  if(reachable||!exact)return {channel,reason:`«Contactar» no puede preseleccionar ${from||'el canal del negocio'}: elegí el destinatario.`};
+ }
  return {channel,contactId,reason:''};
 }
