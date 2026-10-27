@@ -34,7 +34,8 @@ describe('AppLayout breadcrumbs', () => {
     const triggers=screen.getAllByRole('button',{name:'Admin Test'});
     expect(triggers.length).toBeGreaterThan(0);
     const desktopTrigger=triggers[0];
-    expect(desktopTrigger.querySelector('span[class*="avatar"]')?.textContent).toBe('AT');
+    expect(desktopTrigger.querySelector('span[class*="avatar"]')).toBeNull();
+    expect(desktopTrigger.textContent).toContain('Admin Test');
     const topbarActions=document.querySelector('header nav[aria-label="Ruta"]')?.parentElement?.querySelector('div[class*="topbarActions"]');
     expect(topbarActions?.contains(desktopTrigger)).toBe(true);
     expect(document.querySelector('aside')?.querySelector('[aria-label="User script de WhatsApp"]')).toBeNull();

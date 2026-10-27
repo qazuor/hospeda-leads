@@ -14,6 +14,7 @@ import {TaskRow} from './WorkPanel';
 import {TaskContactDialog} from './TaskContactDialog';
 import {WorkEditor,type WorkTarget} from './WorkEditor';
 import {HelpHint} from './HelpHint';
+import {HelpLink} from './HelpLink';
 import styles from './Commercial.module.css';
 
 export function NextWork({accountId,leadId,classification='open',detail,onAddContact,onContact,onAddChannel,onOpenWork,readOnly=false}:{accountId:string;leadId?:string;classification?:string;detail?:CommercialDetail;onAddContact?:()=>void;onContact?:()=>void;onAddChannel?:()=>void;/** Shows 'Ver tareas' to jump to the full task list of the record. */onOpenWork?:()=>void;readOnly?:boolean}){
@@ -46,7 +47,7 @@ export function NextWork({accountId,leadId,classification='open',detail,onAddCon
   {can&&step.kind==='contact'&&(onAddContact?<Button onClick={onAddContact}>{VOCAB.addPerson}</Button>:<Button asChild><Link to={'/accounts/'+accountId}>Agregar o revisar personas</Link></Button>)}
   {can&&(step.kind==='plan'||step.kind==='done')&&<Button variant={step.kind==='done'?'outline':'primary'} onClick={()=>setEditor({kind:'task',accountId,leadId,purpose,title:classification==='won'?'Consultar cómo le fue':classification==='lost'?'Retomar conversación':''})}>{VOCAB.scheduleTask}</Button>}
   {can&&classification==='won'&&<Button variant="outline" onClick={()=>setEditor({kind:'activity',accountId,leadId,purpose:'delivery',title:'Entrega de lo acordado'})}>Registrar entrega</Button>}
-  {can&&step.kind!=='blocked'&&step.kind!=='contact'&&<Disclosure><DisclosureSummary>Otras acciones</DisclosureSummary><div className={styles.actions}><Button variant="outline" onClick={()=>onContact?onContact():setContacting(true)}>Contactar ahora</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity',accountId,leadId,purpose,title:'Conversación con '+d.account.nombre})}>{VOCAB.logWhatHappened}</Button>{step.kind==='task'&&<Button variant="outline" onClick={()=>setEditor({kind:'task',accountId,leadId,purpose})}>Agregar otro próximo paso</Button>}</div></Disclosure>}
+  {can&&step.kind!=='blocked'&&step.kind!=='contact'&&<Disclosure><DisclosureSummary>Otras acciones</DisclosureSummary><HelpLink topic="record"/><div className={styles.actions}><Button variant="outline" onClick={()=>onContact?onContact():setContacting(true)}>Contactar ahora</Button><Button variant="outline" onClick={()=>setEditor({kind:'activity',accountId,leadId,purpose,title:'Conversación con '+d.account.nombre})}>{VOCAB.logWhatHappened}</Button>{step.kind==='task'&&<Button variant="outline" onClick={()=>setEditor({kind:'task',accountId,leadId,purpose})}>Agregar otro próximo paso</Button>}</div></Disclosure>}
   {!can&&<p className={styles.muted}>Responsable: {d.users?.find(u=>u.email===(leadId?d.opportunities.find(o=>o.id===leadId)?.assignedUserEmail:d.account.assignedUserEmail))?.displayName||'Sin asignar'}. Las tareas que tengas asignadas conservan sus propias acciones.</p>}
   {contacting&&<TaskContactDialog task={synthetic} onClose={()=>setContacting(false)} onLog={(id,channel)=>{setContacting(false);setEditor({kind:'activity',accountId,leadId,purpose,title:'Conversación con '+d.account.nombre,contactIds:id?[id]:[],channel})}}/>}
   {editor&&<WorkEditor target={editor} data={work.data} onClose={()=>setEditor(null)}/>}
