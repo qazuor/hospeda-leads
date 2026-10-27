@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {businessSection,businessSections} from './businessSections';
+import {businessSection,businessSections,businessTabParams,initialBusinessSection} from './businessSections';
 
 describe('businessSection',()=>{
  it('keeps the six business tabs in display order',()=>{
@@ -17,5 +17,20 @@ describe('businessSection',()=>{
  });
  it('opens Resumen for missing, unknown or prototype values',()=>{
   for(const value of [null,undefined,'','nada','constructor','__proto__','toString'])expect(businessSection(value)).toBe('resumen');
+ });
+});
+
+describe('?tab= on the business page (spec 91 §13)',()=>{
+ it('opens the tab named by ?tab=, then the legacy ?section=, then Resumen',()=>{
+  expect(initialBusinessSection(new URLSearchParams('tab=comunicacion'))).toBe('comunicacion');
+  expect(initialBusinessSection(new URLSearchParams('tab=documentos&section=history'))).toBe('documentos');
+  expect(initialBusinessSection(new URLSearchParams('section=communication'))).toBe('comunicacion');
+  expect(initialBusinessSection(new URLSearchParams(''))).toBe('resumen');
+  expect(initialBusinessSection(new URLSearchParams('tab=nada'))).toBe('resumen');
+ });
+ it('writes the tab, keeps other params, drops the legacy section and omits the default',()=>{
+  expect(businessTabParams(new URLSearchParams('contactId=7&section=contacts'),'comunicacion').toString()).toBe('contactId=7&tab=comunicacion');
+  expect(businessTabParams(new URLSearchParams('tab=historial&x=1'),'gestiones').toString()).toBe('tab=gestiones&x=1');
+  expect(businessTabParams(new URLSearchParams('tab=historial&x=1'),'resumen').toString()).toBe('x=1');
  });
 });

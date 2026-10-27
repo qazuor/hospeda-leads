@@ -24,6 +24,12 @@ test('send sales material from the business, record it and revoke the link',asyn
  await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Presentación material '+run,estado:'Cargado'});
  await page.goto('/accounts/'+accountId+'?section=comunicacion');
  await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
+ // Spec 91 §13: the open tab is in ?tab= and survives a reload.
+ await page.getByRole('tab',{name:'Historial',exact:true}).click();await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
+ await expect(page).toHaveURL(new RegExp('/accounts/'+accountId+'\\?tab=comunicacion$'));
+ await page.reload();
+ await expect(page.getByRole('tab',{name:'Comunicación',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('region',{name:'Conversación',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Enviar material',exact:true}).click();
  let dialog=page.getByRole('dialog',{name:'Enviar material'});
  await dialog.getByLabel('Buscar material').fill(run);
