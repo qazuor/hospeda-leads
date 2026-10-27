@@ -36,9 +36,10 @@ test('the responsible seller reads the management of her archived business with 
  // ?contact=email must not open the message editor on a read-only management.
  await expect(page.getByRole('dialog')).toHaveCount(0);
  await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
- await page.getByRole('button',{name:/^Respondió, le interesa/}).click();
+ // Spec 90: the response without a message is an event row with its text visible, no summary to expand.
+ await expect(page.getByRole('article',{name:'Respuesta registrada sin mensaje · Respondió, le interesa',exact:true})).toBeVisible();
  await expect(page.getByText(/Le interesa el plan anual/)).toBeVisible();
- for(const name of ['Registrar respuesta recibida','Corregir respuesta'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ for(const name of ['Registrar respuesta sin mensaje','Registrar respuesta recibida','Corregir respuesta','Registrar llamada u otro contacto','Contactar'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
  await expect(page.getByText('Registrar una llamada',{exact:true})).toHaveCount(0);
 });
 

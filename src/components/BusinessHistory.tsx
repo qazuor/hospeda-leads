@@ -7,13 +7,11 @@ import {getBusinessHistory} from '../endpoints/businessHistory.schema';
 import {calendarDay,prettyInstant} from '../helpers/workDates';
 import {formatDate} from '../helpers/crmDates';
 import {outcomeLabel,responseCategoryLabel} from '../helpers/crmLabels';
-import {historyFilterLabels,historyFilters,type HistoryFilter} from '../helpers/historyLabels';
-import {messageLabels} from '../helpers/messageLabels';
+import {historyActorLabel,historyChannelLabel,historyMessageStatus,historyFilterLabels,historyFilters,type HistoryFilter} from '../helpers/historyLabels';
 import {historyPreview} from '../helpers/historyPreview';
 import {Button} from './Button';
 import {Disclosure,DisclosureSummary} from './Disclosure';
 import styles from './BusinessHistory.module.css';
-const channels:Record<string,string>={phone:'Teléfono',whatsapp:'WhatsApp',email:'Email',presencial:'Presencial',videollamada:'Videollamada',other:'Otro'};
 const kindIcons={activity:Phone,message:MessageCircle,communication:Mail,response:Reply,stage:ArrowRightLeft,change:RefreshCw} as const;
 const continuations:Record<string,string>={task:'Se planificó otro paso',wait:'Se acordó esperar hasta una fecha',done:'Se decidió terminar por ahora'};
 export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:string;users?:{email:string;displayName:string}[];readOnly?:boolean}){
@@ -21,7 +19,7 @@ export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:s
  // Pending commitments only show here when the work list below is not rendered (read-only); otherwise they would appear twice.
  // Reuse commercial-detail invalidation after recording work, messages and business changes.
  const q=useQuery({queryKey:['commercial-detail','history',accountId,page,...(filter==='all'?[]:[filter])],queryFn:()=>getBusinessHistory(accountId,page,filter),placeholderData:keepPreviousData});
- const actor=(email:string|null)=>users.find(u=>u.email===email)?.displayName||email||'Sin responsable registrado';
+ const actor=(email:string|null)=>historyActorLabel({email,users});
  if(q.isPending)return <p role="status"><Loader size="sm"/> Cargando historial comercial…</p>;
  if(q.error)return <div role="alert"><p>{q.error.message}</p><Button variant="outline" disabled={q.isFetching} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>void q.refetch()}>Reintentar historial</Button></div>;
  const d=q.data;
@@ -38,8 +36,8 @@ export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:s
   <div className={styles.filters} role="group" aria-label="Filtrar el historial">{historyFilters.map(f=><Button key={f} size="sm" variant={filter===f?'primary':'outline'} aria-pressed={filter===f} disabled={q.isFetching&&filter!==f} disabledReason="Se está actualizando el historial. Esperá un momento." onClick={()=>{setFilter(f);setPage(1);setExpanded(false)}}>{historyFilterLabels[f]}</Button>)}</div>
   {!d.events.length&&<p>{filter==='all'?'Todavía no hay nada registrado en este negocio.':'No hay nada registrado en esta categoría.'}</p>}
   <ol className={styles.events}>{historyPreview(d.events,expanded).map(e=><li key={e.id} data-kind={e.kind}>
-   <div className={styles.eventHead}><h4><span className={styles.eventIcon} data-kind={e.kind} data-channel={e.channel||''}>{React.createElement(e.channel==='whatsapp'&&['activity','message'].includes(e.kind)?MessageSquare:e.channel==='email'&&['activity','message'].includes(e.kind)?Mail:kindIcons[e.kind],{size:16,'aria-hidden':true})}</span>{e.title}</h4><time className={styles.eventDate} dateTime={new Date(e.occurredAt).toISOString()}>{prettyInstant(e.occurredAt)}</time></div><p className={styles.meta}><span>{actor(e.actorEmail)}</span><span>{e.opportunityName||'Del negocio en general'}{e.channel?' · '+(channels[e.channel]||e.channel):''}{e.recipientName?' · '+e.recipientName:''}</span></p>
-   {e.messageStatus&&<p className={styles.status}>{messageLabels[e.messageStatus]||'Estado histórico: '+e.messageStatus}</p>}
+   <div className={styles.eventHead}><h4><span className={styles.eventIcon} data-kind={e.kind} data-channel={e.channel||''}>{React.createElement(e.channel==='call'&&e.kind==='message'?Phone:e.channel==='whatsapp'&&['activity','message'].includes(e.kind)?MessageSquare:e.channel==='email'&&['activity','message'].includes(e.kind)?Mail:kindIcons[e.kind],{size:16,'aria-hidden':true})}</span>{e.title}</h4><time className={styles.eventDate} dateTime={new Date(e.occurredAt).toISOString()}>{prettyInstant(e.occurredAt)}</time></div><p className={styles.meta}><span>{actor(e.actorEmail)}</span><span>{e.opportunityName||'Del negocio en general'}{e.channel?' · '+historyChannelLabel({channel:e.channel,instagram:e.isInstagram}):''}{e.recipientName?' · '+e.recipientName:''}</span></p>
+   {e.messageStatus&&<p className={styles.status}>{historyMessageStatus({status:e.messageStatus,channel:e.channel,actorEmail:e.actorEmail})}</p>}
    {e.outcome&&<p><strong>Resultado: </strong>{e.kind==='response'?responseCategoryLabel(e.outcome):outcomeLabel(e.outcome)}</p>}
    {e.result&&<p className={styles.text}>{e.result}</p>}
    {e.continuation&&<p className={styles.continuation}>{continuations[e.continuation]||e.continuation}</p>}

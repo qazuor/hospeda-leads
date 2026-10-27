@@ -1,5 +1,6 @@
 import {channelLabel,channelLabels,responseCategoryLabel,stageLabel} from './crmLabels';
 import {messageLabels} from './messageLabels';
+import {ECHO_SENDER,ECHO_STATUS,INSTAGRAM_ECHO_OWNER} from './instagramChannel';
 
 /** Filters of the unified "Qué pasó" timeline. */
 export const historyFilters=['all','contact','management','change'] as const;
@@ -29,8 +30,30 @@ const changeTitles:Readonly<Record<string,string>>={
 };
 const has=(map:Readonly<Record<string,string>>,key:string)=>Object.hasOwn(map,key);
 
+/** The received message an `inbound_*` journal entry points at (channel, `channel_detail` and sender), read on the server. */
+export type InboundJournalRef={channel?:string|null;detail?:string|null;from?:string|null};
+/**
+ * Channel name shown in Historial (spec 90): `social` is «Instagram» when the row comes from Instagram and «Red social»
+ * otherwise, `call` is «Llamada»; other keys use `channelLabel`. Empty → null (no channel shown).
+ */
+export const historyChannelLabel=({channel,instagram=false}:{channel:string|null|undefined;instagram?:boolean|null}):string|null=>!channel?null:channel==='social'?(instagram?'Instagram':'Red social'):channel==='instagram'?'Instagram':channelLabel(channel);
+/** Actor of a history entry: the Instagram webhook's own account reads «Instagram de Hospeda», never its technical email. */
+export const historyActorLabel=({email,users}:{email:string|null|undefined;users:readonly {email:string;displayName?:string|null}[]}):string=>email===INSTAGRAM_ECHO_OWNER?ECHO_SENDER:users.find(u=>u.email===email)?.displayName||email||'Sin responsable registrado';
+/** Status line of a message entry; an Instagram echo says it was sent from the Instagram app and recorded automatically (as in «Comunicación»). */
+export const historyMessageStatus=({status,channel,actorEmail}:{status:string;channel:string|null|undefined;actorEmail:string|null|undefined}):string=>channel==='social'&&actorEmail===INSTAGRAM_ECHO_OWNER&&status==='manual_sent'?ECHO_STATUS:messageLabels[status]||'Estado histórico: '+status;
+/** Titles of the received-message journal actions; `inbound_received` names the channel and the sender when known. */
+const inboundTitle=(action:string,inbound?:InboundJournalRef|null):string=>{
+ if(action==='inbound_received'){
+  const channel=inbound?.channel==='social'||inbound?.channel==='instagram'?(inbound.detail&&inbound.detail!=='instagram'?'Red social':'Instagram'):inbound?.channel?channelLabel(inbound.channel):'';
+  const from=inbound?.from?.trim();
+  return channel?`Mensaje recibido por ${channel}${from?' de '+from:''}`:'Mensaje recibido';
+ }
+ return ({inbound_matched:'Mensaje asociado',inbound_registered:'Respuesta registrada',inbound_dismissed:'Mensaje descartado'} as Readonly<Record<string,string>>)[action]??'Novedad del mensaje recibido';
+};
+
 /** Title of a timeline entry that comes from a journal: known actions get plain words, unknown ones a generic title (never the raw key). `brevo_event_*` are provider notices. */
-export const journalTitle=({kind,action}:{kind:'communication'|'change';action:string}):string=>{
+export const journalTitle=({kind,action,inbound}:{kind:'communication'|'change';action:string;inbound?:InboundJournalRef|null}):string=>{
+ if(kind==='communication'&&action.startsWith('inbound_'))return inboundTitle(action,inbound);
  const map=kind==='communication'?communicationTitles:changeTitles;
  if(has(map,action))return map[action];
  if(kind==='communication'&&action.startsWith('brevo_event_'))return 'Novedad del envío de email';

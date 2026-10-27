@@ -15,7 +15,7 @@ import {BusinessContactDialog} from '../BusinessContactDialog';
 import {InboundMessageActions,INBOUND_REPLY_RESTRICTED,canWriteInbound} from '../InboundMessageActions';
 import {AutoRegistrationVoidButton,canVoidAutoRegistration} from '../AutoRegistrationVoid';
 import {ResponseRecordDialog,type ResponseDialogRequest} from '../ResponseRecordDialog';
-import {inboxChannelLabel,inboxEventInbound,inboxMessageKey,type InboxChannel,type InboxEvent,type InboxPage,type InboxThreadRow} from './inboxTypes';
+import {inboxChannelLabel,inboxRowsInstagram,inboxEventInbound,inboxMessageKey,type InboxChannel,type InboxEvent,type InboxPage,type InboxThreadRow} from './inboxTypes';
 import styles from './Inbox.module.css';
 
 /** Older pages loaded automatically while looking for the message a search result points at. */
@@ -71,12 +71,12 @@ export function InboxDetail({accountId,thread,channel,accountName,message,back}:
   if(event.kind==='out')return event.autoRegistrationId&&canVoidAutoRegistration({readOnly:false,canWrite,admin,userEmail,registrationId:event.autoRegistrationId,registrationUserEmail:event.autoRegistrationUserEmail,status:event.status})?<div className={styles.messageActions}><AutoRegistrationVoidButton registrationId={event.autoRegistrationId}/></div>:null;
   if(event.dismissed)return null;
   const item=inboxEventInbound({event,leadId});
-  return <div className={styles.messageActions}>{item.canReply&&item.replyRestricted&&<p role="note">{INBOUND_REPLY_RESTRICTED}</p>}<InboundMessageActions item={item} canWrite={canWrite} dismissLabel="Descartar" replyStatus={replyStatus} onRegister={inbound=>setResponseRequest({seq:++responseSeq.current,inbound})}/></div>;
+  return <div className={styles.messageActions}>{item.canReply&&item.replyRestricted&&<p role="note">{INBOUND_REPLY_RESTRICTED}</p>}<InboundMessageActions item={item} canWrite={canWrite} replyStatus={replyStatus} onRegister={inbound=>setResponseRequest({seq:++responseSeq.current,inbound})}/></div>;
  };
- const label=(event:InboxEvent)=>event.kind==='out'?(event.isManualLog?`Registro · ${inboxChannelLabel(event.channel)}`:`Vos · ${messageLabels[event.status]??event.status}`):event.voided?'Anulado':event.dismissed?'Descartado':`${event.pending?'Recibido · a revisar':'Recibido'} · ${formatTime(event.at)}`;
+ const label=(event:InboxEvent)=>event.kind==='out'?(event.isManualLog?`Registro · ${inboxChannelLabel(event.channel,event.isInstagram)}`:`Vos · ${messageLabels[event.status]??event.status}`):event.voided?'Anulado':event.dismissed?'Descartado':`${event.pending?'Recibido · a revisar':'Recibido'} · ${formatTime(event.at)}`;
  return <>
   {back}
-  <header><h2>{thread.leadId?thread.leadTitle:'General'} · {inboxChannelLabel(threadChannel??thread.channel)}</h2><p>{accountName||commercial.data?.account.nombre} · {contact?.fromName||contact?.fromAddress||'Contacto no identificado'}</p>{thread.leadId&&<a href={`/sales/${thread.leadId}`}>Abrir gestión</a>}{admin&&<><Button size="sm" variant={includeVoided?'primary':'outline'} aria-pressed={includeVoided} onClick={()=>setIncludeVoided(value=>!value)}>Anulados</Button><HelpLink topic="inbox" hint="voided"/></>}</header>
+  <header><h2>{thread.leadId?thread.leadTitle:'General'} · {inboxChannelLabel(threadChannel??thread.channel,inboxRowsInstagram(loaded))}</h2><p>{accountName||commercial.data?.account.nombre} · {contact?.fromName||contact?.fromAddress||'Contacto no identificado'}</p>{thread.leadId&&<a href={`/sales/${thread.leadId}`}>Abrir gestión</a>}{admin&&<><Button size="sm" variant={includeVoided?'primary':'outline'} aria-pressed={includeVoided} onClick={()=>setIncludeVoided(value=>!value)}>Anulados</Button><HelpLink topic="inbox" hint="voided"/></>}</header>
   {detail.isPending?<div className={styles.skeleton} role="status" aria-label="Cargando mensajes"><i/><i/><i/></div>:detail.error&&!detail.data?<QueryErrorNotice error={detail.error} onRetry={detail.refetch} busy={detail.isFetching}/>:<div className={styles.timeline} ref={timeline}>
    {detail.hasNextPage&&<Button variant="outline" disabled={detail.isFetchingNextPage} disabledReason="Estamos cargando mensajes anteriores." onClick={loadOlder}>{detail.isFetchingNextPage?'Cargando…':'Cargar anteriores'}</Button>}
    {detail.isFetchNextPageError&&<p role="alert">No pudimos cargar los mensajes anteriores. Probá de nuevo con «Cargar anteriores».</p>}

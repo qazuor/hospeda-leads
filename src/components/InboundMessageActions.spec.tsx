@@ -22,7 +22,7 @@ const thread={leadId:null,leadTitle:'General',channel:'email' as const,lastActiv
 const wrap=(node:React.ReactNode)=>{const client=new QueryClient({defaultOptions:{queries:{retry:false}}});const invalidate=vi.spyOn(client,'invalidateQueries');render(<MantineProvider><QueryClientProvider client={client}><MemoryRouter>{node}</MemoryRouter></QueryClientProvider></MantineProvider>);return {invalidate}};
 const hosts=[
  {name:'Comunicación',dismissLabel:'No es una respuesta',mount:()=>wrap(<CommunicationPanel accountId="5"/>)},
- {name:'Bandeja',dismissLabel:'Descartar',mount:()=>wrap(<InboxDetail accountId="5" thread={thread} channel="email" message={null}/>)},
+ {name:'Bandeja',dismissLabel:'No es una respuesta',mount:()=>wrap(<InboxDetail accountId="5" thread={thread} channel="email" message={null}/>)},
 ] as const;
 function setup(items=[inbound],role='user'){mocks.role=role;mocks.getCommunication.mockResolvedValue(communication(items));mocks.getCommercialDetail.mockResolvedValue({account,contacts:[],opportunities:[],users:[{email:'seller@example.com',displayName:'Seller'}]});mocks.getPipeline.mockResolvedValue({stages:[]});mocks.thread.mockResolvedValue({rows:[{...event,replyAvailable:items[0].canReply,replyRestricted:items[0].replyRestricted}],nextCursor:null});}
 beforeAll(()=>{window.matchMedia=window.matchMedia||((query:string)=>({matches:false,media:query,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){},dispatchEvent:()=>false,onchange:null}) as MediaQueryList);globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});

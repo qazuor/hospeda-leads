@@ -25,7 +25,7 @@ async function mock(page:Page,user:typeof owner,business=account,{responses=[] a
 const openResponseDialog=async(page:Page)=>{
  await page.goto('/accounts/301?section=communication');
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Registrar respuesta recibida',exact:true}).click();
+ await page.getByRole('button',{name:'Registrar respuesta sin mensaje',exact:true}).click();
  return page.getByRole('dialog').last();
 };
 
@@ -48,16 +48,16 @@ for(const [who,user,allowed] of [['the business responsible',owner,true],['the r
 test('D1: correcting a response to «Pidió no ser contactado» is disabled for an unrelated seller and enabled for the responsible',async({page})=>{
  await mock(page,stranger,account,{responses:[{...response,actorEmail:stranger.email}]});
  await page.goto('/accounts/301?section=communication');
- await page.getByText('Respondió, le interesa · Negocio',{exact:false}).click();
- await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Respondió, le interesa',exact:true});await expect(event).toBeVisible();
+ await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Pidió no ser contactado',exact:true})).toHaveJSProperty('disabled',true);
 });
 
 test('D1: the responsible can pick «Pidió no ser contactado» while correcting a response',async({page})=>{
  await mock(page,owner,account,{responses:[{...response,actorEmail:owner.email}]});
  await page.goto('/accounts/301?section=communication');
- await page.getByText('Respondió, le interesa · Negocio',{exact:false}).click();
- await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Respondió, le interesa',exact:true});await expect(event).toBeVisible();
+ await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Pidió no ser contactado',exact:true})).toHaveJSProperty('disabled',false);
 });
 
@@ -89,8 +89,8 @@ test('1C: only an admin can lift a No contactar block by correcting its response
  const dnc={...response,category:'do_not_contact',summary:'Pidió no ser contactado'};
  await mock(page,owner,{...account,doNotContact:true},{responses:[{...dnc,actorEmail:owner.email}]});
  await page.goto('/accounts/301?section=communication');
- await page.getByText('Pidió no ser contactado · Negocio',{exact:false}).click();
- await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Pidió no ser contactado',exact:true});await expect(event).toBeVisible();
+ await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByTestId('dnc-lift-denied')).toContainText('Solo un administrador puede levantar el bloqueo No contactar');
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Respondió, le interesa',exact:true})).toHaveJSProperty('disabled',true);
 });
@@ -98,8 +98,8 @@ test('1C: only an admin can lift a No contactar block by correcting its response
 test('1C: an admin can still change the category of a No contactar response',async({page})=>{
  await mock(page,admin,{...account,doNotContact:true},{responses:[{...response,category:'do_not_contact',actorEmail:admin.email}]});
  await page.goto('/accounts/301?section=communication');
- await page.getByText('Pidió no ser contactado · Negocio',{exact:false}).click();
- await page.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Pidió no ser contactado',exact:true});await expect(event).toBeVisible();
+ await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByTestId('dnc-lift-denied')).toHaveCount(0);
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Respondió, le interesa',exact:true})).toHaveJSProperty('disabled',false);
 });

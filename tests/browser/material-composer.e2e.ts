@@ -50,7 +50,7 @@ test('send sales material from the business, record it and revoke the link',asyn
  expect(message.materials.map((m:any)=>[m.materialId,m.sentVersion,m.revokedAt])).toEqual([[materialId,1,null]]);
  // The record in «Comunicación»: revoke with a reason; the public link answers 410 from then on.
  await page.goto('/accounts/'+accountId+'?section=comunicacion');await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
- await page.getByRole('button',{name:/WhatsApp abierto/}).first().click();
+ // Spec 90: the sent message is a bubble in «Conversación» with its material record right under it.
  // Opening WhatsApp is not evidence of sending: the record never says «Versión enviada» for it.
  await expect(page.getByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeVisible();await expect(page.getByText(/Envío no confirmado/)).toBeVisible();await expect(page.getByText(/Versión enviada/)).toHaveCount(0);
  expect((await request.get('/m/'+token,{headers:{'user-agent':'WhatsApp/2.23.20.0'}})).status()).toBe(200);
