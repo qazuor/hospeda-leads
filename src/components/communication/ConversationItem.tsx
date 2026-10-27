@@ -118,7 +118,7 @@ function MessageMaterialRecord({view,message}:{view:CommunicationView;message:Me
 
 type ItemProps<T>={view:CommunicationView;entry:T;highlighted:boolean};
 /** Every row can be scrolled to and briefly highlighted from «Requiere acción» (spec 91 §9). */
-const rowProps=(entry:TimelineEntry,highlighted:boolean)=>({id:timelineDomId(entry.key),tabIndex:-1,'data-highlight':highlighted||undefined});
+const rowProps=(entry:TimelineEntry,highlighted:boolean)=>({id:timelineDomId(entry.key),tabIndex:-1,'data-highlight':highlighted||undefined,'data-channel':entry.channel});
 
 function Received({view,entry,highlighted}:ItemProps<ReceivedEntry>){
  const item=entry.inbound,panels=useItemPanels(),label=`${entry.channelLabel} recibido de ${entry.sender}`;

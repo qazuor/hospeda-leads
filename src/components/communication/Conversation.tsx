@@ -102,7 +102,7 @@ export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus
   <div className={styles.frameHead}>
    <h4 className={styles.sectionTitle}>Conversación</h4>
    <div className={styles.filters}>
-    {entries.length>0&&<div role="group" aria-label="Filtrar la conversación por canal" className={styles.chips}>{chips.map(chip=><Button key={chip.channel} size="sm" variant={active===chip.channel?'primary':'outline'} aria-pressed={active===chip.channel} onClick={()=>{setChannel(chip.channel);setShowOlder(false)}}>{chip.label} · {chip.count}</Button>)}</div>}
+    {entries.length>0&&<div role="group" aria-label="Filtrar la conversación por canal" className={styles.chips}>{chips.map(chip=><Button key={chip.channel} size="sm" variant={active===chip.channel?'primary':'outline'} aria-pressed={active===chip.channel} onClick={()=>{setChannel(chip.channel);setShowOlder(false)}}>{chip.channel!=='all'&&<span className={styles.chipDot} data-channel={chip.channel} aria-hidden="true"/>}{chip.label} · {chip.count}</Button>)}</div>}
     {options.length>0&&<CrmNativeSelect size="xs" aria-label="Filtrar la conversación por gestión" className={styles.managementFilter} value={activeManagement} onChange={event=>{setManagement(event.currentTarget.value as ManagementFilter);setShowOlder(false)}} data={options}/>}
     {view.admin&&<Switch className={styles.voidedSwitch} size="sm" label="Mostrar anulados" checked={includeVoided} onChange={onToggleVoided}/>}
    </div>

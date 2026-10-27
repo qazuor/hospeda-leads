@@ -31,7 +31,7 @@
 .channel[data-channel="whatsapp"]{color:var(--tone-green-ink)}.channel[data-channel="email"]{color:var(--tone-blue-ink)}.channel[data-channel="instagram"]{color:var(--tone-pink-ink)}.channel[data-channel="call"],.channel[data-channel="other"]{color:var(--tone-slate-ink)}
 .context{border-radius:6px;padding:2px 8px;background:var(--muted);color:var(--muted-foreground);font-size:12px;font-weight:600}
 .bubble{padding:12px 14px;border-radius:4px 14px 14px 14px;background:var(--muted);line-height:1.55;min-width:0;max-width:100%;overflow-wrap:anywhere}
-.row[data-side="out"] .bubble{border-radius:14px 4px 14px 14px;background:var(--comm-sent-bubble)}
+.row[data-side="out"] .bubble{border-radius:14px 4px 14px 14px}
 .row[data-voided] .bubble{opacity:.65}
 .subject{display:block;margin-bottom:4px;font-size:13px}
 .text{margin:0;white-space:pre-wrap;font:inherit}
@@ -92,8 +92,6 @@
 .jump:hover{border-color:var(--tone-orange-ink)}.jumpMeta{font-weight:400}
 @media (max-width:600px){.actionBar{flex-wrap:wrap}.voidedSwitch{padding-left:0;border-left:0}}
 /* Spec 91 review: sent bubbles carry a clear brand tint (received stays neutral grey). */
-.view{--comm-sent-bubble:color-mix(in srgb,var(--primary) 16%,var(--card))}
-:global(.dark) .view{--comm-sent-bubble:color-mix(in srgb,var(--primary) 30%,var(--card))}
 /*
  * Spec 91 review 2: «Conversación» is a chat window. A card frame with a fixed header and footer and a body with its own scroll.
  * Height: the frame grows with its content up to a max height (no big empty box for short histories). The max is the viewport
@@ -146,3 +144,29 @@
 .headActions .menuButton,.eventTail .menuButton{width:24px;padding-inline:0!important}
 .headActions [role="status"]{margin:0;font-size:11px}
 @media (max-width:600px){.bubbleLine{max-width:92%}.bubbleWrap{max-width:100%}}
+/*
+ * Spec 91 owner review: the platform shows through colour, the side through position.
+ * Received: card bubble with a 3px platform edge on the left. Sent: a light platform tint with a 3px platform edge on the
+ * right. Unconfirmed sends: dashed platform border on the card. Calls and responses without a message: a compact system box
+ * tinted with their channel. Text stays --foreground on every tint (light tints in light mode, dark tints in dark mode).
+ */
+.row{--platform:var(--platform-other)}
+.row[data-channel="whatsapp"]{--platform:var(--platform-whatsapp)}
+.row[data-channel="instagram"]{--platform:var(--platform-instagram)}
+.row[data-channel="email"]{--platform:var(--platform-email)}
+.row[data-channel="call"]{--platform:var(--platform-call)}
+.frameBody .row[data-side="in"] .bubble{background:var(--chat-bubble-in);border-left:3px solid var(--platform);box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 8%,transparent)}
+.frameBody .row[data-side="out"] .bubble{background:color-mix(in srgb,var(--platform) 16%,var(--card));border-right:3px solid var(--platform);box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 8%,transparent)}
+:global(.dark) .frameBody .row[data-side="out"] .bubble{background:color-mix(in srgb,var(--platform) 22%,var(--card))}
+.frameBody .row[data-side="out"]:is([data-tone=unconfirmed],[data-tone=not_done],[data-tone=failed]) .bubble{background:var(--chat-bubble-in);border:1.5px dashed var(--platform);color:var(--muted-foreground)}
+.frameBody .row[data-side="out"][data-tone=failed] .bubble{border-color:var(--tone-red-ink)}
+.view .frameBody article.event{gap:2px;max-width:min(100%,520px);padding:6px 12px;border-radius:12px;background:color-mix(in srgb,var(--platform) 12%,var(--chat-bubble-in));border:1px solid color-mix(in srgb,var(--platform) 45%,var(--chat-bubble-in));box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 6%,transparent)}
+:global(.dark) .view .frameBody article.event{background:color-mix(in srgb,var(--platform) 18%,var(--card));border-color:color-mix(in srgb,var(--platform) 50%,var(--card))}
+.frameBody .event .eventLine,.frameBody .event .eventNote{color:var(--foreground)}
+.frameBody .event .eventLine{font-size:12px}
+.frameBody .event .eventNote{font-size:13px}
+/* Day separators as small centred pills (WhatsApp-like); «Nuevo desde tu última visita» stays a coloured line with a label. */
+.frameBody .day{align-self:center;gap:0;padding:3px 10px;border-radius:8px;background:var(--chat-bubble-in);color:var(--foreground);font-size:12px;font-weight:600;box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 10%,transparent)}
+.frameBody .day::before,.frameBody .day::after{content:none}
+.chipDot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--platform-other);flex:none}
+.chipDot[data-channel="whatsapp"]{background:var(--platform-whatsapp)}.chipDot[data-channel="instagram"]{background:var(--platform-instagram)}.chipDot[data-channel="email"]{background:var(--platform-email)}.chipDot[data-channel="call"]{background:var(--platform-call)}
