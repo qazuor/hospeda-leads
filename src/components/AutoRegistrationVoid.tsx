@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {postCommunication} from '../endpoints/communication.schema';
@@ -31,25 +31,33 @@ function skippedMessages(data:unknown):string[]{
 }
 
 /**
- * «Anular registro» for an automatic WhatsApp registration, shared by the business «Comunicación» tab and the Bandeja.
- * Requires a reason, blocks a second submit while pending and keeps the choice after an error. Render it only when
- * `canVoidAutoRegistration` allows it.
+ * The «Anular registro automático» dialog, controlled by its host (the «⋯» menu of «Comunicación», spec 91, or
+ * {@link AutoRegistrationVoidButton}). Requires a reason, blocks a second submit while pending (it cannot be closed then) and
+ * keeps the choice after an error. Opening it starts clean. Render it only when `canVoidAutoRegistration` allows it.
  */
-export function AutoRegistrationVoidButton({registrationId}:{registrationId:string}){
+export function AutoRegistrationVoidDialog({registrationId,open,onClose}:{registrationId:string;open:boolean;onClose:()=>void}){
  const qc=useQueryClient();
- const [open,setOpen]=useState(false),[choice,setChoice]=useState(''),[other,setOther]=useState('');
+ const [choice,setChoice]=useState(''),[other,setOther]=useState('');
  const mutation=useGuardedMutation({mutationFn:postCommunication,onSuccess:(data:unknown)=>{
   for(const queryKey of [['communication'],['inbox'],['work'],['global-journal'],['lead-journal']])void qc.invalidateQueries({queryKey});
-  setOpen(false);setChoice('');setOther('');crmSuccess('Registro anulado');
+  onClose();setChoice('');setOther('');crmSuccess('Registro anulado');
   for(const message of skippedMessages(data))toast.warning(message);
  }});
+ const {reset}=mutation;
+ useEffect(()=>{if(open){setChoice('');setOther('');reset()}},[open,reset]);
  const otherInvalid=choice==='Otro'&&(other.trim().length<3||other.trim().length>500);
- return <>
-  <Button size="sm" variant="outline" disabled={mutation.isPending} disabledReason={BUSY} onClick={()=>{setChoice('');setOther('');mutation.reset();setOpen(true)}}>Anular registro</Button>
-  <Dialog open={open} onOpenChange={value=>{if(!value&&!mutation.isPending)setOpen(false)}}><DialogContent><DialogHeader><DialogTitle>Anular registro automático</DialogTitle><DialogDescription>Elegí el motivo. La anulación queda registrada en el historial del negocio.</DialogDescription></DialogHeader><div className={styles.panel}>
+ return <Dialog open={open} onOpenChange={value=>{if(!value&&!mutation.isPending)onClose()}}><DialogContent><DialogHeader><DialogTitle>Anular registro automático</DialogTitle><DialogDescription>Elegí el motivo. La anulación queda registrada en el historial del negocio.</DialogDescription></DialogHeader><div className={styles.panel}>
    {VOID_REASONS.map(option=><label key={option} style={{display:'flex',gap:8,alignItems:'center'}}><input type="radio" name={`auto-void-reason-${registrationId}`} value={option} checked={choice===option} disabled={mutation.isPending} onChange={()=>setChoice(option)}/>{option}</label>)}
    {choice==='Otro'&&<label>Motivo (3–500 caracteres)<textarea value={other} maxLength={500} minLength={3} disabled={mutation.isPending} onChange={event=>setOther(event.target.value)} rows={4}/></label>}
    {mutation.error&&<p role="alert">{mutation.error.message}</p>}
-  </div><DialogFooter><Button variant="outline" disabled={mutation.isPending} disabledReason={BUSY} onClick={()=>setOpen(false)}>Cancelar</Button><Button disabled={!choice||otherInvalid||mutation.isPending} disabledReason={mutation.isPending?BUSY:'Elegí un motivo y completá el texto si seleccionaste «Otro».'} onClick={()=>mutation.mutate({action:'auto_registration_void',id:registrationId,reason:choice==='Otro'?other.trim():choice})}>{mutation.isPending?'Anulando…':'Anular registro'}</Button></DialogFooter></DialogContent></Dialog>
+  </div><DialogFooter><Button variant="outline" disabled={mutation.isPending} disabledReason={BUSY} onClick={onClose}>Cancelar</Button><Button disabled={!choice||otherInvalid||mutation.isPending} disabledReason={mutation.isPending?BUSY:'Elegí un motivo y completá el texto si seleccionaste «Otro».'} onClick={()=>mutation.mutate({action:'auto_registration_void',id:registrationId,reason:choice==='Otro'?other.trim():choice})}>{mutation.isPending?'Anulando…':'Anular registro'}</Button></DialogFooter></DialogContent></Dialog>;
+}
+
+/** «Anular registro» for an automatic WhatsApp registration as a button (the Bandeja), opening {@link AutoRegistrationVoidDialog}. */
+export function AutoRegistrationVoidButton({registrationId}:{registrationId:string}){
+ const [open,setOpen]=useState(false);
+ return <>
+  <Button size="sm" variant="outline" onClick={()=>setOpen(true)}>Anular registro</Button>
+  <AutoRegistrationVoidDialog registrationId={registrationId} open={open} onClose={()=>setOpen(false)}/>
  </>;
 }
