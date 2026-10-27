@@ -1,5 +1,9 @@
 # Pendientes y próximo trabajo
 
+## Spec 90 — comunicación en la ficha — cerrada en `staging`
+
+[Spec 90](crm-roadmap/90-business-communication-view.md) mergeada en `staging` (#268) el 27/10/2026. No tiene migraciones ni variables nuevas, así que para producción alcanza con promover `staging`. Seguimiento posible: en la Bandeja, las filas y filtros mezclados dicen «Instagram / Red social».
+
 ## Specs 87 y 88 — cerradas en `staging`, pendientes de producción
 
 Specs 87 (#262) y 88 (#260), mergeadas en `staging` el 26/10/2026. **Para producción**, cuando el propietario promueva `staging`:
