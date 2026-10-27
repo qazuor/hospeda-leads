@@ -1,5 +1,6 @@
+import {useState} from 'react';
 import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
-import {act,cleanup,render,screen} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import {toast} from 'sonner';
 import {Dialog,DialogContent,DialogTitle} from './Dialog';
@@ -31,5 +32,21 @@ describe('toasts over dialogs (regression: a toast rendered behind a dialog over
   expect(zOf(toaster)).toBeGreaterThan(zOf(top));
   expect(zOf(toaster)).toBeGreaterThan(zOf(bottom));
   expect(zOf(top)).toBeGreaterThan(zOf(bottom));
+ });
+ it('moves toasts to the top centre while a dialog is open, so they never cover its footer actions, and back afterwards',async()=>{
+  function Harness(){const [open,setOpen]=useState(false);return <MantineProvider env="test">
+   <button onClick={()=>setOpen(true)}>Abrir</button>
+   <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogTitle>Panel</DialogTitle><button onClick={()=>setOpen(false)}>Guardar</button></DialogContent></Dialog>
+   <SonnerToaster/>
+  </MantineProvider>;}
+  render(<Harness/>);
+  act(()=>{toast.success('Negocio creado');});
+  const toasterOf=async()=>(await screen.findByText('Negocio creado')).closest('[data-sonner-toaster]') as HTMLElement;
+  expect((await toasterOf()).dataset.yPosition).toBe('bottom');
+  fireEvent.click(screen.getByRole('button',{name:'Abrir'}));await screen.findByRole('dialog',{name:'Panel'});
+  // A toast fired before the dialog opened moves too.
+  expect((await toasterOf()).dataset.yPosition).toBe('top');expect((await toasterOf()).dataset.xPosition).toBe('center');
+  fireEvent.click(screen.getByRole('button',{name:'Guardar'}));
+  await vi.waitFor(async()=>expect((await toasterOf()).dataset.yPosition).toBe('bottom'));
  });
 });

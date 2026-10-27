@@ -38,3 +38,7 @@ export function useDialogLayer(open:boolean){
  const current=useSyncExternalStore(subscribe,snapshot,()=>empty);
  return {active:current.at(-1)?.id===identity.current,...dialogZIndex({index:current.findIndex(item=>item.id===identity.current)})};
 }
+/** True while any tracked dialog is open. The toaster uses it to move away from dialog footers, where primary actions live. */
+export function useHasOpenDialog():boolean{
+ return useSyncExternalStore(subscribe,snapshot,()=>empty).length>0;
+}
