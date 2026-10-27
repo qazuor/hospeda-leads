@@ -52,7 +52,7 @@ test('(a) an admin opens the Bandeja, dismisses a pending inbound and the pendin
   await expect(page.getByRole('heading',{name:'General · Email',exact:true})).toBeVisible();
   const bubble=page.locator('article').filter({hasText:text});
   await expect(bubble).toContainText('Recibido · a revisar');
-  await bubble.getByRole('button',{name:'Descartar',exact:true}).click();
+  await bubble.getByRole('button',{name:'No es una respuesta',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Descartar email'});
   await dialog.getByLabel('Motivo').fill('Es una consulta de otro negocio');
   await dialog.getByRole('button',{name:'Descartar email',exact:true}).click();

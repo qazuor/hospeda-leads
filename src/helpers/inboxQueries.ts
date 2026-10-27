@@ -2,6 +2,7 @@ import {sql,type RawBuilder} from 'kysely';
 import type {InboxUser} from './inboxTypes';
 import {db} from './db';
 import {normalizeSearchSql} from './searchSql';
+import {instagramInboundSql,instagramOutboundSql} from './instagramChannelSql';
 import {argentinaInstant} from './workDates';
 import superjson from 'superjson';
 import {getServerUserSession} from './getServerUserSession';
@@ -74,7 +75,7 @@ export async function inboxSearch(request:Request){try{
  const rows=allRows.slice(0,a.limit).map(row=>({
   kind:row.kind,id:row.id,accountId:row.accountId,accountName:row.accountName,
   leadId:row.leadId,leadTitle:row.leadTitle,
-  channel:row.channel,at:row.at,snippet:buildInboxSnippet(String(row.text??''),term)
+  channel:row.channel,isInstagram:row.isInstagram===true,at:row.at,snippet:buildInboxSnippet(String(row.text??''),term)
  }));
  const last=allRows[a.limit-1];
  return json({rows,nextCursor:allRows.length>a.limit&&last?encodeInboxCursor({
@@ -175,7 +176,7 @@ export async function queryInboxThreadEvents(accountId:string,leadId:string|null
    NULL::text AS "fromName",NULL::text AS "fromAddress",false AS pending,false AS dismissed,
    (m.channel IN ('call','social','other') OR m.status LIKE 'manual_%') AS "isManualLog",false AS "replyAvailable",false AS "replyRestricted",
    coalesce(m.subject,'') AS subject,false AS "isAutomatic",NULL::text AS "linkedMessageId",m.status='voided' AS voided,
-   ar.id::text AS "autoRegistrationId",ar.user_email AS "autoRegistrationUserEmail"
+   ar.id::text AS "autoRegistrationId",ar.user_email AS "autoRegistrationUserEmail",${instagramOutboundSql('m')} AS "isInstagram"
   FROM crm_messages m
   LEFT JOIN LATERAL (SELECT r.id,r.user_email FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) ar ON true
   WHERE m.account_id=${accountId} AND m.lead_id IS NOT DISTINCT FROM ${leadId}::bigint AND m.channel=${channel}
@@ -183,7 +184,7 @@ export async function queryInboxThreadEvents(accountId:string,leadId:string|null
   UNION ALL
   SELECT 'in',i.id::text,i.received_at,i.channel,i.status,i.text_body,NULL::text,NULL::text,i.from_name,i.from_address,
    ${pendingInbound('i')},i.status='dismissed',false,${replySql.canReply},${replySql.replyRestricted},
-   coalesce(i.subject,''),i.is_automatic,i.linked_message_id::text,i.status='voided',ar.id::text,ar.user_email
+   coalesce(i.subject,''),i.is_automatic,i.linked_message_id::text,i.status='voided',ar.id::text,ar.user_email,${instagramInboundSql('i')}
   FROM crm_inbound_messages i
   JOIN crm_accounts a ON a.id=i.account_id LEFT JOIN leads l ON l.id=i.lead_id
   LEFT JOIN LATERAL (SELECT r.id,r.user_email FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) ar ON true
@@ -205,7 +206,7 @@ export async function queryInboxSearch(user:InboxUser,seesAll:boolean,query:stri
  const matches=(column:string)=>sql<boolean>`${normalizeSearchSql(sql<string>`${sql.ref(column)}`)} LIKE ${pattern} ESCAPE '\\'`;
  return sql`WITH hits AS (
   SELECT 'out'::text AS kind,m.id::text AS id,m.account_id,m.lead_id,m.channel,coalesce(m.last_interaction_at,m.created_at) AS at,
-   coalesce(m.subject,'')||' '||coalesce(m.body,'')||' '||coalesce(m.summary,'') AS text
+   coalesce(m.subject,'')||' '||coalesce(m.body,'')||' '||coalesce(m.summary,'') AS text,${instagramOutboundSql('m')} AS is_instagram
   FROM crm_messages m
   WHERE ${includedOutbound('m')} AND (${direction!=='in'})
    AND (${channel??null}::text IS NULL OR m.channel=${channel??null})
@@ -213,7 +214,7 @@ export async function queryInboxSearch(user:InboxUser,seesAll:boolean,query:stri
    AND (${toAt}::timestamptz IS NULL OR coalesce(m.last_interaction_at,m.created_at)<${toAt})
    AND (${matches('m.subject')} OR ${matches('m.body')} OR ${matches('m.summary')})
   UNION ALL
-  SELECT 'in',i.id::text,i.account_id,i.lead_id,i.channel,i.received_at,coalesce(i.subject,'')||' '||coalesce(i.text_body,'')
+  SELECT 'in',i.id::text,i.account_id,i.lead_id,i.channel,i.received_at,coalesce(i.subject,'')||' '||coalesce(i.text_body,''),${instagramInboundSql('i')}
   FROM crm_inbound_messages i
   WHERE ${listedInbound('i')} AND (${direction!=='out'}) -- dismissed is detail-only
    AND (${channel??null}::text IS NULL OR i.channel=${channel??null})
@@ -222,7 +223,7 @@ export async function queryInboxSearch(user:InboxUser,seesAll:boolean,query:stri
    AND (${matches('i.subject')} OR ${matches('i.text_body')})
  )
  SELECT h.kind,h.id,h.account_id::text AS "accountId",a.nombre AS "accountName",h.lead_id::text AS "leadId",
-  CASE WHEN h.lead_id IS NULL THEN 'General' ELSE l.opportunity_name END AS "leadTitle",h.channel,h.at,h.text,${cursorAt(sql`h.at`)} AS "cursorAt"
+  CASE WHEN h.lead_id IS NULL THEN 'General' ELSE l.opportunity_name END AS "leadTitle",h.channel,h.is_instagram AS "isInstagram",h.at,h.text,${cursorAt(sql`h.at`)} AS "cursorAt"
  FROM hits h JOIN crm_accounts a ON a.id=h.account_id LEFT JOIN leads l ON l.id=h.lead_id
  WHERE ${visibleRow(user,seesAll)}
   ${cursor?sql`AND (h.at,h.id,h.kind)<(${cursor.at}::text::timestamptz,${cursor.id},${cursor.kind})`:sql``}
