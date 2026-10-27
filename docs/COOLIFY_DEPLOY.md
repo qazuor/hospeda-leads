@@ -75,6 +75,20 @@ Un barrido interno corre cada 6 horas (y un minuto después de arrancar) y borra
 
 Antes del deploy de F1: el propietario borra a mano sus materiales de prueba en Configuración → «Biblioteca» con la acción existente. Después del deploy la biblioteca vieja deja de mostrarse (sus filas quedan en la base, inertes) y `/library` redirige a `/sales-material`. Ningún agente borra filas de producción.
 
+### Enlaces públicos `/m/<token>`: IP del cliente y Open Graph (spec 89)
+
+- **`PUBLIC_APP_URL` es obligatoria** para las vistas previas: `og:url` y `og:image` se arman solo con ella. Si falta, la página omite `og:url` y `og:image` (nunca usa la cabecera `Host`, que controla quien pide).
+- **`CRM_CLIENT_IP_HEADER`** define de dónde sale la IP del cliente para el límite de tasa de `/m/*` (300 pedidos por minuto por IP; 20 tokens inexistentes cada 10 minutos, que solo corta a quien adivina, nunca a un enlace válido). Una sola fuente, el resto de las cabeceras se ignora:
+
+  | Valor | Fuente | Cuándo |
+  | --- | --- | --- |
+  | `x-real-ip` (por defecto) | `X-Real-IP`, que Traefik pisa con la dirección que vio | Coolify sin Cloudflare delante |
+  | `cf-connecting-ip` | `CF-Connecting-IP` | **Solo** si el origen acepta tráfico únicamente de Cloudflare (firewall del VPS a los rangos de Cloudflare, o Tunnel). Si no, cualquiera puede falsificarla |
+  | `x-forwarded-for` | el último elemento de `X-Forwarded-For` (el que agregó nuestro proxy) | Un solo proxy de confianza que agrega la IP al final |
+  | `none` | la dirección del socket | Sin proxy, o si no se confía en ninguna cabecera |
+
+  Si el dominio pasa por Cloudflare y no se usa `cf-connecting-ip`, `X-Real-IP` trae la IP de un nodo de Cloudflare: todos los clientes comparten el límite (el de 300 por minuto es generoso a propósito). Un valor desconocido vuelve al por defecto.
+
 ## Migraciones
 
 El contenedor incluye `scripts/` y `migrations/`.
