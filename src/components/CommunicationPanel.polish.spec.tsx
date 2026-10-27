@@ -55,7 +55,7 @@ describe('bubbles, slim lines and the «⋯» menu (§1–§4)',()=>{
   expect(within(conversation).queryAllByText('Sin gestión').filter(el=>el.tagName!=='OPTION')).toEqual([]);
   expect(within(conversation).queryByRole('button',{name:/^Corregir/})).toBeNull();
   const call=screen.getByRole('article',{name:'Llamada registrada · No atendió'});
-  expect(call.textContent).toContain('Llamada · No atendió · Seller · ');expect(within(call).getByText('Sonó y no atendió')).toBeTruthy();
+  expect(call.textContent).toMatch(/^\d{2}:\d{2} · Llamada · No atendió · Seller/);expect(within(call).getByText('Sonó y no atendió')).toBeTruthy();
   fireEvent.click(within(call).getByRole('button',{name:'Más acciones · Llamada registrada · No atendió'}));
   fireEvent.click(await screen.findByRole('menuitem',{name:'Corregir cómo salió o el resumen'}));
   expect(await within(call).findByRole('button',{name:'Cancelar corrección'})).toBeTruthy();
@@ -67,6 +67,21 @@ describe('bubbles, slim lines and the «⋯» menu (§1–§4)',()=>{
   fireEvent.click(within(sent).getByRole('button',{name:/^Más acciones · /}));
   fireEvent.click(await screen.findByRole('menuitem',{name:'Anular registro'}));
   expect(await screen.findByRole('heading',{name:'Anular registro automático'})).toBeTruthy();
+ });
+ it('puts time, channel, sender, badges and compact actions on one header line above the bubble',async()=>{
+  setup({role:'admin',data:{messages:[message('opened',{status:'whatsapp_opened',leadId:'9',lastInteractionAt:day(2)}),message('mail',{channel:'email',subject:'Propuesta',status:'accepted',htmlBody:'<p>Hola</p>',lastInteractionAt:day(3)})],inbound:[inbound('review',{status:'pending_review',channel:'social',fromAddress:'@aguasdemo',fromName:'',receivedAt:day(4)})]}});show();await ready();
+  const headOf=(name:string)=>screen.getByRole('article',{name}).firstElementChild as HTMLElement;
+  const received=screen.getByRole('article',{name:/recibido de @aguasdemo$/}),head=received.firstElementChild as HTMLElement;
+  expect(head.textContent).toMatch(/^\d{2}:\d{2}·.+·@aguasdemoPor revisarRegistrar respuestaNo es una respuesta$/);
+  expect(within(head).getByRole('button',{name:'Registrar respuesta'})).toBeTruthy();
+  // Line 2 is the bubble; no separate tag or status rows remain under it.
+  expect(received.children).toHaveLength(2);
+  const opened=headOf('WhatsApp de Seller · WhatsApp abierto · envío no confirmado');
+  const status=within(opened).getByText('WhatsApp abierto · envío no confirmado');expect(status.getAttribute('data-tone')).toBe('unconfirmed');
+  expect(within(opened).getByText('Gestión: Plan anual')).toBeTruthy();expect(within(opened).getByRole('button',{name:'Sí, se envió'})).toBeTruthy();
+  const mail=headOf('Email de Seller · Email aceptado por proveedor · entrega no confirmada');
+  fireEvent.click(within(mail).getByRole('button',{name:'Ver diseño del email'}));
+  expect(await screen.findByTitle('Vista previa del email')).toBeTruthy();
  });
  it('renders no menu when an item has no secondary action',async()=>{
   setup({data:{inbound:[inbound('in')]}});show();await ready();

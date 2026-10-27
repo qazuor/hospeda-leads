@@ -320,7 +320,7 @@
           "Usá los botones de canal que están arriba de la conversación (Todo, WhatsApp, Email, Instagram, Llamadas) para ver uno solo. Si hay muchos mensajes, se ven los últimos 30 y el resto con «Ver anteriores».",
           "Si los mensajes son de más de una gestión, elegí una en «Todas las gestiones» para ver solo esa, o los que no tienen gestión. Se combina con los botones de canal.",
           "Al abrir la pestaña ves lo más nuevo. Si subís a leer, «Ir al último» te lleva de nuevo abajo. La línea «Nuevo desde tu última visita» marca lo que llegó desde la última vez que entraste, sin contar lo que hiciste vos.",
-          "Corregir un resultado o una respuesta, anular un registro automático o ver el diseño de un email está en el menú ⋯ de cada mensaje.",
+          "Cada mensaje tiene arriba una línea con la hora, el canal, quién lo escribió, sus marcas (por ejemplo «Por revisar» o el estado del envío) y botones chicos como «Registrar respuesta», «Sí, se envió» o «Ver diseño»; debajo va el mensaje. Corregir un resultado o una respuesta y anular un registro automático están en el menú ⋯.",
           "Debajo del último mensaje, «Preparar respuesta» abre «Contactar» con el canal y el destinatario del último mensaje recibido. Si ese canal o destinatario no se puede usar, abre «Contactar» como siempre y te dice por qué. Solo prepara el mensaje: no cuenta como contacto.",
           "El estado de cada envío es el comprobado: «Email aceptado por proveedor · entrega no confirmada» no significa que lo leyeron, y «WhatsApp abierto · envío no confirmado» no significa que se envió.",
           "Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.",
@@ -361,7 +361,8 @@
           "Todas las gestiones",
           "Ir al último",
           "Nuevo desde tu última visita",
-          "Preparar respuesta"
+          "Preparar respuesta",
+          "Ver diseño"
         ]
       },
       {
