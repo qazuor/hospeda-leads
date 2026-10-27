@@ -46,7 +46,8 @@ export const RichTemplateEditor=({
 }:{
   value:string;
   onChange:(html:string)=>void;
-  channel:"whatsapp"|"email";
+  /** `instagram` (spec 92) is plain text: Instagram shows `*asterisks*` literally, so there is no bold, italic or strike. */
+  channel:"whatsapp"|"email"|"instagram";
   showVariables?:boolean;
   ariaLabel?:string;
   messageVariables?:MessageVariableDefinition[];
@@ -66,6 +67,7 @@ export const RichTemplateEditor=({
       Document,Paragraph,Text,Bold,Italic,Strike,HardBreak,History,
       Link.configure({openOnClick:false,autolink:true,defaultProtocol:"https"})
     ];
+    if(channel==="instagram")return [Document,Paragraph,Text,HardBreak,History,Link.configure({openOnClick:false,autolink:true,defaultProtocol:"https"})];
     if(withMaterials)base.push(SalesMaterialNode.configure({HTMLAttributes:{class:styles.materialChip}}));
     if(channel==="whatsapp")return base;
     return [
@@ -136,10 +138,10 @@ export const RichTemplateEditor=({
         {toolbarButton("Rehacer",false,()=>editor.chain().focus().redo().run(),<Redo2 size={15}/>)}
       </div>
       <div className={styles.toolGroup}>
-        {toolbarButton("Negrita",editor.isActive("bold"),()=>editor.chain().focus().toggleBold().run(),<BoldIcon size={15}/>)}
-        {toolbarButton("Cursiva",editor.isActive("italic"),()=>editor.chain().focus().toggleItalic().run(),<ItalicIcon size={15}/>)}
+        {channel!=="instagram"&&toolbarButton("Negrita",editor.isActive("bold"),()=>editor.chain().focus().toggleBold().run(),<BoldIcon size={15}/>)}
+        {channel!=="instagram"&&toolbarButton("Cursiva",editor.isActive("italic"),()=>editor.chain().focus().toggleItalic().run(),<ItalicIcon size={15}/>)}
         {channel==="email"&&toolbarButton("Subrayado",editor.isActive("underline"),()=>editor.chain().focus().toggleUnderline().run(),<UnderlineIcon size={15}/>)}
-        {toolbarButton("Tachado",editor.isActive("strike"),()=>editor.chain().focus().toggleStrike().run(),<Strikethrough size={15}/>)}
+        {channel!=="instagram"&&toolbarButton("Tachado",editor.isActive("strike"),()=>editor.chain().focus().toggleStrike().run(),<Strikethrough size={15}/>)}
       </div>
       {channel==="email"&&<>
         <div className={styles.toolGroup}>
@@ -201,7 +203,9 @@ export const RichTemplateEditor=({
       </DropdownMenu>
     </div>}
     <p className={styles.hint}>
-      {channel==="whatsapp"
+      {channel==="instagram"
+        ?"Instagram muestra el texto tal cual: sin negrita ni cursiva. Los links se envían como URL visible."
+        :channel==="whatsapp"
         ?"WhatsApp conserva negrita, cursiva y tachado. Los links se envían como URL visible y quedan clickeables."
         :"Email se guarda como HTML enriquecido compatible con clientes habituales. Evitamos formatos frágiles como fuentes o colores personalizados."}
     </p>

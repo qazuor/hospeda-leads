@@ -1,7 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {CrmNativeSelect} from './ui/CrmNativeSelect';
-import {MessageCircle,Mail,ArrowRight,Plus} from 'lucide-react';
+import {MessageCircle,Mail,ArrowRight,Plus,Instagram} from 'lucide-react';
 import {CrmDialog} from './ui/CrmDialog';
 import {CrmButton as Button} from './ui/CrmButton';
 import {CrmSelect} from './ui/CrmSelect';
@@ -23,20 +23,24 @@ import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {stageLabel,userLabel} from '../helpers/crmLabels';
 import {contactPurposeBlockReason,contactPurposeOptions,defaultContactPurpose,type ContactPurpose} from '../helpers/contactPurpose';
 import {managementDisplayName,VOCAB} from '../content/vocabulary';
+import {normalizeInstagramUsername} from '../helpers/instagramChat';
 import styles from './Commercial.module.css';
 
 const GENERAL='__general';
+type Channel='email'|'whatsapp'|'instagram'|'call'|'social'|'other';
+/** Why «Instagram» is off: the business has no username the composer and the webhook can use (spec 92 §2.1). */
+export const INSTAGRAM_MISSING_REASON='El negocio no tiene un usuario de Instagram válido. Cargalo en "Datos del negocio": es el mismo que usamos para asociar los mensajes recibidos.';
 /**
  * The single "Contactar" dialog. "¿Sobre qué?" picks one open management or "Sin gestión (contacto general)"; the purpose only shows for the general case.
  * Then channel and recipient: a call is made right here (`PhoneCallPanel`), a message goes through its composer, social and other channels through the manual form.
  * Opening or choosing a channel records nothing; every contact ends in "¿Cómo salió?" → "¿Cómo sigue?" unless `onLog` (a task's own completion path) takes over.
  */
-export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,initialLeadId,initialMaterial,onLog,floatingComposer=false,onFloatingClose,onFloatingOpen}:{detail:CommercialDetail;/** «Enviar material» (spec 89 §8.2): added to the message once its draft is ready. Only email and WhatsApp carry it. */initialMaterial?:PickedSalesMaterial;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:'email'|'whatsapp'|'call'|'social'|'other';initialContactId?:string;/** Preselects «¿Sobre qué?» when that management is open; otherwise the usual default applies. */initialLeadId?:string;onLog?:(contactId:string,channel:string)=>void;floatingComposer?:boolean;onFloatingClose?:(floating:boolean)=>void;onFloatingOpen?:(leadId:string)=>void}){
+export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChannel,initialContactId,initialLeadId,initialMaterial,onLog,floatingComposer=false,onFloatingClose,onFloatingOpen}:{detail:CommercialDetail;/** «Enviar material» (spec 89 §8.2): added to the message once its draft is ready. Only email and WhatsApp carry it. */initialMaterial?:PickedSalesMaterial;onClose:()=>void;returnFocusTo?:HTMLElement|null;initialChannel?:Channel;initialContactId?:string;/** Preselects «¿Sobre qué?» when that management is open; otherwise the usual default applies. */initialLeadId?:string;onLog?:(contactId:string,channel:string)=>void;floatingComposer?:boolean;onFloatingClose?:(floating:boolean)=>void;onFloatingOpen?:(leadId:string)=>void}){
  const {authState}=useAuth();const user=authState.type==='authenticated'?authState.user:undefined;
  const stages=useQuery({queryKey:['pipeline','config-summary'],queryFn:()=>getPipeline({mode:'config'})});
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
  const history=useQuery({queryKey:['communication','account',detail.account.id],queryFn:()=>getCommunication('',detail.account.id)});
- const [chosen,setChosen]=useState(''),[channelChoice,setChannel]=useState<'email'|'whatsapp'|'call'|'social'|'other'|null>(initialChannel??null);
+ const [chosen,setChosen]=useState(''),[channelChoice,setChannel]=useState<Channel|null>(initialChannel??null);
  const [purpose,setPurpose]=useState<ContactPurpose>(defaultContactPurpose(detail.account.status)),[otherPurpose,setOtherPurpose]=useState(''),[confirmedClient,setConfirmedClient]=useState(false);
  const [created,setCreated]=useState(false),callSession=useCallSession();
  const [composing,setComposing]=useState(false),[manualContact,setManualContact]=useState(false),[generalMessage,setGeneralMessage]=useState(false),[editor,setEditor]=useState<EditorTarget|null>(null);
@@ -61,6 +65,9 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const activeContacts=detail.contacts.filter(c=>!c.deletedAt);
  const channel=channelChoice??(recent?.channel==='email'||recent?.channel==='whatsapp'?recent.channel:null)??(detail.account.telefono?.trim()||activeContacts.some(c=>c.phone?.trim())?'whatsapp':'email');
  const manualChannel=channel==='social'||channel==='other';
+ // Spec 92: Instagram writes to the business username only; without a valid one the option stays off with its reason.
+ const instagramUsername=normalizeInstagramUsername(detail.account.perfilInstagram),instagramBlock=channel==='instagram'&&!instagramUsername?INSTAGRAM_MISSING_REASON:'';
+ const messageChannel=channel==='email'||channel==='whatsapp'||channel==='instagram';
  // Only undefined means "no request" (report item 1.4): '' is an explicit choice of the business general channel.
  const recipient=initialContactId??(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:undefined);
  
@@ -70,8 +77,8 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
   <ManualCommunicationForm key={channel+sobre} detail={opportunity?detail:{...detail,opportunities:[]}} currentLeadId={opportunity?String(opportunity.id):null} userEmail={user?.email??''} isAdmin={user?.role==='admin'} embedded fixedContext initialChannel={channel} initialContactId={initialContactId} fixedPurpose={general?generalPurpose:undefined} chainOutcome={!onLog} onFinished={onClose}/>
   <Button mt="md" variant="outline" onClick={()=>setManualContact(false)}>Volver a elegir canal</Button>
  </CrmDialog>;
- if(composing&&opportunity&&(channel==='email'||channel==='whatsapp'))return <ContactTemplateDialog open presentation={floatingComposer?'floating':'dialog'} returnFocusTo={returnFocusTo} channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} initialMaterialId={initialMaterial?.id} onLog={onLog} onFinished={onClose} onAddChannel={canModifyBusiness(user,detail.account)?()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}:undefined} onOpenChange={v=>{if(!v)setComposing(false)}} onFloatingClose={floating=>{onFloatingClose?.(floating);if(!floating)setComposing(false)}} onFloatingOpen={()=>onFloatingOpen?.(String(opportunity.id))}/>;
- if(generalMessage&&general&&(channel==='email'||channel==='whatsapp'))return <GeneralMessageStep detail={detail} templates={settings.data?.templates??[]} channel={channel} purpose={generalPurpose} initialMaterialId={initialMaterial?.id} initialContactId={initialContactId} onClose={()=>setGeneralMessage(false)} onFinished={onClose} onLog={onLog}/>;
+ if(composing&&opportunity&&messageChannel)return <ContactTemplateDialog open presentation={floatingComposer?'floating':'dialog'} returnFocusTo={returnFocusTo} channel={channel} initialContactId={recipient} lead={{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}} templates={settings.data?.templates??[]} initialMaterialId={initialMaterial?.id} onLog={onLog} onFinished={onClose} onAddChannel={canModifyBusiness(user,detail.account)?()=>{setComposing(false);setEditor({kind:'account',item:detail.account})}:undefined} onOpenChange={v=>{if(!v)setComposing(false)}} onFloatingClose={floating=>{onFloatingClose?.(floating);if(!floating)setComposing(false)}} onFloatingOpen={()=>onFloatingOpen?.(String(opportunity.id))}/>;
+ if(generalMessage&&general&&messageChannel)return <GeneralMessageStep detail={detail} templates={settings.data?.templates??[]} channel={channel} purpose={generalPurpose} initialMaterialId={initialMaterial?.id} initialContactId={initialContactId} onClose={()=>setGeneralMessage(false)} onFinished={onClose} onLog={onLog}/>;
  return <CrmDialog opened onClose={onClose} title="Contactar" returnFocusTo={returnFocusTo}
   description={<>{detail.account.nombre} · Elegí sobre qué es el contacto y el canal. Después verificá el destinatario y revisá el mensaje.<br/>{VOCAB.businessOwner}: <strong>{businessOwner}</strong>{opportunity&&<> · {VOCAB.managementOwner}: <strong>{managementOwner}</strong></>}</>}>
   {stages.isPending||settings.isPending||history.isPending?<p role="status">Cargando gestiones y mensajes modelo…</p>:stages.error||settings.error||history.error?<><p role="alert">{stages.error?.message||settings.error?.message||history.error?.message}</p><Button onClick={()=>{void stages.refetch();void settings.refetch();void history.refetch()}}>Reintentar</Button></>:<div className={styles.section}>
@@ -85,19 +92,20 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
    </>}
    {opportunity&&<p>{VOCAB.managementOwner}: <strong>{managementOwner}</strong></p>}
    <CrmNativeSelect label="Canal" value={channel} onChange={e=>{setChannel(e.target.value as typeof channel);resetSteps()}}
-     leftSection={channel==='email'?<Mail size={18} aria-hidden="true"/>:channel==='whatsapp'?<MessageCircle size={18} aria-hidden="true"/>:undefined}
-     data={[{value:'whatsapp',label:'WhatsApp'},{value:'email',label:'Email · Brevo'},{value:'call',label:'Llamada'},{value:'social',label:'Red social'},{value:'other',label:'Otro canal'}]}/>
+     leftSection={channel==='email'?<Mail size={18} aria-hidden="true"/>:channel==='whatsapp'?<MessageCircle size={18} aria-hidden="true"/>:channel==='instagram'?<Instagram size={18} aria-hidden="true"/>:undefined}
+     data={[{value:'whatsapp',label:'WhatsApp'},{value:'email',label:'Email · Brevo'},{value:'instagram',label:'Instagram',disabled:!instagramUsername},{value:'call',label:'Llamada'},{value:'social',label:'Red social'},{value:'other',label:'Otro canal'}]}/>
    {recent&&<p>Último canal usado en esta gestión: {recent.channel==='email'?'Email':'WhatsApp'} · {recent.recipient}. Podés cambiarlo antes de preparar el mensaje.</p>}
    {channel==='call'?(contactReason&&sobre?<p role="status">{contactReason}</p>:sobre?<PhoneCallPanel key={sobre} session={callSession} account={detail.account} contacts={detail.contacts} leadId={effective||null} purpose={general?generalPurpose:null} blockedReason={contactReason} initialContactId={initialContactId} onLog={onLog} onFinished={onClose}/>:<p>Elegí sobre qué es el contacto para ver el teléfono.</p>):<>
-    {!manualChannel&&<p>Si una persona del negocio tiene el teléfono o email, la elegimos para el mensaje; si no, usamos el del negocio. En el paso siguiente podés cambiarla.</p>}
+    {channel==='instagram'&&(instagramBlock?<p role="status">{instagramBlock}</p>:<p>Se escribe al Instagram del negocio: <strong>@{instagramUsername}</strong>. El CRM copia el mensaje y abre el chat; lo pegás y lo enviás desde la cuenta de Hospeda.</p>)}
+    {!manualChannel&&channel!=='instagram'&&<p>Si una persona del negocio tiene el teléfono o email, la elegimos para el mensaje; si no, usamos el del negocio. En el paso siguiente podés cambiarla.</p>}
     {manualChannel&&<p>Se creará un intento pendiente. El CRM no enviará el mensaje; al terminar, registrá si se realizó o quedó sin contacto.</p>}
-    <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!!contactReason} disabledReason={contactReason} onClick={()=>manualChannel?setManualContact(true):general?setGeneralMessage(true):setComposing(true)}>{manualChannel?(channel==='social'?'Continuar con red social':'Continuar con otro canal'):'Continuar con el mensaje'}</Button>
+    <Button rightSection={<ArrowRight size={18} aria-hidden="true"/>} disabled={!!contactReason||!!instagramBlock} disabledReason={contactReason||instagramBlock} onClick={()=>manualChannel?setManualContact(true):general?setGeneralMessage(true):setComposing(true)}>{manualChannel?(channel==='social'?'Continuar con red social':'Continuar con otro canal'):'Continuar con el mensaje'}</Button>
    </>}
    {channel==='whatsapp'&&<PersonPhoneDncNotice businesses={activeContacts.find(c=>initialContactId&&String(c.id)===initialContactId)?.dncPhoneBusinesses}/>}
    {archived&&<p role="status">Un administrador debe desarchivar este negocio antes de iniciar un contacto.</p>}
    {opportunity&&!canModifyManagement(user,opportunity,detail.account)&&<p>Solo el responsable de esta gestión o un administrador puede preparar sus mensajes.</p>}
    {detail.account.doNotContact&&<p role="alert">Este negocio pidió no recibir contactos. Revisá su restricción antes de continuar.</p>}
-   <Button variant="default" disabled={!canModifyBusiness(user,detail.account)} disabledReason={businessPermissionReason} onClick={()=>setEditor({kind:'account',item:detail.account})}>Agregar o editar teléfono o email</Button>
+   <Button variant="default" disabled={!canModifyBusiness(user,detail.account)} disabledReason={businessPermissionReason} onClick={()=>setEditor({kind:'account',item:detail.account})}>Agregar o editar datos de contacto</Button>
   </div>}
   <Button mt="md" variant="subtle" onClick={onClose}>Cancelar</Button>
  </CrmDialog>;
