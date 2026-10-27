@@ -1,9 +1,13 @@
 import type {TemplateMaterialWarning} from '../helpers/templateMaterials';
 import {z} from 'zod';
+import {composerChannelOf} from '../helpers/instagramChat';
 import {apiJson,postJson,LONG_TIMEOUT_MS} from '../helpers/apiClient';
 import type {MessageMaterial} from './salesMaterials.schema';
 const id=z.string().regex(/^[1-9]\d*$/),uuid=z.string().uuid(),channel=z.enum(['email','whatsapp','call','social','other']);
 const context={accountId:id,leadId:id.nullable()};
+/** Channels the composer prepares. `instagram` is stored as `social` with `destination_detail='instagram'` (spec 92). */
+const composerChannel=z.enum(['email','whatsapp','instagram']);
+export type ComposerChannel=z.infer<typeof composerChannel>;
 /** A stale draft the seller chose to discard before starting again; the revision guards against a concurrent edit or use. */
 /** Longest message body a draft can hold (`edit` and the material actions use the same cap). */
 export const MESSAGE_BODY_MAX_LENGTH=50000;
@@ -11,8 +15,8 @@ export const MESSAGE_BODY_MAX_LENGTH=50000;
 export const DRAFT_CHANGED_MESSAGE='El borrador cambió o ya fue utilizado.';
 const discardDraft=z.object({id:uuid,revision:z.number().int()}).optional();
 export const communicationMutation=z.discriminatedUnion('action',[
- z.object({action:z.literal('prepare'),id:uuid,leadId:id,contactId:id.nullable(),channel:z.enum(['email','whatsapp']),templateId:id.nullable(),taskId:id.optional(),variation:z.number().int().min(0).max(1000).optional(),discardDraft}),
- z.object({action:z.literal('prepare_general'),id:uuid,...context,contactId:id.nullable(),channel:z.enum(['email','whatsapp']),purpose:z.enum(['verification','first_contact','resume','relationship','care','operations','other']).nullable(),otherPurpose:z.string().trim().max(300).nullable(),templateId:id.nullable(),variation:z.number().int().min(0).max(1000).optional(),discardDraft}),
+ z.object({action:z.literal('prepare'),id:uuid,leadId:id,contactId:id.nullable(),channel:composerChannel,templateId:id.nullable(),taskId:id.optional(),variation:z.number().int().min(0).max(1000).optional(),discardDraft}),
+ z.object({action:z.literal('prepare_general'),id:uuid,...context,contactId:id.nullable(),channel:composerChannel,purpose:z.enum(['verification','first_contact','resume','relationship','care','operations','other']).nullable(),otherPurpose:z.string().trim().max(300).nullable(),templateId:id.nullable(),variation:z.number().int().min(0).max(1000).optional(),discardDraft}),
  z.object({action:z.literal('manual_start'),id:uuid,...context,contactId:id.nullable(),channel:z.enum(['call','social','other']),purpose:z.enum(['verification','first_contact','resume','relationship','care','operations','other']).nullable(),otherPurpose:z.string().trim().max(300).nullable(),recipient:z.string().trim().min(1).max(500),recipientName:z.string().trim().max(300),destination:z.string().trim().max(500).nullable(),body:z.string().max(50000),result:z.enum(['manual_sent','manual_no_contact']).nullable(),templateId:id.nullable(),variation:z.number().int().min(0).max(1000).optional()}),
  z.object({action:z.literal('manual_complete'),id:uuid,result:z.enum(['manual_sent','manual_no_contact','manual_not_done']),summary:z.string().trim().min(1).max(4000)}),
  z.object({action:z.literal('response_create'),id:uuid,...context,contactId:id.nullable(),channel,recipient:z.string().trim().max(500),recipientName:z.string().max(300),destination:z.string().max(500).nullable(),linkedMessageId:uuid.nullable(),category:z.enum(['interested','information','later','rejected','not_now','operational','do_not_contact','other']),summary:z.string().trim().min(1).max(4000),exactText:z.string().max(50000).nullable(),otherDetail:z.string().trim().max(500).nullable(),confirmDoNotContact:z.boolean().optional(),closeLeadIds:z.array(id).max(100).optional(),resolveTaskIds:z.array(id).max(20).refine(ids=>new Set(ids).size===ids.length,'No repitas una misma tarea.').optional(),reminder:z.object({dueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),assignedUserEmail:z.string().email().nullable()}).nullable().optional()}),
@@ -36,20 +40,24 @@ export const communicationMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('lift'),id,reason:z.string().trim().min(3).max(1000)}),
 ]);
 export type CommunicationMutation=z.infer<typeof communicationMutation>;
-export type Message={id:string;accountId:string;leadId:string|null;contactId:string|null;channel:'email'|'whatsapp'|'call'|'social'|'other';recipient:string;recipientName:string;subject:string;body:string;htmlBody:string|null;textBody:string|null;templateSnapshot:any;ownerEmail:string;activityId:string|null;outboxId:string|null;taskId:string|null;delegatedTaskId?:string|null;delegatedFromEmail?:string|null;status:string;revision:number;lastInteractionAt:Date|null;lastActorEmail:string|null;createdAt:Date;updatedAt:Date;autoRegistrationId?:string|null;autoRegistrationUserEmail?:string|null;purpose?:string|null;otherPurpose?:string|null;destinationDetail?:string|null;contentHash?:string|null;summary?:string|null;completedAt?:Date|null;completedByEmail?:string|null;/** Sales material links of the message (spec 89 §8.4). */materials?:MessageMaterial[]};
+export type Message={id:string;accountId:string;leadId:string|null;contactId:string|null;channel:'email'|'whatsapp'|'call'|'social'|'other';recipient:string;recipientName:string;subject:string;body:string;htmlBody:string|null;textBody:string|null;templateSnapshot:any;ownerEmail:string;activityId:string|null;outboxId:string|null;taskId:string|null;delegatedTaskId?:string|null;delegatedFromEmail?:string|null;status:string;revision:number;lastInteractionAt:Date|null;lastActorEmail:string|null;createdAt:Date;updatedAt:Date;autoRegistrationId?:string|null;autoRegistrationUserEmail?:string|null;purpose?:string|null;otherPurpose?:string|null;destinationDetail?:string|null;/** Provider id (Brevo, WhatsApp or the Instagram echo `mid`); read-only. */externalId?:string|null;contentHash?:string|null;summary?:string|null;completedAt?:Date|null;completedByEmail?:string|null;/** Sales material links of the message (spec 89 §8.4). */materials?:MessageMaterial[]};
 /** `reusedDraft` is set when prepare returns an earlier draft of the same seller, recipient and model instead of a new one (report item 1.14). */
 /** A contact left without "¿Cómo salió?" (decision 2B); it stays pending until an outcome is recorded. */
 export type PendingOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date};
 /** `materialWarnings`: template materials that `prepare` left out (archived, internal, missing) or could only link (spec 89 §9). */
-export type PreparedMessage=Message&{channel:'email'|'whatsapp';reusedDraft?:boolean;materialWarnings?:TemplateMaterialWarning[]};
+/**
+ * `instagramAutoConfirm` / `instagramShared` (spec 92 §2.6) come with an Instagram prepare: whether Meta's echo can confirm the send and whether
+ * another business has the same username. Only booleans; older responses and reloads omit them.
+ */
+export type PreparedMessage=Message&{channel:'email'|'whatsapp'|'social';reusedDraft?:boolean;materialWarnings?:TemplateMaterialWarning[];instagramAutoConfirm?:boolean;instagramShared?:boolean};
 /**
  * The prepare request that discards `draft` and starts again from the same context, recipient and model.
  * Every input of prepare/prepare_general is stored on the draft, so the request is rebuilt exactly; `id` is the new idempotency key.
  */
 export function restartDraftRequest(draft:PreparedMessage,id:string):CommunicationMutation{
  const templateId=draft.templateSnapshot?.id==null?null:String(draft.templateSnapshot.id),discard={id:draft.id,revision:draft.revision};
- if(draft.leadId&&!draft.purpose)return {action:'prepare',id,leadId:String(draft.leadId),contactId:draft.contactId==null?null:String(draft.contactId),channel:draft.channel,templateId,...(draft.delegatedTaskId?{taskId:String(draft.delegatedTaskId)}:{}),discardDraft:discard};
- return {action:'prepare_general',id,accountId:String(draft.accountId),leadId:draft.leadId==null?null:String(draft.leadId),contactId:draft.contactId==null?null:String(draft.contactId),channel:draft.channel,purpose:(draft.purpose??null) as Extract<CommunicationMutation,{action:'prepare_general'}>['purpose'],otherPurpose:draft.otherPurpose??null,templateId,discardDraft:discard};
+ if(draft.leadId&&!draft.purpose)return {action:'prepare',id,leadId:String(draft.leadId),contactId:draft.contactId==null?null:String(draft.contactId),channel:composerChannelOf(draft),templateId,...(draft.delegatedTaskId?{taskId:String(draft.delegatedTaskId)}:{}),discardDraft:discard};
+ return {action:'prepare_general',id,accountId:String(draft.accountId),leadId:draft.leadId==null?null:String(draft.leadId),contactId:draft.contactId==null?null:String(draft.contactId),channel:composerChannelOf(draft),purpose:(draft.purpose??null) as Extract<CommunicationMutation,{action:'prepare_general'}>['purpose'],otherPurpose:draft.otherPurpose??null,templateId,discardDraft:discard};
 }
 /** Rows per list (messages, received messages, responses) that GET /_api/communication returns, newest first. */
 export const COMMUNICATION_LIST_LIMIT=200;

@@ -1,9 +1,7 @@
 import {createCipheriv,createDecipheriv,createHash,createHmac,timingSafeEqual,randomBytes} from 'node:crypto';
-import {normalizeInstagramProfile} from './dataNormalization';
 import {z} from 'zod';
 
-/** Normalizes a stored or Meta-provided Instagram profile: also accepts scheme-less `instagram.com/x`, `www.`/`m.` hosts, query strings and fragments. Returns the lowercase username or null. */
-export function normalizeInstagramUsername(value:string|null|undefined):string|null{const v=value?.trim()??'';return normalizeInstagramProfile(/^(www\.|m\.)?instagram\.com\//i.test(v)?'https://'+v:v);}
+export {normalizeInstagramUsername} from './instagramChat';
 export const INSTAGRAM_MAX_TEXT=50000;
 /** Loose envelope: each entry and each messaging item is validated on its own so one unsupported event never drops the real messages of the same batch. */
 export const instagramWebhookSchema=z.object({object:z.string(),entry:z.array(z.unknown())}).passthrough();
