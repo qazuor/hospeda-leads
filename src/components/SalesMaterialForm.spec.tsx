@@ -3,10 +3,11 @@ import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import type {SalesMaterial,SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
+import {CrmApiError} from '../helpers/apiClient';
 import {SalesMaterialForm,pickedFileError,type SalesMaterialFormMode} from './SalesMaterialForm';
 
-const api=vi.hoisted(()=>({post:vi.fn(),upload:vi.fn()}));
-vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),postSalesMaterial:api.post}));
+const api=vi.hoisted(()=>({post:vi.fn(),upload:vi.fn(),list:vi.fn()}));
+vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),postSalesMaterial:api.post,getSalesMaterials:api.list}));
 vi.mock('../helpers/salesMaterialUpload',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialUpload')>(),uploadSalesMaterialFile:api.upload}));
 const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true};
 const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[],currentVersion:null};
@@ -67,6 +68,28 @@ describe('SalesMaterialForm',()=>{
  it('refuses uploads while storage is not configured',()=>{
   setup({type:'version',material},{storageConfigured:false});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));
   expect(save('Guardar versión').disabled).toBe(true);
+ });
+ it('after a 409 takes the latest revision and retries the version with the same verified upload', async()=>{
+  api.upload.mockResolvedValue('up-1');
+  api.post.mockRejectedValueOnce(new CrmApiError('La versión cambió. Actualizá antes de continuar.',409)).mockResolvedValueOnce({ok:true,revision:7});
+  api.list.mockResolvedValue({materials:[{...material,revision:6}],truncated:false,categories:[],limits});
+  setup({type:'version',material});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));
+  fireEvent.click(save('Guardar versión'));
+  expect((await screen.findByRole('alert')).textContent).toContain('Ya tomamos los datos más recientes');
+  expect(api.post.mock.calls[0][0]).toMatchObject({action:'version',revision:5,version:{uploadId:'up-1'}});
+  expect(save('Guardar versión').disabled).toBe(false);
+  fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Nueva versión guardada. Las anteriores se conservan.'));
+  expect(api.upload).toHaveBeenCalledTimes(1);
+  expect(api.post.mock.calls[1][0]).toMatchObject({action:'version',id:'m-1',revision:6,version:{uploadId:'up-1'}});
+ });
+ it('uploads again after a non-conflict failure, because the earlier upload may be discarded', async()=>{
+  api.upload.mockResolvedValueOnce('up-1').mockResolvedValueOnce('up-2');
+  api.post.mockRejectedValueOnce(new Error('El tipo del archivo subido no coincide con el declarado. Volvé a subirlo.'));
+  setup({type:'version',material});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));
+  fireEvent.click(save('Guardar versión'));await screen.findByRole('alert');
+  fireEvent.click(save('Guardar versión'));await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  expect(api.upload).toHaveBeenCalledTimes(2);expect(api.post.mock.calls[1][0]).toMatchObject({version:{uploadId:'up-2'}});
  });
  it('accepts only small images as cover',async()=>{
   setup({type:'cover',material});

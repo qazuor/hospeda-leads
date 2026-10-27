@@ -84,7 +84,7 @@ Los vendedores necesitan mostrar y mandar a los clientes fotos, PDF, videos, aud
 
 ## 4. Modelo de datos: `migrations/046_sales_material.sql`
 
-Todas las tablas nuevas llevan `resource_audit` (`crm_audit_resource`) y `resource_live` (`bump_crm_live_domain('communication')`), como `crm_documents`.
+Todas las tablas nuevas llevan `resource_audit` (`crm_audit_resource`) y `resource_live` (`bump_crm_live_domain('communication')`), como `crm_documents`. Excepción: `crm_sales_material_uploads` lleva solo `resource_audit`; es contabilidad de subidas, no estado de la UI, y no debe invalidar las pantallas abiertas.
 
 - **`crm_sales_material_categories`:**
   - `id bigserial PK`, `name text NOT NULL CHECK(length(btrim(name)) BETWEEN 2 AND 100)`, `active boolean NOT NULL DEFAULT true`, `created_at`, `updated_at`;
@@ -106,7 +106,7 @@ Todas las tablas nuevas llevan `resource_audit` (`crm_audit_resource`) y `resour
 - **`crm_sales_material_uploads`** (subidas pendientes y limpieza):
   - `id uuid PK`, `object_key text NOT NULL UNIQUE`, `purpose text CHECK(purpose IN ('file','cover'))`, `material_id uuid NULL`;
   - `declared_mime`, `declared_bytes`, `file_name`, `actor_email`;
-  - `status text CHECK(status IN ('pending','completed','discarded'))`, `created_at`, `expires_at`, `completed_at`, `deleted_at`;
+  - `status text CHECK(status IN ('pending','deleting','completed','discarded'))` (`deleting` lo fija el barrido mientras borra en R2, fuera de toda transacción), `claimed_at`, `created_at`, `expires_at`, `completed_at`, `deleted_at`;
   - índice `(status, expires_at) WHERE status='pending'`.
 - **`crm_sales_material_shares`** (un envío):
   - `id uuid PK`, `token_hash text NOT NULL UNIQUE` (sha256 del token; el token en claro solo queda en el cuerpo del mensaje enviado);

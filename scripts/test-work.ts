@@ -69,7 +69,6 @@ const EXPECTED_LIVE_TRIGGERS=[
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_categories FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_category_links FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_shares FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
-  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_uploads FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_materials FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER users_live_version AFTER INSERT OR DELETE OR UPDATE ON public.users FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')"

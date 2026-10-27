@@ -30,7 +30,8 @@ export type SalesMaterialCategory={id:string;name:string;active:boolean};
 export type SalesMaterialVersion={id:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;actorEmail:string;createdAt:Date};
 export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;categories:SalesMaterialCategory[];currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
 export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;storageConfigured:boolean};
-export type SalesMaterialList={materials:SalesMaterial[];categories:SalesMaterialCategory[];limits:SalesMaterialLimits};
+/** `truncated` is true when more materials matched than the listing returns: narrow the search. */
+export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits};
 export type SalesMaterialUpload={uploadId:string;putUrl:string;headers:{'Content-Type':string};expiresAt:Date};
 /** Lists sales material with optional filters. */
 export async function getSalesMaterials(input:{search?:string;categoryId?:string;kind?:'deliverable'|'internal';includeArchived?:boolean}={}):Promise<SalesMaterialList>{

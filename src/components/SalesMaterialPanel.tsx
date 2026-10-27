@@ -83,6 +83,7 @@ export function SalesMaterialPanel({admin,selectedId}:{admin:boolean;selectedId?
   {pending&&<p role="status">{pending}</p>}{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}
   {q.isPending?<QueryLoadingNotice>Cargando material de venta…</QueryLoadingNotice>:!q.data?<QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>:<>
    {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>}
+   {q.data.truncated&&<p className={styles.warning} role="note">Hay más material del que se muestra. Buscá por título o filtrá por categoría o tipo para encontrar el resto.</p>}
    {q.data.materials.length===0?<CrmEmptyState>{filtered?<p>No hay material con esos filtros. Probá con otra búsqueda o categoría.</p>:<p>Todavía no hay material de venta.{admin?' Usá «Nuevo material» para subir el primero.':' Lo carga un administrador; si te falta alguno, pedíselo.'}</p>}</CrmEmptyState>:
     <div className={styles.grid}>{q.data.materials.map(m=><SalesMaterialCard key={m.id} material={m} admin={admin} selected={m.id===selectedId} busy={!!pending} storageConfigured={q.data.limits.storageConfigured} onEdit={mode=>{setNotice('');setForm(mode)}} onArchive={m=>void toggleArchive(m)}/>)}</div>}
   </>}

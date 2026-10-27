@@ -17,7 +17,7 @@ describe('assertSalesMaterialAdmin',()=>{
 describe('scheduleSalesMaterialUploadSweep',()=>{
  it('runs after start and every interval, never touching the database without R2 configuration, and stops cleanly',async()=>{
   vi.useFakeTimers();setR2StorageForTests({storage:null});
-  const transaction=vi.fn(()=>({execute:vi.fn(async()=>({locked:true,discarded:0,failed:0}))}));
+  const transaction=vi.fn(()=>({execute:vi.fn(async()=>null)}));
   const db={transaction} as unknown as Kysely<DB>;const log=vi.fn();
   const stop=scheduleSalesMaterialUploadSweep({db,intervalMs:1000,firstRunMs:10,log});
   await vi.advanceTimersByTimeAsync(2500);expect(transaction).not.toHaveBeenCalled();

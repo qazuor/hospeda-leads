@@ -25,8 +25,8 @@ CREATE TABLE crm_sales_materials (
 );
 CREATE INDEX crm_sales_materials_status ON crm_sales_materials(status,updated_at DESC);
 -- Trigram expressions exactly match normalizeSearchSql() in src/helpers/searchSql.ts (ñ stays distinct from n).
-CREATE INDEX crm_sales_materials_title_trgm ON crm_sales_materials USING gin ((normalize(regexp_replace(normalize(lower(coalesce(title,'')),NFD),E'[̀-̂̄-ͯ]','','g'),NFC)) gin_trgm_ops);
-CREATE INDEX crm_sales_materials_description_trgm ON crm_sales_materials USING gin ((normalize(regexp_replace(normalize(lower(coalesce(description,'')),NFD),E'[̀-̂̄-ͯ]','','g'),NFC)) gin_trgm_ops);
+CREATE INDEX crm_sales_materials_title_trgm ON crm_sales_materials USING gin ((normalize(regexp_replace(normalize(lower(coalesce(title,'')),NFD),E'[\u0300-\u0302\u0304-\u036f]','','g'),NFC)) gin_trgm_ops);
+CREATE INDEX crm_sales_materials_description_trgm ON crm_sales_materials USING gin ((normalize(regexp_replace(normalize(lower(coalesce(description,'')),NFD),E'[\u0300-\u0302\u0304-\u036f]','','g'),NFC)) gin_trgm_ops);
 CREATE TABLE crm_sales_material_category_links (
  material_id uuid NOT NULL REFERENCES crm_sales_materials(id),
  category_id bigint NOT NULL REFERENCES crm_sales_material_categories(id),
@@ -51,11 +51,12 @@ CREATE TABLE crm_sales_material_uploads (
  material_id uuid,
  declared_mime text NOT NULL, declared_bytes bigint NOT NULL CHECK(declared_bytes BETWEEN 1 AND 524288000),
  file_name text NOT NULL, actor_email text NOT NULL,
- status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','completed','discarded')),
+ -- `deleting` is set by the sweep while it removes the object from R2 outside any transaction; claimed_at lets a crashed sweep be retried.
+ status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','deleting','completed','discarded')),
  created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL,
- completed_at timestamptz, deleted_at timestamptz
+ completed_at timestamptz, deleted_at timestamptz, claimed_at timestamptz
 );
-CREATE INDEX crm_sales_material_uploads_pending ON crm_sales_material_uploads(status,expires_at) WHERE status='pending';
+CREATE INDEX crm_sales_material_uploads_pending ON crm_sales_material_uploads(status,expires_at) WHERE status IN ('pending','deleting');
 -- One row per send (per recipient and message). Created from phase F2/F3 on; the token is stored only as its sha256.
 CREATE TABLE crm_sales_material_shares (
  id uuid PRIMARY KEY,
@@ -77,7 +78,10 @@ CREATE INDEX crm_sales_material_shares_message ON crm_sales_material_shares(mess
 CREATE INDEX crm_sales_material_shares_material ON crm_sales_material_shares(material_id);
 DO $$ DECLARE t text; BEGIN FOREACH t IN ARRAY ARRAY['crm_sales_material_categories','crm_sales_materials','crm_sales_material_versions','crm_sales_material_uploads','crm_sales_material_shares'] LOOP
  EXECUTE format('CREATE TRIGGER resource_audit AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION crm_audit_resource()',t);
- EXECUTE format('CREATE TRIGGER resource_live AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain(%L)',t,'communication');
+ -- Upload bookkeeping is not UI state: it never bumps the live domain (the material row changes in the same transaction that consumes an upload).
+ IF t<>'crm_sales_material_uploads' THEN
+  EXECUTE format('CREATE TRIGGER resource_live AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain(%L)',t,'communication');
+ END IF;
  END LOOP; END $$;
 -- The link table has a composite key (no id column), so crm_audit_resource() cannot name the row; only the live version is bumped.
 -- Category changes on a material are journaled through the material row (its revision and updated_at change in the same transaction).

@@ -32,7 +32,7 @@ const endpoints=await import('../src/endpoints/salesMaterials');
 const {get:searchGet}=await import('../src/endpoints/search');
 const {post:resourcesPost}=await import('../src/endpoints/resources');
 const {sweepAbandonedSalesMaterialUploads}=await import('../src/helpers/salesMaterialService');
-const {setR2StorageForTests}=await import('../src/helpers/r2');
+const {setR2StorageForTests,createR2Storage,r2Config,R2Unavailable}=await import('../src/helpers/r2');
 const stamp=randomUUID().slice(0,8),userIds:number[]=[];
 async function identity(role:'admin'|'user'){
  const user=await db.insertInto('users').values({email:`sales-material-${role}-${stamp}-${userIds.length}@example.com`,displayName:'Material '+role,role}).returningAll().executeTakeFirstOrThrow();userIds.push(user.id);
@@ -58,7 +58,7 @@ try{
  // Authentication and seller permissions: every write is admin-only on the server.
  assert.equal((await raw(endpoints.get,'sales_materials','')).status,401);
  assert.equal((await raw(endpoints.file,'sales_materials/file?versionId='+randomUUID(),'')).status,401);
- const sellerList=await call(endpoints.get,'sales_materials',seller.cookie);assert.equal(sellerList.limits.storageConfigured,true);assert.equal(sellerList.limits.maxUploadBytes,524288000);
+ const sellerList=await call(endpoints.get,'sales_materials',seller.cookie);assert.equal(sellerList.limits.storageConfigured,true);assert.equal(sellerList.limits.maxUploadBytes,524288000);assert.equal(sellerList.truncated,false);
  await call(endpoints.get,'sales_materials?includeArchived=1',seller.cookie,undefined,403);
  const id=randomUUID();
  for(const body of [{action:'category_create',name:'Vendedor '+stamp},{action:'create',id,title:'Intento',description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/a'}},{action:'archive',id,revision:1}])await call(endpoints.post,'sales_materials',seller.cookie,body,403);
@@ -73,7 +73,7 @@ try{
  checks++;
  // Presigned PUT: signed query, 30 minutes, Content-Type signed; create is idempotent by client id.
  const first=await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'file',fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:pdf('v1').length,materialId:id});
- const put=new URL(first.putUrl);assert.equal(put.searchParams.get('X-Amz-Expires'),'1800');assert.match(put.searchParams.get('X-Amz-SignedHeaders')!,/content-type/);assert(put.searchParams.get('X-Amz-Signature'));assert.match(decodeURIComponent(put.pathname),new RegExp(`^/crm-material/materials/${id}/v1-[0-9a-f-]{36}\\.pdf$`));
+ const put=new URL(first.putUrl);assert.equal(put.searchParams.get('X-Amz-Expires'),'1800');assert.match(put.searchParams.get('X-Amz-SignedHeaders')!,/content-type/);assert.match(put.searchParams.get('X-Amz-SignedHeaders')!,/content-length/,'The declared size is signed');assert(put.searchParams.get('X-Amz-Signature'));assert.match(decodeURIComponent(put.pathname),new RegExp(`^/crm-material/materials/${id}/v1-[0-9a-f-]{36}\\.pdf$`));
  assert.equal(first.headers['Content-Type'],'application/pdf');
  assert.equal((await fetch(first.putUrl,{method:'PUT',headers:{'Content-Type':'application/pdf'},body:new Uint8Array(pdf('v1'))})).status,200);
  const create={action:'create',id,title:'Folleto '+stamp,description:'Tarifas y beneficios',kind:'deliverable',source:'file',categoryIds:[category,category],version:{uploadId:first.uploadId}};
@@ -164,11 +164,71 @@ try{
  await sql`UPDATE crm_sales_material_uploads SET expires_at=now()-interval '1 minute' WHERE id=${fresh.uploadId}::uuid`.execute(db);
  await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id,revision:7,version:{uploadId:fresh.uploadId}},400);
  checks++;
+
+ // Upload ownership and purpose: another admin's upload, a cover used as a file, an upload made for another material.
+ const other=await identity('admin');
+ const currentRevision=async(materialId:string)=>(await material(materialId)).revision as number;
+ const mine=await upload(admin.cookie,{purpose:'file',fileName:'ajeno.pdf',mimeType:'application/pdf',materialId:id},pdf('mine'));
+ assert.match((await call(endpoints.post,'sales_materials',other.cookie,{action:'version',id,revision:await currentRevision(id),version:{uploadId:mine}},400)).error,/otra persona/);
+ assert.equal((await uploadRow(mine)).status,'pending','Another admin cannot consume or discard the upload');
+ const asCover=await upload(admin.cookie,{purpose:'cover',fileName:'tapa2.png',mimeType:'image/png',materialId:id},png);
+ assert.match((await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id,revision:await currentRevision(id),version:{uploadId:asCover}},400)).error,/no corresponde a este material/);
+ const forImage=await upload(admin.cookie,{purpose:'file',fileName:'otro.pdf',mimeType:'application/pdf',materialId:imageId},pdf('other'));
+ assert.match((await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id,revision:await currentRevision(id),version:{uploadId:forImage}},400)).error,/no corresponde a este material/);
+ for(const u of [mine,asCover,forImage])assert.equal((await uploadRow(u)).status,'pending','A mismatch does not consume the upload');
+ checks++;
+ // Archived material: a seller gets 403 on its cover, an admin still reads it.
+ const archId=randomUUID();const archUpload=await upload(admin.cookie,{purpose:'file',fileName:'archivada.png',mimeType:'image/png',materialId:archId},png);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:archId,title:'Archivada '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[],version:{uploadId:archUpload}});
+ assert.equal((await raw(endpoints.cover,'sales_materials/cover?materialId='+archId,seller.cookie)).status,200);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'archive',id:archId,revision:await currentRevision(archId)});
+ assert.equal((await raw(endpoints.cover,'sales_materials/cover?materialId='+archId,seller.cookie)).status,403);assert.equal((await raw(endpoints.cover,'sales_materials/cover?materialId='+archId,admin.cookie)).status,200);
+ checks++;
+ // Concurrent duplicates of the same create answer with the stored material, never «Esa subida ya se usó».
+ const dupId=randomUUID();const dupUpload=await upload(admin.cookie,{purpose:'file',fileName:'doble.pdf',mimeType:'application/pdf',materialId:dupId},pdf('dup'));
+ const dupBody={action:'create',id:dupId,title:'Doble envío '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[],version:{uploadId:dupUpload}};
+ const dups=await Promise.all([1,2,3,4].map(()=>call(endpoints.post,'sales_materials',admin.cookie,dupBody)));
+ assert(dups.every(d=>d.id===dupId));assert.equal((await sql<{n:string}>`SELECT count(*) AS n FROM crm_sales_material_versions WHERE material_id=${dupId}::uuid`.execute(db)).rows[0].n,'1');
+ checks++;
+ // R2 down: verification answers 503 and keeps the upload pending; the sweep puts a failed delete back to pending.
+ const real=createR2Storage({config:r2Config()!});
+ const down=(over:Partial<typeof real>)=>({...real,...over});
+ const downUpload=await upload(admin.cookie,{purpose:'file',fileName:'caido.pdf',mimeType:'application/pdf',materialId:id},pdf('down'));
+ setR2StorageForTests({storage:down({head:async()=>{throw new R2Unavailable('R2 down')}})});
+ try{await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id,revision:await currentRevision(id),version:{uploadId:downUpload}},503);}finally{setR2StorageForTests({storage:undefined});}
+ assert.equal((await uploadRow(downUpload)).status,'pending','An R2 outage does not discard the upload');
+ const downKey=(await uploadRow(downUpload)).objectKey;await sql`UPDATE crm_sales_material_uploads SET expires_at=now()-interval '1 minute' WHERE id=${downUpload}::uuid`.execute(db);
+ const failedSweep=await sweepAbandonedSalesMaterialUploads(db,{storage:down({remove:async input=>{if(input.key!==downKey)return real.remove(input);throw new R2Unavailable('R2 down')}})});
+ assert.equal(failedSweep.failed,1);
+ const afterFail=await uploadRow(downUpload);assert.equal(afterFail.status,'pending');assert.equal(afterFail.claimedAt,null);assert(objects.has(downKey),'The object stays when R2 could not delete it');
+ // Sweep and confirmation never cross: a confirmed upload is not claimed, a claimed one cannot be confirmed.
+ const completedKey=(await uploadRow(first.uploadId)).objectKey;await sql`UPDATE crm_sales_material_uploads SET expires_at=now()-interval '1 minute' WHERE id=${first.uploadId}::uuid`.execute(db);
+ const beforeConfirmedSweep=objects.size;await sweepAbandonedSalesMaterialUploads(db);
+ assert(objects.has(completedKey));assert.equal((await uploadRow(first.uploadId)).status,'completed','A confirmed upload is never deleted, even when expired');
+ assert(!objects.has(downKey));assert.equal((await uploadRow(downUpload)).status,'discarded');assert(objects.size<beforeConfirmedSweep);
+ // Confirmation attempted while the sweep is deleting (status deleting) is refused.
+ const mid=await upload(admin.cookie,{purpose:'file',fileName:'medio.pdf',mimeType:'application/pdf',materialId:id},pdf('mid'));
+ await sql`UPDATE crm_sales_material_uploads SET expires_at=now()-interval '1 minute' WHERE id=${mid}::uuid`.execute(db);
+ let attempted=false;const midKey=(await uploadRow(mid)).objectKey;
+ const midSweep=await sweepAbandonedSalesMaterialUploads(db,{storage:down({remove:async input=>{
+  if(input.key!==midKey)return real.remove(input);
+  assert.equal((await uploadRow(mid)).status,'deleting');
+  assert.match((await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id,revision:await currentRevision(id),version:{uploadId:mid}},400)).error,/descart|venci/);attempted=true;return real.remove(input);}})});
+ assert(attempted);assert(midSweep.discarded>=1);assert.equal((await uploadRow(mid)).status,'discarded');
+ // The sweep claims the upload after verification passed but before the transaction consumes it: the version is not created.
+ const raced=await upload(admin.cookie,{purpose:'file',fileName:'carrera.pdf',mimeType:'application/pdf',materialId:id},pdf('race'));
+ const racedKey=(await uploadRow(raced)).objectKey,revisionBefore=await currentRevision(id),versionsBefore=(await sql<{n:string}>`SELECT count(*) AS n FROM crm_sales_material_versions WHERE material_id=${id}::uuid`.execute(db)).rows[0].n;
+ setR2StorageForTests({storage:down({readPrefix:async input=>{const bytes=await real.readPrefix(input);await sql`UPDATE crm_sales_material_uploads SET expires_at=now()-interval '1 minute' WHERE id=${raced}::uuid`.execute(db);await sweepAbandonedSalesMaterialUploads(db,{storage:real});return bytes;}})});
+ try{assert.match((await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id,revision:revisionBefore,version:{uploadId:raced}},400)).error,/venció|descartó/);}finally{setR2StorageForTests({storage:undefined});}
+ assert.equal((await uploadRow(raced)).status,'discarded');assert(!objects.has(racedKey));assert.equal(await currentRevision(id),revisionBefore);
+ assert.equal((await sql<{n:string}>`SELECT count(*) AS n FROM crm_sales_material_versions WHERE material_id=${id}::uuid`.execute(db)).rows[0].n,versionsBefore);
+ checks++;
  // Without R2 configuration storage routes answer 503 and listing keeps working.
  setR2StorageForTests({storage:null});
  try{
   assert.equal((await call(endpoints.get,'sales_materials',seller.cookie)).limits.storageConfigured,false);
   await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'file',fileName:'a.pdf',mimeType:'application/pdf',byteSize:10,materialId:id},503);
+  await call(endpoints.uploadUrl,'sales_materials/upload_url',seller.cookie,{purpose:'file',fileName:'a.pdf',mimeType:'application/pdf',byteSize:10,materialId:id},403);
   assert.equal((await raw(endpoints.file,'sales_materials/file?versionId='+v2.id,seller.cookie)).status,503);
   await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id,revision:7,title:'Folleto interno '+stamp,description:'Solo equipo',kind:'internal',categoryIds:[category]});
  }finally{setR2StorageForTests({storage:undefined});}
@@ -186,11 +246,12 @@ try{
  assert(journal.some(j=>j.entity==='crm_sales_material_category_links'));
  const linkJournal=(await sql<{kind:string}>`SELECT jsonb_typeof(after_value->'categoryIds') AS kind FROM crm_resource_journal WHERE entity='crm_sales_material_category_links' AND entity_id=${id}`.execute(db)).rows;assert(linkJournal.length>0&&linkJournal.every(r=>r.kind==='array'),'Category journal stores JSON objects, not strings');assert(journal.every(j=>j.actorEmail===admin.user.email));
  // The migration only creates tables and a settings key: no DML on the old library.
- const migration=await readFile('migrations/046_sales_material.sql','utf8');assert(!/(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+crm_document/i.test(migration));
+ const migration=await readFile('migrations/046_sales_material.sql','utf8');assert(!/[\u0300-\u036f]/.test(migration),'Combining characters are written as escapes');
+ assert.deepEqual((await sql<{t:string}>`SELECT tgname AS t FROM pg_trigger WHERE tgrelid='crm_sales_material_uploads'::regclass AND NOT tgisinternal ORDER BY 1`.execute(db)).rows.map(r=>r.t),['resource_audit'],'Upload bookkeeping does not bump the live domain');assert(!/(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+crm_document/i.test(migration));
  assert.equal(JSON.parse((await db.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow()).value).maxDocumentBytes,2097152);
  assert(requests.some(r=>r.startsWith('HEAD '))&&requests.some(r=>r.startsWith('DELETE ')));
  checks++;
- console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, sweep with lock, missing R2, search, legacy library and journal`);
+ console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, sweep with lock and claim, upload ownership and purpose, archived cover, duplicate create, R2 outage and sweep races, missing R2, search, legacy library and journal`);
 }finally{
  await db.deleteFrom('sessions').where('userId','in',userIds).execute();await db.destroy();r2.close();
 }

@@ -21,17 +21,20 @@ export async function salesMaterialConfig(e:E):Promise<SalesMaterialConfig>{
 export function assertSalesMaterialAdmin(user:Pick<User,'role'>):void{if(user.role!=='admin')throw new CrmForbidden('Solo un administrador puede administrar el material de venta.');}
 type MaterialRow=Omit<SalesMaterial,'hasCover'|'categories'|'currentVersion'|'versions'>&{currentVersion:number|null;coverKey:string|null;coverMime:string|null;coverBytes:number|null};
 type VersionRow=SalesMaterialVersion&{materialId:string;objectKey:string|null};
-type UploadRow={id:string;objectKey:string;purpose:'file'|'cover';materialId:string|null;declaredMime:string;declaredBytes:string|number;fileName:string;actorEmail:string;status:'pending'|'completed'|'discarded';expiresAt:Date};
+type UploadRow={id:string;objectKey:string;purpose:'file'|'cover';materialId:string|null;declaredMime:string;declaredBytes:string|number;fileName:string;actorEmail:string;status:'pending'|'deleting'|'completed'|'discarded';expiresAt:Date};
 const publicVersion=({objectKey:_key,materialId:_material,...v}:VersionRow):SalesMaterialVersion=>({...v,byteSize:v.byteSize==null?null:Number(v.byteSize)});
+/** Most materials one listing returns; beyond it the list says `truncated` and the UI asks for a narrower search. */
+export const LIST_LIMIT=500;
 /** Lists materials. Sellers see active ones (both kinds) with the current version only; `includeArchived` and older versions are admin-only. */
 export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;kind?:'deliverable'|'internal';includeArchived:'0'|'1'}}):Promise<SalesMaterialList>{
  const admin=user.role==='admin';
  if(query.includeArchived==='1'&&!admin)throw new CrmForbidden('Solo un administrador ve el material archivado.');
- const rows=(await sql<MaterialRow>`SELECT m.* FROM crm_sales_materials m WHERE (${query.includeArchived==='1'} OR m.status='active')
+ const found=(await sql<MaterialRow>`SELECT m.* FROM crm_sales_materials m WHERE (${query.includeArchived==='1'} OR m.status='active')
   AND (${query.kind??null}::text IS NULL OR m.kind=${query.kind??null})
   AND (${query.categoryId??null}::bigint IS NULL OR EXISTS(SELECT 1 FROM crm_sales_material_category_links l WHERE l.material_id=m.id AND l.category_id=${query.categoryId??null}::bigint))
   AND (${searchSql('m.title',query.search)} OR ${searchSql('m.description',query.search)})
-  ORDER BY m.status,m.updated_at DESC,m.id LIMIT 500`.execute(db)).rows;
+  ORDER BY m.status,m.updated_at DESC,m.id LIMIT ${LIST_LIMIT+1}`.execute(db)).rows;
+ const truncated=found.length>LIST_LIMIT,rows=found.slice(0,LIST_LIMIT);
  const ids=rows.map(r=>r.id);
  const [links,versions,categories,config]=await Promise.all([
   ids.length?sql<{materialId:string;id:string;name:string;active:boolean}>`SELECT l.material_id,c.id,c.name,c.active FROM crm_sales_material_category_links l JOIN crm_sales_material_categories c ON c.id=l.category_id WHERE l.material_id=ANY(${ids}::uuid[]) ORDER BY lower(c.name)`.execute(db):Promise.resolve({rows:[]}),
@@ -44,7 +47,7 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
   const current=own.find(v=>v.version===currentVersion)??null;
   return {...m,hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
  });
- return {materials,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured()}};
+ return {materials,truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured()}};
 }
 async function materialFor(e:E,id:string,lock=false){
  const m=(await (lock?sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid FOR UPDATE`:sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid`).execute(e)).rows[0];
@@ -52,7 +55,7 @@ async function materialFor(e:E,id:string,lock=false){
 }
 const assertRevision=(m:MaterialRow,revision:number)=>{if(m.revision!==revision)throw new CommunicationConflict('La versión cambió. Actualizá antes de continuar.');};
 /** Issues a presigned PUT for a new file or cover and records the pending upload (spec 89 §6.3). Admin only. */
-export async function createSalesMaterialUpload(db:Kysely<DB>,{input,user,storage=r2Storage()}:{input:SalesMaterialUploadInput;user:User;storage?:R2Storage}):Promise<SalesMaterialUpload>{
+export async function createSalesMaterialUpload(db:Kysely<DB>,{input,user,storage}:{input:SalesMaterialUploadInput;user:User;storage?:R2Storage}):Promise<SalesMaterialUpload>{
  assertSalesMaterialAdmin(user);
  const config=await salesMaterialConfig(db);
  const error=uploadDeclarationError({...input,maxUploadBytes:config.maxUploadBytes});if(error)throw new Error(error);
@@ -61,7 +64,7 @@ export async function createSalesMaterialUpload(db:Kysely<DB>,{input,user,storag
  if(existing?.status==='archived')throw new Error('Restaurá el material antes de cambiar sus archivos.');
  const uploadId=randomUUID();
  const key=salesMaterialObjectKey({purpose:input.purpose,materialId:input.materialId,version:(existing?.currentVersion??0)+1,uuid:randomUUID(),extension:fileExtension({fileName:input.fileName})});
- const putUrl=await storage.presignPut({key,contentType:input.mimeType,expiresIn:UPLOAD_URL_SECONDS});
+ const putUrl=await (storage??r2Storage()).presignPut({key,contentType:input.mimeType,byteSize:input.byteSize,expiresIn:UPLOAD_URL_SECONDS});
  const row=(await sql<{expiresAt:Date}>`INSERT INTO crm_sales_material_uploads(id,object_key,purpose,material_id,declared_mime,declared_bytes,file_name,actor_email,expires_at)
   VALUES(${uploadId}::uuid,${key},${input.purpose},${input.materialId}::uuid,${input.mimeType},${input.byteSize},${input.fileName},${user.email},now()+make_interval(hours=>${config.pendingUploadHours}::int)) RETURNING expires_at`.execute(db)).rows[0];
  return {uploadId,putUrl,headers:{'Content-Type':input.mimeType},expiresAt:new Date(Math.min(row.expiresAt.getTime(),Date.now()+UPLOAD_URL_SECONDS*1000))};
@@ -75,7 +78,7 @@ export async function verifySalesMaterialUpload(db:Kysely<DB>,{uploadId,purpose,
  const u=(await sql<UploadRow>`SELECT * FROM crm_sales_material_uploads WHERE id=${uploadId}::uuid`.execute(db)).rows[0];
  if(!u||u.actorEmail!==user.email)throw new Error('La subida no existe o es de otra persona. Volvé a subir el archivo.');
  if(u.status==='completed')throw new CommunicationConflict('Esa subida ya se usó. Actualizá la página.');
- if(u.status==='discarded')throw new Error('La subida se descartó. Volvé a subir el archivo.');
+ if(u.status==='discarded'||u.status==='deleting')throw new Error('La subida se descartó. Volvé a subir el archivo.');
  if(u.purpose!==purpose||u.materialId!==materialId)throw new Error('La subida no corresponde a este material.');
  if(new Date(u.expiresAt).getTime()<=Date.now())throw new Error('La subida venció. Volvé a subir el archivo.');
  const config=await salesMaterialConfig(db);const declared=Number(u.declaredBytes);
@@ -89,9 +92,13 @@ export async function verifySalesMaterialUpload(db:Kysely<DB>,{uploadId,purpose,
  if(!signatureMatches({mimeType:u.declaredMime,bytes:await storage.readPrefix({key:u.objectKey,bytes:16})}))return discard('El contenido del archivo no corresponde a su tipo. Volvé a subirlo.');
  return {upload:u,size:head.size,etag:head.etag};
 }
+/** Consumes a pending upload once. The guard `status='pending'` is what keeps the sweep from ever deleting a confirmed object. */
 async function completeUpload(e:E,uploadId:string){
  const done=(await sql`UPDATE crm_sales_material_uploads SET status='completed',completed_at=now() WHERE id=${uploadId}::uuid AND status='pending' RETURNING id`.execute(e)).rows[0];
- if(!done)throw new CommunicationConflict('Esa subida ya se usó. Actualizá la página.');
+ if(done)return;
+ const now=(await sql<{status:string}>`SELECT status FROM crm_sales_material_uploads WHERE id=${uploadId}::uuid`.execute(e)).rows[0];
+ if(now?.status==='completed')throw new CommunicationConflict('Esa subida ya se usó. Actualizá la página.');
+ throw new Error('La subida venció o se descartó. Volvé a subir el archivo.');
 }
 type Verified=Awaited<ReturnType<typeof verifySalesMaterialUpload>>;
 async function insertVersion(e:E,{materialId,version,source,verified,user}:{materialId:string;version:number;source:{uploadId:string}|{url:string};verified:Verified|null;user:User}){
@@ -129,7 +136,13 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   // A double submit of the same id returns the stored material instead of a duplicate (same idempotency as /_api/resources).
   if((await sql`SELECT id FROM crm_sales_materials WHERE id=${input.id}::uuid`.execute(db)).rows[0])return {id:input.id};
   if((input.source==='file')!==('uploadId' in input.version))throw new Error(input.source==='file'?'Subí el archivo del material.':'Pegá el enlace del material.');
-  const verified='uploadId' in input.version?await verifySalesMaterialUpload(db,{uploadId:input.version.uploadId,purpose:'file',materialId:input.id,user,storage:store()}):null;
+  let verified:Verified|null=null;
+  if('uploadId' in input.version)try{verified=await verifySalesMaterialUpload(db,{uploadId:input.version.uploadId,purpose:'file',materialId:input.id,user,storage:store()});}
+  catch(error){
+   // A concurrent duplicate of this create may have consumed the upload first: answer with the stored material, as the guard above does.
+   if(error instanceof CommunicationConflict&&(await sql`SELECT id FROM crm_sales_materials WHERE id=${input.id}::uuid`.execute(db)).rows[0])return {id:input.id};
+   throw error;
+  }
   return db.transaction().execute(async e=>{
    await setWorkActor(e,user);
    await sql`SELECT pg_advisory_xact_lock(hashtext('crm_sales_materials'),hashtext(${input.id}))`.execute(e);
@@ -196,23 +209,36 @@ export async function salesMaterialCover(db:Kysely<DB>,{materialId,user,storage}
  const object=await (storage??r2Storage()).read({key,maxBytes:SALES_MATERIAL_MAX_COVER_BYTES});
  return object?{body:object.body,contentType:mime}:null;
 }
+/** How long a `deleting` claim is respected before another sweep may retry it (a crashed sweep never blocks an upload forever). */
+const CLAIM_MINUTES=15;
 /**
- * Deletes expired pending uploads from R2 and marks them `discarded` (a 404 counts as deleted). Only one process sweeps at a time
- * (pg_try_advisory_xact_lock); objects that fail to delete stay pending for the next run.
+ * Deletes expired pending uploads from R2 and marks them `discarded` (a 404 counts as deleted).
+ * 1) A short transaction takes the advisory lock and claims a batch (`deleting`, FOR UPDATE SKIP LOCKED) and commits.
+ * 2) R2 deletes run outside any transaction. 3) Each row is closed with a guarded UPDATE: `discarded` on success, back to `pending` on an R2 failure.
+ * Confirmation only completes `pending` rows, so a confirmed upload is never claimed and a claimed one can no longer be confirmed.
  */
 export async function sweepAbandonedSalesMaterialUploads(db:Kysely<DB>,{storage,limit=200}:{storage?:R2Storage;limit?:number}={}):Promise<{locked:boolean;discarded:number;failed:number}>{
  const store=storage??r2Storage();
- return db.transaction().execute(async e=>{
+ const claimed=await db.transaction().execute(async e=>{
   const ok=(await sql<{ok:boolean}>`SELECT pg_try_advisory_xact_lock(hashtext('crm_sales_material_upload_sweep')) AS ok`.execute(e)).rows[0].ok;
-  if(!ok)return {locked:false,discarded:0,failed:0};
-  const rows=(await sql<{id:string;objectKey:string}>`SELECT id,object_key FROM crm_sales_material_uploads WHERE status='pending' AND expires_at<now() ORDER BY expires_at LIMIT ${limit} FOR UPDATE SKIP LOCKED`.execute(e)).rows;
-  let discarded=0,failed=0;
-  for(const r of rows){
-   try{await store.remove({key:r.objectKey})}catch(error){if(!(error instanceof R2Unavailable))throw error;failed++;continue;}
-   await sql`UPDATE crm_sales_material_uploads SET status='discarded',deleted_at=now() WHERE id=${r.id}::uuid`.execute(e);discarded++;
-  }
-  return {locked:true,discarded,failed};
+  if(!ok)return null;
+  return (await sql<{id:string;objectKey:string}>`UPDATE crm_sales_material_uploads SET status='deleting',claimed_at=now() WHERE id IN (
+    SELECT id FROM crm_sales_material_uploads WHERE (status='pending' AND expires_at<now()) OR (status='deleting' AND claimed_at<now()-make_interval(mins=>${CLAIM_MINUTES}::int))
+    ORDER BY expires_at LIMIT ${limit} FOR UPDATE SKIP LOCKED) RETURNING id,object_key`.execute(e)).rows;
  });
+ if(!claimed)return {locked:false,discarded:0,failed:0};
+ let discarded=0,failed=0;
+ for(const r of claimed){
+  try{await store.remove({key:r.objectKey})}
+  catch(error){
+   // Back to pending (still expired): the next sweep retries it.
+   await sql`UPDATE crm_sales_material_uploads SET status='pending',claimed_at=NULL WHERE id=${r.id}::uuid AND status='deleting'`.execute(db);
+   if(!(error instanceof R2Unavailable))throw error;
+   failed++;continue;
+  }
+  await sql`UPDATE crm_sales_material_uploads SET status='discarded',deleted_at=now() WHERE id=${r.id}::uuid AND status='deleting'`.execute(db);discarded++;
+ }
+ return {locked:true,discarded,failed};
 }
 /** Every 6 hours (and once a minute after start) sweeps abandoned uploads. Without R2 configuration it does nothing. Returns a stop function. */
 export function scheduleSalesMaterialUploadSweep({db,intervalMs=6*60*60*1000,firstRunMs=60000,log=console.log}:{db:Kysely<DB>;intervalMs?:number;firstRunMs?:number;log?:(message:string)=>void}):()=>void{

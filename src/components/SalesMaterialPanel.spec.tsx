@@ -9,7 +9,7 @@ const api=vi.hoisted(()=>({list:vi.fn(),post:vi.fn()}));
 vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),getSalesMaterials:api.list,postSalesMaterial:api.post}));
 const version={id:'v-2',version:2,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date('2026-10-20T12:00:00Z')};
 const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto de tarifas',description:'Precios 2027',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[{id:'1',name:'Folletos',active:true}],currentVersion:version,...over});
-const data=(materials:SalesMaterial[],storageConfigured=true):SalesMaterialList=>({materials,categories:[{id:'1',name:'Folletos',active:true}],limits:{maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured}});
+const data=(materials:SalesMaterial[],storageConfigured=true):SalesMaterialList=>({materials,truncated:false,categories:[{id:'1',name:'Folletos',active:true}],limits:{maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured}});
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));Element.prototype.scrollIntoView=vi.fn();});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const setup=(admin:boolean,selectedId?:string)=>render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><SalesMaterialPanel admin={admin} selectedId={selectedId}/></QueryClientProvider></MantineProvider>);
@@ -48,5 +48,9 @@ describe('SalesMaterialPanel',()=>{
   api.list.mockResolvedValue(data([]));setup(true);await screen.findByRole('button',{name:'Nuevo material'});
   fireEvent.change(screen.getByLabelText('Tipo'),{target:{value:'internal'}});fireEvent.change(screen.getByLabelText('Categoría'),{target:{value:'1'}});
   await waitFor(()=>expect(api.list).toHaveBeenLastCalledWith({search:'',categoryId:'1',kind:'internal',includeArchived:false}));
+ });
+ it('warns when the listing was truncated',async()=>{
+  api.list.mockResolvedValue({...data([material()]),truncated:true});setup(false);
+  expect((await screen.findByRole('note')).textContent).toContain('Hay más material del que se muestra');
  });
 });

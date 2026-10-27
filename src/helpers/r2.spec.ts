@@ -21,17 +21,17 @@ describe('r2Config',()=>{
 describe('presigned URLs (aws4fetch, fixed date)',()=>{
  const storage=createR2Storage({config,now,fetchImpl:vi.fn()});
  it('signs a PUT on the path-style object URL with the Content-Type and a 30-minute expiry',async()=>{
-  const url=new URL(await storage.presignPut({key:'materials/m/v1-u.pdf',contentType:'application/pdf',expiresIn:1800}));
+  const url=new URL(await storage.presignPut({key:'materials/m/v1-u.pdf',contentType:'application/pdf',byteSize:1234,expiresIn:1800}));
   expect(url.origin+url.pathname).toBe('https://abc123.r2.cloudflarestorage.com/crm-material/materials/m/v1-u.pdf');
   expect(url.searchParams.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256');
   expect(url.searchParams.get('X-Amz-Credential')).toBe('AKID/20261026/auto/s3/aws4_request');
   expect(url.searchParams.get('X-Amz-Date')).toBe('20261026T120000Z');
   expect(url.searchParams.get('X-Amz-Expires')).toBe('1800');
-  expect(url.searchParams.get('X-Amz-SignedHeaders')).toBe('content-type;host');
+  expect(url.searchParams.get('X-Amz-SignedHeaders')).toBe('content-length;content-type;host');
   expect(url.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
-  const other=new URL(await storage.presignPut({key:'materials/m/v1-u.pdf',contentType:'image/png',expiresIn:1800}));
+  const other=new URL(await storage.presignPut({key:'materials/m/v1-u.pdf',contentType:'image/png',byteSize:1234,expiresIn:1800}));
   expect(other.searchParams.get('X-Amz-Signature')).not.toBe(url.searchParams.get('X-Amz-Signature'));
-  const again=new URL(await storage.presignPut({key:'materials/m/v1-u.pdf',contentType:'application/pdf',expiresIn:1800}));
+  const again=new URL(await storage.presignPut({key:'materials/m/v1-u.pdf',contentType:'application/pdf',byteSize:1234,expiresIn:1800}));
   expect(again.searchParams.get('X-Amz-Signature')).toBe(url.searchParams.get('X-Amz-Signature'));
  });
  it('signs a GET with response overrides and encodes each key segment',async()=>{
@@ -63,6 +63,13 @@ describe('server calls with a mocked fetch',()=>{
   const small=vi.fn(async(_url:string|URL|Request,init?:RequestInit)=>init?.method==='HEAD'?new Response(null,{headers:{'Content-Length':'3','Content-Type':'image/png'}}):new Response(new Uint8Array([7,8,9]),{headers:{'Content-Type':'image/png'}}));
   expect(await createR2Storage({config,now,fetchImpl:small}).read({key:'k',maxBytes:10})).toEqual({body:new Uint8Array([7,8,9]),contentType:'image/png'});
   await expect(createR2Storage({config,now,fetchImpl:small}).read({key:'k',maxBytes:2})).rejects.toThrow('supera');
+ });
+ it('aborts a stalled call after the timeout, headers or body, as R2Unavailable',async()=>{
+  const stalled=vi.fn((_url:string|URL|Request,init?:RequestInit)=>new Promise<Response>((_resolve,reject)=>{init?.signal?.addEventListener('abort',()=>reject(init.signal!.reason))}));
+  await expect(createR2Storage({config,now,fetchImpl:stalled,timeoutMs:20}).head({key:'k'})).rejects.toBeInstanceOf(R2Unavailable);
+  expect(stalled.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+  const body=vi.fn(async(_url:string|URL|Request,init?:RequestInit)=>new Response(new ReadableStream({start(controller){init?.signal?.addEventListener('abort',()=>controller.error(init.signal!.reason))}}),{status:206}));
+  await expect(createR2Storage({config,now,fetchImpl:body,timeoutMs:20}).readPrefix({key:'k',bytes:4})).rejects.toBeInstanceOf(R2Unavailable);
  });
  it('wraps unexpected statuses and network failures as R2Unavailable',async()=>{
   await expect(createR2Storage({config,now,fetchImpl:reply(500)}).head({key:'k'})).rejects.toBeInstanceOf(R2Unavailable);

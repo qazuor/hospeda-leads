@@ -1,7 +1,8 @@
 import {useRef,useState} from 'react';
 import {MultiSelect,Progress} from '@mantine/core';
 import {useQueryClient} from '@tanstack/react-query';
-import {postSalesMaterial,type SalesMaterial,type SalesMaterialCategory,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
+import {CrmApiError} from '../helpers/apiClient';
+import {getSalesMaterials,postSalesMaterial,type SalesMaterial,type SalesMaterialCategory,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
 import {SALES_MATERIAL_ACCEPT,SALES_MATERIAL_COVER_MIMES,externalUrlError,formatBytes,mimeForFile,uploadDeclarationError} from '../helpers/salesMaterialTypes';
 import {UploadCancelled,uploadSalesMaterialFile,type UploadProgress} from '../helpers/salesMaterialUpload';
 import {CrmDialog} from './ui/CrmDialog';
@@ -36,6 +37,8 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
  const [file,setFile]=useState<File|null>(null),[cover,setCover]=useState<File|null>(null),[url,setUrl]=useState('');
  const [pending,setPending]=useState(''),[progress,setProgress]=useState<UploadProgress|null>(null),[error,setError]=useState('');
  const lock=useRef(false),abort=useRef<AbortController|null>(null),createId=useRef(crypto.randomUUID());
+ // The revision this dialog saves against: refreshed after a 409 so a retry uses the latest one. The verified upload is kept for that retry (a 409 never consumes it).
+ const revision=useRef(material?.revision??1),uploaded=useRef<{file:File;purpose:'file'|'cover';uploadId:string}|null>(null);
  const busy=!!pending;
  const known=[...categories,...extraCategories.filter(c=>!categories.some(k=>k.id===c.id))];
  const options=known.filter(c=>c.active||categoryIds.includes(c.id)).map(c=>({value:c.id,label:c.active?c.name:c.name+' (desactivada)'}));
@@ -49,10 +52,26 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
   fileError||coverError||urlError||(!limits.storageConfigured&&(needsFile||!!cover)?'Almacenamiento no configurado: no se pueden subir archivos.':null);
  const becomesInternal=mode.type==='edit'&&material?.kind==='deliverable'&&kind==='internal';
  async function upload(target:File,purpose:'file'|'cover',materialId:string){
+  const reusable=uploaded.current;if(reusable&&reusable.file===target&&reusable.purpose===purpose)return reusable.uploadId;
+  uploaded.current=null;
   setPending(purpose==='cover'?'Subiendo portada…':'Subiendo archivo…');setProgress({loaded:0,total:target.size});
   const controller=new AbortController();abort.current=controller;
-  try{return await uploadSalesMaterialFile({file:target,purpose,materialId,signal:controller.signal,onProgress:setProgress});}
+  try{const uploadId=await uploadSalesMaterialFile({file:target,purpose,materialId,signal:controller.signal,onProgress:setProgress});uploaded.current={file:target,purpose,uploadId};return uploadId;}
   finally{abort.current=null;setProgress(null);}
+ }
+ /** After a 409: takes the latest revision of this material (server state, not the stale prop) so the next attempt can succeed. */
+ async function refreshRevision():Promise<boolean>{
+  void qc.invalidateQueries({queryKey:['sales-materials']});
+  if(!material)return false;
+  try{const list=await qc.fetchQuery({queryKey:['sales-materials','latest'],queryFn:()=>getSalesMaterials({includeArchived:true}),staleTime:0});const latest=list.materials.find(m=>m.id===material.id);if(latest){revision.current=latest.revision;return true;}}catch{/* The generic message below still lets the user retry. */}
+  return false;
+ }
+ async function failure(e:unknown,fallback:string):Promise<string>{
+  if(e instanceof UploadCancelled)return e.message;
+  const message=e instanceof Error?e.message:fallback;
+  if(e instanceof CrmApiError&&e.status===409){const fresh=await refreshRevision();return message+(fresh?' Ya tomamos los datos más recientes; reintentá. Lo que cargaste se conserva.':' Actualizá la página antes de reintentar.');}
+  uploaded.current=null;
+  return message+' Lo que cargaste se conserva; podés reintentar.';
  }
  async function createCategory(){
   const name=newCategory.trim();if(lock.current||name.length<2)return;
@@ -73,25 +92,25 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
     await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),kind,source,categoryIds,version});saved='Material guardado.';
     if(cover){const uploadId=await upload(cover,'cover',id);setPending('Guardando portada…');await postSalesMaterial({action:'cover',id,revision:1,uploadId});}
    }else if(mode.type==='edit'){
-    setPending('Guardando cambios…');await postSalesMaterial({action:'update',id:material!.id,revision:material!.revision,title:title.trim(),description:description.trim(),kind,categoryIds});saved='Cambios guardados.';
+    setPending('Guardando cambios…');await postSalesMaterial({action:'update',id:material!.id,revision:revision.current,title:title.trim(),description:description.trim(),kind,categoryIds});saved='Cambios guardados.';
    }else if(mode.type==='version'){
     const version=material!.source==='file'?{uploadId:await upload(file!,'file',material!.id)}:{url:url.trim()};
-    setPending('Guardando versión…');await postSalesMaterial({action:'version',id:material!.id,revision:material!.revision,version});saved='Nueva versión guardada. Las anteriores se conservan.';
+    setPending('Guardando versión…');await postSalesMaterial({action:'version',id:material!.id,revision:revision.current,version});saved='Nueva versión guardada. Las anteriores se conservan.';
    }else{
     const uploadId=await upload(cover!,'cover',material!.id);
-    setPending('Guardando portada…');await postSalesMaterial({action:'cover',id:material!.id,revision:material!.revision,uploadId});saved='Portada actualizada.';
+    setPending('Guardando portada…');await postSalesMaterial({action:'cover',id:material!.id,revision:revision.current,uploadId});saved='Portada actualizada.';
    }
-   await qc.invalidateQueries({queryKey:['sales-materials']});onSaved(saved);
+   uploaded.current=null;await qc.invalidateQueries({queryKey:['sales-materials']});onSaved(saved);
   }catch(e){
    if(saved){void qc.invalidateQueries({queryKey:['sales-materials']});onSaved(saved+' La portada no se pudo guardar: probá de nuevo con «Portada».');return;}
-   setError(e instanceof UploadCancelled?e.message:(e instanceof Error?e.message:'No se pudo guardar.')+' Lo que cargaste se conserva; podés reintentar.');
+   setError(await failure(e,'No se pudo guardar.'));
   }finally{lock.current=false;setPending('')}
  }
  async function removeCover(){
   if(lock.current||!material)return;
   lock.current=true;setPending('Quitando portada…');setError('');
-  try{await postSalesMaterial({action:'cover',id:material.id,revision:material.revision,uploadId:null});await qc.invalidateQueries({queryKey:['sales-materials']});onSaved('Portada quitada.');}
-  catch(e){setError((e instanceof Error?e.message:'No se pudo quitar la portada.')+' Podés reintentar.')}
+  try{await postSalesMaterial({action:'cover',id:material.id,revision:revision.current,uploadId:null});await qc.invalidateQueries({queryKey:['sales-materials']});onSaved('Portada quitada.');}
+  catch(e){setError(await failure(e,'No se pudo quitar la portada.'))}
   finally{lock.current=false;setPending('')}
  }
  const percent=progress&&progress.total?Math.min(100,Math.round(progress.loaded/progress.total*100)):0;
