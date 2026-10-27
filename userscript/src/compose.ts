@@ -1,4 +1,5 @@
-import { ApiError, dispatchTemplate, fetchTemplates, markTemplateNotSent, prepareTemplate, type Match, type PreparedTemplate, type TemplateLead } from "./api";
+import { ApiError, addMaterial, dispatchTemplate, fetchMaterials, fetchTemplates, markTemplateNotSent, prepareTemplate, type Match, type PreparedTemplate, type ScriptMaterial, type TemplateLead } from "./api";
+import { emptyMaterialListing, materialPicker, type MaterialListing } from "./materials";
 import { chatMatchesRecipient, clearComposer, composerEquals, getWhatsAppComposer, pasteIntoComposer } from "./selectors";
 import type { UiOptions } from "./ui";
 
@@ -10,7 +11,9 @@ const WRONG_PHONE = "El teléfono del chat no coincide con la persona elegida. N
 
 type Choice = { leadId: string; templateId: string; contactId: string | null };
 type Done = "pasted" | "copied" | null;
-type State = Choice & { busy: boolean; prepared: PreparedTemplate | null; error: string; dispatched: boolean; done: Done; pasteFailed: boolean; confirmReplace: boolean };
+/** Sales material of the panel (spec 89 §9): the list is loaded once per view, `added` resets with each new draft. */
+type Materials = { picker: boolean; listing: MaterialListing; refreshMaterials: boolean; added: string[] };
+type State = Choice & Materials & { busy: boolean; prepared: PreparedTemplate | null; error: string; dispatched: boolean; done: Done; pasteFailed: boolean; confirmReplace: boolean };
 
 /**
  * The last model the script pasted in each business's chat, kept across reloads (a week, like an open attempt). Its text in the composer is
@@ -65,7 +68,7 @@ function templatePopover(row: HTMLElement, template: { name: string; body: strin
  * It never sends: no Enter, no click on WhatsApp's send button. The seller reviews the text in the chat and sends it.
  */
 export function openCompose(card: HTMLElement, options: UiOptions, match: Match, back: () => void, header: (title: string) => HTMLElement): void {
-  const base = options.crmBase || "", state: State = { leadId: "", templateId: "", contactId: null, busy: false, prepared: null, error: "", dispatched: false, done: null, pasteFailed: false, confirmReplace: false };
+  const base = options.crmBase || "", state: State = { leadId: "", templateId: "", contactId: null, busy: false, prepared: null, error: "", dispatched: false, done: null, pasteFailed: false, confirmReplace: false, picker: false, listing: emptyMaterialListing(), refreshMaterials: false, added: [] };
   let data: { leads: TemplateLead[]; blocked: string | null } | null = null;
   const head = header;
 
@@ -111,7 +114,11 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
     if (state.prepared) {
       const section = el("div", "section"); section.append(el("h3", undefined, "VISTA PREVIA"), el("span", "muted", `Para ${state.prepared.recipientName || "el negocio"} · ${state.prepared.recipient}`), previewText(state.prepared.body, state.prepared.unresolved));
       if (state.prepared.unresolved.length) section.append(el("p", "note warn", `Falta ${state.prepared.unresolved.join(", ")}. Completalo en el CRM o elegí otra persona.`));
+      for (const warning of state.prepared.materialWarnings ?? []) section.append(el("p", "note warn", warning));
+      const canAddMaterial = !state.dispatched && !data.blocked;
+      if (canAddMaterial && !state.picker) section.append(button("Agregar material", "btn small", openMaterials, state.busy));
       body.append(section);
+      if (canAddMaterial && state.picker) { const refresh = state.refreshMaterials && !state.busy; if (refresh) state.refreshMaterials = false; body.append(materialPicker({ listing: state.listing, refresh, busy: state.busy, added: state.added, search: term => fetchMaterials(base, token(), match.accountId, term), onListing: listing => { state.listing = listing; }, onAdd: material => void addToDraft(material), onClose: () => { state.picker = false; render(); } })); }
     } else if (state.busy) body.append(el("p", "muted", "Preparando el mensaje…"));
     footer.append(el("p", "note info", NOT_SENT_BY_SCRIPT));
     if (state.error) footer.append(el("p", "note warn", state.error));
@@ -125,7 +132,7 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
   }
 
   /** A new model, person or management is a new draft: it has not been opened in WhatsApp yet. */
-  function choose(next: Choice): void { state.leadId = next.leadId; state.templateId = next.templateId; state.contactId = next.contactId; state.prepared = null; state.dispatched = false; state.pasteFailed = false; state.confirmReplace = false; void prepare(); }
+  function choose(next: Choice): void { state.leadId = next.leadId; state.templateId = next.templateId; state.contactId = next.contactId; state.prepared = null; state.dispatched = false; state.pasteFailed = false; state.confirmReplace = false; state.picker = false; state.added = []; void prepare(); }
   async function run(work: () => Promise<void>, fallback: string): Promise<void> {
     if (state.busy) return; state.busy = true; state.error = ""; render();
     try { await work(); } catch (cause) { state.error = failure(cause, fallback); } finally { state.busy = false; render(); }
@@ -133,6 +140,16 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
   function prepare(): Promise<void> {
     if (!state.templateId || !data?.leads.some(lead => lead.id === state.leadId)) { render(); return Promise.resolve(); }
     return run(async () => { state.prepared = await prepareTemplate(base, token(), { id: crypto.randomUUID(), leadId: state.leadId, contactId: state.contactId, templateId: state.templateId }); }, "No se pudo preparar el mensaje. Podés reintentar.");
+  }
+  /** Opens «Agregar material». Every opening asks the CRM again (with the last search): nothing from a blocked business is kept. */
+  function openMaterials(): void { state.picker = true; state.refreshMaterials = true; render(); }
+  /** The CRM creates a link of this draft and returns the new text: the preview and «Pegar en el chat» use it. Never after the draft was opened. */
+  function addToDraft(material: ScriptMaterial): Promise<void> {
+    return run(async () => {
+      const prepared = state.prepared!; if (state.dispatched) return;
+      const next = await addMaterial(base, token(), { messageId: prepared.messageId, revision: prepared.revision, materialId: material.id });
+      state.prepared = { ...prepared, body: next.body, revision: next.revision }; state.added = [...state.added, material.id]; state.picker = false;
+    }, "No se pudo agregar el material. Podés reintentar.");
   }
   /** Checked right before the text leaves the panel: same chat, same person, then «WhatsApp abierto» in the CRM (once per draft). */
   async function open(): Promise<PreparedTemplate> {

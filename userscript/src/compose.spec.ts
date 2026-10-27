@@ -1,8 +1,8 @@
 import { NOT_SENT_BY_SCRIPT, PASTE_FAILED, openCompose } from "./compose";
-import { ApiError, dispatchTemplate, fetchTemplates, markTemplateNotSent, prepareTemplate, type Match, type TemplatesResponse } from "./api";
+import { ApiError, addMaterial, dispatchTemplate, fetchMaterials, fetchTemplates, markTemplateNotSent, prepareTemplate, type Match, type TemplatesResponse } from "./api";
 import type { UiOptions } from "./ui";
 
-vi.mock("./api", async original => ({ ApiError: (await original<typeof import("./api")>()).ApiError, fetchTemplates: vi.fn(), prepareTemplate: vi.fn(), dispatchTemplate: vi.fn(), markTemplateNotSent: vi.fn() }));
+vi.mock("./api", async original => ({ ApiError: (await original<typeof import("./api")>()).ApiError, fetchTemplates: vi.fn(), prepareTemplate: vi.fn(), dispatchTemplate: vi.fn(), markTemplateNotSent: vi.fn(), fetchMaterials: vi.fn(), addMaterial: vi.fn() }));
 
 const match: Match = { accountId: "7", code: "H7", name: "Cabañas del Río", city: "Colón", status: "reviewed", statusLabel: "Revisado", assignedUserName: null, doNotContact: false, restrictionActive: false, archived: false, leads: [], url: "https://crm.example/accounts/7" };
 const listing = (overrides: Partial<TemplatesResponse> = {}): TemplatesResponse => ({
@@ -161,5 +161,46 @@ describe("sentMatchesPrepared", () => {
     expect(sentMatchesPrepared(model, model.replace("Hola Marcela", "Buen día Marcela") + "\nCualquier duda me avisás.")).toBe(true);
     expect(sentMatchesPrepared(model, "Te llamo mañana a la tarde, dale?")).toBe(false);
     expect(sentMatchesPrepared(null, "Cualquier texto")).toBe(true);
+  });
+});
+
+describe("compose view sales material (spec 89 §9)", () => {
+  const folleto = { id: "11111111-1111-4111-8111-111111111111", title: "Folleto 2027", categories: ["Folletos"], format: "pdf", formatLabel: "PDF" };
+  const tour = { id: "22222222-2222-4222-8222-222222222222", title: "Tour 360", categories: [], format: "link", formatLabel: "Enlace externo" };
+  it("shows the model's material that the CRM left out", async () => {
+    vi.mocked(prepareTemplate).mockResolvedValue(prepared({ materialWarnings: ["«Precios 2026» ya no está disponible. No se agregó al mensaje."] }));
+    await open();
+    expect(card.textContent).toContain("«Precios 2026» ya no está disponible. No se agregó al mensaje.");
+  });
+  it("adds a material to the draft, previews the new text and pastes it with the new revision", async () => {
+    vi.mocked(fetchMaterials).mockResolvedValueOnce({ materials: [folleto, tour], blocked: null }).mockResolvedValueOnce({ materials: [tour], blocked: null });
+    vi.mocked(addMaterial).mockResolvedValue({ revision: 2, body: "Hola Marcela, soy Ana de Hospeda.\n\nTour 360: https://crm.example/m/abc" });
+    await open(); buttonNamed(card, "Agregar material").click(); await flush(); await flush();
+    expect(fetchMaterials).toHaveBeenCalledWith("https://crm.example", "hcu_test", "7", "");
+    const search = card.querySelector<HTMLInputElement>("input[type=search]")!; search.value = "tour"; search.dispatchEvent(new Event("input"));
+    await new Promise(resolve => setTimeout(resolve, 350)); await flush();
+    expect(fetchMaterials).toHaveBeenLastCalledWith("https://crm.example", "hcu_test", "7", "tour");
+    expect(card.textContent).toContain("Tour 360"); expect(card.textContent).not.toContain("Folleto 2027");
+    buttonNamed(card, "Agregar").click(); await flush(); await flush();
+    expect(addMaterial).toHaveBeenCalledWith("https://crm.example", "hcu_test", { messageId: "m-1", revision: 1, materialId: tour.id });
+    expect(card.querySelector(".box")!.textContent).toContain("Tour 360: https://crm.example/m/abc");
+    buttonNamed(card, "Pegar en el chat").click(); await flush(); await flush();
+    expect(dispatchTemplate).toHaveBeenCalledWith("https://crm.example", "hcu_test", { id: "m-1", revision: 2 });
+    expect(composer.textContent).toContain("Tour 360: https://crm.example/m/abc");
+  });
+  it("shows why material cannot be added to a blocked business and asks again on the next opening (regression)", async () => {
+    vi.mocked(fetchMaterials).mockResolvedValueOnce({ materials: [], blocked: "El negocio tiene No contactar activo." }).mockResolvedValueOnce({ materials: [folleto], blocked: null });
+    await open(); buttonNamed(card, "Agregar material").click(); await flush(); await flush();
+    expect(card.textContent).toContain("El negocio tiene No contactar activo."); expect(addMaterial).not.toHaveBeenCalled();
+    buttonNamed(card, "Cerrar").click(); buttonNamed(card, "Agregar material").click(); await flush(); await flush();
+    expect(fetchMaterials).toHaveBeenCalledTimes(2); expect(card.textContent).toContain("Folleto 2027"); expect(card.textContent).not.toContain("No contactar activo");
+  });
+  it("keeps the draft and offers a retry when the CRM refuses the material", async () => {
+    vi.mocked(fetchMaterials).mockResolvedValue({ materials: [folleto], blocked: null });
+    vi.mocked(addMaterial).mockRejectedValue(new ApiError("«Folleto 2027» ya no está disponible.", 409));
+    await open(); buttonNamed(card, "Agregar material").click(); await flush(); await flush();
+    buttonNamed(card, "Agregar").click(); await flush(); await flush();
+    expect(card.textContent).toContain("«Folleto 2027» ya no está disponible."); expect(card.querySelector(".box")!.textContent).toBe("Hola Marcela, soy Ana de Hospeda.");
+    expect(buttonNamed(card, "Agregar").disabled).toBe(false);
   });
 });

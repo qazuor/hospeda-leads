@@ -15,6 +15,12 @@ Violentmonkey es una alternativa de código abierto compatible con las APIs est�
 
 Abrí un chat individual en WhatsApp Web. Revisá el negocio asociado y la vista previa, dejá seleccionados los mensajes que quieras y confirmá con **Registrar mensajes**. Los chats grupales no se admiten. El servidor decide duplicados y puede rechazar mensajes salientes si la regla de No contactar impide registrarlos.
 
+### Mandar un modelo con material de venta (versión 1.3.0)
+
+En **Mandar un mensaje**, elegí el modelo y la persona. Si el modelo trae material de venta, la vista previa ya muestra sus enlaces: el CRM crea uno nuevo para cada mensaje. Si un material del modelo se archivó, pasó a interno o se borró, el panel lo avisa y no lo incluye. Para sumar otro material, tocá **Agregar material**, buscalo por título o descripción (busca el CRM, así aparece aunque haya mucho material) y tocá **Agregar**. Solo aparece material entregable y activo, y el botón no está disponible si el negocio tiene No contactar, una restricción de WhatsApp o está en estado Nuevo. El servidor vuelve a comprobar permisos y No contactar en cada material. Una vez pegado el texto, el borrador ya no admite material nuevo: tocá **Cambiar de modelo** y prepará otro mensaje.
+
+Endpoints que usa (mismo token Bearer `hcu_…` y mismo control de versión 426 que el resto): `GET /_api/userscript/materials?accountId=<id>` y `POST /_api/userscript/material_add` `{messageId, revision, materialId}`, que devuelve `{revision, body}`. `POST /_api/userscript/prepare` suma `materialWarnings`.
+
 Si aparece **No pude leer este chat**, tocá **Copiar diagnóstico del chat** en el panel. El diagnóstico oculta texto y enmascara teléfonos. Enviáselo al equipo para actualizar los selectores.
 
 ### Solución de problemas
