@@ -234,7 +234,7 @@
           "Querés ver qué tenés que hacer hoy: «Hoy». Querés encontrar a un comercio: «Negocios». Querés ver todas las propuestas abiertas: «Gestiones»."
         ],
         "notes": [
-          "Los materiales aprobados se vinculan desde la pestaña «Documentos» del negocio. Solo un administrador administra la biblioteca."
+          "Los folletos, fotos, videos y presentaciones para ofrecer están en «Material de venta», dentro de «Herramientas». Solo un administrador los carga."
         ],
         "url": "/my-day",
         "linkLabel": "Ir a Hoy",
@@ -257,7 +257,8 @@
           "Buscar duplicados",
           "Mensajes sin asociar",
           "User script de WhatsApp",
-          "Documentos"
+          "Material de venta",
+          "Herramientas"
         ]
       },
       {
@@ -1117,32 +1118,63 @@
       },
       {
         "id": "documents",
-        "title": "Buscar y vincular materiales al negocio",
-        "when": "Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.",
+        "title": "Guardar documentos del negocio",
+        "when": "Cuando un negocio o una gestión necesita su propia propuesta, contrato o archivo.",
         "steps": [
           "Abrí el negocio y entrá en la pestaña «Documentos», o abrí una gestión y entrá en «Documentos».",
-          "Tocá «Agregar documento o recurso» para crear un documento propio, o usá «Agregar documento» para mostrar el formulario de vinculación. Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.",
-          "Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.",
-          "Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.",
-          "Revisá la versión, el vencimiento y la aprobación antes de usarlo como material comercial."
+          "Si sos administrador, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá. Desde un negocio podés asociarlo a una gestión propia o dejarlo como documento general.",
+          "Revisá la versión, el vencimiento y la aprobación antes de usarlo.",
+          "El material común para ofrecer (folletos, fotos, videos, presentaciones) no se carga acá: está en «Material de venta»."
         ],
-        "result": "El documento queda asociado al lugar elegido. Vincularlo no lo envía al cliente.",
+        "result": "El documento queda asociado al negocio o a la gestión. Guardarlo no lo envía al cliente.",
         "example": [
-          "Vinculá el folleto aprobado a Publicación de cabañas para que el equipo sepa qué material usó."
+          "Guardá la propuesta firmada de Cabañas del Río en su gestión para que el equipo la encuentre."
         ],
         "notes": [
-          "Solo un administrador carga y administra la biblioteca común, en «Configuración» → «Biblioteca». Una versión nueva conserva las anteriores y vuelve a borrador."
+          "La antigua biblioteca se reemplazó por «Material de venta». Los documentos que ya estaban vinculados a un negocio se siguen viendo en su pestaña."
         ],
         "url": "/accounts",
-        "linkLabel": "Elegir negocio para consultar materiales",
+        "linkLabel": "Elegir negocio para consultar documentos",
         "uiLabels": [
           "Documentos",
-          "Agregar documento",
           "Agregar documento o recurso",
-          "Vincular documento al negocio",
-          "Vincular documento a la gestión",
+          "Material de venta"
+        ]
+      },
+      {
+        "id": "sales-material",
+        "title": "Usar el Material de venta",
+        "when": "Cuando necesitás mostrar o mandar un folleto, una foto, un video o una presentación de Hospeda.",
+        "steps": [
+          "Entrá en «Material de venta», en el grupo «Herramientas» del menú.",
+          "Buscá por título o comentario y filtrá por «Categoría» y «Tipo». Los entregables se pueden mandar a clientes; los internos son información solo para el equipo.",
+          "Tocá «Abrir» para verlo o «Descargar» para guardarlo. Si es un enlace externo, tocá «Abrir enlace».",
+          "Si sos administrador, usá «Nuevo material» para subir un archivo o registrar un enlace, con título, categorías, comentario y tipo. Con «Nueva versión» cambiás el archivo y las versiones anteriores se conservan.",
+          "«Archivar» lo saca de la lista sin borrar nada; «Restaurar» lo vuelve a mostrar."
+        ],
+        "result": "Encontrás siempre la versión actual del material. Abrirlo o descargarlo no lo envía al cliente.",
+        "example": [
+          "Un cliente pide fotos de un alojamiento: buscá fotos en Material de venta y descargá la versión actual."
+        ],
+        "notes": [
+          "Las categorías las administra un administrador en «Configuración» → «Categorías de material»."
+        ],
+        "url": "/sales-material",
+        "linkLabel": "Abrir Material de venta",
+        "uiLabels": [
+          "Material de venta",
+          "Herramientas",
+          "Categoría",
+          "Tipo",
+          "Abrir",
+          "Descargar",
+          "Abrir enlace",
+          "Nuevo material",
+          "Nueva versión",
+          "Archivar",
+          "Restaurar",
           "Configuración",
-          "Biblioteca"
+          "Categorías de material"
         ]
       },
       {
@@ -1445,7 +1477,7 @@
           "«Clasificaciones» administra datos descriptivos como verticales, subtipos y ciudades.",
           "El Estado del negocio, las marcas Es cliente / No contactar / Derivado a Leandro, y las etapas y motivos de las gestiones son catálogos fijos del producto.",
           "«Proceso comercial» tiene «Etapas y resultados» y «Tareas y seguimiento», donde se administran los tipos de tarea, su presencia en el calendario y otras reglas de trabajo.",
-          "«Comunicación» configura el envío global de email. «Modelos de mensajes» administra los modelos compartidos y «Biblioteca» los materiales comunes.",
+          "«Comunicación» configura el envío global de email. «Modelos de mensajes» administra los modelos compartidos y «Categorías de material» ordena el «Material de venta».",
           "Los cambios de configuración no corrigen la información histórica. Revisá con cuidado los datos afectados antes de hacer un cambio masivo."
         ],
         "result": "Las opciones compartidas quedan en la sección que corresponde. Cambiar de sección no modifica datos.",
@@ -1468,12 +1500,13 @@
           "Etapas y resultados",
           "Tareas y seguimiento",
           "Modelos de mensajes",
-          "Biblioteca"
+          "Categorías de material",
+          "Material de venta"
         ]
       },
       {
         "id": "resources-admin",
-        "title": "Administrar modelos de comunicación y biblioteca",
+        "title": "Administrar modelos de comunicación y material de venta",
         "when": "Cuando el equipo necesita materiales comunes para ofrecer.",
         "steps": [
           "Solo los administradores crean, editan, duplican, publican, desactivan o reactivan modelos compartidos. Los modelos pueden ser para email, WhatsApp, redes sociales u otros canales; no para llamadas.",
@@ -1481,17 +1514,19 @@
           "Clasificá el modelo por canal y, cuando corresponda, vertical o tipo de gestión. Se muestran todos los que aplican, primero los más específicos, y los genéricos siguen disponibles.",
           "Usá solo variables confiables del CRM. Quien prepara un contacto tiene que completar o quitar cada variable que falte antes de abrir o enviar el mensaje.",
           "El historial conserva las versiones anteriores y un administrador puede consultarlas o restaurarlas. Desactivar oculta un modelo para usos nuevos sin borrar su historial; también puede editarse y reactivarse.",
-          "En «Biblioteca» agregá documentos o recursos, revisá su contenido y aprobá la versión cuando esté lista. Vincular un recurso a un negocio o una gestión no lo envía."
+          "En «Material de venta» subí archivos de hasta 500 MB o registrá enlaces externos. Cada material tiene una o más categorías, un comentario y un tipo: «Entregable» o «Interno». Archivar no borra nada."
         ],
-        "result": "El equipo dispone de modelos y recursos revisados, con sus versiones e historia.",
+        "result": "El equipo dispone de modelos y materiales revisados, con sus versiones e historia.",
         "example": [],
         "notes": [
           "Los usuarios pueden editar su mensaje para ese contacto, pero no alterar el modelo compartido."
         ],
-        "url": "/settings?section=library",
-        "linkLabel": "Administrar Biblioteca",
+        "url": "/sales-material",
+        "linkLabel": "Administrar Material de venta",
         "uiLabels": [
-          "Biblioteca"
+          "Material de venta",
+          "Entregable",
+          "Interno"
         ]
       },
       {

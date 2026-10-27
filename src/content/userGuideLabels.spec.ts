@@ -121,4 +121,4 @@ describe('user guide labels',()=>{
  });
 });
 
-describe('document guide controls',()=>{it('names both linking and own-document controls',()=>{const article=guide.flatMap(topic=>topic.articles).find(item=>item.id==='documents');expect(article?.steps.join(' ')).toContain('«Agregar documento o recurso»');expect(article?.uiLabels).toContain('Agregar documento o recurso');expect(article?.steps.join(' ')).toContain('«Agregar documento»');expect(article?.uiLabels).toContain('Agregar documento')})});
+describe('document guide controls',()=>{it('names the own-document control and sends sales material to its own page (spec 89)',()=>{const articles=guide.flatMap(topic=>topic.articles);const article=articles.find(item=>item.id==='documents');expect(article?.steps.join(' ')).toContain('«Agregar documento o recurso»');expect(article?.uiLabels).toContain('Agregar documento o recurso');expect(article?.uiLabels).not.toContain('Agregar documento');expect(article?.uiLabels).toContain('Material de venta');expect(articles.find(item=>item.id==='sales-material')?.url).toBe('/sales-material');expect(JSON.stringify(guide)).not.toMatch(/Biblioteca|section=library/)})});

@@ -271,12 +271,15 @@ try{
  // Materials are administered exclusively by admin and used in an authorized context.
  const documentId=crypto.randomUUID();
  const createDocument={action:'create',id:documentId,title:'Approved test material',type:'propuesta',library:true,accountId:null,leadId:null,activityId:null,categoryId:null,version:{url:'https://example.com/material.pdf'}};
- await call(owner,resourcesPost,'resources',createDocument,403);
- await call(admin,resourcesPost,'resources',createDocument);
- await call(admin,resourcesPost,'resources',{action:'status',id:documentId,revision:1,status:'approved'});
+ // Spec 89 retired the library: nobody creates library documents or links them any more; existing rows and links stay readable.
+ for(const actor of [owner,admin])assert.equal((await call(actor,resourcesPost,'resources',createDocument,400)).error,'La biblioteca fue reemplazada por Material de venta.');
+ await sql`INSERT INTO crm_documents(id,title,type,owner_email,library,status) VALUES(${documentId}::uuid,'Approved test material','propuesta',${admin.user.email},true,'approved')`.execute(db);
+ await sql`INSERT INTO crm_document_versions(id,document_id,version,url,actor_email,approved_at) VALUES(${crypto.randomUUID()}::uuid,${documentId}::uuid,1,'https://example.com/material.pdf',${admin.user.email},now())`.execute(db);
  await call(owner,resourcesPost,'resources',{action:'version',id:documentId,revision:1,version:{url:'https://example.com/replacement.pdf'}},403);
- await call(owner,resourcesPost,'resources',{action:'link',id:documentId,accountId,leadId,activityId:null});
- await call(other,resourcesPost,'resources',{action:'link',id:documentId,accountId,leadId,activityId:null},403);
+ for(const actor of [owner,other])await call(actor,resourcesPost,'resources',{action:'link',id:documentId,accountId,leadId,activityId:null},400);
+ const legacyLink=(account:string,lead:string|null)=>sql`INSERT INTO crm_document_links(document_id,account_id,original_account_id,lead_id,actor_email) VALUES(${documentId}::uuid,${account}::bigint,${account}::bigint,${lead}::bigint,${owner.user.email})`.execute(db);
+ await legacyLink(accountId,leadId);
+ assert(!(await call(owner,resourcesGet,'resources')).documents.some((d:any)=>d.id===documentId),'the retired library is no longer listed');
  assert((await call(other,resourcesGet,'resources?accountId='+accountId)).documents.some((d:any)=>d.id===documentId));
  // Legitimate owner/admin edits remain possible.
  await call(owner,commercialPost,'commercial',{action:'account_save',id:accountId,nombre:'Permission business '+suffix,email:'business@example.com'});
@@ -324,7 +327,6 @@ try{
   [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:dncPhone,recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
   [communicationPost,'communication',{action:'response_create',id:crypto.randomUUID(),accountId,leadId:archivedLead,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Unauthorized response',exactText:null,otherDetail:null}],
   [communicationPost,'communication',{action:'response_correct',id:archivedResponse,category:'other',summary:'Unauthorized correction',exactText:null,otherDetail:'Changed',reason:'Unauthorized correction'}],
-  [resourcesPost,'resources',{action:'link',id:documentId,accountId,leadId:archivedLead,activityId:null}],
   [pipelinePost,'pipeline',{action:'transition',leadId:archivedLead,revision:archivedRevision,stage:'main:contacted'}],
   [pipelinePost,'pipeline',{action:'unrefer',leadId:archivedLead,revision:archivedRevision}],
  ];
@@ -351,7 +353,7 @@ try{
  await call(owner,communicationPost,'communication',{action:'response_create',id:dncResponse,accountId:dncBusiness,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Answered before the block',exactText:null,otherDetail:null});
  const dncDocument=crypto.randomUUID();
  await call(admin,resourcesPost,'resources',{action:'create',id:dncDocument,title:'Business own material',type:'propuesta',library:false,accountId:dncBusiness,leadId:null,activityId:null,categoryId:null,version:{url:'https://example.com/own.pdf'}});
- await call(owner,resourcesPost,'resources',{action:'link',id:documentId,accountId:dncBusiness,leadId:null,activityId:null});
+ await legacyLink(dncBusiness,null);
  const revision=async(lead:string,a:Actor=owner)=>(await call(a,pipelineGet,'pipeline?leadId='+lead)).insights[0].pipelineRevision as number;
  const dncReason=(await call(owner,pipelineGet,'pipeline?leadId='+dncLead)).managementReasons.find((r:any)=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.reasonKey==='do_not_contact');assert(dncReason);
  await call(owner,pipelinePost,'pipeline',{action:'transition',leadId:dncLead,revision:await revision(dncLead),stage:'main:lost',reasonId:dncReason.id,comment:''});
@@ -372,7 +374,6 @@ try{
  for(const body of [{action:'version',id:fileDocument,revision:1,version:{url:'https://example.com/replacement.pdf'}},{action:'delete',id:fileDocument,revision:1},{action:'status',id:fileDocument,revision:1,status:'approved'}])await call(owner,resourcesPost,'resources',body,403);
  assert.equal((await downloadAs(owner)).status,200,'rejected writes leave the file downloadable');
  const pipelineRevisions=new Map([[dncLead,await revision(dncLead)],[openLead,await revision(openLead)]]);
- const documentLink={action:'link',id:documentId,accountId:dncBusiness,leadId:openLead,activityId:null};
  const dncWrites:[(r:Request)=>Promise<Response>,string,unknown][]=[
   ...[
    {action:'account_save',id:dncBusiness,nombre:'Unauthorized edit'},
@@ -406,7 +407,6 @@ try{
   [communicationPost,'communication',{action:'manual_start',id:crypto.randomUUID(),accountId:dncBusiness,leadId:openLead,contactId:null,channel:'call',purpose:'resume',otherPurpose:null,recipient:dncPhone,recipientName:'',destination:null,body:'',result:'manual_sent',templateId:null}],
   [communicationPost,'communication',{action:'response_create',id:crypto.randomUUID(),accountId:dncBusiness,leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'',destination:null,linkedMessageId:null,category:'interested',summary:'Unauthorized response',exactText:null,otherDetail:null}],
   [communicationPost,'communication',{action:'response_correct',id:dncResponse,category:'other',summary:'Unauthorized correction',exactText:null,otherDetail:'Changed',reason:'Unauthorized correction'}],
-  [resourcesPost,'resources',documentLink],
   [qualityPost,'dataQuality',{action:'evidence',accountId:dncBusiness,leadId:openLead,field:'telefono',revision:blocked.updatedAt.toISOString(),source:'Unauthorized check',verifiedAt:null,validity:'valid',observations:''}],
   [qualityPost,'dataQuality',{action:'evidence',accountId:dncBusiness,field:'telefono',revision:blocked.updatedAt.toISOString(),source:'Unauthorized check',verifiedAt:null,validity:'valid',observations:''}],
   [pipelinePost,'pipeline',{action:'transition',leadId:openLead,revision:pipelineRevisions.get(openLead),stage:'main:leandro'}],
@@ -516,7 +516,6 @@ try{
     [workPost,'work',{action:'task_delete',id:preTask}],
     [workPost,'work',{action:'task_status',id:preTask,status:'completed',result:'Unauthorized completion',outcome:'interested',continuation:'done'}],
     [workPost,'work',{action:'activity_save',accountId:f.b,title:'Unauthorized call',typeId:'call',occurredAt:new Date().toISOString(),outcome:'interested',continuation:'done'}],
-    [resourcesPost,'resources',{action:'link',id:documentId,accountId:f.b,leadId:null,activityId:null}],
     [pipelinePost,'pipeline',{action:'transition',leadId:f.l,revision:rev,stage:'main:lost',reasonId:lost.id,comment:''}],
     [pipelinePost,'pipeline',{action:'contact_policy',accountId:f.b,blocked:false,reason:'Unauthorized lift'}],
     [communicationPost,'communication',{action:'prepare_general',id:crypto.randomUUID(),accountId:f.b,leadId:null,contactId:f.c,channel:'whatsapp',purpose:'resume',otherPurpose:null,templateId:null}],
@@ -558,7 +557,7 @@ try{
    await call(mgr,workPost,'work',completion(otherTask),403);assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',otherTask).executeTakeFirstOrThrow()).status,'pending','an unrelated pending task stays open');
    await call(mgr,workPost,'work',completion(linkedTask));
    // The admin keeps full access and can lift the block, which gives the owner her edit rights back.
-   for(const [handler,url,body] of [commercial({action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Concordia'}),commercial({action:'contact_save',accountId:f.b,name:'Admin person',isPrimary:false}),[quick,'leads_quick',{id:f.b,accountId:f.b,field:'ciudad',value:'Colón',expectedValue:'Concordia'}],[note,'lead_notes',{leadId:f.l,note:'Admin note'}],[workPost,'work',{action:'task_save',accountId:f.b,title:'Admin task',typeId:'call',dueDate:'2027-01-15'}],[resourcesPost,'resources',{action:'link',id:documentId,accountId:f.b,leadId:null,activityId:null}],[bulk,'leads_bulk',{entity:'business',ids:[f.b],changes:{ciudad:'Concordia'}}]] as W[])await call(admin,handler,url,body);
+   for(const [handler,url,body] of [commercial({action:'account_save',id:f.b,nombre:`Zz D1 readonly ${suffix}`,ciudad:'Concordia'}),commercial({action:'contact_save',accountId:f.b,name:'Admin person',isPrimary:false}),[quick,'leads_quick',{id:f.b,accountId:f.b,field:'ciudad',value:'Colón',expectedValue:'Concordia'}],[note,'lead_notes',{leadId:f.l,note:'Admin note'}],[workPost,'work',{action:'task_save',accountId:f.b,title:'Admin task',typeId:'call',dueDate:'2027-01-15'}],[resourcesPost,'resources',{action:'create',id:crypto.randomUUID(),title:'Admin business document',type:'propuesta',library:false,accountId:f.b,leadId:null,activityId:null,categoryId:null,version:{url:'https://example.com/admin.pdf'}}],[bulk,'leads_bulk',{entity:'business',ids:[f.b],changes:{ciudad:'Concordia'}}]] as W[])await call(admin,handler,url,body);
    {// Admin referral on the No contactar business works.
     try{
      const live=(await call(admin,pipelineGet,'pipeline?leadId='+f.l)).insights[0].pipelineRevision as number;

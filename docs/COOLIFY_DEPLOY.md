@@ -44,11 +44,36 @@ INBOUND_EMAIL_TOKEN=<random secret, minimum 32 characters; shared with the Cloud
 BREVO_SMTP_LOGIN=<Brevo SMTP login for the CRM>
 BREVO_SMTP_KEY=<dedicated, revocable CRM SMTP key>
 BREVO_SMTP_PORT=587
+R2_ACCOUNT_ID=<Cloudflare account id>
+R2_ACCESS_KEY_ID=<R2 API token access key id, Object Read & Write on the material bucket only>
+R2_SECRET_ACCESS_KEY=<R2 API token secret access key>
+R2_BUCKET=<private bucket name, e.g. hospeda-crm-material>
 ```
 
 No versionar valores reales.
 
 Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` y, opcionalmente, `BREVO_SMTP_PORT` en Coolify. La clave debe ser propia del CRM y revocable. Si falta el usuario o la clave, el servidor inicia igual y oculta la acción.
+
+### Material de venta en Cloudflare R2 (spec 89)
+
+«Material de venta» guarda los archivos en un bucket privado de R2. El navegador sube directo a R2 con una URL firmada que emite el CRM; el archivo no pasa por el VPS (salvo portadas de hasta 1 MB). Pasos del propietario, una sola vez:
+
+1. En Cloudflare → R2, crear un bucket **privado** (por ejemplo `hospeda-crm-material`). Sin dominio público ni `r2.dev`: las URL firmadas solo funcionan sobre el dominio S3 de R2 (`https://<account>.r2.cloudflarestorage.com`).
+2. Crear un token de API de R2 con permiso **Object Read & Write** limitado a ese bucket. Guardar el Access Key ID y el Secret Access Key (el secreto se ve una sola vez).
+3. Configurar el CORS del bucket (Settings → CORS policy):
+
+   ```json
+   [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]
+   ```
+
+   Staging o un worktree que suba archivos agrega su propio origen a `AllowedOrigins`.
+4. Cargar en Coolify `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `R2_BUCKET` y redesplegar. No versionar valores.
+
+Sin esas variables el servidor arranca igual: la página «Material de venta» muestra «Almacenamiento no configurado», subir y abrir archivos responde 503, y los enlaces externos siguen funcionando. La CSP report-only suma el origen de R2 a `connect-src`, `img-src`, `media-src` y `frame-src` cuando las variables están cargadas (se lee al arrancar).
+
+Un barrido interno corre cada 6 horas (y un minuto después de arrancar) y borra de R2 las subidas que quedaron pendientes más de `pendingUploadHours` (24 h por defecto, en `app_settings.crm_sales_material`). Usa un lock de Postgres, así que no hay doble barrido. `R2_ENDPOINT` existe solo para las pruebas (apunta a un R2 simulado); no se configura en producción.
+
+Antes del deploy de F1: el propietario borra a mano sus materiales de prueba en Configuración → «Biblioteca» con la acción existente. Después del deploy la biblioteca vieja deja de mostrarse (sus filas quedan en la base, inertes) y `/library` redirige a `/sales-material`. Ningún agente borra filas de producción.
 
 ## Migraciones
 

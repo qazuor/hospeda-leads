@@ -10,6 +10,20 @@
 - **Revisión:** filas enviadas sin confirmar, no hechas o con fallo con nombre neutro y estilo punteado; la sesión de llamada sobrevive al cerrar el diálogo (misma clave al reintentar) y el diálogo no se cierra mientras guarda; «sin mensaje» solo sin mensaje vinculado; aviso «Mostrando lo más reciente» con listas llenas; una sola regla Instagram/Red social (`instagramChannel.ts`); «Último contacto» y Historial con títulos honestos («WhatsApp a Julia», «Email a … · «asunto»»); eco de Instagram igual en Historial; «Ver diseño del email» en el email enviado.
 - **Móvil:** la columna del negocio va primero con «Personas» y «Datos del negocio» plegados (≤1140 px), para no empujar la pestaña debajo de listas largas.
 
+## Spec 89 «Material de venta» — F1 en PR — 26/10/2026
+
+- Spec aprobada y mergeada (#263). F1 en `feat/sales-material-f1`: R2 con subida directa firmada (`aws4fetch`), migración `046_sales_material.sql` (materiales, versiones, categorías, subidas pendientes y registros de envío), página `/sales-material` para todos con acciones de admin, categorías en Configuración, barrido de subidas abandonadas y retiro de la biblioteca vieja (los adjuntos de negocio siguen igual).
+- Validación: typecheck, vitest en serie, build, `test:sales-material` (16 grupos), `test-work`, `test-permissions`, `test-search`, `test-communication` y los e2e afectados sobre base descartable. Revisión con contexto nuevo y correcciones (timeouts de R2, barrido fuera de transacción, conflicto 409 recuperable).
+- Para producción: crear el bucket R2, su CORS y las variables en Coolify (`docs/COOLIFY_DEPLOY.md`), y borrar a mano las subidas de prueba de la biblioteca vieja antes del deploy. Siguen F2 (página pública `/m/<token>`), F3 (composer y email) y F4 (modelos y user script).
+
+## Spec 87 — reglas comerciales — PR #262 a `staging` (26/10/2026)
+
+- Cerrar como Cliente exige acuerdo y persona aceptante (3 caracteres útiles); editar ese acuerdo no permite vaciar los dos datos. Se marca la evidencia nueva con `markedClient` en el evento `closing_checklist`, sin inferir decisiones para eventos antiguos.
+- Registrar respuesta permite seleccionar tareas pendientes de la gestión; solo las seleccionadas se completan y se vinculan a la respuesta en la misma transacción. La repetición idempotente no vuelve a completar tareas.
+- El asignado a una tarea pendiente puede preparar, editar y enviar email/WhatsApp desde «Contactar» de esa tarea. Se valida de nuevo en cada escritura y envío; el historial identifica al delegado y al responsable.
+- Migración `044_delegated_messages.sql`: `delegated_task_id bigint` (tipo real de `crm_tasks.id`) y su índice. Pagos no se registran.
+- Guía en pantalla y Markdown actualizados. Suites de integración extendidas en `test-pipeline.ts` y `test-communication.ts`.
+- Verificación local: `npm run typecheck`, `npm test -- --maxWorkers=2` (175 archivos, 1.246 pruebas) y `npm run build` pasaron. El reporte indica comandos y límites. Las suites de integración se ampliaron, pero no se ejecutaron por instrucción.
 ## Spec 87 — reglas comerciales — cerrada: mergeada en `staging` (PR #262, `921b76c`) — 26/10/2026
 
 - **Ganar como Cliente:** exige «Qué se acordó» y «Persona que aceptó», con 3 caracteres útiles. El acuerdo no se puede vaciar después, porque `markedClient` se arrastra en cada guardado.
