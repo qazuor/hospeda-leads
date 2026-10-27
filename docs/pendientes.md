@@ -4,6 +4,10 @@
 
 Implementada localmente en `feat/commercial-rules-87`, sin PR ni merge. La migración 044 está escrita pero no aplicada. Verificación local: typecheck, suite unitaria completa (175 archivos / 1.246 pruebas), build y compilación esbuild de los dos scripts de integración modificados. Las suites `test-pipeline.ts` y `test-communication.ts` no se ejecutaron por instrucción; siguiente paso: correrlas con una base local descartable, después revisar el cambio y preparar PR a `staging` según el flujo habitual.
 
+## Material de venta (spec 89)
+
+- F1 en PR. Pendientes: F2 página pública `/m/<token>` con Open Graph, F3 composer + adjunto por email, F4 materiales en modelos y user script. Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
+
 ## Rediseño visual (v1 por fases)
 
 Vistas fijadas (#245), orden de columnas (#247, #250), Bandeja (#249) y los ajustes de la revisión del 26/10 (#254, #255, #258, #259 y encabezados con ayuda) están en `staging`. Pendiente: revisión del propietario (celular real, modo oscuro, vista de vendedor) y su «terminamos» para pasar a `main`. Unos 35 e2e todavía escriben `hospeda-live-mode=off`, que ahora no tiene efecto: limpiarlos cuando se toquen.

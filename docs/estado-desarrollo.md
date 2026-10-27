@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 26 de octubre de 2026
 
+## Spec 89 «Material de venta» — F1 en PR — 26/10/2026
+
+- Spec aprobada y mergeada (#263). F1 en `feat/sales-material-f1`: R2 con subida directa firmada (`aws4fetch`), migración `046_sales_material.sql` (materiales, versiones, categorías, subidas pendientes y registros de envío), página `/sales-material` para todos con acciones de admin, categorías en Configuración, barrido de subidas abandonadas y retiro de la biblioteca vieja (los adjuntos de negocio siguen igual).
+- Validación: typecheck, vitest en serie, build, `test:sales-material` (16 grupos), `test-work`, `test-permissions`, `test-search`, `test-communication` y los e2e afectados sobre base descartable. Revisión con contexto nuevo y correcciones (timeouts de R2, barrido fuera de transacción, conflicto 409 recuperable).
+- Para producción: crear el bucket R2, su CORS y las variables en Coolify (`docs/COOLIFY_DEPLOY.md`), y borrar a mano las subidas de prueba de la biblioteca vieja antes del deploy. Siguen F2 (página pública `/m/<token>`), F3 (composer y email) y F4 (modelos y user script).
+
 ## Spec 87 — reglas comerciales — PR #262 a `staging` (26/10/2026)
 
 - Cerrar como Cliente exige acuerdo y persona aceptante (3 caracteres útiles); editar ese acuerdo no permite vaciar los dos datos. Se marca la evidencia nueva con `markedClient` en el evento `closing_checklist`, sin inferir decisiones para eventos antiguos.
