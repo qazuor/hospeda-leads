@@ -8,13 +8,15 @@ import {setServerSession} from '../src/helpers/getSetServerSession';
 import {post as webhook} from '../src/endpoints/inboundInstagram';
 import {post as communication} from '../src/endpoints/communication';
 import {pendingContactOutcomes} from '../src/helpers/communicationService';
+import {CompiledQuery} from 'kysely';
+import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,instagramSecretFingerprint,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from './lib/instagram-secret';
 
 /**
  * Spec 92: Instagram chats opened from the composer. Communication gates (prepare / prepare_general / edit / dispatch /
  * outcome), the opened journal and activity, the waiting period of pending outcomes, and the echo-to-attempt resolution
  * of the Instagram webhook with Meta mocked (no network, nothing is ever sent to Instagram).
  */
-if(process.env.CRM_TEST_DATABASE!=='1'||!/@(localhost|127\.0\.0\.1|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)[:/]/.test(process.env.DATABASE_URL??''))throw new Error('Instagram open-chat tests require CRM_TEST_DATABASE=1 and a local DATABASE_URL (localhost or a private Docker address)');
+assertLocalTestDatabase({url:process.env.DATABASE_URL,optIn:process.env.CRM_TEST_DATABASE});
 const run=randomUUID(),hex=run.replaceAll('-',''),secret='instagram-open-chat-secret',igAccount='instagram-open-chat-'+run;
 const old={secret:process.env.INSTAGRAM_APP_SECRET,account:process.env.INSTAGRAM_ACCOUNT_ID,key:process.env.INTEGRATION_SECRETS_KEY,fetch:globalThis.fetch,warn:console.warn};
 const key=Buffer.alloc(32,9);
@@ -31,7 +33,8 @@ globalThis.fetch=(async(input:Parameters<typeof fetch>[0])=>{
 }) as typeof fetch;
 
 const accountIds:string[]=[],userEmails:string[]=[],igsids:string[]=[],templateIds:string[]=[];let tagSeq=0;
-let previousSecret:{ciphertext:string;iv:string;tag:string;expiresAt:Date|null;refreshedAt:Date|null;lastError:string|null}|undefined;
+let secretSnapshot=NO_SECRET_SNAPSHOT;
+const secretQuery:SecretQuery=async(text,params=[])=>(await db.executeQuery(CompiledQuery.raw(text,[...params]))).rows as Record<string,unknown>[];
 const identity=async(role:'admin'|'user')=>{const u=await db.insertInto('users').values({email:`ig-open-${role}-${randomUUID()}@example.com`,displayName:role==='admin'?'Admin IG':'Vendedora IG',role}).returningAll().executeTakeFirstOrThrow();userEmails.push(u.email);await db.insertInto('sessions').values({id:u.email,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,{id:u.email,createdAt:Date.now(),lastAccessed:Date.now()});return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};};
 async function call(body:unknown,cookie:string,status=200){const r=await communication(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie},body:superjson.stringify(body)}));const d=superjson.parse<any>(await r.text());assert.equal(r.status,status,`${(body as {action:string}).action}: ${d.error??''}`);return d;}
 const row=async(id:string)=>(await sql<{id:string;status:string;externalId:string|null;body:string;textBody:string|null;recipient:string;channel:string;destinationDetail:string|null;activityId:string|null;ownerEmail:string;lastInteractionAt:Date;taskId:string|null;contactId:string|null;recipientName:string}>`SELECT id::text AS id,status,external_id,body,text_body,recipient,channel,destination_detail,activity_id::text AS activity_id,owner_email,last_interaction_at,task_id::text AS task_id,contact_id::text AS contact_id,recipient_name FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0]!;
@@ -55,12 +58,22 @@ async function openAttempt(accountId:string,text:string,cookie:string){
 }
 const payload=(mid:string,text:string,igsid:string,timestamp=Date.now())=>({object:'instagram',entry:[{id:igAccount,messaging:[{sender:{id:igAccount},recipient:{id:igsid},timestamp,message:{mid,text,is_echo:true}}]}]});
 const signed=(body:unknown)=>{const raw=JSON.stringify(body);return new Request('http://localhost/_api/inbound/instagram',{method:'POST',headers:{'Content-Type':'application/json','X-Hub-Signature-256':'sha256='+createHmac('sha256',secret).update(raw).digest('hex')},body:raw});};
-const echo=async(mid:string,text:string,igsid:string,options:Parameters<typeof webhook>[1]={})=>{const r=await webhook(signed(payload(mid,text,igsid)),options);assert.equal(r.status,200,'the webhook always answers 200 for an echo');};
+const echo=async(mid:string,text:string,igsid:string,options:Parameters<typeof webhook>[1]={},timestamp=Date.now())=>{const r=await webhook(signed(payload(mid,text,igsid,timestamp)),options);assert.equal(r.status,200,'the webhook always answers 200 for an echo');};
 const mid=(tag:string)=>`${tag}-${run}`;
 const words=(seed:string)=>`Hola, soy de Hospeda. Te escribo por ${seed} para contarte cómo difundimos alojamientos ${seed} de la zona de Colón.`;
 
 try{
- previousSecret=(await sql<NonNullable<typeof previousSecret>>`SELECT ciphertext,iv,tag,expires_at AS "expiresAt",refreshed_at AS "refreshedAt",last_error AS "lastError" FROM crm_integration_secrets WHERE name='instagram'`.execute(db)).rows[0];
+ secretSnapshot=await snapshotInstagramSecret({query:secretQuery});
+ // M2 check: a failing cleanup still restores the row exactly (timestamps included).
+ {
+  const before=await instagramSecretFingerprint({query:secretQuery});
+  await sql`INSERT INTO crm_integration_secrets(name,ciphertext,iv,tag,expires_at,refreshed_at,last_error) VALUES('instagram','x','y','z',now(),now(),'probe') ON CONFLICT(name) DO UPDATE SET ciphertext='x',last_error='probe',updated_at=now()`.execute(db);
+  const reported:unknown[]=[];
+  await cleanupThenRestore({cleanup:async()=>{throw new Error('simulated cleanup failure');},restore:()=>restoreInstagramSecret({query:secretQuery,snapshot:secretSnapshot}),onCleanupError:error=>reported.push(error)});
+  assert.equal(reported.length,1);assert.equal(await instagramSecretFingerprint({query:secretQuery}),before,'the secret row is restored even when the cleanup fails');
+  // Without a snapshot the restore leaves the row alone.
+  await restoreInstagramSecret({query:secretQuery,snapshot:NO_SECRET_SNAPSHOT});assert.equal(await instagramSecretFingerprint({query:secretQuery}),before);
+ }
  const e=encryptInstagramToken('mock-token-'+run,key);
  await sql`INSERT INTO crm_integration_secrets(name,ciphertext,iv,tag,expires_at,refreshed_at,last_error) VALUES('instagram',${e.ciphertext},${e.iv},${e.tag},now()+interval '30 days',now(),NULL) ON CONFLICT(name) DO UPDATE SET ciphertext=excluded.ciphertext,iv=excluded.iv,tag=excluded.tag,expires_at=excluded.expires_at,refreshed_at=excluded.refreshed_at,last_error=NULL`.execute(db);
  const admin=await identity('admin'),seller=await identity('user'),other=await identity('user');
@@ -208,6 +221,33 @@ try{
   assert.deepEqual((await socialRows(none.id)).map(r=>r.owner),['instagram@hospeda']);
  }
 
+ // ── L1: a manual «Red social» typed «instagram» never becomes a composer attempt, so an echo never claims it.
+ {
+  const b=await business('manual-red',seller.user.email),text=words('manualred-'+run.slice(0,6));
+  const manual=await call({action:'manual_start',id:randomUUID(),accountId:b.id,leadId:null,contactId:null,channel:'social',purpose:'first_contact',otherPurpose:null,recipient:'@'+b.username,recipientName:b.nombre,destination:' Instagram ',body:text,result:null,templateId:null},seller.cookie);
+  const stored=await row(manual.id);assert.equal(stored.destinationDetail,'Instagram (manual)');
+  // A historical manual row stored before the fix with destination «instagram»: no open journal, so never a candidate.
+  const legacy=randomUUID();
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,destination_detail,recipient,recipient_name,body,text_body,owner_email,status,last_interaction_at) VALUES(${legacy}::uuid,${b.id},${b.id},'social','instagram',${'@'+b.username},${b.nombre},${text},${text},${seller.user.email},'manual_sent',now())`.execute(db);
+  await echo(mid('manual-red'),text,b.igsid);
+  assert.equal((await row(legacy)).externalId,null,'a manual record is not linked to the echo');
+  assert.equal((await socialRows(b.id)).length,3,'the echo is stored on its own');
+ }
+
+ // ── M1: opened at T, sent at T+1, confirmed by hand at T+16; the echo arrives late with Meta's T+1 stamp: it links, no second row.
+ {
+  const b=await business('tarde',seller.user.email),text=words('tarde-'+run.slice(0,6));
+  const late=await openAttempt(b.id,text,seller.cookie);
+  const t=Date.now()-17*60_000;
+  await sql`UPDATE crm_communication_journal SET created_at=${new Date(t)} WHERE entity_id=${late.id} AND action='instagram_opened_unconfirmed'`.execute(db);
+  await sql`UPDATE crm_messages SET last_interaction_at=${new Date(t)} WHERE id=${late.id}::uuid`.execute(db);
+  await call({action:'outcome',id:late.id,event:'manual_sent',notes:''},seller.cookie);// moves last_interaction_at to now (T+17)
+  await echo(mid('late-hand'),text,b.igsid,{},t+60_000);
+  assert.deepEqual([(await row(late.id)).status,(await row(late.id)).externalId],['manual_sent',mid('late-hand')]);
+  assert.equal((await socialRows(b.id)).length,1,'a late echo never duplicates a send confirmed by hand');
+  assert.equal((await journal(late.id,'contact_linked')).length,1);
+ }
+
  // ── Hand-confirmed: the echo only links its mid. «No se envió»: the echo stays apart.
  {
   const b=await business('manual',seller.user.email),text=words('manual-'+run.slice(0,6));
@@ -273,10 +313,11 @@ try{
   await echo(mid('early'),text,b.igsid);// Meta retry: still a no-op
   assert.equal((await socialRows(b.id)).length,2);
  }
- console.log('Instagram open chat: prepare/edit/dispatch/outcome with every gate, flags, waiting period, echo resolution, retries, two attempts, different text, 24 h window, hand-confirmed link, «No se envió», shared username, lost access, No contactar, forced error and echo-first merge passed');
+ console.log('Instagram open chat: prepare/edit/dispatch/outcome with every gate, flags, waiting period, echo resolution, retries, two attempts, different text, 24 h window, hand-confirmed link, «No se envió», shared username, lost access, No contactar, forced error, echo-first merge, late echo after a hand confirmation and manual «instagram» records passed');
 }catch(error){console.error(error);process.exitCode=1;}finally{
  console.warn=old.warn;
  try{
+  await cleanupThenRestore({onCleanupError:error=>{console.error('Fixture cleanup failed',error);process.exitCode=1;},restore:()=>restoreInstagramSecret({query:secretQuery,snapshot:secretSnapshot}),cleanup:async()=>{
   if(accountIds.length){
    await sql`DELETE FROM crm_communication_journal WHERE account_id=ANY(${accountIds}::bigint[])`.execute(db);
    for(const table of ['crm_work_journal','crm_communication_reads','crm_auto_registrations','crm_data_evidence'])await sql.raw(`DELETE FROM ${table} WHERE account_id=ANY('{${accountIds.join(',')}}'::bigint[])`).execute(db);
@@ -297,6 +338,6 @@ try{
   if(igsids.length)await sql`DELETE FROM crm_instagram_contacts WHERE igsid=ANY(${igsids})`.execute(db);
   if(templateIds.length)await sql`DELETE FROM message_templates WHERE id=ANY(${templateIds}::bigint[])`.execute(db);
   if(userEmails.length){await sql`DELETE FROM sessions WHERE id=ANY(${userEmails})`.execute(db);await sql`DELETE FROM users WHERE email=ANY(${userEmails})`.execute(db);}
-  if(previousSecret)await sql`UPDATE crm_integration_secrets SET ciphertext=${previousSecret.ciphertext},iv=${previousSecret.iv},tag=${previousSecret.tag},expires_at=${previousSecret.expiresAt},refreshed_at=${previousSecret.refreshedAt},last_error=${previousSecret.lastError} WHERE name='instagram'`.execute(db);else await sql`DELETE FROM crm_integration_secrets WHERE name='instagram'`.execute(db);
+  }});
  }finally{globalThis.fetch=old.fetch;for(const [name,value] of Object.entries({INSTAGRAM_APP_SECRET:old.secret,INSTAGRAM_ACCOUNT_ID:old.account,INTEGRATION_SECRETS_KEY:old.key}))if(value===undefined)delete process.env[name];else process.env[name]=value;await db.destroy();}
 }

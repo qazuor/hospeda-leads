@@ -251,6 +251,7 @@ jobs:
         if: steps.filter.outputs.code == 'true'
         run: npm run test:browser
         env:
+          CRM_TEST_DATABASE: "1"
           INSTAGRAM_APP_SECRET: ci-instagram-app-secret
           INSTAGRAM_ACCOUNT_ID: "17841400000000000"
           INTEGRATION_SECRETS_KEY: CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=

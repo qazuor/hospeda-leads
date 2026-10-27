@@ -3,6 +3,7 @@ import {createHmac,randomUUID} from 'node:crypto';
 import postgres from 'postgres';
 import superjson from 'superjson';
 import {encryptInstagramToken} from '../../src/helpers/instagram';
+import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from '../../scripts/lib/instagram-secret';
 
 /**
  * Spec 92: «Abrir Instagram» from the composer. The seller prepares the message, the CRM copies it and opens the
@@ -12,12 +13,13 @@ import {encryptInstagramToken} from '../../src/helpers/instagram';
  */
 const secret=process.env.INSTAGRAM_APP_SECRET,igAccount=process.env.INSTAGRAM_ACCOUNT_ID,keyText=process.env.INTEGRATION_SECRETS_KEY;
 const shots=process.env.CRM_E2E_SCREENSHOTS;// optional folder for review screenshots
-type SecretRow={ciphertext:string;iv:string;tag:string;expires_at:Date|null;refreshed_at:Date|null;last_error:string|null};
-let sql:ReturnType<typeof postgres>;let previous:SecretRow|undefined;let accountId:string|undefined;const igsid=String(17000000000000000n+BigInt(Date.now()%1000000000));
+let sql:ReturnType<typeof postgres>;let secretSnapshot=NO_SECRET_SNAPSHOT;const secretQuery:SecretQuery=async(text,params=[])=>await sql.unsafe(text,[...params] as never[]);let accountId:string|undefined;const igsid=String(17000000000000000n+BigInt(Date.now()%1000000000));
 test.beforeAll(async()=>{
  test.skip(!secret||!igAccount||!keyText,'Instagram webhook env not configured for this server');
+ // This test writes to the database (secret, fixtures): only a local disposable one.
+ assertLocalTestDatabase({url:process.env.DATABASE_URL,optIn:process.env.CRM_TEST_DATABASE});
  sql=postgres(process.env.DATABASE_URL!,{max:1,...(process.env.CRM_TEST_DATABASE==='1'&&process.env.CRM_TEST_DATABASE_SOCKET?{path:process.env.CRM_TEST_DATABASE_SOCKET}:{})});
- previous=(await sql<SecretRow[]>`SELECT ciphertext,iv,tag,expires_at,refreshed_at,last_error FROM crm_integration_secrets WHERE name='instagram'`)[0];
+ secretSnapshot=await snapshotInstagramSecret({query:secretQuery});
  // A fresh token so the server neither renews it nor calls Meta; the chat profile is cached, so no lookup either.
  const e=encryptInstagramToken('e2e-token-'+randomUUID(),Buffer.from(keyText!,'base64'));
  await sql`INSERT INTO crm_integration_secrets(name,ciphertext,iv,tag,expires_at,refreshed_at,last_error) VALUES('instagram',${e.ciphertext},${e.iv},${e.tag},now()+interval '30 days',now(),NULL) ON CONFLICT(name) DO UPDATE SET ciphertext=excluded.ciphertext,iv=excluded.iv,tag=excluded.tag,expires_at=excluded.expires_at,refreshed_at=excluded.refreshed_at,last_error=NULL`;
@@ -25,13 +27,14 @@ test.beforeAll(async()=>{
 test.afterAll(async()=>{
  if(!sql)return;
  try{
+  await cleanupThenRestore({onCleanupError:error=>console.error('Fixture cleanup failed',error),restore:()=>restoreInstagramSecret({query:secretQuery,snapshot:secretSnapshot}),cleanup:async()=>{
   if(accountId){
    const ids=[accountId];
    for(const table of ['crm_communication_journal','crm_communication_reads','crm_messages','crm_activities','crm_tasks','crm_inbound_messages','lead_journal','crm_pipeline_events','crm_objections','leads','crm_commercial_journal','crm_work_journal'])await sql.unsafe(`DELETE FROM ${table} WHERE account_id=ANY($1::bigint[])`,[ids]);
    await sql`DELETE FROM crm_accounts WHERE id=${accountId}::bigint`;
   }
   await sql`DELETE FROM crm_instagram_contacts WHERE igsid=${igsid}`;
-  if(previous)await sql`UPDATE crm_integration_secrets SET ciphertext=${previous.ciphertext},iv=${previous.iv},tag=${previous.tag},expires_at=${previous.expires_at},refreshed_at=${previous.refreshed_at},last_error=${previous.last_error} WHERE name='instagram'`;else await sql`DELETE FROM crm_integration_secrets WHERE name='instagram'`;
+  }});
  }finally{await sql.end();}
 });
 

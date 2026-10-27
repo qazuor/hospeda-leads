@@ -22,11 +22,15 @@ try{
   const [account]=await tx`INSERT INTO crm_accounts(nombre) VALUES('Zz Instagram migration fixture') RETURNING id`;
   const insert=status=>tx`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status) VALUES(${randomUUID()},${account.id},${account.id},'social','@fixture','fixture@example.test',${status})`;
   await assert.rejects(tx.savepoint(()=>insert('instagram_opened')),/crm_messages_status_check/,'042 does not know instagram_opened');
+  // Existing rows with every pre-049 status must survive the constraint swap (ADD CONSTRAINT validates them).
+  for(const status of KEPT)await insert(status);
   await tx.unsafe(migration);
+  const [{n}]=await tx`SELECT count(*)::int AS n FROM crm_messages WHERE status=ANY(${KEPT})`;
+  assert.equal(n,KEPT.length,'all pre-049 rows are still there after 049');
   await insert('instagram_opened');
   for(const status of KEPT)await insert(status);
   await assert.rejects(tx.savepoint(()=>insert('instagram_sent')),/crm_messages_status_check/,'unknown statuses are still refused');
-  console.log('Instagram opened migration: checksum unchanged, CHECK accepts instagram_opened, keeps the 042 statuses and refuses others passed');
+  console.log('Instagram opened migration: checksum unchanged, rows with every 042 status validate, CHECK accepts instagram_opened, keeps the 042 statuses and refuses others passed');
   throw rollback;
  });
 }catch(error){if(error!==rollback)throw error;}finally{await database.end();}
