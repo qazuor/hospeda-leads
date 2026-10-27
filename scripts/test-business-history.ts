@@ -69,7 +69,7 @@ try{
  // Spec 90: one entry per Instagram echo (its automatic «Contacto realizado» journal row is folded in), calls titled «Llamada»,
  // received-message journal actions with real titles, and Instagram named as such.
  {
-  const c=await db.insertInto('crmAccounts').values({nombre:'Channels '+stamp,status:'reviewed'}).returningAll().executeTakeFirstOrThrow();
+  const c=await db.insertInto('crmAccounts').values({nombre:'Zz Channels '+stamp,status:'reviewed'}).returningAll().executeTakeFirstOrThrow();
   const echo=randomUUID(),call=randomUUID(),inbound=randomUUID(),wa=randomUUID(),mail=randomUUID(),fb=randomUUID(),mid='mid-'+stamp;
   await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,subject,owner_email,status,text_body,last_interaction_at) VALUES(${wa}::uuid,${c.id},${c.id},'whatsapp','+5493442000000','Julia','','history@example.com','whatsapp_opened','Hola',now()-interval '6 hours'),(${mail}::uuid,${c.id},${c.id},'email','julia@example.com','','Propuesta','history@example.com','accepted','Te paso',now()-interval '5 hours')`.execute(db);
   await sql`INSERT INTO crm_inbound_messages(id,channel,channel_detail,external_id,account_id,match_method,from_address,text_body,received_at,status,source) VALUES(${fb}::uuid,'social','facebook',${'fb-'+mid},${c.id},'manual','Aguas FB','Hola',now()-interval '30 minutes','pending_review','instagram_webhook')`.execute(db);
