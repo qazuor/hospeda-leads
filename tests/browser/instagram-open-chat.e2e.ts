@@ -7,7 +7,7 @@ import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreIns
 
 /**
  * Spec 92: «Abrir Instagram» from the composer. The seller prepares the message, the CRM copies it and opens the
- * business chat (window.open is stubbed: nothing reaches Instagram), the bubble waits for the echo, and a signed echo
+ * business profile on a computer (window.open is stubbed: nothing reaches Instagram), the bubble waits for the echo, and a signed echo
  * (as Meta would send it) confirms the same attempt. Needs the server and this process to share INSTAGRAM_APP_SECRET,
  * INSTAGRAM_ACCOUNT_ID and INTEGRATION_SECRETS_KEY (CI sets fake values on both steps).
  */
@@ -60,14 +60,14 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  const text='Hola, soy de Hospeda. Te escribo para contarte cómo difundimos alojamientos de Colón en la plataforma. ¿Te interesa?';
  await dialog.getByRole('textbox',{name:'Mensaje final',exact:true}).fill(text);
  await dialog.getByRole('button',{name:'Guardar y ver contenido final'}).click();
- await expect(dialog.getByRole('group',{name:'Antes de abrir Instagram'})).toContainText('Se copia el mensaje y se abre el chat de @'+username+'.');
+ await expect(dialog.getByRole('group',{name:'Antes de abrir Instagram'})).toContainText('en la computadora, el perfil de @'+username+', donde tocás «Enviar mensaje».');
  await dialog.getByLabel('Revisé destinatario y contenido final').check();
  if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);await dialog.getByRole('button',{name:'Abrir Instagram',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:shots+'/1-composer-instagram.png'});}
  await dialog.getByRole('button',{name:'Abrir Instagram',exact:true}).click();
  await expect(dialog.getByText('Esperando que Instagram confirme el envío…').first()).toBeVisible();
- await expect.poll(()=>page.evaluate(()=>(window as unknown as {__opened:string[]}).__opened)).toEqual(['about:blank','https://ig.me/m/'+username]);
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {__opened:string[]}).__opened)).toEqual(['about:blank','https://www.instagram.com/'+username+'/']);// desktop: ig.me does not work on Instagram Web
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);
- await expect(page.getByText(/^Mensaje copiado: pegalo en el chat/)).toBeVisible();
+ await expect(page.getByText(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo/)).toBeVisible();
  if(shots)await page.screenshot({path:shots+'/2-copied-and-opened.png'});
  const attempt=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='social'&&m.status==='instagram_opened');expect(attempt.recipient).toBe('@'+username);
 

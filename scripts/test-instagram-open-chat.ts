@@ -99,12 +99,12 @@ try{
   const edited=await call({action:'edit',id:draft.id,revision:draft.revision,subject:'',body:'Hola *Sol*, ¿cómo va?'},seller.cookie);
   assert.equal((await row(draft.id)).textBody,'Hola *Sol*, ¿cómo va?');
   const opened=await call({action:'dispatch',id:draft.id,revision:edited.revision,confirm:true},seller.cookie);
-  assert.equal(opened.url,'https://ig.me/m/'+b.username);assert.equal(opened.message.status,'instagram_opened');
+  assert.equal(opened.username,b.username,'the server returns the validated username; the client picks chat or profile');assert.equal(opened.url,undefined);assert.equal(opened.message.status,'instagram_opened');
   const attempt=await row(draft.id);assert.equal(attempt.status,'instagram_opened');
   assert.equal((await activityResult(attempt.activityId))?.result,'Instagram abierto · envío no confirmado');
   const log=await journal(draft.id,'instagram_opened_unconfirmed');assert.equal(log.length,1);assert.deepEqual([log[0].actor,log[0].after?.recipient,log[0].after?.content],[seller.user.email,'@'+b.username,'Hola *Sol*, ¿cómo va?']);
   // A replay of dispatch changes nothing and opens nothing new.
-  assert.equal((await call({action:'dispatch',id:draft.id,revision:edited.revision,confirm:true},seller.cookie)).url,undefined);
+  assert.equal((await call({action:'dispatch',id:draft.id,revision:edited.revision,confirm:true},seller.cookie)).username,undefined);
 
   // Waiting period: Hoy's pending outcomes skip the attempt for 15 minutes, then list it.
   const pending=()=>pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id});
@@ -305,7 +305,7 @@ try{
   const early=(await socialRows(b.id))[0]!;assert.equal(early.owner,'instagram@hospeda');
   const draft=await call(general(b.id),seller.cookie);const edited=await call({action:'edit',id:draft.id,revision:draft.revision,subject:'',body:text},seller.cookie);
   const answer=await call({action:'dispatch',id:draft.id,revision:edited.revision,confirm:true},seller.cookie);
-  assert.equal(answer.alreadyConfirmed,true);assert.equal(answer.url,undefined,'nothing is opened');
+  assert.equal(answer.alreadyConfirmed,true);assert.equal(answer.username,undefined,'nothing is opened');
   const attempt=await row(draft.id);assert.deepEqual([attempt.status,attempt.externalId],['manual_sent',mid('early')]);
   const voided=(await socialRows(b.id)).find(r=>r.id===early.id)!;assert.deepEqual([voided.status,voided.externalId],['voided',null]);
   assert.match(String((await journal(early.id,'interaction_voided'))[0]?.after?.reason),/^Unido al intento .+ abierto desde el CRM$/);

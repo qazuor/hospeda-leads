@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {INSTAGRAM_ECHO_WAIT_MS,composerChannelOf,instagramChatUrl,instagramTextEdited,instagramWaitRemainingMs,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho,normalizeInstagramUsername} from './instagramChat';
+import {INSTAGRAM_ECHO_WAIT_MS,composerChannelOf,instagramChatUrl,instagramProfileUrl,instagramTarget,instagramTextEdited,instagramWaitRemainingMs,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho,normalizeInstagramUsername} from './instagramChat';
 
 const attempt=(over:Record<string,unknown>={})=>({channel:'social',destinationDetail:'instagram',ownerEmail:'ana@example.com',status:'instagram_opened',lastInteractionAt:new Date('2026-10-27T15:00:00Z'),...over});
 const t0=new Date('2026-10-27T15:00:00Z').getTime();
@@ -14,6 +14,20 @@ describe('instagramChatUrl (spec 92)',()=>{
  });
  it('keeps the path encoded (only safe characters reach the URL)',()=>{
   expect(new URL(instagramChatUrl({username:'a.b_c9'})!).pathname).toBe('/m/a.b_c9');
+ });
+});
+
+describe('instagramTarget: one device decision (ig.me is not supported on Instagram Web)',()=>{
+ it('opens the profile on a computer, with a trailing slash',()=>{
+  expect(instagramTarget({username:'@hotel.sol',mobile:false})).toEqual({url:'https://www.instagram.com/hotel.sol/',kind:'profile',label:'Abrir el perfil de @hotel.sol en Instagram'});
+  expect(instagramProfileUrl({username:'a.b_c9'})).toBe('https://www.instagram.com/a.b_c9/');
+ });
+ it('opens the chat in the app on a phone',()=>{
+  expect(instagramTarget({username:'hotel.sol',mobile:true})).toEqual({url:'https://ig.me/m/hotel.sol',kind:'chat',label:'Ir al chat de @hotel.sol en Instagram'});
+ });
+ it('never builds either URL from free text',()=>{
+  for(const mobile of [true,false])for(const value of ['Hotel Sol','hotel/sol','../x',null,''])expect(instagramTarget({username:value,mobile})).toBeNull();
+  expect(instagramProfileUrl({username:'hotel?x=1'})).toBeNull();
  });
 });
 

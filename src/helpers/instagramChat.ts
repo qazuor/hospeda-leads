@@ -22,6 +22,27 @@ export function instagramChatUrl({username}:{username:string|null|undefined}):st
  return USERNAME.test(value)?'https://ig.me/m/'+encodeURIComponent(value):null;
 }
 
+/** `https://www.instagram.com/<username>/` for a valid username; null otherwise. Same strict validation as the chat link. */
+export function instagramProfileUrl({username}:{username:string|null|undefined}):string|null{
+ const value=(username??'').replace(/^@/,'');
+ return USERNAME.test(value)?'https://www.instagram.com/'+encodeURIComponent(value)+'/':null;
+}
+
+/** Where «Abrir Instagram» goes and how the CRM names it. */
+export type InstagramTarget={readonly url:string;readonly kind:'chat'|'profile';readonly label:string};
+
+/**
+ * The single device decision of spec 92: `ig.me` opens the chat only in the mobile app (Meta does not support it on
+ * Instagram Web, where it lands on «Esta página no está disponible»), so a phone opens the chat and a computer opens the
+ * profile, where the seller clicks «Enviar mensaje». `mobile` is the coarse-pointer check the composer already uses.
+ */
+export function instagramTarget({username,mobile}:{username:string|null|undefined;mobile:boolean}):InstagramTarget|null{
+ const value=(username??'').replace(/^@/,'');
+ const url=mobile?instagramChatUrl({username:value}):instagramProfileUrl({username:value});
+ if(!url)return null;
+ return mobile?{url,kind:'chat',label:`Ir al chat de @${value} en Instagram`}:{url,kind:'profile',label:`Abrir el perfil de @${value} en Instagram`};
+}
+
 /** The username of an attempt's `recipient` (`@usuario`), or null when it is not a valid one. */
 export const attemptUsername=(recipient:string|null|undefined):string|null=>normalizeInstagramUsername(recipient);
 

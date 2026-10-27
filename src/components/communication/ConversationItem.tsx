@@ -22,7 +22,7 @@ import {ChannelIcon} from './ChannelIcon';
 import {ClampedText} from './ClampedText';
 import {ConfirmSendButtons,canConfirmSend,useConfirmSend} from './ConfirmSendButtons';
 import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS} from '../../helpers/communicationTimeline';
-import {instagramChatUrl,instagramTextEdited,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho} from '../../helpers/instagramChat';
+import {instagramTarget,instagramTextEdited,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho} from '../../helpers/instagramChat';
 import {copyInGesture,instagramOpenedToast,isCoarsePointer,openInstagramChat} from '../InstagramOpenChat';
 import {useInstagramWaitNow} from './useInstagramWait';
 import {toast} from 'sonner';
@@ -164,7 +164,7 @@ function SentBubble({entry}:{entry:SentEntry}){
  */
 function InstagramItemMenu({view,message,panels,label,waiting}:{view:CommunicationView;message:Message;panels:Panels;label:string;waiting:boolean}){
  const confirm=useConfirmSend({view,message}),own=view.admin||message.ownerEmail===view.userEmail;
- const url=message.status==='instagram_opened'&&own&&!view.readOnly?instagramChatUrl({username:message.recipient}):null;
+ const url=message.status==='instagram_opened'&&own&&!view.readOnly?instagramTarget({username:message.recipient,mobile:isCoarsePointer()})?.url??null:null;
  const reopen=async(target:string)=>{const copy=copyInGesture(message.textBody||message.body),opened=openInstagramChat(target),copied=await copy.settled;if(!opened)toast.warning('No se pudo abrir Instagram automáticamente.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile:isCoarsePointer()}));else toast.warning(instagramOpenedToast({copied,mobile:false}));};
  const actions:ItemAction[]=[
   ...(waiting&&canConfirmSend({view,message})&&!confirm.busy?[...(confirm.block?[]:[{label:'Sí, se envió',onSelect:()=>confirm.answer('manual_sent')}]),{label:'No se envió',onSelect:()=>confirm.answer('manual_not_sent')}]:[]),

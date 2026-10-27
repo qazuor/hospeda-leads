@@ -20,7 +20,7 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.clearAllMocks();vi.restoreAllMocks();});
 
-const URL_IG='https://ig.me/m/hotel.sol';
+const URL_IG='https://ig.me/m/hotel.sol',URL_PROFILE='https://www.instagram.com/hotel.sol/';
 const message=(over:Partial<PreparedMessage>={}):PreparedMessage=>({id:'11111111-1111-4111-8111-111111111111',accountId:'5',leadId:null,contactId:null,channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',subject:'',body:'Hola *Sol*, ¿cómo están?',htmlBody:null,textBody:'Hola *Sol*, ¿cómo están?',templateSnapshot:null,ownerEmail:'seller@example.com',activityId:null,outboxId:null,taskId:null,status:'draft',revision:4,lastInteractionAt:null,lastActorEmail:null,createdAt:new Date('2026-10-27T15:30:00Z'),updatedAt:new Date('2026-10-27T15:30:00Z'),purpose:'first_contact',otherPurpose:null,...over});
 const show=(initial:PreparedMessage,props:Partial<React.ComponentProps<typeof MessageComposer>>={})=>render(<MantineProvider><QueryClientProvider client={new QueryClient()}><MessageComposer initial={initial} {...props}/></QueryClientProvider></MantineProvider>);
 const clipboard=(impl:()=>Promise<void>)=>{const writeText=vi.fn(impl);Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText}});return writeText;};
@@ -48,7 +48,7 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   show(message({instagramAutoConfirm:false,instagramShared:true}));
   fireEvent.click(screen.getByRole('button',{name:/Guardar y ver contenido final/}));
   const notices=await screen.findByRole('group',{name:'Antes de abrir Instagram'});
-  expect(notices.textContent).toContain('Se copia el mensaje y se abre el chat de @hotel.sol.');
+  expect(notices.textContent).toContain('en el celular, el chat de @hotel.sol; en la computadora, el perfil de @hotel.sol, donde tocás «Enviar mensaje».');
   expect(notices.textContent).toContain('Tenés que estar con la sesión de Hospeda en Instagram');
   expect(notices.textContent).toContain('La conexión con Instagram no está activa');
   expect(notices.textContent).toContain('Otro negocio tiene el mismo usuario de Instagram');
@@ -56,7 +56,7 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   // The saved text is shown literally: Instagram has no markup.
   expect(screen.getByLabelText('Texto que se copia').textContent).toBe('Hola *Sol*, ¿cómo están?');
  });
- it('copies and pre-opens the tab in the same click, then points it at ig.me and confirms with a toast',async()=>{
+ it('copies and pre-opens the tab in the same click, then points it at the profile on a computer (ig.me does not work on Instagram Web)',async()=>{
   const writeText=clipboard(()=>Promise.resolve());const popup={opener:{},closed:false,location:{href:'about:blank'},close:vi.fn()};
   const open=vi.spyOn(window,'open').mockReturnValue(popup as unknown as Window);
   const button=await review();
@@ -67,9 +67,9 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   expect(open).toHaveBeenCalledWith('about:blank','_blank');expect(popup.opener).toBeNull();
   await waitFor(()=>expect(vi.mocked(postCommunication).mock.lastCall?.[0]).toEqual({action:'dispatch',id:message().id,revision:5,confirm:true}));
   expect(screen.getAllByText('Abriendo Instagram…').length).toBeGreaterThan(0);
-  resolve({message:opened(),url:URL_IG});
-  await waitFor(()=>expect(popup.location.href).toBe(URL_IG));
-  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado: pegalo en el chat \((Ctrl|⌘)\+?V\)$/),expect.anything()));
+  resolve({message:opened(),username:'hotel.sol'});
+  await waitFor(()=>expect(popup.location.href).toBe(URL_PROFILE));
+  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo \((Ctrl|⌘)\+?V\)\.$/),expect.anything()));
   expect(await screen.findByText('Esperando que Instagram confirme el envío…')).toBeTruthy();
  });
  it('blocks a double click: one copy, one tab, one request',async()=>{
@@ -90,25 +90,25 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
  it('falls back to the copy box with «Copiar» when the clipboard is denied',async()=>{
   clipboard(()=>Promise.reject(new Error('denied')));Object.defineProperty(document,'execCommand',{configurable:true,value:vi.fn().mockReturnValue(false)});
   vi.spyOn(window,'open').mockReturnValue({opener:{},closed:false,location:{href:''},close:vi.fn()} as unknown as Window);
-  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),url:URL_IG});
+  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),username:'hotel.sol'});
   fireEvent.click(button);
   const box=await screen.findByRole('group',{name:'Copiar el mensaje'});
   expect(box.textContent).toContain('No pudimos copiar el mensaje. Copialo desde acá:');
   expect((within(box).getByLabelText('Mensaje para copiar') as HTMLTextAreaElement).value).toBe('Hola *Sol*, ¿cómo están?');
   expect(within(box).getByRole('button',{name:'Copiar'})).toBeTruthy();
-  await waitFor(()=>expect(toast.warning).toHaveBeenCalledWith('Instagram abierto. Copiá el mensaje desde el CRM y pegalo en el chat.'));
+  await waitFor(()=>expect(toast.warning).toHaveBeenCalledWith('Perfil de Instagram abierto. Copiá el mensaje desde el CRM, tocá «Enviar mensaje» y pegalo.'));
  });
  it('shows the chat link when the popup was blocked; the attempt is still recorded',async()=>{
   clipboard(()=>Promise.resolve());vi.spyOn(window,'open').mockReturnValue(null);
-  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),url:URL_IG});
+  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),username:'hotel.sol'});
   fireEvent.click(button);
-  const link=await screen.findByRole('link',{name:'Abrir el chat de @hotel.sol en Instagram'});
-  expect(link.getAttribute('href')).toBe(URL_IG);
+  const link=await screen.findByRole('link',{name:'Abrir el perfil de @hotel.sol en Instagram'});
+  expect(link.getAttribute('href')).toBe(URL_PROFILE);
   expect(screen.getByText(/No se pudo abrir Instagram automáticamente. El intento quedó guardado como no confirmado./)).toBeTruthy();
  });
  it('on a phone opens no tab and ends in the «Ir al chat» link-button',async()=>{
   coarse=true;clipboard(()=>Promise.resolve());const open=vi.spyOn(window,'open');
-  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),url:URL_IG});
+  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),username:'hotel.sol'});
   fireEvent.click(button);
   const link=await screen.findByRole('link',{name:'Ir al chat de @hotel.sol en Instagram'});
   expect(link.getAttribute('href')).toBe(URL_IG);expect(link.getAttribute('target')).toBe('_blank');
@@ -130,7 +130,7 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   Object.defineProperty(document,'execCommand',{configurable:true,value:vi.fn((command:string)=>{order.push('execCommand:'+command);return true;})});
   clipboard(()=>{order.push('writeText');return Promise.reject(new Error('Document is not focused'));});
   vi.spyOn(window,'open').mockImplementation(()=>{order.push('open');return {opener:{},closed:false,location:{href:''},close:vi.fn()} as unknown as Window;});
-  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),url:URL_IG});
+  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),username:'hotel.sol'});
   fireEvent.click(button);
   expect(order.indexOf('execCommand:copy')).toBeGreaterThanOrEqual(0);
   expect(order.indexOf('execCommand:copy')).toBeLessThan(order.indexOf('open'));
@@ -150,8 +150,8 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   const writeText=clipboard(()=>Promise.resolve());const open=vi.spyOn(window,'open').mockReturnValue({opener:{}} as unknown as Window);
   show(opened());
   fireEvent.click(screen.getByRole('button',{name:'Copiar y abrir de nuevo'}));
-  expect(writeText).toHaveBeenCalledWith('Hola *Sol*, ¿cómo están?');expect(open).toHaveBeenCalledWith(URL_IG,'_blank');
-  await waitFor(()=>expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado: pegalo en el chat/)));
+  expect(writeText).toHaveBeenCalledWith('Hola *Sol*, ¿cómo están?');expect(open).toHaveBeenCalledWith(URL_PROFILE,'_blank');
+  await waitFor(()=>expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje»/)));
   expect(postCommunication).not.toHaveBeenCalled();
  });
  it('waits for the echo for 15 minutes, then asks «¿Lo enviaste?»; the answers stay available meanwhile',async()=>{

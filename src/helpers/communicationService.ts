@@ -22,7 +22,7 @@ import {UNRESOLVED_MATERIAL_MESSAGE,hasMaterialReferences} from './templateMater
 import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
 import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
-import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
+import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
@@ -584,13 +584,14 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
 
   if(instagram){
    // Nothing is sent through Meta's API: the seller pastes the copied text in the chat and the echo (or her answer) confirms it.
-   const url=instagramChatUrl({username:m.recipient});if(!url)throw new CommunicationConflict('Cambió el Instagram del negocio. Prepará un nuevo borrador.');
+   // The server only validates and returns the username; the client picks chat (phone) or profile (computer): instagramTarget.
+   const username=instagramChatUrl({username:m.recipient})?attemptUsername(m.recipient):null;if(!username)throw new CommunicationConflict('Cambió el Instagram del negocio. Prepará un nuevo borrador.');
    await sql`UPDATE crm_messages SET status='instagram_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Instagram abierto · envío no confirmado');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'instagram_opened_unconfirmed',actor:user,before:{status:m.status},after:{status:'instagram_opened',recipient:m.recipient,recipientName:m.recipientName,content:m.textBody||m.body,...delegation(m)}});
    // D3: an echo of this text that arrived just before is merged into the attempt; nothing is opened then.
    // In a savepoint: if the merge fails the attempt stays a normal open (L2).
    const earlier=await withEchoSavepoint(e,()=>resolveEarlierInstagramEcho(e,{messageId:m.id,triggeredBy:user.email}));
    const current=earlier??(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]!;
-   return {message:current,replay:false,instagram:{url:earlier?null:url}};
+   return {message:current,replay:false,instagram:{username:earlier?null:username}};
   }
   if(m.channel==='whatsapp'){
    const normalized=normalizeField('telefono',m.recipient);const phone=normalized.normalized?.replace(/\D/g,'')??'';if(normalized.validity!=='valid'||phone.length<10||phone.length>15)throw new Error('Revisá el teléfono con código de país');
@@ -606,7 +607,7 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
  });
  const m=claimed.message;
  if(claimed.replay)return {message:m};
- if('instagram' in claimed&&claimed.instagram)return claimed.instagram.url?{message:m,url:claimed.instagram.url}:{message:m,alreadyConfirmed:true};
+ if('instagram' in claimed&&claimed.instagram)return claimed.instagram.username?{message:m,username:claimed.instagram.username}:{message:m,alreadyConfirmed:true};
  if(m.channel==='whatsapp'){const url=new URL('https://wa.me/'+normalizeField('telefono',m.recipient).normalized!.replace(/\D/g,''));url.searchParams.set('text',m.body);return {message:m,url:url.toString()};}
  const out=claimed.outbox!;let accepted=false;
  try{
