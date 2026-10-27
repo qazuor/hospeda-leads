@@ -1,6 +1,6 @@
 # Spec 89 — Material de venta
 
-Estado: borrador para revisión del propietario — 26/10/2026. Decisiones D1–D9 acordadas en el chat.
+Estado: aprobada por el propietario — 26/10/2026. Decisiones D1–D9 y las cuatro confirmaciones de §17 resueltas.
 
 ## 1. Problema
 
@@ -429,11 +429,11 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
 
 ## 17. A verificar o confirmar
 
-- **Propietario:**
-  - dependencia `aws4fetch` (§6.1);
-  - portadas servidas a través del VPS (§7);
-  - registro técnico de accesos, sí o no (§4 y §7);
-  - página propia `/sales-material` en lugar de Configuración (§12).
+- **Propietario (aprobado el 26/10/2026):**
+  - dependencia `aws4fetch` (§6.1): sí;
+  - portadas servidas a través del VPS (§7): sí;
+  - registro técnico de accesos (§4 y §7): sí, solo contador y último acceso, sin bots y rotulado como técnico;
+  - página propia `/sales-material` en lugar de Configuración (§12): sí.
 - **Técnico:**
   - tope de adjuntos y extensiones permitidas por Brevo, y que acepte `attachment.url` prefirmado (§8.3);
   - que R2 respete `response-content-disposition` y `response-content-type` en GET prefirmados (§6.4);
