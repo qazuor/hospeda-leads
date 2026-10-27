@@ -30,7 +30,7 @@ describe('GET /m/:token',()=>{
  it('serves bots and HEAD the same page without counting them',async()=>{
   svc.resolve.mockResolvedValue(available({cover:{key:'covers/m/c.jpg',mime:'image/jpeg'}}));
   const bot=await page(req('',{ua:'WhatsApp/2.23.20.0'}),ctx);const html=await bot.text();
-  expect(bot.status).toBe(200);expect(html).toContain('og:image');expect(html).toContain(`http://localhost/m/${token}/cover`);
+  expect(bot.status).toBe(200);expect(html).not.toContain('og:image');expect(html).not.toContain('og:url');
   const head=await page(req('',{method:'HEAD'}),ctx);expect(head.status).toBe(200);expect(await head.text()).toBe('');
   expect(svc.record).not.toHaveBeenCalled();
  });
@@ -52,17 +52,44 @@ describe('GET /m/:token',()=>{
   expect(r.status).toBe(500);expect(await r.text()).not.toContain('boom');
  });
 });
+describe('Open Graph origin',()=>{
+ it('never builds og:url or og:image from the Host or X-Forwarded-Proto headers when PUBLIC_APP_URL is unset',async()=>{
+  svc.resolve.mockResolvedValue(available({cover:{key:'covers/m/c.jpg',mime:'image/jpeg'}}));
+  const r=await page(new Request(`http://evil.example/m/${token}`,{headers:{'user-agent':CHROME,host:'evil.example','x-forwarded-host':'evil.example','x-forwarded-proto':'https'}}),ctx);
+  const html=await r.text();expect(r.status).toBe(200);
+  expect(html).not.toContain('evil.example');expect(html).not.toContain('og:url');expect(html).not.toContain('og:image');expect(html).not.toContain('twitter:image');
+  expect(html).toContain('og:title');expect(html).toContain('<meta name="twitter:card" content="summary">');
+ });
+ it('uses PUBLIC_APP_URL (without trailing slashes) when configured, whatever the Host says',async()=>{
+  svc.resolve.mockResolvedValue(available());process.env.PUBLIC_APP_URL='https://crm.hospeda.com.ar//';
+  const html=await (await page(new Request(`http://evil.example/m/${token}`,{headers:{'user-agent':CHROME}}),ctx)).text();
+  expect(html).toContain(`<meta property="og:url" content="https://crm.hospeda.com.ar/m/${token}">`);expect(html).toContain('content="https://crm.hospeda.com.ar/hospeda-logo.jpg"');expect(html).not.toContain('evil.example');
+ });
+});
+describe('mangled links',()=>{
+ it.each(['/','.',',',')'])('redirects %j after the token to the clean page with 308 and no caching',async tail=>{
+  const r=await page(new Request(`http://localhost/m/${token}${tail}`,{headers:{'user-agent':CHROME}}),ctx);
+  expect(r.status).toBe(308);expect(r.headers.get('Location')).toBe(`/m/${token}`);expect(r.headers.get('Cache-Control')).toBe('no-store');expect(svc.resolve).not.toHaveBeenCalled();expect(svc.record).not.toHaveBeenCalled();
+ });
+ it('redirects a trailing slash arriving at the catch-all, but not other garbage',async()=>{
+  const r=await notFound(new Request(`http://localhost/m/${token}/`),{ip:'192.0.2.50'});expect(r.status).toBe(308);expect(r.headers.get('Location')).toBe(`/m/${token}`);
+  expect((await notFound(new Request(`http://localhost/m/${token}/file/`),{ip:'192.0.2.50'})).status).toBe(404);
+  expect((await notFound(new Request(`http://localhost/m/${token.slice(1)}/`),{ip:'192.0.2.50'})).status).toBe(404);
+  expect((await notFound(new Request(`http://localhost/m/${token}/`,{method:'POST'}),{ip:'192.0.2.50'})).status).toBe(404);
+ });
+});
 describe('rate limiting',()=>{
- it('refuses after 20 unknown tokens from one IP, before touching the database again',async()=>{
+ it('answers 429 for unknown tokens after 20 from one IP, but still resolves valid links for that IP',async()=>{
   svc.resolve.mockResolvedValue({state:'unknown'});
   for(let i=0;i<20;i++)expect((await page(req(),ctx)).status).toBe(404);
   const r=await page(req(),ctx);expect(r.status).toBe(429);expect(r.headers.get('Retry-After')).toBe('600');
-  expect(svc.resolve).toHaveBeenCalledTimes(20);
-  expect((await page(req(),{token,ip:'198.51.100.2'})).status).toBe(404);
+  svc.resolve.mockResolvedValue(available());svc.location.mockResolvedValue('https://acc.r2.cloudflarestorage.com/b/k?X-Amz-Signature=1');
+  expect((await page(req(),ctx)).status).toBe(200);expect((await file(req('/file'),{...ctx,disposition:'inline'})).status).toBe(302);
+  svc.resolve.mockResolvedValue({state:'unknown'});expect((await page(req(),{token,ip:'198.51.100.2'})).status).toBe(404);
  });
- it('refuses more than 60 requests per minute from one IP',async()=>{
+ it('refuses more than 300 requests per minute from one IP',async()=>{
   svc.resolve.mockResolvedValue(available());
-  for(let i=0;i<60;i++)expect((await page(req('',{ua:'Twitterbot/1.0'}),ctx)).status).toBe(200);
+  for(let i=0;i<300;i++)expect((await page(req('',{ua:'Twitterbot/1.0'}),ctx)).status).toBe(200);
   expect((await page(req(),ctx)).status).toBe(429);
  });
  it('counts unknown /m paths too',async()=>{

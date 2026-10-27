@@ -6,7 +6,9 @@ import {SALES_MATERIAL_MAX_COVER_BYTES,SALES_MATERIAL_MAX_UPLOAD_BYTES,contentDi
 import type {SalesMaterial,SalesMaterialCategory,SalesMaterialList,SalesMaterialMutation,SalesMaterialUpload,SalesMaterialUploadInput,SalesMaterialVersion} from '../endpoints/salesMaterials.schema';
 type E=Kysely<DB>|Transaction<DB>;
 /** Presigned PUT lifetime (spec 89 §6.3) and GET lifetime (§6.4), in seconds. */
-export const UPLOAD_URL_SECONDS=1800,READ_URL_SECONDS=300;
+export const UPLOAD_URL_SECONDS=1800,READ_URL_SECONDS=300,MEDIA_READ_URL_SECONDS=21600;
+/** Lifetime of a presigned GET: 5 minutes for documents and images, 6 hours for audio and video so playback, pausing and seeking (new range requests) keep working. */
+export const readUrlSeconds=({mimeType}:{mimeType:string|null|undefined}):number=>/^(audio|video)\//i.test(mimeType??'')?MEDIA_READ_URL_SECONDS:READ_URL_SECONDS;
 /** Raised when something does not exist (404). */
 export class SalesMaterialNotFound extends Error{}
 const configSchema=z.object({maxUploadBytes:z.number().int().min(1).max(SALES_MATERIAL_MAX_UPLOAD_BYTES),maxEmailAttachmentBytes:z.number().int().min(1),pendingUploadHours:z.number().int().min(1).max(720)});
@@ -192,13 +194,13 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   return {ok:true,revision:next};
  });
 }
-/** Resolves a version for viewing or download. Sellers only reach the current version of an active material (spec 89 §5). */
+/** Resolves a version for viewing or download (presigned GET: see {@link readUrlSeconds}). Sellers only reach the current version of an active material (spec 89 §5). */
 export async function salesMaterialFileLocation(db:Kysely<DB>,{versionId,disposition,user,storage}:{versionId:string;disposition:'inline'|'attachment';user:User;storage?:R2Storage}):Promise<string>{
  const v=(await sql<VersionRow&{status:string;currentVersion:number|null}>`SELECT v.*,m.status,m.current_version FROM crm_sales_material_versions v JOIN crm_sales_materials m ON m.id=v.material_id WHERE v.id=${versionId}::uuid`.execute(db)).rows[0];
  if(!v)throw new SalesMaterialNotFound('La versión no existe.');
  if(user.role!=='admin'&&(v.status!=='active'||v.version!==v.currentVersion))throw new CrmForbidden('Esta versión del material no está disponible.');
  if(v.url)return v.url;
- return (storage??r2Storage()).presignGet({key:v.objectKey!,expiresIn:READ_URL_SECONDS,disposition:contentDisposition({disposition,fileName:v.fileName}),contentType:v.mimeType??undefined});
+ return (storage??r2Storage()).presignGet({key:v.objectKey!,expiresIn:readUrlSeconds({mimeType:v.mimeType}),disposition:contentDisposition({disposition,fileName:v.fileName}),contentType:v.mimeType??undefined});
 }
 /** Cover bytes (at most 1 MB) served through our server: the admin cover, or a small image material itself. Null when there is none. */
 export async function salesMaterialCover(db:Kysely<DB>,{materialId,user,storage}:{materialId:string;user:User;storage?:R2Storage}):Promise<{body:Uint8Array<ArrayBuffer>;contentType:string}|null>{

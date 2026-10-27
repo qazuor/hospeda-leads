@@ -10,7 +10,7 @@ afterAll(()=>{if(saved.db===undefined)delete process.env.DATABASE_URL;else proce
 
 describe('/m routes',()=>{
  it.each([
-  ['GET','/m/short'],['GET','/m/'+'A'.repeat(42)+'='],['GET','/m'],['GET','/m/'],['GET','/m/'+'A'.repeat(43)+'/'],['GET','/m/'+'A'.repeat(43)+'/other'],
+  ['GET','/m/short'],['GET','/m/'+'A'.repeat(42)+'='],['GET','/m'],['GET','/m/'],['GET','/m/'+'A'.repeat(43)+'/file/'],['GET','/m/'+'A'.repeat(42)+'/'],['GET','/m/'+'A'.repeat(43)+'/other'],
   ['POST','/m/'+'A'.repeat(43)],['DELETE','/m/'+'A'.repeat(43)+'/file'],['GET','/m/x/file'],['GET','/m/x/download'],['GET','/m/x/cover']
  ])('%s %s answers the public 404 page, never the SPA',async(method,path)=>{
   const r=await app.request(path,{method,headers:{'x-real-ip':'192.0.2.'+(path.length%250)}});
@@ -18,6 +18,10 @@ describe('/m routes',()=>{
   expect(html).toContain('Este enlace no es válido');expect(html).not.toContain('id="root"');
   expect(r.headers.get('Content-Security-Policy')).toContain(`default-src 'none'`);expect(r.headers.get('Content-Security-Policy-Report-Only')).toBeNull();
   expect(r.headers.get('X-Robots-Tag')).toBe('noindex, nofollow, noarchive');expect(r.headers.get('Cache-Control')).toBe('no-store');expect(r.headers.get('X-Frame-Options')).toBe('DENY');
+ });
+ it.each(['/','.',',',')'])('redirects %j after a well-formed token to the clean page without touching the database',async tail=>{
+  const token='A'.repeat(43);const r=await app.request('/m/'+token+tail,{headers:{'x-real-ip':'192.0.2.201'}});
+  expect(r.status).toBe(308);expect(r.headers.get('Location')).toBe('/m/'+token);expect(r.headers.get('Cache-Control')).toBe('no-store');
  });
  it('answers HEAD without a body',async()=>{
   const r=await app.request('/m/nope',{method:'HEAD',headers:{'x-real-ip':'192.0.2.200'}});expect(r.status).toBe(404);expect(await r.text()).toBe('');

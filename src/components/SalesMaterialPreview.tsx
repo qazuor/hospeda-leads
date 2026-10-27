@@ -10,8 +10,8 @@ export const PREVIEWABLE_FORMATS:ReadonlySet<SalesMaterialFormat>=new Set(['imag
 /** True when the material's current version can be previewed inside the CRM. */
 export const canPreviewSalesMaterial=({material}:{material:SalesMaterial}):boolean=>!!material.currentVersion&&!material.currentVersion.url&&PREVIEWABLE_FORMATS.has(salesMaterialFormat({mimeType:material.currentVersion.mimeType}));
 /**
- * Detail with an inline preview of the current version through `/_api/sales_materials/file` (a fresh presigned URL per request, so video
- * seeking keeps working), the description, categories and «Descargar». Every user may open it; seeing a material grants nothing else.
+ * Detail with an inline preview of the current version through `/_api/sales_materials/file` (a 302 to a presigned URL: 5 minutes for documents and images,
+ * 6 hours for audio and video so playback and seeking keep working), the description, categories and «Descargar». Every user may open it; seeing a material grants nothing else.
  */
 export function SalesMaterialPreview({material,onClose}:{material:SalesMaterial;onClose:()=>void}){
  const current=material.currentVersion;if(!current)return null;

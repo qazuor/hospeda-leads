@@ -33,10 +33,10 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);line-height:1.25;overflow-wrap:anywhe
 .state{display:grid;gap:8px;padding:28px 20px;text-align:center}.state h1{font-size:24px}.state p{margin:0;color:#475569}
 footer{color:#475569;font-size:13px;text-align:center}
 @media(max-width:600px){.page{padding:12px}.body{padding:16px}.actions .button{flex:1 1 100%}.media iframe{height:70vh}}`;
-type Head={title:string;description:string;og?:{url:string;image:string;imageAlt:string}};
+type Head={title:string;description:string;og?:{url:string|null;image:string|null;imageAlt:string}};
 function htmlDocument({head,body}:{head:Head;body:string}):string{
  const t=escapeHtml(head.title),d=escapeHtml(head.description);
- const og=head.og?[`<meta property="og:type" content="website">`,`<meta property="og:site_name" content="Hospeda">`,`<meta property="og:locale" content="es_AR">`,`<meta property="og:title" content="${t}">`,`<meta property="og:description" content="${d}">`,`<meta property="og:url" content="${escapeHtml(head.og.url)}">`,`<meta property="og:image" content="${escapeHtml(head.og.image)}">`,`<meta property="og:image:alt" content="${escapeHtml(head.og.imageAlt)}">`,`<meta name="twitter:card" content="summary_large_image">`,`<meta name="twitter:title" content="${t}">`,`<meta name="twitter:description" content="${d}">`,`<meta name="twitter:image" content="${escapeHtml(head.og.image)}">`].join(''):'';
+ const og=head.og?[`<meta property="og:type" content="website">`,`<meta property="og:site_name" content="Hospeda">`,`<meta property="og:locale" content="es_AR">`,`<meta property="og:title" content="${t}">`,`<meta property="og:description" content="${d}">`,...(head.og.url?[`<meta property="og:url" content="${escapeHtml(head.og.url)}">`]:[]),...(head.og.image?[`<meta property="og:image" content="${escapeHtml(head.og.image)}">`,`<meta property="og:image:alt" content="${escapeHtml(head.og.imageAlt)}">`]:[]),`<meta name="twitter:card" content="${head.og.image?'summary_large_image':'summary'}">`,`<meta name="twitter:title" content="${t}">`,`<meta name="twitter:description" content="${d}">`,...(head.og.image?[`<meta name="twitter:image" content="${escapeHtml(head.og.image)}">`]:[])].join(''):'';
  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow, noarchive"><meta name="referrer" content="no-referrer"><title>${t}</title><meta name="description" content="${d}">${og}<style>${STYLE}</style></head><body><main class="page"><header class="brand"><img src="/hospeda-logo.jpg" alt="" width="40" height="40"><span>Hospeda</span></header>${body}<footer>Material compartido por Hospeda.</footer></main></body></html>`;
 }
 /** og:description: the description collapsed to one line and cut at 200 characters (spec 89 §7). */
@@ -46,7 +46,7 @@ export function ogDescription({description}:{description:string}):string{
 }
 /** What the public page needs to render an available material; no business, seller or internal data. */
 export type MaterialPageView={
- token:string;baseUrl:string;title:string;description:string;format:SalesMaterialFormat;
+ token:string;/** Absolute public origin from `PUBLIC_APP_URL`; null when unset: then og:url and og:image are omitted (the Host header is never trusted). */baseUrl:string|null;title:string;description:string;format:SalesMaterialFormat;
  fileName:string|null;byteSize:number|null;externalUrl:string|null;hasCover:boolean;
  /** Android Chrome does not render embedded PDFs: show the cover and «Abrir PDF» instead of the iframe. */
  android:boolean;
@@ -66,9 +66,9 @@ export function renderMaterialPage(v:MaterialPageView):string{
  else actions+=`<a class="button" href="${download}">Descargar</a>`;
  const host=v.externalUrl?(()=>{try{return new URL(v.externalUrl).host}catch{return ''}})():'';
  const meta=v.externalUrl?(host?`Enlace a ${escapeHtml(host)}`:''):[v.fileName?escapeHtml(v.fileName):'',v.byteSize?escapeHtml(formatBytes({bytes:v.byteSize})):''].filter(Boolean).join(' · ');
- const pageUrl=v.baseUrl+base;
+ const pageUrl=v.baseUrl?v.baseUrl+base:null;
  const body=`<article class="card"><div class="media">${media}</div><div class="body"><h1>${title}</h1>${v.description.trim()?`<p class="description">${escapeHtml(v.description.trim())}</p>`:''}${meta?`<p class="meta">${meta}</p>`:''}<div class="actions">${actions}</div></div></article>`;
- return htmlDocument({head:{title:v.title,description:ogDescription({description:v.description}),og:{url:pageUrl,image:v.hasCover?pageUrl+'/cover':v.baseUrl+'/hospeda-logo.jpg',imageAlt:v.title}},body});
+ return htmlDocument({head:{title:v.title,description:ogDescription({description:v.description}),og:{url:pageUrl,image:v.baseUrl?(v.hasCover?pageUrl+'/cover':v.baseUrl+'/hospeda-logo.jpg'):null,imageAlt:v.title}},body});
 }
 /** The public states of a link (spec 89 §7). Unknown tokens all get the same page, whatever the reason. */
 export type MaterialPageState='unknown'|'revoked'|'unavailable'|'storage'|'rate_limited'|'error';

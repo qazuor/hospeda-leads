@@ -89,6 +89,18 @@ try{
  await rejects(()=>createSalesMaterialShare(db,{user:admin,input:{materialId:internal,accountId:b.accountId,leadId:null,contactId:null,channel:'email'}}),CommunicationForbidden,/interno/);
  await rejects(()=>createSalesMaterialShare(db,{user:admin,input:{materialId:randomUUID(),accountId:b.accountId,leadId:null,contactId:null,channel:'email'}}),SalesMaterialNotFound);
  await rejects(()=>createSalesMaterialShare(db,{user:admin,input:{materialId:brochure,accountId:b.accountId,leadId:null,contactId:null,channel:'email',messageId:randomUUID()}}),Error,/inexistente/);
+ // A person from another business is a typed conflict, not a plain Error.
+ await rejects(()=>createSalesMaterialShare(db,{user:owner,input:{materialId:brochure,accountId:b.accountId,leadId:b.leadId,contactId:restricted.contactId,channel:'whatsapp'}}),CommunicationConflict,/La persona no pertenece/);
+ // messageId: the draft must belong to the same management and person (a draft of another recipient is refused).
+ const otherLead=await db.insertInto('leads').values({accountId:b.accountId,nombre:'Otra gestión '+stamp,estado:'Cargado',assignedUserEmail:owner.email}).returningAll().executeTakeFirstOrThrow();
+ const otherContact=await db.insertInto('crmContacts').values({accountId:b.accountId,name:'Otra persona '+stamp,email:'otra@example.com',phone:'+5493442000103'}).returningAll().executeTakeFirstOrThrow();
+ const draft=async(leadId:string|null,contactId:string|null)=>{const id=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,owner_email,status) VALUES(${id}::uuid,${b.accountId},${b.accountId},${leadId},${contactId},'whatsapp','+5493442000102',${owner.email},'draft')`.execute(db);return id;};
+ const goodDraft=await draft(b.leadId,b.contactId);
+ await rejects(async()=>createSalesMaterialShare(db,{user:owner,input:{materialId:brochure,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'whatsapp',messageId:await draft(String(otherLead.id),b.contactId)}}),CommunicationConflict,/no corresponde a esta gestión/);
+ await rejects(async()=>createSalesMaterialShare(db,{user:owner,input:{materialId:brochure,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'whatsapp',messageId:await draft(b.leadId,String(otherContact.id))}}),CommunicationConflict,/no corresponde a esta persona/);
+ await rejects(async()=>createSalesMaterialShare(db,{user:owner,input:{materialId:brochure,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'whatsapp',messageId:await draft(null,b.contactId)}}),CommunicationConflict,/no corresponde a esta gestión/);
+ const tied=await createSalesMaterialShare(db,{user:owner,input:{materialId:brochure,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'whatsapp',messageId:goodDraft}});
+ assert.equal((await sql<{messageId:string}>`SELECT message_id FROM crm_sales_material_shares WHERE id=${tied.id}::uuid`.execute(db)).rows[0].messageId,goodDraft);
  checks++;
 
  // Valid share: Open Graph, enforced CSP, headers, file inline/attachment via fresh presigned URLs, cover through our server.
@@ -116,15 +128,20 @@ try{
  checks++;
 
  // Technical access: people count at most once every 10 minutes; bots and HEAD never count; nothing else changes.
+ const messageCount=async()=>(await sql<{n:number}>`SELECT count(*)::int AS n FROM crm_messages WHERE account_id=${b.accountId}`.execute(db)).rows[0].n;const messagesBefore=await messageCount();
+ const liveVersion=async()=>(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_live_version:communication'`.execute(db)).rows[0].value;
+ const journalRows=async(id:string)=>(await sql<{n:number}>`SELECT count(*)::int AS n FROM crm_resource_journal WHERE entity='crm_sales_material_shares' AND entity_id=${id}`.execute(db)).rows[0].n;
  const before=await shareRow(share.id);assert.equal(before.technicalAccessCount,1,'The first human GET above counted once');assert(before.lastTechnicalAccessAt);
  for(const ua of ['WhatsApp/2.23.20.0','facebookexternalhit/1.1','Twitterbot/1.0','TelegramBot (like TwitterBot)','Mozilla/5.0 (compatible; Googlebot/2.1)','Slackbot-LinkExpanding 1.0'])assert.equal((await get(share.path,{ua})).status,200);
  assert.equal((await get(share.path,{method:'HEAD'})).status,200);await get(share.path);
  assert.equal((await shareRow(share.id)).technicalAccessCount,1);
  await sql`UPDATE crm_sales_material_shares SET last_technical_access_at=now()-interval '11 minutes' WHERE id=${share.id}::uuid`.execute(db);
  assert.equal((await get(share.path,{ua:'WhatsApp/2.23.20.0'})).status,200);assert.equal((await shareRow(share.id)).technicalAccessCount,1,'A bot after the interval still does not count');
+ const journalBefore=await journalRows(share.id),liveBefore=await liveVersion();
  await get(share.path);assert.equal((await shareRow(share.id)).technicalAccessCount,2);
+ assert.equal(await journalRows(share.id),journalBefore,'A counted visit writes no actor-less journal row');assert.equal(await liveVersion(),liveBefore,'A counted visit does not wake the CRM tabs');
  const lead=await db.selectFrom('leads').select(['estado']).where('id','=',b.leadId).executeTakeFirstOrThrow();assert.equal(lead.estado,'Cargado','An access never moves a stage');
- assert.equal((await sql<{n:number}>`SELECT count(*)::int AS n FROM crm_messages WHERE account_id=${b.accountId}`.execute(db)).rows[0].n,0,'An access never creates messages');
+ assert.equal(await messageCount(),messagesBefore,'An access never creates messages');
  checks++;
 
  // States: archived 410, restored works again, internal 410 even with a valid token, revoked 410, unknown 404 identical for any token.
@@ -137,8 +154,10 @@ try{
  const toRevoke=await createSalesMaterialShare(db,{user:owner,input:{materialId:photo,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'whatsapp'}});
  const photoPage=await (await get(toRevoke.path)).text();assert(photoPage.includes(`<img src="${toRevoke.path}/file"`));assert.equal(meta(photoPage,'og:image'),'https://crm.example.test'+toRevoke.path+'/cover','A small image is its own cover');
  assert.deepEqual(Buffer.from(await (await get(toRevoke.path+'/cover')).arrayBuffer()),png);
+ const liveBeforeRevoke=await liveVersion();
  await sql`UPDATE crm_sales_material_shares SET revoked_at=now(),revoked_by_email=${owner.email},revoke_reason='Prueba de revocación' WHERE id=${toRevoke.id}::uuid`.execute(db);
- const revoked=await get(toRevoke.path);assert.equal(revoked.status,410);assert((await revoked.text()).includes('Este enlace ya no está disponible'));
+ const revoked=await get(toRevoke.path);assert.equal(revoked.status,410);
+ assert((await journalRows(toRevoke.id))>=2,'A revoke is still journaled');assert.notEqual(await liveVersion(),liveBeforeRevoke,'A revoke still bumps the live version');assert((await revoked.text()).includes('Este enlace ya no está disponible'));
  assert.equal((await shareRow(toRevoke.id)).technicalAccessCount,1,'A revoked link stops counting');await get(toRevoke.path);assert.equal((await shareRow(toRevoke.id)).technicalAccessCount,1);
  const unknownA=await get('/m/'+'a'.repeat(43)),unknownB=await get('/m/'+share.token.slice(0,42)+(share.token.endsWith('A')?'B':'A')),malformed=await get('/m/abc');
  assert.deepEqual([unknownA.status,unknownB.status,malformed.status],[404,404,404]);const unknownBody=await unknownA.text();assert.equal(await unknownB.text(),unknownBody);assert.equal(await malformed.text(),unknownBody);
@@ -158,16 +177,33 @@ try{
  finally{setR2StorageForTests({storage:undefined});}
  checks++;
 
- // Rate limit (in memory, per client IP from X-Real-IP): 20 unknown tokens per 10 minutes, 60 requests per minute.
+ // Mangled links: a trailing slash or punctuation added by chat apps and linkifiers redirects to the clean token; tokens always end in an alphanumeric.
+ resetShareRateLimitsForTests();
+ for(const tail of ['/','.',',',')','%29']){const r=await get(share.path+tail);assert.equal(r.status,308,tail);assert.equal(r.headers.get('location'),share.path,tail);assert.equal(r.headers.get('cache-control'),'no-store');}
+ assert.equal((await get(share.path+'..')).status,404);assert.equal((await get('/m/'+share.token.slice(1)+'/')).status,404,'A malformed token is never redirected');assert.equal((await get(share.path+'/file/')).status,404);
+ assert.equal((await get(share.path+'.',{method:'HEAD'})).status,308);
+ assert.equal((await app.request(share.path+'/',{method:'POST',headers:{'x-real-ip':ip}})).status,404);
+ for(let i=0;i<200;i++)assert.match((await createSalesMaterialShare(db,{user:owner,input:{materialId:brochure,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'email'}})).token,/[A-Za-z0-9]$/);
+ checks++;
+
+ // Audio and video redirects last 6 hours (playback and seeking); documents keep 5 minutes.
+ const video=await material({title:'Video '+stamp,file:{name:'clip.mp4',mime:'video/mp4',body:Buffer.from('....ftypmp42video')}});
+ const videoShare=await createSalesMaterialShare(db,{user:owner,input:{materialId:video,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'whatsapp'}});
+ const videoLocation=await get(videoShare.path+'/file');assert.equal(videoLocation.status,302);assert.equal(new URL(videoLocation.headers.get('location')!).searchParams.get('X-Amz-Expires'),'21600');assert.equal(videoLocation.headers.get('cache-control'),'no-store');
+ checks++;
+
+ // Rate limit (in memory, per client IP from X-Real-IP): 20 unknown tokens per 10 minutes (only unknown tokens get 429), 300 requests per minute.
  resetShareRateLimitsForTests();const scanner=freshIp();
  for(let i=0;i<20;i++)assert.equal((await get('/m/'+randomUUID().replace(/-/g,'').padEnd(43,'x'),{from:scanner})).status,404);
- const limited=await get(share.path,{from:scanner});assert.equal(limited.status,429,'Even a valid token is refused once the IP is blocked');assert.equal(limited.headers.get('retry-after'),'600');
- assert.equal((await get(share.path,{from:freshIp()})).status,200,'Other IPs are not affected');
- const busy=freshIp();for(let i=0;i<60;i++)assert.equal((await get(share.path,{from:busy,ua:'WhatsApp/2'})).status,200);
+ const limited=await get('/m/'+'z'.repeat(43),{from:scanner});assert.equal(limited.status,429,'More unknown tokens from the same IP are refused');assert.equal(limited.headers.get('retry-after'),'600');
+ assert.equal((await get(share.path,{from:scanner})).status,200,'A valid link is never locked out, even from an IP that is scanning');
+ assert.equal((await get(share.path+'/file',{from:scanner})).status,302);
+ assert.equal((await get('/m/'+'z'.repeat(43),{from:freshIp()})).status,404,'Other IPs are not affected');
+ const busy=freshIp();for(let i=0;i<300;i++)assert.equal((await get(share.path,{from:busy,ua:'WhatsApp/2'})).status,200);
  assert.equal((await get(share.path,{from:busy,ua:'WhatsApp/2'})).status,429);
  ip=freshIp();
  checks++;
- console.log(`Sales material share (spec 89 F2): ${checks} groups passed: createSalesMaterialShare permissions and No contactar, Open Graph and headers, current version, technical access without bots, states (archived, internal, revoked, unknown), external URL, missing storage and rate limit`);
+ console.log(`Sales material share (spec 89 F2): ${checks} groups passed: createSalesMaterialShare permissions and No contactar, Open Graph and headers, current version, technical access without bots, states (archived, internal, revoked, unknown), external URL, missing storage, mangled links, media URL expiry and rate limit`);
 }finally{
  await db.destroy();r2.close();
 }

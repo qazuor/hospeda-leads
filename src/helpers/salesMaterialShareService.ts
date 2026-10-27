@@ -3,7 +3,7 @@ import type {DB} from './schema';import type {User} from './User';import {setWor
 import {CommunicationConflict,CommunicationForbidden,assertAccountContactAllowed,communicationContext,lockCommunication,messageFor} from './communicationService';
 import {SALES_MATERIAL_MAX_COVER_BYTES,contentDisposition,salesMaterialFormat,type SalesMaterialFormat} from './salesMaterialTypes';
 import {generateShareToken,hashShareToken,isShareTokenFormat,shareTokenMatches} from './salesMaterialShare';
-import {SalesMaterialNotFound,READ_URL_SECONDS} from './salesMaterialService';
+import {SalesMaterialNotFound,readUrlSeconds} from './salesMaterialService';
 import type {R2Storage} from './r2';
 /** Input of {@link createSalesMaterialShare}. `messageId` ties the share to a draft (spec 89 §8, phase F3). */
 export const salesMaterialShareInput=z.object({
@@ -27,12 +27,14 @@ export async function createSalesMaterialShare(db:Kysely<DB>,{input:raw,user}:{i
   const {account,lead}=await communicationContext(e,input.accountId,input.leadId,user,true);
   if(input.contactId){
    const contact=await e.selectFrom('crmContacts').select(['id']).where('id','=',input.contactId).where('accountId','=',account.id).where('deletedAt','is',null).executeTakeFirst();
-   if(!contact)throw new Error('La persona no pertenece a este negocio.');
+   if(!contact)throw new CommunicationConflict('La persona no pertenece a este negocio.');
   }
   await assertAccountContactAllowed(e,String(account.id),lead?String(lead.id):null,input.contactId,input.channel);
   if(input.messageId){
    const m=await messageFor(e,input.messageId,user,true);
    if(String(m.accountId)!==String(account.id)||m.channel!==input.channel)throw new CommunicationConflict('El mensaje no corresponde a este negocio o canal.');
+   if(input.leadId&&(m.leadId==null||String(m.leadId)!==input.leadId))throw new CommunicationConflict('El mensaje no corresponde a esta gestión.');
+   if(input.contactId&&(m.contactId==null||String(m.contactId)!==input.contactId))throw new CommunicationConflict('El mensaje no corresponde a esta persona.');
    if(m.status!=='draft')throw new CommunicationConflict('El mensaje ya no es un borrador.');
   }
   const material=(await sql<{kind:string;status:string;currentVersion:number|null;title:string}>`SELECT kind,status,current_version,title FROM crm_sales_materials WHERE id=${input.materialId}::uuid FOR SHARE`.execute(e)).rows[0];
@@ -83,10 +85,10 @@ export async function recordTechnicalAccess(db:Kysely<DB>,{shareId}:{shareId:str
   WHERE id=${shareId}::uuid AND revoked_at IS NULL AND (last_technical_access_at IS NULL OR last_technical_access_at<=now()-make_interval(mins=>${TECHNICAL_ACCESS_INTERVAL_MINUTES}::int)) RETURNING id`.execute(db);
  return r.rows.length>0;
 }
-/** Short-lived presigned GET of the shared file (5 minutes). Null for external URLs: the public page never redirects to them (no open redirect). */
+/** Presigned GET of the shared file: 5 minutes, or 6 hours for audio and video (see {@link readUrlSeconds}). Null for external URLs: the public page never redirects to them (no open redirect). */
 export async function publicShareFileLocation({material,disposition,storage}:{material:PublicSharedMaterial;disposition:'inline'|'attachment';storage:R2Storage}):Promise<string|null>{
  if(!material.objectKey)return null;
- return storage.presignGet({key:material.objectKey,expiresIn:READ_URL_SECONDS,disposition:contentDisposition({disposition,fileName:material.fileName}),contentType:material.mimeType??undefined});
+ return storage.presignGet({key:material.objectKey,expiresIn:readUrlSeconds({mimeType:material.mimeType}),disposition:contentDisposition({disposition,fileName:material.fileName}),contentType:material.mimeType??undefined});
 }
 /** Cover bytes (at most 1 MB) read through our server, so preview crawlers never follow an expiring R2 URL (§7). Null when there is none. */
 export async function publicShareCover({material,storage}:{material:PublicSharedMaterial;storage:R2Storage}):Promise<{body:Uint8Array<ArrayBuffer>;contentType:string}|null>{
