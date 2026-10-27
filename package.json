@@ -36,6 +36,7 @@
     "test:inbound": "node --import tsx scripts/test-inbound-email.ts && node --import tsx scripts/test-inbound-email-ui.ts && node --import tsx scripts/test-inbound-email-reply.ts && node --import tsx scripts/test-email-uncertain.ts && node --import tsx scripts/test-userscript.ts",
     "test:instagram": "node --import tsx scripts/test-instagram.ts",
     "test:inbox": "node --import tsx scripts/test-inbox.ts",
+    "test:communication-reads": "node --import tsx scripts/test-communication-reads.ts",
     "test:usability": "node --import tsx scripts/test-usability.ts",
     "test:permissions": "node --import tsx scripts/test-permissions.ts",
     "build:message-catalog": "node --import tsx scripts/build-message-catalog-migration.ts",

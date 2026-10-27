@@ -5,7 +5,7 @@ import {handle as businessColumnGroups} from '../endpoints/business_column_group
 import {handle as businessDuplicateCheck} from '../endpoints/business_duplicate_check';
 import {handle as businessSystemViewConvert} from '../endpoints/business_system_view_convert';
 import {get as businessReassignmentGET,post as businessReassignmentPOST} from '../endpoints/business_reassignment';
-import {get as communicationGET,post as communicationPOST,webhook as brevoWebhook} from '../endpoints/communication';
+import {get as communicationGET,post as communicationPOST,seen as communicationSeenPOST,webhook as brevoWebhook} from '../endpoints/communication';
 import {get as inboxBusinessesGET} from '../endpoints/inbox_businesses';
 import {get as inboxThreadsGET} from '../endpoints/inbox_threads';
 import {get as inboxThreadGET} from '../endpoints/inbox_thread';
@@ -82,6 +82,7 @@ app.get('/_api/inbox/threads',c=>inboxThreadsGET(c.req.raw));
 app.get('/_api/inbox/thread',c=>inboxThreadGET(c.req.raw));
 app.get('/_api/inbox/search',c=>inboxSearchGET(c.req.raw));
 app.post('/_api/communication',c=>communicationPOST(c.req.raw));
+app.post('/_api/communication/seen',c=>communicationSeenPOST(c.req.raw));
 app.post('/_api/brevo/events',c=>brevoWebhook(c.req.raw));
 app.post('/_api/inbound/email',c=>inboundEmailPOST(c.req.raw));
 app.get('/_api/inbound/instagram',c=>instagramVerify(c.req.raw));
