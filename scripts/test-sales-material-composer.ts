@@ -46,7 +46,7 @@ try{
  let checks=0;
  const admin=await identity('admin'),owner=await identity('user'),other=await identity('user');
  await db.insertInto('appSettings').values({key:'brevo_sender_email',value:'sender@example.com'}).onConflict(oc=>oc.column('key').doUpdateSet({value:'sender@example.com'})).execute();
- const a=await db.insertInto('crmAccounts').values({nombre:'Composer '+stamp,status:'reviewed',assignedUserEmail:owner.user.email,telefono:'+5493442000201'}).returningAll().executeTakeFirstOrThrow();
+ const a=await db.insertInto('crmAccounts').values({nombre:'Zz Composer '+stamp,status:'reviewed',assignedUserEmail:owner.user.email,telefono:'+5493442000201'}).returningAll().executeTakeFirstOrThrow();
  const l=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre,estado:'Cargado',assignedUserEmail:owner.user.email}).returningAll().executeTakeFirstOrThrow();
  const c=await db.insertInto('crmContacts').values({accountId:a.id,name:'Persona '+stamp,email:'composer-person@example.com',phone:'+5493442000202'}).returningAll().executeTakeFirstOrThrow();
  const brochure=await material('Folleto '+stamp),big=await material('Video grande '+stamp,{bytes:11*1048576}),tour=await material('Tour '+stamp,{url:'https://example.com/tour'});
@@ -194,7 +194,7 @@ try{
  checks++;
 
  // Regression (review F3 #1): a pasted `/m/<token>` of another business or an unknown token is refused at dispatch, and nothing is recorded as sent.
- const b=await db.insertInto('crmAccounts').values({nombre:'Ajeno '+stamp,status:'reviewed',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
+ const b=await db.insertInto('crmAccounts').values({nombre:'Zz Ajeno '+stamp,status:'reviewed',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
  const foreignToken=generateShareToken().token;
  await sql`INSERT INTO crm_sales_material_shares(id,token_hash,material_id,account_id,original_account_id,channel,prepared_version,sent_version,created_by_email) VALUES(${randomUUID()}::uuid,${hashShareToken({token:foreignToken})},${brochure}::uuid,${b.id},${b.id},'whatsapp',1,1,${other.user.email})`.execute(db);
  let paste=await prepare('whatsapp');
