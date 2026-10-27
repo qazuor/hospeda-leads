@@ -43,7 +43,7 @@ export function canWriteInbound({admin,userEmail,detail,leadId}:{admin:boolean;u
  * host's loaded status of the reply message, whose id is the attempt id) settles it, and a retry after a failed request
  * reuses the same attempt id, which the server replays instead of sending twice.
  */
-export function InboundMessageActions({item,readOnly=false,canWrite,onRegister,replyStatus,dismissLabel='No es una respuesta',registerLabel='Registrar respuesta'}:{item:InboundMessage;readOnly?:boolean;canWrite:boolean;onRegister:(item:InboundMessage)=>void;replyStatus?:(messageId:string)=>string|null|undefined;dismissLabel?:string;registerLabel?:string}){
+export function InboundMessageActions({item,readOnly=false,canWrite,onRegister,replyStatus,dismissLabel='No es una respuesta',registerLabel='Registrar respuesta',showVoid=true}:{item:InboundMessage;readOnly?:boolean;canWrite:boolean;onRegister:(item:InboundMessage)=>void;replyStatus?:(messageId:string)=>string|null|undefined;dismissLabel?:string;registerLabel?:string;/** False when the host offers «Anular registro» elsewhere (the «⋯» menu of «Comunicación», spec 91). */showVoid?:boolean}){
  const {authState}=useAuth(),qc=useQueryClient();
  const admin=authState.type==='authenticated'&&authState.user.role==='admin',userEmail=authState.type==='authenticated'?authState.user.email:'';
  const noun=inboundNoun(item.channel);
@@ -64,7 +64,7 @@ export function InboundMessageActions({item,readOnly=false,canWrite,onRegister,r
  },onError:(error)=>{setReplyError(error instanceof Error?error.message:'No pudimos confirmar la respuesta del servidor. Podés reintentar con el mismo intento.');}});
  const dismiss=useGuardedMutation({mutationFn:postCommunication,onSuccess:()=>{invalidateInboundViews({queryClient:qc});setDismissOpen(false);setDismissReason('');crmSuccess(noun==='mensaje'?'Mensaje descartado':'Email descartado')}});
  const canReview=!readOnly&&canWrite&&item.status==='pending_review';
- const canVoid=canVoidAutoRegistration({readOnly,canWrite,admin,userEmail,registrationId:item.autoRegistrationId,registrationUserEmail:item.autoRegistrationUserEmail,status:item.status});
+ const canVoid=showVoid&&canVoidAutoRegistration({readOnly,canWrite,admin,userEmail,registrationId:item.autoRegistrationId,registrationUserEmail:item.autoRegistrationUserEmail,status:item.status});
  if(readOnly||(!item.canReply&&!canReview&&!canVoid))return null;
  return <>
   {item.canReply&&<Button size="sm" disabled={replyUncertain} disabledReason={UNCERTAIN_REPLY} onClick={()=>{setReplyBody('');setReplyRecipient(item.fromAddress);setReplyError('');setReplyOpen(true)}}>Responder</Button>}

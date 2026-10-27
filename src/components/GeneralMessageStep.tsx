@@ -31,12 +31,12 @@ type Template={id:string|number;channel:string;name:string;subject:string|null;b
  * Email or WhatsApp for a business without a management (the "Sin gestión" case of the Contactar dialog). The purpose comes already chosen.
  * A used message chains into "¿Cómo salió?" → "¿Cómo sigue?" (decision 2B); `onFinished` closes the whole contact flow afterwards; with `onLog` (a task's own completion path) it hands over to the task instead.
  */
-export function GeneralMessageStep({detail,templates,channel,purpose,onClose,onFinished,onLog,initialMaterialId}:{detail:Data;/** Sales material added once to the prepared draft (spec 89 §8.2). */initialMaterialId?:string;templates:Template[];channel:'email'|'whatsapp';purpose:{purpose:ContactPurpose;otherPurpose:string};onClose:()=>void;onFinished?:()=>void;onLog?:(contactId:string,channel:string)=>void}){
+export function GeneralMessageStep({detail,templates,channel,purpose,onClose,onFinished,onLog,initialMaterialId,initialContactId}:{detail:Data;/** Sales material added once to the prepared draft (spec 89 §8.2). */initialMaterialId?:string;/** Person preselected when it can receive on this channel (spec 91 «Responder»); otherwise the usual default applies. */initialContactId?:string;templates:Template[];channel:'email'|'whatsapp';purpose:{purpose:ContactPurpose;otherPurpose:string};onClose:()=>void;onFinished?:()=>void;onLog?:(contactId:string,channel:string)=>void}){
  const {authState}=useAuth(),user=authState.type==='authenticated'?authState.user:undefined,allowed=canModifyBusiness(user,detail.account),qc=useQueryClient(),chainOutcome=!onLog;
  const history=useQuery({queryKey:['communication','account',String(detail.account.id)],queryFn:()=>getCommunication('',String(detail.account.id))});
  const [contactId,setContactId]=useState(''),[templateId,setTemplateId]=useState(''),[message,setMessage]=useState<PreparedMessage|null>(null),[variation,setVariation]=useState(0);
  const candidates=useMemo(()=>detail.contacts.filter(c=>!c.deletedAt&&String(channel==='email'?c.email:c.phone??'').trim()),[detail.contacts,channel]);
- useEffect(()=>{setContactId(candidates.length===1?String(candidates[0].id):'')},[candidates]);
+ useEffect(()=>{setContactId(initialContactId&&candidates.some(c=>String(c.id)===initialContactId)?initialContactId:candidates.length===1?String(candidates[0].id):'')},[candidates,initialContactId]);
  const applicable=orderTemplatesBySpecificity(templates.filter(t=>t.active!==false&&templateCompatibility(t,{channel,vertical:detail.account.tipo,commercialProfile:null,purpose:purpose.purpose})===null));
  const target=contactId?candidates.find(c=>String(c.id)===contactId):null;const businessTarget=channel==='email'?detail.account.email:(detail.account.whatsapp||detail.account.telefono);const canUseBusiness=!candidates.length&&!!businessTarget;
  const recipient=target?(channel==='email'?target.email:target.phone):businessTarget;

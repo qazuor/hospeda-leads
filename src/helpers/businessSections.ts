@@ -11,3 +11,21 @@ export const businessSection=(value:string|null|undefined):BusinessSection=>{
  if((businessSections as readonly string[]).includes(value))return value as BusinessSection;
  return Object.hasOwn(legacySections,value)?legacySections[value]:'resumen';
 };
+
+/**
+ * Spec 91 §13: the tab a business page opens on. `?tab=` is the canonical param; the legacy `?section=` (search results,
+ * toasts, old links) is still read when there is no `tab`. Missing and unknown values open Resumen; a tab the user cannot see
+ * (Tareas on a read-only business) falls back when rendering.
+ */
+export const initialBusinessSection=(params:URLSearchParams):BusinessSection=>businessSection(params.get('tab')??params.get('section'));
+
+/**
+ * Spec 91 §13: the query string after choosing `section`. Keeps every other param, writes `tab` (dropped for Resumen, the
+ * default) and drops the legacy `section`, which `tab` supersedes.
+ */
+export function businessTabParams(params:URLSearchParams,section:BusinessSection):URLSearchParams{
+ const next=new URLSearchParams(params);
+ next.delete('section');
+ if(section==='resumen')next.delete('tab');else next.set('tab',section);
+ return next;
+}

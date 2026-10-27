@@ -2,10 +2,11 @@ import React from 'react';
 import { Menu, UnstyledButton } from '@mantine/core';
 import { ControlTarget } from './ui/ControlTarget';
 import styles from './ui/CrmControls.module.css';
+import {LAYERS} from '../helpers/layers';
 
 export function DropdownMenu({ children, open, onOpenChange }: { children: React.ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void }) {
   const content = React.Children.toArray(children).find(child => React.isValidElement(child) && child.type === DropdownMenuContent) as React.ReactElement<{ align?: string; sideOffset?: number }> | undefined;
-  return <Menu opened={open} onChange={onOpenChange} withinPortal zIndex={440} shadow="md" position={content?.props.align === 'end' ? 'bottom-end' : 'bottom-start'} offset={content?.props.sideOffset ?? 4} classNames={{ dropdown: styles.dropdown, item: styles.option, itemLabel: styles.menuLabel }}>{children}</Menu>;
+  return <Menu opened={open} onChange={onOpenChange} withinPortal zIndex={LAYERS.menu} shadow="md" position={content?.props.align === 'end' ? 'bottom-end' : 'bottom-start'} offset={content?.props.sideOffset ?? 4} classNames={{ dropdown: styles.dropdown, item: styles.option, itemLabel: styles.menuLabel }}>{children}</Menu>;
 }
 export const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(({ asChild, ...props }, ref) =>
   <Menu.Target>{asChild ? <ControlTarget {...props} ref={ref} /> : <UnstyledButton {...props} ref={ref} type={props.type ?? 'button'} />}</Menu.Target>,

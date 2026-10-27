@@ -138,6 +138,11 @@ jobs:
         run: npm run test:inbox
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Communication read state integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:communication-reads
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Shared reading and owner permissions integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:permissions

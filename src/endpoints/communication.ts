@@ -10,7 +10,7 @@ import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {setWorkActor} from '../helpers/workAudit';
 import {smtpConfigured} from '../helpers/smtpTransport';
 import {inboxReplyAvailability} from '../helpers/inboxReplyAvailability';
-import {COMMUNICATION_LIST_LIMIT,communicationMutation} from './communication.schema';
+import {COMMUNICATION_LIST_LIMIT,communicationMutation,communicationSeenInput} from './communication.schema';
 import {messageMaterials} from '../helpers/salesMaterialDraft';
 import {SalesMaterialNotFound} from '../helpers/salesMaterialService';
 import {R2NotConfigured,R2Unavailable} from '../helpers/r2';
@@ -61,10 +61,29 @@ export async function get(request:Request){
   const openManagements=(await sql`SELECT l.id,l.opportunity_name,l.management_type,l.estado,l.assigned_user_email,s.classification FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${lead.accountId} AND l.deleted_at IS NULL AND s.classification='open' ORDER BY l.id`.execute(db)).rows.map((item:any)=>({id:item.id,opportunityName:item.opportunity_name,managementType:item.management_type,estado:item.estado,assignedUserEmail:item.assigned_user_email,classification:item.classification,canClose:user.role==='admin'||item.assigned_user_email===user.email}));
   // Decision 2B: the viewer's own contacts here that still wait for "¿Cómo salió?".
   const pendingOutcomes=await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin',accountId:lead.accountId,leadId:lead.id||null});
-  return response({pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]).map(row=>({...row,materials:materials[String(row.id)]??[]})),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
+  // Spec 91 §12, read-only: the caller's previous visit, for the «Nuevo desde tu última visita» divider.
+  const lastSeenAt=(await sql<{lastSeenAt:Date}>`SELECT last_seen_at AS "lastSeenAt" FROM crm_communication_reads WHERE user_id=${user.id} AND account_id=${lead.accountId}`.execute(db)).rows[0]?.lastSeenAt??null;
+  return response({lastSeenAt,pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]).map(row=>({...row,materials:materials[String(row.id)]??[]})),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
  }catch(e){return failure(e)}
 }
 export async function post(request:Request){try{const {user}=await getServerUserSession(request);if(Number(request.headers.get('Content-Length')??0)>100000)throw new Error('Solicitud demasiado grande');const raw=await request.text();if(raw.length>100000)throw new Error('Solicitud demasiado grande');return response(await mutateCommunication(db,communicationMutation.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})()),user));}catch(e){return failure(e)}}
+/**
+ * POST /_api/communication/seen (spec 91 §12): records the caller's visit to a business «Comunicación» tab. Same read check
+ * as the GET; it writes only the caller's own row of crm_communication_reads (no journal, no history, no live bump). The
+ * marker never moves backwards (GREATEST) and a future `seenAt` is capped at the server's now().
+ */
+export async function seen(request:Request){
+ try{
+  const {user}=await getServerUserSession(request);
+  if(Number(request.headers.get('Content-Length')??0)>2000)throw new Error('Solicitud demasiado grande');
+  const raw=await request.text();if(raw.length>2000)throw new Error('Solicitud demasiado grande');
+  const input=communicationSeenInput.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})());
+  await assertBusinessAccess(db,input.accountId,user);
+  const row=(await sql<{lastSeenAt:Date}>`INSERT INTO crm_communication_reads(user_id,account_id,last_seen_at) VALUES(${user.id},${input.accountId},LEAST(${input.seenAt}::timestamptz,now()))
+   ON CONFLICT(user_id,account_id) DO UPDATE SET last_seen_at=GREATEST(crm_communication_reads.last_seen_at,EXCLUDED.last_seen_at) RETURNING last_seen_at AS "lastSeenAt"`.execute(db)).rows[0];
+  return response({lastSeenAt:row.lastSeenAt});
+ }catch(e){return failure(e)}
+}
 export async function webhook(request:Request){
  const secret=process.env.BREVO_WEBHOOK_TOKEN;if(!secret||secret.length<32)return new Response('Webhook not configured',{status:503});
  const provided=request.headers.get('Authorization')??'',expected='Bearer '+secret;const a=Buffer.from(provided),b=Buffer.from(expected);if(a.length!==b.length||!timingSafeEqual(a,b))return new Response('Unauthorized',{status:401});

@@ -240,6 +240,13 @@ export interface CrmUserscriptTokens {
   revokedAt:Timestamp|null;
 }
 
+/** Spec 91 §12: when a user last looked at a business «Comunicación» tab (migration 048). */
+export interface CrmCommunicationReads {
+  userId:number;
+  accountId:Int8;
+  lastSeenAt:Timestamp;
+}
+
 export interface CrmAutoRegistrations {
  id:string; accountId:Int8; userEmail:string; channel:'whatsapp'; direction:'in'|'out'; externalId:string;
  messageId:string|null; inboundId:string|null; effects:Json; createdAt:Generated<Timestamp>; voidedAt:Timestamp|null;
@@ -346,6 +353,7 @@ export interface CrmAccountMerges {
 }
 export interface DB {
  crmAutoRegistrations:CrmAutoRegistrations;
+ crmCommunicationReads:CrmCommunicationReads;
   crmUserscriptTokens:CrmUserscriptTokens;
  crmImportBatches:CrmImportBatches;
  crmDataEvidence:CrmDataEvidence;
