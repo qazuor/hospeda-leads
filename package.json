@@ -42,6 +42,7 @@
     "test:mcp": "node --import tsx scripts/test-mcp.ts",
     "test:managements": "node scripts/test-explicit-management-migration.mjs && node --import tsx scripts/test-explicit-management.ts",
     "test:view-pins": "node --import tsx scripts/test-view-pins.ts",
+    "test:sales-material": "node --import tsx scripts/test-sales-material.ts",
     "db:recover:businesses": "node scripts/recover-business-metadata.mjs"
   },
   "dependencies": {
@@ -74,6 +75,7 @@
     "@tiptap/extension-text-align": "3.31.3",
     "@tiptap/extension-underline": "3.31.3",
     "@tiptap/react": "3.31.3",
+    "aws4fetch": "^1.0.20",
     "bcryptjs": "3.0.3",
     "dayjs": "1.11.18",
     "hono": "^4.9.8",

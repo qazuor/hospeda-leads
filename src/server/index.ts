@@ -4,10 +4,13 @@ import {app} from "./app";
 import {db} from "../helpers/db";
 import {closeData} from "./mcp/data";
 import {createShutdown} from "./shutdown";
+import {scheduleSalesMaterialUploadSweep} from "../helpers/salesMaterialService";
 
 const port=Number(process.env.PORT||3001);
 const server=serve({fetch:app.fetch,port},(info)=>{
   console.log(`Hospeda Leads listening on http://localhost:${info.port}`);
 }) as Server;
-const shutdown=createShutdown({server,closeResources:async()=>{await db.destroy();await closeData();},exit:(code)=>process.exit(code),log:(message)=>console.log(message)});
+// Abandoned sales material uploads (spec 89 §6.4): every 6 hours, a no-op without R2 configuration.
+const stopUploadSweep=scheduleSalesMaterialUploadSweep({db});
+const shutdown=createShutdown({server,closeResources:async()=>{stopUploadSweep();await db.destroy();await closeData();},exit:(code)=>process.exit(code),log:(message)=>console.log(message)});
 for(const signal of ["SIGTERM","SIGINT"] as const)process.on(signal,()=>void shutdown(signal));

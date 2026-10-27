@@ -13,7 +13,7 @@ describe("liveQueryKeysToInvalidate", () => {
 
   it("keeps the business list and stats out of communication-only changes", () => {
     const keys=liveQueryKeysToInvalidate({previous:snapshot("1"),next:snapshot("2",{communication:"2"})});
-    expect(keys).toEqual(["communication","resources","data-quality","commercial-detail","settings","lead-journal","global-journal","global-journal-filtered"]);
+    expect(keys).toEqual(["communication","resources","sales-materials","data-quality","commercial-detail","settings","lead-journal","global-journal","global-journal-filtered"]);
     expect(keys).not.toContain("leads");
     expect(keys).not.toContain("lead-stats");
     expect(keys).not.toContain("work");

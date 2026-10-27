@@ -103,6 +103,11 @@ jobs:
         run: npm run test:communication
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Sales material storage, admin and upload sweep integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:sales-material
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Inbound email integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:inbound

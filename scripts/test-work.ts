@@ -65,6 +65,13 @@ const EXPECTED_LIVE_TRIGGERS=[
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_documents FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_inbound_messages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_messages FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  // 046_sales_material
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_categories FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_category_links FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_shares FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_uploads FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_materials FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER users_live_version AFTER INSERT OR DELETE OR UPDATE ON public.users FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')"
 ];
 async function liveVersions(){const r=await liveVersion(new Request('http://localhost/_api/live_version',{headers:{cookie:user.cookie}}));assert.equal(r.status,200);const value=superjson.parse<LiveVersion>(await r.text());assert(value.domains,'Live version must report domains');return {version:value.version,...value.domains};}

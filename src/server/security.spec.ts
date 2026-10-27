@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import superjson from "superjson";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { applyBodyLimit } from "./bodyLimit";
-import { applySecurity, CSP_REPORT_ONLY, isAllowedOrigin } from "./security";
+import { applySecurity, CSP_REPORT_ONLY, cspReportOnly, isAllowedOrigin } from "./security";
 import { applyAssetMiddleware } from "./staticAssets";
 
 const base = { requestOrigin: "http://127.0.0.1:3001", publicOrigin: "https://crm.example.com" };
@@ -128,5 +128,17 @@ describe("security middlewares through the node adapter", () => {
   });
   it("lets bearer-token clients through regardless of Origin", async () => {
     for (const path of ["/_api/brevo/events", "/_api/business_import"]) expect((await send("POST", path, { Origin: "https://evil.example" })).status).toBe(200);
+  });
+});
+
+describe("report-only CSP with R2 (spec 89)", () => {
+  it("adds the R2 S3 origin to connect, img, media and frame sources only when configured", () => {
+    const r2 = "https://abc.r2.cloudflarestorage.com";
+    const policy = Object.fromEntries(cspReportOnly({ r2Origin: r2 }).split("; ").map(part => [part.split(" ")[0], part]));
+    for (const directive of ["connect-src", "img-src", "media-src", "frame-src"]) expect(policy[directive]).toContain(r2);
+    expect(policy["script-src"]).toBe("script-src 'self'");
+    expect(policy["default-src"]).toBe("default-src 'self'");
+    expect(cspReportOnly({ r2Origin: null })).not.toContain("r2.cloudflarestorage.com");
+    expect(cspReportOnly({ r2Origin: null })).toContain("connect-src 'self'");
   });
 });
