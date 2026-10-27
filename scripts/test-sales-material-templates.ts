@@ -78,7 +78,10 @@ try{
  checks++;
 
  // prepare: each reference becomes a share of this draft; the archived one is left out with a reason; the dispatch claim accepts the links.
- const prepare=(templateId:string|null,channel:'whatsapp'|'email'='whatsapp',variation=Math.floor(Math.random()*1000))=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId,variation},200,owner);
+ // prepare reuses an open draft with the same lead, contact, channel, template and variation, so every prepare gets its own variation. A random one
+ // collided now and then (regression: CI run 40479186115): with 0 the user script, which never sends a variation, reused the draft poisoned below.
+ let variations=10;const nextVariation=()=>variations++;
+ const prepare=(templateId:string|null,channel:'whatsapp'|'email'='whatsapp',variation=nextVariation())=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId,variation},200,owner);
  const wa=await prepare(waTemplate);
  assert(!wa.body.includes('{{material:'),'No reference survives prepare: '+wa.body);
  assert.match(wa.body,new RegExp(`Folleto ${stamp}: https://crm\\.example\\.test/m/[A-Za-z0-9_-]{43}`));assert.match(wa.body,new RegExp(`Y el recorrido: Tour ${stamp}: https://crm\\.example\\.test/m/`));
@@ -126,7 +129,7 @@ try{
  // and dispatch refuses it in the body, the reviewed html or the text: nothing is recorded as sent (regression).
  const manual=await prepare(null);
  await call({action:'edit',id:manual.id,revision:manual.revision,subject:'',body:`Mirá ${ref(brochure)}`},400,owner,/referencia de material sin resolver/);
- const reuseVariation=Math.floor(Math.random()*1000),firstDraft=await prepare(plainTemplate,'whatsapp',reuseVariation);
+ const reuseVariation=nextVariation(),firstDraft=await prepare(plainTemplate,'whatsapp',reuseVariation);
  await sql`UPDATE crm_messages SET body=${'Hola '+ref(brochure)} WHERE id=${firstDraft.id}::uuid`.execute(db);
  const reused=await prepare(plainTemplate,'whatsapp',reuseVariation);
  assert.equal(reused.id,firstDraft.id);assert.equal(reused.reusedDraft,true);assert.equal(reused.body,'Hola '+ref(brochure),'A reused draft is not resolved');assert.equal(reused.revision,firstDraft.revision);assert.deepEqual(await shares(firstDraft.id),[]);
@@ -154,6 +157,7 @@ try{
  assert(scriptTemplate.body.includes(`[Material: Folleto ${stamp}]`)&&scriptTemplate.body.includes(`[Material: Archivado ${stamp}]`)&&!scriptTemplate.body.includes(brochure),'The popover shows titles, never uuids');
  const scriptPrepare=await script.prepare(new Request('http://localhost/_api/userscript/prepare',{method:'POST',headers:scripted(token),body:JSON.stringify({id:randomUUID(),leadId:String(l.id),contactId:String(c.id),templateId:plainTemplate})}));
  assert.equal(scriptPrepare.status,200);const prepared=await scriptPrepare.json() as {messageId:string;revision:number;body:string;materialWarnings:string[]};assert.deepEqual(prepared.materialWarnings,[]);
+ assert.notEqual(prepared.messageId,firstDraft.id,'The script (variation 0) never reuses a draft prepared with another variation');
  const withWarning=await script.prepare(new Request('http://localhost/_api/userscript/prepare',{method:'POST',headers:scripted(token),body:JSON.stringify({id:randomUUID(),leadId:String(l.id),contactId:null,templateId:waTemplate})}));
  assert.equal(withWarning.status,200);assert.deepEqual((await withWarning.json() as {materialWarnings:string[]}).materialWarnings,[`«Archivado ${stamp}» ya no está disponible. No se agregó al mensaje.`]);
  const add=(materialId:string,revision:number,messageId=prepared.messageId)=>script.materialAdd(new Request('http://localhost/_api/userscript/material_add',{method:'POST',headers:scripted(token),body:JSON.stringify({messageId,revision,materialId})}));
@@ -210,14 +214,14 @@ try{
  await call({action:'cancel_draft',id:toCancel.id,revision:toCancel.revision},200,owner);
  assert((await shares(toCancel.id)).every(s=>s.revokedAt),'cancel_draft revokes the template links');
  const toDiscard=await prepare(waTemplate);
- await call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel:'whatsapp',templateId:waTemplate,variation:Math.floor(Math.random()*1000),discardDraft:{id:toDiscard.id,revision:toDiscard.revision}},200,owner);
+ await call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel:'whatsapp',templateId:waTemplate,variation:nextVariation(),discardDraft:{id:toDiscard.id,revision:toDiscard.revision}},200,owner);
  const discarded=await shares(toDiscard.id);assert.equal(discarded.length,2);assert(discarded.every(s=>s.revokedAt),'discardDraft revokes the template links');
  checks++;
 
  // Delegated prepare (spec 87): the assignee of a pending task resolves the references with her own user.
  const delegate=await identity('user');
  const task=await db.insertInto('crmTasks').values({accountId:a.id,leadId:l.id,title:'Mandar material '+stamp,typeId:'call',dueDate:'2027-01-15',assignedUserEmail:delegate.user.email}).returningAll().executeTakeFirstOrThrow();
- const delegated=await call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel:'whatsapp',templateId:waTemplate,variation:Math.floor(Math.random()*1000),taskId:String(task.id)},200,delegate);
+ const delegated=await call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel:'whatsapp',templateId:waTemplate,variation:nextVariation(),taskId:String(task.id)},200,delegate);
  assert.equal(tokens(delegated.body).length,2);assert.deepEqual(delegated.materialWarnings.map((w:any)=>w.problem),['archived']);
  assert.deepEqual((await sql<{createdByEmail:string}>`SELECT DISTINCT created_by_email FROM crm_sales_material_shares WHERE message_id=${delegated.id}::uuid`.execute(db)).rows.map(r=>r.createdByEmail),[delegate.user.email]);
  checks++;

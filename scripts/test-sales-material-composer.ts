@@ -51,7 +51,8 @@ try{
  const c=await db.insertInto('crmContacts').values({accountId:a.id,name:'Persona '+stamp,email:'composer-person@example.com',phone:'+5493442000202'}).returningAll().executeTakeFirstOrThrow();
  const brochure=await material('Folleto '+stamp),big=await material('Video grande '+stamp,{bytes:11*1048576}),tour=await material('Tour '+stamp,{url:'https://example.com/tour'});
  const internal=await material('Interno '+stamp,{kind:'internal'}),gone=await material('Archivado '+stamp);await sql`UPDATE crm_sales_materials SET status='archived',archived_at=now() WHERE id=${gone}::uuid`.execute(db);
- const prepare=async(channel:'email'|'whatsapp')=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId:null,variation:Math.floor(Math.random()*1000)},200,owner);
+ // A distinct variation per prepare: with a repeated one, prepare reuses the open draft of the same lead, contact and channel instead of creating one.
+ let variations=10;const prepare=async(channel:'email'|'whatsapp')=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId:null,variation:variations++},200,owner);
 
  // material_add on a WhatsApp draft: link in the body, new token, revision up, materials returned; refusals for duplicates, internal, missing, archived, attach on WhatsApp, other users and stale revisions.
  let wa=await prepare('whatsapp');assert.deepEqual(wa.materials,[]);
