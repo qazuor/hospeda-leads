@@ -25,13 +25,14 @@ type UploadRow={id:string;objectKey:string;purpose:'file'|'cover';materialId:str
 const publicVersion=({objectKey:_key,materialId:_material,...v}:VersionRow):SalesMaterialVersion=>({...v,byteSize:v.byteSize==null?null:Number(v.byteSize)});
 /** Most materials one listing returns; beyond it the list says `truncated` and the UI asks for a narrower search. */
 export const LIST_LIMIT=500;
-/** Lists materials. Sellers see active ones (both kinds) with the current version only; `includeArchived` and older versions are admin-only. */
-export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;kind?:'deliverable'|'internal';includeArchived:'0'|'1'}}):Promise<SalesMaterialList>{
+/** Lists materials (`categoryIds`: any of them). Sellers see active ones (both kinds) with the current version only; `includeArchived` and older versions are admin-only. */
+export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived:'0'|'1'}}):Promise<SalesMaterialList>{
  const admin=user.role==='admin';
+ const categoryIds=[...new Set([...(query.categoryIds??[]),...(query.categoryId?[query.categoryId]:[])])];
  if(query.includeArchived==='1'&&!admin)throw new CrmForbidden('Solo un administrador ve el material archivado.');
  const found=(await sql<MaterialRow>`SELECT m.* FROM crm_sales_materials m WHERE (${query.includeArchived==='1'} OR m.status='active')
   AND (${query.kind??null}::text IS NULL OR m.kind=${query.kind??null})
-  AND (${query.categoryId??null}::bigint IS NULL OR EXISTS(SELECT 1 FROM crm_sales_material_category_links l WHERE l.material_id=m.id AND l.category_id=${query.categoryId??null}::bigint))
+  AND (${categoryIds.length===0} OR EXISTS(SELECT 1 FROM crm_sales_material_category_links l WHERE l.material_id=m.id AND l.category_id=ANY(${categoryIds}::bigint[])))
   AND (${searchSql('m.title',query.search)} OR ${searchSql('m.description',query.search)})
   ORDER BY m.status,m.updated_at DESC,m.id LIMIT ${LIST_LIMIT+1}`.execute(db)).rows;
  const truncated=found.length>LIST_LIMIT,rows=found.slice(0,LIST_LIMIT);

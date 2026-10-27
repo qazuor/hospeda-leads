@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {keepPreviousData,useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
+import {MultiSelect} from '@mantine/core';
 import {FileText,Image,Link2,Music,Presentation,Video} from 'lucide-react';
 import {getSalesMaterials,postSalesMaterial,salesMaterialCoverUrl,salesMaterialFileUrl,type SalesMaterial,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
 import {SALES_MATERIAL_FORMAT_LABELS,formatBytes,salesMaterialFormat,type SalesMaterialFormat} from '../helpers/salesMaterialTypes';
@@ -15,13 +16,14 @@ import {Disclosure,DisclosureSummary} from './Disclosure';
 import {Input} from './Input';
 import {NativeSelect} from './NativeSelect';
 import {SalesMaterialForm,type SalesMaterialFormMode} from './SalesMaterialForm';
+import {SalesMaterialPreview,canPreviewSalesMaterial} from './SalesMaterialPreview';
 import styles from './SalesMaterial.module.css';
 import layout from './ui/CrmLayout.module.css';
 
 const BUSY='La operación está en curso. Esperá a que termine para continuar.';
 const formatIcons:Record<SalesMaterialFormat,typeof FileText>={image:Image,pdf:FileText,video:Video,audio:Music,office:Presentation,link:Link2};
 /** Card of one material: cover, kind, format, categories and the actions the viewer may use. */
-export function SalesMaterialCard({material,admin,selected,busy,storageConfigured,onEdit,onArchive}:{material:SalesMaterial;admin:boolean;selected:boolean;busy:boolean;storageConfigured:boolean;onEdit:(mode:SalesMaterialFormMode)=>void;onArchive:(material:SalesMaterial)=>void}){
+export function SalesMaterialCard({material,admin,selected,busy,storageConfigured,onEdit,onArchive,onPreview}:{material:SalesMaterial;admin:boolean;selected:boolean;busy:boolean;storageConfigured:boolean;onEdit:(mode:SalesMaterialFormMode)=>void;onArchive:(material:SalesMaterial)=>void;onPreview:(material:SalesMaterial)=>void}){
  const current=material.currentVersion;const format=salesMaterialFormat({mimeType:current?.mimeType??null});const Icon=formatIcons[format];
  const storageReason='Almacenamiento no configurado: el archivo no se puede abrir por ahora.';
  const archived=material.status==='archived';
@@ -34,6 +36,7 @@ export function SalesMaterialCard({material,admin,selected,busy,storageConfigure
    {current&&<p className={styles.meta}>{current.url?'Enlace externo':`${current.fileName??'Archivo'}${current.byteSize?' · '+formatBytes({bytes:current.byteSize}):''}`} · versión {current.version}</p>}
    {material.kind==='internal'&&<p className={styles.meta}>Solo para vendedores: no se manda a clientes.</p>}
    {current&&<div className={styles.actions}>
+    {storageConfigured&&canPreviewSalesMaterial({material})&&<Button size="sm" onClick={()=>onPreview(material)}>Vista previa</Button>}
     {current.url?<Button asChild variant="outline" size="sm"><a href={salesMaterialFileUrl({versionId:current.id})} target="_blank" rel="noopener noreferrer">Abrir enlace</a></Button>:<>
      {storageConfigured?<Button asChild variant="outline" size="sm"><a href={salesMaterialFileUrl({versionId:current.id})} target="_blank" rel="noopener noreferrer">Abrir</a></Button>:<Button variant="outline" size="sm" disabled disabledReason={storageReason}>Abrir</Button>}
      {storageConfigured?<Button asChild variant="outline" size="sm"><a href={salesMaterialFileUrl({versionId:current.id,disposition:'attachment'})}>Descargar</a></Button>:<Button variant="outline" size="sm" disabled disabledReason={storageReason}>Descargar</Button>}
@@ -55,11 +58,11 @@ export function SalesMaterialCard({material,admin,selected,busy,storageConfigure
  */
 export function SalesMaterialPanel({admin,selectedId}:{admin:boolean;selectedId?:string|null}){
  const qc=useQueryClient();
- const [search,setSearch]=useState(''),[categoryId,setCategoryId]=useState(''),[kind,setKind]=useState<''|'deliverable'|'internal'>(''),[includeArchived,setIncludeArchived]=useState(false);
+ const [search,setSearch]=useState(''),[categoryIds,setCategoryIds]=useState<string[]>([]),[kind,setKind]=useState<''|'deliverable'|'internal'>(''),[includeArchived,setIncludeArchived]=useState(false);
  const term=useDebounce(search.trim(),250);
- const filters={search:term,categoryId:categoryId||undefined,kind:kind||undefined,includeArchived:admin&&includeArchived};
+ const filters={search:term,categoryIds:categoryIds.length?[...categoryIds].sort():undefined,kind:kind||undefined,includeArchived:admin&&includeArchived};
  const q=useQuery({queryKey:['sales-materials',filters],queryFn:()=>getSalesMaterials(filters),placeholderData:keepPreviousData});
- const [form,setForm]=useState<SalesMaterialFormMode|null>(null),[notice,setNotice]=useState(''),[error,setError]=useState(''),[pending,setPending]=useState('');
+ const [form,setForm]=useState<SalesMaterialFormMode|null>(null),[preview,setPreview]=useState<SalesMaterial|null>(null),[notice,setNotice]=useState(''),[error,setError]=useState(''),[pending,setPending]=useState('');
  const lock=useRef(false);
  const archive=useMutation({mutationFn:postSalesMaterial,onSettled:()=>{void qc.invalidateQueries({queryKey:['sales-materials']})}});
  async function toggleArchive(material:SalesMaterial){
@@ -70,11 +73,11 @@ export function SalesMaterialPanel({admin,selectedId}:{admin:boolean;selectedId?
  }
  useEffect(()=>{if(selectedId&&q.data)document.getElementById('material-'+selectedId)?.scrollIntoView({block:'center'});},[selectedId,q.data]);
  const limits:SalesMaterialLimits|undefined=q.data?.limits;
- const filtered=!!(term||categoryId||kind);
+ const filtered=!!(term||categoryIds.length||kind);
  return <section className={layout.panel} aria-busy={q.isFetching||!!pending}>
   <div className={styles.filters}>
    <label>Buscar material<Input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Título o comentario"/></label>
-   <label>Categoría<NativeSelect value={categoryId} onChange={e=>setCategoryId(e.target.value)}><option value="">Todas</option>{q.data?.categories.map(c=><option key={c.id} value={c.id}>{c.name}{c.active?'':' (desactivada)'}</option>)}</NativeSelect></label>
+   <MultiSelect label="Categorías" placeholder={categoryIds.length?undefined:'Todas'} data={(q.data?.categories??[]).map(c=>({value:c.id,label:c.name+(c.active?'':' (desactivada)')}))} value={categoryIds} onChange={setCategoryIds} searchable clearable nothingFoundMessage="No hay categorías con ese nombre" comboboxProps={{withinPortal:true}}/>
    <label>Tipo<NativeSelect value={kind} onChange={e=>setKind(e.target.value as ''|'deliverable'|'internal')}><option value="">Todos</option><option value="deliverable">Entregables</option><option value="internal">Internos</option></NativeSelect></label>
    {admin&&<label className={styles.inline}><Checkbox checked={includeArchived} onChange={e=>setIncludeArchived(e.currentTarget.checked)}/>Mostrar archivados</label>}
   </div>
@@ -85,8 +88,9 @@ export function SalesMaterialPanel({admin,selectedId}:{admin:boolean;selectedId?
    {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>}
    {q.data.truncated&&<p className={styles.warning} role="note">Hay más material del que se muestra. Buscá por título o filtrá por categoría o tipo para encontrar el resto.</p>}
    {q.data.materials.length===0?<CrmEmptyState>{filtered?<p>No hay material con esos filtros. Probá con otra búsqueda o categoría.</p>:<p>Todavía no hay material de venta.{admin?' Usá «Nuevo material» para subir el primero.':' Lo carga un administrador; si te falta alguno, pedíselo.'}</p>}</CrmEmptyState>:
-    <div className={styles.grid}>{q.data.materials.map(m=><SalesMaterialCard key={m.id} material={m} admin={admin} selected={m.id===selectedId} busy={!!pending} storageConfigured={q.data.limits.storageConfigured} onEdit={mode=>{setNotice('');setForm(mode)}} onArchive={m=>void toggleArchive(m)}/>)}</div>}
+    <div className={styles.grid}>{q.data.materials.map(m=><SalesMaterialCard key={m.id} material={m} admin={admin} selected={m.id===selectedId} busy={!!pending} storageConfigured={q.data.limits.storageConfigured} onEdit={mode=>{setNotice('');setForm(mode)}} onArchive={m=>void toggleArchive(m)} onPreview={setPreview}/>)}</div>}
   </>}
+  {preview&&<SalesMaterialPreview material={preview} onClose={()=>setPreview(null)}/>}
   {form&&limits&&q.data&&<SalesMaterialForm key={form.type+('material' in form?form.material.id:'')} mode={form} categories={q.data.categories} limits={limits} onClose={()=>setForm(null)} onSaved={message=>{setForm(null);setNotice(message)}}/>}
  </section>;
 }
