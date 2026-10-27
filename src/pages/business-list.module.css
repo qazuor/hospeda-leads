@@ -65,8 +65,9 @@
 .valueBadge{padding:2px 8px!important;line-height:1.4!important}
 .valueBadge :global(.mantine-Badge-label){white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-box-trim:none}
 .searchBox{min-height:var(--crm-control-height);background:var(--card)}.shell .searchBox input{padding-block:6px;font-size:var(--crm-control-font)}
-.listControls{padding:14px;gap:8px}.viewsRow{padding-top:0}.resultsBar{padding-block:4px}.table td small{font-size:13px}
-@media(max-width:767px){.listControls{padding:10px;gap:6px}.viewsRow{gap:4px}.resultsBar{gap:8px}.shell{gap:12px}.searchRow>button{height:auto;min-height:44px}.table th>.headerLabel{min-height:44px}}
+/* Doubled class: .listControls composes CrmLayout .panel, whose padding would otherwise win or lose depending on bundle order. */
+.listControls.listControls{padding:14px;gap:8px}.viewsRow{padding-top:0}.resultsBar{padding-block:4px}.table td small{font-size:13px}
+@media(max-width:767px){.listControls.listControls{padding:10px;gap:6px}.viewsRow{gap:4px}.resultsBar{gap:8px}.shell{gap:12px}.searchRow>button{height:auto;min-height:44px}.table th>.headerLabel{min-height:44px}}
 
 .viewsRow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;border-top:1px solid var(--border);padding-top:8px;min-width:0}
 .viewsRow>label{order:-1;flex:1 0 100%;max-width:none}
