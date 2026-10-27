@@ -20,7 +20,7 @@ test('send sales material from the business, record it and revoke the link',asyn
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
  async function api(endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
- const accountId=(await api('commercial',{action:'account_save',nombre:'Material e2e '+run,telefono:'+5493442000301',assignedUserEmail:'admin@example.com'})).id;
+ const accountId=(await api('commercial',{action:'account_save',nombre:'Zz Material e2e '+run,telefono:'+5493442000301',assignedUserEmail:'admin@example.com'})).id;
  await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Presentación material '+run,estado:'Cargado'});
  await page.goto('/accounts/'+accountId+'?section=comunicacion');
  await page.getByRole('tab',{name:'Comunicación',exact:true}).click();

@@ -1,4 +1,5 @@
 import { defaultMessageVariableSettings, resolveMessageVariables, type MessageVariableDefinition } from "./messageVariables";
+import { neutralizeMaterialReferences } from "./templateMaterials";
 
 export type TemplateContext={
   name?:unknown;
@@ -44,7 +45,8 @@ export function renderMessageTemplate(source:string,context:TemplateContext,defi
     if(next===out)break;
     out=next;
   }
-  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>values[key]||`{{${key}}}`);
+  // A value (a business or person name) can never carry a sales material reference into the message (spec 89 §9).
+  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>values[key]?neutralizeMaterialReferences(values[key]):`{{${key}}}`);
   return out
     .replace(/[ \t]+([,.;:!?])/g,"$1")
     .replace(/[ \t]{2,}/g," ")
@@ -59,7 +61,7 @@ export function renderMessageTemplateHtml(source:string,context:TemplateContext,
   const htmlValues:Record<string,string>={};
   for(const [key,value] of Object.entries(resolved)){
     values[key]=text(value);
-    htmlValues[key]=escapeHtml(values[key]);
+    htmlValues[key]=neutralizeMaterialReferences(escapeHtml(values[key]));
   }
   let out=normalizeTemplateHtml(source);
   const conditional=/{{#if\s+([a-zA-Z0-9_]+)}}([\s\S]*?)(?:{{else}}([\s\S]*?))?{{\/if}}/g;

@@ -2,3 +2,4 @@
 .variableMenu{width:min(320px,calc(100vw - 32px));max-height:min(420px,60dvh);overflow-y:auto}.variableMenu button{min-height:44px}.variableOption{display:grid;gap:2px;font-size:14px}.variableOption code{font-size:12px;color:var(--muted-foreground)}
 
 @media(max-width:700px){.editor{min-height:140px;padding:12px}.toolbar button{min-width:36px;min-height:40px}.toolbar{gap:2px;padding:6px}.toolGroup{gap:2px}.hint{font-size:12px;line-height:1.5}.variables{padding:6px}}
+.materialChip{display:inline-block;padding:0 7px;margin:0 1px;border:1px solid color-mix(in srgb,var(--primary) 32%,var(--border));border-radius:999px;background:color-mix(in srgb,var(--primary) 9%,var(--card));color:var(--primary);font-size:13px;line-height:1.6;white-space:nowrap;cursor:default}.materialChip:global(.ProseMirror-selectednode){outline:2px solid var(--primary);outline-offset:1px}

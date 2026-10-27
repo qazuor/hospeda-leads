@@ -28,6 +28,7 @@ import styles from "./templates.module.css";
 import {DisabledTooltip} from '../components/Tooltip';
 import {formatDateTime} from '../helpers/crmDates';
 import {buildMessageTemplateContext} from '../helpers/messageTemplateContext';
+import {labelMaterialReferences} from '../helpers/templateMaterials';
 
 type Channel="email"|"whatsapp"|"social"|"other";
 type Profile=""|"Independiente"|"Consolidado"|"Referente";
@@ -60,6 +61,7 @@ export function TemplatesContent(){
   const [expandedGroups,setExpandedGroups]=useState<Set<string>>(new Set());
   const [deleteOpen,setDeleteOpen]=useState(false);
   const [selectedVersion,setSelectedVersion]=useState('');
+  const [pickedMaterials,setPickedMaterials]=useState<Record<string,string>>({});
 
   const data=q.data;
   const filtered=useMemo(()=>{
@@ -156,7 +158,12 @@ export function TemplatesContent(){
   const example=!previewLeadId;
   const context=buildMessageTemplateContext({accountId:example?'template-preview':previewLead?.accountId??previewLead?.id??'template-preview',contactId:example?'sample':previewLead?.primaryContactId??null,name:example?'Ruca Lihuén':previewLead?.nombre,contact:example?'María':previewLead?.contactName,city:example?'Colón':previewLead?.ciudad,type:example?vertical||'Alojamiento':previewLead?.tipo,subtype:example?'Hotel':previewLead?.subtipo,phone:example?'3447 000000':previewLead?.telefono,email:example?'contacto@ejemplo.com':previewLead?.email,website:example?'https://ejemplo.com':previewLead?.sitioWeb,sender,senderShort:previewOwner?.displayName??sender,senderEmail:previewOwner?.email??(example&&authState.type==='authenticated'?authState.user.email:''),hospedaUrl:'',managementType:example?managementType:previewLead?.managementType,commercialProfile:previewLead?.commercialProfile,isClient:!!previewLead?.isClient,channel,purpose:purpose||null,variation});
   const messageVariables=data?.messageVariables??defaultMessageVariableSettings();
-  const renderedBody=renderMessageTemplateHtml(body,context,messageVariables);
+  // Sales material references (spec 89 §9): titles from settings for the chips, plus the ones picked in this session for the preview.
+  const materialRefs=selectedTemplate?.materialRefs??[];
+  const refTitles=useMemo(()=>Object.fromEntries(materialRefs.map(r=>[r.materialId,r.title])),[materialRefs]);
+  const unavailableMaterials=materialRefs.filter(r=>r.problem&&body.includes(r.materialId));
+  const materialEditor=channel==='whatsapp'||channel==='email'?{titles:refTitles,onInsert:(m:{id:string;title:string})=>setPickedMaterials(prev=>({...prev,[m.id]:m.title}))}:undefined;
+  const renderedBody=renderMessageTemplateHtml(labelMaterialReferences({text:body,titles:{...refTitles,...pickedMaterials},html:true}),context,messageVariables);
   const renderedSubject=renderMessageTemplate(subject,context,messageVariables);
   const whatsappPreview=htmlToWhatsApp(renderedBody);
   const whatsappPreviewHtml=whatsappTextToPreviewHtml(whatsappPreview);
@@ -192,7 +199,7 @@ export function TemplatesContent(){
                   const active=template.id===templateId;
                   return <DisabledTooltip key={template.id} disabled={save.isPending} reason="Se está guardando el modelo. Esperá a que termine para seleccionar otro."><UnstyledButton disabled={save.isPending} type="button" onClick={()=>selectTemplate(template)} className={active?styles.activeTemplate:""}>
                     <div className={styles.templateIcon}>{template.channel==="email"?<Mail size={15}/>:<MessageCircle size={15}/>}</div>
-                    <div><strong>{template.name}{template.active===false?' · Desactivado':''}</strong><span>{[template.vertical||"Todas las verticales",template.managementType?managementTypeLabels[template.managementType as ManagementType]:"Todos los tipos",template.commercialProfile||"Todos los perfiles",template.channel].filter(Boolean).join(" · ")}</span></div>
+                    <div><strong>{template.name}{template.active===false?' · Desactivado':''}</strong>{template.materialRefs?.some(r=>r.problem)&&<Badge variant="warning">Material no disponible</Badge>}<span>{[template.vertical||"Todas las verticales",template.managementType?managementTypeLabels[template.managementType as ManagementType]:"Todos los tipos",template.commercialProfile||"Todos los perfiles",template.channel].filter(Boolean).join(" · ")}</span></div>
                   </UnstyledButton></DisabledTooltip>;
                 })}
               </div>}
@@ -223,9 +230,10 @@ export function TemplatesContent(){
           <label className={styles.field}>Nombre del modelo<Input disabled={save.isPending} value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Primer contacto · Alojamiento · Independiente"/></label>
           {channel==="email"&&<label className={styles.field}>Asunto<Input disabled={save.isPending} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Asunto del email"/></label>}
           <div className={styles.editorLabel}>Contenido</div>
-          <div inert={save.isPending}><RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel==='whatsapp'?'whatsapp':'email'} messageVariables={messageVariables}/></div>
+          <div inert={save.isPending}><RichTemplateEditor key={channel+"-"+(templateId??"new")} value={body} onChange={setBody} channel={channel==='whatsapp'?'whatsapp':'email'} messageVariables={messageVariables} salesMaterials={materialEditor}/></div>
+          {unavailableMaterials.map(r=><p key={r.materialId} className={styles.warning} role="status">{r.title?`Este modelo incluye «${r.title}», que ya no está disponible. No se va a enviar.`:'Este modelo incluye un material que ya no existe. Quitalo antes de guardar.'}</p>)}
           <p className={styles.scopeHelp}>{TEMPLATE_SCOPE_HELP} Email, WhatsApp, redes sociales y Otros aceptan modelos compartidos; llamadas no usan modelos.</p>
-          {!!versions.length&&<section><h4>Versiones anteriores</h4><NativeSelect value={selectedVersion} onChange={e=>setSelectedVersion(e.target.value)}><option value="">Elegí una versión</option>{versions.map(v=><option key={v.version} value={String(v.version)}>Versión {v.version} · {formatDateTime(v.createdAt)}</option>)}</NativeSelect>{selectedVersion&&<><p>{htmlToPlainText(String(versions.find(v=>v.version===Number(selectedVersion))?.snapshot.body??''))}</p><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>void restoreVersion()}>Restaurar esta versión</Button></>}</section>}
+          {!!versions.length&&<section><h4>Versiones anteriores</h4><NativeSelect value={selectedVersion} onChange={e=>setSelectedVersion(e.target.value)}><option value="">Elegí una versión</option>{versions.map(v=><option key={v.version} value={String(v.version)}>Versión {v.version} · {formatDateTime(v.createdAt)}</option>)}</NativeSelect>{selectedVersion&&<><p>{htmlToPlainText(labelMaterialReferences({text:String(versions.find(v=>v.version===Number(selectedVersion))?.snapshot.body??''),titles:refTitles,html:true}))}</p><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>void restoreVersion()}>Restaurar esta versión</Button></>}</section>}
           {historicalVertical&&<p className={styles.warning}>Este modelo usa una vertical histórica: {vertical}. Conservá ese valor o elegí explícitamente una vertical actual; no se cambia automáticamente.</p>}
           {save.error&&<div className={styles.errorInline}>{save.error.message}</div>}
           <div className={styles.footer}><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={reset}>Limpiar editor</Button><Button onClick={saveTemplate} disabled={save.isPending||!name.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí un nombre para la plantilla."}>{save.isPending?"Guardando…":templateId?"Guardar cambios":"Crear modelo"}</Button></div>
@@ -241,7 +249,7 @@ export function TemplatesContent(){
           </label>
           {channel==="whatsapp"
             ? <div className={styles.whatsappPreview} dangerouslySetInnerHTML={{__html:whatsappPreviewHtml||"El mensaje aparecerá acá."}}/>
-            : channel==='email'?<><div className={styles.subjectPreview}>{renderedSubject||"Sin asunto"}</div><iframe className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderedBody,senderName:sender,senderEmail,subject:renderedSubject||"Mensaje de Hospeda",vertical:previewLead?.tipo??vertical,commercialProfile:previewLead?.commercialProfile??profile})}/></>:<pre className={styles.readable}>{htmlToPlainText(renderedBody)||"El mensaje aparecerá acá."}</pre>}
+            : channel==='email'?<><div className={styles.subjectPreview}>{renderedSubject||"Sin asunto"}</div><iframe sandbox="" className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderedBody,senderName:sender,senderEmail,subject:renderedSubject||"Mensaje de Hospeda",vertical:previewLead?.tipo??vertical,commercialProfile:previewLead?.commercialProfile??profile})}/></>:<pre className={styles.readable}>{htmlToPlainText(renderedBody)||"El mensaje aparecerá acá."}</pre>}
         </aside>
       </div>
     </div>

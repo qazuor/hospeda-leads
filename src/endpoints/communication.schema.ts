@@ -1,3 +1,4 @@
+import type {TemplateMaterialWarning} from '../helpers/templateMaterials';
 import {z} from 'zod';
 import {apiJson,postJson,LONG_TIMEOUT_MS} from '../helpers/apiClient';
 import type {MessageMaterial} from './salesMaterials.schema';
@@ -39,7 +40,8 @@ export type Message={id:string;accountId:string;leadId:string|null;contactId:str
 /** `reusedDraft` is set when prepare returns an earlier draft of the same seller, recipient and model instead of a new one (report item 1.14). */
 /** A contact left without "¿Cómo salió?" (decision 2B); it stays pending until an outcome is recorded. */
 export type PendingOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date};
-export type PreparedMessage=Message&{channel:'email'|'whatsapp';reusedDraft?:boolean};
+/** `materialWarnings`: template materials that `prepare` left out (archived, internal, missing) or could only link (spec 89 §9). */
+export type PreparedMessage=Message&{channel:'email'|'whatsapp';reusedDraft?:boolean;materialWarnings?:TemplateMaterialWarning[]};
 /**
  * The prepare request that discards `draft` and starts again from the same context, recipient and model.
  * Every input of prepare/prepare_general is stored on the draft, so the request is rebuilt exactly; `id` is the new idempotency key.

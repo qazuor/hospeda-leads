@@ -108,6 +108,15 @@ describe('MessageComposer sales material (spec 89 §8.2)',()=>{
   expect(await screen.findByText('«Folleto 2027» ya está en el mensaje.')).toBeTruthy();
   expect(screen.getByRole('heading',{name:'Personalizá el mensaje'})).toBeTruthy();
  });
+ it('shows the template material that prepare left out, with its reason (spec 89 §9)',()=>{
+  show(message({materialWarnings:[{materialId,title:'Folleto 2026',problem:'archived',message:'«Folleto 2026» ya no está disponible. No se agregó al mensaje.'}]}));
+  const notice=screen.getByRole('status',{name:'Material del modelo que no se agregó'});
+  expect(within(notice).getByText('«Folleto 2026» ya no está disponible. No se agregó al mensaje.')).toBeTruthy();
+ });
+ it('shows no template material notice when prepare resolved everything',()=>{
+  show(message({materialWarnings:[]}));
+  expect(screen.queryByRole('status',{name:'Material del modelo que no se agregó'})).toBeNull();
+ });
 });
 
 describe('SentMaterials (spec 89 §8.4)',()=>{

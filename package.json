@@ -46,6 +46,7 @@
     "test:sales-material": "node --import tsx scripts/test-sales-material.ts",
     "test:sales-material-share": "node --import tsx scripts/test-sales-material-share.ts",
     "test:sales-material-composer": "node --import tsx scripts/test-sales-material-composer.ts",
+    "test:sales-material-templates": "node --import tsx scripts/test-sales-material-templates.ts",
     "db:recover:businesses": "node scripts/recover-business-metadata.mjs"
   },
   "dependencies": {
