@@ -101,11 +101,12 @@
  * minus the sticky top bar (58px) and a 32px margin, between 420px and 900px, so once the page brings the frame under the top
  * bar the whole frame is visible and only the body scrolls (at 1440×900: 810px). Pure CSS, nothing is measured at runtime.
  */
-.frame{display:flex;flex-direction:column;min-width:0;max-height:clamp(420px,calc(100dvh - 58px - 32px),900px);border:1px solid var(--border);border-radius:var(--radius,12px);background:var(--card);overflow:hidden;--comm-chat-bg:color-mix(in srgb,var(--primary) 3%,var(--surface))}
-:global(.dark) .frame{--comm-chat-bg:color-mix(in srgb,var(--primary) 6%,var(--background))}
+.frame{display:flex;flex-direction:column;min-width:0;max-height:clamp(420px,calc(100dvh - 58px - 32px),900px);border:1px solid var(--border);border-radius:var(--radius,12px);background:var(--card);overflow:hidden}
 .frameHead{flex:none;display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--card)}
-.frameBody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px;background:var(--comm-chat-bg)}
+.frameBody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px;background:var(--chat-wallpaper)}
 .frameBody:focus{outline:none}
+/* On the wallpaper, received bubbles get a hairline so the grey reads as a bubble, not a patch. */
+.frameBody .row[data-side="in"] .bubble{border:1px solid var(--border-strong)}
 /* `.panel label` (Communication.module.css) stacks labels in a column; the switch keeps its label beside the track. */
 .voidedSwitch label{flex-direction:row;align-items:center;font-size:14px}
 .frameBody .day{position:relative}
