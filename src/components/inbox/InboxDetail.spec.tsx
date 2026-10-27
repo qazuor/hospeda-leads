@@ -85,7 +85,7 @@ describe('Bandeja actions from thread rows',()=>{
   mount();
   expect(await screen.findByRole('button',{name:'Responder'})).toBeTruthy();
   expect(await screen.findByRole('button',{name:'Registrar respuesta'})).toBeTruthy();
-  expect(screen.getByRole('button',{name:'Descartar'})).toBeTruthy();
+  expect(screen.getByRole('button',{name:'No es una respuesta'})).toBeTruthy();
  });
  it('shows the automatic badge and offers «Anular registro» to the registering user on both directions',async()=>{
   mocks.thread.mockResolvedValue({rows:[event(2,{kind:'out',status:'manual_sent',channel:'whatsapp',autoRegistrationId:uuid(9),autoRegistrationUserEmail:'seller@example.com'}),event(1,{autoRegistrationId:uuid(8),autoRegistrationUserEmail:'seller@example.com'})],nextCursor:null});

@@ -46,7 +46,7 @@ export const actorLabel=(actor:string|null|undefined,users?:readonly LabelUser[]
 };
 
 type InboundLabelItem={channel:string;fromAddress:string;subject?:string|null};
-/** What a received item is called in copy: WhatsApp messages are "mensaje", everything else "email". */
-export const inboundNoun=(channel:string):'mensaje'|'email'=>channel==='whatsapp'?'mensaje':'email';
-/** Sender, subject and time of a received item; WhatsApp has no subject and may have no phone, so those parts are omitted. */
-export const inboundMeta=({item,when}:{item:InboundLabelItem;when:string}):string=>[item.fromAddress,item.channel==='whatsapp'?'':item.subject||'(sin asunto)',when].filter(Boolean).join(' · ');
+/** What a received item is called in copy: only email is an "email"; WhatsApp and Instagram messages are "mensaje". */
+export const inboundNoun=(channel:string):'mensaje'|'email'=>channel==='email'?'email':'mensaje';
+/** Sender, subject and time of a received item; only email has a subject (spec 90: no «(sin asunto)» outside email), and a missing sender is omitted. */
+export const inboundMeta=({item,when}:{item:InboundLabelItem;when:string}):string=>[item.fromAddress,item.channel==='email'?item.subject||'(sin asunto)':'',when].filter(Boolean).join(' · ');

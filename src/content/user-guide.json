@@ -124,7 +124,7 @@
           "Entrá en «Bandeja». La lista empieza en «A revisar»: son los negocios con mensajes recibidos que todavía nadie registró ni descartó. «Todas» muestra el resto de las conversaciones disponibles para tu usuario.",
           "Elegí un negocio para ver sus conversaciones. Cada conversación es una gestión y un canal: la misma gestión por Email y por WhatsApp son dos conversaciones. «General» reúne la actividad que no pertenece a una gestión. Desde ahí usá «Abrir ficha del negocio» o «Abrir gestión».",
           "El detalle ordena los eventos del más antiguo al más reciente. Los mensajes recibidos pendientes se distinguen de los descartados y de los registros manuales de llamadas u otros canales.",
-          "En un mensaje recibido pendiente tenés las mismas acciones que en la ficha: «Registrar respuesta» para anotar lo que contestó, «Responder» para contestar un email en el mismo hilo (solo aparece cuando se puede) y «Descartar» si no es una respuesta. Un registro automático de WhatsApp muestra «Automático» y, si lo registraste vos (o sos admin), «Anular registro». Con «Nuevo mensaje» abrís el contacto habitual para ese negocio y esa gestión.",
+          "En un mensaje recibido pendiente tenés las mismas acciones que en la ficha: «Registrar respuesta» para anotar lo que contestó, «Responder» para contestar un email en el mismo hilo (solo aparece cuando se puede) y «No es una respuesta» si no lo es. Un registro automático de WhatsApp muestra «Automático» y, si lo registraste vos (o sos admin), «Anular registro». Con «Nuevo mensaje» abrís el contacto habitual para ese negocio y esa gestión.",
           "Para buscar, escribí arriba qué dijiste o qué te dijeron. Busca desde 3 caracteres sin contar espacios («Escribí al menos 3 letras» te avisa si falta). No importan los acentos: \"ampliacion\" encuentra \"ampliación\". La ñ sí cuenta: \"sena\" no encuentra \"seña\".",
           "Los resultados reemplazan la lista. Podés filtrar por dirección, canal y fechas, y con «Cargar más» traés los siguientes. Tocá un resultado para abrir su conversación en ese mensaje; «Limpiar» vuelve a la lista."
         ],
@@ -148,14 +148,14 @@
           "Abrir gestión",
           "Registrar respuesta",
           "Responder",
-          "Descartar",
           "Nuevo mensaje",
           "Escribí al menos 3 letras",
           "Cargar más",
           "Limpiar",
           "Automático",
           "Anular registro",
-          "Anulados"
+          "Anulados",
+          "No es una respuesta"
         ]
       },
       {
@@ -309,17 +309,63 @@
         ]
       },
       {
+        "id": "business-communication",
+        "title": "La pestaña Comunicación del negocio",
+        "when": "Cuando querés ver todo lo que se habló con un negocio, por cualquier canal, con o sin gestión.",
+        "steps": [
+          "Abrí el negocio y entrá en «Comunicación». Arriba tenés «Contactar» para escribir, «Registrar llamada u otro contacto» para anotar una llamada o un contacto por otra red, y «Registrar respuesta sin mensaje» cuando el negocio te contestó por un medio que no quedó registrado.",
+          "«Requiere acción» junta lo que espera algo de vos: mensajes recibidos «Por revisar» («Registrar respuesta» o «No es una respuesta») y WhatsApp abiertos que todavía no confirmaste («¿Lo enviaste?»: «Sí, se envió» o «No se envió»). Si no hay nada, lo dice.",
+          "«Conversación» muestra todo en orden, lo más viejo arriba y lo más nuevo abajo, separado por día: lo que recibiste a la izquierda, lo que enviaste a la derecha y las llamadas al centro. Cada mensaje dice su canal, quién lo mandó, la hora y la gestión.",
+          "Usá los botones de canal que están arriba de la conversación (Todo, WhatsApp, Email, Instagram, Llamadas) para ver uno solo. Si hay muchos mensajes, se ven los últimos 30 y el resto con «Ver anteriores».",
+          "El estado de cada envío es el comprobado: «Email aceptado por proveedor · entrega no confirmada» no significa que lo leyeron, y «WhatsApp abierto · envío no confirmado» no significa que se envió.",
+          "Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.",
+          "«Abrir en la Bandeja» te lleva a las mismas conversaciones separadas por gestión y canal."
+        ],
+        "result": "Ves en un solo lugar qué se envió, qué respondió el negocio y qué falta hacer, sin repeticiones.",
+        "example": [
+          "Julia te contestó por WhatsApp después de tu email. En «Conversación» ves tu email, su respuesta y la llamada del medio, en ese orden. Su mensaje está en «Requiere acción»: tocás «Registrar respuesta» y queda como «Respuesta registrada» debajo del mensaje."
+        ],
+        "notes": [
+          "Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa.",
+          "Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta."
+        ],
+        "url": "",
+        "linkLabel": "",
+        "uiLabels": [
+          "Comunicación",
+          "Contactar",
+          "Registrar llamada u otro contacto",
+          "Registrar respuesta sin mensaje",
+          "Requiere acción",
+          "Por revisar",
+          "Registrar respuesta",
+          "No es una respuesta",
+          "¿Lo enviaste?",
+          "Sí, se envió",
+          "No se envió",
+          "Conversación",
+          "Ver anteriores",
+          "Email aceptado por proveedor · entrega no confirmada",
+          "WhatsApp abierto · envío no confirmado",
+          "Borradores",
+          "Seguir editando",
+          "Abrir en la Bandeja",
+          "Preferencias y restricciones de contacto",
+          "Respuesta registrada"
+        ]
+      },
+      {
         "id": "received-email",
         "title": "Emails y mensajes recibidos",
         "when": "Cuando un negocio te responde por email o registraste mensajes de WhatsApp con el script.",
         "steps": [
           "Los emails que un negocio manda a Hospeda llegan solos al CRM. Se asocian al negocio cuando responden a un email enviado desde el CRM o cuando llegan desde un email cargado en un único negocio.",
-          "Los vas a ver en la ficha del negocio, en «Comunicación», dentro de «Mensajes recibidos». En Hoy, «Respuestas nuevas» reúne los que todavía están por revisar en tus negocios.",
-          "Cada mensaje muestra quién lo mandó, la fecha y un extracto. Tocá «Ver completo» para leer todo el texto. Se muestra como texto plano, sin imágenes ni adjuntos.",
+          "Los vas a ver en la ficha del negocio, en «Comunicación»: los que faltan revisar arriba, en «Requiere acción», y todos dentro de «Conversación», en orden junto con lo que enviaste. En Hoy, «Respuestas nuevas» reúne los que todavía están por revisar en tus negocios.",
+          "Cada mensaje muestra el canal, quién lo mandó, la hora y su gestión (o «Sin gestión»). El asunto aparece solo en los emails. Si el texto es largo, tocá «Ver completo». Se muestra como texto plano, sin imágenes ni adjuntos.",
           "Si el mensaje es una respuesta del negocio, tocá «Registrar respuesta». Completá el resumen, revisá el texto exacto y guardá. Así queda como respuesta recibida, igual que si la anotaras a mano.",
           "Si no es una respuesta (publicidad, un aviso, algo que no corresponde), tocá «No es una respuesta» y escribí el motivo.",
-          "Cada mensaje muestra su estado: «Por revisar», «Registrada» o «Descartada». «Respuesta automática» marca los avisos de ausencia o similares, que no se pueden contestar.",
-          "Los mensajes de WhatsApp que registrás con el script aparecen en la misma lista y se revisan igual.",
+          "Debajo de cada mensaje ves su estado: «Por revisar», «Respuesta registrada» con lo que respondió (y la tarea que completó, si elegiste una) o «No es una respuesta». «Automática · no cuenta como respuesta» marca los avisos de ausencia o similares.",
+          "Los mensajes de WhatsApp que registrás con el script y los de Instagram aparecen en la misma conversación y se revisan igual.",
           "Si la respuesta resolvió una tarea pendiente de esa gestión, elegila en «¿Esta respuesta resuelve alguna tarea?». Ninguna tarea viene marcada; solo se completan las que tildes."
         ],
         "result": "Ningún email ni mensaje registrado queda sin revisar: cada uno termina como respuesta registrada o descartado con un motivo.",
@@ -335,18 +381,19 @@
         "linkLabel": "Ir a Hoy",
         "uiLabels": [
           "Comunicación",
-          "Mensajes recibidos",
           "Respuestas nuevas",
           "Ver completo",
           "Registrar respuesta",
           "No es una respuesta",
           "Por revisar",
-          "Registrada",
-          "Descartada",
-          "Respuesta automática",
           "Mensajes sin asociar",
           "¿Esta respuesta resuelve alguna tarea?",
-          "Resuelta por la respuesta del cliente"
+          "Resuelta por la respuesta del cliente",
+          "Requiere acción",
+          "Conversación",
+          "Sin gestión",
+          "Respuesta registrada",
+          "Automática · no cuenta como respuesta"
         ]
       },
       {
@@ -354,7 +401,7 @@
           "Ana preguntó por los precios. Tocás «Responder», escribís el detalle de los planes y tocás «Enviar respuesta». Ana ve tu email debajo de su pregunta."
         ],
         "notes": [
-          "«Responder» aparece solo si sos responsable del negocio o de la gestión, la gestión sigue abierta y el email no es una «Respuesta automática».",
+          "«Responder» aparece solo si sos responsable del negocio o de la gestión, la gestión sigue abierta y el email no tiene la marca «Automática · no cuenta como respuesta».",
           "Si el negocio pidió no ser contactado, solo podés responder a un email que te mandó después de esa restricción y a esa misma dirección. La restricción sigue activa.",
           "Responder no registra el email recibido como respuesta. Si corresponde, usá también «Registrar respuesta»."
         ],
@@ -364,29 +411,29 @@
         "title": "Responder un email desde el CRM",
         "when": "Cuando un negocio te escribió por email y querés contestarle en el mismo hilo.",
         "steps": [
-          "Abrí el negocio y entrá en «Comunicación». En «Mensajes recibidos» buscá el email y tocá «Responder».",
+          "Abrí el negocio y entrá en «Comunicación». Buscá el email en «Requiere acción» o en «Conversación» y tocá «Responder».",
           "Se abre «Responder email». «Para» trae la dirección que te escribió y «Asunto» agrega \"Re:\" al asunto original. Los vendedores no pueden cambiar el destinatario; un administrador sí.",
           "Escribí tu respuesta. Con «Ver mensaje citado» revisás lo que te escribieron: ese texto se agrega solo debajo de tu mensaje.",
           "Tocá «Enviar respuesta» una sola vez y esperá. El email sale desde Hospeda y llega dentro de la misma conversación que el negocio ve en su casilla.",
-          "Al terminar, la respuesta aparece en «Mensajes y borradores» como respuesta con el estado «Email aceptado por proveedor · entrega no confirmada». Eso significa que el servicio de envío lo tomó; no confirma que lo hayan leído.",
+          "Al terminar, la respuesta aparece en «Conversación», a la derecha, marcada como respuesta al email recibido y con el estado «Email aceptado por proveedor · entrega no confirmada». Eso significa que el servicio de envío lo tomó; no confirma que lo hayan leído.",
           "Si el CRM avisa que el resultado es incierto, no lo vuelvas a escribir ni a mandar. «Responder» deja de estar disponible para ese email, así nunca sale dos veces. El administrador revisa el servicio de envío y resuelve el resultado desde el mensaje con «Marcar como enviado» o «Marcar como no enviado»."
         ],
         "result": "El negocio recibe tu respuesta en el mismo hilo y el CRM guarda qué se mandó, cuándo y quién lo mandó.",
         "uiLabels": [
           "Comunicación",
-          "Mensajes recibidos",
           "Responder",
           "Responder email",
           "Para",
           "Asunto",
           "Ver mensaje citado",
           "Enviar respuesta",
-          "Mensajes y borradores",
           "Email aceptado por proveedor · entrega no confirmada",
-          "Respuesta automática",
           "Registrar respuesta",
           "Marcar como enviado",
-          "Marcar como no enviado"
+          "Marcar como no enviado",
+          "Requiere acción",
+          "Conversación",
+          "Automática · no cuenta como respuesta"
         ]
       }
     ]
@@ -636,7 +683,7 @@
           "El canal tiene que estar disponible y sin restricciones. No contactar bloquea todas las salidas, sin excepción.",
           "Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.",
           "Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.",
-          "Si el negocio contesta tu email, la respuesta llega sola a «Mensajes recibidos» en su ficha. No hace falta copiarla a mano.",
+          "Si el negocio contesta tu email, la respuesta llega sola a la «Conversación» de su ficha, en «Comunicación». No hace falta copiarla a mano.",
           "Si abriste WhatsApp desde «Contactar» y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces. Igual te falta «Anotá cómo salió»."
         ],
         "url": "",
@@ -661,7 +708,8 @@
           "¿Cómo salió?",
           "¿Cómo sigue?",
           "Anotá cómo salió",
-          "Mensajes recibidos"
+          "Conversación",
+          "Comunicación"
         ]
       },
       {
@@ -675,7 +723,7 @@
           "Respondé «¿Cómo sigue?»: «Agendar una tarea» (con título y fecha), «Esperar hasta una fecha y retomar» o «No agendar nada» (con un motivo). No se puede guardar sin elegir una.",
           "Si el CRM muestra una casilla para pasar la gestión a la etapa sugerida, marcala solo si es lo que pasó. Si no la marcás, la etapa no cambia.",
           "Revisá el resumen «Revisá lo que se guardará» y tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).",
-          "Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar respuesta recibida». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador."
+          "Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar respuesta sin mensaje». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador."
         ],
         "result": "Se completa la tarea y queda guardado lo que pasó. Si dejaste una tarea nueva, se crea con su fecha. Las demás tareas se conservan.",
         "example": [
@@ -711,10 +759,10 @@
           "Guardar resultado",
           "Guardar y programar",
           "Comunicación",
-          "Registrar respuesta recibida",
           "Bloquear contacto",
           "Tareas finalizadas o canceladas",
-          "Corregir cómo salió"
+          "Corregir cómo salió",
+          "Registrar respuesta sin mensaje"
         ]
       }
     ]
@@ -1049,7 +1097,7 @@
         "when": "Cuando el mensaje todavía no está listo para enviarse.",
         "steps": [
           "Tocá «Contactar» y elegí una gestión abierta o un contacto general con su propósito. Guardar un borrador no inicia ni confirma un contacto.",
-          "Para retomarlo, entrá en la pestaña «Comunicación» del negocio. Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.",
+          "Para retomarlo, entrá en la pestaña «Comunicación» del negocio: en «Borradores» tocá «Seguir editando». Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.",
           "El email sale desde el CRM; WhatsApp se abre afuera y queda sin confirmar hasta que informes el resultado.",
           "Si salís con cambios sin guardar, elegí volver o descartarlos. No reenvíes un mensaje cuyo resultado sea incierto: primero revisá el estado del intento."
         ],
@@ -1062,7 +1110,9 @@
         "linkLabel": "",
         "uiLabels": [
           "Contactar",
-          "Comunicación"
+          "Comunicación",
+          "Borradores",
+          "Seguir editando"
         ]
       },
       {
@@ -1487,7 +1537,7 @@
           "Cada mensaje muestra remitente, asunto cuando corresponde, fecha y extracto. Leelo para saber de qué negocio es.",
           "En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».",
           "Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Si no sabés, dejá «Sin gestión» y «Sin persona».",
-          "Tocá «Asociar». El mensaje entrante pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio."
+          "Tocá «Asociar». El mensaje entrante pasa a la «Conversación» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio."
         ],
         "result": "Cada mensaje recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.",
         "uiLabels": [
@@ -1500,7 +1550,7 @@
           "Sin gestión",
           "Sin persona",
           "Asociar",
-          "Mensajes recibidos"
+          "Conversación"
         ]
       }
     ]
@@ -1669,8 +1719,8 @@
           "En el panel de Hospeda tocá «Registrar mensajes». Se abre «Registrar en el CRM» con cada mensaje marcado «Enviado» o «Recibido», con su fecha y hora.",
           "Revisá la lista. Destildá lo que no quieras guardar o usá «Mensajes a registrar» para tildar o destildar todos. Los mensajes que ya registraste desde esta computadora no aparecen; si queda alguno repetido, el CRM lo detecta y no lo duplica.",
           "Tocá el botón que dice cuántos mensajes vas a registrar y esperá. Al terminar ves un resumen: cuántos se registraron, cuántos ya estaban y cuántos se rechazaron, con el motivo.",
-          "Los recibidos quedan en la ficha, en «Comunicación», dentro de «Mensajes recibidos» con «Por revisar». También aparecen en Hoy, en «Respuestas nuevas». Revisalos como un email: «Registrar respuesta» o «No es una respuesta».",
-          "Los enviados quedan en «Mensajes y borradores» como «Envío confirmado manualmente», a tu nombre.",
+          "Los recibidos quedan en la ficha, en «Comunicación»: arriba en «Requiere acción» y dentro de «Conversación» con «Por revisar». También aparecen en Hoy, en «Respuestas nuevas». Revisalos como un email: «Registrar respuesta» o «No es una respuesta».",
+          "Los enviados quedan en «Conversación», a la derecha, como «Envío confirmado manualmente», a tu nombre, con la marca «Registrado automáticamente».",
           "Si cambiás de chat antes de confirmar, el script no registra nada y te pide volver a abrir «Registrar mensajes» en el chat correcto. Así un mensaje nunca termina en otro negocio."
         ],
         "result": "La conversación queda en la ficha del negocio, sin duplicados, y los mensajes recibidos esperan tu revisión.",
@@ -1681,15 +1731,16 @@
           "Recibido",
           "Mensajes a registrar",
           "Comunicación",
-          "Mensajes recibidos",
           "Por revisar",
           "Respuestas nuevas",
           "Registrar respuesta",
           "No es una respuesta",
-          "Mensajes y borradores",
           "Envío confirmado manualmente",
           "Contactar",
-          "¿Lo enviaste?"
+          "¿Lo enviaste?",
+          "Requiere acción",
+          "Conversación",
+          "Registrado automáticamente"
         ]
       },
       {
@@ -1704,7 +1755,7 @@
           "Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.",
           "Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar»."
         ],
-        "result": "El mensaje queda en «Mensajes y borradores» como «WhatsApp abierto · envío no confirmado» hasta que registrás el envío.",
+        "result": "El mensaje queda en «Conversación» como «WhatsApp abierto · envío no confirmado» y en «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío.",
         "example": [
           "Le escribís por primera vez a una cabaña: elegís el modelo de primer contacto, revisás que diga el nombre de la persona, pegás, agregás un saludo y apretás Enter."
         ],
@@ -1718,8 +1769,10 @@
           "Cambiar de modelo",
           "No lo voy a enviar",
           "Registrar mensajes",
-          "Mensajes y borradores",
-          "WhatsApp abierto · envío no confirmado"
+          "WhatsApp abierto · envío no confirmado",
+          "Conversación",
+          "Requiere acción",
+          "¿Lo enviaste?"
         ]
       },
       {
@@ -1741,7 +1794,7 @@
           "Si ves «Token inválido o revocado. Conectá uno nuevo desde Ajustes.», creá un token nuevo en «User script de WhatsApp», tocá «Cambiar token» en el panel y pegalo.",
           "Si ves «Hay una versión nueva de Hospeda» o «Actualizá el script de Hospeda», tocá «Actualizar», confirmá en Tampermonkey y recargá WhatsApp Web. Con «Más tarde» el aviso vuelve al día siguiente; si el CRM ya no acepta tu versión, vuelve al recargar.",
           "Si ves «No se pudo consultar el CRM. Reintentando en el próximo cambio.», revisá tu conexión. El script vuelve a intentar cuando cambiás de chat.",
-          "Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha con «Registrar respuesta recibida». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.",
+          "Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha, en «Comunicación», con «Registrar respuesta sin mensaje». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.",
           "Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio."
         ],
         "result": "Sabés qué hacer ante cada aviso del script, sin perder lo que se habló.",
@@ -1759,10 +1812,11 @@
           "Más tarde",
           "No se pudo consultar el CRM. Reintentando en el próximo cambio.",
           "No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.",
-          "Registrar respuesta recibida",
           "Copiar diagnóstico del chat",
           "Revocar",
-          "Desconectar"
+          "Desconectar",
+          "Comunicación",
+          "Registrar respuesta sin mensaje"
         ]
       }
     ]

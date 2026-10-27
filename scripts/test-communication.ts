@@ -38,6 +38,14 @@ try{
   for(const tk of [t1,t2,t3]){assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',tk.id).executeTakeFirstOrThrow()).status,'completed');assert.equal((await db.selectFrom('crmActivities').select('id').where('taskId','=',tk.id).execute()).length,1);}
   const reminder=(await sql<{n:string}>`SELECT count(*) n FROM crm_tasks WHERE communication_response_id=${multiCreated.id}::uuid`.execute(db)).rows[0];assert.equal(Number(reminder.n),1,'the reminder is the only task using communication_response_id');
   await call(multi,200,user.cookie);
+  // Spec 90: GET returns, read-only, the titles of the tasks each response completed (shown attached to the response).
+  {const detail=superjson.parse<any>(await (await get(new Request('http://localhost/_api/communication?accountId='+a.id,{headers:{cookie:user.cookie}}))).text());const byId=new Map((detail.responses as any[]).map(r=>[String(r.id),r]));assert.deepEqual(byId.get(String(created.id)).resolvedTaskTitles,['Confirmar propuesta '+stamp]);assert.deepEqual(byId.get(String(multiCreated.id)).resolvedTaskTitles,[t1,t2,t3].map(tk=>tk.title));assert.equal(byId.get(String(created.id)).hasInbound,false,'a response registered by hand has no received message');
+   // L5: a deleted task disappears from the titles; L1: linking a received message turns hasInbound on.
+   await db.updateTable('crmTasks').set({deletedAt:new Date()}).where('id','=',t2.id).execute();
+   const inboundId=randomUUID();await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,match_method,from_address,text_body,received_at,status,source,response_id) VALUES(${inboundId}::uuid,'email',${'spec90-'+inboundId},${a.id},'sender_email','person@example.com','Hola',now(),'registered','email_worker',${String(created.id)}::uuid)`.execute(db);
+   const after=superjson.parse<any>(await (await get(new Request('http://localhost/_api/communication?accountId='+a.id,{headers:{cookie:user.cookie}}))).text());const again=new Map((after.responses as any[]).map(r=>[String(r.id),r]));
+   assert.deepEqual(again.get(String(multiCreated.id)).resolvedTaskTitles,[t1,t3].map(tk=>tk.title));assert.equal(again.get(String(created.id)).hasInbound,true);
+   await db.updateTable('crmTasks').set({deletedAt:null}).where('id','=',t2.id).execute();await sql`DELETE FROM crm_inbound_messages WHERE id=${inboundId}::uuid`.execute(db);}
   await call({...multi,resolveTaskIds:[String(t1.id)]},409,user.cookie);// L1: same id, different tasks is a conflict, not a silent success
   await call({...response,id:randomUUID(),resolveTaskIds:[String(t1.id),String(t1.id)]},400,user.cookie);// L1: duplicates are rejected
   const notAssignee=await mk('Del otro',String(l.id),other.user.email);

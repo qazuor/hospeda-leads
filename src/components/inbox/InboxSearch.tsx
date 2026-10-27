@@ -45,7 +45,7 @@ export function InboxSearch({term,admin,filters,onFiltersChange,onOpen}:{term:st
    <p className={styles.searchCount} role="status">{search.hasNextPage?`${count} ${rows.length===1?'cargado':'cargados'}`:count}</p>
    <div className={styles.rows}>{rows.map(row=><button key={`${row.kind}-${row.id}`} className={styles.row} onClick={()=>onOpen(row)}>
     <strong>{row.accountName} · {row.leadId?row.leadTitle:'General'}</strong>
-    <span className={styles.tags}><span className={styles.tag}>{inboxChannelLabel(row.channel)}</span><span className={styles.tag}>{row.kind==='in'?'Recibido':'Enviado'}</span><span className={styles.meta}>{inboxDateLabel(row.at)}</span></span>
+    <span className={styles.tags}><span className={styles.tag}>{inboxChannelLabel(row.channel,row.isInstagram)}</span><span className={styles.tag}>{row.kind==='in'?'Recibido':'Enviado'}</span><span className={styles.meta}>{inboxDateLabel(row.at)}</span></span>
     <span className={styles.snippet}><HighlightedSnippet snippet={row.snippet} query={term}/></span>
    </button>)}</div>
    {search.hasNextPage&&<Button variant="outline" disabled={search.isFetchingNextPage} disabledReason="Estamos cargando más resultados." onClick={()=>void search.fetchNextPage()}>{search.isFetchingNextPage?'Cargando…':'Cargar más'}</Button>}

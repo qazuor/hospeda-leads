@@ -308,3 +308,10 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 - La actualización en vivo está siempre activa y su control es solo informativo: verde activa, celeste mientras se recargan datos, rojo «Sin conexión» o «Con problemas». Se quitaron el interruptor y «Actualizar datos ahora»; una preferencia `hospeda-live-mode=off` guardada se ignora y se borra.
 - La ayuda contextual es un «?» (`HelpLink`) junto al título de cada página y de las secciones que lo necesitan, y abre el artículo de la guía (`/guide#<id>`). No hay botón de ayuda en la barra superior ni popovers por página.
 - Las tablas de Gestiones y Negocios comparten encabezado, íconos de orden, checkbox y estilo de la columna de selección. Las acciones de fila son íconos siempre visibles; en Negocios solo «Archivar» (admin) queda en «…».
+
+## Comunicación en la ficha del negocio (spec 90) — 27/10/2026
+
+- «Comunicación» del negocio es una sola conversación cronológica, con «Requiere acción» arriba y «Borradores» aparte. Las acciones de «Por revisar» están solo en «Requiere acción».
+- Las restricciones técnicas por canal se editan solo en «Preferencias y restricciones de contacto» (columna izquierda); la pestaña muestra un aviso. La vista de gestión conserva el editor en su pestaña.
+- Ficha apilada (contenedor ≤900 px): la columna del negocio va primero como tarjeta compacta, con «Personas» y «Datos del negocio» plegados al abrir la ficha; después, próximo paso y solapas. Reemplaza la decisión del 24/10/2026 (próximo paso y solapas primero). El plegado se decide al montar y no pisa lo que la persona abrió o cerró.
+- Instagram se nombra igual en todas partes; una red social registrada a mano que no es Instagram es «Red social».

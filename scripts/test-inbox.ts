@@ -232,6 +232,18 @@ try{
  assert.equal((await ok<{queryTooShort:boolean}>(`search?q=${encodeURIComponent('a b c')}`,seller)).queryTooShort,false,'Three visible characters search');
 }catch(error){
  testError=error;
+ // Spec 90 (L2): every social row says per row whether it is Instagram — the webhook echo or an Instagram destination when
+ // sent, the channel detail when received; a manual log for another network is not Instagram.
+ {
+  const social=await account('Social rows',seller.email),sid=String(social.id),tag='socialrule'+stamp;
+  const echo=randomUUID(),manual=randomUUID(),ig=randomUUID(),fb=randomUUID();
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,body,owner_email,status,last_interaction_at,destination_detail) VALUES(${echo}::uuid,${sid},${sid},'social','@aguas',${tag+' eco'},'instagram@hospeda','manual_sent',now()-interval '4 hours',NULL),(${manual}::uuid,${sid},${sid},'social','Aguas',${tag+' manual'},${seller.email},'manual_sent',now()-interval '3 hours','facebook.com/aguas')`.execute(db);
+  await sql`INSERT INTO crm_inbound_messages(id,channel,channel_detail,external_id,account_id,match_method,from_address,text_body,received_at,status,source) VALUES(${ig}::uuid,'social','instagram',${'ig-'+ig},${sid},'instagram_handle','@aguas',${tag+' ig'},now()-interval '2 hours','pending_review','instagram_webhook'),(${fb}::uuid,'social','facebook',${'fb-'+fb},${sid},'manual','Aguas',${tag+' fb'},now()-interval '1 hour','pending_review','instagram_webhook')`.execute(db);
+  const rows=(await ok<{rows:{id:string;isInstagram:boolean}[]}>(`thread?accountId=${sid}&leadId=none&channel=social`,seller)).rows,flag=(id:string)=>rows.find(r=>r.id===id)?.isInstagram;
+  assert.deepEqual([echo,manual,ig,fb].map(flag),[true,false,true,false],'thread rows carry the per-row Instagram rule');
+  const hits=await search(tag,seller),hit=(id:string)=>hits.find(r=>r.id===id) as {isInstagram?:boolean}|undefined;
+  assert.deepEqual([echo,manual,ig,fb].map(id=>hit(id)?.isInstagram),[true,false,true,false],'search rows carry the per-row Instagram rule');
+ }
 }finally{
  let cleanupError:unknown;
  try{
