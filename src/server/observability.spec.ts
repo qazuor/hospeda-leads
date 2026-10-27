@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { createAdaptorServer } from "@hono/node-server";
 import { Hono } from "hono";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createHealthHandler, GENERIC_ERROR_MESSAGE, onError, requestContext } from "./observability";
+import { createHealthHandler, GENERIC_ERROR_MESSAGE, onError, redactPath, requestContext } from "./observability";
 import { applyAssetMiddleware } from "./staticAssets";
 
 const buildApp = () => {
@@ -194,5 +194,15 @@ describe("requestContext behind @hono/node-server", () => {
     const response = await fetch(`${origin}/mcp`);
     expect(response.headers.get("X-Request-Id")).toMatch(/^[0-9a-f-]{36}$/);
     expect(response.headers.getSetCookie()).toEqual(["mcp=1; Path=/"]);
+  });
+});
+
+describe("redactPath", () => {
+  it("never logs a public share token (spec 89 §7)", () => {
+    const token = "A".repeat(43);
+    expect(redactPath(`/m/${token}`)).toBe("/m/:token");
+    expect(redactPath(`/m/${token}/file`)).toBe("/m/:token/file");
+    expect(redactPath("/_api/leads")).toBe("/_api/leads");
+    expect(redactPath("/mcp/x")).toBe("/mcp/x");
   });
 });
