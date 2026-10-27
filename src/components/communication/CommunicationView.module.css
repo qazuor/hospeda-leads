@@ -158,7 +158,7 @@
 .frameBody .row[data-side="in"] .bubble{background:var(--chat-bubble-in);border-left:3px solid var(--platform);box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 8%,transparent)}
 .frameBody .row[data-side="out"] .bubble{background:color-mix(in srgb,var(--platform) 16%,var(--card));border-right:3px solid var(--platform);box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 8%,transparent)}
 :global(.dark) .frameBody .row[data-side="out"] .bubble{background:color-mix(in srgb,var(--platform) 22%,var(--card))}
-.frameBody .row[data-side="out"]:is([data-tone=unconfirmed],[data-tone=not_done],[data-tone=failed]) .bubble{background:var(--chat-bubble-in);border:1.5px dashed var(--platform);color:var(--muted-foreground)}
+.frameBody .row[data-side="out"]:is([data-tone=unconfirmed],[data-tone=not_done],[data-tone=failed]) .bubble{background:var(--chat-bubble-in);border:2px dashed var(--platform);color:var(--muted-foreground)}
 .frameBody .row[data-side="out"][data-tone=failed] .bubble{border-color:var(--tone-red-ink)}
 .view .frameBody article.event{gap:2px;max-width:min(100%,520px);padding:6px 12px;border-radius:12px;background:color-mix(in srgb,var(--platform) 12%,var(--chat-bubble-in));border:1px solid color-mix(in srgb,var(--platform) 45%,var(--chat-bubble-in));box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 6%,transparent)}
 :global(.dark) .view .frameBody article.event{background:color-mix(in srgb,var(--platform) 18%,var(--card));border-color:color-mix(in srgb,var(--platform) 50%,var(--card))}
@@ -170,3 +170,17 @@
 .frameBody .day::before,.frameBody .day::after{content:none}
 .chipDot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--platform-other);flex:none}
 .chipDot[data-channel="whatsapp"]{background:var(--platform-whatsapp)}.chipDot[data-channel="instagram"]{background:var(--platform-instagram)}.chipDot[data-channel="email"]{background:var(--platform-email)}.chipDot[data-channel="call"]{background:var(--platform-call)}
+/* Spec 91 owner review: the side prefix («Nosotros» / «Negocio»), the chat legend and the hidden hint of dashed bubbles. */
+.side{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
+.frameTitle{display:flex;align-items:center;gap:6px}
+.legendButton{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;color:var(--muted-foreground)}
+.legendButton:hover,.legendButton[aria-expanded="true"]{background:var(--surface);color:var(--foreground)}
+.legend{max-width:min(360px,calc(100vw - 32px));font-size:13px;line-height:1.45}
+.legendTitle{display:block;margin-bottom:8px;font-size:14px}
+.legend dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}
+.legend dt{font-weight:700}
+.legend dd{margin:0;color:var(--muted-foreground)}
+.legendSwatches{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0;padding:0;list-style:none}
+.legendSwatches li{display:inline-flex;align-items:center}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.frameBody .row[data-side="out"][data-tone=unconfirmed] .bubble:focus-visible{outline:2px solid var(--platform);outline-offset:2px}

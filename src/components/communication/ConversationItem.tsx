@@ -1,4 +1,5 @@
-import {useState,type ReactNode} from 'react';
+import {useId,useState,type ReactNode} from 'react';
+import {Tooltip} from '@mantine/core';
 import {useQueryClient} from '@tanstack/react-query';
 import {Reply} from 'lucide-react';
 import {postCommunication,type CommunicationResponse,type Message} from '../../endpoints/communication.schema';
@@ -87,15 +88,18 @@ function MessagePanels({message,panels}:{message:Message;panels:Panels}){
  * status, the management chip) and compact actions ending with «⋯». It wraps only without room, actions last.
  */
 function Head({entry,sender,badges,actions}:{entry:TimelineEntry;sender:string;badges?:ReactNode;actions?:ReactNode}){
+ const side=entry.kind==='received'?'Negocio':'Nosotros';
  return <div className={styles.itemHead}>
   <time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time><span aria-hidden="true">·</span>
   <span className={styles.channel} data-channel={entry.channel}><ChannelIcon channel={entry.channel} size={14}/>{entry.channelLabel}</span><span aria-hidden="true">·</span>
-  <strong>{sender}</strong>
+  <span className={styles.side}>{side}</span><span aria-hidden="true">·</span><strong>{sender}</strong>
   {badges}
   {entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}
   {actions&&<span className={styles.headActions}>{actions}</span>}
  </div>;
 }
+/** Spec 91 owner review: who is on each side, before the sender. «Nosotros» for what we sent or did, «Negocio» for what the business sent or replied. */
+const Side=({children}:{children:ReactNode})=><><span className={styles.side}>{children}</span>{' · '}</>;
 const Tag=({kind,children,tone}:{kind:string;children:ReactNode;tone?:string})=><span className={styles.tag} data-kind={kind} data-tone={tone}>{children}</span>;
 
 /** Follow-up forms that stay visible under the bubble: a pending attempt and an uncertain email (admin). «¿Lo enviaste?» is in the header. */
@@ -138,6 +142,15 @@ function Received({view,entry,highlighted}:ItemProps<ReceivedEntry>){
  </article></div>;
 }
 
+/** Spec 91 owner review: a dashed (opened, unconfirmed) bubble explains itself on hover and focus, and to screen readers. */
+export const UNCONFIRMED_HINT='No sabemos si se envió: abriste el canal pero no confirmaste el envío.';
+function SentBubble({entry}:{entry:SentEntry}){
+ const hintId=useId();
+ const body=<div className={styles.bubble} tabIndex={entry.tone==='unconfirmed'?0:undefined} aria-describedby={entry.tone==='unconfirmed'?hintId:undefined}>{entry.subject&&<strong className={styles.subject}>{entry.subject}</strong>}<ClampedText className={styles.text} text={entry.text||'Sin contenido registrado'} lines={clampLinesFor(entry.channel)}/>{entry.tone==='unconfirmed'&&<span id={hintId} className={styles.srOnly}>{UNCONFIRMED_HINT}</span>}</div>;
+ if(entry.tone!=='unconfirmed')return body;
+ return <Tooltip label={UNCONFIRMED_HINT} events={{hover:true,focus:true,touch:true}} multiline w={260} withArrow openDelay={150}>{body}</Tooltip>;
+}
+
 function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
  const panels=useItemPanels(),message=entry.message;
  // `data-tone` marks unconfirmed, not done or failed rows (dashed, muted) so they never look sent.
@@ -150,7 +163,7 @@ function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
    {canConfirmSend({view,message})&&<ConfirmSendButtons view={view} message={message} size="sm"/>}
    <ItemMenu label={entry.label} actions={messageActions(view,message,panels)}/>
   </>}/>
-  <div className={styles.bubbleLine}><div className={styles.bubble}>{entry.subject&&<strong className={styles.subject}>{entry.subject}</strong>}<ClampedText className={styles.text} text={entry.text||'Sin contenido registrado'} lines={clampLinesFor(entry.channel)}/></div></div>
+  <div className={styles.bubbleLine}><SentBubble entry={entry}/></div>
   <MessageMaterialRecord view={view} message={entry.message}/>
   <PendingActions view={view} message={entry.message}/>
   <MessagePanels message={entry.message} panels={panels}/>
@@ -161,7 +174,7 @@ function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
 function Call({view,entry,highlighted}:ItemProps<CallEntry>){
  const panels=useItemPanels(),label='Llamada registrada · '+entry.result;
  return <div className={styles.row} data-side="event" data-voided={entry.voided||undefined} {...rowProps(entry,highlighted)}><article className={styles.event} aria-label={label}>
-  <div className={styles.eventLine}><span><time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time> · </span><ChannelIcon channel="call" size={14}/><span><strong>Llamada</strong> · {entry.result} · {entry.sender}</span><span className={styles.eventTail}>{entry.autoRegistered&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={label} actions={messageActions(view,entry.message,panels)}/></span></div>
+  <div className={styles.eventLine}><span><time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time> · </span><ChannelIcon channel="call" size={14}/><span><strong>Llamada</strong> · {entry.result} · <Side>Nosotros</Side>{entry.sender}</span><span className={styles.eventTail}>{entry.autoRegistered&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={label} actions={messageActions(view,entry.message,panels)}/></span></div>
   {entry.text&&<p className={styles.eventNote}>{entry.text}</p>}
   <PendingActions view={view} message={entry.message}/>
   <MessagePanels message={entry.message} panels={panels}/>
@@ -173,7 +186,7 @@ function ResponseEvent({view,entry,highlighted}:ItemProps<ResponseEntry>){
  const panels=useItemPanels();
  const actions:ItemAction[]=canCorrectResponse(view,entry.response)?[{label:'Corregir respuesta',onSelect:()=>panels.setCorrecting(true)}]:[];
  return <div className={styles.row} data-side="event" {...rowProps(entry,highlighted)}><article className={styles.event} aria-label={entry.text}>
-  <div className={styles.eventLine}><span><time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time> · </span><Reply size={14} aria-hidden="true"/><span><strong>{entry.text}</strong> · {entry.channelLabel} · {entry.sender}</span><span className={styles.eventTail}>{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={entry.text} actions={actions}/></span></div>
+  <div className={styles.eventLine}><span><time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time> · </span><Reply size={14} aria-hidden="true"/><span><strong>{entry.text}</strong> · {entry.channelLabel} · <Side>Negocio</Side>registró {entry.sender}</span><span className={styles.eventTail}>{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={entry.text} actions={actions}/></span></div>
   {(()=>{const note=responseNote(view,entry.response,false);return note?<p className={styles.eventNote}>{note}</p>:null})()}
   {panels.correcting&&<ResponseCorrectionForm response={entry.response} openManagements={view.data.openManagements} canRecordDnc={view.canRecordDnc} canLiftDnc={view.admin} onClose={()=>panels.setCorrecting(false)}/>}
  </article></div>;

@@ -55,7 +55,7 @@ describe('bubbles, slim lines and the «⋯» menu (§1–§4)',()=>{
   expect(within(conversation).queryAllByText('Sin gestión').filter(el=>el.tagName!=='OPTION')).toEqual([]);
   expect(within(conversation).queryByRole('button',{name:/^Corregir/})).toBeNull();
   const call=screen.getByRole('article',{name:'Llamada registrada · No atendió'});
-  expect(call.textContent).toMatch(/^\d{2}:\d{2} · Llamada · No atendió · Seller/);expect(within(call).getByText('Sonó y no atendió')).toBeTruthy();
+  expect(call.textContent).toMatch(/^\d{2}:\d{2} · Llamada · No atendió · Nosotros · Seller/);expect(within(call).getByText('Sonó y no atendió')).toBeTruthy();
   fireEvent.click(within(call).getByRole('button',{name:'Más acciones · Llamada registrada · No atendió'}));
   fireEvent.click(await screen.findByRole('menuitem',{name:'Corregir cómo salió o el resumen'}));
   expect(await within(call).findByRole('button',{name:'Cancelar corrección'})).toBeTruthy();
@@ -282,5 +282,33 @@ describe('«Nuevo desde tu última visita» (§12)',()=>{
   setup({data:{...data,lastSeenAt:day(5)}});show();await ready();
   await new Promise(r=>setTimeout(r,20));
   expect(mocks.markCommunicationSeen).not.toHaveBeenCalled();expect(screen.queryByText('Nuevo desde tu última visita')).toBeNull();
+ });
+});
+
+describe('reading aids: side prefix, legend and the dashed-bubble hint (owner review)',()=>{
+ it('prefixes the sender with «Nosotros» for what we sent or did and «Negocio» for what the business sent or replied',async()=>{
+  setup({data:{messages:[message('sent',{lastInteractionAt:day(2)}),message('call',{channel:'call',status:'manual_no_contact',lastInteractionAt:day(3)})],inbound:[inbound('in',{receivedAt:day(4)})],responses:[{id:'r',leadId:null,channel:'call',category:'interested',summary:'Le interesa',exactText:null,actorEmail:'seller@example.com',occurredAt:day(5),contextName:'General'}]}});show();await ready();
+  const sent=screen.getByRole('article',{name:/^WhatsApp de Seller · /}),received=screen.getByRole('article',{name:/recibido de Julia$/});
+  expect((sent.firstElementChild as HTMLElement).textContent).toContain('Nosotros·Seller');
+  expect((received.firstElementChild as HTMLElement).textContent).toContain('Negocio·Julia');
+  expect(screen.getByRole('article',{name:'Llamada registrada · No atendió'}).textContent).toContain('Nosotros · Seller');
+  const response=screen.getAllByRole('article').find(el=>el.textContent?.includes('Negocio · registró Seller'));expect(response).toBeTruthy();
+ });
+ it('opens «Cómo leer el chat» from the conversation header with the side, background, platform, dashed and box explanations',async()=>{
+  setup({data:{messages:[message('sent')]}});show();const conversation=await ready();
+  fireEvent.click(within(conversation).getByRole('button',{name:'Cómo leer el chat'}));
+  const legend=await screen.findByRole('dialog',{name:'Cómo leer el chat'});
+  for(const text of ['Derecha: lo enviamos nosotros. Izquierda: lo envió el negocio.','Teñido: enviado por nosotros. Blanco con borde de color: recibido.','WhatsApp','Instagram','Email','Llamada','Otra red','Una llamada o una respuesta registrada sin mensaje.'])expect(within(legend).getByText(text)).toBeTruthy();
+  expect(within(legend).getByText(/Abrimos el canal pero no sabemos si se envió/).textContent).toContain('«Sí, se envió» o «No se envió»');
+ });
+ it('explains a dashed (opened, unconfirmed) bubble on focus and to screen readers, and leaves confirmed bubbles alone',async()=>{
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(2)}),message('done',{lastInteractionAt:day(3)})]}});show();await ready();
+  const hint='No sabemos si se envió: abriste el canal pero no confirmaste el envío.';
+  const opened=screen.getByRole('article',{name:'WhatsApp de Seller · WhatsApp abierto · envío no confirmado'});
+  const bubble=within(opened).getByText('Hola Julia').closest('[aria-describedby]') as HTMLElement;
+  expect(document.getElementById(bubble.getAttribute('aria-describedby')!)?.textContent).toBe(hint);
+  fireEvent.focus(bubble);expect(await screen.findByRole('tooltip')).toHaveProperty('textContent',hint);
+  const done=screen.getByRole('article',{name:'WhatsApp de Seller · Envío confirmado manualmente'});
+  expect(within(done).getByText('Hola Julia').closest('[aria-describedby]')).toBeNull();
  });
 });
