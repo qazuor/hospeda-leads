@@ -32,7 +32,7 @@
 .channel[data-channel="whatsapp"]{color:var(--tone-green-ink)}.channel[data-channel="email"]{color:var(--tone-blue-ink)}.channel[data-channel="instagram"]{color:var(--tone-pink-ink)}.channel[data-channel="call"],.channel[data-channel="other"]{color:var(--tone-slate-ink)}
 .context{border-radius:6px;padding:2px 8px;background:var(--muted);color:var(--muted-foreground);font-size:12px;font-weight:600}
 .bubble{padding:12px 14px;border-radius:4px 14px 14px 14px;background:var(--muted);line-height:1.55;min-width:0;max-width:100%;overflow-wrap:anywhere}
-.row[data-side="out"] .bubble{border-radius:14px 4px 14px 14px;background:var(--primary-soft)}
+.row[data-side="out"] .bubble{border-radius:14px 4px 14px 14px;background:var(--comm-sent-bubble)}
 .row[data-voided] .bubble{opacity:.65}
 .subject{display:block;margin-bottom:4px;font-size:13px}
 .text{margin:0;white-space:pre-wrap;font:inherit}
@@ -43,7 +43,7 @@
 .tag[data-kind="response"]{background:var(--tone-green-soft);color:var(--tone-green-ink)}
 .tag[data-kind="voided"],.tag[data-kind="dismissed"]{background:var(--tone-slate-soft);color:var(--tone-slate-ink)}
 .note{margin:0;font-size:13px;color:var(--muted-foreground);overflow-wrap:anywhere}
-.event{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:min(100%,640px);min-width:0}
+.event{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:min(100%,760px);min-width:0}
 .itemActions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
 .row[data-side="out"] .itemActions{justify-content:flex-end}
 .drafts{display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--border)}
@@ -73,6 +73,10 @@
 /* Calls and responses without a message: a slim centred line, the summary as a muted second line. */
 .eventLine{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 8px;font-size:13px;color:var(--muted-foreground);text-align:center;overflow-wrap:anywhere}
 .eventLine strong{color:var(--foreground);font-weight:600}
+/* Spec 91 review: the management chip and the «⋯» button wrap together (never the invisible button alone on a second row),
+   and the button does not make the line taller than its text, so the note sits right under it. */
+.eventTail{display:inline-flex;align-items:center;gap:4px;flex:none}
+.eventLine .menuButton{margin-block:-6px}
 .eventNote{margin:0;font-size:13px;color:var(--muted-foreground);text-align:center;overflow-wrap:anywhere}
 .row:focus{outline:none}
 .row[data-highlight] .bubble,.row[data-highlight] .eventLine{box-shadow:0 0 0 3px var(--tone-orange);border-radius:12px}
@@ -91,3 +95,6 @@
 .jump:hover{border-color:var(--tone-orange-ink)}.jumpMeta{font-weight:400}
 @media (max-width:600px){.actionBar{flex-wrap:wrap}.voidedSwitch{padding-left:0;border-left:0}}
 @media (max-width:767px){.toLatestWrap{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+/* Spec 91 review: sent bubbles carry a clear brand tint (received stays neutral grey). */
+.view{--comm-sent-bubble:color-mix(in srgb,var(--primary) 16%,var(--card))}
+:global(.dark) .view{--comm-sent-bubble:color-mix(in srgb,var(--primary) 30%,var(--card))}

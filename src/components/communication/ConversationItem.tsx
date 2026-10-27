@@ -150,7 +150,7 @@ function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
 function Call({view,entry,highlighted}:ItemProps<CallEntry>){
  const panels=useItemPanels(),label='Llamada registrada · '+entry.result;
  return <div className={styles.row} data-side="event" data-voided={entry.voided||undefined} {...rowProps(entry,highlighted)}><article className={styles.event} aria-label={label}>
-  <div className={styles.eventLine}><ChannelIcon channel="call" size={14}/><span><strong>Llamada</strong> · {entry.result} · {entry.sender} · <time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time></span>{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={label} actions={messageActions(view,entry.message,panels)}/></div>
+  <div className={styles.eventLine}><ChannelIcon channel="call" size={14}/><span><strong>Llamada</strong> · {entry.result} · {entry.sender} · <time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time></span><span className={styles.eventTail}>{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={label} actions={messageActions(view,entry.message,panels)}/></span></div>
   {entry.text&&<p className={styles.eventNote}>{entry.text}</p>}
   {entry.autoRegistered&&<div className={styles.tags}><span className={styles.tag} data-kind="auto_registered">Registrado automáticamente</span></div>}
   <PendingActions view={view} message={entry.message}/>
@@ -163,7 +163,7 @@ function ResponseEvent({view,entry,highlighted}:ItemProps<ResponseEntry>){
  const panels=useItemPanels();
  const actions:ItemAction[]=canCorrectResponse(view,entry.response)?[{label:'Corregir respuesta',onSelect:()=>panels.setCorrecting(true)}]:[];
  return <div className={styles.row} data-side="event" {...rowProps(entry,highlighted)}><article className={styles.event} aria-label={entry.text}>
-  <div className={styles.eventLine}><Reply size={14} aria-hidden="true"/><span><strong>{entry.text}</strong> · {entry.channelLabel} · <time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time></span>{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={entry.text} actions={actions}/></div>
+  <div className={styles.eventLine}><Reply size={14} aria-hidden="true"/><span><strong>{entry.text}</strong> · {entry.channelLabel} · <time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time></span><span className={styles.eventTail}>{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={entry.text} actions={actions}/></span></div>
   <p className={styles.eventNote}>{responseNote(view,entry.response)}</p>
   {panels.correcting&&<ResponseCorrectionForm response={entry.response} openManagements={view.data.openManagements} canRecordDnc={view.canRecordDnc} canLiftDnc={view.admin} onClose={()=>panels.setCorrecting(false)}/>}
  </article></div>;
