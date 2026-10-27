@@ -1,6 +1,6 @@
 # Estado del CRM — corte al 27 de octubre de 2026
 
-## Spec 90 — comunicación en la ficha del negocio — en rama `feat/business-communication-90`, sin PR — 27/10/2026
+## Spec 90 — comunicación en la ficha del negocio — cerrada: mergeada en `staging` (PR #268, `a5fc50a`) — 27/10/2026
 
 - **Pestaña «Comunicación»:** título con «Abrir en la Bandeja», barra de acciones («Contactar», «Registrar llamada u otro contacto», «Registrar respuesta sin mensaje»), aviso de restricción activa, «Requiere acción · N», una «Conversación» cronológica (separadores por día, burbujas con texto, chip de gestión, estados honestos, llamadas y respuestas sin mensaje como eventos, chips por canal, últimos 30 + «Ver anteriores», «Anulados» solo admin) y «Borradores · N» con «Seguir editando». Se quitaron las listas duplicadas y «Respuestas registradas».
 - **Restricciones técnicas:** en la ficha del negocio se editan solo en «Preferencias y restricciones de contacto» (columna izquierda). La vista de gestión las mantiene en su pestaña.
@@ -8,7 +8,15 @@
 - **Etiquetas:** Instagram con un solo nombre (también en la Bandeja), «(sin asunto)» solo en email, «No es una respuesta» también en la Bandeja.
 - **API (solo lectura):** `responses[].resolvedTaskTitles` (sin tareas borradas) y `responses[].hasInbound`, `inbound[].channelDetail` en `GET /_api/communication`; `isInstagram` en los eventos del historial y en las filas de la Bandeja (hilo y búsqueda). Sin migraciones ni cambios de permisos.
 - **Revisión:** filas enviadas sin confirmar, no hechas o con fallo con nombre neutro y estilo punteado; la sesión de llamada sobrevive al cerrar el diálogo (misma clave al reintentar) y el diálogo no se cierra mientras guarda; «sin mensaje» solo sin mensaje vinculado; aviso «Mostrando lo más reciente» con listas llenas; una sola regla Instagram/Red social (`instagramChannel.ts`); «Último contacto» y Historial con títulos honestos («WhatsApp a Julia», «Email a … · «asunto»»); eco de Instagram igual en Historial; «Ver diseño del email» en el email enviado.
-- **Móvil:** la columna del negocio va primero con «Personas» y «Datos del negocio» plegados (≤1140 px), para no empujar la pestaña debajo de listas largas.
+- **Móvil:** la columna del negocio va primero, con «Personas» y «Datos del negocio» plegados cuando el contenedor mide 900 px o menos (se decide al montar y no pisa lo que abre el usuario), para no empujar la pestaña debajo de listas largas.
+- **Validación:**
+  - typecheck, vitest (193 archivos, 1.382 pruebas tras traer `staging`) y build;
+  - en la base local: `test:communication`, `test:inbox`, `test:commercial` (incluye `test-business-history`), `test:instagram`, `test:inbound` y `test:business-state`;
+  - una revisión con ojos nuevos, sin bloqueantes y con todos los hallazgos corregidos: consulta perezosa de restricciones, nombre neutro para envíos no confirmados, clave de llamada que sobrevive al diálogo, «sin mensaje» exacto, una sola regla Instagram/Red social y filtros por negocio en el historial;
+  - el CI completo en verde sobre `25beca6`.
+- **En el camino:** el negocio de prueba del historial se renombró a «Zz Channels …», porque desplazaba «Negocio E2E» de la primera página y rompía `commercial.e2e` en el CI.
+- **Seguimientos posibles:** en la Bandeja, las filas y filtros que agregan varios mensajes dicen «Instagram / Red social» cuando están mezclados.
+- Sin desplegar.
 
 ## Spec 89 «Material de venta» — F1 en PR — 26/10/2026
 
