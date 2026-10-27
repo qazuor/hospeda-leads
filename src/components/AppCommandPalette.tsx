@@ -82,7 +82,7 @@ export function AppCommandPalette() {
       { url: '/templates', label: 'Mensajes modelo', description: 'Plantillas de WhatsApp y email', icon: Mail },
       { url: '/history', label: 'Historial del equipo', description: 'Actividad y cambios registrados', icon: History },
       { url: '/trash', label: 'Papelera', description: 'Registros eliminados y recuperación', icon: Trash2 },
-      { url: '/inbound', label: 'Emails sin asociar', description: 'Asociar emails recibidos', icon: Trash2 },
+      { url: '/inbound', label: 'Mensajes sin asociar', description: 'Asociar mensajes recibidos', icon: Trash2 },
     ] : []),
   ];
   const go = (url: string) => {

@@ -14,6 +14,7 @@ export const ROUTE_BODY_LIMITS: Readonly<Record<string, number>> = {
   "/_api/business_import": 3 * MiB,
   "/_api/data_quality": 3 * MiB,
   "/_api/settings_save": MiB,
+  "/_api/inbound/instagram": MiB,
 };
 
 /** Resolves the body cap for a request path. */

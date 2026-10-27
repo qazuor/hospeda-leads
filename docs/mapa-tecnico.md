@@ -18,6 +18,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Pipeline/etapas/acuerdos | `src/endpoints/pipeline.ts`, `src/helpers/closingAgreement.ts` y schemas correspondientes |
 | Comunicación e email entrante | `src/endpoints/communication.ts`, `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, `src/helpers/emailReply.ts`, `src/helpers/emailReplyPure.ts`, `src/helpers/smtpTransport.ts`, `src/helpers/communicationService.ts` (respuestas, tareas resueltas por respuesta y delegación atada a tarea), `src/components/ResponseRecordDialog.tsx`, `src/components/TaskContactDialog.tsx` y `src/components/CommunicationPanel.tsx` |
 | Email entrante F1 | `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, migración `037_inbound_messages.sql`, Worker Cloudflare en `workers/inbound-email/` |
+| Instagram Direct | `src/endpoints/inboundInstagram.ts`, `src/helpers/instagram.ts`, `src/helpers/instagramMeta.ts`, migración `045_instagram_direct.sql`; webhook verificado con HMAC sobre el cuerpo crudo y token cifrado AES-GCM |
 | User script WhatsApp F3 | `src/endpoints/userscript.ts`, `src/helpers/userscriptPure.ts`, pantalla `/userscript`, migración `039_userscript.sql`, estático público `dist/userscripts/` |
 | Recursos/versiones/descarga | `src/endpoints/resources.ts`, miniaturas/visor y biblioteca |
 | Calidad e importación | `src/endpoints/dataQuality.ts`, `businessImport.ts` y schemas |
