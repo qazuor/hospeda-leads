@@ -14,10 +14,15 @@ test('material versions and Mantine retirement persist through the real API', as
     const response = await fetch('/_api/resources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ json: body }) });
     if (!response.ok) throw new Error(await response.text());
   }, input);
-  await mutate({ action: 'create', id, title, type: 'propuesta', accountId: null, leadId: null, activityId: null, library: true, categoryId: null, version: { fileName: 'original.txt', mimeType: 'text/plain', fileData: Buffer.from('Texto original').toString('base64') } });
+  // Spec 89 retired the library: versions are exercised on a business document.
+  const accountId = await page.evaluate(async name => {
+    const response = await fetch('/_api/commercial', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ json: { action: 'account_save', nombre: name, assignedUserEmail: 'admin@example.com' } }) });
+    if (!response.ok) throw new Error(await response.text());
+    return (await response.json()).json.id as string;
+  }, 'Negocio ' + title);
+  await mutate({ action: 'create', id, title, type: 'propuesta', accountId, leadId: null, activityId: null, library: false, categoryId: null, version: { fileName: 'original.txt', mimeType: 'text/plain', fileData: Buffer.from('Texto original').toString('base64') } });
   await mutate({ action: 'status', id, revision: 1, status: 'approved' });
-  await page.goto('/settings?section=library');
-  await page.getByLabel('Buscar recurso', { exact: true }).fill(title);
+  await page.goto('/accounts/' + accountId + '?section=documents');
   const article = page.getByRole('article').filter({ hasText: title });
   await article.getByRole('button', { name: 'Nueva versión', exact: true }).click();
   await expect(page.getByText('Nueva versión de', { exact: false })).toContainText(title);
@@ -29,7 +34,6 @@ test('material versions and Mantine retirement persist through the real API', as
   await article.getByRole('button', { name: 'Aprobar versión', exact: true }).click();
   await expect(article).toContainText('Aprobado');
   await page.reload();
-  await page.getByLabel('Buscar recurso', { exact: true }).fill(title);
   await expect(article).toContainText('Aprobado');
   await article.getByRole('button', { name: 'Previsualizar actualizado.txt · v2', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Texto actualizado');
@@ -44,12 +48,11 @@ test('material versions and Mantine retirement persist through the real API', as
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(article).toHaveCount(0);
   await page.reload();
-  await page.getByLabel('Buscar recurso', { exact: true }).fill(title);
   await expect(article).toHaveCount(0);
-  const ids = await page.evaluate(async () => {
-    const response = await fetch('/_api/resources');
+  const ids = await page.evaluate(async accountId => {
+    const response = await fetch('/_api/resources?accountId=' + accountId);
     const data = await response.json();
     return data.json.documents.map((material: { id: string }) => material.id);
-  });
+  }, accountId);
   expect(ids).not.toContain(id);
 });

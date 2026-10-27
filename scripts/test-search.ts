@@ -83,11 +83,14 @@ try {
     assert.equal((await get(leads,'leads',{...base,filterGroups:JSON.stringify(groups)})).total,1);
     for(const operator of ['not_contains','neq'])assert.equal((await get(leads,'leads',{entity,q:account.nombre,filterGroups:JSON.stringify([{rules:[{field:'notes',operator,value:`${marker} reunion pinguino`}]}])})).total,0);
   }
-  const resourceId=randomUUID();
-  await sql`INSERT INTO crm_documents(id,title,type,owner_email,library,status) VALUES(${resourceId}::uuid,${marker+' Proposición pingüino'},'propuesta',${admin.user.email},true,'draft')`.execute(db);
+  // Spec 89 retired the library: only business documents are listed, and only inside their business.
+  const resourceAccount=await db.insertInto('crmAccounts').values({nombre:`${marker} documentos`}).returningAll().executeTakeFirstOrThrow();
+  const resourceId=randomUUID(),libraryId=randomUUID();
+  await sql`INSERT INTO crm_documents(id,title,type,owner_email,account_id,original_account_id,library,status) VALUES(${resourceId}::uuid,${marker+' Proposición pingüino'},'propuesta',${admin.user.email},${resourceAccount.id},${resourceAccount.id},false,'draft')`.execute(db);
+  await sql`INSERT INTO crm_documents(id,title,type,owner_email,library,status) VALUES(${libraryId}::uuid,${marker+' Proposición pingüino biblioteca'},'propuesta',${admin.user.email},true,'approved')`.execute(db);
   for(const search of [marker+' proposicion pinguino',marker+' PROPOSICIÓN PINGÜINO',marker+' Proposicio\u0301n pinguino']) {
-    assert.equal((await get(resources,'resources',{search},admin.cookie)).documents[0].id,resourceId);
-    assert.equal((await get(resources,'resources',{search},reader.cookie)).documents.length,0,'Draft search does not bypass visibility');
+    assert.deepEqual((await get(resources,'resources',{search,accountId:resourceAccount.id},admin.cookie)).documents.map((d:{id:string})=>d.id),[resourceId]);
+    assert.equal((await get(resources,'resources',{search},admin.cookie)).documents.length,0,'The retired library is not listed');
   }
   assert.equal((await get(leads, 'leads', { entity: 'business', q: `${marker} unicamente borrada` })).total, 0, 'Removed management notes do not expose a business');
   const plain = await db.insertInto('crmAccounts').values({ nombre: `${marker} cana`, assignedUserEmail: reader.user.email }).returningAll().executeTakeFirstOrThrow();
@@ -131,8 +134,8 @@ try {
   const result=await get(search,'search',{q:marker+' gastronomia'});
   assert(result.results.some((r:any)=>r.kind==='Gestiones'&&r.url==='/sales/'+proposal.id));
   assert((await get(search,'search',{q:marker+' reunion pinguino'})).results.some((r:any)=>r.kind==='Notas'));
-  assert.equal((await get(search,'search',{q:marker+' proposicion pinguino'})).results.length,0,'Library draft remains private');
-  assert((await get(search,'search',{q:marker+' proposicion pinguino'},admin.cookie)).results.some((r:any)=>r.id==='file:'+resourceId));
+  // Spec 89: business documents are found by whoever reads the business; the retired library is never searched.
+  for(const cookie of [undefined,admin.cookie]){const files=(await get(search,'search',{q:marker+' proposicion pinguino'},cookie)).results.filter((r:any)=>r.kind==='Archivos');assert.deepEqual(files.map((r:any)=>r.id),['file:'+resourceId]);assert.equal(files[0].url,'/accounts/'+resourceAccount.id+'?section=documents');}
   await get(search,'search',{q:'a'},reader.cookie,400);
   const unauthenticated=await search(new Request('http://localhost/_api/search?q=test'));
   assert.equal(unauthenticated.status,401);
