@@ -1,4 +1,4 @@
-export const USERSCRIPT_MIN_VERSION='1.2.0';
+export const USERSCRIPT_MIN_VERSION='1.3.0';
 export function compareSemver(a:string,b:string):number{const parse=(v:string)=>v.split('.').map(Number);const x=parse(a),y=parse(b);for(let i=0;i<3;i++){const d=(x[i]??0)-(y[i]??0);if(d)return d;}return 0;}
 /** The version a script reports, only when it is plain semver: anything else must fail the version gate instead of comparing as equal. */
 export function parseUserscriptVersion(value:string|null):string|null{return value&&/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(value)?value:null;}
