@@ -39,7 +39,10 @@ test('the responsible seller reads the management of her archived business with 
  // Spec 90: the response without a message is an event row with its text visible, no summary to expand.
  await expect(page.getByRole('article',{name:'Respuesta registrada sin mensaje · Respondió, le interesa',exact:true})).toBeVisible();
  await expect(page.getByText(/Le interesa el plan anual/)).toBeVisible();
- for(const name of ['Registrar respuesta sin mensaje','Registrar respuesta recibida','Corregir respuesta','Registrar llamada u otro contacto','Contactar'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ for(const name of ['Registrar respuesta sin mensaje','Registrar respuesta recibida','Corregir respuesta','Registrar llamada u otro contacto','Contactar','Responder'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ // Spec 91 §3: no item offers secondary actions either (no «⋯» menu, so no «Corregir respuesta» behind it).
+ await expect(page.getByRole('region',{name:'Comunicación',exact:true}).getByRole('button',{name:'Registrar',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:/^Más acciones · /})).toHaveCount(0);
  await expect(page.getByText('Registrar una llamada',{exact:true})).toHaveCount(0);
 });
 
