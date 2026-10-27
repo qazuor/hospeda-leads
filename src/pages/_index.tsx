@@ -682,7 +682,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
         <div><div className={styles.eyebrow}>{businessMode?"REGISTROS":"REGISTROS"}</div><h1 aria-label={businessMode?"Negocios":"Gestiones"} style={{display:"flex",alignItems:"center",gap:5,width:"max-content",maxWidth:"100%"}}>{businessMode?"Negocios":"Gestiones"}<HelpLink topic={businessMode?"businesses":"managements"}/></h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
-        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><HelpLink topic="filters"/><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
+        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button>{!businessMode&&<HelpLink topic="newSale" hint="startManagement"/>}<Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><HelpLink topic="managements" hint="extraTools"/><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
       </header>
 
       <section className={styles.toolbar}>
@@ -692,7 +692,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
           </Button>
           {!businessMode&&<ManagementQuickFilters className={styles.quickFilters} groups={appliedFilterGroups} stages={FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))} users={userOptions} currentUser={!!currentUser} onChange={groups=>{setAppliedFilterGroups(groups);setActiveQuick('custom');resetPage()}}/>}
-          {businessMode&&<><Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button><HelpLink topic="columns"/></>}{(businessMode?advancedTable:!pipelineView)&&<><HelpLink topic="columns"/><ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/></>}
+          {businessMode&&<><Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button><HelpLink topic="businesses" hint="advancedView"/></>}{(businessMode?advancedTable:!pipelineView)&&<><ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/></>}
         </div>
       </section>
 
@@ -715,10 +715,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis gestiones"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><UnstyledButton type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</UnstyledButton>)}
           {savedViews.map(view=><div className={styles.savedView} key={view.id}><UnstyledButton type="button" className={activeQuick==="saved:"+view.id?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</UnstyledButton><UnstyledButton type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</UnstyledButton></div>)}
         </div>
-        <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button><HelpLink topic="filters"/>
+        <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button><HelpLink topic="filters" hint="saveView"/>
       </section>
 
-      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><div className={styles.managementViewsRow}><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/><HelpLink topic="filters"/></div></>}
+      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><div className={styles.managementViewsRow}><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/></div></>}
       <FilterLegend
         groups={appliedFilterGroups}
         onChange={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);resetPage();}}
@@ -774,7 +774,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             if(!col)return null;
             return <th key={key} className={styles.resizableTh}>{key==="estado"&&businessMode&&!advancedTable?<span>Relación</span>:<HeaderMenu label={key==="nombre"&&businessMode?"Negocio":key==="id"&&businessMode?"ID de entrada":key==="estado"&&businessMode&&!advancedTable?"Relación":key==="fechaProximaAccion"?"Próximo paso":col.label} field={key as SortBy} sortBy={sortBy} sortDir={sortDir} onSort={sort}/>}<span className={styles.resizeHandle} onMouseDown={e=>{e.preventDefault();e.stopPropagation();startResize(key,e.clientX)}}/></th>;
           })}
-          {(!businessMode||advancedTable)&&<th>Persona</th>}<th>Acciones <HelpLink topic={businessMode?'businesses':'managements'}/></th>
+          {(!businessMode||advancedTable)&&<th>Persona</th>}<th>Acciones <HelpLink topic={businessMode?'businesses':'managements'} hint={businessMode?'rowActionsBusiness':'rowActionsManagement'}/></th>
         </tr></thead><tbody>
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
             <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox className={styles.squareCheckbox} disabled={!!l.deletedAt||l.canModify===false} disabledReason={l.deletedAt?'El negocio está en Papelera. Solo un administrador puede restaurarlo.':'Solo el responsable del negocio o un administrador puede modificarlo.'} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>

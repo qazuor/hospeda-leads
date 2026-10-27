@@ -40,10 +40,10 @@ const Field=({label,value,full=false}:{label:string;value:React.ReactNode;full?:
     <div className={styles.fieldValue}>{value}</div>
   </div>;
 
-const SectionTitle=({icon:Icon,title,description,help}:{icon:React.ComponentType<{size?:number}>;title:string;description?:string;help?:import('./HelpLink').HelpTopic})=>
+const SectionTitle=({icon:Icon,title,description,help,hint}:{icon:React.ComponentType<{size?:number}>;title:string;description?:string;help?:import('./HelpLink').HelpTopic;hint?:import('../content/helpHints').HelpHintKey})=>
   <div className={styles.panelHeader}>
     <div className={styles.panelIcon}><Icon size={17}/></div>
-    <div><h3 style={{display:'flex',alignItems:'center',gap:5}}>{title}{help&&<HelpLink topic={help}/>}</h3>{description&&<p>{description}</p>}</div>
+    <div><h3 style={{display:'flex',alignItems:'center',gap:5}}>{title}{help&&<HelpLink topic={help} hint={hint}/>}</h3>{description&&<p>{description}</p>}</div>
   </div>;
 
 const SummaryItem=({icon:Icon,label,value}:{icon:React.ComponentType<{size?:number}>;label:string;value:React.ReactNode})=>
@@ -185,7 +185,7 @@ export const LeadDetailDialog=({
           </section>
 
           <section className={styles.panel}>
-            <SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y etapa de esta gestión, independientes de otras gestiones del negocio." help="stage"/>
+            <SectionTitle icon={BriefcaseBusiness} title="Comercial" description="Clasificación y etapa de esta gestión, independientes de otras gestiones del negocio." help="stage" hint="stageSection"/>
             <div className={styles.fieldGrid}>
               <Field label="Vertical" value={lead.tipo?<ValueBadge value={lead.tipo} category="vertical"/>:"—"}/>
               <Field label="Subtipo" value={lead.subtipo?<ValueBadge value={lead.subtipo} category="subtype"/>:"—"}/>
@@ -198,7 +198,7 @@ export const LeadDetailDialog=({
           </section>
 
           <section className={styles.panel}>
-            <SectionTitle icon={CalendarClock} title="Seguimiento" description="Fechas y próximos pasos comerciales." help="nextStep"/>
+            <SectionTitle icon={CalendarClock} title="Seguimiento" description="Fechas y próximos pasos comerciales." help="nextStep" hint="followUpSection"/>
             <div className={styles.fieldGrid}>
               <Field label="Fecha creación" value={date(lead.fechaCreacion)}/>
               <Field label="Último contacto" value={date(lead.fechaUltimoContacto)}/>
