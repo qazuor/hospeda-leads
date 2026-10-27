@@ -1,5 +1,9 @@
 # Pendientes y próximo trabajo
 
+## Spec 91 — segunda pasada de «Comunicación» — pendiente de PR
+
+[Spec 91](crm-roadmap/91-communication-polish.md) implementada en `feat/communication-polish-91`. Falta: push, PR a `staging`, CI verde (incluye browser) y merge. **Para producción:** aplicar la migración `048`. Sin variables nuevas.
+
 ## Spec 90 — comunicación en la ficha — cerrada en `staging`
 
 [Spec 90](crm-roadmap/90-business-communication-view.md) mergeada en `staging` (#268) el 27/10/2026. No tiene migraciones ni variables nuevas, así que para producción alcanza con promover `staging`. Seguimiento posible: en la Bandeja, las filas y filtros mezclados dicen «Instagram / Red social».

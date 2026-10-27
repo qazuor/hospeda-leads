@@ -1,5 +1,16 @@
 # Estado del CRM — corte al 27 de octubre de 2026
 
+## Spec 91 — segunda pasada de «Comunicación» — implementada en `feat/communication-polish-91` (sin PR todavía) — 27/10/2026
+
+- **Conversación:** burbuja única con la meta afuera (canal, quién, hora); el chip de gestión solo aparece cuando hay una; las acciones secundarias («Ver diseño del email», «Corregir…», «Anular registro») van en un menú «⋯» por ítem; llamadas y respuestas sin mensaje son líneas finas con su nota; textos largos recortados (email ~6 líneas, resto ~12) con «Ver más»/«Ver menos».
+- **Filtros:** chips de canal más un selector de gestión (solo con dos valores o más, combinable); «Mostrar anulados» es un interruptor aparte (admin).
+- **Barra de acciones:** una sola línea: «Contactar», «Registrar ▾» («Llamada u otro contacto», «Respuesta sin mensaje») y «Enviar material».
+- **Navegación:** abre en el último ítem salvo que el usuario ya haya desplazado la página; «Ir al último» fijo mientras el último no se ve; «Ver anteriores» conserva la posición.
+- **Requiere acción:** resumen («N mensajes por revisar · N envíos sin confirmar · N contactos sin resultado»); cada mensaje por revisar es un botón que lleva y resalta el ítem (limpia los filtros que lo ocultan); las acciones de revisión viven solo en la burbuja; «¿Lo enviaste?» queda en las dos copias y un clic bloquea ambas.
+- **Responder:** abre «Contactar» con el canal y la persona del último mensaje recibido (email o WhatsApp); si no puede, abre el composer normal y dice por qué. Deshabilitado con No contactar; no aparece en solo lectura.
+- **Nuevo desde tu última visita:** migración `048_communication_reads.sql` (`crm_communication_reads`, por usuario y negocio, cascada al borrar usuario o negocio). `GET /_api/communication` devuelve `lastSeenAt`; `POST /_api/communication/seen` exige el mismo acceso de lectura que el GET, guarda `GREATEST(anterior, LEAST(seenAt, now()))` y no escribe journal ni historial. Solo en la vista del negocio; ignora lo que escribió el propio usuario.
+- **Validación local:** `npm run typecheck`, `npm test` (205 archivos, 1596 tests), `npm run build`; integración contra la base local desechable: `db:migrate`, `test:communication`, `test:inbox`, `test:inbound`, `scripts/test-business-history.ts`, `test:communication-reads` (nuevo, también en CI). Playwright no se corrió localmente; los e2e afectados se actualizaron.
+
 ## Spec 90 — comunicación en la ficha del negocio — cerrada: mergeada en `staging` (PR #268, `a5fc50a`) — 27/10/2026
 
 - **Pestaña «Comunicación»:** título con «Abrir en la Bandeja», barra de acciones («Contactar», «Registrar llamada u otro contacto», «Registrar respuesta sin mensaje»), aviso de restricción activa, «Requiere acción · N», una «Conversación» cronológica (separadores por día, burbujas con texto, chip de gestión, estados honestos, llamadas y respuestas sin mensaje como eventos, chips por canal, últimos 30 + «Ver anteriores», «Anulados» solo admin) y «Borradores · N» con «Seguir editando». Se quitaron las listas duplicadas y «Respuestas registradas».

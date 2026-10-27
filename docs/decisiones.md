@@ -315,3 +315,10 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 - Las restricciones técnicas por canal se editan solo en «Preferencias y restricciones de contacto» (columna izquierda); la pestaña muestra un aviso. La vista de gestión conserva el editor en su pestaña.
 - Ficha apilada (contenedor ≤900 px): la columna del negocio va primero como tarjeta compacta, con «Personas» y «Datos del negocio» plegados al abrir la ficha; después, próximo paso y solapas. Reemplaza la decisión del 24/10/2026 (próximo paso y solapas primero). El plegado se decide al montar y no pisa lo que la persona abrió o cerró.
 - Instagram se nombra igual en todas partes; una red social registrada a mano que no es Instagram es «Red social».
+
+## Segunda pasada de «Comunicación» (spec 91) — 27/10/2026
+
+- Las acciones de «Por revisar» viven solo en la burbuja; «Requiere acción» es un resumen que lleva al ítem. «¿Lo enviaste?» se muestra en las dos partes y comparte el bloqueo de doble envío.
+- Las acciones secundarias de cada ítem van en «⋯»; lo pendiente (confirmar envío, «¿Cómo salió?», responder un email) queda visible.
+- «Nuevo desde tu última visita» se guarda por usuario y negocio en `crm_communication_reads`: no es contacto ni actividad, no va al journal ni al historial, nunca retrocede y no acepta fechas futuras. Se marca con la hora del ítem más nuevo cargado, solo desde la vista del negocio.
+- «Responder» solo prepara email o WhatsApp; con No contactar queda deshabilitado y con restricción activa o remitente desconocido abre el composer normal con el motivo.
