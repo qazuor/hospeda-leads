@@ -16,7 +16,6 @@
 .actionMeta{font-size:13px;color:var(--muted-foreground);overflow-wrap:anywhere}
 .actionText{margin:0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
 .actionButtons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.convHead{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;justify-content:space-between}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;min-width:0}
 .timeline>li{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -85,16 +84,39 @@
 .filters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;min-width:0}
 .managementFilter{min-width:180px}
 .voidedSwitch{padding-left:12px;border-left:1px solid var(--border)}
-.toLatestWrap{position:sticky;bottom:16px;height:0;display:flex;justify-content:flex-end;z-index:5;pointer-events:none}
+.toLatestWrap{position:sticky;bottom:4px;height:0;display:flex;justify-content:flex-end;z-index:5;pointer-events:none}
 .toLatest{pointer-events:auto;transform:translateY(-100%);box-shadow:var(--shadow-md)}
-.replyRow{display:flex;justify-content:flex-end}
 .menuItem{display:flex;flex-direction:column;gap:2px}.menuItem small{font-size:12px;color:var(--muted-foreground);white-space:normal}
 .summary{margin:0;font-size:14px;font-weight:600}
 .actionList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .jump{display:flex;gap:8px;align-items:center;width:100%;text-align:left;padding:8px 12px;border:1px solid var(--tone-orange);border-radius:10px;background:var(--tone-orange-soft);color:var(--tone-orange-ink);font:inherit;font-size:14px;cursor:pointer;overflow-wrap:anywhere}
 .jump:hover{border-color:var(--tone-orange-ink)}.jumpMeta{font-weight:400}
 @media (max-width:600px){.actionBar{flex-wrap:wrap}.voidedSwitch{padding-left:0;border-left:0}}
-@media (max-width:767px){.toLatestWrap{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
 /* Spec 91 review: sent bubbles carry a clear brand tint (received stays neutral grey). */
 .view{--comm-sent-bubble:color-mix(in srgb,var(--primary) 16%,var(--card))}
 :global(.dark) .view{--comm-sent-bubble:color-mix(in srgb,var(--primary) 30%,var(--card))}
+/*
+ * Spec 91 review 2: «Conversación» is a chat window. A card frame with a fixed header and footer and a body with its own scroll.
+ * Height: the frame grows with its content up to a max height (no big empty box for short histories). The max is the viewport
+ * minus the sticky top bar (58px) and a 32px margin, between 420px and 900px, so once the page brings the frame under the top
+ * bar the whole frame is visible and only the body scrolls (at 1440×900: 810px). Pure CSS, nothing is measured at runtime.
+ */
+.frame{display:flex;flex-direction:column;min-width:0;max-height:clamp(420px,calc(100dvh - 58px - 32px),900px);border:1px solid var(--border);border-radius:var(--radius,12px);background:var(--card);overflow:hidden;--comm-chat-bg:color-mix(in srgb,var(--primary) 3%,var(--surface))}
+:global(.dark) .frame{--comm-chat-bg:color-mix(in srgb,var(--primary) 6%,var(--background))}
+.frameHead{flex:none;display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--card)}
+.frameBody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px;background:var(--comm-chat-bg)}
+.frameBody:focus{outline:none}
+/* `.panel label` (Communication.module.css) stacks labels in a column; the switch keeps its label beside the track. */
+.voidedSwitch label{flex-direction:row;align-items:center;font-size:14px}
+.frameBody .day{position:relative}
+.frameFoot{flex:none;display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:var(--card)}
+.view article.bubbleWrap .bubble{box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 6%,transparent)}
+@media (max-width:600px){
+ .frame{max-height:max(360px,min(70dvh,calc(100dvh - 150px)))}
+ .frameHead{padding:10px 12px;flex-direction:column;align-items:stretch}
+ .frameHead .filters{flex-direction:column;align-items:stretch}
+ .frameHead .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+ .frameHead .chips>*{flex:none}
+ .frameBody{padding:12px 10px}
+ .frameFoot{padding:8px 12px}
+}

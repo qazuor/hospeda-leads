@@ -14,7 +14,7 @@ import {CONTACT_DNC_REASON,CommunicationActionBar} from './communication/Communi
 import {RequiresAction} from './communication/RequiresAction';
 import {Conversation,type FocusRequest,type ReplyAction} from './communication/Conversation';
 import {DraftsBlock} from './communication/DraftsBlock';
-import type {CommunicationView,ContactChannel,ContactOptions,ScrollTracker} from './communication/types';
+import type {CommunicationView,ContactChannel,ContactOptions} from './communication/types';
 import type {PickedSalesMaterial} from './SalesMaterialPicker';
 import styles from './Communication.module.css';
 import view from './communication/CommunicationView.module.css';
@@ -27,31 +27,6 @@ function RestrictionNotice({data,contacts}:{data:CommunicationView['data'];conta
  if(!active.length)return null;
  const parts=active.map(r=>[restrictionChannelLabel(r.channel),r.contactId?contacts.find(c=>String(c.id)===String(r.contactId))?.name:'',r.reason].filter(Boolean).join(' · '));
  return <p className={view.notice} role="note"><strong>{active.length===1?'Restricción activa':'Restricciones activas'}: {parts.join('; ')}</strong> · Se edita en «Preferencias y restricciones».</p>;
-}
-
-const SCROLL_KEYS=new Set(['PageUp','PageDown','Home','End','ArrowUp','ArrowDown',' ']);
-/**
- * True once the user scrolls the page by hand, so opening at the latest item never fights them (spec 91 §8): wheel, touch,
- * scroll keys, or any other `scroll` (a scrollbar drag) that the code did not start. A scroll that comes with a height change of
- * its scroller is a layout clamp (content got shorter), not the user, and the first scroll seen on a scroller only records it.
- */
-function useUserScrolled():ScrollTracker{
- const scrolled=useRef(false),ignoreUntil=useRef(0);
- useEffect(()=>{
-  const mark=()=>{scrolled.current=true};
-  const key=(event:KeyboardEvent)=>{const target=event.target as HTMLElement|null;if(SCROLL_KEYS.has(event.key)&&!target?.closest('input,textarea,select,[contenteditable="true"]'))mark()};
-  const heights=new WeakMap<Element,number>(),page=document.scrollingElement??document.documentElement;
-  heights.set(page,page.scrollHeight);
-  const scroll=(event:Event)=>{
-   const el=event.target instanceof Element?event.target:page,height=el.scrollHeight,known=heights.get(el);heights.set(el,height);
-   if(known===undefined||known!==height||Date.now()<ignoreUntil.current)return;
-   mark();
-  };
-  window.addEventListener('wheel',mark,{passive:true});window.addEventListener('touchmove',mark,{passive:true});window.addEventListener('keydown',key);window.addEventListener('scroll',scroll,{passive:true,capture:true});
-  return()=>{window.removeEventListener('wheel',mark);window.removeEventListener('touchmove',mark);window.removeEventListener('keydown',key);window.removeEventListener('scroll',scroll,{capture:true})};
- },[]);
- // Smooth scrolls emit events for a while; 1s covers them.
- return useMemo(()=>({userScrolled:scrolled,programmatic:()=>{ignoreUntil.current=Date.now()+1000}}),[]);
 }
 
 /**
@@ -94,7 +69,6 @@ export function CommunicationPanel({leadId,accountId,readOnly=false,onContact,on
  const detail=useQuery({queryKey:['commercial-detail',accountId??'',leadId??''],queryFn:()=>getCommercialDetail(accountId,leadId)});
  const [responseRequest,setResponseRequest]=useState<ResponseDialogRequest|null>(null),responseSeq=useRef(0);
  const [focus,setFocus]=useState<FocusRequest|null>(null),focusSeq=useRef(0);
- const scroll=useUserScrolled();
  const newest=useMemo(()=>q.data?newestAt(buildCommunicationTimeline({messages:q.data.messages,inbound:q.data.inbound,responses:q.data.responses})):null,[q.data]);
  const lastSeenAt=useVisit({accountId:accountId??'',enabled:!!accountId&&!leadId,fresh:q.isFetchedAfterMount,data:q.data,newest});
  const openResponse=(inbound:InboundMessage|null)=>setResponseRequest({seq:++responseSeq.current,inbound});
@@ -127,7 +101,7 @@ export function CommunicationPanel({leadId,accountId,readOnly=false,onContact,on
   <CommunicationActionBar view={v} leadId={leadId} onContact={onContact} onSendMaterial={onSendMaterial}/>
   {leadId?<TechnicalRestrictions leadId={leadId} accountId={accountId} collapsible/>:<RestrictionNotice data={q.data} contacts={d?.contacts??[]}/>}
   <RequiresAction view={v} onFocus={key=>setFocus({key,seq:++focusSeq.current})}/>
-  <Conversation view={v} includeVoided={admin&&includeVoided} onToggleVoided={()=>setIncludeVoided(value=>!value)} lastSeenAt={lastSeenAt} focus={focus} reply={reply} scroll={scroll}/>
+  <Conversation view={v} includeVoided={admin&&includeVoided} onToggleVoided={()=>setIncludeVoided(value=>!value)} lastSeenAt={lastSeenAt} focus={focus} reply={reply}/>
   <DraftsBlock view={v}/>
   <ResponseRecordDialog request={responseRequest} onClose={()=>setResponseRequest(null)} data={q.data} detail={d} leadId={leadId}/>
  </section>;

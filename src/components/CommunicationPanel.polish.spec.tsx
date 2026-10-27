@@ -31,14 +31,21 @@ function show(props:React.ComponentProps<typeof CommunicationPanel>={accountId:'
 const ready=()=>screen.findByRole('region',{name:'Conversación'});
 const rowOf=(name:string)=>screen.getByRole('article',{name}).closest('[id^="comm-item-"]') as HTMLElement;
 const scrolled:Element[]=[];
-let observe:((visible:boolean)=>void)|null=null;
+let observe:((visible:boolean)=>void)|null=null,observerRoot:Element|Document|null|undefined,resize:(()=>void)|null=null,now=1_000_000;
+// The conversation body is the only scroller (spec 91 review 2): its scrollHeight follows the rendered rows (100px each).
+const bodyScrolls:{top:number;behavior?:string}[]=[];
+const body=()=>screen.getByTestId('conversation-body');
 beforeAll(()=>{
  window.matchMedia=window.matchMedia||((query:string)=>({matches:false,media:query,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){},dispatchEvent:()=>false,onchange:null}) as MediaQueryList);
- globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};
+ globalThis.ResizeObserver=class{constructor(callback:()=>void){resize=callback}observe(){}unobserve(){}disconnect(){}} as unknown as typeof ResizeObserver;
+ Object.defineProperty(HTMLElement.prototype,'scrollHeight',{configurable:true,get(this:HTMLElement){return this.dataset.testid==='conversation-body'?this.querySelectorAll('li').length*100:0}});
+ HTMLElement.prototype.scrollTo=function(this:HTMLElement,options?:ScrollToOptions|number){const o=typeof options==='object'?options:{};if(this.dataset.testid==='conversation-body'){bodyScrolls.push({top:Number(o.top),behavior:o.behavior});this.scrollTop=Number(o.top)}} as typeof HTMLElement.prototype.scrollTo;
+ window.scrollTo=vi.fn() as unknown as typeof window.scrollTo;
+ vi.spyOn(Date,'now').mockImplementation(()=>now);
  Element.prototype.scrollIntoView=function(this:Element){scrolled.push(this)};
- globalThis.IntersectionObserver=class{constructor(callback:IntersectionObserverCallback){observe=visible=>callback([{isIntersecting:visible} as IntersectionObserverEntry],this as unknown as IntersectionObserver)}observe(){}unobserve(){}disconnect(){}takeRecords(){return []}root=null;rootMargin='';thresholds=[]} as unknown as typeof IntersectionObserver;
+ globalThis.IntersectionObserver=class{constructor(callback:IntersectionObserverCallback,options?:IntersectionObserverInit){observerRoot=options?.root;observe=visible=>callback([{isIntersecting:visible} as IntersectionObserverEntry],this as unknown as IntersectionObserver)}observe(){}unobserve(){}disconnect(){}takeRecords(){return []}root=null;rootMargin='';thresholds=[]} as unknown as typeof IntersectionObserver;
 });
-beforeEach(()=>{scrolled.length=0;observe=null;});
+beforeEach(()=>{scrolled.length=0;observe=null;observerRoot=undefined;resize=null;bodyScrolls.length=0;now=1_000_000;vi.mocked(window.scrollTo).mockClear();});
 afterEach(()=>{cleanup();for(const fn of [mocks.getCommunication,mocks.postCommunication,mocks.markCommunicationSeen,mocks.getCommercialDetail,mocks.getPipeline,mocks.getWork,mocks.info])fn.mockReset();mocks.role='user';});
 
 describe('bubbles, slim lines and the «⋯» menu (§1–§4)',()=>{
@@ -88,34 +95,54 @@ describe('«Mostrar anulados» and the action bar (§5, §6)',()=>{
  });
 });
 
-describe('open at the latest item (§8)',()=>{
- it('scrolls the latest item into view once and offers «Ir al último» while it is out of view',async()=>{
-  setup({data:{messages:[message('m1',{lastInteractionAt:day(1)}),message('m2',{lastInteractionAt:day(2),textBody:'Último'})]}});show();await ready();
-  await waitFor(()=>expect(scrolled.map(el=>el.id)).toEqual(['comm-item-out-m2']));
+describe('chat window with its own scroll (§1, §8)',()=>{
+ const many=(n:number)=>Array.from({length:n},(_,i)=>message('m'+i,{lastInteractionAt:new Date(day(1).getTime()+i*60000),textBody:'Mensaje '+i}));
+ it('frames the conversation: header with the filters, a scrolling body with the items and the footer with «Preparar respuesta»',async()=>{
+  setup({data:{messages:[message('a',{leadId:'9'})],inbound:[inbound('b')]}});show({accountId:'5',onContact:vi.fn()});const frame=await ready();
+  const [head,scroller,foot]=[...frame.children] as HTMLElement[];
+  expect(within(head).getByRole('heading',{name:'Conversación'})).toBeTruthy();expect(within(head).getByRole('group',{name:'Filtrar la conversación por canal'})).toBeTruthy();
+  expect(within(head).getByRole('combobox',{name:'Filtrar la conversación por gestión'})).toBeTruthy();
+  expect(scroller).toBe(body());expect(within(scroller).getAllByRole('article')).toHaveLength(2);
+  expect(within(foot).getByRole('button',{name:'Preparar respuesta'})).toBeTruthy();
+  // «Requiere acción» and the action bar stay outside (above) the frame.
+  expect(within(frame).queryByRole('group',{name:'Acciones de comunicación'})).toBeNull();
+ });
+ it('opens at the latest item by scrolling only the body, never the page, and «Ir al último» scrolls the body',async()=>{
+  setup({data:{messages:many(3)}});show();await ready();
+  await waitFor(()=>expect(bodyScrolls.at(-1)).toEqual({top:300,behavior:'auto'}));
+  expect(scrolled).toEqual([]);expect(window.scrollTo).not.toHaveBeenCalled();
+  expect(observerRoot).toBe(body());
   expect(screen.queryByRole('button',{name:'Ir al último'})).toBeNull();
   act(()=>observe?.(false));
   fireEvent.click(await screen.findByRole('button',{name:'Ir al último'}));
-  expect(scrolled.at(-1)?.id).toBe('comm-item-out-m2');
+  expect(bodyScrolls.at(-1)).toEqual({top:300,behavior:'smooth'});expect(scrolled).toEqual([]);
   act(()=>observe?.(true));
   await waitFor(()=>expect(screen.queryByRole('button',{name:'Ir al último'})).toBeNull());
  });
- it('treats a scroll the code did not start (a scrollbar drag) as the user scrolling',async()=>{
-  setup({data:{messages:[message('m1')]}});
-  let resolve:(value:unknown)=>void=()=>{};mocks.getCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
-  show();
-  window.dispatchEvent(new Event('scroll'));
-  resolve(payload({messages:[message('m1')]}));await ready();
-  await new Promise(r=>setTimeout(r,20));
-  expect(scrolled).toEqual([]);
+ it('stays at the end while content settles, until the user scrolls the body (wheel)',async()=>{
+  setup({data:{messages:many(2)}});show();await ready();
+  await waitFor(()=>expect(bodyScrolls).toHaveLength(1));
+  act(()=>resize?.());expect(bodyScrolls).toHaveLength(2);
+  fireEvent.wheel(body());
+  act(()=>resize?.());expect(bodyScrolls).toHaveLength(2);
  });
- it('does not jump when the user already scrolled the page',async()=>{
-  setup({data:{messages:[message('m1')]}});
-  let resolve:(value:unknown)=>void=()=>{};mocks.getCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
-  show();
-  window.dispatchEvent(new Event('wheel'));
-  resolve(payload({messages:[message('m1')]}));await ready();
-  await new Promise(r=>setTimeout(r,20));
-  expect(scrolled).toEqual([]);
+ it('treats a scroll of the body the code did not start (a scrollbar drag) as the user scrolling, but not a layout clamp',async()=>{
+  setup({data:{messages:many(2)}});show();await ready();
+  await waitFor(()=>expect(bodyScrolls).toHaveLength(1));
+  // Within 1s of the code's own scroll, scroll events are its own.
+  fireEvent.scroll(body());act(()=>resize?.());expect(bodyScrolls).toHaveLength(2);
+  now+=2000;
+  fireEvent.scroll(body());
+  act(()=>resize?.());expect(bodyScrolls).toHaveLength(2);
+ });
+ it('keeps the visible items in place when «Ver anteriores» adds older ones above',async()=>{
+  setup({data:{messages:many(33)}});show();await ready();
+  await waitFor(()=>expect(bodyScrolls.at(-1)?.top).toBe(3000));
+  fireEvent.wheel(body());body().scrollTop=1200;
+  fireEvent.click(screen.getByRole('button',{name:'Ver anteriores (3)'}));
+  // 1800px were below the top before; with 300px more rows above, the same rows stay in view.
+  await waitFor(()=>expect(body().scrollTop).toBe(1500));
+  expect(scrolled).toEqual([]);expect(window.scrollTo).not.toHaveBeenCalled();
  });
 });
 
@@ -128,9 +155,12 @@ describe('«Requiere acción» summary (§9)',()=>{
   await waitFor(()=>expect(within(rowOf('WhatsApp recibido de Julia')).getByRole('button',{name:'Registrar respuesta'})).toBeTruthy());
   fireEvent.click(screen.getByRole('button',{name:'Email · 1'}));
   expect(screen.queryByRole('article',{name:'WhatsApp recibido de Julia'})).toBeNull();
-  scrolled.length=0;
+  bodyScrolls.length=0;
   fireEvent.click(within(region).getByRole('button',{name:/^WhatsApp de Julia por revisar/}));
-  await waitFor(()=>expect(scrolled.map(el=>el.id)).toContain('comm-item-in-pending'));
+  // The body (not the page) scrolls to the item; the frame is in view, so the page does not move.
+  await waitFor(()=>expect(bodyScrolls.at(-1)?.behavior).toBe('smooth'));
+  expect(scrolled).toEqual([]);expect(window.scrollTo).not.toHaveBeenCalled();
+  expect(document.activeElement?.id).toBe('comm-item-in-pending');
   expect(rowOf('WhatsApp recibido de Julia').getAttribute('data-highlight')).toBe('true');
   expect(screen.getByRole('button',{name:'Todo · 2'}).getAttribute('aria-pressed')).toBe('true');
  });
