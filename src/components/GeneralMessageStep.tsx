@@ -20,12 +20,13 @@ import {VOCAB} from '../content/vocabulary';
 import styles from './Communication.module.css';
 import {PersonPhoneDncNotice} from './PersonPhoneDncWarning';
 import {renderMessageTemplate,htmlToPlainText} from '../helpers/renderMessageTemplate';
+import {templatePreviewSource,type TemplateMaterialRef} from '../helpers/templateMaterials';
 import {buildMessageTemplateContext} from '../helpers/messageTemplateContext';
 import {MissingCommercialProfileNotice} from './MissingCommercialProfileNotice';
 import {messageSender} from '../helpers/messageSender';
 
 type Data={senderProfiles?:{email:string;displayName:string;fullName:string|null}[];account:{id:string|number;nombre:string;email:string|null;telefono:string|null;whatsapp:string|null;tipo:string|null;ciudad?:string|null;subtipo?:string|null;status:string;archivedAt:Date|string|null;recontactAt:Date|string|null;doNotContact:boolean;isClient:boolean;assignedUserEmail:string|null};contacts:{id:string|number;name:string;email:string|null;phone:string|null;deletedAt:Date|string|null;dncPhoneBusinesses?:{nombre:string;ciudad:string|null}[]}[];users?:{email:string;displayName:string}[]};
-type Template={id:string|number;channel:string;name:string;subject:string|null;body:string;vertical:string|null;managementType:string|null;commercialProfile:string|null;active?:boolean};
+type Template={id:string|number;channel:string;name:string;subject:string|null;body:string;vertical:string|null;managementType:string|null;commercialProfile:string|null;active?:boolean;materialRefs?:TemplateMaterialRef[]};
 /**
  * Email or WhatsApp for a business without a management (the "Sin gestión" case of the Contactar dialog). The purpose comes already chosen.
  * A used message chains into "¿Cómo salió?" → "¿Cómo sigue?" (decision 2B); `onFinished` closes the whole contact flow afterwards; with `onLog` (a task's own completion path) it hands over to the task instead.
@@ -40,7 +41,7 @@ export function GeneralMessageStep({detail,templates,channel,purpose,onClose,onF
  const target=contactId?candidates.find(c=>String(c.id)===contactId):null;const businessTarget=channel==='email'?detail.account.email:(detail.account.whatsapp||detail.account.telefono);const canUseBusiness=!candidates.length&&!!businessTarget;
  const recipient=target?(channel==='email'?target.email:target.phone):businessTarget;
  const selectedTemplate=applicable.find(t=>String(t.id)===templateId);
- const previewText=selectedTemplate?htmlToPlainText(renderMessageTemplate(selectedTemplate.body,buildMessageTemplateContext({accountId:detail.account.id,contactId:contactId||null,name:detail.account.nombre,contact:target?.name,city:detail.account.ciudad,type:detail.account.tipo,phone:target?.phone??detail.account.telefono,email:target?.email??detail.account.email,...messageSender({responsibleEmail:detail.account.assignedUserEmail,profiles:detail.senderProfiles,currentUser:user}),commercialProfile:null,isClient:detail.account.isClient,channel,purpose:purpose.purpose,variation,previousPicks:(history.data?.templatePicks?.[String(templateId)]??{})}))) : '';
+ const previewText=selectedTemplate?htmlToPlainText(renderMessageTemplate(templatePreviewSource(selectedTemplate),buildMessageTemplateContext({accountId:detail.account.id,contactId:contactId||null,name:detail.account.nombre,contact:target?.name,city:detail.account.ciudad,type:detail.account.tipo,phone:target?.phone??detail.account.telefono,email:target?.email??detail.account.email,...messageSender({responsibleEmail:detail.account.assignedUserEmail,profiles:detail.senderProfiles,currentUser:user}),commercialProfile:null,isClient:detail.account.isClient,channel,purpose:purpose.purpose,variation,previousPicks:(history.data?.templatePicks?.[String(templateId)]??{})}))) : '';
  const recent=history.data?.recentMessages.find(m=>((target?String(m.contactId??'')===String(target.id):!m.contactId&&String(m.recipient)===String(recipient))&&(m.channel===channel||target))&&!!m.lastInteractionAt&&Date.now()-new Date(m.lastInteractionAt).getTime()<(history.data?.recentContactHours??72)*3600000);
  const blocked=detail.account.doNotContact||!!detail.account.archivedAt;
  const prepare=useMutation({mutationFn:postCommunication,onSuccess:(v)=>{setMessage(v as PreparedMessage);void qc.invalidateQueries({queryKey:['communication']});}});

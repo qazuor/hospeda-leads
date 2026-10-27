@@ -1,7 +1,7 @@
 import type {HelpTopic} from '../components/HelpLink';
 
 /** Placement-specific hints: one text per button, action group or section that shows a «?». */
-export type PlacementHint='startManagement'|'extraTools'|'advancedView'|'saveView'|'moreViews'|'pinnedViews'|'columnOrder'|'rowActionsBusiness'|'rowActionsManagement'|'businessNextStep'|'otherActions'|'scheduleTask'|'logWhatHappened'|'scheduleMeeting'|'logMeeting'|'businessSummary'|'businessManagements'|'businessDocuments'|'attention'|'newReplies'|'inboxFilter'|'voided'|'stageSection'|'followUpSection'|'messageMaterial'|'materialLinkRecord'|'sendMaterial';
+export type PlacementHint='startManagement'|'extraTools'|'advancedView'|'saveView'|'moreViews'|'pinnedViews'|'columnOrder'|'rowActionsBusiness'|'rowActionsManagement'|'businessNextStep'|'otherActions'|'scheduleTask'|'logWhatHappened'|'scheduleMeeting'|'logMeeting'|'businessSummary'|'businessManagements'|'businessDocuments'|'attention'|'newReplies'|'inboxFilter'|'voided'|'stageSection'|'followUpSection'|'messageMaterial'|'materialLinkRecord'|'sendMaterial'|'templateMaterial'|'templateMaterialWarnings';
 /** Every key accepted by `HelpLink`'s `hint` prop: a page-level topic or a placement. */
 export type HelpHintKey=HelpTopic|PlacementHint;
 
@@ -59,6 +59,8 @@ export const HELP_HINTS:Record<HelpHintKey,string>={
  voided:'Solo para administradores. En el detalle de la conversación, muestra también los registros automáticos anulados, que normalmente no aparecen.',
  stageSection:'Vertical, perfil y etapa pertenecen a esta gestión; otras gestiones del mismo negocio pueden estar en otra etapa. La etapa no es el Estado del negocio y cambiarla no contacta a nadie.',
  followUpSection:'Fechas de esta gestión: cuándo se creó, el último contacto y la próxima acción. Para dejar un próximo paso con fecha, agendá una tarea.',
+ templateMaterial:'Insertar material es opcional. El modelo guarda una referencia y, cada vez que alguien lo usa, el CRM crea un enlace nuevo para ese mensaje. Solo se aceptan materiales entregables. En email, seleccioná el material para elegir si además se adjunta el archivo.',
+ templateMaterialWarnings:'El modelo nombraba material que hoy no se puede mandar (archivado, interno o borrado), así que no se agregó al mensaje. El resto del texto quedó igual. Si lo necesitás, agregá otro desde «Agregar material de venta».',
  messageMaterial:'Cada material agrega al texto un enlace propio de este mensaje, que muestra siempre la versión actual. En email podés adjuntar además el archivo, dentro del límite de adjuntos. Solo se mandan materiales entregables; si quitás el enlace del texto, no se registra como enviado.',
  materialLinkRecord:'Qué material salió con este mensaje y en qué versión. «Revocar enlace» lo da de baja: quien lo abra verá que ya no está disponible. El registro técnico de acceso no prueba que el cliente lo haya visto, y abrir WhatsApp no confirma el envío.',
  sendMaterial:'Elegís un material entregable y se abre «Contactar» con ese material ya agregado al mensaje. No se manda nada hasta que revises y confirmes el envío.'

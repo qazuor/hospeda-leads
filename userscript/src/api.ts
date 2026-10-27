@@ -39,8 +39,16 @@ export const saveAutoRegisterPreference=(base:string,token:string,autoRegister:b
 
 export type TemplateLead={id:string;name:string;type:string|null;stage:string;templates:{id:string;name:string;recommended:boolean;body:string}[];contacts:{id:string;name:string;phone:string;default:boolean}[]};
 export type TemplatesResponse={leads:TemplateLead[];blocked:string|null};
-export type PreparedTemplate={messageId:string;revision:number;body:string;recipient:string;recipientName:string;unresolved:string[]};
+/** `materialWarnings`: sales material of the model the CRM left out of this message, with the reason (spec 89 §9). */
+export type PreparedTemplate={messageId:string;revision:number;body:string;recipient:string;recipientName:string;unresolved:string[];materialWarnings?:string[]};
 export const fetchTemplates=(base:string,token:string,accountId:string)=>request<TemplatesResponse>(`${base}/_api/userscript/templates?accountId=${encodeURIComponent(accountId)}`,token);
 export const prepareTemplate=(base:string,token:string,payload:{id:string;leadId:string;contactId:string|null;templateId:string})=>request<PreparedTemplate>(`${base}/_api/userscript/prepare`,token,"POST",payload);
 export const dispatchTemplate=(base:string,token:string,payload:{id:string;revision:number})=>request(`${base}/_api/userscript/dispatch`,token,"POST",payload);
 export const markTemplateNotSent=(base:string,token:string,id:string)=>request(`${base}/_api/userscript/outcome`,token,"POST",{id,event:"manual_not_sent"});
+/** An active deliverable sales material the seller can add to a WhatsApp draft. */
+export type ScriptMaterial={id:string;title:string;categories:string[];format:string;formatLabel:string};
+export type MaterialsResponse={materials:ScriptMaterial[];blocked:string|null;truncated?:boolean};
+/** The CRM searches title and description (accent-insensitive) and caps the list, so a search always reaches every material. */
+export const fetchMaterials=(base:string,token:string,accountId:string,search='')=>request<MaterialsResponse>(`${base}/_api/userscript/materials?${new URLSearchParams({accountId,...(search.trim()?{search:search.trim()}:{})})}`,token);
+/** Adds a material to the prepared draft: the CRM creates its own link and returns the new text and revision. */
+export const addMaterial=(base:string,token:string,payload:{messageId:string;revision:number;materialId:string})=>request<{revision:number;body:string}>(`${base}/_api/userscript/material_add`,token,"POST",payload);

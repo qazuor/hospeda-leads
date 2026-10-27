@@ -17,6 +17,8 @@ import {setWorkActor} from './workAudit';
 import {writeLeadJournal} from './writeLeadJournal';
 import { withDefaultMessageVariables } from './messageVariables';
 import {buildMessageTemplateContext} from './messageTemplateContext';
+import {resolveTemplateMaterials} from './templateMaterialService';
+import {UNRESOLVED_MATERIAL_MESSAGE,hasMaterialReferences} from './templateMaterials';
 import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
 import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
@@ -144,7 +146,7 @@ async function prepare(e:Executor,input:Extract<CommunicationMutation,{action:'p
  const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions,variantPicks:ctx.__chosenPicks,variation:input.variation??0}:null;
  const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,subject,body,template_snapshot,owner_email,task_id,delegated_task_id) VALUES(${input.id}::uuid,${lead.accountId},${lead.accountId},${lead.id},${c.contactId},${input.channel},${recipient},${c.name??''},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},NULL,${input.taskId??null}) RETURNING *`.execute(e)).rows[0];
  if(input.taskId)await communicationJournal(e,{accountId:String(account.id),leadId:String(lead.id),entityType:'interaction',entityId:created.id,action:'message_prepared_by_delegation',actor:user,after:{delegatedTaskId:input.taskId,managementOwner:lead.assignedUserEmail}});
- return created;
+ return {...created,freshDraft:true as const};
 }
 async function assertDelegatedTask(e:Executor,taskId:string,leadId:string,user:User){
  const task=(await sql<{id:string;accountId:string;leadId:string|null;assignedUserEmail:string|null}>`SELECT id,account_id,lead_id,assigned_user_email FROM crm_tasks WHERE id=${taskId} AND status='pending' AND deleted_at IS NULL FOR UPDATE`.execute(e)).rows[0];
@@ -175,7 +177,7 @@ async function prepareGeneral(e:Executor,input:Extract<CommunicationMutation,{ac
  const variableDefinitions=await messageVariables(e);
  const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;const subject=t?renderMessageTemplate(t.subject??'',ctx,variableDefinitions):'';const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions,variantPicks:ctx.__chosenPicks,variation:input.variation??0}:null;
  const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,subject,body,template_snapshot,owner_email,purpose,other_purpose) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${target.contactId},${input.channel},${target.value},${target.name},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},${input.purpose},${input.otherPurpose}) RETURNING *`.execute(e)).rows[0];
- await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:'draft_prepared',actor:user,after:{channel:input.channel,purpose:input.purpose,recipient:target.value}});return created;
+ await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:'draft_prepared',actor:user,after:{channel:input.channel,purpose:input.purpose,recipient:target.value}});return {...created,freshDraft:true as const};
 }
 async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],user:User,responseId:string,leadId:string|null){
  const requested=[...new Set(selectedIds)];
@@ -437,8 +439,9 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  await setWorkActor(e,user);
  // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.
  await lockCommunication(e,communicationScope(input));
- if(input.action==='prepare')return withMaterials(e,await prepare(e,input,user));
- if(input.action==='prepare_general')return withMaterials(e,await prepareGeneral(e,input,user));
+ // Template references ({{material:<uuid>}}) become one fresh share link per send (spec 89 §9).
+ if(input.action==='prepare')return withMaterials(e,await resolveTemplateMaterials(e,{message:await prepare(e,input,user),user}));
+ if(input.action==='prepare_general')return withMaterials(e,await resolveTemplateMaterials(e,{message:await prepareGeneral(e,input,user),user}));
  if(input.action==='material_add'||input.action==='material_remove'||input.action==='material_attach'||input.action==='material_retry_without_attachments')return mutateDraftMaterial(e,input,user);
  if(input.action==='manual_start')return startManual(e,input,user);
  if(input.action==='response_create')return createResponse(e,input,user);
@@ -499,7 +502,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  if(input.action==='edit'){
   const m=await messageFor(e,input.id,user,true);await assertMessageTaskContext(e,m,input.taskId,user);if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
-  const updated={...m,subject:input.subject.trim(),body:input.body};if(m.channel==='email'&&!updated.subject)throw new Error('Asunto obligatorio');if(!input.body.trim())throw new Error('Mensaje vacío');if([...unresolvedTemplateVariables(updated.subject),...unresolvedTemplateVariables(input.body)].length)throw new Error('Completá o quitá las variables pendientes del asunto y del mensaje antes de guardar.');
+  const updated={...m,subject:input.subject.trim(),body:input.body};if(m.channel==='email'&&!updated.subject)throw new Error('Asunto obligatorio');if(!input.body.trim())throw new Error('Mensaje vacío');if([...unresolvedTemplateVariables(updated.subject),...unresolvedTemplateVariables(input.body)].length)throw new Error('Completá o quitá las variables pendientes del asunto y del mensaje antes de guardar.');if(hasMaterialReferences({text:updated.subject})||hasMaterialReferences({text:input.body}))throw new Error(UNRESOLVED_MATERIAL_MESSAGE);
   // Content is sanitized separately before preview and sending.
   const body=m.channel==='email'?sanitizeEmail(input.body):input.body;
   const final=await renderFinal(e,{...updated,body},user);

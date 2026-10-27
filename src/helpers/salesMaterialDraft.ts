@@ -10,6 +10,7 @@ import {appendMaterialLink,attachBlockReasons,materialShareUrl,megabytesLabel,re
 import {DRAFT_CHANGED_MESSAGE,MESSAGE_BODY_MAX_LENGTH} from '../endpoints/communication.schema';
 import {contentDisposition} from './salesMaterialTypes';
 import {r2Storage,type R2Storage} from './r2';
+import {UNRESOLVED_MATERIAL_MESSAGE,hasMaterialReferences} from './templateMaterials';
 
 /** Reason recorded when a link leaves a draft before it was ever sent (spec 89 §8.1). */
 export const REVOKE_REASONS={removed:'Quitado del borrador',cancelled:'Borrador cancelado',removedFromText:'Quitado del texto'} as const;
@@ -66,12 +67,14 @@ async function draftFor(e:Executor,input:{id:string;revision:number;taskId?:stri
 }
 /** Saves a new body like `edit` does: same length cap, sanitized for email; the final html/text are refreshed only if the draft had them (they mean «reviewed»). */
 async function saveBody(e:Executor,m:Message,body:string,user:User):Promise<Message>{
+ if(hasMaterialReferences({text:body}))throw new CommunicationConflict(UNRESOLVED_MATERIAL_MESSAGE);
  if(body.length>MESSAGE_BODY_MAX_LENGTH)throw new CommunicationConflict(`Con el enlace, el mensaje supera los ${MESSAGE_BODY_MAX_LENGTH.toLocaleString('es-AR')} caracteres. Acortá el texto antes de agregar material.`);
  const clean=m.channel==='email'?sanitizeEmail(body):body;
  const final=m.channel==='email'&&m.htmlBody?await renderFinal(e,{...m,body:clean},user):null;
  return (await sql<Message>`UPDATE crm_messages SET body=${clean},html_body=${final?final.htmlBody:m.htmlBody},text_body=${m.textBody==null?null:m.channel==='email'?final?.textBody??m.textBody:clean},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
 }
-async function assertAttachable(e:Executor,m:Message,shareId:string){
+/** Refuses (409) attaching that share of the draft: WhatsApp, external link, Brevo extension, size or the sum of the attachments (spec 89 §8.3). */
+export async function assertAttachable(e:Executor,m:Message,shareId:string){
  const rows=(await shareRows(e,[m.id])).rows.filter(r=>!r.revokedAt);const {maxEmailAttachmentBytes}=await salesMaterialConfig(e);
  const reason=attachBlockReasons({channel:m.channel as 'email'|'whatsapp',limitBytes:maxEmailAttachmentBytes,items:rows.map(r=>({id:r.shareId,source:r.source,fileName:r.fileName,byteSize:bytes(r),attach:r.shareId===shareId?false:r.attach}))})[shareId];
  if(reason)throw new CommunicationConflict(reason);
@@ -142,6 +145,7 @@ export type ClaimedMaterials={journal:{materialId:string;version:number;attach:b
  * re-checked against the Brevo extensions and the attachment limit.
  */
 export async function claimDraftMaterials(e:Executor,{message:m,user,storage}:{message:Message;user:User;storage?:R2Storage}):Promise<ClaimedMaterials>{
+ if([m.body,m.htmlBody??'',m.textBody??''].some(text=>hasMaterialReferences({text})))throw new CommunicationConflict(UNRESOLVED_MATERIAL_MESSAGE);
  const inBody=shareTokenHashesInBody({body:m.body});
  const rows=(await shareRows(e,[m.id],true,[...inBody])).rows;
  if(!rows.length&&!inBody.size)return {journal:[],attachments:[]};
