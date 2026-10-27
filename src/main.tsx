@@ -4,7 +4,7 @@ import {UnsavedNavigation} from './components/UnsavedChanges';
 const SalePage=React.lazy(()=>import('./pages/sale'));
 const ArchivedPage=React.lazy(()=>import('./pages/archived'));
 const GuidePage=React.lazy(()=>import('./pages/guide'));
-const LibraryPage=React.lazy(()=>import('./pages/library'));
+const SalesMaterialPage=React.lazy(()=>import('./pages/sales-material'));
 const PasswordRecoveryPage=React.lazy(()=>import("./pages/password-recovery"));
 import {RouteLoading} from "./components/RouteLoading";
 import { AppLayout } from "./components/AppLayout";
@@ -83,7 +83,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/archived" element={<AdminRoute><ArchivedPage/></AdminRoute>} />
             <Route path="/guide" element={<UserRoute><GuidePage/></UserRoute>} />
             <Route path="/userscript" element={<UserRoute><UserscriptPage/></UserRoute>} />
-            <Route path="/library" element={<AdminRoute><LibraryPage/></AdminRoute>} />
+            <Route path="/sales-material" element={<UserRoute><SalesMaterialPage/></UserRoute>} />
+            {/* «Material de venta» replaced the library (spec 89); old bookmarks keep working. */}
+            <Route path="/library" element={<Navigate to="/sales-material" replace />} />
             <Route path="/templates" element={<AdminRoute><TemplatesPage /></AdminRoute>} />
             <Route path="/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
             <Route path="/inbound" element={<AdminRoute><InboundPage /></AdminRoute>} />

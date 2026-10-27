@@ -7,7 +7,7 @@ import { vi } from "vitest";
 vi.mock("./useAuth", () => ({ useAuth: () => ({ authState: { type: "authenticated" } }) }));
 
 const LIVE_QUERY_KEYS=[
-  "communication","resources","data-quality","pipeline","work","commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
+  "communication","resources","sales-materials","data-quality","pipeline","work","commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
   "lead-journal","global-journal","global-journal-filtered","trash-leads",
 ];
 
@@ -116,7 +116,7 @@ describe("LiveModeProvider polling", () => {
     domains = { ...domains, communication: "2" };
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     const keys = invalidate.mock.calls.map(([filters]) => filters?.queryKey?.[0]);
-    expect(keys).toEqual(["communication", "resources", "data-quality", "commercial-detail", "settings", "lead-journal", "global-journal", "global-journal-filtered"]);
+    expect(keys).toEqual(["communication", "resources", "sales-materials", "data-quality", "commercial-detail", "settings", "lead-journal", "global-journal", "global-journal-filtered"]);
     expect(keys).not.toContain("leads");
     invalidate.mockClear();
     version = "v3";

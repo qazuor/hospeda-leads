@@ -43,8 +43,8 @@ Integration suites (`scripts/test-*.ts|mjs`) mutate the database and several rep
 - **Endpoints** come in pairs inherited from the Floot port:
   - `src/endpoints/<name>.schema.ts` holds the Zod input `schema`, the output types and the **client-side fetch function** (`fetch("/_api/...")` + SuperJSON). Pages and components call this function, usually through TanStack Query.
   - `src/endpoints/<name>.ts` exports `handle(request: Request)`, the server handler.
-  - Each handler is registered by hand in `src/server/index.ts` (`app.get('/_api/x', c => xGET(c.req.raw))`). A new endpoint touches all three places.
-- **Server** (`src/server/index.ts`): Hono app that serves `/_api/*`, the built SPA and the MCP server (`src/server/mcp/`, OAuth-protected; credentials table exists, the service is not enabled in production).
+  - Each handler is registered by hand in `src/server/app.ts` (`app.get('/_api/x', c => xGET(c.req.raw))`, before `applyStaticFallback`). A new endpoint touches all three places.
+- **Server** (`src/server/app.ts` builds the Hono app; `src/server/index.ts` starts it and the background timers): Hono app that serves `/_api/*`, the built SPA and the MCP server (`src/server/mcp/`, OAuth-protected; credentials table exists, the service is not enabled in production).
 - **Domain/helpers** (`src/helpers/`): DB access (`db.tsx`, Kysely with a snake_case↔camelCase plugin plus overrides for names with digits), generated table types (`schema.tsx`), session (`getServerUserSession.tsx`), permissions (`crmPermissions.ts`), date helpers (`crmDates.tsx`), search normalization, filters, history/audit.
 - **Migrations**: plain SQL in `migrations/NNN_*.sql`, applied in order by `scripts/migrate.mjs`, which records a sha256 checksum per file in `schema_migrations`.
 - Code map with file-level detail: `docs/mapa-tecnico.md`.

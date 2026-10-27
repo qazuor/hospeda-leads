@@ -139,9 +139,10 @@ try{
   assert.equal((await hook(event)).status,200);assert.equal((await hook('{"event":1}')).status,400);
   console.log('Webhook lock timeouts return 503');}
 
- // 8. Concurrent double submits of the same library document return the same id instead of a duplicate-key error.
+ // 8. Concurrent double submits of the same business document return the same id instead of a duplicate-key error.
  {const actor={id:u.id,email:u.email,displayName:u.displayName,fullName:null,avatarUrl:null,role:'admin'} as User;
-  for(let round=0;round<5;round++){const id=randomUUID();const create=()=>mutateResource(other,{action:'create',id,title:'Recurso concurrente '+round,type:'Guía',accountId:null,leadId:null,activityId:null,library:true,categoryId:null,version:{url:'https://example.com/recurso-'+round,expiresOn:null}},actor);
+  const docAccount=await db.insertInto('crmAccounts').values({nombre:'Concurrent documents '+randomUUID()}).returningAll().executeTakeFirstOrThrow();
+  for(let round=0;round<5;round++){const id=randomUUID();const create=()=>mutateResource(other,{action:'create',id,title:'Recurso concurrente '+round,type:'Guía',accountId:docAccount.id,leadId:null,activityId:null,library:false,categoryId:null,version:{url:'https://example.com/recurso-'+round,expiresOn:null}},actor);
    const results=await Promise.allSettled([create(),create()]);for(const r of results)assert.equal(r.status,'fulfilled',r.status==='rejected'?String(r.reason):'');
    assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_document_versions WHERE document_id=${id}::uuid`.execute(db)).rows[0].n),1);}
   console.log('Concurrent document creates are idempotent');}

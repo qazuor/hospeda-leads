@@ -1,6 +1,6 @@
 /** Query key prefixes refreshed by live mode, in invalidation order. */
 export const LIVE_QUERY_KEYS=[
-  "communication","resources","data-quality","pipeline","work","commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
+  "communication","resources","sales-materials","data-quality","pipeline","work","commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
   "lead-journal","global-journal","global-journal-filtered","trash-leads"
 ] as const;
 export type LiveQueryKey=typeof LIVE_QUERY_KEYS[number];
@@ -11,9 +11,10 @@ export type LiveQueryKey=typeof LIVE_QUERY_KEYS[number];
  * justified by the endpoint code, not by the page that usually shows the data.
  */
 export const LIVE_DOMAIN_QUERY_KEYS:Readonly<Record<string,readonly LiveQueryKey[]>>={
-  business:LIVE_QUERY_KEYS.filter(key=>key!=="settings"),
+  // Sales material (spec 89) reads only communication-domain tables.
+  business:LIVE_QUERY_KEYS.filter(key=>key!=="settings"&&key!=="sales-materials"),
   work:["work"],
-  communication:["communication","resources","data-quality","commercial-detail","settings","lead-journal","global-journal","global-journal-filtered"],
+  communication:["communication","resources","sales-materials","data-quality","commercial-detail","settings","lead-journal","global-journal","global-journal-filtered"],
   catalog:LIVE_QUERY_KEYS,
   journal:["data-quality","commercial-detail","analytics","lead-journal","global-journal","global-journal-filtered"],
 };

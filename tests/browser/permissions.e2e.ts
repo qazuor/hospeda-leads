@@ -26,8 +26,10 @@ test('seller can read a colleague business without editing or administrative con
  // Sellers get only Hoy · Negocios · Gestiones · Ayuda: no "Administración" menu at all.
  for(const name of ['Hoy','Negocios','Gestiones','Ayuda'])await expect(page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name,exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Administración',exact:true})).toHaveCount(0);
- for(const name of ['Configuración','Papelera','Negocios archivados','Materiales para ofrecer'])await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
- for(const path of ['/archived','/library','/settings','/history','/trash','/analytics']){
+ for(const name of ['Configuración','Papelera','Negocios archivados'])await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
+ // «Material de venta» (spec 89) is for every user; the old /library path now redirects there.
+ await expect(page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Material de venta',exact:true})).toBeVisible();
+ for(const path of ['/archived','/settings','/history','/trash','/analytics']){
   await page.goto(path);
   await expect(page.getByRole('heading',{name:'Acceso denegado',exact:true})).toBeVisible();
  }

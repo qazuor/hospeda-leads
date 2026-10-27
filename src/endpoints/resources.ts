@@ -19,7 +19,8 @@ export async function get(request:Request){try{
  const search=z.string().max(200).parse(params.get('search')??'');
  const rows=(await sql<ResourceDocument>`
   SELECT d.* FROM crm_documents d WHERE d.deleted_at IS NULL
-  AND (${accountId}::bigint IS NULL AND d.library OR d.account_id=${accountId}::bigint
+  -- The old library (library=true without an account) is no longer listed: spec 89 replaced it with sales material. Rows stay in the database.
+  AND (d.account_id=${accountId}::bigint
    OR EXISTS(SELECT 1 FROM crm_document_links l WHERE l.document_id=d.id AND l.account_id=${accountId}::bigint
     AND (${user.role==='admin'} OR l.lead_id IS NULL OR EXISTS(SELECT 1 FROM leads cl WHERE cl.id=l.lead_id AND cl.deleted_at IS NULL))))
   AND (${leadId}::bigint IS NULL OR d.lead_id=${leadId}::bigint

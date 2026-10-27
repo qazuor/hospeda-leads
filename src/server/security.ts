@@ -1,23 +1,34 @@
 import type { Hono, MiddlewareHandler } from "hono";
 import superjson from "superjson";
 import { logLine } from "./observability";
+import { r2Origin } from "../helpers/r2";
 
-/** Content-Security-Policy applied in REPORT-ONLY mode (decision D-13: collect violations before enforcing). */
-export const CSP_REPORT_ONLY = [
-  "default-src 'self'",
-  "script-src 'self'",
-  // Mantine and the inline `@layer` declaration in index.html need inline styles; Google Fonts CSS is imported from the stylesheets.
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  // Material previews use blob: URLs and PDF thumbnails data: URLs; pdf.js runs in a worker served from /assets (or a blob).
-  "img-src 'self' data: blob:",
-  "connect-src 'self'",
-  "worker-src 'self' blob:",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
+/**
+ * Content-Security-Policy applied in REPORT-ONLY mode (decision D-13: collect violations before enforcing).
+ * `r2Origin` is the private R2 S3 endpoint (spec 89 §6.3): the browser uploads to it (connect-src) and shows presigned files from it (img/media/frame).
+ */
+export function cspReportOnly({ r2Origin }: { r2Origin: string | null }): string {
+  const r2 = r2Origin ? ` ${r2Origin}` : "";
+  return [
+    "default-src 'self'",
+    "script-src 'self'",
+    // Mantine and the inline `@layer` declaration in index.html need inline styles; Google Fonts CSS is imported from the stylesheets.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    // Material previews use blob: URLs and PDF thumbnails data: URLs; pdf.js runs in a worker served from /assets (or a blob).
+    `img-src 'self' data: blob:${r2}`,
+    `media-src 'self' blob:${r2}`,
+    `frame-src 'self'${r2}`,
+    `connect-src 'self'${r2}`,
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+}
+/** The report-only CSP for this process (R2 origin read once from the environment at startup). */
+export const CSP_REPORT_ONLY = cspReportOnly({ r2Origin: r2Origin() });
 
 /** Bearer-token clients without browser cookies: they are not CSRF-able, so the Origin check skips them. */
 export const ORIGIN_GUARD_EXEMPT_PATHS: ReadonlySet<string> = new Set(["/_api/brevo/events", "/_api/business_import", "/_api/inbound/email", "/_api/inbound/addresses", "/_api/inbound/instagram", "/_api/userscript/register"]);

@@ -1,4 +1,4 @@
-import { Archive, BookOpen, CalendarDays, CheckCheck, Copy, History, Inbox, Mail, RotateCcw, Settings, Store, Trash2, Upload, Workflow, BarChart3 } from 'lucide-react';
+import { Archive, BookOpen, Presentation, CalendarDays, CheckCheck, Copy, History, Inbox, Mail, RotateCcw, Settings, Store, Trash2, Upload, Workflow, BarChart3 } from 'lucide-react';
 import { VOCAB } from '../content/vocabulary';
 
 /** Destinations in the work section. */
@@ -10,6 +10,10 @@ export const workNavigation = [
 export const recordNavigation = [
   { url: '/accounts', label: VOCAB.businesses, description: 'Establecimientos y sus datos', keywords: 'cuentas', icon: Store },
   { url: '/opportunities', label: VOCAB.managements, description: 'Propuestas y seguimiento comercial', keywords: 'gestiones comerciales tablero etapas', icon: Workflow },
+] as const;
+/** Team tools available to every user. «Material de venta» replaced the old library (spec 89 D1). */
+export const toolNavigation = [
+  { url: '/sales-material', label: 'Material de venta', description: 'Fotos, PDF, videos y presentaciones para ofrecer', keywords: 'biblioteca materiales para ofrecer documentos folletos', icon: Presentation },
 ] as const;
 /** Admin-only destinations, including the archived business view. */
 export const adminNavigation = [
@@ -39,7 +43,7 @@ export type TodayView = typeof todayViews[number]['view'];
 /** Reads ?view= of Hoy; unknown values fall back to Lista. */
 export const parseTodayView = ({ value }: { value: string | null }): TodayView => todayViews.find(item => item.view === value)?.view ?? 'list';
 /** Header label for a primary section. */
-export const sectionTitle = ({ pathname }: { pathname: string }): string | null => pathname.startsWith('/sales/') ? VOCAB.managements : mainNavigation.find(item => pathname===item.url||pathname.startsWith(item.url+'/'))?.label ?? null;
+export const sectionTitle = ({ pathname }: { pathname: string }): string | null => pathname.startsWith('/sales/') ? VOCAB.managements : [...mainNavigation, ...toolNavigation].find(item => pathname===item.url||pathname.startsWith(item.url+'/'))?.label ?? null;
 /** Product name used as the browser tab title outside a section. */
 export const APP_TITLE = 'Hospeda CRM';
 /** Browser tab title for a section. */
@@ -56,6 +60,6 @@ export function breadcrumbTrail({ pathname, search, isAdmin, pageLabel }: { path
   if (pathname.startsWith('/accounts/')) return [{ label: VOCAB.businesses, url: '/accounts' }, { label: pageLabel || 'Ficha' }];
   const section = pathname === '/accounts' ? VOCAB.businesses : sectionTitle({ pathname });
   if (section) return [{ label: section }];
-  const extraAdmin = isAdmin ? ({ '/library': 'Materiales para ofrecer', '/templates': 'Modelos de mensaje' } as Record<string, string>)[pathname] : undefined;
+  const extraAdmin = isAdmin ? ({ '/templates': 'Modelos de mensaje' } as Record<string, string>)[pathname] : undefined;
   return extraAdmin ? [{ label: 'Administración' }, { label: extraAdmin }] : [{ label: pageLabel || 'Hospeda CRM' }];
 }

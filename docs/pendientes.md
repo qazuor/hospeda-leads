@@ -12,6 +12,10 @@ Specs 87 (#262) y 88 (#260), mergeadas en `staging` el 26/10/2026. **Para produc
 
 Límites conocidos de la 88: el token pegado no se valida contra Meta al guardarlo, y viaja como parámetro de la URL a `graph.instagram.com`.
 
+## Material de venta (spec 89)
+
+- F1 en PR. Pendientes: F2 página pública `/m/<token>` con Open Graph, F3 composer + adjunto por email, F4 materiales en modelos y user script. Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
+
 ## Rediseño visual (v1 por fases)
 
 Vistas fijadas (#245), orden de columnas (#247, #250), Bandeja (#249) y los ajustes de la revisión del 26/10 (#254, #255, #258, #259 y encabezados con ayuda) están en `staging`. Pendiente: revisión del propietario (celular real, modo oscuro, vista de vendedor) y su «terminamos» para pasar a `main`. Unos 35 e2e todavía escriben `hospeda-live-mode=off`, que ahora no tiene efecto: limpiarlos cuando se toquen.

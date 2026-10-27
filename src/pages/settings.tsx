@@ -10,7 +10,7 @@ import { NativeSelect } from '../components/NativeSelect';
 import {BusinessListDefaults} from '../components/BusinessListDefaults';
 import {ClassificationSettings} from "../components/ClassificationSettings";
 import {SectionTabs, SectionTabList, SectionTab, SectionTabPanel} from "../components/SectionTabs";
-import {ResourcesPanel} from "../components/ResourcesPanel";
+import {SalesMaterialCategories} from "../components/SalesMaterialCategories";
 import {PipelineSettings} from "../components/PipelineSettings";
 import {WorkTypesSettings} from "../components/WorkTypesSettings";
 import {BusinessReassignment} from "../components/BusinessReassignment";
@@ -19,7 +19,7 @@ import {InstagramIntegration} from '../components/InstagramIntegration';
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users, Variable } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/Dialog";
@@ -31,8 +31,8 @@ import { getSettings, type OperationalUser } from "../endpoints/settings_GET.sch
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import styles from "./settings.module.css";
 
-type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"variables"|"library"|"system";
-const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","variables","library","system"];
+type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"variables"|"materialCategories"|"system";
+const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","variables","materialCategories","system"];
 
 export default function SettingsPage(){
   const qc=useQueryClient();
@@ -88,10 +88,12 @@ export default function SettingsPage(){
     {key:"communication" as const,label:"Comunicación",icon:Mail},
     {key:"templates" as const,label:"Modelos de mensajes",icon:FileText},
     {key:"variables" as const,label:"Variables de texto",icon:Variable},
-    {key:"library" as const,label:"Biblioteca",icon:FileText},
+    {key:"materialCategories" as const,label:"Categorías de material",icon:FileText},
     {key:"system" as const,label:"Sistema",icon:SlidersHorizontal},
   ];
 
+  // The library section was replaced by «Material de venta» (spec 89); old links land on the new page.
+  if(params.get("section")==="library")return <Navigate to="/sales-material" replace/>;
   return <>
     
     <main className={styles.shell}>
@@ -144,7 +146,7 @@ export default function SettingsPage(){
         </article>
       </section>}
 
-      {section==="library"&&<section className={styles.content}><ResourcesPanel manageLibrary/></section>}
+      {section==="materialCategories"&&<section className={styles.content}><SalesMaterialCategories/></section>}
 
       {section==="templates"&&<section className={styles.templatesSection}><TemplatesContent/></section>}
 

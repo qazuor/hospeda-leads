@@ -35,7 +35,7 @@ const events=sql`WITH raw_events AS (
  j.created_at,'communication'
  FROM crm_communication_journal j LEFT JOIN users u ON u.email=j.triggered_by_email
  ), events AS (
- SELECT e.id,e.lead_id,e.account_id,coalesce(e.lead_name,a.nombre,'Configuración / biblioteca') AS lead_name,
+ SELECT e.id,e.lead_id,e.account_id,coalesce(e.lead_name,a.nombre,'Configuración / material de venta') AS lead_name,
  coalesce(e.lead_city,a.ciudad) AS lead_city,coalesce(e.lead_type,a.tipo) AS lead_type,
  NULL::integer AS actor_user_id,e.actor_email,coalesce(e.actor_name,u.display_name,e.actor_email,'Sistema') AS actor_name,
  e.action,e.field_name,e.old_value,e.new_value,e.metadata,e.created_at,e.source,
