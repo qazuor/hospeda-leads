@@ -32,7 +32,9 @@ Estado: aprobada por el propietario — 26/10/2026. Resuelve las cuatro pregunta
 - **Qué cambia en `response_create`:** admite `resolveTaskIds: uuid[]`, con hasta 20 ids. En el servidor, en la misma transacción:
   - cada tarea tiene que estar pendiente, ser de esa gestión o de su negocio sin gestión, y el usuario tiene que poder registrar su resultado;
   - si una no cumple, se rechaza la respuesta entera, sin registro parcial;
-  - las tareas tildadas se completan con el resultado «Resuelta por la respuesta del cliente» y el vínculo `communication_response_id` a la respuesta, que ya existe;
+  - las tareas tildadas se completan con el resultado «Resuelta por la respuesta del cliente». Solo puede resolverlas el asignado de la tarea o un administrador, la misma regla que al completar una tarea desde Trabajo;
+  - el vínculo con la respuesta es la actividad creada (con `taskId`) y la entrada `response_task_resolved` del journal, que nombra `responseId`, `taskId` y `activityId`. Las tareas **no** usan `communication_response_id`: esa columna tiene un índice único parcial (migración 022) que ya usa el recordatorio de «Más adelante». Decisión del 26/10/2026. Así una respuesta resuelve hasta 20 tareas y además crea su recordatorio;
+  - una lista con ids repetidos se rechaza, y reintentar el mismo id de respuesta con otras tareas es un conflicto (409), no un éxito silencioso;
   - el reintento idempotente de la misma respuesta no vuelve a completar nada.
 - **Lo que no cambia:** nada se completa ni se cancela sin que el vendedor lo tilde. Las secuencias asistidas mantienen su regla.
 

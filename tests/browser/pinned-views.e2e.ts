@@ -4,6 +4,8 @@ async function login(page:Page){await page.goto('/login');await page.getByLabel(
 /** Each test starts from the team bar: a failed run must not leak pins into later specs. Runs in the page because the session cookie is Secure and Playwright's API client drops it over http. */
 async function resetPins(page:Page){const statuses=await page.evaluate(async()=>Promise.all(['business','opportunity'].map(async entity=>(await fetch('/_api/view_pins',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({json:{entity,config:null}})})).status)));expect(statuses).toEqual([200,200]);}
 async function openPanel(page:Page){await page.getByRole('button',{name:/^Abrir más vistas/}).click();await page.getByRole('menuitem',{name:'Elegir vistas de la barra…'}).click();const panel=page.getByRole('dialog',{name:'Elegir vistas de la barra'});await expect(panel).toBeVisible();return panel;}
+/** A handle's box right after the panel opens can still move (the panel docks and lays out as data arrives), and a drag aimed at a stale box lands beside the handle and selects text instead. Waits until the box is identical across consecutive frames before the mouse uses it. */
+async function settledBox(target:Locator){let last='',same=0,box=await target.boundingBox();for(let attempt=0;attempt<100&&same<5;attempt++){await target.page().evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));box=await target.boundingBox();const key=JSON.stringify(box);same=key===last?same+1:0;last=key;}return box;}
 const row=(panel:Locator,name:string)=>panel.getByRole('button',{name:`Reordenar ${name}`}).locator('..');
 async function barNames(page:Page){return page.getByRole('region',{name:'Vistas guardadas'}).getByRole('button').allTextContents();}
 
@@ -28,7 +30,7 @@ test('management unpinned view stays in «Más vistas» after reload',async({pag
 
 test('business views reorder with a mouse drag from the handle and show the drop line',async({page})=>{
  await page.goto('/accounts');await expect(page.getByRole('button',{name:'Aplicar vista del sistema Para hoy'})).toBeVisible();const panel=await openPanel(page);
- const from=await panel.getByRole('button',{name:'Reordenar Para hoy'}).boundingBox(),to=await panel.getByRole('button',{name:'Reordenar Vencidos'}).boundingBox();expect(from).not.toBeNull();expect(to).not.toBeNull();if(!from||!to)return;
+ const from=await settledBox(panel.getByRole('button',{name:'Reordenar Para hoy'})),to=await settledBox(panel.getByRole('button',{name:'Reordenar Vencidos'}));expect(from).not.toBeNull();expect(to).not.toBeNull();if(!from||!to)return;
  const x=from.x+from.width/2,startY=from.y+from.height/2,endY=to.y+to.height*0.9;await page.mouse.move(x,startY);await page.mouse.down();
  let indicatorSeen=false;for(let step=1;step<=10;step++){await page.mouse.move(x,startY+(endY-startY)*step/10,{steps:3});if(await panel.getByTestId('pin-drop-indicator').isVisible().catch(()=>false))indicatorSeen=true;}
  expect(indicatorSeen).toBe(true);await page.mouse.up();await expect(panel.getByTestId('pin-drop-indicator')).toHaveCount(0);await panel.getByRole('button',{name:'Guardar',exact:true}).click();await expect(panel).toBeHidden();

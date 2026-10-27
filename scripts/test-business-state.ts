@@ -112,7 +112,8 @@ try{
  await call(commercialPost,'commercial',{action:'business_status',accountId:wonBusiness,status:'reviewed'});
  const sale=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:wonBusiness,managementType:'main',opportunityName:'Alta comercial'},admin);
  const winReason=(await readPipeline(sale.id)).managementReasons.find(r=>r.managementType==='main'&&r.outcomeKey==='won'&&r.reasonKey==='accepted')!;
- await transition(sale.id,'main:won',{reasonId:winReason.id});
+ await transition(sale.id,'main:won',{reasonId:winReason.id},admin,400);// Spec 87: a win that marks the business as Cliente requires the agreement.
+ await transition(sale.id,'main:won',{reasonId:winReason.id,closing:{agreement:'Plan anual acordado',person:'Titular del negocio',material:'',responsible:'',deliveryDate:null,reviewed:false}});
  state=await db.selectFrom('crmAccounts').select(['isClient','commercialStatus']).where('id','=',wonBusiness).executeTakeFirstOrThrow();
  assert.equal(state.isClient,true);
  const care=await call(commercialPost,'commercial',{action:'opportunity_save',accountId:wonBusiness,managementType:'accompaniment',opportunityName:'Acompañamiento de ficha'},admin);

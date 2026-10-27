@@ -1,5 +1,14 @@
 # Estado del CRM — corte al 26 de octubre de 2026
 
+## Spec 87 — reglas comerciales — PR #262 a `staging` (26/10/2026)
+
+- Cerrar como Cliente exige acuerdo y persona aceptante (3 caracteres útiles); editar ese acuerdo no permite vaciar los dos datos. Se marca la evidencia nueva con `markedClient` en el evento `closing_checklist`, sin inferir decisiones para eventos antiguos.
+- Registrar respuesta permite seleccionar tareas pendientes de la gestión; solo las seleccionadas se completan y se vinculan a la respuesta en la misma transacción. La repetición idempotente no vuelve a completar tareas.
+- El asignado a una tarea pendiente puede preparar, editar y enviar email/WhatsApp desde «Contactar» de esa tarea. Se valida de nuevo en cada escritura y envío; el historial identifica al delegado y al responsable.
+- Migración `044_delegated_messages.sql`: `delegated_task_id bigint` (tipo real de `crm_tasks.id`) y su índice. Pagos no se registran.
+- Guía en pantalla y Markdown actualizados. Suites de integración extendidas en `test-pipeline.ts` y `test-communication.ts`.
+- Verificación local: `npm run typecheck`, `npm test -- --maxWorkers=2` (175 archivos, 1.246 pruebas) y `npm run build` pasaron. El reporte indica comandos y límites. Las suites de integración se ampliaron, pero no se ejecutaron por instrucción.
+
 ## Ajustes de la revisión del propietario sobre staging — 26/10/2026
 
 - Mergeados a `staging`, sin deploy: Bandeja como chat, letra más chica y «Volver a los resultados» con la búsqueda en la URL (#255, `8922d65`); rediseño de la página del user script (#254, `85c5e5b`); tablas de Gestiones y Negocios igualadas, con acciones siempre visibles como íconos (#258, `e887ffd`); menú de usuario en la barra superior con el user script adentro, «En vivo» informativo y siempre activo, títulos de grupo en negrita y paneles laterales que entran deslizando en escritorio (#259, `4d75254`).

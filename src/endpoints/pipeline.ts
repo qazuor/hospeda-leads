@@ -13,6 +13,7 @@ import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {setWorkActor} from '../helpers/workAudit';
 import {calendarDay,localDay} from '../helpers/workDates';
 import {suggestPriority} from '../helpers/priorityRules';
+import {closeMarksClient,validClosingAgreement} from '../helpers/closingAgreement';
 import {pipelineMutation,priorityRule,type PipelineStage,type PipelineCatalog,type PipelineReason,type PipelineInsight,type PipelineEvent,type PipelineObjection,type ReactivationRow} from './pipeline.schema';
 import {isValidReactivationStage,mayReopenManagement} from '../helpers/reactivation';
 import {day} from './work.schema';
@@ -125,7 +126,10 @@ export async function post(request:Request){
     if(stage?.classification!=='won')throw new Error('El acuerdo corresponde a una gestión ganada.');
     const previous=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='closing_checklist' ORDER BY id DESC LIMIT 1`.execute(trx)).rows[0];
     if((previous?.id??null)!==p.expectedEventId)throw new Conflict('El acuerdo cambió. Volvé a abrirlo para revisar la última versión.');
-    await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,previousEventId:previous?.id??null});
+    // The flag is carried forward on every save (or derived from the management type: main/partner wins always mark), so a later save cannot drop the customer evidence.
+    const markedClient=(!!previous?.metadata&&typeof previous.metadata==='object'&&'markedClient' in previous.metadata&&previous.metadata.markedClient===true)||closeMarksClient({managementType:typedLead.managementType,stage:stage.name,outcomeKey:stage.outcomeKey,convertClient:false});
+    if(markedClient&&!validClosingAgreement(p.closing))throw new Error('Completá qué se acordó y quién aceptó para marcar al negocio como Cliente.');
+    await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,markedClient,previousEventId:previous?.id??null});
     return lead.id;
    }
    if(p.action==='transition'){
@@ -143,6 +147,8 @@ export async function post(request:Request){
     if(typed&&p.recontactDate&&chosen.classification==='open')throw new Error('La fecha de recontacto solo se registra al cerrar la gestión.');
     if(typed&&p.onboarding)throw new Error('El acompañamiento de ficha se inicia como una gestión independiente.');
     if((p.convertClient||p.onboarding||p.closing)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una gestión ganada.');
+    const marksClient=closeMarksClient({managementType:typed,stage:chosen.name,outcomeKey:chosen.outcomeKey,convertClient:p.convertClient});
+    if(marksClient&&(!p.closing||!validClosingAgreement(p.closing)))throw new Error('Completá qué se acordó y quién aceptó para marcar al negocio como Cliente.');
     const referral=!!typed&&chosen.name===`${typed}:leandro`;
     const typedDnc=typed&&chosen.outcomeKey&&p.reasonId?(await sql<{id:string}>`SELECT id FROM crm_management_reasons WHERE id=${p.reasonId} AND management_type=${typed} AND outcome_key=${chosen.outcomeKey} AND do_not_contact AND active`.execute(trx)).rows[0]:null;
     if(typedDnc&&p.recontactDate)throw new Error('Un negocio marcado para no contactar se archiva y no se programa recontacto.');
@@ -204,7 +210,7 @@ export async function post(request:Request){
       }
      }
     }
-    if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false});
+    if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,markedClient:marksClient});
     if(p.onboarding){
      const winsAsClient=!!typed&&chosen.classification==='won'&&((typed==='main'||typed==='partner')||(typed==='editor'&&chosen.outcomeKey==='proposal_won'&&p.convertClient));
      if(!stateAccount.isClient&&!p.convertClient&&!winsAsClient)throw new Error('El acompañamiento requiere que el negocio sea Cliente.');

@@ -90,6 +90,50 @@ try{
   await mutate({action:'transition',leadId:typed.id,revision:await typedRevision(),stage:'main:contacted'},admin.cookie);
   assert.equal((await db.selectFrom('leads').select('estado').where('id','=',typed.id).executeTakeFirstOrThrow()).estado,'main:contacted');
  }
+ // Spec 87: customer-marking wins require a useful agreement; non-client wins stay optional and later edits cannot empty customer evidence.
+ {
+  const agreement={agreement:'Plan anual acordado',person:'Ana Pérez',material:'',responsible:'',deliveryDate:null,reviewed:false};
+  const customerWin=async(type:'main'|'partner')=>{
+   const account=await db.insertInto('crmAccounts').values({nombre:`Rules ${type} ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+   const lead=await db.insertInto('leads').values({accountId:account.id,nombre:account.nombre,estado:`${type}:contact`,managementType:type,assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+   assert.equal((await db.selectFrom('crmAccounts').select('isClient').where('id','=',account.id).executeTakeFirstOrThrow()).isClient,false,'Precondition: business is not yet a client');
+   const reason=d.managementReasons.find(r=>r.managementType===type&&r.outcomeKey==='won'&&r.active&&!r.requiresNote)!;const missing={action:'transition',leadId:String(lead.id),revision:lead.pipelineRevision,stage:`${type}:won`,reasonId:reason.id};
+   const rejected=await post(request(missing));assert.equal(rejected.status,400);assert.match(superjson.parse<{error:string}>(await rejected.text()).error,/Completá qué se acordó/);
+   assert.equal((await db.selectFrom('leads').select('estado').where('id','=',lead.id).executeTakeFirstOrThrow()).estado,`${type}:contact`,'Rejected close must not change stage');
+   const revision=(await db.selectFrom('leads').select('pipelineRevision').where('id','=',lead.id).executeTakeFirstOrThrow()).pipelineRevision;
+   await mutate({...missing,revision,closing:agreement});
+   assert.equal((await db.selectFrom('crmAccounts').select('isClient').where('id','=',account.id).executeTakeFirstOrThrow()).isClient,true);
+   let current=await db.selectFrom('leads').select('pipelineRevision').where('id','=',lead.id).executeTakeFirstOrThrow();
+   const evidence=await read('leadId='+lead.id);const closeEvent=evidence.events.find(e=>e.action==='closing_checklist')!;
+   assert.equal((closeEvent.metadata as {markedClient:boolean}).markedClient,true);
+   await mutate({action:'closing_save',leadId:String(lead.id),revision:current.pipelineRevision,expectedEventId:closeEvent.id,closing:{...agreement,agreement:'  ',person:'  '}},user.cookie,400);
+   current=await db.selectFrom('leads').select('pipelineRevision').where('id','=',lead.id).executeTakeFirstOrThrow();
+   await mutate({action:'closing_save',leadId:String(lead.id),revision:current.pipelineRevision,expectedEventId:closeEvent.id,closing:agreement});
+   // Regression (H3): the customer flag is carried by every save, so a 2nd save cannot empty the agreement.
+   const second=(await sql<{id:string;metadata:unknown}>`SELECT id,metadata FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='closing_checklist' ORDER BY id DESC LIMIT 1`.execute(db)).rows[0];
+   assert.equal((second.metadata as {markedClient?:boolean}).markedClient,true,'closing_save carries markedClient forward');
+   current=await db.selectFrom('leads').select('pipelineRevision').where('id','=',lead.id).executeTakeFirstOrThrow();
+   await mutate({action:'closing_save',leadId:String(lead.id),revision:current.pipelineRevision,expectedEventId:second.id,closing:{...agreement,agreement:'',person:''}},user.cookie,400);
+  };
+  await customerWin('main');await customerWin('partner');
+  const providerAccount=await db.insertInto('crmAccounts').values({nombre:`Rules provider ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const provider=await db.insertInto('leads').values({accountId:providerAccount.id,nombre:providerAccount.nombre,estado:'provider:contact',managementType:'provider',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const providerReason=d.managementReasons.find(r=>r.managementType==='provider'&&r.outcomeKey==='participates'&&r.active&&!r.requiresNote)!;await mutate({action:'transition',leadId:String(provider.id),revision:provider.pipelineRevision,stage:'provider:participates',reasonId:providerReason.id});
+  assert.equal((await db.selectFrom('crmAccounts').select('isClient').where('id','=',providerAccount.id).executeTakeFirstOrThrow()).isClient,false);
+  const editorAccount=await db.insertInto('crmAccounts').values({nombre:`Rules editor ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const editor=await db.insertInto('leads').values({accountId:editorAccount.id,nombre:editorAccount.nombre,estado:'editor:proposal_preparing',managementType:'editor',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const editorReason=d.managementReasons.find(r=>r.managementType==='editor'&&r.outcomeKey==='proposal_won'&&r.active&&!r.requiresNote)!;await mutate({action:'transition',leadId:String(editor.id),revision:editor.pipelineRevision,stage:'editor:proposal_won',reasonId:editorReason.id,convertClient:false});
+  assert.equal((await db.selectFrom('crmAccounts').select('isClient').where('id','=',editorAccount.id).executeTakeFirstOrThrow()).isClient,false);
+  const editorClientAccount=await db.insertInto('crmAccounts').values({nombre:`Rules editor client ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const editorClient=await db.insertInto('leads').values({accountId:editorClientAccount.id,nombre:editorClientAccount.nombre,estado:'editor:proposal_preparing',managementType:'editor',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const convert={action:'transition',leadId:String(editorClient.id),revision:editorClient.pipelineRevision,stage:'editor:proposal_won',reasonId:editorReason.id,convertClient:true};
+  await mutate(convert,user.cookie,400);assert.equal((await db.selectFrom('leads').select('estado').where('id','=',editorClient.id).executeTakeFirstOrThrow()).estado,'editor:proposal_preparing');
+  await mutate({...convert,closing:agreement});assert.equal((await db.selectFrom('crmAccounts').select('isClient').where('id','=',editorClientAccount.id).executeTakeFirstOrThrow()).isClient,true);
+  const legacyAccount=await db.insertInto('crmAccounts').values({nombre:`Rules legacy ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const legacyLead=await db.insertInto('leads').values({accountId:legacyAccount.id,nombre:legacyAccount.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const legacy={action:'transition',leadId:String(legacyLead.id),revision:legacyLead.pipelineRevision,stage:'Ganada',convertClient:true};
+  await mutate(legacy,user.cookie,400);await mutate({...legacy,closing:agreement});
+ }
  // Board totals past the 500-row cap: real counts per classification, truncated flag, and per stage/type groups.
  {
   const stages=await db.selectFrom('crmStages').select(['name','classification']).execute();

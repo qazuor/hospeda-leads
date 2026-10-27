@@ -17,6 +17,7 @@ import {getCommercialDetail} from '../endpoints/commercial.schema';
 import type {WorkTask} from '../endpoints/work.schema';
 import {useAuth} from '../helpers/useAuth';
 import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
+import {canPrepareDelegatedMessage} from '../helpers/delegatedMessagePolicy';
 import {initialCommunicationRecipient} from '../helpers/communicationRecipient';
 import {userLabel} from '../helpers/crmLabels';
 import {VOCAB} from '../content/vocabulary';
@@ -35,7 +36,7 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
  const [messageChannel,setMessageChannel]=useState<'email'|'whatsapp'|null>(null);
  const [contactId,setContact]=useState(''),[usedChannel,setUsedChannel]=useState('');
  const opportunity=q.data?.opportunities.find(o=>String(o.id)===String(task.leadId)&&!o.deletedAt);
- const canPrepare=task.leadId?canModifyManagement(user,opportunity,q.data?.account):canModifyBusiness(user,q.data?.account)||!!q.data?.opportunities.some(o=>canModifyManagement(user,o,q.data?.account));
+ const canPrepare=task.leadId?(canModifyManagement(user,opportunity,q.data?.account)||canPrepareDelegatedMessage({taskPending:task.status==='pending',taskAssigneeEmail:task.assignedUserEmail,managementOwnerEmail:opportunity?.assignedUserEmail??null,userEmail:user?.email??null,admin:user?.role==='admin',doNotContact:q.data?.account.doNotContact===true})):canModifyBusiness(user,q.data?.account)||!!q.data?.opportunities.some(o=>canModifyManagement(user,o,q.data?.account));
  const availableContacts=q.data?.contacts.filter(c=>!c.deletedAt)??[];
  const initialRecipient=initialCommunicationRecipient(availableContacts.map(c=>String(c.id)));
  const effective=contactId==='__business'?'':contactId||initialRecipient;
@@ -50,7 +51,7 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
  if(restoreExisting)return null;
  if(messageChannel&&q.data){
   if(!task.leadId)return <BusinessContactDialog detail={q.data} initialChannel={messageChannel} initialContactId={effective} onLog={onLog} onClose={closeMessage}/>;
-  if(opportunity)return <ContactTemplateDialog open channel={messageChannel} initialContactId={effective} lead={{...q.data.account,...opportunity,nombre:q.data.account.nombre,email:q.data.account.email,telefono:q.data.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onOpenChange={v=>{if(!v)closeMessage()}}/>;
+  if(opportunity)return <ContactTemplateDialog open taskId={task.leadId&&user&&user.role!=='admin'&&opportunity?.assignedUserEmail!==user.email?task.id:undefined} channel={messageChannel} initialContactId={effective} lead={{...q.data.account,...opportunity,nombre:q.data.account.nombre,email:q.data.account.email,telefono:q.data.account.telefono}} templates={settings.data?.templates??[]} onLog={onLog} onOpenChange={v=>{if(!v)closeMessage()}}/>;
  }
  return <CrmDialog opened onClose={onClose} title="Contactar negocio" description="Elegí el destinatario y prepará el mensaje antes de abrir el canal. Después registrá qué pasó y cómo continuar.">
   <WorkFlowSteps current={0}/>
@@ -63,7 +64,7 @@ export function TaskContactDialog({task,onClose,onLog}:{task:WorkTask;onClose:()
    {!mustChooseRecipient&&<PersonPhoneDncNotice businesses={contact?.dncPhoneBusinesses}/>}
    {(blocked('whatsapp')||blocked('email')||blocked('call'))&&<p role="status">Algunos canales están restringidos. Solo mostramos las acciones permitidas.</p>}
    {task.leadId&&!opportunity&&<p role="alert">La gestión de esta tarea ya no está disponible. Revisá la tarea antes de preparar un mensaje.</p>}
-   {!canPrepare&&<p>La tarea asignada te permite registrar su resultado. Para preparar mensajes necesitás ser responsable de la gestión o administrador; la asignación de esta tarea no cambia esos permisos.</p>}
+   {!canPrepare&&<p>Para preparar mensajes, necesitás ser responsable de la gestión o admin. Si sos delegado, usá la tarea pendiente que está asignada a vos.</p>}
    {!task.leadId&&<p>Para escribir abrimos Contactar: podés hacerlo sin gestión o elegir una. Esta tarea sigue siendo general.</p>}
    <div className={styles.actions}>
     {!!phone?.replace(/\D/g,'')&&!blocked('whatsapp')&&<Button variant="default" leftSection={<MessageCircle size={18} aria-hidden="true"/>} disabled={!canPrepare||mustChooseRecipient} disabledReason={mustChooseRecipient?'Elegí explícitamente a quién contactar.':'Solo el responsable de esta gestión o un administrador puede preparar mensajes; la tarea asignada no otorga ese permiso.'} onClick={()=>{setUsedChannel('whatsapp');setMessageChannel('whatsapp')}}>Preparar WhatsApp con un mensaje modelo</Button>}
