@@ -2,7 +2,7 @@
 
 Borrador para revisión del propietario. Describe todo lo que hay en `staging` y no está en `main`, y los pasos para promoverlo y desplegarlo. **Este documento no autoriza nada**: la promoción, el deploy y cualquier operación sobre datos de producción necesitan la orden explícita del propietario en la conversación (ver `AGENTS.md`).
 
-Hechos tomados de git al 27/10/2026 sobre `origin/staging` = `5eedb32` (CI verde en ese SHA según `gh run list`). Todo lo que no se pudo comprobar desde el repo está marcado **(verificar)**. Si `staging` avanza antes de promover (por ejemplo la spec 90, que a esta fecha no está mergeada), rehacer las secciones 1, 3.2 y 3.3 con `git log --first-parent origin/main..origin/staging` y `git diff --name-only origin/main origin/staging -- migrations/`.
+Hechos tomados de git al 27/10/2026 sobre `origin/staging` = `5eedb32`, actualizado con la spec 90 (`92e65f5`) (CI verde en ese SHA según `gh run list`). Todo lo que no se pudo comprobar desde el repo está marcado **(verificar)**. Si `staging` avanza antes de promover (por ejemplo la spec 90, que a esta fecha no está mergeada), rehacer las secciones 1, 3.2 y 3.3 con `git log --first-parent origin/main..origin/staging` y `git diff --name-only origin/main origin/staging -- migrations/`.
 
 ## 1. Qué va a producción
 
@@ -23,9 +23,10 @@ Hechos tomados de git al 27/10/2026 sobre `origin/staging` = `5eedb32` (CI verde
 | Spec 87 reglas comerciales | #256 (decisiones), #262 | Cerrar como Cliente exige acuerdo y persona; registrar respuesta completa tareas elegidas; migración 044 |
 | Spec 88 Instagram Direct | #257 (spec), #260, #266 (cierre 87–88) | Webhook `POST/GET /_api/inbound/instagram`, token cifrado en base, migración 045 |
 | Spec 89 Material de venta | #263 (spec), #265 (F1), #267 (F2) | R2, página `/sales-material`, enlaces públicos `/m/<token>`, retiro de la biblioteca vieja, migraciones 046 y 047 |
+| Spec 90 Comunicación en la ficha | #268, #270 (cierre) | Conversación única en la pestaña Comunicación, títulos claros en Historial y «Último contacto», una regla Instagram/Red social; sin migraciones ni variables |
 | Docs, tests, CI | #111, #133, #141, #149, #150, #181, #202, #210, #229 y otros | Sin efecto en producción |
 
-Fuera de esta promoción (no mergeado a `staging` a esta fecha): spec 90 (comunicación), F3/F4 de la spec 89 ya declaradas en `docs/pendientes.md` como siguientes **(verificar contra `pendientes.md` antes de promover)**.
+Fuera de esta promoción (no mergeado a `staging` a esta fecha): F3/F4 de la spec 89 ya declaradas en `docs/pendientes.md` como siguientes **(verificar contra `pendientes.md` antes de promover)**.
 
 ## 2. Checklist previo
 
@@ -202,4 +203,4 @@ Después de un deploy estable: actualizar `docs/estado-desarrollo.md` y `docs/pe
 | 10 | Estado real de migraciones 018–023 en producción | Ver checklist; confirmar con `schema_migrations` | `estado-desarrollo.md`, `rendimiento-y-arquitectura-2026-10.md` |
 | 11 | Auto-deploy de Coolify | Confirmar si el merge a `main` despliega solo | `AGENTS.md`, `COOLIFY_DEPLOY.md` |
 | 12 | Cloudflare Email Routing y Worker | Deploy del Worker, alta del catch-all y `CRM_BASE_URL` a producción | `pendientes.md` (F1), `workers/inbound-email/README.md` |
-| 13 | Spec 90 (comunicación) y siguientes fases de 89 | No mergeadas; decidir si entran en esta promoción o en la siguiente | `pendientes.md` |
+| 13 | Siguientes fases de 89 | No mergeadas; decidir si entran en esta promoción o en la siguiente | `pendientes.md` |
