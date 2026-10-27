@@ -4,6 +4,8 @@ import styles from './Disclosure.module.css';
 
 export function DisclosureSummary({ children }: React.HTMLAttributes<HTMLButtonElement>) { return <>{children}</>; }
 type FormField = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+/** How often a revealed invalid field retries taking focus while its panel is still hidden, and for how long. */
+const FOCUS_RETRY_MS = 50, FOCUS_DEADLINE_MS = 2000;
 /**
  * Mantine Accordion with optional programmatic opening and independent user toggling.
  * A required field inside a closed Disclosure opens it when the form fails validation (like a native <details>) and, when it is the form's first invalid control, receives focus once the panel is visible.
@@ -21,8 +23,20 @@ export function Disclosure({ children, open = false, onOpenChange, ...props }: O
     const field = event.target as FormField;
     setValue('content');
     const first = Array.from(field.form?.elements ?? []).find(item => (item as FormField).willValidate && !(item as FormField).validity.valid);
-    // The panel is display:none until it opens, so the field cannot take focus yet.
-    if (first === field) { if (focusTimer.current) clearTimeout(focusTimer.current); focusTimer.current = setTimeout(() => { focusTimer.current = null; if (typeof document === 'undefined' || !field.isConnected) return; field.focus({ preventScroll: true }); field.scrollIntoView?.({ block: 'center' }); }, 60); }
+    // The panel stays display:none (a hidden React Activity) until Mantine's Collapse starts entering on a later animation frame, and focus() on a
+    // hidden field is a silent no-op. A single attempt after a fixed delay lost the race on a busy machine (the panel showed ~120ms later and focus
+    // stayed on «Guardar»), so retry until focus really lands, the user moves focus elsewhere, or the deadline passes.
+    if (first === field) {
+      if (focusTimer.current) clearTimeout(focusTimer.current);
+      const started = typeof document === 'undefined' ? null : document.activeElement, deadline = Date.now() + FOCUS_DEADLINE_MS;
+      const attempt = () => {
+        focusTimer.current = null;
+        if (typeof document === 'undefined' || !field.isConnected || document.activeElement === field || document.activeElement !== started) return;
+        field.focus({ preventScroll: true });
+        if (document.activeElement === field) field.scrollIntoView?.({ block: 'center' }); else if (Date.now() < deadline) focusTimer.current = setTimeout(attempt, FOCUS_RETRY_MS);
+      };
+      focusTimer.current = setTimeout(attempt, FOCUS_RETRY_MS);
+    }
   };
   const elements = React.Children.toArray(children);
   const summary = elements.find(child => React.isValidElement(child) && child.type === DisclosureSummary) as React.ReactElement<React.HTMLAttributes<HTMLButtonElement>> | undefined;
