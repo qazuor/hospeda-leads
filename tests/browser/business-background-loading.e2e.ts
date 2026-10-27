@@ -17,7 +17,7 @@ for(const width of [1280,390])test(`business background refresh preserves popula
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts');const results=page.getByRole('region',{name:'Resultados de negocios',exact:true});
- await expect(results).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-business-id="1"]')).toBeVisible();await expect(page.getByLabel(/Última actualización correcta/).first()).toBeAttached();
+ await expect(results).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-business-id="1"]')).toBeVisible();await expect(page.locator('[class*="topbarActions"]').getByLabel(/Última actualización correcta/).first()).toBeAttached();
  function block(){let release!:()=>void;gate=new Promise<void>(r=>release=r);const requested=new Promise<void>(r=>started=r);return {requested,release:()=>{gate=null;started=null;release();}};}
  // A real Live version change triggers invalidation; hold the response to inspect the pending UI.
  let pending=block();version++;try{await pending.requested;await expect(results).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-business-id="1"]')).toBeVisible();await expect(results.locator('.mantine-Skeleton-root')).toHaveCount(0);}finally{pending.release();}

@@ -92,6 +92,7 @@ test('(b) search ignores accents, keeps ñ distinct, marks the match and opens t
   await expect(row.locator('mark')).toHaveText(`señal${stamp}`);
   await row.click();
   await expect(page).toHaveURL(new RegExp(`account=${fixture.accountId}&lead=${fixture.leadId}&channel=call&message=out%3A`));
+  await expect(page.getByText(`Búsqueda activa: “señal${stamp}”`)).toBeVisible();
   await expect(results).toHaveCount(0);
   const bubble=page.locator('article').filter({hasText:`señal${stamp}`});
   await expect(bubble).toBeVisible();await expect(bubble).toBeInViewport();

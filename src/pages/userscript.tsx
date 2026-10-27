@@ -50,7 +50,7 @@ export default function UserscriptPage(){
  const revoke=async(id:string)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await api('/_api/userscript/tokens/revoke',{id});await load();setRevokeTarget(null);}catch(e){setError(e instanceof Error?e.message:'No se pudo revocar.');}finally{lock.current=false;setBusy(false);}};
  const usage=(t:Token)=>t.revokedAt?'Revocado':t.lastUsedAt?`Usado ${new Date(t.lastUsedAt).toLocaleString('es-AR')}${t.lastVersion?` · versión ${t.lastVersion}`:''}`:'Sin usar';
  return <main className={styles.shell}>
-  <header className={styles.pageHeader}><div><span className={styles.eyebrow}>HERRAMIENTAS</span><h1>User script de WhatsApp</h1><p>Revisá los mensajes de WhatsApp Web que elijas y registralos en el CRM desde el panel. <Link to="/guide?topic=whatsapp-userscript&article=install-userscript">Ver la guía paso a paso <ChevronRight size={14}/></Link></p></div><HelpLink topic="userscript"/></header>
+  <header className={styles.pageHeader}><div><span className={styles.eyebrow}>HERRAMIENTAS</span><h1 aria-label="User script de WhatsApp" style={{display:"flex",alignItems:"center",gap:5,width:"max-content",maxWidth:"100%"}}>User script de WhatsApp<HelpLink topic="userscript"/></h1><p>Revisá los mensajes de WhatsApp Web que elijas y registralos en el CRM desde el panel. <Link to="/guide?topic=whatsapp-userscript&article=install-userscript">Ver la guía paso a paso <ChevronRight size={14}/></Link></p></div></header>
   <div className={styles.mainGrid}>
    <div className={styles.primaryColumn}>
     <InstallStatus installed={installed}/>

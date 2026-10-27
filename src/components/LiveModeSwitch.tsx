@@ -15,7 +15,7 @@ export const LiveModeSwitch=()=>{
   const label=state==='error'?(!online?'En vivo · Sin conexión':'En vivo · Con problemas'):state==='refreshing'?'En vivo · Actualizando':'En vivo';
   const checked=lastCheckedAt?lastCheckedAt.toLocaleString('es-AR',{timeZone:CRM_TIME_ZONE}):'Todavía no hubo una actualización correcta';
   const message=`${state==='error'?'No está funcionando':state==='refreshing'?'Actualizando ahora':'Actualización en vivo activa'} · Última actualización correcta: ${checked}`;
-  return <Tooltip label={message} position="right"><div className={styles.controls} aria-label={message}>
+  return <Tooltip label={message} position="right"><div className={styles.controls} data-live-switch aria-label={message}>
     <span className={`${styles.indicator} ${styles[state]}`} aria-hidden="true"/><span className={styles.label} data-live-label>{label}</span>
   </div></Tooltip>;
 };
