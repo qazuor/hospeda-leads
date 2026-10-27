@@ -4,6 +4,7 @@ import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/r
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {MessageComposer} from './MessageComposer';
+import {INSTAGRAM_DISPATCH_FAILED} from './InstagramOpenChat';
 import {postCommunication,type PreparedMessage} from '../endpoints/communication.schema';
 import {toast} from 'sonner';
 
@@ -120,7 +121,23 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   fireEvent.click(button);
   expect((await screen.findAllByText('Cambió el Instagram del negocio. Prepará un nuevo borrador.')).length).toBeGreaterThan(0);
   expect(popup.close).toHaveBeenCalled();
+  // L9: the closed tab is explained, with the way back.
+  await waitFor(()=>expect(toast.warning).toHaveBeenCalledWith(INSTAGRAM_DISPATCH_FAILED));
   expect(screen.getByLabelText('Texto que se copia').textContent).toBe('Hola *Sol*, ¿cómo están?');
+ });
+ it('copies synchronously (execCommand) before window.open takes the focus (M3)',async()=>{
+  const order:string[]=[];
+  Object.defineProperty(document,'execCommand',{configurable:true,value:vi.fn((command:string)=>{order.push('execCommand:'+command);return true;})});
+  clipboard(()=>{order.push('writeText');return Promise.reject(new Error('Document is not focused'));});
+  vi.spyOn(window,'open').mockImplementation(()=>{order.push('open');return {opener:{},closed:false,location:{href:''},close:vi.fn()} as unknown as Window;});
+  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),url:URL_IG});
+  fireEvent.click(button);
+  expect(order.indexOf('execCommand:copy')).toBeGreaterThanOrEqual(0);
+  expect(order.indexOf('execCommand:copy')).toBeLessThan(order.indexOf('open'));
+  // The async clipboard rejected (focus moved), yet the copy counts: no «Copialo desde acá» box.
+  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado/),expect.anything()));
+  expect(screen.queryByRole('group',{name:'Copiar el mensaje'})).toBeNull();
+  Object.defineProperty(document,'execCommand',{configurable:true,value:undefined});
  });
  it('says it is already sent when the echo arrived first, and opens nothing',async()=>{
   clipboard(()=>Promise.resolve());const popup={opener:{},closed:false,location:{href:''},close:vi.fn()};vi.spyOn(window,'open').mockReturnValue(popup as unknown as Window);
