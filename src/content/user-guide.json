@@ -1513,20 +1513,25 @@
           "Al crear o guardar un modelo queda disponible enseguida. Los cambios se aplican a los usos nuevos; los borradores que ya copiaron texto no cambian.",
           "Clasificá el modelo por canal y, cuando corresponda, vertical o tipo de gestión. Se muestran todos los que aplican, primero los más específicos, y los genéricos siguen disponibles.",
           "Usá solo variables confiables del CRM. Quien prepara un contacto tiene que completar o quitar cada variable que falte antes de abrir o enviar el mensaje.",
+          "En un modelo de WhatsApp o email podés sumar material con «Insertar material de venta». Es opcional. El texto muestra el título del material y, cada vez que alguien usa el modelo, el CRM crea un enlace nuevo para ese mensaje. En email, seleccioná el material y tocá «Adjuntar el archivo» si además querés adjuntarlo. Un material interno o borrado no se puede guardar en un modelo.",
           "El historial conserva las versiones anteriores y un administrador puede consultarlas o restaurarlas. Desactivar oculta un modelo para usos nuevos sin borrar su historial; también puede editarse y reactivarse.",
           "En «Material de venta» subí archivos de hasta 500 MB o registrá enlaces externos. Cada material tiene una o más categorías, un comentario y un tipo: «Entregable» o «Interno». Archivar no borra nada."
         ],
         "result": "El equipo dispone de modelos y materiales revisados, con sus versiones e historia.",
         "example": [],
         "notes": [
-          "Los usuarios pueden editar su mensaje para ese contacto, pero no alterar el modelo compartido."
+          "Los usuarios pueden editar su mensaje para ese contacto, pero no alterar el modelo compartido.",
+          "Si un material del modelo se archiva, el modelo muestra «Material no disponible» y ese material no se agrega a los mensajes hasta que lo restaures o lo quites."
         ],
         "url": "/sales-material",
         "linkLabel": "Administrar Material de venta",
         "uiLabels": [
           "Material de venta",
           "Entregable",
-          "Interno"
+          "Interno",
+          "Insertar material de venta",
+          "Adjuntar el archivo",
+          "Material no disponible"
         ]
       },
       {
@@ -1786,6 +1791,7 @@
           "Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Hace falta una gestión abierta; con No contactar activo o en estado Nuevo el botón queda deshabilitado.",
           "Elegí el modelo: el primero es el «Recomendado para la etapa actual». Pasá el mouse por un modelo para ver su texto con las variables sin completar. Elegí también la persona.",
           "Revisá la vista previa con los datos del CRM. Si falta un dato, completalo en el CRM o elegí otra persona.",
+          "Si el modelo trae material de venta, la vista previa ya muestra sus enlaces. Para sumar otro, tocá «Agregar material», buscalo y tocá «Agregar»: el texto se actualiza con un enlace propio de este mensaje. Si algún material del modelo ya no está disponible, el panel te avisa y no lo incluye.",
           "Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.",
           "Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.",
           "Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar»."
@@ -1807,7 +1813,9 @@
           "WhatsApp abierto · envío no confirmado",
           "Conversación",
           "Requiere acción",
-          "¿Lo enviaste?"
+          "¿Lo enviaste?",
+          "Agregar material",
+          "Agregar"
         ]
       },
       {

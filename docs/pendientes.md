@@ -18,7 +18,12 @@ Límites conocidos de la 88: el token pegado no se valida contra Meta al guardar
 
 ## Material de venta (spec 89)
 
-- F1 (#265) y F2 (#267) mergeados a `staging`; F3 (composer, adjunto por email, registro y «Revocar enlace») en `feat/sales-material-f3`, sin PR. Pendiente: F4 materiales en modelos (`{{material:<uuid>}}` en `prepare`, `materialWarnings`) y user script. A verificar con Brevo real: que acepte `attachment.url` prefirmado de R2, y el tope de tamaño (hoy `maxEmailAttachmentBytes` = 10 MB); las extensiones ya salen de la documentación de Brevo (`BREVO_ATTACHMENT_EXTENSIONS`). Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
+- F1 (#265) y F2 (#267) mergeados a `staging`; F3 (composer, adjunto por email, registro y «Revocar enlace») en `feat/sales-material-f3`, sin PR. F4 (materiales en modelos con `{{material:<uuid>}}` resuelto en `prepare`, `materialWarnings`, user script 1.3.0 con «Agregar material») en `feat/sales-material-f4`, sin PR. Al desplegar F4, publicar el script 1.3.0 (el aviso de versión nueva aparece solo). A verificar con Brevo real: que acepte `attachment.url` prefirmado de R2, y el tope de tamaño (hoy `maxEmailAttachmentBytes` = 10 MB); las extensiones ya salen de la documentación de Brevo (`BREVO_ATTACHMENT_EXTENSIONS`). Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
+- Decisiones del propietario sobre F4 (quedan así a propósito):
+  - `USERSCRIPT_MIN_VERSION` sigue en 1.2.0: un script 1.2.x prepara modelos con material pero no muestra los `materialWarnings` (el texto sale sin el material que quedó afuera, sin aviso). Subir el mínimo a 1.3.0 cuando el propietario lo decida.
+  - Los avisos del modelo muestran a los vendedores el título del material archivado («“X” ya no está disponible»), como pide la spec.
+  - Un `prepare` repetido con el mismo id (o un borrador reutilizado) devuelve el borrador sin los `materialWarnings` del primer `prepare`: se aceptan perdidos por ahora.
+  - Un archivo o cambio a interno que coincide con un `prepare` en curso se serializa en la fila de versión en vivo (`app_settings`, que tocan los dos); si se cruzan en el orden opuesto, Postgres aborta uno por deadlock y hay que reintentar. No se rediseña ese orden de bloqueos en F4.
 
 ## Rediseño visual (v1 por fases)
 

@@ -163,7 +163,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Tené en cuenta:**
 
-- Los materiales aprobados se vinculan desde la pestaña «Documentos» del negocio. Solo un administrador administra la biblioteca.
+- Los folletos, fotos, videos y presentaciones para ofrecer están en «Material de venta», dentro de «Herramientas». Solo un administrador los carga.
 
 **Dónde ir:** Ir a Hoy (/my-day)
 
@@ -706,27 +706,48 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 
 - Preparaste la propuesta pero falta confirmar el precio con el equipo. Guardá el borrador y volvé cuando tengas el dato; no lo envíes para probar.
 
-### Buscar y vincular materiales al negocio
+### Guardar documentos del negocio
 
-**Cuándo usarlo:** Cuando necesitás una propuesta, folleto o documento para trabajar una gestión.
+**Cuándo usarlo:** Cuando un negocio o una gestión necesita su propia propuesta, contrato o archivo.
 
 1. Abrí el negocio y entrá en la pestaña «Documentos», o abrí una gestión y entrá en «Documentos».
-2. Tocá «Agregar documento o recurso» para crear un documento propio, o usá «Agregar documento» para mostrar el formulario de vinculación. Buscá el recurso en el selector de la biblioteca y elegí un documento aprobado.
-3. Revisá el destino y tocá «Vincular documento al negocio» o «Vincular documento a la gestión». Desde un negocio podés elegir una gestión propia o dejarlo como documento general.
-4. Si sos administrador y necesitás un documento propio del caso, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá.
-5. Revisá la versión, el vencimiento y la aprobación antes de usarlo como material comercial.
+2. Si sos administrador, tocá «Agregar documento o recurso», completá título, tipo y un vínculo o archivo permitido, y guardá. Desde un negocio podés asociarlo a una gestión propia o dejarlo como documento general.
+3. Revisá la versión, el vencimiento y la aprobación antes de usarlo.
+4. El material común para ofrecer (folletos, fotos, videos, presentaciones) no se carga acá: está en «Material de venta».
 
-**Qué queda al terminar:** El documento queda asociado al lugar elegido. Vincularlo no lo envía al cliente.
+**Qué queda al terminar:** El documento queda asociado al negocio o a la gestión. Guardarlo no lo envía al cliente.
 
 **Ejemplo:**
 
-- Vinculá el folleto aprobado a Publicación de cabañas para que el equipo sepa qué material usó.
+- Guardá la propuesta firmada de Cabañas del Río en su gestión para que el equipo la encuentre.
 
 **Tené en cuenta:**
 
-- Solo un administrador carga y administra la biblioteca común, en «Configuración» → «Biblioteca». Una versión nueva conserva las anteriores y vuelve a borrador.
+- La antigua biblioteca se reemplazó por «Material de venta». Los documentos que ya estaban vinculados a un negocio se siguen viendo en su pestaña.
 
-**Dónde ir:** Elegir negocio para consultar materiales (/accounts)
+**Dónde ir:** Elegir negocio para consultar documentos (/accounts)
+
+### Usar el Material de venta
+
+**Cuándo usarlo:** Cuando necesitás mostrar o mandar un folleto, una foto, un video o una presentación de Hospeda.
+
+1. Entrá en «Material de venta», en el grupo «Herramientas» del menú.
+2. Buscá por título o comentario y filtrá por «Categoría» y «Tipo». Los entregables se pueden mandar a clientes; los internos son información solo para el equipo.
+3. Tocá «Abrir» para verlo o «Descargar» para guardarlo. Si es un enlace externo, tocá «Abrir enlace».
+4. Si sos administrador, usá «Nuevo material» para subir un archivo o registrar un enlace, con título, categorías, comentario y tipo. Con «Nueva versión» cambiás el archivo y las versiones anteriores se conservan.
+5. «Archivar» lo saca de la lista sin borrar nada; «Restaurar» lo vuelve a mostrar.
+
+**Qué queda al terminar:** Encontrás siempre la versión actual del material. Abrirlo o descargarlo no lo envía al cliente.
+
+**Ejemplo:**
+
+- Un cliente pide fotos de un alojamiento: buscá fotos en Material de venta y descargá la versión actual.
+
+**Tené en cuenta:**
+
+- Las categorías las administra un administrador en «Configuración» → «Categorías de material».
+
+**Dónde ir:** Abrir Material de venta (/sales-material)
 
 ### Usar el Calendario y Posponer una tarea
 
@@ -918,7 +939,7 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 3. «Clasificaciones» administra datos descriptivos como verticales, subtipos y ciudades.
 4. El Estado del negocio, las marcas Es cliente / No contactar / Derivado a Leandro, y las etapas y motivos de las gestiones son catálogos fijos del producto.
 5. «Proceso comercial» tiene «Etapas y resultados» y «Tareas y seguimiento», donde se administran los tipos de tarea, su presencia en el calendario y otras reglas de trabajo.
-6. «Comunicación» configura el envío global de email. «Modelos de mensajes» administra los modelos compartidos y «Biblioteca» los materiales comunes.
+6. «Comunicación» configura el envío global de email. «Modelos de mensajes» administra los modelos compartidos y «Categorías de material» ordena el «Material de venta».
 7. Los cambios de configuración no corrigen la información histórica. Revisá con cuidado los datos afectados antes de hacer un cambio masivo.
 
 **Qué queda al terminar:** Las opciones compartidas quedan en la sección que corresponde. Cambiar de sección no modifica datos.
@@ -929,7 +950,7 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 **Dónde ir:** Abrir Configuración (/settings)
 
-### Administrar modelos de comunicación y biblioteca
+### Administrar modelos de comunicación y material de venta
 
 **Cuándo usarlo:** Cuando el equipo necesita materiales comunes para ofrecer.
 
@@ -937,16 +958,18 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 2. Al crear o guardar un modelo queda disponible enseguida. Los cambios se aplican a los usos nuevos; los borradores que ya copiaron texto no cambian.
 3. Clasificá el modelo por canal y, cuando corresponda, vertical o tipo de gestión. Se muestran todos los que aplican, primero los más específicos, y los genéricos siguen disponibles.
 4. Usá solo variables confiables del CRM. Quien prepara un contacto tiene que completar o quitar cada variable que falte antes de abrir o enviar el mensaje.
-5. El historial conserva las versiones anteriores y un administrador puede consultarlas o restaurarlas. Desactivar oculta un modelo para usos nuevos sin borrar su historial; también puede editarse y reactivarse.
-6. En «Biblioteca» agregá documentos o recursos, revisá su contenido y aprobá la versión cuando esté lista. Vincular un recurso a un negocio o una gestión no lo envía.
+5. En un modelo de WhatsApp o email podés sumar material con «Insertar material de venta». Es opcional. El texto muestra el título del material y, cada vez que alguien usa el modelo, el CRM crea un enlace nuevo para ese mensaje. En email, seleccioná el material y tocá «Adjuntar el archivo» si además querés adjuntarlo. Un material interno o borrado no se puede guardar en un modelo.
+6. El historial conserva las versiones anteriores y un administrador puede consultarlas o restaurarlas. Desactivar oculta un modelo para usos nuevos sin borrar su historial; también puede editarse y reactivarse.
+7. En «Material de venta» subí archivos de hasta 500 MB o registrá enlaces externos. Cada material tiene una o más categorías, un comentario y un tipo: «Entregable» o «Interno». Archivar no borra nada.
 
-**Qué queda al terminar:** El equipo dispone de modelos y recursos revisados, con sus versiones e historia.
+**Qué queda al terminar:** El equipo dispone de modelos y materiales revisados, con sus versiones e historia.
 
 **Tené en cuenta:**
 
 - Los usuarios pueden editar su mensaje para ese contacto, pero no alterar el modelo compartido.
+- Si un material del modelo se archiva, el modelo muestra «Material no disponible» y ese material no se agrega a los mensajes hasta que lo restaures o lo quites.
 
-**Dónde ir:** Administrar Biblioteca (/settings?section=library)
+**Dónde ir:** Administrar Material de venta (/sales-material)
 
 ### Importaciones, duplicados e indicadores
 
@@ -1126,9 +1149,10 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 1. Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Hace falta una gestión abierta; con No contactar activo o en estado Nuevo el botón queda deshabilitado.
 2. Elegí el modelo: el primero es el «Recomendado para la etapa actual». Pasá el mouse por un modelo para ver su texto con las variables sin completar. Elegí también la persona.
 3. Revisá la vista previa con los datos del CRM. Si falta un dato, completalo en el CRM o elegí otra persona.
-4. Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.
-5. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
-6. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».
+4. Si el modelo trae material de venta, la vista previa ya muestra sus enlaces. Para sumar otro, tocá «Agregar material», buscalo y tocá «Agregar»: el texto se actualiza con un enlace propio de este mensaje. Si algún material del modelo ya no está disponible, el panel te avisa y no lo incluye.
+5. Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.
+6. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
+7. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».
 
 **Qué queda al terminar:** El mensaje queda en «Conversación» como «WhatsApp abierto · envío no confirmado» y en «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío.
 
