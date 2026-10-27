@@ -50,6 +50,8 @@ describe('crm labels',()=>{
  it('names received WhatsApp messages without an email subject',()=>{
   expect(inboundNoun('whatsapp')).toBe('mensaje');
   expect(inboundNoun('email')).toBe('email');
+  expect(inboundNoun('social')).toBe('mensaje');
+  expect(inboundMeta({item:{channel:'social',fromAddress:'@qaz.uor',subject:''},when:'hoy'})).toBe('@qaz.uor · hoy');
   expect(inboundMeta({item:{channel:'whatsapp',fromAddress:'+54 9 345 1234567',subject:null},when:'hoy'})).toBe('+54 9 345 1234567 · hoy');
   expect(inboundMeta({item:{channel:'whatsapp',fromAddress:'',subject:null},when:'hoy'})).toBe('hoy');
   expect(inboundMeta({item:{channel:'email',fromAddress:'ana@example.com',subject:''},when:'hoy'})).toBe('ana@example.com · (sin asunto) · hoy');

@@ -19,11 +19,11 @@ import styles from './PhoneCallPanel.module.css';
 
 type Person={id:string|number;name:string;phone:string|null;deletedAt?:Date|string|null;dncPhoneBusinesses?:{nombre:string;ciudad:string|null}[]};
 /** State that must outlive the panel (it unmounts when the channel or a block reason changes): the saved call and the request key of the attempt in progress. */
-export type CallSession={logged:Message|null;setLogged:(message:Message|null)=>void;attempt:MutableRefObject<string|null>;reset:()=>void};
+export type CallSession={logged:Message|null;setLogged:(message:Message|null)=>void;attempt:MutableRefObject<string|null>;reset:()=>void;/** True while the panel is saving the call, so the owner can keep its dialog from closing mid-request. */pending:boolean;setPending:(pending:boolean)=>void};
 /** Owner-side state of a call: keep it in the component that mounts the panel so a saved call stays saved and an uncertain save is retried with the same key. */
 export function useCallSession():CallSession{
- const [logged,setLogged]=useState<Message|null>(null),attempt=useRef<string|null>(null);
- return {logged,setLogged:message=>{setLogged(message);if(message)attempt.current=null},attempt,reset:()=>{setLogged(null);attempt.current=null}};
+ const [logged,setLogged]=useState<Message|null>(null),[pending,setPending]=useState(false),attempt=useRef<string|null>(null);
+ return {logged,setLogged:message=>{setLogged(message);if(message)attempt.current=null},attempt,reset:()=>{setLogged(null);attempt.current=null},pending,setPending};
 }
 type PanelProps={session?:CallSession;account:{id:string|number;nombre:string;telefono:string|null};contacts:Person[];leadId:string|null;purpose?:{purpose:ContactPurpose;otherPurpose:string}|null;blockedReason?:string;initialContactId?:string;fixedRecipient?:{id:string;mustChoose:boolean};/** The caller already shows the No contactar phone notice for this person. */hideDncNotice?:boolean;onLog?:(contactId:string,channel:string)=>void;onFinished:()=>void};
 
@@ -32,7 +32,7 @@ type PanelProps={session?:CallSession;account:{id:string|number;nombre:string;te
  * only "Ya llamé" does, and it ends in "¿Cómo salió?" → "¿Cómo sigue?". `fixedRecipient` is for a caller that already asked who to call (a task): the panel then shows no person picker. With `onLog` (a task's own completion path) it hands over to that path instead of saving a call.
  */
 export function PhoneCallPanel({account,contacts,leadId,purpose=null,blockedReason='',initialContactId,fixedRecipient,hideDncNotice,onLog,onFinished,session}:PanelProps){
- const own=useCallSession(),{logged,setLogged,attempt}=session??own;
+ const own=useCallSession(),{logged,setLogged,attempt,setPending}=session??own;
  const qc=useQueryClient(),touch=useMediaQuery('(pointer: coarse)');
  const people=contacts.filter(c=>!c.deletedAt);
  const history=useQuery({queryKey:['communication','account',String(account.id)],queryFn:()=>getCommunication('',String(account.id))});
@@ -50,6 +50,7 @@ export function PhoneCallPanel({account,contacts,leadId,purpose=null,blockedReas
  // Without a stored number she can still say she called (an incoming call, another number); only showing, copying and opening need one.
  const dialBlock=base||(!isDialable(phone)?'Esta persona no tiene un teléfono cargado. Agregalo en «Agregar o editar teléfono o email».':'');
  const mutation=useGuardedMutation({mutationFn:postCommunication,onSuccess:data=>{const created=data as Message;setLogged(created);setOutcomeOpen(canLogContactOutcome(created?.status));for(const key of ['communication','global-journal','lead-journal'])void qc.invalidateQueries({queryKey:[key]});}});
+ useEffect(()=>{setPending(mutation.isPending)},[mutation.isPending,setPending]);
  const register=(result:'manual_sent'|'manual_no_contact')=>{
   if(onLog){onLog(effective,'phone');return}
   const body=callSummary({result,who,phone,note});

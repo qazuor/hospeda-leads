@@ -10,7 +10,7 @@ test('a call is logged from the management page and chains into the outcome step
  const stamp=Date.now(),accountId=(await api('commercial',{action:'account_save',nombre:'Llamada gestión '+stamp,telefono:'+5493442000555',assignedUserEmail:'admin@example.com'})).id;
  const leadId=(await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Gestión con llamada '+stamp,estado:'Cargado'})).id;
  await page.goto('/sales/'+leadId);await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
- await page.getByText('Registrar una llamada',{exact:true}).click();await waitForTransitions(page);
+ await page.getByRole('button',{name:'Registrar llamada u otro contacto',exact:true}).click();await page.getByRole('dialog',{name:'Registrar llamada u otro contacto',exact:true}).getByText('Registrar una llamada',{exact:true}).click();await waitForTransitions(page);
  await expect(page.getByLabel('Número a llamar')).toHaveText('+5493442000555');await expect(page.locator('a[href^="tel:"]')).toHaveCount(0);
  await page.getByRole('button',{name:'Copiar número',exact:true}).click();expect((await api('communication?leadId='+leadId)).messages).toHaveLength(0);
  await page.getByLabel('Nota de la llamada (opcional)').fill('Hablé con la dueña');await page.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true}).click();
@@ -28,7 +28,7 @@ test('a call is logged from the management page and chains into the outcome step
  const config=await api('pipeline?mode=config'),lost=config.stages.find((stage:any)=>stage.active&&stage.classification==='lost');expect(lost).toBeTruthy();
  const closedId=(await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Gestión cerrada '+stamp,estado:'Cargado'})).id;const closedPipeline=await api('pipeline?leadId='+closedId);
  await api('pipeline',{action:'transition',leadId:closedId,revision:closedPipeline.insights[0].pipelineRevision,stage:lost.name,reasonId:closedPipeline.lossReasons.find((item:any)=>item.active).id,comment:'Fixture de gestión cerrada',recontactDate:null});
- await page.goto('/sales/'+closedId);await page.getByRole('tab',{name:'Comunicación',exact:true}).click();await page.getByText('Registrar una llamada',{exact:true}).click();await waitForTransitions(page);
+ await page.goto('/sales/'+closedId);await page.getByRole('tab',{name:'Comunicación',exact:true}).click();await page.getByRole('button',{name:'Registrar llamada u otro contacto',exact:true}).click();await page.getByRole('dialog',{name:'Registrar llamada u otro contacto',exact:true}).getByText('Registrar una llamada',{exact:true}).click();await waitForTransitions(page);
  const blocked=page.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true});await expect(blocked).toBeDisabled();await expect(page.getByRole('button',{name:'Copiar número',exact:true})).toBeDisabled();
  await expect(async()=>{await page.mouse.move(0,0);await blocked.hover({force:true});await expect(page.getByRole('tooltip')).toContainText('La gestión está cerrada',{timeout:2000})}).toPass({timeout:15000});
  expect((await api('communication?leadId='+closedId)).messages).toHaveLength(0);

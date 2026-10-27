@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Alert } from '@mantine/core';
-import { Ban, CalendarPlus, Mail, MessageCircle, NotebookPen } from 'lucide-react';
+import { Ban, CalendarPlus, NotebookPen } from 'lucide-react';
 import type { CommercialDetail, Contact } from '../endpoints/commercial.schema';
 import type { WorkTarget } from './WorkEditor';
 import type { DoNotContactMark } from '../helpers/doNotContactSince';
@@ -11,6 +11,7 @@ import { Button } from './Button';
 import { ContactPolicy } from './ContactPolicy';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import { QueryErrorNotice } from './QueryErrorNotice';
+import { TechnicalRestrictions } from './TechnicalRestrictions';
 import styles from './Commercial.module.css';
 
 /** Accessible name of the business record aside; the next step uses it to reach the people section. */
@@ -51,9 +52,10 @@ export interface BusinessSidebarProps {
   readonly contactEditable:boolean;
   readonly canDoWork:boolean;
   readonly work:BusinessWorkState;
-  readonly onContact:(channel:'email'|'whatsapp')=>void;
   readonly onWork:(target:WorkTarget)=>void;
   readonly onEditAccount:()=>void;
+  /** Bumped by the page to open «Personas» before it scrolls to and focuses that section (next step, ?contactId). */
+  readonly revealPeople?:number;
 }
 
 /**
@@ -61,18 +63,19 @@ export interface BusinessSidebarProps {
  * The No contactar / archived banner stays above the columns so it is seen first on every width.
  * Stacks above the tabs on narrow containers (see `.recordColumns` in Commercial.module.css).
  */
-export function BusinessSidebar({detail:d,mainContact,contactCount,contactSection,facts,emptyFactLabels,readOnly,contactEditable,canDoWork,work,onContact,onWork,onEditAccount}:BusinessSidebarProps){
+export function BusinessSidebar({detail:d,mainContact,contactCount,contactSection,facts,emptyFactLabels,readOnly,contactEditable,canDoWork,work,onWork,onEditAccount,revealPeople=0}:BusinessSidebarProps){
+  // Spec 90: when the record is stacked (same 900px container breakpoint as the CSS) the column comes first as a compact card,
+  // with «Personas» and «Datos del negocio» collapsed. Decided once on mount: a resize never overrides what the user toggled.
+  const asideRef=useRef<HTMLElement>(null),[peopleOpen,setPeopleOpen]=useState(true),[dataOpen,setDataOpen]=useState(true);
+  useLayoutEffect(()=>{const width=asideRef.current?.closest<HTMLElement>('.'+styles.businessDetail)?.clientWidth;if(width&&width<=900){setPeopleOpen(false);setDataOpen(false);}},[]);
+  useEffect(()=>{if(revealPeople)setPeopleOpen(true)},[revealPeople]);
   const initials=d.account.nombre.split(/\s+/).slice(0,2).map(word=>word[0]?.toUpperCase()).join('');
-  return <aside className={styles.businessAside} aria-label={BUSINESS_SIDEBAR_LABEL}>
+  return <aside ref={asideRef} className={styles.businessAside} aria-label={BUSINESS_SIDEBAR_LABEL}>
     <section className={styles.identityCard} aria-label="Identidad del negocio">
       <span className={styles.identityAvatar} style={{'--identity-hue':toneHue(toneOfStatus(d.account.status))[0]} as React.CSSProperties} aria-hidden="true">{initials}</span>
       <strong>{d.account.nombre}</strong>
       <span>H{d.account.id} · {d.account.ciudad||'Sin ciudad'}</span>
     </section>
-    {!readOnly&&!d.account.doNotContact&&<div className={styles.quickActions}>
-      <Button variant="outline" onClick={()=>onContact('whatsapp')}><MessageCircle size={16} aria-hidden="true"/>WhatsApp</Button>
-      <Button variant="outline" onClick={()=>onContact('email')}><Mail size={16} aria-hidden="true"/>Email</Button>
-    </div>}
     {canDoWork&&<div className={styles.quickActions}>
       {work.error&&<QueryErrorNotice error={work.error} onRetry={work.retry} busy={work.retrying}/>}
       {/* Same business-level targets as the Tareas tab buttons. */}
@@ -85,8 +88,8 @@ export function BusinessSidebar({detail:d,mainContact,contactCount,contactSectio
       <strong>{mainContact?.name||'Sin persona de contacto'}</strong>
       {[mainContact?.phone,mainContact?.email,d.account.telefono,d.account.email].filter(Boolean).map((value,index)=><div key={index} className={styles.contactValue}>{String(value)}</div>)}
     </section>
-    <Disclosure open><DisclosureSummary><h3 tabIndex={-1}>Personas ({contactCount})</h3></DisclosureSummary>{contactSection}</Disclosure>
-    <Disclosure open><DisclosureSummary><h3>Datos del negocio</h3></DisclosureSummary><section className={styles.section}>
+    <Disclosure open={peopleOpen} onOpenChange={setPeopleOpen}><DisclosureSummary><h3 tabIndex={-1} data-people-heading>Personas ({contactCount})</h3></DisclosureSummary>{contactSection}</Disclosure>
+    <Disclosure open={dataOpen} onOpenChange={setDataOpen}><DisclosureSummary><h3>Datos del negocio</h3></DisclosureSummary><section className={styles.section}>
       {facts.length>0&&<dl className={styles.businessFacts}>{facts.map(fact=><div key={fact.field}><dt>{fact.label}</dt><dd className={styles.researchValue}>{fact.value}</dd></div>)}</dl>}
       {emptyFactLabels.length>0&&<p className={styles.muted}>Sin cargar: {emptyFactLabels.join(", ")}</p>}
       {!readOnly&&<Button variant="outline" onClick={onEditAccount}>Editar datos del negocio</Button>}
@@ -95,7 +98,9 @@ export function BusinessSidebar({detail:d,mainContact,contactCount,contactSectio
   </aside>;
 }
 
-/** Contact preferences and restrictions, collapsed by default as in the previous record layout. */
+/** Contact preferences and restrictions, collapsed by default: the only place to edit them (spec 90), including the technical per-channel restrictions. */
 function BusinessRestrictionsPolicy({detail:d,readOnly}:{detail:CommercialDetail;readOnly:boolean}){
-  return <Disclosure className={styles.relatedSection}><DisclosureSummary>Preferencias y restricciones de contacto</DisclosureSummary><ContactPolicy accountId={d.account.id} blocked={d.account.doNotContact} readOnly={readOnly}/></Disclosure>;
+  // The accordion keeps a closed panel mounted: the technical restrictions mount (and query) only once it is opened.
+  const [open,setOpen]=useState(false);
+  return <Disclosure className={styles.relatedSection} open={open} onOpenChange={setOpen}><DisclosureSummary>Preferencias y restricciones de contacto</DisclosureSummary><ContactPolicy accountId={d.account.id} blocked={d.account.doNotContact} readOnly={readOnly}/>{open&&<TechnicalRestrictions accountId={String(d.account.id)}/>}</Disclosure>;
 }

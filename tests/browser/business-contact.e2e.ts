@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {waitForTransitions} from './support/transitions';
 import superjson from 'superjson';
 import {localDay} from '../../src/helpers/workDates';
 import {pickOutcome} from './support/outcome';
@@ -15,6 +16,8 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
  await expect(outcome.getByRole('textbox',{name:'Cuándo',exact:true})).toBeFocused();await expect(outcome).toBeVisible();expect((await api('communication?accountId='+accountId)).messages[0].activityId).toBeNull();
  await outcome.getByLabel('¿Cómo sigue?').selectOption('done');await outcome.getByLabel('¿Por qué no agendás nada?').selectOption('Ya tengo otra tarea agendada');await outcome.getByRole('button',{name:'Guardar',exact:true}).click();await expect(outcome).toHaveCount(0);
  await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages[0].activityId).toBeTruthy();}
+ // Spec 90: on narrow screens the business column comes first with «Datos del negocio» collapsed; open it to read the email.
+ if(width<=1140){await page.getByRole('button',{name:'Datos del negocio',exact:true}).click();await waitForTransitions(page);}
  await expect(page.getByText('business@example.com',{exact:true}).last()).toBeVisible();await expect(page.getByRole('heading',{name:'Por ahora no hay otro paso',exact:true})).toBeVisible();await expect(page.getByText('Sin contactos registrados',{exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Contactar',exact:true}).first().click();let dialog=page.getByRole('dialog');await expect(dialog.getByText(/Sin gestiones abiertas/)).toBeVisible();await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();expect((await api('commercial?accountId='+accountId)).opportunities).toHaveLength(0);
  const newAccountId=(await api('commercial',{action:'account_save',nombre:'Nuevo y válido '+width+' '+Date.now(),assignedUserEmail:'admin@example.com'})).id;await page.goto('/accounts/'+newAccountId);await page.getByRole('button',{name:'Contactar',exact:true}).first().click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Iniciar gestión y continuar',exact:true}).click();dialog=page.getByRole('dialog',{name:'Iniciar gestión'});await expect(dialog.getByText(/figura como Nuevo/)).toBeVisible();await dialog.getByRole('button',{name:'Marcar Revisado e iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:'Contactar'});await expect(dialog.getByRole('status')).toContainText('Gestión guardada');const reviewedDetail=await api('commercial?accountId='+newAccountId);expect(reviewedDetail.account.status).toBe('in_management');expect(reviewedDetail.opportunities).toHaveLength(1);await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();

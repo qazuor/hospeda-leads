@@ -66,5 +66,31 @@ try{
   await db.updateTable('crmAccounts').set({archivedAt:new Date()}).where('id','=',b.id).execute();
   checkNotes(await historyOf(reader));await historyOf(colleague,403);
  }
+ // Spec 90: one entry per Instagram echo (its automatic «Contacto realizado» journal row is folded in), calls titled «Llamada»,
+ // received-message journal actions with real titles, and Instagram named as such.
+ {
+  const c=await db.insertInto('crmAccounts').values({nombre:'Zz Channels '+stamp,status:'reviewed'}).returningAll().executeTakeFirstOrThrow();
+  const echo=randomUUID(),call=randomUUID(),inbound=randomUUID(),wa=randomUUID(),mail=randomUUID(),fb=randomUUID(),mid='mid-'+stamp;
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,subject,owner_email,status,text_body,last_interaction_at) VALUES(${wa}::uuid,${c.id},${c.id},'whatsapp','+5493442000000','Julia','','history@example.com','whatsapp_opened','Hola',now()-interval '6 hours'),(${mail}::uuid,${c.id},${c.id},'email','julia@example.com','','Propuesta','history@example.com','accepted','Te paso',now()-interval '5 hours')`.execute(db);
+  await sql`INSERT INTO crm_inbound_messages(id,channel,channel_detail,external_id,account_id,match_method,from_address,text_body,received_at,status,source) VALUES(${fb}::uuid,'social','facebook',${'fb-'+mid},${c.id},'manual','Aguas FB','Hola',now()-interval '30 minutes','pending_review','instagram_webhook')`.execute(db);
+  await sql`INSERT INTO crm_communication_journal(account_id,original_account_id,entity_type,entity_id,action,actor_email,triggered_by_email,after_value) VALUES(${c.id},${c.id},'inbound',${fb},'inbound_received',NULL,'instagram-webhook','{}'::jsonb)`.execute(db);
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,text_body,last_interaction_at,external_id) VALUES(${echo}::uuid,${c.id},${c.id},'social','@channels','instagram@hospeda','manual_sent','Por mail es mejor',now()-interval '3 hours',${mid})`.execute(db);
+  await sql`INSERT INTO crm_communication_journal(account_id,original_account_id,entity_type,entity_id,action,actor_email,triggered_by_email,after_value) VALUES(${c.id},${c.id},'interaction',${echo},'contact_completed',NULL,'instagram-webhook',${JSON.stringify({channel:'instagram',status:'manual_sent',externalId:mid,to:'@channels'})}::jsonb)`.execute(db);
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,summary,last_interaction_at) VALUES(${call}::uuid,${c.id},${c.id},'call','+5493442000000','history@example.com','manual_no_contact','No atendió',now()-interval '2 hours')`.execute(db);
+  await sql`INSERT INTO crm_inbound_messages(id,channel,channel_detail,external_id,account_id,match_method,from_address,text_body,received_at,status,source) VALUES(${inbound}::uuid,'social','instagram',${'in-'+mid},${c.id},'instagram_handle','@channels','Hola',now()-interval '1 hour','pending_review','instagram_webhook')`.execute(db);
+  await sql`INSERT INTO crm_communication_journal(account_id,original_account_id,entity_type,entity_id,action,actor_email,triggered_by_email,after_value) VALUES(${c.id},${c.id},'inbound',${inbound},'inbound_received',NULL,'instagram-webhook',${JSON.stringify({channel:'instagram',from:'@channels'})}::jsonb)`.execute(db);
+  const r=await get(new Request('http://localhost/_api/commercial?'+new URLSearchParams({accountId:c.id,historyPage:'1'}),{headers:{cookie:admin}}));assert.equal(r.status,200);
+  const events=superjson.parse<any>(await r.text()).events as any[];
+  assert.equal(events.filter(e=>e.id==='message:'+echo).length,1,'the echo is one message entry');
+  assert.equal(events.filter(e=>e.kind==='communication'&&e.title==='Contacto realizado').length,0,'no extra «Contacto realizado» for the echo');
+  const echoed=events.find(e=>e.id==='message:'+echo);assert.equal(echoed.title,'Mensaje por Instagram');assert.equal(echoed.channel,'social');assert.equal(echoed.isInstagram,true);
+  const called=events.find(e=>e.id==='message:'+call);assert.equal(called.title,'Llamada');assert.equal(called.channel,'call');
+  const received=events.find(e=>e.kind==='communication'&&e.title.includes('@channels'));assert.equal(received.title,'Mensaje recibido por Instagram de @channels');assert.equal(received.channel,'social');assert.equal(received.isInstagram,true);
+  // A: outgoing messages say channel and recipient (never delivery); an email keeps its subject.
+  assert.equal(events.find(e=>e.id==='message:'+wa).title,'WhatsApp a Julia');assert.equal(events.find(e=>e.id==='message:'+mail).title,'Email a julia@example.com · «Propuesta»');
+  // L2/L3: a received social row from another network is «Red social», not Instagram.
+  const other=events.find(e=>e.kind==='communication'&&e.title.includes('Aguas FB'));assert.equal(other.title,'Mensaje recibido por Red social de Aguas FB');assert.equal(other.isInstagram,false);
+  assert.equal(events.length,6,'echo, call, two messages and two received messages, nothing duplicated');
+ }
  console.log('Commercial history: pagination, one event per linked message/activity, honest WhatsApp state, pending commitments and archived/deleted permissions passed');
 }finally{await db.destroy()}

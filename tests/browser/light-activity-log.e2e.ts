@@ -15,7 +15,7 @@ async function startCall(page:Page,label:string,button:'Ya llamé: anotar cómo 
  const leadId=(await api(page,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Gestión '+label+' '+stamp,estado:'Cargado'})).id;
  if(person)await api(page,'commercial',{action:'contact_save',accountId,name:person,phone:'+5493442000888',isPrimary:true});
  await page.goto('/sales/'+leadId);await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
- await page.getByText('Registrar una llamada',{exact:true}).click();await waitForTransitions(page);
+ await page.getByRole('button',{name:'Registrar llamada u otro contacto',exact:true}).click();await page.getByRole('dialog',{name:'Registrar llamada u otro contacto',exact:true}).getByText('Registrar una llamada',{exact:true}).click();await waitForTransitions(page);
  if(person){const who=page.getByLabel('¿A quién llamás?');await who.selectOption((await who.locator('option',{hasText:person}).getAttribute('value'))!);}
  await page.getByRole('button',{name:button,exact:true}).click();
  const editor=page.getByRole('dialog',{name:'Anotar lo que pasó',exact:true});await expect(editor).toBeVisible();

@@ -1,4 +1,14 @@
-# Estado del CRM — corte al 26 de octubre de 2026
+# Estado del CRM — corte al 27 de octubre de 2026
+
+## Spec 90 — comunicación en la ficha del negocio — en rama `feat/business-communication-90`, sin PR — 27/10/2026
+
+- **Pestaña «Comunicación»:** título con «Abrir en la Bandeja», barra de acciones («Contactar», «Registrar llamada u otro contacto», «Registrar respuesta sin mensaje»), aviso de restricción activa, «Requiere acción · N», una «Conversación» cronológica (separadores por día, burbujas con texto, chip de gestión, estados honestos, llamadas y respuestas sin mensaje como eventos, chips por canal, últimos 30 + «Ver anteriores», «Anulados» solo admin) y «Borradores · N» con «Seguir editando». Se quitaron las listas duplicadas y «Respuestas registradas».
+- **Restricciones técnicas:** en la ficha del negocio se editan solo en «Preferencias y restricciones de contacto» (columna izquierda). La vista de gestión las mantiene en su pestaña.
+- **Historial:** títulos reales para `inbound_*`, «Instagram»/«Red social»/«Llamada» como canal, llamada con ícono de teléfono y una sola entrada por eco de Instagram.
+- **Etiquetas:** Instagram con un solo nombre (también en la Bandeja), «(sin asunto)» solo en email, «No es una respuesta» también en la Bandeja.
+- **API (solo lectura):** `responses[].resolvedTaskTitles` (sin tareas borradas) y `responses[].hasInbound`, `inbound[].channelDetail` en `GET /_api/communication`; `isInstagram` en los eventos del historial y en las filas de la Bandeja (hilo y búsqueda). Sin migraciones ni cambios de permisos.
+- **Revisión:** filas enviadas sin confirmar, no hechas o con fallo con nombre neutro y estilo punteado; la sesión de llamada sobrevive al cerrar el diálogo (misma clave al reintentar) y el diálogo no se cierra mientras guarda; «sin mensaje» solo sin mensaje vinculado; aviso «Mostrando lo más reciente» con listas llenas; una sola regla Instagram/Red social (`instagramChannel.ts`); «Último contacto» y Historial con títulos honestos («WhatsApp a Julia», «Email a … · «asunto»»); eco de Instagram igual en Historial; «Ver diseño del email» en el email enviado.
+- **Móvil:** la columna del negocio va primero con «Personas» y «Datos del negocio» plegados (≤1140 px), para no empujar la pestaña debajo de listas largas.
 
 ## Spec 89 «Material de venta» — F1 en PR — 26/10/2026
 
