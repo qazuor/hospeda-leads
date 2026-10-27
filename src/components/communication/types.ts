@@ -24,3 +24,5 @@ export const BUSY_REASON='La operación está en curso. Esperá a que termine pa
 export type ContactChannel='email'|'whatsapp'|'call';
 /** What «Responder» (spec 91 §10) can preset besides the channel: the recipient ('' is the business own channel). */
 export type ContactOptions={readonly contactId?:string};
+/** What the panel's scroll tracking gives the conversation: whether the user scrolled by hand, and a way to flag the code's own scrolls (spec 91 §8). */
+export type ScrollTracker={readonly userScrolled:{readonly current:boolean};readonly programmatic:()=>void};

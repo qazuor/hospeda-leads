@@ -27,7 +27,7 @@ function setup({data={},role='user',accountOver={},contacts=[] as unknown[]}:{da
  mocks.getPipeline.mockResolvedValue({stages:[]});mocks.getWork.mockResolvedValue({tasks:[]});mocks.markCommunicationSeen.mockResolvedValue({lastSeenAt:new Date()});
 }
 let client:QueryClient;
-function show(props:React.ComponentProps<typeof CommunicationPanel>={accountId:'5'}){client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<MantineProvider env="test"><QueryClientProvider client={client}><CommunicationPanel {...props}/></QueryClientProvider></MantineProvider>);}
+function show(props:React.ComponentProps<typeof CommunicationPanel>={accountId:'5'},reuse=false){if(!reuse)client=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<MantineProvider env="test"><QueryClientProvider client={client}><CommunicationPanel {...props}/></QueryClientProvider></MantineProvider>);}
 const ready=()=>screen.findByRole('region',{name:'Conversación'});
 const rowOf=(name:string)=>screen.getByRole('article',{name}).closest('[id^="comm-item-"]') as HTMLElement;
 const scrolled:Element[]=[];
@@ -99,6 +99,15 @@ describe('open at the latest item (§8)',()=>{
   act(()=>observe?.(true));
   await waitFor(()=>expect(screen.queryByRole('button',{name:'Ir al último'})).toBeNull());
  });
+ it('treats a scroll the code did not start (a scrollbar drag) as the user scrolling',async()=>{
+  setup({data:{messages:[message('m1')]}});
+  let resolve:(value:unknown)=>void=()=>{};mocks.getCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
+  show();
+  window.dispatchEvent(new Event('scroll'));
+  resolve(payload({messages:[message('m1')]}));await ready();
+  await new Promise(r=>setTimeout(r,20));
+  expect(scrolled).toEqual([]);
+ });
  it('does not jump when the user already scrolled the page',async()=>{
   setup({data:{messages:[message('m1')]}});
   let resolve:(value:unknown)=>void=()=>{};mocks.getCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
@@ -138,27 +147,27 @@ describe('«Requiere acción» summary (§9)',()=>{
  });
 });
 
-describe('«Responder» (§10)',()=>{
+describe('«Preparar respuesta» (§10)',()=>{
  const contacts=[{id:'7',name:'Julia',phone:'+5493442123456',email:null,deletedAt:null}];
  it('opens «Contactar» with the channel and person of the last received message',async()=>{
   const onContact=vi.fn();setup({contacts,data:{inbound:[inbound('old',{channel:'email',fromAddress:'otra@example.com',receivedAt:day(1)}),inbound('last',{receivedAt:day(5)})]}});show({accountId:'5',onContact});await ready();
-  const reply=await screen.findByRole('button',{name:'Responder'});await waitFor(()=>expect((reply as HTMLButtonElement).disabled).toBe(false));
+  const reply=await screen.findByRole('button',{name:'Preparar respuesta'});await waitFor(()=>expect((reply as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(reply);
   expect(onContact).toHaveBeenCalledWith('whatsapp',{contactId:'7'});expect(mocks.info).not.toHaveBeenCalled();
  });
  it('falls back to the normal composer and says why for a channel it cannot prepare',async()=>{
   const onContact=vi.fn();setup({contacts,data:{inbound:[inbound('ig',{channel:'social',fromAddress:'@hotel'})]}});show({accountId:'5',onContact});await ready();
-  const reply=await screen.findByRole('button',{name:'Responder'});await waitFor(()=>expect((reply as HTMLButtonElement).disabled).toBe(false));
+  const reply=await screen.findByRole('button',{name:'Preparar respuesta'});await waitFor(()=>expect((reply as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(reply);
-  expect(onContact).toHaveBeenCalledWith(undefined,undefined);expect(mocks.info).toHaveBeenCalledWith('«Responder» no prepara mensajes por Instagram: elegí el canal en «Contactar».');
+  expect(onContact).toHaveBeenCalledWith(undefined,undefined);expect(mocks.info).toHaveBeenCalledWith('«Preparar respuesta» no prepara mensajes por Instagram: elegí el canal en «Contactar».');
  });
  it('is absent without received messages or on a read-only view, and disabled under No contactar',async()=>{
   setup({data:{messages:[message('a')]}});show({accountId:'5',onContact:vi.fn()});await ready();
-  expect(screen.queryByRole('button',{name:'Responder'})).toBeNull();
+  expect(screen.queryByRole('button',{name:'Preparar respuesta'})).toBeNull();
   cleanup();setup({data:{inbound:[inbound('a')]}});show({accountId:'5',readOnly:true,onContact:vi.fn()});await ready();
-  expect(screen.queryByRole('button',{name:'Responder'})).toBeNull();
+  expect(screen.queryByRole('button',{name:'Preparar respuesta'})).toBeNull();
   cleanup();setup({accountOver:{doNotContact:true},data:{inbound:[inbound('a')]}});show({accountId:'5',onContact:vi.fn()});await ready();
-  await waitFor(()=>expect((screen.getByRole('button',{name:'Responder'}) as HTMLButtonElement).disabled).toBe(true));
+  await waitFor(()=>expect((screen.getByRole('button',{name:'Preparar respuesta'}) as HTMLButtonElement).disabled).toBe(true));
  });
 });
 
@@ -201,6 +210,28 @@ describe('«Nuevo desde tu última visita» (§12)',()=>{
   cleanup();setup({data:{...data,lastSeenAt:undefined}});show();await ready();
   await new Promise(r=>setTimeout(r,20));
   expect(mocks.markCommunicationSeen).not.toHaveBeenCalled();
+ });
+ it('does not repeat the divider when the tab remounts with a cached payload from the previous visit',async()=>{
+  setup({data});mocks.markCommunicationSeen.mockResolvedValue({lastSeenAt:day(4)});const first=show();await ready();
+  await waitFor(()=>expect(mocks.markCommunicationSeen).toHaveBeenCalledTimes(1));
+  await waitFor(()=>expect((client.getQueryData(['communication','account','5',false]) as {lastSeenAt:Date}).lastSeenAt).toEqual(day(4)));
+  mocks.getCommunication.mockResolvedValue(payload({...data,lastSeenAt:day(4)}));first.unmount();
+  // Same QueryClient, as when switching tabs (`keepMounted={false}`) or leaving the business and coming back.
+  show({accountId:'5'},true);await ready();await new Promise(r=>setTimeout(r,20));
+  expect(screen.queryByText('Nuevo desde tu última visita')).toBeNull();expect(mocks.markCommunicationSeen).toHaveBeenCalledTimes(1);
+ });
+ it('takes «previous» only from data fetched after mount, even if the cache was not updated',async()=>{
+  setup({data});mocks.markCommunicationSeen.mockRejectedValue(new Error('offline'));const first=show();await ready();
+  await waitFor(()=>expect(mocks.markCommunicationSeen).toHaveBeenCalledTimes(1));
+  expect((client.getQueryData(['communication','account','5',false]) as {lastSeenAt:Date}).lastSeenAt).toEqual(day(2,13));
+  first.unmount();
+  let resolve:(value:unknown)=>void=()=>{};mocks.getCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
+  show({accountId:'5'},true);await ready();
+  // The stale cached payload (lastSeenAt T0) renders first but must not become the previous visit.
+  expect(screen.queryByText('Nuevo desde tu última visita')).toBeNull();
+  await act(async()=>{resolve(payload({...data,lastSeenAt:day(4)}))});
+  await new Promise(r=>setTimeout(r,20));
+  expect(screen.queryByText('Nuevo desde tu última visita')).toBeNull();
  });
  it('does not mark again when the previous visit already covers the newest item',async()=>{
   setup({data:{...data,lastSeenAt:day(5)}});show();await ready();

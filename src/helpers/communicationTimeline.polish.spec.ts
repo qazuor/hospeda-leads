@@ -49,6 +49,11 @@ describe('«Nuevo desde tu última visita» (spec 91 §12)',()=>{
   expect(newestAt(entries)?.getTime()).toBe(at(5).getTime());
   expect(newestAt([])).toBeNull();
  });
+ it('ignores voided rows shown with «Mostrar anulados»',()=>{
+  const withVoided=buildCommunicationTimeline({messages:[message({id:'ok',ownerEmail:'sofia@example.com',lastInteractionAt:at(3)}),message({id:'void',ownerEmail:'sofia@example.com',status:'voided',lastInteractionAt:at(6)})],inbound:[inbound({id:'vin',status:'voided',receivedAt:at(7)})]});
+  expect(newestAt(withVoided)?.getTime()).toBe(at(3).getTime());
+  expect(newSinceKey({entries:withVoided,lastSeenAt:at(4),userEmail:'leo@example.com'})).toBeNull();
+ });
 });
 
 describe('clamping and summary',()=>{
@@ -64,7 +69,7 @@ describe('clamping and summary',()=>{
  it('builds a safe DOM id for every key',()=>{expect(timelineDomId('in:1b2c-3')).toBe('comm-item-in-1b2c-3');});
 });
 
-describe('«Responder» (spec 91 §10)',()=>{
+describe('«Preparar respuesta» (spec 91 §10)',()=>{
  const recipients={account:{email:'hotel@example.com',telefono:'03442 15-111111',whatsapp:null},contacts:[{id:'7',email:'julia@example.com',phone:'+5493442000000'},{id:'9',email:'baja@example.com',phone:null,deletedAt:new Date()}]};
  it('answers the newest received message that is not voided, preferring one that is not automatic',()=>{
   expect(lastReceived([inbound({id:'a',receivedAt:at(1)}),inbound({id:'b',receivedAt:at(3),isAutomatic:true}),inbound({id:'c',receivedAt:at(4),status:'voided'})])?.id).toBe('a');
@@ -98,7 +103,7 @@ describe('«Responder» (spec 91 §10)',()=>{
   const unknown=replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'baja@example.com'}),recipients,restrictions:[]});
   expect(unknown.channel).toBe('email');expect(unknown.contactId).toBeUndefined();expect(unknown.reason).toMatch(/^baja@example\.com no está cargado/);
   const social=replyTarget({item:inbound({id:'a',channel:'social',fromAddress:'@hotel'}),recipients,restrictions:[]});
-  expect(social).toEqual({reason:'«Responder» no prepara mensajes por Instagram: elegí el canal en «Contactar».'});
+  expect(social).toEqual({reason:'«Preparar respuesta» no prepara mensajes por Instagram: elegí el canal en «Contactar».'});
   const restricted=replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'whatsapp',contactId:'7',liftedAt:null}]});
   expect(restricted.channel).toBeUndefined();expect(restricted.reason).toMatch(/restricción activa/);
   expect(replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'whatsapp',contactId:null,liftedAt:new Date()},{channel:'email',contactId:null}]})).toEqual({channel:'whatsapp',contactId:'7',reason:''});

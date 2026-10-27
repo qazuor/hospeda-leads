@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {useMutation,useQuery} from '@tanstack/react-query';
+import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {getCommunication,markCommunicationSeen,type InboundMessage} from '../endpoints/communication.schema';
 import {getCommercialDetail} from '../endpoints/commercial.schema';
@@ -14,7 +14,7 @@ import {CONTACT_DNC_REASON,CommunicationActionBar} from './communication/Communi
 import {RequiresAction} from './communication/RequiresAction';
 import {Conversation,type FocusRequest,type ReplyAction} from './communication/Conversation';
 import {DraftsBlock} from './communication/DraftsBlock';
-import type {CommunicationView,ContactChannel,ContactOptions} from './communication/types';
+import type {CommunicationView,ContactChannel,ContactOptions,ScrollTracker} from './communication/types';
 import type {PickedSalesMaterial} from './SalesMaterialPicker';
 import styles from './Communication.module.css';
 import view from './communication/CommunicationView.module.css';
@@ -30,28 +30,45 @@ function RestrictionNotice({data,contacts}:{data:CommunicationView['data'];conta
 }
 
 const SCROLL_KEYS=new Set(['PageUp','PageDown','Home','End','ArrowUp','ArrowDown',' ']);
-/** True once the user scrolls the page by hand (wheel, touch or scroll keys), so opening at the latest item never fights them (spec 91 §8). */
-function useUserScrolled(){
- const scrolled=useRef(false);
+/**
+ * True once the user scrolls the page by hand, so opening at the latest item never fights them (spec 91 §8): wheel, touch,
+ * scroll keys, or any other `scroll` (a scrollbar drag) that the code did not start. A scroll that comes with a height change of
+ * its scroller is a layout clamp (content got shorter), not the user, and the first scroll seen on a scroller only records it.
+ */
+function useUserScrolled():ScrollTracker{
+ const scrolled=useRef(false),ignoreUntil=useRef(0);
  useEffect(()=>{
   const mark=()=>{scrolled.current=true};
   const key=(event:KeyboardEvent)=>{const target=event.target as HTMLElement|null;if(SCROLL_KEYS.has(event.key)&&!target?.closest('input,textarea,select,[contenteditable="true"]'))mark()};
-  window.addEventListener('wheel',mark,{passive:true});window.addEventListener('touchmove',mark,{passive:true});window.addEventListener('keydown',key);
-  return()=>{window.removeEventListener('wheel',mark);window.removeEventListener('touchmove',mark);window.removeEventListener('keydown',key)};
+  const heights=new WeakMap<Element,number>(),page=document.scrollingElement??document.documentElement;
+  heights.set(page,page.scrollHeight);
+  const scroll=(event:Event)=>{
+   const el=event.target instanceof Element?event.target:page,height=el.scrollHeight,known=heights.get(el);heights.set(el,height);
+   if(known===undefined||known!==height||Date.now()<ignoreUntil.current)return;
+   mark();
+  };
+  window.addEventListener('wheel',mark,{passive:true});window.addEventListener('touchmove',mark,{passive:true});window.addEventListener('keydown',key);window.addEventListener('scroll',scroll,{passive:true,capture:true});
+  return()=>{window.removeEventListener('wheel',mark);window.removeEventListener('touchmove',mark);window.removeEventListener('keydown',key);window.removeEventListener('scroll',scroll,{capture:true})};
  },[]);
- return scrolled;
+ // Smooth scrolls emit events for a while; 1s covers them.
+ return useMemo(()=>({userScrolled:scrolled,programmatic:()=>{ignoreUntil.current=Date.now()+1000}}),[]);
 }
 
 /**
- * Spec 91 §12, business view only: the previous visit as the first load returned it (kept for the whole visit, so the
- * divider does not move when the data refreshes), and the visit marked with the newest loaded item's time after the tab
- * renders. A management view shows a subset of the business, so it neither reads nor marks the business visit.
+ * Spec 91 §12, business view only: the previous visit as the first load after mount returned it (kept for the whole visit, so
+ * the divider does not move when the data refreshes), and the visit marked with the newest loaded item's time after the tab
+ * renders. The tab remounts on every visit (`keepMounted={false}`), so a cached payload from an earlier visit is never used as
+ * «previous»: only data fetched after this mount counts, and a successful mark also updates the cached `lastSeenAt`.
+ * A management view shows a subset of the business, so it neither reads nor marks the business visit.
  */
-function useVisit({accountId,enabled,data,newest}:{accountId:string;enabled:boolean;data:{lastSeenAt?:Date|null}|undefined;newest:Date|null}){
- const previous=useRef<{value:Date|null}|null>(null);
- if(enabled&&!previous.current&&data&&data.lastSeenAt!==undefined)previous.current={value:data.lastSeenAt?new Date(data.lastSeenAt):null};
- const marked=useRef(0),{mutate}=useMutation({mutationFn:markCommunicationSeen});
- const known=enabled&&data?.lastSeenAt!==undefined,stored=data?.lastSeenAt?new Date(data.lastSeenAt).getTime():0,time=newest?.getTime()??0;
+function useVisit({accountId,enabled,fresh,data,newest}:{accountId:string;enabled:boolean;fresh:boolean;data:{lastSeenAt?:Date|null}|undefined;newest:Date|null}){
+ const client=useQueryClient(),previous=useRef<{value:Date|null}|null>(null);
+ if(enabled&&fresh&&!previous.current&&data&&data.lastSeenAt!==undefined)previous.current={value:data.lastSeenAt?new Date(data.lastSeenAt):null};
+ const marked=useRef(0),{mutate}=useMutation({mutationFn:markCommunicationSeen,onSuccess:result=>{
+  const seen=result?.lastSeenAt?new Date(result.lastSeenAt):null;if(!seen)return;
+  client.setQueriesData<{lastSeenAt?:Date|null}>({queryKey:['communication','account',accountId]},old=>old&&old.lastSeenAt!==undefined&&(!old.lastSeenAt||new Date(old.lastSeenAt)<seen)?{...old,lastSeenAt:seen}:old);
+ }});
+ const known=enabled&&fresh&&data?.lastSeenAt!==undefined,stored=data?.lastSeenAt?new Date(data.lastSeenAt).getTime():0,time=newest?.getTime()??0;
  useEffect(()=>{
   if(!known||!time||time<=Math.max(marked.current,stored))return;
   marked.current=time;
@@ -63,7 +80,7 @@ function useVisit({accountId,enabled,data,newest}:{accountId:string;enabled:bool
 
 /**
  * «Comunicación» of a business (or of a management, `leadId`), specs 90 and 91: title and Bandeja link, action bar, restriction
- * notice, «Requiere acción» (a summary that scrolls to its items), one chronological «Conversación» with «Responder» and
+ * notice, «Requiere acción» (a summary that scrolls to its items), one chronological «Conversación» with «Preparar respuesta» and
  * «Borradores». Permissions are mirrored here and checked again by the server on every write. `onContact` opens the page's
  * «Contactar» dialog (business page only), optionally with a recipient. `onSendMaterial` adds «Enviar material» (spec 89 §8.2).
  */
@@ -77,9 +94,9 @@ export function CommunicationPanel({leadId,accountId,readOnly=false,onContact,on
  const detail=useQuery({queryKey:['commercial-detail',accountId??'',leadId??''],queryFn:()=>getCommercialDetail(accountId,leadId)});
  const [responseRequest,setResponseRequest]=useState<ResponseDialogRequest|null>(null),responseSeq=useRef(0);
  const [focus,setFocus]=useState<FocusRequest|null>(null),focusSeq=useRef(0);
- const userScrolled=useUserScrolled();
+ const scroll=useUserScrolled();
  const newest=useMemo(()=>q.data?newestAt(buildCommunicationTimeline({messages:q.data.messages,inbound:q.data.inbound,responses:q.data.responses})):null,[q.data]);
- const lastSeenAt=useVisit({accountId:accountId??'',enabled:!!accountId&&!leadId,data:q.data,newest});
+ const lastSeenAt=useVisit({accountId:accountId??'',enabled:!!accountId&&!leadId,fresh:q.isFetchedAfterMount,data:q.data,newest});
  const openResponse=(inbound:InboundMessage|null)=>setResponseRequest({seq:++responseSeq.current,inbound});
  if(!q.data&&q.isPending)return <QueryLoadingNotice>Cargando comunicación…</QueryLoadingNotice>;
  if(!q.data)return <QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching}/>;
@@ -95,7 +112,7 @@ export function CommunicationPanel({leadId,accountId,readOnly=false,onContact,on
  };
  const businessId=accountId??(d?String(d.account.id):'');
  const inboxHref=businessId?'/inbox?account='+businessId+(leadId?'&lead='+leadId:''):'';
- // Spec 91 §10: «Responder» prepares a message to the last received one; it opens the composer, it is not contact.
+ // Spec 91 §10: «Preparar respuesta» prepares a message to the last received one; it opens the composer, it is not contact.
  const last=lastReceived(q.data.inbound),data=q.data;
  const reply:ReplyAction|undefined=!readOnly&&onContact&&last?{disabledReason:!d?'Estamos cargando los datos del negocio.':d.account.doNotContact?CONTACT_DNC_REASON:'',onReply:()=>{
   if(!d)return;
@@ -110,7 +127,7 @@ export function CommunicationPanel({leadId,accountId,readOnly=false,onContact,on
   <CommunicationActionBar view={v} leadId={leadId} onContact={onContact} onSendMaterial={onSendMaterial}/>
   {leadId?<TechnicalRestrictions leadId={leadId} accountId={accountId} collapsible/>:<RestrictionNotice data={q.data} contacts={d?.contacts??[]}/>}
   <RequiresAction view={v} onFocus={key=>setFocus({key,seq:++focusSeq.current})}/>
-  <Conversation view={v} includeVoided={admin&&includeVoided} onToggleVoided={()=>setIncludeVoided(value=>!value)} lastSeenAt={lastSeenAt} focus={focus} reply={reply} userScrolled={userScrolled}/>
+  <Conversation view={v} includeVoided={admin&&includeVoided} onToggleVoided={()=>setIncludeVoided(value=>!value)} lastSeenAt={lastSeenAt} focus={focus} reply={reply} scroll={scroll}/>
   <DraftsBlock view={v}/>
   <ResponseRecordDialog request={responseRequest} onClose={()=>setResponseRequest(null)} data={q.data} detail={d} leadId={leadId}/>
  </section>;

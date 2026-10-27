@@ -1,4 +1,4 @@
-import {useEffect,useLayoutEffect,useMemo,useRef,useState,type MutableRefObject} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {Switch} from '@mantine/core';
 import {ArrowDown} from 'lucide-react';
 import {COMMUNICATION_LIST_LIMIT} from '../../endpoints/communication.schema';
@@ -6,12 +6,12 @@ import {atListLimit,buildCommunicationTimeline,filterTimeline,managementOptions,
 import {Button} from '../Button';
 import {CrmNativeSelect} from '../ui/CrmNativeSelect';
 import {ConversationItem} from './ConversationItem';
-import type {CommunicationView} from './types';
+import type {CommunicationView,ScrollTracker} from './types';
 import styles from './CommunicationView.module.css';
 
 /** A request from «Requiere acción» to scroll to an item and highlight it; `seq` repeats a request for the same item. */
 export type FocusRequest={readonly key:string;readonly seq:number};
-/** «Responder» below the last item (spec 91 §10): what it does and, when it cannot, why. */
+/** «Preparar respuesta» below the last item (spec 91 §10): what it does and, when it cannot, why. */
 export type ReplyAction={readonly onReply:()=>void;readonly disabledReason:string};
 
 const byId=(key:string)=>document.getElementById(timelineDomId(key));
@@ -25,11 +25,11 @@ function scrollParent(el:HTMLElement):{scrollBy:(x:number,y:number)=>void}{
  * «Conversación»: one chronological list (oldest first, day separators) of everything sent and received with the business,
  * with or without management. Channel chips and the management selector (spec 91 §11) filter it on the client; long
  * histories show the latest 30 with «Ver anteriores», which keeps the scroll position. On open it scrolls to the latest item
- * unless the user already scrolled (`userScrolled`), and «Ir al último» shows while the latest item is out of view.
+ * unless the user already scrolled (`scroll.userScrolled`; the code's own scrolls are flagged with `scroll.programmatic`), and «Ir al último» shows while the latest item is out of view.
  * «Nuevo desde tu última visita» marks the first item newer than `lastSeenAt` the viewer did not author. The admin
  * «Mostrar anulados» switch asks the server for voided rows (`includeVoided`).
  */
-export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus,reply,userScrolled}:{view:CommunicationView;includeVoided:boolean;onToggleVoided:()=>void;lastSeenAt:Date|null;focus:FocusRequest|null;reply?:ReplyAction;userScrolled:MutableRefObject<boolean>}){
+export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus,reply,scroll}:{view:CommunicationView;includeVoided:boolean;onToggleVoided:()=>void;lastSeenAt:Date|null;focus:FocusRequest|null;reply?:ReplyAction;scroll:ScrollTracker}){
  const {data,detail}=view;
  const entries=useMemo(()=>buildCommunicationTimeline({messages:data.messages,inbound:data.inbound,responses:data.responses,users:detail?.users,managements:detail?.opportunities??data.openManagements}),[data,detail]);
  const [channel,setChannel]=useState<TimelineChannel|'all'>('all'),[management,setManagement]=useState<ManagementFilter>('all'),[showOlder,setShowOlder]=useState(false);
@@ -42,7 +42,7 @@ export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus
  const lastKey=items.at(-1)?.key;
  // Spec 91 §8: open at the latest item once, never against a scroll the user already made.
  const opened=useRef(false);
- useEffect(()=>{if(opened.current||!lastKey)return;opened.current=true;if(!userScrolled.current)byId(lastKey)?.scrollIntoView?.({block:'nearest'})},[lastKey,userScrolled]);
+ useEffect(()=>{if(opened.current||!lastKey)return;opened.current=true;if(!scroll.userScrolled.current){scroll.programmatic();byId(lastKey)?.scrollIntoView?.({block:'nearest'})}},[lastKey,scroll]);
  useEffect(()=>{
   const el=lastKey?byId(lastKey):null;
   if(!el||typeof IntersectionObserver==='undefined'){setLatestHidden(false);return}
@@ -51,10 +51,11 @@ export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus
  // «Ver anteriores» inserts items above: keep the first visible item where it was.
  const anchor=useRef<{key:string;top:number}|null>(null);
  const showOlderItems=()=>{const first=items[0],el=first?byId(first.key):null;anchor.current=first&&el?{key:first.key,top:el.getBoundingClientRect().top}:null;setShowOlder(true)};
- useLayoutEffect(()=>{const saved=anchor.current;if(!saved)return;anchor.current=null;const el=byId(saved.key);if(!el)return;const delta=el.getBoundingClientRect().top-saved.top;if(delta)scrollParent(el).scrollBy(0,delta)},[showOlder]);
+ useLayoutEffect(()=>{const saved=anchor.current;if(!saved)return;anchor.current=null;const el=byId(saved.key);if(!el)return;const delta=el.getBoundingClientRect().top-saved.top;if(delta){scroll.programmatic();scrollParent(el).scrollBy(0,delta)}},[showOlder,scroll]);
  // Spec 91 §9: a summary entry reveals its item (clearing filters that hide it), scrolls to it and highlights it briefly.
  useEffect(()=>{if(!focus)return;if(!items.some(item=>item.key===focus.key)){setChannel('all');setManagement('all');setShowOlder(true)}setPendingFocus(focus.key)},[focus]);
- useEffect(()=>{if(!pendingFocus)return;const el=byId(pendingFocus);if(!el)return;el.scrollIntoView?.({block:'center',behavior:'smooth'});el.focus({preventScroll:true});setHighlight(pendingFocus);setPendingFocus(null)},[pendingFocus,items]);
+ // One attempt after the filters were cleared: an item that is still not rendered (it went away on a refresh) is dropped.
+ useEffect(()=>{if(!pendingFocus)return;const el=byId(pendingFocus);if(!el){setPendingFocus(null);return}scroll.programmatic();el.scrollIntoView?.({block:'center',behavior:'smooth'});el.focus({preventScroll:true});setHighlight(pendingFocus);setPendingFocus(null)},[pendingFocus,items,scroll]);
  useEffect(()=>{if(!highlight)return;const timer=setTimeout(()=>setHighlight(null),2400);return()=>clearTimeout(timer)},[highlight]);
  return <section className={styles.section} aria-label="Conversación">
   <div className={styles.convHead}>
@@ -70,8 +71,8 @@ export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus
   {atListLimit({messages:data.messages,inbound:data.inbound,responses:data.responses,limit:COMMUNICATION_LIST_LIMIT})&&<p className={styles.limitNote} role="note">Mostrando lo más reciente: los mensajes y respuestas más antiguos no se cargan acá. Buscalos en la Bandeja.</p>}
   {hidden>0&&<Button size="sm" variant="outline" style={{alignSelf:'center'}} onClick={showOlderItems}>Ver anteriores ({hidden})</Button>}
   {items.length>0&&<ol className={styles.timeline}>{withDaySeparators(items).map(({entry,separator})=><Item key={entry.key} view={view} entry={entry} separator={separator} newSince={entry.key===divider} highlighted={entry.key===highlight}/>)}</ol>}
-  {latestHidden&&lastKey&&<div className={styles.toLatestWrap}><Button size="sm" className={styles.toLatest} onClick={()=>byId(lastKey)?.scrollIntoView?.({block:'nearest',behavior:'smooth'})}><ArrowDown size={16} aria-hidden="true"/>Ir al último</Button></div>}
-  {reply&&<div className={styles.replyRow}><Button variant="outline" disabled={!!reply.disabledReason} disabledReason={reply.disabledReason} onClick={reply.onReply}>Responder</Button></div>}
+  {latestHidden&&lastKey&&<div className={styles.toLatestWrap}><Button size="sm" className={styles.toLatest} onClick={()=>{scroll.programmatic();byId(lastKey)?.scrollIntoView?.({block:'nearest',behavior:'smooth'})}}><ArrowDown size={16} aria-hidden="true"/>Ir al último</Button></div>}
+  {reply&&<div className={styles.replyRow}><Button variant="outline" disabled={!!reply.disabledReason} disabledReason={reply.disabledReason} onClick={reply.onReply}>Preparar respuesta</Button></div>}
  </section>;
 }
 

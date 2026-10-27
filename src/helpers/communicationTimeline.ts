@@ -179,17 +179,21 @@ export const timelineDomId=(key:string):string=>'comm-item-'+key.replace(/[^a-zA
 
 /** True when the viewer authored the item (sent it, made the call or registered the response): it is never «nuevo» for them. */
 export const authoredBy=(entry:TimelineEntry,userEmail:string):boolean=>entry.kind==='sent'||entry.kind==='call'?entry.message.ownerEmail===userEmail:entry.kind==='response'?entry.response.actorEmail===userEmail:false;
+/** True for a voided row (only loaded when an admin turns on «Mostrar anulados»): it is never new nor marks a visit. */
+export const isVoidedEntry=(entry:TimelineEntry):boolean=>entry.kind==='received'?entry.inbound.status==='voided':entry.kind==='response'?false:entry.voided;
 /**
- * Spec 91 §12: key of the first item newer than the viewer's previous visit, ignoring what the viewer authored. Null on the
- * first visit (no previous visit) or when nothing is new. `entries` are in chronological order.
+ * Spec 91 §12: key of the first item newer than the viewer's previous visit, ignoring what the viewer authored and voided rows.
+ * Null on the first visit (no previous visit) or when nothing is new. `entries` are in chronological order.
+ * Known limit: the comparison uses each item's own time (`at`), so an item registered after the visit but dated before it
+ * (a call or response logged late, a message confirmed by hand) never shows as new.
  */
 export function newSinceKey({entries,lastSeenAt,userEmail}:{entries:readonly TimelineEntry[];lastSeenAt:Date|string|null|undefined;userEmail:string}):string|null{
  if(!lastSeenAt)return null;
  const seen=time(lastSeenAt);
- return entries.find(e=>time(e.at)>seen&&!authoredBy(e,userEmail))?.key??null;
+ return entries.find(e=>time(e.at)>seen&&!authoredBy(e,userEmail)&&!isVoidedEntry(e))?.key??null;
 }
-/** Time of the newest loaded item, sent to POST /_api/communication/seen (never the client clock). */
-export const newestAt=(entries:readonly TimelineEntry[]):Date|null=>entries.length?new Date(Math.max(...entries.map(e=>time(e.at)))):null;
+/** Time of the newest loaded item that is not voided, sent to POST /_api/communication/seen (never the client clock). */
+export const newestAt=(entries:readonly TimelineEntry[]):Date|null=>{const times=entries.filter(e=>!isVoidedEntry(e)).map(e=>time(e.at));return times.length?new Date(Math.max(...times)):null;};
 
 /** Spec 91 §9: «N mensajes por revisar · M envíos sin confirmar» (only the non-zero parts). */
 export function actionSummary({review,unconfirmed,outcomes}:{review:number;unconfirmed:number;outcomes:number}):string{
@@ -198,9 +202,9 @@ export function actionSummary({review,unconfirmed,outcomes}:{review:number;uncon
 
 /** Who can receive a reply from the composer: the business people and its own email and phones. */
 export type ReplyRecipients={account:{email?:string|null;telefono?:string|null;whatsapp?:string|null};contacts:readonly {id:string|number;email?:string|null;phone?:string|null;deletedAt?:unknown}[]};
-/** What «Responder» opens: the channel and recipient to preselect (`contactId` '' is the business own channel), or why it falls back to the defaults. */
+/** What «Preparar respuesta» opens: the channel and recipient to preselect (`contactId` '' is the business own channel), or why it falls back to the defaults. */
 export type ReplyTarget={channel?:'email'|'whatsapp';contactId?:string;reason:string};
-/** The last received message «Responder» answers: the newest one that is not voided, preferring one that is not automatic. */
+/** The last received message «Preparar respuesta» answers: the newest one that is not voided, preferring one that is not automatic. */
 export function lastReceived(inbound:readonly InboundMessage[]|null|undefined):InboundMessage|null{
  const list=(inbound??[]).filter(i=>i.status!=='voided').sort((a,b)=>time(b.receivedAt)-time(a.receivedAt));
  return list.find(i=>!i.isAutomatic)??list[0]??null;
@@ -213,7 +217,7 @@ const samePhone=(a:string|null|undefined,b:string|null|undefined)=>{const keys=p
  */
 export function replyTarget({item,recipients,restrictions}:{item:InboundMessage;recipients:ReplyRecipients;restrictions:readonly {channel:string;contactId?:string|number|null;liftedAt?:unknown}[]}):ReplyTarget{
  const label=timelineChannelLabel({channel:item.channel,instagram:isInstagramInbound(item)});
- if(item.channel!=='email'&&item.channel!=='whatsapp')return {reason:`«Responder» no prepara mensajes por ${label}: elegí el canal en «Contactar».`};
+ if(item.channel!=='email'&&item.channel!=='whatsapp')return {reason:`«Preparar respuesta» no prepara mensajes por ${label}: elegí el canal en «Contactar».`};
  const channel=item.channel,from=(item.fromAddress||'').trim();
  const people=recipients.contacts.filter(c=>!c.deletedAt);
  const person=people.find(c=>channel==='email'?!!c.email&&c.email.trim().toLowerCase()===from.toLowerCase():samePhone(c.phone,from));
