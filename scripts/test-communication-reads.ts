@@ -16,6 +16,8 @@ try{
  // Unauthenticated and invalid input.
  assert.equal((await seen(new Request('http://localhost/_api/communication/seen',{method:'POST',body:superjson.stringify({accountId:open,seenAt:new Date()})}))).status,401);
  await mark({accountId:'abc',seenAt:new Date()},owner.cookie,400);await mark({accountId:open,seenAt:'yesterday'},owner.cookie,400);await mark({accountId:open},owner.cookie,400);
+ // An oversized body is refused from its Content-Length, before reading it.
+ {const r=await seen(new Request('http://localhost/_api/communication/seen',{method:'POST',headers:{cookie:owner.cookie,'content-length':'5000'},body:superjson.stringify({accountId:open,seenAt:new Date()})}));assert.equal(r.status,400);assert.match(superjson.parse<any>(await r.text()).error,/demasiado grande/);assert.equal(await row(owner.user.id,open),undefined);}
  // The route is registered on the server app (same-origin POST).
  assert.notEqual((await app.request('/_api/communication/seen',{method:'POST',headers:{origin:'http://localhost'}})).status,404);
  // First visit: GET reports null and does not write anything.

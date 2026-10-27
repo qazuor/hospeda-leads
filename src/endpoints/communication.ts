@@ -75,6 +75,7 @@ export async function post(request:Request){try{const {user}=await getServerUser
 export async function seen(request:Request){
  try{
   const {user}=await getServerUserSession(request);
+  if(Number(request.headers.get('Content-Length')??0)>2000)throw new Error('Solicitud demasiado grande');
   const raw=await request.text();if(raw.length>2000)throw new Error('Solicitud demasiado grande');
   const input=communicationSeenInput.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})());
   await assertBusinessAccess(db,input.accountId,user);
