@@ -88,6 +88,32 @@ describe('Mantine migration preserves CRM interactions', () => {
     expect(changes).toContain(true);
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Fecha real')));
   });
+  it('keeps trying to focus the revealed field until its panel is really visible (regression: CI focus stayed on Guardar)', () => {
+    vi.useFakeTimers();
+    try {
+      mount(<form><Disclosure><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><button type="submit">Guardar</button></form>);
+      const field = screen.getByLabelText('Fecha real') as HTMLInputElement, save = screen.getByRole('button', { name: 'Guardar' });
+      // A browser ignores focus() while the panel is still display:none; jsdom does not, so emulate it.
+      let hidden = true; const realFocus = HTMLElement.prototype.focus.bind(field);
+      vi.spyOn(field, 'focus').mockImplementation(options => { if (!hidden) realFocus(options); });
+      save.focus(); fireEvent.click(save);
+      vi.advanceTimersByTime(150); expect(document.activeElement).toBe(save);
+      hidden = false; vi.advanceTimersByTime(100);
+      expect(document.activeElement).toBe(field);
+    } finally { vi.useRealTimers(); }
+  });
+  it('does not steal focus the user moved elsewhere while the panel was opening', () => {
+    vi.useFakeTimers();
+    try {
+      mount(<form><Disclosure><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><input aria-label="Notas" /><button type="submit">Guardar</button></form>);
+      const field = screen.getByLabelText('Fecha real') as HTMLInputElement, save = screen.getByRole('button', { name: 'Guardar' }), notes = screen.getByLabelText('Notas') as HTMLInputElement;
+      let hidden = true; const realFocus = HTMLElement.prototype.focus.bind(field);
+      vi.spyOn(field, 'focus').mockImplementation(options => { if (!hidden) realFocus(options); });
+      save.focus(); fireEvent.click(save);
+      vi.advanceTimersByTime(60); notes.focus(); hidden = false; vi.advanceTimersByTime(500);
+      expect(document.activeElement).toBe(notes);
+    } finally { vi.useRealTimers(); }
+  });
   it('does not touch the DOM after unmounting within the focus delay', async () => {
     vi.useFakeTimers();
     try {

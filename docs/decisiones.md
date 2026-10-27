@@ -323,3 +323,10 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 - «Nuevo desde tu última visita» se guarda por usuario y negocio en `crm_communication_reads`: no es contacto ni actividad, no va al journal ni al historial, nunca retrocede y no acepta fechas futuras. Se marca con la hora del ítem más nuevo cargado, solo desde la vista del negocio.
 - «Preparar respuesta» (nombre distinto del «Responder» por SMTP) solo prepara email o WhatsApp; con No contactar queda deshabilitado y con restricción activa (también `all`) o remitente desconocido abre el composer normal con el motivo. Nunca preselecciona un destinatario distinto del remitente: el canal propio del negocio solo se preselecciona cuando nadie más puede recibir por ese canal y, en WhatsApp, cuando coincide con `telefono` (y con `whatsapp` si está cargado).
 - Un ítem registrado después de la visita pero con fecha anterior nunca se marca como nuevo: la comparación usa la fecha del ítem.
+
+## Variables de entorno en desarrollo y pruebas — 27/10/2026 (propietario)
+
+- `npm run dev` carga el `.env` de la raíz (ignorado por Git) en la API con `--env-file-if-exists=.env`: **todas** sus variables, sin lista previa, así que agregar una variable nueva no requiere cambios de código. Un `.env` ausente no falla. Lo exportado en la shell gana sobre el archivo (Node no pisa variables ya presentes, tampoco las vacías).
+- `npm run local` incluye todas las variables del `.env` y encima aplica solo sus valores propios: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `PORT`, `PUBLIC_APP_URL`, `NODE_ENV`, `CRM_DEV_*` y `BREVO_API_KEY` vacía (nunca se envían emails reales desde una base de desarrollo). Precedencia: valores propios de `npm run local` > `.env` > shell base.
+- Los scripts `test:*` y `db:seed:test` cargan `.env.test` (ignorado por Git, plantilla `.env.test.example`) con `--env-file-if-exists=.env.test` y **nunca** `.env`. CI no tiene `.env.test` y exporta su entorno, así que no cambia.
+- Producción (`npm start`, Docker, Coolify) no lee ningún archivo `.env`: las variables se configuran en Coolify.

@@ -31,7 +31,7 @@ Es idempotente: se puede ejecutar las veces que haga falta. Hace, en orden:
 3. Ejecuta las migraciones.
 4. Si la base está vacía (`crm_accounts = 0`) carga el usuario de prueba y el set sintético de rendimiento (~3,5 mil negocios, 50 mil actividades). La primera vez tarda unos minutos; los arranques siguientes no vuelven a sembrar.
 5. Genera `JWT_SECRET` aleatorio y elige puertos libres (API 3001, web 5173; si están ocupados, los siguientes). Todo queda en `.local/dev.json` (ignorado por Git).
-6. Arranca `npm run dev` (Vite + API con recarga) con las variables armadas en memoria. No se lee ningún `.env`, y `DATABASE_URL` del entorno de tu shell se ignora a propósito. `BREVO_API_KEY` queda vacía.
+6. Arranca `npm run dev` (Vite + API con recarga) con las variables armadas en memoria. Si existe un `.env` en la raíz (ignorado por Git, plantilla en `.env.example`), se incluyen **todas** sus variables (R2, Instagram, SMTP, etc.) sin lista previa: agregar una variable nueva no requiere tocar código. Encima se aplican los valores propios de `npm run local`, que siempre ganan sobre el archivo: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `PORT`, `PUBLIC_APP_URL`, `NODE_ENV`, `CRM_DEV_*` y `BREVO_API_KEY` vacía (nunca se envían emails reales desde una base de desarrollo). El resto de tu shell (`DATABASE_URL`, secretos) se ignora a propósito.
 7. Espera `/_api/health` e imprime un resumen: URLs, login, conexión a la base, modo de datos y conteos.
 
 Login de ejemplo: `admin@example.com` / `test-password-123`. Son credenciales sintéticas locales, no del CRM productivo.
@@ -81,13 +81,13 @@ La integración de email entrante requiere `INBOUND_EMAIL_TOKEN` (secreto aleato
 
 Responder emails entrantes requiere `BREVO_SMTP_LOGIN` y `BREVO_SMTP_KEY` (clave SMTP propia del CRM). `BREVO_SMTP_PORT` es opcional y usa `587` por defecto. Sin estas variables, la aplicación inicia normalmente y oculta la acción de responder.
 
-Solo si hace falta algo distinto de `npm run local`. Los scripts de DB y el servidor leen `process.env`: no cargan `.env` solos.
+Solo si hace falta algo distinto de `npm run local`. `npm run dev` carga `.env` (si existe) en la API; `npm start`, `npm run db:migrate` y los demás scripts de DB leen solo `process.env` y no cargan `.env`. Las variables exportadas en la shell ganan sobre las del archivo.
 
 ~~~bash
 docker compose -p hospeda-crm-local -f docker-compose.yml -f docs/compose.local.yml up -d postgres
 ~~~
 
-Variables mínimas: `DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads`, `PUBLIC_APP_URL=http://localhost:5173` (el origen que usa el navegador; si no coincide, los POST se rechazan), `ADMIN_EMAIL=admin@example.com`, `BREVO_API_KEY=` vacío y un `JWT_SECRET` aleatorio de al menos 32 caracteres (el servidor no arranca sin él, más corto, ni con valores de ejemplo como los de .env.example o docker-compose; generarlo con `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`). Exportar esas variables en la shell (o guardarlas en un archivo local no versionado y cargarlo) y luego:
+Variables mínimas: `DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads`, `PUBLIC_APP_URL=http://localhost:5173` (el origen que usa el navegador; si no coincide, los POST se rechazan), `ADMIN_EMAIL=admin@example.com`, `BREVO_API_KEY=` vacío y un `JWT_SECRET` aleatorio de al menos 32 caracteres (el servidor no arranca sin él, más corto, ni con valores de ejemplo como los de .env.example o docker-compose; generarlo con `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`). Guardarlas en `.env` (copiar `.env.example`): `npm run dev` lo carga solo. Para `db:migrate` y los demás scripts de DB hay que exportarlas en la shell, y luego:
 
 ~~~bash
 set -a
@@ -153,18 +153,17 @@ npm test
 npm run build
 ~~~
 
-Las integraciones modifican datos sintéticos y algunas prueban migraciones destructivas sobre copias. Usar una base de pruebas separada y descartable, con `.env.test` privada, y `CRM_TEST_DATABASE=1`; nunca la base productiva. Los comandos completos están en `package.json` y `.github/workflows/ci.yml`.
+Las integraciones modifican datos sintéticos y algunas prueban migraciones destructivas sobre copias. Usar una base de pruebas separada y descartable; nunca la base productiva. Los comandos completos están en `package.json` y `.github/workflows/ci.yml`.
+
+Los scripts `npm run test:*` y `npm run db:seed:test` cargan solos un `.env.test` privado (ignorado por Git, plantilla en `.env.test.example`) con `node --env-file-if-exists=.env.test`; no hace falta `source`. **Nunca cargan `.env`.** Las variables exportadas en la shell (como en CI, que no tiene `.env.test`) ganan sobre el archivo. `CRM_TEST_DATABASE=1` es solo una declaración: verificar que `DATABASE_URL` del `.env.test` apunte a la base local descartable (puerto 5433).
 
 Ejemplo en esa base de pruebas ya migrada/sembrada:
 
 ~~~bash
-set -a
-source .env.test
-set +a
-CRM_TEST_DATABASE=1 npm run test:commercial
+npm run test:commercial
 ~~~
 
-Navegador espera un servidor en http://127.0.0.1:3001. En una terminal, cargar `.env.test` como arriba, ejecutar `npm run build` y `npm start`. Chromium y tests en otra:
+Navegador espera un servidor en http://127.0.0.1:3001. En una terminal, exportar `.env.test` en la shell (`set -a; source .env.test; set +a`, `npm start` no lo carga solo), ejecutar `npm run build` y `npm start`. Chromium y tests en otra:
 
 ~~~bash
 npx playwright install chromium

@@ -1,5 +1,6 @@
 // Pure helpers for the local dev environment (scripts/local/cli.mjs). No I/O here so everything is unit-testable.
 import path from "node:path";
+import { parseEnv } from "node:util";
 
 /** Container, volume and label owned by the local dev tooling. Nothing else is ever touched. */
 export const CONTAINER_NAME = "hospeda-crm-dev-pg";
@@ -228,15 +229,27 @@ export function buildBaseEnv({ parentEnv }) {
 }
 
 /**
- * Environment for the app processes, generated in-process (no dotenv file is ever read).
- * Dev mode: the browser talks to Vite, so PUBLIC_APP_URL (Origin guard) is the web URL.
- * Built mode: the API serves the SPA itself, so it is the API URL.
- * @param {{baseEnv: Record<string, string>, built: boolean, databaseUrl: string, jwtSecret: string, apiPort: number, webPort: number}} input
+ * Parses the contents of the repo-root dotenv file. Every variable is kept (no allowlist), so adding a variable needs no code change.
+ * @param {{text: string | null | undefined}} input File contents, or null/undefined when the file does not exist.
  * @returns {Record<string, string>}
  */
-export function buildAppEnv({ baseEnv, built, databaseUrl, jwtSecret, apiPort, webPort }) {
+export function parseDotenv({ text }) {
+  return text ? { ...parseEnv(text) } : {};
+}
+
+/**
+ * Environment for the app processes, built in-process.
+ * Precedence, highest first: values owned by `npm run local` > `dotenv` (the repo-root dotenv file, ALL its variables) > baseEnv.
+ * Owned values: NODE_ENV, DATABASE_URL, JWT_SECRET, ADMIN_EMAIL, PORT, PUBLIC_APP_URL, CRM_DEV_* and an EMPTY BREVO_API_KEY (never send real email from a dev database).
+ * Dev mode: the browser talks to Vite, so PUBLIC_APP_URL (Origin guard) is the web URL.
+ * Built mode: the API serves the SPA itself, so it is the API URL.
+ * @param {{baseEnv: Record<string, string>, dotenv?: Record<string, string>, built: boolean, databaseUrl: string, jwtSecret: string, apiPort: number, webPort: number}} input
+ * @returns {Record<string, string>}
+ */
+export function buildAppEnv({ baseEnv, dotenv = {}, built, databaseUrl, jwtSecret, apiPort, webPort }) {
   return {
     ...baseEnv,
+    ...dotenv,
     NODE_ENV: built ? "production" : "development",
     DATABASE_URL: databaseUrl,
     JWT_SECRET: jwtSecret,

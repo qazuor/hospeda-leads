@@ -4,7 +4,7 @@ import {
   CONTAINER_NAME, DUMP_DB, SYNTHETIC_DB, VOLUME_NAME,
   DUMP_TMP_DB, SEED_MARKER,
   buildAppEnv, buildBaseEnv, buildDatabaseUrl, buildDockerEnv, buildSeedEnv, checkContainerOwnership, detectDumpFormat, formatDumpComment, generateJwtSecret, isOwnedDatabase, isOwnedVolume,
-  isSameProcess, isValidJwtSecret, parseArgs, parseDumpComment, parseProcStat, parseSsPids, pickFreePort, planSeeding, redactUrl, resolveDataMode, validateDumpPath,
+  isSameProcess, isValidJwtSecret, parseArgs, parseDotenv, parseDumpComment, parseProcStat, parseSsPids, pickFreePort, planSeeding, redactUrl, resolveDataMode, validateDumpPath,
 } from "./lib.mjs";
 
 describe("parseArgs", () => {
@@ -116,6 +116,47 @@ describe("environment building", () => {
   it("built mode: origin is the API URL and NODE_ENV production", () => {
     const env = buildAppEnv({ baseEnv, built: true, databaseUrl: "postgres://x", jwtSecret: "s".repeat(64), apiPort: 3001, webPort: 5173 });
     expect(env).toMatchObject({ NODE_ENV: "production", PUBLIC_APP_URL: "http://localhost:3001" });
+  });
+
+  describe("dotenv file", () => {
+    const owned = { built: false, databaseUrl: "postgres://local", jwtSecret: "s".repeat(64), apiPort: 3002, webPort: 5174 };
+    const dotenv = parseDotenv({ text: ["R2_BUCKET=hospeda-crm-material-dev", "SOME_FUTURE_VAR=kept", 'QUOTED="a b"', "# comment", "DATABASE_URL=postgres://prod", "JWT_SECRET=from-file", "PORT=9999", "PUBLIC_APP_URL=http://example.test", "BREVO_API_KEY=real-key", "PATH=/from/file"].join("\n") });
+
+    it("parses every variable without an allowlist", () => {
+      expect(dotenv).toMatchObject({ R2_BUCKET: "hospeda-crm-material-dev", SOME_FUTURE_VAR: "kept", QUOTED: "a b" });
+      expect(Object.keys(dotenv)).not.toContain("# comment");
+    });
+
+    it("passes all variables to the app env", () => {
+      const env = buildAppEnv({ baseEnv, dotenv, ...owned });
+      expect(env).toMatchObject({ R2_BUCKET: "hospeda-crm-material-dev", SOME_FUTURE_VAR: "kept", QUOTED: "a b", HOME: "/h" });
+    });
+
+    it("values owned by npm run local win over the file", () => {
+      const env = buildAppEnv({ baseEnv, dotenv, ...owned });
+      expect(env).toMatchObject({ DATABASE_URL: "postgres://local", JWT_SECRET: "s".repeat(64), PORT: "3002", PUBLIC_APP_URL: "http://localhost:5174", NODE_ENV: "development" });
+    });
+
+    it("forces BREVO_API_KEY empty even when the file has a real key", () => {
+      expect(buildAppEnv({ baseEnv, dotenv, ...owned }).BREVO_API_KEY).toBe("");
+    });
+
+    it("the file wins over the base env for non-owned variables", () => {
+      expect(buildAppEnv({ baseEnv, dotenv, ...owned }).PATH).toBe("/from/file");
+    });
+
+    it("a missing file is fine", () => {
+      expect(parseDotenv({ text: null })).toEqual({});
+      expect(parseDotenv({ text: undefined })).toEqual({});
+      expect(parseDotenv({ text: "" })).toEqual({});
+      expect(buildAppEnv({ baseEnv, dotenv: parseDotenv({ text: null }), ...owned })).toEqual(buildAppEnv({ baseEnv, ...owned }));
+    });
+
+    it("parent shell DATABASE_URL and JWT_SECRET still do not leak without a file", () => {
+      const env = buildAppEnv({ baseEnv, ...owned });
+      expect(env.DATABASE_URL).toBe("postgres://local");
+      expect(env.JWT_SECRET).toBe("s".repeat(64));
+    });
   });
 
   it("seed env carries the guard variables", () => {
