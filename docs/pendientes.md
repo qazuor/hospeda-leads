@@ -25,10 +25,10 @@ Límites conocidos de la 88: el token pegado no se valida contra Meta al guardar
   - confirmar `PUBLIC_APP_URL`: sin ella, la vista previa de los enlaces sale sin imagen y los enlaces no se pueden armar;
   - definir `CRM_CLIENT_IP_HEADER` según si `crm.hospeda.com.ar` pasa por el proxy de Cloudflare (`cf-connecting-ip`) o llega directo al VPS (`x-real-ip`); falta la respuesta del propietario;
   - borrar a mano las subidas de prueba de la biblioteca vieja antes del deploy;
-  - distribuir el user script 1.3.0.
+  - distribuir el user script 1.3.0 **antes** del deploy: el mínimo pasa a 1.3.0 y un 1.2.x queda bloqueado (426).
 - **A verificar con servicios reales:** los `response-content-*` de R2, el PUT firmado con `Content-Length`, la vista previa en WhatsApp, que Brevo acepte un `attachment.url` firmado de R2 y su tope de tamaño (hoy 10 MB).
 - Decisiones del propietario sobre F4 (quedan así a propósito):
-  - `USERSCRIPT_MIN_VERSION` sigue en 1.2.0: un script 1.2.x prepara modelos con material pero no muestra los `materialWarnings` (el texto sale sin el material que quedó afuera, sin aviso). Subir el mínimo a 1.3.0 cuando el propietario lo decida.
+  - `USERSCRIPT_MIN_VERSION` sube a 1.3.0 (decisión del propietario, 27/10/2026): desde el deploy, un script 1.2.x recibe 426 y el vendedor tiene que instalar el 1.3.0 antes de usar WhatsApp. Distribuir el 1.3.0 a los vendedores antes o en el mismo momento del deploy.
   - Los avisos del modelo muestran a los vendedores el título del material archivado («“X” ya no está disponible»), como pide la spec.
   - Un `prepare` repetido con el mismo id (o un borrador reutilizado) devuelve el borrador sin los `materialWarnings` del primer `prepare`: se aceptan perdidos por ahora.
   - Un archivo o cambio a interno que coincide con un `prepare` en curso se serializa en la fila de versión en vivo (`app_settings`, que tocan los dos); si se cruzan en el orden opuesto, Postgres aborta uno por deadlock y hay que reintentar. No se rediseña ese orden de bloqueos en F4.
