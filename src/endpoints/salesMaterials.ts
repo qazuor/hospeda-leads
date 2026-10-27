@@ -2,7 +2,8 @@ import superjson from 'superjson';import {z} from 'zod';
 import {db} from '../helpers/db';import {getServerUserSession} from '../helpers/getServerUserSession';import {NotAuthenticatedError} from '../helpers/getSetServerSession';import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {CrmForbidden} from '../helpers/crmPermissions';import {CommunicationConflict,CommunicationForbidden} from '../helpers/communicationService';import {R2NotConfigured,R2Unavailable} from '../helpers/r2';
 import {SalesMaterialNotFound,createSalesMaterialUpload,listSalesMaterials,mutateSalesMaterial,salesMaterialCover,salesMaterialFileLocation} from '../helpers/salesMaterialService';
-import {salesMaterialListQuery,salesMaterialMutation,salesMaterialUploadInput} from './salesMaterials.schema';
+import {salesMaterialListQuery,salesMaterialMutation,salesMaterialShareRevokeInput,salesMaterialUploadInput} from './salesMaterials.schema';
+import {revokeSalesMaterialShare} from '../helpers/salesMaterialDraft';
 const response=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 /** 401 session, 403 permission, 404 missing, 409 revision/consumed upload, 503 storage not configured or down; otherwise 400/500 as in /_api/resources. */
 export const salesMaterialStatus=(e:unknown)=>e instanceof NotAuthenticatedError?401:e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof SalesMaterialNotFound?404:e instanceof CommunicationConflict?409:e instanceof R2NotConfigured||e instanceof R2Unavailable?503:fallbackStatus(e);
@@ -35,3 +36,5 @@ export async function cover(request:Request){try{
  if(!found)return new Response(null,{status:404,headers:{'Cache-Control':'no-store'}});
  return new Response(found.body,{headers:{'Content-Type':found.contentType,'Cache-Control':'private, max-age=3600','Vary':'Cookie','X-Content-Type-Options':'nosniff'}});
 }catch(e){return new Response(null,{status:salesMaterialStatus(e),headers:{'Cache-Control':'no-store'}})}}
+/** POST /_api/sales_materials/share_revoke: admin, the author of the send or whoever can write on the business (spec 89 §10). */
+export async function shareRevoke(request:Request){try{const {user}=await getServerUserSession(request);return response(await revokeSalesMaterialShare(db,{input:salesMaterialShareRevokeInput.parse(await body(request)),user}));}catch(e){return failure(e)}}

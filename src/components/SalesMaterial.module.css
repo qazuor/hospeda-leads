@@ -32,3 +32,16 @@
 .previewMedia iframe{display:block;width:100%;height:60dvh;border:0;background:var(--card)}
 .previewMedia audio{width:100%;margin:12px}
 .previewDescription{margin:0;font-size:14px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+/* Spec 89 F3: material picker and the materials of a message. */
+.pickList{display:grid;gap:8px;margin:0;padding:0;list-style:none;max-height:min(55dvh,520px);overflow:auto;min-width:0}
+.pickRow{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;min-width:0;padding:8px;border:1px solid var(--surface-border);border-radius:10px;background:var(--card)}
+.pickRow h4{margin:0;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.thumb{display:grid;place-items:center;width:64px;height:64px;overflow:hidden;border-radius:8px;background:var(--muted);color:var(--muted-foreground)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.materialList{display:grid;gap:8px;margin:0;padding:0;list-style:none;min-width:0}
+.materialItem{display:grid;gap:6px;min-width:0;padding:10px 12px;border:1px solid var(--surface-border);border-radius:10px;background:var(--card)}
+.materialItem strong{overflow-wrap:anywhere}
+.materialSection{display:grid;gap:10px;min-width:0}
+.materialHeading{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.materialHeading h4{margin:0;font-size:15px}
+@media(max-width:600px){.pickRow{grid-template-columns:48px minmax(0,1fr)}.pickRow>:last-child{grid-column:1/-1}.thumb{width:48px;height:48px}}

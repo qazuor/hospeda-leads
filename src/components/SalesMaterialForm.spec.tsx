@@ -9,7 +9,7 @@ import {SalesMaterialForm,pickedFileError,type SalesMaterialFormMode} from './Sa
 const api=vi.hoisted(()=>({post:vi.fn(),upload:vi.fn(),list:vi.fn()}));
 vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),postSalesMaterial:api.post,getSalesMaterials:api.list}));
 vi.mock('../helpers/salesMaterialUpload',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialUpload')>(),uploadSalesMaterialFile:api.upload}));
-const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true};
+const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true,maxEmailAttachmentBytes:10485760};
 const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[],currentVersion:null};
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};api.post.mockResolvedValue({ok:true});});
 afterEach(()=>{cleanup();vi.clearAllMocks()});

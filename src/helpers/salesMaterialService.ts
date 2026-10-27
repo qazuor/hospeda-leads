@@ -50,7 +50,7 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
   const current=own.find(v=>v.version===currentVersion)??null;
   return {...m,hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
  });
- return {materials,truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured()}};
+ return {materials,truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
 }
 async function materialFor(e:E,id:string,lock=false){
  const m=(await (lock?sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid FOR UPDATE`:sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid`).execute(e)).rows[0];

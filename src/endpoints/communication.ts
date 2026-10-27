@@ -11,9 +11,13 @@ import {setWorkActor} from '../helpers/workAudit';
 import {smtpConfigured} from '../helpers/smtpTransport';
 import {inboxReplyAvailability} from '../helpers/inboxReplyAvailability';
 import {communicationMutation} from './communication.schema';
+import {messageMaterials} from '../helpers/salesMaterialDraft';
+import {SalesMaterialNotFound} from '../helpers/salesMaterialService';
+import {R2NotConfigured,R2Unavailable} from '../helpers/r2';
+import {MaterialShareUrlUnavailable} from '../helpers/salesMaterialMessage';
 import {mutateCommunication,leadFor,communicationConfig,CommunicationForbidden,CommunicationConflict,digest,reconcileEvents,lockCommunication,pendingContactOutcomes} from '../helpers/communicationService';
 const response=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json'}});
-const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:fallbackStatus(e));
+const failure=(e:unknown)=>response({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof CommunicationForbidden||e instanceof CrmForbidden?403:e instanceof CommunicationConflict?409:e instanceof SalesMaterialNotFound?404:e instanceof R2NotConfigured||e instanceof R2Unavailable||e instanceof MaterialShareUrlUnavailable?503:fallbackStatus(e));
 const camelRows=(rows:Record<string,unknown>[])=>rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key.replace(/_([a-z])/g,(_,letter:string)=>letter.toUpperCase()),value])));
 export async function get(request:Request){
  try{
@@ -39,6 +43,8 @@ export async function get(request:Request){
   const messages=(await sql`SELECT m.*, (SELECT r.id::text FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_id, (SELECT r.user_email FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_user_email, (SELECT j.after_value->>'managementOwner' FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action='message_prepared_by_delegation' ORDER BY j.id LIMIT 1) AS delegated_from_email FROM crm_messages m WHERE m.account_id=${lead.accountId} AND (${includeVoided} OR m.status<>'voided')
    AND (CAST(NULLIF(${lead.id},'') AS bigint) IS NULL OR m.lead_id=CAST(NULLIF(${lead.id},'') AS bigint))
    ORDER BY m.created_at DESC LIMIT 200`.execute(db)).rows;
+  // Spec 89 §8.4: the sales material links of each message (title, versions, attachment, link state).
+  const materials=await messageMaterials(db,{messageIds:messages.map(row=>String((row as {id:string}).id))});
   const restrictions=(await sql`SELECT * FROM crm_contact_restrictions WHERE account_id=${lead.accountId}
    ORDER BY created_at DESC LIMIT 200`.execute(db)).rows;
   // Uncapped: blocking checks must never miss an active restriction hidden behind 200 newer lifted ones.
@@ -53,7 +59,7 @@ export async function get(request:Request){
   const openManagements=(await sql`SELECT l.id,l.opportunity_name,l.management_type,l.estado,l.assigned_user_email,s.classification FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${lead.accountId} AND l.deleted_at IS NULL AND s.classification='open' ORDER BY l.id`.execute(db)).rows.map((item:any)=>({id:item.id,opportunityName:item.opportunity_name,managementType:item.management_type,estado:item.estado,assignedUserEmail:item.assigned_user_email,classification:item.classification,canClose:user.role==='admin'||item.assigned_user_email===user.email}));
   // Decision 2B: the viewer's own contacts here that still wait for "¿Cómo salió?".
   const pendingOutcomes=await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin',accountId:lead.accountId,leadId:lead.id||null});
-  return response({pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
+  return response({pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]).map(row=>({...row,materials:materials[String(row.id)]??[]})),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
  }catch(e){return failure(e)}
 }
 export async function post(request:Request){try{const {user}=await getServerUserSession(request);if(Number(request.headers.get('Content-Length')??0)>100000)throw new Error('Solicitud demasiado grande');const raw=await request.text();if(raw.length>100000)throw new Error('Solicitud demasiado grande');return response(await mutateCommunication(db,communicationMutation.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})()),user));}catch(e){return failure(e)}}

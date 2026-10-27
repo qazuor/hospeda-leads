@@ -21,6 +21,7 @@ import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
 import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
 import {sendInboundReply} from './emailReply';
+import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
 export type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
@@ -60,6 +61,7 @@ function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatc
  if(input.action==='response_correct')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_communication_responses WHERE id=${input.id}::uuid`);
  if(input.action==='restrict')return input.accountId?{accountIds:[input.accountId]}:input.leadId?accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`):{accountIds:[]};
  if(input.action==='lift')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_contact_restrictions WHERE id=${input.id}`);
+ if(input.action==='material_retry_without_attachments')return messageScope(input.messageId)(e);
  return messageScope(input.id)(e);
 };}
 export async function communicationConfig(e:Executor){const r=await e.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow();return z.object({recentContactHours:z.number().int().min(1).max(720),maxDocumentBytes:z.number().int().min(1).max(2097152)}).parse(JSON.parse(r.value));}
@@ -107,7 +109,7 @@ export async function messageFor(e:Executor,id:string,user:User,lock=false){cons
 /** Cancels a draft after checking ownership, its business and its revision; journaled like an explicit cancellation. */
 /** Journal fragment that ties an entry to the delegated task of the message, when it has one. */
 function delegation(m:Message):{delegatedTaskId?:string}{return m.delegatedTaskId?{delegatedTaskId:String(m.delegatedTaskId)}:{};}
-async function assertMessageTaskContext(e:Executor,m:Message,taskId:string|undefined,user:User){
+export async function assertMessageTaskContext(e:Executor,m:Message,taskId:string|undefined,user:User){
  if(m.delegatedTaskId){
   // An admin acts on any message (see messageFor) even if the delegate's task was closed; a mismatching task is still refused.
   if(user.role==='admin'){if(taskId&&taskId!==String(m.delegatedTaskId))throw new CommunicationForbidden('Este mensaje solo se puede usar desde su tarea delegada.');return;}
@@ -119,6 +121,7 @@ async function cancelDraft(e:Executor,draft:{id:string;revision:number;taskId?:s
  const m=await messageFor(e,draft.id,user,true);if(accountId&&String(m.accountId)!==accountId)throw new Error('El borrador no pertenece a este negocio.');await assertMessageTaskContext(e,m,draft.taskId,user);
  if(m.status!=='draft'||m.revision!==draft.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
  const cancelled=(await sql<Message>`UPDATE crm_messages SET status='cancelled',revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0];
+ await revokeDraftShares(e,{message:m,user});
  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'draft_cancelled',actor:user,before:{status:m.status},after:{status:'cancelled'}});return cancelled;
 }
 async function prepare(e:Executor,input:Extract<CommunicationMutation,{action:'prepare'}>,user:User){
@@ -434,8 +437,9 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  await setWorkActor(e,user);
  // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.
  await lockCommunication(e,communicationScope(input));
- if(input.action==='prepare')return prepare(e,input,user);
- if(input.action==='prepare_general')return prepareGeneral(e,input,user);
+ if(input.action==='prepare')return withMaterials(e,await prepare(e,input,user));
+ if(input.action==='prepare_general')return withMaterials(e,await prepareGeneral(e,input,user));
+ if(input.action==='material_add'||input.action==='material_remove'||input.action==='material_attach'||input.action==='material_retry_without_attachments')return mutateDraftMaterial(e,input,user);
  if(input.action==='manual_start')return startManual(e,input,user);
  if(input.action==='response_create')return createResponse(e,input,user);
  if(input.action==='inbound_register'){
@@ -546,32 +550,34 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
   const {account,lead}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);let currentValue:string;if(lead){const target=await resolveCommercialContact(e,lead,m.contactId);currentValue=String(m.channel==='email'?target.email:target.phone??'').trim();}else currentValue=(await channelTarget(e,account,null,m.contactId==null?null:String(m.contactId),m.channel as 'email'|'whatsapp')).value.trim();if(currentValue!==m.recipient)throw new CommunicationConflict('Cambió el canal del contacto. Prepará un nuevo borrador.');
   if(m.channel==='email'&&!z.string().email().safeParse(m.recipient).success)throw new Error('Email inválido');
+  // Spec 89 §8.1: links checked and sent_version fixed in this same claim; a link the seller deleted from the text is revoked, never recorded as sent.
+  const materials=await claimDraftMaterials(e,{message:m,user});const materialLog=materials.journal.length?{materials:materials.journal}:{};
 
   if(m.channel==='whatsapp'){
    const normalized=normalizeField('telefono',m.recipient);const phone=normalized.normalized?.replace(/\D/g,'')??'';if(normalized.validity!=='valid'||phone.length<10||phone.length>15)throw new Error('Revisá el teléfono con código de país');
-   await sql`UPDATE crm_messages SET status='whatsapp_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'WhatsApp abierto · envío no confirmado');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'whatsapp_opened_unconfirmed',actor:user,before:{status:m.status},after:{status:'whatsapp_opened',recipient:m.recipient,recipientName:m.recipientName,content:m.body,...delegation(m)}});return {message:{...m,status:'whatsapp_opened'},replay:false};
+   await sql`UPDATE crm_messages SET status='whatsapp_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'WhatsApp abierto · envío no confirmado');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'whatsapp_opened_unconfirmed',actor:user,before:{status:m.status},after:{status:'whatsapp_opened',recipient:m.recipient,recipientName:m.recipientName,content:m.body,...materialLog,...delegation(m)}});return {message:{...m,status:'whatsapp_opened'},replay:false};
   }
   if(!process.env.BREVO_API_KEY)throw new Error('BREVO_API_KEY no configurada');
   const settings=await e.selectFrom('appSettings').selectAll().where('key','in',['brevo_sender_name','brevo_sender_email','brevo_reply_to_email']).execute();const cfg=Object.fromEntries(settings.map(s=>[s.key,s.value]));const su=await e.selectFrom('users').select('senderEmail').where('id','=',user.id).executeTakeFirstOrThrow();const senderEmail=su.senderEmail?.trim()||cfg.brevo_sender_email;if(!senderEmail)throw new Error('Remitente Brevo no configurado');
   const out=await e.insertInto('emailOutbox').values({leadId:m.leadId,templateId:m.templateSnapshot?.id??null,recipientEmail:m.recipient,recipientName:m.recipientName||null,senderEmail,senderName:su.senderEmail?user.displayName:cfg.brevo_sender_name||'Hospeda',replyToEmail:su.senderEmail||cfg.brevo_reply_to_email||null,subject:m.subject,htmlBody:m.htmlBody!,textBody:m.textBody!,status:'submitting',attempts:1,requestedByUserId:user.id,requestedByEmail:user.email,requestedByName:user.displayName}).returningAll().executeTakeFirstOrThrow();
   await sql`UPDATE email_outbox SET request_key=${m.id}::uuid WHERE id=${out.id}`.execute(e);
   await sql`UPDATE crm_messages SET status='submitting',outbox_id=${out.id},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
-  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_submission_started',actor:user,before:{status:m.status},after:{status:'submitting',outboxId:out.id,recipient:m.recipient,recipientName:m.recipientName,subject:m.subject,content:m.textBody||m.body,...delegation(m)}});
-  return {message:{...m,outboxId:out.id},outbox:out,replay:false};
+  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_submission_started',actor:user,before:{status:m.status},after:{status:'submitting',outboxId:out.id,recipient:m.recipient,recipientName:m.recipientName,subject:m.subject,content:m.textBody||m.body,...materialLog,...delegation(m)}});
+  return {message:{...m,outboxId:out.id},outbox:out,attachments:materials.attachments,replay:false};
  });
  const m=claimed.message;
  if(claimed.replay)return {message:m};
  if(m.channel==='whatsapp'){const url=new URL('https://wa.me/'+normalizeField('telefono',m.recipient).normalized!.replace(/\D/g,''));url.searchParams.set('text',m.body);return {message:m,url:url.toString()};}
  const out=claimed.outbox!;let accepted=false;
  try{
-  const r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',signal:AbortSignal.timeout(20000),headers:{'api-key':process.env.BREVO_API_KEY!,'Content-Type':'application/json',accept:'application/json'},body:JSON.stringify({sender:{email:out.senderEmail,name:out.senderName},to:[{email:m.recipient,...(m.recipientName?{name:m.recipientName}:{})}],...(out.replyToEmail?{replyTo:{email:out.replyToEmail}}:{}),subject:m.subject,htmlContent:m.htmlBody,textContent:m.textBody,tags:['hospeda-'+m.id],headers:{'X-Mailin-custom':'hospeda_outbox:'+out.id}})});
-  if(!r.ok){const reason=(await r.text()).slice(0,2000);await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='error',last_error=${reason},updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'failed' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Rechazo de Brevo');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_rejected',actor:user,before:{status:'submitting'},after:{status:'failed',reason,...delegation(m)}});});return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0],error:'Brevo rechazó el envío'};}
+  const r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',signal:AbortSignal.timeout(20000),headers:{'api-key':process.env.BREVO_API_KEY!,'Content-Type':'application/json',accept:'application/json'},body:JSON.stringify({sender:{email:out.senderEmail,name:out.senderName},to:[{email:m.recipient,...(m.recipientName?{name:m.recipientName}:{})}],...(out.replyToEmail?{replyTo:{email:out.replyToEmail}}:{}),subject:m.subject,htmlContent:m.htmlBody,textContent:m.textBody,tags:['hospeda-'+m.id],headers:{'X-Mailin-custom':'hospeda_outbox:'+out.id},...(claimed.attachments?.length?{attachment:claimed.attachments}:{})})});
+  if(!r.ok){const reason=redactPresignedUrls({text:await r.text()}).slice(0,2000);await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='error',last_error=${reason},updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'failed' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Rechazo de Brevo');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_rejected',actor:user,before:{status:'submitting'},after:{status:'failed',reason,...delegation(m)}});});return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0],error:'Brevo rechazó el envío'};}
   accepted=true;const data=await r.json() as {messageId?:string};const messageId=data.messageId??null;
-  await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='accepted',message_id=${messageId},sent_at=now(),updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'accepted' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Email aceptado por proveedor · entrega no confirmada');await markClientForCare(e,m,user);await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_accepted',actor:user,after:{status:'accepted',deliveryConfirmed:false,...delegation(m)}});if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Aceptado por proveedor',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();await reconcileEvents(e,out.id);});
+  await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='accepted',message_id=${messageId},sent_at=now(),updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'accepted' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Email aceptado por proveedor · entrega no confirmada');await markClientForCare(e,m,user);await markAttachedVersions(e,{messageId:m.id});await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_accepted',actor:user,after:{status:'accepted',deliveryConfirmed:false,...delegation(m)}});if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Aceptado por proveedor',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();await reconcileEvents(e,out.id);});
   return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0]};
  }catch(error){
   // Never turn a post-acceptance error into permission to resend. A crashed process also leaves submitting.
-  try{await database.transaction().execute(async e=>{await setWorkActor(e,user);const updated=await sql<{id:string}>`UPDATE crm_messages SET status='unknown',updated_at=now() WHERE id=${m.id}::uuid AND status='submitting' RETURNING id`.execute(e);await sql`UPDATE email_outbox SET status='unknown',last_error=${accepted?'Proveedor aceptó; reconciliar resultado':String(error).slice(0,1000)},updated_at=now() WHERE id=${out.id} AND status='submitting'`.execute(e);if(updated.rows[0])await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_result_uncertain',actor:user,before:{status:'submitting'},after:{status:'unknown',providerMayHaveAccepted:accepted,...delegation(m)}});});}catch{}
+  try{await database.transaction().execute(async e=>{await setWorkActor(e,user);const updated=await sql<{id:string}>`UPDATE crm_messages SET status='unknown',updated_at=now() WHERE id=${m.id}::uuid AND status='submitting' RETURNING id`.execute(e);await sql`UPDATE email_outbox SET status='unknown',last_error=${accepted?'Proveedor aceptó; reconciliar resultado':redactPresignedUrls({text:String(error)}).slice(0,1000)},updated_at=now() WHERE id=${out.id} AND status='submitting'`.execute(e);if(updated.rows[0])await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_result_uncertain',actor:user,before:{status:'submitting'},after:{status:'unknown',providerMayHaveAccepted:accepted,...delegation(m)}});});}catch{}
   throw new CommunicationConflict('Resultado incierto. No se reenvía este mensaje: revisar los logs y eventos de Brevo.');
  }
 }

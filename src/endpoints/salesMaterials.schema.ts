@@ -30,7 +30,7 @@ export type SalesMaterialCategory={id:string;name:string;active:boolean};
 /** A version as the client sees it: never the object key. */
 export type SalesMaterialVersion={id:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;actorEmail:string;createdAt:Date};
 export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;categories:SalesMaterialCategory[];currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
-export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;storageConfigured:boolean};
+export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;storageConfigured:boolean;/** Sum of the files attached to one email (spec 89 §8.3). */maxEmailAttachmentBytes:number};
 /** `truncated` is true when more materials matched than the listing returns: narrow the search. */
 export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits};
 export type SalesMaterialUpload={uploadId:string;putUrl:string;headers:{'Content-Type':string};expiresAt:Date};
@@ -47,3 +47,13 @@ export async function requestSalesMaterialUpload(input:SalesMaterialUploadInput)
 export const salesMaterialFileUrl=({versionId,disposition='inline'}:{versionId:string;disposition?:'inline'|'attachment'})=>`/_api/sales_materials/file?${new URLSearchParams({versionId,disposition})}`;
 /** Same-origin URL of a material's cover (its own cover or, for small images, the image itself). */
 export const salesMaterialCoverUrl=({materialId,revision}:{materialId:string;revision:number})=>`/_api/sales_materials/cover?${new URLSearchParams({materialId,r:String(revision)})}`;
+/** Revocation of one share link (POST /_api/sales_materials/share_revoke): admin, its author or whoever can write on the business (spec 89 §10). */
+export const salesMaterialShareRevokeInput=z.object({shareId:uuid,reason:z.string().trim().min(3).max(500)});
+export type SalesMaterialShareRevokeInput=z.infer<typeof salesMaterialShareRevokeInput>;
+/**
+ * A sales material tied to a message (spec 89 §8.4). The link itself is never returned: only its hash is stored, the URL lives in the message body.
+ * `available` is false when the material was archived, became internal or lost its version. `attachBlockedReason` explains why «Adjuntar el archivo» is off.
+ */
+export type MessageMaterial={shareId:string;messageId:string;materialId:string;title:string;channel:'email'|'whatsapp';source:'file'|'url';fileName:string|null;byteSize:number|null;available:boolean;preparedVersion:number|null;sentVersion:number|null;attach:boolean;attachedVersion:number|null;attachBlockedReason:string|null;createdByEmail:string;createdAt:Date;revokedAt:Date|null;revokedByEmail:string|null;revokeReason:string|null;technicalAccessCount:number;lastTechnicalAccessAt:Date|null};
+/** Revokes a share link: the public page answers 410 from then on. */
+export async function revokeSalesMaterialShare(input:SalesMaterialShareRevokeInput):Promise<{ok:true}>{return postJson('/_api/sales_materials/share_revoke',salesMaterialShareRevokeInput.parse(input));}
