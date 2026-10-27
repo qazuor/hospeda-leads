@@ -1,6 +1,8 @@
 import type {InboundMessage,Message} from '../../endpoints/communication.schema';
 import {formatDateTime} from '../../helpers/crmDates';
 import {actorLabel} from '../../helpers/crmLabels';
+import {useInstagramWaitNow} from './useInstagramWait';
+import {isInstagramAttempt} from '../../helpers/instagramChat';
 import {actionSummary,requiresAction,timelineChannel,timelineChannelLabel} from '../../helpers/communicationTimeline';
 import {isInstagramInbound} from '../../helpers/instagramChannel';
 import {Button} from '../Button';
@@ -22,11 +24,11 @@ function ReviewEntry({item,onFocus}:{item:InboundMessage;onFocus:(key:string)=>v
 
 /** «¿Lo enviaste?» keeps its buttons here: there is no received bubble to attach them to. «Ver en la conversación» scrolls to the send. */
 function ConfirmEntry({view,message,onFocus}:{view:CommunicationView;message:Message;onFocus:(key:string)=>void}){
- const own=message.ownerEmail===view.userEmail;
- return <li><div role="group" aria-label={'WhatsApp sin confirmar para '+(message.recipientName||message.recipient)} className={styles.actionCard}>
-  <div className={styles.actionBody}><span className={styles.channel} data-channel="whatsapp"><ChannelIcon channel="whatsapp" size={18}/></span><div>
+ const own=message.ownerEmail===view.userEmail,channel=isInstagramAttempt(message)?'instagram':'whatsapp',name=channel==='instagram'?'Instagram':'WhatsApp';
+ return <li><div role="group" aria-label={name+' sin confirmar para '+(message.recipientName||message.recipient)} className={styles.actionCard}>
+  <div className={styles.actionBody}><span className={styles.channel} data-channel={channel}><ChannelIcon channel={channel} size={18}/></span><div>
    <span className={styles.actionTitle}>¿Lo enviaste?</span>
-   <p className={styles.actionText}>{own?'Abriste':'Se abrió'} WhatsApp para {message.recipientName||message.recipient} ({message.recipient}) el {formatDateTime(message.lastInteractionAt??message.updatedAt)}{own?'':' · '+actorLabel(message.ownerEmail,view.detail?.users)}. Abrir WhatsApp no confirma el envío.</p>
+   <p className={styles.actionText}>{own?'Abriste':'Se abrió'} {name} para {message.recipientName||message.recipient} ({message.recipient}) el {formatDateTime(message.lastInteractionAt??message.updatedAt)}{own?'':' · '+actorLabel(message.ownerEmail,view.detail?.users)}. Abrir {name} no confirma el envío{channel==='instagram'?' y Instagram no avisó del envío':''}.</p>
   </div></div>
   <div className={styles.actionButtons}><ConfirmSendButtons view={view} message={message}/><Button variant="ghost" size="sm" onClick={()=>onFocus('out:'+message.id)}>Ver en la conversación</Button></div>
  </div></li>;
@@ -38,7 +40,9 @@ function ConfirmEntry({view,message,onFocus}:{view:CommunicationView;message:Mes
  * buttons. The viewer's own contacts without «¿Cómo salió?» (decision 2B) stay here too, without repeating a prompted send.
  */
 export function RequiresAction({view,onFocus}:{view:CommunicationView;onFocus:(key:string)=>void}){
- const items=requiresAction({inbound:view.data.inbound,messages:view.data.messages,userEmail:view.userEmail,admin:view.admin,readOnly:view.readOnly});
+ // An Instagram attempt waiting for its echo (spec 92) joins the list when its 15 minutes end.
+ const now=useInstagramWaitNow(view.data.messages);
+ const items=requiresAction({inbound:view.data.inbound,messages:view.data.messages,userEmail:view.userEmail,admin:view.admin,readOnly:view.readOnly,now});
  const prompted=new Set(items.filter(i=>i.kind==='confirm_send').map(i=>String(i.key.slice(4))));
  const outcomes=view.readOnly?[]:(view.data.pendingOutcomes??[]).filter(o=>!prompted.has(String(o.id)));
  const review=items.filter(i=>i.kind==='review').length,count=items.length+outcomes.length;

@@ -20,7 +20,12 @@ import {ResponseCorrectionForm} from '../ResponseCorrectionForm';
 import {SentMaterials,canRevokeMaterialLink} from '../MessageMaterials';
 import {ChannelIcon} from './ChannelIcon';
 import {ClampedText} from './ClampedText';
-import {ConfirmSendButtons,canConfirmSend} from './ConfirmSendButtons';
+import {ConfirmSendButtons,canConfirmSend,useConfirmSend} from './ConfirmSendButtons';
+import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS} from '../../helpers/communicationTimeline';
+import {instagramChatUrl,instagramTextEdited,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho} from '../../helpers/instagramChat';
+import {copyMessageText,instagramOpenedToast,isCoarsePointer,openInstagramChat} from '../InstagramOpenChat';
+import {useInstagramWaitNow} from './useInstagramWait';
+import {toast} from 'sonner';
 import {ItemMenu,type ItemAction} from './ItemMenu';
 import type {CommunicationView} from './types';
 import styles from './CommunicationView.module.css';
@@ -59,8 +64,8 @@ const canCorrectResponse=(view:CommunicationView,response:CommunicationResponse)
 
 /** State of the forms and dialogs a «⋯» menu opens; they render outside the menu, so closing it never unmounts them. */
 function useItemPanels(){
- const [correcting,setCorrecting]=useState(false),[voiding,setVoiding]=useState(false),[design,setDesign]=useState(false);
- return {correcting,setCorrecting,voiding,setVoiding,design,setDesign};
+ const [correcting,setCorrecting]=useState(false),[voiding,setVoiding]=useState(false),[design,setDesign]=useState(false),[prepared,setPrepared]=useState(false);
+ return {correcting,setCorrecting,voiding,setVoiding,design,setDesign,prepared,setPrepared};
 }
 type Panels=ReturnType<typeof useItemPanels>;
 
@@ -81,6 +86,7 @@ function MessagePanels({message,panels}:{message:Message;panels:Panels}){
   {panels.correcting&&<div className={styles.inlineForm}><InteractionCorrectionForm message={message} onDone={()=>panels.setCorrecting(false)}/><Button size="sm" variant="ghost" onClick={()=>panels.setCorrecting(false)}>Cancelar corrección</Button></div>}
   {message.autoRegistrationId&&<AutoRegistrationVoidDialog registrationId={message.autoRegistrationId} open={panels.voiding} onClose={()=>panels.setVoiding(false)}/>}
   {message.channel==='email'&&!!message.htmlBody&&<EmailDesignDialog message={message} open={panels.design} onClose={()=>panels.setDesign(false)}/>}
+  {isInstagramAttempt(message)&&<CrmDialog opened={panels.prepared} onClose={()=>panels.setPrepared(false)} title="Texto preparado" description="El texto que se copió desde el CRM. Lo que salió por Instagram es el del mensaje."><div className={styles.preparedText}>{message.body}</div><DialogFooter><Button variant="outline" onClick={()=>panels.setPrepared(false)}>Cerrar</Button></DialogFooter></CrmDialog>}
  </>;
 }
 
@@ -152,8 +158,26 @@ function SentBubble({entry}:{entry:SentEntry}){
  return <Tooltip label={UNCONFIRMED_HINT} events={{hover:true,focus:true,touch:true}} multiline w={260} withArrow openDelay={150} zIndex={LAYERS.tooltip}>{body}</Tooltip>;
 }
 
+/**
+ * Spec 92: «⋯» of an Instagram attempt. While it waits for the echo, «Sí, se envió» / «No se envió» live here (same mutation as
+ * the buttons); «Copiar y abrir de nuevo» copies and opens the same chat, client-side only (no new attempt, no request).
+ */
+function InstagramItemMenu({view,message,panels,label,waiting}:{view:CommunicationView;message:Message;panels:Panels;label:string;waiting:boolean}){
+ const confirm=useConfirmSend({view,message}),own=view.admin||message.ownerEmail===view.userEmail;
+ const url=message.status==='instagram_opened'&&own&&!view.readOnly?instagramChatUrl({username:message.recipient}):null;
+ const reopen=async(target:string)=>{const copy=copyMessageText(message.textBody||message.body),opened=openInstagramChat(target),copied=await copy;if(!opened)toast.warning('No se pudo abrir Instagram automáticamente.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile:isCoarsePointer()}));else toast.warning(instagramOpenedToast({copied,mobile:false}));};
+ const actions:ItemAction[]=[
+  ...(waiting&&canConfirmSend({view,message})&&!confirm.busy?[...(confirm.block?[]:[{label:'Sí, se envió',onSelect:()=>confirm.answer('manual_sent')}]),{label:'No se envió',onSelect:()=>confirm.answer('manual_not_sent')}]:[]),
+  ...(url?[{label:'Copiar y abrir de nuevo',onSelect:()=>void reopen(url)}]:[]),
+  ...(isInstagramConfirmed(message)&&instagramTextEdited(message)?[{label:'Ver texto preparado',onSelect:()=>panels.setPrepared(true)}]:[]),
+  ...messageActions(view,message,panels),
+ ];
+ return <>{confirm.m.error&&<span role="alert" className={styles.note}>{confirm.m.error.message}</span>}<ItemMenu label={label} actions={actions}/></>;
+}
+
 function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
- const panels=useItemPanels(),message=entry.message;
+ const panels=useItemPanels(),message=entry.message,instagram=isInstagramAttempt(message);
+ const now=useInstagramWaitNow(instagram?[message]:[]),waiting=instagram&&isWaitingForInstagramEcho({message,now}),edited=isInstagramConfirmed(message)&&instagramTextEdited(message);
  // `data-tone` marks unconfirmed, not done or failed rows (dashed, muted) so they never look sent.
  return <div className={styles.row} data-side="out" data-tone={entry.tone} data-voided={entry.voided||undefined} {...rowProps(entry,highlighted)}><article className={styles.bubbleWrap} aria-label={entry.label}>
   <Head entry={entry} sender={entry.sender} badges={<>
@@ -161,10 +185,12 @@ function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
    {entry.autoRegistered&&!entry.echo&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}
   </>} actions={<>
    {message.channel==='email'&&!!message.htmlBody&&<Button size="sm" variant="outline" aria-label="Ver diseño del email" onClick={()=>panels.setDesign(true)}>Ver diseño</Button>}
-   {canConfirmSend({view,message})&&<ConfirmSendButtons view={view} message={message} size="sm"/>}
-   <ItemMenu label={entry.label} actions={messageActions(view,message,panels)}/>
+   {canConfirmSend({view,message})&&!waiting&&<ConfirmSendButtons view={view} message={message} size="sm"/>}
+   {instagram?<InstagramItemMenu view={view} message={message} panels={panels} label={entry.label} waiting={waiting}/>:<ItemMenu label={entry.label} actions={messageActions(view,message,panels)}/>}
   </>}/>
   <div className={styles.bubbleLine}><SentBubble entry={entry}/></div>
+  {waiting&&<p className={styles.note} role="status"><strong>{INSTAGRAM_WAITING_STATUS}</strong> {INSTAGRAM_WAITING_HINT}</p>}
+  {edited&&<p className={styles.note}>Editado antes de enviar</p>}
   <MessageMaterialRecord view={view} message={entry.message}/>
   <PendingActions view={view} message={entry.message}/>
   <MessagePanels message={entry.message} panels={panels}/>

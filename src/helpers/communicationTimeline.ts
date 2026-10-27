@@ -4,6 +4,8 @@ import {responseCategoryLabel,userLabel,type LabelUser} from './crmLabels';
 import {messageLabels} from './messageLabels';
 import {ECHO_SENDER,ECHO_STATUS,INSTAGRAM_ECHO_OWNER,isInstagramInbound,isInstagramOutbound} from './instagramChannel';
 import {phoneNationalKeys} from './dataNormalization';
+import {isOpenedUnconfirmed} from './contactOutcome';
+import {isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho,normalizeInstagramUsername} from './instagramChat';
 
 export {ECHO_STATUS,INSTAGRAM_ECHO_OWNER};
 
@@ -32,14 +34,20 @@ export const timelineChannelLabel=({channel,instagram}:{channel:string;instagram
 
 /** Result of a call row in plain words (a call is not an «envío»). */
 export const callResultLabel=(status:string):string=>({manual_sent:'Llamada realizada',manual_no_contact:'No atendió',manual_not_done:'No se hizo',manual_pending:'Falta anotar cómo salió',voided:messageLabels.voided} as Readonly<Record<string,string>>)[status]??messageLabels[status]??status;
+/** Status line of an Instagram attempt that Meta's echo confirmed or linked (spec 92 §2.5). */
+export const INSTAGRAM_CONFIRMED_STATUS='Enviado · confirmado por Instagram';
+/** Status line of an opened Instagram attempt still waiting for the echo (spec 92 §2.4). */
+export const INSTAGRAM_WAITING_STATUS='Esperando que Instagram confirme el envío…';
+export const INSTAGRAM_WAITING_HINT='Si lo enviaste desde la cuenta de Hospeda se confirma solo. Si no llega en 15 minutos te preguntamos si lo enviaste.';
 /**
  * Honest status line of a sent bubble, from the existing status labels (accepted ≠ delivered, opened WhatsApp ≠ sent).
- * An Instagram echo was sent from the Instagram app and only recorded here.
+ * An Instagram echo was sent from the Instagram app and only recorded here; an Instagram attempt carrying the echo `mid`
+ * was confirmed by Instagram.
  */
-export const sentStatusLabel=(msg:{channel:string;ownerEmail:string;status:string}):string=>isInstagramEcho(msg)&&msg.status==='manual_sent'?ECHO_STATUS:messageLabels[msg.status]??msg.status;
+export const sentStatusLabel=(msg:{channel:string;ownerEmail:string;status:string;destinationDetail?:string|null;externalId?:string|null}):string=>isInstagramEcho(msg)&&msg.status==='manual_sent'?ECHO_STATUS:isInstagramConfirmed(msg)?INSTAGRAM_CONFIRMED_STATUS:messageLabels[msg.status]??msg.status;
 /** How sure we are that a sent row went out: unconfirmed (opened, pending, uncertain, submitting), not done, failed, or sent. */
 export type SentTone='sent'|'unconfirmed'|'not_done'|'failed';
-export const sentTone=(status:string):SentTone=>status==='manual_not_done'?'not_done':status==='failed'?'failed':['whatsapp_opened','manual_pending','unknown','submitting'].includes(status)?'unconfirmed':'sent';
+export const sentTone=(status:string):SentTone=>status==='manual_not_done'?'not_done':status==='failed'?'failed':isOpenedUnconfirmed(status)||['manual_pending','unknown','submitting'].includes(status)?'unconfirmed':'sent';
 
 /** A management the conversation can name in its chip. */
 export type TimelineManagement={id:string|number;opportunityName:string|null;assignedUserEmail?:string|null};
@@ -154,15 +162,17 @@ export const visibleTimeline=(entries:readonly TimelineEntry[],{showOlder,limit=
 /** Items with the day separator each one needs (the first item and every day change). */
 export const withDaySeparators=(entries:readonly TimelineEntry[]):{entry:TimelineEntry;separator:string|null}[]=>entries.map((entry,index)=>({entry,separator:index===0||entries[index-1].day!==entry.day?entry.day:null}));
 
-/** One «Requiere acción» row: a received message to review or an opened-but-unconfirmed WhatsApp send. */
+/** True for an opened send the viewer may answer «¿Lo enviaste?» for: a WhatsApp, or an Instagram attempt (spec 92). */
+export const isConfirmableOpen=(m:{channel:string;status:string;ownerEmail?:string|null;destinationDetail?:string|null}):boolean=>isOpenedUnconfirmed(m.status)&&(m.status==='whatsapp_opened'?m.channel==='whatsapp':isInstagramAttempt(m));
+/** One «Requiere acción» row: a received message to review or an opened-but-unconfirmed WhatsApp or Instagram send. */
 export type ActionItem={kind:'review';key:string;at:Date;inbound:InboundMessage}|{kind:'confirm_send';key:string;at:Date;message:Message};
 /**
  * «Requiere acción», newest first: every received message «Por revisar» (its buttons follow the usual permissions) and the
  * «¿Lo enviaste?» prompts the viewer can answer (own WhatsApp opens, or any for an admin, on a writable view).
  */
-export function requiresAction({inbound,messages,userEmail,admin,readOnly}:{inbound?:readonly InboundMessage[]|null;messages:readonly Message[];userEmail:string;admin:boolean;readOnly:boolean}):ActionItem[]{
+export function requiresAction({inbound,messages,userEmail,admin,readOnly,now=Date.now()}:{inbound?:readonly InboundMessage[]|null;messages:readonly Message[];userEmail:string;admin:boolean;readOnly:boolean;/** An Instagram attempt waiting for its echo (15 min) is not listed yet. */now?:number}):ActionItem[]{
  const review=(inbound??[]).filter(i=>i.status==='pending_review').map(i=>({kind:'review' as const,key:'in:'+i.id,at:new Date(i.receivedAt),inbound:i}));
- const confirm=readOnly?[]:messages.filter(m=>m.channel==='whatsapp'&&m.status==='whatsapp_opened'&&(admin||m.ownerEmail===userEmail)).map(m=>({kind:'confirm_send' as const,key:'out:'+m.id,at:new Date(m.lastInteractionAt??m.updatedAt),message:m}));
+ const confirm=readOnly?[]:messages.filter(m=>isConfirmableOpen(m)&&!isWaitingForInstagramEcho({message:m,now})&&(admin||m.ownerEmail===userEmail)).map(m=>({kind:'confirm_send' as const,key:'out:'+m.id,at:new Date(m.lastInteractionAt??m.updatedAt),message:m}));
  return [...review,...confirm].sort((a,b)=>time(b.at)-time(a.at)||a.key.localeCompare(b.key));
 }
 /** Drafts (not sent, not opened), newest first. */
@@ -201,9 +211,9 @@ export function actionSummary({review,unconfirmed,outcomes}:{review:number;uncon
 }
 
 /** Who can receive a reply from the composer: the business people and its own email and phones. */
-export type ReplyRecipients={account:{email?:string|null;telefono?:string|null;whatsapp?:string|null};contacts:readonly {id:string|number;email?:string|null;phone?:string|null;deletedAt?:unknown}[]};
+export type ReplyRecipients={account:{email?:string|null;telefono?:string|null;whatsapp?:string|null;perfilInstagram?:string|null};contacts:readonly {id:string|number;email?:string|null;phone?:string|null;deletedAt?:unknown}[]};
 /** What «Preparar respuesta» opens: the channel and recipient to preselect (`contactId` '' is the business own channel), or why it falls back to the defaults. */
-export type ReplyTarget={channel?:'email'|'whatsapp';contactId?:string;reason:string};
+export type ReplyTarget={channel?:'email'|'whatsapp'|'instagram';contactId?:string;reason:string};
 /** The last received message «Preparar respuesta» answers: the newest one that is not voided, preferring one that is not automatic. */
 export function lastReceived(inbound:readonly InboundMessage[]|null|undefined):InboundMessage|null{
  const list=(inbound??[]).filter(i=>i.status!=='voided').sort((a,b)=>time(b.receivedAt)-time(a.receivedAt));
@@ -211,12 +221,27 @@ export function lastReceived(inbound:readonly InboundMessage[]|null|undefined):I
 }
 const samePhone=(a:string|null|undefined,b:string|null|undefined)=>{const keys=phoneNationalKeys(a);return !!keys.length&&phoneNationalKeys(b).some(k=>keys.includes(k));};
 /**
+ * Spec 92 §2.1: an Instagram reply goes to the business username, the only Instagram destination. It is prepared only when the
+ * sender is that same username and no business-level `social` or `all` restriction is active; otherwise «Contactar» opens
+ * with its defaults and the reason.
+ */
+function instagramReplyTarget({item,recipients,restrictions}:{item:InboundMessage;recipients:ReplyRecipients;restrictions:readonly {channel:string;contactId?:string|number|null;leadId?:string|number|null;liftedAt?:unknown;reason?:string|null}[]}):ReplyTarget{
+ const own=normalizeInstagramUsername(recipients.account.perfilInstagram);
+ if(!own)return {reason:'El negocio no tiene usuario de Instagram cargado: elegí el canal en «Contactar».'};
+ const sender=normalizeInstagramUsername(item.fromAddress);
+ if(sender!==own)return {reason:`${(item.fromAddress||'El remitente').trim()} no es el Instagram cargado en el negocio (@${own}): elegí el canal en «Contactar».`};
+ const blocked=restrictions.some(r=>!r.liftedAt&&(r.channel==='all'||r.channel==='social')&&r.contactId==null&&r.leadId==null);
+ if(blocked)return {reason:'Hay una restricción activa de Instagram para ese destinatario: «Contactar» se abre sin preseleccionarlo.'};
+ return {channel:'instagram',contactId:'',reason:''};
+}
+/**
  * Spec 91 §10: the channel and recipient of the last received message, as the composer would get them by hand. Only email and
  * WhatsApp can be prepared from the composer; a sender that is not a person of the business nor its own email or phone, or a
  * channel with an active restriction, falls back to the composer's defaults with the reason. It only prepares a message.
  */
-export function replyTarget({item,recipients,restrictions}:{item:InboundMessage;recipients:ReplyRecipients;restrictions:readonly {channel:string;contactId?:string|number|null;liftedAt?:unknown}[]}):ReplyTarget{
+export function replyTarget({item,recipients,restrictions}:{item:InboundMessage;recipients:ReplyRecipients;restrictions:readonly {channel:string;contactId?:string|number|null;leadId?:string|number|null;liftedAt?:unknown;reason?:string|null}[]}):ReplyTarget{
  const label=timelineChannelLabel({channel:item.channel,instagram:isInstagramInbound(item)});
+ if(item.channel==='social'&&isInstagramInbound(item))return instagramReplyTarget({item,recipients,restrictions});
  if(item.channel!=='email'&&item.channel!=='whatsapp')return {reason:`«Preparar respuesta» no prepara mensajes por ${label}: elegí el canal en «Contactar».`};
  const channel=item.channel,from=(item.fromAddress||'').trim();
  const people=recipients.contacts.filter(c=>!c.deletedAt);

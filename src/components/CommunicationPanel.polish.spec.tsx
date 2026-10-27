@@ -200,11 +200,11 @@ describe('«Preparar respuesta» (§10)',()=>{
   fireEvent.click(reply);
   expect(onContact).toHaveBeenCalledWith('whatsapp',{contactId:'7'});expect(mocks.info).not.toHaveBeenCalled();
  });
- it('falls back to the normal composer and says why for a channel it cannot prepare',async()=>{
+ it('falls back to the normal composer and says why when Instagram cannot be prepared (no username, spec 92)',async()=>{
   const onContact=vi.fn();setup({contacts,data:{inbound:[inbound('ig',{channel:'social',fromAddress:'@hotel'})]}});show({accountId:'5',onContact});await ready();
   const reply=await screen.findByRole('button',{name:'Preparar respuesta'});await waitFor(()=>expect((reply as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(reply);
-  expect(onContact).toHaveBeenCalledWith(undefined,undefined);expect(mocks.info).toHaveBeenCalledWith('«Preparar respuesta» no prepara mensajes por Instagram: elegí el canal en «Contactar».');
+  expect(onContact).toHaveBeenCalledWith(undefined,undefined);expect(mocks.info).toHaveBeenCalledWith('El negocio no tiene usuario de Instagram cargado: elegí el canal en «Contactar».');
  });
  it('is absent without received messages or on a read-only view, and disabled under No contactar',async()=>{
   setup({data:{messages:[message('a')]}});show({accountId:'5',onContact:vi.fn()});await ready();

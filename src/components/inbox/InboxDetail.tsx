@@ -17,6 +17,9 @@ import {AutoRegistrationVoidButton,canVoidAutoRegistration} from '../AutoRegistr
 import {ResponseRecordDialog,type ResponseDialogRequest} from '../ResponseRecordDialog';
 import {inboxChannelLabel,inboxRowsInstagram,inboxEventInbound,inboxMessageKey,type InboxChannel,type InboxEvent,type InboxPage,type InboxThreadRow} from './inboxTypes';
 import styles from './Inbox.module.css';
+import {toast} from 'sonner';
+import {lastReceived,replyTarget} from '../../helpers/communicationTimeline';
+import {isInstagramInbound} from '../../helpers/instagramChannel';
 
 /** Older pages loaded automatically while looking for the message a search result points at. */
 export const MAX_AUTO_PAGES=3;
@@ -43,7 +46,7 @@ export function InboxDetail({accountId,thread,channel,accountName,message,back}:
  });
  const communication=useQuery({queryKey:['communication',leadId?'lead':'account',leadId??accountId,false],queryFn:()=>getCommunication(leadId??'',leadId?undefined:accountId),enabled:!!thread});
  const commercial=useQuery({queryKey:['commercial-detail',leadId?'':accountId,leadId??''],queryFn:()=>getCommercialDetail(leadId?undefined:accountId,leadId??undefined),enabled:!!thread});
- const [flash,setFlash]=useState<string|null>(null),[contactOpen,setContactOpen]=useState(false);
+ const [flash,setFlash]=useState<string|null>(null),[contactOpen,setContactOpen]=useState(false),[contactPreset,setContactPreset]=useState<{channel?:'email'|'whatsapp'|'instagram';contactId?:string}>({});
  const [responseRequest,setResponseRequest]=useState<ResponseDialogRequest|null>(null),responseSeq=useRef(0),timeline=useRef<HTMLDivElement|null>(null),flashed=useRef<string|null>(null);
  const loaded=useMemo(()=>detail.data?.pages.flatMap(page=>page.rows)??[],[detail.data]);
  const events=useMemo(()=>[...loaded].reverse(),[loaded]);
@@ -65,6 +68,9 @@ export function InboxDetail({accountId,thread,channel,accountName,message,back}:
  const canWrite=canWriteInbound({admin,userEmail,detail:commercial.data,leadId});
  const replyStatus=(messageId:string)=>loaded.find(event=>event.kind==='out'&&event.id===messageId)?.status;
  const contact=loaded.find(event=>event.kind==='in'&&(event.fromName||event.fromAddress));
+ // Spec 92 §2.1: «Responder» in an Instagram thread prepares the reply with the same rule as «Preparar respuesta».
+ const lastInstagram=threadChannel==='social'?lastReceived((communication.data?.inbound??[]).filter(i=>isInstagramInbound(i))):null;
+ const replyInstagram=()=>{if(!lastInstagram||!commercial.data||!communication.data)return;const target=replyTarget({item:lastInstagram,recipients:{account:commercial.data.account,contacts:commercial.data.contacts},restrictions:communication.data.activeRestrictions??communication.data.restrictions});if(target.reason)toast.info(target.reason);setContactPreset({channel:target.channel,contactId:target.contactId});setContactOpen(true);};
  const contactBlocked=commercial.isPending?'Estamos cargando los datos del negocio.':commercial.error?'No pudimos cargar los datos del negocio. Reintentá la carga.':'';
  const actions=(event:InboxEvent)=>{
   if(event.voided)return null;
@@ -83,8 +89,8 @@ export function InboxDetail({accountId,thread,channel,accountName,message,back}:
    {targetMissing&&<p role="status">{INBOX_MESSAGE_NOT_FOUND}</p>}
    {events.map((event,index)=>{const before=events[index-1],key=inboxMessageKey(event),muted=event.dismissed||!!event.voided;return <div key={`${event.kind}-${event.id}`} className={`${styles.messageRow} ${event.kind==='out'?styles.outboundRow:styles.inboundRow}`}>{(!before||formatDay(before.at)!==formatDay(event.at))&&<div className={styles.day}>{formatDay(event.at)}</div>}<article data-event-key={key} data-kind={event.kind} data-pending={event.pending||undefined} data-dismissed={event.dismissed||undefined} data-voided={event.voided||undefined} data-manual={event.isManualLog||undefined} data-highlighted={flash===key||undefined} className={`${styles.message} ${event.kind==='out'?styles.outbound:styles.inbound} ${event.pending?styles.pendingMessage:''} ${muted?styles.dismissed:''} ${flash===key?styles.flash:''}`}><small>{label(event)}</small>{(event.autoRegistrationId||event.voided)&&<span className={styles.messageBadges}>{event.autoRegistrationId&&<ValueBadge value="Automático" category="review"/>}{event.voided&&<ValueBadge value={messageLabels.voided} category="review"/>}</span>}<p>{event.text||event.summary||'Sin contenido'}</p>{event.kind==='out'&&<small>{messageLabels[event.status]??event.status}</small>}{actions(event)}</article></div>})}
   </div>}
-  <footer className={styles.detailFooter}>{commercial.error&&<QueryErrorNotice error={commercial.error} onRetry={commercial.refetch} busy={commercial.isFetching}/>}{communication.error&&responseRequest&&<QueryErrorNotice error={communication.error} onRetry={communication.refetch} busy={communication.isFetching}/>}<Button variant="outline" disabled={!!contactBlocked} disabledReason={contactBlocked} onClick={()=>setContactOpen(true)}>Nuevo mensaje</Button></footer>
-  {contactOpen&&commercial.data&&<BusinessContactDialog detail={commercial.data} initialLeadId={leadId??undefined} onClose={()=>{setContactOpen(false);void qc.invalidateQueries({queryKey:['inbox']})}}/>}
+  <footer className={styles.detailFooter}>{commercial.error&&<QueryErrorNotice error={commercial.error} onRetry={commercial.refetch} busy={commercial.isFetching}/>}{communication.error&&responseRequest&&<QueryErrorNotice error={communication.error} onRetry={communication.refetch} busy={communication.isFetching}/>}{lastInstagram&&<Button disabled={!!contactBlocked||!communication.data} disabledReason={contactBlocked||'Estamos cargando la comunicación del negocio.'} onClick={replyInstagram}>Responder</Button>}<Button variant="outline" disabled={!!contactBlocked} disabledReason={contactBlocked} onClick={()=>{setContactPreset({});setContactOpen(true)}}>Nuevo mensaje</Button></footer>
+  {contactOpen&&commercial.data&&<BusinessContactDialog detail={commercial.data} initialLeadId={leadId??undefined} initialChannel={contactPreset.channel} initialContactId={contactPreset.contactId} onClose={()=>{setContactOpen(false);void qc.invalidateQueries({queryKey:['inbox']})}}/>}
   {communication.data&&<ResponseRecordDialog request={responseRequest} onClose={()=>setResponseRequest(null)} data={communication.data} detail={commercial.data} leadId={leadId??undefined}/>}
  </>;
 }

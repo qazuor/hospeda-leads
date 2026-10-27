@@ -103,7 +103,8 @@ describe('«Preparar respuesta» (spec 91 §10)',()=>{
   const unknown=replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'baja@example.com'}),recipients,restrictions:[]});
   expect(unknown.channel).toBe('email');expect(unknown.contactId).toBeUndefined();expect(unknown.reason).toMatch(/^baja@example\.com no está cargado/);
   const social=replyTarget({item:inbound({id:'a',channel:'social',fromAddress:'@hotel'}),recipients,restrictions:[]});
-  expect(social).toEqual({reason:'«Preparar respuesta» no prepara mensajes por Instagram: elegí el canal en «Contactar».'});
+  // Spec 92: Instagram is prepared now, but only for the business username; without one it falls back with the reason.
+  expect(social).toEqual({reason:'El negocio no tiene usuario de Instagram cargado: elegí el canal en «Contactar».'});
   const restricted=replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'whatsapp',contactId:'7',liftedAt:null}]});
   expect(restricted.channel).toBeUndefined();expect(restricted.reason).toMatch(/restricción activa/);
   expect(replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'whatsapp',contactId:null,liftedAt:new Date()},{channel:'email',contactId:null}]})).toEqual({channel:'whatsapp',contactId:'7',reason:''});
