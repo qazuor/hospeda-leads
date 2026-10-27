@@ -3,7 +3,9 @@ import {useQuery} from '@tanstack/react-query';
 import {getPipeline} from '../../endpoints/pipeline.schema';
 import {useAuth} from '../../helpers/useAuth';
 import {canModifyManagement} from '../../helpers/crmPermissions';
+import {ChevronDown} from 'lucide-react';
 import {Button} from '../Button';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '../DropdownMenu';
 import {Disclosure,DisclosureSummary} from '../Disclosure';
 import {CrmDialog} from '../ui/CrmDialog';
 import {ManualCommunicationForm} from '../ManualCommunicationForm';
@@ -40,11 +42,16 @@ function RecordContactDialog({view,leadId,onContact,onClose,callSession}:{view:C
  </CrmDialog>;
 }
 
+/** One «Registrar ▾» option; a disabled one keeps saying why under its label (spec 91 §6). */
+function RecordItem({label,reason,onSelect}:{label:string;reason?:string;onSelect:()=>void}){
+ return <DropdownMenuItem disabled={!!reason} onSelect={onSelect}><span className={styles.menuItem}><span>{label}</span>{reason&&<small>{reason}</small>}</span></DropdownMenuItem>;
+}
+
 /**
- * Action bar of «Comunicación»: «Contactar» (the existing composer), «Registrar llamada u otro contacto» and «Registrar
- * respuesta sin mensaje» (the response dialog without a received message). Same gating as before: read-only views keep
- * only the response action, an archived business keeps it for admins only, and a disabled action says why.
- * `onSendMaterial` adds «Enviar material» (spec 89 §8.2): pick a deliverable and hand it to the page's «Contactar».
+ * Action bar of «Comunicación», spec 91 §6, on one line: «Contactar» (the existing composer), «Registrar ▾» (a menu with
+ * «Llamada u otro contacto» and «Respuesta sin mensaje», the response dialog without a received message) and «Enviar
+ * material» with its help link. Same gating as before: read-only views keep only the response option, an archived business
+ * keeps it for admins only, and a disabled action says why. `onSendMaterial` adds «Enviar material» (spec 89 §8.2).
  */
 export function CommunicationActionBar({view,leadId,onContact,onSendMaterial}:{view:CommunicationView;leadId?:string;onContact?:(channel?:ContactChannel)=>void;onSendMaterial?:(material:PickedSalesMaterial)=>void}){
  const [recording,setRecording]=useState(false),[materialPicker,setMaterialPicker]=useState(false);
@@ -56,8 +63,10 @@ export function CommunicationActionBar({view,leadId,onContact,onSendMaterial}:{v
  if(!showContact&&!showRecord&&!showResponse&&!showMaterial)return null;
  return <div className={styles.actionBar} role="group" aria-label="Acciones de comunicación">
   {showContact&&<Button disabled={!account||account.doNotContact} disabledReason={!account?'Estamos cargando los datos del negocio.':CONTACT_DNC_REASON} onClick={()=>onContact?.()}>Contactar</Button>}
-  {showRecord&&<Button variant="outline" disabled={!view.detail} disabledReason="Estamos cargando los datos del negocio." onClick={()=>setRecording(true)}>Registrar llamada u otro contacto</Button>}
-  {showResponse&&<Button variant="outline" onClick={()=>view.openResponse(null)}>Registrar respuesta sin mensaje</Button>}
+  {(showRecord||showResponse)&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">Registrar<ChevronDown size={16} aria-hidden="true"/></Button></DropdownMenuTrigger><DropdownMenuContent>
+   {showRecord&&<RecordItem label="Llamada u otro contacto" reason={view.detail?undefined:'Estamos cargando los datos del negocio.'} onSelect={()=>setRecording(true)}/>}
+   {showResponse&&<RecordItem label="Respuesta sin mensaje" onSelect={()=>view.openResponse(null)}/>}
+  </DropdownMenuContent></DropdownMenu>}
   {showMaterial&&<><Button variant="outline" disabled={!!sendMaterialBlock} disabledReason={sendMaterialBlock} onClick={()=>setMaterialPicker(true)}>Enviar material</Button><HelpLink topic="salesMaterial" hint="sendMaterial"/><SalesMaterialPicker opened={materialPicker} title="Enviar material" onClose={()=>setMaterialPicker(false)} onPick={x=>{setMaterialPicker(false);onSendMaterial?.(x)}}/></>}
   {recording&&view.detail&&<RecordContactDialog view={view} leadId={leadId} onContact={onContact} callSession={callSession} onClose={()=>setRecording(false)}/>}
  </div>;

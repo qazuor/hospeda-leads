@@ -25,8 +25,12 @@ function setup({data={},role='user',accountOver={},opportunities=[] as unknown[]
  mocks.getPipeline.mockResolvedValue({stages:[]});
  mocks.getWork.mockResolvedValue({tasks:[]});
 }
-function show(props:React.ComponentProps<typeof CommunicationPanel>={accountId:'5'}){render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><CommunicationPanel {...props}/></QueryClientProvider></MantineProvider>);}
+function show(props:React.ComponentProps<typeof CommunicationPanel>={accountId:'5'}){render(<MantineProvider env="test"><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><CommunicationPanel {...props}/></QueryClientProvider></MantineProvider>);}
 const ready=()=>screen.findByRole('region',{name:'Conversación'});
+/** Opens «Registrar ▾» and returns the option named `name`. */
+const registerOption=async(bar:HTMLElement,name:string)=>{fireEvent.click(within(bar).getByRole('button',{name:'Registrar'}));return screen.findByRole('menuitem',{name:new RegExp('^'+name)});};
+/** Opens the «⋯» menu of an item and returns the action named `name`. */
+const itemAction=async(item:HTMLElement,name:string)=>{fireEvent.click(within(item).getByRole('button',{name:/^Más acciones · /}));return screen.findByRole('menuitem',{name});};
 beforeAll(()=>{window.matchMedia=window.matchMedia||((query:string)=>({matches:false,media:query,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){},dispatchEvent:()=>false,onchange:null}) as MediaQueryList);globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});
 afterEach(()=>{cleanup();for(const fn of [mocks.getCommunication,mocks.postCommunication,mocks.getCommercialDetail,mocks.getPipeline,mocks.getWork])fn.mockReset();mocks.role='user';});
 
@@ -58,11 +62,12 @@ describe('action bar gating',()=>{
   const bar=screen.getByRole('group',{name:'Acciones de comunicación'});
   await waitFor(()=>expect((within(bar).getByRole('button',{name:'Contactar'}) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(within(bar).getByRole('button',{name:'Contactar'}));expect(onContact).toHaveBeenCalledTimes(1);
-  fireEvent.click(within(bar).getByRole('button',{name:'Registrar llamada u otro contacto'}));
+  fireEvent.click(await registerOption(bar,'Llamada u otro contacto'));
   const dialog=await screen.findByRole('dialog',{name:'Registrar llamada u otro contacto'});
   fireEvent.click(within(dialog).getByRole('button',{name:'Registrar una llamada'}));
   expect(onContact).toHaveBeenLastCalledWith('call');
-  fireEvent.click(within(bar).getByRole('button',{name:'Registrar respuesta sin mensaje'}));
+  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Registrar llamada u otro contacto'})).toBeNull());
+  fireEvent.click(await registerOption(bar,'Respuesta sin mensaje'));
   expect(await screen.findByRole('dialog')).toBeTruthy();
  });
  it('keeps «Contactar» disabled with its reason on a No contactar business',async()=>{
@@ -72,9 +77,12 @@ describe('action bar gating',()=>{
  it('leaves a read-only view with the response action only, and an archived business without it for sellers',async()=>{
   setup();show({accountId:'5',readOnly:true,onContact:vi.fn()});await ready();
   const bar=screen.getByRole('group',{name:'Acciones de comunicación'});
-  expect(within(bar).getAllByRole('button').map(b=>b.textContent)).toEqual(['Registrar respuesta sin mensaje']);
+  expect(within(bar).getAllByRole('button').map(b=>b.textContent)).toEqual(['Registrar']);
+  fireEvent.click(within(bar).getByRole('button',{name:'Registrar'}));
+  expect((await screen.findAllByRole('menuitem')).map(item=>item.textContent)).toEqual(['Respuesta sin mensaje']);
   cleanup();setup({accountOver:{archivedAt:new Date()}});show({accountId:'5',readOnly:true});await ready();
-  await waitFor(()=>expect(screen.queryByRole('button',{name:'Registrar respuesta sin mensaje'})).toBeNull());
+  await waitFor(()=>expect(screen.queryByRole('button',{name:'Registrar'})).toBeNull());
+  expect(screen.queryByRole('group',{name:'Acciones de comunicación'})).toBeNull();
  });
 });
 
@@ -88,7 +96,8 @@ describe('«Requiere acción»',()=>{
   setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],inbound:[inbound('pending')]}});show();await ready();
   const region=screen.getByRole('region',{name:'Requiere acción'});
   expect(within(region).getByRole('heading',{name:'Requiere acción · 2'})).toBeTruthy();
-  expect(within(region).getByRole('article',{name:'WhatsApp de Julia por revisar'})).toBeTruthy();
+  expect(within(region).getByText('1 mensaje por revisar · 1 envío sin confirmar')).toBeTruthy();
+  expect(within(region).getByRole('button',{name:/^WhatsApp de Julia por revisar/})).toBeTruthy();
   let resolve:(v:unknown)=>void=()=>{};mocks.postCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
   fireEvent.click(within(region).getByRole('button',{name:'Sí, se envió'}));
   const busy=await within(region).findByRole('button',{name:'Guardando…'});expect((busy as HTMLButtonElement).disabled).toBe(true);fireEvent.click(busy);
@@ -124,7 +133,8 @@ describe('«Conversación»',()=>{
   expect(within(conversation).getByText('Respuesta registrada · Respondió, le interesa · completó la tarea «Llamar a Julia»')).toBeTruthy();
   const event=within(conversation).getByRole('article',{name:'Respuesta registrada sin mensaje · Respondió, le interesa'});
   expect(within(conversation).getAllByRole('article')).toHaveLength(2);
-  fireEvent.click(within(event).getByRole('button',{name:'Corregir respuesta'}));
+  expect(within(event).queryByRole('button',{name:'Corregir respuesta'})).toBeNull();
+  fireEvent.click(await itemAction(event,'Corregir respuesta'));
   expect(await within(event).findByLabelText('¿Qué respondió?')).toBeTruthy();
  });
  it('shows calls as event rows with their result',async()=>{

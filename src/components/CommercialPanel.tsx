@@ -81,9 +81,11 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const [workFocus,setWorkFocus]=useState(()=>params.get('section')==='work'?1:0);
   const [contacting,setContacting]=useState(false),[floatingActive,setFloatingActive]=useState(false),[floatingLeadId,setFloatingLeadId]=useState<string>();
   const [contactChannel,setContactChannel]=useState<'email'|'whatsapp'|'call'|undefined>(),[contactMaterial,setContactMaterial]=useState<PickedSalesMaterial|undefined>();
+  // Spec 91 §10: «Responder» presets the recipient of the last received message ('' is the business own channel).
+  const [contactRecipient,setContactRecipient]=useState<string|undefined>();
   const contactReturnFocus=useRef<HTMLElement|null>(null);
-  const closeContact=()=>{setContacting(false);setFloatingActive(false);setContactChannel(undefined);setContactMaterial(undefined);contactReturnFocus.current=null};
-  const openContact=(channel?:'email'|'whatsapp'|'call')=>{if(contacting){window.dispatchEvent(new Event('crm:restore-floating-composer'));return}contactReturnFocus.current=document.activeElement as HTMLElement;setContactChannel(channel);setContacting(true)};
+  const closeContact=()=>{setContacting(false);setFloatingActive(false);setContactChannel(undefined);setContactRecipient(undefined);setContactMaterial(undefined);contactReturnFocus.current=null};
+  const openContact=(channel?:'email'|'whatsapp'|'call',options?:{contactId?:string})=>{if(contacting){window.dispatchEvent(new Event('crm:restore-floating-composer'));return}contactReturnFocus.current=document.activeElement as HTMLElement;setContactChannel(channel);setContactRecipient(options?.contactId);setContacting(true)};
   const [editor,setEditor]=useState<EditorTarget|null>(null);
   const [workEditor,setWorkEditor]=useState<WorkTarget|null>(null);
   /** True while the person editor was opened from the next step, the only flow that shows "Persona guardada". */
@@ -145,7 +147,7 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
       <SectionTabPanel value="gestiones">{opportunitySection}</SectionTabPanel>
       <SectionTabPanel value="documentos"><ResourcesPanel accountId={d.account.id} readOnly={readOnly}/></SectionTabPanel>
     </SectionTabs></div></div></>}
-    {contacting&&!compact&&!readOnly&&<BusinessContactDialog detail={d} initialChannel={contactChannel} initialMaterial={contactMaterial} returnFocusTo={contactReturnFocus.current} floatingComposer onClose={closeContact} onFloatingOpen={leadId=>{setFloatingActive(true);setFloatingLeadId(leadId)}} onFloatingClose={floating=>{setFloatingActive(false);setFloatingLeadId(undefined);if(floating)closeContact();else{setContactChannel(undefined);contactReturnFocus.current=null}}}/>}
+    {contacting&&!compact&&!readOnly&&<BusinessContactDialog detail={d} initialChannel={contactChannel} initialContactId={contactRecipient} initialMaterial={contactMaterial} returnFocusTo={contactReturnFocus.current} floatingComposer onClose={closeContact} onFloatingOpen={leadId=>{setFloatingActive(true);setFloatingLeadId(leadId)}} onFloatingClose={floating=>{setFloatingActive(false);setFloatingLeadId(undefined);if(floating)closeContact();else{setContactChannel(undefined);setContactRecipient(undefined);contactReturnFocus.current=null}}}/>}
     {workEditor&&workSummary.data&&<WorkEditor target={workEditor} data={workSummary.data} onClose={()=>setWorkEditor(null)}/>}
     {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onSaved={id=>{if((editor.kind==='opportunity'||(editor.kind==='contact'&&personFromNextStep))&&!editor.item)setSavedStep({kind:editor.kind,id})}} onClose={()=>{setEditor(null);setPersonFromNextStep(false)}}/>}
   </section></FloatingComposerProvider>;
