@@ -15,11 +15,13 @@ import {verify as instagramVerify,post as instagramPOST,integrationGET as instag
 import {context as userscriptContext,status as userscriptStatus,register as userscriptRegister,tokenList as userscriptTokenList,tokenCreate as userscriptTokenCreate,tokenRevoke as userscriptTokenRevoke,templates as userscriptTemplates,prepare as userscriptPrepare,dispatch as userscriptDispatch,outcome as userscriptOutcome,preferences as userscriptPreferences,autoRegistrations as userscriptAutoRegistrations,voidRegistration as userscriptVoid,badges as userscriptBadges} from '../endpoints/userscript';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
 import {get as salesMaterialsGET,post as salesMaterialsPOST,uploadUrl as salesMaterialUploadUrl,file as salesMaterialFile,cover as salesMaterialCover} from '../endpoints/salesMaterials';
+import {page as materialSharePage,file as materialShareFile,cover as materialShareCover,notFound as materialShareNotFound} from '../endpoints/materialShare';
+import {clientIp} from '../helpers/salesMaterialShare';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
 import {get as businessImportGET,post as businessImportPOST} from '../endpoints/businessImport';
 import {request as passwordRecoveryRequest,reset as passwordRecoveryReset} from "../endpoints/auth/password_recovery";
 import {get as pipelineGET,post as pipelinePOST} from "../endpoints/pipeline";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { applyAssetMiddleware, applyStaticFallback } from "./staticAssets";
 import { applyBodyLimit } from "./bodyLimit";
 import { applySecurity } from "./security";
@@ -166,5 +168,14 @@ app.get('/_api/business_reassignment',c=>businessReassignmentGET(c.req.raw));
 app.post('/_api/business_reassignment',c=>businessReassignmentPOST(c.req.raw));
 app.get("/_api/settings", (c) => h22(c.req.raw));
 app.post("/_api/settings_save", (c) => h23(c.req.raw));
+
+// Public material page (spec 89 §7): no session, own enforced CSP. Every /m path is answered here, so it never falls through to the SPA.
+const shareIp=(c:Context)=>clientIp({headers:c.req.raw.headers,remoteAddress:(c.env as {incoming?:{socket?:{remoteAddress?:string}}}|undefined)?.incoming?.socket?.remoteAddress});
+app.get('/m/:token',c=>materialSharePage(c.req.raw,{token:c.req.param('token'),ip:shareIp(c)}));
+app.get('/m/:token/file',c=>materialShareFile(c.req.raw,{token:c.req.param('token'),ip:shareIp(c),disposition:'inline'}));
+app.get('/m/:token/download',c=>materialShareFile(c.req.raw,{token:c.req.param('token'),ip:shareIp(c),disposition:'attachment'}));
+app.get('/m/:token/cover',c=>materialShareCover(c.req.raw,{token:c.req.param('token'),ip:shareIp(c)}));
+app.all('/m',c=>materialShareNotFound(c.req.raw,{ip:shareIp(c)}));
+app.all('/m/*',c=>materialShareNotFound(c.req.raw,{ip:shareIp(c)}));
 
 applyStaticFallback(app,{distDir:"./dist"});

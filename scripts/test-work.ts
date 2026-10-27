@@ -68,7 +68,9 @@ const EXPECTED_LIVE_TRIGGERS=[
   // 046_sales_material
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_categories FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_category_links FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
-  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_shares FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  // 047_sales_material_share_triggers: counted visits (technical counters only) do not bump the live version
+  "CREATE TRIGGER resource_live AFTER INSERT OR DELETE ON public.crm_sales_material_shares FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
+  "CREATE TRIGGER resource_live_update AFTER UPDATE ON public.crm_sales_material_shares FOR EACH ROW WHEN ((((to_jsonb(old.*) - 'technical_access_count'::text) - 'last_technical_access_at'::text) IS DISTINCT FROM ((to_jsonb(new.*) - 'technical_access_count'::text) - 'last_technical_access_at'::text))) EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_material_versions FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER resource_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_sales_materials FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('communication')",
   "CREATE TRIGGER users_live_version AFTER INSERT OR DELETE OR UPDATE ON public.users FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')"

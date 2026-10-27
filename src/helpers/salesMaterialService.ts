@@ -6,7 +6,9 @@ import {SALES_MATERIAL_MAX_COVER_BYTES,SALES_MATERIAL_MAX_UPLOAD_BYTES,contentDi
 import type {SalesMaterial,SalesMaterialCategory,SalesMaterialList,SalesMaterialMutation,SalesMaterialUpload,SalesMaterialUploadInput,SalesMaterialVersion} from '../endpoints/salesMaterials.schema';
 type E=Kysely<DB>|Transaction<DB>;
 /** Presigned PUT lifetime (spec 89 §6.3) and GET lifetime (§6.4), in seconds. */
-export const UPLOAD_URL_SECONDS=1800,READ_URL_SECONDS=300;
+export const UPLOAD_URL_SECONDS=1800,READ_URL_SECONDS=300,MEDIA_READ_URL_SECONDS=21600;
+/** Lifetime of a presigned GET: 5 minutes for documents and images, 6 hours for audio and video so playback, pausing and seeking (new range requests) keep working. */
+export const readUrlSeconds=({mimeType}:{mimeType:string|null|undefined}):number=>/^(audio|video)\//i.test(mimeType??'')?MEDIA_READ_URL_SECONDS:READ_URL_SECONDS;
 /** Raised when something does not exist (404). */
 export class SalesMaterialNotFound extends Error{}
 const configSchema=z.object({maxUploadBytes:z.number().int().min(1).max(SALES_MATERIAL_MAX_UPLOAD_BYTES),maxEmailAttachmentBytes:z.number().int().min(1),pendingUploadHours:z.number().int().min(1).max(720)});
@@ -25,13 +27,14 @@ type UploadRow={id:string;objectKey:string;purpose:'file'|'cover';materialId:str
 const publicVersion=({objectKey:_key,materialId:_material,...v}:VersionRow):SalesMaterialVersion=>({...v,byteSize:v.byteSize==null?null:Number(v.byteSize)});
 /** Most materials one listing returns; beyond it the list says `truncated` and the UI asks for a narrower search. */
 export const LIST_LIMIT=500;
-/** Lists materials. Sellers see active ones (both kinds) with the current version only; `includeArchived` and older versions are admin-only. */
-export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;kind?:'deliverable'|'internal';includeArchived:'0'|'1'}}):Promise<SalesMaterialList>{
+/** Lists materials (`categoryIds`: any of them). Sellers see active ones (both kinds) with the current version only; `includeArchived` and older versions are admin-only. */
+export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived:'0'|'1'}}):Promise<SalesMaterialList>{
  const admin=user.role==='admin';
+ const categoryIds=[...new Set([...(query.categoryIds??[]),...(query.categoryId?[query.categoryId]:[])])];
  if(query.includeArchived==='1'&&!admin)throw new CrmForbidden('Solo un administrador ve el material archivado.');
  const found=(await sql<MaterialRow>`SELECT m.* FROM crm_sales_materials m WHERE (${query.includeArchived==='1'} OR m.status='active')
   AND (${query.kind??null}::text IS NULL OR m.kind=${query.kind??null})
-  AND (${query.categoryId??null}::bigint IS NULL OR EXISTS(SELECT 1 FROM crm_sales_material_category_links l WHERE l.material_id=m.id AND l.category_id=${query.categoryId??null}::bigint))
+  AND (${categoryIds.length===0} OR EXISTS(SELECT 1 FROM crm_sales_material_category_links l WHERE l.material_id=m.id AND l.category_id=ANY(${categoryIds}::bigint[])))
   AND (${searchSql('m.title',query.search)} OR ${searchSql('m.description',query.search)})
   ORDER BY m.status,m.updated_at DESC,m.id LIMIT ${LIST_LIMIT+1}`.execute(db)).rows;
  const truncated=found.length>LIST_LIMIT,rows=found.slice(0,LIST_LIMIT);
@@ -191,13 +194,13 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   return {ok:true,revision:next};
  });
 }
-/** Resolves a version for viewing or download. Sellers only reach the current version of an active material (spec 89 §5). */
+/** Resolves a version for viewing or download (presigned GET: see {@link readUrlSeconds}). Sellers only reach the current version of an active material (spec 89 §5). */
 export async function salesMaterialFileLocation(db:Kysely<DB>,{versionId,disposition,user,storage}:{versionId:string;disposition:'inline'|'attachment';user:User;storage?:R2Storage}):Promise<string>{
  const v=(await sql<VersionRow&{status:string;currentVersion:number|null}>`SELECT v.*,m.status,m.current_version FROM crm_sales_material_versions v JOIN crm_sales_materials m ON m.id=v.material_id WHERE v.id=${versionId}::uuid`.execute(db)).rows[0];
  if(!v)throw new SalesMaterialNotFound('La versión no existe.');
  if(user.role!=='admin'&&(v.status!=='active'||v.version!==v.currentVersion))throw new CrmForbidden('Esta versión del material no está disponible.');
  if(v.url)return v.url;
- return (storage??r2Storage()).presignGet({key:v.objectKey!,expiresIn:READ_URL_SECONDS,disposition:contentDisposition({disposition,fileName:v.fileName}),contentType:v.mimeType??undefined});
+ return (storage??r2Storage()).presignGet({key:v.objectKey!,expiresIn:readUrlSeconds({mimeType:v.mimeType}),disposition:contentDisposition({disposition,fileName:v.fileName}),contentType:v.mimeType??undefined});
 }
 /** Cover bytes (at most 1 MB) served through our server: the admin cover, or a small image material itself. Null when there is none. */
 export async function salesMaterialCover(db:Kysely<DB>,{materialId,user,storage}:{materialId:string;user:User;storage?:R2Storage}):Promise<{body:Uint8Array<ArrayBuffer>;contentType:string}|null>{

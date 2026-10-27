@@ -130,7 +130,7 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
 | `GET /_api/sales_materials` | `search`, `categoryId`, `kind`, `includeArchived` → `{materials[], categories[], limits}`. Cada material lleva sus categorías, la versión actual (sin `object_key`) y `hasCover` | Cualquier usuario autenticado. `includeArchived` y versiones anteriores, solo admin |
 | `POST /_api/sales_materials` | Unión discriminada por `action`: `create`, `update` (título, descripción, tipo, `categoryIds`, `revision`), `version` (`uploadId` o `url`, `revision`), `cover` (`uploadId` o `null`, `revision`), `archive`, `restore`, `category_create`, `category_update` | Solo admin |
 | `POST /_api/sales_materials/upload_url` | `{purpose, fileName, mimeType, byteSize, materialId?}` → `{uploadId, putUrl, headers:{'Content-Type'}, expiresAt}` | Solo admin |
-| `GET /_api/sales_materials/file` | `versionId`, `disposition=inline\|attachment` → 302 a GET prefirmado (5 min), `Cache-Control: no-store` | Cualquier autenticado: ver material no da acceso a nada más |
+| `GET /_api/sales_materials/file` | `versionId`, `disposition=inline\|attachment` → 302 a GET prefirmado (5 min; 6 h para audio y video), `Cache-Control: no-store` | Cualquier autenticado: ver material no da acceso a nada más |
 | `POST /_api/sales_materials/share_revoke` | `{shareId, reason}` → `{ok}` | Admin, el autor del envío o quien tenga escritura sobre el negocio (`assertAccountWritable`) |
 
 - **`create`** recibe `id` (uuid del cliente, idempotente como `resources`), `source` y la primera versión (`uploadId` o `url`).
@@ -192,7 +192,7 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
 ### 6.4 Lectura, versiones y limpieza
 
 - **GET prefirmado:**
-  - vence en 5 minutos;
+  - vence en 5 minutos (6 horas para audio y video, para que la reproducción y el avance sigan andando);
   - usa `response-content-disposition` (`inline` o `attachment; filename*=UTF-8''<nombre>`) y `response-content-type`. A verificar que R2 respete esos parámetros en URLs prefirmadas;
   - como un video o un audio vuelve a pedir rangos al adelantar, el `src` siempre apunta a nuestra ruta (`/_api/sales_materials/file` o `/m/<token>/file`), que redirige a una URL prefirmada nueva en cada pedido.
 - **Versiones:** se conservan todos los objetos. Archivar no borra nada en R2.
@@ -242,8 +242,11 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
   - `Referrer-Policy: no-referrer`, para que el token no viaje a R2 ni a URLs externas;
   - CSP propia que se aplica (no report-only): `default-src 'none'; img-src 'self' <r2>; media-src 'self' <r2>; frame-src 'self' <r2>; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'`. La página no usa JavaScript.
 - **Límite de tasa:**
-  - en memoria, por IP: 60 pedidos por minuto en `/m/*`, y 20 tokens inexistentes cada 10 minutos (después responde 429);
-  - un solo contenedor en Coolify, así que la memoria alcanza. A verificar cuál cabecera de IP real deja pasar el proxy de Coolify.
+  - en memoria, por IP: 300 pedidos por minuto en `/m/*` (generoso a propósito: IP compartidas, solo corta ruido), y 20 tokens inexistentes cada 10 minutos (después responde 429 **solo a los tokens que no resuelven**: un enlace válido nunca se bloquea);
+  - el mapa tiene tope (10.000 entradas, se descartan las más viejas) y no hace barridos completos;
+  - la IP sale de una sola fuente configurable con `CRM_CLIENT_IP_HEADER` (`x-real-ip` por defecto, `cf-connecting-ip`, `x-forwarded-for` último salto, `none`); ver `docs/COOLIFY_DEPLOY.md`;
+  - `/m/<token>/` y un `.`, `,` o `)` pegados al final por un autoenlazador redirigen (308) a `/m/<token>`; los tokens siempre terminan en un carácter alfanumérico;
+  - `og:url` y `og:image` salen solo de `PUBLIC_APP_URL` (sin ella se omiten, nunca se usa `Host`).
 - **Móvil:** HTML de una columna, `viewport`, estilos inline mínimos con los tokens de color de `base.css` copiados como constantes, y botones de 44 px.
 - **Plantilla:** `src/server/materialPage.ts`, que escapa todo valor con un helper (título y descripción son texto del admin).
 

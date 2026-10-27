@@ -4,7 +4,7 @@ import type {Kysely} from 'kysely';
 import type {DB} from './schema';
 import {CrmForbidden} from './crmPermissions';
 import {setR2StorageForTests} from './r2';
-import {assertSalesMaterialAdmin,scheduleSalesMaterialUploadSweep} from './salesMaterialService';
+import {MEDIA_READ_URL_SECONDS,READ_URL_SECONDS,assertSalesMaterialAdmin,readUrlSeconds,scheduleSalesMaterialUploadSweep} from './salesMaterialService';
 
 afterEach(()=>{setR2StorageForTests({storage:undefined});vi.useRealTimers();});
 describe('assertSalesMaterialAdmin',()=>{
@@ -31,5 +31,12 @@ describe('scheduleSalesMaterialUploadSweep',()=>{
   const stop=scheduleSalesMaterialUploadSweep({db,intervalMs:1000,firstRunMs:10,log});
   await vi.advanceTimersByTimeAsync(20);stop();
   expect(log).toHaveBeenCalledWith('Sales material sweep failed: db down');
+ });
+});
+describe('readUrlSeconds',()=>{
+ it('lasts 6 hours for audio and video so playback and seeking survive, and 5 minutes for everything else',()=>{
+  for(const mimeType of ['video/mp4','video/webm','audio/mpeg','audio/mp4','VIDEO/MP4'])expect(readUrlSeconds({mimeType}),mimeType).toBe(MEDIA_READ_URL_SECONDS);
+  for(const mimeType of ['application/pdf','image/png','application/vnd.openxmlformats-officedocument.wordprocessingml.document',null,undefined])expect(readUrlSeconds({mimeType}),String(mimeType)).toBe(READ_URL_SECONDS);
+  expect(MEDIA_READ_URL_SECONDS).toBe(21600);expect(READ_URL_SECONDS).toBe(300);
  });
 });

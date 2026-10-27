@@ -26,3 +26,9 @@
 .categoryList{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .categoryList li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:6px 0;border-bottom:1px solid var(--border)}
 @media(max-width:600px){.actions>:is(a,button){flex:1 1 auto}}
+.preview{display:grid;gap:12px;min-width:0}
+.previewMedia{display:grid;place-items:center;min-width:0;overflow:hidden;border-radius:12px;background:var(--muted)}
+.previewMedia :is(img,video){display:block;width:100%;height:auto;max-height:60dvh;object-fit:contain}
+.previewMedia iframe{display:block;width:100%;height:60dvh;border:0;background:var(--card)}
+.previewMedia audio{width:100%;margin:12px}
+.previewDescription{margin:0;font-size:14px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}

@@ -108,6 +108,11 @@ jobs:
         run: npm run test:sales-material
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Sales material public share page integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:sales-material-share
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Inbound email integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:inbound
@@ -177,6 +182,13 @@ jobs:
         run: npm run build
       - name: Start server
         if: steps.filter.outputs.code == 'true'
+        # Fake R2 credentials: tests/browser/material-share.e2e.ts serves the R2 stub on port 3019 while it runs (spec 89 F2).
+        env:
+          R2_ACCOUNT_ID: ci-account
+          R2_ACCESS_KEY_ID: ci-access-key
+          R2_SECRET_ACCESS_KEY: ci-secret-key
+          R2_BUCKET: crm-material
+          R2_ENDPOINT: http://127.0.0.1:3019
         run: |
           # Run node directly (not through npm): killing an npm wrapper PID does not stop its node child, which then keeps port 3001.
           node dist-server/index.js > /tmp/hospeda-leads.log 2>&1 &

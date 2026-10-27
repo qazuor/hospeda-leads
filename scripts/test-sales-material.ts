@@ -101,6 +101,8 @@ try{
  assert(!JSON.stringify(sellerView).includes('materials/'),'Object keys never reach the client');
  assert.equal((await call(endpoints.get,'sales_materials?search=tarifas+'+stamp,seller.cookie)).materials.length,0,'Search is per field, not across title and description');
  assert.equal((await call(endpoints.get,'sales_materials?categoryId='+category,seller.cookie)).materials.length,1);
+ assert.equal((await call(endpoints.get,`sales_materials?categoryIds=${spare},${category}`,seller.cookie)).materials.length,1,'Several categories match any of them');assert.equal((await call(endpoints.get,'sales_materials?categoryIds='+spare,seller.cookie)).materials.length,0);
+ await call(endpoints.get,'sales_materials?categoryIds=1,x',seller.cookie,undefined,400);
  const adminView=(await call(endpoints.get,'sales_materials?search='+encodeURIComponent('folleto '+stamp),admin.cookie)).materials[0];assert.deepEqual(adminView.versions.map((v:any)=>v.version),[2,1]);
  const [v2,v1]=adminView.versions;
  const sellerFile=await raw(endpoints.file,'sales_materials/file?disposition=attachment&versionId='+v2.id,seller.cookie);assert.equal(sellerFile.status,302);assert.equal(sellerFile.headers.get('Cache-Control'),'no-store');
