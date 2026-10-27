@@ -12,9 +12,12 @@ function slowRequestMs(): number {
   return Number.isFinite(n) && n > 0 ? n : 1000;
 }
 
-/** Path only: the query string is never logged because it can carry emails or search terms. */
+/** Path only: the query string is never logged because it can carry emails or search terms. Public share tokens (`/m/<token>`) are credentials: redacted. */
+export function redactPath(path: string): string {
+  return path.replace(/^\/m\/[^/]+/, "/m/:token").slice(0, 200);
+}
 function safePath(c: Context): string {
-  return c.req.path.slice(0, 200);
+  return redactPath(c.req.path);
 }
 
 /** One JSON line by level; callers must pass no cookies, bodies or tokens. */

@@ -23,8 +23,9 @@ export type SalesMaterialMutation=z.infer<typeof salesMaterialMutation>;
 /** Presigned upload request (POST /_api/sales_materials/upload_url). */
 export const salesMaterialUploadInput=z.object({purpose:z.enum(['file','cover']),fileName:z.string().trim().min(1).max(150),mimeType:z.enum(SALES_MATERIAL_MIMES),byteSize:z.number().int().min(1),materialId:uuid}).superRefine((v,ctx)=>{const error=uploadDeclarationError(v);if(error)ctx.addIssue({code:'custom',message:error,path:['byteSize']})});
 export type SalesMaterialUploadInput=z.infer<typeof salesMaterialUploadInput>;
-/** List filters (GET /_api/sales_materials). */
-export const salesMaterialListQuery=z.object({search:z.string().max(200).default(''),categoryId:id.optional(),kind:kind.optional(),includeArchived:z.enum(['0','1']).default('0')});
+/** List filters (GET /_api/sales_materials). `categoryIds` is a comma-separated list: a material matches when it has ANY of them. */
+export const salesMaterialListQuery=z.object({search:z.string().max(200).default(''),categoryId:id.optional(),categoryIds:z.string().regex(/^[1-9]\d*(,[1-9]\d*){0,19}$/).transform(v=>[...new Set(v.split(','))]).optional(),kind:kind.optional(),includeArchived:z.enum(['0','1']).default('0')});
+export type SalesMaterialListQuery=z.output<typeof salesMaterialListQuery>;
 export type SalesMaterialCategory={id:string;name:string;active:boolean};
 /** A version as the client sees it: never the object key. */
 export type SalesMaterialVersion={id:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;actorEmail:string;createdAt:Date};
@@ -34,8 +35,8 @@ export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;stor
 export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits};
 export type SalesMaterialUpload={uploadId:string;putUrl:string;headers:{'Content-Type':string};expiresAt:Date};
 /** Lists sales material with optional filters. */
-export async function getSalesMaterials(input:{search?:string;categoryId?:string;kind?:'deliverable'|'internal';includeArchived?:boolean}={}):Promise<SalesMaterialList>{
- const params=new URLSearchParams();if(input.search)params.set('search',input.search);if(input.categoryId)params.set('categoryId',input.categoryId);if(input.kind)params.set('kind',input.kind);if(input.includeArchived)params.set('includeArchived','1');
+export async function getSalesMaterials(input:{search?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived?:boolean}={}):Promise<SalesMaterialList>{
+ const params=new URLSearchParams();if(input.search)params.set('search',input.search);if(input.categoryIds?.length)params.set('categoryIds',input.categoryIds.join(','));if(input.kind)params.set('kind',input.kind);if(input.includeArchived)params.set('includeArchived','1');
  return apiJson<SalesMaterialList>('/_api/sales_materials?'+params);
 }
 /** Runs an admin mutation. */
