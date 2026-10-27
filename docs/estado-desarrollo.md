@@ -14,7 +14,22 @@
 - Migración `044_delegated_messages.sql`: `delegated_task_id bigint` (tipo real de `crm_tasks.id`) y su índice. Pagos no se registran.
 - Guía en pantalla y Markdown actualizados. Suites de integración extendidas en `test-pipeline.ts` y `test-communication.ts`.
 - Verificación local: `npm run typecheck`, `npm test -- --maxWorkers=2` (175 archivos, 1.246 pruebas) y `npm run build` pasaron. El reporte indica comandos y límites. Las suites de integración se ampliaron, pero no se ejecutaron por instrucción.
+## Spec 87 — reglas comerciales — cerrada: mergeada en `staging` (PR #262, `921b76c`) — 26/10/2026
 
+- **Ganar como Cliente:** exige «Qué se acordó» y «Persona que aceptó», con 3 caracteres útiles. El acuerdo no se puede vaciar después, porque `markedClient` se arrastra en cada guardado.
+- **Registrar respuesta:** lista las tareas pendientes de la gestión y del negocio sin gestión. Solo se completan las que tilda el vendedor, que tiene que ser el asignado o un admin.
+  - El vínculo queda en la actividad (`taskId`) y en el journal `response_task_resolved`, no en `communication_response_id`, que es única y la usa el recordatorio (decisión del propietario).
+  - Se pueden resolver varias tareas y además crear el recordatorio.
+- **Mensajes por delegación:** el asignado de una tarea pendiente prepara y envía desde esa tarea, con los controles de siempre, y se vuelve a validar al despachar. Usa `crm_messages.delegated_task_id` (migración `044`). El historial muestra «por delegación de». Los admins conservan el acceso.
+- **Pagos:** no se registran.
+- **Validación:**
+  - en la base local: `test-communication` y `test-pipeline` dos veces seguidas; `test-permissions`, `test-work`, `test-commercial`, `test-usability`, `test-inbox` y `test-business-state`;
+  - el CI completo, con la suite de navegador, en verde sobre `a0a4692`;
+  - una revisión con ojos nuevos, con todos los hallazgos corregidos.
+- **En el camino:**
+  - los fixtures nuevos de negocios se nombran «Zz …», para no desplazar «Negocio E2E» de la primera página;
+  - `pinned-views` mide los controles cuando el panel ya dejó de moverse.
+- Sin desplegar.
 ## Ajustes de la revisión del propietario sobre staging — 26/10/2026
 
 - Mergeados a `staging`, sin deploy: Bandeja como chat, letra más chica y «Volver a los resultados» con la búsqueda en la URL (#255, `8922d65`); rediseño de la página del user script (#254, `85c5e5b`); tablas de Gestiones y Negocios igualadas, con acciones siempre visibles como íconos (#258, `e887ffd`); menú de usuario en la barra superior con el user script adentro, «En vivo» informativo y siempre activo, títulos de grupo en negrita y paneles laterales que entran deslizando en escritorio (#259, `4d75254`).
@@ -513,8 +528,18 @@ Medido sobre el negocio sintético: solapa Historial 2192 px a 1280 px y 2630 px
 
 Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. Suite de navegador completa sobre base Docker descartable: 193 de 194; `commercial.e2e.ts` se detiene en el paso «CRM template», igual que con el build de `staging` en este entorno (en CI pasó con #230).
 
-## Spec 88 · Instagram Direct · 26/10/2026
+## Spec 88 — Instagram Direct por la API de Meta — cerrada: mergeada en `staging` (PR #260, `1393feb`) — 26/10/2026
 
-Local implementation on `feat/instagram-direct-88`: GET/POST webhook with raw-body HMAC verification, normalized-username association, idempotency, message/echo storage, encrypted token and refresh, admin settings, Communication labels, manual chat association, and deployment/user documentation. Added migration 045, the `test:instagram` CI step, and unique integration fixtures with cleanup.
-
-Validation: `npm run typecheck` and `npm run build` exited 0; `npx esbuild scripts/test-instagram.ts --log-level=error > /dev/null` exited 0; targeted Instagram and communication tests passed. `npm test -- --maxWorkers=2 --reporter=dot` passed all 174 files and 1,247 tests. The default-worker run had intermittent load/timing failures that did not recur with two workers or when the affected suites ran alone. Did not run `test:instagram`, migrations, PostgreSQL tests, or real Meta calls. The integration script does not yet cover every §9 scenario, especially refresh locking/failure, ambiguous matches, and moving the full chat manually. No PR or deploy.
+- **Webhook** `GET/POST /_api/inbound/instagram`:
+  - la verificación compara en tiempo constante y exige un token de 32 caracteres o más;
+  - la firma es una HMAC sobre el cuerpo crudo, con un límite de 1 MiB;
+  - cada evento se valida por separado, así una reacción o un aviso de lectura no hacen perder un mensaje real.
+- **Mensajes del cliente:** van a `crm_inbound_messages` y se asocian por `perfil_instagram` normalizado. Con un solo negocio quedan «Por revisar»; con ninguno o con varios, en «Mensajes sin asociar» (antes «Emails sin asociar»).
+- **Respuestas de Hospeda (ecos):** van a `crm_messages` como «Enviado desde Instagram de Hospeda». Las que no tienen negocio pasan al asociar el chat a mano.
+- **Token:** cifrado con AES-256-GCM y cargado por un admin en Configuración → Integraciones. Se renueva todos los días bajo un advisory lock. Migración `045`.
+- **Validación:**
+  - en la base local: `test-instagram` tres veces; `test:inbound`, `test-communication` y `test-inbox`;
+  - el CI en verde sobre `7cb4d0a`;
+  - una revisión de seguridad con ojos nuevos, sin críticos y con todo corregido, salvo dos límites documentados;
+  - **la prueba real de punta a punta** el 26/10/2026, con la app de Meta publicada, un túnel al CRM local y la cuenta `qaz.uor`: los mensajes del cliente se asociaron por usuario, la respuesta de Hospeda se registró como eco y la Bandeja muestra el ida y vuelta.
+- Sin desplegar.

@@ -1,8 +1,16 @@
 # Pendientes y próximo trabajo
 
-## Spec 87 — reglas comerciales
+## Specs 87 y 88 — cerradas en `staging`, pendientes de producción
 
-Implementada localmente en `feat/commercial-rules-87`, sin PR ni merge. La migración 044 está escrita pero no aplicada. Verificación local: typecheck, suite unitaria completa (175 archivos / 1.246 pruebas), build y compilación esbuild de los dos scripts de integración modificados. Las suites `test-pipeline.ts` y `test-communication.ts` no se ejecutaron por instrucción; siguiente paso: correrlas con una base local descartable, después revisar el cambio y preparar PR a `staging` según el flujo habitual.
+Specs 87 (#262) y 88 (#260), mergeadas en `staging` el 26/10/2026. **Para producción**, cuando el propietario promueva `staging`:
+1. Aplicar las migraciones `044` y `045`.
+2. En Coolify:
+   - definir `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN` (32 caracteres o más) e `INSTAGRAM_ACCOUNT_ID`;
+   - definir `INTEGRATION_SECRETS_KEY`: 32 bytes en base64, generados para producción. **No reutilizar** la de la prueba local.
+3. En Meta, poner la Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram` con el verify token de producción, y confirmar las URLs de privacidad y de eliminación de datos.
+4. En el CRM de producción, un admin carga el token de la cuenta en Configuración → Integraciones → Instagram.
+
+Límites conocidos de la 88: el token pegado no se valida contra Meta al guardarlo, y viaja como parámetro de la URL a `graph.instagram.com`.
 
 ## Material de venta (spec 89)
 
@@ -198,9 +206,7 @@ Recorrer desktop y 320/390px, claro/oscuro, teclado y contenidos largos. Operar 
 
 ## Reglas comerciales (spec 87)
 
-Las cuatro preguntas de la [revisión 48](crm-roadmap/48-commercial-rules-review.md) quedaron resueltas el 26/10/2026 (`decisiones.md`). La [spec 87](crm-roadmap/87-commercial-rules-decisions.md) está implementada localmente en `feat/commercial-rules-87`: acuerdo mínimo al ganar como Cliente, tareas elegidas al registrar una respuesta y mensajes enviados desde la tarea delegada. Migración `044` usa `bigint`, el tipo real de `crm_tasks.id`. Guía y exportación Markdown actualizadas. Ver comandos y límites de verificación en `/tmp/.../spec87-report.md`.
-
-Pagos: no se registran en el CRM. Sin implementar.
+Las cuatro preguntas de la [revisión 48](crm-roadmap/48-commercial-rules-review.md) se resolvieron el 26/10/2026 y la [spec 87](crm-roadmap/87-commercial-rules-decisions.md) está **cerrada**, mergeada en `staging` (#262). Pagos: no se registran en el CRM.
 
 ## Estados de negocio y gestiones
 
@@ -275,4 +281,5 @@ B1 y B2 mergeadas en `staging` (PR #249, `53b14a0`). Falta la revisión del prop
 
 ### Spec 88 · Instagram Direct (26/10/2026)
 
-Implemented locally on `feat/instagram-direct-88`; no PR or deploy. Still needed: run `npm run db:migrate` and `npm run test:instagram` on disposable PostgreSQL, and complete `scripts/test-instagram.ts` with the remaining §9 scenarios: refresh-lock contention, refresh failure, ambiguous business match, echoes with/without an open management, and manual association of all messages for one IGSID. Perform the real receive/reply check in staging with the published Meta app and a temporary tunnel; confirm the final privacy and data-deletion URLs in Meta. Unit/build validation passed with `npm run typecheck`, `npm run build`, and `npm test -- --maxWorkers=2 --reporter=dot` (174 files, 1,247 tests). The default Vitest worker run had intermittent load-related failures; the focused suites passed.
+**Cerrada**: mergeada en `staging` (#260) y probada de punta a punta con Meta el 26/10/2026. Lo que falta para producción está en «Specs 87 y 88», al principio de este archivo.
+
