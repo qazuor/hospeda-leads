@@ -1,6 +1,6 @@
 # Spec 92 — Open Instagram chats from the composer
 
-Status: feature approved by the owner on 27/10/2026; the decisions in section 6 are pending. Type: composer flow, one new message status (migration `049`) and a change to the Instagram webhook's echo handling. It does not change permissions, «No contactar» gating or what counts as contact.
+Status: approved by the owner on 27/10/2026, including the recommended option of every decision in section 6 (D1–D4). Type: composer flow, one new message status (migration `049`) and a change to the Instagram webhook's echo handling. It does not change permissions, «No contactar» gating or what counts as contact.
 
 Builds on [spec 88](88-instagram-direct-webhooks.md) (echoes of messages sent from Hospeda's Instagram account come back through Meta's webhook) and [spec 91](91-communication-polish.md) («Preparar respuesta»).
 
@@ -262,7 +262,9 @@ Voided rows already stay out of lists, counters, last activity and search (decis
   - `docs/estado-desarrollo.md` and `docs/pendientes.md`;
   - the user guide: «Abrir Instagram», the Hospeda session, and what to do when it is not confirmed.
 
-## 6. Decisions for the owner
+## 6. Decisions (owner, 27/10/2026)
+
+Resolved: D1 → 1, D2 → 1, D3 → 1, D4 → 1 (the recommended options).
 
 **D1. How an opened Instagram attempt is stored.**
 1. **New status `instagram_opened`** (migration `049` changes the CHECK). Every literal `whatsapp_opened` check goes through `isOpenedUnconfirmed`.
