@@ -1,8 +1,13 @@
 import {z} from 'zod';
 import {apiJson,postJson,LONG_TIMEOUT_MS} from '../helpers/apiClient';
+import type {MessageMaterial} from './salesMaterials.schema';
 const id=z.string().regex(/^[1-9]\d*$/),uuid=z.string().uuid(),channel=z.enum(['email','whatsapp','call','social','other']);
 const context={accountId:id,leadId:id.nullable()};
 /** A stale draft the seller chose to discard before starting again; the revision guards against a concurrent edit or use. */
+/** Longest message body a draft can hold (`edit` and the material actions use the same cap). */
+export const MESSAGE_BODY_MAX_LENGTH=50000;
+/** Conflict text of a stale draft revision; the composer treats it as a concurrent edit and reloads. */
+export const DRAFT_CHANGED_MESSAGE='El borrador cambió o ya fue utilizado.';
 const discardDraft=z.object({id:uuid,revision:z.number().int()}).optional();
 export const communicationMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('prepare'),id:uuid,leadId:id,contactId:id.nullable(),channel:z.enum(['email','whatsapp']),templateId:id.nullable(),taskId:id.optional(),variation:z.number().int().min(0).max(1000).optional(),discardDraft}),
@@ -18,14 +23,19 @@ export const communicationMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('interaction_correct'),id:uuid,result:z.enum(['manual_sent','manual_no_contact','manual_not_done']),summary:z.string().trim().max(4000),reason:z.string().trim().min(3).max(1000)}),
  z.object({action:z.literal('auto_registration_void'),id:uuid,reason:z.string().trim().min(3).max(500)}),
  z.object({action:z.literal('cancel_draft'),id:uuid,revision:z.number().int(),taskId:id.optional()}),
- z.object({action:z.literal('edit'),id:uuid,revision:z.number().int(),taskId:id.optional(),subject:z.string().max(500),body:z.string().max(50000)}),
+ z.object({action:z.literal('edit'),id:uuid,revision:z.number().int(),taskId:id.optional(),subject:z.string().max(500),body:z.string().max(MESSAGE_BODY_MAX_LENGTH)}),
  z.object({action:z.literal('dispatch'),id:uuid,revision:z.number().int(),confirm:z.literal(true),taskId:id.optional()}),
  z.object({action:z.literal('outcome'),id:uuid,taskId:id.optional(),event:z.enum(['manual_sent','manual_not_sent','replied','rejected']),notes:z.string().max(4000)}),
+ z.object({action:z.literal('material_add'),id:uuid,revision:z.number().int(),materialId:uuid,attach:z.boolean(),taskId:id.optional()}),
+ z.object({action:z.literal('material_remove'),id:uuid,revision:z.number().int(),shareId:uuid,taskId:id.optional()}),
+ z.object({action:z.literal('material_attach'),id:uuid,revision:z.number().int(),shareId:uuid,attach:z.boolean(),taskId:id.optional()}),
+ /** «Reintentar sin adjuntos»: `id` is the new draft (idempotency key), `messageId` the email Brevo refused. */
+ z.object({action:z.literal('material_retry_without_attachments'),id:uuid,messageId:uuid,taskId:id.optional()}),
  z.object({action:z.literal('restrict'),accountId:id.optional(),leadId:id.nullable().optional(),contactId:id.nullable(),channel:z.enum(['email','whatsapp','call','social','other']),reason:z.string().trim().min(3).max(1000)}),
  z.object({action:z.literal('lift'),id,reason:z.string().trim().min(3).max(1000)}),
 ]);
 export type CommunicationMutation=z.infer<typeof communicationMutation>;
-export type Message={id:string;accountId:string;leadId:string|null;contactId:string|null;channel:'email'|'whatsapp'|'call'|'social'|'other';recipient:string;recipientName:string;subject:string;body:string;htmlBody:string|null;textBody:string|null;templateSnapshot:any;ownerEmail:string;activityId:string|null;outboxId:string|null;taskId:string|null;delegatedTaskId?:string|null;delegatedFromEmail?:string|null;status:string;revision:number;lastInteractionAt:Date|null;lastActorEmail:string|null;createdAt:Date;updatedAt:Date;autoRegistrationId?:string|null;autoRegistrationUserEmail?:string|null;purpose?:string|null;otherPurpose?:string|null;destinationDetail?:string|null;contentHash?:string|null;summary?:string|null;completedAt?:Date|null;completedByEmail?:string|null};
+export type Message={id:string;accountId:string;leadId:string|null;contactId:string|null;channel:'email'|'whatsapp'|'call'|'social'|'other';recipient:string;recipientName:string;subject:string;body:string;htmlBody:string|null;textBody:string|null;templateSnapshot:any;ownerEmail:string;activityId:string|null;outboxId:string|null;taskId:string|null;delegatedTaskId?:string|null;delegatedFromEmail?:string|null;status:string;revision:number;lastInteractionAt:Date|null;lastActorEmail:string|null;createdAt:Date;updatedAt:Date;autoRegistrationId?:string|null;autoRegistrationUserEmail?:string|null;purpose?:string|null;otherPurpose?:string|null;destinationDetail?:string|null;contentHash?:string|null;summary?:string|null;completedAt?:Date|null;completedByEmail?:string|null;/** Sales material links of the message (spec 89 §8.4). */materials?:MessageMaterial[]};
 /** `reusedDraft` is set when prepare returns an earlier draft of the same seller, recipient and model instead of a new one (report item 1.14). */
 /** A contact left without "¿Cómo salió?" (decision 2B); it stays pending until an outcome is recorded. */
 export type PendingOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date};

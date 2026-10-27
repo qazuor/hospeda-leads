@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {salesMaterialCoverUrl,salesMaterialFileUrl,salesMaterialListQuery,salesMaterialMutation,salesMaterialUploadInput} from './salesMaterials.schema';
+import {salesMaterialCoverUrl,salesMaterialFileUrl,salesMaterialListQuery,salesMaterialMutation,salesMaterialShareRevokeInput,salesMaterialUploadInput} from './salesMaterials.schema';
 
 const id='0b4fd1c8-0a5e-4f2b-9d1e-7d4b8c6a1f20',uploadId='5c0c1f86-2b1b-4b55-8d55-2a8f7f6b9e11';
 describe('salesMaterialMutation',()=>{
@@ -45,5 +45,15 @@ describe('list query and URLs',()=>{
   expect(salesMaterialFileUrl({versionId:id})).toBe(`/_api/sales_materials/file?versionId=${id}&disposition=inline`);
   expect(salesMaterialFileUrl({versionId:id,disposition:'attachment'})).toContain('disposition=attachment');
   expect(salesMaterialCoverUrl({materialId:id,revision:4})).toBe(`/_api/sales_materials/cover?materialId=${id}&r=4`);
+ });
+});
+
+describe('salesMaterialShareRevokeInput (spec 89 §10)',()=>{
+ it('requires a share id and a 3 to 500 character reason, trimmed',()=>{
+  const shareId='11111111-1111-4111-8111-111111111111';
+  expect(salesMaterialShareRevokeInput.parse({shareId,reason:'  Le mandé otra  '})).toEqual({shareId,reason:'Le mandé otra'});
+  expect(()=>salesMaterialShareRevokeInput.parse({shareId,reason:'no'})).toThrow();
+  expect(()=>salesMaterialShareRevokeInput.parse({shareId,reason:'x'.repeat(501)})).toThrow();
+  expect(()=>salesMaterialShareRevokeInput.parse({shareId:'7',reason:'Motivo'})).toThrow();
  });
 });

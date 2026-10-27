@@ -8,6 +8,8 @@ import {Disclosure,DisclosureSummary} from '../Disclosure';
 import {CrmDialog} from '../ui/CrmDialog';
 import {ManualCommunicationForm} from '../ManualCommunicationForm';
 import {PhoneCallPanel,useCallSession,type CallSession} from '../PhoneCallPanel';
+import {HelpLink} from '../HelpLink';
+import {SalesMaterialPicker,type PickedSalesMaterial} from '../SalesMaterialPicker';
 import type {CommunicationView,ContactChannel} from './types';
 import styles from './CommunicationView.module.css';
 
@@ -42,18 +44,21 @@ function RecordContactDialog({view,leadId,onContact,onClose,callSession}:{view:C
  * Action bar of «Comunicación»: «Contactar» (the existing composer), «Registrar llamada u otro contacto» and «Registrar
  * respuesta sin mensaje» (the response dialog without a received message). Same gating as before: read-only views keep
  * only the response action, an archived business keeps it for admins only, and a disabled action says why.
+ * `onSendMaterial` adds «Enviar material» (spec 89 §8.2): pick a deliverable and hand it to the page's «Contactar».
  */
-export function CommunicationActionBar({view,leadId,onContact}:{view:CommunicationView;leadId?:string;onContact?:(channel?:ContactChannel)=>void}){
- const [recording,setRecording]=useState(false);
+export function CommunicationActionBar({view,leadId,onContact,onSendMaterial}:{view:CommunicationView;leadId?:string;onContact?:(channel?:ContactChannel)=>void;onSendMaterial?:(material:PickedSalesMaterial)=>void}){
+ const [recording,setRecording]=useState(false),[materialPicker,setMaterialPicker]=useState(false);
  // The call session outlives the dialog: its attempt key makes a retry after an uncertain save idempotent (manual_start).
  const callSession=useCallSession();
  const account=view.detail?.account;
- const showContact=!view.readOnly&&!!onContact,showRecord=!view.readOnly,showResponse=!view.archivedReadOnly;
- if(!showContact&&!showRecord&&!showResponse)return null;
+ const showContact=!view.readOnly&&!!onContact,showRecord=!view.readOnly,showResponse=!view.archivedReadOnly,showMaterial=!view.readOnly&&!!onSendMaterial&&!!account;
+ const sendMaterialBlock=account?.doNotContact?'El negocio está marcado No contactar: no se le manda material.':account?.archivedAt?'El negocio está archivado; un administrador debe desarchivarlo.':!view.canWrite?'Solo el responsable o un administrador puede contactar a este negocio.':'';
+ if(!showContact&&!showRecord&&!showResponse&&!showMaterial)return null;
  return <div className={styles.actionBar} role="group" aria-label="Acciones de comunicación">
   {showContact&&<Button disabled={!account||account.doNotContact} disabledReason={!account?'Estamos cargando los datos del negocio.':CONTACT_DNC_REASON} onClick={()=>onContact?.()}>Contactar</Button>}
   {showRecord&&<Button variant="outline" disabled={!view.detail} disabledReason="Estamos cargando los datos del negocio." onClick={()=>setRecording(true)}>Registrar llamada u otro contacto</Button>}
   {showResponse&&<Button variant="outline" onClick={()=>view.openResponse(null)}>Registrar respuesta sin mensaje</Button>}
+  {showMaterial&&<><Button variant="outline" disabled={!!sendMaterialBlock} disabledReason={sendMaterialBlock} onClick={()=>setMaterialPicker(true)}>Enviar material</Button><HelpLink topic="salesMaterial" hint="sendMaterial"/><SalesMaterialPicker opened={materialPicker} title="Enviar material" onClose={()=>setMaterialPicker(false)} onPick={x=>{setMaterialPicker(false);onSendMaterial?.(x)}}/></>}
   {recording&&view.detail&&<RecordContactDialog view={view} leadId={leadId} onContact={onContact} callSession={callSession} onClose={()=>setRecording(false)}/>}
  </div>;
 }

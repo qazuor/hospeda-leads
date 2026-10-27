@@ -16,6 +16,7 @@ import {AutoRegistrationVoidButton,canVoidAutoRegistration} from '../AutoRegistr
 import {ManualAttemptResolution} from '../ManualAttemptResolution';
 import {InteractionCorrectionForm} from '../InteractionCorrectionForm';
 import {ResponseCorrectionForm} from '../ResponseCorrectionForm';
+import {SentMaterials,canRevokeMaterialLink} from '../MessageMaterials';
 import {ChannelIcon} from './ChannelIcon';
 import {ExpandableText} from './RequiresAction';
 import type {CommunicationView} from './types';
@@ -84,6 +85,13 @@ function MessageActions({view,message}:{view:CommunicationView;message:Message})
  </div>;
 }
 
+/** Spec 89 §8.4: the sales material sent with a message and «Revocar enlace» for its author, the responsibles or an admin (also under No contactar). */
+function MessageMaterialRecord({view,message}:{view:CommunicationView;message:Message}){
+ if(message.status==='draft'||!message.materials?.length)return null;
+ const managementOwner=message.leadId==null?null:view.detail?.opportunities.find(o=>String(o.id)===String(message.leadId))?.assignedUserEmail;
+ return <SentMaterials materials={message.materials} message={message} users={view.detail?.users} canRevoke={x=>canRevokeMaterialLink({admin:view.admin,userEmail:view.userEmail,authorEmail:x.createdByEmail,businessOwnerEmail:view.detail?.account.assignedUserEmail,managementOwnerEmail:managementOwner})}/>;
+}
+
 function Meta({entry,sender}:{entry:TimelineEntry;sender:string}){
  const channel=<span className={styles.channel} data-channel={entry.channel}><ChannelIcon channel={entry.channel}/>{entry.channelLabel}</span>;
  const context=<span className={styles.context}>{entry.context}</span>;
@@ -111,6 +119,7 @@ function Sent({view,entry}:{view:CommunicationView;entry:SentEntry}){
   <div className={styles.bubble}>{entry.subject&&<strong className={styles.subject}>{entry.subject}</strong>}<p className={styles.text}>{entry.text||'Sin contenido registrado'}</p></div>
   <span className={styles.status}>{entry.replyToInbound?'Respuesta al email recibido · ':''}{entry.status}</span>
   {entry.autoRegistered&&!entry.echo&&<div className={styles.tags}><span className={styles.tag} data-kind="auto_registered">Registrado automáticamente</span></div>}
+  <MessageMaterialRecord view={view} message={entry.message}/>
   <MessageActions view={view} message={entry.message}/>
  </article></div>;
 }

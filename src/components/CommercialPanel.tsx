@@ -7,6 +7,7 @@ import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from './DropdownMenu';
 import {useAuth} from '../helpers/useAuth';
 import {BusinessContactDialog} from './BusinessContactDialog';
+import type {PickedSalesMaterial} from './SalesMaterialPicker';
 import {ResourcesPanel} from './ResourcesPanel';
 import {DataQualityPanel} from './DataQualityPanel';
 import {BusinessStatusControl} from './BusinessStatusControl';
@@ -79,9 +80,9 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
   const [section,setSection]=useState<string>(()=>params.get('section')==='work'&&readOnly?'resumen':businessSection(params.get('section')));
   const [workFocus,setWorkFocus]=useState(()=>params.get('section')==='work'?1:0);
   const [contacting,setContacting]=useState(false),[floatingActive,setFloatingActive]=useState(false),[floatingLeadId,setFloatingLeadId]=useState<string>();
-  const [contactChannel,setContactChannel]=useState<'email'|'whatsapp'|'call'|undefined>();
+  const [contactChannel,setContactChannel]=useState<'email'|'whatsapp'|'call'|undefined>(),[contactMaterial,setContactMaterial]=useState<PickedSalesMaterial|undefined>();
   const contactReturnFocus=useRef<HTMLElement|null>(null);
-  const closeContact=()=>{setContacting(false);setFloatingActive(false);setContactChannel(undefined);contactReturnFocus.current=null};
+  const closeContact=()=>{setContacting(false);setFloatingActive(false);setContactChannel(undefined);setContactMaterial(undefined);contactReturnFocus.current=null};
   const openContact=(channel?:'email'|'whatsapp'|'call')=>{if(contacting){window.dispatchEvent(new Event('crm:restore-floating-composer'));return}contactReturnFocus.current=document.activeElement as HTMLElement;setContactChannel(channel);setContacting(true)};
   const [editor,setEditor]=useState<EditorTarget|null>(null);
   const [workEditor,setWorkEditor]=useState<WorkTarget|null>(null);
@@ -140,11 +141,11 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false}:
         onOpenWork={openWork} onSection={setSection} onLogActivity={()=>setWorkEditor({kind:'activity',accountId:d.account.id})}/></SectionTabPanel>
       <SectionTabPanel value="historial"><BusinessHistory key={`history-${d.account.id}`} accountId={String(d.account.id)} users={d.users} readOnly={readOnly}/><Disclosure className={styles.relatedSection}><DisclosureSummary>Revisar calidad y procedencia de los datos</DisclosureSummary><DataQualityPanel accountId={d.account.id} readOnly={readOnly}/></Disclosure><Disclosure className={styles.relatedSection}><DisclosureSummary>Cambios registrados en los datos</DisclosureSummary><section className={styles.section}><div><h3>Cambios registrados</h3><p className={styles.muted}>Cambios de datos del negocio, personas y gestiones. Últimos 200 eventos de cada historial.</p></div><div className={styles.history}>{history.map(h=><Disclosure key={h.id}><DisclosureSummary>{formatDate(h.date,true)} · {h.label} · {h.actor}</DisclosureSummary><pre>{h.detail}</pre></Disclosure>)}</div></section></Disclosure></SectionTabPanel>
       {!readOnly&&<SectionTabPanel value="tareas"><div id="business-work"><WorkPanel accountId={d.account.id}/></div></SectionTabPanel>}
-      <SectionTabPanel value="comunicacion"><CommunicationPanel key={`comm-${d.account.id}`} accountId={String(d.account.id)} readOnly={readOnly} onContact={readOnly||compact?undefined:openContact}/></SectionTabPanel>
+      <SectionTabPanel value="comunicacion"><CommunicationPanel key={`comm-${d.account.id}`} accountId={String(d.account.id)} readOnly={readOnly} onContact={readOnly||compact?undefined:openContact} onSendMaterial={compact||readOnly?undefined:material=>{if(contacting){window.dispatchEvent(new Event('crm:restore-floating-composer'));return}setContactMaterial(material);openContact()}}/></SectionTabPanel>
       <SectionTabPanel value="gestiones">{opportunitySection}</SectionTabPanel>
       <SectionTabPanel value="documentos"><ResourcesPanel accountId={d.account.id} readOnly={readOnly}/></SectionTabPanel>
     </SectionTabs></div></div></>}
-    {contacting&&!compact&&!readOnly&&<BusinessContactDialog detail={d} initialChannel={contactChannel} returnFocusTo={contactReturnFocus.current} floatingComposer onClose={closeContact} onFloatingOpen={leadId=>{setFloatingActive(true);setFloatingLeadId(leadId)}} onFloatingClose={floating=>{setFloatingActive(false);setFloatingLeadId(undefined);if(floating)closeContact();else{setContactChannel(undefined);contactReturnFocus.current=null}}}/>}
+    {contacting&&!compact&&!readOnly&&<BusinessContactDialog detail={d} initialChannel={contactChannel} initialMaterial={contactMaterial} returnFocusTo={contactReturnFocus.current} floatingComposer onClose={closeContact} onFloatingOpen={leadId=>{setFloatingActive(true);setFloatingLeadId(leadId)}} onFloatingClose={floating=>{setFloatingActive(false);setFloatingLeadId(undefined);if(floating)closeContact();else{setContactChannel(undefined);contactReturnFocus.current=null}}}/>}
     {workEditor&&workSummary.data&&<WorkEditor target={workEditor} data={workSummary.data} onClose={()=>setWorkEditor(null)}/>}
     {editor&&<CommercialEditor key={editor.kind+("item" in editor?editor.item?.id??"new":"")} target={editor} detail={d} onSaved={id=>{if((editor.kind==='opportunity'||(editor.kind==='contact'&&personFromNextStep))&&!editor.item)setSavedStep({kind:editor.kind,id})}} onClose={()=>{setEditor(null);setPersonFromNextStep(false)}}/>}
   </section></FloatingComposerProvider>;

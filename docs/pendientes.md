@@ -18,7 +18,7 @@ Límites conocidos de la 88: el token pegado no se valida contra Meta al guardar
 
 ## Material de venta (spec 89)
 
-- F1 en PR. Pendientes: F2 página pública `/m/<token>` con Open Graph, F3 composer + adjunto por email, F4 materiales en modelos y user script. Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
+- F1 (#265) y F2 (#267) mergeados a `staging`; F3 (composer, adjunto por email, registro y «Revocar enlace») en `feat/sales-material-f3`, sin PR. Pendiente: F4 materiales en modelos (`{{material:<uuid>}}` en `prepare`, `materialWarnings`) y user script. A verificar con Brevo real: que acepte `attachment.url` prefirmado de R2, y el tope de tamaño (hoy `maxEmailAttachmentBytes` = 10 MB); las extensiones ya salen de la documentación de Brevo (`BREVO_ATTACHMENT_EXTENSIONS`). Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
 
 ## Rediseño visual (v1 por fases)
 
