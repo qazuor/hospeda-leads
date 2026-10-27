@@ -322,6 +322,7 @@
           "Al abrir la pestaña ves lo más nuevo. Si subís a leer, «Ir al último» te lleva de nuevo abajo. La línea «Nuevo desde tu última visita» marca lo que llegó desde la última vez que entraste, sin contar lo que hiciste vos.",
           "Cada mensaje tiene arriba una línea con la hora, el canal, quién lo escribió, sus marcas (por ejemplo «Por revisar» o el estado del envío) y botones chicos como «Registrar respuesta», «Sí, se envió» o «Ver diseño»; debajo va el mensaje. Corregir un resultado o una respuesta y anular un registro automático están en el menú ⋯.",
           "Debajo del último mensaje, «Preparar respuesta» abre «Contactar» con el canal y el destinatario del último mensaje recibido. Si ese canal o destinatario no se puede usar, abre «Contactar» como siempre y te dice por qué. Solo prepara el mensaje: no cuenta como contacto.",
+          "Cada mensaje dice de qué lado está: «Nosotros» si lo enviamos o registramos desde el CRM, «Negocio» si lo envió o respondió el negocio. El botón «Cómo leer el chat», junto al título «Conversación», explica los lados, los colores por plataforma y el borde punteado de los envíos sin confirmar.",
           "El estado de cada envío es el comprobado: «Email aceptado por proveedor · entrega no confirmada» no significa que lo leyeron, y «WhatsApp abierto · envío no confirmado» no significa que se envió.",
           "Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.",
           "«Abrir en la Bandeja» te lleva a las mismas conversaciones separadas por gestión y canal."
@@ -362,7 +363,10 @@
           "Ir al último",
           "Nuevo desde tu última visita",
           "Preparar respuesta",
-          "Ver diseño"
+          "Ver diseño",
+          "Nosotros",
+          "Negocio",
+          "Cómo leer el chat"
         ]
       },
       {
