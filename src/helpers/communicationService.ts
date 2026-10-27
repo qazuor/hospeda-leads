@@ -23,7 +23,7 @@ import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
 import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
 import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
-import {instagramComposerFlags,resolveEarlierInstagramEcho} from './instagramEcho';
+import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
 export type Executor=Kysely<DB>|Transaction<DB>;
@@ -107,6 +107,8 @@ export async function assertAccountContactAllowed(e:Executor,accountId:string,le
 export const INSTAGRAM_USERNAME_MISSING='El negocio no tiene un usuario de Instagram válido.';
 /** `@usuario` of the business, the only Instagram destination (spec 92: persons have no Instagram field). */
 export function instagramRecipient(account:{perfilInstagram?:string|null}):string|null{const username=normalizeInstagramUsername(account.perfilInstagram);return username?'@'+username:null;}
+/** What a manual «Red social» record typed as «instagram» stores instead, so it is never taken for a composer attempt. */
+export const MANUAL_INSTAGRAM_DESTINATION='Instagram (manual)';
 async function channelTarget(e:Executor,account:any,lead:any|null,contactId:string|null,channel:'email'|'whatsapp'|'instagram'){
  if(channel==='instagram'){
   // Business-level only: a chosen person is kept as context, the destination is still the business username.
@@ -311,7 +313,8 @@ async function startManual(e:Executor,input:Extract<CommunicationMutation,{actio
  if(!lead&&!input.purpose)throw new Error('Elegí el propósito del contacto general.');
  if(lead&&input.purpose)throw new Error('Una gestión abierta ya aporta el contexto del contacto.');
  if(input.purpose==='other'&&!input.otherPurpose?.trim())throw new Error('Aclaración obligatoria para Otro propósito.');
- const dest=input.destination?.trim()??'';
+ // L1: the exact value «instagram» is the discriminator of composer attempts (spec 92), so a free-text destination never stores it.
+ const typed=input.destination?.trim()??'',dest=typed.toLowerCase()===INSTAGRAM_DESTINATION?MANUAL_INSTAGRAM_DESTINATION:typed;
  const summary=input.channel==='call'?input.body.trim():null;
  if(input.channel==='call'&&!summary)throw new Error('El resumen de la llamada es obligatorio.');
  if(input.channel==='call'&&!input.result)throw new Error('Elegí si la llamada se realizó o no hubo contacto.');
@@ -584,7 +587,8 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
    const url=instagramChatUrl({username:m.recipient});if(!url)throw new CommunicationConflict('Cambió el Instagram del negocio. Prepará un nuevo borrador.');
    await sql`UPDATE crm_messages SET status='instagram_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Instagram abierto · envío no confirmado');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'instagram_opened_unconfirmed',actor:user,before:{status:m.status},after:{status:'instagram_opened',recipient:m.recipient,recipientName:m.recipientName,content:m.textBody||m.body,...delegation(m)}});
    // D3: an echo of this text that arrived just before is merged into the attempt; nothing is opened then.
-   const earlier=await resolveEarlierInstagramEcho(e,{messageId:m.id,triggeredBy:user.email});
+   // In a savepoint: if the merge fails the attempt stays a normal open (L2).
+   const earlier=await withEchoSavepoint(e,()=>resolveEarlierInstagramEcho(e,{messageId:m.id,triggeredBy:user.email}));
    const current=earlier??(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]!;
    return {message:current,replay:false,instagram:{url:earlier?null:url}};
   }

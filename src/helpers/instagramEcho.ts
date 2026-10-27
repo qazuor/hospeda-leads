@@ -1,6 +1,6 @@
 import {sql} from 'kysely';
 import type {Message} from '../endpoints/communication.schema';
-import {sentMatchesPrepared} from '../../userscript/src/textMatch';
+import {hasComparableWords,sentMatchesPrepared} from '../../userscript/src/textMatch';
 import {communicationJournal,markClientForCare,type Executor} from './communicationService';
 import {encryptionKey,normalizeInstagramUsername} from './instagram';
 import {INSTAGRAM_ECHO_OWNER} from './instagramChannel';
@@ -22,9 +22,15 @@ export const INSTAGRAM_WEBHOOK_TRIGGER='instagram-webhook';
 export const ECHO_CONFIRMED_RESULT='Envío confirmado por Instagram';
 
 /** A row that an echo may resolve, as the candidate query returns it (camelCased by the Kysely plugin). */
-export type EchoCandidate={id:string;status:string;recipient:string;body:string|null;textBody:string|null;lastInteractionAt:Date|string;externalId:string|null};
+export type EchoCandidate={id:string;status:string;recipient:string;body:string|null;textBody:string|null;lastInteractionAt:Date|string;externalId:string|null;
+ /** When «Abrir Instagram» recorded the attempt (its `instagram_opened_unconfirmed` journal entry). `last_interaction_at`
+  *  moves to the answer time on «Sí, se envió», so the window is anchored here; falls back to `lastInteractionAt`. */
+ openedAt?:Date|string|null};
 
 const at=(value:Date|string)=>new Date(value).getTime();
+/** Instagram variant of the user script rule: unlike WhatsApp, a prepared text without comparable words never matches (L3). */
+export const instagramTextMatches=(prepared:string,sent:string):boolean=>hasComparableWords(prepared)&&sentMatchesPrepared(prepared,sent);
+const openedOf=(c:EchoCandidate)=>at(c.openedAt??c.lastInteractionAt);
 /** True for an attempt the echo can still claim: opened, or confirmed by hand and not linked to any `mid` yet. */
 const claimable=(c:EchoCandidate)=>c.status==='instagram_opened'||(c.status==='manual_sent'&&!c.externalId);
 
@@ -36,10 +42,10 @@ const claimable=(c:EchoCandidate)=>c.status==='instagram_opened'||(c.status==='m
 export function pickEchoCandidate({candidates,username,text,receivedAt}:{candidates:readonly EchoCandidate[];username:string;text:string;receivedAt:Date}):EchoCandidate|null{
  const echoAt=receivedAt.getTime();
  const matching=candidates.filter(c=>{
-  const prepared=(c.textBody||c.body||'').trim(),opened=at(c.lastInteractionAt);
-  return claimable(c)&&attemptUsername(c.recipient)===username&&!!prepared&&opened>=echoAt-ECHO_WINDOW_PAST_MS&&opened<=echoAt+ECHO_WINDOW_FUTURE_MS&&sentMatchesPrepared(prepared,text);
+  const prepared=(c.textBody||c.body||'').trim(),opened=openedOf(c);
+  return claimable(c)&&attemptUsername(c.recipient)===username&&!!prepared&&opened>=echoAt-ECHO_WINDOW_PAST_MS&&opened<=echoAt+ECHO_WINDOW_FUTURE_MS&&instagramTextMatches(prepared,text);
  });
- return [...matching].sort((a,b)=>Number(b.status==='instagram_opened')-Number(a.status==='instagram_opened')||at(b.lastInteractionAt)-at(a.lastInteractionAt)||a.id.localeCompare(b.id))[0]??null;
+ return [...matching].sort((a,b)=>Number(b.status==='instagram_opened')-Number(a.status==='instagram_opened')||openedOf(b)-openedOf(a)||a.id.localeCompare(b.id))[0]??null;
 }
 
 const comparable=(text:string|null|undefined)=>(text??'').replace(/\s+/g,' ').trim();
@@ -79,10 +85,15 @@ export async function completeInstagramAttempt(e:Executor,v:{id:string;mid:strin
 /** Input of {@link resolveInstagramEcho}: an echo whose chat resolved to exactly one business. */
 export type EchoInput={accountId:string;username:string;mid:string;text:string;receivedAt:Date};
 
-/** Webhook step: finds and confirms the attempt this echo belongs to. Returns the resolved message id, or null to store a standalone echo. */
+/**
+ * Webhook step: finds and confirms the attempt this echo belongs to. Returns the resolved message id, or null to store a
+ * standalone echo. Only rows with the `instagram_opened_unconfirmed` journal entry qualify: that entry exists only for
+ * attempts opened from the composer, so a manual record whose destination happens to read «instagram» is never claimed (L1),
+ * and its time anchors the window (M1).
+ */
 export async function resolveInstagramEcho(e:Executor,v:EchoInput):Promise<string|null>{
  const from=new Date(v.receivedAt.getTime()-ECHO_WINDOW_PAST_MS),to=new Date(v.receivedAt.getTime()+ECHO_WINDOW_FUTURE_MS);
- const candidates=(await sql<EchoCandidate>`SELECT id::text AS id,status,recipient,body,text_body,last_interaction_at,external_id FROM crm_messages WHERE account_id=${v.accountId} AND channel='social' AND destination_detail='instagram' AND owner_email<>${INSTAGRAM_ECHO_OWNER} AND (status='instagram_opened' OR (status='manual_sent' AND external_id IS NULL)) AND last_interaction_at BETWEEN ${from} AND ${to} FOR UPDATE`.execute(e)).rows;
+ const candidates=(await sql<EchoCandidate>`SELECT * FROM (SELECT m.id::text AS id,m.status,m.recipient,m.body,m.text_body,m.last_interaction_at,m.external_id,(SELECT max(j.created_at) FROM crm_communication_journal j WHERE j.account_id=m.account_id AND j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action='instagram_opened_unconfirmed') AS opened_at FROM crm_messages m WHERE m.account_id=${v.accountId} AND m.channel='social' AND m.destination_detail='instagram' AND m.owner_email<>${INSTAGRAM_ECHO_OWNER} AND (m.status='instagram_opened' OR (m.status='manual_sent' AND m.external_id IS NULL)) AND m.last_interaction_at>=${from}) c WHERE c.opened_at BETWEEN ${from} AND ${to}`.execute(e)).rows;
  const picked=pickEchoCandidate({candidates,username:v.username,text:v.text,receivedAt:v.receivedAt});
  return picked?completeInstagramAttempt(e,{id:picked.id,mid:v.mid,text:v.text,at:v.receivedAt,source:'instagram_echo'}):null;
 }
@@ -91,7 +102,7 @@ export async function resolveInstagramEcho(e:Executor,v:EchoInput):Promise<strin
  * Runs the resolution step in a savepoint: any error rolls back only that step and returns null, so the caller stores the
  * echo as a standalone row and answers 200. Meta never retries forever because of an attempt.
  */
-export async function withEchoSavepoint(e:Executor,step:()=>Promise<string|null>):Promise<string|null>{
+export async function withEchoSavepoint<T>(e:Executor,step:()=>Promise<T|null>):Promise<T|null>{
  await sql`SAVEPOINT instagram_echo_resolution`.execute(e);
  try{const id=await step();await sql`RELEASE SAVEPOINT instagram_echo_resolution`.execute(e);return id;}
  catch{await sql`ROLLBACK TO SAVEPOINT instagram_echo_resolution`.execute(e);console.warn('Instagram echo resolution failed; the echo is stored on its own.');return null;}
@@ -107,7 +118,7 @@ export async function resolveEarlierInstagramEcho(e:Executor,{messageId,triggere
  const username=m?attemptUsername(m.recipient):null,prepared=(m?.textBody||m?.body||'').trim();
  if(!m||m.status!=='instagram_opened'||!username||!prepared)return null;
  const echoes=(await sql<{id:string;recipient:string;textBody:string|null;lastInteractionAt:Date;externalId:string}>`SELECT id::text AS id,recipient,text_body,last_interaction_at,external_id FROM crm_messages WHERE account_id=${m.accountId} AND channel='social' AND owner_email=${INSTAGRAM_ECHO_OWNER} AND status='manual_sent' AND external_id IS NOT NULL AND last_interaction_at>=now()-(${EARLIER_ECHO_MS}*interval '1 millisecond') ORDER BY last_interaction_at DESC,id FOR UPDATE`.execute(e)).rows;
- const echo=echoes.find(x=>attemptUsername(x.recipient)===username&&sentMatchesPrepared(prepared,x.textBody??''));
+ const echo=echoes.find(x=>attemptUsername(x.recipient)===username&&instagramTextMatches(prepared,x.textBody??''));
  if(!echo)return null;
  await sql`UPDATE crm_messages SET status='voided',external_id=NULL,revision=revision+1,updated_at=now() WHERE id=${echo.id}::uuid`.execute(e);
  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:echo.id,action:'interaction_voided',actor:null,automatic:true,triggeredBy,before:{status:'manual_sent',externalId:echo.externalId},after:{status:'voided',reason:`Unido al intento ${m.id} abierto desde el CRM`,mergedInto:m.id}});

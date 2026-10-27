@@ -32,9 +32,17 @@ describe('pickEchoCandidate (spec 92 §2.5)',()=>{
   expect(pick([candidate({id:'a'})],'Hola!')).toBeNull();
   expect(pick([candidate({id:'a'})],'Te paso el link de la propuesta mañana temprano')).toBeNull();
  });
+ it('anchors the window on the open, not on a later «Sí, se envió» (late echo with Meta timestamp)',()=>{
+  // Opened at T, confirmed by hand at T+16 min (last_interaction_at moves), echo stamped T+1 min.
+  const t=echoAt.getTime()-60_000;
+  expect(pick([candidate({id:'hand',status:'manual_sent',openedAt:new Date(t),lastInteractionAt:new Date(t+16*60_000)})])).toBe('hand');
+  expect(pick([candidate({id:'hand',status:'manual_sent',lastInteractionAt:new Date(t+16*60_000)})])).toBeNull();
+ });
  it('never touches an attempt answered «No se envió», one already linked, or one without prepared text',()=>{
   expect(pick([candidate({id:'a',status:'manual_not_done'})])).toBeNull();
   expect(pick([candidate({id:'a',status:'manual_sent',externalId:'mid.0'})])).toBeNull();
   expect(pick([candidate({id:'a',body:'',textBody:null})])).toBeNull();
+  // L3: a prepared text without comparable words (emoji, one letter) never matches, unlike the WhatsApp rule.
+  expect(pick([candidate({id:'a',body:'🙂 !',textBody:'🙂 !'})],'🙂 !')).toBeNull();
  });
 });
