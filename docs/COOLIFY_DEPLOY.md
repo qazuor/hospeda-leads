@@ -159,3 +159,6 @@ Secuencia recomendada:
 7. Cambiar Coolify a `main`.
 8. Confirmar producción estable.
 9. Recién entonces retirar Floot.
+# Instagram Direct
+
+Before enabling the webhook, apply `migrations/045_instagram_direct.sql` and configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, `INSTAGRAM_ACCOUNT_ID`, and `INTEGRATION_SECRETS_KEY` (base64-encoded 32 bytes). In Meta, use callback `https://crm.hospeda.com.ar/_api/inbound/instagram`, subscribe to `messages`, and enable the account-level subscription. Publish the app. Load the account token in Settings → Communication → Instagram; it is never shown again. The integration only receives messages; the CRM does not send messages to Meta.

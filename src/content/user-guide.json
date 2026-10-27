@@ -226,7 +226,7 @@
           "«Calendario» (dentro de Hoy) muestra visitas y reuniones con fecha. No reemplaza la lista de tareas.",
           "«Para retomar» (dentro de Hoy) reúne las gestiones cerradas que tienen una fecha para volver a hablar. Reabrir una gestión cerrada requiere un administrador.",
           "«Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.",
-          "En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Emails sin asociar». Si no los ves, son del administrador.",
+          "En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Mensajes sin asociar». Si no los ves, son del administrador.",
           "En tu menú personal, arriba a la derecha, está «User script de WhatsApp»: ahí instalás el script para WhatsApp Web y creás tu token."
         ],
         "result": "Sabés dónde buscar según lo que querés hacer.",
@@ -255,7 +255,7 @@
           "Negocios archivados",
           "Importar CSV",
           "Buscar duplicados",
-          "Emails sin asociar",
+          "Mensajes sin asociar",
           "User script de WhatsApp",
           "Documentos"
         ]
@@ -328,7 +328,7 @@
         ],
         "notes": [
           "Registrar una respuesta no confirma pagos, aceptación ni entregas. La etapa de la gestión no cambia sola.",
-          "Si el CRM no puede saber de qué negocio es un email, lo deja en «Emails sin asociar» para que un administrador lo asocie.",
+          "Si el CRM no puede saber de qué negocio es un email, lo deja en «Mensajes sin asociar» para que un administrador lo asocie.",
           "Una tarea seleccionada se completa con «Resuelta por la respuesta del cliente». Si una tarea ya cambió o no corresponde a esa gestión, no se guarda la respuesta ni se completa ninguna tarea."
         ],
         "url": "/my-day",
@@ -344,7 +344,7 @@
           "Registrada",
           "Descartada",
           "Respuesta automática",
-          "Emails sin asociar",
+          "Mensajes sin asociar",
           "¿Esta respuesta resuelve alguna tarea?",
           "Resuelta por la respuesta del cliente"
         ]
@@ -1478,21 +1478,21 @@
           "Si la dirección del remitente es la buena, cargala en el negocio o en la persona para que los próximos emails se asocien solos."
         ],
         "url": "/inbound",
-        "linkLabel": "Emails sin asociar",
+        "linkLabel": "Mensajes sin asociar",
         "id": "inbound-unmatched",
-        "title": "Asociar emails que llegaron sin negocio",
-        "when": "Cuando llega un email y el CRM no puede saber de qué negocio es.",
+        "title": "Asociar mensajes que llegaron sin negocio",
+        "when": "Cuando llega un email o un mensaje de Instagram y el CRM no puede saber de qué negocio es.",
         "steps": [
-          "Abrí el menú «Administración» y elegí «Emails sin asociar». También lo encontrás con Ctrl+K.",
-          "Cada email muestra remitente, asunto, fecha y extracto. Leelo para saber de qué negocio es.",
+          "Abrí el menú «Administración» y elegí «Mensajes sin asociar». También lo encontrás con Ctrl+K.",
+          "Cada mensaje muestra remitente, asunto cuando corresponde, fecha y extracto. Leelo para saber de qué negocio es.",
           "En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».",
           "Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Si no sabés, dejá «Sin gestión» y «Sin persona».",
-          "Tocá «Asociar». El email pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial."
+          "Tocá «Asociar». El mensaje entrante pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio."
         ],
-        "result": "Cada email recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.",
+        "result": "Cada mensaje recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.",
         "uiLabels": [
           "Administración",
-          "Emails sin asociar",
+          "Mensajes sin asociar",
           "Buscar negocio",
           "Elegí un negocio para asociar el email.",
           "Gestión abierta (opcional)",

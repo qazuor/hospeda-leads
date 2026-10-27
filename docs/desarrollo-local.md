@@ -12,6 +12,12 @@ npm ci
 
 Si el repo privado requiere autenticación, configurar el acceso GitHub de tu PC. Para que el agente abra PRs por CLI, instalar GitHub CLI y autenticarlo con `gh auth login`, o configurar una integración equivalente autorizada. No colocar tokens en documentos del repo.
 
+### Instagram Direct (optional webhook)
+
+For webhook development, configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, and `INSTAGRAM_ACCOUNT_ID`. Settings → Communication stores the long-lived token encrypted; `INTEGRATION_SECRETS_KEY` must be base64-encoded 32 bytes. Without this key, the webhook still stores messages but cannot look up usernames for association. Do not use real tokens in fixtures or logs.
+
+The production callback is `https://crm.hospeda.com.ar/_api/inbound/instagram`; migration `045_instagram_direct.sql` is required. Subscribe to `messages` in Meta and enable the account-level webhook subscription. The app must be published. Configure all four variables in Coolify; without `INSTAGRAM_APP_SECRET`, Meta receives 503.
+
 ## Arranque con un solo comando
 
 ~~~bash

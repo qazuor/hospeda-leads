@@ -142,3 +142,10 @@ Estado: aprobada por el propietario — 26/10/2026 (D1–D3 resueltas). Reemplaz
 - **Componentes:** el mensaje de Instagram en «Mensajes recibidos» y en la ficha, el eco con «Enviado desde Instagram de Hospeda» y el aviso de token en Configuración.
 - **Prueba real con la app ya publicada:** un mensaje y una respuesta, contra el staging local con un túnel temporal, como en la prueba del 26/10/2026.
 - **Guía de uso:** cómo llegan los mensajes de Instagram y qué hacer con los Sin asociar.
+
+### Límites conocidos
+
+- **Validez del token:** el CRM no consulta a Meta si el token pegado sigue vigente; solo conoce su vencimiento estimado y el resultado de la última renovación.
+- **Token en la URL:** las llamadas a Meta mandan el token como parámetro de la URL (`access_token`), no en un header `Authorization: Bearer`. Se deja así por ahora; el token nunca se registra en logs ni respuestas.
+- **Mensajes ya guardados:** un `mid` que ya existe en `crm_inbound_messages` o `crm_messages` no se vuelve a guardar. Si el primer intento lo dejó Sin asociar por una falla de Meta, se asocia a mano.
+- **Plazo por pedido:** pasados 8 segundos, el resto de los mensajes del mismo pedido se guardan Sin asociar con el IGSID, sin llamar a Meta.

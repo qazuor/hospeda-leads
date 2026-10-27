@@ -506,3 +506,9 @@ Rama `ux/business-page-tabs`. Encabezado compacto (estado junto al nombre; datos
 Medido sobre el negocio sintético: solapa Historial 2192 px a 1280 px y 2630 px a 390 px, sin scroll horizontal; a 390 px las solapas aparecen en y≈772 cuando Próximo paso está vacío y en y≈1057 con una tarea.
 
 Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y `npm run build` pasaron. Suite de navegador completa sobre base Docker descartable: 193 de 194; `commercial.e2e.ts` se detiene en el paso «CRM template», igual que con el build de `staging` en este entorno (en CI pasó con #230).
+
+## Spec 88 · Instagram Direct · 26/10/2026
+
+Local implementation on `feat/instagram-direct-88`: GET/POST webhook with raw-body HMAC verification, normalized-username association, idempotency, message/echo storage, encrypted token and refresh, admin settings, Communication labels, manual chat association, and deployment/user documentation. Added migration 045, the `test:instagram` CI step, and unique integration fixtures with cleanup.
+
+Validation: `npm run typecheck` and `npm run build` exited 0; `npx esbuild scripts/test-instagram.ts --log-level=error > /dev/null` exited 0; targeted Instagram and communication tests passed. `npm test -- --maxWorkers=2 --reporter=dot` passed all 174 files and 1,247 tests. The default-worker run had intermittent load/timing failures that did not recur with two workers or when the affected suites ran alone. Did not run `test:instagram`, migrations, PostgreSQL tests, or real Meta calls. The integration script does not yet cover every §9 scenario, especially refresh locking/failure, ambiguous matches, and moving the full chat manually. No PR or deploy.

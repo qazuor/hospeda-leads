@@ -20,7 +20,7 @@ export const adminNavigation = [
   { url: '/settings', label: 'Configuración', icon: Settings },
   { url: '/history', label: 'Historial del equipo', icon: History },
   { url: '/trash', label: 'Papelera', icon: Trash2 },
-  { url: '/inbound', label: 'Emails sin asociar', icon: Mail },
+  { url: '/inbound', label: 'Mensajes sin asociar', icon: Mail },
 ] as const;
 /** Main destinations shared with the command palette. */
 export const mainNavigation = [

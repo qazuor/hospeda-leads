@@ -38,7 +38,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 3. Usá los filtros rápidos «Tipo de gestión», «Etapa», «Responsable» y «Próximo paso» junto a «Filtrar». «Próximo paso» ofrece Vencidas, Hoy, Esta semana (de hoy al domingo), Próximos 7 días, Sin próximo paso y «Rango…». «Vencidas» y «Hoy» muestran solo gestiones abiertas, igual que el resumen; al cambiar o quitar ese filtro vuelven a verse todas. Para reglas combinadas, exclusiones y grupos AND/OR, abrí «Filtrar».
 4. La tabla es la vista inicial. En «Columnas», arrastrá el control de puntos para ordenar las columnas visibles; «Orden original» las vuelve al orden de fábrica sin mostrar ni ocultar ninguna. Tocá «Tablero comercial» para organizar las gestiones por etapa. Las columnas tienen colores propios y se pueden plegar desde su encabezado. Cada tarjeta muestra la gestión, el negocio, la vertical, los días en etapa, la próxima fecha, las marcas de seguimiento y prioridad, y la persona responsable.
 5. Tocá el cuerpo de una tarjeta para abrir «Vista previa de la gestión». Allí podés revisar la etapa y los datos principales, usar «Cambiar etapa» si tenés permiso o entrar con «Abrir gestión». El tipo se elige con el filtro rápido «Tipo de gestión» de la lista; el tablero no tiene un selector propio. «Ver etapas del equipo» muestra las etapas de un solo tipo: si no elegiste uno (o elegiste varios), te pide que elijas uno y lo aplica en ese filtro. «Vista simple: abiertas, ganadas y perdidas» muestra todos los tipos juntos. En el teléfono, las etapas se despliegan como un acordeón.
-6. Abrí «Ayuda sobre gestiones» para consultar la ayuda contextual.
+6. Tocá el signo «Cómo funciona» para consultar la guía desde esta pantalla.
 
 **Qué queda al terminar:** Podés encontrar y guardar el conjunto de gestiones que necesitás revisar.
 
@@ -152,7 +152,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 4. «Calendario» (dentro de Hoy) muestra visitas y reuniones con fecha. No reemplaza la lista de tareas.
 5. «Para retomar» (dentro de Hoy) reúne las gestiones cerradas que tienen una fecha para volver a hablar. Reabrir una gestión cerrada requiere un administrador.
 6. «Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.
-7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Emails sin asociar». Si no los ves, son del administrador.
+7. En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Mensajes sin asociar». Si no los ves, son del administrador.
 8. En tu menú personal, arriba a la derecha, está «User script de WhatsApp»: ahí instalás el script para WhatsApp Web y creás tu token.
 
 **Qué queda al terminar:** Sabés dónde buscar según lo que querés hacer.
@@ -172,7 +172,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Cuándo usarlo:** Todos los días de trabajo.
 
 1. Abrí «Hoy». Arriba ves el resumen: «Vencidas», «Para hoy», «Respuestas nuevas», «Gestiones sin tarea agendada» y Hoy: N de M hechas. Atendé primero «Vencidas» y después «Para hoy». Si no tenés tareas, empezá por «Negocios».
-2. Los «Filtros de trabajo» quedan siempre visibles encima de la lista. La ayuda de esta pantalla está en «Ayuda sobre Hoy», en el botón con el signo de ayuda. La columna derecha reúne «Respuestas nuevas», el mini calendario y «Primeros pasos» cuando corresponde.
+2. Los «Filtros de trabajo» quedan siempre visibles encima de la lista. Tocá el signo «Cómo funciona» para consultar la guía desde esta pantalla. La columna derecha reúne «Respuestas nuevas», el mini calendario y «Primeros pasos» cuando corresponde.
 3. Antes de contactar, leé lo último que pasó con el negocio y cuál es el próximo paso. Comprobá a quién le vas a escribir y si hay restricciones.
 4. En cada tarea tocá «Contactar» para hablar. Cuando termines, tocá «Anotar cómo salió».
 5. Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.
@@ -215,7 +215,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Tené en cuenta:**
 
 - Registrar una respuesta no confirma pagos, aceptación ni entregas. La etapa de la gestión no cambia sola.
-- Si el CRM no puede saber de qué negocio es un email, lo deja en «Emails sin asociar» para que un administrador lo asocie.
+- Si el CRM no puede saber de qué negocio es un email, lo deja en «Mensajes sin asociar» para que un administrador lo asocie.
 - Una tarea seleccionada se completa con «Resuelta por la respuesta del cliente». Si una tarea ya cambió o no corresponde a esa gestión, no se guarda la respuesta ni se completa ninguna tarea.
 
 **Dónde ir:** Ir a Hoy (/my-day)
@@ -943,17 +943,17 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 **Dónde ir:** Revisar Negocios (/accounts)
 
-### Asociar emails que llegaron sin negocio
+### Asociar mensajes que llegaron sin negocio
 
-**Cuándo usarlo:** Cuando llega un email y el CRM no puede saber de qué negocio es.
+**Cuándo usarlo:** Cuando llega un email o un mensaje de Instagram y el CRM no puede saber de qué negocio es.
 
-1. Abrí el menú «Administración» y elegí «Emails sin asociar». También lo encontrás con Ctrl+K.
-2. Cada email muestra remitente, asunto, fecha y extracto. Leelo para saber de qué negocio es.
+1. Abrí el menú «Administración» y elegí «Mensajes sin asociar». También lo encontrás con Ctrl+K.
+2. Cada mensaje muestra remitente, asunto cuando corresponde, fecha y extracto. Leelo para saber de qué negocio es.
 3. En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».
 4. Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Si no sabés, dejá «Sin gestión» y «Sin persona».
-5. Tocá «Asociar». El email pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial.
+5. Tocá «Asociar». El mensaje entrante pasa a «Mensajes recibidos» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio.
 
-**Qué queda al terminar:** Cada email recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.
+**Qué queda al terminar:** Cada mensaje recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.
 
 **Ejemplo:**
 
@@ -964,7 +964,7 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 - Un email queda sin asociar cuando la dirección no está cargada, está en más de un negocio o el remitente no se pudo verificar.
 - Si la dirección del remitente es la buena, cargala en el negocio o en la persona para que los próximos emails se asocien solos.
 
-**Dónde ir:** Emails sin asociar (/inbound)
+**Dónde ir:** Mensajes sin asociar (/inbound)
 
 ## Registrar mensajes de WhatsApp
 
