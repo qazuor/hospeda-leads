@@ -24,6 +24,7 @@ import {ConfirmSendButtons,canConfirmSend} from './ConfirmSendButtons';
 import {ItemMenu,type ItemAction} from './ItemMenu';
 import type {CommunicationView} from './types';
 import styles from './CommunicationView.module.css';
+import {LAYERS} from '../../helpers/layers';
 
 /** An admin resolves an email whose provider result is unknown, or one stuck submitting for more than 15 minutes. */
 export const isUncertainEmail=(message:Pick<Message,'channel'|'status'|'updatedAt'>,now=Date.now()):boolean=>message.channel==='email'&&(message.status==='unknown'||message.status==='submitting'&&new Date(message.updatedAt).getTime()<now-15*60*1000);
@@ -148,7 +149,7 @@ function SentBubble({entry}:{entry:SentEntry}){
  const hintId=useId();
  const body=<div className={styles.bubble} tabIndex={entry.tone==='unconfirmed'?0:undefined} aria-describedby={entry.tone==='unconfirmed'?hintId:undefined}>{entry.subject&&<strong className={styles.subject}>{entry.subject}</strong>}<ClampedText className={styles.text} text={entry.text||'Sin contenido registrado'} lines={clampLinesFor(entry.channel)}/>{entry.tone==='unconfirmed'&&<span id={hintId} className={styles.srOnly}>{UNCONFIRMED_HINT}</span>}</div>;
  if(entry.tone!=='unconfirmed')return body;
- return <Tooltip label={UNCONFIRMED_HINT} events={{hover:true,focus:true,touch:true}} multiline w={260} withArrow openDelay={150}>{body}</Tooltip>;
+ return <Tooltip label={UNCONFIRMED_HINT} events={{hover:true,focus:true,touch:true}} multiline w={260} withArrow openDelay={150} zIndex={LAYERS.tooltip}>{body}</Tooltip>;
 }
 
 function Sent({view,entry,highlighted}:ItemProps<SentEntry>){

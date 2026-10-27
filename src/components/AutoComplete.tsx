@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Combobox, InputBase, Loader, useCombobox } from '@mantine/core';
 import styles from './ui/CrmControls.module.css';
+import {LAYERS} from '../helpers/layers';
 
 export type Option<T = unknown> = { value: string; label: ReactNode; displayText?: string; metadata?: T };
 const getDisplayText = <T,>(option: Option<T>): string => option.displayText || (typeof option.label === 'string' ? option.label : option.value);
@@ -10,7 +11,7 @@ export function AutoComplete<T = unknown>({ options, emptyMessage, value, onValu
   useEffect(() => { setSelected(value); }, [value]);
   const store = useCombobox({ onDropdownClose: () => store.resetSelectedOption() });
   const filtered = options.filter(option => getDisplayText(option).toLocaleLowerCase().includes(inputValue.toLocaleLowerCase()));
-  return <Combobox store={store} withinPortal zIndex={435} onOptionSubmit={key => {
+  return <Combobox store={store} withinPortal zIndex={LAYERS.combobox} onOptionSubmit={key => {
     const option = options.find(item => item.value === key); if (!option) return;
     setSelected(option); onInputValueChange(getDisplayText(option)); onValueChange?.(option); store.closeDropdown();
   }}>

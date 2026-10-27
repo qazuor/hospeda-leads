@@ -1,4 +1,5 @@
 import {useEffect,useRef,useSyncExternalStore} from 'react';
+import {dialogZIndex} from './layers';
 type Layer={id:symbol;order:number};
 const empty:Layer[]=[];let layers:Layer[]=empty,order=0;
 const listeners=new Set<()=>void>();
@@ -35,5 +36,5 @@ export function useDialogLayer(open:boolean){
   return()=>{layers=layers.filter(item=>item.id!==layer.id);emit();untrack()};
  },[open]);
  const current=useSyncExternalStore(subscribe,snapshot,()=>empty);
- return {active:current.at(-1)?.id===identity.current,zIndex:410+Math.max(0,current.findIndex(item=>item.id===identity.current))*2};
+ return {active:current.at(-1)?.id===identity.current,...dialogZIndex({index:current.findIndex(item=>item.id===identity.current)})};
 }
