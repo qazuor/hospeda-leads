@@ -146,7 +146,7 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.getByRole('button',{name:'Cambios registrados en los datos',exact:true}).click();
   await expect(page.locator('[data-kind="change"]').getByText('Persona quitada')).toBeVisible();
   await expect(page.locator('.mantine-Accordion-label').filter({hasText:/Persona quitada/})).toBeVisible();
-  await page.locator('a[href="/guide#basics"][aria-label="Cómo funciona"]').click();await expect(page).toHaveURL(/\/guide#basics$/);
+  await page.locator('a[href="/guide#basics"][aria-label="Cómo funciona"]').click();await page.getByRole('link',{name:'Ver en la guía',exact:true}).click();await expect(page).toHaveURL(/\/guide#basics$/);
   await page.goBack();await expect(page.getByRole('tab',{name:'Historial',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'Gestiones',exact:true}).click();
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
