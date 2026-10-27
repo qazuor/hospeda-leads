@@ -18,7 +18,7 @@
 @media(max-width:767px){.listControls{ gap: 10px}.searchRow{flex-wrap:wrap}.searchBox{flex-basis:100%}.searchRow>button{height:36px;font-size:13px}.controlRow{gap:8px}.compactField{flex:1;justify-content:space-between;padding:0 2px;min-width:140px}.compactField select{min-width:0;flex:1;max-width:none}.fullscreen{margin-left:0}.fullscreen :global(.mantine-Button-label)>span{display:none}.viewsRow{align-items:stretch;gap: 8px;padding-top: 8px}.viewsRow>button{justify-content:flex-start}.heading p{font-size:13px}}
 
 .table th>button:hover,.table th>button:active{background:transparent;color:var(--foreground)}
-@media(min-width:768px){.table th.pinned,.table td.pinned{background:color-mix(in srgb,var(--primary) 12%,var(--row-background,var(--card)))} }
+@media(min-width:768px){.table th.pinned,.table td.pinned{background:color-mix(in srgb,var(--primary) 12%,var(--row-background,var(--card)))}}
 
 /* Compact results toolbar: count on the left, presentation tools on the right. */
 .resultsBar{display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}.resultsBar .status{margin:0;font-size:13px;color:var(--muted-foreground)}.resultsBar .controlRow{justify-content:flex-end;margin-left:auto;gap:8px}.resultsBar .fullscreen{margin-left:0}.viewsRow{border-top:0;gap: 8px;padding-top: 8px}.appliedFilters{border-top:0;padding-top:0}.appliedFilters>div{margin-bottom:0}.table td{padding:6px 12px}.cellValue{max-height:48px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4}.table .businessName{display:block;width:100%;min-height:28px;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:0;line-height:1.4}.table .businessName:hover,.table .businessName:active{background:transparent;color:var(--primary);text-decoration:underline;text-underline-offset:3px}.table td small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0}.table th{white-space:nowrap;overflow:hidden}.table th>button{white-space:nowrap;overflow:hidden;min-width:0}.headerLabel{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}.table th>button svg{flex-shrink:0}
@@ -106,3 +106,8 @@
 @media(max-width:767px){.searchRow>button{flex:0 0 auto}.searchRow>[role=group]{flex:1 1 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.searchRow>[role=group]>*{flex:none}}
 .businessName{display:inline}
 @media(pointer:coarse){.table .businessName{display:inline-flex;align-items:center}}
+/* Pinned columns keep their tint; the selection and actions cells follow the row and header backgrounds instead. */
+th.selectionPinned,th.actionsPinned{background:var(--surface)!important}
+@media(min-width:768px){.table td.selectionPinned,.table td.actionsPinned{background:var(--row-background,var(--card))!important}}
+
+.squareCheckbox:global(.mantine-Checkbox-input){border-radius:3px}

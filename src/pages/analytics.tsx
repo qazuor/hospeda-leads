@@ -1,3 +1,4 @@
+import {HelpLink} from "../components/HelpLink";
 import {CrmDateInput} from '../components/ui/CrmDateInput';
 import {CrmEmptyState} from '../components/ui/CrmEmptyState';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
@@ -37,7 +38,7 @@ export default function AnalyticsPage(){
 
   return <><main className={styles.shell}>
  {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}
-    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Etapas, actividad y conversión con acceso directo a las gestiones que explican cada número; los estados comerciales no acreditan pagos.</p></div><BarChart3 size={28}/></header>
+    <header className={styles.pageHeader}><div><div className={styles.eyebrow}>REPORTES</div><h1>Estadísticas</h1><p>Etapas, actividad y conversión con acceso directo a las gestiones que explican cada número; los estados comerciales no acreditan pagos.</p></div><BarChart3 size={28}/><HelpLink topic="analytics"/></header>
     <section className={styles.filters}>
       <label>Período de alta<NativeSelect value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="custom">Personalizado</option></NativeSelect></label>
       {period==="custom"&&<><label>Desde<CrmDateInput  value={from} onValueChange={e=>setFrom(e)}/></label><label>Hasta<CrmDateInput  value={to} onValueChange={e=>setTo(e)}/></label></>}

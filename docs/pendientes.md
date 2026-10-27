@@ -1,8 +1,12 @@
 # Pendientes y próximo trabajo
 
+## Spec 87 — reglas comerciales
+
+Implementada localmente en `feat/commercial-rules-87`, sin PR ni merge. La migración 044 está escrita pero no aplicada. Verificación local: typecheck, suite unitaria completa (175 archivos / 1.246 pruebas), build y compilación esbuild de los dos scripts de integración modificados. Las suites `test-pipeline.ts` y `test-communication.ts` no se ejecutaron por instrucción; siguiente paso: correrlas con una base local descartable, después revisar el cambio y preparar PR a `staging` según el flujo habitual.
+
 ## Rediseño visual (v1 por fases)
 
-Vistas fijadas por usuario: mergeadas (#245, `c7cd1d7`). Orden de columnas por arrastre: en progreso en `ux/column-order-v1`.
+Vistas fijadas (#245), orden de columnas (#247, #250), Bandeja (#249) y los ajustes de la revisión del 26/10 (#254, #255, #258, #259 y encabezados con ayuda) están en `staging`. Pendiente: revisión del propietario (celular real, modo oscuro, vista de vendedor) y su «terminamos» para pasar a `main`. Unos 35 e2e todavía escriben `hospeda-live-mode=off`, que ahora no tiene efecto: limpiarlos cuando se toquen.
 
 Plan aprobado el 24/10/2026 (ver `decisiones.md`, «Rediseño visual del CRM»). Fase 0 (sistema de diseño), Fase 1 (estructura general), Fase 2a (estructura de la ficha) y Fase 2b (contenido de las pestañas) están mergeadas a `staging` (#232, #233, #234 y #235; Fase 2b: `5e0a965`). Fase 2c (composer flotante y documentos a pedido) mergeada (#236, `a1c3bbf`). Fase 3a (lista de Negocios) mergeada (#237, `a32ed00`). Fase 3b (tabla de Gestiones) mergeada (#238, `b8841e4`). Fase 5 (Hoy) mergeada (#239, `eecd391`). Ajustes aprobados el 25/10/2026 (filtro «Tipo de gestión», «Vencidas»/«Hoy» solo abiertas y mini calendario con el mes completo) mergeados (#240, `ee7c006`). Fase 4 (tablero de Gestiones) mergeada (#241, `b56f177`). Fase 7 (crear y editar en paneles) mergeada (#242, `2975cba`): las fases originales de la v1 quedaron completas en `staging`. El 25/10/2026 el propietario movió a v1 las vistas fijadas por usuario (mergeadas en #245), el arrastre de columnas (en progreso) y la bandeja unificada de conversaciones; la fila de totales pasó a V2. Queda la revisión del propietario en staging (vista de vendedor, celular real, modo oscuro y mensajes entrantes reales) y su «terminamos» para pasar a `main`. Cada fase con mockup aprobado antes de implementar.
 
@@ -190,10 +194,7 @@ Recorrer desktop y 320/390px, claro/oscuro, teclado y contenidos largos. Operar 
 
 ## Reglas comerciales (spec 87)
 
-Las cuatro preguntas de la [revisión 48](crm-roadmap/48-commercial-rules-review.md) quedaron resueltas el 26/10/2026 (`decisiones.md`). La [spec 87](crm-roadmap/87-commercial-rules-decisions.md) implementa:
-- el acuerdo mínimo al ganar como Cliente;
-- las tareas al registrar una respuesta;
-- los mensajes por delegación.
+Las cuatro preguntas de la [revisión 48](crm-roadmap/48-commercial-rules-review.md) quedaron resueltas el 26/10/2026 (`decisiones.md`). La [spec 87](crm-roadmap/87-commercial-rules-decisions.md) está implementada localmente en `feat/commercial-rules-87`: acuerdo mínimo al ganar como Cliente, tareas elegidas al registrar una respuesta y mensajes enviados desde la tarea delegada. Migración `044` usa `bigint`, el tipo real de `crm_tasks.id`. Guía y exportación Markdown actualizadas. Ver comandos y límites de verificación en `/tmp/.../spec87-report.md`.
 
 Pagos: no se registran en el CRM. Sin implementar.
 

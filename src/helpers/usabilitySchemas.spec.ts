@@ -14,6 +14,14 @@ describe('guided workflows validate user choices',()=>{
  it('guides a later outcome toward a date to resume',()=>{expect(workGuidance('commercial','later')?.continuation).toBe('wait');expect(workGuidance('care','later')?.continuation).toBe('wait');});
  it('guided won closure includes client conversion and care in the same command',()=>{const value=pipelineMutation.parse({action:'transition',leadId:'1',revision:0,stage:'Ganada',convertClient:true,onboarding:{title:'Acompañar al cliente',dueDate:'2027-01-15'}});expect(value.action).toBe('transition')});
  it('requires a summary and destination clarification for manual communication',()=>{expect(communicationMutation.safeParse({action:'manual_complete',id:'6b4b9e49-3900-4e5c-9a28-7a7d71e78b23',result:'manual_sent',summary:''}).success).toBe(false);expect(communicationMutation.safeParse({action:'response_create',id:'6b4b9e49-3900-4e5c-9a28-7a7d71e78b23',accountId:'1',leadId:null,contactId:null,channel:'call',recipient:'Negocio',recipientName:'Negocio',destination:null,linkedMessageId:null,category:'other',summary:'Respuesta',exactText:null,closeLeadIds:[]}).success).toBe(false)});
+ it('validates selected response task ids and bounded delegation context',()=>{
+  const id='6b4b9e49-3900-4e5c-9a28-7a7d71e78b23';
+  const response={action:'response_create',id,accountId:'1',leadId:'2',contactId:null,channel:'call',recipient:'Negocio',recipientName:'Negocio',destination:null,linkedMessageId:null,category:'interested',summary:'Respondió',exactText:null,otherDetail:null,resolveTaskIds:Array.from({length:20},(_,i)=>String(i+1))};
+  expect(communicationMutation.safeParse(response).success).toBe(true);
+  expect(communicationMutation.safeParse({...response,resolveTaskIds:[...response.resolveTaskIds,'21']}).success).toBe(false);
+  expect(communicationMutation.safeParse({action:'prepare',id,leadId:'2',contactId:null,channel:'whatsapp',templateId:null,taskId:'31'}).success).toBe(true);
+  expect(communicationMutation.safeParse({action:'dispatch',id,revision:0,confirm:true,taskId:'31'}).success).toBe(true);
+ });
  it('accepts DNC with explicitly selected managements and requires a correction reason',()=>{
   const id='6b4b9e49-3900-4e5c-9a28-7a7d71e78b23';
   expect(communicationMutation.safeParse({action:'response_create',id,accountId:'1',leadId:null,contactId:null,channel:'call',recipient:'',recipientName:'Negocio',destination:null,linkedMessageId:null,category:'do_not_contact',summary:'Pidió no volver a llamar',exactText:null,otherDetail:null,confirmDoNotContact:true,closeLeadIds:['2']}).success).toBe(true);

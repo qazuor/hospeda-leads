@@ -1,10 +1,10 @@
 import React,{useLayoutEffect,useRef,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
-import {Archive,MoreHorizontal,MessageCircle,LoaderCircle,Trash2} from 'lucide-react';
+import {Archive,Eye,MoreHorizontal,MessageCircle,LoaderCircle,Trash2} from 'lucide-react';
 import {Button} from './Button';
 import {Tooltip,TooltipContent,TooltipTrigger} from './Tooltip';
-import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger} from './DropdownMenu';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from './DropdownMenu';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './Dialog';
 import {BusinessContactDialog} from './BusinessContactDialog';
 import {CommercialEditor} from './CommercialEditor';
@@ -30,18 +30,18 @@ export function BusinessRowActions({accountId,name,canModify,admin,onPreview}:{a
  const contactReason=action?busyReason:'Solo el responsable del negocio o un administrador puede contactar.';
  const trashReason='Solo el responsable del negocio o un administrador puede enviarlo a Papelera.';
  // Sellers without modify rights would get a menu with only a disabled item: disable the trigger instead.
- const menuEmpty=!admin&&!canModify&&!onPreview;
  const pick=(next:'contact')=>(event:React.MouseEvent<HTMLButtonElement>)=>{actionTrigger.current=event.currentTarget;setAction(next);};
  const contactButton=<Button size="icon-sm" variant="outline" className={styles.action} aria-label="Contactar" disabled={!canModify||!!action} disabledReason={contactReason} onClick={pick('contact')}>{pending&&action==='contact'?<LoaderCircle size={15} className={styles.spinner} aria-hidden="true"/>:<MessageCircle size={15} aria-hidden="true"/>}</Button>;
+ const deleteButton=<Button size="icon-sm" variant="ghost" className={styles.action} aria-label="Enviar a Papelera" disabled={!canModify||!!action} disabledReason={trashReason} onClick={()=>setAction('delete_account')}><Trash2 size={15} aria-hidden="true"/></Button>;
  return <><div className={styles.actions} role="group" aria-label={'Acciones de '+name}>
   {/* Keep one stable tree so the focus-return ref survives opening and closing an action. */}
   <Tooltip open={!canModify||action?false:undefined}><TooltipTrigger asChild>{contactButton}</TooltipTrigger><TooltipContent>Contactar: elegir gestión, canal y mensaje</TooltipContent></Tooltip>
-  <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" className={styles.more} aria-label={'Más acciones de '+name} data-row-more title="Más acciones" disabled={!!action||menuEmpty} disabledReason={action?busyReason:trashReason} onClick={event=>{actionTrigger.current=event.currentTarget;}}><MoreHorizontal size={18} aria-hidden="true"/></Button></DropdownMenuTrigger>
+  {onPreview&&<Tooltip><TooltipTrigger asChild><Button size="icon-sm" variant="ghost" className={styles.action} aria-label="Vista previa" disabled={!!action} onClick={onPreview}><Eye size={15} aria-hidden="true"/></Button></TooltipTrigger><TooltipContent>Vista previa</TooltipContent></Tooltip>}
+  <Tooltip open={!canModify||action?false:undefined}><TooltipTrigger asChild>{deleteButton}</TooltipTrigger><TooltipContent>Enviar a Papelera…</TooltipContent></Tooltip>
+  {admin&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" className={styles.more} aria-label={'Más acciones de '+name} data-row-more title="Más acciones" disabled={!!action} disabledReason={busyReason} onClick={event=>{actionTrigger.current=event.currentTarget;}}><MoreHorizontal size={18} aria-hidden="true"/></Button></DropdownMenuTrigger>
    <DropdownMenuContent align="end">
-   {admin&&<><DropdownMenuItem onClick={()=>setAction('archive')} title="Negocio válido que no se trabajará ahora. Conserva datos y tareas; solo un administrador puede recuperarlo."><Archive size={15} aria-hidden="true"/>Archivar negocio…</DropdownMenuItem><DropdownMenuSeparator/></>}
-    {onPreview&&<DropdownMenuItem onClick={onPreview}>Vista previa</DropdownMenuItem>}
-    {!canModify&&<DropdownMenuLabel>{trashReason}</DropdownMenuLabel>}<DropdownMenuItem className={styles.danger} disabled={!canModify} onClick={()=>setAction('delete_account')} title={canModify?'Solo para registros inválidos o mal cargados. Conserva datos; solo un administrador puede restaurarlo.':trashReason}><Trash2 size={15} aria-hidden="true"/>Enviar a Papelera…</DropdownMenuItem>
-   </DropdownMenuContent></DropdownMenu>
+   {admin&&<DropdownMenuItem onClick={()=>setAction('archive')} title="Negocio válido que no se trabajará ahora. Conserva datos y tareas; solo un administrador puede recuperarlo."><Archive size={15} aria-hidden="true"/>Archivar negocio…</DropdownMenuItem>}
+   </DropdownMenuContent></DropdownMenu>}
  </div>
  {action&&(detail.isPending||detail.error||!allowed)?<Dialog open onOpenChange={open=>{if(!open)close();}}><DialogContent><DialogTitle>{action==='contact'?'Preparar contacto':action==='archive'?'Archivar negocio':'Enviar a Papelera'}</DialogTitle><DialogDescription>{name}</DialogDescription>{detail.isPending?<p role="status">{action==='contact'?'Cargando datos para contactar…':action==='archive'?'Cargando negocio para archivar…':'Cargando negocio para enviar a Papelera…'}</p>:detail.error?<><p role="alert">{detail.error.message}</p><Button disabled={detail.isFetching} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>detail.refetch()}>{detail.isFetching?'Cargando negocio…':'Reintentar'}</Button></>:<p role="alert">El negocio cambió de responsable o fue archivado. Actualizá el listado para revisar sus permisos.</p>}<Button variant="ghost" onClick={close}>Cancelar</Button></DialogContent></Dialog>:action==='contact'&&detail.data?<BusinessContactDialog detail={detail.data} onClose={close} returnFocusTo={actionTrigger.current}/>:action==='delete_account'&&detail.data?<CommercialEditor target={{kind:'delete_account'}} detail={detail.data} onClose={close} onSaved={()=>toast.success('Negocio enviado a Papelera',{action:admin?{label:'Ver Papelera',onClick:()=>navigate('/trash')}:undefined})}/>:action==='archive'&&detail.data?<CommercialEditor target={{kind:'archive'}} detail={detail.data} onClose={close} onSaved={()=>toast.success('Negocio archivado. Datos e historial conservados.',{duration:8000,action:{label:'Ver archivados',onClick:()=>{navigate('/archived');}}})}/>:null}
  </>;

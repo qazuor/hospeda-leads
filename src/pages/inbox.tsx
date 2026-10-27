@@ -13,6 +13,7 @@ import {InboxSearch,INBOX_SEARCH_DEFAULTS,type InboxSearchFilters} from '../comp
 import {INBOX_CHANNELS,inboxChannelLabel,inboxDateLabel,inboxMessageKey,type InboxBusinessRow,type InboxChannel,type InboxPage,type InboxSearchRow,type InboxThreadRow,type InboxThreadsResponse} from '../components/inbox/inboxTypes';
 import styles from '../components/inbox/Inbox.module.css';
 import layout from '../components/ui/CrmLayout.module.css';
+import {HelpLink} from '../components/HelpLink';
 
 type Stage='list'|'threads'|'detail';
 type Selection={account?:string|null;lead?:string|null;channel?:InboxChannel|null;message?:string|null};
@@ -65,7 +66,7 @@ export default function InboxPage(){
  const filters=<div className={styles.filters}><label>Canal<select value={listChannel??''} onChange={e=>setListChannel(isChannel(e.target.value)?e.target.value:null)}><option value="">Todos los canales</option>{INBOX_CHANNELS.map(c=><option key={c} value={c}>{inboxChannelLabel(c)}</option>)}</select></label>{admin&&<label>Responsable<select value={scope} onChange={e=>setScope(e.target.value as 'mine'|'all')}><option value="mine">Mis negocios</option><option value="all">Todos</option></select></label>}</div>;
  const showSearch=(!phone||stage==='list')&&!accountId;
  const searchActive=inboxSearchLength(searchText.trim())>=INBOX_SEARCH_MIN;
- return <main className={styles.page}><header className={`${styles.heading} ${layout.pageHeading}`}><h1>Bandeja</h1></header>
+ return <main className={styles.page}><header className={`${styles.heading} ${layout.pageHeading}`}><div><span className={layout.eyebrow}>TRABAJO</span><h1>Bandeja</h1><p>Revisá los mensajes y conversaciones de tus negocios.</p></div><HelpLink topic="inbox"/></header>
  {showSearch&&<><label className={styles.search}><Search size={18}/><input aria-label="Buscar en todas las conversaciones" value={searchText} onChange={e=>setSearchText(e.target.value)} placeholder="Buscar en todas las conversaciones: qué dijiste, a quién, cuándo…"/>{!!searchText&&<Button variant="ghost" size="sm" onClick={()=>setSearchText('')}>Limpiar</Button>}</label>
  {typed.length>0&&inboxSearchLength(typed)<INBOX_SEARCH_MIN&&<p className={styles.searchHint} role="status">Escribí al menos 3 letras</p>}</>}
  {searching&&showSearch?<InboxSearch term={term} admin={admin} filters={searchFilters} onFiltersChange={setSearchFilters} onOpen={openResult}/>:

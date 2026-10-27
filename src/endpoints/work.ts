@@ -229,7 +229,7 @@ export async function post(request:Request){
     if(input.continuation==='done'&&'nextTask' in input&&input.nextTask)throw new Error('«No agendar nada» no crea otra tarea.');
    }
    // The contact's message is resolved once and keeps a single activity: the one the communication service created, if any.
-   const linked=messageId&&(input.action==='activity_save'||input.action==='task_status')?await resolveMessageForWork(trx,user,{messageId,sent:input.messageSent,result:input.result??null,accountId:String(accountId),leadId:leadId==null?null:String(leadId)}):null;
+   const linked=messageId&&(input.action==='activity_save'||input.action==='task_status')?await resolveMessageForWork(trx,user,{messageId,sent:input.messageSent,result:input.result??null,accountId:String(accountId),leadId:leadId==null?null:String(leadId),taskId:input.action==='task_status'?String(input.id):null}):null;
    const createNextTask=async()=>{
     if(!('nextTask' in input)||!input.nextTask)return;
     if(input.outcome==='do_not_contact'||account.doNotContact)throw new Error('No se puede planificar contacto para un negocio bloqueado.');

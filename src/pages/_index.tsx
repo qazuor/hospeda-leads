@@ -13,20 +13,20 @@ import {DataImportDialog} from '../components/DataImportDialog';
 import {AccountMergeDialog} from '../components/AccountMergeDialog';
 import {PipelineBoard} from "../components/Pipeline";
 import {HelpHint} from "../components/HelpHint";
+import {HelpLink} from '../components/HelpLink';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, ArrowDownAZ, ArrowUpAZ, BookmarkPlus, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
-  ExternalLink, Filter, Globe2, LoaderCircle, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
+  ArrowRight, ExternalLink, Filter, Globe2, LoaderCircle, Mail, Maximize2, MessageCircle, Minimize2, Pencil, Phone, Plus, Search, StickyNote,
   Target, Trash2, UserRound, Users, UsersRound, X
 } from "lucide-react";
 import { OpportunityStart } from "../components/OpportunityStart";
 import { CommercialEditor } from "../components/CommercialEditor";
 import type { Account } from "../endpoints/commercial.schema";
 import { CommercialHelp } from "../components/CommercialHelp";
-import {usePageHelp} from '../components/AppLayout';
 import {ManagementQuickFilters,nextStepNeedsOpen,singleManagementType} from '../components/ManagementQuickFilters';
 import {setOwnedQuickFilter} from '../helpers/businessListQuickFilters';
 import {managementTypeLabels} from '../helpers/businessManagement';
@@ -38,7 +38,7 @@ import {managementLabel,managementTypes,managementStageCatalog} from '../helpers
 import { getCommercialDetail } from "../endpoints/commercial.schema";
 import { Badge } from "../components/Badge";
 import { BadgeSelect } from "../components/BadgeSelect";
-import {DisabledTooltip} from "../components/Tooltip";
+import {DisabledTooltip,Tooltip,TooltipContent,TooltipTrigger} from "../components/Tooltip";
 import {resolveManagementSavedViewId} from "../helpers/managementSavedView";
 import { Button } from "../components/Button";
 import { Checkbox } from "../components/Checkbox";
@@ -83,9 +83,6 @@ import {HeaderMenu} from "../components/LeadsTableHeader";
 import {managementDisplayName} from '../content/vocabulary';
 
 export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
-  // Memoized like the business record's help: usePageHelp re-registers whenever the content identity changes.
-  const pageHelp=React.useMemo(()=>businessMode?null:{label:'Ayuda sobre gestiones',content:<CommercialHelp/>},[businessMode]);
-  usePageHelp(pageHelp);
   const navigate=useNavigate();
   const entity=businessMode?"business":"opportunity";
   const tableColumns=TABLE_COLUMNS.map(column=>({...column,label:businessMode?(column.key==="nombre"?"Negocio":column.key==="id"?"ID de entrada":column.key==="assignedUserEmail"?"Responsable del negocio":column.key==="estado"?"Etapas de gestiones":column.label):column.label}));
@@ -684,8 +681,8 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   return <>
     <main className={styles.shell}>
       <header className={styles.pageHeader}>
-        <div><div className={styles.eyebrow}>GESTIÓN</div><h1>{businessMode?"Negocios":"Gestiones"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
-        <div className={styles.pageActions}><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
+        <div><div className={styles.eyebrow}>{businessMode?"REGISTROS":"REGISTROS"}</div><h1>{businessMode?"Negocios":"Gestiones"}</h1><p>{businessMode?"Cada fila es un negocio. Abrilo para ver sus contactos y las gestiones que estás gestionando.":"Revisá cómo avanzan las gestiones iniciadas. Cargar un negocio no inicia una gestión. "}{!businessMode&&<HelpHint term="management"/>}</p></div>
+        <div className={styles.pageActions}><HelpLink topic={businessMode?'businesses':'managements'}/><Button onClick={newLead}><Plus size={17}/>{businessMode?"Nuevo negocio":"Iniciar gestión"}</Button><Disclosure className={styles.pageTools}><DisclosureSummary>Herramientas adicionales</DisclosureSummary><div>{isAdmin&&<Button variant="outline" onClick={()=>setImportOpen(true)}>Importar CSV</Button>}<Button variant="outline" onClick={()=>setDuplicatesOpen(true)}><AlertTriangle size={16}/>Buscar duplicados</Button></div></Disclosure></div>
       </header>
 
       <section className={styles.toolbar}>
@@ -695,7 +692,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
             <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
           </Button>
           {!businessMode&&<ManagementQuickFilters className={styles.quickFilters} groups={appliedFilterGroups} stages={FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))} users={userOptions} currentUser={!!currentUser} onChange={groups=>{setAppliedFilterGroups(groups);setActiveQuick('custom');resetPage()}}/>}
-          {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(businessMode?advancedTable:!pipelineView)&&<ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/>}
+          {businessMode&&<Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button>}{(businessMode?advancedTable:!pipelineView)&&<><HelpLink topic="columns"/><ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/></>}
         </div>
       </section>
 
@@ -718,10 +715,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           {[["all","Todos"],["mine",businessMode?"Mis negocios":"Mis gestiones"],["today","Para hoy"],["overdue","Vencidos"],["unassigned","Sin responsable"],["noNext","Sin próxima acción"]].map(([key,label])=><UnstyledButton type="button" key={key} className={activeQuick===key?styles.quickViewActive:""} onClick={()=>applyQuickView(key)}>{label}</UnstyledButton>)}
           {savedViews.map(view=><div className={styles.savedView} key={view.id}><UnstyledButton type="button" className={activeQuick==="saved:"+view.id?styles.quickViewActive:""} onClick={()=>applySavedView(view)}>{view.name}</UnstyledButton><UnstyledButton type="button" className={styles.removeSavedView} onClick={()=>removeSavedView(view.name)} title="Eliminar vista">×</UnstyledButton></div>)}
         </div>
-        <Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
+        <HelpLink topic="filters"/><Button variant="ghost" size="sm" onClick={()=>setSaveViewOpen(true)}><BookmarkPlus size={15}/>Guardar vista</Button>
       </section>
 
-      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/></>}
+      </Disclosure>:<><ManagementStatTiles stats={stats} active={activeQuick} onSelect={applyQuickView}/><div className={styles.managementViewsRow}><ManagementViewTabs active={activeQuick} savedViews={savedViews} onSelect={key=>{if(key.startsWith('saved:')){const view=savedViews.find(item=>item.id===key.slice(6));if(view)applySavedView(view);}else applyQuickView(key);}} onDelete={removeSavedView} onSave={()=>setSaveViewOpen(true)} viewsLoaded={savedViewsQ.isSuccess}/><HelpLink topic="filters"/></div></>}
       <FilterLegend
         groups={appliedFilterGroups}
         onChange={(groups,search)=>{setAppliedFilterGroups(groups);setQuery(search);resetPage();}}
@@ -758,7 +755,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
 
       {bulkReview&&<BulkChangeReview input={bulkReview} onClose={()=>setBulkReview(null)} onConfirm={applyBulk} pending={bulkM.isPending} error={bulkM.error?.message}/>}
       <section className={styles.tableCard+" "+(tableFullscreen?styles.fullscreenTable:"")}>
-        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?(leadsQ.data?.truncated?"Tablero con las primeras 500":"Tablero con todos los resultados"):`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"El tablero no muestra gestiones eliminadas. Sacá ese filtro para verlo."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
+        <div className={styles.tableMeta}><div><strong>{total.toLocaleString("es-AR")} {businessMode?"negocios":"gestiones"}</strong><span>{pipelineView&&!businessMode?(leadsQ.data?.truncated?"Tablero con las primeras 500":"Tablero con todos los resultados"):`Página ${page} de ${Math.max(1,Math.ceil(total/50))}`}</span><span className={styles.resultsStatus} role="status" aria-live="polite" aria-atomic="true">{resultsBusy&&<><LoaderCircle size={15} className={styles.loadingSpinner} aria-hidden="true"/>{leadsQ.data?"Actualizando resultados…":"Cargando resultados…"}</>}</span></div><div className={styles.tableMetaActions}>{!businessMode&&<><Button size="sm" variant={pipelineView?"outline":"primary"} onClick={()=>setPipelineView(false)}>Tabla</Button><Button size="sm" variant={pipelineView?"primary":"outline"} disabled={includesDeletedFilter} disabledReason={"El tablero no muestra gestiones eliminadas. Sacá ese filtro para verlo."} onClick={()=>setPipelineView(true)}>Tablero comercial</Button><HelpLink topic="board"/></>}{!pipelineView&&<span className={styles.tableHint}>Los encabezados con ▾ permiten ordenar · arrastrá el borde para redimensionar</span>}<Button variant="outline" size="sm" onClick={()=>setTableFullscreen(v=>!v)}>{tableFullscreen?<Minimize2 size={15}/>:<Maximize2 size={15}/>} {tableFullscreen?"Salir":"Pantalla completa"}</Button></div></div>
         {includesDeletedFilter&&<p className={styles.deletedFilterHint}>El filtro de Papelera se aplica a las gestiones. Los registros eliminados se consultan en la tabla; abrí Papelera para restaurarlos.</p>}
         {!businessMode&&!resultsBusy&&!leadsQ.error&&!leads.length&&<section className={styles.emptyState}>
           <h2>{appliedRuleCount||stats.total?"Sin resultados por los filtros actuales":"Sin gestiones iniciadas"}</h2>
@@ -771,7 +768,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         pipelineView&&!businessMode&&!includesDeletedFilter?(leads.length?<PipelineBoard leads={leads} onOpen={openView} boardTotals={leadsQ.data?.boardTotals} truncated={leadsQ.data?.truncated} managementType={singleManagementType(appliedFilterGroups)} onPickManagementType={type=>{setAppliedFilterGroups(groups=>setOwnedQuickFilter(groups,'managementType',[{field:'managementType',operator:'eq',value:type}]));setActiveQuick('custom');resetPage()}}/>:null):<div className={styles.scroller}><Table style={{width:"100%",minWidth:tableWidth}}><colgroup>
           <col style={{width:44}}/>{shownColumns.map(key=><col key={key} style={{width:columnWidths[key]??DEFAULT_WIDTHS[key]??160}}/>)}{(!businessMode||advancedTable)&&<col style={{width:120}}/>}<col style={{width:businessMode&&!advancedTable?80:130}}/>
         </colgroup><thead><tr>
-          <th className={styles.selectHead}><Checkbox disabled={!leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)} checked={leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)&&leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
+          <th className={styles.selectHead}><Checkbox className={styles.squareCheckbox} disabled={!leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)} checked={leads.some(lead=>!lead.deletedAt&&lead.canModify!==false)&&leads.filter(lead=>!lead.deletedAt&&lead.canModify!==false).every(lead=>selectedIds.has(String(lead.id)))} onChange={togglePageSelection}/></th>
           {shownColumns.map(key=>{
             const col=tableColumns.find(x=>x.key===key);
             if(!col)return null;
@@ -780,10 +777,10 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           {(!businessMode||advancedTable)&&<th>Persona</th>}<th>Acciones</th>
         </tr></thead><tbody>
           {leads.map(l=>{const id=String(l.id);return <tr key={id} className={(lastTouchedId===id?styles.lastTouchedRow:"")+" "+(selectedIds.has(id)?styles.selectedRow:"")} onDoubleClick={()=>openView(l)}>
-            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox disabled={!!l.deletedAt||l.canModify===false} disabledReason={l.deletedAt?'El negocio está en Papelera. Solo un administrador puede restaurarlo.':'Solo el responsable del negocio o un administrador puede modificarlo.'} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
+            <td className={styles.selectCell} onDoubleClick={e=>e.stopPropagation()}><Checkbox className={styles.squareCheckbox} disabled={!!l.deletedAt||l.canModify===false} disabledReason={l.deletedAt?'El negocio está en Papelera. Solo un administrador puede restaurarlo.':'Solo el responsable del negocio o un administrador puede modificarlo.'} checked={selectedIds.has(id)} onChange={()=>setSelectedIds(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next})}/></td>
             {shownColumns.map(key=><td key={key}><div className={styles.cellClip}>{renderCell(l,key)}{cellState[id+":"+key]&&<span className={styles.cellSaveMark}>{cellState[id+":"+key]==="saving"?"Guardando…":"✓"}</span>}</div></td>)}
             {(!businessMode||advancedTable)&&<td>{!l.deletedAt&&<div className={styles.quick}>{l.telefono&&<a href={"tel:"+l.telefono} title="Llamar"><Phone size={15}/></a>}<DisabledTooltip disabled={l.canModify===false} reason="Solo la persona responsable del negocio o un administrador puede preparar un contacto."><UnstyledButton type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"whatsapp")} title="WhatsApp: seleccionar contacto"><MessageCircle size={15}/></UnstyledButton></DisabledTooltip><DisabledTooltip disabled={l.canModify===false} reason="Solo la persona responsable del negocio o un administrador puede preparar un contacto."><UnstyledButton type="button" disabled={l.canModify===false} onClick={()=>openContact(l,"email")} title="Email: seleccionar contacto"><Mail size={15}/></UnstyledButton></DisabledTooltip>{l.sitioWeb&&<a href={l.sitioWeb} target="_blank" rel="noreferrer" title="Web"><ExternalLink size={15}/></a>}</div>}</td>}
-            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Button variant="outline" size="sm" onClick={()=>openView(l)}>Abrir</Button>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" disabled={l.canModify===false} disabledReason="Solo la persona responsable del negocio o un administrador puede editarlo." onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las gestiones de este negocio":"Enviar gestión a papelera"} disabled={l.canModify===false||(businessMode&&!l.opportunityCount)} disabledReason={l.canModify===false?'Solo la persona responsable del negocio o un administrador puede eliminarlo.':'Este negocio no tiene gestiones activas para retirar.'}><Trash2 size={15}/></Button></>}</div>}</td>
+            <td>{l.deletedAt?<Button size="sm" variant="outline" onClick={()=>navigate("/trash")}>Papelera</Button>:<div className={styles.rowActions}><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon-sm" aria-label="Abrir" onClick={()=>openView(l)}><ArrowRight size={15}/></Button></TooltipTrigger><TooltipContent>Abrir</TooltipContent></Tooltip>{(!businessMode||advancedTable)&&<><Button variant="ghost" size="icon-sm" disabled={l.canModify===false} disabledReason="Solo la persona responsable del negocio o un administrador puede editarlo." onClick={()=>editLead(l)} title="Editar"><Pencil size={15}/></Button><Button variant="ghost" size="icon-sm" onClick={()=>requestDelete(l.id,l.nombre)} title={businessMode?"Retirar todas las gestiones de este negocio":"Enviar gestión a papelera"} disabled={l.canModify===false||(businessMode&&!l.opportunityCount)} disabledReason={l.canModify===false?'Solo la persona responsable del negocio o un administrador puede eliminarlo.':'Este negocio no tiene gestiones activas para retirar.'}><Trash2 size={15}/></Button></>}</div>}</td>
           </tr>})}
         </tbody></Table></div>}
         </div>

@@ -15,8 +15,8 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Listado/proyección heredada compatible | `src/endpoints/leads_GET.ts`, `src/helpers/businessTable.ts` |
 | Columnas agrupadas de Negocios (definiciones, líneas visibles, popover de tabla y editor) | `src/helpers/businessColumnGroups.ts`, `src/endpoints/business_column_groups.ts`, `src/components/BusinessColumnGroupsEditor.tsx`, `src/components/BusinessColumnGroupCell.tsx`; renderizado de tabla/grilla en `src/pages/business-list.tsx`; preferencias en `businessListPreferences.ts` |
 | Trabajo y resultados | `src/endpoints/work.ts`, `work.schema.ts`, componentes de trabajo |
-| Pipeline/etapas/acuerdos | `src/endpoints/pipeline.ts`, helpers y schemas correspondientes |
-| Comunicación e email entrante | `src/endpoints/communication.ts`, `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, `src/helpers/emailReply.ts`, `src/helpers/emailReplyPure.ts`, `src/helpers/smtpTransport.ts`, `src/helpers/communicationService.ts` y `src/components/CommunicationPanel.tsx` |
+| Pipeline/etapas/acuerdos | `src/endpoints/pipeline.ts`, `src/helpers/closingAgreement.ts` y schemas correspondientes |
+| Comunicación e email entrante | `src/endpoints/communication.ts`, `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, `src/helpers/emailReply.ts`, `src/helpers/emailReplyPure.ts`, `src/helpers/smtpTransport.ts`, `src/helpers/communicationService.ts` (respuestas, tareas resueltas por respuesta y delegación atada a tarea), `src/components/ResponseRecordDialog.tsx`, `src/components/TaskContactDialog.tsx` y `src/components/CommunicationPanel.tsx` |
 | Email entrante F1 | `src/endpoints/inbound.ts`, `src/helpers/inboundEmail.ts`, migración `037_inbound_messages.sql`, Worker Cloudflare en `workers/inbound-email/` |
 | Instagram Direct | `src/endpoints/inboundInstagram.ts`, `src/helpers/instagram.ts`, `src/helpers/instagramMeta.ts`, migración `045_instagram_direct.sql`; webhook verificado con HMAC sobre el cuerpo crudo y token cifrado AES-GCM |
 | User script WhatsApp F3 | `src/endpoints/userscript.ts`, `src/helpers/userscriptPure.ts`, pantalla `/userscript`, migración `039_userscript.sql`, estático público `dist/userscripts/` |
@@ -38,7 +38,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Fechas rápidas y posponer tareas | `src/components/DueDateShortcuts.tsx`, `src/components/TaskPostponeMenu.tsx` |
 | Llamadas desde Contactar | `src/components/PhoneCallPanel.tsx` (+ `.spec.tsx`) |
 | Navegación por rol | `src/helpers/appNavigation.ts` |
-| Evolución de esquema | `migrations/`, `scripts/migrate.mjs` |
+| Evolución de esquema | `migrations/` (Spec 87: `044_delegated_messages.sql`), `scripts/migrate.mjs` |
 | Unitarias | `*.spec.ts` / `*.spec.tsx` según configuración de Vitest |
 | Integración | `scripts/test-*.ts`, `scripts/test-*.mjs` y comandos de `package.json` |
 | Navegador | `tests/browser/`, `playwright.config.ts`; ayudante de transiciones/esperas en `tests/browser/support/transitions.ts` |

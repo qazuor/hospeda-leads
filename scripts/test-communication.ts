@@ -1,6 +1,6 @@
 import {handle as saveSettings} from '../src/endpoints/settings_save_POST';
 import {seedDncTasks,assertDncCancelled,assertDncUntouched} from './lib/dnc-tasks';
-import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';import {sql} from 'kysely';import {db} from '../src/helpers/db';import {post,get,webhook} from '../src/endpoints/communication';import {post as resourcePost,get as resourcesGet,download} from '../src/endpoints/resources';import {app} from '../src/server/app';import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';import {post as quality} from '../src/endpoints/dataQuality';import {restartDraftRequest,type Message} from '../src/endpoints/communication.schema';
+import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';import {sql} from 'kysely';import {pendingContactOutcomes,resolveMessageForWork} from '../src/helpers/communicationService';import {setWorkActor} from '../src/helpers/workAudit';import {db} from '../src/helpers/db';import {post,get,webhook} from '../src/endpoints/communication';import {post as resourcePost,get as resourcesGet,download} from '../src/endpoints/resources';import {app} from '../src/server/app';import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';import {post as quality} from '../src/endpoints/dataQuality';import {restartDraftRequest,type Message} from '../src/endpoints/communication.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1');const stamp=Date.now();
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`communication-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
 const admin=await identity('admin'),user=await identity('user'),other=await identity('user');
@@ -16,6 +16,94 @@ try{
  const c=await db.insertInto('crmContacts').values({accountId:a.id,name:'Persona real',email:'person@example.com',phone:'+5493442000002'}).returningAll().executeTakeFirstOrThrow();
  const t=await db.insertInto('messageTemplates').values({name:`Fixture email ${stamp}`,channel:'email',purpose:'first_contact',subject:'Hola {{contact}}',body:'<p>{{#if contact}}Hola {{contact}}{{else}}Hola{{/if}} <strong>Hospeda</strong></p>'}).returningAll().executeTakeFirstOrThrow();const w=await db.insertInto('messageTemplates').values({name:`Fixture WhatsApp ${stamp}`,channel:'whatsapp',body:'<p><strong>Hola {{contact}}</strong> <em>Hospeda</em></p>'}).returningAll().executeTakeFirstOrThrow();
  const scoped=await db.insertInto('messageTemplates').values({name:`Presentación con datos opcionales ${stamp}`,channel:'whatsapp',vertical:'Gastronomía',commercialProfile:'Referente',body:'<p>{{#if contact}}Hola {{contact}}{{else}}Hola{{/if}} {{name}}</p>'}).returningAll().executeTakeFirstOrThrow();
+ // Spec 87: selected tasks are resolved atomically with the response and replay does not complete again.
+ {
+  await db.updateTable('crmAccounts').set({status:'reviewed'}).where('id','=',a.id).execute();
+  const task=await db.insertInto('crmTasks').values({accountId:a.id,leadId:l.id,title:'Confirmar propuesta '+stamp,typeId:'call',assignedUserEmail:user.user.email,dueDate:'2026-10-27' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const response={action:'response_create',id:randomUUID(),accountId:String(a.id),leadId:String(l.id),contactId:String(c.id),channel:'call',recipient:c.phone!,recipientName:c.name,destination:c.phone,linkedMessageId:null,category:'interested',summary:'Aceptó revisar la propuesta',exactText:null,otherDetail:null,resolveTaskIds:[String(task.id)]};
+  const created=await call(response,200,user.cookie);const completed=await db.selectFrom('crmTasks').selectAll().where('id','=',task.id).executeTakeFirstOrThrow();
+  assert.equal(completed.status,'completed');assert.equal(completed.result,'Resuelta por la respuesta del cliente');assert.equal((completed as unknown as {communicationResponseId:string|null}).communicationResponseId??null,null,'H1: resolved tasks keep communication_response_id free (UNIQUE, reserved for the later reminder)');
+  const activity=await db.selectFrom('crmActivities').selectAll().where('taskId','=',task.id).executeTakeFirstOrThrow();assert.equal(activity.actorEmail,user.user.email);const linkJournal=(await sql<{after:{taskId:string;activityId:string}}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_type='response' AND entity_id=${String(created.id)} AND action='response_task_resolved'`.execute(db)).rows;assert.equal(linkJournal.length,1);assert.equal(String(linkJournal[0].after.taskId),String(task.id));assert.equal(String(linkJournal[0].after.activityId),String(activity.id));assert.equal(activity.result,'Resuelta por la respuesta del cliente');
+  await call(response,200,user.cookie);assert.equal((await db.selectFrom('crmActivities').select('id').where('taskId','=',task.id).execute()).length,1,'Replay must not complete or journal the task twice');
+  const otherBusiness=await db.insertInto('crmAccounts').values({nombre:'Zz other business '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();const unrelated=await db.insertInto('crmTasks').values({accountId:otherBusiness.id,leadId:null,title:'Tarea de otro negocio '+stamp,typeId:'followup',assignedUserEmail:user.user.email,dueDate:'2026-10-28' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const rejectedId=randomUUID();await call({...response,id:rejectedId,resolveTaskIds:[String(unrelated.id)]},409,user.cookie);
+  assert.equal((await db.selectFrom('crmCommunicationResponses').select('id').where('id','=',rejectedId).execute()).length,0,'Bad task rejects the entire response');
+  assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',unrelated.id).executeTakeFirstOrThrow()).status,'pending');
+
+  // H1/M3/L1/M2: many tasks plus the «later» reminder in one response; business tasks without management; replay with other tasks; assignee-only.
+  const mk=(title:string,leadId:string|null,assignee=user.user.email)=>db.insertInto('crmTasks').values({accountId:a.id,leadId:leadId as never,title:title+' '+stamp,typeId:'call',assignedUserEmail:assignee,dueDate:'2026-11-02' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const t1=await mk('Resolver 1',String(l.id)),t2=await mk('Resolver 2',String(l.id)),t3=await mk('Resolver negocio',null);
+  const multi={...response,id:randomUUID(),category:'later',resolveTaskIds:[String(t1.id),String(t2.id),String(t3.id)],reminder:{dueDate:'2026-12-01',assignedUserEmail:null}};
+  const multiCreated=await call(multi,200,user.cookie);
+  for(const tk of [t1,t2,t3]){assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',tk.id).executeTakeFirstOrThrow()).status,'completed');assert.equal((await db.selectFrom('crmActivities').select('id').where('taskId','=',tk.id).execute()).length,1);}
+  const reminder=(await sql<{n:string}>`SELECT count(*) n FROM crm_tasks WHERE communication_response_id=${multiCreated.id}::uuid`.execute(db)).rows[0];assert.equal(Number(reminder.n),1,'the reminder is the only task using communication_response_id');
+  await call(multi,200,user.cookie);
+  await call({...multi,resolveTaskIds:[String(t1.id)]},409,user.cookie);// L1: same id, different tasks is a conflict, not a silent success
+  await call({...response,id:randomUUID(),resolveTaskIds:[String(t1.id),String(t1.id)]},400,user.cookie);// L1: duplicates are rejected
+  const notAssignee=await mk('Del otro',String(l.id),other.user.email);
+  await call({...response,id:randomUUID(),resolveTaskIds:[String(notAssignee.id)]},403,user.cookie);// M2: the management owner who is not the assignee cannot resolve it
+  assert.equal((await db.selectFrom('crmTasks').select('status').where('id','=',notAssignee.id).executeTakeFirstOrThrow()).status,'pending');
+  await call({...response,id:randomUUID(),resolveTaskIds:[String(notAssignee.id)]},200,admin.cookie);// admin may
+  const lead2=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre+' 2',estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const foreignLead=await mk('De otra gestión',String(lead2.id));
+  await call({...response,id:randomUUID(),resolveTaskIds:[String(foreignLead.id)]},409,user.cookie);
+  const general=await mk('Solo negocio general',null);
+  await call({...response,id:randomUUID(),leadId:null,resolveTaskIds:[String(foreignLead.id)]},409,user.cookie);// a response without management does not resolve management tasks
+  await call({...response,id:randomUUID(),leadId:null,resolveTaskIds:[String(general.id)]},200,user.cookie);
+ }
+ // Spec 87: a delegate can prepare/send only through their own pending task, for its management and business contacts.
+ {
+  const delegatedAccount=await db.insertInto('crmAccounts').values({nombre:`Zz delegated ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email,telefono:'+5493442000031'}).returningAll().executeTakeFirstOrThrow();
+  const delegatedLead=await db.insertInto('leads').values({accountId:delegatedAccount.id,nombre:delegatedAccount.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const delegatedContact=await db.insertInto('crmContacts').values({accountId:delegatedAccount.id,name:'Delegated contact',phone:'+5493442000032'}).returningAll().executeTakeFirstOrThrow();
+  const delegated=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Mensaje delegado '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-10-29' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const delegatedCall=(body:unknown,status=200)=>call(body,status,other.cookie);
+  const base={action:'prepare',id:randomUUID(),leadId:String(delegatedLead.id),contactId:String(delegatedContact.id),channel:'whatsapp',templateId:w.id};
+  await delegatedCall(base,403);
+  const prepared=await delegatedCall({...base,id:randomUUID(),taskId:String(delegated.id)});
+  assert.equal(String(prepared.delegatedTaskId),String(delegated.id));
+  assert((await sql`SELECT id FROM crm_communication_journal WHERE entity_id=${prepared.id} AND action='message_prepared_by_delegation'`.execute(db)).rows.length===1,'Preparation delegation is journaled');
+  const sent=await delegatedCall({action:'dispatch',id:prepared.id,revision:prepared.revision,confirm:true,taskId:String(delegated.id)});
+  assert.equal(sent.message.status,'whatsapp_opened');assert(sent.url);
+  const edited=await delegatedCall({action:'prepare',...base,id:randomUUID(),taskId:String(delegated.id)});
+  await delegatedCall({action:'edit',id:edited.id,revision:edited.revision,taskId:String(delegated.id),subject:'',body:'<p>Mensaje revisado</p>'});
+  await db.updateTable('crmTasks').set({status:'completed',completedAt:new Date()}).where('id','=',delegated.id).execute();
+  await delegatedCall({action:'dispatch',id:edited.id,revision:edited.revision+1,confirm:true,taskId:String(delegated.id)},403);
+  const foreign=await db.insertInto('crmAccounts').values({nombre:'Zz foreign contact '+stamp,status:'reviewed',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
+  const foreignContact=await db.insertInto('crmContacts').values({accountId:foreign.id,name:'Foreign',phone:'+5493442000099'}).returningAll().executeTakeFirstOrThrow();
+  const pending=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Delegated mismatch '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-10-30' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  await delegatedCall({...base,id:randomUUID(),taskId:String(pending.id),contactId:String(foreignContact.id)},400);
+  const blockedAccount=await db.insertInto('crmAccounts').values({nombre:`Zz delegated DNC ${stamp}`,status:'reviewed',assignedUserEmail:user.user.email,doNotContact:true}).returningAll().executeTakeFirstOrThrow();
+  const blockedLead=await db.insertInto('leads').values({accountId:blockedAccount.id,nombre:blockedAccount.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const blockedTask=await db.insertInto('crmTasks').values({accountId:blockedAccount.id,leadId:blockedLead.id,title:'Blocked delegated '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-10-31' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  await delegatedCall({...base,id:randomUUID(),leadId:String(blockedLead.id),taskId:String(blockedTask.id),contactId:null},403);
+
+  // M1/L2/L4: admins act on delegated messages even after the task closed; the message only resolves through its own task; dispatch journals carry the delegation.
+  const t2=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Admin cases '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-11-03' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const draftA=await delegatedCall({...base,id:randomUUID(),taskId:String(t2.id)});
+  await delegatedCall({action:'cancel_draft',id:draftA.id,revision:draftA.revision},403);// the delegate must pass the task
+  await call({action:'cancel_draft',id:draftA.id,revision:draftA.revision},200,admin.cookie);
+  assert.equal((await message(draftA.id)).status,'cancelled');
+  const draftB=await delegatedCall({...base,id:randomUUID(),taskId:String(t2.id)});
+  const openedB=await delegatedCall({action:'dispatch',id:draftB.id,revision:draftB.revision,confirm:true,taskId:String(t2.id)});assert.equal(openedB.message.status,'whatsapp_opened');
+  const opened=(await sql<{after:{delegatedTaskId?:string}}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_id=${draftB.id} AND action='whatsapp_opened_unconfirmed'`.execute(db)).rows;assert.equal(String(opened[0].after.delegatedTaskId),String(t2.id),'L4: dispatch journal names the delegated task');
+  const prepJournal=(await sql<{after:{managementOwner:string}}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_id=${draftB.id} AND action='message_prepared_by_delegation'`.execute(db)).rows;assert.equal(prepJournal[0].after.managementOwner,user.user.email,'L4: owner journaled at prepare time');
+  await db.updateTable('crmTasks').set({status:'completed',completedAt:new Date()}).where('id','=',t2.id).execute();
+  await delegatedCall({action:'outcome',id:draftB.id,taskId:String(t2.id),event:'manual_sent',notes:'x'},403);// the delegate cannot use a closed task
+  const adminPending=await pendingContactOutcomes(db,{ownerEmail:admin.user.email,isAdmin:true,accountId:String(delegatedAccount.id),leadId:String(delegatedLead.id)});
+  assert(adminPending.some(p=>String(p.id)===String(draftB.id)),'M1: the admin sees the delegated unconfirmed WhatsApp among pending outcomes');
+  await call({action:'outcome',id:draftB.id,event:'manual_sent',notes:'Confirmado por admin'},200,admin.cookie);
+  assert.equal((await message(draftB.id)).status,'manual_sent');
+  // L2: a delegated message is not resolved from another task
+  const t3=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Other task '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-11-04' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const t4=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Own task '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-11-05' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
+  const draftC=await delegatedCall({...base,id:randomUUID(),taskId:String(t4.id)});await delegatedCall({action:'dispatch',id:draftC.id,revision:draftC.revision,confirm:true,taskId:String(t4.id)});
+  for(const actor of [other.user,admin.user]){
+   const attempt=db.transaction().execute(async trx=>{await setWorkActor(trx,actor as never);return resolveMessageForWork(trx,actor as never,{messageId:draftC.id,sent:true,result:null,accountId:String(delegatedAccount.id),leadId:String(delegatedLead.id),taskId:String(t3.id)});});
+   await assert.rejects(attempt,/tarea delegada/,'L2: completing another task cannot resolve the delegated message');
+  }
+  assert.equal((await message(draftC.id)).status,'whatsapp_opened');
+ }
  await db.updateTable('leads').set({contactName:'Nombre histórico'}).where('id','=',l.id).execute();
  const withoutPerson=await call({action:'prepare',id:randomUUID(),leadId:l.id,contactId:null,channel:'whatsapp',templateId:scoped.id},200,user.cookie);assert.equal(withoutPerson.recipientName,'');assert.equal(withoutPerson.recipient,a.telefono);assert(withoutPerson.body.includes('Hola'));assert(!withoutPerson.body.includes('Persona real'));assert(!withoutPerson.body.includes('Nombre histórico'));await db.updateTable('leads').set({contactName:null}).where('id','=',l.id).execute();
  await db.updateTable('leads').set({tipo:'Alojamiento'}).where('id','=',l.id).execute();await call({action:'prepare',id:randomUUID(),leadId:l.id,contactId:null,channel:'whatsapp',templateId:scoped.id},400,user.cookie);
