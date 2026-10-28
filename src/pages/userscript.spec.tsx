@@ -37,4 +37,9 @@ describe('UserscriptPage',()=>{
   expect(screen.getByText(/versión 0\.9\.0/)).toBeTruthy();
   expect(screen.getByText('Desactualizado')).toBeTruthy();
  });
+ it('explains the Instagram paste and the one-time site approval (spec 94)',async()=>{
+  vi.stubGlobal('fetch',tokens());renderPage();
+  expect(screen.getByTestId('userscript-instagram').textContent).toContain('el script toca «Enviar mensaje» y pega el mensaje copiado. No lo envía');
+  expect(screen.getByText(/Tampermonkey te pide aprobar instagram\.com una sola vez/)).toBeTruthy();
+ });
 });
