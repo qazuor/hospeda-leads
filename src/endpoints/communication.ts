@@ -12,6 +12,8 @@ import {smtpConfigured} from '../helpers/smtpTransport';
 import {inboxReplyAvailability} from '../helpers/inboxReplyAvailability';
 import {COMMUNICATION_LIST_LIMIT,communicationMutation,communicationSeenInput} from './communication.schema';
 import {messageMaterials} from '../helpers/salesMaterialDraft';
+import {emailEngagementByOutbox} from '../helpers/emailEngagementQuery';
+import {isTerminalEmailEvent} from '../helpers/emailEngagement';
 import {SalesMaterialNotFound} from '../helpers/salesMaterialService';
 import {R2NotConfigured,R2Unavailable} from '../helpers/r2';
 import {MaterialShareUrlUnavailable} from '../helpers/salesMaterialMessage';
@@ -45,6 +47,8 @@ export async function get(request:Request){
    ORDER BY m.created_at DESC LIMIT ${COMMUNICATION_LIST_LIMIT}`.execute(db)).rows;
   // Spec 89 §8.4: the sales material links of each message (title, versions, attachment, link state).
   const materials=await messageMaterials(db,{messageIds:messages.map(row=>String((row as {id:string}).id))});
+  // Spec 93 §2.5, read-only: delivery, opens, clicks and spam of the loaded emails, one aggregated query (no N+1).
+  const engagement=await emailEngagementByOutbox(db,{outboxIds:camelRows(messages as Record<string,unknown>[]).map(row=>row.outboxId).filter(id=>id!=null).map(String)});
   const restrictions=(await sql`SELECT * FROM crm_contact_restrictions WHERE account_id=${lead.accountId}
    ORDER BY created_at DESC LIMIT 200`.execute(db)).rows;
   // Uncapped: blocking checks must never miss an active restriction hidden behind 200 newer lifted ones.
@@ -63,7 +67,7 @@ export async function get(request:Request){
   const pendingOutcomes=await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin',accountId:lead.accountId,leadId:lead.id||null});
   // Spec 91 §12, read-only: the caller's previous visit, for the «Nuevo desde tu última visita» divider.
   const lastSeenAt=(await sql<{lastSeenAt:Date}>`SELECT last_seen_at AS "lastSeenAt" FROM crm_communication_reads WHERE user_id=${user.id} AND account_id=${lead.accountId}`.execute(db)).rows[0]?.lastSeenAt??null;
-  return response({lastSeenAt,pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]).map(row=>({...row,materials:materials[String(row.id)]??[]})),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
+  return response({lastSeenAt,pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]).map(row=>({...row,materials:materials[String(row.id)]??[],emailEngagement:row.outboxId!=null?engagement[String(row.outboxId)]??null:null})),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
  }catch(e){return failure(e)}
 }
 export async function post(request:Request){try{const {user}=await getServerUserSession(request);if(Number(request.headers.get('Content-Length')??0)>100000)throw new Error('Solicitud demasiado grande');const raw=await request.text();if(raw.length>100000)throw new Error('Solicitud demasiado grande');return response(await mutateCommunication(db,communicationMutation.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})()),user));}catch(e){return failure(e)}}
@@ -103,8 +107,14 @@ export async function webhook(request:Request){
     const tagId=v.tags?.find(t=>/^hospeda-[0-9a-f-]{36}$/.test(t))?.slice(8);
     const tagged=!out&&tagId?(await sql<{id:string}>`SELECT o.id FROM email_outbox o JOIN crm_messages m ON m.outbox_id=o.id WHERE m.id=${tagId}::uuid AND lower(o.recipient_email)=lower(${v.email})`.execute(e)).rows[0]:null;
     const oid=out?.id??tagged?.id??null;
-    await sql`INSERT INTO crm_email_events(fingerprint,message_id,recipient,event,occurred_at,payload,outbox_id) VALUES(${fingerprint},${v['message-id']},${v.email},${v.event},${at},${JSON.stringify(v)}::text::jsonb,${oid}) ON CONFLICT DO NOTHING`.execute(e);
-    if(oid){await lockAccounts(e,(await sql<{accountId:string}>`SELECT account_id FROM crm_messages WHERE outbox_id=${oid}`.execute(e)).rows.map(r=>r.accountId));await sql`UPDATE email_outbox SET message_id=coalesce(message_id,${v['message-id']}) WHERE id=${oid}`.execute(e);await reconcileEvents(e,oid);}
+    const fresh=(await sql<{fingerprint:string}>`INSERT INTO crm_email_events(fingerprint,message_id,recipient,event,occurred_at,payload,outbox_id) VALUES(${fingerprint},${v['message-id']},${v.email},${v.event},${at},${JSON.stringify(v)}::text::jsonb,${oid}) ON CONFLICT DO NOTHING RETURNING fingerprint`.execute(e)).rows.length>0;
+    if(oid){
+     await lockAccounts(e,(await sql<{accountId:string}>`SELECT account_id FROM crm_messages WHERE outbox_id=${oid}`.execute(e)).rows.map(r=>r.accountId));await sql`UPDATE email_outbox SET message_id=coalesce(message_id,${v['message-id']}) WHERE id=${oid} AND message_id IS NULL`.execute(e);
+     // Spec 93 §2.2: reconcile only on new delivery evidence (a fresh terminal event) or to adopt earlier orphan events. Opens, clicks,
+     // spam, deferred and redelivered duplicates are stored and change nothing, so a lifted restriction is never re-added by them.
+     const orphans=(await sql`SELECT 1 FROM crm_email_events WHERE outbox_id IS NULL AND trim(both '<>' from message_id)=trim(both '<>' from ${v['message-id']}) AND lower(recipient)=lower(${v.email}) LIMIT 1`.execute(e)).rows.length>0;
+     if((fresh&&isTerminalEmailEvent(v.event))||orphans)await reconcileEvents(e,oid,{messageId:v['message-id'],fresh:fresh?[fingerprint]:[]});
+    }
    }
   });return new Response('OK');
  // Lock waits, deadlocks and timeouts are retryable: 503 lets the provider redeliver; invalid payloads stay 400.

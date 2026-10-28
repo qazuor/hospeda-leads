@@ -1,5 +1,13 @@
 # Estado del CRM — corte al 27 de octubre de 2026
 
+## Spec 93 — email: entrega, aperturas y clicks — implementada en `feat/email-engagement-93` (apilada sobre la 92, sin PR todavía) — 27/10/2026
+
+- **Webhook de Brevo:** la conciliación (`reconcileEvents`) corre solo con un evento terminal nuevo o con eventos huérfanos; aperturas, clicks, spam, `deferred`, `unsubscribed` y repetidos se guardan y no hacen nada más (antes reescribían la actividad en cada evento y volvían a agregar una restricción levantada). La entrega le gana a un `soft_bounce` anterior o del mismo segundo; un rebote permanente posterior sigue ganando. Solo escribe lo que cambia.
+- **API:** `GET /_api/communication` devuelve por mensaje `emailEngagement` (`deliveredAt`, `firstOpenedAt`, `openCount`, `firstProxyOpenedAt`, `proxyOpenCount`, `firstClickedAt`, `clickCount`, `clickedLinks`, `spamAt`, `lastEventAt`) con una sola consulta agregada por `outbox_id` (índice existente `crm_email_events_outbox`; sin migración, la 050 queda libre). Los enlaces salen como texto saneado.
+- **Pantalla:** en el ítem de email, «Entregado · dd/mm hh:mm», «Abierto · … · ×N», «Posible apertura automática», «Click en un enlace» (enlaces en el tooltip, como texto) y «Marcado como spam» (aviso). Tooltip y leyenda con la nota de aperturas aproximadas; entrada «Email (Brevo)» en «Cómo leer el chat». La Bandeja no cambia.
+- **Docs:** pasos de producción del webhook en `COOLIFY_DEPLOY.md`, nota en `desarrollo-local.md`, decisiones y guía de usuario.
+- **Validación local:** `npm run typecheck`, `npx vitest run --maxWorkers=4` (215 archivos, 1693 tests), `npm run build`; contra la base local desechable: `test:email-engagement` (nuevo, en CI), `test:communication`, `test:inbound`. Revisión visual en un servidor propio en el puerto 3023 con eventos falsos.
+
 ## Spec 92 — abrir el chat de Instagram desde el CRM — implementada en `feat/instagram-open-chat-92` (apilada sobre la 91, sin PR todavía) — 27/10/2026
 
 - **Canal «Instagram» en «Contactar»:** entre «Email · Brevo» y «Llamada»; siempre usa el usuario de Instagram del negocio (una persona elegida queda solo como contexto). Sin usuario válido la opción se deshabilita con el motivo y «Agregar o editar datos de contacto». Desde la Bandeja, «Responder» de un hilo de Instagram abre «Contactar» con Instagram si el remitente es el usuario del negocio y no hay restricción; si no, abre sin preseleccionar y explica por qué.

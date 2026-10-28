@@ -1,12 +1,14 @@
 import {CircleHelp} from 'lucide-react';
 import {Popover,PopoverContent,PopoverTrigger} from '../Popover';
+import {OPEN_APPROXIMATE_NOTE} from '../../helpers/emailEngagement';
 import styles from './CommunicationView.module.css';
 
 const PLATFORMS=[['whatsapp','WhatsApp'],['instagram','Instagram'],['email','Email'],['call','Llamada'],['other','Otra red']] as const;
 
 /**
  * Spec 91 owner review: «Cómo leer el chat», a compact legend opened by click or tap from the «Conversación» header. It explains
- * the side, the background, the platform colours, the dashed border, where unconfirmed opens are and the centred boxes.
+ * the side, the background, the platform colours, the dashed border, where unconfirmed opens are, the centred boxes and
+ * (spec 93) the email badges.
  */
 export function ChatLegend(){
  return <Popover>
@@ -20,6 +22,13 @@ export function ChatLegend(){
     <dt>Borde punteado</dt><dd>Todavía no sabemos si salió (por ejemplo, un email sin resultado del proveedor), falló o no se envió.</dd>
     <dt>Sin confirmar</dt><dd>Un WhatsApp o Instagram abierto que no confirmaste no aparece acá: está en «Requiere acción» hasta que contestes «¿Lo enviaste?».</dd>
     <dt>Caja centrada</dt><dd>Una llamada o una respuesta registrada sin mensaje.</dd>
+    <dt>Email (Brevo)</dt><dd><ul className={styles.legendList}>
+     <li><span className={styles.tag} data-kind="status">Entregado</span> Brevo confirmó que el servidor del destinatario recibió el email.</li>
+     <li><span className={styles.tag} data-kind="engagement">Abierto</span> <span className={styles.tag} data-kind="engagement">Click en un enlace</span> Informativos: no son una respuesta ni cuentan como contacto.</li>
+     <li>{OPEN_APPROXIMATE_NOTE}</li>
+     <li><span className={styles.tag} data-kind="engagement">Posible apertura automática</span> La abrió un servidor intermedio, quizás no una persona.</li>
+     <li><span className={styles.tag} data-kind="engagement" data-tone="warning">Marcado como spam</span> El destinatario lo marcó como spam.</li>
+    </ul></dd>
    </dl>
   </PopoverContent>
  </Popover>;

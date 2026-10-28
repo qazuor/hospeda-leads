@@ -22,6 +22,8 @@ import {ChannelIcon} from './ChannelIcon';
 import {ClampedText} from './ClampedText';
 import {instagramTextEdited,isInstagramAttempt,isInstagramConfirmed} from '../../helpers/instagramChat';
 import {ItemMenu,type ItemAction} from './ItemMenu';
+import {EmailEngagementBadges} from './EmailEngagementBadges';
+import {emailDeliveredLabel} from '../../helpers/emailEngagement';
 import type {CommunicationView} from './types';
 import styles from './CommunicationView.module.css';
 import {LAYERS} from '../../helpers/layers';
@@ -165,7 +167,8 @@ function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
  // `data-tone` marks unconfirmed, not done or failed rows (dashed, muted) so they never look sent.
  return <div className={styles.row} data-side="out" data-tone={entry.tone} data-voided={entry.voided||undefined} {...rowProps(entry,highlighted)}><article className={styles.bubbleWrap} aria-label={entry.label}>
   <Head entry={entry} sender={entry.sender} badges={<>
-   <Tag kind="status" tone={entry.tone}>{entry.replyToInbound?'Respuesta al email recibido · ':''}{entry.status}</Tag>
+   <Tag kind="status" tone={entry.tone}>{entry.replyToInbound?'Respuesta al email recibido · ':''}{emailDeliveredLabel({status:message.status,engagement:message.emailEngagement})??entry.status}</Tag>
+   {message.channel==='email'&&<EmailEngagementBadges engagement={message.emailEngagement}/>}
    {entry.autoRegistered&&!entry.echo&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}
   </>} actions={<>
    {message.channel==='email'&&!!message.htmlBody&&<Button size="sm" variant="outline" aria-label="Ver diseño del email" onClick={()=>panels.setDesign(true)}>Ver diseño</Button>}
