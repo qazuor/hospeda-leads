@@ -1,6 +1,6 @@
 # Spec 96 — Contact in three clicks, with a connected user script
 
-Status: decided by the owner on 28/10/2026 (items A1–A7 and B1–B5 of the request). Sections 8 (D5–D9) record the defaults this spec chose where the code left a fork; the open questions are in section 9. Type: UI flow change in the contact dialogs and the composer, one small server change in `prepare`, and user script 1.5.0. No migration, no new endpoint, no new permission. It does not change what counts as contact, «No contactar» gating or the echo confirmation of [spec 92](92-instagram-open-chat.md).
+Status: decided by the owner on 28/10/2026 (items A1–A7 and B1–B5 of the request); the open questions of section 9 were answered the same day (section 10). Sections 8 (D5–D9) record the defaults this spec chose where the code left a fork. Type: UI flow change in the contact dialogs and the composer, server changes in `prepare` and in response registration (10.1), and user script 1.5.0. No new endpoint, no new permission; one migration if 10.1 needs a marker column. It does not change what counts as contact, «No contactar» gating or the echo confirmation of [spec 92](92-instagram-open-chat.md).
 
 Builds on [spec 91](91-communication-polish.md) (action bar, «Responder»), [spec 92](92-instagram-open-chat.md) («Abrir Instagram») and [spec 94](94-instagram-userscript.md) (user script 1.4.0, Instagram handoff).
 
@@ -139,7 +139,7 @@ They keep their current flows and their outcome chain (`PhoneCallPanel`, `Manual
 ## 5. Scope and non-goals
 
 - In scope: 2.1–2.7, 3.1–3.4, the `prepare` final render, tests, the user guide (`src/content/user-guide.json`, regenerate `docs/guia-de-uso.md`) and project docs.
-- Not in scope: changing templates or their policy; the WhatsApp Web panel UI; a server-side check of the script; Hoy's «Anotá cómo salió» query (`pendingContactOutcomes`, see Q1); mobile UX beyond working at 390 px; accessibility-only work (deferred by the owner).
+- Not in scope: changing templates or their policy; the WhatsApp Web panel UI; a server-side check of the script; changing Hoy's «Anotá cómo salió» query itself (`pendingContactOutcomes`; the response rule of 10.1 resolves the outcome instead); mobile UX beyond working at 390 px; accessibility-only work (deferred by the owner).
 
 ## 6. Risks
 
@@ -182,3 +182,30 @@ They keep their current flows and their outcome chain (`PhoneCallPanel`, `Manual
 - **Q1. Hoy fills up with «Anotá cómo salió».** `pendingContactOutcomes` lists every `whatsapp_opened` / `instagram_opened` / `manual_sent` / email message without an outcome activity, and registering a response does not clear it (only a `do_not_contact` response does). Without the chained step, most contacts will appear there. Recommendation: ship as is (it is the reminder the owner already has) and decide after a week of use whether a registered response should satisfy it.
 - **Q2. Gate on the latest or on the minimum version.** The owner asked for the latest. Recommendation: gate on `USERSCRIPT_MIN_VERSION` and show «Hay una versión nueva» as a non-blocking hint when below the latest, so a cosmetic release does not stop sales; raise the minimum when a release must be required.
 - **Q3. A token of another user.** `connected` only says the token works, not that it belongs to the CRM user in this browser; the script confirms WhatsApp sends only for the token's user (`openWhatsappAttempts` filters by `owner_email`). Recommendation: the script also announces the token user's email (`data-hospeda-userscript-user`, not a secret) and the CRM blocks with «El script está conectado con otra cuenta (<email>)».
+
+## 10. Owner answers (28/10/2026)
+
+### 10.1 Q1 — a registered response resolves the pending outcome (new rule)
+
+- When, after a send or an opened attempt, someone registers a response for that business («Registrar respuesta» on a received message, `inbound_register`, or «Respuesta registrada sin mensaje», `response_create`), the pending «Anotá cómo salió» of that send is resolved automatically, with that response as its outcome, in the same transaction as the response.
+- Attribution: the response's linked message when it is an open send; otherwise, among the open sends of the business, the most recent one in the response's management (or, for a response without management, the most recent one when every open send is in the same management or all are without one). When it cannot be attributed unambiguously (open sends in different managements and the response's management does not single one out), nothing is resolved and they stay pending.
+- Never inferred: neither «no respondió» from the absence of received messages nor «respondió» from their presence. Only an explicitly registered response resolves an outcome, and resolving it does not confirm an unconfirmed send («Sí, se envió / No se envió» stays in «Requiere acción»).
+- Only when the person registering the response could record that outcome herself (the management's or business's responsible, or an admin); otherwise it stays pending for its owner. Replays of the same response do nothing new (idempotent).
+- The outcome is visibly marked «Resultado registrado automáticamente desde la respuesta». A seller with write access to that business or management, or an admin, corrects it from the conversation «⋯» menu («Corregir cómo salió», the same work editor used for completed tasks); the correction is audited like any other activity change and removes the automatic mark.
+- Category → outcome: interested → «Respondió, le interesa»; later and not_now → «Pidió que lo contacte más adelante»; rejected → «No le interesa»; do_not_contact → «Pidió no ser contactado»; information, operational and other → «Otro», with the category and summary in the result.
+
+### 10.2 Q2 — gate on the latest version
+
+Block WhatsApp and Instagram on desktop whenever the installed script is below the latest bundled `USERSCRIPT_VERSION` («bloquear siempre»). `USERSCRIPT_MIN_VERSION` also goes to 1.5.0 (D7 stands).
+
+### 10.3 Q3 — the token must belong to the logged-in user
+
+The status endpoint already returns the token owner's email. The script publishes it on the CRM origin as `data-hospeda-userscript-user` (never the token), and the CRM blocks with «El script está conectado con otra cuenta (x@y). Reconectalo con la tuya.» when it does not match the logged-in user.
+
+### 10.4 Q4 — one template list
+
+Yes: a single template list for both scopes (D5); `GeneralMessageStep` is deleted.
+
+### 10.5 Q5 — final render at prepare
+
+Yes: `prepare` and `prepareGeneral` render the final text/html (`renderFinal`), so the composer opens on the final view (D6).
