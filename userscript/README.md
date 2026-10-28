@@ -2,7 +2,7 @@
 
 El script permite registrar en el CRM mensajes visibles del chat abierto, después de revisar una vista previa y confirmar. Solo lee WhatsApp Web: no envía mensajes, no hace clics allí ni modifica contactos o etiquetas. Los medios se guardan como marcadores, sin descargar archivos.
 
-Desde la versión 1.4.0 el mismo script también trabaja en Instagram Web: después de «Abrir Instagram» en el CRM, toca «Enviar mensaje» en el perfil y pega el mensaje copiado, sin enviarlo ([spec 94](../docs/crm-roadmap/94-instagram-userscript.md)).
+Desde la versión 1.4.0 el mismo script también trabaja en Instagram Web: después de «Abrir Instagram» en el CRM, toca «Enviar mensaje» en el perfil y escribe el mensaje preparado, sin enviarlo ([spec 94](../docs/crm-roadmap/94-instagram-userscript.md)).
 
 ## Instalación
 
@@ -36,14 +36,15 @@ Si aparece **No pude leer este chat**, tocá **Copiar diagnóstico del chat** en
 
 ## Instagram (versión 1.4.0)
 
-En la computadora, «Abrir Instagram» copia el mensaje y abre `https://www.instagram.com/<usuario>/#hospeda=<nonce>`. El script de Instagram:
+En la computadora, «Abrir Instagram» copia el mensaje (respaldo manual) y le pasa el texto al script; si el script confirma, abre `https://www.instagram.com/<usuario>/#hospeda=<nonce>`. Detalle en la [spec 94](../docs/crm-roadmap/94-instagram-userscript.md).
 
-1. Actúa solo con un traspaso de un solo uso: al abrir, la página del CRM genera un nonce aleatorio de 128 bits y se lo pasa al script de esa misma página (`postMessage`, misma ventana y origen) con el usuario, un vencimiento de 2 minutos y un hash del texto; el script lo guarda en la clave GM `hospeda-instagram-handoff`. En Instagram, el nonce de la URL tiene que coincidir, no haber vencido y el perfil tiene que ser el mismo. El traspaso se borra antes de actuar. Un `#hospeda` suelto, un enlace de otra página o un nonce reusado no hacen nada.
-2. Busca «Enviar mensaje» / «Message» por nombre accesible (nunca por clases), espera el cuadro del chat (hasta 15 s cada uno) y, si está vacío, lee el portapapeles (el navegador pide permiso la primera vez).
-3. Pega solo si el portapapeles coincide con el hash del mensaje del CRM: un evento `paste` sintético con `DataTransfer` y, si el editor quedó vacío, `execCommand('insertText')`.
-4. **Nunca envía:** no aprieta Enter ni toca Enviar. Si algo falla, muestra un aviso abajo («No pude pegar el mensaje: pegalo con Ctrl+V.» y similares) y deja la página como estaba.
+1. **Traspaso de un solo uso.** La página del CRM genera un nonce aleatorio de 128 bits y despacha en `document` el evento `hospeda-instagram-handoff` con un JSON `{nonce, username, expiresAt, text}` (texto de hasta 4000 caracteres, vence a los 2 minutos). El script de esa página lo valida, lo guarda en la clave GM `hospeda-instagram-handoff` y confirma con el atributo `data-hospeda-instagram-ack` = nonce. Sin confirmación en 300 ms, el CRM abre el perfil sin marcador y pide pegar a mano. Se usa un string porque cruza el sandbox de Tampermonkey (como `announce.ts`).
+2. **En Instagram** el script actúa solo si el nonce de la URL coincide, no venció y el perfil es el mismo; borra el traspaso de ese nonce (y solo de ese: un segundo «Abrir Instagram» reemplaza al primero). Con un `#hospeda=<nonce>` sin traspaso válido muestra «No pude confirmar que lo abrió el CRM…» y no toca nada; un `#hospeda` suelto o mal formado no hace nada.
+3. Toca «Enviar mensaje» / «Message» del encabezado del perfil (por nombre accesible, nunca por clases) y solo escribe si la página pasó a `/direct/t/<id>/`, en el cuadro de esa página (nunca en un chat flotante), si está vacío. Si se cambia de perfil mientras espera, aborta.
+4. Escribe el texto del traspaso con un evento `paste` sintético con `DataTransfer` y, si el editor quedó vacío, `execCommand('insertText')`; verifica que el cuadro tenga exactamente ese texto.
+5. **No lee el portapapeles** (el navegador no pide ningún permiso, y funciona igual en Firefox) y **nunca envía:** no aprieta Enter ni toca Enviar. Si algo falla, muestra un aviso abajo y deja la página como estaba.
 
-El módulo (`src/instagram/`) está aislado del resto: no lee el token ni otros valores de GM, no hace pedidos al CRM y no corre lógica de WhatsApp. Sin script que pegue, el CRM abre el perfil sin marcador y se pega a mano, como antes. En Firefox la lectura del portapapeles suele requerir un gesto, así que ahí normalmente se pega a mano.
+El texto queda como máximo 2 minutos en el almacenamiento de Tampermonkey, que es propio del script y no lo leen las páginas. El módulo (`src/instagram/`) está aislado por código, no por permisos (los `@grant` valen para todos los `@match`): no lee el token ni otros valores de GM, no hace pedidos, no usa el portapapeles y no corre lógica de WhatsApp; un test estático lo controla.
 
 ## Selectores y fixtures
 
