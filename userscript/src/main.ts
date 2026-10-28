@@ -7,6 +7,7 @@ import { copyDiagnostic } from "./diagnostic";
 import { applyTheme, isAutoOpen, isDark, isEditing, openSettings, renderBanner, setPanelOpen, type UiOptions } from "./ui";
 import { USERSCRIPT_VERSION } from "./version";
 import { announceInstalled } from "./announce";
+import { watchConnection } from "./connection";
 import { showUpdatePrompt, throttled } from "./updatePrompt";
 import { AutoRegisterController, autoEligibility } from "./autoRegister";
 import {ChatBadges,badgePreference,toggleBadgePreference} from './badges';
@@ -115,8 +116,9 @@ function start(): void {
   const site = siteFor(location);
   // Instagram (spec 94): only the isolated paste module, which reads the one-time handoff key and nothing else. No token, no requests.
   if (site === "instagram") { startInstagram({ store: gmHandoffStore() }); return; }
-  // On the CRM's own page the script says it is here and accepts the Instagram handoff from the page: no WhatsApp logic, no requests.
-  if (site === "crm") { announceInstalled(document); listenForInstagramHandoff(); return; }
+  // On the CRM's own page the script says it is here, accepts the Instagram handoff from the page and publishes whether its token works
+  // (spec 96 §3.1: one status request, only the state and the token owner's email reach the page). No WhatsApp logic.
+  if (site === "crm") { announceInstalled(document); listenForInstagramHandoff(); watchConnection({ doc: document, readToken: token, fetchStatus: value => fetchStatus(BASE, value) }); return; }
   autoPreference = GM_getValue<boolean>("hospeda-userscript-auto-register", true);
   registerMenu(); watchTheme();
   chatBadges=new ChatBadges(BASE,token, message=>{badgeError=message;lastFingerprint="";void update();},()=>{badgeError="Token inválido o revocado. Conectá uno nuevo desde Ajustes.";lastFingerprint="";void update();},()=>{badgeError="Esta versión del script ya no funciona con el CRM. Actualizá desde el aviso del script.";void checkForUpdate();lastFingerprint="";void update();});
