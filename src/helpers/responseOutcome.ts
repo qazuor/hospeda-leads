@@ -1,4 +1,5 @@
 import type {ContactOutcome} from './workOutcomes';
+import {responseCategoryLabel} from './crmLabels';
 
 /** Spec 96 §10.1: shown next to an outcome a registered response set, until a person corrects it. */
 export const AUTO_OUTCOME_NOTE='Resultado registrado automáticamente desde la respuesta';
@@ -19,6 +20,11 @@ export function responseOutcome({category}:{category:ResponseCategory}):{outcome
  * registered response set automatically (`outcome_response_id` set) is overwritten by the person's log, as a correction (spec 96 §10.1).
  */
 export function contactLogBlocked({outcome,outcomeResponseId}:{outcome:string|null;outcomeResponseId:string|null}):boolean{return !!outcome&&outcomeResponseId==null;}
+
+/** What an activity records from a registered response: the canonical outcome, and the category and summary as its result. */
+export function outcomeFromResponse({category,summary}:{category:ResponseCategory;summary:string}):{outcome:ContactOutcome;result:string}{
+ return {...responseOutcome({category}),result:`Respuesta registrada: ${responseCategoryLabel(category)} · ${summary}`.slice(0,4000)};
+}
 
 const latest=(sends:readonly OpenSend[])=>[...sends].sort((a,b)=>b.lastInteractionAt.getTime()-a.lastInteractionAt.getTime())[0]?.id??null;
 

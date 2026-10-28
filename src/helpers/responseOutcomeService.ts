@@ -6,8 +6,7 @@ import {communicationJournal} from './communicationService';
 import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,contactWorkPurpose} from './contactOutcome';
 import {canModifyBusiness,canModifyManagement} from './crmPermissions';
 import {isInstagramAttempt} from './instagramChat';
-import {responseCategoryLabel} from './crmLabels';
-import {attributeResponseToSend,responseOutcome,type OpenSend,type ResponseCategory} from './responseOutcome';
+import {attributeResponseToSend,outcomeFromResponse,type OpenSend,type ResponseCategory} from './responseOutcome';
 
 type Executor=Kysely<DB>|Transaction<DB>;
 
@@ -50,8 +49,7 @@ export async function resolveSendOutcomeFromResponse(e:Executor,{response,user,a
  if(!messageId)return {messageId:null};
  const m=(await sql<Message>`SELECT * FROM crm_messages WHERE id=${messageId}::uuid`.execute(e)).rows[0];
  if(!m||!await canRecordOutcome(e,m,user))return {messageId:null};
- const {outcome}=responseOutcome({category:response.category});
- const result=`Respuesta registrada: ${responseCategoryLabel(response.category)} · ${response.summary}`.slice(0,4000);
+ const {outcome,result}=outcomeFromResponse(response);
  const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
  if(existing?.outcome)return {messageId:null};
  let activityId:string;
@@ -66,4 +64,19 @@ export async function resolveSendOutcomeFromResponse(e:Executor,{response,user,a
  }
  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId==null?null:String(m.leadId),entityType:'interaction',entityId:m.id,action:'contact_outcome_from_response',actor:null,automatic:true,triggeredBy:user.email,after:{outcome,responseId:response.id,activityId}});
  return {messageId:m.id};
+}
+
+/**
+ * Spec 96 §10.1: «the automatic outcome comes from the registered response», so correcting the response updates the outcome and result
+ * it set, in the correction's transaction. Only activities whose outcome is still automatic (`outcome_response_id` = the response) change:
+ * a person's correction cleared that mark and is never overwritten. Each change is journaled as automatic, linked to the correction.
+ */
+export async function refreshAutoOutcomesFromResponse(e:Executor,{response,user,relatedEventId}:{response:{id:string;category:ResponseCategory;summary:string};user:User;relatedEventId:string|null}):Promise<{activityIds:string[]}>{
+ const {outcome,result}=outcomeFromResponse(response);
+ const rows=(await sql<{id:string;accountId:string;leadId:string|null;beforeOutcome:string|null;beforeResult:string|null;messageId:string|null}>`UPDATE crm_activities x SET outcome=${outcome},result=${result},updated_at=now()
+  FROM (SELECT id,outcome,result FROM crm_activities WHERE outcome_response_id=${response.id}::uuid AND deleted_at IS NULL) old
+  WHERE x.id=old.id AND x.outcome_response_id=${response.id}::uuid
+  RETURNING x.id::text AS id,x.account_id::text AS account_id,x.lead_id::text AS lead_id,old.outcome AS before_outcome,old.result AS before_result,(SELECT m.id::text FROM crm_messages m WHERE m.activity_id=x.id LIMIT 1) AS message_id`.execute(e)).rows;
+ for(const r of rows)await communicationJournal(e,{accountId:r.accountId,leadId:r.leadId,entityType:r.messageId?'interaction':'response',entityId:r.messageId??response.id,action:'contact_outcome_from_response_corrected',actor:null,automatic:true,triggeredBy:user.email,relatedEventId,before:{outcome:r.beforeOutcome,result:r.beforeResult},after:{outcome,result,responseId:response.id,activityId:r.id}});
+ return {activityIds:rows.map(r=>r.id)};
 }

@@ -27,7 +27,7 @@ import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramCh
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
-import {resolveSendOutcomeFromResponse} from './responseOutcomeService';
+import {refreshAutoOutcomesFromResponse,resolveSendOutcomeFromResponse} from './responseOutcomeService';
 import {contactLogBlocked} from './responseOutcome';
 export type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
@@ -302,6 +302,8 @@ async function correctResponse(e:Executor,input:Extract<CommunicationMutation,{a
  const correctionJournalId=await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'response',entityId:input.id,action:'response_corrected',actor:user,before,after:{...after,correctionReason:input.reason}});
  if(row.category!==input.category&&((row.category==='do_not_contact')||(input.category==='do_not_contact'))){const value=input.category==='do_not_contact';if(account.doNotContact!==value){if(value)await cancelRecontactTaskFor(e,{accountId:account.id,cause:'dnc'});await withAutomaticStateChange(e,'response_correction',()=>sql`UPDATE crm_accounts SET do_not_contact=${value},updated_at=now() WHERE id=${account.id}`.execute(e));await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'business',entityId:String(account.id),action:value?'do_not_contact_activated':'do_not_contact_lifted',actor:null,automatic:true,triggeredBy:user.email,relatedEventId:correctionJournalId,before:{doNotContact:!value},after:{doNotContact:value,responseId:input.id}});}}
  if(input.category==='do_not_contact')await closeForDoNotContact(e,account,input.closeLeadIds??[],user,input.id,row.leadId==null?null:String(row.leadId));
+ // Spec 96 §10.1: an outcome this response set automatically follows the corrected response (a person's correction stays).
+ await refreshAutoOutcomesFromResponse(e,{response:{id:input.id,category:input.category,summary:input.summary},user,relatedEventId:correctionJournalId});
  return {id:input.id};
 }
 async function startManual(e:Executor,input:Extract<CommunicationMutation,{action:'manual_start'}>,user:User){

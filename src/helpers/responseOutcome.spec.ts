@@ -1,4 +1,4 @@
-import {attributeResponseToSend,contactLogBlocked,responseOutcome,type OpenSend} from './responseOutcome';
+import {attributeResponseToSend,contactLogBlocked,outcomeFromResponse,responseOutcome,type OpenSend} from './responseOutcome';
 
 const now=new Date('2026-10-29T00:00:00Z');
 const send=(id:string,leadId:string|null,iso:string):OpenSend=>({id,leadId,lastInteractionAt:new Date(iso)});
@@ -71,5 +71,18 @@ describe('contactLogBlocked',()=>{
  });
  it('lets the first log through when there is no outcome yet',()=>{
   expect(contactLogBlocked({outcome:null,outcomeResponseId:null})).toBe(false);
+ });
+});
+
+describe('outcomeFromResponse',()=>{
+ it('records the canonical outcome with the category and summary as the result',()=>{
+  expect(outcomeFromResponse({category:'rejected',summary:'Ya trabaja con otra plataforma'})).toEqual({outcome:'not_interested',result:'Respuesta registrada: No le interesa · Ya trabaja con otra plataforma'});
+ });
+ it('follows a corrected category (the automatic outcome comes from the response)',()=>{
+  expect(outcomeFromResponse({category:'interested',summary:'Quiere la propuesta'}).outcome).toBe('interested');
+  expect(outcomeFromResponse({category:'later',summary:'Quiere la propuesta'}).outcome).toBe('later');
+ });
+ it('caps the result at 4000 characters',()=>{
+  expect(outcomeFromResponse({category:'other',summary:'x'.repeat(5000)}).result).toHaveLength(4000);
  });
 });
