@@ -4,7 +4,8 @@ import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/r
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {MessageComposer} from './MessageComposer';
-import {INSTAGRAM_DISPATCH_FAILED} from './InstagramOpenChat';
+import {INSTAGRAM_DISPATCH_FAILED,instagramOpenedToast,userscriptPastesOnInstagram} from './InstagramOpenChat';
+import {INSTALLED_ATTRIBUTE} from '../../userscript/src/announce';
 import {postCommunication,type PreparedMessage} from '../endpoints/communication.schema';
 import {toast} from 'sonner';
 
@@ -18,9 +19,9 @@ beforeEach(()=>{
  coarse=false;
  window.matchMedia=((query:string)=>({matches:query.includes('coarse')?coarse:false,media:query,addEventListener:()=>{},removeEventListener:()=>{},addListener:()=>{},removeListener:()=>{},dispatchEvent:()=>false,onchange:null}) as MediaQueryList);
 });
-afterEach(()=>{cleanup();vi.clearAllMocks();vi.restoreAllMocks();});
+afterEach(()=>{cleanup();vi.clearAllMocks();vi.restoreAllMocks();document.documentElement.removeAttribute(INSTALLED_ATTRIBUTE);});
 
-const URL_IG='https://ig.me/m/hotel.sol',URL_PROFILE='https://www.instagram.com/hotel.sol/';
+const URL_IG='https://ig.me/m/hotel.sol',URL_PROFILE='https://www.instagram.com/hotel.sol/#hospeda';// spec 94: marker for the user script
 const message=(over:Partial<PreparedMessage>={}):PreparedMessage=>({id:'11111111-1111-4111-8111-111111111111',accountId:'5',leadId:null,contactId:null,channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',subject:'',body:'Hola *Sol*, ¿cómo están?',htmlBody:null,textBody:'Hola *Sol*, ¿cómo están?',templateSnapshot:null,ownerEmail:'seller@example.com',activityId:null,outboxId:null,taskId:null,status:'draft',revision:4,lastInteractionAt:null,lastActorEmail:null,createdAt:new Date('2026-10-27T15:30:00Z'),updatedAt:new Date('2026-10-27T15:30:00Z'),purpose:'first_contact',otherPurpose:null,...over});
 const show=(initial:PreparedMessage,props:Partial<React.ComponentProps<typeof MessageComposer>>={})=>render(<MantineProvider><QueryClientProvider client={new QueryClient()}><MessageComposer initial={initial} {...props}/></QueryClientProvider></MantineProvider>);
 const clipboard=(impl:()=>Promise<void>)=>{const writeText=vi.fn(impl);Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText}});return writeText;};
@@ -69,7 +70,7 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   expect(screen.getAllByText('Abriendo Instagram…').length).toBeGreaterThan(0);
   resolve({message:opened(),username:'hotel.sol'});
   await waitFor(()=>expect(popup.location.href).toBe(URL_PROFILE));
-  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo \((Ctrl|⌘)\+?V\)\.$/),expect.anything()));
+  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo \((Ctrl|⌘)\+?V\)\. Con el user script de Hospeda se pega solo\.$/),expect.anything()));
   expect(await screen.findByText('Esperando que Instagram confirme el envío…')).toBeTruthy();
  });
  it('blocks a double click: one copy, one tab, one request',async()=>{
@@ -165,5 +166,26 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   expect(screen.getByText('¿Lo enviaste?')).toBeTruthy();
   fireEvent.click(screen.getByRole('button',{name:'No se envió'}));
   await waitFor(()=>expect(vi.mocked(postCommunication).mock.lastCall?.[0]).toEqual({action:'outcome',id:message().id,event:'manual_not_sent',notes:''}));
+ });
+});
+
+describe('«Abrir Instagram» toast and the user script (spec 94)',()=>{
+ it('detects a script version that pastes on Instagram from the attribute it announces on the CRM page',()=>{
+  expect(userscriptPastesOnInstagram()).toBe(false);
+  for(const [version,pastes] of [['1.3.0',false],['1.4.0',true],['1.10.2',true],['garbage',false]] as const){document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,version);expect(userscriptPastesOnInstagram(),version).toBe(pastes);}
+ });
+ it('says the script pastes when it is installed, and offers it otherwise; phone and copy failures keep their texts',()=>{
+  expect(instagramOpenedToast({copied:true,mobile:false,scriptPastes:true})).toBe('Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.');
+  expect(instagramOpenedToast({copied:true,mobile:false,scriptPastes:false})).toMatch(/Con el user script de Hospeda se pega solo\.$/);
+  expect(instagramOpenedToast({copied:true,mobile:true,scriptPastes:true})).toBe('Mensaje copiado: en el chat mantené apretado y elegí Pegar');
+  expect(instagramOpenedToast({copied:false,mobile:false,scriptPastes:true})).toMatch(/^Perfil de Instagram abierto\. Copiá el mensaje desde el CRM/);
+ });
+ it('shows the script toast after «Abrir Instagram» when this browser has the script',async()=>{
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');
+  clipboard(()=>Promise.resolve());const popup={opener:{},closed:false,location:{href:'about:blank'},close:vi.fn()};vi.spyOn(window,'open').mockReturnValue(popup as unknown as Window);
+  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),username:'hotel.sol'});
+  fireEvent.click(button);
+  await waitFor(()=>expect(popup.location.href).toBe(URL_PROFILE));
+  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith('Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.',expect.anything()));
  });
 });

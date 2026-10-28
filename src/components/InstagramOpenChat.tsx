@@ -2,6 +2,8 @@ import React,{useEffect,useRef,useState} from 'react';
 import {Button} from './Button';
 import styles from './Communication.module.css';
 import {instagramTarget} from '../helpers/instagramChat';
+import {compareSemver} from '../helpers/userscriptPure';
+import {INSTALLED_ATTRIBUTE} from '../../userscript/src/announce';
 
 /**
  * Spec 92 §2.2–2.3: the client side of «Abrir Instagram». Instagram does not accept prefilled text, so the saved final text is
@@ -36,10 +38,22 @@ export async function copyMessageText(text:string):Promise<boolean>{return copyI
 export const isCoarsePointer=():boolean=>typeof window!=='undefined'&&typeof window.matchMedia==='function'&&window.matchMedia('(pointer: coarse)').matches;
 const isMac=():boolean=>typeof navigator!=='undefined'&&/Mac|iPhone|iPad/i.test(navigator.platform||navigator.userAgent||'');
 
-/** Toast after a successful open: how to paste (chat on a phone, «Enviar mensaje» on the profile), or why to copy from the CRM. */
-export function instagramOpenedToast({copied,mobile}:{copied:boolean;mobile:boolean}):string{
+/** First version of the shared user script that pastes on Instagram (spec 94). */
+export const INSTAGRAM_PASTE_SCRIPT_VERSION='1.4.0';
+/** True when the user script announced on this CRM page (PR #244 attribute) a version that pastes on Instagram. */
+export function userscriptPastesOnInstagram(doc:Document|undefined=typeof document==='undefined'?undefined:document):boolean{
+ const version=doc?.documentElement.getAttribute(INSTALLED_ATTRIBUTE);
+ return !!version&&/^\d+\.\d+\.\d+$/.test(version)&&compareSemver(version,INSTAGRAM_PASTE_SCRIPT_VERSION)>=0;
+}
+
+/**
+ * Toast after a successful open: how to paste (chat on a phone, «Enviar mensaje» on the profile), or why to copy from the CRM. On a
+ * computer with the user script (spec 94) the script opens the chat and pastes; without it, the toast says it could.
+ */
+export function instagramOpenedToast({copied,mobile,scriptPastes=userscriptPastesOnInstagram()}:{copied:boolean;mobile:boolean;scriptPastes?:boolean}):string{
  if(!copied)return mobile?'Instagram abierto. Copiá el mensaje desde el CRM y pegalo en el chat.':'Perfil de Instagram abierto. Copiá el mensaje desde el CRM, tocá «Enviar mensaje» y pegalo.';
- return mobile?'Mensaje copiado: en el chat mantené apretado y elegí Pegar':`Mensaje copiado. En el perfil tocá «Enviar mensaje» y pegalo (${isMac()?'⌘V':'Ctrl+V'}).`;
+ if(mobile)return 'Mensaje copiado: en el chat mantené apretado y elegí Pegar';
+ return scriptPastes?'Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.':`Mensaje copiado. En el perfil tocá «Enviar mensaje» y pegalo (${isMac()?'⌘V':'Ctrl+V'}). Con el user script de Hospeda se pega solo.`;
 }
 
 /** Toast when `dispatch` failed after the tab was pre-opened (L9): the tab is closed and nothing was recorded. */

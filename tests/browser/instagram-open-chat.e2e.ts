@@ -65,9 +65,9 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);await dialog.getByRole('button',{name:'Abrir Instagram',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:shots+'/1-composer-instagram.png'});}
  await dialog.getByRole('button',{name:'Abrir Instagram',exact:true}).click();
  await expect(dialog.getByText('Esperando que Instagram confirme el envío…').first()).toBeVisible();
- await expect.poll(()=>page.evaluate(()=>(window as unknown as {__opened:string[]}).__opened)).toEqual(['about:blank','https://www.instagram.com/'+username+'/']);// desktop: ig.me does not work on Instagram Web
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {__opened:string[]}).__opened)).toEqual(['about:blank','https://www.instagram.com/'+username+'/#hospeda']);// desktop: ig.me does not work on Instagram Web; #hospeda is the user script marker (spec 94)
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);
- await expect(page.getByText(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo/)).toBeVisible();
+ await expect(page.getByText(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo .*Con el user script de Hospeda se pega solo\.$/)).toBeVisible();// no script in this browser
  if(shots)await page.screenshot({path:shots+'/2-copied-and-opened.png'});
  const attempt=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='social'&&m.status==='instagram_opened');expect(attempt.recipient).toBe('@'+username);
 
