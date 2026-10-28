@@ -113,7 +113,7 @@ export async function webhook(request:Request){
      // Spec 93 §2.2: reconcile only on new delivery evidence (a fresh terminal event) or to adopt earlier orphan events. Opens, clicks,
      // spam, deferred and redelivered duplicates are stored and change nothing, so a lifted restriction is never re-added by them.
      const orphans=(await sql`SELECT 1 FROM crm_email_events WHERE outbox_id IS NULL AND trim(both '<>' from message_id)=trim(both '<>' from ${v['message-id']}) AND lower(recipient)=lower(${v.email}) LIMIT 1`.execute(e)).rows.length>0;
-     if((fresh&&isTerminalEmailEvent(v.event))||orphans)await reconcileEvents(e,oid);
+     if((fresh&&isTerminalEmailEvent(v.event))||orphans)await reconcileEvents(e,oid,{messageId:v['message-id'],fresh:fresh?[fingerprint]:[]});
     }
    }
   });return new Response('OK');

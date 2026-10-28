@@ -128,7 +128,23 @@ try{
  assert.equal((await snapshot(orphan)).message.status,'delivery_confirmed','the adopted delivery applies');assert.equal((await snapshot(orphan)).journal,orphanBefore+1,'exactly one journal entry');
  assert.equal(await count(sql<{n:string}>`SELECT count(*) n FROM crm_email_events WHERE recipient=${orphan.recipient} AND outbox_id IS NULL`),0);
 
- console.log('Email engagement: auth, delivery, opens, proxy opens, clicks, spam, dedupe, no side effects, soft bounce then delivered, lifted restrictions, orphan adoption and review M1/B3/B4 passed');
+ // Review B1: adopting a non-terminal orphan never replays an old hard bounce whose restriction an admin lifted.
+ const b1=await sentEmail('b1');const b1Mid=(await sql<{messageId:string}>`SELECT message_id FROM email_outbox WHERE id=${b1.outboxId}`.execute(db)).rows[0].messageId;
+ assert.equal(await post(b1.event('hard_bounce',10)),200);assert.equal(await active(),1);await lift();
+ await sql`UPDATE email_outbox SET message_id=NULL WHERE id=${b1.outboxId}`.execute(db);assert.equal(await post(b1.event('deferred',15)),200);
+ await sql`UPDATE email_outbox SET message_id=${b1Mid} WHERE id=${b1.outboxId}`.execute(db);
+ assert.equal(await post(b1.event('opened',20)),200);
+ assert.equal(await count(sql<{n:string}>`SELECT count(*) n FROM crm_email_events WHERE recipient=${b1.recipient} AND outbox_id IS NULL`),0,'the orphan was adopted');
+ assert.equal(await active(),0,'an adopted non-terminal orphan does not re-add a lifted restriction');assert.equal((await snapshot(b1)).message.status,'failed');
+
+ // Review B2: an outbox matched by tag whose stored message_id differs still adopts orphans keyed by the event's message-id.
+ const b2=await sentEmail('b2');const otherMid=`zz-b2-other-${stamp}@brevo.test`;
+ assert.equal(await post(b2.event('delivered',10,{'message-id':otherMid})),200);
+ assert.equal((await snapshot(b2)).message.status,'accepted','unknown message-id and no tag: orphan');
+ assert.equal(await post(b2.event('opened',20,{'message-id':otherMid,tags:['hospeda-'+b2.id]})),200);
+ assert.equal((await snapshot(b2)).message.status,'delivery_confirmed','orphans are adopted with the event message-id');
+ assert.equal(await count(sql<{n:string}>`SELECT count(*) n FROM crm_email_events WHERE recipient=${b2.recipient} AND outbox_id IS NULL`),0);
+ console.log('Email engagement: auth, delivery, opens, proxy opens, clicks, spam, dedupe, no side effects, soft bounce then delivered, lifted restrictions, orphan adoption and review M1/B1-B4 passed');
 }finally{
  for(const id of outboxes)await sql`DELETE FROM crm_email_events WHERE outbox_id=${id}`.execute(db).catch(()=>{});
  for(const id of accounts){
