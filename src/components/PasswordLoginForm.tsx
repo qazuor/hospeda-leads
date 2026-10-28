@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Form,
   FormControl,
@@ -18,6 +18,7 @@ import {
   postLogin,
 } from "../endpoints/auth/login_with_password_POST.schema";
 import { useAuth } from "../helpers/useAuth";
+import { safeNextPath } from "../helpers/safeNextPath";
 import { User } from "../helpers/User";
 
 export type LoginFormData = z.infer<typeof schema>;
@@ -39,6 +40,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const { onLogin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const form = useForm({
     defaultValues: {
@@ -56,7 +58,7 @@ export const PasswordLoginForm: React.FC<PasswordLoginFormProps> = ({
       const result = await postLogin(data);
       if (onSuccess) return onSuccess(result.user);
       onLogin(result.user);
-      setTimeout(() => navigate("/"), 200);
+      setTimeout(() => navigate(safeNextPath(searchParams.get("next")) ?? "/"), 200);
     } catch (err) {
       console.error("Login error:", err);
       setError(

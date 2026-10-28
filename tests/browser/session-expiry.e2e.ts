@@ -48,7 +48,7 @@ test('re-login with another account discards the draft with a full reload',async
 });
 
 test('a first visit without a session goes to the login page, with Spanish copy',async({page})=>{
- await page.goto('/my-day');await expect(page).toHaveURL(/\/login$/);await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.goto('/my-day');await expect(page).toHaveURL(/\/login\?next=%2Fmy-day$/);await expect(page.getByRole('dialog')).toHaveCount(0);
  await expect(page.getByLabel('Email',{exact:true})).toHaveAttribute('placeholder','tu@email.com');
  await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page.getByText('Ingresá tu contraseña.',{exact:true})).toBeVisible();
 });
