@@ -13,6 +13,7 @@ export const FAILURE_NOTICES: Readonly<Record<FlowFailure, string>> = {
   "composer-busy": "El chat ya tenía texto escrito, así que no pegué nada. Si hace falta, pegá el mensaje con Ctrl+V.",
   "clipboard-denied": "No pude leer el portapapeles. Pegá el mensaje con Ctrl+V.",
   "clipboard-empty": "El portapapeles está vacío. Copiá el mensaje desde el CRM y pegalo con Ctrl+V.",
+  "clipboard-changed": "El portapapeles cambió: pegá el mensaje con Ctrl+V.",
   "insert-failed": "No pude pegar el mensaje: pegalo con Ctrl+V.",
 };
 
