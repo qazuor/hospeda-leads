@@ -7,7 +7,7 @@ import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreIns
 
 /**
  * Spec 92: «Abrir Instagram» from the composer. The seller prepares the message, the CRM copies it and opens the
- * business profile on a computer (window.open is stubbed: nothing reaches Instagram), the bubble waits for the echo, and a signed echo
+ * business profile on a computer (window.open is stubbed: nothing reaches Instagram), «Requiere acción» waits for the echo, and a signed echo
  * (as Meta would send it) confirms the same attempt. Needs the server and this process to share INSTAGRAM_APP_SECRET,
  * INSTAGRAM_ACCOUNT_ID and INTEGRATION_SECRETS_KEY (CI sets fake values on both steps).
  */
@@ -46,9 +46,9 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
  async function api(endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
  const username='zz_e2e_'+Date.now().toString(36);
- accountId=String((await api('commercial',{action:'account_save',nombre:'Zz Instagram e2e '+Date.now(),perfilInstagram:'https://www.instagram.com/'+username+'/',assignedUserEmail:'admin@example.com'})).id);
+ accountId=String((await api('commercial',{action:'account_save',nombre:'Zz Instagram e2e '+Date.now(),perfilInstagram:'https://www.instagram.com/'+username+'/',telefono:'5493442000009',assignedUserEmail:'admin@example.com'})).id);
  await api('commercial',{action:'business_status',accountId,status:'reviewed',recontactAt:null});
- await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Presentación Instagram',estado:'Cargado'});
+ const leadId=String((await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Presentación Instagram',estado:'Cargado'})).id);
  await sql`INSERT INTO crm_instagram_contacts(igsid,username,name,fetched_at) VALUES(${igsid},${username},'Zz e2e',now()) ON CONFLICT(igsid) DO UPDATE SET username=excluded.username,fetched_at=now()`;
 
  await page.goto('/accounts/'+accountId);await page.getByRole('button',{name:'Contactar',exact:true}).first().click();let dialog=page.getByRole('dialog');
@@ -71,18 +71,38 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  if(shots)await page.screenshot({path:shots+'/2-copied-and-opened.png'});
  const attempt=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='social'&&m.status==='instagram_opened');expect(attempt.recipient).toBe('@'+username);
 
- // The conversation shows the dashed bubble while waiting.
+ // An opened WhatsApp too (through the API: window.open is stubbed, nothing reaches WhatsApp), to see both unconfirmed sends.
+ const waText='Hola, te escribo desde Hospeda por WhatsApp.';
+ const wa=await api('communication',{action:'prepare',id:randomUUID(),leadId,contactId:null,channel:'whatsapp',templateId:null});
+ const waEdited=await api('communication',{action:'edit',id:wa.id,revision:wa.revision,subject:'',body:waText});
+ await api('communication',{action:'dispatch',id:wa.id,revision:waEdited.revision,confirm:true});
+ expect((await api('communication?accountId='+accountId)).messages.find((m:any)=>m.id===wa.id).status).toBe('whatsapp_opened');
+
+ // Unconfirmed sends are not in «Conversación» (owner decision): they live only in «Requiere acción», with their own actions.
  await page.goto('/accounts/'+accountId+'?tab=comunicacion');
- const bubble=page.locator('article').filter({hasText:text.slice(0,40)}).first();
- await expect(bubble).toContainText('Esperando que Instagram confirme el envío…');
- if(shots)await bubble.screenshot({path:shots+'/3-waiting-bubble.png'});
+ const conversation=page.getByTestId('conversation-body'),required=page.getByRole('region',{name:'Requiere acción',exact:true});
+ const igEntry=required.getByRole('group',{name:/^Instagram sin confirmar para /}),waEntry=required.getByRole('group',{name:/^WhatsApp sin confirmar para /});
+ await expect(igEntry).toContainText('Esperando que Instagram confirme el envío…');await expect(igEntry).toContainText(text.slice(0,40));
+ for(const name of ['Sí, se envió','No se envió','Copiar y abrir de nuevo'])await expect(igEntry.getByRole('button',{name,exact:true})).toBeVisible();
+ await expect(waEntry).toContainText('¿Lo enviaste?');await expect(waEntry).toContainText(waText);await expect(waEntry.getByRole('button',{name:'Copiar y abrir de nuevo',exact:true})).toHaveCount(0);
+ await expect(required.getByRole('button',{name:'Ver en la conversación',exact:true})).toHaveCount(0);
+ await expect(conversation.getByText(text.slice(0,40))).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
+ if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await required.screenshot({path:shots+'/3-requires-action-unconfirmed.png'});}
+
+ // «No se envió» on the WhatsApp: it leaves «Requiere acción» and stays out of «Conversación» (admin: only with «Mostrar anulados»).
+ await waEntry.getByRole('button',{name:'No se envió',exact:true}).click();
+ await expect(waEntry).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
+ await page.getByRole('switch',{name:'Mostrar anulados'}).check();
+ await expect(page.getByTestId('conversation-body').getByText(waText)).toBeVisible();
+ await page.getByRole('switch',{name:'Mostrar anulados'}).uncheck();
 
  // Meta sends the echo of what the seller pasted: the same attempt becomes «confirmado por Instagram».
  const raw=JSON.stringify({object:'instagram',entry:[{id:igAccount,messaging:[{sender:{id:igAccount},recipient:{id:igsid},timestamp:Date.now(),message:{mid:'e2e-'+randomUUID(),text:text+' Saludos!',is_echo:true}}]}]});
  const hook=await page.request.post('/_api/inbound/instagram',{headers:{'Content-Type':'application/json','X-Hub-Signature-256':'sha256='+createHmac('sha256',secret!).update(raw).digest('hex')},data:raw});expect(hook.status()).toBe(200);
  await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages.filter((m:any)=>m.channel==='social').map((m:any)=>[m.id,m.status])).toEqual([[attempt.id,'manual_sent']]);
  await page.reload();
- const resolved=page.locator('article').filter({hasText:'Enviado · confirmado por Instagram'}).first();
+ await expect(page.getByRole('region',{name:'Requiere acción',exact:true}).getByRole('group',{name:/^Instagram sin confirmar para /})).toHaveCount(0);
+ const resolved=page.getByTestId('conversation-body').locator('article').filter({hasText:'Enviado · confirmado por Instagram'}).first();
  await expect(resolved).toContainText(text.slice(0,40));await expect(resolved).not.toContainText('Esperando que Instagram confirme');
  if(shots)await resolved.screenshot({path:shots+'/4-resolved-bubble.png'});
  expect(errors).toEqual([]);
