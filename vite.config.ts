@@ -10,6 +10,8 @@ export default defineConfig({
     strictPort: Boolean(process.env.CRM_DEV_WEB_PORT),
     proxy: {
       "/_api": process.env.CRM_DEV_API_URL || "http://localhost:3001",
+      // The API serves the user script; without this, Vite answers the install link (and Tampermonkey update checks) with the SPA.
+      "/userscripts": process.env.CRM_DEV_API_URL || "http://localhost:3001",
     },
   },
   build: {
