@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CONNECTION_ATTRIBUTE, INSTALLED_EVENT, RECHECK_EVENT, USER_ATTRIBUTE } from "./announce";
-import { CONNECTED_RECHECK_MS, connectionFromError, watchConnection } from "./connection";
+import { CONNECTED_RECHECK_MS, RECHECK_THROTTLE_MS, connectionFromError, watchConnection } from "./connection";
 import { ApiError, type StatusResponse } from "./api";
 
 const ok = (email = "ana@hospeda.test"): StatusResponse => ({ minVersion: "1.5.0", latestVersion: "1.5.0", user: { email, displayName: "Ana" } });
@@ -9,7 +9,7 @@ const html = () => document.documentElement;
 let watcher: { stop: () => void } | null = null;
 const setVisibility = (value: DocumentVisibilityState) => Object.defineProperty(document, "visibilityState", { configurable: true, get: () => value });
 
-afterEach(() => { watcher?.stop(); watcher = null; html().removeAttribute(CONNECTION_ATTRIBUTE); html().removeAttribute(USER_ATTRIBUTE); setVisibility("visible"); });
+afterEach(() => { vi.useRealTimers(); watcher?.stop(); watcher = null; html().removeAttribute(CONNECTION_ATTRIBUTE); html().removeAttribute(USER_ATTRIBUTE); setVisibility("visible"); });
 
 describe("connectionFromError", () => {
   it("maps 401 to rejected, 426 to outdated and anything else to unknown", () => {
@@ -58,11 +58,35 @@ describe("watchConnection", () => {
   it("re-checks on the page's recheck event and announces only changes", async () => {
     const answers: Array<() => Promise<StatusResponse>> = [async () => { throw new ApiError("x", 0); }, async () => ok(), async () => ok()];
     const fetchStatus = vi.fn(() => answers.shift()!()), listener = vi.fn(); document.addEventListener(INSTALLED_EVENT, listener);
-    watcher = watchConnection({ doc: document, readToken: () => "hcu_x", fetchStatus }); await flush();
+    let at = 0; watcher = watchConnection({ doc: document, readToken: () => "hcu_x", fetchStatus, now: () => at }); await flush();
     expect(html().getAttribute(CONNECTION_ATTRIBUTE)).toBe("unknown");
-    document.dispatchEvent(new Event(RECHECK_EVENT)); await flush(); expect(html().getAttribute(CONNECTION_ATTRIBUTE)).toBe("connected");
-    document.dispatchEvent(new Event(RECHECK_EVENT)); await flush();
+    at += RECHECK_THROTTLE_MS; document.dispatchEvent(new Event(RECHECK_EVENT)); await flush(); expect(html().getAttribute(CONNECTION_ATTRIBUTE)).toBe("connected");
+    at += RECHECK_THROTTLE_MS; document.dispatchEvent(new Event(RECHECK_EVENT)); await flush();
     expect(fetchStatus).toHaveBeenCalledTimes(3); expect(listener).toHaveBeenCalledTimes(2);
     document.removeEventListener(INSTALLED_EVENT, listener);
+  });
+  it("throttles page re-checks to one every five seconds, collapsing a burst into one trailing check", async () => {
+    vi.useFakeTimers(); const fetchStatus = vi.fn(async () => ok());
+    watcher = watchConnection({ doc: document, readToken: () => "hcu_x", fetchStatus }); await vi.advanceTimersByTimeAsync(0);
+    expect(fetchStatus).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 5; i++) document.dispatchEvent(new Event(RECHECK_EVENT));
+    await vi.advanceTimersByTimeAsync(RECHECK_THROTTLE_MS - 1); expect(fetchStatus).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1); expect(fetchStatus).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(RECHECK_THROTTLE_MS); document.dispatchEvent(new Event(RECHECK_EVENT)); await vi.advanceTimersByTimeAsync(0);
+    expect(fetchStatus).toHaveBeenCalledTimes(3);
+  });
+  it("never doubles a check in flight", async () => {
+    let release: (value: StatusResponse) => void = () => undefined;
+    const fetchStatus = vi.fn(() => new Promise<StatusResponse>(resolve => { release = resolve; }));
+    let at = 0; watcher = watchConnection({ doc: document, readToken: () => "hcu_x", fetchStatus, now: () => at }); await flush();
+    at = RECHECK_THROTTLE_MS; document.dispatchEvent(new Event(RECHECK_EVENT)); await flush();
+    expect(fetchStatus).toHaveBeenCalledTimes(1);
+    release(ok()); await flush(); expect(html().getAttribute(CONNECTION_ATTRIBUTE)).toBe("connected");
+  });
+  it("drops a pending trailing check when stopped", async () => {
+    vi.useFakeTimers(); const fetchStatus = vi.fn(async () => ok());
+    const w = watchConnection({ doc: document, readToken: () => "hcu_x", fetchStatus }); await vi.advanceTimersByTimeAsync(0);
+    document.dispatchEvent(new Event(RECHECK_EVENT)); w.stop(); await vi.advanceTimersByTimeAsync(RECHECK_THROTTLE_MS * 2);
+    expect(fetchStatus).toHaveBeenCalledTimes(1);
   });
 });
