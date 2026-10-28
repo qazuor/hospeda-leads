@@ -4,8 +4,8 @@ import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/r
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {MessageComposer} from './MessageComposer';
-import {INSTAGRAM_DISPATCH_FAILED,handOffToUserscript,instagramOpenedToast,userscriptPastesOnInstagram} from './InstagramOpenChat';
-import {HANDOFF_MESSAGE_TYPE,textHash} from '../../userscript/src/instagram/handoff';
+import {INSTAGRAM_DISPATCH_FAILED,handOffToUserscript,instagramOpenedToast,openInstagramForPaste,userscriptPastesOnInstagram} from './InstagramOpenChat';
+import {HANDOFF_ACK_ATTRIBUTE,HANDOFF_EVENT} from '../../userscript/src/instagram/handoff';
 import {INSTALLED_ATTRIBUTE} from '../../userscript/src/announce';
 import {postCommunication,type PreparedMessage} from '../endpoints/communication.schema';
 import {toast} from 'sonner';
@@ -15,12 +15,15 @@ vi.mock('./RichTemplateEditor',()=>({RichTemplateEditor:({ariaLabel,channel}:{ar
 vi.mock('../endpoints/communication.schema',async original=>({...(await original<typeof import('../endpoints/communication.schema')>()),postCommunication:vi.fn()}));
 
 let coarse=false;
+/** Stand-in for the user script on this CRM page: parses the JSON string handoff and acks it with its nonce, like `instagramBridge.ts`. */
+let stopScript=()=>{};
+function fakeScript(){const handed:Record<string,unknown>[]=[];const listener=(event:Event)=>{const value=JSON.parse((event as CustomEvent<string>).detail);handed.push(value);document.documentElement.setAttribute(HANDOFF_ACK_ATTRIBUTE,value.nonce);};document.addEventListener(HANDOFF_EVENT,listener);stopScript=()=>document.removeEventListener(HANDOFF_EVENT,listener);return handed;}
 beforeAll(()=>{window.ResizeObserver=window.ResizeObserver||class{observe(){}unobserve(){}disconnect(){}};});
 beforeEach(()=>{
  coarse=false;
  window.matchMedia=((query:string)=>({matches:query.includes('coarse')?coarse:false,media:query,addEventListener:()=>{},removeEventListener:()=>{},addListener:()=>{},removeListener:()=>{},dispatchEvent:()=>false,onchange:null}) as MediaQueryList);
 });
-afterEach(()=>{cleanup();vi.clearAllMocks();vi.restoreAllMocks();document.documentElement.removeAttribute(INSTALLED_ATTRIBUTE);});
+afterEach(()=>{cleanup();vi.clearAllMocks();vi.restoreAllMocks();document.documentElement.removeAttribute(INSTALLED_ATTRIBUTE);document.documentElement.removeAttribute(HANDOFF_ACK_ATTRIBUTE);stopScript();});
 
 const URL_IG='https://ig.me/m/hotel.sol',URL_PROFILE='https://www.instagram.com/hotel.sol/';// no user script here: no spec 94 marker
 const message=(over:Partial<PreparedMessage>={}):PreparedMessage=>({id:'11111111-1111-4111-8111-111111111111',accountId:'5',leadId:null,contactId:null,channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',subject:'',body:'Hola *Sol*, ¿cómo están?',htmlBody:null,textBody:'Hola *Sol*, ¿cómo están?',templateSnapshot:null,ownerEmail:'seller@example.com',activityId:null,outboxId:null,taskId:null,status:'draft',revision:4,lastInteractionAt:null,lastActorEmail:null,createdAt:new Date('2026-10-27T15:30:00Z'),updatedAt:new Date('2026-10-27T15:30:00Z'),purpose:'first_contact',otherPurpose:null,...over});
@@ -149,10 +152,12 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
   expect(popup.close).toHaveBeenCalled();expect(popup.location.href).toBe('');
  });
  it('«Copiar y abrir de nuevo» copies and opens the same chat without any request',async()=>{
-  const writeText=clipboard(()=>Promise.resolve());const open=vi.spyOn(window,'open').mockReturnValue({opener:{}} as unknown as Window);
+  const writeText=clipboard(()=>Promise.resolve());const tab={opener:{},location:{href:'about:blank'}};const open=vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
   show(opened());
   fireEvent.click(screen.getByRole('button',{name:'Copiar y abrir de nuevo'}));
-  expect(writeText).toHaveBeenCalledWith('Hola *Sol*, ¿cómo están?');expect(open).toHaveBeenCalledWith(URL_PROFILE,'_blank');
+  // The copy and the blank tab happen inside the click; without the user script the tab gets the plain profile.
+  expect(writeText).toHaveBeenCalledWith('Hola *Sol*, ¿cómo están?');expect(open).toHaveBeenCalledWith('about:blank','_blank');
+  await waitFor(()=>expect(tab.location.href).toBe(URL_PROFILE));
   await waitFor(()=>expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje»/)));
   expect(postCommunication).not.toHaveBeenCalled();
  });
@@ -181,28 +186,49 @@ describe('«Abrir Instagram» toast and the user script (spec 94)',()=>{
   expect(instagramOpenedToast({copied:true,mobile:true,scriptPastes:true})).toBe('Mensaje copiado: en el chat mantené apretado y elegí Pegar');
   expect(instagramOpenedToast({copied:false,mobile:false,scriptPastes:true})).toMatch(/^Perfil de Instagram abierto\. Copiá el mensaje desde el CRM/);
  });
- it('hands a one-time nonce to the user script on this page and falls back to the plain profile without it',async()=>{
-  const post=vi.spyOn(window,'postMessage');
-  expect(handOffToUserscript({username:'@hotel.sol',text:'Hola'})).toBeNull();expect(post).not.toHaveBeenCalled();
-  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.3.0');expect(handOffToUserscript({username:'@hotel.sol',text:'Hola'})).toBeNull();
+ it('hands the text with a one-time nonce to the user script and resolves only when it acks',async()=>{
+  const dispatched=vi.fn();document.addEventListener(HANDOFF_EVENT,dispatched);
+  expect(await handOffToUserscript({username:'@hotel.sol',text:'Hola'})).toBeNull();
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.3.0');expect(await handOffToUserscript({username:'@hotel.sol',text:'Hola'})).toBeNull();
   document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');
-  expect(handOffToUserscript({username:'Hotel Sol',text:'Hola'})).toBeNull();
-  const a=handOffToUserscript({username:'@Hotel.Sol',text:'Hola\r\n'}),b=handOffToUserscript({username:'@hotel.sol',text:'Hola'});
+  expect(await handOffToUserscript({username:'Hotel Sol',text:'Hola'})).toBeNull();
+  expect(await handOffToUserscript({username:'@hotel.sol',text:'a'.repeat(4001)})).toBeNull();// over the cap: plain profile, manual paste
+  expect(dispatched).not.toHaveBeenCalled();
+  // A script that does not ack (missing bridge, old build, sandbox issue): no promise of an automatic paste.
+  expect(await handOffToUserscript({username:'@hotel.sol',text:'Hola',timeoutMs:60})).toBeNull();expect(dispatched).toHaveBeenCalledTimes(1);
+  const handed=fakeScript();
+  const a=await handOffToUserscript({username:'@Hotel.Sol',text:'Hola, ¿cómo están?'}),b=await handOffToUserscript({username:'@hotel.sol',text:'Hola'});
   expect(a).toMatch(/^[0-9a-f]{32}$/);expect(b).not.toBe(a);
-  await waitFor(()=>expect(post).toHaveBeenCalledTimes(2));
-  const [data,origin]=post.mock.calls[0] as [Record<string,unknown>,string];
-  expect(origin).toBe(window.location.origin);
-  expect(data).toEqual({type:HANDOFF_MESSAGE_TYPE,nonce:a,username:'hotel.sol',expiresAt:expect.any(Number),textHash:await textHash({text:'Hola'})});
-  expect((data.expiresAt as number)-Date.now()).toBeLessThanOrEqual(2*60_000);
+  expect(handed[0]).toEqual({nonce:a,username:'hotel.sol',expiresAt:expect.any(Number),text:'Hola, ¿cómo están?'});
+  expect((handed[0].expiresAt as number)-Date.now()).toBeLessThanOrEqual(2*60_000);
+  expect(typeof (dispatched.mock.calls[1][0] as CustomEvent).detail).toBe('string');// a JSON string crosses Tampermonkey's sandbox
+  document.removeEventListener(HANDOFF_EVENT,dispatched);
  });
- it('opens the profile with #hospeda=<nonce> and says the script pastes when this browser has the script',async()=>{
-  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');const post=vi.spyOn(window,'postMessage');
+ it('opens the profile with #hospeda=<nonce> and says the script pastes once the script acked',async()=>{
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');const handed=fakeScript();
   clipboard(()=>Promise.resolve());const popup={opener:{},closed:false,location:{href:'about:blank'},close:vi.fn()};vi.spyOn(window,'open').mockReturnValue(popup as unknown as Window);
   const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),username:'hotel.sol'});
   fireEvent.click(button);
   await waitFor(()=>expect(popup.location.href).toMatch(/^https:\/\/www\.instagram\.com\/hotel\.sol\/#hospeda=[0-9a-f]{32}$/));
-  await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
-  expect((post.mock.calls[0][0] as {nonce:string}).nonce).toBe(popup.location.href.split('=')[1]);
+  expect(handed).toHaveLength(1);expect(handed[0].nonce).toBe(popup.location.href.split('=')[1]);expect(handed[0].text).toBe('Hola *Sol*, ¿cómo están?');
   await waitFor(()=>expect(toast.success).toHaveBeenCalledWith('Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.',expect.anything()));
+ });
+ it('opens the plain profile and asks for a manual paste when the script does not ack',async()=>{
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');
+  clipboard(()=>Promise.resolve());const popup={opener:{},closed:false,location:{href:'about:blank'},close:vi.fn()};vi.spyOn(window,'open').mockReturnValue(popup as unknown as Window);
+  const button=await review();vi.mocked(postCommunication).mockResolvedValueOnce({message:opened(),username:'hotel.sol'});
+  fireEvent.click(button);
+  await waitFor(()=>expect(popup.location.href).toBe(URL_PROFILE),{timeout:2000});
+  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/Con el user script de Hospeda se pega solo\.$/),expect.anything()));
+ });
+ it('«Copiar y abrir de nuevo» hands off again with a new nonce on a computer and opens the chat link on a phone',async()=>{
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');const handed=fakeScript();
+  const tab={opener:{},location:{href:'about:blank'}};const open=vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:true,scriptPastes:true});
+  expect(open).toHaveBeenCalledWith('about:blank','_blank');expect(tab.location.href).toBe(URL_PROFILE+'#hospeda='+handed[0].nonce);
+  open.mockClear();
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:true})).toEqual({opened:true,scriptPastes:false});
+  expect(open).toHaveBeenCalledWith(URL_IG,'_blank');expect(handed).toHaveLength(1);
+  open.mockReturnValue(null);expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:false,scriptPastes:false});
  });
 });

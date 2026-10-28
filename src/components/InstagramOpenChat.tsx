@@ -4,7 +4,7 @@ import styles from './Communication.module.css';
 import {instagramTarget,normalizeInstagramUsername} from '../helpers/instagramChat';
 import {compareSemver} from '../helpers/userscriptPure';
 import {INSTALLED_ATTRIBUTE} from '../../userscript/src/announce';
-import {HANDOFF_MESSAGE_TYPE,HANDOFF_TTL_MS,newNonce,textHash} from '../../userscript/src/instagram/handoff';
+import {HANDOFF_ACK_ATTRIBUTE,HANDOFF_EVENT,HANDOFF_TTL_MS,handoffTextAllowed,newNonce} from '../../userscript/src/instagram/handoff';
 
 /**
  * Spec 92 §2.2–2.3: the client side of «Abrir Instagram». Instagram does not accept prefilled text, so the saved final text is
@@ -47,18 +47,38 @@ export function userscriptPastesOnInstagram(doc:Document|undefined=typeof docume
  return !!version&&/^\d+\.\d+\.\d+$/.test(version)&&compareSemver(version,INSTAGRAM_PASTE_SCRIPT_VERSION)>=0;
 }
 
+/** How long the CRM waits for the user script to ack a handoff before opening the plain profile (spec 94 M1). */
+export const HANDOFF_ACK_TIMEOUT_MS=300;
+
 /**
- * Spec 94 (D6): the one-time handoff that authorizes the user script to paste. Called inside the click, before the tab opens: it returns a
- * fresh 128-bit nonce for the URL (`#hospeda=<nonce>`) and posts `{nonce, username, expiresAt, textHash}` to the script on this page
- * (same window and origin; it stores it under its own key). Null on a phone, without a script that pastes, or without Web Crypto: then
- * the plain profile opens and the seller pastes, as before. A bare marker authorizes nothing, so a link from another site cannot paste.
+ * Spec 94 (D6, D7): the one-time handoff that authorizes the user script to insert the message on Instagram. It dispatches
+ * `{nonce, username, expiresAt, text}` as a JSON string on `document` (the script on this page stores it under its own key) and waits up
+ * to 300 ms for the script's ack (`data-hospeda-instagram-ack` = nonce). Resolves the nonce only when acked; null on a phone, without a
+ * script that pastes, for a text over 4000 characters or without an ack: then the plain profile opens and the seller pastes, as before.
+ * The text was already copied to the clipboard in the click (spec 92): that stays the manual fallback.
  */
-export function handOffToUserscript({username,text,win=window}:{username:string|null|undefined;text:string;win?:Window}):string|null{
- const user=normalizeInstagramUsername(username);
- if(!user||!userscriptPastesOnInstagram(win.document)||!win.crypto?.subtle)return null;
- const nonce=newNonce({random:win.crypto}),expiresAt=Date.now()+HANDOFF_TTL_MS;
- void textHash({text,subtle:win.crypto.subtle}).then(hash=>win.postMessage({type:HANDOFF_MESSAGE_TYPE,nonce,username:user,expiresAt,textHash:hash},win.location.origin),()=>{});
+export async function handOffToUserscript({username,text,win=window,timeoutMs=HANDOFF_ACK_TIMEOUT_MS}:{username:string|null|undefined;text:string;win?:Window;timeoutMs?:number}):Promise<string|null>{
+ const user=normalizeInstagramUsername(username),doc=win.document;
+ if(!user||!handoffTextAllowed(text)||!userscriptPastesOnInstagram(doc)||!win.crypto?.getRandomValues)return null;
+ const nonce=newNonce({random:win.crypto}),acked=()=>doc.documentElement.getAttribute(HANDOFF_ACK_ATTRIBUTE)===nonce;
+ doc.dispatchEvent(new CustomEvent(HANDOFF_EVENT,{detail:JSON.stringify({nonce,username:user,expiresAt:Date.now()+HANDOFF_TTL_MS,text})}));
+ for(const startedAt=Date.now();!acked();){if(Date.now()-startedAt>=timeoutMs)return null;await new Promise(resolve=>setTimeout(resolve,20));}
  return nonce;
+}
+
+/**
+ * «Copiar y abrir de nuevo» on a computer or a phone (spec 92 + 94). The caller already copied inside the click. On a phone it opens the
+ * chat link at once. On a computer it pre-opens a blank tab inside the click (popup blockers), hands the text to the user script and
+ * points the tab at `#hospeda=<nonce>` when acked, or at the plain profile otherwise.
+ */
+export async function openInstagramForPaste({username,text,mobile}:{username:string|null|undefined;text:string;mobile:boolean}):Promise<{opened:boolean;scriptPastes:boolean}>{
+ const plain=instagramTarget({username,mobile})?.url;if(!plain)return {opened:false,scriptPastes:false};
+ if(mobile)return {opened:openInstagramChat(plain),scriptPastes:false};
+ const tab=window.open('about:blank','_blank');if(!tab)return {opened:false,scriptPastes:false};
+ tab.opener=null;
+ const nonce=await handOffToUserscript({username,text});
+ tab.location.href=instagramTarget({username,mobile,nonce})?.url??plain;
+ return {opened:true,scriptPastes:!!nonce};
 }
 
 /**
@@ -102,9 +122,9 @@ export function InstagramOpenedActions({text,recipient,state,onToast}:{text:stri
  if(!url||!target)return null;
  const copyAndOpen=async()=>{
   // Synchronous copy first, then the open, both inside the click (M3).
-  const copy=copyInGesture(text),nonce=mobile?null:handOffToUserscript({username:recipient,text}),opened=openInstagramChat(instagramTarget({username:recipient,mobile,nonce})?.url??url),copied=await copy.settled;
+  const copy=copyInGesture(text),open=openInstagramForPaste({username:recipient,text,mobile}),[{opened,scriptPastes},copied]=await Promise.all([open,copy.settled]);
   setCopyAgainFailed(!copied);
-  onToast(!opened?'No se pudo abrir Instagram automáticamente. Usá el enlace de abajo.':instagramOpenedToast({copied,mobile,scriptPastes:!!nonce}));
+  onToast(!opened?'No se pudo abrir Instagram automáticamente. Usá el enlace de abajo.':instagramOpenedToast({copied,mobile,scriptPastes}));
  };
  const copyOnly=async()=>{const copied=await copyMessageText(text);if(copied){setManualCopy(false);setCopyAgainFailed(false);onToast('Mensaje copiado');}else{area.current?.select();onToast('No se pudo copiar: seleccioná el texto y copialo a mano.');}};
  return <div className={styles.instagramActions}>
