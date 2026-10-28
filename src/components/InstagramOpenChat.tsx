@@ -58,12 +58,15 @@ export const HANDOFF_ACK_TIMEOUT_MS=300;
  * The text was already copied to the clipboard in the click (spec 92): that stays the manual fallback.
  */
 export async function handOffToUserscript({username,text,win=window,timeoutMs=HANDOFF_ACK_TIMEOUT_MS}:{username:string|null|undefined;text:string;win?:Window;timeoutMs?:number}):Promise<string|null>{
- const user=normalizeInstagramUsername(username),doc=win.document;
- if(!user||!handoffTextAllowed(text)||!userscriptPastesOnInstagram(doc)||!win.crypto?.getRandomValues)return null;
- const nonce=newNonce({random:win.crypto}),acked=()=>doc.documentElement.getAttribute(HANDOFF_ACK_ATTRIBUTE)===nonce;
- doc.dispatchEvent(new CustomEvent(HANDOFF_EVENT,{detail:JSON.stringify({nonce,username:user,expiresAt:Date.now()+HANDOFF_TTL_MS,text})}));
- for(const startedAt=Date.now();!acked();){if(Date.now()-startedAt>=timeoutMs)return null;await new Promise(resolve=>setTimeout(resolve,20));}
- return nonce;
+ // A throw (crypto, event dispatch, a hostile page) counts as no ack: the caller opens the plain profile and asks for a manual paste.
+ try{
+  const user=normalizeInstagramUsername(username),doc=win.document;
+  if(!user||!handoffTextAllowed(text)||!userscriptPastesOnInstagram(doc)||!win.crypto?.getRandomValues)return null;
+  const nonce=newNonce({random:win.crypto}),acked=()=>doc.documentElement.getAttribute(HANDOFF_ACK_ATTRIBUTE)===nonce;
+  doc.dispatchEvent(new CustomEvent(HANDOFF_EVENT,{detail:JSON.stringify({nonce,username:user,expiresAt:Date.now()+HANDOFF_TTL_MS,text})}));
+  for(const startedAt=Date.now();!acked();){if(Date.now()-startedAt>=timeoutMs)return null;await new Promise(resolve=>setTimeout(resolve,20));}
+  return nonce;
+ }catch{return null;}
 }
 
 /**
@@ -88,7 +91,7 @@ export async function openInstagramForPaste({username,text,mobile}:{username:str
 export function instagramOpenedToast({copied,mobile,scriptPastes=false}:{copied:boolean;mobile:boolean;scriptPastes?:boolean}):string{
  if(!copied)return mobile?'Instagram abierto. Copiá el mensaje desde el CRM y pegalo en el chat.':'Perfil de Instagram abierto. Copiá el mensaje desde el CRM, tocá «Enviar mensaje» y pegalo.';
  if(mobile)return 'Mensaje copiado: en el chat mantené apretado y elegí Pegar';
- return scriptPastes?'Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.':`Mensaje copiado. En el perfil tocá «Enviar mensaje» y pegalo (${isMac()?'⌘V':'Ctrl+V'}). Con el user script de Hospeda se pega solo.`;
+ return scriptPastes?`Mensaje copiado. Si el script está activo en Instagram, abre el chat y pega el mensaje; si no, pegalo con ${isMac()?'⌘V':'Ctrl+V'}.`:`Mensaje copiado. En el perfil tocá «Enviar mensaje» y pegalo (${isMac()?'⌘V':'Ctrl+V'}). Con el user script de Hospeda se pega solo.`;
 }
 
 /** Toast when `dispatch` failed after the tab was pre-opened (L9): the tab is closed and nothing was recorded. */

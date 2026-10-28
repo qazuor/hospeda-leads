@@ -181,7 +181,7 @@ describe('«Abrir Instagram» toast and the user script (spec 94)',()=>{
   for(const [version,pastes] of [['1.3.0',false],['1.4.0',true],['1.10.2',true],['garbage',false]] as const){document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,version);expect(userscriptPastesOnInstagram(),version).toBe(pastes);}
  });
  it('says the script pastes when it is installed, and offers it otherwise; phone and copy failures keep their texts',()=>{
-  expect(instagramOpenedToast({copied:true,mobile:false,scriptPastes:true})).toBe('Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.');
+  expect(instagramOpenedToast({copied:true,mobile:false,scriptPastes:true})).toMatch(/^Mensaje copiado\. Si el script está activo en Instagram, abre el chat y pega el mensaje; si no, pegalo con (Ctrl\+V|⌘V)\.$/);
   expect(instagramOpenedToast({copied:true,mobile:false,scriptPastes:false})).toMatch(/Con el user script de Hospeda se pega solo\.$/);
   expect(instagramOpenedToast({copied:true,mobile:true,scriptPastes:true})).toBe('Mensaje copiado: en el chat mantené apretado y elegí Pegar');
   expect(instagramOpenedToast({copied:false,mobile:false,scriptPastes:true})).toMatch(/^Perfil de Instagram abierto\. Copiá el mensaje desde el CRM/);
@@ -204,6 +204,14 @@ describe('«Abrir Instagram» toast and the user script (spec 94)',()=>{
   expect(typeof (dispatched.mock.calls[1][0] as CustomEvent).detail).toBe('string');// a JSON string crosses Tampermonkey's sandbox
   document.removeEventListener(HANDOFF_EVENT,dispatched);
  });
+ it('treats a throw while handing off as no ack: plain profile and the manual-paste toast, never a blank tab',async()=>{
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');
+  vi.spyOn(document,'dispatchEvent').mockImplementation(()=>{throw new Error('boom');});
+  expect(await handOffToUserscript({username:'@hotel.sol',text:'Hola'})).toBeNull();
+  const tab={opener:{},location:{href:'about:blank'}};vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:true,scriptPastes:false});
+  expect(tab.location.href).toBe(URL_PROFILE);
+ });
  it('opens the profile with #hospeda=<nonce> and says the script pastes once the script acked',async()=>{
   document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');const handed=fakeScript();
   clipboard(()=>Promise.resolve());const popup={opener:{},closed:false,location:{href:'about:blank'},close:vi.fn()};vi.spyOn(window,'open').mockReturnValue(popup as unknown as Window);
@@ -211,7 +219,7 @@ describe('«Abrir Instagram» toast and the user script (spec 94)',()=>{
   fireEvent.click(button);
   await waitFor(()=>expect(popup.location.href).toMatch(/^https:\/\/www\.instagram\.com\/hotel\.sol\/#hospeda=[0-9a-f]{32}$/));
   expect(handed).toHaveLength(1);expect(handed[0].nonce).toBe(popup.location.href.split('=')[1]);expect(handed[0].text).toBe('Hola *Sol*, ¿cómo están?');
-  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith('Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.',expect.anything()));
+  await waitFor(()=>expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Mensaje copiado\. Si el script está activo en Instagram, abre el chat y pega el mensaje; si no, pegalo con (Ctrl\+V|⌘V)\.$/),expect.anything()));
  });
  it('opens the plain profile and asks for a manual paste when the script does not ack',async()=>{
   document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.4.0');
