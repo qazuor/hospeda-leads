@@ -1,12 +1,37 @@
-.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px;align-items:end;min-width:0}
-.filters label{display:grid;gap:6px;min-width:0;font-size:14px;font-weight:500}
+/* Spec 95: one filter row that wraps on narrow screens. */
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;min-width:0}
+.filters label,.statusField{display:grid;gap:6px;min-width:0;font-size:14px;font-weight:500}
+.searchField{flex:2 1 240px}
+.filterField{flex:1 1 180px;min-width:0}
+.statusField{flex:0 1 auto;max-width:100%}
+.statusField>:last-child{max-width:100%;overflow-x:auto}
+.groups{display:grid;gap:20px;min-width:0}
+.group{display:grid;gap:12px;min-width:0}
+.groupTitle{margin:0;font-size:17px}
+.groupTitle button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:600;cursor:pointer;border-radius:8px}
+.groupTitle button:hover{background:var(--muted)}
+.groupTitle svg{transition:transform .15s;transform:rotate(-90deg)}
+.groupTitle svg[data-open="true"]{transform:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:16px;min-width:0}
 .card{display:grid;grid-template-rows:auto 1fr;min-width:0;overflow:hidden;border:1px solid var(--surface-border);border-radius:var(--crm-panel-radius);background:var(--card);color:var(--foreground)}
 .card[data-selected="true"]{outline:2px solid var(--primary);outline-offset:2px}
 .card[data-archived="true"] .cover{opacity:.6}
 .cover{display:grid;place-items:center;aspect-ratio:1200/630;width:100%;overflow:hidden;background:var(--muted);color:var(--muted-foreground)}
 .cover img{width:100%;height:100%;object-fit:cover;display:block}
+.cover[data-format="pdf"] img{object-position:top}
+button.cover{padding:0;border:0;font:inherit;cursor:pointer}
+button.cover:hover img{transform:scale(1.02)}
+.cover img{transition:transform .2s}
 .coverLabel{display:grid;justify-items:center;gap:6px;font-size:13px;font-weight:600}
+/* Spec 95: drawn cover when there is no image: format icon on the color of the first category, with its initials. */
+.placeholder{position:relative;display:grid;place-items:center;align-content:center;gap:6px;width:100%;height:100%;font-size:13px;font-weight:600;color:var(--muted-foreground)}
+.placeholder[data-category="true"]{background:color-mix(in srgb,hsl(var(--cover-hue) 65% 50%) 18%,var(--muted));color:color-mix(in srgb,hsl(var(--cover-hue) 65% 35%) 70%,var(--foreground))}
+.initials{position:absolute;top:10px;left:10px;display:grid;place-items:center;min-width:32px;height:32px;padding:0 6px;border-radius:999px;background:hsl(var(--cover-hue) 65% 45%);color:#fff;font-size:13px;font-weight:700}
+.titleButton{padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.titleButton:hover{text-decoration:underline}
+.cardActions{display:flex;align-items:center;gap:8px;min-width:0}
+.cardActions>:is(a,button){min-height:44px}
+.cardActions>:first-child:is(a,button){flex:1 1 auto}
 .body{display:grid;align-content:start;gap:8px;min-width:0;padding:14px}
 .body h3{margin:0;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
 .badges{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
