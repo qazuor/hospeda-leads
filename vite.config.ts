@@ -12,6 +12,8 @@ export default defineConfig({
       "/_api": process.env.CRM_DEV_API_URL || "http://localhost:3001",
       // The API serves the user script; without this, Vite answers the install link (and Tampermonkey update checks) with the SPA.
       "/userscripts": process.env.CRM_DEV_API_URL || "http://localhost:3001",
+      // Public sales material links (/m/<token>, its file, download and cover) are served by the API too. The trailing slash keeps /my-day out.
+      "/m/": process.env.CRM_DEV_API_URL || "http://localhost:3001",
     },
   },
   build: {
