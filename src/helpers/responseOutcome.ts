@@ -14,6 +14,12 @@ const outcomes:Record<ResponseCategory,ContactOutcome>={interested:'interested',
 /** The canonical outcome a response category records. Only what the seller registered: «Pidió información» is not taken as interest. */
 export function responseOutcome({category}:{category:ResponseCategory}):{outcome:ContactOutcome}{return {outcome:outcomes[category]};}
 
+/**
+ * Whether «Anotar lo que pasó» must be refused because the contact already has an outcome. Only a person's outcome blocks it: one a
+ * registered response set automatically (`outcome_response_id` set) is overwritten by the person's log, as a correction (spec 96 §10.1).
+ */
+export function contactLogBlocked({outcome,outcomeResponseId}:{outcome:string|null;outcomeResponseId:string|null}):boolean{return !!outcome&&outcomeResponseId==null;}
+
 const latest=(sends:readonly OpenSend[])=>[...sends].sort((a,b)=>b.lastInteractionAt.getTime()-a.lastInteractionAt.getTime())[0]?.id??null;
 
 /**

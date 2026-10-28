@@ -28,6 +28,7 @@ import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} fr
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
 import {resolveSendOutcomeFromResponse} from './responseOutcomeService';
+import {contactLogBlocked} from './responseOutcome';
 export type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
@@ -430,8 +431,9 @@ export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:st
   if(given!==String(m.delegatedTaskId)&&!(user.role==='admin'&&given===null))throw new CommunicationForbidden('Este mensaje solo se puede usar desde su tarea delegada.');
  }
  if(!canLogContactOutcome(m.status))throw new CommunicationConflict('Este mensaje no registra un contacto realizado; no se puede anotar cómo salió.');
- const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
- if(existing?.outcome)throw new CommunicationConflict('Ya anotaste cómo salió este contacto.');
+ const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome','outcomeResponseId']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
+ // Spec 96 §10.1: an outcome a response set automatically does not block the seller's log; work.ts overwrites it and clears the mark.
+ if(existing&&contactLogBlocked(existing))throw new CommunicationConflict('Ya anotaste cómo salió este contacto.');
  if(needsSentAnswer(m.status)){
   if(!v.sent)throw new Error('Contá si el mensaje se envió.');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);

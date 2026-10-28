@@ -1,4 +1,4 @@
-import {attributeResponseToSend,responseOutcome,type OpenSend} from './responseOutcome';
+import {attributeResponseToSend,contactLogBlocked,responseOutcome,type OpenSend} from './responseOutcome';
 
 const send=(id:string,leadId:string|null,iso:string):OpenSend=>({id,leadId,lastInteractionAt:new Date(iso)});
 
@@ -44,5 +44,17 @@ describe('responseOutcome',()=>{
   expect(responseOutcome({category:'operational'}).outcome).toBe('other');
   expect(responseOutcome({category:'do_not_contact'}).outcome).toBe('do_not_contact');
   expect(responseOutcome({category:'other'}).outcome).toBe('other');
+ });
+});
+
+describe('contactLogBlocked',()=>{
+ it('lets a person log over an outcome a response set automatically (a correction)',()=>{
+  expect(contactLogBlocked({outcome:'interested',outcomeResponseId:'r1'})).toBe(false);
+ });
+ it('refuses a second log over an outcome a person recorded',()=>{
+  expect(contactLogBlocked({outcome:'no_answer',outcomeResponseId:null})).toBe(true);
+ });
+ it('lets the first log through when there is no outcome yet',()=>{
+  expect(contactLogBlocked({outcome:null,outcomeResponseId:null})).toBe(false);
  });
 });
