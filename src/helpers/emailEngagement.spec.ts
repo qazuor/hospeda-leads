@@ -1,6 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {CLICK_NO_LINK_NOTE,OPEN_APPROXIMATE_NOTE,PROXY_OPEN_NOTE,SPAM_NOTE,emailDeliveredLabel,emailEngagementBadges,isTerminalEmailEvent,sanitizeEngagementLink,sanitizeEngagementLinks,terminalEmailEvent,type EmailEngagement} from './emailEngagement';
-import {formatDateTime} from './crmDates';
+import {CLICK_NO_LINK_NOTE,engagementTime,OPEN_APPROXIMATE_NOTE,PROXY_OPEN_NOTE,SPAM_NOTE,emailDeliveredLabel,emailEngagementBadges,isTerminalEmailEvent,sanitizeEngagementLink,sanitizeEngagementLinks,terminalEmailEvent,type EmailEngagement} from './emailEngagement';
 
 const at=(s:number)=>new Date(Date.UTC(2026,9,27,15,0,s));
 const ev=(event:string,s:number)=>({event,occurredAt:at(s)});
@@ -64,29 +63,29 @@ describe('emailEngagementBadges',()=>{
   // Act
   const [single]=emailEngagementBadges({engagement:one}),[double]=emailEngagementBadges({engagement:two});
   // Assert
-  expect(single).toEqual({kind:'opened',label:`Abierto · ${formatDateTime(at(1))}`,tooltip:OPEN_APPROXIMATE_NOTE,tone:'info'});
-  expect(double!.label).toBe(`Abierto · ${formatDateTime(at(1))} · ×2`);
+  expect(single).toEqual({kind:'opened',label:`Abierto · ${engagementTime(at(1))}`,tooltip:OPEN_APPROXIMATE_NOTE,tone:'info'});
+  expect(double!.label).toBe(`Abierto · ${engagementTime(at(1))} · ×2`);
  });
  it('labels proxy opens apart as a possible automatic open, never as «Abierto»',()=>{
   const badges=emailEngagementBadges({engagement:{...none,firstProxyOpenedAt:at(2),proxyOpenCount:3}});
   expect(badges.map(b=>b.kind)).toEqual(['proxy_open']);
-  expect(badges[0]).toMatchObject({label:`Posible apertura automática · ${formatDateTime(at(2))} · ×3`,tooltip:PROXY_OPEN_NOTE});
+  expect(badges[0]).toMatchObject({label:`Posible apertura automática · ${engagementTime(at(2))} · ×3`,tooltip:PROXY_OPEN_NOTE});
  });
  it('lists clicked links as text in the tooltip, or a neutral note without them',()=>{
   const [withLinks]=emailEngagementBadges({engagement:{...none,firstClickedAt:at(3),clickCount:2,clickedLinks:['a.com/x','b.com']}});
-  expect(withLinks).toMatchObject({kind:'click',label:`Click en un enlace · ${formatDateTime(at(3))} · ×2`,tooltip:'Enlaces: a.com/x · b.com'});
+  expect(withLinks).toMatchObject({kind:'click',label:`Click en un enlace · ${engagementTime(at(3))} · ×2`,tooltip:'Enlaces: a.com/x · b.com'});
   expect(emailEngagementBadges({engagement:{...none,firstClickedAt:at(3),clickCount:1}})[0]!.tooltip).toBe(CLICK_NO_LINK_NOTE);
  });
  it('puts the spam warning first, then open, possible automatic open and click',()=>{
   const badges=emailEngagementBadges({engagement:{...none,firstOpenedAt:at(1),openCount:2,firstProxyOpenedAt:at(1),proxyOpenCount:1,firstClickedAt:at(2),clickCount:1,spamAt:at(4)}});
   expect(badges.map(b=>b.kind)).toEqual(['spam','opened','proxy_open','click']);
-  expect(badges[0]).toMatchObject({tone:'warning',tooltip:SPAM_NOTE,label:`Marcado como spam · ${formatDateTime(at(4))}`});
+  expect(badges[0]).toMatchObject({tone:'warning',tooltip:SPAM_NOTE,label:`Marcado como spam · ${engagementTime(at(4))}`});
  });
 });
 
 describe('emailDeliveredLabel',()=>{
  it('reads «Entregado · <fecha hora>» only for a delivered email with its delivery time',()=>{
-  expect(emailDeliveredLabel({status:'delivery_confirmed',engagement:{...none,deliveredAt:at(1)}})).toBe(`Entregado · ${formatDateTime(at(1))}`);
+  expect(emailDeliveredLabel({status:'delivery_confirmed',engagement:{...none,deliveredAt:at(1)}})).toBe(`Entregado · ${engagementTime(at(1))}`);
   expect(emailDeliveredLabel({status:'delivery_confirmed',engagement:none})).toBeNull();
   expect(emailDeliveredLabel({status:'failed',engagement:{...none,deliveredAt:at(1)}})).toBeNull();
   expect(emailDeliveredLabel({status:'accepted',engagement:null})).toBeNull();

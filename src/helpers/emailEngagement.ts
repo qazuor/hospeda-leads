@@ -1,4 +1,4 @@
-import {formatDateTime} from './crmDates';
+import {formatDateShort,formatTime} from './crmDates';
 
 /**
  * Spec 93: what Brevo told us about a sent email after the provider accepted it. Pure helpers shared by the server (terminal
@@ -65,16 +65,18 @@ export const SPAM_NOTE='El destinatario marcó este email como spam. Conviene no
 
 /** One informational badge of an email item. `warning` is the spam complaint. */
 export type EngagementBadge={readonly kind:'opened'|'proxy_open'|'click'|'spam';readonly label:string;readonly tooltip:string;readonly tone:'info'|'warning'};
-const counted=(label:string,at:Date|string,count:number)=>`${label} · ${formatDateTime(at)}${count>1?` · ×${count}`:''}`;
+/** Compact Argentina date and time for a badge («27/10 16:24»): the item header already carries the day separator. */
+export const engagementTime=(at:Date|string):string=>`${formatDateShort(at)} ${formatTime(at)}`;
+const counted=(label:string,at:Date|string,count:number)=>`${label} · ${engagementTime(at)}${count>1?` · ×${count}`:''}`;
 /** Badges in display order: spam first (it needs attention), then open, possible automatic open and click. */
 export function emailEngagementBadges({engagement}:{engagement:EmailEngagement|null|undefined}):EngagementBadge[]{
  if(!engagement)return [];
  const badges:EngagementBadge[]=[];
- if(engagement.spamAt)badges.push({kind:'spam',label:`Marcado como spam · ${formatDateTime(engagement.spamAt)}`,tooltip:SPAM_NOTE,tone:'warning'});
+ if(engagement.spamAt)badges.push({kind:'spam',label:`Marcado como spam · ${engagementTime(engagement.spamAt)}`,tooltip:SPAM_NOTE,tone:'warning'});
  if(engagement.firstOpenedAt&&engagement.openCount>0)badges.push({kind:'opened',label:counted('Abierto',engagement.firstOpenedAt,engagement.openCount),tooltip:OPEN_APPROXIMATE_NOTE,tone:'info'});
  if(engagement.firstProxyOpenedAt&&engagement.proxyOpenCount>0)badges.push({kind:'proxy_open',label:counted('Posible apertura automática',engagement.firstProxyOpenedAt,engagement.proxyOpenCount),tooltip:PROXY_OPEN_NOTE,tone:'info'});
  if(engagement.firstClickedAt&&engagement.clickCount>0)badges.push({kind:'click',label:counted('Click en un enlace',engagement.firstClickedAt,engagement.clickCount),tooltip:engagement.clickedLinks.length?'Enlaces: '+engagement.clickedLinks.join(' · '):CLICK_NO_LINK_NOTE,tone:'info'});
  return badges;
 }
 /** «Entregado · <fecha hora>» for a delivered email with its first delivery time; null keeps the existing status label. */
-export const emailDeliveredLabel=({status,engagement}:{status:string;engagement:EmailEngagement|null|undefined}):string|null=>status==='delivery_confirmed'&&engagement?.deliveredAt?`Entregado · ${formatDateTime(engagement.deliveredAt)}`:null;
+export const emailDeliveredLabel=({status,engagement}:{status:string;engagement:EmailEngagement|null|undefined}):string|null=>status==='delivery_confirmed'&&engagement?.deliveredAt?`Entregado · ${engagementTime(engagement.deliveredAt)}`:null;

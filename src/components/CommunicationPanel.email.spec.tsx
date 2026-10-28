@@ -12,8 +12,7 @@ vi.mock('../endpoints/pipeline.schema',async original=>({...await original<typeo
 vi.mock('../endpoints/work.schema',async original=>({...await original<typeof import('../endpoints/work.schema')>(),getWork:mocks.getWork}));
 vi.mock('../helpers/useAuth',()=>({useAuth:()=>({authState:{type:'authenticated',user:{id:1,email:'seller@example.com',displayName:'Seller',role:'user'}}})}));
 import {CommunicationPanel} from './CommunicationPanel';
-import {formatDateTime} from '../helpers/crmDates';
-import {OPEN_APPROXIMATE_NOTE,SPAM_NOTE} from '../helpers/emailEngagement';
+import {OPEN_APPROXIMATE_NOTE,SPAM_NOTE,engagementTime} from '../helpers/emailEngagement';
 
 const day=(d:number,h=12)=>new Date(`2026-10-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:00:00-03:00`);
 const none={deliveredAt:null,firstOpenedAt:null,openCount:0,firstProxyOpenedAt:null,proxyOpenCount:0,firstClickedAt:null,clickCount:0,clickedLinks:[],spamAt:null,lastEventAt:null};
@@ -43,9 +42,9 @@ describe('email engagement badges (spec 93)',()=>{
   await setup([email('a',{status:'delivery_confirmed',emailEngagement:engagement})]);
   // Assert
   const item=articleOf('Propuesta a');
-  expect(within(item).getByText(`Entregado · ${formatDateTime(day(2,13))}`)).toBeTruthy();
-  const opened=within(item).getByText(`Abierto · ${formatDateTime(day(2,14))} · ×2`);
-  expect(within(item).getByText(`Click en un enlace · ${formatDateTime(day(2,15))}`)).toBeTruthy();
+  expect(within(item).getByText(`Entregado · ${engagementTime(day(2,13))}`)).toBeTruthy();
+  const opened=within(item).getByText(`Abierto · ${engagementTime(day(2,14))} · ×2`);
+  expect(within(item).getByText(`Click en un enlace · ${engagementTime(day(2,15))}`)).toBeTruthy();
   expect(opened.getAttribute('aria-label')).toContain(OPEN_APPROXIMATE_NOTE);
   fireEvent.focus(opened);expect((await screen.findByRole('tooltip')).textContent).toBe(OPEN_APPROXIMATE_NOTE);
   // Links are text in the click tooltip, never anchors.
@@ -55,14 +54,14 @@ describe('email engagement badges (spec 93)',()=>{
  it('warns about a spam complaint and keeps the accepted status when there is no delivery',async()=>{
   await setup([email('b',{emailEngagement:{...none,spamAt:day(2,16),lastEventAt:day(2,16)}})]);
   const item=articleOf('Propuesta b');
-  const spam=within(item).getByText(`Marcado como spam · ${formatDateTime(day(2,16))}`);
+  const spam=within(item).getByText(`Marcado como spam · ${engagementTime(day(2,16))}`);
   expect(spam.getAttribute('data-tone')).toBe('warning');expect(spam.getAttribute('aria-label')).toContain(SPAM_NOTE);
   expect(within(item).getByText('Email aceptado por proveedor · entrega no confirmada')).toBeTruthy();
   expect(within(item).queryByText(/^Entregado/)).toBeNull();
  });
  it('labels proxy opens as a possible automatic open and shows no badges without events',async()=>{
   await setup([email('c',{emailEngagement:{...none,firstProxyOpenedAt:day(2,17),proxyOpenCount:1}}),email('d',{lastInteractionAt:day(3)})]);
-  expect(within(articleOf('Propuesta c')).getByText(`Posible apertura automática · ${formatDateTime(day(2,17))}`)).toBeTruthy();
+  expect(within(articleOf('Propuesta c')).getByText(`Posible apertura automática · ${engagementTime(day(2,17))}`)).toBeTruthy();
   expect(within(articleOf('Propuesta c')).queryByText(/^Abierto/)).toBeNull();
   expect(articleOf('Propuesta d').querySelector('[data-kind="engagement"]')).toBeNull();
  });
