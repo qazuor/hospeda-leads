@@ -59,12 +59,26 @@ describe('SalesMaterialForm',()=>{
   pick('Archivo',new File(['x'],'virus.exe',{type:'application/octet-stream'}));expect(screen.getByRole('alert').textContent).toBe('Ese tipo de archivo no está permitido.');
   const file=new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'});pick('Archivo',file);
   fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
-  fireEvent.click(save('Guardar material'));fireEvent.click(screen.getByRole('button',{name:'Subiendo archivo…'}));
+  fireEvent.click(save('Guardar material'));
+  // Owner review of spec 96: the form gives way to the progress view, so there is no submit button left to press twice.
+  expect(await screen.findByText('Subiendo archivo…')).toBeTruthy();
+  expect(screen.queryByRole('button',{name:/Guardar material|Subiendo archivo/})).toBeNull();expect(screen.queryByLabelText('Título')).toBeNull();
   await waitFor(()=>expect(api.upload).toHaveBeenCalledTimes(1));
   const call=api.upload.mock.calls[0][0];expect(call).toMatchObject({file,purpose:'file'});expect(call.materialId).toMatch(/^[0-9a-f-]{36}$/);
   finish('up-1');
   await waitFor(()=>expect(onSaved).toHaveBeenCalled());
   expect(api.post).toHaveBeenCalledTimes(1);expect(api.post.mock.calls[0][0]).toMatchObject({action:'create',id:call.materialId,source:'file',version:{uploadId:'up-1'}});
+ });
+ it('lists each finished step while saving and brings the form back, with what was typed, on an error',async()=>{
+  let fail!:(e:Error)=>void;api.upload.mockResolvedValue('up-1');api.post.mockImplementation(()=>new Promise((_resolve,reject)=>{fail=reject}));
+  setup({type:'create'});
+  pick('Archivo',new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
+  fireEvent.click(save('Guardar material'));
+  expect(await screen.findByText('Guardando material…')).toBeTruthy();
+  expect(screen.getByText('Subiendo archivo')).toBeTruthy();
+  fail(new Error('Se cortó la conexión.'));
+  expect(await screen.findByText(/Se cortó la conexión\./)).toBeTruthy();
+  expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('Folleto 2027');
  });
  it('keeps what was typed and offers a retry when the upload fails',async()=>{
   api.upload.mockRejectedValueOnce(new Error('Se cortó la subida del archivo.'));
