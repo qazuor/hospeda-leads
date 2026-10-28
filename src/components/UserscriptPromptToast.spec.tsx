@@ -6,12 +6,14 @@ import {USERSCRIPT_PROMPT_TOAST_ID,UserscriptPromptToast} from './UserscriptProm
 
 vi.mock('sonner',()=>({toast:{warning:vi.fn(),dismiss:vi.fn()}}));
 vi.mock('./InstagramOpenChat',()=>({isCoarsePointer:()=>false}));
+const layer=vi.hoisted(()=>({dialogOpen:false}));
+vi.mock('../helpers/useDialogLayer',()=>({useHasOpenDialog:()=>layer.dialogOpen}));
 
 const announce=(version:string,connection:string)=>{const html=document.documentElement;html.setAttribute(INSTALLED_ATTRIBUTE,version);html.setAttribute(CONNECTION_ATTRIBUTE,connection);html.setAttribute(USER_ATTRIBUTE,'ana@hospeda.test');};
 const mount=(path='/my-day')=>render(<MemoryRouter initialEntries={[path]}><UserscriptPromptToast/></MemoryRouter>);
 
 describe('UserscriptPromptToast',()=>{
- beforeEach(()=>{vi.mocked(toast.warning).mockClear();vi.mocked(toast.dismiss).mockClear();});
+ beforeEach(()=>{layer.dialogOpen=false;vi.mocked(toast.warning).mockClear();vi.mocked(toast.dismiss).mockClear();});
  afterEach(()=>{const html=document.documentElement;[INSTALLED_ATTRIBUTE,CONNECTION_ATTRIBUTE,USER_ATTRIBUTE].forEach(a=>html.removeAttribute(a));});
 
  it('keeps an update prompt on screen for an outdated script',()=>{
@@ -45,6 +47,11 @@ describe('UserscriptPromptToast',()=>{
  it('is hidden on the User script page',()=>{
   announce('1.0.0','connected');
   mount('/userscript');
+  expect(toast.warning).not.toHaveBeenCalled();
+ });
+ it('waits while a dialog is open, so it never covers the dialog',()=>{
+  layer.dialogOpen=true;announce('1.0.0','connected');
+  mount();
   expect(toast.warning).not.toHaveBeenCalled();
  });
 });
