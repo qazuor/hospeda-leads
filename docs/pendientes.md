@@ -3,7 +3,6 @@
 ## Spec 93 — email: entrega, aperturas y clicks — pendiente de PR
 
 [Spec 93](crm-roadmap/93-email-engagement.md) implementada en `feat/email-engagement-93`, apilada sobre la 92 (PR #278): el PR va después del de la 92. Falta:
-- confirmar las decisiones D1–D4 propuestas (aperturas automáticas rotuladas aparte, sin journal por aperturas, spam sin restricción, la entrega le gana a un rebote temporal);
 - push, PR a `staging`, CI verde y merge;
 - **para producción (propietario):** cargar `BREVO_WEBHOOK_TOKEN` en Coolify y crear el webhook transaccional con Bearer siguiendo `COOLIFY_DEPLOY.md` («Webhook de Brevo»); después, verificar con un envío real a una casilla propia que aparezcan «Entregado» y «Abierto». Sin migración.
 

@@ -1,6 +1,6 @@
 # Spec 93 — Email delivery, opens and clicks
 
-Status: requested by the owner on 27/10/2026 («para email, armemoslo entero»). The defaults in section 7 (D1–D4) are proposals awaiting confirmation. Type: read-only API fields, informational badges on the email item, a hardening of the Brevo webhook's reconciliation and the production setup steps. No migration: the existing index covers the new query. It does not change permissions, «No contactar» gating, what counts as contact or «Último contacto».
+Status: requested by the owner on 27/10/2026 («para email, armemoslo entero»). Approved by the owner on 27/10/2026, including the defaults in section 7 (D1–D4). Type: read-only API fields, informational badges on the email item, a hardening of the Brevo webhook's reconciliation and the production setup steps. No migration: the existing index covers the new query. It does not change permissions, «No contactar» gating, what counts as contact or «Último contacto».
 
 Builds on the conversation layout of [spec 90](90-business-communication-view.md), [spec 91](91-communication-polish.md) (two-line items, platform colours, «Cómo leer el chat») and [spec 92](92-instagram-open-chat.md).
 
@@ -129,7 +129,9 @@ Do this once, after this spec is deployed. Nothing here is run by an agent.
 3. **Check.** Send an email from the CRM to an address you control. Within a minute the item shows «Entregado · <hora>»; opening it shows «Abierto». `GET https://api.brevo.com/v3/webhooks?type=transactional` lists the webhook. A 401 in Brevo's logs means the token differs; a 503 means `BREVO_WEBHOOK_TOKEN` is missing or short.
 4. **Rotate.** Set the new token in Coolify, redeploy, then `PUT /v3/webhooks/<id>` with the new `auth.token`. Do it at a quiet time: events rejected in between may not arrive again (Brevo does not document retries).
 
-## 7. Decisions (proposed defaults, pending owner confirmation)
+## 7. Decisions (owner, 27/10/2026)
+
+Resolved: D1, D2, D3 and D4 as proposed.
 
 - **D1. Proxy opens are labelled, not counted.** `proxy_open` / `unique_proxy_open` show as «Posible apertura automática», separate from «Abierto». Alternative: hide them. Labelling keeps the evidence visible without claiming a person read it.
 - **D2. No journal or history entries for opens, clicks or spam.** One entry per open would flood Historial; the badge is enough. Alternative: one journal row for the first open only.
