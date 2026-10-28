@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#3AA7D9" />
     <title>Hospeda CRM</title>
-    <!-- The hospeda.com.ar logo with «CRM» under it (white background on the apple-touch icon, which iOS would fill with black). -->
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <!-- The hospeda.com.ar logo with «CRM» under it. The SVG switches the text colour with the browser theme (Chrome, Edge, Firefox);
+         the .ico covers browsers without SVG favicons. The apple-touch icon has a white background: iOS fills transparency with black. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- Declare layer order before any chunked stylesheet loads: Mantine CSS may arrive before src/styleLayers.css. -->
     <style>@layer base, mantine;</style>
