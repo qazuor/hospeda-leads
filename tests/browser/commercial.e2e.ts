@@ -1,9 +1,11 @@
 import {test,expect} from '@playwright/test';
 import {waitForTransitions} from './support/transitions';
+import {simulateUserscript} from './helpers/userscript';
+import type {Locator} from '@playwright/test';
 
 test('account with two contacts and independent opportunities preserves lead and communication flows',async({page})=>{
   test.setTimeout(180000);
-  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await simulateUserscript(page,{user:'admin@example.com'});
   await page.goto('/login');
   await page.getByLabel('Email',{exact:true}).fill('admin@example.com');
   await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');
@@ -85,21 +87,30 @@ test('account with two contacts and independent opportunities preserves lead and
   await expect(lead.getByText('Por contactar',{exact:true}).first()).toBeVisible();
   await lead.getByText('Otras acciones',{exact:true}).click();await waitForTransitions(page);await lead.getByRole('button',{name:'Contactar ahora',exact:true}).click();let contactDialog=page.getByRole('dialog').last();await contactDialog.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Ana'});await contactDialog.getByRole('button',{name:'Preparar email con un mensaje modelo',exact:true}).click();
   const communication=page.getByRole('dialog').last();
-  await expect(communication.getByRole('combobox',{name:'Destinatario',exact:true})).toHaveValue(/\d+/);
-  const emailRecipient=communication.getByRole('combobox',{name:'Destinatario',exact:true});
+  // Spec 96 §2.3: the person comes preselected as one «Para:» line; «Cambiar» shows the «Destinatario» select (when it is not already required).
+  const recipientSelect=(scope:Locator)=>scope.getByRole('combobox',{name:'Destinatario',exact:true});
+  const openRecipient=async(scope:Locator)=>{const change=scope.getByRole('region',{name:'Destino del mensaje',exact:true}).getByRole('button',{name:'Cambiar',exact:true});await expect(recipientSelect(scope).or(change)).toBeVisible();if(await change.isVisible())await change.click();await expect(recipientSelect(scope)).toBeVisible();};
+  await expect(communication.getByRole('region',{name:'Destino del mensaje',exact:true})).toContainText('Para: Ana · ');
+  await openRecipient(communication);
+  await expect(recipientSelect(communication)).toHaveValue(/\d+/);
+  const emailRecipient=recipientSelect(communication);
   await emailRecipient.selectOption({label:'Luis · Principal'});
-  await expect(communication.getByText('luis@example.com',{exact:true})).toBeVisible();
+  await expect(communication.getByRole('region',{name:'Destino del mensaje',exact:true})).toContainText('Para: Luis · luis@example.com');
   await communication.getByRole('button',{name:/CRM template/}).first().click();
+  // Spec 96 §2.4: a template with every variable resolved opens on the final view; «Editar» shows the saved subject.
+  await expect(communication.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
+  await communication.locator('section').filter({has:page.getByRole('heading',{name:'Revisá el contenido final'})}).last().getByRole('button',{name:'Editar',exact:true}).click();
   await expect(communication.getByLabel('Asunto final')).toHaveValue('Hola Luis');
   await communication.getByRole('button',{name:'Cambiar destinatario o modelo'}).click();
   await communication.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Canal general del negocio'});
   await communication.getByRole('button',{name:/CRM template/}).first().click();
   await expect(communication.getByLabel('Asunto final')).toHaveValue('Hola {{contact}}');
   await expect(communication.getByRole('alert')).toContainText('Faltan datos en este mensaje');
-  await expect(communication.getByRole('button',{name:'Guardar y ver contenido final'})).toBeDisabled();
+  await expect(communication.getByRole('heading',{name:'Personalizá el mensaje'})).toBeVisible();
+  await expect(communication.getByRole('button',{name:'Guardar cambios',exact:true})).toBeDisabled();
   await communication.getByLabel('Asunto final').fill('Hola');
   await communication.getByLabel('Mensaje final').fill('Mensaje general de prueba');
-  await communication.getByRole('button',{name:'Guardar y ver contenido final'}).click();
+  await communication.getByRole('button',{name:'Guardar cambios',exact:true}).click();
   await expect(communication.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
   await communication.getByRole('button',{name:'Cerrar',exact:true}).first().click();
   await expect(page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true})).toBeVisible();
@@ -107,11 +118,12 @@ test('account with two contacts and independent opportunities preserves lead and
   await page.evaluate(()=>{window.open=()=>{const popup={closed:false,opener:null,location:{href:'about:blank'}} as unknown as Window;(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup=popup;return popup}});
   await page.getByRole('dialog').getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();
   const whatsapp=page.getByRole('dialog').last();
-  await whatsapp.getByRole('combobox',{name:'Destinatario',exact:true}).selectOption({label:'Luis · Principal'});
+  await openRecipient(whatsapp);
+  await recipientSelect(whatsapp).selectOption({label:'Luis · Principal'});
   await whatsapp.getByRole('button',{name:/CRM WhatsApp template/}).click();
-  await whatsapp.getByRole('button',{name:'Guardar y ver contenido final'}).click();
-  await whatsapp.getByLabel('Revisé destinatario y contenido final').check();
-  await whatsapp.getByRole('button',{name:'Abrir WhatsApp con este mensaje'}).click();
+  // The template resolves every variable: final view, and the final button names Luis and his phone.
+  await expect(whatsapp.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
+  await whatsapp.getByRole('button',{name:'Abrir WhatsApp con Luis · +54 9 3442000002',exact:true}).click();
   await expect(whatsapp.getByRole('button',{name:'Sí, se envió',exact:true})).toBeVisible();
   const intent=await page.evaluate(()=>(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup.location.href);
   const whatsappUrl=new URL(intent);

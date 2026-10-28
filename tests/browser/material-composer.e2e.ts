@@ -2,8 +2,9 @@ import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import superjson from 'superjson';
 import postgres from 'postgres';
+import {simulateUserscript} from './helpers/userscript';
 
-// Spec 89 F3: «Enviar material» from the business «Comunicación» tab opens «Contactar» with the material already added, the WhatsApp intent carries
+// Spec 89 F3: «Enviar material» from the business «Comunicación» tab opens the contact step with the material already added, the WhatsApp intent carries
 // the link, the sent version is recorded and «Revocar enlace» turns the public page into 410. No real WhatsApp or email is ever sent: window.open is
 // captured locally. The material is created with SQL on the disposable database (a file row: no R2 call is needed for this flow).
 let sql:ReturnType<typeof postgres>;
@@ -17,7 +18,7 @@ test('send sales material from the business, record it and revoke the link',asyn
  await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,object_key,file_name,mime_type,byte_size,actor_email) VALUES(${randomUUID()},${materialId},1,${`materials/${materialId}/v1-${run}.pdf`},'folleto.pdf','application/pdf',2048,'admin@example.com')`;
  await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${materialId}`;
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await simulateUserscript(page,{user:'admin@example.com'});
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
  async function api(endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
  const accountId=(await api('commercial',{action:'account_save',nombre:'Zz Material e2e '+run,telefono:'+5493442000301',assignedUserEmail:'admin@example.com'})).id;
@@ -35,21 +36,25 @@ test('send sales material from the business, record it and revoke the link',asyn
  await dialog.getByLabel('Buscar material').fill(run);
  const row=dialog.getByRole('list',{name:'Material entregable'}).getByRole('listitem').filter({hasText:title});
  await row.getByRole('button',{name:'Agregar',exact:true}).click();
- dialog=page.getByRole('dialog',{name:'Contactar'});
+ // Spec 96 §2.3: one contact step; the material only travels by WhatsApp or Email, so Instagram is not offered.
+ dialog=page.getByRole('dialog',{name:/^Preparar /});
  await expect(dialog.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
- await dialog.getByRole('combobox',{name:'Canal',exact:true}).selectOption('whatsapp');
- await dialog.getByRole('button',{name:'Continuar con el mensaje',exact:true}).click();
+ const channels=dialog.getByRole('group',{name:'Canal',exact:true});
+ await expect(channels.getByRole('button',{name:'Instagram',exact:true})).toHaveCount(0);
+ await channels.getByRole('button',{name:'WhatsApp',exact:true}).click();await expect(channels.getByRole('button',{name:'WhatsApp',exact:true})).toHaveAttribute('aria-pressed','true');
  await page.evaluate(()=>{window.open=()=>{const popup={closed:false,opener:null,location:{href:'about:blank'}} as unknown as Window;(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup=popup;return popup}});
  const composer=page.getByRole('dialog',{name:'Preparar WhatsApp'});
  await composer.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
  const included=composer.getByRole('list',{name:'Material incluido'});
  await expect(included.getByText(title,{exact:true})).toBeVisible();
  await expect(composer.getByText(new RegExp(`${title}: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
- await composer.getByRole('button',{name:'Guardar y ver contenido final'}).click();
+ await composer.getByRole('button',{name:'Guardar cambios',exact:true}).click();
+ await expect(composer.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
  await expect(composer.getByRole('heading',{name:'Material de venta'})).toBeVisible();
- await composer.getByLabel('Revisé destinatario y contenido final').check();
- await composer.getByRole('button',{name:'Abrir WhatsApp con este mensaje'}).click();
- await expect(composer.getByRole('button',{name:'Sí, se envió',exact:true}).or(composer.getByText('WhatsApp abierto · envío no confirmado'))).toBeVisible();
+ // Spec 96 §2.5–2.6: the final button names the destination; from the business the composer closes with a toast once WhatsApp opened.
+ await composer.getByRole('button',{name:/^Abrir WhatsApp con (.+ · )?\+54 9 3442000301$/}).click();
+ await expect(page.locator('[data-sonner-toast]').filter({hasText:/^WhatsApp abierto para .*\+54 9 3442000301/})).toBeVisible();
+ await expect(composer).toHaveCount(0);
  const intent=new URL(await page.evaluate(()=>(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup.location.href));
  const token=/\/m\/([A-Za-z0-9_-]{43})/.exec(intent.searchParams.get('text')??'')?.[1];expect(token,'The WhatsApp text carries the link').toBeTruthy();
  const message=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='whatsapp'&&m.status==='whatsapp_opened');

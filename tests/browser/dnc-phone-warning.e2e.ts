@@ -3,6 +3,7 @@ import superjson from 'superjson';
 import {basePreferences} from '../../src/helpers/businessListPreferences';
 import {localDay} from '../../src/helpers/workDates';
 import {waitForTransitions} from './support/transitions';
+import {simulateUserscript} from './helpers/userscript';
 
 // Decision D2: a person whose phone is exactly a No contactar business's phone gets a NON-blocking notice at contact time. The API is mocked.
 const NOTE='Teléfono de un negocio No contactar',TEXT='Este teléfono es de un negocio que pidió no ser contactado: Hostería Silenciosa (Colón).';
@@ -13,6 +14,7 @@ const contacts=[
 ];
 async function mock(page:Page,extra:Record<string,unknown>={}){
  const writes:string[]=[];
+ await simulateUserscript(page,{user:'owner@example.com'});
  await page.addInitScript(({preferences})=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}))},{preferences:{...basePreferences(),columns:['nombre','actions'],pins:{}}});
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());
  await page.route('**/_api/**',async route=>{
@@ -35,18 +37,25 @@ test('Contactar warns about a No contactar phone in the call panel and in the me
  test.setTimeout(120000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));const writes=await mock(page);
  await page.goto('/accounts');
  await page.getByRole('group',{name:'Acciones de Negocio de prueba'}).getByRole('button',{name:'Contactar',exact:true}).click();
- const dialog=page.getByRole('dialog',{name:'Contactar',exact:true});await expect(dialog.getByText(/Sin gestiones abiertas/)).toBeVisible();
- await dialog.getByLabel('Canal',{exact:true}).selectOption('call');await waitForTransitions(page);
+ // Spec 96 §2.3: one contact step («Preparar WhatsApp»: the business has a phone); «Llamada» opens the call dialog in its place.
+ const dialog=page.getByRole('dialog',{name:/^(Preparar WhatsApp|Registrar una llamada|Contacto por red social|Contacto por otro canal)$/});
+ await expect(dialog.locator('p').filter({hasText:/^Sobre:/})).toContainText('Sin gestión (contacto general)');
+ await dialog.getByRole('button',{name:'Llamada',exact:true}).click();await expect(dialog.getByText(/Sin gestiones abiertas/)).toBeVisible();await waitForTransitions(page);
  await dialog.getByLabel('¿A quién llamás?').selectOption('22');await expect(dialog.getByRole('note',{name:NOTE})).toHaveCount(0);
  await dialog.getByLabel('¿A quién llamás?').selectOption('21');
  await expect(dialog.getByRole('note',{name:NOTE})).toContainText(TEXT);await expect(dialog.getByRole('note',{name:NOTE})).toContainText('No uses este teléfono para contactar sin consultar a un administrador.');
  await expect(dialog.getByLabel('Número a llamar')).toHaveText('3445123456');
  await expect(dialog.getByRole('button',{name:'Copiar número',exact:true})).toBeEnabled();
  // The notice does not block the message either: it shows up where the recipient is chosen.
- await dialog.getByLabel('Canal',{exact:true}).selectOption('whatsapp');await dialog.getByRole('button',{name:'Continuar con el mensaje',exact:true}).click();
- const step=page.getByRole('dialog');await step.getByLabel('Persona de contacto').selectOption('21');
- await expect(step.getByRole('note',{name:NOTE})).toContainText(TEXT);await expect(step.getByRole('button',{name:/Preparar|Crear|Continuar/}).first()).toBeEnabled();
- await step.getByLabel('Persona de contacto').selectOption('22');await expect(step.getByRole('note',{name:NOTE})).toHaveCount(0);
+ await dialog.getByRole('button',{name:'Volver a WhatsApp, Instagram o Email',exact:true}).click();
+ // Two people have a phone and there is no management: the «Destinatario» select is required; once chosen it collapses to «Para: …» with «Cambiar».
+ const step=page.getByRole('dialog',{name:'Preparar WhatsApp',exact:true});await step.getByLabel('Destinatario').selectOption('21');
+ await expect(step.getByRole('note',{name:NOTE})).toContainText(TEXT);await expect(step.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true})).toBeEnabled();
+ await step.getByRole('region',{name:'Destino del mensaje',exact:true}).getByRole('button',{name:'Cambiar',exact:true}).click();
+ await step.getByLabel('Destinatario').selectOption('22');await expect(step.getByRole('note',{name:NOTE})).toHaveCount(0);
+ // Social and other channels use no phone: their dialogs show no notice.
+ await step.getByRole('button',{name:'Red social',exact:true}).click();await expect(page.getByRole('dialog',{name:'Contacto por red social',exact:true})).toBeVisible();await expect(dialog.getByRole('note',{name:NOTE})).toHaveCount(0);
+ await dialog.getByRole('button',{name:'Volver a WhatsApp, Instagram o Email',exact:true}).click();await step.getByRole('button',{name:'Otro canal',exact:true}).click();await expect(page.getByRole('dialog',{name:'Contacto por otro canal',exact:true})).toBeVisible();await expect(dialog.getByRole('note',{name:NOTE})).toHaveCount(0);
  expect(writes).toEqual([]);expect(errors).toEqual([]);
 });
 test('a task Contactar dialog warns once about the chosen person phone and still lets the seller contact',async({page})=>{
@@ -59,11 +68,10 @@ test('a task Contactar dialog warns once about the chosen person phone and still
  await expect(dialog.getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true})).toBeEnabled();
  await expect(dialog.getByRole('button',{name:'Copiar número',exact:true})).toBeEnabled();await expect(dialog.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true})).toBeEnabled();
  await dialog.getByLabel('Destinatario').selectOption('22');await expect(dialog.getByRole('note',{name:NOTE})).toHaveCount(0);await dialog.getByLabel('Destinatario').selectOption('21');
- // Social and other channels use no phone: the business contact dialog shows the notice only for WhatsApp (calls are covered by the call panel).
+ // The contact step keeps the task's channel (no channel choice) and the chosen person: the notice shows once, next to «Para: …».
+ // Social and other channels (no phone, no notice) are covered from the business row in the first test.
  await dialog.getByRole('button',{name:'Preparar WhatsApp con un mensaje modelo',exact:true}).click();
- const contact=page.getByRole('dialog',{name:'Contactar',exact:true});await expect(contact.getByLabel('Canal',{exact:true})).toHaveValue('whatsapp');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(1);
- await contact.getByLabel('Canal',{exact:true}).selectOption('social');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(0);
- await contact.getByLabel('Canal',{exact:true}).selectOption('other');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(0);
- await contact.getByLabel('Canal',{exact:true}).selectOption('whatsapp');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(1);
+ const contact=page.getByRole('dialog',{name:'Preparar WhatsApp',exact:true});await expect(contact.getByRole('group',{name:'Canal',exact:true})).toHaveCount(0);
+ await expect(contact.getByRole('region',{name:'Destino del mensaje',exact:true})).toContainText('Para: Ana Silenciada · 3445123456');await expect(contact.getByRole('note',{name:NOTE})).toHaveCount(1);await expect(contact.getByRole('note',{name:NOTE})).toContainText(TEXT);
  expect(writes).toEqual([]);expect(errors).toEqual([]);
 });

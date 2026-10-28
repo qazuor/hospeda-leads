@@ -64,9 +64,9 @@ test('selector offers Referente WhatsApp and explains models excluded by explici
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts/101');
+ // Spec 96 §2.3: the only open management is picked and the templates show in the same contact step (no «Continuar» screen).
  await page.getByRole('button',{name:'Contactar',exact:true}).click();
- await page.getByRole('button',{name:'Continuar con el mensaje',exact:true}).click();
- const dialog=page.getByRole('dialog');
+ const dialog=page.getByRole('dialog',{name:'Preparar WhatsApp',exact:true});
  await expect(dialog.getByRole('button',{name:/Institucional por WhatsApp/})).toBeEnabled();
  await expect(dialog.getByRole('button',{name:/Modelo general/})).toBeVisible();
  await expect(dialog.getByRole('button',{name:/Modelo de otro perfil/})).toHaveCount(0);
