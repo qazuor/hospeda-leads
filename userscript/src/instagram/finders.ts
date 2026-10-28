@@ -64,27 +64,37 @@ export function findComposer({ doc }: { doc: Document }): HTMLElement | null { r
 export const isThreadPath = (pathname: string): boolean => /^\/direct\/t\/[^/]+\/?$/.test(pathname);
 const FLOATING = '[role="dialog"], aside, [role="complementary"]';
 
-/** True when some element inside `box` (other than the composer) shows exactly `username`, as a thread header does. */
-function showsUsername({ box, composer, username }: { box: Element; composer: Element; username: string }): boolean {
-  for (const el of box.querySelectorAll("span, h1, h2, h3, a, div")) {
-    if (composer.contains(el) || el.contains(composer)) continue;
-    if (normalizeName(el.textContent).replace(/^@/, "") === username) return true;
+/** Normalized words of a label, without a leading «@»: «Chat con @Hotel.Sol» → [chat, con, hotel.sol]. */
+const labelWords = (value: string | null | undefined) => normalizeName(value).split(" ").map(word => word.replace(/^@/, ""));
+/** Message lists and bubbles: their text is written by other people and never identifies a chat. */
+const MESSAGE_CONTENT = '[role="grid"], [role="log"], [role="list"], [role="listitem"], [role="row"], [role="gridcell"], [role="article"]';
+
+/**
+ * True when a floating chat box is labelled for `username` by its own label or header: the box's `aria-label` / `aria-labelledby`, or
+ * a heading (`header`, `[role="heading"]`, `h1`–`h3`) outside the message list. Message content never counts, so a chat with somebody who
+ * sends «@<target>» cannot pass as the target's chat.
+ */
+function labelledFor({ box, username }: { box: Element; username: string }): boolean {
+  if (labelWords(box.getAttribute("aria-label")).includes(username) || labelWords(labelledBy(box)).includes(username)) return true;
+  for (const heading of box.querySelectorAll('header, [role="heading"], h1, h2, h3')) {
+    if (heading.closest(MESSAGE_CONTENT)) continue;
+    if (normalizeName(heading.textContent).replace(/^@/, "") === username) return true;
   }
   return false;
 }
 
 /**
  * Spec 94 M2: the composer of the thread that the click on «Enviar mensaje» just opened for `username`, or null while it cannot be
- * verified. Accepted when, after the click, the page moved to `/direct/t/<id>/` and the composer is in the page itself (not a floating
- * mini-chat), or when the composer's chat box shows `username` in its header. A mini-chat with somebody else is never used.
+ * verified. When the click moved the page to `/direct/t/<id>/`, only the page's own (non-floating) composer is accepted: never a
+ * floating mini-chat. Without that URL signal, only a floating chat box whose own label or header names `username` is accepted. Anything
+ * else is not pasted into (the flow shows a notice).
  */
 export function findThreadComposer({ doc, pathname, startPath, username }: { doc: Document; pathname: string; startPath: string; username: string }): HTMLElement | null {
-  const newThread = pathname !== startPath && isThreadPath(pathname);
-  for (const composer of findComposers({ doc })) {
-    const floating = composer.closest(FLOATING);
-    if (newThread && !floating) return composer;
-    const box = floating ?? composer.closest('main, [role="main"]');
-    if (box && showsUsername({ box, composer, username })) return composer;
+  const composers = findComposers({ doc });
+  if (pathname !== startPath && isThreadPath(pathname)) return composers.find(composer => !composer.closest(FLOATING)) ?? null;
+  for (const composer of composers) {
+    const box = composer.closest(FLOATING);
+    if (box && labelledFor({ box, username })) return composer;
   }
   return null;
 }

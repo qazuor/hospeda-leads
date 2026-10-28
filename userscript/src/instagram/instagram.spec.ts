@@ -125,14 +125,22 @@ describe("instagram finders (accessible names, never class names)", () => {
   it("skips a hidden composer", () => {
     document.body.innerHTML = `<div aria-hidden="true">${dmEs}</div>`; expect(findComposer({ doc: document })).toBeNull();
   });
-  it("accepts the thread page composer after the click, never a mini-chat with somebody else", () => {
+  it("with a new /direct/t/ thread, uses only the page composer, never a floating one", () => {
     document.body.innerHTML = miniChat + dmEs;
     expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH, username: USER })!.closest('[role="dialog"]')).toBeNull();
-    // Still on the profile: the page composer is not proven yet, and the mini-chat belongs to otra_persona.
+    document.body.innerHTML = miniChat.replace("otra_persona", USER);// even a floating chat labelled for the target is not used once a thread opened
+    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH, username: USER })).toBeNull();
+  });
+  it("rejects a floating chat whose messages read @target or target: message content never identifies a chat", () => {
     document.body.innerHTML = profileEs + miniChat;
+    expect(document.getElementById("mini-chat")!.textContent).toContain("@cabanas_del_rio");
     expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH, username: USER })).toBeNull();
-    // A mini-chat whose header shows the verified username is that person's chat.
+  });
+  it("accepts a floating chat only by its own label or header", () => {
+    document.body.innerHTML = profileEs + miniChat;
     expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH, username: "otra_persona" })!.id).toBe("mini-composer");
+    document.body.innerHTML = profileEs + `<div role="dialog" aria-label="Chat"><header><h2>@${USER}</h2></header><div role="grid"></div><div contenteditable="true" role="textbox" aria-label="Mensaje" id="by-header"><p><br></p></div></div>`;
+    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH, username: USER })!.id).toBe("by-header");
   });
 });
 
