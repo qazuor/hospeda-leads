@@ -10,12 +10,13 @@ export function safeNextPath(next: string | null | undefined): string | null {
     const base = window.location.origin, url = new URL(next, base);
     if (url.origin !== base) return null;
     if (AUTH_PATHS.some(p => url.pathname === p || url.pathname.startsWith(p + "/"))) return null;
-    return url.pathname + url.search + url.hash;
+    const out = url.pathname + url.search + url.hash;
+    return out.startsWith("//") || out.startsWith("/\\") ? null : out;
   } catch { return null; }
 }
 
-/** Builds the `/login` URL carrying the current location as `next` (plain `/login` when already at the root). */
+/** Builds the `/login` URL carrying the current location as `next` (plain `/login` for a bare root). */
 export function loginUrlWithNext({ pathname, search = "", hash = "" }: { pathname: string; search?: string; hash?: string }): string {
   const target = pathname + search + hash;
-  return pathname === "/" || !target ? "/login" : `/login?next=${encodeURIComponent(target)}`;
+  return target === "/" || !target ? "/login" : `/login?next=${encodeURIComponent(target)}`;
 }

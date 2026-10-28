@@ -17,11 +17,21 @@ describe("safeNextPath", () => {
   });
 });
 
+describe("safeNextPath normalization", () => {
+  it("rejects dot segments that normalize to a protocol-relative path", () => {
+    expect(safeNextPath("/.//evil.com")).toBeNull();
+    expect(safeNextPath("/a/..//evil.com")).toBeNull();
+  });
+});
+
 describe("loginUrlWithNext", () => {
   it("encodes pathname, search and hash", () => {
     expect(loginUrlWithNext({ pathname: "/accounts/2162", search: "?tab=comunicacion", hash: "#x" })).toBe("/login?next=" + encodeURIComponent("/accounts/2162?tab=comunicacion#x"));
   });
   it("returns plain /login for the root", () => {
     expect(loginUrlWithNext({ pathname: "/" })).toBe("/login");
+  });
+  it("keeps the root search params, which the home route uses", () => {
+    expect(loginUrlWithNext({ pathname: "/", search: "?leadId=7" })).toBe("/login?next=" + encodeURIComponent("/?leadId=7"));
   });
 });
