@@ -10,13 +10,16 @@ import { announceInstalled } from "./announce";
 import { showUpdatePrompt, throttled } from "./updatePrompt";
 import { AutoRegisterController, autoEligibility } from "./autoRegister";
 import {ChatBadges,badgePreference,toggleBadgePreference} from './badges';
+import { siteFor } from "./site";
+import { startInstagram } from "./instagram/start";
 
 const BASE = (import.meta as ImportMeta & { env: { USERSCRIPT_CRM_BASE_URL?: string } }).env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const TOKEN_KEY = "hospeda-userscript-token", choicesKey = (phone: string | null) => `hospeda-userscript-choice:${phone || "unknown"}`;
 let observer: MutationObserver | null = null, timer = 0, lastFingerprint = "", activeChat = "", previewOpen = false;
 let autoController:AutoRegisterController|null=null,autoMessage="";
 let chatBadges:ChatBadges|null=null,badgeError:string|undefined,badgePane:HTMLElement|null=null;
-let autoPreference=GM_getValue<boolean>("hospeda-userscript-auto-register",true);
+// Read in start() for WhatsApp only: loading the script on Instagram or the CRM must not touch GM storage (spec 94 §2.4).
+let autoPreference=true;
 let autoCount:{accountId:string;value:number;expiresAt:number}|null=null;
 const cache = new Map<string, { expiresAt: number; value: ContextResponse }>();
 let status: { expiresAt: number; value: StatusResponse } | null = null;
@@ -108,8 +111,12 @@ function schedule(): void { window.clearTimeout(timer); timer = window.setTimeou
 /** WhatsApp switches theme by toggling a class on <body>; the system preference covers the moment before it does. */
 function watchTheme(): void { new MutationObserver(applyTheme).observe(document.body, { attributes: true, attributeFilter: ["class"] }); matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); }
 function start(): void {
+  const site = siteFor(location);
+  // Instagram (spec 94): only the isolated paste module. No token, no GM storage, no requests, no WhatsApp logic.
+  if (site === "instagram") { startInstagram(); return; }
   // On the CRM's own page the script does nothing but say it is here: no WhatsApp logic, no requests.
-  if (location.hostname !== "web.whatsapp.com") { announceInstalled(document); return; }
+  if (site === "crm") { announceInstalled(document); return; }
+  autoPreference = GM_getValue<boolean>("hospeda-userscript-auto-register", true);
   registerMenu(); watchTheme();
   chatBadges=new ChatBadges(BASE,token, message=>{badgeError=message;lastFingerprint="";void update();},()=>{badgeError="Token inválido o revocado. Conectá uno nuevo desde Ajustes.";lastFingerprint="";void update();},()=>{badgeError="Esta versión del script ya no funciona con el CRM. Actualizá desde el aviso del script.";void checkForUpdate();lastFingerprint="";void update();});
   const badgesRootObserver=new MutationObserver(records=>{if(records.every(record=>[...record.addedNodes,...record.removedNodes].every(node=>node instanceof HTMLElement&&node.hasAttribute('data-hospeda-badge-host'))))return;const pane=document.querySelector<HTMLElement>('#pane-side');if(pane&&pane!==badgePane&&badgePreference()){badgePane=pane;chatBadges?.start(pane);}});badgesRootObserver.observe(document.body,{subtree:true,childList:true});
