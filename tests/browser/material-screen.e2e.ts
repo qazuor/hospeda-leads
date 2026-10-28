@@ -5,21 +5,31 @@ import superjson from 'superjson';
 import {twoPagePdf} from './fixtures/pdf';
 
 // Spec 95: «Material de venta» screen. The server under test must run with R2_* variables and R2_ENDPOINT=http://127.0.0.1:<CRM_E2E_R2_PORT>
-// (see the «Start server» step in ci.yml). This R2 stub stores PUTs and answers CORS like the real bucket policy (PUT, GET, HEAD from the CRM origin),
-// so the browser can upload files and read them back to draw automatic covers.
+// (see the «Start server» step in ci.yml). This R2 stub stores PUTs and answers CORS as the bucket policy in docs/COOLIFY_DEPLOY.md does: only for
+// the CRM origin (the Playwright baseURL), only the allowed request headers, and the same exposed headers, so the browser can upload files and read
+// them back (also with Range requests, as pdf.js does) to draw automatic covers. A request the real policy would refuse gets no CORS headers here either.
 const R2_PORT=Number(process.env.CRM_E2E_R2_PORT??3019);
 const objects=new Map<string,{body:Buffer;type:string}>();
 let r2:Server;
-const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'PUT, GET, HEAD','Access-Control-Allow-Headers':'Content-Type, Range','Access-Control-Expose-Headers':'ETag'};
-test.beforeAll(async()=>{
+const ALLOWED_HEADERS=['content-type','range'];
+const policy={'Access-Control-Allow-Methods':'PUT, GET, HEAD','Access-Control-Allow-Headers':'Content-Type, Range','Access-Control-Expose-Headers':'ETag, Accept-Ranges, Content-Range, Content-Length','Access-Control-Max-Age':'3600'};
+test.beforeAll(async({},testInfo)=>{
+ const crmOrigin=new URL(String(testInfo.project.use.baseURL)).origin;
  r2=createServer((req,res)=>{
   const url=new URL(req.url!,'http://r2.test');const key=url.pathname.split('/').slice(2).map(decodeURIComponent).join('/');
-  if(req.method==='OPTIONS'){res.writeHead(204,cors).end();return;}
+  const origin=req.headers.origin;const cors:Record<string,string>=origin===crmOrigin?{...policy,'Access-Control-Allow-Origin':crmOrigin,Vary:'Origin'}:{Vary:'Origin'};
+  if(req.method==='OPTIONS'){
+   const asked=String(req.headers['access-control-request-headers']??'').split(',').map(h=>h.trim().toLowerCase()).filter(Boolean);
+   const method=String(req.headers['access-control-request-method']??'');
+   res.writeHead(origin===crmOrigin&&['PUT','GET','HEAD'].includes(method)&&asked.every(h=>ALLOWED_HEADERS.includes(h))?204:403,origin===crmOrigin?cors:{}).end();return;
+  }
   if(!url.searchParams.has('X-Amz-Signature')&&!String(req.headers.authorization??'').startsWith('AWS4-HMAC-SHA256')){res.writeHead(403,cors).end();return;}
   if(req.method==='PUT'){const chunks:Buffer[]=[];req.on('data',c=>chunks.push(c));req.on('end',()=>{objects.set(key,{body:Buffer.concat(chunks),type:String(req.headers['content-type']??'')});res.writeHead(200,{...cors,ETag:'"e2e"'}).end();});return;}
   if(req.method==='DELETE'){objects.delete(key);res.writeHead(204,cors).end();return;}
   const o=objects.get(key);if(!o){res.writeHead(404,cors).end();return;}
-  res.writeHead(200,{...cors,'Content-Type':url.searchParams.get('response-content-type')??o.type,'Content-Length':o.body.length,ETag:'"e2e"'}).end(req.method==='HEAD'?undefined:o.body);
+  const range=/^bytes=(\d+)-(\d*)$/.exec(String(req.headers.range??''));
+  const from=range?Number(range[1]):0,to=range&&range[2]?Math.min(Number(range[2]),o.body.length-1):o.body.length-1;const body=o.body.subarray(from,to+1);
+  res.writeHead(range?206:200,{...cors,'Content-Type':url.searchParams.get('response-content-type')??o.type,'Content-Length':body.length,'Accept-Ranges':'bytes',ETag:'"e2e"',...(range?{'Content-Range':`bytes ${from}-${to}/${o.body.length}`}:{})}).end(req.method==='HEAD'?undefined:body);
  });
  await new Promise<void>(resolve=>r2.listen(R2_PORT,'127.0.0.1',resolve));
 });
@@ -36,7 +46,9 @@ async function api(page:Page,endpoint:string,body?:unknown){
 for(const width of [1280,390])test(`sales material screen: groups, card menu, filters and automatic covers at ${width}px`,async({page})=>{
  test.setTimeout(180000);await page.setViewportSize({width,height:900});
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await page.route('https://fonts.googleapis.com/**',route=>route.abort());
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ // No page.route() here (other suites use one to block web fonts): any route turns on request interception, and Chromium then drops the Origin
+ // header of the redirected GET to R2, which the CORS policy of the stub (like the real bucket) needs.
  await login(page);
  const stamp=width+'x'+randomUUID().slice(0,6);
  const folletos=(await api(page,'sales_materials',{action:'category_create',name:'Folletos '+stamp})).id,videos=(await api(page,'sales_materials',{action:'category_create',name:'Videos '+stamp})).id;
