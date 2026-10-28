@@ -5,6 +5,7 @@ import {CrmApiError} from '../helpers/apiClient';
 import {getSalesMaterials,postSalesMaterial,type SalesMaterial,type SalesMaterialCategory,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
 import {SALES_MATERIAL_ACCEPT,SALES_MATERIAL_COVER_MIMES,externalUrlError,formatBytes,mimeForFile,uploadDeclarationError} from '../helpers/salesMaterialTypes';
 import {UploadCancelled,uploadSalesMaterialFile,type UploadProgress} from '../helpers/salesMaterialUpload';
+import {autoCoverFormat,saveAutoCover} from '../helpers/salesMaterialAutoCover';
 import {CrmDialog} from './ui/CrmDialog';
 import {Button} from './Button';
 import {Input} from './Input';
@@ -84,6 +85,12 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
   if(lock.current||missing)return;
   lock.current=true;setError('');
   let saved='';
+  /** Spec 95: without a manual cover, a picked image, video or PDF gets one generated here; a failure only adds a note, the material is saved. */
+  const autoCover=async(target:File,materialId:string,at:number)=>{
+   const format=autoCoverFormat({mimeType:mimeForFile({fileName:target.name,type:target.type}),byteSize:target.size});if(!format)return '';
+   setPending('Generando portada…');
+   return (await saveAutoCover({materialId,revision:at,format,source:{file:target}})).ok?'':' La portada automática no se pudo generar: la tarjeta muestra el dibujo del formato.';
+  };
   try{
    if(mode.type==='create'){
     const id=createId.current;
@@ -91,11 +98,14 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
     setPending('Guardando material…');
     await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),kind,source,categoryIds,version});saved='Material guardado.';
     if(cover){const uploadId=await upload(cover,'cover',id);setPending('Guardando portada…');await postSalesMaterial({action:'cover',id,revision:1,uploadId});}
+    else if(source==='file')saved+=await autoCover(file!,id,1);
    }else if(mode.type==='edit'){
     setPending('Guardando cambios…');await postSalesMaterial({action:'update',id:material!.id,revision:revision.current,title:title.trim(),description:description.trim(),kind,categoryIds});saved='Cambios guardados.';
    }else if(mode.type==='version'){
     const version=material!.source==='file'?{uploadId:await upload(file!,'file',material!.id)}:{url:url.trim()};
-    setPending('Guardando versión…');await postSalesMaterial({action:'version',id:material!.id,revision:revision.current,version});saved='Nueva versión guardada. Las anteriores se conservan.';
+    setPending('Guardando versión…');const result=await postSalesMaterial({action:'version',id:material!.id,revision:revision.current,version});saved='Nueva versión guardada. Las anteriores se conservan.';
+    // The server drops an automatic cover with the old file; a manual cover stays and always wins.
+    if(material!.source==='file'&&material!.coverSource!=='manual')saved+=await autoCover(file!,material!.id,result.revision??revision.current+1);
    }else{
     const uploadId=await upload(cover!,'cover',material!.id);
     setPending('Guardando portada…');await postSalesMaterial({action:'cover',id:material!.id,revision:revision.current,uploadId});saved='Portada actualizada.';
@@ -127,7 +137,7 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
     <MultiSelect label="Categorías" data={options} value={categoryIds} onChange={setCategoryIds} searchable clearable disabled={busy} nothingFoundMessage="No hay categorías con ese nombre" comboboxProps={{withinPortal:true}}/>
     <div className={styles.inline}><label>Nueva categoría<Input value={newCategory} maxLength={100} disabled={busy} onChange={e=>setNewCategory(e.target.value)}/></label><Button variant="outline" disabled={busy||newCategory.trim().length<2} disabledReason={busy?BUSY:'Escribí un nombre de 2 letras o más.'} onClick={()=>void createCategory()}>Crear categoría</Button></div>
    </>}
-   {(mode.type==='cover'||mode.type==='create'&&source==='file')&&<label>{mode.type==='cover'?'Imagen de portada':'Portada (opcional)'}<Input type="file" aria-label={mode.type==='cover'?'Imagen de portada':'Portada (opcional)'} accept={COVER_ACCEPT} disabled={busy} onChange={e=>setCover(e.target.files?.[0]??null)}/><span className={styles.hint}>JPG, PNG, WebP o GIF de hasta {formatBytes({bytes:limits.maxCoverBytes})}. Se usa en las vistas previas; en una imagen chica, la portada es la imagen misma.</span></label>}
+   {(mode.type==='cover'||mode.type==='create'&&source==='file')&&<label>{mode.type==='cover'?'Imagen de portada':'Portada (opcional)'}<Input type="file" aria-label={mode.type==='cover'?'Imagen de portada':'Portada (opcional)'} accept={COVER_ACCEPT} disabled={busy} onChange={e=>setCover(e.target.files?.[0]??null)}/><span className={styles.hint}>JPG, PNG, WebP o GIF de hasta {formatBytes({bytes:limits.maxCoverBytes})}. Se usa en las vistas previas; en una imagen chica, la portada es la imagen misma. Sin portada, se genera una automática de la imagen, el video o la primera página del PDF.</span></label>}
    {(fileError||coverError||urlError)&&<p role="alert">{fileError||coverError||urlError}</p>}
    {progress&&<div className={styles.progress} role="status"><Progress value={percent} aria-label="Progreso de la subida"/><span>{pending} {percent} %</span></div>}
    {busy&&!progress&&<p role="status">{pending}</p>}

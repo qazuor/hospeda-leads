@@ -19,3 +19,13 @@ export function renderPdfThumbnail(blob:Blob,signal:AbortSignal):Promise<string>
  });
  lanes[index]=result.then(()=>{},()=>{});return result;
 }
+/** Spec 95: first page of a PDF (bytes, or a same-origin URL that may redirect to R2) on a white canvas whose longest side is at most `maxSize` px. */
+export async function renderPdfCover({source,maxSize}:{source:Blob|string;maxSize:number}):Promise<HTMLCanvasElement>{
+ const task=getDocument(typeof source==='string'?{url:source}:{data:new Uint8Array(await source.arrayBuffer())});
+ try{
+  const pdf=await task.promise;const page=await pdf.getPage(1);const base=page.getViewport({scale:1});const view=page.getViewport({scale:Math.min(maxSize/base.width,maxSize/base.height)});
+  const canvas=document.createElement('canvas');canvas.width=Math.ceil(view.width);canvas.height=Math.ceil(view.height);const context=canvas.getContext('2d');if(!context)throw new Error('Canvas unavailable');
+  context.fillStyle='#ffffff';context.fillRect(0,0,canvas.width,canvas.height);
+  await page.render({canvas,canvasContext:context,viewport:view}).promise;return canvas;
+ }finally{await task.destroy();}
+}
