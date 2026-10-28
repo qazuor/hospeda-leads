@@ -27,6 +27,7 @@ import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramCh
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
+import {resolveSendOutcomeFromResponse} from './responseOutcomeService';
 export type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
@@ -256,6 +257,8 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
  const inserted=await sql<{id:string}>`INSERT INTO crm_communication_responses(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,destination_detail,linked_message_id,category,summary,exact_text,other_detail,actor_email) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${input.contactId},${input.channel},${input.recipient},${input.recipientName},${input.destination},${input.linkedMessageId}::uuid,${input.category},${input.summary},${input.exactText},${input.otherDetail},${user.email}) RETURNING id`.execute(e);
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
+ // Spec 96 §10.1: the response resolves the pending «¿Cómo salió?» of the send it answers, when that can be told without guessing.
+ await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user});
  for(const task of selectedTasks){
   const completedAt=new Date();const result='Resuelta por la respuesta del cliente';
   const updated=await sql`UPDATE crm_tasks SET status='completed',completed_at=${completedAt},result=${result},updated_at=now() WHERE id=${task.id} AND status='pending' RETURNING id`.execute(e);

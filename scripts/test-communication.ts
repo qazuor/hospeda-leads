@@ -324,6 +324,30 @@ try{
    assert.deepEqual(await careCase(`seller-open-${flow}`,user,false,flow),{isClient:true,marked:1},`seller ${flow} without No contactar marks client`);
   }
   console.log('D4: past care send on No contactar recorded; only admin marks client (manual_complete and interaction_correct)');}
+ // Spec 96 §10.1: a registered response resolves the pending outcome of the send it answers, idempotently, and never guesses.
+ {
+  const acc=await db.insertInto('crmAccounts').values({nombre:'Auto outcome '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const first=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const second=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre+' B',estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const sent=async(leadId:string|number,minutesAgo:number)=>(await sql<{id:string}>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,body,owner_email,status,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${acc.id},${acc.id},${leadId},'whatsapp','5493442000999','Ana','Hola',${user.user.email},'manual_sent',now()-make_interval(mins=>${minutesAgo}::int),${user.user.email}) RETURNING id::text AS id`.execute(db)).rows[0].id;
+  const older=await sent(first.id,30),newer=await sent(first.id,10),elsewhere=await sent(second.id,5);
+  const outcomeOf=async(messageId:string)=>(await sql<{outcome:string|null;responseId:string|null}>`SELECT x.outcome,x.outcome_response_id::text AS "responseId" FROM crm_messages m LEFT JOIN crm_activities x ON x.id=m.activity_id AND x.deleted_at IS NULL WHERE m.id=${messageId}::uuid`.execute(db)).rows[0];
+  const answer=(leadId:string|number|null,category='interested')=>({action:'response_create',id:randomUUID(),accountId:String(acc.id),leadId:leadId==null?null:String(leadId),contactId:null,channel:'whatsapp',recipient:'5493442000999',recipientName:'Ana',destination:null,linkedMessageId:null,category,summary:'Le interesa',exactText:null,otherDetail:null});
+  // A general response with open sends in two managements is ambiguous: nothing is resolved.
+  await call(answer(null),200,user.cookie);for(const id of [older,newer,elsewhere])assert.equal((await outcomeOf(id)).outcome??null,null,'an ambiguous response resolves nothing');
+  // A response about a management resolves the most recent open send of that management only.
+  const resolving=answer(first.id);const created=await call(resolving,200,user.cookie);
+  assert.deepEqual(await outcomeOf(newer),{outcome:'interested',responseId:String(created.id)},'the most recent send of the management takes the response as its outcome');
+  assert.equal((await outcomeOf(older)).outcome??null,null);assert.equal((await outcomeOf(elsewhere)).outcome??null,null);
+  assert.equal((await sql<{status:string}>`SELECT status FROM crm_messages WHERE id=${newer}::uuid`.execute(db)).rows[0].status,'manual_sent','the message status never changes');
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE entity_id=${newer} AND action='contact_outcome_from_response' AND is_automatic`.execute(db)).rows[0].n),1);
+  await call(resolving,200,user.cookie);assert.deepEqual(await outcomeOf(newer),{outcome:'interested',responseId:String(created.id)},'a replay resolves nothing new');assert.equal((await outcomeOf(older)).outcome??null,null,'a replay does not move on to the next send');
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE entity_id=${newer} AND action='contact_outcome_from_response'`.execute(db)).rows[0].n),1);
+  assert.ok(!(await pendingContactOutcomes(db,{ownerEmail:user.user.email,isAdmin:false,accountId:String(acc.id)})).some(p=>p.id===newer),'Hoy no longer asks how it went');
+  // Someone who cannot record that outcome (another seller) leaves it pending.
+  await call(answer(second.id,'later'),200,other.cookie).catch(()=>undefined);assert.equal((await outcomeOf(elsewhere)).outcome??null,null,'a reader never resolves another seller outcome');
+  console.log('Spec 96: a response resolves the pending outcome of its send, idempotently and only when it is unambiguous');
+ }
  // Merge all new relationships while preserving original attribution and snapshots.
  const dest=await db.insertInto('crmAccounts').values({nombre:'Destino '+stamp,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();let r=await quality(request({action:'merge_preview',sourceId:a.id,destinationId:dest.id}));assert.equal(r.status,200);const p=superjson.parse<any>(await r.text());r=await quality(request({action:'merge_confirm',sourceId:a.id,destinationId:dest.id,token:p.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Revisado en fixture',confirm:true}));assert.equal(r.status,200,await r.text());assert.equal((await message(id)).accountId,dest.id);assert.equal((await sql<{originalAccountId:string}>`SELECT original_account_id FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].originalAccountId,a.id);assert.equal((await sql<{accountId:string}>`SELECT account_id FROM crm_documents WHERE id=${did}::uuid`.execute(db)).rows[0].accountId,dest.id);
  await resource({action:'delete',id:did,revision:2});assert.equal((await download(new Request('http://localhost/_api/resources/download?versionId='+versions[0].id,{headers:{cookie:admin.cookie}}))).status,400);assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_document_versions WHERE document_id=${did}::uuid`.execute(db)).rows[0].n),2);
