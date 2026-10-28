@@ -211,7 +211,7 @@ Sigue sin hacerse: el despliegue a producción, el backfill productivo con su pr
 
 Spec 85 (`docs/crm-roadmap/85-userscript-auto-register.md`) aprobada.
 - Registra solo los mensajes nuevos de chats con un único negocio emparejado, que no esté en Nuevo ni tenga No contactar. **No exige gestión abierta**, lo que reemplaza la condición «y están en gestión» del 25/10/2026.
-- Interruptor global apagado por defecto (lo activa un admin) y uno por vendedor, encendido por defecto.
+- Interruptor global apagado por defecto (lo activa un admin) y uno por vendedor, encendido por defecto. **Revisión del propietario (28/10/2026):** el interruptor global pasa a estar **encendido de fábrica**. Sin valor guardado cuenta como activado; si un admin lo apagó, se respeta. No hay migración que lo pise.
 - Solo mensajes posteriores a la activación y de las últimas 24 horas.
 - Cada registro automático guarda sus efectos y se puede anular con motivo. Pueden anularlo el vendedor que lo generó o un admin, sin límite de tiempo. Anular deshace los efectos que no cambiaron después, y el automático no vuelve a registrar ese mensaje.
 
