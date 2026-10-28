@@ -56,11 +56,13 @@ test('send sales material from the business, record it and revoke the link',asyn
  expect(message.materials.map((m:any)=>[m.materialId,m.sentVersion,m.revokedAt])).toEqual([[materialId,1,null]]);
  // The record in «Comunicación»: revoke with a reason; the public link answers 410 from then on.
  await page.goto('/accounts/'+accountId+'?section=comunicacion');await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
- // Spec 90: the sent message is a bubble in «Conversación» with its material record right under it.
+ // Spec 92: an unconfirmed WhatsApp is not in «Conversación»; its «Requiere acción» entry carries the material record.
  // Opening WhatsApp is not evidence of sending: the record never says «Versión enviada» for it.
- await expect(page.getByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeVisible();await expect(page.getByText(/Envío no confirmado/)).toBeVisible();await expect(page.getByText(/Versión enviada/)).toHaveCount(0);
+ const entry=page.getByRole('region',{name:'Requiere acción',exact:true}).getByRole('group',{name:/^WhatsApp sin confirmar para /});
+ await expect(entry.getByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeVisible();await expect(entry.getByText(/Envío no confirmado/)).toBeVisible();await expect(page.getByText(/Versión enviada/)).toHaveCount(0);
+ await expect(page.getByTestId('conversation-body').getByText(title,{exact:true})).toHaveCount(0);
  expect((await request.get('/m/'+token,{headers:{'user-agent':'WhatsApp/2.23.20.0'}})).status()).toBe(200);
- await page.getByRole('button',{name:'Revocar enlace',exact:true}).click();
+ await entry.getByRole('button',{name:'Revocar enlace',exact:true}).click();
  const revoke=page.getByRole('dialog',{name:'Revocar enlace'});await revoke.getByLabel('Motivo').fill('Prueba e2e de revocación');await revoke.getByRole('button',{name:'Revocar enlace',exact:true}).click();
  await expect(page.getByText('Enlace revocado',{exact:true})).toBeVisible();
  expect((await request.get('/m/'+token,{headers:{'user-agent':'WhatsApp/2.23.20.0'}})).status()).toBe(410);

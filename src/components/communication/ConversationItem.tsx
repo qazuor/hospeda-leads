@@ -17,7 +17,7 @@ import {AutoRegistrationVoidDialog,canVoidAutoRegistration} from '../AutoRegistr
 import {ManualAttemptResolution} from '../ManualAttemptResolution';
 import {InteractionCorrectionForm} from '../InteractionCorrectionForm';
 import {ResponseCorrectionForm} from '../ResponseCorrectionForm';
-import {SentMaterials,canRevokeMaterialLink} from '../MessageMaterials';
+import {MessageMaterialRecord} from './MessageMaterialRecord';
 import {ChannelIcon} from './ChannelIcon';
 import {ClampedText} from './ClampedText';
 import {instagramTextEdited,isInstagramAttempt,isInstagramConfirmed} from '../../helpers/instagramChat';
@@ -113,13 +113,6 @@ function PendingActions({view,message}:{view:CommunicationView;message:Message})
   {uncertain&&<UncertainEmailActions message={message}/>}
   {pending&&<ManualAttemptResolution key={message.id+'-resolution'} message={message}/>}
  </div>;
-}
-
-/** Spec 89 §8.4: the sales material sent with a message and «Revocar enlace» for its author, the responsibles or an admin (also under No contactar). */
-function MessageMaterialRecord({view,message}:{view:CommunicationView;message:Message}){
- if(message.status==='draft'||!message.materials?.length)return null;
- const managementOwner=message.leadId==null?null:view.detail?.opportunities.find(o=>String(o.id)===String(message.leadId))?.assignedUserEmail;
- return <SentMaterials materials={message.materials} message={message} users={view.detail?.users} canRevoke={x=>canRevokeMaterialLink({admin:view.admin,userEmail:view.userEmail,authorEmail:x.createdByEmail,businessOwnerEmail:view.detail?.account.assignedUserEmail,managementOwnerEmail:managementOwner})}/>;
 }
 
 type ItemProps<T>={view:CommunicationView;entry:T;highlighted:boolean};
