@@ -34,6 +34,15 @@ Si aparece **No pude leer este chat**, tocá **Copiar diagnóstico del chat** en
 - **Hay una versión nueva / Actualizá el script:** tocá **Actualizar** en el aviso y confirmá en Tampermonkey.
 - Si el navegador bloquea la instalación, verificá el permiso de scripts de usuario en Chrome/Edge 138+.
 
+## Conexión con el CRM (versión 1.5.0)
+
+En las páginas del CRM el script, además de anunciar su versión, comprueba su token con `GET /_api/userscript/status` (vía `GM_xmlhttpRequest`, el token nunca sale del script) y publica en `<html>`:
+
+- `data-hospeda-userscript-connection`: `connected`, `missing-token` (sin token, no hace pedido), `rejected` (401), `outdated` (426) o `unknown` (error de red, timeout o 5xx);
+- `data-hospeda-userscript-user`: el email del dueño del token, solo con `connected`.
+
+Avisa cada cambio con el mismo evento de instalación. Vuelve a comprobar al volver a la pestaña (enseguida si no está conectado; cada 2 minutos como máximo si lo está) y cuando la página dispara `hospeda-userscript-recheck` («Verificar de nuevo»). En la computadora, el CRM solo deja contactar por WhatsApp o Instagram con el script en la última versión, conectado y con el token de la misma cuenta. La versión mínima del servidor pasa a 1.5.0: un 1.4.x recibe 426 en WhatsApp Web. Detalle en la [spec 96](../docs/crm-roadmap/96-contact-three-clicks.md).
+
 ## Instagram (versión 1.4.0)
 
 En la computadora, «Abrir Instagram» copia el mensaje (respaldo manual) y le pasa el texto al script; si el script confirma, abre `https://www.instagram.com/<usuario>/#hospeda=<nonce>`. Detalle en la [spec 94](../docs/crm-roadmap/94-instagram-userscript.md).
