@@ -8,14 +8,16 @@ import {decryptInstagramToken,encryptInstagramToken} from '../src/helpers/instag
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {post,verify,refreshInstagramToken,integrationGET,integrationPOST} from '../src/endpoints/inboundInstagram';
 import {assignPOST,unmatchedGET} from '../src/endpoints/inbound';
+import {CompiledQuery} from 'kysely';
+import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from './lib/instagram-secret';
 
-if(process.env.CRM_TEST_DATABASE!=='1'||!/@(localhost|127\.0\.0\.1|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)[:/]/.test(process.env.DATABASE_URL??''))throw new Error('Instagram integration tests require CRM_TEST_DATABASE=1 and a local DATABASE_URL (localhost or a private Docker address)');
+assertLocalTestDatabase({url:process.env.DATABASE_URL,optIn:process.env.CRM_TEST_DATABASE});
 const run=randomUUID(),hex=run.replaceAll('-',''),secret='instagram-test-secret',accountId='instagram-account-'+run,usedIgsids:string[]=[],igs=(tag:number)=>{const v=String(BigInt('0x'+hex.slice(0,13))*1000n+BigInt(tag));if(!usedIgsids.includes(v))usedIgsids.push(v);return v;},igsid=igs(1);
 const uname=(tag:string)=>`t${tag}_${hex.slice(0,20)}`;
 const username=uname('a');
 const old={secret:process.env.INSTAGRAM_APP_SECRET,account:process.env.INSTAGRAM_ACCOUNT_ID,verify:process.env.INSTAGRAM_VERIFY_TOKEN,key:process.env.INTEGRATION_SECRETS_KEY,fetch:globalThis.fetch,log:console.log,warn:console.warn,error:console.error,info:console.info};
 type SecretRow={ciphertext:string;iv:string;tag:string;expiresAt:Date|null;refreshedAt:Date|null;lastError:string|null};
-let previousSecret:SecretRow|undefined;const accountIds:string[]=[];const userEmails:string[]=[];
+let secretSnapshot=NO_SECRET_SNAPSHOT;const secretQuery:SecretQuery=async(text,params=[])=>(await db.executeQuery(CompiledQuery.raw(text,[...params]))).rows as Record<string,unknown>[];const accountIds:string[]=[];const userEmails:string[]=[];
 const key=Buffer.alloc(32,7);
 process.env.INSTAGRAM_APP_SECRET=secret;process.env.INSTAGRAM_ACCOUNT_ID=accountId;process.env.INSTAGRAM_VERIFY_TOKEN='instagram-verify-test-token-0123456789';process.env.INTEGRATION_SECRETS_KEY=key.toString('base64');
 
@@ -55,7 +57,7 @@ try{
  // GET verification.
  const verifyOk=await verify(new Request('http://localhost/_api/inbound/instagram?hub.mode=subscribe&hub.verify_token=instagram-verify-test-token-0123456789&hub.challenge=fixture'));assert.equal(await verifyOk.text(),'fixture');assert.equal((await verify(new Request('http://localhost/_api/inbound/instagram?hub.mode=subscribe&hub.verify_token=bad&hub.challenge=x'))).status,403);
 
- previousSecret=(await secretRow());
+ secretSnapshot=await snapshotInstagramSecret({query:secretQuery});
  const accountPlain=await makeAccount('plain',`https://www.instagram.com/${username}/`);
  await setSecret('mock-token','0 seconds','30 days');
  profiles.set(igsid,username);
@@ -230,12 +232,13 @@ try{
 }finally{
  for(const level of ['log','warn','error','info'] as const)console[level]=old[level] as typeof console.log;
  try{
+  await cleanupThenRestore({onCleanupError:error=>{old.error('Fixture cleanup failed',error);process.exitCode=1;},restore:()=>restoreInstagramSecret({query:secretQuery,snapshot:secretSnapshot}),cleanup:async()=>{
   const like='%-'+run;
   await sql`DELETE FROM crm_messages WHERE external_id LIKE ${like}`.execute(db);
   await sql`DELETE FROM crm_inbound_messages WHERE external_id LIKE ${like}`.execute(db);
   await sql`DELETE FROM crm_instagram_contacts WHERE igsid=ANY(${usedIgsids})`.execute(db);
   if(accountIds.length){await sql`DELETE FROM crm_communication_journal WHERE account_id=ANY(${accountIds}::bigint[])`.execute(db);await sql`DELETE FROM crm_messages WHERE account_id=ANY(${accountIds}::bigint[])`.execute(db);await sql`DELETE FROM crm_inbound_messages WHERE account_id=ANY(${accountIds}::bigint[])`.execute(db);for(const table of ['lead_journal','crm_pipeline_events','crm_objections'])await sql.raw(`DELETE FROM ${table} WHERE account_id=ANY('{${accountIds.join(',')}}'::bigint[])`).execute(db);await sql`DELETE FROM leads WHERE account_id=ANY(${accountIds}::bigint[])`.execute(db);await sql`DELETE FROM crm_commercial_journal WHERE account_id=ANY(${accountIds}::bigint[])`.execute(db);await sql`DELETE FROM crm_accounts WHERE id=ANY(${accountIds}::bigint[])`.execute(db);}
   if(userEmails.length){await sql`DELETE FROM crm_resource_journal WHERE entity='crm_integration_secrets' AND actor_email=ANY(${userEmails})`.execute(db);await sql`DELETE FROM sessions WHERE id=ANY(${userEmails})`.execute(db);await sql`DELETE FROM users WHERE email=ANY(${userEmails})`.execute(db);}
-  if(previousSecret)await sql`UPDATE crm_integration_secrets SET ciphertext=${previousSecret.ciphertext},iv=${previousSecret.iv},tag=${previousSecret.tag},expires_at=${previousSecret.expiresAt},refreshed_at=${previousSecret.refreshedAt},last_error=${previousSecret.lastError} WHERE name='instagram'`.execute(db);else await sql`DELETE FROM crm_integration_secrets WHERE name='instagram'`.execute(db);
+  }});
  }finally{globalThis.fetch=old.fetch;for(const [name,value] of Object.entries({INSTAGRAM_APP_SECRET:old.secret,INSTAGRAM_ACCOUNT_ID:old.account,INSTAGRAM_VERIFY_TOKEN:old.verify,INTEGRATION_SECRETS_KEY:old.key}))if(value===undefined)delete process.env[name];else process.env[name]=value;await holder.end();await db.destroy();}
 }

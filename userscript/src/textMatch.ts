@@ -3,6 +3,11 @@ export const SENT_MATCH_THRESHOLD = 0.5;
 
 const words = (text: string) => new Set(text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(word => word.length > 1));
 
+/** Whether `text` has at least one word that the overlap can compare (Instagram requires it: an empty prepared text never matches). */
+export function hasComparableWords(text: string | null | undefined): boolean {
+  return words(text || "").size > 0;
+}
+
 /**
  * Whether a sent WhatsApp is the prepared message, possibly edited (another greeting, a line added): the Dice overlap of their words.
  * Shared by the CRM register, which only completes a «WhatsApp abierto» attempt with a matching text, and the panel notice that announces it.

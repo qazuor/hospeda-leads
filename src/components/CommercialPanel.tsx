@@ -79,12 +79,12 @@ export function CommercialPanel({accountId,leadId,compact=false,readOnly=false,n
   const {section,setSection,params}=useBusinessTab({readOnly,syncUrl:!compact,navigationKey});
   const [workFocus,setWorkFocus]=useState(()=>params.get('section')==='work'?1:0);
   const [contacting,setContacting]=useState(false),[floatingActive,setFloatingActive]=useState(false),[floatingLeadId,setFloatingLeadId]=useState<string>();
-  const [contactChannel,setContactChannel]=useState<'email'|'whatsapp'|'call'|undefined>(),[contactMaterial,setContactMaterial]=useState<PickedSalesMaterial|undefined>();
+  const [contactChannel,setContactChannel]=useState<'email'|'whatsapp'|'instagram'|'call'|undefined>(),[contactMaterial,setContactMaterial]=useState<PickedSalesMaterial|undefined>();
   // Spec 91 §10: «Responder» presets the recipient of the last received message ('' is the business own channel).
   const [contactRecipient,setContactRecipient]=useState<string|undefined>();
   const contactReturnFocus=useRef<HTMLElement|null>(null);
   const closeContact=()=>{setContacting(false);setFloatingActive(false);setContactChannel(undefined);setContactRecipient(undefined);setContactMaterial(undefined);contactReturnFocus.current=null};
-  const openContact=(channel?:'email'|'whatsapp'|'call',options?:{contactId?:string})=>{if(contacting){window.dispatchEvent(new Event('crm:restore-floating-composer'));return}contactReturnFocus.current=document.activeElement as HTMLElement;setContactChannel(channel);setContactRecipient(options?.contactId);setContacting(true)};
+  const openContact=(channel?:'email'|'whatsapp'|'instagram'|'call',options?:{contactId?:string})=>{if(contacting){window.dispatchEvent(new Event('crm:restore-floating-composer'));return}contactReturnFocus.current=document.activeElement as HTMLElement;setContactChannel(channel);setContactRecipient(options?.contactId);setContacting(true)};
   const [editor,setEditor]=useState<EditorTarget|null>(null);
   const [workEditor,setWorkEditor]=useState<WorkTarget|null>(null);
   /** True while the person editor was opened from the next step, the only flow that shows "Persona guardada". */

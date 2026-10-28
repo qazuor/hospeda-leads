@@ -48,7 +48,7 @@ export function PhoneCallPanel({account,contacts,leadId,purpose=null,blockedReas
  const base=blockedReason||(history.isPending?'Esperá a que se carguen las restricciones de contacto.':history.error?'No pudimos revisar las restricciones. Reintentá antes de llamar.':restricted?'Este destinatario tiene una restricción activa para llamadas.':mustChoose?'Elegí a quién vas a llamar.':'');
  const callBlock=base||(!onLog&&!leadId&&!purpose?'Elegí el propósito del contacto.':'');
  // Without a stored number she can still say she called (an incoming call, another number); only showing, copying and opening need one.
- const dialBlock=base||(!isDialable(phone)?'Esta persona no tiene un teléfono cargado. Agregalo en «Agregar o editar teléfono o email».':'');
+ const dialBlock=base||(!isDialable(phone)?'Esta persona no tiene un teléfono cargado. Agregalo en «Agregar o editar datos de contacto».':'');
  const mutation=useGuardedMutation({mutationFn:postCommunication,onSuccess:data=>{const created=data as Message;setLogged(created);setOutcomeOpen(canLogContactOutcome(created?.status));for(const key of ['communication','global-journal','lead-journal'])void qc.invalidateQueries({queryKey:[key]});}});
  useEffect(()=>{setPending(mutation.isPending)},[mutation.isPending,setPending]);
  const register=(result:'manual_sent'|'manual_no_contact')=>{

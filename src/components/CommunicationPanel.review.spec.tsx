@@ -34,10 +34,11 @@ afterEach(()=>{cleanup();for(const fn of [mocks.getCommunication,mocks.postCommu
 
 describe('sent rows never look sent when they are not (M2)',()=>{
  it('gives unconfirmed, not done and failed rows a neutral name and a muted tone',async()=>{
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(1)}),message('failed',{channel:'email',status:'failed',subject:'Tarifas',lastInteractionAt:day(2)}),message('ok',{lastInteractionAt:day(3)})]}});
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(1)}),message('pending',{channel:'email',subject:'Tarifas',status:'unknown',lastInteractionAt:day(1,13)}),message('failed',{channel:'email',status:'failed',subject:'Tarifas',lastInteractionAt:day(2)}),message('ok',{lastInteractionAt:day(3)})]}});
   wrap(<CommunicationPanel accountId="5"/>);const conversation=await screen.findByRole('region',{name:'Conversación'});
   const names=within(conversation).getAllByRole('article').map(a=>a.getAttribute('aria-label'));
-  expect(names).toEqual(['WhatsApp de Seller · WhatsApp abierto · envío no confirmado','Email de Seller · Rebote/fallo','WhatsApp de Seller · Envío confirmado manualmente']);
+  // The opened WhatsApp lives only in «Requiere acción» (spec 92 owner decision).
+  expect(names).toEqual(['Email de Seller · Resultado incierto · revisar Brevo','Email de Seller · Rebote/fallo','WhatsApp de Seller · Envío confirmado manualmente']);
   expect(within(conversation).getAllByRole('article').map(a=>a.closest('[data-tone]')?.getAttribute('data-tone'))).toEqual(['unconfirmed','failed','sent']);
  });
 });

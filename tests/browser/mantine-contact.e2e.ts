@@ -93,7 +93,7 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await expect(dialog.getByRole('button', { name: 'Anotar cómo salió', exact: true })).toBeVisible();
     expect(manualPayloads[1]).toMatchObject({ action: 'manual_start', channel: 'call', leadId: null, purpose: 'first_contact', body: 'Llamada realizada para presentar Hospeda', result: 'manual_sent' });
     await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('email');
-    const secondary = dialog.getByRole('button', { name: 'Agregar o editar teléfono o email', exact: true });
+    const secondary = dialog.getByRole('button', { name: 'Agregar o editar datos de contacto', exact: true });
     const colors = await secondary.evaluate(element => ({
       background: getComputedStyle(element).backgroundColor,
       text: getComputedStyle(element).color,

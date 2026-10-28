@@ -36,3 +36,13 @@
 .inboundCard{display:flex;flex-direction:column;gap:12px;min-width:0;padding:16px;border:1px solid var(--border);border-radius:var(--crm-panel-radius);background:var(--card);overflow-wrap:anywhere}.inboundBadges{display:flex;gap:6px;flex-wrap:wrap}.mailSubject{font-size:20px;line-height:1.35;overflow-wrap:anywhere;margin:0}.mailSender{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}.mailSender>div{display:grid;min-width:0}.mailSender>div span,.mailRecipients{font-size:13px;color:var(--muted-foreground);overflow-wrap:anywhere}.mailSender time{margin-left:auto;font-size:12px;color:var(--muted-foreground)}.mailAvatar{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:50%;background:var(--tone-violet-soft);color:var(--tone-violet-ink);font-weight:700}.mailBody{padding:14px;border-radius:10px;background:var(--surface);min-width:0}.mailBody pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.65}
 
 .mailMeta{margin:0;color:var(--muted-foreground);font-size:13px;overflow-wrap:anywhere}
+/* Spec 92: Instagram composer (specific class names: the conversation CSS has generic selectors). */
+.instagramIcon{color:var(--platform-instagram)}
+.instagramNotices{display:grid;gap:8px;padding:12px 14px;border:1px solid var(--border);border-left:3px solid var(--platform-instagram);border-radius:var(--radius);background:var(--card)}
+.instagramNotices p{margin:0}
+.instagramActions{display:grid;gap:10px;margin-top:10px}
+.instagramCopyArea{width:100%;font:inherit;padding:10px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--card);color:var(--foreground);resize:vertical}
+.instagramChatLink{display:flex;align-items:center;justify-content:center;min-height:48px;padding:12px 16px;border-radius:var(--radius);background:var(--platform-instagram);color:#fff;font-weight:600;text-align:center;text-decoration:none}
+.instagramChatLink:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.instagramWaiting{display:grid;gap:4px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:var(--radius)}
+.instagramWaiting p{margin:0}

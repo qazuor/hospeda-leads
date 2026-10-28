@@ -21,6 +21,6 @@ export type CommunicationView={
 /** Shown on a button disabled while its request runs. */
 export const BUSY_REASON='La operación está en curso. Esperá a que termine para continuar.';
 /** Channels a business view can preset when opening «Contactar». */
-export type ContactChannel='email'|'whatsapp'|'call';
+export type ContactChannel='email'|'whatsapp'|'instagram'|'call';
 /** What «Responder» (spec 91 §10) can preset besides the channel: the recipient ('' is the business own channel). */
 export type ContactOptions={readonly contactId?:string};

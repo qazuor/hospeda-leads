@@ -54,6 +54,14 @@ describe('«Nuevo desde tu última visita» (spec 91 §12)',()=>{
   expect(newestAt(withVoided)?.getTime()).toBe(at(3).getTime());
   expect(newSinceKey({entries:withVoided,lastSeenAt:at(4),userEmail:'leo@example.com'})).toBeNull();
  });
+ it('never counts an unconfirmed open or a «No se envió» send, even with «Mostrar anulados» (spec 92 owner decision)',()=>{
+  const messages=[message({id:'ok',ownerEmail:'sofia@example.com',lastInteractionAt:at(3)}),message({id:'opened',ownerEmail:'sofia@example.com',status:'whatsapp_opened',lastInteractionAt:at(6)}),message({id:'not',ownerEmail:'sofia@example.com',status:'manual_not_done',lastInteractionAt:at(7)})];
+  for(const showVoided of [false,true]){
+   const entries=buildCommunicationTimeline({messages,showVoided});
+   expect(newestAt(entries)?.getTime()).toBe(at(3).getTime());
+   expect(newSinceKey({entries,lastSeenAt:at(4),userEmail:'leo@example.com'})).toBeNull();
+  }
+ });
 });
 
 describe('clamping and summary',()=>{
@@ -103,7 +111,8 @@ describe('«Preparar respuesta» (spec 91 §10)',()=>{
   const unknown=replyTarget({item:inbound({id:'a',channel:'email',fromAddress:'baja@example.com'}),recipients,restrictions:[]});
   expect(unknown.channel).toBe('email');expect(unknown.contactId).toBeUndefined();expect(unknown.reason).toMatch(/^baja@example\.com no está cargado/);
   const social=replyTarget({item:inbound({id:'a',channel:'social',fromAddress:'@hotel'}),recipients,restrictions:[]});
-  expect(social).toEqual({reason:'«Preparar respuesta» no prepara mensajes por Instagram: elegí el canal en «Contactar».'});
+  // Spec 92: Instagram is prepared now, but only for the business username; without one it falls back with the reason.
+  expect(social).toEqual({reason:'El negocio no tiene usuario de Instagram cargado: elegí el canal en «Contactar».'});
   const restricted=replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'whatsapp',contactId:'7',liftedAt:null}]});
   expect(restricted.channel).toBeUndefined();expect(restricted.reason).toMatch(/restricción activa/);
   expect(replyTarget({item:inbound({id:'a'}),recipients,restrictions:[{channel:'whatsapp',contactId:null,liftedAt:new Date()},{channel:'email',contactId:null}]})).toEqual({channel:'whatsapp',contactId:'7',reason:''});

@@ -1,5 +1,9 @@
 # Pendientes y próximo trabajo
 
+## Spec 92 — abrir el chat de Instagram — pendiente de PR
+
+[Spec 92](crm-roadmap/92-instagram-open-chat.md) implementada en `feat/instagram-open-chat-92`, apilada sobre la 91: el PR va después del de la 91 (o se rebasea sobre `staging` cuando la 91 se mergee). Falta: push, PR a `staging`, CI verde (incluye browser) y merge. **Para producción:** aplicar la migración `049`; sin variables nuevas (usa las de la 88). La confirmación automática necesita la integración de Instagram activa; sin ella el composer avisa y se confirma a mano.
+
 ## Spec 91 — segunda pasada de «Comunicación» — pendiente de PR
 
 [Spec 91](crm-roadmap/91-communication-polish.md) implementada en `feat/communication-polish-91`. Falta: push, PR a `staging`, CI verde (incluye browser) y merge. **Para producción:** aplicar la migración `048`. Sin variables nuevas.

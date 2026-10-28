@@ -204,6 +204,10 @@ jobs:
           R2_SECRET_ACCESS_KEY: ci-secret-key
           R2_BUCKET: crm-material
           R2_ENDPOINT: http://127.0.0.1:3019
+          # Fake Instagram webhook values: tests/browser/instagram-open-chat.e2e.ts signs an echo with the same ones (spec 92).
+          INSTAGRAM_APP_SECRET: ci-instagram-app-secret
+          INSTAGRAM_ACCOUNT_ID: "17841400000000000"
+          INTEGRATION_SECRETS_KEY: CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=
         run: |
           # Run node directly (not through npm): killing an npm wrapper PID does not stop its node child, which then keeps port 3001.
           node dist-server/index.js > /tmp/hospeda-leads.log 2>&1 &
@@ -246,6 +250,11 @@ jobs:
       - name: Commercial browser test
         if: steps.filter.outputs.code == 'true'
         run: npm run test:browser
+        env:
+          CRM_TEST_DATABASE: "1"
+          INSTAGRAM_APP_SECRET: ci-instagram-app-secret
+          INSTAGRAM_ACCOUNT_ID: "17841400000000000"
+          INTEGRATION_SECRETS_KEY: CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=
 
       - name: Upload browser evidence
         if: steps.filter.outputs.code == 'true' && (always())
