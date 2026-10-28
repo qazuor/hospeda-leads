@@ -37,6 +37,7 @@
     "test:instagram": "node --env-file-if-exists=.env.test scripts/test-instagram-opened-migration.mjs && node --env-file-if-exists=.env.test --import tsx scripts/test-instagram.ts && node --env-file-if-exists=.env.test --import tsx scripts/test-instagram-open-chat.ts",
     "test:inbox": "node --env-file-if-exists=.env.test --import tsx scripts/test-inbox.ts",
     "test:communication-reads": "node --env-file-if-exists=.env.test --import tsx scripts/test-communication-reads.ts",
+    "test:email-engagement": "node --env-file-if-exists=.env.test --import tsx scripts/test-email-engagement.ts",
     "test:usability": "node --env-file-if-exists=.env.test --import tsx scripts/test-usability.ts",
     "test:permissions": "node --env-file-if-exists=.env.test --import tsx scripts/test-permissions.ts",
     "build:message-catalog": "node --import tsx scripts/build-message-catalog-migration.ts",

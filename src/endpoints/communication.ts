@@ -12,6 +12,7 @@ import {smtpConfigured} from '../helpers/smtpTransport';
 import {inboxReplyAvailability} from '../helpers/inboxReplyAvailability';
 import {COMMUNICATION_LIST_LIMIT,communicationMutation,communicationSeenInput} from './communication.schema';
 import {messageMaterials} from '../helpers/salesMaterialDraft';
+import {emailEngagementByOutbox} from '../helpers/emailEngagementQuery';
 import {isTerminalEmailEvent} from '../helpers/emailEngagement';
 import {SalesMaterialNotFound} from '../helpers/salesMaterialService';
 import {R2NotConfigured,R2Unavailable} from '../helpers/r2';
@@ -46,6 +47,8 @@ export async function get(request:Request){
    ORDER BY m.created_at DESC LIMIT ${COMMUNICATION_LIST_LIMIT}`.execute(db)).rows;
   // Spec 89 §8.4: the sales material links of each message (title, versions, attachment, link state).
   const materials=await messageMaterials(db,{messageIds:messages.map(row=>String((row as {id:string}).id))});
+  // Spec 93 §2.5, read-only: delivery, opens, clicks and spam of the loaded emails, one aggregated query (no N+1).
+  const engagement=await emailEngagementByOutbox(db,{outboxIds:camelRows(messages as Record<string,unknown>[]).map(row=>row.outboxId).filter(id=>id!=null).map(String)});
   const restrictions=(await sql`SELECT * FROM crm_contact_restrictions WHERE account_id=${lead.accountId}
    ORDER BY created_at DESC LIMIT 200`.execute(db)).rows;
   // Uncapped: blocking checks must never miss an active restriction hidden behind 200 newer lifted ones.
@@ -64,7 +67,7 @@ export async function get(request:Request){
   const pendingOutcomes=await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin',accountId:lead.accountId,leadId:lead.id||null});
   // Spec 91 §12, read-only: the caller's previous visit, for the «Nuevo desde tu última visita» divider.
   const lastSeenAt=(await sql<{lastSeenAt:Date}>`SELECT last_seen_at AS "lastSeenAt" FROM crm_communication_reads WHERE user_id=${user.id} AND account_id=${lead.accountId}`.execute(db)).rows[0]?.lastSeenAt??null;
-  return response({lastSeenAt,pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]).map(row=>({...row,materials:materials[String(row.id)]??[]})),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
+  return response({lastSeenAt,pendingOutcomes,templatePicks:Object.fromEntries(templatePicks.map(row=>[row.templateId,row.picks])),recentMessages:camelRows(recentMessages as Record<string,unknown>[]),messages:camelRows(messages as Record<string,unknown>[]).map(row=>({...row,materials:materials[String(row.id)]??[],emailEngagement:row.outboxId!=null?engagement[String(row.outboxId)]??null:null})),restrictions:camelRows(restrictions as Record<string,unknown>[]),activeRestrictions:camelRows(activeRestrictions as Record<string,unknown>[]),responses:camelRows(responses as Record<string,unknown>[]),inbound:camelRows(inbound as Record<string,unknown>[]),replyAvailable:repliesAvailable,openManagements,recentContactHours:cfg.recentContactHours,webhookConfigured:(process.env.BREVO_WEBHOOK_TOKEN?.length??0)>=32});
  }catch(e){return failure(e)}
 }
 export async function post(request:Request){try{const {user}=await getServerUserSession(request);if(Number(request.headers.get('Content-Length')??0)>100000)throw new Error('Solicitud demasiado grande');const raw=await request.text();if(raw.length>100000)throw new Error('Solicitud demasiado grande');return response(await mutateCommunication(db,communicationMutation.parse((()=>{try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}})()),user));}catch(e){return failure(e)}}
