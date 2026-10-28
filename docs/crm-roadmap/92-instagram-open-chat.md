@@ -109,7 +109,9 @@ Owner decision (27/10/2026, after testing), for every channel:
 - A send answered «No se envió» (`manual_not_done`; a call «No se hizo» is not a send and stays listed) is hidden unless an admin turns on «Mostrar anulados», where it renders as before (dashed, muted).
 - Neither counts for «Nuevo desde tu última visita» nor for the visit mark (`newestAt`).
 - An email whose provider result is uncertain does not change: the message did leave the CRM, so it stays in the conversation with the dashed border and the admin's «Marcar como enviado / no enviado».
-- The dashed border, its tooltip and the legend line now describe only unknown, not done and failed results; the legend says unconfirmed opens are in «Requiere acción». The Bandeja (its own thread view) and Hoy are unchanged.
+- The dashed border, its tooltip and the legend line now describe only unknown, not done and failed results; the legend says unconfirmed opens are in «Requiere acción». Hoy is unchanged (its pending outcomes are the same prompt).
+- **Bandeja (owner, 27/10/2026):** the same rule (`inboxQueries.ts`). An unconfirmed open is in no business row, conversation, count, last activity, preview, search hit or thread until it is confirmed; a «No se envió» send only shows in the thread of an admin who turns on voided rows. A confirmed send appears as a normal sent message and can become the latest activity.
+- **Sales material:** the record of an unconfirmed send (with «Revocar enlace», same permissions) is in its «Requiere acción» entry; a viewer who cannot answer the send (someone else's open, read-only view) sees it in a non-counted «Material en un envío sin confirmar» entry, so the public link can always be revoked.
 
 ### 2.5 Echo-to-attempt matching (webhook)
 

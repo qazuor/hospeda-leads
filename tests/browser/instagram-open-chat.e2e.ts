@@ -89,12 +89,16 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  await expect(conversation.getByText(text.slice(0,40))).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
  if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await required.screenshot({path:shots+'/3-requires-action-unconfirmed.png'});}
 
+ // The Bandeja follows the same rule (owner decision): no unconfirmed open in its threads.
+ const thread=async(channel:string,extra='')=>(await api('inbox/thread?accountId='+accountId+'&leadId='+leadId+'&channel='+channel+extra)).rows.map((r:any)=>r.id);
+ expect(await thread('whatsapp')).toEqual([]);expect(await thread('social','&includeVoided=1')).toEqual([]);
  // «No se envió» on the WhatsApp: it leaves «Requiere acción» and stays out of «Conversación» (admin: only with «Mostrar anulados»).
  await waEntry.getByRole('button',{name:'No se envió',exact:true}).click();
  await expect(waEntry).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
  await page.getByRole('switch',{name:'Mostrar anulados'}).check();
  await expect(page.getByTestId('conversation-body').getByText(waText)).toBeVisible();
  await page.getByRole('switch',{name:'Mostrar anulados'}).uncheck();
+ expect(await thread('whatsapp')).toEqual([]);expect(await thread('whatsapp','&includeVoided=1')).toEqual([wa.id]);
 
  // Meta sends the echo of what the seller pasted: the same attempt becomes «confirmado por Instagram».
  const raw=JSON.stringify({object:'instagram',entry:[{id:igAccount,messaging:[{sender:{id:igAccount},recipient:{id:igsid},timestamp:Date.now(),message:{mid:'e2e-'+randomUUID(),text:text+' Saludos!',is_echo:true}}]}]});
@@ -102,6 +106,7 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages.filter((m:any)=>m.channel==='social').map((m:any)=>[m.id,m.status])).toEqual([[attempt.id,'manual_sent']]);
  await page.reload();
  await expect(page.getByRole('region',{name:'Requiere acción',exact:true}).getByRole('group',{name:/^Instagram sin confirmar para /})).toHaveCount(0);
+ expect(await thread('social')).toEqual([attempt.id]);// confirmed: a normal sent message in the Bandeja too
  const resolved=page.getByTestId('conversation-body').locator('article').filter({hasText:'Enviado · confirmado por Instagram'}).first();
  await expect(resolved).toContainText(text.slice(0,40));await expect(resolved).not.toContainText('Esperando que Instagram confirme');
  if(shots)await resolved.screenshot({path:shots+'/4-resolved-bubble.png'});
