@@ -69,16 +69,18 @@ describe('bubbles, slim lines and the «⋯» menu (§1–§4)',()=>{
   expect(await screen.findByRole('heading',{name:'Anular registro automático'})).toBeTruthy();
  });
  it('puts time, channel, sender, badges and compact actions on one header line above the bubble',async()=>{
-  setup({role:'admin',data:{messages:[message('opened',{status:'whatsapp_opened',leadId:'9',lastInteractionAt:day(2)}),message('mail',{channel:'email',subject:'Propuesta',status:'accepted',htmlBody:'<p>Hola</p>',lastInteractionAt:day(3)})],inbound:[inbound('review',{status:'pending_review',channel:'social',fromAddress:'@aguasdemo',fromName:'',receivedAt:day(4)})]}});show();await ready();
+  setup({role:'admin',data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(1)}),message('pending',{channel:'email',subject:'Tarifas',status:'unknown',leadId:'9',lastInteractionAt:day(2)}),message('mail',{channel:'email',subject:'Propuesta',status:'accepted',htmlBody:'<p>Hola</p>',lastInteractionAt:day(3)})],inbound:[inbound('review',{status:'pending_review',channel:'social',fromAddress:'@aguasdemo',fromName:'',receivedAt:day(4)})]}});show();await ready();
   const headOf=(name:string)=>screen.getByRole('article',{name}).firstElementChild as HTMLElement;
   const received=screen.getByRole('article',{name:/recibido de @aguasdemo$/}),head=received.firstElementChild as HTMLElement;
   expect(head.textContent).toMatch(/^\d{2}:\d{2}·.+·@aguasdemoPor revisarRegistrar respuestaNo es una respuesta$/);
   expect(within(head).getByRole('button',{name:'Registrar respuesta'})).toBeTruthy();
   // Line 2 is the bubble; no separate tag or status rows remain under it.
   expect(received.children).toHaveLength(2);
-  const opened=headOf('WhatsApp de Seller · WhatsApp abierto · envío no confirmado');
-  const status=within(opened).getByText('WhatsApp abierto · envío no confirmado');expect(status.getAttribute('data-tone')).toBe('unconfirmed');
-  expect(within(opened).getByText('Gestión: Plan anual')).toBeTruthy();expect(within(opened).getByRole('button',{name:'Sí, se envió'})).toBeTruthy();
+  // An opened WhatsApp is not in the conversation until it is confirmed (spec 92 owner decision).
+  expect(screen.queryByRole('article',{name:'WhatsApp de Seller · WhatsApp abierto · envío no confirmado'})).toBeNull();
+  const pending=headOf('Email de Seller · Resultado incierto · revisar Brevo');
+  const status=within(pending).getByText('Resultado incierto · revisar Brevo');expect(status.getAttribute('data-tone')).toBe('unconfirmed');
+  expect(within(pending).getByText('Gestión: Plan anual')).toBeTruthy();expect(within(pending).queryByRole('button',{name:'Sí, se envió'})).toBeNull();
   const mail=headOf('Email de Seller · Email aceptado por proveedor · entrega no confirmada');
   fireEvent.click(within(mail).getByRole('button',{name:'Ver diseño del email'}));
   expect(await screen.findByTitle('Vista previa del email')).toBeTruthy();
@@ -179,16 +181,40 @@ describe('«Requiere acción» summary (§9)',()=>{
   expect(rowOf('WhatsApp recibido de Julia').getAttribute('data-highlight')).toBe('true');
   expect(screen.getByRole('button',{name:'Todo · 2'}).getAttribute('aria-pressed')).toBe('true');
  });
- it('shows «¿Lo enviaste?» in the summary and on the bubble, and one click blocks both copies',async()=>{
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})]}});show();await ready();
-  const region=screen.getByRole('region',{name:'Requiere acción'}),bubble=rowOf('WhatsApp de Seller · WhatsApp abierto · envío no confirmado');
+ it('shows an opened WhatsApp only in «Requiere acción», with its text and its own buttons, and one click blocks both',async()=>{
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})]}});show();const conversation=await ready();
+  const region=screen.getByRole('region',{name:'Requiere acción'});
   expect(within(region).getByText('1 envío sin confirmar')).toBeTruthy();
+  expect(within(conversation).queryAllByRole('article')).toEqual([]);expect(within(conversation).queryByText('Hola Julia')).toBeNull();
+  const entry=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});
+  expect(within(entry).getByText('¿Lo enviaste?')).toBeTruthy();expect(within(entry).getByText('Hola Julia')).toBeTruthy();
+  // Nothing scrolls to a missing item, and WhatsApp has no «Copiar y abrir de nuevo».
+  expect(within(entry).queryByRole('button',{name:'Ver en la conversación'})).toBeNull();expect(within(entry).queryByRole('button',{name:'Copiar y abrir de nuevo'})).toBeNull();
   let resolve:(value:unknown)=>void=()=>{};mocks.postCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
-  fireEvent.click(await within(bubble).findByRole('button',{name:'No se envió'}));
+  fireEvent.click(within(entry).getByRole('button',{name:'No se envió'}));
   await waitFor(()=>expect((within(region).getByRole('button',{name:'Guardando…'}) as HTMLButtonElement).disabled).toBe(true));
   expect((within(region).getByRole('button',{name:'Sí, se envió'}) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.click(within(region).getByRole('button',{name:'Sí, se envió'}));
   expect(mocks.postCommunication).toHaveBeenCalledTimes(1);expect(mocks.postCommunication.mock.calls[0][0]).toMatchObject({action:'outcome',id:'opened',event:'manual_not_sent'});resolve({});
+ });
+ it('lists an Instagram attempt while it waits for the echo, with «Sí» / «No» and «Copiar y abrir de nuevo», then asks «¿Lo enviaste?»',async()=>{
+  const ig=(id:string,lastInteractionAt:Date)=>message(id,{channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',status:'instagram_opened',lastInteractionAt});
+  setup({data:{messages:[ig('waiting',new Date(now-60_000))]}});show();const conversation=await ready();
+  expect(within(conversation).queryAllByRole('article')).toEqual([]);
+  const region=screen.getByRole('region',{name:'Requiere acción'}),entry=within(region).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'});
+  expect(within(entry).getByRole('status').textContent).toBe('Esperando que Instagram confirme el envío…');
+  for(const name of ['Sí, se envió','No se envió','Copiar y abrir de nuevo'])expect(within(entry).getByRole('button',{name})).toBeTruthy();
+  cleanup();setup({data:{messages:[ig('late',new Date(now-16*60_000))]}});show();await ready();
+  const late=within(screen.getByRole('region',{name:'Requiere acción'})).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'});
+  expect(within(late).getByText('¿Lo enviaste?')).toBeTruthy();expect(within(late).queryByRole('status')).toBeNull();
+  expect(within(late).getByRole('button',{name:'Copiar y abrir de nuevo'})).toBeTruthy();
+ });
+ it('shows a «No se envió» send only with «Mostrar anulados»',async()=>{
+  setup({role:'admin',data:{messages:[message('not',{status:'manual_not_done',lastInteractionAt:day(2)}),message('ok',{lastInteractionAt:day(3)})]}});show();const conversation=await ready();
+  expect(within(conversation).getAllByRole('article').map(a=>a.getAttribute('aria-label'))).toEqual(['WhatsApp de Seller · Envío confirmado manualmente']);
+  fireEvent.click(within(conversation).getByRole('switch',{name:'Mostrar anulados'}));
+  // The query key changes, so the panel reloads: look the conversation up again.
+  await waitFor(()=>expect(within(screen.getByRole('region',{name:'Conversación'})).getAllByRole('article').map(a=>a.getAttribute('aria-label'))).toEqual(['WhatsApp de Seller · No enviado / no realizado','WhatsApp de Seller · Envío confirmado manualmente']));
  });
 });
 
@@ -299,12 +325,13 @@ describe('reading aids: side prefix, legend and the dashed-bubble hint (owner re
   fireEvent.click(within(conversation).getByRole('button',{name:'Cómo leer el chat'}));
   const legend=await screen.findByRole('dialog',{name:'Cómo leer el chat'});
   for(const text of ['Derecha: lo enviamos nosotros. Izquierda: lo envió el negocio.','Teñido: enviado por nosotros. Blanco con borde de color: recibido.','WhatsApp','Instagram','Email','Llamada','Otra red','Una llamada o una respuesta registrada sin mensaje.'])expect(within(legend).getByText(text)).toBeTruthy();
-  expect(within(legend).getByText(/Abrimos el canal pero no sabemos si se envió/).textContent).toContain('«Sí, se envió» o «No se envió»');
+  expect(within(legend).getByText(/Todavía no sabemos si salió/)).toBeTruthy();
+  expect(within(legend).getByText(/Un WhatsApp o Instagram abierto que no confirmaste no aparece acá/).textContent).toContain('«Requiere acción»');
  });
- it('explains a dashed (opened, unconfirmed) bubble on focus and to screen readers, and leaves confirmed bubbles alone',async()=>{
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(2)}),message('done',{lastInteractionAt:day(3)})]}});show();await ready();
-  const hint='No sabemos si se envió: abriste el canal pero no confirmaste el envío.';
-  const opened=screen.getByRole('article',{name:'WhatsApp de Seller · WhatsApp abierto · envío no confirmado'});
+ it('explains a dashed bubble whose result is unknown on focus and to screen readers, and leaves confirmed bubbles alone',async()=>{
+  setup({data:{messages:[message('opened',{channel:'email',subject:'Tarifas',status:'unknown',lastInteractionAt:day(2)}),message('done',{lastInteractionAt:day(3)})]}});show();await ready();
+  const hint='Todavía no sabemos si salió: falta el resultado del envío.';
+  const opened=screen.getByRole('article',{name:'Email de Seller · Resultado incierto · revisar Brevo'});
   const bubble=within(opened).getByText('Hola Julia').closest('[aria-describedby]') as HTMLElement;
   expect(document.getElementById(bubble.getAttribute('aria-describedby')!)?.textContent).toBe(hint);
   fireEvent.focus(bubble);expect(await screen.findByRole('tooltip')).toHaveProperty('textContent',hint);

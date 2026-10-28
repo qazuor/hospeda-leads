@@ -25,9 +25,9 @@ async function inbound(fixture:InboundFixture){
  await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,lead_id,match_method,from_address,from_name,subject,text_body,headers,is_automatic,received_at,status,source) VALUES(${id}::uuid,${channel},${'inbox-'+stamp+'-'+id},${fixture.accountId},${fixture.leadId??null},'sender_email','guest@example.test','Guest',${fixture.subject??'Consulta'},${fixture.text},'{}'::jsonb,${fixture.automatic??false},${fixture.at??sql`now()`},${fixture.status??'registered'},${channel==='whatsapp'?'userscript':'email_worker'})`.execute(db);
  return id;
 }
-async function outbound(fixture:{accountId:string;leadId:string|null;owner:string;status?:string;channel?:'email'|'whatsapp';at?:RawBuilder<unknown>;body:string}){
+async function outbound(fixture:{accountId:string;leadId:string|null;owner:string;status?:string;channel?:'email'|'whatsapp'|'social'|'call';destinationDetail?:string;at?:RawBuilder<unknown>;body:string}){
  const id=randomUUID();
- await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,subject,body,owner_email,status,last_interaction_at,created_at) VALUES(${id}::uuid,${fixture.accountId},${fixture.accountId},${fixture.leadId},${fixture.channel??'email'},'guest@example.test','Guest','Saliente',${fixture.body},${fixture.owner},${fixture.status??'manual_sent'},${fixture.at??sql`now()`},${fixture.at??sql`now()`})`.execute(db);
+ await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,destination_detail,recipient,recipient_name,subject,body,owner_email,status,last_interaction_at,created_at) VALUES(${id}::uuid,${fixture.accountId},${fixture.accountId},${fixture.leadId},${fixture.channel??'email'},${fixture.destinationDetail??null},'guest@example.test','Guest','Saliente',${fixture.body},${fixture.owner},${fixture.status??'manual_sent'},${fixture.at??sql`now()`},${fixture.at??sql`now()`})`.execute(db);
  return id;
 }
 /** Pages through a cursor endpoint (failing on loops) and returns every row in order plus the page count. */
@@ -175,6 +175,32 @@ try{
  assert.equal(keptRow?.autoRegistrationId,autoInRegistration);assert.equal(keptRow?.autoRegistrationUserEmail,seller.user.email);assert.equal(autoRow?.autoRegistrationId,autoOutRegistration,'Outbound rows carry their active automatic registration');
  assert.deepEqual((await search('voidcheck',seller)).map(row=>row.id).sort(),[keptIn,autoOut].sort(),'Search excludes voided rows in both directions');
  assert.equal((await ok<{rows:BusinessRow[]}>('businesses?filter=all&channel=whatsapp&limit=100',seller)).rows.find(row=>row.accountId===voidAccountId)?.lastPreview,'auto voidcheck outbound');
+ // Spec 92 owner decision (Bandeja included): unconfirmed opens are nowhere until confirmed; «No se envió» follows the voided rule.
+ {
+  const openAccount=await account('Zz Inbox opencheck',seller.user.email),openAccountId=String(openAccount.id);
+  const keptOut=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',at:sql`now()-interval '30 minutes'`,body:'kept opencheck outbound'});
+  const openedWa=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',status:'whatsapp_opened',at:sql`now()+interval '1 hour'`,body:'opened opencheck whatsapp'});
+  const openedIg=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'social',destinationDetail:'instagram',status:'instagram_opened',at:sql`now()+interval '1 hour'`,body:'opened opencheck instagram'});
+  const notSent=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',status:'manual_not_done',at:sql`now()+interval '2 hours'`,body:'notsent opencheck whatsapp'});
+  const callNotDone=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'call',status:'manual_not_done',at:sql`now()-interval '1 hour'`,body:'call opencheck not done'});
+  const row=async(who:Identity,extra='')=>(await businesses('filter=all&limit=100'+extra,who)).find(r=>r.accountId===openAccountId);
+  for(const [who,extra] of [[seller,''],[admin,'&scope=all']] as const)assert.equal((await row(who,extra))?.lastPreview,'kept opencheck outbound','An unconfirmed open or a «No se envió» send is never the last activity or preview');
+  assert.equal((await row(seller,'&channel=social')),undefined,'An Instagram open alone does not list the business');
+  const openThreads=(await ok<{rows:ThreadsRow[]}>(`threads?accountId=${openAccountId}`,seller)).rows;
+  assert.deepEqual(openThreads.map(r=>[r.leadId,r.channel,r.messageCount]).sort(),[[null,'call',1],[null,'whatsapp',1]].sort(),'Only confirmed sends and the call count in conversations');
+  const waPath=`thread?accountId=${openAccountId}&leadId=none&channel=whatsapp`;
+  for(const who of [seller,admin])assert.deepEqual((await ok<{rows:ThreadItem[]}>(waPath,who)).rows.map(r=>r.id),[keptOut],'Detail hides unconfirmed and «No se envió» sends');
+  assert.deepEqual((await ok<{rows:ThreadItem[]}>(waPath+'&includeVoided=1',seller)).rows.map(r=>r.id),[keptOut],'includeVoided is ignored for a seller');
+  assert.deepEqual((await ok<{rows:ThreadItem[]}>(waPath+'&includeVoided=1',admin)).rows.map(r=>r.id),[notSent,keptOut],'An admin who asks sees «No se envió», never an unconfirmed open');
+  assert.deepEqual((await ok<{rows:ThreadItem[]}>(`thread?accountId=${openAccountId}&leadId=none&channel=social&includeVoided=1`,admin)).rows.map(r=>r.id),[],'An unconfirmed Instagram open is not in its thread');
+  assert.deepEqual((await ok<{rows:ThreadItem[]}>(`thread?accountId=${openAccountId}&leadId=none&channel=call`,seller)).rows.map(r=>r.id),[callNotDone],'A call «No se hizo» is not a send and stays');
+  assert.deepEqual((await search('opencheck',seller)).map(r=>r.id).sort(),[keptOut,callNotDone].sort(),'Search skips unconfirmed opens and «No se envió» sends');
+  // Once confirmed, the send is a normal sent message: listed, counted and the latest activity.
+  await sql`UPDATE crm_messages SET status='manual_sent' WHERE id=ANY(${[openedWa,openedIg]}::uuid[])`.execute(db);
+  assert.match((await row(seller))?.lastPreview??'',/^opened opencheck /,'A confirmed send becomes the last activity');
+  assert.deepEqual((await ok<{rows:ThreadItem[]}>(waPath,seller)).rows.map(r=>r.id),[openedWa,keptOut]);
+  assert.deepEqual((await ok<{rows:ThreadItem[]}>(`thread?accountId=${openAccountId}&leadId=none&channel=social`,seller)).rows.map(r=>r.id),[openedIg]);
+ }
 
  // Reply availability parity with GET /_api/communication, including a restricted management.
  for(const leadId of [String(lead.id),String(restrictedLead.id)]){

@@ -10,9 +10,15 @@ const inbound=(over:Partial<InboundMessage>={}):InboundMessage=>({id:'in1',chann
 const recipients=(perfilInstagram:string|null)=>({account:{email:null,telefono:null,whatsapp:null,perfilInstagram},contacts:[]});
 
 describe('instagram_opened is an unconfirmed send',()=>{
- it('is dashed (unconfirmed) like an opened WhatsApp',()=>{
+ it('is unconfirmed like an opened WhatsApp',()=>{
   expect(sentTone('instagram_opened')).toBe('unconfirmed');
   expect(sentTone('whatsapp_opened')).toBe('unconfirmed');
+ });
+ it('stays out of the conversation until it is confirmed, waiting or not (owner decision)',()=>{
+  const waiting=message({id:'w',lastInteractionAt:new Date(now)}),late=message({id:'l',lastInteractionAt:new Date(now-16*60_000)});
+  expect(buildCommunicationTimeline({messages:[waiting,late]})).toEqual([]);
+  expect(buildCommunicationTimeline({messages:[waiting,late],showVoided:true})).toEqual([]);
+  expect(buildCommunicationTimeline({messages:[message({id:'c',status:'manual_sent',externalId:'mid.1'})]}).map(e=>e.key)).toEqual(['out:c']);
  });
  it('labels a resolved attempt «Enviado · confirmado por Instagram», never an echo or an unlinked one',()=>{
   expect(sentStatusLabel(message({id:'a',status:'manual_sent',externalId:'mid.1'}))).toBe(INSTAGRAM_CONFIRMED_STATUS);
@@ -28,19 +34,19 @@ describe('instagram_opened is an unconfirmed send',()=>{
 
 describe('requiresAction with Instagram (spec 92 §2.4)',()=>{
  const base={userEmail:'ana@example.com',admin:false,readOnly:false};
- it('hides an attempt during the 15-minute echo wait and lists it afterwards',()=>{
-  expect(requiresAction({...base,messages:[message({id:'a'})],now})).toEqual([]);
-  expect(requiresAction({...base,messages:[message({id:'a',lastInteractionAt:new Date(now-16*60_000)})],now}).map(i=>i.key)).toEqual(['out:a']);
+ it('lists an attempt during the 15-minute echo wait and afterwards (it is not in the conversation)',()=>{
+  expect(requiresAction({...base,messages:[message({id:'a',lastInteractionAt:new Date()})]}).map(i=>i.key)).toEqual(['out:a']);
+  expect(requiresAction({...base,messages:[message({id:'a',lastInteractionAt:new Date(now-16*60_000)})]}).map(i=>i.key)).toEqual(['out:a']);
  });
  it('follows the WhatsApp rules: own attempts, or any for an admin, never on a read-only view',()=>{
   const late=message({id:'a',ownerEmail:'sofia@example.com',lastInteractionAt:new Date(now-20*60_000)});
-  expect(requiresAction({...base,messages:[late],now})).toEqual([]);
-  expect(requiresAction({...base,admin:true,messages:[late],now}).length).toBe(1);
-  expect(requiresAction({...base,admin:true,readOnly:true,messages:[late],now})).toEqual([]);
+  expect(requiresAction({...base,messages:[late]})).toEqual([]);
+  expect(requiresAction({...base,admin:true,messages:[late]}).length).toBe(1);
+  expect(requiresAction({...base,admin:true,readOnly:true,messages:[late]})).toEqual([]);
  });
  it('never prompts for an echo or a «Red social» row',()=>{
   const old=new Date(now-60*60_000);
-  expect(requiresAction({...base,messages:[message({id:'e',ownerEmail:'instagram@hospeda',lastInteractionAt:old}),message({id:'r',destinationDetail:'@hotel',lastInteractionAt:old})],now})).toEqual([]);
+  expect(requiresAction({...base,messages:[message({id:'e',ownerEmail:'instagram@hospeda',lastInteractionAt:old}),message({id:'r',destinationDetail:'@hotel',lastInteractionAt:old})]})).toEqual([]);
  });
 });
 

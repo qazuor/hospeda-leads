@@ -17,15 +17,10 @@ import {AutoRegistrationVoidDialog,canVoidAutoRegistration} from '../AutoRegistr
 import {ManualAttemptResolution} from '../ManualAttemptResolution';
 import {InteractionCorrectionForm} from '../InteractionCorrectionForm';
 import {ResponseCorrectionForm} from '../ResponseCorrectionForm';
-import {SentMaterials,canRevokeMaterialLink} from '../MessageMaterials';
+import {MessageMaterialRecord} from './MessageMaterialRecord';
 import {ChannelIcon} from './ChannelIcon';
 import {ClampedText} from './ClampedText';
-import {ConfirmSendButtons,canConfirmSend,useConfirmSend} from './ConfirmSendButtons';
-import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS} from '../../helpers/communicationTimeline';
-import {instagramTarget,instagramTextEdited,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho} from '../../helpers/instagramChat';
-import {copyInGesture,instagramOpenedToast,isCoarsePointer,openInstagramChat} from '../InstagramOpenChat';
-import {useInstagramWaitNow} from './useInstagramWait';
-import {toast} from 'sonner';
+import {instagramTextEdited,isInstagramAttempt,isInstagramConfirmed} from '../../helpers/instagramChat';
 import {ItemMenu,type ItemAction} from './ItemMenu';
 import {EmailEngagementBadges} from './EmailEngagementBadges';
 import {emailDeliveredLabel} from '../../helpers/emailEngagement';
@@ -111,7 +106,7 @@ function Head({entry,sender,badges,actions}:{entry:TimelineEntry;sender:string;b
 const Side=({children}:{children:ReactNode})=><><span className={styles.side}>{children}</span>{' · '}</>;
 const Tag=({kind,children,tone}:{kind:string;children:ReactNode;tone?:string})=><span className={styles.tag} data-kind={kind} data-tone={tone}>{children}</span>;
 
-/** Follow-up forms that stay visible under the bubble: a pending attempt and an uncertain email (admin). «¿Lo enviaste?» is in the header. */
+/** Follow-up forms that stay visible under the bubble: a pending attempt and an uncertain email (admin). An unconfirmed open is only in «Requiere acción». */
 function PendingActions({view,message}:{view:CommunicationView;message:Message}){
  const own=view.admin||message.ownerEmail===view.userEmail;
  const uncertain=view.admin&&isUncertainEmail(message),pending=!view.readOnly&&message.status==='manual_pending'&&own;
@@ -120,13 +115,6 @@ function PendingActions({view,message}:{view:CommunicationView;message:Message})
   {uncertain&&<UncertainEmailActions message={message}/>}
   {pending&&<ManualAttemptResolution key={message.id+'-resolution'} message={message}/>}
  </div>;
-}
-
-/** Spec 89 §8.4: the sales material sent with a message and «Revocar enlace» for its author, the responsibles or an admin (also under No contactar). */
-function MessageMaterialRecord({view,message}:{view:CommunicationView;message:Message}){
- if(message.status==='draft'||!message.materials?.length)return null;
- const managementOwner=message.leadId==null?null:view.detail?.opportunities.find(o=>String(o.id)===String(message.leadId))?.assignedUserEmail;
- return <SentMaterials materials={message.materials} message={message} users={view.detail?.users} canRevoke={x=>canRevokeMaterialLink({admin:view.admin,userEmail:view.userEmail,authorEmail:x.createdByEmail,businessOwnerEmail:view.detail?.account.assignedUserEmail,managementOwnerEmail:managementOwner})}/>;
 }
 
 type ItemProps<T>={view:CommunicationView;entry:T;highlighted:boolean};
@@ -151,8 +139,12 @@ function Received({view,entry,highlighted}:ItemProps<ReceivedEntry>){
  </article></div>;
 }
 
-/** Spec 91 owner review: a dashed (opened, unconfirmed) bubble explains itself on hover and focus, and to screen readers. */
-export const UNCONFIRMED_HINT='No sabemos si se envió: abriste el canal pero no confirmaste el envío.';
+/**
+ * Spec 91 owner review: a dashed bubble whose result is still unknown (an email the provider did not answer, a manual attempt
+ * without result) explains itself on hover and focus, and to screen readers. Opened WhatsApp and Instagram sends are not
+ * listed until confirmed (spec 92 owner decision), so they never get here.
+ */
+export const UNCONFIRMED_HINT='Todavía no sabemos si salió: falta el resultado del envío.';
 function SentBubble({entry}:{entry:SentEntry}){
  const hintId=useId();
  const body=<div className={styles.bubble} tabIndex={entry.tone==='unconfirmed'?0:undefined} aria-describedby={entry.tone==='unconfirmed'?hintId:undefined}>{entry.subject&&<strong className={styles.subject}>{entry.subject}</strong>}<ClampedText className={styles.text} text={entry.text||'Sin contenido registrado'} lines={clampLinesFor(entry.channel)}/>{entry.tone==='unconfirmed'&&<span id={hintId} className={styles.srOnly}>{UNCONFIRMED_HINT}</span>}</div>;
@@ -160,26 +152,18 @@ function SentBubble({entry}:{entry:SentEntry}){
  return <Tooltip label={UNCONFIRMED_HINT} events={{hover:true,focus:true,touch:true}} multiline w={260} withArrow openDelay={150} zIndex={LAYERS.tooltip}>{body}</Tooltip>;
 }
 
-/**
- * Spec 92: «⋯» of an Instagram attempt. While it waits for the echo, «Sí, se envió» / «No se envió» live here (same mutation as
- * the buttons); «Copiar y abrir de nuevo» copies and opens the same chat, client-side only (no new attempt, no request).
- */
-function InstagramItemMenu({view,message,panels,label,waiting}:{view:CommunicationView;message:Message;panels:Panels;label:string;waiting:boolean}){
- const confirm=useConfirmSend({view,message}),own=view.admin||message.ownerEmail===view.userEmail;
- const url=message.status==='instagram_opened'&&own&&!view.readOnly?instagramTarget({username:message.recipient,mobile:isCoarsePointer()})?.url??null:null;
- const reopen=async(target:string)=>{const copy=copyInGesture(message.textBody||message.body),opened=openInstagramChat(target),copied=await copy.settled;if(!opened)toast.warning('No se pudo abrir Instagram automáticamente.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile:isCoarsePointer()}));else toast.warning(instagramOpenedToast({copied,mobile:false}));};
+/** Spec 92: «⋯» of an Instagram attempt: «Ver texto preparado» when the text sent through Instagram differs from the prepared one. */
+function InstagramItemMenu({view,message,panels,label}:{view:CommunicationView;message:Message;panels:Panels;label:string}){
  const actions:ItemAction[]=[
-  ...(waiting&&canConfirmSend({view,message})&&!confirm.busy?[...(confirm.block?[]:[{label:'Sí, se envió',onSelect:()=>confirm.answer('manual_sent')}]),{label:'No se envió',onSelect:()=>confirm.answer('manual_not_sent')}]:[]),
-  ...(url?[{label:'Copiar y abrir de nuevo',onSelect:()=>void reopen(url)}]:[]),
   ...(isInstagramConfirmed(message)&&instagramTextEdited(message)?[{label:'Ver texto preparado',onSelect:()=>panels.setPrepared(true)}]:[]),
   ...messageActions(view,message,panels),
  ];
- return <>{confirm.m.error&&<span role="alert" className={styles.note}>{confirm.m.error.message}</span>}<ItemMenu label={label} actions={actions}/></>;
+ return <ItemMenu label={label} actions={actions}/>;
 }
 
 function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
  const panels=useItemPanels(),message=entry.message,instagram=isInstagramAttempt(message);
- const now=useInstagramWaitNow(instagram?[message]:[]),waiting=instagram&&isWaitingForInstagramEcho({message,now}),edited=isInstagramConfirmed(message)&&instagramTextEdited(message);
+ const edited=isInstagramConfirmed(message)&&instagramTextEdited(message);
  // `data-tone` marks unconfirmed, not done or failed rows (dashed, muted) so they never look sent.
  return <div className={styles.row} data-side="out" data-tone={entry.tone} data-voided={entry.voided||undefined} {...rowProps(entry,highlighted)}><article className={styles.bubbleWrap} aria-label={entry.label}>
   <Head entry={entry} sender={entry.sender} badges={<>
@@ -188,11 +172,9 @@ function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
    {entry.autoRegistered&&!entry.echo&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}
   </>} actions={<>
    {message.channel==='email'&&!!message.htmlBody&&<Button size="sm" variant="outline" aria-label="Ver diseño del email" onClick={()=>panels.setDesign(true)}>Ver diseño</Button>}
-   {canConfirmSend({view,message})&&!waiting&&<ConfirmSendButtons view={view} message={message} size="sm"/>}
-   {instagram?<InstagramItemMenu view={view} message={message} panels={panels} label={entry.label} waiting={waiting}/>:<ItemMenu label={entry.label} actions={messageActions(view,message,panels)}/>}
+   {instagram?<InstagramItemMenu view={view} message={message} panels={panels} label={entry.label}/>:<ItemMenu label={entry.label} actions={messageActions(view,message,panels)}/>}
   </>}/>
   <div className={styles.bubbleLine}><SentBubble entry={entry}/></div>
-  {waiting&&<p className={styles.note} role="status"><strong>{INSTAGRAM_WAITING_STATUS}</strong> {INSTAGRAM_WAITING_HINT}</p>}
   {edited&&<p className={styles.note}>Editado antes de enviar</p>}
   <MessageMaterialRecord view={view} message={entry.message}/>
   <PendingActions view={view} message={entry.message}/>

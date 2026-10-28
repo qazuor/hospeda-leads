@@ -64,11 +64,12 @@ function useBodyScroll(body:RefObject<HTMLDivElement|null>){
  * On open the body (never the page) scrolls to the latest item, and it stays at the end while content settles unless the user
  * scrolled it. A summary entry from «Requiere acción» reveals its item (clearing filters that hide it), centres it in the
  * body and highlights it. «Ver anteriores» keeps the scroll position. The admin «Mostrar anulados» switch asks the server for
- * voided rows (`includeVoided`).
+ * voided rows (`includeVoided`) and lists the sends answered «No se envió». Unconfirmed opens are never listed (spec 92):
+ * they live only in «Requiere acción».
  */
 export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus,reply}:{view:CommunicationView;includeVoided:boolean;onToggleVoided:()=>void;lastSeenAt:Date|null;focus:FocusRequest|null;reply?:ReplyAction}){
  const {data,detail}=view;
- const entries=useMemo(()=>buildCommunicationTimeline({messages:data.messages,inbound:data.inbound,responses:data.responses,users:detail?.users,managements:detail?.opportunities??data.openManagements}),[data,detail]);
+ const entries=useMemo(()=>buildCommunicationTimeline({messages:data.messages,inbound:data.inbound,responses:data.responses,users:detail?.users,managements:detail?.opportunities??data.openManagements,showVoided:includeVoided}),[data,detail,includeVoided]);
  const [channel,setChannel]=useState<TimelineChannel|'all'>('all'),[management,setManagement]=useState<ManagementFilter>('all'),[showOlder,setShowOlder]=useState(false);
  const [highlight,setHighlight]=useState<string|null>(null),[pendingFocus,setPendingFocus]=useState<string|null>(null),[latestHidden,setLatestHidden]=useState(false);
  const chips=timelineChips(entries),active=chips.some(chip=>chip.channel===channel)?channel:'all';

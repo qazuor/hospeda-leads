@@ -198,14 +198,14 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 **Cuándo usarlo:** Cuando querés ver todo lo que se habló con un negocio, por cualquier canal, con o sin gestión.
 
 1. Abrí el negocio y entrá en «Comunicación». Arriba tenés «Contactar» para escribir y «Registrar»: «Llamada u otro contacto» para anotar una llamada o un contacto por otra red, y «Respuesta sin mensaje» cuando el negocio te contestó por un medio que no quedó registrado.
-2. «Requiere acción» resume lo que espera algo de vos: los mensajes recibidos «Por revisar» y los WhatsApp abiertos que todavía no confirmaste. Tocá un mensaje de la lista para ir a él en la conversación: ahí tenés «Registrar respuesta» o «No es una respuesta». Los WhatsApp abiertos se confirman en el mismo resumen o en su mensaje («¿Lo enviaste?»: «Sí, se envió» o «No se envió»). Si no hay nada, lo dice.
+2. «Requiere acción» resume lo que espera algo de vos: los mensajes recibidos «Por revisar» y los WhatsApp o Instagram abiertos que todavía no confirmaste. Tocá un mensaje de la lista para ir a él en la conversación: ahí tenés «Registrar respuesta» o «No es una respuesta». Un WhatsApp o Instagram abierto sin confirmar no aparece en «Conversación»: está solo en «Requiere acción», con el texto preparado y «¿Lo enviaste?» («Sí, se envió» o «No se envió»). Cuando lo confirmás pasa a la conversación como enviado; si contestás «No se envió», no se muestra. Si no hay nada, lo dice.
 3. «Conversación» muestra todo en orden, lo más viejo arriba y lo más nuevo abajo, separado por día: lo que recibiste a la izquierda, lo que enviaste a la derecha y las llamadas al centro. Cada mensaje dice su canal, quién lo mandó, la hora y la gestión.
 4. Usá los botones de canal que están arriba de la conversación (Todo, WhatsApp, Email, Instagram, Llamadas) para ver uno solo. Si hay muchos mensajes, se ven los últimos 30 y el resto con «Ver anteriores».
 5. Si los mensajes son de más de una gestión, elegí una en «Todas las gestiones» para ver solo esa, o los que no tienen gestión. Se combina con los botones de canal.
 6. Al abrir la pestaña ves lo más nuevo. Si subís a leer, «Ir al último» te lleva de nuevo abajo. La línea «Nuevo desde tu última visita» marca lo que llegó desde la última vez que entraste, sin contar lo que hiciste vos.
 7. Cada mensaje tiene arriba una línea con la hora, el canal, quién lo escribió, sus marcas (por ejemplo «Por revisar» o el estado del envío) y botones chicos como «Registrar respuesta», «Sí, se envió» o «Ver diseño»; debajo va el mensaje. Corregir un resultado o una respuesta y anular un registro automático están en el menú ⋯.
 8. Debajo del último mensaje, «Preparar respuesta» abre «Contactar» con el canal y el destinatario del último mensaje recibido. Si ese canal o destinatario no se puede usar, abre «Contactar» como siempre y te dice por qué. Solo prepara el mensaje: no cuenta como contacto.
-9. Cada mensaje dice de qué lado está: «Nosotros» si lo enviamos o registramos desde el CRM, «Negocio» si lo envió o respondió el negocio. El botón «Cómo leer el chat», junto al título «Conversación», explica los lados, los colores por plataforma y el borde punteado de los envíos sin confirmar.
+9. Cada mensaje dice de qué lado está: «Nosotros» si lo enviamos o registramos desde el CRM, «Negocio» si lo envió o respondió el negocio. El botón «Cómo leer el chat», junto al título «Conversación», explica los lados, los colores por plataforma y el borde punteado de los envíos cuyo resultado todavía no sabemos.
 10. El estado de cada envío es el comprobado: «Email aceptado por proveedor · entrega no confirmada» no significa que lo leyeron, y «WhatsApp abierto · envío no confirmado» no significa que se envió.
 11. Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.
 12. «Abrir en la Bandeja» te lleva a las mismas conversaciones separadas por gestión y canal.
@@ -430,7 +430,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 3. El email se prepara y sale desde el CRM. El CRM te muestra si el servicio de envío aceptó el pedido; eso no confirma que llegó.
 4. WhatsApp abre la aplicación con el texto preparado. Al volver, el CRM pregunta «¿Lo enviaste?»: tocá «Sí, lo envié» solo si lo mandaste de verdad, «No, no lo envié» si no, o «Todavía no sé, lo anoto después».
 5. «Instagram» escribe al usuario de Instagram del negocio (el que está en los datos del negocio). Elegí el modelo, revisalo y tocá «Abrir Instagram»: el CRM copia el mensaje y abre Instagram. En la computadora se abre el perfil del negocio (Instagram no abre chats directos en la web): tocá Enviar mensaje y pegá con Ctrl+V. En el celular tocá el botón Ir al chat que aparece con el usuario del negocio, mantené apretado en el chat y elegí Pegar. Después lo enviás.
-6. Tenés que estar con la sesión de Hospeda en Instagram, en el navegador o en la app. Cuando Instagram avisa del envío, el mensaje queda «Enviado · confirmado por Instagram» solo. Mientras tanto ves «Esperando que Instagram confirme el envío…»; si en 15 minutos no llega el aviso, el CRM te pregunta «¿Lo enviaste?» como con WhatsApp.
+6. Tenés que estar con la sesión de Hospeda en Instagram, en el navegador o en la app. Cuando Instagram avisa del envío, el mensaje queda «Enviado · confirmado por Instagram» solo. Mientras tanto, en «Requiere acción» ves «Esperando que Instagram confirme el envío…» y ya podés contestar «Sí, se envió» o «No se envió»; si en 15 minutos no llega el aviso, el CRM te pregunta «¿Lo enviaste?» como con WhatsApp. Hasta que se confirma, el mensaje no aparece en «Conversación».
 7. Para una llamada, elegí a quién llamás. En el celular tocá «Llamar ahora»; en la computadora tocá «Copiar número» y llamá desde tu teléfono. Cuando termines tocá «Ya llamé: anotar cómo salió». Si no te atendieron: desde el negocio podés tocar «No me atendieron»; desde una tarea tocá «Ya llamé: anotar cómo salió» y elegí «No respondió».
 8. Para «Red social» y «Otro canal», el CRM crea un intento pendiente (podés «Crear intento y copiar texto»). Cuando termines, completá cómo salió.
 9. En todos los casos el contacto termina en «¿Cómo salió?» y «¿Cómo sigue?». Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta.
@@ -448,7 +448,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 - Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.
 - Si el negocio contesta tu email, la respuesta llega sola a la «Conversación» de su ficha, en «Comunicación». No hace falta copiarla a mano.
 - Si abriste WhatsApp desde «Contactar» y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces. Igual te falta «Anotá cómo salió».
-- Si mandaste el mensaje de Instagram desde otra cuenta, o la conexión con Instagram no está activa, el envío no se confirma solo: contestá «Sí, se envió» o «No se envió» en la burbuja o en «Requiere acción». Si se te cerró Instagram, usá «Copiar y abrir de nuevo»: no crea otro intento.
+- Si mandaste el mensaje de Instagram desde otra cuenta, o la conexión con Instagram no está activa, el envío no se confirma solo: contestá «Sí, se envió» o «No se envió» en «Requiere acción». Si se te cerró Instagram, usá «Copiar y abrir de nuevo» en esa misma entrada: no crea otro intento.
 - Si el negocio no tiene un usuario de Instagram válido, la opción «Instagram» aparece desactivada. Cargalo con «Agregar o editar datos de contacto»: es el mismo usuario que se usa para asociar los mensajes recibidos.
 
 ### Anotar cómo salió y decidir cómo sigue
@@ -1163,7 +1163,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 6. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
 7. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».
 
-**Qué queda al terminar:** El mensaje queda en «Conversación» como «WhatsApp abierto · envío no confirmado» y en «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío.
+**Qué queda al terminar:** El envío queda «WhatsApp abierto · envío no confirmado»: no aparece en «Conversación» y «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío. Recién cuando lo confirmás pasa a la conversación.
 
 **Ejemplo:**
 

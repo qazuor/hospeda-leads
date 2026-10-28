@@ -91,8 +91,16 @@ export async function inboxSearch(request:Request){try{
 const listedInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered')`;
 const detailInbound=(alias:'i',includeVoided:boolean)=>includeVoided?sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed','voided')`:sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed')`;
 const pendingInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)}='pending_review' AND ${sql.ref(`${alias}.is_automatic`)}=false`;
-const includedOutbound=(alias:'m')=>sql<boolean>`${sql.ref(`${alias}.status`)} NOT IN ('draft','cancelled','voided')`;
-const detailOutbound=(alias:'m',includeVoided:boolean)=>includeVoided?sql<boolean>`${sql.ref(`${alias}.status`)} NOT IN ('draft','cancelled')`:includedOutbound(alias);
+/**
+ * Spec 92 owner decision (Bandeja included, 27/10/2026): an opened send nobody confirmed (`whatsapp_opened`, `instagram_opened`)
+ * is in no list, count, last activity, preview, search or thread until it is confirmed, like «Conversación». A send answered
+ * «No se envió» (`manual_not_done`; a call «No se hizo» is not a send and stays) follows the voided rule: only in the detail of
+ * an admin who asks for voided rows. Same rule as `isHiddenFromConversation` in communicationTimeline.ts.
+ */
+const unconfirmedOutbound=(alias:'m')=>sql<boolean>`${sql.ref(`${alias}.status`)} IN ('whatsapp_opened','instagram_opened')`;
+const notSentOutbound=(alias:'m')=>sql<boolean>`(${sql.ref(`${alias}.status`)}='manual_not_done' AND ${sql.ref(`${alias}.channel`)}<>'call')`;
+const includedOutbound=(alias:'m')=>sql<boolean>`(${sql.ref(`${alias}.status`)} NOT IN ('draft','cancelled','voided') AND NOT ${unconfirmedOutbound(alias)} AND NOT ${notSentOutbound(alias)})`;
+const detailOutbound=(alias:'m',includeVoided:boolean)=>includeVoided?sql<boolean>`(${sql.ref(`${alias}.status`)} NOT IN ('draft','cancelled') AND NOT ${unconfirmedOutbound(alias)})`:includedOutbound(alias);
 const channelIs=(alias:'m'|'i',channel:string|undefined)=>channel?sql<boolean>`AND ${sql.ref(`${alias}.channel`)}=${channel}`:sql<boolean>``;
 
 /**
