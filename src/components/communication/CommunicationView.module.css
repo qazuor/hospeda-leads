@@ -137,6 +137,9 @@
 .tag[data-kind="status"][data-tone="not_done"]{background:var(--muted);color:var(--muted-foreground)}
 .tag[data-kind="auto_registered"]{background:var(--tone-blue-soft);color:var(--tone-blue-ink)}
 .tag[data-kind="automatic"]{background:var(--tone-slate-soft);color:var(--tone-slate-ink)}
+/* Spec 93: informational email badges (opens, clicks) and the spam warning. */
+.tag[data-kind="engagement"]{background:var(--tone-blue-soft);color:var(--tone-blue-ink);cursor:help}
+.tag[data-kind="engagement"][data-tone="warning"]{background:var(--tone-orange-soft);color:var(--tone-orange-ink)}
 .headActions{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0}
 /* Compact actions in the header: about 24px high, small text (Mantine sets its size inline, hence the !important). */
 .headActions button,.eventTail button{height:24px!important;min-height:24px!important;padding-inline:8px!important;font-size:12px!important;border-radius:6px}
@@ -182,6 +185,8 @@
 .legend dd{margin:0;color:var(--muted-foreground)}
 .legendSwatches{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0;padding:0;list-style:none}
 .legendSwatches li{display:inline-flex;align-items:center}
+.legendList{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.legendList .tag{padding:1px 8px;font-size:11px;line-height:18px;cursor:default}
 .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .frameBody .row[data-side="out"][data-tone=unconfirmed] .bubble:focus-visible{outline:2px solid var(--platform);outline-offset:2px}
 /* Spec 92: «Ver texto preparado» of an Instagram attempt confirmed by the echo. */
