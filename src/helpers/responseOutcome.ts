@@ -28,9 +28,12 @@ const latest=(sends:readonly OpenSend[])=>[...sends].sort((a,b)=>b.lastInteracti
  * 2. A response about a management answers the most recent open send of that management; none there means none.
  * 3. A response without management answers the most recent open send only when all open sends share one context (one
  *    management, or all without one); open sends in different contexts are ambiguous and stay pending.
+ * Only sends that happened at or before `answeredAt` count (when the response was received, or registered when there is no message):
+ * a response cannot answer a later send, so an old message registered late never resolves what was sent after it.
  * Nothing is inferred from received messages: only the registered response counts.
  */
-export function attributeResponseToSend({sends,linkedMessageId,leadId}:{sends:readonly OpenSend[];linkedMessageId:string|null;leadId:string|null}):{messageId:string|null}{
+export function attributeResponseToSend({sends:all,linkedMessageId,leadId,answeredAt}:{sends:readonly OpenSend[];linkedMessageId:string|null;leadId:string|null;answeredAt:Date}):{messageId:string|null}{
+ const sends=all.filter(s=>s.lastInteractionAt.getTime()<=answeredAt.getTime());
  if(linkedMessageId)return {messageId:sends.some(s=>s.id===linkedMessageId)?linkedMessageId:null};
  if(leadId)return {messageId:latest(sends.filter(s=>s.leadId===leadId))};
  return {messageId:new Set(sends.map(s=>s.leadId)).size===1?latest(sends):null};

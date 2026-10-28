@@ -38,13 +38,15 @@ async function canRecordOutcome(e:Executor,m:Message,user:User):Promise<boolean>
 
 /**
  * Spec 96 §10.1: a response registered for a business resolves the pending outcome of the send it answers, inside the response's
- * transaction (the caller holds the business lock). The send is chosen by {@link attributeResponseToSend}; an ambiguous response, or a
+ * transaction (the caller holds the business lock). The send is chosen by {@link attributeResponseToSend} among the sends made up to
+ * `answeredAt` (when the response was received; null means now, a response registered without a message); an ambiguous response, or a
  * user who could not record that outcome, resolves nothing. The message status never changes (an unconfirmed send stays unconfirmed),
  * and the activity keeps `outcome_response_id` so the CRM marks the outcome as automatic until a person corrects it.
  * Only called for a newly inserted response: a replay returns before, so nothing is resolved twice.
  */
-export async function resolveSendOutcomeFromResponse(e:Executor,{response,user}:{response:{id:string;accountId:string;leadId:string|null;linkedMessageId:string|null;category:ResponseCategory;summary:string};user:User}):Promise<{messageId:string|null}>{
- const {messageId}=attributeResponseToSend({sends:await openSends(e,response.accountId),linkedMessageId:response.linkedMessageId,leadId:response.leadId});
+export async function resolveSendOutcomeFromResponse(e:Executor,{response,user,answeredAt}:{response:{id:string;accountId:string;leadId:string|null;linkedMessageId:string|null;category:ResponseCategory;summary:string};user:User;answeredAt:Date|null}):Promise<{messageId:string|null}>{
+ const at=answeredAt??(await sql<{now:Date}>`SELECT now() AS now`.execute(e)).rows[0].now;
+ const {messageId}=attributeResponseToSend({sends:await openSends(e,response.accountId),linkedMessageId:response.linkedMessageId,leadId:response.leadId,answeredAt:at});
  if(!messageId)return {messageId:null};
  const m=(await sql<Message>`SELECT * FROM crm_messages WHERE id=${messageId}::uuid`.execute(e)).rows[0];
  if(!m||!await canRecordOutcome(e,m,user))return {messageId:null};

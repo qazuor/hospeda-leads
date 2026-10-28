@@ -229,7 +229,8 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
   await communicationJournal(e,{accountId:String(account.id),leadId,entityType:'business',entityId:String(account.id),action:'business_archived_by_do_not_contact',actor:null,automatic:true,triggeredBy:user.email,after:{status:'archived',responseId}});
  }
 }
-async function createResponse(e:Executor,input:Extract<CommunicationMutation,{action:'response_create'}>,user:User){
+/** `answeredAt`: when the response was received (a registered inbound); null means now, a response registered without a message. */
+async function createResponse(e:Executor,input:Extract<CommunicationMutation,{action:'response_create'}>,user:User,answeredAt:Date|null=null){
  const {account,lead}=await communicationContext(e,input.accountId,input.leadId,user,false);
  // Replay: a retry whose answer was lost returns the same response (the first save already blocked the business and closed the chosen managements). Only the same user, business, management, category, person and linked contact; anything else is a conflict that reveals nothing.
  const replay=(await sql<ResponseReplay>`SELECT id,actor_email,account_id,lead_id,category,contact_id,linked_message_id FROM crm_communication_responses WHERE id=${input.id}::uuid`.execute(e)).rows[0];
@@ -259,7 +260,7 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
  // Spec 96 §10.1: the response resolves the pending «¿Cómo salió?» of the send it answers, when that can be told without guessing.
- await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user});
+ await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user,answeredAt});
  for(const task of selectedTasks){
   const completedAt=new Date();const result='Resuelta por la respuesta del cliente';
   const updated=await sql`UPDATE crm_tasks SET status='completed',completed_at=${completedAt},result=${result},updated_at=now() WHERE id=${task.id} AND status='pending' RETURNING id`.execute(e);
@@ -490,7 +491,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
   if(row.status==='registered'&&row.responseId){await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);return {id:String(row.responseId),duplicate:true};}
   if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
-  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user);
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
   await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
   await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
  }
