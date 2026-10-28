@@ -1056,7 +1056,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 - Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.
 - El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.
 - Desde la versión 1.4.0 el mismo script también trabaja en Instagram. La primera vez que Tampermonkey lo actualice te va a pedir que apruebes un sitio nuevo (instagram.com): aceptalo una sola vez. Si no lo aprobás, el script sigue funcionando en WhatsApp.
-- La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.5.0 el CRM pide siempre la última versión del script.
+- La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.5.0 el CRM pide siempre la última versión del script: en la computadora, sin el script al día y conectado, el CRM se bloquea (salvo «User script» y «Ayuda») hasta que lo instales o lo conectes. Desde la 1.5.1, al crear un token alcanza con «Conectar este navegador»: no hace falta pegarlo en WhatsApp Web.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
