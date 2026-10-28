@@ -1,5 +1,12 @@
 # Pendientes y próximo trabajo
 
+## Spec 94 — pegar el mensaje en Instagram Web — pendiente de PR
+
+[Spec 94](crm-roadmap/94-instagram-userscript.md) implementada en `feat/instagram-userscript-94` (cortada de `staging`). Falta:
+- push, PR a `staging`, CI verde (incluye `instagram-open-chat.e2e.ts`, que no se corrió localmente) y merge;
+- **prueba manual del propietario en Instagram real** (Chrome o Edge): actualizar el script a la 1.4.0 desde `/userscript`, aprobar instagram.com en Tampermonkey, recargar el CRM, «Abrir Instagram» desde un negocio con Instagram y aceptar el permiso del portapapeles; verificar que se abre el chat, se pega el texto y no se envía. Si el botón o el cuadro no se encuentran, ajustar `MESSAGE_BUTTON_NAMES` / `COMPOSER_LABELS` y los fixtures `instagram-*.html`;
+- sin migración ni variables nuevas.
+
 ## Spec 93 — email: entrega, aperturas y clicks — pendiente de PR
 
 [Spec 93](crm-roadmap/93-email-engagement.md) implementada en `feat/email-engagement-93`, apilada sobre la 92 (PR #278): el PR va después del de la 92. Falta:

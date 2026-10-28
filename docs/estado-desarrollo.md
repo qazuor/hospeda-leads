@@ -1,4 +1,12 @@
-# Estado del CRM — corte al 27 de octubre de 2026
+# Estado del CRM — corte al 28 de octubre de 2026
+
+## Spec 94 — pegar el mensaje en Instagram Web con el user script — implementada en `feat/instagram-userscript-94` (sin push ni PR) — 28/10/2026
+
+- **Un solo script (D1):** el «Hospeda CRM» pasa a la 1.4.0 con `@match https://www.instagram.com/*`; `main.ts` elige el módulo por host (`siteFor`). El módulo `userscript/src/instagram/` está aislado: no lee el token ni otros valores de GM (solo la clave del traspaso, vía `HandoffStore`), no hace pedidos y no corre lógica de WhatsApp. Al actualizar, Tampermonkey pide aprobar instagram.com una vez.
+- **Traspaso de un solo uso (D6, tras revisión de seguridad):** en la computadora, con el script ≥ 1.4.0 en la página, «Abrir Instagram» y «Copiar y abrir de nuevo» generan un nonce de 128 bits, lo pasan al script por `postMessage` (misma ventana y origen) con usuario, vencimiento de 2 min y hash del texto, y abren `https://www.instagram.com/<usuario>/#hospeda=<nonce>`. En Instagram el script actúa solo si coinciden nonce, vencimiento y perfil, y borra el traspaso antes de actuar. Sin script, el perfil se abre sin marcador, como antes.
+- **En Instagram:** busca «Enviar mensaje» / «Message» por nombre accesible, espera el chat (15 s), no pega si ya hay texto, lee el portapapeles y pega solo si coincide con el hash (evento `paste` con `DataTransfer`, respaldo `execCommand('insertText')`). Nunca envía. Si algo falla, aviso en castellano y pegado manual.
+- **CRM:** toast según haya traspaso («El script de Hospeda abre el chat y lo pega…» o «Con el user script de Hospeda se pega solo.»), nota en `/userscript`, artículo nuevo de la guía y `guia-de-uso.md` regenerada.
+- **Validación local:** `npm run typecheck` (app y userscript), `npx vitest run --maxWorkers=4` (217 archivos, 1752 tests), `npm run build` (incluye el userscript y `verify-userscript-build.mjs`). Playwright contra un servidor propio en el puerto 3024: `guide.e2e.ts` y `command-palette.e2e.ts` en verde, más una prueba local descartable que cargó el script construido en la página del CRM y en un perfil de Instagram simulado (rutas interceptadas, nada salió a instagram.com): pegó con traspaso válido, no envió, ignoró `#hospeda` suelto, nonce ajeno, nonce reusado y otro perfil, y no pegó con el portapapeles cambiado. **No se corrió** `instagram-open-chat.e2e.ts`: escribe la fila `crm_integration_secrets` de la base local, que no había que tocar; queda para CI (se actualizó solo su comentario de URL, que no cambia sin script).
 
 ## Spec 93 — email: entrega, aperturas y clicks — implementada en `feat/email-engagement-93` (apilada sobre la 92, sin PR todavía) — 27/10/2026
 
