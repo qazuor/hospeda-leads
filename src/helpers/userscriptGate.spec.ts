@@ -43,8 +43,9 @@ describe('userscriptPrompt (owner review of spec 96)',()=>{
   ['a connected, current script',{}],
   ['the page still looking for the script',{version:undefined}],
   ['a token being verified',{connection:undefined}],
-  ['a token the CRM could not verify',{connection:'unknown'}],
  ] as const)('stays hidden for %s',(_name,status)=>{expect(prompt(status)).toBeNull();});
+ it('only warns, without blocking, when the CRM could not verify the token',()=>{expect(prompt({connection:'unknown'})).toMatchObject({kind:'unverified',blocking:false});});
+ it('blocks for a missing, outdated or disconnected script',()=>{for(const status of [{version:null},{version:'1.4.0'},{connection:'rejected'}])expect(prompt(status)?.blocking).toBe(true);});
  it('asks to install when no script announced itself in this page',()=>{expect(prompt({version:null,connection:null})?.kind).toBe('install');});
  it('never shows on phones and tablets',()=>{expect(prompt({version:'1.0.0'},{mobile:true})).toBeNull();});
 });

@@ -40,19 +40,24 @@ export function userscriptContactBlock({mobile,status,latest,currentUserEmail}:{
 
 /** Where Tampermonkey installs or updates the script (served by the CRM). */
 export const USERSCRIPT_URL='/userscripts/hospeda-crm.user.js';
-/** What the always-visible prompt asks for: `install` and `update` get the latest script, `connect` fixes its token. */
-export type UserscriptPrompt={readonly kind:'install'|'update'|'connect';readonly title:string;readonly description:string};
-const PROMPT_CONSEQUENCE='Hasta que lo hagas no podés contactar por WhatsApp ni Instagram desde la computadora y las conversaciones no se registran solas.';
 /**
- * Owner review of spec 96 (28/10/2026): no seller should use the CRM without the current script, so a missing, outdated or
- * disconnected script gets a prompt as visible as the one in WhatsApp Web, on every page. Null on phones and tablets, while the page
- * waits or verifies, and when the CRM could not verify the token (a network problem the user cannot fix from the prompt).
+ * What the CRM asks of this computer's script: `install` and `update` get the latest script and `connect` fixes its token, and those
+ * three block the whole CRM (`blocking`); `unverified` (the CRM could not check the token) only warns, so a server hiccup never locks
+ * every seller out.
+ */
+export type UserscriptPrompt={readonly kind:'install'|'update'|'connect'|'unverified';readonly blocking:boolean;readonly title:string;readonly description:string};
+const BLOCK_CONSEQUENCE='El CRM queda bloqueado hasta que lo hagas: sin el script al día, lo que hablás por WhatsApp e Instagram no se registra solo.';
+/**
+ * Owner review of spec 96 (28/10/2026): nobody, admins included, uses the CRM on a computer without the current, connected script.
+ * Null on phones and tablets (no Tampermonkey there), while the page still looks for the script or verifies its token, and when
+ * nothing is wrong.
  */
 export function userscriptPrompt({mobile,status,latest,currentUserEmail}:{mobile:boolean;status:UserscriptStatus;latest:string;currentUserEmail:string|null}):UserscriptPrompt|null{
  if(mobile||status.version===undefined)return null;
- if(status.version===null)return {kind:'install',title:'Instalá el script de Hospeda',description:`No lo detectamos en esta página. Instalalo (o actualizalo, si ya lo tenías) y recargá. ${PROMPT_CONSEQUENCE}`};
+ if(status.version===null)return {kind:'install',blocking:true,title:'Instalá el script de Hospeda',description:`No lo detectamos en esta página. Instalalo (o actualizalo, si ya lo tenías) y recargá. ${BLOCK_CONSEQUENCE}`};
  const reason=userscriptContactBlock({mobile,status,latest,currentUserEmail});
- if(!reason||reason===USERSCRIPT_VERIFYING_REASON||reason===USERSCRIPT_UNVERIFIED_REASON)return null;
- if(reason===userscriptOutdatedReason({installed:status.version,latest}))return {kind:'update',title:'Actualizá el script de Hospeda',description:`Tenés la versión ${status.version} y la actual es ${latest}. ${PROMPT_CONSEQUENCE}`};
- return {kind:'connect',title:'Conectá el script de Hospeda',description:`${reason} ${PROMPT_CONSEQUENCE}`};
+ if(!reason||reason===USERSCRIPT_VERIFYING_REASON)return null;
+ if(reason===USERSCRIPT_UNVERIFIED_REASON)return {kind:'unverified',blocking:false,title:'No pudimos verificar el script',description:`${reason} Mientras tanto, WhatsApp e Instagram quedan bloqueados en esta computadora.`};
+ if(reason===userscriptOutdatedReason({installed:status.version,latest}))return {kind:'update',blocking:true,title:'Actualizá el script de Hospeda',description:`Tenés la versión ${status.version} y la actual es ${latest}. ${BLOCK_CONSEQUENCE}`};
+ return {kind:'connect',blocking:true,title:'Conectá el script de Hospeda',description:`${reason} ${BLOCK_CONSEQUENCE}`};
 }
