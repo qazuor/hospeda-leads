@@ -54,8 +54,13 @@ describe('sanitizeEngagementLink',()=>{
  it('drops non-http schemes, garbage and non-strings',()=>{
   for(const link of ['javascript:alert(1)','mailto:a@b.com','data:text/html,x','not a url','',null,42])expect(sanitizeEngagementLink({link})).toBeNull();
  });
+ it('hides token-like path segments (long ids, UUIDs) behind «…»',()=>{
+  expect(sanitizeEngagementLink({link:'https://hospeda.com.ar/m/AbCdEf0123456789_-xyZ/ver'})).toBe('hospeda.com.ar/m/…/ver');
+  expect(sanitizeEngagementLink({link:'https://hospeda.com.ar/u/123e4567-e89b-12d3-a456-426614174000'})).toBe('hospeda.com.ar/u/…');
+  expect(sanitizeEngagementLink({link:'https://hospeda.com.ar/planes/plan-anual-premium'})).toBe('hospeda.com.ar/planes/plan-anual-premium');
+ });
  it('truncates long links to 80 characters',()=>{
-  const out=sanitizeEngagementLink({link:'https://hospeda.com.ar/'+'a'.repeat(200)})!;
+  const out=sanitizeEngagementLink({link:'https://hospeda.com.ar/'+'a-b.'.repeat(50)})!;
   expect(out).toHaveLength(80);expect(out.endsWith('…')).toBe(true);
  });
  it('deduplicates and keeps at most three',()=>{

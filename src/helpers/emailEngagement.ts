@@ -42,16 +42,19 @@ export function terminalEmailEvent<T extends {readonly event:string;readonly occ
 }
 
 const MAX_LINK=80;
+const TOKEN_SEGMENT=/^(?:[A-Za-z0-9_-]{20,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 /**
- * A clicked URL as plain text for a tooltip: only http(s), without credentials, query string or fragment (they can carry
- * tracking tokens or personal data), at most 80 characters. Anything else is dropped.
+ * A clicked URL as plain text for a tooltip: only http(s), without credentials, query string, fragment or token-like path
+ * segments (they can carry tracking tokens or personal data), at most 80 characters. Anything else is dropped.
  */
 export function sanitizeEngagementLink({link}:{link:unknown}):string|null{
  if(typeof link!=='string'||link.length>2000)return null;
  let url:URL;
  try{url=new URL(link.trim())}catch{return null}
  if(url.protocol!=='http:'&&url.protocol!=='https:')return null;
- const text=(url.host+(url.pathname==='/'?'':url.pathname)).replace(/[\u0000-\u001f\u007f]/g,'');
+ // Token-like segments (UUIDs, 20+ characters of [A-Za-z0-9_-]) can identify a share or a person: shown as «…».
+ const path=url.pathname==='/'?'':url.pathname.split('/').map(seg=>TOKEN_SEGMENT.test(seg)?'…':seg).join('/');
+ const text=(url.host+path).replace(/[\u0000-\u001f\u007f]/g,'');
  if(!text)return null;
  return text.length>MAX_LINK?text.slice(0,MAX_LINK-1)+'…':text;
 }
