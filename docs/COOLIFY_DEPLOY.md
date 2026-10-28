@@ -48,11 +48,36 @@ R2_ACCOUNT_ID=<Cloudflare account id>
 R2_ACCESS_KEY_ID=<R2 API token access key id, Object Read & Write on the material bucket only>
 R2_SECRET_ACCESS_KEY=<R2 API token secret access key>
 R2_BUCKET=<private bucket name, e.g. hospeda-crm-material>
+BREVO_WEBHOOK_TOKEN=<random secret, minimum 32 characters; the Brevo transactional webhook sends it as a Bearer token>
 ```
 
 No versionar valores reales.
 
 Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` y, opcionalmente, `BREVO_SMTP_PORT` en Coolify. La clave debe ser propia del CRM y revocable. Si falta el usuario o la clave, el servidor inicia igual y oculta la acción.
+
+### Webhook de Brevo: entrega, aperturas y clicks (spec 93)
+
+Sin este webhook los emails quedan en «Email aceptado por proveedor · entrega no confirmada» y no se ven aperturas ni clicks. Pasos del propietario, una sola vez y después del deploy (ningún agente los ejecuta):
+
+1. Generar un secreto de 32 caracteres o más (`openssl rand -hex 32`), cargarlo en Coolify como `BREVO_WEBHOOK_TOKEN` y redesplegar. Sin la variable, o con menos de 32 caracteres, `POST /_api/brevo/events` responde 503.
+2. Crear el webhook transaccional con autenticación Bearer. La API de Brevo la admite (`auth.type: "bearer"`); la pantalla de Brevo (Transactional → Settings → Webhook) puede no ofrecerla, así que conviene la API, con la API key de Hospeda y desde una máquina de confianza:
+
+   ```bash
+   curl -X POST https://api.brevo.com/v3/webhooks \
+     -H "api-key: $BREVO_API_KEY" -H 'content-type: application/json' \
+     -d '{"type":"transactional","channel":"email","description":"Hospeda CRM",
+          "url":"https://crm.hospeda.com.ar/_api/brevo/events",
+          "events":["delivered","opened","uniqueOpened","click","softBounce","hardBounce","blocked","spam","invalid","deferred","unsubscribed"],
+          "auth":{"type":"bearer","token":"<BREVO_WEBHOOK_TOKEN>"}}'
+   ```
+
+   - No activar `batched`: un evento por pedido es el comportamiento por defecto y el CRM acepta hasta 100 eventos por pedido.
+   - `sent`/`request` no hace falta. `error` no se suscribe por separado. Brevo envía además `proxy_open` / `unique_proxy_open` para aperturas por un servidor intermedio; el CRM las muestra como «Posible apertura automática».
+   - Nombres que llegan en el campo `event`: `delivered`, `opened`, `unique_opened`, `proxy_open`, `unique_proxy_open`, `click` (URL en `link`), `soft_bounce`, `hard_bounce`, `blocked`, `spam`, `invalid_email`, `deferred`, `unsubscribed`, `error`, `request`. Fuente: documentación de Brevo «Transactional webhooks» y «Create a webhook».
+3. Verificar: enviar desde el CRM un email a una casilla propia. En un minuto el ítem muestra «Entregado · <hora>»; al abrirlo aparece «Abierto». `GET https://api.brevo.com/v3/webhooks?type=transactional` lista el webhook. En los logs de Brevo, un 401 indica que el token no coincide y un 503 que falta `BREVO_WEBHOOK_TOKEN` o es corto.
+4. Rotar: cargar el nuevo token en Coolify, redesplegar y actualizar el webhook con `PUT https://api.brevo.com/v3/webhooks/<id>` y el nuevo `auth.token`. Hacerlo en un momento tranquilo: los eventos rechazados en el medio pueden no volver a llegar (Brevo no documenta reintentos).
+
+Las aperturas, clicks y quejas de spam son informativas: no cambian el estado, no cuentan como contacto ni respuesta y no tocan tareas ni el último contacto.
 
 ### Material de venta en Cloudflare R2 (spec 89)
 

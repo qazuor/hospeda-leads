@@ -42,13 +42,13 @@ Timestamps: `ts_event` (seconds, GMT) is the event time and wins over `ts`. `ts_
 
 ### 2.2 Delivery
 
-- `delivered` keeps mapping to `delivery_confirmed`. On the email item the status badge reads **«Entregado · <fecha hora>»** with the first `delivered` time. Without that time it keeps the existing label «Entrega confirmada».
+- `delivered` keeps mapping to `delivery_confirmed`. On the email item the status badge reads **«Entregado · <dd/mm hh:mm>»** with the first `delivered` time. Without that time it keeps the existing label «Entrega confirmada».
 - **Delivered beats temporary problems.** A `soft_bounce` or `deferred` before or in the same second as a `delivered` never leaves the email failed: a soft bounce is temporary and Brevo retries it. A `hard_bounce`, `blocked`, `invalid_email` or `error` *after* the delivery still wins (an asynchronous bounce), as today.
 - **Side effects run once per new evidence.** `reconcileEvents` runs only when the webhook stores a **new** terminal event, or when the event links earlier orphan events. Opens, clicks, spam, deferred, unsubscribed and redelivered duplicates are stored and nothing else happens. When it does run it writes only what changes (status, activity result), so no audit row is written for a no-op.
 
 ### 2.3 Opens, clicks and spam on the email item
 
-Informational badges in the item header, after the status badge (spec 91 two-line layout), on every sent email that has the data:
+Informational badges in the item header, after the status badge (spec 91 two-line layout), on every sent email that has the data: (`<fecha hora>` is the compact Argentina time «27/10 16:24»; the item's day separator already carries the full date)
 
 - **«Abierto · <fecha hora>»** with the first open, plus **«×N»** when there is more than one. Tooltip: «Aproximado: algunos clientes de correo abren los emails automáticamente (Apple Mail) y otros bloquean las imágenes.»
 - **«Posible apertura automática · <fecha hora>»** (plus «×N») for `proxy_open` / `unique_proxy_open`, kept apart from «Abierto» (D1). Tooltip: «Brevo detectó una apertura hecha por un servidor intermedio (por ejemplo, la protección de privacidad de Apple Mail). Puede no haberla abierto una persona.»
@@ -60,7 +60,7 @@ Counting rule. Brevo can send both `opened` and `unique_opened` for the first op
 ### 2.4 Honesty
 
 - An open, a click or a spam complaint never changes the message status, never counts as contact or reply, never completes or creates tasks, never touches «Último contacto», the activity, the journal or the history (D2). They are only shown.
-- The «Cómo leer el chat» legend gains an **«Email»** entry: «Entregado: Brevo confirmó que el servidor del destinatario recibió el email.», «Abierto y Click en un enlace: informativos, no son una respuesta.», the approximate note, «Posible apertura automática» and «Marcado como spam».
+- The «Cómo leer el chat» legend gains an **«Email (Brevo)»** entry: «Entregado: Brevo confirmó que el servidor del destinatario recibió el email.», «Abierto y Click en un enlace: informativos, no son una respuesta.», the approximate note, «Posible apertura automática» and «Marcado como spam».
 
 ### 2.5 API
 
@@ -127,7 +127,7 @@ Do this once, after this spec is deployed. Nothing here is run by an agent.
    - Do not set `batched`: one event per request is the documented default and stays under the 100-events limit.
    - `sent`/`request` is not needed.
 3. **Check.** Send an email from the CRM to an address you control. Within a minute the item shows «Entregado · <hora>»; opening it shows «Abierto». `GET https://api.brevo.com/v3/webhooks?type=transactional` lists the webhook. A 401 in Brevo's logs means the token differs; a 503 means `BREVO_WEBHOOK_TOKEN` is missing or short.
-4. **Rotate.** Set the new token in Coolify, redeploy, then `PUT /v3/webhooks/<id>` with the new `auth.token`. Events rejected in between are retried by Brevo.
+4. **Rotate.** Set the new token in Coolify, redeploy, then `PUT /v3/webhooks/<id>` with the new `auth.token`. Do it at a quiet time: events rejected in between may not arrive again (Brevo does not document retries).
 
 ## 7. Decisions (proposed defaults, pending owner confirmation)
 

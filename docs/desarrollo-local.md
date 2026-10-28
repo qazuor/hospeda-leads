@@ -79,6 +79,8 @@ Las suites `scripts/test-*.ts|mjs` pueden volver a ejecutarse sobre la misma bas
 
 La integración de email entrante requiere `INBOUND_EMAIL_TOKEN` (secreto aleatorio de al menos 32 caracteres, compartido con el Worker Cloudflare). En local puede omitirse si no se prueba ese endpoint.
 
+El webhook de Brevo (`POST /_api/brevo/events`, spec 93) requiere `BREVO_WEBHOOK_TOKEN` (32 caracteres o más) y responde 503 sin él. En local se prueba con un token inventado y eventos falsos enviados con `Authorization: Bearer <token>` (ver `scripts/test-email-engagement.ts`); nunca con una `BREVO_API_KEY` real. La configuración de producción está en `COOLIFY_DEPLOY.md`.
+
 Responder emails entrantes requiere `BREVO_SMTP_LOGIN` y `BREVO_SMTP_KEY` (clave SMTP propia del CRM). `BREVO_SMTP_PORT` es opcional y usa `587` por defecto. Sin estas variables, la aplicación inicia normalmente y oculta la acción de responder.
 
 Solo si hace falta algo distinto de `npm run local`. `npm run dev` carga `.env` (si existe) en la API; `npm start`, `npm run db:migrate` y los demás scripts de DB leen solo `process.env` y no cargan `.env`. Las variables exportadas en la shell ganan sobre las del archivo.
