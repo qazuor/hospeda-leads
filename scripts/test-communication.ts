@@ -1,6 +1,6 @@
 import {handle as saveSettings} from '../src/endpoints/settings_save_POST';
 import {seedDncTasks,assertDncCancelled,assertDncUntouched} from './lib/dnc-tasks';
-import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';import {sql} from 'kysely';import {pendingContactOutcomes,resolveMessageForWork} from '../src/helpers/communicationService';import {setWorkActor} from '../src/helpers/workAudit';import {db} from '../src/helpers/db';import {post,get,webhook} from '../src/endpoints/communication';import {post as resourcePost,get as resourcesGet,download} from '../src/endpoints/resources';import {app} from '../src/server/app';import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';import {post as quality} from '../src/endpoints/dataQuality';import {restartDraftRequest,type Message} from '../src/endpoints/communication.schema';
+import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';import {sql} from 'kysely';import {pendingContactOutcomes,resolveMessageForWork} from '../src/helpers/communicationService';import {setWorkActor} from '../src/helpers/workAudit';import {db} from '../src/helpers/db';import {post,get,webhook} from '../src/endpoints/communication';import {post as workPost} from '../src/endpoints/work';import {post as resourcePost,get as resourcesGet,download} from '../src/endpoints/resources';import {app} from '../src/server/app';import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';import {post as quality} from '../src/endpoints/dataQuality';import {restartDraftRequest,type Message} from '../src/endpoints/communication.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1');const stamp=Date.now();
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`communication-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
 const admin=await identity('admin'),user=await identity('user'),other=await identity('user');
@@ -344,9 +344,65 @@ try{
   await call(resolving,200,user.cookie);assert.deepEqual(await outcomeOf(newer),{outcome:'interested',responseId:String(created.id)},'a replay resolves nothing new');assert.equal((await outcomeOf(older)).outcome??null,null,'a replay does not move on to the next send');
   assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE entity_id=${newer} AND action='contact_outcome_from_response'`.execute(db)).rows[0].n),1);
   assert.ok(!(await pendingContactOutcomes(db,{ownerEmail:user.user.email,isAdmin:false,accountId:String(acc.id)})).some(p=>p.id===newer),'Hoy no longer asks how it went');
-  // Someone who cannot record that outcome (another seller) leaves it pending.
-  await call(answer(second.id,'later'),200,other.cookie).catch(()=>undefined);assert.equal((await outcomeOf(elsewhere)).outcome??null,null,'a reader never resolves another seller outcome');
-  console.log('Spec 96: a response resolves the pending outcome of its send, idempotently and only when it is unambiguous');
+  // Someone who cannot record that outcome (another seller, who can still read the business) saves the response but leaves it pending.
+  const foreign=answer(second.id,'later');await call(foreign,200,other.cookie);
+  assert.ok(await db.selectFrom('crmCommunicationResponses').select('id').where('id','=',foreign.id).executeTakeFirst(),'the other seller response is saved');
+  assert.equal((await outcomeOf(elsewhere)).outcome??null,null,'a reader never resolves another seller outcome');
+  // A response linked to a message that is no longer open resolves nothing (never another open send instead).
+  await call({...answer(first.id),linkedMessageId:newer},200,user.cookie);assert.equal((await outcomeOf(older)).outcome??null,null,'a response linked to a resolved send does not fall back to another one');
+  const work=async(body:unknown,status=200,cookie=user.cookie)=>{const r=await workPost(new Request('http://localhost/_api/work',{method:'POST',headers:{cookie},body:superjson.stringify(body)}));const d=superjson.parse<any>(await r.text());assert.equal(r.status,status,d.error);return d;};
+  const log=(leadId:string|number)=>({action:'activity_save',accountId:String(acc.id),leadId:String(leadId),title:'Contacto por WhatsApp',typeId:'message',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'whatsapp',contactIds:[],outcome:'no_answer',result:'No respondió',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+  // M3: correcting the response moves the outcome it set automatically, journaled as automatic.
+  const correct=(category:string)=>call({action:'response_correct',id:created.id,category,summary:'Ya trabaja con otra plataforma',exactText:null,otherDetail:null,reason:'Se cargó mal la categoría'},200,user.cookie);
+  await correct('rejected');assert.deepEqual(await outcomeOf(newer),{outcome:'not_interested',responseId:String(created.id)},'the automatic outcome follows the corrected response');
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE entity_id=${newer} AND action='contact_outcome_from_response_corrected' AND is_automatic AND related_event_id IS NOT NULL`.execute(db)).rows[0].n),1);
+  // A person's correction from the work editor clears the automatic mark, and a later response correction no longer touches it.
+  const autoActivity=String((await message(newer)).activityId);
+  await work({...log(first.id),id:autoActivity,title:'Comunicación WhatsApp',typeId:'other'});assert.deepEqual(await outcomeOf(newer),{outcome:'no_answer',responseId:null},'a person correction removes the automatic mark');
+  await correct('interested');assert.deepEqual(await outcomeOf(newer),{outcome:'no_answer',responseId:null},'a person outcome is never overwritten by a response correction');
+  // The common case: WhatsApp opened from the CRM (dispatch already created its activity, without outcome) → the response updates that activity.
+  const third=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre+' C',estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const opened=(await sql<{id:string}>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,body,owner_email,status,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${acc.id},${acc.id},${third.id},'whatsapp','5493442000999','Ana','Hola',${user.user.email},'whatsapp_opened',now()-interval '3 minutes',${user.user.email}) RETURNING id::text AS id`.execute(db)).rows[0].id;
+  const dispatched=await db.insertInto('crmActivities').values({accountId:acc.id,leadId:third.id,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto · envío no confirmado',occurredAt:new Date(),contactIds:[],participants:'Ana',actorEmail:user.user.email,notes:'Snapshot de mensaje #'+opened}).returning('id').executeTakeFirstOrThrow();
+  await sql`UPDATE crm_messages SET activity_id=${dispatched.id} WHERE id=${opened}::uuid`.execute(db);
+  const thirdAnswer=await call(answer(third.id),200,user.cookie);
+  assert.deepEqual(await outcomeOf(opened),{outcome:'interested',responseId:String(thirdAnswer.id)},'the activity dispatch created takes the outcome');
+  assert.equal(String((await message(opened)).activityId),String(dispatched.id),'no second activity is created');assert.equal((await message(opened)).status,'whatsapp_opened','an unconfirmed send stays unconfirmed');
+  // M1: the seller then logs «Anotar lo que pasó» for that WhatsApp: no 409, her outcome replaces the automatic one and the mark is cleared.
+  await work({...log(third.id),messageId:opened,messageSent:true});
+  assert.deepEqual(await outcomeOf(opened),{outcome:'no_answer',responseId:null},'the seller log over an automatic outcome is a correction');assert.equal((await message(opened)).status,'manual_sent');
+  await work({...log(third.id),messageId:opened,messageSent:true},409);// a person's outcome still blocks a second log
+  // B2: an activity a response creates writes the management history like the communication flow does.
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM lead_journal WHERE lead_id=${first.id} AND action='contact_logged' AND metadata->>'messageId'=${newer}`.execute(db)).rows[0].n),1,'contact_logged is written for the activity a response created');
+  console.log('Spec 96: a response resolves the pending outcome of its send, idempotently and only when it is unambiguous; corrections follow the rules');
+ }
+ // Spec 96 §10.1 M2: a response answers only the sends made before it was received (Monday email, Tuesday WhatsApp, Wednesday register).
+ {
+  const since=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+  await sql`UPDATE app_settings SET value=to_char((now()-interval '1 day') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since'`.execute(db);
+  try{
+   const acc=await db.insertInto('crmAccounts').values({nombre:'Late inbound '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+   const lead=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+   const sent=async(channel:string,minutesAgo:number)=>(await sql<{id:string}>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,body,owner_email,status,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${acc.id},${acc.id},${lead.id},${channel},'ana@example.com','Ana','Hola',${user.user.email},'manual_sent',now()-make_interval(mins=>${minutesAgo}::int),${user.user.email}) RETURNING id::text AS id`.execute(db)).rows[0].id;
+   const monday=await sent('email',300),tuesday=await sent('whatsapp',200);
+   const inboundId=randomUUID();await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,lead_id,match_method,from_address,text_body,received_at,status,source) VALUES(${inboundId}::uuid,'email',${'spec96-'+inboundId},${acc.id},${lead.id},'sender_email','ana@example.com','Me interesa',now()-interval '250 minutes','pending_review','email_worker')`.execute(db);
+   const registered=await call({action:'inbound_register',id:randomUUID(),inboundId,category:'interested',summary:'Le interesa',otherDetail:null},200,user.cookie);
+   const outcomeOf=async(id:string)=>(await sql<{outcome:string|null;responseId:string|null}>`SELECT x.outcome,x.outcome_response_id::text AS "responseId" FROM crm_messages m LEFT JOIN crm_activities x ON x.id=m.activity_id AND x.deleted_at IS NULL WHERE m.id=${id}::uuid`.execute(db)).rows[0];
+   assert.deepEqual(await outcomeOf(monday),{outcome:'interested',responseId:String(registered.id)},'the late-registered reply resolves the send it answers');
+   assert.equal((await outcomeOf(tuesday)).outcome??null,null,'a later send is never resolved by an older reply');
+   // No contactar: the seller's response is saved but resolves nothing (she cannot record that outcome); an admin's resolves it.
+   const dnc=await db.insertInto('crmAccounts').values({nombre:'Auto outcome DNC '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+   const dncLead=await db.insertInto('leads').values({accountId:dnc.id,nombre:dnc.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+   const dncSend=(await sql<{id:string}>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,body,owner_email,status,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${dnc.id},${dnc.id},${dncLead.id},'whatsapp','5493442000998','Bea','Hola',${user.user.email},'manual_sent',now()-interval '10 minutes',${user.user.email}) RETURNING id::text AS id`.execute(db)).rows[0].id;
+   await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dnc.id).execute();
+   const dncAnswer=()=>({action:'response_create',id:randomUUID(),accountId:String(dnc.id),leadId:String(dncLead.id),contactId:null,channel:'whatsapp',recipient:'5493442000998',recipientName:'Bea',destination:null,linkedMessageId:null,category:'interested',summary:'Le interesa',exactText:null,otherDetail:null});
+   const sellerAnswer=dncAnswer();await call(sellerAnswer,200,user.cookie);
+   assert.ok(await db.selectFrom('crmCommunicationResponses').select('id').where('id','=',sellerAnswer.id).executeTakeFirst(),'the seller response is saved on a No contactar business');
+   assert.equal((await outcomeOf(dncSend)).outcome??null,null,'a seller does not resolve an outcome of a No contactar business');
+   const adminAnswer=dncAnswer();await call(adminAnswer,200,admin.cookie);
+   assert.deepEqual(await outcomeOf(dncSend),{outcome:'interested',responseId:adminAnswer.id},'an admin resolves it');
+   console.log('Spec 96 M2: a late-registered reply resolves only the sends before it; No contactar resolves only for an admin');
+  }finally{if(since!==undefined)await sql`UPDATE app_settings SET value=${since} WHERE key='crm_contact_outcome_since'`.execute(db);}
  }
  // Merge all new relationships while preserving original attribution and snapshots.
  const dest=await db.insertInto('crmAccounts').values({nombre:'Destino '+stamp,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();let r=await quality(request({action:'merge_preview',sourceId:a.id,destinationId:dest.id}));assert.equal(r.status,200);const p=superjson.parse<any>(await r.text());r=await quality(request({action:'merge_confirm',sourceId:a.id,destinationId:dest.id,token:p.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Revisado en fixture',confirm:true}));assert.equal(r.status,200,await r.text());assert.equal((await message(id)).accountId,dest.id);assert.equal((await sql<{originalAccountId:string}>`SELECT original_account_id FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].originalAccountId,a.id);assert.equal((await sql<{accountId:string}>`SELECT account_id FROM crm_documents WHERE id=${did}::uuid`.execute(db)).rows[0].accountId,dest.id);
