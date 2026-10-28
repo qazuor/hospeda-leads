@@ -88,10 +88,12 @@ Las aperturas, clicks y quejas de spam son informativas: no cambian el estado, n
 3. Configurar el CORS del bucket (Settings → CORS policy):
 
    ```json
-   [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]
+   [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type","Range"],"ExposeHeaders":["ETag","Accept-Ranges","Content-Range","Content-Length"],"MaxAgeSeconds":3600}]
    ```
 
    Staging o un worktree que suba archivos agrega su propio origen a `AllowedOrigins`.
+
+   `GET`, `Range` y los encabezados expuestos sirven para las portadas automáticas (spec 95): el navegador lee el archivo guardado (los PDF por rangos, con `pdf.js`) para dibujar la portada. Sin ellos la portada no se genera y la tarjeta muestra el dibujo del formato.
 4. Cargar en Coolify `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `R2_BUCKET` y redesplegar. No versionar valores.
 
 Sin esas variables el servidor arranca igual: la página «Material de venta» muestra «Almacenamiento no configurado», subir y abrir archivos responde 503, y los enlaces externos siguen funcionando. La CSP report-only suma el origen de R2 a `connect-src`, `img-src`, `media-src` y `frame-src` cuando las variables están cargadas (se lee al arrancar).
