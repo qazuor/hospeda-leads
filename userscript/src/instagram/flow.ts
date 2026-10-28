@@ -72,7 +72,7 @@ export async function runPasteFlow({ doc, location, username, text, settle = def
       const path = location.pathname;
       // Still on the profile, or in a thread: keep waiting. Anywhere else (another profile, the feed) the seller moved on.
       if (path !== startPath && !isThreadPath(path)) return ABORT;
-      return findThreadComposer({ doc, pathname: path, startPath, username });
+      return findThreadComposer({ doc, pathname: path, startPath });
     },
     timeoutMs: composerTimeoutMs, intervalMs,
   });

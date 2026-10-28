@@ -127,20 +127,29 @@ describe("instagram finders (accessible names, never class names)", () => {
   });
   it("with a new /direct/t/ thread, uses only the page composer, never a floating one", () => {
     document.body.innerHTML = miniChat + dmEs;
-    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH, username: USER })!.closest('[role="dialog"]')).toBeNull();
-    document.body.innerHTML = miniChat.replace("otra_persona", USER);// even a floating chat labelled for the target is not used once a thread opened
-    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH, username: USER })).toBeNull();
+    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH })!.closest('[role="dialog"]')).toBeNull();
+    document.body.innerHTML = miniChat;// only a floating chat: nothing to paste into
+    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH })).toBeNull();
   });
-  it("rejects a floating chat whose messages read @target or target: message content never identifies a chat", () => {
-    document.body.innerHTML = profileEs + miniChat;
-    expect(document.getElementById("mini-chat")!.textContent).toContain("@cabanas_del_rio");
-    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH, username: USER })).toBeNull();
+  it("without the move to /direct/t/ there is no proof: nothing is accepted", () => {
+    document.body.innerHTML = dmEs;
+    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH })).toBeNull();
+    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: THREAD_PATH })).toBeNull();
+    expect(findThreadComposer({ doc: document, pathname: "/otro_negocio/", startPath: PROFILE_PATH })).toBeNull();
   });
-  it("accepts a floating chat only by its own label or header", () => {
-    document.body.innerHTML = profileEs + miniChat;
-    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH, username: "otra_persona" })!.id).toBe("mini-composer");
-    document.body.innerHTML = profileEs + `<div role="dialog" aria-label="Chat"><header><h2>@${USER}</h2></header><div role="grid"></div><div contenteditable="true" role="textbox" aria-label="Mensaje" id="by-header"><p><br></p></div></div>`;
-    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH, username: USER })!.id).toBe("by-header");
+  const floating = (label: string, header = "") => `<div role="dialog" aria-label="${label}"><header><h2>${header}</h2></header><div role="grid"><div role="row"><div role="gridcell"><span>@${USER}</span></div></div></div><div contenteditable="true" role="textbox" aria-label="Mensaje"><p><br></p></div></div>`;
+  for (const [name, label, header] of [
+    ["messages that read @target", "Chat con otra_persona", "otra_persona"],
+    ["a group whose label contains the username", `${USER} y amigos`, `${USER} y amigos`],
+    ["a similar username (target_fan)", `Chat con ${USER}_fan`, `${USER}_fan`],
+    ["a similar username (target.x)", `Chat con ${USER}.x`, `${USER}.x`],
+    ["a label with several names", `Chat con pepe, ${USER}`, `pepe, ${USER}`],
+    ["even the exact template for the target", `Chat con ${USER}`, `@${USER}`],
+  ] as const) it(`never pastes into a floating chat: ${name}`, () => {
+    document.body.innerHTML = profileEs + floating(label, header);
+    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH })).toBeNull();
+    // A thread did open, but the only composer is floating: still rejected.
+    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH })).toBeNull();
   });
 });
 
