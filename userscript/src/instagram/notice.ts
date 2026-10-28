@@ -14,6 +14,8 @@ export const FAILURE_NOTICES: Readonly<Record<FlowFailure, string>> = {
   "thread-unverified": "No pude confirmar que el chat abierto sea el de este perfil, así que no pegué nada. Pegá el mensaje con Ctrl+V.",
   "composer-busy": "El chat ya tenía texto escrito, así que no pegué nada. Si hace falta, pegá el mensaje con Ctrl+V.",
   "insert-failed": "No pude pegar el mensaje: pegalo con Ctrl+V.",
+  // No Ctrl+V here: the editor already holds (a version of) the text, pasting again would duplicate it.
+  "text-differs": "Se insertó un texto distinto: revisalo antes de enviar.",
 };
 /** Spec 94 M3: a well-formed marker without a valid handoff (missing, expired, for another profile or superseded). Fixed text: no click, no read. */
 export const UNCONFIRMED_NOTICE = 'No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje (Ctrl+V).';

@@ -7,7 +7,7 @@ import { profileUsername } from "./handoff";
  * one notice (§2.3). It never sends: the last phase is `done`, right after the handoff text is in the composer of the thread it opened.
  */
 export type FlowPhase = "finding-button" | "waiting-composer" | "inserting" | "done" | "failed";
-export type FlowFailure = "no-button" | "navigated-away" | "composer-timeout" | "thread-unverified" | "composer-busy" | "insert-failed";
+export type FlowFailure = "no-button" | "navigated-away" | "composer-timeout" | "thread-unverified" | "composer-busy" | "insert-failed" | "text-differs";
 export type FlowResult = { readonly ok: true } | { readonly ok: false; readonly reason: FlowFailure; readonly composer: HTMLElement | null };
 
 /** Allowed transitions; `advance` refuses anything else, so a bug cannot skip from the button to inserting. */
@@ -67,22 +67,29 @@ export async function runPasteFlow({ doc, location, username, text, settle = def
   const startPath = location.pathname;
   button.click();
   advance("waiting-composer");
+  // The first /direct/t/<id>/ seen after the click is pinned: a different thread (or leaving it) before the paste is not the chat that click opened.
+  const threadId = (path: string) => (isThreadPath(path) ? path.replace(/\/$/, "") : null);
+  let pinned: string | null = null, changed = false;
   const composer = await pollFor<HTMLElement | typeof ABORT>({
     find: () => {
-      const path = location.pathname;
+      const path = location.pathname, thread = threadId(path);
+      if (pinned !== null && thread !== pinned) { changed = true; return ABORT; }
       // Still on the profile, or in a thread: keep waiting. Anywhere else (another profile, the feed) the seller moved on.
-      if (path !== startPath && !isThreadPath(path)) return ABORT;
+      if (path !== startPath && !thread) return ABORT;
+      if (thread) pinned = thread;
       return findThreadComposer({ doc, pathname: path, startPath });
     },
     timeoutMs: composerTimeoutMs, intervalMs,
   });
-  if (composer === ABORT) return fail("navigated-away");
+  if (composer === ABORT) return fail(changed ? "thread-unverified" : "navigated-away");
   if (!composer) return findComposers({ doc }).length ? fail("thread-unverified") : fail("composer-timeout");
   if (!composerEmpty(composer)) return fail("composer-busy", composer);
+  // Last check before touching the editor: still the pinned thread.
+  if (threadId(location.pathname) !== pinned) return fail("thread-unverified");
   advance("inserting");
   focusComposer(composer);
   const inserted = await insertIntoComposer({ composer, text, settle });
-  if (!inserted.ok) return fail("insert-failed", composer);
+  if (!inserted.ok) return fail(inserted.reason === "different" ? "text-differs" : "insert-failed", composer);
   advance("done");
   return { ok: true };
 }

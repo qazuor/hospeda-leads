@@ -28,7 +28,9 @@ export function startInstagram({ store, win = window, flow = {}, handoffWaitMs =
   const check = async () => {
     // The marker is consumed first, so a re-render, Back or a second event never starts another run for it.
     const nonce = consumePasteMarker({ location: win.location, history: win.history });
-    if (!nonce || running) return;
+    if (!nonce) return;
+    // A marker that arrives mid-run starts nothing: its handoff is deleted (single use, never left behind) and no notice replaces the running flow's.
+    if (running) { store.clear({ nonce }); return; }
     running = true;
     const doc = win.document, platform = win.navigator.platform || win.navigator.userAgent || "";
     const warn = (text: string) => showNotice({ doc, text: pasteShortcut({ text, platform }), tone: "warning" });

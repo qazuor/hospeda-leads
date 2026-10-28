@@ -39,19 +39,21 @@ export function focusComposer(composer: HTMLElement): void {
 }
 
 export type InsertMethod = "paste" | "insertText";
-export type InsertResult = { readonly ok: true; readonly method: InsertMethod } | { readonly ok: false };
+export type InsertResult = { readonly ok: true; readonly method: InsertMethod } | { readonly ok: false; readonly reason: "failed" | "different" };
 
 /**
  * Inserts `text` into an empty, focused composer. `settle` waits for the editor to update its DOM. A second method only runs when the
- * first left the composer empty: if it left anything else, trying again would duplicate the text.
+ * first left the composer empty: if it left anything else, trying again would duplicate the text, and the failure is `different`
+ * (the editor transformed or truncated the text): the seller must review it, not paste again.
  */
 export async function insertIntoComposer({ composer, text, settle }: { composer: HTMLElement; text: string; settle: () => Promise<void> }): Promise<InsertResult> {
   const doc = composer.ownerDocument, view = doc.defaultView as (Window & typeof globalThis) | null;
   if (view) { composer.dispatchEvent(pasteEvent({ text, view })); await settle(); }
   if (composerHas({ composer, text })) return { ok: true, method: "paste" };
-  if (!composerEmpty(composer)) return { ok: false };
+  if (!composerEmpty(composer)) return { ok: false, reason: "different" };
   focusComposer(composer);
   try { doc.execCommand?.("insertText", false, text); } catch { /* reported below */ }
   await settle();
-  return composerHas({ composer, text }) ? { ok: true, method: "insertText" } : { ok: false };
+  if (composerHas({ composer, text })) return { ok: true, method: "insertText" };
+  return { ok: false, reason: composerEmpty(composer) ? "failed" : "different" };
 }

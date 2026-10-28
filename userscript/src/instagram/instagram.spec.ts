@@ -179,7 +179,7 @@ describe("instagram insertion (D3)", () => {
     document.body.innerHTML = dmEs; const composer = findComposer({ doc: document })!;
     composer.addEventListener("paste", e => { e.preventDefault(); composer.textContent = "Hola, soy"; });
     const exec = vi.fn(() => true); document.execCommand = exec as typeof document.execCommand;
-    expect(await insertIntoComposer({ composer, text: TEXT, settle: fast.settle })).toEqual({ ok: false });
+    expect(await insertIntoComposer({ composer, text: TEXT, settle: fast.settle })).toEqual({ ok: false, reason: "different" });
     expect(exec).not.toHaveBeenCalled();
   });
 });
@@ -234,6 +234,31 @@ describe("instagram paste flow (state machine, M2)", () => {
     expect(await flow()).toMatchObject({ ok: false, reason: "composer-busy" });
     expect(mainComposer().textContent).toBe("Borrador viejo");
   });
+  it("aborts without pasting when the page moves to a different thread after the first one was seen", async () => {
+    const page = mountProfile({ navigates: false });
+    findMessageButton({ doc: document })!.addEventListener("click", () => {
+      history.pushState(null, "", "/direct/t/1/");
+      setTimeout(() => { history.pushState(null, "", "/direct/t/2/"); document.body.innerHTML = dmEs; lexical(mainComposer()); }, 40);
+    });
+    expect(await flow({ composerTimeoutMs: 400 })).toMatchObject({ ok: false, reason: "thread-unverified" });
+    expect(mainComposer().textContent).toBe(""); page.cleanup();
+  });
+  it("aborts when the page leaves for the inbox while waiting for the composer", async () => {
+    const page = mountProfile({ navigates: false });
+    findMessageButton({ doc: document })!.addEventListener("click", () => setTimeout(() => { history.pushState(null, "", "/direct/inbox/"); document.body.innerHTML = dmEs; lexical(mainComposer()); }, 30));
+    expect(await flow({ composerTimeoutMs: 400 })).toMatchObject({ ok: false, reason: "navigated-away" });
+    expect(mainComposer().textContent).toBe(""); page.cleanup();
+  });
+  it("aborts when the thread is left after being pinned and before the composer shows", async () => {
+    const page = mountProfile({ navigates: false });
+    findMessageButton({ doc: document })!.addEventListener("click", () => { history.pushState(null, "", "/direct/t/1/"); setTimeout(() => history.pushState(null, "", "/direct/inbox/"), 40); });
+    expect(await flow({ composerTimeoutMs: 400 })).toMatchObject({ ok: false, reason: "thread-unverified" }); page.cleanup();
+  });
+  it("reports text-differs, with no Ctrl+V advice, when the editor kept a different text", async () => {
+    mountProfile({ editor: composer => composer.addEventListener("paste", e => { e.preventDefault(); composer.textContent = "Hola, soy"; }) });
+    expect(await flow()).toMatchObject({ ok: false, reason: "text-differs" });
+    expect(FAILURE_NOTICES["text-differs"]).toBe("Se insertó un texto distinto: revisalo antes de enviar."); expect(FAILURE_NOTICES["text-differs"]).not.toMatch(/Ctrl\+V/);
+  });
   it("reports insert-failed when neither method changed the editor", async () => {
     mountProfile({ editor: () => {} }); document.execCommand = (() => false) as typeof document.execCommand;
     expect(await flow()).toMatchObject({ ok: false, reason: "insert-failed" });
@@ -243,7 +268,7 @@ describe("instagram paste flow (state machine, M2)", () => {
 
 describe("instagram notice (§2.3)", () => {
   it("has a Spanish message per failure and turns Ctrl+V into ⌘V on macOS", () => {
-    expect(Object.keys(FAILURE_NOTICES).sort()).toEqual(["composer-busy", "composer-timeout", "insert-failed", "navigated-away", "no-button", "thread-unverified"]);
+    expect(Object.keys(FAILURE_NOTICES).sort()).toEqual(["composer-busy", "composer-timeout", "insert-failed", "navigated-away", "no-button", "text-differs", "thread-unverified"]);
     expect(FAILURE_NOTICES["insert-failed"]).toBe("No pude pegar el mensaje: pegalo con Ctrl+V.");
     expect(UNCONFIRMED_NOTICE).toBe('No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje (Ctrl+V).');
     expect(pasteShortcut({ text: UNCONFIRMED_NOTICE, platform: "MacIntel" })).toContain("(⌘V)");
@@ -311,6 +336,33 @@ describe("startInstagram: only with a valid one-time handoff", () => {
     expect(tabA.results).toEqual([{ ok: false, reason: "unconfirmed" }]); expect((store.value as InstagramHandoff).nonce).toBe(second);
     const tabB = await run({ hash: `#hospeda=${second}`, store });
     expect(tabB.results).toEqual([{ ok: true }]); expect(store.value).toBeNull();
+  });
+  it("logs which check failed, and deletes the handoff of the same nonce when expired or for another profile", async () => {
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    for (const [stored, verdict] of [[handoff({ expiresAt: Date.now() - 1 }), "expired"], [handoff({ username: "otro_negocio" }), "username"]] as const) {
+      const store = memoryStore(stored), outcome = await run({ hash: `#hospeda=${NONCE}`, store });
+      expect(outcome.results).toEqual([{ ok: false, reason: "unconfirmed" }]); expect(outcome.clicks).toBe(0); expect(store.value).toBeNull();
+      expect(notice()).toContain("No pude confirmar que lo abrió el CRM"); expect(debug).toHaveBeenLastCalledWith(`[Hospeda] Instagram: marker not confirmed (${verdict}).`);
+    }
+  });
+  it("reports insert-failed when the paste flow throws", async () => {
+    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${NONCE}`); mountProfile(); const results: unknown[] = [];
+    startInstagram({ store: memoryStore(handoff()), flow: { ...fast, settle: () => Promise.reject(new Error("boom")) }, handoffWaitMs: 60, onResult: result => results.push(result) });
+    await vi.waitFor(() => expect(results).toEqual([{ ok: false, reason: "insert-failed", composer: null }]));
+    expect(notice()).toContain("No pude pegar el mensaje");
+  });
+  it("a marker that arrives while a run is in progress is consumed, its handoff deleted, and starts nothing", async () => {
+    const second = "e".repeat(32), store = memoryStore(handoff()), results: unknown[] = [];
+    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${NONCE}`); const page = mountProfile({ delayMs: 300 });
+    // Listeners of earlier tests stay on window, so capture this run's own hashchange handler instead of dispatching the event.
+    const listen = vi.spyOn(window, "addEventListener");
+    startInstagram({ store, flow: { ...fast, composerTimeoutMs: 1500 }, handoffWaitMs: 60, onResult: result => results.push(result) });
+    const onHashChange = listen.mock.calls.find(([type]) => type === "hashchange")![1] as () => void;
+    await vi.waitFor(() => expect(page.clicks()).toBe(1)); // the run is in the middle of the paste flow
+    const other = vi.spyOn(store, "clear"); store.value = handoff({ nonce: second });
+    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${second}`); onHashChange();
+    expect(location.hash).toBe(""); expect(other).toHaveBeenCalledWith({ nonce: second }); expect(store.value).toBeNull();
+    await vi.waitFor(() => expect(results).toEqual([{ ok: true }])); expect(page.clicks()).toBe(1); page.cleanup();
   });
   it("waits for a handoff that reaches the tab a moment later (GM storage sync)", async () => {
     const store = memoryStore(null); setTimeout(() => { store.value = handoff(); }, 20);
