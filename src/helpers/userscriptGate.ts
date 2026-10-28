@@ -2,6 +2,8 @@ import {compareSemver,parseUserscriptVersion} from './userscriptPure';
 
 /** Spec 96 §3.3: shown (disabled, no link) while the page waits for the script to announce itself. */
 export const USERSCRIPT_WAITING_REASON='Buscando el script de Hospeda…';
+/** The script announced its version but has not answered whether its token works yet (its status request can take up to 15 s). */
+export const USERSCRIPT_VERIFYING_REASON='Verificando el script…';
 export const USERSCRIPT_MISSING_REASON='Instalá el script de Hospeda para contactar por WhatsApp o Instagram desde la computadora.';
 export const USERSCRIPT_NO_TOKEN_REASON='Conectá el script: falta el token.';
 export const USERSCRIPT_REJECTED_REASON='El token del script fue revocado o no es válido: creá uno nuevo.';
@@ -32,6 +34,6 @@ export function userscriptContactBlock({mobile,status,latest,currentUserEmail}:{
   if(currentUserEmail&&status.user.trim().toLowerCase()!==currentUserEmail.trim().toLowerCase())return userscriptOtherUserReason({email:status.user});
   return '';
  }
- // Still checking, unknown, a missing attribute, or connected without a published user (never 1.5.0): unverified.
- return status.connection===undefined?USERSCRIPT_WAITING_REASON:USERSCRIPT_UNVERIFIED_REASON;
+ // Still checking (blocked while verifying); unknown, no answer in time, or connected without a published user (never 1.5.0): unverified.
+ return status.connection===undefined?USERSCRIPT_VERIFYING_REASON:USERSCRIPT_UNVERIFIED_REASON;
 }

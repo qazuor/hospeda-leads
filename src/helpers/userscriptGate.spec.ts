@@ -1,11 +1,12 @@
-import {USERSCRIPT_MISSING_REASON,USERSCRIPT_NO_TOKEN_REASON,USERSCRIPT_REJECTED_REASON,USERSCRIPT_UNVERIFIED_REASON,USERSCRIPT_WAITING_REASON,userscriptContactBlock,type UserscriptStatus} from './userscriptGate';
+import {USERSCRIPT_MISSING_REASON,USERSCRIPT_NO_TOKEN_REASON,USERSCRIPT_REJECTED_REASON,USERSCRIPT_UNVERIFIED_REASON,USERSCRIPT_VERIFYING_REASON,USERSCRIPT_WAITING_REASON,userscriptContactBlock,type UserscriptStatus} from './userscriptGate';
 
 const me='ana@hospeda.test';
 const block=(status:Partial<UserscriptStatus>,{mobile=false,currentUserEmail=me as string|null}={})=>userscriptContactBlock({mobile,latest:'1.5.0',currentUserEmail,status:{version:'1.5.0',connection:'connected',user:me,...status}});
 
 describe('userscriptContactBlock',()=>{
  it('lets a connected, current script of the same user through',()=>{expect(block({})).toBe('');expect(block({user:'ANA@hospeda.test '})).toBe('');});
- it('waits while the script has not announced itself',()=>{expect(block({version:undefined})).toBe(USERSCRIPT_WAITING_REASON);expect(block({connection:undefined,user:null})).toBe(USERSCRIPT_WAITING_REASON);});
+ it('waits while the script has not announced itself',()=>{expect(block({version:undefined})).toBe(USERSCRIPT_WAITING_REASON);});
+ it('blocks as verifying while the version is announced but the connection is not yet',()=>{expect(block({connection:undefined,user:null})).toBe(USERSCRIPT_VERIFYING_REASON);expect(block({connection:'unknown',user:null})).toBe(USERSCRIPT_UNVERIFIED_REASON);expect(block({connection:null,user:null})).toBe(USERSCRIPT_UNVERIFIED_REASON);});
  it('asks to install it when it was not detected',()=>{expect(block({version:null,connection:null,user:null})).toBe(USERSCRIPT_MISSING_REASON);});
  it('blocks any version below the latest one',()=>{
   expect(block({version:'1.4.0'})).toBe('Actualizá el script (tenés 1.4.0, la actual es 1.5.0).');
