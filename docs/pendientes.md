@@ -1,5 +1,12 @@
 # Pendientes y próximo trabajo
 
+## Spec 93 — email: entrega, aperturas y clicks — pendiente de PR
+
+[Spec 93](crm-roadmap/93-email-engagement.md) implementada en `feat/email-engagement-93`, apilada sobre la 92 (PR #278): el PR va después del de la 92. Falta:
+- confirmar las decisiones D1–D4 propuestas (aperturas automáticas rotuladas aparte, sin journal por aperturas, spam sin restricción, la entrega le gana a un rebote temporal);
+- push, PR a `staging`, CI verde y merge;
+- **para producción (propietario):** cargar `BREVO_WEBHOOK_TOKEN` en Coolify y crear el webhook transaccional con Bearer siguiendo `COOLIFY_DEPLOY.md` («Webhook de Brevo»); después, verificar con un envío real a una casilla propia que aparezcan «Entregado» y «Abierto». Sin migración.
+
 ## Spec 92 — abrir el chat de Instagram — pendiente de PR
 
 [Spec 92](crm-roadmap/92-instagram-open-chat.md) implementada en `feat/instagram-open-chat-92`, apilada sobre la 91: el PR va después del de la 91 (o se rebasea sobre `staging` cuando la 91 se mergee). Falta: push, PR a `staging`, CI verde (incluye browser) y merge. **Para producción:** aplicar la migración `049`; sin variables nuevas (usa las de la 88). La confirmación automática necesita la integración de Instagram activa; sin ella el composer avisa y se confirma a mano.

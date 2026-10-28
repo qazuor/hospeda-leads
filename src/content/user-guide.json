@@ -324,6 +324,7 @@
           "Debajo del último mensaje, «Preparar respuesta» abre «Contactar» con el canal y el destinatario del último mensaje recibido. Si ese canal o destinatario no se puede usar, abre «Contactar» como siempre y te dice por qué. Solo prepara el mensaje: no cuenta como contacto.",
           "Cada mensaje dice de qué lado está: «Nosotros» si lo enviamos o registramos desde el CRM, «Negocio» si lo envió o respondió el negocio. El botón «Cómo leer el chat», junto al título «Conversación», explica los lados, los colores por plataforma y el borde punteado de los envíos sin confirmar.",
           "El estado de cada envío es el comprobado: «Email aceptado por proveedor · entrega no confirmada» no significa que lo leyeron, y «WhatsApp abierto · envío no confirmado» no significa que se envió.",
+          "En los emails, cuando Brevo avisa, el estado pasa a «Entregado» con la fecha y hora: el servidor del destinatario lo recibió, no que alguien lo leyó. Al lado pueden aparecer «Abierto» (con la primera vez y cuántas veces), «Click en un enlace» y «Posible apertura automática», que son solo informativos, y «Marcado como spam» como aviso. Pasá el mouse o tocá cada marca para ver qué significa.",
           "Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.",
           "«Abrir en la Bandeja» te lleva a las mismas conversaciones separadas por gestión y canal."
         ],
@@ -333,7 +334,8 @@
         ],
         "notes": [
           "Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa.",
-          "Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta."
+          "Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta.",
+          "«Abierto» es aproximado: algunos clientes de correo abren los emails automáticamente (Apple Mail) y otros bloquean las imágenes. Una apertura o un click no es una respuesta, no cuenta como contacto, no completa tareas ni cambia la fecha del último contacto."
         ],
         "url": "",
         "linkLabel": "",
@@ -366,7 +368,12 @@
           "Ver diseño",
           "Nosotros",
           "Negocio",
-          "Cómo leer el chat"
+          "Cómo leer el chat",
+          "Entregado",
+          "Abierto",
+          "Click en un enlace",
+          "Posible apertura automática",
+          "Marcado como spam"
         ]
       },
       {
