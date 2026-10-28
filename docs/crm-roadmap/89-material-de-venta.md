@@ -184,7 +184,7 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
 - **Portadas:** solo imágenes, de hasta 1 MB. Para imágenes y PDF, la UI propone generarla en el navegador (canvas a JPEG de 1200×630, y para PDF la primera página con el `pdf.js` que ya se usa para miniaturas). El admin la puede reemplazar.
 - **CORS del bucket:**
   ```json
-  [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]
+  [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type","Range"],"ExposeHeaders":["ETag","Accept-Ranges","Content-Range","Content-Length"],"MaxAgeSeconds":3600}]
   ```
   Staging o los worktrees agregan su origen si suben archivos.
 - **CSP:** sumar el origen `https://<account>.r2.cloudflarestorage.com` a `connect-src`, `img-src`, `media-src` y `frame-src` de `CSP_REPORT_ONLY`. Hoy es report-only, así que no bloquea, pero tiene que quedar correcta para cuando se aplique.
