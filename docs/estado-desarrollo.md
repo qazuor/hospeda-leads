@@ -1,5 +1,14 @@
 # Estado del CRM — corte al 28 de octubre de 2026
 
+## Spec 96 — contactar en tres clics, con el script conectado — implementada en `feat/contact-three-clicks-96` (apilada sobre la 94, sin push ni PR) — 28/10/2026
+
+- **Barra de «Comunicación»:** «WhatsApp», «Instagram» y «Email» en lugar de «Contactar», cada uno apagado con el primer motivo que aplica (`src/helpers/contactChannels.ts`): carga, No contactar, archivado, permiso, dato faltante y, en la computadora, el script.
+- **Un solo paso de contacto:** `ContactTemplateDialog` toma gestión o «Sin gestión» (con propósito, `prepare_general`) y muestra arriba las elecciones de `BusinessContactDialog` (canal, «Sobre», propósito); la línea «Para:» con «Cambiar». Se eliminó `GeneralMessageStep`. Llamada, red social y otro canal mantienen su diálogo y su cadena de resultado.
+- **Composer:** `prepare`/`prepare_general` guardan el texto y el HTML finales; el composer abre en la vista final, sin casilla, con el botón final que nombra el destino; desde el negocio se cierra con un aviso al abrir el canal (las tareas conservan «Anotar lo que pasó»). «Seguir editando» en Borradores abre el editor.
+- **Resultado desde la respuesta (Q1):** migración `052_response_outcome.sql` (`crm_activities.outcome_response_id`); `responseOutcomeService` resuelve el envío pendiente que contesta la respuesta, marcado como automático hasta «Corregir cómo salió».
+- **Script 1.5.0:** publica conexión y email del dueño del token en el CRM; mínimo del servidor 1.5.0; la barrera bloquea WhatsApp/Instagram en la computadora si no está en la última versión, conectado y con la misma cuenta. `/userscript` muestra la línea «Conexión».
+- **Validación local (28/10):** `npm run typecheck`, `npm test -- --maxWorkers=4` (225 archivos, 1845 tests), `npm run build`, `npm run build:userscript`. **No se corrieron** las suites de integración (`test:communication`, `test:userscript`) ni las e2e (17 reescritas + `contact-three-clicks.e2e.ts` nueva): quedan para CI.
+
 ## Spec 94 — pegar el mensaje en Instagram Web con el user script — implementada en `feat/instagram-userscript-94` (sin push ni PR) — 28/10/2026
 
 - **Un solo script (D1):** el «Hospeda CRM» pasa a la 1.4.0 con `@match https://www.instagram.com/*`; `main.ts` elige el módulo por host (`siteFor`). El módulo `userscript/src/instagram/` está aislado: no lee el token ni otros valores de GM (solo la clave del traspaso, vía `HandoffStore`), no hace pedidos y no corre lógica de WhatsApp. Al actualizar, Tampermonkey pide aprobar instagram.com una vez.
