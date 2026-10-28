@@ -33,7 +33,7 @@ Source: Brevo developer docs, «Transactional webhooks» (`developers.brevo.com/
 | `deferred` | `deferred` | stored only; never a status |
 | `opened` | `opened` | open (each opening) |
 | `unique_opened` | `uniqueOpened` | open (first opening) |
-| `proxy_open`, `unique_proxy_open` | not in the subscription list; Brevo sends them for proxied opens | «Posible apertura automática» (D1) |
+| `proxy_open`, `unique_proxy_open` | documented, but with no subscription value: Brevo *may* send them for proxied opens (check in §6 step 3) | «Posible apertura automática» (D1) |
 | `click` | `click` | click; the URL comes in `link` |
 | `spam` | `spam` | «Marcado como spam» |
 | `unsubscribed` | `unsubscribed` | stored only (D3) |
@@ -126,7 +126,7 @@ Do this once, after this spec is deployed. Nothing here is run by an agent.
    - Route: `POST /_api/brevo/events` (`src/server/app.ts`).
    - Do not set `batched`: one event per request is the documented default and stays under the 100-events limit.
    - `sent`/`request` is not needed.
-3. **Check.** Send an email from the CRM to an address you control. Within a minute the item shows «Entregado · <hora>»; opening it shows «Abierto». `GET https://api.brevo.com/v3/webhooks?type=transactional` lists the webhook. A 401 in Brevo's logs means the token differs; a 503 means `BREVO_WEBHOOK_TOKEN` is missing or short.
+3. **Check.** Send an email from the CRM to an address you control. Within a minute the item shows «Entregado · <hora>»; opening it shows «Abierto». `GET https://api.brevo.com/v3/webhooks?type=transactional` lists the webhook. A 401 in Brevo's logs means the token differs; a 503 means `BREVO_WEBHOOK_TOKEN` is missing or short. Also open it from Apple Mail with Mail Privacy Protection on and check Brevo's logs for `proxy_open`: if it never arrives, «Posible apertura automática» never shows (those opens may arrive as `opened`).
 4. **Rotate.** Set the new token in Coolify, redeploy, then `PUT /v3/webhooks/<id>` with the new `auth.token`. Do it at a quiet time: events rejected in between may not arrive again (Brevo does not document retries).
 
 ## 7. Decisions (owner, 27/10/2026)
