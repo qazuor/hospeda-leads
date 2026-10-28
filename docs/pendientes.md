@@ -4,7 +4,7 @@
 
 [Spec 94](crm-roadmap/94-instagram-userscript.md) implementada en `feat/instagram-userscript-94` (cortada de `staging`). Falta:
 - push, PR a `staging`, CI verde (incluye `instagram-open-chat.e2e.ts`, que no se corrió localmente) y merge;
-- **prueba manual del propietario en Instagram real** (Chrome o Edge): actualizar el script a la 1.4.0 desde `/userscript`, aprobar instagram.com en Tampermonkey, recargar el CRM, «Abrir Instagram» desde un negocio con Instagram y aceptar el permiso del portapapeles; verificar que se abre el chat, se pega el texto y no se envía. Si el botón o el cuadro no se encuentran, ajustar `MESSAGE_BUTTON_NAMES` / `COMPOSER_LABELS` y los fixtures `instagram-*.html`;
+- **prueba manual del propietario en Instagram real** (Chrome o Edge): actualizar el script a la 1.4.0 desde `/userscript`, aprobar instagram.com en Tampermonkey, recargar el CRM, «Abrir Instagram» desde un negocio con Instagram; verificar que no hay pedido de permiso del portapapeles, que se abre el chat (la URL pasa a `/direct/t/…`), se escribe el texto y no se envía. Si Instagram abre un chat flotante en lugar de `/direct/t/`, el script muestra el aviso y no escribe: habría que revisar el diseño. Si el botón o el cuadro no se encuentran, ajustar `MESSAGE_BUTTON_NAMES` / `COMPOSER_LABELS` y los fixtures `instagram-*.html`;
 - sin migración ni variables nuevas.
 
 ## Spec 93 — email: entrega, aperturas y clicks — pendiente de PR
