@@ -39,19 +39,52 @@ export function composerLabel(el: Element): string {
   return normalizeName(el.getAttribute("aria-label") || el.getAttribute("aria-placeholder") || el.getAttribute("placeholder") || labelledBy(el));
 }
 
-/** The visible «Enviar mensaje» / «Message» button of the profile, inside `main` when there is one; null when there is none yet. */
+/**
+ * The visible «Enviar mensaje» / «Message» button of the profile header (`main header`, else the first `header`); null when there is
+ * none yet. Buttons are preferred over links, and nothing outside the header counts, so a story highlight or a post titled «Mensaje»
+ * cannot match.
+ */
 export function findMessageButton({ doc }: { doc: Document }): HTMLElement | null {
-  const scope: ParentNode = doc.querySelector("main") ?? doc;
-  for (const el of scope.querySelectorAll<HTMLElement>('button, [role="button"], a')) {
-    if (MESSAGE_BUTTON_NAMES.includes(accessibleName(el)) && !isHidden(el)) return el;
+  const header = doc.querySelector("main header") ?? doc.querySelector("header");
+  if (!header) return null;
+  for (const selector of ['button, [role="button"]', "a"]) {
+    for (const el of header.querySelectorAll<HTMLElement>(selector)) if (MESSAGE_BUTTON_NAMES.includes(accessibleName(el)) && !isHidden(el)) return el;
   }
   return null;
 }
 
-/** The visible DM composer (contenteditable, textbox or textarea) labelled «Mensaje» / «Message»; null while it has not appeared. */
-export function findComposer({ doc }: { doc: Document }): HTMLElement | null {
-  for (const el of doc.querySelectorAll<HTMLElement>('[contenteditable="true"], [role="textbox"], textarea')) {
-    if (COMPOSER_LABELS.includes(composerLabel(el)) && !isHidden(el)) return el;
+/** Every visible DM composer (contenteditable, textbox or textarea) labelled «Mensaje» / «Message», in document order. */
+export function findComposers({ doc }: { doc: Document }): HTMLElement[] {
+  return [...doc.querySelectorAll<HTMLElement>('[contenteditable="true"], [role="textbox"], textarea')].filter(el => COMPOSER_LABELS.includes(composerLabel(el)) && !isHidden(el));
+}
+/** The first visible DM composer, or null. */
+export function findComposer({ doc }: { doc: Document }): HTMLElement | null { return findComposers({ doc })[0] ?? null; }
+
+/** A DM thread page: `/direct/t/<id>/`. */
+export const isThreadPath = (pathname: string): boolean => /^\/direct\/t\/[^/]+\/?$/.test(pathname);
+const FLOATING = '[role="dialog"], aside, [role="complementary"]';
+
+/** True when some element inside `box` (other than the composer) shows exactly `username`, as a thread header does. */
+function showsUsername({ box, composer, username }: { box: Element; composer: Element; username: string }): boolean {
+  for (const el of box.querySelectorAll("span, h1, h2, h3, a, div")) {
+    if (composer.contains(el) || el.contains(composer)) continue;
+    if (normalizeName(el.textContent).replace(/^@/, "") === username) return true;
+  }
+  return false;
+}
+
+/**
+ * Spec 94 M2: the composer of the thread that the click on «Enviar mensaje» just opened for `username`, or null while it cannot be
+ * verified. Accepted when, after the click, the page moved to `/direct/t/<id>/` and the composer is in the page itself (not a floating
+ * mini-chat), or when the composer's chat box shows `username` in its header. A mini-chat with somebody else is never used.
+ */
+export function findThreadComposer({ doc, pathname, startPath, username }: { doc: Document; pathname: string; startPath: string; username: string }): HTMLElement | null {
+  const newThread = pathname !== startPath && isThreadPath(pathname);
+  for (const composer of findComposers({ doc })) {
+    const floating = composer.closest(FLOATING);
+    if (newThread && !floating) return composer;
+    const box = floating ?? composer.closest('main, [role="main"]');
+    if (box && showsUsername({ box, composer, username })) return composer;
   }
   return null;
 }

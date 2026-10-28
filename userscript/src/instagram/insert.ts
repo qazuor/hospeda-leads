@@ -1,17 +1,17 @@
 import { composerText } from "./finders";
 
 /**
- * Spec 94 §2.2 step 7 (D3): puts the clipboard text into Instagram's DM editor without ever sending. First a synthetic `paste`
+ * Spec 94 §2.2 (D3): puts the handoff text into Instagram's DM editor without ever sending. First a synthetic `paste`
  * event carrying a `DataTransfer` (Instagram's Lexical editor handles it like a real paste, line breaks included); if the editor
  * stayed empty, `document.execCommand('insertText')`. No key events are dispatched, so there is no path to Enter.
  */
 
 /** Text compared without whitespace: the editor renders line breaks as `<br>` or paragraphs, which `textContent` drops. */
 const squash = (text: string) => text.replace(/\s+/g, "");
-/** True when the composer shows `text` (whitespace ignored). */
+/** True when the composer shows exactly `text` (whitespace ignored): no more, no less. */
 export function composerHas({ composer, text }: { composer: HTMLElement; text: string }): boolean {
   const expected = squash(text);
-  return expected.length > 0 && squash(composerText(composer)).includes(expected);
+  return expected.length > 0 && squash(composerText(composer)) === expected;
 }
 /** True when the composer has no text (an empty Lexical editor is `<p><br></p>`). */
 export function composerEmpty(composer: HTMLElement): boolean { return squash(composerText(composer)) === ""; }

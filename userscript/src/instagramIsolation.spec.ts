@@ -5,7 +5,7 @@ import profileEs from "../fixtures/instagram-profile-es.html?raw";
 import dmEs from "../fixtures/instagram-dm-es.html?raw";
 import { siteFor } from "./site";
 import { gmHandoffStore, listenForInstagramHandoff } from "./instagramBridge";
-import { HANDOFF_MESSAGE_TYPE, HANDOFF_STORAGE_KEY, textHash } from "./instagram/handoff";
+import { HANDOFF_ACK_ATTRIBUTE, HANDOFF_EVENT, HANDOFF_STORAGE_KEY } from "./instagram/handoff";
 
 /**
  * Spec 94 §2.4 (D1): Instagram runs inside the shared «Hospeda CRM» script but must stay isolated. On instagram.com the script never
@@ -45,36 +45,45 @@ describe("Instagram isolation inside the shared script", () => {
     expect(document.documentElement.hasAttribute("data-hospeda-userscript")).toBe(false);
   });
 
-  it("runs a full paste reading only the handoff key: no token, no other GM value, no network, no CRM API", async () => {
+  it("runs a full paste reading only the handoff key: no token, no other GM value, no clipboard, no network, no CRM API", async () => {
     const { startInstagram } = await import("./instagram/start");
     const text = "Hola desde Hospeda", nonce = "0123456789abcdef0123456789abcdef";
-    const stored: Record<string, unknown> = { "hospeda-userscript-token": "hcu_secret", [HANDOFF_STORAGE_KEY]: { nonce, username: "cabanas_del_rio", expiresAt: Date.now() + 60_000, textHash: await textHash({ text }) } };
+    const stored: Record<string, unknown> = { "hospeda-userscript-token": "hcu_secret", [HANDOFF_STORAGE_KEY]: { nonce, username: "cabanas_del_rio", expiresAt: Date.now() + 60_000, text } };
     gm.GM_getValue.mockImplementation((key: string, fallback: unknown) => stored[key] ?? fallback);
     gm.GM_setValue.mockImplementation((key: string, value: unknown) => { stored[key] = value; });
+    const readText = vi.fn(); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
     history.replaceState(null, "", `/cabanas_del_rio/#hospeda=${nonce}`); document.body.innerHTML = profileEs;
-    document.querySelector<HTMLElement>('main [role="button"]:nth-child(2)')!.addEventListener("click", () => {
-      document.body.innerHTML = dmEs; const composer = document.querySelector<HTMLElement>('[role="textbox"]')!;
+    document.querySelector<HTMLElement>('main header [role="button"]:nth-child(2)')!.addEventListener("click", () => {
+      history.pushState(null, "", "/direct/t/1/"); document.body.innerHTML = dmEs; const composer = document.querySelector<HTMLElement>('[role="textbox"]')!;
       composer.addEventListener("paste", event => { event.preventDefault(); composer.textContent = (event as ClipboardEvent).clipboardData!.getData("text/plain"); });
     });
     const results: unknown[] = [];
-    startInstagram({ store: gmHandoffStore(), flow: { readClipboard: async () => text, intervalMs: 10, settle: () => Promise.resolve() }, onResult: result => results.push(result) });
+    startInstagram({ store: gmHandoffStore(), flow: { intervalMs: 10, settle: () => Promise.resolve() }, onResult: result => results.push(result) });
     await vi.waitFor(() => expect(results).toEqual([{ ok: true }]));
+    expect(document.querySelector('[role="textbox"]')!.textContent).toBe(text);
     expect(new Set(gm.GM_getValue.mock.calls.map(call => call[0]))).toEqual(new Set([HANDOFF_STORAGE_KEY]));
     expect(gm.GM_setValue.mock.calls).toEqual([[HANDOFF_STORAGE_KEY, null]]);
     expect(gm.GM_xmlhttpRequest).not.toHaveBeenCalled(); expect(gm.GM_registerMenuCommand).not.toHaveBeenCalled();
-    expect(api.touched).toEqual([]);
+    expect(readText).not.toHaveBeenCalled(); expect(api.touched).toEqual([]);
   });
 
-  it("on the CRM page, stores a handoff posted by the page itself and ignores other origins, other windows and malformed data", () => {
-    const save = vi.fn(), valid = { type: HANDOFF_MESSAGE_TYPE, nonce: "a".repeat(32), username: "hotel.sol", expiresAt: Date.now() + 60_000, textHash: "0011223344556677" };
-    listenForInstagramHandoff({ win: window, save });
-    const post = (data: unknown, init: Partial<MessageEventInit> = {}) => window.dispatchEvent(new MessageEvent("message", { data, origin: location.origin, source: window, ...init }));
-    post(valid, { origin: "https://evil.example" });
-    post(valid, { source: null });
-    post({ ...valid, type: "other" }); post({ ...valid, nonce: "short" }); post(null);
-    expect(save).not.toHaveBeenCalled();
-    post(valid);
-    const { type: _type, ...handoff } = valid; expect(save).toHaveBeenCalledWith(handoff);
+  it("the store only deletes the handoff of its own nonce (compare-and-delete)", () => {
+    const stored: Record<string, unknown> = { [HANDOFF_STORAGE_KEY]: { nonce: "b".repeat(32) } };
+    gm.GM_getValue.mockImplementation((key: string, fallback: unknown) => stored[key] ?? fallback); gm.GM_setValue.mockClear();
+    gm.GM_setValue.mockImplementation((key: string, value: unknown) => { stored[key] = value; });
+    gmHandoffStore().clear({ nonce: "a".repeat(32) }); expect(gm.GM_setValue).not.toHaveBeenCalled();
+    gmHandoffStore().clear({ nonce: "b".repeat(32) }); expect(stored[HANDOFF_STORAGE_KEY]).toBeNull();
+  });
+
+  it("on the CRM page, stores a handoff from a JSON string event and acks it; anything else is ignored and never acked", () => {
+    const save = vi.fn(), valid = { nonce: "a".repeat(32), username: "hotel.sol", expiresAt: Date.now() + 60_000, text: "Hola" };
+    listenForInstagramHandoff({ doc: document, save }); document.documentElement.removeAttribute(HANDOFF_ACK_ATTRIBUTE);
+    const fire = (detail: unknown) => document.dispatchEvent(new CustomEvent(HANDOFF_EVENT, { detail }));
+    fire(valid);// an object, not a string: may not cross the sandbox, so it is not accepted
+    fire("{not json"); fire(JSON.stringify({ ...valid, nonce: "short" })); fire(JSON.stringify({ ...valid, text: "a".repeat(4001) })); fire(null);
+    expect(save).not.toHaveBeenCalled(); expect(document.documentElement.hasAttribute(HANDOFF_ACK_ATTRIBUTE)).toBe(false);
+    fire(JSON.stringify(valid));
+    expect(save).toHaveBeenCalledWith(valid); expect(document.documentElement.getAttribute(HANDOFF_ACK_ATTRIBUTE)).toBe(valid.nonce);
   });
 
   it("keeps the Instagram sources free of imports outside their folder", () => {
@@ -85,7 +94,8 @@ describe("Instagram isolation inside the shared script", () => {
     for (const file of sources) {
       const text = readFileSync(dir + file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
       for (const [, spec] of text.matchAll(/from\s+["']([^"']+)["']/g)) expect(spec, `${file} imports ${spec}`).toMatch(/^\.\/[\w-]+$/);
-      expect(text, file).not.toMatch(/\bGM_\w+|unsafeWindow|fetch\(|XMLHttpRequest/);
+      // Isolation is by code, not by capability (@grant applies to every @match): no network, storage, clipboard or dynamic code paths.
+      expect(text, file).not.toMatch(/\bGM_\w+|GM_xmlhttpRequest|unsafeWindow|\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource|new\s+Image\b|navigator\.clipboard|readText|\bimport\s*\(|^\s*import\s+["']|\beval\s*\(|new\s+Function\b|localStorage|sessionStorage|indexedDB|document\.cookie/m);
     }
   });
 });

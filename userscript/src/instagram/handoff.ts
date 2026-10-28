@@ -1,23 +1,33 @@
 /**
- * Spec 94 §2.1–2.2 (security, D6): the one-time handoff that authorizes a paste. A bare marker would let any site link to
- * `instagram.com/<attacker>/#hospeda` and paste the seller's clipboard into a DM with the attacker. So the CRM page generates a random
- * nonce on «Abrir Instagram», hands `{nonce, username, expiresAt, textHash}` to the user script running on the CRM page (window
- * `postMessage`, same origin only), the script stores it under its own GM key, and the URL carries `#hospeda=<nonce>`. The Instagram
- * module acts only when nonce, expiry and profile username match, and deletes the handoff before acting. Shared with the CRM.
+ * Spec 94 §2.1–2.2 (security, D6–D7): the one-time handoff that authorizes a paste. A bare marker would let any site link to
+ * `instagram.com/<attacker>/#hospeda` and get text into a DM with the attacker. So, on «Abrir Instagram», the CRM page generates a
+ * random nonce and hands `{nonce, username, expiresAt, text}` to the user script running on the CRM page (a `CustomEvent` on `document`
+ * with a JSON string, the same way `announce.ts` crosses Tampermonkey's sandbox). The script stores it under its own GM key and acks with
+ * an attribute; only then does the URL carry `#hospeda=<nonce>`. The Instagram module acts only when nonce, expiry and profile username
+ * match, deletes the handoff (compare-and-delete) and inserts the handoff text. It never reads the clipboard (D7). Shared with the CRM.
  */
 import { INSTAGRAM_PASTE_MARKER } from "./marker";
 
 /** GM storage key of the pending handoff. The only key the Instagram module reads (never the token). */
 export const HANDOFF_STORAGE_KEY = "hospeda-instagram-handoff";
-/** `type` of the CRM page → user script message. */
-export const HANDOFF_MESSAGE_TYPE = "hospeda-instagram-handoff";
+/** Event the CRM page dispatches on `document`; `detail` is the handoff as a JSON string (strings cross the sandbox, objects may not). */
+export const HANDOFF_EVENT = "hospeda-instagram-handoff";
+/** Attribute on `<html>` where the script on the CRM page acks a stored handoff with its nonce, plus the event that announces it. */
+export const HANDOFF_ACK_ATTRIBUTE = "data-hospeda-instagram-ack";
+export const HANDOFF_ACK_EVENT = "hospeda-instagram-handoff-ack";
 /** A handoff is valid for two minutes after «Abrir Instagram». */
 export const HANDOFF_TTL_MS = 2 * 60_000;
+/**
+ * Longest text handed to the script. Instagram does not publish a limit for Instagram Web's composer and the CRM composer does not cap
+ * Instagram drafts (50 000 like every body); 4000 characters covers every real message. A longer text gets no handoff: plain profile,
+ * manual paste from the clipboard.
+ */
+export const HANDOFF_TEXT_MAX = 4000;
 
-/** What the CRM hands to the script. `textHash` is the first 16 hex chars of SHA-256 over the normalized prepared text. */
-export type InstagramHandoff = { readonly nonce: string; readonly username: string; readonly expiresAt: number; readonly textHash: string };
+/** What the CRM hands to the script. `text` is the saved final text that the CRM also copied to the clipboard. */
+export type InstagramHandoff = { readonly nonce: string; readonly username: string; readonly expiresAt: number; readonly text: string };
 
-const NONCE = /^[0-9a-f]{32}$/, USERNAME = /^[a-z0-9._]{1,30}$/, HASH = /^[0-9a-f]{16}$/;
+const NONCE = /^[0-9a-f]{32}$/, USERNAME = /^[a-z0-9._]{1,30}$/;
 
 /** 128 random bits as 32 lowercase hex chars. */
 export function newNonce({ random = globalThis.crypto }: { random?: Pick<Crypto, "getRandomValues"> } = {}): string {
@@ -27,22 +37,16 @@ export function newNonce({ random = globalThis.crypto }: { random?: Pick<Crypto,
 /** The URL fragment (without `#`) that carries a nonce. */
 export function handoffFragment({ nonce }: { nonce: string }): string { return `${INSTAGRAM_PASTE_MARKER}=${nonce}`; }
 
-/** Line endings and surrounding blanks differ between the CRM copy and the clipboard read on some systems; they do not change the message. */
-export function normalizeForHash(text: string): string { return text.replace(/\r\n?/g, "\n").trim(); }
+/** True for text the CRM may hand over: not blank and at most `HANDOFF_TEXT_MAX` characters. */
+export function handoffTextAllowed(text: string): boolean { return text.trim().length > 0 && [...text].length <= HANDOFF_TEXT_MAX; }
 
-/** First 16 hex chars of SHA-256 of the normalized text. Enough to tell «the clipboard still holds the CRM message» apart from anything else. */
-export async function textHash({ text, subtle = globalThis.crypto.subtle }: { text: string; subtle?: SubtleCrypto }): Promise<string> {
-  const digest = await subtle.digest("SHA-256", new TextEncoder().encode(normalizeForHash(text)));
-  return [...new Uint8Array(digest)].slice(0, 8).map(byte => byte.toString(16).padStart(2, "0")).join("");
-}
-
-/** A stored or posted value as a handoff, or null when anything is malformed or it expires too far in the future. */
+/** A stored or dispatched value as a handoff, or null when anything is malformed, the text is too long or it expires too far ahead. */
 export function parseHandoff({ value, now = Date.now() }: { value: unknown; now?: number }): InstagramHandoff | null {
   if (!value || typeof value !== "object") return null;
-  const { nonce, username, expiresAt, textHash: hash } = value as Record<string, unknown>;
-  if (typeof nonce !== "string" || !NONCE.test(nonce) || typeof username !== "string" || !USERNAME.test(username) || typeof hash !== "string" || !HASH.test(hash)) return null;
+  const { nonce, username, expiresAt, text } = value as Record<string, unknown>;
+  if (typeof nonce !== "string" || !NONCE.test(nonce) || typeof username !== "string" || !USERNAME.test(username) || typeof text !== "string" || !handoffTextAllowed(text)) return null;
   if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt) || expiresAt > now + HANDOFF_TTL_MS + 5_000) return null;
-  return { nonce, username, expiresAt, textHash: hash };
+  return { nonce, username, expiresAt, text };
 }
 
 /** The profile username of an Instagram path (`/<user>/`), lowercase; null for any other page. */

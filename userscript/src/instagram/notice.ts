@@ -9,13 +9,14 @@ export const NOTICE_MS = 8000;
 export const PASTED_NOTICE = "Mensaje pegado. Revisalo y envialo vos.";
 export const FAILURE_NOTICES: Readonly<Record<FlowFailure, string>> = {
   "no-button": 'No encontré el botón "Enviar mensaje". Abrí el chat y pegá el mensaje con Ctrl+V.',
+  "navigated-away": "Cambiaste de página antes de que se abriera el chat, así que no pegué nada. Pegá el mensaje con Ctrl+V.",
   "composer-timeout": "No se abrió el chat a tiempo. Cuando se abra, pegá el mensaje con Ctrl+V.",
+  "thread-unverified": "No pude confirmar que el chat abierto sea el de este perfil, así que no pegué nada. Pegá el mensaje con Ctrl+V.",
   "composer-busy": "El chat ya tenía texto escrito, así que no pegué nada. Si hace falta, pegá el mensaje con Ctrl+V.",
-  "clipboard-denied": "No pude leer el portapapeles. Pegá el mensaje con Ctrl+V.",
-  "clipboard-empty": "El portapapeles está vacío. Copiá el mensaje desde el CRM y pegalo con Ctrl+V.",
-  "clipboard-changed": "El portapapeles cambió: pegá el mensaje con Ctrl+V.",
   "insert-failed": "No pude pegar el mensaje: pegalo con Ctrl+V.",
 };
+/** Spec 94 M3: a well-formed marker without a valid handoff (missing, expired, for another profile or superseded). Fixed text: no click, no read. */
+export const UNCONFIRMED_NOTICE = 'No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje (Ctrl+V).';
 
 /** «Ctrl+V» becomes «⌘V» on macOS. */
 export function pasteShortcut({ text, platform }: { text: string; platform: string }): string {
