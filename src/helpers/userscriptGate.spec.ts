@@ -1,4 +1,4 @@
-import {USERSCRIPT_MISSING_REASON,USERSCRIPT_NO_TOKEN_REASON,USERSCRIPT_REJECTED_REASON,USERSCRIPT_UNVERIFIED_REASON,USERSCRIPT_VERIFYING_REASON,USERSCRIPT_WAITING_REASON,userscriptContactBlock,type UserscriptStatus} from './userscriptGate';
+import {USERSCRIPT_MISSING_REASON,USERSCRIPT_NO_TOKEN_REASON,USERSCRIPT_REJECTED_REASON,USERSCRIPT_UNVERIFIED_REASON,USERSCRIPT_VERIFYING_REASON,USERSCRIPT_WAITING_REASON,userscriptContactBlock,userscriptPrompt,type UserscriptStatus} from './userscriptGate';
 
 const me='ana@hospeda.test';
 const block=(status:Partial<UserscriptStatus>,{mobile=false,currentUserEmail=me as string|null}={})=>userscriptContactBlock({mobile,latest:'1.5.0',currentUserEmail,status:{version:'1.5.0',connection:'connected',user:me,...status}});
@@ -23,4 +23,28 @@ describe('userscriptContactBlock',()=>{
  });
  it('blocks a token of another CRM user and names it',()=>{expect(block({user:'otra@hospeda.test'})).toBe('El script está conectado con otra cuenta (otra@hospeda.test). Reconectalo con la tuya.');});
  it('never blocks phones and tablets',()=>{for(const status of [{version:null},{version:'1.4.0'},{connection:'rejected'},{user:'otra@hospeda.test'},{version:undefined}] as Partial<UserscriptStatus>[])expect(block(status,{mobile:true})).toBe('');});
+});
+
+describe('userscriptPrompt (owner review of spec 96)',()=>{
+ const prompt=(status:Partial<UserscriptStatus>,{mobile=false,currentUserEmail=me as string|null}={})=>userscriptPrompt({mobile,latest:'1.5.0',currentUserEmail,status:{version:'1.5.0',connection:'connected',user:me,...status}});
+ it('asks to update an outdated script, with both versions',()=>{
+  const p=prompt({version:'1.4.0',connection:'connected'});
+  expect(p?.kind).toBe('update');expect(p?.description).toContain('1.4.0');expect(p?.description).toContain('1.5.0');
+ });
+ it('asks to update when the server says the script is outdated',()=>{expect(prompt({connection:'outdated'})?.kind).toBe('update');});
+ it.each([
+  ['missing token',{connection:'missing-token'},USERSCRIPT_NO_TOKEN_REASON],
+  ['rejected token',{connection:'rejected'},USERSCRIPT_REJECTED_REASON],
+  ['another user',{user:'otro@hospeda.test'},'otro@hospeda.test'],
+ ] as const)('asks to connect on a %s',(_name,status,text)=>{
+  const p=prompt(status);expect(p?.kind).toBe('connect');expect(p?.description).toContain(text);
+ });
+ it.each([
+  ['a connected, current script',{}],
+  ['the page still looking for the script',{version:undefined}],
+  ['no script installed',{version:null}],
+  ['a token being verified',{connection:undefined}],
+  ['a token the CRM could not verify',{connection:'unknown'}],
+ ] as const)('stays hidden for %s',(_name,status)=>{expect(prompt(status)).toBeNull();});
+ it('never shows on phones and tablets',()=>{expect(prompt({version:'1.0.0'},{mobile:true})).toBeNull();});
 });

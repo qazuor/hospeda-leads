@@ -37,3 +37,21 @@ export function userscriptContactBlock({mobile,status,latest,currentUserEmail}:{
  // Still checking (blocked while verifying); unknown, no answer in time, or connected without a published user (never 1.5.0): unverified.
  return status.connection===undefined?USERSCRIPT_VERIFYING_REASON:USERSCRIPT_UNVERIFIED_REASON;
 }
+
+/** Where Tampermonkey installs or updates the script (served by the CRM). */
+export const USERSCRIPT_URL='/userscripts/hospeda-crm.user.js';
+/** What the always-visible prompt asks for: `update` installs the latest script, `connect` fixes its token. */
+export type UserscriptPrompt={readonly kind:'update'|'connect';readonly title:string;readonly description:string};
+const PROMPT_CONSEQUENCE='Hasta que lo hagas no podés contactar por WhatsApp ni Instagram desde la computadora y las conversaciones no se registran solas.';
+/**
+ * Owner review of spec 96 (28/10/2026): an outdated or disconnected script gets a prompt as visible as the one in WhatsApp Web, on every
+ * page. Null on phones and tablets, while the page waits or verifies, when no script is installed (the contact buttons explain that
+ * one) and when the CRM could not verify the token (a network problem the user cannot fix from the prompt).
+ */
+export function userscriptPrompt({mobile,status,latest,currentUserEmail}:{mobile:boolean;status:UserscriptStatus;latest:string;currentUserEmail:string|null}):UserscriptPrompt|null{
+ if(mobile||!status.version)return null;
+ const reason=userscriptContactBlock({mobile,status,latest,currentUserEmail});
+ if(!reason||reason===USERSCRIPT_VERIFYING_REASON||reason===USERSCRIPT_UNVERIFIED_REASON)return null;
+ if(reason===userscriptOutdatedReason({installed:status.version,latest}))return {kind:'update',title:'Actualizá el script de Hospeda',description:`Tenés la versión ${status.version} y la actual es ${latest}. ${PROMPT_CONSEQUENCE}`};
+ return {kind:'connect',title:'Conectá el script de Hospeda',description:`${reason} ${PROMPT_CONSEQUENCE}`};
+}

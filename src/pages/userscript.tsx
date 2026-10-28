@@ -9,10 +9,10 @@ import {CrmDialog} from '../components/ui/CrmDialog';
 import {compareSemver} from '../helpers/userscriptPure';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
 import {DETECT_TIMEOUT_MS,recheckUserscript,useCurrentUserEmail,useUserscriptStatus} from '../helpers/useUserscriptStatus';
-import {userscriptOtherUserReason,type UserscriptStatus} from '../helpers/userscriptGate';
+import {USERSCRIPT_URL,userscriptOtherUserReason,type UserscriptStatus} from '../helpers/userscriptGate';
 import styles from './userscript.module.css';
 /** Served by the same CRM origin, so the installed script updates itself from the instance that issued its tokens. */
-export const USERSCRIPT_URL='/userscripts/hospeda-crm.user.js';
+export {USERSCRIPT_URL} from '../helpers/userscriptGate';
 /** How long the page waits for the script to announce itself before reporting it as not detected. */
 export {DETECT_TIMEOUT_MS};
 type Token={id:string;label:string;createdAt:string;lastUsedAt:string|null;lastVersion:string|null;revokedAt:string|null};
