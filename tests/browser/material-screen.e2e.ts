@@ -60,7 +60,7 @@ for(const width of [1280,390])test(`sales material screen: groups, card menu, fi
  const stored=main.getByRole('article',{name:'Tarifario guardado '+stamp});
  await expect(stored.getByTestId('cover-placeholder')).toBeVisible();
  await main.getByRole('button',{name:'Generar portadas faltantes (1)',exact:true}).click();
- await expect(main.getByText('Se generó 1 portada.',{exact:true})).toBeVisible({timeout:30000});
+ await expect(page.getByText('Se generó 1 portada.',{exact:true})).toBeVisible({timeout:30000}); // A Sonner toast, like other saves.
  await expect.poll(()=>stored.locator('img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0),{timeout:15000}).toBe(true);
  await expect(main.getByRole('button',{name:/Generar portadas faltantes/})).toHaveCount(0);
 
@@ -69,7 +69,7 @@ for(const width of [1280,390])test(`sales material screen: groups, card menu, fi
  await dialog.getByLabel('Archivo',{exact:true}).setInputFiles({name:'nuevo.pdf',mimeType:'application/pdf',buffer:pdf});
  await dialog.getByLabel('Título',{exact:true}).fill('Tarifario nuevo '+stamp);
  await dialog.getByRole('button',{name:'Guardar material',exact:true}).click();
- await expect(main.getByText('Material guardado.',{exact:true})).toBeVisible({timeout:30000});
+ await expect(page.getByText('Material guardado.',{exact:true})).toBeVisible({timeout:30000});
  const created=main.getByRole('article',{name:'Tarifario nuevo '+stamp});
  await expect.poll(()=>created.locator('img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0),{timeout:15000}).toBe(true);
  const list=await api(page,'sales_materials?search='+encodeURIComponent(stamp));

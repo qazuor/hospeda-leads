@@ -5,7 +5,8 @@ import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import type {SalesMaterial,SalesMaterialList} from '../endpoints/salesMaterials.schema';
 import {SalesMaterialPanel} from './SalesMaterialPanel';
 
-const api=vi.hoisted(()=>({list:vi.fn(),post:vi.fn(),missing:vi.fn()}));
+const api=vi.hoisted(()=>({list:vi.fn(),post:vi.fn(),missing:vi.fn(),success:vi.fn(),warning:vi.fn()}));
+vi.mock('sonner',()=>({toast:{success:api.success,warning:api.warning}}));
 vi.mock('../helpers/salesMaterialAutoCover',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialAutoCover')>(),saveMissingAutoCover:api.missing}));
 vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),getSalesMaterials:api.list,postSalesMaterial:api.post}));
 const version={id:'v-2',version:2,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date('2026-10-20T12:00:00Z')};
@@ -39,7 +40,7 @@ describe('SalesMaterialPanel',()=>{
   await waitFor(()=>expect(screen.getByText('Archivando material…')).toBeTruthy());
   // While it runs, the other actions are blocked (the menu items too: see SalesMaterialCard.spec).
   expect((screen.getByRole('button',{name:'Nuevo material'}) as HTMLButtonElement).disabled).toBe(true);
-  release();await screen.findByText('«Folleto de tarifas» quedó archivado. No se borró nada.');
+  release();await waitFor(()=>expect(api.success).toHaveBeenCalledWith('«Folleto de tarifas» quedó archivado. No se borró nada.'));
   expect(api.post).toHaveBeenCalledTimes(1);expect(api.post.mock.calls[0][0]).toEqual({action:'archive',id:'m-1',revision:3});
  });
  it('warns when storage is not configured and disables file links',async()=>{
@@ -119,11 +120,17 @@ describe('SalesMaterialPanel',()=>{
   const button=await screen.findByRole('button',{name:'Generar portadas faltantes (2)'});fireEvent.click(button);fireEvent.click(button);
   expect(await screen.findByText('Generando portadas… 1 de 2')).toBeTruthy();expect((screen.getByRole('button',{name:'Nuevo material'}) as HTMLButtonElement).disabled).toBe(true);
   release();
-  expect(await screen.findByText('Se generó 1 portada. 1 material no se pudo procesar y muestra el dibujo de su formato.')).toBeTruthy();
+  await waitFor(()=>expect(api.warning).toHaveBeenCalledWith('Se generó 1 portada. 1 material no se pudo procesar y muestra el dibujo de su formato.',{duration:10000}));expect(api.success).not.toHaveBeenCalled();
   expect(api.missing).toHaveBeenCalledTimes(2);expect(api.missing.mock.calls.map(c=>c[0].material.id)).toEqual(['m-1','m-2']);
  });
  it('offers no cover generation without storage',async()=>{
   api.list.mockResolvedValue(data([material()],false));setup(true);await screen.findByRole('article',{name:'Folleto de tarifas'});
   expect(screen.queryByRole('button',{name:/Generar portadas faltantes/})).toBeNull();
+ });
+ it('hands the admin actions to the page header when the page renders one',async()=>{
+  api.list.mockResolvedValue(data([material()]));
+  render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><SalesMaterialPanel admin header={actions=><header data-testid="page-header">{actions}</header>}/></QueryClientProvider></MantineProvider>);
+  const header=await screen.findByTestId('page-header');
+  await waitFor(()=>expect(within(header).getByRole('button',{name:'Generar portadas faltantes (1)'})).toBeTruthy());expect(within(header).getByRole('button',{name:'Nuevo material'})).toBeTruthy();
  });
 });
