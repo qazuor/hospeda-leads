@@ -27,6 +27,7 @@ import {emailDeliveredLabel} from '../../helpers/emailEngagement';
 import type {CommunicationView} from './types';
 import styles from './CommunicationView.module.css';
 import {LAYERS} from '../../helpers/layers';
+import {AutoOutcomeCorrection,AutoOutcomeNote,canFixAutoOutcome} from './AutoOutcome';
 
 /** An admin resolves an email whose provider result is unknown, or one stuck submitting for more than 15 minutes. */
 export const isUncertainEmail=(message:Pick<Message,'channel'|'status'|'updatedAt'>,now=Date.now()):boolean=>message.channel==='email'&&(message.status==='unknown'||message.status==='submitting'&&new Date(message.updatedAt).getTime()<now-15*60*1000);
@@ -61,8 +62,8 @@ const canCorrectResponse=(view:CommunicationView,response:CommunicationResponse)
 
 /** State of the forms and dialogs a «⋯» menu opens; they render outside the menu, so closing it never unmounts them. */
 function useItemPanels(){
- const [correcting,setCorrecting]=useState(false),[voiding,setVoiding]=useState(false),[design,setDesign]=useState(false),[prepared,setPrepared]=useState(false);
- return {correcting,setCorrecting,voiding,setVoiding,design,setDesign,prepared,setPrepared};
+ const [correcting,setCorrecting]=useState(false),[voiding,setVoiding]=useState(false),[design,setDesign]=useState(false),[prepared,setPrepared]=useState(false),[fixingOutcome,setFixingOutcome]=useState(false);
+ return {correcting,setCorrecting,voiding,setVoiding,design,setDesign,prepared,setPrepared,fixingOutcome,setFixingOutcome};
 }
 type Panels=ReturnType<typeof useItemPanels>;
 
@@ -74,12 +75,15 @@ function messageActions(view:CommunicationView,message:Message,panels:Panels):It
  return [
   ...(correct?[{label:'Corregir cómo salió o el resumen',onSelect:()=>panels.setCorrecting(true)}]:[]),
   ...(canVoid?[{label:'Anular registro',onSelect:()=>panels.setVoiding(true)}]:[]),
+  ...(canFixAutoOutcome(view,message)?[{label:'Corregir cómo salió',onSelect:()=>panels.setFixingOutcome(true)}]:[]),
  ];
 }
 
 /** The forms and dialogs of a sent message or call, opened from its «⋯» menu. */
-function MessagePanels({message,panels}:{message:Message;panels:Panels}){
+function MessagePanels({view,message,panels}:{view:CommunicationView;message:Message;panels:Panels}){
  return <>
+  <AutoOutcomeNote message={message}/>
+  {panels.fixingOutcome&&<AutoOutcomeCorrection view={view} message={message} onClose={()=>panels.setFixingOutcome(false)}/>}
   {panels.correcting&&<div className={styles.inlineForm}><InteractionCorrectionForm message={message} onDone={()=>panels.setCorrecting(false)}/><Button size="sm" variant="ghost" onClick={()=>panels.setCorrecting(false)}>Cancelar corrección</Button></div>}
   {message.autoRegistrationId&&<AutoRegistrationVoidDialog registrationId={message.autoRegistrationId} open={panels.voiding} onClose={()=>panels.setVoiding(false)}/>}
   {message.channel==='email'&&!!message.htmlBody&&<EmailDesignDialog message={message} open={panels.design} onClose={()=>panels.setDesign(false)}/>}
@@ -178,7 +182,7 @@ function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
   {edited&&<p className={styles.note}>Editado antes de enviar</p>}
   <MessageMaterialRecord view={view} message={entry.message}/>
   <PendingActions view={view} message={entry.message}/>
-  <MessagePanels message={entry.message} panels={panels}/>
+  <MessagePanels view={view} message={entry.message} panels={panels}/>
  </article></div>;
 }
 
@@ -189,7 +193,7 @@ function Call({view,entry,highlighted}:ItemProps<CallEntry>){
   <div className={styles.eventLine}><span><time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time> · </span><ChannelIcon channel="call" size={14}/><span><strong>Llamada</strong> · {entry.result} · <Side>Nosotros</Side>{entry.sender}</span><span className={styles.eventTail}>{entry.autoRegistered&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={label} actions={messageActions(view,entry.message,panels)}/></span></div>
   {entry.text&&<p className={styles.eventNote}>{entry.text}</p>}
   <PendingActions view={view} message={entry.message}/>
-  <MessagePanels message={entry.message} panels={panels}/>
+  <MessagePanels view={view} message={entry.message} panels={panels}/>
  </article></div>;
 }
 

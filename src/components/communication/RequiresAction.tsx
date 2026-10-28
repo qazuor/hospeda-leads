@@ -1,3 +1,5 @@
+import {useState} from 'react';
+import {AutoOutcomeCorrection,AutoOutcomeNote,canFixAutoOutcome} from './AutoOutcome';
 import type {InboundMessage,Message} from '../../endpoints/communication.schema';
 import {formatDateTime} from '../../helpers/crmDates';
 import {actorLabel} from '../../helpers/crmLabels';
@@ -46,7 +48,7 @@ function ReopenInstagram({message}:{message:Message}){
  */
 function ConfirmEntry({view,message,now}:{view:CommunicationView;message:Message;now:number}){
  const own=message.ownerEmail===view.userEmail,instagram=isInstagramAttempt(message),channel=instagram?'instagram':'whatsapp',name=instagram?'Instagram':'WhatsApp';
- const waiting=instagram&&isWaitingForInstagramEcho({message,now}),text=(message.textBody||message.body||'').trim();
+ const waiting=instagram&&isWaitingForInstagramEcho({message,now}),text=(message.textBody||message.body||'').trim(),[fixingOutcome,setFixingOutcome]=useState(false);
  return <li><div role="group" aria-label={name+' sin confirmar para '+(message.recipientName||message.recipient)} className={styles.actionCard} data-waiting={waiting||undefined}>
   <div className={styles.actionBody}><span className={styles.channel} data-channel={channel}><ChannelIcon channel={channel} size={18}/></span><div>
    <span className={styles.actionTitle} role={waiting?'status':undefined}>{waiting?INSTAGRAM_WAITING_STATUS:'¿Lo enviaste?'}</span>
@@ -54,7 +56,8 @@ function ConfirmEntry({view,message,now}:{view:CommunicationView;message:Message
    {text&&<ClampedText className={styles.actionQuote} text={text} lines={3}/>}
    <MessageMaterialRecord view={view} message={message}/>
   </div></div>
-  <div className={styles.actionButtons}><ConfirmSendButtons view={view} message={message}/>{instagram&&message.status==='instagram_opened'&&<ReopenInstagram message={message}/>}</div>
+  <AutoOutcomeNote message={message}/><div className={styles.actionButtons}><ConfirmSendButtons view={view} message={message}/>{instagram&&message.status==='instagram_opened'&&<ReopenInstagram message={message}/>}{canFixAutoOutcome(view,message)&&<Button size="sm" variant="ghost" onClick={()=>setFixingOutcome(true)}>Corregir cómo salió</Button>}</div>
+  {fixingOutcome&&<AutoOutcomeCorrection view={view} message={message} onClose={()=>setFixingOutcome(false)}/>}
  </div></li>;
 }
 
