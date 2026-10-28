@@ -60,6 +60,21 @@ const payload=(mid:string,text:string,igsid:string,timestamp=Date.now())=>({obje
 const signed=(body:unknown)=>{const raw=JSON.stringify(body);return new Request('http://localhost/_api/inbound/instagram',{method:'POST',headers:{'Content-Type':'application/json','X-Hub-Signature-256':'sha256='+createHmac('sha256',secret).update(raw).digest('hex')},body:raw});};
 const echo=async(mid:string,text:string,igsid:string,options:Parameters<typeof webhook>[1]={},timestamp=Date.now())=>{const r=await webhook(signed(payload(mid,text,igsid,timestamp)),options);assert.equal(r.status,200,'the webhook always answers 200 for an echo');};
 const mid=(tag:string)=>`${tag}-${run}`;
+/** Value of the Hoy outcome-tracking cutoff before the run (migration 028 sets it to the migration time), restored at the end. */
+let outcomeSince:string|null|undefined;
+/**
+ * Moves an attempt's open `minutes` back, through every anchor the server reads: `last_interaction_at` (Hoy's waiting period,
+ * the client and the echo pre-filter) and the `instagram_opened_unconfirmed` journal entry (the echo window). Hoy also skips
+ * contacts older than `crm_contact_outcome_since`; on a database migrated minutes ago (CI) that cutoff is newer than the
+ * backdated open, so it is moved before it too. Backdating only `last_interaction_at` made the 15-minute check pass locally
+ * and fail on a fresh database.
+ */
+async function backdateOpen(id:string,minutes:number){
+ if(outcomeSince===undefined)outcomeSince=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value??null;
+ await sql`UPDATE crm_messages SET last_interaction_at=now()-make_interval(mins=>${minutes}::int) WHERE id=${id}::uuid`.execute(db);
+ await sql`UPDATE crm_communication_journal SET created_at=now()-make_interval(mins=>${minutes}::int) WHERE entity_type='interaction' AND entity_id=${id} AND action='instagram_opened_unconfirmed'`.execute(db);
+ await sql`UPDATE app_settings SET value=to_char((now()-make_interval(mins=>${minutes+60}::int)) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-make_interval(mins=>${minutes}::int)`.execute(db);
+}
 const words=(seed:string)=>`Hola, soy de Hospeda. Te escribo por ${seed} para contarte cómo difundimos alojamientos ${seed} de la zona de Colón.`;
 
 try{
@@ -109,7 +124,7 @@ try{
   // Waiting period: Hoy's pending outcomes skip the attempt for 15 minutes, then list it.
   const pending=()=>pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id});
   assert.equal((await pending()).some(p=>p.id===draft.id),false,'an attempt waiting for the echo is not pending yet');
-  await sql`UPDATE crm_messages SET last_interaction_at=now()-interval '16 minutes' WHERE id=${draft.id}::uuid`.execute(db);
+  await backdateOpen(draft.id,16);
   assert.equal((await pending()).some(p=>p.id===draft.id),true,'after 15 minutes it asks «¿Lo enviaste?» like WhatsApp');
 
   // outcome «No se envió» and «Sí, se envió».
@@ -199,7 +214,7 @@ try{
  // ── Two open attempts: the newest one with matching text wins; the other remains.
  {
   const b=await business('dos',seller.user.email),text=words('dos-'+run.slice(0,6));
-  const older=await openAttempt(b.id,text,seller.cookie);await sql`UPDATE crm_messages SET last_interaction_at=now()-interval '2 hours' WHERE id=${older.id}::uuid`.execute(db);
+  const older=await openAttempt(b.id,text,seller.cookie);await backdateOpen(older.id,120);
   const newer=await openAttempt(b.id,text,seller.cookie);
   await echo(mid('two'),text,b.igsid);
   assert.equal((await row(newer.id)).status,'manual_sent');assert.equal((await row(older.id)).status,'instagram_opened');
@@ -213,7 +228,7 @@ try{
   await echo(mid('different'),'Hola! Te paso el link mañana temprano.',b.igsid);
   assert.equal((await row(id)).status,'instagram_opened');
   const rows=await socialRows(b.id);assert.equal(rows.length,2);assert.deepEqual([rows[1].owner,rows[1].status,rows[1].externalId],['instagram@hospeda','manual_sent',mid('different')]);
-  await sql`UPDATE crm_messages SET last_interaction_at=now()-interval '25 hours' WHERE id=${id}::uuid`.execute(db);
+  await backdateOpen(id,25*60);
   await echo(mid('late'),text,b.igsid);
   assert.equal((await row(id)).status,'instagram_opened','an echo after 24 h never claims the attempt');
   const none=await business('sin-intento',seller.user.email);
@@ -318,6 +333,7 @@ try{
  console.warn=old.warn;
  try{
   await cleanupThenRestore({onCleanupError:error=>{console.error('Fixture cleanup failed',error);process.exitCode=1;},restore:()=>restoreInstagramSecret({query:secretQuery,snapshot:secretSnapshot}),cleanup:async()=>{
+  if(typeof outcomeSince==='string')await sql`UPDATE app_settings SET value=${outcomeSince} WHERE key='crm_contact_outcome_since'`.execute(db);
   if(accountIds.length){
    await sql`DELETE FROM crm_communication_journal WHERE account_id=ANY(${accountIds}::bigint[])`.execute(db);
    for(const table of ['crm_work_journal','crm_communication_reads','crm_auto_registrations','crm_data_evidence'])await sql.raw(`DELETE FROM ${table} WHERE account_id=ANY('{${accountIds.join(',')}}'::bigint[])`).execute(db);
