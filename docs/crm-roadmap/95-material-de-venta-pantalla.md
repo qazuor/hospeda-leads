@@ -1,6 +1,6 @@
 # Spec 95 — Material de venta: mejoras de pantalla
 
-Estado: **aprobada por el propietario — 28/10/2026**. Rama `feat/sales-material-ui-95` (sin PR todavía).
+Estado: **cerrada** — mergeada en `staging` el 28/10/2026 (PR #282, `a2c7c93`). Sin desplegar. Aprobada por el propietario el 28/10/2026.
 
 ## 1. Objetivo
 
