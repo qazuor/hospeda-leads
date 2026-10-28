@@ -54,6 +54,14 @@ describe('«Nuevo desde tu última visita» (spec 91 §12)',()=>{
   expect(newestAt(withVoided)?.getTime()).toBe(at(3).getTime());
   expect(newSinceKey({entries:withVoided,lastSeenAt:at(4),userEmail:'leo@example.com'})).toBeNull();
  });
+ it('never counts an unconfirmed open or a «No se envió» send, even with «Mostrar anulados» (spec 92 owner decision)',()=>{
+  const messages=[message({id:'ok',ownerEmail:'sofia@example.com',lastInteractionAt:at(3)}),message({id:'opened',ownerEmail:'sofia@example.com',status:'whatsapp_opened',lastInteractionAt:at(6)}),message({id:'not',ownerEmail:'sofia@example.com',status:'manual_not_done',lastInteractionAt:at(7)})];
+  for(const showVoided of [false,true]){
+   const entries=buildCommunicationTimeline({messages,showVoided});
+   expect(newestAt(entries)?.getTime()).toBe(at(3).getTime());
+   expect(newSinceKey({entries,lastSeenAt:at(4),userEmail:'leo@example.com'})).toBeNull();
+  }
+ });
 });
 
 describe('clamping and summary',()=>{

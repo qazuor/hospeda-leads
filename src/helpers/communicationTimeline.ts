@@ -5,7 +5,7 @@ import {messageLabels} from './messageLabels';
 import {ECHO_SENDER,ECHO_STATUS,INSTAGRAM_ECHO_OWNER,isInstagramInbound,isInstagramOutbound} from './instagramChannel';
 import {phoneNationalKeys} from './dataNormalization';
 import {isOpenedUnconfirmed} from './contactOutcome';
-import {isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho,normalizeInstagramUsername} from './instagramChat';
+import {isInstagramAttempt,isInstagramConfirmed,normalizeInstagramUsername} from './instagramChat';
 
 export {ECHO_STATUS,INSTAGRAM_ECHO_OWNER};
 
@@ -38,7 +38,7 @@ export const callResultLabel=(status:string):string=>({manual_sent:'Llamada real
 export const INSTAGRAM_CONFIRMED_STATUS='Enviado · confirmado por Instagram';
 /** Status line of an opened Instagram attempt still waiting for the echo (spec 92 §2.4). */
 export const INSTAGRAM_WAITING_STATUS='Esperando que Instagram confirme el envío…';
-export const INSTAGRAM_WAITING_HINT='Si lo enviaste desde la cuenta de Hospeda se confirma solo. Si no llega en 15 minutos te preguntamos si lo enviaste.';
+export const INSTAGRAM_WAITING_HINT='Si lo enviaste desde la cuenta de Hospeda se confirma solo. Si ya sabés cómo salió, marcalo con «Sí, se envió» o «No se envió».';
 /**
  * Honest status line of a sent bubble, from the existing status labels (accepted ≠ delivered, opened WhatsApp ≠ sent).
  * An Instagram echo was sent from the Instagram app and only recorded here; an Instagram attempt carrying the echo `mid`
@@ -81,7 +81,7 @@ export type SentEntry=Base&{kind:'sent';message:Message;sender:string;subject:st
 export type CallEntry=Base&{kind:'call';message:Message;sender:string;result:string;text:string;autoRegistered:boolean;voided:boolean};
 export type ResponseEntry=Base&{kind:'response';response:CommunicationResponse;sender:string;text:string};
 export type TimelineEntry=ReceivedEntry|SentEntry|CallEntry|ResponseEntry;
-export type TimelineInput={messages:readonly Message[];inbound?:readonly InboundMessage[]|null;responses?:readonly CommunicationResponse[]|null;users?:readonly LabelUser[]|null;managements?:readonly TimelineManagement[]|null};
+export type TimelineInput={messages:readonly Message[];inbound?:readonly InboundMessage[]|null;responses?:readonly CommunicationResponse[]|null;users?:readonly LabelUser[]|null;managements?:readonly TimelineManagement[]|null;/** «Mostrar anulados» is on: also list the sends answered «No se envió». */showVoided?:boolean};
 
 const time=(value:Date|string|null|undefined)=>{const t=value?new Date(value).getTime():NaN;return Number.isNaN(t)?0:t};
 /** Sender of a sent message: «X, por delegación de Y», «Instagram de Hospeda» for echoes, otherwise the owner's name. */
@@ -94,19 +94,28 @@ export const sentSender=({message,users,managements}:{message:Message;users:read
 };
 /** Messages that belong to «Borradores», not to the conversation. */
 export const isDraft=(msg:{status:string}):boolean=>msg.status==='draft';
+/** A send answered «No se envió» (or a manual attempt resolved as not done). A call «No se hizo» is not a send and stays listed. */
+export const isNotSentAttempt=(msg:{channel:string;status:string}):boolean=>msg.channel!=='call'&&msg.status==='manual_not_done';
+/**
+ * Spec 92 owner decision: an opened WhatsApp or Instagram that nobody confirmed yet is not part of the conversation; it lives
+ * only in «Requiere acción» until it is confirmed (by hand, by the user script or by Instagram's echo). A send answered
+ * «No se envió» only shows with «Mostrar anulados».
+ */
+export const isHiddenFromConversation=(msg:{channel:string;status:string},showVoided=false):boolean=>isOpenedUnconfirmed(msg.status)||(!showVoided&&isNotSentAttempt(msg));
 
 /**
  * One chronological list (oldest first) of sent messages, received messages, calls and responses registered without a
- * message. A response linked to a loaded received message is attached to it, never shown twice. Drafts and cancelled
- * rows stay out; voided rows only exist when the admin asked for them and are tagged.
+ * message. A response linked to a loaded received message is attached to it, never shown twice. Drafts, cancelled rows and
+ * unconfirmed opens stay out (`isHiddenFromConversation`); voided and «No se envió» rows only show when the admin asked
+ * for them (`showVoided`) and are tagged.
  */
-export function buildCommunicationTimeline({messages,inbound,responses,users,managements}:TimelineInput):TimelineEntry[]{
+export function buildCommunicationTimeline({messages,inbound,responses,users,managements,showVoided=false}:TimelineInput):TimelineEntry[]{
  const people=users??[],mgmt=managements??[],answers=responses??[],received=inbound??[];
  const byId=new Map(answers.map(r=>[String(r.id),r]));
  const attached=new Set(received.filter(i=>!!i.responseId&&byId.has(String(i.responseId))).map(i=>String(i.responseId)));
  const entries:TimelineEntry[]=[];
  for(const message of messages){
-  if(isDraft(message)||message.status==='cancelled')continue;
+  if(isDraft(message)||message.status==='cancelled'||isHiddenFromConversation(message,showVoided))continue;
   const at=new Date(message.lastInteractionAt??message.createdAt),instagram=isInstagramMessage(message),voided=message.status==='voided';
   const base={at,day:formatDay(at),channel:timelineChannel({channel:message.channel,instagram}),channelLabel:timelineChannelLabel({channel:message.channel,instagram}),...managementOf({leadId:message.leadId,managements:mgmt})};
   if(message.channel==='call')entries.push({...base,kind:'call',key:'call:'+message.id,message,sender:userLabel(people,message.ownerEmail),result:callResultLabel(message.status),text:(message.summary||'').trim(),autoRegistered:!!message.autoRegistrationId,voided});
@@ -164,15 +173,16 @@ export const withDaySeparators=(entries:readonly TimelineEntry[]):{entry:Timelin
 
 /** True for an opened send the viewer may answer «¿Lo enviaste?» for: a WhatsApp, or an Instagram attempt (spec 92). */
 export const isConfirmableOpen=(m:{channel:string;status:string;ownerEmail?:string|null;destinationDetail?:string|null}):boolean=>isOpenedUnconfirmed(m.status)&&(m.status==='whatsapp_opened'?m.channel==='whatsapp':isInstagramAttempt(m));
-/** One «Requiere acción» row: a received message to review or an opened-but-unconfirmed WhatsApp or Instagram send. */
+/** One «Requiere acción» row: a received message to review or an opened-but-unconfirmed WhatsApp or Instagram send (not in the conversation). */
 export type ActionItem={kind:'review';key:string;at:Date;inbound:InboundMessage}|{kind:'confirm_send';key:string;at:Date;message:Message};
 /**
- * «Requiere acción», newest first: every received message «Por revisar» (its buttons follow the usual permissions) and the
- * «¿Lo enviaste?» prompts the viewer can answer (own WhatsApp opens, or any for an admin, on a writable view).
+ * «Requiere acción», newest first: every received message «Por revisar» (its buttons follow the usual permissions) and every
+ * opened send the viewer can answer (own WhatsApp or Instagram opens, or any for an admin, on a writable view). An Instagram
+ * attempt still waiting for its echo is listed too: the entry says it is waiting and already offers «Sí» / «No».
  */
-export function requiresAction({inbound,messages,userEmail,admin,readOnly,now=Date.now()}:{inbound?:readonly InboundMessage[]|null;messages:readonly Message[];userEmail:string;admin:boolean;readOnly:boolean;/** An Instagram attempt waiting for its echo (15 min) is not listed yet. */now?:number}):ActionItem[]{
+export function requiresAction({inbound,messages,userEmail,admin,readOnly}:{inbound?:readonly InboundMessage[]|null;messages:readonly Message[];userEmail:string;admin:boolean;readOnly:boolean}):ActionItem[]{
  const review=(inbound??[]).filter(i=>i.status==='pending_review').map(i=>({kind:'review' as const,key:'in:'+i.id,at:new Date(i.receivedAt),inbound:i}));
- const confirm=readOnly?[]:messages.filter(m=>isConfirmableOpen(m)&&!isWaitingForInstagramEcho({message:m,now})&&(admin||m.ownerEmail===userEmail)).map(m=>({kind:'confirm_send' as const,key:'out:'+m.id,at:new Date(m.lastInteractionAt??m.updatedAt),message:m}));
+ const confirm=readOnly?[]:messages.filter(m=>isConfirmableOpen(m)&&(admin||m.ownerEmail===userEmail)).map(m=>({kind:'confirm_send' as const,key:'out:'+m.id,at:new Date(m.lastInteractionAt??m.updatedAt),message:m}));
  return [...review,...confirm].sort((a,b)=>time(b.at)-time(a.at)||a.key.localeCompare(b.key));
 }
 /** Drafts (not sent, not opened), newest first. */
@@ -189,8 +199,8 @@ export const timelineDomId=(key:string):string=>'comm-item-'+key.replace(/[^a-zA
 
 /** True when the viewer authored the item (sent it, made the call or registered the response): it is never «nuevo» for them. */
 export const authoredBy=(entry:TimelineEntry,userEmail:string):boolean=>entry.kind==='sent'||entry.kind==='call'?entry.message.ownerEmail===userEmail:entry.kind==='response'?entry.response.actorEmail===userEmail:false;
-/** True for a voided row (only loaded when an admin turns on «Mostrar anulados»): it is never new nor marks a visit. */
-export const isVoidedEntry=(entry:TimelineEntry):boolean=>entry.kind==='received'?entry.inbound.status==='voided':entry.kind==='response'?false:entry.voided;
+/** True for a voided or «No se envió» row (only listed when an admin turns on «Mostrar anulados»): it is never new nor marks a visit. */
+export const isVoidedEntry=(entry:TimelineEntry):boolean=>entry.kind==='received'?entry.inbound.status==='voided':entry.kind==='response'?false:entry.voided||(entry.kind==='sent'&&isNotSentAttempt(entry.message));
 /**
  * Spec 91 §12: key of the first item newer than the viewer's previous visit, ignoring what the viewer authored and voided rows.
  * Null on the first visit (no previous visit) or when nothing is new. `entries` are in chronological order.
