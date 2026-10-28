@@ -6,6 +6,7 @@ import {communicationJournal} from './communicationService';
 import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,contactWorkPurpose} from './contactOutcome';
 import {canModifyBusiness,canModifyManagement} from './crmPermissions';
 import {isInstagramAttempt} from './instagramChat';
+import {writeLeadJournal} from './writeLeadJournal';
 import {attributeResponseToSend,outcomeFromResponse,type OpenSend,type ResponseCategory} from './responseOutcome';
 
 type Executor=Kysely<DB>|Transaction<DB>;
@@ -61,6 +62,8 @@ export async function resolveSendOutcomeFromResponse(e:Executor,{response,user,a
   const created=await e.insertInto('crmActivities').values({accountId:m.accountId,leadId:m.leadId,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':instagram?'Comunicación Instagram':'Comunicación '+m.channel,channel:m.channel,purpose:contactWorkPurpose(m.purpose),outcome,outcomeResponseId:response.id,result,occurredAt:m.lastInteractionAt??new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
   await sql`UPDATE crm_messages SET activity_id=${created.id} WHERE id=${m.id}::uuid`.execute(e);
   activityId=String(created.id);
+  // Same management history as an activity the communication flow creates (communicationService `activity`).
+  if(m.leadId){const lead=await e.selectFrom('leads').select(['id','nombre']).where('id','=',m.leadId).executeTakeFirst();if(lead)await writeLeadJournal(e,{leadId:String(lead.id),leadName:lead.nombre,actor:user,action:'contact_logged',metadata:{activityId:created.id,messageId:m.id,channel:m.channel,result,template:m.templateSnapshot?.name??null}});}
  }
  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId==null?null:String(m.leadId),entityType:'interaction',entityId:m.id,action:'contact_outcome_from_response',actor:null,automatic:true,triggeredBy:user.email,after:{outcome,responseId:response.id,activityId}});
  return {messageId:m.id};
