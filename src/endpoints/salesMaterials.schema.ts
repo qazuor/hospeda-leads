@@ -24,23 +24,23 @@ export type SalesMaterialMutation=z.infer<typeof salesMaterialMutation>;
 export const salesMaterialUploadInput=z.object({purpose:z.enum(['file','cover']),fileName:z.string().trim().min(1).max(150),mimeType:z.enum(SALES_MATERIAL_MIMES),byteSize:z.number().int().min(1),materialId:uuid}).superRefine((v,ctx)=>{const error=uploadDeclarationError(v);if(error)ctx.addIssue({code:'custom',message:error,path:['byteSize']})});
 export type SalesMaterialUploadInput=z.infer<typeof salesMaterialUploadInput>;
 /** List filters (GET /_api/sales_materials). `categoryIds` is a comma-separated list: a material matches when it has ANY of them. */
-export const salesMaterialListQuery=z.object({search:z.string().max(200).default(''),categoryId:id.optional(),categoryIds:z.string().regex(/^[1-9]\d*(,[1-9]\d*){0,19}$/).transform(v=>[...new Set(v.split(','))]).optional(),kind:kind.optional(),includeArchived:z.enum(['0','1']).default('0')});
+export const salesMaterialListQuery=z.object({search:z.string().max(200).default(''),categoryId:id.optional(),categoryIds:z.string().regex(/^[1-9]\d*(,[1-9]\d*){0,19}$/).transform(v=>[...new Set(v.split(','))]).optional(),kind:kind.optional(),includeArchived:z.enum(['0','1']).default('0'),/** Spec 95: `archived` lists only archived material (admins), so the 500-row limit is spent on them. */status:z.enum(['archived']).optional()});
 export type SalesMaterialListQuery=z.output<typeof salesMaterialListQuery>;
 export type SalesMaterialCategory={id:string;name:string;active:boolean};
 /** A version as the client sees it: never the object key. */
 export type SalesMaterialVersion={id:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;actorEmail:string;createdAt:Date};
-export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;/** Spec 95: who set the stored cover (`null` or absent: none; a small image may still be its own cover). */coverSource?:'manual'|'auto'|null;categories:SalesMaterialCategory[];currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
+export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;/** Spec 95: `manual`/`auto`: the stored cover and who set it; `none`: the admin removed it (no automatic cover either); `null` or absent: never set (a small image may still be its own cover). */coverSource?:'manual'|'auto'|'none'|null;categories:SalesMaterialCategory[];currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
 export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;storageConfigured:boolean;/** Sum of the files attached to one email (spec 89 §8.3). */maxEmailAttachmentBytes:number};
 /** `truncated` is true when more materials matched than the listing returns: narrow the search. */
 export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits};
 export type SalesMaterialUpload={uploadId:string;putUrl:string;headers:{'Content-Type':string};expiresAt:Date};
 /** Lists sales material with optional filters. */
-export async function getSalesMaterials(input:{search?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived?:boolean}={}):Promise<SalesMaterialList>{
- const params=new URLSearchParams();if(input.search)params.set('search',input.search);if(input.categoryIds?.length)params.set('categoryIds',input.categoryIds.join(','));if(input.kind)params.set('kind',input.kind);if(input.includeArchived)params.set('includeArchived','1');
+export async function getSalesMaterials(input:{search?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived?:boolean;status?:'archived'}={}):Promise<SalesMaterialList>{
+ const params=new URLSearchParams();if(input.search)params.set('search',input.search);if(input.categoryIds?.length)params.set('categoryIds',input.categoryIds.join(','));if(input.kind)params.set('kind',input.kind);if(input.includeArchived)params.set('includeArchived','1');if(input.status)params.set('status',input.status);
  return apiJson<SalesMaterialList>('/_api/sales_materials?'+params);
 }
 /** Runs an admin mutation. */
-export async function postSalesMaterial(input:SalesMaterialMutation):Promise<{id?:string;ok?:boolean;revision?:number}>{return postJson('/_api/sales_materials',salesMaterialMutation.parse(input));}
+export async function postSalesMaterial(input:SalesMaterialMutation):Promise<{id?:string;ok?:boolean;revision?:number;/** Spec 95: an automatic cover was not stored because a manual choice exists. */coverKept?:boolean}>{return postJson('/_api/sales_materials',salesMaterialMutation.parse(input));}
 /** Asks for a presigned PUT URL. */
 export async function requestSalesMaterialUpload(input:SalesMaterialUploadInput):Promise<SalesMaterialUpload>{return postJson('/_api/sales_materials/upload_url',salesMaterialUploadInput.parse(input));}
 /** Same-origin URL that redirects to a short-lived presigned GET of a version. */
