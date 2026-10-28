@@ -54,4 +54,18 @@ describe('UserscriptPromptToast',()=>{
   mount();
   expect(toast.warning).not.toHaveBeenCalled();
  });
+ it('asks to install when no script announces itself',async()=>{
+  vi.useFakeTimers();
+  try{
+   mount();
+   expect(toast.warning).not.toHaveBeenCalled();
+   act(()=>{vi.advanceTimersByTime(2000);});
+   expect(vi.mocked(toast.warning).mock.calls[0][0]).toBe('Instalá el script de Hospeda');
+   expect(vi.mocked(toast.warning).mock.calls[0][1]).toMatchObject({action:{label:'Instalar ahora'}});
+  }finally{vi.useRealTimers();}
+ });
+ it('stays out of automated browsers',()=>{
+  Object.defineProperty(navigator,'webdriver',{value:true,configurable:true});
+  try{announce('1.0.0','connected');mount();expect(toast.warning).not.toHaveBeenCalled();}finally{Reflect.deleteProperty(navigator,'webdriver');}
+ });
 });

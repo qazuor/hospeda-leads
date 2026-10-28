@@ -12,7 +12,7 @@ import styles from './UserscriptPromptToast.module.css';
 export const USERSCRIPT_PROMPT_TOAST_ID='userscript-prompt';
 
 /**
- * Owner review of spec 96 (28/10/2026): while the script on this computer is outdated or disconnected, a warning toast stays on screen
+ * Owner review of spec 96 (28/10/2026): while the script on this computer is missing, outdated or disconnected, a warning toast stays on screen
  * on every page (like the update prompt inside WhatsApp Web) until the problem is fixed. It cannot be closed or swiped away, its action
  * does not close it, and it is hidden on the «User script» page (which already explains the same thing) and while a dialog is open.
  */
@@ -21,13 +21,16 @@ export function UserscriptPromptToast(){
  const prompt=userscriptPrompt({mobile:isCoarsePointer(),status,latest:USERSCRIPT_VERSION,currentUserEmail});
  // With a dialog open the toaster moves to the top centre, over the dialog's title: the prompt waits until the dialog closes.
  const dialogOpen=useHasOpenDialog();
- const visible=!!prompt&&pathname!=='/userscript'&&!dialogOpen,kind=prompt?.kind,title=prompt?.title??'',description=prompt?.description??'';
+ // Automated browsers (Playwright sets navigator.webdriver) run without a script: a prompt that cannot be closed would cover what the
+ // browser suite clicks. The rule itself is covered by unit tests.
+ const automated=typeof navigator!=='undefined'&&navigator.webdriver===true;
+ const visible=!!prompt&&!automated&&pathname!=='/userscript'&&!dialogOpen,kind=prompt?.kind,title=prompt?.title??'',description=prompt?.description??'';
  // Keyed on the prompt's values (a new object every render), so the toast is only updated when what it says changes.
  useEffect(()=>{
   if(!visible){toast.dismiss(USERSCRIPT_PROMPT_TOAST_ID);return;}
   toast.warning(title,{id:USERSCRIPT_PROMPT_TOAST_ID,description,duration:Infinity,dismissible:false,closeButton:false,className:styles.prompt,
-   action:kind==='update'
-    ?{label:'Actualizar ahora',onClick:event=>{event.preventDefault();window.open(USERSCRIPT_URL,'_blank','noopener');}}
+   action:kind!=='connect'
+    ?{label:kind==='install'?'Instalar ahora':'Actualizar ahora',onClick:event=>{event.preventDefault();window.open(USERSCRIPT_URL,'_blank','noopener');}}
     :{label:'Ir a User script',onClick:event=>{event.preventDefault();navigate('/userscript');}}});
  },[visible,kind,title,description,navigate]);
  useEffect(()=>()=>{toast.dismiss(USERSCRIPT_PROMPT_TOAST_ID);},[]);

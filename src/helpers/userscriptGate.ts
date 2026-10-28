@@ -40,16 +40,17 @@ export function userscriptContactBlock({mobile,status,latest,currentUserEmail}:{
 
 /** Where Tampermonkey installs or updates the script (served by the CRM). */
 export const USERSCRIPT_URL='/userscripts/hospeda-crm.user.js';
-/** What the always-visible prompt asks for: `update` installs the latest script, `connect` fixes its token. */
-export type UserscriptPrompt={readonly kind:'update'|'connect';readonly title:string;readonly description:string};
+/** What the always-visible prompt asks for: `install` and `update` get the latest script, `connect` fixes its token. */
+export type UserscriptPrompt={readonly kind:'install'|'update'|'connect';readonly title:string;readonly description:string};
 const PROMPT_CONSEQUENCE='Hasta que lo hagas no podés contactar por WhatsApp ni Instagram desde la computadora y las conversaciones no se registran solas.';
 /**
- * Owner review of spec 96 (28/10/2026): an outdated or disconnected script gets a prompt as visible as the one in WhatsApp Web, on every
- * page. Null on phones and tablets, while the page waits or verifies, when no script is installed (the contact buttons explain that
- * one) and when the CRM could not verify the token (a network problem the user cannot fix from the prompt).
+ * Owner review of spec 96 (28/10/2026): no seller should use the CRM without the current script, so a missing, outdated or
+ * disconnected script gets a prompt as visible as the one in WhatsApp Web, on every page. Null on phones and tablets, while the page
+ * waits or verifies, and when the CRM could not verify the token (a network problem the user cannot fix from the prompt).
  */
 export function userscriptPrompt({mobile,status,latest,currentUserEmail}:{mobile:boolean;status:UserscriptStatus;latest:string;currentUserEmail:string|null}):UserscriptPrompt|null{
- if(mobile||!status.version)return null;
+ if(mobile||status.version===undefined)return null;
+ if(status.version===null)return {kind:'install',title:'Instalá el script de Hospeda',description:`No lo detectamos en esta página. Instalalo (o actualizalo, si ya lo tenías) y recargá. ${PROMPT_CONSEQUENCE}`};
  const reason=userscriptContactBlock({mobile,status,latest,currentUserEmail});
  if(!reason||reason===USERSCRIPT_VERIFYING_REASON||reason===USERSCRIPT_UNVERIFIED_REASON)return null;
  if(reason===userscriptOutdatedReason({installed:status.version,latest}))return {kind:'update',title:'Actualizá el script de Hospeda',description:`Tenés la versión ${status.version} y la actual es ${latest}. ${PROMPT_CONSEQUENCE}`};
