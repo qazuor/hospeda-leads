@@ -1,5 +1,11 @@
 # Pendientes y próximo trabajo
 
+## Material de venta: pantalla (spec 95) — cerrada en `staging`, pendiente de producción
+
+- PR #282 (`a2c7c93`). Al desplegar: aplicar la migración `051_sales_material_auto_cover.sql`. El CORS de los buckets ya está actualizado.
+- Después del deploy, un admin corre «Generar portadas faltantes» en «Material de venta».
+- Límites conocidos: la captura de cuadro de video solo tiene pruebas unitarias; el backfill cubre lo listado (filtros activos y tope de 500).
+
 ## Spec 93 — email: entrega, aperturas y clicks — pendiente de PR
 
 [Spec 93](crm-roadmap/93-email-engagement.md) implementada en `feat/email-engagement-93`, apilada sobre la 92 (PR #278): el PR va después del de la 92. Falta:

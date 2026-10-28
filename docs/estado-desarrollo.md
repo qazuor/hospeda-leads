@@ -1,5 +1,13 @@
 # Estado del CRM — corte al 27 de octubre de 2026
 
+## Spec 95 — «Material de venta»: portadas automáticas y pantalla — cerrada: mergeada en `staging` (PR #282, `a2c7c93`) — 28/10/2026
+
+- **Portadas automáticas** generadas en el navegador (imagen reducida, cuadro de video, primera página del PDF con `pdfjs-dist` en un chunk diferido) y subidas por el camino de portadas existente; enlaces y otros formatos muestran una portada dibujada. Acción de admin «Generar portadas faltantes (N)», secuencial y con «Detener».
+- **Migración 051:** `cover_mode` (`manual`/`auto`/`none`). Lo manual gana siempre, incluido «Quitar portada». Una portada automática reemplazada vuelve al barrido para borrar su objeto en R2.
+- **Pantalla:** filtros en una fila (búsqueda, categorías con el nuevo `MultiSelect`, formato, estado) y «Limpiar filtros»; lista agrupada por categoría; card con «Abrir» y menú «⋯». Para admins, «Todos» muestra solo lo activo y lo archivado está en «Archivados» (`status=archived` en la API).
+- **CORS de los buckets R2** (producción y desarrollo): permiten `Range` y exponen `Accept-Ranges`, `Content-Range` y `Content-Length`; aplicado y documentado en `COOLIFY_DEPLOY.md`.
+- **Validación:** revisión adversarial independiente (9 hallazgos menores, corregidos). `npm run typecheck`, `npm test` (220 archivos; 1752/1753, el que falló fue un timeout de `BusinessColumnGroupsEditor.spec.tsx` ajeno al cambio, pasó al reintentar), `npm run build`; contra la base local desechable: `test-sales-material` (17 grupos), share, composer y templates; navegador: `material-*.e2e.ts` y `contextual-materials` (12). CI verde en la cabeza del PR.
+
 ## Spec 93 — email: entrega, aperturas y clicks — implementada en `feat/email-engagement-93` (apilada sobre la 92, sin PR todavía) — 27/10/2026
 
 - **Webhook de Brevo:** la conciliación (`reconcileEvents`) corre solo con un evento terminal nuevo o con eventos huérfanos; aperturas, clicks, spam, `deferred`, `unsubscribed` y repetidos se guardan y no hacen nada más (antes reescribían la actividad en cada evento y volvían a agregar una restricción levantada). La entrega le gana a un `soft_bounce` anterior o del mismo segundo; un rebote permanente posterior sigue ganando. Solo escribe lo que cambia.
