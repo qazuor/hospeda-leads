@@ -149,6 +149,55 @@ try{
  await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:imageId,title:'Foto '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[],version:{uploadId:imageUpload}});
  assert.equal((await call(endpoints.get,'sales_materials?search=foto+'+stamp,seller.cookie)).materials[0].hasCover,true);assert.equal((await raw(endpoints.cover,'sales_materials/cover?materialId='+imageId,seller.cookie)).status,200);
  checks++;
+ // Spec 95: cover modes. `auto` is reported as such, dropped by a new version (its object handed to the sweep), never replacing a manual choice;
+ // a manual cover replaces it and survives versions; a removal (`none`) is kept: no automatic cover is accepted and a version does not reopen it.
+ const jpg=Buffer.concat([Buffer.from([0xff,0xd8,0xff,0xe0]),Buffer.alloc(40,2)]);
+ const autoId=randomUUID();const autoFile=await upload(admin.cookie,{purpose:'file',fileName:'auto.pdf',mimeType:'application/pdf',materialId:autoId},pdf('a1'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:autoId,title:'Portada auto '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[],version:{uploadId:autoFile}});
+ const listedAuto=async()=>(await call(endpoints.get,'sales_materials?search='+encodeURIComponent('portada auto '+stamp),admin.cookie)).materials[0];
+ const postAuto=async(revision:number,body=jpg)=>{const uploadId=await upload(admin.cookie,{purpose:'cover',fileName:'portada-automatica.jpg',mimeType:'image/jpeg',materialId:autoId},body);return {uploadId,result:await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision,uploadId,auto:true})};};
+ const sweepAndHas=async(key:string)=>{await sweepAbandonedSalesMaterialUploads(db);return objects.has(key);};
+ assert.equal((await material(autoId)).coverMode,'manual');assert.equal((await listedAuto()).coverSource,null,'Never set: manual without key');assert.equal((await listedAuto()).hasCover,false);
+ const auto1=await postAuto(1);assert.deepEqual(auto1.result,{ok:true,revision:2});
+ const auto1Key=(await material(autoId)).coverKey;assert.equal((await material(autoId)).coverMode,'auto');assert.equal((await listedAuto()).coverSource,'auto');assert.equal((await listedAuto()).hasCover,true);
+ assert.deepEqual(Buffer.from(await (await raw(endpoints.cover,'sales_materials/cover?materialId='+autoId,seller.cookie)).arrayBuffer()),jpg);
+ // The automatic cover gets the same checks as any cover: a PDF declared as JPEG is discarded.
+ const fakeAuto=await upload(admin.cookie,{purpose:'cover',fileName:'portada-automatica.jpg',mimeType:'image/jpeg',materialId:autoId},pdf('no'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:2,uploadId:fakeAuto,auto:true},400);assert.equal((await uploadRow(fakeAuto)).status,'discarded');
+ // An automatic cover replacing another one hands the old object to the sweep.
+ await postAuto(2);const auto2Key=(await material(autoId)).coverKey;assert.notEqual(auto2Key,auto1Key);
+ assert.equal((await sql<any>`SELECT status FROM crm_sales_material_uploads WHERE object_key=${auto1Key}`.execute(db)).rows[0].status,'pending');
+ assert.equal(await sweepAndHas(auto1Key),false,'The replaced automatic cover is deleted by the sweep');assert.equal(objects.has(auto2Key),true);
+ const a2=await upload(admin.cookie,{purpose:'file',fileName:'auto v2.pdf',mimeType:'application/pdf',materialId:autoId},pdf('a2'));
+ assert.deepEqual(await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id:autoId,revision:3,version:{uploadId:a2}}),{ok:true,revision:4});
+ let autoRow=await material(autoId);assert.equal(autoRow.coverKey,null);assert.equal(autoRow.coverMime,null);assert.equal(autoRow.coverMode,'manual','A new version drops the automatic cover of the old file');assert.equal((await listedAuto()).coverSource,null);
+ assert.equal(await sweepAndHas(auto2Key),false,'The dropped automatic cover is deleted by the sweep');
+ await postAuto(4);const auto3Key=(await material(autoId)).coverKey;
+ const manualCover=await upload(admin.cookie,{purpose:'cover',fileName:'tapa.png',mimeType:'image/png',materialId:autoId},png);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:5,uploadId:manualCover});
+ const manualKey=(await material(autoId)).coverKey;assert.equal((await listedAuto()).coverSource,'manual');
+ assert.equal(await sweepAndHas(auto3Key),false,'A manual cover replacing an automatic one releases the automatic object');assert.equal(objects.has(manualKey),true);
+ const late=await postAuto(6);assert.deepEqual(late.result,{ok:true,revision:6,coverKept:true});
+ autoRow=await material(autoId);assert.equal(autoRow.coverKey,manualKey,'A manual cover always wins');assert.equal(autoRow.revision,6);assert.equal((await uploadRow(late.uploadId)).status,'pending','The refused upload is left for the sweep');
+ const a3=await upload(admin.cookie,{purpose:'file',fileName:'auto v3.pdf',mimeType:'application/pdf',materialId:autoId},pdf('a3'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id:autoId,revision:6,version:{uploadId:a3}});
+ autoRow=await material(autoId);assert.equal(autoRow.coverKey,manualKey,'A new version keeps a manual cover');assert.equal(autoRow.coverMode,'manual');
+ // «Quitar portada» is a manual choice: `none`. The manual object stays in R2; no automatic cover is accepted and a new version keeps `none`.
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:7,uploadId:null});
+ assert.equal((await material(autoId)).coverMode,'none');assert.equal((await listedAuto()).coverSource,'none');assert.equal(await sweepAndHas(manualKey),true,'A manual cover object is never deleted');
+ assert.deepEqual((await postAuto(8)).result,{ok:true,revision:8,coverKept:true});assert.equal((await material(autoId)).coverKey,null);
+ const a4=await upload(admin.cookie,{purpose:'file',fileName:'auto v4.pdf',mimeType:'application/pdf',materialId:autoId},pdf('a4'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id:autoId,revision:8,version:{uploadId:a4}});
+ assert.equal((await material(autoId)).coverMode,'none','A new version does not undo a removal');assert.equal((await listedAuto()).coverSource,'none');
+ // A manual upload after a removal is again a manual cover.
+ const again=await upload(admin.cookie,{purpose:'cover',fileName:'tapa2.png',mimeType:'image/png',materialId:autoId},png);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:9,uploadId:again});assert.equal((await material(autoId)).coverMode,'manual');
+ await sql`UPDATE crm_sales_materials SET cover_mode='auto',cover_key=NULL WHERE id=${autoId}::uuid`.execute(db).then(()=>assert.fail('auto needs a key'),e=>assert.match(String(e),/cover_mode_check/));
+ // `status=archived` lists only archived material (admins), so the 500-row limit is not spent on active ones.
+ await call(endpoints.get,'sales_materials?status=archived',seller.cookie,undefined,403);
+ const archivedOnly=await call(endpoints.get,'sales_materials?status=archived',admin.cookie);assert(archivedOnly.materials.every((m:any)=>m.status==='archived'));
+ await call(endpoints.get,'sales_materials?status=active',admin.cookie,undefined,400);
+ checks++;
  // Abandoned-upload sweep: only expired pending uploads, a 404 counts as deleted, and one sweeper at a time.
  const expired=await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'file',fileName:'abandonado.pdf',mimeType:'application/pdf',byteSize:pdf('x').length,materialId:id});
  await fetch(expired.putUrl,{method:'PUT',headers:{'Content-Type':'application/pdf'},body:new Uint8Array(pdf('x'))});
@@ -253,7 +302,7 @@ try{
  assert.equal(JSON.parse((await db.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow()).value).maxDocumentBytes,2097152);
  assert(requests.some(r=>r.startsWith('HEAD '))&&requests.some(r=>r.startsWith('DELETE ')));
  checks++;
- console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, sweep with lock and claim, upload ownership and purpose, archived cover, duplicate create, R2 outage and sweep races, missing R2, search, legacy library and journal`);
+ console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, automatic covers (spec 95), sweep with lock and claim, upload ownership and purpose, archived cover, duplicate create, R2 outage and sweep races, missing R2, search, legacy library and journal`);
 }finally{
  await db.deleteFrom('sessions').where('userId','in',userIds).execute();await db.destroy();r2.close();
 }

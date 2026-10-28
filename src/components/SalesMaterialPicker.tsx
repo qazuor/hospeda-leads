@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {keepPreviousData,useQuery} from '@tanstack/react-query';
-import {MultiSelect} from '@mantine/core';
+import {MultiSelect} from './MultiSelect';
 import {FileText,Image,Link2,Music,Presentation,Video} from 'lucide-react';
 import {getSalesMaterials,salesMaterialCoverUrl,type SalesMaterial} from '../endpoints/salesMaterials.schema';
 import {SALES_MATERIAL_FORMAT_LABELS,formatBytes,salesMaterialFormat,type SalesMaterialFormat} from '../helpers/salesMaterialTypes';
@@ -32,7 +32,7 @@ export function SalesMaterialPicker({opened,onClose,onPick,includedIds=[],busy=f
   <div className={styles.form}>
    <div className={styles.filters}>
     <label>Buscar material<Input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Título o comentario" disabled={busy}/></label>
-    <MultiSelect label="Categorías" placeholder={categoryIds.length?undefined:'Todas'} data={(q.data?.categories??[]).filter(c=>c.active).map(c=>({value:c.id,label:c.name}))} value={categoryIds} onChange={setCategoryIds} searchable clearable disabled={busy} nothingFoundMessage="No hay categorías con ese nombre" comboboxProps={{withinPortal:true}}/>
+    <MultiSelect label="Categorías" allLabel="Todas" data={(q.data?.categories??[]).filter(c=>c.active).map(c=>({value:c.id,label:c.name}))} value={categoryIds} onChange={setCategoryIds} searchable clearable disabled={busy} nothingFoundMessage="No hay categorías con ese nombre"/>
    </div>
    {busy&&<p role="status">Agregando el material al mensaje…</p>}
    {q.isPending?<QueryLoadingNotice>Cargando material de venta…</QueryLoadingNotice>:!q.data?<QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>:<>

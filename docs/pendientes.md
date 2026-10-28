@@ -15,6 +15,12 @@
 - **prueba manual del propietario en Instagram real** (Chrome o Edge): actualizar el script a la 1.4.0 desde `/userscript`, aprobar instagram.com en Tampermonkey, recargar el CRM, «Abrir Instagram» desde un negocio con Instagram; verificar que no hay pedido de permiso del portapapeles, que se abre el chat (la URL pasa a `/direct/t/…`), se escribe el texto y no se envía. Si Instagram abre un chat flotante en lugar de `/direct/t/`, el script muestra el aviso y no escribe: habría que revisar el diseño. Si el botón o el cuadro no se encuentran, ajustar `MESSAGE_BUTTON_NAMES` / `COMPOSER_LABELS` y los fixtures `instagram-*.html`;
 - sin migración ni variables nuevas.
 
+## Material de venta: pantalla (spec 95) — cerrada en `staging`, pendiente de producción
+
+- PR #282 (`a2c7c93`). Al desplegar: aplicar la migración `051_sales_material_auto_cover.sql`. El CORS de los buckets ya está actualizado.
+- Después del deploy, un admin corre «Generar portadas faltantes» en «Material de venta».
+- Límites conocidos: la captura de cuadro de video solo tiene pruebas unitarias; el backfill cubre lo listado (filtros activos y tope de 500).
+
 ## Spec 93 — email: entrega, aperturas y clicks — pendiente de PR
 
 [Spec 93](crm-roadmap/93-email-engagement.md) implementada en `feat/email-engagement-93`, apilada sobre la 92 (PR #278): el PR va después del de la 92. Falta:
