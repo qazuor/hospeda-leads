@@ -110,7 +110,7 @@ export function Conversation({view,includeVoided,onToggleVoided,lastSeenAt,focus
    </div>
   </div>
   <div ref={body} className={styles.frameBody} data-testid="conversation-body" tabIndex={-1}>
-   {!entries.length&&<p className={styles.empty}>{writable?'Todavía no hay mensajes ni respuestas. Lo que envíes con «Contactar» aparece acá, en orden; lo que te conteste el negocio sin un mensaje registrado lo anotás con «Registrar» y «Respuesta sin mensaje».':'Todavía no hay mensajes ni respuestas.'}</p>}
+   {!entries.length&&<p className={styles.empty}>{writable?'Todavía no hay mensajes ni respuestas. Lo que envíes por «WhatsApp», «Instagram» o «Email» aparece acá, en orden; lo que te conteste el negocio sin un mensaje registrado lo anotás con «Registrar» y «Respuesta sin mensaje».':'Todavía no hay mensajes ni respuestas.'}</p>}
    {entries.length>0&&!items.length&&<p className={styles.empty}>No hay mensajes con estos filtros.</p>}
    {atListLimit({messages:data.messages,inbound:data.inbound,responses:data.responses,limit:COMMUNICATION_LIST_LIMIT})&&<p className={styles.limitNote} role="note">Mostrando lo más reciente: los mensajes y respuestas más antiguos no se cargan acá. Buscalos en la Bandeja.</p>}
    {hidden>0&&<Button size="sm" variant="outline" style={{alignSelf:'center'}} onClick={showOlderItems}>Ver anteriores ({hidden})</Button>}
