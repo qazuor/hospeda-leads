@@ -47,7 +47,9 @@ test('send sales material from the business, record it and revoke the link',asyn
  await channels.getByRole('button',{name:'WhatsApp',exact:true}).click();await expect(channels.getByRole('button',{name:'WhatsApp',exact:true})).toHaveAttribute('aria-pressed','true');
  await page.evaluate(()=>{window.open=()=>{const popup={closed:false,opener:null,location:{href:'about:blank'}} as unknown as Window;(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup=popup;return popup}});
  const composer=page.getByRole('dialog',{name:'Preparar WhatsApp'});
- await composer.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
+ // Owner review of spec 96: «Enviar material» skips the template list and opens a free draft with the material; the model is a selector above it.
+ await expect(composer.getByLabel('Mensaje modelo',{exact:true})).toHaveValue('');
+ await expect(composer.getByRole('heading',{name:'Elegí un mensaje modelo'})).toHaveCount(0);
  const included=composer.getByRole('list',{name:'Material incluido'});
  await expect(included.getByText(title,{exact:true})).toBeVisible();
  await expect(composer.getByText(new RegExp(`${title}: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
