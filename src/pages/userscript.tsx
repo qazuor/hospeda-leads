@@ -19,6 +19,11 @@ type Token={id:string;label:string;createdAt:string;lastUsedAt:string|null;lastV
 async function api(path:string,body?:unknown){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw new Error(data.error||'No se pudo completar la operación.');return data;}
 const outdated=(version:string|null|undefined)=>!!version&&compareSemver(version,USERSCRIPT_VERSION)<0;
 /** Spec 96 §3.4: what the script says about its token in this browser. Only the state reaches the page, never the token. */
+/**
+ * Owner review of spec 96: after creating a token, one click copies it and opens WhatsApp Web, where the Hospeda panel asks for it.
+ * The tab opens first, inside the click, so the browser does not block it as a popup.
+ */
+const copyAndOpenWhatsApp=(token:string)=>{window.open('https://web.whatsapp.com/','_blank','noopener');void navigator.clipboard?.writeText(token);};
 /** The «Nombre del dispositivo» field where a token is created. */
 const TOKEN_INPUT_ID='userscript-token-label';
 /** Owner review of spec 96: the «Falta el token» / «Token rechazado» badge takes the user to the field that creates one. */
@@ -67,7 +72,7 @@ export default function UserscriptPage(){
      {!loading&&<label className={styles.preference}><input type="checkbox" checked={autoRegister} disabled={busy} onChange={e=>void toggleAuto(e.currentTarget.checked)}/><span><strong>Registrar solo los chats seguros</strong><small>Cuando está habilitado, los chats elegibles pueden registrarse automáticamente.</small></span></label>}
      {error&&<p className={styles.error} role="alert"><AlertCircle size={17}/>{error}<Button variant="outline" disabled={loading} onClick={()=>void load()}>Reintentar</Button></p>}
      {loading?<p className={styles.loading} role="status">Cargando tokens…</p>:<><div className={styles.createToken}><TextInput id={TOKEN_INPUT_ID} label="Nombre del dispositivo" placeholder="Por ejemplo, Notebook oficina" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>
-      {shown&&<section className={styles.tokenReveal} role="status"><div><strong>Copialo ahora</strong><p>El token no se vuelve a mostrar.</p></div><code>{shown}</code><Button onClick={()=>void navigator.clipboard.writeText(shown)}>Copiar token</Button></section>}
+      {shown&&<section className={styles.tokenReveal} role="status"><div><strong>Copialo ahora</strong><p>El token no se vuelve a mostrar. Pegalo en el panel de Hospeda dentro de WhatsApp Web.</p></div><code>{shown}</code><div className={styles.revealActions}><Button onClick={()=>copyAndOpenWhatsApp(shown)}><ExternalLink size={16} aria-hidden="true"/>Copiar y abrir WhatsApp Web</Button><Button variant="outline" onClick={()=>void navigator.clipboard.writeText(shown)}>Copiar token</Button></div></section>}
       {tokens.length?<ul className={styles.tokenList}>{tokens.map(t=><li key={t.id}><span className={styles.tokenIcon}><KeyRound size={16}/></span><div className={styles.tokenInfo}><strong>{t.label}</strong><span>Creado {new Date(t.createdAt).toLocaleDateString('es-AR')} · {usage(t)}</span></div>{!t.revokedAt&&outdated(t.lastVersion)&&<Badge variant="warning">Desactualizado</Badge>}{!t.revokedAt&&<Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(t)}>Revocar</Button>}</li>)}</ul>:<p className={styles.empty}>Todavía no hay tokens. Creá uno para conectar esta computadora.</p>}
      </>}
     </section>

@@ -51,6 +51,22 @@ describe('UserscriptPage',()=>{
 describe('UserscriptPage · Conexión (spec 96 §3.4)',()=>{
  const announce=(connection:string,user?:string)=>{const html=document.documentElement;html.setAttribute(INSTALLED_ATTRIBUTE,USERSCRIPT_VERSION);html.setAttribute(CONNECTION_ATTRIBUTE,connection);if(user)html.setAttribute(USER_ATTRIBUTE,user);};
  const line=()=>screen.getByRole('status',{name:'Conexión'}).textContent;
+ it('after creating a token, copies it and opens WhatsApp Web in one click',async()=>{
+  // Arrange
+  // One answer serves both the list and the creation (the page reads `tokens` from one and `token` from the other).
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({tokens:[],latestVersion:USERSCRIPT_VERSION,token:'tok-123'}),{status:200})));
+  const open=vi.spyOn(window,'open').mockReturnValue(null),writeText=vi.fn(async()=>{});
+  Object.defineProperty(navigator,'clipboard',{value:{writeText},configurable:true});
+  announce('missing-token');renderPage();
+  fireEvent.change(await screen.findByLabelText('Nombre del dispositivo'),{target:{value:'Notebook'}});
+  fireEvent.click(screen.getByRole('button',{name:'Crear token'}));
+  // Act
+  fireEvent.click(await screen.findByRole('button',{name:'Copiar y abrir WhatsApp Web'}));
+  // Assert
+  expect(open).toHaveBeenCalledWith('https://web.whatsapp.com/','_blank','noopener');
+  expect(writeText).toHaveBeenCalledWith('tok-123');
+  open.mockRestore();
+ });
  it.each([['missing-token','Falta el token'],['rejected','Token rechazado']])('the %s badge takes the user to the token field',async(connection,label)=>{
   vi.stubGlobal('fetch',tokens());announce(connection);renderPage();
   const field=await screen.findByLabelText('Nombre del dispositivo');
