@@ -86,7 +86,7 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
   if(lock.current||missing)return;
   lock.current=true;setError('');
   let saved='';
-  /** Spec 95: without a manual cover, a picked image, video or PDF gets one generated here; a failure only adds a note, the material is saved. */
+  /** Spec 95: without a manual cover, a picked image, video or PDF gets one generated here; a failure only adds a note (a manual choice kept by the server adds none), the material is saved. */
   const autoCover=async(target:File,materialId:string,at:number)=>{
    const format=autoCoverFormat({mimeType:mimeForFile({fileName:target.name,type:target.type}),byteSize:target.size});if(!format)return '';
    setPending('Generando portada…');
@@ -105,8 +105,9 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
    }else if(mode.type==='version'){
     const version=material!.source==='file'?{uploadId:await upload(file!,'file',material!.id)}:{url:url.trim()};
     setPending('Guardando versión…');const result=await postSalesMaterial({action:'version',id:material!.id,revision:revision.current,version});saved='Nueva versión guardada. Las anteriores se conservan.';
-    // The server drops an automatic cover with the old file; a manual cover stays and always wins.
-    if(material!.source==='file'&&material!.coverSource!=='manual')saved+=await autoCover(file!,material!.id,result.revision??revision.current+1);
+    // The server drops an automatic cover with the old file; a manual cover or a removal stays and always wins. If `coverSource` is stale,
+    // the server keeps the manual choice and answers `coverKept`, which is a quiet skip (no note).
+    if(material!.source==='file'&&(material!.coverSource==null||material!.coverSource==='auto'))saved+=await autoCover(file!,material!.id,result.revision??revision.current+1);
    }else{
     const uploadId=await upload(cover!,'cover',material!.id);
     setPending('Guardando portada…');await postSalesMaterial({action:'cover',id:material!.id,revision:revision.current,uploadId});saved='Portada actualizada.';

@@ -4,6 +4,7 @@ import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import type {SalesMaterial,SalesMaterialList} from '../endpoints/salesMaterials.schema';
 import {SalesMaterialPanel} from './SalesMaterialPanel';
+import {failedAutoCoverIds} from '../helpers/salesMaterialAutoCover';
 
 const api=vi.hoisted(()=>({list:vi.fn(),post:vi.fn(),missing:vi.fn(),success:vi.fn(),warning:vi.fn()}));
 vi.mock('sonner',()=>({toast:{success:api.success,warning:api.warning}}));
@@ -13,7 +14,9 @@ const version={id:'v-2',version:2,url:null,fileName:'folleto.pdf',mimeType:'appl
 const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto de tarifas',description:'Precios 2027',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories:[{id:'1',name:'Folletos',active:true}],currentVersion:version,...over});
 const data=(materials:SalesMaterial[],storageConfigured=true):SalesMaterialList=>({materials,truncated:false,categories:[{id:'1',name:'Folletos',active:true},{id:'2',name:'Videos',active:true}],limits:{maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured,maxEmailAttachmentBytes:10485760}});
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));Element.prototype.scrollIntoView=vi.fn();globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});
-afterEach(()=>{cleanup();vi.clearAllMocks()});
+// jsdom decodes no media: the backfill would skip every video without this.
+beforeEach(()=>{vi.spyOn(HTMLMediaElement.prototype,'canPlayType').mockReturnValue('maybe');});
+afterEach(()=>{cleanup();vi.clearAllMocks();failedAutoCoverIds.clear()});
 const setup=(admin:boolean,selectedId?:string)=>render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><SalesMaterialPanel admin={admin} selectedId={selectedId}/></QueryClientProvider></MantineProvider>);
 describe('SalesMaterialPanel',()=>{
  it('lets a seller open and download the current version without administration actions',async()=>{
@@ -96,7 +99,7 @@ describe('SalesMaterialPanel',()=>{
  it('with a category filter shows only its sections; format and «Archivados» filter the list; «Limpiar filtros» resets everything',async()=>{
   const both=[{id:'1',name:'Folletos',active:true},{id:'2',name:'Videos',active:true}];
   const video={...version,id:'v-vid',fileName:'spot.mp4',mimeType:'video/mp4'};
-  api.list.mockImplementation(async(q:{includeArchived:boolean;categoryIds?:string[]})=>data(q.includeArchived?[material({id:'m-x',title:'Viejo',status:'archived',archivedAt:new Date()}),material({id:'m-y',title:'Vigente'})]:q.categoryIds?[material({id:'m-b',title:'Promo',categories:both})]:[material({id:'m-b',title:'Promo',categories:both}),material({id:'m-c',title:'Spot',categories:[both[1]],currentVersion:video})]));
+  api.list.mockImplementation(async(q:{status?:'archived';categoryIds?:string[]})=>data(q.status==='archived'?[material({id:'m-x',title:'Viejo',status:'archived',archivedAt:new Date()}),material({id:'m-y',title:'Vigente'})]:q.categoryIds?[material({id:'m-b',title:'Promo',categories:both})]:[material({id:'m-b',title:'Promo',categories:both}),material({id:'m-c',title:'Spot',categories:[both[1]],currentVersion:video})]));
   setup(true);await screen.findByRole('article',{name:'Spot'});
   expect(screen.queryByRole('button',{name:'Limpiar filtros'})).toBeNull();
   fireEvent.change(screen.getByLabelText('Formato'),{target:{value:'video'}});
@@ -108,7 +111,7 @@ describe('SalesMaterialPanel',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Limpiar filtros'}));
   fireEvent.click(screen.getByLabelText('Archivados'));
   await screen.findByRole('article',{name:'Viejo'});expect(screen.queryByRole('article',{name:'Vigente'})).toBeNull();
-  expect(api.list).toHaveBeenLastCalledWith({search:'',categoryIds:undefined,kind:undefined,includeArchived:true});
+  expect(api.list).toHaveBeenLastCalledWith({search:'',categoryIds:undefined,kind:undefined,includeArchived:false,status:'archived'});
   fireEvent.click(screen.getByRole('button',{name:'Limpiar filtros'}));
   await waitFor(()=>expect(api.list).toHaveBeenLastCalledWith({search:'',categoryIds:undefined,kind:undefined,includeArchived:false}));
  });
@@ -122,6 +125,22 @@ describe('SalesMaterialPanel',()=>{
   release();
   await waitFor(()=>expect(api.warning).toHaveBeenCalledWith('Se generó 1 portada. 1 material no se pudo procesar y muestra el dibujo de su formato.',{duration:10000}));expect(api.success).not.toHaveBeenCalled();
   expect(api.missing).toHaveBeenCalledTimes(2);expect(api.missing.mock.calls.map(c=>c[0].material.id)).toEqual(['m-1','m-2']);
+ });
+ it('«Detener» and leaving the page abort the backfill; leaving announces nothing; failed materials are not retried this session',async()=>{
+  const video={...version,id:'v-vid',fileName:'spot.mp4',mimeType:'video/mp4'};
+  api.list.mockResolvedValue(data([material(),material({id:'m-2',title:'Spot',currentVersion:video})]));
+  const signals:AbortSignal[]=[];api.missing.mockImplementation(({signal}:{signal:AbortSignal})=>{signals.push(signal);return new Promise(resolve=>signal.addEventListener('abort',()=>resolve({ok:false})));});
+  let view=setup(true);
+  fireEvent.click(await screen.findByRole('button',{name:'Generar portadas faltantes (2)'}));
+  fireEvent.click(await screen.findByRole('button',{name:'Detener'}));
+  await waitFor(()=>expect(api.warning).toHaveBeenCalledWith('Se generaron 0 portadas. Generación detenida.',{duration:10000}));
+  expect(signals[0].aborted).toBe(true);expect(api.missing).toHaveBeenCalledTimes(1);
+  view.unmount();vi.clearAllMocks();api.missing.mockImplementation(({signal}:{signal:AbortSignal})=>{signals.push(signal);return new Promise(resolve=>signal.addEventListener('abort',()=>resolve({ok:false})));});
+  view=setup(true);fireEvent.click(await screen.findByRole('button',{name:'Generar portadas faltantes (2)'}));await screen.findByText('Generando portadas… 1 de 2');
+  view.unmount();expect(signals[1].aborted).toBe(true);await new Promise(r=>setTimeout(r,20));
+  expect(api.warning).not.toHaveBeenCalled();expect(api.success).not.toHaveBeenCalled();expect(api.missing).toHaveBeenCalledTimes(1);
+  // A material that failed earlier in this session is left out of the count and the loop.
+  failedAutoCoverIds.add('m-1');setup(true);expect(await screen.findByRole('button',{name:'Generar portadas faltantes (1)'})).toBeTruthy();
  });
  it('offers no cover generation without storage',async()=>{
   api.list.mockResolvedValue(data([material()],false));setup(true);await screen.findByRole('article',{name:'Folleto de tarifas'});

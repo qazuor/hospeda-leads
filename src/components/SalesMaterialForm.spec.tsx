@@ -117,8 +117,17 @@ describe('SalesMaterialForm',()=>{
  });
  it('regenerates an automatic cover on a new version with the revision the server returned',async()=>{
   api.upload.mockResolvedValue('up-1');api.post.mockResolvedValue({ok:true,revision:6});
-  setup({type:'version',material:{...material,hasCover:true,coverSource:'auto'}});const file=new File(['x'],'v2.mp4',{type:'video/mp4'});pick('Archivo',file);fireEvent.click(save('Guardar versión'));
-  await waitFor(()=>expect(onSaved).toHaveBeenCalled());expect(api.autoCover).toHaveBeenCalledWith({materialId:'m-1',revision:6,format:'video',source:{file}});
+  setup({type:'version',material:{...material,hasCover:true,coverSource:'auto'}});const file=new File(['%PDF-'],'v2.pdf',{type:'application/pdf'});pick('Archivo',file);fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());expect(api.autoCover).toHaveBeenCalledWith({materialId:'m-1',revision:6,format:'pdf',source:{file}});
+ });
+ it('a removed cover is kept on a new version, and a manual choice the page did not know about is a quiet skip',async()=>{
+  api.upload.mockResolvedValue('up-1');api.post.mockResolvedValue({ok:true,revision:6});
+  setup({type:'version',material:{...material,hasCover:false,coverSource:'none'}});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Nueva versión guardada. Las anteriores se conservan.'));expect(api.autoCover).not.toHaveBeenCalled();
+  // Stale `coverSource`: the server kept a manual cover (`kept`), which is no failure and adds no note.
+  cleanup();vi.clearAllMocks();api.upload.mockResolvedValue('up-2');api.post.mockResolvedValue({ok:true,revision:6});api.autoCover.mockResolvedValue({ok:true,revision:6,kept:true});
+  setup({type:'version',material:{...material,hasCover:false,coverSource:null}});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Nueva versión guardada. Las anteriores se conservan.'));expect(api.autoCover).toHaveBeenCalled();
  });
  it('a failed automatic cover never blocks saving: the material is saved with a note',async()=>{
   api.upload.mockResolvedValue('up-1');api.autoCover.mockResolvedValue({ok:false,error:'Canvas unavailable'});

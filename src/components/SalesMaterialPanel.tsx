@@ -2,9 +2,9 @@ import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {toast} from 'sonner';
 import {keepPreviousData,useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {Loader} from '@mantine/core';
-import {ChevronDown,ImagePlus,Plus} from 'lucide-react';
+import {ChevronDown,ImagePlus,Plus,Square} from 'lucide-react';
 import {getSalesMaterials,postSalesMaterial,type SalesMaterial,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
-import {needsAutoCover,saveMissingAutoCover} from '../helpers/salesMaterialAutoCover';
+import {failedAutoCoverIds,needsAutoCover,saveMissingAutoCover} from '../helpers/salesMaterialAutoCover';
 import {EMPTY_SALES_MATERIAL_FILTERS,filterSalesMaterials,groupSalesMaterials,hasSalesMaterialFilters,salesMaterialQuery,type SalesMaterialFilters} from '../helpers/salesMaterialGroups';
 import {useDebounce} from '../helpers/useDebounce';
 import {QueryErrorNotice} from './QueryErrorNotice';
@@ -42,16 +42,26 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
   finally{lock.current=false;setPending('')}
  }
  const materials=q.data?filterSalesMaterials({materials:q.data.materials,filters}):[];
- const missingCovers=admin&&q.data?.limits.storageConfigured?materials.filter(m=>needsAutoCover({material:m})):[];
+ const [backfilling,setBackfilling]=useState(false);
+ const missingCovers=admin&&q.data?.limits.storageConfigured?materials.filter(m=>!failedAutoCoverIds.has(m.id)&&needsAutoCover({material:m})):[];
+ // Leaving the page (or «Detener») aborts the backfill: the current download or render is cancelled and nothing is announced afterwards.
+ const backfill=useRef<AbortController|null>(null);
+ useEffect(()=>()=>backfill.current?.abort('unmount'),[]);
  /** One cover at a time, so a long list does not download many files at once; a failure only leaves that card with its placeholder. */
  async function generateMissingCovers(){
   if(lock.current||!missingCovers.length)return;lock.current=true;setError('');
-  const list=[...missingCovers];let done=0;
-  try{for(const [i,m] of list.entries()){setPending(`Generando portadas… ${i+1} de ${list.length}`);if((await saveMissingAutoCover({material:m})).ok)done++;}}
+  const controller=new AbortController();backfill.current=controller;setBackfilling(true);
+  const list=[...missingCovers];let done=0,tried=0;
+  try{for(const [i,m] of list.entries()){if(controller.signal.aborted)break;setPending(`Generando portadas… ${i+1} de ${list.length}`);tried++;if((await saveMissingAutoCover({material:m,signal:controller.signal})).ok)done++;}}
   finally{
-   lock.current=false;setPending('');await qc.invalidateQueries({queryKey:['sales-materials']});
-   const failed=list.length-done,message=`${done===1?'Se generó 1 portada':`Se generaron ${done} portadas`}.${failed?` ${failed===1?'1 material no se pudo procesar y muestra':`${failed} materiales no se pudieron procesar y muestran`} el dibujo de su formato.`:''}`;
-   if(failed)toast.warning(message,{duration:10000});else toast.success(message);
+   lock.current=false;backfill.current=null;
+   const unmounted=controller.signal.reason==='unmount';
+   if(!unmounted){
+    setPending('');setBackfilling(false);await qc.invalidateQueries({queryKey:['sales-materials']});
+    const stopped=controller.signal.aborted,failed=stopped?0:tried-done;
+    const message=`${done===1?'Se generó 1 portada':`Se generaron ${done} portadas`}.${stopped?' Generación detenida.':''}${failed?` ${failed===1?'1 material no se pudo procesar y muestra':`${failed} materiales no se pudieron procesar y muestran`} el dibujo de su formato.`:''}`;
+    if(failed||stopped)toast.warning(message,{duration:10000});else toast.success(message);
+   }
   }
  }
  useEffect(()=>{if(selectedId&&q.data)document.getElementById('material-'+selectedId)?.scrollIntoView({block:'center'});},[selectedId,q.data]);
@@ -65,7 +75,9 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
  const toggle=(key:string)=>setCollapsed(prev=>{const next=new Set(prev);if(next.has(key))next.delete(key);else next.add(key);return next;});
  const actions=admin?<>
    <Button disabled={!!pending||!limits} disabledReason={pending?BUSY:'Esperá a que cargue el material.'} onClick={()=>setForm({type:'create'})}><Plus size={17} aria-hidden="true"/>Nuevo material</Button>
-   {missingCovers.length>0&&<Button variant="outline" disabled={!!pending} disabledReason={BUSY} onClick={()=>void generateMissingCovers()}><ImagePlus size={17} aria-hidden="true"/>Generar portadas faltantes ({missingCovers.length})</Button>}
+   {/* «Detener» is a separate button next to the (disabled) one that started the run, so a double click never stops it. */}
+   {(backfilling||missingCovers.length>0)&&<Button variant="outline" disabled={!!pending} disabledReason={BUSY} onClick={()=>void generateMissingCovers()}><ImagePlus size={17} aria-hidden="true"/>Generar portadas faltantes ({missingCovers.length})</Button>}
+   {backfilling&&<Button variant="outline" onClick={()=>backfill.current?.abort()}><Square size={15} aria-hidden="true"/>Detener</Button>}
   </>:null;
  return <>{header?header(actions):actions&&<div className={styles.toolbar}>{actions}</div>}<section className={layout.panel+' '+styles.stack} aria-busy={q.isFetching||!!pending}>
   <SalesMaterialFiltersBar admin={admin} categories={q.data?.categories??[]} value={filters} onChange={setFilters}/>

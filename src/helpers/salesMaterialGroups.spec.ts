@@ -26,13 +26,21 @@ describe('filters',()=>{
   const f=EMPTY_SALES_MATERIAL_FILTERS;
   expect(salesMaterialQuery({filters:f,search:'',admin:true})).toEqual({search:'',categoryIds:undefined,kind:undefined,includeArchived:false});
   expect(salesMaterialQuery({filters:{...f,status:'internal',categoryIds:['3','1']},search:'x',admin:false})).toEqual({search:'x',categoryIds:['1','3'],kind:'internal',includeArchived:false});
-  expect(salesMaterialQuery({filters:{...f,status:'archived'},search:'',admin:true}).includeArchived).toBe(true);
-  expect(salesMaterialQuery({filters:{...f,status:'archived'},search:'',admin:false}).includeArchived).toBe(false);
+  // «Archivados» asks the server for archived material only, so the 500-row limit is not spent on active material.
+  expect(salesMaterialQuery({filters:{...f,status:'archived'},search:'',admin:true})).toEqual({search:'',categoryIds:undefined,kind:undefined,includeArchived:false,status:'archived'});
+  expect(salesMaterialQuery({filters:{...f,status:'archived'},search:'',admin:false})).not.toHaveProperty('status');
  });
  it('filters by format and archived only on the client',()=>{
   const list=[m('pdf',[]),m('link',[],{source:'url',currentVersion:{id:'v',version:1,url:'https://x.example',fileName:null,mimeType:null,byteSize:null,actorEmail:'a',createdAt:new Date()}}),m('old',[],{status:'archived',archivedAt:new Date()})];
   expect(filterSalesMaterials({materials:list,filters:{...EMPTY_SALES_MATERIAL_FILTERS,format:'link'}}).map(x=>x.id)).toEqual(['link']);
   expect(filterSalesMaterials({materials:list,filters:{...EMPTY_SALES_MATERIAL_FILTERS,status:'archived'}}).map(x=>x.id)).toEqual(['old']);
+ });
+ it('restates status, kind and categories, so a previous answer kept while loading never shows mismatched cards',()=>{
+  const list=[m('deliv',[folletos]),m('intern',[precios],{kind:'internal'}),m('old',[folletos],{status:'archived',archivedAt:new Date()})];
+  const ids=(over:Partial<typeof EMPTY_SALES_MATERIAL_FILTERS>)=>filterSalesMaterials({materials:list,filters:{...EMPTY_SALES_MATERIAL_FILTERS,...over}}).map(x=>x.id);
+  expect(ids({})).toEqual(['deliv','intern']);
+  expect(ids({status:'deliverable'})).toEqual(['deliv']);expect(ids({status:'internal'})).toEqual(['intern']);
+  expect(ids({status:'archived'})).toEqual(['old']);expect(ids({categoryIds:['2']})).toEqual(['intern']);
  });
  it('knows when a filter is active',()=>{
   expect(hasSalesMaterialFilters(EMPTY_SALES_MATERIAL_FILTERS)).toBe(false);expect(hasSalesMaterialFilters({...EMPTY_SALES_MATERIAL_FILTERS,search:'  '})).toBe(false);

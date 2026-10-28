@@ -78,3 +78,6 @@ button.cover:hover img{transform:scale(1.02)}
 .materialHeading{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .materialHeading h4{margin:0;font-size:15px}
 @media(max-width:600px){.pickRow{grid-template-columns:48px minmax(0,1fr)}.pickRow>:last-child{grid-column:1/-1}.thumb{width:48px;height:48px}}
+.menuReason{max-width:260px;white-space:normal;color:var(--muted-foreground);font-size:13px;line-height:1.4}
+.menuItemText{display:grid;gap:2px;min-width:0;max-width:240px}
+.menuItemText small{white-space:normal;color:var(--muted-foreground);font-size:12px;line-height:1.35}

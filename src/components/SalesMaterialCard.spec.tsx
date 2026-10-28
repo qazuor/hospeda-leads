@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {within,cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
 import {SalesMaterialCard,categoryInitials} from './SalesMaterialCard';
@@ -43,11 +43,14 @@ describe('SalesMaterialCard',()=>{
  });
  it('keeps the disabled reasons: busy blocks the admin actions, storage off blocks Abrir, Descargar and the preview',async()=>{
   setup(material(),{busy:true});let menu=await openMenu();
-  for(const name of ['Editar','Nueva versión','Portada','Archivar']){expect(item(menu,name).disabled).toBe(true);expect(item(menu,name).title).toBe('La operación está en curso. Esperá a que termine para continuar.');}
+  for(const name of ['Editar','Nueva versión','Portada','Archivar'])expect(item(menu,name).disabled).toBe(true);
+  // The reason is visible text in the menu, not only a title attribute.
+  expect(within(menu[0].closest('[role="menu"]') as HTMLElement).getByRole('note',{hidden:true}).textContent).toBe('La operación está en curso. Esperá a que termine para continuar.');
   expect(item(menu,'Descargar').getAttribute('href')).toContain('disposition=attachment');cleanup();
   setup(material(),{storageConfigured:false});
   expect((screen.getByRole('button',{name:'Abrir'}) as HTMLButtonElement).disabled).toBe(true);expect(screen.queryByRole('button',{name:/Vista previa/})).toBeNull();
-  menu=await openMenu();expect(item(menu,'Descargar').disabled).toBe(true);expect(item(menu,'Descargar').title).toBe('Almacenamiento no configurado: el archivo no se puede abrir por ahora.');
+  menu=await openMenu();const download=menu.find(i=>i.textContent?.startsWith('Descargar')) as HTMLButtonElement;
+  expect(download.disabled).toBe(true);expect(download.textContent).toContain('Almacenamiento no configurado: el archivo no se puede abrir por ahora.');
  });
  it('shows the stored cover, or a drawn placeholder with format and category initials',()=>{
   const {container}=setup(material({hasCover:true,coverSource:'auto'}));expect(container.querySelector('img')?.getAttribute('src')).toBe('/_api/sales_materials/cover?materialId=m-1&r=3');cleanup();

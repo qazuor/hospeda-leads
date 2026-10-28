@@ -5,7 +5,7 @@ import {formatDateTime} from '../helpers/crmDates';
 import {Badge} from './Badge';
 import {Button} from './Button';
 import {Disclosure,DisclosureSummary} from './Disclosure';
-import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuSeparator,DropdownMenuTrigger} from './DropdownMenu';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger} from './DropdownMenu';
 import type {SalesMaterialFormMode} from './SalesMaterialForm';
 import {canPreviewSalesMaterial} from './SalesMaterialPreview';
 import styles from './SalesMaterial.module.css';
@@ -53,8 +53,10 @@ export function SalesMaterialCard({material,admin,selected,anchor,busy,storageCo
      :storageConfigured?<Button asChild size="sm"><a href={salesMaterialFileUrl({versionId:current.id})} target="_blank" rel="noopener noreferrer">Abrir</a></Button>:<Button size="sm" disabled disabledReason={STORAGE_REASON}>Abrir</Button>)}
     {showMenu&&<DropdownMenu><DropdownMenuTrigger asChild><Button size="icon-sm" variant="ghost" aria-label={'Más acciones de «'+material.title+'»'}><MoreHorizontal size={18} aria-hidden="true"/></Button></DropdownMenuTrigger>
      <DropdownMenuContent align="end">
+      {/* Disabled reasons are shown in the menu itself (a title alone is invisible on touch and to most users). */}
+      {admin&&busy&&<DropdownMenuLabel className={styles.menuReason} role="note">{SALES_MATERIAL_BUSY}</DropdownMenuLabel>}
       {file&&(storageConfigured?<DropdownMenuItem asChild><a href={salesMaterialFileUrl({versionId:current.id,disposition:'attachment'})}><Download size={15} aria-hidden="true"/>Descargar</a></DropdownMenuItem>
-       :<DropdownMenuItem disabled title={STORAGE_REASON}><Download size={15} aria-hidden="true"/>Descargar</DropdownMenuItem>)}
+       :<DropdownMenuItem disabled title={STORAGE_REASON}><Download size={15} aria-hidden="true"/><span className={styles.menuItemText}>Descargar<small>{STORAGE_REASON}</small></span></DropdownMenuItem>)}
       {admin&&<>
        <DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'edit',material})}><Pencil size={15} aria-hidden="true"/>Editar</DropdownMenuItem>
        {!archived&&<DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'version',material})}><Upload size={15} aria-hidden="true"/>Nueva versión</DropdownMenuItem>}
