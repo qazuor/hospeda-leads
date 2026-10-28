@@ -19,6 +19,10 @@ type Token={id:string;label:string;createdAt:string;lastUsedAt:string|null;lastV
 async function api(path:string,body?:unknown){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw new Error(data.error||'No se pudo completar la operación.');return data;}
 const outdated=(version:string|null|undefined)=>!!version&&compareSemver(version,USERSCRIPT_VERSION)<0;
 /** Spec 96 §3.4: what the script says about its token in this browser. Only the state reaches the page, never the token. */
+/** The «Nombre del dispositivo» field where a token is created. */
+const TOKEN_INPUT_ID='userscript-token-label';
+/** Owner review of spec 96: the «Falta el token» / «Token rechazado» badge takes the user to the field that creates one. */
+const focusTokenInput=()=>{const input=document.getElementById(TOKEN_INPUT_ID);if(!input)return;input.scrollIntoView?.({behavior:'smooth',block:'center'});input.focus({preventScroll:true});};
 const connectionLabels:Record<string,string>={connected:'Conectado','missing-token':'Falta el token',rejected:'Token rechazado',outdated:'Versión rechazada por el CRM',unknown:'Sin verificar'};
 function ConnectionLine({status}:{status:UserscriptStatus}){
  const me=useCurrentUserEmail();
@@ -27,7 +31,7 @@ function ConnectionLine({status}:{status:UserscriptStatus}){
  if(other)return <div className={styles.statusLine} role="status" aria-label="Conexión"><strong>Conexión</strong><Badge variant="warning">Otra cuenta</Badge><span>{userscriptOtherUserReason({email:status.user!})}</span></div>;
  const label=status.connection==='connected'&&status.user?'Conectado':status.connection?connectionLabels[status.connection]??'Sin verificar':status.connection===undefined?null:'Sin verificar';
  if(!label)return <div className={styles.statusLine} role="status" aria-label="Conexión"><span className={styles.spinner}/><span>Verificando la conexión…</span></div>;
- return <div className={styles.statusLine} role="status" aria-label="Conexión"><strong>Conexión</strong><Badge variant={label==='Conectado'?'success':'warning'}>{label}</Badge>{label==='Conectado'&&status.user&&<span>Con la cuenta {status.user}.</span>}{label==='Sin verificar'&&<Button variant="outline" onClick={recheckUserscript}>Verificar de nuevo</Button>}</div>;
+ return <div className={styles.statusLine} role="status" aria-label="Conexión"><strong>Conexión</strong>{label==='Falta el token'||label==='Token rechazado'?<button type="button" className={styles.badgeButton} title="Ir a crear un token" onClick={focusTokenInput}><Badge variant="warning">{label}</Badge></button>:<Badge variant={label==='Conectado'?'success':'warning'}>{label}</Badge>}{label==='Conectado'&&status.user&&<span>Con la cuenta {status.user}.</span>}{label==='Sin verificar'&&<Button variant="outline" onClick={recheckUserscript}>Verificar de nuevo</Button>}</div>;
 }
 function InstallStatus({status}:{status:UserscriptStatus}){
  const installed=status.version;
@@ -62,7 +66,7 @@ export default function UserscriptPage(){
     <section className={styles.panel} aria-labelledby="userscript-tokens"><div className={styles.sectionTitle}><span className={styles.icon}><KeyRound size={18}/></span><div><span className={styles.kicker}>CONEXIÓN</span><h2 id="userscript-tokens">Tokens de este usuario</h2></div></div><p className={styles.intro}>Creá un token por computadora para conectar el panel de WhatsApp con tu cuenta.</p>
      {!loading&&<label className={styles.preference}><input type="checkbox" checked={autoRegister} disabled={busy} onChange={e=>void toggleAuto(e.currentTarget.checked)}/><span><strong>Registrar solo los chats seguros</strong><small>Cuando está habilitado, los chats elegibles pueden registrarse automáticamente.</small></span></label>}
      {error&&<p className={styles.error} role="alert"><AlertCircle size={17}/>{error}<Button variant="outline" disabled={loading} onClick={()=>void load()}>Reintentar</Button></p>}
-     {loading?<p className={styles.loading} role="status">Cargando tokens…</p>:<><div className={styles.createToken}><TextInput label="Nombre del dispositivo" placeholder="Por ejemplo, Notebook oficina" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>
+     {loading?<p className={styles.loading} role="status">Cargando tokens…</p>:<><div className={styles.createToken}><TextInput id={TOKEN_INPUT_ID} label="Nombre del dispositivo" placeholder="Por ejemplo, Notebook oficina" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>
       {shown&&<section className={styles.tokenReveal} role="status"><div><strong>Copialo ahora</strong><p>El token no se vuelve a mostrar.</p></div><code>{shown}</code><Button onClick={()=>void navigator.clipboard.writeText(shown)}>Copiar token</Button></section>}
       {tokens.length?<ul className={styles.tokenList}>{tokens.map(t=><li key={t.id}><span className={styles.tokenIcon}><KeyRound size={16}/></span><div className={styles.tokenInfo}><strong>{t.label}</strong><span>Creado {new Date(t.createdAt).toLocaleDateString('es-AR')} · {usage(t)}</span></div>{!t.revokedAt&&outdated(t.lastVersion)&&<Badge variant="warning">Desactualizado</Badge>}{!t.revokedAt&&<Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(t)}>Revocar</Button>}</li>)}</ul>:<p className={styles.empty}>Todavía no hay tokens. Creá uno para conectar esta computadora.</p>}
      </>}

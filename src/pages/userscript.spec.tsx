@@ -1,6 +1,6 @@
 import React from 'react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {act,cleanup,render,screen} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import {MemoryRouter} from 'react-router-dom';
 import UserscriptPage,{DETECT_TIMEOUT_MS,USERSCRIPT_URL} from './userscript';
@@ -51,6 +51,12 @@ describe('UserscriptPage',()=>{
 describe('UserscriptPage · Conexión (spec 96 §3.4)',()=>{
  const announce=(connection:string,user?:string)=>{const html=document.documentElement;html.setAttribute(INSTALLED_ATTRIBUTE,USERSCRIPT_VERSION);html.setAttribute(CONNECTION_ATTRIBUTE,connection);if(user)html.setAttribute(USER_ATTRIBUTE,user);};
  const line=()=>screen.getByRole('status',{name:'Conexión'}).textContent;
+ it.each([['missing-token','Falta el token'],['rejected','Token rechazado']])('the %s badge takes the user to the token field',async(connection,label)=>{
+  vi.stubGlobal('fetch',tokens());announce(connection);renderPage();
+  const field=await screen.findByLabelText('Nombre del dispositivo');
+  fireEvent.click(screen.getByRole('button',{name:label}));
+  expect(document.activeElement).toBe(field);
+ });
  it.each([['connected','Conectado'],['missing-token','Falta el token'],['rejected','Token rechazado'],['outdated','Versión rechazada por el CRM'],['unknown','Sin verificar']])('shows %s as «%s»',(connection,label)=>{
   vi.stubGlobal('fetch',tokens());announce(connection,connection==='connected'?'ana@hospeda.test':undefined);renderPage();
   expect(line()).toContain(label);
