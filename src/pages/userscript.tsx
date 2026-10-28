@@ -8,26 +8,29 @@ import {Badge} from '../components/Badge';
 import {CrmDialog} from '../components/ui/CrmDialog';
 import {compareSemver} from '../helpers/userscriptPure';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
-import {INSTALLED_ATTRIBUTE,INSTALLED_EVENT} from '../../userscript/src/announce';
+import {DETECT_TIMEOUT_MS,recheckUserscript,useCurrentUserEmail,useUserscriptStatus} from '../helpers/useUserscriptStatus';
+import {userscriptOtherUserReason,type UserscriptStatus} from '../helpers/userscriptGate';
 import styles from './userscript.module.css';
 /** Served by the same CRM origin, so the installed script updates itself from the instance that issued its tokens. */
 export const USERSCRIPT_URL='/userscripts/hospeda-crm.user.js';
 /** How long the page waits for the script to announce itself before reporting it as not detected. */
-export const DETECT_TIMEOUT_MS=2000;
+export {DETECT_TIMEOUT_MS};
 type Token={id:string;label:string;createdAt:string;lastUsedAt:string|null;lastVersion:string|null;revokedAt:string|null};
 async function api(path:string,body?:unknown){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw new Error(data.error||'No se pudo completar la operación.');return data;}
-/**
- * The version the user script announced in this browser (it runs on every CRM page and only sets an attribute on <html>). Undefined while
- * waiting, null once it had time to and did not: not installed, disabled, or blocked by the browser.
- */
-export function useInstalledUserscript():string|null|undefined{
- const read=()=>document.documentElement.getAttribute(INSTALLED_ATTRIBUTE);
- const [version,setVersion]=React.useState<string|null|undefined>(()=>read()??undefined);
- React.useEffect(()=>{const onAnnounce=()=>setVersion(read());document.addEventListener(INSTALLED_EVENT,onAnnounce);const timer=window.setTimeout(()=>setVersion(current=>current??read()??null),DETECT_TIMEOUT_MS);return()=>{document.removeEventListener(INSTALLED_EVENT,onAnnounce);window.clearTimeout(timer);};},[]);
- return version;
-}
 const outdated=(version:string|null|undefined)=>!!version&&compareSemver(version,USERSCRIPT_VERSION)<0;
-function InstallStatus({installed}:{installed:string|null|undefined}){
+/** Spec 96 §3.4: what the script says about its token in this browser. Only the state reaches the page, never the token. */
+const connectionLabels:Record<string,string>={connected:'Conectado','missing-token':'Falta el token',rejected:'Token rechazado',outdated:'Versión rechazada por el CRM',unknown:'Sin verificar'};
+function ConnectionLine({status}:{status:UserscriptStatus}){
+ const me=useCurrentUserEmail();
+ if(!status.version)return null;
+ const other=status.connection==='connected'&&!!status.user&&!!me&&status.user.trim().toLowerCase()!==me.trim().toLowerCase();
+ if(other)return <div className={styles.statusLine} role="status" aria-label="Conexión"><strong>Conexión</strong><Badge variant="warning">Otra cuenta</Badge><span>{userscriptOtherUserReason({email:status.user!})}</span></div>;
+ const label=status.connection==='connected'&&status.user?'Conectado':status.connection?connectionLabels[status.connection]??'Sin verificar':status.connection===undefined?null:'Sin verificar';
+ if(!label)return <div className={styles.statusLine} role="status" aria-label="Conexión"><span className={styles.spinner}/><span>Verificando la conexión…</span></div>;
+ return <div className={styles.statusLine} role="status" aria-label="Conexión"><strong>Conexión</strong><Badge variant={label==='Conectado'?'success':'warning'}>{label}</Badge>{label==='Conectado'&&status.user&&<span>Con la cuenta {status.user}.</span>}{label==='Sin verificar'&&<Button variant="outline" onClick={recheckUserscript}>Verificar de nuevo</Button>}</div>;
+}
+function InstallStatus({status}:{status:UserscriptStatus}){
+ const installed=status.version;
  const label=!installed?'Instalar user script':outdated(installed)?'Actualizar user script':'Reinstalar user script';
  return <section className={styles.panel} aria-labelledby="userscript-status">
   <div className={styles.sectionTitle}><span className={styles.icon}><Workflow size={18}/></span><div><span className={styles.kicker}>ESTADO</span><h2 id="userscript-status">En este navegador</h2></div></div>
@@ -37,12 +40,14 @@ function InstallStatus({installed}:{installed:string|null|undefined}){
    :outdated(installed)?<><Badge variant="warning">Desactualizado</Badge><span>Tenés la versión {installed}; la actual es {USERSCRIPT_VERSION}.</span></>
    :<><Badge variant="success">Instalado</Badge><span>Versión {installed}, al día.</span></>}
   </div>
+  <ConnectionLine status={status}/>
+  <p className={styles.note}>Para contactar por WhatsApp o Instagram desde la computadora, el script tiene que estar instalado, al día y conectado con tu cuenta.</p>
   <div className={styles.installAction}><Button asChild variant={installed&&!outdated(installed)?'outline':'primary'}><a href={USERSCRIPT_URL} target="_blank" rel="noopener"><Download size={16}/>{label}<ExternalLink size={14}/></a></Button><p>Tampermonkey abre la instalación. Después creá un token y pegalo en el panel de Hospeda dentro de WhatsApp Web. Desde la versión 1.4.0 el script también trabaja en Instagram: al actualizar, Tampermonkey te pide aprobar instagram.com una sola vez.</p></div>
   <div className={styles.version}><span>Versión actual</span><strong>{USERSCRIPT_VERSION}</strong></div>
  </section>;
 }
 export default function UserscriptPage(){
- const installed=useInstalledUserscript();
+ const status=useUserscriptStatus();
  const [tokens,setTokens]=React.useState<Token[]>([]),[label,setLabel]=React.useState(''),[shown,setShown]=React.useState(''),[busy,setBusy]=React.useState(false),[loading,setLoading]=React.useState(true),[error,setError]=React.useState(''),[revokeTarget,setRevokeTarget]=React.useState<Token|null>(null),[autoRegister,setAutoRegister]=React.useState(true);const lock=React.useRef(false);
  const load=React.useCallback(async()=>{setLoading(true);try{setError('');const data=await api('/_api/userscript/tokens');setTokens(data.tokens);setAutoRegister(data.autoRegister??true);}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar.');}finally{setLoading(false);}},[]);React.useEffect(()=>{void load();},[load]);
  const toggleAuto=async(value:boolean)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{const result=await api('/_api/userscript/preferences',{autoRegister:value});setAutoRegister(result.autoRegister);}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar la preferencia.');}finally{lock.current=false;setBusy(false);}};
@@ -53,7 +58,7 @@ export default function UserscriptPage(){
   <header className={styles.pageHeader}><div><span className={styles.eyebrow}>HERRAMIENTAS</span><h1 aria-label="User script de WhatsApp" style={{display:"flex",alignItems:"center",gap:5,width:"max-content",maxWidth:"100%"}}>User script de WhatsApp<HelpLink topic="userscript"/></h1><p>Revisá los mensajes de WhatsApp Web que elijas y registralos en el CRM desde el panel. <Link to="/guide?topic=whatsapp-userscript&article=install-userscript">Ver la guía paso a paso <ChevronRight size={14}/></Link></p></div></header>
   <div className={styles.mainGrid}>
    <div className={styles.primaryColumn}>
-    <InstallStatus installed={installed}/>
+    <InstallStatus status={status}/>
     <section className={styles.panel} aria-labelledby="userscript-tokens"><div className={styles.sectionTitle}><span className={styles.icon}><KeyRound size={18}/></span><div><span className={styles.kicker}>CONEXIÓN</span><h2 id="userscript-tokens">Tokens de este usuario</h2></div></div><p className={styles.intro}>Creá un token por computadora para conectar el panel de WhatsApp con tu cuenta.</p>
      {!loading&&<label className={styles.preference}><input type="checkbox" checked={autoRegister} disabled={busy} onChange={e=>void toggleAuto(e.currentTarget.checked)}/><span><strong>Registrar solo los chats seguros</strong><small>Cuando está habilitado, los chats elegibles pueden registrarse automáticamente.</small></span></label>}
      {error&&<p className={styles.error} role="alert"><AlertCircle size={17}/>{error}<Button variant="outline" disabled={loading} onClick={()=>void load()}>Reintentar</Button></p>}
