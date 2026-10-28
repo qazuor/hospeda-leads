@@ -38,6 +38,9 @@ test('send sales material from the business, record it and revoke the link',asyn
  await row.getByRole('button',{name:'Agregar',exact:true}).click();
  // Spec 96 §2.3: one contact step; the material only travels by WhatsApp or Email, so Instagram is not offered.
  dialog=page.getByRole('dialog',{name:/^Preparar /});
+ // Owner review of spec 96: the floating panel scrolls its own body. A wrapper without flex limits let the body grow past the panel, so the
+ // wheel scrolled nothing and the templates and the final button stayed out of reach (Playwright clicks still worked, scrolling by script).
+ expect(await dialog.evaluate(panel=>{const body=panel.querySelector('[class*=scrollBody]');return !!body&&body.getBoundingClientRect().bottom<=panel.getBoundingClientRect().bottom+1;}),'The composer body stays inside the panel').toBe(true);
  await expect(dialog.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
  const channels=dialog.getByRole('group',{name:'Canal',exact:true});
  await expect(channels.getByRole('button',{name:'Instagram',exact:true})).toHaveCount(0);
