@@ -36,9 +36,9 @@ const rank=(event:string)=>event==='soft_bounce'?0:event==='delivered'?1:2;
  */
 export function terminalEmailEvent<T extends {readonly event:string;readonly occurredAt:Date}>({events}:{events:readonly T[]}):T|undefined{
  const terminal=events.filter(v=>isTerminalEmailEvent(v.event)).slice().sort((a,b)=>new Date(a.occurredAt).getTime()-new Date(b.occurredAt).getTime()||rank(a.event)-rank(b.event));
- const last=terminal.at(-1);
- if(last?.event!=='soft_bounce')return last;
- return terminal.filter(v=>v.event==='delivered').at(-1)??last;
+ // Only the soft bounces after the latest delivery are dropped: a permanent failure in between still wins (review M1).
+ const delivered=terminal.map(v=>v.event).lastIndexOf('delivered');
+ return (delivered<0?terminal:terminal.filter((v,i)=>i<=delivered||v.event!=='soft_bounce')).at(-1);
 }
 
 const MAX_LINK=80;

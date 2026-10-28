@@ -29,6 +29,17 @@ describe('terminalEmailEvent (spec 93 D4)',()=>{
   expect(terminalEmailEvent({events:[ev('delivered',1),ev('hard_bounce',9)]})?.event).toBe('hard_bounce');
   expect(terminalEmailEvent({events:[ev('delivered',1),ev('blocked',9)]})?.event).toBe('blocked');
  });
+ it('keeps a permanent failure after a delivery even when a soft bounce comes last (review M1)',()=>{
+  for(const failure of ['hard_bounce','blocked','error','invalid_email']){
+   // Arrange
+   const events=[ev('delivered',1),ev(failure,2),ev('soft_bounce',3)];
+   // Act
+   const result=terminalEmailEvent({events});
+   // Assert
+   expect(result?.event).toBe(failure);
+  }
+  expect(terminalEmailEvent({events:[ev('soft_bounce',1),ev('delivered',2),ev('hard_bounce',3),ev('soft_bounce',4),ev('delivered',5),ev('soft_bounce',6)]})?.event).toBe('delivered');
+ });
  it('keeps a lone soft bounce as the result and returns nothing without terminal events',()=>{
   expect(terminalEmailEvent({events:[ev('soft_bounce',1)]})?.event).toBe('soft_bounce');
   expect(terminalEmailEvent({events:[ev('opened',1)]})).toBeUndefined();
