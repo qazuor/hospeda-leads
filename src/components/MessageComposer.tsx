@@ -9,7 +9,7 @@ import {toast} from 'sonner';
 import {htmlToPlainText} from '../helpers/renderMessageTemplate';
 import {composerChannelOf,instagramTarget,instagramWaitRemainingMs,isWaitingForInstagramEcho} from '../helpers/instagramChat';
 import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS} from '../helpers/communicationTimeline';
-import {INSTAGRAM_DISPATCH_FAILED,InstagramOpenedActions,InstagramReviewNotices,copyInGesture,instagramOpenedToast,isCoarsePointer,type InstagramOpenState} from './InstagramOpenChat';
+import {INSTAGRAM_DISPATCH_FAILED,InstagramOpenedActions,InstagramReviewNotices,copyInGesture,handOffToUserscript,instagramOpenedToast,isCoarsePointer,type InstagramOpenState} from './InstagramOpenChat';
 import styles from './Communication.module.css';
 import {messageLabels} from '../helpers/messageLabels';
 import {crmSuccess} from '../helpers/crmFeedback';
@@ -35,7 +35,7 @@ export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange,onN
  const [materialWarnings,setMaterialWarnings]=useState(initial.materialWarnings??[]);
  // Spec 92: Instagram drafts are plain text, copied and opened instead of prefilled. The flags only come with prepare.
  const ig=composerChannelOf(m)==='instagram';const [igFlags,setIgFlags]=useState({autoConfirm:initial.instagramAutoConfirm,shared:initial.instagramShared});
- const [igState,setIgState]=useState<InstagramOpenState|null>(null),[alreadySent,setAlreadySent]=useState(false),igCopy=useRef<Promise<boolean>|null>(null),igMobile=useRef(false);
+ const [igState,setIgState]=useState<InstagramOpenState|null>(null),[alreadySent,setAlreadySent]=useState(false),igCopy=useRef<Promise<boolean>|null>(null),igMobile=useRef(false),igNonce=useRef<string|null>(null);
  const [now,setNow]=useState(()=>Date.now());const waitMs=instagramWaitRemainingMs({message:m,now});
  // Re-render when the echo waiting period ends, so «¿Lo enviaste?» appears without a reload.
  useEffect(()=>{if(waitMs==null)return;const timer=setTimeout(()=>setNow(Date.now()),waitMs+50);return()=>clearTimeout(timer)},[waitMs]);
@@ -48,12 +48,12 @@ export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange,onN
  /** After `dispatch` for Instagram: point the pre-opened tab at the profile (desktop) or offer the chat link (mobile), then report the copy. */
  function handleInstagramOpened(data:{username?:string;alreadyConfirmed?:boolean}){
   const popup=externalWindow.current;externalWindow.current=null;
-  const target=instagramTarget({username:data.username,mobile:igMobile.current});
+  const target=instagramTarget({username:data.username,mobile:igMobile.current,nonce:igNonce.current});
   if(data.alreadyConfirmed||!target){if(popup&&!popup.closed)popup.close();if(data.alreadyConfirmed){setAlreadySent(true);crmSuccess('Ya está enviado: Instagram confirmó este mensaje.');}return;}
   const mobile=igMobile.current,url=target.url,popupBlocked=!mobile&&(!popup||popup.closed);
   if(popup&&!popup.closed)popup.location.href=url;
   setIgState({url,mobile,popupBlocked,copied:null});
-  void (igCopy.current??Promise.resolve(false)).then(copied=>{setIgState(state=>state&&{...state,copied});if(popupBlocked)toast.warning('No se pudo abrir Instagram automáticamente. Usá el enlace del mensaje.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile}));else toast.warning(instagramOpenedToast({copied,mobile}));});
+  void (igCopy.current??Promise.resolve(false)).then(copied=>{setIgState(state=>state&&{...state,copied});if(popupBlocked)toast.warning('No se pudo abrir Instagram automáticamente. Usá el enlace del mensaje.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile,scriptPastes:!!igNonce.current}));else toast.warning(instagramOpenedToast({copied,mobile}));});
  }
  useEffect(()=>{onBusyChange?.(mutation.isPending);return()=>onBusyChange?.(false)},[mutation.isPending,onBusyChange]);
  useEffect(()=>{onNoticeChange?.(externalUrl?'No se pudo abrir WhatsApp automáticamente. El intento quedó guardado como No confirmado.':igState?.popupBlocked?'No se pudo abrir Instagram automáticamente. El intento quedó guardado como no confirmado.':mutation.error?.message??null)},[externalUrl,igState?.popupBlocked,mutation.error,onNoticeChange]);
@@ -62,7 +62,9 @@ export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange,onN
  /** «Abrir Instagram»: copy the saved text and pre-open the tab inside this click, before any await; then record the attempt. */
  const openInstagram=()=>{if(processing.current||mutation.isPending||dirty)return;const mobile=isCoarsePointer();igMobile.current=mobile;
   // M3: the synchronous copy runs before window.open moves the focus to the new tab (Chrome then rejects the async clipboard).
-  igCopy.current=copyInGesture(m.textBody||m.body).settled;if(!mobile){externalWindow.current=window.open('about:blank','_blank');if(externalWindow.current)externalWindow.current.opener=null;}void mutate({action:'dispatch',id:m.id,revision:m.revision,confirm:true,...(taskId?{taskId}:{})});};
+  igCopy.current=copyInGesture(m.textBody||m.body).settled;
+  // Spec 94: one-time handoff for the user script, also inside the click (null without the script: the plain profile opens).
+  igNonce.current=mobile?null:handOffToUserscript({username:m.recipient,text:m.textBody||m.body});if(!mobile){externalWindow.current=window.open('about:blank','_blank');if(externalWindow.current)externalWindow.current.opener=null;}void mutate({action:'dispatch',id:m.id,revision:m.revision,confirm:true,...(taskId?{taskId}:{})});};
  const dispatchMessage=()=>{if(ig){openInstagram();return;}if(m.channel==='whatsapp'){externalWindow.current=window.open('about:blank','_blank');if(externalWindow.current)externalWindow.current.opener=null;}void mutate({action:'dispatch',id:m.id,revision:m.revision,confirm:true,...(taskId?{taskId}:{})});};
  useEffect(()=>{onDirtyChange?.(dirty);return()=>onDirtyChange?.(false)},[dirty,onDirtyChange]);
  const unload=useUnsavedChanges(dirty,()=>{},mutation.isPending);

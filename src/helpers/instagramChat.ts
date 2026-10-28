@@ -1,6 +1,6 @@
 import {normalizeInstagramProfile} from './dataNormalization';
 import {INSTAGRAM_ECHO_OWNER} from './instagramChannel';
-import {INSTAGRAM_PASTE_MARKER} from '../../userscript/src/instagram/marker';
+import {handoffFragment} from '../../userscript/src/instagram/handoff';
 
 /**
  * Spec 92: Instagram chats opened from the composer. Client-safe helpers (no Node imports) shared by the composer, the
@@ -38,10 +38,12 @@ export type InstagramTarget={readonly url:string;readonly kind:'chat'|'profile';
  * profile, where the seller clicks «Enviar mensaje» (or the user script does it and pastes, spec 94). `mobile` is the coarse-pointer
  * check the composer already uses.
  */
-export function instagramTarget({username,mobile}:{username:string|null|undefined;mobile:boolean}):InstagramTarget|null{
+export function instagramTarget({username,mobile,nonce}:{username:string|null|undefined;mobile:boolean;nonce?:string|null}):InstagramTarget|null{
  const value=(username??'').replace(/^@/,'');
- // Spec 94: the desktop profile carries `#hospeda`, so the user script clicks «Enviar mensaje» and pastes. A fragment never reaches Instagram.
- const profile=instagramProfileUrl({username:value}),url=mobile?instagramChatUrl({username:value}):profile&&`${profile}#${INSTAGRAM_PASTE_MARKER}`;
+ // Spec 94: with a one-time handoff nonce (the user script is on this page), the desktop profile carries `#hospeda=<nonce>` so the script
+ // clicks «Enviar mensaje» and pastes. A fragment never reaches Instagram. Without a nonce the URL is the plain profile, as before.
+ const profile=instagramProfileUrl({username:value}),marked=profile&&nonce&&/^[0-9a-f]{32}$/.test(nonce)?`${profile}#${handoffFragment({nonce})}`:profile;
+ const url=mobile?instagramChatUrl({username:value}):marked;
  if(!url)return null;
  return mobile?{url,kind:'chat',label:`Ir al chat de @${value} en Instagram`}:{url,kind:'profile',label:`Abrir el perfil de @${value} en Instagram`};
 }

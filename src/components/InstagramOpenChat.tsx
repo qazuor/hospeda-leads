@@ -1,9 +1,10 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {Button} from './Button';
 import styles from './Communication.module.css';
-import {instagramTarget} from '../helpers/instagramChat';
+import {instagramTarget,normalizeInstagramUsername} from '../helpers/instagramChat';
 import {compareSemver} from '../helpers/userscriptPure';
 import {INSTALLED_ATTRIBUTE} from '../../userscript/src/announce';
+import {HANDOFF_MESSAGE_TYPE,HANDOFF_TTL_MS,newNonce,textHash} from '../../userscript/src/instagram/handoff';
 
 /**
  * Spec 92 §2.2–2.3: the client side of «Abrir Instagram». Instagram does not accept prefilled text, so the saved final text is
@@ -47,10 +48,24 @@ export function userscriptPastesOnInstagram(doc:Document|undefined=typeof docume
 }
 
 /**
- * Toast after a successful open: how to paste (chat on a phone, «Enviar mensaje» on the profile), or why to copy from the CRM. On a
- * computer with the user script (spec 94) the script opens the chat and pastes; without it, the toast says it could.
+ * Spec 94 (D6): the one-time handoff that authorizes the user script to paste. Called inside the click, before the tab opens: it returns a
+ * fresh 128-bit nonce for the URL (`#hospeda=<nonce>`) and posts `{nonce, username, expiresAt, textHash}` to the script on this page
+ * (same window and origin; it stores it under its own key). Null on a phone, without a script that pastes, or without Web Crypto: then
+ * the plain profile opens and the seller pastes, as before. A bare marker authorizes nothing, so a link from another site cannot paste.
  */
-export function instagramOpenedToast({copied,mobile,scriptPastes=userscriptPastesOnInstagram()}:{copied:boolean;mobile:boolean;scriptPastes?:boolean}):string{
+export function handOffToUserscript({username,text,win=window}:{username:string|null|undefined;text:string;win?:Window}):string|null{
+ const user=normalizeInstagramUsername(username);
+ if(!user||!userscriptPastesOnInstagram(win.document)||!win.crypto?.subtle)return null;
+ const nonce=newNonce({random:win.crypto}),expiresAt=Date.now()+HANDOFF_TTL_MS;
+ void textHash({text,subtle:win.crypto.subtle}).then(hash=>win.postMessage({type:HANDOFF_MESSAGE_TYPE,nonce,username:user,expiresAt,textHash:hash},win.location.origin),()=>{});
+ return nonce;
+}
+
+/**
+ * Toast after a successful open: how to paste (chat on a phone, «Enviar mensaje» on the profile), or why to copy from the CRM. When the
+ * user script got a handoff (spec 94) it opens the chat and pastes; otherwise, on a computer, the toast says it could.
+ */
+export function instagramOpenedToast({copied,mobile,scriptPastes=false}:{copied:boolean;mobile:boolean;scriptPastes?:boolean}):string{
  if(!copied)return mobile?'Instagram abierto. Copiá el mensaje desde el CRM y pegalo en el chat.':'Perfil de Instagram abierto. Copiá el mensaje desde el CRM, tocá «Enviar mensaje» y pegalo.';
  if(mobile)return 'Mensaje copiado: en el chat mantené apretado y elegí Pegar';
  return scriptPastes?'Mensaje copiado. El script de Hospeda abre el chat y lo pega: revisalo y envialo vos.':`Mensaje copiado. En el perfil tocá «Enviar mensaje» y pegalo (${isMac()?'⌘V':'Ctrl+V'}). Con el user script de Hospeda se pega solo.`;
@@ -87,9 +102,9 @@ export function InstagramOpenedActions({text,recipient,state,onToast}:{text:stri
  if(!url||!target)return null;
  const copyAndOpen=async()=>{
   // Synchronous copy first, then the open, both inside the click (M3).
-  const copy=copyInGesture(text),opened=openInstagramChat(url),copied=await copy.settled;
+  const copy=copyInGesture(text),nonce=mobile?null:handOffToUserscript({username:recipient,text}),opened=openInstagramChat(instagramTarget({username:recipient,mobile,nonce})?.url??url),copied=await copy.settled;
   setCopyAgainFailed(!copied);
-  onToast(!opened?'No se pudo abrir Instagram automáticamente. Usá el enlace de abajo.':instagramOpenedToast({copied,mobile}));
+  onToast(!opened?'No se pudo abrir Instagram automáticamente. Usá el enlace de abajo.':instagramOpenedToast({copied,mobile,scriptPastes:!!nonce}));
  };
  const copyOnly=async()=>{const copied=await copyMessageText(text);if(copied){setManualCopy(false);setCopyAgainFailed(false);onToast('Mensaje copiado');}else{area.current?.select();onToast('No se pudo copiar: seleccioná el texto y copialo a mano.');}};
  return <div className={styles.instagramActions}>

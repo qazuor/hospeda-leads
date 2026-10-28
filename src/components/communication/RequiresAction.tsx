@@ -6,7 +6,7 @@ import {instagramTarget,isInstagramAttempt,isWaitingForInstagramEcho} from '../.
 import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS,actionSummary,isConfirmableOpen,requiresAction,timelineChannel,timelineChannelLabel} from '../../helpers/communicationTimeline';
 import {crmSuccess} from '../../helpers/crmFeedback';
 import {toast} from 'sonner';
-import {copyInGesture,instagramOpenedToast,isCoarsePointer,openInstagramChat} from '../InstagramOpenChat';
+import {copyInGesture,handOffToUserscript,instagramOpenedToast,isCoarsePointer,openInstagramChat} from '../InstagramOpenChat';
 import {ClampedText} from './ClampedText';
 import {MessageMaterialRecord} from './MessageMaterialRecord';
 import {isInstagramInbound} from '../../helpers/instagramChannel';
@@ -30,9 +30,11 @@ function ReviewEntry({item,onFocus}:{item:InboundMessage;onFocus:(key:string)=>v
 /** «Copiar y abrir de nuevo» (spec 92): copies the prepared text and opens the same Instagram chat, client-side only (no new attempt, no request). */
 function ReopenInstagram({message}:{message:Message}){
  const reopen=async()=>{
-  const mobile=isCoarsePointer(),url=instagramTarget({username:message.recipient,mobile})?.url;if(!url)return;
-  const copy=copyInGesture(message.textBody||message.body),opened=openInstagramChat(url),copied=await copy.settled;
-  if(!opened)toast.warning('No se pudo abrir Instagram automáticamente.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile}));else toast.warning(instagramOpenedToast({copied,mobile:false}));
+  const mobile=isCoarsePointer(),text=message.textBody||message.body;if(!instagramTarget({username:message.recipient,mobile}))return;
+  // Copy first, then the one-time handoff for the user script (spec 94), then the open: all inside the click.
+  const copy=copyInGesture(text),nonce=mobile?null:handOffToUserscript({username:message.recipient,text}),url=instagramTarget({username:message.recipient,mobile,nonce})!.url;
+  const opened=openInstagramChat(url),copied=await copy.settled;
+  if(!opened)toast.warning('No se pudo abrir Instagram automáticamente.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile,scriptPastes:!!nonce}));else toast.warning(instagramOpenedToast({copied,mobile:false}));
  };
  return <Button variant="ghost" size="sm" onClick={()=>void reopen()}>Copiar y abrir de nuevo</Button>;
 }
