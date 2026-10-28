@@ -80,6 +80,7 @@ describe('UserscriptRequirement',()=>{
 
  it.each([
   ['on the User script page',()=>{announce('1.0.0','connected');mount('/userscript');}],
+  ['on the guide',()=>{announce('1.0.0','connected');mount('/guide');}],
   ['on phones and tablets',()=>{pointer.coarse=true;announce('1.0.0','connected');mount();}],
   ['in automated browsers',()=>{Object.defineProperty(navigator,'webdriver',{value:true,configurable:true});announce('1.0.0','connected');mount();}],
  ] as const)('does not block %s',(_name,arrange)=>{

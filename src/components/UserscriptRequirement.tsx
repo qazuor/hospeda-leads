@@ -15,18 +15,20 @@ import styles from './UserscriptRequirement.module.css';
 /** One toast id, so a change of state updates the same warning instead of stacking a new one. */
 export const USERSCRIPT_PROMPT_TOAST_ID='userscript-prompt';
 
+/** Pages that work without the script: «User script» (where it is installed and its token created) and «Ayuda» (the guide). */
+export const USERSCRIPT_FREE_PATHS=['/userscript','/guide'] as const;
+
 /**
  * Owner review of spec 96 (28/10/2026): nobody, admins included, uses the CRM on a computer whose script is missing, outdated or
  * disconnected. Those states cover every page with a blocking screen until the script announces a good state (it lifts by itself);
- * the «User script» page stays usable because that is where the script is installed and its token created, and the user can log
- * out. When the CRM only could not verify the token, a warning toast offers «Verificar de nuevo» instead, so a server hiccup never
+ * the «User script» and «Ayuda» pages stay usable (`USERSCRIPT_FREE_PATHS`), and the user can log out. When the CRM only could not verify the token, a warning toast offers «Verificar de nuevo» instead, so a server hiccup never
  * locks everyone out. Phones and tablets are never blocked, and automated browsers (Playwright sets `navigator.webdriver`) skip it so
  * the browser suite is not covered; the rule itself is covered by unit tests.
  */
 export function UserscriptRequirement(){
  const status=useUserscriptStatus(),currentUserEmail=useCurrentUserEmail(),{pathname}=useLocation();
  const automated=typeof navigator!=='undefined'&&navigator.webdriver===true;
- const prompt=automated||pathname==='/userscript'?null:userscriptPrompt({mobile:isCoarsePointer(),status,latest:USERSCRIPT_VERSION,currentUserEmail});
+ const prompt=automated||USERSCRIPT_FREE_PATHS.some(path=>pathname===path||pathname.startsWith(path+'/'))?null:userscriptPrompt({mobile:isCoarsePointer(),status,latest:USERSCRIPT_VERSION,currentUserEmail});
  const warning=prompt&&!prompt.blocking?prompt:null,warningTitle=warning?.title??'',warningDescription=warning?.description??'';
  // The prompt is a new object every render: the toast is keyed on what it says.
  useEffect(()=>{
