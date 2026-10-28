@@ -12,6 +12,7 @@ import {smtpConfigured} from '../helpers/smtpTransport';
 import {inboxReplyAvailability} from '../helpers/inboxReplyAvailability';
 import {COMMUNICATION_LIST_LIMIT,communicationMutation,communicationSeenInput} from './communication.schema';
 import {messageMaterials} from '../helpers/salesMaterialDraft';
+import {isTerminalEmailEvent} from '../helpers/emailEngagement';
 import {SalesMaterialNotFound} from '../helpers/salesMaterialService';
 import {R2NotConfigured,R2Unavailable} from '../helpers/r2';
 import {MaterialShareUrlUnavailable} from '../helpers/salesMaterialMessage';
@@ -103,8 +104,14 @@ export async function webhook(request:Request){
     const tagId=v.tags?.find(t=>/^hospeda-[0-9a-f-]{36}$/.test(t))?.slice(8);
     const tagged=!out&&tagId?(await sql<{id:string}>`SELECT o.id FROM email_outbox o JOIN crm_messages m ON m.outbox_id=o.id WHERE m.id=${tagId}::uuid AND lower(o.recipient_email)=lower(${v.email})`.execute(e)).rows[0]:null;
     const oid=out?.id??tagged?.id??null;
-    await sql`INSERT INTO crm_email_events(fingerprint,message_id,recipient,event,occurred_at,payload,outbox_id) VALUES(${fingerprint},${v['message-id']},${v.email},${v.event},${at},${JSON.stringify(v)}::text::jsonb,${oid}) ON CONFLICT DO NOTHING`.execute(e);
-    if(oid){await lockAccounts(e,(await sql<{accountId:string}>`SELECT account_id FROM crm_messages WHERE outbox_id=${oid}`.execute(e)).rows.map(r=>r.accountId));await sql`UPDATE email_outbox SET message_id=coalesce(message_id,${v['message-id']}) WHERE id=${oid}`.execute(e);await reconcileEvents(e,oid);}
+    const fresh=(await sql<{fingerprint:string}>`INSERT INTO crm_email_events(fingerprint,message_id,recipient,event,occurred_at,payload,outbox_id) VALUES(${fingerprint},${v['message-id']},${v.email},${v.event},${at},${JSON.stringify(v)}::text::jsonb,${oid}) ON CONFLICT DO NOTHING RETURNING fingerprint`.execute(e)).rows.length>0;
+    if(oid){
+     await lockAccounts(e,(await sql<{accountId:string}>`SELECT account_id FROM crm_messages WHERE outbox_id=${oid}`.execute(e)).rows.map(r=>r.accountId));await sql`UPDATE email_outbox SET message_id=coalesce(message_id,${v['message-id']}) WHERE id=${oid} AND message_id IS NULL`.execute(e);
+     // Spec 93 §2.2: reconcile only on new delivery evidence (a fresh terminal event) or to adopt earlier orphan events. Opens, clicks,
+     // spam, deferred and redelivered duplicates are stored and change nothing, so a lifted restriction is never re-added by them.
+     const orphans=(await sql`SELECT 1 FROM crm_email_events WHERE outbox_id IS NULL AND trim(both '<>' from message_id)=trim(both '<>' from ${v['message-id']}) AND lower(recipient)=lower(${v.email}) LIMIT 1`.execute(e)).rows.length>0;
+     if((fresh&&isTerminalEmailEvent(v.event))||orphans)await reconcileEvents(e,oid);
+    }
    }
   });return new Response('OK');
  // Lock waits, deadlocks and timeouts are retryable: 503 lets the provider redeliver; invalid payloads stay 400.
