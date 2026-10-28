@@ -39,6 +39,20 @@ describe('SalesMaterialForm',()=>{
   expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',title:'Video institucional',description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/video'}}));
   expect(api.upload).not.toHaveBeenCalled();
  });
+ it('uploads a JPEG saved as .png under its real type and says so (owner review of spec 96)',async()=>{
+  // Arrange
+  api.upload.mockResolvedValue('u-1');
+  setup({type:'create'});
+  // Act
+  pick('Archivo',new File([new Uint8Array([0xff,0xd8,0xff,0xe0,0,0,0,0,0,0,0,0,0,0,0,0])],'gallery-01.png',{type:'image/png'}));
+  await screen.findByText('gallery-01.png en realidad es un archivo JPG: se sube como gallery-01.jpg.');
+  fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Galería'}});
+  fireEvent.click(save('Guardar material'));
+  // Assert
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  const uploaded=api.upload.mock.calls[0][0].file as File;
+  expect(uploaded.name).toBe('gallery-01.jpg');expect(uploaded.type).toBe('image/jpeg');
+ });
  it('uploads the file first, then creates with the upload id, and blocks a double submit',async()=>{
   let finish!:(id:string)=>void;api.upload.mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
   setup({type:'create'});

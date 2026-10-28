@@ -1,5 +1,5 @@
 import {requestSalesMaterialUpload} from '../endpoints/salesMaterials.schema';
-import {mimeForFile} from './salesMaterialTypes';
+import {correctedSalesMaterialFile,fileExtension,mimeForFile} from './salesMaterialTypes';
 /** Upload progress in bytes. */
 export type UploadProgress={readonly loaded:number;readonly total:number};
 /** The browser cancelled the upload on request: not an error to report. */
@@ -31,4 +31,23 @@ export async function uploadSalesMaterialFile({file,purpose,materialId,onProgres
  if(signal?.aborted)throw new UploadCancelled();
  await put({url:target.putUrl,file,contentType:target.headers['Content-Type'],onProgress,signal});
  return target.uploadId;
+}
+/** The first `bytes` bytes of a blob; FileReader where `Blob.arrayBuffer` is missing (older engines, jsdom). */
+function readPrefix(blob:Blob,bytes:number):Promise<Uint8Array>{
+ const part=blob.slice(0,bytes);
+ if(typeof part.arrayBuffer==='function')return part.arrayBuffer().then(b=>new Uint8Array(b));
+ return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(new Uint8Array(reader.result as ArrayBuffer));reader.onerror=()=>reject(reader.error);reader.readAsArrayBuffer(part);});
+}
+/**
+ * Owner review of spec 96 (28/10/2026): reads the first bytes of a picked file and, when its extension lies about its content (a JPEG
+ * saved as «.png»), returns it renamed under its real type with a one-line notice for the form. Otherwise (or when it cannot be read)
+ * returns the same file and no notice; the server still checks what arrives.
+ */
+export async function fixMisnamedFile({file}:{file:File}):Promise<{file:File;notice:string}>{
+ const declaredMime=mimeForFile({fileName:file.name,type:file.type});if(!declaredMime)return {file,notice:''};
+ try{
+  const fixed=correctedSalesMaterialFile({fileName:file.name,declaredMime,bytes:await readPrefix(file,16)});
+  if(!fixed)return {file,notice:''};
+  return {file:new File([file],fixed.fileName,{type:fixed.mimeType,lastModified:file.lastModified}),notice:`${file.name} en realidad es un archivo ${fileExtension({fileName:fixed.fileName}).toUpperCase()}: se sube como ${fixed.fileName}.`};
+ }catch{return {file,notice:''}}
 }

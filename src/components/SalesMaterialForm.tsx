@@ -5,7 +5,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {CrmApiError} from '../helpers/apiClient';
 import {getSalesMaterials,postSalesMaterial,type SalesMaterial,type SalesMaterialCategory,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
 import {SALES_MATERIAL_ACCEPT,SALES_MATERIAL_COVER_MIMES,externalUrlError,formatBytes,mimeForFile,uploadDeclarationError} from '../helpers/salesMaterialTypes';
-import {UploadCancelled,uploadSalesMaterialFile,type UploadProgress} from '../helpers/salesMaterialUpload';
+import {UploadCancelled,fixMisnamedFile,uploadSalesMaterialFile,type UploadProgress} from '../helpers/salesMaterialUpload';
 import {autoCoverFormat,saveAutoCover} from '../helpers/salesMaterialAutoCover';
 import {CrmDialog} from './ui/CrmDialog';
 import {Button} from './Button';
@@ -37,6 +37,7 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
  const [categoryIds,setCategoryIds]=useState<string[]>(material?.categories.map(c=>c.id)??[]);
  const [extraCategories,setExtraCategories]=useState<SalesMaterialCategory[]>([]),[newCategory,setNewCategory]=useState('');
  const [file,setFile]=useState<File|null>(null),[cover,setCover]=useState<File|null>(null),[url,setUrl]=useState('');
+ const [fileNotice,setFileNotice]=useState(''),[coverNotice,setCoverNotice]=useState(''),picks=useRef({file:0,cover:0});
  const [pending,setPending]=useState(''),[progress,setProgress]=useState<UploadProgress|null>(null),[error,setError]=useState('');
  const lock=useRef(false),abort=useRef<AbortController|null>(null),createId=useRef(crypto.randomUUID());
  // The revision this dialog saves against: refreshed after a 409 so a retry uses the latest one. The verified upload is kept for that retry (a 409 never consumes it).
@@ -53,6 +54,14 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
   needsFile&&!file?'Elegí el archivo del material.':needsUrl&&!url.trim()?'Pegá el enlace del material.':mode.type==='cover'&&!cover?'Elegí una imagen para la portada.':
   fileError||coverError||urlError||(!limits.storageConfigured&&(needsFile||!!cover)?'Almacenamiento no configurado: no se pueden subir archivos.':null);
  const becomesInternal=mode.type==='edit'&&material?.kind==='deliverable'&&kind==='internal';
+ /** Keeps the picked file and, once its first bytes are read, swaps in a renamed copy when its extension lies about its content. */
+ async function pick(kind:'file'|'cover',picked:File|null){
+  const token=++picks.current[kind],set=kind==='file'?setFile:setCover,setNotice=kind==='file'?setFileNotice:setCoverNotice;
+  set(picked);setNotice('');if(!picked)return;
+  const fixed=await fixMisnamedFile({file:picked});
+  // A newer pick of the same input wins.
+  if(picks.current[kind]===token&&fixed.file!==picked){set(fixed.file);setNotice(fixed.notice);}
+ }
  async function upload(target:File,purpose:'file'|'cover',materialId:string){
   const reusable=uploaded.current;if(reusable&&reusable.file===target&&reusable.purpose===purpose)return reusable.uploadId;
   uploaded.current=null;
@@ -129,7 +138,7 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
  return <CrmDialog opened onClose={()=>{if(!lock.current)onClose()}} busy={busy} title={titles[mode.type]} description={material?`«${material.title}»`:'Subí un archivo o registrá un enlace externo.'}>
   <form className={styles.form} aria-busy={busy} onSubmit={event=>{event.preventDefault();void save()}}>
    {mode.type==='create'&&<label>Origen<NativeSelect value={source} disabled={busy} onChange={e=>setSource(e.target.value as 'file'|'url')}><option value="file">Archivo</option><option value="url">Enlace externo</option></NativeSelect></label>}
-   {needsFile&&<label>Archivo<Input type="file" aria-label="Archivo" accept={SALES_MATERIAL_ACCEPT} disabled={busy} onChange={e=>setFile(e.target.files?.[0]??null)}/><span className={styles.hint}>Imágenes, PDF, video, audio o documentos de Office, hasta {formatBytes({bytes:limits.maxUploadBytes})}.{file&&!fileError?` Elegiste ${file.name} (${formatBytes({bytes:file.size})}).`:''}</span></label>}
+   {needsFile&&<label>Archivo<Input type="file" aria-label="Archivo" accept={SALES_MATERIAL_ACCEPT} disabled={busy} onChange={e=>void pick('file',e.target.files?.[0]??null)}/><span className={styles.hint}>Imágenes, PDF, video, audio o documentos de Office, hasta {formatBytes({bytes:limits.maxUploadBytes})}.{file&&!fileError?` Elegiste ${file.name} (${formatBytes({bytes:file.size})}).`:''}</span>{fileNotice&&<span className={styles.hint} role="status">{fileNotice}</span>}</label>}
    {needsUrl&&<label>Enlace (https)<Input type="url" value={url} disabled={busy} placeholder="https://…" onChange={e=>setUrl(e.target.value)}/></label>}
    {(mode.type==='create'||mode.type==='edit')&&<>
     <label>Título<Input value={title} maxLength={200} disabled={busy} onChange={e=>setTitle(e.target.value)} placeholder="Ej.: Folleto de tarifas 2027"/></label>
@@ -139,7 +148,7 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
     <MultiSelect label="Categorías" data={options} value={categoryIds} onChange={setCategoryIds} searchable clearable disabled={busy} nothingFoundMessage="No hay categorías con ese nombre"/>
     <div className={styles.inline}><label>Nueva categoría<Input value={newCategory} maxLength={100} disabled={busy} onChange={e=>setNewCategory(e.target.value)}/></label><Button variant="outline" disabled={busy||newCategory.trim().length<2} disabledReason={busy?BUSY:'Escribí un nombre de 2 letras o más.'} onClick={()=>void createCategory()}>Crear categoría</Button></div>
    </>}
-   {(mode.type==='cover'||mode.type==='create'&&source==='file')&&<label>{mode.type==='cover'?'Imagen de portada':'Portada (opcional)'}<Input type="file" aria-label={mode.type==='cover'?'Imagen de portada':'Portada (opcional)'} accept={COVER_ACCEPT} disabled={busy} onChange={e=>setCover(e.target.files?.[0]??null)}/><span className={styles.hint}>JPG, PNG, WebP o GIF de hasta {formatBytes({bytes:limits.maxCoverBytes})}. Se usa en las vistas previas; en una imagen chica, la portada es la imagen misma. Sin portada, se genera una automática de la imagen, el video o la primera página del PDF.</span></label>}
+   {(mode.type==='cover'||mode.type==='create'&&source==='file')&&<label>{mode.type==='cover'?'Imagen de portada':'Portada (opcional)'}<Input type="file" aria-label={mode.type==='cover'?'Imagen de portada':'Portada (opcional)'} accept={COVER_ACCEPT} disabled={busy} onChange={e=>void pick('cover',e.target.files?.[0]??null)}/><span className={styles.hint}>JPG, PNG, WebP o GIF de hasta {formatBytes({bytes:limits.maxCoverBytes})}. Se usa en las vistas previas; en una imagen chica, la portada es la imagen misma. Sin portada, se genera una automática de la imagen, el video o la primera página del PDF.</span>{coverNotice&&<span className={styles.hint} role="status">{coverNotice}</span>}</label>}
    {(fileError||coverError||urlError)&&<p role="alert">{fileError||coverError||urlError}</p>}
    {progress&&<div className={styles.progress} role="status"><Progress value={percent} aria-label="Progreso de la subida"/><span>{pending} {percent} %</span></div>}
    {busy&&!progress&&<p role="status">{pending}</p>}
