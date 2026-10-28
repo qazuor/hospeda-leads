@@ -749,6 +749,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 3. Tocá «Abrir» para verlo o «Descargar» para guardarlo. Si es un enlace externo, tocá «Abrir enlace».
 4. Si sos administrador, usá «Nuevo material» para subir un archivo o registrar un enlace, con título, categorías, comentario y tipo. Con «Nueva versión» cambiás el archivo y las versiones anteriores se conservan.
 5. «Archivar» lo saca de la lista sin borrar nada; «Restaurar» lo vuelve a mostrar.
+6. Para mandarlo, desde el negocio tocá «Enviar material» en «Comunicación», elegilo y tocá «Agregar». Se abre el mensaje listo, con el enlace del material: revisalo y tocá «Abrir WhatsApp con …». Si querés otro texto, cambiá el «Mensaje modelo» arriba del borrador; el material se agrega solo.
 
 **Qué queda al terminar:** Encontrás siempre la versión actual del material. Abrirlo o descargarlo no lo envía al cliente.
 
