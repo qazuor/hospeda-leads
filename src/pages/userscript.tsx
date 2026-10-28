@@ -69,7 +69,7 @@ function TokenReveal({token,bridge}:{token:string;bridge:boolean}){
  return <section className={styles.tokenReveal} role="status">
   <div><strong>{bridge?'Conectá este navegador':'Copialo ahora'}</strong><p>{bridge?'Un clic y el script de este navegador queda conectado. El token no se vuelve a mostrar.':'El token no se vuelve a mostrar. Pegalo en el panel de Hospeda dentro de WhatsApp Web.'}</p></div>
   <code>{token}</code>
-  {connect==='failed'&&<p className={styles.revealError} role="alert">El script no respondió. Copiá el token y pegalo en el panel de Hospeda dentro de WhatsApp Web.</p>}
+  {connect==='failed'&&<p className={styles.revealError} role="alert">El script no pudo conectarse con ese token. Copiá el token y pegalo en el panel de Hospeda dentro de WhatsApp Web.</p>}
   <div className={styles.revealActions}>{bridge&&connect!=='failed'&&<Button disabled={connect==='connecting'} disabledReason="Conectando…" onClick={()=>void run()}><Link2 size={16} aria-hidden="true"/>{connect==='connecting'?'Conectando…':'Conectar este navegador'}</Button>}{copy}</div>
  </section>;
 }

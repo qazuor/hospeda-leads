@@ -120,7 +120,7 @@ function start(): void {
   // On the CRM's own page the script says it is here, accepts the Instagram handoff from the page and publishes whether its token works
   // (spec 96 §3.1: one status request, only the state and the token owner's email reach the page), and since 1.5.1 takes a new token from
   // «Conectar este navegador». No WhatsApp logic.
-  if (site === "crm") { announceInstalled(document); listenForInstagramHandoff(); const connection = watchConnection({ doc: document, readToken: token, fetchStatus: value => fetchStatus(BASE, value) }); listenForToken({ doc: document, save: value => GM_setValue(TOKEN_KEY, value), recheck: () => void connection.check() }); return; }
+  if (site === "crm") { announceInstalled(document); listenForInstagramHandoff(); const connection = watchConnection({ doc: document, readToken: token, fetchStatus: value => fetchStatus(BASE, value) }); listenForToken({ doc: document, verify: async value => { await fetchStatus(BASE, value); return true; }, save: value => GM_setValue(TOKEN_KEY, value), recheck: () => void connection.check() }); return; }
   autoPreference = GM_getValue<boolean>("hospeda-userscript-auto-register", true);
   registerMenu(); watchTheme();
   chatBadges=new ChatBadges(BASE,token, message=>{badgeError=message;lastFingerprint="";void update();},()=>{badgeError="Token inválido o revocado. Conectá uno nuevo desde Ajustes.";lastFingerprint="";void update();},()=>{badgeError="Esta versión del script ya no funciona con el CRM. Actualizá desde el aviso del script.";void checkForUpdate();lastFingerprint="";void update();});

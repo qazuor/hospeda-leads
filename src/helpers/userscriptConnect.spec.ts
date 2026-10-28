@@ -9,7 +9,7 @@ describe('handTokenToUserscript',()=>{
 
  it('resolves true once the script saves the token and acks this nonce',async()=>{
   // Arrange: the real script-side listener.
-  const save=vi.fn(),stop=listenForToken({doc:document,save,recheck:()=>{}});
+  const save=vi.fn(),stop=listenForToken({doc:document,verify:async()=>true,save,recheck:()=>{}});
   try{
    // Act
    const ok=await handTokenToUserscript({token});
@@ -18,6 +18,10 @@ describe('handTokenToUserscript',()=>{
   }finally{stop();}
  });
 
+ it('resolves false at once when the script reports the CRM rejected the token',async()=>{
+  const save=vi.fn(),stop=listenForToken({doc:document,verify:async()=>false,save,recheck:()=>{}});
+  try{expect(await handTokenToUserscript({token})).toBe(false);expect(save).not.toHaveBeenCalled();}finally{stop();}
+ });
  it('resolves false when no script answers in time',async()=>{
   vi.useFakeTimers();
   try{

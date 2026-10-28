@@ -54,7 +54,7 @@ describe('UserscriptPage · Conexión (spec 96 §3.4)',()=>{
  const line=()=>screen.getByRole('status',{name:'Conexión'}).textContent;
  it('connects this browser in one click when the script takes tokens (1.5.1+)',async()=>{
   // Arrange: the real script-side listener answers the page.
-  const token='hcu_'+'c'.repeat(43),save=vi.fn(),stop=listenForToken({doc:document,save,recheck:()=>{}});
+  const token='hcu_'+'c'.repeat(43),save=vi.fn(),stop=listenForToken({doc:document,verify:async()=>true,save,recheck:()=>{}});
   vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({tokens:[],latestVersion:USERSCRIPT_VERSION,token}),{status:200})));
   try{
    announce('missing-token');renderPage();
