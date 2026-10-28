@@ -39,7 +39,7 @@ describe('UserscriptPage',()=>{
  });
  it('explains the Instagram paste and the one-time site approval (spec 94)',async()=>{
   vi.stubGlobal('fetch',tokens());renderPage();
-  expect(screen.getByTestId('userscript-instagram').textContent).toContain('el script toca «Enviar mensaje» y pega el mensaje copiado. No lo envía');
+  expect(screen.getByTestId('userscript-instagram').textContent).toContain('el script toca «Enviar mensaje» y escribe el mensaje preparado en el chat de ese perfil, sin pedir permiso para el portapapeles. No lo envía');
   expect(screen.getByText(/Tampermonkey te pide aprobar instagram\.com una sola vez/)).toBeTruthy();
  });
 });

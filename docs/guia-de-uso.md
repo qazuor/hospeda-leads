@@ -1025,7 +1025,7 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 ## Registrar mensajes de WhatsApp
 
-Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar. El mismo script pega en Instagram el mensaje que copia el CRM.
+Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar. El mismo script deja escrito en Instagram el mensaje que preparaste en el CRM.
 
 ### Instalar el user script de WhatsApp
 
@@ -1181,11 +1181,10 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 **Cuándo usarlo:** Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado (versión 1.4.0 o posterior).
 
 1. En el negocio, tocá «Contactar», elegí el canal Instagram y prepará el mensaje como siempre.
-2. Tocá «Abrir Instagram». El CRM copia el mensaje y abre el perfil del negocio en una pestaña nueva.
-3. Si es la primera vez, el navegador pregunta si instagram.com puede ver lo que copiaste: tocá "Permitir". No lo vuelve a preguntar.
-4. El script toca "Enviar mensaje" en el perfil, espera a que se abra el chat y pega el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»
-5. Revisá el texto y envialo vos desde el chat. El script nunca lo envía.
-6. Si aparece un aviso en lugar de pegarse (por ejemplo «El portapapeles cambió: pegá el mensaje con Ctrl+V.»), pegalo a mano con Ctrl+V (⌘V en Mac). Si se perdió lo copiado, volvé al CRM y tocá «Copiar y abrir de nuevo».
+2. Tocá «Abrir Instagram». El CRM copia el mensaje, se lo pasa al script y abre el perfil del negocio en una pestaña nueva.
+3. El script toca "Enviar mensaje" en el perfil, espera a que se abra el chat de ese perfil y escribe el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»
+4. Revisá el texto y envialo vos desde el chat. El script nunca lo envía.
+5. Si en lugar de eso aparece un aviso (por ejemplo «No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje (Ctrl+V).»), abrí el chat y pegá con Ctrl+V (⌘V en Mac): el mensaje sigue copiado. Si se perdió, volvé al CRM y tocá «Copiar y abrir de nuevo».
 
 **Qué queda al terminar:** El mensaje queda escrito en el chat de Instagram del negocio, listo para que lo envíes. Cuando lo mandás desde la cuenta de Hospeda, el CRM lo confirma solo, igual que sin el script.
 
@@ -1195,9 +1194,9 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Tené en cuenta:**
 
-- Solo funciona en la computadora (Chrome o Edge; en Firefox el navegador suele bloquear la lectura del portapapeles y vas a tener que pegar a mano). En el celular se abre la app de Instagram como siempre.
-- El script actúa únicamente en la pestaña que abre el CRM con «Abrir Instagram», durante dos minutos y una sola vez. Un enlace de otra página no lo activa.
-- Solo pega si lo que tenés copiado es el mensaje del CRM y si el chat está vacío. Nunca pega encima de algo que ya escribiste.
+- Solo funciona en la computadora, en Chrome, Edge o Firefox. El navegador no pide permiso para el portapapeles: el script no lo lee, recibe el mensaje directamente del CRM. En el celular se abre la app de Instagram como siempre.
+- El script actúa únicamente en la pestaña que abre el CRM con «Abrir Instagram», durante dos minutos y una sola vez. Un enlace de otra página no lo activa. Si tocás «Abrir Instagram» dos veces seguidas, vale la última.
+- Solo escribe en el chat que se abre al tocar "Enviar mensaje" en ese perfil, y solo si está vacío. Nunca usa una ventanita de chat flotante con otra persona ni escribe encima de algo que ya escribiste. Los mensajes de más de 4000 caracteres se pegan a mano.
 - Si el script no está instalado o está desactualizado, «Abrir Instagram» abre el perfil y vos tocás "Enviar mensaje" y pegás, como antes. Revisá «En este navegador» en «User script de WhatsApp»: si dice «Desactualizado», actualizalo.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
