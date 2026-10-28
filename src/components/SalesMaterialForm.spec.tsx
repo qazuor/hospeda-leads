@@ -26,6 +26,11 @@ describe('pickedFileError',()=>{
  });
 });
 describe('SalesMaterialForm',()=>{
+ it('tells the admin that the client sees the title (owner review of spec 96)',()=>{
+  setup({type:'create'});
+  const title=screen.getByLabelText('Título');
+  expect(document.getElementById(title.getAttribute('aria-describedby')!)?.textContent).toMatch(/^Lo ve el cliente/);
+ });
  it('creates an external URL material with the trimmed data',async()=>{
   setup({type:'create'});
   expect(save('Guardar material').disabled).toBe(true);

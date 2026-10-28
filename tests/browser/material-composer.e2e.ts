@@ -52,7 +52,7 @@ test('send sales material from the business, record it and revoke the link',asyn
  await expect(composer.getByRole('heading',{name:'Elegí un mensaje modelo'})).toHaveCount(0);
  const included=composer.getByRole('list',{name:'Material incluido'});
  await expect(included.getByText(title,{exact:true})).toBeVisible();
- await expect(composer.getByText(new RegExp(`${title}: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
+ await expect(composer.getByText(new RegExp(`Podés ver «${title}» en: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
  await composer.getByRole('button',{name:'Guardar cambios',exact:true}).click();
  await expect(composer.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
  await expect(composer.getByRole('heading',{name:'Material de venta'})).toBeVisible();

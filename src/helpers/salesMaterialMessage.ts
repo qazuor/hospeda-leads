@@ -14,9 +14,11 @@ export function materialShareUrl({path,base=process.env.PUBLIC_APP_URL,productio
 }
 const escapeHtml=(value:string)=>value.replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const escapeRegExp=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-/** The text added to a draft for one material: «Título: URL» on its own line (WhatsApp) or a paragraph with the link (email). */
+/** Lead-in before an appended material link, written for the client (owner review of spec 96): «Podés ver «Título» en: URL». */
+export const materialLinkLead=({title}:{title:string})=>`Podés ver «${title.trim()}» en:`;
+/** The text added to a draft for one material: «Podés ver «Título» en: URL» on its own line (WhatsApp) or a paragraph with the link (email). */
 export function materialLinkSnippet({channel,title,url}:{channel:MaterialChannel;title:string;url:string}):string{
- return channel==='whatsapp'?`${title.trim()}: ${url}`:`<p>${escapeHtml(title.trim())}: <a href="${url}">${url}</a></p>`;
+ return channel==='whatsapp'?`${materialLinkLead({title})} ${url}`:`<p>${escapeHtml(materialLinkLead({title}))} <a href="${url}">${url}</a></p>`;
 }
 /** Appends the material link at the end of the body, separated from the previous text (spec 89 §8.1). */
 export function appendMaterialLink({channel,body,title,url}:{channel:MaterialChannel;body:string;title:string;url:string}):string{
@@ -28,13 +30,14 @@ const GAP='\u0000';
 /** Drops the placeholder left where a link was, without leaving double spaces or a space before punctuation. */
 const closeGap=(text:string)=>text.replace(/[ \t]*\u0000[ \t]*(?=[.,;:!?)]|<\/|$)/g,'').replace(/(^|>)[ \t]*\u0000[ \t]*/g,'$1').replace(/[ \t]*\u0000[ \t]*/g,' ');
 /**
- * Removes a material link from the body: the link itself and the «Título: » prefix the composer added before it (spec 89 §8.1).
+ * Removes a material link from the body: the link itself and the lead-in the composer added before it («Podés ver «Título» en: », or the
+ * older «Título: » of drafts saved before it; spec 89 §8.1).
  * Whatever else the seller wrote on that WhatsApp line or in that email paragraph is kept; a line or paragraph left empty is dropped
  * (in WhatsApp, with the blank line before it).
  */
 export function removeMaterialLink({channel,body,url,title}:{channel:MaterialChannel;body:string;url:string;title:string}):string{
  if(!url||!body.includes(url))return body;
- const u=escapeRegExp(url),name=title.trim(),prefix=name?`(?:(?:${[...new Set([escapeHtml(name),name])].map(escapeRegExp).join('|')}):[ \\t]*)?`:'';
+ const u=escapeRegExp(url),name=title.trim(),leads=name?[...new Set([materialLinkLead({title:name}),escapeHtml(materialLinkLead({title:name})),escapeHtml(name)+':',name+':'])]:[],prefix=leads.length?`(?:(?:${leads.map(escapeRegExp).join('|')})[ \\t]*)?`:'';
  if(channel==='email'){
   const link=new RegExp(`${prefix}(?:<a\\b[^>]*${u}[^>]*>[\\s\\S]*?</a>|${u})`,'g'),strip=(text:string)=>closeGap(text.replace(link,GAP));
   return strip(body.replace(/<p\b[^>]*>(?:(?!<\/p>)[\s\S])*?<\/p>/g,p=>{

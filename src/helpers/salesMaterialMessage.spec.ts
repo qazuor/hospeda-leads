@@ -19,14 +19,19 @@ describe('materialShareUrl',()=>{
 });
 
 describe('material links in the body',()=>{
- it('adds «Título: URL» on its own line in WhatsApp',()=>{
-  expect(appendMaterialLink({channel:'whatsapp',body:'Hola Ana\n',title:'Folleto 2027',url:urlA})).toBe(`Hola Ana\n\nFolleto 2027: ${urlA}`);
-  expect(appendMaterialLink({channel:'whatsapp',body:'',title:'Folleto',url:urlA})).toBe(`Folleto: ${urlA}`);
+ it('adds «Podés ver «Título» en: URL» on its own line in WhatsApp (owner review of spec 96)',()=>{
+  expect(appendMaterialLink({channel:'whatsapp',body:'Hola Ana\n',title:'Folleto 2027',url:urlA})).toBe(`Hola Ana\n\nPodés ver «Folleto 2027» en: ${urlA}`);
+  expect(appendMaterialLink({channel:'whatsapp',body:'',title:'Folleto',url:urlA})).toBe(`Podés ver «Folleto» en: ${urlA}`);
+ });
+ it('still removes the older «Título: URL» line of drafts saved before the lead-in',()=>{
+  expect(removeMaterialLink({channel:'whatsapp',body:`Hola Ana\n\nFolleto 2027: ${urlA}`,title:'Folleto 2027',url:urlA})).toBe('Hola Ana');
+  expect(removeMaterialLink({channel:'whatsapp',body:appendMaterialLink({channel:'whatsapp',body:'Hola Ana',title:'Folleto 2027',url:urlA}),title:'Folleto 2027',url:urlA})).toBe('Hola Ana');
+  expect(removeMaterialLink({channel:'email',body:appendMaterialLink({channel:'email',body:'<p>Hola</p>',title:'Tarifas & más',url:urlA}),title:'Tarifas & más',url:urlA})).toBe('<p>Hola</p>');
  });
  it('adds an escaped paragraph with the link in email and replaces an empty body',()=>{
-  expect(materialLinkSnippet({channel:'email',title:'Tarifas <b>& más',url:urlA})).toBe(`<p>Tarifas &#60;b&#62;&#38; más: <a href="${urlA}">${urlA}</a></p>`);
-  expect(appendMaterialLink({channel:'email',body:'<p></p>',title:'Folleto',url:urlA})).toBe(`<p>Folleto: <a href="${urlA}">${urlA}</a></p>`);
-  expect(appendMaterialLink({channel:'email',body:'<p>Hola</p>',title:'Folleto',url:urlA})).toBe(`<p>Hola</p><p>Folleto: <a href="${urlA}">${urlA}</a></p>`);
+  expect(materialLinkSnippet({channel:'email',title:'Tarifas <b>& más',url:urlA})).toBe(`<p>Podés ver «Tarifas &#60;b&#62;&#38; más» en: <a href="${urlA}">${urlA}</a></p>`);
+  expect(appendMaterialLink({channel:'email',body:'<p></p>',title:'Folleto',url:urlA})).toBe(`<p>Podés ver «Folleto» en: <a href="${urlA}">${urlA}</a></p>`);
+  expect(appendMaterialLink({channel:'email',body:'<p>Hola</p>',title:'Folleto',url:urlA})).toBe(`<p>Hola</p><p>Podés ver «Folleto» en: <a href="${urlA}">${urlA}</a></p>`);
  });
  it('removes only the line or paragraph of that link and keeps the rest of the text',()=>{
   const wa=`Hola\n\nFolleto: ${urlA}\n\nTour: ${urlB}`;
