@@ -343,6 +343,19 @@ async function startManual(e:Executor,input:Extract<CommunicationMutation,{actio
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:input.channel==='call'?'contact_completed':'contact_started',actor:user,after:{channel:input.channel,status:created.status,purpose:input.purpose,recipient:created.recipient,recipientName:created.recipientName,destination:created.destinationDetail,content:created.templateSnapshot?.finalBody||created.body||null,summary:created.summary}});return created;
 }
 export async function renderFinal(e:Executor,m:Message,user:User){const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const sender=user.fullName?.trim()||user.displayName;return {htmlBody:buildHospedaEmailHtml({bodyHtml:m.body,senderName:sender,senderEmail:user.email,subject:m.subject,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,logoUrl:(process.env.PUBLIC_APP_URL??'http://localhost:3001').replace(/\/$/,'')+'/hospeda-logo.jpg'}),textBody:buildHospedaEmailText({bodyText:htmlToPlainText(m.body),senderName:sender,senderEmail:user.email})};}
+/**
+ * Spec 96 §2.4 (D6): a fresh draft stores its final text (and the email html) exactly as `edit` would, so the composer opens on the final
+ * view and an untouched email can be sent. A blank message, missing variables or unresolved material references keep them null: the
+ * seller must edit and save first, as before.
+ */
+async function renderPreparedFinal<T extends Message>(e:Executor,m:T,user:User):Promise<T>{
+ const plain=m.channel==='email'?htmlToPlainText(m.body):m.body;
+ if(m.status!=='draft'||!plain.trim()||(m.channel==='email'&&!m.subject.trim())||[...unresolvedTemplateVariables(m.subject),...unresolvedTemplateVariables(m.body)].length||hasMaterialReferences({text:m.subject})||hasMaterialReferences({text:m.body}))return m;
+ const body=m.channel==='email'?sanitizeEmail(m.body):m.body;
+ const final=await renderFinal(e,{...m,body},user);
+ const saved=(await sql<Message>`UPDATE crm_messages SET body=${body},html_body=${m.channel==='email'?final.htmlBody:null},text_body=${m.channel==='email'?final.textBody:body},updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
+ return {...m,...saved};
+}
 async function activity(e:Executor,m:Message,user:User,result:string){
  const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);
  const current=(await sql<{activityId:string|null;status:string}>`SELECT activity_id,status FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0];
@@ -464,8 +477,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.
  await lockCommunication(e,communicationScope(input));
  // Template references ({{material:<uuid>}}) become one fresh share link per send (spec 89 §9).
- if(input.action==='prepare')return withInstagramFlags(e,await withMaterials(e,await resolveTemplateMaterials(e,{message:await prepare(e,input,user),user})));
- if(input.action==='prepare_general')return withInstagramFlags(e,await withMaterials(e,await resolveTemplateMaterials(e,{message:await prepareGeneral(e,input,user),user})));
+ if(input.action==='prepare'||input.action==='prepare_general'){const prepared=input.action==='prepare'?await prepare(e,input,user):await prepareGeneral(e,input,user);const resolved=await resolveTemplateMaterials(e,{message:prepared,user});return withInstagramFlags(e,await withMaterials(e,'freshDraft' in prepared?await renderPreparedFinal(e,resolved,user):resolved));}
  if(input.action==='material_add'||input.action==='material_remove'||input.action==='material_attach'||input.action==='material_retry_without_attachments')return mutateDraftMaterial(e,input,user);
  if(input.action==='manual_start')return startManual(e,input,user);
  if(input.action==='response_create')return createResponse(e,input,user);
