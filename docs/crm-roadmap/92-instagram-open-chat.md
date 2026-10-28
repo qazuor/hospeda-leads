@@ -83,17 +83,33 @@ The button shows «Abriendo Instagram…» while pending. After success the comp
 ### 2.4 Waiting for the echo, then «¿Lo enviaste?»
 
 - An opened attempt is `instagram_opened` («Instagram abierto · envío no confirmado»).
-  - It is an unconfirmed send everywhere `whatsapp_opened` is: dashed bubble, the hint «No sabemos si se envió…», «Requiere acción», Hoy's pending outcomes, `needsSentAnswer`, `OUTCOME_READY_STATUSES` and `sentTone`.
+  - It is an unconfirmed send everywhere `whatsapp_opened` is: «Requiere acción», Hoy's pending outcomes, `needsSentAnswer`, `OUTCOME_READY_STATUSES` and `sentTone`. Like an opened WhatsApp, it is not shown in «Conversación» until it is confirmed (see «Unconfirmed sends are not shown in the conversation» below).
   - One helper, `isOpenedUnconfirmed(status)`, replaces the literal `'whatsapp_opened'` checks: `communicationTimeline.ts:165`, `ConfirmSendButtons.tsx:10`, the `outcome` guard at `communicationService.ts:513`, `pendingContactOutcomes` at `communicationService.ts:426/429`, and `contactOutcome.ts`.
 - **Waiting period: 15 minutes** after the open (`INSTAGRAM_ECHO_WAIT_MS`). During that time:
-  - the bubble and the composer show «Esperando que Instagram confirme el envío…», with the hint «Si lo enviaste desde la cuenta de Hospeda se confirma solo. Si no llega en 15 minutos te preguntamos si lo enviaste.»;
-  - the attempt is not listed in «Requiere acción» or in Hoy's pending outcomes;
-  - «Sí, se envió» / «No se envió» stay available in the bubble's «⋯» menu and in the composer, for a seller who knows the answer.
-- **After 15 minutes without an echo,** the attempt shows the normal «¿Lo enviaste?» with «Sí, se envió» / «No se envió», in the summary and on the bubble, exactly like WhatsApp. The window is computed from `last_interaction_at`. The existing live refresh updates the UI when an echo resolves the attempt.
+  - its «Requiere acción» entry and the composer show «Esperando que Instagram confirme el envío…», with the hint «Si lo enviaste desde la cuenta de Hospeda se confirma solo. Si ya sabés cómo salió, marcalo con «Sí, se envió» o «No se envió».»;
+  - «Sí, se envió» / «No se envió» and «Copiar y abrir de nuevo» are already in that entry and in the composer, for a seller who knows the answer;
+  - the attempt is not listed in Hoy's pending outcomes.
+- **After 15 minutes without an echo,** the same entry asks the normal «¿Lo enviaste?» with «Sí, se envió» / «No se envió», exactly like WhatsApp. The window is computed from `last_interaction_at`. The existing live refresh updates the UI when an echo resolves the attempt.
 - **It never expires.** An unanswered attempt stays in «Requiere acción» like an unanswered WhatsApp today. Turning silence into «no se envió» would infer a state without evidence. See D2.
 - **Answering by hand:**
   - «Sí, se envió» makes it `manual_sent` (same `outcome` action, now accepted for `instagram_opened`). A later matching echo only links its `mid` to it (2.5): no second row.
   - «No se envió» makes it `manual_not_done`. A later echo is never matched to it: it is recorded as a standalone echo, as today. The seller's explicit answer is not rewritten.
+
+### 2.4.1 Unconfirmed sends are not shown in the conversation
+
+Owner decision (27/10/2026, after testing), for every channel:
+
+- An opened send nobody confirmed (`whatsapp_opened`, `instagram_opened`, including the 15-minute Instagram wait) is **not** listed in «Conversación». It lives only in «Requiere acción»:
+  - WhatsApp: «¿Lo enviaste?» with «Sí, se envió» / «No se envió»;
+  - Instagram during the wait: «Esperando que Instagram confirme el envío…» with the same two buttons and «Copiar y abrir de nuevo»;
+  - Instagram after 15 minutes: «¿Lo enviaste?» with the buttons and «Copiar y abrir de nuevo».
+
+  The entry quotes the prepared text and is self-contained: nothing scrolls to a missing item. It is shown to the author, or to an admin, on a writable view (same rule as before); another seller sees the send only once it is confirmed.
+- Once confirmed (by hand, by the WhatsApp user script or by Instagram's echo) it appears as a normal sent bubble at its send time.
+- A send answered «No se envió» (`manual_not_done`; a call «No se hizo» is not a send and stays listed) is hidden unless an admin turns on «Mostrar anulados», where it renders as before (dashed, muted).
+- Neither counts for «Nuevo desde tu última visita» nor for the visit mark (`newestAt`).
+- An email whose provider result is uncertain does not change: the message did leave the CRM, so it stays in the conversation with the dashed border and the admin's «Marcar como enviado / no enviado».
+- The dashed border, its tooltip and the legend line now describe only unknown, not done and failed results; the legend says unconfirmed opens are in «Requiere acción». The Bandeja (its own thread view) and Hoy are unchanged.
 
 ### 2.5 Echo-to-attempt matching (webhook)
 
@@ -205,10 +221,10 @@ Voided rows already stay out of lists, counters, last activity and search (decis
   - copies the saved text;
   - opens `https://ig.me/m/<username>` in a new tab;
   - shows «Mensaje copiado: pegalo en el chat (Ctrl+V)»;
-  - leaves a dashed bubble «Esperando que Instagram confirme el envío…».
+  - leaves a «Requiere acción» entry «Esperando que Instagram confirme el envío…» (nothing in «Conversación» yet).
 
   Without a username the option is disabled with its reason.
-- **A signed echo** with similar text within 24 h turns that bubble into the seller's sent bubble «Enviado · confirmado por Instagram»:
+- **A signed echo** with similar text within 24 h removes that entry and shows the seller's sent bubble «Enviado · confirmado por Instagram» in «Conversación»:
   - there is no extra «Instagram de Hospeda» bubble and no second Historial entry;
   - the attached task is completed.
 
