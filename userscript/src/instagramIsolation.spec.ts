@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 import profileEs from "../fixtures/instagram-profile-es.html?raw";
 import dmEs from "../fixtures/instagram-dm-es.html?raw";
 import { siteFor } from "./site";
-import { gmHandoffStore, listenForInstagramHandoff } from "./instagramBridge";
-import { HANDOFF_ACK_ATTRIBUTE, HANDOFF_EVENT, HANDOFF_STORAGE_KEY } from "./instagram/handoff";
+import { HANDOFF_CLEANUP_MARGIN_MS, gmHandoffStore, listenForInstagramHandoff } from "./instagramBridge";
+import { HANDOFF_ACK_ATTRIBUTE, HANDOFF_EVENT, HANDOFF_STORAGE_KEY, HANDOFF_TTL_MS } from "./instagram/handoff";
 
 /**
  * Spec 94 §2.4 (D1): Instagram runs inside the shared «Hospeda CRM» script but must stay isolated. On instagram.com the script never
@@ -84,6 +84,25 @@ describe("Instagram isolation inside the shared script", () => {
     expect(save).not.toHaveBeenCalled(); expect(document.documentElement.hasAttribute(HANDOFF_ACK_ATTRIBUTE)).toBe(false);
     fire(JSON.stringify(valid));
     expect(save).toHaveBeenCalledWith(valid); expect(document.documentElement.getAttribute(HANDOFF_ACK_ATTRIBUTE)).toBe(valid.nonce);
+  });
+
+  it("on the CRM page, deletes a handoff nobody consumed once the TTL plus a margin has passed (compare-and-delete by nonce)", () => {
+    vi.useFakeTimers();
+    try {
+      const clear = vi.fn(), valid = { nonce: "c".repeat(32), username: "hotel.sol", expiresAt: Date.now() + HANDOFF_TTL_MS, text: "Hola" };
+      listenForInstagramHandoff({ doc: document, save: vi.fn(), read: () => null, clear });
+      document.dispatchEvent(new CustomEvent(HANDOFF_EVENT, { detail: JSON.stringify(valid) }));
+      vi.advanceTimersByTime(HANDOFF_TTL_MS + HANDOFF_CLEANUP_MARGIN_MS - 1); expect(clear).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1); expect(clear).toHaveBeenCalledExactlyOnceWith({ nonce: valid.nonce });
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("on the CRM page, deletes an expired or malformed handoff left in storage when the bridge starts, and keeps a live one", () => {
+    const live = { nonce: "d".repeat(32), username: "hotel.sol", expiresAt: Date.now() + 60_000, text: "Hola" };
+    for (const [stored, deleted] of [[{ ...live, expiresAt: Date.now() - 1 }, true], [{ nonce: "x" }, true], [live, false], [null, false]] as const) {
+      const save = vi.fn(); listenForInstagramHandoff({ doc: document, save, read: () => stored, clear: vi.fn() });
+      expect(save.mock.calls, JSON.stringify(stored)).toEqual(deleted ? [[null]] : []);
+    }
   });
 
   it("keeps the Instagram sources free of imports outside their folder", () => {

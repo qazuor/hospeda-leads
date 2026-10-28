@@ -154,7 +154,7 @@ Isolation is **by code, not by capability**: `@grant` applies to every `@match`,
 - **Replay and races (L7).** A handoff is single use, valid for 2 minutes and deleted compare-and-delete. With two quick opens, the second supersedes the first: the first tab shows the neutral notice and does not touch the second tab's handoff.
 - **A sandbox-dependent bridge (M1).** The handoff is a JSON string event plus an attribute ack, with no object identity. Without an ack the CRM falls back to the plain profile.
 
-**Tradeoff accepted (D7).** The prepared text sits for up to 2 minutes in Tampermonkey's storage. That storage belongs to the script and web pages cannot read it. It is deleted on use.
+**Tradeoff accepted (D7).** The prepared text sits for up to 2 minutes in Tampermonkey's storage. That storage belongs to the script and web pages cannot read it. It is deleted on use. If no Instagram tab consumes it, the script on the CRM page (never the Instagram module) deletes it by nonce once the 2 minutes plus a 5-second margin pass, and deletes any expired one when it starts.
 
 **Residual risk.**
 - A malicious script running in the CRM's own origin could dispatch a handoff, but that already implies control of the CRM.
@@ -199,4 +199,4 @@ Isolation is **by code, not by capability**: `@grant` applies to every `@match`,
 - **D4. No version reporting from Instagram (default).** The shared script already reports through WhatsApp and announces itself on the CRM page.
 - **D5. Timeouts (default):** 15 s for the button and for the composer, 3 s for the handoff to reach the tab, 300 ms for the ack, 2 min of validity.
 - **D6. One-time handoff instead of a bare marker (owner, 28/10/2026, security review).** See section 5.
-- **D7. The text travels in the handoff; the clipboard is never read on Instagram (owner, 28/10/2026, second review).** Tradeoff: the text stays up to 2 minutes in Tampermonkey's per-script storage. The clipboard copy stays as the manual fallback.
+- **D7. The text travels in the handoff; the clipboard is never read on Instagram (owner, 28/10/2026, second review).** Tradeoff: the text stays up to 2 minutes (cleaned up by the CRM-side script if unused) in Tampermonkey's per-script storage. The clipboard copy stays as the manual fallback.
