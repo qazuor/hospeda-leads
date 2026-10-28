@@ -332,21 +332,22 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando querés escribir o llamar sin buscar primero una tarea.
 
-1. Abrí el negocio y tocá «Contactar». Revisá su estado, los canales disponibles y las restricciones antes de seguir.
-2. En «¿Sobre qué?» elegí «Sin gestión (contacto general)» o una gestión abierta. Las gestiones cerradas solo sirven para anotar una respuesta recibida, no para empezar un contacto nuevo.
-3. Si es un contacto general, elegí el «Propósito del contacto». Si es sobre una gestión, la gestión ya da el contexto.
-4. Si el negocio es Nuevo, solo podés hacer una verificación para comprobar que existe. Para iniciar una gestión confirmá que ya lo verificaste con «Iniciar gestión y continuar»: queda Revisado y se crea la gestión en el mismo paso.
-5. Elegí el canal: «Email», «WhatsApp», «Llamada», «Red social» u «Otro canal». Después tocá «Continuar con el mensaje».
-6. Elegí la «Persona de contacto» o «Usar el dato general del negocio» si no hay una persona con ese canal. Con varias personas o direcciones, elegí la correcta.
-7. Elegí un «Mensaje modelo (opcional)» o «Escribir desde cero», revisá el texto y el destino, y tocá «Preparar email» o «Preparar WhatsApp».
-8. Al terminar, el CRM te pregunta «¿Cómo salió?» y «¿Cómo sigue?». Es el mismo recorrido para todos los canales.
+1. Abrí el negocio. En «Comunicación» tocá «WhatsApp», «Instagram» o «Email»; o tocá «Contactar» arriba y elegí el canal en el mismo paso. Si un botón está apagado, pasá el mouse para ver por qué.
+2. El CRM elige solo sobre qué es el contacto: la gestión abierta si hay una, o «Sin gestión (contacto general)» si no hay ninguna. Con varias gestiones abiertas elegí una en «¿Sobre qué?». Para elegir otra cosa tocá «Cambiar».
+3. Si es un contacto general, el propósito ya viene elegido según el estado del negocio. Para cambiarlo tocá «Cambiar» y elegí el «Propósito del contacto»; con «Otro» completá la «Aclaración del propósito».
+4. Si no hay gestiones abiertas y querés empezar una, tocá «Iniciar gestión». Si el negocio es Nuevo, solo podés hacer una verificación para comprobar que existe.
+5. Revisá a quién va: la línea Para muestra la persona y el dato. Tocá «Cambiar» para elegir otra persona. Con varias personas con ese canal, el CRM te pide que elijas una.
+6. Tocá un mensaje modelo o «Escribir un mensaje nuevo». El mensaje se abre listo para enviar: si querés cambiarlo, tocá «Editar» y después «Guardar cambios».
+7. Tocá el botón final: dice a dónde va el mensaje (por ejemplo, Abrir WhatsApp con Ana y el teléfono). Se abre el canal y el CRM se cierra solo con un aviso.
+8. Para una llamada, una red social u otro canal, tocá «Llamada», «Red social» u «Otro canal» en la línea de abajo. Esos contactos siguen terminando en «¿Cómo salió?» y «¿Cómo sigue?».
 
-**Qué queda al terminar:** El contacto queda asociado al negocio y al propósito o gestión correctos, y siempre termina anotando cómo salió y cómo sigue.
+**Qué queda al terminar:** El contacto queda asociado al negocio y al propósito o gestión correctos en tres clics: canal, modelo y botón final. Lo que pasó se resuelve después, en «Requiere acción» o al registrar la respuesta.
 
 **Tené en cuenta:**
 
 - Archivado y No contactar bloquean las salidas. Las restricciones técnicas también pueden bloquear un canal concreto.
-- Si falla abrir el email o WhatsApp, el CRM guarda un intento sin confirmar. No lo reenvíes de nuevo: primero revisá su estado.
+- En la computadora, WhatsApp e Instagram necesitan el script de Hospeda instalado, actualizado y conectado con tu cuenta. Si falta algo, el botón queda apagado con el motivo y un enlace «Ir a User script». En el celular no hace falta.
+- Si falla abrir el email o WhatsApp, el CRM guarda un intento sin confirmar. No lo reenvíes de nuevo: primero revisá su estado en «Requiere acción».
 - Si no ves «Contactar», puede ser porque el negocio es No contactar o porque no sos su responsable. Mirá el artículo No puedo modificar un negocio, en Resolver dudas y errores.
 
 **Dónde ir:** Abrir Negocios (/accounts)
@@ -427,15 +428,15 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 
 **Cuándo usarlo:** Cuando llega el momento de una tarea o de una conversación necesaria.
 
-1. Desde una tarea tocá «Contactar». Desde el negocio, tocá «Contactar» y elegí sobre qué es el contacto. Los canales son «Email», «WhatsApp», «Instagram», «Llamada», «Red social» y «Otro canal».
+1. Desde una tarea tocá «Contactar». Desde el negocio, en «Comunicación», tocá «WhatsApp», «Instagram» o «Email», o tocá «Contactar» y elegí el canal. «Llamada», «Red social» y «Otro canal» están en la línea de abajo.
 2. Para email y WhatsApp, revisá la persona y el dato exacto. Si no hay una persona con ese canal, podés usar el canal general del negocio.
 3. El email se prepara y sale desde el CRM. El CRM te muestra si el servicio de envío aceptó el pedido; eso no confirma que llegó.
-4. WhatsApp abre la aplicación con el texto preparado. Al volver, el CRM pregunta «¿Lo enviaste?»: tocá «Sí, lo envié» solo si lo mandaste de verdad, «No, no lo envié» si no, o «Todavía no sé, lo anoto después».
-5. «Instagram» escribe al usuario de Instagram del negocio (el que está en los datos del negocio). Elegí el modelo, revisalo y tocá «Abrir Instagram»: el CRM copia el mensaje y abre Instagram. En la computadora se abre el perfil del negocio (Instagram no abre chats directos en la web): tocá Enviar mensaje y pegá con Ctrl+V. En el celular tocá el botón Ir al chat que aparece con el usuario del negocio, mantené apretado en el chat y elegí Pegar. Después lo enviás.
+4. WhatsApp abre la aplicación con el texto preparado y el CRM se cierra con un aviso. Si el script de WhatsApp registra el envío, se confirma solo; si no, lo ves en «Requiere acción» y ahí contestás «Sí, se envió» o «No se envió». Desde una tarea, el CRM sigue preguntando «¿Lo enviaste?» al volver.
+5. «Instagram» escribe al usuario de Instagram del negocio (el que está en los datos del negocio). Elegí el modelo y tocá el botón final, que dice el usuario: el CRM copia el mensaje y abre Instagram. En la computadora se abre el perfil del negocio (Instagram no abre chats directos en la web): tocá Enviar mensaje y pegá con Ctrl+V. En el celular tocá el botón Ir al chat que aparece con el usuario del negocio, mantené apretado en el chat y elegí Pegar. Después lo enviás.
 6. Tenés que estar con la sesión de Hospeda en Instagram, en el navegador o en la app. Cuando Instagram avisa del envío, el mensaje queda «Enviado · confirmado por Instagram» solo. Mientras tanto, en «Requiere acción» ves «Esperando que Instagram confirme el envío…» y ya podés contestar «Sí, se envió» o «No se envió»; si en 15 minutos no llega el aviso, el CRM te pregunta «¿Lo enviaste?» como con WhatsApp. Hasta que se confirma, el mensaje no aparece en «Conversación».
 7. Para una llamada, elegí a quién llamás. En el celular tocá «Llamar ahora»; en la computadora tocá «Copiar número» y llamá desde tu teléfono. Cuando termines tocá «Ya llamé: anotar cómo salió». Si no te atendieron: desde el negocio podés tocar «No me atendieron»; desde una tarea tocá «Ya llamé: anotar cómo salió» y elegí «No respondió».
 8. Para «Red social» y «Otro canal», el CRM crea un intento pendiente (podés «Crear intento y copiar texto»). Cuando termines, completá cómo salió.
-9. En todos los casos el contacto termina en «¿Cómo salió?» y «¿Cómo sigue?». Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta.
+9. Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta. Cuando registrás la respuesta del negocio, el CRM anota solo cómo salió el último envío pendiente de ese contacto; lo podés corregir con «Corregir cómo salió».
 
 **Qué queda al terminar:** Abrir un canal solo prepara o inicia la comunicación; lo que realmente pasó se anota después, siempre con su próximo paso.
 
@@ -449,9 +450,10 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 - Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.
 - Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.
 - Si el negocio contesta tu email, la respuesta llega sola a la «Conversación» de su ficha, en «Comunicación». No hace falta copiarla a mano.
-- Si abriste WhatsApp desde «Contactar» y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces. Igual te falta «Anotá cómo salió».
+- Si abriste WhatsApp desde el CRM y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces.
 - Si mandaste el mensaje de Instagram desde otra cuenta, o la conexión con Instagram no está activa, el envío no se confirma solo: contestá «Sí, se envió» o «No se envió» en «Requiere acción». Si se te cerró Instagram, usá «Copiar y abrir de nuevo» en esa misma entrada: no crea otro intento.
 - Si el negocio no tiene un usuario de Instagram válido, la opción «Instagram» aparece desactivada. Cargalo con «Agregar o editar datos de contacto»: es el mismo usuario que se usa para asociar los mensajes recibidos.
+- En la computadora, WhatsApp e Instagram necesitan el script de Hospeda instalado, en la última versión y conectado con tu cuenta. Si no, el botón queda apagado con el motivo, «Ir a User script» y, si el CRM no pudo comprobar la conexión, «Verificar de nuevo».
 
 ### Anotar cómo salió y decidir cómo sigue
 
@@ -684,14 +686,14 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando trabajás una gestión y querés usar un modelo o guardar un borrador.
 
-1. Tocá «Contactar», elegí «¿Sobre qué?» (un contacto general con su propósito o una gestión abierta) y el canal.
-2. Elegí una «Persona de contacto» y el dato concreto o, si no hay persona con ese canal, «Usar el dato general del negocio». Comprobá el destinatario antes de seguir.
-3. Usá un «Mensaje modelo (opcional)» compartido o «Escribir desde cero». Podés editar el texto para este contacto. Si faltan datos del modelo, completalos o quitalos.
-4. El email sale desde el CRM. WhatsApp abre la aplicación y el CRM te pregunta después «¿Lo enviaste?». Si falla la apertura, queda un intento sin confirmar.
+1. Tocá «WhatsApp», «Instagram» o «Email» en «Comunicación», o «Contactar». El CRM ya elige sobre qué es el contacto; con varias gestiones abiertas elegí una en «¿Sobre qué?».
+2. Comprobá la línea Para antes de seguir. Si hay varias personas con ese canal, elegí una; si no hay ninguna, se usa el dato del negocio.
+3. Elegí un mensaje modelo compartido o «Escribir un mensaje nuevo». El modelo se abre listo para enviar; con «Editar» lo cambiás para este contacto y con «Guardar cambios» volvés al mensaje final. Si faltan datos del modelo, completalos o quitalos.
+4. El email sale desde el CRM. WhatsApp abre la aplicación y, si el envío no se confirma solo, queda en «Requiere acción». Si falla la apertura, queda un intento sin confirmar.
 5. Las llamadas se anotan a mano con un resumen. En «Red social» y «Otro canal» podés copiar el texto; queda un intento pendiente que después completás.
 6. Si el contacto quedó sin confirmar o pendiente, resolvelo más tarde sin sobrescribir el texto. Para corregir uno ya confirmado, usá la acción de corrección y explicá el motivo.
 
-**Qué queda al terminar:** El CRM conserva el contenido y el estado del mensaje. Lo que pasó y cómo sigue se anotan aparte, en «¿Cómo salió?» y «¿Cómo sigue?».
+**Qué queda al terminar:** El CRM conserva el contenido y el estado del mensaje. Lo que pasó se anota aparte: al registrar la respuesta del negocio o en «¿Cómo salió?».
 
 **Ejemplo:**
 
@@ -1054,6 +1056,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 - Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.
 - El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.
 - Desde la versión 1.4.0 el mismo script también trabaja en Instagram. La primera vez que Tampermonkey lo actualice te va a pedir que apruebes un sitio nuevo (instagram.com): aceptalo una sola vez. Si no lo aprobás, el script sigue funcionando en WhatsApp.
+- La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.5.0 el CRM pide siempre la última versión del script.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
@@ -1178,10 +1181,10 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 ### Pegar el mensaje en Instagram con el script
 
-**Cuándo usarlo:** Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado (versión 1.4.0 o posterior).
+**Cuándo usarlo:** Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado, actualizado y conectado.
 
-1. En el negocio, tocá «Contactar», elegí el canal Instagram y prepará el mensaje como siempre.
-2. Tocá «Abrir Instagram». El CRM copia el mensaje, se lo pasa al script y abre el perfil del negocio en una pestaña nueva.
+1. En el negocio, tocá «Instagram» en «Comunicación» (o «Contactar» y elegí Instagram) y elegí el mensaje.
+2. Tocá el botón final, que dice el usuario del negocio. El CRM copia el mensaje, se lo pasa al script y abre el perfil del negocio en una pestaña nueva.
 3. El script toca "Enviar mensaje" en el perfil, espera a que se abra el chat de ese perfil y escribe el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»
 4. Revisá el texto y envialo vos desde el chat. El script nunca lo envía.
 5. Si en lugar de eso aparece un aviso (por ejemplo «No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje (Ctrl+V).»), abrí el chat y pegá con Ctrl+V (⌘V en Mac): el mensaje sigue copiado. Si se perdió, volvé al CRM y tocá «Copiar y abrir de nuevo».
@@ -1190,14 +1193,14 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Ejemplo:**
 
-- Leo prepara una presentación para Cabañas del Río y toca «Abrir Instagram». Se abre el perfil, el script abre el chat y deja el mensaje pegado. Leo corrige un saludo y lo envía.
+- Leo prepara una presentación para Cabañas del Río y toca el botón final de Instagram. Se abre el perfil, el script abre el chat y deja el mensaje pegado. Leo corrige un saludo y lo envía.
 
 **Tené en cuenta:**
 
 - Solo funciona en la computadora, en Chrome, Edge o Firefox. El navegador no pide permiso para el portapapeles: el script no lo lee, recibe el mensaje directamente del CRM. En el celular se abre la app de Instagram como siempre.
-- El script actúa únicamente en la pestaña que abre el CRM con «Abrir Instagram», durante dos minutos y una sola vez. Un enlace de otra página no lo activa. Si tocás «Abrir Instagram» dos veces seguidas, vale la última.
+- El script actúa únicamente en la pestaña que abre el CRM, durante dos minutos y una sola vez. Un enlace de otra página no lo activa. Si abrís Instagram dos veces seguidas, vale la última.
 - Solo escribe en el chat que se abre al tocar "Enviar mensaje" en ese perfil, y solo si está vacío. Nunca usa una ventanita de chat flotante con otra persona ni escribe encima de algo que ya escribiste. Los mensajes de más de 4000 caracteres se pegan a mano.
-- Si el script no está instalado o está desactualizado, «Abrir Instagram» abre el perfil y vos tocás "Enviar mensaje" y pegás, como antes. Revisá «En este navegador» en «User script de WhatsApp»: si dice «Desactualizado», actualizalo.
+- Si el script no está instalado, está desactualizado o no está conectado con tu cuenta, el CRM no deja abrir Instagram desde la computadora y te muestra «Ir a User script». Revisá «En este navegador» en «User script de WhatsApp»: si dice «Desactualizado», actualizalo.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
