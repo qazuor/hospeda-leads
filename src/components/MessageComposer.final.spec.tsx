@@ -110,7 +110,7 @@ describe('MessageComposer · user script gate (spec 96 §3.3)',()=>{
   const open=vi.spyOn(window,'open');show(message());
   const button=screen.getByRole('button',{name:WA}) as HTMLButtonElement;
   expect(button.disabled).toBe(true);
-  expect(screen.getByText(/Actualizá el script \(tenés 1\.4\.0, la actual es 1\.5\.0\)\./)).toBeTruthy();
+  expect(screen.getByText(`Actualizá el script (tenés 1.4.0, la actual es ${USERSCRIPT_VERSION}).`,{exact:false})).toBeTruthy();
   expect(screen.getByRole('link',{name:'Ir a User script'}).getAttribute('href')).toBe('/userscript');
   fireEvent.click(button);expect(open).not.toHaveBeenCalled();expect(postCommunication).not.toHaveBeenCalled();
  });

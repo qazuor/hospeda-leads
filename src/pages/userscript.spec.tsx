@@ -1,6 +1,7 @@
 import React from 'react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {act,cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {listenForToken} from '../../userscript/src/tokenBridge';
 import {MantineProvider} from '@mantine/core';
 import {MemoryRouter} from 'react-router-dom';
 import UserscriptPage,{DETECT_TIMEOUT_MS,USERSCRIPT_URL} from './userscript';
@@ -51,6 +52,29 @@ describe('UserscriptPage',()=>{
 describe('UserscriptPage · Conexión (spec 96 §3.4)',()=>{
  const announce=(connection:string,user?:string)=>{const html=document.documentElement;html.setAttribute(INSTALLED_ATTRIBUTE,USERSCRIPT_VERSION);html.setAttribute(CONNECTION_ATTRIBUTE,connection);if(user)html.setAttribute(USER_ATTRIBUTE,user);};
  const line=()=>screen.getByRole('status',{name:'Conexión'}).textContent;
+ it('connects this browser in one click when the script takes tokens (1.5.1+)',async()=>{
+  // Arrange: the real script-side listener answers the page.
+  const token='hcu_'+'c'.repeat(43),save=vi.fn(),stop=listenForToken({doc:document,save,recheck:()=>{}});
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({tokens:[],latestVersion:USERSCRIPT_VERSION,token}),{status:200})));
+  try{
+   announce('missing-token');renderPage();
+   fireEvent.change(await screen.findByLabelText('Nombre del dispositivo'),{target:{value:'Notebook'}});
+   fireEvent.click(screen.getByRole('button',{name:'Crear token'}));
+   // Act
+   fireEvent.click(await screen.findByRole('button',{name:'Conectar este navegador'}));
+   // Assert
+   expect(await screen.findByText('Listo: este navegador quedó conectado')).toBeTruthy();
+   expect(save).toHaveBeenCalledWith(token);
+  }finally{stop();}
+ });
+ it('offers only copy and paste to a script older than 1.5.1',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({tokens:[],latestVersion:USERSCRIPT_VERSION,token:'hcu_'+'d'.repeat(43)}),{status:200})));
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.5.0');document.documentElement.setAttribute(CONNECTION_ATTRIBUTE,'missing-token');renderPage();
+  fireEvent.change(await screen.findByLabelText('Nombre del dispositivo'),{target:{value:'Notebook'}});
+  fireEvent.click(screen.getByRole('button',{name:'Crear token'}));
+  expect(await screen.findByRole('button',{name:'Copiar y abrir WhatsApp Web'})).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Conectar este navegador'})).toBeNull();
+ });
  it('after creating a token, copies it and opens WhatsApp Web in one click',async()=>{
   // Arrange
   // One answer serves both the list and the creation (the page reads `tokens` from one and `token` from the other).

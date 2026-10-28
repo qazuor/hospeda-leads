@@ -2,7 +2,7 @@ import {HelpLink} from '../components/HelpLink';
 import React from 'react';
 import {TextInput} from '@mantine/core';
 import {Link} from 'react-router-dom';
-import {AlertCircle,Check,ChevronRight,CircleHelp,Download,ExternalLink,KeyRound,MessageCircle,ShieldCheck,Workflow} from 'lucide-react';
+import {AlertCircle,Check,ChevronRight,CircleHelp,Download,ExternalLink,KeyRound,Link2,MessageCircle,ShieldCheck,Workflow} from 'lucide-react';
 import {Button} from '../components/Button';
 import {Badge} from '../components/Badge';
 import {CrmDialog} from '../components/ui/CrmDialog';
@@ -10,6 +10,7 @@ import {compareSemver} from '../helpers/userscriptPure';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
 import {DETECT_TIMEOUT_MS,recheckUserscript,useCurrentUserEmail,useUserscriptStatus} from '../helpers/useUserscriptStatus';
 import {USERSCRIPT_URL,userscriptOtherUserReason,type UserscriptStatus} from '../helpers/userscriptGate';
+import {handTokenToUserscript,supportsTokenBridge} from '../helpers/userscriptConnect';
 import styles from './userscript.module.css';
 /** Served by the same CRM origin, so the installed script updates itself from the instance that issued its tokens. */
 export {USERSCRIPT_URL} from '../helpers/userscriptGate';
@@ -55,6 +56,23 @@ function InstallStatus({status}:{status:UserscriptStatus}){
   <div className={styles.version}><span>Versión actual</span><strong>{USERSCRIPT_VERSION}</strong></div>
  </section>;
 }
+/**
+ * The token just created, shown once. With a 1.5.1+ script in this page, «Conectar este navegador» hands it over directly (owner review
+ * of spec 96); otherwise, or when the script does not answer, it is copied and pasted in the Hospeda panel of WhatsApp Web.
+ */
+function TokenReveal({token,bridge}:{token:string;bridge:boolean}){
+ const [connect,setConnect]=React.useState<'idle'|'connecting'|'connected'|'failed'>('idle');
+ React.useEffect(()=>setConnect('idle'),[token]);
+ const run=async()=>{if(connect==='connecting')return;setConnect('connecting');setConnect(await handTokenToUserscript({token})?'connected':'failed');};
+ const copy=<><Button variant={bridge&&connect!=='failed'?'outline':'primary'} onClick={()=>copyAndOpenWhatsApp(token)}><ExternalLink size={16} aria-hidden="true"/>Copiar y abrir WhatsApp Web</Button><Button variant="outline" onClick={()=>void navigator.clipboard.writeText(token)}>Copiar token</Button></>;
+ if(connect==='connected')return <section className={styles.tokenReveal} role="status"><div><strong>Listo: este navegador quedó conectado</strong><p>El script guardó el token nuevo. No hace falta pegarlo en WhatsApp Web.</p></div></section>;
+ return <section className={styles.tokenReveal} role="status">
+  <div><strong>{bridge?'Conectá este navegador':'Copialo ahora'}</strong><p>{bridge?'Un clic y el script de este navegador queda conectado. El token no se vuelve a mostrar.':'El token no se vuelve a mostrar. Pegalo en el panel de Hospeda dentro de WhatsApp Web.'}</p></div>
+  <code>{token}</code>
+  {connect==='failed'&&<p className={styles.revealError} role="alert">El script no respondió. Copiá el token y pegalo en el panel de Hospeda dentro de WhatsApp Web.</p>}
+  <div className={styles.revealActions}>{bridge&&connect!=='failed'&&<Button disabled={connect==='connecting'} disabledReason="Conectando…" onClick={()=>void run()}><Link2 size={16} aria-hidden="true"/>{connect==='connecting'?'Conectando…':'Conectar este navegador'}</Button>}{copy}</div>
+ </section>;
+}
 export default function UserscriptPage(){
  const status=useUserscriptStatus();
  const [tokens,setTokens]=React.useState<Token[]>([]),[label,setLabel]=React.useState(''),[shown,setShown]=React.useState(''),[busy,setBusy]=React.useState(false),[loading,setLoading]=React.useState(true),[error,setError]=React.useState(''),[revokeTarget,setRevokeTarget]=React.useState<Token|null>(null),[autoRegister,setAutoRegister]=React.useState(true);const lock=React.useRef(false);
@@ -72,7 +90,7 @@ export default function UserscriptPage(){
      {!loading&&<label className={styles.preference}><input type="checkbox" checked={autoRegister} disabled={busy} onChange={e=>void toggleAuto(e.currentTarget.checked)}/><span><strong>Registrar solo los chats seguros</strong><small>Cuando está habilitado, los chats elegibles pueden registrarse automáticamente.</small></span></label>}
      {error&&<p className={styles.error} role="alert"><AlertCircle size={17}/>{error}<Button variant="outline" disabled={loading} onClick={()=>void load()}>Reintentar</Button></p>}
      {loading?<p className={styles.loading} role="status">Cargando tokens…</p>:<><div className={styles.createToken}><TextInput id={TOKEN_INPUT_ID} label="Nombre del dispositivo" placeholder="Por ejemplo, Notebook oficina" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>
-      {shown&&<section className={styles.tokenReveal} role="status"><div><strong>Copialo ahora</strong><p>El token no se vuelve a mostrar. Pegalo en el panel de Hospeda dentro de WhatsApp Web.</p></div><code>{shown}</code><div className={styles.revealActions}><Button onClick={()=>copyAndOpenWhatsApp(shown)}><ExternalLink size={16} aria-hidden="true"/>Copiar y abrir WhatsApp Web</Button><Button variant="outline" onClick={()=>void navigator.clipboard.writeText(shown)}>Copiar token</Button></div></section>}
+      {shown&&<TokenReveal token={shown} bridge={supportsTokenBridge({version:status.version})}/>}
       {tokens.length?<ul className={styles.tokenList}>{tokens.map(t=><li key={t.id}><span className={styles.tokenIcon}><KeyRound size={16}/></span><div className={styles.tokenInfo}><strong>{t.label}</strong><span>Creado {new Date(t.createdAt).toLocaleDateString('es-AR')} · {usage(t)}</span></div>{!t.revokedAt&&outdated(t.lastVersion)&&<Badge variant="warning">Desactualizado</Badge>}{!t.revokedAt&&<Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(t)}>Revocar</Button>}</li>)}</ul>:<p className={styles.empty}>Todavía no hay tokens. Creá uno para conectar esta computadora.</p>}
      </>}
     </section>
