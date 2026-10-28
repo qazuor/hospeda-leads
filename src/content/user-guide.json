@@ -1632,7 +1632,7 @@
   {
     "id": "whatsapp-userscript",
     "title": "Registrar mensajes de WhatsApp",
-    "description": "Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar.",
+    "description": "Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar. El mismo script pega en Instagram el mensaje que copia el CRM.",
     "articles": [
       {
         "example": [
@@ -1641,7 +1641,8 @@
         "notes": [
           "El token es personal: no lo compartas. Todo lo que registres con él queda a tu nombre.",
           "Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.",
-          "El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas."
+          "El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.",
+          "Desde la versión 1.4.0 el mismo script también trabaja en Instagram. La primera vez que Tampermonkey lo actualice te va a pedir que apruebes un sitio nuevo (instagram.com): aceptalo una sola vez. Si no lo aprobás, el script sigue funcionando en WhatsApp."
         ],
         "url": "/userscript",
         "linkLabel": "User script de WhatsApp",
@@ -1850,6 +1851,41 @@
           "¿Lo enviaste?",
           "Agregar material",
           "Agregar"
+        ]
+      },
+      {
+        "id": "instagram-userscript-paste",
+        "title": "Pegar el mensaje en Instagram con el script",
+        "when": "Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado (versión 1.4.0 o posterior).",
+        "steps": [
+          "En el negocio, tocá «Contactar», elegí el canal Instagram y prepará el mensaje como siempre.",
+          "Tocá «Abrir Instagram». El CRM copia el mensaje y abre el perfil del negocio en una pestaña nueva.",
+          "Si es la primera vez, el navegador pregunta si instagram.com puede ver lo que copiaste: tocá \"Permitir\". No lo vuelve a preguntar.",
+          "El script toca \"Enviar mensaje\" en el perfil, espera a que se abra el chat y pega el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»",
+          "Revisá el texto y envialo vos desde el chat. El script nunca lo envía.",
+          "Si aparece un aviso en lugar de pegarse (por ejemplo «El portapapeles cambió: pegá el mensaje con Ctrl+V.»), pegalo a mano con Ctrl+V (⌘V en Mac). Si se perdió lo copiado, volvé al CRM y tocá «Copiar y abrir de nuevo»."
+        ],
+        "result": "El mensaje queda escrito en el chat de Instagram del negocio, listo para que lo envíes. Cuando lo mandás desde la cuenta de Hospeda, el CRM lo confirma solo, igual que sin el script.",
+        "example": [
+          "Leo prepara una presentación para Cabañas del Río y toca «Abrir Instagram». Se abre el perfil, el script abre el chat y deja el mensaje pegado. Leo corrige un saludo y lo envía."
+        ],
+        "notes": [
+          "Solo funciona en la computadora (Chrome o Edge; en Firefox el navegador suele bloquear la lectura del portapapeles y vas a tener que pegar a mano). En el celular se abre la app de Instagram como siempre.",
+          "El script actúa únicamente en la pestaña que abre el CRM con «Abrir Instagram», durante dos minutos y una sola vez. Un enlace de otra página no lo activa.",
+          "Solo pega si lo que tenés copiado es el mensaje del CRM y si el chat está vacío. Nunca pega encima de algo que ya escribiste.",
+          "Si el script no está instalado o está desactualizado, «Abrir Instagram» abre el perfil y vos tocás \"Enviar mensaje\" y pegás, como antes. Revisá «En este navegador» en «User script de WhatsApp»: si dice «Desactualizado», actualizalo."
+        ],
+        "url": "/userscript",
+        "linkLabel": "User script de WhatsApp",
+        "uiLabels": [
+          "Contactar",
+          "Abrir Instagram",
+          "Mensaje pegado. Revisalo y envialo vos.",
+          "El portapapeles cambió: pegá el mensaje con Ctrl+V.",
+          "Copiar y abrir de nuevo",
+          "En este navegador",
+          "User script de WhatsApp",
+          "Desactualizado"
         ]
       },
       {

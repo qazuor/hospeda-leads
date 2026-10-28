@@ -207,8 +207,9 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 8. Debajo del último mensaje, «Preparar respuesta» abre «Contactar» con el canal y el destinatario del último mensaje recibido. Si ese canal o destinatario no se puede usar, abre «Contactar» como siempre y te dice por qué. Solo prepara el mensaje: no cuenta como contacto.
 9. Cada mensaje dice de qué lado está: «Nosotros» si lo enviamos o registramos desde el CRM, «Negocio» si lo envió o respondió el negocio. El botón «Cómo leer el chat», junto al título «Conversación», explica los lados, los colores por plataforma y el borde punteado de los envíos cuyo resultado todavía no sabemos.
 10. El estado de cada envío es el comprobado: «Email aceptado por proveedor · entrega no confirmada» no significa que lo leyeron, y «WhatsApp abierto · envío no confirmado» no significa que se envió.
-11. Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.
-12. «Abrir en la Bandeja» te lleva a las mismas conversaciones separadas por gestión y canal.
+11. En los emails, cuando Brevo avisa, el estado pasa a «Entregado» con la fecha y hora: el servidor del destinatario lo recibió, no que alguien lo leyó. Al lado pueden aparecer «Abierto» (con la primera vez y cuántas veces), «Click en un enlace» y «Posible apertura automática», que son solo informativos, y «Marcado como spam» como aviso. Pasá el mouse o tocá cada marca para ver qué significa.
+12. Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.
+13. «Abrir en la Bandeja» te lleva a las mismas conversaciones separadas por gestión y canal.
 
 **Qué queda al terminar:** Ves en un solo lugar qué se envió, qué respondió el negocio y qué falta hacer, sin repeticiones.
 
@@ -220,6 +221,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 - Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa.
 - Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta.
+- «Abierto» es aproximado: algunos clientes de correo abren los emails automáticamente (Apple Mail) y otros bloquean las imágenes. Una apertura o un click no es una respuesta, no cuenta como contacto, no completa tareas ni cambia la fecha del último contacto.
 
 ### Emails y mensajes recibidos
 
@@ -1023,7 +1025,7 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 ## Registrar mensajes de WhatsApp
 
-Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar.
+Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar. El mismo script pega en Instagram el mensaje que copia el CRM.
 
 ### Instalar el user script de WhatsApp
 
@@ -1051,6 +1053,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 - El token es personal: no lo compartas. Todo lo que registres con él queda a tu nombre.
 - Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.
 - El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.
+- Desde la versión 1.4.0 el mismo script también trabaja en Instagram. La primera vez que Tampermonkey lo actualice te va a pedir que apruebes un sitio nuevo (instagram.com): aceptalo una sola vez. Si no lo aprobás, el script sigue funcionando en WhatsApp.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
@@ -1172,6 +1175,32 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 **Tené en cuenta:**
 
 - Si borrás el modelo y escribís otro mensaje a mano, se registra como un envío aparte y el modelo queda pendiente: cerralo con «No lo voy a enviar».
+
+### Pegar el mensaje en Instagram con el script
+
+**Cuándo usarlo:** Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado (versión 1.4.0 o posterior).
+
+1. En el negocio, tocá «Contactar», elegí el canal Instagram y prepará el mensaje como siempre.
+2. Tocá «Abrir Instagram». El CRM copia el mensaje y abre el perfil del negocio en una pestaña nueva.
+3. Si es la primera vez, el navegador pregunta si instagram.com puede ver lo que copiaste: tocá "Permitir". No lo vuelve a preguntar.
+4. El script toca "Enviar mensaje" en el perfil, espera a que se abra el chat y pega el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»
+5. Revisá el texto y envialo vos desde el chat. El script nunca lo envía.
+6. Si aparece un aviso en lugar de pegarse (por ejemplo «El portapapeles cambió: pegá el mensaje con Ctrl+V.»), pegalo a mano con Ctrl+V (⌘V en Mac). Si se perdió lo copiado, volvé al CRM y tocá «Copiar y abrir de nuevo».
+
+**Qué queda al terminar:** El mensaje queda escrito en el chat de Instagram del negocio, listo para que lo envíes. Cuando lo mandás desde la cuenta de Hospeda, el CRM lo confirma solo, igual que sin el script.
+
+**Ejemplo:**
+
+- Leo prepara una presentación para Cabañas del Río y toca «Abrir Instagram». Se abre el perfil, el script abre el chat y deja el mensaje pegado. Leo corrige un saludo y lo envía.
+
+**Tené en cuenta:**
+
+- Solo funciona en la computadora (Chrome o Edge; en Firefox el navegador suele bloquear la lectura del portapapeles y vas a tener que pegar a mano). En el celular se abre la app de Instagram como siempre.
+- El script actúa únicamente en la pestaña que abre el CRM con «Abrir Instagram», durante dos minutos y una sola vez. Un enlace de otra página no lo activa.
+- Solo pega si lo que tenés copiado es el mensaje del CRM y si el chat está vacío. Nunca pega encima de algo que ya escribiste.
+- Si el script no está instalado o está desactualizado, «Abrir Instagram» abre el perfil y vos tocás "Enviar mensaje" y pegás, como antes. Revisá «En este navegador» en «User script de WhatsApp»: si dice «Desactualizado», actualizalo.
+
+**Dónde ir:** User script de WhatsApp (/userscript)
 
 ### Problemas con el script de WhatsApp
 
