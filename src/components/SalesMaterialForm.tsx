@@ -1,5 +1,6 @@
 import {useRef,useState} from 'react';
-import {MultiSelect,Progress} from '@mantine/core';
+import {Progress} from '@mantine/core';
+import {MultiSelect} from './MultiSelect';
 import {useQueryClient} from '@tanstack/react-query';
 import {CrmApiError} from '../helpers/apiClient';
 import {getSalesMaterials,postSalesMaterial,type SalesMaterial,type SalesMaterialCategory,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
@@ -134,7 +135,7 @@ export function SalesMaterialForm({mode,categories,limits,onClose,onSaved}:{mode
     <label>Comentario<Textarea value={description} maxLength={4000} disabled={busy} onChange={e=>setDescription(e.target.value)} placeholder="Para qué sirve, a quién conviene mostrarlo"/></label>
     <label>Tipo<NativeSelect value={kind} disabled={busy} onChange={e=>setKind(e.target.value as 'deliverable'|'internal')}><option value="deliverable">Entregable: se puede mandar a clientes</option><option value="internal">Interno: solo para vendedores</option></NativeSelect></label>
     {becomesInternal&&<p className={styles.warning} role="note">Al pasarlo a interno, los enlaces que ya se mandaron van a mostrar «Este material ya no está disponible».</p>}
-    <MultiSelect label="Categorías" data={options} value={categoryIds} onChange={setCategoryIds} searchable clearable disabled={busy} nothingFoundMessage="No hay categorías con ese nombre" comboboxProps={{withinPortal:true}}/>
+    <MultiSelect label="Categorías" data={options} value={categoryIds} onChange={setCategoryIds} searchable clearable disabled={busy} nothingFoundMessage="No hay categorías con ese nombre"/>
     <div className={styles.inline}><label>Nueva categoría<Input value={newCategory} maxLength={100} disabled={busy} onChange={e=>setNewCategory(e.target.value)}/></label><Button variant="outline" disabled={busy||newCategory.trim().length<2} disabledReason={busy?BUSY:'Escribí un nombre de 2 letras o más.'} onClick={()=>void createCategory()}>Crear categoría</Button></div>
    </>}
    {(mode.type==='cover'||mode.type==='create'&&source==='file')&&<label>{mode.type==='cover'?'Imagen de portada':'Portada (opcional)'}<Input type="file" aria-label={mode.type==='cover'?'Imagen de portada':'Portada (opcional)'} accept={COVER_ACCEPT} disabled={busy} onChange={e=>setCover(e.target.files?.[0]??null)}/><span className={styles.hint}>JPG, PNG, WebP o GIF de hasta {formatBytes({bytes:limits.maxCoverBytes})}. Se usa en las vistas previas; en una imagen chica, la portada es la imagen misma. Sin portada, se genera una automática de la imagen, el video o la primera página del PDF.</span></label>}

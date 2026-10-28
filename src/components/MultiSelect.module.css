@@ -1,0 +1,4 @@
+.label{margin-bottom:6px;font-size:14px;font-weight:500;color:var(--foreground)}
+.input{height:auto!important;display:flex;align-items:center}
+.inputField{font-size:inherit;color:inherit}
+.allValue::placeholder{color:var(--foreground);opacity:1}

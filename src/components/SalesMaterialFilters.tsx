@@ -1,4 +1,5 @@
-import {MultiSelect,SegmentedControl} from '@mantine/core';
+import {SegmentedControl} from '@mantine/core';
+import {MultiSelect} from './MultiSelect';
 import {X} from 'lucide-react';
 import type {SalesMaterialCategory} from '../endpoints/salesMaterials.schema';
 import {SALES_MATERIAL_FORMAT_LABELS,type SalesMaterialFormat} from '../helpers/salesMaterialTypes';
@@ -18,7 +19,7 @@ export function SalesMaterialFiltersBar({admin,categories,value,onChange}:{admin
  const statuses=[{value:'',label:'Todos'},{value:'deliverable',label:'Entregables'},{value:'internal',label:'Internos'},...(admin?[{value:'archived',label:'Archivados'}]:[])];
  return <div className={styles.filters} role="search" aria-label="Filtros de material">
   <label className={styles.searchField}>Buscar material<Input type="search" value={value.search} onChange={e=>set('search',e.target.value)} placeholder="Título o comentario"/></label>
-  <MultiSelect className={styles.filterField} label="Categorías" placeholder={value.categoryIds.length?undefined:'Todas'} data={categories.map(c=>({value:c.id,label:c.name+(c.active?'':' (desactivada)')}))} value={value.categoryIds} onChange={ids=>set('categoryIds',ids)} searchable clearable nothingFoundMessage="No hay categorías con ese nombre" comboboxProps={{withinPortal:true}}/>
+  <MultiSelect className={styles.filterField} label="Categorías" allLabel="Todas" data={categories.map(c=>({value:c.id,label:c.name+(c.active?'':' (desactivada)')}))} value={value.categoryIds} onChange={ids=>set('categoryIds',ids)} searchable clearable nothingFoundMessage="No hay categorías con ese nombre"/>
   <label className={styles.filterField}>Formato<NativeSelect value={value.format} onChange={e=>set('format',e.target.value as SalesMaterialFilters['format'])}><option value="">Todos</option>{FORMATS.map(f=><option key={f} value={f}>{SALES_MATERIAL_FORMAT_LABELS[f]}</option>)}</NativeSelect></label>
   <div className={styles.statusField}><span id="sales-material-status">Estado</span><SegmentedControl aria-labelledby="sales-material-status" value={value.status} onChange={v=>set('status',v as SalesMaterialStatusFilter)} data={statuses}/></div>
   {hasSalesMaterialFilters(value)&&<Button variant="ghost" onClick={()=>onChange(EMPTY_SALES_MATERIAL_FILTERS)}><X size={16} aria-hidden="true"/>Limpiar filtros</Button>}
