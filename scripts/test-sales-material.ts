@@ -149,6 +149,33 @@ try{
  await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:imageId,title:'Foto '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[],version:{uploadId:imageUpload}});
  assert.equal((await call(endpoints.get,'sales_materials?search=foto+'+stamp,seller.cookie)).materials[0].hasCover,true);assert.equal((await raw(endpoints.cover,'sales_materials/cover?materialId='+imageId,seller.cookie)).status,200);
  checks++;
+ // Spec 95: automatic covers. Reported as `coverSource:'auto'`, dropped by a new version, never replacing a manual cover; a manual cover replaces them and survives versions.
+ const jpg=Buffer.concat([Buffer.from([0xff,0xd8,0xff,0xe0]),Buffer.alloc(40,2)]);
+ const autoId=randomUUID();const autoFile=await upload(admin.cookie,{purpose:'file',fileName:'auto.pdf',mimeType:'application/pdf',materialId:autoId},pdf('a1'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:autoId,title:'Portada auto '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[],version:{uploadId:autoFile}});
+ const listedAuto=async()=>(await call(endpoints.get,'sales_materials?search='+encodeURIComponent('portada auto '+stamp),seller.cookie)).materials[0];
+ assert.equal((await listedAuto()).coverSource,null);assert.equal((await listedAuto()).hasCover,false);
+ const autoCover=await upload(admin.cookie,{purpose:'cover',fileName:'portada-automatica.jpg',mimeType:'image/jpeg',materialId:autoId},jpg);
+ assert.deepEqual(await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:1,uploadId:autoCover,auto:true}),{ok:true,revision:2});
+ assert.equal((await material(autoId)).coverAuto,true);assert.equal((await listedAuto()).coverSource,'auto');assert.equal((await listedAuto()).hasCover,true);
+ assert.deepEqual(Buffer.from(await (await raw(endpoints.cover,'sales_materials/cover?materialId='+autoId,seller.cookie)).arrayBuffer()),jpg);
+ // The automatic cover gets the same checks as any cover: a PDF declared as JPEG is discarded.
+ const fakeAuto=await upload(admin.cookie,{purpose:'cover',fileName:'portada-automatica.jpg',mimeType:'image/jpeg',materialId:autoId},pdf('no'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:2,uploadId:fakeAuto,auto:true},400);assert.equal((await uploadRow(fakeAuto)).status,'discarded');
+ const a2=await upload(admin.cookie,{purpose:'file',fileName:'auto v2.pdf',mimeType:'application/pdf',materialId:autoId},pdf('a2'));
+ assert.deepEqual(await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id:autoId,revision:2,version:{uploadId:a2}}),{ok:true,revision:3});
+ let autoRow=await material(autoId);assert.equal(autoRow.coverKey,null);assert.equal(autoRow.coverMime,null);assert.equal(autoRow.coverAuto,false,'A new version drops the automatic cover of the old file');assert.equal((await listedAuto()).coverSource,null);
+ const manualCover=await upload(admin.cookie,{purpose:'cover',fileName:'tapa.png',mimeType:'image/png',materialId:autoId},png);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:3,uploadId:manualCover});
+ const manualKey=(await material(autoId)).coverKey;assert.equal((await listedAuto()).coverSource,'manual');
+ const lateAuto=await upload(admin.cookie,{purpose:'cover',fileName:'portada-automatica.jpg',mimeType:'image/jpeg',materialId:autoId},jpg);
+ assert.match((await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:4,uploadId:lateAuto,auto:true},400)).error,/portada cargada a mano/);
+ autoRow=await material(autoId);assert.equal(autoRow.coverKey,manualKey,'A manual cover always wins');assert.equal(autoRow.revision,4);assert.equal((await uploadRow(lateAuto)).status,'pending','The refused upload is left for the sweep');
+ const a3=await upload(admin.cookie,{purpose:'file',fileName:'auto v3.pdf',mimeType:'application/pdf',materialId:autoId},pdf('a3'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id:autoId,revision:4,version:{uploadId:a3}});
+ autoRow=await material(autoId);assert.equal(autoRow.coverKey,manualKey,'A new version keeps a manual cover');assert.equal(autoRow.coverAuto,false);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:autoId,revision:5,uploadId:null});assert.equal((await listedAuto()).coverSource,null);
+ checks++;
  // Abandoned-upload sweep: only expired pending uploads, a 404 counts as deleted, and one sweeper at a time.
  const expired=await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'file',fileName:'abandonado.pdf',mimeType:'application/pdf',byteSize:pdf('x').length,materialId:id});
  await fetch(expired.putUrl,{method:'PUT',headers:{'Content-Type':'application/pdf'},body:new Uint8Array(pdf('x'))});
@@ -253,7 +280,7 @@ try{
  assert.equal(JSON.parse((await db.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow()).value).maxDocumentBytes,2097152);
  assert(requests.some(r=>r.startsWith('HEAD '))&&requests.some(r=>r.startsWith('DELETE ')));
  checks++;
- console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, sweep with lock and claim, upload ownership and purpose, archived cover, duplicate create, R2 outage and sweep races, missing R2, search, legacy library and journal`);
+ console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, automatic covers (spec 95), sweep with lock and claim, upload ownership and purpose, archived cover, duplicate create, R2 outage and sweep races, missing R2, search, legacy library and journal`);
 }finally{
  await db.deleteFrom('sessions').where('userId','in',userIds).execute();await db.destroy();r2.close();
 }

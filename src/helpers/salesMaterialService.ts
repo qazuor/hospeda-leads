@@ -21,7 +21,7 @@ export async function salesMaterialConfig(e:E):Promise<SalesMaterialConfig>{
 }
 /** Only admins create, edit, version, archive and manage categories (spec 89 §10). */
 export function assertSalesMaterialAdmin(user:Pick<User,'role'>):void{if(user.role!=='admin')throw new CrmForbidden('Solo un administrador puede administrar el material de venta.');}
-type MaterialRow=Omit<SalesMaterial,'hasCover'|'categories'|'currentVersion'|'versions'>&{currentVersion:number|null;coverKey:string|null;coverMime:string|null;coverBytes:number|null};
+type MaterialRow=Omit<SalesMaterial,'hasCover'|'coverSource'|'categories'|'currentVersion'|'versions'>&{currentVersion:number|null;coverKey:string|null;coverMime:string|null;coverBytes:number|null;coverAuto:boolean};
 type VersionRow=SalesMaterialVersion&{materialId:string;objectKey:string|null};
 type UploadRow={id:string;objectKey:string;purpose:'file'|'cover';materialId:string|null;declaredMime:string;declaredBytes:string|number;fileName:string;actorEmail:string;status:'pending'|'deleting'|'completed'|'discarded';expiresAt:Date};
 const publicVersion=({objectKey:_key,materialId:_material,...v}:VersionRow):SalesMaterialVersion=>({...v,byteSize:v.byteSize==null?null:Number(v.byteSize)});
@@ -45,10 +45,10 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
   sql<SalesMaterialCategory>`SELECT id,name,active FROM crm_sales_material_categories WHERE ${admin} OR active ORDER BY lower(name)`.execute(db),
   salesMaterialConfig(db)
  ]);
- const materials=rows.map(({coverKey,coverMime:_mime,coverBytes:_bytes,currentVersion,...m}):SalesMaterial=>{
+ const materials=rows.map(({coverKey,coverMime:_mime,coverBytes:_bytes,coverAuto,currentVersion,...m}):SalesMaterial=>{
   const own=versions.rows.filter(v=>v.materialId===m.id).map(publicVersion);
   const current=own.find(v=>v.version===currentVersion)??null;
-  return {...m,hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
+  return {...m,hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,coverSource:coverKey?coverAuto?'auto':'manual':null,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
  });
  return {materials,truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
 }
@@ -179,11 +179,15 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
    if(m.status==='archived')throw new Error('Restaurá el material para agregar una versión.');
    const version=(m.currentVersion??0)+1;
    await insertVersion(e,{materialId:m.id,version,source:input.version,verified,user});
-   await sql`UPDATE crm_sales_materials SET current_version=${version},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+   // Spec 95: an automatic cover belongs to the replaced file, so it goes with it (the browser generates a new one); a manual cover stays.
+   await sql`UPDATE crm_sales_materials SET current_version=${version},revision=${next},updated_at=now(),
+    cover_key=CASE WHEN cover_auto THEN NULL ELSE cover_key END,cover_mime=CASE WHEN cover_auto THEN NULL ELSE cover_mime END,cover_bytes=CASE WHEN cover_auto THEN NULL ELSE cover_bytes END,cover_auto=false WHERE id=${m.id}::uuid`.execute(e);
   }else if(input.action==='cover'){
-   if(verified){await completeUpload(e,verified.upload.id);await sql`UPDATE crm_sales_materials SET cover_key=${verified.upload.objectKey},cover_mime=${verified.upload.declaredMime},cover_bytes=${verified.size},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);}
+   // Spec 95: a manual cover always wins; an automatic one never replaces it (the upload stays pending and the sweep removes it).
+   if(input.auto&&m.coverKey&&!m.coverAuto)throw new Error('El material ya tiene una portada cargada a mano: la automática no la reemplaza.');
+   if(verified){await completeUpload(e,verified.upload.id);await sql`UPDATE crm_sales_materials SET cover_key=${verified.upload.objectKey},cover_mime=${verified.upload.declaredMime},cover_bytes=${verified.size},cover_auto=${input.auto===true},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);}
    // Removing a cover keeps the old object in R2: this spec never deletes stored material.
-   else await sql`UPDATE crm_sales_materials SET cover_key=NULL,cover_mime=NULL,cover_bytes=NULL,revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+   else await sql`UPDATE crm_sales_materials SET cover_key=NULL,cover_mime=NULL,cover_bytes=NULL,cover_auto=false,revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
   }else if(input.action==='archive'){
    if(m.status==='archived')throw new Error('El material ya está archivado.');
    await sql`UPDATE crm_sales_materials SET status='archived',archived_at=now(),archived_by_email=${user.email},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);

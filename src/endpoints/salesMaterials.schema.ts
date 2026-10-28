@@ -13,7 +13,7 @@ export const salesMaterialMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('create'),id:uuid,title,description,kind,source:z.enum(['file','url']),categoryIds,version:salesMaterialVersionSource}),
  z.object({action:z.literal('update'),id:uuid,revision,title,description,kind,categoryIds}),
  z.object({action:z.literal('version'),id:uuid,revision,version:salesMaterialVersionSource}),
- z.object({action:z.literal('cover'),id:uuid,revision,uploadId:uuid.nullable()}),
+ z.object({action:z.literal('cover'),id:uuid,revision,uploadId:uuid.nullable(),/** Spec 95: a cover generated in the browser; never replaces a cover uploaded by hand. */auto:z.boolean().optional()}),
  z.object({action:z.literal('archive'),id:uuid,revision}),
  z.object({action:z.literal('restore'),id:uuid,revision}),
  z.object({action:z.literal('category_create'),name:categoryName}),
@@ -29,7 +29,7 @@ export type SalesMaterialListQuery=z.output<typeof salesMaterialListQuery>;
 export type SalesMaterialCategory={id:string;name:string;active:boolean};
 /** A version as the client sees it: never the object key. */
 export type SalesMaterialVersion={id:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;actorEmail:string;createdAt:Date};
-export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;categories:SalesMaterialCategory[];currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
+export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;/** Spec 95: who set the stored cover (`null` or absent: none; a small image may still be its own cover). */coverSource?:'manual'|'auto'|null;categories:SalesMaterialCategory[];currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
 export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;storageConfigured:boolean;/** Sum of the files attached to one email (spec 89 §8.3). */maxEmailAttachmentBytes:number};
 /** `truncated` is true when more materials matched than the listing returns: narrow the search. */
 export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits};
