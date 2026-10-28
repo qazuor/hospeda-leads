@@ -101,7 +101,34 @@ try{
  assert.equal(await active(),0,'a redelivered bounce or an unrelated event does not re-add a lifted restriction');assert.deepEqual(await snapshot(bounced),lifted);
  assert.deepEqual((await read(accountId,owner.cookie)).messages.find((m:any)=>m.id===bounced.id).emailEngagement.clickedLinks,[],'unsafe links are dropped');
 
- console.log('Email engagement: auth, delivery, opens, proxy opens, clicks, spam, dedupe, no side effects, soft bounce then delivered and lifted restrictions passed');
+ const lift=async()=>{await sql`UPDATE crm_contact_restrictions SET lifted_at=now(),lifted_by='zz-admin',lift_reason='Zz revisado' WHERE account_id=${accountId} AND lifted_at IS NULL`.execute(db);assert.equal(await active(),0);};
+ const deliveredJournal=async(m:{id:string})=>count(sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE entity_id=${m.id} AND action='brevo_event_delivered'`);
+ // Review B4: a NEW hard bounce (another ts_event) after the lift is new evidence and adds the restriction again.
+ assert.equal(await post(bounced.event('hard_bounce',200)),200);assert.equal(await active(),1,'a new hard bounce re-adds the restriction');assert.equal((await snapshot(bounced)).message.status,'failed');
+ await lift();
+
+ // Review M1: delivered, then hard bounce, then a soft bounce stays failed; the restriction stays and the delivery is not replayed.
+ const m1=await sentEmail('m1');
+ assert.equal(await post([m1.event('delivered',10),m1.event('hard_bounce',20)]),200);assert.equal((await snapshot(m1)).message.status,'failed');assert.equal(await active(),1);
+ const m1Journal=await deliveredJournal(m1);
+ assert.equal(await post(m1.event('soft_bounce',30)),200);
+ assert.equal((await snapshot(m1)).message.status,'failed','a soft bounce after a hard bounce never revives the delivery');assert.equal(await active(),1,'the restriction of the hard bounce stays active');
+ assert.equal(await deliveredJournal(m1),m1Journal,'no brevo_event_delivered replay');assert.equal((await sql<{result:string}>`SELECT result FROM crm_activities WHERE id=${m1.activityId}`.execute(db)).rows[0].result,'Rebote/fallo: hard_bounce');
+ await lift();
+
+ // Review B3: an orphan delivered event (unknown message-id, no tag) is adopted by the next event once the outbox knows its message-id.
+ const orphan=await sentEmail('orphan');const orphanMid=(await sql<{messageId:string}>`SELECT message_id FROM email_outbox WHERE id=${orphan.outboxId}`.execute(db)).rows[0].messageId;
+ await sql`UPDATE email_outbox SET message_id=NULL WHERE id=${orphan.outboxId}`.execute(db);
+ assert.equal(await post(orphan.event('delivered',10)),200);
+ assert.equal((await sql<{outboxId:string|null}>`SELECT outbox_id FROM crm_email_events WHERE recipient=${orphan.recipient} AND event='delivered'`.execute(db)).rows[0].outboxId,null,'unknown message-id: orphan');
+ assert.equal((await snapshot(orphan)).message.status,'accepted');
+ await sql`UPDATE email_outbox SET message_id=${orphanMid} WHERE id=${orphan.outboxId}`.execute(db);
+ const orphanBefore=(await snapshot(orphan)).journal;
+ assert.equal(await post(orphan.event('opened',20)),200);
+ assert.equal((await snapshot(orphan)).message.status,'delivery_confirmed','the adopted delivery applies');assert.equal((await snapshot(orphan)).journal,orphanBefore+1,'exactly one journal entry');
+ assert.equal(await count(sql<{n:string}>`SELECT count(*) n FROM crm_email_events WHERE recipient=${orphan.recipient} AND outbox_id IS NULL`),0);
+
+ console.log('Email engagement: auth, delivery, opens, proxy opens, clicks, spam, dedupe, no side effects, soft bounce then delivered, lifted restrictions, orphan adoption and review M1/B3/B4 passed');
 }finally{
  for(const id of outboxes)await sql`DELETE FROM crm_email_events WHERE outbox_id=${id}`.execute(db).catch(()=>{});
  for(const id of accounts){
