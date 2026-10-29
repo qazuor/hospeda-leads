@@ -223,6 +223,12 @@ describe("instagram thread proof (spec 97 §4.4, live findings §9.1)", () => {
     expect(prove()).toEqual({ ok: false, reason: "group", names: ["qaz.uor"] });// one username left, but the header counts members
     mountChat({ chat: threadEs.replace("<span>Ver perfil</span>", "<span>Ver perfil · 3 miembros</span>") }); expect(prove()).toEqual({ ok: false, reason: "group", names: ["qaz.uor"] });
   });
+  it("ignores unlabelled profile links in the messages: the authors of shared posts do not make a 1:1 chat ambiguous (live chat, 29/10/2026)", () => {
+    // Arrange: two shared posts whose authors appear as plain links, as in the owner's chat with another user.
+    mountChat({ chat: threadEs.replace("Gracias", 'Gracias <a href="/academia.otra/">academia.otra</a> <a href="/tercera.cuenta/">tercera.cuenta</a>') });
+    // Act / Assert
+    expect(prove()).toEqual({ ok: true, threadId: THREAD_ID, username: "qaz.uor" });
+  });
   it("never reads the group signal in the messages: «cabaña para 4 personas» in a 1:1 chat still proves (H2)", () => {
     // Arrange: a tourism question with a people count inside the message list.
     mountChat({ chat: threadEs.replace("Hola, ¿cómo va?", "¿Tienen cabaña para 4 personas?").replace("Gracias", "Somos 3 participantes") });
@@ -232,7 +238,7 @@ describe("instagram thread proof (spec 97 §4.4, live findings §9.1)", () => {
   });
   it("needs a link labelled for that same user: no links, a label for somebody else or no label is not proof", () => {
     mountChat({ chat: `<div role="main"><span>qaz.uor</span><div contenteditable="true" data-lexical-editor="true"></div></div>` }); expect(prove()).toEqual({ ok: false, reason: "no-links", names: [] });
-    mountChat({ chat: `<div role="main"><a href="/qaz.uor/">qaz.uor</a></div>` }); expect(prove()).toEqual({ ok: false, reason: "no-header", names: ["qaz.uor"] });
+    mountChat({ chat: `<div role="main"><a href="/qaz.uor/">qaz.uor</a></div>` }); expect(prove()).toEqual({ ok: false, reason: "no-links", names: [] });
     mountChat({ chat: `<div role="main"><a href="/qaz.uor/" aria-label="Abrir la página del perfil de qaz.uor_fan">x</a></div>` }); expect(prove()).toEqual({ ok: false, reason: "several", names: ["qaz.uor", "qaz.uor_fan"] });
   });
   it("never reads a floating chat or a page without the conversation pane, and only on a chat path", () => {
@@ -313,12 +319,16 @@ describe("instagram flows (state machines, spec 97 §4.2)", () => {
     expect(await paste()).toEqual({ ok: false, reason: "thread-unproven", composer: null });
     expect(await paste({ sellerConfirmed: true })).toEqual({ ok: true, proof: "seller" });
   });
-  it("evidence against @x is never confirmable (H1): a group, only another user, or another user without a label", async () => {
-    for (const chat of [threadGroup.split("qaz.uor").join(USER), threadFor("otra.persona"), unlabelled("otra.persona")]) {
+  it("evidence against @x is never confirmable (H1): a group or only another labelled user", async () => {
+    for (const chat of [threadGroup.split("qaz.uor").join(USER), threadFor("otra.persona")]) {
       mountChat({ chat });
       expect(await paste({ sellerConfirmed: true })).toEqual({ ok: false, reason: "thread-contradicted", composer: null });
       expect(composerHas({ composer: pageComposer(), text: TEXT })).toBe(false);
     }
+  });
+  it("an unlabelled link to another user is message content, not evidence: the chat stays ambiguous (live chat, 29/10/2026)", async () => {
+    mountChat({ chat: unlabelled("otra.persona") });
+    expect(await paste()).toEqual({ ok: false, reason: "thread-unproven", composer: null });
   });
   it("several users that include @x stay ambiguous, so the seller may confirm", async () => {
     mountChat({ chat: threadFor(USER).replace('<div role="row"><a href="/cabanas_del_rio"', '<div role="row"><a href="/otra.persona"') });

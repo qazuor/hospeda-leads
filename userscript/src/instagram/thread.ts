@@ -44,7 +44,8 @@ export type ThreadProof = { readonly ok: true; readonly threadId: string; readon
 
 /**
  * Spec 97 §4.4: the open chat is proven for one username only when the path is `/direct/t/<id>/`, the conversation pane's profile links name
- * exactly one distinct username (the live page has several links for the same user: header, «Ver perfil», one per avatar), at least one of them is
+ * exactly one distinct username (the live page has several links for the same user: header and one per avatar; unlabelled links such as «Ver perfil»
+ * or the author of a shared post are ignored), at least one of them is
  * labelled «Abrir la página del perfil de <x>» / «Open the profile page of <x>» for that same user, there is no group signal, and the path did not
  * change while checking. A label naming somebody other than its `href` counts as a second user. Links inside floating chats never count.
  */
@@ -55,10 +56,10 @@ export function proveThread({ doc, readPath }: { doc: Document; readPath: () => 
   const names = new Set<string>(); let labelled = false;
   for (const link of pane.querySelectorAll<HTMLAnchorElement>("a[href]")) {
     if (link.closest(FLOATING)) continue;
-    const name = profileHrefUsername(link.getAttribute("href")); if (!name) continue;
-    names.add(name);
-    const label = profileLabelUsername(link);
-    if (label) { names.add(label); if (label === name) labelled = true; }
+    // Only Instagram's own labelled links (header, message avatars) name a participant. Unlabelled profile links are message content: a shared
+    // post or reel shows its author as a plain link (live chat, 29/10/2026), and «Ver perfil» repeats the header.
+    const name = profileHrefUsername(link.getAttribute("href")), label = profileLabelUsername(link); if (!name || !label) continue;
+    names.add(name); names.add(label); if (label === name) labelled = true;
   }
   const found = [...names];
   if (GROUP_COUNT.test(headerText(pane))) return { ok: false, reason: "group", names: found };

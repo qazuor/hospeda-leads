@@ -91,12 +91,12 @@ describe("Instagram app: the CRM handoff on the chat page (spec 97 §4.2)", () =
     expect(api.reportThread).not.toHaveBeenCalledWith(expect.objectContaining({ proof: "seller" }));
     expect(api.reportThreadStale).toHaveBeenCalledWith({ username: USER, threadId: THREAD });
   });
-  it("a chat that names only somebody else without a label is refused, never offered for confirmation (H1)", async () => {
+  it("a chat that names somebody else only in an unlabelled link (a shared post) is ambiguous, so the seller is asked", async () => {
     history.replaceState(null, "", `${CHAT}#hospeda=${NONCE}`); document.body.innerHTML = unlabelled("otra.persona"); lexical();
     const { store } = storeOf({ handoff: handoff({ threadId: THREAD }) }), results: HandoffOutcome[] = [];
     start(store, apiOf(), results);
-    await vi.waitFor(() => expect(results).toEqual([{ ok: false, reason: "thread-contradicted", composer: null }]));
-    expect(panelText()).not.toContain("¿Este chat es con"); expect(composerText()).toBe("");
+    await vi.waitFor(() => expect(panelText()).toContain("¿Este chat es con"));
+    expect(composerText()).toBe("");
   });
   it("a stored thread that lands elsewhere (inbox redirect, another chat) is reported stale (M3)", async () => {
     history.replaceState(null, "", `/direct/t/999/#hospeda=${NONCE}`); document.body.innerHTML = threadFor(USER); lexical();
