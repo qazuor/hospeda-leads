@@ -6,7 +6,7 @@ import {CommunicationConflict,CommunicationForbidden,assertAccountContactAllowed
 import {CrmForbidden,assertAccountViewable} from './crmPermissions';
 import {insertSalesMaterialShare} from './salesMaterialShareService';
 import {salesMaterialConfig} from './salesMaterialService';
-import {appendMaterialLink,attachBlockReasons,materialShareUrl,megabytesLabel,removeMaterialLink,shareTokenHashesInBody,shareUrlInBody} from './salesMaterialMessage';
+import {appendMaterialLink,attachBlockReasons,materialChannelOf,materialShareUrl,megabytesLabel,removeMaterialLink,shareTokenHashesInBody,shareUrlInBody,type MaterialChannel} from './salesMaterialMessage';
 import {DRAFT_CHANGED_MESSAGE,MESSAGE_BODY_MAX_LENGTH} from '../endpoints/communication.schema';
 import {contentDisposition} from './salesMaterialTypes';
 import {r2Storage,type R2Storage} from './r2';
@@ -17,7 +17,7 @@ export const REVOKE_REASONS={removed:'Quitado del borrador',cancelled:'Borrador 
 /** Presigned GET handed to Brevo for an attachment: one hour (spec 89 §8.3). */
 export const ATTACHMENT_URL_SECONDS=3600;
 type MaterialAction=Extract<CommunicationMutation,{action:'material_add'|'material_remove'|'material_attach'|'material_retry_without_attachments'}>;
-type ShareRow={shareId:string;messageId:string;materialId:string;tokenHash:string;title:string;channel:'email'|'whatsapp';source:'file'|'url';kind:string;status:string;currentVersion:number|null;objectKey:string|null;fileName:string|null;mimeType:string|null;byteSize:string|number|null;preparedVersion:number|null;sentVersion:number|null;attach:boolean;attachedVersion:number|null;createdByEmail:string;createdAt:Date;revokedAt:Date|null;revokedByEmail:string|null;revokeReason:string|null;technicalAccessCount:number;lastTechnicalAccessAt:Date|null};
+type ShareRow={shareId:string;messageId:string;materialId:string;tokenHash:string;title:string;channel:MaterialChannel;source:'file'|'url';kind:string;status:string;currentVersion:number|null;objectKey:string|null;fileName:string|null;mimeType:string|null;byteSize:string|number|null;preparedVersion:number|null;sentVersion:number|null;attach:boolean;attachedVersion:number|null;createdByEmail:string;createdAt:Date;revokedAt:Date|null;revokedByEmail:string|null;revokeReason:string|null;technicalAccessCount:number;lastTechnicalAccessAt:Date|null};
 /** Shares of some messages (and, for the dispatch claim, shares whose token is in the body). Locking takes the share FOR UPDATE and its material FOR SHARE, so an archive waits. */
 const shareRows=(e:Executor,messageIds:readonly string[],lock=false,tokenHashes:readonly string[]=[])=>sql<ShareRow>`SELECT s.id AS share_id,s.message_id,s.material_id,s.token_hash,m.title,s.channel,m.source,m.kind,m.status,m.current_version,v.object_key,v.file_name,v.mime_type,v.byte_size,
  s.prepared_version,s.sent_version,s.attach,s.attached_version,s.created_by_email,s.created_at,s.revoked_at,s.revoked_by_email,s.revoke_reason,s.technical_access_count,s.last_technical_access_at
@@ -54,16 +54,17 @@ export async function revokeDraftShares(e:Executor,{message,user}:{message:Pick<
 /**
  * A draft of the user (or any draft for an admin) with the expected revision. Adding or attaching also needs the channel to be contactable and write
  * access unless it is a delegated draft (as `prepare`). `reducing` (removing a link) only needs ownership and read access: it lowers exposure, so it stays
- * allowed under No contactar or on an archived business.
+ * allowed under No contactar or on an archived business. Spec 98: an Instagram attempt carries material too (`materialChannelOf`); a «Red social»
+ * log or Hospeda's echo does not. The contact check keeps the message channel (`social` for Instagram), as `prepare` does.
  */
-async function draftFor(e:Executor,input:{id:string;revision:number;taskId?:string},user:User,reducing=false){
+async function draftFor(e:Executor,input:{id:string;revision:number;taskId?:string},user:User,reducing=false):Promise<{m:Message;channel:MaterialChannel}>{
  const m=await messageFor(e,input.id,user,true);await assertMessageTaskContext(e,m,input.taskId,user);
  if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict(DRAFT_CHANGED_MESSAGE);
- if(m.channel!=='email'&&m.channel!=='whatsapp')throw new CommunicationConflict('Este canal no lleva material de venta.');
- if(reducing)return m as Message&{channel:'email'|'whatsapp'};
+ const channel=materialChannelOf(m);if(!channel)throw new CommunicationConflict('Este canal no lleva material de venta.');
+ if(reducing)return {m,channel};
  await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
  if(!m.delegatedTaskId)await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,true);
- return m as Message&{channel:'email'|'whatsapp'};
+ return {m,channel};
 }
 /** Saves a new body like `edit` does: same length cap, sanitized for email; the final html/text are refreshed only if the draft had them (they mean «reviewed»). */
 async function saveBody(e:Executor,m:Message,body:string,user:User):Promise<Message>{
@@ -73,10 +74,11 @@ async function saveBody(e:Executor,m:Message,body:string,user:User):Promise<Mess
  const final=m.channel==='email'&&m.htmlBody?await renderFinal(e,{...m,body:clean},user):null;
  return (await sql<Message>`UPDATE crm_messages SET body=${clean},html_body=${final?final.htmlBody:m.htmlBody},text_body=${m.textBody==null?null:m.channel==='email'?final?.textBody??m.textBody:clean},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
 }
-/** Refuses (409) attaching that share of the draft: WhatsApp, external link, Brevo extension, size or the sum of the attachments (spec 89 §8.3). */
+/** Refuses (409) attaching that share of the draft: WhatsApp/Instagram, external link, Brevo extension, size or the sum of the attachments (spec 89 §8.3). */
 export async function assertAttachable(e:Executor,m:Message,shareId:string){
  const rows=(await shareRows(e,[m.id])).rows.filter(r=>!r.revokedAt);const {maxEmailAttachmentBytes}=await salesMaterialConfig(e);
- const reason=attachBlockReasons({channel:m.channel as 'email'|'whatsapp',limitBytes:maxEmailAttachmentBytes,items:rows.map(r=>({id:r.shareId,source:r.source,fileName:r.fileName,byteSize:bytes(r),attach:r.shareId===shareId?false:r.attach}))})[shareId];
+ const channel=materialChannelOf(m);if(!channel)throw new CommunicationConflict('Este canal no lleva material de venta.');
+ const reason=attachBlockReasons({channel,limitBytes:maxEmailAttachmentBytes,items:rows.map(r=>({id:r.shareId,source:r.source,fileName:r.fileName,byteSize:bytes(r),attach:r.shareId===shareId?false:r.attach}))})[shareId];
  if(reason)throw new CommunicationConflict(reason);
 }
 async function liveShare(e:Executor,m:Message,shareId:string){
@@ -87,13 +89,13 @@ async function liveShare(e:Executor,m:Message,shareId:string){
 export async function mutateDraftMaterial(e:Executor,input:MaterialAction,user:User):Promise<{message:Message&{materials:MessageMaterial[]};materials:MessageMaterial[]}>{
  const done=async(message:Message)=>{const withList=await withMaterials(e,message);return {message:withList,materials:withList.materials};};
  if(input.action==='material_retry_without_attachments')return done(await retryWithoutAttachments(e,input,user));
- const m=await draftFor(e,input,user,input.action==='material_remove'),journal=(action:string,after:unknown)=>communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action,actor:user,after});
+ const {m,channel}=await draftFor(e,input,user,input.action==='material_remove'),journal=(action:string,after:unknown)=>communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action,actor:user,after});
  if(input.action==='material_add'){
   const active=(await shareRows(e,[m.id])).rows.find(r=>r.materialId===input.materialId&&!r.revokedAt);
   if(active)throw new CommunicationConflict(`«${active.title}» ya está en el mensaje.`);
-  const share=await insertSalesMaterialShare(e,{materialId:input.materialId,accountId:String(m.accountId),leadId:m.leadId==null?null:String(m.leadId),contactId:m.contactId==null?null:String(m.contactId),channel:m.channel,messageId:m.id,user});
+  const share=await insertSalesMaterialShare(e,{materialId:input.materialId,accountId:String(m.accountId),leadId:m.leadId==null?null:String(m.leadId),contactId:m.contactId==null?null:String(m.contactId),channel,messageId:m.id,user});
   if(input.attach){await assertAttachable(e,m,share.id);await sql`UPDATE crm_sales_material_shares SET attach=true WHERE id=${share.id}::uuid`.execute(e);}
-  const saved=await saveBody(e,m,appendMaterialLink({channel:m.channel,body:m.body,title:share.title,url:materialShareUrl({path:share.path})}),user);
+  const saved=await saveBody(e,m,appendMaterialLink({channel,body:m.body,title:share.title,url:materialShareUrl({path:share.path})}),user);
   await journal('material_added',{shareId:share.id,materialId:input.materialId,title:share.title,version:share.preparedVersion,attach:input.attach});
   return done(saved);
  }
@@ -107,7 +109,7 @@ export async function mutateDraftMaterial(e:Executor,input:MaterialAction,user:U
  }
  await revokeShares(e,{where:sql`id=${share.shareId}::uuid`,reason:REVOKE_REASONS.removed,user});
  const url=shareUrlInBody({body:m.body,tokenHash:share.tokenHash});
- const saved=url?await saveBody(e,m,removeMaterialLink({channel:m.channel,body:m.body,url,title:share.title}),user):(await sql<Message>`UPDATE crm_messages SET revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
+ const saved=url?await saveBody(e,m,removeMaterialLink({channel,body:m.body,url,title:share.title}),user):(await sql<Message>`UPDATE crm_messages SET revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
  await journal('material_removed',{shareId:share.shareId,materialId:share.materialId,title:share.title,reason:REVOKE_REASONS.removed});
  return done(saved);
 }

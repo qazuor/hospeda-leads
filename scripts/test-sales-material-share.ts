@@ -103,6 +103,23 @@ try{
  assert.equal((await sql<{messageId:string}>`SELECT message_id FROM crm_sales_material_shares WHERE id=${tied.id}::uuid`.execute(db)).rows[0].messageId,goodDraft);
  checks++;
 
+ // Spec 98 §5.1–5.2: an Instagram attempt draft (`social` + destination_detail 'instagram') takes a share stored as `instagram` (CHECK of migration
+ // 055); a manual «Red social» log or a WhatsApp draft does not match the channel; a restriction on `social` and No contactar refuse it.
+ const social=async(detail:string|null)=>{const id=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,destination_detail,recipient,owner_email,status) VALUES(${id}::uuid,${b.accountId},${b.accountId},${b.leadId},'social',${detail},'@share.test',${owner.email},'draft')`.execute(db);return id;};
+ const igDraft=await social('instagram');
+ const igShare=await createSalesMaterialShare(db,{user:owner,input:{materialId:link,accountId:b.accountId,leadId:b.leadId,contactId:null,channel:'instagram',messageId:igDraft}});
+ assert.equal((await sql<{channel:string}>`SELECT channel FROM crm_sales_material_shares WHERE id=${igShare.id}::uuid`.execute(db)).rows[0]!.channel,'instagram','The Instagram share passes the widened CHECK');
+ assert.equal((await get(igShare.path)).status,200,'The public page serves an Instagram link like any other');
+ await rejects(async()=>createSalesMaterialShare(db,{user:owner,input:{materialId:link,accountId:b.accountId,leadId:b.leadId,contactId:null,channel:'instagram',messageId:await social(null)}}),CommunicationConflict,/no corresponde/);
+ await rejects(async()=>createSalesMaterialShare(db,{user:owner,input:{materialId:link,accountId:b.accountId,leadId:b.leadId,contactId:null,channel:'social' as never,messageId:igDraft}}),Error);
+ await rejects(async()=>createSalesMaterialShare(db,{user:owner,input:{materialId:link,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'instagram',messageId:goodDraft}}),CommunicationConflict,/no corresponde/);
+ const igRestricted=await business(owner);
+ await sql`INSERT INTO crm_contact_restrictions(account_id,channel,reason,actor_email) VALUES(${igRestricted.accountId},'social','Pidió no escribir por redes',${admin.email})`.execute(db);
+ await rejects(()=>createSalesMaterialShare(db,{user:owner,input:{materialId:link,accountId:igRestricted.accountId,leadId:igRestricted.leadId,contactId:null,channel:'instagram'}}),CommunicationForbidden,/No contactar: Pidió no escribir por redes/);
+ const igDnc=await business(owner,{doNotContact:true});
+ await rejects(()=>createSalesMaterialShare(db,{user:admin,input:{materialId:link,accountId:igDnc.accountId,leadId:igDnc.leadId,contactId:null,channel:'instagram'}}),CommunicationForbidden,/no contactar/i);
+ checks++;
+
  // Valid share: Open Graph, enforced CSP, headers, file inline/attachment via fresh presigned URLs, cover through our server.
  const page=await get(share.path);const html=await page.text();
  assert.equal(page.status,200);assert.equal(meta(html,'og:title'),`Folleto &#60;b&#62;&#34;${stamp}&#34;&#60;/b&#62; &#38; más`);

@@ -5,10 +5,11 @@ import {SALES_MATERIAL_MAX_COVER_BYTES,contentDisposition,salesMaterialFormat,ty
 import {generateShareToken,hashShareToken,isShareTokenFormat,shareTokenMatches} from './salesMaterialShare';
 import {SalesMaterialNotFound,readUrlSeconds} from './salesMaterialService';
 import type {R2Storage} from './r2';
+import {contactChannelOf,materialChannelOf,type MaterialChannel} from './salesMaterialMessage';
 /** Input of {@link createSalesMaterialShare}. `messageId` ties the share to a draft (spec 89 §8, phase F3). */
 export const salesMaterialShareInput=z.object({
  materialId:z.string().uuid(),accountId:z.string().regex(/^[1-9]\d*$/),leadId:z.string().regex(/^[1-9]\d*$/).nullable(),
- contactId:z.string().regex(/^[1-9]\d*$/).nullable(),channel:z.enum(['email','whatsapp']),messageId:z.string().uuid().nullable().default(null)
+ contactId:z.string().regex(/^[1-9]\d*$/).nullable(),channel:z.enum(['email','whatsapp','instagram']),messageId:z.string().uuid().nullable().default(null)
 });
 export type SalesMaterialShareInput=z.input<typeof salesMaterialShareInput>;
 /** A created share. `token` is shown once (it goes into the message body) and never stored in clear. */
@@ -29,10 +30,11 @@ export async function createSalesMaterialShare(db:Kysely<DB>,{input:raw,user}:{i
    const contact=await e.selectFrom('crmContacts').select(['id']).where('id','=',input.contactId).where('accountId','=',account.id).where('deletedAt','is',null).executeTakeFirst();
    if(!contact)throw new CommunicationConflict('La persona no pertenece a este negocio.');
   }
-  await assertAccountContactAllowed(e,String(account.id),lead?String(lead.id):null,input.contactId,input.channel);
+  // Spec 98 §5.2: an Instagram share is checked against the restrictions of `social`, the channel its message is stored with.
+  await assertAccountContactAllowed(e,String(account.id),lead?String(lead.id):null,input.contactId,contactChannelOf(input.channel));
   if(input.messageId){
    const m=await messageFor(e,input.messageId,user,true);
-   if(String(m.accountId)!==String(account.id)||m.channel!==input.channel)throw new CommunicationConflict('El mensaje no corresponde a este negocio o canal.');
+   if(String(m.accountId)!==String(account.id)||materialChannelOf(m)!==input.channel)throw new CommunicationConflict('El mensaje no corresponde a este negocio o canal.');
    if(input.leadId&&(m.leadId==null||String(m.leadId)!==input.leadId))throw new CommunicationConflict('El mensaje no corresponde a esta gestión.');
    if(input.contactId&&(m.contactId==null||String(m.contactId)!==input.contactId))throw new CommunicationConflict('El mensaje no corresponde a esta persona.');
    if(m.status!=='draft')throw new CommunicationConflict('El mensaje ya no es un borrador.');
@@ -44,7 +46,7 @@ export async function createSalesMaterialShare(db:Kysely<DB>,{input:raw,user}:{i
  * Inserts one share after checking only the MATERIAL (deliverable, active, with a current version; locked FOR SHARE so an archive waits).
  * Callers run it inside their transaction, under the communication lock, after their own business, person and No contactar checks.
  */
-export async function insertSalesMaterialShare(e:Executor,{materialId,accountId,leadId,contactId,channel,messageId,user}:{materialId:string;accountId:string;leadId:string|null;contactId:string|null;channel:'email'|'whatsapp';messageId:string|null;user:User}):Promise<CreatedSalesMaterialShare&{title:string}>{
+export async function insertSalesMaterialShare(e:Executor,{materialId,accountId,leadId,contactId,channel,messageId,user}:{materialId:string;accountId:string;leadId:string|null;contactId:string|null;channel:MaterialChannel;messageId:string|null;user:User}):Promise<CreatedSalesMaterialShare&{title:string}>{
  const material=(await sql<{kind:string;status:string;currentVersion:number|null;title:string}>`SELECT kind,status,current_version,title FROM crm_sales_materials WHERE id=${materialId}::uuid FOR SHARE`.execute(e)).rows[0];
  if(!material)throw new SalesMaterialNotFound('El material no existe.');
  if(material.kind!=='deliverable')throw new CommunicationForbidden(`«${material.title}» es material interno: no se manda a clientes.`);
