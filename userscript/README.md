@@ -53,10 +53,22 @@ En la computadora, «Abrir Instagram» copia el mensaje (respaldo manual) y le p
 4. Escribe el texto del traspaso con un evento `paste` sintético con `DataTransfer` y, si el editor quedó vacío, `execCommand('insertText')`; verifica que el cuadro tenga exactamente ese texto.
 5. **No lee el portapapeles** (el navegador no pide ningún permiso, y funciona igual en Firefox) y **nunca envía:** no aprieta Enter ni toca Enviar. Si algo falla, muestra un aviso abajo y deja la página como estaba.
 
-El texto queda como máximo 2 minutos en el almacenamiento de Tampermonkey, que es propio del script y no lo leen las páginas. El módulo (`src/instagram/`) está aislado por código, no por permisos (los `@grant` valen para todos los `@match`): no lee el token ni otros valores de GM, no hace pedidos, no usa el portapapeles y no corre lógica de WhatsApp; un test estático lo controla.
+El texto queda como máximo 2 minutos en el almacenamiento de Tampermonkey, que es propio del script y no lo leen las páginas.
+
+## Instagram: chat y panel (versión 1.6.0)
+
+Detalle en la [spec 97](../docs/crm-roadmap/97-instagram-chat-panel.md). Reemplaza los pasos 3 y el aislamiento de arriba:
+
+1. **Chat conocido.** Si el CRM ya aprendió el chat del usuario, «Abrir Instagram» abre `https://www.instagram.com/direct/t/<id>/` (con `#hospeda=<nonce>` si el script confirmó el traspaso, que lleva `threadId`). En el chat, el script exige que el traspaso sea de ese id.
+2. **Chat desconocido.** Desde el perfil toca «Enviar mensaje»; si Instagram abre un chat flotante, toca su «Expandir» y sigue en `/direct/t/<id>/`. Nunca escribe en un chat flotante; si no hay «Expandir», avisa y pega cuando el vendedor abre ese chat (solo en esa pestaña, mientras no se recargue).
+3. **Prueba del chat.** En el panel de conversación (`[role="main"]`, fuera de chats flotantes) los enlaces de perfil tienen que nombrar un solo usuario y uno tiene que tener la etiqueta «Abrir la página del perfil de X» / «Open the profile page of X». Sin prueba, el panel pregunta «Sí, es este chat · pegar»; un encabezado que contradice no se pisa nunca y borra el chat guardado.
+4. **Cuenta.** Pega y aprende solo con la cuenta de Hospeda (`INSTAGRAM_ACCOUNT_USERNAME`, comparada con el enlace «Perfil» y el `alt` de la foto). Escribe en el editor Lexical del panel de conversación, vacío, y nunca envía.
+5. **Panel «Hospeda»** en todos los chats: negocio del CRM por usuario, «Mandar un mensaje» (modelos de la gestión o «Sin gestión» con propósito) y «Pegar en el chat», que registra el intento de Instagram antes de pegar.
+
+Aislamiento por código, controlado por `src/instagramIsolation.spec.ts`: `src/instagram/` es la capa DOM pura (sin GM, red ni portapapeles); `src/instagramApp/` usa GM solo a través de `storage.ts` y llama al CRM solo con las funciones de `INSTAGRAM_API_FUNCTIONS`. En Instagram no hay campo de token (se conecta desde el CRM), no se escuchan eventos de la página, las acciones del panel exigen `isTrusted`, el panel es un shadow DOM sin `innerHTML` y nunca se lee el portapapeles. No corre lógica de WhatsApp.
 
 ## Selectores y fixtures
 
 Los fixtures `current-*.html` reproducen la estructura de WhatsApp Web capturada el 25/10/2026 (contacto agendado, número sin agendar y grupo), con textos y teléfonos sintéticos. Los fixtures más viejos quedan como regresión de estructuras anteriores. Si WhatsApp cambia su pantalla, «Copiar diagnóstico del chat» (en «Ajustes» del panel) recopila la estructura sin textos ni teléfonos para actualizar los selectores.
 
-Los fixtures `instagram-*.html` modelan la estructura accesible pública de Instagram Web (perfil en español e inglés, perfil propio sin «Enviar mensaje» y el chat con su editor), sin capturas reales. Si Instagram cambia, actualizá los fixtures y las listas `MESSAGE_BUTTON_NAMES` / `COMPOSER_LABELS` de `src/instagram/finders.ts`.
+Los fixtures `instagram-*.html` modelan la estructura accesible pública de Instagram Web (perfil en español e inglés, perfil propio sin «Enviar mensaje» y el chat con su editor), sin capturas reales. Los fixtures `instagram-thread-*`, `instagram-inbox-with-thread-es.html` e `instagram-mini-chat-expand-es.html` (spec 97) siguen lo observado en vivo el 29/10/2026 (§9.1), con datos sintéticos. Si Instagram cambia, actualizá los fixtures y `src/instagram/finders.ts` / `thread.ts`.

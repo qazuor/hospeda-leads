@@ -3,18 +3,23 @@ import profileEn from "../../fixtures/instagram-profile-en.html?raw";
 import ownProfile from "../../fixtures/instagram-own-profile-es.html?raw";
 import highlightProfile from "../../fixtures/instagram-profile-highlight-es.html?raw";
 import miniChat from "../../fixtures/instagram-mini-chat-es.html?raw";
+import miniChatExpand from "../../fixtures/instagram-mini-chat-expand-es.html?raw";
+import threadEs from "../../fixtures/instagram-thread-header-es.html?raw";
+import threadEn from "../../fixtures/instagram-thread-header-en.html?raw";
+import threadGroup from "../../fixtures/instagram-thread-group-es.html?raw";
+import inboxThread from "../../fixtures/instagram-inbox-with-thread-es.html?raw";
 import dmEs from "../../fixtures/instagram-dm-es.html?raw";
 import dmEn from "../../fixtures/instagram-dm-en.html?raw";
 import { INSTAGRAM_PASTE_MARKER, consumePasteMarker, pasteMarkerNonce } from "./marker";
-import { HANDOFF_TEXT_MAX, HANDOFF_TTL_MS, checkHandoff, handoffFragment, handoffTextAllowed, newNonce, parseHandoff, profileUsername, type InstagramHandoff } from "./handoff";
-import { accessibleName, findComposer, findMessageButton, findThreadComposer, normalizeName } from "./finders";
+import { HANDOFF_TEXT_MAX, HANDOFF_TTL_MS, checkHandoff, handoffFragment, handoffTextAllowed, newNonce, parseHandoff, profileUsername, threadIdFromPath, type InstagramHandoff } from "./handoff";
+import { accessibleName, conversationPane, findComposer, findFloatingExpand, findMessageButton, findPageComposer, normalizeName } from "./finders";
+import { headerText, loggedInUsername, profileHrefUsername, proveThread } from "./thread";
 import { composerHas, insertIntoComposer, pasteEvent } from "./insert";
-import { FLOW_TRANSITIONS, runPasteFlow, type FlowPhase } from "./flow";
-import { FAILURE_NOTICES, NOTICE_ID, PASTED_NOTICE, UNCONFIRMED_NOTICE, pasteShortcut, showNotice } from "./notice";
-import { startInstagram, type HandoffStore } from "./start";
+import { FLOW_TRANSITIONS, openChatFromProfile, pasteOnChatPage, proofVerdict, type AccountCheck, type FlowPhase } from "./flow";
+import { FAILURE_NOTICES, NOTICE_ID, PASTED_NOTICE, UNCONFIRMED_NOTICE, failureNotice, pasteShortcut, showNotice } from "./notice";
 
 const TEXT = "Hola, soy de Hospeda.\nTe escribo por las cabañas en Colón. ¿Te interesa?";
-const USER = "cabanas_del_rio", PROFILE_PATH = `/${USER}/`, THREAD_PATH = "/direct/t/1234567890/";
+const USER = "cabanas_del_rio", PROFILE_PATH = `/${USER}/`;
 const fast = { buttonTimeoutMs: 120, composerTimeoutMs: 120, intervalMs: 10, settle: () => Promise.resolve() } as const;
 const NONCE = "0123456789abcdef0123456789abcdef";
 
@@ -25,30 +30,43 @@ function lexical(composer: HTMLElement): void {
     event.preventDefault(); composer.replaceChildren(...text.split("\n").map(line => { const p = document.createElement("p"); p.textContent = line; return p; }));
   });
 }
-type MountOptions = { profile?: string; dm?: string; editor?: (el: HTMLElement) => void; delayMs?: number; withMiniChat?: boolean; navigates?: boolean };
+/** The chat page fixture of spec 97 §9.1 for any username (the live capture was with `qaz.uor`). */
+const threadFor = (user: string, html = threadEs) => html.split("qaz.uor").join(user);
+const THREAD_ID = "17848251833510164", CHAT_PATH = `/direct/t/${THREAD_ID}/`;
+type MountOptions = { profile?: string; chat?: string; editor?: (el: HTMLElement) => void; mode?: "navigates" | "floating" | "none"; delayMs?: number };
 /**
- * Mounts a profile at `/<user>/` whose message button "navigates" (pushState to a thread and swaps in the DM fixture), as Instagram's
- * SPA does. Optionally keeps a floating mini-chat with somebody else on screen. Records any send and any key event.
+ * Mounts a profile at `/<user>/` whose «Enviar mensaje» behaves like Instagram: it moves to the chat page (`navigates`), or opens a floating chat
+ * whose «Expandir» moves there (`floating`, what 9.1 observed live), or opens nothing (`none`). Records any send and any key event.
  */
-function mountProfile({ profile = profileEs, dm = dmEs, editor = lexical, delayMs = 0, withMiniChat = false, navigates = true }: MountOptions = {}) {
+function mountProfile({ profile = profileEs, chat = threadFor(USER), editor = lexical, mode = "navigates", delayMs = 0 }: MountOptions = {}) {
   if (location.pathname !== PROFILE_PATH) history.replaceState(null, "", PROFILE_PATH + location.hash);
-  document.body.innerHTML = profile + (withMiniChat ? miniChat : ""); const sends: string[] = [], keys: string[] = [];
+  document.body.innerHTML = profile; const sends: string[] = [], keys: string[] = [];
   const onKey = (e: KeyboardEvent) => keys.push(`${e.type}:${e.key}`);
   for (const type of ["keydown", "keypress", "keyup"] as const) document.addEventListener(type, onKey, true);
-  const openDm = () => {
-    history.pushState(null, "", THREAD_PATH);
-    document.body.innerHTML = dm + (withMiniChat ? miniChat : "");
-    for (const button of document.querySelectorAll<HTMLElement>("#send-es, #send-en")) button.addEventListener("click", () => sends.push(button.id));
-    for (const composer of document.querySelectorAll<HTMLElement>('[role="textbox"]')) editor(composer);
+  const openChat = () => {
+    history.pushState(null, "", CHAT_PATH); document.body.innerHTML = chat;
+    document.getElementById("send")?.addEventListener("click", () => sends.push("send"));
+    for (const composer of document.querySelectorAll<HTMLElement>('[contenteditable="true"]')) editor(composer);
   };
-  const button = findMessageButton({ doc: document });
-  let clicked = 0;
-  button?.addEventListener("click", () => { clicked++; if (!navigates) return; if (delayMs) setTimeout(openDm, delayMs); else openDm(); });
-  return { sends, keys, clicks: () => clicked, cleanup: () => { for (const type of ["keydown", "keypress", "keyup"] as const) document.removeEventListener(type, onKey, true); } };
+  let clicked = 0, expanded = 0;
+  findMessageButton({ doc: document })?.addEventListener("click", () => {
+    clicked++;
+    if (mode === "navigates") { if (delayMs) setTimeout(openChat, delayMs); else openChat(); }
+    if (mode === "floating") { document.body.insertAdjacentHTML("beforeend", miniChatExpand); document.getElementById("expand")!.addEventListener("click", () => { expanded++; openChat(); }); }
+  });
+  return { sends, keys, clicks: () => clicked, expanded: () => expanded, cleanup: () => { for (const type of ["keydown", "keypress", "keyup"] as const) document.removeEventListener(type, onKey, true); } };
 }
-const mainComposer = () => document.querySelector<HTMLElement>('[role="main"] [role="textbox"], main [role="textbox"]')!;
-const miniComposer = () => document.getElementById("mini-composer")!;
-const flow = (over: Partial<Parameters<typeof runPasteFlow>[0]> = {}) => runPasteFlow({ doc: document, location, username: USER, text: TEXT, ...fast, ...over });
+/** Mounts the chat page directly (the CRM opened `/direct/t/<id>/`). */
+function mountChat({ chat = threadFor(USER), editor = lexical, path = CHAT_PATH }: { chat?: string; editor?: (el: HTMLElement) => void; path?: string } = {}) {
+  history.replaceState(null, "", path); document.body.innerHTML = chat;
+  for (const composer of document.querySelectorAll<HTMLElement>('[contenteditable="true"]')) editor(composer);
+}
+const pageComposer = () => document.getElementById("page-composer")!;
+/** The chat page with every profile label removed: the pane names only `user`, with no labelled header (real ambiguity). */
+const unlabelled = (user: string) => threadFor(user).replace(/ aria-label="(?:Abrir la página del perfil de|Open the profile page of) [^"]*"/g, "");
+const okAccount: AccountCheck = () => "ok";
+const open = (over: Partial<Parameters<typeof openChatFromProfile>[0]> = {}) => openChatFromProfile({ doc: document, location, username: USER, buttonTimeoutMs: 120, chatTimeoutMs: 150, intervalMs: 10, ...over });
+const paste = (over: Partial<Parameters<typeof pasteOnChatPage>[0]> = {}) => pasteOnChatPage({ doc: document, location, username: USER, threadId: THREAD_ID, text: TEXT, account: okAccount, proofTimeoutMs: 120, composerTimeoutMs: 120, contradictionMs: 30, intervalMs: 10, settle: () => Promise.resolve(), ...over });
 
 const originalExec = document.execCommand;
 afterEach(() => { document.execCommand = originalExec; document.body.innerHTML = ""; history.replaceState(null, "", "/"); vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -69,7 +87,9 @@ describe("instagram marker (spec 94 §2.1)", () => {
 });
 
 describe("instagram handoff (D6, D7)", () => {
-  const handoff = (over: Partial<InstagramHandoff> = {}): InstagramHandoff => ({ nonce: NONCE, username: USER, expiresAt: Date.now() + HANDOFF_TTL_MS, text: TEXT, ...over });
+  // Fixed clock for the block: a second Date.now() could land a millisecond later and push expiresAt past now + TTL (flaky).
+  const NOW = Date.now();
+  const handoff = (over: Partial<InstagramHandoff> = {}): InstagramHandoff => ({ nonce: NONCE, username: USER, expiresAt: NOW + HANDOFF_TTL_MS, text: TEXT, ...over });
   it("generates 128-bit hex nonces and the fragment that carries them", () => {
     const a = newNonce(), b = newNonce();
     expect(a).toMatch(/^[0-9a-f]{32}$/); expect(a).not.toBe(b);
@@ -81,7 +101,7 @@ describe("instagram handoff (D6, D7)", () => {
     for (const text of ["", "   \n", "a".repeat(4001)]) expect(handoffTextAllowed(text)).toBe(false);
   });
   it("parses only well-formed handoffs that expire within the TTL", () => {
-    const now = Date.now(), valid = handoff();
+    const now = NOW, valid = handoff();
     expect(parseHandoff({ value: valid, now })).toEqual(valid);
     for (const value of [null, "x", { ...handoff(), nonce: "abc" }, { ...handoff(), username: "Hotel Sol" }, { ...handoff(), text: 5 }, { ...handoff(), text: "a".repeat(4001) }, { ...handoff(), expiresAt: "soon" }, { ...handoff(), expiresAt: now + 60 * 60_000 }]) expect(parseHandoff({ value, now })).toBeNull();
   });
@@ -125,32 +145,6 @@ describe("instagram finders (accessible names, never class names)", () => {
   it("skips a hidden composer", () => {
     document.body.innerHTML = `<div aria-hidden="true">${dmEs}</div>`; expect(findComposer({ doc: document })).toBeNull();
   });
-  it("with a new /direct/t/ thread, uses only the page composer, never a floating one", () => {
-    document.body.innerHTML = miniChat + dmEs;
-    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH })!.closest('[role="dialog"]')).toBeNull();
-    document.body.innerHTML = miniChat;// only a floating chat: nothing to paste into
-    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH })).toBeNull();
-  });
-  it("without the move to /direct/t/ there is no proof: nothing is accepted", () => {
-    document.body.innerHTML = dmEs;
-    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH })).toBeNull();
-    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: THREAD_PATH })).toBeNull();
-    expect(findThreadComposer({ doc: document, pathname: "/otro_negocio/", startPath: PROFILE_PATH })).toBeNull();
-  });
-  const floating = (label: string, header = "") => `<div role="dialog" aria-label="${label}"><header><h2>${header}</h2></header><div role="grid"><div role="row"><div role="gridcell"><span>@${USER}</span></div></div></div><div contenteditable="true" role="textbox" aria-label="Mensaje"><p><br></p></div></div>`;
-  for (const [name, label, header] of [
-    ["messages that read @target", "Chat con otra_persona", "otra_persona"],
-    ["a group whose label contains the username", `${USER} y amigos`, `${USER} y amigos`],
-    ["a similar username (target_fan)", `Chat con ${USER}_fan`, `${USER}_fan`],
-    ["a similar username (target.x)", `Chat con ${USER}.x`, `${USER}.x`],
-    ["a label with several names", `Chat con pepe, ${USER}`, `pepe, ${USER}`],
-    ["even the exact template for the target", `Chat con ${USER}`, `@${USER}`],
-  ] as const) it(`never pastes into a floating chat: ${name}`, () => {
-    document.body.innerHTML = profileEs + floating(label, header);
-    expect(findThreadComposer({ doc: document, pathname: PROFILE_PATH, startPath: PROFILE_PATH })).toBeNull();
-    // A thread did open, but the only composer is floating: still rejected.
-    expect(findThreadComposer({ doc: document, pathname: THREAD_PATH, startPath: PROFILE_PATH })).toBeNull();
-  });
 });
 
 describe("instagram insertion (D3)", () => {
@@ -184,92 +178,203 @@ describe("instagram insertion (D3)", () => {
   });
 });
 
-describe("instagram paste flow (state machine, M2)", () => {
-  it("only allows forward transitions and ends in done or failed", () => {
-    expect(FLOW_TRANSITIONS.done).toEqual([]); expect(FLOW_TRANSITIONS.failed).toEqual([]);
-    expect(FLOW_TRANSITIONS["finding-button"]).not.toContain("inserting");
+describe("instagram handoff with a thread id (spec 97 §4.1–4.2)", () => {
+  // One fixed expiry for the whole block: two Date.now() calls in one assertion could differ by a millisecond (flaky toEqual).
+  const EXPIRES_AT = Date.now() + 60_000;
+  const handoff = (over: Partial<InstagramHandoff> = {}): InstagramHandoff => ({ nonce: NONCE, username: USER, expiresAt: EXPIRES_AT, text: TEXT, ...over });
+  it("reads the thread id of a chat page path, with or without the trailing slash, digits only", () => {
+    // Arrange / Act / Assert
+    expect(threadIdFromPath("/direct/t/17848251833510164")).toBe(THREAD_ID);
+    expect(threadIdFromPath(CHAT_PATH)).toBe(THREAD_ID);
+    for (const path of ["/direct/inbox/", "/direct/t/abc/", "/direct/t/1/x/", "/cabanas_del_rio/", "/direct/t/" + "1".repeat(41) + "/"]) expect(threadIdFromPath(path), path).toBeNull();
   });
-  it("clicks «Enviar mensaje», waits for the new thread, inserts the handoff text and never sends", async () => {
-    const page = mountProfile({ delayMs: 30 }), phases: FlowPhase[] = [];
-    expect(await flow({ onPhase: phase => phases.push(phase) })).toEqual({ ok: true });
-    expect(phases).toEqual(["finding-button", "waiting-composer", "inserting", "done"]);
-    expect(composerHas({ composer: mainComposer(), text: TEXT })).toBe(true); expect(document.activeElement).toBe(mainComposer());
-    expect(page.sends).toEqual([]); expect(page.keys).toEqual([]); page.cleanup();
+  it("parses an optional numeric threadId and rejects anything else", () => {
+    const now = Date.now();
+    expect(parseHandoff({ value: handoff({ threadId: THREAD_ID }), now })).toEqual(handoff({ threadId: THREAD_ID }));
+    expect(parseHandoff({ value: handoff(), now })).not.toHaveProperty("threadId");
+    for (const threadId of ["abc", "", 5, null, "1".repeat(41)]) expect(parseHandoff({ value: { ...handoff(), threadId }, now }), String(threadId)).toBeNull();
   });
-  it("works on the English UI too", async () => {
-    const page = mountProfile({ profile: profileEn, dm: dmEn });
-    expect(await flow()).toEqual({ ok: true });
-    expect(page.sends).toEqual([]); expect(page.keys).toEqual([]); page.cleanup();
-  });
-  it("always clicks, even with a chat already open, and never uses a mini-chat with somebody else", async () => {
-    const page = mountProfile({ withMiniChat: true });
-    expect(await flow()).toEqual({ ok: true }); expect(page.clicks()).toBe(1);
-    expect(composerHas({ composer: mainComposer(), text: TEXT })).toBe(true); expect(miniComposer().textContent).toBe(""); page.cleanup();
-  });
-  it("does not paste when the click opened nothing it can verify (only the mini-chat is there)", async () => {
-    const page = mountProfile({ withMiniChat: true, navigates: false });
-    expect(await flow()).toMatchObject({ ok: false, reason: "thread-unverified" });
-    expect(page.clicks()).toBe(1); expect(miniComposer().textContent).toBe(""); page.cleanup();
-  });
-  it("aborts when the page moves to another profile while waiting for the chat", async () => {
-    const page = mountProfile({ navigates: false });
-    findMessageButton({ doc: document })!.addEventListener("click", () => setTimeout(() => { history.pushState(null, "", "/otro_negocio/"); document.body.innerHTML = dmEs; }, 20));
-    expect(await flow()).toMatchObject({ ok: false, reason: "navigated-away" });
-    expect(findComposer({ doc: document })!.textContent).toBe(""); page.cleanup();
-  });
-  it("does not click when the page is no longer the verified profile", async () => {
-    const page = mountProfile(); history.replaceState(null, "", "/otro_negocio/");
-    expect(await flow()).toMatchObject({ ok: false, reason: "navigated-away" }); expect(page.clicks()).toBe(0); page.cleanup();
-  });
-  it("fails with no-button on a profile without «Enviar mensaje»", async () => {
-    history.replaceState(null, "", PROFILE_PATH); document.body.innerHTML = ownProfile;
-    expect(await flow()).toMatchObject({ ok: false, reason: "no-button" });
-  });
-  it("fails with composer-timeout when the chat never opens", async () => {
-    mountProfile({ navigates: false });
-    expect(await flow()).toMatchObject({ ok: false, reason: "composer-timeout" });
-  });
-  it("does not paste into a composer that already has text", async () => {
-    mountProfile({ editor: composer => { composer.textContent = "Borrador viejo"; } });
-    expect(await flow()).toMatchObject({ ok: false, reason: "composer-busy" });
-    expect(mainComposer().textContent).toBe("Borrador viejo");
-  });
-  it("aborts without pasting when the page moves to a different thread after the first one was seen", async () => {
-    const page = mountProfile({ navigates: false });
-    findMessageButton({ doc: document })!.addEventListener("click", () => {
-      history.pushState(null, "", "/direct/t/1/");
-      setTimeout(() => { history.pushState(null, "", "/direct/t/2/"); document.body.innerHTML = dmEs; lexical(mainComposer()); }, 40);
-    });
-    expect(await flow({ composerTimeoutMs: 400 })).toMatchObject({ ok: false, reason: "thread-unverified" });
-    expect(mainComposer().textContent).toBe(""); page.cleanup();
-  });
-  it("aborts when the page leaves for the inbox while waiting for the composer", async () => {
-    const page = mountProfile({ navigates: false });
-    findMessageButton({ doc: document })!.addEventListener("click", () => setTimeout(() => { history.pushState(null, "", "/direct/inbox/"); document.body.innerHTML = dmEs; lexical(mainComposer()); }, 30));
-    expect(await flow({ composerTimeoutMs: 400 })).toMatchObject({ ok: false, reason: "navigated-away" });
-    expect(mainComposer().textContent).toBe(""); page.cleanup();
-  });
-  it("aborts when the thread is left after being pinned and before the composer shows", async () => {
-    const page = mountProfile({ navigates: false });
-    findMessageButton({ doc: document })!.addEventListener("click", () => { history.pushState(null, "", "/direct/t/1/"); setTimeout(() => history.pushState(null, "", "/direct/inbox/"), 40); });
-    expect(await flow({ composerTimeoutMs: 400 })).toMatchObject({ ok: false, reason: "thread-unverified" }); page.cleanup();
-  });
-  it("reports text-differs, with no Ctrl+V advice, when the editor kept a different text", async () => {
-    mountProfile({ editor: composer => composer.addEventListener("paste", e => { e.preventDefault(); composer.textContent = "Hola, soy"; }) });
-    expect(await flow()).toMatchObject({ ok: false, reason: "text-differs" });
-    expect(FAILURE_NOTICES["text-differs"]).toBe("Se insertó un texto distinto: revisalo antes de enviar."); expect(FAILURE_NOTICES["text-differs"]).not.toMatch(/Ctrl\+V/);
-  });
-  it("reports insert-failed when neither method changed the editor", async () => {
-    mountProfile({ editor: () => {} }); document.execCommand = (() => false) as typeof document.execCommand;
-    expect(await flow()).toMatchObject({ ok: false, reason: "insert-failed" });
-    expect(mainComposer().textContent).toBe("");
+  it("on a chat page requires the handoff's thread to be the path's; on a profile it compares the username", () => {
+    expect(checkHandoff({ handoff: handoff({ threadId: THREAD_ID }), nonce: NONCE, pathname: CHAT_PATH })).toBe("ok");
+    expect(checkHandoff({ handoff: handoff({ threadId: "999" }), nonce: NONCE, pathname: CHAT_PATH })).toBe("thread");
+    expect(checkHandoff({ handoff: handoff(), nonce: NONCE, pathname: CHAT_PATH })).toBe("thread");// no thread in the handoff: a chat page is never authorized
+    expect(checkHandoff({ handoff: handoff({ threadId: THREAD_ID }), nonce: NONCE, pathname: PROFILE_PATH })).toBe("ok");
+    expect(checkHandoff({ handoff: handoff({ threadId: THREAD_ID }), nonce: NONCE, pathname: "/attacker/" })).toBe("username");
   });
 });
 
-describe("instagram notice (§2.3)", () => {
+describe("instagram thread proof (spec 97 §4.4, live findings §9.1)", () => {
+  const prove = () => proveThread({ doc: document, readPath: () => location.pathname });
+  it("proves the 1:1 chat from the pane's links: several links, one distinct username, a labelled header (Spanish UI)", () => {
+    mountChat({ chat: threadEs });
+    expect(prove()).toEqual({ ok: true, threadId: THREAD_ID, username: "qaz.uor" });
+  });
+  it("proves it with the English labels and absolute hrefs too", () => {
+    mountChat({ chat: threadEn });
+    expect(prove()).toEqual({ ok: true, threadId: THREAD_ID, username: "qaz.uor" });
+  });
+  it("ignores the inbox list beside the conversation and the navigation", () => {
+    mountChat({ chat: inboxThread });
+    expect(prove()).toEqual({ ok: true, threadId: THREAD_ID, username: "qaz.uor" });
+  });
+  it("never proves a group: two usernames or a participant count in the header, and names who it saw", () => {
+    mountChat({ chat: threadGroup }); expect(prove()).toEqual({ ok: false, reason: "group", names: ["qaz.uor", "otra.persona"] });
+    mountChat({ chat: threadGroup.replace('href="/otra.persona" aria-label="Open the profile page of otra.persona"', 'href="/qaz.uor" aria-label="Open the profile page of qaz.uor"') });
+    expect(prove()).toEqual({ ok: false, reason: "group", names: ["qaz.uor"] });// one username left, but the header counts members
+    mountChat({ chat: threadEs.replace("<span>Ver perfil</span>", "<span>Ver perfil · 3 miembros</span>") }); expect(prove()).toEqual({ ok: false, reason: "group", names: ["qaz.uor"] });
+  });
+  it("never reads the group signal in the messages: «cabaña para 4 personas» in a 1:1 chat still proves (H2)", () => {
+    // Arrange: a tourism question with a people count inside the message list.
+    mountChat({ chat: threadEs.replace("Hola, ¿cómo va?", "¿Tienen cabaña para 4 personas?").replace("Gracias", "Somos 3 participantes") });
+    // Act / Assert
+    expect(prove()).toEqual({ ok: true, threadId: THREAD_ID, username: "qaz.uor" });
+    expect(headerText(conversationPane({ doc: document })!)).not.toContain("personas");
+  });
+  it("needs a link labelled for that same user: no links, a label for somebody else or no label is not proof", () => {
+    mountChat({ chat: `<div role="main"><span>qaz.uor</span><div contenteditable="true" data-lexical-editor="true"></div></div>` }); expect(prove()).toEqual({ ok: false, reason: "no-links", names: [] });
+    mountChat({ chat: `<div role="main"><a href="/qaz.uor/">qaz.uor</a></div>` }); expect(prove()).toEqual({ ok: false, reason: "no-header", names: ["qaz.uor"] });
+    mountChat({ chat: `<div role="main"><a href="/qaz.uor/" aria-label="Abrir la página del perfil de qaz.uor_fan">x</a></div>` }); expect(prove()).toEqual({ ok: false, reason: "several", names: ["qaz.uor", "qaz.uor_fan"] });
+  });
+  it("never reads a floating chat or a page without the conversation pane, and only on a chat path", () => {
+    mountChat({ chat: miniChatExpand }); expect(prove()).toEqual({ ok: false, reason: "no-pane", names: [] });
+    mountChat({ chat: `<div role="main"><div role="dialog"><a href="/qaz.uor/" aria-label="Abrir la página del perfil de qaz.uor">x</a></div></div>` }); expect(prove()).toEqual({ ok: false, reason: "no-links", names: [] });
+    mountChat({ chat: threadEs, path: "/qaz.uor/" }); expect(prove()).toEqual({ ok: false, reason: "path", names: [] });
+  });
+  it("fails when the path changes while checking", () => {
+    mountChat({ chat: threadEs }); let reads = 0;
+    expect(proveThread({ doc: document, readPath: () => (reads++ ? "/direct/t/1/" : CHAT_PATH) })).toEqual({ ok: false, reason: "path-changed", names: ["qaz.uor"] });
+  });
+  it("reads only profile hrefs: reserved pages and other hosts are not usernames", () => {
+    expect(profileHrefUsername("/Qaz.Uor")).toBe("qaz.uor"); expect(profileHrefUsername("https://www.instagram.com/qaz.uor/")).toBe("qaz.uor");
+    for (const href of ["/direct/", "/explore/", "/reels/", "/qaz.uor/reels/", "https://evil.example/qaz.uor/", "/p/abc/", null, ""]) expect(profileHrefUsername(href), String(href)).toBeNull();
+  });
+  it("reads the logged-in account from the «Perfil» link plus the matching avatar alt, in both languages", () => {
+    mountChat({ chat: threadEs }); expect(loggedInUsername({ doc: document })).toBe("hospeda.com.ar");
+    mountChat({ chat: threadEn }); expect(loggedInUsername({ doc: document })).toBe("hospeda.com.ar");
+    mountChat({ chat: threadEs.replace('alt="Foto del perfil de hospeda.com.ar"', 'alt="Foto del perfil de otra.cuenta"') }); expect(loggedInUsername({ doc: document })).toBeNull();
+    mountChat({ chat: threadEs.replace("<span>Perfil</span>", "<span>Inicio</span>") }); expect(loggedInUsername({ doc: document })).toBeNull();
+  });
+});
+
+describe("instagram chat page finders (spec 97 §9.1)", () => {
+  it("finds the Lexical composer without aria-label inside the conversation pane, never the floating one", () => {
+    mountChat({ chat: threadEs + miniChatExpand });
+    expect(conversationPane({ doc: document })).not.toBeNull();
+    expect(findPageComposer({ doc: document })?.id).toBe("page-composer");
+    mountChat({ chat: miniChatExpand }); expect(findPageComposer({ doc: document })).toBeNull();
+  });
+  it("refuses to guess between two editors in the pane", () => {
+    mountChat({ chat: threadEs.replace('<div role="button" tabindex="0" id="send">', '<div contenteditable="true" data-lexical-editor="true"></div><div role="button" tabindex="0" id="send">') });
+    expect(findPageComposer({ doc: document })).toBeNull();
+  });
+  it("finds only an «Expandir» that was not on the page before the click", () => {
+    document.body.innerHTML = profileEs + miniChatExpand; const old = new Set<Element>([document.getElementById("expand")!]);
+    expect(findFloatingExpand({ doc: document, before: old })).toBeNull();
+    expect(findFloatingExpand({ doc: document, before: new Set() })?.id).toBe("expand");
+  });
+});
+
+describe("instagram flows (state machines, spec 97 §4.2)", () => {
+  it("only allows forward transitions and ends in done or failed", () => {
+    expect(FLOW_TRANSITIONS.done).toEqual([]); expect(FLOW_TRANSITIONS.failed).toEqual([]);
+    expect(FLOW_TRANSITIONS["finding-button"]).not.toContain("inserting"); expect(FLOW_TRANSITIONS.proving).not.toContain("inserting");
+  });
+  it("profile → chat page: clicks «Enviar mensaje» once and returns the path's thread", async () => {
+    const page = mountProfile(); const phases: FlowPhase[] = [];
+    expect(await open({ onPhase: phase => phases.push(phase) })).toEqual({ ok: true, threadId: THREAD_ID });
+    expect(page.clicks()).toBe(1); expect(phases).toEqual(["finding-button", "opening-chat", "done"]); page.cleanup();
+  });
+  it("profile → floating chat → «Expandir» → chat page (what Instagram does live), never touching the floating composer", async () => {
+    const page = mountProfile({ mode: "floating" });
+    expect(await open()).toEqual({ ok: true, threadId: THREAD_ID }); expect(page.expanded()).toBe(1); page.cleanup();
+  });
+  it("a floating chat without «Expandir» ends as floating-no-link; nothing at all too", async () => {
+    mountProfile({ mode: "none" }); expect(await open()).toEqual({ ok: false, reason: "floating-no-link" });
+  });
+  it("fails with no-button, and aborts when the page leaves the verified profile", async () => {
+    mountProfile({ profile: ownProfile }); expect(await open()).toEqual({ ok: false, reason: "no-button" });
+    mountProfile({ mode: "none" }); setTimeout(() => history.pushState(null, "", "/otro_negocio/"), 20);
+    expect(await open()).toEqual({ ok: false, reason: "navigated-away" });
+  });
+  it("chat page proven: pastes into the empty page composer, never sends, no key events", async () => {
+    mountChat(); const sends: string[] = [], keys: string[] = []; document.getElementById("send")!.addEventListener("click", () => sends.push("send"));
+    const onKey = (e: KeyboardEvent) => keys.push(e.key); document.addEventListener("keydown", onKey, true);
+    const phases: FlowPhase[] = [];
+    expect(await paste({ onPhase: phase => phases.push(phase) })).toEqual({ ok: true, proof: "header" });
+    expect(composerHas({ composer: pageComposer(), text: TEXT })).toBe(true); expect(sends).toEqual([]); expect(keys).toEqual([]);
+    expect(phases).toEqual(["proving", "waiting-composer", "inserting", "done"]); document.removeEventListener("keydown", onKey, true);
+  });
+  it("chat page contradicted (the header proves somebody else): nothing is pasted", async () => {
+    mountChat({ chat: threadFor("otra.persona") });
+    expect(await paste()).toEqual({ ok: false, reason: "thread-contradicted", composer: null }); expect(composerHas({ composer: pageComposer(), text: TEXT })).toBe(false);
+  });
+  it("chat page really ambiguous (only @x, no labelled header): thread-unproven; the seller's confirmation pastes", async () => {
+    mountChat({ chat: unlabelled(USER) });
+    expect(await paste()).toEqual({ ok: false, reason: "thread-unproven", composer: null });
+    expect(await paste({ sellerConfirmed: true })).toEqual({ ok: true, proof: "seller" });
+  });
+  it("evidence against @x is never confirmable (H1): a group, only another user, or another user without a label", async () => {
+    for (const chat of [threadGroup.split("qaz.uor").join(USER), threadFor("otra.persona"), unlabelled("otra.persona")]) {
+      mountChat({ chat });
+      expect(await paste({ sellerConfirmed: true })).toEqual({ ok: false, reason: "thread-contradicted", composer: null });
+      expect(composerHas({ composer: pageComposer(), text: TEXT })).toBe(false);
+    }
+  });
+  it("several users that include @x stay ambiguous, so the seller may confirm", async () => {
+    mountChat({ chat: threadFor(USER).replace('<div role="row"><a href="/cabanas_del_rio"', '<div role="row"><a href="/otra.persona"') });
+    expect(await paste()).toEqual({ ok: false, reason: "thread-unproven", composer: null });
+  });
+  it("another or an unknown Instagram account: nothing is pasted", async () => {
+    mountChat(); expect(await paste({ account: () => "mismatch" })).toEqual({ ok: false, reason: "other-account", composer: null });
+    expect(await paste({ account: () => "unknown" })).toEqual({ ok: false, reason: "account-unknown", composer: null });
+    expect(composerHas({ composer: pageComposer(), text: TEXT })).toBe(false);
+  });
+  it("never writes into a composer that already has text, and reports the composer timeout", async () => {
+    mountChat(); pageComposer().textContent = "borrador";
+    const busy = await paste(); expect(busy.ok).toBe(false); expect(!busy.ok && busy.reason).toBe("composer-busy"); expect(pageComposer().textContent).toBe("borrador");
+    mountChat({ chat: threadEs.split("qaz.uor").join(USER).replace(/<div contenteditable[^>]*>.*?<\/div>/, "") });
+    expect(await paste()).toEqual({ ok: false, reason: "composer-timeout", composer: null });
+  });
+  it("aborts when the page moves to another chat before the proof", async () => {
+    mountChat(); history.replaceState(null, "", "/direct/t/1/");
+    expect(await paste()).toEqual({ ok: false, reason: "navigated-away", composer: null });
+  });
+  it("reports insert-failed when neither method changed the editor", async () => {
+    mountChat({ editor: () => {} }); document.execCommand = () => false;
+    const result = await paste(); expect(!result.ok && result.reason).toBe("insert-failed");
+  });
+  it("judges one proof read against the expected chat", () => {
+    const proof = { ok: true as const, threadId: THREAD_ID, username: USER }, at = { username: USER, threadId: THREAD_ID, path: CHAT_PATH };
+    expect(proofVerdict({ proof, ...at })).toBe("proven");
+    expect(proofVerdict({ ...at, proof: { ...proof, username: "x" } })).toBe("contradicted");
+    // Real ambiguity: nothing seen, or @x among others, or only @x without a label.
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "no-links", names: [] } })).toBe("inconclusive");
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "no-pane", names: [] } })).toBe("inconclusive");
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "several", names: [USER, "y"] } })).toBe("inconclusive");
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "no-header", names: [USER] } })).toBe("inconclusive");
+    // Evidence against @x.
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "group", names: [USER] } })).toBe("contradicted");
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "group", names: [] } })).toBe("contradicted");
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "several", names: ["y", "z"] } })).toBe("contradicted");
+    expect(proofVerdict({ ...at, proof: { ok: false, reason: "no-header", names: ["y"] } })).toBe("contradicted");
+    expect(proofVerdict({ proof, username: USER, threadId: THREAD_ID, path: "/direct/t/1/" })).toBe("moved");
+  });
+  it("checks the Hospeda account before clicking «Enviar mensaje» (L5)", async () => {
+    const page = mountProfile();
+    expect(await open({ account: () => "mismatch" })).toEqual({ ok: false, reason: "other-account" });
+    expect(await open({ account: () => "unknown" })).toEqual({ ok: false, reason: "account-unknown" });
+    expect(page.clicks()).toBe(0); expect(location.pathname).toBe(PROFILE_PATH);
+    expect(await open({ account: okAccount })).toEqual({ ok: true, threadId: THREAD_ID }); page.cleanup();
+  });
+});
+
+describe("instagram notice (spec 94 §2.3, spec 97 §4.6)", () => {
   it("has a Spanish message per failure and turns Ctrl+V into ⌘V on macOS", () => {
-    expect(Object.keys(FAILURE_NOTICES).sort()).toEqual(["composer-busy", "composer-timeout", "insert-failed", "navigated-away", "no-button", "text-differs", "thread-unverified"]);
-    expect(FAILURE_NOTICES["insert-failed"]).toBe("No pude pegar el mensaje: pegalo con Ctrl+V.");
+    expect(Object.keys(FAILURE_NOTICES).sort()).toEqual(["account-unknown", "composer-busy", "composer-timeout", "floating-no-link", "insert-failed", "navigated-away", "no-button", "other-account", "text-differs", "thread-unproven"]);
+    expect(FAILURE_NOTICES["floating-no-link"]).toBe("Instagram abrió un chat flotante. Abrilo en pantalla completa y pego el mensaje.");
+    expect(FAILURE_NOTICES["thread-unproven"]).toBe("No pude confirmar con quién es este chat, así que no pegué nada. Pegá el mensaje con Ctrl+V.");
+    expect(FAILURE_NOTICES["other-account"]).toBe("Estás con otra cuenta de Instagram. Entrá con la de Hospeda y pegá el mensaje con Ctrl+V.");
+    expect(failureNotice({ reason: "thread-contradicted", username: USER })).toBe(`Este chat ya no es de @${USER}. Abrí el perfil y tocá "Enviar mensaje"; el mensaje está copiado.`);
     expect(UNCONFIRMED_NOTICE).toBe('No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje (Ctrl+V).');
     expect(pasteShortcut({ text: UNCONFIRMED_NOTICE, platform: "MacIntel" })).toContain("(⌘V)");
     expect(pasteShortcut({ text: FAILURE_NOTICES["insert-failed"], platform: "Win32" })).toContain("Ctrl+V");
@@ -282,109 +387,9 @@ describe("instagram notice (§2.3)", () => {
     host.shadowRoot!.querySelector<HTMLButtonElement>('button[aria-label="Cerrar aviso"]')!.click(); expect(document.getElementById(NOTICE_ID)).toBeNull();
     showNotice({ doc: document, text: "dos", tone: "warning" }); vi.advanceTimersByTime(8000); expect(document.getElementById(NOTICE_ID)).toBeNull();
   });
-});
-
-describe("startInstagram: only with a valid one-time handoff", () => {
-  /** In-memory stand-in for the GM handoff key, with the same compare-and-delete as the real store. */
-  function memoryStore(value: unknown): HandoffStore & { value: unknown; reads: number } {
-    const store = { value, reads: 0, read: () => { store.reads++; return store.value; }, clear: ({ nonce }: { nonce: string }) => { if ((store.value as { nonce?: string } | null)?.nonce === nonce) store.value = null; } }; return store;
-  }
-  const handoff = (over: Partial<InstagramHandoff> = {}): InstagramHandoff => ({ nonce: NONCE, username: USER, expiresAt: Date.now() + HANDOFF_TTL_MS, text: TEXT, ...over });
-  const notice = () => document.getElementById(NOTICE_ID)?.shadowRoot?.textContent ?? null;
-  /** Runs the module on a profile and returns what happened. */
-  async function run({ hash, store, waitMs = 60 }: { hash: string; store: HandoffStore; waitMs?: number }) {
-    history.replaceState(null, "", PROFILE_PATH + hash); const page = mountProfile();
-    const results: unknown[] = [];
-    startInstagram({ store, flow: fast, handoffWaitMs: waitMs, onResult: result => results.push(result) });
-    if (pasteMarkerNonce({ hash })) await vi.waitFor(() => expect(results).toHaveLength(1)); else await new Promise(resolve => setTimeout(resolve, 60));
-    await new Promise(resolve => setTimeout(resolve, 20)); page.cleanup();
-    return { results, clicks: page.clicks(), sends: page.sends };
-  }
-  beforeEach(() => { vi.spyOn(console, "debug").mockImplementation(() => {}); });
-
-  it("does nothing on a page without the marker: no storage read, no DOM change", async () => {
-    history.replaceState(null, "", PROFILE_PATH); document.body.innerHTML = profileEs; const before = document.body.innerHTML, store = memoryStore(handoff()), onResult = vi.fn();
-    startInstagram({ store, flow: fast, handoffWaitMs: 30, onResult }); await new Promise(resolve => setTimeout(resolve, 60));
-    expect(onResult).not.toHaveBeenCalled(); expect(store.reads).toBe(0); expect(document.body.innerHTML).toBe(before);
-  });
-  it("stays silent with a bare #hospeda: no click, no notice, the pending handoff stays", async () => {
-    const store = memoryStore(handoff()), outcome = await run({ hash: "#hospeda", store });
-    expect(outcome.results).toEqual([]); expect(outcome.clicks).toBe(0); expect(notice()).toBeNull(); expect(store.reads).toBe(0); expect(store.value).not.toBeNull();
-  });
-  for (const [name, stored, cleared] of [
-    ["an unknown or superseded nonce", () => handoff({ nonce: "f".repeat(32) }), false],
-    ["no handoff at all", () => null, false],
-    ["an expired nonce", () => handoff({ expiresAt: Date.now() - 1 }), true],
-    ["another profile's username", () => handoff({ username: "otro_negocio" }), true],
-  ] as const) it(`shows only the fixed neutral notice with ${name} (M3)`, async () => {
-    const store = memoryStore(stored()), outcome = await run({ hash: `#hospeda=${NONCE}`, store });
-    expect(outcome.results).toEqual([{ ok: false, reason: "unconfirmed" }]); expect(outcome.clicks).toBe(0);
-    expect(notice()).toContain('No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje');
-    expect(store.value === null).toBe(cleared || stored() === null);
-  });
-  it("pastes the handoff text once, deletes it first, and a reused nonce only gets the neutral notice", async () => {
-    const store = memoryStore(handoff()), first = await run({ hash: `#hospeda=${NONCE}`, store });
-    expect(first.results).toEqual([{ ok: true }]); expect(first.clicks).toBe(1); expect(first.sends).toEqual([]);
-    expect(store.value).toBeNull(); expect(composerHas({ composer: mainComposer(), text: TEXT })).toBe(true);
-    expect(notice()).toContain(PASTED_NOTICE);
-    const again = await run({ hash: `#hospeda=${NONCE}`, store });
-    expect(again.results).toEqual([{ ok: false, reason: "unconfirmed" }]); expect(again.clicks).toBe(0);
-  });
-  it("a second «Abrir Instagram» supersedes the first: tab A neither pastes nor wipes tab B's handoff (L7)", async () => {
-    const second = "e".repeat(32), store = memoryStore(handoff({ nonce: second }));
-    const tabA = await run({ hash: `#hospeda=${NONCE}`, store });
-    expect(tabA.results).toEqual([{ ok: false, reason: "unconfirmed" }]); expect((store.value as InstagramHandoff).nonce).toBe(second);
-    const tabB = await run({ hash: `#hospeda=${second}`, store });
-    expect(tabB.results).toEqual([{ ok: true }]); expect(store.value).toBeNull();
-  });
-  it("logs which check failed, and deletes the handoff of the same nonce when expired or for another profile", async () => {
-    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
-    for (const [stored, verdict] of [[handoff({ expiresAt: Date.now() - 1 }), "expired"], [handoff({ username: "otro_negocio" }), "username"]] as const) {
-      const store = memoryStore(stored), outcome = await run({ hash: `#hospeda=${NONCE}`, store });
-      expect(outcome.results).toEqual([{ ok: false, reason: "unconfirmed" }]); expect(outcome.clicks).toBe(0); expect(store.value).toBeNull();
-      expect(notice()).toContain("No pude confirmar que lo abrió el CRM"); expect(debug).toHaveBeenLastCalledWith(`[Hospeda] Instagram: marker not confirmed (${verdict}).`);
-    }
-  });
-  it("reports insert-failed when the paste flow throws", async () => {
-    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${NONCE}`); mountProfile(); const results: unknown[] = [];
-    startInstagram({ store: memoryStore(handoff()), flow: { ...fast, settle: () => Promise.reject(new Error("boom")) }, handoffWaitMs: 60, onResult: result => results.push(result) });
-    await vi.waitFor(() => expect(results).toEqual([{ ok: false, reason: "insert-failed", composer: null }]));
-    expect(notice()).toContain("No pude pegar el mensaje");
-  });
-  it("a marker that arrives while a run is in progress is consumed, its handoff deleted, and starts nothing", async () => {
-    const second = "e".repeat(32), store = memoryStore(handoff()), results: unknown[] = [];
-    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${NONCE}`); const page = mountProfile({ delayMs: 300 });
-    // Listeners of earlier tests stay on window, so capture this run's own hashchange handler instead of dispatching the event.
-    const listen = vi.spyOn(window, "addEventListener");
-    startInstagram({ store, flow: { ...fast, composerTimeoutMs: 1500 }, handoffWaitMs: 60, onResult: result => results.push(result) });
-    const onHashChange = listen.mock.calls.find(([type]) => type === "hashchange")![1] as () => void;
-    await vi.waitFor(() => expect(page.clicks()).toBe(1)); // the run is in the middle of the paste flow
-    const other = vi.spyOn(store, "clear"); store.value = handoff({ nonce: second });
-    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${second}`); onHashChange();
-    expect(location.hash).toBe(""); expect(other).toHaveBeenCalledWith({ nonce: second }); expect(store.value).toBeNull();
-    await vi.waitFor(() => expect(results).toEqual([{ ok: true }])); expect(page.clicks()).toBe(1); page.cleanup();
-  });
-  it("waits for a handoff that reaches the tab a moment later (GM storage sync)", async () => {
-    const store = memoryStore(null); setTimeout(() => { store.value = handoff(); }, 20);
-    const outcome = await run({ hash: `#hospeda=${NONCE}`, store, waitMs: 500 });
-    expect(outcome.results).toEqual([{ ok: true }]);
-  });
-  it("runs once even with repeated hashchange events", async () => {
-    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${NONCE}`); const page = mountProfile({ delayMs: 20 }); const store = memoryStore(handoff()), results: unknown[] = [];
-    startInstagram({ store, flow: fast, handoffWaitMs: 60, onResult: result => results.push(result) });
-    window.dispatchEvent(new HashChangeEvent("hashchange")); window.dispatchEvent(new HashChangeEvent("hashchange"));
-    await vi.waitFor(() => expect(results).toEqual([{ ok: true }])); await new Promise(resolve => setTimeout(resolve, 50));
-    expect(results).toHaveLength(1); expect(page.clicks()).toBe(1); page.cleanup();
-  });
-  it("leaves a composer that already has text untouched and says so", async () => {
-    history.replaceState(null, "", PROFILE_PATH + `#hospeda=${NONCE}`); mountProfile({ editor: composer => { composer.textContent = "Borrador viejo"; } }); const results: unknown[] = [];
-    startInstagram({ store: memoryStore(handoff()), flow: fast, handoffWaitMs: 60, onResult: result => results.push(result) });
-    await vi.waitFor(() => expect(results).toEqual([expect.objectContaining({ ok: false, reason: "composer-busy" })]));
-    expect(mainComposer().textContent).toBe("Borrador viejo"); expect(notice()).toContain("El chat ya tenía texto escrito");
-  });
-  it("never reads the clipboard", async () => {
-    const readText = vi.fn(async () => "secreto"); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
-    await run({ hash: `#hospeda=${NONCE}`, store: memoryStore(handoff()) });
-    expect(readText).not.toHaveBeenCalled();
+  it("adds the profile link only for an Instagram profile URL", () => {
+    const host = showNotice({ doc: document, text: "x", tone: "warning", link: { text: "Abrir el perfil", href: `https://www.instagram.com/${USER}/` } });
+    expect(host.shadowRoot!.querySelector("a")!.getAttribute("href")).toBe(`https://www.instagram.com/${USER}/`);
+    expect(showNotice({ doc: document, text: "x", tone: "warning", link: { text: "x", href: "javascript:alert(1)" } }).shadowRoot!.querySelector("a")).toBeNull();
   });
 });

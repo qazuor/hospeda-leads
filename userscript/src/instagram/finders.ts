@@ -62,17 +62,45 @@ export function findComposer({ doc }: { doc: Document }): HTMLElement | null { r
 
 /** A DM thread page: `/direct/t/<id>/`. */
 export const isThreadPath = (pathname: string): boolean => /^\/direct\/t\/[^/]+\/?$/.test(pathname);
-const FLOATING = '[role="dialog"], aside, [role="complementary"]';
+/** Floating containers (Instagram's mini-chat and side dialogs): nothing inside them is ever read as proof or written into. */
+export const FLOATING = '[role="dialog"], aside, [role="complementary"]';
+const EDITABLE = '[contenteditable="true"], [role="textbox"], textarea';
 
 /**
- * Spec 94 M2: the composer of the thread that the click on «Enviar mensaje» just opened, or null while it cannot be proven. The only proof
- * is the URL: the click moved the page from the profile to `/direct/t/<id>/`, and then only the page's own (non-floating) composer counts.
- * Floating mini-chats are never used, whatever their label says (a group or a similar username could pass a label match). Anything else
- * is not pasted into: the flow shows a notice.
+ * Spec 97 §4.4 / 9.1: the open conversation's pane, the page's `role="main"` (never a floating chat). Several visible ones (a re-render in
+ * progress) narrow to the one holding an editor; anything still ambiguous is null, so nothing is proven or pasted.
  */
-export function findThreadComposer({ doc, pathname, startPath }: { doc: Document; pathname: string; startPath: string }): HTMLElement | null {
-  if (pathname === startPath || !isThreadPath(pathname)) return null;
-  return findComposers({ doc }).find(composer => !composer.closest(FLOATING)) ?? null;
+export function conversationPane({ doc }: { doc: Document }): HTMLElement | null {
+  const panes = [...doc.querySelectorAll<HTMLElement>('[role="main"]')].filter(pane => !pane.closest(FLOATING) && !isHidden(pane));
+  if (panes.length <= 1) return panes[0] ?? null;
+  const withEditor = panes.filter(pane => pane.querySelector(EDITABLE));
+  return withEditor.length === 1 ? withEditor[0] : null;
+}
+
+/**
+ * Spec 97 §9.1 item 2: the chat page's own composer. Live it is one `contenteditable` Lexical editor without `aria-label`, so it is located inside
+ * the conversation pane instead of by label: a visible editor that is Lexical, a textbox or labelled like spec 94's composer, outside any floating
+ * container. Exactly one must exist; none or several is null (never guess between two editors).
+ */
+export function findPageComposer({ doc }: { doc: Document }): HTMLElement | null {
+  const pane = conversationPane({ doc }); if (!pane) return null;
+  const editors = [...pane.querySelectorAll<HTMLElement>(EDITABLE)].filter(el => !el.closest(FLOATING) && !isHidden(el) && (el.hasAttribute("data-lexical-editor") || el.getAttribute("role") === "textbox" || COMPOSER_LABELS.includes(composerLabel(el))));
+  return editors.length === 1 ? editors[0] : null;
+}
+
+/** Accessible names of the floating chat's button that opens the full chat page (9.1 item 3; English to confirm live). */
+export const EXPAND_NAMES: readonly string[] = ["expandir", "expand"];
+/** Every visible «Expandir» / «Expand» button (button, `role="button"` or link) in document order. */
+export function expandButtons({ doc }: { doc: Document }): HTMLElement[] {
+  return [...doc.querySelectorAll<HTMLElement>('button, [role="button"], a')].filter(el => EXPAND_NAMES.includes(accessibleName(el)) && !isHidden(el));
+}
+/**
+ * Spec 97 §4.2 step 3 with 9.1: the floating chat opened by the click on «Enviar mensaje» has no link to `/direct/t/<id>/`, but its «Expandir»
+ * button navigates there. Only a button that was **not** on the page before the click counts (`before`), so an older floating chat with
+ * somebody else is never expanded. Its composer is never used: the paste happens on the chat page after the proof.
+ */
+export function findFloatingExpand({ doc, before }: { doc: Document; before: ReadonlySet<Element> }): HTMLElement | null {
+  return expandButtons({ doc }).find(el => !before.has(el) && !el.closest('[role="main"] header, main header')) ?? null;
 }
 
 /** The composer's text (a textarea's value, else its text content). */
