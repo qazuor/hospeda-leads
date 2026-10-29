@@ -24,12 +24,14 @@ export const MATERIAL_SENT_STATUSES:readonly string[]=['accepted','delivery_conf
 export function canRevokeMaterialLink({admin,userEmail,authorEmail,businessOwnerEmail,managementOwnerEmail}:{admin:boolean;userEmail:string|null|undefined;authorEmail:string;businessOwnerEmail?:string|null;managementOwnerEmail?:string|null}):boolean{
  return admin||(!!userEmail&&(authorEmail===userEmail||businessOwnerEmail===userEmail||managementOwnerEmail===userEmail));
 }
+/** How the material record names the channel of a link (spec 98: Instagram links too). */
+export const MATERIAL_CHANNEL_LABELS:Record<MessageMaterial['channel'],string>={email:'Email',whatsapp:'WhatsApp',instagram:'Instagram'};
 const size=(m:MessageMaterial)=>m.source==='url'?'Enlace externo':`${m.fileName??'Archivo'}${m.byteSize?' · '+formatBytes({bytes:m.byteSize}):''}`;
 /**
  * The materials of a draft (spec 89 §8.2): «Quitar» and, in email, «Adjuntar el archivo», disabled with the server's reason (limit, external link).
  * `blockedReason` disables every change (for example while the text has unsaved edits); the parent runs the actions and shows their errors.
  */
-export function DraftMaterials({materials,channel,busy,blockedReason,onRemove,onAttach}:{materials:readonly MessageMaterial[];channel:'email'|'whatsapp';busy:boolean;blockedReason:string;onRemove:(m:MessageMaterial)=>void;onAttach:(m:MessageMaterial,attach:boolean)=>void}){
+export function DraftMaterials({materials,channel,busy,blockedReason,onRemove,onAttach}:{materials:readonly MessageMaterial[];channel:MessageMaterial['channel'];busy:boolean;blockedReason:string;onRemove:(m:MessageMaterial)=>void;onAttach:(m:MessageMaterial,attach:boolean)=>void}){
  if(!materials.length)return null;
  return <ul className={styles.materialList} aria-label="Material incluido">{materials.map(m=><li key={m.shareId} className={styles.materialItem}>
   <strong>{m.title}</strong><span className={styles.meta}>{size(m)} · el enlace va en el texto</span>
@@ -60,7 +62,7 @@ export function SentMaterials({materials,message,canRevoke,users}:{materials:rea
   <ul className={styles.materialList}>{materials.map(m=><li key={m.shareId} className={styles.materialItem}>
    <strong>{m.title}</strong>
    <div className={styles.badges}><Badge variant={m.revokedAt?'destructive':'success'}>{m.revokedAt?'Enlace revocado':'Enlace activo'}</Badge>{m.attachedVersion!=null&&<Badge variant="secondary">Adjunto</Badge>}{m.attach&&m.attachedVersion==null&&<Badge variant="outline">Adjunto no confirmado</Badge>}</div>
-   <span className={styles.meta}>{sent&&m.sentVersion!=null?`Versión enviada: ${m.sentVersion}`:`Versión incluida en el mensaje: ${m.sentVersion??m.preparedVersion??'sin datos'}`} · {m.channel==='email'?'Email':'WhatsApp'} · {who(message.ownerEmail)} · {formatDateTime(message.lastInteractionAt??message.createdAt)}</span>
+   <span className={styles.meta}>{sent&&m.sentVersion!=null?`Versión enviada: ${m.sentVersion}`:`Versión incluida en el mensaje: ${m.sentVersion??m.preparedVersion??'sin datos'}`} · {MATERIAL_CHANNEL_LABELS[m.channel]} · {who(message.ownerEmail)} · {formatDateTime(message.lastInteractionAt??message.createdAt)}</span>
    {!sent&&<span className={styles.meta}>Envío no confirmado: el mensaje figura como «{messageLabels[message.status]??message.status}».</span>}
    {m.revokedAt&&<span className={styles.meta}>Revocado por {who(m.revokedByEmail??'')} el {formatDateTime(m.revokedAt)}: {m.revokeReason}</span>}
    <span className={styles.meta}>Registro técnico de acceso: {m.technicalAccessCount}{m.lastTechnicalAccessAt?` · último ${formatDateTime(m.lastTechnicalAccessAt)}`:''}. No confirma que el cliente lo haya visto.</span>

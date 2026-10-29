@@ -66,11 +66,12 @@ describe('BusinessContactDialog · contact step (spec 96 §2.3)',()=>{
   expect(screen.queryByTestId('block')).toBeNull();
   expect(screen.getByTestId('composer').textContent).toBe('general composer · whatsapp · other');
  });
- it('offers only WhatsApp and Email for «Enviar material» and no «Otro» row',async()=>{
+ it('offers WhatsApp, Instagram and Email for «Enviar material» (spec 98 decision 2) and no «Otro» row',async()=>{
   show(detail('hotel.sol'),{initialMaterial:{id:'m1',title:'Tarifas'} as never});
   await loaded();
-  expect([...screen.getByRole('group',{name:'Canal'}).querySelectorAll('button')].map(b=>b.textContent)).toEqual(['WhatsApp','Email']);
+  expect([...screen.getByRole('group',{name:'Canal'}).querySelectorAll('button')].map(b=>b.textContent)).toEqual(['WhatsApp','Instagram','Email']);
   expect(screen.queryByRole('button',{name:'Llamada'})).toBeNull();
+  expect(screen.getByText(/Se agrega al mensaje de email, WhatsApp o Instagram/)).toBeTruthy();
  });
  it('keeps the call in its own dialog with «¿Sobre qué?»',async()=>{
   show(detail(null));

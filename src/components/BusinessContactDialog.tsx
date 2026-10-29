@@ -70,8 +70,8 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const activeContacts=detail.contacts.filter(c=>!c.deletedAt);
  const channel:Channel=channelChoice??(recent?.channel==='email'||recent?.channel==='whatsapp'?recent.channel:null)??(detail.account.telefono?.trim()||detail.account.whatsapp?.trim()||activeContacts.some(c=>c.phone?.trim())?'whatsapp':'email');
  const manualChannel=channel==='social'||channel==='other';
- // «Enviar material» only travels by WhatsApp or Email (spec 89 §8.2).
- const offered=MESSAGE_CHANNELS.filter(c=>!initialMaterial||c.value!=='instagram');
+ // «Enviar material» travels by WhatsApp, Instagram or Email (spec 89 §8.2; Instagram since spec 98 decision 2, link only).
+ const offered=MESSAGE_CHANNELS;
  const canContact=canBusiness||open.some(o=>canModifyManagement(user,o,detail.account));
  const channelBlock=(c:MessageChannel,withGate=true)=>contactChannelBlock({channel:c,account:detail.account,contacts:activeContacts,canContact,gateReason:withGate?gate.reason:''});
  // Only undefined means "no request" (report item 1.4): '' is an explicit choice of the business general channel.
@@ -114,7 +114,7 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const dataBlock=channelBlock(channel,false);
  // Statuses and the script gate stay in view; the choices below collapse behind «Cambiar» in the composer once they are resolved.
  const notices=(initialMaterial||created||(!initialChannel&&gate.reason))&&<div className={styles.section}>
-  {initialMaterial&&<p role="status">Material a enviar: «{initialMaterial.title}». Se agrega al mensaje de email o WhatsApp cuando prepares el borrador; no se manda nada hasta que lo confirmes.</p>}
+  {initialMaterial&&<p role="status">Material a enviar: «{initialMaterial.title}». Se agrega al mensaje de email, WhatsApp o Instagram cuando prepares el borrador; no se manda nada hasta que lo confirmes.</p>}
   {created&&<p role="status">Gestión guardada. Elegí el mensaje para continuar. Todavía no se realizó un contacto.</p>}
   {!initialChannel&&<UserscriptGateNotice gate={gate}/>}
  </div>;
