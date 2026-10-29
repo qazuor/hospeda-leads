@@ -115,7 +115,7 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     if (rescan) state.loggedIn = loggedInUsername({ doc });
     if (state.status.kind !== "ok" || accountState(state) !== "ok") { removeInboxBadges({ doc }); return; }
     loadInbox(token);
-    if (inbox?.token === token) applyInboxBadges({ doc, threads: inbox.threads, dark: dark(), ownUsername: state.loggedIn });
+    if (inbox?.token === token) applyInboxBadges({ doc, threads: inbox.threads, dark: dark(), ownUsername: state.loggedIn, base: deps.base });
   }
   /** Review H1: the badges are an extra; whatever goes wrong there never stops the panel, learning or paste. */
   function safeBadges(rescan: boolean): void {

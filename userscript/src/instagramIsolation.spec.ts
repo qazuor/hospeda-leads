@@ -153,7 +153,9 @@ describe("Instagram boundaries inside the shared script (spec 97 §5.4)", () => 
     const dir = resolve(process.cwd(), "userscript/src/instagramApp") + "/";
     const sources = readdirSync(dir).filter(file => file.endsWith(".ts") && !file.endsWith(".spec.ts"));
     expect(sources).toEqual(expect.arrayContaining(["start.ts", "panel.ts", "compose.ts", "client.ts", "storage.ts", "state.ts"]));
-    const allowedImports = /^(?:\.\/[\w-]+|\.\.\/instagram\/[\w-]+|\.\.\/(?:api|styles|logo|version|parse))$/;
+    // badgeCard is the pill + hover card shared with WhatsApp's chat badges: pure DOM, and it must stay import-free to be allowed here.
+    const allowedImports = /^(?:\.\/[\w-]+|\.\.\/instagram\/[\w-]+|\.\.\/(?:api|styles|logo|version|parse|badgeCard))$/;
+    expect(readFileSync(resolve(process.cwd(), "userscript/src/badgeCard.ts"), "utf8")).not.toMatch(/^\s*import\s/m);
     for (const file of sources) {
       const text = readFileSync(dir + file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
       for (const [, spec] of text.matchAll(/from\s+["']([^"']+)["']/g)) expect(spec, `${file} imports ${spec}`).toMatch(allowedImports);

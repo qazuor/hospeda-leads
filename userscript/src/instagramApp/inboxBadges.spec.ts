@@ -11,8 +11,10 @@ const thread = (displayName: string, username: string, badge: InstagramInboxBadg
 const mount = () => { history.replaceState(null, "", "/direct/inbox/"); document.body.innerHTML = inboxList; };
 const badgeOf = (id: string) => document.getElementById(id)!.querySelector<HTMLElement>(`[${INBOX_BADGE_ATTRIBUTE}]`);
 const pillText = (id: string) => badgeOf(id)?.shadowRoot?.querySelector(".pill")?.textContent ?? null;
-const apply = (threads: InstagramInboxThread[], dark = false) => applyInboxBadges({ doc: document, threads, dark, ownUsername: "hospeda.com.ar" });
-afterEach(() => { document.body.innerHTML = ""; history.replaceState(null, "", "/"); });
+const apply = (threads: InstagramInboxThread[], dark = false) => applyInboxBadges({ doc: document, threads, dark, ownUsername: "hospeda.com.ar", base: "https://crm.test" });
+const cardOf = () => document.querySelector<HTMLElement>("[data-hospeda-inbox-card]")?.shadowRoot?.querySelector<HTMLElement>(".card") ?? null;
+const hover = (id: string) => badgeOf(id)!.dispatchEvent(new MouseEvent("mouseenter"));
+afterEach(() => { removeInboxBadges({ doc: document }); document.body.innerHTML = ""; history.replaceState(null, "", "/"); });
 
 describe("Instagram conversation list rows (spec 97 §15, live findings §9.1 item 9)", () => {
   it("finds the list and only the chat rows: switcher, labelled buttons, notes tray and tablist are skipped", () => {
@@ -71,20 +73,50 @@ describe("Instagram conversation list badges (spec 97 §15)", () => {
     mount(); apply([thread("hospeda.com.ar", "hospeda.com.ar"), thread("Compartí una nota", "nota")]);
     expect(badgeOf("switcher")).toBeNull(); expect(badgeOf("notes")).toBeNull();
   });
-  it("shows «No contactar» in red and how many businesses share an Instagram, with the details as a tooltip", () => {
+  it("shows «No contactar» in red and how many businesses share an Instagram, with the details as the accessible label (no native tooltip)", () => {
     mount();
     apply([thread("Leandro Asrilevich", "qaz.uor", single("H7", { doNotContact: true })), thread("Ana Gómez", "ana", { kind: "multiple", businesses: [{ accountId: "1", code: "H1", name: "Uno", statusLabel: null }, { accountId: "2", code: "H2", name: "Dos", statusLabel: "Cliente" }] })]);
     const pill = badgeOf("row-leandro")!.shadowRoot!.querySelector<HTMLElement>(".pill")!;
-    expect(pill.className).toContain("red"); expect(pill.textContent).toBe("HH7 · No contactar"); expect(pill.title).toContain("No contactar");
+    expect(pill.className).toContain("red"); expect(pill.textContent).toBe("HH7 · No contactar"); expect(pill.title).toBe(""); expect(pill.getAttribute("aria-label")).toContain("No contactar");
     expect(pillText("row-ana")).toBe("H2 negocios");
     expect(inboxBadgeDetail(single("H7"))).toBe("H7 · Colón\nNegocio H7\nContactado · Ana\nContactado · Principal");
     expect(inboxBadgeText(single("H9", { restricted: true }))).toBe("H9 · No contactar");
   });
-  it("is informational only: no link, no handler that stops Instagram's row click", () => {
+  it("shows the shared hover card with «Abrir en el CRM» linking to the account, in a fixed layer outside the list", () => {
+    // Arrange
+    mount(); apply([thread("Leandro Asrilevich", "qaz.uor", single("H7"))]);
+    // Act
+    hover("row-leandro");
+    // Assert
+    const card = cardOf()!, link = card.querySelector<HTMLAnchorElement>("a.btn")!;
+    expect(link.textContent).toBe("Abrir en el CRM"); expect(link.href).toBe("https://crm.test/accounts/7"); expect(link.target).toBe("_blank"); expect(link.rel).toBe("noopener noreferrer");
+    expect(card.querySelector(".name")!.textContent).toBe("Negocio H7"); expect(card.style.top).not.toBe("");
+    expect(conversationList({ doc: document })!.contains(document.querySelector("[data-hospeda-inbox-card]"))).toBe(false);
+  });
+  it("links every business of a «multiple» card", () => {
+    mount(); apply([thread("Ana Gómez", "ana", { kind: "multiple", businesses: [{ accountId: "1", code: "H1", name: "Uno", statusLabel: null }, { accountId: "2", code: "H2", name: "Dos", statusLabel: "Cliente" }] })]);
+    hover("row-ana");
+    expect([...cardOf()!.querySelectorAll<HTMLAnchorElement>("a.item")].map(a => a.href)).toEqual(["https://crm.test/accounts/1", "https://crm.test/accounts/2"]);
+  });
+  it("clicks and presses on the pill or the card link never reach Instagram's row or document", () => {
+    // Arrange
     mount(); apply([thread("Leandro Asrilevich", "qaz.uor")]);
-    const clicks: string[] = []; document.getElementById("row-leandro")!.addEventListener("click", () => clicks.push("row"));
-    badgeOf("row-leandro")!.shadowRoot!.querySelector<HTMLElement>(".pill")!.click();
-    expect(clicks).toEqual(["row"]); expect(badgeOf("row-leandro")!.shadowRoot!.querySelector("a, button")).toBeNull();
+    const events: string[] = [], row = document.getElementById("row-leandro")!;
+    row.addEventListener("click", () => events.push("row")); row.addEventListener("mousedown", () => events.push("row-down")); document.addEventListener("click", () => events.push("doc"));
+    // Act
+    const pill = badgeOf("row-leandro")!.shadowRoot!.querySelector<HTMLElement>(".pill")!; pill.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true })); pill.click();
+    hover("row-leandro"); const link = cardOf()!.querySelector<HTMLAnchorElement>("a.btn")!; link.addEventListener("click", event => event.preventDefault()); link.click();
+    // Assert
+    expect(events).toEqual([]);
+  });
+  it("hides the card after leaving the pill, but keeps it while the mouse is on the card", () => {
+    vi.useFakeTimers();
+    try {
+      mount(); apply([thread("Leandro Asrilevich", "qaz.uor")]); hover("row-leandro");
+      const layer = document.querySelector<HTMLElement>("[data-hospeda-inbox-card]")!;
+      badgeOf("row-leandro")!.dispatchEvent(new MouseEvent("mouseleave")); layer.dispatchEvent(new MouseEvent("mouseenter")); vi.advanceTimersByTime(500); expect(cardOf()).not.toBeNull();
+      layer.dispatchEvent(new MouseEvent("mouseleave")); vi.advanceTimersByTime(500); expect(cardOf()).toBeNull();
+    } finally { vi.useRealTimers(); }
   });
   it("survives re-renders: keeps a current badge, re-adds a lost one, moves it when a row is recycled for another chat", () => {
     mount(); apply([thread("Leandro Asrilevich", "qaz.uor")]); const first = badgeOf("row-leandro");
@@ -102,9 +134,9 @@ describe("Instagram conversation list badges (spec 97 §15)", () => {
   it("builds the badge without innerHTML or insertAdjacentHTML", () => {
     mount();
     const element = vi.spyOn(Element.prototype, "innerHTML", "set"), shadow = vi.spyOn(ShadowRoot.prototype, "innerHTML", "set"), adjacent = vi.spyOn(Element.prototype, "insertAdjacentHTML");
-    try { apply([thread("Leandro Asrilevich", "qaz.uor", single("H7", { name: "<img src=x onerror=alert(1)>" }))]); expect(element).not.toHaveBeenCalled(); expect(shadow).not.toHaveBeenCalled(); expect(adjacent).not.toHaveBeenCalled(); }
+    try { apply([thread("Leandro Asrilevich", "qaz.uor", single("H7", { name: "<img src=x onerror=alert(1)>" }))]); hover("row-leandro"); expect(element).not.toHaveBeenCalled(); expect(shadow).not.toHaveBeenCalled(); expect(adjacent).not.toHaveBeenCalled(); }
     finally { element.mockRestore(); shadow.mockRestore(); adjacent.mockRestore(); }
-    expect(badgeOf("row-leandro")!.shadowRoot!.querySelector("img")).toBeNull();
+    expect(badgeOf("row-leandro")!.shadowRoot!.querySelector("img")).toBeNull(); expect(cardOf()!.querySelector("img")).toBeNull(); expect(cardOf()!.querySelector(".name")!.textContent).toBe("<img src=x onerror=alert(1)>");
   });
   it("follows the theme and is removed on demand", () => {
     mount(); apply([thread("Leandro Asrilevich", "qaz.uor")], true);
