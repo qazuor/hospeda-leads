@@ -1,5 +1,5 @@
 import type { InstagramMatch, InstagramTemplatesResponse, PreparedTemplate, StatusResponse } from "../api";
-import { PANEL_ID, renderPanel, type PanelActions } from "./panel";
+import { PANEL_ID, instagramSearchOrCreateUrl, renderPanel, type PanelActions } from "./panel";
 import { initialState, type AppState } from "./state";
 import { ALREADY_CONFIRMED, CHAT_CHANGED, RECIPIENT_MISMATCH, COMPOSER_BUSY, NOT_SENT_NOTE, initialInstagramChoice, openInstagramCompose, type ComposeContext } from "./compose";
 import type { InstagramApi } from "./client";
@@ -28,7 +28,8 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
     expect(buttonNamed("Mandar un mensaje").disabled).toBe(true); expect(buttonNamed("Mandar un mensaje").title).toBe("El negocio tiene No contactar activo.");
   });
   it("covers none, hidden, several, unproven, another account and no configured account", () => {
-    render(ready({}, [])); expect(text()).toContain("No encontré un negocio con @cabanas_del_rio en el CRM."); expect(text()).toContain("Buscar en Negocios del CRM");
+    render(ready({}, [])); expect(text()).toContain("No encontré un negocio con @cabanas_del_rio en el CRM.");
+    { const link = [...root().querySelectorAll<HTMLAnchorElement>("a")].find(a => a.textContent === "Buscar o crear en el CRM")!; expect(new URL(link.href).pathname).toBe("/accounts"); expect(Object.fromEntries(new URL(link.href).searchParams)).toEqual({ q: "cabanas_del_rio", createInstagram: "cabanas_del_rio" }); expect(link.rel).toBe("noopener noreferrer"); }
     render(ready({}, [], 2)); expect(text()).toContain("Este Instagram está en un negocio que no podés ver. Consultá a un administrador antes de escribirle.");
     const select = vi.fn(); render(ready({}, [matchOf(), matchOf({ accountId: "8", code: "H8" })]), actionsOf({ select }));
     expect(text()).toContain("Hay varios negocios con este Instagram");
@@ -82,6 +83,12 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
 const folleto = { id: "11111111-1111-4111-8111-111111111111", title: "Folleto", categories: [], format: "pdf", formatLabel: "PDF" };
 const prepared: PreparedTemplate = { messageId: "m-1", revision: 2, body: "Hola Cabañas", recipient: "@cabanas_del_rio", recipientName: "Cabañas del Río", unresolved: [] };
 const templates = (over: Partial<InstagramTemplatesResponse> = {}): InstagramTemplatesResponse => ({ leads: [{ id: "1", name: "Alojamiento", type: "main", stage: "Contactado", templates: [{ id: "t1", name: "Presentación", recommended: true, body: "Hola {{nombre}}" }] }], general: { defaultPurpose: "first_contact", purposes: [{ value: "first_contact", label: "Presentación / primer contacto", templates: [{ id: "g1", name: "General", recommended: true, body: "Hola" }] }, { value: "other", label: "Otro", templates: [{ id: "g2", name: "Otro", recommended: true, body: "Hola" }] }] }, blocked: null, username: "cabanas_del_rio", ...over });
+
+describe("«Buscar o crear en el CRM» (spec 98 §17)", () => {
+  it("searches the username without @ and carries it as the creation prefill, encoded by URLSearchParams", () => {
+    expect(instagramSearchOrCreateUrl({ base: "https://crm.test", username: "@cabanas.del_rio" })).toBe("https://crm.test/accounts?q=cabanas.del_rio&createInstagram=cabanas.del_rio");
+  });
+});
 
 describe("«Enviar material» in the Instagram business view (spec 98 §4.1)", () => {
   it("sits next to «Mandar un mensaje», with the same disabled reason, and only a trusted click opens it", () => {

@@ -177,7 +177,7 @@ function chat(options: UiOptions, card: HTMLElement): HTMLElement {
     }
     else if (!options.error && matches.length < 2) {
       body.append(el("span", "eyebrow", "SIN ASOCIAR"), el("span", "name", options.title), el("p", "note info", `No encontré el negocio de este chat. ${NO_MATCH}`));
-      if (options.crmBase) { const link = el("a", "btn", "Buscar en Negocios del CRM"); link.href = `${options.crmBase}/accounts`; link.target = "_blank"; link.rel = "noopener noreferrer"; body.append(link); }
+      if (options.crmBase) { const link = el("a", "btn", "Buscar o crear en el CRM"); link.href = whatsappSearchOrCreateUrl({ base: options.crmBase, phone: options.phone ?? null }); link.target = "_blank"; link.rel = "noopener noreferrer"; body.append(link); }
     }
   }
   if (options.error) status.textContent = options.error;
@@ -304,3 +304,16 @@ function showPreview(card: HTMLElement, messages: ChatMessage[], options: UiOpti
   const notice = openWhatsappNotice(selected.openWhatsapp, messages); if (notice) { const note = el("p", "note info", notice); note.setAttribute("role", "note"); footer.append(note); }
   footer.append(actions); card.replaceChildren(header, head, list, footer);
 }
+
+/**
+ * Spec 98 §17: «Buscar o crear en el CRM» from a chat without a business. Opens Negocios searching the chat's phone (digits, with `+` when the
+ * chat shows one: the CRM phone search compares the last 8 digits) and carries it as the creation prefill. Without a readable phone (6+ digits)
+ * it opens Negocios as before. The CRM never creates anything by itself.
+ */
+export function whatsappSearchOrCreateUrl({ base, phone }: { base: string; phone: string | null }): string {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (digits.length < 6) return `${base}/accounts`;
+  const value = `${phone!.trim().startsWith("+") ? "+" : ""}${digits}`;
+  return `${base}/accounts?${new URLSearchParams({ q: value, createPhone: value })}`;
+}
+

@@ -72,6 +72,14 @@ function logo(el: El, className: string): HTMLElement {
 function button(el: El, text: string, className: string, onClick: (event: MouseEvent) => void, disabled = false): HTMLButtonElement {
   const node = el("button", className, text); node.type = "button"; node.disabled = disabled; node.addEventListener("click", onClick); return node;
 }
+/**
+ * Spec 98 §17: «Buscar o crear en el CRM» from a chat without a business. Opens Negocios searching the username (the CRM search does not read
+ * `@`) and carries it as the creation prefill; the CRM never creates anything by itself. Only the href changes: no API call.
+ */
+export function instagramSearchOrCreateUrl({ base, username }: { base: string; username: string }): string {
+  const user = username.replace(/^@/, "");
+  return `${base}/accounts?${new URLSearchParams({ q: user, createInstagram: user })}`;
+}
 function link(el: El, text: string, href: string, className = "btn"): HTMLAnchorElement { const node = el("a", className, text); node.href = href; node.target = "_blank"; node.rel = "noopener noreferrer"; return node; }
 /** Two-glyph icons (gear, close) as text, so no SVG markup is needed. */
 function iconButton(el: El, label: string, glyph: string, onClick: () => void): HTMLButtonElement { const node = button(el, glyph, "icon", onClick); node.setAttribute("aria-label", label); node.title = label; return node; }
@@ -125,7 +133,7 @@ function main(input: PanelInput, el: El): HTMLElement {
     }
     case "unproven": body.append(note("No pude confirmar con quién es este chat.", "info")); break;
     case "searching": body.append(el("p", "muted", "Buscando el negocio…")); break;
-    case "none": body.append(el("p", undefined, `No encontré un negocio con @${username} en el CRM.`), link(el, "Buscar en Negocios del CRM", `${input.base}/accounts`)); break;
+    case "none": body.append(el("p", undefined, `No encontré un negocio con @${username} en el CRM.`), link(el, "Buscar o crear en el CRM", instagramSearchOrCreateUrl({ base: input.base, username }))); break;
     case "hidden": body.append(note("Este Instagram está en un negocio que no podés ver. Consultá a un administrador antes de escribirle.")); break;
     case "multiple": {
       const matches = state.context?.kind === "ok" ? state.context.value.matches : [], field = el("label", "field", "Hay varios negocios con este Instagram"), select = el("select");
