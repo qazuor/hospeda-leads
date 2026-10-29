@@ -790,7 +790,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 
 **Cuándo usarlo:** Cuando necesitás encontrar negocios o propuestas sin revisar toda la cartera.
 
-1. Entrá en «Negocios» y buscá por nombre, localidad, teléfono o email. La búsqueda ignora tildes, pero distingue ñ de n. Usá los filtros rápidos de Responsable, Estado, Ciudad y Último contacto, o «Filtrar negocios» para reglas avanzadas. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual. Tocá una fila para abrir la vista previa con «Abrir ficha», «Contactar» y «Editar»; el nombre sigue abriendo la ficha. Al seleccionar negocios, aparece una barra de acciones masivas en la parte inferior.
+1. Entrá en «Negocios» y buscá por nombre, localidad, teléfono, email o Instagram (@usuario, usuario o el enlace al perfil). La búsqueda ignora tildes, pero distingue ñ de n. Usá los filtros rápidos de Responsable, Estado, Ciudad y Último contacto, o «Filtrar negocios» para reglas avanzadas. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual. Tocá una fila para abrir la vista previa con «Abrir ficha», «Contactar» y «Editar»; el nombre sigue abriendo la ficha. Al seleccionar negocios, aparece una barra de acciones masivas en la parte inferior.
 2. Tocá «Filtrar negocios» y revisá los filtros aplicados. «Guardar como vista» conserva la búsqueda, los filtros, el orden y las columnas.
 3. Abrí «Columnas» para elegir los datos que ves y arrastrá el control de puntos para ordenarlos dentro de su zona. También están disponibles WhatsApp, Teléfono de la persona y Email de la persona. La columna de selección queda primera y fija a la izquierda.
 4. También podés elegir una columna agrupada para ver varios datos apilados. En «Configuración» → «Listado de negocios» → «Columnas agrupadas», un administrador define grupos y cuántas líneas mostrar en la tabla. Los valores se apilan en el orden definido; la tabla se ordena por el primer dato del grupo. Si hay datos ocultos, tocá el botón +N más (por ejemplo, +2 más) para verlos y editarlos. En la grilla se muestran todos. Los datos vacíos muestran — y cada dato conserva su propia edición.
@@ -1170,6 +1170,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 6. Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.
 7. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
 8. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».
+9. Si el panel dice que no encontró el negocio de este chat, tocá «Buscar o crear en el CRM»: se abre Negocios buscando ese teléfono. Si aparece, abrilo. Si no aparece ninguno, tocá «Crear negocio con este teléfono»: se abre «Nuevo negocio» con el teléfono ya escrito. Si tenés filtros o una vista activa, el CRM no ofrece crear: tocá «Buscar en todos los negocios» por si el negocio estaba oculto. El CRM nunca lo crea solo.
 
 **Qué queda al terminar:** El envío queda «WhatsApp abierto · envío no confirmado»: no aparece en «Conversación» y «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío. Recién cuando lo confirmás pasa a la conversación.
 
@@ -1193,6 +1194,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 6. Si en lugar de eso aparece un aviso, abrí el chat y pegá con Ctrl+V (⌘V en Mac): el mensaje sigue copiado. Si se perdió, volvé al CRM y tocá «Copiar y abrir de nuevo».
 7. En cualquier chat de Instagram el script muestra el botón «Hospeda»: abre un panel con el negocio del CRM que tiene ese Instagram. Desde ahí, «Mandar un mensaje» te deja elegir un modelo (de una gestión o «Sin gestión» con un propósito) y «Pegar en el chat». También queda registrado como intento de Instagram.
 8. Para mandar material de venta por Instagram, tocá «Enviar material» en el panel (o «Agregar material» después de elegir un modelo). Va solo el enlace, nunca el archivo; el enlace es propio de ese mensaje y se puede revocar como cualquier otro.
+9. Si el panel dice que no encontró un negocio con ese Instagram, tocá «Buscar o crear en el CRM»: se abre Negocios buscando el usuario, que también encuentra negocios con ese Instagram cargado. Si no aparece ninguno, tocá «Crear negocio con este Instagram»: «Nuevo negocio» se abre con el Instagram escrito, y te avisa si otro negocio ya tiene el mismo Instagram.
 
 **Qué queda al terminar:** El mensaje queda escrito en el chat de Instagram del negocio, listo para que lo envíes. Cuando lo mandás desde la cuenta de Hospeda, el CRM lo confirma solo, igual que sin el script.
 

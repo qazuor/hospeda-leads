@@ -203,6 +203,7 @@ Further owner decisions (29/10/2026, after the first implementation round):
 - **«Seguir sin ese material»** is accepted.
 - **The WhatsApp business view always enables «Mandar un mensaje» / «Enviar material»** (except for «No contactar», a restriction, or a missing token). This is accepted.
 - **Old scripts (1.5–1.6) and Nuevo businesses** (section 15.3) are accepted as is.
+- **«Buscar o crear en el CRM»** (owner, 29/10/2026): the link shown when a panel finds no business now searches the chat's phone or Instagram in Negocios. When the search finds nothing, Negocios offers creating the business with that phone or Instagram already filled in. Nothing is ever created automatically. See section 17.
 
 
 **12.1 Entry point for material in the panels.**
@@ -291,4 +292,65 @@ Implemented on `feat/sales-material-script-98` following section 12.
 - `addMissingMaterials` and `removeHeldMaterial` handle a 409 by re-preparing once, then retrying on the fresh revision. A second conflict is shown with «Reintentar».
 - «Sin gestión» on a business that also has an open management: `prepare_general` with `leadId:null` is allowed. `communicationContext` with no lead only checks that the business is writable, and no rule refuses a general contact when managements exist. The CRM composer offers it the same way, so nothing changed.
 - `instagramIsolation.spec.ts`: the app that `main.ts` starts (500 ms poll against the production base) was never stopped. Once a later test stored a token and opened a chat page, that app could tick, which is where the stray `crm.hospeda.com.ar/_api/userscript/status` came from. The leak predates spec 98 (spec 97 added the `main` import). Every app started through the module is now stopped in `afterEach`.
+
+## 17. «Buscar o crear en el CRM» (owner decision, 29/10/2026)
+
+### 17.1 Behaviour
+
+- **No-match state in both panels.** «Buscar en Negocios del CRM» becomes «Buscar o crear en el CRM». It opens Negocios in a new tab:
+  - WhatsApp: `/accounts?q=<phone>&createPhone=<phone>`. `<phone>` is the chat's digits, with `+` when the chat shows one (the CRM phone search compares the last 8 digits). Without a readable phone (fewer than 6 digits) the link opens `/accounts` as before.
+  - Instagram: `/accounts?q=<username>&createInstagram=<username>`. The search uses the bare username; since §17.2 the CRM search also matches `@user` and profile URLs against `perfil_instagram`. The href is built with `URLSearchParams`. There are no new API functions and no change to `INSTAGRAM_API_FUNCTIONS`.
+- **Negocios** (`src/pages/business-list.tsx`, `src/helpers/businessSearchOrCreate.ts`). `readSearchOrCreate` reads `q` (applied as the list search, through the same path as typing it) and the prefill:
+  - a phone must be 6–20 digits, optionally with a leading `+` (`^\+?\d{6,20}$`; the panel sends `+` only when the chat shows one);
+  - an Instagram must normalize to a valid username;
+  - anything else is dropped, and the search still applies.
+
+  The three params leave the URL with `replace`, like `adminTool`, so a reload does not repeat them. The query is applied with a functional state update (pruning deleted groups on the latest preferences), so the deleted-group pruning effect never restores an older `q`.
+- **Empty state.** Only when the list was opened with a prefill, the search still equals the prefilled `q`, the result has **zero rows**, the latest fetch is neither running nor failed (stale data kept after an error does not count), and **no filters are active** (no filter groups or legacy filters, e.g. a saved view or the seller's default «Mis negocios»), the empty state shows «Crear negocio con este teléfono» or «Crear negocio con este Instagram». With filters active it shows `SEARCH_OR_CREATE_FILTERS_HINT` and «Buscar en todos los negocios», which clears the filters and keeps the search; the CTA then appears if there are still no rows. It opens the existing `BusinessQuickCreate` with the prefill. With rows, there is no button: the seller picks one as today. The dialog never opens by itself. «Nuevo negocio» keeps opening without a prefill.
+- **`BusinessQuickCreate`:**
+  - new optional «Instagram» field, which accepts `@user`, a bare username or a profile URL;
+  - an invalid value shows `INSTAGRAM_PROFILE_INVALID` and disables «Crear negocio»;
+  - the value is saved as `perfilInstagram` = `https://www.instagram.com/<user>/` (`canonicalInstagramProfile`);
+  - the unsaved-changes guard compares with the prefilled values, so closing an untouched prefilled dialog asks nothing.
+- **Server:**
+  - `account_save` canonicalizes `perfilInstagram` when it **creates** a business, and refuses a value that is not a profile (400). Edits keep their current free-text rule (no canonicalization, no 400).
+  - `normalizeInstagramProfile` rejects Instagram's own path segments (`INSTAGRAM_RESERVED_SEGMENTS`: `p`, `reel`, `reels`, `tv`, `stories`, `explore`, `accounts`, `direct`, `about`, `legal`, …). A post, reel, story, login or inbox URL is never a username: not stored on create, never «Instagram compartido», never a panel match.
+  - The duplicate check (`GET /_api/business/duplicate-check`) accepts `instagram`. A business whose stored profile normalizes to the same username gets «Instagram compartido» («Mismo Instagram» in the dialog). The SQL prefilter is anchored (`perfil_instagram ~* instagramProfilePattern(user)`, dots escaped), never a `%user%` substring, so a short username cannot fill the 50-row limit and hide the match; DNC-first ordering is unchanged.
+  - `isBlockingMatch` treats it like an exactly shared phone: a No contactar business with the same Instagram blocks creation, both in the dialog and server-side through `findNewDncBlocker` (`perfilInstagram` is now one of its identity keys). Admins are blocked too.
+  - **Edits follow the phone rule** (`findNewDncBlocker` compares the identity keys before and after): editing another field of a business that already shares an Instagram with a No contactar business does not block; changing only the format of the same Instagram (`@user` ↔ URL) does not block; editing a business's Instagram **to** the Instagram of a No contactar business returns 409, for sellers and admins.
+- **After creating**, the toast and link behave as before. On the next poll the panels match the new business:
+  - WhatsApp matches by phone over `telefono`, `whatsapp` and contact phones (`phoneSearchSql`, last 8 digits);
+  - Instagram matches by `normalizeInstagramUsername(perfil_instagram)`;
+  - so the stored phone or canonical URL is found.
+
+### 17.2 Instagram in the CRM search (owner decision, 29/10/2026: option 2)
+
+The free search now matches the business Instagram profile. A word that is a profile (`@user`, `user` or an instagram.com profile URL; `normalizeInstagramUsername`) also matches a business whose `perfil_instagram` normalizes to that username:
+
+- `instagramSearchSql` in `src/helpers/searchSql.ts`: `coalesce(column,'') ~* instagramProfilePattern(user)`, anchored on the whole profile with regex metacharacters escaped. Never a substring; Instagram pages (`/p/…`, `/reels`, `/accounts/…`) never match.
+- The leading `@` is dropped only for this alternative. Other columns (email, name…) still receive the word as typed. Accent folding and ñ ≠ n are untouched.
+- `multiFieldSearchSql` and `idSetSearchSql` take `instagramColumns`. The business list (`businessSearchSql`) reads `crm_accounts.perfil_instagram` as its own id set, so the per-row regex does not keep the other columns off their trigram index. `managementSearchSql` adds `perfilInstagram`, so the two stay equal over the projection (`scripts/test-search.ts`). Ctrl+K «Negocios» also matches it. Ctrl+K «Gestiones» is unchanged.
+- No index and no migration: the regex runs only for words that are valid usernames, over `crm_accounts` (thousands of rows). A trigram index would only help a `like` prefilter, which this anchored match does not need.
+
+The panel link keeps `q=<user>`, and the create CTA no longer appears when a business with that Instagram exists.
+
+### 17.3 Tests
+
+- Unit:
+  - panel hrefs and encoding (`userscript.spec.ts`, `instagramApp/panel.spec.ts`);
+  - `readSearchOrCreate`;
+  - Negocios reads and clears the params, shows the button only on zero rows with a prefill, and «Nuevo negocio» opens without a prefill (`business-list-page.spec.tsx`);
+  - `BusinessQuickCreate`: prefill, Instagram field, validation, duplicate query, «Mismo Instagram» No contactar blocking;
+  - duplicate check: `withInstagramMatches`, `isBlockingMatch`, `canonicalInstagramProfile`, `duplicateQuery`, reserved segments, the anchored prefilter pattern;
+  - Negocios: the hint and «Buscar en todos los negocios» with filters active, and no CTA after a failed search;
+  - search: `instagramSearchSql`, `multiFieldSearchSql`/`idSetSearchSql` with `instagramColumns` (`searchSql.spec.ts`), updated `leads_GET.sql.spec.ts` snapshots.
+- Integration, in `scripts/test-commercial.ts` (written, not run):
+  - create with `@USER` stores the canonical URL;
+  - an invalid Instagram returns 400;
+  - `duplicate-check?instagram=` finds it;
+  - a non-DNC duplicate only warns;
+  - No contactar with the same Instagram returns 409 for seller and admin;
+  - edits: another field and a format-only change do not block, an edit to the No contactar Instagram returns 409;
+  - a post URL is refused on create, and a login URL finds no duplicate.
+- Integration, in `scripts/test-search.ts` (written, not run): business vs management parity for `@user`, `user`, upper case, profile URL, a post URL, `reels` and a username prefix; the business list finds the profile by `@user`, `user` and URL, not by a prefix, a post or a login URL; Ctrl+K Negocios finds it.
 
