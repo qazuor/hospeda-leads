@@ -26,6 +26,8 @@ export type PanelActions = {
   readonly confirmChat: () => void;
   readonly rejectChat: () => void;
   readonly compose: (match: InstagramMatch) => void;
+  /** Spec 98 §4.1: «Enviar material», the compose view in material mode. Optional so older callers keep working. */
+  readonly sendMaterial?: (match: InstagramMatch) => void;
   readonly setTheme: (theme: PanelTheme) => void;
   /** §15: the conversation-list badges switch (no CRM call, so no trusted guard). */
   readonly setBadges: (enabled: boolean) => void;
@@ -157,7 +159,9 @@ function business(input: PanelInput, el: El, match: InstagramMatch, username: st
   const reason = contactBlockReason(match), actions = el("div", "actions");
   const send = button(el, "Mandar un mensaje", "btn primary", trustedClick(input, () => input.actions.compose(match)), !!reason);
   if (reason) send.title = reason;
-  actions.append(send, link(el, "Abrir en CRM", match.url)); nodes.push(actions);
+  actions.append(send);
+  if (input.actions.sendMaterial) { const sendMaterial = input.actions.sendMaterial, material = button(el, "Enviar material", "btn", trustedClick(input, () => sendMaterial(match)), !!reason); if (reason) material.title = reason; actions.append(material); }
+  actions.append(link(el, "Abrir en CRM", match.url)); nodes.push(actions);
   if (reason && !match.doNotContact) nodes.push(el("p", "note warn", reason));
   return nodes;
 }

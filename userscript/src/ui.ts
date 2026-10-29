@@ -6,7 +6,7 @@ import { PANEL_CSS } from "./styles";
 import { LOGO_SRC } from "./logo";
 import { compareSemver } from "./parse";
 import { UPDATE_PROMPT_ID } from "./updatePrompt";
-import { openCompose } from "./compose";
+import { openCompose, type ComposeMode } from "./compose";
 import { openAutoList } from "./autoList";
 
 const ID = "hospeda-userscript-banner";
@@ -208,10 +208,16 @@ function business(options: UiOptions, selected: Match, body: HTMLElement, card: 
   }
   const link = el("a", "btn", "Abrir en CRM"); link.href = selected.url; link.target = "_blank"; link.rel = "noopener noreferrer"; actions.append(link);
   // Spec 84: the same rules as «Contactar» in the CRM; the server checks them again when preparing.
-  const blockedReason = !options.crmBase || !hasToken() ? "Conectá el script para usar los modelos." : selected.status === "new" ? NEW_STATUS : selected.doNotContact || selected.restrictionActive ? DO_NOT_CONTACT : !selected.leads.length ? "No hay gestiones abiertas para preparar un mensaje." : "";
+  // Spec 84: the same rules as «Contactar» in the CRM; the server checks them again when preparing. Since spec 98 decision 4 a business without
+  // open managements (or in Nuevo, for its verification) can be contacted «Sin gestión»: the compose view shows the CRM's reason when it cannot.
+  const blockedReason = !options.crmBase || !hasToken() ? "Conectá el script para usar los modelos." : selected.doNotContact || selected.restrictionActive ? DO_NOT_CONTACT : "";
+  const compose = (mode: ComposeMode) => () => { view = "compose"; options.onPreviewChange?.(true); openCompose(card, options, selected, () => { view = "chat"; options.onPreviewChange?.(false); }, title => bar(options, { main: title, sub: `${selected.name} · ${selected.code}` }), mode); };
   const send = el("button", "btn", "Mandar un mensaje"); send.type = "button"; send.disabled = !!blockedReason; send.title = blockedReason || "Elegí un modelo del CRM y pegalo en el chat";
-  send.addEventListener("click", () => { view = "compose"; options.onPreviewChange?.(true); openCompose(card, options, selected, () => { view = "chat"; options.onPreviewChange?.(false); }, title => bar(options, { main: title, sub: `${selected.name} · ${selected.code}` })); });
-  actions.insertBefore(send, link);
+  send.addEventListener("click", compose("template"));
+  // Spec 98 §4.1: the material first, then a free draft with its link; the model is optional.
+  const material = el("button", "btn", "Enviar material"); material.type = "button"; material.disabled = !!blockedReason; material.title = blockedReason || "Elegí un material del CRM y pegá su enlace en el chat";
+  material.addEventListener("click", compose("material"));
+  actions.insertBefore(send, link); actions.insertBefore(material, link);
   body.append(actions);
 }
 

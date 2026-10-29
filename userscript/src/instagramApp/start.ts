@@ -160,10 +160,12 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
       return account() === "ok" ? null : "Estás con otra cuenta de Instagram. Entrá con la de Hospeda para pegar el mensaje.";
     };
   }
+  /** Which compose view the business view opened: «Mandar un mensaje» or «Enviar material» (spec 98 §4.1). */
+  let composeMode: "template" | "material" = "template";
   function mountCompose(card: HTMLElement, header: (title: string) => HTMLElement): void {
     const match = selectedMatch(state), username = chatUsername(state), threadId = state.threadId;
     if (!match || !username || !threadId) { state.view = "main"; return; }
-    openInstagramCompose(card, { doc, api: deps.api, match, username, trusted, checkChat: checkChatFor(threadId, username), composer: () => findPageComposer({ doc }), back: () => { state.view = "main"; render(true); }, header, settle: flow.settle });
+    openInstagramCompose(card, { doc, api: deps.api, match, username, trusted, checkChat: checkChatFor(threadId, username), composer: () => findPageComposer({ doc }), back: () => { state.view = "main"; render(true); }, header, settle: flow.settle, mode: composeMode });
   }
 
   /** §4.2 on the chat page: proof, account, paste. An inconclusive proof opens the seller confirmation (decision 12.1). */
@@ -225,7 +227,8 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
       } finally { state.busy = false; render(true); }
     })(),
     rejectChat: () => { const confirm = state.confirm; state.confirm = null; confirmHandoff = null; if (confirm) warn(failureNotice({ reason: "thread-unproven", username: confirm.username })); render(true); },
-    compose: () => { if (!selectedMatch(state)) return; state.view = "compose"; render(true); },
+    compose: () => { if (!selectedMatch(state)) return; composeMode = "template"; state.view = "compose"; render(true); },
+    sendMaterial: () => { if (!selectedMatch(state)) return; composeMode = "material"; state.view = "compose"; render(true); },
     setTheme: theme => { deps.store.setTheme(theme); render(true); },
     setBadges: enabled => { deps.store.setBadges(enabled); if (!enabled) removeInboxBadges({ doc }); render(true); },
   };

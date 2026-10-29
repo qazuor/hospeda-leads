@@ -1,5 +1,5 @@
-import { ApiError, addMaterial, dispatchTemplate, fetchMaterials, fetchTemplates, markTemplateNotSent, prepareTemplate, type Match, type PreparedTemplate, type ScriptMaterial, type TemplateLead } from "./api";
-import { emptyMaterialListing, materialPicker, type MaterialListing } from "./materials";
+import { ApiError, addMaterial, dispatchTemplate, removeMaterial, fetchMaterials, fetchTemplates, markTemplateNotSent, prepareTemplate, type Match, type PreparedTemplate, type ScriptMaterial, type ScriptPurpose, type TemplateLead, type TemplatesResponse, type WhatsappGeneral, type WhatsappPrepare } from "./api";
+import { MATERIAL_ADD_FAILED, MATERIAL_REMOVE_FAILED, addMissingMaterials, applyMaterialChange, emptyMaterialListing, heldMaterialsList, materialPicker, materialsInDraft, missingMaterials, removeHeldMaterial, type AddedMaterial, type MaterialListing } from "./materials";
 import { chatMatchesRecipient, clearComposer, composerEquals, getWhatsAppComposer, pasteIntoComposer } from "./selectors";
 import type { UiOptions } from "./ui";
 
@@ -10,10 +10,18 @@ const CHAT_CHANGED = "El chat cambió. Volvé al negocio y abrí los modelos des
 const WRONG_PHONE = "El teléfono del chat no coincide con la persona elegida. No pegué el mensaje.";
 
 type Choice = { leadId: string; templateId: string; contactId: string | null };
+/** «Sin gestión» (spec 98 decision 4, as the Instagram panel): an empty `leadId` with the purpose of the contact. */
+type Scope = Choice & { purpose: ScriptPurpose | null; otherPurpose: string };
 type Done = "pasted" | "copied" | null;
-/** Sales material of the panel (spec 89 §9): the list is loaded once per view, `added` resets with each new draft. */
-type Materials = { picker: boolean; listing: MaterialListing; refreshMaterials: boolean; added: string[] };
-type State = Choice & Materials & { busy: boolean; prepared: PreparedTemplate | null; error: string; dispatched: boolean; done: Done; pasteFailed: boolean; confirmReplace: boolean };
+/** `template` is «Mandar un mensaje»; `material` is «Enviar material» (spec 98 §4.1): the material first, a free draft, the model optional. */
+export type ComposeMode = "template" | "material";
+/**
+ * Sales material of the panel (spec 89 §9): the list is loaded once per view. `added` are the materials the seller chose and follow every new
+ * draft (D2); `inDraft` are the ones the current draft holds; `removeFailed` is the material whose «Quitar» failed (it shows «Reintentar»).
+ */
+type Materials = { picker: boolean; listing: MaterialListing; refreshMaterials: boolean; added: AddedMaterial[]; inDraft: string[]; removeFailed: string | null; chosen: boolean };
+type State = Scope & Materials & { mode: ComposeMode; busy: boolean; prepared: PreparedTemplate | null; error: string; dispatched: boolean; done: Done; pasteFailed: boolean; confirmReplace: boolean };
+const GENERAL = "";
 
 /**
  * The last model the script pasted in each business's chat, kept across reloads (a week, like an open attempt). Its text in the composer is
@@ -40,8 +48,18 @@ export function initialComposeChoice(leads: TemplateLead[]): Choice {
   const lead = leads[0];
   return { leadId: lead?.id || "", templateId: lead?.templates.find(t => t.recommended)?.id || lead?.templates[0]?.id || "", contactId: lead?.contacts.find(c => c.default)?.id ?? null };
 }
-/** A model with missing data or a blocked business never reaches the chat. */
-export function canPasteTemplate(prepared: PreparedTemplate | null, blocked: string | null): boolean { return !!prepared && !blocked && !prepared.unresolved.length; }
+/** «Sin gestión» with the CRM's default purpose, its recommended model and the default person (or the business phone). */
+export function initialGeneralChoice(general: WhatsappGeneral): Scope {
+  const purpose = general.purposes.find(p => p.value === general.defaultPurpose) ?? general.purposes[0];
+  return { leadId: GENERAL, purpose: purpose?.value ?? null, otherPurpose: "", templateId: purpose?.templates.find(t => t.recommended)?.id ?? purpose?.templates[0]?.id ?? "", contactId: general.contacts.find(c => c.default)?.id ?? general.contacts[0]?.id ?? null };
+}
+/** The first open management, else «Sin gestión» (decision 4); nothing to choose when the CRM offers neither. */
+export function initialScope(data: TemplatesResponse): Scope {
+  if (!data.leads.length && data.general) return initialGeneralChoice(data.general);
+  return { ...initialComposeChoice(data.leads), purpose: null, otherPurpose: "" };
+}
+/** A model with missing data, an empty text (a free draft without its material) or a blocked business never reaches the chat. */
+export function canPasteTemplate(prepared: PreparedTemplate | null, blocked: string | null): boolean { return !!prepared && !blocked && !prepared.unresolved.length && !!prepared.body.trim(); }
 
 /** Variables the CRM could not fill stay visible as `{{name}}`; they are highlighted so the seller sees what is missing. */
 function previewText(text: string, missing: string[]): HTMLElement {
@@ -64,14 +82,22 @@ function templatePopover(row: HTMLElement, template: { name: string; body: strin
 }
 
 /**
- * The «Mandar un mensaje» view (spec 84). It prepares the model through the CRM, and pasting or copying marks it as «WhatsApp abierto».
- * It never sends: no Enter, no click on WhatsApp's send button. The seller reviews the text in the chat and sends it.
+ * The «Mandar un mensaje» view (spec 84) and, with `mode: "material"`, «Enviar material» (spec 98 §4.1). It prepares the draft through the CRM, and
+ * pasting or copying marks it as «WhatsApp abierto». It never sends: no Enter, no click on WhatsApp's send button. The seller reviews the text
+ * in the chat and sends it. Without open managements it offers «Sin gestión» with a purpose (spec 98 decision 4).
  */
-export function openCompose(card: HTMLElement, options: UiOptions, match: Match, back: () => void, header: (title: string) => HTMLElement): void {
-  const base = options.crmBase || "", state: State = { leadId: "", templateId: "", contactId: null, busy: false, prepared: null, error: "", dispatched: false, done: null, pasteFailed: false, confirmReplace: false, picker: false, listing: emptyMaterialListing(), refreshMaterials: false, added: [] };
-  let data: { leads: TemplateLead[]; blocked: string | null } | null = null;
-  const head = header;
+export function openCompose(card: HTMLElement, options: UiOptions, match: Match, back: () => void, header: (title: string) => HTMLElement, mode: ComposeMode = "template"): void {
+  const base = options.crmBase || "", state: State = { mode, leadId: "", templateId: "", contactId: null, purpose: null, otherPurpose: "", busy: false, prepared: null, error: "", dispatched: false, done: null, pasteFailed: false, confirmReplace: false, picker: mode === "material", listing: emptyMaterialListing(), refreshMaterials: mode === "material", added: [], inDraft: [], removeFailed: null, chosen: false };
+  let data: TemplatesResponse | null = null;
+  const head = header, title = mode === "material" ? "Enviar material" : "Mandar un mensaje";
+  const general = () => (state.leadId === GENERAL ? data?.general ?? null : null);
+  /** The models of the chosen scope: the management's, or those of the purpose without one. */
+  const scopeTemplates = () => state.leadId ? data?.leads.find(lead => lead.id === state.leadId)?.templates ?? [] : general()?.purposes.find(p => p.value === state.purpose)?.templates ?? [];
 
+  function picker(heading: string, closeLabel: string, onClose: () => void): HTMLElement {
+    const refresh = state.refreshMaterials && !state.busy; if (refresh) state.refreshMaterials = false;
+    return materialPicker({ listing: state.listing, refresh, busy: state.busy, added: state.added.map(item => item.id), heading, closeLabel, search: term => fetchMaterials(base, token(), match.accountId, term), onListing: listing => { state.listing = listing; }, onAdd: material => void addToDraft(material), onClose });
+  }
   function render(): void {
     card.parentElement?.querySelectorAll(".popover").forEach(pop => pop.remove()); // a re-render drops the hovered row without a mouseleave
     // The list scrolls inside the body; the notice and the buttons stay in the footer, always in view.
@@ -83,73 +109,149 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
       grid.append(button("Volver al negocio", "btn primary", back, state.busy), button("Cambiar de modelo", "btn", () => { state.done = null; render(); }, state.busy), button(state.busy ? "Registrando…" : "No lo voy a enviar", "btn", () => void notSent(), state.busy));
       footer.append(grid); card.replaceChildren(head(state.done === "pasted" ? "Listo, está en el chat" : "Texto copiado"), body, footer); return;
     }
-    if (!data) { body.append(state.error ? el("p", "note warn", state.error) : el("p", "muted", "Cargando modelos…")); card.replaceChildren(head("Mandar un mensaje"), body); return; }
+    if (!data) { body.append(state.error ? el("p", "note warn", state.error) : el("p", "muted", "Cargando modelos…")); card.replaceChildren(head(title), body); return; }
     if (data.blocked) body.append(el("p", "note warn", data.blocked));
-    if (data.leads.length > 1) {
+    const canAddMaterial = !state.dispatched && !data.blocked;
+    // «Enviar material» starts with the picker until a material is chosen; then the normal view (scope, purpose, aclaración, model, error and retry).
+    if (state.mode === "material" && !state.chosen && !state.busy) {
+      if (canAddMaterial) body.append(picker("ELEGÍ EL MATERIAL", "Volver al negocio", back));
+      footer.append(el("p", "note info", NOT_SENT_BY_SCRIPT)); if (state.error) footer.append(el("p", "note warn", state.error));
+      if (!canAddMaterial) footer.append(button("Volver al negocio", "btn", back));
+      card.replaceChildren(head(title), body, footer); return;
+    }
+    const scopes = [...data.leads.map(lead => ({ id: lead.id, label: `${lead.name} · ${lead.stage}` })), ...(data.general ? [{ id: GENERAL, label: "Sin gestión" }] : [])];
+    if (scopes.length > 1) {
       const field = el("label", "field", "Gestión"), select = el("select"); select.disabled = state.busy;
-      for (const lead of data.leads) { const option = el("option", undefined, `${lead.name} · ${lead.stage}`); option.value = lead.id; option.selected = lead.id === state.leadId; select.append(option); }
-      select.addEventListener("change", () => { const next = data!.leads.find(lead => lead.id === select.value); if (next) choose(initialComposeChoice([next])); });
+      for (const scope of scopes) { const option = el("option", undefined, scope.label); option.value = scope.id; option.selected = scope.id === state.leadId; select.append(option); }
+      select.addEventListener("change", () => { const next = data!.leads.find(lead => lead.id === select.value); const scope = next ? { ...initialComposeChoice([next]), purpose: null, otherPurpose: "" } : data!.general ? initialGeneralChoice(data!.general) : null; if (scope) choose(state.mode === "material" ? { ...scope, templateId: "" } : scope); });
       field.append(select); body.append(field);
     }
-    const lead = data.leads.find(item => item.id === state.leadId);
-    if (lead) {
-      const section = el("div", "section"); section.append(el("h3", undefined, "MODELOS PARA ESTA GESTIÓN"));
-      if (!lead.templates.length) section.append(el("p", "muted", "No hay modelos de WhatsApp compatibles con esta gestión."));
-      for (const template of lead.templates) {
-        const row = el("label", "row"), radio = el("input"), content = el("span", "content");
-        radio.type = "radio"; radio.name = "hospeda-template"; radio.checked = template.id === state.templateId; radio.disabled = state.busy;
-        radio.addEventListener("change", () => choose({ ...state, templateId: template.id }));
-        content.append(el("strong", undefined, template.name)); if (template.recommended) content.append(el("span", "muted", "Recomendado para la etapa actual"));
-        row.append(radio, content); section.append(row);
-        let pop: HTMLElement | null = null;
-        const hide = () => { pop?.remove(); pop = null; };
-        if (template.body) { row.addEventListener("mouseenter", () => { hide(); pop = templatePopover(row, template); card.after(pop); }); row.addEventListener("mouseleave", hide); radio.addEventListener("change", hide); }
+    const scopeGeneral = general();
+    if (scopeGeneral) {
+      const field = el("label", "field", "Propósito"), select = el("select"); select.disabled = state.busy;
+      for (const purpose of scopeGeneral.purposes) { const option = el("option", undefined, purpose.label); option.value = purpose.value; option.selected = purpose.value === state.purpose; select.append(option); }
+      select.addEventListener("change", () => { const purpose = scopeGeneral.purposes.find(p => p.value === select.value); if (purpose) choose({ ...state, purpose: purpose.value, otherPurpose: "", templateId: state.mode === "material" ? "" : purpose.templates.find(t => t.recommended)?.id ?? purpose.templates[0]?.id ?? "" }); });
+      field.append(select); body.append(field);
+      if (state.purpose === "other") {
+        const other = el("label", "field", "Aclaración del propósito"), input = el("input"); input.value = state.otherPurpose; input.maxLength = 300; input.disabled = state.busy;
+        input.addEventListener("change", () => choose({ ...state, otherPurpose: input.value }));
+        other.append(input); body.append(other);
       }
-      body.append(section);
+    }
+    const lead = data.leads.find(item => item.id === state.leadId), templates = scopeTemplates();
+    if (lead || scopeGeneral) {
+      if (state.mode === "material") {
+        // Spec 98 §4.1: the model is optional above the preview and keeps the material (D2).
+        const field = el("label", "field", "Mensaje modelo"), select = el("select"); select.disabled = state.busy;
+        for (const item of [{ id: "", name: "Mensaje libre" }, ...templates]) { const option = el("option", undefined, item.name); option.value = item.id; option.selected = item.id === state.templateId; select.append(option); }
+        select.addEventListener("change", () => choose({ ...state, templateId: select.value }));
+        field.append(select); body.append(field);
+      } else {
+        const section = el("div", "section"); section.append(el("h3", undefined, "MODELOS PARA ESTA GESTIÓN"));
+        if (!templates.length) section.append(el("p", "muted", "No hay modelos de WhatsApp compatibles con esta gestión."));
+        for (const template of templates) {
+          const row = el("label", "row"), radio = el("input"), content = el("span", "content");
+          radio.type = "radio"; radio.name = "hospeda-template"; radio.checked = template.id === state.templateId; radio.disabled = state.busy;
+          radio.addEventListener("change", () => choose({ ...state, templateId: template.id }));
+          content.append(el("strong", undefined, template.name)); if (template.recommended) content.append(el("span", "muted", "Recomendado para la etapa actual"));
+          row.append(radio, content); section.append(row);
+          let pop: HTMLElement | null = null;
+          const hide = () => { pop?.remove(); pop = null; };
+          if (template.body) { row.addEventListener("mouseenter", () => { hide(); pop = templatePopover(row, template); card.after(pop); }); row.addEventListener("mouseleave", hide); radio.addEventListener("change", hide); }
+        }
+        body.append(section);
+      }
+      const people = lead ? [{ id: "", name: "Teléfono del negocio" }, ...lead.contacts.map(contact => ({ id: contact.id, name: `${contact.name} · ${contact.phone}` }))] : [...(scopeGeneral!.businessPhone ? [{ id: "", name: "Teléfono del negocio" }] : []), ...scopeGeneral!.contacts.map(contact => ({ id: contact.id, name: `${contact.name} · ${contact.phone}` }))];
       const field = el("label", "field", "Persona"), select = el("select"); select.disabled = state.busy;
-      for (const person of [{ id: "", name: "Teléfono del negocio" }, ...lead.contacts.map(contact => ({ id: contact.id, name: `${contact.name} · ${contact.phone}` }))]) { const option = el("option", undefined, person.name); option.value = person.id; option.selected = (state.contactId || "") === person.id; select.append(option); }
+      for (const person of people) { const option = el("option", undefined, person.name); option.value = person.id; option.selected = (state.contactId || "") === person.id; select.append(option); }
       select.addEventListener("change", () => choose({ ...state, contactId: select.value || null }));
       field.append(select); body.append(field);
     }
+    const missing = missingMaterials(state);
     if (state.prepared) {
+      // Owner, 29/10/2026: every material of the draft above the preview, each with «Quitar».
+      const held = state.prepared.materials ?? [];
+      if (held.length) body.append(heldMaterialsList({ materials: held, busy: state.busy || state.dispatched, failed: state.removeFailed, onRemove: materialId => void removeFromDraft(materialId) }));
       const section = el("div", "section"); section.append(el("h3", undefined, "VISTA PREVIA"), el("span", "muted", `Para ${state.prepared.recipientName || "el negocio"} · ${state.prepared.recipient}`), previewText(state.prepared.body, state.prepared.unresolved));
       if (state.prepared.unresolved.length) section.append(el("p", "note warn", `Falta ${state.prepared.unresolved.join(", ")}. Completalo en el CRM o elegí otra persona.`));
       for (const warning of state.prepared.materialWarnings ?? []) section.append(el("p", "note warn", warning));
-      const canAddMaterial = !state.dispatched && !data.blocked;
-      if (canAddMaterial && !state.picker) section.append(button("Agregar material", "btn small", openMaterials, state.busy));
+      if (missing.length && !state.busy) {
+        // Spec 98 §4.1: a material the CRM did not add keeps the selection; the seller retries or goes on without it. Never retried alone.
+        section.append(el("p", "note warn", `Falta agregar: ${missing.map(item => item.title).join(", ")}.`));
+        const row = el("div", "actions"); row.append(button("Reintentar", "btn small", () => void run(fillMaterials, MATERIAL_ADD_FAILED), state.busy), button("Seguir sin ese material", "btn small", () => { state.added = state.added.filter(item => !missing.includes(item)); state.error = ""; render(); }, state.busy)); section.append(row);
+      }
+      if (canAddMaterial && !state.picker) section.append(button(state.mode === "material" ? "Agregar otro material" : "Agregar material", "btn small", openMaterials, state.busy));
       body.append(section);
-      if (canAddMaterial && state.picker) { const refresh = state.refreshMaterials && !state.busy; if (refresh) state.refreshMaterials = false; body.append(materialPicker({ listing: state.listing, refresh, busy: state.busy, added: state.added, search: term => fetchMaterials(base, token(), match.accountId, term), onListing: listing => { state.listing = listing; }, onAdd: material => void addToDraft(material), onClose: () => { state.picker = false; render(); } })); }
+      if (canAddMaterial && state.picker) body.append(picker("AGREGAR MATERIAL", "Cerrar", () => { state.picker = false; render(); }));
     } else if (state.busy) body.append(el("p", "muted", "Preparando el mensaje…"));
+    else if (state.mode === "material") {
+      // Spec 98 §4.1: the chosen material stays selected while the draft is missing («Otro» without its aclaración, or a failed prepare).
+      const section = el("div", "section"); if (state.added.length) section.append(el("p", "muted", `Material elegido: ${state.added.map(item => item.title).join(", ")}`));
+      if (state.error && request()) section.append(button("Reintentar", "btn small", () => void prepare(), state.busy));
+      body.append(section);
+    }
     footer.append(el("p", "note info", NOT_SENT_BY_SCRIPT));
     if (state.error) footer.append(el("p", "note warn", state.error));
-    const actions = el("div", "actions"), ready = canPasteTemplate(state.prepared, data.blocked);
+    const actions = el("div", "actions"), ready = canPasteTemplate(state.prepared, data.blocked) && !missing.length;
     if (state.confirmReplace) {
       footer.append(el("p", "note warn", "La caja de WhatsApp tiene un texto que no pegó el script. ¿Lo reemplazo por este mensaje?"));
       actions.append(button("Reemplazar", "btn primary", () => void paste(true), state.busy), button("Cancelar", "btn", () => { state.confirmReplace = false; render(); }, state.busy));
     } else if (state.pasteFailed) actions.append(button("Copiar texto", "btn primary", () => void copy(), state.busy), button("Reintentar", "btn", () => void paste(), state.busy));
     else actions.append(button(state.busy ? "Procesando…" : "Pegar en el chat", "btn primary", () => void paste(), state.busy || !ready), button("Copiar", "btn", () => void copy(), state.busy || !ready));
-    footer.append(actions); card.replaceChildren(head("Mandar un mensaje"), body, footer);
+    footer.append(actions); card.replaceChildren(head(title), body, footer);
   }
 
-  /** A new model, person or management is a new draft: it has not been opened in WhatsApp yet. */
-  function choose(next: Choice): void { state.leadId = next.leadId; state.templateId = next.templateId; state.contactId = next.contactId; state.prepared = null; state.dispatched = false; state.pasteFailed = false; state.confirmReplace = false; state.picker = false; state.added = []; void prepare(); }
+  /** A new model, person, purpose or management is a new draft: it has not been opened in WhatsApp yet. The chosen materials follow it (D2). */
+  function choose(next: Scope): void { state.leadId = next.leadId; state.templateId = next.templateId; state.contactId = next.contactId; state.purpose = next.purpose; state.otherPurpose = next.otherPurpose; state.prepared = null; state.inDraft = []; state.removeFailed = null; state.dispatched = false; state.pasteFailed = false; state.confirmReplace = false; state.picker = false; void prepare(); }
   async function run(work: () => Promise<void>, fallback: string): Promise<void> {
     if (state.busy) return; state.busy = true; state.error = ""; render();
     try { await work(); } catch (cause) { state.error = failure(cause, fallback); } finally { state.busy = false; render(); }
   }
+  /** The prepare request of the chosen scope, or null while it is incomplete (no scope, «Otro» without its aclaración, a person missing). */
+  function request(): WhatsappPrepare | null {
+    const templateId = state.templateId || null;
+    if (state.leadId) return data?.leads.some(lead => lead.id === state.leadId) ? { id: crypto.randomUUID(), leadId: state.leadId, contactId: state.contactId, templateId } : null;
+    const scope = data?.general; if (!scope || !state.purpose || (state.purpose === "other" && !state.otherPurpose.trim())) return null;
+    if (state.contactId ? !scope.contacts.some(c => c.id === state.contactId) : !scope.businessPhone) return null;
+    return { id: crypto.randomUUID(), accountId: match.accountId, leadId: null, contactId: state.contactId, templateId, purpose: state.purpose, otherPurpose: state.purpose === "other" ? state.otherPurpose.trim() : null };
+  }
+  /** Re-adds the chosen materials the new draft does not hold yet; a refusal stays on screen with «Reintentar» (no auto-retry). */
+  async function fillMaterials(): Promise<void> {
+    if (!state.prepared || state.dispatched) return;
+    const result = await addMissingMaterials({ prepared: state.prepared, added: state.added, inDraft: state.inDraft, add: payload => addMaterial(base, token(), payload), refresh: refreshDraft });
+    state.prepared = result.prepared; state.inDraft = result.inDraft; if (result.error) state.error = result.error;
+  }
+  /** The same prepare again: the CRM reuses the draft with its current revision and materials (a revision conflict, review item 6). */
+  function refreshDraft(): Promise<PreparedTemplate> { const payload = request(); return payload ? prepareTemplate(base, token(), payload) : Promise.reject(new Error(MATERIAL_ADD_FAILED)); }
+  /** «Quitar»: the CRM revokes the link and takes it out of the text; the material no longer follows new drafts and can be picked again. */
+  function removeFromDraft(materialId: string): Promise<void> {
+    return run(async () => {
+      if (!state.prepared || state.dispatched) return;
+      const result = await removeHeldMaterial({ prepared: state.prepared, materialId, remove: payload => removeMaterial(base, token(), payload), refresh: refreshDraft });
+      state.prepared = result.prepared; state.inDraft = materialsInDraft(result.prepared);
+      if (result.error) { state.removeFailed = materialId; state.error = result.error; return; }
+      state.removeFailed = null; state.added = state.added.filter(item => item.id !== materialId);
+    }, MATERIAL_REMOVE_FAILED);
+  }
   function prepare(): Promise<void> {
-    if (!state.templateId || !data?.leads.some(lead => lead.id === state.leadId)) { render(); return Promise.resolve(); }
-    return run(async () => { state.prepared = await prepareTemplate(base, token(), { id: crypto.randomUUID(), leadId: state.leadId, contactId: state.contactId, templateId: state.templateId }); }, "No se pudo preparar el mensaje. Podés reintentar.");
+    const payload = request();
+    // «Mandar un mensaje» needs a model; «Enviar material» needs a material chosen once (the model is optional; «Quitar» may leave none).
+    if (!payload || (state.mode === "template" ? !state.templateId : !state.chosen)) { render(); return Promise.resolve(); }
+    return run(async () => { const prepared = await prepareTemplate(base, token(), payload); state.prepared = prepared; state.inDraft = materialsInDraft(prepared); await fillMaterials(); }, "No se pudo preparar el mensaje. Podés reintentar.");
   }
   /** Opens «Agregar material». Every opening asks the CRM again (with the last search): nothing from a blocked business is kept. */
   function openMaterials(): void { state.picker = true; state.refreshMaterials = true; render(); }
-  /** The CRM creates a link of this draft and returns the new text: the preview and «Pegar en el chat» use it. Never after the draft was opened. */
+  /**
+   * The CRM creates a link of this draft and returns the new text: the preview and «Pegar en el chat» use it. Never after the draft was opened.
+   * In «Enviar material» the first material prepares the free draft first.
+   */
   function addToDraft(material: ScriptMaterial): Promise<void> {
+    if (!state.prepared) { if (state.mode !== "material" || state.added.some(item => item.id === material.id)) return Promise.resolve(); state.added = [...state.added, { id: material.id, title: material.title }]; state.chosen = true; state.picker = false; return prepare(); }
     return run(async () => {
       const prepared = state.prepared!; if (state.dispatched) return;
       const next = await addMaterial(base, token(), { messageId: prepared.messageId, revision: prepared.revision, materialId: material.id });
-      state.prepared = { ...prepared, body: next.body, revision: next.revision }; state.added = [...state.added, material.id]; state.picker = false;
-    }, "No se pudo agregar el material. Podés reintentar.");
+      state.prepared = applyMaterialChange(prepared, next); state.added = [...state.added, { id: material.id, title: material.title }]; state.inDraft = [...state.inDraft, material.id]; state.picker = false;
+    }, MATERIAL_ADD_FAILED);
   }
   /** Checked right before the text leaves the panel: same chat, same person, then «WhatsApp abierto» in the CRM (once per draft). */
   async function open(): Promise<PreparedTemplate> {
@@ -185,7 +287,7 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
 
   render();
   void (async () => {
-    try { data = await fetchTemplates(base, token(), match.accountId); choose(initialComposeChoice(data.leads)); }
+    try { data = await fetchTemplates(base, token(), match.accountId); const first = initialScope(data); choose(state.mode === "material" ? { ...first, templateId: "" } : first); }
     catch (cause) { state.error = failure(cause, "No se pudieron cargar los modelos. Volvé al negocio y probá de nuevo."); render(); }
   })();
 }
