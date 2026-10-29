@@ -3,6 +3,7 @@ import {randomUUID} from 'node:crypto';
 import superjson from 'superjson';
 import postgres from 'postgres';
 import {simulateUserscript} from './helpers/userscript';
+import {reveal} from './support/contactStep';
 
 // Spec 89 F3: «Enviar material» from the business «Comunicación» tab opens the contact step with the material already added, the WhatsApp intent carries
 // the link, the sent version is recorded and «Revocar enlace» turns the public page into 410. No real WhatsApp or email is ever sent: window.open is
@@ -42,7 +43,8 @@ test('send sales material from the business, record it and revoke the link',asyn
  // wheel scrolled nothing and the templates and the final button stayed out of reach (Playwright clicks still worked, scrolling by script).
  expect(await dialog.evaluate(panel=>{const body=panel.querySelector('[class*=scrollBody]');return !!body&&body.getBoundingClientRect().bottom<=panel.getBoundingClientRect().bottom+1;}),'The composer body stays inside the panel').toBe(true);
  await expect(dialog.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
- const channels=dialog.getByRole('group',{name:'Canal',exact:true});
+ // Owner review of spec 96: the channel group may start collapsed behind the «Para: …» line; «Cambiar» expands it.
+ const channels=dialog.getByRole('group',{name:'Canal',exact:true});await reveal(dialog,channels);
  await expect(channels.getByRole('button',{name:'Instagram',exact:true})).toHaveCount(0);
  await channels.getByRole('button',{name:'WhatsApp',exact:true}).click();await expect(channels.getByRole('button',{name:'WhatsApp',exact:true})).toHaveAttribute('aria-pressed','true');
  await page.evaluate(()=>{window.open=()=>{const popup={closed:false,opener:null,location:{href:'about:blank'}} as unknown as Window;(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup=popup;return popup}});

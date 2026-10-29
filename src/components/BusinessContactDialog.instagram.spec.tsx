@@ -12,8 +12,8 @@ vi.mock('../helpers/useAuth',()=>({useAuth:()=>({authState:{type:'authenticated'
 vi.mock('../endpoints/pipeline.schema',()=>({getPipeline:vi.fn().mockResolvedValue({stages:[{name:'open',classification:'open'}]})}));
 vi.mock('../endpoints/settings_GET.schema',()=>({getSettings:vi.fn().mockResolvedValue({templates:[]})}));
 vi.mock('../endpoints/communication.schema',()=>({getCommunication:vi.fn().mockResolvedValue({recentMessages:[],messages:[],restrictions:[]})}));
-type ComposerProps={channel:string;lead?:{id:string}|null;general?:{purpose:string;otherPurpose:string};pickers?:React.ReactNode;blockReason?:string};
-vi.mock('./ContactTemplateDialog',()=>({ContactTemplateDialog:({channel,lead,general,pickers,blockReason}:ComposerProps)=><div>{pickers}<p data-testid="composer">{general?'general':lead?'management '+lead.id:'no scope'} composer · {channel}{general?' · '+general.purpose:''}</p>{blockReason&&<p data-testid="block">{blockReason}</p>}</div>}));
+type ComposerProps={channel:string;lead?:{id:string}|null;general?:{purpose:string;otherPurpose:string};pickers?:React.ReactNode;contextNotices?:React.ReactNode;contextRequired?:boolean;blockReason?:string};
+vi.mock('./ContactTemplateDialog',()=>({ContactTemplateDialog:({channel,lead,general,pickers,contextNotices,contextRequired,blockReason}:ComposerProps)=><div>{contextNotices}{pickers}<p data-testid="required">{contextRequired?'required':'resolved'}</p><p data-testid="composer">{general?'general':lead?'management '+lead.id:'no scope'} composer · {channel}{general?' · '+general.purpose:''}</p>{blockReason&&<p data-testid="block">{blockReason}</p>}</div>}));
 vi.mock('./ManualCommunicationForm',()=>({ManualCommunicationForm:()=><div>manual form</div>}));
 vi.mock('./PhoneCallPanel',()=>({PhoneCallPanel:()=><div>call</div>,useCallSession:()=>({reset:()=>{}})}));
 vi.mock('./CommercialEditor',()=>({CommercialEditor:()=><div>editor</div>}));
@@ -85,6 +85,35 @@ describe('BusinessContactDialog · contact step (spec 96 §2.3)',()=>{
   await loaded();
   expect(channelButton('WhatsApp').disabled).toBe(true);expect(channelButton('Instagram').disabled).toBe(true);expect(channelButton('Email').disabled).toBe(false);
   expect(screen.getByRole('link',{name:'Ir a User script'})).toBeTruthy();
+ });
+});
+
+describe('BusinessContactDialog · collapsible context (owner review of spec 96)',()=>{
+ it('marks the context resolved only when «Sobre», the purpose and the channel data are settled',async()=>{
+  // Arrange & Act: one open management and a phone
+  show(detail(null,{opportunities:[opp('11','Alta')]}));
+  // Assert
+  await waitFor(()=>expect(screen.getByTestId('composer').textContent).toBe('management 11 composer · whatsapp'));
+  expect(screen.getByTestId('required').textContent).toBe('resolved');
+  cleanup();
+  // Two open managements: «Sobre» must be chosen
+  show(detail(null,{opportunities:[opp('11','Alta'),opp('12','Renovación')]}));await loaded();
+  expect(screen.getByTestId('required').textContent).toBe('required');
+  cleanup();
+  // «Otro» without its aclaración
+  show(detail(null));await loaded();
+  expect(screen.getByTestId('required').textContent).toBe('resolved');
+  fireEvent.click(screen.getByRole('button',{name:'Cambiar'}));
+  fireEvent.change(screen.getByLabelText('Propósito del contacto'),{target:{value:'other'}});
+  expect(screen.getByTestId('required').textContent).toBe('required');
+ });
+ it('passes the material status as a notice and keeps «Iniciar gestión» and «Cambiar» off the filled style',async()=>{
+  // Arrange & Act
+  show(detail(null),{initialMaterial:{id:'m1',title:'Tarifas'} as never});await loaded();
+  // Assert
+  expect(screen.getByRole('status').textContent).toContain('Material a enviar: «Tarifas»');
+  expect(screen.getByRole('button',{name:'Iniciar gestión'}).getAttribute('data-variant')).toBe('outline');
+  expect(screen.getByRole('button',{name:'Cambiar'}).getAttribute('data-variant')).toBe('subtle');
  });
 });
 

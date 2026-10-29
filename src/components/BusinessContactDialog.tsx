@@ -78,11 +78,11 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const recipient=initialContactId??(activeContacts.length===1&&recent?.channel===channel&&activeContacts.some(c=>String(c.id)===recent.contactId)?recent.contactId!:undefined);
  const purposeLabel=contactPurposeOptions(detail.account.status).find(o=>o.value===purpose)?.label??purpose;
  const sobreSelect=<CrmSelect label="¿Sobre qué?" placeholder="Elegí sobre qué es el contacto" value={sobre||null} onChange={value=>{setChosen(value??'');setChangingSobre(false);callSession.reset();setManualContact(false)}} data={[...open.map(o=>({value:String(o.id),label:'Una gestión: '+managementDisplayName(o)+' · '+stageLabel(o.estado)})),{value:GENERAL,label:'Sin gestión (contacto general)'}]}/>;
- const startManagement=<Button size="sm" variant="ghost" disabled={!canBusiness||archived} disabledReason={!canBusiness?CONTACT_PERMISSION_REASON:CONTACT_ARCHIVED_REASON} leftSection={<Plus size={16} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Iniciar gestión</Button>;
+ const startManagement=<Button size="sm" variant="outline" disabled={!canBusiness||archived} disabledReason={!canBusiness?CONTACT_PERMISSION_REASON:CONTACT_ARCHIVED_REASON} leftSection={<Plus size={16} aria-hidden="true"/>} onClick={()=>setEditor({kind:'opportunity'})}>Iniciar gestión</Button>;
  // «Sobre» in one line; the select only when there is no single answer or the seller asks to change it.
- const sobrePicker=!open.length?<p className={styles.muted}>Sobre: <strong>Sin gestión (contacto general)</strong> {startManagement}</p>:changingSobre||!sobre?sobreSelect:<p className={styles.muted}>Sobre: <strong>{opportunity?managementDisplayName(opportunity)+' · '+stageLabel(opportunity.estado):'Sin gestión (contacto general)'}</strong> <Button size="sm" variant="ghost" onClick={()=>setChangingSobre(true)}>Cambiar</Button></p>;
+ const sobrePicker=!open.length?<p className={styles.muted}>Sobre: <strong>Sin gestión (contacto general)</strong> {startManagement}</p>:changingSobre||!sobre?sobreSelect:<p className={styles.muted}>Sobre: <strong>{opportunity?managementDisplayName(opportunity)+' · '+stageLabel(opportunity.estado):'Sin gestión (contacto general)'}</strong> <Button size="sm" variant="subtle" onClick={()=>setChangingSobre(true)}>Cambiar</Button></p>;
  const purposePicker=general&&<>
-  {changingPurpose?<CrmNativeSelect label="Propósito del contacto" value={purpose} onChange={e=>{setPurpose(e.target.value as ContactPurpose);setConfirmedClient(false);setChangingPurpose(false)}} data={contactPurposeOptions(detail.account.status)}/>:<p className={styles.muted}>Propósito: <strong>{purposeLabel}</strong> <Button size="sm" variant="ghost" onClick={()=>setChangingPurpose(true)}>Cambiar</Button></p>}
+  {changingPurpose?<CrmNativeSelect label="Propósito del contacto" value={purpose} onChange={e=>{setPurpose(e.target.value as ContactPurpose);setConfirmedClient(false);setChangingPurpose(false)}} data={contactPurposeOptions(detail.account.status)}/>:<p className={styles.muted}>Propósito: <strong>{purposeLabel}</strong> <Button size="sm" variant="subtle" onClick={()=>setChangingPurpose(true)}>Cambiar</Button></p>}
   {purpose==='other'&&<label>Aclaración del propósito<Input value={otherPurpose} onChange={e=>setOtherPurpose(e.target.value)}/></label>}
   {purpose==='care'&&!detail.account.isClient&&<label><Checkbox checked={confirmedClient} onChange={e=>setConfirmedClient(e.target.checked)}/> Si registrás el contacto como realizado, se marcará Es cliente. ¿Continuar?</label>}
  </>;
@@ -112,12 +112,15 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
   </CrmDialog>;
  }
  const dataBlock=channelBlock(channel,false);
- const pickers=<div className={styles.section}>
+ // Statuses and the script gate stay in view; the choices below collapse behind «Cambiar» in the composer once they are resolved.
+ const notices=(initialMaterial||created||(!initialChannel&&gate.reason))&&<div className={styles.section}>
   {initialMaterial&&<p role="status">Material a enviar: «{initialMaterial.title}». Se agrega al mensaje de email o WhatsApp cuando prepares el borrador; no se manda nada hasta que lo confirmes.</p>}
   {created&&<p role="status">Gestión guardada. Elegí el mensaje para continuar. Todavía no se realizó un contacto.</p>}
-  {!initialChannel&&<div role="group" aria-label="Canal" className={styles.actions}>{offered.map(({value,label,Icon})=>{const reason=channelBlock(value);return <Button key={value} size="sm" variant={channel===value?'filled':'outline'} aria-pressed={channel===value} disabled={!!reason} disabledReason={reason} leftSection={<Icon size={16} aria-hidden="true"/>} onClick={()=>setChannel(value)}>{label}</Button>})}</div>}
-  {!initialChannel&&!initialMaterial&&<p className={styles.muted}>Otro: {OTHER_CHANNELS.map(({value,label},i)=><React.Fragment key={value}>{i>0&&' · '}<Button size="sm" variant="link" onClick={()=>setChannel(value)}>{label}</Button></React.Fragment>)}</p>}
   {!initialChannel&&<UserscriptGateNotice gate={gate}/>}
+ </div>;
+ const pickers=<div className={styles.section}>
+  {!initialChannel&&<div role="group" aria-label="Canal" className={styles.actions}>{offered.map(({value,label,Icon})=>{const reason=channelBlock(value);return <Button key={value} size="sm" variant={channel===value?'filled':'outline'} aria-pressed={channel===value} disabled={!!reason} disabledReason={reason} leftSection={<Icon size={16} aria-hidden="true"/>} onClick={()=>setChannel(value)}>{label}</Button>})}</div>}
+  {!initialChannel&&!initialMaterial&&<p className={styles.muted}>Otro: {OTHER_CHANNELS.map(({value,label},i)=><React.Fragment key={value}>{i>0&&' · '}<Button size="sm" variant="subtle" onClick={()=>setChannel(value)}>{label}</Button></React.Fragment>)}</p>}
   {loading?<p role="status">Cargando gestiones y mensajes modelo…</p>:loadError?<><p role="alert">{loadError.message}</p><Button variant="outline" onClick={()=>{void stages.refetch();void settings.refetch();void history.refetch()}}>Reintentar</Button></>:<>
    {sobrePicker}
    {purposePicker}
@@ -129,7 +132,7 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  return <ContactTemplateDialog open presentation={floatingComposer?'floating':'dialog'} returnFocusTo={returnFocusTo} channel={channel} initialContactId={recipient}
   lead={scopeReady&&opportunity?{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}:null}
   general={scopeReady&&general?{accountId:String(detail.account.id),purpose,otherPurpose}:undefined}
-  pickers={pickers} blockReason={loading?'Cargando gestiones y mensajes modelo…':contactReason||dataBlock}
+  pickers={pickers} contextNotices={notices} contextRequired={!sobre||(general&&!!contactPurposeBlockReason({purpose,otherPurpose,isClient:detail.account.isClient,confirmedClient}))||!!dataBlock} blockReason={loading?'Cargando gestiones y mensajes modelo…':contactReason||dataBlock}
   templates={settings.data?.templates??[]} initialMaterialId={initialMaterial?.id} onLog={onLog} onFinished={onClose}
   onAddChannel={canBusiness?()=>setEditor({kind:'account',item:detail.account}):undefined}
   onOpenChange={v=>{if(!v)onClose()}} onFloatingClose={floating=>{onFloatingClose?.(floating);if(!floating)onClose()}} onFloatingOpen={()=>onFloatingOpen?.(opportunity?String(opportunity.id):undefined)}/>;

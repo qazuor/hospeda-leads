@@ -3,6 +3,7 @@ import {createHmac,randomUUID} from 'node:crypto';
 import postgres from 'postgres';
 import superjson from 'superjson';
 import {simulateUserscript} from './helpers/userscript';
+import {reveal} from './support/contactStep';
 import {encryptInstagramToken} from '../../src/helpers/instagram';
 import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from '../../scripts/lib/instagram-secret';
 
@@ -57,7 +58,8 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  await page.goto('/accounts/'+accountId);await page.getByRole('button',{name:'Contactar',exact:true}).first().click();let dialog=page.getByRole('dialog');
  // Spec 96 §2.3: the only open management is picked as «Sobre»; the channel is a compact group plus «Otro: Llamada · Red social · Otro canal».
  await expect(dialog.locator('p').filter({hasText:/^Sobre:/})).toContainText('Presentación Instagram');
- const channels=dialog.getByRole('group',{name:'Canal',exact:true});await expect(channels.getByRole('button')).toHaveText(['WhatsApp','Instagram','Email']);
+ // Owner review of spec 96: resolved, those controls start collapsed behind the «Para: …» line; «Cambiar» expands them.
+ const channels=dialog.getByRole('group',{name:'Canal',exact:true});await reveal(dialog,channels);await expect(channels.getByRole('button')).toHaveText(['WhatsApp','Instagram','Email']);
  const other=dialog.locator('p').filter({hasText:/^Otro:/});await expect(other.getByRole('button')).toHaveText(['Llamada','Red social','Otro canal']);
  await channels.getByRole('button',{name:'Instagram',exact:true}).click();dialog=page.getByRole('dialog',{name:'Preparar Instagram',exact:true});await expect(dialog.getByText('@'+username,{exact:true})).toBeVisible();
  await dialog.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();

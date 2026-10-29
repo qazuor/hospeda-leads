@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import superjson from 'superjson';
 import { basePreferences } from '../../src/helpers/businessListPreferences';
 import { simulateUserscript } from './helpers/userscript';
+import { reveal } from './support/contactStep';
 
 for (const width of [1280, 390]) for (const dark of [false, true]) {
   test(`Mantine contact search, focus and layout at ${width}px ${dark ? 'dark' : 'light'}`, async ({ page }) => {
@@ -86,6 +87,8 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await search.click();
     await dialog.getByRole('listbox', { name: '¿Sobre qué?', exact: true }).getByRole('option', { name: 'Sin gestión (contacto general)' }).click();
     await dialog.getByRole('button', { name: 'Volver a WhatsApp, Instagram o Email', exact: true }).click();
+    // Owner review of spec 96: back in the contact step the resolved controls are collapsed behind «Para: …»; «Cambiar» expands them.
+    await reveal(dialog, dialog.getByRole('button', { name: 'Llamada', exact: true }));
     await dialog.getByRole('button', { name: 'Llamada', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Registrar una llamada', exact: true })).toBeVisible();
     await changeLine('Propósito').click();

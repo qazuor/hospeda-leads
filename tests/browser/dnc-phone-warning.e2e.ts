@@ -48,10 +48,10 @@ test('Contactar warns about a No contactar phone in the call panel and in the me
  await expect(dialog.getByRole('button',{name:'Copiar número',exact:true})).toBeEnabled();
  // The notice does not block the message either: it shows up where the recipient is chosen.
  await dialog.getByRole('button',{name:'Volver a WhatsApp, Instagram o Email',exact:true}).click();
- // Two people have a phone and there is no management: the «Destinatario» select is required; once chosen it collapses to «Para: …» with «Cambiar».
+ // Two people have a phone and there is no management: the «Destinatario» select is required, so the controls start expanded and stay open once chosen.
  const step=page.getByRole('dialog',{name:'Preparar WhatsApp',exact:true});await step.getByLabel('Destinatario').selectOption('21');
  await expect(step.getByRole('note',{name:NOTE})).toContainText(TEXT);await expect(step.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true})).toBeEnabled();
- await step.getByRole('region',{name:'Destino del mensaje',exact:true}).getByRole('button',{name:'Cambiar',exact:true}).click();
+ await expect(step.getByRole('region',{name:'Destino del mensaje',exact:true}).getByRole('button',{name:'Cambiar',exact:true})).toHaveCount(0);
  await step.getByLabel('Destinatario').selectOption('22');await expect(step.getByRole('note',{name:NOTE})).toHaveCount(0);
  // Social and other channels use no phone: their dialogs show no notice.
  await step.getByRole('button',{name:'Red social',exact:true}).click();await expect(page.getByRole('dialog',{name:'Contacto por red social',exact:true})).toBeVisible();await expect(dialog.getByRole('note',{name:NOTE})).toHaveCount(0);
