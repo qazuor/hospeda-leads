@@ -29,6 +29,20 @@ export function instagramProfileUrl({username}:{username:string|null|undefined})
  return USERNAME.test(value)?'https://www.instagram.com/'+encodeURIComponent(value)+'/':null;
 }
 
+/**
+ * M2: a case-insensitive POSIX pattern that matches every `perfil_instagram` whose normalization (`normalizeInstagramProfile`) is `username`:
+ * the whole value as an optional `@` handle with an optional trailing slash, or the first path segment of a URL. It is a strict superset of the
+ * rule, never a substring search, so a short username does not pull unrelated rows; the normalization stays the final arbiter.
+ */
+export function instagramProfilePattern(username:string):string{
+ const name=username.replace(/[.]/g,'\\.');
+ return `^\\s*(?:@?${name}/?|(?:https?://)?(?:[^/?#@\\s]*\\.)?instagram\\.com(?::[0-9]+)?/${name}(?:[/?#][^\\s]*)?)\\s*$`;
+}
+/** Spec 98 §17: the stored form of a business Instagram (`https://www.instagram.com/<user>/`) for a URL, `@user` or bare username; null when it is not a valid profile. */
+export function canonicalInstagramProfile(value:string|null|undefined):string|null{return instagramProfileUrl({username:normalizeInstagramUsername(value)});}
+/** Copy of an Instagram the CRM cannot read as a profile (creation dialog and server). */
+export const INSTAGRAM_PROFILE_INVALID='Escribí el usuario de Instagram (por ejemplo @cabanasdelrio) o el enlace a su perfil.';
+
 /** Spec 97 §5.1: an Instagram web thread id (`/direct/t/<id>/`), digits only as observed live. Same rule as the migration's CHECK. */
 export const INSTAGRAM_THREAD_ID=/^[0-9]{1,40}$/;
 /** True for a valid thread id. */

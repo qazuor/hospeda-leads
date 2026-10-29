@@ -16,7 +16,12 @@ export const dataFieldLabels:Record<string,string>={
  name:'Nombre de la persona',phone:'Teléfono',position:'Cargo',preferredChannel:'Canal preferido'
 };
 export const comparisonName=(s:string|null|undefined)=>(s??'').normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('es-AR').replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
-export function normalizeInstagramProfile(value:string|null|undefined):string|null{if(!value)return null;let v=value.trim();try{if(/^https?:\/\//i.test(v)){const u=new URL(v);if(!/(^|\.)instagram\.com$/i.test(u.hostname))return null;v=u.pathname.split('/').filter(Boolean)[0]??'';}}catch{return null;}v=v.replace(/^@/,'').replace(/\/$/,'').toLowerCase();return /^[a-z0-9._]{1,30}$/.test(v)?v:null;}
+/**
+ * First path segments Instagram uses for its own pages (posts, reels, stories, login, inbox, legal…), never a profile. `instagram.com/p/ABC`
+ * or `instagram.com/accounts/login/?next=…` must not normalize to «p» or «accounts» (spec 98 review: they decide what is stored and what blocks).
+ */
+export const INSTAGRAM_RESERVED_SEGMENTS:ReadonlySet<string>=new Set(['p','reel','reels','tv','stories','explore','accounts','direct','about','legal','developer','developers','web','challenge','emails','oauth','api','graphql','privacy','terms','help','press','static','lite','download','session','nametag','directory','topics','locations','tags','ar','s','your_activity','settings','threads','create','invites','fragment','embed']);
+export function normalizeInstagramProfile(value:string|null|undefined):string|null{if(!value)return null;let v=value.trim();try{if(/^https?:\/\//i.test(v)){const u=new URL(v);if(!/(^|\.)instagram\.com$/i.test(u.hostname))return null;v=u.pathname.split('/').filter(Boolean)[0]??'';}}catch{return null;}v=v.replace(/^@/,'').replace(/\/$/,'').toLowerCase();return /^[a-z0-9._]{1,30}$/.test(v)&&!INSTAGRAM_RESERVED_SEGMENTS.has(v)?v:null;}
 export function normalizeField(field:string,value:string|null|undefined):Normalized{
  const original=value??null,s=value?.trim()??'';
  const result=(normalized:string|null,validity:Validity,observations=''):Normalized=>({original,normalized,validity,observations});
