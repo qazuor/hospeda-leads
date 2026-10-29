@@ -199,8 +199,8 @@ Shown on every `/direct/t/<id>/` page (decision 12.3, recommended option), never
 
 A thread is **proven** for `@username` only when all hold, checked right before every paste and every report:
 1. The path is `/direct/t/<id>/` with a valid id, and it did not change while checking.
-2. Inside the **open conversation's header** (scoped to the conversation pane, never the inbox list on the left, never a floating chat), there is **exactly one** distinct link to a profile, and its `href` path is `/<username>/` (lowercase compare). The `href` is Instagram's own data; a display name or text is never proof.
-3. No group signal: zero or two or more profile links, or a participant count, means not proven.
+2. Inside the conversation pane (`role="main"`, never the inbox list, never a floating chat) the profile links (`href` of the form `/<name>/`, trailing slash optional) point to **exactly one distinct username**, and it is `<username>` (lowercase compare), and the header link labelled «Abrir la página del perfil de <username>» / «Open the profile page of <username>» is among them. The live page has several such links for the same user (header, «Ver perfil», one per message avatar; 9.1), so the rule counts distinct usernames, not links. The `href` is Instagram's own data; a display name or text is never proof.
+3. No group signal: zero, or two or more distinct usernames, or a participant count, means not proven.
 4. The logged-in account is the Hospeda account (4.5).
 
 **Must be verified on the live site before implementation** (section 9): whether the 1:1 thread header exposes such a profile link at all, how a group header looks, and how to scope "header of the open conversation" by role/structure without class names. If the header exposes no profile link, rule 2 cannot work and decision 12.1 falls back to seller confirmation.
@@ -352,6 +352,17 @@ On `https://www.instagram.com` logged in with the Hospeda account, Spanish and E
 6. CSP: does a constructable stylesheet apply inside a shadow root? Does a `data:` image load? Any Trusted Types errors in the console with the panel open?
 7. Composer: still the Lexical `contenteditable` with label «Mensaje» (spec 94 `COMPOSER_LABELS`), and the paste event still works on the chat page.
 8. Tampermonkey: updating 1.5.x → 1.6.0 does not ask for new permissions.
+
+### 9.1 Results (owner's browser, 29/10/2026, Spanish UI, Hospeda account)
+
+These override the assumptions above where they differ.
+1. **1:1 chat page** (`/direct/t/17848251833510164`, no trailing slash): `role="main"` exists. Its profile links all point to `qaz.uor`: the header link (`/qaz.uor/`, `aria-label` «Abrir la página del perfil de qaz.uor», text = display name + username), «Ver perfil» (`/qaz.uor/`), and four message avatars (`/qaz.uor`, no trailing slash, `aria-label` in English «Open the profile page of qaz.uor» even with the Spanish UI). Rule 4.4.2 counts distinct usernames for that reason, and labels are matched in both languages.
+2. **Composer:** one `contenteditable="true"` with `data-lexical-editor` and **no `aria-label`**. Spec 94's `COMPOSER_LABELS` («Mensaje») no longer matches, which likely also breaks today's flow; the finder must locate the Lexical editor inside the conversation pane instead.
+3. **Floating chat** (profile `/qaz.uor/` after «Enviar mensaje»): it has **no link** to `/direct/t/<id>/`; it has buttons «Volver», «Expandir» and «Cerrar». **«Expandir» navigates to the chat page** (`/direct/t/<id>`). Flow 4.2 therefore clicks «Expandir» (`aria-label` «Expandir»/«Expand», to confirm in English) and proves the thread on the chat page; it never pastes into the floating chat.
+4. **Navigation «Mensajes» link** points to the last opened thread (`/direct/t/<id>`). It proves nothing and is never used.
+5. **Logged-in account:** an `img` with `alt` «Foto del perfil de hospeda.com.ar» and the navigation link to `/hospeda.com.ar/` (the «Perfil» item) identify it. The navigation link is not inside `nav`/`role="navigation"`, so the selector is the profile link whose accessible text is «Perfil»/«Profile» together with that `alt`.
+6. **CSP:** a constructable stylesheet adopted by a shadow root applies (computed colour matched), so the panel can use `adoptedStyleSheets`. `data:` images and Trusted Types errors still to check during implementation.
+7. Still open: group chat header, English UI labels, thread ids per account (assumption kept: they belong to the viewing account), Tampermonkey prompt on 1.6.0.
 
 ## 10. Test plan
 
