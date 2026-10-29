@@ -44,6 +44,7 @@ function crm() {
     urls.push(options.url); expect(options.headers?.Authorization).toBe(`Bearer ${TOKEN}`);
     const path = new URL(options.url).pathname;
     const response = path.endsWith("/status") ? { minVersion: "1.5.0", latestVersion: "1.6.0", user: { email: "ana@hospeda.test", displayName: "Ana" }, instagramAccount: "hospeda.com.ar" }
+      : path.endsWith("/instagram/threads") ? { threads: [] }
       : path.endsWith("/context") ? { minVersion: "1.5.0", latestVersion: "1.6.0", user: { email: "ana@hospeda.test", displayName: "Ana" }, instagramAccount: "hospeda.com.ar", hiddenMatches: 0, matches: [], instagram: { username: "qaz.uor", threadId: null } } : {};
     queueMicrotask(() => options.onload({ status: 200, response, responseText: JSON.stringify(response) }));
     return { abort: () => {} };

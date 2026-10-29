@@ -27,8 +27,10 @@ export type PanelActions = {
   readonly rejectChat: () => void;
   readonly compose: (match: InstagramMatch) => void;
   readonly setTheme: (theme: PanelTheme) => void;
+  /** §15: the conversation-list badges switch (no CRM call, so no trusted guard). */
+  readonly setBadges: (enabled: boolean) => void;
 };
-export type PanelInput = { readonly doc: Document; readonly state: AppState; readonly open: boolean; readonly dark: boolean; readonly theme: PanelTheme; readonly base: string; readonly version: string; readonly actions: PanelActions;
+export type PanelInput = { readonly doc: Document; readonly state: AppState; readonly open: boolean; readonly dark: boolean; readonly theme: PanelTheme; readonly badges?: boolean; readonly base: string; readonly version: string; readonly actions: PanelActions;
   /** Fills the card in the compose view (`compose.ts`). */
   readonly mountCompose?: (card: HTMLElement, header: (title: string) => HTMLElement) => void };
 
@@ -176,6 +178,8 @@ function settings(input: PanelInput, el: El): HTMLElement {
   const theme = el("div", "section"), field = el("label", "field", "Tema"), select = el("select"); theme.append(el("h3", undefined, "APARIENCIA"));
   for (const [value, label] of [["auto", "Automático"], ["light", "Claro"], ["dark", "Oscuro"]] as const) { const option = el("option", undefined, label); option.value = value; option.selected = input.theme === value; select.append(option); }
   select.addEventListener("change", () => input.actions.setTheme(select.value as PanelTheme)); field.append(select); theme.append(field);
+  const toggle = el("label", "field toggle", "Mostrar insignias en la lista de chats"), check = el("input"); check.type = "checkbox"; check.checked = input.badges ?? true;
+  check.addEventListener("change", () => input.actions.setBadges(check.checked)); toggle.prepend(check); theme.append(toggle);
   const back = button(el, "Volver", "btn", () => input.actions.view("main"));
   body.append(connection, script, theme, back); return body;
 }

@@ -248,6 +248,8 @@ export interface CrmInstagramThreads {
   proof:'header'|'seller';
   verifiedAt:Generated<Timestamp>;
   verifiedByUserId:number|null;
+  /** Spec 97 §15 (migration 054): the chat header's display name when the chat was proven, for the conversation-list badges. */
+  displayName:string|null;
 }
 
 /** Spec 91 §12: when a user last looked at a business «Comunicación» tab (migration 048). */

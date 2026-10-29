@@ -27,8 +27,9 @@ import {autoRegisterEligibility,voidAutoRegistration} from '../helpers/autoRegis
 import type {User} from '../helpers/User';
 import {allowBadgeRequest} from '../helpers/userscriptBadges';
 import {stageLabel} from '../helpers/crmLabels';
-import {allowInstagramThreadReport,canReportInstagramThread,deleteStaleInstagramThread,instagramAccountUsername,instagramContextMatches,instagramQueryUsername,instagramThreadFor,instagramThreadInput,instagramThreadStaleInput,saveInstagramThread} from '../helpers/userscriptInstagram';
+import {allowInstagramThreadReport,canReportInstagramThread,deleteStaleInstagramThread,instagramAccountUsername,instagramContextMatches,instagramQueryUsername,instagramThreadRow,instagramThreadInput,instagramThreadStaleInput,saveInstagramThread} from '../helpers/userscriptInstagram';
 import {instagramTemplates} from '../helpers/userscriptInstagramTemplates';
+import {instagramInboxThreads} from '../helpers/userscriptInstagramInbox';
 import {isInstagramAttempt} from '../helpers/instagramChat';
 import {managementTypeLabels} from '../helpers/businessManagement';
 const plain=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -56,11 +57,13 @@ export async function context(request:Request){try{const auth=await scriptAuth(r
  * Spec 97 §5.2: `context?instagram=<username>`. Same envelope as the code/phone lookup, plus the Hospeda account and the stored thread of that
  * username for it. Matching is the webhook's rule (normalized `perfil_instagram`); hidden businesses only count.
  */
+/** L2: the stored thread (and its display name, §15) only for a username with a business this user can see. */
+async function visibleThread(viewer:string|null,username:string,visible:boolean):Promise<{threadId:string|null;displayName:string|null}>{const row=visible?await instagramThreadRow(db,{viewer,username}):null;return {threadId:row?.threadId??null,displayName:row?.displayName??null};}
 async function instagramContext(request:Request,raw:string,user:User&{tokenId:string}){
  const username=instagramQueryUsername(raw);if(!username)return plain({error:'Usuario de Instagram inválido.'},400);
  const viewer=instagramAccountUsername(),{matches,hiddenMatches}=await instagramContextMatches(db,{username,user,origin:new URL(request.url).origin});
  const autoRegister=(await sql<{enabled:boolean}>`SELECT userscript_auto_register AS enabled FROM users WHERE id=${user.id}`.execute(db)).rows[0]?.enabled??true;
- return plain({minVersion:USERSCRIPT_MIN_VERSION,latestVersion:USERSCRIPT_VERSION,user:{email:user.email,displayName:user.displayName},autoRegister,instagramAccount:viewer,hiddenMatches,matches,instagram:{username,threadId:matches.length?await instagramThreadFor(db,{viewer,username}):null}});// L2: a thread only for a business this user can see
+ return plain({minVersion:USERSCRIPT_MIN_VERSION,latestVersion:USERSCRIPT_VERSION,user:{email:user.email,displayName:user.displayName},autoRegister,instagramAccount:viewer,hiddenMatches,matches,instagram:{username,...await visibleThread(viewer,username,matches.length>0)}});
 }
 const badgeChatsSchema=z.object({chats:z.array(z.object({key:z.string().min(1).max(100),title:z.string().max(200),phone:z.string().max(40).optional()}).strict()).max(50)});
 const safeBadgeCodeId=(title:string):string|null=>{const code=parseCode(title),raw=code?codeFromParam(code):null;if(!raw)return null;try{const value=BigInt(raw);return value>0n&&value<=9223372036854775807n?String(value):null;}catch{return null;}};
@@ -197,3 +200,14 @@ export async function instagramThreadStale(request:Request){try{
  if(!await canReportInstagramThread(db,{username:body.data.username,user:auth.user}))return plain({error:'No encontré un negocio con ese Instagram.'},404);
  return plain({deleted:await deleteStaleInstagramThread(db,{viewer,...body.data})});
 }catch(e){return failure(e,500);}}
+/**
+ * Spec 97 §15: the learned, named threads of the Hospeda account whose businesses the user can see, with the spec 86 badge data, for the
+ * conversation-list badges. One request per refresh (the script caches it), rate-limited per token like the WhatsApp badges.
+ */
+export async function instagramThreads(request:Request){try{
+ const auth=await scriptAuth(request);if(auth.response)return auth.response;
+ const viewer=instagramAccountUsername();if(!viewer)return plain({error:'Falta configurar la cuenta de Instagram de Hospeda en el CRM.'},409);
+ if(!allowBadgeRequest(`instagram-inbox:${auth.user.tokenId}`))return plain({error:'Demasiadas consultas. Esperá un minuto.'},429);
+ return plain({threads:await instagramInboxThreads(db,{viewer,user:auth.user})});
+}catch(e){return failure(e,500);}}
+

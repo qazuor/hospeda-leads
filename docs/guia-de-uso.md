@@ -1104,6 +1104,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 - Las insignias son solo lectura: no registran mensajes ni cambian estados. Un negocio que no podés ver en el CRM no muestra insignia, y los grupos tampoco llevan.
 - El color dice el estado: azul es un negocio normal, rojo es No contactar, ámbar indica varios negocios posibles para ese chat y «Sin CRM» es un chat que no está asociado.
+- En Instagram (computadora, con la cuenta de Hospeda) la lista de chats también muestra la insignia, solo para chats que el script ya reconoció al abrirlos: Instagram no muestra el usuario en la lista, así que se compara el nombre visible. Si dos chats reconocidos tienen el mismo nombre, no se marca ninguno. La insignia de Instagram solo informa: no tiene enlace al CRM y tocarla abre el chat como siempre.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 

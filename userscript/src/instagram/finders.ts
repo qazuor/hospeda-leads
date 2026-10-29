@@ -66,6 +66,9 @@ export const isThreadPath = (pathname: string): boolean => /^\/direct\/t\/[^/]+\
 export const FLOATING = '[role="dialog"], aside, [role="complementary"]';
 const EDITABLE = '[contenteditable="true"], [role="textbox"], textarea';
 
+/** Spec 97 §9.1 item 9: Instagram's conversation list (inbox), inside `role="main"` on `/direct/inbox/` and beside the chat on a chat page. */
+export const CONVERSATION_LIST = '[aria-label="Lista de conversaciones"], [aria-label="Conversation list"]';
+
 /**
  * Spec 97 §4.4 / 9.1: the open conversation's pane, the page's `role="main"` (never a floating chat). Several visible ones (a re-render in
  * progress) narrow to the one holding an editor; anything still ambiguous is null, so nothing is proven or pasted.

@@ -1,6 +1,8 @@
 import profileEs from "../../fixtures/instagram-profile-es.html?raw";
 import threadEs from "../../fixtures/instagram-thread-header-es.html?raw";
 import threadGroup from "../../fixtures/instagram-thread-group-es.html?raw";
+import inboxList from "../../fixtures/instagram-inbox-list-es.html?raw";
+import { INBOX_BADGE_ATTRIBUTE } from "../instagram/inbox";
 import miniChatExpand from "../../fixtures/instagram-mini-chat-expand-es.html?raw";
 import type { InstagramContextResponse, InstagramMatch, StatusResponse } from "../api";
 import { ApiError } from "../api";
@@ -14,7 +16,7 @@ import { startInstagramApp, type HandoffOutcome, type InstagramApp } from "./sta
 const USER = "cabanas_del_rio", THREAD = "17848251833510164", CHAT = `/direct/t/${THREAD}/`, NONCE = "0123456789abcdef0123456789abcdef", TEXT = "Hola, soy de Hospeda.";
 const status = (instagramAccount: string | null = "hospeda.com.ar"): StatusResponse => ({ minVersion: "1.5.0", latestVersion: "1.6.0", user: { email: "ana@hospeda.test", displayName: "Ana" }, instagramAccount });
 const match: InstagramMatch = { accountId: "7", code: "H7", name: "Cabañas del Río", city: "Colón", status: "contacted", statusLabel: "Contactado", assignedUserName: "Ana", doNotContact: false, restrictionActive: false, archived: false, canContact: true, leads: [], url: "https://crm.test/accounts/7" };
-const contextOf = (username: string, matches: InstagramMatch[] = [match], threadId: string | null = null): InstagramContextResponse => ({ ...status(), instagramAccount: "hospeda.com.ar", hiddenMatches: 0, matches, instagram: { username, threadId } });
+const contextOf = (username: string, matches: InstagramMatch[] = [match], threadId: string | null = null, displayName: string | null = null): InstagramContextResponse => ({ ...status(), instagramAccount: "hospeda.com.ar", hiddenMatches: 0, matches, instagram: { username, threadId, displayName } });
 const threadFor = (user: string, html = threadEs) => html.split("qaz.uor").join(user);
 const lexical = () => { for (const composer of document.querySelectorAll<HTMLElement>('[contenteditable="true"]')) composer.addEventListener("paste", event => { event.preventDefault(); composer.textContent = (event as ClipboardEvent).clipboardData?.getData("text/plain") ?? ""; }); };
 /** The chat page with every profile label removed: the pane names only `user`, without a labelled header (real ambiguity). */
@@ -23,18 +25,19 @@ const unlabelled = (user: string) => threadFor(user).replace(/ aria-label="(?:Ab
 const NAV = `<div class="nav"><a href="/hospeda.com.ar/" role="link"><img alt="Foto del perfil de hospeda.com.ar" src=""><span>Perfil</span></a></div>`;
 const composerText = () => document.getElementById("page-composer")?.textContent ?? "";
 
-function storeOf(values: { token?: string; handoff?: unknown } = {}) {
-  const data: Record<string, unknown> = { token: values.token ?? "hcu_secret", handoff: values.handoff ?? null, open: true, theme: "auto" };
+function storeOf(values: { token?: string; handoff?: unknown; badges?: boolean } = {}) {
+  const data: Record<string, unknown> = { token: values.token ?? "hcu_secret", handoff: values.handoff ?? null, open: true, theme: "auto", badges: values.badges ?? true };
   const reads: string[] = [];
   const store: InstagramStore = {
     token: () => { reads.push("token"); return String(data.token); },
     handoff: { read: () => { reads.push("handoff"); return data.handoff; }, clear: ({ nonce }) => { const current = data.handoff as { nonce?: string } | null; if (current?.nonce === nonce) data.handoff = null; } },
     isOpen: () => data.open === true, setOpen: open => { data.open = open; }, theme: () => data.theme as PanelTheme, setTheme: theme => { data.theme = theme; },
+    badges: () => data.badges === true, setBadges: enabled => { data.badges = enabled; },
   };
   return { store, data, reads };
 }
 function apiOf(over: Partial<InstagramApi> = {}) {
-  const api: InstagramApi = { fetchStatus: vi.fn(async () => status()), fetchContext: vi.fn(async (username: string) => contextOf(username)), reportThread: vi.fn(async () => ({})), reportThreadStale: vi.fn(async () => ({})), fetchTemplates: vi.fn(), prepare: vi.fn(), dispatch: vi.fn(), markNotSent: vi.fn(), ...over };
+  const api: InstagramApi = { fetchStatus: vi.fn(async () => status()), fetchContext: vi.fn(async (username: string) => contextOf(username)), reportThread: vi.fn(async () => ({})), reportThreadStale: vi.fn(async () => ({})), fetchTemplates: vi.fn(), prepare: vi.fn(), dispatch: vi.fn(), markNotSent: vi.fn(), fetchThreads: vi.fn(async () => ({ threads: [] })), ...over };
   return api;
 }
 const flow = { intervalMs: 5, settle: () => Promise.resolve(), buttonTimeoutMs: 150, chatTimeoutMs: 150, proofTimeoutMs: 120, composerTimeoutMs: 120, contradictionMs: 20 };
@@ -175,7 +178,7 @@ describe("Instagram app: panel and learning (spec 97 §4.3–4.4, decision 12.3)
     const api = apiOf(); start(storeOf().store, api);
     await vi.waitFor(() => expect(panelText()).toContain("Cabañas del Río"));
     expect(api.fetchContext).toHaveBeenCalledWith(USER);
-    await vi.waitFor(() => expect(api.reportThread).toHaveBeenCalledExactlyOnceWith({ username: USER, threadId: THREAD, proof: "header" }));
+    await vi.waitFor(() => expect(api.reportThread).toHaveBeenCalledExactlyOnceWith({ username: USER, threadId: THREAD, proof: "header", displayName: "Qaz Uor" }));
     await app!.tick(); await app!.tick(); expect(api.reportThread).toHaveBeenCalledOnce();
   });
   it("does not report an unknown username, nor a thread the CRM already has", async () => {
@@ -183,7 +186,7 @@ describe("Instagram app: panel and learning (spec 97 §4.3–4.4, decision 12.3)
     const api = apiOf({ fetchContext: vi.fn(async (username: string) => contextOf(username, [])) }); start(storeOf().store, api);
     await vi.waitFor(() => expect(panelText()).toContain(`No encontré un negocio con @${USER} en el CRM.`)); expect(api.reportThread).not.toHaveBeenCalled();
     app!.stop(); document.body.innerHTML = threadFor(USER);
-    const known = apiOf({ fetchContext: vi.fn(async (username: string) => contextOf(username, [match], THREAD)) }); start(storeOf().store, known);
+    const known = apiOf({ fetchContext: vi.fn(async (username: string) => contextOf(username, [match], THREAD, "Qaz Uor")) }); start(storeOf().store, known);
     await vi.waitFor(() => expect(panelText()).toContain("Cabañas del Río")); expect(known.reportThread).not.toHaveBeenCalled();
   });
   it("without a configured Hospeda account learns nothing and says so", async () => {
@@ -209,3 +212,72 @@ describe("Instagram app: panel and learning (spec 97 §4.3–4.4, decision 12.3)
     expect(panelText()).toContain("Conectá el script desde el CRM");
   });
 });
+
+describe("Instagram app: conversation list badges (spec 97 §15)", () => {
+  const learned = [{ username: "qaz.uor", displayName: "Leandro Asrilevich", badge: { kind: "single" as const, accountId: "7", code: "H7", name: "Cabañas del Río", city: "Colón", statusLabel: "Contactado", assignedUserName: "Ana", doNotContact: false, restricted: false, openManagement: null } }];
+  const hosts = () => document.querySelectorAll(`[${INBOX_BADGE_ATTRIBUTE}]`).length;
+  const inboxPage = (html = inboxList) => { history.replaceState(null, "", "/direct/inbox/"); document.body.innerHTML = html; };
+  it("on the inbox, loads the learned chats once and marks the matching row; re-applies after a re-render without a new request", async () => {
+    // Arrange
+    inboxPage(); const api = apiOf({ fetchThreads: vi.fn(async () => ({ threads: learned })) });
+    // Act
+    start(storeOf().store, api);
+    // Assert
+    await vi.waitFor(() => expect(hosts()).toBe(1));
+    expect(document.getElementById("row-leandro")!.querySelector(`[${INBOX_BADGE_ATTRIBUTE}]`)).not.toBeNull();
+    inboxPage(); expect(hosts()).toBe(0); await app!.tick(); expect(hosts()).toBe(1);
+    expect(api.fetchThreads).toHaveBeenCalledOnce(); expect(document.getElementById(PANEL_ID)).toBeNull();
+  });
+  it("shows nothing with the switch off, without a token, with another account, or off /direct/", async () => {
+    inboxPage(); const off = apiOf({ fetchThreads: vi.fn(async () => ({ threads: learned })) }); start(storeOf({ badges: false }).store, off); await app!.tick();
+    expect(hosts()).toBe(0); expect(off.fetchThreads).not.toHaveBeenCalled(); app!.stop();
+    const anonymous = apiOf({ fetchThreads: vi.fn(async () => ({ threads: learned })) }); start(storeOf({ token: "" }).store, anonymous); await app!.tick();
+    expect(hosts()).toBe(0); expect(anonymous.fetchThreads).not.toHaveBeenCalled(); expect(anonymous.fetchStatus).not.toHaveBeenCalled(); app!.stop();
+    inboxPage(inboxList.split("hospeda.com.ar").join("personal.cuenta")); const other = apiOf({ fetchThreads: vi.fn(async () => ({ threads: learned })) }); start(storeOf().store, other);
+    await vi.waitFor(() => expect(other.fetchStatus).toHaveBeenCalled()); await app!.tick(); expect(hosts()).toBe(0); expect(other.fetchThreads).not.toHaveBeenCalled(); app!.stop();
+    history.replaceState(null, "", `/${USER}/`); document.body.innerHTML = inboxList; const profile = apiOf({ fetchThreads: vi.fn(async () => ({ threads: learned })) }); start(storeOf().store, profile); await app!.tick();
+    expect(hosts()).toBe(0); expect(profile.fetchStatus).not.toHaveBeenCalled(); expect(profile.fetchThreads).not.toHaveBeenCalled();
+  });
+  it("turning the switch off removes the badges; stopping the app removes them too", async () => {
+    inboxPage(); const { store } = storeOf(); start(store, apiOf({ fetchThreads: vi.fn(async () => ({ threads: learned })) }));
+    await vi.waitFor(() => expect(hosts()).toBe(1));
+    store.setBadges(false); await app!.tick(); expect(hosts()).toBe(0);
+    store.setBadges(true); await app!.tick(); expect(hosts()).toBe(1); app!.stop(); expect(hosts()).toBe(0);
+  });
+  it("a failed load shows nothing and waits before asking again (no request per tick)", async () => {
+    inboxPage(); const api = apiOf({ fetchThreads: vi.fn(async () => { throw new Error("down"); }) }); start(storeOf().store, api);
+    await vi.waitFor(() => expect(api.fetchThreads).toHaveBeenCalledOnce()); await app!.tick(); await app!.tick();
+    expect(api.fetchThreads).toHaveBeenCalledOnce(); expect(hosts()).toBe(0);
+  });
+  it("a malformed list response shows no badges and never stops the panel or the learning (review H1)", async () => {
+    for (const body of [{}, { threads: "x" }, { threads: [null, { username: 1 }] }, null]) {
+      history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
+      const api = apiOf({ fetchThreads: vi.fn(async () => body as never) }); start(storeOf().store, api);
+      await vi.waitFor(() => expect(api.fetchThreads).toHaveBeenCalled());
+      await vi.waitFor(() => expect(panelText()).toContain("Cabañas del Río"));
+      await vi.waitFor(() => expect(api.reportThread).toHaveBeenCalledOnce());
+      await app!.tick(); expect(hosts()).toBe(0); app!.stop(); app = null;
+    }
+  });
+  it("drops the cached list when the token changes (review L5)", async () => {
+    inboxPage(); const { store, data } = storeOf(); const api = apiOf({ fetchThreads: vi.fn(async () => ({ threads: learned })) }); start(store, api);
+    await vi.waitFor(() => expect(hosts()).toBe(1));
+    data.token = "hcu_other"; await app!.tick(); await vi.waitFor(() => expect(api.fetchThreads).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("Instagram app: learning the display name (spec 97 §15, review H2)", () => {
+  it("a context answer that arrives after the chat changed under the same path stores nothing (no name from another chat)", async () => {
+    // Arrange
+    history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
+    let answer: (value: InstagramContextResponse) => void = () => {};
+    const api = apiOf({ fetchContext: vi.fn(() => new Promise<InstagramContextResponse>(resolve => { answer = resolve; })) }); start(storeOf().store, api);
+    await vi.waitFor(() => expect(api.fetchContext).toHaveBeenCalledWith(USER));
+    // Act: Instagram swapped the conversation (another person's header and heading) before the CRM answered.
+    document.body.innerHTML = threadFor("otra.persona").replace('<div role="grid"', '<h2>Otra Persona</h2><div role="grid"');
+    answer(contextOf(USER)); await new Promise(resolve => setTimeout(resolve, 20));
+    // Assert
+    expect(api.reportThread).not.toHaveBeenCalled();
+  });
+});
+

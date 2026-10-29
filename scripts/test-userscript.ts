@@ -5,7 +5,7 @@ import {sql} from 'kysely';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import superjson from 'superjson';
 import {get as getCommunication,post as communicationPost} from '../src/endpoints/communication';
-import {tokenCreate,tokenRevoke,tokenList,context,status,register,templates,prepare,dispatch,outcome,voidRegistration,autoRegistrations,badges,instagramThread,instagramThreadStale} from '../src/endpoints/userscript';
+import {tokenCreate,tokenRevoke,tokenList,context,status,register,templates,prepare,dispatch,outcome,voidRegistration,autoRegistrations,badges,instagramThread,instagramThreadStale,instagramThreads} from '../src/endpoints/userscript';
 import {instagramAccountUsername,resetInstagramThreadRateLimits} from '../src/helpers/userscriptInstagram';
 import {USERSCRIPT_VERSION} from '../userscript/src/version';
 import {stageLabel} from '../src/helpers/crmLabels';
@@ -13,7 +13,7 @@ import {managementTypeLabels} from '../src/helpers/businessManagement';
 
 assert.equal(process.env.CRM_TEST_DATABASE,'1');
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`userscript-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
-const seller=await identity('user'),other=await identity('user'),admin=await identity('admin');
+const seller=await identity('user'),other=await identity('user'),admin=await identity('admin'),outsider=await identity('user');
 const chatPhone=`+5493442${String(100000+Math.floor(Math.random()*900000))}`;
 const account=await db.insertInto('crmAccounts').values({nombre:`Zz inbound userscript ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:chatPhone}).returningAll().executeTakeFirstOrThrow();const stage=await db.selectFrom('crmStages').select('name').where('classification','=','open').where('managementType','=','main').where('active','=',true).orderBy('sortOrder').executeTakeFirstOrThrow();await db.insertInto('leads').values({accountId:account.id,nombre:account.nombre,estado:stage.name,assignedUserEmail:seller.user.email}).execute();const openAccount=await db.insertInto('crmAccounts').values({nombre:`Zz badge open ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,status:'reviewed'} as never).returningAll().executeTakeFirstOrThrow();await db.insertInto('leads').values({accountId:openAccount.id,nombre:openAccount.nombre,estado:stage.name,managementType:'main',assignedUserEmail:seller.user.email} as never).execute();
 const session=(cookie:string,body:unknown)=>new Request('http://localhost/_api/userscript/tokens',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -183,7 +183,7 @@ try{
  await db.insertInto('crmAccounts').values({nombre:`Zz instagram substring ${randomUUID()}`,assignedUserEmail:seller.user.email,perfilInstagram:`@${igUser}x`} as never).execute();
  await db.insertInto('crmAccounts').values({nombre:`Zz instagram dnc ${randomUUID()}`,assignedUserEmail:seller.user.email,status:'reviewed',doNotContact:true,perfilInstagram:`@${igUser}.dnc`} as never).execute();
  await db.insertInto('crmAccounts').values({nombre:`Zz instagram hidden ${randomUUID()}`,assignedUserEmail:other.user.email,archivedAt:new Date(),perfilInstagram:`@${igUser}.hidden`} as never).execute();
- const igContext=async(user:string,auth=token)=>(await context(new Request(`http://localhost/_api/userscript/context?instagram=${encodeURIComponent(user)}`,{headers:scripted(auth)}))).json() as Promise<{instagramAccount:string|null;matches:{accountId:string}[];hiddenMatches:number;instagram:{username:string;threadId:string|null}}>;
+ const igContext=async(user:string,auth=token)=>(await context(new Request(`http://localhost/_api/userscript/context?instagram=${encodeURIComponent(user)}`,{headers:scripted(auth)}))).json() as Promise<{instagramAccount:string|null;matches:{accountId:string}[];hiddenMatches:number;instagram:{username:string;threadId:string|null;displayName:string|null}}>;
  const found=await igContext('@'+igUser);assert.equal(found.instagramAccount,'hospeda.test');assert.deepEqual(found.matches.map(m=>m.accountId),[String(igAccount.id)],'context?instagram finds the business by the normalized username, not the substring one');assert.equal(found.instagram.threadId,null);
  assert.equal((await igContext(igUser+'.hidden')).hiddenMatches,1,'A hidden business only counts');
  assert.equal((await context(new Request('http://localhost/_api/userscript/context?instagram=no%20valid',{headers:scripted(token)}))).status,400);
@@ -221,6 +221,38 @@ try{
  assert.equal((await outcome(new Request('http://localhost/_api/userscript/outcome',{method:'POST',headers:scripted(token),body:JSON.stringify({id:igDraftBody.messageId,event:'manual_not_sent'})}))).status,200,'«No lo voy a enviar» closes an opened Instagram attempt');
  assert.equal((await outcome(new Request('http://localhost/_api/userscript/outcome',{method:'POST',headers:scripted(token),body:JSON.stringify({id:igDraftBody.messageId,event:'manual_not_sent'})}))).status,409);
  delete process.env.INSTAGRAM_ACCOUNT_USERNAME;
+ // Spec 97 §15: display names on learned threads and the conversation-list badge data.
+ process.env.INSTAGRAM_ACCOUNT_USERNAME='hospeda.test';resetInstagramThreadRateLimits();
+ const storedName=async(user:string)=>(await sql<{threadId:string;proof:string;displayName:string|null}>`SELECT thread_id AS "threadId",proof,display_name AS "displayName" FROM crm_instagram_threads WHERE viewer_username='hospeda.test' AND username=${user}`.execute(db)).rows[0]??null;
+ assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:'  Zz   Cabañas '})).status,200);assert.deepEqual(await storedName(igUser),{threadId:igThread,proof:'header',displayName:'Zz Cabañas'},'The header display name is stored trimmed and single-spaced');
+ assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header'})).status,200);assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas','A header proof without a readable name keeps the stored one');
+ assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'seller',displayName:'Otro Nombre'})).status,200);assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas','A seller proof never replaces a stored name');
+ assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:'Zz Cabañas Nuevo'})).status,200);assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas Nuevo','A later header proof with another name updates it');
+ assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:'x'.repeat(101)})).status,200,'A name that cannot be stored never refuses the report (review M2)');assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas Nuevo','and keeps the stored name');
+ const sellerUser=igUser+'.dnc';await sql`DELETE FROM crm_instagram_threads WHERE viewer_username='hospeda.test' AND username=${sellerUser}`.execute(db);
+ assert.equal((await report('thread',{username:sellerUser,threadId:igThread,proof:'seller'})).status,200);assert.equal((await report('thread',{username:sellerUser,threadId:igThread,proof:'seller',displayName:'Zz DNC'})).status,200);
+ assert.equal((await storedName(sellerUser))?.displayName,'Zz DNC','A seller proof fills an empty name of the same thread');
+ const igCtx=await igContext(igUser);assert.equal(igCtx.instagram.displayName,'Zz Cabañas Nuevo','context returns the stored display name with the thread');
+ const inboxFor=async(auth:string)=>{const r=await instagramThreads(new Request('http://localhost/_api/userscript/instagram/threads',{headers:scripted(auth)}));assert.equal(r.status,200);return (await r.json() as {threads:{username:string;displayName:string;badge:{kind:string;code?:string;doNotContact?:boolean;openManagement?:{stageLabel:string}|null}}[]}).threads;};
+ // A hidden business's thread (with a name) never reaches the list.
+ await sql`INSERT INTO crm_instagram_threads(viewer_username,username,thread_id,proof,display_name) VALUES('hospeda.test',${igUser+'.hidden'},${igThread},'header','Zz Oculto') ON CONFLICT (viewer_username,username) DO UPDATE SET display_name='Zz Oculto'`.execute(db);
+ const sellerInbox=await inboxFor(token),mine=sellerInbox.find(row=>row.username===igUser);
+ assert.equal(mine?.displayName,'Zz Cabañas Nuevo');assert.equal(mine?.badge.kind,'single');assert.equal(mine?.badge.code,`H${igAccount.id}`);assert.ok(mine?.badge.openManagement,'The badge carries the open management like spec 86');
+ assert.equal(sellerInbox.find(row=>row.username===sellerUser)?.badge.doNotContact,true,'«No contactar» shows on the badge');
+ assert.equal(sellerInbox.some(row=>row.username===igUser+'.hidden'),false,'A thread of a hidden business is left out');
+ // Review H3: the archived business is assigned to `other`, who can see it; a third seller without access cannot.
+ assert.equal((await inboxFor(otherToken)).some(row=>row.username===igUser+'.hidden'),true,'The owner of an archived business sees its thread');
+ const outsiderToken=(await (await tokenCreate(session(outsider.cookie,{label:'Outsider'}))).json() as {token:string}).token;
+ assert.equal((await inboxFor(outsiderToken)).some(row=>row.username===igUser+'.hidden'),false,'A seller without access never sees it');
+ // A thread without a display name is not listed.
+ await sql`UPDATE crm_instagram_threads SET display_name=NULL WHERE viewer_username='hospeda.test' AND username=${sellerUser}`.execute(db);assert.equal((await inboxFor(token)).some(row=>row.username===sellerUser),false,'No name, no badge');
+ // Review M1: two learned threads with the same name (case and spacing aside) are both left out, even when the twin is hidden from the user.
+ await sql`UPDATE crm_instagram_threads SET display_name='ZZ  cabañas nuevo' WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
+ assert.equal((await inboxFor(token)).some(row=>row.username===igUser),false,'A name shared with a hidden thread is not listed');
+ assert.equal((await inboxFor(outsiderToken)).some(row=>row.username===igUser||row.username===igUser+'.hidden'),false);
+ await sql`UPDATE crm_instagram_threads SET display_name='Zz Cabanas Nuevo' WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
+ assert.equal((await inboxFor(token)).some(row=>row.username===igUser),true,'Accents count: «Cabañas» and «Cabanas» are different names');
+ delete process.env.INSTAGRAM_ACCOUNT_USERNAME;assert.equal((await instagramThreads(new Request('http://localhost/_api/userscript/instagram/threads',{headers:scripted(token)}))).status,409,'Without the Hospeda account there is no list');
  const revoked=await tokenRevoke(session(seller.cookie,{id:tokenRow.id}));assert.equal(revoked.status,200);
  const denied=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token)}));assert.equal(denied.status,401);assert.equal((await badges(new Request('http://localhost/_api/userscript/badges',{method:'POST',headers:scripted(token),body:JSON.stringify({chats:[{key:'revoked',title:'Chat'}]})}))).status,401,'Revoked userscript token cannot query badges');
  console.log('Userscript: tokens, version gate, context read rules, register idempotency, manual completion, concurrency, limits and Instagram (spec 97) passed');

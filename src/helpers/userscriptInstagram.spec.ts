@@ -1,7 +1,7 @@
 // @vitest-environment node
 import {afterEach,describe,expect,it,vi} from 'vitest';
 vi.mock('./db',()=>({db:{}}));
-const {allowInstagramThreadReport,instagramAccountUsername,instagramProfilePattern,instagramQueryUsername,instagramThreadInput,instagramThreadStaleInput,resetInstagramThreadRateLimits}=await import('./userscriptInstagram');
+const {instagramDisplayName,allowInstagramThreadReport,instagramAccountUsername,instagramProfilePattern,instagramQueryUsername,instagramThreadInput,instagramThreadStaleInput,resetInstagramThreadRateLimits}=await import('./userscriptInstagram');
 const {panelPurposes}=await import('./userscriptInstagramTemplates');
 const {normalizeInstagramUsername}=await import('./instagramChat');
 
@@ -64,4 +64,24 @@ describe('perfil_instagram pattern for the business lookup (M2)',()=>{
   for(const username of ['al','a.l','hotel.sol','al_'])for(const value of [...corpus,...corpus.map(v=>v.split('al').join(username))])if(normalizeInstagramUsername(value)===username)expect(matches(username,value),`${username} ← ${value}`).toBe(true);
  });
  it('escapes the dot: a.l does not match abl',()=>{expect(matches('a.l','abl')).toBe(false);expect(matches('a.l','@a.l')).toBe(true);});
+});
+
+describe('display name of a learned chat (spec 97 §15)',()=>{
+ it('the CRM and the user script key names the same way: exact apart from case and spacing',async()=>{
+  const {normalizeInboxDisplayName}=await import('./userscriptInstagramInbox');const {normalizeDisplayName}=await import('../../userscript/src/instagram/inbox');
+  for(const name of ['  Joaquín   ASRILEVICH ','José','Jose','Peña','Ana\u200bGómez','Ana\tGómez'])expect(normalizeInboxDisplayName(name)).toBe(normalizeDisplayName(name));
+  expect(normalizeInboxDisplayName('José')).not.toBe(normalizeInboxDisplayName('Jose'));expect(normalizeInboxDisplayName('Peña')).not.toBe(normalizeInboxDisplayName('Pena'));
+ });
+ it('trims, collapses spaces, drops control characters and caps at 100',()=>{
+  expect(instagramDisplayName.parse('  Joaquín \n  Asrilevich ')).toBe('Joaquín Asrilevich');
+  expect(instagramDisplayName.parse('Ana\u0000Gómez')).toBe('Ana Gómez');
+  expect(instagramDisplayName.parse('Ana\u0085\u009fGómez')).toBe('Ana Gómez');expect(instagramDisplayName.parse('Ana\u200b\u200eGómez')).toBe('AnaGómez');
+  expect(instagramDisplayName.safeParse('   ').success).toBe(false);expect(instagramDisplayName.safeParse('x'.repeat(101)).success).toBe(false);
+ });
+ it('is optional in the thread report',()=>{
+  expect(instagramThreadInput.parse({username:'qaz.uor',threadId:THREAD,proof:'header',displayName:' Leandro  Asrilevich '})).toEqual({username:'qaz.uor',threadId:THREAD,proof:'header',displayName:'Leandro Asrilevich'});
+  expect(instagramThreadInput.parse({username:'qaz.uor',threadId:THREAD,proof:'header'})).not.toHaveProperty('displayName');
+  // Review M2: a name that cannot be stored is dropped; the thread report itself stays valid.
+  for(const displayName of [5,'   ','x'.repeat(101),null])expect(instagramThreadInput.parse({username:'qaz.uor',threadId:THREAD,proof:'header',displayName}).displayName).toBeUndefined();
+ });
 });

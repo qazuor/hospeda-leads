@@ -2,10 +2,10 @@ import { HANDOFF_STORAGE_KEY, type HandoffStore } from "../instagram/handoff";
 
 /**
  * Spec 97 §5.4: the only GM values the script touches on instagram.com. The token is read (never written: it is only set from the CRM's
- * «Conectar este navegador» or WhatsApp Web), the one-time handoff is read and compare-and-deleted, and the panel keeps its own open state and theme.
+ * «Conectar este navegador» or WhatsApp Web), the one-time handoff is read and compare-and-deleted, and the panel keeps its own open state, theme and the conversation-list badges switch.
  */
-export const TOKEN_KEY = "hospeda-userscript-token", OPEN_KEY = "hospeda-instagram-open", THEME_KEY = "hospeda-instagram-theme";
-export const INSTAGRAM_GM_KEYS: readonly string[] = [TOKEN_KEY, HANDOFF_STORAGE_KEY, OPEN_KEY, THEME_KEY];
+export const TOKEN_KEY = "hospeda-userscript-token", OPEN_KEY = "hospeda-instagram-open", THEME_KEY = "hospeda-instagram-theme", BADGES_KEY = "hospeda-instagram-badges";
+export const INSTAGRAM_GM_KEYS: readonly string[] = [TOKEN_KEY, HANDOFF_STORAGE_KEY, OPEN_KEY, THEME_KEY, BADGES_KEY];
 
 export type PanelTheme = "auto" | "light" | "dark";
 export type InstagramStore = {
@@ -15,6 +15,9 @@ export type InstagramStore = {
   readonly setOpen: (open: boolean) => void;
   readonly theme: () => PanelTheme;
   readonly setTheme: (theme: PanelTheme) => void;
+  /** Spec 97 §15: badges in the conversation list, on by default like WhatsApp's. */
+  readonly badges: () => boolean;
+  readonly setBadges: (enabled: boolean) => void;
 };
 
 /** The GM-backed store. Nothing else on instagram.com reads or writes GM storage. */
@@ -30,5 +33,7 @@ export function gmInstagramStore(): InstagramStore {
     setOpen: open => GM_setValue(OPEN_KEY, open),
     theme: () => { const value = GM_getValue<string>(THEME_KEY, "auto"); return value === "light" || value === "dark" ? value : "auto"; },
     setTheme: theme => GM_setValue(THEME_KEY, theme),
+    badges: () => GM_getValue<boolean>(BADGES_KEY, true) !== false,
+    setBadges: enabled => GM_setValue(BADGES_KEY, enabled),
   };
 }

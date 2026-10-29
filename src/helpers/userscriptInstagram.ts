@@ -14,8 +14,15 @@ type Executor=Kysely<DB>|Transaction<DB>;
 type Actor={id:number;email:string;role:'admin'|'user'};
 
 const USERNAME=z.string().regex(/^[a-z0-9._]{1,30}$/),THREAD=z.string().regex(INSTAGRAM_THREAD_ID);
+/**
+ * Spec 97 §15: a chat header's display name, cleaned the way migration 054's CHECK requires: NFC, format characters (\p{Cf}) dropped, control
+ * characters (\p{Cc}) turned into spaces, whitespace collapsed and trimmed, 1–100 characters.
+ */
+export const instagramDisplayName=z.string().max(400).transform(value=>value.normalize('NFC').replace(/\p{Cf}/gu,'').replace(/\p{Cc}/gu,' ').replace(/\s+/g,' ').trim()).pipe(z.string().min(1).max(100));
+/** Review M2: a name that cannot be stored is dropped, never a reason to refuse (or fail) the thread report. */
+const optionalDisplayName=z.unknown().transform(value=>{const parsed=instagramDisplayName.safeParse(value);return parsed.success?parsed.data:undefined;});
 /** Body of `POST /_api/userscript/instagram/thread`: the proven username, the path's thread id and how it was proven. */
-export const instagramThreadInput=z.object({username:USERNAME,threadId:THREAD,proof:z.enum(['header','seller'])}).strict();
+export const instagramThreadInput=z.object({username:USERNAME,threadId:THREAD,proof:z.enum(['header','seller']),displayName:optionalDisplayName}).strict();
 /** Body of `POST /_api/userscript/instagram/thread/stale`: the thread a header proof contradicted. */
 export const instagramThreadStaleInput=z.object({username:USERNAME,threadId:THREAD}).strict();
 export type InstagramThreadProof=z.infer<typeof instagramThreadInput>['proof'];
@@ -33,12 +40,35 @@ export function resetInstagramThreadRateLimits():void{reports.clear();}
 
 /** The stored thread of `username` for the Hospeda account, or null. */
 export async function instagramThreadFor(e:Executor,{viewer,username}:{viewer:string|null;username:string|null}):Promise<string|null>{
- if(!viewer||!username)return null;
- return (await sql<{threadId:string}>`SELECT thread_id AS "threadId" FROM crm_instagram_threads WHERE viewer_username=${viewer} AND username=${username}`.execute(e)).rows[0]?.threadId??null;
+ return (await instagramThreadRow(e,{viewer,username}))?.threadId??null;
 }
-/** Upserts the thread of `username` for the Hospeda account, keeping who proved it and when. A seller confirmation never replaces a header proof (M4). */
-export async function saveInstagramThread(e:Executor,{viewer,username,threadId,proof,userId}:{viewer:string;username:string;threadId:string;proof:InstagramThreadProof;userId:number}):Promise<void>{
- await sql`INSERT INTO crm_instagram_threads(viewer_username,username,thread_id,proof,verified_at,verified_by_user_id) VALUES(${viewer},${username},${threadId},${proof},now(),${userId}) ON CONFLICT (viewer_username,username) DO UPDATE SET thread_id=excluded.thread_id,proof=excluded.proof,verified_at=now(),verified_by_user_id=excluded.verified_by_user_id WHERE crm_instagram_threads.proof='seller' OR excluded.proof='header'`.execute(e);
+/** The stored thread and display name of `username` for the Hospeda account, or null. */
+export async function instagramThreadRow(e:Executor,{viewer,username}:{viewer:string|null;username:string|null}):Promise<{threadId:string;displayName:string|null}|null>{
+ if(!viewer||!username)return null;
+ return (await sql<{threadId:string;displayName:string|null}>`SELECT thread_id AS "threadId",display_name AS "displayName" FROM crm_instagram_threads WHERE viewer_username=${viewer} AND username=${username}`.execute(e)).rows[0]??null;
+}
+/**
+ * Upserts the thread of `username` for the Hospeda account, keeping who proved it and when. A seller confirmation never replaces a header proof
+ * (M4). Display name (§15): a header proof sets it when it reads one (a different name replaces the stored one); a seller proof only fills an
+ * empty name of the same thread. A new thread id never inherits the old thread's name.
+ */
+export async function saveInstagramThread(e:Executor,{viewer,username,threadId,proof,userId,displayName=null}:{viewer:string;username:string;threadId:string;proof:InstagramThreadProof;userId:number;displayName?:string|null}):Promise<void>{
+ // Review M2: should the CHECK still refuse a name the schema accepted, the thread is stored without it (never a 500 over a name). Not for a
+ // transaction: a failed statement aborts it, so callers inside one pass a schema-cleaned name only.
+ try{await upsertInstagramThread(e,{viewer,username,threadId,proof,userId,displayName});}
+ catch(error){if(displayName===null||(error as {code?:unknown}).code!=='23514')throw error;await upsertInstagramThread(e,{viewer,username,threadId,proof,userId,displayName:null});}
+}
+async function upsertInstagramThread(e:Executor,{viewer,username,threadId,proof,userId,displayName}:{viewer:string;username:string;threadId:string;proof:InstagramThreadProof;userId:number;displayName:string|null}):Promise<void>{
+ await sql`INSERT INTO crm_instagram_threads AS t(viewer_username,username,thread_id,proof,verified_at,verified_by_user_id,display_name) VALUES(${viewer},${username},${threadId},${proof},now(),${userId},${displayName}) ON CONFLICT (viewer_username,username) DO UPDATE SET
+  thread_id=CASE WHEN t.proof='seller' OR excluded.proof='header' THEN excluded.thread_id ELSE t.thread_id END,
+  proof=CASE WHEN t.proof='seller' OR excluded.proof='header' THEN excluded.proof ELSE t.proof END,
+  verified_at=CASE WHEN t.proof='seller' OR excluded.proof='header' THEN now() ELSE t.verified_at END,
+  verified_by_user_id=CASE WHEN t.proof='seller' OR excluded.proof='header' THEN excluded.verified_by_user_id ELSE t.verified_by_user_id END,
+  display_name=CASE
+   WHEN excluded.proof='header' THEN COALESCE(excluded.display_name,CASE WHEN t.thread_id=excluded.thread_id THEN t.display_name END)
+   WHEN t.proof='seller' AND t.thread_id<>excluded.thread_id THEN excluded.display_name
+   WHEN t.thread_id=excluded.thread_id THEN COALESCE(t.display_name,excluded.display_name)
+   ELSE t.display_name END`.execute(e);
 }
 /** D2: deletes the row only while it still holds `threadId` (compare-and-delete), so a newer proof is never lost. */
 export async function deleteStaleInstagramThread(e:Executor,{viewer,username,threadId}:{viewer:string;username:string;threadId:string}):Promise<boolean>{

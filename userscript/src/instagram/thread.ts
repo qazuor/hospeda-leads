@@ -1,4 +1,4 @@
-import { FLOATING, accessibleName, conversationPane, normalizeName } from "./finders";
+import { CONVERSATION_LIST, FLOATING, accessibleName, conversationPane, normalizeName } from "./finders";
 import { threadIdFromPath } from "./handoff";
 
 /**
@@ -26,7 +26,7 @@ export function profileLabelUsername(el: Element): string | null { const match =
 /** Defensive group signal (no group was observed live yet): a participant count in the chat's header region, never in the messages. */
 const GROUP_COUNT = /(?:^|\D)\d+\s+(?:miembros|members|participantes|participants|personas|people)\b/i;
 /** Parts of the pane that hold messages or the composer: their text is the other person's or the seller's, never a header. */
-const NOT_HEADER = '[role="grid"], [role="row"], [role="log"], [role="list"], [role="listitem"], [contenteditable="true"], [role="textbox"]';
+const NOT_HEADER = `[role="grid"], [role="row"], [role="log"], [role="list"], [role="listitem"], [contenteditable="true"], [role="textbox"], ${CONVERSATION_LIST}`;
 
 /**
  * The header region's text: below the pane's single-child wrappers, the children that hold no message list and no composer. A message such as
@@ -55,7 +55,7 @@ export function proveThread({ doc, readPath }: { doc: Document; readPath: () => 
   const pane = conversationPane({ doc }); if (!pane) return { ok: false, reason: "no-pane", names: [] };
   const names = new Set<string>(); let labelled = false;
   for (const link of pane.querySelectorAll<HTMLAnchorElement>("a[href]")) {
-    if (link.closest(FLOATING)) continue;
+    if (link.closest(FLOATING) || link.closest(CONVERSATION_LIST)) continue;
     // Only Instagram's own labelled links (header, message avatars) name a participant. Unlabelled profile links are message content: a shared
     // post or reel shows its author as a plain link (live chat, 29/10/2026), and «Ver perfil» repeats the header.
     const name = profileHrefUsername(link.getAttribute("href")), label = profileLabelUsername(link); if (!name || !label) continue;
@@ -91,4 +91,34 @@ export function loggedInUsername({ doc }: { doc: Document }): string | null {
   if (names.size !== 1) return null;
   const name = [...names][0];
   return [...doc.querySelectorAll<HTMLImageElement>("img[alt]")].some(img => avatarAltUsername(img.getAttribute("alt") ?? "") === name) ? name : null;
+}
+
+const HEADING_SKIP = `[role="grid"], [role="row"], [role="log"], [role="listitem"], [role="dialog"], ${FLOATING}, ${CONVERSATION_LIST}`;
+/** Whitespace collapsed and trimmed; null when empty or longer than the CRM keeps (100). */
+const cleanName = (text: string | null | undefined): string | null => { const value = (text ?? "").normalize("NFC").replace(/\p{Cf}/gu, "").replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim(); return value && value.length <= 100 ? value : null; };
+
+/**
+ * Spec 97 §15 with the live findings of §9.1 item 9: the display name of a chat with `username`, for the conversation-list badges. Read only
+ * when the pane has Instagram's labelled header link for that same username (review H2): a heading is never trusted on its own, so a chat that
+ * changed under the script, or a seller-confirmed chat without that link, yields null. The pane's single `h1`/`h2` holds the name alone; when
+ * there is not exactly one, the labelled link's text («Leandro Asrilevich» + «qaz.uor») is used with the username part removed. Headings and
+ * links inside messages, the conversation list or floating chats never count. Null when unclear.
+ */
+export function headerDisplayName({ doc, username }: { doc: Document; username: string }): string | null {
+  const pane = conversationPane({ doc }); if (!pane) return null;
+  const isUser = (text: string) => text.toLowerCase() === username.toLowerCase();
+  const links = [...pane.querySelectorAll<HTMLAnchorElement>("a[href]")].filter(link => !link.closest(HEADING_SKIP) && profileLabelUsername(link) === username && profileHrefUsername(link.getAttribute("href")) === username);
+  if (!links.length) return null;
+  const headings = new Set([...pane.querySelectorAll("h1, h2")].filter(h => !h.closest(HEADING_SKIP)).map(h => cleanName(h.textContent)).filter((t): t is string => !!t && !isUser(t)));
+  if (headings.size === 1) return [...headings][0];
+  if (headings.size > 1) return null;
+  for (const link of links) {
+    const parts: string[] = []; const walker = doc.createTreeWalker(link, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) { const text = cleanName(node.textContent); if (text) parts.push(text); }
+    const named = parts.filter(part => !isUser(part));
+    if (parts.length > 1 && named.length === 1) return named[0];
+    const whole = cleanName(parts.join(""));
+    if (whole && whole.toLowerCase().endsWith(username.toLowerCase())) { const rest = cleanName(whole.slice(0, whole.length - username.length)); if (rest) return rest; }
+  }
+  return null;
 }

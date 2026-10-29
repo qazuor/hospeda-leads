@@ -7,7 +7,7 @@ import type { InstagramApi } from "./client";
 const status: StatusResponse = { minVersion: "1.5.0", latestVersion: "1.6.0", user: { email: "ana@hospeda.test", displayName: "Ana" }, instagramAccount: "hospeda.com.ar" };
 const matchOf = (over: Partial<InstagramMatch> = {}): InstagramMatch => ({ accountId: "7", code: "H7", name: "Cabañas del Río", city: "Colón", status: "contacted", statusLabel: "Contactado", assignedUserName: "Ana", doNotContact: false, restrictionActive: false, archived: false, canContact: true, leads: [{ id: "1", name: "Alojamiento", stage: "Contactado" }], url: "https://crm.test/accounts/7", ...over });
 const ready = (over: Partial<AppState> = {}, matches = [matchOf()], hiddenMatches = 0): AppState => ({ ...initialState({ token: true }), status: { kind: "ok", value: status }, loggedIn: "hospeda.com.ar", threadId: "1", proof: { ok: true, threadId: "1", username: "cabanas_del_rio" }, context: { username: "cabanas_del_rio", kind: "ok", value: { ...status, instagramAccount: "hospeda.com.ar", hiddenMatches, matches, instagram: { username: "cabanas_del_rio", threadId: null } } }, ...over });
-const actionsOf = (over: Partial<PanelActions> = {}): PanelActions => ({ trusted: () => true, toggle: vi.fn(), view: vi.fn(), select: vi.fn(), retry: vi.fn(), confirmChat: vi.fn(), rejectChat: vi.fn(), compose: vi.fn(), setTheme: vi.fn(), ...over });
+const actionsOf = (over: Partial<PanelActions> = {}): PanelActions => ({ trusted: () => true, toggle: vi.fn(), view: vi.fn(), select: vi.fn(), retry: vi.fn(), confirmChat: vi.fn(), rejectChat: vi.fn(), compose: vi.fn(), setTheme: vi.fn(), setBadges: vi.fn(), ...over });
 const render = (state: AppState, actions = actionsOf(), open = true) => renderPanel({ doc: document, state, open, dark: false, theme: "auto", base: "https://crm.test", version: "1.6.0", actions });
 const root = () => document.getElementById(PANEL_ID)!.shadowRoot!;
 const text = () => root().textContent ?? "";
@@ -48,7 +48,8 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
     render(ready({ token: false })); expect(text()).toContain("Conectá el script desde el CRM: User script → Conectar este navegador.");
     expect(root().querySelectorAll("input")).toHaveLength(0);
     expect(root().querySelector<HTMLAnchorElement>("a")!.href).toBe("https://crm.test/userscript");
-    render(ready({ token: false, view: "settings" })); expect(root().querySelectorAll("input")).toHaveLength(0); expect(text()).toContain("CONEXIÓN");
+    // Settings only has the badges switch (a checkbox), never a text field for a token.
+    render(ready({ token: false, view: "settings" })); expect(root().querySelectorAll('input:not([type="checkbox"]), textarea')).toHaveLength(0); expect(text()).toContain("CONEXIÓN");
   });
   it("Ajustes shows the connection, the version and a newer script", () => {
     render(ready({ view: "settings" })); expect(text()).toContain("Conectado como Ana"); expect(text()).toContain("Versión 1.6.0 · al día");
@@ -68,6 +69,11 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
     render(ready({ proof: { ok: false, reason: "no-header", names: [] }, confirm: { username: "cabanas_del_rio", threadId: "1" } }), actionsOf({ trusted: event => event.isTrusted, rejectChat }));
     buttonNamed("No es este chat").click(); expect(rejectChat).not.toHaveBeenCalled();
   });
+  it("Ajustes has the conversation-list badges switch (spec 97 §15)", () => {
+    const setBadges = vi.fn(); renderPanel({ doc: document, state: ready({ view: "settings" }), open: true, dark: false, theme: "auto", badges: true, base: "https://crm.test", version: "1.6.0", actions: actionsOf({ setBadges }) });
+    const check = root().querySelector<HTMLInputElement>('input[type="checkbox"]')!; expect(check.checked).toBe(true); expect(text()).toContain("Mostrar insignias en la lista de chats");
+    check.click(); expect(setBadges).toHaveBeenCalledWith(false);
+  });
   it("keeps the token out of the page", () => {
     render(ready()); expect(document.documentElement.outerHTML).not.toContain("hcu_");
   });
@@ -81,7 +87,7 @@ describe("Instagram «Mandar un mensaje» (spec 97 §4.3)", () => {
     document.body.innerHTML = `<div class="panel"><section class="card" id="card"></section></div><div id="composer" contenteditable="true"></div>`;
     const composer = document.getElementById("composer")!, order: string[] = [];
     composer.addEventListener("paste", event => { order.push("paste"); event.preventDefault(); composer.textContent = (event as ClipboardEvent).clipboardData?.getData("text/plain") ?? ""; });
-    const api: InstagramApi = { fetchStatus: vi.fn(), fetchContext: vi.fn(), reportThread: vi.fn(), reportThreadStale: vi.fn(), fetchTemplates: vi.fn(async () => data), prepare: vi.fn(async () => prepared), dispatch: vi.fn(async () => { order.push("dispatch"); return { messageId: "m-1", status: "instagram_opened" }; }), markNotSent: vi.fn(async () => ({})) };
+    const api: InstagramApi = { fetchStatus: vi.fn(), fetchContext: vi.fn(), reportThread: vi.fn(), reportThreadStale: vi.fn(), fetchTemplates: vi.fn(async () => data), prepare: vi.fn(async () => prepared), dispatch: vi.fn(async () => { order.push("dispatch"); return { messageId: "m-1", status: "instagram_opened" }; }), markNotSent: vi.fn(async () => ({})), fetchThreads: vi.fn(async () => ({ threads: [] })) };
     const checkChat = vi.fn(() => { order.push("check"); return null as string | null; }), back = vi.fn();
     const card = document.getElementById("card")!;
     openInstagramCompose(card, { doc: document, api, match: matchOf(), username: "cabanas_del_rio", trusted: () => true, checkChat, composer: () => composer, back, header: title => { const h = document.createElement("h2"); h.textContent = title; return h; }, settle: () => Promise.resolve(), newId: () => "00000000-0000-4000-8000-000000000001", ...over });

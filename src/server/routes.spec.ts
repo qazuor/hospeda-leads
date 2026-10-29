@@ -32,6 +32,7 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'POST /_api/userscript/outcome':401,
 'POST /_api/userscript/instagram/thread':401,
 'POST /_api/userscript/instagram/thread/stale':401,
+'GET /_api/userscript/instagram/threads':401,
 'POST /_api/userscript/preferences':401,
 'GET /_api/userscript/auto-registrations':401,
 'POST /_api/userscript/void':401,

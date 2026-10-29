@@ -1,4 +1,4 @@
-import { dispatchTemplate, fetchInstagramContext, fetchInstagramTemplates, fetchStatus, markTemplateNotSent, prepareInstagramTemplate, reportInstagramThread, reportInstagramThreadStale, type DispatchResult, type InstagramContextResponse, type InstagramPrepare, type InstagramTemplatesResponse, type InstagramThreadReport, type PreparedTemplate, type StatusResponse } from "../api";
+import { dispatchTemplate, fetchInstagramContext, fetchInstagramThreads, fetchInstagramTemplates, fetchStatus, markTemplateNotSent, prepareInstagramTemplate, reportInstagramThread, reportInstagramThreadStale, type DispatchResult, type InstagramContextResponse, type InstagramInboxThread, type InstagramPrepare, type InstagramTemplatesResponse, type InstagramThreadReport, type PreparedTemplate, type StatusResponse } from "../api";
 
 /**
  * Spec 97 §5.3: the allowlist of CRM calls the Instagram side may make, bound to the CRM base and the saved token. The token travels only in
@@ -13,8 +13,10 @@ export type InstagramApi = {
   readonly prepare: (payload: InstagramPrepare) => Promise<PreparedTemplate>;
   readonly dispatch: (payload: { id: string; revision: number }) => Promise<DispatchResult>;
   readonly markNotSent: (id: string) => Promise<unknown>;
+  /** Spec 97 §15: learned chats with display names, for the conversation-list badges. */
+  readonly fetchThreads: () => Promise<{ threads: InstagramInboxThread[] }>;
 };
-export const INSTAGRAM_API_FUNCTIONS: readonly string[] = ["fetchStatus", "fetchInstagramContext", "reportInstagramThread", "reportInstagramThreadStale", "fetchInstagramTemplates", "prepareInstagramTemplate", "dispatchTemplate", "markTemplateNotSent"];
+export const INSTAGRAM_API_FUNCTIONS: readonly string[] = ["fetchStatus", "fetchInstagramContext", "reportInstagramThread", "reportInstagramThreadStale", "fetchInstagramTemplates", "prepareInstagramTemplate", "dispatchTemplate", "markTemplateNotSent", "fetchInstagramThreads"];
 
 export function instagramApi({ base, token }: { base: string; token: () => string }): InstagramApi {
   return {
@@ -26,5 +28,6 @@ export function instagramApi({ base, token }: { base: string; token: () => strin
     prepare: payload => prepareInstagramTemplate(base, token(), payload),
     dispatch: async payload => (await dispatchTemplate(base, token(), payload)) as DispatchResult,
     markNotSent: id => markTemplateNotSent(base, token(), id),
+    fetchThreads: () => fetchInstagramThreads(base, token()),
   };
 }

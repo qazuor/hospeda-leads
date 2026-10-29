@@ -56,11 +56,16 @@ export const addMaterial=(base:string,token:string,payload:{messageId:string;rev
 
 /** Spec 97 §5.2: a business as the Instagram panel sees it (WhatsApp's `Match` without WhatsApp fields, plus whether the user can contact it). */
 export type InstagramMatch={accountId:string;code:string;name:string;city:string|null;status:string|null;statusLabel:string|null;assignedUserName:string|null;doNotContact:boolean;restrictionActive:boolean;archived:boolean;canContact:boolean;leads:{id:string;name:string;stage:string}[];url:string};
-export type InstagramContextResponse=Omit<ContextResponse,"matches">&{instagramAccount:string|null;matches:InstagramMatch[];instagram:{username:string;threadId:string|null}};
+export type InstagramContextResponse=Omit<ContextResponse,"matches">&{instagramAccount:string|null;matches:InstagramMatch[];instagram:{username:string;threadId:string|null;displayName?:string|null}};
 export const fetchInstagramContext=(base:string,token:string,username:string)=>request<InstagramContextResponse>(`${base}/_api/userscript/context?${new URLSearchParams({instagram:username})}`,token);
-export type InstagramThreadReport={username:string;threadId:string;proof:"header"|"seller"};
+export type InstagramThreadReport={username:string;threadId:string;proof:"header"|"seller";displayName?:string};
 export const reportInstagramThread=(base:string,token:string,payload:InstagramThreadReport)=>request<{threadId:string}>(`${base}/_api/userscript/instagram/thread`,token,"POST",payload);
 export const reportInstagramThreadStale=(base:string,token:string,payload:{username:string;threadId:string})=>request<{deleted:boolean}>(`${base}/_api/userscript/instagram/thread/stale`,token,"POST",payload);
+/** Spec 97 §15: a learned chat with its header display name and the spec 86 badge data (Instagram restriction channels). */
+export type InstagramInboxBusiness={accountId:string;code:string;name:string;city:string|null;statusLabel:string|null;assignedUserName:string|null;doNotContact:boolean;restricted:boolean;openManagement:{stageLabel:string;typeLabel:string|null}|null};
+export type InstagramInboxBadge=({kind:"single"}&InstagramInboxBusiness)|{kind:"multiple";businesses:{accountId:string;code:string;name:string;statusLabel:string|null}[]};
+export type InstagramInboxThread={username:string;displayName:string;badge:InstagramInboxBadge};
+export const fetchInstagramThreads=(base:string,token:string)=>request<{threads:InstagramInboxThread[]}>(`${base}/_api/userscript/instagram/threads`,token);
 export type ScriptPurpose="verification"|"first_contact"|"resume"|"relationship"|"care"|"operations"|"other";
 export type InstagramTemplate={id:string;name:string;recommended:boolean;body:string};
 export type InstagramTemplatesResponse={leads:{id:string;name:string;type:string|null;stage:string;templates:InstagramTemplate[]}[];general:{defaultPurpose:ScriptPurpose;purposes:{value:ScriptPurpose;label:string;templates:InstagramTemplate[]}[]}|null;blocked:string|null;username:string|null};
