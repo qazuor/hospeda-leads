@@ -240,6 +240,16 @@ export interface CrmUserscriptTokens {
   revokedAt:Timestamp|null;
 }
 
+/** Spec 97 §5.1: the Instagram web thread of a username for the Hospeda account (migration 053). */
+export interface CrmInstagramThreads {
+  viewerUsername:string;
+  username:string;
+  threadId:string;
+  proof:'header'|'seller';
+  verifiedAt:Generated<Timestamp>;
+  verifiedByUserId:number|null;
+}
+
 /** Spec 91 §12: when a user last looked at a business «Comunicación» tab (migration 048). */
 export interface CrmCommunicationReads {
   userId:number;
@@ -355,6 +365,7 @@ export interface DB {
  crmAutoRegistrations:CrmAutoRegistrations;
  crmCommunicationReads:CrmCommunicationReads;
   crmUserscriptTokens:CrmUserscriptTokens;
+  crmInstagramThreads:CrmInstagramThreads;
  crmImportBatches:CrmImportBatches;
  crmDataEvidence:CrmDataEvidence;
  crmAccountMerges:CrmAccountMerges;
