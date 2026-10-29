@@ -32,6 +32,19 @@ beforeEach(()=>{
 afterEach(()=>{cleanup();slot.remove();vi.clearAllMocks();vi.restoreAllMocks();for(const name of [INSTALLED_ATTRIBUTE,CONNECTION_ATTRIBUTE,USER_ATTRIBUTE])html().removeAttribute(name);});
 
 describe('MessageComposer · final button in the footer slot (owner review of spec 96)',()=>{
+ it('saves an edited email and shows the final view before sending, instead of sending at once (owner, 28/10/2026)',async()=>{
+  // Arrange
+  const email=message({channel:'email',recipient:'ana@example.com',subject:'Asunto',body:'<p>Hola</p>',htmlBody:'<p>Hola</p>',textBody:'Hola'});
+  vi.mocked(postCommunication).mockResolvedValue({...email,body:'<p>Hola Ana</p>',htmlBody:'<p>Hola Ana</p>',textBody:'Hola Ana',revision:5});
+  show(email,{startEditing:true});
+  await screen.findByLabelText('Mensaje final');edit('<p>Hola Ana</p>');
+  // Act
+  fireEvent.click(within(slot).getByRole('button',{name:'Guardar y revisar'}));
+  // Assert
+  await waitFor(()=>expect(within(slot).getByRole('button',{name:/^Enviar email a/})).toBeTruthy());
+  expect(vi.mocked(postCommunication)).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(postCommunication).mock.calls[0][0]).toMatchObject({action:'edit',body:'<p>Hola Ana</p>'});
+ });
  it('closes the blank WhatsApp tab when the dispatch fails (review of the footer change)',async()=>{
   // Arrange
   const tab=popup();vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);

@@ -111,8 +111,10 @@ export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange,onN
   try{saved=await mutation.mutateAsync({action:'edit',id:m.id,revision:m.revision,...(taskId?{taskId}:{}),subject,body})}catch{}finally{processing.current=false}
   if(!saved?.id){if(popup&&!popup.closed)popup.close();return;}
   externalWindow.current=popup;void mutate({action:'dispatch',id:saved.id,revision:saved.revision,confirm:true,...(taskId?{taskId}:{})});};
- const send=()=>{if(saveFirst){void saveThenDispatch();return;}if(m.channel==='whatsapp'||ig)dispatchMessage();else void mutate({action:'dispatch',id:m.id,revision:m.revision,confirm:true,...(taskId?{taskId}:{})});};
- const sendLabel=mutation.isPending&&mutation.variables?.action==='dispatch'?(m.channel==='email'?'Enviando email…':ig?'Abriendo Instagram…':'Abriendo WhatsApp…'):finalActionLabel({channel:composerChannel,recipient:m.recipient,recipientName:m.recipientName});
+ // Owner (28/10/2026): an email is final once Brevo takes it, so with unsaved edits the footer saves and shows the final view; sending is a second click.
+ const reviewFirst=saveFirst&&m.channel==='email';
+ const send=()=>{if(reviewFirst){mutate({action:'edit',id:m.id,revision:m.revision,...(taskId?{taskId}:{}),subject,body});return;}if(saveFirst){void saveThenDispatch();return;}if(m.channel==='whatsapp'||ig)dispatchMessage();else void mutate({action:'dispatch',id:m.id,revision:m.revision,confirm:true,...(taskId?{taskId}:{})});};
+ const sendLabel=reviewFirst?(mutation.isPending&&mutation.variables?.action==='edit'?'Guardando mensaje…':'Guardar y revisar'):mutation.isPending&&mutation.variables?.action==='dispatch'?(m.channel==='email'?'Enviando email…':ig?'Abriendo Instagram…':'Abriendo WhatsApp…'):finalActionLabel({channel:composerChannel,recipient:m.recipient,recipientName:m.recipientName});
  const sendButton=<Button disabled={!!finalBlock} disabledReason={finalBlock} onClick={send}>{sendLabel}</Button>;
  const discardEdits=()=>{setSubject(m.subject);setBody(m.body);setEditorHtml(editorContent(m.channel,m.body));setEditing(false);};
  return <section className={styles.composer} aria-busy={mutation.isPending} data-unsaved={dirty?"true":undefined}>
