@@ -1162,13 +1162,14 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 **Cuándo usarlo:** Cuando querés escribirle a un negocio con uno de los modelos del CRM sin salir de WhatsApp Web.
 
-1. Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Hace falta una gestión abierta; con No contactar activo o en estado Nuevo el botón queda deshabilitado.
+1. Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Con No contactar activo el botón queda deshabilitado. Si el negocio no tiene gestiones abiertas (o está en estado Nuevo), elegí «Sin gestión» y el propósito del contacto, como en el CRM.
 2. Elegí el modelo: el primero es el «Recomendado para la etapa actual». Pasá el mouse por un modelo para ver su texto con las variables sin completar. Elegí también la persona.
 3. Revisá la vista previa con los datos del CRM. Si falta un dato, completalo en el CRM o elegí otra persona.
-4. Si el modelo trae material de venta, la vista previa ya muestra sus enlaces. Para sumar otro, tocá «Agregar material», buscalo y tocá «Agregar»: el texto se actualiza con un enlace propio de este mensaje. Si algún material del modelo ya no está disponible, el panel te avisa y no lo incluye.
-5. Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.
-6. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
-7. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».
+4. Si el modelo trae material de venta, la vista previa ya muestra sus enlaces. Para sumar otro, tocá «Agregar material», buscalo y tocá «Agregar»: el texto se actualiza con un enlace propio de este mensaje. Si cambiás de modelo, persona o gestión, el material que agregaste sigue en el mensaje nuevo. Arriba de la vista previa ves el material del mensaje: tocá «Quitar» para sacarlo. Si algún material del modelo ya no está disponible, el panel te avisa y no lo incluye.
+5. Si solo querés mandar un material, tocá «Enviar material» en el panel: elegí el material y el panel arma un mensaje con su enlace. Arriba podés elegir un «Mensaje modelo» (o dejar «Mensaje libre»): el material se mantiene. Con «Agregar otro material» sumás más.
+6. Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.
+7. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
+8. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».
 
 **Qué queda al terminar:** El envío queda «WhatsApp abierto · envío no confirmado»: no aparece en «Conversación» y «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío. Recién cuando lo confirmás pasa a la conversación.
 
@@ -1191,6 +1192,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 5. Revisá el texto y envialo vos desde el chat. El script nunca lo envía.
 6. Si en lugar de eso aparece un aviso, abrí el chat y pegá con Ctrl+V (⌘V en Mac): el mensaje sigue copiado. Si se perdió, volvé al CRM y tocá «Copiar y abrir de nuevo».
 7. En cualquier chat de Instagram el script muestra el botón «Hospeda»: abre un panel con el negocio del CRM que tiene ese Instagram. Desde ahí, «Mandar un mensaje» te deja elegir un modelo (de una gestión o «Sin gestión» con un propósito) y «Pegar en el chat». También queda registrado como intento de Instagram.
+8. Para mandar material de venta por Instagram, tocá «Enviar material» en el panel (o «Agregar material» después de elegir un modelo). Va solo el enlace, nunca el archivo; el enlace es propio de ese mensaje y se puede revocar como cualquier otro.
 
 **Qué queda al terminar:** El mensaje queda escrito en el chat de Instagram del negocio, listo para que lo envíes. Cuando lo mandás desde la cuenta de Hospeda, el CRM lo confirma solo, igual que sin el script.
 
