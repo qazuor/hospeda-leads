@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {INSTAGRAM_ECHO_WAIT_MS,composerChannelOf,instagramChatUrl,instagramProfileUrl,instagramTarget,instagramTextEdited,instagramWaitRemainingMs,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho,normalizeInstagramUsername} from './instagramChat';
+import {INSTAGRAM_ECHO_WAIT_MS,composerChannelOf,instagramChatUrl,instagramProfileUrl,instagramTarget,instagramTextEdited,instagramThreadUrl,isInstagramThreadId,instagramWaitRemainingMs,isInstagramAttempt,isInstagramConfirmed,isWaitingForInstagramEcho,normalizeInstagramUsername} from './instagramChat';
 
 const attempt=(over:Record<string,unknown>={})=>({channel:'social',destinationDetail:'instagram',ownerEmail:'ana@example.com',status:'instagram_opened',lastInteractionAt:new Date('2026-10-27T15:00:00Z'),...over});
 const t0=new Date('2026-10-27T15:00:00Z').getTime();
@@ -75,5 +75,23 @@ describe('Instagram attempts',()=>{
   expect(composerChannelOf({channel:'social',destinationDetail:'instagram'})).toBe('instagram');
   expect(composerChannelOf({channel:'email'})).toBe('email');
   expect(composerChannelOf({channel:'whatsapp'})).toBe('whatsapp');
+ });
+});
+
+describe('instagramTarget with a known thread (spec 97 §4.1)',()=>{
+ const THREAD='17848251833510164',NONCE='0123456789abcdef0123456789abcdef';
+ it('validates thread ids as digits only, 1 to 40',()=>{
+  expect(isInstagramThreadId(THREAD)).toBe(true);
+  for(const value of ['','abc','12a','1'.repeat(41),null,undefined,'../1'])expect(isInstagramThreadId(value),String(value)).toBe(false);
+  expect(instagramThreadUrl({threadId:THREAD})).toBe(`https://www.instagram.com/direct/t/${THREAD}/`);
+ });
+ it('opens the chat page on a computer, with the marker when there is a nonce',()=>{
+  expect(instagramTarget({username:'hotel.sol',mobile:false,nonce:null,threadId:THREAD})).toEqual({kind:'chat',url:`https://www.instagram.com/direct/t/${THREAD}/`,label:'Abrir el chat de @hotel.sol en Instagram'});
+  expect(instagramTarget({username:'hotel.sol',mobile:false,nonce:NONCE,threadId:THREAD})?.url).toBe(`https://www.instagram.com/direct/t/${THREAD}/#hospeda=${NONCE}`);
+ });
+ it('falls back to the profile for an invalid thread, and ignores the thread on a phone',()=>{
+  expect(instagramTarget({username:'hotel.sol',mobile:false,nonce:null,threadId:'abc'})?.url).toBe('https://www.instagram.com/hotel.sol/');
+  expect(instagramTarget({username:'hotel.sol',mobile:true,nonce:null,threadId:THREAD})?.url).toBe('https://ig.me/m/hotel.sol');
+  expect(instagramTarget({username:'no valid',mobile:false,nonce:null,threadId:THREAD})).toBeNull();
  });
 });

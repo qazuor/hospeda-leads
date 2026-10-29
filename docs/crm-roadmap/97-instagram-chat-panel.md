@@ -1,6 +1,6 @@
 # Spec 97 — Instagram chat page: open the thread and a Hospeda panel to paste templates
 
-Status: **draft**, requested by the owner on 29/10/2026 and approved as a new spec that lifts the isolation of [spec 94](94-instagram-userscript.md) §2.4. The proposal in section 4 was agreed in principle with the owner; section 12 lists the forks still open. Type: one migration (`053`), extensions of existing user script endpoints, a CRM change in where «Abrir Instagram» lands, and user script **1.6.0** with a panel on Instagram's chat page. No new permission. It does not change what counts as contact, «No contactar» gating or the echo confirmation of [spec 92](92-instagram-open-chat.md).
+Status: **implemented, pending review** (29/10/2026, worktree `feat/instagram-chat-panel-97`, not committed; see §13). Requested by the owner on 29/10/2026 and approved as a new spec that lifts the isolation of [spec 94](94-instagram-userscript.md) §2.4. The proposal in section 4 was agreed in principle with the owner; section 12 lists the forks still open. Type: one migration (`053`), extensions of existing user script endpoints, a CRM change in where «Abrir Instagram» lands, and user script **1.6.0** with a panel on Instagram's chat page. No new permission. It does not change what counts as contact, «No contactar» gating or the echo confirmation of [spec 92](92-instagram-open-chat.md).
 
 Builds on [spec 88](88-instagram-direct-webhooks.md) (Meta's webhook registers Instagram messages and echoes), [spec 92](92-instagram-open-chat.md) («Abrir Instagram», `instagram_opened`, echo confirmation), [spec 94](94-instagram-userscript.md) (Instagram module, one-time handoff, user script 1.4.0) and [spec 96](96-contact-three-clicks.md) (connected script, desktop gate on the latest version, 1.5.x). **Specs 94 and 96 are not merged yet** (`docs/pendientes.md`): this spec assumes both land in `staging` first.
 
@@ -363,6 +363,7 @@ These override the assumptions above where they differ.
 5. **Logged-in account:** an `img` with `alt` «Foto del perfil de hospeda.com.ar» and the navigation link to `/hospeda.com.ar/` (the «Perfil» item) identify it. The navigation link is not inside `nav`/`role="navigation"`, so the selector is the profile link whose accessible text is «Perfil»/«Profile» together with that `alt`.
 6. **CSP:** a constructable stylesheet adopted by a shadow root applies (computed colour matched), so the panel can use `adoptedStyleSheets`. `data:` images and Trusted Types errors still to check during implementation.
 7. Still open: group chat header, English UI labels, thread ids per account (assumption kept: they belong to the viewing account), Tampermonkey prompt on 1.6.0.
+8. **To check live (review M3):** whether `#hospeda=<nonce>` survives when the CRM opens `/direct/t/<id>/` (Instagram may redirect to the path without the trailing slash, to the inbox, or drop the fragment). If the fragment is lost, the known-thread handoff silently falls back to manual paste; the script reports a stored thread stale only when the marker arrives on another path.
 
 ## 10. Test plan
 
@@ -383,9 +384,9 @@ These override the assumptions above where they differ.
 
 1. Specs 94 and 96 merged to `staging` first; rebase and confirm the migration number.
 2. Section 9 done and fixtures committed before writing the finders.
-3. Configure the Hospeda Instagram username (decision 12.7) in Coolify or the CRM.
+3. Set `INSTAGRAM_ACCOUNT_USERNAME` (decision 12.7) in Coolify **before** the deploy.
 4. Deploy (owner-approved, manual): `npm run db:migrate` applies `053` (no data written).
-5. **Publish 1.6.0 in the same deploy** and tell sellers to update at once: the spec 96 gate blocks the desktop CRM below the latest version.
+5. **Publish 1.6.0 in the same deploy as migration 053.** Owner decision (29/10/2026): the spec 96 gate stays as is (an installed version below the latest blocks the desktop CRM); it is not relaxed for minor versions. That same day, tell sellers to force «Buscar actualizaciones» in Tampermonkey and to approve instagram.com if Tampermonkey asks.
 6. Owner verifies live: a known-thread open, an unknown-thread open with the floating chat, a template pasted from the panel, the echo confirming it, and the wrong-account warning.
 7. Docs: `docs/estado-desarrollo.md`, `docs/pendientes.md`, `docs/decisiones.md` (decisions of section 12), user guide regenerated.
 8. `staging` → `main` only when the owner asks.
@@ -445,3 +446,28 @@ Rule from the owner: always the simplest path for the seller.
 - **D4. No business history entry for a learned thread;** `verified_by_user_id` and `verified_at` are enough.
 - **D5. `USERSCRIPT_MIN_VERSION` stays 1.5.0;** the CRM gate already requires the latest version.
 - **D6. Timeouts:** 15 s for the proof, the button and the full-chat link; 3 s for the handoff; 300 ms for the ack; 2 min of validity (spec 94 D5).
+
+## 14. Implementation notes (29/10/2026)
+
+Implemented on `feat/instagram-chat-panel-97` following §12. Deviations and choices taken without an owner decision (marked **NEEDS OWNER**, simplest path for the seller):
+
+- `crm_instagram_threads.verified_by_user_id` is `integer` (not `bigint`): `users.id` is `serial`.
+- «care» without a management for a business that is not a client: the panel does not offer it, and since the review (L6) the server rejects it in `prepare_general` unless the request carries `confirmedClient` (the CRM composer sends it after its checkbox; the user script never does).
+- New notice `account-unknown` («No pude confirmar con qué cuenta de Instagram estás…»): without the account check (no token, no CRM answer, or the avatar alt missing) nothing is pasted. **NEEDS OWNER**.
+- A 401 from the CRM shows «Falta el token» in the launcher (same as no token).
+- Reporting a thread ignores «No contactar» (it is navigation metadata) but still requires a visible business the user may contact otherwise.
+- «Copiar y abrir de nuevo» in «Requiere acción» has no thread id, so it still opens the profile.
+- Group detection, the English «Expand» label, Trusted Types, thread ids per account and Instagram's dark mode class were not observed live: implemented defensively (§9.1 lists what was).
+
+### Review fixes (29/10/2026)
+
+- **H1:** a failed proof carries the usernames it saw. A group, or a pane that names only other users, is evidence against @x (`contradicted`): never offered for confirmation, never pasted, and a stored thread is reported stale. «¿Este chat es con @x?» appears only for real ambiguity (no links, no pane, only @x without a labelled header, several users including @x). The seller proof is stored only after the paste re-checked the chat.
+- **H2:** the group signal is read only in the header region (pane children that hold no message list or composer), so «cabaña para 4 personas» in a message never turns a 1:1 chat into a group.
+- **M2:** the business lookup matches `perfil_instagram` with an anchored pattern (whole handle or first URL segment, a superset of the normalization) and no `LIMIT` before the exact filter.
+- **M3:** a known-thread handoff whose marker arrives on another path reports the stored thread stale (see §9.1 item 8).
+- **M4:** a seller confirmation never overwrites a header proof (`ON CONFLICT … WHERE proof='seller' OR excluded.proof='header'`).
+- **L1:** an Instagram `prepare` with a management of another business is refused; the panel refuses a draft whose recipient is not the chat's user before recording anything.
+- **L2:** `context?instagram=` returns the thread only when the user sees a matching business. **L3:** the business picker and «No es este chat» require trusted events. **L5:** the Hospeda account is checked before clicking «Enviar mensaje»/«Expandir».
+- **L6:** `prepare_general` with «care» on a non-client requires `confirmedClient` (both the CRM composer and the user script path).
+- Owner decision: the spec 96 gate is kept unchanged (see §11 step 5).
+

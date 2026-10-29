@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {Button} from './Button';
 import styles from './Communication.module.css';
-import {instagramTarget,normalizeInstagramUsername} from '../helpers/instagramChat';
+import {instagramTarget,isInstagramThreadId,normalizeInstagramUsername} from '../helpers/instagramChat';
 import {compareSemver} from '../helpers/userscriptPure';
 import {INSTALLED_ATTRIBUTE} from '../../userscript/src/announce';
 import {HANDOFF_ACK_ATTRIBUTE,HANDOFF_EVENT,HANDOFF_TTL_MS,handoffTextAllowed,newNonce} from '../../userscript/src/instagram/handoff';
@@ -47,6 +47,24 @@ export function userscriptPastesOnInstagram(doc:Document|undefined=typeof docume
  return !!version&&/^\d+\.\d+\.\d+$/.test(version)&&compareSemver(version,INSTAGRAM_PASTE_SCRIPT_VERSION)>=0;
 }
 
+/** First version of the user script that takes a thread id in the handoff and pastes on Instagram's chat page (spec 97 §4.1). */
+export const INSTAGRAM_CHAT_SCRIPT_VERSION='1.6.0';
+/**
+ * The thread id the handoff may carry: only a valid id, and only for a script that understands it (1.6.0+). An older script gets the spec 94
+ * profile handoff, so the tab must then open the profile, not the chat page.
+ */
+export function handoffThreadId({threadId,doc=typeof document==='undefined'?undefined:document}:{threadId:string|null|undefined;doc?:Document}):string|null{
+ const version=doc?.documentElement.getAttribute(INSTALLED_ATTRIBUTE);
+ return isInstagramThreadId(threadId)&&!!version&&/^\d+\.\d+\.\d+$/.test(version)&&compareSemver(version,INSTAGRAM_CHAT_SCRIPT_VERSION)>=0?threadId:null;
+}
+/**
+ * Spec 97 §4.1 table: where the desktop tab goes. Acked handoff with a thread → chat page with the marker; acked without one (unknown thread or
+ * an older script) → profile with the marker; no ack → the chat page when the thread is known, else the profile.
+ */
+export function instagramDesktopUrl({username,nonce,threadId,handoffThread}:{username:string|null|undefined;nonce:string|null;threadId:string|null|undefined;handoffThread:string|null}):string|null{
+ return instagramTarget({username,mobile:false,nonce,threadId:nonce?handoffThread:threadId})?.url??null;
+}
+
 /** How long the CRM waits for the user script to ack a handoff before opening the plain profile (spec 94 M1). */
 export const HANDOFF_ACK_TIMEOUT_MS=300;
 
@@ -57,13 +75,13 @@ export const HANDOFF_ACK_TIMEOUT_MS=300;
  * script that pastes, for a text over 4000 characters or without an ack: then the plain profile opens and the seller pastes, as before.
  * The text was already copied to the clipboard in the click (spec 92): that stays the manual fallback.
  */
-export async function handOffToUserscript({username,text,win=window,timeoutMs=HANDOFF_ACK_TIMEOUT_MS}:{username:string|null|undefined;text:string;win?:Window;timeoutMs?:number}):Promise<string|null>{
+export async function handOffToUserscript({username,text,threadId=null,win=window,timeoutMs=HANDOFF_ACK_TIMEOUT_MS}:{username:string|null|undefined;text:string;threadId?:string|null;win?:Window;timeoutMs?:number}):Promise<string|null>{
  // A throw (crypto, event dispatch, a hostile page) counts as no ack: the caller opens the plain profile and asks for a manual paste.
  try{
   const user=normalizeInstagramUsername(username),doc=win.document;
   if(!user||!handoffTextAllowed(text)||!userscriptPastesOnInstagram(doc)||!win.crypto?.getRandomValues)return null;
   const nonce=newNonce({random:win.crypto}),acked=()=>doc.documentElement.getAttribute(HANDOFF_ACK_ATTRIBUTE)===nonce;
-  doc.dispatchEvent(new CustomEvent(HANDOFF_EVENT,{detail:JSON.stringify({nonce,username:user,expiresAt:Date.now()+HANDOFF_TTL_MS,text})}));
+  doc.dispatchEvent(new CustomEvent(HANDOFF_EVENT,{detail:JSON.stringify({nonce,username:user,expiresAt:Date.now()+HANDOFF_TTL_MS,text,...(isInstagramThreadId(threadId)?{threadId}:{})})}));
   for(const startedAt=Date.now();!acked();){if(Date.now()-startedAt>=timeoutMs)return null;await new Promise(resolve=>setTimeout(resolve,20));}
   return nonce;
  }catch{return null;}
@@ -74,23 +92,25 @@ export async function handOffToUserscript({username,text,win=window,timeoutMs=HA
  * chat link at once. On a computer it pre-opens a blank tab inside the click (popup blockers), hands the text to the user script and
  * points the tab at `#hospeda=<nonce>` when acked, or at the plain profile otherwise.
  */
-export async function openInstagramForPaste({username,text,mobile}:{username:string|null|undefined;text:string;mobile:boolean}):Promise<{opened:boolean;scriptPastes:boolean}>{
- const plain=instagramTarget({username,mobile})?.url;if(!plain)return {opened:false,scriptPastes:false};
- if(mobile)return {opened:openInstagramChat(plain),scriptPastes:false};
- const tab=window.open('about:blank','_blank');if(!tab)return {opened:false,scriptPastes:false};
+export async function openInstagramForPaste({username,text,mobile,threadId=null}:{username:string|null|undefined;text:string;mobile:boolean;threadId?:string|null}):Promise<{opened:boolean;scriptPastes:boolean;chat:boolean}>{
+ const plain=instagramTarget({username,mobile,threadId})?.url;if(!plain)return {opened:false,scriptPastes:false,chat:false};
+ if(mobile)return {opened:openInstagramChat(plain),scriptPastes:false,chat:false};
+ const tab=window.open('about:blank','_blank');if(!tab)return {opened:false,scriptPastes:false,chat:false};
  tab.opener=null;
- const nonce=await handOffToUserscript({username,text});
- tab.location.href=instagramTarget({username,mobile,nonce})?.url??plain;
- return {opened:true,scriptPastes:!!nonce};
+ const handoffThread=handoffThreadId({threadId}),nonce=await handOffToUserscript({username,text,threadId:handoffThread});
+ tab.location.href=instagramDesktopUrl({username,nonce,threadId,handoffThread})??plain;
+ return {opened:true,scriptPastes:!!nonce,chat:!nonce&&isInstagramThreadId(threadId)};
 }
 
 /**
  * Toast after a successful open: how to paste (chat on a phone, «Enviar mensaje» on the profile), or why to copy from the CRM. When the
  * user script got a handoff (spec 94) it opens the chat and pastes; otherwise, on a computer, the toast says it could.
  */
-export function instagramOpenedToast({copied,mobile,scriptPastes=false}:{copied:boolean;mobile:boolean;scriptPastes?:boolean}):string{
+export function instagramOpenedToast({copied,mobile,scriptPastes=false,chat=false}:{copied:boolean;mobile:boolean;scriptPastes?:boolean;chat?:boolean}):string{
  if(!copied)return mobile?'Instagram abierto. Copiá el mensaje desde el CRM y pegalo en el chat.':'Perfil de Instagram abierto. Copiá el mensaje desde el CRM, tocá «Enviar mensaje» y pegalo.';
  if(mobile)return 'Mensaje copiado: en el chat mantené apretado y elegí Pegar';
+ // Spec 97 §4.1: the chat page opened without the script's ack, so the seller pastes there.
+ if(chat&&!scriptPastes)return `Mensaje copiado. Pegalo en el chat con ${isMac()?'⌘V':'Ctrl+V'}.`;
  return scriptPastes?`Mensaje copiado. Si el script está activo en Instagram, abre el chat y pega el mensaje; si no, pegalo con ${isMac()?'⌘V':'Ctrl+V'}.`:`Mensaje copiado. En el perfil tocá «Enviar mensaje» y pegalo (${isMac()?'⌘V':'Ctrl+V'}). Con el user script de Hospeda se pega solo.`;
 }
 
@@ -103,7 +123,7 @@ export function openInstagramChat(url:string):boolean{const w=window.open(url,'_
 /** Review-step notices, each shown only when it applies (spec 92 §2.2). */
 export function InstagramReviewNotices({username,autoConfirm,shared}:{username:string;autoConfirm?:boolean;shared?:boolean}){
  return <div className={styles.instagramNotices} role="group" aria-label="Antes de abrir Instagram">
-  <p>Se copia el mensaje y se abre Instagram: en el celular, el chat de @{username}; en la computadora, el perfil de @{username}, donde tocás «Enviar mensaje». Pegalo y envialo desde la cuenta de Instagram de Hospeda: cuando Instagram nos avise del envío, se confirma solo.</p>
+  <p>Se copia el mensaje y se abre Instagram: en el celular, el chat de @{username}; en la computadora, el chat de @{username} si ya lo conocemos o su perfil, donde el script abre el chat. Pegalo y envialo desde la cuenta de Instagram de Hospeda: cuando Instagram nos avise del envío, se confirma solo.</p>
   <p>Tenés que estar con la sesión de Hospeda en Instagram, en este navegador o en la app. Con otra cuenta el envío no se registra y vas a tener que confirmarlo a mano.</p>
   {autoConfirm===false&&<p role="alert">La conexión con Instagram no está activa: este envío no se va a confirmar solo. Después vas a tener que contestar "¿Lo enviaste?".</p>}
   {shared&&<p role="alert">Otro negocio tiene el mismo usuario de Instagram: los mensajes de este chat no se asocian solos y el envío no se va a confirmar solo.</p>}
@@ -117,17 +137,17 @@ export type InstagramOpenState={url:string;mobile:boolean;popupBlocked:boolean;c
  * After «Abrir Instagram» succeeded: the copy fallback (clipboard denied), the link when the popup was blocked, the mobile
  * link-button, and «Copiar y abrir de nuevo». Every action is client-side only: no new attempt, no request.
  */
-export function InstagramOpenedActions({text,recipient,state,onToast}:{text:string;recipient:string;state:InstagramOpenState|null;onToast:(message:string)=>void}){
- const mobile=state?.mobile??isCoarsePointer(),target=instagramTarget({username:recipient,mobile}),url=state?.url??target?.url;
+export function InstagramOpenedActions({text,recipient,state,onToast,threadId=null}:{text:string;recipient:string;state:InstagramOpenState|null;onToast:(message:string)=>void;threadId?:string|null}){
+ const mobile=state?.mobile??isCoarsePointer(),target=instagramTarget({username:recipient,mobile,threadId}),url=state?.url??target?.url;
  const [manualCopy,setManualCopy]=useState(false),[copyAgainFailed,setCopyAgainFailed]=useState(false);const area=useRef<HTMLTextAreaElement>(null);
  const showManual=manualCopy||state?.copied===false||copyAgainFailed;
  useEffect(()=>{if(showManual)area.current?.select()},[showManual]);
  if(!url||!target)return null;
  const copyAndOpen=async()=>{
   // Synchronous copy first, then the open, both inside the click (M3).
-  const copy=copyInGesture(text),open=openInstagramForPaste({username:recipient,text,mobile}),[{opened,scriptPastes},copied]=await Promise.all([open,copy.settled]);
+  const copy=copyInGesture(text),open=openInstagramForPaste({username:recipient,text,mobile,threadId}),[{opened,scriptPastes,chat},copied]=await Promise.all([open,copy.settled]);
   setCopyAgainFailed(!copied);
-  onToast(!opened?'No se pudo abrir Instagram automáticamente. Usá el enlace de abajo.':instagramOpenedToast({copied,mobile,scriptPastes}));
+  onToast(!opened?'No se pudo abrir Instagram automáticamente. Usá el enlace de abajo.':instagramOpenedToast({copied,mobile,scriptPastes,chat}));
  };
  const copyOnly=async()=>{const copied=await copyMessageText(text);if(copied){setManualCopy(false);setCopyAgainFailed(false);onToast('Mensaje copiado');}else{area.current?.select();onToast('No se pudo copiar: seleccioná el texto y copialo a mano.');}};
  return <div className={styles.instagramActions}>

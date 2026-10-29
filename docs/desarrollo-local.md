@@ -14,7 +14,7 @@ Si el repo privado requiere autenticación, configurar el acceso GitHub de tu PC
 
 ### Instagram Direct (optional webhook)
 
-For webhook development, configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, and `INSTAGRAM_ACCOUNT_ID`. Settings → Communication stores the long-lived token encrypted; `INTEGRATION_SECRETS_KEY` must be base64-encoded 32 bytes. Without this key, the webhook still stores messages but cannot look up usernames for association. Do not use real tokens in fixtures or logs.
+For webhook development, configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, and `INSTAGRAM_ACCOUNT_ID`. Settings → Communication stores the long-lived token encrypted; `INTEGRATION_SECRETS_KEY` must be base64-encoded 32 bytes. Without this key, the webhook still stores messages but cannot look up usernames for association. Do not use real tokens in fixtures or logs. The user script on Instagram (spec 97) needs `INSTAGRAM_ACCOUNT_USERNAME` (Hospeda's Instagram username): without it the script learns no chats and pastes nothing.
 
 The production callback is `https://crm.hospeda.com.ar/_api/inbound/instagram`; migration `045_instagram_direct.sql` is required. Subscribe to `messages` in Meta and enable the account-level webhook subscription. The app must be published. Configure all four variables in Coolify; without `INSTAGRAM_APP_SECRET`, Meta receives 503.
 

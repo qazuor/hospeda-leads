@@ -1,4 +1,12 @@
-# Estado del CRM — corte al 28 de octubre de 2026
+# Estado del CRM — corte al 29 de octubre de 2026
+
+## Spec 97 — panel de Hospeda en el chat de Instagram — implementada en `feat/instagram-chat-panel-97` (apilada sobre la 96, sin commit) — 29/10/2026
+
+- **Chat directo:** migración `053_instagram_threads.sql` (`crm_instagram_threads`, por cuenta de Hospeda y usuario). «Abrir Instagram» en la computadora abre `/direct/t/<id>/` cuando el chat es conocido (con el marcador si el script ≥ 1.6.0 confirmó el traspaso, que ahora lleva `threadId`); si no, el perfil. El composer usa el `threadId` de `prepare` y `dispatch`.
+- **Servidor:** `status` y `context` devuelven `instagramAccount` (`INSTAGRAM_ACCOUNT_USERNAME`); `context?instagram=` busca negocios por usuario; `templates?channel=instagram` y `prepare` con `channel:'instagram'` (gestión o «Sin gestión» con propósito); `POST /_api/userscript/instagram/thread` y `/thread/stale` (permiso de contacto, límite 30/min por token). `outcome` exige `instagram_opened` para Instagram.
+- **Script 1.6.0:** prueba del chat por el encabezado (§9.1), cuenta logueada por «Perfil» y la foto, «Expandir» del chat flotante, confirmación del vendedor cuando la prueba no alcanza, aprendizaje del chat y borrado si se contradice. Panel «Hospeda» en todos los chats (shadow DOM, sin campo de token, acciones con `isTrusted`) con el negocio, «Mandar un mensaje» y «Pegar en el chat». Nunca envía. Capas `instagram/` (DOM puro) e `instagramApp/` (cableado con lista cerrada de funciones del API).
+- **Correcciones de la revisión (29/10):** la confirmación del vendedor solo ante ambigüedad real (grupo u otra persona = rechazo), señal de grupo solo en el encabezado, búsqueda exacta de `perfil_instagram` sin límite previo, chat guardado que no abre → se borra, la prueba del vendedor no pisa la del encabezado, `prepare` de Instagram exige que la gestión sea del negocio, «care» sin gestión validado en el servidor, cuenta chequeada antes de tocar «Enviar mensaje». Se mantiene la barrera de la spec 96 (decisión del propietario). Integración nueva en `test:userscript` (sin correr localmente).
+- **Validación local (29/10, tras la revisión):** `npm run typecheck` (app y userscript, 0 errores), `npx vitest run --maxWorkers=4` (246 archivos, 2077 tests; las specs de Instagram del script 3 veces seguidas, verdes), `npm run build:userscript` (con su verificación). **No se corrieron** `npm run build`, las suites de integración ni las e2e; nada se probó en Instagram real.
 
 ## Spec 96 — contactar en tres clics, con el script conectado — implementada en `feat/contact-three-clicks-96` (apilada sobre la 94, sin push ni PR) — 28/10/2026
 
