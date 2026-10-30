@@ -52,7 +52,7 @@ function InstallStatus({status}:{status:UserscriptStatus}){
   </div>
   <ConnectionLine status={status}/>
   <p className={styles.note}>Para contactar por WhatsApp o Instagram desde la computadora, el script tiene que estar instalado, al día y conectado con tu cuenta.</p>
-  <div className={styles.installAction}><Button asChild variant={installed&&!outdated(installed)?'outline':'primary'}><a href={USERSCRIPT_URL} target="_blank" rel="noopener"><Download size={16}/>{label}<ExternalLink size={14}/></a></Button><p>Tampermonkey abre la instalación. Después creá un token y pegalo en el panel de Hospeda dentro de WhatsApp Web. Desde la versión 1.4.0 el script también trabaja en Instagram: al actualizar, Tampermonkey te pide aprobar instagram.com una sola vez.</p></div>
+  <div className={styles.installAction}><Button asChild variant={installed&&!outdated(installed)?'outline':'primary'}><a href={USERSCRIPT_URL} target="_blank" rel="noopener"><Download size={16}/>{label}<ExternalLink size={14}/></a></Button><p>Tampermonkey abre la instalación. Después creá un token y pegalo en el panel de Hospeda dentro de WhatsApp Web. Desde la versión 1.4.0 el script también trabaja en Instagram: al actualizar, Tampermonkey te pide aprobar instagram.com una sola vez. En Instagram el script muestra el negocio del chat, te deja pegar modelos y nunca envía.</p></div>
   <div className={styles.version}><span>Versión actual</span><strong>{USERSCRIPT_VERSION}</strong></div>
  </section>;
 }

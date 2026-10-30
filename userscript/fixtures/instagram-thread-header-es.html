@@ -1,0 +1,24 @@
+<!-- Synthetic model built from spec 97 §9.1 (owner's browser, 29/10/2026, Spanish UI, Hospeda account) of /direct/t/17848251833510164:
+     the navigation «Perfil» link with the logged-in avatar, the «Mensajes» link to the last thread, and the conversation pane (role="main")
+     whose profile links all point to qaz.uor: the header (Spanish label, text = display name + username), «Ver perfil» and the message
+     avatars (English label even with the Spanish UI, no trailing slash). The composer is a Lexical contenteditable without aria-label.
+     Accessible structure only, no class names, no live capture. -->
+<div class="nav">
+  <a href="/" role="link"><span>Inicio</span></a>
+  <a href="/direct/t/17848251833510164/" role="link"><span>Mensajes</span></a>
+  <a href="/hospeda.com.ar/" role="link"><img alt="Foto del perfil de hospeda.com.ar" src=""><span>Perfil</span></a>
+</div>
+<div role="main">
+  <div><a href="/qaz.uor/" aria-label="Abrir la página del perfil de qaz.uor" role="link"><span>Qaz Uor</span><span>qaz.uor</span></a><div role="button" tabindex="0" aria-label="Información de la conversación"></div></div>
+  <div><a href="/qaz.uor/" role="link"><span>Ver perfil</span></a></div>
+  <div role="grid" aria-label="Mensajes en la conversación">
+    <div role="row"><a href="/qaz.uor" aria-label="Open the profile page of qaz.uor"><img alt="" src=""></a><div dir="auto">Hola, ¿cómo va?</div></div>
+    <div role="row"><a href="/qaz.uor" aria-label="Open the profile page of qaz.uor"><img alt="" src=""></a><div dir="auto">Mirá @otro_negocio</div></div>
+    <div role="row"><a href="/qaz.uor" aria-label="Open the profile page of qaz.uor"><img alt="" src=""></a><div dir="auto">Gracias</div></div>
+    <div role="row"><a href="/qaz.uor" aria-label="Open the profile page of qaz.uor"><img alt="" src=""></a><div dir="auto">Saludos</div></div>
+  </div>
+  <div>
+    <div contenteditable="true" role="textbox" spellcheck="true" tabindex="0" data-lexical-editor="true" id="page-composer"><p><br></p></div>
+    <div role="button" tabindex="0" id="send">Enviar</div>
+  </div>
+</div>

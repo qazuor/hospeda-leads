@@ -25,6 +25,7 @@ import {voidAutoRegistration} from './autoRegistration';
 import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
 import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
+import {instagramAccountUsername,instagramThreadFor} from './userscriptInstagram';
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
 import {refreshAutoOutcomesFromResponse,resolveSendOutcomeFromResponse} from './responseOutcomeService';
@@ -188,6 +189,8 @@ async function prepareGeneral(e:Executor,input:Extract<CommunicationMutation,{ac
  if(account.status==='new'&&input.purpose!=='verification')throw new CommunicationForbidden('En estado Nuevo solo se permite verificar los datos.');
  if(account.status!=='new'&&input.purpose==='verification')throw new CommunicationForbidden('La verificación solo está disponible en estado Nuevo.');
  if(input.purpose==='other'&&!input.otherPurpose?.trim())throw new Error('Aclaración obligatoria para Otro propósito.');
+ // L6: the UI rule (`contactPurposeBlockReason`) enforced here for every client of the API, the user script included.
+ if(input.purpose==='care'&&!account.isClient&&!input.confirmedClient)throw new CommunicationForbidden('Confirmá que el negocio se marcará como Cliente cuando registres el contacto como realizado.');
  const instagram=input.channel==='instagram',channel=input.channel==='instagram'?'social' as const:input.channel;
  await assertAccountContactAllowed(e,input.accountId,input.leadId,input.contactId,channel);
  const target=await channelTarget(e,account,lead,input.contactId,input.channel);
@@ -474,8 +477,13 @@ export async function pendingContactOutcomes(e:Executor,{ownerEmail,isAdmin,acco
 }
 /** Points a message at the activity that records its outcome (see {@link resolveMessageForWork}). */
 export async function linkMessageActivity(e:Executor,messageId:string,activityId:string){await sql`UPDATE crm_messages SET activity_id=${activityId} WHERE id=${messageId}::uuid`.execute(e);}
-/** Adds the read-only Instagram flags to a prepared Instagram draft (spec 92 §2.6); other channels pass through. */
-async function withInstagramFlags<T extends Message>(e:Executor,m:T):Promise<T&{instagramAutoConfirm?:boolean;instagramShared?:boolean}>{return isInstagramAttempt(m)?{...m,...await instagramComposerFlags(e,{accountId:String(m.accountId),recipient:m.recipient})}:m;}
+/** Spec 97 §4.1: the learned chat page of an Instagram username for the Hospeda account, or null (then the computer opens the profile). */
+export const instagramThreadOf=(e:Executor,recipient:string|null|undefined)=>instagramThreadFor(e,{viewer:instagramAccountUsername(),username:attemptUsername(recipient)});
+/**
+ * Adds the read-only Instagram flags to a prepared Instagram draft (spec 92 §2.6) and, since spec 97, `instagramThreadId` so «Copiar y abrir de
+ * nuevo» lands on the chat page too; other channels pass through.
+ */
+async function withInstagramFlags<T extends Message>(e:Executor,m:T):Promise<T&{instagramAutoConfirm?:boolean;instagramShared?:boolean;instagramThreadId?:string|null}>{return isInstagramAttempt(m)?{...m,...await instagramComposerFlags(e,{accountId:String(m.accountId),recipient:m.recipient}),instagramThreadId:await instagramThreadOf(e,m.recipient)}:m;}
 export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutation,user:User){
  if(input.action==='inbound_reply')return sendInboundReply(db,input,user);
  if(input.action==='dispatch')return dispatch(db,input,user);
@@ -628,7 +636,7 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
  });
  const m=claimed.message;
  if(claimed.replay)return {message:m};
- if('instagram' in claimed&&claimed.instagram)return claimed.instagram.username?{message:m,username:claimed.instagram.username}:{message:m,alreadyConfirmed:true};
+ if('instagram' in claimed&&claimed.instagram)return claimed.instagram.username?{message:m,username:claimed.instagram.username,threadId:await instagramThreadOf(database,'@'+claimed.instagram.username)}:{message:m,alreadyConfirmed:true};
  if(m.channel==='whatsapp'){const url=new URL('https://wa.me/'+normalizeField('telefono',m.recipient).normalized!.replace(/\D/g,''));url.searchParams.set('text',m.body);return {message:m,url:url.toString()};}
  const out=claimed.outbox!;let accepted=false;
  try{

@@ -43,4 +43,10 @@ describe('communicationMutation sales material actions (spec 89 §8.1)',()=>{
   expect(communicationMutation.parse({action:'material_retry_without_attachments',id:other,messageId:id})).toEqual({action:'material_retry_without_attachments',id:other,messageId:id});
   expect(()=>communicationMutation.parse({action:'material_retry_without_attachments',id:other})).toThrow();
  });
+ it('carries the client confirmation when rebuilding a «care» draft (L6: the server requires it for a business that is not a client)',()=>{
+  const request=restartDraftRequest(draft({leadId:null,contactId:null,purpose:'care',otherPurpose:null}),newId);
+  expect(request).toMatchObject({action:'prepare_general',purpose:'care',confirmedClient:true});
+  expect(communicationMutation.parse(request)).toEqual(request);
+  expect(restartDraftRequest(draft({leadId:null,contactId:null,purpose:'first_contact',otherPurpose:null}),newId)).not.toHaveProperty('confirmedClient');
+ });
 });

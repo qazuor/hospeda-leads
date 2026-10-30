@@ -26,7 +26,8 @@ export function fetchContext(base: string, query: { code?: string; phone?: strin
   return request(`${base}/_api/userscript/context?${params}`, token);
 }
 
-export type StatusResponse = Omit<ContextResponse, "matches">;
+/** Since spec 97 the CRM also publishes the Hospeda Instagram username (§4.5); null when it is not configured. */
+export type StatusResponse = Omit<ContextResponse, "matches"> & { instagramAccount?: string | null };
 export function fetchStatus(base: string, token: string): Promise<StatusResponse> { return request(`${base}/_api/userscript/status`, token); }
 
 export function registerBatch(base: string, token: string, payload: { accountId: string; chat: { title: string; phone: string | null }; messages: unknown[]; automatic?:boolean }): Promise<RegisterResponse> {
@@ -52,3 +53,23 @@ export type MaterialsResponse={materials:ScriptMaterial[];blocked:string|null;tr
 export const fetchMaterials=(base:string,token:string,accountId:string,search='')=>request<MaterialsResponse>(`${base}/_api/userscript/materials?${new URLSearchParams({accountId,...(search.trim()?{search:search.trim()}:{})})}`,token);
 /** Adds a material to the prepared draft: the CRM creates its own link and returns the new text and revision. */
 export const addMaterial=(base:string,token:string,payload:{messageId:string;revision:number;materialId:string})=>request<{revision:number;body:string}>(`${base}/_api/userscript/material_add`,token,"POST",payload);
+
+/** Spec 97 §5.2: a business as the Instagram panel sees it (WhatsApp's `Match` without WhatsApp fields, plus whether the user can contact it). */
+export type InstagramMatch={accountId:string;code:string;name:string;city:string|null;status:string|null;statusLabel:string|null;assignedUserName:string|null;doNotContact:boolean;restrictionActive:boolean;archived:boolean;canContact:boolean;leads:{id:string;name:string;stage:string}[];url:string};
+export type InstagramContextResponse=Omit<ContextResponse,"matches">&{instagramAccount:string|null;matches:InstagramMatch[];instagram:{username:string;threadId:string|null;displayName?:string|null}};
+export const fetchInstagramContext=(base:string,token:string,username:string)=>request<InstagramContextResponse>(`${base}/_api/userscript/context?${new URLSearchParams({instagram:username})}`,token);
+export type InstagramThreadReport={username:string;threadId:string;proof:"header"|"seller";displayName?:string};
+export const reportInstagramThread=(base:string,token:string,payload:InstagramThreadReport)=>request<{threadId:string}>(`${base}/_api/userscript/instagram/thread`,token,"POST",payload);
+export const reportInstagramThreadStale=(base:string,token:string,payload:{username:string;threadId:string})=>request<{deleted:boolean}>(`${base}/_api/userscript/instagram/thread/stale`,token,"POST",payload);
+/** Spec 97 §15: a learned chat with its header display name and the spec 86 badge data (Instagram restriction channels). */
+export type InstagramInboxBusiness={accountId:string;code:string;name:string;city:string|null;statusLabel:string|null;assignedUserName:string|null;doNotContact:boolean;restricted:boolean;openManagement:{stageLabel:string;typeLabel:string|null}|null};
+export type InstagramInboxBadge=({kind:"single"}&InstagramInboxBusiness)|{kind:"multiple";businesses:{accountId:string;code:string;name:string;statusLabel:string|null}[]};
+export type InstagramInboxThread={username:string;displayName:string;badge:InstagramInboxBadge};
+export const fetchInstagramThreads=(base:string,token:string)=>request<{threads:InstagramInboxThread[]}>(`${base}/_api/userscript/instagram/threads`,token);
+export type ScriptPurpose="verification"|"first_contact"|"resume"|"relationship"|"care"|"operations"|"other";
+export type InstagramTemplate={id:string;name:string;recommended:boolean;body:string};
+export type InstagramTemplatesResponse={leads:{id:string;name:string;type:string|null;stage:string;templates:InstagramTemplate[]}[];general:{defaultPurpose:ScriptPurpose;purposes:{value:ScriptPurpose;label:string;templates:InstagramTemplate[]}[]}|null;blocked:string|null;username:string|null};
+export const fetchInstagramTemplates=(base:string,token:string,accountId:string)=>request<InstagramTemplatesResponse>(`${base}/_api/userscript/templates?${new URLSearchParams({accountId,channel:"instagram"})}`,token);
+export type InstagramPrepare={id:string;accountId:string;leadId:string|null;templateId:string;purpose?:ScriptPurpose|null;otherPurpose?:string|null};
+export const prepareInstagramTemplate=(base:string,token:string,payload:InstagramPrepare)=>request<PreparedTemplate>(`${base}/_api/userscript/prepare`,token,"POST",{...payload,channel:"instagram"});
+export type DispatchResult={messageId:string;status:string;alreadyConfirmed?:boolean};

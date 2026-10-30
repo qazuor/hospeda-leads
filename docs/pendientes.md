@@ -1,5 +1,17 @@
 # Pendientes y próximo trabajo
 
+## Spec 97 — panel de Hospeda en el chat de Instagram — implementada, pendiente de revisión
+
+[Spec 97](crm-roadmap/97-instagram-chat-panel.md) implementada en el worktree `feat/instagram-chat-panel-97` (apilada sobre la 96, sin commit). Falta:
+- revisión, commit, PR a `staging` después de los de la 94 y la 96, y CI verde. Las suites de integración (`test:userscript` y demás) y las e2e **no se corrieron localmente**; `instagram-open-chat.e2e.ts` cambió solo en el texto del aviso;
+- **checklist del deploy (decisión del propietario 29/10: la barrera de la spec 96 no se relaja):**
+  1. cargar `INSTAGRAM_ACCOUNT_USERNAME` en Coolify **antes** del deploy;
+  2. en el mismo deploy: migraciones `053_instagram_threads.sql` y `054_instagram_thread_display_name.sql` (`npm run db:migrate`) y script 1.6.0;
+  3. ese día, avisar a los vendedores que fuercen «Buscar actualizaciones» en Tampermonkey y aprueben instagram.com si lo pide (con una versión vieja el CRM queda bloqueado en la computadora);
+- **variable `INSTAGRAM_ACCOUNT_USERNAME`** (usuario de Instagram de Hospeda, por ejemplo `hospeda.com.ar`) en Coolify; sin ella el script no aprende chats ni pega. Falta agregarla a la plantilla de variables de la raíz (no se tocó por la regla de no editar archivos de entorno);
+- prueba manual del propietario en Instagram real: insignias en `/direct/inbox/` (abrir antes un chat de un negocio para que el script aprenda su nombre; dos chats con el mismo nombre no se marcan; etiqueta en inglés sin verificar), chat conocido (abre `/direct/t/<id>/` y pega; verificar que el `#hospeda=` sobrevive, spec §9.1 punto 8), chat desconocido (perfil → «Enviar mensaje» → «Expandir» → pega), panel en un chat con negocio, sin negocio y con «No contactar», otra cuenta logueada, interfaz en inglés y un chat grupal (no observados en vivo);
+- decisión abierta marcada **NEEDS OWNER** en la spec §14: el aviso `account-unknown`. «care» sin gestión ya lo valida el servidor (L6). La suite `test:userscript` suma cobertura de Instagram que **no se corrió localmente**.
+
 ## Spec 96 — contactar en tres clics, con el script conectado — pendiente de PR
 
 [Spec 96](crm-roadmap/96-contact-three-clicks.md) implementada en `feat/contact-three-clicks-96`, apilada sobre la 94 (sin mergear): el PR va después del de la 94. Falta:

@@ -4,11 +4,11 @@ import { USERSCRIPT_VERSION } from "./src/version";
 
 const base = process.env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const connectHost = new URL(base).hostname;
-// Instagram (spec 94): the paste module acts only on a profile opened by the CRM with the #hospeda marker; it makes no requests.
+// Instagram (spec 94, 97): the handoff paste and, on chat pages, the Hospeda panel (CRM requests only to @connect, never sends).
 // The whole CRM origin, because it is a SPA and Tampermonkey matches only on page load. There the script only sets an attribute with its
 // version, so the user-script page can tell whether it is installed and current.
 const crmMatch = `${new URL(base).protocol}//${connectHost}/*`;
-const banner = `// ==UserScript==\n// @name         Hospeda CRM\n// @namespace    https://crm.hospeda.com.ar\n// @version      ${USERSCRIPT_VERSION}\n// @description  Registra mensajes de WhatsApp Web en el CRM y pega en Instagram Web el mensaje que copia el CRM, sin enviarlo\n// @match        https://web.whatsapp.com/*\n// @match        https://www.instagram.com/*\n// @match        ${crmMatch}\n// @grant        GM_xmlhttpRequest\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_registerMenuCommand\n// @grant        unsafeWindow\n// @connect      ${connectHost}\n// @updateURL    ${base}/userscripts/hospeda-crm.user.js\n// @downloadURL  ${base}/userscripts/hospeda-crm.user.js\n// @run-at       document-idle\n// @noframes\n// ==/UserScript==`;
+const banner = `// ==UserScript==\n// @name         Hospeda CRM\n// @namespace    https://crm.hospeda.com.ar\n// @version      ${USERSCRIPT_VERSION}\n// @description  Registra mensajes de WhatsApp Web en el CRM y, en WhatsApp e Instagram, pega los modelos del CRM sin enviarlos\n// @match        https://web.whatsapp.com/*\n// @match        https://www.instagram.com/*\n// @match        ${crmMatch}\n// @grant        GM_xmlhttpRequest\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_registerMenuCommand\n// @grant        unsafeWindow\n// @connect      ${connectHost}\n// @updateURL    ${base}/userscripts/hospeda-crm.user.js\n// @downloadURL  ${base}/userscripts/hospeda-crm.user.js\n// @run-at       document-idle\n// @noframes\n// ==/UserScript==`;
 
 export default defineConfig({
   define: { "import.meta.env.USERSCRIPT_CRM_BASE_URL": JSON.stringify(base) },

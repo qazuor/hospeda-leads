@@ -4,7 +4,7 @@ import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/r
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {MessageComposer} from './MessageComposer';
-import {INSTAGRAM_DISPATCH_FAILED,handOffToUserscript,instagramOpenedToast,openInstagramForPaste,userscriptPastesOnInstagram} from './InstagramOpenChat';
+import {INSTAGRAM_CHAT_SCRIPT_VERSION,INSTAGRAM_DISPATCH_FAILED,handOffToUserscript,handoffThreadId,instagramDesktopUrl,instagramOpenedToast,openInstagramForPaste,userscriptPastesOnInstagram} from './InstagramOpenChat';
 import {HANDOFF_ACK_ATTRIBUTE,HANDOFF_EVENT} from '../../userscript/src/instagram/handoff';
 import {CONNECTION_ATTRIBUTE,INSTALLED_ATTRIBUTE,USER_ATTRIBUTE} from '../../userscript/src/announce';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
@@ -52,7 +52,7 @@ describe('MessageComposer · Instagram (spec 92)',()=>{
  it('shows the review notices and the help text, including the inactive-integration and shared-username warnings',async()=>{
   show(message({instagramAutoConfirm:false,instagramShared:true}));
   const notices=await screen.findByRole('group',{name:'Antes de abrir Instagram'});
-  expect(notices.textContent).toContain('en el celular, el chat de @hotel.sol; en la computadora, el perfil de @hotel.sol, donde tocás «Enviar mensaje».');
+  expect(notices.textContent).toContain('en el celular, el chat de @hotel.sol; en la computadora, el chat de @hotel.sol si ya lo conocemos o su perfil, donde el script abre el chat.');
   expect(notices.textContent).toContain('Tenés que estar con la sesión de Hospeda en Instagram');
   expect(notices.textContent).toContain('La conexión con Instagram no está activa');
   expect(notices.textContent).toContain('Otro negocio tiene el mismo usuario de Instagram');
@@ -209,7 +209,7 @@ describe('«Abrir Instagram» toast and the user script (spec 94)',()=>{
   vi.spyOn(document,'dispatchEvent').mockImplementation(()=>{throw new Error('boom');});
   expect(await handOffToUserscript({username:'@hotel.sol',text:'Hola'})).toBeNull();
   const tab={opener:{},location:{href:'about:blank'}};vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
-  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:true,scriptPastes:false});
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:true,scriptPastes:false,chat:false});
   expect(tab.location.href).toBe(URL_PROFILE);
  });
  it('opens the profile with #hospeda=<nonce> and says the script pastes once the script acked',async()=>{
@@ -232,11 +232,39 @@ describe('«Abrir Instagram» toast and the user script (spec 94)',()=>{
  it('«Copiar y abrir de nuevo» hands off again with a new nonce on a computer and opens the chat link on a phone',async()=>{
   document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,USERSCRIPT_VERSION);const handed=fakeScript();
   const tab={opener:{},location:{href:'about:blank'}};const open=vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
-  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:true,scriptPastes:true});
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:true,scriptPastes:true,chat:false});
   expect(open).toHaveBeenCalledWith('about:blank','_blank');expect(tab.location.href).toBe(URL_PROFILE+'#hospeda='+handed[0].nonce);
   open.mockClear();
-  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:true})).toEqual({opened:true,scriptPastes:false});
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:true})).toEqual({opened:true,scriptPastes:false,chat:false});
   expect(open).toHaveBeenCalledWith(URL_IG,'_blank');expect(handed).toHaveLength(1);
-  open.mockReturnValue(null);expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:false,scriptPastes:false});
+  open.mockReturnValue(null);expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false})).toEqual({opened:false,scriptPastes:false,chat:false});
+ });
+});
+
+describe('Instagram chat link (spec 97 §4.1)',()=>{
+ const THREAD='17848251833510164',NONCE='0123456789abcdef0123456789abcdef';
+ it('hands the thread id over only to a script at the chat-page version or newer',()=>{
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,INSTAGRAM_CHAT_SCRIPT_VERSION);
+  expect(handoffThreadId({threadId:THREAD})).toBe(THREAD);
+  expect(handoffThreadId({threadId:'abc'})).toBeNull();expect(handoffThreadId({threadId:null})).toBeNull();
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,'1.5.9');expect(handoffThreadId({threadId:THREAD})).toBeNull();
+  document.documentElement.removeAttribute(INSTALLED_ATTRIBUTE);expect(handoffThreadId({threadId:THREAD})).toBeNull();
+ });
+ it('picks the desktop URL: chat page with the marker, profile with the marker, or the plain chat page without ack',()=>{
+  expect(instagramDesktopUrl({username:'@hotel.sol',nonce:NONCE,threadId:THREAD,handoffThread:THREAD})).toBe(`https://www.instagram.com/direct/t/${THREAD}/#hospeda=${NONCE}`);
+  expect(instagramDesktopUrl({username:'@hotel.sol',nonce:NONCE,threadId:THREAD,handoffThread:null})).toBe(`https://www.instagram.com/hotel.sol/#hospeda=${NONCE}`);
+  expect(instagramDesktopUrl({username:'@hotel.sol',nonce:null,threadId:THREAD,handoffThread:null})).toBe(`https://www.instagram.com/direct/t/${THREAD}/`);
+  expect(instagramDesktopUrl({username:'@hotel.sol',nonce:null,threadId:null,handoffThread:null})).toBe('https://www.instagram.com/hotel.sol/');
+ });
+ it('puts the thread id in the handoff and opens the chat page; the no-ack toast asks to paste in the chat',async()=>{
+  document.documentElement.setAttribute(INSTALLED_ATTRIBUTE,USERSCRIPT_VERSION);const handed=fakeScript();
+  const tab={opener:{},location:{href:'about:blank'}};vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false,threadId:THREAD})).toEqual({opened:true,scriptPastes:true,chat:false});
+  expect(handed[0].threadId).toBe(THREAD);expect(tab.location.href).toBe(`https://www.instagram.com/direct/t/${THREAD}/#hospeda=${handed[0].nonce}`);
+  // No ack: the plain chat page opens and the seller pastes there.
+  stopScript();const plain={opener:{},location:{href:'about:blank'}};vi.mocked(window.open).mockReturnValue(plain as unknown as Window);
+  expect(await openInstagramForPaste({username:'@hotel.sol',text:'Hola',mobile:false,threadId:THREAD})).toEqual({opened:true,scriptPastes:false,chat:true});
+  expect(plain.location.href).toBe(`https://www.instagram.com/direct/t/${THREAD}/`);
+  expect(instagramOpenedToast({copied:true,mobile:false,chat:true})).toMatch(/^Mensaje copiado\. Pegalo en el chat con (Ctrl\+V|⌘V)\.$/);
  });
 });

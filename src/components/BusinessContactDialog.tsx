@@ -131,7 +131,7 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const scopeReady=!loading&&!loadError;
  return <ContactTemplateDialog open presentation={floatingComposer?'floating':'dialog'} returnFocusTo={returnFocusTo} channel={channel} initialContactId={recipient}
   lead={scopeReady&&opportunity?{...opportunity,nombre:detail.account.nombre,ciudad:detail.account.ciudad,email:detail.account.email,telefono:detail.account.telefono}:null}
-  general={scopeReady&&general?{accountId:String(detail.account.id),purpose,otherPurpose}:undefined}
+  general={scopeReady&&general?{accountId:String(detail.account.id),purpose,otherPurpose,confirmedClient}:undefined}
   pickers={pickers} contextNotices={notices} contextRequired={!sobre||(general&&!!contactPurposeBlockReason({purpose,otherPurpose,isClient:detail.account.isClient,confirmedClient}))||!!dataBlock} blockReason={loading?'Cargando gestiones y mensajes modelo…':contactReason||dataBlock}
   templates={settings.data?.templates??[]} initialMaterialId={initialMaterial?.id} onLog={onLog} onFinished={onClose}
   onAddChannel={canBusiness?()=>setEditor({kind:'account',item:detail.account}):undefined}

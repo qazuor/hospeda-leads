@@ -13,15 +13,17 @@ import { showUpdatePrompt, throttled } from "./updatePrompt";
 import { AutoRegisterController, autoEligibility } from "./autoRegister";
 import {ChatBadges,badgePreference,toggleBadgePreference} from './badges';
 import { siteFor } from "./site";
-import { startInstagram } from "./instagram/start";
-import { gmHandoffStore, listenForInstagramHandoff } from "./instagramBridge";
+import { listenForInstagramHandoff } from "./instagramBridge";
+import { startInstagramApp } from "./instagramApp/start";
+import { gmInstagramStore } from "./instagramApp/storage";
+import { instagramApi } from "./instagramApp/client";
 
 const BASE = (import.meta as ImportMeta & { env: { USERSCRIPT_CRM_BASE_URL?: string } }).env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const TOKEN_KEY = "hospeda-userscript-token", choicesKey = (phone: string | null) => `hospeda-userscript-choice:${phone || "unknown"}`;
 let observer: MutationObserver | null = null, timer = 0, lastFingerprint = "", activeChat = "", previewOpen = false;
 let autoController:AutoRegisterController|null=null,autoMessage="";
 let chatBadges:ChatBadges|null=null,badgeError:string|undefined,badgePane:HTMLElement|null=null;
-// Read in start() for WhatsApp only: on Instagram the script reads no WhatsApp or token value from GM storage (spec 94 §2.4).
+// Read in start() for WhatsApp only: on Instagram the script reads no WhatsApp value from GM storage (spec 94 §2.4, spec 97 §5.4).
 let autoPreference=true;
 let autoCount:{accountId:string;value:number;expiresAt:number}|null=null;
 const cache = new Map<string, { expiresAt: number; value: ContextResponse }>();
@@ -115,8 +117,9 @@ function schedule(): void { window.clearTimeout(timer); timer = window.setTimeou
 function watchTheme(): void { new MutationObserver(applyTheme).observe(document.body, { attributes: true, attributeFilter: ["class"] }); matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); }
 function start(): void {
   const site = siteFor(location);
-  // Instagram (spec 94): only the isolated paste module, which reads the one-time handoff key and nothing else. No token, no requests.
-  if (site === "instagram") { startInstagram({ store: gmHandoffStore() }); return; }
+  // Instagram (spec 97 §5.3–5.4): the handoff and the chat page's panel. GM only through the Instagram store (token read-only, handoff,
+  // panel state) and the CRM only through the allowlisted calls; no WhatsApp module, no page events, no clipboard read.
+  if (site === "instagram") { const store = gmInstagramStore(); startInstagramApp({ store, api: instagramApi({ base: BASE, token: store.token }), base: BASE, version: USERSCRIPT_VERSION }); return; }
   // On the CRM's own page the script says it is here, accepts the Instagram handoff from the page and publishes whether its token works
   // (spec 96 §3.1: one status request, only the state and the token owner's email reach the page), and since 1.5.1 takes a new token from
   // «Conectar este navegador». No WhatsApp logic.

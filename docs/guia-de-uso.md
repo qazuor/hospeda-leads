@@ -432,7 +432,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 2. Para email y WhatsApp, revisá la persona y el dato exacto. Si no hay una persona con ese canal, podés usar el canal general del negocio.
 3. El email se prepara y sale desde el CRM. El CRM te muestra si el servicio de envío aceptó el pedido; eso no confirma que llegó.
 4. WhatsApp abre la aplicación con el texto preparado y el CRM se cierra con un aviso. Si el script de WhatsApp registra el envío, se confirma solo; si no, lo ves en «Requiere acción» y ahí contestás «Sí, se envió» o «No se envió». Desde una tarea, el CRM sigue preguntando «¿Lo enviaste?» al volver.
-5. «Instagram» escribe al usuario de Instagram del negocio (el que está en los datos del negocio). Elegí el modelo y tocá el botón final, que dice el usuario: el CRM copia el mensaje y abre Instagram. En la computadora se abre el perfil del negocio (Instagram no abre chats directos en la web): tocá Enviar mensaje y pegá con Ctrl+V. En el celular tocá el botón Ir al chat que aparece con el usuario del negocio, mantené apretado en el chat y elegí Pegar. Después lo enviás.
+5. «Instagram» escribe al usuario de Instagram del negocio (el que está en los datos del negocio). Elegí el modelo y tocá el botón final, que dice el usuario: el CRM copia el mensaje y abre Instagram. En la computadora se abre el chat del negocio si ya lo conocemos o su perfil, y el script de Hospeda abre el chat y pega el mensaje; si no puede, pegá con Ctrl+V. En el celular tocá el botón Ir al chat que aparece con el usuario del negocio, mantené apretado en el chat y elegí Pegar. Después lo enviás.
 6. Tenés que estar con la sesión de Hospeda en Instagram, en el navegador o en la app. Cuando Instagram avisa del envío, el mensaje queda «Enviado · confirmado por Instagram» solo. Mientras tanto, en «Requiere acción» ves «Esperando que Instagram confirme el envío…» y ya podés contestar «Sí, se envió» o «No se envió»; si en 15 minutos no llega el aviso, el CRM te pregunta «¿Lo enviaste?» como con WhatsApp. Hasta que se confirma, el mensaje no aparece en «Conversación».
 7. Para una llamada, elegí a quién llamás. En el celular tocá «Llamar ahora»; en la computadora tocá «Copiar número» y llamá desde tu teléfono. Cuando termines tocá «Ya llamé: anotar cómo salió». Si no te atendieron: desde el negocio podés tocar «No me atendieron»; desde una tarea tocá «Ya llamé: anotar cómo salió» y elegí «No respondió».
 8. Para «Red social» y «Otro canal», el CRM crea un intento pendiente (podés «Crear intento y copiar texto»). Cuando termines, completá cómo salió.
@@ -749,7 +749,6 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 3. Tocá «Abrir» para verlo o «Descargar» para guardarlo. Si es un enlace externo, tocá «Abrir enlace».
 4. Si sos administrador, usá «Nuevo material» para subir un archivo o registrar un enlace, con título, categorías, comentario y tipo. Con «Nueva versión» cambiás el archivo y las versiones anteriores se conservan.
 5. «Archivar» lo saca de la lista sin borrar nada; «Restaurar» lo vuelve a mostrar.
-6. Para mandarlo, desde el negocio tocá «Enviar material» en «Comunicación», elegilo y tocá «Agregar». Se abre el mensaje listo, con el enlace del material: revisalo y tocá «Abrir WhatsApp con …». Si querés otro texto, cambiá el «Mensaje modelo» arriba del borrador; el material se agrega solo.
 
 **Qué queda al terminar:** Encontrás siempre la versión actual del material. Abrirlo o descargarlo no lo envía al cliente.
 
@@ -1057,7 +1056,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 - Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.
 - El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.
 - Desde la versión 1.4.0 el mismo script también trabaja en Instagram. La primera vez que Tampermonkey lo actualice te va a pedir que apruebes un sitio nuevo (instagram.com): aceptalo una sola vez. Si no lo aprobás, el script sigue funcionando en WhatsApp.
-- La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.5.0 el CRM pide siempre la última versión del script: en la computadora, sin el script al día y conectado, el CRM se bloquea (salvo «User script» y «Ayuda») hasta que lo instales o lo conectes. Desde la 1.5.1, al crear un token alcanza con «Conectar este navegador»: no hace falta pegarlo en WhatsApp Web.
+- La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.5.0 el CRM pide siempre la última versión del script.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
@@ -1105,6 +1104,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 - Las insignias son solo lectura: no registran mensajes ni cambian estados. Un negocio que no podés ver en el CRM no muestra insignia, y los grupos tampoco llevan.
 - El color dice el estado: azul es un negocio normal, rojo es No contactar, ámbar indica varios negocios posibles para ese chat y «Sin CRM» es un chat que no está asociado.
+- En Instagram (computadora, con la cuenta de Hospeda) la lista de chats también muestra la insignia, solo para chats que el script ya reconoció al abrirlos: Instagram no muestra el usuario en la lista, así que se compara el nombre visible. Si dos chats reconocidos tienen el mismo nombre, no se marca ninguno. La insignia de Instagram solo informa: no tiene enlace al CRM y tocarla abre el chat como siempre.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
@@ -1182,25 +1182,30 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 
 ### Pegar el mensaje en Instagram con el script
 
-**Cuándo usarlo:** Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado, actualizado y conectado.
+**Cuándo usarlo:** Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado, actualizado y conectado, o cuando estás en un chat de Instagram y querés ver de qué negocio es.
 
 1. En el negocio, tocá «Instagram» en «Comunicación» (o «Contactar» y elegí Instagram) y elegí el mensaje.
-2. Tocá el botón final, que dice el usuario del negocio. El CRM copia el mensaje, se lo pasa al script y abre el perfil del negocio en una pestaña nueva.
-3. El script toca "Enviar mensaje" en el perfil, espera a que se abra el chat de ese perfil y escribe el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»
-4. Revisá el texto y envialo vos desde el chat. El script nunca lo envía.
-5. Si en lugar de eso aparece un aviso (por ejemplo «No pude confirmar que lo abrió el CRM: tocá "Enviar mensaje" y pegá el mensaje (Ctrl+V).»), abrí el chat y pegá con Ctrl+V (⌘V en Mac): el mensaje sigue copiado. Si se perdió, volvé al CRM y tocá «Copiar y abrir de nuevo».
+2. Tocá el botón final, que dice el usuario del negocio. El CRM copia el mensaje, se lo pasa al script y abre Instagram en una pestaña nueva: el chat del negocio si ya lo conocemos, o su perfil.
+3. Desde el perfil, el script toca "Enviar mensaje" y, si Instagram abre un chat flotante, toca «Expandir» para pasar al chat completo. Ahí confirma que el chat es de ese usuario y que estás con la cuenta de Hospeda, y escribe el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»
+4. Si el script no puede confirmar con quién es el chat, te pregunta en el panel si es con ese usuario. Tocá «Sí, es este chat · pegar» solo si lo es; si no, «No es este chat».
+5. Revisá el texto y envialo vos desde el chat. El script nunca lo envía.
+6. Si en lugar de eso aparece un aviso, abrí el chat y pegá con Ctrl+V (⌘V en Mac): el mensaje sigue copiado. Si se perdió, volvé al CRM y tocá «Copiar y abrir de nuevo».
+7. En cualquier chat de Instagram el script muestra el botón «Hospeda»: abre un panel con el negocio del CRM que tiene ese Instagram. Desde ahí, «Mandar un mensaje» te deja elegir un modelo (de una gestión o «Sin gestión» con un propósito) y «Pegar en el chat». También queda registrado como intento de Instagram.
 
 **Qué queda al terminar:** El mensaje queda escrito en el chat de Instagram del negocio, listo para que lo envíes. Cuando lo mandás desde la cuenta de Hospeda, el CRM lo confirma solo, igual que sin el script.
 
 **Ejemplo:**
 
-- Leo prepara una presentación para Cabañas del Río y toca el botón final de Instagram. Se abre el perfil, el script abre el chat y deja el mensaje pegado. Leo corrige un saludo y lo envía.
+- Leo prepara una presentación para Cabañas del Río y toca el botón final de Instagram. Se abre el chat, el script confirma que es de Cabañas del Río y deja el mensaje pegado. Leo corrige un saludo y lo envía.
+- Ana contesta un chat en Instagram, abre el panel «Hospeda», ve que es H7 · Cabañas del Río, elige un modelo y lo pega. Lo envía ella.
 
 **Tené en cuenta:**
 
 - Solo funciona en la computadora, en Chrome, Edge o Firefox. El navegador no pide permiso para el portapapeles: el script no lo lee, recibe el mensaje directamente del CRM. En el celular se abre la app de Instagram como siempre.
-- El script actúa únicamente en la pestaña que abre el CRM, durante dos minutos y una sola vez. Un enlace de otra página no lo activa. Si abrís Instagram dos veces seguidas, vale la última.
-- Solo escribe en el chat que se abre al tocar "Enviar mensaje" en ese perfil, y solo si está vacío. Nunca usa una ventanita de chat flotante con otra persona ni escribe encima de algo que ya escribiste. Los mensajes de más de 4000 caracteres se pegan a mano.
+- Tenés que estar con la cuenta de Instagram de Hospeda. Con otra cuenta el script no pega nada y te avisa.
+- El script nunca pega en un chat flotante ni encima de algo que ya escribiste. Los mensajes de más de 4000 caracteres se pegan a mano.
+- Si el negocio pidió «No contactar», el panel lo muestra y no deja mandar mensajes. Abrir un chat o pegar un mensaje no cuenta como contacto: el envío se confirma cuando Instagram avisa, o cuando contestás «¿Lo enviaste?».
+- El token se conecta solo desde el CRM (User script → Conectar este navegador). En Instagram no hay dónde escribirlo.
 - Si el script no está instalado, está desactualizado o no está conectado con tu cuenta, el CRM no deja abrir Instagram desde la computadora y te muestra «Ir a User script». Revisá «En este navegador» en «User script de WhatsApp»: si dice «Desactualizado», actualizalo.
 
 **Dónde ir:** User script de WhatsApp (/userscript)

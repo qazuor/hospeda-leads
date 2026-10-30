@@ -1,5 +1,5 @@
 import { HANDOFF_ACK_ATTRIBUTE, HANDOFF_ACK_EVENT, HANDOFF_EVENT, HANDOFF_STORAGE_KEY, HANDOFF_TTL_MS, parseHandoff } from "./instagram/handoff";
-import type { HandoffStore } from "./instagram/start";
+import type { HandoffStore } from "./instagram/handoff";
 
 /**
  * Spec 94 (D6): the GM side of the Instagram handoff, kept outside `instagram/` so that module never touches GM storage itself. It crosses

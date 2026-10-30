@@ -2,14 +2,18 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import profileEs from "../fixtures/instagram-profile-es.html?raw";
-import dmEs from "../fixtures/instagram-dm-es.html?raw";
+import threadEs from "../fixtures/instagram-thread-header-es.html?raw";
 import { siteFor } from "./site";
 import { HANDOFF_CLEANUP_MARGIN_MS, gmHandoffStore, listenForInstagramHandoff } from "./instagramBridge";
 import { HANDOFF_ACK_ATTRIBUTE, HANDOFF_EVENT, HANDOFF_STORAGE_KEY, HANDOFF_TTL_MS } from "./instagram/handoff";
+import { INSTAGRAM_GM_KEYS } from "./instagramApp/storage";
+import { INSTAGRAM_API_FUNCTIONS } from "./instagramApp/client";
 
 /**
- * Spec 94 §2.4 (D1): Instagram runs inside the shared «Hospeda CRM» script but must stay isolated. On instagram.com the script never
- * reads the token or any GM value other than the one-time handoff, never calls GM_xmlhttpRequest or the CRM API, and runs no WhatsApp logic.
+ * Spec 97 §5.4 (relaxing spec 94 §2.4): on instagram.com the script may now read the token and call the CRM, inside these boundaries. The token
+ * never reaches the page; there is no token entry and no page-to-script event there; panel actions need trusted events; the DOM layer
+ * (`instagram/`) stays pure; the wiring layer (`instagramApp/`) imports only what it needs and calls only the allowlisted API functions; no WhatsApp
+ * module runs; the clipboard is never read.
  */
 const api = vi.hoisted(() => ({ touched: [] as string[] }));
 vi.mock("./api", async () => {
@@ -17,54 +21,82 @@ vi.mock("./api", async () => {
   return Object.fromEntries(Object.entries(actual).map(([name, value]) => [name, typeof value === "function" && !/^[A-Z]/.test(name) ? (...args: unknown[]) => { api.touched.push(name); return (value as (...a: unknown[]) => unknown)(...args); } : value]));
 });
 const startSpy = vi.hoisted(() => ({ calls: 0 }));
-vi.mock("./instagram/start", async () => {
-  const actual = await vi.importActual<typeof import("./instagram/start")>("./instagram/start");
-  return { startInstagram: (...args: Parameters<typeof actual.startInstagram>) => { startSpy.calls++; return actual.startInstagram(...args); } };
+vi.mock("./instagramApp/start", async () => {
+  const actual = await vi.importActual<typeof import("./instagramApp/start")>("./instagramApp/start");
+  return { ...actual, startInstagramApp: (...args: Parameters<typeof actual.startInstagramApp>) => { startSpy.calls++; return actual.startInstagramApp(...args); } };
 });
 
 const gm = { GM_xmlhttpRequest: vi.fn(), GM_getValue: vi.fn(), GM_setValue: vi.fn(), GM_registerMenuCommand: vi.fn() };
 beforeAll(() => { for (const [name, fn] of Object.entries(gm)) vi.stubGlobal(name, fn); });
 afterAll(() => vi.unstubAllGlobals());
+const TOKEN = "hcu_secret_token_value";
+/** GM storage as a map: answers reads, records writes. */
+function storage(initial: Record<string, unknown>) {
+  const stored = { ...initial };
+  gm.GM_getValue.mockImplementation((key: string, fallback: unknown) => key in stored ? stored[key] : fallback);
+  gm.GM_setValue.mockImplementation((key: string, value: unknown) => { stored[key] = value; });
+  return stored;
+}
+/** A CRM that answers the status and the Instagram lookup. Records each URL. */
+function crm() {
+  const urls: string[] = [];
+  gm.GM_xmlhttpRequest.mockImplementation((options: { url: string; headers?: Record<string, string>; onload: (r: { status: number; response: unknown; responseText: string }) => void }) => {
+    urls.push(options.url); expect(options.headers?.Authorization).toBe(`Bearer ${TOKEN}`);
+    const path = new URL(options.url).pathname;
+    const response = path.endsWith("/status") ? { minVersion: "1.5.0", latestVersion: "1.6.0", user: { email: "ana@hospeda.test", displayName: "Ana" }, instagramAccount: "hospeda.com.ar" }
+      : path.endsWith("/instagram/threads") ? { threads: [] }
+      : path.endsWith("/context") ? { minVersion: "1.5.0", latestVersion: "1.6.0", user: { email: "ana@hospeda.test", displayName: "Ana" }, instagramAccount: "hospeda.com.ar", hiddenMatches: 0, matches: [], instagram: { username: "qaz.uor", threadId: null } } : {};
+    queueMicrotask(() => options.onload({ status: 200, response, responseText: JSON.stringify(response) }));
+    return { abort: () => {} };
+  });
+  return urls;
+}
 
-describe("Instagram isolation inside the shared script", () => {
+describe("Instagram boundaries inside the shared script (spec 97 §5.4)", () => {
   it("picks the module by host", () => {
     expect(siteFor({ hostname: "web.whatsapp.com" })).toBe("whatsapp");
     expect(siteFor({ hostname: "www.instagram.com" })).toBe("instagram");
     for (const hostname of ["crm.hospeda.com.ar", "localhost", "instagram.com"]) expect(siteFor({ hostname })).toBe("crm");
   });
 
-  it("routes www.instagram.com to the Instagram module only; without a marker it reads no GM value, makes no request and adds no UI", async () => {
+  it("routes www.instagram.com to the Instagram app only; off a chat page without a marker it reads nothing, requests nothing and adds nothing", async () => {
     expect(location.hostname).toBe("www.instagram.com");
     document.body.innerHTML = profileEs; const before = document.body.innerHTML;
     await import("./main");
     expect(startSpy.calls).toBe(1);
     for (const fn of Object.values(gm)) expect(fn).not.toHaveBeenCalled();
     expect(api.touched).toEqual([]);
-    // No marker: nothing injected (no launcher, no panel, no update prompt, no notice).
+    // No WhatsApp logic: no menu, no WhatsApp panel.
+    expect(document.getElementById("hospeda-userscript-banner")).toBeNull();
     expect(document.body.innerHTML).toBe(before);
     expect(document.documentElement.hasAttribute("data-hospeda-userscript")).toBe(false);
   });
 
-  it("runs a full paste reading only the handoff key: no token, no other GM value, no clipboard, no network, no CRM API", async () => {
-    const { startInstagram } = await import("./instagram/start");
-    const text = "Hola desde Hospeda", nonce = "0123456789abcdef0123456789abcdef";
-    const stored: Record<string, unknown> = { "hospeda-userscript-token": "hcu_secret", [HANDOFF_STORAGE_KEY]: { nonce, username: "cabanas_del_rio", expiresAt: Date.now() + 60_000, text } };
-    gm.GM_getValue.mockImplementation((key: string, fallback: unknown) => stored[key] ?? fallback);
-    gm.GM_setValue.mockImplementation((key: string, value: unknown) => { stored[key] = value; });
-    const readText = vi.fn(); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
-    history.replaceState(null, "", `/cabanas_del_rio/#hospeda=${nonce}`); document.body.innerHTML = profileEs;
-    document.querySelector<HTMLElement>('main header [role="button"]:nth-child(2)')!.addEventListener("click", () => {
-      history.pushState(null, "", "/direct/t/1/"); document.body.innerHTML = dmEs; const composer = document.querySelector<HTMLElement>('[role="textbox"]')!;
-      composer.addEventListener("paste", event => { event.preventDefault(); composer.textContent = (event as ClipboardEvent).clipboardData!.getData("text/plain"); });
-    });
-    const results: unknown[] = [];
-    startInstagram({ store: gmHandoffStore(), flow: { intervalMs: 10, settle: () => Promise.resolve() }, onResult: result => results.push(result) });
-    await vi.waitFor(() => expect(results).toEqual([{ ok: true }]));
-    expect(document.querySelector('[role="textbox"]')!.textContent).toBe(text);
-    expect(new Set(gm.GM_getValue.mock.calls.map(call => call[0]))).toEqual(new Set([HANDOFF_STORAGE_KEY]));
-    expect(gm.GM_setValue.mock.calls).toEqual([[HANDOFF_STORAGE_KEY, null]]);
-    expect(gm.GM_xmlhttpRequest).not.toHaveBeenCalled(); expect(gm.GM_registerMenuCommand).not.toHaveBeenCalled();
-    expect(readText).not.toHaveBeenCalled(); expect(api.touched).toEqual([]);
+  it("on a chat page: reads only its own GM keys, calls only allowlisted functions, keeps the token out of the page and never reads the clipboard", async () => {
+    const { startInstagramApp } = await import("./instagramApp/start"), { gmInstagramStore } = await import("./instagramApp/storage"), { instagramApi } = await import("./instagramApp/client");
+    storage({ "hospeda-userscript-token": TOKEN, "hospeda-userscript-auto-register": true, "hospeda-userscript-theme": "dark" }); const urls = crm();
+    const readText = vi.fn(); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText, writeText: vi.fn() } });
+    history.replaceState(null, "", "/direct/t/17848251833510164/"); document.body.innerHTML = threadEs; api.touched.length = 0; gm.GM_getValue.mockClear();
+    const store = gmInstagramStore(), app = startInstagramApp({ store, api: instagramApi({ base: "https://crm.test", token: store.token }), base: "https://crm.test", version: "1.6.0", pollMs: 60_000 });
+    try {
+      await vi.waitFor(() => expect(urls.some(url => url.includes("/_api/userscript/context?instagram=qaz.uor"))).toBe(true));
+      await vi.waitFor(() => expect(document.getElementById("hospeda-instagram-panel")?.shadowRoot?.textContent).toContain("No encontré un negocio"));
+      expect(new Set(gm.GM_getValue.mock.calls.map(call => call[0])).size).toBeGreaterThan(0);
+      for (const [key] of gm.GM_getValue.mock.calls) expect(INSTAGRAM_GM_KEYS, String(key)).toContain(key);
+      for (const [key] of gm.GM_setValue.mock.calls) expect(["hospeda-instagram-open", "hospeda-instagram-theme", HANDOFF_STORAGE_KEY], String(key)).toContain(key);
+      for (const name of api.touched) expect(INSTAGRAM_API_FUNCTIONS.concat("request"), name).toContain(name);
+      for (const url of urls) expect(url.startsWith("https://crm.test/_api/userscript/"), url).toBe(true);
+      expect(document.documentElement.outerHTML).not.toContain(TOKEN); expect(readText).not.toHaveBeenCalled();
+      expect(gm.GM_registerMenuCommand).not.toHaveBeenCalled(); expect(document.getElementById("hospeda-userscript-banner")).toBeNull();
+    } finally { app.stop(); document.getElementById("hospeda-instagram-panel")?.remove(); }
+  });
+
+  it("without a token makes no request on a chat page", async () => {
+    const { startInstagramApp } = await import("./instagramApp/start"), { gmInstagramStore } = await import("./instagramApp/storage"), { instagramApi } = await import("./instagramApp/client");
+    storage({}); gm.GM_xmlhttpRequest.mockClear();
+    history.replaceState(null, "", "/direct/t/17848251833510164/"); document.body.innerHTML = threadEs;
+    const store = gmInstagramStore(), app = startInstagramApp({ store, api: instagramApi({ base: "https://crm.test", token: store.token }), base: "https://crm.test", version: "1.6.0", pollMs: 60_000 });
+    try { await app.tick(); expect(gm.GM_xmlhttpRequest).not.toHaveBeenCalled(); } finally { app.stop(); document.getElementById("hospeda-instagram-panel")?.remove(); }
   });
 
   it("the store only deletes the handoff of its own nonce (compare-and-delete)", () => {
@@ -105,7 +137,7 @@ describe("Instagram isolation inside the shared script", () => {
     }
   });
 
-  it("keeps the Instagram sources free of imports outside their folder", () => {
+  it("keeps the DOM layer (instagram/) pure: own imports only, no GM, network, clipboard, storage or dynamic code", () => {
     // import.meta.url follows the page URL in this environment, so resolve from the repository root.
     const dir = resolve(process.cwd(), "userscript/src/instagram") + "/";
     const sources = readdirSync(dir).filter(file => file.endsWith(".ts") && !file.endsWith(".spec.ts"));
@@ -113,8 +145,30 @@ describe("Instagram isolation inside the shared script", () => {
     for (const file of sources) {
       const text = readFileSync(dir + file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
       for (const [, spec] of text.matchAll(/from\s+["']([^"']+)["']/g)) expect(spec, `${file} imports ${spec}`).toMatch(/^\.\/[\w-]+$/);
-      // Isolation is by code, not by capability (@grant applies to every @match): no network, storage, clipboard or dynamic code paths.
-      expect(text, file).not.toMatch(/\bGM_\w+|GM_xmlhttpRequest|unsafeWindow|\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource|new\s+Image\b|navigator\.clipboard|readText|\bimport\s*\(|^\s*import\s+["']|\beval\s*\(|new\s+Function\b|localStorage|sessionStorage|indexedDB|document\.cookie/m);
+      expect(text, file).not.toMatch(/\bGM_\w+|unsafeWindow|\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource|new\s+Image\b|navigator\.clipboard|readText|\bimport\s*\(|^\s*import\s+["']|\beval\s*\(|new\s+Function\b|localStorage|sessionStorage|indexedDB|document\.cookie/m);
+    }
+  });
+
+  it("keeps the wiring layer (instagramApp/) inside its allowlist: imports, API functions and no page-to-script events", () => {
+    const dir = resolve(process.cwd(), "userscript/src/instagramApp") + "/";
+    const sources = readdirSync(dir).filter(file => file.endsWith(".ts") && !file.endsWith(".spec.ts"));
+    expect(sources).toEqual(expect.arrayContaining(["start.ts", "panel.ts", "compose.ts", "client.ts", "storage.ts", "state.ts"]));
+    // badgeCard is the pill + hover card shared with WhatsApp's chat badges: pure DOM, and it must stay import-free to be allowed here.
+    const allowedImports = /^(?:\.\/[\w-]+|\.\.\/instagram\/[\w-]+|\.\.\/(?:api|styles|logo|version|parse|badgeCard))$/;
+    expect(readFileSync(resolve(process.cwd(), "userscript/src/badgeCard.ts"), "utf8")).not.toMatch(/^\s*import\s/m);
+    for (const file of sources) {
+      const text = readFileSync(dir + file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+      for (const [, spec] of text.matchAll(/from\s+["']([^"']+)["']/g)) expect(spec, `${file} imports ${spec}`).toMatch(allowedImports);
+      expect(text, file).not.toMatch(/unsafeWindow|readText|\bfetch\s*\(|XMLHttpRequest|GM_xmlhttpRequest|WebSocket|EventSource|sendBeacon|\beval\s*\(|new\s+Function\b|\bimport\s*\(|^\s*import\s+["']|localStorage|sessionStorage|indexedDB|document\.cookie|innerHTML|insertAdjacentHTML/m);
+      // No listener for the CRM page's events (token, handoff, recheck): those stay on the CRM origin only.
+      expect(text, file).not.toMatch(/addEventListener\(\s*["'`]hospeda-|addEventListener\(\s*(?:TOKEN_EVENT|HANDOFF_EVENT|RECHECK_EVENT|INSTALLED_EVENT)/);
+      // GM only in the store.
+      if (file !== "storage.ts") expect(text, file).not.toMatch(/\bGM_\w+/);
+      // From ../api: only the allowlisted calls, ApiError and types.
+      for (const [, names] of text.matchAll(/import\s*{([^}]*)}\s*from\s*["']\.\.\/api["']/g)) for (const raw of names.split(",")) {
+        const name = raw.trim(); if (!name || name.startsWith("type ")) continue;
+        expect(INSTAGRAM_API_FUNCTIONS.concat("ApiError"), `${file} imports ${name} from ../api`).toContain(name);
+      }
     }
   });
 });

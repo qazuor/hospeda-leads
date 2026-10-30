@@ -66,7 +66,7 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  const text='Hola, soy de Hospeda. Te escribo para contarte cómo difundimos alojamientos de Colón en la plataforma. ¿Te interesa?';
  await dialog.getByRole('textbox',{name:'Mensaje final',exact:true}).fill(text);
  await dialog.getByRole('button',{name:'Guardar cambios',exact:true}).click();
- await expect(dialog.getByRole('group',{name:'Antes de abrir Instagram'})).toContainText('en la computadora, el perfil de @'+username+', donde tocás «Enviar mensaje».');
+ await expect(dialog.getByRole('group',{name:'Antes de abrir Instagram'})).toContainText('en la computadora, el chat de @'+username+' si ya lo conocemos o su perfil, donde el script abre el chat.');
  if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);await dialog.getByRole('button',{name:'Abrir Instagram de @'+username,exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:shots+'/1-composer-instagram.png'});}
  await dialog.getByRole('button',{name:'Abrir Instagram de @'+username,exact:true}).click();
  // Spec 96 §2.6: from the business the composer closes once the text was copied into the opened tab; the attempt waits for the echo in «Requiere acción» (checked below).
