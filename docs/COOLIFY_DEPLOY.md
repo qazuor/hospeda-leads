@@ -16,6 +16,8 @@ En el Coolify existente del VPS de Hospeda:
 - Reinicio: `unless-stopped`
 - PostgreSQL: versión 17, recurso separado gestionado por Coolify
 
+**Auto-deploy:** un push a `main` despliega producción solo (confirmado por el propietario el 30/10/2026, con el merge del #288). Mergear a `main` es desplegar: antes hay que tener las variables cargadas y un respaldo de la base. Los merges a `staging` no despliegan nada. Las migraciones pendientes corren al arrancar el contenedor (`scripts/migrate.mjs` en el `CMD` del `Dockerfile`).
+
 No hace falta desplegar el `docker-compose.yml` en Coolify. Ese compose queda para desarrollo local / despliegue autónomo.
 
 ## Dominio
@@ -49,9 +51,28 @@ R2_ACCESS_KEY_ID=<R2 API token access key id, Object Read & Write on the materia
 R2_SECRET_ACCESS_KEY=<R2 API token secret access key>
 R2_BUCKET=<private bucket name, e.g. hospeda-crm-material>
 BREVO_WEBHOOK_TOKEN=<random secret, minimum 32 characters; the Brevo transactional webhook sends it as a Bearer token>
+BREVO_SMTP_HOST=<optional, default smtp-relay.brevo.com>
+INSTAGRAM_ACCOUNT_USERNAME=<Hospeda Instagram username, e.g. hospeda.com.ar>
+INSTAGRAM_APP_SECRET=<Meta app secret>
+INSTAGRAM_VERIFY_TOKEN=<random secret, minimum 32 characters; same value as the Meta webhook verify token>
+INSTAGRAM_ACCOUNT_ID=<Hospeda professional Instagram account id>
+INTEGRATION_SECRETS_KEY=<base64 of exactly 32 random bytes: openssl rand -base64 32>
+CRM_CLIENT_IP_HEADER=<optional: x-real-ip (default), cf-connecting-ip, x-forwarded-for or none>
+SLOW_REQUEST_MS=<optional, default 1000>
+DB_LOCK_TIMEOUT_MS=<optional, default 10000>
+DB_POOL_MAX=<optional, default 10>
+DB_STATEMENT_TIMEOUT_MS=<optional, default 30000>
+BUSINESS_IMPORT_TOKEN_SHA256=<optional: SHA-256 of the business import API token; without it the import API is disabled>
+BUSINESS_IMPORT_ACTOR_EMAIL=<optional, defaults to ADMIN_EMAIL>
 ```
 
 No versionar valores reales.
+
+Qué pasa cuando falta cada una, y los valores por defecto, está en el inventario de `docs/runbook-promocion-produccion.md` (sección 3.2). Solo `DATABASE_URL` y `JWT_SECRET` son obligatorias para arrancar; `PUBLIC_APP_URL` es de nivel «función» en el código pero en producción es efectivamente obligatoria (sin ella fallan los enlaces para compartir material y la recuperación de contraseña responde 503). No cargar `CRM_MCP_*`, `R2_ENDPOINT`, `CRM_TEST_DATABASE*`, `CRM_DEV_*`, `PERF_*`, `CRM_PERF_*` ni `CRM_STATE_PREFLIGHT*` en producción.
+
+**A confirmar por el propietario:** la plantilla de variables de la raíz dice que producción usa `CRM_CLIENT_IP_HEADER=cf-connecting-ip`, pero el valor por defecto del código es `x-real-ip`. Hay que verificar qué tiene cargado Coolify (y que el origen acepte solo tráfico de Cloudflare si es `cf-connecting-ip`). La plantilla de producción del repo está desactualizada: no es referencia de lo que hay que cargar.
+
+**Worker de email entrante (Cloudflare, despliegue aparte).** No usa Coolify: se despliega desde `workers/inbound-email/` con `wrangler`. Variables en `wrangler.toml`: `CRM_BASE_URL` (debe apuntar a producción) y `TRUSTED_AUTHSERV_ID`. Secrets de wrangler: `INBOUND_EMAIL_TOKEN` (el mismo valor que en Coolify) y `FORWARD_TO`.
 
 Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` y, opcionalmente, `BREVO_SMTP_PORT` en Coolify. La clave debe ser propia del CRM y revocable. Si falta el usuario o la clave, el servidor inicia igual y oculta la acción.
 
