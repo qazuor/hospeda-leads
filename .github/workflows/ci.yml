@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Pinned: Playwright does not support Chromium on the ubuntu-26.04 image ubuntu-latest is moving to.
     services:
       postgres:
         # Google Artifact Registry cache for the official Docker Hub image.
