@@ -1,3 +1,5 @@
+> Promoción `staging` → `main`: borrador de runbook para revisión del propietario en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
+
 # Pendientes y próximo trabajo
 
 ## Specs 94, 96, 97 y 98 — cerradas en `staging`, pendientes de producción
