@@ -27,6 +27,8 @@ import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramCh
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
+import {refreshAutoOutcomesFromResponse,resolveSendOutcomeFromResponse} from './responseOutcomeService';
+import {contactLogBlocked} from './responseOutcome';
 export type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
@@ -227,7 +229,8 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
   await communicationJournal(e,{accountId:String(account.id),leadId,entityType:'business',entityId:String(account.id),action:'business_archived_by_do_not_contact',actor:null,automatic:true,triggeredBy:user.email,after:{status:'archived',responseId}});
  }
 }
-async function createResponse(e:Executor,input:Extract<CommunicationMutation,{action:'response_create'}>,user:User){
+/** `answeredAt`: when the response was received (a registered inbound); null means now, a response registered without a message. */
+async function createResponse(e:Executor,input:Extract<CommunicationMutation,{action:'response_create'}>,user:User,answeredAt:Date|null=null){
  const {account,lead}=await communicationContext(e,input.accountId,input.leadId,user,false);
  // Replay: a retry whose answer was lost returns the same response (the first save already blocked the business and closed the chosen managements). Only the same user, business, management, category, person and linked contact; anything else is a conflict that reveals nothing.
  const replay=(await sql<ResponseReplay>`SELECT id,actor_email,account_id,lead_id,category,contact_id,linked_message_id FROM crm_communication_responses WHERE id=${input.id}::uuid`.execute(e)).rows[0];
@@ -256,6 +259,8 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
  const inserted=await sql<{id:string}>`INSERT INTO crm_communication_responses(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,destination_detail,linked_message_id,category,summary,exact_text,other_detail,actor_email) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${input.contactId},${input.channel},${input.recipient},${input.recipientName},${input.destination},${input.linkedMessageId}::uuid,${input.category},${input.summary},${input.exactText},${input.otherDetail},${user.email}) RETURNING id`.execute(e);
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
+ // Spec 96 §10.1: the response resolves the pending «¿Cómo salió?» of the send it answers, when that can be told without guessing.
+ await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user,answeredAt});
  for(const task of selectedTasks){
   const completedAt=new Date();const result='Resuelta por la respuesta del cliente';
   const updated=await sql`UPDATE crm_tasks SET status='completed',completed_at=${completedAt},result=${result},updated_at=now() WHERE id=${task.id} AND status='pending' RETURNING id`.execute(e);
@@ -297,6 +302,8 @@ async function correctResponse(e:Executor,input:Extract<CommunicationMutation,{a
  const correctionJournalId=await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'response',entityId:input.id,action:'response_corrected',actor:user,before,after:{...after,correctionReason:input.reason}});
  if(row.category!==input.category&&((row.category==='do_not_contact')||(input.category==='do_not_contact'))){const value=input.category==='do_not_contact';if(account.doNotContact!==value){if(value)await cancelRecontactTaskFor(e,{accountId:account.id,cause:'dnc'});await withAutomaticStateChange(e,'response_correction',()=>sql`UPDATE crm_accounts SET do_not_contact=${value},updated_at=now() WHERE id=${account.id}`.execute(e));await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'business',entityId:String(account.id),action:value?'do_not_contact_activated':'do_not_contact_lifted',actor:null,automatic:true,triggeredBy:user.email,relatedEventId:correctionJournalId,before:{doNotContact:!value},after:{doNotContact:value,responseId:input.id}});}}
  if(input.category==='do_not_contact')await closeForDoNotContact(e,account,input.closeLeadIds??[],user,input.id,row.leadId==null?null:String(row.leadId));
+ // Spec 96 §10.1: an outcome this response set automatically follows the corrected response (a person's correction stays).
+ await refreshAutoOutcomesFromResponse(e,{response:{id:input.id,category:input.category,summary:input.summary},user,relatedEventId:correctionJournalId});
  return {id:input.id};
 }
 async function startManual(e:Executor,input:Extract<CommunicationMutation,{action:'manual_start'}>,user:User){
@@ -343,6 +350,19 @@ async function startManual(e:Executor,input:Extract<CommunicationMutation,{actio
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:input.channel==='call'?'contact_completed':'contact_started',actor:user,after:{channel:input.channel,status:created.status,purpose:input.purpose,recipient:created.recipient,recipientName:created.recipientName,destination:created.destinationDetail,content:created.templateSnapshot?.finalBody||created.body||null,summary:created.summary}});return created;
 }
 export async function renderFinal(e:Executor,m:Message,user:User){const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const sender=user.fullName?.trim()||user.displayName;return {htmlBody:buildHospedaEmailHtml({bodyHtml:m.body,senderName:sender,senderEmail:user.email,subject:m.subject,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,logoUrl:(process.env.PUBLIC_APP_URL??'http://localhost:3001').replace(/\/$/,'')+'/hospeda-logo.jpg'}),textBody:buildHospedaEmailText({bodyText:htmlToPlainText(m.body),senderName:sender,senderEmail:user.email})};}
+/**
+ * Spec 96 §2.4 (D6): a fresh draft stores its final text (and the email html) exactly as `edit` would, so the composer opens on the final
+ * view and an untouched email can be sent. A blank message, missing variables or unresolved material references keep them null: the
+ * seller must edit and save first, as before.
+ */
+async function renderPreparedFinal<T extends Message>(e:Executor,m:T,user:User):Promise<T>{
+ const plain=m.channel==='email'?htmlToPlainText(m.body):m.body;
+ if(m.status!=='draft'||!plain.trim()||(m.channel==='email'&&!m.subject.trim())||[...unresolvedTemplateVariables(m.subject),...unresolvedTemplateVariables(m.body)].length||hasMaterialReferences({text:m.subject})||hasMaterialReferences({text:m.body}))return m;
+ const body=m.channel==='email'?sanitizeEmail(m.body):m.body;
+ const final=await renderFinal(e,{...m,body},user);
+ const saved=(await sql<Message>`UPDATE crm_messages SET body=${body},html_body=${m.channel==='email'?final.htmlBody:null},text_body=${m.channel==='email'?final.textBody:body},updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
+ return {...m,...saved};
+}
 async function activity(e:Executor,m:Message,user:User,result:string){
  const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);
  const current=(await sql<{activityId:string|null;status:string}>`SELECT activity_id,status FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0];
@@ -414,8 +434,9 @@ export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:st
   if(given!==String(m.delegatedTaskId)&&!(user.role==='admin'&&given===null))throw new CommunicationForbidden('Este mensaje solo se puede usar desde su tarea delegada.');
  }
  if(!canLogContactOutcome(m.status))throw new CommunicationConflict('Este mensaje no registra un contacto realizado; no se puede anotar cómo salió.');
- const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
- if(existing?.outcome)throw new CommunicationConflict('Ya anotaste cómo salió este contacto.');
+ const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome','outcomeResponseId']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
+ // Spec 96 §10.1: an outcome a response set automatically does not block the seller's log; work.ts overwrites it and clears the mark.
+ if(existing&&contactLogBlocked(existing))throw new CommunicationConflict('Ya anotaste cómo salió este contacto.');
  if(needsSentAnswer(m.status)){
   if(!v.sent)throw new Error('Contá si el mensaje se envió.');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
@@ -464,8 +485,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.
  await lockCommunication(e,communicationScope(input));
  // Template references ({{material:<uuid>}}) become one fresh share link per send (spec 89 §9).
- if(input.action==='prepare')return withInstagramFlags(e,await withMaterials(e,await resolveTemplateMaterials(e,{message:await prepare(e,input,user),user})));
- if(input.action==='prepare_general')return withInstagramFlags(e,await withMaterials(e,await resolveTemplateMaterials(e,{message:await prepareGeneral(e,input,user),user})));
+ if(input.action==='prepare'||input.action==='prepare_general'){const prepared=input.action==='prepare'?await prepare(e,input,user):await prepareGeneral(e,input,user);const resolved=await resolveTemplateMaterials(e,{message:prepared,user});return withInstagramFlags(e,await withMaterials(e,'freshDraft' in prepared?await renderPreparedFinal(e,resolved,user):resolved));}
  if(input.action==='material_add'||input.action==='material_remove'||input.action==='material_attach'||input.action==='material_retry_without_attachments')return mutateDraftMaterial(e,input,user);
  if(input.action==='manual_start')return startManual(e,input,user);
  if(input.action==='response_create')return createResponse(e,input,user);
@@ -473,7 +493,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
   if(row.status==='registered'&&row.responseId){await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);return {id:String(row.responseId),duplicate:true};}
   if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
-  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user);
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
   await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
   await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
  }

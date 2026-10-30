@@ -103,12 +103,12 @@ describe('clamping (§7)',()=>{
 });
 
 describe('«Mostrar anulados» and the action bar (§5, §6)',()=>{
- it('puts the voided switch apart from the channel chips and keeps the action bar to three controls',async()=>{
+ it('puts the voided switch apart from the channel chips and keeps the action bar to the three channels, «Registrar» and «Enviar material» (spec 96 §2.2)',async()=>{
   setup({role:'admin',data:{messages:[message('a')]}});show({accountId:'5',onContact:vi.fn(),onSendMaterial:vi.fn()});const conversation=await ready();
   const chips=within(conversation).getByRole('group',{name:'Filtrar la conversación por canal'});
   expect(within(chips).queryByRole('switch')).toBeNull();expect(within(conversation).getByRole('switch',{name:'Mostrar anulados'})).toBeTruthy();
   const bar=screen.getByRole('group',{name:'Acciones de comunicación'});
-  await waitFor(()=>expect(within(bar).getAllByRole('button').map(b=>b.textContent)).toEqual(['Contactar','Registrar','Enviar material']));
+  await waitFor(()=>expect(within(bar).getAllByRole('button').map(b=>b.textContent)).toEqual(['WhatsApp','Instagram','Email','Registrar','Enviar material']));
  });
 });
 

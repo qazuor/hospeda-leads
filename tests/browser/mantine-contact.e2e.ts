@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import superjson from 'superjson';
 import { basePreferences } from '../../src/helpers/businessListPreferences';
+import { simulateUserscript } from './helpers/userscript';
+import { reveal } from './support/contactStep';
 
 for (const width of [1280, 390]) for (const dark of [false, true]) {
   test(`Mantine contact search, focus and layout at ${width}px ${dark ? 'dark' : 'light'}`, async ({ page }) => {
@@ -12,6 +14,7 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
       localStorage.setItem('hospeda-theme-mode', dark ? 'dark' : 'light');
       localStorage.setItem('hospeda-business-list-v1-user-3', JSON.stringify({ preferences, context: { page: 1, scrollY: 0, scrollX: 0 } }));
     }, { preferences: { ...basePreferences(), columns: ['nombre', 'actions'], pins: {} }, dark });
+    await simulateUserscript(page, { user: 'owner@example.com' });
     const account = { id: '1', nombre: 'Negocio de prueba', ciudad: 'Concepción', assignedUserEmail: 'owner@example.com', tipo: 'Alojamientos', status: 'reviewed', doNotContact: false, isClient: false, archivedAt: null, recontactAt: null, telefono: '123', whatsapp: '123', email: 'fixture@example.com' };
     const opportunities = [
       { id: '11', accountId: '1', opportunityName: 'Presentación Concepción', estado: 'Cargado', assignedUserEmail: 'owner@example.com' },
@@ -41,16 +44,23 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await page.goto('/accounts');
     const trigger = page.getByRole('group', { name: 'Acciones de Negocio de prueba' }).getByRole('button', { name: 'Contactar', exact: true });
     await trigger.click();
-    const dialog = page.getByRole('dialog', { name: 'Contactar', exact: true });
+    // Spec 96 §2.3: one contact step whose title follows the channel; call and social open their own dialog in its place.
+    const dialog = page.getByRole('dialog', { name: /^(Preparar (WhatsApp|email|Instagram)|Registrar una llamada|Contacto por red social)$/ });
+    const changeLine = (label: string) => dialog.locator('p').filter({ hasText: new RegExp('^' + label + ':') }).getByRole('button', { name: 'Cambiar', exact: true });
     const search = dialog.getByRole('combobox', { name: '¿Sobre qué?', exact: true });
     await expect(search).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Continuar con el mensaje' })).toBeDisabled();
+    // Two open managements and none chosen: nothing can be prepared until «¿Sobre qué?» is answered.
+    await expect(dialog.getByText('Elegí sobre qué es el contacto.', { exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Escribir un mensaje nuevo' })).toHaveCount(0);
     await search.fill('CONCEPCION');
     await expect(dialog.getByRole('listbox',{name:'¿Sobre qué?',exact:true}).getByRole('option')).toHaveCount(1);
     await search.press('ArrowDown');
     await search.press('Enter');
+    // Once chosen, «Sobre» collapses to one line; «Cambiar» brings the select back with the choice kept.
+    await expect(dialog.locator('p').filter({ hasText: /^Sobre:/ })).toContainText('Presentación Concepción · Cargado');
+    await expect(dialog.getByRole('button', { name: 'Escribir un mensaje nuevo' })).toBeEnabled();
+    await changeLine('Sobre').click();
     await expect(search).toHaveValue('Una gestión: Presentación Concepción · Cargado');
-    await expect(dialog.getByRole('button', { name: 'Continuar con el mensaje' })).toBeEnabled();
     await search.fill('zzz');
     await expect(dialog.getByText('Sin resultados', { exact: true })).toBeVisible();
     await search.fill('');
@@ -61,19 +71,27 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await expect(dialog).toBeVisible();
     await search.press('Tab');
     await expect(search).toHaveValue('Una gestión: Presentación Concepción · Cargado');
-    await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('email');
-    await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('social');
+    const channels = dialog.getByRole('group', { name: 'Canal', exact: true });
+    await channels.getByRole('button', { name: 'Email', exact: true }).click();
+    await expect(channels.getByRole('button', { name: 'Email', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await dialog.getByRole('button', { name: 'Red social', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Contacto por red social', exact: true })).toBeVisible();
     await dialog.getByRole('button', { name: 'Continuar con red social', exact: true }).click();
     let manual = page.getByRole('dialog', { name: 'Registrar contacto por red social', exact: true });
     await manual.getByLabel('Cuenta o perfil usado').fill('@hospeda');
     await manual.getByRole('button', { name: 'Iniciar intento manual', exact: true }).click();
     await expect(manual.getByRole('status')).toContainText('Intento iniciado sin texto');
     expect(manualPayloads[0]).toMatchObject({ action: 'manual_start', channel: 'social', leadId: '11', purpose: null, destination: '@hospeda' });
-    await manual.getByRole('button', { name: 'Volver a elegir canal', exact: true }).click();
-    // The general case lives in the same dialog: "Sin gestión", the Llamada channel and the call panel.
+    await manual.getByRole('button', { name: 'Volver', exact: true }).click();
+    // The general case: "Sin gestión", then the Llamada channel from «Otro» and the call panel.
     await search.click();
     await dialog.getByRole('listbox', { name: '¿Sobre qué?', exact: true }).getByRole('option', { name: 'Sin gestión (contacto general)' }).click();
-    await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('call');
+    await dialog.getByRole('button', { name: 'Volver a WhatsApp, Instagram o Email', exact: true }).click();
+    // Owner review of spec 96: back in the contact step the resolved controls are collapsed behind «Para: …»; «Cambiar» expands them.
+    await reveal(dialog, dialog.getByRole('button', { name: 'Llamada', exact: true }));
+    await dialog.getByRole('button', { name: 'Llamada', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Registrar una llamada', exact: true })).toBeVisible();
+    await changeLine('Propósito').click();
     await expect(dialog.getByLabel('Propósito del contacto')).toHaveValue('first_contact');
     // Desktop: the number is shown to copy, there is no tel: link, and copying records nothing.
     await expect(dialog.getByLabel('Número a llamar')).toHaveText('123');
@@ -92,8 +110,13 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await expect(dialog.getByRole('button', { name: 'Ya llamé: anotar cómo salió', exact: true })).toBeDisabled();
     await expect(dialog.getByRole('button', { name: 'Anotar cómo salió', exact: true })).toBeVisible();
     expect(manualPayloads[1]).toMatchObject({ action: 'manual_start', channel: 'call', leadId: null, purpose: 'first_contact', body: 'Llamada realizada para presentar Hospeda', result: 'manual_sent' });
-    await dialog.getByRole('combobox', { name: 'Canal', exact: true }).selectOption('email');
-    const secondary = dialog.getByRole('button', { name: 'Agregar o editar datos de contacto', exact: true });
+    await dialog.getByRole('button', { name: 'Volver a WhatsApp, Instagram o Email', exact: true }).click();
+    // Back from the call panel the composer opens again with the resolved controls collapsed behind «Para: …».
+    await reveal(dialog, channels.getByRole('button', { name: 'Email', exact: true }));
+    await channels.getByRole('button', { name: 'Email', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Preparar email', exact: true })).toBeVisible();
+    // A secondary (outline) action of the step: «Otra redacción» in the templates list.
+    const secondary = dialog.getByRole('button', { name: 'Otra redacción', exact: true });
     const colors = await secondary.evaluate(element => ({
       background: getComputedStyle(element).backgroundColor,
       text: getComputedStyle(element).color,
@@ -102,7 +125,8 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     expect(colors.text).not.toBe(colors.background);
     const pageBrightness = colors.pageBackground.match(/\d+/g)!.slice(0, 3).map(Number).reduce((a, b) => a + b) / 3;
     expect(dark ? pageBrightness < 100 : pageBrightness > 200).toBe(true);
-    const contrast = await dialog.getByRole('button', { name: 'Continuar con el mensaje' }).evaluate(element => {
+    // The primary (filled) control of the step: the selected channel.
+    const contrast = await channels.getByRole('button', { name: 'Email', exact: true }).evaluate(element => {
       const luminance = (color: string) => {
         const rgb = color.match(/\d+/g)!.slice(0, 3).map(value => {
           const channel = Number(value) / 255;
@@ -118,10 +142,10 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await page.screenshot({ path: `test-results/mantine-contact-${width}-${dark ? 'dark' : 'light'}.png`, animations: 'disabled' });
     // Keyboard focus stays inside the dialog, including after cycling backwards.
-    await dialog.getByRole('button', { name: 'Cerrar', exact: true }).focus();
+    await dialog.getByRole('button', { name: 'Cerrar', exact: true }).first().focus();
     await page.keyboard.press('Shift+Tab');
     await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
-    await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Cerrar', exact: true }).first().click();
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
     expect(writes).toEqual(['/_api/communication', '/_api/communication']);

@@ -34,7 +34,7 @@ async function detail(accountId:string,who:Id){const r=await get(new Request('ht
 const share=async(id:string)=>(await sql<{messageId:string|null;revokedAt:Date|null;revokeReason:string|null;sentVersion:number|null;attach:boolean;attachedVersion:number|null;preparedVersion:number}>`SELECT message_id,revoked_at,revoke_reason,sent_version,attach,attached_version,prepared_version FROM crm_sales_material_shares WHERE id=${id}::uuid`.execute(db)).rows[0]!;
 const message=async(id:string)=>(await sql<{status:string;body:string;revision:number}>`SELECT status,body,revision FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0]!;
 const journal=async(id:string,action:string)=>(await sql<{after:any}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_type='interaction' AND entity_id=${id} AND action=${action} ORDER BY id`.execute(db)).rows;
-const tokenOf=(body:string,title:string)=>new RegExp(`${title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}: (?:<a href=")?https://crm\\.example\\.test/m/([A-Za-z0-9_-]{43})`).exec(body)?.[1];
+const tokenOf=(body:string,title:string)=>new RegExp(`«${title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}» en: (?:<a href=")?https://crm\\.example\\.test/m/([A-Za-z0-9_-]{43})`).exec(body)?.[1];
 async function material(title:string,{kind='deliverable',bytes=2048,url,fileName}:{kind?:string;bytes?:number;url?:string;fileName?:string|null}={}){
  const id=randomUUID();
  await sql`INSERT INTO crm_sales_materials(id,title,kind,source,created_by_email) VALUES(${id}::uuid,${title},${kind},${url?'url':'file'},'admin@example.com')`.execute(db);
@@ -58,7 +58,7 @@ try{
  let wa=await prepare('whatsapp');assert.deepEqual(wa.materials,[]);
  let r=await call({action:'material_add',id:wa.id,revision:wa.revision,materialId:brochure,attach:false},200,owner);
  assert.equal(r.message.revision,wa.revision+1);assert.equal(r.materials.length,1);assert.equal(r.materials[0].materialId,brochure);assert.equal(r.materials[0].preparedVersion,1);assert.equal(r.materials[0].attachBlockedReason,'WhatsApp no adjunta archivos: va solo el enlace.');
- const waToken=tokenOf(r.message.body,'Folleto '+stamp);assert(waToken,'The body carries «Título: URL»: '+r.message.body);
+ const waToken=tokenOf(r.message.body,'Folleto '+stamp);assert(waToken,'The body carries «Título» en: URL: '+r.message.body);
  assert.equal((await share(r.materials[0].shareId)).messageId,wa.id);wa=r.message;
  await call({action:'material_add',id:wa.id,revision:wa.revision,materialId:brochure,attach:false},409,owner,/ya está en el mensaje/);
  await call({action:'material_add',id:wa.id,revision:wa.revision,materialId:internal,attach:false},403,owner,/interno/);
@@ -91,7 +91,7 @@ try{
 
  // dispatch: a material archived after adding it blocks the send with 409 and nothing changes; a link deleted from the text is revoked «Quitado del texto».
  r=await call({action:'material_add',id:wa.id,revision:wa.revision,materialId:tour,attach:false},200,owner);wa=r.message;const tourShare2=r.materials.find((m:any)=>m.materialId===tour).shareId;
- const edited=await call({action:'edit',id:wa.id,revision:wa.revision,subject:'',body:wa.body.split('\n').filter((line:string)=>!line.startsWith('Tour ')).join('\n')},200,owner);
+ const edited=await call({action:'edit',id:wa.id,revision:wa.revision,subject:'',body:wa.body.split('\n').filter((line:string)=>!line.includes('«Tour ')).join('\n')},200,owner);
  await sql`UPDATE crm_sales_materials SET status='archived',archived_at=now() WHERE id=${brochure}::uuid`.execute(db);
  await call({action:'dispatch',id:wa.id,revision:edited.revision,confirm:true},409,owner,/ya no está disponible\. Quitalo del mensaje/);
  assert.equal((await message(wa.id)).status,'draft');assert.equal((await share(tourShare2)).revokedAt,null,'A refused dispatch changes nothing');

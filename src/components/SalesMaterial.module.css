@@ -81,3 +81,5 @@ button.cover:hover img{transform:scale(1.02)}
 .menuReason{max-width:260px;white-space:normal;color:var(--muted-foreground);font-size:13px;line-height:1.4}
 .menuItemText{display:grid;gap:2px;min-width:0;max-width:240px}
 .menuItemText small{white-space:normal;color:var(--muted-foreground);font-size:12px;line-height:1.35}
+/* Owner review of spec 96: the progress view that replaces the form while a material is saved. */
+.savingView{display:grid;gap:14px;padding:4px 0}.savingSteps{display:grid;gap:10px;margin:0;padding:0;list-style:none}.savingSteps li{display:flex;align-items:center;gap:10px;font-size:14px}.savingSteps li[data-done]{color:var(--muted-foreground)}.savingSteps li[data-done] svg{color:var(--success)}

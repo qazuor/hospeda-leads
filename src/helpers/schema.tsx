@@ -329,7 +329,7 @@ export interface CrmTasks {
 export interface CrmActivities {
  id:Generated<Int8>; accountId:Int8; leadId:Int8|null; taskId:Int8|null; typeId:string; title:string;
  occurredAt:Timestamp; participants:Generated<string>; contactIds:Generated<Json>; channel:string|null;
- continuation:Generated<string|null>; continuationReason:Generated<string|null>; purpose:Generated<string|null>; outcome:Generated<string|null>; result:string|null; notes:string|null; actorEmail:string|null; deletedAt:Timestamp|null;
+ continuation:Generated<string|null>; continuationReason:Generated<string|null>; purpose:Generated<string|null>; outcome:Generated<string|null>; outcomeResponseId:Generated<string|null>; result:string|null; notes:string|null; actorEmail:string|null; deletedAt:Timestamp|null;
  createdAt:Generated<Timestamp>; updatedAt:Generated<Timestamp>;
 }
 export interface CrmWorkJournal {

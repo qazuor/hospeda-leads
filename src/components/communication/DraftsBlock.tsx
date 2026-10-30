@@ -19,7 +19,7 @@ function Draft({view,message}:{view:CommunicationView;message:Message}){
    <div><strong>Borrador · {channel} a {message.recipientName||message.recipient}{message.subject?` · «${message.subject}»`:''}</strong><span>Preparado por {userLabel(view.detail?.users,message.ownerEmail)} el {formatDateTime(message.createdAt)} · {message.channel==='email'?'todavía no se envió':'todavía no se abrió WhatsApp'}</span></div>
    {editable?<Button size="sm" variant="outline" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?'Cerrar borrador':'Seguir editando'}</Button>:<span>{message.delegatedTaskId?'Se edita desde la tarea delegada.':'Solo quien lo preparó o un administrador puede editarlo.'}</span>}
   </div>
-  {open&&editable&&<MessageComposer key={message.id} initial={message as PreparedMessage}/>}
+  {open&&editable&&<MessageComposer key={message.id} initial={message as PreparedMessage} startEditing/>}
  </article>;
 }
 

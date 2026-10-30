@@ -1,7 +1,14 @@
 import {describe,expect,it} from 'vitest';
-import {autoEffectsMatch,autoRegisterReason} from './autoRegistration';
+import {autoEffectsMatch,autoRegisterReason,globalAutoRegisterEnabled} from './autoRegistration';
 
 describe('automatic registration helpers',()=>{
+ it('turns the global switch on by default and respects a value an admin saved (owner, 28/10/2026)',()=>{
+  expect(globalAutoRegisterEnabled({value:undefined})).toBe(true);
+  expect(globalAutoRegisterEnabled({value:null})).toBe(true);
+  expect(globalAutoRegisterEnabled({value:'{"enabled":false}'})).toBe(false);
+  expect(globalAutoRegisterEnabled({value:'{"enabled":true}'})).toBe(true);
+  expect(globalAutoRegisterEnabled({value:'roto'})).toBe(false);
+ });
  const eligible={global:true,preference:true,accountExists:true,status:'reviewed',doNotContact:false,restricted:false,archived:false,merged:false,writeAccess:true};
  it('returns the global disabled reason before business eligibility',()=>{
   expect(autoRegisterReason({...eligible,global:false,status:'new'})).toBe('global_disabled');

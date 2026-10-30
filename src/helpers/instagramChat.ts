@@ -1,5 +1,6 @@
 import {normalizeInstagramProfile} from './dataNormalization';
 import {INSTAGRAM_ECHO_OWNER} from './instagramChannel';
+import {handoffFragment} from '../../userscript/src/instagram/handoff';
 
 /**
  * Spec 92: Instagram chats opened from the composer. Client-safe helpers (no Node imports) shared by the composer, the
@@ -34,11 +35,15 @@ export type InstagramTarget={readonly url:string;readonly kind:'chat'|'profile';
 /**
  * The single device decision of spec 92: `ig.me` opens the chat only in the mobile app (Meta does not support it on
  * Instagram Web, where it lands on «Esta página no está disponible»), so a phone opens the chat and a computer opens the
- * profile, where the seller clicks «Enviar mensaje». `mobile` is the coarse-pointer check the composer already uses.
+ * profile, where the seller clicks «Enviar mensaje» (or the user script does it and pastes, spec 94). `mobile` is the coarse-pointer
+ * check the composer already uses.
  */
-export function instagramTarget({username,mobile}:{username:string|null|undefined;mobile:boolean}):InstagramTarget|null{
+export function instagramTarget({username,mobile,nonce}:{username:string|null|undefined;mobile:boolean;nonce?:string|null}):InstagramTarget|null{
  const value=(username??'').replace(/^@/,'');
- const url=mobile?instagramChatUrl({username:value}):instagramProfileUrl({username:value});
+ // Spec 94: with a one-time handoff nonce (the user script is on this page), the desktop profile carries `#hospeda=<nonce>` so the script
+ // clicks «Enviar mensaje» and pastes. A fragment never reaches Instagram. Without a nonce the URL is the plain profile, as before.
+ const profile=instagramProfileUrl({username:value}),marked=profile&&nonce&&/^[0-9a-f]{32}$/.test(nonce)?`${profile}#${handoffFragment({nonce})}`:profile;
+ const url=mobile?instagramChatUrl({username:value}):marked;
  if(!url)return null;
  return mobile?{url,kind:'chat',label:`Ir al chat de @${value} en Instagram`}:{url,kind:'profile',label:`Abrir el perfil de @${value} en Instagram`};
 }

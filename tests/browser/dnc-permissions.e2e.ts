@@ -68,7 +68,7 @@ test('1C: a non-archived No contactar business is read-only for its responsible 
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
  await expect(page.getByTestId('do-not-contact-banner')).toContainText('Solo un administrador puede levantar el bloqueo.');
  await expect(page.getByRole('status').filter({hasText:'Mientras tenga No contactar, solo un administrador puede modificarlo.'})).toBeVisible();
- for(const name of ['Contactar','Editar negocio','Más acciones del negocio','WhatsApp','Email','Agendar tarea','Anotar lo que pasó','Iniciar gestión','Agendar otra tarea'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ for(const name of ['Contactar','Editar negocio','Más acciones del negocio','WhatsApp','Instagram','Email','Agendar tarea','Anotar lo que pasó','Iniciar gestión','Agendar otra tarea'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toHaveCount(0);
 });
 

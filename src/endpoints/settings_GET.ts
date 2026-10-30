@@ -1,5 +1,6 @@
 import { getOpportunityStages } from "../helpers/commercialStages";
 import superjson from "superjson";
+import { globalAutoRegisterEnabled } from "../helpers/autoRegistration";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { SettingsOutput } from "./settings_GET.schema";
@@ -62,7 +63,7 @@ export async function handle(request:Request){
         replyToEmail:emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar",
         brevoConnected:!!(process.env as Record<string,string|undefined>).BREVO_API_KEY
       }}:{}),
-      ...(admin?{userscriptAutoRegister:(()=>{try{return JSON.parse(emailConfig.crm_userscript_auto_register||'{"enabled":false}') as {enabled:boolean};}catch{return {enabled:false};}})()}:{}),
+      ...(admin?{userscriptAutoRegister:{enabled:globalAutoRegisterEnabled({value:emailConfig.crm_userscript_auto_register})}}:{}),
       contactPositions:JSON.parse(emailConfig.crm_contact_positions||"[]"),
       contactChannels:JSON.parse(emailConfig.crm_contact_channels||"[]"),
       opportunityStages,

@@ -9,6 +9,14 @@ import {setWorkActor} from './workAudit';
 import type {Kysely} from 'kysely';
 import type {DB} from './schema';
 
+/**
+ * Owner decision (28/10/2026): the global WhatsApp auto-registration switch is on by default. With no saved setting it is enabled; a value an
+ * admin saved is respected, and an unreadable one counts as off.
+ */
+export function globalAutoRegisterEnabled({value}:{value:string|null|undefined}):boolean{
+ if(value==null)return true;
+ try{return JSON.parse(value).enabled===true;}catch{return false;}
+}
 export type AutoRegisterEligibility={enabled:boolean;reason?:'global_disabled'|'auto_disabled'|'not_eligible';since:string};
 export function autoRegisterReason(input:{global:boolean;preference:boolean;accountExists:boolean;status:string|null;doNotContact:boolean;restricted:boolean;archived:boolean;merged:boolean;writeAccess:boolean}){
  if(!input.global)return 'global_disabled' as const;
@@ -24,8 +32,7 @@ export async function autoRegisterEligibility(e:Executor,accountId:string,user:U
   sql<{enabled:boolean;since:Date}>`SELECT userscript_auto_register AS enabled,userscript_auto_register_since AS since FROM users WHERE id=${user.id}`.execute(e),
   e.selectFrom('appSettings').select('value').where('key','=','crm_userscript_auto_register').executeTakeFirst()
  ]);
- let globalEnabled=false;
- try{globalEnabled=setting?JSON.parse(setting.value).enabled===true:false;}catch{}
+ const globalEnabled=globalAutoRegisterEnabled({value:setting?.value});
  const pref=preference.rows[0];
  const since=new Date(Math.max(pref?.since.getTime()??Date.now(),Date.now()-24*60*60_000)).toISOString();
  let writeAccess=true,restricted=false;

@@ -61,8 +61,11 @@ describe('MessageComposer reused draft (report item 1.14)',()=>{
   expect(vi.mocked(postCommunication).mock.calls[0][0]).toMatchObject({action:'prepare_general',leadId:null,purpose:'first_contact'});
   expect(vi.mocked(toast.success).mock.calls[0]).toEqual(['Borrador anterior descartado',expect.not.objectContaining({action:expect.anything()})]);
  });
- it('opens a fresh draft directly',()=>{
+ it('opens a fresh draft directly: on the final view when it is rendered (spec 96), on the editor otherwise',()=>{
   show(message({}));
+  expect(screen.queryByRole('group',{name:'Borrador anterior'})).toBeNull();
+  expect(screen.getByRole('heading',{name:'Revisá el contenido final'})).toBeTruthy();
+  cleanup();show(message({textBody:null}));
   expect(screen.queryByRole('group',{name:'Borrador anterior'})).toBeNull();
   expect(screen.getByRole('heading',{name:'Personalizá el mensaje'})).toBeTruthy();
  });

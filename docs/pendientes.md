@@ -1,5 +1,20 @@
 # Pendientes y próximo trabajo
 
+## Spec 96 — contactar en tres clics, con el script conectado — pendiente de PR
+
+[Spec 96](crm-roadmap/96-contact-three-clicks.md) implementada en `feat/contact-three-clicks-96`, apilada sobre la 94 (sin mergear): el PR va después del de la 94. Falta:
+- push, PR a `staging` y CI verde. Las suites de integración nuevas o cambiadas (`test:communication` con la respuesta que resuelve el resultado, sus correcciones, el orden temporal y No contactar, `test:userscript` con el mínimo 1.5.0) y las e2e reescritas **no se corrieron localmente**: se validan en CI;
+- **migración `052_response_outcome.sql`** (agrega `crm_activities.outcome_response_id`): aplicarla con `npm run db:migrate` en el deploy;
+- **distribuir el user script 1.5.1 antes o en el mismo deploy:** el mínimo del servidor pasa a 1.5.0, así que un 1.3.x/1.4.x recibe 426 en WhatsApp Web, y el CRM **bloquea todas sus páginas** en la computadora (admins incluidos) hasta que el script esté en la última versión (1.5.1), conectado y con el token de la misma cuenta. Avisar a los vendedores antes;
+- prueba manual del propietario: con el script 1.5.0 conectado, «WhatsApp» en la barra → un modelo → «Abrir WhatsApp con …» (tres clics); sin token, con token revocado y con el token de otra cuenta, ver el motivo y «Ir a User script».
+
+## Spec 94 — pegar el mensaje en Instagram Web — pendiente de PR
+
+[Spec 94](crm-roadmap/94-instagram-userscript.md) implementada en `feat/instagram-userscript-94` (cortada de `staging`). Falta:
+- push, PR a `staging`, CI verde (incluye `instagram-open-chat.e2e.ts`, que no se corrió localmente) y merge;
+- **prueba manual del propietario en Instagram real** (Chrome o Edge): actualizar el script a la 1.4.0 desde `/userscript`, aprobar instagram.com en Tampermonkey, recargar el CRM, «Abrir Instagram» desde un negocio con Instagram; verificar que no hay pedido de permiso del portapapeles, que se abre el chat (la URL pasa a `/direct/t/…`), se escribe el texto y no se envía. Si Instagram abre un chat flotante en lugar de `/direct/t/`, el script muestra el aviso y no escribe: habría que revisar el diseño. Si el botón o el cuadro no se encuentran, ajustar `MESSAGE_BUTTON_NAMES` / `COMPOSER_LABELS` y los fixtures `instagram-*.html`;
+- sin migración ni variables nuevas.
+
 ## Material de venta: pantalla (spec 95) — cerrada en `staging`, pendiente de producción
 
 - PR #282 (`a2c7c93`). Al desplegar: aplicar la migración `051_sales_material_auto_cover.sql`. El CORS de los buckets ya está actualizado.

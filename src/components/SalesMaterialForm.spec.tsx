@@ -26,6 +26,11 @@ describe('pickedFileError',()=>{
  });
 });
 describe('SalesMaterialForm',()=>{
+ it('tells the admin that the client sees the title (owner review of spec 96)',()=>{
+  setup({type:'create'});
+  const title=screen.getByLabelText('Título');
+  expect(document.getElementById(title.getAttribute('aria-describedby')!)?.textContent).toMatch(/^Lo ve el cliente/);
+ });
  it('creates an external URL material with the trimmed data',async()=>{
   setup({type:'create'});
   expect(save('Guardar material').disabled).toBe(true);
@@ -39,18 +44,46 @@ describe('SalesMaterialForm',()=>{
   expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',title:'Video institucional',description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/video'}}));
   expect(api.upload).not.toHaveBeenCalled();
  });
+ it('uploads a JPEG saved as .png under its real type and says so (owner review of spec 96)',async()=>{
+  // Arrange
+  api.upload.mockResolvedValue('u-1');
+  setup({type:'create'});
+  // Act
+  pick('Archivo',new File([new Uint8Array([0xff,0xd8,0xff,0xe0,0,0,0,0,0,0,0,0,0,0,0,0])],'gallery-01.png',{type:'image/png'}));
+  await screen.findByText('gallery-01.png en realidad es un archivo JPG: se sube como gallery-01.jpg.');
+  fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Galería'}});
+  fireEvent.click(save('Guardar material'));
+  // Assert
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  const uploaded=api.upload.mock.calls[0][0].file as File;
+  expect(uploaded.name).toBe('gallery-01.jpg');expect(uploaded.type).toBe('image/jpeg');
+ });
  it('uploads the file first, then creates with the upload id, and blocks a double submit',async()=>{
   let finish!:(id:string)=>void;api.upload.mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
   setup({type:'create'});
   pick('Archivo',new File(['x'],'virus.exe',{type:'application/octet-stream'}));expect(screen.getByRole('alert').textContent).toBe('Ese tipo de archivo no está permitido.');
   const file=new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'});pick('Archivo',file);
   fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
-  fireEvent.click(save('Guardar material'));fireEvent.click(screen.getByRole('button',{name:'Subiendo archivo…'}));
+  fireEvent.click(save('Guardar material'));
+  // Owner review of spec 96: the form gives way to the progress view, so there is no submit button left to press twice.
+  expect(await screen.findByText('Subiendo archivo…')).toBeTruthy();
+  expect(screen.queryByRole('button',{name:/Guardar material|Subiendo archivo/})).toBeNull();expect(screen.queryByLabelText('Título')).toBeNull();
   await waitFor(()=>expect(api.upload).toHaveBeenCalledTimes(1));
   const call=api.upload.mock.calls[0][0];expect(call).toMatchObject({file,purpose:'file'});expect(call.materialId).toMatch(/^[0-9a-f-]{36}$/);
   finish('up-1');
   await waitFor(()=>expect(onSaved).toHaveBeenCalled());
   expect(api.post).toHaveBeenCalledTimes(1);expect(api.post.mock.calls[0][0]).toMatchObject({action:'create',id:call.materialId,source:'file',version:{uploadId:'up-1'}});
+ });
+ it('lists each finished step while saving and brings the form back, with what was typed, on an error',async()=>{
+  let fail!:(e:Error)=>void;api.upload.mockResolvedValue('up-1');api.post.mockImplementation(()=>new Promise((_resolve,reject)=>{fail=reject}));
+  setup({type:'create'});
+  pick('Archivo',new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
+  fireEvent.click(save('Guardar material'));
+  expect(await screen.findByText('Guardando material…')).toBeTruthy();
+  expect(screen.getByText('Subiendo archivo')).toBeTruthy();
+  fail(new Error('Se cortó la conexión.'));
+  expect(await screen.findByText(/Se cortó la conexión\./)).toBeTruthy();
+  expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('Folleto 2027');
  });
  it('keeps what was typed and offers a retry when the upload fails',async()=>{
   api.upload.mockRejectedValueOnce(new Error('Se cortó la subida del archivo.'));

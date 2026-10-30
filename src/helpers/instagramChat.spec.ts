@@ -22,7 +22,13 @@ describe('instagramTarget: one device decision (ig.me is not supported on Instag
   expect(instagramTarget({username:'@hotel.sol',mobile:false})).toEqual({url:'https://www.instagram.com/hotel.sol/',kind:'profile',label:'Abrir el perfil de @hotel.sol en Instagram'});
   expect(instagramProfileUrl({username:'a.b_c9'})).toBe('https://www.instagram.com/a.b_c9/');
  });
- it('opens the chat in the app on a phone',()=>{
+ it('marks the desktop profile only with a one-time nonce from the user script handoff (spec 94)',()=>{
+  const nonce='0123456789abcdef0123456789abcdef',url=new URL(instagramTarget({username:'hotel.sol',mobile:false,nonce})!.url);
+  expect(url.hash).toBe('#hospeda='+nonce);expect(url.search).toBe('');expect(url.pathname).toBe('/hotel.sol/');
+  for(const bad of [null,undefined,'','abc','#hospeda',nonce.toUpperCase()])expect(instagramTarget({username:'hotel.sol',mobile:false,nonce:bad})!.url).toBe('https://www.instagram.com/hotel.sol/');
+  expect(instagramTarget({username:'hotel.sol',mobile:true,nonce})!.url).toBe('https://ig.me/m/hotel.sol');
+ });
+ it('opens the chat in the app on a phone, without the marker',()=>{
   expect(instagramTarget({username:'hotel.sol',mobile:true})).toEqual({url:'https://ig.me/m/hotel.sol',kind:'chat',label:'Ir al chat de @hotel.sol en Instagram'});
  });
  it('never builds either URL from free text',()=>{

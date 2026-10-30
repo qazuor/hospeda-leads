@@ -1,3 +1,5 @@
+import {useState} from 'react';
+import {AutoOutcomeCorrection,AutoOutcomeNote,canFixAutoOutcome} from './AutoOutcome';
 import type {InboundMessage,Message} from '../../endpoints/communication.schema';
 import {formatDateTime} from '../../helpers/crmDates';
 import {actorLabel} from '../../helpers/crmLabels';
@@ -6,7 +8,7 @@ import {instagramTarget,isInstagramAttempt,isWaitingForInstagramEcho} from '../.
 import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS,actionSummary,isConfirmableOpen,requiresAction,timelineChannel,timelineChannelLabel} from '../../helpers/communicationTimeline';
 import {crmSuccess} from '../../helpers/crmFeedback';
 import {toast} from 'sonner';
-import {copyInGesture,instagramOpenedToast,isCoarsePointer,openInstagramChat} from '../InstagramOpenChat';
+import {copyInGesture,instagramOpenedToast,isCoarsePointer,openInstagramForPaste} from '../InstagramOpenChat';
 import {ClampedText} from './ClampedText';
 import {MessageMaterialRecord} from './MessageMaterialRecord';
 import {isInstagramInbound} from '../../helpers/instagramChannel';
@@ -30,9 +32,10 @@ function ReviewEntry({item,onFocus}:{item:InboundMessage;onFocus:(key:string)=>v
 /** «Copiar y abrir de nuevo» (spec 92): copies the prepared text and opens the same Instagram chat, client-side only (no new attempt, no request). */
 function ReopenInstagram({message}:{message:Message}){
  const reopen=async()=>{
-  const mobile=isCoarsePointer(),url=instagramTarget({username:message.recipient,mobile})?.url;if(!url)return;
-  const copy=copyInGesture(message.textBody||message.body),opened=openInstagramChat(url),copied=await copy.settled;
-  if(!opened)toast.warning('No se pudo abrir Instagram automáticamente.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile}));else toast.warning(instagramOpenedToast({copied,mobile:false}));
+  const mobile=isCoarsePointer(),text=message.textBody||message.body;if(!instagramTarget({username:message.recipient,mobile}))return;
+  // Copy first, inside the click; then the (possibly pre-opened) tab and the one-time handoff for the user script (spec 94).
+  const copy=copyInGesture(text),[{opened,scriptPastes},copied]=await Promise.all([openInstagramForPaste({username:message.recipient,text,mobile}),copy.settled]);
+  if(!opened)toast.warning('No se pudo abrir Instagram automáticamente.');else if(copied)crmSuccess(instagramOpenedToast({copied,mobile,scriptPastes}));else toast.warning(instagramOpenedToast({copied,mobile:false}));
  };
  return <Button variant="ghost" size="sm" onClick={()=>void reopen()}>Copiar y abrir de nuevo</Button>;
 }
@@ -45,7 +48,7 @@ function ReopenInstagram({message}:{message:Message}){
  */
 function ConfirmEntry({view,message,now}:{view:CommunicationView;message:Message;now:number}){
  const own=message.ownerEmail===view.userEmail,instagram=isInstagramAttempt(message),channel=instagram?'instagram':'whatsapp',name=instagram?'Instagram':'WhatsApp';
- const waiting=instagram&&isWaitingForInstagramEcho({message,now}),text=(message.textBody||message.body||'').trim();
+ const waiting=instagram&&isWaitingForInstagramEcho({message,now}),text=(message.textBody||message.body||'').trim(),[fixingOutcome,setFixingOutcome]=useState(false);
  return <li><div role="group" aria-label={name+' sin confirmar para '+(message.recipientName||message.recipient)} className={styles.actionCard} data-waiting={waiting||undefined}>
   <div className={styles.actionBody}><span className={styles.channel} data-channel={channel}><ChannelIcon channel={channel} size={18}/></span><div>
    <span className={styles.actionTitle} role={waiting?'status':undefined}>{waiting?INSTAGRAM_WAITING_STATUS:'¿Lo enviaste?'}</span>
@@ -53,7 +56,8 @@ function ConfirmEntry({view,message,now}:{view:CommunicationView;message:Message
    {text&&<ClampedText className={styles.actionQuote} text={text} lines={3}/>}
    <MessageMaterialRecord view={view} message={message}/>
   </div></div>
-  <div className={styles.actionButtons}><ConfirmSendButtons view={view} message={message}/>{instagram&&message.status==='instagram_opened'&&<ReopenInstagram message={message}/>}</div>
+  <AutoOutcomeNote message={message}/><div className={styles.actionButtons}><ConfirmSendButtons view={view} message={message}/>{instagram&&message.status==='instagram_opened'&&<ReopenInstagram message={message}/>}{canFixAutoOutcome(view,message)&&<Button size="sm" variant="ghost" onClick={()=>setFixingOutcome(true)}>Corregir cómo salió</Button>}</div>
+  {fixingOutcome&&<AutoOutcomeCorrection view={view} message={message} onClose={()=>setFixingOutcome(false)}/>}
  </div></li>;
 }
 

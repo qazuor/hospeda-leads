@@ -7,16 +7,22 @@ import { copyDiagnostic } from "./diagnostic";
 import { applyTheme, isAutoOpen, isDark, isEditing, openSettings, renderBanner, setPanelOpen, type UiOptions } from "./ui";
 import { USERSCRIPT_VERSION } from "./version";
 import { announceInstalled } from "./announce";
+import { watchConnection } from "./connection";
+import { listenForToken } from "./tokenBridge";
 import { showUpdatePrompt, throttled } from "./updatePrompt";
 import { AutoRegisterController, autoEligibility } from "./autoRegister";
 import {ChatBadges,badgePreference,toggleBadgePreference} from './badges';
+import { siteFor } from "./site";
+import { startInstagram } from "./instagram/start";
+import { gmHandoffStore, listenForInstagramHandoff } from "./instagramBridge";
 
 const BASE = (import.meta as ImportMeta & { env: { USERSCRIPT_CRM_BASE_URL?: string } }).env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const TOKEN_KEY = "hospeda-userscript-token", choicesKey = (phone: string | null) => `hospeda-userscript-choice:${phone || "unknown"}`;
 let observer: MutationObserver | null = null, timer = 0, lastFingerprint = "", activeChat = "", previewOpen = false;
 let autoController:AutoRegisterController|null=null,autoMessage="";
 let chatBadges:ChatBadges|null=null,badgeError:string|undefined,badgePane:HTMLElement|null=null;
-let autoPreference=GM_getValue<boolean>("hospeda-userscript-auto-register",true);
+// Read in start() for WhatsApp only: on Instagram the script reads no WhatsApp or token value from GM storage (spec 94 §2.4).
+let autoPreference=true;
 let autoCount:{accountId:string;value:number;expiresAt:number}|null=null;
 const cache = new Map<string, { expiresAt: number; value: ContextResponse }>();
 let status: { expiresAt: number; value: StatusResponse } | null = null;
@@ -108,8 +114,14 @@ function schedule(): void { window.clearTimeout(timer); timer = window.setTimeou
 /** WhatsApp switches theme by toggling a class on <body>; the system preference covers the moment before it does. */
 function watchTheme(): void { new MutationObserver(applyTheme).observe(document.body, { attributes: true, attributeFilter: ["class"] }); matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); }
 function start(): void {
-  // On the CRM's own page the script does nothing but say it is here: no WhatsApp logic, no requests.
-  if (location.hostname !== "web.whatsapp.com") { announceInstalled(document); return; }
+  const site = siteFor(location);
+  // Instagram (spec 94): only the isolated paste module, which reads the one-time handoff key and nothing else. No token, no requests.
+  if (site === "instagram") { startInstagram({ store: gmHandoffStore() }); return; }
+  // On the CRM's own page the script says it is here, accepts the Instagram handoff from the page and publishes whether its token works
+  // (spec 96 §3.1: one status request, only the state and the token owner's email reach the page), and since 1.5.1 takes a new token from
+  // «Conectar este navegador». No WhatsApp logic.
+  if (site === "crm") { announceInstalled(document); listenForInstagramHandoff(); const connection = watchConnection({ doc: document, readToken: token, fetchStatus: value => fetchStatus(BASE, value) }); listenForToken({ doc: document, verify: async value => { await fetchStatus(BASE, value); return true; }, save: value => GM_setValue(TOKEN_KEY, value), recheck: () => void connection.check() }); return; }
+  autoPreference = GM_getValue<boolean>("hospeda-userscript-auto-register", true);
   registerMenu(); watchTheme();
   chatBadges=new ChatBadges(BASE,token, message=>{badgeError=message;lastFingerprint="";void update();},()=>{badgeError="Token inválido o revocado. Conectá uno nuevo desde Ajustes.";lastFingerprint="";void update();},()=>{badgeError="Esta versión del script ya no funciona con el CRM. Actualizá desde el aviso del script.";void checkForUpdate();lastFingerprint="";void update();});
   const badgesRootObserver=new MutationObserver(records=>{if(records.every(record=>[...record.addedNodes,...record.removedNodes].every(node=>node instanceof HTMLElement&&node.hasAttribute('data-hospeda-badge-host'))))return;const pane=document.querySelector<HTMLElement>('#pane-side');if(pane&&pane!==badgePane&&badgePreference()){badgePane=pane;chatBadges?.start(pane);}});badgesRootObserver.observe(document.body,{subtree:true,childList:true});

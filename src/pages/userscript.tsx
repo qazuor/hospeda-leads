@@ -2,32 +2,45 @@ import {HelpLink} from '../components/HelpLink';
 import React from 'react';
 import {TextInput} from '@mantine/core';
 import {Link} from 'react-router-dom';
-import {AlertCircle,Check,ChevronRight,CircleHelp,Download,ExternalLink,KeyRound,MessageCircle,ShieldCheck,Workflow} from 'lucide-react';
+import {AlertCircle,Check,ChevronRight,CircleHelp,Download,ExternalLink,KeyRound,Link2,MessageCircle,ShieldCheck,Workflow} from 'lucide-react';
 import {Button} from '../components/Button';
 import {Badge} from '../components/Badge';
 import {CrmDialog} from '../components/ui/CrmDialog';
 import {compareSemver} from '../helpers/userscriptPure';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
-import {INSTALLED_ATTRIBUTE,INSTALLED_EVENT} from '../../userscript/src/announce';
+import {DETECT_TIMEOUT_MS,recheckUserscript,useCurrentUserEmail,useUserscriptStatus} from '../helpers/useUserscriptStatus';
+import {USERSCRIPT_URL,userscriptOtherUserReason,type UserscriptStatus} from '../helpers/userscriptGate';
+import {handTokenToUserscript,supportsTokenBridge} from '../helpers/userscriptConnect';
 import styles from './userscript.module.css';
 /** Served by the same CRM origin, so the installed script updates itself from the instance that issued its tokens. */
-export const USERSCRIPT_URL='/userscripts/hospeda-crm.user.js';
+export {USERSCRIPT_URL} from '../helpers/userscriptGate';
 /** How long the page waits for the script to announce itself before reporting it as not detected. */
-export const DETECT_TIMEOUT_MS=2000;
+export {DETECT_TIMEOUT_MS};
 type Token={id:string;label:string;createdAt:string;lastUsedAt:string|null;lastVersion:string|null;revokedAt:string|null};
 async function api(path:string,body?:unknown){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw new Error(data.error||'No se pudo completar la operación.');return data;}
-/**
- * The version the user script announced in this browser (it runs on every CRM page and only sets an attribute on <html>). Undefined while
- * waiting, null once it had time to and did not: not installed, disabled, or blocked by the browser.
- */
-export function useInstalledUserscript():string|null|undefined{
- const read=()=>document.documentElement.getAttribute(INSTALLED_ATTRIBUTE);
- const [version,setVersion]=React.useState<string|null|undefined>(()=>read()??undefined);
- React.useEffect(()=>{const onAnnounce=()=>setVersion(read());document.addEventListener(INSTALLED_EVENT,onAnnounce);const timer=window.setTimeout(()=>setVersion(current=>current??read()??null),DETECT_TIMEOUT_MS);return()=>{document.removeEventListener(INSTALLED_EVENT,onAnnounce);window.clearTimeout(timer);};},[]);
- return version;
-}
 const outdated=(version:string|null|undefined)=>!!version&&compareSemver(version,USERSCRIPT_VERSION)<0;
-function InstallStatus({installed}:{installed:string|null|undefined}){
+/** Spec 96 §3.4: what the script says about its token in this browser. Only the state reaches the page, never the token. */
+/**
+ * Owner review of spec 96: after creating a token, one click copies it and opens WhatsApp Web, where the Hospeda panel asks for it.
+ * The tab opens first, inside the click, so the browser does not block it as a popup.
+ */
+const copyAndOpenWhatsApp=(token:string)=>{window.open('https://web.whatsapp.com/','_blank','noopener');void navigator.clipboard?.writeText(token);};
+/** The «Nombre del dispositivo» field where a token is created. */
+const TOKEN_INPUT_ID='userscript-token-label';
+/** Owner review of spec 96: the «Falta el token» / «Token rechazado» badge takes the user to the field that creates one. */
+const focusTokenInput=()=>{const input=document.getElementById(TOKEN_INPUT_ID);if(!input)return;input.scrollIntoView?.({behavior:'smooth',block:'center'});input.focus({preventScroll:true});};
+const connectionLabels:Record<string,string>={connected:'Conectado','missing-token':'Falta el token',rejected:'Token rechazado',outdated:'Versión rechazada por el CRM',unknown:'Sin verificar'};
+function ConnectionLine({status}:{status:UserscriptStatus}){
+ const me=useCurrentUserEmail();
+ if(!status.version)return null;
+ const other=status.connection==='connected'&&!!status.user&&!!me&&status.user.trim().toLowerCase()!==me.trim().toLowerCase();
+ if(other)return <div className={styles.statusLine} role="status" aria-label="Conexión"><strong>Conexión</strong><Badge variant="warning">Otra cuenta</Badge><span>{userscriptOtherUserReason({email:status.user!})}</span></div>;
+ const label=status.connection==='connected'&&status.user?'Conectado':status.connection?connectionLabels[status.connection]??'Sin verificar':status.connection===undefined?null:'Sin verificar';
+ if(!label)return <div className={styles.statusLine} role="status" aria-label="Conexión"><span className={styles.spinner}/><span>Verificando la conexión…</span></div>;
+ return <div className={styles.statusLine} role="status" aria-label="Conexión"><strong>Conexión</strong>{label==='Falta el token'||label==='Token rechazado'?<button type="button" className={styles.badgeButton} title="Ir a crear un token" onClick={focusTokenInput}><Badge variant="warning">{label}</Badge></button>:<Badge variant={label==='Conectado'?'success':'warning'}>{label}</Badge>}{label==='Conectado'&&status.user&&<span>Con la cuenta {status.user}.</span>}{label==='Sin verificar'&&<Button variant="outline" onClick={recheckUserscript}>Verificar de nuevo</Button>}</div>;
+}
+function InstallStatus({status}:{status:UserscriptStatus}){
+ const installed=status.version;
  const label=!installed?'Instalar user script':outdated(installed)?'Actualizar user script':'Reinstalar user script';
  return <section className={styles.panel} aria-labelledby="userscript-status">
   <div className={styles.sectionTitle}><span className={styles.icon}><Workflow size={18}/></span><div><span className={styles.kicker}>ESTADO</span><h2 id="userscript-status">En este navegador</h2></div></div>
@@ -37,12 +50,31 @@ function InstallStatus({installed}:{installed:string|null|undefined}){
    :outdated(installed)?<><Badge variant="warning">Desactualizado</Badge><span>Tenés la versión {installed}; la actual es {USERSCRIPT_VERSION}.</span></>
    :<><Badge variant="success">Instalado</Badge><span>Versión {installed}, al día.</span></>}
   </div>
-  <div className={styles.installAction}><Button asChild variant={installed&&!outdated(installed)?'outline':'primary'}><a href={USERSCRIPT_URL} target="_blank" rel="noopener"><Download size={16}/>{label}<ExternalLink size={14}/></a></Button><p>Tampermonkey abre la instalación. Después creá un token y pegalo en el panel de Hospeda dentro de WhatsApp Web.</p></div>
+  <ConnectionLine status={status}/>
+  <p className={styles.note}>Para contactar por WhatsApp o Instagram desde la computadora, el script tiene que estar instalado, al día y conectado con tu cuenta.</p>
+  <div className={styles.installAction}><Button asChild variant={installed&&!outdated(installed)?'outline':'primary'}><a href={USERSCRIPT_URL} target="_blank" rel="noopener"><Download size={16}/>{label}<ExternalLink size={14}/></a></Button><p>Tampermonkey abre la instalación. Después creá un token y pegalo en el panel de Hospeda dentro de WhatsApp Web. Desde la versión 1.4.0 el script también trabaja en Instagram: al actualizar, Tampermonkey te pide aprobar instagram.com una sola vez.</p></div>
   <div className={styles.version}><span>Versión actual</span><strong>{USERSCRIPT_VERSION}</strong></div>
  </section>;
 }
+/**
+ * The token just created, shown once. With a 1.5.1+ script in this page, «Conectar este navegador» hands it over directly (owner review
+ * of spec 96); otherwise, or when the script does not answer, it is copied and pasted in the Hospeda panel of WhatsApp Web.
+ */
+function TokenReveal({token,bridge}:{token:string;bridge:boolean}){
+ const [connect,setConnect]=React.useState<'idle'|'connecting'|'connected'|'failed'>('idle');
+ React.useEffect(()=>setConnect('idle'),[token]);
+ const run=async()=>{if(connect==='connecting')return;setConnect('connecting');setConnect(await handTokenToUserscript({token})?'connected':'failed');};
+ const copy=<><Button variant={bridge&&connect!=='failed'?'outline':'primary'} onClick={()=>copyAndOpenWhatsApp(token)}><ExternalLink size={16} aria-hidden="true"/>Copiar y abrir WhatsApp Web</Button><Button variant="outline" onClick={()=>void navigator.clipboard.writeText(token)}>Copiar token</Button></>;
+ if(connect==='connected')return <section className={styles.tokenReveal} role="status"><div><strong>Listo: este navegador quedó conectado</strong><p>El script guardó el token nuevo. No hace falta pegarlo en WhatsApp Web.</p></div></section>;
+ return <section className={styles.tokenReveal} role="status">
+  <div><strong>{bridge?'Conectá este navegador':'Copialo ahora'}</strong><p>{bridge?'Un clic y el script de este navegador queda conectado. El token no se vuelve a mostrar.':'El token no se vuelve a mostrar. Pegalo en el panel de Hospeda dentro de WhatsApp Web.'}</p></div>
+  <code>{token}</code>
+  {connect==='failed'&&<p className={styles.revealError} role="alert">El script no pudo conectarse con ese token. Copiá el token y pegalo en el panel de Hospeda dentro de WhatsApp Web.</p>}
+  <div className={styles.revealActions}>{bridge&&connect!=='failed'&&<Button disabled={connect==='connecting'} disabledReason="Conectando…" onClick={()=>void run()}><Link2 size={16} aria-hidden="true"/>{connect==='connecting'?'Conectando…':'Conectar este navegador'}</Button>}{copy}</div>
+ </section>;
+}
 export default function UserscriptPage(){
- const installed=useInstalledUserscript();
+ const status=useUserscriptStatus();
  const [tokens,setTokens]=React.useState<Token[]>([]),[label,setLabel]=React.useState(''),[shown,setShown]=React.useState(''),[busy,setBusy]=React.useState(false),[loading,setLoading]=React.useState(true),[error,setError]=React.useState(''),[revokeTarget,setRevokeTarget]=React.useState<Token|null>(null),[autoRegister,setAutoRegister]=React.useState(true);const lock=React.useRef(false);
  const load=React.useCallback(async()=>{setLoading(true);try{setError('');const data=await api('/_api/userscript/tokens');setTokens(data.tokens);setAutoRegister(data.autoRegister??true);}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar.');}finally{setLoading(false);}},[]);React.useEffect(()=>{void load();},[load]);
  const toggleAuto=async(value:boolean)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{const result=await api('/_api/userscript/preferences',{autoRegister:value});setAutoRegister(result.autoRegister);}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar la preferencia.');}finally{lock.current=false;setBusy(false);}};
@@ -53,19 +85,19 @@ export default function UserscriptPage(){
   <header className={styles.pageHeader}><div><span className={styles.eyebrow}>HERRAMIENTAS</span><h1 aria-label="User script de WhatsApp" style={{display:"flex",alignItems:"center",gap:5,width:"max-content",maxWidth:"100%"}}>User script de WhatsApp<HelpLink topic="userscript"/></h1><p>Revisá los mensajes de WhatsApp Web que elijas y registralos en el CRM desde el panel. <Link to="/guide?topic=whatsapp-userscript&article=install-userscript">Ver la guía paso a paso <ChevronRight size={14}/></Link></p></div></header>
   <div className={styles.mainGrid}>
    <div className={styles.primaryColumn}>
-    <InstallStatus installed={installed}/>
+    <InstallStatus status={status}/>
     <section className={styles.panel} aria-labelledby="userscript-tokens"><div className={styles.sectionTitle}><span className={styles.icon}><KeyRound size={18}/></span><div><span className={styles.kicker}>CONEXIÓN</span><h2 id="userscript-tokens">Tokens de este usuario</h2></div></div><p className={styles.intro}>Creá un token por computadora para conectar el panel de WhatsApp con tu cuenta.</p>
      {!loading&&<label className={styles.preference}><input type="checkbox" checked={autoRegister} disabled={busy} onChange={e=>void toggleAuto(e.currentTarget.checked)}/><span><strong>Registrar solo los chats seguros</strong><small>Cuando está habilitado, los chats elegibles pueden registrarse automáticamente.</small></span></label>}
      {error&&<p className={styles.error} role="alert"><AlertCircle size={17}/>{error}<Button variant="outline" disabled={loading} onClick={()=>void load()}>Reintentar</Button></p>}
-     {loading?<p className={styles.loading} role="status">Cargando tokens…</p>:<><div className={styles.createToken}><TextInput label="Nombre del dispositivo" placeholder="Por ejemplo, Notebook oficina" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>
-      {shown&&<section className={styles.tokenReveal} role="status"><div><strong>Copialo ahora</strong><p>El token no se vuelve a mostrar.</p></div><code>{shown}</code><Button onClick={()=>void navigator.clipboard.writeText(shown)}>Copiar token</Button></section>}
+     {loading?<p className={styles.loading} role="status">Cargando tokens…</p>:<><div className={styles.createToken}><TextInput id={TOKEN_INPUT_ID} label="Nombre del dispositivo" placeholder="Por ejemplo, Notebook oficina" value={label} maxLength={80} onChange={e=>setLabel(e.currentTarget.value)}/><Button disabled={busy||!label.trim()} onClick={()=>void create()}>{busy?'Creando…':'Crear token'}</Button></div>
+      {shown&&<TokenReveal token={shown} bridge={supportsTokenBridge({version:status.version})}/>}
       {tokens.length?<ul className={styles.tokenList}>{tokens.map(t=><li key={t.id}><span className={styles.tokenIcon}><KeyRound size={16}/></span><div className={styles.tokenInfo}><strong>{t.label}</strong><span>Creado {new Date(t.createdAt).toLocaleDateString('es-AR')} · {usage(t)}</span></div>{!t.revokedAt&&outdated(t.lastVersion)&&<Badge variant="warning">Desactualizado</Badge>}{!t.revokedAt&&<Button variant="outline" disabled={busy} onClick={()=>setRevokeTarget(t)}>Revocar</Button>}</li>)}</ul>:<p className={styles.empty}>Todavía no hay tokens. Creá uno para conectar esta computadora.</p>}
      </>}
     </section>
    </div>
    <aside className={styles.sideColumn}>
     <section className={styles.panel} aria-labelledby="userscript-before"><div className={styles.sectionTitle}><span className={styles.icon}><ShieldCheck size={18}/></span><div><span className={styles.kicker}>REQUISITOS</span><h2 id="userscript-before">Antes de instalar</h2></div></div><ul className={styles.requirements}><li><strong>Chrome o Edge</strong><span>Instalá Tampermonkey. Desde la versión 138, hacé clic derecho en su ícono → «Administrar extensión» y activá «Permitir scripts de usuario». Si no aparece, activá el «Modo de desarrollador» en <code>chrome://extensions</code>. Sin eso el script no corre y no muestra ningún error.</span></li><li><strong>Firefox</strong><span>Instalá Tampermonkey y aceptá sus permisos, incluido «Acceder a tus datos de todos los sitios web». No hace falta ningún otro paso; si el script no corre, revisá ese permiso en <code>about:addons</code> → Tampermonkey → Permisos.</span></li></ul></section>
-    <section className={styles.panel} aria-labelledby="userscript-usage"><div className={styles.sectionTitle}><span className={styles.icon}><MessageCircle size={18}/></span><div><span className={styles.kicker}>EN WHATSAPP WEB</span><h2 id="userscript-usage">Cómo se usa</h2></div></div><ol className={styles.steps}><li><span>1</span><p>Instalá el script y creá un token para esta computadora.</p></li><li><span>2</span><p>En WhatsApp Web, abrí el panel de Hospeda y pegá el token en «Ajustes».</p></li><li><span>3</span><p>Conectate y abrí un chat individual. El panel muestra el negocio asociado.</p></li></ol><p className={styles.note}><Check size={15}/> El script no manda mensajes ni modifica contactos o etiquetas.</p></section>
+    <section className={styles.panel} aria-labelledby="userscript-usage"><div className={styles.sectionTitle}><span className={styles.icon}><MessageCircle size={18}/></span><div><span className={styles.kicker}>EN WHATSAPP WEB</span><h2 id="userscript-usage">Cómo se usa</h2></div></div><ol className={styles.steps}><li><span>1</span><p>Instalá el script y creá un token para esta computadora.</p></li><li><span>2</span><p>En WhatsApp Web, abrí el panel de Hospeda y pegá el token en «Ajustes».</p></li><li><span>3</span><p>Conectate y abrí un chat individual. El panel muestra el negocio asociado.</p></li></ol><p className={styles.note}><Check size={15}/> El script no manda mensajes ni modifica contactos o etiquetas.</p><p className={styles.note} data-testid="userscript-instagram"><Check size={15}/> En Instagram, después de «Abrir Instagram», el script toca «Enviar mensaje» y escribe el mensaje preparado en el chat de ese perfil, sin pedir permiso para el portapapeles. No lo envía: lo revisás y lo mandás vos.</p></section>
     <section className={styles.panel} aria-labelledby="userscript-help"><div className={styles.sectionTitle}><span className={styles.icon}><CircleHelp size={18}/></span><div><span className={styles.kicker}>AYUDA</span><h2 id="userscript-help">Si algo no funciona</h2></div></div><ul className={styles.troubleshooting}><li><strong>No aparece el botón:</strong> confirmá que Tampermonkey y «Hospeda CRM» estén activos. En Chrome o Edge revisá «Permitir scripts de usuario» y recargá WhatsApp Web.</li><li><strong>Falta el token o fue revocado:</strong> creá uno nuevo acá y cargalo en «Ajustes» del panel.</li><li><strong>Hay una versión nueva:</strong> tocá «Actualizar» en el aviso de Tampermonkey y recargá WhatsApp Web.</li><li><strong>No puede consultar o leer el chat:</strong> revisá tu conexión. Si sigue, registrá desde el CRM y compartí el diagnóstico del chat con el administrador.</li></ul><Link className={styles.helpLink} to="/guide?topic=whatsapp-userscript&article=whatsapp-problems">Ver todos los problemas y soluciones <ChevronRight size={15}/></Link></section>
    </aside>
   </div>

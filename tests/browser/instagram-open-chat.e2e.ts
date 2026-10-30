@@ -2,6 +2,8 @@ import {test,expect} from '@playwright/test';
 import {createHmac,randomUUID} from 'node:crypto';
 import postgres from 'postgres';
 import superjson from 'superjson';
+import {simulateUserscript} from './helpers/userscript';
+import {reveal} from './support/contactStep';
 import {encryptInstagramToken} from '../../src/helpers/instagram';
 import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from '../../scripts/lib/instagram-secret';
 
@@ -43,6 +45,8 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:baseURL});
  await page.setViewportSize({width:1280,height:900});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{localStorage.setItem('hospeda-live-mode','off');(window as unknown as {__opened:string[]}).__opened=[];window.open=((url?:string|URL)=>{const opened=(window as unknown as {__opened:string[]}).__opened;opened.push(String(url));const tab={closed:false,opener:{},close(){},location:{set href(v:string){opened.push(v)},get href(){return opened[opened.length-1]}}};return tab as unknown as Window;}) as typeof window.open;});
+ // Spec 96 §3.3: desktop Instagram needs a connected, current script. The simulation never acks the text handoff (spec 94), so the plain profile opens.
+ await simulateUserscript(page,{user:'admin@example.com'});
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
  async function api(endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
  const username='zz_e2e_'+Date.now().toString(36);
@@ -52,22 +56,24 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  await sql`INSERT INTO crm_instagram_contacts(igsid,username,name,fetched_at) VALUES(${igsid},${username},'Zz e2e',now()) ON CONFLICT(igsid) DO UPDATE SET username=excluded.username,fetched_at=now()`;
 
  await page.goto('/accounts/'+accountId);await page.getByRole('button',{name:'Contactar',exact:true}).first().click();let dialog=page.getByRole('dialog');
- await dialog.getByRole('combobox',{name:'¿Sobre qué?',exact:true}).click();await dialog.getByRole('listbox',{name:'¿Sobre qué?',exact:true}).getByRole('option',{name:/^Una gestión: Presentación Instagram/}).click();
- const channel=dialog.getByRole('combobox',{name:'Canal',exact:true});await expect(channel.locator('option')).toHaveText(['WhatsApp','Email · Brevo','Instagram','Llamada','Red social','Otro canal']);
- await channel.selectOption('instagram');await expect(dialog.getByText('@'+username,{exact:true})).toBeVisible();
- await dialog.getByRole('button',{name:'Continuar con el mensaje',exact:true}).click();dialog=page.getByRole('dialog');
+ // Spec 96 §2.3: the only open management is picked as «Sobre»; the channel is a compact group plus «Otro: Llamada · Red social · Otro canal».
+ await expect(dialog.locator('p').filter({hasText:/^Sobre:/})).toContainText('Presentación Instagram');
+ // Owner review of spec 96: resolved, those controls start collapsed behind the «Para: …» line; «Cambiar» expands them.
+ const channels=dialog.getByRole('group',{name:'Canal',exact:true});await reveal(dialog,channels);await expect(channels.getByRole('button')).toHaveText(['WhatsApp','Instagram','Email']);
+ const other=dialog.locator('p').filter({hasText:/^Otro:/});await expect(other.getByRole('button')).toHaveText(['Llamada','Red social','Otro canal']);
+ await channels.getByRole('button',{name:'Instagram',exact:true}).click();dialog=page.getByRole('dialog',{name:'Preparar Instagram',exact:true});await expect(dialog.getByText('@'+username,{exact:true})).toBeVisible();
  await dialog.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
  const text='Hola, soy de Hospeda. Te escribo para contarte cómo difundimos alojamientos de Colón en la plataforma. ¿Te interesa?';
  await dialog.getByRole('textbox',{name:'Mensaje final',exact:true}).fill(text);
- await dialog.getByRole('button',{name:'Guardar y ver contenido final'}).click();
+ await dialog.getByRole('button',{name:'Guardar cambios',exact:true}).click();
  await expect(dialog.getByRole('group',{name:'Antes de abrir Instagram'})).toContainText('en la computadora, el perfil de @'+username+', donde tocás «Enviar mensaje».');
- await dialog.getByLabel('Revisé destinatario y contenido final').check();
- if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);await dialog.getByRole('button',{name:'Abrir Instagram',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:shots+'/1-composer-instagram.png'});}
- await dialog.getByRole('button',{name:'Abrir Instagram',exact:true}).click();
- await expect(dialog.getByText('Esperando que Instagram confirme el envío…').first()).toBeVisible();
- await expect.poll(()=>page.evaluate(()=>(window as unknown as {__opened:string[]}).__opened)).toEqual(['about:blank','https://www.instagram.com/'+username+'/']);// desktop: ig.me does not work on Instagram Web
+ if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);await dialog.getByRole('button',{name:'Abrir Instagram de @'+username,exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:shots+'/1-composer-instagram.png'});}
+ await dialog.getByRole('button',{name:'Abrir Instagram de @'+username,exact:true}).click();
+ // Spec 96 §2.6: from the business the composer closes once the text was copied into the opened tab; the attempt waits for the echo in «Requiere acción» (checked below).
+ await expect(dialog).toHaveCount(0);
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {__opened:string[]}).__opened)).toEqual(['about:blank','https://www.instagram.com/'+username+'/']);// desktop: ig.me does not work on Instagram Web; the simulated script never acks the handoff, so no #hospeda=<nonce> marker (spec 94)
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);
- await expect(page.getByText(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo/)).toBeVisible();
+ await expect(page.getByText(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo .*Con el user script de Hospeda se pega solo\.$/)).toBeVisible();// no ack from the simulated script
  if(shots)await page.screenshot({path:shots+'/2-copied-and-opened.png'});
  const attempt=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='social'&&m.status==='instagram_opened');expect(attempt.recipient).toBe('@'+username);
 

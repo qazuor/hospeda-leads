@@ -2,8 +2,12 @@ import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {getPipeline} from '../../endpoints/pipeline.schema';
 import {useAuth} from '../../helpers/useAuth';
-import {canModifyManagement} from '../../helpers/crmPermissions';
-import {ChevronDown} from 'lucide-react';
+import {canModifyBusiness,canModifyManagement} from '../../helpers/crmPermissions';
+import {CONTACT_DNC_REASON,contactChannelBlock,type MessageChannel} from '../../helpers/contactChannels';
+import {useUserscriptContactBlock} from '../../helpers/useUserscriptStatus';
+import {ChevronDown,Instagram,Mail,MessageCircle} from 'lucide-react';
+import type {LucideIcon} from 'lucide-react';
+import {UserscriptGateNotice} from '../UserscriptGateNotice';
 import {Button} from '../Button';
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '../DropdownMenu';
 import {Disclosure,DisclosureSummary} from '../Disclosure';
@@ -15,7 +19,8 @@ import {SalesMaterialPicker,type PickedSalesMaterial} from '../SalesMaterialPick
 import type {CommunicationView,ContactChannel} from './types';
 import styles from './CommunicationView.module.css';
 
-export const CONTACT_DNC_REASON='El negocio está marcado No contactar; un administrador debe levantar ese bloqueo.';
+export {CONTACT_DNC_REASON};
+const CHANNELS:readonly {value:MessageChannel;label:string;Icon:LucideIcon}[]=[{value:'whatsapp',label:'WhatsApp',Icon:MessageCircle},{value:'instagram',label:'Instagram',Icon:Instagram},{value:'email',label:'Email',Icon:Mail}];
 
 /** The management call panel (only a management view can register a call here), with the same blocking reasons as before. */
 function ManagementCall({view,leadId,callSession}:{view:CommunicationView;leadId:string;callSession:CallSession}){
@@ -48,7 +53,8 @@ function RecordItem({label,reason,onSelect}:{label:string;reason?:string;onSelec
 }
 
 /**
- * Action bar of «Comunicación», spec 91 §6, on one line: «Contactar» (the existing composer), «Registrar ▾» (a menu with
+ * Action bar of «Comunicación», spec 91 §6 and spec 96 §2.2, on one line: «WhatsApp», «Instagram» and «Email» (each opens the contact
+ * step with that channel; disabled with the first reason that applies, the user script gate last), «Registrar ▾» (a menu with
  * «Llamada u otro contacto» and «Respuesta sin mensaje», the response dialog without a received message) and «Enviar
  * material» with its help link. Same gating as before: read-only views keep only the response option, an archived business
  * keeps it for admins only, and a disabled action says why. `onSendMaterial` adds «Enviar material» (spec 89 §8.2).
@@ -57,17 +63,21 @@ export function CommunicationActionBar({view,leadId,onContact,onSendMaterial}:{v
  const [recording,setRecording]=useState(false),[materialPicker,setMaterialPicker]=useState(false);
  // The call session outlives the dialog: its attempt key makes a retry after an uncertain save idempotent (manual_start).
  const callSession=useCallSession();
- const account=view.detail?.account;
+ const account=view.detail?.account,{authState}=useAuth(),gate=useUserscriptContactBlock();
+ const user=authState.type==='authenticated'?authState.user:undefined;
+ // Same rule as the general case of TaskContactDialog: the business, or at least one of its managements, can be written by this user.
+ const canContact=!!view.detail&&(canModifyBusiness(user,view.detail.account)||view.detail.opportunities.some(o=>!o.deletedAt&&canModifyManagement(user,o,view.detail!.account)));
+ const channelReason=(channel:MessageChannel)=>contactChannelBlock({channel,account,contacts:view.detail?.contacts??[],canContact,gateReason:gate.reason});
  const showContact=!view.readOnly&&!!onContact,showRecord=!view.readOnly,showResponse=!view.archivedReadOnly,showMaterial=!view.readOnly&&!!onSendMaterial&&!!account;
  const sendMaterialBlock=account?.doNotContact?'El negocio está marcado No contactar: no se le manda material.':account?.archivedAt?'El negocio está archivado; un administrador debe desarchivarlo.':!view.canWrite?'Solo el responsable o un administrador puede contactar a este negocio.':'';
  if(!showContact&&!showRecord&&!showResponse&&!showMaterial)return null;
- return <div className={styles.actionBar} role="group" aria-label="Acciones de comunicación">
-  {showContact&&<Button disabled={!account||account.doNotContact} disabledReason={!account?'Estamos cargando los datos del negocio.':CONTACT_DNC_REASON} onClick={()=>onContact?.()}>Contactar</Button>}
+ return <><div className={styles.actionBar} role="group" aria-label="Acciones de comunicación">
+  {showContact&&CHANNELS.map(({value,label,Icon})=>{const reason=channelReason(value);return <Button key={value} variant={value==='whatsapp'?'primary':'outline'} disabled={!!reason} disabledReason={reason} onClick={()=>onContact?.(value)}><Icon size={16} aria-hidden="true"/>{label}</Button>})}
   {(showRecord||showResponse)&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">Registrar<ChevronDown size={16} aria-hidden="true"/></Button></DropdownMenuTrigger><DropdownMenuContent>
    {showRecord&&<RecordItem label="Llamada u otro contacto" reason={view.detail?undefined:'Estamos cargando los datos del negocio.'} onSelect={()=>setRecording(true)}/>}
    {showResponse&&<RecordItem label="Respuesta sin mensaje" onSelect={()=>view.openResponse(null)}/>}
   </DropdownMenuContent></DropdownMenu>}
   {showMaterial&&<><Button variant="outline" disabled={!!sendMaterialBlock} disabledReason={sendMaterialBlock} onClick={()=>setMaterialPicker(true)}>Enviar material</Button><HelpLink topic="salesMaterial" hint="sendMaterial"/><SalesMaterialPicker opened={materialPicker} title="Enviar material" onClose={()=>setMaterialPicker(false)} onPick={x=>{setMaterialPicker(false);onSendMaterial?.(x)}}/></>}
   {recording&&view.detail&&<RecordContactDialog view={view} leadId={leadId} onContact={onContact} callSession={callSession} onClose={()=>setRecording(false)}/>}
- </div>;
+ </div>{showContact&&<UserscriptGateNotice gate={gate}/>}</>;
 }
