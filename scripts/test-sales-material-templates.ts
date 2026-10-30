@@ -162,7 +162,7 @@ try{
  assert.equal(withWarning.status,200);assert.deepEqual((await withWarning.json() as {materialWarnings:string[]}).materialWarnings,[`«Archivado ${stamp}» ya no está disponible. No se agregó al mensaje.`]);
  const add=(materialId:string,revision:number,messageId=prepared.messageId)=>script.materialAdd(new Request('http://localhost/_api/userscript/material_add',{method:'POST',headers:scripted(token),body:JSON.stringify({messageId,revision,materialId})}));
  const added=await add(tour,prepared.revision);assert.equal(added.status,200);const addedBody=await added.json() as {revision:number;body:string};
- assert.equal(addedBody.revision,prepared.revision+1);assert(addedBody.body.startsWith(prepared.body)&&new RegExp(`Tour ${stamp}: https://crm\\.example\\.test/m/`).test(addedBody.body));
+ assert.equal(addedBody.revision,prepared.revision+1);assert(addedBody.body.startsWith(prepared.body)&&new RegExp(`«Tour ${stamp}» en: https://crm\\.example\\.test/m/`).test(addedBody.body));
  assert.equal((await add(tour,addedBody.revision)).status,409,'The same material twice is refused');
  assert.equal((await add(internal,addedBody.revision)).status,403,'An internal material is never shared from the script');
  assert.equal((await add(brochure,prepared.revision)).status,409,'A stale revision is refused');
