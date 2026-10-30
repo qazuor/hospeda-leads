@@ -6,6 +6,10 @@ async function identity(role:'admin'|'user'){const u=await db.insertInto('users'
 const admin=await identity('admin'),user=await identity('user'),other=await identity('user');
 const request=(body:unknown,cookie=admin.cookie)=>new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie},body:superjson.stringify(body)});
 async function call(body:unknown,status=200,cookie=admin.cookie){const r=await post(request(body,cookie));const d=superjson.parse<any>(await r.text());assert.equal(r.status,status,d.error);return d;}
+/** Moves the contact-outcome cutoff back one day (openSends ignores older sends) and returns the previous value for restoring. */
+async function backOutcomeCutoff(){const since=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+ await sql`UPDATE app_settings SET value=to_char((now()-interval '1 day') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since'`.execute(db);return since;}
+const restoreOutcomeCutoff=async(since:string|undefined)=>{if(since!==undefined)await sql`UPDATE app_settings SET value=${since} WHERE key='crm_contact_outcome_since'`.execute(db);};
 async function resource(body:unknown,status=200,cookie=admin.cookie){const r=await resourcePost(request(body,cookie));const d=superjson.parse<any>(await r.text());assert.equal(r.status,status,d.error);return d;}
 async function message(id:string){return (await sql<Message>`SELECT * FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0];}
 let realFetch=globalThis.fetch;
@@ -326,6 +330,8 @@ try{
   console.log('D4: past care send on No contactar recorded; only admin marks client (manual_complete and interaction_correct)');}
  // Spec 96 §10.1: a registered response resolves the pending outcome of the send it answers, idempotently, and never guesses.
  {
+  const outcomeSince=await backOutcomeCutoff();
+  try{
   const acc=await db.insertInto('crmAccounts').values({nombre:'Auto outcome '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
   const first=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
   const second=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre+' B',estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
@@ -375,11 +381,11 @@ try{
   // B2: an activity a response creates writes the management history like the communication flow does.
   assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM lead_journal WHERE lead_id=${first.id} AND action='contact_logged' AND metadata->>'messageId'=${newer}`.execute(db)).rows[0].n),1,'contact_logged is written for the activity a response created');
   console.log('Spec 96: a response resolves the pending outcome of its send, idempotently and only when it is unambiguous; corrections follow the rules');
+  }finally{await restoreOutcomeCutoff(outcomeSince);}
  }
  // Spec 96 §10.1 M2: a response answers only the sends made before it was received (Monday email, Tuesday WhatsApp, Wednesday register).
  {
-  const since=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
-  await sql`UPDATE app_settings SET value=to_char((now()-interval '1 day') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since'`.execute(db);
+  const since=await backOutcomeCutoff();
   try{
    const acc=await db.insertInto('crmAccounts').values({nombre:'Late inbound '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
    const lead=await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,estado:'Cargado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
@@ -402,7 +408,7 @@ try{
    const adminAnswer=dncAnswer();await call(adminAnswer,200,admin.cookie);
    assert.deepEqual(await outcomeOf(dncSend),{outcome:'interested',responseId:adminAnswer.id},'an admin resolves it');
    console.log('Spec 96 M2: a late-registered reply resolves only the sends before it; No contactar resolves only for an admin');
-  }finally{if(since!==undefined)await sql`UPDATE app_settings SET value=${since} WHERE key='crm_contact_outcome_since'`.execute(db);}
+  }finally{await restoreOutcomeCutoff(since);}
  }
  // Merge all new relationships while preserving original attribution and snapshots.
  const dest=await db.insertInto('crmAccounts').values({nombre:'Destino '+stamp,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();let r=await quality(request({action:'merge_preview',sourceId:a.id,destinationId:dest.id}));assert.equal(r.status,200);const p=superjson.parse<any>(await r.text());r=await quality(request({action:'merge_confirm',sourceId:a.id,destinationId:dest.id,token:p.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Revisado en fixture',confirm:true}));assert.equal(r.status,200,await r.text());assert.equal((await message(id)).accountId,dest.id);assert.equal((await sql<{originalAccountId:string}>`SELECT original_account_id FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].originalAccountId,a.id);assert.equal((await sql<{accountId:string}>`SELECT account_id FROM crm_documents WHERE id=${did}::uuid`.execute(db)).rows[0].accountId,dest.id);
