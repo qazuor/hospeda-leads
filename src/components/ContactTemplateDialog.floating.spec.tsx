@@ -4,6 +4,7 @@ import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/reac
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {ContactTemplateDialog} from './ContactTemplateDialog';
+import {flushSync} from 'react-dom';
 
 vi.mock('../endpoints/commercial.schema',()=>({getCommercialDetail:vi.fn(async()=>({contacts:[],opportunities:[{id:'1',assignedUserEmail:'seller@example.com'}],account:{id:'1',isClient:false,doNotContact:false,assignedUserEmail:'seller@example.com'},senderProfiles:[]}))}));
 const postControl=vi.hoisted(()=>({pending:false,release:()=>{}}));
@@ -33,6 +34,17 @@ describe('floating composer',()=>{
   expect(await screen.findByText('Tenés cambios sin guardar')).toBeTruthy();expect(onFloatingClose).not.toHaveBeenCalled();expect(onOpenChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button',{name:'Descartar cambios y salir'}));
   await waitFor(()=>expect(onFloatingClose).toHaveBeenCalledWith(true));expect(onOpenChange).toHaveBeenCalledWith(false);
+ });
+ it('closes only an open «¿Sobre qué?» dropdown on Escape and keeps the floating composer',async()=>{
+  // Spec 96 moved the parent pickers into the floating composer. A real key press lets React commit the dropdown's close before a bubbling
+  // document listener runs, so that listener read «nothing open» and closed the whole composer. flushSync reproduces that commit order here.
+  const ClosingPicker=()=>{const [open,setOpen]=React.useState(true);return <><input aria-label="¿Sobre qué?" onKeyDown={e=>{if(e.key==='Escape')flushSync(()=>setOpen(false))}}/>{open&&<div className="mantine-Combobox-dropdown" role="listbox" aria-label="Opciones"/>}</>};
+  const onOpenChange=vi.fn(),onFloatingClose=vi.fn();
+  render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ContactTemplateDialog open presentation="floating" channel="email" lead={{id:'1',accountId:'1',nombre:'Negocio',tipo:'hotel',email:'business@example.com'}} templates={[]} contextRequired pickers={<ClosingPicker/>} onOpenChange={onOpenChange} onFloatingClose={onFloatingClose}/></QueryClientProvider></MantineProvider>);
+  const select=await screen.findByLabelText('¿Sobre qué?');
+  fireEvent.keyDown(select,{key:'Escape',code:'Escape'});
+  expect(screen.queryByRole('listbox',{hidden:true})).toBeNull();expect(screen.getByRole('dialog',{name:'Preparar email'})).toBeTruthy();expect(onFloatingClose).not.toHaveBeenCalled();expect(onOpenChange).not.toHaveBeenCalled();
+  fireEvent.keyDown(select,{key:'Escape',code:'Escape'});await waitFor(()=>expect(onOpenChange).toHaveBeenCalledWith(false));
  });
  it('keeps dialog presentation modal for other callers',()=>{setup('dialog');expect(screen.getByRole('dialog',{name:'Preparar email'}).getAttribute('aria-modal')).toBe('true')});
 });

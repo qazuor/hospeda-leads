@@ -111,6 +111,8 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     await expect(dialog.getByRole('button', { name: 'Anotar cómo salió', exact: true })).toBeVisible();
     expect(manualPayloads[1]).toMatchObject({ action: 'manual_start', channel: 'call', leadId: null, purpose: 'first_contact', body: 'Llamada realizada para presentar Hospeda', result: 'manual_sent' });
     await dialog.getByRole('button', { name: 'Volver a WhatsApp, Instagram o Email', exact: true }).click();
+    // Back from the call panel the composer opens again with the resolved controls collapsed behind «Para: …».
+    await reveal(dialog, channels.getByRole('button', { name: 'Email', exact: true }));
     await channels.getByRole('button', { name: 'Email', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Preparar email', exact: true })).toBeVisible();
     // A secondary (outline) action of the step: «Otra redacción» in the templates list.
