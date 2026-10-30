@@ -296,7 +296,7 @@ try{
   await echo(mid('lost'),text,lost.igsid);
   assert.equal((await row(id)).status,'manual_sent');assert.equal((await row(id)).ownerEmail,seller.user.email,'the attempt keeps its owner');
   const dnc=await business('dnc',seller.user.email,{isClient:false} as Record<string,unknown>),dncText=words('dnc-'+run.slice(0,6));
-  const care=await call(general(dnc.id,{purpose:'care'}),seller.cookie);const careEdit=await call({action:'edit',id:care.id,revision:care.revision,subject:'',body:dncText},seller.cookie);await call({action:'dispatch',id:care.id,revision:careEdit.revision,confirm:true},seller.cookie);
+  const care=await call(general(dnc.id,{purpose:'care',confirmedClient:true}),seller.cookie);const careEdit=await call({action:'edit',id:care.id,revision:care.revision,subject:'',body:dncText},seller.cookie);await call({action:'dispatch',id:care.id,revision:careEdit.revision,confirm:true},seller.cookie);
   await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',dnc.id).execute();
   await echo(mid('dnc'),dncText,dnc.igsid);
   assert.equal((await row(care.id)).status,'manual_sent','receiving the echo is not blocked by No contactar');
