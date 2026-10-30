@@ -1,15 +1,16 @@
-> Promoción `staging` → `main`: borrador de runbook para revisión del propietario en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
+> Promoción `staging` → `main`: ejecutada el 30/10/2026 (#288); el runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
 
 # Pendientes y próximo trabajo
 
-## Specs 94, 96, 97 y 98 — cerradas en `staging`, pendientes de producción
+## Specs 94, 96, 97 y 98 — desplegadas a producción el 30/10/2026
 
-PR #281/#284 (94 y 96), #285 (97), #286 (98). Nada se promueve a `main` ni se despliega hasta que el propietario lo pida. Trabajo del operador para producción:
-- **Migraciones:** 049 y 051 a 055 corren solas al arrancar el contenedor (el `CMD` del Dockerfile ejecuta `scripts/migrate.mjs`). No hace falta correrlas a mano.
-- **Variables en Coolify, antes del deploy:** `INSTAGRAM_ACCOUNT_USERNAME` (sin ella el script no aprende chats ni pega), `BREVO_WEBHOOK_TOKEN`, `PUBLIC_APP_URL` y las variables de R2.
-- **Rollout del user script 1.7.0, coordinado con el deploy:** la barrera de la spec 96 bloquea el CRM en la computadora con un script por debajo de la última versión (`USERSCRIPT_MIN_VERSION` se queda en 1.5.0). Ese día avisar a los vendedores que fuercen «Buscar actualizaciones» en Tampermonkey y aprueben instagram.com si lo pide.
-- **Prueba del propietario en producción (96, 97 y 98), después del deploy:** tres clics con el script conectado (96); chat de Instagram, panel e insignias en la lista (97); «Enviar material» en ambos paneles, «Sin gestión» en WhatsApp y «Buscar o crear en el CRM» (98). Probar también la 94 en Instagram real.
-- Abierto de la 97: el aviso `account-unknown` (marcado NEEDS OWNER en la spec §14) y agregar `INSTAGRAM_ACCOUNT_USERNAME` a la plantilla de variables de la raíz.
+PR #281/#284 (94 y 96), #285 (97), #286 (98). Se promovieron con el PR #288 (`staging` → `main`, `dfa9b33`) y Coolify desplegó solo (auto-deploy de `main`, confirmado por el propietario). Producción sirve el user script 1.7.0. Pendiente:
+- **Verificación del propietario:** que las variables de Coolify estén cargadas (inventario en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md) sección 3.2, en especial `INSTAGRAM_ACCOUNT_USERNAME`, `BREVO_WEBHOOK_TOKEN`, `PUBLIC_APP_URL`, las `R2_*`) y que las migraciones (049, 051 a 055) se aplicaron sin error en el log del contenedor.
+- **Vendedores a 1.7.0:** la barrera de la spec 96 bloquea el CRM en la computadora con un script por debajo de la última versión (`USERSCRIPT_MIN_VERSION` sigue en 1.5.0). Avisar que fuercen «Buscar actualizaciones» en Tampermonkey y aprueben instagram.com si lo pide.
+- **Pruebas del propietario en producción (94, 96, 97 y 98):** tres clics con el script conectado (96); chat de Instagram, panel e insignias (97); «Enviar material» en ambos paneles, «Sin gestión» en WhatsApp y «Buscar o crear en el CRM» (98); pegar en Instagram real (94).
+- **Spec 97:** el aviso `account-unknown` (marcado NEEDS OWNER en la spec §14) sigue abierto; también agregar `INSTAGRAM_ACCOUNT_USERNAME` a la plantilla de variables de la raíz.
+- **CI:** quitar la fijación a ubuntu-24.04 (#289) cuando Playwright soporte 26.04.
+- **Confirmar `CRM_CLIENT_IP_HEADER`** en Coolify (la plantilla dice `cf-connecting-ip`, el código usa `x-real-ip` por defecto).
 
 ## Material de venta: pantalla (spec 95) — cerrada en `staging`, pendiente de producción
 

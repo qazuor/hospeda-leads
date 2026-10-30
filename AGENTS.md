@@ -75,7 +75,7 @@ Integration suites (`scripts/test-*.ts|mjs`) mutate the database and several rep
 2. NEVER force-push and NEVER `git commit --amend` on `main` or `staging`.
 3. All work: branch from `origin/staging` → change → typecheck + tests + build green locally → PR **targeting `staging`** → wait for CI → merge.
 4. Merge only when the PR's latest CI run is fully green on the exact head SHA (`gh pr view <N> --json headRefOid,statusCheckRollup`). Skipped jobs are fine; failed or cancelled are not. NEVER `gh pr merge --admin`.
-5. `staging` → `main` happens ONLY when the owner explicitly asks for it.
+5. `staging` → `main` happens ONLY when the owner explicitly asks for it. Merging to `main` deploys production (Coolify auto-deploys `main`), so before that merge the owner confirms the production env vars are loaded and a database backup exists.
 6. Hotfix exception: branch from `main`, PR to `main`, then back-merge `main` → `staging` through a PR.
 7. A merged or closed PR is done. Before pushing to a branch that ever had a PR, check `gh pr list --head <branch> --state all`. If it is `MERGED`/`CLOSED`, cut a new branch from `origin/staging` for the follow-up.
 
@@ -91,7 +91,7 @@ Do not run two agents on the same working tree. Use separate branches/worktrees 
 - The October cleanup and the 2026-10-10 recovery were already applied by the operator. Never re-run them, and never use the legacy importers (`db:import`, `scripts/migrate-floot-snapshot.mjs`, `db:recover:businesses`) to recreate deleted managements.
 - `CRM_TEST_DATABASE=1` is a self-declaration, not a guard: the scripts do not check where `DATABASE_URL` points. Before any seed or `test:*`, confirm the exported `DATABASE_URL` is a local disposable database.
 - **Migrations are immutable once applied.** Editing an applied file breaks its checksum. Always add a new numbered migration. Applying migrations does not run cleanups or recoveries.
-- **Deploy is manual.** Production runs on Coolify; `deploy-vps.yml` is `workflow_dispatch` only. Never trigger it, and never treat a merge as a deploy.
+- **A merge to `main` is a deploy.** Production runs on Coolify, which auto-deploys every push to `main` (confirmed by the owner on 2026-10-30). Merges to `staging` deploy nothing. `deploy-vps.yml` is `workflow_dispatch` only; never trigger it. Migrations pending in `main` run at container start (`scripts/migrate.mjs` in the Dockerfile CMD).
 - Never commit real `.env*` files, keys, tokens, production connection strings, dumps, per-business reports, manifests with data, passwords or sessions. Private evidence stays outside Git. Do not print full snapshots in production logs.
 - Never send real email/messages from a dev or test database. Brevo without a real key cannot send; use the existing mocks and fixtures.
 

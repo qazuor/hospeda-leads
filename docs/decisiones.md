@@ -402,3 +402,7 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 - El material de venta elegido en un borrador sobrevive al cambio de modelo o de persona; se saca con «Quitar».
 - En Instagram el material viaja solo como enlace; no se adjuntan archivos.
 - Los scripts de integración usan identificadores propios de cada corrida (nombres y usuarios únicos), para poder repetirse sin chocar con datos previos.
+
+## Deploy: `main` se despliega solo (30/10/2026, propietario)
+
+- Coolify auto-despliega producción en cada push a `main` (confirmado cuando el merge del #288 desplegó solo). Un merge `staging` → `main` **es** un deploy de producción: solo con la orden explícita del propietario, con las variables de entorno cargadas en Coolify y un respaldo de la base hecho antes. Los merges a `staging` no despliegan nada. `deploy-vps.yml` sigue siendo solo `workflow_dispatch` y no se dispara.
