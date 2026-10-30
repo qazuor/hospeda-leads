@@ -175,7 +175,7 @@ try{
  await db.updateTable('appSettings').set({value:JSON.stringify({enabled:false})}).where('key','=',settingKey).execute();
  // Spec 97: Instagram chat page. The Hospeda account comes from the environment (decision 12.7); this process sets it for the run.
  process.env.INSTAGRAM_ACCOUNT_USERNAME='hospeda.test';resetInstagramThreadRateLimits();
- const igUser=`zz.ig.${randomUUID().slice(0,8)}`,igThread=String(10_000_000_000+Math.floor(Math.random()*1_000_000_000));
+ const igUser=`zz.ig.${randomUUID().slice(0,8)}`,igName=`Zz Cabañas ${randomUUID().slice(0,8)}`,dncName=`Zz DNC ${randomUUID().slice(0,8)}`,hiddenName=`Zz Oculto ${randomUUID().slice(0,8)}`,igThread=String(10_000_000_000+Math.floor(Math.random()*1_000_000_000));
  const igAccount=await db.insertInto('crmAccounts').values({nombre:`Zz instagram ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,status:'reviewed',perfilInstagram:`https://www.instagram.com/${igUser.toUpperCase()}/?hl=es`} as never).returningAll().executeTakeFirstOrThrow();
  await db.insertInto('leads').values({accountId:igAccount.id,nombre:igAccount.nombre,estado:stage.name,managementType:'main',assignedUserEmail:seller.user.email} as never).execute();
  const igLead=String((await db.selectFrom('leads').select('id').where('accountId','=',igAccount.id).executeTakeFirstOrThrow()).id);
@@ -227,17 +227,17 @@ try{
  assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:'  Zz   Cabañas '})).status,200);assert.deepEqual(await storedName(igUser),{threadId:igThread,proof:'header',displayName:'Zz Cabañas'},'The header display name is stored trimmed and single-spaced');
  assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header'})).status,200);assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas','A header proof without a readable name keeps the stored one');
  assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'seller',displayName:'Otro Nombre'})).status,200);assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas','A seller proof never replaces a stored name');
- assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:'Zz Cabañas Nuevo'})).status,200);assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas Nuevo','A later header proof with another name updates it');
- assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:'x'.repeat(101)})).status,200,'A name that cannot be stored never refuses the report (review M2)');assert.equal((await storedName(igUser))?.displayName,'Zz Cabañas Nuevo','and keeps the stored name');
+ assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:igName})).status,200);assert.equal((await storedName(igUser))?.displayName,igName,'A later header proof with another name updates it');
+ assert.equal((await report('thread',{username:igUser,threadId:igThread,proof:'header',displayName:'x'.repeat(101)})).status,200,'A name that cannot be stored never refuses the report (review M2)');assert.equal((await storedName(igUser))?.displayName,igName,'and keeps the stored name');
  const sellerUser=igUser+'.dnc';await sql`DELETE FROM crm_instagram_threads WHERE viewer_username='hospeda.test' AND username=${sellerUser}`.execute(db);
- assert.equal((await report('thread',{username:sellerUser,threadId:igThread,proof:'seller'})).status,200);assert.equal((await report('thread',{username:sellerUser,threadId:igThread,proof:'seller',displayName:'Zz DNC'})).status,200);
- assert.equal((await storedName(sellerUser))?.displayName,'Zz DNC','A seller proof fills an empty name of the same thread');
- const igCtx=await igContext(igUser);assert.equal(igCtx.instagram.displayName,'Zz Cabañas Nuevo','context returns the stored display name with the thread');
+ assert.equal((await report('thread',{username:sellerUser,threadId:igThread,proof:'seller'})).status,200);assert.equal((await report('thread',{username:sellerUser,threadId:igThread,proof:'seller',displayName:dncName})).status,200);
+ assert.equal((await storedName(sellerUser))?.displayName,dncName,'A seller proof fills an empty name of the same thread');
+ const igCtx=await igContext(igUser);assert.equal(igCtx.instagram.displayName,igName,'context returns the stored display name with the thread');
  const inboxFor=async(auth:string)=>{const r=await instagramThreads(new Request('http://localhost/_api/userscript/instagram/threads',{headers:scripted(auth)}));assert.equal(r.status,200);return (await r.json() as {threads:{username:string;displayName:string;badge:{kind:string;code?:string;doNotContact?:boolean;openManagement?:{stageLabel:string}|null}}[]}).threads;};
  // A hidden business's thread (with a name) never reaches the list.
- await sql`INSERT INTO crm_instagram_threads(viewer_username,username,thread_id,proof,display_name) VALUES('hospeda.test',${igUser+'.hidden'},${igThread},'header','Zz Oculto') ON CONFLICT (viewer_username,username) DO UPDATE SET display_name='Zz Oculto'`.execute(db);
+ await sql`INSERT INTO crm_instagram_threads(viewer_username,username,thread_id,proof,display_name) VALUES('hospeda.test',${igUser+'.hidden'},${igThread},'header',${hiddenName}) ON CONFLICT (viewer_username,username) DO UPDATE SET display_name=${hiddenName}`.execute(db);
  const sellerInbox=await inboxFor(token),mine=sellerInbox.find(row=>row.username===igUser);
- assert.equal(mine?.displayName,'Zz Cabañas Nuevo');assert.equal(mine?.badge.kind,'single');assert.equal(mine?.badge.code,`H${igAccount.id}`);assert.ok(mine?.badge.openManagement,'The badge carries the open management like spec 86');
+ assert.equal(mine?.displayName,igName);assert.equal(mine?.badge.kind,'single');assert.equal(mine?.badge.code,`H${igAccount.id}`);assert.ok(mine?.badge.openManagement,'The badge carries the open management like spec 86');
  assert.equal(sellerInbox.find(row=>row.username===sellerUser)?.badge.doNotContact,true,'«No contactar» shows on the badge');
  assert.equal(sellerInbox.some(row=>row.username===igUser+'.hidden'),false,'A thread of a hidden business is left out');
  // Review H3: the archived business is assigned to `other`, who can see it; a third seller without access cannot.
@@ -246,11 +246,11 @@ try{
  assert.equal((await inboxFor(outsiderToken)).some(row=>row.username===igUser+'.hidden'),false,'A seller without access never sees it');
  // A thread without a display name is not listed.
  await sql`UPDATE crm_instagram_threads SET display_name=NULL WHERE viewer_username='hospeda.test' AND username=${sellerUser}`.execute(db);assert.equal((await inboxFor(token)).some(row=>row.username===sellerUser),false,'No name, no badge');
- // Review M1: two learned threads with the same name (case and spacing aside) are both left out, even when the twin is hidden from the user.
- await sql`UPDATE crm_instagram_threads SET display_name='ZZ  cabañas nuevo' WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
+ // Review M1: two learned threads with the same name (case aside) are both left out, even when the twin is hidden from the user.
+ await sql`UPDATE crm_instagram_threads SET display_name=${igName.toUpperCase()} WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
  assert.equal((await inboxFor(token)).some(row=>row.username===igUser),false,'A name shared with a hidden thread is not listed');
  assert.equal((await inboxFor(outsiderToken)).some(row=>row.username===igUser||row.username===igUser+'.hidden'),false);
- await sql`UPDATE crm_instagram_threads SET display_name='Zz Cabanas Nuevo' WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
+ await sql`UPDATE crm_instagram_threads SET display_name=${igName.replace('ñ','n')} WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
  assert.equal((await inboxFor(token)).some(row=>row.username===igUser),true,'Accents count: «Cabañas» and «Cabanas» are different names');
  delete process.env.INSTAGRAM_ACCOUNT_USERNAME;assert.equal((await instagramThreads(new Request('http://localhost/_api/userscript/instagram/threads',{headers:scripted(token)}))).status,409,'Without the Hospeda account there is no list');
  const revoked=await tokenRevoke(session(seller.cookie,{id:tokenRow.id}));assert.equal(revoked.status,200);
