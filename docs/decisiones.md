@@ -395,3 +395,10 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 - Revisión (29/10/2026): el servidor exige en `prepare_general` la misma regla que la pantalla para el propósito «care» sin gestión: solo para un negocio que ya es Cliente o con la confirmación `confirmedClient` (la manda el composer del CRM tras su casilla; el script nunca la manda).
 - Propietario (29/10/2026, opción 1): **insignias en la lista de chats de Instagram por nombre visible, solo para chats aprendidos.** La lista de Instagram no muestra usuario ni id de chat, así que el script guarda el nombre del encabezado al probar un chat (migración 054, `display_name`) y marca una fila solo si su nombre coincide exactamente (sin distinguir mayúsculas ni espacios; las tildes y la ñ cuentan) con un solo chat aprendido; con dos homónimos, aunque uno sea de un negocio oculto, o dos filas visibles con el mismo nombre, no marca ninguna. La insignia solo informa (sin enlace ni acción), respeta el interruptor «Mostrar insignias en la lista de chats» y el tema, y solo aparece con la cuenta de Hospeda. Un negocio que el usuario no puede ver no aparece.
 
+
+## Specs 94, 96, 97 y 98 — decisiones estables (30/10/2026)
+
+- «Buscar o crear en el CRM» (script) busca primero y crea solo a través del formulario del CRM; el script nunca crea un negocio por su cuenta.
+- El material de venta elegido en un borrador sobrevive al cambio de modelo o de persona; se saca con «Quitar».
+- En Instagram el material viaja solo como enlace; no se adjuntan archivos.
+- Los scripts de integración usan identificadores propios de cada corrida (nombres y usuarios únicos), para poder repetirse sin chocar con datos previos.

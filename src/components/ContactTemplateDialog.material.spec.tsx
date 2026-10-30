@@ -3,6 +3,7 @@ import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {postCommunication} from '../endpoints/communication.schema';
+import {getCommercialDetail} from '../endpoints/commercial.schema';
 import {ContactTemplateDialog} from './ContactTemplateDialog';
 
 vi.mock('../endpoints/commercial.schema',()=>({getCommercialDetail:vi.fn(async()=>({contacts:[],opportunities:[{id:'1',assignedUserEmail:'seller@example.com'}],account:{id:'1',isClient:false,doNotContact:false,assignedUserEmail:'seller@example.com'},senderProfiles:[]}))}));
@@ -36,6 +37,13 @@ describe('ContactTemplateDialog with «Enviar material» (owner review of spec 9
   expect(await screen.findByText('Borrador m-7 con mat-1')).toBeTruthy();
   expect(vi.mocked(postCommunication).mock.calls[1][0]).toMatchObject({action:'prepare',templateId:'7'});
   expect((screen.getByLabelText('Mensaje modelo') as HTMLSelectElement).value).toBe('7');
+ });
+
+ it('opens the free Instagram draft with the material too (spec 98 decision 2)',async()=>{
+  vi.mocked(getCommercialDetail).mockResolvedValueOnce({contacts:[],opportunities:[{id:'1',assignedUserEmail:'seller@example.com'}],account:{id:'1',isClient:false,doNotContact:false,assignedUserEmail:'seller@example.com',perfilInstagram:'hotel.sol'},senderProfiles:[]} as never);
+  render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ContactTemplateDialog open presentation="floating" channel="instagram" lead={{id:'1',accountId:'1',nombre:'Negocio',tipo:'hotel',telefono:'+5493442000001'}} templates={templates} initialMaterialId="mat-1" onOpenChange={vi.fn()}/></QueryClientProvider></MantineProvider>);
+  expect(await screen.findByText('Borrador m-free con mat-1')).toBeTruthy();
+  expect(vi.mocked(postCommunication).mock.calls[0][0]).toMatchObject({action:'prepare',channel:'instagram',templateId:null});
  });
 
  it('keeps the template list first when there is no material',async()=>{

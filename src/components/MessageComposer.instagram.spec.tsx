@@ -41,13 +41,23 @@ async function review(initial=message()){
 const opened=(over:Partial<PreparedMessage>={})=>message({status:'instagram_opened',revision:6,lastInteractionAt:new Date(),...over});
 
 describe('MessageComposer · Instagram (spec 92)',()=>{
- it('uses the plain editor, names the business username and hides the sales material',async()=>{
+ it('uses the plain editor, names the business username and offers sales material without attachments (spec 98)',async()=>{
   show(message());
   expect(screen.getByText(/Instagram para/).textContent).toContain('Hotel Sol');
   expect(screen.getByText('@hotel.sol')).toBeTruthy();
   fireEvent.click(screen.getByRole('button',{name:'Editar'}));
   expect((await screen.findByLabelText('Mensaje final')).getAttribute('data-channel')).toBe('instagram');
-  expect(screen.queryByText('Material de venta')).toBeNull();
+  expect(screen.getByText('Material de venta')).toBeTruthy();
+  expect(screen.getByRole('button',{name:'Agregar material de venta'})).toBeTruthy();
+ });
+ it('lists an Instagram draft\'s material with «Quitar» and never «Adjuntar el archivo» (decision 3)',async()=>{
+  const material={shareId:'s1',messageId:'11111111-1111-4111-8111-111111111111',materialId:'m1',title:'Folleto',channel:'instagram' as const,source:'file' as const,fileName:'folleto.pdf',byteSize:1000,available:true,preparedVersion:1,sentVersion:null,attach:false,attachedVersion:null,attachBlockedReason:'Instagram no adjunta archivos: va solo el enlace.',createdByEmail:'seller@example.com',createdAt:new Date(),revokedAt:null,revokedByEmail:null,revokeReason:null,technicalAccessCount:0,lastTechnicalAccessAt:null};
+  show(message({materials:[material]}));
+  fireEvent.click(screen.getByRole('button',{name:'Editar'}));
+  await screen.findByLabelText('Mensaje final');
+  expect(screen.getByRole('list',{name:'Material incluido'}).textContent).toContain('Folleto');
+  expect(screen.getByRole('button',{name:'Quitar'})).toBeTruthy();
+  expect(screen.queryByText('Adjuntar el archivo')).toBeNull();
  });
  it('shows the review notices and the help text, including the inactive-integration and shared-username warnings',async()=>{
   show(message({instagramAutoConfirm:false,instagramShared:true}));

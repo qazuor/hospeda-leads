@@ -57,7 +57,7 @@ const dayStart=(field:string,day:string)=>isCalendarDayField(field)?new Date(day
 const dayEnd=(field:string,day:string)=>isCalendarDayField(field)?new Date(day+"T23:59:59.999Z"):new Date(argentinaInstant(day+"T23:59").getTime()+59999);
 
 /** Free search (`q=`) over leads columns: the opportunity list predicate (and, over the business projection, the joined reference businessSearchSql must match). */
-export const managementSearchSql=(query:string)=>multiFieldSearchSql(["nombre","opportunityName","contactName","email","telefono","ciudad","origen"],query,{phoneColumns:["telefono"],extra:token=>sql<boolean>`exists(select 1 from lead_notes ln where ln.lead_id=leads.id and (${searchSql("ln.note",token)}${phoneSearchSql("ln.note",token)?sql` or ${phoneSearchSql("ln.note",token)}`:sql``}))`});
+export const managementSearchSql=(query:string)=>multiFieldSearchSql(["nombre","opportunityName","contactName","email","telefono","ciudad","origen"],query,{phoneColumns:["telefono"],instagramColumns:["perfilInstagram"],extra:token=>sql<boolean>`exists(select 1 from lead_notes ln where ln.lead_id=leads.id and (${searchSql("ln.note",token)}${phoneSearchSql("ln.note",token)?sql` or ${phoneSearchSql("ln.note",token)}`:sql``}))`});
 
 export async function handle(request: Request) {
   try {

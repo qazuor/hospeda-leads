@@ -8,17 +8,36 @@ import {errorResponse} from '../helpers/errorResponse';
 import {normalizeSearchSql} from '../helpers/searchSql';
 import {matchAccounts,phoneSignificantKeys,strictComparisonName} from '../helpers/dataNormalization';
 import {assertAccountReadable} from '../helpers/crmPermissions';
+import {instagramProfilePattern,normalizeInstagramUsername} from '../helpers/instagramChat';
 import {DNC_DUPLICATE_MESSAGE,type DuplicateCandidate} from './business_duplicate_check.schema';
 export {DNC_DUPLICATE_MESSAGE};
 
 const text=z.string().trim().max(200).optional();
-const querySchema=z.object({nombre:text,ciudad:text,telefono:text,email:text,whatsapp:text,personPhone:text});
+const querySchema=z.object({nombre:text,ciudad:text,telefono:text,email:text,whatsapp:text,instagram:text,personPhone:text});
+/** Reason of a business whose Instagram profile is the same username (spec 98 §17). An exactly shared Instagram blocks like a shared phone. */
+export const INSTAGRAM_SHARED='Instagram compartido';
+type MatchLike={id:string;reasons:string[];kind:'duplicate_candidate'|'shared_person_or_related'};
+/**
+ * Adds «Instagram compartido» to the matches of every row whose stored profile (URL, `@user` or bare username) normalizes to `username`,
+ * creating the match when the row matched nothing else. Pure: the SQL only prefilters.
+ */
+export function withInstagramMatches<M extends MatchLike>({matches,rows,username}:{matches:readonly M[];rows:readonly {id:string|number;perfilInstagram?:string|null}[];username:string|null}):(M|MatchLike)[]{
+ if(!username)return [...matches];
+ const out:(M|MatchLike)[]=matches.map(m=>({...m,reasons:[...m.reasons]}));
+ for(const row of rows){
+  if(normalizeInstagramUsername(row.perfilInstagram)!==username)continue;
+  const found=out.find(m=>m.id===String(row.id));
+  if(!found)out.push({id:String(row.id),reasons:[INSTAGRAM_SHARED],kind:'shared_person_or_related'});
+  else if(!found.reasons.includes(INSTAGRAM_SHARED))found.reasons.push(INSTAGRAM_SHARED);
+ }
+ return out;
+}
 type Input=Omit<z.infer<typeof querySchema>,'personPhone'>;
 type Executor=Kysely<DB>|Transaction<DB>;
 
 /** Existing businesses (archived and No contactar included; trash and merged excluded) that look like `input`: SQL prefilter, then `matchAccounts` with the ñ-preserving name rule. No contactar first so they survive the limit. */
 export async function findDuplicateAccounts(executor:Executor,input:Input,options:{excludeId?:string}={}){
- const name=input.nombre?.trim(),email=input.email?.trim().toLowerCase();
+ const name=input.nombre?.trim(),email=input.email?.trim().toLowerCase(),instagram=normalizeInstagramUsername(input.instagram);
  const tails=[...new Set([input.telefono,input.whatsapp].flatMap(v=>phoneSignificantKeys(v)).map(k=>k.slice(-6)))];
  const digits=(col:string)=>sql<string>`regexp_replace(coalesce(${sql.ref(col)},''),'\\D','','g')`;
  const clauses=[
@@ -26,6 +45,8 @@ export async function findDuplicateAccounts(executor:Executor,input:Input,option
   ...(email?[sql<boolean>`lower(email) = ${email}`]:[]),
   ...tails.flatMap(t=>[sql<boolean>`${digits('telefono')} like ${'%'+t+'%'}`,sql<boolean>`${digits('whatsapp')} like ${'%'+t+'%'}`]),
   ...[input.telefono,input.whatsapp].flatMap(v=>v?.trim()?[sql<boolean>`telefono = ${v.trim()}`,sql<boolean>`whatsapp = ${v.trim()}`]:[]),
+  // Anchored on the profile (spec 98 review): never a substring search, so a short username does not flood the 50-row limit.
+  ...(instagram?[sql<boolean>`perfil_instagram ~* ${instagramProfilePattern(instagram)}`]:[]),
  ];
  if(!clauses.length)return [];
  let query=executor.selectFrom('crmAccounts').selectAll().where('mergedIntoId','is',null).where('deletedAt','is',null).where(sql<boolean>`(${sql.join(clauses,sql` or `)})`);
@@ -33,7 +54,8 @@ export async function findDuplicateAccounts(executor:Executor,input:Input,option
  const rows=await query.orderBy('doNotContact','desc').orderBy('id').limit(50).execute();
  // Emails are compared case-insensitively here (matchAccounts keeps the local-part case).
  const lower=(v:string|null|undefined)=>v?.toLowerCase()??v;
- const matches=matchAccounts({...input,email:lower(input.email)},rows.map(r=>({...r,email:lower(r.email)??null})),{similarPhone:true});
+ const {instagram:_instagram,...matchInput}=input;
+ const matches=withInstagramMatches({matches:matchAccounts({...matchInput,email:lower(input.email)},rows.map(r=>({...r,email:lower(r.email)??null})),{similarPhone:true}),rows,username:instagram});
  const byId=new Map(rows.map(r=>[String(r.id),r]));
  const nameLabel='Nombre y localidad normalizados coinciden';
  return matches.flatMap(m=>{
@@ -43,14 +65,14 @@ export async function findDuplicateAccounts(executor:Executor,input:Input,option
  });
 }
 
-/** Blocks only on same name and city (ñ-preserving) or an exactly shared normalized phone/WhatsApp. Similar phones and shared emails only warn. */
-export const isBlockingMatch=(m:{kind:string;reasons:string[]})=>m.kind==='duplicate_candidate'||m.reasons.some(r=>r==='Teléfono compartido'||r==='WhatsApp compartido');
+/** Blocks only on same name and city (ñ-preserving), an exactly shared normalized phone/WhatsApp or (spec 98 §17) the same Instagram username. Similar phones and shared emails only warn. */
+export const isBlockingMatch=(m:{kind:string;reasons:string[]})=>m.kind==='duplicate_candidate'||m.reasons.some(r=>r==='Teléfono compartido'||r==='WhatsApp compartido'||r===INSTAGRAM_SHARED);
 
-type Values={nombre?:string|null;ciudad?:string|null;telefono?:string|null;email?:string|null;whatsapp?:string|null};
-const pick=(v:Values):Input=>({nombre:v.nombre??undefined,ciudad:v.ciudad??undefined,telefono:v.telefono??undefined,email:v.email??undefined,whatsapp:v.whatsapp??undefined});
+type Values={nombre?:string|null;ciudad?:string|null;telefono?:string|null;email?:string|null;whatsapp?:string|null;perfilInstagram?:string|null};
+const pick=(v:Values):Input=>({nombre:v.nombre??undefined,ciudad:v.ciudad??undefined,telefono:v.telefono??undefined,email:v.email??undefined,whatsapp:v.whatsapp??undefined,instagram:v.perfilInstagram??undefined});
 /** First No contactar business that `after` newly duplicates, or null. On edits (`before` given) only identity fields that changed count, and a business the record already matched before the change does not block. */
 export async function findNewDncBlocker(executor:Executor,{after,before,excludeId}:{after:Values;before?:Values;excludeId?:string}){
- const keys=['nombre','ciudad','telefono','email','whatsapp'] as const;
+ const keys=['nombre','ciudad','telefono','email','whatsapp','perfilInstagram'] as const;
  if(before&&keys.every(k=>(before[k]?.trim()||null)===(after[k]?.trim()||null)))return null;
  const blockers=async(v:Values)=>(await findDuplicateAccounts(executor,pick(v),{excludeId})).filter(f=>f.account.doNotContact&&isBlockingMatch(f.match));
  const previous=before?new Set((await blockers(before)).map(f=>String(f.account.id))):new Set<string>();

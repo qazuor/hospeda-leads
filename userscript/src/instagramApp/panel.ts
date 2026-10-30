@@ -26,6 +26,8 @@ export type PanelActions = {
   readonly confirmChat: () => void;
   readonly rejectChat: () => void;
   readonly compose: (match: InstagramMatch) => void;
+  /** Spec 98 §4.1: «Enviar material», the compose view in material mode. Optional so older callers keep working. */
+  readonly sendMaterial?: (match: InstagramMatch) => void;
   readonly setTheme: (theme: PanelTheme) => void;
   /** §15: the conversation-list badges switch (no CRM call, so no trusted guard). */
   readonly setBadges: (enabled: boolean) => void;
@@ -69,6 +71,14 @@ function logo(el: El, className: string): HTMLElement {
 }
 function button(el: El, text: string, className: string, onClick: (event: MouseEvent) => void, disabled = false): HTMLButtonElement {
   const node = el("button", className, text); node.type = "button"; node.disabled = disabled; node.addEventListener("click", onClick); return node;
+}
+/**
+ * Spec 98 §17: «Buscar o crear en el CRM» from a chat without a business. Opens Negocios searching the username (the CRM search does not read
+ * `@`) and carries it as the creation prefill; the CRM never creates anything by itself. Only the href changes: no API call.
+ */
+export function instagramSearchOrCreateUrl({ base, username }: { base: string; username: string }): string {
+  const user = username.replace(/^@/, "");
+  return `${base}/accounts?${new URLSearchParams({ q: user, createInstagram: user })}`;
 }
 function link(el: El, text: string, href: string, className = "btn"): HTMLAnchorElement { const node = el("a", className, text); node.href = href; node.target = "_blank"; node.rel = "noopener noreferrer"; return node; }
 /** Two-glyph icons (gear, close) as text, so no SVG markup is needed. */
@@ -123,7 +133,7 @@ function main(input: PanelInput, el: El): HTMLElement {
     }
     case "unproven": body.append(note("No pude confirmar con quién es este chat.", "info")); break;
     case "searching": body.append(el("p", "muted", "Buscando el negocio…")); break;
-    case "none": body.append(el("p", undefined, `No encontré un negocio con @${username} en el CRM.`), link(el, "Buscar en Negocios del CRM", `${input.base}/accounts`)); break;
+    case "none": body.append(el("p", undefined, `No encontré un negocio con @${username} en el CRM.`), link(el, "Buscar o crear en el CRM", instagramSearchOrCreateUrl({ base: input.base, username }))); break;
     case "hidden": body.append(note("Este Instagram está en un negocio que no podés ver. Consultá a un administrador antes de escribirle.")); break;
     case "multiple": {
       const matches = state.context?.kind === "ok" ? state.context.value.matches : [], field = el("label", "field", "Hay varios negocios con este Instagram"), select = el("select");
@@ -157,7 +167,9 @@ function business(input: PanelInput, el: El, match: InstagramMatch, username: st
   const reason = contactBlockReason(match), actions = el("div", "actions");
   const send = button(el, "Mandar un mensaje", "btn primary", trustedClick(input, () => input.actions.compose(match)), !!reason);
   if (reason) send.title = reason;
-  actions.append(send, link(el, "Abrir en CRM", match.url)); nodes.push(actions);
+  actions.append(send);
+  if (input.actions.sendMaterial) { const sendMaterial = input.actions.sendMaterial, material = button(el, "Enviar material", "btn", trustedClick(input, () => sendMaterial(match)), !!reason); if (reason) material.title = reason; actions.append(material); }
+  actions.append(link(el, "Abrir en CRM", match.url)); nodes.push(actions);
   if (reason && !match.doNotContact) nodes.push(el("p", "note warn", reason));
   return nodes;
 }

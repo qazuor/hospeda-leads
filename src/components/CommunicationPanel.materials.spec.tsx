@@ -44,6 +44,14 @@ describe('CommunicationPanel sales material (spec 89 §8.2, §8.4)',()=>{
   expect(screen.getByText(/Versión enviada: 2 · WhatsApp · Otra vendedora/)).toBeTruthy();
   expect(screen.getByRole('button',{name:'Revocar enlace'})).toBeTruthy();
  });
+ it('labels the material of an Instagram message «Instagram» (spec 98)',async()=>{
+  mocks.getCommunication.mockResolvedValue({messages:[{...sent,channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',materials:[{...shared,channel:'instagram'}]}],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],pendingOutcomes:[],recentContactHours:72,webhookConfigured:false});
+  mocks.getCommercialDetail.mockResolvedValue({account:{id:'5',nombre:'Hotel Sol',assignedUserEmail:'seller@example.com',archivedAt:null,doNotContact:false},contacts:[],opportunities:[],users:[{email:'other@example.com',displayName:'Otra vendedora'}]});
+  mocks.getPipeline.mockResolvedValue({stages:[]});
+  render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><CommunicationPanel accountId="5"/></QueryClientProvider></MantineProvider>);
+  fireEvent.click(await screen.findByRole('button',{name:/Instagram/}));
+  expect(await screen.findByText(/Versión enviada: 2 · Instagram · Otra vendedora/)).toBeTruthy();
+ });
  it('opens the picker from «Enviar material» and hands the chosen material to the business page',async()=>{
   mocks.list.mockResolvedValue({materials:[{id:'22222222-2222-4222-8222-222222222222',title:'Folleto 2027',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:1,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[],currentVersion:{id:'v1',version:1,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'a@example.com',createdAt:new Date()}}],truncated:false,categories:[],limits:{maxUploadBytes:1,maxCoverBytes:1,storageConfigured:true,maxEmailAttachmentBytes:10485760}});
   const onSendMaterial=vi.fn();show({onSendMaterial});

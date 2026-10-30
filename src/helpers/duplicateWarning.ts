@@ -1,6 +1,7 @@
 import type {DuplicateCandidate,DuplicateCheckInput} from '../endpoints/business_duplicate_check.schema';
+import {normalizeInstagramUsername} from './instagramChat';
 
-const REASON_LABELS:Record<string,string>={'Nombre y localidad normalizados coinciden':'Mismo nombre y ciudad','Teléfono compartido':'Mismo teléfono','WhatsApp compartido':'Mismo WhatsApp','Teléfono parecido':'Teléfono parecido','Email compartido':'Mismo email','Teléfono de la persona compartido':'Mismo teléfono que la persona','Teléfono de la persona parecido':'Teléfono parecido al de la persona'};
+const REASON_LABELS:Record<string,string>={'Instagram compartido':'Mismo Instagram','Nombre y localidad normalizados coinciden':'Mismo nombre y ciudad','Teléfono compartido':'Mismo teléfono','WhatsApp compartido':'Mismo WhatsApp','Teléfono parecido':'Teléfono parecido','Email compartido':'Mismo email','Teléfono de la persona compartido':'Mismo teléfono que la persona','Teléfono de la persona parecido':'Teléfono parecido al de la persona'};
 /** Most matches the creation dialog lists. */
 export const MAX_SHOWN_DUPLICATES=3;
 
@@ -9,15 +10,16 @@ export const duplicateReasonLabel=(reason:string):string=>REASON_LABELS[reason]?
 
 /**
  * Builds the duplicate-check query from what the seller typed, or null while nothing is specific enough to search.
- * Name needs 3 characters (city only travels with it), phones 6 digits and email a full address.
+ * Name needs 3 characters (city only travels with it), phones 6 digits, email a full address and Instagram a valid username (spec 98 §17).
  */
-export const duplicateQuery=({nombre,ciudad,telefono,email,personPhone}:{nombre?:string;ciudad?:string;telefono?:string;email?:string;personPhone?:string}):DuplicateCheckInput|null=>{
+export const duplicateQuery=({nombre,ciudad,telefono,email,instagram,personPhone}:{nombre?:string;ciudad?:string;telefono?:string;email?:string;instagram?:string;personPhone?:string}):DuplicateCheckInput|null=>{
  const name=nombre?.trim()??'',mail=email?.trim()??'';
  const phone=(v?:string)=>{const t=v?.trim()??'';return t.replace(/\D/g,'').length>=6?t:'';};
  const query:DuplicateCheckInput={
   ...(name.length>=3?{nombre:name,...(ciudad?.trim()?{ciudad:ciudad.trim()}:{})}:{}),
   ...(phone(telefono)?{telefono:phone(telefono)}:{}),
   ...(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)?{email:mail}:{}),
+  ...(normalizeInstagramUsername(instagram)?{instagram:normalizeInstagramUsername(instagram)!}:{}),
   ...(phone(personPhone)?{personPhone:phone(personPhone)}:{})
  };
  return Object.keys(query).length?query:null;

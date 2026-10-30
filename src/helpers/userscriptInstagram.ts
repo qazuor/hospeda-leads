@@ -1,7 +1,7 @@
 import {sql,type Kysely,type Transaction} from 'kysely';
 import {z} from 'zod';
 import type {DB} from './schema';
-import {INSTAGRAM_THREAD_ID,normalizeInstagramUsername} from './instagramChat';
+import {INSTAGRAM_THREAD_ID,instagramProfilePattern,normalizeInstagramUsername} from './instagramChat';
 import {assertBusinessAccess,canModifyBusiness,canModifyManagement} from './crmPermissions';
 import {businessStatusLabels,type BusinessStatus} from './businessStatus';
 
@@ -82,15 +82,7 @@ export async function businessesWithInstagram(e:Executor,{username}:{username:st
  // M2: no LIMIT before the exact rule. The SQL pattern already keeps only values naming `username` as a whole handle or path segment.
  return rows.filter(row=>normalizeInstagramUsername(row.perfilInstagram)===username).slice(0,10);
 }
-/**
- * M2: a case-insensitive POSIX pattern that matches every `perfil_instagram` whose normalization (`normalizeInstagramProfile`) is `username`:
- * the whole value as an optional `@` handle with an optional trailing slash, or the first path segment of a URL. It is a strict superset of the
- * rule, never a substring search, so a short username does not pull unrelated rows; the normalization stays the final arbiter.
- */
-export function instagramProfilePattern(username:string):string{
- const name=username.replace(/[.]/g,'\\.');
- return `^\\s*(?:@?${name}/?|(?:https?://)?(?:[^/?#@\\s]*\\.)?instagram\\.com(?::[0-9]+)?/${name}(?:[/?#][^\\s]*)?)\\s*$`;
-}
+export {instagramProfilePattern} from './instagramChat';
 
 /**
  * Spec 96 rule for «can contact» (§5.2): the business is modifiable by the user, or the user can modify one of its open managements. «No contactar»

@@ -1,6 +1,16 @@
 import {hashShareToken} from './salesMaterialShare';
-/** Message channels that can carry a sales material link (spec 89 D8). */
-export type MaterialChannel='email'|'whatsapp';
+import {isInstagramAttempt} from './instagramChat';
+/** Channels that can carry a sales material link (spec 89 D8; Instagram since spec 98, link only). Also the share's stored `channel`. */
+export type MaterialChannel='email'|'whatsapp'|'instagram';
+/**
+ * Spec 98 §5.2: the material channel of a message. An Instagram attempt is stored as `social` with `destination_detail='instagram'`, so its
+ * share says `instagram` (D1). A manual «Red social» log, Hospeda's echo or any other channel carries no material (null).
+ */
+export function materialChannelOf(message:{channel:string;ownerEmail?:string|null;destinationDetail?:string|null}):MaterialChannel|null{
+ return message.channel==='email'||message.channel==='whatsapp'?message.channel:isInstagramAttempt(message)?'instagram':null;
+}
+/** The channel `assertAccountContactAllowed` and restrictions use for a material channel: Instagram restrictions are stored on `social`. */
+export const contactChannelOf=(channel:MaterialChannel):'email'|'whatsapp'|'social'=>channel==='instagram'?'social':channel;
 /** No public base URL in production: a share link would point to localhost, so nothing is sent (fail closed). */
 export class MaterialShareUrlUnavailable extends Error{constructor(){super('Falta configurar la dirección pública del CRM (PUBLIC_APP_URL): no se puede generar el enlace del material.');this.name='MaterialShareUrlUnavailable';}}
 /**
@@ -16,9 +26,9 @@ const escapeHtml=(value:string)=>value.replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0
 const escapeRegExp=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 /** Lead-in before an appended material link, written for the client (owner review of spec 96): «Podés ver «Título» en: URL». */
 export const materialLinkLead=({title}:{title:string})=>`Podés ver «${title.trim()}» en:`;
-/** The text added to a draft for one material: «Podés ver «Título» en: URL» on its own line (WhatsApp) or a paragraph with the link (email). */
+/** The text added to a draft for one material: «Podés ver «Título» en: URL» on its own line (WhatsApp, Instagram) or a paragraph with the link (email). */
 export function materialLinkSnippet({channel,title,url}:{channel:MaterialChannel;title:string;url:string}):string{
- return channel==='whatsapp'?`${materialLinkLead({title})} ${url}`:`<p>${escapeHtml(materialLinkLead({title}))} <a href="${url}">${url}</a></p>`;
+ return channel!=='email'?`${materialLinkLead({title})} ${url}`:`<p>${escapeHtml(materialLinkLead({title}))} <a href="${url}">${url}</a></p>`;
 }
 /** Appends the material link at the end of the body, separated from the previous text (spec 89 §8.1). */
 export function appendMaterialLink({channel,body,title,url}:{channel:MaterialChannel;body:string;title:string;url:string}):string{
@@ -32,8 +42,8 @@ const closeGap=(text:string)=>text.replace(/[ \t]*\u0000[ \t]*(?=[.,;:!?)]|<\/|$
 /**
  * Removes a material link from the body: the link itself and the lead-in the composer added before it («Podés ver «Título» en: », or the
  * older «Título: » of drafts saved before it; spec 89 §8.1).
- * Whatever else the seller wrote on that WhatsApp line or in that email paragraph is kept; a line or paragraph left empty is dropped
- * (in WhatsApp, with the blank line before it).
+ * Whatever else the seller wrote on that WhatsApp/Instagram line or in that email paragraph is kept; a line or paragraph left empty is dropped
+ * (in plain text, with the blank line before it).
  */
 export function removeMaterialLink({channel,body,url,title}:{channel:MaterialChannel;body:string;url:string;title:string}):string{
  if(!url||!body.includes(url))return body;
@@ -82,7 +92,7 @@ export const fileExtension=({fileName}:{fileName:string}):string|null=>{const m=
 /** One material of a draft, as far as attaching it is concerned. */
 export type AttachCandidate={id:string;source:'file'|'url';fileName:string|null;byteSize:number|null;attach:boolean};
 /**
- * Why each material cannot be attached (null = it can), spec 89 D8 and §8.3: WhatsApp never attaches, external links have no file,
+ * Why each material cannot be attached (null = it can), spec 89 D8 and §8.3: WhatsApp and Instagram (spec 98 decision 3) never attach, external links have no file,
  * Brevo only attaches the extensions of {@link BREVO_ATTACHMENT_EXTENSIONS} (a file without a name is refused too),
  * a file over the limit is refused, and the attachments of one message together cannot exceed the limit either.
  */
@@ -90,7 +100,7 @@ export function attachBlockReasons({channel,items,limitBytes}:{channel:MaterialC
  const limit=megabytesLabel({bytes:limitBytes});
  const attached=items.filter(i=>i.attach).reduce((sum,i)=>sum+(i.byteSize??0),0);
  return Object.fromEntries(items.map(i=>[i.id,
-  channel!=='email'?'WhatsApp no adjunta archivos: va solo el enlace.'
+  channel!=='email'?`${channel==='instagram'?'Instagram':'WhatsApp'} no adjunta archivos: va solo el enlace.`
   :i.source==='url'?'Es un enlace externo: va solo el enlace.'
   :!i.fileName?.trim()?'El archivo no tiene nombre: va solo el enlace.'
   :!BREVO_ATTACHMENT_EXTENSIONS.includes(fileExtension({fileName:i.fileName})??'')?`Brevo no adjunta este tipo de archivo${fileExtension({fileName:i.fileName})?` (.${fileExtension({fileName:i.fileName})})`:''}: va solo el enlace.`

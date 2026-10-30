@@ -37,7 +37,7 @@ function storeOf(values: { token?: string; handoff?: unknown; badges?: boolean }
   return { store, data, reads };
 }
 function apiOf(over: Partial<InstagramApi> = {}) {
-  const api: InstagramApi = { fetchStatus: vi.fn(async () => status()), fetchContext: vi.fn(async (username: string) => contextOf(username)), reportThread: vi.fn(async () => ({})), reportThreadStale: vi.fn(async () => ({})), fetchTemplates: vi.fn(), prepare: vi.fn(), dispatch: vi.fn(), markNotSent: vi.fn(), fetchThreads: vi.fn(async () => ({ threads: [] })), ...over };
+  const api: InstagramApi = { fetchStatus: vi.fn(async () => status()), fetchContext: vi.fn(async (username: string) => contextOf(username)), reportThread: vi.fn(async () => ({})), reportThreadStale: vi.fn(async () => ({})), fetchTemplates: vi.fn(), prepare: vi.fn(), dispatch: vi.fn(), markNotSent: vi.fn(), fetchThreads: vi.fn(async () => ({ threads: [] })), fetchMaterials: vi.fn(async () => ({ materials: [], blocked: null })), addMaterial: vi.fn(), removeMaterial: vi.fn(), ...over };
   return api;
 }
 const flow = { intervalMs: 5, settle: () => Promise.resolve(), buttonTimeoutMs: 150, chatTimeoutMs: 150, proofTimeoutMs: 120, composerTimeoutMs: 120, contradictionMs: 20 };

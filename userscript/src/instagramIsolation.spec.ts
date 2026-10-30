@@ -20,15 +20,18 @@ vi.mock("./api", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("./api");
   return Object.fromEntries(Object.entries(actual).map(([name, value]) => [name, typeof value === "function" && !/^[A-Z]/.test(name) ? (...args: unknown[]) => { api.touched.push(name); return (value as (...a: unknown[]) => unknown)(...args); } : value]));
 });
-const startSpy = vi.hoisted(() => ({ calls: 0 }));
+// Every app started through the module (main.ts included) is recorded and stopped after each test: the one `main` starts polls every 500 ms
+// against the production base, and left running it would tick inside a later test once that test stores a token and opens a chat page.
+const startSpy = vi.hoisted(() => ({ calls: 0, apps: [] as { stop: () => void }[] }));
 vi.mock("./instagramApp/start", async () => {
   const actual = await vi.importActual<typeof import("./instagramApp/start")>("./instagramApp/start");
-  return { ...actual, startInstagramApp: (...args: Parameters<typeof actual.startInstagramApp>) => { startSpy.calls++; return actual.startInstagramApp(...args); } };
+  return { ...actual, startInstagramApp: (...args: Parameters<typeof actual.startInstagramApp>) => { startSpy.calls++; const app = actual.startInstagramApp(...args); startSpy.apps.push(app); return app; } };
 });
 
 const gm = { GM_xmlhttpRequest: vi.fn(), GM_getValue: vi.fn(), GM_setValue: vi.fn(), GM_registerMenuCommand: vi.fn() };
 beforeAll(() => { for (const [name, fn] of Object.entries(gm)) vi.stubGlobal(name, fn); });
 afterAll(() => vi.unstubAllGlobals());
+afterEach(() => { for (const app of startSpy.apps.splice(0)) app.stop(); });
 const TOKEN = "hcu_secret_token_value";
 /** GM storage as a map: answers reads, records writes. */
 function storage(initial: Record<string, unknown>) {
@@ -149,12 +152,22 @@ describe("Instagram boundaries inside the shared script (spec 97 §5.4)", () => 
     }
   });
 
+  it("keeps the shared material picker (../materials, spec 98) free of GM, network, clipboard, storage and page events", () => {
+    const text = readFileSync(resolve(process.cwd(), "userscript/src/materials.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+    for (const [, spec] of text.matchAll(/from\s+["']([^"']+)["']/g)) expect(spec).toBe("./api");
+    expect(text).toMatch(/import type \{[^}]*\} from "\.\/api"/);
+    expect(text).not.toMatch(/\bGM_\w+|unsafeWindow|\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource|navigator\.clipboard|readText|\bimport\s*\(|\beval\s*\(|new\s+Function\b|localStorage|sessionStorage|indexedDB|document\.cookie|innerHTML|addEventListener\(\s*["'`]hospeda-/);
+    // Every listener that can lead to a CRM call goes through the injected guard (isTrusted on Instagram).
+    for (const [listener] of text.matchAll(/addEventListener\("(?:click|input)",[^;]*/g)) expect(listener).toMatch(/trusted\(event\)/);
+  });
+
   it("keeps the wiring layer (instagramApp/) inside its allowlist: imports, API functions and no page-to-script events", () => {
     const dir = resolve(process.cwd(), "userscript/src/instagramApp") + "/";
     const sources = readdirSync(dir).filter(file => file.endsWith(".ts") && !file.endsWith(".spec.ts"));
     expect(sources).toEqual(expect.arrayContaining(["start.ts", "panel.ts", "compose.ts", "client.ts", "storage.ts", "state.ts"]));
     // badgeCard is the pill + hover card shared with WhatsApp's chat badges: pure DOM, and it must stay import-free to be allowed here.
-    const allowedImports = /^(?:\.\/[\w-]+|\.\.\/instagram\/[\w-]+|\.\.\/(?:api|styles|logo|version|parse|badgeCard))$/;
+    // Spec 98: `../materials` (the shared picker and the re-add helpers) joins the allowlist; it is checked below to stay free of GM and network.
+    const allowedImports = /^(?:\.\/[\w-]+|\.\.\/instagram\/[\w-]+|\.\.\/(?:api|styles|logo|version|parse|badgeCard|materials))$/;
     expect(readFileSync(resolve(process.cwd(), "userscript/src/badgeCard.ts"), "utf8")).not.toMatch(/^\s*import\s/m);
     for (const file of sources) {
       const text = readFileSync(dir + file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");

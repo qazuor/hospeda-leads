@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {BREVO_ATTACHMENT_EXTENSIONS,MaterialShareUrlUnavailable,appendMaterialLink,attachBlockReasons,fileExtension,materialLinkSnippet,materialShareUrl,megabytesLabel,redactPresignedUrls,removeMaterialLink,shareTokenHashesInBody,shareUrlInBody} from './salesMaterialMessage';
+import {BREVO_ATTACHMENT_EXTENSIONS,MaterialShareUrlUnavailable,appendMaterialLink,attachBlockReasons,contactChannelOf,materialChannelOf,fileExtension,materialLinkSnippet,materialShareUrl,megabytesLabel,redactPresignedUrls,removeMaterialLink,shareTokenHashesInBody,shareUrlInBody} from './salesMaterialMessage';
 import {hashShareToken} from './salesMaterialShare';
 
 const tokenA='A'.repeat(42)+'E',tokenB='b'.repeat(42)+'Q';
@@ -92,5 +92,31 @@ describe('attachBlockReasons',()=>{
  it('keeps the Brevo extension list in one place',()=>{
   expect(BREVO_ATTACHMENT_EXTENSIONS).toContain('pdf');expect(BREVO_ATTACHMENT_EXTENSIONS).not.toContain('webp');expect(BREVO_ATTACHMENT_EXTENSIONS).not.toContain('webm');
   expect(fileExtension({fileName:'a.b.MP4'})).toBe('mp4');expect(fileExtension({fileName:'sin-extension'})).toBeNull();
+ });
+});
+
+describe('Instagram material (spec 98 §5.2)',()=>{
+ it('maps a message to its material channel: email, WhatsApp, an Instagram attempt; never a «Red social» log or Hospeda\'s echo',()=>{
+  expect(materialChannelOf({channel:'email'})).toBe('email');
+  expect(materialChannelOf({channel:'whatsapp'})).toBe('whatsapp');
+  expect(materialChannelOf({channel:'social',destinationDetail:'instagram',ownerEmail:'ana@hospeda.test'})).toBe('instagram');
+  expect(materialChannelOf({channel:'social',destinationDetail:null,ownerEmail:'ana@hospeda.test'})).toBeNull();
+  expect(materialChannelOf({channel:'social',destinationDetail:'instagram',ownerEmail:'instagram@hospeda'})).toBeNull();
+  expect(materialChannelOf({channel:'call'})).toBeNull();
+ });
+ it('checks Instagram shares against the restrictions of `social`',()=>{
+  expect(contactChannelOf('instagram')).toBe('social');expect(contactChannelOf('whatsapp')).toBe('whatsapp');expect(contactChannelOf('email')).toBe('email');
+ });
+ it('adds and removes the link as a plain-text line, like WhatsApp',()=>{
+  expect(materialLinkSnippet({channel:'instagram',title:'Folleto',url:urlA})).toBe(`Podés ver «Folleto» en: ${urlA}`);
+  const body=appendMaterialLink({channel:'instagram',body:'Hola Sol',title:'Folleto',url:urlA});
+  expect(body).toBe(`Hola Sol\n\nPodés ver «Folleto» en: ${urlA}`);
+  expect(removeMaterialLink({channel:'instagram',body,title:'Folleto',url:urlA})).toBe('Hola Sol');
+  expect(appendMaterialLink({channel:'instagram',body:'',title:'Folleto',url:urlA})).toBe(`Podés ver «Folleto» en: ${urlA}`);
+ });
+ it('never attaches on Instagram and names the channel in the reason',()=>{
+  const reasons=attachBlockReasons({channel:'instagram',limitBytes:10_000_000,items:[{id:'a',source:'file',fileName:'folleto.pdf',byteSize:1000,attach:false}]});
+  expect(reasons.a).toBe('Instagram no adjunta archivos: va solo el enlace.');
+  expect(attachBlockReasons({channel:'whatsapp',limitBytes:10_000_000,items:[{id:'a',source:'file',fileName:'folleto.pdf',byteSize:1000,attach:false}]}).a).toBe('WhatsApp no adjunta archivos: va solo el enlace.');
  });
 });

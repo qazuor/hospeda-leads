@@ -18,22 +18,28 @@ import {VOCAB} from '../content/vocabulary';
 import {getSettings} from '../endpoints/settings_GET.schema';
 import {saveCommercial} from '../endpoints/commercial.schema';
 import {checkBusinessDuplicates,DNC_DUPLICATE_MESSAGE} from '../endpoints/business_duplicate_check.schema';
+import {canonicalInstagramProfile,INSTAGRAM_PROFILE_INVALID} from '../helpers/instagramChat';
 import styles from './Commercial.module.css';
 
-const empty={nombre:'',ciudad:'',telefono:'',email:'',tipo:'',subtipo:'',personName:'',personPhone:''};
+const empty={nombre:'',ciudad:'',telefono:'',instagram:'',email:'',tipo:'',subtipo:'',personName:'',personPhone:''};
+/** Values the dialog opens with (spec 98 §17: the phone or Instagram of a chat without a business). */
+export type BusinessPrefill={telefono?:string;instagram?:string};
 const invalidated=['commercial','commercial-detail','leads','lead-stats','lead-journal','global-journal','analytics','trash-businesses','work','crm-search','business-duplicate-check'];
 
 /**
  * "Nuevo negocio": one step with name, city and phone, an optional person (saved as Principal in the same transaction)
  * and a live duplicate warning. A duplicate of a No contactar business blocks saving. Never creates a management.
+ * Spec 98 §17: an optional Instagram (stored as the profile URL, checked for duplicates) and a `prefill` for the phone or the Instagram.
  */
-export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()=>void;onSaved?:(id:string)=>void;/** False when `onSaved` already opens the business. */toastLink?:boolean}){
+export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{onClose:()=>void;onSaved?:(id:string)=>void;/** False when `onSaved` already opens the business. */toastLink?:boolean;prefill?:BusinessPrefill}){
  const {authState}=useAuth();
  const user=authState.type==='authenticated'?authState.user:undefined;
  const admin=user?.role==='admin';
  const qc=useQueryClient();
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
- const [draft,setDraft]=useState({...empty,assignedUserEmail:user?.email??''});
+ const [start]=useState(()=>({...empty,telefono:prefill?.telefono?.trim()??'',instagram:prefill?.instagram?.trim()??''}));
+ const [draft,setDraft]=useState({...start,assignedUserEmail:user?.email??''});
+ const instagramInvalid=!!draft.instagram.trim()&&!canonicalInstagramProfile(draft.instagram);
  const [acknowledged,setAcknowledged]=useState('');
  const [personAcknowledged,setPersonAcknowledged]=useState('');
  const [error,setError]=useState('');
@@ -52,14 +58,14 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
   crmSuccess('Negocio creado',toastLink?{label:'Abrir negocio',href:'/accounts/'+result.id}:undefined,draft.personName.trim()?`${draft.personName.trim()} quedó como persona principal.`:undefined);
   onSaved?.(result.id);onClose();
  }});
- const guard=useUnsavedChanges(Object.entries(empty).some(([k,v])=>draft[k as keyof typeof empty]!==v),onClose,mutation.isPending);
+ const guard=useUnsavedChanges(Object.entries(start).some(([k,v])=>draft[k as keyof typeof start]!==v),onClose,mutation.isPending);
  const set=(key:keyof typeof draft)=>(e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement>)=>{const value=e.target.value;setDraft(d=>({...d,[key]:value,...(key==='tipo'?{subtipo:''}:{})}));};
- const disabledReason=mutation.isPending?'Estamos creando el negocio. Esperá a que termine.':checking?'Revisando si ya existe…':blocker?DNC_DUPLICATE_MESSAGE:shown.length&&acknowledged!==shownKey?'Revisá los negocios parecidos: abrí el que corresponde o marcá «Ninguno de estos es mi negocio, crear igual».':personKey&&personAcknowledged!==personKey?'Leé el aviso del teléfono de la persona y marcá «Entendido» para seguir.':undefined;
+ const disabledReason=mutation.isPending?'Estamos creando el negocio. Esperá a que termine.':instagramInvalid?INSTAGRAM_PROFILE_INVALID:checking?'Revisando si ya existe…':blocker?DNC_DUPLICATE_MESSAGE:shown.length&&acknowledged!==shownKey?'Revisá los negocios parecidos: abrí el que corresponde o marcá «Ninguno de estos es mi negocio, crear igual».':personKey&&personAcknowledged!==personKey?'Leé el aviso del teléfono de la persona y marcá «Entendido» para seguir.':undefined;
  const submit=async(event:React.FormEvent)=>{
   event.preventDefault();if(submitting.current||disabledReason)return;submitting.current=true;setError('');
   const text=(v:string)=>v.trim()||null;
   try{
-   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:text(draft.ciudad),telefono:text(draft.telefono),email:text(draft.email),tipo:text(draft.tipo),subtipo:text(draft.subtipo),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{}),...(personKey&&personAcknowledged===personKey?{personPhoneDncAcknowledged:true}:{})});
+   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:text(draft.ciudad),telefono:text(draft.telefono),...(draft.instagram.trim()?{perfilInstagram:canonicalInstagramProfile(draft.instagram)}:{}),email:text(draft.email),tipo:text(draft.tipo),subtipo:text(draft.subtipo),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{}),...(personKey&&personAcknowledged===personKey?{personPhoneDncAcknowledged:true}:{})});
   }catch(e){setError(e instanceof Error?e.message:'No se pudo crear el negocio.');}finally{submitting.current=false;}
  };
  const input=(key:keyof typeof draft,label:string,props:React.InputHTMLAttributes<HTMLInputElement>={})=><label key={key}>{label}<Input {...props} disabled={mutation.isPending} value={draft[key]} onChange={set(key)}/></label>;
@@ -67,7 +73,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true}:{onClose:()
   <DialogTitle>Nuevo negocio</DialogTitle>
   <DialogDescription>Con el nombre alcanza para crearlo. No crea una gestión: para ofrecerle algo, después usá Iniciar gestión.</DialogDescription>
   <form onSubmit={submit} className={styles.form} aria-busy={mutation.isPending}>
-   <fieldset className={styles.formSection}><legend>Datos del negocio</legend>{input('nombre','Nombre',{required:true,autoFocus:true,placeholder:'Ej.: Cabañas del Río'})}{input('ciudad','Ciudad',{placeholder:'Ej.: Colón'})}{input('telefono','Teléfono / WhatsApp',{type:'tel',placeholder:'Ej.: 3447 412345'})}</fieldset>
+   <fieldset className={styles.formSection}><legend>Datos del negocio</legend>{input('nombre','Nombre',{required:true,autoFocus:true,placeholder:'Ej.: Cabañas del Río'})}{input('ciudad','Ciudad',{placeholder:'Ej.: Colón'})}{input('telefono','Teléfono / WhatsApp',{type:'tel',placeholder:'Ej.: 3447 412345'})}{input('instagram','Instagram',{placeholder:'Ej.: @cabanasdelrio','aria-invalid':instagramInvalid||undefined,'aria-describedby':instagramInvalid?'quick-create-instagram-error':undefined})}{instagramInvalid&&<small id="quick-create-instagram-error" role="alert" className={styles.error}>{INSTAGRAM_PROFILE_INVALID}</small>}</fieldset>
    <fieldset className={styles.formSection}><legend>Persona con la que hablaste (opcional)</legend>{input('personName','Nombre de la persona',{required:!!draft.personPhone.trim(),placeholder:'Ej.: Ana'})}{input('personPhone','Teléfono de la persona',{type:'tel'})}<p>Queda como persona principal del negocio.</p></fieldset>
    <div className={styles.fullField} aria-live="polite" style={{display:'grid',gap:8}}>{checking&&<small className={styles.muted} role="status">Revisando si ya existe…</small>}{query&&(shown.length>0||(duplicates.isError&&!checking))&&<section aria-label="Negocios parecidos" style={{display:'grid',gap:8,padding:12,border:'1px solid '+(blocker?'var(--error)':'var(--border)'),borderRadius:10}}>
     {blocker&&<p role="alert" className={styles.error} style={{margin:0}}><strong>{DNC_DUPLICATE_MESSAGE}</strong></p>}

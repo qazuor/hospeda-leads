@@ -1,5 +1,5 @@
 import type { InstagramMatch, InstagramTemplatesResponse, PreparedTemplate, StatusResponse } from "../api";
-import { PANEL_ID, renderPanel, type PanelActions } from "./panel";
+import { PANEL_ID, instagramSearchOrCreateUrl, renderPanel, type PanelActions } from "./panel";
 import { initialState, type AppState } from "./state";
 import { ALREADY_CONFIRMED, CHAT_CHANGED, RECIPIENT_MISMATCH, COMPOSER_BUSY, NOT_SENT_NOTE, initialInstagramChoice, openInstagramCompose, type ComposeContext } from "./compose";
 import type { InstagramApi } from "./client";
@@ -28,7 +28,8 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
     expect(buttonNamed("Mandar un mensaje").disabled).toBe(true); expect(buttonNamed("Mandar un mensaje").title).toBe("El negocio tiene No contactar activo.");
   });
   it("covers none, hidden, several, unproven, another account and no configured account", () => {
-    render(ready({}, [])); expect(text()).toContain("No encontré un negocio con @cabanas_del_rio en el CRM."); expect(text()).toContain("Buscar en Negocios del CRM");
+    render(ready({}, [])); expect(text()).toContain("No encontré un negocio con @cabanas_del_rio en el CRM.");
+    { const link = [...root().querySelectorAll<HTMLAnchorElement>("a")].find(a => a.textContent === "Buscar o crear en el CRM")!; expect(new URL(link.href).pathname).toBe("/accounts"); expect(Object.fromEntries(new URL(link.href).searchParams)).toEqual({ q: "cabanas_del_rio", createInstagram: "cabanas_del_rio" }); expect(link.rel).toBe("noopener noreferrer"); }
     render(ready({}, [], 2)); expect(text()).toContain("Este Instagram está en un negocio que no podés ver. Consultá a un administrador antes de escribirle.");
     const select = vi.fn(); render(ready({}, [matchOf(), matchOf({ accountId: "8", code: "H8" })]), actionsOf({ select }));
     expect(text()).toContain("Hay varios negocios con este Instagram");
@@ -79,15 +80,34 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
   });
 });
 
+const folleto = { id: "11111111-1111-4111-8111-111111111111", title: "Folleto", categories: [], format: "pdf", formatLabel: "PDF" };
 const prepared: PreparedTemplate = { messageId: "m-1", revision: 2, body: "Hola Cabañas", recipient: "@cabanas_del_rio", recipientName: "Cabañas del Río", unresolved: [] };
 const templates = (over: Partial<InstagramTemplatesResponse> = {}): InstagramTemplatesResponse => ({ leads: [{ id: "1", name: "Alojamiento", type: "main", stage: "Contactado", templates: [{ id: "t1", name: "Presentación", recommended: true, body: "Hola {{nombre}}" }] }], general: { defaultPurpose: "first_contact", purposes: [{ value: "first_contact", label: "Presentación / primer contacto", templates: [{ id: "g1", name: "General", recommended: true, body: "Hola" }] }, { value: "other", label: "Otro", templates: [{ id: "g2", name: "Otro", recommended: true, body: "Hola" }] }] }, blocked: null, username: "cabanas_del_rio", ...over });
+
+describe("«Buscar o crear en el CRM» (spec 98 §17)", () => {
+  it("searches the username without @ and carries it as the creation prefill, encoded by URLSearchParams", () => {
+    expect(instagramSearchOrCreateUrl({ base: "https://crm.test", username: "@cabanas.del_rio" })).toBe("https://crm.test/accounts?q=cabanas.del_rio&createInstagram=cabanas.del_rio");
+  });
+});
+
+describe("«Enviar material» in the Instagram business view (spec 98 §4.1)", () => {
+  it("sits next to «Mandar un mensaje», with the same disabled reason, and only a trusted click opens it", () => {
+    const sendMaterial = vi.fn();
+    render(ready(), actionsOf({ sendMaterial }));
+    expect(buttonNamed("Enviar material").disabled).toBe(false); buttonNamed("Enviar material").click(); expect(sendMaterial).toHaveBeenCalledWith(matchOf());
+    render(ready({}, [matchOf({ doNotContact: true })]), actionsOf({ sendMaterial }));
+    expect(buttonNamed("Enviar material").disabled).toBe(true); expect(buttonNamed("Enviar material").title).toBe("El negocio tiene No contactar activo.");
+    const synthetic = vi.fn(); render(ready(), actionsOf({ trusted: event => event.isTrusted, sendMaterial: synthetic }));
+    buttonNamed("Enviar material").click(); expect(synthetic).not.toHaveBeenCalled();
+  });
+});
 
 describe("Instagram «Mandar un mensaje» (spec 97 §4.3)", () => {
   function setup(over: Partial<ComposeContext> = {}, data = templates()) {
     document.body.innerHTML = `<div class="panel"><section class="card" id="card"></section></div><div id="composer" contenteditable="true"></div>`;
     const composer = document.getElementById("composer")!, order: string[] = [];
     composer.addEventListener("paste", event => { order.push("paste"); event.preventDefault(); composer.textContent = (event as ClipboardEvent).clipboardData?.getData("text/plain") ?? ""; });
-    const api: InstagramApi = { fetchStatus: vi.fn(), fetchContext: vi.fn(), reportThread: vi.fn(), reportThreadStale: vi.fn(), fetchTemplates: vi.fn(async () => data), prepare: vi.fn(async () => prepared), dispatch: vi.fn(async () => { order.push("dispatch"); return { messageId: "m-1", status: "instagram_opened" }; }), markNotSent: vi.fn(async () => ({})), fetchThreads: vi.fn(async () => ({ threads: [] })) };
+    const api: InstagramApi = { fetchStatus: vi.fn(), fetchContext: vi.fn(), reportThread: vi.fn(), reportThreadStale: vi.fn(), fetchTemplates: vi.fn(async () => data), prepare: vi.fn(async () => prepared), dispatch: vi.fn(async () => { order.push("dispatch"); return { messageId: "m-1", status: "instagram_opened" }; }), markNotSent: vi.fn(async () => ({})), fetchThreads: vi.fn(async () => ({ threads: [] })), fetchMaterials: vi.fn(async () => ({ materials: [folleto], blocked: null })), addMaterial: vi.fn(async () => ({ revision: 3, body: "Hola Cabañas\n\nPodés ver «Folleto» en: https://crm.test/m/abc", materials: [{ shareId: "s-1", materialId: folleto.id, title: folleto.title }] })), removeMaterial: vi.fn(async () => ({ revision: 4, body: "Hola Cabañas", materials: [] })) };
     const checkChat = vi.fn(() => { order.push("check"); return null as string | null; }), back = vi.fn();
     const card = document.getElementById("card")!;
     openInstagramCompose(card, { doc: document, api, match: matchOf(), username: "cabanas_del_rio", trusted: () => true, checkChat, composer: () => composer, back, header: title => { const h = document.createElement("h2"); h.textContent = title; return h; }, settle: () => Promise.resolve(), newId: () => "00000000-0000-4000-8000-000000000001", ...over });
@@ -169,5 +189,127 @@ describe("Instagram «Mandar un mensaje» (spec 97 §4.3)", () => {
     // The initial prepare runs from the trusted «Mandar un mensaje» that opened the view; the page cannot paste.
     ctx.named("Pegar en el chat").click(); await Promise.resolve();
     expect(ctx.api.dispatch).not.toHaveBeenCalled(); expect(ctx.composer.textContent).toBe("");
+  });
+  describe("sales material (spec 98)", () => {
+    const link = "Hola Cabañas\n\nPodés ver «Folleto» en: https://crm.test/m/abc";
+    const pickFolleto = async (card: HTMLElement) => { await vi.waitFor(() => expect(card.textContent).toContain("Folleto")); const row = [...card.querySelectorAll(".row")].find(item => item.textContent?.includes("Folleto") && item.querySelector("button"))!; row.querySelector("button")!.click(); };
+    it("«Agregar material» after the template adds the link through the CRM with the Instagram scope, then pastes it", async () => {
+      const ctx = setup();
+      await vi.waitFor(() => expect(ctx.named("Agregar material")).toBeTruthy());
+      ctx.named("Agregar material").click(); await pickFolleto(ctx.card);
+      await vi.waitFor(() => expect(ctx.card.querySelector(".box")!.textContent).toBe(link));
+      expect(ctx.api.fetchMaterials).toHaveBeenCalledWith("7", ""); expect(ctx.api.addMaterial).toHaveBeenCalledWith({ messageId: "m-1", revision: 2, materialId: folleto.id });
+      ctx.named("Pegar en el chat").click();
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain("Listo, está en el chat"));
+      expect(ctx.order).toEqual(["check", "dispatch", "check", "paste"]); expect(ctx.api.dispatch).toHaveBeenCalledWith({ id: "m-1", revision: 3 }); expect(ctx.composer.textContent).toBe(link);
+    });
+    it("«Enviar material» opens on the picker, prepares a free draft and adds the material; the model select keeps it", async () => {
+      const ctx = setup({ mode: "material" });
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain("ELEGÍ EL MATERIAL"));
+      expect(ctx.card.querySelector("h2")!.textContent).toBe("Enviar material"); expect(ctx.api.prepare).not.toHaveBeenCalled();
+      (ctx.api.prepare as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ...prepared, body: "" });
+      await pickFolleto(ctx.card);
+      await vi.waitFor(() => expect(ctx.card.querySelector(".box")?.textContent).toBe(link)); expect(ctx.api.addMaterial).toHaveBeenCalledOnce();
+      expect(ctx.api.prepare).toHaveBeenCalledWith({ id: "00000000-0000-4000-8000-000000000001", accountId: "7", leadId: "1", templateId: null });
+      const model = [...ctx.card.querySelectorAll("select")].find(select => [...select.options].some(option => option.text === "Mensaje libre"))!;
+      expect([...model.options].map(option => option.text)).toEqual(["Mensaje libre", "Presentación"]); expect(ctx.card.textContent).not.toContain("MODELOS PARA ESTA GESTIÓN");
+      model.value = "t1"; model.dispatchEvent(new Event("change"));
+      await vi.waitFor(() => expect(ctx.api.addMaterial).toHaveBeenCalledTimes(2));
+      expect(ctx.api.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ templateId: "t1" }));
+    });
+    it("with material, a busy composer is still refused before recording anything (D3)", async () => {
+      const ctx = setup(); ctx.composer.textContent = "borrador";
+      await vi.waitFor(() => expect(ctx.named("Agregar material")).toBeTruthy());
+      ctx.named("Agregar material").click(); await pickFolleto(ctx.card);
+      await vi.waitFor(() => expect(ctx.card.querySelector(".box")!.textContent).toBe(link));
+      ctx.named("Pegar en el chat").click();
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain(COMPOSER_BUSY)); expect(ctx.api.dispatch).not.toHaveBeenCalled();
+    });
+    it("ignores synthetic clicks on the picker: Instagram's JS cannot add material", async () => {
+      const ctx = setup({ trusted: event => event.isTrusted, mode: "material" });
+      await pickFolleto(ctx.card); await Promise.resolve();
+      expect(ctx.api.prepare).not.toHaveBeenCalled(); expect(ctx.api.addMaterial).not.toHaveBeenCalled();
+    });
+    it("a refused material keeps the selection and blocks the paste of the empty free draft", async () => {
+      const ctx = setup({ mode: "material" });
+      (ctx.api.prepare as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ...prepared, body: "" }); (ctx.api.addMaterial as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Hay una restricción activa para Instagram."));
+      await pickFolleto(ctx.card);
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain("Falta agregar: Folleto."));
+      expect(ctx.card.textContent).toContain("Hay una restricción activa para Instagram."); expect(ctx.named("Pegar en el chat").disabled).toBe(true); expect(ctx.named("Reintentar")).toBeTruthy();
+    });
+    const fn = (mock: unknown) => mock as ReturnType<typeof vi.fn>;
+    const heldTitles = (card: HTMLElement) => [...card.querySelectorAll(".held-materials .row .content")].map(node => node.textContent);
+    it("lists the held material above the preview; «Quitar» (trusted) removes it and it is not re-added on a model switch", async () => {
+      // Arrange
+      const ctx = setup({ mode: "material" });
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, body: "" });
+      await pickFolleto(ctx.card);
+      await vi.waitFor(() => expect(heldTitles(ctx.card)).toEqual(["Folleto"]));
+      expect(ctx.card.querySelector(".held-materials")!.compareDocumentPosition(ctx.card.querySelector(".box")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // Act
+      ctx.named("Quitar").click();
+      // Assert
+      await vi.waitFor(() => expect(ctx.card.querySelector(".held-materials")).toBeNull());
+      expect(ctx.api.removeMaterial).toHaveBeenCalledWith({ messageId: "m-1", revision: 3, shareId: "s-1" });
+      fn(ctx.api.addMaterial).mockClear();
+      const model = [...ctx.card.querySelectorAll("select")].find(select => [...select.options].some(option => option.text === "Mensaje libre"))!;
+      model.value = "t1"; model.dispatchEvent(new Event("change"));
+      await vi.waitFor(() => expect(ctx.api.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ templateId: "t1" })));
+      await vi.waitFor(() => expect(ctx.card.querySelector(".box")?.textContent).toBe("Hola Cabañas")); expect(ctx.api.addMaterial).not.toHaveBeenCalled();
+    });
+    it("ignores a synthetic click on «Quitar»", async () => {
+      let trustedNow = true;
+      const ctx = setup({ mode: "material", trusted: () => trustedNow });
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, body: "" });
+      await pickFolleto(ctx.card); await vi.waitFor(() => expect(heldTitles(ctx.card)).toEqual(["Folleto"]));
+      trustedNow = false; ctx.named("Quitar").click(); await Promise.resolve();
+      expect(ctx.api.removeMaterial).not.toHaveBeenCalled();
+    });
+    it("a failed «Quitar» keeps the material with «Reintentar»; a revision conflict re-prepares and retries once", async () => {
+      const ctx = setup({ mode: "material" });
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, body: "" });
+      await pickFolleto(ctx.card); await vi.waitFor(() => expect(heldTitles(ctx.card)).toEqual(["Folleto"]));
+      fn(ctx.api.removeMaterial).mockRejectedValueOnce(new Error("No se pudo quitar."));
+      ctx.named("Quitar").click();
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain("No se pudo quitar.")); expect(heldTitles(ctx.card)).toEqual(["Folleto"]);
+      fn(ctx.api.removeMaterial).mockRejectedValueOnce(Object.assign(new Error("El borrador cambió."), { status: 409 }));
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, revision: 7, body: link, materials: [{ shareId: "s-1", materialId: folleto.id, title: "Folleto" }] });
+      ctx.card.querySelector<HTMLButtonElement>(".held-materials button")!.click();
+      await vi.waitFor(() => expect(ctx.card.querySelector(".held-materials")).toBeNull());
+      expect(ctx.api.removeMaterial).toHaveBeenLastCalledWith({ messageId: "m-1", revision: 7, shareId: "s-1" });
+    });
+    it("«Reintentar» after a revision conflict re-prepares and adds with the fresh revision (review item 6)", async () => {
+      const ctx = setup({ mode: "material" }), conflict = () => Object.assign(new Error("El borrador cambió."), { status: 409 });
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, body: "" }).mockResolvedValueOnce({ ...prepared, body: "" });
+      fn(ctx.api.addMaterial).mockRejectedValueOnce(conflict()).mockRejectedValueOnce(conflict()).mockRejectedValueOnce(conflict());
+      await pickFolleto(ctx.card);
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain("Falta agregar: Folleto."));
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, revision: 9, body: "" });
+      ctx.named("Reintentar").click();
+      await vi.waitFor(() => expect(ctx.api.addMaterial).toHaveBeenLastCalledWith({ messageId: "m-1", revision: 9, materialId: folleto.id }));
+      await vi.waitFor(() => expect(ctx.card.textContent).not.toContain("Falta agregar"));
+    });
+    it("a failed prepare keeps the chosen material and offers «Reintentar» (review item 2B)", async () => {
+      const ctx = setup({ mode: "material" });
+      fn(ctx.api.prepare).mockRejectedValueOnce(new Error("Servicio no disponible."));
+      await pickFolleto(ctx.card);
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain("Servicio no disponible."));
+      expect(ctx.card.textContent).toContain("Material elegido: Folleto"); expect(ctx.card.textContent).not.toContain("ELEGÍ EL MATERIAL");
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, body: "" });
+      ctx.named("Reintentar").click();
+      await vi.waitFor(() => expect(ctx.card.querySelector(".box")?.textContent).toBe(link)); expect(ctx.api.addMaterial).toHaveBeenCalledOnce();
+    });
+    it("«Sin gestión» + «Otro» in material mode shows the aclaración and prepares once it is typed (review item 2A)", async () => {
+      const ctx = setup({ mode: "material" }, templates({ leads: [] }));
+      fn(ctx.api.prepare).mockResolvedValueOnce({ ...prepared, body: "" });
+      await pickFolleto(ctx.card); await vi.waitFor(() => expect(heldTitles(ctx.card)).toEqual(["Folleto"]));
+      const purpose = [...ctx.card.querySelectorAll("select")].find(select => [...select.options].some(option => option.value === "other"))!;
+      purpose.value = "other"; purpose.dispatchEvent(new Event("change"));
+      await vi.waitFor(() => expect(ctx.card.textContent).toContain("Aclaración del propósito"));
+      const input = [...ctx.card.querySelectorAll<HTMLLabelElement>("label")].find(label => label.textContent?.startsWith("Aclaración del propósito"))!.querySelector("input")!;
+      expect(input.disabled).toBe(false); expect(ctx.api.prepare).toHaveBeenCalledTimes(1);
+      input.value = "Pedir fotos"; input.dispatchEvent(new Event("change"));
+      await vi.waitFor(() => expect(ctx.api.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ leadId: null, purpose: "other", otherPurpose: "Pedir fotos", templateId: null })));
+    });
   });
 });

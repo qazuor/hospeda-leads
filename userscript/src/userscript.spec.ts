@@ -10,7 +10,7 @@ import currentGroup from "../fixtures/current-group.html?raw";
 import { fromChatModel, internalChat } from "./internals";
 import { compareSemver, normalizePhone, parseCode } from "./parse";
 import { parsePrePlainText, readChat, redactedSnapshot } from "./selectors";
-import { NO_CHAT, NO_MATCH, isDark, pendingUpdate, waitForRail, openWhatsappNotice, renderBanner, resetPanelState } from "./ui";
+import { NO_CHAT, NO_MATCH, isDark, pendingUpdate, waitForRail, openWhatsappNotice, renderBanner, resetPanelState, whatsappSearchOrCreateUrl } from "./ui";
 import { PANEL_CSS } from "./styles";
 import { announceInstalled, INSTALLED_ATTRIBUTE, INSTALLED_EVENT } from "./announce";
 import { resetUpdatePrompt, showUpdatePrompt, throttled, UPDATE_PROMPT_ID } from "./updatePrompt";
@@ -240,6 +240,21 @@ describe("panel", () => {
       expect(shadow(host).textContent).toContain("SIN ASOCIAR"); expect(shadow(host).textContent).toContain(NO_MATCH);
       expect(shadow(host).querySelector<HTMLAnchorElement>(".body a")!.href).toBe("https://crm.example/accounts");
     }
+  });
+  it("«Buscar o crear en el CRM» searches the chat's phone and carries it as the creation prefill (spec 98 §17)", () => {
+    // Arrange
+    const host = renderBanner({ context: context([]), selected: null, register: null, title: "+54 9 3442 45-3797", phone: "+54 9 3442 45-3797", crmBase: "https://crm.example", onSelect: () => {} });
+    // Act
+    const link = shadow(host).querySelector<HTMLAnchorElement>(".body a")!;
+    // Assert
+    expect(link.textContent).toBe("Buscar o crear en el CRM"); expect(link.target).toBe("_blank");
+    expect(link.href).toBe("https://crm.example/accounts?q=%2B5493442453797&createPhone=%2B5493442453797");
+    expect(new URL(link.href).searchParams.get("createPhone")).toBe("+5493442453797");
+  });
+  it("builds the search link only from a readable phone", () => {
+    expect(whatsappSearchOrCreateUrl({ base: "https://crm.example", phone: "3442 45-3797" })).toBe("https://crm.example/accounts?q=3442453797&createPhone=3442453797");
+    expect(whatsappSearchOrCreateUrl({ base: "https://crm.example", phone: null })).toBe("https://crm.example/accounts");
+    expect(whatsappSearchOrCreateUrl({ base: "https://crm.example", phone: "12-34" })).toBe("https://crm.example/accounts");
   });
   it("offers an update only when a newer version is published or the server requires one", () => {
     expect(pendingUpdate({ context: { ...context(), latestVersion: "1.3.0" }, version: "1.2.0" })).toBe("1.3.0");

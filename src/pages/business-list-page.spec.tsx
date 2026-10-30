@@ -2,13 +2,13 @@ import React from 'react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
-import {Link,MemoryRouter,Route,Routes} from 'react-router-dom';
+import {Link,MemoryRouter,Route,Routes,useLocation} from 'react-router-dom';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {basePreferences,preferenceKey,restoredListContext} from '../helpers/businessListPreferences';
 import {businessViewSelectionKey} from '../helpers/businessViewSelection';
 import {DEFAULT_BUSINESS_COLUMN_GROUPS} from '../helpers/businessColumnGroups';
 
-const api=vi.hoisted(()=>({getDefaults:vi.fn(),getGroups:vi.fn(),getLeads:vi.fn(),getSettings:vi.fn(),getSavedViews:vi.fn()}));
+const api=vi.hoisted(()=>({getDefaults:vi.fn(),getGroups:vi.fn(),getLeads:vi.fn(),getSettings:vi.fn(),getSavedViews:vi.fn(),editor:vi.fn()}));
 vi.mock('../helpers/useAuth',()=>({useAuth:()=>({authState:{type:'authenticated',user:{id:8,email:'seller@example.test',role:'user'}}})}));
 vi.mock('../endpoints/business_list_defaults.schema',()=>({getBusinessListDefaults:api.getDefaults}));
 vi.mock('../endpoints/business_column_groups.schema',()=>({getBusinessColumnGroups:api.getGroups}));
@@ -28,7 +28,7 @@ vi.mock('../components/InlineBusinessBadge',()=>({InlineBusinessBadge:()=>null})
 vi.mock('../components/InlineBusinessStatus',async()=>{const {createPortal}=await import('react-dom');return {InlineBusinessStatus:()=>createPortal(<span>Contenido del editor de estado</span>,document.body)};});
 vi.mock('../components/ValueBadge',()=>({ValueBadge:({value}:{value:string})=><span>{value}</span>}));
 vi.mock('../components/BusinessPreviewDrawer',()=>({BusinessPreviewDrawer:({row,opened}:{row:{nombre:string}|null;opened:boolean})=>opened&&row?<div role="dialog" aria-label={'Vista previa de '+row.nombre}/>:null}));
-vi.mock('../components/CommercialEditor',()=>({CommercialEditor:()=>null}));
+vi.mock('../components/CommercialEditor',()=>({CommercialEditor:(props:unknown)=>{api.editor(props);return null;}}));
 vi.mock('../components/DataImportDialog',()=>({DataImportDialog:()=>null}));
 vi.mock('../components/FilterBuilderDialog',()=>({FilterBuilderDialog:()=>null,FilterLegend:()=>null}));
 vi.mock('../components/BusinessListTools',()=>({BusinessListTools:()=>null}));
@@ -118,3 +118,72 @@ describe('BusinessListPage row preview',()=>{
   fireEvent.click(city);expect(await screen.findByRole('dialog',{name:'Vista previa de Negocio visible'})).toBeTruthy();
  });
 });
+
+describe('«Buscar o crear en el CRM» (spec 98 §17)',{timeout:15000},()=>{
+ const empty={rows:[],total:0,page:1,pageSize:50,filters:{ciudades:[],estados:[],tipos:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
+ // The page mounts the whole Negocios table; under the full parallel suite its first render can exceed the 1 s default (cf. the 10 s wait at the top of this file).
+ const slow={timeout:5000};
+ // Deterministic start: the search from the link reached getLeads and the panel params left the URL.
+ const applied=async(q:string)=>{await waitFor(()=>expect(api.getLeads.mock.calls.at(-1)?.[0].q).toBe(q),slow);await waitFor(()=>expect(screen.getByLabelText('ubicación').textContent).toBe(''),slow);};
+ const Where=()=>{const location=useLocation();return <output aria-label="ubicación">{location.search}</output>;};
+ // A seller without the marker starts on the default «Mis negocios» view (a filter); these tests start without filters unless they say so.
+ const open=(entry:string)=>{if(!localStorage.getItem(preferenceKey(8)))localStorage.setItem('hospeda-business-seller-default-v1-user-8','1');currentQueryClient=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<MantineProvider><QueryClientProvider client={currentQueryClient}><MemoryRouter initialEntries={[entry]}><BusinessListPage/><Where/></MemoryRouter></QueryClientProvider></MantineProvider>);};
+ it('applies the search, clears the params and offers creating with the phone only when nothing is found',async()=>{
+  // Arrange
+  api.getLeads.mockResolvedValue(empty);
+  // Act
+  open('/accounts?q=%2B5493442453797&createPhone=%2B5493442453797');
+  // Assert
+  await applied('+5493442453797');
+  const create=await screen.findByRole('button',{name:'Crear negocio con este teléfono'},slow);
+  fireEvent.click(create);
+  await waitFor(()=>expect(api.editor).toHaveBeenLastCalledWith(expect.objectContaining({createPrefill:{telefono:'+5493442453797'}})),slow);
+ });
+ it('with an Instagram prefill offers «Crear negocio con este Instagram»; «Nuevo negocio» opens without prefill',async()=>{
+  api.getLeads.mockResolvedValue(empty);
+  open('/accounts?q=cabanas_del_rio&createInstagram=cabanas_del_rio');
+  await applied('cabanas_del_rio');
+  fireEvent.click(await screen.findByRole('button',{name:'Crear negocio con este Instagram'},slow));
+  await waitFor(()=>expect(api.editor).toHaveBeenLastCalledWith(expect.objectContaining({createPrefill:{instagram:'@cabanas_del_rio'}})),slow);
+  fireEvent.click(screen.getAllByRole('button',{name:/Nuevo negocio/})[0]!);
+  await waitFor(()=>expect(api.editor).toHaveBeenLastCalledWith(expect.objectContaining({createPrefill:undefined})),slow);
+ });
+ it('never offers creating when the search finds businesses (the seller picks one), and never opens the dialog by itself',async()=>{
+  open('/accounts?q=%2B5493442453797&createPhone=%2B5493442453797');
+  expect(await screen.findByText('Negocio visible',undefined,slow)).toBeTruthy();
+  await waitFor(()=>expect(screen.getByLabelText('ubicación').textContent).toBe(''),slow);
+  expect(screen.queryByRole('button',{name:'Crear negocio con este teléfono'})).toBeNull();expect(api.editor).not.toHaveBeenCalled();
+ });
+ it('with active filters shows the hint instead of creating (the business may be hidden by them)',async()=>{
+  // Arrange
+  const prefs={...basePreferences(),filters:[{rules:[{field:'reviewStatus',operator:'is_true'}]}]};
+  localStorage.setItem(preferenceKey(8),JSON.stringify({preferences:prefs,context:{page:1,scrollY:0,scrollX:0}}));localStorage.setItem('hospeda-business-seller-default-v1-user-8','1');
+  api.getLeads.mockResolvedValue(empty);
+  // Act
+  open('/accounts?q=%2B5493442453797&createPhone=%2B5493442453797');
+  // Assert
+  expect(await screen.findByText(/Hay filtros activos que pueden ocultar el negocio/,undefined,slow)).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Crear negocio con este teléfono'})).toBeNull();
+  await waitFor(()=>expect(api.getLeads.mock.calls.at(-1)?.[0].q).toBe('+5493442453797'),slow);
+  expect(api.getLeads.mock.calls.at(-1)?.[0].filterGroups).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button',{name:'Buscar en todos los negocios'}));
+  await waitFor(()=>expect(api.getLeads.mock.calls.at(-1)?.[0].filterGroups).toEqual([]),slow);
+  expect(api.getLeads.mock.calls.at(-1)?.[0].q).toBe('+5493442453797');
+  expect(await screen.findByRole('button',{name:'Crear negocio con este teléfono'},slow)).toBeTruthy();
+ });
+ it('never offers creating when the latest search failed, even with an empty result kept',async()=>{
+  api.getLeads.mockRejectedValue(new Error('Sin conexión'));
+  open('/accounts?q=%2B5493442453797&createPhone=%2B5493442453797');
+  await waitFor(()=>expect(api.getLeads).toHaveBeenCalled(),slow);
+  await waitFor(()=>expect(screen.getByLabelText('ubicación').textContent).toBe(''),slow);
+  await waitFor(()=>expect(currentQueryClient.getQueryCache().findAll().some(q=>q.state.status==='error')).toBe(true),slow);
+  expect(screen.queryByRole('button',{name:'Crear negocio con este teléfono'})).toBeNull();
+ });
+ it('without the panel params shows no create-with button',async()=>{
+  api.getLeads.mockResolvedValue(empty);
+  open('/accounts');
+  await screen.findByRole('heading',{name:/^Sin (negocios cargados|resultados)/},slow);
+  expect(screen.queryByRole('button',{name:/Crear negocio con este/})).toBeNull();
+ });
+});
+

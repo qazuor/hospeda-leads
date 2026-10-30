@@ -19,7 +19,7 @@ import { useAuth } from "../helpers/useAuth";
 import { dateOnlyInput } from "../helpers/crmDates";
 import {crmSuccess} from '../helpers/crmFeedback';
 import styles from "./Commercial.module.css";
-import {BusinessQuickCreate} from './BusinessQuickCreate';
+import {BusinessQuickCreate,type BusinessPrefill} from './BusinessQuickCreate';
 import {canModifyBusiness} from '../helpers/crmPermissions';
 import {managementTypes,managementTypeLabels,managementTypeHints,managementStageCatalog,type ManagementType} from '../helpers/businessManagement';
 
@@ -30,10 +30,10 @@ const contactFields=[['name','Nombre de la persona'],['position','Cargo'],['phon
 const opportunityExamples:Record<ManagementType,string>={main:'Ejemplo: Plan de alojamiento 2027',partner:'Ejemplo: Propuesta para una institución',provider:'Ejemplo: Servicios de fotografía',editor:'Ejemplo: Carga de eventos de verano',accompaniment:'Ejemplo: Completar la ficha de Hospeda'};
 const opportunityOptionalFields=[['serviceInterest','Propuesta o tema (opcional)'],['estimatedCloseDate','Fecha estimada (opcional)']];
 const titles={account:"Datos del negocio",contact:"Persona de contacto",opportunity:"Iniciar gestión",archive:"Archivar negocio",delete_account:"Enviar a Papelera",convert:"Registrar cliente previo",unmark_client:"Quitar marca Cliente",delete_contact:"Quitar persona"};
-type EditorProps={target:EditorTarget;detail?:CommercialDetail;onClose:()=>void;onSaved?:(id:string)=>void;/** New business only: false when `onSaved` already opens it, so the toast has no "Abrir negocio". */createdToastLink?:boolean};
+type EditorProps={target:EditorTarget;detail?:CommercialDetail;onClose:()=>void;onSaved?:(id:string)=>void;/** New business only: false when `onSaved` already opens it, so the toast has no "Abrir negocio". */createdToastLink?:boolean;/** New business only: values typed in advance (spec 98 §17, «Buscar o crear en el CRM»). */createPrefill?:BusinessPrefill};
 /** Business, person, management and business-condition dialogs. A new business uses the one-step `BusinessQuickCreate`. */
 export function CommercialEditor(props:EditorProps){
-  return props.target.kind==="account"&&!props.target.item?<BusinessQuickCreate onClose={props.onClose} onSaved={props.onSaved} toastLink={props.createdToastLink}/>:<CommercialEditorForm {...props}/>;
+  return props.target.kind==="account"&&!props.target.item?<BusinessQuickCreate onClose={props.onClose} onSaved={props.onSaved} toastLink={props.createdToastLink} prefill={props.createPrefill}/>:<CommercialEditorForm {...props}/>;
 }
 function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
   const {authState}=useAuth();
