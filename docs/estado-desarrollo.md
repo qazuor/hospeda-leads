@@ -1,4 +1,11 @@
-# Estado del CRM — corte al 29 de octubre de 2026
+# Estado del CRM — corte al 30 de octubre de 2026
+
+## Specs 94, 96, 97 y 98 — cerradas: contacto en tres clics, Instagram y material de venta en los paneles del script — 30/10/2026
+
+- **Spec 94** (pegar el mensaje en Instagram Web): PR #281, entregada a `staging` a través del #284. **Spec 96** (contactar en tres clics con el script conectado): PR #284. **Spec 97** (panel de Hospeda en el chat de Instagram): PR #285. **Spec 98** (material de venta en los paneles de WhatsApp e Instagram, «Sin gestión» en WhatsApp, «Buscar o crear en el CRM»): PR #286 a `staging`. Ninguna está desplegada ni promovida a `main`.
+- **Migraciones nuevas:** 052 (resultado desde la respuesta, spec 96), 053 y 054 (chats de Instagram aprendidos y su nombre visible, spec 97), 055 (spec 98); la 049 (spec 92) y la 051 (spec 95) siguen sin aplicar en producción. **User script 1.7.0**; `USERSCRIPT_MIN_VERSION` se queda en 1.5.0.
+- **Validación (30/10):** `npm run typecheck` y `npm test` en verde; las 26 suites de integración de la CI, en verde en local sobre una base desechable recién migrada; suite de navegador en verde en local para la 96 (212 pasaron, 1 salteada que ya estaba salteada antes); CI de los PRs. Se ejecutó solo lo anterior: la prueba en Instagram y WhatsApp reales y en producción no se hizo.
+- **Próximo paso:** el propietario prueba en producción las specs 96, 97 y 98 después de promover `staging` a `main` y de un deploy manual en Coolify (checklist en `pendientes.md`).
 
 ## Spec 97 — panel de Hospeda en el chat de Instagram — implementada en `feat/instagram-chat-panel-97` (apilada sobre la 96, sin commit) — 29/10/2026
 

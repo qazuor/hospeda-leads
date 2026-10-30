@@ -1,31 +1,13 @@
 # Pendientes y próximo trabajo
 
-## Spec 97 — panel de Hospeda en el chat de Instagram — implementada, pendiente de revisión
+## Specs 94, 96, 97 y 98 — cerradas en `staging`, pendientes de producción
 
-[Spec 97](crm-roadmap/97-instagram-chat-panel.md) implementada en el worktree `feat/instagram-chat-panel-97` (apilada sobre la 96, sin commit). Falta:
-- revisión, commit, PR a `staging` después de los de la 94 y la 96, y CI verde. Las suites de integración (`test:userscript` y demás) y las e2e **no se corrieron localmente**; `instagram-open-chat.e2e.ts` cambió solo en el texto del aviso;
-- **checklist del deploy (decisión del propietario 29/10: la barrera de la spec 96 no se relaja):**
-  1. cargar `INSTAGRAM_ACCOUNT_USERNAME` en Coolify **antes** del deploy;
-  2. en el mismo deploy: migraciones `053_instagram_threads.sql` y `054_instagram_thread_display_name.sql` (`npm run db:migrate`) y script 1.6.0;
-  3. ese día, avisar a los vendedores que fuercen «Buscar actualizaciones» en Tampermonkey y aprueben instagram.com si lo pide (con una versión vieja el CRM queda bloqueado en la computadora);
-- **variable `INSTAGRAM_ACCOUNT_USERNAME`** (usuario de Instagram de Hospeda, por ejemplo `hospeda.com.ar`) en Coolify; sin ella el script no aprende chats ni pega. Falta agregarla a la plantilla de variables de la raíz (no se tocó por la regla de no editar archivos de entorno);
-- prueba manual del propietario en Instagram real: insignias en `/direct/inbox/` (abrir antes un chat de un negocio para que el script aprenda su nombre; dos chats con el mismo nombre no se marcan; etiqueta en inglés sin verificar), chat conocido (abre `/direct/t/<id>/` y pega; verificar que el `#hospeda=` sobrevive, spec §9.1 punto 8), chat desconocido (perfil → «Enviar mensaje» → «Expandir» → pega), panel en un chat con negocio, sin negocio y con «No contactar», otra cuenta logueada, interfaz en inglés y un chat grupal (no observados en vivo);
-- decisión abierta marcada **NEEDS OWNER** en la spec §14: el aviso `account-unknown`. «care» sin gestión ya lo valida el servidor (L6). La suite `test:userscript` suma cobertura de Instagram que **no se corrió localmente**.
-
-## Spec 96 — contactar en tres clics, con el script conectado — pendiente de PR
-
-[Spec 96](crm-roadmap/96-contact-three-clicks.md) implementada en `feat/contact-three-clicks-96`, apilada sobre la 94 (sin mergear): el PR va después del de la 94. Falta:
-- push, PR a `staging` y CI verde. Las suites de integración nuevas o cambiadas (`test:communication` con la respuesta que resuelve el resultado, sus correcciones, el orden temporal y No contactar, `test:userscript` con el mínimo 1.5.0) y las e2e reescritas **no se corrieron localmente**: se validan en CI;
-- **migración `052_response_outcome.sql`** (agrega `crm_activities.outcome_response_id`): aplicarla con `npm run db:migrate` en el deploy;
-- **distribuir el user script 1.5.1 antes o en el mismo deploy:** el mínimo del servidor pasa a 1.5.0, así que un 1.3.x/1.4.x recibe 426 en WhatsApp Web, y el CRM **bloquea todas sus páginas** en la computadora (admins incluidos) hasta que el script esté en la última versión (1.5.1), conectado y con el token de la misma cuenta. Avisar a los vendedores antes;
-- prueba manual del propietario: con el script 1.5.0 conectado, «WhatsApp» en la barra → un modelo → «Abrir WhatsApp con …» (tres clics); sin token, con token revocado y con el token de otra cuenta, ver el motivo y «Ir a User script».
-
-## Spec 94 — pegar el mensaje en Instagram Web — pendiente de PR
-
-[Spec 94](crm-roadmap/94-instagram-userscript.md) implementada en `feat/instagram-userscript-94` (cortada de `staging`). Falta:
-- push, PR a `staging`, CI verde (incluye `instagram-open-chat.e2e.ts`, que no se corrió localmente) y merge;
-- **prueba manual del propietario en Instagram real** (Chrome o Edge): actualizar el script a la 1.4.0 desde `/userscript`, aprobar instagram.com en Tampermonkey, recargar el CRM, «Abrir Instagram» desde un negocio con Instagram; verificar que no hay pedido de permiso del portapapeles, que se abre el chat (la URL pasa a `/direct/t/…`), se escribe el texto y no se envía. Si Instagram abre un chat flotante en lugar de `/direct/t/`, el script muestra el aviso y no escribe: habría que revisar el diseño. Si el botón o el cuadro no se encuentran, ajustar `MESSAGE_BUTTON_NAMES` / `COMPOSER_LABELS` y los fixtures `instagram-*.html`;
-- sin migración ni variables nuevas.
+PR #281/#284 (94 y 96), #285 (97), #286 (98). Nada se promueve a `main` ni se despliega hasta que el propietario lo pida. Trabajo del operador para producción:
+- **Migraciones:** 049 y 051 a 055 corren solas al arrancar el contenedor (el `CMD` del Dockerfile ejecuta `scripts/migrate.mjs`). No hace falta correrlas a mano.
+- **Variables en Coolify, antes del deploy:** `INSTAGRAM_ACCOUNT_USERNAME` (sin ella el script no aprende chats ni pega), `BREVO_WEBHOOK_TOKEN`, `PUBLIC_APP_URL` y las variables de R2.
+- **Rollout del user script 1.7.0, coordinado con el deploy:** la barrera de la spec 96 bloquea el CRM en la computadora con un script por debajo de la última versión (`USERSCRIPT_MIN_VERSION` se queda en 1.5.0). Ese día avisar a los vendedores que fuercen «Buscar actualizaciones» en Tampermonkey y aprueben instagram.com si lo pide.
+- **Prueba del propietario en producción (96, 97 y 98), después del deploy:** tres clics con el script conectado (96); chat de Instagram, panel e insignias en la lista (97); «Enviar material» en ambos paneles, «Sin gestión» en WhatsApp y «Buscar o crear en el CRM» (98). Probar también la 94 en Instagram real.
+- Abierto de la 97: el aviso `account-unknown` (marcado NEEDS OWNER en la spec §14) y agregar `INSTAGRAM_ACCOUNT_USERNAME` a la plantilla de variables de la raíz.
 
 ## Material de venta: pantalla (spec 95) — cerrada en `staging`, pendiente de producción
 
