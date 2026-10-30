@@ -42,17 +42,22 @@ test('send sales material from the business, record it and revoke the link',asyn
  // Owner review of spec 96: the floating panel scrolls its own body. A wrapper without flex limits let the body grow past the panel, so the
  // wheel scrolled nothing and the templates and the final button stayed out of reach (Playwright clicks still worked, scrolling by script).
  expect(await dialog.evaluate(panel=>{const body=panel.querySelector('[class*=scrollBody]');return !!body&&body.getBoundingClientRect().bottom<=panel.getBoundingClientRect().bottom+1;}),'The composer body stays inside the panel').toBe(true);
- await expect(dialog.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
- // Owner review of spec 96: the channel group may start collapsed behind the «Para: …» line; «Cambiar» expands it.
- const channels=dialog.getByRole('group',{name:'Canal',exact:true});await reveal(dialog,channels);
- await expect(channels.getByRole('button',{name:'Instagram',exact:true})).toHaveCount(0);
- await channels.getByRole('button',{name:'WhatsApp',exact:true}).click();await expect(channels.getByRole('button',{name:'WhatsApp',exact:true})).toHaveAttribute('aria-pressed','true');
  await page.evaluate(()=>{window.open=()=>{const popup={closed:false,opener:null,location:{href:'about:blank'}} as unknown as Window;(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup=popup;return popup}});
+ // Owner review of spec 96: «Enviar material» skips the template list and opens a free draft with the material, on WhatsApp because the business
+ // has a phone; the model is a selector above it. The pre-draft «Material a enviar» notice and the channel controls show only without a draft.
  const composer=page.getByRole('dialog',{name:'Preparar WhatsApp'});
- // Owner review of spec 96: «Enviar material» skips the template list and opens a free draft with the material; the model is a selector above it.
  await expect(composer.getByLabel('Mensaje modelo',{exact:true})).toHaveValue('');
  await expect(composer.getByRole('heading',{name:'Elegí un mensaje modelo'})).toHaveCount(0);
  const included=composer.getByRole('list',{name:'Material incluido'});
+ await expect(included.getByText(title,{exact:true})).toBeVisible();
+ // Spec 96 §2.3: back in the contact step the material is announced and only travels by WhatsApp or Email, so Instagram is not offered.
+ await composer.getByRole('button',{name:'Cambiar destinatario o modelo',exact:true}).click();
+ await expect(composer.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
+ const channels=composer.getByRole('group',{name:'Canal',exact:true});await reveal(composer,channels);
+ await expect(channels.getByRole('button',{name:'Instagram',exact:true})).toHaveCount(0);await expect(channels.getByRole('button',{name:'WhatsApp',exact:true})).toHaveAttribute('aria-pressed','true');
+ // Preparing again never stacks a second message: the earlier draft is offered and kept.
+ await composer.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
+ await composer.getByRole('group',{name:'Borrador anterior'}).getByRole('button',{name:'Seguir con ese borrador',exact:true}).click();
  await expect(included.getByText(title,{exact:true})).toBeVisible();
  await expect(composer.getByText(new RegExp(`Podés ver «${title}» en: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
  await composer.getByRole('button',{name:'Guardar cambios',exact:true}).click();
