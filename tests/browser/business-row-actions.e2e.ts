@@ -11,7 +11,7 @@ for(const role of ['user','admin'])for(const width of [1280,390])test(`business 
   else if(url.pathname.endsWith('/settings'))data={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedEmails:[],opportunityStages:[]};
   else if(url.pathname.endsWith('/saved_views'))data={views:[]};
   else if(url.pathname.endsWith('/pipeline'))data={stages:[]};
-  else if(url.pathname.endsWith('/communication'))data={recentMessages:[],resources:[]};
+  else if(url.pathname.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],activeRestrictions:[],responses:[],openManagements:[],recentContactHours:72}; // spec 96: the general contact opens the composer, which reads the full shape
   else if(url.pathname.endsWith('/commercial')){
    if(route.request().method()==='POST'){const mutation=superjson.parse<any>(route.request().postData()!);mutations.push(mutation);data={id:mutation.accountId};}
    else {await detailGate;const id=url.searchParams.get('accountId');data={account:{id,nombre:'Negocio '+id,assignedUserEmail:id==='2'?'other@example.com':'owner@example.com',archivedAt:null,email:null,telefono:null},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[]};}
