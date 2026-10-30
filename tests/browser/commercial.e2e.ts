@@ -176,8 +176,8 @@ test('account with two contacts and independent opportunities preserves lead and
   const legacyOpportunityUrl=(await page.getByRole('tabpanel').getByRole('link',{name:'Tercera gestión',exact:true}).getAttribute('href'))!.replace(/^\/sales\/(\d+)$/, '/?leadId=$1');
   await page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Negocios',exact:true}).click();
   // With no search the filter button reads «Filtrar negocios» (an active search turns it into «Editar filtros»); clear the earlier one first.
-  await page.getByRole('textbox',{name:'Buscar negocios',exact:true}).fill('');
-  await expect(page.getByRole('button',{name:'Filtrar negocios',exact:true})).toBeVisible();
+  // The list may restore the earlier search after the first render, so clear again until the toolbar shows no search.
+  await expect(async()=>{await page.getByRole('textbox',{name:'Buscar negocios',exact:true}).fill('');await expect(page.getByRole('button',{name:'Filtrar negocios',exact:true})).toBeVisible({timeout:2000});}).toPass({timeout:15000});
   await expect(page.getByRole('button',{name:'Pantalla completa',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Vista avanzada',exact:true})).toHaveCount(0);
   await page.getByRole('textbox',{name:'Buscar negocios',exact:true}).fill('Negocio E2E');
