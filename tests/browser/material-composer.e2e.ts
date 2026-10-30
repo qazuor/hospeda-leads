@@ -37,7 +37,7 @@ test('send sales material from the business, record it and revoke the link',asyn
  await dialog.getByLabel('Buscar material').fill(run);
  const row=dialog.getByRole('list',{name:'Material entregable'}).getByRole('listitem').filter({hasText:title});
  await row.getByRole('button',{name:'Agregar',exact:true}).click();
- // Spec 96 §2.3: one contact step; the material only travels by WhatsApp or Email, so Instagram is not offered.
+ // Spec 96 §2.3: one contact step. Spec 98 decision 2: the material travels by WhatsApp, Email or Instagram (as a link).
  dialog=page.getByRole('dialog',{name:/^Preparar /});
  // Owner review of spec 96: the floating panel scrolls its own body. A wrapper without flex limits let the body grow past the panel, so the
  // wheel scrolled nothing and the templates and the final button stayed out of reach (Playwright clicks still worked, scrolling by script).
@@ -50,11 +50,11 @@ test('send sales material from the business, record it and revoke the link',asyn
  await expect(composer.getByRole('heading',{name:'Elegí un mensaje modelo'})).toHaveCount(0);
  const included=composer.getByRole('list',{name:'Material incluido'});
  await expect(included.getByText(title,{exact:true})).toBeVisible();
- // Spec 96 §2.3: back in the contact step the material is announced and only travels by WhatsApp or Email, so Instagram is not offered.
+ // Back in the contact step the material is announced; spec 98 decision 2 offers Instagram too, and WhatsApp stays selected.
  await composer.getByRole('button',{name:'Cambiar destinatario o modelo',exact:true}).click();
  await expect(composer.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
  const channels=composer.getByRole('group',{name:'Canal',exact:true});await reveal(composer,channels);
- await expect(channels.getByRole('button',{name:'Instagram',exact:true})).toHaveCount(0);await expect(channels.getByRole('button',{name:'WhatsApp',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(channels.getByRole('button',{name:'Instagram',exact:true})).toHaveCount(1);await expect(channels.getByRole('button',{name:'WhatsApp',exact:true})).toHaveAttribute('aria-pressed','true');
  // Preparing again never stacks a second message: the earlier draft is offered and kept.
  await composer.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
  await composer.getByRole('group',{name:'Borrador anterior'}).getByRole('button',{name:'Seguir con ese borrador',exact:true}).click();
