@@ -1,7 +1,29 @@
 import { jwtVerify, SignJWT } from "jose";
 
 const encoder = new TextEncoder();
-const secret = process.env.JWT_SECRET;
+export const MinJwtSecretLength = 32;
+
+/** Substrings (lowercase) that mark a JWT secret as an example value. Keep identical to `JwtPlaceholderMarkers` in scripts/local/lib.mjs (a unit test asserts it; that file is plain ESM and cannot import this one). */
+export const PlaceholderMarkers = ["change-me", "changeme", "not-for-production", "example", "replace", "placeholder", "secret-here", "your-secret", "your_secret", "yoursecret"] as const;
+const KnownPlaceholders = ["development-only-change-me"];
+
+const isPlaceholderSecret = (value: string) => {
+  const lower = value.toLowerCase();
+  return KnownPlaceholders.includes(lower) || PlaceholderMarkers.some((marker) => lower.includes(marker));
+};
+
+/** Fails fast (at module load) when JWT_SECRET is missing, too short or a known placeholder, instead of signing with "undefined" or a public value. */
+export function requireJwtSecret(value: string | undefined): string {
+  if (!value || value.length < MinJwtSecretLength || isPlaceholderSecret(value))
+    throw new Error(
+      `JWT_SECRET must be set to a real random secret of at least ${MinJwtSecretLength} characters (got ${value ? value.length : 0}${value && isPlaceholderSecret(value) ? ", looks like a placeholder" : ""}). Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
+    );
+  if (value !== value.trim() || /^["'`]|["'`]$/.test(value))
+    console.warn("JWT_SECRET has surrounding whitespace or quotes; they are part of the secret. Check the variable in the deployment settings (accepted as is to keep existing sessions valid).");
+  return value;
+}
+
+const secret = requireJwtSecret(process.env.JWT_SECRET);
 
 export const SessionExpirationSeconds = 60 * 60 * 24 * 7; // 1 week
 // Probability to run cleanup (10%)
@@ -22,9 +44,12 @@ export interface Session {
 
 const CookieName = "hospeda_leads_session";
 
+/** Spanish copy for a missing or expired session; the client keys behaviour off the 401 status, never this text. */
+export const SESSION_EXPIRED_SERVER_MESSAGE = "Tu sesión venció. Volvé a ingresar.";
+
 export class NotAuthenticatedError extends Error {
   constructor(message?: string) {
-    super(message ?? "Not authenticated");
+    super(message ?? SESSION_EXPIRED_SERVER_MESSAGE);
     this.name = "NotAuthenticatedError";
   }
 }

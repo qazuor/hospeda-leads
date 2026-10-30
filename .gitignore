@@ -4,6 +4,7 @@ dist-server
 .env
 .env.*
 !.env.example
+!.env.test.example
 coverage
 *.log
 .DS_Store
@@ -13,6 +14,10 @@ migration-data*.json.gz
 
 test-results
 playwright-report
+perf-results/
 
 # Local automation credentials
 *.token
+
+# Local dev state (generated secrets and ports)
+.local/

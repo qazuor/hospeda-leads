@@ -1,10 +1,11 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {postJson} from "../helpers/apiClient";
 
 const nullableSender=z.union([z.string().email(),z.literal(""),z.null()]).optional();
 const sex=z.enum(["masculino","femenino","otro","prefiero_no_decir"]);
 
 export const schema=z.discriminatedUnion("action",[
+  z.object({action:z.literal("saveUserscriptAutoRegister"),enabled:z.boolean()}),
   z.object({action:z.literal("addCity"),name:z.string().min(1)}),
   z.object({action:z.literal("addSubtype"),name:z.string().min(1),typeName:z.string().nullable().optional()}),
   z.object({action:z.literal("editSubtype"),id:z.union([z.string(),z.number()]),name:z.string().min(1)}),
@@ -29,22 +30,25 @@ export const schema=z.discriminatedUnion("action",[
     senderEmail:z.string().email(),
     replyToEmail:z.string().email()
   }),
+  z.object({action:z.literal("saveMessageVariables"),variables:z.array(z.unknown()).max(200)}),
   z.object({action:z.literal("deleteTemplate"),id:z.union([z.string(),z.number()])}),
+  z.object({action:z.literal("setTemplateActive"),id:z.union([z.string(),z.number()]),active:z.boolean()}),
+  z.object({action:z.literal("restoreTemplateVersion"),id:z.union([z.string(),z.number()]),version:z.number().int().positive()}),
   z.object({
     action:z.literal("saveTemplate"),
     id:z.union([z.string(),z.number()]).optional(),
-    channel:z.enum(["email","whatsapp"]),
+    channel:z.enum(["email","whatsapp","social","other"]),
     name:z.string().min(1),
     subject:z.string().nullable().optional(),
     body:z.string().min(1),
     vertical:z.string().nullable().optional(),
+    managementType:z.enum(['main','partner','provider','editor','accompaniment']).nullable().optional(),
     commercialProfile:z.enum(["Independiente","Consolidado","Referente"]).nullable().optional()
+    ,purpose:z.enum(["verification","first_contact","resume","relationship","care","operations","other"]).nullable().optional()
   })
 ]);
 export type InputType=z.infer<typeof schema>;
 export type OutputType={ok:true};
 export const postSettingsSave=async(body:InputType):Promise<OutputType>=>{
-  const r=await fetch("/_api/settings_save",{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(schema.parse(body))});
-  if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
-  return superjson.parse<OutputType>(await r.text());
+  return postJson<OutputType>("/_api/settings_save",schema.parse(body));
 };

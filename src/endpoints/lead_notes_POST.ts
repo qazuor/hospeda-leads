@@ -4,10 +4,12 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./lead_notes_POST.schema";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     const row=await db.transaction().execute(async trx=>{
       const lead=await assertLeadAccess(trx,String(input.leadId),user,true);
       if(lead.deletedAt)throw new Error("Este lead está en la papelera. Restauralo antes de agregar notas.");
@@ -23,6 +25,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({id:String(row.id)} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo guardar la nota"}),{status:error instanceof CrmForbidden?403:400});
+    return errorResponse(error,error instanceof CrmForbidden?403:400);
   }
 }

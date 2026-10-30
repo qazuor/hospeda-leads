@@ -1,0 +1,4 @@
+.dragging{position:relative;z-index:2;opacity:1;background:color-mix(in srgb,var(--primary) 18%,var(--card));outline:2px solid var(--primary);box-shadow:0 6px 16px color-mix(in srgb,var(--primary) 24%,transparent)}
+.indicator{position:absolute;left:7px;right:7px;height:2px;background:var(--primary);z-index:3;pointer-events:none}
+.indicator:before{content:"";position:absolute;left:-2px;top:-2px;width:6px;height:6px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 22%,transparent)}
+.top{top:-1px}.bottom{bottom:-1px}

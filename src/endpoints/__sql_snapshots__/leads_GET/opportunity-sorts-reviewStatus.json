@@ -1,0 +1,13 @@
+[
+ {
+  "sql": "select count(*) as \"count\" from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null)",
+  "parameters": []
+ },
+ {
+  "sql": "select * from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) order by coalesce((SELECT status FROM crm_accounts WHERE id=leads.account_id),'new') <> 'new' desc, \"id\" desc limit $1 offset $2",
+  "parameters": [
+   50,
+   0
+  ]
+ }
+]

@@ -1,10 +1,16 @@
 import {setWorkActor} from "../helpers/workAudit";
+import {lockAccounts} from "../helpers/crmPermissions";
 import { createHash, randomBytes } from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { buildHospedaEmailHtml, buildHospedaEmailText } from "../helpers/hospedaEmailLayout";
+import {sql} from 'kysely';
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./settings_save_POST.schema";
+import { validateMessageVariables } from "../helpers/messageVariables";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
+import {validateTemplateMaterials} from '../helpers/templateMaterialService';
 
 const INVITE_PREFIX="user_invitation:";
 const INVITE_TTL_MS=7*24*60*60*1000;
@@ -147,7 +153,12 @@ export async function handle(request:Request){
     if(user.role!=="admin"){
       return new Response(superjson.stringify({error:"Solo administradores pueden modificar Configuración."}),{status:403});
     }
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
+
+    if(input.action==="saveUserscriptAutoRegister"){
+      await db.insertInto("appSettings").values({key:"crm_userscript_auto_register",value:JSON.stringify({enabled:input.enabled})})
+        .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify({enabled:input.enabled}),updatedAt:new Date()})).execute();
+    }
 
     if(input.action==="addCity"){
       await db.insertInto("crmCities").values({name:input.name.trim()})
@@ -167,6 +178,11 @@ export async function handle(request:Request){
       const nextName=input.name.trim();
       await db.transaction().execute(async trx=>{
         await setWorkActor(trx,user);
+        // Lock the affected businesses first (before any write, which would also hold the live-version row), in id order: the leads active-account guard takes FOR SHARE on each business while
+        // updating its leads, so locking leads first would invert the business-then-management order used by every other writer.
+        let affected=trx.selectFrom("leads").select("accountId").distinct().where("subtipo","=",target.name);
+        if(target.typeName)affected=affected.where("tipo","=",target.typeName);
+        await lockAccounts(trx,(await affected.execute()).map(r=>r.accountId));
         await trx.updateTable("crmSubtypes").set({name:nextName,active:true}).where("id","=",target.id).execute();
         let leads=trx.updateTable("leads").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
         if(target.typeName)leads=leads.where("tipo","=",target.typeName);
@@ -284,39 +300,65 @@ export async function handle(request:Request){
       }
     }
 
+    if(input.action==="saveMessageVariables"){
+      const variables=validateMessageVariables(input.variables);
+      const keys=new Set(variables.map(variable=>variable.key));
+      for(const variable of variables){
+        if(variable.source.kind==="variable"&&!keys.has(variable.source.key))throw new Error(`{{${variable.key}}} referencia una variable que no existe.`);
+      }
+      for(const start of variables){
+        const visited=new Set<string>();
+        let current:typeof start|undefined=start;
+        while(current?.source.kind==="variable"){
+          if(visited.has(current.key))throw new Error(`Hay una referencia circular que incluye {{${current.key}}}.`);
+          visited.add(current.key);
+          current=variables.find(item=>item.key===current?.source.key);
+        }
+      }
+      await db.insertInto("appSettings").values({key:"crm_message_variables",value:JSON.stringify(variables)})
+        .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify(variables),updatedAt:new Date()})).execute();
+    }
+
     if(input.action==="deleteTemplate"){
       const target=await db.selectFrom("messageTemplates").select(["id","name"]).where("id","=",String(input.id)).where("active","=",true).executeTakeFirst();
       if(!target)return new Response(superjson.stringify({error:"El template no existe o ya fue eliminado."}),{status:404});
       await db.updateTable("messageTemplates").set({active:false,updatedAt:new Date()}).where("id","=",target.id).execute();
     }
 
+    if(input.action==="setTemplateActive"){
+      await db.updateTable("messageTemplates").set({active:input.active,updatedAt:new Date()}).where("id","=",String(input.id)).execute();
+    }
+
+    if(input.action==="restoreTemplateVersion"){
+      await db.transaction().execute(async trx=>{
+        await setWorkActor(trx,user);
+        const old=(await sql<{snapshot:any}>`SELECT snapshot FROM crm_message_template_versions WHERE template_id=${String(input.id)} AND version=${input.version} FOR UPDATE`.execute(trx)).rows[0];
+        if(!old)throw new Error('No existe esa versión del modelo.');
+        const v=old.snapshot;
+        await validateTemplateMaterials(trx,{channel:v.channel,subject:v.subject??null,body:String(v.body??'')});
+        await trx.updateTable('messageTemplates').set({channel:v.channel,name:v.name,subject:v.subject,body:v.body,vertical:v.vertical,managementType:v.management_type,commercialProfile:v.commercial_profile,purpose:v.purpose??null,updatedAt:new Date()}).where('id','=',String(input.id)).execute();
+        const current=await sql<any>`SELECT to_jsonb(t) AS value FROM message_templates t WHERE id=${String(input.id)}`.execute(trx);
+        const next=await sql<{version:number}>`SELECT coalesce(max(version),0)+1 AS version FROM crm_message_template_versions WHERE template_id=${String(input.id)}`.execute(trx);
+        await sql`INSERT INTO crm_message_template_versions(template_id,version,snapshot,actor_email) VALUES(${String(input.id)},${next.rows[0].version},${JSON.stringify(current.rows[0].value)}::text::jsonb,${user.email})`.execute(trx);
+      });
+    }
+
     if(input.action==="saveTemplate"){
-      if(input.id){
-        await db.updateTable("messageTemplates").set({
-          channel:input.channel,
-          name:input.name.trim(),
-          subject:input.channel==="email"?(input.subject?.trim()||null):null,
-          body:input.body,
-          vertical:input.vertical?.trim()||null,
-          commercialProfile:input.commercialProfile??null,
-          updatedAt:new Date()
-        }).where("id","=",String(input.id)).execute();
-      }else{
-        await db.insertInto("messageTemplates").values({
-          channel:input.channel,
-          name:input.name.trim(),
-          subject:input.channel==="email"?(input.subject?.trim()||null):null,
-          body:input.body,
-          vertical:input.vertical?.trim()||null,
-          commercialProfile:input.commercialProfile??null
-        }).execute();
-      }
+      await db.transaction().execute(async trx=>{
+        await setWorkActor(trx,user);
+        await validateTemplateMaterials(trx,{channel:input.channel,subject:input.channel==="email"?(input.subject??null):null,body:input.body});
+        const values={channel:input.channel,name:input.name.trim(),subject:input.channel==="email"?(input.subject?.trim()||null):null,body:input.body,vertical:input.vertical?.trim()||null,managementType:input.managementType??null,commercialProfile:input.commercialProfile??null,purpose:input.purpose??null,updatedAt:new Date()};
+        let templateId:string;
+        if(input.id){const saved=await trx.updateTable('messageTemplates').set(values).where('id','=',String(input.id)).returning('id').executeTakeFirstOrThrow();templateId=String(saved.id);}
+        else{const saved=await trx.insertInto('messageTemplates').values(values).returning('id').executeTakeFirstOrThrow();templateId=String(saved.id);}
+        const snapshot=(await sql<any>`SELECT to_jsonb(t) AS value FROM message_templates t WHERE id=${templateId}`.execute(trx)).rows[0].value;
+        const next=(await sql<{version:number}>`SELECT coalesce(max(version),0)+1 AS version FROM crm_message_template_versions WHERE template_id=${templateId}`.execute(trx)).rows[0].version;
+        await sql`INSERT INTO crm_message_template_versions(template_id,version,snapshot,actor_email) VALUES(${templateId},${next},${JSON.stringify(snapshot)}::text::jsonb,${user.email})`.execute(trx);
+      });
     }
 
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({
-      error:error instanceof Error?error.message:"No se pudo guardar configuración"
-    }),{status:400});
+    return errorResponse(error);
   }
 }

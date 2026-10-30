@@ -1,16 +1,15 @@
-@import url(https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap);
+@import url(https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap);
 @import url(https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap);
 @import url(https://fonts.googleapis.com/css2?family=Caveat&display=swap);
 :root {
-  --brand-blue: #3AA7D9;
-  --brand-teal: #1EA7A1;
-  --brand-orange: #F5A623;
+  --brand-teal: var(--accent);
+  --brand-orange: var(--secondary);
   --surface-raised-shadow: 0 2px 4px #26374a03, 0 12px 32px -16px #26374a26;
   --surface-hover-shadow: 0 6px 20px -10px #26374a30;
   --surface-border: color-mix(in srgb, var(--border) 75%, var(--card));
   --crm-content-width: 1600px;
   --crm-panel-padding: 20px;
-  --crm-panel-radius: 12px;
+  --crm-panel-radius: 16px;
   --crm-title-size: clamp(26px, 2.5vw, 32px);
   --crm-control-height: 38px;
   --crm-control-font: 14px;
@@ -35,126 +34,35 @@
 }
 
 :root {
-  --background: hsl(35, 45%, 98%);
-  --foreground: hsl(210, 28%, 16%);
-  --surface: hsl(203, 48%, 96%);
-  --surface-foreground: var(--foreground);
-  --sidebar: hsl(215, 25%, 27%);
-  --sidebar-foreground: hsl(210, 15%, 95%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: var(--foreground);
-  --popup: hsl(0, 0%, 100%);
-  --popup-foreground: var(--foreground);
-  --primary: hsl(199, 73%, 37%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(28, 91%, 55%);
-  --secondary-foreground: hsl(220, 20%, 12%);
-  --accent: hsl(177, 70%, 35%);
-  --accent-foreground: hsl(0, 0%, 100%);
-  --muted: hsl(220, 15%, 85%);
-  --muted-foreground: hsl(220, 10%, 40%);
-  --success: hsl(145, 65%, 42%);
-  --success-foreground: hsl(0, 0%, 100%);
-  --error: hsl(358, 75%, 55%);
-  --error-foreground: hsl(0, 0%, 100%);
-  --warning: hsl(38, 95%, 60%);
-  --warning-foreground: hsl(38, 40%, 20%);
-  --info: hsl(200, 75%, 55%);
-  --info-foreground: hsl(0, 0%, 100%);
-  --info-hover: hsl(200, 75%, 50%);
-  --info-active: hsl(200, 75%, 45%);
-  --analytics: hsl(275, 65%, 55%);
-  --analytics-foreground: hsl(0, 0%, 100%);
-  --dashboard: hsl(190, 70%, 50%);
-  --dashboard-foreground: hsl(0, 0%, 100%);
-  --border: hsl(220, 15%, 90%);
-  --font-family-base: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-  --font-family-heading: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
-    "Helvetica Neue", sans-serif;
-  --font-family-monospace: "JetBrains Mono", SFMono-Regular, Consolas,
-    "Liberation Mono", Menlo, monospace;
-  --font-family-cursive: "Caveat", cursive;
-  --radius-sm: 0.375rem;
-  --radius: 0.875rem;
-  --radius-md: 1.25rem;
-  --radius-lg: 1.5rem;
-  --radius-full: 9999px;
-  --shadow: 0 1px 2px hsla(220, 15%, 5%, 0.05),
-    0 3px 6px hsla(220, 15%, 5%, 0.07);
-  --shadow-md: 0 1px 3px hsla(220, 15%, 5%, 0.05),
-    0 10px 15px -5px hsla(220, 15%, 5%, 0.05),
-    0 20px 25px -5px hsla(220, 15%, 5%, 0.04);
-  --shadow-lg: 0 1px 3px hsla(220, 15%, 5%, 0.05),
-    0 20px 25px -5px hsla(220, 15%, 5%, 0.07),
-    0 30px 40px -5px hsla(220, 15%, 5%, 0.05);
-  --shadow-focus: 0 0 0 2px hsla(215, 70%, 50%, 0.25),
-    0 1px 2px hsla(220, 15%, 5%, 0.05);
-  --animation-duration-fast: 150ms;
-  --animation-duration-normal: 250ms;
-  --animation-duration-slow: 350ms;
-  --spacing-1: 0.25rem;
-  --spacing-2: 0.5rem;
-  --spacing-3: 0.75rem;
-  --spacing-4: 1rem;
-  --spacing-6: 1.5rem;
-  --spacing-8: 2rem;
-  --spacing-12: 3rem;
-  --spacing-16: 4rem;
-  --chart-color-1: hsl(215, 70%, 50%);
-  --chart-color-2: hsl(250, 65%, 60%);
-  --chart-color-3: hsl(330, 80%, 60%);
-  --chart-color-4: hsl(145, 65%, 42%);
-  --chart-color-5: hsl(38, 95%, 60%);
+  --background:#EEF2F8; --foreground:#0F172A; --surface:#F6F8FC; --surface-foreground:var(--foreground);
+  --sidebar:#0F172A; --sidebar-foreground:#E5EAF3; --card:#FFFFFF; --card-foreground:var(--foreground); --popup:#FFFFFF; --popup-foreground:var(--foreground);
+  --animation-duration-fast:150ms; --animation-duration-normal:250ms; --animation-duration-slow:350ms;
+  --spacing-1:0.25rem; --spacing-2:0.5rem; --spacing-3:0.75rem; --spacing-4:1rem; --spacing-6:1.5rem; --spacing-8:2rem; --spacing-12:3rem; --spacing-16:4rem;
+  --primary:#2563EB; --primary-foreground:#FFFFFF; --primary-hover:#1D4ED8; --primary-soft:#E8F0FE; --primary-ink:#1D4ED8;
+  --secondary:#F59E0B; --secondary-foreground:#0F172A; --accent:#0EA5E9; --accent-foreground:#0F172A;
+  --muted:#E3E8F0; --muted-foreground:#475569; --success:#15803D; --success-foreground:#FFFFFF; --error:#DC2626; --error-foreground:#FFFFFF;
+  --warning:#F59E0B; --warning-foreground:#0F172A; --info:#0EA5E9; --info-foreground:#0F172A; --info-hover:#0284C7; --info-active:#0369A1;
+  --analytics:#7C3AED; --analytics-foreground:#FFFFFF; --dashboard:#0EA5E9; --dashboard-foreground:#0F172A;
+  --border:#E3E8F0; --border-strong:#CFD7E4;
+  /* Spec 91: the conversation body (a soft mint chat wallpaper), the received bubbles and day pills on it. */
+  --chat-wallpaper:#E3EFE6; --chat-bubble-in:var(--card);
+  /* Spec 91: platform colours of conversation items (borders and tints, never text). */
+  --platform-whatsapp:#25D366; --platform-instagram:#E1306C; --platform-email:#2563EB; --platform-call:#F59E0B; --platform-other:#7C3AED;
+  --tone-blue:#3B82F6;--tone-blue-soft:#EAF2FF;--tone-blue-ink:#1D4ED8;
+  --tone-green:#22C55E;--tone-green-soft:#E7F8EE;--tone-green-ink:#15803D;
+  --tone-orange:#F59E0B;--tone-orange-soft:#FEF3DC;--tone-orange-ink:#B45309;
+  --tone-red:#DC2626;--tone-red-soft:#FDECEC;--tone-red-ink:#B91C1C;
+  --tone-violet:#8B5CF6;--tone-violet-soft:#F1EBFF;--tone-violet-ink:#6D28D9;
+  --tone-sky:#0EA5E9;--tone-sky-soft:#E3F5FD;--tone-sky-ink:#0369A1;
+  --tone-pink:#EC4899;--tone-pink-soft:#FDEAF4;--tone-pink-ink:#BE185D;
+  --tone-slate:#64748B;--tone-slate-soft:#EEF1F5;--tone-slate-ink:#334155;
+  --font-family-base:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --font-family-heading:var(--font-family-base); --font-family-monospace:"JetBrains Mono",SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace; --font-family-cursive:"Caveat",cursive;
+  --radius-sm:.375rem;--radius:.875rem;--radius-md:1.25rem;--radius-lg:1.5rem;--radius-full:9999px;
+  --shadow:0 1px 2px rgba(15,23,42,.05),0 1px 3px rgba(15,23,42,.04);--shadow-md:0 12px 32px -8px rgba(15,23,42,.18),0 4px 10px -4px rgba(15,23,42,.08);--shadow-lg:0 16px 40px -8px rgba(15,23,42,.2);--shadow-focus:0 0 0 2px rgba(37,99,235,.25);
+  --overlay:rgba(15,23,42,.45);--chart-color-1:#2563EB;--chart-color-2:#8B5CF6;--chart-color-3:#EC4899;--chart-color-4:#16A34A;--chart-color-5:#F59E0B;
 }
-
-.dark {
-  color-scheme: dark;
-  --background: hsl(220, 15%, 10%);
-  --foreground: hsl(210, 15%, 90%);
-  --surface: hsl(220, 15%, 13%);
-  --surface-foreground: var(--foreground);
-  --sidebar: hsl(215, 25%, 15%);
-  --sidebar-foreground: hsl(210, 15%, 90%);
-  --card: hsl(220, 15%, 15%);
-  --card-foreground: var(--foreground);
-  --popup: hsl(220, 15%, 15%);
-  --popup-foreground: var(--foreground);
-  --primary: hsl(199, 66%, 60%);
-  --primary-foreground: hsl(220, 20%, 12%);
-  --secondary: hsl(28, 91%, 60%);
-  --secondary-foreground: hsl(220, 20%, 12%);
-  --accent: hsl(177, 62%, 60%);
-  --accent-foreground: hsl(220, 20%, 12%);
-  --muted: hsl(220, 15%, 25%);
-  --muted-foreground: hsl(220, 10%, 70%);
-  --success: hsl(145, 65%, 45%);
-  --success-foreground: hsl(0, 0%, 100%);
-  --error: hsl(358, 75%, 60%);
-  --error-foreground: hsl(0, 0%, 100%);
-  --warning: hsl(38, 95%, 50%);
-  --warning-foreground: hsl(38, 40%, 90%);
-  --info: hsl(200, 75%, 60%);
-  --info-foreground: hsl(0, 0%, 100%);
-  --info-hover: hsl(200, 75%, 55%);
-  --info-active: hsl(200, 75%, 50%);
-  --analytics: hsl(275, 65%, 60%);
-  --analytics-foreground: hsl(0, 0%, 100%);
-  --dashboard: hsl(190, 70%, 55%);
-  --dashboard-foreground: hsl(0, 0%, 100%);
-  --border: hsl(220, 15%, 20%);
-  --shadow: 0 1px 2px hsla(220, 15%, 0%, 0.1),
-    0 3px 6px hsla(220, 15%, 0%, 0.15);
-  --shadow-md: 0 1px 3px hsla(220, 15%, 0%, 0.1),
-    0 10px 15px -5px hsla(220, 15%, 0%, 0.1),
-    0 20px 25px -5px hsla(220, 15%, 0%, 0.08);
-  --shadow-lg: 0 1px 3px hsla(220, 15%, 0%, 0.1),
-    0 20px 25px -5px hsla(220, 15%, 0%, 0.15),
-    0 30px 40px -5px hsla(220, 15%, 0%, 0.1);
-  --shadow-focus: 0 0 0 2px hsla(215, 70%, 60%, 0.25),
-    0 1px 2px hsla(220, 15%, 0%, 0.1);
-}
+.dark {color-scheme:dark;--chat-wallpaper:#0F1D1B;--chat-bubble-in:#1C2A2E;--platform-whatsapp:#2FD574;--platform-instagram:#F0598E;--platform-email:#60A5FA;--platform-call:#FBBF24;--platform-other:#A78BFA;--background:#0A0F1C;--foreground:#E5EAF3;--surface:#172033;--surface-foreground:var(--foreground);--sidebar:#0A0F1C;--sidebar-foreground:#E5EAF3;--card:#111827;--card-foreground:var(--foreground);--popup:#111827;--popup-foreground:var(--foreground);--primary:#3B82F6;--primary-foreground:#0A0F1C;--primary-hover:#60A5FA;--primary-soft:#172554;--primary-ink:#93C5FD;--secondary:#F59E0B;--secondary-foreground:#0F172A;--accent:#0EA5E9;--accent-foreground:#0A0F1C;--muted:#243049;--muted-foreground:#A3B0C6;--success:#4ADE80;--success-foreground:#0A0F1C;--error:#F87171;--error-foreground:#0A0F1C;--warning:#F59E0B;--warning-foreground:#0F172A;--info:#38BDF8;--info-foreground:#0A0F1C;--info-hover:#0EA5E9;--info-active:#0284C7;--analytics:#A78BFA;--analytics-foreground:#0A0F1C;--dashboard:#38BDF8;--dashboard-foreground:#0A0F1C;--border:#243049;--border-strong:#33415E;--tone-blue-soft:#13254A;--tone-blue-ink:#93C5FD;--tone-green-soft:#0F2E1E;--tone-green-ink:#86EFAC;--tone-orange-soft:#33240A;--tone-orange-ink:#FCD34D;--tone-red-soft:#3A1414;--tone-red-ink:#FCA5A5;--tone-violet-soft:#24184A;--tone-violet-ink:#C4B5FD;--tone-sky-soft:#0B2A3A;--tone-sky-ink:#7DD3FC;--tone-pink-soft:#3A1029;--tone-pink-ink:#F9A8D4;--tone-slate-soft:#1E293B;--tone-slate-ink:#CBD5E1;--shadow:0 1px 2px rgba(0,0,0,.4);--shadow-md:0 16px 40px -8px rgba(0,0,0,.6);--shadow-lg:0 20px 48px -8px rgba(0,0,0,.65);--shadow-focus:0 0 0 2px rgba(59,130,246,.35);--overlay:rgba(2,6,23,.65);--chart-color-1:#60A5FA;--chart-color-2:#A78BFA;--chart-color-3:#F472B6;--chart-color-4:#4ADE80;--chart-color-5:#FBBF24}
 
 /* Portable global baseline.
    Floot injected these rules at runtime; keep them in-repo so the UI renders
@@ -177,6 +85,8 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-family-base);
+    /* viewport-fit=cover: keep content out of landscape notches. */
+    padding-inline: var(--safe-area-inset-left) var(--safe-area-inset-right);
   }
 
   * {
@@ -202,7 +112,7 @@
 /* Shared readable control and focus baseline. Zoom remains controlled by the browser. */
 body{font-size:16px;line-height:1.5}
 input,select,textarea{font-family:inherit;font-size:16px;line-height:1.5}
-input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[data-disclosure-control]:focus-visible{outline:1.5px solid var(--crm-focus-color);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[data-disclosure-control]:focus-visible{outline:2px solid var(--crm-focus-color);outline-offset:2px}
 main{scroll-margin-top:100px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
@@ -211,3 +121,6 @@ main{scroll-margin-top:100px}
 @media(max-width:600px){:root{--crm-panel-padding:16px}}
 
 @media(max-width:767px){:root{--crm-control-height:44px;--crm-control-font:16px}}
+/* Placeholders must stay readable (>=4.5:1) in both themes; Mantine's default grey is ~2:1. */
+body{--input-placeholder-color:var(--muted-foreground)}
+input::placeholder,textarea::placeholder,.mantine-Input-input::placeholder{color:var(--muted-foreground);opacity:1}

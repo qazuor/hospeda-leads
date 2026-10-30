@@ -1,25 +1,20 @@
 import { db } from "./db";
 import { User } from "./User";
 
-import {
-  CleanupProbability,
-  getServerSessionOrThrow,
-  NotAuthenticatedError,
-  SessionExpirationSeconds,
-} from "./getSetServerSession";
+import { getServerSessionOrThrow, NotAuthenticatedError, SessionExpirationSeconds } from "./getSetServerSession";
+import { shouldTouchSession } from "./sessionTouch";
+
+const SESSION_CLEANUP_PROBABILITY = 0.01;
 
 export async function getServerUserSession(request: Request) {
   const session = await getServerSessionOrThrow(request);
 
   // Occasionally clean up expired sessions
-  if (Math.random() < CleanupProbability) {
-    const expirationDate = new Date(
-      Date.now() - SessionExpirationSeconds * 1000
-    );
+  if (Math.random() < SESSION_CLEANUP_PROBABILITY) {
     try {
       await db
         .deleteFrom("sessions")
-        .where("lastAccessed", "<", expirationDate)
+        .where("expiresAt", "<", new Date())
         .execute();
     } catch (cleanupError) {
       // Log but don't fail the request if cleanup fails
@@ -43,6 +38,7 @@ export async function getServerUserSession(request: Request) {
       "users.avatarUrl",
     ])
     .where("sessions.id", "=", session.id)
+    .where("sessions.expiresAt", ">", new Date())
     .limit(1)
     .execute();
 
@@ -60,20 +56,23 @@ export async function getServerUserSession(request: Request) {
     role: result.role,
   };
 
-  // Update the session's lastAccessed timestamp
   const now = new Date();
-  await db
-    .updateTable("sessions")
-    .set({ lastAccessed: now })
-    .where("id", "=", session.id)
-    .execute();
+  const shouldTouch = shouldTouchSession({ lastAccessed: result.sessionLastAccessed, now });
+  const effectiveLastAccessed = shouldTouch ? now : result.sessionLastAccessed ?? now;
+  if (shouldTouch) {
+    await db
+      .updateTable("sessions")
+      .set({ lastAccessed: now, expiresAt: new Date(now.getTime() + SessionExpirationSeconds * 1000) })
+      .where("id", "=", session.id)
+      .execute();
+  }
 
   return {
     user: user satisfies User,
     // make sure to update the session in cookie
     session: {
       ...session,
-      lastAccessed: now,
+      lastAccessed: effectiveLastAccessed,
     },
   };
 }

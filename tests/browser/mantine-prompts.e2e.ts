@@ -5,7 +5,7 @@ const settings={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedE
 for(const width of [1280,390])for(const channel of ['email','whatsapp'])test(`link dialog preserves selection, validation and focus at ${width}px ${channel}`,async({page})=>{
  await page.setViewportSize({width,height:844});
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.addInitScript(()=>{try{localStorage.setItem('hospeda-live-mode','off')}catch{/* the sandboxed email preview iframe has no storage */}});
  const writes:string[]=[],errors:string[]=[],native:string[]=[];
  page.on('pageerror',error=>errors.push(error.message));page.on('dialog',async dialog=>{native.push(dialog.type());await dialog.dismiss()});
  await page.route('**/_api/**',async route=>{
@@ -54,7 +54,7 @@ for(const width of [1280,390])for(const channel of ['email','whatsapp'])test(`li
 
 for(const width of [1280,390])for(const role of ['admin','user'])test(`restriction dialog respects permissions and preserves retries at ${width}px ${role}`,async({page})=>{
  await page.setViewportSize({width,height:844});await page.route('https://fonts.googleapis.com/**',route=>route.abort());
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.addInitScript(()=>{try{localStorage.setItem('hospeda-live-mode','off')}catch{/* the sandboxed email preview iframe has no storage */}});
  const writes:any[]=[],errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  const lead={id:'201',accountId:'101',nombre:'Negocio de prueba',opportunityName:'Gestión de prueba',email:'fixture@example.com',assignedUserEmail:'owner@example.com',estado:'Cargado',deletedAt:null};
  const restriction={id:'301',leadId:'201',contactId:'401',channel:'email',reason:'Solicitud original',actorEmail:'admin@example.com',createdAt:new Date(),liftedAt:null as Date|null,liftReason:null as string|null};
@@ -65,7 +65,7 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
   else if(path.endsWith('/settings'))data=settings;
   else if(path.endsWith('/leads'))data={rows:[lead],total:1,page:1,pageSize:10};
   else if(path.endsWith('/lead_notes'))data={notes:[]};else if(path.endsWith('/lead_journal'))data={rows:[],total:0,page:1,pageSize:50,filters:{actions:[],actors:[],cities:[],types:[],leads:[]}};
-  else if(path.endsWith('/commercial'))data={account:{id:'101',nombre:'Negocio de prueba',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',archivedAt:null,mergedIntoId:null},opportunities:[lead],contacts:[{id:'401',name:'Ana Contacto',email:'ana@example.com',deletedAt:null}],journal:[],leadJournal:[],stages:[],users:[]};
+  else if(path.endsWith('/commercial'))data=new URL(route.request().url()).searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account:{id:'101',nombre:'Negocio de prueba',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',archivedAt:null,mergedIntoId:null},opportunities:[lead],contacts:[{id:'401',name:'Ana Contacto',email:'ana@example.com',deletedAt:null}],journal:[],leadJournal:[],stages:[],users:[]};
   else if(path.endsWith('/work'))data={activities:[],tasks:[],types:[],users:[],attention:[],contacts:[]};
   else if(path.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]};
   else if(path.endsWith('/communication')){
@@ -77,11 +77,11 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
     calls++;
     if(calls===1){await gate;await route.fulfill({status:500,contentType:'application/json',body:superjson.stringify({error:'No se pudo levantar'})});return;}
     restriction.liftedAt=new Date();restriction.liftReason=writes[1].reason;data={ok:true};
-   }else data={restrictions:[restriction],messages:[],recentMessages:[],sequences:[],runs:[],recentContactHours:24};
+   }else data={restrictions:[restriction],messages:[],recentMessages:[],responses:[],openManagements:[],recentContactHours:24,webhookConfigured:false};
   }
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
- await page.goto('/sales/201');await page.getByRole('tab',{name:'Mensajes',exact:true}).click();
+ await page.goto('/sales/201');await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
  await page.getByRole('button',{name:'Restricciones de contacto',exact:true}).click();
  // Wait for the accordion's clipping animation before scrolling/clicking its last action.
  await expect.poll(()=>page.getByRole('region',{name:'Restricciones de contacto',exact:true}).evaluate(el=>getComputedStyle(el).overflow)).toBe('visible');
@@ -98,7 +98,7 @@ for(const width of [1280,390])for(const role of ['admin','user'])test(`restricti
  await page.screenshot({path:`test-results/restriction-dialog-${width}.png`,fullPage:true});
  await page.evaluate(()=>document.body.classList.add('dark'));await page.screenshot({path:`test-results/restriction-dialog-${width}-dark.png`,fullPage:true});await page.evaluate(()=>document.body.classList.remove('dark'));
  await dialog.getByRole('button',{name:'Confirmar levantamiento',exact:true}).click();await expect(dialog).toHaveCount(0);
- await expect(page.getByRole('status')).toContainText('Restricción levantada. No se enviaron mensajes ni se reanudaron seguimientos.');
+ await expect(page.getByRole('status')).toContainText('Restricción levantada. No se enviaron mensajes.');
  await expect(page.locator('[data-lifted-restriction="301"]')).toBeFocused();
  await expect(page.getByRole('article')).toContainText('Pedido confirmado por Ana');
  expect(writes).toEqual(Array(2).fill({action:'lift',id:'301',reason:'Pedido confirmado por Ana'}));expect(errors).toEqual([]);

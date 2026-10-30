@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import superjson from 'superjson';
+import {apiJson,postJson,LONG_TIMEOUT_MS} from '../helpers/apiClient';
 import {businessFields,importFields,type Match,type Normalized} from '../helpers/dataNormalization';
 import type {Selectable} from 'kysely';
 import type {CrmDataEvidence,CrmAccounts,CrmAccountMerges} from '../helpers/schema';
@@ -21,5 +21,5 @@ export type ImportReview={batchId:string;status:string;mode:'business'|'opportun
 export type ImportResult={batchId:string;imported:number;updated:number;skipped:number;errors:number;details:Array<{index:number;action:string;id?:string;accountId?:string;entity?:'business'|'opportunity'}>};
 export type MergePreview={source:Selectable<CrmAccounts>;destination:Selectable<CrmAccounts>;token:string;counts:Record<string,number>;policy:{doNotContact:boolean;commercialStatus:string;clientSince:string|null}};
 export type QualityDetail={canEdit:boolean;fields:Array<Normalized&{field:string;label:string;contactId?:string;leadId?:string;revision:string;latest?:Selectable<CrmDataEvidence>;stale:boolean}>;evidence:Array<Selectable<CrmDataEvidence>>;merges:Array<Selectable<CrmAccountMerges>>;config:{maxRows:number;maxFileBytes:number}};
-export async function qualityRequest<T>(body:QualityMutation):Promise<T>{const r=await fetch('/_api/data_quality',{method:'POST',headers:{'Content-Type':'application/json'},body:superjson.stringify(qualityMutation.parse(body))});const value=superjson.parse<T&{error?:string}>(await r.text());if(!r.ok)throw new Error(value.error);return value;}
-export async function getQuality(accountId?:string):Promise<QualityDetail>{const r=await fetch('/_api/data_quality'+(accountId?'?accountId='+accountId:''));const v=superjson.parse<QualityDetail&{error?:string}>(await r.text());if(!r.ok)throw new Error(v.error);return v;}
+export async function qualityRequest<T>(body:QualityMutation):Promise<T>{return postJson<T&{error?:string}>('/_api/data_quality',qualityMutation.parse(body),{timeoutMs:LONG_TIMEOUT_MS});}
+export async function getQuality(accountId?:string):Promise<QualityDetail>{return apiJson<QualityDetail&{error?:string}>('/_api/data_quality'+(accountId?'?accountId='+accountId:''));}

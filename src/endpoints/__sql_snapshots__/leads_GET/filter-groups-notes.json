@@ -1,0 +1,38 @@
+[
+ {
+  "sql": "select count(*) as \"count\" from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and (exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $1, '', 'g'), NFC) like normalize(regexp_replace(normalize(lower(coalesce($2, '')), NFD), $3, '', 'g'), NFC)) or not exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $4, '', 'g'), NFC) like normalize(regexp_replace(normalize(lower(coalesce($5, '')), NFD), $6, '', 'g'), NFC)) or exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $7, '', 'g'), NFC) = normalize(regexp_replace(normalize(lower(coalesce($8, '')), NFD), $9, '', 'g'), NFC)) or not exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $10, '', 'g'), NFC) = normalize(regexp_replace(normalize(lower(coalesce($11, '')), NFD), $12, '', 'g'), NFC)) or not exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\") or exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\"))",
+  "parameters": [
+   "[̀-̂̄-ͯ]",
+   "%Ñu%",
+   "[̀-̂̄-ͯ]",
+   "[̀-̂̄-ͯ]",
+   "%x%",
+   "[̀-̂̄-ͯ]",
+   "[̀-̂̄-ͯ]",
+   "a",
+   "[̀-̂̄-ͯ]",
+   "[̀-̂̄-ͯ]",
+   "b",
+   "[̀-̂̄-ͯ]"
+  ]
+ },
+ {
+  "sql": "select * from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and (exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $1, '', 'g'), NFC) like normalize(regexp_replace(normalize(lower(coalesce($2, '')), NFD), $3, '', 'g'), NFC)) or not exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $4, '', 'g'), NFC) like normalize(regexp_replace(normalize(lower(coalesce($5, '')), NFD), $6, '', 'g'), NFC)) or exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $7, '', 'g'), NFC) = normalize(regexp_replace(normalize(lower(coalesce($8, '')), NFD), $9, '', 'g'), NFC)) or not exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\" and normalize(regexp_replace(normalize(lower(coalesce(note, '')), NFD), $10, '', 'g'), NFC) = normalize(regexp_replace(normalize(lower(coalesce($11, '')), NFD), $12, '', 'g'), NFC)) or not exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\") or exists (select \"lead_notes\".\"id\" from \"lead_notes\" where \"lead_notes\".\"lead_id\" = \"leads\".\"id\")) order by \"fecha_creacion\" desc, \"id\" desc limit $13 offset $14",
+  "parameters": [
+   "[̀-̂̄-ͯ]",
+   "%Ñu%",
+   "[̀-̂̄-ͯ]",
+   "[̀-̂̄-ͯ]",
+   "%x%",
+   "[̀-̂̄-ͯ]",
+   "[̀-̂̄-ͯ]",
+   "a",
+   "[̀-̂̄-ͯ]",
+   "[̀-̂̄-ͯ]",
+   "b",
+   "[̀-̂̄-ͯ]",
+   50,
+   0
+  ]
+ }
+]

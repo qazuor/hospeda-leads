@@ -2,66 +2,105 @@
 
 ## Requisitos
 
-Git, Node 22, npm y Docker con Compose. Usar la misma rama/código actual del repo y PostgreSQL 17 como CI/producción. Esta guía crea una base local de ejemplo; no necesita credenciales ni datos del VPS.
+Git, Node 22, npm y Docker. PostgreSQL 17 corre en un contenedor propio; no hace falta Compose, credenciales ni datos del VPS. Si la imagen `postgres:17-alpine` no está en la PC, el script la descarga una sola vez.
 
 ~~~bash
 git clone https://github.com/qazuor/hospeda-leads.git
 cd hospeda-leads
 npm ci
-cp .env.example .env
 ~~~
 
 Si el repo privado requiere autenticación, configurar el acceso GitHub de tu PC. Para que el agente abra PRs por CLI, instalar GitHub CLI y autenticarlo con `gh auth login`, o configurar una integración equivalente autorizada. No colocar tokens en documentos del repo.
 
-## PostgreSQL local
+### Instagram Direct (optional webhook)
 
-El Compose original no publica PostgreSQL al host: no alcanza con levantarlo para conectar el servidor Node que corre fuera del contenedor. El override documental agrega únicamente el puerto local 5433.
+For webhook development, configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, and `INSTAGRAM_ACCOUNT_ID`. Settings → Communication stores the long-lived token encrypted; `INTEGRATION_SECRETS_KEY` must be base64-encoded 32 bytes. Without this key, the webhook still stores messages but cannot look up usernames for association. Do not use real tokens in fixtures or logs. The user script on Instagram (spec 97) needs `INSTAGRAM_ACCOUNT_USERNAME` (Hospeda's Instagram username): without it the script learns no chats and pastes nothing.
+
+The production callback is `https://crm.hospeda.com.ar/_api/inbound/instagram`; migration `045_instagram_direct.sql` is required. Subscribe to `messages` in Meta and enable the account-level webhook subscription. The app must be published. Configure all four variables in Coolify; without `INSTAGRAM_APP_SECRET`, Meta receives 503.
+
+## Arranque con un solo comando
+
+~~~bash
+npm run local
+~~~
+
+Es idempotente: se puede ejecutar las veces que haga falta. Hace, en orden:
+
+1. Crea o reutiliza el contenedor `hospeda-crm-dev-pg` (volumen `hospeda-crm-dev-pgdata`, etiqueta `hospeda-crm.dev=1`), lo inicia si está detenido y espera a que acepte conexiones.
+2. Se conecta por la IP del contenedor (el reenvío de puertos al host puede colgar clientes Postgres en algunas máquinas) y, si no responde, por el puerto publicado en `127.0.0.1`.
+3. Ejecuta las migraciones.
+4. Si la base está vacía (`crm_accounts = 0`) carga el usuario de prueba y el set sintético de rendimiento (~3,5 mil negocios, 50 mil actividades). La primera vez tarda unos minutos; los arranques siguientes no vuelven a sembrar.
+5. Genera `JWT_SECRET` aleatorio y elige puertos libres (API 3001, web 5173; si están ocupados, los siguientes). Todo queda en `.local/dev.json` (ignorado por Git).
+6. Arranca `npm run dev` (Vite + API con recarga) con las variables armadas en memoria. Si existe un `.env` en la raíz (ignorado por Git, plantilla en `.env.example`), se incluyen **todas** sus variables (R2, Instagram, SMTP, etc.) sin lista previa: agregar una variable nueva no requiere tocar código. Encima se aplican los valores propios de `npm run local`, que siempre ganan sobre el archivo: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `PORT`, `PUBLIC_APP_URL`, `NODE_ENV`, `CRM_DEV_*` y `BREVO_API_KEY` vacía (nunca se envían emails reales desde una base de desarrollo). El resto de tu shell (`DATABASE_URL`, secretos) se ignora a propósito.
+7. Espera `/_api/health` e imprime un resumen: URLs, login, conexión a la base, modo de datos y conteos.
+
+Login de ejemplo: `admin@example.com` / `test-password-123`. Son credenciales sintéticas locales, no del CRM productivo.
+
+Ctrl+C detiene Vite y la API; el contenedor sigue corriendo.
+
+| Comando | Qué hace |
+| --- | --- |
+| `npm run local` | Levanta todo (modo desarrollo). |
+| `npm run local -- --built` | `npm run build` + `npm start` en el puerto de la API: mismo tipo de ejecución que producción, útil para medir rendimiento real. La app se abre en la URL de la API. |
+| `npm run local:status` | Estado del contenedor, URL de la base, conteos y si responden los puertos. |
+| `npm run local:stop` | Detiene los procesos de la app iniciados por el script y el contenedor (los datos se conservan). |
+| `npm run local:reset -- --yes` | Borra el contenedor y el volumen (solo los de nombre/etiqueta propios) y vuelve a levantar todo con datos nuevos. |
+
+Los scripts solo operan sobre `hospeda-crm-dev-pg` si tiene la etiqueta `hospeda-crm.dev=1`; nunca tocan otros contenedores.
+
+**Un solo contenedor y una sola base para todos los worktrees/ramas.** Es intencional, pero implica que `local:stop` y `local:reset` afectan a todos los worktrees, y que las migraciones de una rama de feature se aplican en la base compartida (otra rama sin esa migración puede fallar o ver tablas extra). Para volver a un estado limpio, usar `npm run local:reset -- --yes`. Los puertos de la app sí se eligen libres por ejecución, así que dos worktrees pueden correr a la vez. El estado local (secreto JWT, puertos, proceso) vive en `.local/dev.json` de cada worktree.
+
+El sembrado deja una marca en la base al terminar; si se interrumpe, el siguiente `npm run local` completa solo lo que falta (`local:status` muestra si está completo). Solo funciona en Linux con Docker accesible.
+
+El contenedor corre con `fsync=off` para que la carga sea rápida: es una base descartable, y ante un corte brusco del equipo conviene `local:reset`.
+
+### Datos reales (opcional)
+
+Con un dump entregado por el propietario:
+
+~~~bash
+npm run local -- --data=dump:/ruta/absoluta/al/archivo
+~~~
+
+Solo se acepta formato custom; el propietario debe generarlo con `pg_dump -Fc --no-owner --no-acl <base> > archivo.dump`. Un SQL plano se rechaza a propósito (puede traer `\connect` y escribir en otra base). Se restaura con `pg_restore --exit-on-error` primero en `hospeda_dump_tmp` y recién al terminar bien se renombra a `hospeda_dump`: una restauración interrumpida nunca queda como válida y se reintenta sola. La base de desarrollo no se toca, se migra la restaurada y la app arranca contra ella. Nunca se siembra. La base recuerda el archivo de origen (ruta y fecha de modificación): si pasás otro archivo sin `--fresh`, avisa y conserva lo ya restaurado. Para restaurar otra vez, agregar `--fresh`. Se rechaza un dump dentro del repositorio (también vía enlace simbólico).
+
+Esa base contiene datos personales reales y el login es con usuarios reales: no enviar comunicaciones, no copiar el dump ni su contenido al repo ni a chats. Para volver a los datos sintéticos, ejecutar `npm run local` sin `--data`.
+
+- Frontend: http://localhost:5173 (modo `--built`: http://localhost:3001).
+- Health: http://localhost:3001/_api/health.
+
+Brevo sin clave real no permite envío productivo. Para probar recorridos, usar mocks/fixtures existentes; no probar comunicación con destinatarios reales desde una base de desarrollo.
+
+### Repetir las suites de integración
+
+Las suites `scripts/test-*.ts|mjs` pueden volver a ejecutarse sobre la misma base local descartable. Sus fixtures persistentes usan valores únicos por ejecución (UUID o sufijo temporal) para no chocar con restricciones únicas ni alterar búsquedas exactas por teléfono, email o nombre. La derivación a Leandro exige un único usuario con ese nombre visible: `test-business-state` y `test-permissions` crean el suyo, renombran temporalmente los Leandro que hayan quedado de ejecuciones previas y los restauran al terminar. Las comprobaciones se acotan a las filas creadas por la ejecución.
+
+## Apéndice: arranque manual
+
+La integración de email entrante requiere `INBOUND_EMAIL_TOKEN` (secreto aleatorio de al menos 32 caracteres, compartido con el Worker Cloudflare). En local puede omitirse si no se prueba ese endpoint.
+
+El webhook de Brevo (`POST /_api/brevo/events`, spec 93) requiere `BREVO_WEBHOOK_TOKEN` (32 caracteres o más) y responde 503 sin él. En local se prueba con un token inventado y eventos falsos enviados con `Authorization: Bearer <token>` (ver `scripts/test-email-engagement.ts`); nunca con una `BREVO_API_KEY` real. La configuración de producción está en `COOLIFY_DEPLOY.md`.
+
+Responder emails entrantes requiere `BREVO_SMTP_LOGIN` y `BREVO_SMTP_KEY` (clave SMTP propia del CRM). `BREVO_SMTP_PORT` es opcional y usa `587` por defecto. Sin estas variables, la aplicación inicia normalmente y oculta la acción de responder.
+
+Solo si hace falta algo distinto de `npm run local`. `npm run dev` carga `.env` (si existe) en la API; `npm start`, `npm run db:migrate` y los demás scripts de DB leen solo `process.env` y no cargan `.env`. Las variables exportadas en la shell ganan sobre las del archivo.
 
 ~~~bash
 docker compose -p hospeda-crm-local -f docker-compose.yml -f docs/compose.local.yml up -d postgres
-docker compose -p hospeda-crm-local -f docker-compose.yml -f docs/compose.local.yml ps
 ~~~
 
-Editar `.env` para usar:
-
-~~~dotenv
-DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads
-PUBLIC_APP_URL=http://localhost:3001
-ADMIN_EMAIL=admin@example.com
-BREVO_API_KEY=
-~~~
-
-Generar un JWT_SECRET local aleatorio (el resultado va en `.env`):
-
-~~~bash
-node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
-~~~
-
-Son credenciales sintéticas locales. Si definís otro `POSTGRES_PASSWORD` al crear la base, actualizar también DATABASE_URL; cambiarlo luego en Compose no cambia una contraseña de un volumen ya inicializado. El puerto 5433 debe estar libre. El proyecto Compose local tiene un volumen propio; no ejecutar `down -v` salvo que se quiera borrar esa base local.
-
-## Migrar, crear usuario de ejemplo y arrancar
-
-Los scripts de DB y el servidor leen `process.env`: no cargan `.env` solos. En Bash (Ubuntu), exportar las variables del archivo local antes de ejecutar los scripts. La `.env` de ejemplo y los valores de esta guía son compatibles con este formato; escribir entre comillas cualquier valor que contenga espacios o caracteres especiales:
+Variables mínimas: `DATABASE_URL=postgres://hospeda:hospeda@127.0.0.1:5433/hospeda_leads`, `PUBLIC_APP_URL=http://localhost:5173` (el origen que usa el navegador; si no coincide, los POST se rechazan), `ADMIN_EMAIL=admin@example.com`, `BREVO_API_KEY=` vacío y un `JWT_SECRET` aleatorio de al menos 32 caracteres (el servidor no arranca sin él, más corto, ni con valores de ejemplo como los de .env.example o docker-compose; generarlo con `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`). Guardarlas en `.env` (copiar `.env.example`): `npm run dev` lo carga solo. Para `db:migrate` y los demás scripts de DB hay que exportarlas en la shell, y luego:
 
 ~~~bash
 set -a
 source .env
 set +a
 npm run db:migrate
-npm run db:seed:test
+CRM_TEST_DATABASE=1 npm run db:seed:test
 npm run dev
 ~~~
 
-`db:seed:test` es exclusivamente para esta base de ejemplo. Crea/resetea el administrador de prueba y agrega negocio/gestión sintéticos; no es un seed de producción ni es idempotente en todos los datos. No ejecutarlo contra un dump real o la DB productiva.
-
-Login local de ejemplo: `admin@example.com` / `test-password-123`. Ambos provienen del seed y no son credenciales del CRM productivo.
-
-- Frontend: http://localhost:5173.
-- API: http://localhost:3001; Vite proxya `/_api` al backend.
-- Health: http://localhost:3001/_api/health.
-- Detener desarrollo: Ctrl+C. No se necesita levantar el servicio `app` de Compose para este modo.
-
-Brevo sin clave real no permite envío productivo. Para probar recorridos, usar mocks/fixtures existentes; no probar comunicación con destinatarios reales desde una base de desarrollo.
+`db:seed:test` es exclusivamente para bases de ejemplo: crea/resetea el administrador de prueba y agrega un negocio/gestión sintéticos. No ejecutarlo contra un dump real o la DB productiva.
 
 ## Herramientas de código
 
@@ -116,18 +155,17 @@ npm test
 npm run build
 ~~~
 
-Las integraciones modifican datos sintéticos y algunas prueban migraciones destructivas sobre copias. Usar una base de pruebas separada y descartable, con `.env.test` privada, y `CRM_TEST_DATABASE=1`; nunca la base productiva. Los comandos completos están en `package.json` y `.github/workflows/ci.yml`.
+Las integraciones modifican datos sintéticos y algunas prueban migraciones destructivas sobre copias. Usar una base de pruebas separada y descartable; nunca la base productiva. Los comandos completos están en `package.json` y `.github/workflows/ci.yml`.
+
+Los scripts `npm run test:*` y `npm run db:seed:test` cargan solos un `.env.test` privado (ignorado por Git, plantilla en `.env.test.example`) con `node --env-file-if-exists=.env.test`; no hace falta `source`. **Nunca cargan `.env`.** Las variables exportadas en la shell (como en CI, que no tiene `.env.test`) ganan sobre el archivo. `CRM_TEST_DATABASE=1` es solo una declaración: verificar que `DATABASE_URL` del `.env.test` apunte a la base local descartable (puerto 5433).
 
 Ejemplo en esa base de pruebas ya migrada/sembrada:
 
 ~~~bash
-set -a
-source .env.test
-set +a
-CRM_TEST_DATABASE=1 npm run test:commercial
+npm run test:commercial
 ~~~
 
-Navegador espera un servidor en http://127.0.0.1:3001. En una terminal, cargar `.env.test` como arriba, ejecutar `npm run build` y `npm start`. Chromium y tests en otra:
+Navegador espera un servidor en http://127.0.0.1:3001. En una terminal, exportar `.env.test` en la shell (`set -a; source .env.test; set +a`, `npm start` no lo carga solo), ejecutar `npm run build` y `npm start`. Chromium y tests en otra:
 
 ~~~bash
 npx playwright install chromium

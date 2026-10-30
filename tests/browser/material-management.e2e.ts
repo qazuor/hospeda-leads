@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForTransitions } from './support/transitions';
 import superjson from 'superjson';
 
 for (const width of [1280, 390]) test(`material management keeps drafts and locks pending actions at ${width}px`, async ({ page }) => {
@@ -19,7 +20,7 @@ for (const width of [1280, 390]) test(`material management keeps drafts and lock
   await page.route('**/_api/**', async route => {
     const url = new URL(route.request().url()); let data: unknown = {};
     if (url.pathname.endsWith('/auth/session')) data = { user: { id: 1, email: 'admin@example.com', displayName: 'Admin', role: 'admin' } };
-    else if (url.pathname.endsWith('/commercial')) data = { account: { id: '101', nombre: 'Negocio de materiales', assignedUserEmail: 'admin@example.com', commercialStatus: 'prospect', archivedAt: null, mergedIntoId: null }, opportunities: [], contacts: [], journal: [], leadJournal: [], stages: [], users: [] };
+    else if (url.pathname.endsWith('/commercial')) data = url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{ account: { id: '101', nombre: 'Negocio de materiales', assignedUserEmail: 'admin@example.com', commercialStatus: 'prospect', archivedAt: null, mergedIntoId: null }, opportunities: [], contacts: [], journal: [], leadJournal: [], stages: [], users: [] };
     else if (url.pathname.endsWith('/pipeline')) data = { stages: [], insights: [], events: [], objections: [], lossReasons: [], objectionTypes: [], rules: [], users: [], verticals: [] };
     else if (url.pathname.endsWith('/work')) data = { activities: [], tasks: [], types: [], users: [], attention: [], contacts: [] };
     else if (url.pathname.endsWith('/resources')) {
@@ -38,6 +39,7 @@ for (const width of [1280, 390]) test(`material management keeps drafts and lock
   });
   await page.goto('/accounts/101?section=documents');
   await page.getByRole('button', { name: 'Agregar documento o recurso', exact: true }).click();
+  await waitForTransitions(page);
   const title = page.getByRole('textbox', { name: 'Título del documento', exact: true });
   await title.fill('Nuevo material');
   await page.getByRole('button', { name: 'Aprobar versión', exact: true }).click();
@@ -62,6 +64,7 @@ for (const width of [1280, 390]) test(`material management keeps drafts and lock
   await expect(title).toHaveValue('');
   expect(await file.evaluate((node: HTMLInputElement) => node.files?.length)).toBe(0);
   await page.getByRole('button', { name: 'Nueva versión', exact: true }).click();
+  await waitForTransitions(page);
   await page.getByRole('textbox', { name: 'Vínculo HTTP(S)', exact: true }).fill('https://example.com/version-2');
   await page.getByRole('button', { name: 'Cancelar versión', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Tenés cambios sin guardar');
@@ -73,15 +76,15 @@ for (const width of [1280, 390]) test(`material management keeps drafts and lock
   await expect(page.getByRole('status')).toContainText('Nueva versión guardada como borrador');
   await expect(page.getByRole('article')).toContainText('Borrador');
   const versions = writes.filter(input => input.action === 'version'); expect(versions).toHaveLength(2); expect(versions[0]).toEqual(versions[1]); expect(versions[0].revision).toBe(1);
-  await page.getByRole('button', { name: 'Dar de baja', exact: true }).click();
+  await page.getByRole('button', { name: 'Retirar', exact: true }).click();
   const dialog = page.getByRole('dialog'); await expect(dialog).toContainText('Propuesta de prueba');
-  await dialog.getByRole('button', { name: 'Confirmar baja', exact: true }).dblclick();
-  await expect(dialog.getByRole('button', { name: 'Dando de baja documento…', exact: true })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Confirmar retiro', exact: true }).dblclick();
+  await expect(dialog.getByRole('button', { name: 'Retirando documento…', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape'); await expect(dialog).toBeVisible(); expect(deleteCalls).toBe(1);
   releaseDelete(); await expect(dialog.getByRole('alert')).toContainText('No se pudo guardar');
   await page.screenshot({ path: `test-results/material-management-${width}.png`, fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-  await dialog.getByRole('button', { name: 'Confirmar baja', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Confirmar retiro', exact: true }).click();
   await expect(dialog).toHaveCount(0); await expect(page.getByRole('article')).toHaveCount(0);
   expect(writes.filter(input => input.action === 'delete')).toEqual(Array(2).fill({ action: 'delete', id: material.id, revision: 2 }));
   expect(errors).toEqual([]);

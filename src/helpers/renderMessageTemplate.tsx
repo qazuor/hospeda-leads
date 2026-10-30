@@ -1,3 +1,6 @@
+import { defaultMessageVariableSettings, resolveMessageVariables, type MessageVariableDefinition } from "./messageVariables";
+import { neutralizeMaterialReferences } from "./templateMaterials";
+
 export type TemplateContext={
   name?:unknown;
   contact?:unknown;
@@ -8,8 +11,11 @@ export type TemplateContext={
   phone?:unknown;
   email?:unknown;
   website?:unknown;
+  hospeda_url?:unknown;
   sender?:unknown;
   sender_short?:unknown;
+  managementType?:unknown;
+  commercialProfile?:unknown;isClient?:unknown;purpose?:unknown;channel?:unknown;contact_first?:unknown;__seed?:unknown;__previousPicks?:Record<string,string>;__chosenPicks?:Record<string,string>;
 };
 
 const text=(value:unknown)=>value==null?"":String(value).trim();
@@ -30,9 +36,8 @@ export const normalizeTemplateHtml=(source:string)=>{
     .join("");
 };
 
-export function renderMessageTemplate(source:string,context:TemplateContext){
-  const values:Record<string,string>={};
-  for(const [key,value] of Object.entries(context))values[key]=text(value);
+export function renderMessageTemplate(source:string,context:TemplateContext,definitions:MessageVariableDefinition[]=defaultMessageVariableSettings()){
+  const values=resolveMessageVariables(context as Record<string,unknown>,definitions);
   let out=source;
   const conditional=/{{#if\s+([a-zA-Z0-9_]+)}}([\s\S]*?)(?:{{else}}([\s\S]*?))?{{\/if}}/g;
   for(let i=0;i<10;i++){
@@ -40,7 +45,8 @@ export function renderMessageTemplate(source:string,context:TemplateContext){
     if(next===out)break;
     out=next;
   }
-  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>values[key]??"");
+  // A value (a business or person name) can never carry a sales material reference into the message (spec 89 §9).
+  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>values[key]?neutralizeMaterialReferences(values[key]):`{{${key}}}`);
   return out
     .replace(/[ \t]+([,.;:!?])/g,"$1")
     .replace(/[ \t]{2,}/g," ")
@@ -49,12 +55,13 @@ export function renderMessageTemplate(source:string,context:TemplateContext){
     .trim();
 }
 
-export function renderMessageTemplateHtml(source:string,context:TemplateContext){
+export function renderMessageTemplateHtml(source:string,context:TemplateContext,definitions:MessageVariableDefinition[]=defaultMessageVariableSettings()){
+  const resolved=resolveMessageVariables(context as Record<string,unknown>,definitions);
   const values:Record<string,string>={};
   const htmlValues:Record<string,string>={};
-  for(const [key,value] of Object.entries(context)){
+  for(const [key,value] of Object.entries(resolved)){
     values[key]=text(value);
-    htmlValues[key]=escapeHtml(values[key]);
+    htmlValues[key]=neutralizeMaterialReferences(escapeHtml(values[key]));
   }
   let out=normalizeTemplateHtml(source);
   const conditional=/{{#if\s+([a-zA-Z0-9_]+)}}([\s\S]*?)(?:{{else}}([\s\S]*?))?{{\/if}}/g;
@@ -63,12 +70,16 @@ export function renderMessageTemplateHtml(source:string,context:TemplateContext)
     if(next===out)break;
     out=next;
   }
-  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>htmlValues[key]??"");
+  out=out.replace(/{{([a-zA-Z0-9_]+)}}/g,(_,key)=>htmlValues[key]||`{{${key}}}`);
   return out
     .replace(/<p>\s*<\/p>/g,"")
     .replace(/javascript:/gi,"")
     .replace(/\son[a-z]+\s*=\s*["'][^"']*["']/gi,"")
     .trim();
+}
+
+export function unresolvedTemplateVariables(source:string){
+  return [...new Set([...source.matchAll(/{{\s*([a-zA-Z0-9_]+)\s*}}/g)].map(match=>match[1]))];
 }
 
 export function htmlToPlainText(source:string){

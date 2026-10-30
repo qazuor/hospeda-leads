@@ -27,7 +27,7 @@ try{
  const tipo='Gastronomía test '+stamp,subtipo='Restaurante test '+stamp;
  await db.insertInto('crmSubtypes').values({name:subtipo,typeName:tipo,active:true}).execute();
  const before=await counts();
- const rows=[{nombre:'Negocio gastronómico '+stamp,ciudad:'Colón',tipo,subtipo,provincia:'Entre Ríos',direccion:'Calle pública 123',whatsapp:'+543447123456',discoverySource:'Sitio oficial',verificationUrls:'https://example.com/menu\nhttps://example.com/local',verifiedOn:'2026-01-01',businessNotes:'Dirección verificada; no se identificó persona.'}];
+ const rows=[{nombre:'Negocio gastronómico '+stamp,ciudad:'Colón',tipo,subtipo,provincia:'Entre Ríos',direccion:'Calle pública '+stamp,whatsapp:'+54344'+String(stamp).slice(-7),discoverySource:'Sitio oficial',verificationUrls:'https://example.com/menu\nhttps://example.com/local',verifiedOn:'2026-01-01',businessNotes:'Dirección verificada; no se identificó persona.'}];
  const preview=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows,source:'Relevamiento comercial'});
  assert.equal(preview.mode,'business');assert.deepEqual(preview.rows[0].errors,[]);assert.deepEqual(await counts(),before);
  const body={action:'import_confirm',batchId:preview.batchId,decisions:[{index:0,action:'create'}],confirm:true};

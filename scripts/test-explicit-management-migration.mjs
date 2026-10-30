@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import postgres from 'postgres';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use a disposable DB');
-const database=postgres(process.env.DATABASE_URL,{max:1,prepare:false});
+const database=postgres(process.env.DATABASE_URL,{max:1,prepare:false,path:process.env.CRM_TEST_DATABASE_SOCKET});
 const rollback=new Error('intentional test rollback');
 try{
  await database.begin(async tx=>{

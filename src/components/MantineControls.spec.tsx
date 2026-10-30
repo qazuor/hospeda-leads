@@ -8,6 +8,7 @@ import { Button } from './Button';
 import { Checkbox } from './Checkbox';
 import { NativeSelect } from './NativeSelect';
 import { Input } from './Input';
+import { Textarea } from './Textarea';
 import { Dialog, DialogContent, DialogTitle } from './Dialog';
 import { Command, CommandInput, CommandList, CommandItem, CommandEmpty } from './Command';
 import { Disclosure, DisclosureSummary } from './Disclosure';
@@ -77,6 +78,53 @@ describe('Mantine migration preserves CRM interactions', () => {
     fireEvent.click(control); expect(control.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(control); expect(control.getAttribute('aria-expanded')).toBe('true');
   });
+  it('opens a closed disclosure when a required field inside it fails validation, and focuses that field', async () => {
+    const changes: boolean[] = [];
+    mount(<form data-testid="form"><Disclosure onOpenChange={value => changes.push(value)}><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><button type="submit">Guardar</button></form>);
+    const control = screen.getByRole('button', { name: 'Fecha y canal' });
+    expect(control.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(control.getAttribute('aria-expanded')).toBe('true'));
+    expect(changes).toContain(true);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Fecha real')));
+  });
+  it('keeps trying to focus the revealed field until its panel is really visible (regression: CI focus stayed on Guardar)', () => {
+    vi.useFakeTimers();
+    try {
+      mount(<form><Disclosure><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><button type="submit">Guardar</button></form>);
+      const field = screen.getByLabelText('Fecha real') as HTMLInputElement, save = screen.getByRole('button', { name: 'Guardar' });
+      // A browser ignores focus() while the panel is still display:none; jsdom does not, so emulate it.
+      let hidden = true; const realFocus = HTMLElement.prototype.focus.bind(field);
+      vi.spyOn(field, 'focus').mockImplementation(options => { if (!hidden) realFocus(options); });
+      save.focus(); fireEvent.click(save);
+      vi.advanceTimersByTime(150); expect(document.activeElement).toBe(save);
+      hidden = false; vi.advanceTimersByTime(100);
+      expect(document.activeElement).toBe(field);
+    } finally { vi.useRealTimers(); }
+  });
+  it('does not steal focus the user moved elsewhere while the panel was opening', () => {
+    vi.useFakeTimers();
+    try {
+      mount(<form><Disclosure><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><input aria-label="Notas" /><button type="submit">Guardar</button></form>);
+      const field = screen.getByLabelText('Fecha real') as HTMLInputElement, save = screen.getByRole('button', { name: 'Guardar' }), notes = screen.getByLabelText('Notas') as HTMLInputElement;
+      let hidden = true; const realFocus = HTMLElement.prototype.focus.bind(field);
+      vi.spyOn(field, 'focus').mockImplementation(options => { if (!hidden) realFocus(options); });
+      save.focus(); fireEvent.click(save);
+      vi.advanceTimersByTime(60); notes.focus(); hidden = false; vi.advanceTimersByTime(500);
+      expect(document.activeElement).toBe(notes);
+    } finally { vi.useRealTimers(); }
+  });
+  it('does not touch the DOM after unmounting within the focus delay', async () => {
+    vi.useFakeTimers();
+    try {
+      const view = mount(<form><Disclosure><DisclosureSummary>Fecha y canal</DisclosureSummary><label>Fecha real<Input required value="" onChange={() => undefined} /></label></Disclosure><button type="submit">Guardar</button></form>);
+      const field = screen.getByLabelText('Fecha real') as HTMLInputElement; const focus = vi.spyOn(field, 'focus');
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+      const before = focus.mock.calls.length; // the field's own inline handler already focused it once
+      view.unmount(); vi.advanceTimersByTime(200);
+      expect(focus.mock.calls.length).toBe(before);
+    } finally { vi.useRealTimers(); }
+  });
   it('requires resolving an unsaved message before changing tabs', async () => {
     function Example() { const [tab, setTab] = useState('message'); return <SectionTabs value={tab} onValueChange={setTab}>
       <SectionTabList><SectionTab value="message">Mensaje</SectionTab><SectionTab value="history">Historial</SectionTab></SectionTabList>
@@ -119,6 +167,63 @@ describe('Mantine migration preserves CRM interactions', () => {
     const picker=screen.getByLabelText('Mes');expect(picker.textContent).toContain('enero 2027');
     fireEvent.click(picker);fireEvent.click(await screen.findByRole('button',{name:'febrero'}));
     expect(change).toHaveBeenLastCalledWith('2027-02');
+  });
+
+  it('shows a Spanish inline message instead of the native bubble and clears it on edit', () => {
+    mount(<form><label>Nombre<Input required /></label><label>Tipo<NativeSelect required><option value="">Elegir</option><option value="a">A</option></NativeSelect></label></form>);
+    const name = screen.getByLabelText('Nombre') as HTMLInputElement; const kind = screen.getByLabelText('Tipo') as HTMLSelectElement;
+    const notCancelled = fireEvent.invalid(name); expect(notCancelled).toBe(false);
+    expect(screen.getByText('Completá este dato.')).toBeTruthy();
+    fireEvent.invalid(kind); expect(screen.getByText('Elegí una opción.')).toBeTruthy();
+    fireEvent.change(name, { target: { value: 'Ana' } });
+    expect(screen.queryByText('Completá este dato.')).toBeNull();
+  });
+  it('keeps the inline error out of the field accessible name and linked by aria-describedby', async () => {
+    mount(<form><label>Nombre<Input required /></label><label>Tipo<NativeSelect required><option value="">Elegir</option><option value="a">A</option></NativeSelect></label><label>Notas<Textarea required /></label></form>);
+    const name = screen.getByRole('textbox', { name: 'Nombre' }) as HTMLInputElement; const kind = screen.getByRole('combobox', { name: 'Tipo' }) as HTMLSelectElement; const notes = screen.getByRole('textbox', { name: 'Notas' }) as HTMLTextAreaElement;
+    fireEvent.invalid(name); fireEvent.invalid(kind); fireEvent.invalid(notes);
+    expect(screen.getAllByText('Completá este dato.').length).toBe(2);
+    expect(screen.getByRole('textbox', { name: 'Nombre' })).toBe(name); expect(screen.getByRole('combobox', { name: 'Tipo' })).toBe(kind); expect(screen.getByRole('textbox', { name: 'Notas' })).toBe(notes);
+    expect(document.getElementById(name.getAttribute('aria-describedby')!)?.textContent).toBe('Completá este dato.');
+    fireEvent.change(name, { target: { value: 'Ana' } });
+    expect(name.hasAttribute('aria-label')).toBe(false);
+  });
+  it('does not invent a reason for a disabled button without one', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount(<><Button disabled>Guardar</Button><Button disabled disabledReason="Falta elegir el negocio.">Enviar</Button></>);
+    expect(screen.getByRole('button', { name: 'Guardar' }).closest('span[tabindex]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Enviar' }).closest('span[tabindex]')).not.toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+  it('keeps the same button node and focus when the disabled reason toggles', () => {
+    const view = mount(<Button disabledReason="Falta elegir el negocio.">Guardar</Button>);
+    const button = screen.getByRole('button', { name: 'Guardar' }); button.focus();
+    view.rerender(<MantineProvider><Button disabled disabledReason="Falta elegir el negocio.">Guardar</Button></MantineProvider>);
+    view.rerender(<MantineProvider><Button disabled>Guardar</Button></MantineProvider>);
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBe(button);
+    view.rerender(<MantineProvider><Button disabledReason="Falta elegir el negocio.">Guardar</Button></MantineProvider>);
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBe(button);
+  });
+  it('maps validity to specific Spanish messages, links them and focuses the first invalid field', () => {
+    mount(<form><label>Email<Input type="email" defaultValue="x" /></label><label>Corto<Input minLength={5} defaultValue="ab" /></label><label>Cant<Input type="number" max={3} defaultValue="9" /></label></form>);
+    const email = screen.getByLabelText('Email') as HTMLInputElement;
+    const scroll = vi.fn(); email.scrollIntoView = scroll;
+    // jsdom does not flag typeMismatch from defaultValue until validity runs; invoke the real checks.
+    fireEvent.invalid(email);
+    expect(screen.getByText('Revisá el formato (ej.: nombre@dominio.com).')).toBeTruthy();
+    expect(document.activeElement).toBe(email); expect(scroll).toHaveBeenCalledWith({ block: 'center' });
+    const described = email.getAttribute('aria-describedby'); expect(described).toBeTruthy();
+    expect(document.getElementById(described!)?.textContent).toContain('Revisá el formato');
+    const short = screen.getByLabelText('Corto') as HTMLInputElement; short.value = 'ab'; short.setAttribute('minlength', '5');
+    fireEvent.invalid(screen.getByLabelText('Cant')); expect(screen.getByText('El valor máximo es 3.')).toBeTruthy();
+  });
+  it('clears the inline message on blur once the value is valid', () => {
+    mount(<form><label>Nombre<Input required /></label></form>);
+    const name = screen.getByLabelText('Nombre') as HTMLInputElement;
+    fireEvent.invalid(name); expect(screen.getByText('Completá este dato.')).toBeTruthy();
+    name.value = 'Ana'; fireEvent.blur(name);
+    expect(screen.queryByText('Completá este dato.')).toBeNull();
   });
 
 });

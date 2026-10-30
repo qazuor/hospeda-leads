@@ -1,8 +1,7 @@
 import {normalizeSearchText} from '../helpers/searchText';
 import {useEffect, useRef, useState} from 'react';
-import {Link, useSearchParams} from 'react-router-dom';
+import {Link, useLocation, useSearchParams} from 'react-router-dom';
 import {ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lightbulb, Search} from 'lucide-react';
-import {AppHeader} from '../components/AppHeader';
 import {Button} from '../components/Button';
 import {Input} from '../components/Input';
 import {useAuth} from '../helpers/useAuth';
@@ -14,9 +13,12 @@ const entries = topics.flatMap(topic => topic.articles.map(article => ({topic, a
 
 export default function GuidePage() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const [search, setSearch] = useState('');
-  const topic = topics.find(item => item.id === params.get('topic')) ?? topics[0];
-  const article = topic.articles.find(item => item.id === params.get('article')) ?? topic.articles[0];
+  const hashArticle=location.hash.slice(1);
+  const hashTopic=hashArticle?topics.find(item=>item.articles.some(entry=>entry.id===hashArticle)):undefined;
+  const topic = hashTopic??topics.find(item => item.id === params.get('topic')) ?? topics[0];
+  const article = topic.articles.find(item => item.id === (hashTopic?hashArticle:params.get('article'))) ?? topic.articles[0];
   const index = topic.articles.indexOf(article);
   const {authState} = useAuth();
   const admin = authState.type === 'authenticated' && authState.user.role === 'admin';
@@ -32,7 +34,7 @@ export default function GuidePage() {
       title.current?.scrollIntoView({block: 'start'});
     }
   }, [article.id]);
-  return <><AppHeader/><main className={styles.shell}>
+  return <><main className={styles.shell}>
     <header className={styles.hero}><div className={styles.heroIcon}><BookOpen size={26}/></div><div><span className={styles.eyebrow}>AYUDA PARA EL TRABAJO DIARIO</span><h1>Usar Hospeda, paso a paso</h1><p>Qué hacer, cómo registrarlo y cuál es el siguiente paso. No necesitás experiencia con un CRM ni con gestiones.</p></div></header>
     <div className={styles.shortcuts} aria-label="Por dónde empezar">
       <Link to={url('first', 'business')} onClick={() => setSearch('')}><strong>Quiero cargar un negocio</strong><span>Desde los datos hasta el primer contacto<ArrowRight size={16}/></span></Link>
@@ -45,8 +47,8 @@ export default function GuidePage() {
       <aside id="guide-topics" className={styles.sidebar}><nav aria-label="Temas y artículos de la guía"><h2>Elegí un tema</h2>{topics.map(item => <details key={item.id} open={topic.id===item.id}><summary><span>{item.title}</span><span className={styles.count}>{item.articles.length}</span></summary><div className={styles.subtopics}><Link to={url(item.id)}>Introducción</Link>{item.articles.map((entry,index)=><Link key={entry.id} to={url(item.id,entry.id)} aria-current={article.id===entry.id?'page':undefined}><span>{index+1}. {entry.title}</span></Link>)}</div></details>)}</nav><Link className={styles.problemLink} to={url('problems')}>¿Algo te frena? Revisá las soluciones <ArrowRight size={16}/></Link></aside>
       <div className={styles.reading}>
         <section className={styles.topicIntro}><span className={styles.eyebrow}>TEMA</span><h2>{topic.title}</h2><p>{topic.description}</p></section>
-        <article className={styles.article} aria-labelledby="guide-article-title">
-          <header><a className={styles.backToTopics} href="#guide-topics">Ver los temas de la guía</a><span className={styles.eyebrow}>EXPLICACIÓN {index+1} DE {topic.articles.length}</span><h2 id="guide-article-title" tabIndex={-1} ref={title}>{article.title}</h2><p className={styles.when}><strong>Cuándo usarlo</strong>{article.when}</p></header>
+        <article className={styles.article} id={article.id} aria-labelledby="guide-article-title">
+          <header><button type="button" className={styles.backToTopics} onClick={() => document.getElementById('guide-topics')?.scrollIntoView({block:'start'})}>Ver los temas de la guía</button><span className={styles.eyebrow}>EXPLICACIÓN {index+1} DE {topic.articles.length}</span><h2 id="guide-article-title" tabIndex={-1} ref={title}>{article.title}</h2><p className={styles.when}><strong>Cuándo usarlo</strong>{article.when}</p></header>
           <section><h3>Cómo hacerlo</h3><ol className={styles.steps}>{article.steps.map((step, i) => <li key={i}><span aria-hidden="true">{i+1}</span><p>{step}</p></li>)}</ol></section>
           <section className={styles.result}><CheckCircle2 size={21}/><div><h3>Qué queda al terminar</h3><p>{article.result}</p></div></section>
           {article.example.length > 0 && <section className={styles.example}><h3><Lightbulb size={20}/>Ejemplo práctico</h3>{article.example.map(line => <p key={line}>{line}</p>)}</section>}

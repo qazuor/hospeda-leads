@@ -1,23 +1,22 @@
-import { Checkbox } from './Checkbox';
-import { NativeSelect } from './NativeSelect';
-import React,{useState} from 'react';
-import {ArrowUp,ArrowDown,Columns3,ChevronDown,X} from 'lucide-react';
-import {BUSINESS_COLUMNS,type ListPreferences} from '../helpers/businessListPreferences';
-import {Button} from './Button';
-import {Popover,PopoverContent,PopoverTrigger} from './Popover';
-import styles from './BusinessListOptions.module.css';
+import {useRef,useState} from 'react';
+import {DndContext,MouseSensor,TouchSensor,KeyboardSensor,DragOverlay,useSensor,useSensors,type DragEndEvent} from '@dnd-kit/core';
+import {SortableContext,verticalListSortingStrategy,sortableKeyboardCoordinates} from '@dnd-kit/sortable';
+import {restrictToVerticalAxis} from '@dnd-kit/modifiers';
+import {Checkbox} from './Checkbox';import {NativeSelect} from './NativeSelect';import {Columns3,ChevronDown,X} from 'lucide-react';
+import {availableListPreferences,BUSINESS_COLUMNS,type ListPreferences} from '../helpers/businessListPreferences';import {Button} from './Button';import {Dialog,DialogClose,DialogContent,DialogDescription,DialogTitle,DialogTrigger} from './Dialog';import {useQuery} from '@tanstack/react-query';import {getBusinessColumnGroups} from '../endpoints/business_column_groups.schema';import {businessColumnLabel} from '../helpers/businessColumnGroups';import {SortableListRow} from './SortableListRow';import {dropIndicatorPosition,reorderWithinZone,restrictToList} from './sortableList';import styles from './BusinessListOptions.module.css';
 export function BusinessListOptions({value,onChange}:{value:ListPreferences;onChange:(v:ListPreferences)=>void}){
- const [open,setOpen]=useState(false);
- const change=(patch:Partial<ListPreferences>)=>onChange({...value,...patch});
- function move(index:number,offset:number){const columns=[...value.columns];[columns[index],columns[index+offset]]=[columns[index+offset],columns[index]];change({columns});}
- const keys=[...value.columns,...BUSINESS_COLUMNS.map(c=>c.key).filter(k=>!value.columns.includes(k))];
- return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="outline"><Columns3 size={16} aria-hidden="true"/>Columnas<ChevronDown size={14} aria-hidden="true"/></Button></PopoverTrigger>
- <PopoverContent align="end" className={styles.menu} aria-label="Columnas del listado">
-  <div className={styles.heading}><div><strong>Columnas visibles</strong><p>Nombre siempre disponible. Si ocultás Acciones, abrí el negocio desde su nombre.</p></div><Button variant="ghost" size="icon-sm" aria-label="Cerrar columnas" onClick={()=>setOpen(false)}><X size={16}/></Button></div>
-  <div className={styles.list}>{keys.map(key=>{const index=value.columns.indexOf(key);const label=BUSINESS_COLUMNS.find(c=>c.key===key)!.label;return <div key={key} className={styles.row}>
-   <label className={styles.field}><Checkbox  checked={index>=0} disabled={key==='nombre'} onChange={()=>change({columns:index>=0?value.columns.filter(k=>k!==key):[...value.columns,key]})}/><span>{label}</span></label>
-   {index>=0&&<div className={styles.controls}><Button size="icon-sm" variant="ghost" aria-label={'Subir '+label} disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={15}/></Button><Button size="icon-sm" variant="ghost" aria-label={'Bajar '+label} disabled={index===value.columns.length-1} onClick={()=>move(index,1)}><ArrowDown size={15}/></Button><NativeSelect aria-label={'Fijar '+label} value={value.pins[key]??''} onChange={e=>{const pins={...value.pins};if(e.target.value)pins[key]=e.target.value as 'left'|'right';else delete pins[key];change({pins});}}><option value="">Sin fijar</option><option value="left">Izquierda</option><option value="right">Derecha</option></NativeSelect></div>}
-  </div>;})}</div>
-  <p className={styles.help}>Arrastrá el borde del encabezado para ajustar el ancho. La fijación se aplica solo en tabla de escritorio.</p>
- </PopoverContent></Popover>;
+ const [open,setOpen]=useState(false),[active,setActive]=useState<string|null>(null),[over,setOver]=useState<string|null>(null);const list=useRef<HTMLDivElement>(null);
+ const groups=useQuery({queryKey:['business-column-groups'],queryFn:getBusinessColumnGroups}).data?.groups??[];
+ const change=(patch:Partial<ListPreferences>)=>onChange(availableListPreferences({...value,...patch}));
+ const allKeys=[...BUSINESS_COLUMNS.map(column=>column.key),...groups.map(group=>'group:'+group.id)],keys=[...value.columns,...allKeys.filter(key=>!value.columns.includes(key))];
+ const zone=(key:string)=>value.pins[key]==='left'?'left':value.pins[key]==='right'?'right':'center';
+ const zones=[{key:'left',title:'Fijadas a la izquierda'},{key:'center',title:'Sin fijar · arrastrá para ordenar'},{key:'right',title:'Fijadas a la derecha'}].map(item=>({...item,keys:value.columns.filter(key=>zone(key)===item.key)})).filter(item=>item.keys.length);
+ const sensors=useSensors(useSensor(MouseSensor,{activationConstraint:{distance:4}}),useSensor(TouchSensor,{activationConstraint:{delay:150,tolerance:5}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
+ const reorder=(event:DragEndEvent)=>{const from=String(event.active.id),to=event.over?String(event.over.id):null;if(to&&from!==to&&zone(from)===zone(to)){const selected=zones.find(item=>item.key===zone(from))!.keys;change({columns:reorderWithinZone(value.columns,selected,from,to)});}setActive(null);setOver(null);};
+ const indicator=(items:string[])=>dropIndicatorPosition(items,active??'',over);
+ return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button variant="outline"><Columns3 size={16} aria-hidden="true"/>Columnas<ChevronDown size={14} aria-hidden="true"/></Button></DialogTrigger>
+ <DialogContent className={styles.dialog} showCloseButton={false}><div className={styles.heading}><div><DialogTitle className={styles.dialogTitle}>Columnas del listado</DialogTitle><DialogDescription className={styles.dialogDescription}>Nombre siempre disponible. Si ocultás Acciones, abrí el negocio desde su nombre.</DialogDescription></div><DialogClose asChild><Button variant="ghost" size="icon-sm" aria-label="Cerrar columnas"><X size={16}/></Button></DialogClose></div>
+ <div className={styles.list} ref={list}>{zones.map(zoneItem=>{const marker=indicator(zoneItem.keys);return <section key={zoneItem.key}><h3>{zoneItem.title}</h3><DndContext sensors={sensors} modifiers={[restrictToVerticalAxis,restrictToList(()=>list.current)]} onDragStart={event=>setActive(String(event.active.id))} onDragOver={event=>setOver(event.over?String(event.over.id):null)} onDragEnd={reorder} onDragCancel={()=>{setActive(null);setOver(null);}}><SortableContext items={zoneItem.keys} strategy={verticalListSortingStrategy}>{zoneItem.keys.map(key=>{const label=businessColumnLabel(key,groups);return <SortableListRow key={key} id={key} label={label} className={styles.row} handleClassName={styles.dragHandle} indicator={marker?.key===key?marker.position:undefined}><label className={styles.field}><Checkbox checked disabled={key==='nombre'} disabledReason="La columna Nombre es obligatoria para identificar cada negocio." onChange={()=>change({columns:value.columns.filter(item=>item!==key)})}/><span>{label}</span></label><div className={styles.controls}><NativeSelect aria-label={'Fijar '+label} value={value.pins[key]??''} onChange={event=>{const pins={...value.pins};if(event.target.value)pins[key]=event.target.value as 'left'|'right';else delete pins[key];change({pins});}}><option value="">Sin fijar</option><option value="left">Izquierda</option><option value="right">Derecha</option></NativeSelect></div></SortableListRow>;})}</SortableContext><DragOverlay>{active&&zoneItem.keys.includes(active)?<div className={styles.overlay}>{businessColumnLabel(active,groups)}</div>:null}</DragOverlay></DndContext></section>;})}<h3>Ocultas</h3>{allKeys.filter(key=>!value.columns.includes(key)).map(key=><label key={key} className={styles.hidden}><Checkbox checked={false} disabled={key==='nombre'} disabledReason="La columna Nombre es obligatoria para identificar cada negocio." onChange={()=>change({columns:[...value.columns,key]})}/><span>{businessColumnLabel(key,groups)}</span></label>)}</div>
+ <p className={styles.help}>Cada columna se arrastra dentro de su zona: izquierda, sin fijar o derecha. Para cambiarla de zona, usá «Fijar». La fijación se aplica solo en tabla de escritorio.</p>
+ </DialogContent></Dialog>;
 }

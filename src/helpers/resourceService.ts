@@ -1,12 +1,13 @@
-import {assertAccountReadable,assertAccountWritable,assertLeadAccess} from './crmPermissions';
+import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {sql,type Kysely,type Transaction} from 'kysely';import {createHash,randomUUID} from 'node:crypto';
 import type {DB} from './schema';import type {User} from './User';import {setWorkActor} from './workAudit';
 import {communicationConfig,CommunicationForbidden,CommunicationConflict} from './communicationService';
 import type {ResourceMutation,ResourceDocument} from '../endpoints/resources.schema';
 type E=Kysely<DB>|Transaction<DB>;
-export async function documentFor(e:E,id:string,user:User,write=false){const d=(await sql<ResourceDocument>`SELECT * FROM crm_documents WHERE id=${id}::uuid AND deleted_at IS NULL`.execute(e)).rows[0];if(!d)throw new Error('Documento inexistente');
+/** `view` is only for READ paths (listing and downloading a business's documents): the responsible seller still gets them on her archived business. */
+export async function documentFor(e:E,id:string,user:User,write=false,view=false){const d=(await sql<ResourceDocument>`SELECT * FROM crm_documents WHERE id=${id}::uuid AND deleted_at IS NULL`.execute(e)).rows[0];if(!d)throw new Error('Documento inexistente');
  if(write&&d.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin administra la biblioteca');
- if(d.accountId){const account=await e.selectFrom('crmAccounts').selectAll().where('id','=',d.accountId).executeTakeFirstOrThrow();assertAccountReadable(user,account);if(write)assertAccountWritable(user,account);}
+ if(d.accountId){const account=await e.selectFrom('crmAccounts').selectAll().where('id','=',d.accountId).executeTakeFirstOrThrow();if(view&&!write)assertAccountViewable(user,account);else assertAccountReadable(user,account);if(write)assertAccountWritable(user,account);}
  if(d.leadId){const lead=await e.selectFrom('leads').select('deletedAt').where('id','=',d.leadId).executeTakeFirstOrThrow();if(lead.deletedAt&&user.role!=='admin')throw new CommunicationForbidden('La gestión está en la papelera.');}
  if(user.role==='admin'||d.ownerEmail===user.email)return d;
  const account=d.accountId?await e.selectFrom('crmAccounts').selectAll().where('id','=',d.accountId).executeTakeFirst():null;
@@ -28,21 +29,29 @@ async function insertVersion(e:E,documentId:string,version:number,v:Extract<Reso
  }
  return (await sql`INSERT INTO crm_document_versions(id,document_id,version,url,file_data,file_name,mime_type,byte_size,sha256,expires_on,actor_email) VALUES(${randomUUID()}::uuid,${documentId}::uuid,${version},${url},${data},${name},${mime},${size},${sha},${v.expiresOn??null}::date,${user.email}) RETURNING id`.execute(e)).rows[0];
 }
-export async function mutateResource(db:Kysely<DB>,input:ResourceMutation,user:User){return db.transaction().execute(async e=>{
- if(input.action!=='link'&&user.role!=='admin')throw new CommunicationForbidden('Solo un administrador puede administrar materiales.');
- await setWorkActor(e,user);await sql`LOCK TABLE crm_accounts,leads,crm_documents IN SHARE ROW EXCLUSIVE MODE`.execute(e);
+/** Message for writes to the retired library (spec 89 §12). */
+export const LIBRARY_REPLACED='La biblioteca fue reemplazada por Material de venta.';
+export async function mutateResource(db:Kysely<DB>,input:ResourceMutation,user:User){
+ // The old library is retired: no new library documents and no new links (existing rows stay, spec 89 §12).
+ if(input.action==='link'||input.action==='create'&&input.library)throw new Error(LIBRARY_REPLACED);
+ return db.transaction().execute(async e=>{
+ if(user.role!=='admin')throw new CommunicationForbidden('Solo un administrador puede administrar materiales.');
+ await setWorkActor(e,user);
+ // ROW EXCLUSIVE excludes merges/imports (SHARE ROW EXCLUSIVE) without blocking other writers; the business row, then the document row, serialize per account and per document.
+ await sql`LOCK TABLE crm_accounts,leads,crm_documents IN ROW EXCLUSIVE MODE`.execute(e);
+ if(input.action!=='category'){const doc=input.action==='create'?null:(await sql<{accountId:string|null}>`SELECT account_id FROM crm_documents WHERE id=${input.id}::uuid`.execute(e)).rows[0];await lockAccounts(e,['accountId' in input?input.accountId:null,doc?.accountId]);if(input.action!=='create')await sql`SELECT id FROM crm_documents WHERE id=${input.id}::uuid FOR UPDATE`.execute(e);}
  if(input.action==='category'){if(user.role!=='admin')throw new CommunicationForbidden('Solo admin configura categorías');if(input.id)await sql`UPDATE crm_document_categories SET name=${input.name},active=${input.active} WHERE id=${input.id}`.execute(e);else await sql`INSERT INTO crm_document_categories(name,active) VALUES(${input.name},${input.active})`.execute(e);return {ok:true};}
  if(input.action==='create'){
-  if(input.library&&user.role!=='admin')throw new CommunicationForbidden('Solo admin carga recursos en la biblioteca');
-  if(!input.library&&!input.accountId)throw new Error('Seleccioná un negocio para el documento');
+  if(!input.accountId)throw new Error('Seleccioná un negocio para el documento');
+  // A double submit of the same document id waits here and then returns the stored document instead of a duplicate-key error.
+  await sql`SELECT pg_advisory_xact_lock(hashtext('crm_documents'),hashtext(${input.id}))`.execute(e);
   const existing=(await sql`SELECT id FROM crm_documents WHERE id=${input.id}::uuid`.execute(e)).rows[0];if(existing){await documentFor(e,input.id,user,true);return {id:input.id};}
   await validateContext(e,user,input.accountId,input.leadId,input.activityId);
   if(input.categoryId&&!(await sql`SELECT id FROM crm_document_categories WHERE id=${input.categoryId} AND active`.execute(e)).rows.length)throw new Error('Categoría inactiva');
   await sql`INSERT INTO crm_documents(id,title,type,owner_email,account_id,original_account_id,lead_id,activity_id,library,category_id) VALUES(${input.id}::uuid,${input.title},${input.type},${user.email},${input.accountId},${input.accountId},${input.leadId},${input.activityId},${input.library},${input.categoryId})`.execute(e);
   await insertVersion(e,input.id,1,input.version,user);return {id:input.id};
  }
- const d=await documentFor(e,input.id,user,input.action!=='link');
- if(input.action==='link'){if(d.status!=='approved'||!d.library)throw new Error('Solo recursos aprobados de la biblioteca');await validateContext(e,user,input.accountId,input.leadId,input.activityId);await sql`INSERT INTO crm_document_links(document_id,account_id,original_account_id,lead_id,activity_id,actor_email) VALUES(${d.id}::uuid,${input.accountId},${input.accountId},${input.leadId},${input.activityId},${user.email}) ON CONFLICT DO NOTHING`.execute(e);return {ok:true};}
+ const d=await documentFor(e,input.id,user,true);
  const n=Number((await sql<{n:string}>`SELECT max(version) AS n FROM crm_document_versions WHERE document_id=${d.id}::uuid`.execute(e)).rows[0].n);if(n!==input.revision)throw new CommunicationConflict('La versión cambió. Actualizá antes de continuar.');
  if(input.action==='version'){await insertVersion(e,d.id,n+1,input.version,user);await sql`UPDATE crm_documents SET status='draft',approved_by=NULL,approved_at=NULL,updated_at=now() WHERE id=${d.id}::uuid`.execute(e);return {ok:true};}
  if(input.action==='delete'){await sql`UPDATE crm_documents SET deleted_at=now(),updated_at=now() WHERE id=${d.id}::uuid`.execute(e);return {ok:true};}

@@ -1,0 +1,6 @@
+import {describe,it,expect} from 'vitest';
+import {schema} from './view_pins.schema';
+describe('view pins POST schema',()=>{
+ it('accepts personal IDs, custom system views, and all quick views',()=>{expect(schema.safeParse({entity:'business',config:{order:['personal:legacy-'+ 'a'.repeat(64),'personal:123e4567-e89b-12d3-a456-426614174000','system:custom:123e4567-e89b-12d3-a456-426614174000'],hidden:[]}}).success).toBe(true);expect(schema.safeParse({entity:'opportunity',config:{order:['quick:all','quick:mine','quick:today','quick:overdue','quick:unassigned','quick:noNext'],hidden:[]}}).success).toBe(true);});
+ it('accepts reset and rejects unknown prefixes, spaces, control chars, and oversized input',()=>{expect(schema.safeParse({entity:'opportunity',config:null}).success).toBe(true);for(const key of ['private:bad','custom:123e4567-e89b-12d3-a456-426614174000','personal:has space','personal:x\n'])expect(schema.safeParse({entity:'business',config:{order:[key],hidden:[]}}).success).toBe(false);expect(schema.safeParse({entity:'business',config:{order:['personal:'+ 'a'.repeat(121)],hidden:[]}}).success).toBe(false);expect(schema.safeParse({entity:'other',config:null}).success).toBe(false);expect(schema.safeParse({entity:'business',config:{order:Array(201).fill('system:all'),hidden:[]}}).success).toBe(false);});
+});

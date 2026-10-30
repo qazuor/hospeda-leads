@@ -123,7 +123,7 @@ export const PasswordRegisterForm:React.FC<PasswordRegisterFormProps>=({classNam
         <FormMessage/>
       </FormItem>
 
-      <Button type="submit" disabled={isLoading} className={styles.submitButton}>
+      <Button type="submit" disabled={isLoading} disabledReason="La operación está en curso. Esperá a que termine para continuar." className={styles.submitButton}>
         {isLoading?<><Spinner size="sm"/>Creando acceso…</>:"Crear usuario e ingresar"}
       </Button>
     </form>

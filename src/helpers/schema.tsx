@@ -88,6 +88,10 @@ export interface EmailOutbox {
   subject: string;
   templateId: Int8 | null;
   textBody: string;
+  transport: Generated<'api'|'smtp'>;
+  inReplyTo: Generated<string|null>;
+  referencesHeader: Generated<string|null>;
+  inboundMessageId: Generated<string|null>;
   updatedAt: Generated<Timestamp>;
 }
 
@@ -184,8 +188,10 @@ export interface MessageTemplates {
   body: string;
   channel: string;
   commercialProfile: string | null;
+  purpose: string | null;
   createdAt: Generated<Timestamp>;
   id: Generated<Int8>;
+  managementType: string | null;
   name: string;
   subject: string | null;
   updatedAt: Generated<Timestamp>;
@@ -219,6 +225,44 @@ export interface Users {
   senderEmail: string | null;
   sex: string | null;
   updatedAt: Generated<Timestamp | null>;
+  userscriptAutoRegister: Generated<boolean>;
+  userscriptAutoRegisterSince: Generated<Timestamp>;
+}
+
+export interface CrmUserscriptTokens {
+  id:string;
+  userId:number;
+  tokenHash:string;
+  label:string;
+  createdAt:Generated<Timestamp>;
+  lastUsedAt:Timestamp|null;
+  lastVersion:string|null;
+  revokedAt:Timestamp|null;
+}
+
+/** Spec 97 §5.1: the Instagram web thread of a username for the Hospeda account (migration 053). */
+export interface CrmInstagramThreads {
+  viewerUsername:string;
+  username:string;
+  threadId:string;
+  proof:'header'|'seller';
+  verifiedAt:Generated<Timestamp>;
+  verifiedByUserId:number|null;
+  /** Spec 97 §15 (migration 054): the chat header's display name when the chat was proven, for the conversation-list badges. */
+  displayName:string|null;
+}
+
+/** Spec 91 §12: when a user last looked at a business «Comunicación» tab (migration 048). */
+export interface CrmCommunicationReads {
+  userId:number;
+  accountId:Int8;
+  lastSeenAt:Timestamp;
+}
+
+export interface CrmAutoRegistrations {
+ id:string; accountId:Int8; userEmail:string; channel:'whatsapp'; direction:'in'|'out'; externalId:string;
+ messageId:string|null; inboundId:string|null; effects:Json; createdAt:Generated<Timestamp>; voidedAt:Timestamp|null;
+ voidedByEmail:string|null; voidReason:string|null;
 }
 
 export interface CrmAccounts {
@@ -291,13 +335,13 @@ export interface CrmTasks {
  id:Generated<Int8>; accountId:Int8; leadId:Int8|null; title:string; description:string|null;
  participants:Generated<string>; contactIds:Generated<Json>; typeId:string; assignedUserEmail:string|null; dueDate:ColumnType<Date,string,string>; dueAt:Timestamp|null;
  priority:Generated<"alta"|"media"|"baja">; status:Generated<"pending"|"completed"|"cancelled">;
- continuation:Generated<string|null>; purpose:Generated<string|null>; outcome:Generated<string|null>; result:string|null; completedAt:Timestamp|null; legacy:Generated<boolean>; deletedAt:Timestamp|null;
+ continuation:Generated<string|null>; continuationReason:Generated<string|null>; purpose:Generated<string|null>; outcome:Generated<string|null>; result:string|null; completedAt:Timestamp|null; legacy:Generated<boolean>; deletedAt:Timestamp|null;
  createdAt:Generated<Timestamp>; updatedAt:Generated<Timestamp>;
 }
 export interface CrmActivities {
  id:Generated<Int8>; accountId:Int8; leadId:Int8|null; taskId:Int8|null; typeId:string; title:string;
  occurredAt:Timestamp; participants:Generated<string>; contactIds:Generated<Json>; channel:string|null;
- continuation:Generated<string|null>; purpose:Generated<string|null>; outcome:Generated<string|null>; result:string|null; notes:string|null; actorEmail:string|null; deletedAt:Timestamp|null;
+ continuation:Generated<string|null>; continuationReason:Generated<string|null>; purpose:Generated<string|null>; outcome:Generated<string|null>; outcomeResponseId:Generated<string|null>; result:string|null; notes:string|null; actorEmail:string|null; deletedAt:Timestamp|null;
  createdAt:Generated<Timestamp>; updatedAt:Generated<Timestamp>;
 }
 export interface CrmWorkJournal {
@@ -320,6 +364,10 @@ export interface CrmAccountMerges {
  snapshot:Json; selections:Json; createdAt:Generated<Timestamp>;
 }
 export interface DB {
+ crmAutoRegistrations:CrmAutoRegistrations;
+ crmCommunicationReads:CrmCommunicationReads;
+  crmUserscriptTokens:CrmUserscriptTokens;
+  crmInstagramThreads:CrmInstagramThreads;
  crmImportBatches:CrmImportBatches;
  crmDataEvidence:CrmDataEvidence;
  crmAccountMerges:CrmAccountMerges;

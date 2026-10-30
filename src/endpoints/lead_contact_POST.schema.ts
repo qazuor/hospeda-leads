@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {postJson} from "../helpers/apiClient";
 export const schema=z.object({
   contactId:z.string().regex(/^[1-9]\d*$/).nullable().optional(),
   leadId:z.union([z.string(),z.number()]),
@@ -10,7 +10,5 @@ export const schema=z.object({
 export type InputType=z.infer<typeof schema>;
 export type OutputType={ok:true};
 export const postLeadContact=async(body:InputType):Promise<OutputType>=>{
-  const r=await fetch("/_api/lead_contact",{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(schema.parse(body))});
-  if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
-  return superjson.parse<OutputType>(await r.text());
+  return postJson<OutputType>("/_api/lead_contact",schema.parse(body));
 };

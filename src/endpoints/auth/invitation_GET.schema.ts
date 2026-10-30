@@ -1,12 +1,7 @@
-import superjson from "superjson";
+import {apiJson} from "../../helpers/apiClient";
 
 export type InvitationOutput={email:string};
 
 export const getInvitation=async(token:string):Promise<InvitationOutput>=>{
-  const r=await fetch("/_api/auth/invitation?token="+encodeURIComponent(token));
-  if(!r.ok){
-    const e=superjson.parse<{error:string}>(await r.text());
-    throw new Error(e.error||"La invitación no es válida.");
-  }
-  return superjson.parse<InvitationOutput>(await r.text());
+  return apiJson<InvitationOutput>("/_api/auth/invitation?token="+encodeURIComponent(token),{},{fallback:"La invitación no es válida.",sessionEvent:false});
 };

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {apiJson} from "../helpers/apiClient";
 import type { Selectable } from "kysely";
 import type { Leads } from "../helpers/schema";
 const listSchema=z.preprocess(value=>{
@@ -24,14 +24,14 @@ const jsonArraySchema=<T extends z.ZodTypeAny>(item:T)=>z.preprocess(value=>{
   return [];
 },z.array(item).max(100)).default([]);
 const textField=z.enum([
-  "nombre","contactName","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook",
+  "nombre","contactName","email","telefono","contactPhone","contactEmail","whatsapp","sitioWeb","urlGmap","perfilInstagram","perfilFacebook",
   "perfilAirbnb","perfilBooking","perfilTurismoEntreRios","resultadoUltimoContacto","fuenteReferencia","archivoAdjunto"
 ]);
 const textMode=z.enum(["contains","not_contains","equals","not_equals","empty","not_empty"]);
 const dateField=z.enum(["fechaCreacion","fechaUltimoContacto","fechaProximaAccion","createdAt","updatedAt"]);
 export const advancedFilterField=z.enum([
-  "id","nombre","contactName","assignedUserEmail","tipo","subtipo","commercialProfile","ciudad","estado",
-  "suscripcion","email","telefono","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb",
+  "id","nombre","contactName","assignedUserEmail","managementType","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus",
+  "suscripcion","email","telefono","contactPhone","contactEmail","whatsapp","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb",
   "perfilBooking","perfilTurismoEntreRios","origen","quienCargo","asignadoA","reviewStatus","fechaCreacion",
   "fechaUltimoContacto","medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
   "fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor","createdAt","updatedAt","notes","deletedAt"
@@ -52,7 +52,7 @@ export const advancedFilterGroup=z.object({
 export type AdvancedFilterRule=z.infer<typeof advancedFilterRule>;
 export type AdvancedFilterGroup=z.infer<typeof advancedFilterGroup>;
 export const schema=z.object({
-  contactPresence:z.enum(["contacted","noContact"]).optional(),view:z.enum(["table","board"]).default("table"),classification:z.enum(["open","won","lost"]).optional(),commercialStatus:z.enum(["prospect","client"]).optional(),entity:z.enum(["opportunity","business"]).default("opportunity"),
+  contactPresence:z.enum(["contacted","noContact"]).optional(),view:z.enum(["table","board"]).default("table"),filterOptions:z.enum(["include","omit"]).default("omit"),classification:z.enum(["open","won","lost"]).optional(),commercialStatus:z.enum(["prospect","client"]).optional(),entity:z.enum(["opportunity","business"]).default("opportunity"),
   q:z.string().optional(),ciudad:z.string().optional(),estado:z.string().optional(),tipo:z.string().optional(),subtipo:z.string().optional(),commercialProfile:z.string().optional(),prioridad:z.string().optional(),asignado:z.string().optional(),assignedUser:z.string().optional(),
   ciudades:listSchema,excludeCiudades:listSchema,
   estados:listSchema,excludeEstados:listSchema,
@@ -81,7 +81,7 @@ export const schema=z.object({
   inactiveDays:z.coerce.number().int().min(1).max(365).optional(),
   nextAction:z.enum(["with","without","overdue"]).optional(),
   sortBy:z.enum([
-    "id","nombre","contactName","tipo","subtipo","commercialProfile","ciudad","estado","suscripcion","email","telefono","assignedUserEmail",
+    "id","nombre","contactName","tipo","subtipo","commercialProfile","ciudad","estado","businessStatus","reviewStatus","suscripcion","email","telefono","contactPhone","contactEmail","whatsapp","assignedUserEmail",
     "sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking",
     "perfilTurismoEntreRios","origen","quienCargo","asignadoA","fechaCreacion","fechaUltimoContacto",
     "medioContactoPreferido","resultadoUltimoContacto","prioridad","fechaProximaAccion",
@@ -91,9 +91,9 @@ export const schema=z.object({
   anchorAccountId:z.string().regex(/^[0-9]+$/).optional(),alignAnchorPage:z.preprocess(v=>v==='true'?true:v==='false'?false:v,z.boolean()).default(false),
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
-export type BusinessTableMetadata={canModify?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";reviewStatus?:"filtered"|null;opportunityValues?:Record<string,string[]>};
-export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;filters:{
-  ciudades:string[];estados:string[];tipos:string[];asignados:string[];
+export type BusinessTableMetadata={canModify?:boolean;/** Opportunity rows: the business is archived, so the management is read-only for sellers. */accountArchived?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";isClient?:boolean;businessStatus?:"new"|"reviewed"|"in_management"|"no_follow_up_scheduled"|"recontact"|"archived"|null;reviewStatus?:boolean;doNotContact?:boolean;businessRecontactAt?:string|null;referredToLeandro?:boolean;whatsapp?:string|null;contactPhone?:string|null;contactEmail?:string|null;opportunityValues?:Record<string,string[]>};
+export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;boardTotals?:{open:number;won:number;lost:number;total:number;groups:{estado:string|null;managementType:string|null;count:number}[]};truncated?:boolean;filters:{
+  ciudades:string[];estados:string[];tipos:string[];businessStatuses:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];
 }};
 export const getLeads = async (input:z.input<typeof schema>): Promise<OutputType> => {
@@ -102,10 +102,5 @@ export const getLeads = async (input:z.input<typeof schema>): Promise<OutputType
     if(Array.isArray(v)){if(v.length)qs.set(k,JSON.stringify(v));return}
     if(v!==undefined&&v!=="")qs.set(k,String(v));
   });
-  const result = await fetch("/_api/leads?"+qs.toString());
-  if (!result.ok) {
-    const error = superjson.parse<{ error: string }>(await result.text());
-    throw new Error(error.error);
-  }
-  return superjson.parse<OutputType>(await result.text());
+  return apiJson<OutputType>("/_api/leads?"+qs.toString());
 };

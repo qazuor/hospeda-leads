@@ -1,7 +1,7 @@
 // The in-app guide and the printable Markdown share one content source.
 import {readFile, writeFile} from 'node:fs/promises';
 const topics = JSON.parse(await readFile(new URL('../src/content/user-guide.json', import.meta.url), 'utf8'));
-const lines = ['# Usar Hospeda, paso a paso', '', 'Guía para personas sin experiencia en CRM o ventas. Disponible en Más opciones → Guía de uso paso a paso. El contenido se mantiene en src/content/user-guide.json.', ''];
+const lines = ['# Usar Hospeda, paso a paso', '', 'Guía para personas sin experiencia en CRM o ventas. Disponible en Ayuda (menú principal). El contenido se mantiene en src/content/user-guide.json.', ''];
 for (const topic of topics) {
   lines.push('## '+topic.title, '', topic.description, '');
   for (const article of topic.articles) {

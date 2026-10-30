@@ -1,0 +1,195 @@
+/* Spec 90: the «Comunicación» tab as one conversation. Tokens from base.css; layout mirrors the approved mockup. */
+.view{display:flex;flex-direction:column;gap:20px;min-width:0}
+.head{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:flex-start}
+.head h3{margin:0}.head p{margin:4px 0 0;color:var(--muted-foreground);font-size:14px}
+.head a{font-weight:600;font-size:14px;padding:4px 0}
+.actionBar{display:flex;flex-wrap:nowrap;gap:8px;align-items:center;min-width:0}
+.notice{margin:0;padding:10px 14px;border:1px solid var(--tone-orange);border-radius:10px;background:var(--tone-orange-soft);color:var(--tone-orange-ink);font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.section{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sectionTitle{margin:0;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
+.sectionTitle[data-tone="action"]{color:var(--tone-orange-ink)}
+.empty{margin:0;padding:12px 14px;border:1px dashed var(--border);border-radius:10px;color:var(--muted-foreground);font-size:14px}
+.actionCard{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--tone-orange);border-radius:10px;background:var(--tone-orange-soft);min-width:0}
+.actionBody{display:flex;gap:10px;flex:1 1 320px;min-width:0}
+.actionBody>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.actionTitle{font-weight:600;overflow-wrap:anywhere}
+.actionMeta{font-size:13px;color:var(--muted-foreground);overflow-wrap:anywhere}
+.actionText{margin:0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.actionButtons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* Spec 92 owner decision: the prepared text of an unconfirmed send, quoted in its «Requiere acción» entry (it is not in the conversation). */
+.actionQuote{margin:6px 0 0;padding:4px 10px;border-left:3px solid var(--border-strong);font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;min-width:0}
+.timeline>li{display:flex;flex-direction:column;gap:10px;min-width:0}
+.day{display:flex;align-items:center;gap:12px;color:var(--muted-foreground);font-size:13px;font-weight:600;padding:4px 0}
+.day::before,.day::after{content:"";flex:1;height:1px;background:var(--border)}
+.row{display:flex;min-width:0}.row[data-side="in"]{justify-content:flex-start}.row[data-side="out"]{justify-content:flex-end}.row[data-side="event"]{justify-content:center}
+.bubbleWrap{display:flex;flex-direction:column;gap:6px;min-width:0}
+.row[data-side="out"] .bubbleWrap{align-items:flex-end}
+.meta{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font-size:13px;color:var(--muted-foreground);min-width:0;overflow-wrap:anywhere}
+.row[data-side="out"] .meta{justify-content:flex-end}
+.meta strong{color:var(--foreground)}
+.channel{display:inline-flex;align-items:center;gap:4px;font-weight:600}
+.channel[data-channel="whatsapp"]{color:var(--tone-green-ink)}.channel[data-channel="email"]{color:var(--tone-blue-ink)}.channel[data-channel="instagram"]{color:var(--tone-pink-ink)}.channel[data-channel="call"],.channel[data-channel="other"]{color:var(--tone-slate-ink)}
+.context{border-radius:6px;padding:2px 8px;background:var(--muted);color:var(--muted-foreground);font-size:12px;font-weight:600}
+.bubble{padding:12px 14px;border-radius:4px 14px 14px 14px;background:var(--muted);line-height:1.55;min-width:0;max-width:100%;overflow-wrap:anywhere}
+.row[data-side="out"] .bubble{border-radius:14px 4px 14px 14px}
+.row[data-voided] .bubble{opacity:.65}
+.subject{display:block;margin-bottom:4px;font-size:13px}
+.text{margin:0;white-space:pre-wrap;font:inherit}
+.status{font-size:12px;color:var(--muted-foreground);overflow-wrap:anywhere}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;background:var(--muted);color:var(--muted-foreground)}
+.tag[data-kind="review"]{background:var(--tone-orange-soft);color:var(--tone-orange-ink)}
+.tag[data-kind="response"]{background:var(--tone-green-soft);color:var(--tone-green-ink)}
+.tag[data-kind="voided"],.tag[data-kind="dismissed"]{background:var(--tone-slate-soft);color:var(--tone-slate-ink)}
+.note{margin:0;font-size:13px;color:var(--muted-foreground);overflow-wrap:anywhere}
+.event{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:min(100%,760px);min-width:0}
+.itemActions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.row[data-side="out"] .itemActions{justify-content:flex-end}
+.drafts{display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--border)}
+.draft{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;min-width:0}
+.draftHead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.draftHead>div{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
+.draftHead span{font-size:13px;color:var(--muted-foreground)}
+.dialogBody{display:flex;flex-direction:column;gap:14px}
+/* Spec 90 review: a sent row that is not confirmed, not done or failed must not look sent. */
+.row[data-tone=unconfirmed] .bubble,.row[data-tone=not_done] .bubble,.row[data-tone=failed] .bubble{background:var(--card);border:1px dashed var(--border-strong);color:var(--muted-foreground)}
+.row[data-tone=failed] .bubble{border-color:var(--tone-red-ink)}.row[data-tone=failed] .status{color:var(--tone-red-ink)}.row[data-tone=unconfirmed] .status{color:var(--tone-orange-ink)}
+.inlineForm{display:grid;gap:8px;width:100%}.emailPreview{width:100%;height:min(60vh,560px);border:1px solid var(--border);border-radius:8px;background:#fff}
+.limitNote{margin:0;font-size:13px;color:var(--muted-foreground)}
+/* Spec 91: one bubble per message (no outer card from Communication.module.css), meta and tags outside it. */
+.view article.bubbleWrap,.view article.event{border:0;padding:0;border-radius:0;background:none}
+.bubbleLine{display:flex;align-items:flex-start;gap:4px;min-width:0;max-width:100%}
+.row[data-side="out"] .bubbleLine{flex-direction:row-reverse}
+.meta .channel svg{flex:none}
+.clamped{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+.more{margin-top:4px}
+/* «⋯»: on hover or focus with a pointer, always on touch and narrow screens. */
+.menuButton{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--muted-foreground);opacity:0;transition:opacity .12s}
+.menuButton:hover{background:var(--surface);color:var(--foreground)}
+.row:hover .menuButton,.row:focus-within .menuButton,.menuButton:focus-visible,.menuButton[aria-expanded="true"]{opacity:1}
+@media (hover:none),(max-width:600px){.menuButton{opacity:1}}
+/* Calls and responses without a message: a slim centred line, the summary as a muted second line. */
+.eventLine{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 8px;font-size:13px;color:var(--muted-foreground);text-align:center;overflow-wrap:anywhere}
+.eventLine strong{color:var(--foreground);font-weight:600}
+/* Spec 91 review: the management chip and the «⋯» button wrap together (never the invisible button alone on a second row),
+   and the button does not make the line taller than its text, so the note sits right under it. */
+.eventTail{display:inline-flex;align-items:center;gap:4px;flex:none}
+.eventLine .menuButton{margin-block:-6px}
+.eventNote{margin:0;font-size:13px;color:var(--muted-foreground);text-align:center;overflow-wrap:anywhere}
+.row:focus{outline:none}
+.row[data-highlight] .bubble,.row[data-highlight] .eventLine{box-shadow:0 0 0 3px var(--tone-orange);border-radius:12px}
+.newSince{display:flex;align-items:center;gap:12px;color:var(--tone-red-ink);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 0}
+.newSince::before,.newSince::after{content:"";flex:1;height:1px;background:var(--tone-red-ink);opacity:.6}
+.filters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;min-width:0}
+.managementFilter{min-width:180px}
+.voidedSwitch{padding-left:12px;border-left:1px solid var(--border)}
+.toLatestWrap{position:sticky;bottom:4px;height:0;display:flex;justify-content:flex-end;z-index:5;pointer-events:none}
+.toLatest{pointer-events:auto;transform:translateY(-100%);box-shadow:var(--shadow-md)}
+.menuItem{display:flex;flex-direction:column;gap:2px}.menuItem small{font-size:12px;color:var(--muted-foreground);white-space:normal}
+.summary{margin:0;font-size:14px;font-weight:600}
+.actionList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.jump{display:flex;gap:8px;align-items:center;width:100%;text-align:left;padding:8px 12px;border:1px solid var(--tone-orange);border-radius:10px;background:var(--tone-orange-soft);color:var(--tone-orange-ink);font:inherit;font-size:14px;cursor:pointer;overflow-wrap:anywhere}
+.jump:hover{border-color:var(--tone-orange-ink)}.jumpMeta{font-weight:400}
+@media (max-width:600px){.actionBar{flex-wrap:wrap}.voidedSwitch{padding-left:0;border-left:0}}
+/* Spec 91 review: sent bubbles carry a clear brand tint (received stays neutral grey). */
+/*
+ * Spec 91 review 2: «Conversación» is a chat window. A card frame with a fixed header and footer and a body with its own scroll.
+ * Height: the frame grows with its content up to a max height (no big empty box for short histories). The max is the viewport
+ * minus the sticky top bar (58px) and a 32px margin, between 420px and 900px, so once the page brings the frame under the top
+ * bar the whole frame is visible and only the body scrolls (at 1440×900: 810px). Pure CSS, nothing is measured at runtime.
+ */
+.frame{display:flex;flex-direction:column;min-width:0;max-height:clamp(420px,calc(100dvh - 58px - 32px),900px);border:1px solid var(--border);border-radius:var(--radius,12px);background:var(--card);overflow:hidden}
+.frameHead{flex:none;display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--card)}
+.frameBody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px;background:var(--chat-wallpaper)}
+.frameBody:focus{outline:none}
+/* On the wallpaper, received bubbles are a card surface (white in light, a lifted surface in dark), as in a chat app. */
+.frameBody .row[data-side="in"] .bubble{background:var(--chat-bubble-in)}
+/* `.panel label` (Communication.module.css) stacks labels in a column; the switch keeps its label beside the track. */
+.voidedSwitch label{flex-direction:row;align-items:center;font-size:14px}
+.frameBody .day{position:relative}
+.frameFoot{flex:none;display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:var(--card)}
+.view article.bubbleWrap .bubble{box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 6%,transparent)}
+@media (max-width:600px){
+ .frame{max-height:max(360px,min(70dvh,calc(100dvh - 150px)))}
+ .frameHead{padding:10px 12px;flex-direction:column;align-items:stretch}
+ .frameHead .filters{flex-direction:column;align-items:stretch}
+ .frameHead .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+ .frameHead .chips>*{flex:none}
+ .frameBody{padding:12px 10px}
+ .frameFoot{padding:8px 12px}
+}
+/*
+ * Spec 91 owner review: every item is two lines. Line 1 is a compact header (time · channel · sender · badges · actions · ⋯),
+ * line 2 the bubble. The header spans the row (sent items right-aligned); the bubble keeps its chat width.
+ */
+.bubbleWrap{max-width:100%;width:100%}
+.bubbleLine{max-width:74%}
+.row[data-side="out"] .bubbleWrap{align-items:flex-end}
+.itemHead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;max-width:100%;min-width:0;font-size:12px;color:var(--muted-foreground);overflow-wrap:anywhere}
+.row[data-side="out"] .itemHead{justify-content:flex-end}
+.itemHead strong{color:var(--foreground);font-weight:600}
+.itemHead .channel svg{flex:none}
+.itemHead .tag,.eventLine .tag{padding:1px 8px;font-size:11px;font-weight:700;line-height:18px}
+.itemHead .context,.eventLine .context{padding:1px 6px;font-size:11px;line-height:18px}
+.tag[data-kind="status"]{background:var(--tone-slate-soft);color:var(--tone-slate-ink);font-weight:600}
+.tag[data-kind="status"][data-tone="unconfirmed"]{background:var(--tone-orange-soft);color:var(--tone-orange-ink)}
+.tag[data-kind="status"][data-tone="failed"]{background:var(--tone-red-soft);color:var(--tone-red-ink)}
+.tag[data-kind="status"][data-tone="not_done"]{background:var(--muted);color:var(--muted-foreground)}
+.tag[data-kind="auto_registered"]{background:var(--tone-blue-soft);color:var(--tone-blue-ink)}
+.tag[data-kind="automatic"]{background:var(--tone-slate-soft);color:var(--tone-slate-ink)}
+/* Spec 93: informational email badges (opens, clicks) and the spam warning. */
+.tag[data-kind="engagement"]{background:var(--tone-blue-soft);color:var(--tone-blue-ink);cursor:help}
+.tag[data-kind="engagement"][data-tone="warning"]{background:var(--tone-orange-soft);color:var(--tone-orange-ink)}
+.headActions{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0}
+/* Compact actions in the header: about 24px high, small text (Mantine sets its size inline, hence the !important). */
+.headActions button,.eventTail button{height:24px!important;min-height:24px!important;padding-inline:8px!important;font-size:12px!important;border-radius:6px}
+.headActions button svg{width:14px;height:14px}
+.headActions .menuButton,.eventTail .menuButton{width:24px;padding-inline:0!important}
+.headActions [role="status"]{margin:0;font-size:11px}
+@media (max-width:600px){.bubbleLine{max-width:92%}.bubbleWrap{max-width:100%}}
+/*
+ * Spec 91 owner review: the platform shows through colour, the side through position.
+ * Received: card bubble with a 3px platform edge on the left. Sent: a light platform tint with a 3px platform edge on the
+ * right. Unconfirmed sends: dashed platform border on the card. Calls and responses without a message: a compact system box
+ * tinted with their channel. Text stays --foreground on every tint (light tints in light mode, dark tints in dark mode).
+ */
+.row{--platform:var(--platform-other)}
+.row[data-channel="whatsapp"]{--platform:var(--platform-whatsapp)}
+.row[data-channel="instagram"]{--platform:var(--platform-instagram)}
+.row[data-channel="email"]{--platform:var(--platform-email)}
+.row[data-channel="call"]{--platform:var(--platform-call)}
+.frameBody .row[data-side="in"] .bubble{background:var(--chat-bubble-in);border-left:3px solid var(--platform);box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 8%,transparent)}
+.frameBody .row[data-side="out"] .bubble{background:color-mix(in srgb,var(--platform) 16%,var(--card));border-right:3px solid var(--platform);box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 8%,transparent)}
+:global(.dark) .frameBody .row[data-side="out"] .bubble{background:color-mix(in srgb,var(--platform) 22%,var(--card))}
+.frameBody .row[data-side="out"]:is([data-tone=unconfirmed],[data-tone=not_done],[data-tone=failed]) .bubble{background:var(--chat-bubble-in);border:2px dashed var(--platform);color:var(--muted-foreground)}
+.frameBody .row[data-side="out"][data-tone=failed] .bubble{border-color:var(--tone-red-ink)}
+.view .frameBody article.event{gap:2px;max-width:min(100%,520px);padding:6px 12px;border-radius:12px;background:color-mix(in srgb,var(--platform) 12%,var(--chat-bubble-in));border:1px solid color-mix(in srgb,var(--platform) 45%,var(--chat-bubble-in));box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 6%,transparent)}
+:global(.dark) .view .frameBody article.event{background:color-mix(in srgb,var(--platform) 18%,var(--card));border-color:color-mix(in srgb,var(--platform) 50%,var(--card))}
+.frameBody .event .eventLine,.frameBody .event .eventNote{color:var(--foreground)}
+.frameBody .event .eventLine{font-size:12px}
+.frameBody .event .eventNote{font-size:13px}
+/* Day separators as small centred pills (WhatsApp-like); «Nuevo desde tu última visita» stays a coloured line with a label. */
+.frameBody .day{align-self:center;gap:0;padding:3px 10px;border-radius:8px;background:var(--chat-bubble-in);color:var(--foreground);font-size:12px;font-weight:600;box-shadow:0 1px 1px color-mix(in srgb,var(--foreground) 10%,transparent)}
+.frameBody .day::before,.frameBody .day::after{content:none}
+.chipDot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--platform-other);flex:none}
+.chipDot[data-channel="whatsapp"]{background:var(--platform-whatsapp)}.chipDot[data-channel="instagram"]{background:var(--platform-instagram)}.chipDot[data-channel="email"]{background:var(--platform-email)}.chipDot[data-channel="call"]{background:var(--platform-call)}
+/* Spec 91 owner review: the side prefix («Nosotros» / «Negocio»), the chat legend and the hidden hint of dashed bubbles. */
+.side{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
+.frameTitle{display:flex;align-items:center;gap:6px}
+.legendButton{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;color:var(--muted-foreground)}
+.legendButton:hover,.legendButton[aria-expanded="true"]{background:var(--surface);color:var(--foreground)}
+.legend{max-width:min(380px,calc(100vw - 32px))!important;font-size:13px;line-height:1.45}
+.legendTitle{display:block;margin-bottom:8px;font-size:14px}
+.legend dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}
+.legend dt{font-weight:700}
+.legend dd{margin:0;color:var(--muted-foreground)}
+.legendSwatches{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0;padding:0;list-style:none}
+.legendSwatches li{display:inline-flex;align-items:center}
+.legendList{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.legendList .tag{padding:1px 8px;font-size:11px;line-height:18px;cursor:default}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.frameBody .row[data-side="out"][data-tone=unconfirmed] .bubble:focus-visible{outline:2px solid var(--platform);outline-offset:2px}
+/* Spec 92: «Ver texto preparado» of an Instagram attempt confirmed by the echo. */
+.preparedText{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}

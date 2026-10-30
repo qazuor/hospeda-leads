@@ -1,0 +1,15 @@
+[
+ {
+  "sql": "select coalesce((select classification from crm_stages where name=leads.estado),'open') as \"classification\", \"estado\", \"management_type\", count(*) as \"count\" from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and coalesce((select classification from crm_stages where name=leads.estado),'open') = $1 group by 1, \"estado\", \"management_type\"",
+  "parameters": [
+   "open"
+  ]
+ },
+ {
+  "sql": "select * from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and coalesce((select classification from crm_stages where name=leads.estado),'open') = $1 order by \"fecha_creacion\" desc, \"id\" desc limit $2",
+  "parameters": [
+   "open",
+   500
+  ]
+ }
+]

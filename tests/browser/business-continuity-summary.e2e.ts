@@ -1,0 +1,60 @@
+import {test,expect} from '@playwright/test';
+import superjson from 'superjson';
+
+for(const width of [1280,390])test(`business continuity summary is clear at ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:844});
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.route('https://fonts.googleapis.com/**',route=>route.abort());
+ const account={id:'1',nombre:'Hostería del Parque',ciudad:'Colón',tipo:'Alojamiento',subtipo:null,email:'hola@example.com',telefono:'3447001122',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',isClient:false,status:'in_management',recontactAt:null,archivedAt:null,clientSince:null,doNotContact:false,referredToLeandro:false};
+ const management={id:'55',accountId:'1',opportunityName:'Plan de alojamiento',managementType:'main',tipo:'Alojamiento',estado:'main:contact',assignedUserEmail:'owner@example.com',primaryContactId:null,serviceInterest:null,estimatedCloseDate:null,deletedAt:null,canModify:true,prioridad:'media',nombre:account.nombre,ciudad:account.ciudad,email:account.email,telefono:account.telefono,commercialProfile:null,subtipo:null,fechaUltimoContacto:null,fechaProximaAccion:null};
+ const detail={account,contacts:[],opportunities:[management],journal:[],leadJournal:[],managementJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Responsable'}]};
+ const task=(leadId:string|null,title:string,id:string)=>({id,accountId:'1',leadId,title,description:null,typeId:'followup',assignedUserEmail:'owner@example.com',dueDate:'2026-10-20',dueAt:null,priority:'media' as const,status:'pending' as const,result:null,completedAt:null,legacy:false,participants:'',contactIds:[],accountName:account.nombre,city:account.ciudad,opportunityName:leadId?'Plan de alojamiento':null,deletedAt:null});
+ const generalTask=task(null,'Enviar información del plan','15'),managementTask=task('55','Llamar por la propuesta','16');
+ const history={events:[{id:'message:3',occurredAt:new Date('2026-10-18T14:30:00-03:00'),kind:'message',title:'Email enviado',result:'Pidió información del plan',notes:null,channel:'email',outcome:null,continuation:null,actorEmail:'owner@example.com',leadId:null,opportunityName:null,recipientName:'Contacto del negocio',messageStatus:'sent',messageSubject:'Propuesta',messageText:null},{id:'activity:4',occurredAt:new Date('2026-10-18T16:30:00-03:00'),kind:'activity',title:'Llamada de seguimiento',result:'Acordó revisar la propuesta',notes:null,channel:'phone',outcome:'interested',continuation:null,actorEmail:'owner@example.com',leadId:'55',opportunityName:'Plan de alojamiento',recipientName:'Contacto principal',messageStatus:null,messageSubject:null,messageText:null}],total:2,page:1,pending:[{id:'15',title:generalTask.title,dueDate:generalTask.dueDate,dueAt:null,assignedUserEmail:generalTask.assignedUserEmail,leadId:null,opportunityName:null,continuation:null},{id:'16',title:managementTask.title,dueDate:managementTask.dueDate,dueAt:null,assignedUserEmail:managementTask.assignedUserEmail,leadId:'55',opportunityName:'Plan de alojamiento',continuation:null}],totalPending:2};
+ const work={tasks:[generalTask,managementTask],activities:[],types:[{id:'followup',name:'Seguimiento',agenda:true,active:true}],accounts:[{id:'1',nombre:account.nombre,ciudad:account.ciudad,assignedUserEmail:account.assignedUserEmail}],opportunities:[{...management,createdAt:new Date(),fechaUltimoContacto:null}],contacts:[],users:[{email:'owner@example.com',displayName:'Responsable'}],attention:[],journal:[],followupStages:[],newAssignmentDays:30,totalTasks:2,totalActivities:0,page:1};
+ let managementReadOnly=false;
+ await page.route('**/_api/**',async route=>{
+  const url=new URL(route.request().url()),path=url.pathname;let data:unknown={};
+  if(path.endsWith('/auth/session'))data={user:{id:1,email:'owner@example.com',displayName:'Responsable',role:'user'}};
+  // Page 1 of the full history carries the latest contact the summary shows (one shared request).
+  else if(path.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{...history,...(url.searchParams.get('historyPage')==='1'&&!url.searchParams.has('historyKind')?{lastContact:history.events[0]}:{})}:detail;
+  else if(path.endsWith('/work'))data=work;
+  else if(path.endsWith('/pipeline'))data={stages:[{name:'main:contact',displayName:'Contactado',managementType:'main',classification:'open',active:true,historical:false,sortOrder:1}],insights:[{id:'55',estado:'main:contact',managementType:'main',businessStatus:'in_management',referredToLeandro:false,referredOriginalOwnerEmail:null,manualPriority:'media',assignedUserEmail:'owner@example.com',stageSince:new Date('2026-10-18T12:00:00-03:00'),pipelineRevision:1,pendingFollowup:true,doNotContact:false,canModify:!managementReadOnly,suggestion:{priority:null,factors:[]}}],events:[],objections:[],objectionTypes:[],lossReasons:[],managementReasons:[],rules:[],users:[{email:'owner@example.com',displayName:'Responsable'}],verticals:[],configJournal:[],reactivations:[],total:1,page:1};
+  else if(path.endsWith('/leads'))data={rows:[{...management,canModify:!managementReadOnly}],total:1,page:1,pageSize:10,filters:{ciudades:[],estados:[],tipos:[],businessStatuses:[],asignados:[],suscripciones:[],origenes:[],quienesCargaron:[],mediosContacto:[],creadosPor:[]}};
+  else if(path.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
+  else if(path.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};
+  else if(path.endsWith('/lead_notes'))data={notes:[]};
+  else if(path.endsWith('/lead_journal'))data={rows:[],total:0,page:1,pageSize:100,filters:{actions:[],actors:[],cities:[],types:[],leads:[]}};
+  else if(path.endsWith('/settings'))data={users:[],cities:[],types:[],templates:[],authorizedEmails:[],opportunityStages:[]};
+  await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
+ });
+ await page.goto('/accounts/1');
+ const header=page.locator('main header').filter({hasText:'Hostería del Parque'});
+ await expect(header).toBeVisible();
+ await expect(header).toContainText('Último contacto: Email enviado');
+ await expect(header).toContainText('18 de oct de 2026');
+ // The next step is shown once, below the compact business header.
+ const accountNext=page.getByRole('region',{name:'Próximo paso'});
+ await expect(accountNext).toContainText('PRÓXIMO PASO');
+ await expect(accountNext).toContainText('Enviar información del plan');
+ await expect(header).not.toContainText('Enviar información del plan');
+ await expect(header).not.toContainText('Próximo paso');
+ expect(await header.evaluate((node,next)=>!!(node.compareDocumentPosition(next!)&Node.DOCUMENT_POSITION_FOLLOWING),await accountNext.elementHandle())).toBe(true);
+ await page.getByRole('tab',{name:'Gestiones',exact:true}).click();
+ await accountNext.getByRole('button',{name:'Ver tareas',exact:true}).click();
+ await expect(page.getByRole('tab',{name:'Tareas',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('#business-work')).toBeInViewport();
+ await page.screenshot({path:`test-results/business-continuity-account-${width}.png`,fullPage:true});
+ await page.goto('/sales/55');
+ const next=page.getByRole('region',{name:'Próximo paso'});
+ await expect(next).toContainText('Última actividad registrada: Llamada de seguimiento');
+ await expect(next).toContainText('Acordó revisar la propuesta');
+ await expect(next.getByRole('button',{name:'Anotar cómo salió',exact:true})).toBeVisible();
+ await page.screenshot({path:`test-results/business-continuity-management-${width}.png`,fullPage:true});
+ managementReadOnly=true;await page.reload();
+ const readOnlyNext=page.getByRole('region',{name:'Próximo paso'});
+ await expect(readOnlyNext).toContainText('Última actividad registrada: Llamada de seguimiento');
+ await expect(readOnlyNext.getByRole('button',{name:'Anotar cómo salió',exact:true})).toHaveCount(0);
+ await expect(readOnlyNext.getByRole('button',{name:'Contactar',exact:true})).toHaveCount(0);
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});

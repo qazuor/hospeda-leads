@@ -5,12 +5,14 @@ import superjson from "superjson";
 import { schema, type OutputType } from "./leads_POST.schema";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 // Compatibility endpoint. Legacy names may be resolved only by administrators.
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const x=schema.parse(superjson.parse(await request.text()));
+    const x=schema.parse(await parseBody(request));
     if(!x.id)return new Response(superjson.stringify({error:"El alta heredada está deshabilitada. Creá un negocio y usá Iniciar gestión cuando corresponda."}),{status:409});
     if(x.asignadoA!==undefined&&user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden modificar el responsable."}),{status:403});
     const id=await db.transaction().execute(async trx=>{
@@ -34,5 +36,5 @@ export async function handle(request:Request){
       return String(row.id);
     });
     return new Response(superjson.stringify({ok:true,id} satisfies OutputType));
-  }catch(e){return new Response(superjson.stringify({error:e instanceof Error?e.message:"Error"}),{status:e instanceof CrmForbidden?403:400})}
+  }catch(e){return errorResponse(e,e instanceof CrmForbidden?403:400)}
 }

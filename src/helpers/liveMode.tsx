@@ -1,109 +1,183 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { hashKey, useQueryClient, type MutationCacheConfig, type QueryKey } from "@tanstack/react-query";
 import { getLiveVersion } from "../endpoints/live_version_GET.schema";
 import { useAuth } from "./useAuth";
+import { LIVE_QUERY_KEYS, liveChangeTime, liveChangeWindow, liveLoadIncludes, liveQueryKeysToInvalidate, type LiveChange, type LiveSnapshot } from "./liveDomains";
 
 const STORAGE_KEY="hospeda-live-mode";
-const CHECK_INTERVAL=2500;
-const LIVE_QUERY_KEYS=[
-  "communication","resources","data-quality","pipeline","work","commercial","commercial-detail","leads","lead-stats","settings","analytics","lead-duplicates","lead-notes",
-  "lead-journal","global-journal","global-journal-filtered","trash-leads"
-];
+const CHECK_INTERVAL=10000;
+const EVENT_THROTTLE=2000;
 
-type LiveStatus="live"|"checking"|"off"|"error";
-type LiveModeContextValue={
-  enabled:boolean;
-  manualRefreshing:boolean;
+type LiveStatus="live"|"error";
+/** Live updates are always on; this state is informational. `refreshing` is true only during the first check after load and while data is refetched after a detected change, never for a routine poll. */
+type LiveModeState={
+  refreshing:boolean;
   status:LiveStatus;
   lastCheckedAt:Date|null;
-  setEnabled:(enabled:boolean)=>void;
-  toggle:()=>void;
-  checkNow:()=>Promise<void>;
-  refresh:()=>Promise<void>;
 };
 
-const LiveModeContext=createContext<LiveModeContextValue|null>(null);
+const LiveModeStateContext=createContext<LiveModeState|null>(null);
 
-const initialEnabled=()=>{
-  if(typeof window==="undefined")return true;
-  return window.localStorage.getItem(STORAGE_KEY)!=="off";
-};
+/** Query `meta` for infinite lists that must not refetch every loaded page on a live change: they show a manual refresh instead. */
+export const LIVE_MANUAL_WHEN_PAGED={liveRefresh:"manual-when-paged"} as const;
+type DeferrableQuery={meta?:Record<string,unknown>;getObserversCount:()=>number;state:{data?:unknown}};
+/** True when a live change must only flag the query: it opted in, is on screen and has more than one page loaded. */
+export function shouldDeferLiveRefetch(query:DeferrableQuery){
+  if(query.meta?.liveRefresh!==LIVE_MANUAL_WHEN_PAGED.liveRefresh||query.getObserversCount()===0)return false;
+  const pages=(query.state.data as {pages?:unknown}|undefined)?.pages;
+  return Array.isArray(pages)&&pages.length>1;
+}
+
+/**
+ * Flags per query hash, holding the browser time at which the latest flagging poll answered. Every change it reported
+ * was already committed, so any full load started at or after that time includes it.
+ */
+type PendingStore={subscribe:(listener:()=>void)=>()=>void;has:(hash:string)=>boolean;markedAt:(hash:string)=>number|undefined;mark:(hash:string,markedAt:number)=>void;clear:(hash?:string)=>void};
+function createPendingStore():PendingStore{
+  const pending=new Map<string,number>(),listeners=new Set<()=>void>();
+  const notify=()=>listeners.forEach(listener=>listener());
+  return {
+    subscribe:listener=>{listeners.add(listener);return ()=>{listeners.delete(listener);};},
+    has:hash=>pending.has(hash),
+    markedAt:hash=>pending.get(hash),
+    mark:(hash,markedAt)=>{const current=pending.get(hash);pending.set(hash,current===undefined?markedAt:Math.max(current,markedAt));if(current===undefined)notify();},
+    clear:hash=>{if(hash===undefined?pending.size===0:!pending.has(hash))return;if(hash===undefined)pending.clear();else pending.delete(hash);notify();},
+  };
+}
+type MutationSuccessHandler=NonNullable<MutationCacheConfig["onSuccess"]>;
+/** Live-mode wrappers installed on `MutationCache.config.onSuccess`, with the handler each one wraps. */
+const stampWrappers=new WeakMap<MutationSuccessHandler,{previous:MutationSuccessHandler|undefined;state:{disposed:boolean}}>();
+const LivePendingContext=createContext<PendingStore|null>(null);
+const noSubscription=()=>()=>{};
 
 export function LiveModeProvider({children}:{children:ReactNode}){
   const queryClient=useQueryClient();
   const {authState}=useAuth();
-  const [enabledState,setEnabledState]=useState(initialEnabled);
-  const [status,setStatus]=useState<LiveStatus>(enabledState?"checking":"off");
+  const [status,setStatus]=useState<LiveStatus>("live");
   const [lastCheckedAt,setLastCheckedAt]=useState<Date|null>(null);
-  const [manualRefreshing,setManualRefreshing]=useState(false);
-  const manualRefreshLock=useRef(false);
-  const lastVersion=useRef<string|null>(null);
+  const [refreshing,setRefreshing]=useState(true);
+  const firstCheckDone=useRef(false);
+  const lastSnapshot=useRef<LiveSnapshot|null>(null);
   const checking=useRef(false);
+  const lastCheckStartedAt=useRef(0);
+  const generation=useRef(0);
+  const [pending]=useState(createPendingStore);
+  /** Browser time at which the running and the last successful full (not next-page) fetch of each query started. */
+  const fetchStartedAt=useRef(new Map<string,number>());
+  const freshFrom=useRef(new Map<string,number>());
+  /** Browser time of the latest successful own mutation response (it arrives after that mutation's COMMIT). */
+  const lastOwnMutationAt=useRef<number|undefined>(undefined);
 
-  const invalidateLiveQueries=useCallback(async()=>{
-    await Promise.all(LIVE_QUERY_KEYS.map(key=>queryClient.invalidateQueries({queryKey:[key]})));
+  // The mutation cache `onSuccess` runs as soon as the response arrives, before the mutation's own `onSuccess` refetches.
+  useEffect(()=>{
+    const config=queryClient.getMutationCache().config,previous=config.onSuccess;
+    const state={disposed:false};
+    const stamp:MutationSuccessHandler=(...args)=>{if(!state.disposed)lastOwnMutationAt.current=Date.now();return previous?.(...args);};
+    stampWrappers.set(stamp,{previous,state});
+    config.onSuccess=stamp;
+    return ()=>{
+      state.disposed=true;
+      // Restore only our own wrapper, skipping wrappers of providers that were unmounted out of order.
+      if(config.onSuccess!==stamp)return;
+      let next=previous;
+      for(let entry=next&&stampWrappers.get(next);entry?.state.disposed;entry=next&&stampWrappers.get(next))next=entry.previous;
+      config.onSuccess=next;
+    };
   },[queryClient]);
 
-  const refresh=useCallback(async()=>{
-    if(manualRefreshLock.current)return;
-    manualRefreshLock.current=true;setManualRefreshing(true);
-    try{await invalidateLiveQueries();}finally{manualRefreshLock.current=false;setManualRefreshing(false);}
-  },[invalidateLiveQueries]);
+  useEffect(()=>queryClient.getQueryCache().subscribe(event=>{
+    if(event.type==="removed"){fetchStartedAt.current.delete(event.query.queryHash);freshFrom.current.delete(event.query.queryHash);return;}
+    if(event.type!=="updated"||event.query.state.fetchMeta?.fetchMore)return;
+    const hash=event.query.queryHash;
+    if(event.action.type==="fetch"){fetchStartedAt.current.set(hash,Date.now());return;}
+    if(event.action.type!=="success"||event.action.manual)return;
+    const startedAt=fetchStartedAt.current.get(hash);
+    if(startedAt!==undefined)freshFrom.current.set(hash,startedAt);
+    // A full refetch that started once the flagging poll had answered already shows the change, whatever triggered it.
+    const markedAt=pending.markedAt(hash);
+    if(markedAt!==undefined&&startedAt!==undefined&&startedAt>=markedAt)pending.clear(hash);
+  }),[queryClient,pending]);
 
-  const checkNow=useCallback(async()=>{
-    if(!enabledState||authState.type!=="authenticated"||checking.current)return;
+  // Live updates have no opt-out any more: drop a preference stored by older versions.
+  useEffect(()=>{try{window.localStorage.removeItem(STORAGE_KEY);}catch{/* storage unavailable */}},[]);
+
+  const updateStatus=useCallback((next:LiveStatus)=>setStatus(current=>current===next?current:next),[]);
+
+  const invalidateLiveQueries=useCallback(async(keys:readonly string[],change:LiveChange|null=null,markedAt=Date.now())=>{
+    const deferred=new Set<string>();
+    for(const query of queryClient.getQueryCache().getAll())if(keys.includes(String(query.queryKey[0]))&&shouldDeferLiveRefetch(query)){
+      deferred.add(query.queryHash);
+      // Data whose last full fetch already includes the change (after the margin, or after the user's own edit response) stays as is.
+      if(!liveLoadIncludes({startedAt:freshFrom.current.get(query.queryHash),change,lastOwnMutationAt:lastOwnMutationAt.current}))pending.mark(query.queryHash,markedAt);
+    }
+    await Promise.all(keys.map(key=>queryClient.invalidateQueries(deferred.size?{queryKey:[key],predicate:query=>!deferred.has(query.queryHash)}:{queryKey:[key]})));
+  },[queryClient,pending]);
+
+  const checkVersion=useCallback(async()=>{
+    if(authState.type!=="authenticated"||checking.current)return;
     checking.current=true;
-    setStatus("checking");
+    const checkGeneration=generation.current;
+    lastCheckStartedAt.current=Date.now();
+    let showedRefreshing=false;
     try{
-      const {version}=await getLiveVersion();
-      const previous=lastVersion.current;
-      lastVersion.current=version;
+      const sentAt=Date.now();
+      const next=await getLiveVersion();
+      const receivedAt=Date.now();
+      if(checkGeneration!==generation.current)return;
+      const previous=lastSnapshot.current;
+      lastSnapshot.current=next;
       setLastCheckedAt(new Date());
-      setStatus("live");
-      if(previous!==null&&previous!==version)await invalidateLiveQueries();
+      updateStatus("live");
+      const keys=liveQueryKeysToInvalidate({previous,next});
+      if(keys.length>0){
+        setRefreshing(true);showedRefreshing=true;
+        const serverTime=liveChangeTime({previous,next});
+        await invalidateLiveQueries(keys,serverTime===null?null:liveChangeWindow({serverTime,snapshot:next,sentAt,receivedAt}),receivedAt);
+      }
     }catch{
-      setStatus("error");
+      if(checkGeneration===generation.current)updateStatus("error");
     }finally{
       checking.current=false;
+      if(showedRefreshing||!firstCheckDone.current){firstCheckDone.current=true;setRefreshing(false);}
     }
-  },[enabledState,authState.type,invalidateLiveQueries]);
-
-  const setEnabled=useCallback((next:boolean)=>{
-    setEnabledState(next);
-    window.localStorage.setItem(STORAGE_KEY,next?"on":"off");
-    if(!next)setStatus("off");
-    else{
-      lastVersion.current=null;
-      setStatus("checking");
-    }
-  },[]);
+  },[authState.type,invalidateLiveQueries,updateStatus]);
 
   useEffect(()=>{
-    if(!enabledState||authState.type!=="authenticated"){
-      if(!enabledState)setStatus("off");
-      return;
-    }
-    void checkNow();
-    const interval=window.setInterval(()=>void checkNow(),CHECK_INTERVAL);
-    const onFocus=()=>void checkNow();
-    const onVisibility=()=>{if(document.visibilityState==="visible")void checkNow()};
+    if(authState.type!=="authenticated")return;
+    void checkVersion();
+    const interval=window.setInterval(()=>{if(document.visibilityState!=="hidden")void checkVersion()},CHECK_INTERVAL);
+    const checkOnReturn=()=>{
+      if(document.visibilityState==="hidden"||Date.now()-lastCheckStartedAt.current<EVENT_THROTTLE)return;
+      void checkVersion();
+    };
+    const onFocus=checkOnReturn;
+    const onVisibility=checkOnReturn;
     window.addEventListener("focus",onFocus);
     document.addEventListener("visibilitychange",onVisibility);
     return ()=>{
+      generation.current+=1;
       window.clearInterval(interval);
       window.removeEventListener("focus",onFocus);
       document.removeEventListener("visibilitychange",onVisibility);
     };
-  },[enabledState,authState.type,checkNow]);
+  },[authState.type,checkVersion]);
 
-  return <LiveModeContext.Provider value={{
-    enabled:enabledState,manualRefreshing,status,lastCheckedAt,setEnabled,
-    toggle:()=>setEnabled(!enabledState),checkNow,refresh
-  }}>{children}</LiveModeContext.Provider>;
+  const state=useMemo(()=>({refreshing,status,lastCheckedAt}),[refreshing,status,lastCheckedAt]);
+  return <LivePendingContext.Provider value={pending}><LiveModeStateContext.Provider value={state}>{children}</LiveModeStateContext.Provider></LivePendingContext.Provider>;
 }
 
+/** Whether live mode skipped refetching this query because of `LIVE_MANUAL_WHEN_PAGED`; `clear` hides the notice. */
+export function useLivePendingRefresh(queryKey:QueryKey){
+  const store=useContext(LivePendingContext);
+  const hash=hashKey(queryKey);
+  const pending=useSyncExternalStore(store?.subscribe??noSubscription,()=>store?.has(hash)??false);
+  const clear=useCallback(()=>store?.clear(hash),[store,hash]);
+  return {pending,clear};
+}
+
+/** Informational live-update state for the status indicator. */
 export function useLiveMode(){
-  const context=useContext(LiveModeContext);
-  if(!context)throw new Error("useLiveMode must be used within LiveModeProvider");
-  return context;
+  const state=useContext(LiveModeStateContext);
+  if(!state)throw new Error("useLiveMode must be used within LiveModeProvider");
+  return state;
 }

@@ -1,6 +1,5 @@
 import type {BadgeCategory} from '../components/ValueBadge';
 export const inlineBadgeFields = {
- reviewStatus:{title:'Revisión',empty:'No filtrado',category:'status',scope:'business'},
  ciudad:{title:'Ciudad',empty:'Sin ciudad',category:'city',scope:'business'},
  assignedUserEmail:{title:'Responsable',empty:'Sin responsable',category:'person',scope:'business'},
  tipo:{title:'Vertical',empty:'Sin vertical',category:'vertical',scope:'business'},

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import superjson from "superjson";
+import {apiJson} from "../helpers/apiClient";
 export type Bucket={name:string;count:number};
 export type ConversionBucket={name:string;total:number;subscribed:number;rate:number};
 export type DurationBucket={name:string;days:number;samples:number};
@@ -13,7 +13,5 @@ export type OutputType={
 };
 export const getAnalytics=async(input:z.input<typeof schema>={}):Promise<OutputType>=>{
   const p=schema.parse(input);const qs=new URLSearchParams();Object.entries(p).forEach(([k,v])=>{if(v)qs.set(k,v)});
-  const r=await fetch("/_api/analytics"+(qs.size?"?"+qs.toString():""));
-  if(!r.ok){const e=superjson.parse<{error:string}>(await r.text());throw new Error(e.error)}
-  return superjson.parse<OutputType>(await r.text());
+  return apiJson<OutputType>("/_api/analytics"+(qs.size?"?"+qs.toString():""));
 };

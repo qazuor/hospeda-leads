@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import postgres from 'postgres';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
-const sql=postgres(process.env.DATABASE_URL,{max:1,prepare:false});const rollback=new Error('rollback');
+const sql=postgres(process.env.DATABASE_URL,{max:1,prepare:false,path:process.env.CRM_TEST_DATABASE_SOCKET});const rollback=new Error('rollback');
 try{await sql.begin(async tx=>{try{
  const schema=`pipeline_${Date.now()}`;await tx.unsafe(`CREATE SCHEMA ${schema}; SET LOCAL search_path TO ${schema}`);
  for(const n of (await readdir('migrations')).filter(n=>n.endsWith('.sql')&&n<'007').sort())await tx.unsafe(await readFile('migrations/'+n,'utf8'));

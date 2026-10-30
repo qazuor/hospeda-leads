@@ -1,5 +1,8 @@
-import {CrmForbidden,assertLeadAccess} from '../helpers/crmPermissions';
-import {crmError} from '../helpers/crmErrors';
+import {MANAGEMENT_RECONTACT_TASK_TITLE,managementRecontactOwner,cancelRecontactTaskFor,cancelUntouchedRecontactTask,reassignRecontactTask,syncRecontactTask} from '../helpers/recontactTask';
+import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
+import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
+import {parseBody} from '../helpers/parseBody';
+import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import superjson from 'superjson';
 import {sql,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -10,19 +13,21 @@ import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {setWorkActor} from '../helpers/workAudit';
 import {calendarDay,localDay} from '../helpers/workDates';
 import {suggestPriority} from '../helpers/priorityRules';
-import {pipelineMutation,priorityRule,type PipelineStage,type PipelineCatalog,type PipelineInsight,type PipelineEvent,type PipelineObjection,type ReactivationRow} from './pipeline.schema';
+import {closeMarksClient,validClosingAgreement} from '../helpers/closingAgreement';
+import {pipelineMutation,priorityRule,type PipelineStage,type PipelineCatalog,type PipelineReason,type PipelineInsight,type PipelineEvent,type PipelineObjection,type ReactivationRow} from './pipeline.schema';
+import {isValidReactivationStage,mayReopenManagement} from '../helpers/reactivation';
 import {day} from './work.schema';
 class Forbidden extends Error {}
 class Conflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:400);
+const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof NotAuthenticatedError?401:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof Conflict?409:fallbackStatus(e));
 const query=z.object({leadId:z.string().regex(/^\d+$/).optional(),ids:z.string().regex(/^\d+(,\d+)*$/).optional(),mode:z.enum(['detail','reactivation','config']).default('detail'),from:day.optional(),to:day.optional(),reasonId:z.string().regex(/^\d+$/).optional(),vertical:z.string().max(200).optional(),responsible:z.string().max(320).optional(),handled:z.enum(['yes','no','all']).default('no'),page:z.coerce.number().int().min(1).default(1)});
 export async function get(request:Request){
  try{
   const {user}=await getServerUserSession(request);const p=query.parse(Object.fromEntries(new URL(request.url).searchParams));
   if(p.responsible&&user.role!=='admin'&&p.responsible!==user.email)throw new Forbidden('La vista de equipo requiere admin.');
-  const [stages,lossReasons,objectionTypes,setting,users,verticals,historicalVerticals]=await Promise.all([
-   sql<PipelineStage>`SELECT * FROM crm_stages ORDER BY sort_order,name`.execute(db),sql<PipelineCatalog>`SELECT * FROM crm_loss_reasons ORDER BY name`.execute(db),sql<PipelineCatalog>`SELECT * FROM crm_objection_types ORDER BY name`.execute(db),
+  const [stages,managementReasons,lossReasons,objectionTypes,setting,users,verticals,historicalVerticals]=await Promise.all([
+   sql<PipelineStage>`SELECT * FROM crm_stages ORDER BY sort_order,name`.execute(db),sql<PipelineReason>`SELECT * FROM crm_management_reasons WHERE active ORDER BY management_type,outcome_key,name`.execute(db),sql<PipelineCatalog>`SELECT * FROM crm_loss_reasons ORDER BY name`.execute(db),sql<PipelineCatalog>`SELECT * FROM crm_objection_types ORDER BY name`.execute(db),
    db.selectFrom('appSettings').select('value').where('key','=','crm_priority_rules').executeTakeFirstOrThrow(),db.selectFrom('users').select(['email','displayName']).execute(),db.selectFrom('crmVerticals').select('name').where('active','=',true).execute(),db.selectFrom('leads').select('tipo').distinct().where('tipo','is not',null).execute()
   ]);
   const rules=z.array(priorityRule).parse(JSON.parse(setting.value));
@@ -30,12 +35,13 @@ export async function get(request:Request){
   let insights:PipelineInsight[]=[],events:PipelineEvent[]=[],objections:PipelineObjection[]=[];
   if(ids.length){
    for(const id of ids)await assertLeadAccess(db,id,user);
-   const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null}>`SELECT l.id,l.estado,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
+   const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null;managementDeletedAt:Date|null;businessArchivedAt:Date|null;businessDeletedAt:Date|null;businessMergedIntoId:string|null}>`SELECT l.id,l.estado,l.management_type,a.status business_status,a.assigned_user_email account_assigned_user_email,a.referred_to_leandro,a.referred_original_owner_email,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
+    l.deleted_at management_deleted_at,a.archived_at business_archived_at,a.deleted_at business_deleted_at,a.merged_into_id business_merged_into_id,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.status='pending' AND t.deleted_at IS NULL) pending_followup,l.fecha_proxima_accion,l.fecha_ultimo_contacto,l.estimated_close_date
     FROM leads l JOIN crm_accounts a ON a.id=l.account_id LEFT JOIN crm_stages s ON s.name=l.estado WHERE l.id IN (${sql.join(ids)}) AND l.deleted_at IS NULL`.execute(db);
-   insights=rows.map(r=>({...r,suggestion:suggestPriority(rules,{stage:r.estado,classification:r.classification,pending:r.pendingFollowup,nextDay:r.fechaProximaAccion?calendarDay(r.fechaProximaAccion):null,lastContactDay:r.fechaUltimoContacto?calendarDay(r.fechaUltimoContacto):null,closeDay:r.estimatedCloseDate?calendarDay(r.estimatedCloseDate):null},localDay())}));
+   insights=rows.map(r=>{const {managementDeletedAt,businessArchivedAt,businessDeletedAt,businessMergedIntoId,classification,fechaProximaAccion,fechaUltimoContacto,estimatedCloseDate,...insight}=r;return {...insight,canModify:canModifyManagement(user,{assignedUserEmail:r.assignedUserEmail,deletedAt:managementDeletedAt},{assignedUserEmail:null,archivedAt:businessArchivedAt,deletedAt:businessDeletedAt,mergedIntoId:businessMergedIntoId,doNotContact:r.doNotContact}),suggestion:suggestPriority(rules,{stage:r.estado,classification,pending:r.pendingFollowup,nextDay:fechaProximaAccion?calendarDay(fechaProximaAccion):null,lastContactDay:fechaUltimoContacto?calendarDay(fechaUltimoContacto):null,closeDay:estimatedCloseDate?calendarDay(estimatedCloseDate):null},localDay())}});
    if(p.leadId){
-    events=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${p.leadId} ORDER BY id DESC LIMIT 200`.execute(db)).rows.map(e=>({...e,recontactDate:e.recontactDate?calendarDay(e.recontactDate):null}));
+    events=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${p.leadId} ORDER BY id DESC LIMIT 200`.execute(db)).rows.map(e=>({...e,managementReasonId:e.managementReasonId??null,managementNote:e.managementNote??null,recontactDate:e.recontactDate?calendarDay(e.recontactDate):null}));
     objections=(await sql<PipelineObjection>`SELECT * FROM crm_objections WHERE lead_id=${p.leadId} AND deleted_at IS NULL ORDER BY id DESC`.execute(db)).rows;
    }
   }
@@ -45,16 +51,16 @@ export async function get(request:Request){
    if(user.role!=='admin')clauses.push(sql`l.assigned_user_email=${user.email}`,sql`a.archived_at IS NULL`);
    else if(p.responsible&&p.responsible!=='all')clauses.push(sql`l.assigned_user_email=${p.responsible}`);
    if(p.from)clauses.push(sql`e.recontact_date>=${p.from}::date`);if(p.to)clauses.push(sql`e.recontact_date<=${p.to}::date`);
-   if(p.reasonId)clauses.push(sql`e.reason_id=${p.reasonId}`);if(p.vertical)clauses.push(sql`l.tipo=${p.vertical}`);
+   if(p.reasonId)clauses.push(sql`((l.management_type IS NULL AND e.reason_id=${p.reasonId}) OR (l.management_type IS NOT NULL AND e.management_reason_id=${p.reasonId}))`);if(p.vertical)clauses.push(sql`l.tipo=${p.vertical}`);
    if(p.handled==='no')clauses.push(sql`e.task_id IS NULL AND e.related_lead_id IS NULL`);
    if(p.handled==='yes')clauses.push(sql`(e.task_id IS NOT NULL OR e.related_lead_id IS NOT NULL)`);
-   const base=sql`FROM leads l JOIN crm_accounts a ON a.id=l.account_id JOIN crm_stages s ON s.name=l.estado JOIN LATERAL (SELECT * FROM crm_pipeline_events WHERE lead_id=l.id AND action='stage' ORDER BY id DESC LIMIT 1) e ON true WHERE ${sql.join(clauses,sql` AND `)}`;
+   const base=sql`FROM leads l JOIN crm_accounts a ON a.id=l.account_id JOIN crm_stages s ON s.name=l.estado JOIN LATERAL (SELECT * FROM crm_pipeline_events WHERE lead_id=l.id AND action='stage' ORDER BY id DESC LIMIT 1) e ON true LEFT JOIN crm_tasks rt ON rt.id=e.task_id LEFT JOIN leads related ON related.id=e.related_lead_id WHERE ${sql.join(clauses,sql` AND `)}`;
    total=Number((await sql<{n:string}>`SELECT count(*) n ${base}`.execute(db)).rows[0].n);
-   reactivations=(await sql<ReactivationRow>`SELECT l.id,l.account_id,l.nombre,l.opportunity_name,l.tipo,l.assigned_user_email,l.estado,l.pipeline_revision,a.do_not_contact,e.id event_id,e.reason_id,e.comment,e.recontact_date,e.task_id ${base} ORDER BY e.recontact_date,l.id LIMIT 50 OFFSET ${(p.page-1)*50}`.execute(db)).rows.map(r=>({...r,recontactDate:calendarDay(r.recontactDate)}));
+   reactivations=(await sql<ReactivationRow>`SELECT l.id,l.account_id,l.nombre,l.opportunity_name,l.tipo,l.management_type,l.assigned_user_email,l.estado,l.pipeline_revision,a.status business_status,a.recontact_at business_recontact_date,a.do_not_contact,e.id event_id,coalesce(e.management_reason_id,e.reason_id)::text reason_id,coalesce(e.comment,e.management_note) comment,e.recontact_date,e.task_id,rt.title task_title,rt.status task_status,rt.due_date task_due_date,e.related_lead_id related_lead_id,related.opportunity_name related_opportunity_name ${base} ORDER BY e.recontact_date,l.id LIMIT 50 OFFSET ${(p.page-1)*50}`.execute(db)).rows.map(r=>({...r,recontactDate:calendarDay(r.recontactDate),businessRecontactDate:r.businessRecontactDate?calendarDay(r.businessRecontactDate):null,taskDueDate:r.taskDueDate?calendarDay(r.taskDueDate):null}));
   }
   const configJournal=user.role==='admin'&&p.mode==='config'?(await sql`SELECT * FROM crm_pipeline_config_journal ORDER BY id DESC LIMIT 100`.execute(db)).rows:[];
   const historicalReview=user.role==='admin'&&p.mode==='config'?(await sql<{stage:string;count:string}>`SELECT coalesce(estado,'') stage,count(*) count FROM leads WHERE deleted_at IS NULL GROUP BY estado ORDER BY count(*) DESC`.execute(db)).rows.map(r=>({...r,count:Number(r.count)})):[];
-  return reply({historicalReview,configJournal,stages:stages.rows,lossReasons:lossReasons.rows,objectionTypes:objectionTypes.rows,rules,insights,events,objections,reactivations,total,page:p.page,users,verticals:[...new Set([...verticals.map(v=>v.name),...historicalVerticals.map(v=>v.tipo!).filter(Boolean)])].sort()});
+  return reply({historicalReview,configJournal,stages:stages.rows,managementReasons:managementReasons.rows,lossReasons:lossReasons.rows,objectionTypes:objectionTypes.rows,rules,insights,events,objections,reactivations,total,page:p.page,users,verticals:[...new Set([...verticals.map(v=>v.name),...historicalVerticals.map(v=>v.tipo!).filter(Boolean)])].sort()});
  }catch(e){return fail(e)}
 }
 async function log(trx:Transaction<DB>,accountId:string,leadId:string|null,action:string,metadata:unknown){
@@ -62,13 +68,14 @@ async function log(trx:Transaction<DB>,accountId:string,leadId:string|null,actio
 }
 export async function post(request:Request){
  try{
-  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(superjson.parse(await request.text()));
+  const {user}=await getServerUserSession(request);const p=pipelineMutation.parse(await parseBody(request));
   const id=await db.transaction().execute(async trx=>{
    await setWorkActor(trx,user);
    if(p.action==='stage_save'||p.action==='catalog_save'||p.action==='rules_save'){
     if(user.role!=='admin')throw new Forbidden('Solo admin puede configurar catálogos y reglas.');
     if(p.action==='stage_save'){
      const before=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.name} FOR UPDATE`.execute(trx)).rows[0];
+     if(before?.managementType)throw new Forbidden('Las etapas de gestión definidas por producto no se pueden configurar desde la aplicación.');
      if(before&&before.classification!==p.classification)throw new Error('Clasificación histórica inmutable. Creá otra etapa.');
      await sql`INSERT INTO crm_stages(name,sort_order,active,classification,journey_phase) VALUES(${p.name},${p.sortOrder},${p.active},${p.classification},${p.journeyPhase===undefined?before?.journeyPhase??null:p.journeyPhase}) ON CONFLICT(name) DO UPDATE SET sort_order=excluded.sort_order,active=excluded.active,journey_phase=excluded.journey_phase`.execute(trx);return p.name;
     }
@@ -88,14 +95,22 @@ export async function post(request:Request){
    if(p.action==='contact_policy'){
     if(user.role!=='admin')throw new Forbidden('Solo admin cambia la política de contacto.');
     const before=await trx.selectFrom('crmAccounts').selectAll().where('id','=',p.accountId).forUpdate().executeTakeFirstOrThrow();
+    if(before.deletedAt)throw new Error('Restaurá el negocio de Papelera antes de modificarlo.');
+    if(p.blocked)await cancelRecontactTaskFor(trx,{accountId:p.accountId,cause:'dnc'});
     await trx.updateTable('crmAccounts').set({doNotContact:p.blocked,updatedAt:new Date()}).where('id','=',p.accountId).execute();
     await log(trx,p.accountId,null,'contact_policy',{before:before.doNotContact,blocked:p.blocked,reason:p.reason});
-    await trx.insertInto('crmCommercialJournal').values({accountId:p.accountId,action:'contact_policy',actorEmail:user.email,actorName:user.displayName,metadata:{before:{doNotContact:before.doNotContact},after:{doNotContact:p.blocked,reason:p.reason}}}).execute();return p.accountId;
+    return p.accountId;
    }
    const context=await trx.selectFrom('leads').select('accountId').where('id','=',p.leadId).where('deletedAt','is',null).executeTakeFirstOrThrow();
    const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',context.accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=await trx.selectFrom('leads').selectAll().where('id','=',p.leadId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
-   await assertLeadAccess(trx,String(lead.id),user,true);
+   const typedLead=lead as typeof lead&{managementType:string|null;referredPreviousStage:string|null;referredPreviousAssignedUserEmail:string|null};
+   const stateAccount=account as typeof account&{status:string;isClient:boolean;referredToLeandro:boolean;referredOriginalOwnerEmail:string|null};
+   const referralRequested=p.action==='transition'&&!!typedLead.managementType&&p.stage===`${typedLead.managementType}:leandro`;
+   await assertLeadAccess(trx,String(lead.id),user,!referralRequested);
+   if(referralRequested&&account.archivedAt&&user.role!=='admin')throw new Forbidden('Este negocio está archivado. Solo un administrador puede modificarlo.');
+   // Decision 1C: the referral skips the write guard (any reader may refer a live business), so it must close the No contactar case itself.
+   if(referralRequested&&account.doNotContact&&user.role!=='admin')throw new Forbidden(DO_NOT_CONTACT_READ_ONLY);
    if(lead.pipelineRevision!==p.revision)throw new Conflict('La gestión cambió. Cerrá este formulario y volvé a abrirlo para revisar antes de guardar.');
    if(p.action==='objection_save'){
     const type=(await sql<PipelineCatalog>`SELECT * FROM crm_objection_types WHERE id=${p.typeId} FOR SHARE`.execute(trx)).rows[0];
@@ -111,22 +126,114 @@ export async function post(request:Request){
     if(stage?.classification!=='won')throw new Error('El acuerdo corresponde a una gestión ganada.');
     const previous=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='closing_checklist' ORDER BY id DESC LIMIT 1`.execute(trx)).rows[0];
     if((previous?.id??null)!==p.expectedEventId)throw new Conflict('El acuerdo cambió. Volvé a abrirlo para revisar la última versión.');
-    await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,previousEventId:previous?.id??null});
+    // The flag is carried forward on every save (or derived from the management type: main/partner wins always mark), so a later save cannot drop the customer evidence.
+    const markedClient=(!!previous?.metadata&&typeof previous.metadata==='object'&&'markedClient' in previous.metadata&&previous.metadata.markedClient===true)||closeMarksClient({managementType:typedLead.managementType,stage:stage.name,outcomeKey:stage.outcomeKey,convertClient:false});
+    if(markedClient&&!validClosingAgreement(p.closing))throw new Error('Completá qué se acordó y quién aceptó para marcar al negocio como Cliente.');
+    await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,markedClient,previousEventId:previous?.id??null});
     return lead.id;
    }
    if(p.action==='transition'){
+    await sql`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','management_change',true)`.execute(trx);
     if(p.stage===lead.estado)throw new Error('Ya está en esta etapa.');
-    await sql`SELECT set_config('crm.loss_reason',${p.reasonId??''},true),set_config('crm.loss_comment',${p.comment},true),set_config('crm.recontact',${p.recontactDate??''},true)`.execute(trx);
-    const chosen=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active`.execute(trx)).rows[0];
+    const typed=typedLead.managementType;
+    await sql`SELECT set_config('crm.loss_reason',${p.reasonId??''},true),set_config('crm.loss_comment',${p.comment},true),set_config('crm.management_reason_id',${p.reasonId??''},true),set_config('crm.management_note',${p.comment},true),set_config('crm.recontact',${p.recontactDate??''},true)`.execute(trx);
+    const chosen=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active AND (${typed??null}::text IS NULL OR management_type=${typed})`.execute(trx)).rows[0];
     if(!chosen)throw new Error('Elegí una etapa disponible.');
+    const current=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${lead.estado}`.execute(trx)).rows[0];
+    if(typed&&chosen.managementType!==typed)throw new Error('La etapa no pertenece a este tipo de gestión.');
+    // A closed typed management only reopens (to an open stage) and only by an admin; each case has its own message (report item 1.10).
+    if(typed&&current?.classification!=='open'&&user.role!=='admin')throw new Forbidden('Solo un administrador puede reabrir una gestión cerrada.');
+    if(typed&&current?.classification!=='open'&&chosen.classification!=='open')throw new Error('Elegí una etapa disponible.');
+    if(typed&&p.recontactDate&&chosen.classification==='open')throw new Error('La fecha de recontacto solo se registra al cerrar la gestión.');
+    if(typed&&p.onboarding)throw new Error('El acompañamiento de ficha se inicia como una gestión independiente.');
     if((p.convertClient||p.onboarding||p.closing)&&chosen.classification!=='won')throw new Error('El acompañamiento de inicio corresponde a una gestión ganada.');
-    await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).execute();
-    if(p.convertClient&&account.commercialStatus!=='client'){
-     await trx.updateTable('crmAccounts').set({commercialStatus:'client',clientSince:new Date(),updatedAt:new Date()}).where('id','=',account.id).execute();
-     await trx.insertInto('crmCommercialJournal').values({accountId:account.id,action:'converted_to_client',actorEmail:user.email,actorName:user.displayName,metadata:{reason:p.comment||'Gestión ganada',leadId:lead.id,paymentVerified:false}}).execute();
+    const marksClient=closeMarksClient({managementType:typed,stage:chosen.name,outcomeKey:chosen.outcomeKey,convertClient:p.convertClient});
+    if(marksClient&&(!p.closing||!validClosingAgreement(p.closing)))throw new Error('Completá qué se acordó y quién aceptó para marcar al negocio como Cliente.');
+    const referral=!!typed&&chosen.name===`${typed}:leandro`;
+    const typedDnc=typed&&chosen.outcomeKey&&p.reasonId?(await sql<{id:string}>`SELECT id FROM crm_management_reasons WHERE id=${p.reasonId} AND management_type=${typed} AND outcome_key=${chosen.outcomeKey} AND do_not_contact AND active`.execute(trx)).rows[0]:null;
+    if(typedDnc&&p.recontactDate)throw new Error('Un negocio marcado para no contactar se archiva y no se programa recontacto.');
+    if(referral){
+     if(stateAccount.referredToLeandro)throw new Error('Este negocio ya está derivado a Leandro.');
+     const leandro=(await sql<{email:string}>`SELECT email FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro'`.execute(trx)).rows;
+     if(leandro.length!==1)throw new Error('No se encontró un único usuario Leandro. Revisá el nombre visible del usuario en Configuración.');
+     await sql`SELECT set_config('crm.refer_management','true',true)`.execute(trx);
+     await sql`UPDATE leads SET referred_previous_stage=estado,referred_previous_assigned_user_email=assigned_user_email,assigned_user_email=${leandro[0].email},estado=${p.stage},updated_at=now() WHERE id=${lead.id}`.execute(trx);
+     await sql`UPDATE crm_accounts SET referred_to_leandro=true,referred_original_owner_email=assigned_user_email,assigned_user_email=${leandro[0].email},updated_at=now() WHERE id=${account.id}`.execute(trx);
+     await reassignRecontactTask(trx,{accountId:account.id,fromEmail:account.assignedUserEmail,toEmail:leandro[0].email});
+     await sql`SELECT set_config('crm.refer_management','false',true)`.execute(trx);
+    }else{
+     if(typedDnc&&p.closeOtherOpen){
+      const otherOpen=(await sql<{id:string;management_type:string|null;estado:string}>`SELECT l.id,l.management_type,l.estado FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.id<>${lead.id} AND l.deleted_at IS NULL AND s.classification='open' FOR UPDATE OF l`.execute(trx)).rows;
+      if(otherOpen.some(item=>!item.management_type))throw new Error('Hay una gestión histórica abierta que requiere un cierre manual antes de bloquear el contacto.');
+      await sql`SELECT set_config('crm.close_related_management','true',true)`.execute(trx);
+      for(const other of otherOpen){
+       const otherType=other.management_type!;
+       const outcome=otherType==='provider'?'not_participating':otherType==='accompaniment'?'not_completed':otherType==='editor'?(other.estado.includes('proposal')?'proposal_lost':'not_collaborating'):'lost';
+       const closeStage=otherType==='provider'?'provider:not_participating':otherType==='accompaniment'?'accompaniment:not_completed':otherType==='editor'?(outcome==='proposal_lost'?'editor:proposal_lost':'editor:not_collaborating'):`${otherType}:lost`;
+       const reason=(await sql<{id:string}>`SELECT id FROM crm_management_reasons WHERE management_type=${otherType} AND outcome_key=${outcome} AND do_not_contact AND active`.execute(trx)).rows[0];
+       if(!reason)throw new Error('No se encontró motivo de No contactar para una gestión abierta.');
+       await sql`SELECT set_config('crm.management_reason_id',${reason.id},true),set_config('crm.management_note','',true)`.execute(trx);
+       await sql`UPDATE leads SET estado=${closeStage},updated_at=now() WHERE id=${other.id}`.execute(trx);
+      }
+      await sql`SELECT set_config('crm.close_related_management','false',true)`.execute(trx);
+     }
+     await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).execute();
     }
-    if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false});
-    if(p.onboarding)await trx.insertInto('crmTasks').values({accountId:account.id,leadId:null,typeId:'followup',purpose:'care',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
+    if(typed&&chosen.classification==='won'&&((typed==='main'||typed==='partner')||(typed==='editor'&&chosen.outcomeKey==='proposal_won'&&p.convertClient))&&!stateAccount.isClient){
+     await sql`UPDATE crm_accounts SET is_client=true,updated_at=now() WHERE id=${account.id}`.execute(trx);
+    }else if(!typed&&p.convertClient&&account.commercialStatus!=='client'){
+     await trx.updateTable('crmAccounts').set({commercialStatus:'client',clientSince:new Date(),updatedAt:new Date()}).where('id','=',account.id).execute();
+    }
+    if(typedDnc){await cancelRecontactTaskFor(trx,{accountId:account.id,cause:'dnc'});await sql`UPDATE crm_accounts SET do_not_contact=true,status='archived',archived_at=coalesce(archived_at,now()),updated_at=now() WHERE id=${account.id}`.execute(trx);}
+    if(typed&&chosen.classification!=='open'){
+     const remaining=(await sql<{n:string}>`SELECT count(*) n FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open'`.execute(trx)).rows[0];
+     if(p.recontactDate&&!typedDnc){
+      // Owner decision 21/10: the recontact reminder belongs to the business responsible; without one, to the management assignee, then the actor.
+      const owner=managementRecontactOwner({accountOwner:account.assignedUserEmail,managementOwner:lead.assignedUserEmail,actorEmail:user.email});
+      const task=await trx.insertInto('crmTasks').values({accountId:account.id,leadId:lead.id,title:MANAGEMENT_RECONTACT_TASK_TITLE,description:p.comment||null,typeId:'followup',purpose:'reactivation',assignedUserEmail:owner,dueDate:p.recontactDate,priority:lead.prioridad??'media'}).returning('id').executeTakeFirstOrThrow();
+      await sql`UPDATE crm_pipeline_events SET task_id=${task.id} WHERE id=(SELECT id FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='stage' ORDER BY id DESC LIMIT 1)`.execute(trx);
+     }
+     if(Number(remaining?.n)===0){
+      // Decision 7A: the business recontact date written here keeps the business "Volver a contactar" task in step.
+      // Opening a management moves the status to En gestión but keeps recontact_at, so a stored date still names the day of the pending task.
+      const before=await trx.selectFrom('crmAccounts').select(['status','recontactAt','assignedUserEmail']).where('id','=',account.id).executeTakeFirstOrThrow();
+      const previous={status:before.recontactAt?'recontact':before.status,recontactAt:before.recontactAt};
+      // An archived business keeps its state: no recontact date and no task (No contactar closes land here too, already cleaned up).
+      if(before.status!=='archived'&&p.recontactDate&&!typedDnc){
+       await sql`UPDATE crm_accounts SET status='recontact',recontact_at=${p.recontactDate},updated_at=now() WHERE id=${account.id}`.execute(trx);
+       // Owner decision (#196): the management task above is the only reminder; the untouched business task of the stored day is cancelled, none is created.
+       const previousDay=before.recontactAt?calendarDay(before.recontactAt):null;
+       await cancelUntouchedRecontactTask(trx,{accountId:account.id,responsible:before.assignedUserEmail,previousDay,cause:previousDay===p.recontactDate?'management':'changed'});
+      }else if(before.status!=='archived'){
+       await sql`UPDATE crm_accounts SET recontact_at=NULL WHERE id=${account.id} AND status<>'archived'`.execute(trx);
+       await syncRecontactTask(trx,{account:{id:account.id,assignedUserEmail:before.assignedUserEmail},previous,status:before.status,recontactDay:null,actorEmail:user.email});
+      }
+     }
+    }
+    if(p.closing)await log(trx,account.id,lead.id,'closing_checklist',{...p.closing,paymentVerified:false,markedClient:marksClient});
+    if(p.onboarding){
+     const winsAsClient=!!typed&&chosen.classification==='won'&&((typed==='main'||typed==='partner')||(typed==='editor'&&chosen.outcomeKey==='proposal_won'&&p.convertClient));
+     if(!stateAccount.isClient&&!p.convertClient&&!winsAsClient)throw new Error('El acompañamiento requiere que el negocio sea Cliente.');
+     const care=(await sql<{id:string}>`INSERT INTO leads(account_id,nombre,opportunity_name,tipo,subtipo,estado,assigned_user_email,management_type) VALUES(${account.id},${account.nombre},'Acompañamiento de ficha',${lead.tipo},${lead.subtipo},'accompaniment:pending',${lead.assignedUserEmail??account.assignedUserEmail??user.email},'accompaniment') RETURNING id`.execute(trx)).rows[0];
+     await trx.insertInto('crmTasks').values({accountId:account.id,leadId:care.id,typeId:'followup',purpose:'care',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
+    }
+    return lead.id;
+   }
+   if(p.action==='unrefer'){
+    await sql`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause','management_change',true)`.execute(trx);
+    if(user.role!=='admin')throw new Forbidden('Solo un administrador puede desactivar la derivación a Leandro.');
+    if(lead.pipelineRevision!==p.revision)throw new Conflict('La gestión cambió. Volvé a abrirla antes de desactivar la derivación.');
+    if(!typedLead.managementType||!stateAccount.referredToLeandro||!typedLead.referredPreviousStage)throw new Error('La gestión no tiene una derivación activa.');
+    const restoredAccountOwner=p.assignedUserEmail===undefined?stateAccount.referredOriginalOwnerEmail:p.assignedUserEmail;
+    if(restoredAccountOwner)await trx.selectFrom('users').select('email').where('email','=',restoredAccountOwner).executeTakeFirstOrThrow();
+    const restoredStage=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${typedLead.referredPreviousStage} AND management_type=${typedLead.managementType} AND active AND classification='open'`.execute(trx)).rows[0];
+    if(!restoredStage)throw new Error('La etapa previa ya no está disponible.');
+    await sql`SELECT set_config('crm.unrefer_management','true',true)`.execute(trx);
+    await sql`UPDATE leads SET estado=${restoredStage.name},assigned_user_email=${typedLead.referredPreviousAssignedUserEmail},referred_previous_stage=NULL,referred_previous_assigned_user_email=NULL,updated_at=now() WHERE id=${lead.id}`.execute(trx);
+    await sql`SELECT set_config('crm.unrefer_management','false',true)`.execute(trx);
+    await sql`UPDATE crm_accounts SET referred_to_leandro=false,referred_original_owner_email=NULL,assigned_user_email=${restoredAccountOwner},updated_at=now() WHERE id=${account.id}`.execute(trx);
+    await reassignRecontactTask(trx,{accountId:account.id,fromEmail:account.assignedUserEmail,toEmail:restoredAccountOwner});
+    await log(trx,account.id,lead.id,'leandro_referral_removed',{restoredStage:restoredStage.displayName,accountOwner:restoredAccountOwner});
     return lead.id;
    }
    if(account.doNotContact)throw new Forbidden('Este negocio está marcado como No contactar.');
@@ -135,14 +242,15 @@ export async function post(request:Request){
    const latest=(await sql<{id:string}>`SELECT id FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='stage' ORDER BY id DESC LIMIT 1`.execute(trx)).rows[0];
    if(!event||latest?.id!==event.id||stage?.classification!=='lost')throw new Conflict('Este cierre ya no es el actual.');
    if(event.taskId||event.relatedLeadId)throw new Conflict('Este cierre ya generó seguimiento.');
+   if(p.mode==='reopen'&&!mayReopenManagement(user.role))throw new Forbidden('Solo un administrador puede reabrir una gestión cerrada.');
    let target=lead;
    if(p.mode!=='followup'){
     if(!p.stage)throw new Error('Elegí una etapa abierta.');
-    const next=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active AND classification='open' FOR SHARE`.execute(trx)).rows[0];if(!next)throw new Error('Elegí una etapa abierta activa.');
+    const next=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${p.stage} AND active AND classification='open' FOR SHARE`.execute(trx)).rows[0];if(!isValidReactivationStage(next,typedLead.managementType))throw new Error('Elegí una etapa abierta y activa del mismo tipo de gestión.');
     if(p.mode==='reopen')target=await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).returningAll().executeTakeFirstOrThrow();
     else{
      if(!p.opportunityName)throw new Error('Dale un nombre a la nueva gestión.');
-     target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,primaryContactId:lead.primaryContactId,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:lead.assignedUserEmail,estado:p.stage,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
+     target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,primaryContactId:lead.primaryContactId,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:lead.assignedUserEmail,estado:p.stage,managementType:typedLead.managementType,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
     }
    }
    const task=await trx.insertInto('crmTasks').values({accountId:lead.accountId,leadId:target.id,title:p.title,purpose:'reactivation',typeId:'followup',assignedUserEmail:lead.assignedUserEmail,dueDate:p.dueDate,priority:lead.prioridad??'media',description:`Retomar cierre #${event.id}: ${event.comment??''}`}).returning('id').executeTakeFirstOrThrow();

@@ -1,0 +1,5 @@
+.panel{display:grid;gap:12px}
+.number{margin:0;font-size:1.75rem;font-weight:700;line-height:1.2;letter-spacing:.01em;overflow-wrap:anywhere}
+.numberHint{margin:0;color:var(--muted-foreground);font-size:13px}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.note{display:grid;gap:4px}

@@ -3,12 +3,15 @@ import React,{useEffect,useState} from 'react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription,DialogFooter} from './Dialog';
 import {Button} from './Button';
 import {useNavigate} from 'react-router-dom';
+/** Wording of the leave confirmation; the default speaks of unsaved changes. */
+export type LeaveCopy={title:string;description:string;stay:string;leave:string};
+const unsavedCopy:LeaveCopy={title:'Tenés cambios sin guardar',description:'Volvé al formulario para guardarlos o descartá los cambios para salir.',stay:'Seguir editando',leave:'Descartar cambios y salir'};
 /** One guard for Escape, overlay, close button and beforeunload. */
-export function useUnsavedChanges(dirty:boolean,onClose:()=>void,busy=false){
+export function useUnsavedChanges(dirty:boolean,onClose:()=>void,busy=false,copy:LeaveCopy=unsavedCopy){
  const [asked,setAsked]=useState(false);
  useEffect(()=>{if(!dirty)return;const discard=()=>{if(!busy)onClose()};window.addEventListener('crm:discard-navigation',discard);return()=>window.removeEventListener('crm:discard-navigation',discard)},[dirty,onClose,busy]);
  useEffect(()=>{if(!dirty)return;const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn)},[dirty]);
- return {requestClose:()=>{if(!busy){if(dirty)setAsked(true);else onClose()}},confirmation:<>{dirty&&<span hidden data-unsaved="true" data-crm-writing={busy?"true":undefined}/>}{asked?<Dialog open onOpenChange={setAsked}><DialogContent><DialogTitle>Tenés cambios sin guardar</DialogTitle><DialogDescription>Volvé al formulario para guardarlos o descartá los cambios para salir.</DialogDescription><DialogFooter><Button onClick={()=>setAsked(false)}>Seguir editando</Button><Button variant="outline" disabled={busy} onClick={()=>{setAsked(false);onClose()}}>Descartar cambios y salir</Button></DialogFooter></DialogContent></Dialog>:null}</>};
+ return {requestClose:()=>{if(!busy){if(dirty)setAsked(true);else onClose()}},confirmation:<>{dirty&&<span hidden data-unsaved="true" data-crm-writing={busy?"true":undefined}/>}{asked?<Dialog open onOpenChange={setAsked}><DialogContent><DialogTitle>{copy.title}</DialogTitle><DialogDescription>{copy.description}</DialogDescription><DialogFooter><Button onClick={()=>setAsked(false)}>{copy.stay}</Button><Button variant="outline" disabled={busy} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>{setAsked(false);onClose()}}>{copy.leave}</Button></DialogFooter></DialogContent></Dialog>:null}</>};
 }
 
 /** Protect internal links as well as the local dialog close controls. */

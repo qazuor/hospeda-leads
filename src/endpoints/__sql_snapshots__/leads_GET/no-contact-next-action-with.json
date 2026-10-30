@@ -1,0 +1,16 @@
+[
+ {
+  "sql": "select count(*) as \"count\" from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and (fecha_ultimo_contacto IS NOT NULL OR EXISTS (SELECT 1 FROM crm_activities ac WHERE ac.deleted_at IS NULL AND (ac.lead_id=leads.id OR (ac.lead_id IS NULL AND ac.account_id=leads.account_id)))) = $1 and \"fecha_proxima_accion\" is not null",
+  "parameters": [
+   false
+  ]
+ },
+ {
+  "sql": "select * from \"leads\" where \"deleted_at\" is null and \"account_id\" in (select \"id\" from \"crm_accounts\" where \"deleted_at\" is null) and exists (select \"id\" from \"crm_accounts\" where \"crm_accounts\".\"id\" = \"leads\".\"account_id\" and \"archived_at\" is null) and (fecha_ultimo_contacto IS NOT NULL OR EXISTS (SELECT 1 FROM crm_activities ac WHERE ac.deleted_at IS NULL AND (ac.lead_id=leads.id OR (ac.lead_id IS NULL AND ac.account_id=leads.account_id)))) = $1 and \"fecha_proxima_accion\" is not null order by \"fecha_creacion\" desc, \"id\" desc limit $2 offset $3",
+  "parameters": [
+   false,
+   50,
+   0
+  ]
+ }
+]

@@ -1,4 +1,4 @@
-import { htmlToPlainText, renderMessageTemplate, renderMessageTemplateHtml } from "./renderMessageTemplate";
+import { htmlToPlainText, renderMessageTemplate, renderMessageTemplateHtml,unresolvedTemplateVariables } from "./renderMessageTemplate";
 import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "./templateChannelFormatting";
 
 describe("message template rendering",()=>{
@@ -17,6 +17,11 @@ describe("message template rendering",()=>{
     const html=renderMessageTemplateHtml("<p>Hola <strong>{{contact}}</strong></p>",{contact:"<Leandro>"});
     expect(html).toContain("<strong>&lt;Leandro&gt;</strong>");
     expect(html).not.toContain("<strong><Leandro>");
+  });
+
+  it("preserves missing variables so the user can complete or remove them",()=>{
+    expect(renderMessageTemplate("Hola {{contact}} · {{hospeda_url}}",{contact:""})).toBe("Hola {{contact}} · {{hospeda_url}}");
+    expect(unresolvedTemplateVariables("Hola {{contact}} · {{hospeda_url}} · {{contact}}" )).toEqual(["contact","hospeda_url"]);
   });
 
   it("converts rich WhatsApp formatting",()=>{

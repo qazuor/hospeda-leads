@@ -1,30 +1,21 @@
-import React,{useState} from "react";
-import { Radio,ChevronDown } from "lucide-react";
-import { Button } from "./Button";
+import React,{useSyncExternalStore} from "react";
 import { useLiveMode } from "../helpers/liveMode";
-import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuCheckboxItem} from "./DropdownMenu";
 import styles from "./LiveModeSwitch.module.css";
+import { CRM_TIME_ZONE } from "../helpers/workDates";
+import { Tooltip } from '@mantine/core';
+
+const subscribeOnline=(notify:()=>void)=>{window.addEventListener("online",notify);window.addEventListener("offline",notify);return()=>{window.removeEventListener("online",notify);window.removeEventListener("offline",notify)}};
+/** Browser connectivity; `navigator.onLine===false` is reliable, `true` only means "maybe". */
+export const useOnline=()=>useSyncExternalStore(subscribeOnline,()=>navigator.onLine,()=>true);
 
 export const LiveModeSwitch=()=>{
-  const {enabled,status,setEnabled,lastCheckedAt,refresh}=useLiveMode();
-  const [refreshing,setRefreshing]=useState(false);
-  const title=enabled
-    ? status==="error"
-      ? "Actualización automática activa, pero no se pudo comprobar la conexión"
-      : "Actualización automática activa: los cambios de otros usuarios aparecen automáticamente"
-    : "Actualización automática desactivada";
-  return <div className={styles.controls}><Button
-    type="button"
-    variant="ghost"
-    size="sm"
-    disabled={refreshing}
-    onClick={async()=>{setRefreshing(true);try{await refresh()}finally{setRefreshing(false)}}}
-    className={styles.button}
-    aria-label="Actualizar"
-    title={"Actualizar datos ahora. "+title+(lastCheckedAt?" · Último chequeo "+lastCheckedAt.toLocaleTimeString("es-AR"):"")}
-  >
-    <span className={styles.indicator+" "+(enabled?styles.on:styles.off)+" "+(status==="error"?styles.error:"")}/>
-    <Radio size={15}/>
-    <span className={styles.label}>{refreshing?"Actualizando…":"Actualizar"}</span>
-  </Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" aria-label="Opciones de actualización"><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuCheckboxItem checked={enabled} onCheckedChange={setEnabled}>Actualizar automáticamente</DropdownMenuCheckboxItem></DropdownMenuContent></DropdownMenu></div>;
+  const {status,refreshing,lastCheckedAt}=useLiveMode();
+  const online=useOnline();
+  const state=!online||status==='error'?'error':refreshing?'refreshing':'live';
+  const label=state==='error'?(!online?'En vivo · Sin conexión':'En vivo · Con problemas'):state==='refreshing'?'En vivo · Actualizando':'En vivo';
+  const checked=lastCheckedAt?lastCheckedAt.toLocaleString('es-AR',{timeZone:CRM_TIME_ZONE}):'Todavía no hubo una actualización correcta';
+  const message=`${state==='error'?'No está funcionando':state==='refreshing'?'Actualizando ahora':'Actualización en vivo activa'} · Última actualización correcta: ${checked}`;
+  return <Tooltip label={message} position="right"><div className={styles.controls} data-live-switch aria-label={message}>
+    <span className={`${styles.indicator} ${styles[state]}`} aria-hidden="true"/><span className={styles.label} data-live-label>{label}</span>
+  </div></Tooltip>;
 };

@@ -1,32 +1,108 @@
-import {CrmDateInput} from './ui/CrmDateInput';
+import {useEffect,useMemo,useRef,useState} from 'react';
+import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
+import {toast} from 'sonner';
+import {getCommunication,markCommunicationSeen,type InboundMessage} from '../endpoints/communication.schema';
+import {getCommercialDetail} from '../endpoints/commercial.schema';
+import {useAuth} from '../helpers/useAuth';
+import {canRecordDoNotContact} from '../helpers/doNotContactPermission';
+import {buildCommunicationTimeline,lastReceived,newestAt,replyTarget} from '../helpers/communicationTimeline';
 import {QueryErrorNotice} from './QueryErrorNotice';
 import {QueryLoadingNotice} from './QueryLoadingNotice';
-import {useGuardedMutation} from '../helpers/useGuardedMutation';
-import {LiftRestrictionDialog,type RestrictionTarget} from './LiftRestrictionDialog';
-import { Disclosure, DisclosureSummary } from './Disclosure';
-import { NativeSelect } from './NativeSelect';
-import { Input } from './Input';
-import { Checkbox } from './Checkbox';
-import {localDay} from '../helpers/workDates';
-import React,{useState} from 'react';import {useQuery,useQueryClient} from '@tanstack/react-query';
-import {getCommunication,postCommunication} from '../endpoints/communication.schema';import {getCommercialDetail} from '../endpoints/commercial.schema';import {useAuth} from '../helpers/useAuth';import {Button} from './Button';import {MessageComposer,messageLabels} from './MessageComposer';import styles from './Communication.module.css';
-const runLabels:Record<string,string>={active:'Activa',paused:'Pausada',cancelled:'Cancelada',stopped:'Detenida',completed:'Completada'};
-export function CommunicationPanel({leadId}:{leadId:string}){
- const {authState}=useAuth(),qc=useQueryClient();const q=useQuery({queryKey:['communication',leadId],queryFn:()=>getCommunication(leadId)});const detail=useQuery({queryKey:['commercial-detail','',leadId],queryFn:()=>getCommercialDetail(undefined,leadId)});
- const [liftTarget,setLiftTarget]=useState<RestrictionTarget|null>(null),[liftedNotice,setLiftedNotice]=useState<{id:string;text:string}|null>(null);
- const [person,setPerson]=useState(''),[channel,setChannel]=useState<'all'|'email'|'whatsapp'>('all'),[reason,setReason]=useState(''),[seq,setSeq]=useState(''),[confirm,setConfirm]=useState(false);
- const [control,setControl]=useState<{id:string;state:'paused'|'active'|'cancelled'}|null>(null),[controlReason,setControlReason]=useState(''),[resumeDate,setResumeDate]=useState(localDay());
- const m=useGuardedMutation({mutationFn:postCommunication,onSuccess:()=>{void qc.invalidateQueries({queryKey:['communication']});void qc.invalidateQueries({queryKey:['work']});setConfirm(false);setControl(null);setControlReason('')}});const admin=authState.type==='authenticated'&&authState.user.role==='admin';const userEmail=authState.type==='authenticated'?authState.user.email:'';const opp=detail.data?.opportunities.find(o=>String(o.id)===leadId);const canWrite=admin||opp?.assignedUserEmail===userEmail||detail.data?.account.assignedUserEmail===userEmail;
- if(!q.data&&q.isPending)return <QueryLoadingNotice>Cargando comunicación…</QueryLoadingNotice>;if(!q.data)return <QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching}/>;
- return <section className={styles.panel}>{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}<h3>Mensajes y seguimiento asistido</h3><p className={styles.muted}>Los seguimientos asistidos preparan tareas y borradores. Vos revisás cada mensaje y decidís cuándo enviarlo.</p>
- <Disclosure><DisclosureSummary>Restricciones de contacto</DisclosureSummary><div className={styles.panel}>{canWrite&&<><label>Persona<NativeSelect value={person} onChange={e=>setPerson(e.target.value)}><option value="">Contacto original de esta gestión</option>{detail.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</NativeSelect></label><label>Canal<NativeSelect aria-label="Canal de restricción" value={channel} onChange={e=>setChannel(e.target.value as any)}><option value="all">Todos</option><option value="email">Email</option><option value="whatsapp">WhatsApp</option></NativeSelect></label><label>Motivo de restricción<Input value={reason} onChange={e=>setReason(e.target.value)}/></label><Button disabled={reason.trim().length<3||m.isPending} onClick={()=>m.mutate({action:'restrict',leadId,contactId:person||null,channel,reason})}>Bloquear contacto/canal</Button></>}
- {q.data.restrictions.map(r=><article key={r.id}><strong>{r.channel} · {r.liftedAt?'Levantada':'No contactar'}</strong><p>{r.contactId?detail.data?.contacts.find(c=>String(c.id)===String(r.contactId))?.name:'Contacto original #'+r.leadId} · {r.reason} · {r.actorEmail} · {new Date(r.createdAt).toLocaleString('es-AR')}</p>{r.liftedAt?<p>{r.liftReason} · {r.liftedBy} · {new Date(r.liftedAt).toLocaleString('es-AR')}</p>:admin&&<Button variant="outline" disabled={m.isPending} onClick={()=>{setLiftedNotice(null);setLiftTarget({id:String(r.id),channel:r.channel,reason:r.reason,contact:r.contactId?detail.data?.contacts.find(c=>String(c.id)===String(r.contactId))?.name||'Contacto #'+r.contactId:'Contacto original de esta gestión'})}}>Levantar restricción</Button>}</article>)}</div></Disclosure>
- <Disclosure><DisclosureSummary>Iniciar secuencia</DisclosureSummary><div className={styles.panel}>{canWrite&&<><label>Persona<NativeSelect value={person} onChange={e=>setPerson(e.target.value)}><option value="">Contacto original de esta gestión</option>{detail.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</NativeSelect></label><label>Secuencia<NativeSelect aria-label="Secuencia" value={seq} onChange={e=>setSeq(e.target.value)}><option value="">Elegir</option>{q.data.sequences.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</NativeSelect></label>{q.data.sequences.filter(s=>String(s.id)===seq).map(s=><p key={s.id}>{s.scope} · {s.steps.map((p:any,i:number)=>`Paso ${i+1}: esperar ${p.waitDays} días, ${p.channel}`).join(' / ')}</p>)}<label className={styles.check}><Checkbox  checked={confirm} onChange={e=>setConfirm(e.target.checked)}/>Confirmo la generación de tareas y borradores</label><Button disabled={!seq||!confirm||m.isPending} onClick={()=>m.mutate({action:'sequence_start',id:crypto.randomUUID(),sequenceId:seq,leadId,contactId:person||null,confirm:true})}>Iniciar seguimiento asistido</Button></>}
- {q.data.runs.map(r=><article key={r.id}><strong>{r.snapshot.name} · {runLabels[r.status]}</strong><p>{r.reason} · {r.ownerEmail} · {new Date(r.createdAt).toLocaleString('es-AR')}</p>{canWrite&&['active','paused'].includes(r.status)&&<div className={styles.actions}>{['paused','active','cancelled'].filter(s=>s!==r.status).map(s=><Button key={s} variant="outline" disabled={m.isPending} onClick={()=>{setControl({id:r.id,state:s as 'paused'|'active'|'cancelled'});setResumeDate(localDay());setControlReason('')}}>{s==='paused'?'Pausar':s==='active'?'Reanudar':'Cancelar'}</Button>)}</div>}</article>)}</div></Disclosure>
- {admin&&<p><a href="/settings?section=communication">Configurar los seguimientos del equipo</a></p>}
- {control&&<form className={styles.panel} onSubmit={e=>{e.preventDefault();m.mutate({action:'sequence_control',...control,reason:controlReason,...(control.state==='active'?{resumeDate}:{})})}}><h4>{control.state==='active'?'Reanudar seguimiento':control.state==='paused'?'Pausar seguimiento':'Cancelar seguimiento'}</h4><label>Motivo<Input required minLength={3} maxLength={1000} value={controlReason} onChange={e=>setControlReason(e.target.value)}/></label>{control.state==='active'&&<><label>Fecha del próximo paso<CrmDateInput required  min={localDay()} value={resumeDate} onValueChange={e=>setResumeDate(e)}/></label><p>Las tareas restantes se reprograman desde esta fecha, respetando los intervalos entre pasos. No se envían mensajes.</p></>}<div className={styles.actions}><Button type="submit" disabled={m.isPending}>Guardar cambio</Button><Button variant="outline" onClick={()=>setControl(null)}>Volver</Button></div></form>}
- {liftedNotice&&<p role="status" tabIndex={-1} data-lifted-restriction={liftedNotice.id}>{liftedNotice.text}</p>}
- {admin&&liftTarget&&<LiftRestrictionDialog key={liftTarget.id} target={liftTarget} onClose={()=>setLiftTarget(null)} onLifted={()=>{setLiftedNotice({id:liftTarget.id,text:'Restricción levantada. No se enviaron mensajes ni se reanudaron seguimientos.'});setLiftTarget(null)}}/>}
- <h4>Mensajes y borradores ({q.data.messages.length})</h4>{q.data.messages.map(msg=><Disclosure key={msg.id}><DisclosureSummary>{messageLabels[msg.status]??msg.status} · {msg.channel} · {msg.recipient} · {new Date(msg.createdAt).toLocaleString('es-AR')}</DisclosureSummary>{canWrite&&(admin||msg.ownerEmail===userEmail)?<MessageComposer key={msg.id} initial={msg}/>:<p>{msg.subject} · {msg.textBody||msg.body}</p>}</Disclosure>)}{m.error&&<p role="alert">{m.error.message}</p>}
+import {ResponseRecordDialog,type ResponseDialogRequest} from './ResponseRecordDialog';
+import {TechnicalRestrictions,restrictionChannelLabel} from './TechnicalRestrictions';
+import {CONTACT_DNC_REASON,CommunicationActionBar} from './communication/CommunicationActionBar';
+import {RequiresAction} from './communication/RequiresAction';
+import {Conversation,type FocusRequest,type ReplyAction} from './communication/Conversation';
+import {DraftsBlock} from './communication/DraftsBlock';
+import type {CommunicationView,ContactChannel,ContactOptions} from './communication/types';
+import type {PickedSalesMaterial} from './SalesMaterialPicker';
+import styles from './Communication.module.css';
+import view from './communication/CommunicationView.module.css';
+
+export {isInstagramEcho} from '../helpers/communicationTimeline';
+
+/** Active technical restrictions in one line; the editor lives in «Preferencias y restricciones» (spec 90). */
+function RestrictionNotice({data,contacts}:{data:CommunicationView['data'];contacts:{id:string|number;name:string}[]}){
+ const active=((data.activeRestrictions??data.restrictions.filter(r=>!r.liftedAt)) as {id:string|number;channel:string;contactId:string|number|null;reason:string}[]);
+ if(!active.length)return null;
+ const parts=active.map(r=>[restrictionChannelLabel(r.channel),r.contactId?contacts.find(c=>String(c.id)===String(r.contactId))?.name:'',r.reason].filter(Boolean).join(' · '));
+ return <p className={view.notice} role="note"><strong>{active.length===1?'Restricción activa':'Restricciones activas'}: {parts.join('; ')}</strong> · Se edita en «Preferencias y restricciones».</p>;
+}
+
+/**
+ * Spec 91 §12, business view only: the previous visit as the first load after mount returned it (kept for the whole visit, so
+ * the divider does not move when the data refreshes), and the visit marked with the newest loaded item's time after the tab
+ * renders. The tab remounts on every visit (`keepMounted={false}`), so a cached payload from an earlier visit is never used as
+ * «previous»: only data fetched after this mount counts, and a successful mark also updates the cached `lastSeenAt`.
+ * A management view shows a subset of the business, so it neither reads nor marks the business visit.
+ */
+function useVisit({accountId,enabled,fresh,data,newest}:{accountId:string;enabled:boolean;fresh:boolean;data:{lastSeenAt?:Date|null}|undefined;newest:Date|null}){
+ const client=useQueryClient(),previous=useRef<{value:Date|null}|null>(null);
+ if(enabled&&fresh&&!previous.current&&data&&data.lastSeenAt!==undefined)previous.current={value:data.lastSeenAt?new Date(data.lastSeenAt):null};
+ const marked=useRef(0),{mutate}=useMutation({mutationFn:markCommunicationSeen,onSuccess:result=>{
+  const seen=result?.lastSeenAt?new Date(result.lastSeenAt):null;if(!seen)return;
+  client.setQueriesData<{lastSeenAt?:Date|null}>({queryKey:['communication','account',accountId]},old=>old&&old.lastSeenAt!==undefined&&(!old.lastSeenAt||new Date(old.lastSeenAt)<seen)?{...old,lastSeenAt:seen}:old);
+ }});
+ const known=enabled&&fresh&&data?.lastSeenAt!==undefined,stored=data?.lastSeenAt?new Date(data.lastSeenAt).getTime():0,time=newest?.getTime()??0;
+ useEffect(()=>{
+  if(!known||!time||time<=Math.max(marked.current,stored))return;
+  marked.current=time;
+  // Not contact and not a business write: a failure only leaves the next divider earlier, so it is not retried or reported.
+  mutate({accountId,seenAt:new Date(time)});
+ },[known,time,stored,accountId,mutate]);
+ return previous.current?.value??null;
+}
+
+/**
+ * «Comunicación» of a business (or of a management, `leadId`), specs 90 and 91: title and Bandeja link, action bar, restriction
+ * notice, «Requiere acción» (a summary that scrolls to its items), one chronological «Conversación» with «Preparar respuesta» and
+ * «Borradores». Permissions are mirrored here and checked again by the server on every write. `onContact` opens the page's
+ * «Contactar» dialog (business page only), optionally with a recipient. `onSendMaterial` adds «Enviar material» (spec 89 §8.2).
+ */
+export function CommunicationPanel({leadId,accountId,readOnly=false,onContact,onSendMaterial}:{leadId?:string;accountId?:string;readOnly?:boolean;onContact?:(channel?:ContactChannel,options?:ContactOptions)=>void;onSendMaterial?:(material:PickedSalesMaterial)=>void}){
+ const recordId=leadId??accountId??'';
+ const {authState}=useAuth();
+ const admin=authState.type==='authenticated'&&authState.user.role==='admin';
+ const userEmail=authState.type==='authenticated'?authState.user.email:'';
+ const [includeVoided,setIncludeVoided]=useState(false);
+ const q=useQuery({queryKey:['communication',leadId?'lead':'account',recordId,admin&&includeVoided],queryFn:()=>getCommunication(leadId??'',accountId,admin&&includeVoided)});
+ const detail=useQuery({queryKey:['commercial-detail',accountId??'',leadId??''],queryFn:()=>getCommercialDetail(accountId,leadId)});
+ const [responseRequest,setResponseRequest]=useState<ResponseDialogRequest|null>(null),responseSeq=useRef(0);
+ const [focus,setFocus]=useState<FocusRequest|null>(null),focusSeq=useRef(0);
+ const newest=useMemo(()=>q.data?newestAt(buildCommunicationTimeline({messages:q.data.messages,inbound:q.data.inbound,responses:q.data.responses})):null,[q.data]);
+ const lastSeenAt=useVisit({accountId:accountId??'',enabled:!!accountId&&!leadId,fresh:q.isFetchedAfterMount,data:q.data,newest});
+ const openResponse=(inbound:InboundMessage|null)=>setResponseRequest({seq:++responseSeq.current,inbound});
+ if(!q.data&&q.isPending)return <QueryLoadingNotice>Cargando comunicación…</QueryLoadingNotice>;
+ if(!q.data)return <QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching}/>;
+ const d=detail.data;
+ const opp=leadId?d?.opportunities.find(o=>String(o.id)===leadId):undefined;
+ const v:CommunicationView={
+  data:q.data,detail:d,admin,userEmail,readOnly,
+  canWrite:admin||(leadId?opp?.assignedUserEmail===userEmail:d?.account.assignedUserEmail===userEmail),
+  archivedReadOnly:!admin&&!!d?.account.archivedAt,
+  canRecordDnc:canRecordDoNotContact({admin,userEmail,businessOwnerEmail:d?.account.assignedUserEmail,managementOwnerEmails:d?.opportunities.filter(o=>!o.deletedAt).map(o=>o.assignedUserEmail)}),
+  openResponse,
+  replyStatus:messageId=>q.data?.messages.find(m=>m.id===messageId)?.status,
+ };
+ const businessId=accountId??(d?String(d.account.id):'');
+ const inboxHref=businessId?'/inbox?account='+businessId+(leadId?'&lead='+leadId:''):'';
+ // Spec 91 §10: «Preparar respuesta» prepares a message to the last received one; it opens the composer, it is not contact.
+ const last=lastReceived(q.data.inbound),data=q.data;
+ const reply:ReplyAction|undefined=!readOnly&&onContact&&last?{disabledReason:!d?'Estamos cargando los datos del negocio.':d.account.doNotContact?CONTACT_DNC_REASON:'',onReply:()=>{
+  if(!d)return;
+  const target=replyTarget({item:last,recipients:{account:d.account,contacts:d.contacts},restrictions:data.activeRestrictions??data.restrictions});
+  if(target.reason)toast.info(target.reason);
+  onContact(target.channel,target.contactId===undefined?undefined:{contactId:target.contactId});
+ }}:undefined;
+ return <section className={styles.panel+' '+view.view} aria-label="Comunicación">
+  {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching}/>}
+  {detail.error&&<QueryErrorNotice error={detail.error} onRetry={detail.refetch} busy={detail.isFetching}/>}
+  <header className={view.head}><div><h3>Comunicación</h3><p>{leadId?'Lo enviado en esta gestión y todo lo recibido del negocio, en orden.':'Todo lo enviado y recibido con este negocio, en orden, con o sin gestión.'}</p></div>{inboxHref&&<a href={inboxHref}>Abrir en la Bandeja</a>}</header>
+  <CommunicationActionBar view={v} leadId={leadId} onContact={onContact} onSendMaterial={onSendMaterial}/>
+  {leadId?<TechnicalRestrictions leadId={leadId} accountId={accountId} collapsible/>:<RestrictionNotice data={q.data} contacts={d?.contacts??[]}/>}
+  <RequiresAction view={v} onFocus={key=>setFocus({key,seq:++focusSeq.current})}/>
+  <Conversation view={v} includeVoided={admin&&includeVoided} onToggleVoided={()=>setIncludeVoided(value=>!value)} lastSeenAt={lastSeenAt} focus={focus} reply={reply}/>
+  <DraftsBlock view={v}/>
+  <ResponseRecordDialog request={responseRequest} onClose={()=>setResponseRequest(null)} data={q.data} detail={d} leadId={leadId}/>
  </section>;
 }

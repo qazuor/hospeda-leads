@@ -23,7 +23,7 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
       await route.fulfill({ contentType: 'application/json', body: superjson.stringify(data) });
     });
     await page.goto('/guide');
-    await expect(page.getByRole('button', { name: 'Fixture', exact: true }).locator('svg').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fixture', exact: true })).toBeVisible();
     const trigger = page.getByRole('button', { name: 'Abrir accesos rápidos', exact: true });
     const dialog = page.getByRole('dialog', { name: 'Accesos rápidos', exact: true });
     const search = dialog.getByRole('textbox', { name: 'Buscar opciones', exact: true });
@@ -33,10 +33,21 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
     await expect(dialog.getByRole('button', { name: /^Importar CSV/ })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(dialog.getByRole('button', { name: /^Papelera/ })).toHaveCount(role === 'admin' ? 1 : 0);
     await page.screenshot({ path: `test-results/command-palette-${width}-${role}-light.png`, animations: 'disabled' });
-    await search.fill('GESTIONES COMERCIALES');
+    await search.fill('PROPUESTAS');
     await expect(dialog.locator('[data-action]')).toHaveCount(1);
     await search.press('ArrowDown');
-    await expect(dialog.getByRole('status',{name:'Opción seleccionada',exact:true})).toContainText('Gestiones comerciales');
+    await expect(dialog.getByRole('status',{name:'Opción seleccionada',exact:true})).toContainText('Gestiones');
+    // Old names stay as aliases (hidden keywords) of the new destinations.
+    const destinations = dialog.getByRole('group', { name: 'Ir a', exact: true }).locator('[data-action]');
+    for (const [alias, label] of [['GESTIONES COMERCIALES', 'Gestiones'], ['AGENDA', 'Hoy · Calendario'], ['REACTIVACION', 'Hoy · Para retomar'], ['MI DIA', 'Hoy']]) {
+      await search.fill(alias);
+      await expect(destinations).toHaveCount(1);
+      await expect(destinations.first()).toContainText(label);
+    }
+    // A hidden keyword match (Gestiones ← "etapas") must not hide the guide results.
+    await search.fill('etapas');
+    await expect(dialog.getByRole('button', { name: /^Gestiones/ })).toBeVisible();
+    await expect(dialog.getByRole('group', { name: 'Ayuda', exact: true })).toBeVisible();
     await search.fill('zzzz');
     await expect(dialog.getByText('Sin opciones para esta búsqueda')).toBeVisible();
     await search.fill('revisar precargdo');

@@ -1,0 +1,85 @@
+/* Spec 95: admin actions without a page header, the pending line and the error of the panel. */
+.stack{display:grid;gap:16px;align-content:start}
+.toolbar{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-bottom:16px}
+.status{display:flex;align-items:center;gap:8px;margin:0;padding:10px 12px;border-radius:8px;background:var(--muted);font-size:14px}
+.error{margin:0;padding:10px 12px;border-radius:8px;border:1px solid color-mix(in srgb,var(--error) 45%,transparent);background:color-mix(in srgb,var(--error) 10%,transparent);font-size:14px;line-height:1.5}
+/* Spec 95: one filter row that wraps on narrow screens. */
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;min-width:0}
+.filters label,.statusField{display:grid;gap:6px;min-width:0;font-size:14px;font-weight:500}
+.filters>input[type="hidden"]{display:none}
+.searchField{flex:3 1 120px}
+.filterField{flex:1 1 100px;min-width:0}
+.statusField{flex:0 1 auto;max-width:100%}
+.statusField>:last-child{max-width:100%;overflow-x:auto;min-height:var(--crm-control-height);align-items:center}
+.groups{display:grid;gap:20px;min-width:0}
+.group{display:grid;gap:12px;min-width:0}
+.groupTitle{margin:0;font-size:17px}
+.groupTitle button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:600;cursor:pointer;border-radius:8px}
+.groupTitle button:hover{background:var(--muted)}
+.groupTitle svg{transition:transform .15s;transform:rotate(-90deg)}
+.groupTitle svg[data-open="true"]{transform:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:16px;min-width:0}
+.card{display:grid;grid-template-rows:auto 1fr;min-width:0;overflow:hidden;border:1px solid var(--surface-border);border-radius:var(--crm-panel-radius);background:var(--card);color:var(--foreground)}
+.card[data-selected="true"]{outline:2px solid var(--primary);outline-offset:2px}
+.card[data-archived="true"] .cover{opacity:.6}
+.cover{display:grid;place-items:center;aspect-ratio:1200/630;width:100%;overflow:hidden;background:var(--muted);color:var(--muted-foreground);border-bottom:1px solid var(--surface-border);position:relative}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+/* Spec 95: a document page is shown whole (contain) on the muted cover area, with a soft shadow on the page itself, so a white page reads as a thumbnail. */
+.cover>img{position:absolute;inset:0}
+.cover[data-format="pdf"]>img{inset:10px;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;filter:drop-shadow(0 1px 3px rgb(0 0 0 / .18))}
+button.cover{padding:0;border:0;font:inherit;cursor:pointer}
+button.cover:hover img{transform:scale(1.02)}
+.cover img{transition:transform .2s}
+.coverLabel{display:grid;justify-items:center;gap:6px;font-size:13px;font-weight:600}
+/* Spec 95: drawn cover when there is no image: format icon on the color of the first category, with its initials. */
+.placeholder{position:relative;display:grid;place-items:center;align-content:center;gap:6px;width:100%;height:100%;font-size:13px;font-weight:600;color:var(--muted-foreground)}
+.placeholder[data-category="true"]{background:color-mix(in srgb,hsl(var(--cover-hue) 65% 50%) 18%,var(--muted));color:color-mix(in srgb,hsl(var(--cover-hue) 65% 35%) 70%,var(--foreground))}
+.initials{position:absolute;top:10px;left:10px;display:grid;place-items:center;min-width:32px;height:32px;padding:0 6px;border-radius:999px;background:hsl(var(--cover-hue) 65% 45%);color:#fff;font-size:13px;font-weight:700}
+.titleButton{padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.titleButton:hover{text-decoration:underline}
+.cardActions{display:flex;align-items:center;gap:8px;min-width:0}
+.cardActions>:is(a,button){min-height:44px}
+.cardActions>:first-child:is(a,button){flex:1 1 auto}
+.body{display:grid;align-content:start;gap:8px;min-width:0;padding:14px}
+.body h3{margin:0;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+.badges{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.description{margin:0;color:var(--muted-foreground);font-size:14px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.meta{margin:0;color:var(--muted-foreground);font-size:13px;overflow-wrap:anywhere}
+.actions{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+.actions>:is(a,button){min-height:44px}
+.versions{display:grid;gap:6px;font-size:13px}
+.versions p{margin:0;overflow-wrap:anywhere}
+.form{display:grid;gap:14px;min-width:0}
+.form label{display:grid;gap:6px;min-width:0;font-size:14px;font-weight:500}
+.inline{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.inline>label{flex:1 1 200px}
+.hint{margin:0;color:var(--muted-foreground);font-size:13px;line-height:1.5}
+.warning{margin:0;padding:10px 12px;border-radius:8px;border:1px solid color-mix(in srgb,var(--warning) 45%,transparent);background:color-mix(in srgb,var(--warning) 12%,transparent);font-size:14px;line-height:1.5}
+.progress{display:grid;gap:6px}
+.categoryList{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.categoryList li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:6px 0;border-bottom:1px solid var(--border)}
+@media(max-width:600px){.actions>:is(a,button){flex:1 1 auto}}
+.preview{display:grid;gap:12px;min-width:0}
+.previewMedia{display:grid;place-items:center;min-width:0;overflow:hidden;border-radius:12px;background:var(--muted)}
+.previewMedia :is(img,video){display:block;width:100%;height:auto;max-height:60dvh;object-fit:contain}
+.previewMedia iframe{display:block;width:100%;height:60dvh;border:0;background:var(--card)}
+.previewMedia audio{width:100%;margin:12px}
+.previewDescription{margin:0;font-size:14px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+/* Spec 89 F3: material picker and the materials of a message. */
+.pickList{display:grid;gap:8px;margin:0;padding:0;list-style:none;max-height:min(55dvh,520px);overflow:auto;min-width:0}
+.pickRow{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;min-width:0;padding:8px;border:1px solid var(--surface-border);border-radius:10px;background:var(--card)}
+.pickRow h4{margin:0;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.thumb{display:grid;place-items:center;width:64px;height:64px;overflow:hidden;border-radius:8px;background:var(--muted);color:var(--muted-foreground)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.materialList{display:grid;gap:8px;margin:0;padding:0;list-style:none;min-width:0}
+.materialItem{display:grid;gap:6px;min-width:0;padding:10px 12px;border:1px solid var(--surface-border);border-radius:10px;background:var(--card)}
+.materialItem strong{overflow-wrap:anywhere}
+.materialSection{display:grid;gap:10px;min-width:0}
+.materialHeading{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.materialHeading h4{margin:0;font-size:15px}
+@media(max-width:600px){.pickRow{grid-template-columns:48px minmax(0,1fr)}.pickRow>:last-child{grid-column:1/-1}.thumb{width:48px;height:48px}}
+.menuReason{max-width:260px;white-space:normal;color:var(--muted-foreground);font-size:13px;line-height:1.4}
+.menuItemText{display:grid;gap:2px;min-width:0;max-width:240px}
+.menuItemText small{white-space:normal;color:var(--muted-foreground);font-size:12px;line-height:1.35}
+/* Owner review of spec 96: the progress view that replaces the form while a material is saved. */
+.savingView{display:grid;gap:14px;padding:4px 0}.savingSteps{display:grid;gap:10px;margin:0;padding:0;list-style:none}.savingSteps li{display:flex;align-items:center;gap:10px;font-size:14px}.savingSteps li[data-done]{color:var(--muted-foreground)}.savingSteps li[data-done] svg{color:var(--success)}

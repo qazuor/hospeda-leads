@@ -6,8 +6,9 @@ test('seller can read a colleague business without editing or administrative con
  await page.route('**/_api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
   const data=path.endsWith('/auth/session')?{user:{id:3,email:'viewer@example.com',displayName:'Viewer',fullName:null,avatarUrl:null,role:'user'}}:
-   path.endsWith('/commercial')?{account:{id:'101',nombre:'Negocio compartido',assignedUserEmail:'owner@example.com',archivedAt:null,mergedIntoId:null,commercialStatus:'prospect',email:'business@example.com'},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Responsable'}]}:
-   path.endsWith('/work')?{tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}}:
+   path.endsWith('/commercial')?(new URL(route.request().url()).searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[{id:'9',title:'Llamar a la dueña',dueDate:'2026-10-25',dueAt:null,assignedUserEmail:'owner@example.com',leadId:null,opportunityName:null,continuation:null}],totalPending:1}:{account:{id:'101',nombre:'Negocio compartido',assignedUserEmail:'owner@example.com',archivedAt:null,mergedIntoId:null,commercialStatus:'prospect',email:'business@example.com'},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[],users:[{email:'owner@example.com',displayName:'Responsable'}]}):
+   path.endsWith('/work')?{tasks:[],activities:[],attention:[],accounts:[],opportunities:[],types:[],users:[],contacts:[],journal:[],totalTasks:0,totalActivities:0,page:1,followup:{stages:[],newAssignmentDays:7}}:
+   path.endsWith('/communication')?{recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72}:
    path.endsWith('/pipeline')?{stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[]}:
    path.endsWith('/resources')?{documents:[],categories:[],maxDocumentBytes:2097152}:{};
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
@@ -16,15 +17,19 @@ test('seller can read a colleague business without editing or administrative con
  await expect(page.getByRole('heading',{name:'Negocio compartido',exact:true})).toBeVisible();
  await expect(page.getByText('Podés consultar este negocio. Solo su responsable o un administrador puede modificarlo.')).toBeVisible();
  await expect(page.getByRole('button',{name:'Editar negocio',exact:true})).toHaveCount(0);
- await page.getByRole('tab',{name:'Contactos (0)',exact:true}).click();
- await expect(page.getByRole('button',{name:'Agregar contacto',exact:true})).toHaveCount(0);
+ await page.getByRole('tab',{name:'Historial',exact:true}).click();await expect(page.getByRole('heading',{name:/Compromisos pendientes \(1\)/})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Llamar a la dueña',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toHaveCount(0);
  await page.getByRole('tab',{name:'Documentos',exact:true}).click();
  await expect(page.getByRole('button',{name:'Vincular documento al negocio',exact:true})).toHaveCount(0);
- await expect(page.getByText('Agregar documento o recurso',{exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Más opciones',exact:true}).click();
- for(const name of ['Configuración','Papelera','Negocios archivados','Materiales para ofrecer'])await expect(page.getByRole('menuitem',{name,exact:true})).toHaveCount(0);
- await page.keyboard.press('Escape');
- for(const path of ['/archived','/library','/settings','/history','/trash','/analytics']){
+ await expect(page.getByRole('button',{name:'Agregar documento',exact:true})).toHaveCount(0);await expect(page.getByText('Agregar documento o recurso',{exact:true})).toHaveCount(0);
+ // Sellers get only Hoy · Negocios · Gestiones · Ayuda: no "Administración" menu at all.
+ for(const name of ['Hoy','Negocios','Gestiones','Ayuda'])await expect(page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name,exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Administración',exact:true})).toHaveCount(0);
+ for(const name of ['Configuración','Papelera','Negocios archivados'])await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
+ // «Material de venta» (spec 89) is for every user; the old /library path now redirects there.
+ await expect(page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Material de venta',exact:true})).toBeVisible();
+ for(const path of ['/archived','/settings','/history','/trash','/analytics']){
   await page.goto(path);
   await expect(page.getByRole('heading',{name:'Acceso denegado',exact:true})).toBeVisible();
  }

@@ -4,17 +4,18 @@ import {searchCrm} from '../endpoints/search.schema';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spotlight, useSpotlight } from '@mantine/spotlight';
-import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Library, Mail, Moon, RotateCcw, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
+import { Building2, BriefcaseBusiness, Users, StickyNote, CalendarClock, FileText, MessageCircle, Archive, BarChart3, BookOpen, Copy, History, Mail, Presentation, Moon, Search, Settings, Sun, SunMoon, Trash2, Upload, X } from 'lucide-react';
 import { useAuth } from '../helpers/useAuth';
 import { useThemeMode } from '../helpers/themeMode';
 import { fuzzySearchScore, normalizeSearchText } from '../helpers/searchText';
-import { mainNavigation } from '../helpers/appNavigation';
+import { mainNavigation, todayViews, toolNavigation } from '../helpers/appNavigation';
 import { commandPalette, commandStore, openCommandPalette, restoreCommandFocus } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import styles from './AppCommandPalette.module.css';
-import guideTopics from '../content/user-guide.json';
+import {LAYERS} from '../helpers/layers';
+type GuideTopics=typeof import('../content/user-guide.json');
 
-const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
+const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,'Material de venta':Presentation,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
 
 export function AppCommandPalette() {
   const { authState } = useAuth();
@@ -65,51 +66,56 @@ export function AppCommandPalette() {
 
   const debounced=useDebounce(query.trim(),250);
   const content=useQuery({queryKey:['crm-search',authenticated?authState.user.id:null,authenticated?authState.user.role:null,debounced],queryFn:({signal})=>searchCrm(debounced,signal),enabled:authenticated&&opened&&debounced.length>=2&&debounced.length<=200,staleTime:0,gcTime:0});
+  const guideTopics=useQuery<GuideTopics>({queryKey:['user-guide-topics'],queryFn:()=>import('../content/user-guide.json').then(m=>m.default),enabled:opened&&query.trim().length>=2,staleTime:Infinity});
   const contentCurrent=debounced===query.trim()&&query.trim().length>=2;
   const contentIdentity=contentCurrent?(content.data?.results??[]).map(result=>result.id).join(','):'';
   useEffect(()=>{if(opened)commandStore.updateState(state=>({...state,selected:-1}));},[contentIdentity,opened]);
   if (!authenticated) return null;
   const destinations = [
     ...mainNavigation,
-    { url: '/reactivation', label: 'Retomar gestiones pospuestas', description: 'Seguimientos que pueden reactivarse', icon: RotateCcw },
-    { url: '/guide', label: 'Guía de uso paso a paso', description: 'Ayuda para trabajar con el CRM', icon: BookOpen },
+    ...toolNavigation,
+    // Hoy views keep the old names (Agenda, Reactivación) as search aliases.
+    ...todayViews.filter(item => item.view !== 'list').map(({ url, label, description, keywords, icon }) => ({ url, label: 'Hoy · ' + label, description, keywords, icon })),
     ...(isAdmin ? [
       { url: '/archived', label: 'Negocios archivados', description: 'Consultar negocios fuera del listado activo', icon: Archive },
       { url: '/analytics', label: 'Estadísticas', description: 'Resultados comerciales del equipo', icon: BarChart3 },
       { url: '/settings', label: 'Configuración', description: 'Usuarios y catálogos del CRM', icon: Settings },
       { url: '/templates', label: 'Mensajes modelo', description: 'Plantillas de WhatsApp y email', icon: Mail },
-      { url: '/settings?section=library', label: 'Biblioteca comercial', description: 'Materiales y documentos del equipo', icon: Library },
-      { url: '/history', label: 'Historial del equipo', description: 'Actividad y auditoría global', icon: History },
+      { url: '/history', label: 'Historial del equipo', description: 'Actividad y cambios registrados', icon: History },
       { url: '/trash', label: 'Papelera', description: 'Registros eliminados y recuperación', icon: Trash2 },
+      { url: '/inbound', label: 'Mensajes sin asociar', description: 'Asociar mensajes recibidos', icon: Trash2 },
     ] : []),
   ];
   const go = (url: string) => {
     // Recheck at execution time as well as opening time.
     if (!document.querySelector('[data-unsaved="true"]')) navigate(url);
   };
+  const matches = (action: { label: string; description: string; keywords?: string }) =>
+    normalizeSearchText(`${action.label} ${action.description} ${action.keywords ?? ''}`).includes(normalizeSearchText(query));
   const navigationGroups = [
     { label: 'Ir a', actions: destinations.map(item => ({ ...item, id: item.url, run: () => go(item.url) })) },
     { label: 'Acciones', actions: [
       { id: 'light', label: 'Tema claro', description: 'Usar colores claros', icon: Sun, run: switchToLightMode },
       { id: 'dark', label: 'Tema oscuro', description: 'Usar colores oscuros', icon: Moon, run: switchToDarkMode },
       { id: 'auto', label: 'Usar tema del sistema', description: 'Seguir la preferencia del dispositivo', icon: SunMoon, run: switchToAutoMode },
+      { id: 'userscript', label: 'User script de WhatsApp', description: 'Instalar el script y crear tu token', icon: MessageCircle, run: () => go('/userscript') },
       ...(isAdmin ? [
         { id: 'import', label: 'Importar CSV', description: 'Abrir revisión de importación de negocios', icon: Upload, run: () => go('/accounts?adminTool=import') },
         { id: 'duplicates', label: 'Buscar duplicados', description: 'Abrir revisión de coincidencias', icon: Copy, run: () => go('/accounts?adminTool=duplicates') },
       ] : []),
     ] },
-  ].map(group => ({ ...group, actions: group.actions.filter(action =>
-    normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))) }));
+  ].map(group => ({ ...group, actions: group.actions.filter(matches) }));
+  // Hidden keywords never suppress guide results: only a visible label/description match counts.
   const navigationMatch=navigationGroups.some(group=>group.actions.some(action=>normalizeSearchText(`${action.label} ${action.description}`).includes(normalizeSearchText(query))));
-  const helpActions=query.trim().length>=2&&!navigationMatch?guideTopics.flatMap(topic=>topic.articles.flatMap(article=>{
+  const helpActions=query.trim().length>=2&&!navigationMatch?(guideTopics.data??[]).flatMap(topic=>topic.articles.flatMap(article=>{
     const text=[topic.title,article.title,article.when,...article.steps,article.result,...article.example,...article.notes].join(' ');
     const score=fuzzySearchScore(query,text);
     return score===null?[]:[{id:`help:${topic.id}:${article.id}`,label:article.title,description:`${topic.title} · ${article.when}`,icon:BookOpen,score,run:()=>go(`/guide?topic=${topic.id}&article=${article.id}`)}];
   })).sort((a,b)=>a.score-b.score):[];
   const helpGroups=helpActions.length?[{label:'Ayuda',actions:helpActions}]:[];
   const contentGroups=contentCurrent?(content.data?.results??[]).reduce<Array<{label:string;actions:{id:string;label:string;description:string;icon:typeof BookOpen;run:()=>void}[]}>>((groups,result)=>{
-    let group=groups.find(group=>group.label===result.kind);
-    if(!group){group={label:result.kind,actions:[]};groups.push(group);}
+    const kindLabel=result.kind==='Contactos'?'Personas':result.kind;let group=groups.find(group=>group.label===kindLabel);
+    if(!group){group={label:kindLabel,actions:[]};groups.push(group);}
     group.actions.push({...result,icon:resultIcons[result.kind],run:()=>go(result.url)});return groups;
   },[]):[];
   const groups=[...helpGroups,...contentGroups,...navigationGroups];
@@ -117,7 +123,8 @@ export function AppCommandPalette() {
   const selectedAction = groups.flatMap(group => group.actions)[selected];
 
   return <Spotlight.Root store={commandStore} shortcut={null} query={query} onQueryChange={setQuery}
-    title="Accesos rápidos" zIndex={410} size={640} yOffset={16} scrollable
+    title="Accesos rápidos" zIndex={LAYERS.commandPalette} size={640} yOffset={16} scrollable withOverlay
+    overlayProps={{ backgroundOpacity: 0.62, blur: 2, className: 'crm-dialog-overlay' }}
     maxHeight={Math.max(100, Math.min(420, viewportHeight - 210))} trapFocus returnFocus
     styles={{ content: { maxHeight: viewportHeight - 32 } }}
     onSpotlightClose={restoreCommandFocus}

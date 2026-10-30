@@ -1,0 +1,2 @@
+.link{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 auto;color:var(--muted-foreground);text-decoration:none}.link:hover{color:var(--primary)}
+@media(max-width:767px){.link{width:44px;height:44px}}

@@ -8,6 +8,7 @@ import {ArrowRight, MapPin, Pencil, Plus, Tags, Trash2} from 'lucide-react';
 import type {SettingsOutput} from '../endpoints/settings_GET.schema';
 import {postSettingsSave} from '../endpoints/settings_save_POST.schema';
 import {Button} from './Button';
+import {DisabledTooltip} from './Tooltip';
 import {Input} from './Input';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from './Dialog';
 import {SectionTabs, SectionTabList, SectionTab, SectionTabPanel} from './SectionTabs';
@@ -56,16 +57,16 @@ export function ClassificationSettings({data}: {data: SettingsOutput}) {
         <div className={styles.workspace}>
           <CrmResponsiveNavigation label="Vertical" value={group} disabled={save.isPending} options={groups.map(g=>({value:g.key,label:g.label}))} onChange={value=>{setGroup(value);setSearch('');setNotice('');save.reset();}}><aside className={styles.groups} aria-label="Elegir vertical">
             <div className={styles.groupHeading}>Elegí una vertical<span>El rubro principal del negocio</span></div>
-            {groups.map(g => <UnstyledButton type="button" key={g.key} disabled={save.isPending} aria-pressed={group === g.key} onClick={() => {setGroup(g.key); setSearch(''); setNotice(''); save.reset();}}><span>{g.label}</span><span className={styles.count}>{data.subtypes.filter(item => item.typeName === (g.key === '__GENERAL__' ? null : g.key)).length}</span></UnstyledButton>)}
+            {groups.map(g => <DisabledTooltip key={g.key} disabled={save.isPending} reason="Se está guardando el cambio. Esperá a que termine para cambiar de vertical."><UnstyledButton type="button" disabled={save.isPending} aria-pressed={group === g.key} onClick={() => {setGroup(g.key); setSearch(''); setNotice(''); save.reset();}}><span>{g.label}</span><span className={styles.count}>{data.subtypes.filter(item => item.typeName === (g.key === '__GENERAL__' ? null : g.key)).length}</span></UnstyledButton></DisabledTooltip>)}
           </aside></CrmResponsiveNavigation>
           <article className={styles.card}>
             <header className={styles.cardHeading}><div><span className={styles.eyebrow}>{typeName ? 'VERTICAL' : 'COMPARTIDOS'}</span><h3>{label}</h3><p>{typeName ? 'Los subtipos describen qué clase de negocio es dentro de este rubro.' : 'Estos subtipos se pueden elegir en cualquier vertical.'}</p></div><span className={styles.count}>{items.length} {items.length === 1 ? 'subtipo' : 'subtipos'}</span></header>
             <form className={styles.addForm} onSubmit={e => {e.preventDefault(); addSubtype();}}>
               <label>Nuevo subtipo<Input value={draft} onChange={e => setDrafts(prev => ({...prev, [group]: e.target.value}))} placeholder="Nombre del subtipo" maxLength={120}/></label>
-              <Button type="submit" disabled={save.isPending || !draft.trim()}><Plus size={16}/>Agregar subtipo</Button>
+              <Button type="submit" disabled={save.isPending || !draft.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí un nombre."}><Plus size={16}/>Agregar subtipo</Button>
             </form>
             <div className={styles.listHeading}><label>Buscar en {label}<Input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Escribí un nombre…"/></label><span>{filtered.length} de {items.length}</span></div>
-            <ul className={styles.list}>{filtered.map(item => <li key={item.id}><span>{item.name}</span><div><Button variant="ghost" size="sm" disabled={save.isPending} aria-label={'Editar ' + item.name} onClick={() => {save.reset(); setEditing(item);}}><Pencil size={14}/>Editar</Button><Button variant="ghost" size="icon-sm" aria-label={'Eliminar ' + item.name} title={'Eliminar ' + item.name} disabled={save.isPending} onClick={() => {save.reset(); setDeleting(item);}}><Trash2 size={15}/></Button></div></li>)}</ul>
+            <ul className={styles.list}>{filtered.map(item => <li key={item.id}><span>{item.name}</span><div><Button variant="ghost" size="sm" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." aria-label={'Editar ' + item.name} onClick={() => {save.reset(); setEditing(item);}}><Pencil size={14}/>Editar</Button><Button variant="ghost" size="icon-sm" aria-label={'Eliminar ' + item.name} title={'Eliminar ' + item.name} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={() => {save.reset(); setDeleting(item);}}><Trash2 size={15}/></Button></div></li>)}</ul>
             {!filtered.length && <div className={styles.empty}>{items.length ? 'No hay subtipos que coincidan con la búsqueda.' : 'Todavía no hay subtipos. Agregá el primero con el formulario de arriba.'}</div>}
           </article>
         </div>
@@ -74,7 +75,7 @@ export function ClassificationSettings({data}: {data: SettingsOutput}) {
         <article className={styles.card}>
           <header className={styles.cardHeading}><div><span className={styles.eyebrow}>UBICACIÓN</span><h3>Ciudades</h3><p>Localidades disponibles al cargar negocios y al filtrar las listas.</p></div><span className={styles.count}>{data.cities.length} {data.cities.length === 1 ? 'ciudad' : 'ciudades'}</span></header>
           <form className={styles.addForm} onSubmit={e => {e.preventDefault(); if (!city.trim() || save.isPending) return; save.mutate({action: 'addCity', name: city.trim()}, {onSuccess: () => {setNotice('Ciudad agregada: ' + city.trim()); setCity(''); setCitySearch('');}});}}>
-            <label>Nueva ciudad<Input value={city} onChange={e => setCity(e.target.value)} placeholder="Nombre de la ciudad" maxLength={120}/></label><Button type="submit" disabled={save.isPending || !city.trim()}><Plus size={16}/>Agregar ciudad</Button>
+            <label>Nueva ciudad<Input value={city} onChange={e => setCity(e.target.value)} placeholder="Nombre de la ciudad" maxLength={120}/></label><Button type="submit" disabled={save.isPending || !city.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí el nombre de la ciudad."}><Plus size={16}/>Agregar ciudad</Button>
           </form>
           <div className={styles.listHeading}><label>Buscar ciudad<Input type="search" value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Escribí una localidad…"/></label><span>{cities.length} de {data.cities.length}</span></div>
           <ul className={styles.cities}>{cities.map(item => <li key={item.id}><MapPin size={15}/>{item.name}</li>)}</ul>
@@ -88,13 +89,13 @@ export function ClassificationSettings({data}: {data: SettingsOutput}) {
       <form onSubmit={e => {e.preventDefault(); if (!editing?.name.trim() || save.isPending) return; save.mutate({action: 'editSubtype', id: editing.id, name: editing.name.trim()}, {onSuccess: () => {setEditing(null); setNotice('Subtipo actualizado.');}});}}>
         <label className={styles.field}>Nombre del subtipo<Input autoFocus required maxLength={120} value={editing?.name ?? ''} onChange={e => setEditing(prev => prev ? {...prev, name: e.target.value} : prev)}/></label>
         {save.error && <p role="alert">{save.error.message}</p>}
-        <DialogFooter><Button variant="outline" disabled={save.isPending} onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" disabled={save.isPending || !editing?.name.trim()}>{save.isPending ? 'Guardando…' : 'Guardar cambios'}</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" disabled={save.isPending || !editing?.name.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí un nombre."}>{save.isPending ? 'Guardando…' : 'Guardar cambios'}</Button></DialogFooter>
       </form>
     </DialogContent></Dialog>
     <Dialog open={!!deleting} onOpenChange={open => {if (!open && !save.isPending) setDeleting(null);}}><DialogContent>
       <DialogHeader><DialogTitle>Eliminar subtipo</DialogTitle><DialogDescription><strong>{deleting?.name}</strong> dejará de estar disponible para nuevas selecciones. Los registros existentes conservarán el valor que tenían.</DialogDescription></DialogHeader>
       {save.error && <p role="alert">{save.error.message}</p>}
-      <DialogFooter><Button variant="outline" disabled={save.isPending} onClick={() => setDeleting(null)}>Cancelar</Button><Button variant="destructive" disabled={save.isPending} onClick={() => {if (!deleting) return; save.mutate({action: 'deleteSubtype', id: deleting.id}, {onSuccess: () => {setDeleting(null); setNotice('Subtipo eliminado de las opciones disponibles.');}});}}>{save.isPending ? 'Eliminando…' : 'Eliminar subtipo'}</Button></DialogFooter>
+      <DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={() => setDeleting(null)}>Cancelar</Button><Button variant="destructive" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={() => {if (!deleting) return; save.mutate({action: 'deleteSubtype', id: deleting.id}, {onSuccess: () => {setDeleting(null); setNotice('Subtipo eliminado de las opciones disponibles.');}});}}>{save.isPending ? 'Eliminando…' : 'Eliminar subtipo'}</Button></DialogFooter>
     </DialogContent></Dialog>
   </section>;
 }

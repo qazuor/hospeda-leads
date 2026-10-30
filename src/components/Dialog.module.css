@@ -5,3 +5,20 @@
 .title{font-family:var(--font-family-heading);font-size:22px;font-weight:600;line-height:1.3;margin-bottom:8px;padding-right:36px}
 .description{color:var(--muted-foreground);font-size:14px;line-height:1.5;margin-bottom:16px}
 @media(max-width:600px){.content{--crm-dialog-padding:18px;max-height:calc(100dvh - 24px)}.title{font-size:20px}.footer{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}}
+/* Phones: the on-screen keyboard shrinks the visual viewport but not 100dvh. useDialogLayer mirrors it into --crm-vv-*; the modal and drawer frames follow it so the footer stays reachable. */
+@media(max-width:767px){:global(.mantine-Modal-inner),:global(.mantine-Drawer-inner){top:var(--crm-vv-top,0px);height:min(100dvh,var(--crm-vv-height,100dvh))}.content{max-height:calc(min(100dvh,var(--crm-vv-height,100dvh)) - 24px)}}
+
+/* Side panel (Phase 7): long create/edit forms open on the right, full height; the title row and the footer stay put while the form scrolls. */
+.sideInner{justify-content:flex-end!important;align-items:stretch!important;padding:0!important}
+.content.side{--crm-dialog-padding:20px;scroll-padding-top:88px;scroll-padding-bottom:88px;width:min(560px,100vw);max-width:100vw;height:100dvh;max-height:none;border-radius:0;border-width:0 0 0 1px;box-shadow:var(--shadow-lg)}
+.side>.title:first-child,.side>.header:first-child{position:sticky;top:calc(-1 * var(--crm-dialog-padding));z-index:3;margin:calc(-1 * var(--crm-dialog-padding)) calc(-1 * var(--crm-dialog-padding)) 16px;padding:var(--crm-dialog-padding) 64px 14px var(--crm-dialog-padding);background:var(--popup);border-bottom:1px solid var(--border)}
+.side>.header:first-child .title{padding-right:0}
+.side>.close{position:fixed;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:4}
+.side .footer{margin-inline:calc(-1 * var(--crm-dialog-padding));padding-inline:var(--crm-dialog-padding);border-top:1px solid var(--border);width:auto}
+@media(max-width:767px){.content.side{width:100vw;border-width:0;height:min(100dvh,var(--crm-vv-height,100dvh))}.side>.close{top:calc(var(--crm-vv-top,0px) + max(12px,env(safe-area-inset-top,0px)))}.side>.title:first-child,.side>.header:first-child{padding-top:max(var(--crm-dialog-padding),env(safe-area-inset-top,0px))}}
+/* Desktop side panel: the action bar is pinned to the panel's bottom edge even when the form is short (no transform on the modal content, so fixed stays inside the panel); the content reserves its height. Phones keep the sticky bar so it follows the on-screen keyboard. */
+@media(min-width:768px){.content.side{padding-bottom:calc(var(--crm-dialog-padding) + 76px)}.content.side .footer{position:fixed;right:0;bottom:0;width:min(560px,100vw);margin:0;z-index:4}}
+/* Slide-in is a plain keyframe animation (Mantine's transition keeps transform:translateX(0) on the content, which would make it the containing block of the fixed footer and close button). It ends with no transform and only runs on desktop, where the panel docks to the right; phones use a full-screen sheet. Mantine's transition duration is 0. */
+@keyframes crmSideIn{from{transform:translateX(100%)}to{transform:none}}
+@media(min-width:768px){.content.side{animation:crmSideIn 220ms cubic-bezier(.2,.8,.2,1)}}
+@media(prefers-reduced-motion:reduce){.content.side{animation:none}}

@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {localDay,calendarDay,localDateTime,argentinaInstant,taskBucket} from './workDates';
+import {localDay,calendarDay,localDateTime,argentinaInstant,taskBucket,shortcutDates} from './workDates';
 import {day} from '../endpoints/work.schema';
 import {nextActionInfo,toDateInput} from './crmDates';
 describe('Commercial days are explicit Argentina calendar days',()=>{
@@ -19,8 +19,23 @@ describe('Commercial days are explicit Argentina calendar days',()=>{
  it('preserves legacy calendar date and rejects impossible dates',()=>{
   expect(calendarDay(new Date('2026-10-01T00:00:00Z'))).toBe('2026-10-01');
   expect(toDateInput(new Date('2026-10-01T12:00:00Z'))).toBe('2026-10-01');
+  expect(toDateInput(new Date('2026-11-13T00:00:00Z'))).toBe('2026-11-13');
   expect(day.safeParse('2026-02-30').success).toBe(false);
   expect(day.safeParse('2028-02-29').success).toBe(true);
   expect(nextActionInfo(null).tone).toBe('empty');
+ });
+});
+describe('Due-date shortcuts',()=>{
+ it('crosses month boundaries using the Argentina day',()=>{
+  const r=shortcutDates(new Date('2026-10-30T12:00:00Z'));
+  expect(r).toEqual({tomorrow:'2026-10-31',in3:'2026-11-02',nextMonday:'2026-11-02',in7:'2026-11-06'});
+ });
+ it('uses Argentina today even when UTC is already tomorrow',()=>{
+  expect(shortcutDates(new Date('2026-10-01T01:30:00Z')).tomorrow).toBe('2026-10-01');
+ });
+ it('moves Sunday to the next day and Monday to the following week',()=>{
+  expect(shortcutDates(new Date('2026-10-25T15:00:00Z')).nextMonday).toBe('2026-10-26');
+  expect(shortcutDates(new Date('2026-10-26T15:00:00Z')).nextMonday).toBe('2026-11-02');
+  expect(shortcutDates(new Date('2026-10-24T15:00:00Z')).nextMonday).toBe('2026-10-26');
  });
 });

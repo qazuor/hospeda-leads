@@ -1,0 +1,219 @@
+import {useId,useState,type ReactNode} from 'react';
+import {Tooltip} from '@mantine/core';
+import {useQueryClient} from '@tanstack/react-query';
+import {Reply} from 'lucide-react';
+import {postCommunication,type CommunicationResponse,type Message} from '../../endpoints/communication.schema';
+import {useGuardedMutation} from '../../helpers/useGuardedMutation';
+import {crmSuccess} from '../../helpers/crmFeedback';
+import {formatDateTime,formatTime} from '../../helpers/crmDates';
+import {actorLabel} from '../../helpers/crmLabels';
+import {clampLinesFor,timelineDomId,type CallEntry,type ReceivedEntry,type ResponseEntry,type SentEntry,type TimelineEntry} from '../../helpers/communicationTimeline';
+import {Button} from '../Button';
+import {Input} from '../Input';
+import {DialogFooter} from '../Dialog';
+import {CrmDialog} from '../ui/CrmDialog';
+import {InboundMessageActions} from '../InboundMessageActions';
+import {AutoRegistrationVoidDialog,canVoidAutoRegistration} from '../AutoRegistrationVoid';
+import {ManualAttemptResolution} from '../ManualAttemptResolution';
+import {InteractionCorrectionForm} from '../InteractionCorrectionForm';
+import {ResponseCorrectionForm} from '../ResponseCorrectionForm';
+import {MessageMaterialRecord} from './MessageMaterialRecord';
+import {ChannelIcon} from './ChannelIcon';
+import {ClampedText} from './ClampedText';
+import {instagramTextEdited,isInstagramAttempt,isInstagramConfirmed} from '../../helpers/instagramChat';
+import {ItemMenu,type ItemAction} from './ItemMenu';
+import {EmailEngagementBadges} from './EmailEngagementBadges';
+import {emailDeliveredLabel} from '../../helpers/emailEngagement';
+import type {CommunicationView} from './types';
+import styles from './CommunicationView.module.css';
+import {LAYERS} from '../../helpers/layers';
+import {AutoOutcomeCorrection,AutoOutcomeNote,canFixAutoOutcome} from './AutoOutcome';
+
+/** An admin resolves an email whose provider result is unknown, or one stuck submitting for more than 15 minutes. */
+export const isUncertainEmail=(message:Pick<Message,'channel'|'status'|'updatedAt'>,now=Date.now()):boolean=>message.channel==='email'&&(message.status==='unknown'||message.status==='submitting'&&new Date(message.updatedAt).getTime()<now-15*60*1000);
+
+/** «Marcar como enviado / no enviado» for an uncertain email (admin only); requires what was checked and never resends. */
+function UncertainEmailActions({message}:{message:Message}){
+ const qc=useQueryClient();
+ const [target,setTarget]=useState<'sent'|'not_sent'|null>(null),[reason,setReason]=useState('');
+ const m=useGuardedMutation({mutationFn:postCommunication,onSuccess:()=>{for(const queryKey of [['communication'],['work'],['global-journal'],['lead-journal']])void qc.invalidateQueries({queryKey});setTarget(null);setReason('');crmSuccess('Resultado actualizado')}});
+ return <>
+  <Button size="sm" disabled={m.isPending} onClick={()=>{setReason('');setTarget('sent')}}>Marcar como enviado</Button>
+  <Button size="sm" variant="outline" disabled={m.isPending} onClick={()=>{setReason('');setTarget('not_sent')}}>Marcar como no enviado</Button>
+  <CrmDialog opened={!!target} onClose={()=>{if(!m.isPending)setTarget(null)}} title={target==='sent'?'Marcar como enviado':'Marcar como no enviado'} description={target==='sent'?'Confirmás que el proveedor aceptó el email. La entrega todavía no queda confirmada.':'Confirmás que el proveedor no aceptó el email. No se enviará automáticamente.'} busy={m.isPending}>
+   <label>Qué revisaste<Input autoFocus value={reason} onChange={e=>setReason(e.target.value)} maxLength={500}/></label>{m.error&&<p role="alert">{m.error.message}</p>}
+   <DialogFooter><Button variant="outline" disabled={m.isPending} onClick={()=>setTarget(null)}>Cancelar</Button><Button disabled={reason.trim().length<10||m.isPending} onClick={()=>target&&m.mutate({action:'email_resolve_uncertain',id:crypto.randomUUID(),messageId:message.id,outcome:target,reason:reason.trim()})}>{m.isPending?'Guardando…':'Guardar resultado'}</Button></DialogFooter>
+  </CrmDialog>
+ </>;
+}
+
+/** «Ver diseño»: the sent email as designed (sandboxed, no scripts), opened from the item header. */
+function EmailDesignDialog({message,open,onClose}:{message:Message;open:boolean;onClose:()=>void}){
+ return <CrmDialog opened={open} onClose={onClose} title={message.subject||'Email enviado'} description={`Así se presentó el email a ${message.recipientName||message.recipient} el ${formatDateTime(message.lastInteractionAt??message.createdAt)}.`}>
+  <iframe sandbox="" title="Vista previa del email" srcDoc={message.htmlBody??''} className={styles.emailPreview}/>
+  <DialogFooter><Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
+ </CrmDialog>;
+}
+
+/** What was registered for a response: summary, exact text and (unless the header already names them) who registered it. */
+const responseNote=(view:CommunicationView,response:CommunicationResponse,withActor=true)=>[response.summary,response.exactText?`“${response.exactText}”`:'',withActor?actorLabel(response.actorEmail,view.detail?.users):''].filter(Boolean).join(' · ');
+/** «Corregir respuesta» is for its author or an admin, never on an archived business for a seller (decision 1C). */
+const canCorrectResponse=(view:CommunicationView,response:CommunicationResponse)=>!view.archivedReadOnly&&(view.admin||response.actorEmail===view.userEmail);
+
+/** State of the forms and dialogs a «⋯» menu opens; they render outside the menu, so closing it never unmounts them. */
+function useItemPanels(){
+ const [correcting,setCorrecting]=useState(false),[voiding,setVoiding]=useState(false),[design,setDesign]=useState(false),[prepared,setPrepared]=useState(false),[fixingOutcome,setFixingOutcome]=useState(false);
+ return {correcting,setCorrecting,voiding,setVoiding,design,setDesign,prepared,setPrepared,fixingOutcome,setFixingOutcome};
+}
+type Panels=ReturnType<typeof useItemPanels>;
+
+/** Secondary actions of a sent message or call (spec 91 §3): correct a manual result, void an automatic registration. */
+function messageActions(view:CommunicationView,message:Message,panels:Panels):ItemAction[]{
+ const own=view.admin||message.ownerEmail===view.userEmail;
+ const correct=['manual_sent','manual_no_contact','manual_not_done'].includes(message.status)&&own;
+ const canVoid=!!message.autoRegistrationId&&canVoidAutoRegistration({readOnly:view.readOnly,canWrite:view.canWrite,admin:view.admin,userEmail:view.userEmail,registrationId:message.autoRegistrationId,registrationUserEmail:message.autoRegistrationUserEmail,status:message.status});
+ return [
+  ...(correct?[{label:'Corregir cómo salió o el resumen',onSelect:()=>panels.setCorrecting(true)}]:[]),
+  ...(canVoid?[{label:'Anular registro',onSelect:()=>panels.setVoiding(true)}]:[]),
+  ...(canFixAutoOutcome(view,message)?[{label:'Corregir cómo salió',onSelect:()=>panels.setFixingOutcome(true)}]:[]),
+ ];
+}
+
+/** The forms and dialogs of a sent message or call, opened from its «⋯» menu. */
+function MessagePanels({view,message,panels}:{view:CommunicationView;message:Message;panels:Panels}){
+ return <>
+  <AutoOutcomeNote message={message}/>
+  {panels.fixingOutcome&&<AutoOutcomeCorrection view={view} message={message} onClose={()=>panels.setFixingOutcome(false)}/>}
+  {panels.correcting&&<div className={styles.inlineForm}><InteractionCorrectionForm message={message} onDone={()=>panels.setCorrecting(false)}/><Button size="sm" variant="ghost" onClick={()=>panels.setCorrecting(false)}>Cancelar corrección</Button></div>}
+  {message.autoRegistrationId&&<AutoRegistrationVoidDialog registrationId={message.autoRegistrationId} open={panels.voiding} onClose={()=>panels.setVoiding(false)}/>}
+  {message.channel==='email'&&!!message.htmlBody&&<EmailDesignDialog message={message} open={panels.design} onClose={()=>panels.setDesign(false)}/>}
+  {isInstagramAttempt(message)&&<CrmDialog opened={panels.prepared} onClose={()=>panels.setPrepared(false)} title="Texto preparado" description="El texto que se copió desde el CRM. Lo que salió por Instagram es el del mensaje."><div className={styles.preparedText}>{message.body}</div><DialogFooter><Button variant="outline" onClick={()=>panels.setPrepared(false)}>Cerrar</Button></DialogFooter></CrmDialog>}
+ </>;
+}
+
+/**
+ * Spec 91 §1 (owner review): the one-line header of an item, in this order: time, channel, sender, badges (tags, the sent
+ * status, the management chip) and compact actions ending with «⋯». It wraps only without room, actions last.
+ */
+function Head({entry,sender,badges,actions}:{entry:TimelineEntry;sender:string;badges?:ReactNode;actions?:ReactNode}){
+ const side=entry.kind==='received'?'Negocio':'Nosotros';
+ return <div className={styles.itemHead}>
+  <time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time><span aria-hidden="true">·</span>
+  <span className={styles.channel} data-channel={entry.channel}><ChannelIcon channel={entry.channel} size={14}/>{entry.channelLabel}</span><span aria-hidden="true">·</span>
+  <span className={styles.side}>{side}</span><span aria-hidden="true">·</span><strong>{sender}</strong>
+  {badges}
+  {entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}
+  {actions&&<span className={styles.headActions}>{actions}</span>}
+ </div>;
+}
+/** Spec 91 owner review: who is on each side, before the sender. «Nosotros» for what we sent or did, «Negocio» for what the business sent or replied. */
+const Side=({children}:{children:ReactNode})=><><span className={styles.side}>{children}</span>{' · '}</>;
+const Tag=({kind,children,tone}:{kind:string;children:ReactNode;tone?:string})=><span className={styles.tag} data-kind={kind} data-tone={tone}>{children}</span>;
+
+/** Follow-up forms that stay visible under the bubble: a pending attempt and an uncertain email (admin). An unconfirmed open is only in «Requiere acción». */
+function PendingActions({view,message}:{view:CommunicationView;message:Message}){
+ const own=view.admin||message.ownerEmail===view.userEmail;
+ const uncertain=view.admin&&isUncertainEmail(message),pending=!view.readOnly&&message.status==='manual_pending'&&own;
+ if(!uncertain&&!pending)return null;
+ return <div className={styles.itemActions}>
+  {uncertain&&<UncertainEmailActions message={message}/>}
+  {pending&&<ManualAttemptResolution key={message.id+'-resolution'} message={message}/>}
+ </div>;
+}
+
+type ItemProps<T>={view:CommunicationView;entry:T;highlighted:boolean};
+/** Every row can be scrolled to and briefly highlighted from «Requiere acción» (spec 91 §9). */
+const rowProps=(entry:TimelineEntry,highlighted:boolean)=>({id:timelineDomId(entry.key),tabIndex:-1,'data-highlight':highlighted||undefined,'data-channel':entry.channel});
+
+function Received({view,entry,highlighted}:ItemProps<ReceivedEntry>){
+ const item=entry.inbound,panels=useItemPanels(),label=`${entry.channelLabel} recibido de ${entry.sender}`;
+ const correct=!!entry.response&&canCorrectResponse(view,entry.response);
+ const canVoid=canVoidAutoRegistration({readOnly:view.readOnly,canWrite:view.canWrite,admin:view.admin,userEmail:view.userEmail,registrationId:item.autoRegistrationId,registrationUserEmail:item.autoRegistrationUserEmail,status:item.status});
+ const actions:ItemAction[]=[...(correct?[{label:'Corregir respuesta',onSelect:()=>panels.setCorrecting(true)}]:[]),...(canVoid?[{label:'Anular registro',onSelect:()=>panels.setVoiding(true)}]:[])];
+ return <div className={styles.row} data-side="in" data-voided={item.status==='voided'||undefined} {...rowProps(entry,highlighted)}><article className={styles.bubbleWrap} aria-label={label}>
+  <Head entry={entry} sender={entry.sender} badges={entry.tags.map(tag=><Tag key={tag.kind} kind={tag.kind}>{tag.label}</Tag>)} actions={<>
+   {/* Spec 91 §9: «Registrar respuesta» / «No es una respuesta» of a «Por revisar» message live on its item only. */}
+   {item.status!=='voided'&&<InboundMessageActions item={item} readOnly={view.readOnly} canWrite={view.canWrite} onRegister={view.openResponse} replyStatus={view.replyStatus} showVoid={false}/>}
+   <ItemMenu label={label} actions={actions}/>
+  </>}/>
+  <div className={styles.bubbleLine}><div className={styles.bubble}>{entry.subject&&<strong className={styles.subject}>{entry.subject}</strong>}<ClampedText className={styles.text} text={entry.text||'Sin contenido'} lines={clampLinesFor(entry.channel)}/></div></div>
+  {entry.response&&<p className={styles.note}>{responseNote(view,entry.response)}</p>}
+  {entry.response&&panels.correcting&&<ResponseCorrectionForm response={entry.response} openManagements={view.data.openManagements} canRecordDnc={view.canRecordDnc} canLiftDnc={view.admin} onClose={()=>panels.setCorrecting(false)}/>}
+  {item.autoRegistrationId&&<AutoRegistrationVoidDialog registrationId={item.autoRegistrationId} open={panels.voiding} onClose={()=>panels.setVoiding(false)}/>}
+ </article></div>;
+}
+
+/**
+ * Spec 91 owner review: a dashed bubble whose result is still unknown (an email the provider did not answer, a manual attempt
+ * without result) explains itself on hover and focus, and to screen readers. Opened WhatsApp and Instagram sends are not
+ * listed until confirmed (spec 92 owner decision), so they never get here.
+ */
+export const UNCONFIRMED_HINT='Todavía no sabemos si salió: falta el resultado del envío.';
+function SentBubble({entry}:{entry:SentEntry}){
+ const hintId=useId();
+ const body=<div className={styles.bubble} tabIndex={entry.tone==='unconfirmed'?0:undefined} aria-describedby={entry.tone==='unconfirmed'?hintId:undefined}>{entry.subject&&<strong className={styles.subject}>{entry.subject}</strong>}<ClampedText className={styles.text} text={entry.text||'Sin contenido registrado'} lines={clampLinesFor(entry.channel)}/>{entry.tone==='unconfirmed'&&<span id={hintId} className={styles.srOnly}>{UNCONFIRMED_HINT}</span>}</div>;
+ if(entry.tone!=='unconfirmed')return body;
+ return <Tooltip label={UNCONFIRMED_HINT} events={{hover:true,focus:true,touch:true}} multiline w={260} withArrow openDelay={150} zIndex={LAYERS.tooltip}>{body}</Tooltip>;
+}
+
+/** Spec 92: «⋯» of an Instagram attempt: «Ver texto preparado» when the text sent through Instagram differs from the prepared one. */
+function InstagramItemMenu({view,message,panels,label}:{view:CommunicationView;message:Message;panels:Panels;label:string}){
+ const actions:ItemAction[]=[
+  ...(isInstagramConfirmed(message)&&instagramTextEdited(message)?[{label:'Ver texto preparado',onSelect:()=>panels.setPrepared(true)}]:[]),
+  ...messageActions(view,message,panels),
+ ];
+ return <ItemMenu label={label} actions={actions}/>;
+}
+
+function Sent({view,entry,highlighted}:ItemProps<SentEntry>){
+ const panels=useItemPanels(),message=entry.message,instagram=isInstagramAttempt(message);
+ const edited=isInstagramConfirmed(message)&&instagramTextEdited(message);
+ // `data-tone` marks unconfirmed, not done or failed rows (dashed, muted) so they never look sent.
+ return <div className={styles.row} data-side="out" data-tone={entry.tone} data-voided={entry.voided||undefined} {...rowProps(entry,highlighted)}><article className={styles.bubbleWrap} aria-label={entry.label}>
+  <Head entry={entry} sender={entry.sender} badges={<>
+   <Tag kind="status" tone={entry.tone}>{entry.replyToInbound?'Respuesta al email recibido · ':''}{emailDeliveredLabel({status:message.status,engagement:message.emailEngagement})??entry.status}</Tag>
+   {message.channel==='email'&&<EmailEngagementBadges engagement={message.emailEngagement}/>}
+   {entry.autoRegistered&&!entry.echo&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}
+  </>} actions={<>
+   {message.channel==='email'&&!!message.htmlBody&&<Button size="sm" variant="outline" aria-label="Ver diseño del email" onClick={()=>panels.setDesign(true)}>Ver diseño</Button>}
+   {instagram?<InstagramItemMenu view={view} message={message} panels={panels} label={entry.label}/>:<ItemMenu label={entry.label} actions={messageActions(view,message,panels)}/>}
+  </>}/>
+  <div className={styles.bubbleLine}><SentBubble entry={entry}/></div>
+  {edited&&<p className={styles.note}>Editado antes de enviar</p>}
+  <MessageMaterialRecord view={view} message={entry.message}/>
+  <PendingActions view={view} message={entry.message}/>
+  <MessagePanels view={view} message={entry.message} panels={panels}/>
+ </article></div>;
+}
+
+/** Spec 91 §4: a call as a slim centred line («Llamada · No atendió · Ana · 11:30»), its summary as a second muted line. */
+function Call({view,entry,highlighted}:ItemProps<CallEntry>){
+ const panels=useItemPanels(),label='Llamada registrada · '+entry.result;
+ return <div className={styles.row} data-side="event" data-voided={entry.voided||undefined} {...rowProps(entry,highlighted)}><article className={styles.event} aria-label={label}>
+  <div className={styles.eventLine}><span><time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time> · </span><ChannelIcon channel="call" size={14}/><span><strong>Llamada</strong> · {entry.result} · <Side>Nosotros</Side>{entry.sender}</span><span className={styles.eventTail}>{entry.autoRegistered&&<Tag kind="auto_registered">Registrado automáticamente</Tag>}{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={label} actions={messageActions(view,entry.message,panels)}/></span></div>
+  {entry.text&&<p className={styles.eventNote}>{entry.text}</p>}
+  <PendingActions view={view} message={entry.message}/>
+  <MessagePanels view={view} message={entry.message} panels={panels}/>
+ </article></div>;
+}
+
+/** Spec 91 §4: a response without a message as a slim centred line, with what was registered as a second muted line. */
+function ResponseEvent({view,entry,highlighted}:ItemProps<ResponseEntry>){
+ const panels=useItemPanels();
+ const actions:ItemAction[]=canCorrectResponse(view,entry.response)?[{label:'Corregir respuesta',onSelect:()=>panels.setCorrecting(true)}]:[];
+ return <div className={styles.row} data-side="event" {...rowProps(entry,highlighted)}><article className={styles.event} aria-label={entry.text}>
+  <div className={styles.eventLine}><span><time dateTime={entry.at.toISOString()}>{formatTime(entry.at)}</time> · </span><Reply size={14} aria-hidden="true"/><span><strong>{entry.text}</strong> · {entry.channelLabel} · <Side>Negocio</Side>registró {entry.sender}</span><span className={styles.eventTail}>{entry.managementId!=null&&<span className={styles.context}>{entry.context}</span>}<ItemMenu label={entry.text} actions={actions}/></span></div>
+  {(()=>{const note=responseNote(view,entry.response,false);return note?<p className={styles.eventNote}>{note}</p>:null})()}
+  {panels.correcting&&<ResponseCorrectionForm response={entry.response} openManagements={view.data.openManagements} canRecordDnc={view.canRecordDnc} canLiftDnc={view.admin} onClose={()=>panels.setCorrecting(false)}/>}
+ </article></div>;
+}
+
+/** One item of «Conversación»: received bubble (left), sent bubble (right), or a centred call / response-without-message line. */
+export function ConversationItem({view,entry,highlighted=false}:{view:CommunicationView;entry:TimelineEntry;highlighted?:boolean}){
+ switch(entry.kind){
+  case 'received':return <Received view={view} entry={entry} highlighted={highlighted}/>;
+  case 'sent':return <Sent view={view} entry={entry} highlighted={highlighted}/>;
+  case 'call':return <Call view={view} entry={entry} highlighted={highlighted}/>;
+  default:return <ResponseEvent view={view} entry={entry} highlighted={highlighted}/>;
+ }
+}

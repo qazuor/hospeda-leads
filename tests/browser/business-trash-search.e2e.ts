@@ -13,6 +13,7 @@ for(const width of [1280,390])test(`business deletion, CRM search and management
   else if(path.endsWith('/settings'))data={users:[],cities:[],types:[],subtypes:[],contactChannels:[],templates:[],authorizedEmails:[],opportunityStages:[]};
   else if(path.endsWith('/commercial')){
    if(route.request().method()==='POST'){writes.push(superjson.parse(route.request().postData()!));deleted=false;data={id:'1'};}
+   else if(url.searchParams.has('historyPage'))data={events:[],total:0,page:1,pending:[],totalPending:0};
    else if(url.searchParams.has('accountId'))data={account:{...account,deletedAt:null},contacts:[],opportunities:[],journal:[],leadJournal:[],stages:[]};
    else data={rows:url.searchParams.get('deleted')==='true'&&!deleted?[]:[{...account,deletedAt:url.searchParams.get('deleted')==='true'?account.deletedAt:null}],total:url.searchParams.get('deleted')==='true'&&!deleted?0:1,page:1};
   }else if(path.endsWith('/search'))data={results:[{id:'business:1',kind:'Negocios',label:account.nombre,description:'Colón',url:'/accounts/1'},{id:'note:2',kind:'Notas',label:'Café y reunión',description:account.nombre,url:'/sales/4'},{id:'file:3',kind:'Archivos',label:'Propuesta café.pdf',description:account.nombre,url:'/accounts/1?section=documents'}]};
@@ -28,7 +29,7 @@ for(const width of [1280,390])test(`business deletion, CRM search and management
  await page.getByRole('button',{name:'Restaurar',exact:true}).click();const restore=page.getByRole('dialog',{name:'Restaurar negocio',exact:true});
  await expect(restore).toContainText('mantienen');await restore.getByRole('button',{name:'Restaurar negocio',exact:true}).click();
  await expect(restore).toHaveCount(0);await expect(page.getByText('No hay negocios en papelera.',{exact:true})).toBeVisible();expect(writes).toEqual([{action:'account_trash',accountIds:['1'],deleted:false,reason:'Restauración desde Papelera'}]);
- await page.getByText('Gestiones',{exact:true}).click();await expect(page.getByText('No hay gestiones en papelera.',{exact:true})).toBeVisible();
+ await page.locator('main').getByText('Gestiones',{exact:true}).click();await expect(page.getByText('No hay gestiones en papelera.',{exact:true})).toBeVisible();
  await page.goto('/guide');await page.getByRole('button',{name:'Abrir accesos rápidos',exact:true}).click();
  const palette=page.getByRole('dialog',{name:'Accesos rápidos',exact:true}),search=palette.getByRole('textbox',{name:'Buscar opciones',exact:true});
  await search.fill('cafe');await expect(palette.locator('[data-command-option]')).toHaveCount(3);await expect(palette.getByRole('group',{name:'Archivos',exact:true})).toBeVisible();
@@ -39,5 +40,5 @@ for(const width of [1280,390])test(`business deletion, CRM search and management
  const chooser=page.getByRole('dialog',{name:'Iniciar gestión',exact:true});await expect(chooser.getByRole('button',{name:new RegExp(account.nombre)})).toBeVisible();
  await expect(chooser.getByText('0 gestiones')).toHaveCount(0);await page.screenshot({path:`test-results/start-management-${width}.png`,animations:'disabled'});
  const bounds=await chooser.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right};});expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(width);
- await chooser.getByRole('button',{name:new RegExp(account.nombre)}).click();const preparation=page.getByRole('dialog',{name:'Preparar gestión',exact:true});await expect(preparation.getByRole('textbox',{name:'Nombre de la gestión',exact:true})).toHaveValue('Presentación de Hospeda');await page.screenshot({path:`test-results/prepare-management-${width}.png`,animations:'disabled'});await preparation.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(1);expect(errors).toEqual([]);
+ await chooser.getByRole('button',{name:new RegExp(account.nombre)}).click();const preparation=page.getByRole('dialog',{name:'Iniciar gestión',exact:true});await expect(preparation.getByRole('textbox',{name:'Nombre de la gestión',exact:true})).toHaveValue('Presentación de Hospeda');await page.screenshot({path:`test-results/prepare-management-${width}.png`,animations:'disabled'});await preparation.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(1);expect(errors).toEqual([]);
 });

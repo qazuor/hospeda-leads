@@ -21,7 +21,7 @@ async function call(handler:(r:Request)=>Promise<Response>,url:string,body?:unkn
  const data=superjson.parse<any>(await r.text());assert.equal(r.status,status,data.error);return data;
 }
 const count=async()=>Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n);
-const auditDB=postgres(process.env.DATABASE_URL!,{max:1,prepare:false});
+const auditDB=postgres(process.env.DATABASE_URL!,{max:1,prepare:false,path:process.env.CRM_TEST_DATABASE_SOCKET});
 try{
  const initial=await count();
  const {id:accountId}=await call(post,'commercial',{action:'account_save',nombre:'Solo negocio '+stamp});
@@ -37,14 +37,16 @@ try{
  await call(quality,'data_quality',{action:'import_confirm',batchId:historic.id,decisions:[{index:0,action:'create'}],confirm:true},409);
  assert.equal(await count(),initial);
  const payload={action:'opportunity_save',accountId,opportunityName:'Presentación de Hospeda',creationRequestKey:randomUUID()};
- const attempts=await Promise.all([call(post,'commercial',payload),call(post,'commercial',payload)]);
+ await call(post,'commercial',payload,400);assert.equal((await call(get,'commercial?accountId='+accountId)).account.status,'new');assert.equal(await count(),initial,'A rejected creation leaves the business unchanged');
+ const confirmedPayload={...payload,confirmReviewed:true};
+ const attempts=await Promise.all([call(post,'commercial',confirmedPayload),call(post,'commercial',confirmedPayload)]);
  assert.equal(attempts[0].id,attempts[1].id);assert.equal(await count(),initial+1,'Concurrent retries create only one management');
  const first=await db.selectFrom('leads').selectAll().where('id','=',attempts[0].id).executeTakeFirstOrThrow();
  for(const field of ['estado','serviceInterest','estimatedCloseDate','primaryContactId','fechaUltimoContacto','resultadoUltimoContacto'] as const)assert.equal(first[field],null);
  assert.equal(first.assignedUserEmail,user.email);assert.equal(first.accountId,accountId);
  assert.equal((await db.selectFrom('leadJournal').selectAll().where('leadId','=',first.id).where('action','=','created').execute()).length,1);
- await call(post,'commercial',{...payload,opportunityName:'Changed uncertain retry'},409);assert.equal(await count(),initial+1);
- const {id:second}=await call(post,'commercial',{...payload,creationRequestKey:randomUUID(),opportunityName:'Segunda gestión'});
+ await call(post,'commercial',{...confirmedPayload,opportunityName:'Changed uncertain retry'},409);assert.equal(await count(),initial+1);
+ const {id:second}=await call(post,'commercial',{...confirmedPayload,creationRequestKey:randomUUID(),opportunityName:'Segunda gestión'});
  assert.notEqual(second,first.id);assert.equal((await call(get,'commercial?accountId='+accountId)).opportunities.length,2);
  // Fixtures exercise actual FK discovery, unkeyed history and JSON evidence.
  const blank=await db.insertInto('leads').values({accountId,nombre:'Blank candidate'}).returningAll().executeTakeFirstOrThrow();

@@ -1,0 +1,44 @@
+import {describe,expect,it} from 'vitest';
+import {MANAGEMENT_RECONTACT_TASK_TITLE,RECONTACT_TASK_TITLE,isPastDay,managementRecontactFor,managementRecontactOwner,recontactCancelReason,recontactNotice,recontactScheduled,scheduledForName} from './recontactTask';
+
+describe('recontact task copy',()=>{
+ it('tells the seller before and after saving which task is scheduled and on which Argentina calendar day',()=>{
+  expect(RECONTACT_TASK_TITLE).toBe('Volver a contactar');
+  expect(recontactNotice('2026-11-15')).toBe('Se va a agendar «Volver a contactar» para el 15 de nov de 2026.');
+  expect(recontactScheduled('2026-11-15')).toBe('Agendamos «Volver a contactar» para el 15 de nov de 2026.');
+  expect(recontactNotice('2026-01-01')).toContain('1 de ene de 2026');
+ });
+ it('names the management task when a re-save moved the management reminder instead of scheduling a business one',()=>{
+  expect(MANAGEMENT_RECONTACT_TASK_TITLE).toBe('Recontactar según lo acordado');
+  expect(recontactScheduled('2026-11-15',null,MANAGEMENT_RECONTACT_TASK_TITLE)).toBe('Agendamos «Recontactar según lo acordado» para el 15 de nov de 2026.');
+ });
+ it('gives the close reminder to the business responsible, then the management assignee, then the closer, and says so when it is someone else',()=>{
+  expect(managementRecontactOwner({accountOwner:'b@example.com',managementOwner:'a@example.com',actorEmail:'a@example.com'})).toBe('b@example.com');
+  expect(managementRecontactOwner({accountOwner:null,managementOwner:'a@example.com',actorEmail:'c@example.com'})).toBe('a@example.com');
+  expect(managementRecontactOwner({accountOwner:null,managementOwner:null,actorEmail:'c@example.com'})).toBe('c@example.com');
+  expect(managementRecontactFor('Beto')).toBe('La tarea «Recontactar según lo acordado» quedó agendada para Beto.');
+ });
+ it('names the assignee only when it is not the saver',()=>{
+  expect(recontactNotice('2026-11-15','Marta')).toBe('Se va a agendar «Volver a contactar» para el 15 de nov de 2026 · a cargo de Marta.');
+  expect(recontactScheduled('2026-11-15','Marta')).toContain(' · a cargo de Marta.');
+  const users=[{email:'marta@example.com',displayName:'Marta'},{email:'sin@example.com',displayName:null}];
+  expect(scheduledForName({responsibleEmail:'marta@example.com',currentUserEmail:'marta@example.com',users})).toBeNull();
+  expect(scheduledForName({responsibleEmail:'marta@example.com',currentUserEmail:'ana@example.com',users})).toBe('Marta');
+  expect(scheduledForName({responsibleEmail:'sin@example.com',currentUserEmail:'ana@example.com',users})).toBe('sin@example.com');
+  expect(scheduledForName({responsibleEmail:null,currentUserEmail:'ana@example.com',users})).toBeNull();
+ });
+ it('detects a past Argentina day without using the UTC date',()=>{
+  const lateEvening=new Date('2026-11-16T01:30:00Z');// still 15 Nov in Argentina
+  expect(isPastDay('2026-11-15',lateEvening)).toBe(false);
+  expect(isPastDay('2026-11-14',lateEvening)).toBe(true);
+  expect(isPastDay('2026-11-16',lateEvening)).toBe(false);
+ });
+ it('gives a factual cancellation reason for each cause',()=>{
+  expect(recontactCancelReason('status')).toMatch(/dejó de ser Recontactar/);
+  expect(recontactCancelReason('date')).toMatch(/se quitó la fecha/);
+  expect(recontactCancelReason('changed')).toMatch(/cambió a otro día/);
+  expect(recontactCancelReason('management')).toMatch(/la gestión ya tiene su propia tarea de recontacto/);
+  expect(recontactCancelReason('dnc')).toMatch(/No contactar/);
+  expect(recontactCancelReason('archived')).toMatch(/se archivó/);
+ });
+});

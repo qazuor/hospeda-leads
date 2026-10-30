@@ -14,31 +14,40 @@ for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
   const {id}=await mutate({action:'account_save',nombre:'Preparación explícita '+viewport.width+' '+Date.now(),email:'business@example.com'});
   expect((await detail(id)).opportunities).toHaveLength(0);
   await page.goto('/accounts/'+id);
-  await page.getByRole('tab',{name:/^Gestiones comerciales/}).click();
+  await page.getByRole('tab',{name:'Gestiones',exact:true}).click();
   await expect(page.getByText(/Sin gestiones iniciadas/)).toBeVisible();
+  await expect(page.getByText(/por ejemplo «Plan anual 2027»/)).toBeVisible();
+  await page.getByRole('button',{name:'¿Qué es esto? Estado'}).click();await expect(page.getByText(/Dice en qué situación está el negocio/)).toBeVisible();await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();
-  let dialog=page.getByRole('dialog',{name:'Preparar gestión'});
+  let dialog=page.getByRole('dialog',{name:'Iniciar gestión'});
   await expect(dialog.getByLabel('Nombre de la gestión')).toHaveValue('Presentación de Hospeda');
-  await expect(dialog.getByRole('combobox',{name:'Estado / etapa',exact:true})).toHaveValue('');
+  await expect(dialog.getByText(/figura como Nuevo/)).toBeVisible();
+  await expect(dialog.getByText(/Para que el negocio se sume a Hospeda con un plan/)).toBeVisible();
+  const typeSelect=dialog.getByRole('combobox',{name:'Tipo de gestión',exact:true});await expect(typeSelect).toHaveValue('main');
   await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(dialog).toHaveCount(0);
   expect((await detail(id)).opportunities).toHaveLength(0);
-  await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:'Preparar gestión'});
-  await dialog.getByLabel('Propuesta (opcional)',{exact:true}).fill('Revisar la presentación antes de contactar');
+  await page.getByRole('button',{name:'Iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:'Iniciar gestión'});
+  await dialog.getByText('Más datos (opcional)',{exact:true}).click();
+  await dialog.getByLabel('Propuesta o tema (opcional)',{exact:true}).fill('Revisar la presentación antes de contactar');
   let release!:()=>void;const gate=new Promise<void>(r=>release=r);
   await page.route('**/_api/commercial',async route=>{if(route.request().method()==='POST')await gate;await route.continue();});
   try{
-   await dialog.getByRole('button',{name:'Guardar',exact:true}).click();
+   await dialog.getByRole('button',{name:'Marcar Revisado e iniciar gestión',exact:true}).click();
    await expect(dialog.getByRole('button',{name:'Guardando gestión…',exact:true})).toBeDisabled();
-   await expect(dialog.getByLabel('Propuesta (opcional)',{exact:true})).toBeDisabled();
+   await expect(dialog.getByLabel('Propuesta o tema (opcional)',{exact:true})).toBeDisabled();
    await expect(dialog.getByRole('button',{name:'Cancelar',exact:true})).toBeDisabled();
   }finally{release();}
   await expect(dialog).toHaveCount(0);await expect(page.getByRole('status').filter({hasText:'Gestión iniciada. Ahora planificá cómo empezar.'}).getByRole('link',{name:'Abrir gestión',exact:true})).toBeVisible();
-  const saved=await detail(id);expect(saved.opportunities).toHaveLength(1);expect(saved.opportunities[0].estado).toBeNull();expect(saved.opportunities[0].primaryContactId).toBeNull();expect(saved.opportunities[0].fechaUltimoContacto).toBeNull();expect(saved.opportunities[0].estimatedCloseDate).toBeNull();
+  const saved=await detail(id);expect(saved.account.status).toBe('in_management');expect(saved.opportunities).toHaveLength(1);expect(saved.opportunities[0].estado).toBe('main:contact');expect(saved.opportunities[0].primaryContactId).toBeNull();expect(saved.opportunities[0].fechaUltimoContacto).toBeNull();expect(saved.opportunities[0].estimatedCloseDate).toBeNull();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   await page.screenshot({path:`test-results/explicit-management-${viewport.width}.png`,fullPage:true});
-  if(viewport.width<768)await page.getByRole('button',{name:'Abrir menú de navegación',exact:true}).click();
-  await page.getByRole('link',{name:'Gestiones comerciales',exact:true}).click();
+  
+  await page.getByRole('link',{name:'Gestiones',exact:true}).click();
+  // Phones start on the table; the board is one tap away.
+  if(viewport.width<768)await expect(page.locator('[aria-label="Pipeline comercial"]')).toHaveCount(0);await page.getByRole('button',{name:'Tablero comercial',exact:true}).click();
   await expect(page.locator('[aria-label="Pipeline comercial"]')).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Gestiones comerciales',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Gestiones',exact:true})).toBeVisible();
+  const typeHint=page.getByRole('button',{name:'¿Qué es esto? Tipo de gestión'});await expect(typeHint).toBeVisible();expect((await typeHint.boundingBox())!.width).toBeLessThan(80);
+  await page.goto('/sales/'+saved.opportunities[0].id);await expect(page.getByRole('button',{name:'¿Qué es esto? Etapa'})).toHaveCount(1);
  });
 }

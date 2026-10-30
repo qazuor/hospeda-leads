@@ -5,10 +5,11 @@ import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from ".
 import { Popover, PopoverContent, PopoverTrigger } from "./Popover";
 import { ValueBadge, type BadgeCategory } from "./ValueBadge";
 import styles from "./BadgeSelect.module.css";
+import {DisabledTooltip} from './Tooltip';
 
 export const BadgeSelect=({
   value,options,onChange,category="generic",placeholder="Seleccionar…",emptyLabel="Sin asignar",
-  searchable=true,disabled=false,className,assignWhenEmpty=false
+  searchable=true,disabled=false,disabledReason="Solo el responsable autorizado del negocio o un administrador puede modificar este dato.",className,assignWhenEmpty=false
 }:{
   value:string;
   options:string[];
@@ -18,13 +19,14 @@ export const BadgeSelect=({
   emptyLabel?:string;
   searchable?:boolean;
   disabled?:boolean;
+  disabledReason?:string;
   className?:string;
   assignWhenEmpty?:boolean;
 })=>{
   const [open,setOpen]=useState(false);
   const unique=useMemo(()=>Array.from(new Set(options.filter(Boolean))),[options]);
   return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild>
+    <DisabledTooltip disabled={disabled} reason={disabledReason} style={{width:'100%'}}><PopoverTrigger asChild>
       <UnstyledButton
         type="button"
         disabled={disabled}
@@ -42,7 +44,7 @@ export const BadgeSelect=({
         </span>
         {(!assignWhenEmpty||value)&&<ChevronsUpDown className={styles.chevrons} size={14}/>}
       </UnstyledButton>
-    </PopoverTrigger>
+    </PopoverTrigger></DisabledTooltip>
     <PopoverContent removeBackgroundAndPadding align="start" className={styles.popover}>
       <Command>
         {searchable&&<CommandInput placeholder="Buscar…"/>}

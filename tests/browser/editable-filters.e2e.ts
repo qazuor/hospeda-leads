@@ -11,6 +11,7 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(({ preferences, dark }) => {
     localStorage.setItem('hospeda-live-mode', 'off');
+    localStorage.setItem('hospeda-business-seller-default-v1-user-3','1');
     localStorage.setItem('hospeda-business-list-v1-user-3', JSON.stringify({ preferences, context: { page: 1, scrollY: 0, scrollX: 0 } }));
     if (dark) localStorage.setItem('hospeda-theme-mode', 'dark');
   }, { preferences, dark: width === 390 });
@@ -48,7 +49,7 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
   await legend.getByRole('button', { name: 'Cambiar valor del filtro Ciudad no es Concordia', exact: true }).click(); await popup.getByRole('option', { name: 'Colón', exact: true }).click();
   await expect.poll(() => requests.at(-1)?.filters[0].rules[1].value).toBe('Colón'); expect(requests.at(-1).filters[0].rules[1].operator).toBe('neq');
   await legend.getByRole('button', { name: 'Quitar filtro Ciudad no es Colón', exact: true }).click();
-  await expect(legend.getByText('O', { exact: true })).toHaveCount(0);
+  await expect(legend.getByText('o', { exact: true })).toHaveCount(0);
   await expect(legend.getByRole('button', { name: 'Cambiar valor del filtro Vertical sin valor', exact: true })).toHaveCount(0);
   await legend.getByRole('button', { name: 'Quitar filtro Vertical sin valor', exact: true }).click();
   await legend.getByRole('button', { name: 'Cambiar valor del filtro Responsable es Ana', exact: true }).click(); popup = page.getByRole('dialog', { name: 'Elegir valor de Responsable', exact: true });
@@ -63,6 +64,7 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
   await popup.getByRole('textbox', { name: 'Búsqueda aplicada', exact: true }).fill('Revisada'); await popup.getByRole('button', { name: 'Aplicar valor', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Buscar negocios', exact: true })).toHaveValue('Revisada');
   await page.getByRole('button', { name: 'Editar filtros', exact: true }).click(); const builder = page.getByRole('dialog', { name: 'Filtrar negocios', exact: true });
+  const overlay=page.locator('.crm-dialog-overlay');await expect(overlay).toBeVisible();await expect(overlay).toHaveCSS('backdrop-filter','blur(2px)');await expect.poll(()=>overlay.evaluate(element=>getComputedStyle(element).backgroundColor)).toContain(width===390?'0.65)':'0.45)');
   await builder.getByRole('textbox', { name: 'Texto libre de búsqueda', exact: true }).fill('Contextual');
   await builder.getByRole('button', { name: 'Aplicar y guardar como vista', exact: true }).click();
   const save = page.getByRole('dialog', { name: 'Guardar como vista', exact: true }); await expect(save).toBeVisible(); await expect(builder).toHaveCount(0);
@@ -77,11 +79,11 @@ for (const width of [1280, 390]) test(`edit filter badges and save the reviewed 
   await page.getByRole('button', { name: 'Editar filtros', exact: true }).click();
   await builder.getByRole('checkbox', { name: 'Quitar estos filtros al aplicar', exact: true }).check(); await builder.getByRole('button', { name: 'Aplicar filtros', exact: true }).click();
   await expect.poll(() => requests.at(-1)?.classification).toBeNull();
-  await legend.getByRole('button', { name: 'Quitar filtro Texto libre contiene «Contextual»', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Buscar negocios', exact: true })).toHaveValue('');
-  await legend.getByRole('button', { name: 'Quitar filtro Ciudad es Concordia', exact: true }).click();
-  await legend.getByRole('button', { name: 'Quitar filtro Responsable es Bruno', exact: true }).click();
-  await expect(legend.getByText('Sin filtros aplicados', { exact: true })).toBeVisible();
-  await expect.poll(() => requests.at(-1)?.filters.length).toBe(0);
+  await expect(legend.getByText('Vista: Vista revisada', { exact: false })).toBeVisible();
+  await expect(legend.getByText('Sin filtros agregados manualmente', { exact: true })).toBeVisible();
+  await expect(legend.getByRole('button', { name: /Cambiar valor del filtro/ })).toHaveCount(0);
+  await expect.poll(() => requests.at(-1)?.classification).toBeNull();
+  await expect.poll(() => requests.at(-1)?.query).toBe('Contextual');
+  expect(requests.at(-1)?.filters).toEqual(saved[0].config.preferences.filters);
 
 });

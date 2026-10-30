@@ -18,13 +18,13 @@ export function WorkTypesSettings(){
    <label>Nombre visible<Input required value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
    <label className={styles.checkbox}><Checkbox  checked={draft.agenda} onChange={e=>setDraft({...draft,agenda:e.target.checked})}/>Mostrar en agenda</label>
    <label className={styles.checkbox}><Checkbox  checked={draft.active} disabled={draft.id==='followup'} onChange={e=>setDraft({...draft,active:e.target.checked})}/>Activo</label>
-   {save.error&&<p role="alert">{save.error.message}</p>}<div className={styles.actions}><Button disabled={save.isPending} type="submit">{save.isPending?'Guardando…':editing?'Guardar tipo':'Agregar tipo'}</Button>{editing&&<Button variant="outline" type="button" onClick={()=>{setEditing(false);setDraft({id:'',name:'',agenda:false,active:true});}}>Volver</Button>}</div>
+   {save.error&&<p role="alert">{save.error.message}</p>}<div className={styles.actions}><Button disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." type="submit">{save.isPending?'Guardando…':editing?'Guardar tipo':'Agregar tipo'}</Button>{editing&&<Button variant="outline" type="button" onClick={()=>{setEditing(false);setDraft({id:'',name:'',agenda:false,active:true});}}>Volver</Button>}</div>
   </fieldset></form>
- <h3>Interesados sin seguimiento</h3><p className={styles.muted}>Definí las etapas que indican interés y cuántos días una nueva asignación aparece en Mi día.</p>
+ <h3>Interesados sin seguimiento</h3><p className={styles.muted}>Definí las etapas que indican interés y cuántos días una nueva asignación aparece en Hoy.</p>
   <form className={styles.form} onSubmit={e=>{e.preventDefault();save.mutate({action:'followup_settings',stages:(followupDraft?.stages??q.data?.followupStages.join(',')??'').split(',').map(s=>s.trim()).filter(Boolean),newAssignmentDays:followupDraft?.days??q.data?.newAssignmentDays??7});}}><fieldset disabled={save.isPending} style={{display:"contents"}}>
    <label>Etapas interesadas (separadas por coma)<Input value={followupDraft?.stages??q.data?.followupStages.join(', ')??''} onChange={e=>setFollowupDraft({stages:e.target.value,days:followupDraft?.days??q.data?.newAssignmentDays??7})}/></label>
    <label>Días para nuevas asignaciones<Input type="number" min={1} max={90} value={followupDraft?.days??q.data?.newAssignmentDays??7} onChange={e=>setFollowupDraft({stages:followupDraft?.stages??q.data?.followupStages.join(', ')??'',days:Number(e.target.value)})}/></label>
-   <div className={styles.actions}><Button type="submit" disabled={save.isPending}>{save.isPending?'Guardando…':'Guardar seguimiento'}</Button></div>
+   <div className={styles.actions}><Button type="submit" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar.">{save.isPending?'Guardando…':'Guardar seguimiento'}</Button></div>
   </fieldset></form>
  </article>;
 }

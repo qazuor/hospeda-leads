@@ -1,23 +1,28 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Popover as MantinePopover, type PopoverProps, UnstyledButton } from '@mantine/core';
 import { ControlTarget } from './ui/ControlTarget';
 import styles from './ui/CrmControls.module.css';
+import {LAYERS} from '../helpers/layers';
 
 interface ContentProps extends React.HTMLAttributes<HTMLDivElement> {
   transitionDuration?: number; removeBackgroundAndPadding?: boolean; matchTargetWidth?: boolean; align?: 'start' | 'center' | 'end'; side?: 'top' | 'bottom' | 'left' | 'right'; sideOffset?: number;
   onEscapeKeyDown?: (event: Event) => void; onInteractOutside?: (event: Event) => void; onOpenAutoFocus?: (event: Event) => void;
 }
-const Context = createContext({ change: (_open: boolean) => {}, opened: false });
+const Context = createContext({ change: (_open: boolean) => {}, opened: false, reportChild: (_open: boolean) => {} });
+/** True inside another popover's dropdown: a nested popover renders in place so clicks in it still count as inside the parent. */
+/** Set by the enclosing popover; the nested one reports whether it is open so Escape closes only the innermost. */
+const NestedContext = createContext<((open: boolean) => void) | null>(null);
 export function Popover({ children, open, defaultOpen, onOpenChange }: { children: React.ReactNode; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void }) {
-  const [local, setLocal] = useState(defaultOpen ?? false);
+  const [local, setLocal] = useState(defaultOpen ?? false); const parentReport = useContext(NestedContext), nested = parentReport !== null; const [childOpen, setChildOpen] = useState(false);
+  useEffect(() => { parentReport?.(open ?? local); return () => parentReport?.(false); }, [open, local, parentReport]);
   const change = (next: boolean) => { setLocal(next); onOpenChange?.(next); };
   const content = React.Children.toArray(children).find(child => React.isValidElement(child) && child.type === PopoverContent) as React.ReactElement<ContentProps> | undefined;
   const config = content?.props; const position = `${config?.side ?? 'bottom'}${config?.align && config.align !== 'center' ? '-'+config.align : ''}` as PopoverProps['position'];
-  return <Context.Provider value={{ change, opened: open ?? local }}><MantinePopover opened={open ?? local} onChange={next => {
+  return <Context.Provider value={{ change, opened: open ?? local, reportChild: setChildOpen }}><MantinePopover opened={open ?? local} onChange={next => {
     if (!next && config?.onInteractOutside) { const event = new Event('dismiss', { cancelable: true }); config.onInteractOutside(event); if (event.defaultPrevented) return; }
     change(next);
-  }} width={config?.matchTargetWidth ? 'target' : undefined} position={position} offset={config?.sideOffset ?? 4} withinPortal floatingStrategy="fixed" middlewares={{ flip: { padding: 12 }, shift: { padding: 12, crossAxis: true, limiter: undefined }, size: { padding: 12 } }} zIndex={430} shadow="md" returnFocus
-    transitionProps={config?.transitionDuration===undefined?undefined:{duration:config.transitionDuration}} trapFocus={!config?.onOpenAutoFocus} closeOnEscape={!config?.onEscapeKeyDown}>
+  }} width={config?.matchTargetWidth ? 'target' : undefined} position={position} offset={config?.sideOffset ?? 4} withinPortal={!nested} floatingStrategy="fixed" middlewares={{ flip: { padding: 12 }, shift: { padding: 12, crossAxis: true, limiter: undefined }, size: { padding: 12 } }} zIndex={LAYERS.popover} shadow="md" returnFocus
+    transitionProps={config?.transitionDuration===undefined?undefined:{duration:config.transitionDuration}} trapFocus={!config?.onOpenAutoFocus} closeOnEscape={!config?.onEscapeKeyDown && !childOpen}>
     {children}
   </MantinePopover></Context.Provider>;
 }
@@ -28,8 +33,8 @@ export const PopoverTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHT
 });
 PopoverTrigger.displayName = 'PopoverTrigger';
 export const PopoverContent = React.forwardRef<HTMLDivElement, ContentProps>(({ className, transitionDuration, removeBackgroundAndPadding, matchTargetWidth, align, side, sideOffset, onEscapeKeyDown, onInteractOutside, onOpenAutoFocus, onKeyDown, ...props }, ref) => {
-  const { change } = useContext(Context);
-  return <MantinePopover.Dropdown {...props} {...(props['aria-label'] ? { 'aria-labelledby': '' } : {})} ref={ref} className={[styles.dropdown, className].filter(Boolean).join(' ')} p={removeBackgroundAndPadding ? 0 : 16}
-    onKeyDown={event => { onKeyDown?.(event); if (event.key === 'Escape' && onEscapeKeyDown) { event.stopPropagation(); const dismiss = new Event('dismiss', { cancelable: true }); onEscapeKeyDown(dismiss); if (!dismiss.defaultPrevented) change(false); } }} />;
+  const { change, reportChild } = useContext(Context);
+  return <NestedContext.Provider value={reportChild}><MantinePopover.Dropdown {...props} {...(props['aria-label'] ? { 'aria-labelledby': '' } : {})} ref={ref} className={[styles.dropdown, className].filter(Boolean).join(' ')} p={removeBackgroundAndPadding ? 0 : 16}
+    onKeyDown={event => { onKeyDown?.(event); if (event.key === 'Escape' && onEscapeKeyDown) { event.stopPropagation(); const dismiss = new Event('dismiss', { cancelable: true }); onEscapeKeyDown(dismiss); if (!dismiss.defaultPrevented) change(false); } }} /></NestedContext.Provider>;
 });
 PopoverContent.displayName = 'PopoverContent';

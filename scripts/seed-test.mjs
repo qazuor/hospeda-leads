@@ -3,7 +3,8 @@ import postgres from "postgres";
 
 const databaseUrl=process.env.DATABASE_URL;
 if(!databaseUrl)throw new Error("DATABASE_URL is required");
-const sql=postgres(databaseUrl,{max:1});
+if(process.env.CRM_TEST_DATABASE!=='1')throw new Error('CRM_TEST_DATABASE=1 is required for the destructive test seed');
+const sql=postgres(databaseUrl,{max:1,path:process.env.CRM_TEST_DATABASE_SOCKET});
 const passwordHash=await hash("test-password-123",10);
 
 await sql.begin(async tx=>{

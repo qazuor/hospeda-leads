@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push * staging)",
+      "Bash(git push * staging *)",
+      "Bash(git push * *:main)",
+      "Bash(git push * *:main *)",
+      "Bash(git push * *:staging)",
+      "Bash(git push * *:staging *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git push *--force*)",
+      "Bash(git push *--mirror*)",
+      "Bash(git push *--delete*)",
+      "Bash(git push *+main*)",
+      "Bash(git push *+staging*)",
+      "Bash(git push *refs/heads/main*)",
+      "Bash(git push *refs/heads/staging*)",
+      "Bash(git -C * push *)",
+      "Bash(git -c * push *)",
+      "Bash(git commit *--amend* main)",
+      "Bash(git commit *--amend* staging)",
+      "Bash(gh workflow run *deploy-vps*)",
+      "Bash(gh pr merge *--admin*)"
+    ]
+  }
+}

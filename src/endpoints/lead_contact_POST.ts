@@ -1,6 +1,5 @@
 import {CrmForbidden} from '../helpers/crmPermissions';
 import {sql} from 'kysely';
-import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {leadFor,CommunicationForbidden} from '../helpers/communicationService';
 import {setWorkActor} from "../helpers/workAudit";
 import { resolveCommercialContact } from "../helpers/commercialContact";
@@ -9,17 +8,18 @@ import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./lead_contact_POST.schema";
+import {errorResponse} from '../helpers/errorResponse';
+import {parseBody} from '../helpers/parseBody';
 
 export async function handle(request:Request){
   try{
     const {user}=await getServerUserSession(request);
-    const input=schema.parse(superjson.parse(await request.text()));
+    const input=schema.parse(await parseBody(request));
     await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
       await leadFor(trx,String(input.leadId),user);
       const lead=await trx.selectFrom("leads").selectAll().where("id","=",String(input.leadId)).where("deletedAt","is",null).executeTakeFirstOrThrow();
       const contact=await resolveCommercialContact(trx,lead,input.contactId);
-      if(['Respondió','Interesado','No interesado'].includes(input.result))await sql`SELECT crm_stop_sequences(${String(lead.id)}::bigint,${input.result})`.execute(trx);
       const contactedAt=new Date();
       const values:Record<string,unknown>={
         updatedAt:new Date()
@@ -43,6 +43,6 @@ export async function handle(request:Request){
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   }catch(error){
-    return new Response(superjson.stringify({error:error instanceof Error?error.message:"No se pudo registrar el contacto"}),{status:error instanceof CommunicationForbidden||error instanceof CrmForbidden?403:error instanceof NotAuthenticatedError?401:400});
+    return errorResponse(error,error instanceof CommunicationForbidden||error instanceof CrmForbidden?403:400);
   }
 }

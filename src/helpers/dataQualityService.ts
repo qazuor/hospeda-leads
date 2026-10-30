@@ -1,9 +1,11 @@
-import {assertAccountWritable,assertLeadAccess} from './crmPermissions';
+import {cancelRecontactTaskFor} from './recontactTask';
+import {assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Transaction,type Kysely} from 'kysely';
 import {z} from 'zod';
 import type {DB} from './schema';
 import {classificationErrors} from './accountClassification';
+import {findNewDncBlocker,DNC_DUPLICATE_MESSAGE} from '../endpoints/business_duplicate_check';
 import {businessImportFields,legacyBusinessFields,accountExtraFields,businessFields,importFields,normalizeField,matchAccounts,dataFieldLabels} from './dataNormalization';
 import {qualityMutation,type QualityMutation,type ReviewRow,type ImportResult} from '../endpoints/dataQuality.schema';
 import {setWorkActor} from './workAudit';
@@ -58,7 +60,7 @@ async function snapshot(database:Kysely<DB>,sourceId:string,destinationId:string
  const relations:Record<string,unknown[] >={};
  for(const table of ['leads','crmContacts','crmTasks','crmActivities','crmDataEvidence','crmCommercialJournal','leadJournal','crmWorkJournal'] as const)relations[table]=await database.selectFrom(table).selectAll().where('accountId','in',[sourceId,destinationId]).orderBy('id').execute();
  // These tables are intentionally queried using SQL: generated schema predates phase 3.
- for(const table of ['crm_pipeline_events','crm_objections','crm_messages','crm_contact_restrictions','crm_sequence_runs','crm_documents','crm_document_links'])relations[table]=(await sql`SELECT * FROM ${sql.table(table)} WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint) ORDER BY id`.execute(database)).rows;
+ for(const table of ['crm_pipeline_events','crm_objections','crm_messages','crm_contact_restrictions','crm_communication_responses','crm_communication_response_corrections','crm_communication_interaction_corrections','crm_communication_journal','crm_documents','crm_document_links','crm_auto_registrations','crm_sales_material_shares'])relations[table]=(await sql`SELECT * FROM ${sql.table(table)} WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint) ORDER BY id`.execute(database)).rows;
  const documentIds=(relations.crm_documents as Array<{id:string}>).map(d=>d.id);
  if(documentIds.length)relations.crmDocumentVersions=(await sql`SELECT to_jsonb(v)-'file_data' AS metadata FROM crm_document_versions v WHERE document_id IN (${sql.join(documentIds.map(id=>sql`${id}::uuid`))}) ORDER BY id`.execute(database)).rows;
  const leads=relations.leads as Array<{id:string}>;
@@ -102,7 +104,8 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    if(batch.ownerEmail!==user.email&&user.role!=='admin')throw new QualityForbidden('Lote de otro usuario.');
    if(batch.status==='completed')return batch.result;
    if(batch.mode!=='business')throw new QualityConflict('Este lote histórico crearía gestiones automáticamente. Volvé a importar el archivo en modo Solo negocios.');
-   // Bounded manual imports serialize against writers to recheck duplicates and previews safely.
+   // Bounded manual imports serialize against writers to recheck duplicates and previews safely: duplicate detection must also block
+   // concurrent INSERTs into crm_accounts, which row locks cannot do, so this path keeps the table lock.
    await sql`LOCK TABLE crm_accounts, leads IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
    const values=z.array(z.record(z.string())).parse(batch.rows);const review=await reviewRows(trx,values,batch.mode);
    if(policy&&(values.length>30||values.some(r=>r.asignadoA?.trim())))throw new QualityForbidden('Solo negocios sin asignación, hasta 30 filas.');
@@ -118,6 +121,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
     const fields=Object.fromEntries(Object.entries(row.values).filter(([,v])=>v.trim()));
     if(user.role!=='admin'&&fields.asignadoA)throw new QualityForbidden('Solo admin importa responsables.');
     if(d.action==='create'&&batch.mode==='business'){
+     if(await findNewDncBlocker(trx,{after:fields}))throw new QualityConflict(`Fila ${row.index+1}: ${DNC_DUPLICATE_MESSAGE}`);
      const assigned=fields.asignadoA?await trx.selectFrom('users').select('email').where(eb=>eb.or([eb('email','=',fields.asignadoA.trim()),eb('displayName','=',fields.asignadoA.trim())])).executeTakeFirstOrThrow():null;
      const data=Object.fromEntries(Object.entries(fields).filter(([f])=>(businessFields as readonly string[]).includes(f)));
      const account=await trx.insertInto('crmAccounts').values({...data,nombre:fields.nombre,assignedUserEmail:assigned?.email??null}).returningAll().executeTakeFirstOrThrow();
@@ -131,6 +135,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',d.targetId).where('mergedIntoId','is',null).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
      if(account.updatedAt.toISOString()!==d.revision)throw new QualityConflict(`Fila ${row.index+1}: el destino cambió. Generá el preview nuevamente.`);
      if(user.role!=='admin'&&account.assignedUserEmail!==user.email)throw new QualityForbidden('Solo podés actualizar tus negocios asignados.');
+     if(await findNewDncBlocker(trx,{after:{...account,...fields},before:account,excludeId:d.targetId}))throw new QualityConflict(`Fila ${row.index+1}: ${DNC_DUPLICATE_MESSAGE}`);
      const unsupported=Object.keys(fields).filter(f=>!(businessFields as readonly string[]).includes(f));
      if(unsupported.length)throw new QualityValidation(`Fila ${row.index+1}: actualizar negocio solo acepta datos generales; quitá ${unsupported.map(f=>dataFieldLabels[f]||f).join(', ')} del mapeo o creá/omití la fila.`);
      const classification=await classificationErrors(trx,fields.tipo??account.tipo,fields.subtipo??account.subtipo,account);
@@ -146,7 +151,9 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
   }
   if(input.action==='merge_confirm'){
    // Freeze all affected relationships, including legacy writers and JSON contact references.
-   await sql`LOCK TABLE crm_accounts,leads,crm_contacts,crm_tasks,crm_activities,crm_objections,crm_pipeline_events,crm_data_evidence,crm_commercial_journal,lead_journal,crm_work_journal,lead_notes,email_outbox,crm_messages,crm_contact_restrictions,crm_sequence_runs,crm_documents,crm_document_links,crm_document_versions IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
+   await sql`LOCK TABLE crm_accounts,leads,crm_contacts,crm_tasks,crm_activities,crm_objections,crm_pipeline_events,crm_data_evidence,crm_commercial_journal,lead_journal,crm_work_journal,lead_notes,email_outbox,crm_messages,crm_contact_restrictions,crm_communication_responses,crm_communication_response_corrections,crm_communication_interaction_corrections,crm_communication_journal,crm_documents,crm_document_links,crm_document_versions,crm_sales_material_shares IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
+   // Merges keep the table lock (it excludes communication/resource writers, which take ROW EXCLUSIVE first) and also take both business rows, like every per-account writer.
+   await lockAccounts(trx,[input.sourceId,input.destinationId]);
    const p=await mergePreview(trx,input.sourceId,input.destinationId);
    if(p.token!==input.token)throw new QualityConflict('Cambió el negocio o sus relaciones. Revisá un nuevo preview antes de fusionar.');
    if(businessFields.some(f=>!input.selections[f]))throw new QualityValidation('Elegí el valor de cada campo.');
@@ -159,7 +166,8 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    await trx.updateTable('crmContacts').set({accountId:input.destinationId,updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
    await trx.updateTable('leads').set({accountId:input.destinationId,...Object.fromEntries(legacyBusinessFields.map(f=>[f,p.destination[f]])),updatedAt:new Date()}).where('accountId','=',input.sourceId).execute();
    for(const table of ['crmTasks','crmActivities','crmDataEvidence'] as const)await trx.updateTable(table).set({accountId:input.destinationId}).where('accountId','=',input.sourceId).execute();
-   for(const table of ['crm_objections','crm_pipeline_events','crm_messages','crm_contact_restrictions','crm_sequence_runs','crm_documents','crm_document_links'])await sql`UPDATE ${sql.table(table)} SET account_id=${input.destinationId}::bigint WHERE account_id=${input.sourceId}::bigint`.execute(trx);
+   for(const table of ['crm_objections','crm_pipeline_events','crm_messages','crm_contact_restrictions','crm_communication_responses','crm_communication_response_corrections','crm_communication_interaction_corrections','crm_communication_journal','crm_documents','crm_document_links','crm_auto_registrations','crm_sales_material_shares'])await sql`UPDATE ${sql.table(table)} SET account_id=${input.destinationId}::bigint WHERE account_id=${input.sourceId}::bigint`.execute(trx);
+   if(p.policy.doNotContact)await cancelRecontactTaskFor(trx,{accountId:input.destinationId,cause:'dnc'});
    const after=await trx.updateTable('crmAccounts').set({...fields,doNotContact:p.policy.doNotContact,commercialStatus:p.policy.commercialStatus as 'client'|'prospect',clientSince:p.policy.clientSince,updatedAt:new Date()}).where('id','=',input.destinationId).returningAll().executeTakeFirstOrThrow();
    await trx.insertInto('crmAccountMerges').values({sourceId:input.sourceId,destinationId:input.destinationId,actorEmail:user.email,reason:input.reason,snapshot:json(p.snapshot),selections:json(input.selections)}).execute();
    await trx.insertInto('crmCommercialJournal').values({accountId:input.destinationId,action:'account_merged',actorEmail:user.email,actorName:user.displayName,metadata:json({sourceId:input.sourceId,reason:input.reason,before:p.destination,after})}).execute();
@@ -169,13 +177,13 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
   }
   const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',input.accountId).where('mergedIntoId','is',null).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
   if(input.leadId)await assertLeadAccess(trx,input.leadId,user,true);else assertAccountWritable(user,account);
-  if(input.contactId&&input.leadId)throw new QualityValidation('Elegí un único alcance.');
+  if(input.contactId&&input.leadId)throw new QualityValidation('Elegí una sola opción: persona o gestión.');
   const contact=input.contactId?await trx.selectFrom('crmContacts').selectAll().where('id','=',input.contactId).where('accountId','=',input.accountId).where('deletedAt','is',null).executeTakeFirstOrThrow():null;
   const lead=input.leadId?await trx.selectFrom('leads').selectAll().where('id','=',input.leadId).where('accountId','=',input.accountId).executeTakeFirstOrThrow():null;
   if(lead?.deletedAt)throw new QualityForbidden('La gestión está en la papelera.');
   const entity=contact??lead??account;
   const allowed=contact?['name','phone','email','position','preferredChannel']:lead?importFields:businessFields;
-  if(!(allowed as readonly string[]).includes(input.field))throw new QualityValidation('Campo fuera del alcance.');
+  if(!(allowed as readonly string[]).includes(input.field))throw new QualityValidation('Ese dato no se puede verificar.');
   if(entity.updatedAt.toISOString()!==input.revision)throw new QualityConflict('El dato cambió. Actualizá y revisá nuevamente.');
   for(const date of [input.obtainedAt,input.verifiedAt])if(date&&new Date(date)>new Date())throw new QualityValidation('No se permite una fecha futura.');
   const value=String(entity[input.field as keyof typeof entity]??'')||null,n=normalizeField(input.field,value);
