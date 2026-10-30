@@ -32,7 +32,7 @@ try{
  await db.insertInto('crmVerticals').values({name:tipo,active:true}).execute();await db.insertInto('crmSubtypes').values({name:subtipo,typeName:tipo,active:true}).execute();
  delete process.env.BUSINESS_IMPORT_ACTOR_EMAIL;const previousAdminEmail=process.env.ADMIN_EMAIL;process.env.ADMIN_EMAIL=admin.email;await read();process.env.ADMIN_EMAIL=previousAdminEmail;process.env.BUSINESS_IMPORT_ACTOR_EMAIL=admin.email;
  const config=await read<{maxRows:number;subtypes:Array<{name:string}>}>();assert(config.maxRows<=30);assert(config.subtypes.some(s=>s.name===subtipo));
- const before=await counts(),rows=[{nombre:'API negocio '+stamp,ciudad:'Colón',tipo,subtipo,direccion:'Prueba 100',verificationUrls:'https://example.com/local',verifiedOn:'2026-01-01',discoverySource:'Sitio oficial'}];
+ const before=await counts(),rows=[{nombre:'API negocio '+stamp,ciudad:'Colón',tipo,subtipo,direccion:'Prueba 100 '+stamp,verificationUrls:'https://example.com/local',verifiedOn:'2026-01-01',discoverySource:'Sitio oficial'}];
  const previewBody={action:'import_preview',source:'Test API',rows};
  await call({...previewBody,mode:'opportunity'},400);
  await call({...previewBody,rows:Array.from({length:31},()=>rows[0])},400);
@@ -49,11 +49,11 @@ try{
  const duplicate=await call<ImportReview>({...previewBody,rows:[{...rows[0],businessNotes:'Distinto lote'}]});assert(duplicate.rows[0].matches.length);
  await call({...confirm,batchId:duplicate.batchId,decisions:[{index:0,action:'create',acknowledge:true}]},409);
  assert.equal((await call<ImportResult>({...confirm,batchId:duplicate.batchId,decisions:[{index:0,action:'skip'}]})).skipped,1);
- const simultaneousRows=[{nombre:'Race API '+stamp,ciudad:'Colón',direccion:'Race 101',tipo,subtipo}];
+ const simultaneousRows=[{nombre:'Race API '+stamp,ciudad:'Colón',direccion:'Race 101 '+stamp,tipo,subtipo}];
  const race=await call<ImportReview>({...previewBody,rows:simultaneousRows});
  await db.insertInto('crmAccounts').values(simultaneousRows[0]).execute();
  await call({...confirm,batchId:race.batchId,decisions:[{index:0,action:'create',acknowledge:true}]},409);
- const within=await call<ImportReview>({...previewBody,rows:[{...rows[0],nombre:'Within '+stamp,direccion:'Within 10'},{...rows[0],nombre:'Within '+stamp,direccion:'Within 10'}]});
+ const within=await call<ImportReview>({...previewBody,rows:[{...rows[0],nombre:'Within '+stamp,direccion:'Within 10 '+stamp},{...rows[0],nombre:'Within '+stamp,direccion:'Within 10 '+stamp}]});
  await call({...confirm,batchId:within.batchId,decisions:[{index:0,action:'create',acknowledge:true},{index:1,action:'skip'}]},409);
  const foreign=await mutateQuality(db,{action:'import_preview',mode:'business',source:'Other',rows:[{nombre:'Foreign '+stamp}]},{...other,role:'admin'}) as ImportReview;
  await call({...confirm,batchId:foreign.batchId},403);await read('?batchId='+foreign.batchId,404);
@@ -77,7 +77,7 @@ try{
   const cli=(...args:string[])=>promisify(execFile)(process.execPath,['scripts/business-import.mjs',...args],{env});
   const configured=await cli('config');assert.equal(JSON.parse(configured.stdout).mode,'business');
   const input=join(dir,'input.json'),review=join(dir,'review.json'),decisions=join(dir,'decisions.json'),output=join(dir,'result.json'),persisted=join(dir,'persisted.json');
-  await writeFile(input,JSON.stringify({source:'CLI test',rows:[{...rows[0],nombre:'CLI '+stamp,direccion:'CLI 110'}]}));
+  await writeFile(input,JSON.stringify({source:'CLI test',rows:[{...rows[0],nombre:'CLI '+stamp,direccion:'CLI 110 '+stamp}]}));
   await cli('preview',input,review);const cliReview=JSON.parse(await readFile(review,'utf8')) as ImportReview;
   await writeFile(decisions,JSON.stringify({batchId:cliReview.batchId,confirm:true,decisions:[{index:0,action:'create'}]}));
   await cli('confirm',decisions,output);const cliResult=JSON.parse(await readFile(output,'utf8')) as ImportResult;assert.equal(cliResult.imported,1);

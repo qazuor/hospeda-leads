@@ -314,29 +314,34 @@
         "title": "La pestaña Comunicación del negocio",
         "when": "Cuando querés ver todo lo que se habló con un negocio, por cualquier canal, con o sin gestión.",
         "steps": [
-          "Abrí el negocio y entrá en «Comunicación». Arriba tenés «Contactar» para escribir, «Registrar llamada u otro contacto» para anotar una llamada o un contacto por otra red, y «Registrar respuesta sin mensaje» cuando el negocio te contestó por un medio que no quedó registrado.",
-          "«Requiere acción» junta lo que espera algo de vos: mensajes recibidos «Por revisar» («Registrar respuesta» o «No es una respuesta») y WhatsApp abiertos que todavía no confirmaste («¿Lo enviaste?»: «Sí, se envió» o «No se envió»). Si no hay nada, lo dice.",
+          "Abrí el negocio y entrá en «Comunicación». Arriba tenés «Contactar» para escribir y «Registrar»: «Llamada u otro contacto» para anotar una llamada o un contacto por otra red, y «Respuesta sin mensaje» cuando el negocio te contestó por un medio que no quedó registrado.",
+          "«Requiere acción» resume lo que espera algo de vos: los mensajes recibidos «Por revisar» y los WhatsApp o Instagram abiertos que todavía no confirmaste. Tocá un mensaje de la lista para ir a él en la conversación: ahí tenés «Registrar respuesta» o «No es una respuesta». Un WhatsApp o Instagram abierto sin confirmar no aparece en «Conversación»: está solo en «Requiere acción», con el texto preparado y «¿Lo enviaste?» («Sí, se envió» o «No se envió»). Cuando lo confirmás pasa a la conversación como enviado; si contestás «No se envió», no se muestra. Si no hay nada, lo dice.",
           "«Conversación» muestra todo en orden, lo más viejo arriba y lo más nuevo abajo, separado por día: lo que recibiste a la izquierda, lo que enviaste a la derecha y las llamadas al centro. Cada mensaje dice su canal, quién lo mandó, la hora y la gestión.",
           "Usá los botones de canal que están arriba de la conversación (Todo, WhatsApp, Email, Instagram, Llamadas) para ver uno solo. Si hay muchos mensajes, se ven los últimos 30 y el resto con «Ver anteriores».",
+          "Si los mensajes son de más de una gestión, elegí una en «Todas las gestiones» para ver solo esa, o los que no tienen gestión. Se combina con los botones de canal.",
+          "Al abrir la pestaña ves lo más nuevo. Si subís a leer, «Ir al último» te lleva de nuevo abajo. La línea «Nuevo desde tu última visita» marca lo que llegó desde la última vez que entraste, sin contar lo que hiciste vos.",
+          "Cada mensaje tiene arriba una línea con la hora, el canal, quién lo escribió, sus marcas (por ejemplo «Por revisar» o el estado del envío) y botones chicos como «Registrar respuesta», «Sí, se envió» o «Ver diseño»; debajo va el mensaje. Corregir un resultado o una respuesta y anular un registro automático están en el menú ⋯.",
+          "Debajo del último mensaje, «Preparar respuesta» abre «Contactar» con el canal y el destinatario del último mensaje recibido. Si ese canal o destinatario no se puede usar, abre «Contactar» como siempre y te dice por qué. Solo prepara el mensaje: no cuenta como contacto.",
+          "Cada mensaje dice de qué lado está: «Nosotros» si lo enviamos o registramos desde el CRM, «Negocio» si lo envió o respondió el negocio. El botón «Cómo leer el chat», junto al título «Conversación», explica los lados, los colores por plataforma y el borde punteado de los envíos cuyo resultado todavía no sabemos.",
           "El estado de cada envío es el comprobado: «Email aceptado por proveedor · entrega no confirmada» no significa que lo leyeron, y «WhatsApp abierto · envío no confirmado» no significa que se envió.",
+          "En los emails, cuando Brevo avisa, el estado pasa a «Entregado» con la fecha y hora: el servidor del destinatario lo recibió, no que alguien lo leyó. Al lado pueden aparecer «Abierto» (con la primera vez y cuántas veces), «Click en un enlace» y «Posible apertura automática», que son solo informativos, y «Marcado como spam» como aviso. Pasá el mouse o tocá cada marca para ver qué significa.",
           "Los mensajes que preparaste y todavía no enviaste quedan aparte, en «Borradores». Tocá «Seguir editando» para retomarlos.",
           "«Abrir en la Bandeja» te lleva a las mismas conversaciones separadas por gestión y canal."
         ],
         "result": "Ves en un solo lugar qué se envió, qué respondió el negocio y qué falta hacer, sin repeticiones.",
         "example": [
-          "Julia te contestó por WhatsApp después de tu email. En «Conversación» ves tu email, su respuesta y la llamada del medio, en ese orden. Su mensaje está en «Requiere acción»: tocás «Registrar respuesta» y queda como «Respuesta registrada» debajo del mensaje."
+          "Julia te contestó por WhatsApp después de tu email. En «Conversación» ves tu email, su respuesta y la llamada del medio, en ese orden. «Requiere acción» te avisa que está por revisar: tocás la línea, vas a su mensaje, tocás «Registrar respuesta» y queda como «Respuesta registrada» debajo del mensaje."
         ],
         "notes": [
           "Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa.",
-          "Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta."
+          "Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta.",
+          "«Abierto» es aproximado: algunos clientes de correo abren los emails automáticamente (Apple Mail) y otros bloquean las imágenes. Una apertura o un click no es una respuesta, no cuenta como contacto, no completa tareas ni cambia la fecha del último contacto."
         ],
         "url": "",
         "linkLabel": "",
         "uiLabels": [
           "Comunicación",
           "Contactar",
-          "Registrar llamada u otro contacto",
-          "Registrar respuesta sin mensaje",
           "Requiere acción",
           "Por revisar",
           "Registrar respuesta",
@@ -352,7 +357,23 @@
           "Seguir editando",
           "Abrir en la Bandeja",
           "Preferencias y restricciones de contacto",
-          "Respuesta registrada"
+          "Respuesta registrada",
+          "Registrar",
+          "Llamada u otro contacto",
+          "Respuesta sin mensaje",
+          "Todas las gestiones",
+          "Ir al último",
+          "Nuevo desde tu última visita",
+          "Preparar respuesta",
+          "Ver diseño",
+          "Nosotros",
+          "Negocio",
+          "Cómo leer el chat",
+          "Entregado",
+          "Abierto",
+          "Click en un enlace",
+          "Posible apertura automática",
+          "Marcado como spam"
         ]
       },
       {
@@ -362,7 +383,7 @@
         "steps": [
           "Los emails que un negocio manda a Hospeda llegan solos al CRM. Se asocian al negocio cuando responden a un email enviado desde el CRM o cuando llegan desde un email cargado en un único negocio.",
           "Los vas a ver en la ficha del negocio, en «Comunicación»: los que faltan revisar arriba, en «Requiere acción», y todos dentro de «Conversación», en orden junto con lo que enviaste. En Hoy, «Respuestas nuevas» reúne los que todavía están por revisar en tus negocios.",
-          "Cada mensaje muestra el canal, quién lo mandó, la hora y su gestión (o «Sin gestión»). El asunto aparece solo en los emails. Si el texto es largo, tocá «Ver completo». Se muestra como texto plano, sin imágenes ni adjuntos.",
+          "Cada mensaje muestra el canal, quién lo mandó, la hora y su gestión, si tiene. El asunto aparece solo en los emails. Si el texto es largo, tocá «Ver más». Se muestra como texto plano, sin imágenes ni adjuntos.",
           "Si el mensaje es una respuesta del negocio, tocá «Registrar respuesta». Completá el resumen, revisá el texto exacto y guardá. Así queda como respuesta recibida, igual que si la anotaras a mano.",
           "Si no es una respuesta (publicidad, un aviso, algo que no corresponde), tocá «No es una respuesta» y escribí el motivo.",
           "Debajo de cada mensaje ves su estado: «Por revisar», «Respuesta registrada» con lo que respondió (y la tarea que completó, si elegiste una) o «No es una respuesta». «Automática · no cuenta como respuesta» marca los avisos de ausencia o similares.",
@@ -383,7 +404,6 @@
         "uiLabels": [
           "Comunicación",
           "Respuestas nuevas",
-          "Ver completo",
           "Registrar respuesta",
           "No es una respuesta",
           "Por revisar",
@@ -392,9 +412,9 @@
           "Resuelta por la respuesta del cliente",
           "Requiere acción",
           "Conversación",
-          "Sin gestión",
           "Respuesta registrada",
-          "Automática · no cuenta como respuesta"
+          "Automática · no cuenta como respuesta",
+          "Ver más"
         ]
       },
       {
@@ -515,44 +535,48 @@
         "title": "Contactar desde la ficha del negocio",
         "when": "Cuando querés escribir o llamar sin buscar primero una tarea.",
         "steps": [
-          "Abrí el negocio y tocá «Contactar». Revisá su estado, los canales disponibles y las restricciones antes de seguir.",
-          "En «¿Sobre qué?» elegí «Sin gestión (contacto general)» o una gestión abierta. Las gestiones cerradas solo sirven para anotar una respuesta recibida, no para empezar un contacto nuevo.",
-          "Si es un contacto general, elegí el «Propósito del contacto». Si es sobre una gestión, la gestión ya da el contexto.",
-          "Si el negocio es Nuevo, solo podés hacer una verificación para comprobar que existe. Para iniciar una gestión confirmá que ya lo verificaste con «Iniciar gestión y continuar»: queda Revisado y se crea la gestión en el mismo paso.",
-          "Elegí el canal: «Email», «WhatsApp», «Llamada», «Red social» u «Otro canal». Después tocá «Continuar con el mensaje».",
-          "Elegí la «Persona de contacto» o «Usar el dato general del negocio» si no hay una persona con ese canal. Con varias personas o direcciones, elegí la correcta.",
-          "Elegí un «Mensaje modelo (opcional)» o «Escribir desde cero», revisá el texto y el destino, y tocá «Preparar email» o «Preparar WhatsApp».",
-          "Al terminar, el CRM te pregunta «¿Cómo salió?» y «¿Cómo sigue?». Es el mismo recorrido para todos los canales."
+          "Abrí el negocio. En «Comunicación» tocá «WhatsApp», «Instagram» o «Email»; o tocá «Contactar» arriba y elegí el canal en el mismo paso. Si un botón está apagado, pasá el mouse para ver por qué.",
+          "El CRM elige solo sobre qué es el contacto: la gestión abierta si hay una, o «Sin gestión (contacto general)» si no hay ninguna. Con varias gestiones abiertas elegí una en «¿Sobre qué?». Para elegir otra cosa tocá «Cambiar».",
+          "Si es un contacto general, el propósito ya viene elegido según el estado del negocio. Para cambiarlo tocá «Cambiar» y elegí el «Propósito del contacto»; con «Otro» completá la «Aclaración del propósito».",
+          "Si no hay gestiones abiertas y querés empezar una, tocá «Iniciar gestión». Si el negocio es Nuevo, solo podés hacer una verificación para comprobar que existe.",
+          "Revisá a quién va: la línea Para muestra la persona y el dato. Tocá «Cambiar» para elegir otra persona. Con varias personas con ese canal, el CRM te pide que elijas una.",
+          "Tocá un mensaje modelo o «Escribir un mensaje nuevo». El mensaje se abre listo para enviar: si querés cambiarlo, tocá «Editar» y después «Guardar cambios».",
+          "Tocá el botón final: dice a dónde va el mensaje (por ejemplo, Abrir WhatsApp con Ana y el teléfono). Se abre el canal y el CRM se cierra solo con un aviso.",
+          "Para una llamada, una red social u otro canal, tocá «Llamada», «Red social» u «Otro canal» en la línea de abajo. Esos contactos siguen terminando en «¿Cómo salió?» y «¿Cómo sigue?»."
         ],
-        "result": "El contacto queda asociado al negocio y al propósito o gestión correctos, y siempre termina anotando cómo salió y cómo sigue.",
+        "result": "El contacto queda asociado al negocio y al propósito o gestión correctos en tres clics: canal, modelo y botón final. Lo que pasó se resuelve después, en «Requiere acción» o al registrar la respuesta.",
         "example": [],
         "notes": [
           "Archivado y No contactar bloquean las salidas. Las restricciones técnicas también pueden bloquear un canal concreto.",
-          "Si falla abrir el email o WhatsApp, el CRM guarda un intento sin confirmar. No lo reenvíes de nuevo: primero revisá su estado.",
+          "En la computadora, WhatsApp e Instagram necesitan el script de Hospeda instalado, actualizado y conectado con tu cuenta. Si falta algo, el botón queda apagado con el motivo y un enlace «Ir a User script». En el celular no hace falta.",
+          "Si falla abrir el email o WhatsApp, el CRM guarda un intento sin confirmar. No lo reenvíes de nuevo: primero revisá su estado en «Requiere acción».",
           "Si no ves «Contactar», puede ser porque el negocio es No contactar o porque no sos su responsable. Mirá el artículo No puedo modificar un negocio, en Resolver dudas y errores."
         ],
         "url": "/accounts",
         "linkLabel": "Abrir Negocios",
         "uiLabels": [
-          "Contactar",
-          "¿Sobre qué?",
-          "Sin gestión (contacto general)",
-          "Propósito del contacto",
-          "Iniciar gestión y continuar",
-          "Email",
+          "Comunicación",
           "WhatsApp",
+          "Instagram",
+          "Email",
+          "Contactar",
+          "Sin gestión (contacto general)",
+          "¿Sobre qué?",
+          "Cambiar",
+          "Propósito del contacto",
+          "Otro",
+          "Aclaración del propósito",
+          "Iniciar gestión",
+          "Escribir un mensaje nuevo",
+          "Editar",
+          "Guardar cambios",
           "Llamada",
           "Red social",
           "Otro canal",
-          "Continuar con el mensaje",
-          "Persona de contacto",
-          "Usar el dato general del negocio",
-          "Mensaje modelo (opcional)",
-          "Escribir desde cero",
-          "Preparar email",
-          "Preparar WhatsApp",
           "¿Cómo salió?",
-          "¿Cómo sigue?"
+          "¿Cómo sigue?",
+          "Requiere acción",
+          "Ir a User script"
         ]
       },
       {
@@ -665,16 +689,18 @@
       },
       {
         "id": "contact",
-        "title": "Contactar por email, WhatsApp, llamada u otro canal",
+        "title": "Contactar por email, WhatsApp, Instagram, llamada u otro canal",
         "when": "Cuando llega el momento de una tarea o de una conversación necesaria.",
         "steps": [
-          "Desde una tarea tocá «Contactar». Desde el negocio, tocá «Contactar» y elegí sobre qué es el contacto. Los canales son «Email», «WhatsApp», «Llamada», «Red social» y «Otro canal».",
+          "Desde una tarea tocá «Contactar». Desde el negocio, en «Comunicación», tocá «WhatsApp», «Instagram» o «Email», o tocá «Contactar» y elegí el canal. «Llamada», «Red social» y «Otro canal» están en la línea de abajo.",
           "Para email y WhatsApp, revisá la persona y el dato exacto. Si no hay una persona con ese canal, podés usar el canal general del negocio.",
           "El email se prepara y sale desde el CRM. El CRM te muestra si el servicio de envío aceptó el pedido; eso no confirma que llegó.",
-          "WhatsApp abre la aplicación con el texto preparado. Al volver, el CRM pregunta «¿Lo enviaste?»: tocá «Sí, lo envié» solo si lo mandaste de verdad, «No, no lo envié» si no, o «Todavía no sé, lo anoto después».",
+          "WhatsApp abre la aplicación con el texto preparado y el CRM se cierra con un aviso. Si el script de WhatsApp registra el envío, se confirma solo; si no, lo ves en «Requiere acción» y ahí contestás «Sí, se envió» o «No se envió». Desde una tarea, el CRM sigue preguntando «¿Lo enviaste?» al volver.",
+          "«Instagram» escribe al usuario de Instagram del negocio (el que está en los datos del negocio). Elegí el modelo y tocá el botón final, que dice el usuario: el CRM copia el mensaje y abre Instagram. En la computadora se abre el chat del negocio si ya lo conocemos o su perfil, y el script de Hospeda abre el chat y pega el mensaje; si no puede, pegá con Ctrl+V. En el celular tocá el botón Ir al chat que aparece con el usuario del negocio, mantené apretado en el chat y elegí Pegar. Después lo enviás.",
+          "Tenés que estar con la sesión de Hospeda en Instagram, en el navegador o en la app. Cuando Instagram avisa del envío, el mensaje queda «Enviado · confirmado por Instagram» solo. Mientras tanto, en «Requiere acción» ves «Esperando que Instagram confirme el envío…» y ya podés contestar «Sí, se envió» o «No se envió»; si en 15 minutos no llega el aviso, el CRM te pregunta «¿Lo enviaste?» como con WhatsApp. Hasta que se confirma, el mensaje no aparece en «Conversación».",
           "Para una llamada, elegí a quién llamás. En el celular tocá «Llamar ahora»; en la computadora tocá «Copiar número» y llamá desde tu teléfono. Cuando termines tocá «Ya llamé: anotar cómo salió». Si no te atendieron: desde el negocio podés tocar «No me atendieron»; desde una tarea tocá «Ya llamé: anotar cómo salió» y elegí «No respondió».",
           "Para «Red social» y «Otro canal», el CRM crea un intento pendiente (podés «Crear intento y copiar texto»). Cuando termines, completá cómo salió.",
-          "En todos los casos el contacto termina en «¿Cómo salió?» y «¿Cómo sigue?». Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta."
+          "Abrir una aplicación, copiar texto o iniciar un intento no confirma envío ni respuesta. Cuando registrás la respuesta del negocio, el CRM anota solo cómo salió el último envío pendiente de ese contacto; lo podés corregir con «Corregir cómo salió»."
         ],
         "result": "Abrir un canal solo prepara o inicia la comunicación; lo que realmente pasó se anota después, siempre con su próximo paso.",
         "example": [
@@ -685,32 +711,41 @@
           "Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.",
           "Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.",
           "Si el negocio contesta tu email, la respuesta llega sola a la «Conversación» de su ficha, en «Comunicación». No hace falta copiarla a mano.",
-          "Si abriste WhatsApp desde «Contactar» y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces. Igual te falta «Anotá cómo salió»."
+          "Si abriste WhatsApp desde el CRM y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces.",
+          "Si mandaste el mensaje de Instagram desde otra cuenta, o la conexión con Instagram no está activa, el envío no se confirma solo: contestá «Sí, se envió» o «No se envió» en «Requiere acción». Si se te cerró Instagram, usá «Copiar y abrir de nuevo» en esa misma entrada: no crea otro intento.",
+          "Si el negocio no tiene un usuario de Instagram válido, la opción «Instagram» aparece desactivada. Cargalo con «Agregar o editar datos de contacto»: es el mismo usuario que se usa para asociar los mensajes recibidos.",
+          "En la computadora, WhatsApp e Instagram necesitan el script de Hospeda instalado, en la última versión y conectado con tu cuenta. Si no, el botón queda apagado con el motivo, «Ir a User script» y, si el CRM no pudo comprobar la conexión, «Verificar de nuevo»."
         ],
         "url": "",
         "linkLabel": "",
         "uiLabels": [
           "Contactar",
-          "Email",
+          "Comunicación",
           "WhatsApp",
+          "Instagram",
+          "Email",
           "Llamada",
           "Red social",
           "Otro canal",
+          "Requiere acción",
+          "Sí, se envió",
+          "No se envió",
           "¿Lo enviaste?",
-          "Sí, lo envié",
-          "No, no lo envié",
-          "Todavía no sé, lo anoto después",
+          "Enviado · confirmado por Instagram",
+          "Esperando que Instagram confirme el envío…",
+          "Conversación",
           "Llamar ahora",
           "Copiar número",
           "Ya llamé: anotar cómo salió",
           "No me atendieron",
           "No respondió",
           "Crear intento y copiar texto",
-          "¿Cómo salió?",
-          "¿Cómo sigue?",
+          "Corregir cómo salió",
           "Anotá cómo salió",
-          "Conversación",
-          "Comunicación"
+          "Copiar y abrir de nuevo",
+          "Agregar o editar datos de contacto",
+          "Ir a User script",
+          "Verificar de nuevo"
         ]
       },
       {
@@ -724,7 +759,7 @@
           "Respondé «¿Cómo sigue?»: «Agendar una tarea» (con título y fecha), «Esperar hasta una fecha y retomar» o «No agendar nada» (con un motivo). No se puede guardar sin elegir una.",
           "Si el CRM muestra una casilla para pasar la gestión a la etapa sugerida, marcala solo si es lo que pasó. Si no la marcás, la etapa no cambia.",
           "Revisá el resumen «Revisá lo que se guardará» y tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).",
-          "Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar respuesta sin mensaje». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador."
+          "Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar» y elegí «Respuesta sin mensaje». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador."
         ],
         "result": "Se completa la tarea y queda guardado lo que pasó. Si dejaste una tarea nueva, se crea con su fecha. Las demás tareas se conservan.",
         "example": [
@@ -763,7 +798,8 @@
           "Bloquear contacto",
           "Tareas finalizadas o canceladas",
           "Corregir cómo salió",
-          "Registrar respuesta sin mensaje"
+          "Registrar",
+          "Respuesta sin mensaje"
         ]
       }
     ]
@@ -1061,14 +1097,14 @@
         "title": "Preparar y registrar una comunicación",
         "when": "Cuando trabajás una gestión y querés usar un modelo o guardar un borrador.",
         "steps": [
-          "Tocá «Contactar», elegí «¿Sobre qué?» (un contacto general con su propósito o una gestión abierta) y el canal.",
-          "Elegí una «Persona de contacto» y el dato concreto o, si no hay persona con ese canal, «Usar el dato general del negocio». Comprobá el destinatario antes de seguir.",
-          "Usá un «Mensaje modelo (opcional)» compartido o «Escribir desde cero». Podés editar el texto para este contacto. Si faltan datos del modelo, completalos o quitalos.",
-          "El email sale desde el CRM. WhatsApp abre la aplicación y el CRM te pregunta después «¿Lo enviaste?». Si falla la apertura, queda un intento sin confirmar.",
+          "Tocá «WhatsApp», «Instagram» o «Email» en «Comunicación», o «Contactar». El CRM ya elige sobre qué es el contacto; con varias gestiones abiertas elegí una en «¿Sobre qué?».",
+          "Comprobá la línea Para antes de seguir. Si hay varias personas con ese canal, elegí una; si no hay ninguna, se usa el dato del negocio.",
+          "Elegí un mensaje modelo compartido o «Escribir un mensaje nuevo». El modelo se abre listo para enviar; con «Editar» lo cambiás para este contacto y con «Guardar cambios» volvés al mensaje final. Si faltan datos del modelo, completalos o quitalos.",
+          "El email sale desde el CRM. WhatsApp abre la aplicación y, si el envío no se confirma solo, queda en «Requiere acción». Si falla la apertura, queda un intento sin confirmar.",
           "Las llamadas se anotan a mano con un resumen. En «Red social» y «Otro canal» podés copiar el texto; queda un intento pendiente que después completás.",
           "Si el contacto quedó sin confirmar o pendiente, resolvelo más tarde sin sobrescribir el texto. Para corregir uno ya confirmado, usá la acción de corrección y explicá el motivo."
         ],
-        "result": "El CRM conserva el contenido y el estado del mensaje. Lo que pasó y cómo sigue se anotan aparte, en «¿Cómo salió?» y «¿Cómo sigue?».",
+        "result": "El CRM conserva el contenido y el estado del mensaje. Lo que pasó se anota aparte: al registrar la respuesta del negocio o en «¿Cómo salió?».",
         "example": [
           "Usá un modelo de presentación, cambiá la pregunta para Ana y verificá el número antes de abrir WhatsApp."
         ],
@@ -1079,17 +1115,19 @@
         "url": "",
         "linkLabel": "",
         "uiLabels": [
+          "WhatsApp",
+          "Instagram",
+          "Email",
+          "Comunicación",
           "Contactar",
           "¿Sobre qué?",
-          "Persona de contacto",
-          "Usar el dato general del negocio",
-          "Mensaje modelo (opcional)",
-          "Escribir desde cero",
-          "¿Lo enviaste?",
+          "Escribir un mensaje nuevo",
+          "Editar",
+          "Guardar cambios",
+          "Requiere acción",
           "Red social",
           "Otro canal",
-          "¿Cómo salió?",
-          "¿Cómo sigue?"
+          "¿Cómo salió?"
         ]
       },
       {
@@ -1225,7 +1263,7 @@
         "title": "Buscar, filtrar y usar las vistas de las listas",
         "when": "Cuando necesitás encontrar negocios o propuestas sin revisar toda la cartera.",
         "steps": [
-          "Entrá en «Negocios» y buscá por nombre, localidad, teléfono o email. La búsqueda ignora tildes, pero distingue ñ de n. Usá los filtros rápidos de Responsable, Estado, Ciudad y Último contacto, o «Filtrar negocios» para reglas avanzadas. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual. Tocá una fila para abrir la vista previa con «Abrir ficha», «Contactar» y «Editar»; el nombre sigue abriendo la ficha. Al seleccionar negocios, aparece una barra de acciones masivas en la parte inferior.",
+          "Entrá en «Negocios» y buscá por nombre, localidad, teléfono, email o Instagram (@usuario, usuario o el enlace al perfil). La búsqueda ignora tildes, pero distingue ñ de n. Usá los filtros rápidos de Responsable, Estado, Ciudad y Último contacto, o «Filtrar negocios» para reglas avanzadas. Elegí «Tabla» o «Grilla»: las dos muestran los resultados de la vista actual. Tocá una fila para abrir la vista previa con «Abrir ficha», «Contactar» y «Editar»; el nombre sigue abriendo la ficha. Al seleccionar negocios, aparece una barra de acciones masivas en la parte inferior.",
           "Tocá «Filtrar negocios» y revisá los filtros aplicados. «Guardar como vista» conserva la búsqueda, los filtros, el orden y las columnas.",
           "Abrí «Columnas» para elegir los datos que ves y arrastrá el control de puntos para ordenarlos dentro de su zona. También están disponibles WhatsApp, Teléfono de la persona y Email de la persona. La columna de selección queda primera y fija a la izquierda.",
           "También podés elegir una columna agrupada para ver varios datos apilados. En «Configuración» → «Listado de negocios» → «Columnas agrupadas», un administrador define grupos y cuántas líneas mostrar en la tabla. Los valores se apilan en el orden definido; la tabla se ordena por el primer dato del grupo. Si hay datos ocultos, tocá el botón +N más (por ejemplo, +2 más) para verlos y editarlos. En la grilla se muestran todos. Los datos vacíos muestran — y cada dato conserva su propia edición.",
@@ -1325,9 +1363,9 @@
       {
         "id": "missing-contact",
         "title": "Falta un canal o alguien pidió no contactar",
-        "when": "Cuando faltan teléfono o email, o el CRM bloquea la comunicación.",
+        "when": "Cuando faltan teléfono, email o el usuario de Instagram, o el CRM bloquea la comunicación.",
         "steps": [
-          "Revisá la persona y el canal. Si el dato falta, tocá «Agregar o editar teléfono o email» y cargá el dato real; no uses el canal de otra persona. Si no hay una persona con ese canal, podés usar el canal general del negocio.",
+          "Revisá la persona y el canal. Si el dato falta, tocá «Agregar o editar datos de contacto» y cargá el dato real; no uses el canal de otra persona. Si no hay una persona con ese canal, podés usar el canal general del negocio.",
           "Si el CRM muestra una restricción, fijate cuál es. Puede ser un bloqueo del negocio entero o una restricción técnica de una persona o canal.",
           "Si una persona pidió que no la contacten, anotá «Pidió no ser contactado» con «Anotar lo que pasó» desde el negocio. Lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador; si no te corresponde, avisale a alguno de ellos. El bloqueo alcanza a todas las salidas del negocio y cancela sus tareas pendientes.",
           "No cambies de persona, de canal ni de propósito para esquivar el bloqueo. Solo un administrador puede levantar No contactar y tiene que explicar el motivo.",
@@ -1342,7 +1380,7 @@
         "url": "",
         "linkLabel": "",
         "uiLabels": [
-          "Agregar o editar teléfono o email",
+          "Agregar o editar datos de contacto",
           "Pidió no ser contactado",
           "Anotar lo que pasó",
           "Este teléfono es de un negocio que pidió no ser contactado"
@@ -1513,20 +1551,25 @@
           "Al crear o guardar un modelo queda disponible enseguida. Los cambios se aplican a los usos nuevos; los borradores que ya copiaron texto no cambian.",
           "Clasificá el modelo por canal y, cuando corresponda, vertical o tipo de gestión. Se muestran todos los que aplican, primero los más específicos, y los genéricos siguen disponibles.",
           "Usá solo variables confiables del CRM. Quien prepara un contacto tiene que completar o quitar cada variable que falte antes de abrir o enviar el mensaje.",
+          "En un modelo de WhatsApp o email podés sumar material con «Insertar material de venta». Es opcional. El texto muestra el título del material y, cada vez que alguien usa el modelo, el CRM crea un enlace nuevo para ese mensaje. En email, seleccioná el material y tocá «Adjuntar el archivo» si además querés adjuntarlo. Un material interno o borrado no se puede guardar en un modelo.",
           "El historial conserva las versiones anteriores y un administrador puede consultarlas o restaurarlas. Desactivar oculta un modelo para usos nuevos sin borrar su historial; también puede editarse y reactivarse.",
           "En «Material de venta» subí archivos de hasta 500 MB o registrá enlaces externos. Cada material tiene una o más categorías, un comentario y un tipo: «Entregable» o «Interno». Archivar no borra nada."
         ],
         "result": "El equipo dispone de modelos y materiales revisados, con sus versiones e historia.",
         "example": [],
         "notes": [
-          "Los usuarios pueden editar su mensaje para ese contacto, pero no alterar el modelo compartido."
+          "Los usuarios pueden editar su mensaje para ese contacto, pero no alterar el modelo compartido.",
+          "Si un material del modelo se archiva, el modelo muestra «Material no disponible» y ese material no se agrega a los mensajes hasta que lo restaures o lo quites."
         ],
         "url": "/sales-material",
         "linkLabel": "Administrar Material de venta",
         "uiLabels": [
           "Material de venta",
           "Entregable",
-          "Interno"
+          "Interno",
+          "Insertar material de venta",
+          "Adjuntar el archivo",
+          "Material no disponible"
         ]
       },
       {
@@ -1593,7 +1636,7 @@
   {
     "id": "whatsapp-userscript",
     "title": "Registrar mensajes de WhatsApp",
-    "description": "Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar.",
+    "description": "Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y registrar en el CRM lo que ya se habló, sin copiar y pegar. El mismo script deja escrito en Instagram el mensaje que preparaste en el CRM.",
     "articles": [
       {
         "example": [
@@ -1602,7 +1645,9 @@
         "notes": [
           "El token es personal: no lo compartas. Todo lo que registres con él queda a tu nombre.",
           "Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.",
-          "El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas."
+          "El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.",
+          "Desde la versión 1.4.0 el mismo script también trabaja en Instagram. La primera vez que Tampermonkey lo actualice te va a pedir que apruebes un sitio nuevo (instagram.com): aceptalo una sola vez. Si no lo aprobás, el script sigue funcionando en WhatsApp.",
+          "La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.5.0 el CRM pide siempre la última versión del script."
         ],
         "url": "/userscript",
         "linkLabel": "User script de WhatsApp",
@@ -1635,7 +1680,10 @@
           "SIN ASOCIAR",
           "Hay una versión nueva de Hospeda",
           "Revocar",
-          "Desactualizado"
+          "Desactualizado",
+          "Conexión",
+          "Conectado",
+          "Verificar de nuevo"
         ]
       },
       {
@@ -1677,7 +1725,8 @@
         ],
         "notes": [
           "Las insignias son solo lectura: no registran mensajes ni cambian estados. Un negocio que no podés ver en el CRM no muestra insignia, y los grupos tampoco llevan.",
-          "El color dice el estado: azul es un negocio normal, rojo es No contactar, ámbar indica varios negocios posibles para ese chat y «Sin CRM» es un chat que no está asociado."
+          "El color dice el estado: azul es un negocio normal, rojo es No contactar, ámbar indica varios negocios posibles para ese chat y «Sin CRM» es un chat que no está asociado.",
+          "En Instagram (computadora, con la cuenta de Hospeda) la lista de chats también muestra la insignia, solo para chats que el script ya reconoció al abrirlos: Instagram no muestra el usuario en la lista, así que se compara el nombre visible. Si dos chats reconocidos tienen el mismo nombre, no se marca ninguno. La insignia de Instagram solo informa: no tiene enlace al CRM y tocarla abre el chat como siempre."
         ],
         "url": "/userscript",
         "linkLabel": "User script de WhatsApp",
@@ -1783,14 +1832,17 @@
         "title": "Mandar un modelo del CRM desde WhatsApp",
         "when": "Cuando querés escribirle a un negocio con uno de los modelos del CRM sin salir de WhatsApp Web.",
         "steps": [
-          "Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Hace falta una gestión abierta; con No contactar activo o en estado Nuevo el botón queda deshabilitado.",
+          "Abrí el chat del negocio y, en el panel de Hospeda, tocá «Mandar un mensaje». Con No contactar activo el botón queda deshabilitado. Si el negocio no tiene gestiones abiertas (o está en estado Nuevo), elegí «Sin gestión» y el propósito del contacto, como en el CRM.",
           "Elegí el modelo: el primero es el «Recomendado para la etapa actual». Pasá el mouse por un modelo para ver su texto con las variables sin completar. Elegí también la persona.",
           "Revisá la vista previa con los datos del CRM. Si falta un dato, completalo en el CRM o elegí otra persona.",
+          "Si el modelo trae material de venta, la vista previa ya muestra sus enlaces. Para sumar otro, tocá «Agregar material», buscalo y tocá «Agregar»: el texto se actualiza con un enlace propio de este mensaje. Si cambiás de modelo, persona o gestión, el material que agregaste sigue en el mensaje nuevo. Arriba de la vista previa ves el material del mensaje: tocá «Quitar» para sacarlo. Si algún material del modelo ya no está disponible, el panel te avisa y no lo incluye.",
+          "Si solo querés mandar un material, tocá «Enviar material» en el panel: elegí el material y el panel arma un mensaje con su enlace. Arriba podés elegir un «Mensaje modelo» (o dejar «Mensaje libre»): el material se mantiene. Con «Agregar otro material» sumás más.",
           "Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.",
           "Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.",
-          "Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar»."
+          "Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».",
+          "Si el panel dice que no encontró el negocio de este chat, tocá «Buscar o crear en el CRM»: se abre Negocios buscando ese teléfono. Si aparece, abrilo. Si no aparece ninguno, tocá «Crear negocio con este teléfono»: se abre «Nuevo negocio» con el teléfono ya escrito. Si tenés filtros o una vista activa, el CRM no ofrece crear: tocá «Buscar en todos los negocios» por si el negocio estaba oculto. El CRM nunca lo crea solo."
         ],
-        "result": "El mensaje queda en «Conversación» como «WhatsApp abierto · envío no confirmado» y en «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío.",
+        "result": "El envío queda «WhatsApp abierto · envío no confirmado»: no aparece en «Conversación» y «Requiere acción» te pregunta «¿Lo enviaste?» hasta que registrás el envío. Recién cuando lo confirmás pasa a la conversación.",
         "example": [
           "Le escribís por primera vez a una cabaña: elegís el modelo de primer contacto, revisás que diga el nombre de la persona, pegás, agregás un saludo y apretás Enter."
         ],
@@ -1807,6 +1859,74 @@
           "WhatsApp abierto · envío no confirmado",
           "Conversación",
           "Requiere acción",
+          "¿Lo enviaste?",
+          "Agregar material",
+          "Agregar",
+          "Sin gestión",
+          "Enviar material",
+          "Mensaje modelo",
+          "Mensaje libre",
+          "Agregar otro material",
+          "Quitar",
+          "Buscar o crear en el CRM",
+          "Crear negocio con este teléfono",
+          "Buscar en todos los negocios",
+          "Nuevo negocio"
+        ]
+      },
+      {
+        "id": "instagram-userscript-paste",
+        "title": "Pegar el mensaje en Instagram con el script",
+        "when": "Cada vez que escribís por Instagram desde una computadora con el script de Hospeda instalado, actualizado y conectado, o cuando estás en un chat de Instagram y querés ver de qué negocio es.",
+        "steps": [
+          "En el negocio, tocá «Instagram» en «Comunicación» (o «Contactar» y elegí Instagram) y elegí el mensaje.",
+          "Tocá el botón final, que dice el usuario del negocio. El CRM copia el mensaje, se lo pasa al script y abre Instagram en una pestaña nueva: el chat del negocio si ya lo conocemos, o su perfil.",
+          "Desde el perfil, el script toca \"Enviar mensaje\" y, si Instagram abre un chat flotante, toca «Expandir» para pasar al chat completo. Ahí confirma que el chat es de ese usuario y que estás con la cuenta de Hospeda, y escribe el mensaje. Aparece el aviso «Mensaje pegado. Revisalo y envialo vos.»",
+          "Si el script no puede confirmar con quién es el chat, te pregunta en el panel si es con ese usuario. Tocá «Sí, es este chat · pegar» solo si lo es; si no, «No es este chat».",
+          "Revisá el texto y envialo vos desde el chat. El script nunca lo envía.",
+          "Si en lugar de eso aparece un aviso, abrí el chat y pegá con Ctrl+V (⌘V en Mac): el mensaje sigue copiado. Si se perdió, volvé al CRM y tocá «Copiar y abrir de nuevo».",
+          "En cualquier chat de Instagram el script muestra el botón «Hospeda»: abre un panel con el negocio del CRM que tiene ese Instagram. Desde ahí, «Mandar un mensaje» te deja elegir un modelo (de una gestión o «Sin gestión» con un propósito) y «Pegar en el chat». También queda registrado como intento de Instagram.",
+          "Para mandar material de venta por Instagram, tocá «Enviar material» en el panel (o «Agregar material» después de elegir un modelo). Va solo el enlace, nunca el archivo; el enlace es propio de ese mensaje y se puede revocar como cualquier otro.",
+          "Si el panel dice que no encontró un negocio con ese Instagram, tocá «Buscar o crear en el CRM»: se abre Negocios buscando el usuario, que también encuentra negocios con ese Instagram cargado. Si no aparece ninguno, tocá «Crear negocio con este Instagram»: «Nuevo negocio» se abre con el Instagram escrito, y te avisa si otro negocio ya tiene el mismo Instagram."
+        ],
+        "result": "El mensaje queda escrito en el chat de Instagram del negocio, listo para que lo envíes. Cuando lo mandás desde la cuenta de Hospeda, el CRM lo confirma solo, igual que sin el script.",
+        "example": [
+          "Leo prepara una presentación para Cabañas del Río y toca el botón final de Instagram. Se abre el chat, el script confirma que es de Cabañas del Río y deja el mensaje pegado. Leo corrige un saludo y lo envía.",
+          "Ana contesta un chat en Instagram, abre el panel «Hospeda», ve que es H7 · Cabañas del Río, elige un modelo y lo pega. Lo envía ella."
+        ],
+        "notes": [
+          "Solo funciona en la computadora, en Chrome, Edge o Firefox. El navegador no pide permiso para el portapapeles: el script no lo lee, recibe el mensaje directamente del CRM. En el celular se abre la app de Instagram como siempre.",
+          "Tenés que estar con la cuenta de Instagram de Hospeda. Con otra cuenta el script no pega nada y te avisa.",
+          "El script nunca pega en un chat flotante ni encima de algo que ya escribiste. Los mensajes de más de 4000 caracteres se pegan a mano.",
+          "Si el negocio pidió «No contactar», el panel lo muestra y no deja mandar mensajes. Abrir un chat o pegar un mensaje no cuenta como contacto: el envío se confirma cuando Instagram avisa, o cuando contestás «¿Lo enviaste?».",
+          "El token se conecta solo desde el CRM (User script → Conectar este navegador). En Instagram no hay dónde escribirlo.",
+          "Si el script no está instalado, está desactualizado o no está conectado con tu cuenta, el CRM no deja abrir Instagram desde la computadora y te muestra «Ir a User script». Revisá «En este navegador» en «User script de WhatsApp»: si dice «Desactualizado», actualizalo."
+        ],
+        "url": "/userscript",
+        "linkLabel": "User script de WhatsApp",
+        "uiLabels": [
+          "Instagram",
+          "Comunicación",
+          "Contactar",
+          "Mensaje pegado. Revisalo y envialo vos.",
+          "Copiar y abrir de nuevo",
+          "Ir a User script",
+          "En este navegador",
+          "User script de WhatsApp",
+          "Desactualizado",
+          "Mandar un mensaje",
+          "Pegar en el chat",
+          "Sí, es este chat · pegar",
+          "No es este chat",
+          "Enviar material",
+          "Agregar material",
+          "Buscar o crear en el CRM",
+          "Crear negocio con este Instagram",
+          "Nuevo negocio",
+          "Expandir",
+          "Hospeda",
+          "Sin gestión",
+          "No contactar",
           "¿Lo enviaste?"
         ]
       },
@@ -1829,7 +1949,7 @@
           "Si ves «Token inválido o revocado. Conectá uno nuevo desde Ajustes.», creá un token nuevo en «User script de WhatsApp», tocá «Cambiar token» en el panel y pegalo.",
           "Si ves «Hay una versión nueva de Hospeda» o «Actualizá el script de Hospeda», tocá «Actualizar», confirmá en Tampermonkey y recargá WhatsApp Web. Con «Más tarde» el aviso vuelve al día siguiente; si el CRM ya no acepta tu versión, vuelve al recargar.",
           "Si ves «No se pudo consultar el CRM. Reintentando en el próximo cambio.», revisá tu conexión. El script vuelve a intentar cuando cambiás de chat.",
-          "Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha, en «Comunicación», con «Registrar respuesta sin mensaje». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.",
+          "Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha, en «Comunicación», con «Registrar» y «Respuesta sin mensaje». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.",
           "Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio."
         ],
         "result": "Sabés qué hacer ante cada aviso del script, sin perder lo que se habló.",
@@ -1851,7 +1971,8 @@
           "Revocar",
           "Desconectar",
           "Comunicación",
-          "Registrar respuesta sin mensaje"
+          "Registrar",
+          "Respuesta sin mensaje"
         ]
       }
     ]

@@ -3,7 +3,7 @@ import superjson from 'superjson';
 
 for(const width of [1280,390])test(`Referente WhatsApp models can be saved and historical scope stays explicit at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:844});
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.addInitScript(()=>{try{localStorage.setItem('hospeda-live-mode','off')}catch{/* the sandboxed email preview iframe has no storage */}});
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());
  const writes:any[]=[];
  const historical={id:'31',name:'Modelo histórico',channel:'whatsapp',body:'<p>Hola {{name}}</p>',subject:null,vertical:'Alojamiento',commercialProfile:'Referente'};
@@ -38,7 +38,7 @@ for(const width of [1280,390])test(`Referente WhatsApp models can be saved and h
 });
 
 test('selector offers Referente WhatsApp and explains models excluded by explicit segmentation',async({page})=>{
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.addInitScript(()=>{try{localStorage.setItem('hospeda-live-mode','off')}catch{/* the sandboxed email preview iframe has no storage */}});
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());
  const account={id:'101',nombre:'Negocio de prueba',email:'fixture@example.com',telefono:'5493442000003',ciudad:'Colón',assignedUserEmail:'owner@example.com',commercialStatus:'prospect',archivedAt:null,mergedIntoId:null};
  const lead={id:'201',accountId:'101',nombre:account.nombre,opportunityName:'Presentación',tipo:'Gastronomía',commercialProfile:'Referente',estado:'Cargado',assignedUserEmail:'owner@example.com',deletedAt:null};
@@ -64,9 +64,9 @@ test('selector offers Referente WhatsApp and explains models excluded by explici
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/accounts/101');
+ // Spec 96 §2.3: the only open management is picked and the templates show in the same contact step (no «Continuar» screen).
  await page.getByRole('button',{name:'Contactar',exact:true}).click();
- await page.getByRole('button',{name:'Continuar con el mensaje',exact:true}).click();
- const dialog=page.getByRole('dialog');
+ const dialog=page.getByRole('dialog',{name:'Preparar WhatsApp',exact:true});
  await expect(dialog.getByRole('button',{name:/Institucional por WhatsApp/})).toBeEnabled();
  await expect(dialog.getByRole('button',{name:/Modelo general/})).toBeVisible();
  await expect(dialog.getByRole('button',{name:/Modelo de otro perfil/})).toHaveCount(0);

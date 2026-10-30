@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Popover as MantinePopover, type PopoverProps, UnstyledButton } from '@mantine/core';
 import { ControlTarget } from './ui/ControlTarget';
 import styles from './ui/CrmControls.module.css';
+import {LAYERS} from '../helpers/layers';
 
 interface ContentProps extends React.HTMLAttributes<HTMLDivElement> {
   transitionDuration?: number; removeBackgroundAndPadding?: boolean; matchTargetWidth?: boolean; align?: 'start' | 'center' | 'end'; side?: 'top' | 'bottom' | 'left' | 'right'; sideOffset?: number;
@@ -20,7 +21,7 @@ export function Popover({ children, open, defaultOpen, onOpenChange }: { childre
   return <Context.Provider value={{ change, opened: open ?? local, reportChild: setChildOpen }}><MantinePopover opened={open ?? local} onChange={next => {
     if (!next && config?.onInteractOutside) { const event = new Event('dismiss', { cancelable: true }); config.onInteractOutside(event); if (event.defaultPrevented) return; }
     change(next);
-  }} width={config?.matchTargetWidth ? 'target' : undefined} position={position} offset={config?.sideOffset ?? 4} withinPortal={!nested} floatingStrategy="fixed" middlewares={{ flip: { padding: 12 }, shift: { padding: 12, crossAxis: true, limiter: undefined }, size: { padding: 12 } }} zIndex={430} shadow="md" returnFocus
+  }} width={config?.matchTargetWidth ? 'target' : undefined} position={position} offset={config?.sideOffset ?? 4} withinPortal={!nested} floatingStrategy="fixed" middlewares={{ flip: { padding: 12 }, shift: { padding: 12, crossAxis: true, limiter: undefined }, size: { padding: 12 } }} zIndex={LAYERS.popover} shadow="md" returnFocus
     transitionProps={config?.transitionDuration===undefined?undefined:{duration:config.transitionDuration}} trapFocus={!config?.onOpenAutoFocus} closeOnEscape={!config?.onEscapeKeyDown && !childOpen}>
     {children}
   </MantinePopover></Context.Provider>;

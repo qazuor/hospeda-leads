@@ -94,6 +94,28 @@ try{
     await mutate({action:'account_save',nombre:dncName,ciudad:'Colón'});// non-DNC duplicates only warn
     await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('id','=',dncId).execute();
     assert.equal((await check({telefono:`03447${p6}`})).some(c=>c.id===dncId),false,'Trash is excluded');
+    {// Spec 98 §17: a new business stores its Instagram as the profile URL, is found by Instagram, and a No contactar business with the same Instagram blocks a re-add.
+      const igUser=`zz_ig_${suffix}`.toLowerCase().slice(0,30);
+      const igId=await mutate({action:'account_save',nombre:`Instagram ${suffix}`,perfilInstagram:'@'+igUser.toUpperCase()});
+      assert.equal((await db.selectFrom('crmAccounts').select('perfilInstagram').where('id','=',igId).executeTakeFirstOrThrow()).perfilInstagram,`https://www.instagram.com/${igUser}/`,'Stored as the canonical profile URL');
+      await mutate({action:'account_save',nombre:`Instagram inválido ${suffix}`,perfilInstagram:'no es un usuario!'},user.value,400);
+      found=await check({instagram:`https://instagram.com/${igUser}?igsh=1`});assert.equal(found[0]?.id,igId);assert.deepEqual(found[0].reasons,['Instagram compartido']);assert.equal(found[0].blocking,false,'Not No contactar: it only warns');
+      const otherIg=await mutate({action:'account_save',nombre:`Otro Instagram ${suffix}`,perfilInstagram:igUser});// a non-DNC duplicate only warns
+      const plainIg=await mutate({action:'account_save',nombre:`Sin Instagram ${suffix}`});
+      await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',igId).execute();
+      assert.equal((await check({instagram:igUser}))[0]?.blocking,true,'Same Instagram as a No contactar business blocks');
+      await mutate({action:'account_save',nombre:`Tercer Instagram ${suffix}`,perfilInstagram:`https://www.instagram.com/${igUser}/`},user.value,409);
+      await mutate({action:'account_save',nombre:`Tercer Instagram ${suffix}`,perfilInstagram:`https://www.instagram.com/${igUser}/`},admin.value,409);
+      // Review item 4: edits follow the phone rule. Another field or only the format of the same Instagram does not block; moving to the No contactar Instagram does.
+      await mutate({action:'account_save',id:otherIg,nombre:`Otro Instagram ${suffix}`,perfilInstagram:`https://www.instagram.com/${igUser}/`,businessNotes:'notas'});
+      await mutate({action:'account_save',id:otherIg,nombre:`Otro Instagram ${suffix}`,perfilInstagram:'@'+igUser});
+      await mutate({action:'account_save',id:plainIg,nombre:`Sin Instagram ${suffix}`,businessNotes:'notas'});
+      await mutate({action:'account_save',id:plainIg,nombre:`Sin Instagram ${suffix}`,perfilInstagram:'@'+igUser},user.value,409);
+      // Review item 1: an Instagram post or login URL is not a profile: refused on create, never «Instagram compartido».
+      await mutate({action:'account_save',nombre:`Post ${suffix}`,perfilInstagram:'https://www.instagram.com/p/ABC123/'},user.value,400);
+      assert.equal((await check({instagram:'https://www.instagram.com/accounts/login/?next=x'})).length,0);
+      await db.updateTable('crmAccounts').set({deletedAt:new Date()}).where('perfilInstagram','like',`%${igUser}%`).execute();
+    }
   }
   {// U-18: one-step creation stores the person as Principal in the same transaction, never creates a management, and keeps the No contactar block
     const quickName=`Alta rápida ${suffix}`,p6=String(suffix).slice(-6);

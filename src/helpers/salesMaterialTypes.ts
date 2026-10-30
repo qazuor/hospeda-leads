@@ -40,6 +40,24 @@ export function uploadDeclarationError({purpose,fileName,mimeType,byteSize,maxUp
  return null;
 }
 const ascii=(b:Uint8Array,from:number,text:string)=>text.split('').every((c,i)=>b[from+i]===c.charCodeAt(0));
+/** Signatures that name exactly one allowed type, checked in order. MP4/MOV/M4A, Office (zip/OLE) and MPEG frames are ambiguous and absent. */
+const SNIFFABLE=['application/pdf','image/png','image/jpeg','image/gif','image/webp','video/webm','audio/ogg','audio/wav'] as const satisfies readonly SalesMaterialMime[];
+/** The allowed type the first bytes of a file prove (16 bytes are enough), or null when they prove none unambiguously. */
+export function sniffSalesMaterialMime({bytes}:{bytes:Uint8Array}):SalesMaterialMime|null{
+ return SNIFFABLE.find(mimeType=>signatureMatches({mimeType,bytes}))??(ascii(bytes,0,'ID3')?'audio/mpeg':null);
+}
+/**
+ * Owner review of spec 96 (28/10/2026): a file whose extension lies about its content (a JPEG saved as «.png», common with downloaded
+ * photos) is uploaded under its real type instead of failing the server's signature check after the whole upload. Returns the real type
+ * and the file name with the right extension, or null when the declared type already matches or the bytes do not prove another type.
+ * The server still checks the signature of what it receives.
+ */
+export function correctedSalesMaterialFile({fileName,declaredMime,bytes}:{fileName:string;declaredMime:SalesMaterialMime;bytes:Uint8Array}):{mimeType:SalesMaterialMime;fileName:string}|null{
+ if(signatureMatches({mimeType:declaredMime,bytes}))return null;
+ const mimeType=sniffSalesMaterialMime({bytes});if(!mimeType||mimeType===declaredMime)return null;
+ const dot=fileName.lastIndexOf('.'),base=dot>0?fileName.slice(0,dot):fileName;
+ return {mimeType,fileName:`${base}.${SALES_MATERIAL_TYPES[mimeType][0]}`};
+}
 /** True when the first bytes of an object match the signature of its declared MIME type (16 bytes are enough). */
 export function signatureMatches({mimeType,bytes:b}:{mimeType:string;bytes:Uint8Array}):boolean{
  switch(mimeType){

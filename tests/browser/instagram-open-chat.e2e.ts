@@ -1,0 +1,121 @@
+import {test,expect} from '@playwright/test';
+import {createHmac,randomUUID} from 'node:crypto';
+import postgres from 'postgres';
+import superjson from 'superjson';
+import {simulateUserscript} from './helpers/userscript';
+import {reveal} from './support/contactStep';
+import {encryptInstagramToken} from '../../src/helpers/instagram';
+import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from '../../scripts/lib/instagram-secret';
+
+/**
+ * Spec 92: «Abrir Instagram» from the composer. The seller prepares the message, the CRM copies it and opens the
+ * business profile on a computer (window.open is stubbed: nothing reaches Instagram), «Requiere acción» waits for the echo, and a signed echo
+ * (as Meta would send it) confirms the same attempt. Needs the server and this process to share INSTAGRAM_APP_SECRET,
+ * INSTAGRAM_ACCOUNT_ID and INTEGRATION_SECRETS_KEY (CI sets fake values on both steps).
+ */
+const secret=process.env.INSTAGRAM_APP_SECRET,igAccount=process.env.INSTAGRAM_ACCOUNT_ID,keyText=process.env.INTEGRATION_SECRETS_KEY;
+const shots=process.env.CRM_E2E_SCREENSHOTS;// optional folder for review screenshots
+let sql:ReturnType<typeof postgres>;let secretSnapshot=NO_SECRET_SNAPSHOT;const secretQuery:SecretQuery=async(text,params=[])=>await sql.unsafe(text,[...params] as never[]);let accountId:string|undefined;const igsid=String(17000000000000000n+BigInt(Date.now()%1000000000));
+test.beforeAll(async()=>{
+ test.skip(!secret||!igAccount||!keyText,'Instagram webhook env not configured for this server');
+ // This test writes to the database (secret, fixtures): only a local disposable one.
+ assertLocalTestDatabase({url:process.env.DATABASE_URL,optIn:process.env.CRM_TEST_DATABASE});
+ sql=postgres(process.env.DATABASE_URL!,{max:1,...(process.env.CRM_TEST_DATABASE==='1'&&process.env.CRM_TEST_DATABASE_SOCKET?{path:process.env.CRM_TEST_DATABASE_SOCKET}:{})});
+ secretSnapshot=await snapshotInstagramSecret({query:secretQuery});
+ // A fresh token so the server neither renews it nor calls Meta; the chat profile is cached, so no lookup either.
+ const e=encryptInstagramToken('e2e-token-'+randomUUID(),Buffer.from(keyText!,'base64'));
+ await sql`INSERT INTO crm_integration_secrets(name,ciphertext,iv,tag,expires_at,refreshed_at,last_error) VALUES('instagram',${e.ciphertext},${e.iv},${e.tag},now()+interval '30 days',now(),NULL) ON CONFLICT(name) DO UPDATE SET ciphertext=excluded.ciphertext,iv=excluded.iv,tag=excluded.tag,expires_at=excluded.expires_at,refreshed_at=excluded.refreshed_at,last_error=NULL`;
+});
+test.afterAll(async()=>{
+ if(!sql)return;
+ try{
+  await cleanupThenRestore({onCleanupError:error=>console.error('Fixture cleanup failed',error),restore:()=>restoreInstagramSecret({query:secretQuery,snapshot:secretSnapshot}),cleanup:async()=>{
+  if(accountId){
+   const ids=[accountId];
+   for(const table of ['crm_communication_journal','crm_communication_reads','crm_messages','crm_activities','crm_tasks','crm_inbound_messages','lead_journal','crm_pipeline_events','crm_objections','leads','crm_commercial_journal','crm_work_journal'])await sql.unsafe(`DELETE FROM ${table} WHERE account_id=ANY($1::bigint[])`,[ids]);
+   await sql`DELETE FROM crm_accounts WHERE id=${accountId}::bigint`;
+  }
+  await sql`DELETE FROM crm_instagram_contacts WHERE igsid=${igsid}`;
+  }});
+ }finally{await sql.end();}
+});
+
+test('opens the Instagram chat, waits for the echo and resolves the same attempt',async({page,context,baseURL})=>{
+ test.setTimeout(180000);
+ await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:baseURL});
+ await page.setViewportSize({width:1280,height:900});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{localStorage.setItem('hospeda-live-mode','off');(window as unknown as {__opened:string[]}).__opened=[];window.open=((url?:string|URL)=>{const opened=(window as unknown as {__opened:string[]}).__opened;opened.push(String(url));const tab={closed:false,opener:{},close(){},location:{set href(v:string){opened.push(v)},get href(){return opened[opened.length-1]}}};return tab as unknown as Window;}) as typeof window.open;});
+ // Spec 96 §3.3: desktop Instagram needs a connected, current script. The simulation never acks the text handoff (spec 94), so the plain profile opens.
+ await simulateUserscript(page,{user:'admin@example.com'});
+ await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
+ async function api(endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
+ const username='zz_e2e_'+Date.now().toString(36);
+ accountId=String((await api('commercial',{action:'account_save',nombre:'Zz Instagram e2e '+Date.now(),perfilInstagram:'https://www.instagram.com/'+username+'/',telefono:'5493442000009',assignedUserEmail:'admin@example.com'})).id);
+ await api('commercial',{action:'business_status',accountId,status:'reviewed',recontactAt:null});
+ const leadId=String((await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Presentación Instagram',estado:'Cargado'})).id);
+ await sql`INSERT INTO crm_instagram_contacts(igsid,username,name,fetched_at) VALUES(${igsid},${username},'Zz e2e',now()) ON CONFLICT(igsid) DO UPDATE SET username=excluded.username,fetched_at=now()`;
+
+ await page.goto('/accounts/'+accountId);await page.getByRole('button',{name:'Contactar',exact:true}).first().click();let dialog=page.getByRole('dialog');
+ // Spec 96 §2.3: the only open management is picked as «Sobre»; the channel is a compact group plus «Otro: Llamada · Red social · Otro canal».
+ await expect(dialog.locator('p').filter({hasText:/^Sobre:/})).toContainText('Presentación Instagram');
+ // Owner review of spec 96: resolved, those controls start collapsed behind the «Para: …» line; «Cambiar» expands them.
+ const channels=dialog.getByRole('group',{name:'Canal',exact:true});await reveal(dialog,channels);await expect(channels.getByRole('button')).toHaveText(['WhatsApp','Instagram','Email']);
+ const other=dialog.locator('p').filter({hasText:/^Otro:/});await expect(other.getByRole('button')).toHaveText(['Llamada','Red social','Otro canal']);
+ await channels.getByRole('button',{name:'Instagram',exact:true}).click();dialog=page.getByRole('dialog',{name:'Preparar Instagram',exact:true});await expect(dialog.getByText('@'+username,{exact:true})).toBeVisible();
+ await dialog.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
+ const text='Hola, soy de Hospeda. Te escribo para contarte cómo difundimos alojamientos de Colón en la plataforma. ¿Te interesa?';
+ await dialog.getByRole('textbox',{name:'Mensaje final',exact:true}).fill(text);
+ await dialog.getByRole('button',{name:'Guardar cambios',exact:true}).click();
+ await expect(dialog.getByRole('group',{name:'Antes de abrir Instagram'})).toContainText('en la computadora, el chat de @'+username+' si ya lo conocemos o su perfil, donde el script abre el chat.');
+ if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);await dialog.getByRole('button',{name:'Abrir Instagram de @'+username,exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:shots+'/1-composer-instagram.png'});}
+ await dialog.getByRole('button',{name:'Abrir Instagram de @'+username,exact:true}).click();
+ // Spec 96 §2.6: from the business the composer closes once the text was copied into the opened tab; the attempt waits for the echo in «Requiere acción» (checked below).
+ await expect(dialog).toHaveCount(0);
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {__opened:string[]}).__opened)).toEqual(['about:blank','https://www.instagram.com/'+username+'/']);// desktop: ig.me does not work on Instagram Web; the simulated script never acks the handoff, so no #hospeda=<nonce> marker (spec 94)
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);
+ await expect(page.getByText(/^Mensaje copiado\. En el perfil tocá «Enviar mensaje» y pegalo .*Con el user script de Hospeda se pega solo\.$/)).toBeVisible();// no ack from the simulated script
+ if(shots)await page.screenshot({path:shots+'/2-copied-and-opened.png'});
+ const attempt=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='social'&&m.status==='instagram_opened');expect(attempt.recipient).toBe('@'+username);
+
+ // An opened WhatsApp too (through the API: window.open is stubbed, nothing reaches WhatsApp), to see both unconfirmed sends.
+ const waText='Hola, te escribo desde Hospeda por WhatsApp.';
+ const wa=await api('communication',{action:'prepare',id:randomUUID(),leadId,contactId:null,channel:'whatsapp',templateId:null});
+ const waEdited=await api('communication',{action:'edit',id:wa.id,revision:wa.revision,subject:'',body:waText});
+ await api('communication',{action:'dispatch',id:wa.id,revision:waEdited.revision,confirm:true});
+ expect((await api('communication?accountId='+accountId)).messages.find((m:any)=>m.id===wa.id).status).toBe('whatsapp_opened');
+
+ // Unconfirmed sends are not in «Conversación» (owner decision): they live only in «Requiere acción», with their own actions.
+ await page.goto('/accounts/'+accountId+'?tab=comunicacion');
+ const conversation=page.getByTestId('conversation-body'),required=page.getByRole('region',{name:'Requiere acción',exact:true});
+ const igEntry=required.getByRole('group',{name:/^Instagram sin confirmar para /}),waEntry=required.getByRole('group',{name:/^WhatsApp sin confirmar para /});
+ await expect(igEntry).toContainText('Esperando que Instagram confirme el envío…');await expect(igEntry).toContainText(text.slice(0,40));
+ for(const name of ['Sí, se envió','No se envió','Copiar y abrir de nuevo'])await expect(igEntry.getByRole('button',{name,exact:true})).toBeVisible();
+ await expect(waEntry).toContainText('¿Lo enviaste?');await expect(waEntry).toContainText(waText);await expect(waEntry.getByRole('button',{name:'Copiar y abrir de nuevo',exact:true})).toHaveCount(0);
+ await expect(required.getByRole('button',{name:'Ver en la conversación',exact:true})).toHaveCount(0);
+ await expect(conversation.getByText(text.slice(0,40))).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
+ if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await required.screenshot({path:shots+'/3-requires-action-unconfirmed.png'});}
+
+ // The Bandeja follows the same rule (owner decision): no unconfirmed open in its threads.
+ const thread=async(channel:string,extra='')=>(await api('inbox/thread?accountId='+accountId+'&leadId='+leadId+'&channel='+channel+extra)).rows.map((r:any)=>r.id);
+ expect(await thread('whatsapp')).toEqual([]);expect(await thread('social','&includeVoided=1')).toEqual([]);
+ // «No se envió» on the WhatsApp: it leaves «Requiere acción» and stays out of «Conversación» (admin: only with «Mostrar anulados»).
+ await waEntry.getByRole('button',{name:'No se envió',exact:true}).click();
+ await expect(waEntry).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
+ await page.getByRole('switch',{name:'Mostrar anulados'}).check();
+ await expect(page.getByTestId('conversation-body').getByText(waText)).toBeVisible();
+ await page.getByRole('switch',{name:'Mostrar anulados'}).uncheck();
+ expect(await thread('whatsapp')).toEqual([]);expect(await thread('whatsapp','&includeVoided=1')).toEqual([wa.id]);
+
+ // Meta sends the echo of what the seller pasted: the same attempt becomes «confirmado por Instagram».
+ const raw=JSON.stringify({object:'instagram',entry:[{id:igAccount,messaging:[{sender:{id:igAccount},recipient:{id:igsid},timestamp:Date.now(),message:{mid:'e2e-'+randomUUID(),text:text+' Saludos!',is_echo:true}}]}]});
+ const hook=await page.request.post('/_api/inbound/instagram',{headers:{'Content-Type':'application/json','X-Hub-Signature-256':'sha256='+createHmac('sha256',secret!).update(raw).digest('hex')},data:raw});expect(hook.status()).toBe(200);
+ await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages.filter((m:any)=>m.channel==='social').map((m:any)=>[m.id,m.status])).toEqual([[attempt.id,'manual_sent']]);
+ await page.reload();
+ await expect(page.getByRole('region',{name:'Requiere acción',exact:true}).getByRole('group',{name:/^Instagram sin confirmar para /})).toHaveCount(0);
+ expect(await thread('social')).toEqual([attempt.id]);// confirmed: a normal sent message in the Bandeja too
+ const resolved=page.getByTestId('conversation-body').locator('article').filter({hasText:'Enviado · confirmado por Instagram'}).first();
+ await expect(resolved).toContainText(text.slice(0,40));await expect(resolved).not.toContainText('Esperando que Instagram confirme');
+ if(shots)await resolved.screenshot({path:shots+'/4-resolved-bubble.png'});
+ expect(errors).toEqual([]);
+ await page.evaluate(()=>fetch('/_api/auth/logout',{method:'POST'}));
+});

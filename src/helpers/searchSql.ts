@@ -1,5 +1,6 @@
 import { sql, type RawBuilder } from 'kysely';
 import { phoneNationalKeys, phoneSignificantKeys } from './dataNormalization';
+import { instagramProfilePattern, normalizeInstagramUsername } from './instagramChat';
 
 // Latin combining accents after NFD; retain U+0303 so ñ stays distinct.
 // Normalize both operands in PostgreSQL, without rewriting stored text or
@@ -39,6 +40,18 @@ export function phoneSearchSql(column: string, query: string): RawBuilder<boolea
   return sql<boolean>`(${sql.join(parts, sql` or `)})`;
 }
 
+/**
+ * Spec 98 §17.2 (owner decision 29/10/2026): matches an Instagram profile column when the piece is a profile (`@user`, `user` or an
+ * instagram.com profile URL). Null otherwise, so callers can skip it. Anchored on the normalized username (instagramProfilePattern, with
+ * the regex metacharacters escaped), never a substring; the leading `@` is dropped only here, other columns still see the piece as typed.
+ * Instagram's own pages (`/p/…`, `/reels`, `/accounts/…`) are not profiles and never match.
+ */
+export function instagramSearchSql(column: string, query: string): RawBuilder<boolean> | null {
+  const username = normalizeInstagramUsername(query.trim());
+  return username ? sql<boolean>`coalesce(${sql.ref(column)}, '') ~* ${instagramProfilePattern(username)}` : null;
+}
+const instagramParts = (columns: readonly string[], piece: string) => columns.map(c => instagramSearchSql(c, piece)).filter((p): p is RawBuilder<boolean> => p !== null);
+
 /** The search pieces of a query, as in multiFieldSearchSql: the whole trimmed query when it is a phone number and phones are searched (digit groups are not separate words), otherwise its words. */
 function searchPieces(query: string, phoneAware: boolean): string[] {
   return phoneAware && phoneSearchSql('phone', query) ? [query.trim()] : searchTokens(query);
@@ -48,22 +61,23 @@ function trigramPiece(piece: string): boolean {
   return /[\p{L}\p{N}]{3}/u.test(piece.normalize('NFC'));
 }
 /** Text columns OR phone columns matching one search piece; `false` when nothing applies. */
-function anyColumnSql(columns: readonly string[], phoneColumns: readonly string[], piece: string): RawBuilder<boolean> {
-  const parts = [...columns.map(c => searchSql(c, piece)), ...phoneColumns.map(c => phoneSearchSql(c, piece)).filter((p): p is RawBuilder<boolean> => p !== null)];
+function anyColumnSql(columns: readonly string[], phoneColumns: readonly string[], piece: string, instagramColumns: readonly string[] = []): RawBuilder<boolean> {
+  const parts = [...columns.map(c => searchSql(c, piece)), ...phoneColumns.map(c => phoneSearchSql(c, piece)).filter((p): p is RawBuilder<boolean> => p !== null), ...instagramParts(instagramColumns, piece)];
   return parts.length ? sql<boolean>`(${sql.join(parts, sql` or `)})` : sql<boolean>`false`;
 }
 
 /**
  * Multi-word search: every word (max 5) must match at least one column (AND across words, OR across columns),
  * so "hotel colon" finds "Hotel X" in "Colón". Accent-insensitive with ñ distinct from n.
- * A query that is a phone number also matches `phoneColumns` in any phone format. `extra` adds per-word alternatives (e.g. notes).
+ * A query that is a phone number also matches `phoneColumns` in any phone format. `instagramColumns` match a word that is an Instagram profile
+ * (instagramSearchSql). `extra` adds per-word alternatives (e.g. notes).
  */
-export function multiFieldSearchSql(columns: readonly string[], query: string, options: { phoneColumns?: readonly string[]; extra?: (token: string) => RawBuilder<boolean> } = {}): RawBuilder<boolean> {
-  const { phoneColumns = [], extra } = options;
-  const perToken = (token: string) => sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, token)), ...phoneColumns.map(c => phoneSearchSql(c, token)).filter((p): p is RawBuilder<boolean> => p !== null), ...(extra ? [extra(token)] : [])], sql` or `)})`;
+export function multiFieldSearchSql(columns: readonly string[], query: string, options: { phoneColumns?: readonly string[]; instagramColumns?: readonly string[]; extra?: (token: string) => RawBuilder<boolean> } = {}): RawBuilder<boolean> {
+  const { phoneColumns = [], instagramColumns = [], extra } = options;
+  const perToken = (token: string) => sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, token)), ...phoneColumns.map(c => phoneSearchSql(c, token)).filter((p): p is RawBuilder<boolean> => p !== null), ...instagramParts(instagramColumns, token), ...(extra ? [extra(token)] : [])], sql` or `)})`;
   // A query that is just a phone number is matched as one piece (digit groups are not separate words), which also keeps it to a single pass over the text columns.
   const whole = phoneColumns.map(c => phoneSearchSql(c, query)).filter((p): p is RawBuilder<boolean> => p !== null);
-  if (whole.length) return sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, query.trim())), ...(extra ? [extra(query.trim())] : []), ...whole], sql` or `)})`;
+  if (whole.length) return sql<boolean>`(${sql.join([...columns.map(c => searchSql(c, query.trim())), ...instagramParts(instagramColumns, query), ...(extra ? [extra(query.trim())] : []), ...whole], sql` or `)})`;
   const tokens = searchTokens(query);
   return tokens.length ? sql<boolean>`(${sql.join(tokens.map(perToken), sql` and `)})` : sql<boolean>`false`;
 }
@@ -83,6 +97,8 @@ export interface SearchIdSource {
   readonly columns: readonly string[];
   /** Columns also matched as phone numbers. */
   readonly phoneColumns?: readonly string[];
+  /** Instagram profile columns, matched only by a piece that is a profile (instagramSearchSql). */
+  readonly instagramColumns?: readonly string[];
   /** Extra condition of the subquery, e.g. a guard that reproduces a coalesce of the outer projection. */
   readonly where?: RawBuilder<boolean>;
 }
@@ -98,7 +114,7 @@ export interface SearchIdSource {
  */
 export function idSetSearchSql(sources: readonly SearchIdSource[], query: string): RawBuilder<boolean> {
   const pieces = searchPieces(query, sources.some(source => (source.phoneColumns?.length ?? 0) > 0));
-  const subquery = (source: SearchIdSource, piece: string, correlated: boolean) => sql`from ${source.from} where ${correlated ? sql`${sql.ref(source.id)} = ${sql.ref(source.key)} and ` : sql``}${source.where ? sql`${source.where} and ` : sql``}${anyColumnSql(source.columns, source.phoneColumns ?? [], piece)}`;
+  const subquery = (source: SearchIdSource, piece: string, correlated: boolean) => sql`from ${source.from} where ${correlated ? sql`${sql.ref(source.id)} = ${sql.ref(source.key)} and ` : sql``}${source.where ? sql`${source.where} and ` : sql``}${anyColumnSql(source.columns, source.phoneColumns ?? [], piece, source.instagramColumns ?? [])}`;
   // A piece without a trigram (no run of 3 letters or digits, e.g. "12") cannot use the index: reading a whole table for it
   // costs more than checking only the rows the other words kept, so it is matched per row (correlated) and ANDed last.
   const perPiece = (piece: string) => trigramPiece(piece)

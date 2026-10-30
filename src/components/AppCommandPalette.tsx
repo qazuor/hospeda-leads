@@ -12,6 +12,7 @@ import { mainNavigation, todayViews, toolNavigation } from '../helpers/appNaviga
 import { commandPalette, commandStore, openCommandPalette, restoreCommandFocus } from '../helpers/commandPalette';
 import { CrmButton } from './ui/CrmButton';
 import styles from './AppCommandPalette.module.css';
+import {LAYERS} from '../helpers/layers';
 type GuideTopics=typeof import('../content/user-guide.json');
 
 const resultIcons={Negocios:Building2,Gestiones:BriefcaseBusiness,Contactos:Users,Notas:StickyNote,Pendientes:CalendarClock,Archivos:FileText,'Material de venta':Presentation,Mensajes:MessageCircle,Actividades:History,'Modelos de mensajes':Mail};
@@ -122,7 +123,7 @@ export function AppCommandPalette() {
   const selectedAction = groups.flatMap(group => group.actions)[selected];
 
   return <Spotlight.Root store={commandStore} shortcut={null} query={query} onQueryChange={setQuery}
-    title="Accesos rápidos" zIndex={410} size={640} yOffset={16} scrollable withOverlay
+    title="Accesos rápidos" zIndex={LAYERS.commandPalette} size={640} yOffset={16} scrollable withOverlay
     overlayProps={{ backgroundOpacity: 0.62, blur: 2, className: 'crm-dialog-overlay' }}
     maxHeight={Math.max(100, Math.min(420, viewportHeight - 210))} trapFocus returnFocus
     styles={{ content: { maxHeight: viewportHeight - 32 } }}

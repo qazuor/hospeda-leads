@@ -2,6 +2,7 @@ import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
 import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertContactDataWritable,assertLeadAccess,canEditBusinessContactData,hasOpenManagement} from '../helpers/crmPermissions';
+import {canonicalInstagramProfile,INSTAGRAM_PROFILE_INVALID} from '../helpers/instagramChat';
 import {findNewDncBlocker,findDncPhoneBusinessesForPeople,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
@@ -126,9 +127,11 @@ export async function post(request:Request){
         if(classification.length)throw new Error(classification.join(' '));
         if(!contactOnly&&input.verifiedOn&&input.verifiedOn>new Date().toISOString().slice(0,10))throw new Error('Fecha de verificación futura.');
         const fullFields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
+        // Spec 98 §17: a new business stores its Instagram as the canonical profile URL; anything that is not a profile is refused (edits keep their rules).
+        if(!existing&&fullFields.perfilInstagram){const profile=canonicalInstagramProfile(fullFields.perfilInstagram);if(!profile)throw new Error(INSTAGRAM_PROFILE_INVALID);fullFields.perfilInstagram=profile;}
         const fields=contactOnly?{telefono:input.telefono===undefined?existing!.telefono:nullable(input.telefono),email:input.email===undefined?existing!.email:nullable(input.email),...(input.whatsapp===undefined?{}:{whatsapp:nullable(input.whatsapp)}),updatedAt:new Date()}:fullFields;
         {
-          const after={nombre:contactOnly?existing!.nombre:input.nombre,ciudad:contactOnly?existing!.ciudad:fullFields.ciudad,telefono:fields.telefono,email:fields.email,whatsapp:input.whatsapp===undefined?existing?.whatsapp:nullable(input.whatsapp)};
+          const after={nombre:contactOnly?existing!.nombre:input.nombre,ciudad:contactOnly?existing!.ciudad:fullFields.ciudad,telefono:fields.telefono,email:fields.email,whatsapp:input.whatsapp===undefined?existing?.whatsapp:nullable(input.whatsapp),perfilInstagram:contactOnly?existing!.perfilInstagram:fullFields.perfilInstagram};
           if(await findNewDncBlocker(trx,{after,before:existing??undefined,excludeId:existing?String(existing.id):undefined}))throw new Conflict(DNC_DUPLICATE_MESSAGE);
           // The primary contact's phone is not checked: a person's phone matching a No contactar business only warns in the dialog (decision 13B).
         }

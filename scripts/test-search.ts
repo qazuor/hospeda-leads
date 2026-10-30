@@ -186,6 +186,10 @@ try {
     { nombre: `${marker} sin contactos`, assignedUserEmail: reader.user.email },
     { nombre: `${marker} con contactos`, telefono: '0343 15 466-1122', assignedUserEmail: reader.user.email },
   ]).returningAll().execute();
+  // Spec 98 §17.2: Instagram profiles stored as a URL and as a handle (free text, as the importers left them).
+  const igUser = `ig_${randomUUID().replace(/-/g, '').slice(0, 10)}`, igOther = `${igUser}.otro`;
+  await db.updateTable('crmAccounts').set({ perfilInstagram: `https://www.instagram.com/${igUser}/` }).where('id', '=', eq[1].id).execute();
+  await db.updateTable('crmAccounts').set({ perfilInstagram: `@${igOther}` }).where('id', '=', eq[2].id).execute();
   // A business origin wins the coalesce over the management's origen; a management contact_name applies only without an active contact.
   await db.insertInto('leads').values([
     { accountId: eq[0].id, nombre: eq[0].nombre, origen: `${marker} referido Peña`, serviceInterest: `${marker} pauta anual`, estado: 'Cargado' },
@@ -204,7 +208,9 @@ try {
   const terms = [marker, `${marker} colon`, `${marker} COLÓN`, `${marker} Colo\u0301n`, 'colon', 'concepcion del', 'caña', 'cana', 'can\u0303a', 'gastronomia', 'jose',
     'reunion pinguino', `${marker} peña`, `${marker} pena`, 'feria ñandu', 'nandu', 'pauta anual', 'muñoz', 'munoz', 'ibañez', 'zuñiga', 'quiñones', 'albañil', 'nuñez',
     '3515551234', '+54 9 351 555-1234', '0351 15 555 1234', '5551234', '4444', '2994447788', '0343 466 1122', `${marker} 12`, '12', 'ñ', 'a', 'ña', '%', '_', '   ',
-    'ribera', 'gomez', 'plan anual 12', 'a b c d e f'];
+    'ribera', 'gomez', 'plan anual 12', 'a b c d e f',
+    // Spec 98 §17.2: the business Instagram profile, as @user, user or a profile URL; Instagram pages that are not profiles never match.
+    `@${igUser}`, igUser, igUser.toUpperCase(), `https://www.instagram.com/${igUser}/?hl=es`, `${marker} @${igUser}`, `@${igOther}`, `https://www.instagram.com/p/${igUser}/`, 'reels', `@${igUser.slice(0, 5)}`];
   const ids = (rows: { key: unknown }[]) => rows.map(row => String(row.key)).sort();
   let matchedTerms = 0;
   for (const term of terms) {
@@ -226,6 +232,10 @@ try {
   assert.deepEqual(await businessMatch(`${marker} zuñiga`), [], 'secondary contacts are not the projected contact');
   assert.deepEqual(await businessMatch(`${marker} albañil`), [String(eq[1].id)], 'without is_primary the lowest id is the primary contact');
   assert.deepEqual(await businessMatch(`${marker} feria nandu`), [], 'ñ stays distinct from n through the id sets');
+  for (const term of [`@${igUser}`, igUser, `https://www.instagram.com/${igUser}`, `instagram.com/${igUser.toUpperCase()}?igsh=x`]) assert.deepEqual(await businessMatch(term), [String(eq[1].id)], `Instagram profile "${term}"`);
+  assert.deepEqual(await businessMatch(`@${igOther}`), [String(eq[2].id)], 'a dot in the username is literal and the match is anchored');
+  for (const term of [`@${igUser.slice(0, 5)}`, `https://www.instagram.com/p/${igUser}/`, `https://www.instagram.com/accounts/login/?next=/${igUser}/`]) assert.deepEqual(await businessMatch(term), [], `"${term}" is not that profile`);
+  assert((await get(search, 'search', { q: `@${igUser}` })).results.some((r: { id: string }) => r.id === 'business:' + eq[1].id), 'Ctrl+K Negocios matches the Instagram profile');
   assert((await get(search, 'search', { q: `${marker} pauta anual` })).results.some((r: { id: string }) => r.id.startsWith('lead:')), 'Ctrl+K Gestiones matches service_interest');
   // Migrations 032 and 034 index the exact normalizeSearchSql() expression; if the helper drifts, the planner can no longer use them.
   const indexed: Record<string, [string, string[]]> = { crm_accounts_search_trgm: ['crm_accounts', ['nombre', 'email', 'telefono', 'ciudad', 'business_notes']], crm_contacts_search_trgm: ['crm_contacts', ['name', 'email', 'phone']], crm_activities_search_trgm: ['crm_activities', ['title', 'notes', 'result']], lead_notes_search_trgm: ['lead_notes', ['note']], leads_search_trgm: ['leads', ['nombre', 'opportunity_name', 'service_interest', 'contact_name', 'origen']], crm_accounts_origin_search_trgm: ['crm_accounts', ['origin']] };

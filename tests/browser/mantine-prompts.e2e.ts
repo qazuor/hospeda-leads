@@ -5,7 +5,7 @@ const settings={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedE
 for(const width of [1280,390])for(const channel of ['email','whatsapp'])test(`link dialog preserves selection, validation and focus at ${width}px ${channel}`,async({page})=>{
  await page.setViewportSize({width,height:844});
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.addInitScript(()=>{try{localStorage.setItem('hospeda-live-mode','off')}catch{/* the sandboxed email preview iframe has no storage */}});
  const writes:string[]=[],errors:string[]=[],native:string[]=[];
  page.on('pageerror',error=>errors.push(error.message));page.on('dialog',async dialog=>{native.push(dialog.type());await dialog.dismiss()});
  await page.route('**/_api/**',async route=>{
@@ -54,7 +54,7 @@ for(const width of [1280,390])for(const channel of ['email','whatsapp'])test(`li
 
 for(const width of [1280,390])for(const role of ['admin','user'])test(`restriction dialog respects permissions and preserves retries at ${width}px ${role}`,async({page})=>{
  await page.setViewportSize({width,height:844});await page.route('https://fonts.googleapis.com/**',route=>route.abort());
- await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.addInitScript(()=>{try{localStorage.setItem('hospeda-live-mode','off')}catch{/* the sandboxed email preview iframe has no storage */}});
  const writes:any[]=[],errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  const lead={id:'201',accountId:'101',nombre:'Negocio de prueba',opportunityName:'Gestión de prueba',email:'fixture@example.com',assignedUserEmail:'owner@example.com',estado:'Cargado',deletedAt:null};
  const restriction={id:'301',leadId:'201',contactId:'401',channel:'email',reason:'Solicitud original',actorEmail:'admin@example.com',createdAt:new Date(),liftedAt:null as Date|null,liftReason:null as string|null};

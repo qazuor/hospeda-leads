@@ -4,7 +4,7 @@ import {Button} from './Button';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from './DropdownMenu';
 import { UnstyledButton } from '@mantine/core';
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState, type AnyExtension } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
@@ -32,26 +32,43 @@ import { normalizeTemplateHtml } from "../helpers/renderMessageTemplate";
 import { WHATSAPP_EMOJI_GROUPS } from "../helpers/whatsappEmoji";
 import styles from "./RichTemplateEditor.module.css";
 import type { MessageVariableDefinition } from "../helpers/messageVariables";
+import { editorHtmlToMaterialReferences, materialReferencesToEditorHtml } from "../helpers/templateMaterials";
+import { SalesMaterialNode } from "./salesMaterialNode";
+import { SalesMaterialPicker } from "./SalesMaterialPicker";
+import { HelpLink } from "./HelpLink";
 
+/**
+ * TipTap editor of templates and drafts. With `salesMaterials` (template editor only, spec 89 §9) it also offers «Insertar material de venta»:
+ * references are stored as `{{material:<uuid>}}` (`:attach` in email) and shown as chips with the title from `salesMaterials.titles`.
+ */
 export const RichTemplateEditor=({
-  value,onChange,channel,showVariables=true,ariaLabel='Contenido del modelo',messageVariables=[]
+  value,onChange,channel,showVariables=true,ariaLabel='Contenido del modelo',messageVariables=[],salesMaterials
 }:{
   value:string;
   onChange:(html:string)=>void;
-  channel:"whatsapp"|"email";
+  /** `instagram` (spec 92) is plain text: Instagram shows `*asterisks*` literally, so there is no bold, italic or strike. */
+  channel:"whatsapp"|"email"|"instagram";
   showVariables?:boolean;
   ariaLabel?:string;
   messageVariables?:MessageVariableDefinition[];
+  salesMaterials?:{titles:Readonly<Record<string,string|null>>;onInsert?:(material:{id:string;title:string})=>void};
 })=>{
+  const withMaterials=!!salesMaterials,titles=salesMaterials?.titles;
+  const [materialPicker,setMaterialPicker]=useState(false);
+  const titlesKey=JSON.stringify(titles??{}),appliedTitles=useRef(titlesKey);
+  const toEditor=(html:string)=>withMaterials?materialReferencesToEditorHtml({html,titles:titles??{}}):html;
+  const toStored=(html:string)=>withMaterials?editorHtmlToMaterialReferences({html}):html;
   const linkErrorId=useId();
   const [linkOpen,setLinkOpen]=useState(false),[linkUrl,setLinkUrl]=useState(''),[linkError,setLinkError]=useState('');
   const linkSelection=useRef<{from:number;to:number}|null>(null);
   const [emojiGroup,setEmojiGroup]=useState(WHATSAPP_EMOJI_GROUPS[0].key);
   const extensions=useMemo(()=>{
-    const base=[
+    const base:AnyExtension[]=[
       Document,Paragraph,Text,Bold,Italic,Strike,HardBreak,History,
       Link.configure({openOnClick:false,autolink:true,defaultProtocol:"https"})
     ];
+    if(channel==="instagram")return [Document,Paragraph,Text,HardBreak,History,Link.configure({openOnClick:false,autolink:true,defaultProtocol:"https"})];
+    if(withMaterials)base.push(SalesMaterialNode.configure({HTMLAttributes:{class:styles.materialChip}}));
     if(channel==="whatsapp")return base;
     return [
       ...base,
@@ -64,21 +81,24 @@ export const RichTemplateEditor=({
       HorizontalRule,
       TextAlign.configure({types:["heading","paragraph"]})
     ];
-  },[channel]);
+  },[channel,withMaterials]);
 
   const editor=useEditor({
     extensions,
-    content:normalizeTemplateHtml(value),
+    content:toEditor(normalizeTemplateHtml(value)),
     immediatelyRender:false,
     editorProps:{attributes:{class:styles.editor,role:'textbox','aria-label':ariaLabel,'aria-multiline':'true'}},
-    onUpdate:({editor})=>onChange(editor.getHTML())
-  },[channel]);
+    onUpdate:({editor})=>onChange(toStored(editor.getHTML()))
+  },[channel,withMaterials]);
 
   useEffect(()=>{
     if(!editor)return;
-    const next=normalizeTemplateHtml(value);
-    if(editor.getHTML()!==next)editor.commands.setContent(next,{emitUpdate:false});
-  },[editor,value]);
+    const next=normalizeTemplateHtml(value),retitle=appliedTitles.current!==titlesKey;
+    appliedTitles.current=titlesKey;
+    if(retitle||toStored(editor.getHTML())!==next)editor.commands.setContent(toEditor(next),{emitUpdate:false});
+    // toEditor/toStored only depend on titlesKey and withMaterials, which are in the dependencies.
+  },[editor,value,titlesKey,withMaterials]);
+  const selectedMaterial=useEditorState({editor,selector:({editor:current})=>current&&withMaterials&&current.isActive("salesMaterial")?current.getAttributes("salesMaterial") as {materialId:string;attach:boolean;title:string}:null});
 
   useEffect(()=>{setLinkOpen(false);linkSelection.current=null;},[editor]);
 
@@ -109,6 +129,7 @@ export const RichTemplateEditor=({
     closeLink();
   };
   const insert=(value:string)=>editor.chain().focus().insertContent(value).run();
+  const insertMaterial=(material:{id:string;title:string})=>{setMaterialPicker(false);salesMaterials?.onInsert?.(material);editor.chain().focus().insertContent([{type:"salesMaterial",attrs:{materialId:material.id,attach:false,title:material.title}},{type:"text",text:" "}]).run();};
 
   return <div className={styles.wrapper}>
     <div className={styles.toolbar}>
@@ -117,10 +138,10 @@ export const RichTemplateEditor=({
         {toolbarButton("Rehacer",false,()=>editor.chain().focus().redo().run(),<Redo2 size={15}/>)}
       </div>
       <div className={styles.toolGroup}>
-        {toolbarButton("Negrita",editor.isActive("bold"),()=>editor.chain().focus().toggleBold().run(),<BoldIcon size={15}/>)}
-        {toolbarButton("Cursiva",editor.isActive("italic"),()=>editor.chain().focus().toggleItalic().run(),<ItalicIcon size={15}/>)}
+        {channel!=="instagram"&&toolbarButton("Negrita",editor.isActive("bold"),()=>editor.chain().focus().toggleBold().run(),<BoldIcon size={15}/>)}
+        {channel!=="instagram"&&toolbarButton("Cursiva",editor.isActive("italic"),()=>editor.chain().focus().toggleItalic().run(),<ItalicIcon size={15}/>)}
         {channel==="email"&&toolbarButton("Subrayado",editor.isActive("underline"),()=>editor.chain().focus().toggleUnderline().run(),<UnderlineIcon size={15}/>)}
-        {toolbarButton("Tachado",editor.isActive("strike"),()=>editor.chain().focus().toggleStrike().run(),<Strikethrough size={15}/>)}
+        {channel!=="instagram"&&toolbarButton("Tachado",editor.isActive("strike"),()=>editor.chain().focus().toggleStrike().run(),<Strikethrough size={15}/>)}
       </div>
       {channel==="email"&&<>
         <div className={styles.toolGroup}>
@@ -166,6 +187,12 @@ export const RichTemplateEditor=({
     </DialogContent></Dialog>}
 
 
+    {withMaterials&&<div className={styles.variables}>
+      <Button variant="outline" onClick={()=>setMaterialPicker(true)}>Insertar material de venta</Button>
+      {channel==="email"&&selectedMaterial&&<Button variant="outline" aria-pressed={!!selectedMaterial.attach} onClick={()=>editor.chain().focus().updateAttributes("salesMaterial",{attach:!selectedMaterial.attach}).run()}>{selectedMaterial.attach?"No adjuntar el archivo":"Adjuntar el archivo"}</Button>}
+      <HelpLink topic="salesMaterial" hint="templateMaterial"/>
+      <SalesMaterialPicker opened={materialPicker} onClose={()=>setMaterialPicker(false)} onPick={insertMaterial} title="Insertar material de venta"/>
+    </div>}
     {showVariables&&<div className={styles.variables}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="outline">Insertar variable</Button></DropdownMenuTrigger>
@@ -176,7 +203,9 @@ export const RichTemplateEditor=({
       </DropdownMenu>
     </div>}
     <p className={styles.hint}>
-      {channel==="whatsapp"
+      {channel==="instagram"
+        ?"Instagram muestra el texto tal cual: sin negrita ni cursiva. Los links se envían como URL visible."
+        :channel==="whatsapp"
         ?"WhatsApp conserva negrita, cursiva y tachado. Los links se envían como URL visible y quedan clickeables."
         :"Email se guarda como HTML enriquecido compatible con clientes habituales. Evitamos formatos frágiles como fuentes o colores personalizados."}
     </p>

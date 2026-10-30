@@ -48,11 +48,36 @@ R2_ACCOUNT_ID=<Cloudflare account id>
 R2_ACCESS_KEY_ID=<R2 API token access key id, Object Read & Write on the material bucket only>
 R2_SECRET_ACCESS_KEY=<R2 API token secret access key>
 R2_BUCKET=<private bucket name, e.g. hospeda-crm-material>
+BREVO_WEBHOOK_TOKEN=<random secret, minimum 32 characters; the Brevo transactional webhook sends it as a Bearer token>
 ```
 
 No versionar valores reales.
 
 Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` y, opcionalmente, `BREVO_SMTP_PORT` en Coolify. La clave debe ser propia del CRM y revocable. Si falta el usuario o la clave, el servidor inicia igual y oculta la acción.
+
+### Webhook de Brevo: entrega, aperturas y clicks (spec 93)
+
+Sin este webhook los emails quedan en «Email aceptado por proveedor · entrega no confirmada» y no se ven aperturas ni clicks. Pasos del propietario, una sola vez y después del deploy (ningún agente los ejecuta):
+
+1. Generar un secreto de 32 caracteres o más (`openssl rand -hex 32`), cargarlo en Coolify como `BREVO_WEBHOOK_TOKEN` y redesplegar. Sin la variable, o con menos de 32 caracteres, `POST /_api/brevo/events` responde 503.
+2. Crear el webhook transaccional con autenticación Bearer. La API de Brevo la admite (`auth.type: "bearer"`); la pantalla de Brevo (Transactional → Settings → Webhook) puede no ofrecerla, así que conviene la API, con la API key de Hospeda y desde una máquina de confianza:
+
+   ```bash
+   curl -X POST https://api.brevo.com/v3/webhooks \
+     -H "api-key: $BREVO_API_KEY" -H 'content-type: application/json' \
+     -d '{"type":"transactional","channel":"email","description":"Hospeda CRM",
+          "url":"https://crm.hospeda.com.ar/_api/brevo/events",
+          "events":["delivered","opened","uniqueOpened","click","softBounce","hardBounce","blocked","spam","invalid","deferred","unsubscribed"],
+          "auth":{"type":"bearer","token":"<BREVO_WEBHOOK_TOKEN>"}}'
+   ```
+
+   - No activar `batched`: un evento por pedido es el comportamiento por defecto y el CRM acepta hasta 100 eventos por pedido.
+   - `sent`/`request` no hace falta. `error` no se suscribe por separado. Brevo documenta `proxy_open` / `unique_proxy_open` (aperturas por un servidor intermedio) pero no tienen valor de suscripción, así que *puede* enviarlos o no; el CRM las muestra como «Posible apertura automática».
+   - Nombres que llegan en el campo `event`: `delivered`, `opened`, `unique_opened`, `proxy_open`, `unique_proxy_open`, `click` (URL en `link`), `soft_bounce`, `hard_bounce`, `blocked`, `spam`, `invalid_email`, `deferred`, `unsubscribed`, `error`, `request`. Fuente: documentación de Brevo «Transactional webhooks» y «Create a webhook».
+3. Verificar: enviar desde el CRM un email a una casilla propia. En un minuto el ítem muestra «Entregado · <hora>»; al abrirlo aparece «Abierto». `GET https://api.brevo.com/v3/webhooks?type=transactional` lista el webhook. Abrirlo también desde Apple Mail (con la protección de privacidad activa) y mirar en los logs de Brevo si llega `proxy_open`: si nunca llega, «Posible apertura automática» no va a aparecer y esas aperturas pueden llegar como `opened`. En los logs de Brevo, un 401 indica que el token no coincide y un 503 que falta `BREVO_WEBHOOK_TOKEN` o es corto.
+4. Rotar: cargar el nuevo token en Coolify, redesplegar y actualizar el webhook con `PUT https://api.brevo.com/v3/webhooks/<id>` y el nuevo `auth.token`. Hacerlo en un momento tranquilo: los eventos rechazados en el medio pueden no volver a llegar (Brevo no documenta reintentos).
+
+Las aperturas, clicks y quejas de spam son informativas: no cambian el estado, no cuentan como contacto ni respuesta y no tocan tareas ni el último contacto.
 
 ### Material de venta en Cloudflare R2 (spec 89)
 
@@ -63,10 +88,12 @@ Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BR
 3. Configurar el CORS del bucket (Settings → CORS policy):
 
    ```json
-   [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]
+   [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type","Range"],"ExposeHeaders":["ETag","Accept-Ranges","Content-Range","Content-Length"],"MaxAgeSeconds":3600}]
    ```
 
    Staging o un worktree que suba archivos agrega su propio origen a `AllowedOrigins`.
+
+   `GET`, `Range` y los encabezados expuestos sirven para las portadas automáticas (spec 95): el navegador lee el archivo guardado (los PDF por rangos, con `pdf.js`) para dibujar la portada. Sin ellos la portada no se genera y la tarjeta muestra el dibujo del formato.
 4. Cargar en Coolify `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `R2_BUCKET` y redesplegar. No versionar valores.
 
 Sin esas variables el servidor arranca igual: la página «Material de venta» muestra «Almacenamiento no configurado», subir y abrir archivos responde 503, y los enlaces externos siguen funcionando. La CSP report-only suma el origen de R2 a `connect-src`, `img-src`, `media-src` y `frame-src` cuando las variables están cargadas (se lee al arrancar).
@@ -200,4 +227,4 @@ Secuencia recomendada:
 9. Recién entonces retirar Floot.
 # Instagram Direct
 
-Before enabling the webhook, apply `migrations/045_instagram_direct.sql` and configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, `INSTAGRAM_ACCOUNT_ID`, and `INTEGRATION_SECRETS_KEY` (base64-encoded 32 bytes). In Meta, use callback `https://crm.hospeda.com.ar/_api/inbound/instagram`, subscribe to `messages`, and enable the account-level subscription. Publish the app. Load the account token in Settings → Communication → Instagram; it is never shown again. The integration only receives messages; the CRM does not send messages to Meta.
+Before enabling the webhook, apply `migrations/045_instagram_direct.sql` and configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, `INSTAGRAM_ACCOUNT_ID`, and `INTEGRATION_SECRETS_KEY` (base64-encoded 32 bytes). In Meta, use callback `https://crm.hospeda.com.ar/_api/inbound/instagram`, subscribe to `messages`, and enable the account-level subscription. Publish the app. Load the account token in Settings → Communication → Instagram; it is never shown again. The integration only receives messages; the CRM does not send messages to Meta. For the user script panel on Instagram (spec 97), apply `migrations/053_instagram_threads.sql` and set `INSTAGRAM_ACCOUNT_USERNAME` to Hospeda's Instagram username (for example `hospeda.com.ar`).

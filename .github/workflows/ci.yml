@@ -113,6 +113,16 @@ jobs:
         run: npm run test:sales-material-share
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Sales material composer, email attachment and revocation integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:sales-material-composer
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Sales material in message templates and the user script integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:sales-material-templates
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Inbound email integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:inbound
@@ -126,6 +136,16 @@ jobs:
       - name: Unified inbox integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:inbox
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Communication read state integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:communication-reads
+        env:
+          CRM_TEST_DATABASE: "1"
+      - name: Email engagement integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:email-engagement
         env:
           CRM_TEST_DATABASE: "1"
       - name: Shared reading and owner permissions integration tests
@@ -189,6 +209,10 @@ jobs:
           R2_SECRET_ACCESS_KEY: ci-secret-key
           R2_BUCKET: crm-material
           R2_ENDPOINT: http://127.0.0.1:3019
+          # Fake Instagram webhook values: tests/browser/instagram-open-chat.e2e.ts signs an echo with the same ones (spec 92).
+          INSTAGRAM_APP_SECRET: ci-instagram-app-secret
+          INSTAGRAM_ACCOUNT_ID: "17841400000000000"
+          INTEGRATION_SECRETS_KEY: CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=
         run: |
           # Run node directly (not through npm): killing an npm wrapper PID does not stop its node child, which then keeps port 3001.
           node dist-server/index.js > /tmp/hospeda-leads.log 2>&1 &
@@ -231,6 +255,11 @@ jobs:
       - name: Commercial browser test
         if: steps.filter.outputs.code == 'true'
         run: npm run test:browser
+        env:
+          CRM_TEST_DATABASE: "1"
+          INSTAGRAM_APP_SECRET: ci-instagram-app-secret
+          INSTAGRAM_ACCOUNT_ID: "17841400000000000"
+          INTEGRATION_SECRETS_KEY: CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=
 
       - name: Upload browser evidence
         if: steps.filter.outputs.code == 'true' && (always())

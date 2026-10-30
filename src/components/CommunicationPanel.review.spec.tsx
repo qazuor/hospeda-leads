@@ -28,16 +28,17 @@ function setup({data={},role='user'}:{data?:Record<string,unknown>;role?:string}
  mocks.getWork.mockResolvedValue({tasks:[]});
 }
 const client=()=>new QueryClient({defaultOptions:{queries:{retry:false}}});
-const wrap=(node:React.ReactNode)=>render(<MantineProvider><QueryClientProvider client={client()}>{node}</QueryClientProvider></MantineProvider>);
+const wrap=(node:React.ReactNode)=>render(<MantineProvider env="test"><QueryClientProvider client={client()}>{node}</QueryClientProvider></MantineProvider>);
 beforeAll(()=>{window.matchMedia=window.matchMedia||((query:string)=>({matches:false,media:query,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){},dispatchEvent:()=>false,onchange:null}) as MediaQueryList);globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});
 afterEach(()=>{cleanup();for(const fn of [mocks.getCommunication,mocks.postCommunication,mocks.getCommercialDetail,mocks.getPipeline,mocks.getWork])fn.mockReset();mocks.role='user';});
 
 describe('sent rows never look sent when they are not (M2)',()=>{
  it('gives unconfirmed, not done and failed rows a neutral name and a muted tone',async()=>{
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(1)}),message('failed',{channel:'email',status:'failed',subject:'Tarifas',lastInteractionAt:day(2)}),message('ok',{lastInteractionAt:day(3)})]}});
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(1)}),message('pending',{channel:'email',subject:'Tarifas',status:'unknown',lastInteractionAt:day(1,13)}),message('failed',{channel:'email',status:'failed',subject:'Tarifas',lastInteractionAt:day(2)}),message('ok',{lastInteractionAt:day(3)})]}});
   wrap(<CommunicationPanel accountId="5"/>);const conversation=await screen.findByRole('region',{name:'Conversación'});
   const names=within(conversation).getAllByRole('article').map(a=>a.getAttribute('aria-label'));
-  expect(names).toEqual(['WhatsApp de Seller · WhatsApp abierto · envío no confirmado','Email de Seller · Rebote/fallo','WhatsApp de Seller · Envío confirmado manualmente']);
+  // The opened WhatsApp lives only in «Requiere acción» (spec 92 owner decision).
+  expect(names).toEqual(['Email de Seller · Resultado incierto · revisar Brevo','Email de Seller · Rebote/fallo','WhatsApp de Seller · Envío confirmado manualmente']);
   expect(within(conversation).getAllByRole('article').map(a=>a.closest('[data-tone]')?.getAttribute('data-tone'))).toEqual(['unconfirmed','failed','sent']);
  });
 });
@@ -47,7 +48,7 @@ describe('a call survives closing the dialog (M3)',()=>{
   setup({role:'admin'});
   let reject:(e:Error)=>void=()=>{};mocks.postCommunication.mockImplementationOnce(()=>new Promise((_,r)=>{reject=r}));
   wrap(<CommunicationPanel leadId="9" accountId="5"/>);await screen.findByRole('region',{name:'Conversación'});
-  const openDialog=async()=>{fireEvent.click(await screen.findByRole('button',{name:'Registrar llamada u otro contacto'}));const dialog=await screen.findByRole('dialog',{name:'Registrar llamada u otro contacto'});fireEvent.click(within(dialog).getByRole('button',{name:'Registrar una llamada'}));return dialog;};
+  const openDialog=async()=>{fireEvent.click(await screen.findByRole('button',{name:'Registrar'}));fireEvent.click(await screen.findByRole('menuitem',{name:'Llamada u otro contacto'}));const dialog=await screen.findByRole('dialog',{name:'Registrar llamada u otro contacto'});fireEvent.click(within(dialog).getByRole('button',{name:'Registrar una llamada'}));return dialog;};
   let dialog=await openDialog();
   const call=()=>within(dialog).findByRole('button',{name:/Ya llamé: anotar cómo salió|Guardando…/});
   await waitFor(async()=>expect(((await call()) as HTMLButtonElement).disabled).toBe(false));

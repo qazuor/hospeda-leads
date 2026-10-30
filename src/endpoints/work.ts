@@ -247,7 +247,7 @@ export async function post(request:Request){
     await trx.updateTable('crmTasks').set({status:input.status,purpose:input.purpose??task.purpose,continuation:input.continuation??null,continuationReason,outcome:input.outcome??null,result:input.result,completedAt,updatedAt:new Date()}).where('id','=',input.id).execute();
     if(completedAt){
      const values={accountId,leadId,taskId:input.id,purpose:input.purpose??task.purpose,continuation:input.continuation??null,continuationReason,typeId:task.typeId,title:task.title,occurredAt:completedAt,outcome:input.outcome??null,result:input.result,notes:task.description,participants:task.participants,channel:input.channel??null,contactIds:serialize(actualContacts)};
-     if(linked?.activityId)await trx.updateTable('crmActivities').set({...values,updatedAt:new Date()}).where('id','=',linked.activityId).execute();
+     if(linked?.activityId)await trx.updateTable('crmActivities').set({...values,outcomeResponseId:null,updatedAt:new Date()}).where('id','=',linked.activityId).execute();
      else{const created=await trx.insertInto('crmActivities').values({...values,actorEmail:user.email}).returning('id').executeTakeFirstOrThrow();if(messageId)await linkMessageActivity(trx,messageId,created.id);}
 
     }
@@ -288,7 +288,8 @@ export async function post(request:Request){
    const continuation=input.continuation??(previous&&'continuation' in previous?previous.continuation:null)??null;
    const continuationReason=continuation==='done'?input.continuationReason??(previous&&'continuationReason' in previous?previous.continuationReason:null)??null:null;
    const fields={accountId,leadId,title:input.title,purpose:input.purpose??previous?.purpose??null,typeId:input.typeId,occurredAt,continuation,continuationReason,participants:input.participants,contactIds:serialize(input.contactIds),channel:input.channel??null,outcome:input.outcome??null,result:input.result??null,notes:input.notes??null,updatedAt:new Date()};
-   const row=input.id?await trx.updateTable('crmActivities').set(fields).where('id','=',input.id).returning('id').executeTakeFirstOrThrow():linked?.activityId?await trx.updateTable('crmActivities').set({...fields,notes:input.notes?.trim()?input.notes:sql<string|null>`notes`}).where('id','=',linked.activityId).returning('id').executeTakeFirstOrThrow():await trx.insertInto('crmActivities').values({...fields,actorEmail:user.email}).returning('id').executeTakeFirstOrThrow();
+   // Spec 96 §10.1: a person's edit or log (linked message) replaces an outcome a response set automatically, so it is no longer shown as automatic.
+   const row=input.id?await trx.updateTable('crmActivities').set({...fields,outcomeResponseId:null}).where('id','=',input.id).returning('id').executeTakeFirstOrThrow():linked?.activityId?await trx.updateTable('crmActivities').set({...fields,outcomeResponseId:null,notes:input.notes?.trim()?input.notes:sql<string|null>`notes`}).where('id','=',linked.activityId).returning('id').executeTakeFirstOrThrow():await trx.insertInto('crmActivities').values({...fields,actorEmail:user.email}).returning('id').executeTakeFirstOrThrow();
    if(messageId&&!linked?.activityId)await linkMessageActivity(trx,messageId,row.id);
    // The activity linked to a completion owns the factual completion date/result.
    if(previous&&'taskId' in previous&&previous.taskId)await trx.updateTable('crmTasks').set({completedAt:occurredAt,purpose:input.purpose??previous.purpose,continuation,continuationReason,outcome:input.outcome??null,result:input.result??null,updatedAt:new Date()}).where('id','=',previous.taskId).where('status','=','completed').execute();

@@ -2,6 +2,37 @@
 
 # Pendientes y próximo trabajo
 
+## Specs 94, 96, 97 y 98 — cerradas en `staging`, pendientes de producción
+
+PR #281/#284 (94 y 96), #285 (97), #286 (98). Nada se promueve a `main` ni se despliega hasta que el propietario lo pida. Trabajo del operador para producción:
+- **Migraciones:** 049 y 051 a 055 corren solas al arrancar el contenedor (el `CMD` del Dockerfile ejecuta `scripts/migrate.mjs`). No hace falta correrlas a mano.
+- **Variables en Coolify, antes del deploy:** `INSTAGRAM_ACCOUNT_USERNAME` (sin ella el script no aprende chats ni pega), `BREVO_WEBHOOK_TOKEN`, `PUBLIC_APP_URL` y las variables de R2.
+- **Rollout del user script 1.7.0, coordinado con el deploy:** la barrera de la spec 96 bloquea el CRM en la computadora con un script por debajo de la última versión (`USERSCRIPT_MIN_VERSION` se queda en 1.5.0). Ese día avisar a los vendedores que fuercen «Buscar actualizaciones» en Tampermonkey y aprueben instagram.com si lo pide.
+- **Prueba del propietario en producción (96, 97 y 98), después del deploy:** tres clics con el script conectado (96); chat de Instagram, panel e insignias en la lista (97); «Enviar material» en ambos paneles, «Sin gestión» en WhatsApp y «Buscar o crear en el CRM» (98). Probar también la 94 en Instagram real.
+- Abierto de la 97: el aviso `account-unknown` (marcado NEEDS OWNER en la spec §14) y agregar `INSTAGRAM_ACCOUNT_USERNAME` a la plantilla de variables de la raíz.
+
+## Material de venta: pantalla (spec 95) — cerrada en `staging`, pendiente de producción
+
+- PR #282 (`a2c7c93`). Al desplegar: aplicar la migración `051_sales_material_auto_cover.sql`. El CORS de los buckets ya está actualizado.
+- Después del deploy, un admin corre «Generar portadas faltantes» en «Material de venta».
+- Límites conocidos: la captura de cuadro de video solo tiene pruebas unitarias; el backfill cubre lo listado (filtros activos y tope de 500).
+
+## Spec 93 — email: entrega, aperturas y clicks — pendiente de PR
+
+[Spec 93](crm-roadmap/93-email-engagement.md) implementada en `feat/email-engagement-93`, apilada sobre la 92 (PR #278): el PR va después del de la 92. Falta:
+- push, PR a `staging`, CI verde y merge;
+- **Mensajes ya fallidos por un rebote temporal posterior a la entrega:** los que hoy quedaron en `failed` por un `soft_bounce` llegado después de un `delivered` no se reprocesan. Corregirlos es una operación de datos que necesita aprobación del propietario y un runbook; no se reprocesa nada automáticamente.
+- **Futuro (sin hacer ahora):** índice parcial de expresión `crm_email_events(trim(both '<>' from message_id), lower(recipient)) WHERE outbox_id IS NULL` para la detección y adopción de eventos huérfanos, que hoy recorren la tabla. Medir antes con datos reales.
+- **para producción (propietario):** cargar `BREVO_WEBHOOK_TOKEN` en Coolify y crear el webhook transaccional con Bearer siguiendo `COOLIFY_DEPLOY.md` («Webhook de Brevo»); después, verificar con un envío real a una casilla propia que aparezcan «Entregado» y «Abierto». Sin migración.
+
+## Spec 92 — abrir el chat de Instagram — pendiente de PR
+
+[Spec 92](crm-roadmap/92-instagram-open-chat.md) implementada en `feat/instagram-open-chat-92`, apilada sobre la 91: el PR va después del de la 91 (o se rebasea sobre `staging` cuando la 91 se mergee). Falta: push, PR a `staging`, CI verde (incluye browser) y merge. **Para producción:** aplicar la migración `049`; sin variables nuevas (usa las de la 88). La confirmación automática necesita la integración de Instagram activa; sin ella el composer avisa y se confirma a mano.
+
+## Spec 91 — segunda pasada de «Comunicación» — pendiente de PR
+
+[Spec 91](crm-roadmap/91-communication-polish.md) implementada en `feat/communication-polish-91`. Falta: push, PR a `staging`, CI verde (incluye browser) y merge. **Para producción:** aplicar la migración `048`. Sin variables nuevas.
+
 ## Spec 90 — comunicación en la ficha — cerrada en `staging`
 
 [Spec 90](crm-roadmap/90-business-communication-view.md) mergeada en `staging` (#268) el 27/10/2026. No tiene migraciones ni variables nuevas, así que para producción alcanza con promover `staging`. Seguimiento posible: en la Bandeja, las filas y filtros mezclados dicen «Instagram / Red social».
@@ -18,9 +49,22 @@ Specs 87 (#262) y 88 (#260), mergeadas en `staging` el 26/10/2026. **Para produc
 
 Límites conocidos de la 88: el token pegado no se valida contra Meta al guardarlo, y viaja como parámetro de la URL a `graph.instagram.com`.
 
-## Material de venta (spec 89)
+## Material de venta (spec 89) — cerrada en `staging`, pendiente de producción
 
-- F1 en PR. Pendientes: F2 página pública `/m/<token>` con Open Graph, F3 composer + adjunto por email, F4 materiales en modelos y user script. Infra del propietario: bucket R2 + CORS + variables en Coolify. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length`.
+- F1 (#265), F2 (#267), F3 (#271) y F4 (#272) mergeadas en `staging` el 26 y 27/10/2026. Sin desplegar.
+- **Para producción**, cuando el propietario promueva `staging`:
+  - aplicar las migraciones `046_sales_material.sql` y `047_sales_material_share_triggers.sql`;
+  - crear el bucket R2 con su CORS y cargar en Coolify las variables `R2_*` (ver `COOLIFY_DEPLOY.md`);
+  - confirmar `PUBLIC_APP_URL`: sin ella, la vista previa de los enlaces sale sin imagen y los enlaces no se pueden armar;
+  - definir `CRM_CLIENT_IP_HEADER` según si `crm.hospeda.com.ar` pasa por el proxy de Cloudflare (`cf-connecting-ip`) o llega directo al VPS (`x-real-ip`); falta la respuesta del propietario;
+  - borrar a mano las subidas de prueba de la biblioteca vieja antes del deploy;
+  - distribuir el user script 1.3.0 **antes** del deploy: el mínimo pasa a 1.3.0 y un 1.2.x queda bloqueado (426).
+- **A verificar con servicios reales:** los `response-content-*` de R2, el PUT firmado con `Content-Length`, la vista previa en WhatsApp, que Brevo acepte un `attachment.url` firmado de R2 y su tope de tamaño (hoy 10 MB).
+- Decisiones del propietario sobre F4 (quedan así a propósito):
+  - `USERSCRIPT_MIN_VERSION` sube a 1.3.0 (decisión del propietario, 27/10/2026): desde el deploy, un script 1.2.x recibe 426 y el vendedor tiene que instalar el 1.3.0 antes de usar WhatsApp. Distribuir el 1.3.0 a los vendedores antes o en el mismo momento del deploy.
+  - Los avisos del modelo muestran a los vendedores el título del material archivado («“X” ya no está disponible»), como pide la spec.
+  - Un `prepare` repetido con el mismo id (o un borrador reutilizado) devuelve el borrador sin los `materialWarnings` del primer `prepare`: se aceptan perdidos por ahora.
+  - Un archivo o cambio a interno que coincide con un `prepare` en curso se serializa en la fila de versión en vivo (`app_settings`, que tocan los dos); si se cruzan en el orden opuesto, Postgres aborta uno por deadlock y hay que reintentar. No se rediseña ese orden de bloqueos en F4.
 
 ## Rediseño visual (v1 por fases)
 

@@ -1,5 +1,6 @@
 import {apiJson} from "../helpers/apiClient";
 import type { MessageVariableDefinition } from "../helpers/messageVariables";
+import type { TemplateMaterialRef } from "../helpers/templateMaterials";
 
 export type SettingsUser={
   id:number;
@@ -21,7 +22,7 @@ export type SettingsOutput = {
   subtypes: {id:string; typeName:string|null; name:string}[];
   authorizedEmails: {id:string; email:string; displayName:string|null}[];
   users: OperationalUser[];
-  templates: {id:string; channel:string; name:string; subject:string|null; body:string; vertical:string|null; managementType:string|null;commercialProfile:string|null;purpose:string|null;active?:boolean}[];
+  templates: {id:string; channel:string; name:string; subject:string|null; body:string; vertical:string|null; managementType:string|null;commercialProfile:string|null;purpose:string|null;active?:boolean;/** Sales material references with title and availability (spec 89 §9). */materialRefs?:TemplateMaterialRef[]}[];
   messageVariables?: MessageVariableDefinition[];
   templateVersions?: {templateId:string;version:number;snapshot:Record<string,unknown>;actorEmail:string|null;createdAt:Date}[];
   emailDelivery?: {

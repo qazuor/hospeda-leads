@@ -50,7 +50,7 @@ export const businessTableSource = (includeDeleted=false) => sql<BusinessProject
 
 /**
  * Free search (`q=`) of the business list over the projection aliased `leads`: the same matches as managementSearchSql
- * (leads_GET.ts: nombre, opportunity name, contact name, email, telefono, ciudad, origen, phone and the management's notes)
+ * (leads_GET.ts: nombre, opportunity name, contact name, email, telefono, ciudad, origen, phone, Instagram profile and the management's notes)
  * applied to the projection, but each column is read from its own table so the trigram indexes apply.
  * Each source mirrors BUSINESS_OVERRIDES: contact_name is coalesce(pc.name,l.contact_name), origen is coalesce(a.origin,l.origen).
  * scripts/test-search.ts compares it with the joined predicate on every projection row.
@@ -58,6 +58,8 @@ export const businessTableSource = (includeDeleted=false) => sql<BusinessProject
 export const businessSearchSql = (query: string) => idSetSearchSql([
   // nombre, email, telefono, ciudad and a.origin (a non-null origin wins the coalesce); telefono also as a phone number.
   { key: "leads.account_id", from: sql`crm_accounts s`, id: "s.id", columns: ["s.nombre", "s.email", "s.telefono", "s.ciudad", "s.origin"], phoneColumns: ["s.telefono"] },
+  // Spec 98 §17.2: the business Instagram profile, as its own id set so the per-row regex never keeps the text columns above off their trigram index.
+  { key: "leads.account_id", from: sql`crm_accounts s`, id: "s.id", columns: [], instagramColumns: ["s.perfil_instagram"] },
   // The primary contact (the pc row of the projection) supplies contact_name when the business has any active contact.
   { key: "leads.account_id", from: sql`crm_contacts s`, id: "s.account_id", where: sql<boolean>`s.deleted_at is null and s.id = (select c.id from crm_contacts c where c.account_id = s.account_id and c.deleted_at is null order by c.is_primary desc, c.id limit 1)`, columns: ["s.name"] },
   { key: "leads.id", from: sql`leads s`, id: "s.id", columns: ["s.opportunity_name"] },

@@ -1,11 +1,13 @@
 import { getOpportunityStages } from "../helpers/commercialStages";
 import superjson from "superjson";
+import { globalAutoRegisterEnabled } from "../helpers/autoRegistration";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { SettingsOutput } from "./settings_GET.schema";
 import {sql} from 'kysely';
 import { withDefaultMessageVariables } from "../helpers/messageVariables";
 import {errorResponse} from '../helpers/errorResponse';
+import {templateMaterialRefs} from '../helpers/templateMaterialService';
 
 type StoredInvitation={userId:number;email:string;expiresAt:string};
 
@@ -41,6 +43,8 @@ export async function handle(request:Request){
       }catch{}
     }
 
+    // Sales material references of each template, with title and availability, so no uuid reaches the user (spec 89 §9).
+    const materialRefs=await templateMaterialRefs(db,{templates:templates.map(t=>({id:String(t.id),body:t.body}))});
     const out:SettingsOutput={
       cities:cities.map(x=>({...x,id:String(x.id)})),
       subtypes:subtypes.map(x=>({...x,id:String(x.id)})),
@@ -50,7 +54,7 @@ export async function handle(request:Request){
         hasPassword:passwordUserIds.has(user.id),
         invitationPending:pendingInvitationUserIds.has(user.id)
       }):({id:user.id,email:user.email,displayName:user.displayName,role:user.role})),
-      templates:templates.map(x=>({...x,id:String(x.id)})),
+      templates:templates.map(x=>({...x,id:String(x.id),materialRefs:materialRefs[String(x.id)]??[]})),
       ...(admin?{templateVersions}:{}),
       ...(admin?{messageVariables:withDefaultMessageVariables(variableSettings?.value?JSON.parse(variableSettings.value):null)}:{}),
       ...(admin?{emailDelivery:{
@@ -59,7 +63,7 @@ export async function handle(request:Request){
         replyToEmail:emailConfig.brevo_reply_to_email||"contacto@hospeda.com.ar",
         brevoConnected:!!(process.env as Record<string,string|undefined>).BREVO_API_KEY
       }}:{}),
-      ...(admin?{userscriptAutoRegister:(()=>{try{return JSON.parse(emailConfig.crm_userscript_auto_register||'{"enabled":false}') as {enabled:boolean};}catch{return {enabled:false};}})()}:{}),
+      ...(admin?{userscriptAutoRegister:{enabled:globalAutoRegisterEnabled({value:emailConfig.crm_userscript_auto_register})}}:{}),
       contactPositions:JSON.parse(emailConfig.crm_contact_positions||"[]"),
       contactChannels:JSON.parse(emailConfig.crm_contact_channels||"[]"),
       opportunityStages,

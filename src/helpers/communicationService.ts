@@ -1,4 +1,5 @@
 import {cancelRecontactTaskFor} from './recontactTask';
+import {terminalEmailEvent} from './emailEngagement';
 import {templateCompatibility} from './messageTemplatePolicy';
 import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
@@ -17,10 +18,18 @@ import {setWorkActor} from './workAudit';
 import {writeLeadJournal} from './writeLeadJournal';
 import { withDefaultMessageVariables } from './messageVariables';
 import {buildMessageTemplateContext} from './messageTemplateContext';
+import {resolveTemplateMaterials} from './templateMaterialService';
+import {UNRESOLVED_MATERIAL_MESSAGE,hasMaterialReferences} from './templateMaterials';
 import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
-import {OUTCOME_READY_STATUSES,canLogContactOutcome,needsSentAnswer} from './contactOutcome';
+import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
+import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
+import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
+import {instagramAccountUsername,instagramThreadFor} from './userscriptInstagram';
 import {sendInboundReply} from './emailReply';
+import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
+import {refreshAutoOutcomesFromResponse,resolveSendOutcomeFromResponse} from './responseOutcomeService';
+import {contactLogBlocked} from './responseOutcome';
 export type Executor=Kysely<DB>|Transaction<DB>;
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
@@ -60,6 +69,7 @@ function communicationScope(input:Exclude<CommunicationMutation,{action:'dispatc
  if(input.action==='response_correct')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_communication_responses WHERE id=${input.id}::uuid`);
  if(input.action==='restrict')return input.accountId?{accountIds:[input.accountId]}:input.leadId?accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM leads WHERE id=${input.leadId}`):{accountIds:[]};
  if(input.action==='lift')return accountsOf(e,sql<{accountId:string}>`SELECT account_id FROM crm_contact_restrictions WHERE id=${input.id}`);
+ if(input.action==='material_retry_without_attachments')return messageScope(input.messageId)(e);
  return messageScope(input.id)(e);
 };}
 export async function communicationConfig(e:Executor){const r=await e.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow();return z.object({recentContactHours:z.number().int().min(1).max(720),maxDocumentBytes:z.number().int().min(1).max(2097152)}).parse(JSON.parse(r.value));}
@@ -83,7 +93,8 @@ async function withAutomaticStateChange<T>(e:Executor,cause:string,action:()=>Pr
  await sql`SELECT set_config('crm.state_change_origin','automatic',true),set_config('crm.state_change_cause',${cause},true)`.execute(e);
  try{return await action();}finally{await sql`SELECT set_config('crm.state_change_origin',${previous?.origin??''},true),set_config('crm.state_change_cause',${previous?.cause??''},true)`.execute(e);}
 }
-async function markClientForCare(e:Executor,m:Message,user:User){
+/** `actor` is the user who recorded the send, or the Instagram webhook (never an admin) when Meta's echo confirmed it. */
+export async function markClientForCare(e:Executor,m:Message,user:Pick<User,'role'|'email'>){
  if(m.purpose!=='care')return;
  // Decision D4: a past care send recorded on a No contactar business stays recorded, but only an admin's record marks it as client.
  const changed=await withAutomaticStateChange(e,'care_contact',()=>sql<{id:string}>`UPDATE crm_accounts SET is_client=true,updated_at=now() WHERE id=${m.accountId} AND is_client=false AND (${user.role==='admin'} OR NOT do_not_contact) RETURNING id`.execute(e));
@@ -96,7 +107,19 @@ export async function assertAccountContactAllowed(e:Executor,accountId:string,le
  const restriction=await sql<{reason:string}>`SELECT reason FROM crm_contact_restrictions WHERE account_id=${accountId} AND lifted_at IS NULL AND channel IN (${channel},'all') AND ((contact_id=${contactId}::bigint AND ${contactId}::bigint IS NOT NULL) OR (contact_id IS NULL AND lead_id IS NULL) OR (contact_id IS NULL AND lead_id IS NOT DISTINCT FROM ${leadId}::bigint)) LIMIT 1`.execute(e);
  if(restriction.rows[0])throw new CommunicationForbidden('No contactar: '+restriction.rows[0].reason);
 }
-async function channelTarget(e:Executor,account:any,lead:any|null,contactId:string|null,channel:'email'|'whatsapp'){
+/** Conflict text when the business has no Instagram username the composer (and the webhook) can use. */
+export const INSTAGRAM_USERNAME_MISSING='El negocio no tiene un usuario de Instagram válido.';
+/** `@usuario` of the business, the only Instagram destination (spec 92: persons have no Instagram field). */
+export function instagramRecipient(account:{perfilInstagram?:string|null}):string|null{const username=normalizeInstagramUsername(account.perfilInstagram);return username?'@'+username:null;}
+/** What a manual «Red social» record typed as «instagram» stores instead, so it is never taken for a composer attempt. */
+export const MANUAL_INSTAGRAM_DESTINATION='Instagram (manual)';
+async function channelTarget(e:Executor,account:any,lead:any|null,contactId:string|null,channel:'email'|'whatsapp'|'instagram'){
+ if(channel==='instagram'){
+  // Business-level only: a chosen person is kept as context, the destination is still the business username.
+  const value=instagramRecipient(account);if(!value)throw new CommunicationConflict(INSTAGRAM_USERNAME_MISSING);
+  if(contactId){const contact=await e.selectFrom('crmContacts').select('id').where('id','=',contactId).where('accountId','=',account.id).where('deletedAt','is',null).executeTakeFirst();if(!contact)throw new Error('La persona no pertenece a este negocio.');}
+  return {contactId,name:account.nombre as string,value};
+ }
  const contacts=await e.selectFrom('crmContacts').selectAll().where('accountId','=',account.id).where('deletedAt','is',null).execute();
  const field=channel==='email'?'email':'phone';
  if(contactId){const contact=contacts.find(c=>String(c.id)===contactId);if(!contact)throw new Error('La persona no pertenece a este negocio.');const value=String(contact[field]??'').trim();if(!value)throw new Error('La persona no tiene un destino para este canal.');return {contactId:String(contact.id),name:contact.name,value};}
@@ -107,7 +130,7 @@ export async function messageFor(e:Executor,id:string,user:User,lock=false){cons
 /** Cancels a draft after checking ownership, its business and its revision; journaled like an explicit cancellation. */
 /** Journal fragment that ties an entry to the delegated task of the message, when it has one. */
 function delegation(m:Message):{delegatedTaskId?:string}{return m.delegatedTaskId?{delegatedTaskId:String(m.delegatedTaskId)}:{};}
-async function assertMessageTaskContext(e:Executor,m:Message,taskId:string|undefined,user:User){
+export async function assertMessageTaskContext(e:Executor,m:Message,taskId:string|undefined,user:User){
  if(m.delegatedTaskId){
   // An admin acts on any message (see messageFor) even if the delegate's task was closed; a mismatching task is still refused.
   if(user.role==='admin'){if(taskId&&taskId!==String(m.delegatedTaskId))throw new CommunicationForbidden('Este mensaje solo se puede usar desde su tarea delegada.');return;}
@@ -119,29 +142,33 @@ async function cancelDraft(e:Executor,draft:{id:string;revision:number;taskId?:s
  const m=await messageFor(e,draft.id,user,true);if(accountId&&String(m.accountId)!==accountId)throw new Error('El borrador no pertenece a este negocio.');await assertMessageTaskContext(e,m,draft.taskId,user);
  if(m.status!=='draft'||m.revision!==draft.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
  const cancelled=(await sql<Message>`UPDATE crm_messages SET status='cancelled',revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0];
+ await revokeDraftShares(e,{message:m,user});
  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'draft_cancelled',actor:user,before:{status:m.status},after:{status:'cancelled'}});return cancelled;
 }
+/** Stored body of a fresh draft: WhatsApp markup, plain text for Instagram (it shows `*asterisks*` literally) or the email HTML. */
+const channelBody=(channel:'email'|'whatsapp'|'social',rendered:string)=>channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):channel==='social'?htmlToPlainText(rendered).normalize('NFC'):rendered;
 async function prepare(e:Executor,input:Extract<CommunicationMutation,{action:'prepare'}>,user:User){
  const existing=(await sql<Message>`SELECT * FROM crm_messages WHERE id=${input.id}::uuid`.execute(e)).rows[0];if(existing){await messageFor(e,input.id,user);if(existing.delegatedTaskId!== (input.taskId??null))throw new CommunicationConflict('La tarea de delegación no coincide con el borrador.');if(input.taskId&&user.role!=='admin')await assertDelegatedTask(e,input.taskId,input.leadId,user);return existing;}
  const delegated=input.taskId?await assertDelegatedTask(e,input.taskId,input.leadId,user):null;
  const {lead,account}=delegated?await leadFor(e,input.leadId,user,false):await leadFor(e,input.leadId,user);
  if(account.status==='new')throw new CommunicationForbidden('En estado Nuevo solo se permite el contacto general de verificación.');
- await assertAccountContactAllowed(e,String(account.id),String(lead.id),input.contactId,input.channel);
- const c=await resolveCommercialContact(e,lead,input.contactId);const recipient=(input.channel==='email'?c.email:c.phone)?.trim();if(!recipient)throw new Error('El contacto no tiene este canal');
+ const instagram=input.channel==='instagram',channel=input.channel==='instagram'?'social' as const:input.channel;
+ await assertAccountContactAllowed(e,String(account.id),String(lead.id),input.contactId,channel);
+ const c=await resolveCommercialContact(e,lead,input.contactId);const recipient=instagram?(await channelTarget(e,account,lead,c.contactId,'instagram')).value:(input.channel==='email'?c.email:c.phone)?.trim();if(!recipient)throw new Error('El contacto no tiene este canal');
  const t=input.templateId?await e.selectFrom('messageTemplates').selectAll().where('id','=',input.templateId).where('active','=',true).executeTakeFirstOrThrow():null;
- const incompatibility=t?templateCompatibility(t,{channel:input.channel,vertical:lead.tipo,commercialProfile:lead.commercialProfile,managementType:lead.managementType,purpose:null}):null;
+ const incompatibility=t?templateCompatibility(t,{channel,vertical:lead.tipo,commercialProfile:lead.commercialProfile,managementType:lead.managementType,purpose:null}):null;
  if(incompatibility)throw new Error(incompatibility);
  if(input.discardDraft)await cancelDraft(e,{...input.discardDraft,taskId:input.taskId},user,String(account.id));
- const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE lead_id=${lead.id} AND contact_id IS NOT DISTINCT FROM ${c.contactId}::bigint AND channel=${input.channel} AND recipient=${recipient} AND owner_email=${user.email} AND delegated_task_id IS NOT DISTINCT FROM ${input.taskId??null}::bigint AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text AND coalesce((template_snapshot->>'variation')::int,0)=${input.variation??0} ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return {...reusable,reusedDraft:true};
- const ownerName=await templateOwnerName(e,lead.assignedUserEmail,user);const shortName=await e.selectFrom('users').select('displayName').where('email','=',lead.assignedUserEmail??user.email).executeTakeFirst();const previous=t?(await sql<{picks:any}>`SELECT template_snapshot->'variantPicks' AS picks FROM crm_messages WHERE account_id=${account.id} AND template_snapshot->>'id'=${String(t.id)} AND template_snapshot ? 'variantPicks' ORDER BY created_at DESC LIMIT 1`.execute(e)).rows[0]?.picks??{}:{};const ctx=buildMessageTemplateContext({accountId:account.id,contactId:c.contactId,name:lead.nombre,contact:c.name,city:lead.ciudad,type:lead.tipo,subtype:lead.subtipo,phone:c.phone,email:c.email,website:lead.sitioWeb,sender:ownerName,senderShort:shortName?.displayName??user.displayName,senderEmail:lead.assignedUserEmail??user.email,managementType:lead.managementType,commercialProfile:lead.commercialProfile,isClient:account.commercialStatus==='client',channel:input.channel,variation:input.variation,previousPicks:previous});
+ const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE lead_id=${lead.id} AND contact_id IS NOT DISTINCT FROM ${c.contactId}::bigint AND channel=${channel} AND recipient=${recipient} AND owner_email=${user.email} AND delegated_task_id IS NOT DISTINCT FROM ${input.taskId??null}::bigint AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text AND coalesce((template_snapshot->>'variation')::int,0)=${input.variation??0} ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return {...reusable,reusedDraft:true};
+ const ownerName=await templateOwnerName(e,lead.assignedUserEmail,user);const shortName=await e.selectFrom('users').select('displayName').where('email','=',lead.assignedUserEmail??user.email).executeTakeFirst();const previous=t?(await sql<{picks:any}>`SELECT template_snapshot->'variantPicks' AS picks FROM crm_messages WHERE account_id=${account.id} AND template_snapshot->>'id'=${String(t.id)} AND template_snapshot ? 'variantPicks' ORDER BY created_at DESC LIMIT 1`.execute(e)).rows[0]?.picks??{}:{};const ctx=buildMessageTemplateContext({accountId:account.id,contactId:c.contactId,name:lead.nombre,contact:c.name,city:lead.ciudad,type:lead.tipo,subtype:lead.subtipo,phone:c.phone,email:c.email,website:lead.sitioWeb,sender:ownerName,senderShort:shortName?.displayName??user.displayName,senderEmail:lead.assignedUserEmail??user.email,managementType:lead.managementType,commercialProfile:lead.commercialProfile,isClient:account.commercialStatus==='client',channel,variation:input.variation,previousPicks:previous});
  const variableDefinitions=await messageVariables(e);
  const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';
- const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;
+ const body=channelBody(channel,rendered);
  const subject=t?renderMessageTemplate(t.subject??'',ctx,variableDefinitions):'';
  const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions,variantPicks:ctx.__chosenPicks,variation:input.variation??0}:null;
- const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,subject,body,template_snapshot,owner_email,task_id,delegated_task_id) VALUES(${input.id}::uuid,${lead.accountId},${lead.accountId},${lead.id},${c.contactId},${input.channel},${recipient},${c.name??''},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},NULL,${input.taskId??null}) RETURNING *`.execute(e)).rows[0];
+ const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,destination_detail,recipient,recipient_name,subject,body,template_snapshot,owner_email,task_id,delegated_task_id) VALUES(${input.id}::uuid,${lead.accountId},${lead.accountId},${lead.id},${c.contactId},${channel},${instagram?INSTAGRAM_DESTINATION:null},${recipient},${instagram?account.nombre:c.name??''},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},NULL,${input.taskId??null}) RETURNING *`.execute(e)).rows[0];
  if(input.taskId)await communicationJournal(e,{accountId:String(account.id),leadId:String(lead.id),entityType:'interaction',entityId:created.id,action:'message_prepared_by_delegation',actor:user,after:{delegatedTaskId:input.taskId,managementOwner:lead.assignedUserEmail}});
- return created;
+ return {...created,freshDraft:true as const};
 }
 async function assertDelegatedTask(e:Executor,taskId:string,leadId:string,user:User){
  const task=(await sql<{id:string;accountId:string;leadId:string|null;assignedUserEmail:string|null}>`SELECT id,account_id,lead_id,assigned_user_email FROM crm_tasks WHERE id=${taskId} AND status='pending' AND deleted_at IS NULL FOR UPDATE`.execute(e)).rows[0];
@@ -162,17 +189,20 @@ async function prepareGeneral(e:Executor,input:Extract<CommunicationMutation,{ac
  if(account.status==='new'&&input.purpose!=='verification')throw new CommunicationForbidden('En estado Nuevo solo se permite verificar los datos.');
  if(account.status!=='new'&&input.purpose==='verification')throw new CommunicationForbidden('La verificación solo está disponible en estado Nuevo.');
  if(input.purpose==='other'&&!input.otherPurpose?.trim())throw new Error('Aclaración obligatoria para Otro propósito.');
- await assertAccountContactAllowed(e,input.accountId,input.leadId,input.contactId,input.channel);
+ // L6: the UI rule (`contactPurposeBlockReason`) enforced here for every client of the API, the user script included.
+ if(input.purpose==='care'&&!account.isClient&&!input.confirmedClient)throw new CommunicationForbidden('Confirmá que el negocio se marcará como Cliente cuando registres el contacto como realizado.');
+ const instagram=input.channel==='instagram',channel=input.channel==='instagram'?'social' as const:input.channel;
+ await assertAccountContactAllowed(e,input.accountId,input.leadId,input.contactId,channel);
  const target=await channelTarget(e,account,lead,input.contactId,input.channel);
  const t=input.templateId?await e.selectFrom('messageTemplates').selectAll().where('id','=',input.templateId).where('active','=',true).executeTakeFirstOrThrow():null;
- const incompatible=t?templateCompatibility(t,{channel:input.channel,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,managementType:lead?.managementType??null,purpose:input.purpose}):null;if(incompatible)throw new Error(incompatible);
+ const incompatible=t?templateCompatibility(t,{channel,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,managementType:lead?.managementType??null,purpose:input.purpose}):null;if(incompatible)throw new Error(incompatible);
  if(input.discardDraft)await cancelDraft(e,input.discardDraft,user,String(account.id));
- const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE account_id=${account.id} AND lead_id IS NOT DISTINCT FROM ${input.leadId}::bigint AND contact_id IS NOT DISTINCT FROM ${target.contactId}::bigint AND channel=${input.channel} AND recipient=${target.value} AND owner_email=${user.email} AND status='draft' AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text AND coalesce((template_snapshot->>'variation')::int,0)=${input.variation??0} ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return {...reusable,reusedDraft:true};
- const ownerName=await templateOwnerName(e,lead?.assignedUserEmail??account.assignedUserEmail,user);const shortName=await e.selectFrom('users').select('displayName').where('email','=',lead?.assignedUserEmail??account.assignedUserEmail??user.email).executeTakeFirst();const previous=t?(await sql<{picks:any}>`SELECT template_snapshot->'variantPicks' AS picks FROM crm_messages WHERE account_id=${account.id} AND template_snapshot->>'id'=${String(t.id)} AND template_snapshot ? 'variantPicks' ORDER BY created_at DESC LIMIT 1`.execute(e)).rows[0]?.picks??{}:{};const ctx=buildMessageTemplateContext({accountId:account.id,contactId:target.contactId,name:account.nombre,contact:target.name,city:lead?.ciudad??account.ciudad,type:lead?.tipo??account.tipo,subtype:lead?.subtipo??account.subtipo,phone:target.value,email:target.value,website:account.sitioWeb,sender:ownerName,senderShort:shortName?.displayName??user.displayName,senderEmail:lead?.assignedUserEmail??account.assignedUserEmail??user.email,managementType:lead?.managementType,commercialProfile:lead?.commercialProfile,isClient:account.commercialStatus==='client',channel:input.channel,purpose:input.purpose,variation:input.variation,previousPicks:previous});
+ const reusable=(await sql<Message>`SELECT * FROM crm_messages WHERE account_id=${account.id} AND lead_id IS NOT DISTINCT FROM ${input.leadId}::bigint AND contact_id IS NOT DISTINCT FROM ${target.contactId}::bigint AND channel=${channel} AND recipient=${target.value} AND owner_email=${user.email} AND status='draft' AND purpose IS NOT DISTINCT FROM ${input.purpose??null} AND other_purpose IS NOT DISTINCT FROM ${input.otherPurpose??null} AND (template_snapshot->>'id') IS NOT DISTINCT FROM ${input.templateId}::text AND coalesce((template_snapshot->>'variation')::int,0)=${input.variation??0} ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`.execute(e)).rows[0];if(reusable)return {...reusable,reusedDraft:true};
+ const ownerName=await templateOwnerName(e,lead?.assignedUserEmail??account.assignedUserEmail,user);const shortName=await e.selectFrom('users').select('displayName').where('email','=',lead?.assignedUserEmail??account.assignedUserEmail??user.email).executeTakeFirst();const previous=t?(await sql<{picks:any}>`SELECT template_snapshot->'variantPicks' AS picks FROM crm_messages WHERE account_id=${account.id} AND template_snapshot->>'id'=${String(t.id)} AND template_snapshot ? 'variantPicks' ORDER BY created_at DESC LIMIT 1`.execute(e)).rows[0]?.picks??{}:{};const ctx=buildMessageTemplateContext({accountId:account.id,contactId:target.contactId,name:account.nombre,contact:target.name,city:lead?.ciudad??account.ciudad,type:lead?.tipo??account.tipo,subtype:lead?.subtipo??account.subtipo,phone:target.value,email:target.value,website:account.sitioWeb,sender:ownerName,senderShort:shortName?.displayName??user.displayName,senderEmail:lead?.assignedUserEmail??account.assignedUserEmail??user.email,managementType:lead?.managementType,commercialProfile:lead?.commercialProfile,isClient:account.commercialStatus==='client',channel,purpose:input.purpose,variation:input.variation,previousPicks:previous});
  const variableDefinitions=await messageVariables(e);
- const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';const body=input.channel==='whatsapp'?htmlToWhatsApp(rendered).normalize('NFC'):rendered;const subject=t?renderMessageTemplate(t.subject??'',ctx,variableDefinitions):'';const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions,variantPicks:ctx.__chosenPicks,variation:input.variation??0}:null;
- const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,subject,body,template_snapshot,owner_email,purpose,other_purpose) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${target.contactId},${input.channel},${target.value},${target.name},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},${input.purpose},${input.otherPurpose}) RETURNING *`.execute(e)).rows[0];
- await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:'draft_prepared',actor:user,after:{channel:input.channel,purpose:input.purpose,recipient:target.value}});return created;
+ const rendered=t?renderMessageTemplateHtml(t.body,ctx,variableDefinitions):'<p></p>';const body=channelBody(channel,rendered);const subject=t?renderMessageTemplate(t.subject??'',ctx,variableDefinitions):'';const snapshot=t?{...t,version:digest({body:t.body,subject:t.subject,updatedAt:t.updatedAt}),context:ctx,variables:variableDefinitions,variantPicks:ctx.__chosenPicks,variation:input.variation??0}:null;
+ const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,destination_detail,recipient,recipient_name,subject,body,template_snapshot,owner_email,purpose,other_purpose) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${target.contactId},${channel},${instagram?INSTAGRAM_DESTINATION:null},${target.value},${target.name},${subject},${body},${json(snapshot)}::text::jsonb,${user.email},${input.purpose},${input.otherPurpose}) RETURNING *`.execute(e)).rows[0];
+ await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:'draft_prepared',actor:user,after:{channel:input.channel,purpose:input.purpose,recipient:target.value}});return {...created,freshDraft:true as const};
 }
 async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],user:User,responseId:string,leadId:string|null){
  const requested=[...new Set(selectedIds)];
@@ -202,7 +232,8 @@ async function closeForDoNotContact(e:Executor,account:any,selectedIds:string[],
   await communicationJournal(e,{accountId:String(account.id),leadId,entityType:'business',entityId:String(account.id),action:'business_archived_by_do_not_contact',actor:null,automatic:true,triggeredBy:user.email,after:{status:'archived',responseId}});
  }
 }
-async function createResponse(e:Executor,input:Extract<CommunicationMutation,{action:'response_create'}>,user:User){
+/** `answeredAt`: when the response was received (a registered inbound); null means now, a response registered without a message. */
+async function createResponse(e:Executor,input:Extract<CommunicationMutation,{action:'response_create'}>,user:User,answeredAt:Date|null=null){
  const {account,lead}=await communicationContext(e,input.accountId,input.leadId,user,false);
  // Replay: a retry whose answer was lost returns the same response (the first save already blocked the business and closed the chosen managements). Only the same user, business, management, category, person and linked contact; anything else is a conflict that reveals nothing.
  const replay=(await sql<ResponseReplay>`SELECT id,actor_email,account_id,lead_id,category,contact_id,linked_message_id FROM crm_communication_responses WHERE id=${input.id}::uuid`.execute(e)).rows[0];
@@ -231,6 +262,8 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
  const inserted=await sql<{id:string}>`INSERT INTO crm_communication_responses(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,destination_detail,linked_message_id,category,summary,exact_text,other_detail,actor_email) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${input.contactId},${input.channel},${input.recipient},${input.recipientName},${input.destination},${input.linkedMessageId}::uuid,${input.category},${input.summary},${input.exactText},${input.otherDetail},${user.email}) RETURNING id`.execute(e);
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
+ // Spec 96 §10.1: the response resolves the pending «¿Cómo salió?» of the send it answers, when that can be told without guessing.
+ await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user,answeredAt});
  for(const task of selectedTasks){
   const completedAt=new Date();const result='Resuelta por la respuesta del cliente';
   const updated=await sql`UPDATE crm_tasks SET status='completed',completed_at=${completedAt},result=${result},updated_at=now() WHERE id=${task.id} AND status='pending' RETURNING id`.execute(e);
@@ -272,6 +305,8 @@ async function correctResponse(e:Executor,input:Extract<CommunicationMutation,{a
  const correctionJournalId=await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'response',entityId:input.id,action:'response_corrected',actor:user,before,after:{...after,correctionReason:input.reason}});
  if(row.category!==input.category&&((row.category==='do_not_contact')||(input.category==='do_not_contact'))){const value=input.category==='do_not_contact';if(account.doNotContact!==value){if(value)await cancelRecontactTaskFor(e,{accountId:account.id,cause:'dnc'});await withAutomaticStateChange(e,'response_correction',()=>sql`UPDATE crm_accounts SET do_not_contact=${value},updated_at=now() WHERE id=${account.id}`.execute(e));await communicationJournal(e,{accountId:String(account.id),leadId:row.leadId==null?null:String(row.leadId),entityType:'business',entityId:String(account.id),action:value?'do_not_contact_activated':'do_not_contact_lifted',actor:null,automatic:true,triggeredBy:user.email,relatedEventId:correctionJournalId,before:{doNotContact:!value},after:{doNotContact:value,responseId:input.id}});}}
  if(input.category==='do_not_contact')await closeForDoNotContact(e,account,input.closeLeadIds??[],user,input.id,row.leadId==null?null:String(row.leadId));
+ // Spec 96 §10.1: an outcome this response set automatically follows the corrected response (a person's correction stays).
+ await refreshAutoOutcomesFromResponse(e,{response:{id:input.id,category:input.category,summary:input.summary},user,relatedEventId:correctionJournalId});
  return {id:input.id};
 }
 async function startManual(e:Executor,input:Extract<CommunicationMutation,{action:'manual_start'}>,user:User){
@@ -289,7 +324,8 @@ async function startManual(e:Executor,input:Extract<CommunicationMutation,{actio
  if(!lead&&!input.purpose)throw new Error('Elegí el propósito del contacto general.');
  if(lead&&input.purpose)throw new Error('Una gestión abierta ya aporta el contexto del contacto.');
  if(input.purpose==='other'&&!input.otherPurpose?.trim())throw new Error('Aclaración obligatoria para Otro propósito.');
- const dest=input.destination?.trim()??'';
+ // L1: the exact value «instagram» is the discriminator of composer attempts (spec 92), so a free-text destination never stores it.
+ const typed=input.destination?.trim()??'',dest=typed.toLowerCase()===INSTAGRAM_DESTINATION?MANUAL_INSTAGRAM_DESTINATION:typed;
  const summary=input.channel==='call'?input.body.trim():null;
  if(input.channel==='call'&&!summary)throw new Error('El resumen de la llamada es obligatorio.');
  if(input.channel==='call'&&!input.result)throw new Error('Elegí si la llamada se realizó o no hubo contacto.');
@@ -317,6 +353,19 @@ async function startManual(e:Executor,input:Extract<CommunicationMutation,{actio
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:input.channel==='call'?'contact_completed':'contact_started',actor:user,after:{channel:input.channel,status:created.status,purpose:input.purpose,recipient:created.recipient,recipientName:created.recipientName,destination:created.destinationDetail,content:created.templateSnapshot?.finalBody||created.body||null,summary:created.summary}});return created;
 }
 export async function renderFinal(e:Executor,m:Message,user:User){const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const sender=user.fullName?.trim()||user.displayName;return {htmlBody:buildHospedaEmailHtml({bodyHtml:m.body,senderName:sender,senderEmail:user.email,subject:m.subject,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,logoUrl:(process.env.PUBLIC_APP_URL??'http://localhost:3001').replace(/\/$/,'')+'/hospeda-logo.jpg'}),textBody:buildHospedaEmailText({bodyText:htmlToPlainText(m.body),senderName:sender,senderEmail:user.email})};}
+/**
+ * Spec 96 §2.4 (D6): a fresh draft stores its final text (and the email html) exactly as `edit` would, so the composer opens on the final
+ * view and an untouched email can be sent. A blank message, missing variables or unresolved material references keep them null: the
+ * seller must edit and save first, as before.
+ */
+async function renderPreparedFinal<T extends Message>(e:Executor,m:T,user:User):Promise<T>{
+ const plain=m.channel==='email'?htmlToPlainText(m.body):m.body;
+ if(m.status!=='draft'||!plain.trim()||(m.channel==='email'&&!m.subject.trim())||[...unresolvedTemplateVariables(m.subject),...unresolvedTemplateVariables(m.body)].length||hasMaterialReferences({text:m.subject})||hasMaterialReferences({text:m.body}))return m;
+ const body=m.channel==='email'?sanitizeEmail(m.body):m.body;
+ const final=await renderFinal(e,{...m,body},user);
+ const saved=(await sql<Message>`UPDATE crm_messages SET body=${body},html_body=${m.channel==='email'?final.htmlBody:null},text_body=${m.channel==='email'?final.textBody:body},updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
+ return {...m,...saved};
+}
 async function activity(e:Executor,m:Message,user:User,result:string){
  const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);
  const current=(await sql<{activityId:string|null;status:string}>`SELECT activity_id,status FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0];
@@ -324,7 +373,7 @@ async function activity(e:Executor,m:Message,user:User,result:string){
  const replyActivity=replyInboundId&&!current?.activityId?await e.selectFrom('crmActivities').select('id').where('accountId','=',m.accountId).where('notes','=','Respuesta al email entrante '+replyInboundId).where('outcome','is',null).executeTakeFirst():undefined;
  const existingId=current?.activityId??m.activityId??replyActivity?.id;
  if(existingId){const providerResult=result.startsWith('Email aceptado')||result==='Rechazo de Brevo';if(!(providerResult&&['replied','rejected'].includes(current?.status??'')))await e.updateTable('crmActivities').set({result,updatedAt:new Date()}).where('id','=',existingId).where('outcome','is',null).execute();return existingId;}
- const a=await e.insertInto('crmActivities').values({accountId:account.id,leadId:lead?.id??null,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':'Comunicación '+m.channel,channel:m.channel,result,occurredAt:new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
+ const a=await e.insertInto('crmActivities').values({accountId:account.id,leadId:lead?.id??null,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':isInstagramAttempt(m)?'Comunicación Instagram':'Comunicación '+m.channel,channel:m.channel,result,occurredAt:new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
  await sql`UPDATE crm_messages SET activity_id=${a.id} WHERE id=${m.id}::uuid`.execute(e);
  if(lead)await writeLeadJournal(e as Transaction<DB>,{leadId:String(lead.id),leadName:lead.nombre,actor:user,action:'contact_logged',metadata:{activityId:a.id,messageId:m.id,channel:m.channel,result,template:m.templateSnapshot?.name??null}});return a.id;
 }
@@ -388,8 +437,9 @@ export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:st
   if(given!==String(m.delegatedTaskId)&&!(user.role==='admin'&&given===null))throw new CommunicationForbidden('Este mensaje solo se puede usar desde su tarea delegada.');
  }
  if(!canLogContactOutcome(m.status))throw new CommunicationConflict('Este mensaje no registra un contacto realizado; no se puede anotar cómo salió.');
- const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
- if(existing?.outcome)throw new CommunicationConflict('Ya anotaste cómo salió este contacto.');
+ const existing=m.activityId?await e.selectFrom('crmActivities').select(['id','outcome','outcomeResponseId']).where('id','=',m.activityId).where('deletedAt','is',null).forUpdate().executeTakeFirst():undefined;
+ // Spec 96 §10.1: an outcome a response set automatically does not block the seller's log; work.ts overwrites it and clears the mark.
+ if(existing&&contactLogBlocked(existing))throw new CommunicationConflict('Ya anotaste cómo salió este contacto.');
  if(needsSentAnswer(m.status)){
   if(!v.sent)throw new Error('Contá si el mensaje se envió.');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
@@ -418,14 +468,22 @@ export async function pendingContactOutcomes(e:Executor,{ownerEmail,isAdmin,acco
    AND m.last_interaction_at>=(SELECT value::timestamptz FROM app_settings WHERE key='crm_contact_outcome_since')
    AND a.deleted_at IS NULL AND a.archived_at IS NULL AND a.merged_into_id IS NULL AND (m.lead_id IS NULL OR l.deleted_at IS NULL)
    AND (${isAdmin} OR coalesce(l.assigned_user_email,a.assigned_user_email)=${ownerEmail})
-   AND (m.status NOT IN ('whatsapp_opened','manual_pending') OR (NOT a.do_not_contact AND (m.lead_id IS NULL OR coalesce((SELECT classification FROM crm_stages WHERE name=l.estado),'')='open')))
+   AND NOT (m.status='instagram_opened' AND m.last_interaction_at>now()-(${INSTAGRAM_ECHO_WAIT_MS}*interval '1 millisecond'))
+   AND (m.status<>ALL(${[...OPENED_UNCONFIRMED_STATUSES,'manual_pending']}::text[]) OR (NOT a.do_not_contact AND (m.lead_id IS NULL OR coalesce((SELECT classification FROM crm_stages WHERE name=l.estado),'')='open')))
    AND NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.id=m.activity_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL)
    AND NOT EXISTS(SELECT 1 FROM crm_communication_responses r WHERE r.linked_message_id=m.id AND r.category='do_not_contact')
-   AND (m.status IN ('whatsapp_opened','manual_pending') OR NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at))
+   AND (m.status=ANY(${[...OPENED_UNCONFIRMED_STATUSES,'manual_pending']}::text[]) OR NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at))
   ORDER BY m.last_interaction_at DESC LIMIT ${limit}`.execute(e)).rows.map(r=>({...r,id:String(r.id),accountId:String(r.accountId),leadId:r.leadId==null?null:String(r.leadId),contactId:r.contactId==null?null:String(r.contactId)}));
 }
 /** Points a message at the activity that records its outcome (see {@link resolveMessageForWork}). */
 export async function linkMessageActivity(e:Executor,messageId:string,activityId:string){await sql`UPDATE crm_messages SET activity_id=${activityId} WHERE id=${messageId}::uuid`.execute(e);}
+/** Spec 97 §4.1: the learned chat page of an Instagram username for the Hospeda account, or null (then the computer opens the profile). */
+export const instagramThreadOf=(e:Executor,recipient:string|null|undefined)=>instagramThreadFor(e,{viewer:instagramAccountUsername(),username:attemptUsername(recipient)});
+/**
+ * Adds the read-only Instagram flags to a prepared Instagram draft (spec 92 §2.6) and, since spec 97, `instagramThreadId` so «Copiar y abrir de
+ * nuevo» lands on the chat page too; other channels pass through.
+ */
+async function withInstagramFlags<T extends Message>(e:Executor,m:T):Promise<T&{instagramAutoConfirm?:boolean;instagramShared?:boolean;instagramThreadId?:string|null}>{return isInstagramAttempt(m)?{...m,...await instagramComposerFlags(e,{accountId:String(m.accountId),recipient:m.recipient}),instagramThreadId:await instagramThreadOf(e,m.recipient)}:m;}
 export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutation,user:User){
  if(input.action==='inbound_reply')return sendInboundReply(db,input,user);
  if(input.action==='dispatch')return dispatch(db,input,user);
@@ -434,15 +492,16 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  await setWorkActor(e,user);
  // Serialize against fusion and concurrent contact restrictions: merges are excluded, and the affected business row is the mutex.
  await lockCommunication(e,communicationScope(input));
- if(input.action==='prepare')return prepare(e,input,user);
- if(input.action==='prepare_general')return prepareGeneral(e,input,user);
+ // Template references ({{material:<uuid>}}) become one fresh share link per send (spec 89 §9).
+ if(input.action==='prepare'||input.action==='prepare_general'){const prepared=input.action==='prepare'?await prepare(e,input,user):await prepareGeneral(e,input,user);const resolved=await resolveTemplateMaterials(e,{message:prepared,user});return withInstagramFlags(e,await withMaterials(e,'freshDraft' in prepared?await renderPreparedFinal(e,resolved,user):resolved));}
+ if(input.action==='material_add'||input.action==='material_remove'||input.action==='material_attach'||input.action==='material_retry_without_attachments')return mutateDraftMaterial(e,input,user);
  if(input.action==='manual_start')return startManual(e,input,user);
  if(input.action==='response_create')return createResponse(e,input,user);
  if(input.action==='inbound_register'){
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
   if(row.status==='registered'&&row.responseId){await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);return {id:String(row.responseId),duplicate:true};}
   if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
-  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user);
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
   await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
   await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
  }
@@ -495,7 +554,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  if(input.action==='edit'){
   const m=await messageFor(e,input.id,user,true);await assertMessageTaskContext(e,m,input.taskId,user);if(m.status!=='draft'||m.revision!==input.revision)throw new CommunicationConflict('El borrador cambió o ya fue utilizado.');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
-  const updated={...m,subject:input.subject.trim(),body:input.body};if(m.channel==='email'&&!updated.subject)throw new Error('Asunto obligatorio');if(!input.body.trim())throw new Error('Mensaje vacío');if([...unresolvedTemplateVariables(updated.subject),...unresolvedTemplateVariables(input.body)].length)throw new Error('Completá o quitá las variables pendientes del asunto y del mensaje antes de guardar.');
+  const updated={...m,subject:input.subject.trim(),body:input.body};if(m.channel==='email'&&!updated.subject)throw new Error('Asunto obligatorio');if(!input.body.trim())throw new Error('Mensaje vacío');if([...unresolvedTemplateVariables(updated.subject),...unresolvedTemplateVariables(input.body)].length)throw new Error('Completá o quitá las variables pendientes del asunto y del mensaje antes de guardar.');if(hasMaterialReferences({text:updated.subject})||hasMaterialReferences({text:input.body}))throw new Error(UNRESOLVED_MATERIAL_MESSAGE);
   // Content is sanitized separately before preview and sending.
   const body=m.channel==='email'?sanitizeEmail(input.body):input.body;
   const final=await renderFinal(e,{...updated,body},user);
@@ -503,13 +562,14 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  }
  if(input.action==='outcome'){
   const m=await messageFor(e,input.id,user,true);await assertMessageTaskContext(e,m,input.taskId,user);
-  if(['manual_sent','manual_not_sent'].includes(input.event)&&(m.channel!=='whatsapp'||m.status!=='whatsapp_opened'))throw new Error('Solo podés resolver un intento de WhatsApp No confirmado.');
+  const openedInstagram=m.status==='instagram_opened'&&isInstagramAttempt(m);
+  if(['manual_sent','manual_not_sent'].includes(input.event)&&!(isOpenedUnconfirmed(m.status)&&(m.status==='whatsapp_opened'?m.channel==='whatsapp':openedInstagram)))throw new Error('Solo podés resolver un intento de WhatsApp o Instagram No confirmado.');
   if(m.status==='voided')throw new CommunicationConflict('Este registro fue anulado.');
   if(input.event!=='manual_sent'&&['draft','cancelled'].includes(m.status))throw new Error('El mensaje todavía no fue utilizado');
   if(input.event==='manual_sent')await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
   const status=input.event==='replied'?'replied':input.event==='rejected'?'rejected':input.event==='manual_not_sent'?'manual_not_done':'manual_sent';
   await sql`UPDATE crm_messages SET status=${status},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
-  const aid=await activity(e,m,user,input.event==='replied'?'Respuesta registrada manualmente':input.event==='rejected'?'Rechazo registrado manualmente':input.event==='manual_not_sent'?'WhatsApp marcado como no enviado':'Envío confirmado manualmente');
+  const aid=await activity(e,m,user,input.event==='replied'?'Respuesta registrada manualmente':input.event==='rejected'?'Rechazo registrado manualmente':input.event==='manual_not_sent'?(openedInstagram?'Instagram marcado como no enviado':'WhatsApp marcado como no enviado'):'Envío confirmado manualmente');
   await e.updateTable('crmActivities').set({typeId:'message',notes:input.notes,updatedAt:new Date()}).where('id','=',aid).where('outcome','is',null).execute();
   if(m.taskId&&input.event==='manual_sent')await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
   if(input.event==='manual_sent')await markClientForCare(e,m,user);
@@ -544,46 +604,70 @@ async function dispatch(database:Kysely<DB>,input:Extract<CommunicationMutation,
   if(m.status!=='draft'){if(['submitting','unknown'].includes(m.status))throw new CommunicationConflict('Envío en curso o resultado incierto. No se reenvía: reconciliá con Brevo.');return {message:m,replay:true};}
   if(m.revision!==input.revision||!m.body.trim()||(m.channel==='email'&&(!m.htmlBody||!m.subject)))throw new CommunicationConflict('Guardá y revisá la vista previa final antes de enviar');
   await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),m.channel);
-  const {account,lead}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);let currentValue:string;if(lead){const target=await resolveCommercialContact(e,lead,m.contactId);currentValue=String(m.channel==='email'?target.email:target.phone??'').trim();}else currentValue=(await channelTarget(e,account,null,m.contactId==null?null:String(m.contactId),m.channel as 'email'|'whatsapp')).value.trim();if(currentValue!==m.recipient)throw new CommunicationConflict('Cambió el canal del contacto. Prepará un nuevo borrador.');
+  const {account,lead}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const instagram=isInstagramAttempt(m);
+  // Spec 92: the destination is the business username; a changed or removed username refuses the draft like a changed phone or email.
+  if(instagram){if(instagramRecipient(account)!==m.recipient)throw new CommunicationConflict('Cambió el Instagram del negocio. Prepará un nuevo borrador.');}else{let currentValue:string;if(lead){const target=await resolveCommercialContact(e,lead,m.contactId);currentValue=String(m.channel==='email'?target.email:target.phone??'').trim();}else currentValue=(await channelTarget(e,account,null,m.contactId==null?null:String(m.contactId),m.channel as 'email'|'whatsapp')).value.trim();if(currentValue!==m.recipient)throw new CommunicationConflict('Cambió el canal del contacto. Prepará un nuevo borrador.');}
   if(m.channel==='email'&&!z.string().email().safeParse(m.recipient).success)throw new Error('Email inválido');
+  // Spec 89 §8.1: links checked and sent_version fixed in this same claim; a link the seller deleted from the text is revoked, never recorded as sent.
+  const materials=await claimDraftMaterials(e,{message:m,user});const materialLog=materials.journal.length?{materials:materials.journal}:{};
 
+  if(instagram){
+   // Nothing is sent through Meta's API: the seller pastes the copied text in the chat and the echo (or her answer) confirms it.
+   // The server only validates and returns the username; the client picks chat (phone) or profile (computer): instagramTarget.
+   const username=instagramChatUrl({username:m.recipient})?attemptUsername(m.recipient):null;if(!username)throw new CommunicationConflict('Cambió el Instagram del negocio. Prepará un nuevo borrador.');
+   await sql`UPDATE crm_messages SET status='instagram_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Instagram abierto · envío no confirmado');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'instagram_opened_unconfirmed',actor:user,before:{status:m.status},after:{status:'instagram_opened',recipient:m.recipient,recipientName:m.recipientName,content:m.textBody||m.body,...delegation(m)}});
+   // D3: an echo of this text that arrived just before is merged into the attempt; nothing is opened then.
+   // In a savepoint: if the merge fails the attempt stays a normal open (L2).
+   const earlier=await withEchoSavepoint(e,()=>resolveEarlierInstagramEcho(e,{messageId:m.id,triggeredBy:user.email}));
+   const current=earlier??(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]!;
+   return {message:current,replay:false,instagram:{username:earlier?null:username}};
+  }
   if(m.channel==='whatsapp'){
    const normalized=normalizeField('telefono',m.recipient);const phone=normalized.normalized?.replace(/\D/g,'')??'';if(normalized.validity!=='valid'||phone.length<10||phone.length>15)throw new Error('Revisá el teléfono con código de país');
-   await sql`UPDATE crm_messages SET status='whatsapp_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'WhatsApp abierto · envío no confirmado');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'whatsapp_opened_unconfirmed',actor:user,before:{status:m.status},after:{status:'whatsapp_opened',recipient:m.recipient,recipientName:m.recipientName,content:m.body,...delegation(m)}});return {message:{...m,status:'whatsapp_opened'},replay:false};
+   await sql`UPDATE crm_messages SET status='whatsapp_opened',last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'WhatsApp abierto · envío no confirmado');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'whatsapp_opened_unconfirmed',actor:user,before:{status:m.status},after:{status:'whatsapp_opened',recipient:m.recipient,recipientName:m.recipientName,content:m.body,...materialLog,...delegation(m)}});return {message:{...m,status:'whatsapp_opened'},replay:false};
   }
   if(!process.env.BREVO_API_KEY)throw new Error('BREVO_API_KEY no configurada');
   const settings=await e.selectFrom('appSettings').selectAll().where('key','in',['brevo_sender_name','brevo_sender_email','brevo_reply_to_email']).execute();const cfg=Object.fromEntries(settings.map(s=>[s.key,s.value]));const su=await e.selectFrom('users').select('senderEmail').where('id','=',user.id).executeTakeFirstOrThrow();const senderEmail=su.senderEmail?.trim()||cfg.brevo_sender_email;if(!senderEmail)throw new Error('Remitente Brevo no configurado');
   const out=await e.insertInto('emailOutbox').values({leadId:m.leadId,templateId:m.templateSnapshot?.id??null,recipientEmail:m.recipient,recipientName:m.recipientName||null,senderEmail,senderName:su.senderEmail?user.displayName:cfg.brevo_sender_name||'Hospeda',replyToEmail:su.senderEmail||cfg.brevo_reply_to_email||null,subject:m.subject,htmlBody:m.htmlBody!,textBody:m.textBody!,status:'submitting',attempts:1,requestedByUserId:user.id,requestedByEmail:user.email,requestedByName:user.displayName}).returningAll().executeTakeFirstOrThrow();
   await sql`UPDATE email_outbox SET request_key=${m.id}::uuid WHERE id=${out.id}`.execute(e);
   await sql`UPDATE crm_messages SET status='submitting',outbox_id=${out.id},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
-  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_submission_started',actor:user,before:{status:m.status},after:{status:'submitting',outboxId:out.id,recipient:m.recipient,recipientName:m.recipientName,subject:m.subject,content:m.textBody||m.body,...delegation(m)}});
-  return {message:{...m,outboxId:out.id},outbox:out,replay:false};
+  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_submission_started',actor:user,before:{status:m.status},after:{status:'submitting',outboxId:out.id,recipient:m.recipient,recipientName:m.recipientName,subject:m.subject,content:m.textBody||m.body,...materialLog,...delegation(m)}});
+  return {message:{...m,outboxId:out.id},outbox:out,attachments:materials.attachments,replay:false};
  });
  const m=claimed.message;
  if(claimed.replay)return {message:m};
+ if('instagram' in claimed&&claimed.instagram)return claimed.instagram.username?{message:m,username:claimed.instagram.username,threadId:await instagramThreadOf(database,'@'+claimed.instagram.username)}:{message:m,alreadyConfirmed:true};
  if(m.channel==='whatsapp'){const url=new URL('https://wa.me/'+normalizeField('telefono',m.recipient).normalized!.replace(/\D/g,''));url.searchParams.set('text',m.body);return {message:m,url:url.toString()};}
  const out=claimed.outbox!;let accepted=false;
  try{
-  const r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',signal:AbortSignal.timeout(20000),headers:{'api-key':process.env.BREVO_API_KEY!,'Content-Type':'application/json',accept:'application/json'},body:JSON.stringify({sender:{email:out.senderEmail,name:out.senderName},to:[{email:m.recipient,...(m.recipientName?{name:m.recipientName}:{})}],...(out.replyToEmail?{replyTo:{email:out.replyToEmail}}:{}),subject:m.subject,htmlContent:m.htmlBody,textContent:m.textBody,tags:['hospeda-'+m.id],headers:{'X-Mailin-custom':'hospeda_outbox:'+out.id}})});
-  if(!r.ok){const reason=(await r.text()).slice(0,2000);await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='error',last_error=${reason},updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'failed' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Rechazo de Brevo');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_rejected',actor:user,before:{status:'submitting'},after:{status:'failed',reason,...delegation(m)}});});return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0],error:'Brevo rechazó el envío'};}
+  const r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',signal:AbortSignal.timeout(20000),headers:{'api-key':process.env.BREVO_API_KEY!,'Content-Type':'application/json',accept:'application/json'},body:JSON.stringify({sender:{email:out.senderEmail,name:out.senderName},to:[{email:m.recipient,...(m.recipientName?{name:m.recipientName}:{})}],...(out.replyToEmail?{replyTo:{email:out.replyToEmail}}:{}),subject:m.subject,htmlContent:m.htmlBody,textContent:m.textBody,tags:['hospeda-'+m.id],headers:{'X-Mailin-custom':'hospeda_outbox:'+out.id},...(claimed.attachments?.length?{attachment:claimed.attachments}:{})})});
+  if(!r.ok){const reason=redactPresignedUrls({text:await r.text()}).slice(0,2000);await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='error',last_error=${reason},updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'failed' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Rechazo de Brevo');await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_rejected',actor:user,before:{status:'submitting'},after:{status:'failed',reason,...delegation(m)}});});return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0],error:'Brevo rechazó el envío'};}
   accepted=true;const data=await r.json() as {messageId?:string};const messageId=data.messageId??null;
-  await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='accepted',message_id=${messageId},sent_at=now(),updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'accepted' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Email aceptado por proveedor · entrega no confirmada');await markClientForCare(e,m,user);await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_accepted',actor:user,after:{status:'accepted',deliveryConfirmed:false,...delegation(m)}});if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Aceptado por proveedor',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();await reconcileEvents(e,out.id);});
+  await database.transaction().execute(async e=>{await lockCommunication(e,messageScope(m.id));await setWorkActor(e,user);await sql`UPDATE email_outbox SET status='accepted',message_id=${messageId},sent_at=now(),updated_at=now() WHERE id=${out.id}`.execute(e);await sql`UPDATE crm_messages SET status=CASE WHEN status IN ('replied','rejected') THEN status ELSE 'accepted' END,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);await activity(e,m,user,'Email aceptado por proveedor · entrega no confirmada');await markClientForCare(e,m,user);await markAttachedVersions(e,{messageId:m.id});await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'brevo_accepted',actor:user,after:{status:'accepted',deliveryConfirmed:false,...delegation(m)}});if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Aceptado por proveedor',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();await reconcileEvents(e,out.id,{fresh:[]});});
   return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(database)).rows[0]};
  }catch(error){
   // Never turn a post-acceptance error into permission to resend. A crashed process also leaves submitting.
-  try{await database.transaction().execute(async e=>{await setWorkActor(e,user);const updated=await sql<{id:string}>`UPDATE crm_messages SET status='unknown',updated_at=now() WHERE id=${m.id}::uuid AND status='submitting' RETURNING id`.execute(e);await sql`UPDATE email_outbox SET status='unknown',last_error=${accepted?'Proveedor aceptó; reconciliar resultado':String(error).slice(0,1000)},updated_at=now() WHERE id=${out.id} AND status='submitting'`.execute(e);if(updated.rows[0])await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_result_uncertain',actor:user,before:{status:'submitting'},after:{status:'unknown',providerMayHaveAccepted:accepted,...delegation(m)}});});}catch{}
+  try{await database.transaction().execute(async e=>{await setWorkActor(e,user);const updated=await sql<{id:string}>`UPDATE crm_messages SET status='unknown',updated_at=now() WHERE id=${m.id}::uuid AND status='submitting' RETURNING id`.execute(e);await sql`UPDATE email_outbox SET status='unknown',last_error=${accepted?'Proveedor aceptó; reconciliar resultado':redactPresignedUrls({text:String(error)}).slice(0,1000)},updated_at=now() WHERE id=${out.id} AND status='submitting'`.execute(e);if(updated.rows[0])await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'email_result_uncertain',actor:user,before:{status:'submitting'},after:{status:'unknown',providerMayHaveAccepted:accepted,...delegation(m)}});});}catch{}
   throw new CommunicationConflict('Resultado incierto. No se reenvía este mensaje: revisar los logs y eventos de Brevo.');
  }
 }
-export async function reconcileEvents(e:Executor,outboxId:string){
+/**
+ * Applies the Brevo events of one outbox row: adopts orphan events, then sets the status from the terminal event (spec 93 D4).
+ * `messageId`: the message-id of the event being processed, adopted too (an outbox matched by tag may store another one).
+ * `fresh`: fingerprints stored by this call. When given, the automatic restriction of a hard bounce is added only if the
+ * terminal event is fresh or was adopted now, so replaying old evidence never re-adds a restriction an admin lifted.
+ */
+export async function reconcileEvents(e:Executor,outboxId:string,{messageId=null,fresh}:{messageId?:string|null;fresh?:readonly string[]}={}){
  const out=await e.selectFrom('emailOutbox').selectAll().where('id','=',outboxId).executeTakeFirstOrThrow();
- await sql`UPDATE crm_email_events SET outbox_id=${outboxId} WHERE outbox_id IS NULL AND trim(both '<>' from message_id)=trim(both '<>' from ${out.messageId??''}) AND lower(recipient)=lower(${out.recipientEmail})`.execute(e);
- const events=(await sql<{event:string;occurredAt:Date}>`SELECT event,occurred_at FROM crm_email_events WHERE outbox_id=${outboxId} ORDER BY occurred_at,event`.execute(e)).rows;
- const terminal=events.filter(v=>['delivered','hard_bounce','soft_bounce','blocked','invalid_email','error'].includes(v.event)).at(-1);
+ const adopted=(await sql<{fingerprint:string}>`UPDATE crm_email_events SET outbox_id=${outboxId} WHERE outbox_id IS NULL AND trim(both '<>' from message_id)=ANY(ARRAY[trim(both '<>' from ${out.messageId??''}),trim(both '<>' from ${messageId??''})]::text[]) AND trim(both '<>' from message_id)<>'' AND lower(recipient)=lower(${out.recipientEmail}) RETURNING fingerprint`.execute(e)).rows.map(r=>r.fingerprint);
+ const events=(await sql<{event:string;occurredAt:Date;fingerprint:string}>`SELECT event,occurred_at,fingerprint FROM crm_email_events WHERE outbox_id=${outboxId} ORDER BY occurred_at,event`.execute(e)).rows;
+ // Spec 93 D4: the latest terminal event wins, but a soft bounce never overrides a delivery (before or in the same second).
+ const terminal=terminalEmailEvent({events});
  const beforeMessage=(await sql<Message>`SELECT * FROM crm_messages WHERE outbox_id=${outboxId}`.execute(e)).rows[0];
- if(terminal){const status=terminal.event==='delivered'?'delivery_confirmed':'failed';await sql`UPDATE email_outbox SET status=${status},updated_at=now() WHERE id=${outboxId}`.execute(e);await sql`UPDATE crm_messages SET status=${status},updated_at=now() WHERE outbox_id=${outboxId} AND status NOT IN ('replied','rejected')`.execute(e);if(beforeMessage&&!['replied','rejected'].includes(beforeMessage.status)&&beforeMessage.status!==status)await communicationJournal(e,{accountId:String(beforeMessage.accountId),leadId:beforeMessage.leadId,entityType:'interaction',entityId:beforeMessage.id,action:'brevo_event_'+terminal.event,actor:null,automatic:true,triggeredBy:'brevo-webhook',before:{status:beforeMessage.status},after:{status,evidence:terminal.event}});}
+ if(terminal){const status=terminal.event==='delivered'?'delivery_confirmed':'failed';await sql`UPDATE email_outbox SET status=${status},updated_at=now() WHERE id=${outboxId} AND status IS DISTINCT FROM ${status}`.execute(e);await sql`UPDATE crm_messages SET status=${status},updated_at=now() WHERE outbox_id=${outboxId} AND status NOT IN ('replied','rejected') AND status<>${status}`.execute(e);if(beforeMessage&&!['replied','rejected'].includes(beforeMessage.status)&&beforeMessage.status!==status)await communicationJournal(e,{accountId:String(beforeMessage.accountId),leadId:beforeMessage.leadId,entityType:'interaction',entityId:beforeMessage.id,action:'brevo_event_'+terminal.event,actor:null,automatic:true,triggeredBy:'brevo-webhook',before:{status:beforeMessage.status},after:{status,evidence:terminal.event}});}
  const message=(await sql<Message>`SELECT * FROM crm_messages WHERE outbox_id=${outboxId}`.execute(e)).rows[0];
- if(message&&terminal&&['hard_bounce','invalid_email'].includes(terminal.event)){
+ const newEvidence=!!terminal&&(!fresh||fresh.includes(terminal.fingerprint)||adopted.includes(terminal.fingerprint));
+ if(message&&terminal&&newEvidence&&['hard_bounce','invalid_email'].includes(terminal.event)){
   const inserted=await sql<{id:string}>`INSERT INTO crm_contact_restrictions(account_id,lead_id,contact_id,channel,reason,actor_email,source,evidence) SELECT ${message.accountId},${message.leadId},${message.contactId},'email',${'Falla permanente confirmada por Brevo: '+terminal.event},'brevo-webhook','automatic',${JSON.stringify({event:terminal.event,outboxId,occurredAt:terminal.occurredAt})} WHERE NOT EXISTS(SELECT 1 FROM crm_contact_restrictions WHERE account_id=${message.accountId} AND lead_id IS NOT DISTINCT FROM ${message.leadId}::bigint AND contact_id IS NOT DISTINCT FROM ${message.contactId}::bigint AND channel='email' AND lifted_at IS NULL) RETURNING id`.execute(e);
   if(inserted.rows[0])await communicationJournal(e,{accountId:String(message.accountId),leadId:message.leadId,entityType:'restriction',entityId:inserted.rows[0].id,action:'technical_restriction_added',actor:null,automatic:true,triggeredBy:'brevo-webhook',after:{channel:'email',contactId:message.contactId,reason:terminal.event,source:'automatic',evidence:outboxId}});
  }
@@ -592,5 +676,6 @@ export async function reconcileEvents(e:Executor,outboxId:string){
   for(const restriction of lifted.rows)await communicationJournal(e,{accountId:String(message.accountId),leadId:message.leadId,entityType:'restriction',entityId:restriction.id,action:'technical_restriction_lifted',actor:null,automatic:true,triggeredBy:'brevo-webhook',before:{reason:restriction.reason},after:{evidence:'delivery_confirmed'}});
  }
  if(message&&!message.activityId&&terminal&&message.leadId){const lead=await e.selectFrom('leads').selectAll().where('id','=',message.leadId).where('deletedAt','is',null).executeTakeFirst();if(lead){const a=await e.insertInto('crmActivities').values({accountId:lead.accountId,leadId:lead.id,typeId:'message',title:'Evento email reconciliado',channel:'email',result:terminal.event==='delivered'?'Entrega confirmada por Brevo':'Rebote/fallo: '+terminal.event,occurredAt:terminal.occurredAt,contactIds:message.contactId?[message.contactId]:[],participants:message.recipientName,actorEmail:'brevo-webhook',notes:'Snapshot de mensaje #'+message.id}).returning('id').executeTakeFirstOrThrow();await sql`UPDATE crm_messages SET activity_id=${a.id} WHERE id=${message.id}::uuid`.execute(e);}}
- if(message?.activityId&&terminal&&!['replied','rejected'].includes(message.status))await e.updateTable('crmActivities').set({result:terminal.event==='delivered'?'Entrega confirmada por Brevo':'Rebote/fallo: '+terminal.event,updatedAt:new Date()}).where('id','=',message.activityId).where('outcome','is',null).execute();
+ // Writes only a changed result: a no-op update would still fire the activity audit and contact triggers.
+ if(message?.activityId&&terminal&&!['replied','rejected'].includes(message.status)){const result=terminal.event==='delivered'?'Entrega confirmada por Brevo':'Rebote/fallo: '+terminal.event;await e.updateTable('crmActivities').set({result,updatedAt:new Date()}).where('id','=',message.activityId).where('outcome','is',null).where('result','is distinct from',result).execute();}
 }

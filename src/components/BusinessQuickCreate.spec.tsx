@@ -168,3 +168,44 @@ describe('CommercialEditor',()=>{
   expect(next.checked).toBe(false);
  });
 });
+
+describe('BusinessQuickCreate prefill and Instagram (spec 98 §17)',()=>{
+ it('opens with the prefilled phone and checks it for duplicates; closing without changes asks nothing',async()=>{
+  // Arrange
+  mocks.check.mockResolvedValue({candidates:[]});const onClose=vi.fn();
+  // Act
+  wrap(<BusinessQuickCreate onClose={onClose} prefill={{telefono:'+5493442453797'}}/>);
+  // Assert
+  expect((screen.getByLabelText('Teléfono / WhatsApp') as HTMLInputElement).value).toBe('+5493442453797');
+  await waitFor(()=>expect(mocks.check).toHaveBeenLastCalledWith({telefono:'+5493442453797'},{signal:expect.any(AbortSignal)}));
+  fireEvent.click(screen.getByRole('button',{name:'Cancelar'}));
+  expect(onClose).toHaveBeenCalled();
+ });
+ it('prefills the Instagram, checks it for duplicates and saves it as the profile URL',async()=>{
+  mocks.check.mockResolvedValue({candidates:[]});mocks.save.mockResolvedValue({id:'56'});
+  wrap(<BusinessQuickCreate onClose={()=>{}} prefill={{instagram:'@cabanas_del_rio'}}/>);
+  expect((screen.getByLabelText('Instagram') as HTMLInputElement).value).toBe('@cabanas_del_rio');
+  await waitFor(()=>expect(mocks.check).toHaveBeenLastCalledWith({instagram:'cabanas_del_rio'},{signal:expect.any(AbortSignal)}));
+  type('Nombre','Cabañas del Río');
+  await waitFor(()=>expect(create().disabled).toBe(false));
+  fireEvent.click(create());
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalledTimes(1));
+  expect(mocks.save.mock.calls[0][0]).toMatchObject({action:'account_save',nombre:'Cabañas del Río',perfilInstagram:'https://www.instagram.com/cabanas_del_rio/'});
+ });
+ it('refuses an Instagram that is not a profile, with the reason, and never sends it',async()=>{
+  mocks.check.mockResolvedValue({candidates:[]});
+  wrap(<BusinessQuickCreate onClose={()=>{}}/>);
+  type('Nombre','Cabañas del Río');type('Instagram','no es un usuario!');
+  expect(screen.getByRole('alert').textContent).toContain('Escribí el usuario de Instagram');
+  expect(create().disabled).toBe(true);
+  type('Instagram','');await waitFor(()=>expect(create().disabled).toBe(false));
+ });
+ it('a No contactar business with the same Instagram blocks saving like a shared phone',async()=>{
+  mocks.check.mockResolvedValue({candidates:[candidate('9',{doNotContact:true,blocking:true,reasons:['Instagram compartido']})]});
+  wrap(<BusinessQuickCreate onClose={()=>{}} prefill={{instagram:'cabanas_del_rio'}}/>);
+  type('Nombre','Otro nombre');
+  expect(await screen.findByText('Mismo Instagram',{exact:false})).toBeTruthy();
+  expect(create().disabled).toBe(true);
+ });
+});
+

@@ -10,7 +10,7 @@ import postgres from "postgres";
 import {
   CONTAINER_NAME, CUSTOM_DUMP_REQUIRED, DEFAULT_API_PORT, DEFAULT_PG_PORT, DEFAULT_WEB_PORT, DUMP_DB, DUMP_TMP_DB, LABEL_KEY, LABEL_VALUE, PG_PASSWORD, PG_USER, POSTGRES_IMAGE, SEED_MARKER, SYNTHETIC_DB, VOLUME_NAME,
   buildAppEnv, buildBaseEnv, buildDatabaseUrl, buildDockerEnv, buildSeedEnv, checkContainerOwnership, detectDumpFormat, formatDumpComment, generateJwtSecret, isOwnedDatabase, isOwnedVolume,
-  isSameProcess, isValidJwtSecret, parseArgs, parseDumpComment, parseProcStat, parseSsPids, pickFreePort, planSeeding, redactUrl, resolveDataMode, validateDumpPath,
+  isSameProcess, isValidJwtSecret, parseArgs, parseDotenv, parseDumpComment, parseProcStat, parseSsPids, pickFreePort, planSeeding, redactUrl, resolveDataMode, validateDumpPath,
 } from "./lib.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -355,7 +355,9 @@ async function commandUp(args) {
   const webPort = await pickFreePort({ start: DEFAULT_WEB_PORT, isFree: isPortFree, exclude: [apiPort] });
   state = await writeState({ jwtSecret, apiPort, webPort, pgPort: info.publishedPort, mode: args.built ? "built" : "dev", dataKind: args.data.kind, dbName: mode.dbName, app: null });
 
-  const appEnv = buildAppEnv({ baseEnv, built: args.built, databaseUrl, jwtSecret, apiPort, webPort });
+  const dotenvPath = path.join(repoRoot, ".env"); // gitignored; every variable in it reaches the app (precedence in buildAppEnv)
+  const dotenv = parseDotenv({ text: existsSync(dotenvPath) ? readFileSync(dotenvPath, "utf8") : null });
+  const appEnv = buildAppEnv({ baseEnv, dotenv, built: args.built, databaseUrl, jwtSecret, apiPort, webPort });
   log(args.built ? "Starting production-like server" : "Starting vite + API (watch mode)");
   const child = spawn("npm", ["run", args.built ? "start" : "dev"], { cwd: repoRoot, env: appEnv, stdio: "inherit", detached: true });
   const parsedStat = child.pid ? parseProcStat({ stat: readStat(child.pid) ?? "" }) : null;

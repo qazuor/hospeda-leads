@@ -21,18 +21,18 @@ export async function salesMaterialConfig(e:E):Promise<SalesMaterialConfig>{
 }
 /** Only admins create, edit, version, archive and manage categories (spec 89 §10). */
 export function assertSalesMaterialAdmin(user:Pick<User,'role'>):void{if(user.role!=='admin')throw new CrmForbidden('Solo un administrador puede administrar el material de venta.');}
-type MaterialRow=Omit<SalesMaterial,'hasCover'|'categories'|'currentVersion'|'versions'>&{currentVersion:number|null;coverKey:string|null;coverMime:string|null;coverBytes:number|null};
+type MaterialRow=Omit<SalesMaterial,'hasCover'|'coverSource'|'categories'|'currentVersion'|'versions'>&{currentVersion:number|null;coverKey:string|null;coverMime:string|null;coverBytes:number|null;coverMode:'manual'|'auto'|'none'};
 type VersionRow=SalesMaterialVersion&{materialId:string;objectKey:string|null};
 type UploadRow={id:string;objectKey:string;purpose:'file'|'cover';materialId:string|null;declaredMime:string;declaredBytes:string|number;fileName:string;actorEmail:string;status:'pending'|'deleting'|'completed'|'discarded';expiresAt:Date};
 const publicVersion=({objectKey:_key,materialId:_material,...v}:VersionRow):SalesMaterialVersion=>({...v,byteSize:v.byteSize==null?null:Number(v.byteSize)});
 /** Most materials one listing returns; beyond it the list says `truncated` and the UI asks for a narrower search. */
 export const LIST_LIMIT=500;
 /** Lists materials (`categoryIds`: any of them). Sellers see active ones (both kinds) with the current version only; `includeArchived` and older versions are admin-only. */
-export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived:'0'|'1'}}):Promise<SalesMaterialList>{
+export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived:'0'|'1';status?:'archived'}}):Promise<SalesMaterialList>{
  const admin=user.role==='admin';
  const categoryIds=[...new Set([...(query.categoryIds??[]),...(query.categoryId?[query.categoryId]:[])])];
- if(query.includeArchived==='1'&&!admin)throw new CrmForbidden('Solo un administrador ve el material archivado.');
- const found=(await sql<MaterialRow>`SELECT m.* FROM crm_sales_materials m WHERE (${query.includeArchived==='1'} OR m.status='active')
+ if((query.includeArchived==='1'||query.status==='archived')&&!admin)throw new CrmForbidden('Solo un administrador ve el material archivado.');
+ const found=(await sql<MaterialRow>`SELECT m.* FROM crm_sales_materials m WHERE (${query.status==='archived'} AND m.status='archived' OR ${query.status!=='archived'} AND (${query.includeArchived==='1'} OR m.status='active'))
   AND (${query.kind??null}::text IS NULL OR m.kind=${query.kind??null})
   AND (${categoryIds.length===0} OR EXISTS(SELECT 1 FROM crm_sales_material_category_links l WHERE l.material_id=m.id AND l.category_id=ANY(${categoryIds}::bigint[])))
   AND (${searchSql('m.title',query.search)} OR ${searchSql('m.description',query.search)})
@@ -45,12 +45,12 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
   sql<SalesMaterialCategory>`SELECT id,name,active FROM crm_sales_material_categories WHERE ${admin} OR active ORDER BY lower(name)`.execute(db),
   salesMaterialConfig(db)
  ]);
- const materials=rows.map(({coverKey,coverMime:_mime,coverBytes:_bytes,currentVersion,...m}):SalesMaterial=>{
+ const materials=rows.map(({coverKey,coverMime:_mime,coverBytes:_bytes,coverMode,currentVersion,...m}):SalesMaterial=>{
   const own=versions.rows.filter(v=>v.materialId===m.id).map(publicVersion);
   const current=own.find(v=>v.version===currentVersion)??null;
-  return {...m,hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
+  return {...m,hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,coverSource:coverMode==='none'?'none':coverKey?coverMode:null,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
  });
- return {materials,truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured()}};
+ return {materials,truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
 }
 async function materialFor(e:E,id:string,lock=false){
  const m=(await (lock?sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid FOR UPDATE`:sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid`).execute(e)).rows[0];
@@ -104,6 +104,14 @@ async function completeUpload(e:E,uploadId:string){
  throw new Error('La subida venció o se descartó. Volvé a subir el archivo.');
 }
 type Verified=Awaited<ReturnType<typeof verifySalesMaterialUpload>>;
+/**
+ * Spec 95: hands the object of an automatic cover that is being dropped or replaced to the abandoned-upload sweep: its completed upload row
+ * goes back to `pending` already expired, so the next sweep deletes the object and marks it `discarded`. Runs in the caller's transaction.
+ */
+async function discardAutoCover(e:E,m:Pick<MaterialRow,'coverKey'|'coverMode'>){
+ if(m.coverMode!=='auto'||!m.coverKey)return;
+ await sql`UPDATE crm_sales_material_uploads SET status='pending',expires_at=now()-interval '1 second' WHERE object_key=${m.coverKey} AND purpose='cover' AND status='completed'`.execute(e);
+}
 async function insertVersion(e:E,{materialId,version,source,verified,user}:{materialId:string;version:number;source:{uploadId:string}|{url:string};verified:Verified|null;user:User}){
  if('url' in source){await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,url,actor_email) VALUES(${randomUUID()}::uuid,${materialId}::uuid,${version},${new URL(source.url).href},${user.email})`.execute(e);return;}
  const v=verified!;await completeUpload(e,v.upload.id);
@@ -124,7 +132,7 @@ async function replaceCategories(e:E,materialId:string,ids:readonly string[],bef
 }
 const categoryIdsOf=async(e:E,materialId:string)=>(await sql<{categoryId:string}>`SELECT category_id FROM crm_sales_material_category_links WHERE material_id=${materialId}::uuid`.execute(e)).rows.map(r=>String(r.categoryId));
 /** Admin mutations (spec 89 §5). Uploads are verified against R2 before the transaction; the transaction re-checks revision and consumes the upload once. */
-export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{input:SalesMaterialMutation;user:User;storage?:R2Storage}):Promise<{id?:string;ok?:boolean;revision?:number}>{
+export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{input:SalesMaterialMutation;user:User;storage?:R2Storage}):Promise<{id?:string;ok?:boolean;revision?:number;coverKept?:boolean}>{
  assertSalesMaterialAdmin(user);
  const store=()=>storage??r2Storage();
  if(input.action==='category_create'||input.action==='category_update')return db.transaction().execute(async e=>{
@@ -180,10 +188,18 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
    const version=(m.currentVersion??0)+1;
    await insertVersion(e,{materialId:m.id,version,source:input.version,verified,user});
    await sql`UPDATE crm_sales_materials SET current_version=${version},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+   // Spec 95: an automatic cover belongs to the replaced file, so it goes with it (back to «manual without key»: the browser generates a new one).
+   // A manual cover and a removal (`none`) stay.
+   if(m.coverMode==='auto'){await discardAutoCover(e,m);await sql`UPDATE crm_sales_materials SET cover_key=NULL,cover_mime=NULL,cover_bytes=NULL,cover_mode='manual' WHERE id=${m.id}::uuid`.execute(e);}
   }else if(input.action==='cover'){
-   if(verified){await completeUpload(e,verified.upload.id);await sql`UPDATE crm_sales_materials SET cover_key=${verified.upload.objectKey},cover_mime=${verified.upload.declaredMime},cover_bytes=${verified.size},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);}
-   // Removing a cover keeps the old object in R2: this spec never deletes stored material.
-   else await sql`UPDATE crm_sales_materials SET cover_key=NULL,cover_mime=NULL,cover_bytes=NULL,revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+   // Spec 95: a manual choice (an uploaded cover or a removal) always wins. An automatic cover arriving after one is not an error: it is
+   // kept out (`coverKept`), nothing changes and its upload stays pending, so the sweep deletes it.
+   if(input.auto&&(m.coverMode==='none'||m.coverMode==='manual'&&m.coverKey))return {ok:true,revision:m.revision,coverKept:true};
+   // The object of a replaced or removed automatic cover is ours to delete; a manual cover's object is never touched.
+   if(m.coverMode==='auto')await discardAutoCover(e,m);
+   if(verified){await completeUpload(e,verified.upload.id);await sql`UPDATE crm_sales_materials SET cover_key=${verified.upload.objectKey},cover_mime=${verified.upload.declaredMime},cover_bytes=${verified.size},cover_mode=${input.auto?'auto':'manual'},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);}
+   // Removing a manual cover keeps its object in R2: this spec never deletes stored material.
+   else await sql`UPDATE crm_sales_materials SET cover_key=NULL,cover_mime=NULL,cover_bytes=NULL,cover_mode='none',revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
   }else if(input.action==='archive'){
    if(m.status==='archived')throw new Error('El material ya está archivado.');
    await sql`UPDATE crm_sales_materials SET status='archived',archived_at=now(),archived_by_email=${user.email},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);

@@ -1,6 +1,6 @@
 # Spec 89 — Material de venta
 
-Estado: aprobada por el propietario — 26/10/2026. Decisiones D1–D9 y las cuatro confirmaciones de §17 resueltas.
+Estado: **cerrada** — implementada en cuatro fases mergeadas en `staging` el 26 y 27/10/2026: F1 (#265), F2 (#267), F3 (#271) y F4 (#272). Sin desplegar. Aprobada por el propietario el 26/10/2026 (decisiones D1–D9 y las cuatro confirmaciones de §17).
 
 ## 1. Problema
 
@@ -184,7 +184,7 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
 - **Portadas:** solo imágenes, de hasta 1 MB. Para imágenes y PDF, la UI propone generarla en el navegador (canvas a JPEG de 1200×630, y para PDF la primera página con el `pdf.js` que ya se usa para miniaturas). El admin la puede reemplazar.
 - **CORS del bucket:**
   ```json
-  [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]
+  [{"AllowedOrigins":["https://crm.hospeda.com.ar","http://localhost:5173"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["Content-Type","Range"],"ExposeHeaders":["ETag","Accept-Ranges","Content-Range","Content-Length"],"MaxAgeSeconds":3600}]
   ```
   Staging o los worktrees agregan su origen si suben archivos.
 - **CSP:** sumar el origen `https://<account>.r2.cloudflarestorage.com` a `connect-src`, `img-src`, `media-src` y `frame-src` de `CSP_REPORT_ONLY`. Hoy es report-only, así que no bloquea, pero tiene que quedar correcta para cuando se aplique.
@@ -282,7 +282,9 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
 ### 8.3 Adjuntar en Brevo
 
 - **En `dispatch` de email:** para cada share con `attach=true`, se agrega `attachment: [{url: <GET prefirmado de 1 h>, name: <file_name>}]` al POST a `/v3/smtp/email`. Brevo descarga el archivo desde R2, así que no pasa por el VPS. Al aceptar, se fija `attached_version`.
-- **Límite:** Brevo admite adjuntos por `url` o `content` base64. La documentación consultada (context7, `developers.brevo.com`) **no publica el tope de tamaño** ni la lista de extensiones permitidas: a verificar con soporte de Brevo o con una prueba. Mientras tanto, `maxEmailAttachmentBytes` arranca en 10 MB (configurable) y la suma de adjuntos de un mensaje no puede superarlo.
+- **Límite:** Brevo admite adjuntos por `url` o `content` base64. La documentación (`developers.brevo.com`, «Send a transactional email», consultada el 27/10/2026) **no publica el tope de tamaño**: `maxEmailAttachmentBytes` arranca en 10 MB (configurable) y la suma de adjuntos de un mensaje no puede superarlo.
+- **Extensiones:** Brevo solo adjunta una lista cerrada (xlsx, xls, ods, docx, docm, doc, csv, pdf, txt, gif, jpg, jpeg, png, tif, tiff, rtf, bmp, cgm, css, shtml, html, htm, zip, xml, ppt, pptx, tar, ez, ics, mobi, msg, pub, eps, odt, mp3, m4a, m4v, wma, ogg, flac, wav, aif, aifc, aiff, mp4, mov, avi, mkv, mpeg, mpg, wmv, pkpass, xlsm). Vive en una sola constante (`BREVO_ATTACHMENT_EXTENSIONS`, `src/helpers/salesMaterialMessage.ts`). Un archivo con otra extensión (por ejemplo webp o webm) o sin nombre no se puede adjuntar: va solo el enlace, con el motivo «Brevo no adjunta este tipo de archivo». `dispatch` lo vuelve a comprobar y el nombre del adjunto es siempre el `file_name` de la versión.
+- **Errores de Brevo:** antes de guardar el texto del rechazo en `email_outbox.last_error` o en el historial se quita la firma (`X-Amz-*`) de toda URL prefirmada.
 - **Si Brevo rechaza por el adjunto:** el mensaje queda `failed` como hoy, sin reintento automático. El composer ofrece «Reintentar sin adjuntos», que crea un borrador nuevo con los mismos enlaces.
 
 ### 8.4 Registro en la ficha («Comunicación»)
@@ -438,7 +440,7 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
   - registro técnico de accesos (§4 y §7): sí, solo contador y último acceso, sin bots y rotulado como técnico;
   - página propia `/sales-material` en lugar de Configuración (§12): sí.
 - **Técnico:**
-  - tope de adjuntos y extensiones permitidas por Brevo, y que acepte `attachment.url` prefirmado (§8.3);
+  - tope de tamaño de adjuntos de Brevo y que acepte `attachment.url` prefirmado (§8.3). La lista de extensiones ya está confirmada en la documentación (27/10/2026); conviene revisarla si Brevo la cambia;
   - que R2 respete `response-content-disposition` y `response-content-type` en GET prefirmados (§6.4);
   - tamaño de imagen OG que acepta WhatsApp, y que siga el `og:image` (§7);
   - cabecera de IP real detrás del proxy de Coolify (§7);

@@ -23,8 +23,8 @@ async function detail(id:string){const r=await commercialGET(new Request('http:/
 try{
  assert.equal((await get(new Request('http://localhost/_api/data_quality'))).status,401);
  for(const path of ['/_api/leads_import','/_api/leads_ingest'])assert.equal((await app.request(path,{method:'POST',headers:{cookie:admin.cookie,origin:'http://localhost'}})).status,404,path+' must stay removed');
- const source=await db.insertInto('crmAccounts').values({nombre:'Fusión origen '+stamp,ciudad:'Colón',telefono:'03442123456',email:'source@example.com',doNotContact:true,commercialStatus:'client',clientSince:new Date('2026-01-01'),assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
- const dest=await db.insertInto('crmAccounts').values({nombre:'Fusión destino '+stamp,ciudad:'Colón',telefono:'+543442123456',email:'destination@example.com'}).returningAll().executeTakeFirstOrThrow();
+ const source=await db.insertInto('crmAccounts').values({nombre:'Fusión origen '+stamp,ciudad:'Colón',telefono:'03442123456',email:`source-${stamp}@example.com`,doNotContact:true,commercialStatus:'client',clientSince:new Date('2026-01-01'),assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+ const dest=await db.insertInto('crmAccounts').values({nombre:'Fusión destino '+stamp,ciudad:'Colón',telefono:'+543442123456',email:`destination-${stamp}@example.com`}).returningAll().executeTakeFirstOrThrow();
  await db.updateTable('crmAccounts').set({assignedUserEmail:user.user.email,status:'recontact',recontactAt:'2027-08-01' as never}).where('id','=',dest.id).execute();
  const destRecontact=await db.insertInto('crmTasks').values({accountId:dest.id,leadId:null,title:'Volver a contactar',typeId:'followup',purpose:'reactivation',assignedUserEmail:user.user.email,dueDate:'2027-08-01' as never,priority:'media'}).returning('id').executeTakeFirstOrThrow();
  const c1=await db.insertInto('crmContacts').values({accountId:source.id,name:'Persona origen',isPrimary:true}).returningAll().executeTakeFirstOrThrow();
@@ -97,7 +97,7 @@ try{
   await run([{nombre:'Cabanas Bloqueo '+stamp,ciudad:'Colón'}],{action:'create'},200);// ñ is not n
   await db.deleteFrom('crmAccounts').where('id','in',[dnc.id,free.id]).execute().catch(()=>undefined);}
  // Reviewed import, invalid rows, conservative updates and replay protection.
- const importRows=[{nombre:'Import '+stamp,ciudad:'Colón',email:'import@example.com'},{nombre:'Inválido',email:'bad'},{nombre:dest.nombre,ciudad:'Colón',telefono:''}];
+ const importRows=[{nombre:'Import '+stamp,ciudad:'Colón',email:`import-${stamp}@example.com`},{nombre:'Inválido',email:'bad'},{nombre:dest.nombre,ciudad:'Colón',telefono:''}];
  const count=Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n);
  let review=await mutation<ImportReview>({action:'import_preview',rows:importRows,source:'CSV test'});
  assert.equal(Number((await db.selectFrom('leads').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n),count);
@@ -112,8 +112,8 @@ try{
  const retry=await mutation<ImportReview>({action:'import_preview',rows:importRows,source:'Otra fuente'});assert.equal(retry.batchId,review.batchId);assert.equal(retry.status,'completed');
  const qualityResponse=await get(new Request('http://localhost/_api/data_quality?accountId='+dest.id,{headers:{cookie:admin.cookie}}));const quality=superjson.parse<QualityDetail>(await qualityResponse.text());assert(quality.evidence.some(e=>e.batchId===review.batchId));
  // Import conflicts cannot partially apply earlier rows.
- review=await mutation<ImportReview>({action:'import_preview',rows:[{nombre:dest.nombre,ciudad:'Colón',email:'next@example.com'}],source:'Concurrent test'});const m=review.rows[0].matches.find(m=>m.id===dest.id)!;
- await db.updateTable('crmAccounts').set({updatedAt:new Date(),email:'concurrent@example.com'}).where('id','=',dest.id).execute();await mutation({action:'import_confirm',batchId:review.batchId,decisions:[{index:0,action:'update',targetId:dest.id,revision:m.revision,acknowledge:true}],confirm:true},409);
+ review=await mutation<ImportReview>({action:'import_preview',rows:[{nombre:dest.nombre,ciudad:'Colón',email:`next-${stamp}@example.com`}],source:'Concurrent test'});const m=review.rows[0].matches.find(m=>m.id===dest.id)!;
+ await db.updateTable('crmAccounts').set({updatedAt:new Date(),email:`concurrent-${stamp}@example.com`}).where('id','=',dest.id).execute();await mutation({action:'import_confirm',batchId:review.batchId,decisions:[{index:0,action:'update',targetId:dest.id,revision:m.revision,acknowledge:true}],confirm:true},409);
  await mutation({action:'import_preview',rows:[{nombre:'No asignar',asignadoA:admin.user.email}],source:'Permiso'},403,user.cookie);
  console.log('Quality integration: permissions, preview/no writes, invalid row rollback, safe empty updates, batch replay, conflicts, merge fault rollback, full references/history, canonical links and archived origin passed');
-}finally{await db.destroy();}
+}catch(e){console.error(e);process.exitCode=1;}finally{await Promise.race([db.destroy(),new Promise(r=>setTimeout(r,5000))]);process.exit();}

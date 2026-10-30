@@ -6,12 +6,13 @@ import type {SalesMaterial,SalesMaterialLimits} from '../endpoints/salesMaterial
 import {CrmApiError} from '../helpers/apiClient';
 import {SalesMaterialForm,pickedFileError,type SalesMaterialFormMode} from './SalesMaterialForm';
 
-const api=vi.hoisted(()=>({post:vi.fn(),upload:vi.fn(),list:vi.fn()}));
+const api=vi.hoisted(()=>({post:vi.fn(),upload:vi.fn(),list:vi.fn(),autoCover:vi.fn()}));
 vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),postSalesMaterial:api.post,getSalesMaterials:api.list}));
+vi.mock('../helpers/salesMaterialAutoCover',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialAutoCover')>(),saveAutoCover:api.autoCover}));
 vi.mock('../helpers/salesMaterialUpload',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialUpload')>(),uploadSalesMaterialFile:api.upload}));
-const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true};
+const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true,maxEmailAttachmentBytes:10485760};
 const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[],currentVersion:null};
-beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};api.post.mockResolvedValue({ok:true});});
+beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};api.post.mockResolvedValue({ok:true});api.autoCover.mockResolvedValue({ok:true,revision:2});});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const onSaved=vi.fn(),onClose=vi.fn();
 const setup=(mode:SalesMaterialFormMode,overrides:Partial<SalesMaterialLimits>={})=>render(<MantineProvider><QueryClientProvider client={new QueryClient()}><SalesMaterialForm mode={mode} categories={[{id:'1',name:'Folletos',active:true}]} limits={{...limits,...overrides}} onClose={onClose} onSaved={onSaved}/></QueryClientProvider></MantineProvider>);
@@ -25,6 +26,11 @@ describe('pickedFileError',()=>{
  });
 });
 describe('SalesMaterialForm',()=>{
+ it('tells the admin that the client sees the title (owner review of spec 96)',()=>{
+  setup({type:'create'});
+  const title=screen.getByLabelText('Título');
+  expect(document.getElementById(title.getAttribute('aria-describedby')!)?.textContent).toMatch(/^Lo ve el cliente/);
+ });
  it('creates an external URL material with the trimmed data',async()=>{
   setup({type:'create'});
   expect(save('Guardar material').disabled).toBe(true);
@@ -38,18 +44,46 @@ describe('SalesMaterialForm',()=>{
   expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',title:'Video institucional',description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/video'}}));
   expect(api.upload).not.toHaveBeenCalled();
  });
+ it('uploads a JPEG saved as .png under its real type and says so (owner review of spec 96)',async()=>{
+  // Arrange
+  api.upload.mockResolvedValue('u-1');
+  setup({type:'create'});
+  // Act
+  pick('Archivo',new File([new Uint8Array([0xff,0xd8,0xff,0xe0,0,0,0,0,0,0,0,0,0,0,0,0])],'gallery-01.png',{type:'image/png'}));
+  await screen.findByText('gallery-01.png en realidad es un archivo JPG: se sube como gallery-01.jpg.');
+  fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Galería'}});
+  fireEvent.click(save('Guardar material'));
+  // Assert
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  const uploaded=api.upload.mock.calls[0][0].file as File;
+  expect(uploaded.name).toBe('gallery-01.jpg');expect(uploaded.type).toBe('image/jpeg');
+ });
  it('uploads the file first, then creates with the upload id, and blocks a double submit',async()=>{
   let finish!:(id:string)=>void;api.upload.mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
   setup({type:'create'});
   pick('Archivo',new File(['x'],'virus.exe',{type:'application/octet-stream'}));expect(screen.getByRole('alert').textContent).toBe('Ese tipo de archivo no está permitido.');
   const file=new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'});pick('Archivo',file);
   fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
-  fireEvent.click(save('Guardar material'));fireEvent.click(screen.getByRole('button',{name:'Subiendo archivo…'}));
+  fireEvent.click(save('Guardar material'));
+  // Owner review of spec 96: the form gives way to the progress view, so there is no submit button left to press twice.
+  expect(await screen.findByText('Subiendo archivo…')).toBeTruthy();
+  expect(screen.queryByRole('button',{name:/Guardar material|Subiendo archivo/})).toBeNull();expect(screen.queryByLabelText('Título')).toBeNull();
   await waitFor(()=>expect(api.upload).toHaveBeenCalledTimes(1));
   const call=api.upload.mock.calls[0][0];expect(call).toMatchObject({file,purpose:'file'});expect(call.materialId).toMatch(/^[0-9a-f-]{36}$/);
   finish('up-1');
   await waitFor(()=>expect(onSaved).toHaveBeenCalled());
   expect(api.post).toHaveBeenCalledTimes(1);expect(api.post.mock.calls[0][0]).toMatchObject({action:'create',id:call.materialId,source:'file',version:{uploadId:'up-1'}});
+ });
+ it('lists each finished step while saving and brings the form back, with what was typed, on an error',async()=>{
+  let fail!:(e:Error)=>void;api.upload.mockResolvedValue('up-1');api.post.mockImplementation(()=>new Promise((_resolve,reject)=>{fail=reject}));
+  setup({type:'create'});
+  pick('Archivo',new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
+  fireEvent.click(save('Guardar material'));
+  expect(await screen.findByText('Guardando material…')).toBeTruthy();
+  expect(screen.getByText('Subiendo archivo')).toBeTruthy();
+  fail(new Error('Se cortó la conexión.'));
+  expect(await screen.findByText(/Se cortó la conexión\./)).toBeTruthy();
+  expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('Folleto 2027');
  });
  it('keeps what was typed and offers a retry when the upload fails',async()=>{
   api.upload.mockRejectedValueOnce(new Error('Se cortó la subida del archivo.'));
@@ -97,5 +131,47 @@ describe('SalesMaterialForm',()=>{
   api.upload.mockResolvedValueOnce('cover-1');pick('Imagen de portada',new File(['png'],'tapa.png',{type:'image/png'}));fireEvent.click(save('Guardar portada'));
   await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'cover',id:'m-1',revision:5,uploadId:'cover-1'}));
   expect(api.upload.mock.calls[0][0]).toMatchObject({purpose:'cover',materialId:'m-1'});
+ });
+ it('generates an automatic cover after creating a PDF without a manual cover',async()=>{
+  api.upload.mockResolvedValue('up-1');api.post.mockResolvedValue({id:'x',revision:1});
+  setup({type:'create'});const file=new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'});pick('Archivo',file);fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
+  fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));
+  const created=api.post.mock.calls[0][0];expect(api.autoCover).toHaveBeenCalledWith({materialId:created.id,revision:1,format:'pdf',source:{file}});
+ });
+ it('a manual cover wins: no automatic cover is generated',async()=>{
+  api.upload.mockResolvedValueOnce('up-1').mockResolvedValueOnce('cover-1');
+  setup({type:'create'});pick('Archivo',new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'}));pick('Portada (opcional)',new File(['png'],'tapa.png',{type:'image/png'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
+  fireEvent.click(save('Guardar material'));await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));
+  expect(api.autoCover).not.toHaveBeenCalled();expect(api.post.mock.calls[1][0]).toMatchObject({action:'cover',revision:1,uploadId:'cover-1'});expect(api.post.mock.calls[1][0].auto).toBeUndefined();
+  cleanup();vi.clearAllMocks();api.upload.mockResolvedValue('up-2');api.post.mockResolvedValue({ok:true,revision:6});
+  setup({type:'version',material:{...material,hasCover:true,coverSource:'manual'}});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Nueva versión guardada. Las anteriores se conservan.'));expect(api.autoCover).not.toHaveBeenCalled();
+ });
+ it('regenerates an automatic cover on a new version with the revision the server returned',async()=>{
+  api.upload.mockResolvedValue('up-1');api.post.mockResolvedValue({ok:true,revision:6});
+  setup({type:'version',material:{...material,hasCover:true,coverSource:'auto'}});const file=new File(['%PDF-'],'v2.pdf',{type:'application/pdf'});pick('Archivo',file);fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());expect(api.autoCover).toHaveBeenCalledWith({materialId:'m-1',revision:6,format:'pdf',source:{file}});
+ });
+ it('a removed cover is kept on a new version, and a manual choice the page did not know about is a quiet skip',async()=>{
+  api.upload.mockResolvedValue('up-1');api.post.mockResolvedValue({ok:true,revision:6});
+  setup({type:'version',material:{...material,hasCover:false,coverSource:'none'}});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Nueva versión guardada. Las anteriores se conservan.'));expect(api.autoCover).not.toHaveBeenCalled();
+  // Stale `coverSource`: the server kept a manual cover (`kept`), which is no failure and adds no note.
+  cleanup();vi.clearAllMocks();api.upload.mockResolvedValue('up-2');api.post.mockResolvedValue({ok:true,revision:6});api.autoCover.mockResolvedValue({ok:true,revision:6,kept:true});
+  setup({type:'version',material:{...material,hasCover:false,coverSource:null}});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar versión'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Nueva versión guardada. Las anteriores se conservan.'));expect(api.autoCover).toHaveBeenCalled();
+ });
+ it('a failed automatic cover never blocks saving: the material is saved with a note',async()=>{
+  api.upload.mockResolvedValue('up-1');api.autoCover.mockResolvedValue({ok:false,error:'Canvas unavailable'});
+  setup({type:'create'});pick('Archivo',new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
+  fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado. La portada automática no se pudo generar: la tarjeta muestra el dibujo del formato.'));
+  expect(screen.queryByRole('alert')).toBeNull();
+ });
+ it('small images, audio and office files get no automatic cover',async()=>{
+  api.upload.mockResolvedValue('up-1');
+  setup({type:'create'});pick('Archivo',new File(['png'],'foto.png',{type:'image/png'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Foto chica'}});
+  fireEvent.click(save('Guardar material'));await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));expect(api.autoCover).not.toHaveBeenCalled();
  });
 });

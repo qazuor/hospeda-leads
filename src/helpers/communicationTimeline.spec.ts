@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {CommunicationResponse,InboundMessage,Message} from '../endpoints/communication.schema';
-import {atListLimit,buildCommunicationTimeline,callResultLabel,sentTone,draftMessages,filterTimeline,managementChip,requiresAction,responseTagLabel,sentStatusLabel,timelineChannelLabel,timelineChips,visibleTimeline,withDaySeparators,type TimelineEntry} from './communicationTimeline';
+import {atListLimit,buildCommunicationTimeline,isHiddenFromConversation,callResultLabel,sentTone,draftMessages,filterTimeline,managementChip,requiresAction,responseTagLabel,sentStatusLabel,timelineChannelLabel,timelineChips,visibleTimeline,withDaySeparators,type TimelineEntry} from './communicationTimeline';
 
 const at=(day:number,hour=12)=>new Date(`2026-10-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:00:00-03:00`);
 const message=(over:Partial<Message>&{id:string}):Message=>({accountId:'5',leadId:null,contactId:null,channel:'whatsapp',recipient:'+5493442000000',recipientName:'Julia',subject:'',body:'',htmlBody:null,textBody:'Hola',templateSnapshot:null,ownerEmail:'leo@example.com',activityId:null,outboxId:null,taskId:null,status:'manual_sent',revision:1,lastInteractionAt:at(1),lastActorEmail:null,createdAt:at(1),updatedAt:at(1),...over});
@@ -36,7 +36,15 @@ const acceptance=()=>buildCommunicationTimeline({users,managements,
 
 describe('buildCommunicationTimeline',()=>{
  it('merges sent, received, calls and responses oldest first, without drafts, cancelled rows or attached responses',()=>{
-  expect(keys(acceptance())).toEqual(['out:mail','in:in-mail','call:call','out:wa','in:in-wa','out:delegated','in:in-ig','out:echo','in:in-auto','response:r-free','out:opened']);
+  expect(keys(acceptance())).toEqual(['out:mail','in:in-mail','call:call','out:wa','in:in-wa','out:delegated','in:in-ig','out:echo','in:in-auto','response:r-free']);
+ });
+ it('leaves an opened WhatsApp out until it is confirmed, and a «No se envió» send out unless «Mostrar anulados» is on (spec 92 owner decision)',()=>{
+  const messages=[message({id:'opened',status:'whatsapp_opened',lastInteractionAt:at(1)}),message({id:'not',status:'manual_not_done',lastInteractionAt:at(2)}),message({id:'callnot',channel:'call',status:'manual_not_done',lastInteractionAt:at(3)}),message({id:'sent',status:'manual_sent',lastInteractionAt:at(4)})];
+  expect(keys(buildCommunicationTimeline({messages}))).toEqual(['call:callnot','out:sent']);
+  expect(keys(buildCommunicationTimeline({messages,showVoided:true}))).toEqual(['out:not','call:callnot','out:sent']);
+  expect(isHiddenFromConversation({channel:'whatsapp',status:'whatsapp_opened'},true)).toBe(true);
+  expect(isHiddenFromConversation({channel:'social',status:'instagram_opened'})).toBe(true);
+  expect(isHiddenFromConversation({channel:'email',status:'unknown'})).toBe(false);
  });
  it('attaches a response to its received message with the outcome and the resolved task',()=>{
   const entries=acceptance(),wa=entries.find(e=>e.key==='in:in-wa');
@@ -50,13 +58,13 @@ describe('buildCommunicationTimeline',()=>{
  });
  it('names delegated senders, the Instagram echo and honest statuses',()=>{
   const entries=acceptance();
-  const delegated=entries.find(e=>e.key==='out:delegated'),echo=entries.find(e=>e.key==='out:echo'),mail=entries.find(e=>e.key==='out:mail'),opened=entries.find(e=>e.key==='out:opened');
+  const delegated=entries.find(e=>e.key==='out:delegated'),echo=entries.find(e=>e.key==='out:echo'),mail=entries.find(e=>e.key==='out:mail'),wa=entries.find(e=>e.key==='out:wa');
   expect(delegated?.kind==='sent'&&delegated.sender).toBe('Sofía, por delegación de Leandro');
   expect(echo?.kind==='sent'&&[echo.sender,echo.channelLabel,echo.status]).toEqual(['Instagram de Hospeda','Instagram','Enviado desde la app de Instagram de Hospeda · registrado automáticamente']);
   expect(mail?.kind==='sent'&&mail.status).toBe('Email aceptado por proveedor · entrega no confirmada');
-  expect(opened?.kind==='sent'&&opened.status).toBe('WhatsApp abierto · envío no confirmado');
+  expect(sentStatusLabel({channel:'whatsapp',ownerEmail:'leo@example.com',status:'whatsapp_opened'})).toBe('WhatsApp abierto · envío no confirmado');
   expect(mail?.context).toBe('Gestión: Alta en Hospeda');
-  expect(opened?.context).toBe('Sin gestión');
+  expect(wa?.context).toBe('Sin gestión');
  });
  it('falls back to the management owner for a delegated send without the journal owner',()=>{
   const [entry]=buildCommunicationTimeline({users,managements,messages:[message({id:'d',ownerEmail:'sofia@example.com',delegatedTaskId:'1',delegatedFromEmail:null,leadId:'7'})]});
@@ -90,13 +98,13 @@ describe('buildCommunicationTimeline',()=>{
 
 describe('chips, filter, days and paging',()=>{
  it('counts each channel group and shows only the present ones',()=>{
-  expect(timelineChips(acceptance()).map(c=>`${c.label} · ${c.count}`)).toEqual(['Todo · 11','WhatsApp · 3','Email · 4','Instagram · 2','Llamadas · 2']);
+  expect(timelineChips(acceptance()).map(c=>`${c.label} · ${c.count}`)).toEqual(['Todo · 10','WhatsApp · 2','Email · 4','Instagram · 2','Llamadas · 2']);
   expect(timelineChips([]).map(c=>c.label)).toEqual(['Todo']);
  });
  it('filters on the client by channel group',()=>{
   expect(keys(filterTimeline(acceptance(),'instagram'))).toEqual(['in:in-ig','out:echo']);
   expect(keys(filterTimeline(acceptance(),'call'))).toEqual(['call:call','response:r-free']);
-  expect(filterTimeline(acceptance(),'all')).toHaveLength(11);
+  expect(filterTimeline(acceptance(),'all')).toHaveLength(10);
  });
  it('puts other social networks and other channels under «Otros», named honestly',()=>{
   const entries=buildCommunicationTimeline({messages:[message({id:'fb',channel:'social',destinationDetail:'facebook.com/x'}),message({id:'ig',channel:'social',destinationDetail:'instagram.com/x'}),message({id:'tg',channel:'other'})]});
@@ -144,9 +152,9 @@ describe('labels',()=>{
 
 describe('spec 90 review fixes',()=>{
  it('names a sent row neutrally with its status and marks unconfirmed, not done and failed rows (M2)',()=>{
-  const entries=buildCommunicationTimeline({users,messages:[message({id:'o',status:'whatsapp_opened',lastInteractionAt:at(1)}),message({id:'n',status:'manual_not_done',lastInteractionAt:at(2)}),message({id:'f',channel:'email',status:'failed',lastInteractionAt:at(3)}),message({id:'s',status:'manual_sent',lastInteractionAt:at(4)}),message({id:'e',channel:'social',ownerEmail:'instagram@hospeda',status:'manual_sent',lastInteractionAt:at(5)})]});
+  const entries=buildCommunicationTimeline({users,showVoided:true,messages:[message({id:'o',status:'manual_pending',lastInteractionAt:at(1)}),message({id:'n',status:'manual_not_done',lastInteractionAt:at(2)}),message({id:'f',channel:'email',status:'failed',lastInteractionAt:at(3)}),message({id:'s',status:'manual_sent',lastInteractionAt:at(4)}),message({id:'e',channel:'social',ownerEmail:'instagram@hospeda',status:'manual_sent',lastInteractionAt:at(5)})]});
   expect(entries.map(e=>e.kind==='sent'&&[e.tone,e.label])).toEqual([
-   ['unconfirmed','WhatsApp de Leandro · WhatsApp abierto · envío no confirmado'],
+   ['unconfirmed','WhatsApp de Leandro · '+sentStatusLabel({channel:'whatsapp',ownerEmail:'leo@example.com',status:'manual_pending'})],
    ['not_done','WhatsApp de Leandro · No enviado / no realizado'],
    ['failed','Email de Leandro · Rebote/fallo'],
    ['sent','WhatsApp de Leandro · Envío confirmado manualmente'],

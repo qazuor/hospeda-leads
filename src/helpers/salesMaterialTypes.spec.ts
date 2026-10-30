@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {SALES_MATERIAL_ACCEPT,contentDisposition,externalUrlError,fileExtension,formatBytes,mimeForFile,salesMaterialFormat,salesMaterialObjectKey,signatureMatches,uploadDeclarationError} from './salesMaterialTypes';
+import {SALES_MATERIAL_ACCEPT,contentDisposition,correctedSalesMaterialFile,sniffSalesMaterialMime,externalUrlError,fileExtension,formatBytes,mimeForFile,salesMaterialFormat,salesMaterialObjectKey,signatureMatches,uploadDeclarationError} from './salesMaterialTypes';
 
 const bytes=(...parts:(string|number[])[])=>{const out:number[]=[];for(const p of parts)out.push(...(typeof p==='string'?[...p].map(c=>c.charCodeAt(0)):p));while(out.length<16)out.push(0);return new Uint8Array(out);};
 describe('uploadDeclarationError',()=>{
@@ -61,5 +61,31 @@ describe('keys, names and formats',()=>{
   expect(externalUrlError({url:'https://u:p@example.com'})).toBe('El enlace no puede incluir usuario ni contraseña.');
   expect(externalUrlError({url:'javascript:alert(1)'})).toBe('Solo se aceptan enlaces https://.');
   expect(externalUrlError({url:'no es url'})).toMatch(/dirección web completa/);
+ });
+});
+
+describe('correctedSalesMaterialFile (owner review of spec 96)',()=>{
+ const jpeg=bytes([0xff,0xd8,0xff,0xe0]),webp=bytes('RIFF',[1,2,3,4],'WEBP'),png=bytes([137,80,78,71,13,10,26,10]);
+ it('renames a JPEG or WebP saved as .png to its real type',()=>{
+  expect(correctedSalesMaterialFile({fileName:'gallery-01.png',declaredMime:'image/png',bytes:jpeg})).toEqual({mimeType:'image/jpeg',fileName:'gallery-01.jpg'});
+  expect(correctedSalesMaterialFile({fileName:'Fotos.de.liebig.PNG',declaredMime:'image/png',bytes:webp})).toEqual({mimeType:'image/webp',fileName:'Fotos.de.liebig.webp'});
+ });
+ it('keeps a file whose content matches its extension',()=>{
+  expect(correctedSalesMaterialFile({fileName:'a.png',declaredMime:'image/png',bytes:png})).toBeNull();
+  expect(correctedSalesMaterialFile({fileName:'a.jpeg',declaredMime:'image/jpeg',bytes:jpeg})).toBeNull();
+ });
+ it('leaves unproven content for the server to reject',()=>{
+  expect(correctedSalesMaterialFile({fileName:'a.png',declaredMime:'image/png',bytes:bytes('<html>')})).toBeNull();
+  expect(correctedSalesMaterialFile({fileName:'a.pdf',declaredMime:'application/pdf',bytes:bytes([0x50,0x4b,3,4])})).toBeNull();
+ });
+});
+
+describe('sniffSalesMaterialMime',()=>{
+ it.each([
+  ['application/pdf',bytes('%PDF-1.7')],['image/gif',bytes('GIF89a')],['video/webm',bytes([0x1a,0x45,0xdf,0xa3])],['audio/wav',bytes('RIFF',[0,0,0,0],'WAVE')],['audio/mpeg',bytes('ID3')],
+ ] as const)('detects %s',(mime,b)=>expect(sniffSalesMaterialMime({bytes:b})).toBe(mime));
+ it('does not guess ambiguous containers',()=>{
+  expect(sniffSalesMaterialMime({bytes:bytes([0,0,0,0x18],'ftypmp42')})).toBeNull();
+  expect(sniffSalesMaterialMime({bytes:bytes([0x50,0x4b,3,4])})).toBeNull();
  });
 });

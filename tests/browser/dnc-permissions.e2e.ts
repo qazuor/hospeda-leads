@@ -25,7 +25,8 @@ async function mock(page:Page,user:typeof owner,business=account,{responses=[] a
 const openResponseDialog=async(page:Page)=>{
  await page.goto('/accounts/301?section=communication');
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Registrar respuesta sin mensaje',exact:true}).click();
+ // Spec 91 §6: «Registrar ▾» holds «Respuesta sin mensaje».
+ await page.getByRole('button',{name:'Registrar',exact:true}).click();await page.getByRole('menuitem',{name:'Respuesta sin mensaje',exact:true}).click();
  return page.getByRole('dialog').last();
 };
 
@@ -49,7 +50,7 @@ test('D1: correcting a response to «Pidió no ser contactado» is disabled for 
  await mock(page,stranger,account,{responses:[{...response,actorEmail:stranger.email}]});
  await page.goto('/accounts/301?section=communication');
  const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Respondió, le interesa',exact:true});await expect(event).toBeVisible();
- await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ await expect(event.getByRole('button',{name:'Corregir respuesta',exact:true})).toHaveCount(0);await event.getByRole('button',{name:/^Más acciones · /}).click();await page.getByRole('menuitem',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Pidió no ser contactado',exact:true})).toHaveJSProperty('disabled',true);
 });
 
@@ -57,7 +58,7 @@ test('D1: the responsible can pick «Pidió no ser contactado» while correcting
  await mock(page,owner,account,{responses:[{...response,actorEmail:owner.email}]});
  await page.goto('/accounts/301?section=communication');
  const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Respondió, le interesa',exact:true});await expect(event).toBeVisible();
- await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ await expect(event.getByRole('button',{name:'Corregir respuesta',exact:true})).toHaveCount(0);await event.getByRole('button',{name:/^Más acciones · /}).click();await page.getByRole('menuitem',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Pidió no ser contactado',exact:true})).toHaveJSProperty('disabled',false);
 });
 
@@ -67,7 +68,7 @@ test('1C: a non-archived No contactar business is read-only for its responsible 
  await expect(page.getByRole('heading',{name:'Posada del Río',exact:true})).toBeVisible();
  await expect(page.getByTestId('do-not-contact-banner')).toContainText('Solo un administrador puede levantar el bloqueo.');
  await expect(page.getByRole('status').filter({hasText:'Mientras tenga No contactar, solo un administrador puede modificarlo.'})).toBeVisible();
- for(const name of ['Contactar','Editar negocio','Más acciones del negocio','WhatsApp','Email','Agendar tarea','Anotar lo que pasó','Iniciar gestión','Agendar otra tarea'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ for(const name of ['Contactar','Editar negocio','Más acciones del negocio','WhatsApp','Instagram','Email','Agendar tarea','Anotar lo que pasó','Iniciar gestión','Agendar otra tarea'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Agregar persona',exact:true})).toHaveCount(0);
 });
 
@@ -90,7 +91,7 @@ test('1C: only an admin can lift a No contactar block by correcting its response
  await mock(page,owner,{...account,doNotContact:true},{responses:[{...dnc,actorEmail:owner.email}]});
  await page.goto('/accounts/301?section=communication');
  const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Pidió no ser contactado',exact:true});await expect(event).toBeVisible();
- await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ await expect(event.getByRole('button',{name:'Corregir respuesta',exact:true})).toHaveCount(0);await event.getByRole('button',{name:/^Más acciones · /}).click();await page.getByRole('menuitem',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByTestId('dnc-lift-denied')).toContainText('Solo un administrador puede levantar el bloqueo No contactar');
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Respondió, le interesa',exact:true})).toHaveJSProperty('disabled',true);
 });
@@ -99,7 +100,7 @@ test('1C: an admin can still change the category of a No contactar response',asy
  await mock(page,admin,{...account,doNotContact:true},{responses:[{...response,category:'do_not_contact',actorEmail:admin.email}]});
  await page.goto('/accounts/301?section=communication');
  const event=page.getByRole('article',{name:'Respuesta registrada sin mensaje · Pidió no ser contactado',exact:true});await expect(event).toBeVisible();
- await event.getByRole('button',{name:'Corregir respuesta',exact:true}).click();
+ await expect(event.getByRole('button',{name:'Corregir respuesta',exact:true})).toHaveCount(0);await event.getByRole('button',{name:/^Más acciones · /}).click();await page.getByRole('menuitem',{name:'Corregir respuesta',exact:true}).click();
  await expect(page.getByTestId('dnc-lift-denied')).toHaveCount(0);
  await expect(page.getByLabel('¿Qué respondió?').last().getByRole('option',{name:'Respondió, le interesa',exact:true})).toHaveJSProperty('disabled',false);
 });
