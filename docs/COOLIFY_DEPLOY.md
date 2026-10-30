@@ -57,7 +57,7 @@ INSTAGRAM_APP_SECRET=<Meta app secret>
 INSTAGRAM_VERIFY_TOKEN=<random secret, minimum 32 characters; same value as the Meta webhook verify token>
 INSTAGRAM_ACCOUNT_ID=<Hospeda professional Instagram account id>
 INTEGRATION_SECRETS_KEY=<base64 of exactly 32 random bytes: openssl rand -base64 32>
-CRM_CLIENT_IP_HEADER=<optional: x-real-ip (default), cf-connecting-ip, x-forwarded-for or none>
+CRM_CLIENT_IP_HEADER=cf-connecting-ip  # production value; code default x-real-ip; allowed: x-real-ip, cf-connecting-ip, x-forwarded-for, none
 SLOW_REQUEST_MS=<optional, default 1000>
 DB_LOCK_TIMEOUT_MS=<optional, default 10000>
 DB_POOL_MAX=<optional, default 10>
@@ -70,7 +70,7 @@ No versionar valores reales.
 
 Qué pasa cuando falta cada una, y los valores por defecto, está en el inventario de `docs/runbook-promocion-produccion.md` (sección 3.2). Solo `DATABASE_URL` y `JWT_SECRET` son obligatorias para arrancar; `PUBLIC_APP_URL` es de nivel «función» en el código pero en producción es efectivamente obligatoria (sin ella fallan los enlaces para compartir material y la recuperación de contraseña responde 503). No cargar `CRM_MCP_*`, `R2_ENDPOINT`, `CRM_TEST_DATABASE*`, `CRM_DEV_*`, `PERF_*`, `CRM_PERF_*` ni `CRM_STATE_PREFLIGHT*` en producción.
 
-**A confirmar por el propietario:** la plantilla de variables de la raíz dice que producción usa `CRM_CLIENT_IP_HEADER=cf-connecting-ip`, pero el valor por defecto del código es `x-real-ip`. Hay que verificar qué tiene cargado Coolify (y que el origen acepte solo tráfico de Cloudflare si es `cf-connecting-ip`). La plantilla de producción del repo está desactualizada: no es referencia de lo que hay que cargar.
+**Confirmado por el propietario (30/10/2026):** producción usa `CRM_CLIENT_IP_HEADER=cf-connecting-ip` (el dominio pasa por el proxy de Cloudflare). El valor por defecto del código, si no se define, es `x-real-ip`. La plantilla de producción del repo está al día con este inventario.
 
 **Worker de email entrante (Cloudflare, despliegue aparte).** No usa Coolify: se despliega desde `workers/inbound-email/` con `wrangler`. Variables en `wrangler.toml`: `CRM_BASE_URL` (debe apuntar a producción) y `TRUSTED_AUTHSERV_ID`. Secrets de wrangler: `INBOUND_EMAIL_TOKEN` (el mismo valor que en Coolify) y `FORWARD_TO`.
 

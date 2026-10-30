@@ -84,7 +84,7 @@ Solo nombres; nunca valores en Git, PR, chat o logs. Inventario tomado del códi
 | `PORT` | `3001` |
 | `BREVO_SMTP_PORT` | `587` |
 | `BREVO_SMTP_HOST` | `smtp-relay.brevo.com` |
-| `CRM_CLIENT_IP_HEADER` | `x-real-ip`; permitidos: `x-real-ip`, `cf-connecting-ip`, `x-forwarded-for`, `none` (ver `COOLIFY_DEPLOY.md`; `cf-connecting-ip` solo si el origen acepta únicamente tráfico de Cloudflare) |
+| `CRM_CLIENT_IP_HEADER` | `x-real-ip` (producción carga `cf-connecting-ip`); permitidos: `x-real-ip`, `cf-connecting-ip`, `x-forwarded-for`, `none` (ver `COOLIFY_DEPLOY.md`; `cf-connecting-ip` solo si el origen acepta únicamente tráfico de Cloudflare) |
 | `SLOW_REQUEST_MS` | `1000` |
 | `DB_LOCK_TIMEOUT_MS` | `10000` |
 | `DB_POOL_MAX` | `10` |
@@ -167,7 +167,7 @@ No hay paso manual de deploy: el merge de 3.1 lo dispara (Coolify auto-deploy so
 4. Cargar las 4 variables `R2_*` y **redesplegar** (se leen al arrancar; la CSP también suma el origen de R2 al arrancar).
 5. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length` (`pendientes.md` lo marca pendiente).
 6. Antes del deploy: el propietario borra a mano sus materiales de prueba en Configuración → «Biblioteca». Después del deploy la biblioteca vieja deja de mostrarse (filas inertes) y `/library` redirige a `/sales-material`.
-7. Definir `CRM_CLIENT_IP_HEADER` según si el dominio pasa por Cloudflare (ver `COOLIFY_DEPLOY.md`).
+7. `CRM_CLIENT_IP_HEADER`: producción usa `cf-connecting-ip` (el dominio pasa por Cloudflare; confirmado el 30/10/2026).
 
 **Email entrante (spec 83 F1/F2).**
 1. `INBOUND_EMAIL_TOKEN` en Coolify y el mismo valor como secret del Worker.

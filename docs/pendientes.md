@@ -10,7 +10,6 @@ PR #281/#284 (94 y 96), #285 (97), #286 (98). Se promovieron con el PR #288 (`st
 - **Pruebas del propietario en producción (94, 96, 97 y 98):** tres clics con el script conectado (96); chat de Instagram, panel e insignias (97); «Enviar material» en ambos paneles, «Sin gestión» en WhatsApp y «Buscar o crear en el CRM» (98); pegar en Instagram real (94).
 - **Spec 97:** el aviso `account-unknown` (marcado NEEDS OWNER en la spec §14) sigue abierto; también agregar `INSTAGRAM_ACCOUNT_USERNAME` a la plantilla de variables de la raíz.
 - **CI:** quitar la fijación a ubuntu-24.04 (#289) cuando Playwright soporte 26.04.
-- **Confirmar `CRM_CLIENT_IP_HEADER`** en Coolify (la plantilla dice `cf-connecting-ip`, el código usa `x-real-ip` por defecto).
 
 ## Material de venta: pantalla (spec 95) — cerrada en `staging`, pendiente de producción
 
@@ -57,7 +56,7 @@ Límites conocidos de la 88: el token pegado no se valida contra Meta al guardar
   - aplicar las migraciones `046_sales_material.sql` y `047_sales_material_share_triggers.sql`;
   - crear el bucket R2 con su CORS y cargar en Coolify las variables `R2_*` (ver `COOLIFY_DEPLOY.md`);
   - confirmar `PUBLIC_APP_URL`: sin ella, la vista previa de los enlaces sale sin imagen y los enlaces no se pueden armar;
-  - definir `CRM_CLIENT_IP_HEADER` según si `crm.hospeda.com.ar` pasa por el proxy de Cloudflare (`cf-connecting-ip`) o llega directo al VPS (`x-real-ip`); falta la respuesta del propietario;
+  - `CRM_CLIENT_IP_HEADER`: resuelto, producción usa `cf-connecting-ip` (confirmado por el propietario el 30/10/2026);
   - borrar a mano las subidas de prueba de la biblioteca vieja antes del deploy;
   - distribuir el user script 1.3.0 **antes** del deploy: el mínimo pasa a 1.3.0 y un 1.2.x queda bloqueado (426).
 - **A verificar con servicios reales:** los `response-content-*` de R2, el PUT firmado con `Content-Length`, la vista previa en WhatsApp, que Brevo acepte un `attachment.url` firmado de R2 y su tope de tamaño (hoy 10 MB).
