@@ -7,7 +7,7 @@ import {encryptInstagramToken} from '../src/helpers/instagram';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {post as webhook} from '../src/endpoints/inboundInstagram';
 import {post as communication} from '../src/endpoints/communication';
-import {pendingContactOutcomes} from '../src/helpers/communicationService';
+import {pendingContactFollowUps} from '../src/helpers/communicationService';
 import {CompiledQuery} from 'kysely';
 import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,instagramSecretFingerprint,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from './lib/instagram-secret';
 
@@ -122,7 +122,8 @@ try{
   assert.equal((await call({action:'dispatch',id:draft.id,revision:edited.revision,confirm:true},seller.cookie)).username,undefined);
 
   // Waiting period: Hoy's pending outcomes skip the attempt for 15 minutes, then list it.
-  const pending=()=>pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id});
+  // Spec 99 §3.6: an opened Instagram belongs to «Envíos sin confirmar» once the wait ends, never to «Anotá cómo salió».
+  const pending=async()=>{const f=await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id});assert(!f.outcomes.items.some(p=>p.status==='instagram_opened'));return f.unconfirmed.items;};
   assert.equal((await pending()).some(p=>p.id===draft.id),false,'an attempt waiting for the echo is not pending yet');
   await backdateOpen(draft.id,16);
   assert.equal((await pending()).some(p=>p.id===draft.id),true,'after 15 minutes it asks «¿Lo enviaste?» like WhatsApp');
@@ -201,7 +202,7 @@ try{
   await echo(mid('resolve'),sent,b.igsid);
   const resolved=await row(id);
   assert.deepEqual([resolved.status,resolved.externalId,resolved.textBody,resolved.body,resolved.ownerEmail],['manual_sent',mid('resolve'),sent,text,seller.user.email]);
-  assert.equal((await pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id})).find(p=>p.id===id)?.externalId,mid('resolve'),'the pending outcome carries the echo mid for source labeling');
+  assert.equal((await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id})).outcomes.items.find(p=>p.id===id)?.externalId,mid('resolve'),'the pending outcome carries the echo mid for source labeling');
   assert.deepEqual((await socialRows(b.id)).map(r=>r.id),[id],'no echo row is inserted');
   assert.equal((await activityResult(resolved.activityId))?.result,'Envío confirmado por Instagram');assert.equal((await activityResult(resolved.activityId))?.actorEmail,seller.user.email);
   assert.equal((await db.selectFrom('crmTasks').select(['status','result']).where('id','=',task.id).executeTakeFirstOrThrow()).status,'completed');

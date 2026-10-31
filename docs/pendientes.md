@@ -15,11 +15,13 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 
 Spec 99 bloque 1: mergeado a `staging` en #296 (10 integraciones locales, typecheck, vitest, build y CI en verde). Queda medir con volumen real las búsquedas del journal por entidad antes de decidir un índice; bloques 3–4 pendientes.
 
-**Spec 99, bloque 2** (hora real del user script) está implementado localmente, sin PR. Verificado el 31/10/2026: 7 integraciones (`test-userscript`, `test-communication`, `test-business-history`, `test-work`, `test-commercial`, `test-inbound-email`, `test-instagram-open-chat`) PASS sobre base descartable, typecheck, vitest (2246 tests) y build OK. Falta el PR a `staging` y su CI. Lo histórico no se corrige (la hora real no quedó guardada).
+**Spec 99, bloque 2** (hora real del user script) está mergeado a `staging` en #298 (CI verde). Verificado el 31/10/2026: 7 integraciones (`test-userscript`, `test-communication`, `test-business-history`, `test-work`, `test-commercial`, `test-inbound-email`, `test-instagram-open-chat`) PASS sobre base descartable, typecheck, vitest (2246 tests) y build OK. Falta el PR a `staging` y su CI. Lo histórico no se corrige (la hora real no quedó guardada).
 
 Regla: el trabajo se mergea a `staging`; a `main` solo cuando todos los PR del lote estén en `staging` y el propietario lo pida (un merge a `main` despliega producción).
 
 **Spec 99, bloque 5** está mergeado a `staging` en #297 (CI verde). Verificado el 31/10/2026: `test-work`, `test-business-history`, `test-commercial` y `test-global-history` PASS sobre base descartable, typecheck, vitest (2237 tests) y build OK. Falta el e2e `contextual-work.e2e.ts`, el PR a `staging` y su CI.
+
+**Spec 99, bloque 4** (pendientes y toast, 3.6) está implementado localmente, con PR a `staging`. Verificado el 31/10/2026: `test-work`, `test-communication`, `test-userscript`, `test-instagram-open-chat`, `test-business-history`, `test-commercial` y `test-inbound-email` PASS sobre base descartable recién sembrada; typecheck, vitest (2259 tests) y build OK (re-verificado tras la revisión). Falta correr los e2e de navegador (Hoy, Comunicación, `light-activity-log`), el PR a `staging` y su CI. La spec 100 parte de la forma `followUps`.
 
 Datos que necesitan aprobación del propietario (ningún agente los toca por iniciativa propia):
 - Negocio de prueba H1601 «PRUEBA UX — Hospeda — 02-10-2026» en producción.

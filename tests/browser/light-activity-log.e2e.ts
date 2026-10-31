@@ -60,11 +60,14 @@ test('a required field inside the closed "Fecha, canal y participantes" opens it
  await expect(editor).toBeVisible();
 });
 
+/** Spec 99 §3.6: every pending contact of Hoy, unconfirmed or waiting for its outcome. */
+const followUpIds=(day:any):string[]=>[...day.followUps.unconfirmed.items,...day.followUps.outcomes.items].map((p:any)=>p.id);
+
 test('"Pidió no ser contactado" asks for confirmation inline and blocks the whole business',async({page})=>{
  test.setTimeout(90000);await login(page);
  const {accountId,leadId,editor}=await startCall(page,'Bloqueo','Ya llamé: anotar cómo salió','Ana del bloqueo');
  const messageId=(await api(page,'communication?leadId='+leadId)).messages[0].id;
- await expect(api(page,'work?mode=day').then(day=>day.pendingOutcomes.map((p:any)=>p.id))).resolves.toContain(messageId);
+ await expect(api(page,'work?mode=day').then(followUpIds)).resolves.toContain(messageId);
  await pickOutcome(editor,'do_not_contact');
  await expect(editor.getByRole('combobox',{name:/^¿Cómo sigue\?/})).toHaveCount(0);
  await expect(editor.getByText('Se bloquea todo el negocio',{exact:false})).toBeVisible();
@@ -75,7 +78,7 @@ test('"Pidió no ser contactado" asks for confirmation inline and blocks the who
  await editor.getByRole('button',{name:'Bloquear contacto',exact:true}).click();await expect(editor).toHaveCount(0);
  const detail=await api(page,'commercial?accountId='+accountId);
  expect(detail.account.doNotContact).toBe(true);
- const day=await api(page,'work?mode=day');expect(day.pendingOutcomes.map((p:any)=>p.id)).not.toContain(messageId);
+ expect(followUpIds(await api(page,'work?mode=day'))).not.toContain(messageId);
 });
 
 test('"Cambiar" next to the channel reveals the hidden fields in Mi día completion',async({page})=>{

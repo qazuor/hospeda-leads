@@ -27,7 +27,7 @@ const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{s
 const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict||e instanceof StageSuggestionConflict||e instanceof TaskSaveConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
-import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactOutcomes,resolveMessageForWork} from '../helpers/communicationService';
+import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactFollowUps,resolveMessageForWork} from '../helpers/communicationService';
 import {CONTACT_EVIDENCE_STATUSES} from '../helpers/contactEvidence';
 export async function get(request:Request){
  try{
@@ -132,8 +132,9 @@ export async function get(request:Request){
   }
   // Decision 2B: the seller's own contacts still waiting for "¿Cómo salió?" stay visible in Hoy.
   const firstSteps=input.mode==='day'?await firstStepFlags(db,user.email):undefined;
-  const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin'}):[];
-  return reply({firstSteps,pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,result:t.result==='Envío confirmado manualmente'&&taskConfirmationById.get(String(t.id))==='userscript'?'Envío confirmado por el script de WhatsApp':t.result==='Envío confirmado manualmente'&&taskConfirmationById.get(String(t.id))==='instagram'?'Envío confirmado por Instagram':t.result,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,doneToday,truncated:bucketCounts?bucketCounts.overdue>URGENT_CAP||bucketCounts.today>URGENT_CAP:undefined,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
+  // Spec 99 §3.6: Hoy (narrowed like its task filters by business/management) and, opt-in (`followUps=1`), the business detail the work editor toast reads.
+  const followUps=input.mode==='day'||(input.mode==='detail'&&input.accountId&&input.followUps)?await pendingContactFollowUps(db,{ownerEmail:user.email,isAdmin:user.role==='admin',accountId:input.accountId??null,leadId:input.mode==='day'?input.leadId??null:null}):undefined;
+  return reply({firstSteps,followUps,cities,verticals,tasks:taskRows.map(t=>({...t,result:t.result==='Envío confirmado manualmente'&&taskConfirmationById.get(String(t.id))==='userscript'?'Envío confirmado por el script de WhatsApp':t.result==='Envío confirmado manualmente'&&taskConfirmationById.get(String(t.id))==='instagram'?'Envío confirmado por Instagram':t.result,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,doneToday,truncated:bucketCounts?bucketCounts.overdue>URGENT_CAP||bucketCounts.today>URGENT_CAP:undefined,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
 }
 /** First-use checklist flags: true only from the user's own recorded actions (confirmed contact, outcome noted, task scheduled), never from opening a screen or saving a draft. */

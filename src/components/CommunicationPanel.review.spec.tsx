@@ -22,7 +22,7 @@ const account={id:'5',nombre:'Hotel Sol',assignedUserEmail:'seller@example.com',
 const opportunity={id:'9',opportunityName:'Plan anual',assignedUserEmail:'seller@example.com',estado:'main:contact',deletedAt:null};
 function setup({data={},role='user'}:{data?:Record<string,unknown>;role?:string}={}){
  mocks.role=role;
- mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],pendingOutcomes:[],recentContactHours:72,webhookConfigured:false,...data});
+ mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],recentContactHours:72,webhookConfigured:false,...data});
  mocks.getCommercialDetail.mockResolvedValue({account,contacts:[],opportunities:[opportunity],users:[{email:'seller@example.com',displayName:'Seller'}]});
  mocks.getPipeline.mockResolvedValue({stages:[{name:'main:contact',classification:'open'}]});
  mocks.getWork.mockResolvedValue({tasks:[]});
@@ -83,14 +83,42 @@ describe('response wording and list limits (L1)',()=>{
  });
 });
 
-describe('«Requiere acción» de-duplication',()=>{
- it('asks «¿Lo enviaste?» once for a send that is also a pending outcome, and keeps the other pending outcomes',async()=>{
-  const pending=(id:string,status:string)=>({id,accountId:'5',accountName:'Hotel Sol',leadId:null,opportunityName:null,channel:'whatsapp',recipientName:'Julia',status,lastInteractionAt:day(3)});
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],pendingOutcomes:[pending('opened','whatsapp_opened'),pending('call1','manual_sent')]}});
+describe('«Requiere acción» from the server follow-ups (spec 99 §3.6)',()=>{
+ const pending=(id:string,status:string,over:Record<string,unknown>={})=>({id,accountId:'5',accountName:'Hotel Sol',leadId:null,opportunityName:null,contactId:null,channel:'whatsapp',recipientName:'Julia',status,purpose:null,lastInteractionAt:day(3),...over});
+ it('shows 4 «¿Lo enviaste?» entries and «Anotá cómo salió · 3» from followUps, loaded message or not',async()=>{
+  const unconfirmed=[pending('opened','whatsapp_opened',{lastInteractionAt:day(6)}),pending('notLoaded','whatsapp_opened',{recipientName:'Pedro',lastInteractionAt:day(5)}),pending('ig','instagram_opened',{channel:'social',destinationDetail:'instagram',recipientName:'Hotel Sol',lastInteractionAt:day(4)}),pending('attempt','manual_pending',{channel:'call',recipientName:'Ana',lastInteractionAt:day(3)})];
+  const outcomes=[pending('call1','manual_sent',{channel:'call'}),pending('call2','manual_no_contact',{channel:'call'}),pending('wa1','manual_sent')];
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(6)})],followUps:{unconfirmed:{items:unconfirmed,count:4},outcomes:{items:outcomes,count:3}}}});
   wrap(<CommunicationPanel accountId="5"/>);const region=await screen.findByRole('region',{name:'Requiere acción'});
-  expect(within(region).getByRole('heading',{name:'Requiere acción · 2'})).toBeTruthy();
-  expect(within(region).getAllByRole('group',{name:/WhatsApp sin confirmar/})).toHaveLength(1);
-  expect(within(region).getAllByRole('article',{name:'Contacto pendiente con Julia'})).toHaveLength(1);
+  expect(within(region).getByRole('heading',{name:'Requiere acción · 7'})).toBeTruthy();
+  expect(within(region).getByText('4 envíos sin confirmar · 3 contactos sin resultado')).toBeTruthy();
+  expect(within(region).getAllByText('¿Lo enviaste?')).toHaveLength(4);
+  // The loaded message keeps its full entry (text and «Sí, se envió» / «No se envió»); the others are minimal with recipient and time.
+  const full=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});expect(within(full).getByText('Hola Julia')).toBeTruthy();expect(within(full).getByRole('button',{name:'Sí, se envió'})).toBeTruthy();
+  for(const name of ['WhatsApp sin confirmar para Pedro','Instagram sin confirmar para Hotel Sol','Llamada sin confirmar para Ana'])expect(within(within(region).getByRole('group',{name})).getByRole('button',{name:'Anotá cómo salió'})).toBeTruthy();
+  const card=within(region).getByRole('region',{name:'Anotá cómo salió'});
+  expect(within(card).getByLabelText('Contactos sin resultado').textContent).toBe('3');expect(within(card).getAllByRole('article')).toHaveLength(3);
+ });
+ it('counts only the server entries and still lists loaded opens the server leaves out, with «Sí, se envió» off and its reason',async()=>{
+  // The closed management and the open before the outcome window are not in followUps; they stay answerable here («No se envió»), not counted.
+  setup({data:{messages:[message('listed',{status:'whatsapp_opened',lastInteractionAt:day(6)}),message('closed',{status:'whatsapp_opened',leadId:'9',recipientName:'Pedro',lastInteractionAt:day(5)}),message('old',{status:'whatsapp_opened',recipientName:'Ana',lastInteractionAt:day(4)}),message('foreign',{status:'whatsapp_opened',ownerEmail:'other@example.com',recipientName:'Otra',lastInteractionAt:day(3)})],followUps:{unconfirmed:{items:[pending('listed','whatsapp_opened',{lastInteractionAt:day(6)})],count:1},outcomes:{items:[],count:0}}}});
+  wrap(<CommunicationPanel accountId="5"/>);const region=await screen.findByRole('region',{name:'Requiere acción'});
+  expect(within(region).getByRole('heading',{name:'Requiere acción · 1'})).toBeTruthy();
+  expect(within(region).getByText('1 envío sin confirmar')).toBeTruthy();
+  expect(within(region).getAllByText('¿Lo enviaste?')).toHaveLength(3);
+  const closed=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Pedro'});
+  await waitFor(()=>expect((within(closed).getByRole('button',{name:'Sí, se envió'}) as HTMLButtonElement).disabled).toBe(true));
+  expect((within(closed).getByRole('button',{name:'No se envió'}) as HTMLButtonElement).disabled).toBe(false);
+  const old=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Ana'});
+  expect((within(old).getByRole('button',{name:'Sí, se envió'}) as HTMLButtonElement).disabled).toBe(false);
+  // Someone else's open is not answerable by a seller: only its material (none here) would show.
+  expect(within(region).queryByRole('group',{name:'WhatsApp sin confirmar para Otra'})).toBeNull();
+ });
+ it('says how many of the server unconfirmed sends are listed when the count passes the limit',async()=>{
+  setup({data:{followUps:{unconfirmed:{items:[pending('a','whatsapp_opened'),pending('b','whatsapp_opened',{recipientName:'Pedro'})],count:25},outcomes:{items:[],count:0}}}});
+  wrap(<CommunicationPanel accountId="5"/>);const region=await screen.findByRole('region',{name:'Requiere acción'});
+  expect(within(region).getByText('25 envíos sin confirmar')).toBeTruthy();
+  expect(within(region).getByText('Se muestran los 2 más recientes de 25.')).toBeTruthy();
  });
 });
 

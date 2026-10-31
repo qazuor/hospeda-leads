@@ -12,8 +12,9 @@ import {handle as save} from '../src/endpoints/leads_save_POST';
 import {handle as contact} from '../src/endpoints/lead_contact_POST';
 import type {WorkData} from '../src/endpoints/work.schema';
 import {handle as liveVersion} from '../src/endpoints/live_version_GET';
-import {post as communicationPost} from '../src/endpoints/communication';
-import {reconcileEvents} from '../src/helpers/communicationService';
+import {post as communicationPost,get as communicationGet} from '../src/endpoints/communication';
+import {pendingContactFollowUps,reconcileEvents} from '../src/helpers/communicationService';
+import type {CommunicationDetail} from '../src/endpoints/communication.schema';
 import type {OutputType as LiveVersion} from '../src/endpoints/live_version_GET.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
 const suffix=Date.now();
@@ -406,7 +407,7 @@ try{
  const pendingOld=await contactMessage({status:'manual_sent',channel:'call',at:new Date('2020-01-01T00:00:00Z')});
  const pendingForeign=await contactMessage({status:'manual_sent',channel:'call',owner:admin.user.email,at:new Date()});
  const pendingDraft=await contactMessage({status:'draft',at:new Date()});
- const pendingIds=async(cookie=user.cookie)=>(await read('',cookie)).pendingOutcomes!.map(p=>p.id);
+ const pendingIds=async(cookie=user.cookie)=>{const f=(await read('',cookie)).followUps!;return [...f.unconfirmed.items,...f.outcomes.items].map(p=>p.id);};
  const listed=await pendingIds();assert(listed.includes(pendingNow.id));for(const id of [pendingOld.id,pendingForeign.id,pendingDraft.id])assert(!listed.includes(id));
  assert((await pendingIds(admin.cookie)).includes(pendingForeign.id));
  await mutate({...contactOutcome,channel:'phone',messageId:pendingNow.id,occurredAt:new Date().toISOString()});
@@ -443,6 +444,33 @@ try{
  await new Promise(r=>setTimeout(r,20));
  await mutate({action:'activity_save',accountId:laterAccount.id,leadId:null,title:'Charla en la oficina',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
  ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
+ // Spec 99 §3.6: one server definition, two lists. Hoy filtered by the business, the business «Comunicación» and the detail the work
+ // editor toast reads return the same lists and counts; opened chats and manual attempts are «Envíos sin confirmar», evidence «Anotá cómo salió».
+ // On a freshly migrated database (CI) crm_contact_outcome_since is newer than these fixtures; move it back while the block runs.
+ const splitSince=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+ await sql`UPDATE app_settings SET value=to_char((now()-interval '2 hours') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '1 hour'`.execute(db);
+ try{
+ const split=await fresh('Dos listas');const at=(minutes:number)=>new Date(Date.now()-minutes*60000);
+ const splitUnconfirmed=[await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(1)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(2)}),await contactMessage({status:'manual_pending',channel:'call',accountId:split.id,leadId:null,at:at(3)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(4)})];
+ const splitOutcomes=[await contactMessage({status:'manual_sent',channel:'call',accountId:split.id,leadId:null,at:at(5)}),await contactMessage({status:'manual_no_contact',channel:'call',accountId:split.id,leadId:null,at:at(6)}),await contactMessage({status:'manual_sent',channel:'whatsapp',accountId:split.id,leadId:null,at:at(7)})];
+ const hoySplit=(await read('mode=day&accountId='+split.id)).followUps!;
+ assert.deepEqual(hoySplit.unconfirmed.items.map(p=>p.id),splitUnconfirmed.map(m=>m.id),'Unconfirmed sends, newest first');
+ assert.deepEqual(hoySplit.outcomes.items.map(p=>p.id),splitOutcomes.map(m=>m.id),'Contacts without an outcome, newest first');
+ assert.deepEqual([hoySplit.unconfirmed.count,hoySplit.outcomes.count],[4,3]);
+ assert(hoySplit.outcomes.items.every(p=>typeof p.confirmationSource==='string'),'Outcome items keep their confirmation source');
+ const commSplit=superjson.parse<CommunicationDetail&{error?:string}>(await (await communicationGet(new Request('http://localhost/_api/communication?accountId='+split.id,{headers:{cookie:user.cookie}}))).text());
+ assert.deepEqual(commSplit.followUps,hoySplit,'Hoy filtered by the business and Comunicación return the same lists and counts');
+ const detailSplit=(await read('mode=detail&accountId='+split.id+'&followUps=1')).followUps;
+ assert.deepEqual(detailSplit,hoySplit,'Detail with accountId and followUps=1 returns the business follow-ups for the toast');
+ assert.equal((await read('mode=detail&accountId='+split.id)).followUps,undefined,'The other detail readers do not pay for the follow-ups (opt-in)');
+ assert.equal((await read('mode=detail&followUps=1')).followUps,undefined,'Detail without a business carries no follow-ups');
+ const wholeDay=(await read('mode=day')).followUps!;
+ assert(wholeDay.unconfirmed.count>=4&&wholeDay.outcomes.count>=3,'Unfiltered Hoy counts every business');
+ const cut=await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:split.id,limit:2});
+ assert.deepEqual([cut.unconfirmed.items.length,cut.unconfirmed.count,cut.outcomes.items.length,cut.outcomes.count],[2,4,2,3],'Each list is cut at the limit and its count does not depend on it');
+ const otherSplit=await fresh('Dos listas, otro negocio');await contactMessage({status:'manual_sent',channel:'call',accountId:otherSplit.id,leadId:null,at:at(1)});
+ assert.deepEqual((await read('mode=detail&accountId='+split.id+'&followUps=1')).followUps,hoySplit,'Another business never leaks into the lists');
+ }finally{if(splitSince)await sql`UPDATE app_settings SET value=${splitSince} WHERE key='crm_contact_outcome_since'`.execute(db);}
  // Edits stay exempt from linking.
  await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
  // U-27 first-use checklist flags: true only from the user's own recorded actions.
