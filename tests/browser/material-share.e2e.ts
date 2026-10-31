@@ -10,6 +10,8 @@ const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42
 const objects=new Map<string,{body:Buffer;type:string}>();
 let r2:Server;let sql:ReturnType<typeof postgres>;
 const tokens:{image:string;pdf:string;revoked:string;imageShareId:string;short:string;direct:string}={image:'',pdf:'',revoked:'',imageShareId:'',short:'',direct:''};
+/** A client address no other check uses: a random IPv6 /64 inside 2001:db8::/32 (RFC 3849), the unit of the spec 101 miss budget. */
+const freshClientIp=()=>`2001:db8:${randomBytes(4).toString('hex').replace(/(.{4})/,'$1:')}::1`;
 const BASE62='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 /**
  * A share row. Without `slug`: a legacy link (43-character token, sent before spec 101), still served. With `slug`: a spec 101 short link,
@@ -77,8 +79,10 @@ for(const width of [1280,390])test(`public material page renders the material, O
  await expect(page.getByRole('link',{name:'Abrir PDF'})).toHaveAttribute('rel','noopener noreferrer');
  // States: revoked 410, unknown 404, never the SPA.
  const revoked=await page.goto('/m/'+tokens.revoked);expect(revoked!.status()).toBe(410);await expect(page.getByRole('heading',{level:1})).toHaveText('Este enlace ya no está disponible');
- // Spec 101 D1: unknown links spend a persisted budget of 5 per address and hour; a random documentation address keeps reruns from sharing it.
- await page.setExtraHTTPHeaders({'x-real-ip':`198.51.100.${1+randomBytes(1)[0]!%250}`});
+ // Spec 101 D1: unknown links spend a persisted budget of 5 per client and hour, and earlier suites on the same database (CI runs
+ // test-sales-material-share.ts first) leave several 198.51.100.x addresses spent. Each check takes its own random IPv6 /64 from the
+ // documentation range (2^32 of them, the budget key is the /64), so neither those suites, reruns nor the other viewport can share it.
+ await page.setExtraHTTPHeaders({'x-real-ip':freshClientIp()});
  const unknown=await page.goto('/m/'+randomBytes(32).toString('base64url'));expect(unknown!.status()).toBe(404);await expect(page.getByRole('heading',{level:1})).toHaveText('Este enlace no es válido');
  await expect(page.locator('#root')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
