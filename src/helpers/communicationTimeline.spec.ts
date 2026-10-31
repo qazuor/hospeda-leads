@@ -100,6 +100,12 @@ describe('buildCommunicationTimeline',()=>{
   expect(keys(entries)).toEqual(['out:early','out:late']);
   expect(entries[0].kind==='sent'&&entries[0].sender).toBe('Otra persona del equipo');
  });
+ it('places a script-confirmed send at its WhatsApp time, before a reply received while it was being registered (spec 99 §3.2)',()=>{
+  // Smoke: sent at 18:20 in WhatsApp, reply at 18:21, the script registered the send at 18:22.
+  const sent=message({id:'sent',status:'manual_sent',externalId:'true_1',createdAt:new Date('2026-10-30T18:15:00-03:00'),lastInteractionAt:new Date('2026-10-30T18:20:00-03:00'),updatedAt:new Date('2026-10-30T18:22:00-03:00')});
+  const reply=inbound({id:'reply',receivedAt:new Date('2026-10-30T18:21:00-03:00')});
+  expect(keys(buildCommunicationTimeline({messages:[sent],inbound:[reply]}))).toEqual(['out:sent','in:reply']);
+ });
 });
 
 describe('chips, filter, days and paging',()=>{
