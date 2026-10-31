@@ -265,8 +265,12 @@ export async function post(request:Request){
     if(current.status!=='pending')throw new Error('Solo se pueden reprogramar tareas pendientes.');
     const sameDay=calendarDay(current.dueDate)===input.expectedDueDate,sameTime=(current.dueAt?current.dueAt.getTime():null)===(input.expectedDueAt?new Date(input.expectedDueAt).getTime():null);
     if(!sameDay||!sameTime)throw new RescheduleConflict('La tarea cambió mientras tanto. Revisala.');
+    if(input.kind==='postpone'&&input.dueDate<(calendarDay(current.dueDate)>localDay()?calendarDay(current.dueDate):localDay()))throw new Error('Posponer no puede adelantar la tarea.');
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
+    if(input.kind==='postpone'&&input.dueDate===calendarDay(current.dueDate)&&current.dueAt&&dueAt&&dueAt<current.dueAt)throw new Error('Posponer no puede adelantar la tarea.');
+    // D2: postponing moves an overdue task to the future; a timed result at an hour that already passed would leave it overdue.
+    if(input.kind==='postpone'&&dueAt&&dueAt<=new Date())throw new Error('La hora de la tarea ya pasó. Posponela para mañana o una fecha posterior.');
     await trx.updateTable('crmTasks').set({dueDate:input.dueDate,dueAt,updatedAt:new Date()}).where('id','=',input.id).execute();
     return input.id;
    }

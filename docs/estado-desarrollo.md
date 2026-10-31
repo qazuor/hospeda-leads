@@ -1,10 +1,18 @@
 # Estado del CRM — corte al 30 de octubre de 2026
 
-## Spec 99 bloque 1 — segunda revisión corregida en el worktree
+## Spec 99, bloque 5 — implementación local verificada, PR a `staging` — 31/10/2026
 
-- Corregidas las reglas de evidencia de contacto y atribución de fuente; se agregaron pruebas unitarias, pruebas de endpoint listas para CI y los tres acuerdos adicionales E1–E3 a la spec. Sin migración.
-- Validación local: `npm run typecheck` y `npx vitest run --maxWorkers=4` (253 archivos, 2219 pruebas) en verde. No se ejecutaron integraciones porque este entorno no tiene una base descartable; ver el informe de revisión en el scratchpad del propietario.
-- Pendiente: ejecutar `scripts/test-commercial.ts`, `scripts/test-business-history.ts` y `scripts/test-userscript.ts` en CI/base descartable y medir `EXPLAIN ANALYZE` de la proyección de Negocios con volumen comparable al real antes de cerrar el bloque.
+- «Posponer» usa `max(vencimiento, hoy)` en días argentinos; atajos y selector no adelantan tareas. Una tarea con hora que ya pasó hoy no se puede posponer a hoy (mínimo mañana) y el servidor rechaza `kind:'postpone'` si la nueva hora no queda después de ahora; el cliente recalcula el mínimo al guardar (menú o selector abiertos después de medianoche). El servidor distingue `postpone` de `undo`.
+- El resumen toma la decisión de la actividad visible más nueva (`latestDecision`) y muestra el motivo de «No agendar nada»; en la vista del negocio «La gestión ya está cerrada» usa el texto genérico, no «Gestión cerrada». El historial muestra el motivo. El editor avisa sin bloquear (D5) cuando no ve otra tarea pendiente del negocio; la tarea que se completa se excluye en el cliente (ya no se envía `excludeTaskId`, que `/_api/work` ignora en modo `detail`).
+- **Validación local (31/10/2026):** sobre base descartable recién sembrada, `scripts/test-work.ts`, `scripts/test-business-history.ts`, `scripts/test-commercial.ts` y `scripts/test-global-history.ts` PASS; `npm run typecheck` OK; `npx vitest run --maxWorkers=4` 254 archivos / 2237 tests OK (specs con fecha fija, sin depender del reloj real); `npm run build` OK. No se corrió el e2e `contextual-work.e2e.ts` ni el resto de suites de integración/navegador.
+- **Pendiente:** e2e de navegador, PR a `staging` y CI.
+
+## Spec 99, bloque 1 — evidencia de contacto honesta — mergeado a `staging` (#296), 31/10/2026
+
+- Una sola regla de evidencia (`src/helpers/contactEvidence.ts`) para encabezado del negocio, columna «Último contacto» de Negocios y Primeros pasos; abrir un canal, borradores, no enviados, fallidos, cancelados, anulados y entrantes automáticos no cuentan. La fuente de confirmación (manual, script de WhatsApp, eco de Instagram) sale del journal más `external_id` (E1). Sin migración.
+- Validación: 10 integraciones sobre base descartable recién sembrada, typecheck, vitest (2220) y build en verde; CI de #296 verde.
+- Pendiente: medir con volumen real las búsquedas del journal por entidad (no hay índice `(entity_type, entity_id)`) antes de decidir una migración.
+
 
 ## Smoke de producción con usuario común — completado el 30/10/2026
 

@@ -17,7 +17,7 @@ try{
  const admin=await session('admin'),reader=await session('user');
  const a=await db.insertInto('crmAccounts').values({nombre:'History '+stamp,status:'reviewed'}).returningAll().executeTakeFirstOrThrow();
  const lead=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre,opportunityName:'Propuesta histórica',managementType:'main',estado:'main:contact'}).returningAll().executeTakeFirstOrThrow();
- const activities=await db.insertInto('crmActivities').values(Array.from({length:52},(_,i)=>({accountId:a.id,leadId:lead.id,typeId:'call',title:'Conversación '+i,occurredAt:new Date(1700000000000+i*1000),outcome:'interested',result:'Pidió propuesta',channel:'phone',continuation:'task'}))).returningAll().execute();
+ const activities=await db.insertInto('crmActivities').values(Array.from({length:52},(_,i)=>({accountId:a.id,leadId:lead.id,typeId:'call',title:'Conversación '+i,occurredAt:new Date(1700000000000+i*1000),outcome:'interested',result:'Pidió propuesta',channel:'phone',continuation:i===0?'done':'task',continuationReason:i===0?'Ya tengo otra tarea agendada':null}))).returningAll().execute();
  const addMessage=async(status:string,activityId:string|null=null)=>{
   const id=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,owner_email,status,activity_id,text_body) VALUES(${id}::uuid,${a.id},${a.id},${lead.id},'whatsapp','5493442000000','history@example.com',${status},${activityId},'Texto registrado')`.execute(db);return id;
  };
@@ -30,7 +30,7 @@ try{
  async function history(page=1,cookie=reader,status=200,kind='all'){const r=await get(new Request('http://localhost/_api/commercial?'+new URLSearchParams({accountId:a.id,historyPage:String(page),...(kind==='all'?{}:{historyKind:kind})}),{headers:{cookie}}));const d=superjson.parse<any>(await r.text());assert.equal(r.status,status,d.error);return d;}
  const first=await history(),second=await history(2);assert.equal(first.total,58);assert.equal(first.events.length,50);assert.equal(second.events.length,8);assert.equal(new Set([...first.events,...second.events].map(e=>e.id)).size,58);
  assert(first.events.some(e=>e.id==='message:'+opened&&e.messageStatus==='whatsapp_opened'));
- const combined=[...first.events,...second.events].find(e=>e.id==='activity:'+activities[0].id);assert.equal(combined.messageStatus,'manual_sent');assert.equal(combined.result,'Pidió propuesta');assert.equal(combined.opportunityName,'Propuesta histórica');
+ const combined=[...first.events,...second.events].find(e=>e.id==='activity:'+activities[0].id);assert.equal(combined.messageStatus,'manual_sent');assert.equal(combined.result,'Pidió propuesta');assert.equal(combined.opportunityName,'Propuesta histórica');assert.equal(combined.continuationReason,'Ya tengo otra tarea agendada');
  const all=[...first.events,...second.events];
  const stages=all.filter(e=>e.kind==='stage');assert.deepEqual(stages.map(e=>e.title).sort(),['Gestión iniciada → Por contactar','Por contactar → Contactado'],'stage events use stage names');assert(stages.every(e=>e.opportunityName==='Propuesta histórica'&&e.result===null),'management notes are not shown');
  assert.equal(all.find(e=>e.kind==='communication').title,'Contacto realizado','raw journal actions are labeled');assert.equal(all.find(e=>e.kind==='change').title,'Datos del negocio editados');

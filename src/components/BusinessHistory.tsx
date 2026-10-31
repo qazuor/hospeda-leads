@@ -13,7 +13,7 @@ import {Button} from './Button';
 import {Disclosure,DisclosureSummary} from './Disclosure';
 import styles from './BusinessHistory.module.css';
 const kindIcons={activity:Phone,message:MessageCircle,communication:Mail,response:Reply,stage:ArrowRightLeft,change:RefreshCw} as const;
-const continuations:Record<string,string>={task:'Se planificó otro paso',wait:'Se acordó esperar hasta una fecha',done:'Se decidió terminar por ahora'};
+export const historyContinuationText=(continuation:string,reason?:string|null)=>continuation==='done'&&reason?'No se agendó nada · '+reason:({task:'Se planificó otro paso',wait:'Se acordó esperar hasta una fecha',done:'Se decidió terminar por ahora'} as Record<string,string>)[continuation]||continuation;
 export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:string;users?:{email:string;displayName:string}[];readOnly?:boolean}){
  const [page,setPage]=useState(1),[filter,setFilter]=useState<HistoryFilter>('all'),[expanded,setExpanded]=useState(false);
  // Pending commitments only show here when the work list below is not rendered (read-only); otherwise they would appear twice.
@@ -40,7 +40,7 @@ export function BusinessHistory({accountId,users=[],readOnly=false}:{accountId:s
    {e.messageStatus&&<p className={styles.status}>{historyMessageStatus({status:e.messageStatus,channel:e.channel,actorEmail:e.actorEmail})}</p>}
    {e.outcome&&<p><strong>Resultado: </strong>{e.kind==='response'?responseCategoryLabel(e.outcome):outcomeLabel(e.outcome)}</p>}
    {e.result&&<p className={styles.text}>{e.result}</p>}
-   {e.continuation&&<p className={styles.continuation}>{continuations[e.continuation]||e.continuation}</p>}
+   {e.continuation&&<p className={styles.continuation}>{historyContinuationText(e.continuation,e.continuationReason)}</p>}
    {(e.notes||e.messageText)&&<Disclosure><DisclosureSummary>Ver contenido registrado</DisclosureSummary>{e.notes&&<p className={styles.text}>{e.notes}</p>}{e.messageText&&<p className={styles.text}>{e.messageText}</p>}</Disclosure>}
    {e.leadId&&<Link to={'/sales/'+e.leadId} state={{from:'business'}}>Abrir gestión</Link>}
   </li>)}</ol>
