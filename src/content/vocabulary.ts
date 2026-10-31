@@ -34,7 +34,13 @@ export const NO_FOLLOW_UP_REASONS=['Ya tengo otra tarea agendada','La gestión y
  * @example plural(1,'gestión','gestiones') // "1 gestión"
  * @example plural(0,'gestión','gestiones') // "0 gestiones"
  */
-export const plural=(count:number,singular:string,pluralForm:string):string=>`${count} ${count===1?singular:pluralForm}`;
+export const plural=(count:number,singular:string,pluralForm:string):string=>`${count} ${pluralWord(count,singular,pluralForm)}`;
+
+/**
+ * The noun alone, singular only for exactly 1: for counts formatted elsewhere (thousands separators).
+ * @example `${n.toLocaleString('es-AR')} ${pluralWord(n,'gestión','gestiones')}`
+ */
+export const pluralWord=(count:number,singular:string,pluralForm:string):string=>count===1?singular:pluralForm;
 
 /** Minimal management shape needed to name it. */
 export type NamedManagement={opportunityName?:string|null;createdAt?:Date|string|null};

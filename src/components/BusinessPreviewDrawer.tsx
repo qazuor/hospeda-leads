@@ -16,6 +16,7 @@ import {Button} from './Button';
 import {ValueBadge} from './ValueBadge';
 import {StageStepper} from './StageStepper';
 import {BusinessChannel,type BusinessChannelKind} from './BusinessChannel';
+import {businessLinkHref} from '../helpers/businessLinks';
 import {BusinessContactDialog} from './BusinessContactDialog';
 import {CommercialEditor} from './CommercialEditor';
 import {QueryErrorNotice} from './QueryErrorNotice';
@@ -75,7 +76,7 @@ export function BusinessPreviewDrawer({row,opened,onClose,onOpenRecord,returnFoc
      <dt>Ciudad</dt><dd>{d.account.ciudad||'—'}</dd>
      <dt>Responsable</dt><dd>{responsible||'Sin responsable'}</dd>
      <dt>Persona de contacto</dt><dd>{d.contacts.find(c=>c.isPrimary)?.name??'Sin persona de contacto'}</dd>
-     <dt>Canales</dt><dd className={styles.channels}>{channelFields.some(([,key])=>d.account[key])?channelFields.filter(([,key])=>d.account[key]).map(([kind,key])=><BusinessChannel key={kind} kind={kind} value={d.account[key]} blocked={!!d.account.doNotContact}/>):d.account.doNotContact?<ValueBadge category="status" value="No contactar"/>:'—'}</dd>
+     <dt>Canales</dt><dd className={styles.channels}>{channelFields.some(([,key])=>d.account[key])?channelFields.filter(([,key])=>d.account[key]).map(([kind,key])=><BusinessChannel key={kind} kind={kind} value={d.account[key]} href={key==='perfilInstagram'||key==='sitioWeb'?businessLinkHref({field:key,value:d.account[key]}):undefined} blocked={!!d.account.doNotContact}/>):d.account.doNotContact?<ValueBadge category="status" value="No contactar"/>:'—'}</dd>
     </dl>
     <section className={styles.section}><h3>Próximo paso</h3>{row?.fechaProximaAccion?<p><strong>{row.nextActionTitle||'Próximo paso'}</strong> · <span className={overdue?styles.overdue:undefined}>{overdue||formatDate(row.fechaProximaAccion)}</span></p>:<p className={styles.muted}>Sin próximo paso</p>}</section>
     <section className={styles.section}><h3>Actividad reciente</h3>{recentPreviewEvents(d).map(item=><p key={item.id}>{item.title} · <span className={styles.muted}>{relativeAgo(item.date)}</span></p>)}{!recentPreviewEvents(d).length&&<p className={styles.muted}>Todavía no hay actividad registrada.</p>}</section>

@@ -16,7 +16,7 @@ import {URGENT_CAP} from '../endpoints/work.schema';
 import {taskBucket} from '../helpers/workDates';
 import {urgentCapNotice} from '../helpers/dayProgress';
 import {upcomingDayLabel} from '../helpers/upcomingDays';
-import {VOCAB} from '../content/vocabulary';
+import {VOCAB,plural} from '../content/vocabulary';
 import styles from './Commercial.module.css';
 import ws from './Work.module.css';
 import ls from './TodayList.module.css';
@@ -39,7 +39,7 @@ export function TodayList({data:d,now,admin,filtered,inboundRows,inboundError,in
  const bucket=(key:keyof typeof bucketMeta)=>{
   const tasks=d.tasks.filter(t=>taskBucket(t.dueDate,t.dueAt,now)===key),total=d.bucketCounts?.[key]??tasks.length,meta=bucketMeta[key];
   if(!tasks.length&&!(d.bucketCounts?.[key]??0))return null;
-  const content=<section className={styles.panel+' '+ws.column} id={meta.id} tabIndex={meta.id?-1:undefined} data-tone={key} style={key==='upcoming'?undefined:at(key)}><header className={ws.columnHeader}><h2>{meta.title}</h2><span aria-label="Total de tareas">{total}</span></header>{key==='upcoming'&&(d.bucketCounts?.upcoming??0)>25&&<p className={styles.muted}>{tasks.length} tareas en esta página</p>}<div className={styles.rows}>{tasks.map((t,index)=><React.Fragment key={t.id}>{key==='upcoming'&&(!index||tasks[index-1].dueDate!==t.dueDate)&&<h3 className={ws.dayGroup}>{upcomingDayLabel(t.dueDate,t.dueAt,now)}</h3>}<TaskRow task={t} data={d} onEdit={onEdit} from="my-day"/></React.Fragment>)}{!tasks.length&&<p className={styles.muted}>{total>0?'No hay más tareas en esta página.':meta.empty}</p>}</div></section>;
+  const content=<section className={styles.panel+' '+ws.column} id={meta.id} tabIndex={meta.id?-1:undefined} data-tone={key} style={key==='upcoming'?undefined:at(key)}><header className={ws.columnHeader}><h2>{meta.title}</h2><span aria-label="Total de tareas">{total}</span></header>{key==='upcoming'&&(d.bucketCounts?.upcoming??0)>25&&<p className={styles.muted}>{plural(tasks.length,'tarea','tareas')} en esta página</p>}<div className={styles.rows}>{tasks.map((t,index)=><React.Fragment key={t.id}>{key==='upcoming'&&(!index||tasks[index-1].dueDate!==t.dueDate)&&<h3 className={ws.dayGroup}>{upcomingDayLabel(t.dueDate,t.dueAt,now)}</h3>}<TaskRow task={t} data={d} onEdit={onEdit} from="my-day"/></React.Fragment>)}{!tasks.length&&<p className={styles.muted}>{total>0?'No hay más tareas en esta página.':meta.empty}</p>}</div></section>;
   // Spec 100 D6: open by default, collapsible, not remembered.
   return key==='upcoming'?<Disclosure open className={ws.upcoming} style={at('upcoming')}><DisclosureSummary>Próximas acciones ({total})</DisclosureSummary>{content}</Disclosure>:content;
  };

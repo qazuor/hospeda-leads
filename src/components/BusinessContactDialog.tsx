@@ -24,7 +24,7 @@ import {canModifyBusiness,canModifyManagement} from '../helpers/crmPermissions';
 import {stageLabel,userLabel} from '../helpers/crmLabels';
 import {contactPurposeBlockReason,contactPurposeOptions,defaultContactPurpose,type ContactPurpose} from '../helpers/contactPurpose';
 import {managementDisplayName,VOCAB} from '../content/vocabulary';
-import {CONTACT_ARCHIVED_REASON,CONTACT_DNC_REASON,CONTACT_PERMISSION_REASON,contactChannelBlock,type MessageChannel} from '../helpers/contactChannels';
+import {CONTACT_ARCHIVED_REASON,CONTACT_DNC_REASON,CONTACT_PERMISSION_REASON,contactChannelBlock,isOpenManagement,type MessageChannel} from '../helpers/contactChannels';
 import {useUserscriptContactBlock} from '../helpers/useUserscriptStatus';
 import styles from './Commercial.module.css';
 
@@ -53,7 +53,7 @@ export function BusinessContactDialog({detail,onClose,returnFocusTo,initialChann
  const [created,setCreated]=useState(false),callSession=useCallSession();
  const [manualContact,setManualContact]=useState(false),[editor,setEditor]=useState<EditorTarget|null>(null);
  const loading=stages.isPending||settings.isPending||history.isPending,loadError=stages.error||settings.error||history.error;
- const open=detail.opportunities.filter(o=>!o.deletedAt&&(stages.data?.stages.find(s=>s.name===o.estado)?.classification??'open')==='open');
+ const open=detail.opportunities.filter(o=>isOpenManagement({opportunity:o,stages:stages.data?.stages}));
  const sobre=chosen||(initialLeadId&&open.some(o=>String(o.id)===initialLeadId)?initialLeadId:!open.length?GENERAL:open.length===1?String(open[0].id):'');
  const general=sobre===GENERAL;
  const opportunity=general?undefined:open.find(o=>String(o.id)===sobre);
