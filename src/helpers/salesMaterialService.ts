@@ -194,7 +194,8 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   }else if(input.action==='cover'){
    // Spec 95: a manual choice (an uploaded cover or a removal) always wins. An automatic cover arriving after one is not an error: it is
    // kept out (`coverKept`), nothing changes and its upload stays pending, so the sweep deletes it.
-   if(input.auto&&(m.coverMode==='none'||m.coverMode==='manual'&&m.coverKey))return {ok:true,revision:m.revision,coverKept:true};
+   // Spec 102: `replaceRemoved` (the admin asked for it explicitly) lets an automatic cover replace a removal; a manual cover still wins.
+   if(input.auto&&(m.coverMode==='none'&&!input.replaceRemoved||m.coverMode==='manual'&&m.coverKey))return {ok:true,revision:m.revision,coverKept:true};
    // The object of a replaced or removed automatic cover is ours to delete; a manual cover's object is never touched.
    if(m.coverMode==='auto')await discardAutoCover(e,m);
    if(verified){await completeUpload(e,verified.upload.id);await sql`UPDATE crm_sales_materials SET cover_key=${verified.upload.objectKey},cover_mime=${verified.upload.declaredMime},cover_bytes=${verified.size},cover_mode=${input.auto?'auto':'manual'},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);}

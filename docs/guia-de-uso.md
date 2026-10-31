@@ -759,6 +759,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Tené en cuenta:**
 
 - Las categorías las administra un administrador en «Configuración» → «Categorías de material».
+- Portadas (administradores): un archivo sin portada elegida recibe una automática al guardarlo. Si no se puede generar (por ejemplo, un PDF de más de 150 MB o que no se puede leer), el aviso dice por qué y trae «Elegir portada». En «Portada» podés subir una imagen, también para un enlace externo, o usar «Generar desde el archivo» para reintentar la automática.
 
 **Dónde ir:** Abrir Material de venta (/sales-material)
 
