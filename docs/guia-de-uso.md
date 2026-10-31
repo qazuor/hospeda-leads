@@ -178,7 +178,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 5. Elegí qué pasó y respondé «¿Cómo sigue?»: agendá una tarea con fecha, esperá hasta una fecha o elegí «No agendar nada» con un motivo. Siempre tiene que quedar una de las tres.
 6. Si no podés hacer una tarea hoy, tocá «Posponer» y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…».
 7. Mirá «Próximas acciones» para las fechas futuras. El mini calendario marca todas las tareas pendientes del mes que estás viendo, con los mismos filtros de trabajo; tocá un día para ver cuáles son. Al final del calendario podés «Ver visitas y reuniones en Calendario →».
-8. Al terminar, comprobá que no te queden contactos sin anotar: aparecen arriba, en «Anotá cómo salió».
+8. Al terminar, comprobá que no te queden contactos pendientes: aparecen arriba, en «Pendientes de contacto», con las mismas palabras que «Requiere acción» del negocio. En «¿Lo enviaste?» contestá «Sí, se envió» o «No se envió» por cada WhatsApp o Instagram abierto; en «Anotá cómo salió» hay una fila por gestión y un solo resultado vale para todos sus envíos. Las preguntas viejas pasan a «Vencidos»: no cuentan, pero podés responderlas igual. «Ver en el negocio» abre la pestaña Comunicación con «Requiere acción» desplegada.
 
 **Qué queda al terminar:** El equipo puede continuar el trabajo sin depender de tu memoria.
 
@@ -447,7 +447,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 **Tené en cuenta:**
 
 - El canal tiene que estar disponible y sin restricciones. No contactar bloquea todas las salidas, sin excepción.
-- Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Anotá cómo salió», arriba en Hoy, hasta que lo completes.
+- Si salís sin anotar cómo salió, no se pierde: el contacto queda en «Pendientes de contacto», arriba en Hoy, hasta que lo completes.
 - Si la persona elegida tiene el mismo teléfono que un negocio No contactar, el CRM muestra un aviso con el nombre del negocio. No te bloquea, pero no uses ese teléfono para contactar sin consultar a un administrador.
 - Si el negocio contesta tu email, la respuesta llega sola a la «Conversación» de su ficha, en «Comunicación». No hace falta copiarla a mano.
 - Si abriste WhatsApp desde el CRM y después registrás ese chat con el script, el mensaje enviado completa ese WhatsApp abierto: queda confirmado como enviado y no se registra dos veces.
