@@ -71,7 +71,9 @@ describe('clamping and summary',()=>{
  });
  it('names the pending work with only its non-zero parts',()=>{
   expect(actionSummary({review:2,unconfirmed:1,outcomes:0})).toBe('2 mensajes por revisar · 1 envío sin confirmar');
-  expect(actionSummary({review:1,unconfirmed:0,outcomes:2})).toBe('1 mensaje por revisar · 2 contactos sin resultado');
+  // Spec 100 §5.1: the third term counts management groups, not sends.
+  expect(actionSummary({review:1,unconfirmed:0,outcomes:2})).toBe('1 mensaje por revisar · 2 gestiones sin resultado');
+  expect(actionSummary({review:0,unconfirmed:2,outcomes:1})).toBe('2 envíos sin confirmar · 1 gestión sin resultado');
   expect(actionSummary({review:0,unconfirmed:3,outcomes:0})).toBe('3 envíos sin confirmar');
  });
  it('builds a safe DOM id for every key',()=>{expect(timelineDomId('in:1b2c-3')).toBe('comm-item-in-1b2c-3');});

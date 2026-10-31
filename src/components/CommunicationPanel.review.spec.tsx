@@ -84,28 +84,35 @@ describe('response wording and list limits (L1)',()=>{
 });
 
 describe('«Requiere acción» from the server follow-ups (spec 99 §3.6)',()=>{
+ const list=(items:unknown[],count=items.length,groupCount=count)=>({items,count,groupCount});
+ const followUps=(unconfirmed:ReturnType<typeof list>,outcomes:ReturnType<typeof list>)=>({unconfirmed,outcomes,expired:{unconfirmed:list([]),outcomes:list([])}});
+ // Spec 100 §5: the strip starts collapsed; «Revisar» (or «Ver» with nothing counted) expands it.
+ const openPending=async()=>{const region=await screen.findByRole('region',{name:'Requiere acción'});const toggle=within(region).queryByRole('button',{name:/^(Revisar|Ver)$/});if(toggle)fireEvent.click(toggle);return screen.getByRole('region',{name:'Requiere acción'});};
  const pending=(id:string,status:string,over:Record<string,unknown>={})=>({id,accountId:'5',accountName:'Hotel Sol',leadId:null,opportunityName:null,contactId:null,channel:'whatsapp',recipientName:'Julia',status,purpose:null,lastInteractionAt:day(3),...over});
- it('shows 4 «¿Lo enviaste?» entries and «Anotá cómo salió · 3» from followUps, loaded message or not',async()=>{
+ it('shows 4 «¿Lo enviaste?» entries and one «Anotá cómo salió» management with its 3 sends from followUps, loaded message or not',async()=>{
   const unconfirmed=[pending('opened','whatsapp_opened',{lastInteractionAt:day(6)}),pending('notLoaded','whatsapp_opened',{recipientName:'Pedro',lastInteractionAt:day(5)}),pending('ig','instagram_opened',{channel:'social',destinationDetail:'instagram',recipientName:'Hotel Sol',lastInteractionAt:day(4)}),pending('attempt','manual_pending',{channel:'call',recipientName:'Ana',lastInteractionAt:day(3)})];
   const outcomes=[pending('call1','manual_sent',{channel:'call'}),pending('call2','manual_no_contact',{channel:'call'}),pending('wa1','manual_sent')];
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(6)})],followUps:{unconfirmed:{items:unconfirmed,count:4},outcomes:{items:outcomes,count:3}}}});
-  wrap(<CommunicationPanel accountId="5"/>);const region=await screen.findByRole('region',{name:'Requiere acción'});
-  expect(within(region).getByRole('heading',{name:'Requiere acción · 7'})).toBeTruthy();
-  expect(within(region).getByText('4 envíos sin confirmar · 3 contactos sin resultado')).toBeTruthy();
-  expect(within(region).getAllByText('¿Lo enviaste?')).toHaveLength(4);
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened',lastInteractionAt:day(6)})],followUps:followUps(list(unconfirmed),list(outcomes,3,1))}});
+  wrap(<CommunicationPanel accountId="5"/>);const region=await openPending();
+  // Spec 100 D2: the outcomes count management groups (all three sends have no management: one group).
+  expect(within(region).getByRole('heading',{name:'Requiere acción · 5'})).toBeTruthy();
+  expect(within(region).getByText('4 envíos sin confirmar · 1 gestión sin resultado')).toBeTruthy();
+  expect(within(region).getByRole('heading',{name:'¿Lo enviaste? · 4'})).toBeTruthy();expect(within(region).getAllByRole('group',{name:/ sin confirmar para /})).toHaveLength(4);
   // The loaded message keeps its full entry (text and «Sí, se envió» / «No se envió»); the others are minimal with recipient and time.
-  const full=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});expect(within(full).getByText('Hola Julia')).toBeTruthy();expect(within(full).getByRole('button',{name:'Sí, se envió'})).toBeTruthy();
+  const full=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});fireEvent.click(within(full).getByRole('button',{name:'Ver mensaje y material'}));expect(await within(full).findByText('Hola Julia')).toBeTruthy();expect(within(full).getByRole('button',{name:'Sí, se envió'})).toBeTruthy();
   for(const name of ['WhatsApp sin confirmar para Pedro','Instagram sin confirmar para Hotel Sol','Llamada sin confirmar para Ana'])expect(within(within(region).getByRole('group',{name})).getByRole('button',{name:'Anotá cómo salió'})).toBeTruthy();
   const card=within(region).getByRole('region',{name:'Anotá cómo salió'});
-  expect(within(card).getByLabelText('Contactos sin resultado').textContent).toBe('3');expect(within(card).getAllByRole('article')).toHaveLength(3);
+  expect(within(card).getByRole('heading',{name:'Anotá cómo salió · 1'})).toBeTruthy();expect(within(card).getAllByRole('article')).toHaveLength(1);
+  const group=within(card).getByRole('article',{name:'Resultado pendiente de Sin gestión'});expect(within(group).getByText('3 envíos sin resultado')).toBeTruthy();expect(within(group).getAllByRole('button',{name:'Anotá cómo salió'})).toHaveLength(1);
  });
  it('counts only the server entries and still lists loaded opens the server leaves out, with «Sí, se envió» off and its reason',async()=>{
   // The closed management and the open before the outcome window are not in followUps; they stay answerable here («No se envió»), not counted.
-  setup({data:{messages:[message('listed',{status:'whatsapp_opened',lastInteractionAt:day(6)}),message('closed',{status:'whatsapp_opened',leadId:'9',recipientName:'Pedro',lastInteractionAt:day(5)}),message('old',{status:'whatsapp_opened',recipientName:'Ana',lastInteractionAt:day(4)}),message('foreign',{status:'whatsapp_opened',ownerEmail:'other@example.com',recipientName:'Otra',lastInteractionAt:day(3)})],followUps:{unconfirmed:{items:[pending('listed','whatsapp_opened',{lastInteractionAt:day(6)})],count:1},outcomes:{items:[],count:0}}}});
-  wrap(<CommunicationPanel accountId="5"/>);const region=await screen.findByRole('region',{name:'Requiere acción'});
+  setup({data:{messages:[message('listed',{status:'whatsapp_opened',lastInteractionAt:day(6)}),message('closed',{status:'whatsapp_opened',leadId:'9',recipientName:'Pedro',lastInteractionAt:day(5)}),message('old',{status:'whatsapp_opened',recipientName:'Ana',lastInteractionAt:day(4)}),message('foreign',{status:'whatsapp_opened',ownerEmail:'other@example.com',recipientName:'Otra',lastInteractionAt:day(3)})],followUps:followUps(list([pending('listed','whatsapp_opened',{lastInteractionAt:day(6)})]),list([]))}});
+  wrap(<CommunicationPanel accountId="5"/>);expect(within(await screen.findByRole('region',{name:'Requiere acción'})).getByText('1 pendiente')).toBeTruthy();const region=await openPending();
   expect(within(region).getByRole('heading',{name:'Requiere acción · 1'})).toBeTruthy();
   expect(within(region).getByText('1 envío sin confirmar')).toBeTruthy();
-  expect(within(region).getAllByText('¿Lo enviaste?')).toHaveLength(3);
+  // The uncounted opens close the «¿Lo enviaste?» block (spec 100 §5.2), after the counted one.
+  expect(within(region).getAllByRole('group',{name:/^WhatsApp sin confirmar para /}).map(g=>g.getAttribute('aria-label'))).toEqual(['WhatsApp sin confirmar para Julia','WhatsApp sin confirmar para Pedro','WhatsApp sin confirmar para Ana']);
   const closed=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Pedro'});
   await waitFor(()=>expect((within(closed).getByRole('button',{name:'Sí, se envió'}) as HTMLButtonElement).disabled).toBe(true));
   expect((within(closed).getByRole('button',{name:'No se envió'}) as HTMLButtonElement).disabled).toBe(false);
@@ -115,8 +122,8 @@ describe('«Requiere acción» from the server follow-ups (spec 99 §3.6)',()=>{
   expect(within(region).queryByRole('group',{name:'WhatsApp sin confirmar para Otra'})).toBeNull();
  });
  it('says how many of the server unconfirmed sends are listed when the count passes the limit',async()=>{
-  setup({data:{followUps:{unconfirmed:{items:[pending('a','whatsapp_opened'),pending('b','whatsapp_opened',{recipientName:'Pedro'})],count:25},outcomes:{items:[],count:0}}}});
-  wrap(<CommunicationPanel accountId="5"/>);const region=await screen.findByRole('region',{name:'Requiere acción'});
+  setup({data:{followUps:followUps(list([pending('a','whatsapp_opened'),pending('b','whatsapp_opened',{recipientName:'Pedro'})],25),list([]))}});
+  wrap(<CommunicationPanel accountId="5"/>);const region=await openPending();
   expect(within(region).getByText('25 envíos sin confirmar')).toBeTruthy();
   expect(within(region).getByText('Se muestran los 2 más recientes de 25.')).toBeTruthy();
  });

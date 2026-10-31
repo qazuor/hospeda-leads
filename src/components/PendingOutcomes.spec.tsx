@@ -1,7 +1,9 @@
-import {beforeAll,describe,it,expect} from 'vitest';
-import {render,screen,within} from '@testing-library/react';
+import {beforeAll,describe,it,expect,vi} from 'vitest';
+import {fireEvent,render,screen,within} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
-import {PendingOutcomes} from './PendingOutcomes';
+vi.mock('./OutcomeAfterContact',()=>({OutcomeAfterContact:({contact,note}:{contact:{messageId?:string};note?:string})=><p>Cómo salió (mock) {contact.messageId} {note}</p>}));
+import {OutcomeGroupRow,PendingOutcomes,groupOutcomeNote} from './PendingOutcomes';
+import {groupOutcomeFollowUps} from '../helpers/contactFollowUpGroups';
 import type {PendingOutcome} from '../endpoints/communication.schema';
 
 const item=(id:string,over:Partial<PendingOutcome>={}):PendingOutcome=>({id,accountId:'1',accountName:'Hotel',leadId:null,opportunityName:null,contactId:null,channel:'whatsapp',status:'manual_sent',purpose:null,recipientName:'Julia',lastInteractionAt:new Date('2026-10-30T12:00:00Z'),...over});
@@ -27,5 +29,38 @@ describe('PendingOutcomes',()=>{
   const card=screen.getByRole('region',{name:'Anotá cómo salió'});
   expect(within(card).queryByRole('heading',{name:'Anotá cómo salió'})).toBeNull();expect(within(card).queryByLabelText('Contactos sin resultado')).toBeNull();
   expect(within(card).getByRole('heading',{name:'Envíos sin confirmar · 1'})).toBeTruthy();
+ });
+ it('shows a management group with its 3 sends (manual, script, Instagram), their labels and one button whose dialog covers all 3 (spec 100 §6)',()=>{
+  const [group]=groupOutcomeFollowUps({items:[item('manual',{leadId:'9',opportunityName:'Plan anual',channel:'call',lastInteractionAt:new Date('2026-10-28T12:00:00Z')}),item('wa',{leadId:'9',opportunityName:'Plan anual',externalId:'wamid.1',confirmationSource:'userscript',lastInteractionAt:new Date('2026-10-29T12:00:00Z')}),item('ig',{leadId:'9',opportunityName:'Plan anual',channel:'social',destinationDetail:'instagram',externalId:'mid.1',confirmationSource:'instagram'})]});
+  const onOutcome=vi.fn();
+  render(<MantineProvider><OutcomeGroupRow group={group} showBusiness={false} onOutcome={onOutcome}/></MantineProvider>);
+  const row=screen.getByRole('article',{name:'Resultado pendiente de Plan anual'});
+  expect(within(row).getByText('3 envíos sin resultado')).toBeTruthy();
+  for(const label of [/Envío confirmado manualmente/,/Enviado · confirmado por el script de WhatsApp/,/Enviado · confirmado por Instagram/])expect(within(row).getByText(label)).toBeTruthy();
+  fireEvent.click(within(row).getByRole('button',{name:'Anotá cómo salió'}));
+  expect(onOutcome).toHaveBeenCalledWith(group);expect(group.newest.id).toBe('ig');
+  expect(groupOutcomeNote(group)).toBe('Este resultado vale para los 3 envíos de esta gestión.');
+ });
+ it('shows at most 3 sends of a group and «+N más» for the rest',()=>{
+  const [group]=groupOutcomeFollowUps({items:['a','b','c','d','e'].map((id,i)=>item(id,{lastInteractionAt:new Date(Date.UTC(2026,9,20+i))}))});
+  render(<MantineProvider><OutcomeGroupRow group={group} showBusiness={false} onOutcome={()=>{}}/></MantineProvider>);
+  const row=screen.getByRole('article',{name:'Resultado pendiente de Sin gestión'});
+  expect(within(row).getAllByRole('listitem')).toHaveLength(3);
+  fireEvent.click(within(row).getByRole('button',{name:'+2 más'}));
+  expect(within(row).getAllByRole('listitem')).toHaveLength(5);
+ });
+ it('counts a group of 12 sends by the server total although only its 10 newest arrive',()=>{
+  const [group]=groupOutcomeFollowUps({items:Array.from({length:10},(_,i)=>item('s'+i,{groupTotal:12,lastInteractionAt:new Date(Date.UTC(2026,9,20,i))}))});
+  expect(group.total).toBe(12);expect(groupOutcomeNote(group)).toBe('Este resultado vale para los 12 envíos de esta gestión.');
+  render(<MantineProvider><OutcomeGroupRow group={group} showBusiness={false} onOutcome={()=>{}}/></MantineProvider>);
+  const row=screen.getByRole('article',{name:'Resultado pendiente de Sin gestión'});
+  expect(within(row).getByText('12 envíos sin resultado')).toBeTruthy();
+  fireEvent.click(within(row).getByRole('button',{name:'+9 más'}));
+  expect(within(row).getAllByRole('listitem')).toHaveLength(10);
+  expect(within(row).queryByRole('button',{name:/más$/})).toBeNull();expect(within(row).getByText('+2 más')).toBeTruthy();
+ });
+ it('never counts a group below the sends it lists (an older server without groupTotal)',()=>{
+  const [group]=groupOutcomeFollowUps({items:[item('a',{leadId:'9'}),item('b',{leadId:'9'})]});
+  expect(group.total).toBe(2);expect(groupOutcomeNote(groupOutcomeFollowUps({items:[item('a')]})[0])).toBeUndefined();
  });
 });

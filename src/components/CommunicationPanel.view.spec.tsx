@@ -104,14 +104,15 @@ describe('action bar gating',()=>{
 });
 
 describe('«Requiere acción»',()=>{
- it('shows the empty state with a zero count',async()=>{
+ it('shows nothing when nothing is pending (spec 100 §5.1: no «Nada pendiente…» line)',async()=>{
   setup();show();await ready();
-  expect(screen.getByRole('heading',{name:'Requiere acción · 0'})).toBeTruthy();
-  expect(screen.getByText('Nada pendiente: no hay mensajes por revisar ni envíos sin confirmar.')).toBeTruthy();
+  expect(screen.queryByRole('region',{name:'Requiere acción'})).toBeNull();expect(screen.queryByText(/Nada pendiente/)).toBeNull();
  });
  it('confirms an opened WhatsApp send once, blocking a second submit',async()=>{
   // Spec 99 §3.6: the entry is the server's unconfirmed send, drawn from the loaded message.
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],inbound:[inbound('pending')],followUps:{unconfirmed:{items:[message('opened',{status:'whatsapp_opened'})],count:1},outcomes:{items:[],count:0}}}});show();await ready();
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],inbound:[inbound('pending')],followUps:{unconfirmed:{items:[message('opened',{status:'whatsapp_opened'})],count:1,groupCount:1},outcomes:{items:[],count:0,groupCount:0},expired:{unconfirmed:{items:[],count:0,groupCount:0},outcomes:{items:[],count:0,groupCount:0}}}}});show();await ready();
+  expect(within(screen.getByRole('region',{name:'Requiere acción'})).getByText('2 pendientes')).toBeTruthy();
+  fireEvent.click(within(screen.getByRole('region',{name:'Requiere acción'})).getByRole('button',{name:'Revisar'}));
   const region=screen.getByRole('region',{name:'Requiere acción'});
   expect(within(region).getByRole('heading',{name:'Requiere acción · 2'})).toBeTruthy();
   expect(within(region).getByText('1 mensaje por revisar · 1 envío sin confirmar')).toBeTruthy();

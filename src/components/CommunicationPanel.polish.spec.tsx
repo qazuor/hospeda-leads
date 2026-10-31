@@ -19,7 +19,10 @@ const inbound=(id:string,over:Record<string,unknown>={})=>({id,channel:'whatsapp
 const account={id:'5',nombre:'Hotel Sol',assignedUserEmail:'seller@example.com',email:'hotel@example.com',telefono:'3447',whatsapp:null,tipo:'Alojamiento',ciudad:'Colón',subtipo:null,archivedAt:null,recontactAt:null,status:'active',doNotContact:false,isClient:false};
 const opportunities=[{id:'9',opportunityName:'Plan anual',assignedUserEmail:'seller@example.com',estado:'main:contact',deletedAt:null}];
 type Data=Record<string,unknown>;
-const followUps=(unconfirmed:Record<string,unknown>[]=[],outcomes:Record<string,unknown>[]=[])=>({unconfirmed:{items:unconfirmed,count:unconfirmed.length},outcomes:{items:outcomes,count:outcomes.length}});
+const list=(items:Record<string,unknown>[])=>({items,count:items.length,groupCount:items.length});
+const followUps=(unconfirmed:Record<string,unknown>[]=[],outcomes:Record<string,unknown>[]=[])=>({unconfirmed:list(unconfirmed),outcomes:list(outcomes),expired:{unconfirmed:list([]),outcomes:list([])}});
+/** Spec 100 §5: «Requiere acción» starts collapsed; this expands it (when collapsed) and returns the region. */
+const openPending=async()=>{const region=await screen.findByRole('region',{name:'Requiere acción'});const toggle=within(region).queryByRole('button',{name:/^(Revisar|Ver)$/});if(toggle)fireEvent.click(toggle);return screen.getByRole('region',{name:'Requiere acción'});};
 const payload=(data:Data)=>({messages:[],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],recentContactHours:72,webhookConfigured:false,...data});
 function setup({data={},role='user',accountOver={},contacts=[] as unknown[]}:{data?:Data;role?:string;accountOver?:Record<string,unknown>;contacts?:unknown[]}={}){
  mocks.role=role;
@@ -167,7 +170,7 @@ describe('chat window with its own scroll (§1, §8)',()=>{
 describe('«Requiere acción» summary (§9)',()=>{
  it('keeps «Por revisar» actions on the bubble only and scrolls to it, clearing a filter that hides it',async()=>{
   setup({data:{messages:[message('mail',{channel:'email',subject:'Propuesta',status:'accepted',lastInteractionAt:day(1)})],inbound:[inbound('pending',{status:'pending_review',receivedAt:day(4)})]}});show();await ready();
-  const region=screen.getByRole('region',{name:'Requiere acción'});
+  const region=await openPending();
   expect(within(region).getByText('1 mensaje por revisar')).toBeTruthy();
   expect(within(region).queryByRole('button',{name:'Registrar respuesta'})).toBeNull();
   await waitFor(()=>expect(within(rowOf('WhatsApp recibido de Julia')).getByRole('button',{name:'Registrar respuesta'})).toBeTruthy());
@@ -185,11 +188,12 @@ describe('«Requiere acción» summary (§9)',()=>{
  it('shows an opened WhatsApp only in «Requiere acción», with its text and its own buttons, and one click blocks both',async()=>{
   // Spec 99 §3.6: the entry is the server's unconfirmed send, drawn from the loaded message.
   setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],followUps:followUps([message('opened',{status:'whatsapp_opened'})])}});show();const conversation=await ready();
-  const region=screen.getByRole('region',{name:'Requiere acción'});
+  const region=await openPending();
   expect(within(region).getByText('1 envío sin confirmar')).toBeTruthy();
   expect(within(conversation).queryAllByRole('article')).toEqual([]);expect(within(conversation).queryByText('Hola Julia')).toBeNull();
   const entry=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});
-  expect(within(entry).getByText('¿Lo enviaste?')).toBeTruthy();expect(within(entry).getByText('Hola Julia')).toBeTruthy();
+  // Spec 100 §5.2: compact, the prepared text behind «Ver mensaje y material».
+  expect(within(entry).getByText(/Abriste WhatsApp para Julia \(\+\d+\) · /)).toBeTruthy();fireEvent.click(within(entry).getByRole('button',{name:'Ver mensaje y material'}));expect(await within(entry).findByText('Hola Julia')).toBeTruthy();
   // Nothing scrolls to a missing item, and WhatsApp has no «Copiar y abrir de nuevo».
   expect(within(entry).queryByRole('button',{name:'Ver en la conversación'})).toBeNull();expect(within(entry).queryByRole('button',{name:'Copiar y abrir de nuevo'})).toBeNull();
   let resolve:(value:unknown)=>void=()=>{};mocks.postCommunication.mockImplementation(()=>new Promise(r=>{resolve=r}));
@@ -203,18 +207,18 @@ describe('«Requiere acción» summary (§9)',()=>{
   const ig=(id:string,lastInteractionAt:Date)=>message(id,{channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',status:'instagram_opened',lastInteractionAt});
   setup({data:{messages:[ig('waiting',new Date(now-60_000))]}});show();const conversation=await ready();
   expect(within(conversation).queryAllByRole('article')).toEqual([]);
-  const region=screen.getByRole('region',{name:'Requiere acción'}),entry=within(region).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'});
+  const region=await openPending(),entry=within(region).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'});
   expect(within(entry).getByRole('status').textContent).toBe('Esperando que Instagram confirme el envío…');
   for(const name of ['Sí, se envió','No se envió','Copiar y abrir de nuevo'])expect(within(entry).getByRole('button',{name})).toBeTruthy();
   // After the wait the server lists it among the unconfirmed sends (spec 99 §3.6).
   cleanup();setup({data:{messages:[ig('late',new Date(now-16*60_000))],followUps:followUps([ig('late',new Date(now-16*60_000))])}});show();await ready();
-  const late=within(screen.getByRole('region',{name:'Requiere acción'})).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'});
-  expect(within(late).getByText('¿Lo enviaste?')).toBeTruthy();expect(within(late).queryByRole('status')).toBeNull();
+  const late=within(await openPending()).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'});
+  expect(within(late).queryByRole('status')).toBeNull();expect(within(await openPending()).getByRole('heading',{name:'¿Lo enviaste? · 1'})).toBeTruthy();
   expect(within(late).getByRole('button',{name:'Copiar y abrir de nuevo'})).toBeTruthy();
  });
  it('lists a WhatsApp open while the user script can still confirm it, uncounted and answerable (spec 100 §9)',async()=>{
   setup({data:{messages:[message('fresh',{status:'whatsapp_opened',lastInteractionAt:new Date(now-60_000)})],followUps:followUps()}});show();await ready();
-  const region=screen.getByRole('region',{name:'Requiere acción'}),entry=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});
+  const region=await openPending(),entry=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});
   expect(within(entry).getByRole('status').textContent).toBe('Esperando que el script de WhatsApp confirme el envío');
   for(const name of ['Sí, se envió','No se envió'])expect(within(entry).getByRole('button',{name})).toBeTruthy();
   expect(within(region).getByRole('heading',{name:'Requiere acción · 0'})).toBeTruthy();
@@ -223,10 +227,10 @@ describe('«Requiere acción» summary (§9)',()=>{
   // Clock skew or a reload still in flight: the server does not list it yet, but «¿Lo enviaste?» must not disappear.
   const ig=message('skew',{channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',status:'instagram_opened',lastInteractionAt:new Date(now-16*60_000)});
   setup({data:{messages:[ig]}});show();await ready();
-  let region=screen.getByRole('region',{name:'Requiere acción'});
-  expect(within(within(region).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'})).getByText('¿Lo enviaste?')).toBeTruthy();
+  let region=await openPending();
+  expect(within(within(region).getByRole('group',{name:'Instagram sin confirmar para Hotel Sol'})).queryByRole('status')).toBeNull();
   cleanup();setup({data:{messages:[ig],followUps:followUps([ig])}});show();await ready();
-  region=screen.getByRole('region',{name:'Requiere acción'});
+  region=await openPending();
   expect(within(region).getAllByRole('group',{name:'Instagram sin confirmar para Hotel Sol'})).toHaveLength(1);
   expect(within(region).getByText('1 envío sin confirmar')).toBeTruthy();
  });

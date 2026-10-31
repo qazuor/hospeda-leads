@@ -27,7 +27,7 @@ export type OutcomeEnd='saved'|'not_sent'|'left';
  * contact's message. When opening the channel proved nothing (WhatsApp opened, manual attempt started) it first asks
  * "¿Lo enviaste?": "No" marks the message as not sent and ends without logging a contact. Every exit asks first. `onDone` runs once at the end.
  */
-export function OutcomeAfterContact({contact,onDone}:{contact:ContactOutcomeTarget;onDone:(end:OutcomeEnd)=>void}){
+export function OutcomeAfterContact({contact,note,onDone}:{contact:ContactOutcomeTarget;/** Shown in the outcome editor, e.g. that the result covers every send of the management (spec 100 §6). */note?:string;onDone:(end:OutcomeEnd)=>void}){
  const qc=useQueryClient();
  // The editor needs work types and people, which the business detail carries (same cache as the editor's own context query).
  const lookup=useQuery({queryKey:['work','pending-context',contact.accountId],queryFn:()=>getWork({mode:'detail',accountId:contact.accountId})});
@@ -52,6 +52,6 @@ export function OutcomeAfterContact({contact,onDone}:{contact:ContactOutcomeTarg
   <Button mt="md" variant="subtle" onClick={guard.requestClose}>Salir sin anotar</Button>
   {guard.confirmation}
  </CrmDialog>;
- return <WorkEditor data={lookup.data} leaveCopy={leaveWithoutOutcome(contact.messageStatus)} onSaved={()=>{saved.current=true}} onClose={()=>onDone(saved.current?'saved':'left')}
+ return <WorkEditor data={lookup.data} note={note} leaveCopy={leaveWithoutOutcome(contact.messageStatus)} onSaved={()=>{saved.current=true}} onClose={()=>onDone(saved.current?'saved':'left')}
   target={{kind:'activity',accountId:contact.accountId,leadId:contact.leadId??undefined,contactIds:contact.contactIds,channel:contactWorkChannel(contact.channel),purpose:contactWorkPurpose(contact.purpose),title:contactTitle(contact.channel),...(contact.messageStatus==='manual_no_contact'?{outcome:'no_answer' as const}:{}),...(contact.messageId?{messageId:contact.messageId,messageSent:needsSentAnswer(contact.messageStatus)?sent:undefined}:{})}}/>;
 }

@@ -3,6 +3,7 @@ import {randomUUID} from 'node:crypto';
 import postgres from 'postgres';
 import superjson from 'superjson';
 import {simulateUserscript} from './helpers/userscript';
+import {openRequiresAction} from './helpers/requiresAction';
 import {USERSCRIPT_MISSING_REASON,userscriptOutdatedReason} from '../../src/helpers/userscriptGate';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
 
@@ -60,7 +61,7 @@ test('WhatsApp from the business action bar reaches the dispatch in exactly thre
  await expect(page.locator('[data-sonner-toast]').filter({hasText:/WhatsApp abierto para (.+ · )?\+54 9 3442000501\. Si el script registra el envío, se confirma solo; si no, lo vas a ver en «Requiere acción»\./})).toBeVisible();
  const message=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.id===prepared.id);
  expect([message.channel,message.recipient,message.status]).toEqual(['whatsapp','+5493442000501','whatsapp_opened']);
- await expect(page.getByRole('region',{name:'Requiere acción',exact:true}).getByRole('group',{name:/^WhatsApp sin confirmar para /})).toBeVisible();
+ await expect((await openRequiresAction(page)).getByRole('group',{name:/^WhatsApp sin confirmar para /})).toBeVisible();
  expect(errors).toEqual([]);
 });
 
