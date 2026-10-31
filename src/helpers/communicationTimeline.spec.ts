@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {CommunicationResponse,InboundMessage,Message} from '../endpoints/communication.schema';
-import {atListLimit,buildCommunicationTimeline,isHiddenFromConversation,callResultLabel,sentTone,draftMessages,filterTimeline,managementChip,requiresAction,responseTagLabel,sentStatusLabel,timelineChannelLabel,timelineChips,visibleTimeline,withDaySeparators,type TimelineEntry} from './communicationTimeline';
+import {isWaitingForScript,scriptWaitRemainingMs,atListLimit,buildCommunicationTimeline,isHiddenFromConversation,callResultLabel,sentTone,draftMessages,filterTimeline,managementChip,requiresAction,responseTagLabel,sentStatusLabel,timelineChannelLabel,timelineChips,visibleTimeline,withDaySeparators,type TimelineEntry} from './communicationTimeline';
 
 const at=(day:number,hour=12)=>new Date(`2026-10-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:00:00-03:00`);
 const message=(over:Partial<Message>&{id:string}):Message=>({accountId:'5',leadId:null,contactId:null,channel:'whatsapp',recipient:'+5493442000000',recipientName:'Julia',subject:'',body:'',htmlBody:null,textBody:'Hola',templateSnapshot:null,ownerEmail:'leo@example.com',activityId:null,outboxId:null,taskId:null,status:'manual_sent',revision:1,lastInteractionAt:at(1),lastActorEmail:null,createdAt:at(1),updatedAt:at(1),...over});
@@ -192,5 +192,20 @@ describe('spec 90 review fixes',()=>{
  it('names a received social row from another network «Red social» under «Otros» (L2)',()=>{
   const entries=buildCommunicationTimeline({messages:[],inbound:[inbound({id:'fb',channel:'social',channelDetail:'facebook'}),inbound({id:'ig',channel:'social',channelDetail:'instagram',receivedAt:at(2)}),inbound({id:'legacy',channel:'social',channelDetail:null,receivedAt:at(3)})]});
   expect(entries.map(e=>[e.channel,e.channelLabel])).toEqual([['other','Red social'],['instagram','Instagram'],['instagram','Instagram']]);
+ });
+});
+
+describe('isWaitingForScript (spec 100 §9, D7)',()=>{
+ const t0=at(30,10).getTime(),opened=(over:Partial<Message>={})=>message({id:'wa',status:'whatsapp_opened',lastInteractionAt:new Date(t0),...over});
+ it('waits 5 minutes for the WhatsApp user script after an open, then asks «¿Lo enviaste?»',()=>{
+  expect(isWaitingForScript({message:opened(),now:t0+60_000})).toBe(true);
+  expect(scriptWaitRemainingMs({message:opened(),now:t0+60_000})).toBe(4*60_000);
+  expect(isWaitingForScript({message:opened(),now:t0+5*60_000})).toBe(false);
+  expect(scriptWaitRemainingMs({message:opened(),now:t0+6*60_000})).toBeNull();
+ });
+ it('never waits for a confirmed send, an Instagram attempt or an open without a time',()=>{
+  expect(isWaitingForScript({message:opened({status:'manual_sent'}),now:t0+1})).toBe(false);
+  expect(isWaitingForScript({message:opened({channel:'social',status:'instagram_opened',destinationDetail:'instagram'}),now:t0+1})).toBe(false);
+  expect(isWaitingForScript({message:opened({lastInteractionAt:null}),now:t0+1})).toBe(false);
  });
 });

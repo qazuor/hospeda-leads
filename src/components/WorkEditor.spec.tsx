@@ -53,7 +53,7 @@ describe('D5 warning for «Ya tengo otra tarea agendada»',()=>{
 });
 
 describe('toast after saving: next pending in the business (spec 99 §3.6)',()=>{
- const followUps=(unconfirmed:number,outcomes:number)=>({unconfirmed:{items:[],count:unconfirmed},outcomes:{items:[],count:outcomes}});
+ const none={items:[],count:0,groupCount:0},followUps=(unconfirmed:number,outcomes:number)=>({unconfirmed:{items:[],count:unconfirmed,groupCount:unconfirmed},outcomes:{items:[],count:outcomes,groupCount:outcomes},expired:{unconfirmed:none,outcomes:none}});
  it('names the next task of the management or a general task of the business',()=>{
   const general=task('general'),other={...task('other'),leadId:'8',dueDate:'2099-10-01'},own={...task('own'),leadId:'7',dueDate:'2099-11-02'};
   expect(nextPendingNotice({tasks:[own,other,general],accountId:'1',leadId:'7',followUps:followUps(1,2)})).toEqual({description:'Próximo pendiente: general · '+formatDate('2099-10-30'),link:{label:'Ver pendiente',href:'/my-day?accountId=1&taskId=general'}});

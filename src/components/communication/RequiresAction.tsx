@@ -4,10 +4,10 @@ import {AutoOutcomeCorrection,AutoOutcomeNote,canFixAutoOutcome} from './AutoOut
 import type {InboundMessage,Message,PendingOutcome} from '../../endpoints/communication.schema';
 import {formatDateTime} from '../../helpers/crmDates';
 import {actorLabel} from '../../helpers/crmLabels';
-import {useInstagramWaitNow} from './useInstagramWait';
+import {useConfirmWaitNow} from './useInstagramWait';
 import {instagramTarget,isInstagramAttempt,isWaitingForInstagramEcho} from '../../helpers/instagramChat';
 import {OutcomeAfterContact} from '../OutcomeAfterContact';
-import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS,actionSummary,isConfirmableOpen,requiresAction,timelineChannel,timelineChannelLabel} from '../../helpers/communicationTimeline';
+import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS,WHATSAPP_WAITING_HINT,WHATSAPP_WAITING_STATUS,actionSummary,isWaitingForScript,isConfirmableOpen,requiresAction,timelineChannel,timelineChannelLabel} from '../../helpers/communicationTimeline';
 import {crmSuccess} from '../../helpers/crmFeedback';
 import {toast} from 'sonner';
 import {copyInGesture,instagramOpenedToast,isCoarsePointer,openInstagramForPaste} from '../InstagramOpenChat';
@@ -45,16 +45,16 @@ function ReopenInstagram({message}:{message:Message}){
 /**
  * An opened WhatsApp or Instagram nobody confirmed (spec 92 owner decision): it is not in «Conversación», so this entry is
  * self-contained. It shows what was prepared and carries «Sí, se envió» / «No se envió»; an Instagram attempt still waiting
- * for Meta's echo says so, and an Instagram attempt also offers «Copiar y abrir de nuevo». Its sales material record (with
+ * for Meta's echo, or a WhatsApp open still waiting for the user script (spec 100 §9), says so, and an Instagram attempt also offers «Copiar y abrir de nuevo». Its sales material record (with
  * «Revocar enlace») is here too, so the public link can be revoked before the send is confirmed. Nothing here scrolls.
  */
-function ConfirmEntry({view,message,now}:{view:CommunicationView;message:Message;now:number}){
+function ConfirmEntry({view,message,now,counted}:{view:CommunicationView;message:Message;now:number;/** The server lists it: its wait is over by the database clock, whatever the client clock says. */counted:boolean}){
  const own=message.ownerEmail===view.userEmail,instagram=isInstagramAttempt(message),channel=instagram?'instagram':'whatsapp',name=instagram?'Instagram':'WhatsApp';
- const waiting=instagram&&isWaitingForInstagramEcho({message,now}),text=(message.textBody||message.body||'').trim(),[fixingOutcome,setFixingOutcome]=useState(false);
+ const waiting=!counted&&(instagram?isWaitingForInstagramEcho({message,now}):isWaitingForScript({message,now})),text=(message.textBody||message.body||'').trim(),[fixingOutcome,setFixingOutcome]=useState(false);
  return <li><div role="group" aria-label={name+' sin confirmar para '+(message.recipientName||message.recipient)} className={styles.actionCard} data-waiting={waiting||undefined}>
   <div className={styles.actionBody}><span className={styles.channel} data-channel={channel}><ChannelIcon channel={channel} size={18}/></span><div>
-   <span className={styles.actionTitle} role={waiting?'status':undefined}>{waiting?INSTAGRAM_WAITING_STATUS:'¿Lo enviaste?'}</span>
-   <p className={styles.actionText}>{own?'Abriste':'Se abrió'} {name} para {message.recipientName||message.recipient} ({message.recipient}) el {formatDateTime(message.lastInteractionAt??message.updatedAt)}{own?'':' · '+actorLabel(message.ownerEmail,view.detail?.users)}. {waiting?INSTAGRAM_WAITING_HINT:`Abrir ${name} no confirma el envío${instagram?' y Instagram no avisó del envío':''}.`}</p>
+   <span className={styles.actionTitle} role={waiting?'status':undefined}>{waiting?(instagram?INSTAGRAM_WAITING_STATUS:WHATSAPP_WAITING_STATUS):'¿Lo enviaste?'}</span>
+   <p className={styles.actionText}>{own?'Abriste':'Se abrió'} {name} para {message.recipientName||message.recipient} ({message.recipient}) el {formatDateTime(message.lastInteractionAt??message.updatedAt)}{own?'':' · '+actorLabel(message.ownerEmail,view.detail?.users)}. {waiting?(instagram?INSTAGRAM_WAITING_HINT:WHATSAPP_WAITING_HINT):`Abrir ${name} no confirma el envío${instagram?' y Instagram no avisó del envío':''}.`}</p>
    {text&&<ClampedText className={styles.actionQuote} text={text} lines={3}/>}
    <MessageMaterialRecord view={view} message={message}/>
   </div></div>
@@ -96,7 +96,7 @@ function UnconfirmedMaterialEntry({view,message}:{view:CommunicationView;message
 }
 
 /** One «Requiere acción» line: a received message to review, a loaded unconfirmed open, or a server pending send without its loaded message. */
-type Entry={key:string;at:Date}&({kind:'review';inbound:InboundMessage}|{kind:'confirm';message:Message}|{kind:'pending';item:PendingOutcome});
+type Entry={key:string;at:Date}&({kind:'review';inbound:InboundMessage}|{kind:'confirm';message:Message;counted:boolean}|{kind:'pending';item:PendingOutcome});
 
 /**
  * «Requiere acción · N», spec 91 §9: a compact summary («N mensajes por revisar · M envíos sin confirmar»). Each received
@@ -104,18 +104,18 @@ type Entry={key:string;at:Date}&({kind:'review';inbound:InboundMessage}|{kind:'c
  * entries are the server's `followUps.unconfirmed` (the same list and count as Hoy), drawn from the loaded message when there is one,
  * and «Anotá cómo salió» is `followUps.outcomes`. A loaded open the viewer may answer (`canConfirmSend`) that the server leaves out
  * (No contactar, closed management, archived business, before the outcome window, someone else's open for an admin, an Instagram
- * attempt still waiting for Meta's echo or not listed yet) is listed too, so it can still be resolved: «Sí, se envió» carries its
+ * attempt still waiting for Meta's echo, a WhatsApp open still waiting for the user script, or not listed yet) is listed too, so it can still be resolved: «Sí, se envió» carries its
  * block reason and «No se envió» stays available. Those entries are not counted, so the shared count stays the server's.
  */
 export function RequiresAction({view,onFocus}:{view:CommunicationView;onFocus:(key:string)=>void}){
- // An Instagram attempt waiting for its echo (spec 92) switches to «¿Lo enviaste?» when its 15 minutes end; the reload brings the server list.
- const now=useInstagramWaitNow(view.data.messages),qc=useQueryClient(),started=useRef(false);
+ // An open waiting for Instagram's echo (spec 92, 15 min) or the WhatsApp script (spec 100, 5 min) switches to «¿Lo enviaste?» when its wait ends; the reload brings the server list.
+ const now=useConfirmWaitNow(view.data.messages),qc=useQueryClient(),started=useRef(false);
  useEffect(()=>{if(!started.current){started.current=true;return;}void qc.invalidateQueries({queryKey:['communication']});},[now,qc]);
  const followUps=view.readOnly?undefined:view.data.followUps,byId=new Map(view.data.messages.map(m=>[String(m.id),m]));
  const unconfirmed=followUps?.unconfirmed.items??[],serverIds=new Set(unconfirmed.map(u=>String(u.id)));
  const uncounted=view.data.messages.filter(m=>!serverIds.has(String(m.id))&&canConfirmSend({view,message:m}));
  const review=requiresAction({inbound:view.data.inbound,messages:[],userEmail:view.userEmail,admin:view.admin,readOnly:view.readOnly});
- const confirm:Entry[]=[...unconfirmed.map((item):Entry=>{const message=byId.get(String(item.id)),at=new Date(item.lastInteractionAt);return message&&isConfirmableOpen(message)?{kind:'confirm',key:'out:'+item.id,at,message}:{kind:'pending',key:'out:'+item.id,at,item};}),...uncounted.map((message):Entry=>({kind:'confirm',key:'out:'+message.id,at:new Date(message.lastInteractionAt??message.updatedAt),message}))];
+ const confirm:Entry[]=[...unconfirmed.map((item):Entry=>{const message=byId.get(String(item.id)),at=new Date(item.lastInteractionAt);return message&&isConfirmableOpen(message)?{kind:'confirm',key:'out:'+item.id,at,message,counted:true}:{kind:'pending',key:'out:'+item.id,at,item};}),...uncounted.map((message):Entry=>({kind:'confirm',key:'out:'+message.id,at:new Date(message.lastInteractionAt??message.updatedAt),message,counted:false}))];
  const items=[...review.flatMap((r):Entry[]=>r.kind==='review'?[{kind:'review',key:r.key,at:r.at,inbound:r.inbound}]:[]),...confirm].sort((x,y)=>y.at.getTime()-x.at.getTime()||x.key.localeCompare(y.key));
  const prompted=new Set(confirm.flatMap(c=>c.kind==='confirm'?[String(c.message.id)]:[]));
  const outcomes=followUps?.outcomes.items??[],outcomeCount=followUps?.outcomes.count??0,unconfirmedCount=followUps?.unconfirmed.count??0;
@@ -125,7 +125,7 @@ export function RequiresAction({view,onFocus}:{view:CommunicationView;onFocus:(k
   <h4 className={styles.sectionTitle} data-tone="action">Requiere acción · {count}</h4>
   {!count&&!items.length&&!materials.length&&<p className={styles.empty}>Nada pendiente: no hay mensajes por revisar ni envíos sin confirmar.</p>}
   {count>0&&<p className={styles.summary}>{actionSummary({review:review.length,unconfirmed:unconfirmedCount,outcomes:outcomeCount})}</p>}
-  {items.length>0&&<ul className={styles.actionList}>{items.map(entry=>entry.kind==='review'?<ReviewEntry key={entry.key} item={entry.inbound} onFocus={onFocus}/>:entry.kind==='confirm'?<ConfirmEntry key={entry.key} view={view} message={entry.message} now={now}/>:<PendingConfirmEntry key={entry.key} item={entry.item}/>)}</ul>}
+  {items.length>0&&<ul className={styles.actionList}>{items.map(entry=>entry.kind==='review'?<ReviewEntry key={entry.key} item={entry.inbound} onFocus={onFocus}/>:entry.kind==='confirm'?<ConfirmEntry key={entry.key} view={view} message={entry.message} now={now} counted={entry.counted}/>:<PendingConfirmEntry key={entry.key} item={entry.item}/>)}</ul>}
   {unconfirmedCount>unconfirmed.length&&<p className={styles.summary}>Se muestran los {unconfirmed.length} más recientes de {unconfirmedCount}.</p>}
   {materials.length>0&&<ul className={styles.actionList} aria-label="Material en envíos sin confirmar">{materials.map(m=><UnconfirmedMaterialEntry key={m.id} view={view} message={m}/>)}</ul>}
   <PendingOutcomes items={outcomes} count={outcomeCount} showBusiness={false}/>

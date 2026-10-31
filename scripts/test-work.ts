@@ -423,7 +423,7 @@ try{
  const foreignLeadCall=await pendingCall(a.id,foreignLead.id);
  assert(!(await pendingIds()).includes(foreignLeadCall.id),'A management of another seller is not hers to resolve');
  // No contactar and closed managements block confirming a send, so those unconfirmed sends stay out; confirmed contacts stay listed.
- const dncOpened=await pendingCall(dnc.acc.id,dnc.lead.id,'whatsapp_opened','whatsapp'),dncCall=await pendingCall(dnc.acc.id,dnc.lead.id);
+ const dncOpened=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:dnc.acc.id,leadId:dnc.lead.id,at:new Date(Date.now()-10*60000)})/* past the WhatsApp script wait, so only No contactar keeps it out */,dncCall=await pendingCall(dnc.acc.id,dnc.lead.id);
  const closedOpened=await pendingCall(closedLead.acc.id,closedLead.lead.id,'manual_pending','social'),closedCall=await pendingCall(closedLead.acc.id,closedLead.lead.id);
  let ids=await pendingIds();
  for(const id of [dncOpened.id,closedOpened.id])assert(!ids.includes(id),'An unconfirmed send that cannot be confirmed is left to the communication panel');
@@ -438,19 +438,21 @@ try{
  assert((await pendingIds()).includes(dncAnswerCall.id));
  for(const [message,category] of [[dncAnswerCall,'do_not_contact'],[plainAnswerCall,'interested']] as const)await sql`INSERT INTO crm_communication_responses(id,account_id,original_account_id,channel,recipient,recipient_name,linked_message_id,category,summary,actor_email) VALUES(${crypto.randomUUID()}::uuid,${dncAnswer.id},${dncAnswer.id},'call','x','x',${message.id}::uuid,${category},'x',${user.user.email})`.execute(db);
  ids=await pendingIds();assert(!ids.includes(dncAnswerCall.id),'A linked No contactar response resolves the contact');assert(ids.includes(plainAnswerCall.id),'Another response category does not');
- // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp.
- const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await pendingCall(laterAccount.id,null,'whatsapp_opened','whatsapp');
+ // On a freshly migrated database (CI) crm_contact_outcome_since is newer than the fixtures below (some are days old, spec 100
+ // expiry); move it back while these blocks run.
+ const splitSince=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+ await sql`UPDATE app_settings SET value=to_char((now()-interval '30 days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '20 days'`.execute(db);
+ try{
+ // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp (opened 10 minutes ago:
+ // a younger one is still waiting for the user script, spec 100 §9).
+ const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:laterAccount.id,leadId:null,at:new Date(Date.now()-10*60000)});
  assert((await pendingIds()).includes(laterCall.id));
  await new Promise(r=>setTimeout(r,20));
  await mutate({action:'activity_save',accountId:laterAccount.id,leadId:null,title:'Charla en la oficina',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
  ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
  // Spec 99 §3.6: one server definition, two lists. Hoy filtered by the business, the business «Comunicación» and the detail the work
  // editor toast reads return the same lists and counts; opened chats and manual attempts are «Envíos sin confirmar», evidence «Anotá cómo salió».
- // On a freshly migrated database (CI) crm_contact_outcome_since is newer than these fixtures; move it back while the block runs.
- const splitSince=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
- await sql`UPDATE app_settings SET value=to_char((now()-interval '2 hours') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '1 hour'`.execute(db);
- try{
- const split=await fresh('Dos listas');const at=(minutes:number)=>new Date(Date.now()-minutes*60000);
+ const split=await fresh('Dos listas');const at=(minutes:number)=>new Date(Date.now()-(minutes+10)*60000);// past the WhatsApp script wait
  const splitUnconfirmed=[await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(1)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(2)}),await contactMessage({status:'manual_pending',channel:'call',accountId:split.id,leadId:null,at:at(3)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(4)})];
  const splitOutcomes=[await contactMessage({status:'manual_sent',channel:'call',accountId:split.id,leadId:null,at:at(5)}),await contactMessage({status:'manual_no_contact',channel:'call',accountId:split.id,leadId:null,at:at(6)}),await contactMessage({status:'manual_sent',channel:'whatsapp',accountId:split.id,leadId:null,at:at(7)})];
  const hoySplit=(await read('mode=day&accountId='+split.id)).followUps!;
@@ -467,9 +469,56 @@ try{
  const wholeDay=(await read('mode=day')).followUps!;
  assert(wholeDay.unconfirmed.count>=4&&wholeDay.outcomes.count>=3,'Unfiltered Hoy counts every business');
  const cut=await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:split.id,limit:2});
- assert.deepEqual([cut.unconfirmed.items.length,cut.unconfirmed.count,cut.outcomes.items.length,cut.outcomes.count],[2,4,2,3],'Each list is cut at the limit and its count does not depend on it');
+ assert.deepEqual([cut.unconfirmed.items.length,cut.unconfirmed.count,cut.unconfirmed.groupCount],[2,4,4],'«¿Lo enviaste?» is cut at the limit per send and its count does not depend on it');
+ assert.deepEqual([cut.outcomes.items.length,cut.outcomes.count,cut.outcomes.groupCount],[3,3,1],'Spec 100 §6: «Anotá cómo salió» is cut per management group, so the single «Sin gestión» group arrives whole');
  const otherSplit=await fresh('Dos listas, otro negocio');await contactMessage({status:'manual_sent',channel:'call',accountId:otherSplit.id,leadId:null,at:at(1)});
  assert.deepEqual((await read('mode=detail&accountId='+split.id+'&followUps=1')).followUps,hoySplit,'Another business never leaks into the lists');
+ // Spec 100 §6, §7, §9: expiry by the database clock (72 h unconfirmed, 7 days after a management's newest send), per-management
+ // groups with their own count and limit, and the 5-minute WhatsApp script wait. Reading never writes.
+ const stale=await fresh('Vencimiento');const hours=(h:number)=>new Date(Date.now()-h*3600_000);
+ const [planA,planB]=await Promise.all(['Plan A','Plan B'].map(opportunityName=>db.insertInto('leads').values({nombre:stale.nombre,accountId:stale.id,opportunityName,estado:'Interesado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow()));
+ const openedOld=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:stale.id,leadId:null,at:hours(73)});
+ const openedRecent=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:stale.id,leadId:null,at:hours(71)});
+ const openedWaiting=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:stale.id,leadId:null,at:hours(1/30)});// 2 minutes
+ const manualFresh=await contactMessage({status:'manual_pending',channel:'call',accountId:stale.id,leadId:null,at:hours(1/30)});
+ const aOld=await contactMessage({status:'manual_sent',channel:'call',accountId:stale.id,leadId:planA.id,at:hours(8*24+2)}),aNew=await contactMessage({status:'manual_sent',channel:'whatsapp',accountId:stale.id,leadId:planA.id,at:hours(24)});
+ const bNew=await contactMessage({status:'manual_sent',channel:'call',accountId:stale.id,leadId:planB.id,at:hours(8*24)}),bOld=await contactMessage({status:'manual_no_contact',channel:'call',accountId:stale.id,leadId:planB.id,at:hours(9*24)});
+ const general=await contactMessage({status:'manual_no_contact',channel:'call',accountId:stale.id,leadId:null,at:hours(3*24)});
+ const fixtureIds=[openedOld,openedRecent,openedWaiting,manualFresh,aOld,aNew,bNew,bOld,general].map(m=>m.id);
+ const snapshot=async()=>({messages:(await sql<{id:string;status:string;updatedAt:Date;lastInteractionAt:Date}>`SELECT id::text,status,updated_at,last_interaction_at FROM crm_messages WHERE id=ANY(${fixtureIds}::uuid[]) ORDER BY id`.execute(db)).rows,journal:Number((await sql<{n:string}>`SELECT count(*) AS n FROM crm_communication_journal WHERE entity_id=ANY(${fixtureIds}::text[])`.execute(db)).rows[0].n),activities:Number((await sql<{n:string}>`SELECT count(*) AS n FROM crm_activities WHERE account_id=${stale.id}`.execute(db)).rows[0].n)});
+ const before=await snapshot();
+ const hoyStale=(await read('mode=day&accountId='+stale.id)).followUps!,listIds=(l:{items:{id:string}[]})=>l.items.map(p=>p.id);
+ assert.deepEqual(listIds(hoyStale.unconfirmed),[manualFresh.id,openedRecent.id],'71 h still counts; a manual attempt has no script wait; a 2-minute WhatsApp open waits for the script');
+ assert.deepEqual([hoyStale.unconfirmed.count,hoyStale.unconfirmed.groupCount],[2,2]);
+ assert.deepEqual(listIds(hoyStale.expired.unconfirmed),[openedOld.id],'An open of 73 h expires');
+ assert.deepEqual([hoyStale.expired.unconfirmed.count,hoyStale.expired.unconfirmed.groupCount],[1,1]);
+ assert(![...listIds(hoyStale.unconfirmed),...listIds(hoyStale.expired.unconfirmed)].includes(openedWaiting.id),'An open waiting for the script is neither counted nor expired');
+ assert.deepEqual(listIds(hoyStale.outcomes),[aNew.id,general.id,aOld.id],'A group with a 1-day send stays whole, its 8-day send included');
+ assert.deepEqual([hoyStale.outcomes.count,hoyStale.outcomes.groupCount],[3,2],'Counted per management: Plan A and «Sin gestión»');
+ assert.deepEqual(listIds(hoyStale.expired.outcomes),[bNew.id,bOld.id],'A management whose newest send is 8 days old expires whole');
+ assert.deepEqual([hoyStale.expired.outcomes.count,hoyStale.expired.outcomes.groupCount],[2,1]);
+ assert.deepEqual(hoyStale.outcomes.items.map(p=>p.delegatedTaskId),[null,null,null],'Outcome items carry their delegated task (none here)');
+ const commStale=superjson.parse<CommunicationDetail&{error?:string}>(await (await communicationGet(new Request('http://localhost/_api/communication?accountId='+stale.id,{headers:{cookie:user.cookie}}))).text());
+ assert.deepEqual(commStale.followUps,hoyStale,'Hoy filtered by the business and Comunicación return the same lists, groupCount and expired');
+ assert.deepEqual((await read('mode=detail&accountId='+stale.id+'&followUps=1')).followUps,hoyStale,'The work editor toast reads the same object');
+ const staleCut=await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:stale.id,limit:1});
+ assert.deepEqual(listIds(staleCut.outcomes),[aNew.id,aOld.id],'The limit counts groups: the newest management arrives with all its sends');
+ assert.deepEqual([staleCut.outcomes.count,staleCut.outcomes.groupCount],[3,2],'Counts do not depend on the limit');
+ assert.deepEqual(listIds(staleCut.unconfirmed),[manualFresh.id]);assert.deepEqual(listIds(staleCut.expired.outcomes),[bNew.id,bOld.id],'Expired groups are cut per group too');
+ assert.deepEqual(await snapshot(),before,'Expiring is a read: no status, journal or activity change');
+ // A group lists its newest sends only (FOLLOW_UP_GROUP_ITEM_LIMIT); counts still cover every send.
+ {const many=await fresh('Muchos envíos');const sends=[];for(let n=0;n<12;n++)sends.push(await contactMessage({status:'manual_sent',channel:'call',accountId:many.id,leadId:null,at:new Date(Date.now()-(10+n)*60000)}));
+ const capped=(await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:many.id})).outcomes;
+ assert.deepEqual(capped.items.map(p=>p.id),sends.slice(0,10).map(m=>m.id),'One group lists its 10 newest sends');assert.deepEqual([capped.count,capped.groupCount],[12,1],'The count still covers every send');}
+ // A new send in an expired management brings the whole group back to the count.
+ const bRevived=await contactMessage({status:'manual_sent',channel:'call',accountId:stale.id,leadId:planB.id,at:hours(2)});
+ const revived=(await read('mode=day&accountId='+stale.id)).followUps!;
+ assert.deepEqual(listIds(revived.outcomes),[bRevived.id,aNew.id,general.id,bNew.id,aOld.id,bOld.id]);assert.deepEqual([revived.outcomes.groupCount,revived.expired.outcomes.count],[3,0]);
+ // One outcome recorded on a management's newest send resolves every send of that management (existing rule, spec 99 §6).
+ await new Promise(r=>setTimeout(r,20));
+ await mutate({action:'activity_save',accountId:stale.id,leadId:planB.id,title:'Contacto por teléfono',typeId:'call',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'phone',messageId:bRevived.id,outcome:'no_answer',result:'No atendió',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ const resolved=(await read('mode=day&accountId='+stale.id)).followUps!;
+ assert.deepEqual(listIds(resolved.outcomes),[aNew.id,general.id,aOld.id],'The three Plan B sends leave with one outcome');assert.equal(resolved.outcomes.groupCount,2);
  }finally{if(splitSince)await sql`UPDATE app_settings SET value=${splitSince} WHERE key='crm_contact_outcome_since'`.execute(db);}
  // Edits stay exempt from linking.
  await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);

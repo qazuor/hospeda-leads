@@ -90,7 +90,8 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  const igEntry=required.getByRole('group',{name:/^Instagram sin confirmar para /}),waEntry=required.getByRole('group',{name:/^WhatsApp sin confirmar para /});
  await expect(igEntry).toContainText('Esperando que Instagram confirme el envío…');await expect(igEntry).toContainText(text.slice(0,40));
  for(const name of ['Sí, se envió','No se envió','Copiar y abrir de nuevo'])await expect(igEntry.getByRole('button',{name,exact:true})).toBeVisible();
- await expect(waEntry).toContainText('¿Lo enviaste?');await expect(waEntry).toContainText(waText);await expect(waEntry.getByRole('button',{name:'Copiar y abrir de nuevo',exact:true})).toHaveCount(0);
+ // Spec 100 §9: a WhatsApp opened seconds ago waits for the user script (uncounted) and stays answerable.
+ await expect(waEntry).toContainText('Esperando que el script de WhatsApp confirme el envío');for(const name of ['Sí, se envió','No se envió'])await expect(waEntry.getByRole('button',{name,exact:true})).toBeVisible();await expect(waEntry).toContainText(waText);await expect(waEntry.getByRole('button',{name:'Copiar y abrir de nuevo',exact:true})).toHaveCount(0);
  await expect(required.getByRole('button',{name:'Ver en la conversación',exact:true})).toHaveCount(0);
  await expect(conversation.getByText(text.slice(0,40))).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
  if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await required.screenshot({path:shots+'/3-requires-action-unconfirmed.png'});}

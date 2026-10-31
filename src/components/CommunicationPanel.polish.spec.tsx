@@ -212,6 +212,13 @@ describe('«Requiere acción» summary (§9)',()=>{
   expect(within(late).getByText('¿Lo enviaste?')).toBeTruthy();expect(within(late).queryByRole('status')).toBeNull();
   expect(within(late).getByRole('button',{name:'Copiar y abrir de nuevo'})).toBeTruthy();
  });
+ it('lists a WhatsApp open while the user script can still confirm it, uncounted and answerable (spec 100 §9)',async()=>{
+  setup({data:{messages:[message('fresh',{status:'whatsapp_opened',lastInteractionAt:new Date(now-60_000)})],followUps:followUps()}});show();await ready();
+  const region=screen.getByRole('region',{name:'Requiere acción'}),entry=within(region).getByRole('group',{name:'WhatsApp sin confirmar para Julia'});
+  expect(within(entry).getByRole('status').textContent).toBe('Esperando que el script de WhatsApp confirme el envío');
+  for(const name of ['Sí, se envió','No se envió'])expect(within(entry).getByRole('button',{name})).toBeTruthy();
+  expect(within(region).getByRole('heading',{name:'Requiere acción · 0'})).toBeTruthy();
+ });
  it('keeps the own Instagram entry after the client wait ends until the server lists it, then shows it once',async()=>{
   // Clock skew or a reload still in flight: the server does not list it yet, but «¿Lo enviaste?» must not disappear.
   const ig=message('skew',{channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',status:'instagram_opened',lastInteractionAt:new Date(now-16*60_000)});

@@ -102,12 +102,25 @@ try{
   const prepJournal=(await sql<{after:{managementOwner:string}}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_id=${draftB.id} AND action='message_prepared_by_delegation'`.execute(db)).rows;assert.equal(prepJournal[0].after.managementOwner,user.user.email,'L4: owner journaled at prepare time');
   await db.updateTable('crmTasks').set({status:'completed',completedAt:new Date()}).where('id','=',t2.id).execute();
   await delegatedCall({action:'outcome',id:draftB.id,taskId:String(t2.id),event:'manual_sent',notes:'x'},403);// the delegate cannot use a closed task
-  const adminPending=await pendingContactFollowUps(db,{ownerEmail:admin.user.email,isAdmin:true,accountId:String(delegatedAccount.id),leadId:String(delegatedLead.id)});
+  // Spec 100 §9: a WhatsApp opened just now waits 5 minutes for the user script; age it (and the outcome cutoff) to read it as asking.
+  const delegatedSince=await backOutcomeCutoff();
+  try{
+  const delegatedPending=()=>pendingContactFollowUps(db,{ownerEmail:admin.user.email,isAdmin:true,accountId:String(delegatedAccount.id),leadId:String(delegatedLead.id)});
+  assert(!(await delegatedPending()).unconfirmed.items.some(p=>String(p.id)===String(draftB.id)),'Spec 100 §9: a fresh WhatsApp open is not asked yet');
+  await sql`UPDATE crm_messages SET last_interaction_at=now()-interval '10 minutes' WHERE id=${draftB.id}::uuid`.execute(db);
+  const adminPending=await delegatedPending();
   assert(adminPending.unconfirmed.items.some(p=>String(p.id)===String(draftB.id)),'M1: the admin sees the delegated unconfirmed WhatsApp among «Envíos sin confirmar»');
   assert(!adminPending.outcomes.items.some(p=>String(p.id)===String(draftB.id)),'Spec 99 §3.6: an unconfirmed send is never in «Anotá cómo salió»');
   assert.equal(adminPending.unconfirmed.count,adminPending.unconfirmed.items.length,'Spec 99 §3.6: the count comes with the list');
+  assert.equal(adminPending.unconfirmed.items.find(p=>String(p.id)===String(draftB.id))?.delegatedTaskId,String(t2.id),'Spec 100 §6: the item names its delegated task');
   await call({action:'outcome',id:draftB.id,event:'manual_sent',notes:'Confirmado por admin'},200,admin.cookie);
   assert.equal((await message(draftB.id)).status,'manual_sent');
+  // Spec 100 §8: answering «¿Lo enviaste?» again on a confirmed send is a conflict the client shows as information.
+  for(const event of ['manual_sent','manual_not_sent'])assert.equal((await call({action:'outcome',id:draftB.id,event,notes:''},409,admin.cookie)).error,'Este envío ya estaba confirmado.');
+  const confirmedPending=await delegatedPending(),delegatedOutcome=confirmedPending.outcomes.items.find(p=>String(p.id)===String(draftB.id));
+  assert.equal(delegatedOutcome?.delegatedTaskId,String(t2.id),'The confirmed delegated send asks how it went in its own task group');
+  assert.equal(confirmedPending.outcomes.groupCount,new Set(confirmedPending.outcomes.items.map(p=>p.accountId+'|'+(p.leadId??'')+'|'+(p.delegatedTaskId??''))).size,'groupCount counts business, management and delegated task groups');
+  }finally{await restoreOutcomeCutoff(delegatedSince);}
   // L2: a delegated message is not resolved from another task
   const t3=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Other task '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-11-04' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
   const t4=await db.insertInto('crmTasks').values({accountId:delegatedAccount.id,leadId:delegatedLead.id,title:'Own task '+stamp,typeId:'message',assignedUserEmail:other.user.email,dueDate:'2026-11-05' as never,priority:'media'}).returningAll().executeTakeFirstOrThrow();
@@ -468,6 +481,18 @@ try{
   assert.deepEqual(await saved(fallback.id),{contactId:bea,linkedMessageId:null,leadId:String(lead.id)},'without choices the row values are used');
   console.log('Spec 99 §3.4: inbound_register saves what the screen shows (undefined keeps the row value, null clears it) and validates person, send and management');
   }finally{await restoreOutcomeCutoff(since);}
+ }
+ // Spec 100 §8: a bulk «Sí, se enviaron» is one `outcome` call per open, each with its own server checks: an open in a No contactar
+ // business is refused alone, the others are confirmed.
+ {
+  const openIn=async(name:string,dnc:boolean)=>{const acc=await db.insertInto('crmAccounts').values({nombre:name+' '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();const id=randomUUID();
+   await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,body,text_body,owner_email,status,last_interaction_at) VALUES(${id}::uuid,${acc.id},${acc.id},'whatsapp','+5493442555000','Ana','Hola','Hola',${user.user.email},'whatsapp_opened',now()-interval '1 hour')`.execute(db);
+   if(dnc)await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',acc.id).execute();return id;};
+  const bulk=[await openIn('Masivo uno',false),await openIn('Masivo No contactar',true),await openIn('Masivo tres',false)];
+  const statuses:number[]=[];for(const id of bulk){const r=await post(request({action:'outcome',id,event:'manual_sent',notes:''},user.cookie));statuses.push(r.status);}
+  assert.deepEqual(statuses,[200,403,200],'Each open is checked on its own; No contactar refuses only its own');
+  assert.deepEqual([(await message(bulk[0])).status,(await message(bulk[1])).status,(await message(bulk[2])).status],['manual_sent','whatsapp_opened','manual_sent']);
+  console.log('Spec 100 §8: sequential outcome calls confirm per item and refuse the No contactar open alone');
  }
  // Merge all new relationships while preserving original attribution and snapshots.
  const dest=await db.insertInto('crmAccounts').values({nombre:'Destino '+stamp,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();let r=await quality(request({action:'merge_preview',sourceId:a.id,destinationId:dest.id}));assert.equal(r.status,200);const p=superjson.parse<any>(await r.text());r=await quality(request({action:'merge_confirm',sourceId:a.id,destinationId:dest.id,token:p.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Revisado en fixture',confirm:true}));assert.equal(r.status,200,await r.text());assert.equal((await message(id)).accountId,dest.id);assert.equal((await sql<{originalAccountId:string}>`SELECT original_account_id FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].originalAccountId,a.id);assert.equal((await sql<{accountId:string}>`SELECT account_id FROM crm_documents WHERE id=${did}::uuid`.execute(db)).rows[0].accountId,dest.id);
