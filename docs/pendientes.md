@@ -13,17 +13,13 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - **103** Bandeja sin asociar + Instagram + user script.
 - **104** pulido de ficha, formularios y visual.
 
-Spec 99 bloque 1: mergeado a `staging` en #296 (10 integraciones locales, typecheck, vitest, build y CI en verde). Queda medir con volumen real las búsquedas del journal por entidad antes de decidir un índice; bloque 4 pendiente.
+**Spec 99** (registro honesto de contactos): cerrada el 31/10/2026. Bloques 1–5 mergeados a `staging` con CI verde (#296, #297, #298, #299, #300).
 
-**Spec 99, bloque 2** (hora real del user script) está mergeado a `staging` en #298 (CI verde). Verificado el 31/10/2026: 7 integraciones (`test-userscript`, `test-communication`, `test-business-history`, `test-work`, `test-commercial`, `test-inbound-email`, `test-instagram-open-chat`) PASS sobre base descartable, typecheck, vitest (2246 tests) y build OK. Falta el PR a `staging` y su CI. Lo histórico no se corrige (la hora real no quedó guardada).
-
-**Spec 99, bloque 3** («Registrar respuesta» y «Respondido desde el CRM») está implementado localmente, con PR a `staging`. Verificado el 31/10/2026: 10 integraciones (`test-communication`, `test-userscript`, `test-inbound-email`, `test-inbound-email-ui`, `test-inbound-email-reply`, `test-email-uncertain`, `test-inbox`, `test-work`, `test-business-history`, `test-commercial`) PASS sobre base descartable, typecheck, vitest (2270 tests) y build OK, repetido tras la revisión; e2e de navegador sin correr. Falta el PR a `staging` y su CI. Al mergear el bloque 4 (reescribe `RequiresAction.tsx`), seguir usando `requiresAction`/`awaitingReview` de `communicationTimeline.ts`.
+Quedan abiertos de la spec 99:
+- **Para evaluar con el propietario (pedido del 31/10/2026):** la spec 96 §10.1 atribuye una respuesta sin envío vinculado al último envío abierto de su gestión, así que «No, es una respuesta nueva» igual puede cerrar el «Anotá cómo salió» de ese envío si se mantiene la gestión. ¿Se mantiene así o una respuesta nueva no debería resolver nada?
+- Medir con volumen real las búsquedas del journal por entidad (no hay índice `(entity_type, entity_id)`) antes de decidir una migración.
 
 Regla: el trabajo se mergea a `staging`; a `main` solo cuando todos los PR del lote estén en `staging` y el propietario lo pida (un merge a `main` despliega producción).
-
-**Spec 99, bloque 5** está mergeado a `staging` en #297 (CI verde). Verificado el 31/10/2026: `test-work`, `test-business-history`, `test-commercial` y `test-global-history` PASS sobre base descartable, typecheck, vitest (2237 tests) y build OK. Falta el e2e `contextual-work.e2e.ts`, el PR a `staging` y su CI.
-
-**Spec 99, bloque 4** (pendientes y toast, 3.6) está mergeado a `staging` en #299 (CI verde). Verificado el 31/10/2026: `test-work`, `test-communication`, `test-userscript`, `test-instagram-open-chat`, `test-business-history`, `test-commercial` y `test-inbound-email` PASS sobre base descartable recién sembrada; typecheck, vitest (2259 tests) y build OK (re-verificado tras la revisión). Falta correr los e2e de navegador (Hoy, Comunicación, `light-activity-log`), el PR a `staging` y su CI. La spec 100 parte de la forma `followUps`.
 
 Datos que necesitan aprobación del propietario (ningún agente los toca por iniciativa propia):
 - Negocio de prueba H1601 «PRUEBA UX — Hospeda — 02-10-2026» en producción.
