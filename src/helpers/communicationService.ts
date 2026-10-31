@@ -23,7 +23,7 @@ import {resolveTemplateMaterials} from './templateMaterialService';
 import {UNRESOLVED_MATERIAL_MESSAGE,hasMaterialReferences} from './templateMaterials';
 import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
-import {OUTCOME_READY_STATUSES,OUTCOME_STALE_DAYS,UNCONFIRMED_FOLLOW_UP_STATUSES,UNCONFIRMED_STALE_HOURS,WHATSAPP_SCRIPT_WAIT_MS,FOLLOW_UP_GROUP_ITEM_LIMIT,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
+import {ALREADY_CONFIRMED_MESSAGE,OUTCOME_READY_STATUSES,OUTCOME_STALE_DAYS,UNCONFIRMED_FOLLOW_UP_STATUSES,UNCONFIRMED_STALE_HOURS,WHATSAPP_SCRIPT_WAIT_MS,FOLLOW_UP_GROUP_ITEM_LIMIT,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
 import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {instagramAccountUsername,instagramThreadFor} from './userscriptInstagram';
@@ -615,7 +615,7 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   const m=await messageFor(e,input.id,user,true);await assertMessageTaskContext(e,m,input.taskId,user);
   const openedInstagram=m.status==='instagram_opened'&&isInstagramAttempt(m);
   // Spec 100 §8: the script, Meta's echo or another answer may have confirmed it first; the client shows this as information.
-  if(['manual_sent','manual_not_sent'].includes(input.event)&&m.status==='manual_sent')throw new CommunicationConflict('Este envío ya estaba confirmado.');
+  if(['manual_sent','manual_not_sent'].includes(input.event)&&m.status==='manual_sent')throw new CommunicationConflict(ALREADY_CONFIRMED_MESSAGE);
   if(['manual_sent','manual_not_sent'].includes(input.event)&&!(isOpenedUnconfirmed(m.status)&&(m.status==='whatsapp_opened'?m.channel==='whatsapp':openedInstagram)))throw new Error('Solo podés resolver un intento de WhatsApp o Instagram No confirmado.');
   if(m.status==='voided')throw new CommunicationConflict('Este registro fue anulado.');
   if(input.event!=='manual_sent'&&['draft','cancelled'].includes(m.status))throw new Error('El mensaje todavía no fue utilizado');
