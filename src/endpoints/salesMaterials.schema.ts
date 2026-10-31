@@ -13,7 +13,7 @@ export const salesMaterialMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('create'),id:uuid,title,description,kind,source:z.enum(['file','url']),categoryIds,version:salesMaterialVersionSource}),
  z.object({action:z.literal('update'),id:uuid,revision,title,description,kind,categoryIds}),
  z.object({action:z.literal('version'),id:uuid,revision,version:salesMaterialVersionSource}),
- z.object({action:z.literal('cover'),id:uuid,revision,uploadId:uuid.nullable(),/** Spec 95: a cover generated in the browser; never replaces a cover uploaded by hand. */auto:z.boolean().optional()}),
+ z.object({action:z.literal('cover'),id:uuid,revision,uploadId:uuid.nullable(),/** Spec 95: a cover generated in the browser; never replaces a cover uploaded by hand. */auto:z.boolean().optional(),/** Spec 102: with `auto`, an explicit request («Generar desde el archivo») may replace a cover removed by hand (`none`); ignored without `auto`. */replaceRemoved:z.boolean().optional()}),
  z.object({action:z.literal('archive'),id:uuid,revision}),
  z.object({action:z.literal('restore'),id:uuid,revision}),
  z.object({action:z.literal('category_create'),name:categoryName}),

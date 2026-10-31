@@ -1216,7 +1216,8 @@
           "Un cliente pide fotos de un alojamiento: buscá fotos en Material de venta y descargá la versión actual."
         ],
         "notes": [
-          "Las categorías las administra un administrador en «Configuración» → «Categorías de material»."
+          "Las categorías las administra un administrador en «Configuración» → «Categorías de material».",
+          "Portadas (administradores): un archivo sin portada elegida recibe una automática al guardarlo. Si no se puede generar (por ejemplo, un PDF de más de 150 MB o que no se puede leer), el aviso dice por qué y trae «Elegir portada». En «Portada» podés subir una imagen, también para un enlace externo, o usar «Generar desde el archivo» para reintentar la automática."
         ],
         "url": "/sales-material",
         "linkLabel": "Abrir Material de venta",
@@ -1233,7 +1234,10 @@
           "Archivar",
           "Restaurar",
           "Configuración",
-          "Categorías de material"
+          "Categorías de material",
+          "Elegir portada",
+          "Portada",
+          "Generar desde el archivo"
         ]
       },
       {

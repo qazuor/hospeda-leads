@@ -186,6 +186,11 @@ try{
  const linkHtml=await (await get(linkShare.path)).text();assert(linkHtml.includes('href="https://example.com/tour?x=1" target="_blank" rel="noopener noreferrer">Abrir</a>'));assert(!linkHtml.includes('Descargar'));
  assert.equal(meta(linkHtml,'og:image'),'https://crm.example.test/hospeda-logo.jpg');
  for(const suffix of ['/file','/download']){const r=await get(linkShare.path+suffix);assert.equal(r.status,404);assert.equal(r.headers.get('location'),null);}
+ // Spec 102 block 2: a link with a manual cover shows it on its page and in the WhatsApp preview instead of the logo.
+ const coveredLink=await material({title:'Tour con portada '+stamp,url:'https://example.com/tour-portada',cover:png});
+ const coveredShare=await createSalesMaterialShare(db,{user:owner,input:{materialId:coveredLink,accountId:b.accountId,leadId:b.leadId,contactId:b.contactId,channel:'whatsapp'}});
+ const coveredHtml=await (await get(coveredShare.path)).text();assert(coveredHtml.includes(`<img class="cover" src="${coveredShare.path}/cover" alt="">`));
+ assert.equal(meta(coveredHtml,'og:image'),'https://crm.example.test'+coveredShare.path+'/cover');assert.deepEqual(Buffer.from(await (await get(coveredShare.path+'/cover')).arrayBuffer()),png);
  checks++;
 
  // Storage missing: file material answers 503 (the rest of the CRM keeps working), an external URL still renders.
