@@ -330,6 +330,16 @@ Suite de navegador completa antes del merge de cada bloque (`npm run build && np
      - Contra: migración y pantalla de modelos; más de lo que pide el hallazgo.
    - **Recomendación: opción 2**, la más simple que deja de decir algo falso; la 1 si el propietario quiere conservar «INVITACIÓN» en el primer contacto.
 
+### Decisión del propietario (31/10/2026)
+
+- **D1:** «Derivada a Leandro» queda como está.
+- **D2:** el responsable del negocio (o de una gestión abierta) puede agregar restricciones por canal; levantarlas sigue siendo solo del admin.
+- **D3:** persona preseleccionada en «Anotar lo que pasó» cuando el negocio tiene una sola persona activa (visible en el resumen, se puede destildar).
+- **D4:** los valores fuera de catálogo existentes se corrigen con un runbook que aprueba el propietario; ningún agente lo ejecuta.
+- **D5:** las ciudades duplicadas existentes se corrigen con un runbook que aprueba el propietario; ningún agente lo ejecuta.
+- **D6:** rótulo del email «HOSPEDA · {vertical}».
+- **Confirmados:** en una gestión cerrada no hay botones de canal (aviso «abrí el negocio»); con un único resultado en la búsqueda de negocio aparece el botón «Elegir H123 · …» (no se elige solo). Esto resuelve el desvío del hallazgo 32.
+
 ## 12. Riesgos
 
 - **`contactName` de Gestiones** cambia lo que muestran y filtran las vistas guardadas sobre esa columna: ahora encuentran por la persona real. Es lo correcto, pero una vista guardada por un `contact_name` viejo distinto de la persona actual puede cambiar de resultados.

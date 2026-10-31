@@ -257,6 +257,15 @@ Recomendación D6, opción 1: **un solo control que busca, elige y crea.** Un `C
      - Contra: siguen siendo dos controles.
    - **Recomendación: opción 1.** Si al propietario lo que le molestó fue otra cosa (por ejemplo, no ver todas las categorías de un vistazo), la opción 2 es la alternativa.
 
+### Decisión del propietario (31/10/2026)
+
+- **D1:** portada automática de enlaces = imagen Open Graph buscada por el servidor con defensas SSRF.
+- **D2:** las portadas de archivos siguen en el navegador. Causa del PDF del smoke confirmada: pesaba más de 50 MB (límite viejo), resuelto con 150 MB.
+- **D3:** selector del vendedor: su vertical y «todas» arriba, «De otras verticales (N)» plegado, todo desplegado si arriba no queda nada.
+- **D4:** columna `verticals text[]`.
+- **D5:** cuenta la vertical de la gestión; sin gestión, la del negocio.
+- **D6:** un solo control que busca, elige y crea categorías.
+
 ## 11. Componentes y funciones
 
 | Pieza | Archivo | Cambio | Bloque |

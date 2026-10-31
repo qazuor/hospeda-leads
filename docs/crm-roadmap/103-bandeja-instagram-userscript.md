@@ -340,6 +340,18 @@ Recomendación D7, opción 2 (con la 1 como respaldo si el prototipo falla en (c
      - Contra: la página intermedia y una segunda pestaña.
    - **Recomendación: opción 2** si el paso 0 la confirma; si no, opción 1.
 
+### Decisión del propietario (31/10/2026)
+
+- **B4:** versión nueva del script con aviso previo a los vendedores; ahora es la 1.8.0 (ver spec 105).
+- **D1:** una tarjeta por conversación con negocio sugerido y «Asociar a H123».
+- **D2:** emails agrupados por remitente, todos tildados.
+- **D3:** «Descartar» con motivo, visible en «Descartados», reversible, sin migración.
+- **D4:** casilla marcada por defecto para guardar el email/@usuario en el negocio solo si el dato está vacío (email solo con remitente verificado); nunca pisa.
+- **D5:** «Volver a buscar negocios» (reglas automáticas de siempre, máx. 50 consultas a Meta por clic).
+- **D6:** insignias de Instagram también con el nombre de perfil del webhook de Meta, después de ver el diagnóstico en producción.
+- **D7:** «Contactar» por WhatsApp en la computadora abre web.whatsapp.com/send en una pestaña con nombre que el CRM reusa, previo prototipo (respaldo: pestaña nueva).
+- **Confirmado:** un negocio archivado sí acepta asociación manual (archivar bloquea salidas, no entradas).
+
 ## 13. Componentes y funciones
 
 | Pieza | Archivo | Cambio | Bloque |

@@ -291,6 +291,14 @@ Conclusión: el enlace es lo único que el CRM puede registrar y revocar. La opc
      - Contra: si el guardado falla, el texto ya está en el portapapeles y la vendedora puede pegar algo que no quedó registrado. El portapapeles no se puede deshacer.
    - **Recomendación: A.**
 
+### Decisión del propietario (31/10/2026)
+
+- **D1:** enlace = slug + 4 caracteres (el propietario eligió contra la recomendación de 12; riesgo aceptado y documentado: 2^24 combinaciones). Límites duros: 5 intentos desconocidos por IP por hora, IPv6 agrupado por /64, contadores persistidos en la base.
+- **D2:** el slug se exige (guardado por enlace; comparación sin distinguir mayúsculas y normalizando tildes; 404 si no coincide).
+- **D3:** «abrir el archivo directo» se elige por material, lo decide el admin y se lee al abrir (afecta enlaces ya enviados).
+- **D4:** los materiales de enlace externo con «abrir directo» redirigen al sitio (solo https, destino fijado por el admin, solo con enlace válido). Modifica la regla de la spec 89 de no redirigir a terceros.
+- **D5:** el archivo se adjunta desde el user script (spec 105, nueva, por escribir): adjunta el archivo en WhatsApp Web con el texto como descripción más el enlace corto; tope 50 MB (por encima, solo enlace con aviso); el vendedor ve la vista previa y envía él; el script registra el envío al ver el mensaje; Instagram y celular siguen con enlace. Sale en una sola versión 1.8.0 junto con los arreglos que iban a ser 1.7.1.
+
 ## 10. Componentes y funciones
 
 | Pieza | Archivo | Cambio | Bloque |
