@@ -10,7 +10,7 @@ import {instagramAccountUsername,resetInstagramThreadRateLimits} from '../src/he
 import {USERSCRIPT_VERSION} from '../userscript/src/version';
 import {stageLabel} from '../src/helpers/crmLabels';
 import {managementTypeLabels} from '../src/helpers/businessManagement';
-import {pendingContactOutcomes} from '../src/helpers/communicationService';
+import {pendingContactOutcomes,USERSCRIPT_CONFIRMED_RESULT} from '../src/helpers/communicationService';
 import {queryInboxThreadEvents} from '../src/helpers/inboxQueries';
 import {inboxReplyAvailability} from '../src/helpers/inboxReplyAvailability';
 
@@ -171,6 +171,16 @@ try{
  const pendingAfterVoid=(await pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:account.id})).find(p=>p.id===reopened);assert.equal(pendingAfterVoid?.confirmationSource,'manual','«Anotá cómo salió» says manual after a void');
  const inboxAfterVoid=(await queryInboxThreadEvents(account.id,null,'whatsapp',inboxReplyAvailability(false,true,admin.user.email),false,undefined,200)).rows.find(row=>row.id===reopened) as {confirmationSource?:string}|undefined;assert.equal(inboxAfterVoid?.confirmationSource,'manual','The inbox says manual after a void');
  await sql`UPDATE crm_messages SET status='manual_not_done' WHERE id=${reopened}::uuid`.execute(db);
+ // Spec 99 §3.2: voiding a send that moved the opening's activity to the WhatsApp time puts the opening's time back.
+ const keptText='Te paso la ficha de Hospeda para que la revises con calma',keptAt=new Date(Date.now()-600_000),kept=randomUUID();
+ const keptActivity=await db.insertInto('crmActivities').values({accountId:account.id,leadId:null,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto',occurredAt:keptAt,contactIds:[],actorEmail:seller.user.email} as never).returning('id').executeTakeFirstOrThrow();
+ await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,activity_id,created_at) VALUES(${kept}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${seller.user.email},'whatsapp_opened',${keptText},${keptActivity.id},now()-interval '3 minutes')`.execute(db);
+ assert.equal((await (await autoOut(keptText)).json() as {results:{id:string}[]}).results[0]?.id,kept);
+ const keptTime=async()=>(await db.selectFrom('crmActivities').select(['occurredAt','result']).where('id','=',keptActivity.id).executeTakeFirstOrThrow());
+ assert.notEqual((await keptTime()).occurredAt.getTime(),keptAt.getTime(),'The send moves the opening activity to the WhatsApp time');
+ assert.equal((await voidAs(token,(await registrationOf(kept)).id)).status,200);
+ assert.deepEqual([(await keptTime()).occurredAt.getTime(),(await keptTime()).result],[keptAt.getTime(),'WhatsApp abierto'],'Voiding restores the opening activity time and result');
+ await sql`UPDATE crm_messages SET status='manual_not_done' WHERE id=${kept}::uuid`.execute(db);
  // Inbound already used to register a response cannot be voided.
  const usedIn=(await (await autoRequest(true,`auto_${randomUUID()}`)).json() as {results:{id:string}[]}).results[0]!;
  const usedReg=(await sql<{id:string}>`SELECT id::text FROM crm_auto_registrations WHERE inbound_id=${usedIn.id}::uuid`.execute(db)).rows[0]!;
@@ -330,6 +340,57 @@ try{
  await sql`UPDATE crm_instagram_threads SET display_name=${igName.replace('ñ','n')} WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
  assert.equal((await inboxFor(token)).some(row=>row.username===igUser),true,'Accents count: «Cabañas» and «Cabanas» are different names');
  delete process.env.INSTAGRAM_ACCOUNT_USERNAME;assert.equal((await instagramThreads(new Request('http://localhost/_api/userscript/instagram/threads',{headers:scripted(token)}))).status,409,'Without the Hospeda account there is no list');
+ // Spec 99 §3.2: a send seen by the script keeps the WhatsApp time (capped by now and by its attempt), not the registration time.
+ {
+  const timedPhone=`+5493445${String(100000+Math.floor(Math.random()*900000))}`;
+  const timed=await db.insertInto('crmAccounts').values({nombre:`Zz userscript sent time ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:timedPhone,status:'reviewed'} as never).returningAll().executeTakeFirstOrThrow();
+  const since=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+  await sql`UPDATE app_settings SET value=to_char((now()-interval '2 hours') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '1 hour'`.execute(db);
+  const ago=(ms:number)=>new Date(Math.floor((Date.now()-ms)/1000)*1000);
+  const send=async(text:string,sentAt:Date)=>{const r=(await statuses(await post({accountId:String(timed.id),chat:{title:`${timed.nombre} · H${timed.id}`,phone:timedPhone},messages:[{externalId:`true_${randomUUID()}`,direction:'out',text,sentAt:sentAt.toISOString(),author:null}]})))[0]!;assert.equal(r.status,'created',r.reason);return r.id!;};
+  const row=async(id:string)=>(await sql<{lastInteractionAt:Date;completedAt:Date|null;updatedAt:Date;occurredAt:Date;result:string}>`SELECT m.last_interaction_at AS "lastInteractionAt",m.completed_at AS "completedAt",m.updated_at AS "updatedAt",a.occurred_at AS "occurredAt",a.result FROM crm_messages m JOIN crm_activities a ON a.id=m.activity_id WHERE m.id=${id}::uuid`.execute(db)).rows[0]!;
+  const journalSentAt=async(id:string,action:string)=>(await sql<{sentAt:string|null}>`SELECT after_value->>'sentAt' AS "sentAt" FROM crm_communication_journal WHERE entity_id=${id} AND action=${action} AND triggered_by_email='userscript' ORDER BY created_at DESC LIMIT 1`.execute(db)).rows[0]?.sentAt;
+  const recent=(d:Date|null,label:string)=>{assert.ok(d&&Math.abs(Date.now()-d.getTime())<60_000,label);};
+  // An outcome written between the send and its registration resolves «Anotá cómo salió»; a send after that outcome stays pending.
+  const between=await db.insertInto('crmActivities').values({accountId:timed.id,leadId:null,typeId:'call',title:'Llamada',channel:'phone',outcome:'interested',occurredAt:ago(60_000),contactIds:[],actorEmail:seller.user.email,createdAt:ago(60_000)} as never).returning('id').executeTakeFirstOrThrow();
+  const beforeOutcome=await send('Te escribí antes de llamarte',ago(180_000)),afterOutcome=await send('Te escribí después de la llamada',ago(30_000));
+  const pendingIds=(await pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:String(timed.id)})).map(p=>p.id);
+  assert.equal(pendingIds.includes(afterOutcome),true,'A send after the outcome still asks how it went');
+  assert.equal(pendingIds.includes(beforeOutcome),false,'An outcome written between the WhatsApp time and the registration resolves the send');
+  await db.updateTable('crmActivities').set({deletedAt:new Date()}).where('id','=',between.id).execute();
+  // Without an attempt: the WhatsApp time goes to last_interaction_at, the activity and the journal; the registration stays now().
+  const loneAt=ago(120_000),lone=await send('Mensaje sin borrador',loneAt),loneRow=await row(lone);
+  assert.deepEqual([loneRow.lastInteractionAt.getTime(),loneRow.occurredAt.getTime()],[loneAt.getTime(),loneAt.getTime()],'A send without an attempt keeps the WhatsApp time');
+  recent(loneRow.updatedAt,'updated_at is the registration time');assert.equal(new Date((await journalSentAt(lone,'contact_completed'))!).getTime(),loneAt.getTime(),'The journal records the WhatsApp time');
+  // A time in the future (allowed up to 10 minutes of clock skew) is stored as now.
+  const future=await row(await send('Mensaje con reloj adelantado',new Date(Date.now()+5*60_000)));
+  assert.ok(future.lastInteractionAt.getTime()<=Date.now(),'A future WhatsApp time is capped at now');recent(future.lastInteractionAt,'A future WhatsApp time is stored as now');assert.equal(future.occurredAt.getTime(),future.lastInteractionAt.getTime());
+  // manual_pending: the WhatsApp time is stored; completed_at stays the registration time.
+  const manual=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,created_at) VALUES(${manual}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'manual_pending',now()-interval '1 hour')`.execute(db);
+  const manualAt=ago(120_000);assert.equal(await send('Completa el intento manual',manualAt),manual);const manualRow=await row(manual);
+  assert.deepEqual([manualRow.lastInteractionAt.getTime(),manualRow.occurredAt.getTime()],[manualAt.getTime(),manualAt.getTime()],'A manual attempt keeps the WhatsApp time');
+  recent(manualRow.completedAt,'completed_at is the registration time');assert.equal(new Date((await journalSentAt(manual,'contact_completed'))!).getTime(),manualAt.getTime());
+  // whatsapp_opened with the activity the opening left without an outcome: its time moves to the WhatsApp time along with the result.
+  const opened=randomUUID(),openedText='Hola, te paso la propuesta de Hospeda para tu alojamiento en Colón',openedAt=ago(120_000);
+  const openActivity=await db.insertInto('crmActivities').values({accountId:timed.id,leadId:null,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto',occurredAt:ago(600_000),contactIds:[],actorEmail:seller.user.email} as never).returning('id').executeTakeFirstOrThrow();
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,activity_id,created_at) VALUES(${opened}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'whatsapp_opened',${openedText},${openActivity.id},now()-interval '10 minutes')`.execute(db);
+  assert.equal(await send(openedText,openedAt),opened);const openedRow=await row(opened);
+  assert.deepEqual([openedRow.lastInteractionAt.getTime(),openedRow.occurredAt.getTime(),openedRow.result],[openedAt.getTime(),openedAt.getTime(),USERSCRIPT_CONFIRMED_RESULT],'An opened attempt keeps the WhatsApp time, also on the activity the opening created');
+  recent(openedRow.updatedAt,'updated_at is the registration time');assert.equal(new Date((await journalSentAt(opened,'contact_resolved'))!).getTime(),openedAt.getTime());
+  // A WhatsApp time before the draft (clock skew) is stored as the draft time.
+  const early=randomUUID(),earlyText='Te mando los datos de la publicación en Hospeda para revisar';
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,created_at) VALUES(${early}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'whatsapp_opened',${earlyText},date_trunc('second',now())-interval '3 minutes')`.execute(db);
+  const draftAt=(await sql<{createdAt:Date}>`SELECT created_at AS "createdAt" FROM crm_messages WHERE id=${early}::uuid`.execute(db)).rows[0]!.createdAt;
+  assert.equal(await send(earlyText,new Date(draftAt.getTime()-5*60_000)),early);const earlyRow=await row(early);
+  assert.deepEqual([earlyRow.lastInteractionAt.getTime(),earlyRow.occurredAt.getTime()],[draftAt.getTime(),draftAt.getTime()],'A send is never stored before its draft');
+  // An activity whose outcome was already written keeps its time and result.
+  const noted=randomUUID(),notedText='Te comparto el enlace de tu ficha en Hospeda',notedAt=ago(600_000);
+  const notedActivity=await db.insertInto('crmActivities').values({accountId:timed.id,leadId:null,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'Ya hablamos',outcome:'interested',occurredAt:notedAt,contactIds:[],actorEmail:seller.user.email} as never).returning('id').executeTakeFirstOrThrow();
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,activity_id,created_at) VALUES(${noted}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'whatsapp_opened',${notedText},${notedActivity.id},now()-interval '15 minutes')`.execute(db);
+  const notedSentAt=ago(120_000);assert.equal(await send(notedText,notedSentAt),noted);const notedRow=await row(noted);
+  assert.deepEqual([notedRow.lastInteractionAt.getTime(),notedRow.occurredAt.getTime(),notedRow.result],[notedSentAt.getTime(),notedAt.getTime(),'Ya hablamos'],'An activity with an outcome is not touched');
+  if(since)await sql`UPDATE app_settings SET value=${since} WHERE key='crm_contact_outcome_since'`.execute(db);
+ }
  const revoked=await tokenRevoke(session(seller.cookie,{id:tokenRow.id}));assert.equal(revoked.status,200);
  const denied=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token)}));assert.equal(denied.status,401);assert.equal((await badges(new Request('http://localhost/_api/userscript/badges',{method:'POST',headers:scripted(token),body:JSON.stringify({chats:[{key:'revoked',title:'Chat'}]})}))).status,401,'Revoked userscript token cannot query badges');
  console.log('Userscript: tokens, version gate, context read rules, register idempotency, manual completion, concurrency, limits and Instagram (spec 97) passed');

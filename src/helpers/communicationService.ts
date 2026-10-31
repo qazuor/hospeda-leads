@@ -367,26 +367,32 @@ async function renderPreparedFinal<T extends Message>(e:Executor,m:T,user:User):
  const saved=(await sql<Message>`UPDATE crm_messages SET body=${body},html_body=${m.channel==='email'?final.htmlBody:null},text_body=${m.channel==='email'?final.textBody:body},updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
  return {...m,...saved};
 }
-async function activity(e:Executor,m:Message,user:User,result:string){
+/** Records (or updates while it has no outcome) the activity of a message; `occurredAt` is when the contact happened (default now). */
+async function activity(e:Executor,m:Message,user:User,result:string,occurredAt?:Date){
  const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);
  const current=(await sql<{activityId:string|null;status:string}>`SELECT activity_id,status FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0];
  const replyInboundId=m.templateSnapshot?.inboundId;
  const replyActivity=replyInboundId&&!current?.activityId?await e.selectFrom('crmActivities').select('id').where('accountId','=',m.accountId).where('notes','=','Respuesta al email entrante '+replyInboundId).where('outcome','is',null).executeTakeFirst():undefined;
  const existingId=current?.activityId??m.activityId??replyActivity?.id;
- if(existingId){const providerResult=result.startsWith('Email aceptado')||result==='Rechazo de Brevo';if(!(providerResult&&['replied','rejected'].includes(current?.status??'')))await e.updateTable('crmActivities').set({result,updatedAt:new Date()}).where('id','=',existingId).where('outcome','is',null).execute();return existingId;}
- const a=await e.insertInto('crmActivities').values({accountId:account.id,leadId:lead?.id??null,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':isInstagramAttempt(m)?'Comunicación Instagram':'Comunicación '+m.channel,channel:m.channel,result,occurredAt:new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
+ if(existingId){const providerResult=result.startsWith('Email aceptado')||result==='Rechazo de Brevo';if(!(providerResult&&['replied','rejected'].includes(current?.status??'')))await e.updateTable('crmActivities').set({result,...(occurredAt?{occurredAt}:{}),updatedAt:new Date()}).where('id','=',existingId).where('outcome','is',null).execute();return existingId;}
+ const a=await e.insertInto('crmActivities').values({accountId:account.id,leadId:lead?.id??null,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':isInstagramAttempt(m)?'Comunicación Instagram':'Comunicación '+m.channel,channel:m.channel,result,occurredAt:occurredAt??new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
  await sql`UPDATE crm_messages SET activity_id=${a.id} WHERE id=${m.id}::uuid`.execute(e);
  if(lead)await writeLeadJournal(e as Transaction<DB>,{leadId:String(lead.id),leadName:lead.nombre,actor:user,action:'contact_logged',metadata:{activityId:a.id,messageId:m.id,channel:m.channel,result,template:m.templateSnapshot?.name??null}});return a.id;
 }
+/**
+ * The time a send seen by the user script is stored with (spec 99 §3.2): the WhatsApp time, never after now() and, for an attempt,
+ * never before the attempt was prepared. completed_at/updated_at keep now(): when it was registered in the CRM.
+ */
+const effectiveSentAt=(sentAt:Date)=>sql`GREATEST(LEAST(${sentAt}::timestamptz,now()),created_at)`;
 /** Completes a WhatsApp manual attempt that the user script observed as sent, reusing CRM completion rules and journal effects. */
-export async function completeUserscriptManual(e:Executor,id:string,externalId:string,text:string,user:User){
+export async function completeUserscriptManual(e:Executor,{id,externalId,text,sentAt}:{id:string;externalId:string;text:string;sentAt:Date},user:User){
  const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp'||m.status!=='manual_pending')throw new CommunicationConflict('Este intento ya fue completado.');
  await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),'whatsapp');
- await sql`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},body=${text},text_body=${text},summary=${text},completed_at=now(),completed_by_email=${user.email},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
- await activity(e,m,user,USERSCRIPT_CONFIRMED_RESULT);
+ const at=(await sql<{at:Date}>`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},body=${text},text_body=${text},summary=${text},completed_at=now(),completed_by_email=${user.email},last_interaction_at=${effectiveSentAt(sentAt)},last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING last_interaction_at AS at`.execute(e)).rows[0]!.at;
+ await activity(e,m,user,USERSCRIPT_CONFIRMED_RESULT,at);
  if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:USERSCRIPT_CONFIRMED_RESULT,updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
  await markClientForCare(e,m,user);
- await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_completed',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId}});
+ await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_completed',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,sentAt:at}});
  return m.id;
 }
 /**
@@ -394,7 +400,7 @@ export async function completeUserscriptManual(e:Executor,id:string,externalId:s
  * chat, with the same effects as answering "Sí, lo envié": the prepared body stays, the text actually sent is kept in text_body/summary.
  * A WhatsApp already confirmed by hand (manual_sent without a WhatsApp id) is only linked to the message id, so it is not recorded twice.
  */
-export async function completeUserscriptOpened(e:Executor,id:string,externalId:string,text:string,user:User){
+export async function completeUserscriptOpened(e:Executor,{id,externalId,text,sentAt}:{id:string;externalId:string;text:string;sentAt:Date},user:User){
  const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp')throw new CommunicationConflict('Este intento ya fue completado.');
  const linkedId=(await sql<{externalId:string|null}>`SELECT external_id FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]?.externalId;
  if(m.status==='manual_sent'&&!linkedId){
@@ -405,20 +411,20 @@ export async function completeUserscriptOpened(e:Executor,id:string,externalId:s
  }
  if(m.status!=='whatsapp_opened')throw new CommunicationConflict('Este intento ya fue completado.');
  await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),'whatsapp');
- await sql`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},text_body=${text},summary=${text},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
- await activity(e,m,user,USERSCRIPT_CONFIRMED_RESULT);
+ const at=(await sql<{at:Date}>`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},text_body=${text},summary=${text},last_interaction_at=${effectiveSentAt(sentAt)},last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING last_interaction_at AS at`.execute(e)).rows[0]!.at;
+ await activity(e,m,user,USERSCRIPT_CONFIRMED_RESULT,at);
  if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:USERSCRIPT_CONFIRMED_RESULT,updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
  await markClientForCare(e,m,user);
- await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_resolved',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,source:'userscript'}});
+ await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_resolved',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,source:'userscript',sentAt:at}});
  return {id:m.id,linked:false};
 }
-/** Records an already-sent WhatsApp message when no CRM manual attempt exists for it. */
+/** Records an already-sent WhatsApp message when no CRM manual attempt exists for it, with the WhatsApp time capped at now(). */
 export async function registerUserscriptSent(e:Executor,v:{accountId:string;externalId:string;phone:string;title:string;text:string;sentAt:Date},user:User){
  await assertAccountContactAllowed(e,v.accountId,null,null,'whatsapp');
  const account=await e.selectFrom('crmAccounts').select('status').where('id','=',v.accountId).executeTakeFirstOrThrow();if(account.status==='new')throw new CommunicationForbidden('En estado Nuevo solo se permite verificar los datos.');
- const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,body,text_body,owner_email,status,external_id,created_at,updated_at,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${v.accountId}::bigint,${v.accountId}::bigint,'whatsapp',${v.phone},${v.title},${v.text},${v.text},${user.email},'manual_sent',${v.externalId},${v.sentAt},now(),now(),${user.email}) ON CONFLICT(channel,external_id) WHERE external_id IS NOT NULL DO NOTHING RETURNING *`.execute(e)).rows[0];
+ const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,body,text_body,owner_email,status,external_id,created_at,updated_at,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${v.accountId}::bigint,${v.accountId}::bigint,'whatsapp',${v.phone},${v.title},${v.text},${v.text},${user.email},'manual_sent',${v.externalId},${v.sentAt},now(),LEAST(${v.sentAt}::timestamptz,now()),${user.email}) ON CONFLICT(channel,external_id) WHERE external_id IS NOT NULL DO NOTHING RETURNING *`.execute(e)).rows[0];
  if(!created)return (await sql<{id:string}>`SELECT id::text AS id FROM crm_messages WHERE channel='whatsapp' AND external_id=${v.externalId}`.execute(e)).rows[0]?.id;
- await activity(e,created,user,USERSCRIPT_CONFIRMED_RESULT);await markClientForCare(e,created,user);await communicationJournal(e,{accountId:v.accountId,leadId:null,entityType:'interaction',entityId:created.id,action:'contact_completed',actor:user,triggeredBy:'userscript',after:{status:'manual_sent',externalId:v.externalId,channel:'whatsapp'}});return created.id;
+ await activity(e,created,user,USERSCRIPT_CONFIRMED_RESULT,created.lastInteractionAt??undefined);await markClientForCare(e,created,user);await communicationJournal(e,{accountId:v.accountId,leadId:null,entityType:'interaction',entityId:created.id,action:'contact_completed',actor:user,triggeredBy:'userscript',after:{status:'manual_sent',externalId:v.externalId,channel:'whatsapp',sentAt:created.lastInteractionAt}});return created.id;
 }
 /**
  * Links the outcome a seller writes after a contact (work.ts, decision 2B) to its message, inside the caller's transaction.
