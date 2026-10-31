@@ -1,6 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
-import {AUTO_COVER_FILE_NAME,AUTO_COVER_MAX_PDF_BYTES,autoCoverFormat,encodeAutoCover,failedAutoCoverIds,generateAutoCover,loadImage,needsAutoCover,saveAutoCover,saveMissingAutoCover,videoFrame,type AutoCoverRenderer} from './salesMaterialAutoCover';
+import {AUTO_COVER_FILE_NAME,AUTO_COVER_MAX_PDF_BYTES,AUTO_COVER_RELOAD_REASON,autoCoverFailure,autoCoverFormat,autoCoverPlan,encodeAutoCover,failedAutoCoverIds,generateAutoCover,loadImage,needsAutoCover,saveAutoCover,saveMissingAutoCover,videoFrame,type AutoCoverRenderer} from './salesMaterialAutoCover';
 
 const pdf=vi.hoisted(()=>({render:vi.fn()}));
 // pdf.js is mocked: the helper only reaches it through the lazily imported pdfThumbnail module.
@@ -24,7 +24,17 @@ describe('autoCoverFormat and needsAutoCover',()=>{
   expect(autoCoverFormat({mimeType:'image/png',byteSize:1048577,canDecode:yes})).toBe('image');expect(autoCoverFormat({mimeType:'image/png',byteSize:1048576,canDecode:yes})).toBeNull();
   for(const mimeType of ['audio/mpeg','application/msword',null])expect(autoCoverFormat({mimeType,byteSize:10,canDecode:yes})).toBeNull();
  });
- it('skips PDFs over 50 MB and formats this browser cannot decode',()=>{
+ it('spec 102: reads PDFs up to 150 MB, and says why when a PDF is larger or the browser cannot read the format',()=>{
+  // Regression (smoke 30/10, finding 15d): a 60 MB PDF was skipped without a word.
+  expect(AUTO_COVER_MAX_PDF_BYTES).toBe(150*1024*1024);
+  expect(autoCoverPlan({mimeType:'application/pdf',byteSize:60*1024*1024,canDecode:yes})).toEqual({format:'pdf',reason:null});
+  expect(autoCoverPlan({mimeType:'application/pdf',byteSize:160*1024*1024,canDecode:yes})).toEqual({format:null,reason:'Este PDF pesa más de 150 MB: no podemos generar su portada en el navegador. Subí una imagen con «Elegir portada».'});
+  expect(autoCoverPlan({mimeType:'video/quicktime',byteSize:10,canDecode:()=>false})).toEqual({format:null,reason:'El navegador no puede leer este video. Subí una imagen con «Elegir portada».'});
+  // Formats that never get an automatic cover are not a failure: no reason, no notice.
+  for(const mimeType of ['audio/mpeg','application/msword',null])expect(autoCoverPlan({mimeType,byteSize:10,canDecode:yes})).toEqual({format:null,reason:null});
+  expect(autoCoverPlan({mimeType:'image/png',byteSize:10,canDecode:yes})).toEqual({format:null,reason:null});
+ });
+ it('skips PDFs over the limit and formats this browser cannot decode',()=>{
   expect(autoCoverFormat({mimeType:'application/pdf',byteSize:AUTO_COVER_MAX_PDF_BYTES,canDecode:yes})).toBe('pdf');
   expect(autoCoverFormat({mimeType:'application/pdf',byteSize:AUTO_COVER_MAX_PDF_BYTES+1,canDecode:yes})).toBeNull();
   expect(autoCoverFormat({mimeType:'video/quicktime',byteSize:10,canDecode:()=>false})).toBeNull();
@@ -127,7 +137,64 @@ describe('saveAutoCover',()=>{
   expect(rejected.ok).toBe(false);
  });
 });
+describe('autoCoverFailure (spec 102)',()=>{
+ const named=(name:string,message='x')=>Object.assign(new Error(message),{name});
+ it('turns pdf.js, chunk, network and timeout errors into plain Spanish',()=>{
+  expect(autoCoverFailure({error:named('PasswordException','No password given'),format:'pdf'})).toEqual({reason:'El PDF tiene contraseña.',reload:false});
+  expect(autoCoverFailure({error:named('InvalidPDFException','Invalid PDF structure.'),format:'pdf'})).toEqual({reason:'No se pudo leer el PDF.',reload:false});
+  expect(autoCoverFailure({error:named('UnknownErrorException','JpxError'),format:'pdf'})).toEqual({reason:'No se pudo leer el PDF.',reload:false});
+  expect(autoCoverFailure({error:new TypeError('Failed to fetch dynamically imported module: https://crm.example/assets/pdfThumbnail-abc.js'),format:'pdf'})).toEqual({reason:AUTO_COVER_RELOAD_REASON,reload:true});
+  expect(AUTO_COVER_RELOAD_REASON).toBe('Se actualizó el CRM: recargá la página y probá de nuevo.');
+  expect(autoCoverFailure({error:new TypeError('Importing a module script failed.'),format:'pdf'}).reload).toBe(true);
+  expect(autoCoverFailure({error:named('ResponseException','Unexpected server response (403)'),format:'pdf'})).toEqual({reason:'No se pudo descargar el archivo para generar la portada.',reload:false});
+  expect(autoCoverFailure({error:new TypeError('Failed to fetch'),format:'video'}).reason).toBe('No se pudo descargar el archivo para generar la portada.');
+  // Safari reports a network failure as «Load failed» (spec 102 review).
+  expect(autoCoverFailure({error:new TypeError('Load failed'),format:'pdf'})).toEqual({reason:'No se pudo descargar el archivo para generar la portada.',reload:false});
+  expect(autoCoverFailure({error:new Error('La portada tardó demasiado.'),format:'pdf'}).reason).toBe('La portada tardó demasiado.');
+  // Our own (and the server's) messages are already plain Spanish.
+  expect(autoCoverFailure({error:new Error('La versión cambió. Actualizá antes de continuar.'),format:'pdf'}).reason).toBe('La versión cambió. Actualizá antes de continuar.');
+  expect(autoCoverFailure({error:'boom',format:'image'}).reason).toBe('No se pudo generar la portada.');
+ });
+ it('the timeout message is the plain one',async()=>{
+  vi.useFakeTimers();const stuck:AutoCoverRenderer=(_s,signal)=>new Promise((_r,reject)=>signal.addEventListener('abort',()=>reject(signal.reason)));
+  const run=generateAutoCover({format:'pdf',source:{url:'/p'},timeoutMs:10,render:{image:stuck,video:stuck,pdf:stuck}});const check=expect(run).rejects.toThrow('La portada tardó demasiado.');
+  await vi.advanceTimersByTimeAsync(10);await check;
+ });
+ it('saveAutoCover keeps the readable reason, logs the raw error and flags reloads, conflicts and replaceRemoved',async()=>{
+  const warn=vi.spyOn(console,'warn').mockImplementation(()=>undefined);const raw=Object.assign(new Error('No password given'),{name:'PasswordException'});
+  expect(await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},generate:vi.fn().mockRejectedValue(raw),upload:vi.fn(),post:vi.fn()})).toEqual({ok:false,error:'El PDF tiene contraseña.'});
+  expect(warn).toHaveBeenCalledWith('[portada automática]','m-1',raw);
+  expect(await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},generate:vi.fn().mockRejectedValue(new TypeError('error loading dynamically imported module')),upload:vi.fn(),post:vi.fn()})).toEqual({ok:false,error:AUTO_COVER_RELOAD_REASON,reload:true});
+  const {CrmApiError}=await import('./apiClient');
+  expect(await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},generate:vi.fn().mockResolvedValue(new File(['x'],'a.jpg')),upload:vi.fn().mockResolvedValue('u'),post:vi.fn().mockRejectedValue(new CrmApiError('La versión cambió.',409))})).toEqual({ok:false,error:'La versión cambió.',conflict:true});
+  const post=vi.fn().mockResolvedValue({ok:true,revision:5});
+  await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},replaceRemoved:true,generate:vi.fn().mockResolvedValue(new File(['x'],'a.jpg')),upload:vi.fn().mockResolvedValue('u'),post});
+  expect(post).toHaveBeenCalledWith({action:'cover',id:'m-1',revision:4,uploadId:'u',auto:true,replaceRemoved:true});
+ });
+});
 describe('saveMissingAutoCover',()=>{
+ it('spec 102: a stale chunk (CRM updated) is not remembered as a failure',async()=>{
+  await saveMissingAutoCover({material:material(),save:vi.fn().mockResolvedValue({ok:false,error:AUTO_COVER_RELOAD_REASON,reload:true})});expect(failedAutoCoverIds.size).toBe(0);
+ });
+ it('spec 102: the backfill now includes PDFs up to 150 MB, read by ranges from the stored file',async()=>{
+  const save=vi.fn().mockResolvedValue({ok:true,revision:5});
+  expect(needsAutoCover({material:material({currentVersion:{...version,byteSize:120*1024*1024}})})).toBe(true);
+  expect(needsAutoCover({material:material({currentVersion:{...version,byteSize:160*1024*1024}})})).toBe(false);
+  expect(await saveMissingAutoCover({material:material({currentVersion:{...version,byteSize:120*1024*1024}}),save})).toEqual({ok:true});
+ });
+ it('spec 102: explicit «Generar desde el archivo» regenerates an automatic cover, replaces a removal on request and never a manual cover',async()=>{
+  const save=vi.fn().mockResolvedValue({ok:true,revision:5});
+  expect(await saveMissingAutoCover({material:material({coverSource:'auto',hasCover:true}),explicit:true,save})).toEqual({ok:true});
+  expect(save.mock.calls[0][0]).toMatchObject({materialId:'m-1',revision:4,format:'pdf'});expect(save.mock.calls[0][0].replaceRemoved).toBeUndefined();
+  expect(await saveMissingAutoCover({material:material({coverSource:'none'}),explicit:true,save})).toEqual({ok:true});expect(save.mock.calls[1][0].replaceRemoved).toBe(true);
+  expect(await saveMissingAutoCover({material:material({coverSource:'manual',hasCover:true}),explicit:true,save})).toEqual({ok:false,error:'Este material ya tiene una portada elegida a mano.'});
+  expect(await saveMissingAutoCover({material:material({currentVersion:{...version,byteSize:160*1024*1024}}),explicit:true,save})).toEqual({ok:false,error:'Este PDF pesa más de 150 MB: no podemos generar su portada en el navegador. Subí una imagen con «Elegir portada».'});
+  expect(save).toHaveBeenCalledTimes(2);
+  save.mockResolvedValueOnce({ok:false,error:'No se pudo leer el PDF.'});
+  expect(await saveMissingAutoCover({material:material(),explicit:true,save})).toEqual({ok:false,error:'No se pudo leer el PDF.'});
+  save.mockResolvedValueOnce({ok:true,revision:4,kept:true});
+  expect(await saveMissingAutoCover({material:material(),explicit:true,save})).toEqual({ok:true,kept:true});
+ });
  it('reads the stored version through the same-origin file URL and skips material that does not need a cover',async()=>{
   const save=vi.fn().mockResolvedValue({ok:true,revision:5});
   expect(await saveMissingAutoCover({material:material(),save})).toEqual({ok:true});
