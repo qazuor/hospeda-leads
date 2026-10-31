@@ -151,7 +151,7 @@ test('sales material covers: reasons, «Elegir portada», «Generar desde el arc
 
  // An external link takes a manual cover when created, and «Portada» is in its menu.
  await main.getByRole('button',{name:'Nuevo material',exact:true}).click();
- await dialog.getByLabel('Origen',{exact:true}).selectOption('url');await dialog.getByLabel('Enlace (https)',{exact:true}).fill('https://example.com/tour-'+stamp);
+ await dialog.getByRole('combobox',{name:'Origen',exact:true}).selectOption('url');await dialog.getByLabel('Enlace (https)',{exact:true}).fill('https://example.com/tour-'+stamp);
  await dialog.getByLabel('Título',{exact:true}).fill('Recorrido '+stamp);
  await dialog.getByLabel('Portada (opcional)',{exact:true}).setInputFiles({name:'tapa.png',mimeType:'image/png',buffer:tinyPng()});
  await dialog.getByRole('button',{name:'Guardar material',exact:true}).click();
