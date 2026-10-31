@@ -16,14 +16,22 @@ describe("Hospeda email layout", () => {
 
   it("renders replies with the seller signature and without the brand header",()=>{
     const html=buildHospedaEmailHtml({bodyHtml:"<p>Respuesta</p>",senderName:"Leandro",subject:"Re: Consulta",variant:"reply"});
-    expect(html).toContain("Respuesta");expect(html).toContain("Leandro</strong>");expect(html).not.toContain("Conocer Hospeda</a>");expect(html).not.toContain("INVITACIÓN");
+    expect(html).toContain("Respuesta");expect(html).toContain("Leandro</strong>");expect(html).not.toContain("Conocer Hospeda</a>");expect(html).not.toContain(">HOSPEDA");
   });
 
-  it("keeps the overline accent visible: «INVITACIÓN» with its tilde and room above the capitals (spec 104 §3.13)",()=>{
-    const html=buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Conocé Hospeda",vertical:"Hotel"});
-    const overline=html.match(/<div style="([^"]*)">INVITACIÓN · Hotel<\/div>/);
+  it("the overline reads «HOSPEDA · {VERTICAL}» in capitals, with room above them (spec 104 D6 and §3.13)",()=>{
+    const html=buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Conocé Hospeda",vertical:"Gastronomía"});
+    const overline=html.match(/<div style="([^"]*)">HOSPEDA · GASTRONOMÍA<\/div>/);
     expect(overline).not.toBeNull();
+    expect(overline?.[1]).toContain("text-transform:uppercase");
     expect(Number(overline?.[1]?.match(/line-height:([\d.]+)/)?.[1])).toBeGreaterThanOrEqual(1.4);
+    expect(html).not.toContain("INVITACIÓN");expect(html).not.toContain("PROPUESTA COMERCIAL");
+  });
+
+  it("without a vertical the overline is just «HOSPEDA», and the vertical is escaped",()=>{
+    expect(buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Hola"})).toMatch(/">HOSPEDA<\/div>/);
+    expect(buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Hola",vertical:"  "})).toMatch(/">HOSPEDA<\/div>/);
+    expect(buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Hola",vertical:"<b>Bar</b>"})).toContain(">HOSPEDA · &lt;B&gt;BAR&lt;/B&gt;</div>");
   });
 });
 
