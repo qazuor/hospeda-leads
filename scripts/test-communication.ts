@@ -356,6 +356,9 @@ try{
   const answer=(leadId:string|number|null,category='interested')=>({action:'response_create',id:randomUUID(),accountId:String(acc.id),leadId:leadId==null?null:String(leadId),contactId:null,channel:'whatsapp',recipient:'5493442000999',recipientName:'Ana',destination:null,linkedMessageId:null,category,summary:'Le interesa',exactText:null,otherDetail:null});
   // A general response with open sends in two managements is ambiguous: nothing is resolved.
   await call(answer(null),200,user.cookie);for(const id of [older,newer,elsewhere])assert.equal((await outcomeOf(id)).outcome??null,null,'an ambiguous response resolves nothing');
+  // Owner decision 31/10/2026 (spec 96 §10.1): a response marked new («No, es una respuesta nueva») resolves no open send, even with its management.
+  await call({...answer(first.id),newReply:true},200,user.cookie);for(const id of [older,newer,elsewhere])assert.equal((await outcomeOf(id)).outcome??null,null,'a response marked new resolves nothing');
+  await call({...answer(first.id),newReply:true,linkedMessageId:newer},400,user.cookie);// a response marked new answers no send
   // A response about a management resolves the most recent open send of that management only.
   const resolving=answer(first.id);const created=await call(resolving,200,user.cookie);
   assert.deepEqual(await outcomeOf(newer),{outcome:'interested',responseId:String(created.id)},'the most recent send of the management takes the response as its outcome');
@@ -407,6 +410,10 @@ try{
    const sent=async(channel:string,minutesAgo:number)=>(await sql<{id:string}>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,channel,recipient,recipient_name,body,owner_email,status,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${acc.id},${acc.id},${lead.id},${channel},'ana@example.com','Ana','Hola',${user.user.email},'manual_sent',now()-make_interval(mins=>${minutesAgo}::int),${user.user.email}) RETURNING id::text AS id`.execute(db)).rows[0].id;
    const monday=await sent('email',300),tuesday=await sent('whatsapp',200);
    const inboundId=randomUUID();await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,lead_id,match_method,from_address,text_body,received_at,status,source) VALUES(${inboundId}::uuid,'email',${'spec96-'+inboundId},${acc.id},${lead.id},'sender_email','ana@example.com','Me interesa',now()-interval '250 minutes','pending_review','email_worker')`.execute(db);
+   // Owner decision 31/10/2026: a received message registered as «No, es una respuesta nueva» resolves no open send of its management.
+   const fresh=randomUUID();await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,lead_id,match_method,from_address,text_body,received_at,status,source) VALUES(${fresh}::uuid,'email',${'spec96-'+fresh},${acc.id},${lead.id},'sender_email','ana@example.com','Otra consulta',now()-interval '250 minutes','pending_review','email_worker')`.execute(db);
+   await call({action:'inbound_register',id:randomUUID(),inboundId:fresh,linkedMessageId:null,newReply:true,category:'information',summary:'Otra consulta',otherDetail:null},200,user.cookie);
+   assert.equal((await sql<{n:string}>`SELECT count(*) n FROM crm_messages m JOIN crm_activities x ON x.id=m.activity_id WHERE m.id IN (${monday}::uuid,${tuesday}::uuid) AND x.outcome IS NOT NULL`.execute(db)).rows[0].n,'0','a received message registered as new resolves nothing');
    const registered=await call({action:'inbound_register',id:randomUUID(),inboundId,category:'interested',summary:'Le interesa',otherDetail:null},200,user.cookie);
    const outcomeOf=async(id:string)=>(await sql<{outcome:string|null;responseId:string|null}>`SELECT x.outcome,x.outcome_response_id::text AS "responseId" FROM crm_messages m LEFT JOIN crm_activities x ON x.id=m.activity_id AND x.deleted_at IS NULL WHERE m.id=${id}::uuid`.execute(db)).rows[0];
    assert.deepEqual(await outcomeOf(monday),{outcome:'interested',responseId:String(registered.id)},'the late-registered reply resolves the send it answers');
@@ -424,6 +431,24 @@ try{
    assert.deepEqual(await outcomeOf(dncSend),{outcome:'interested',responseId:adminAnswer.id},'an admin resolves it');
    console.log('Spec 96 M2: a late-registered reply resolves only the sends before it; No contactar resolves only for an admin');
   }finally{await restoreOutcomeCutoff(since);}
+ }
+ // Spec 104 D2: the responsible of the business (or of one of its managements) adds a channel restriction; lifting stays admin-only.
+ {
+  const acc=await db.insertInto('crmAccounts').values({nombre:'D2 restriction '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto('leads').values({accountId:acc.id,nombre:acc.nombre,estado:'Cargado',assignedUserEmail:other.user.email}).execute();
+  const foreignAcc=await db.insertInto('crmAccounts').values({nombre:'D2 foreign '+stamp,status:'reviewed',assignedUserEmail:admin.user.email}).returningAll().executeTakeFirstOrThrow();
+  const restrict=(accountId:string|number,channel='whatsapp')=>({action:'restrict',accountId:String(accountId),leadId:null,contactId:null,channel,reason:'Pidió que no le escriban por este canal'});
+  await call(restrict(acc.id),200,user.cookie);// the business responsible
+  await call(restrict(acc.id,'email'),200,other.cookie);// the responsible of one of its managements
+  const denied=await call(restrict(foreignAcc.id),403,user.cookie);assert.equal(denied.error,'Solo el responsable del negocio, el de una de sus gestiones o un administrador puede registrar restricciones por canal.');
+  const rows=(await sql<{id:string;actorEmail:string}>`SELECT id::text AS id,actor_email FROM crm_contact_restrictions WHERE account_id=${acc.id} AND lifted_at IS NULL ORDER BY id`.execute(db)).rows;
+  assert.deepEqual(rows.map(r=>r.actorEmail),[user.user.email,other.user.email],'each restriction records who added it');
+  assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_contact_restrictions WHERE account_id=${foreignAcc.id}`.execute(db)).rows[0].n),0,'a refused restriction saves nothing');
+  await call({action:'lift',id:rows[0].id,reason:'El negocio volvió a autorizar'},403,user.cookie);// lifting stays admin-only, also for the responsible
+  await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',acc.id).execute();
+  await call(restrict(acc.id,'call'),403,user.cookie);// a No contactar business is read-only for a seller (decision 1C)
+  await call({action:'lift',id:rows[0].id,reason:'El negocio volvió a autorizar'},200,admin.cookie);
+  console.log('Spec 104 D2: the responsible adds channel restrictions, another seller is refused, lifting stays admin-only');
  }
  // Spec 99 §3.4: inbound_register saves exactly what the screen shows: an omitted field keeps the row's value, an explicit null clears it.
  {
