@@ -17,6 +17,7 @@ import {useAuth} from '../helpers/useAuth';
 import {VOCAB} from '../content/vocabulary';
 import {WorkFilters} from '../components/WorkFilters';
 import {TodayStatTiles} from '../components/TodayStatTiles';
+import {pendingCount} from '../helpers/contactFollowUpGroups';
 import {PageHeader} from '../components/PageHeader';
 import {HelpLink} from '../components/HelpLink';
 import {TodayList} from '../components/TodayList';
@@ -53,7 +54,7 @@ export default function MyDayPage(){
   <SectionTabs value={view} onValueChange={next=>setSearchParams(next==='list'?{}:{view:next})}><SectionTabList aria-label="Vistas de Hoy">{todayViews.map(item=><SectionTab key={item.view} value={item.view}>{item.label}</SectionTab>)}</SectionTabList>{todayViews.map(item=><SectionTabPanel key={item.view} value={item.view}>{item.view===view&&(
   retomar?<React.Suspense fallback={<QueryLoadingNotice/>}><ReactivationContent/></React.Suspense>:<>
   {!selected&&<WorkFilters data={d} admin={admin} agenda={agenda} responsible={responsible} city={city} vertical={vertical} month={month} calendar={calendar} onResponsible={value=>reset(()=>setResponsible(value))} onCity={value=>reset(()=>setCity(value))} onVertical={value=>reset(()=>setVertical(value))} onMonth={value=>reset(()=>setMonth(value))} onCalendar={setCalendar} onClear={clearFilters}/>}
-  {!agenda&&d?.bucketCounts&&<TodayStatTiles counts={d.bucketCounts} inbound={inbound.isPending||inbound.error?undefined:inboundRows.length} attention={d.attention.length} done={d.doneToday??0} followUps={{outcomes:d.followUps?.outcomes.count??0,unconfirmed:d.followUps?.unconfirmed.count??0}}/>}
+  {!agenda&&d?.bucketCounts&&<TodayStatTiles counts={d.bucketCounts} inbound={inbound.isPending||inbound.error?undefined:inboundRows.length} attention={d.attention.length} done={d.doneToday??0} pendingContacts={pendingCount({review:0,followUps:d.followUps})}/>}
     {q.isPending&&<QueryLoadingNotice/>}{q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} backTo="/my-day"/> }
   {d&&selected&&<section className={styles.panel} aria-label="Pendiente seleccionado"><h2>Pendiente seleccionado</h2>{d.tasks.length?d.tasks.map(task=><TaskRow key={task.id} task={task} data={d} onEdit={setEditor} from="my-day"/>):<p>Este pendiente no está disponible para vos. Puede haberse retirado o corresponder a otra persona.</p>}<Link to="/my-day">Ver todos mis pendientes</Link>{editor&&<WorkEditor key={editor.kind+('item' in editor?editor.item?.id||'new':'new')} target={editor} data={d} onClose={()=>setEditor(null)}/>}</section>}
   {d&&!selected&&<>

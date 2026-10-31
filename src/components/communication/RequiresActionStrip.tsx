@@ -3,7 +3,7 @@ import {CircleAlert} from 'lucide-react';
 import {Button} from '../Button';
 import styles from './CommunicationView.module.css';
 
-/** Spec 100 §5.4: `?pending=open` in the business URL opens «Requiere acción» on mount. Nothing links to it yet: block 4 adds it to Hoy «Ver en el negocio» and the work editor toast. */
+/** Spec 100 §5.4: `?pending=open` in the business URL opens «Requiere acción» on mount; Hoy «Ver en el negocio» and the work editor toast link to it (`businessPendingHref`). */
 export const pendingOpenRequested=(search:string):boolean=>new URLSearchParams(search).get('pending')==='open';
 
 /**

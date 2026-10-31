@@ -6,7 +6,7 @@ import {simulateUserscript} from './helpers/userscript';
 import {openRequiresAction} from './helpers/requiresAction';
 import {pickOutcome} from './support/outcome';
 
-// Spec 100 block 2: the «Requiere acción» strip of a business. The data is real (created through the app API); only the clock is
+// Spec 100 blocks 2 and 4: the «Requiere acción» strip of a business and Hoy «Pendientes de contacto» with the same number. The data is real (created through the app API); only the clock is
 // faked by ageing `last_interaction_at` with SQL on the disposable database: a WhatsApp open past the 5-minute script wait (counted)
 // and one past 72 h (expired). The outcome cutoff is moved back if it is newer than the aged opens, and restored afterwards.
 let sql:ReturnType<typeof postgres>;let outcomeSince:string|undefined;
@@ -23,7 +23,7 @@ async function login(page:Page){
  return async(endpoint:string,body?:unknown)=>{const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text)};
 }
 
-test('collapsed strip, expanded blocks, one outcome per management, answerable «Vencidos» and the strip number matching the API follow-up counts',async({page})=>{
+test('collapsed strip, expanded blocks, one outcome per management, answerable «Vencidos», and Hoy counting the same as the strip',async({page})=>{
  test.setTimeout(180000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setViewportSize({width:1280,height:900});
  const api=await login(page),stamp=Date.now();
@@ -40,10 +40,10 @@ test('collapsed strip, expanded blocks, one outcome per management, answerable �
  const counted=await open(leadA,'Hola, te escribo desde Hospeda.'),expired=await open(leadB,'Mensaje viejo sin confirmar.');
  await age(counted,'6 minutes');await age(expired,'4 days');
 
- // The server lists, the same for the business «Comunicación» and the work detail: 1 unconfirmed + 2 management groups. The strip number
- // is checked against these API counts; Hoy's own tile and the toast still count sends until spec 100 block 4.
- const work=await api('work?mode=detail&accountId='+accountId+'&followUps=1'),comm=await api('communication?accountId='+accountId);
- for(const followUps of [work.followUps,comm.followUps]){expect([followUps.unconfirmed.count,followUps.outcomes.count,followUps.outcomes.groupCount,followUps.expired.unconfirmed.count]).toEqual([1,3,2,1]);}
+ // The server lists, the same for the business «Comunicación», Hoy filtered by the business and the work detail the toast reads:
+ // 1 unconfirmed + 2 management groups. Hoy, the toast and the strip all count unconfirmed + groups (the strip adds «Por revisar», none here).
+ const work=await api('work?mode=detail&accountId='+accountId+'&followUps=1'),comm=await api('communication?accountId='+accountId),day=await api('work?mode=day&accountId='+accountId);
+ for(const followUps of [work.followUps,comm.followUps,day.followUps]){expect([followUps.unconfirmed.count,followUps.outcomes.count,followUps.outcomes.groupCount,followUps.expired.unconfirmed.count]).toEqual([1,3,2,1]);}
  const n=work.followUps.unconfirmed.count+work.followUps.outcomes.groupCount;expect(n).toBe(3);
 
  // Collapsed on mount: one line «3 pendientes · Revisar» with the breakdown on a wide container; the conversation right below.
@@ -92,10 +92,21 @@ test('collapsed strip, expanded blocks, one outcome per management, answerable �
  expect((await region.boundingBox())!.height).toBeLessThanOrEqual(50);
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
- // `?pending=open` arrives expanded (block 4 links Hoy «Ver en el negocio» and the work editor toast to it).
+ // `?pending=open` arrives expanded (Hoy «Ver en el negocio» and the work editor toast link to it).
  await page.setViewportSize({width:1280,height:900});await page.goto('/accounts/'+accountId+'?section=communication&pending=open');
  await expect(region.getByRole('heading',{name:'Requiere acción · 2',exact:true})).toBeVisible();await expect(region.getByRole('button',{name:'Ocultar',exact:true})).toBeVisible();
  await region.getByRole('button',{name:'Ocultar',exact:true}).click();await expect(region.getByRole('button',{name:'Revisar',exact:true})).toBeVisible();
+
+ // Hoy (spec 100 block 4): the business follow-ups count 2 there too (Hoy lists every business of the seller, so the number is checked
+ // filtered by this business through the API); its Plan B row is a management group whose «Ver en el negocio» opens the strip expanded.
+ const dayAfter=(await api('work?mode=day&accountId='+accountId)).followUps;expect(dayAfter.unconfirmed.count+dayAfter.outcomes.groupCount).toBe(2);
+ await page.goto('/my-day');
+ const card=page.getByRole('region',{name:'Pendientes de contacto',exact:true});
+ const rowB=card.getByRole('region',{name:'Anotá cómo salió',exact:true}).getByRole('article',{name:'Resultado pendiente de '+planB,exact:true});
+ await expect(rowB).toContainText('Zz Tira pendientes '+stamp);await expect(rowB).toContainText('1 envío sin resultado');
+ const link=rowB.getByRole('link',{name:'Ver en el negocio',exact:true});await expect(link).toHaveAttribute('href','/accounts/'+accountId+'?section=communication&pending=open');
+ await link.click();await expect(page).toHaveURL(/pending=open/);
+ await expect(region.getByRole('heading',{name:'Requiere acción · 2',exact:true})).toBeVisible();
 
  await api('commercial',{action:'account_trash',accountIds:[accountId],deleted:true,reason:'Limpieza de la prueba de la tira'});
  expect(errors).toEqual([]);

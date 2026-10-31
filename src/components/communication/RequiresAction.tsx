@@ -114,8 +114,8 @@ type OpenOutcome={key:string;contact:ContactOutcomeTarget;note?:string};
 /**
  * «Requiere acción», spec 91 §9 as the spec 100 §5 strip: collapsed «N pendientes · Revisar» on mount (expanded with `?pending=open`).
  * N is {@link pendingCount}: messages «Por revisar», the server's `followUps.unconfirmed` and its management groups of
- * `followUps.outcomes` (D2). Until spec 100 block 4, Hoy and the work editor toast still count sends (and no «Por revisar»), so their
- * numbers may differ from this one. Expanded, in order: «Por revisar» (one line that scrolls to the bubble, where its actions are),
+ * `followUps.outcomes` (D2). Hoy «Pendientes de contacto» and the work editor toast count the same for the business, minus «Por
+ * revisar» (in Hoy that is «Respuestas nuevas»). Expanded, in order: «Por revisar» (one line that scrolls to the bubble, where its actions are),
  * «¿Lo enviaste?» (the server list, drawn from the loaded message when there is one), «Anotá cómo salió» (one row per management,
  * one outcome for all its sends), «Vencidos» (collapsed, answerable, uncounted) and the material of opens the viewer cannot answer.
  * A loaded open the viewer may answer (`canConfirmSend`) that the server leaves out (No contactar, closed management, archived
