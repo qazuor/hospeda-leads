@@ -292,7 +292,7 @@ try{
  const igFree=await igPrepare({leadId:igLead,templateId:null});assert.equal(igFree.status,200,'An Instagram free draft (templateId null) is prepared');
  const igFreeBody=await igFree.json() as {messageId:string;revision:number;body:string;materials:unknown[]};assert.equal(igFreeBody.body.trim(),'');assert.deepEqual(igFreeBody.materials,[]);
  const igAdded=await addTo(igFreeBody.messageId,igFreeBody.revision);assert.equal(igAdded.status,200,'material_add works on an Instagram script draft');
- const igAddedBody=await igAdded.json() as {revision:number;body:string};assert.match(igAddedBody.body,/^Podés ver «Zz Folleto panel [^»]+» en: \S+\/m\/[A-Za-z0-9_-]{43}$/);
+ const igAddedBody=await igAdded.json() as {revision:number;body:string};assert.match(igAddedBody.body,/^Podés ver «Zz Folleto panel [^»]+» en: \S+\/m\/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}$/);
  assert.deepEqual(await shareRows(igFreeBody.messageId),[{channel:'instagram',sentVersion:null}],'The share is stored as instagram and passes the CHECK of migration 055');
  const igReused=await igPrepare({leadId:igLead,templateId:null});assert.deepEqual((await igReused.json() as {materials:{materialId:string}[]}).materials.map(m=>m.materialId),[materialId],'prepare returns the materials a reused draft holds');
  const igMaterialDispatch=await dispatch(new Request('http://localhost/_api/userscript/dispatch',{method:'POST',headers:scripted(token),body:JSON.stringify({id:igFreeBody.messageId,revision:igAddedBody.revision})}));assert.equal(igMaterialDispatch.status,200);

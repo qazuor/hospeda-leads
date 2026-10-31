@@ -36,7 +36,8 @@ async function saveTemplate(input:Record<string,unknown>,status:number,who:Id,pa
 async function settings(who:Id){const r=await getSettings(new Request('http://localhost/_api/settings',{headers:{cookie:who.cookie}}));assert.equal(r.status,200);return superjson.parse<any>(await r.text());}
 const scripted=(token:string)=>({Authorization:`Bearer ${token}`,'X-Hospeda-Userscript-Version':USERSCRIPT_VERSION,'Content-Type':'application/json'});
 const shares=async(messageId:string)=>(await sql<{materialId:string;attach:boolean;sentVersion:number|null;revokedAt:Date|null}>`SELECT material_id::text,attach,sent_version,revoked_at FROM crm_sales_material_shares WHERE message_id=${messageId}::uuid ORDER BY created_at`.execute(db)).rows;
-const tokens=(body:string)=>[...body.matchAll(/https:\/\/crm\.example\.test\/m\/([A-Za-z0-9_-]{43})/g)].map(m=>m[1]!);
+/** The `/m/<slug>-<token>` segments (spec 101) of the share links of a body. */
+const tokens=(body:string)=>[...body.matchAll(/https:\/\/crm\.example\.test\/m\/([a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4})(?![A-Za-z0-9_-])/g)].map(m=>m[1]!);
 async function material(title:string,{kind='deliverable',bytes=2048,url}:{kind?:string;bytes?:number;url?:string}={}){
  const id=randomUUID();
  await sql`INSERT INTO crm_sales_materials(id,title,kind,source,created_by_email) VALUES(${id}::uuid,${title},${kind},${url?'url':'file'},'admin@example.com')`.execute(db);
@@ -84,7 +85,7 @@ try{
  const prepare=(templateId:string|null,channel:'whatsapp'|'email'='whatsapp',variation=nextVariation())=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId,variation},200,owner);
  const wa=await prepare(waTemplate);
  assert(!wa.body.includes('{{material:'),'No reference survives prepare: '+wa.body);
- assert.match(wa.body,new RegExp(`Folleto ${stamp}: https://crm\\.example\\.test/m/[A-Za-z0-9_-]{43}`));assert.match(wa.body,new RegExp(`Y el recorrido: Tour ${stamp}: https://crm\\.example\\.test/m/`));
+ assert.match(wa.body,new RegExp(`Folleto ${stamp}: https://crm\\.example\\.test/m/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}(?![A-Za-z0-9_-])`));assert.match(wa.body,new RegExp(`Y el recorrido: Tour ${stamp}: https://crm\\.example\\.test/m/`));
  assert(!wa.body.includes('Archivado'),'The archived material is dropped from the text');
  assert.deepEqual(wa.materialWarnings.map((w:any)=>[w.materialId,w.problem,w.message]),[[gone,'archived',`«Archivado ${stamp}» ya no está disponible. No se agregó al mensaje.`]]);
  assert.deepEqual(wa.materials.map((m:any)=>m.materialId).sort(),[brochure,tour].sort());
@@ -111,7 +112,7 @@ try{
  // Email: :attach attaches the file when Brevo and the limit allow it; otherwise only the link goes, with a warning. Brevo receives attachment.url.
  const mailTemplate=(await saveTemplate({channel:'email',name:'Zz modelo email '+stamp,subject:'Material de Hospeda',body:`<p>Hola, te paso ${ref(brochure,true)} y ${ref(big,true)}.</p>`},200,admin))!;
  let mail=await prepare(mailTemplate,'email');
- assert.match(mail.body,new RegExp(`Folleto ${stamp}: <a href="https://crm\\.example\\.test/m/[A-Za-z0-9_-]{43}">`));
+ assert.match(mail.body,new RegExp(`Folleto ${stamp}: <a href="https://crm\\.example\\.test/m/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}">`));
  assert.deepEqual(Object.fromEntries((await shares(mail.id)).map(s=>[s.materialId,s.attach])),{[brochure]:true,[big]:false});
  assert.equal(mail.materialWarnings.length,1);assert.equal(mail.materialWarnings[0].problem,'attach');assert.match(mail.materialWarnings[0].message,/va solo como enlace: Supera el límite/);
  mail=await call({action:'edit',id:mail.id,revision:mail.revision,subject:mail.subject,body:mail.body},200,owner);
