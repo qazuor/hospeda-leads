@@ -24,6 +24,10 @@ export function followUpKind(status:string|null|undefined):'unconfirmed'|'outcom
 /** True when a message with this status can end in the outcome step. */
 export function canLogContactOutcome(status:string|null|undefined):boolean{return (OUTCOME_READY_STATUSES as readonly string[]).includes(status??'');}
 
+/** Spec 100 §8: the `outcome` conflict when the script, Meta's echo or another answer confirmed the send first. */
+export const ALREADY_CONFIRMED_MESSAGE='Este envío ya estaba confirmado.';
+/** True for that 409 on the client (`CrmApiError`): it is information, not a failure, and the lists must reload. */
+export const isAlreadyConfirmed=(error:unknown):boolean=>error instanceof Error&&(error as {status?:unknown}).status===409&&error.message===ALREADY_CONFIRMED_MESSAGE;
 /** Statuses of a channel opened from the composer whose send nobody confirmed yet (WhatsApp, and Instagram since spec 92). */
 export const OPENED_UNCONFIRMED_STATUSES=['whatsapp_opened','instagram_opened'] as const;
 /** True for a chat opened from the composer and not confirmed: opening a channel is never a send. */

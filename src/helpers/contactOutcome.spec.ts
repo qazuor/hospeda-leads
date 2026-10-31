@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
-import {OUTCOME_FOLLOW_UP_STATUSES,OUTCOME_STALE_DAYS,UNCONFIRMED_STALE_HOURS,WHATSAPP_SCRIPT_WAIT_MS,OUTCOME_READY_STATUSES,UNCONFIRMED_FOLLOW_UP_STATUSES,canLogContactOutcome,followUpKind,contactTitle,contactWorkChannel,contactWorkPurpose,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
+import {CrmApiError} from './apiClient';
+import {ALREADY_CONFIRMED_MESSAGE,isAlreadyConfirmed,OUTCOME_FOLLOW_UP_STATUSES,OUTCOME_STALE_DAYS,UNCONFIRMED_STALE_HOURS,WHATSAPP_SCRIPT_WAIT_MS,OUTCOME_READY_STATUSES,UNCONFIRMED_FOLLOW_UP_STATUSES,canLogContactOutcome,followUpKind,contactTitle,contactWorkChannel,contactWorkPurpose,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
 
 describe('canLogContactOutcome',()=>{
  it('accepts real contacts and attempts',()=>{
@@ -71,4 +72,14 @@ describe('contact activity defaults',()=>{
 describe('expiry and wait thresholds (spec 100 §7, §9)',()=>{
  it('expires «¿Lo enviaste?» after 72 hours and a management outcome group after 7 days',()=>{expect(UNCONFIRMED_STALE_HOURS).toBe(72);expect(OUTCOME_STALE_DAYS).toBe(7);});
  it('waits 5 minutes for the WhatsApp user script, less than the 15-minute Instagram echo wait',()=>{expect(WHATSAPP_SCRIPT_WAIT_MS).toBe(5*60_000);});
+});
+
+describe('isAlreadyConfirmed (spec 100 §8)',()=>{
+ it('is true only for the 409 «Este envío ya estaba confirmado.»',()=>{
+  expect(ALREADY_CONFIRMED_MESSAGE).toBe('Este envío ya estaba confirmado.');
+  expect(isAlreadyConfirmed(new CrmApiError(ALREADY_CONFIRMED_MESSAGE,409))).toBe(true);
+  expect(isAlreadyConfirmed(new CrmApiError('Este registro fue anulado.',409))).toBe(false);
+  expect(isAlreadyConfirmed(new CrmApiError(ALREADY_CONFIRMED_MESSAGE,400))).toBe(false);
+  expect(isAlreadyConfirmed(null)).toBe(false);
+ });
 });

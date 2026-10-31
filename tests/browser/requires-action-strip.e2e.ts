@@ -101,3 +101,54 @@ test('collapsed strip, expanded blocks, one outcome per management, answerable �
  await api('commercial',{action:'account_trash',accountIds:[accountId],deleted:true,reason:'Limpieza de la prueba de la tira'});
  expect(errors).toEqual([]);
 });
+
+// Spec 100 block 3 (§8, §16): bulk «Sí, se enviaron» over 3 WhatsApp opens, one to a person with an active WhatsApp restriction.
+test('bulk «Sí, se enviaron»: unchecked boxes, the confirmation lists 2 to mark and 1 blocked, per-item result, strip and API updated, nothing retried',async({page})=>{
+ test.setTimeout(180000);const errors:string[]=[],outcomes:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/_api/communication')&&(r.postData()??'').includes('"outcome"'))outcomes.push(r.postData()!);});
+ await page.setViewportSize({width:1280,height:900});
+ const api=await login(page),stamp=Date.now();
+ const accountId=String((await api('commercial',{action:'account_save',nombre:'Zz Masivo '+stamp,telefono:'5493442000077',assignedUserEmail:'admin@example.com'})).id);
+ await api('commercial',{action:'business_status',accountId,status:'reviewed',recontactAt:null});
+ const lead=String((await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Plan masivo '+stamp,estado:'Cargado'})).id);
+ const person=String((await api('commercial',{action:'contact_save',accountId,name:'Bloqueada '+stamp,phone:'5493442000066',isPrimary:false})).id);
+ const open=async(contactId:string|null,body:string)=>{const m=await api('communication',{action:'prepare',id:randomUUID(),leadId:lead,contactId,channel:'whatsapp',templateId:null});const edited=await api('communication',{action:'edit',id:m.id,revision:m.revision,subject:'',body});await api('communication',{action:'dispatch',id:m.id,revision:edited.revision,confirm:true});return String(m.id);};
+ const ids=[await open(null,'Primer mensaje.'),await open(null,'Segundo mensaje.'),await open(person,'Tercer mensaje.')];
+ for(const id of ids)await age(id,'6 minutes');
+ await api('communication',{action:'restrict',accountId,leadId:null,contactId:person,channel:'whatsapp',reason:'Pidió no recibir WhatsApp (prueba masiva)'});
+
+ await page.goto('/accounts/'+accountId+'?section=communication');
+ const region=await openRequiresAction(page),asking=region.getByRole('region',{name:'¿Lo enviaste?',exact:true});
+ const boxes=asking.getByRole('checkbox',{name:/^Seleccionar WhatsApp para /});
+ await expect(boxes).toHaveCount(3);for(const box of await boxes.all())await expect(box).not.toBeChecked();
+ await expect(asking.getByRole('button',{name:/^Sí, se enviaron/})).toHaveCount(0);
+ await asking.getByRole('button',{name:'Seleccionar todos (3)',exact:true}).click();
+ await asking.getByRole('button',{name:'Sí, se enviaron (3)',exact:true}).click();
+
+ const dialog=page.getByRole('dialog',{name:'¿Confirmás que enviaste estos 2 mensajes?',exact:true});
+ await expect(dialog.getByRole('list',{name:'Se van a marcar',exact:true}).getByRole('listitem')).toHaveCount(2);
+ const blocked=dialog.getByRole('list',{name:'No se van a marcar',exact:true}).getByRole('listitem');
+ await expect(blocked).toHaveCount(1);await expect(blocked).toContainText('Hay una restricción de contacto activa para este canal');
+ await expect(dialog).toContainText('Marcar como enviado es tu confirmación: queda registrado como contacto.');
+ await dialog.getByRole('button',{name:'Sí, marcar 2',exact:true}).click();
+
+ // After the run the same dialog switches to the fixed title «Resultado» (the question no longer applies).
+ const done=page.getByRole('dialog',{name:'Resultado',exact:true}),result=done.getByRole('list',{name:'Resultado',exact:true}).getByRole('listitem');
+ await expect(result).toHaveCount(3);
+ await expect(result.filter({hasText:'Marcado como enviado'})).toHaveCount(2);await expect(result.filter({hasText:'Hay una restricción de contacto activa'})).toHaveCount(1);
+ await expect(page.getByText('2 de 3 marcados. 1 no se pudo marcar.',{exact:true})).toBeVisible();
+ await expect(done.getByRole('button',{name:/^Reintentar los que fallaron/})).toHaveCount(0);// a blocked item is not a failed call
+ await done.getByRole('button',{name:'Listo',exact:true}).click();// «Listo», not the dialog X «Cerrar»await expect(page.getByRole('dialog')).toHaveCount(0);
+ expect(outcomes).toHaveLength(2);// one call per markable open, none for the blocked one, nothing retried
+
+ // The server state: two confirmed, the restricted one still unconfirmed; the strip reloaded to match the API counts.
+ const statuses=await sql<{id:string;status:string}[]>`SELECT id::text,status FROM crm_messages WHERE id=ANY(${ids}::uuid[])`;
+ expect(ids.map(id=>statuses.find(s=>s.id===id)?.status)).toEqual(['manual_sent','manual_sent','whatsapp_opened']);
+ const after=(await api('work?mode=detail&accountId='+accountId+'&followUps=1')).followUps;
+ await expect(asking.getByRole('group',{name:/^WhatsApp sin confirmar para /})).toHaveCount(1);
+ await expect(region.getByRole('heading',{name:'Requiere acción · '+(after.unconfirmed.count+after.outcomes.groupCount),exact:true})).toBeVisible();
+ expect(after.outcomes.groupCount).toBe(1);// both confirmed sends now ask «Anotá cómo salió» once, in their management
+
+ await api('commercial',{action:'account_trash',accountIds:[accountId],deleted:true,reason:'Limpieza de la prueba masiva'});
+ expect(errors).toEqual([]);
+});
