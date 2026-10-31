@@ -3,7 +3,7 @@ import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
 import {EMPTY_SALES_MATERIAL_FILTERS,filterSalesMaterials,groupSalesMaterials,hasSalesMaterialFilters,salesMaterialQuery} from './salesMaterialGroups';
 
 const cat=(id:string,name:string)=>({id,name,active:true});
-const m=(id:string,categories:SalesMaterial['categories'],over:Partial<SalesMaterial>={}):SalesMaterial=>({id,title:id,description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:1,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories,currentVersion:{id:'v-'+id,version:1,url:null,fileName:'a.pdf',mimeType:'application/pdf',byteSize:10,actorEmail:'a@example.com',createdAt:new Date()},...over});
+const m=(id:string,categories:SalesMaterial['categories'],over:Partial<SalesMaterial>={}):SalesMaterial=>({id,title:id,description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:1,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories,currentVersion:{id:'v-'+id,version:1,url:null,fileName:'a.pdf',mimeType:'application/pdf',byteSize:10,actorEmail:'a@example.com',createdAt:new Date()},...over});
 const folletos=cat('1','Folletos'),precios=cat('2','Precios'),videos=cat('3','Videos');
 const summary=(groups:ReturnType<typeof groupSalesMaterials>)=>groups.map(g=>[g.name,g.materials.map(x=>x.id)]);
 describe('groupSalesMaterials',()=>{

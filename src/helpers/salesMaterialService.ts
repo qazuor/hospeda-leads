@@ -159,7 +159,7 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
    await sql`SELECT pg_advisory_xact_lock(hashtext('crm_sales_materials'),hashtext(${input.id}))`.execute(e);
    if((await sql`SELECT id FROM crm_sales_materials WHERE id=${input.id}::uuid`.execute(e)).rows[0])return {id:input.id};
    await assertCategories(e,input.categoryIds);
-   await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,created_by_email) VALUES(${input.id}::uuid,${input.title},${input.description},${input.kind},${input.source},${user.email})`.execute(e);
+   await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,open_direct,created_by_email) VALUES(${input.id}::uuid,${input.title},${input.description},${input.kind},${input.source},${input.openDirect??false},${user.email})`.execute(e);
    await replaceCategories(e,input.id,input.categoryIds,[]);
    await insertVersion(e,{materialId:input.id,version:1,source:input.version,verified,user});
    await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${input.id}::uuid`.execute(e);
@@ -181,7 +181,7 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   const next=m.revision+1;
   if(input.action==='update'){
    const before=await categoryIdsOf(e,m.id);await assertCategories(e,input.categoryIds,before);
-   await sql`UPDATE crm_sales_materials SET title=${input.title},description=${input.description},kind=${input.kind},revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+   await sql`UPDATE crm_sales_materials SET title=${input.title},description=${input.description},kind=${input.kind},open_direct=coalesce(${input.openDirect??null}::boolean,open_direct),revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
    await replaceCategories(e,m.id,input.categoryIds,before);
   }else if(input.action==='version'){
    if(m.status==='archived')throw new Error('Restaurá el material para agregar una versión.');
