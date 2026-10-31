@@ -446,6 +446,10 @@ try{
  ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
  // Spec 99 §3.6: one server definition, two lists. Hoy filtered by the business, the business «Comunicación» and the detail the work
  // editor toast reads return the same lists and counts; opened chats and manual attempts are «Envíos sin confirmar», evidence «Anotá cómo salió».
+ // On a freshly migrated database (CI) crm_contact_outcome_since is newer than these fixtures; move it back while the block runs.
+ const splitSince=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+ await sql`UPDATE app_settings SET value=to_char((now()-interval '2 hours') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '1 hour'`.execute(db);
+ try{
  const split=await fresh('Dos listas');const at=(minutes:number)=>new Date(Date.now()-minutes*60000);
  const splitUnconfirmed=[await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(1)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(2)}),await contactMessage({status:'manual_pending',channel:'call',accountId:split.id,leadId:null,at:at(3)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(4)})];
  const splitOutcomes=[await contactMessage({status:'manual_sent',channel:'call',accountId:split.id,leadId:null,at:at(5)}),await contactMessage({status:'manual_no_contact',channel:'call',accountId:split.id,leadId:null,at:at(6)}),await contactMessage({status:'manual_sent',channel:'whatsapp',accountId:split.id,leadId:null,at:at(7)})];
@@ -466,6 +470,7 @@ try{
  assert.deepEqual([cut.unconfirmed.items.length,cut.unconfirmed.count,cut.outcomes.items.length,cut.outcomes.count],[2,4,2,3],'Each list is cut at the limit and its count does not depend on it');
  const otherSplit=await fresh('Dos listas, otro negocio');await contactMessage({status:'manual_sent',channel:'call',accountId:otherSplit.id,leadId:null,at:at(1)});
  assert.deepEqual((await read('mode=detail&accountId='+split.id+'&followUps=1')).followUps,hoySplit,'Another business never leaks into the lists');
+ }finally{if(splitSince)await sql`UPDATE app_settings SET value=${splitSince} WHERE key='crm_contact_outcome_since'`.execute(db);}
  // Edits stay exempt from linking.
  await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
  // U-27 first-use checklist flags: true only from the user's own recorded actions.
