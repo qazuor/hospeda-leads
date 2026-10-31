@@ -46,3 +46,5 @@
 .instagramChatLink:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .instagramWaiting{display:grid;gap:4px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:var(--radius)}
 .instagramWaiting p{margin:0}
+/* Spec 101 review: links in the read-only WhatsApp view look like links but do not navigate. */
+.whatsapp [data-link]{color:var(--primary);text-decoration:underline;overflow-wrap:anywhere}

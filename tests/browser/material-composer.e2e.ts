@@ -52,6 +52,9 @@ test('send sales material from the business, record it and revoke the link',asyn
  await expect(composer.getByRole('heading',{name:'Elegí un mensaje modelo'})).toHaveCount(0);
  const included=composer.getByRole('list',{name:'Material incluido'});
  await expect(included.getByText(title,{exact:true})).toBeVisible();
+ // Spec 101 block 2 (smoke 30/10): the draft with the material is saved, so «Abrir WhatsApp» is ready without «Guardar cambios».
+ const finalButton=composer.getByRole('button',{name:/^Abrir WhatsApp con (.+ · )?\+54 9 3442000301$/});
+ await expect(finalButton).toBeEnabled();await expect(composer.getByRole('button',{name:'Guardar cambios',exact:true})).toBeVisible();
  // Back in the contact step the material is announced; spec 98 decision 2 offers Instagram too, and WhatsApp stays selected.
  await composer.getByRole('button',{name:'Cambiar destinatario o modelo',exact:true}).click();
  await expect(composer.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
@@ -62,11 +65,13 @@ test('send sales material from the business, record it and revoke the link',asyn
  await composer.getByRole('group',{name:'Borrador anterior'}).getByRole('button',{name:'Seguir con ese borrador',exact:true}).click();
  await expect(included.getByText(title,{exact:true})).toBeVisible();
  await expect(composer.getByText(new RegExp(`Podés ver «${title}» en: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
- await composer.getByRole('button',{name:'Guardar cambios',exact:true}).click();
- await expect(composer.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
+ // Spec 101 block 1: the link is a link in the editor, never italics, and its text is the exact URL (tokens may carry `_`).
+ const editorLink=composer.locator('.tiptap a');await expect(editorLink).toHaveCount(1);await expect(editorLink).toHaveText(/^https?:\/\/\S+\/m\/[A-Za-z0-9_-]{43}$/);
+ expect(await editorLink.getAttribute('href')).toBe(await editorLink.textContent());await expect(composer.locator('.tiptap em')).toHaveCount(0);
  await expect(composer.getByRole('heading',{name:'Material de venta'})).toBeVisible();
  // Spec 96 §2.5–2.6: the final button names the destination; from the business the composer closes with a toast once WhatsApp opened.
- await composer.getByRole('button',{name:/^Abrir WhatsApp con (.+ · )?\+54 9 3442000301$/}).click();
+ // Spec 101 block 2: one click from the editor, without «Guardar cambios».
+ await finalButton.click();
  await expect(page.locator('[data-sonner-toast]').filter({hasText:/^WhatsApp abierto para .*\+54 9 3442000301/})).toBeVisible();
  await expect(composer).toHaveCount(0);
  const intent=new URL(await page.evaluate(()=>(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup.location.href));

@@ -20,7 +20,7 @@ import { getSettings } from "../endpoints/settings_GET.schema";
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import { buildHospedaEmailHtml } from "../helpers/hospedaEmailLayout";
 import { renderMessageTemplate, renderMessageTemplateHtml, normalizeTemplateHtml,htmlToPlainText } from "../helpers/renderMessageTemplate";
-import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "../helpers/templateChannelFormatting";
+import { htmlToWhatsApp, whatsappTextToReadOnlyHtml } from "../helpers/templateChannelFormatting";
 import { useAuth } from "../helpers/useAuth";
 import {managementTypes,managementTypeLabels,type ManagementType} from '../helpers/businessManagement';
 import { defaultMessageVariableSettings } from "../helpers/messageVariables";
@@ -166,7 +166,7 @@ export function TemplatesContent(){
   const renderedBody=renderMessageTemplateHtml(labelMaterialReferences({text:body,titles:{...refTitles,...pickedMaterials},html:true}),context,messageVariables);
   const renderedSubject=renderMessageTemplate(subject,context,messageVariables);
   const whatsappPreview=htmlToWhatsApp(renderedBody);
-  const whatsappPreviewHtml=whatsappTextToPreviewHtml(whatsappPreview);
+  const whatsappPreviewHtml=whatsappTextToReadOnlyHtml(whatsappPreview);
 
   return <section className={styles.embedded}>
     <header className={styles.embeddedHeader}>

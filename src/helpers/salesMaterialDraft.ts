@@ -66,13 +66,16 @@ async function draftFor(e:Executor,input:{id:string;revision:number;taskId?:stri
  if(!m.delegatedTaskId)await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,true);
  return {m,channel};
 }
-/** Saves a new body like `edit` does: same length cap, sanitized for email; the final html/text are refreshed only if the draft had them (they mean «reviewed»). */
+/**
+ * Saves a new body like `edit` does: same length cap, sanitized for email. Email and Instagram refresh their final html/text only if the draft had
+ * them (they mean «reviewed»; D6 A keeps Instagram as before). WhatsApp stores the final text equal to the body, as `edit` does (spec 101 §6.2).
+ */
 async function saveBody(e:Executor,m:Message,body:string,user:User):Promise<Message>{
  if(hasMaterialReferences({text:body}))throw new CommunicationConflict(UNRESOLVED_MATERIAL_MESSAGE);
  if(body.length>MESSAGE_BODY_MAX_LENGTH)throw new CommunicationConflict(`Con el enlace, el mensaje supera los ${MESSAGE_BODY_MAX_LENGTH.toLocaleString('es-AR')} caracteres. Acortá el texto antes de agregar material.`);
  const clean=m.channel==='email'?sanitizeEmail(body):body;
  const final=m.channel==='email'&&m.htmlBody?await renderFinal(e,{...m,body:clean},user):null;
- return (await sql<Message>`UPDATE crm_messages SET body=${clean},html_body=${final?final.htmlBody:m.htmlBody},text_body=${m.textBody==null?null:m.channel==='email'?final?.textBody??m.textBody:clean},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
+ return (await sql<Message>`UPDATE crm_messages SET body=${clean},html_body=${final?final.htmlBody:m.htmlBody},text_body=${m.channel==='whatsapp'?(clean.trim()?clean:null):m.textBody==null?null:m.channel==='email'?final?.textBody??m.textBody:clean},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
 }
 /** Refuses (409) attaching that share of the draft: WhatsApp/Instagram, external link, Brevo extension, size or the sum of the attachments (spec 89 §8.3). */
 export async function assertAttachable(e:Executor,m:Message,shareId:string){

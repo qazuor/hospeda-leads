@@ -6,7 +6,7 @@ import {useUserscriptContactBlock} from '../helpers/useUserscriptStatus';
 import {contactDestination,emailSentToast,finalActionLabel,whatsappOpenedToast} from '../helpers/contactDestination';
 import {useUnsavedChanges} from './UnsavedChanges';
 import React,{useEffect,useState,useRef} from 'react';import {createPortal} from 'react-dom';import {useMutation,useQueryClient} from '@tanstack/react-query';
-import {Button} from './Button';import {DRAFT_CHANGED_MESSAGE,postCommunication,restartDraftRequest,type PreparedMessage} from '../endpoints/communication.schema';import {formatDateTime} from '../helpers/crmDates';import {CrmApiError} from '../helpers/apiClient';import {whatsappTextToPreviewHtml,htmlToWhatsApp} from '../helpers/templateChannelFormatting';
+import {Button} from './Button';import {DRAFT_CHANGED_MESSAGE,postCommunication,restartDraftRequest,type PreparedMessage} from '../endpoints/communication.schema';import {formatDateTime} from '../helpers/crmDates';import {CrmApiError} from '../helpers/apiClient';import {whatsappTextToPreviewHtml,whatsappTextToReadOnlyHtml,htmlToWhatsApp} from '../helpers/templateChannelFormatting';
 import {Mail,MessageCircle,Pencil,Eye,Instagram} from 'lucide-react';
 import {toast} from 'sonner';
 import {htmlToPlainText} from '../helpers/renderMessageTemplate';
@@ -30,6 +30,7 @@ const escapeHtml=(text:string)=>text.replaceAll('&','&amp;').replaceAll('<','&lt
 const plainTextToEditorHtml=(text:string)=>text.split(/\n{2,}/).map(p=>'<p>'+escapeHtml(p).replace(/\n/g,'<br>')+'</p>').join('')||'<p></p>';
 const editorContent=(channel:PreparedMessage['channel'],body:string)=>channel==='whatsapp'?'<p>'+whatsappTextToPreviewHtml(body)+'</p>':channel==='social'?plainTextToEditorHtml(body):body;
 const BUSY='La operación está en curso. Esperá a que termine para continuar.';
+const FINAL_PENDING='Guardá el mensaje para ver el contenido final antes de continuar.';
 const MATERIAL_ACTIONS=['material_add','material_remove','material_attach','material_retry_without_attachments'];
 const materialNotice:Record<string,string>={material_add:'Material agregado al mensaje',material_remove:'Material quitado del mensaje',material_attach:'Adjunto actualizado',material_retry_without_attachments:'Borrador nuevo sin adjuntos. Revisalo y envialo de nuevo.'};
 /**
@@ -103,9 +104,11 @@ export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange,onN
  const composerChannel=m.channel==='email'?'email' as const:ig?'instagram' as const:'whatsapp' as const;
  const scriptGate=useUserscriptContactBlock(),gated=composerChannel!=='email'&&!!scriptGate.reason;
  const saveFirst=!!actionSlot&&dirty;
+ // Spec 101 §6.2: WhatsApp sends the saved body (its final text is the body); email and Instagram (D6 A, unchanged) still need their saved final text.
+ const finalPending=m.channel!=='whatsapp'&&!m.textBody;
  // In the footer the button also works from the editor: it checks what «Guardar cambios» would check, then saves before opening.
- const editBlock=!actionSlot||(ig&&dirty)?'Guardá o descartá los cambios pendientes antes de continuar.':!body.trim()?'Escribí el mensaje antes de continuar.':missingVariables.length?'Completá o quitá las variables faltantes antes de continuar.':m.channel==='email'&&!subject.trim()?'Completá el asunto antes de continuar.':!dirty&&!m.textBody?'Guardá el mensaje para ver el contenido final antes de continuar.':'';
- const finalBlock=mutation.isPending?BUSY:gated?scriptGate.reason:blockReason||(editing||dirty?editBlock:!m.textBody?'Guardá el mensaje para ver el contenido final antes de continuar.':'');
+ const editBlock=!actionSlot||(ig&&dirty)?'Guardá o descartá los cambios pendientes antes de continuar.':!body.trim()?'Escribí el mensaje antes de continuar.':missingVariables.length?'Completá o quitá las variables faltantes antes de continuar.':m.channel==='email'&&!subject.trim()?'Completá el asunto antes de continuar.':!dirty&&finalPending?FINAL_PENDING:'';
+ const finalBlock=mutation.isPending?BUSY:gated?scriptGate.reason:blockReason||(editing||dirty?editBlock:finalPending?FINAL_PENDING:!m.body.trim()?'Escribí el mensaje antes de continuar.':'');
  /** Save the edits, then dispatch the saved revision. The WhatsApp tab opens inside the click, before any await; a failed save closes it and keeps the text. */
  const saveThenDispatch=async()=>{if(processing.current||mutation.isPending)return;
   const popup=m.channel==='whatsapp'?window.open('about:blank','_blank'):null;if(popup)popup.opener=null;
@@ -132,7 +135,7 @@ export function MessageComposer({initial,onChange,onDirtyChange,onBusyChange,onN
  <div className={styles.actionBar}><span className={styles.muted}>{dirty?'Cambios sin guardar':'Borrador guardado'}</span><Button disabled={mutation.isPending||!body.trim()||missingVariables.length>0||(m.channel==='email'&&!subject.trim())} disabledReason={(mutation.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Completá o quitá las variables faltantes antes de continuar."} onClick={()=>mutate({action:'edit',id:m.id,revision:m.revision,...(taskId?{taskId}:{}),subject,body})}><Eye size={16}/>{mutation.isPending?'Guardando mensaje…':'Guardar cambios'}</Button>{!!m.textBody&&<Button variant="ghost" disabled={mutation.isPending} disabledReason={BUSY} onClick={discardEdits}>{dirty?'Descartar cambios':'Volver al mensaje final'}</Button>}</div></div>}
  {(!draft||!editing)&&!staleDraft&&!draftConflict&&preview&&<section className={styles.reviewSection}><div className={styles.reviewHeading}><div><h3>{draft?'Revisá el contenido final':'Contenido utilizado'}</h3><p className={styles.muted}>{draft?'Este es el contenido guardado que usará el canal.':'Se conserva el mensaje utilizado y su destinatario.'}</p></div>{draft&&<Button size="sm" variant="outline" disabled={mutation.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setEditing(true)}><Pencil size={14}/>Editar</Button>}</div>
  {m.channel==='email'&&<p className={styles.subjectLine}><strong>Asunto</strong><span>{m.subject}</span></p>}
- {m.channel==='email'?<EmailReadingView text={m.textBody??''} html={m.htmlBody??''}/>:ig?<div className={styles.readableMessage} aria-label="Texto que se copia">{m.textBody||m.body}</div>:<div className={styles.whatsappCanvas}><div className={styles.whatsapp} dangerouslySetInnerHTML={{__html:whatsappTextToPreviewHtml(m.body)}}/></div>}
+ {m.channel==='email'?<EmailReadingView text={m.textBody??''} html={m.htmlBody??''}/>:ig?<div className={styles.readableMessage} aria-label="Texto que se copia">{m.textBody||m.body}</div>:<div className={styles.whatsappCanvas}><div className={styles.whatsapp} dangerouslySetInnerHTML={{__html:whatsappTextToReadOnlyHtml(m.body)}}/></div>}
  {draft&&<MaterialSummary materials={materials}/>}
  </section>}
  {draft&&<div className={styles.confirmSection} hidden={editing}>{ig&&<InstagramReviewNotices username={m.recipient.replace(/^@/,'')} autoConfirm={igFlags.autoConfirm} shared={igFlags.shared}/>}<div className={styles.actionBar}><p className={styles.muted}>{m.channel==='email'?'Brevo acepta el email; la entrega se confirma por separado.':ig?'Se abrirá Instagram con el mensaje copiado. Instagram no permite cargar el texto en el chat: lo pegás vos.':'Se abrirá WhatsApp. Después podés registrar si efectivamente lo enviaste.'}</p>{!actionSlot&&sendButton}</div>{gated&&<UserscriptGateNotice gate={scriptGate}/>}</div>}
