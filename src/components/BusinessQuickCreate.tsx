@@ -19,6 +19,8 @@ import {getSettings} from '../endpoints/settings_GET.schema';
 import {saveCommercial} from '../endpoints/commercial.schema';
 import {checkBusinessDuplicates,DNC_DUPLICATE_MESSAGE} from '../endpoints/business_duplicate_check.schema';
 import {canonicalInstagramProfile,INSTAGRAM_PROFILE_INVALID} from '../helpers/instagramChat';
+import {CityInput} from './CityInput';
+import {catalogCityNotice,cityToSave} from '../helpers/catalogCity';
 import styles from './Commercial.module.css';
 
 const empty={nombre:'',ciudad:'',telefono:'',instagram:'',email:'',tipo:'',subtipo:'',personName:'',personPhone:''};
@@ -37,6 +39,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{on
  const admin=user?.role==='admin';
  const qc=useQueryClient();
  const settings=useQuery({queryKey:['settings'],queryFn:getSettings});
+ const cities=(settings.data?.cities??[]).map(c=>c.name);
  const [start]=useState(()=>({...empty,telefono:prefill?.telefono?.trim()??'',instagram:prefill?.instagram?.trim()??''}));
  const [draft,setDraft]=useState({...start,assignedUserEmail:user?.email??''});
  const instagramInvalid=!!draft.instagram.trim()&&!canonicalInstagramProfile(draft.instagram);
@@ -52,10 +55,12 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{on
  const checking=currentKey!=='null'&&(currentKey!==queryKey||duplicates.isFetching);
  const {blocker,shown,hidden,dncWarning,personPhoneDnc}=duplicateWarning({candidates:query?duplicates.data?.candidates??[]:[]});
  const shownKey=shown.map(c=>c.id).join(','),personKey=personPhoneDnc.map(c=>c.id).join(',');
- const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async result=>{
+ const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async (result,input)=>{
   await qc.cancelQueries({queryKey:['leads']});
   await Promise.all(invalidated.map(key=>qc.invalidateQueries({queryKey:[key],refetchType:'all'})));
-  crmSuccess('Negocio creado',toastLink?{label:'Abrir negocio',href:'/accounts/'+result.id}:undefined,draft.personName.trim()?`${draft.personName.trim()} quedó como persona principal.`:undefined);
+  // Spec 104 (37): a city typed with other accents or case was saved with the catalog spelling; say so.
+  const cityNotice=input.action==='account_save'&&input.ciudad&&input.ciudad!==draft.ciudad.trim()?catalogCityNotice(input.ciudad):'';
+  crmSuccess('Negocio creado',toastLink?{label:'Abrir negocio',href:'/accounts/'+result.id}:undefined,[draft.personName.trim()?`${draft.personName.trim()} quedó como persona principal.`:'',cityNotice].filter(Boolean).join(' ')||undefined);
   onSaved?.(result.id);onClose();
  }});
  const guard=useUnsavedChanges(Object.entries(start).some(([k,v])=>draft[k as keyof typeof start]!==v),onClose,mutation.isPending);
@@ -65,7 +70,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{on
   event.preventDefault();if(submitting.current||disabledReason)return;submitting.current=true;setError('');
   const text=(v:string)=>v.trim()||null;
   try{
-   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:text(draft.ciudad),telefono:text(draft.telefono),...(draft.instagram.trim()?{perfilInstagram:canonicalInstagramProfile(draft.instagram)}:{}),email:text(draft.email),tipo:text(draft.tipo),subtipo:text(draft.subtipo),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{}),...(personKey&&personAcknowledged===personKey?{personPhoneDncAcknowledged:true}:{})});
+   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:cityToSave({name:draft.ciudad,cities}).city,telefono:text(draft.telefono),...(draft.instagram.trim()?{perfilInstagram:canonicalInstagramProfile(draft.instagram)}:{}),email:text(draft.email),tipo:text(draft.tipo),subtipo:text(draft.subtipo),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{}),...(personKey&&personAcknowledged===personKey?{personPhoneDncAcknowledged:true}:{})});
   }catch(e){setError(e instanceof Error?e.message:'No se pudo crear el negocio.');}finally{submitting.current=false;}
  };
  const input=(key:keyof typeof draft,label:string,props:React.InputHTMLAttributes<HTMLInputElement>={})=><label key={key}>{label}<Input {...props} disabled={mutation.isPending} value={draft[key]} onChange={set(key)}/></label>;
@@ -73,7 +78,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{on
   <DialogTitle>Nuevo negocio</DialogTitle>
   <DialogDescription>Con el nombre alcanza para crearlo. No crea una gestión: para ofrecerle algo, después usá Iniciar gestión.</DialogDescription>
   <form onSubmit={submit} className={styles.form} aria-busy={mutation.isPending}>
-   <fieldset className={styles.formSection}><legend>Datos del negocio</legend>{input('nombre','Nombre',{required:true,autoFocus:true,placeholder:'Ej.: Cabañas del Río'})}{input('ciudad','Ciudad',{placeholder:'Ej.: Colón'})}{input('telefono','Teléfono / WhatsApp',{type:'tel',placeholder:'Ej.: 3447 412345'})}{input('instagram','Instagram',{placeholder:'Ej.: @cabanasdelrio','aria-invalid':instagramInvalid||undefined,'aria-describedby':instagramInvalid?'quick-create-instagram-error':undefined})}{instagramInvalid&&<small id="quick-create-instagram-error" role="alert" className={styles.error}>{INSTAGRAM_PROFILE_INVALID}</small>}</fieldset>
+   <fieldset className={styles.formSection}><legend>Datos del negocio</legend>{input('nombre','Nombre',{required:true,autoFocus:true,placeholder:'Ej.: Cabañas del Río'})}<label>Ciudad<CityInput disabled={mutation.isPending} cities={cities} value={draft.ciudad} onValueChange={value=>setDraft(d=>({...d,ciudad:value}))} placeholder="Ej.: Colón"/></label>{input('telefono','Teléfono / WhatsApp',{type:'tel',placeholder:'Ej.: 3447 412345'})}{input('instagram','Instagram',{placeholder:'Ej.: @cabanasdelrio','aria-invalid':instagramInvalid||undefined,'aria-describedby':instagramInvalid?'quick-create-instagram-error':undefined})}{instagramInvalid&&<small id="quick-create-instagram-error" role="alert" className={styles.error}>{INSTAGRAM_PROFILE_INVALID}</small>}</fieldset>
    <fieldset className={styles.formSection}><legend>Persona con la que hablaste (opcional)</legend>{input('personName','Nombre de la persona',{required:!!draft.personPhone.trim(),placeholder:'Ej.: Ana'})}{input('personPhone','Teléfono de la persona',{type:'tel'})}<p>Queda como persona principal del negocio.</p></fieldset>
    <div className={styles.fullField} aria-live="polite" style={{display:'grid',gap:8}}>{checking&&<small className={styles.muted} role="status">Revisando si ya existe…</small>}{query&&(shown.length>0||(duplicates.isError&&!checking))&&<section aria-label="Negocios parecidos" style={{display:'grid',gap:8,padding:12,border:'1px solid '+(blocker?'var(--error)':'var(--border)'),borderRadius:10}}>
     {blocker&&<p role="alert" className={styles.error} style={{margin:0}}><strong>{DNC_DUPLICATE_MESSAGE}</strong></p>}

@@ -18,6 +18,7 @@ import {handle as restore} from '../src/endpoints/leads_restore_POST';
 import {handle as getStats} from '../src/endpoints/leads_stats_GET';
 import type {OutputType as ListOutput} from '../src/endpoints/leads_GET.schema';
 import {handle as getLeads} from '../src/endpoints/leads_GET';
+import {handle as saveSettings} from '../src/endpoints/settings_save_POST';
 import {sql} from 'kysely';
 import {BUSINESS_PROJECTION_LEAD_COLUMNS,businessTableSource} from '../src/helpers/businessTable';
 import {calendarDay} from '../src/helpers/workDates';
@@ -47,6 +48,42 @@ try{
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:genericEmail},user.value,403);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:genericEmail,assignedUserEmail:user.email},admin.value);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:genericEmail});
+  {
+    // Spec 104 (37): «Agregar ciudad» rejects a city that differs from an existing one only by accents, case or spaces (ñ ≠ n) and reactivates an inactive match.
+    const addCity=async(name:string)=>{const r=await saveSettings(new Request('http://localhost/_api/settings_save',{method:'POST',headers:{cookie:admin.value,'Content-Type':'application/json'},body:superjson.stringify({action:'addCity',name})}));return {status:r.status,body:superjson.parse<{error?:string;city?:string}>(await r.text())};};
+    const cityRows=(pattern:string)=>db.selectFrom('crmCities').select(['name','active']).where('name','ilike',pattern).orderBy('name').execute();
+    assert.equal((await addCity(`San José ${suffix}`)).status,200);
+    const duplicate=await addCity(`  san   JOSE ${suffix} `);
+    assert.equal(duplicate.status,409,'A city differing only by accents, case or spaces is rejected');
+    assert.equal(duplicate.body.error,`Ya existe «San José ${suffix}». Usá esa.`);
+    assert.equal((await addCity(`San José ${suffix}`)).status,200,'The exact existing name stays a no-op');
+    assert.deepEqual(await cityRows(`%${suffix}`),[{name:`San José ${suffix}`,active:true}],'No second spelling was stored');
+    await db.insertInto('crmCities').values({name:`Chajarí ${suffix}`,active:false}).execute();
+    assert.equal((await addCity(`CHAJARI ${suffix}`)).status,200,'An inactive match is reactivated, not duplicated');
+    assert.deepEqual(await cityRows(`Chaj%${suffix}`),[{name:`Chajarí ${suffix}`,active:true}]);
+    assert.equal((await addCity(`Peña ${suffix}`)).status,200);
+    assert.equal((await addCity(`Pena ${suffix}`)).status,200,'ñ and n are different cities');
+    assert.deepEqual((await cityRows(`Pe%a ${suffix}`)).map(c=>c.name).sort(),[`Pena ${suffix}`,`Peña ${suffix}`]);
+    // Review B2: with duplicates already stored, the exact spelling wins and an active row wins over an inactive one.
+    const states=async(pattern:string)=>(await cityRows(pattern)).map(c=>`${c.name}:${c.active}`).sort();
+    await db.insertInto('crmCities').values([{name:`Villa Elisa ${suffix}`,active:true},{name:`Villa Elísa ${suffix}`,active:true}]).execute();
+    const exactDup=await addCity(`Villa Elísa ${suffix}`);
+    assert.equal(exactDup.status,200,'An exact existing name is a no-op even when a variant exists');
+    assert.equal(exactDup.body.city,`Villa Elísa ${suffix}`,'A correctly typed name is never rewritten to the variant');
+    assert.deepEqual(await states(`Villa El%sa ${suffix}`),[`Villa Elisa ${suffix}:true`,`Villa Elísa ${suffix}:true`].sort(),'No variant was reactivated, renamed or added');
+    assert.equal((await addCity(`VILLA ELISA  ${suffix}`)).status,409,'A non-exact spelling is still rejected');
+    await db.insertInto('crmCities').values([{name:`Ubajay ${suffix}`,active:false},{name:`Ubajáy ${suffix}`,active:false}]).execute();
+    const inactiveDup=await addCity(`Ubajáy ${suffix}`);
+    assert.equal(inactiveDup.status,200);assert.equal(inactiveDup.body.city,`Ubajáy ${suffix}`);
+    assert.deepEqual(await states(`Ubaj%y ${suffix}`),[`Ubajay ${suffix}:false`,`Ubajáy ${suffix}:true`].sort(),'The exact inactive spelling is the one reactivated');
+    await db.insertInto('crmCities').values([{name:`Basavilbaso ${suffix}`,active:true},{name:`Basavilbasó ${suffix}`,active:false}]).execute();
+    const preferActive=await addCity(`Basavilbasó ${suffix}`);
+    assert.equal(preferActive.status,409,'An active variant wins over reactivating an inactive exact spelling');
+    assert.equal(preferActive.body.error,`Ya existe «Basavilbaso ${suffix}». Usá esa.`);
+    await db.updateTable('crmCities').set({active:false}).where('name','=',`Chajarí ${suffix}`).execute();
+    const renamed=await addCity(`chajari ${suffix}`);
+    assert.equal(renamed.status,200);assert.equal(renamed.body.city,`Chajarí ${suffix}`,'Reactivating answers with the catalog spelling, for the notice');
+  }
   assert.equal((await detail(accountId)).account.assignedUserEmail,user.email);
   {// U-09: duplicate check hides private data and No contactar duplicates cannot be created or edited into (admins included)
     const check=async(q:Record<string,string>,who=user.value)=>{const r=await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?'+new URLSearchParams(q),{headers:{cookie:who}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<{candidates:Record<string,any>[]}>(t).candidates};
