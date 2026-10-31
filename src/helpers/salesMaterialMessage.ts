@@ -20,7 +20,7 @@ export class MaterialShareUrlUnavailable extends Error{constructor(){super('Falt
 export function materialShareUrl({path,base=process.env.PUBLIC_APP_URL,production=process.env.NODE_ENV==='production'}:{path:string;base?:string|null;production?:boolean}):string{
  const root=base?.trim();
  if(!root&&production)throw new MaterialShareUrlUnavailable();
- return shareOrigin({base:root})+path;
+ return shareOrigin({base:root||null})+path; // null, not undefined: undefined would re-read PUBLIC_APP_URL through the default parameter
 }
 /** Origin that share links are built with (`PUBLIC_APP_URL`, or the local server), without trailing slashes. */
 export const shareOrigin=({base=process.env.PUBLIC_APP_URL}:{base?:string|null}={}):string=>(base?.trim()||'http://localhost:3001').replace(/\/+$/,'');
