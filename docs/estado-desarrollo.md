@@ -1,5 +1,13 @@
 # Estado del CRM — corte al 31 de octubre de 2026
 
+## Spec 100, bloque 1 — servidor: vencimiento, grupos y espera del script — PR a `staging` — 31/10/2026
+
+- `pendingContactFollowUps` devuelve `{unconfirmed, outcomes, expired:{unconfirmed, outcomes}}`; cada lista suma `groupCount`. Vencimiento al leer con `now()` de la base, sin escribir nada: «¿Lo enviaste?» a las 72 h; «Anotá cómo salió» por gestión (negocio, gestión, tarea delegada), entera, 7 días después de su envío más nuevo (un envío nuevo la devuelve a la cuenta). El límite cuenta grupos (`dense_rank`), así un grupo nunca llega cortado; los ítems traen `delegatedTaskId`. Constantes en `contactOutcome.ts` (`UNCONFIRMED_STALE_HOURS`, `OUTCOME_STALE_DAYS`, `WHATSAPP_SCRIPT_WAIT_MS`).
+- D7: una apertura de WhatsApp de menos de 5 minutos no entra en `unconfirmed` (ni en vencidos). La ficha la sigue listando sin contar (mensaje cargado) con «Esperando que el script de WhatsApp confirme el envío» y «Sí/No»; si el servidor ya la lista, gana el reloj de la base. `useConfirmWaitNow` recarga al terminar cualquiera de las dos esperas.
+- `outcome` (`manual_sent`/`manual_not_sent`) sobre un envío ya `manual_sent` → 409 «Este envío ya estaba confirmado.» (antes 400 genérico).
+- Helper puro `contactFollowUpGroups.ts` (`groupOutcomeFollowUps`, `pendingCount`) para los bloques 2 y 4. La UI actual no cambia de forma (sigue leyendo `count`).
+- **Validación local (31/10/2026):** tras `seed`, `test-communication`, `test-userscript`, `test-instagram-open-chat`, `test-business-history`, `test-commercial`, `test-inbound-email` y `test-inbound-email-reply` PASS. `test-work` FAIL en la línea 137 (anterior a todo lo de este bloque) porque la base descartable acumula datos de corridas previas (el seed no la vacía: 1413 tareas, 352 usuarios) y la vista admin de 100 tareas ya no incluye las del test; una copia temporal sin esa línea pasó entera, incluido el bloque nuevo. `npm run typecheck`, `npx vitest run` (2294) y `npm run build` OK. Suite de navegador no corrida (se ajustaron `business-contact` e `instagram-open-chat` a la espera).
+
 ## Spec 99 — registro honesto de contactos — cerrada el 31/10/2026
 
 Los cinco bloques están mergeados a `staging` con CI verde (#296, #297, #298, #299, #300); falta promover a `main`, que se hace con el lote completo (specs 99–104) y a pedido del propietario. Abajo, el detalle por bloque.

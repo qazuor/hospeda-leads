@@ -21,6 +21,8 @@ Quedan abiertos de la spec 99:
 
 Regla: el trabajo se mergea a `staging`; a `main` solo cuando todos los PR del lote estén en `staging` y el propietario lo pida (un merge a `main` despliega producción).
 
+**Spec 100, bloque 1** (servidor: vencimiento, grupos por gestión, límite por grupos, espera de 5 minutos del script de WhatsApp y conflicto «Este envío ya estaba confirmado.») está implementado localmente; falta PR a `staging` y CI. Verificado el 31/10/2026: 7 integraciones PASS tras `seed`; `test-work` pasa entero salvo su línea 137, que falla por datos acumulados en la base descartable local (confirmar en CI, que usa una base nueva); typecheck, vitest (2294) y build OK; suite de navegador sin correr. Siguen los bloques 2 (tira), 3 (masivo), 4 (Hoy y toast) y 5 (Para retomar y Próximas acciones).
+
 Datos que necesitan aprobación del propietario (ningún agente los toca por iniciativa propia):
 - Negocio de prueba H1601 «PRUEBA UX — Hospeda — 02-10-2026» en producción.
 - Documento de prueba «aaaa» en Cheroga (H1468) en producción.
