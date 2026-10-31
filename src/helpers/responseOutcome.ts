@@ -36,9 +36,11 @@ const latest=(sends:readonly OpenSend[])=>[...sends].sort((a,b)=>b.lastInteracti
  *    management, or all without one); open sends in different contexts are ambiguous and stay pending.
  * Only sends that happened at or before `answeredAt` count (when the response was received, or registered when there is no message):
  * a response cannot answer a later send, so an old message registered late never resolves what was sent after it.
+ * 0. A response marked new («No, es una respuesta nueva», `newReply`) answers no send: owner decision of 31/10/2026.
  * Nothing is inferred from received messages: only the registered response counts.
  */
-export function attributeResponseToSend({sends:all,linkedMessageId,leadId,answeredAt}:{sends:readonly OpenSend[];linkedMessageId:string|null;leadId:string|null;answeredAt:Date}):{messageId:string|null}{
+export function attributeResponseToSend({sends:all,linkedMessageId,leadId,answeredAt,newReply=false}:{sends:readonly OpenSend[];linkedMessageId:string|null;leadId:string|null;answeredAt:Date;newReply?:boolean}):{messageId:string|null}{
+ if(newReply)return {messageId:null};
  const sends=all.filter(s=>s.lastInteractionAt.getTime()<=answeredAt.getTime());
  if(linkedMessageId)return {messageId:sends.some(s=>s.id===linkedMessageId)?linkedMessageId:null};
  if(leadId)return {messageId:latest(sends.filter(s=>s.leadId===leadId))};

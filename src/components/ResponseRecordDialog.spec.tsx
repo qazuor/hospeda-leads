@@ -108,8 +108,8 @@ describe('ResponseRecordDialog spec 99 §3.4',()=>{
   mount({item:{...whatsapp,fromAddress:'+5493442000000'},comm:withSends([sent('real',{contactId:'21'}),sent('opened',{status:'whatsapp_opened'}),sent('notdone',{status:'manual_not_done'})]),biz:withPeople([person('21','Ana')])});await openInbound();
   expect(from().value).toBe('');
   const options=[...linked().options].map(o=>o.value);
-  expect(options).toEqual(['','real']);
-  expect(linked().options[1].textContent).toMatch(/^WhatsApp · Ana \(\+54 9 3442 555111\) · 19 de oct de 2026, 12:30$/);
+  expect(options).toEqual(['','__new__','real']);
+  expect(linked().options[2].textContent).toMatch(/^WhatsApp · Ana \(\+54 9 3442 555111\) · 19 de oct de 2026, 12:30$/);
  });
  it('preselects the only recent send to that address and choosing a send keeps the chosen person',async()=>{
   mount({item:whatsapp,comm:withSends([sent('recent',{contactId:'21'}),sent('old',{lastInteractionAt:new Date('2026-10-10T12:00:00Z')})]),biz:withPeople([person('20','Bea'),person('21','Ana')])});await openInbound();
@@ -136,17 +136,49 @@ describe('ResponseRecordDialog spec 99 §3.4',()=>{
   fireEvent.click(save());
   await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalled());
   expect(postCommunication.mock.calls[0][0]).toMatchObject({action:'inbound_register',category:'later',contactId:'20',linkedMessageId:'recent'});
+  expect(postCommunication.mock.calls[0][0]).not.toHaveProperty('newReply',true);
  });
- it('sends exactly what the screen shows: «El negocio», «No, es una respuesta nueva» and the management as explicit values',async()=>{
+ it('sends exactly what the screen shows: «El negocio», an explicit «No, es una respuesta nueva» and the management as explicit values',async()=>{
   postCommunication.mockClear();
   mount({item:{...whatsapp,contactId:'21',linkedMessageId:'recent'},comm:withSends([sent('recent',{contactId:'21'})]),biz:withPeople([person('21','Ana')])});await openInbound();
   expect(from().value).toBe('21');expect(linked().value).toBe('recent');
-  fireEvent.change(from(),{target:{value:''}});fireEvent.change(linked(),{target:{value:''}});
+  fireEvent.change(from(),{target:{value:''}});fireEvent.change(linked(),{target:{value:'__new__'}});
+  expect(linked().selectedOptions[0].textContent).toBe('No, es una respuesta nueva');
   fireEvent.change(category(),{target:{value:'later'}});
   fireEvent.change(screen.getByLabelText('¿Qué te dijo? Resumen (obligatorio)'),{target:{value:'Pidió precios'}});
   fireEvent.click(save());
   await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalled());
-  expect(postCommunication.mock.calls[0][0]).toMatchObject({action:'inbound_register',leadId:'9',contactId:null,linkedMessageId:null});
+  expect(postCommunication.mock.calls[0][0]).toMatchObject({action:'inbound_register',leadId:'9',contactId:null,linkedMessageId:null,newReply:true});
+ });
+ it('an untouched «Sin indicar» sends no newReply on inbound_register (no linked send found)',async()=>{
+  postCommunication.mockClear();
+  mount();await openInbound();
+  expect(linked().value).toBe('');expect(linked().selectedOptions[0].textContent).toBe('Sin indicar');
+  fireEvent.change(category(),{target:{value:'later'}});
+  fireEvent.change(screen.getByLabelText('¿Qué te dijo? Resumen (obligatorio)'),{target:{value:'Pidió precios'}});
+  fireEvent.click(save());
+  await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalled());
+  const sentInput=postCommunication.mock.calls[0][0] as Record<string,unknown>;
+  expect(sentInput).toMatchObject({action:'inbound_register',linkedMessageId:null});expect(sentInput.newReply).toBeUndefined();
+ });
+ it('response_create (free): untouched sends no newReply, explicit new sends newReply:true, a chosen send sends linkedMessageId',async()=>{
+  const fill=async()=>{fireEvent.click(screen.getByRole('button',{name:'open-free'}));await screen.findByLabelText('¿Por dónde?');fireEvent.change(category(),{target:{value:'later'}});fireEvent.change(screen.getByLabelText('¿Qué te dijo? Resumen (obligatorio)'),{target:{value:'Pidió precios'}});await vi.waitFor(()=>expect(save().disabled).toBe(false));};
+  const comm=withSends([sent('recent')]);
+  postCommunication.mockClear();mount({comm});await fill();
+  expect(linked().value).toBe('');
+  fireEvent.click(save());await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalledTimes(1));
+  let call=postCommunication.mock.calls[0][0] as Record<string,unknown>;
+  expect(call).toMatchObject({action:'response_create',linkedMessageId:null});expect(call.newReply).toBeUndefined();
+  cleanup();postCommunication.mockClear();mount({comm});await fill();
+  fireEvent.change(linked(),{target:{value:'__new__'}});
+  fireEvent.click(save());await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalledTimes(1));
+  call=postCommunication.mock.calls[0][0] as Record<string,unknown>;
+  expect(call).toMatchObject({action:'response_create',linkedMessageId:null,newReply:true});
+  cleanup();postCommunication.mockClear();mount({comm});await fill();
+  fireEvent.change(linked(),{target:{value:'recent'}});
+  fireEvent.click(save());await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalledTimes(1));
+  call=postCommunication.mock.calls[0][0] as Record<string,unknown>;
+  expect(call).toMatchObject({action:'response_create',linkedMessageId:'recent'});expect(call.newReply).toBeUndefined();
  });
  it('a stored person that was deleted shows and sends «El negocio»',async()=>{
   postCommunication.mockClear();
@@ -158,14 +190,15 @@ describe('ResponseRecordDialog spec 99 §3.4',()=>{
   await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalled());
   expect(postCommunication.mock.calls[0][0]).toMatchObject({contactId:null});
  });
- it('changing the management clears a chosen send it no longer lists and sends the management shown',async()=>{
+ it('changing the management resets the send to «Sin indicar» and sends the management shown',async()=>{
   postCommunication.mockClear();
   const two={...withPeople([]),opportunities:[{id:'9',opportunityName:'Venta principal',deletedAt:null},{id:'10',opportunityName:'Renovación',deletedAt:null}]} as unknown as CommercialDetail;
   mount({item:whatsapp,comm:withSends([sent('recent')]),biz:two});await openInbound();
   const management=()=>screen.getByLabelText('¿Sobre qué gestión?') as HTMLSelectElement;
   expect(linked().value).toBe('recent');
   fireEvent.change(management(),{target:{value:''}});
-  expect(linked().value).toBe('recent');
+  expect(linked().value).toBe('');
+  fireEvent.change(linked(),{target:{value:'__new__'}});
   fireEvent.change(management(),{target:{value:'10'}});
   expect(linked().value).toBe('');
   fireEvent.change(category(),{target:{value:'later'}});
@@ -173,6 +206,7 @@ describe('ResponseRecordDialog spec 99 §3.4',()=>{
   fireEvent.click(save());
   await vi.waitFor(()=>expect(postCommunication).toHaveBeenCalled());
   expect(postCommunication.mock.calls[0][0]).toMatchObject({leadId:'10',linkedMessageId:null});
+  expect(postCommunication.mock.calls[0][0]).not.toHaveProperty('newReply',true);
  });
  it('preselects again when the business people load after opening, never over a choice the seller made',async()=>{
   const tree=(biz:CommercialDetail)=><MantineProvider><QueryClientProvider client={client}><Host item={whatsapp} biz={biz}/></QueryClientProvider></MantineProvider>;
