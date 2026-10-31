@@ -1,4 +1,5 @@
-import {useRef} from 'react';
+import {useRef,type ReactNode} from 'react';
+import layout from './ui/CrmLayout.module.css';
 import {CrmDateInput} from './ui/CrmDateInput';
 import {Checkbox} from './Checkbox';
 import {Button} from './Button';
@@ -11,8 +12,9 @@ export const needsOverdueConfirmation=(value:string,originalValue:string|undefin
 /**
  * Due date field with quick choices (Mañana, En 3 días, Lunes, En 1 semana, Elegir fecha); a choice that lands on the same day as another is not repeated.
  * Never preselects a day. A past day (other than the one the task already had) shows a required "Sí, quiero dejarla vencida" checkbox.
+ * `aside` (spec 104, 33: the time) sits in the same row as the date, and the calendar then opens toward it from the right edge so it never covers it.
  */
-export function DueDateShortcuts({label,value,onChange,originalValue,overdueConfirmed,onOverdueConfirmedChange,now,className,postpone}:{label:string;value:string;onChange:(value:string)=>void;originalValue?:string;overdueConfirmed:boolean;onOverdueConfirmedChange:(confirmed:boolean)=>void;now?:Date;className?:string;postpone?:boolean}){
+export function DueDateShortcuts({label,value,onChange,originalValue,overdueConfirmed,onOverdueConfirmedChange,now,className,postpone,aside}:{label:string;value:string;onChange:(value:string)=>void;originalValue?:string;overdueConfirmed:boolean;onOverdueConfirmedChange:(confirmed:boolean)=>void;now?:Date;className?:string;postpone?:boolean;aside?:ReactNode}){
  const change=(day:string)=>{onChange(day);onOverdueConfirmedChange(false);};
  const input=useRef<HTMLInputElement>(null);
  const dates=shortcutDates(now);
@@ -27,7 +29,7 @@ export function DueDateShortcuts({label,value,onChange,originalValue,overdueConf
    {chips.map(([name,day])=><Button key={name} type="button" size="sm" variant={value===day?'primary':'outline'} aria-pressed={value===day} title={formatDate(day)} onClick={()=>change(day)}>{name}</Button>)}
    <Button type="button" size="sm" variant={value&&!matches?'primary':'outline'} aria-pressed={!!value&&!matches} onClick={()=>input.current?.focus()}>Elegir fecha</Button>
   </div>
-  <label>{label}<CrmDateInput ref={input} required value={value} onValueChange={change}/></label>
+  {aside?<div className={layout.dateTimeRow}><label>{label}<CrmDateInput ref={input} required value={value} onValueChange={change} popoverProps={{position:'bottom-end'}}/></label>{aside}</div>:<label>{label}<CrmDateInput ref={input} required value={value} onValueChange={change}/></label>}
   {overdue&&<label style={{display:'flex',alignItems:'center',gap:12,fontWeight:400}}><Checkbox required checked={overdueConfirmed} onChange={e=>onOverdueConfirmedChange(e.target.checked)}/>Sí, quiero dejarla vencida</label>}
  </div>;
 }
