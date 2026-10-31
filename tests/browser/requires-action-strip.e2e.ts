@@ -5,6 +5,7 @@ import superjson from 'superjson';
 import {simulateUserscript} from './helpers/userscript';
 import {openRequiresAction} from './helpers/requiresAction';
 import {pickOutcome} from './support/outcome';
+import {waitForTransitions} from './support/transitions';
 
 // Spec 100 block 2: the «Requiere acción» strip of a business. The data is real (created through the app API); only the clock is
 // faked by ageing `last_interaction_at` with SQL on the disposable database: a WhatsApp open past the 5-minute script wait (counted)
@@ -68,7 +69,7 @@ test('collapsed strip, expanded blocks, one outcome per management, answerable �
 
  // «Vencidos» is answerable; expiring wrote nothing (the open is still unconfirmed in the database).
  expect((await sql<{status:string}[]>`SELECT status FROM crm_messages WHERE id=${expired}::uuid`)[0].status).toBe('whatsapp_opened');
- const expiredToggle=region.getByRole('button',{name:'Vencidos · 1',exact:true});await expect(expiredToggle).toHaveAttribute('aria-expanded','false');await expiredToggle.click();
+ const expiredToggle=region.getByRole('button',{name:'Vencidos · 1',exact:true});await expect(expiredToggle).toHaveAttribute('aria-expanded','false');await expiredToggle.click();await waitForTransitions(page);
  const old=region.getByRole('region',{name:'Vencidos',exact:true}).getByRole('group',{name:/^WhatsApp sin confirmar para /});
  await old.getByRole('button',{name:'No se envió',exact:true}).click();
  await expect(region.getByRole('button',{name:/^Vencidos/})).toHaveCount(0);
