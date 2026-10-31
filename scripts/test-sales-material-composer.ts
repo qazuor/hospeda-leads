@@ -210,7 +210,7 @@ try{
  // Pasting the revoked link back is refused at dispatch: it belongs to another message (and is revoked).
  const pasted=await call({action:'edit',id:again.id,revision:again.revision,subject:'Dos',body:again.body+`<p>Otra vez: <a href="https://crm.example.test/m/${tokenA}">https://crm.example.test/m/${tokenA}</a></p>`},200,owner);
  let leaks=0;globalThis.fetch=async()=>{leaks++;return new Response('{}',{status:201});};
- await call({action:'dispatch',id:pasted.id,revision:pasted.revision,confirm:true},409,owner,/pertenece a otro mensaje/);globalThis.fetch=realFetch;assert.equal(leaks,0,'Nothing reached Brevo');
+ await call({action:'dispatch',id:pasted.id,revision:pasted.revision,confirm:true},409,owner,/enlace de material que no se reconoce/);globalThis.fetch=realFetch;assert.equal(leaks,0,'Nothing reached Brevo');
  again=await call({action:'edit',id:pasted.id,revision:pasted.revision,subject:'Dos',body:retried.message.body},200,owner);
  let finalPayload:any=null;globalThis.fetch=async(_url,init)=>{finalPayload=JSON.parse(String(init?.body));return new Response(JSON.stringify({messageId:'<retry-'+stamp+'@brevo.test>'}),{status:201});};
  const retriedSent=await call({action:'dispatch',id:again.id,revision:again.revision,confirm:true},200,owner);globalThis.fetch=realFetch;
@@ -224,7 +224,7 @@ try{
  await sql`INSERT INTO crm_sales_material_shares(id,token_hash,material_id,account_id,original_account_id,channel,prepared_version,sent_version,created_by_email) VALUES(${randomUUID()}::uuid,${hashShareToken({token:foreignToken})},${brochure}::uuid,${b.id},${b.id},'whatsapp',1,1,${other.user.email})`.execute(db);
  let paste=await prepare('whatsapp');
  paste=await call({action:'edit',id:paste.id,revision:paste.revision,subject:'',body:`Hola, mirá https://crm.example.test/m/${foreignToken}`},200,owner);
- await call({action:'dispatch',id:paste.id,revision:paste.revision,confirm:true},409,owner,/pertenece a otro mensaje/);
+ await call({action:'dispatch',id:paste.id,revision:paste.revision,confirm:true},409,owner,/enlace de material que no se reconoce/);
  paste=await call({action:'edit',id:paste.id,revision:paste.revision,subject:'',body:`Hola, mirá https://crm.example.test/m/${legacyToken()}`},200,owner);
  await call({action:'dispatch',id:paste.id,revision:paste.revision,confirm:true},409,owner,/no se reconoce/);
  // Spec 101: an unknown short link with the CRM origin is refused the same way; another site's `/m/slug-XXXX` is not a share link.

@@ -155,9 +155,11 @@ export async function claimDraftMaterials(e:Executor,{message:m,user,storage}:{m
  const rows=(await shareRows(e,[m.id],true,[...inBody])).rows;
  if(!rows.length&&!inBody.size)return {journal:[],attachments:[]};
  const known=new Set(rows.map(r=>r.tokenHash));
- if([...inBody].some(h=>!known.has(h)))throw new CommunicationConflict('El mensaje tiene un enlace de material que no se reconoce. Quitalo y agregá el material desde «Agregar material de venta».');
+ // Unknown and foreign links get the same message and no title: with 4-character tokens a distinct answer would let a signed-in user enumerate other messages' links from a draft.
+ const UNRECOGNISED='El mensaje tiene un enlace de material que no se reconoce. Quitalo y agregá el material desde «Agregar material de venta».';
+ if([...inBody].some(h=>!known.has(h)))throw new CommunicationConflict(UNRECOGNISED);
  const foreign=rows.find(r=>inBody.has(r.tokenHash)&&String(r.messageId??'')!==String(m.id));
- if(foreign)throw new CommunicationConflict(`El enlace de «${foreign.title}» pertenece a otro mensaje. Quitalo y agregá el material desde «Agregar material de venta».`);
+ if(foreign)throw new CommunicationConflict(UNRECOGNISED);
  const own=rows.filter(r=>String(r.messageId)===String(m.id));
  const revokedInText=own.find(r=>r.revokedAt&&inBody.has(r.tokenHash));
  if(revokedInText)throw new CommunicationConflict(`El enlace de «${revokedInText.title}» fue revocado. Quitalo del mensaje.`);
