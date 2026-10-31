@@ -91,7 +91,7 @@ export function buildHospedaEmailHtml({
             </tr>
             <tr>
               <td style="padding:28px 34px 24px;background:#DFECF8;">
-                <div style="font-size:11px;line-height:1.2;letter-spacing:1.6px;font-weight:700;color:#1f7fa9;text-transform:uppercase;margin-bottom:9px;">${overline} · ${safeVertical}</div>
+                <div style="font-size:11px;line-height:1.5;letter-spacing:1.6px;font-weight:700;color:#1f7fa9;text-transform:uppercase;margin-bottom:9px;">${overline} · ${safeVertical}</div>
                 <div style="font-size:26px;line-height:1.25;font-weight:700;color:#17354a;">${safeSubject}</div>
               </td>
             </tr>

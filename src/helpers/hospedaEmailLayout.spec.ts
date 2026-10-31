@@ -18,4 +18,12 @@ describe("Hospeda email layout", () => {
     const html=buildHospedaEmailHtml({bodyHtml:"<p>Respuesta</p>",senderName:"Leandro",subject:"Re: Consulta",variant:"reply"});
     expect(html).toContain("Respuesta");expect(html).toContain("Leandro</strong>");expect(html).not.toContain("Conocer Hospeda</a>");expect(html).not.toContain("INVITACIÓN");
   });
+
+  it("keeps the overline accent visible: «INVITACIÓN» with its tilde and room above the capitals (spec 104 §3.13)",()=>{
+    const html=buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Conocé Hospeda",vertical:"Hotel"});
+    const overline=html.match(/<div style="([^"]*)">INVITACIÓN · Hotel<\/div>/);
+    expect(overline).not.toBeNull();
+    expect(Number(overline?.[1]?.match(/line-height:([\d.]+)/)?.[1])).toBeGreaterThanOrEqual(1.4);
+  });
 });
+

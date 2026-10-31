@@ -1,5 +1,5 @@
 import {useEffect,useRef} from 'react';
-import {Drawer} from '@mantine/core';
+import {CrmDrawer} from './ui/CrmDialog';
 import {useMediaQuery} from '@mantine/hooks';
 import {CalendarDays,Clock3,Layers3,Tag,UserRound} from 'lucide-react';
 import {managementDisplayName} from '../content/vocabulary';
@@ -21,7 +21,7 @@ export function ManagementPreviewDrawer({lead,insight,data,stage,role,opened,onC
  if(!lead)return null;
  const due=(lead as Opportunity&{fechaProximaAccion?:Date|string|null}).fechaProximaAccion,lastContact=(lead as Opportunity&{fechaUltimoContacto?:Date|string|null}).fechaUltimoContacto,dueDay=due?calendarDay(due):null,today=localDay(),dueTone=dueDay&&dueDay<today?styles.overdue:dueDay===today?styles.today:styles.upcoming;
  const days=insight?.stageSince?Math.max(0,Math.floor((Date.now()-new Date(insight.stageSince).getTime())/86400000)):null,priority=insight?.manualPriority??lead.prioridad;
- return <Drawer opened={opened} onClose={onClose} closeOnEscape={!nestedDialogOpen} closeOnClickOutside={!nestedDialogOpen} position={narrow?'bottom':'right'} size={narrow?'85dvh':'min(440px, 100vw)'} returnFocus={false} classNames={{content:narrow?styles.sheet:undefined,body:styles.body,title:styles.drawerTitle}} overlayProps={{backgroundOpacity:.45,blur:2}} title={managementDisplayName(lead)} closeButtonProps={{'aria-label':'Cerrar vista previa de la gestión'}}>
+ return <CrmDrawer opened={opened} onClose={onClose} closeOnEscape={!nestedDialogOpen} closeOnClickOutside={!nestedDialogOpen} position={narrow?'bottom':'right'} size={narrow?'85dvh':'min(440px, 100vw)'} returnFocus={false} classNames={{content:narrow?styles.sheet:undefined,body:styles.body,title:styles.drawerTitle}} overlayProps={{backgroundOpacity:.45,blur:2}} title={managementDisplayName(lead)} closeButtonProps={{'aria-label':'Cerrar vista previa de la gestión'}}>
   <div className={styles.content}>
    <p className={styles.eyebrow}>Vista previa de la gestión</p><p className={styles.subtitle}>{lead.nombre} · {lead.managementType?managementTypeLabels[lead.managementType]:'Tipo sin especificar'}</p>
    <section className={styles.section}><h3>Etapa</h3><StageStepper stage={lead.estado} type={lead.managementType}/></section>
@@ -36,5 +36,5 @@ export function ManagementPreviewDrawer({lead,insight,data,stage,role,opened,onC
    {insight&&!insight.pendingFollowup&&<p className={styles.flag}>Sin seguimiento pendiente</p>}
   </div>
   <footer className={styles.footer}><Button variant="secondary" disabled={!can||locked} disabledReason={disabledReason} onClick={onChangeStage}>Cambiar etapa</Button><Button onClick={()=>onOpen(lead)}>Abrir gestión</Button></footer>
- </Drawer>;
+ </CrmDrawer>;
 }

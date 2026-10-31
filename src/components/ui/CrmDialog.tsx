@@ -1,6 +1,7 @@
 import {useDialogLayer} from '../../helpers/useDialogLayer';
 import React, { useEffect, useId, useRef } from 'react';
 import { Drawer, Modal } from '@mantine/core';
+import type { DrawerProps } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { pickerOpen } from '../Dialog';
 import styles from './CrmControls.module.css';
@@ -57,4 +58,14 @@ export function CrmDialog({ opened, onClose, title, description, children, busy 
           body: `${styles.body} ${styles.drawerBody}` }}>{content}</Drawer>
     : <Modal {...shared} centered size={640}
         classNames={{ ...classNames, content: `${styles.content} ${styles.modalContent}` }}>{content}</Modal>;
+}
+
+/**
+ * Mantine `Drawer` for side panels and sheets that are not a {@link CrmDialog} (business and management previews, the phone «Más» menu).
+ * It registers the open panel as a dialog layer, so toasts move to the top centre instead of covering its footer and dialogs opened
+ * from it stack above. The z-index stays Mantine's own: what the panel already shows (tooltips, menus) keeps painting above it.
+ */
+export function CrmDrawer(props: DrawerProps) {
+  useDialogLayer(props.opened);
+  return <Drawer {...props}/>;
 }

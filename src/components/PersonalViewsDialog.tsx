@@ -12,6 +12,7 @@ import {convertSavedViewToSystem} from '../endpoints/business_list_defaults.sche
 import type {BusinessSystemView} from '../helpers/businessSystemViews';
 import {legacyFilterLabels,preferencesFromSavedView,type ListPreferences} from '../helpers/businessListPreferences';
 import {toast} from 'sonner';
+import {TOAST_MS} from '../helpers/crmFeedback';
 import styles from './PersonalViewsDialog.module.css';
 import {FilterBuilderDialog,FilterLegend,type FilterFieldDefinition} from './FilterBuilderDialog';
 type Screen={kind:'list'}|{kind:'edit'|'delete'|'duplicate'|'convert';view:SavedLeadView};
@@ -35,8 +36,8 @@ export function PersonalViewsDialog({userId,prefs,fields,admin,saveOpen,onSaveOp
  useEffect(()=>{if(managementRequest){direct.current=true;focusReturn.current=managementRequest.opener;show(managementRequest);setManageOpen(true);}},[managementRequest]);
  async function submit(input:InputType){if(lock.current)return;lock.current=true;try{
   const result=await mutation.mutateAsync(input);if(saveOpen)onSaved?.(input,result);
-  if(saveOpen){onSaveOpenChange(false);toast.success(input.action==='save'?'Vista guardada':'Vista actualizada',{duration:8000});}
-  else{if(direct.current){setManageOpen(false);onManagementClose?.();}else show({kind:'list'});toast.success(input.action==='delete'?'Vista eliminada. Los filtros actuales se conservan.':'Vista actualizada. Los filtros actuales se conservan.',{duration:8000});}
+  if(saveOpen){onSaveOpenChange(false);toast.success(input.action==='save'?'Vista guardada':'Vista actualizada',{duration:TOAST_MS.success});}
+  else{if(direct.current){setManageOpen(false);onManagementClose?.();}else show({kind:'list'});toast.success(input.action==='delete'?'Vista eliminada. Los filtros actuales se conservan.':'Vista actualizada. Los filtros actuales se conservan.',{duration:TOAST_MS.success});}
  }catch(error){toast.error(crmError(error));/* Keep the error and entered values beside the action. */}finally{lock.current=false;}}
  async function convert(){if(lock.current||screen.kind!=='convert'||!admin||!screen.view.id)return;lock.current=true;try{const sourceId=screen.view.id;const result=await conversion.mutateAsync(sourceId);onConverted?.(sourceId,result.systemView);toast.success('Vista convertida y compartida con el equipo');if(direct.current){setManageOpen(false);onManagementClose?.();}else show({kind:'list'});}catch(error){toast.error(crmError(error));}finally{lock.current=false;}}
  const title=saveOpen?(saveMode==='choice'?'Guardar vista':saveMode==='update'?'Actualizar vista':'Guardar como vista'):screen.kind==='edit'?'Editar vista':screen.kind==='delete'?'Eliminar vista':screen.kind==='duplicate'?'Duplicar vista':screen.kind==='convert'?'Convertir en vista de sistema':'Tus vistas';

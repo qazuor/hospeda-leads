@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {Drawer,Skeleton} from '@mantine/core';
+import {Skeleton} from '@mantine/core';
+import {CrmDrawer} from './ui/CrmDialog';
 import {useMediaQuery} from '@mantine/hooks';
 import {useQuery} from '@tanstack/react-query';
 import {getCommercialDetail,type CommercialDetail} from '../endpoints/commercial.schema';
@@ -62,7 +63,7 @@ export function BusinessPreviewDrawer({row,opened,onClose,onOpenRecord,returnFoc
  const d=query.data,openManagements=d?openPreviewManagements(d):[],allowed=canActOnBusiness(d,authState),canEdit=canModifyBusiness(authState.type==='authenticated'?authState.user:undefined,d?.account),reason=d?.account.archivedAt?archivedReason:restrictedReason;
  const responsible=d?.account.assignedUserEmail?users.find(u=>u.email===d.account.assignedUserEmail)?.displayName??d.account.assignedUserEmail:null;
  const overdue=row?.fechaProximaAccion?overdueLabel(row.fechaProximaAccion):'';
- return <><Drawer opened={opened} onClose={onClose} closeOnEscape={!contact&&!edit} closeOnClickOutside={!contact&&!edit} position={narrow?'bottom':'right'} size={narrow?'85dvh':'min(420px, 100vw)'} returnFocus={false}
+ return <><CrmDrawer opened={opened} onClose={onClose} closeOnEscape={!contact&&!edit} closeOnClickOutside={!contact&&!edit} position={narrow?'bottom':'right'} size={narrow?'85dvh':'min(420px, 100vw)'} returnFocus={false}
   classNames={{content:narrow?styles.sheet:undefined,body:styles.body}} overlayProps={{backgroundOpacity:.45,blur:2}}
   title={row?.nombre??'Vista previa'} closeButtonProps={{'aria-label':'Cerrar vista previa'}}>
   <div className={styles.content} aria-busy={query.isPending}>
@@ -87,5 +88,5 @@ export function BusinessPreviewDrawer({row,opened,onClose,onOpenRecord,returnFoc
    <Button disabled={!allowed} disabledReason={d?reason:'Esperá a que cargue la vista previa.'} onClick={()=>setContact(true)}>Contactar</Button>
    <Button variant="outline" disabled={!canEdit} disabledReason={d?reason:'Esperá a que cargue la vista previa.'} onClick={()=>setEdit(true)}>Editar</Button>
   </footer>
- </Drawer>{contact&&d&&<BusinessContactDialog detail={d} onClose={()=>setContact(false)}/ >}{edit&&d&&<CommercialEditor target={{kind:'account'}} detail={d} onClose={()=>setEdit(false)} onSaved={()=>setEdit(false)}/>}</>;
+ </CrmDrawer>{contact&&d&&<BusinessContactDialog detail={d} onClose={()=>setContact(false)}/ >}{edit&&d&&<CommercialEditor target={{kind:'account'}} detail={d} onClose={()=>setEdit(false)} onSaved={()=>setEdit(false)}/>}</>;
 }
