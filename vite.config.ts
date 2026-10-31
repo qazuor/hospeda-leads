@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { pdfjsAssets } from "./src/server/pdfjsAssets";
 
 export default defineConfig({
-  plugins: [react()],
+  // Spec 102: pdf.js wasm decoders, ICC profiles, CMaps and standard fonts at /assets/pdfjs-<version>/ (see src/helpers/pdfThumbnail.ts).
+  plugins: [react(), pdfjsAssets()],
   server: {
     // Overridable by scripts/local/cli.mjs when the default ports are busy.
     port: Number(process.env.CRM_DEV_WEB_PORT || 5173),

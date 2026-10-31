@@ -29,12 +29,13 @@ describe('SalesMaterialCard',()=>{
   fireEvent.click(item(menu,'Nueva versión'));expect(handlers.onEdit).toHaveBeenCalledWith({type:'version',material:expect.objectContaining({id:'m-1'})});
   cleanup();setup(material());fireEvent.click(item(await openMenu(),'Archivar'));expect(handlers.onArchive).toHaveBeenCalledTimes(1);
  });
- it('archived material: only Editar and Restaurar for admins; links have no Portada nor Descargar',async()=>{
+ it('archived material: only Editar and Restaurar for admins; links have Portada (spec 102 block 2) but no Descargar',async()=>{
   setup(material({status:'archived',archivedAt:new Date()}));let menu=await openMenu();
   expect(menu.map(i=>i.textContent)).toEqual(['Descargar','Editar','Restaurar']);cleanup();
   setup(material({source:'url',currentVersion:{...version,url:'https://example.com/x',fileName:null,mimeType:null,byteSize:null}}));
   expect(screen.getByRole('link',{name:'Abrir enlace'})).toBeTruthy();menu=await openMenu();
-  expect(menu.map(i=>i.textContent)).toEqual(['Editar','Nueva versión','Archivar']);
+  expect(menu.map(i=>i.textContent)).toEqual(['Editar','Nueva versión','Portada','Archivar']);
+  fireEvent.click(item(menu,'Portada'));expect(handlers.onEdit).toHaveBeenCalledWith({type:'cover',material:expect.objectContaining({source:'url'})});
  });
  it('sellers get only Descargar, and no menu at all on a link',async()=>{
   setup(material(),{admin:false});const menu=await openMenu();expect(menu.map(i=>i.textContent)).toEqual(['Descargar']);cleanup();
