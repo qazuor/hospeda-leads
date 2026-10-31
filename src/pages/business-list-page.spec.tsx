@@ -48,6 +48,12 @@ describe('BusinessListPage group definition availability',()=>{
  it('uses the corrected restoration page when building a persisted list context',()=>{
   expect(restoredListContext({page:9,scrollY:180,scrollX:24},1)).toEqual({page:1,scrollY:180,scrollX:24});
  });
+ it('agrees the loaded-count status with a single business',async()=>{
+  setup();
+  expect(await screen.findByText('Negocio visible')).toBeTruthy();
+  await waitFor(()=>expect(screen.getByRole('status').textContent).toContain('1 de 1 negocio cargado'));
+  expect(screen.getByRole('status').textContent).not.toContain('cargados');
+ });
  it('renders rows and preserves group preferences while definitions are delayed, then shows the loaded group',async()=>{
   const prefs=storedPrefs(),pending=defer<{groups:typeof DEFAULT_BUSINESS_COLUMN_GROUPS}>();api.getGroups.mockReturnValue(pending.promise);setup();
   expect(await screen.findByText('Negocio visible')).toBeTruthy();await waitFor(()=>expect(api.getLeads).toHaveBeenCalled());expect(api.getLeads.mock.calls.at(-1)?.[0].sortBy).toBe('nombre');expect(api.getLeads.mock.calls.at(-1)?.[0].sortDir).toBe('desc');expect(Array.from(document.querySelectorAll('th')).find(header=>header.textContent?.includes('Nombre'))?.getAttribute('aria-sort')).toBe('descending');

@@ -299,6 +299,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 **Tené en cuenta:**
 
 - Si el negocio parecido está marcado No contactar, el CRM no te deja crear un duplicado: abrilo en lugar de crear otro. Si ya existe con otro responsable, el aviso también lo dice.
+- En la ficha, «Datos del negocio» muestra el sitio web, Google Maps y los perfiles (Instagram, Facebook, Airbnb, Booking y Turismo Entre Ríos) como enlaces que se abren en otra pestaña; los datos que faltan aparecen en «Sin cargar». Abrir un enlace no registra ningún contacto.
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
@@ -349,6 +350,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 - En la computadora, WhatsApp e Instagram necesitan el script de Hospeda instalado, actualizado y conectado con tu cuenta. Si falta algo, el botón queda apagado con el motivo y un enlace «Ir a User script». En el celular no hace falta.
 - Si falla abrir el email o WhatsApp, el CRM guarda un intento sin confirmar. No lo reenvíes de nuevo: primero revisá su estado en «Requiere acción».
 - Si no ves «Contactar», puede ser porque el negocio es No contactar o porque no sos su responsable. Mirá el artículo No puedo modificar un negocio, en Resolver dudas y errores.
+- En una gestión, la pestaña «Comunicación» tiene los mismos botones: el contacto se abre con esa gestión ya elegida en «¿Sobre qué?».
 
 **Dónde ir:** Abrir Negocios (/accounts)
 
@@ -737,6 +739,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Tené en cuenta:**
 
 - La antigua biblioteca se reemplazó por «Material de venta». Los documentos que ya estaban vinculados a un negocio se siguen viendo en su pestaña.
+- Si no sos administrador, no ves «Agregar documento o recurso»: si falta un documento, pedíselo a un administrador.
 
 **Dónde ir:** Elegir negocio para consultar documentos (/accounts)
 

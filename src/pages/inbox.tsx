@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
+import {plural} from '../content/vocabulary';
 import {useInfiniteQuery,useQuery} from '@tanstack/react-query';
 import {useSearchParams} from 'react-router-dom';
 import {ArrowLeft,Search,SlidersHorizontal} from 'lucide-react';
@@ -80,7 +81,7 @@ export default function InboxPage(){
  </div>
  <div className={`${styles.pane} ${styles.threads} ${isVisible('threads')?'':styles.hidden}`}>
  {backButton({account:null,lead:null,channel:null})}<header><h2>Conversaciones del negocio</h2>{accountId&&<><strong>{accountName}</strong><a href={`/accounts/${accountId}`}>Abrir ficha del negocio</a></>}</header>
- {!accountId?<CrmEmptyState>Elegí un negocio para ver sus conversaciones.</CrmEmptyState>:threads.isPending?<PaneSkeleton label="Cargando conversaciones"/>:threads.error?<QueryErrorNotice error={threads.error} onRetry={threads.refetch} busy={threads.isFetching}/>:!threads.data?.rows.length?<CrmEmptyState>No hay conversaciones para este negocio.</CrmEmptyState>:<div className={styles.rows}>{threads.data.rows.map(row=><button key={`${row.leadId??'none'}-${row.channel}`} className={`${styles.row} ${(row.leadId??'none')===leadId&&row.channel===channel?styles.active:''}`} onClick={()=>selectThread(row)}><strong>{row.leadId?row.leadTitle:'General'}</strong><span className={styles.meta}>{inboxChannelLabel(row.channel)} · {inboxDateLabel(row.lastActivityAt)} · {row.messageCount} mensajes</span>{row.pendingCount>0&&<b className={styles.pending}>A revisar · {row.pendingCount}</b>}</button>)}</div>}
+ {!accountId?<CrmEmptyState>Elegí un negocio para ver sus conversaciones.</CrmEmptyState>:threads.isPending?<PaneSkeleton label="Cargando conversaciones"/>:threads.error?<QueryErrorNotice error={threads.error} onRetry={threads.refetch} busy={threads.isFetching}/>:!threads.data?.rows.length?<CrmEmptyState>No hay conversaciones para este negocio.</CrmEmptyState>:<div className={styles.rows}>{threads.data.rows.map(row=><button key={`${row.leadId??'none'}-${row.channel}`} className={`${styles.row} ${(row.leadId??'none')===leadId&&row.channel===channel?styles.active:''}`} onClick={()=>selectThread(row)}><strong>{row.leadId?row.leadTitle:'General'}</strong><span className={styles.meta}>{inboxChannelLabel(row.channel)} · {inboxDateLabel(row.lastActivityAt)} · {plural(row.messageCount,'mensaje','mensajes')}</span>{row.pendingCount>0&&<b className={styles.pending}>A revisar · {row.pendingCount}</b>}</button>)}</div>}
  </div>
  <div className={`${styles.pane} ${styles.detail} ${isVisible('detail')?'':styles.hidden}`}>
  {accountId?<InboxDetail key={`${accountId}-${leadId}-${channel}`} accountId={accountId} thread={selectedThread} channel={channel} accountName={accountName} message={message} back={searchActive?null:backButton({lead:null,channel:null})}/>:<CrmEmptyState>Elegí una conversación para ver el detalle.</CrmEmptyState>}

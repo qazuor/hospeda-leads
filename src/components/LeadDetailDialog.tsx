@@ -6,7 +6,7 @@ import {PipelineDetail,StageBadgeButton} from "./Pipeline";
 import {WorkPanel} from "./WorkPanel";
 import {SectionTabs,SectionTabList,SectionTab,SectionTabPanel} from "./SectionTabs";
 import { CommercialPanel } from "./CommercialPanel";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {Link} from "react-router-dom";
 import {  useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,6 +29,13 @@ import {actorLabel,userLabel} from '../helpers/crmLabels';
 import {managementDisplayName} from '../content/vocabulary';
 import styles from "./LeadDetailDialog.module.css";
 import {HelpLink} from './HelpLink';
+import {BusinessContactDialog} from './BusinessContactDialog';
+import {getCommercialDetail} from '../endpoints/commercial.schema';
+import {getPipeline} from '../endpoints/pipeline.schema';
+import {isOpenManagement} from '../helpers/contactChannels';
+import {QueryErrorNotice} from './QueryErrorNotice';
+import type {ContactChannel,ContactOptions} from './communication/types';
+import type {PickedSalesMaterial} from './SalesMaterialPicker';
 
 const text=(v:unknown)=>v==null||v===""?"—":String(v);
 const date=(v:unknown)=>v?formatDate(v):"—";
@@ -76,7 +83,7 @@ const fieldLabel:Record<string,string>={
 };
 
 export const LeadDetailDialog=({
-  open,onOpenChange,lead,users,onEdit,onDelete,onWhatsApp,onEmail,page=false,readOnly=false,position,onPrevious,onNext
+  open,onOpenChange,lead,users,onEdit,onDelete,page=false,readOnly=false,position,onPrevious,onNext
 }:{
   open:boolean;
   onOpenChange:(open:boolean)=>void;
@@ -84,8 +91,6 @@ export const LeadDetailDialog=({
   users?:{id:number;email:string;displayName:string;role:"admin"|"user"}[];
   onEdit?:(lead:any)=>void;
   onDelete?:(lead:any)=>void;
-  onWhatsApp?:(lead:any)=>void;
-  onEmail?:(lead:any)=>void;
   page?:boolean;readOnly?:boolean;
   position?:{current:number;total:number};
   onPrevious?:()=>void;
@@ -118,6 +123,18 @@ export const LeadDetailDialog=({
       ]);
     }
   });
+
+  // Spec 104 (26): «Comunicación» contacts through the same «Contactar» dialog as the business record, with this management chosen.
+  // Same query key as the compact business section below, so both share one request; the dialog and the server apply the usual permissions.
+  const detailQ=useQuery({queryKey:["commercial-detail","",String(lead?.id??"")],queryFn:()=>getCommercialDetail(undefined,String(lead!.id)),enabled:open&&!!lead?.id&&!readOnly});
+  const [contact,setContact]=useState<{channel?:ContactChannel;contactId?:string;material?:PickedSalesMaterial}|null>(null),contactReturnFocus=useRef<HTMLElement|null>(null);
+  const openContact=(next:{channel?:ContactChannel;contactId?:string;material?:PickedSalesMaterial})=>{contactReturnFocus.current=document.activeElement as HTMLElement|null;setContact(next)};
+  const stagesQ=useQuery({queryKey:['pipeline','config-summary'],queryFn:()=>getPipeline({mode:'config'}),enabled:open&&!!lead?.id&&!readOnly});
+  // Contact is offered only for an open management: the dialog preselects another open one otherwise, and the contact would be attributed to it.
+  const own=detailQ.data?.opportunities.find(o=>String(o.id)===String(lead?.id));
+  const managementOpen=!!own&&!!stagesQ.data&&isOpenManagement({opportunity:own,stages:stagesQ.data.stages});
+  const contactLoaded=!!detailQ.data&&!!stagesQ.data,contactError=(!detailQ.data&&detailQ.error)||(!stagesQ.data&&stagesQ.error)||null;
+  const canContact=!readOnly&&contactLoaded&&managementOpen;
 
   if(!lead)return null;
   const preferred=String(lead.medioContactoPreferido??"").toLowerCase();
@@ -288,10 +305,11 @@ export const LeadDetailDialog=({
             </div>}
           </section>
           </Disclosure></SectionTabPanel>
-          <SectionTabPanel value="communication"><CommunicationPanel leadId={String(lead.id)} readOnly={readOnly}/></SectionTabPanel>{lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)} readOnly={readOnly}/></SectionTabPanel>}
+          <SectionTabPanel value="communication">{!readOnly&&contactLoaded&&!managementOpen&&<p role="status">La gestión está cerrada. Para contactar, abrí el negocio.</p>}{!readOnly&&contactError&&<QueryErrorNotice error={contactError} onRetry={()=>Promise.all([detailQ.data?undefined:detailQ.refetch(),stagesQ.data?undefined:stagesQ.refetch()])} busy={detailQ.isFetching||stagesQ.isFetching}/>}<CommunicationPanel leadId={String(lead.id)} readOnly={readOnly} onContact={canContact?(channel?:ContactChannel,options?:ContactOptions)=>openContact({channel,contactId:options?.contactId}):undefined} onSendMaterial={canContact?material=>openContact({material}):undefined}/></SectionTabPanel>{lead.accountId&&<SectionTabPanel value="documents"><ResourcesPanel accountId={String(lead.accountId)} leadId={String(lead.id)} readOnly={readOnly}/></SectionTabPanel>}
 
         </div>
       </SectionTabs>
+      {contact&&detailQ.data&&<BusinessContactDialog detail={detailQ.data} initialLeadId={String(lead.id)} initialChannel={contact.channel} initialContactId={contact.contactId} initialMaterial={contact.material} returnFocusTo={contactReturnFocus.current} onClose={()=>{setContact(null);contactReturnFocus.current=null}}/>}
     </DialogContent>
   </Dialog>;
 };

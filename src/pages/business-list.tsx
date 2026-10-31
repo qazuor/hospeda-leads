@@ -1,4 +1,5 @@
 import {PageHeader} from '../components/PageHeader';
+import {pluralWord} from '../content/vocabulary';
 import { SimpleGrid,Table } from '@mantine/core';
 import { Checkbox } from '../components/Checkbox';
 import { Input } from '../components/Input';
@@ -170,7 +171,7 @@ function BusinessList({userId,userEmail,admin,defaults,groups,groupsResolved}:{u
  <Dialog open={fullscreen} onOpenChange={toggleFullscreen}><DialogContent fullScreen inline={!fullscreen} showCloseButton={false} ref={resultsFrame} className={fullscreen?styles.fullscreenResults:styles.resultsFrame} aria-describedby={undefined} onOpenAutoFocus={event=>{event.preventDefault();fullscreenButton.current?.focus();}} onCloseAutoFocus={event=>{event.preventDefault();requestAnimationFrame(()=>fullscreenButton.current?.focus({preventScroll:true}));}}>
  {fullscreen&&<DialogTitle className={styles.screenReaderOnly}>Resultados de negocios en pantalla completa</DialogTitle>}
  <div ref={resultsBar} className={styles.resultsBar}>
- <p role="status" aria-live="polite" className={styles.status}>{busy?'Cargando negocios…':`${results.isFetchingNextPage?'Cargando más negocios… · ':''}${rows.length} de ${total} negocios cargados`}{!busy&&prefs.loadMode==='continuous'&&!results.hasNextPage&&' · No hay más resultados'}</p>
+ <p role="status" aria-live="polite" className={styles.status}>{busy?'Cargando negocios…':`${results.isFetchingNextPage?'Cargando más negocios… · ':''}${rows.length} de ${total} ${pluralWord(total,'negocio cargado','negocios cargados')}`}{!busy&&prefs.loadMode==='continuous'&&!results.hasNextPage&&' · No hay más resultados'}</p>
  {livePending.pending&&!busy&&<Button size="sm" variant="secondary" className={styles.liveChanges} title="Hay cambios nuevos en los negocios de este listado. Actualizá para verlos." onClick={()=>void refreshLiveChanges()}><RefreshCw size={14} aria-hidden="true"/>Hay cambios · Actualizar</Button>}
  <div className={styles.controlRow}>
    <div className={styles.presentation} role="group" aria-label="Presentación del listado"><Button size="sm" variant="ghost" aria-pressed={prefs.presentation==='table'} onClick={()=>change({...prefs,presentation:'table'})}><Table2 size={16} aria-hidden="true"/>Tabla</Button><Button size="sm" variant="ghost" aria-pressed={prefs.presentation==='grid'} onClick={()=>change({...prefs,presentation:'grid'})}><LayoutGrid size={16} aria-hidden="true"/>Grilla</Button></div>

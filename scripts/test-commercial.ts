@@ -372,6 +372,29 @@ try{
   const excluded=await pageOf(1,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'fechaProximaAccion',operator:'not_empty'}]},{rules:[{field:'contactName',operator:'neq',value:'Ana Única'}]}])));
   assert.deepEqual(excluded.rows.map(r=>String(r.id)),[projected[3]],'AND groups combine a derived filter with an exclusion');
   console.log('Business projection: column parity, derived contact/task/activity values, sort, filters and count across pages passed');
+  {// Spec 104 (24): the Gestiones list reads the management's person (primary_contact_id), then the business primary, then the legacy contact_name.
+    const mark=`Persona gestión ${suffix}`;
+    const [withPeople,withoutPeople]=await Promise.all([mark+' A',mark+' B'].map(async nombre=>(await db.insertInto('crmAccounts').values({nombre,assignedUserEmail:user.email}).returning('id').executeTakeFirstOrThrow()).id));
+    const person=async(name:string,isPrimary:boolean,deleted=false)=>(await db.insertInto('crmContacts').values({accountId:withPeople,name,isPrimary,deletedAt:deleted?new Date():null}).returning('id').executeTakeFirstOrThrow()).id;
+    await person(`Marta Peña ${suffix}`,true);
+    const chosen=await person(`Julián Ñandú ${suffix}`,false),removed=await person(`Borrada ${suffix}`,false,true);
+    const management=async(accountId:string,name:string,values:{primaryContactId?:string;contactName?:string})=>(await db.insertInto('leads').values({accountId,nombre:mark,opportunityName:name,estado:'Cargado',assignedUserEmail:user.email,...values}).returning('id').executeTakeFirstOrThrow()).id;
+    const ids={chosen:await management(withPeople,'Elegida',{primaryContactId:chosen}),fallback:await management(withPeople,'Sin elegir',{}),removed:await management(withPeople,'Persona borrada',{primaryContactId:removed}),legacy:await management(withoutPeople,'Heredada',{contactName:`Legado ${suffix}`})};
+    // Saving a contact_name seeds the business's primary person; remove it so the legacy case has no people.
+    await db.updateTable('leads').set({primaryContactId:null}).where('id','=',ids.legacy).execute();await db.deleteFrom('crmContacts').where('accountId','=',withoutPeople).execute();
+    const managements=async(extra='')=>{const r=await getLeads(new Request('http://localhost/_api/leads?entity=opportunity&pageSize=50&q='+encodeURIComponent(mark)+extra,{headers:{cookie:user.value}}));const body=await r.text();assert.equal(r.status,200,body);return superjson.parse<ListOutput>(body)};
+    const listed=await managements(),nameOf=(id:string)=>listed.rows.find(r=>String(r.id)===String(id))?.contactName;
+    assert.equal(nameOf(ids.chosen),`Julián Ñandú ${suffix}`,'The management primary person wins');
+    assert.equal(nameOf(ids.fallback),`Marta Peña ${suffix}`,'Without a management person, the business primary person');
+    assert.equal(nameOf(ids.removed),`Marta Peña ${suffix}`,'A deleted person is never shown');
+    assert.equal(nameOf(ids.legacy),`Legado ${suffix}`,'Without people, the legacy contact_name');
+    const byText=await managements('&textFilters='+encodeURIComponent(JSON.stringify([{field:'contactName',mode:'contains',value:`julian ñandu ${suffix}`}])));
+    assert.deepEqual(byText.rows.map(r=>String(r.id)),[String(ids.chosen)],'The text filter finds the management by its real person');
+    const byRule=await managements('&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'contactName',operator:'contains',value:`MARTA PEÑA ${suffix}`}]}])));
+    assert.deepEqual(byRule.rows.map(r=>String(r.id)).sort(),[String(ids.fallback),String(ids.removed)].sort(),'The advanced filter uses the same person');
+    assert.equal((await managements('&textFilters='+encodeURIComponent(JSON.stringify([{field:'contactName',mode:'contains',value:`Borrada ${suffix}`}])))).total,0,'A deleted person does not match');
+    console.log('Gestiones list: contactName from the management person, business primary, legacy contact_name, text and advanced filters passed');
+  }
   assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage}))).status,400,'Ambiguous business quick edit rejected');
   assert.equal((await quick(request({id:first,accountId:otherId,field:'estado',value:stage}))).status,400,'Foreign opportunity rejected');
   assert.equal((await quick(request({id:first,accountId,field:'assignedUserEmail',value:user.email}))).status,403);
