@@ -139,7 +139,8 @@ describe('clientIp',()=>{
  });
 });
 describe('mangledShareTokenFromPath',()=>{
- const token=legacyToken();
+ // No '-': a 42-character slice with a '-' before its last 4 characters is a valid short link (`slug-XXXX`), which made the null case flaky.
+ const token=(()=>{let t='';do{t=legacyToken()}while(t.includes('-'));return t;})();
  it.each(['/','.',',',')','%29','%2c'])('returns the clean legacy token for a trailing %j',tail=>expect(mangledShareTokenFromPath({pathname:`/m/${token}${tail}`})).toBe(token));
  it.each(['/','.',',',')','%29','%2C'])('returns the clean short segment for a trailing %j',tail=>{
   expect(mangledShareTokenFromPath({pathname:`/m/folleto-2027-Ab3x${tail}`})).toBe('folleto-2027-Ab3x');
