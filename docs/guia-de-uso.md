@@ -219,7 +219,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Tené en cuenta:**
 
-- Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa.
+- Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa. Las restricciones por canal las registra un administrador: si el negocio pidió que no le escriban por un canal, avisale a uno.
 - Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta.
 - «Abierto» es aproximado: algunos clientes de correo abren los emails automáticamente (Apple Mail) y otros bloquean las imágenes. Una apertura o un click no es una respuesta, no cuenta como contacto, no completa tareas ni cambia la fecha del último contacto.
 
@@ -284,7 +284,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 **Cuándo usarlo:** Cuando el establecimiento todavía no está en el CRM.
 
 1. Entrá en «Negocios» y buscá el nombre. Revisá ciudad y canales para no crear un duplicado.
-2. Si no existe, tocá «Nuevo negocio». Alcanza con el nombre; sumá ciudad y teléfono si los conocés. No inventes lo que falte.
+2. Si no existe, tocá «Nuevo negocio». Alcanza con el nombre; sumá ciudad y teléfono si los conocés. No inventes lo que falte. Mientras escribís la ciudad, el CRM sugiere las de la lista; si escribiste una de la lista sin tilde o con otras mayúsculas, se guarda como figura en la lista y te avisa.
 3. Si ya hablaste con alguien, completá «Persona con la que hablaste (opcional)»: queda como persona principal del negocio.
 4. Mientras escribís, el CRM revisa si ya existe algo parecido. Si aparece el mismo negocio, abrilo en lugar de crear otro. Solo si ninguno es el tuyo, marcá «Ninguno de estos es mi negocio, crear igual».
 5. Tocá «Crear negocio». Después podés abrirlo y completar el resto con «Editar negocio».
@@ -357,7 +357,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 **Cuándo usarlo:** Cuando conocés a alguien del negocio o hay varias personas involucradas.
 
 1. Abrí el negocio y buscá «Personas» en la ficha. Tocá «Agregar persona». Cargar una persona es opcional: «Contactar» también permite usar el teléfono o el email del negocio.
-2. Completá el nombre, el teléfono o el email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar vacíos.
+2. Completá el nombre, el teléfono o el email. Cargo y Canal preferido ayudan a elegir cómo hablarle; pueden quedar vacíos. Si un valor guardado figura como que no está en la lista, elegí uno de la lista para corregirlo.
 3. Marcá Principal si es la referencia habitual del negocio y guardá.
 4. Si el teléfono que cargás es el de un negocio que pidió no ser contactado, el CRM te muestra un aviso con el nombre del negocio. Podés guardar a la persona, pero antes tenés que tildar «Entendido, no voy a contactar a ese negocio». No uses ese teléfono para contactar sin consultar a un administrador.
 5. Agregá a las demás personas como fichas distintas. En una gestión podés elegir quién es su persona principal.
@@ -404,9 +404,9 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 **Cuándo usarlo:** Cuando hay algo pendiente: llamar, enviar una propuesta, visitar o confirmar una entrega.
 
 1. Desde «Hoy» tocá «Agendar tarea». También podés usar el botón de próximo paso dentro del negocio o «Agendar otra tarea» en la pestaña «Tareas».
-2. Si empezaste desde Hoy, buscá y elegí el negocio. En «Contexto» elegí una gestión o «Sin gestión (general del negocio)».
+2. Si empezaste desde Hoy, buscá y elegí el negocio. Si la búsqueda encuentra uno solo, aparece debajo un botón para elegirlo, con su código, nombre y ciudad: tocalo o apretá Enter. Si figura como No contactar, revisalo antes de seguir. En «Contexto» elegí una gestión o «Sin gestión (general del negocio)».
 3. Antes de guardar, mirá si el CRM avisa «Ya hay tareas pendientes para este negocio». Si ya existe una para el mismo compromiso, abrila y actualizala en lugar de duplicarla.
-4. Escribí un título concreto en «Qué hay que hacer». Elegí «Tipo», la fecha de vencimiento y, si sirve, «Hora (opcional)». Revisá el «Propósito».
+4. Escribí un título concreto en «Qué hay que hacer». Elegí «Tipo», la fecha de vencimiento y, si sirve, «Hora (opcional)», al lado de la fecha y en formato de 24 horas (por ejemplo, 15:00). Revisá el «Propósito».
 5. Para la fecha podés usar los atajos «Mañana», «En 3 días», «Lunes», «En 1 semana» o «Elegir fecha».
 6. Conversación comercial sirve para una oferta; Entrega para cumplir lo acordado; Acompañamiento para ver cómo le va; Retomar conversación para volver sobre un contacto anterior.
 7. En «Participantes y notas (opcional)» agregá detalles. Después tocá «Agendar tarea».
@@ -464,7 +464,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 3. En «Detalles del resultado» escribí en pocas palabras qué ocurrió. «Otro (contame)» pide una aclaración.
 4. Respondé «¿Cómo sigue?»: «Agendar una tarea» (con título y fecha), «Esperar hasta una fecha y retomar» o «No agendar nada» (con un motivo). No se puede guardar sin elegir una.
 5. Si el CRM muestra una casilla para pasar la gestión a la etapa sugerida, marcala solo si es lo que pasó. Si no la marcás, la etapa no cambia.
-6. Revisá el resumen «Revisá lo que se guardará» y tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).
+6. Revisá el resumen «Revisá lo que se guardará». Si dice «Ninguna persona elegida», tocá «Elegir personas» para marcar con quién hablaste. La fecha y la hora real están en «Fecha, canal y participantes», en formato de 24 horas. Después tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).
 7. Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar» y elegí «Respuesta sin mensaje». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador.
 
 **Qué queda al terminar:** Se completa la tarea y queda guardado lo que pasó. Si dejaste una tarea nueva, se crea con su fecha. Las demás tareas se conservan.
@@ -767,7 +767,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Cuándo usarlo:** Para revisar visitas y reuniones, y para cambiar la fecha de un compromiso.
 
 1. En «Hoy» abrí la solapa «Calendario». Elegí el «Mes» y, si querés, alternás entre «Ver como calendario» y «Ver como lista».
-2. Para agendar una visita o reunión, tocá «Agendar encuentro». Cuando ocurra, tocá «Anotar encuentro realizado». Solo los tipos de tarea configurados para el calendario aparecen ahí; las demás están en «Lista».
+2. Para agendar una visita o reunión, tocá «Agendar encuentro»: abre con un tipo de encuentro ya elegido. Cuando ocurra, tocá «Anotar encuentro realizado». Solo los tipos de tarea configurados para el calendario aparecen ahí; las demás están en «Lista».
 3. Para pasar una tarea a otro día, tocá «Posponer» en su fila y elegí «Mañana», «En 3 días», «Lunes» o «Elegir fecha…». El CRM te avisa con un cartel y podés tocar «Deshacer».
 4. Para cambiar también la hora o los datos, abrí el menú de la tarea y tocá «Cambiar fecha o datos».
 5. Si ya no hay que hacerla, tocá «Ya no hace falta» y escribí el motivo. Si la hiciste, usá «Anotar cómo salió» en lugar de cancelarla.
