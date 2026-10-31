@@ -68,7 +68,9 @@ const managementOf=(input:{leadId:string|number|null|undefined;name?:string|null
  return {context:name==null?'Sin gestión':'Gestión: '+name,managementId:name==null?null:String(input.leadId),managementName:name};
 };
 /** Tag under a received message. */
-export type TimelineTag={kind:'review'|'response'|'dismissed'|'automatic'|'auto_registered'|'voided';label:string};
+export type TimelineTag={kind:'review'|'replied'|'response'|'dismissed'|'automatic'|'auto_registered'|'voided';label:string};
+/** Spec 99 §3.5: «Por revisar» is `pending_review` without a CRM reply with evidence of sending (`repliedAt`, same rule as inboundReview.ts). */
+export const awaitingReview=(item:{status:string;repliedAt?:Date|string|null}):boolean=>item.status==='pending_review'&&!item.repliedAt;
 /** «Respuesta registrada · <outcome>[ · completó la tarea «X»]». */
 export const responseTagLabel=(response:Pick<CommunicationResponse,'category'|'resolvedTaskTitles'>):string=>{
  const tasks=(response.resolvedTaskTitles??[]).filter(Boolean);
@@ -130,7 +132,8 @@ export function buildCommunicationTimeline({messages,inbound,responses,users,man
   const response=item.responseId?byId.get(String(item.responseId))??null:null;
   const tags:TimelineTag[]=[];
   if(item.status==='voided')tags.push({kind:'voided',label:messageLabels.voided});
-  if(item.status==='pending_review')tags.push({kind:'review',label:'Por revisar'});
+  if(awaitingReview(item))tags.push({kind:'review',label:'Por revisar'});
+  else if(item.status==='pending_review')tags.push({kind:'replied',label:'Respondido desde el CRM'});
   if(response)tags.push({kind:'response',label:responseTagLabel(response)});
   else if(item.status==='registered')tags.push({kind:'response',label:'Respuesta registrada'});
   if(item.status==='dismissed')tags.push({kind:'dismissed',label:'No es una respuesta'});
@@ -181,7 +184,7 @@ export type ActionItem={kind:'review';key:string;at:Date;inbound:InboundMessage}
  * attempt still waiting for its echo is listed too: the entry says it is waiting and already offers «Sí» / «No».
  */
 export function requiresAction({inbound,messages,userEmail,admin,readOnly}:{inbound?:readonly InboundMessage[]|null;messages:readonly Message[];userEmail:string;admin:boolean;readOnly:boolean}):ActionItem[]{
- const review=(inbound??[]).filter(i=>i.status==='pending_review').map(i=>({kind:'review' as const,key:'in:'+i.id,at:new Date(i.receivedAt),inbound:i}));
+ const review=(inbound??[]).filter(awaitingReview).map(i=>({kind:'review' as const,key:'in:'+i.id,at:new Date(i.receivedAt),inbound:i}));
  const confirm=readOnly?[]:messages.filter(m=>isConfirmableOpen(m)&&(admin||m.ownerEmail===userEmail)).map(m=>({kind:'confirm_send' as const,key:'out:'+m.id,at:new Date(m.lastInteractionAt??m.updatedAt),message:m}));
  return [...review,...confirm].sort((a,b)=>time(b.at)-time(a.at)||a.key.localeCompare(b.key));
 }

@@ -178,7 +178,8 @@ try{
  // Spec 92 owner decision (Bandeja included): unconfirmed opens are nowhere until confirmed; «No se envió» follows the voided rule.
  {
   const openAccount=await account('Zz Inbox opencheck',seller.user.email),openAccountId=String(openAccount.id);
-  const keptOut=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',at:sql`now()-interval '30 minutes'`,body:'kept opencheck outbound'});
+  // Future (but older than the opens) so the business stays on the admin's first 100 rows whatever other suites left behind.
+  const keptOut=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',at:sql`now()+interval '30 minutes'`,body:'kept opencheck outbound'});
   const openedWa=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',status:'whatsapp_opened',at:sql`now()+interval '1 hour'`,body:'opened opencheck whatsapp'});
   const openedIg=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'social',destinationDetail:'instagram',status:'instagram_opened',at:sql`now()+interval '1 hour'`,body:'opened opencheck instagram'});
   const notSent=await outbound({accountId:openAccountId,leadId:null,owner:seller.user.email,channel:'whatsapp',status:'manual_not_done',at:sql`now()+interval '2 hours'`,body:'notsent opencheck whatsapp'});
@@ -256,6 +257,16 @@ try{
  const short=await ok<{queryTooShort:boolean;rows:unknown[]}>('search?q=ab',seller);assert.equal(short.queryTooShort,true);assert.deepEqual(short.rows,[]);
  for(const q of ['a b','  a  b  ','😀','👍🏽x'])assert.equal((await ok<{queryTooShort:boolean}>(`search?q=${encodeURIComponent(q)}`,seller)).queryTooShort,true,`«${q}» is below the visible minimum`);
  assert.equal((await ok<{queryTooShort:boolean}>(`search?q=${encodeURIComponent('a b c')}`,seller)).queryTooShort,false,'Three visible characters search');
+ // Spec 99 §3.5: an inbound answered from the CRM with evidence of sending (accepted) is no longer pending; an uncertain or failed reply keeps it.
+ {
+  const replied=await account('Inbox replied',seller.user.email),repliedId=String(replied.id);
+  const reply=async(inboundId:string,messageStatus:string,outboxStatus:string)=>{const out=await db.insertInto('emailOutbox').values({recipientEmail:'guest@example.test',senderEmail:'seller@hospeda.test',senderName:'Seller',subject:'Re: Consulta',htmlBody:'<p>Hola</p>',textBody:'Hola',status:outboxStatus,inboundMessageId:inboundId}).returning('id').executeTakeFirstOrThrow();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,outbox_id,status) VALUES(${randomUUID()}::uuid,${repliedId},${repliedId},'email','guest@example.test',${seller.user.email},${out.id},${messageStatus})`.execute(db);};
+  await reply(await inbound({accountId:repliedId,status:'pending_review',text:'Replied pending fixture'}),'accepted','accepted');
+  await reply(await inbound({accountId:repliedId,status:'pending_review',text:'Uncertain pending fixture'}),'unknown','unknown');
+  await reply(await inbound({accountId:repliedId,status:'pending_review',text:'Failed pending fixture'}),'failed','error');
+  assert.equal((await businesses('filter=all&limit=100',seller)).find(row=>row.accountId===repliedId)?.pendingCount,2,'The inbound answered from the CRM is not pending; uncertain and failed replies keep theirs');
+  assert.equal((await ok<{rows:ThreadsRow[]}>(`threads?accountId=${repliedId}`,seller)).rows.find(row=>row.leadId==null&&row.channel==='email')?.pendingCount,2,'Thread pending count follows the same rule');
+ }
 }catch(error){
  testError=error;
  // Spec 90 (L2): every social row says per row whether it is Instagram — the webhook echo or an Instagram destination when

@@ -4,6 +4,7 @@ import {assertBusinessAccess,CrmForbidden} from './crmPermissions';
 import {communicationJournal,completeUserscriptManual,completeUserscriptOpened,lockCommunication,registerUserscriptSent} from './communicationService';
 import {phoneSearchSql} from './searchSql';
 import {codeFromTitle} from './userscriptPure';
+import {samePhone} from './phoneIdentity';
 import {sentMatchesPrepared} from '../../userscript/src/textMatch';
 import type {Executor} from './communicationService';
 import type {User} from './User';
@@ -28,9 +29,19 @@ async function existing(e:Executor,b:UserscriptBatch,m:UserscriptMessage):Promis
  return {externalId:m.externalId,status:'duplicate',kind:m.direction==='in'?'inbound':'message',id:row.id};
 }
 
+/**
+ * Spec 99 §3.4: the only active person of the business whose phone is the chat's line (identity rule of phoneIdentity.ts, not
+ * the search predicate); null with none or several (never a guess).
+ */
+async function chatPerson(e:Executor,b:UserscriptBatch):Promise<string|null>{
+ const phone=b.chat.phone?.trim();if(!phone)return null;
+ const rows=(await sql<{id:string;phone:string}>`SELECT c.id::text AS id,c.phone FROM crm_contacts c WHERE c.account_id=${b.accountId}::bigint AND c.deleted_at IS NULL AND c.phone IS NOT NULL AND c.phone<>''`.execute(e)).rows.filter(c=>samePhone({a:c.phone,b:phone}));
+ return rows.length===1?rows[0].id:null;
+}
+
 async function registerInbound(e:Executor,b:UserscriptBatch,m:UserscriptMessage,sentAt:Date,user:User):Promise<UserscriptResult>{
- const id=randomUUID(),method=codeFromTitle(b.chat.title)?'crm_code':'phone';
- const inserted=await sql<{id:string}>`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,match_method,from_address,from_name,text_body,headers,attachments,is_automatic,received_at,status,source,captured_by_email) VALUES(${id}::uuid,'whatsapp',${m.externalId},${b.accountId}::bigint,${method},${b.chat.phone??''},${m.author||b.chat.title},${m.text},'{}'::text::jsonb,'[]'::text::jsonb,false,${sentAt},'pending_review','userscript',${user.email}) ON CONFLICT(channel,external_id) DO NOTHING RETURNING id::text AS id`.execute(e);
+ const id=randomUUID(),method=codeFromTitle(b.chat.title)?'crm_code':'phone',contactId=await chatPerson(e,b);
+ const inserted=await sql<{id:string}>`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,contact_id,match_method,from_address,from_name,text_body,headers,attachments,is_automatic,received_at,status,source,captured_by_email) VALUES(${id}::uuid,'whatsapp',${m.externalId},${b.accountId}::bigint,${contactId}::bigint,${method},${b.chat.phone??''},${m.author||b.chat.title},${m.text},'{}'::text::jsonb,'[]'::text::jsonb,false,${sentAt},'pending_review','userscript',${user.email}) ON CONFLICT(channel,external_id) DO NOTHING RETURNING id::text AS id`.execute(e);
  if(!inserted.rows[0])return (await existing(e,b,m))!;
  await communicationJournal(e,{accountId:b.accountId,leadId:null,entityType:'inbound',entityId:id,action:'inbound_received',actor:user,triggeredBy:'userscript',after:{channel:'whatsapp',externalId:m.externalId,status:'pending_review'}});
  return {externalId:m.externalId,status:'created',kind:'inbound',id};

@@ -1,4 +1,5 @@
 import {cancelRecontactTaskFor} from './recontactTask';
+import {CONTACT_EVIDENCE_STATUSES} from './contactEvidence';
 import {terminalEmailEvent} from './emailEngagement';
 import {templateCompatibility} from './messageTemplatePolicy';
 import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
@@ -259,7 +260,8 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
   if(user.role!=='admin'&&task.assignedUserEmail!==user.email)throw new CommunicationForbidden('Solo el asignado a la tarea o un administrador puede resolverla.');
   selectedTasks.push(task);
  }
- if(input.linkedMessageId){const linked=(await sql`SELECT id FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${input.accountId} AND contact_id IS NOT DISTINCT FROM ${input.contactId}::bigint`.execute(e)).rows[0];if(!linked)throw new Error('El contacto previo no coincide con el destinatario.');}
+ // Spec 99 §3.4: the linked send and the person are chosen independently (a send to Ana answered by «El negocio»); the send must be of this business.
+ if(input.linkedMessageId){const linked=(await sql`SELECT id FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${input.accountId}`.execute(e)).rows[0];if(!linked)throw new Error('El mensaje previo no es de este negocio.');}
  const inserted=await sql<{id:string}>`INSERT INTO crm_communication_responses(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,destination_detail,linked_message_id,category,summary,exact_text,other_detail,actor_email) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${input.contactId},${input.channel},${input.recipient},${input.recipientName},${input.destination},${input.linkedMessageId}::uuid,${input.category},${input.summary},${input.exactText},${input.otherDetail},${user.email}) RETURNING id`.execute(e);
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
@@ -519,9 +521,17 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
   if(row.status==='registered'&&row.responseId){await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);return {id:String(row.responseId),duplicate:true};}
   if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
-  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
+  // Spec 99 §3.4: what the screen shows is what is saved. An omitted field (undefined) keeps the row's value; an explicit null clears it.
+  const rowLead=row.leadId==null?null:String(row.leadId),leadId=input.leadId===undefined?rowLead:input.leadId;
+  const contactId=input.contactId===undefined?(row.contactId==null?null:String(row.contactId)):input.contactId;
+  const linkedMessageId=input.linkedMessageId===undefined?(row.linkedMessageId==null?null:String(row.linkedMessageId)):input.linkedMessageId;
+  // A chosen management must be a live one of this business (createResponse then applies the same access rule as response_create).
+  if(input.leadId){const lead=await e.selectFrom('leads').select(['id','deletedAt']).where('id','=',input.leadId).where('accountId','=',String(row.accountId)).executeTakeFirst();if(!lead||lead.deletedAt)throw new Error('La gestión elegida no es de este negocio o está en la papelera.');}
+  // A chosen send must be a real send of this business and, with a management, of that management (the list «Responde a» shows). createResponse checks the person.
+  if(input.linkedMessageId){const send=(await sql`SELECT 1 FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${row.accountId} AND status IN (${sql.join(CONTACT_EVIDENCE_STATUSES.map(s=>sql.lit(s)))}) AND (${leadId}::bigint IS NULL OR lead_id=${leadId}::bigint)`.execute(e)).rows[0];if(!send)throw new Error(leadId?'El mensaje elegido no es un envío de esta gestión.':'El mensaje elegido no es un envío de este negocio.');}
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId,contactId,channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
   await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
-  await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
+  await communicationJournal(e,{accountId:String(row.accountId),leadId:rowLead,entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
  }
  if(input.action==='inbound_dismiss'){
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');

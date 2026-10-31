@@ -147,6 +147,12 @@ describe('requiresAction and drafts',()=>{
   expect(requiresAction({inbound:received,messages,userEmail:'leo@example.com',admin:true,readOnly:true}).map(i=>i.key)).toEqual(['in:p']);
   expect(requiresAction({inbound:undefined,messages:[],userEmail:'',admin:false,readOnly:false})).toEqual([]);
  });
+ it('spec 99 §3.5: a pending message answered from the CRM leaves «Requiere acción» and reads «Respondido desde el CRM»',()=>{
+  const answered=inbound({id:'answered',channel:'email',status:'pending_review',receivedAt:at(7),repliedAt:at(8)});
+  expect(requiresAction({inbound:[...received,answered],messages:[],userEmail:'leo@example.com',admin:false,readOnly:false}).map(i=>i.key)).toEqual(['in:p']);
+  const entry=buildCommunicationTimeline({messages:[],inbound:[answered],responses:[],users:[],managements:[]}).find(e=>e.key==='in:answered');
+  expect(entry?.kind==='received'&&entry.tags.map(t=>t.label)).toEqual(['Respondido desde el CRM']);
+ });
  it('keeps drafts apart, newest first',()=>{
   expect(draftMessages(messages).map(m=>m.id)).toEqual(['d2','d1']);
  });
