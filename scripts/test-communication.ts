@@ -1,6 +1,6 @@
 import {handle as saveSettings} from '../src/endpoints/settings_save_POST';
 import {seedDncTasks,assertDncCancelled,assertDncUntouched} from './lib/dnc-tasks';
-import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';import {sql} from 'kysely';import {pendingContactOutcomes,resolveMessageForWork} from '../src/helpers/communicationService';import {setWorkActor} from '../src/helpers/workAudit';import {db} from '../src/helpers/db';import {post,get,webhook} from '../src/endpoints/communication';import {post as workPost} from '../src/endpoints/work';import {post as resourcePost,get as resourcesGet,download} from '../src/endpoints/resources';import {app} from '../src/server/app';import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';import {post as quality} from '../src/endpoints/dataQuality';import {restartDraftRequest,type Message} from '../src/endpoints/communication.schema';
+import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import superjson from 'superjson';import {sql} from 'kysely';import {pendingContactFollowUps,resolveMessageForWork} from '../src/helpers/communicationService';import {setWorkActor} from '../src/helpers/workAudit';import {db} from '../src/helpers/db';import {post,get,webhook} from '../src/endpoints/communication';import {post as workPost} from '../src/endpoints/work';import {post as resourcePost,get as resourcesGet,download} from '../src/endpoints/resources';import {app} from '../src/server/app';import {setServerSession} from '../src/helpers/getSetServerSession';import {businessFields} from '../src/helpers/dataNormalization';import {post as quality} from '../src/endpoints/dataQuality';import {restartDraftRequest,type Message} from '../src/endpoints/communication.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1');const stamp=Date.now();
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`communication-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
 const admin=await identity('admin'),user=await identity('user'),other=await identity('user');
@@ -102,8 +102,10 @@ try{
   const prepJournal=(await sql<{after:{managementOwner:string}}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_id=${draftB.id} AND action='message_prepared_by_delegation'`.execute(db)).rows;assert.equal(prepJournal[0].after.managementOwner,user.user.email,'L4: owner journaled at prepare time');
   await db.updateTable('crmTasks').set({status:'completed',completedAt:new Date()}).where('id','=',t2.id).execute();
   await delegatedCall({action:'outcome',id:draftB.id,taskId:String(t2.id),event:'manual_sent',notes:'x'},403);// the delegate cannot use a closed task
-  const adminPending=await pendingContactOutcomes(db,{ownerEmail:admin.user.email,isAdmin:true,accountId:String(delegatedAccount.id),leadId:String(delegatedLead.id)});
-  assert(adminPending.some(p=>String(p.id)===String(draftB.id)),'M1: the admin sees the delegated unconfirmed WhatsApp among pending outcomes');
+  const adminPending=await pendingContactFollowUps(db,{ownerEmail:admin.user.email,isAdmin:true,accountId:String(delegatedAccount.id),leadId:String(delegatedLead.id)});
+  assert(adminPending.unconfirmed.items.some(p=>String(p.id)===String(draftB.id)),'M1: the admin sees the delegated unconfirmed WhatsApp among «Envíos sin confirmar»');
+  assert(!adminPending.outcomes.items.some(p=>String(p.id)===String(draftB.id)),'Spec 99 §3.6: an unconfirmed send is never in «Anotá cómo salió»');
+  assert.equal(adminPending.unconfirmed.count,adminPending.unconfirmed.items.length,'Spec 99 §3.6: the count comes with the list');
   await call({action:'outcome',id:draftB.id,event:'manual_sent',notes:'Confirmado por admin'},200,admin.cookie);
   assert.equal((await message(draftB.id)).status,'manual_sent');
   // L2: a delegated message is not resolved from another task
@@ -349,7 +351,7 @@ try{
   assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE entity_id=${newer} AND action='contact_outcome_from_response' AND is_automatic`.execute(db)).rows[0].n),1);
   await call(resolving,200,user.cookie);assert.deepEqual(await outcomeOf(newer),{outcome:'interested',responseId:String(created.id)},'a replay resolves nothing new');assert.equal((await outcomeOf(older)).outcome??null,null,'a replay does not move on to the next send');
   assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_communication_journal WHERE entity_id=${newer} AND action='contact_outcome_from_response'`.execute(db)).rows[0].n),1);
-  assert.ok(!(await pendingContactOutcomes(db,{ownerEmail:user.user.email,isAdmin:false,accountId:String(acc.id)})).some(p=>p.id===newer),'Hoy no longer asks how it went');
+  const afterResponse=await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:String(acc.id)});assert.ok(![...afterResponse.unconfirmed.items,...afterResponse.outcomes.items].some(p=>p.id===newer),'Hoy no longer asks how it went');
   // Someone who cannot record that outcome (another seller, who can still read the business) saves the response but leaves it pending.
   const foreign=answer(second.id,'later');await call(foreign,200,other.cookie);
   assert.ok(await db.selectFrom('crmCommunicationResponses').select('id').where('id','=',foreign.id).executeTakeFirst(),'the other seller response is saved');

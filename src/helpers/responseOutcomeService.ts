@@ -12,7 +12,7 @@ import {attributeResponseToSend,outcomeFromResponse,type OpenSend,type ResponseC
 type Executor=Kysely<DB>|Transaction<DB>;
 
 /**
- * The business's sends still waiting for «¿Cómo salió?», for any owner: the same rule as `pendingContactOutcomes` (sends since outcome
+ * The business's sends still waiting for «¿Cómo salió?», for any owner: the same rule as `pendingContactFollowUps` (sends since outcome
  * tracking started, management not trashed, no outcome on their activity, no «No contactar» response linked, and a confirmed contact not
  * already covered by a later outcome of its context). Locked, so two responses never resolve the same send twice.
  */

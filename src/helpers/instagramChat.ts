@@ -80,7 +80,7 @@ export const isInstagramAttempt=(msg:AttemptLike):boolean=>msg.channel==='social
  * An opened attempt still inside the echo waiting period: it shows «Esperando que Instagram confirme el envío…», not «¿Lo enviaste?».
  * In the browser `now` is the client clock compared with the server's `last_interaction_at`, so a skewed computer clock
  * shortens or stretches the wait (L4). It is only a display delay: Sí/No are always available and Hoy's list
- * (`pendingContactOutcomes`) applies the same 15 minutes with the database clock.
+ * (`pendingContactFollowUps`) applies the same 15 minutes with the database clock.
  */
 export function isWaitingForInstagramEcho({message,now=Date.now()}:{message:AttemptLike&{status:string;lastInteractionAt?:Date|string|null};now?:number}):boolean{
  if(message.status!=='instagram_opened'||!isInstagramAttempt(message))return false;

@@ -14,7 +14,7 @@ async function mock(page:Page,state:{flags:Flags;withTask?:boolean}){
   if(url.pathname.endsWith('/auth/session'))data={user:seller};
   else if(url.pathname.endsWith('/work')){
    const detail=url.searchParams.get('mode')==='detail',tasks=detail||state.withTask?[task]:[];
-   data={...base,tasks,totalTasks:tasks.length,pendingOutcomes:[],bucketCounts:{overdue:0,today:tasks.length,upcoming:0},doneToday:0,firstSteps:state.flags};
+   data={...base,tasks,totalTasks:tasks.length,bucketCounts:{overdue:0,today:tasks.length,upcoming:0},doneToday:0,firstSteps:state.flags};
   }else if(url.pathname.endsWith('/communication'))data={recentMessages:[],messages:[],resources:[],restrictions:[],responses:[],openManagements:[],recentContactHours:72};
   await route.fulfill({status:200,contentType:'application/json',body:superjson.stringify(data)});
  });

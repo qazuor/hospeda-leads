@@ -24,7 +24,7 @@ beforeAll(()=>{window.matchMedia=window.matchMedia||((query:string)=>({matches:f
 beforeEach(()=>{
  mocks.role='user';
  for(const mock of [mocks.getCommunication,mocks.getCommercialDetail,mocks.thread])mock.mockReset();
- mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],pendingOutcomes:[],recentContactHours:72,webhookConfigured:true});
+ mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],recentContactHours:72,webhookConfigured:true});
  mocks.getCommercialDetail.mockResolvedValue({account,contacts:[],opportunities:[],users:[]});
 });
 afterEach(cleanup);

@@ -18,7 +18,7 @@ async function mock(page:Page,user:typeof owner){
   else if(path.endsWith('/lead_notes'))data={notes:[],rows:[]};
   else if(path.endsWith('/lead_journal'))data={rows:[],total:0,page:1,pageSize:100,filters:{actions:[],actors:[],cities:[],types:[],leads:[]}};
   else if(path.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account,contacts:[],opportunities:[lead],journal:[],leadJournal:[],managementJournal:[],stages:[],users:[{email:owner.email,displayName:'Marta'}],canEditContactData:false};
-  else if(path.endsWith('/communication'))data={pendingOutcomes:[],recentMessages:[],messages:[],restrictions:[],activeRestrictions:[],responses:[response],openManagements:[],recentContactHours:72};
+  else if(path.endsWith('/communication'))data={recentMessages:[],messages:[],restrictions:[],activeRestrictions:[],responses:[response],openManagements:[],recentContactHours:72};
   else if(path.endsWith('/work'))data={tasks:[],activities:[],attention:[],contacts:[],journal:[],totalTasks:0,totalActivities:0,page:1,accounts:[],opportunities:[],types:[],users:[],followup:{stages:[],newAssignmentDays:7}};
   else if(path.endsWith('/pipeline'))data={stages:[],insights:[],events:[],objections:[],lossReasons:[],objectionTypes:[],rules:[],users:[],verticals:[],managementReasons:[]};
   else if(path.endsWith('/resources'))data={documents:[],categories:[],maxDocumentBytes:2097152};

@@ -6,6 +6,12 @@ import type {WorkPurpose} from './nextStep';
  * as not done never qualify: nothing is inferred from opening a channel or saving a draft.
  */
 export const OUTCOME_READY_STATUSES=['whatsapp_opened','instagram_opened','manual_pending','manual_sent','manual_no_contact','accepted','delivery_confirmed','replied','rejected'] as const;
+/** Spec 99 §3.6 «Envíos sin confirmar»: a chat opened or a manual attempt started, resolved first with «¿Lo enviaste?». */
+export const UNCONFIRMED_FOLLOW_UP_STATUSES=['whatsapp_opened','instagram_opened','manual_pending'] as const satisfies readonly (typeof OUTCOME_READY_STATUSES)[number][];
+/** Spec 99 §3.6 «Anotá cómo salió»: a contact with evidence (or a recorded attempt) still without an outcome. */
+export const OUTCOME_FOLLOW_UP_STATUSES=['manual_sent','manual_no_contact','accepted','delivery_confirmed','replied','rejected'] as const satisfies readonly (typeof OUTCOME_READY_STATUSES)[number][];
+/** Which follow-up list a pending contact belongs to (spec 99 §3.6), or null when it is not outcome-ready. */
+export function followUpKind(status:string|null|undefined):'unconfirmed'|'outcomes'|null{return (UNCONFIRMED_FOLLOW_UP_STATUSES as readonly string[]).includes(status??'')?'unconfirmed':(OUTCOME_FOLLOW_UP_STATUSES as readonly string[]).includes(status??'')?'outcomes':null;}
 
 /** True when a message with this status can end in the outcome step. */
 export function canLogContactOutcome(status:string|null|undefined):boolean{return (OUTCOME_READY_STATUSES as readonly string[]).includes(status??'');}

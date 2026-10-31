@@ -22,7 +22,7 @@ import {resolveTemplateMaterials} from './templateMaterialService';
 import {UNRESOLVED_MATERIAL_MESSAGE,hasMaterialReferences} from './templateMaterials';
 import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
-import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
+import {OUTCOME_READY_STATUSES,UNCONFIRMED_FOLLOW_UP_STATUSES,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
 import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {instagramAccountUsername,instagramThreadFor} from './userscriptInstagram';
@@ -460,27 +460,38 @@ export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:st
 }
 /** A contact the seller left without "¿Cómo salió?" (decision 2B): it stays in Hoy until an outcome is recorded. */
 export type PendingContactOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date;externalId:string|null;destinationDetail:string|null;ownerEmail:string;confirmationSource:'userscript'|'instagram'|'manual'};
+/** One follow-up list: the newest `items` (up to the limit) and the full `count`, which does not depend on the limit. */
+export type ContactFollowUpList={items:PendingContactOutcome[];count:number};
+/** Spec 99 §3.6: «Envíos sin confirmar» (`unconfirmed`) and «Anotá cómo salió» (`outcomes`), the same object for Hoy, Comunicación and the work editor toast. */
+export type ContactFollowUps={unconfirmed:ContactFollowUpList;outcomes:ContactFollowUpList};
 /**
- * The seller's own contacts since outcome tracking started (migration 028) that she can still resolve: she is the management's
- * (or, without one, the business's) responsible or an admin, and the message's activity has no outcome. A confirmed contact is
- * also resolved by any later outcome activity of the same business and management; an unconfirmed send (WhatsApp opened, manual
- * attempt started) is not, and it is left out when No contactar or a closed management blocks confirming it (the communication
- * panel keeps it with its reason). Archived, merged or trashed businesses, trashed managements, drafts, not-sent and uncertain
- * sends never appear.
+ * The seller's own contacts since outcome tracking started (migration 028) that she can still resolve, split in two lists (spec 99
+ * §3.6): `unconfirmed` (WhatsApp/Instagram opened, manual attempt started) and `outcomes` (evidence without an outcome). She is the
+ * management's (or, without one, the business's) responsible or an admin, and the message's activity has no outcome. A confirmed
+ * contact is also resolved by any later outcome activity of the same business and management; an unconfirmed send is not, and it is
+ * left out when No contactar or a closed management blocks confirming it, or while an Instagram attempt waits for Meta's echo.
+ * Archived, merged or trashed businesses, trashed managements, drafts, not-sent and uncertain sends never appear. Each list is newest
+ * first (ties by id), cut at `limit`, with its own total `count`. An open left out here is not lost: when its message is loaded in the
+ * communication panel and the viewer may answer it, «Requiere acción» still lists it, uncounted, with «Sí, se envió» off and its
+ * reason when confirming is blocked (`RequiresAction`).
  */
-export async function pendingContactOutcomes(e:Executor,{ownerEmail,isAdmin,accountId=null,leadId=null,limit=20}:{ownerEmail:string;isAdmin:boolean;accountId?:string|null;leadId?:string|null;limit?:number}):Promise<PendingContactOutcome[]>{
- return (await sql<PendingContactOutcome>`SELECT m.id,m.account_id,a.nombre AS account_name,m.lead_id,l.opportunity_name,m.contact_id,m.channel,m.status,m.purpose,m.recipient_name,m.last_interaction_at,m.external_id,m.destination_detail,m.owner_email,CASE WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='userscript') THEN 'userscript' WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='instagram-webhook') THEN 'instagram' ELSE 'manual' END AS "confirmationSource"
+export async function pendingContactFollowUps(e:Executor,{ownerEmail,isAdmin,accountId=null,leadId=null,limit=20}:{ownerEmail:string;isAdmin:boolean;accountId?:string|null;leadId?:string|null;limit?:number}):Promise<ContactFollowUps>{
+ const unconfirmedStatuses=[...UNCONFIRMED_FOLLOW_UP_STATUSES];
+ const rows=(await sql<PendingContactOutcome&{unconfirmed:boolean;total:string|number;rn:string|number}>`WITH f AS (SELECT m.id,m.account_id,a.nombre AS account_name,m.lead_id,l.opportunity_name,m.contact_id,m.channel,m.status,m.purpose,m.recipient_name,m.last_interaction_at,m.external_id,m.destination_detail,m.owner_email,CASE WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='userscript') THEN 'userscript' WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='instagram-webhook') THEN 'instagram' ELSE 'manual' END AS "confirmationSource",m.status=ANY(${unconfirmedStatuses}::text[]) AS unconfirmed
   FROM crm_messages m JOIN crm_accounts a ON a.id=m.account_id LEFT JOIN leads l ON l.id=m.lead_id
   WHERE (m.owner_email=${ownerEmail} OR (${isAdmin} AND m.delegated_task_id IS NOT NULL)) AND (${accountId}::bigint IS NULL OR m.account_id=${accountId}::bigint) AND (${leadId}::bigint IS NULL OR m.lead_id=${leadId}::bigint) AND m.status=ANY(${[...OUTCOME_READY_STATUSES]}::text[])
    AND m.last_interaction_at>=(SELECT value::timestamptz FROM app_settings WHERE key='crm_contact_outcome_since')
    AND a.deleted_at IS NULL AND a.archived_at IS NULL AND a.merged_into_id IS NULL AND (m.lead_id IS NULL OR l.deleted_at IS NULL)
    AND (${isAdmin} OR coalesce(l.assigned_user_email,a.assigned_user_email)=${ownerEmail})
    AND NOT (m.status='instagram_opened' AND m.last_interaction_at>now()-(${INSTAGRAM_ECHO_WAIT_MS}*interval '1 millisecond'))
-   AND (m.status<>ALL(${[...OPENED_UNCONFIRMED_STATUSES,'manual_pending']}::text[]) OR (NOT a.do_not_contact AND (m.lead_id IS NULL OR coalesce((SELECT classification FROM crm_stages WHERE name=l.estado),'')='open')))
+   AND (m.status<>ALL(${unconfirmedStatuses}::text[]) OR (NOT a.do_not_contact AND (m.lead_id IS NULL OR coalesce((SELECT classification FROM crm_stages WHERE name=l.estado),'')='open')))
    AND NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.id=m.activity_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL)
    AND NOT EXISTS(SELECT 1 FROM crm_communication_responses r WHERE r.linked_message_id=m.id AND r.category='do_not_contact')
-   AND (m.status=ANY(${[...OPENED_UNCONFIRMED_STATUSES,'manual_pending']}::text[]) OR NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at))
-  ORDER BY m.last_interaction_at DESC LIMIT ${limit}`.execute(e)).rows.map(r=>({...r,id:String(r.id),accountId:String(r.accountId),leadId:r.leadId==null?null:String(r.leadId),contactId:r.contactId==null?null:String(r.contactId)}));
+   AND (m.status=ANY(${unconfirmedStatuses}::text[]) OR NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at))),
+  r AS (SELECT f.*,count(*) OVER (PARTITION BY f.unconfirmed) AS total,row_number() OVER (PARTITION BY f.unconfirmed ORDER BY f.last_interaction_at DESC,f.id DESC) AS rn FROM f)
+  SELECT * FROM r WHERE rn<=${limit} ORDER BY last_interaction_at DESC,id DESC`.execute(e)).rows;
+ const list=(unconfirmed:boolean):ContactFollowUpList=>{const own=rows.filter(r=>r.unconfirmed===unconfirmed);return {count:Number(own[0]?.total??0),items:own.map(({unconfirmed:_u,total:_t,rn:_rn,...r})=>({...r,id:String(r.id),accountId:String(r.accountId),leadId:r.leadId==null?null:String(r.leadId),contactId:r.contactId==null?null:String(r.contactId)}))};};
+ return {unconfirmed:list(true),outcomes:list(false)};
 }
 /** Points a message at the activity that records its outcome (see {@link resolveMessageForWork}). */
 export async function linkMessageActivity(e:Executor,messageId:string,activityId:string){await sql`UPDATE crm_messages SET activity_id=${activityId} WHERE id=${messageId}::uuid`.execute(e);}

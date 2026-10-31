@@ -19,10 +19,10 @@ const message=(id:string,over:Record<string,unknown>={})=>({id,accountId:'5',lea
 const inbound=(id:string,over:Record<string,unknown>={})=>({id,channel:'whatsapp',receivedAt:day(3),fromAddress:'+5493442123456',fromName:'Julia',subject:'',textBody:'Gracias, lo vemos',status:'pending_review',isAutomatic:false,matchMethod:'phone',leadId:null,contextName:'General',linkedMessageId:null,responseId:null,attachments:[],canReply:false,replyAvailable:false,replyRestricted:false,...over});
 const response=(id:string,over:Record<string,unknown>={})=>({id,leadId:null,channel:'call',category:'interested',summary:'Le interesa el plan',exactText:null,actorEmail:'seller@example.com',occurredAt:day(4),contextName:'General',...over});
 const account={id:'5',nombre:'Hotel Sol',assignedUserEmail:'seller@example.com',email:'hotel@example.com',telefono:'3447',tipo:'Alojamiento',ciudad:'Colón',subtipo:null,archivedAt:null,recontactAt:null,status:'active',doNotContact:false,isClient:false};
-type Data={messages?:unknown[];inbound?:unknown[];responses?:unknown[];activeRestrictions?:unknown[];pendingOutcomes?:unknown[]};
+type Data={messages?:unknown[];inbound?:unknown[];responses?:unknown[];activeRestrictions?:unknown[];followUps?:unknown};
 function setup({data={},role='user',accountOver={},opportunities=[] as unknown[]}:{data?:Data;role?:string;accountOver?:Record<string,unknown>;opportunities?:unknown[]}={}){
  mocks.role=role;
- mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:data.activeRestrictions??[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],pendingOutcomes:[],recentContactHours:72,webhookConfigured:false,...data});
+ mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:data.activeRestrictions??[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],recentContactHours:72,webhookConfigured:false,...data});
  mocks.getCommercialDetail.mockResolvedValue({account:{...account,...accountOver},contacts:[],opportunities,users:[{email:'seller@example.com',displayName:'Seller'},{email:'other@example.com',displayName:'Otra'}]});
  mocks.getPipeline.mockResolvedValue({stages:[]});
  mocks.getWork.mockResolvedValue({tasks:[]});
@@ -110,7 +110,8 @@ describe('«Requiere acción»',()=>{
   expect(screen.getByText('Nada pendiente: no hay mensajes por revisar ni envíos sin confirmar.')).toBeTruthy();
  });
  it('confirms an opened WhatsApp send once, blocking a second submit',async()=>{
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],inbound:[inbound('pending')]}});show();await ready();
+  // Spec 99 §3.6: the entry is the server's unconfirmed send, drawn from the loaded message.
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],inbound:[inbound('pending')],followUps:{unconfirmed:{items:[message('opened',{status:'whatsapp_opened'})],count:1},outcomes:{items:[],count:0}}}});show();await ready();
   const region=screen.getByRole('region',{name:'Requiere acción'});
   expect(within(region).getByRole('heading',{name:'Requiere acción · 2'})).toBeTruthy();
   expect(within(region).getByText('1 mensaje por revisar · 1 envío sin confirmar')).toBeTruthy();

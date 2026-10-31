@@ -1,10 +1,12 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
+import {useQueryClient} from '@tanstack/react-query';
 import {AutoOutcomeCorrection,AutoOutcomeNote,canFixAutoOutcome} from './AutoOutcome';
-import type {InboundMessage,Message} from '../../endpoints/communication.schema';
+import type {InboundMessage,Message,PendingOutcome} from '../../endpoints/communication.schema';
 import {formatDateTime} from '../../helpers/crmDates';
 import {actorLabel} from '../../helpers/crmLabels';
 import {useInstagramWaitNow} from './useInstagramWait';
 import {instagramTarget,isInstagramAttempt,isWaitingForInstagramEcho} from '../../helpers/instagramChat';
+import {OutcomeAfterContact} from '../OutcomeAfterContact';
 import {INSTAGRAM_WAITING_HINT,INSTAGRAM_WAITING_STATUS,actionSummary,isConfirmableOpen,requiresAction,timelineChannel,timelineChannelLabel} from '../../helpers/communicationTimeline';
 import {crmSuccess} from '../../helpers/crmFeedback';
 import {toast} from 'sonner';
@@ -13,9 +15,9 @@ import {ClampedText} from './ClampedText';
 import {MessageMaterialRecord} from './MessageMaterialRecord';
 import {isInstagramInbound} from '../../helpers/instagramChannel';
 import {Button} from '../Button';
-import {PendingOutcomes} from '../PendingOutcomes';
+import {PendingOutcomes,outcomeContact} from '../PendingOutcomes';
 import {ChannelIcon} from './ChannelIcon';
-import {ConfirmSendButtons} from './ConfirmSendButtons';
+import {ConfirmSendButtons,canConfirmSend} from './ConfirmSendButtons';
 import type {CommunicationView} from './types';
 import styles from './CommunicationView.module.css';
 
@@ -62,6 +64,22 @@ function ConfirmEntry({view,message,now}:{view:CommunicationView;message:Message
 }
 
 /**
+ * A server «Envío sin confirmar» (spec 99 §3.6) whose full message is not loaded here, or a manual attempt started and not resolved:
+ * recipient and time only, with the same button as Hoy, which opens «¿Lo enviaste?» (or the manual attempt's result).
+ */
+function PendingConfirmEntry({item}:{item:PendingOutcome}){
+ const instagram=item.channel==='social'&&item.destinationDetail==='instagram',channel=timelineChannel({channel:item.channel,instagram}),name=timelineChannelLabel({channel:item.channel,instagram}),to=item.recipientName||'Sin nombre',[open,setOpen]=useState(false);
+ return <li><div role="group" aria-label={name+' sin confirmar para '+to} className={styles.actionCard}>
+  <div className={styles.actionBody}><span className={styles.channel} data-channel={channel}><ChannelIcon channel={channel} size={18}/></span><div>
+   <span className={styles.actionTitle}>¿Lo enviaste?</span>
+   <p className={styles.actionText}>{item.status==='manual_pending'?'Empezaste un contacto':'Abriste '+name} para {to} el {formatDateTime(item.lastInteractionAt)}. Todavía no se confirmó el envío.</p>
+  </div></div>
+  <div className={styles.actionButtons}><Button size="sm" onClick={()=>setOpen(true)}>Anotá cómo salió</Button></div>
+  {open&&<OutcomeAfterContact contact={outcomeContact(item)} onDone={()=>setOpen(false)}/>}
+ </div></li>;
+}
+
+/**
  * Sales material of an unconfirmed open the viewer cannot answer (someone else's send, or a read-only view). The send is not in
  * «Conversación» yet, so its material record lives here with the usual «Revocar enlace» permissions: revoking a public link
  * must stay possible at any time. It is not counted as a pending action.
@@ -77,26 +95,39 @@ function UnconfirmedMaterialEntry({view,message}:{view:CommunicationView;message
  </div></li>;
 }
 
+/** One «Requiere acción» line: a received message to review, a loaded unconfirmed open, or a server pending send without its loaded message. */
+type Entry={key:string;at:Date}&({kind:'review';inbound:InboundMessage}|{kind:'confirm';message:Message}|{kind:'pending';item:PendingOutcome});
+
 /**
  * «Requiere acción · N», spec 91 §9: a compact summary («N mensajes por revisar · M envíos sin confirmar»). Each received
- * message «Por revisar» is one line that scrolls to its bubble, where its actions are. An unconfirmed send is only here
- * (spec 92 owner decision), with its own actions. The viewer's own contacts without «¿Cómo salió?» (decision 2B) stay here
- * too, without repeating a prompted send.
+ * message «Por revisar» is one line that scrolls to its bubble, where its actions are. Spec 99 §3.6: the counted «¿Lo enviaste?»
+ * entries are the server's `followUps.unconfirmed` (the same list and count as Hoy), drawn from the loaded message when there is one,
+ * and «Anotá cómo salió» is `followUps.outcomes`. A loaded open the viewer may answer (`canConfirmSend`) that the server leaves out
+ * (No contactar, closed management, archived business, before the outcome window, someone else's open for an admin, an Instagram
+ * attempt still waiting for Meta's echo or not listed yet) is listed too, so it can still be resolved: «Sí, se envió» carries its
+ * block reason and «No se envió» stays available. Those entries are not counted, so the shared count stays the server's.
  */
 export function RequiresAction({view,onFocus}:{view:CommunicationView;onFocus:(key:string)=>void}){
- // An Instagram attempt waiting for its echo (spec 92) switches to «¿Lo enviaste?» when its 15 minutes end.
- const now=useInstagramWaitNow(view.data.messages);
- const items=requiresAction({inbound:view.data.inbound,messages:view.data.messages,userEmail:view.userEmail,admin:view.admin,readOnly:view.readOnly});
- const prompted=new Set(items.filter(i=>i.kind==='confirm_send').map(i=>String(i.key.slice(4))));
- const outcomes=view.readOnly?[]:(view.data.pendingOutcomes??[]).filter(o=>!prompted.has(String(o.id)));
- const review=items.filter(i=>i.kind==='review').length,count=items.length+outcomes.length;
+ // An Instagram attempt waiting for its echo (spec 92) switches to «¿Lo enviaste?» when its 15 minutes end; the reload brings the server list.
+ const now=useInstagramWaitNow(view.data.messages),qc=useQueryClient(),started=useRef(false);
+ useEffect(()=>{if(!started.current){started.current=true;return;}void qc.invalidateQueries({queryKey:['communication']});},[now,qc]);
+ const followUps=view.readOnly?undefined:view.data.followUps,byId=new Map(view.data.messages.map(m=>[String(m.id),m]));
+ const unconfirmed=followUps?.unconfirmed.items??[],serverIds=new Set(unconfirmed.map(u=>String(u.id)));
+ const uncounted=view.data.messages.filter(m=>!serverIds.has(String(m.id))&&canConfirmSend({view,message:m}));
+ const review=requiresAction({inbound:view.data.inbound,messages:[],userEmail:view.userEmail,admin:view.admin,readOnly:view.readOnly});
+ const confirm:Entry[]=[...unconfirmed.map((item):Entry=>{const message=byId.get(String(item.id)),at=new Date(item.lastInteractionAt);return message&&isConfirmableOpen(message)?{kind:'confirm',key:'out:'+item.id,at,message}:{kind:'pending',key:'out:'+item.id,at,item};}),...uncounted.map((message):Entry=>({kind:'confirm',key:'out:'+message.id,at:new Date(message.lastInteractionAt??message.updatedAt),message}))];
+ const items=[...review.flatMap((r):Entry[]=>r.kind==='review'?[{kind:'review',key:r.key,at:r.at,inbound:r.inbound}]:[]),...confirm].sort((x,y)=>y.at.getTime()-x.at.getTime()||x.key.localeCompare(y.key));
+ const prompted=new Set(confirm.flatMap(c=>c.kind==='confirm'?[String(c.message.id)]:[]));
+ const outcomes=followUps?.outcomes.items??[],outcomeCount=followUps?.outcomes.count??0,unconfirmedCount=followUps?.unconfirmed.count??0;
+ const count=review.length+unconfirmedCount+outcomeCount;
  const materials=view.data.messages.filter(m=>isConfirmableOpen(m)&&!!m.materials?.length&&!prompted.has(String(m.id)));
  return <section className={styles.section} aria-label="Requiere acción">
   <h4 className={styles.sectionTitle} data-tone="action">Requiere acción · {count}</h4>
-  {!count&&!materials.length&&<p className={styles.empty}>Nada pendiente: no hay mensajes por revisar ni envíos sin confirmar.</p>}
-  {count>0&&<p className={styles.summary}>{actionSummary({review,unconfirmed:items.length-review,outcomes:outcomes.length})}</p>}
-  {items.length>0&&<ul className={styles.actionList}>{items.map(item=>item.kind==='review'?<ReviewEntry key={item.key} item={item.inbound} onFocus={onFocus}/>:<ConfirmEntry key={item.key} view={view} message={item.message} now={now}/>)}</ul>}
+  {!count&&!items.length&&!materials.length&&<p className={styles.empty}>Nada pendiente: no hay mensajes por revisar ni envíos sin confirmar.</p>}
+  {count>0&&<p className={styles.summary}>{actionSummary({review:review.length,unconfirmed:unconfirmedCount,outcomes:outcomeCount})}</p>}
+  {items.length>0&&<ul className={styles.actionList}>{items.map(entry=>entry.kind==='review'?<ReviewEntry key={entry.key} item={entry.inbound} onFocus={onFocus}/>:entry.kind==='confirm'?<ConfirmEntry key={entry.key} view={view} message={entry.message} now={now}/>:<PendingConfirmEntry key={entry.key} item={entry.item}/>)}</ul>}
+  {unconfirmedCount>unconfirmed.length&&<p className={styles.summary}>Se muestran los {unconfirmed.length} más recientes de {unconfirmedCount}.</p>}
   {materials.length>0&&<ul className={styles.actionList} aria-label="Material en envíos sin confirmar">{materials.map(m=><UnconfirmedMaterialEntry key={m.id} view={view} message={m}/>)}</ul>}
-  <PendingOutcomes items={outcomes} showBusiness={false}/>
+  <PendingOutcomes items={outcomes} count={outcomeCount} showBusiness={false}/>
  </section>;
 }

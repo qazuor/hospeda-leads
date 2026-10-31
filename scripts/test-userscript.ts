@@ -10,7 +10,7 @@ import {instagramAccountUsername,resetInstagramThreadRateLimits} from '../src/he
 import {USERSCRIPT_VERSION} from '../userscript/src/version';
 import {stageLabel} from '../src/helpers/crmLabels';
 import {managementTypeLabels} from '../src/helpers/businessManagement';
-import {pendingContactOutcomes,USERSCRIPT_CONFIRMED_RESULT} from '../src/helpers/communicationService';
+import {pendingContactFollowUps,USERSCRIPT_CONFIRMED_RESULT} from '../src/helpers/communicationService';
 import {queryInboxThreadEvents} from '../src/helpers/inboxQueries';
 import {inboxReplyAvailability} from '../src/helpers/inboxReplyAvailability';
 
@@ -168,7 +168,7 @@ try{
  // N2: the voided script confirmation leaves its journal row; a later manual confirmation must read as manual everywhere.
  const manualAfterVoid=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:admin.cookie},body:superjson.stringify({action:'outcome',id:reopened,event:'manual_sent',notes:'Lo envié yo'})}));assert.equal(manualAfterVoid.status,200,await manualAfterVoid.clone().text());
  const sourceAfterVoid=(await communicationList(false)).messages.find(row=>row.id===reopened) as {status:string;confirmationSource?:string}|undefined;assert.deepEqual([sourceAfterVoid?.status,sourceAfterVoid?.confirmationSource],['manual_sent','manual'],'A manual confirmation after a void is not attributed to the script');
- const pendingAfterVoid=(await pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:account.id})).find(p=>p.id===reopened);assert.equal(pendingAfterVoid?.confirmationSource,'manual','«Anotá cómo salió» says manual after a void');
+ const pendingAfterVoid=(await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:account.id})).outcomes.items.find(p=>p.id===reopened);assert.equal(pendingAfterVoid?.confirmationSource,'manual','«Anotá cómo salió» says manual after a void');
  const inboxAfterVoid=(await queryInboxThreadEvents(account.id,null,'whatsapp',inboxReplyAvailability(false,true,admin.user.email),false,undefined,200)).rows.find(row=>row.id===reopened) as {confirmationSource?:string}|undefined;assert.equal(inboxAfterVoid?.confirmationSource,'manual','The inbox says manual after a void');
  await sql`UPDATE crm_messages SET status='manual_not_done' WHERE id=${reopened}::uuid`.execute(db);
  // Spec 99 §3.2: voiding a send that moved the opening's activity to the WhatsApp time puts the opening's time back.
@@ -354,7 +354,7 @@ try{
   // An outcome written between the send and its registration resolves «Anotá cómo salió»; a send after that outcome stays pending.
   const between=await db.insertInto('crmActivities').values({accountId:timed.id,leadId:null,typeId:'call',title:'Llamada',channel:'phone',outcome:'interested',occurredAt:ago(60_000),contactIds:[],actorEmail:seller.user.email,createdAt:ago(60_000)} as never).returning('id').executeTakeFirstOrThrow();
   const beforeOutcome=await send('Te escribí antes de llamarte',ago(180_000)),afterOutcome=await send('Te escribí después de la llamada',ago(30_000));
-  const pendingIds=(await pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:String(timed.id)})).map(p=>p.id);
+  const pendingIds=(await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:String(timed.id)})).outcomes.items.map(p=>p.id);
   assert.equal(pendingIds.includes(afterOutcome),true,'A send after the outcome still asks how it went');
   assert.equal(pendingIds.includes(beforeOutcome),false,'An outcome written between the WhatsApp time and the registration resolves the send');
   await db.updateTable('crmActivities').set({deletedAt:new Date()}).where('id','=',between.id).execute();
