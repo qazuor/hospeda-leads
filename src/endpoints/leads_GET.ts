@@ -10,7 +10,7 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import type { OutputType, AdvancedFilterRule } from "./leads_GET.schema";
 import { schema } from "./leads_GET.schema";
 import { sql, type Expression, type RawBuilder, type SqlBool } from "kysely";
-import { businessTableSource,businessSearchSql } from "../helpers/businessTable";
+import { businessTableSource,businessSearchSql,managementTableSource } from "../helpers/businessTable";
 import {CURRENT_USER_FILTER_VALUE,USER_FILTER_FIELDS,singleRecordIdFilter} from '../helpers/filterRules';
 import {managementLabel} from '../helpers/businessManagement';
 import {isReviewedBusinessStatus,type BusinessStatus} from '../helpers/businessStatus';
@@ -67,7 +67,8 @@ export async function handle(request: Request) {
     if(includeDeleted&&user.role!=="admin")return new Response(superjson.stringify({error:"Solo administradores pueden acceder a registros eliminados."}),{status:403});
     // The management type is a column of each management; the business projection has no single value for it.
     if(input.entity==="business"&&input.filterGroups.some(group=>group.rules.some(rule=>rule.field==="managementType")))return new Response(superjson.stringify({error:"El tipo de gestión solo se filtra en Gestiones."}),{status:400});
-    const source=()=>input.entity==="business" ? db.selectFrom(businessTableSource(includeDeleted).as("leads")) : db.selectFrom("leads");
+    // Gestiones read leads through managementTableSource (contact_name = the real person, spec 104). Its branch goes first so TypeScript keeps the leads row type the output declares.
+    const source=()=>input.entity!=="business" ? db.selectFrom(managementTableSource().as("leads")) : db.selectFrom(businessTableSource(includeDeleted).as("leads"));
     let query=source();
     if(!includeDeleted)query=query.where("deletedAt","is",null);
     if(input.entity==="opportunity")query=query.where("accountId","in",db.selectFrom("crmAccounts").select("id").where("deletedAt","is",null));
