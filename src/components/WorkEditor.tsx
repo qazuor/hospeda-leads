@@ -126,7 +126,10 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy,note}:{target:
  const choices=[...new Map([...data.accounts,...(lookup.data?.accounts??[])].map(a=>[a.id,a])).values()];
  const availableContacts=[...new Map([...data.contacts,...(lookup.data?.contacts??[])].map(c=>[c.id,c])).values()];
  const availableOpportunities=lookup.data?.opportunities??data.opportunities;
- const pickAccount=(id:string)=>{setAccount(id);setLead('');setAcceptedStage(null);setContacts([]);setAssigned(undefined);};
+ // Spec 104 D3: a new activity preselects the business's only active person once (visible in the summary, can be unticked); a person given
+ // by the caller (`contactIds`) or a seller's choice is never replaced. Choosing another business allows it again.
+ const peopleSettled=React.useRef(!!('contactIds' in target&&target.contactIds?.length));
+ const pickAccount=(id:string)=>{setAccount(id);setLead('');setAcceptedStage(null);setContacts([]);setAssigned(undefined);peopleSettled.current=false;};
  // Spec 104 (32), changed after review: a settled search (2+ characters) with exactly one business offers «Elegir …» under the input (click or
  // Enter); nothing is picked by itself, so the input never unmounts while the seller is still typing.
  const businessSelect=React.useRef<HTMLSelectElement>(null);
@@ -141,6 +144,10 @@ export function WorkEditor({target,data,onClose,onSaved,leaveCopy,note}:{target:
  const owner=leadId?opportunities.find(o=>o.id===leadId)?.assignedUserEmail:choices.find(a=>a.id===accountId)?.assignedUserEmail;
  const businessOwner=choices.find(a=>a.id===accountId)?.assignedUserEmail;
  const businessContacts=availableContacts.filter(c=>c.accountId===accountId);
+ // Not after a send (`messageId`): the caller already passes the send's person, and an added one would unlink a «Pidió no ser contactado» from it.
+ const onlyPerson=!item&&target.kind==='activity'&&!('messageId' in target&&target.messageId)&&businessContacts.length===1?businessContacts[0].id:undefined;
+ // The preselection is the starting point, not a change: closing right away does not ask to discard it.
+ useEffect(()=>{if(!onlyPerson||peopleSettled.current||contactIds.length)return;peopleSettled.current=true;if(values===baseline)resetBaseline.current=true;setContacts([onlyPerson]);},[onlyPerson]);
  // Spec 104 (24): «Elegir personas» opens the folded list and moves focus to it (retrying while the panel is still hidden, like Disclosure).
  const peopleTimer=React.useRef<ReturnType<typeof setTimeout>|undefined>(undefined);useEffect(()=>()=>clearTimeout(peopleTimer.current),[]);
  const choosePeople=()=>{if(target.kind==='complete'){setDetailsOpen(true);setPeopleOpen(true)}else setNotesOpen(true);const deadline=Date.now()+2000;clearTimeout(peopleTimer.current);const attempt=()=>{const box=peopleList.current?.querySelector('input');box?.focus({preventScroll:true});if(document.activeElement===box)box?.scrollIntoView?.({block:'center'});else if(Date.now()<deadline)peopleTimer.current=setTimeout(attempt,50);};peopleTimer.current=setTimeout(attempt,50);};
