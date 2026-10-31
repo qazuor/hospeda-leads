@@ -77,7 +77,7 @@ const STATES:Record<MaterialPageState,{status:number;title:string;message:string
  revoked:{status:410,title:'Este enlace ya no está disponible',message:'Quien te lo mandó lo dio de baja. Si todavía lo necesitás, pedile uno nuevo.'},
  unavailable:{status:410,title:'Este material ya no está disponible',message:'Hospeda lo retiró o lo reemplazó. Si lo necesitás, pedile el material actualizado a quien te lo mandó.'},
  storage:{status:503,title:'El material no está disponible en este momento',message:'Probá de nuevo en unos minutos.'},
- rate_limited:{status:429,title:'Demasiados pedidos seguidos',message:'Esperá unos minutos y volvé a abrir el enlace.'},
+ rate_limited:{status:429,title:'Demasiados pedidos seguidos',message:'Esperá un rato (puede ser hasta una hora) y volvé a abrir el enlace.'},
  error:{status:500,title:'No pudimos abrir el material',message:'Probá de nuevo en unos minutos.'}
 };
 /** HTTP status of a state page. */
@@ -87,7 +87,7 @@ export function renderMaterialStatePage({state}:{state:MaterialPageState}):strin
  const s=STATES[state];
  return htmlDocument({head:{title:s.title,description:s.message},body:`<article class="card"><div class="state"><h1>${escapeHtml(s.title)}</h1><p>${escapeHtml(s.message)}</p></div></article>`});
 }
-/** Full HTML response with the enforced CSP and the public headers. `head` drops the body (HEAD requests). */
-export function materialHtmlResponse({html,status,r2Origin,head=false}:{html:string;status:number;r2Origin:string|null;head?:boolean}):Response{
- return new Response(head?null:html,{status,headers:{...PUBLIC_SHARE_HEADERS,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':materialPageCsp({r2Origin}),...(status===429?{'Retry-After':'600'}:{})}});
+/** Full HTML response with the enforced CSP and the public headers. `head` drops the body (HEAD requests). A 429 carries `Retry-After`: 600 seconds by default (per-minute limit), 3600 for the persisted budget of misses (spec 101). */
+export function materialHtmlResponse({html,status,r2Origin,head=false,retryAfterSeconds=600}:{html:string;status:number;r2Origin:string|null;head?:boolean;retryAfterSeconds?:number}):Response{
+ return new Response(head?null:html,{status,headers:{...PUBLIC_SHARE_HEADERS,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':materialPageCsp({r2Origin}),...(status===429?{'Retry-After':String(retryAfterSeconds)}:{})}});
 }
