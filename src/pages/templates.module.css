@@ -26,3 +26,4 @@
 @media(max-width:760px){.layout{gap:12px}.sidebar{position:static;padding:12px;max-height:220px}.groupPicker{flex-direction:row;align-items:center;flex-wrap:wrap;padding:8px 0}.groupPicker>div{min-width:160px;flex:1}.editorCard{padding:14px}.editorHeader{gap:8px}.metaGrid{gap:10px}.footer{position:static;margin-top:16px;padding:12px 0 0;border:0;border-top:1px solid var(--border);box-shadow:none;border-radius:0}.footer button{flex:1 1 120px}.scopeHelp{margin-block:10px}.previewCard{padding:14px}.whatsappPreview{min-height:64px;box-shadow:none}.previewLead{margin:10px 0}}
 
 .deleteAction{color:var(--error)!important}.headerActions{gap:6px}.scopeHelp{font-size:13px;line-height:1.5}.editorCard .metaGrid label{font-weight:500}
+.whatsappPreview [data-link]{color:#027eb5;text-decoration:underline;overflow-wrap:anywhere}
