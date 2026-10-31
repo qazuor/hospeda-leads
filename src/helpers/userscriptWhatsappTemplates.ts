@@ -7,6 +7,7 @@ import {orderTemplatesBySpecificity,templateCompatibility} from './messageTempla
 import {htmlToWhatsApp} from './templateChannelFormatting';
 import {templateMaterialRefs} from './templateMaterialService';
 import {labelMaterialReferences} from './templateMaterials';
+import {stageLabel} from './crmLabels';
 import {defaultContactPurpose,type ContactPurpose} from './contactPurpose';
 import {panelPurposes,type ScriptTemplate} from './userscriptInstagramTemplates';
 
@@ -17,7 +18,7 @@ import {panelPurposes,type ScriptTemplate} from './userscriptInstagramTemplates'
  */
 export type ScriptPerson={id:string;name:string;phone:string;default:boolean};
 export type WhatsappGeneral={defaultPurpose:ContactPurpose;purposes:{value:ContactPurpose;label:string;templates:ScriptTemplate[]}[];contacts:ScriptPerson[];businessPhone:string|null};
-export type WhatsappTemplatesResponse={leads:{id:string;name:string;type:string|null;stage:string;templates:ScriptTemplate[];contacts:ScriptPerson[]}[];general:WhatsappGeneral|null;blocked:string|null};
+export type WhatsappTemplatesResponse={leads:{id:string;name:string;type:string|null;stage:string;stageKey:string;templates:ScriptTemplate[];contacts:ScriptPerson[]}[];general:WhatsappGeneral|null;blocked:string|null};
 
 const NEW_ONLY_VERIFICATION='En estado Nuevo solo se permite el contacto general de verificación.';
 type ContactRow={id:string|number;name:string;phone:string|null;isPrimary:boolean|null};
@@ -67,7 +68,7 @@ export async function whatsappTemplates(accountId:string,user:User):Promise<What
  const materialTitles=Object.fromEntries(Object.values(await templateMaterialRefs(db,{templates:all.map(t=>({id:String(t.id),body:t.body}))})).flat().map(r=>[r.materialId,r.title]));
  const listed=(rows:typeof all):ScriptTemplate[]=>orderTemplatesBySpecificity(rows).map((t,i)=>({id:String(t.id),name:t.name,recommended:i===0,body:labelMaterialReferences({text:htmlToWhatsApp(t.body).normalize('NFC'),titles:materialTitles,html:false})}));
  const leads=[];
- for(const lead of canEdit){const eligible=[];for(const c of contacts){if(!c.phone)continue;try{await assertAccountContactAllowed(db,accountId,String(lead.id),String(c.id),'whatsapp');eligible.push(c);}catch{}}const preference=eligible.find(c=>String(c.id)===String(lead.primaryContactId))||(eligible.length===1?eligible[0]:eligible.find(c=>c.isPrimary));leads.push({id:String(lead.id),name:lead.nombre,type:lead.managementType,stage:lead.estado,templates:listed(all.filter(t=>!templateCompatibility(t,{channel:'whatsapp',vertical:lead.tipo,commercialProfile:lead.commercialProfile,managementType:lead.managementType,purpose:null}))),contacts:eligible.map(c=>({id:String(c.id),name:c.name,phone:c.phone!,default:preference?.id===c.id}))});}
+ for(const lead of canEdit){const eligible=[];for(const c of contacts){if(!c.phone)continue;try{await assertAccountContactAllowed(db,accountId,String(lead.id),String(c.id),'whatsapp');eligible.push(c);}catch{}}const preference=eligible.find(c=>String(c.id)===String(lead.primaryContactId))||(eligible.length===1?eligible[0]:eligible.find(c=>c.isPrimary));leads.push({id:String(lead.id),name:lead.nombre,type:lead.managementType,stage:stageLabel(lead.estado),stageKey:lead.estado,templates:listed(all.filter(t=>!templateCompatibility(t,{channel:'whatsapp',vertical:lead.tipo,commercialProfile:lead.commercialProfile,managementType:lead.managementType,purpose:null}))),contacts:eligible.map(c=>({id:String(c.id),name:c.name,phone:c.phone!,default:preference?.id===c.id}))});}
  const general:WhatsappGeneral|null=people?{defaultPurpose:defaultContactPurpose(account.status),purposes:panelPurposes({status:account.status,isClient:account.commercialStatus==='client'}).map(option=>({...option,templates:listed(all.filter(t=>!templateCompatibility(t,{channel:'whatsapp',vertical:account.tipo,commercialProfile:null,managementType:null,purpose:option.value})))})),...people}:null;
  if(!blocked&&!general&&!leads.some(lead=>lead.contacts.length||!!account.telefono))blocked='No hay un teléfono disponible para preparar el mensaje.';
  return blocked?{leads,general:null,blocked}:{leads,general,blocked:null};

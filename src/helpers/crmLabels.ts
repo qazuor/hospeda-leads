@@ -11,6 +11,9 @@ const has=<T extends object>(map:T,key:string):key is Extract<keyof T,string>=>O
 /** Stage label from a catalog key (`provider:interested`, `main:lost`) whatever the management type; legacy stage names pass through. */
 export const stageLabel=(nameOrKey:string|null|undefined):string=>!nameOrKey?'Sin etapa':managementStageByKey(nameOrKey)?.label??nameOrKey;
 
+/** Spec 103 B1: a management for the user script carries the readable stage in `stage` (installed scripts only display it) and the key in `stageKey`. */
+export const labeledStage=<T extends {stage:string}>(lead:T):Omit<T,'stage'>&{stage:string;stageKey:string}=>({...lead,stage:stageLabel(lead.stage),stageKey:lead.stage});
+
 /** Union of work activity channels and communication channels. */
 export const channelLabels={phone:'Teléfono',call:'Llamada',whatsapp:'WhatsApp',email:'Email',social:'Red social',presencial:'Presencial',videollamada:'Videollamada',other:'Otro'} as const;
 /** Channel label (`whatsapp` → "WhatsApp"); empty → "Sin canal"; unknown free text passes through. */

@@ -1,18 +1,9 @@
-import {useState} from 'react';
-import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {apiJson,postJson} from '../helpers/apiClient';
-import {getCommercialList,getCommercialDetail} from '../endpoints/commercial.schema';
-import {Button} from './Button';
-import {Input} from './Input';
+import {useQuery} from '@tanstack/react-query';
+import {apiJson} from '../helpers/apiClient';
+import {InboundUnmatchedCard,type InboundUnmatchedRow} from './InboundUnmatchedCard';
 import {QueryErrorNotice} from './QueryErrorNotice';
-import styles from '../pages/trash.module.css';
 
-type Row={id:string;channel:string;channelDetail:string|null;isOutgoing:boolean;fromAddress:string;fromName:string;subject:string;excerpt:string;receivedAt:Date};
 export function InboundUnmatchedPanel(){
- const qc=useQueryClient(),[term,setTerm]=useState(''),[selected,setSelected]=useState(''),[leadId,setLeadId]=useState(''),[contactId,setContactId]=useState('');
- const list=useQuery({queryKey:['communication','inbound-unmatched'],queryFn:()=>apiJson<{rows:Row[]}>('/_api/inbound/unmatched')});
- const businesses=useQuery({queryKey:['inbound-business-picker',term],queryFn:()=>getCommercialList(term,'',1),enabled:term.trim().length>=2});
- const detail=useQuery({queryKey:['inbound-account-detail',selected],queryFn:()=>getCommercialDetail(selected),enabled:!!selected});
- const assign=useMutation({mutationFn:(input:{id:string;accountId:string;leadId:string|null;contactId:string|null})=>postJson('/_api/inbound/assign',input),onSuccess:()=>{setSelected('');setTerm('');setLeadId('');setContactId('');void qc.invalidateQueries({queryKey:['communication']});}});
- return <section><h2>Mensajes sin asociar</h2><p>Asociá cada email o mensaje de Instagram con el negocio correcto para que quede disponible en Comunicación.</p>{list.error&&<QueryErrorNotice error={list.error} onRetry={list.refetch} busy={list.isFetching}/ >}{list.isPending?<p role="status">Cargando mensajes…</p>:!list.data?.rows.length?<p>No hay mensajes sin asociar.</p>:list.data.rows.map(row=><article className={styles.card} key={row.id}><strong>{row.fromName||row.fromAddress}</strong><p>{row.channelDetail==='instagram'?(row.isOutgoing?'Eco saliente de Instagram':'Instagram Direct'):'Email'} · {row.fromAddress} · {row.subject||'(sin asunto)'} · {new Date(row.receivedAt).toLocaleDateString('es-AR')}</p><p>{row.excerpt}</p><label>Buscar negocio<Input value={term} onChange={e=>{setTerm(e.target.value);setSelected('')}} placeholder="Escribí al menos dos caracteres"/></label>{businesses.data?.rows&&<select aria-label="Negocio" value={selected} onChange={e=>{setSelected(e.target.value);setLeadId('');setContactId('')}}><option value="">Elegí un negocio</option>{businesses.data.rows.map((b:any)=><option key={b.id} value={String(b.id)}>{b.nombre}</option>)}</select>}{selected&&<>{detail.isPending?<p role="status">Cargando gestiones y personas…</p>:detail.error?<QueryErrorNotice error={detail.error} onRetry={detail.refetch} busy={detail.isFetching}/>:<><label>Gestión abierta (opcional)<select value={leadId} onChange={e=>setLeadId(e.target.value)}><option value="">Sin gestión</option>{detail.data?.opportunities.filter(o=>!o.deletedAt).map(o=><option key={o.id} value={String(o.id)}>{o.opportunityName||o.nombre}</option>)}</select></label><label>Persona (opcional)<select value={contactId} onChange={e=>setContactId(e.target.value)}><option value="">Sin persona</option>{detail.data?.contacts.filter(c=>!c.deletedAt).map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></label></>}</>}<Button disabled={!selected||detail.isPending||!!detail.error||assign.isPending} disabledReason={assign.isPending?'La operación está en curso. Esperá a que termine para continuar.':'Elegí un negocio para asociar el email.'} onClick={()=>assign.mutate({id:row.id,accountId:selected,leadId:leadId||null,contactId:contactId||null})}>{assign.isPending?'Asociando…':'Asociar'}</Button>{assign.error&&<p role="alert">{(assign.error as Error).message}</p>}</article>)}</section>;
+ const list=useQuery({queryKey:['communication','inbound-unmatched'],queryFn:()=>apiJson<{rows:InboundUnmatchedRow[]}>('/_api/inbound/unmatched')});
+ return <section><h2>Mensajes sin asociar</h2><p>Asociá cada email o mensaje de Instagram con el negocio correcto para que quede disponible en Comunicación.</p>{list.error&&<QueryErrorNotice error={list.error} onRetry={list.refetch} busy={list.isFetching}/>}{list.isPending?<p role="status">Cargando mensajes…</p>:!list.data?.rows.length?<p>No hay mensajes sin asociar.</p>:list.data.rows.map(row=><InboundUnmatchedCard key={row.id} row={row}/>)}</section>;
 }

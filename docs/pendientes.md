@@ -13,6 +13,8 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - **103** Bandeja sin asociar + Instagram + user script.
 - **104** pulido de ficha, formularios y visual.
 
+**Spec 103** (Bandeja sin asociar, Instagram y user script; spec en revisión en #312): bloques 1 (panel de WhatsApp: responsable, No contactar y etapa legible sin script nuevo), 2 (estado de `INTEGRATION_SECRETS_KEY` en Configuración) y 3 (bugs de «Mensajes sin asociar»: estado por tarjeta, gestiones abiertas, código y ciudad, rechazo de fusionados/papelera, aviso; los archivados se aceptan porque Archivado bloquea salidas, no entradas) implementados en la rama `fix/spec-103-userscript-context-and-inbox`. Próximo paso: PR a `staging` y CI (incluye `test-instagram.ts` y la suite de navegador, que no corrieron con el runner local). Quedan el bloque 4 (script 1.7.1) y los bloques 5–8 (esperan D1–D7). Al desplegar el bloque 1, avisar a los vendedores que el panel ahora deshabilita «Mandar un mensaje» con No contactar. Deuda menor: el selector de gestión de «Mensajes sin asociar» filtra abiertas con el catálogo del cliente (`openPreviewManagements`: una etapa heredada desconocida cuenta como abierta) y el servidor con `crm_stages.classification='open'`; el detalle no trae la clasificación, así que una etapa heredada puede aparecer y el servidor la rechaza con «La gestión debe estar abierta».
+
 **Spec 101** (links y envío de material; spec en revisión en #309): bloques 1 (enlaces sin cursiva en el editor y la vista final) y 2 («Abrir WhatsApp» en un clic, también en «Seguir editando») implementados en la rama `fix/spec-101-link-italics-and-open`. Hallazgos de la revisión corregidos (enlace que crecía al tipear después de la URL, Instagram fuera del cambio de barrera, email sin botón de envío en «Seguir editando», vista final sin enlace navegable). Verificado en local: integraciones PASS tras `seed`, typecheck, unit (2377) y build. Próximo paso: PR a `staging` y CI (incluye la suite de navegador, no corrida en local). Bloques 3 y 4 esperan D1–D4 del propietario. Limitación conocida, previa a la spec: en el editor de Instagram, editar adentro de una URL que el editor convirtió en enlace manda `URLeditada (URLoriginal)` (`htmlToPlainText`, compartida con email); WhatsApp ya manda solo lo que se ve.
 
 **Spec 99** (registro honesto de contactos): cerrada el 31/10/2026. Bloques 1–5 mergeados a `staging` con CI verde (#296, #297, #298, #299, #300).
@@ -45,7 +47,7 @@ Datos que necesitan aprobación del propietario (ningún agente los toca por ini
 - Documento de prueba «aaaa» en Cheroga (H1468) en producción.
 - Ciudades duplicadas: San Jose / San José, Federacion, Chajari.
 
-Otros: el mensaje «Falta INTEGRATION_SECRETS_KEY» aparece también cuando la clave existe pero tiene mal formato (arreglo planeado); el apex `hospeda.com.ar` no tiene SPF TXT; si el Worker `hospeda-inbound-email` vuelve a fallar, ver `COOLIFY_DEPLOY.md` (el PR #293 agrega logs).
+Otros: el apex `hospeda.com.ar` no tiene SPF TXT; si el Worker `hospeda-inbound-email` vuelve a fallar, ver `COOLIFY_DEPLOY.md` (el PR #293 agrega logs).
 
 ## Specs 94, 96, 97 y 98 — desplegadas a producción el 30/10/2026
 
