@@ -709,7 +709,7 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Cuándo usarlo:** Cuando el mensaje todavía no está listo para enviarse.
 
 1. Tocá «Contactar» y elegí una gestión abierta o un contacto general con su propósito. Guardar un borrador no inicia ni confirma un contacto.
-2. Para retomarlo, entrá en la pestaña «Comunicación» del negocio: en «Borradores» tocá «Seguir editando». Revisá de nuevo el destinatario, los datos y el texto antes de usarlo.
+2. Para retomarlo, entrá en la pestaña «Comunicación» del negocio: en «Borradores» tocá «Seguir editando». Revisá de nuevo el destinatario, los datos y el texto antes de usarlo. En un borrador de WhatsApp, el botón final queda a la vista mientras editás: con cambios sin guardar, un toque los guarda y abre el chat. En email, tocá «Guardar cambios» y envialo desde el mensaje final.
 3. El email sale desde el CRM; WhatsApp se abre afuera y queda sin confirmar hasta que informes el resultado.
 4. Si salís con cambios sin guardar, elegí volver o descartarlos. No reenvíes un mensaje cuyo resultado sea incierto: primero revisá el estado del intento.
 
@@ -1166,7 +1166,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 2. Elegí el modelo: el primero es el «Recomendado para la etapa actual». Pasá el mouse por un modelo para ver su texto con las variables sin completar. Elegí también la persona.
 3. Revisá la vista previa con los datos del CRM. Si falta un dato, completalo en el CRM o elegí otra persona.
 4. Si el modelo trae material de venta, la vista previa ya muestra sus enlaces. Para sumar otro, tocá «Agregar material», buscalo y tocá «Agregar»: el texto se actualiza con un enlace propio de este mensaje. Si cambiás de modelo, persona o gestión, el material que agregaste sigue en el mensaje nuevo. Arriba de la vista previa ves el material del mensaje: tocá «Quitar» para sacarlo. Si algún material del modelo ya no está disponible, el panel te avisa y no lo incluye.
-5. Si solo querés mandar un material, tocá «Enviar material» en el panel: elegí el material y el panel arma un mensaje con su enlace. Arriba podés elegir un «Mensaje modelo» (o dejar «Mensaje libre»): el material se mantiene. Con «Agregar otro material» sumás más.
+5. Si solo querés mandar un material, tocá «Enviar material» en el panel: elegí el material y el panel arma un mensaje con su enlace. Arriba podés elegir un «Mensaje modelo» (o dejar «Mensaje libre»): el material se mantiene. Con «Agregar otro material» sumás más. En WhatsApp, el botón final (Abrir WhatsApp con la persona y el teléfono) queda listo enseguida: no hace falta tocar «Guardar cambios».
 6. Tocá «Pegar en el chat». El texto queda en la caja de WhatsApp, sin enviarse: revisalo, editalo si querés y apretá Enter. Si la caja tenía otro texto, el panel te pregunta antes de reemplazarlo.
 7. Para usar otro modelo, tocá «Cambiar de modelo» y pegá de nuevo: el anterior queda como no enviado.
 8. Después de enviarlo, registralo con «Registrar mensajes». Si al final no lo mandás, tocá «No lo voy a enviar».

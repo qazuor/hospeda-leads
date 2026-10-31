@@ -13,6 +13,8 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - **103** Bandeja sin asociar + Instagram + user script.
 - **104** pulido de ficha, formularios y visual.
 
+**Spec 101** (links y envío de material; spec en revisión en #309): bloques 1 (enlaces sin cursiva en el editor y la vista final) y 2 («Abrir WhatsApp» en un clic, también en «Seguir editando») implementados en la rama `fix/spec-101-link-italics-and-open`. Hallazgos de la revisión corregidos (enlace que crecía al tipear después de la URL, Instagram fuera del cambio de barrera, email sin botón de envío en «Seguir editando», vista final sin enlace navegable). Verificado en local: integraciones PASS tras `seed`, typecheck, unit (2377) y build. Próximo paso: PR a `staging` y CI (incluye la suite de navegador, no corrida en local). Bloques 3 y 4 esperan D1–D4 del propietario. Limitación conocida, previa a la spec: en el editor de Instagram, editar adentro de una URL que el editor convirtió en enlace manda `URLeditada (URLoriginal)` (`htmlToPlainText`, compartida con email); WhatsApp ya manda solo lo que se ve.
+
 **Spec 99** (registro honesto de contactos): cerrada el 31/10/2026. Bloques 1–5 mergeados a `staging` con CI verde (#296, #297, #298, #299, #300).
 
 **Spec 100** («Requiere acción» compacto): cerrada el 31/10/2026. Bloques mergeados a `staging` con CI verde (#303, #304, #305, #306, #307). Para revisar con el propietario: las decisiones D1–D8 aplicadas con la recomendación de la spec (`decisiones.md`). Las notas por bloque que siguen conservan sus limitaciones conocidas.
