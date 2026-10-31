@@ -1011,9 +1011,9 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 1. Abrí el menú «Administración» y elegí «Mensajes sin asociar». También lo encontrás con Ctrl+K.
 2. Cada mensaje muestra remitente, asunto cuando corresponde, fecha y extracto. Leelo para saber de qué negocio es.
-3. En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».
-4. Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Si no sabés, dejá «Sin gestión» y «Sin persona».
-5. Tocá «Asociar». El mensaje entrante pasa a la «Conversación» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio.
+3. En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Cada opción muestra código, nombre y localidad (por ejemplo H123 · Cabañas del Río · Colón), así distinguís dos negocios con el mismo nombre. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».
+4. Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Solo aparecen las gestiones abiertas. Si no sabés, dejá «Sin gestión» y «Sin persona».
+5. Tocá «Asociar». El mensaje entrante pasa a la «Conversación» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio. Un aviso confirma a qué negocio quedó asociado y, en Instagram, cuántos mensajes se movieron.
 
 **Qué queda al terminar:** Cada mensaje recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.
 
@@ -1025,6 +1025,9 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 - Un email queda sin asociar cuando la dirección no está cargada, está en más de un negocio o el remitente no se pudo verificar.
 - Si la dirección del remitente es la buena, cargala en el negocio o en la persona para que los próximos emails se asocien solos.
+- Cada mensaje tiene su propia búsqueda: lo que elegís en uno no cambia los demás.
+- No se puede asociar un mensaje a un negocio fusionado o en la papelera: el CRM te dice por qué y te pide elegir otro. Un negocio archivado sí recibe mensajes.
+- Asociar un mensaje solo lo asocia: no registra una respuesta ni cambia la gestión. Queda por revisar para el responsable.
 
 **Dónde ir:** Mensajes sin asociar (/inbound)
 

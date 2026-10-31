@@ -280,6 +280,14 @@ describe("panel", () => {
     const host = renderBanner({ context: context(), selected: { ...match, status: "new", statusLabel: "Nuevo" }, register: null, title: "Cabañas", onSelect: () => {} });
     expect(shadow(host).textContent).toContain("En estado Nuevo solo se registran los mensajes recibidos");
   });
+  // Spec 103 B1 (finding 19): the script side of the context contract: responsible, «No contactar» notice and blocked outputs.
+  it("spec 103 B1: shows the responsible and, with No contactar, the notice and a disabled «Mandar un mensaje»", () => {
+    const open = renderBanner({ context: context(), selected: { ...match, assignedUserName: "Marta Gómez" }, register: null, title: "Cabañas", crmBase: "https://crm.example", onSelect: () => {} });
+    expect(shadow(open).textContent).toContain("Responsable: Marta Gómez"); expect(button(open, "Mandar un mensaje")!.disabled).toBe(false);
+    const blocked = renderBanner({ context: context(), selected: { ...match, assignedUserName: "Marta Gómez", doNotContact: true }, register: null, title: "Cabañas", crmBase: "https://crm.example", onSelect: () => {} });
+    expect(shadow(blocked).textContent).toContain("Responsable: Marta Gómez"); expect(shadow(blocked).textContent).toContain("Este negocio pidió no ser contactado");
+    expect(button(blocked, "Mandar un mensaje")!.disabled).toBe(true); expect(button(blocked, "Enviar material")!.disabled).toBe(true);
+  });
   it("refuses to open the preview when the chat changed since the panel was rendered", () => {
     const readMessages = vi.fn(() => [message("A1", "in", "Hola")]);
     const host = renderBanner({ context: context(), selected: match, register: new RegisterController("https://crm.example", "hcu_test"), title: "Cabañas del Río · H1234", phone: null, readMessages, isCurrentChat: () => false, onSelect: () => {} });
