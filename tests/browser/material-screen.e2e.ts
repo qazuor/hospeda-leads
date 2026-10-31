@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {createServer,type Server} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import superjson from 'superjson';
-import {twoPagePdf} from './fixtures/pdf';
+import {brokenPdf,cmykImagePdf,tinyPng,twoPagePdf} from './fixtures/pdf';
 
 // Spec 95: «Material de venta» screen. The server under test must run with R2_* variables and R2_ENDPOINT=http://127.0.0.1:<CRM_E2E_R2_PORT>
 // (see the «Start server» step in ci.yml). This R2 stub stores PUTs and answers CORS as the bucket policy in docs/COOLIFY_DEPLOY.md does: only for
@@ -106,5 +106,60 @@ for(const width of [1280,390])test(`sales material screen: groups, card menu, fi
  await expect(headings).toHaveText(['Sin categoría1']);
  await page.screenshot({path:`test-results/material-screen-${width}.png`,fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ expect(errors).toEqual([]);
+});
+
+// Spec 102 blocks 1 and 2: a print-style PDF gets its cover with pdf.js fully configured; an unreadable PDF is saved with the reason and
+// «Elegir portada», whose «Generar desde el archivo» retries from the stored file; an external link takes a manual cover.
+test('sales material covers: reasons, «Elegir portada», «Generar desde el archivo» and link covers',async({page})=>{
+ test.setTimeout(180000);await page.setViewportSize({width:1280,height:900});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ const assets:{url:string;status:number}[]=[];page.on('response',r=>{if(r.url().includes('/assets/pdfjs-'))assets.push({url:r.url(),status:r.status()});});
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await login(page);const stamp='c'+randomUUID().slice(0,6);
+ await page.goto('/sales-material');const main=page.locator('main');const dialog=page.getByRole('dialog');
+ const imageReady=(article:ReturnType<typeof main.getByRole>)=>expect.poll(()=>article.locator('img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0),{timeout:15000}).toBe(true);
+ const create=async({title,file,name}:{title:string;file:Buffer;name:string})=>{
+  await main.getByRole('button',{name:'Nuevo material',exact:true}).click();
+  await dialog.getByLabel('Archivo',{exact:true}).setInputFiles({name,mimeType:'application/pdf',buffer:file});await dialog.getByLabel('Título',{exact:true}).fill(title);
+  await dialog.getByRole('button',{name:'Guardar material',exact:true}).click();
+ };
+ await main.getByLabel('Buscar material',{exact:true}).fill(stamp);
+
+ // A CMYK image with non-embedded standard fonts gets its automatic cover; every pdf.js resource it asked for was served. The Symbol font is
+ // always read from pdf.js' own files, so at least one asset request must have happened (otherwise "none failed" would prove nothing).
+ await create({title:'Folleto CMYK '+stamp,file:cmykImagePdf(),name:'cmyk.pdf'});
+ await expect(page.getByText('Material guardado.',{exact:true})).toBeVisible({timeout:30000});
+ await imageReady(main.getByRole('article',{name:'Folleto CMYK '+stamp}));
+ expect(assets.filter(a=>a.status>=400)).toEqual([]);
+ expect(assets.some(a=>a.url.includes('/standard_fonts/FoxitSymbol.pfb')&&a.status===200),JSON.stringify(assets)).toBe(true);
+
+ // An unreadable PDF is saved; the notice says why and offers «Elegir portada», which opens «Portada» with «Generar desde el archivo».
+ await create({title:'Folleto roto '+stamp,file:brokenPdf(),name:'roto.pdf'});
+ const notice=page.locator('[data-sonner-toast]').filter({hasText:'No se pudo leer el PDF.'});
+ await expect(notice).toBeVisible({timeout:30000});await expect(notice).toContainText('Material guardado.');
+ await notice.getByRole('button',{name:'Elegir portada',exact:true}).click();
+ await expect(dialog).toBeVisible();await expect(dialog).toContainText('«Folleto roto '+stamp+'»');
+ await dialog.getByRole('button',{name:'Generar desde el archivo',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toHaveText('No se pudo leer el PDF. Podés reintentar o subir una imagen.',{timeout:30000});
+ await expect(dialog.getByRole('button',{name:'Generar desde el archivo',exact:true})).toBeEnabled();
+ // The image field is right there: a manual cover fixes it.
+ await dialog.getByLabel('Imagen de portada',{exact:true}).setInputFiles({name:'tapa.png',mimeType:'image/png',buffer:tinyPng()});
+ await dialog.getByRole('button',{name:'Guardar portada',exact:true}).click();
+ await expect(page.getByText('Portada actualizada.',{exact:true})).toBeVisible({timeout:30000});
+ await imageReady(main.getByRole('article',{name:'Folleto roto '+stamp}));
+
+ // An external link takes a manual cover when created, and «Portada» is in its menu.
+ await main.getByRole('button',{name:'Nuevo material',exact:true}).click();
+ await dialog.getByLabel('Origen',{exact:true}).selectOption('url');await dialog.getByLabel('Enlace (https)',{exact:true}).fill('https://example.com/tour-'+stamp);
+ await dialog.getByLabel('Título',{exact:true}).fill('Recorrido '+stamp);
+ await dialog.getByLabel('Portada (opcional)',{exact:true}).setInputFiles({name:'tapa.png',mimeType:'image/png',buffer:tinyPng()});
+ await dialog.getByRole('button',{name:'Guardar material',exact:true}).click();
+ await expect(page.getByText('Material guardado.',{exact:true}).first()).toBeVisible({timeout:30000});
+ const link=main.getByRole('article',{name:'Recorrido '+stamp});await imageReady(link);
+ await link.getByRole('button',{name:`Más acciones de «Recorrido ${stamp}»`,exact:true}).click();
+ await expect(page.getByRole('menuitem')).toHaveText(['Editar','Nueva versión','Portada','Archivar']);await page.keyboard.press('Escape');
+ const list=await api(page,'sales_materials?search='+encodeURIComponent(stamp));
+ expect(Object.fromEntries(list.materials.map((m:any)=>[m.title.replace(' '+stamp,''),m.coverSource]))).toEqual({'Folleto CMYK':'auto','Folleto roto':'manual','Recorrido':'manual'});
  expect(errors).toEqual([]);
 });
