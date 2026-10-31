@@ -40,7 +40,7 @@ export const historyChannelLabel=({channel,instagram=false}:{channel:string|null
 /** Actor of a history entry: the Instagram webhook's own account reads «Instagram de Hospeda», never its technical email. */
 export const historyActorLabel=({email,users}:{email:string|null|undefined;users:readonly {email:string;displayName?:string|null}[]}):string=>email===INSTAGRAM_ECHO_OWNER?ECHO_SENDER:users.find(u=>u.email===email)?.displayName||email||'Sin responsable registrado';
 /** Status line of a message entry; an Instagram echo says it was sent from the Instagram app and recorded automatically (as in «Comunicación»). */
-export const historyMessageStatus=({status,channel,actorEmail}:{status:string;channel:string|null|undefined;actorEmail:string|null|undefined}):string=>channel==='social'&&actorEmail===INSTAGRAM_ECHO_OWNER&&status==='manual_sent'?ECHO_STATUS:messageLabels[status]||'Estado histórico: '+status;
+export const historyMessageStatus=({status,channel,actorEmail}:{status:string;channel:string|null|undefined;actorEmail:string|null|undefined}):string=>status==='userscript_sent'?'Enviado · confirmado por el script de WhatsApp':status==='instagram_sent'?'Enviado · confirmado por Instagram':channel==='social'&&actorEmail===INSTAGRAM_ECHO_OWNER&&status==='manual_sent'?ECHO_STATUS:messageLabels[status]||'Estado histórico: '+status;
 /** Titles of the received-message journal actions; `inbound_received` names the channel and the sender when known. */
 const inboundTitle=(action:string,inbound?:InboundJournalRef|null):string=>{
  if(action==='inbound_received'){

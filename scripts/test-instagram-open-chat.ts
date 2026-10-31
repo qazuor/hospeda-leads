@@ -104,7 +104,7 @@ try{
   assert.deepEqual([draft.instagramAutoConfirm,draft.instagramShared],[true,false],'read-only flags with the integration configured');
   // A second business with the same username flips instagramShared; nothing else of it is exposed.
   const twin=await db.insertInto('crmAccounts').values({nombre:'Zz IG gemelo '+run.slice(0,8),perfilInstagram:'@'+b.username}).returningAll().executeTakeFirstOrThrow();accountIds.push(String(twin.id));
-  const shared=await call(general(b.id),seller.cookie);assert.equal(shared.instagramShared,true);assert.equal(JSON.stringify(shared).includes(String(twin.id)),false);
+  const shared=await call(general(b.id),seller.cookie);assert.equal(shared.instagramShared,true);const sharedJson=JSON.stringify(shared);assert.equal(new RegExp(`[:"\\[,]"?${twin.id}"?[,\\]}]`).test(sharedJson),false,'the twin id is not exposed');assert.equal(sharedJson.includes('IG gemelo'),false,'the twin name is not exposed');
   await db.updateTable('crmAccounts').set({perfilInstagram:null}).where('id','=',twin.id).execute();
   // Without the integration token the composer warns that it will not confirm on its own.
   await sql`UPDATE crm_integration_secrets SET expires_at=now()-interval '1 day' WHERE name='instagram'`.execute(db);
@@ -201,6 +201,7 @@ try{
   await echo(mid('resolve'),sent,b.igsid);
   const resolved=await row(id);
   assert.deepEqual([resolved.status,resolved.externalId,resolved.textBody,resolved.body,resolved.ownerEmail],['manual_sent',mid('resolve'),sent,text,seller.user.email]);
+  assert.equal((await pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id})).find(p=>p.id===id)?.externalId,mid('resolve'),'the pending outcome carries the echo mid for source labeling');
   assert.deepEqual((await socialRows(b.id)).map(r=>r.id),[id],'no echo row is inserted');
   assert.equal((await activityResult(resolved.activityId))?.result,'Envío confirmado por Instagram');assert.equal((await activityResult(resolved.activityId))?.actorEmail,seller.user.email);
   assert.equal((await db.selectFrom('crmTasks').select(['status','result']).where('id','=',task.id).executeTakeFirstOrThrow()).status,'completed');

@@ -66,6 +66,12 @@ describe('buildCommunicationTimeline',()=>{
   expect(mail?.context).toBe('Gestión: Alta en Hospeda');
   expect(wa?.context).toBe('Sin gestión');
  });
+ it('labels WhatsApp user-script confirmations by source while preserving manual and Instagram labels',()=>{
+  expect(sentStatusLabel(message({id:'wa',externalId:'wamid.1',confirmationSource:'userscript'}))).toBe('Enviado · confirmado por el script de WhatsApp');
+  expect(sentStatusLabel(message({id:'linked-manual',externalId:'wamid.2',confirmationSource:'manual'}))).toBe('Envío confirmado manualmente');
+  expect(sentStatusLabel(message({id:'manual',externalId:null}))).toBe('Envío confirmado manualmente');
+  expect(sentStatusLabel(message({id:'ig',channel:'social',destinationDetail:'instagram',externalId:'mid.1',confirmationSource:'instagram'}))).toBe('Enviado · confirmado por Instagram');
+ });
  it('falls back to the management owner for a delegated send without the journal owner',()=>{
   const [entry]=buildCommunicationTimeline({users,managements,messages:[message({id:'d',ownerEmail:'sofia@example.com',delegatedTaskId:'1',delegatedFromEmail:null,leadId:'7'})]});
   expect(entry.kind==='sent'&&entry.sender).toBe('Sofía, por delegación de Leandro');

@@ -1,5 +1,8 @@
 import {describe,it,expect} from 'vitest';
-import {BUSINESS_PROJECTION_LEAD_COLUMNS,businessProjectionColumns} from './businessTable';
+import {Kysely,PostgresAdapter,PostgresIntrospector,PostgresQueryCompiler} from 'kysely';
+import {BUSINESS_PROJECTION_LEAD_COLUMNS,businessProjectionColumns,businessTableSource} from './businessTable';
+
+const k=new Kysely<unknown>({dialect:{createAdapter:()=>new PostgresAdapter(),createDriver:()=>({init:async()=>{},acquireConnection:async()=>{throw new Error('unused')},beginTransaction:async()=>{},commitTransaction:async()=>{},rollbackTransaction:async()=>{},releaseConnection:async()=>{},destroy:async()=>{}}),createIntrospector:db=>new PostgresIntrospector(db),createQueryCompiler:()=>new PostgresQueryCompiler()}});
 
 describe('business projection columns',()=>{
   const expressions=businessProjectionColumns();
@@ -15,6 +18,16 @@ describe('business projection columns',()=>{
     expect(byAlias.estado).toBe('l.estado');
     expect(byAlias.management_type).toBe('l.management_type');
     expect(byAlias.contact_name).toBe('coalesce(pc.name,l.contact_name)');
-    expect(byAlias.fecha_ultimo_contacto).toBe('coalesce(la.occurred_at,l.fecha_ultimo_contacto)::date');
+    expect(byAlias.fecha_ultimo_contacto).toBe('coalesce(lc.occurred_at,l.fecha_ultimo_contacto)::date');
+  });
+  it('uses the shared evidence aggregate instead of every activity timestamp',()=>{
+    const query=businessTableSource().compile(k).sql;
+    const parameters=businessTableSource().compile(k).parameters.flatMap(value=>Array.isArray(value)?value:[value]);
+  expect(query).toContain('crm_messages');
+  expect(query).toContain('LEFT JOIN crm_messages');
+  expect(query).not.toContain('NOT EXISTS');
+  expect(query).not.toContain('FROM crm_messages linked WHERE linked.activity_id');
+    expect(parameters).toContain('manual_sent');
+    expect(query).not.toContain('max(ac.occurred_at)');
   });
 });

@@ -36,10 +36,10 @@ try{
  assert.equal(all.find(e=>e.kind==='communication').title,'Contacto realizado','raw journal actions are labeled');assert.equal(all.find(e=>e.kind==='change').title,'Datos del negocio editados');
  assert(all.every(e=>!/^[a-z]+(_[a-z]+)+$/.test(e.title)),'no internal key reaches the timeline');
  const journalled=all.find(e=>e.kind==='communication');assert.equal(journalled.result,'Envío confirmado manualmente · WhatsApp','communication entries read as plain words');
- assert(all.every(e=>![e.result,e.messageText].some(v=>typeof v==='string'&&/[{}]|"status"|outboxId|triggeredBy/.test(v))),'no raw JSON or internal keys in any entry');assert(all.filter(e=>e.kind==='communication').every(e=>e.messageText===null));
+ assert(all.every(e=>![e.result,e.messageText].some(v=>typeof v==='string'&&/[{}]|"status"|outboxId|triggeredBy/.test(v))),'no raw JSON or internal keys in any entry');assert(all.filter(e=>e.kind==='communication').every(e=>e.messageText===null));assert(all.every(e=>e.messageStatus!=='no_linked_message'),'the internal evidence marker never reaches the timeline');
  const contacts=await history(1,reader,200,'contact'),managements=await history(1,reader,200,'management'),changes=await history(1,reader,200,'change');
  assert.equal(contacts.total,54);assert(contacts.events.every(e=>['activity','message','response','communication'].includes(e.kind)));assert.equal(managements.total,2);assert(managements.events.every(e=>e.kind==='stage'));assert.equal(changes.total,2,'the edit plus the status change the management trigger made');assert(changes.events.every(e=>e.kind==='change'));
- assert.deepEqual(first.lastContact,contacts.events[0],'page 1 carries the latest contact the summary shows');assert(!('lastContact' in second)&&!('lastContact' in contacts),'only page 1 of the full stream computes it');
+ assert(all.some(e=>e.id===first.lastContact?.id),'page 1 carries the latest qualifying contact');assert.equal(first.lastContact?.id,'activity:'+activities[51]!.id,'opened WhatsApp is visible in history but is not latest contact evidence');assert(!('lastContact' in second)&&!('lastContact' in contacts),'only page 1 of the full stream computes it');
  assert.equal(first.totalPending,1);assert.equal(first.pending[0].title,'Revisar propuesta');assert.equal(first.pending[0].continuation,'wait');
  await db.updateTable('leads').set({deletedAt:new Date()}).where('id','=',lead.id).execute();assert.equal((await history()).total,3,'only business-level data changes stay once the management is deleted (the status trigger added one more)');assert.equal((await history()).totalPending,0);
  await db.updateTable('crmAccounts').set({archivedAt:new Date()}).where('id','=',a.id).execute();await history(1,reader,403);await history(1,admin);
@@ -91,6 +91,54 @@ try{
   // L2/L3: a received social row from another network is «Red social», not Instagram.
   const other=events.find(e=>e.kind==='communication'&&e.title.includes('Aguas FB'));assert.equal(other.title,'Mensaje recibido por Red social de Aguas FB');assert.equal(other.isInstagram,false);
   assert.equal(events.length,6,'echo, call, two messages and two received messages, nothing duplicated');
+ }
+ // Spec 99 block 1: source labels are derived at read time, and later draft/open rows do not move lastContact.
+ {
+  const c=await db.insertInto('crmAccounts').values({nombre:'Zz contact evidence '+stamp,status:'reviewed'}).returningAll().executeTakeFirstOrThrow(),messageId=randomUUID();
+  const activityId=(await sql<{id:string}>`INSERT INTO crm_activities(account_id,type_id,title,occurred_at,result,outcome,actor_email) VALUES(${c.id},'call','WhatsApp a Julia',now()-interval '3 hours','Envío confirmado manualmente','interested','history@example.com') RETURNING id::text AS id`.execute(db)).rows[0]!.id;
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,owner_email,status,activity_id,external_id,last_interaction_at) VALUES(${messageId}::uuid,${c.id},${c.id},'whatsapp','+5493442000000','Julia','history@example.com','manual_sent',${activityId}::bigint,${'wa-'+stamp},now()-interval '3 hours')`.execute(db);
+  await sql`INSERT INTO crm_communication_journal(account_id,original_account_id,entity_type,entity_id,action,actor_email,triggered_by_email,after_value) VALUES(${c.id},${c.id},'interaction',${messageId},'contact_completed',NULL,'userscript','{"status":"manual_sent"}'::jsonb)`.execute(db);
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,last_interaction_at) VALUES(${randomUUID()}::uuid,${c.id},${c.id},'whatsapp','+5493442000000','history@example.com','whatsapp_opened',now()-interval '1 hour'),(${randomUUID()}::uuid,${c.id},${c.id},'whatsapp','+5493442000000','history@example.com','draft',now())`.execute(db);
+  const result=await get(new Request('http://localhost/_api/commercial?'+new URLSearchParams({accountId:c.id,historyPage:'1'}),{headers:{cookie:admin}}));assert.equal(result.status,200);
+  const data=superjson.parse<any>(await result.text());const activity=data.events.find((e:any)=>e.id==='activity:'+activityId);
+  assert.equal(activity.result,'Envío confirmado por el script de WhatsApp','legacy activity result is corrected on display');
+  assert.equal(data.lastContact.id,'activity:'+activityId,'draft and opened WhatsApp do not replace contact evidence');
+  const editedMessage=randomUUID();
+  const editedId=(await sql<{id:string}>`INSERT INTO crm_activities(account_id,type_id,title,occurred_at,result,outcome,actor_email) VALUES(${c.id},'call','WhatsApp a Julia',now()-interval '2 hours','Resultado corregido por vendedor','replied','history@example.com') RETURNING id::text AS id`.execute(db)).rows[0]!.id;
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,owner_email,status,activity_id,external_id,last_interaction_at) VALUES(${editedMessage}::uuid,${c.id},${c.id},'whatsapp','+5493442000000','Julia','history@example.com','manual_sent',${editedId}::bigint,${'wa-edited-'+stamp},now()-interval '2 hours')`.execute(db);
+  const editedHistory=superjson.parse<any>(await (await get(new Request('http://localhost/_api/commercial?'+new URLSearchParams({accountId:c.id,historyPage:'1'}),{headers:{cookie:admin}}))).text());
+  assert.equal(editedHistory.events.find((e:any)=>e.id==='activity:'+editedId).result,'Resultado corregido por vendedor','edited activity results are preserved');
+  assert.equal(activity.messageStatus,'userscript_sent','legacy script confirmation keeps the script status');
+  // N1: new script confirmations store USERSCRIPT_CONFIRMED_RESULT; the status line follows the journal, not the stored text.
+  const scriptMessage=randomUUID(),scriptId=(await sql<{id:string}>`INSERT INTO crm_activities(account_id,type_id,title,occurred_at,result,actor_email) VALUES(${c.id},'call','WhatsApp a Julia',now()-interval '4 hours','Envío confirmado por el script de WhatsApp','history@example.com') RETURNING id::text AS id`.execute(db)).rows[0]!.id;
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,owner_email,status,activity_id,external_id,last_interaction_at) VALUES(${scriptMessage}::uuid,${c.id},${c.id},'whatsapp','+5493442000000','Julia','history@example.com','manual_sent',${scriptId}::bigint,${'wa-n1-'+stamp},now()-interval '4 hours')`.execute(db);
+  await sql`INSERT INTO crm_communication_journal(account_id,original_account_id,entity_type,entity_id,action,actor_email,triggered_by_email,after_value) VALUES(${c.id},${c.id},'interaction',${scriptMessage},'contact_resolved',NULL,'userscript','{"status":"manual_sent"}'::jsonb)`.execute(db);
+  const igMessage=randomUUID(),igId=(await sql<{id:string}>`INSERT INTO crm_activities(account_id,type_id,title,occurred_at,result,actor_email) VALUES(${c.id},'call','Instagram a Julia',now()-interval '5 hours','Envío confirmado por Instagram','history@example.com') RETURNING id::text AS id`.execute(db)).rows[0]!.id;
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,destination_detail,recipient,recipient_name,owner_email,status,activity_id,external_id,last_interaction_at) VALUES(${igMessage}::uuid,${c.id},${c.id},'social','instagram','@julia','Julia','history@example.com','manual_sent',${igId}::bigint,${'mid-n1-'+stamp},now()-interval '5 hours')`.execute(db);
+  await sql`INSERT INTO crm_communication_journal(account_id,original_account_id,entity_type,entity_id,action,actor_email,triggered_by_email,after_value) VALUES(${c.id},${c.id},'interaction',${igMessage},'contact_resolved',NULL,'instagram-webhook','{"status":"manual_sent"}'::jsonb)`.execute(db);
+  const newHistory=superjson.parse<any>(await (await get(new Request('http://localhost/_api/commercial?'+new URLSearchParams({accountId:c.id,historyPage:'1'}),{headers:{cookie:admin}}))).text());
+  const scriptEntry=newHistory.events.find((e:any)=>e.id==='activity:'+scriptId),igEntry=newHistory.events.find((e:any)=>e.id==='activity:'+igId);
+  assert.equal(scriptEntry.messageStatus,'userscript_sent','a new script confirmation shows the script status');assert.equal(scriptEntry.result,'Envío confirmado por el script de WhatsApp');
+  assert.equal(igEntry.messageStatus,'instagram_sent','an echo confirmation shows the Instagram status');assert.equal(igEntry.result,'Envío confirmado por Instagram');
+ }
+ // Spec 99 E2/E3/M3: the summary uses response and received-message timestamps, excludes no-answer and automatic inbound, and ignores inbound journal time.
+ {
+  const makeAccount=async(name:string)=>db.insertInto('crmAccounts').values({nombre:name+stamp,status:'reviewed'}).returningAll().executeTakeFirstOrThrow();
+  const historyOf=async(accountId:string)=>{const r=await get(new Request('http://localhost/_api/commercial?'+new URLSearchParams({accountId,historyPage:'1'}),{headers:{cookie:admin}}));assert.equal(r.status,200,await r.clone().text());return superjson.parse<any>(await r.text());};
+  const answered=await makeAccount('Response evidence '),responseId=randomUUID(),responseAt=new Date(Date.now()-90*60_000);
+  await sql`INSERT INTO crm_communication_responses(id,account_id,original_account_id,channel,recipient,category,summary,actor_email,occurred_at) VALUES(${responseId}::uuid,${answered.id},${answered.id},'whatsapp','Julia','interested','Respondió',${stamp+'admin@example.com'},${responseAt})`.execute(db);
+  const responseHistory=await historyOf(answered.id);assert.equal(responseHistory.lastContact.id,'response:'+responseId);assert.equal(new Date(responseHistory.lastContact.occurredAt).getTime(),responseAt.getTime());
+  for(const automatic of [false,true]){
+   const account=await makeAccount(automatic?'Automatic inbound ':'Received inbound '),inboundId=randomUUID(),receivedAt=new Date(Date.now()-3*60*60_000);
+   await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,match_method,from_address,text_body,is_automatic,received_at,status,source) VALUES(${inboundId}::uuid,'whatsapp',${'inbound-'+randomUUID()},${account.id},'manual','guest@example.com','Consulta',${automatic},${receivedAt},'pending_review','userscript')`.execute(db);
+   await sql`INSERT INTO crm_communication_journal(account_id,original_account_id,entity_type,entity_id,action,actor_email,triggered_by_email,created_at,after_value) VALUES(${account.id},${account.id},'inbound',${inboundId},'inbound_registered',NULL,'userscript',now(),'{"status":"registered"}'::jsonb)`.execute(db);
+   const history=await historyOf(account.id);
+   if(automatic)assert.equal(history.lastContact,null,'automatic inbound does not count');
+   else{assert.equal(history.lastContact.id,'inbound:'+inboundId);assert.equal(new Date(history.lastContact.occurredAt).getTime(),receivedAt.getTime(),'inbound uses received_at rather than journal created_at');}
+  }
+  const unanswered=await makeAccount('Unanswered ');
+  await db.insertInto('crmActivities').values({accountId:unanswered.id,typeId:'call',title:'No atendió',outcome:'no_answer',occurredAt:new Date()}).execute();
+  assert.equal((await historyOf(unanswered.id)).lastContact,null,'no_answer does not count as a contact');
  }
  console.log('Commercial history: pagination, one event per linked message/activity, honest WhatsApp state, pending commitments and archived/deleted permissions passed');
 }finally{await db.destroy()}
