@@ -13,7 +13,10 @@ import {CommunicationPanel} from './CommunicationPanel';
 
 const shared={shareId:'33333333-3333-4333-8333-333333333333',messageId:'m1',materialId:'22222222-2222-4222-8222-222222222222',title:'Folleto 2027',channel:'whatsapp',source:'file',fileName:'folleto.pdf',byteSize:2048,available:true,preparedVersion:1,sentVersion:2,attach:false,attachedVersion:null,attachBlockedReason:null,createdByEmail:'seller@example.com',createdAt:new Date(),revokedAt:null,revokedByEmail:null,revokeReason:null,technicalAccessCount:0,lastTechnicalAccessAt:null};
 const sent={id:'m1',accountId:'5',leadId:null,contactId:null,channel:'whatsapp',recipient:'+5493442000002',recipientName:'Ana',subject:'',body:'Folleto 2027: https://crm.example.test/m/x',htmlBody:null,textBody:null,templateSnapshot:null,ownerEmail:'other@example.com',activityId:null,outboxId:null,taskId:null,status:'manual_sent',revision:3,lastInteractionAt:new Date(),lastActorEmail:'other@example.com',createdAt:new Date(),updatedAt:new Date(),materials:[shared]};
-const followUps=(unconfirmed:Record<string,unknown>[]=[],outcomes:Record<string,unknown>[]=[])=>({unconfirmed:{items:unconfirmed,count:unconfirmed.length},outcomes:{items:outcomes,count:outcomes.length}});
+const list=(items:Record<string,unknown>[])=>({items,count:items.length,groupCount:items.length});
+const followUps=(unconfirmed:Record<string,unknown>[]=[],outcomes:Record<string,unknown>[]=[])=>({unconfirmed:list(unconfirmed),outcomes:list(outcomes),expired:{unconfirmed:list([]),outcomes:list([])}});
+/** Spec 100 §5: «Requiere acción» starts collapsed; this expands it and returns the region. */
+const openPending=async()=>{const region=await screen.findByRole('region',{name:'Requiere acción'});const toggle=within(region).queryByRole('button',{name:/^(Revisar|Ver)$/});if(toggle)fireEvent.click(toggle);return screen.getByRole('region',{name:'Requiere acción'});};
 function show({doNotContact=false,onSendMaterial,author='seller@example.com',owner='seller@example.com',message={}}:{doNotContact?:boolean;onSendMaterial?:(m:{id:string;title:string})=>void;author?:string;owner?:string;message?:Record<string,unknown>}={}){
  mocks.getCommunication.mockResolvedValue({messages:[{...sent,...message,materials:[{...shared,createdByEmail:author,...(message.status==='whatsapp_opened'?{sentVersion:null}:{})}]}],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],followUps:message.status==='whatsapp_opened'&&(message.ownerEmail??sent.ownerEmail)==='seller@example.com'?followUps([{...sent,...message,accountName:'Hotel Sol'}]):followUps(),recentContactHours:72,webhookConfigured:false});
  mocks.getCommercialDetail.mockResolvedValue({account:{id:'5',nombre:'Hotel Sol',assignedUserEmail:owner,archivedAt:null,doNotContact},contacts:[],opportunities:[],users:[{email:'other@example.com',displayName:'Otra vendedora'}]});
@@ -26,14 +29,17 @@ afterEach(()=>{cleanup();vi.clearAllMocks();mocks.role='user';});
 describe('CommunicationPanel sales material (spec 89 §8.2, §8.4)',()=>{
  it('keeps the record and «Revocar enlace» of an unconfirmed WhatsApp in its «Requiere acción» entry (spec 92: it is not in «Conversación»)',async()=>{
   show({message:{status:'whatsapp_opened',ownerEmail:'seller@example.com'}});
-  const region=await screen.findByRole('region',{name:'Requiere acción'}),entry=await within(region).findByRole('group',{name:'WhatsApp sin confirmar para Ana'});
+  const region=await openPending(),entry=await within(region).findByRole('group',{name:'WhatsApp sin confirmar para Ana'});
+  // Spec 100 §5.2: the record sits behind «Ver mensaje y material».
+  fireEvent.click(within(entry).getByRole('button',{name:'Ver mensaje y material'}));
   expect(await within(entry).findByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeTruthy();
-  expect(within(entry).queryByText(/Versión enviada/)).toBeNull();expect(within(entry).getByRole('button',{name:'Revocar enlace'})).toBeTruthy();
+  expect(within(entry).queryByText(/Versión enviada/)).toBeNull();expect(await within(entry).findByRole('button',{name:'Revocar enlace'})).toBeTruthy();
   expect(within(screen.getByRole('region',{name:'Conversación'})).queryByText('Folleto 2027')).toBeNull();
  });
  it('shows the record of someone else\'s unconfirmed WhatsApp to the business owner, who can still revoke it, without counting it as pending',async()=>{
   show({message:{status:'whatsapp_opened'}});
-  const region=await screen.findByRole('region',{name:'Requiere acción'}),entry=await within(region).findByRole('group',{name:'Material de un WhatsApp sin confirmar para Ana'});
+  expect(within(await screen.findByRole('region',{name:'Requiere acción'})).getByText('Sin pendientes · material en un envío sin confirmar')).toBeTruthy();
+  const region=await openPending(),entry=await within(region).findByRole('group',{name:'Material de un WhatsApp sin confirmar para Ana'});
   expect(within(entry).getByText(/Otra vendedora abrió WhatsApp para Ana/)).toBeTruthy();
   expect(await within(entry).findByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeTruthy();expect(within(entry).getByRole('button',{name:'Revocar enlace'})).toBeTruthy();
   expect(within(entry).queryByRole('button',{name:'Sí, se envió'})).toBeNull();expect(within(region).getByText('Requiere acción · 0')).toBeTruthy();

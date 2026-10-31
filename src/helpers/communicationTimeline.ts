@@ -235,9 +235,9 @@ export function newSinceKey({entries,lastSeenAt,userEmail}:{entries:readonly Tim
 /** Time of the newest loaded item that is not voided, sent to POST /_api/communication/seen (never the client clock). */
 export const newestAt=(entries:readonly TimelineEntry[]):Date|null=>{const times=entries.filter(e=>!isVoidedEntry(e)).map(e=>time(e.at));return times.length?new Date(Math.max(...times)):null;};
 
-/** Spec 91 §9: «N mensajes por revisar · M envíos sin confirmar» (only the non-zero parts). */
+/** Spec 91 §9: «N mensajes por revisar · M envíos sin confirmar · K gestiones sin resultado» (only the non-zero parts; spec 100 §5.1: `outcomes` counts management groups). */
 export function actionSummary({review,unconfirmed,outcomes}:{review:number;unconfirmed:number;outcomes:number}):string{
- return [review?`${review} ${review===1?'mensaje por revisar':'mensajes por revisar'}`:'',unconfirmed?`${unconfirmed} ${unconfirmed===1?'envío sin confirmar':'envíos sin confirmar'}`:'',outcomes?`${outcomes} ${outcomes===1?'contacto sin resultado':'contactos sin resultado'}`:''].filter(Boolean).join(' · ');
+ return [review?`${review} ${review===1?'mensaje por revisar':'mensajes por revisar'}`:'',unconfirmed?`${unconfirmed} ${unconfirmed===1?'envío sin confirmar':'envíos sin confirmar'}`:'',outcomes?`${outcomes} ${outcomes===1?'gestión sin resultado':'gestiones sin resultado'}`:''].filter(Boolean).join(' · ');
 }
 
 /** Who can receive a reply from the composer: the business people and its own email and phones. */

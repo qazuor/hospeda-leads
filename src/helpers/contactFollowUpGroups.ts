@@ -5,7 +5,7 @@ import type {ContactFollowUps,PendingOutcome} from '../endpoints/communication.s
  * «Sin gestión» group per business, and delegated messages (spec 96) apart per task. The server limits and counts the same groups
  * (`pendingContactFollowUps`, `groupCount`), so a group never reaches the client cut.
  */
-export type OutcomeGroup={key:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;delegatedTaskId:string|null;/** Newest first (ties by id, newest id first). */items:PendingOutcome[];/** The send whose outcome dialog resolves the whole group. */newest:PendingOutcome};
+export type OutcomeGroup={key:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;delegatedTaskId:string|null;/** Newest first (ties by id, newest id first). */items:PendingOutcome[];/** The send whose outcome dialog resolves the whole group. */newest:PendingOutcome;/** Sends in the group on the server (`groupTotal`), which may pass `items` (capped at 10 per group); never below `items.length`. */total:number};
 
 const newestFirst=(a:PendingOutcome,b:PendingOutcome)=>new Date(b.lastInteractionAt).getTime()-new Date(a.lastInteractionAt).getTime()||(a.id<b.id?1:a.id>b.id?-1:0);
 
@@ -16,7 +16,7 @@ export const outcomeGroupKey=(item:Pick<PendingOutcome,'accountId'|'leadId'|'del
 export function groupOutcomeFollowUps({items}:{items:readonly PendingOutcome[]}):OutcomeGroup[]{
  const groups=new Map<string,PendingOutcome[]>();
  for(const item of [...items].sort(newestFirst)){const key=outcomeGroupKey(item);groups.set(key,[...(groups.get(key)??[]),item]);}
- return [...groups.entries()].map(([key,list])=>{const newest=list[0];return {key,accountId:newest.accountId,accountName:newest.accountName,leadId:newest.leadId,opportunityName:newest.opportunityName,delegatedTaskId:newest.delegatedTaskId??null,items:list,newest};}).sort((a,b)=>newestFirst(a.newest,b.newest));
+ return [...groups.entries()].map(([key,list])=>{const newest=list[0];return {key,accountId:newest.accountId,accountName:newest.accountName,leadId:newest.leadId,opportunityName:newest.opportunityName,delegatedTaskId:newest.delegatedTaskId??null,items:list,newest,total:Math.max(newest.groupTotal??0,list.length)};}).sort((a,b)=>newestFirst(a.newest,b.newest));
 }
 
 /** Spec 100 §5.1: the shared «N pendientes»: messages to review, unconfirmed sends and management outcome groups. Expired items never count. */
