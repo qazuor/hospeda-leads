@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {pluralWord} from '../content/vocabulary';
 import {useQuery} from '@tanstack/react-query';
 import {HelpHint} from './HelpHint';
 import {Button} from './Button';
@@ -32,7 +33,7 @@ export function PipelineBoard({leads,onOpen,boardTotals,truncated=false,manageme
  const columns:ColumnModel[]=simple?(['open','won','lost'] as const).map(classification=>({key:classification,name:classificationNames[classification],classification:classificationNames[classification],tone:({open:'blue',won:'green',lost:'red'} as const)[classification]})):stageColumns;
  const rowsFor=(column:ColumnModel)=>visible.filter(lead=>simple?(data.stages.find(stage=>stage.name===lead.estado)?.classification??'open')===column.key:column.key==='__null'?lead.estado===null:lead.estado===column.key);
  const totalFor=(column:ColumnModel,rows:Opportunity[])=>boardTotals?boardTotals.groups.filter(group=>(!managementType||group.managementType===managementType)&&(simple?(data.stages.find(stage=>stage.name===group.estado)?.classification??'open')===column.key:column.key==='__null'?group.estado===null:group.estado===column.key)).reduce((sum,group)=>sum+group.count,0):rows.length;
- const controlLabel=managementType?`${managementTypeLabels[managementType]} · ${leads.length.toLocaleString('es-AR')} gestiones`:`Todas las gestiones filtradas · ${leads.length.toLocaleString('es-AR')}`;
+ const controlLabel=managementType?`${managementTypeLabels[managementType]} · ${leads.length.toLocaleString('es-AR')} ${pluralWord(leads.length,'gestión','gestiones')}`:`Todas las gestiones filtradas · ${leads.length.toLocaleString('es-AR')}`;
  return <>
   <div className={styles.boardControls} aria-label="Vista del tablero"><div className={styles.segmented}><Button aria-pressed={simple} variant={simple?'secondary':'ghost'} onClick={()=>setSimple(true)}>Vista simple: abiertas, ganadas y perdidas</Button><Button aria-pressed={!simple} variant={!simple?'secondary':'ghost'} onClick={()=>setSimple(false)}>Ver etapas del equipo</Button></div><HelpHint term="managementType" iconOnly/><span className={styles.typeHint}>{controlLabel}</span>{managementType&&<span className={styles.typeHint}>{managementTypeHints[managementType]}</span>}</div>
   <p className={styles.intro}>Todas las gestiones que coinciden con los filtros actuales. Abrí una gestión para revisar su próximo paso.</p>

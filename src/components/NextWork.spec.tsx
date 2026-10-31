@@ -42,4 +42,10 @@ describe('NextWork',()=>{
   expect(screen.queryByText('Gestión cerrada')).toBeNull();
   expect(screen.getByText('La última acción se guardó con la decisión de terminar por ahora. Podés planificar otra cuando corresponda.')).toBeTruthy();
  });
+ it('labels a management closed without a sale as «GESTIÓN CERRADA SIN VENTA» (spec 104, finding 27)',async()=>{
+  getWork.mockResolvedValue(data([],[]));
+  render(<MantineProvider><QueryClientProvider client={new QueryClient()}><NextWork accountId="1" leadId="9" classification="lost" detail={detail}/></QueryClientProvider></MantineProvider>);
+  expect(await screen.findByText('GESTIÓN CERRADA SIN VENTA')).toBeTruthy();
+  expect(screen.queryByText('VENTA CERRADA SIN VENTA')).toBeNull();
+ });
 });
