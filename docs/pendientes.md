@@ -17,6 +17,8 @@ Spec 99 bloque 1: segunda revisión corregida en el worktree. Typecheck y Vitest
 
 Regla: el trabajo se mergea a `staging`; a `main` solo cuando todos los PR del lote estén en `staging` y el propietario lo pida (un merge a `main` despliega producción).
 
+**Spec 99, bloque 5** está implementado localmente en esta rama, sin PR. Verificado el 31/10/2026: `test-work`, `test-business-history`, `test-commercial` y `test-global-history` PASS sobre base descartable, typecheck, vitest (2237 tests) y build OK. Falta el e2e `contextual-work.e2e.ts`, el PR a `staging` y su CI.
+
 Datos que necesitan aprobación del propietario (ningún agente los toca por iniciativa propia):
 - Negocio de prueba H1601 «PRUEBA UX — Hospeda — 02-10-2026» en producción.
 - Documento de prueba «aaaa» en Cheroga (H1468) en producción.
