@@ -19,6 +19,11 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 
 **Spec 100, bloque 5** («Para retomar» con «Todos» y «Hasta» vacío; «Próximas acciones» abierta): mergeado a `staging` en #303. Verificado en local: `test-pipeline`, `test-work`, `test-commercial`, typecheck, unit (2286) y build. Próximo paso: PR a `staging` y CI (incluye la suite de navegador, no corrida en local).
 
+**Spec 102, bloques 1 y 2** (portada del PDF; portada manual de enlaces): implementados en la rama `fix/spec-102-material-covers` (sin PR todavía; la spec está en revisión en #311). Verificado en local: integraciones `test-sales-material*`, typecheck, unit (2374) y build; la suite de navegador queda para CI. Próximo paso: PR a `staging` y CI. Abierto:
+- **Causa real del PDF del propietario sin confirmar:** pedirle el tamaño del PDF o el texto exacto del aviso (ahora el aviso y la consola dicen el motivo). Si con el motivo a la vista los PDF reales siguen fallando, revisar D2 (portadas en el servidor).
+- La CSP de reporte no tiene `'wasm-unsafe-eval'` en `script-src`: pdf.js compila sus wasm igual (la CSP es solo de reporte), pero puede generar reportes. Decidir si se agrega antes de pasar la CSP a obligatoria.
+- Bloques 3–5 (portada automática de enlaces, verticales, selector de categorías) esperan D1, D3–D6. Las 7 observaciones de la revisión de los bloques 1–2 quedaron corregidas (ver `estado-desarrollo.md`).
+
 Quedan abiertos de la spec 99:
 - **Para evaluar con el propietario (pedido del 31/10/2026):** la spec 96 §10.1 atribuye una respuesta sin envío vinculado al último envío abierto de su gestión, así que «No, es una respuesta nueva» igual puede cerrar el «Anotá cómo salió» de ese envío si se mantiene la gestión. ¿Se mantiene así o una respuesta nueva no debería resolver nada?
 - Medir con volumen real las búsquedas del journal por entidad (no hay índice `(entity_type, entity_id)`) antes de decidir una migración.
