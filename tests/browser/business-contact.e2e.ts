@@ -77,7 +77,8 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
   await closeContact();
  }
  // Spec 96 §2.6: from the business, opening WhatsApp closes the composer with a toast; opening proves nothing, so the attempt waits in Hoy
- // («Anotá cómo salió»), where "¿Lo enviaste?" comes first and the outcome updates the same activity (decision 2B).
+ // («Pendientes de contacto» → «¿Lo enviaste?», spec 100 §4.2); once confirmed it moves to «Anotá cómo salió» (one row per management),
+ // and the outcome updates the same activity (decision 2B).
  const tomasFinal='Abrir WhatsApp con Tomás con teléfono '+run+' · +54 9 3442000077';
  const sendWhatsapp=async(text:string)=>{
   // Re-stubbed on every page load: nothing reaches WhatsApp.
@@ -94,18 +95,22 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
   // Hoy lists it only after the script wait (spec 100 §9).
   await pastScriptWait(opened[0].id);
  };
- const pendingRow=page.getByRole('region',{name:'Anotá cómo salió',exact:true}).getByRole('article',{name:'Contacto pendiente con Tomás con teléfono '+run,exact:true});
+ const pendingCard=page.getByRole('region',{name:'Pendientes de contacto',exact:true});
+ const pendingRow=pendingCard.getByRole('region',{name:'¿Lo enviaste?',exact:true}).getByRole('article',{name:'Contacto pendiente con Tomás con teléfono '+run,exact:true});
+ const outcomeRow=pendingCard.getByRole('region',{name:'Anotá cómo salió',exact:true}).getByRole('article').filter({hasText:'Tomás con teléfono '+run});
  await sendWhatsapp('Hola, te escribo por Hospeda');
- await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');await pendingRow.getByRole('button',{name:'Anotá cómo salió',exact:true}).click();
- await page.getByRole('dialog',{name:'¿Lo enviaste?',exact:true}).getByRole('button',{name:'Sí, lo envié',exact:true}).click();
+ await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');
+ await expect(pendingRow.getByRole('link',{name:'Ver en el negocio',exact:true})).toHaveAttribute('href','/accounts/'+accountId+'?section=communication&pending=open');
+ await pendingRow.getByRole('button',{name:'Sí, se envió',exact:true}).click();await expect(pendingRow).toHaveCount(0);
+ await outcomeRow.getByRole('button',{name:'Anotá cómo salió',exact:true}).click();
  {const outcome=page.getByRole('dialog',{name:'Anotar lo que pasó',exact:true});await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por WhatsApp');await pickOutcome(outcome,'interested');await outcome.getByLabel('¿Cómo sigue?').selectOption('task');await outcome.getByRole('textbox',{name:'Qué hay que hacer',exact:true}).fill('Mandar propuesta a Tomás '+run);await outcome.getByRole('button',{name:'Mañana',exact:true}).click();await outcome.getByRole('button',{name:'Guardar y programar',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);}
- await expect(pendingRow).toHaveCount(0);
+ await expect(outcomeRow).toHaveCount(0);
  const whatsappMessage=(await api('communication?leadId='+leadId)).messages.find((m:any)=>m.channel==='whatsapp'&&m.recipient==='+5493442000077'&&m.status!=='draft'&&m.status!=='cancelled');expect(whatsappMessage.status).toBe('manual_sent');
  const contactWork=await api('work?mode=detail&accountId='+accountId);expect(contactWork.activities.filter((a:any)=>a.id===String(whatsappMessage.activityId)).map((a:any)=>[a.outcome,a.continuation])).toEqual([['interested','task']]);expect(contactWork.tasks.some((t:any)=>t.title==='Mandar propuesta a Tomás '+run)).toBe(true);
- // Decision 14A: the contact stays in Hoy until its outcome is recorded; there "No, no lo envié" records it as not sent.
+ // Decision 14A: the contact stays in Hoy until its outcome is recorded; there «No se envió» records it as not sent.
  await page.goto('/accounts/'+accountId);await sendWhatsapp('Segundo intento por WhatsApp');
- await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');await pendingRow.getByRole('button',{name:'Anotá cómo salió',exact:true}).click();
- await page.getByRole('dialog',{name:'¿Lo enviaste?',exact:true}).getByRole('button',{name:'No, no lo envié',exact:true}).click();await expect(pendingRow).toHaveCount(0);
+ await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');
+ await pendingRow.getByRole('button',{name:'No se envió',exact:true}).click();await expect(pendingRow).toHaveCount(0);
  expect((await api('communication?leadId='+leadId)).messages.filter((m:any)=>m.channel==='whatsapp'&&m.recipient==='+5493442000077').map((m:any)=>m.status).sort()).toEqual(['manual_not_done','manual_sent']);
  await page.goto('/accounts/'+accountId);
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);await page.screenshot({path:`test-results/business-contact-${width}.png`,fullPage:true});expect(errors).toEqual([]);

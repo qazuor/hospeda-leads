@@ -23,3 +23,6 @@ export function groupOutcomeFollowUps({items}:{items:readonly PendingOutcome[]})
 export function pendingCount({review,followUps}:{review:number;followUps:ContactFollowUps|undefined}):number{
  return review+(followUps?.unconfirmed.count??0)+(followUps?.outcomes.groupCount??0);
 }
+
+/** Spec 100 §5.4: the business «Comunicación» with «Requiere acción» expanded, for Hoy «Ver en el negocio» and the work editor toast. */
+export const businessPendingHref=(accountId:string):string=>'/accounts/'+accountId+'?section=communication&pending=open';

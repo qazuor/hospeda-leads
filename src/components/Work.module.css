@@ -53,3 +53,6 @@
 .queue .columnHeader h2{flex:1;text-align:left}
 /* Spec 100 §6: the sends of one «Anotá cómo salió» management group, one grey line each. */
 .groupSends{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:13px;overflow-wrap:anywhere}
+/* Spec 100 §4.2: Hoy «Pendientes de contacto» rows: «Ver en el negocio» is text, not the trailing icon button the narrow layout assumes; a refusal takes its own line. */
+.rowError{flex-basis:100%;margin:0;color:var(--error);font-size:13px}
+@media(max-width:700px){.rowActions>.rowLink:last-child{flex:1 1 110px;margin-left:0}}

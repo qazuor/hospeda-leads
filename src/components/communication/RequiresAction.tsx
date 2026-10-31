@@ -16,6 +16,7 @@ import {MessageMaterialRecord} from './MessageMaterialRecord';
 import {isInstagramInbound} from '../../helpers/instagramChannel';
 import {Button} from '../Button';
 import {OutcomeGroupRow,groupOutcomeNote,outcomeContact} from '../PendingOutcomes';
+import {EXPIRED_FOLLOW_UPS_HELP} from '../../helpers/contactOutcome';
 import {Disclosure,DisclosureSummary} from '../Disclosure';
 import {groupOutcomeFollowUps,pendingCount,type OutcomeGroup} from '../../helpers/contactFollowUpGroups';
 import {RequiresActionStrip} from './RequiresActionStrip';
@@ -24,8 +25,6 @@ import {ConfirmSendButtons,canConfirmSend} from './ConfirmSendButtons';
 import {BulkCheckbox,BulkConfirmBar,BulkConfirmDialog,useBulkSelection,type BulkSelection} from './BulkConfirmSends';
 import type {CommunicationView} from './types';
 
-/** Spec 100 §7: what «Vencidos» means. */
-const EXPIRED_HELP='Preguntas de más de 3 días (envíos sin confirmar) o 7 días (gestiones sin resultado). No cuentan como pendientes, pero podés responderlas igual.';
 import styles from './CommunicationView.module.css';
 
 /** A received message «Por revisar» as one summary line; its actions live on its bubble (spec 91 §9). Clicking scrolls to it. */
@@ -118,8 +117,8 @@ type OpenOutcome={key:string;contact:ContactOutcomeTarget;note?:string};
 /**
  * «Requiere acción», spec 91 §9 as the spec 100 §5 strip: collapsed «N pendientes · Revisar» on mount (expanded with `?pending=open`).
  * N is {@link pendingCount}: messages «Por revisar», the server's `followUps.unconfirmed` and its management groups of
- * `followUps.outcomes` (D2). Until spec 100 block 4, Hoy and the work editor toast still count sends (and no «Por revisar»), so their
- * numbers may differ from this one. Expanded, in order: «Por revisar» (one line that scrolls to the bubble, where its actions are),
+ * `followUps.outcomes` (D2). Hoy «Pendientes de contacto» and the work editor toast count the same for the business, minus «Por
+ * revisar» (in Hoy that is «Respuestas nuevas»). Expanded, in order: «Por revisar» (one line that scrolls to the bubble, where its actions are),
  * «¿Lo enviaste?» (the server list, drawn from the loaded message when there is one), «Anotá cómo salió» (one row per management,
  * one outcome for all its sends), «Vencidos» (collapsed, answerable, uncounted) and the material of opens the viewer cannot answer.
  * A loaded open the viewer may answer (`canConfirmSend`) that the server leaves out (No contactar, closed management, archived
@@ -158,7 +157,7 @@ export function RequiresAction({view,onFocus,bulk:bulkEnabled=false}:{view:Commu
   {review.length>0&&<Block label="Por revisar" count={review.length}><ul className={styles.actionList}>{review.map(r=><ReviewEntry key={r.key} item={r.inbound} onFocus={onFocus}/>)}</ul></Block>}
   {confirm.length>0&&<Block label="¿Lo enviaste?" count={unconfirmedCount}><BulkConfirmBar messages={confirmEligible} bulk={bulk}/><ul className={styles.actionList}>{confirm.map(line)}</ul>{shownOf(unconfirmed.length,unconfirmedCount)}</Block>}
   {groups.length>0&&<Block label="Anotá cómo salió" count={groupCount}><div className={styles.actionList}>{groups.map(g=><OutcomeGroupRow key={g.key} group={g} showBusiness={false} onOutcome={groupOutcome}/>)}</div>{shownOf(groups.length,groupCount,true)}</Block>}
-  {expiredCount>0&&<section className={styles.block} aria-label="Vencidos"><Disclosure><DisclosureSummary>Vencidos · {expiredCount}</DisclosureSummary><p className={styles.blockHelp}>{EXPIRED_HELP}</p>
+  {expiredCount>0&&<section className={styles.block} aria-label="Vencidos"><Disclosure><DisclosureSummary>Vencidos · {expiredCount}</DisclosureSummary><p className={styles.blockHelp}>{EXPIRED_FOLLOW_UPS_HELP}</p>
    {expiredConfirm.length>0&&<><BulkConfirmBar messages={expiredEligible} bulk={bulk}/><ul className={styles.actionList}>{expiredConfirm.map(line)}</ul>{shownOf(expiredUnconfirmed.length,expiredUnconfirmedCount)}</>}
    {expiredGroups.length>0&&<><div className={styles.actionList}>{expiredGroups.map(g=><OutcomeGroupRow key={g.key} group={g} showBusiness={false} onOutcome={groupOutcome}/>)}</div>{shownOf(expiredGroups.length,expiredGroupCount,true)}</>}
   </Disclosure></section>}

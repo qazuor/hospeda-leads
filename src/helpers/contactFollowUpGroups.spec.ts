@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {ContactFollowUps,PendingOutcome} from '../endpoints/communication.schema';
-import {groupOutcomeFollowUps,outcomeGroupKey,pendingCount} from './contactFollowUpGroups';
+import {businessPendingHref,groupOutcomeFollowUps,outcomeGroupKey,pendingCount} from './contactFollowUpGroups';
 
 const at=(minutes:number)=>new Date(Date.UTC(2026,9,30,12,0)-minutes*60_000);
 const item=(id:string,over:Partial<PendingOutcome>={}):PendingOutcome=>({id,accountId:'5',accountName:'Hotel Sol',leadId:'7',opportunityName:'Alta',contactId:null,channel:'whatsapp',status:'manual_sent',purpose:null,recipientName:'Julia',lastInteractionAt:at(10),delegatedTaskId:null,...over});
@@ -31,4 +31,8 @@ describe('pendingCount (spec 100 §5.1)',()=>{
   expect(pendingCount({review:1,followUps:followUps({unconfirmed:list([],4),outcomes:list([],3,2),expired:{unconfirmed:list([],5),outcomes:list([],6,6)}})})).toBe(7);
  });
  it('counts only the messages to review without follow-ups (read-only views, older servers)',()=>{expect(pendingCount({review:2,followUps:undefined})).toBe(2);});
+});
+
+describe('businessPendingHref (spec 100 §5.4)',()=>{
+ it('opens the business «Comunicación» with «Requiere acción» expanded',()=>{expect(businessPendingHref('42')).toBe('/accounts/42?section=communication&pending=open');});
 });

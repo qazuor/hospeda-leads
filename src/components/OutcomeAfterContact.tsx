@@ -16,10 +16,10 @@ import {VOCAB} from '../content/vocabulary';
 export type ContactOutcomeTarget={accountId:string;leadId?:string|null;contactIds?:string[];channel:string;purpose?:string|null;messageId?:string;messageStatus?:string};
 
 /**
- * Leaving the outcome step is allowed, but never silently (decision 2B); the contact stays in Hoy under "Anotá cómo salió".
+ * Leaving the outcome step is allowed, but never silently (decision 2B); the contact stays in Hoy under «Pendientes de contacto» (spec 100).
  * An opened WhatsApp or a started manual attempt is not a confirmed send, so the copy never says the contact was registered.
  */
-export function leaveWithoutOutcome(status:string|null|undefined):LeaveCopy{return {title:'¿Salir sin anotar cómo salió?',description:(needsSentAnswer(status)?'El envío todavía no está confirmado. Podés confirmarlo después.':'El contacto ya quedó registrado, pero falta anotar cómo salió y cómo sigue.')+' Lo vas a encontrar en Hoy, en «Anotá cómo salió».',stay:'Volver',leave:'Salir sin anotar'};}
+export function leaveWithoutOutcome(status:string|null|undefined):LeaveCopy{return {title:'¿Salir sin anotar cómo salió?',description:(needsSentAnswer(status)?'El envío todavía no está confirmado. Podés confirmarlo después.':'El contacto ya quedó registrado, pero falta anotar cómo salió y cómo sigue.')+' Lo vas a encontrar en Hoy, en «Pendientes de contacto».',stay:'Volver',leave:'Salir sin anotar'};}
 /** How the outcome step ended: an outcome was saved, the message was marked as not sent, or the seller left it for later. */
 export type OutcomeEnd='saved'|'not_sent'|'left';
 

@@ -1,8 +1,9 @@
 import React from 'react';
 import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
-import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {MemoryRouter,useNavigate} from 'react-router-dom';
 const mocks=vi.hoisted(()=>({getCommunication:vi.fn(),postCommunication:vi.fn(),getCommercialDetail:vi.fn(),getWork:vi.fn()}));
 vi.mock('sonner',()=>({toast:{success:vi.fn(),warning:vi.fn(),error:vi.fn(),info:vi.fn()}}));
 // The mocked dialog can «save»: it refetches every query, as the real editor does after its mutation.
@@ -136,6 +137,20 @@ describe('«Requiere acción» strip (spec 100 §5)',()=>{
   window.history.replaceState(null,'','/accounts/5?section=communication&pending=open');
   setup({inbound:[inbound('in1')],followUps:followUps()});await show();
   expect(within(strip()).getByRole('heading',{name:'Requiere acción · 1'})).toBeTruthy();
+  expect(within(strip()).getByRole('button',{name:'Ocultar'})).toBeTruthy();
+ });
+ it('expands an already mounted strip when the router navigates to ?pending=open (work editor toast «Ver en Comunicación»)',async()=>{
+  setup({inbound:[inbound('in1')],followUps:followUps()});
+  let go:(to:string)=>void=()=>{};
+  function Nav(){const navigate=useNavigate();go=navigate;return null;}
+  wrap(<MemoryRouter initialEntries={['/accounts/5?section=communication']}><Nav/><CommunicationPanel accountId="5"/></MemoryRouter>);
+  await screen.findByRole('region',{name:'Conversación'});
+  expect(within(strip()).getByRole('button',{name:'Revisar'})).toBeTruthy();
+  act(()=>go('/accounts/5?section=communication&pending=open'));
+  expect(within(strip()).getByRole('heading',{name:'Requiere acción · 1'})).toBeTruthy();
+  // Collapsed again by hand, the same link reopens it (a new navigation).
+  fireEvent.click(within(strip()).getByRole('button',{name:'Ocultar'}));
+  act(()=>go('/accounts/5?section=communication&pending=open'));
   expect(within(strip()).getByRole('button',{name:'Ocultar'})).toBeTruthy();
  });
  it('collapses back once the last counted pending is resolved',async()=>{

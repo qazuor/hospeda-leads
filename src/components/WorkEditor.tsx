@@ -29,21 +29,23 @@ import {Button} from './Button';
 import {postCommunication,getCommunication} from '../endpoints/communication.schema';
 import {getWork,getWorkDuplicates,postWork,day,type WorkData,type WorkTask,type WorkActivity,type WorkMutation} from '../endpoints/work.schema';
 import type {ContactFollowUps} from '../endpoints/communication.schema';
+import {businessPendingHref,pendingCount} from '../helpers/contactFollowUpGroups';
 import {localDateTime,argentinaInstant} from '../helpers/workDates';
 import {useAuth} from '../helpers/useAuth';
 import styles from './Commercial.module.css';
 export type WorkTarget={kind:'task'|'activity';item?:WorkTask|WorkActivity;accountId?:string;leadId?:string;contactIds?:string[];channel?:string;purpose?:WorkPurpose;title?:string;messageId?:string;messageSent?:boolean;/** Result already known when the editor opens (e.g. after "No me atendieron"); the seller can still change it. */outcome?:WorkOutcome}|{kind:'complete'|'cancel'|'delete_task';item:WorkTask;contactIds?:string[];channel?:string;purpose?:WorkPurpose}|{kind:'delete_activity';item:WorkActivity};
 /**
  * Spec 99 §3.6: what the toast after a save says comes next in the business. Tasks count for the management and the general ones of
- * the business (`pendingWork(tasks, leadId, true)`); without tasks, the contacts still to log (both follow-up lists); only with nothing
- * left, that there is no other pending. `tasks` undefined means the read after the save failed: then it claims nothing.
+ * the business (`pendingWork(tasks, leadId, true)`); without tasks, «pendientes de contacto» counted like Hoy (spec 100 §10: unconfirmed
+ * sends plus management outcome groups, never expired ones), linked to «Comunicación» with the strip expanded (`&pending=open`); only
+ * with nothing left, that there is no other pending. `tasks` undefined means the read after the save failed: then it claims nothing.
  */
 export function nextPendingNotice({tasks,accountId,leadId,followUps}:{tasks:WorkTask[]|undefined;accountId:string;leadId?:string|null;followUps?:ContactFollowUps}):{description:string;link:{label:string;href:string}}{
  const fallback=leadId?{label:'Abrir gestión',href:'/sales/'+leadId}:{label:'Ver historial',href:'/accounts/'+accountId+'?section=history'};
  if(!tasks)return {description:'No pudimos revisar los otros pendientes de este negocio.',link:fallback};
- const next=pendingWork(tasks.filter(t=>t.accountId===accountId),leadId||undefined,true)[0],contacts=(followUps?.unconfirmed.count??0)+(followUps?.outcomes.count??0);
+ const next=pendingWork(tasks.filter(t=>t.accountId===accountId),leadId||undefined,true)[0],contacts=pendingCount({review:0,followUps});
  if(next)return {description:'Próximo pendiente: '+next.title+' · '+formatDate(next.dueDate),link:{label:'Ver pendiente',href:'/my-day?accountId='+accountId+'&taskId='+next.id}};
- if(contacts)return {description:contacts===1?'Queda 1 contacto por anotar en este negocio.':`Quedan ${contacts} contactos por anotar en este negocio.`,link:{label:'Ver en Comunicación',href:'/accounts/'+accountId+'?section=communication'}};
+ if(contacts)return {description:contacts===1?'Queda 1 pendiente de contacto en este negocio.':`Quedan ${contacts} pendientes de contacto en este negocio.`,link:{label:'Ver en Comunicación',href:businessPendingHref(accountId)}};
  return {description:'No hay otro pendiente en este negocio.',link:fallback};
 }
 export function shouldShowNoPendingTaskWarning(tasks:WorkTask[],excludedTaskId?:string){return !tasks.some(task=>task.status==='pending'&&!task.deletedAt&&task.id!==excludedTaskId);}

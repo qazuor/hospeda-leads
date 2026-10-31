@@ -12,6 +12,8 @@ export const UNCONFIRMED_FOLLOW_UP_STATUSES=['whatsapp_opened','instagram_opened
 export const UNCONFIRMED_STALE_HOURS=72;
 /** Spec 100 §7 (D1): a management's «Anotá cómo salió» group expires as a whole this many days after its newest send. */
 export const OUTCOME_STALE_DAYS=7;
+/** Spec 100 §7 (D1): what «Vencidos» means, in the strip and in Hoy. */
+export const EXPIRED_FOLLOW_UPS_HELP='Preguntas de más de 3 días (envíos sin confirmar) o 7 días (gestiones sin resultado). No cuentan como pendientes, pero podés responderlas igual.';
 /** Spec 100 §9 (D7): a WhatsApp open younger than this waits for the user script to confirm it before «¿Lo enviaste?» counts it. */
 export const WHATSAPP_SCRIPT_WAIT_MS=5*60_000;
 /** Spec 100: newest sends listed per follow-up group; the counts still cover every send. */
