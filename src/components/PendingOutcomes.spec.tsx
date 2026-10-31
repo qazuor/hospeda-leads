@@ -4,6 +4,8 @@ import {MantineProvider} from '@mantine/core';
 import {MemoryRouter} from 'react-router-dom';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 const postCommunication=vi.hoisted(()=>vi.fn());
+const toast=vi.hoisted(()=>({success:vi.fn(),info:vi.fn(),error:vi.fn(),warning:vi.fn()}));
+vi.mock('sonner',()=>({toast}));
 vi.mock('../endpoints/communication.schema',async importOriginal=>({...(await importOriginal<typeof import('../endpoints/communication.schema')>()),postCommunication}));
 import {OutcomeGroupRow,PendingOutcomes,groupOutcomeNote} from './PendingOutcomes';
 import {groupOutcomeFollowUps} from '../helpers/contactFollowUpGroups';
@@ -13,9 +15,10 @@ const item=(id:string,over:Partial<PendingOutcome>={}):PendingOutcome=>({id,acco
 const list=(items:PendingOutcome[],count=items.length,groupCount=count):ContactFollowUpList=>({items,count,groupCount});
 const none=list([]);
 const follow=(over:Partial<ContactFollowUps>={}):ContactFollowUps=>({unconfirmed:none,outcomes:none,expired:{unconfirmed:none,outcomes:none},...over});
-const mount=(followUps:ContactFollowUps|undefined,onOutcome=vi.fn())=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{mutations:{retry:false}}})}><MantineProvider><MemoryRouter><PendingOutcomes id="today-outcomes" followUps={followUps} onOutcome={onOutcome}/></MemoryRouter></MantineProvider></QueryClientProvider>);
+const mount=(followUps:ContactFollowUps|undefined,onOutcome=vi.fn(),client=new QueryClient({defaultOptions:{mutations:{retry:false}}}))=>render(<QueryClientProvider client={client}><MantineProvider><MemoryRouter><PendingOutcomes id="today-outcomes" followUps={followUps} onOutcome={onOutcome}/></MemoryRouter></MantineProvider></QueryClientProvider>);
 beforeAll(()=>{window.matchMedia=()=>({matches:false,media:'',onchange:null,addListener:()=>{},removeListener:()=>{},addEventListener:()=>{},removeEventListener:()=>{},dispatchEvent:()=>false});});
-afterEach(()=>{cleanup();postCommunication.mockReset();});
+afterEach(()=>{cleanup();postCommunication.mockReset();for(const fn of Object.values(toast))fn.mockReset();});
+const conflict=(message:string)=>Object.assign(new Error(message),{status:409});
 describe('PendingOutcomes (Hoy «Pendientes de contacto», spec 100 §4.2 D8)',()=>{
  it('shows the actual confirmation source for WhatsApp, Instagram and manual confirmation',()=>{
   mount(follow({outcomes:list([item('wa',{leadId:'1',externalId:'wamid.1',confirmationSource:'userscript'}),item('ig',{leadId:'2',channel:'social',destinationDetail:'instagram',externalId:'mid.1',confirmationSource:'instagram'}),item('manual',{leadId:'3',externalId:'wamid.2',confirmationSource:'manual'})],3,3)}));
@@ -70,6 +73,26 @@ describe('PendingOutcomes (Hoy «Pendientes de contacto», spec 100 §4.2 D8)',(
   fireEvent.click(within(row).getByRole('button',{name:'Sí, se envió'}));
   expect((await within(row).findByRole('alert')).textContent).toBe('El negocio está marcado como No contactar.');
   expect(postCommunication).toHaveBeenCalledTimes(1);
+ });
+ it.each([['Sí, se envió'],['No se envió']])('shows «Este envío ya estaba confirmado.» from «%s» as information and reloads the lists so the row leaves (spec 100 §8)',async name=>{
+  postCommunication.mockRejectedValue(conflict('Este envío ya estaba confirmado.'));
+  const client=new QueryClient({defaultOptions:{mutations:{retry:false}}}),invalidate=vi.spyOn(client,'invalidateQueries');
+  mount(follow({unconfirmed:list([item('u1',{status:'whatsapp_opened'})])}),vi.fn(),client);
+  const row=screen.getByRole('article',{name:'Contacto pendiente con Julia'});
+  fireEvent.click(within(row).getByRole('button',{name}));
+  await waitFor(()=>expect(toast.info).toHaveBeenCalledWith('Este envío ya estaba confirmado.'));
+  expect(within(row).queryByRole('alert')).toBeNull();
+  const keys=invalidate.mock.calls.map(([filters])=>filters?.queryKey);
+  for(const key of [['communication'],['work'],['global-journal'],['lead-journal'],['commercial-detail']])expect(keys).toContainEqual(key);
+  expect(postCommunication).toHaveBeenCalledTimes(1);
+ });
+ it('keeps any other 409 («Este registro fue anulado.») as an error on the row',async()=>{
+  postCommunication.mockRejectedValue(conflict('Este registro fue anulado.'));
+  mount(follow({unconfirmed:list([item('u1',{status:'whatsapp_opened'})])}));
+  const row=screen.getByRole('article',{name:'Contacto pendiente con Julia'});
+  fireEvent.click(within(row).getByRole('button',{name:'No se envió'}));
+  expect((await within(row).findByRole('alert')).textContent).toBe('Este registro fue anulado.');
+  expect(toast.info).not.toHaveBeenCalled();
  });
  it('opens the outcome of a manual attempt from «Anotá cómo salió» through the owner of the dialog',()=>{
   const onOutcome=vi.fn();

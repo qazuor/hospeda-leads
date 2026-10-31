@@ -1,11 +1,13 @@
 import React,{useState,type ReactNode} from 'react';
 import {Link} from 'react-router-dom';
 import {useQueryClient} from '@tanstack/react-query';
+import {toast} from 'sonner';
 import {Button} from './Button';
 import {Disclosure,DisclosureSummary} from './Disclosure';
 import type {ContactOutcomeTarget} from './OutcomeAfterContact';
 import {postCommunication,type ContactFollowUps,type PendingOutcome} from '../endpoints/communication.schema';
-import {needsSentAnswer} from '../helpers/contactOutcome';
+import {ALREADY_CONFIRMED_MESSAGE,EXPIRED_FOLLOW_UPS_HELP,isAlreadyConfirmed,needsSentAnswer} from '../helpers/contactOutcome';
+import {invalidateAfterOutcome} from './communication/ConfirmSendButtons';
 import {isConfirmableOpen} from '../helpers/communicationTimeline';
 import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import {crmSuccess} from '../helpers/crmFeedback';
@@ -17,8 +19,6 @@ import styles from './Commercial.module.css';
 import ws from './Work.module.css';
 import type {OutcomeGroup} from '../helpers/contactFollowUpGroups';
 
-/** Spec 100 §7: what «Vencidos» means. */
-export const EXPIRED_FOLLOW_UPS_HELP='Preguntas de más de 3 días (envíos sin confirmar) o 7 días (gestiones sin resultado). No cuentan como pendientes, pero podés responderlas igual.';
 
 /** What {@link OutcomeAfterContact} needs to log a pending contact or answer «¿Lo enviaste?» for it. */
 export const outcomeContact=(item:PendingOutcome)=>({accountId:item.accountId,leadId:item.leadId,contactIds:item.contactId?[item.contactId]:[],channel:item.channel,purpose:item.purpose,messageId:item.id,messageStatus:item.status});
@@ -56,19 +56,20 @@ export type PendingOutcomeDialog={key:string;contact:ContactOutcomeTarget;note?:
 /**
  * «Sí, se envió» / «No se envió» of a Hoy «¿Lo enviaste?» row (spec 100 §4.2): the same `outcome` action as the strip buttons, so the
  * server applies the same permission and No contactar checks; Hoy does not load each business, so a refusal shows on the row. Both stay
- * off while it saves (no double submit) and nothing is retried automatically.
+ * off while it saves (no double submit) and nothing is retried automatically. «Este envío ya estaba confirmado.» (the script, Meta's echo
+ * or another answer came first) is information, like in the strip: it shows as such and the lists reload, so the row leaves.
  */
 function ConfirmPendingButtons({item}:{item:PendingOutcome}){
  const qc=useQueryClient();
  const m=useGuardedMutation({mutationFn:postCommunication,onSuccess:(_data,input)=>{
-  for(const queryKey of [['communication'],['work'],['global-journal'],['lead-journal'],['commercial-detail']])void qc.invalidateQueries({queryKey});
+  invalidateAfterOutcome(qc);
   if(input.action==='outcome')crmSuccess(input.event==='manual_sent'?'Envío confirmado':'Marcado como no enviado');
- }});
+ },onError:error=>{if(isAlreadyConfirmed(error)){toast.info(ALREADY_CONFIRMED_MESSAGE);invalidateAfterOutcome(qc);}}});
  const busy=m.isPending,saving=m.variables?.action==='outcome'&&busy?m.variables.event:null,reason='Estamos guardando. Esperá a que termine.';
  return <>
   <Button size="sm" disabled={busy} disabledReason={reason} onClick={()=>m.mutate({action:'outcome',id:item.id,event:'manual_sent',notes:''})}>{saving==='manual_sent'?'Guardando…':'Sí, se envió'}</Button>
   <Button size="sm" variant="outline" disabled={busy} disabledReason={reason} onClick={()=>m.mutate({action:'outcome',id:item.id,event:'manual_not_sent',notes:''})}>{saving==='manual_not_sent'?'Guardando…':'No se envió'}</Button>
-  {m.error&&<p role="alert" className={ws.rowError}>{m.error.message}</p>}
+  {m.error&&!isAlreadyConfirmed(m.error)&&<p role="alert" className={ws.rowError}>{m.error.message}</p>}
  </>;
 }
 
