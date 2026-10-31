@@ -111,3 +111,7 @@
 /* Side panel (Dialog side): the forms' own sticky action bar spans the panel edge to edge, flush with the bottom. */
 .editor[data-side] .form>.actions{bottom:calc(-1 * var(--crm-dialog-padding));margin-inline:calc(-1 * var(--crm-dialog-padding));padding-inline:var(--crm-dialog-padding);border-top:1px solid var(--border);box-shadow:none;background:var(--popup)}
 @media(min-width:768px){.editor[data-side] .form>.actions{position:fixed;right:0;bottom:0;width:min(560px,100vw);margin:0;z-index:4}}
+
+/* Spec 104 (22): the aside is 260–320px wide, so its business data is one column (label above value). Words break only when they overflow; links stay on one line with an ellipsis and the full value in their title. */
+.businessAside .businessFacts{grid-template-columns:minmax(0,1fr);gap:12px}.businessAside .businessFacts dd,.businessAside .businessFacts .researchValue{overflow-wrap:break-word}
+.factGroup{margin:4px 0 0;font-size:13px;font-weight:650;color:var(--foreground)}.factLink{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;color:var(--primary);text-decoration:underline;text-underline-offset:2px}.factLink svg{flex:none}.factLink span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

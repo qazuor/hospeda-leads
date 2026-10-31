@@ -1,10 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Alert } from '@mantine/core';
-import { Ban, CalendarPlus, NotebookPen } from 'lucide-react';
+import { Ban, CalendarPlus, ExternalLink, Facebook, Globe, Instagram, MapPin, NotebookPen, type LucideIcon } from 'lucide-react';
 import type { CommercialDetail, Contact } from '../endpoints/commercial.schema';
 import type { WorkTarget } from './WorkEditor';
 import type { DoNotContactMark } from '../helpers/doNotContactSince';
 import { formatDay } from '../helpers/crmDates';
+import { prettyInstant } from '../helpers/workDates';
 import { toneHue, toneOfStatus } from '../helpers/tones';
 import { VOCAB } from '../content/vocabulary';
 import { Button } from './Button';
@@ -30,6 +31,17 @@ export function BusinessRestrictionBanner({account,dncMark}:{account:CommercialD
   </Alert>;
 }
 
+/**
+ * «Último contacto» line of the business header. It follows the contact evidence (spec 99), not the people: with people and
+ * no contact it says there is none yet, never «Sin contactos registrados» (spec 104).
+ */
+export function BusinessLastContactLine({lastContact,pending,failed}:{lastContact:{title:string;occurredAt:Date|string}|null|undefined;pending:boolean;failed:boolean}){
+  if(lastContact)return <><strong>Último contacto:</strong> {lastContact.title} · {prettyInstant(lastContact.occurredAt)}</>;
+  if(pending)return <>Buscando último contacto…</>;
+  if(failed)return <>No se pudo cargar el último contacto</>;
+  return <><strong>Último contacto:</strong> todavía no hay ninguno registrado</>;
+}
+
 /** State of the work query the task and activity editors depend on. */
 export interface BusinessWorkState {
   readonly ready:boolean;
@@ -37,6 +49,17 @@ export interface BusinessWorkState {
   readonly error:Error|null;
   readonly retry:()=>void;
   readonly retrying:boolean;
+}
+
+/** One populated link of the business record. */
+export interface BusinessLinkFact {readonly field:string;readonly label:string;readonly value:string;readonly href:string|null}
+const linkIcons:Record<string,LucideIcon>={sitioWeb:Globe,urlGmap:MapPin,perfilInstagram:Instagram,perfilFacebook:Facebook};
+
+/** A business link: an external link (new tab, no opener) with the full value in its title, or plain text when it is not a web address. Opening it records nothing. */
+export function BusinessLinkValue({link}:{link:BusinessLinkFact}){
+  if(!link.href)return <>{link.value} <span className={styles.muted}>(no es un enlace válido)</span></>;
+  const Icon=linkIcons[link.field]??ExternalLink;
+  return <a className={styles.factLink} href={link.href} target="_blank" rel="noopener noreferrer" title={link.value}><Icon size={15} aria-hidden="true"/><span>{link.value}</span></a>;
 }
 
 /** Props of {@link BusinessSidebar}. */
@@ -47,6 +70,8 @@ export interface BusinessSidebarProps {
   /** People section (rows and their actions), shared with the compact record. */
   readonly contactSection:React.ReactNode;
   readonly facts:readonly {field:string;label:string;value:React.ReactNode}[];
+  /** Populated link fields («Enlaces»): `href` is the safe URL from businessLinkHref, null when the value is not a valid web address. */
+  readonly links:readonly BusinessLinkFact[];
   readonly emptyFactLabels:readonly string[];
   readonly readOnly:boolean;
   readonly contactEditable:boolean;
@@ -63,7 +88,7 @@ export interface BusinessSidebarProps {
  * The No contactar / archived banner stays above the columns so it is seen first on every width.
  * Stacks above the tabs on narrow containers (see `.recordColumns` in Commercial.module.css).
  */
-export function BusinessSidebar({detail:d,mainContact,contactCount,contactSection,facts,emptyFactLabels,readOnly,contactEditable,canDoWork,work,onWork,onEditAccount,revealPeople=0}:BusinessSidebarProps){
+export function BusinessSidebar({detail:d,mainContact,contactCount,contactSection,facts,links,emptyFactLabels,readOnly,contactEditable,canDoWork,work,onWork,onEditAccount,revealPeople=0}:BusinessSidebarProps){
   // Spec 90: when the record is stacked (same 900px container breakpoint as the CSS) the column comes first as a compact card,
   // with «Personas» and «Datos del negocio» collapsed. Decided once on mount: a resize never overrides what the user toggled.
   const asideRef=useRef<HTMLElement>(null),[peopleOpen,setPeopleOpen]=useState(true),[dataOpen,setDataOpen]=useState(true);
@@ -91,6 +116,7 @@ export function BusinessSidebar({detail:d,mainContact,contactCount,contactSectio
     <Disclosure open={peopleOpen} onOpenChange={setPeopleOpen}><DisclosureSummary><h3 tabIndex={-1} data-people-heading>Personas ({contactCount})</h3></DisclosureSummary>{contactSection}</Disclosure>
     <Disclosure open={dataOpen} onOpenChange={setDataOpen}><DisclosureSummary><h3>Datos del negocio</h3></DisclosureSummary><section className={styles.section}>
       {facts.length>0&&<dl className={styles.businessFacts}>{facts.map(fact=><div key={fact.field}><dt>{fact.label}</dt><dd className={styles.researchValue}>{fact.value}</dd></div>)}</dl>}
+      {links.length>0&&<><h4 className={styles.factGroup}>Enlaces</h4><dl className={styles.businessFacts}>{links.map(link=><div key={link.field}><dt>{link.label}</dt><dd><BusinessLinkValue link={link}/></dd></div>)}</dl></>}
       {emptyFactLabels.length>0&&<p className={styles.muted}>Sin cargar: {emptyFactLabels.join(", ")}</p>}
       {!readOnly&&<Button variant="outline" onClick={onEditAccount}>Editar datos del negocio</Button>}
       {contactEditable&&<Button variant="outline" onClick={onEditAccount}>Corregir datos de contacto</Button>}
