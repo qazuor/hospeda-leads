@@ -64,9 +64,9 @@ test('send sales material from the business, record it and revoke the link',asyn
  await composer.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
  await composer.getByRole('group',{name:'Borrador anterior'}).getByRole('button',{name:'Seguir con ese borrador',exact:true}).click();
  await expect(included.getByText(title,{exact:true})).toBeVisible();
- await expect(composer.getByText(new RegExp(`Podés ver «${title}» en: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
- // Spec 101 block 1: the link is a link in the editor, never italics, and its text is the exact URL (tokens may carry `_`).
- const editorLink=composer.locator('.tiptap a');await expect(editorLink).toHaveCount(1);await expect(editorLink).toHaveText(/^https?:\/\/\S+\/m\/[A-Za-z0-9_-]{43}$/);
+ await expect(composer.getByText(new RegExp(`Podés ver «${title}» en: http.*/m/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}`))).toBeVisible();
+ // Spec 101 block 1: the link is a link in the editor, never italics, and its text is the exact URL. Block 3: `/m/<slug>-<4 characters>`.
+ const editorLink=composer.locator('.tiptap a');await expect(editorLink).toHaveCount(1);await expect(editorLink).toHaveText(/^https?:\/\/\S+\/m\/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}$/);
  expect(await editorLink.getAttribute('href')).toBe(await editorLink.textContent());await expect(composer.locator('.tiptap em')).toHaveCount(0);
  await expect(composer.getByRole('heading',{name:'Material de venta'})).toBeVisible();
  // Spec 96 §2.5–2.6: the final button names the destination; from the business the composer closes with a toast once WhatsApp opened.
@@ -75,7 +75,7 @@ test('send sales material from the business, record it and revoke the link',asyn
  await expect(page.locator('[data-sonner-toast]').filter({hasText:/^WhatsApp abierto para .*\+54 9 3442000301/})).toBeVisible();
  await expect(composer).toHaveCount(0);
  const intent=new URL(await page.evaluate(()=>(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup.location.href));
- const token=/\/m\/([A-Za-z0-9_-]{43})/.exec(intent.searchParams.get('text')??'')?.[1];expect(token,'The WhatsApp text carries the link').toBeTruthy();
+ const token=/\/m\/([a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4})(?![A-Za-z0-9_-])/.exec(intent.searchParams.get('text')??'')?.[1];expect(token,'The WhatsApp text carries the link').toBeTruthy();
  const message=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='whatsapp'&&m.status==='whatsapp_opened');
  expect(message.materials.map((m:any)=>[m.materialId,m.sentVersion,m.revokedAt])).toEqual([[materialId,1,null]]);
  // The record in «Comunicación»: revoke with a reason; the public link answers 410 from then on.
