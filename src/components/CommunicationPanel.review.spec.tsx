@@ -130,7 +130,7 @@ describe('«Requiere acción» from the server follow-ups (spec 99 §3.6)',()=>{
 });
 
 describe('restrictions editor in the business sidebar',()=>{
- const sidebar=()=>wrap(<BusinessSidebar detail={{account,contacts:[],opportunities:[],users:[]} as never} mainContact={undefined} contactCount={0} contactSection={<p>Personas</p>} facts={[]} emptyFactLabels={[]} readOnly={false} contactEditable={false} canDoWork={false} work={{ready:true,blockedReason:'',error:null,retry:()=>{},retrying:false}} onWork={()=>{}} onEditAccount={()=>{}}/>);
+ const sidebar=()=>wrap(<BusinessSidebar detail={{account,contacts:[],opportunities:[],users:[]} as never} mainContact={undefined} contactCount={0} contactSection={<p>Personas</p>} facts={[]} links={[]} emptyFactLabels={[]} readOnly={false} contactEditable={false} canDoWork={false} work={{ready:true,blockedReason:'',error:null,retry:()=>{},retrying:false}} onWork={()=>{}} onEditAccount={()=>{}}/>);
  const posted=()=>mocks.postCommunication.mock.calls.map(c=>c[0]);
  it('queries nothing until opened, then lets an admin register and lift a technical restriction',async()=>{
   setup({role:'admin',data:{restrictions:[{id:'r1',channel:'email',contactId:null,reason:'El email rebota',actorEmail:'seller@example.com',createdAt:day(1),liftedAt:null,liftReason:null,liftedBy:null}]}});

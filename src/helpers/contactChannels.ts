@@ -35,3 +35,8 @@ export function contactChannelBlock({channel,account,contacts,canContact,gateRea
  if(!canContact)return CONTACT_PERMISSION_REASON;
  return channelDataBlock({channel,account,contacts})||(channel==='email'?'':gateReason);
 }
+
+/** A management is open when it is not in the trash and its stage is not classified Won or Lost (unknown stages count as open). The «Contactar» dialog and the management detail share this rule. */
+export function isOpenManagement({opportunity,stages}:{opportunity:{deletedAt?:unknown;estado?:string|null};stages?:readonly {name:string;classification?:string|null}[]}):boolean{
+ return !opportunity.deletedAt&&(stages?.find(s=>s.name===opportunity.estado)?.classification??'open')==='open';
+}

@@ -26,4 +26,14 @@ describe('ResourcesPanel after the library was retired (spec 89)',()=>{
   setup({accountId:'1',readOnly:true});await screen.findByRole('heading',{name:'Documentos del negocio'});expect(screen.queryByText('Agregar documento o recurso')).toBeNull();cleanup();
   api.role='user';setup({accountId:'1'});await screen.findByRole('heading',{name:'Documentos del negocio'});expect(screen.queryByText('Agregar documento o recurso')).toBeNull();
  });
+ it('words the empty state by permission: only an admin is told to use the button (spec 104, finding 30)',async()=>{
+  const empty=async()=>(await screen.findByText(/todavía no tiene documentos vinculados/)).textContent??'';
+  setup({accountId:'1'});let text=await empty();
+  expect(text).toContain('Usá «Agregar documento o recurso» para crear uno propio.');expect(text).not.toContain('pedíselo');cleanup();
+  api.role='user';setup({accountId:'1'});text=await empty();
+  expect(text).not.toContain('Agregar documento');expect(text).toContain('Los documentos los carga un administrador; si falta alguno, pedíselo.');cleanup();
+  api.role='admin';setup({accountId:'1',readOnly:true});text=await empty();
+  expect(text).not.toContain('Agregar documento');
+ });
 });
+

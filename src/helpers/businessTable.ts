@@ -50,6 +50,19 @@ export const businessTableSource = (includeDeleted=false) => sql<BusinessProject
 )`;
 
 /**
+ * Person shown for a management (spec 104): its own primary person, then the business primary person (same rule as the
+ * business projection: is_primary first, then lowest id), then the legacy `contact_name`. Deleted people are never used.
+ */
+const MANAGEMENT_CONTACT_NAME="coalesce(mpc.name,(select c.name from crm_contacts c where c.account_id=l.account_id and c.deleted_at is null order by c.is_primary desc, c.id limit 1),l.contact_name)";
+const managementColumns=BUSINESS_PROJECTION_LEAD_COLUMNS.map(column=>column==="contact_name"?`${MANAGEMENT_CONTACT_NAME} as contact_name`:`l.${column}`).join(", ");
+/** Gestiones list source aliased `leads`: every leads column, with `contact_name` resolved by {@link MANAGEMENT_CONTACT_NAME} so the column, its filters and its sort agree. */
+export const managementTableSource = () => sql<Leads>`(
+  select ${sql.raw(managementColumns)}
+  from leads l
+  left join crm_contacts mpc on mpc.id = l.primary_contact_id and mpc.account_id = l.account_id and mpc.deleted_at is null
+)`;
+
+/**
  * Free search (`q=`) of the business list over the projection aliased `leads`: the same matches as managementSearchSql
  * (leads_GET.ts: nombre, opportunity name, contact name, email, telefono, ciudad, origen, phone, Instagram profile and the management's notes)
  * applied to the projection, but each column is read from its own table so the trigram indexes apply.
