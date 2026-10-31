@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 30 de octubre de 2026
 
+## Smoke de producción con usuario común — completado el 30/10/2026
+
+- Email, WhatsApp, Instagram y material de venta funcionan de punta a punta en producción, después de corregir la configuración (`INTEGRATION_SECRETS_KEY` en base64 de 32 bytes, Callback URL de Meta, token de Instagram bien copiado, redeploy del Worker de email entrante). Detalle en `COOLIFY_DEPLOY.md`.
+- **Pendiente:** el smoke con usuario admin.
+- Lo que sigue (lote de specs 99 a 104 y datos de prueba) está en `pendientes.md`, sección «Smoke de producción 2026-10-30».
+
 ## Specs 94, 96, 97 y 98 — cerradas: contacto en tres clics, Instagram y material de venta en los paneles del script — 30/10/2026
 
 - **Spec 94** (pegar el mensaje en Instagram Web): PR #281, entregada a `staging` a través del #284. **Spec 96** (contactar en tres clics con el script conectado): PR #284. **Spec 97** (panel de Hospeda en el chat de Instagram): PR #285. **Spec 98** (material de venta en los paneles de WhatsApp e Instagram, «Sin gestión» en WhatsApp, «Buscar o crear en el CRM»): PR #286 a `staging`. **Desplegadas a producción el 30/10/2026**: el merge `staging` → `main` (#288, `dfa9b33`) disparó el auto-deploy de Coolify; producción sirve el user script 1.7.0. Ese mismo día entraron #269 (runbook), #287, #289 (CI fijada a ubuntu-24.04) y #290 (back-merge). Sin verificar todavía en producción: variables cargadas, migraciones aplicadas sin error y las pruebas funcionales del propietario.

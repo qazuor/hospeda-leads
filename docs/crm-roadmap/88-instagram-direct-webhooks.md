@@ -100,6 +100,7 @@ Estado: aprobada por el propietario — 26/10/2026 (D1–D3 resueltas). Reemplaz
   - Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram`, con el mismo verify token;
   - campo `messages` y suscripción de la cuenta activados;
   - la app queda publicada.
+- **Verificado en el smoke de producción (30/10/2026):** el acceso estándar de Meta alcanza (llegaron webhooks de una cuenta externa sin rol en la app); no hace falta App Review. La Callback URL de producción tenía una URL `trycloudflare` de desarrollo y se corrigió; cambiarla no exige un verify token nuevo. `INTEGRATION_SECRETS_KEY` debe ser base64 de 32 bytes exactos (`openssl rand -base64 32`). Un token copiado mal produce «Cannot parse access token» de Meta y todo cae en «Sin asociar» con el IGSID como remitente; detalle y comando de verificación en `docs/COOLIFY_DEPLOY.md`.
 - **Datos personales:** la app ya publicada exige URLs de política de privacidad y de eliminación de datos. Hay que confirmar que las URLs cargadas sean las definitivas de Hospeda.
 
 ## 8. Decisiones (propietario, 26/10/2026)

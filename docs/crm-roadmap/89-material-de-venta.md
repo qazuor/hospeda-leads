@@ -396,7 +396,7 @@ Patrón de pares: `src/endpoints/salesMaterials.schema.ts` (Zod, tipos y funcion
 ### 14.2 Deploy
 
 - `npm run db:migrate` aplica `046_sales_material.sql`, que solo crea tablas y la clave de ajustes.
-- El deploy es manual (`deploy-vps.yml` es `workflow_dispatch`). Un merge no es un deploy.
+- (Histórico; corregido el 30/10/2026) Entonces se pensaba que el deploy era manual. Hoy Coolify despliega solo cada push a `main`; un merge a `main` sí es un deploy (`deploy-vps.yml` sigue siendo `workflow_dispatch`).
 
 ### 14.3 Runbook: subidas de prueba
 
