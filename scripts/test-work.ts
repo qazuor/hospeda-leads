@@ -428,8 +428,12 @@ try{
  assert.deepEqual(await rookieFlags(),{contacted:false,logged:false,scheduled:false},'A user with no history has nothing ticked');
  const rookieAccount=await fresh('Primeros pasos',rookie.user.email);
  // Real snapshot behaviour: opening WhatsApp, a failed/denied send and a send marked not done each leave an activity WITH a channel; none of them is a contact.
- for(const status of ['whatsapp_opened','manual_not_done','rejected'])await contactMessage({status,owner:rookie.user.email,channel:'whatsapp',accountId:rookieAccount.id,leadId:null,activity:true,at:new Date()});
- assert.equal((await rookieFlags())!.contacted,false,'Opening WhatsApp, a rejected or not-done send is not a contact');
+ for(const status of ['whatsapp_opened','manual_not_done'])await contactMessage({status,owner:rookie.user.email,channel:'whatsapp',accountId:rookieAccount.id,leadId:null,activity:true,at:new Date()});
+ assert.equal((await rookieFlags())!.contacted,false,'Opening WhatsApp or a not-done send is not a contact');
+ // A registered rejection (the business said no) is contact evidence under section 4; it is checked on another seller so the rookie stays untouched.
+ const rejecter=await identity('user'),rejecterAccount=await fresh('Rechazo registrado',rejecter.user.email);
+ await contactMessage({status:'rejected',owner:rejecter.user.email,channel:'whatsapp',accountId:rejecterAccount.id,leadId:null,activity:true,at:new Date()});
+ assert.equal((await read('mode=day',rejecter.cookie)).firstSteps!.contacted,true,'A registered rejection is contact evidence under section 4');
  const attempt=await identity('user'),attemptAccount=await fresh('Sin respuesta',attempt.user.email);
  await mutate({action:'activity_save',accountId:attemptAccount.id,leadId:null,title:'Llamada sin respuesta',typeId:'call',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'call',outcome:'no_answer',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'},attempt.cookie);
  const attemptFlags=(await read('mode=day',attempt.cookie)).firstSteps!;

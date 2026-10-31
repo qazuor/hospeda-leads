@@ -30,6 +30,12 @@ beforeEach(()=>{
 afterEach(cleanup);
 
 describe('Bandeja thread pagination',()=>{
+ it('labels a linked manual send from its journal source rather than its external id',async()=>{
+  mocks.thread.mockResolvedValue({rows:[event(2,{kind:'out',channel:'whatsapp',status:'manual_sent',text:'Enviado',externalId:'wamid.linked',confirmationSource:'manual',isManualLog:false})],nextCursor:null});
+  mount();
+  expect(await screen.findByText('Vos · Envío confirmado manualmente')).toBeTruthy();
+  expect(screen.getAllByText('Envío confirmado manualmente').length).toBeGreaterThan(0);
+ });
  it('keeps every loaded page after an invalidation instead of collapsing to the first one',async()=>{
   mocks.thread.mockImplementation(({cursor}:{cursor?:string})=>Promise.resolve(cursor?{rows:[event(1)],nextCursor:null}:{rows:[event(3),event(2)],nextCursor:'older'}));
   const client=mount();

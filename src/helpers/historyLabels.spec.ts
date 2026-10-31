@@ -73,6 +73,8 @@ describe('Historial shows the Instagram echo like «Comunicación» (spec 90, C)
  it('says an echo was sent from the Instagram app and recorded automatically',()=>{
   expect(historyMessageStatus({status:'manual_sent',channel:'social',actorEmail:'instagram@hospeda'})).toBe('Enviado desde la app de Instagram de Hospeda · registrado automáticamente');
   expect(historyMessageStatus({status:'manual_sent',channel:'social',actorEmail:'leo@example.com'})).toBe('Envío confirmado manualmente');
+  expect(historyMessageStatus({status:'userscript_sent',channel:'whatsapp',actorEmail:'leo@example.com'})).toBe('Enviado · confirmado por el script de WhatsApp');
+  expect(historyMessageStatus({status:'instagram_sent',channel:'social',actorEmail:'leo@example.com'})).toBe('Enviado · confirmado por Instagram');
   expect(historyMessageStatus({status:'legacy_x',channel:'email',actorEmail:null})).toBe('Estado histórico: legacy_x');
  });
 });

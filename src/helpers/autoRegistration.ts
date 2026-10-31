@@ -43,6 +43,8 @@ export async function autoRegisterEligibility(e:Executor,accountId:string,user:U
 }
 
 export function autoEffectsMatch(current:unknown,expected:unknown){return JSON.stringify(current)===JSON.stringify(expected);}
+export const USERSCRIPT_CONFIRMATION_RESULTS=['Envío confirmado manualmente','Envío confirmado por el script de WhatsApp'] as const;
+export const isUserscriptConfirmedResult=(value:string|null|undefined):boolean=>USERSCRIPT_CONFIRMATION_RESULTS.includes(value as typeof USERSCRIPT_CONFIRMATION_RESULTS[number]);
 
 export async function voidAutoRegistration(database:Kysely<DB>,input:{id:string;reason:string},user:User){
  return database.transaction().execute(async e=>{
@@ -67,7 +69,7 @@ export async function voidAutoRegistration(database:Kysely<DB>,input:{id:string;
    if(effects.linkedOnly===true){if(row?.externalId===registration.externalId){before={externalId:row.externalId};await sql`UPDATE crm_messages SET external_id=NULL,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);after={externalId:null};}else skipped.push('El vínculo no se liberó porque cambió después del registro.');}
    else if(effects.created===true){
     if(row?.externalId===registration.externalId&&row.status==='manual_sent'&&row.revision===Number(effects.revision??row.revision)){before={status:row.status,externalId:row.externalId};await sql`UPDATE crm_messages SET status='voided',external_id=NULL,updated_at=now(),revision=revision+1 WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);after={status:'voided',externalId:null};
-     if(row.activityId){const deleted=await e.updateTable('crmActivities').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',row.activityId).where('result','=','Envío confirmado manualmente').where('deletedAt','is',null).executeTakeFirst();if(!deleted.numUpdatedRows)skipped.push('La actividad no se anuló porque fue modificada después.');}
+     if(row.activityId){const deleted=await e.updateTable('crmActivities').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',row.activityId).where('result','in',[...USERSCRIPT_CONFIRMATION_RESULTS]).where('deletedAt','is',null).executeTakeFirst();if(!deleted.numUpdatedRows)skipped.push('La actividad no se anuló porque fue modificada después.');}
     }else skipped.push('El mensaje no se modificó porque cambió después del registro.');
    }else if(row?.externalId===registration.externalId&&row.status==='manual_sent'){
     const old=effects.before as {status:string;body:string|null;textBody:string|null;summary:string|null;completedAt:Date|null;completedByEmail:string|null;lastInteractionAt:Date|null;revision:number};
@@ -75,12 +77,12 @@ export async function voidAutoRegistration(database:Kysely<DB>,input:{id:string;
     else{await sql`UPDATE crm_messages SET external_id=NULL,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);skipped.push('El mensaje no se restauró porque fue modificado después; la actividad, la tarea y la marca de cliente quedan como están.');}
     if(row.revision===old.revision+1){
     const activity=effects.activity as {id:string|null;created?:boolean;previousResult?:string|null}|undefined;
-    if(activity?.id&&row.activityId===activity.id&&row.activityResult==='Envío confirmado manualmente'){
+    if(activity?.id&&row.activityId===activity.id&&isUserscriptConfirmedResult(row.activityResult)){
      if(activity.created)await e.updateTable('crmActivities').set({deletedAt:new Date(),updatedAt:new Date()}).where('id','=',activity.id).where('deletedAt','is',null).execute();
-     else await e.updateTable('crmActivities').set({result:activity.previousResult??null,updatedAt:new Date()}).where('id','=',activity.id).where('result','=','Envío confirmado manualmente').where('deletedAt','is',null).execute();
+     else await e.updateTable('crmActivities').set({result:activity.previousResult??null,updatedAt:new Date()}).where('id','=',activity.id).where('result','in',[...USERSCRIPT_CONFIRMATION_RESULTS]).where('deletedAt','is',null).execute();
     }else if(activity?.id)skipped.push('La actividad no se revirtió porque fue modificada después.');
     const taskId=effects.taskId;
-    if(typeof taskId==='string'){const restored=await e.updateTable('crmTasks').set({status:'pending',completedAt:null,result:null,updatedAt:new Date()}).where('id','=',taskId).where('status','=','completed').where('result','=','Envío confirmado manualmente').executeTakeFirst();if(!restored.numUpdatedRows)skipped.push('La tarea no se reabrió porque se modificó después.');}
+    if(typeof taskId==='string'){const restored=await e.updateTable('crmTasks').set({status:'pending',completedAt:null,result:null,updatedAt:new Date()}).where('id','=',taskId).where('status','=','completed').where('result','in',[...USERSCRIPT_CONFIRMATION_RESULTS]).executeTakeFirst();if(!restored.numUpdatedRows)skipped.push('La tarea no se reabrió porque se modificó después.');}
     if(effects.clientMarked===true){const changed=await sql`UPDATE crm_accounts SET is_client=false,updated_at=now() WHERE id=${registration.accountId}::bigint AND is_client=true AND client_since IS NOT DISTINCT FROM ${typeof effects.clientSince==='string'?effects.clientSince:null}::timestamptz`.execute(e);if(!changed.numAffectedRows)skipped.push('El negocio no se desmarcó como cliente porque se modificó después.');}
     }
    }else if(row?.externalId===registration.externalId){await sql`UPDATE crm_messages SET external_id=NULL,updated_at=now() WHERE id=${registration.messageId}::uuid AND account_id=${registration.accountId}::bigint`.execute(e);skipped.push('El mensaje no se restauró porque fue modificado después.');}

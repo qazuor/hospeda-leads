@@ -5,7 +5,7 @@ import {messageLabels} from './messageLabels';
 import {ECHO_SENDER,ECHO_STATUS,INSTAGRAM_ECHO_OWNER,isInstagramInbound,isInstagramOutbound} from './instagramChannel';
 import {phoneNationalKeys} from './dataNormalization';
 import {isOpenedUnconfirmed} from './contactOutcome';
-import {isInstagramAttempt,isInstagramConfirmed,normalizeInstagramUsername} from './instagramChat';
+import {isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 
 export {ECHO_STATUS,INSTAGRAM_ECHO_OWNER};
 
@@ -44,7 +44,7 @@ export const INSTAGRAM_WAITING_HINT='Si lo enviaste desde la cuenta de Hospeda s
  * An Instagram echo was sent from the Instagram app and only recorded here; an Instagram attempt carrying the echo `mid`
  * was confirmed by Instagram.
  */
-export const sentStatusLabel=(msg:{channel:string;ownerEmail:string;status:string;destinationDetail?:string|null;externalId?:string|null}):string=>isInstagramEcho(msg)&&msg.status==='manual_sent'?ECHO_STATUS:isInstagramConfirmed(msg)?INSTAGRAM_CONFIRMED_STATUS:messageLabels[msg.status]??msg.status;
+export const sentStatusLabel=(msg:{channel:string;ownerEmail:string;status:string;destinationDetail?:string|null;externalId?:string|null;confirmationSource?:'userscript'|'instagram'|'manual'}):string=>isInstagramEcho(msg)&&msg.status==='manual_sent'?ECHO_STATUS:msg.confirmationSource==='instagram'&&msg.status==='manual_sent'?INSTAGRAM_CONFIRMED_STATUS:msg.channel==='whatsapp'&&msg.status==='manual_sent'&&msg.confirmationSource==='userscript'?'Enviado · confirmado por el script de WhatsApp':messageLabels[msg.status]??msg.status;
 /** How sure we are that a sent row went out: unconfirmed (opened, pending, uncertain, submitting), not done, failed, or sent. */
 export type SentTone='sent'|'unconfirmed'|'not_done'|'failed';
 export const sentTone=(status:string):SentTone=>status==='manual_not_done'?'not_done':status==='failed'?'failed':isOpenedUnconfirmed(status)||['manual_pending','unknown','submitting'].includes(status)?'unconfirmed':'sent';
