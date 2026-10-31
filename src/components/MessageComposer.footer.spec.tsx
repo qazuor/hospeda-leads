@@ -6,6 +6,7 @@ import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {MemoryRouter} from 'react-router-dom';
 import {MessageComposer} from './MessageComposer';
 import {postCommunication,type PreparedMessage} from '../endpoints/communication.schema';
+import {CrmApiError} from '../helpers/apiClient';
 import {CONNECTION_ATTRIBUTE,INSTALLED_ATTRIBUTE,USER_ATTRIBUTE} from '../../userscript/src/announce';
 import {USERSCRIPT_VERSION} from '../../userscript/src/version';
 
@@ -125,5 +126,74 @@ describe('MessageComposer · final button in the footer slot (owner review of sp
   // Assert
   expect(within(slot).queryByRole('button')).toBeNull();
   expect(screen.queryByRole('button',{name:WA})).toBeNull();
+ });
+});
+
+describe('MessageComposer · «Abrir WhatsApp» in one click (spec 101 block 2)',()=>{
+ const withMaterial=(over:Partial<PreparedMessage>={})=>message({body:'Podés ver «Folleto» en: https://crm.hospeda.com.ar/m/Ab3_xY9kLm0pQr_tUv2wXyZ01234567890abcdefgHI',textBody:null,revision:2,...over});
+ it('opens a saved WhatsApp draft with material and no final text at once, without «Guardar cambios» (smoke 30/10)',async()=>{
+  // Arrange
+  const tab=popup();const open=vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
+  vi.mocked(postCommunication).mockReturnValue(new Promise(()=>{}));
+  show(withMaterial());
+  const button=within(slot).getByRole('button',{name:WA}) as HTMLButtonElement;
+  expect(button.disabled).toBe(false);
+  // Act
+  fireEvent.click(button);
+  // Assert
+  expect(open).toHaveBeenCalledTimes(1);
+  await waitFor(()=>expect(vi.mocked(postCommunication).mock.calls.map(c=>c[0])).toEqual([expect.objectContaining({action:'dispatch',revision:2,confirm:true})]));
+ });
+ it('with unsaved edits on that draft saves and then dispatches the saved revision',async()=>{
+  // Arrange
+  const tab=popup();vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
+  vi.mocked(postCommunication).mockImplementation(async input=>input.action==='edit'?withMaterial({body:'Hola Ana',textBody:'Hola Ana',revision:3}):new Promise(()=>{}));
+  show(withMaterial());
+  edit('Hola Ana');
+  // Act
+  fireEvent.click(within(slot).getByRole('button',{name:WA}));
+  // Assert
+  await waitFor(()=>expect(vi.mocked(postCommunication).mock.calls.map(c=>c[0])).toEqual([expect.objectContaining({action:'edit',revision:2,body:'Hola Ana'}),expect.objectContaining({action:'dispatch',revision:3})]));
+  expect(tab.close).not.toHaveBeenCalled();
+ });
+ it('closes the tab and opens nothing when the save hits a revision conflict, keeping the text',async()=>{
+  // Arrange
+  const tab=popup();vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
+  vi.mocked(postCommunication).mockRejectedValue(new CrmApiError('El borrador cambió o ya fue utilizado.',409));
+  show(withMaterial());
+  edit('Texto de esta ventana');
+  // Act
+  fireEvent.click(within(slot).getByRole('button',{name:WA}));
+  // Assert
+  await waitFor(()=>expect(tab.close).toHaveBeenCalledTimes(1));
+  expect(vi.mocked(postCommunication).mock.calls.map(c=>c[0].action)).toEqual(['edit']);
+  expect(await screen.findByText('El borrador cambió o ya fue utilizado.')).toBeTruthy();
+  expect((screen.getByLabelText('Mensaje final') as HTMLTextAreaElement).value).toBe('Texto de esta ventana');
+ });
+ it('keeps an email without its final text blocked until it is saved (email unchanged)',()=>{
+  // Arrange & Act
+  show(message({channel:'email',recipient:'ana@example.com',subject:'Asunto',body:'<p>Hola</p>',htmlBody:null,textBody:null}));
+  // Assert
+  const button=within(slot).getByRole('button',{name:/^Enviar email a/}) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  expect(vi.mocked(postCommunication)).not.toHaveBeenCalled();
+ });
+ it.each([false,true])('keeps an Instagram draft without final text blocked until it is saved, as before (D6 A, editing: %s)',async startEditing=>{
+  // Arrange & Act
+  show(message({channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',body:'Hola https://crm.hospeda.com.ar/m/x',textBody:null}),{startEditing});
+  // Assert
+  if(startEditing)await screen.findByLabelText('Mensaje final');
+  const buttons=within(slot).getAllByRole('button') as HTMLButtonElement[];
+  expect(buttons.length).toBeGreaterThan(0);
+  expect(buttons.every(b=>b.disabled)).toBe(true);
+  expect(vi.mocked(postCommunication)).not.toHaveBeenCalled();
+ });
+ it('keeps asking to save an Instagram draft with unsaved edits (D6 A)',()=>{
+  // Arrange
+  show(message({channel:'social',destinationDetail:'instagram',recipient:'@hotel.sol',recipientName:'Hotel Sol',body:'Hola',textBody:null}));
+  // Act
+  edit('Hola otra vez');
+  // Assert
+  expect((within(slot).getAllByRole('button')[0] as HTMLButtonElement).disabled).toBe(true);
  });
 });

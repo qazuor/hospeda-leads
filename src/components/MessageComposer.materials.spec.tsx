@@ -39,7 +39,7 @@ describe('MessageComposer sales material (spec 89 §8.2)',()=>{
   await waitFor(()=>expect(sent()).toEqual({action:'material_add',id,revision:4,materialId,attach:false}));
   const included=await screen.findByRole('list',{name:'Material incluido'});
   expect(within(included).getByText('Folleto 2027')).toBeTruthy();
-  expect((screen.getByRole('textbox',{name:'Mensaje final'}) as HTMLTextAreaElement).value).toContain('Folleto 2027: https://crm.example.test/m/x');
+  expect((screen.getByRole('textbox',{name:'Mensaje final'}) as HTMLTextAreaElement).value).toContain('Folleto 2027: <a href="https://crm.example.test/m/x"');
   expect(within(included).queryByLabelText('Adjuntar el archivo')).toBeNull();
  });
  it('keeps the picker open with the error when the server refuses, so the seller can retry',async()=>{
@@ -116,6 +116,22 @@ describe('MessageComposer sales material (spec 89 §8.2)',()=>{
  it('shows no template material notice when prepare resolved everything',()=>{
   show(message({materialWarnings:[]}));
   expect(screen.queryByRole('status',{name:'Material del modelo que no se agregó'})).toBeNull();
+ });
+ it('shows a share link with underscores whole, without italics, in the editor and in the non-navigating final view (spec 101 block 1)',()=>{
+  // Arrange
+  const url='https://crm.hospeda.com.ar/m/Ab3_xY9kLm0pQr_tUv2wXyZ01234567890abcdefgHI',body=`Podés ver «Folleto» en: ${url}`;
+  // Act
+  show(message({body,textBody:body}),{startEditing:true});
+  // Assert: the editor receives the URL as a link, not as italics
+  const editor=(screen.getByLabelText('Mensaje final') as HTMLTextAreaElement).value;
+  expect(editor).toContain(`<a href="${url}"`);
+  expect(editor).not.toContain('<em>');
+  cleanup();
+  show(message({body,textBody:body}));
+  // The final view shows the URL whole but does not navigate: opening it would count as an access to the client's link (spec 101 review).
+  expect(screen.queryByRole('link',{name:url})).toBeNull();
+  const shown=screen.getByText(url);
+  expect(shown.closest('a,em')).toBeNull();
  });
 });
 
