@@ -100,7 +100,7 @@ describe('a business search with a single result offers it in one click (spec 10
 describe('people in «Revisá lo que se guardará» (spec 104, 24 editor)',()=>{
  it('says «Ninguna persona elegida» and «Elegir personas» opens the list',async()=>{
   getWork.mockResolvedValue(data());
-  open({kind:'activity',accountId:'1',outcome:'no_answer'},data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'}]}));
+  open({kind:'activity',accountId:'1',outcome:'no_answer'},data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'},{id:'6',accountId:'1',name:'Bea'}]}));
   expect(screen.getByText('Ninguna persona elegida')).toBeTruthy();
   expect(screen.queryByText('Sin persona registrada')).toBeNull();
   const toggle=screen.getByRole('button',{name:'Participantes y notas (opcional)'});
@@ -115,6 +115,62 @@ describe('people in «Revisá lo que se guardará» (spec 104, 24 editor)',()=>{
   open({kind:'activity',accountId:'1',outcome:'no_answer'},data({accounts:[hotel('1','Hotel')]}));
   expect(screen.getByText('El negocio no tiene personas cargadas')).toBeTruthy();
   expect(screen.queryByRole('button',{name:'Elegir personas'})).toBeNull();
+ });
+});
+
+describe('the only active person comes preselected (spec 104 D3)',()=>{
+ const summary=()=>screen.getByRole('region',{name:'Revisión del resultado'});
+ it('a business with one active person preselects her: visible in the summary and it can be unticked',async()=>{
+  getWork.mockResolvedValue(data());
+  open({kind:'activity',accountId:'1',outcome:'no_answer'},data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'}]}));
+  await waitFor(()=>expect(summary().textContent).toContain('PersonasAna'));
+  fireEvent.click(screen.getByRole('button',{name:'Participantes y notas (opcional)'}));
+  const ana=await screen.findByRole('checkbox',{name:'Ana'}) as HTMLInputElement;
+  expect(ana.checked).toBe(true);
+  fireEvent.click(ana);
+  await waitFor(()=>expect(screen.getByText('Ninguna persona elegida')).toBeTruthy());
+  expect(ana.checked).toBe(false);
+ });
+ it('with two or more people nobody is preselected',()=>{
+  getWork.mockResolvedValue(data());
+  open({kind:'activity',accountId:'1',outcome:'no_answer'},data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'},{id:'6',accountId:'1',name:'Bea'}]}));
+  expect(screen.getByText('Ninguna persona elegida')).toBeTruthy();
+ });
+ it('the person of the contact it comes from is kept as given',async()=>{
+  getWork.mockResolvedValue(data());
+  open({kind:'activity',accountId:'1',outcome:'no_answer',contactIds:['6']},data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'},{id:'6',accountId:'1',name:'Bea'}]}));
+  await waitFor(()=>expect(summary().textContent).toContain('PersonasBea'));
+  expect(summary().textContent).not.toContain('Ana');
+ });
+ it('after a send without a person (the caller passes the send person) nobody is added',async()=>{
+  getWork.mockResolvedValue(data());
+  open({kind:'activity',accountId:'1',outcome:'no_answer',messageId:'m1'},data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'}]}));
+  fireEvent.click(screen.getByRole('button',{name:'Participantes y notas (opcional)'}));
+  const ana=await screen.findByRole('checkbox',{name:'Ana'}) as HTMLInputElement;
+  expect(ana.checked).toBe(false);
+  expect(screen.getByText('Ninguna persona elegida')).toBeTruthy();
+ });
+ it('editing an existing activity never adds a person',async()=>{
+  getWork.mockResolvedValue(data());
+  const item={id:'7',accountId:'1',leadId:null,title:'Contacto',typeId:'message',occurredAt:new Date('2026-10-30T15:00:00Z'),outcome:'no_answer',result:'No respondió',participants:'',contactIds:[],purpose:'commercial',channel:'phone',notes:null} as never;
+  open({kind:'activity',item},data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'}]}));
+  const ana=await screen.findByRole('checkbox',{name:'Ana'}) as HTMLInputElement;
+  expect(ana.checked).toBe(false);
+  expect(screen.getByText('Ninguna persona elegida')).toBeTruthy();
+ });
+ it('the preselected person is not an unsaved change: closing right away does not ask to discard, but unticking her does',async()=>{
+  getWork.mockResolvedValue(data());
+  const onClose=vi.fn();
+  render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><WorkEditor target={{kind:'activity',accountId:'1',outcome:'no_answer'}} data={data({accounts:[hotel('1','Hotel')],contacts:[{id:'5',accountId:'1',name:'Ana'}]})} onClose={onClose}/></QueryClientProvider></MantineProvider>);
+  await waitFor(()=>expect(screen.getByRole('region',{name:'Revisión del resultado'}).textContent).toContain('PersonasAna'));
+  fireEvent.click(screen.getByRole('button',{name:'Volver'}));
+  expect(screen.queryByText('Tenés cambios sin guardar')).toBeNull();
+  expect(onClose).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button',{name:'Participantes y notas (opcional)'}));
+  fireEvent.click(await screen.findByRole('checkbox',{name:'Ana'}));
+  fireEvent.click(screen.getByRole('button',{name:'Volver'}));
+  expect(await screen.findByText('Tenés cambios sin guardar')).toBeTruthy();
+  expect(onClose).toHaveBeenCalledTimes(1);
  });
 });
 

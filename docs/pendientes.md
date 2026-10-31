@@ -13,6 +13,8 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - **103** Bandeja sin asociar + Instagram + user script.
 - **104** pulido de ficha, formularios y visual.
 
+**Spec 104, decisiones D2, D3 y D6 + spec 96 §10.1** (rama `fix/owner-decisions-small`, sin PR todavía): el responsable agrega restricciones por canal (levantar sigue solo admin), persona única preseleccionada en «Anotar lo que pasó», rótulo «HOSPEDA · {VERTICAL}» y respuesta nueva que no resuelve envíos. Falta: PR a `staging`, CI completo (suite de unidad entera, build y navegador no corridos en local) y revisar visualmente el rótulo en Gmail. D1, D4 y D5 siguen fuera de esta rama. Nota de despliegue (D6): los borradores de email guardados antes del deploy conservan el rótulo viejo hasta que se editen, porque el envío usa el `html_body` guardado.
+
 **Spec 104** (pulido de ficha, formularios y visual; spec en revisión): bloque 3 (avisos y email: contraste por tipo, éxito 4 s / con acción 8 s, paneles laterales que registran su capa, rótulo del email con `line-height:1.5`) implementado en la rama `fix/spec-104-toasts-email`. Falta: PR a `staging`, suite de navegador completa (incluye el caso nuevo de `actionable-toasts.e2e.ts`) y el paso 0 del bloque 3 (capturas de la vista previa del email en Chrome y Firefox y del email recibido en Gmail, para confirmar que la tilde de «INVITACIÓN» se ve). El texto del rótulo sigue en D6 (bloque 4).
 - Revisión del bloque 3, a confirmar en el navegador: la X de cerrar del aviso queda arriba a la izquierda (regla de Sonner) y ahora cae sobre la franja de color; desde la lista de negocios en pantalla completa, la vista previa (z 200) queda debajo del diálogo (z 410) desde antes de este cambio y ahora además pasa a ser la capa activa; los avisos largos sin acción (por ejemplo «WhatsApp abierto…») duran 4 s, con pausa al pasar el puntero.
 
@@ -40,7 +42,7 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - Bloques 3–5 pendientes de implementar con lo decidido el 31/10/2026: portada automática = Open Graph buscada por el servidor con defensas SSRF (D1); selector del vendedor con su vertical y «todas» arriba y «De otras verticales (N)» plegado (D3); columna `verticals text[]` (D4); cuenta la vertical de la gestión, sin gestión la del negocio (D5); un solo control que busca, elige y crea categorías (D6). Las 7 observaciones de la revisión de los bloques 1–2 quedaron corregidas (ver `estado-desarrollo.md`).
 
 Quedan abiertos de la spec 99:
-- **Spec 96 §10.1, decidido (31/10/2026):** una respuesta marcada como nueva no resuelve ningún envío abierto. Pendiente de implementar: dejar de atribuir «No, es una respuesta nueva» al último envío abierto de la gestión (con test de regresión).
+- **Spec 96 §10.1, decidido (31/10/2026):** una respuesta marcada como nueva no resuelve ningún envío abierto. Implementado en la rama `fix/owner-decisions-small` (sin PR todavía): `newReply` en `response_create`/`inbound_register`. Falta: PR a `staging` y CI.
 - Medir con volumen real las búsquedas del journal por entidad (no hay índice `(entity_type, entity_id)`) antes de decidir una migración.
 
 Regla: el trabajo se mergea a `staging`; a `main` solo cuando todos los PR del lote estén en `staging` y el propietario lo pida (un merge a `main` despliega producción). Decidido el 31/10/2026: `staging` → `main` recién cuando esté implementado lo decidido ese día (specs 96 §10.1, 101–105); se promueve todo junto.

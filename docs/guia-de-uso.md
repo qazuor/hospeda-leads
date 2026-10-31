@@ -219,7 +219,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Tené en cuenta:**
 
-- Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa. Las restricciones por canal las registra un administrador: si el negocio pidió que no le escriban por un canal, avisale a uno.
+- Las restricciones de contacto se editan solo en «Preferencias y restricciones de contacto», en la columna izquierda. En «Comunicación» solo aparece un aviso cuando hay una activa. Si el negocio pidió que no le escriban por un canal, la restricción la registra el responsable del negocio, el de una de sus gestiones o un administrador; levantarla la hace solo un administrador.
 - Abrir un canal, guardar un borrador o registrar algo automático no prueba que hubo contacto ni respuesta.
 - «Abierto» es aproximado: algunos clientes de correo abren los emails automáticamente (Apple Mail) y otros bloquean las imágenes. Una apertura o un click no es una respuesta, no cuenta como contacto, no completa tareas ni cambia la fecha del último contacto.
 
@@ -230,7 +230,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 1. Los emails que un negocio manda a Hospeda llegan solos al CRM. Se asocian al negocio cuando responden a un email enviado desde el CRM o cuando llegan desde un email cargado en un único negocio.
 2. Los vas a ver en la ficha del negocio, en «Comunicación»: los que faltan revisar arriba, en «Requiere acción», y todos dentro de «Conversación», en orden junto con lo que enviaste. En Hoy, «Respuestas nuevas» reúne los que todavía están por revisar en tus negocios.
 3. Cada mensaje muestra el canal, quién lo mandó, la hora y su gestión, si tiene. El asunto aparece solo en los emails. Si el texto es largo, tocá «Ver más». Se muestra como texto plano, sin imágenes ni adjuntos.
-4. Si el mensaje es una respuesta del negocio, tocá «Registrar respuesta». Completá el resumen, revisá el texto exacto y guardá. Así queda como respuesta recibida, igual que si la anotaras a mano.
+4. Si el mensaje es una respuesta del negocio, tocá «Registrar respuesta». Completá el resumen, revisá el texto exacto y guardá. Así queda como respuesta recibida, igual que si la anotaras a mano. En «¿Responde a un mensaje que mandaste?» elegí el envío que contesta: así ese envío deja de preguntar «Anotá cómo salió». Si no sabés cuál es, dejá «Sin indicar»: el CRM sigue como siempre. Si elegís «No, es una respuesta nueva», no se resuelve ningún envío pendiente.
 5. Si no es una respuesta (publicidad, un aviso, algo que no corresponde), tocá «No es una respuesta» y escribí el motivo.
 6. Debajo de cada mensaje ves su estado: «Por revisar», «Respuesta registrada» con lo que respondió (y la tarea que completó, si elegiste una) o «No es una respuesta». «Automática · no cuenta como respuesta» marca los avisos de ausencia o similares.
 7. Los mensajes de WhatsApp que registrás con el script y los de Instagram aparecen en la misma conversación y se revisan igual.
@@ -466,7 +466,7 @@ Cargá un negocio, usá sus canales o una persona conocida y dejá el primer pas
 3. En «Detalles del resultado» escribí en pocas palabras qué ocurrió. «Otro (contame)» pide una aclaración.
 4. Respondé «¿Cómo sigue?»: «Agendar una tarea» (con título y fecha), «Esperar hasta una fecha y retomar» o «No agendar nada» (con un motivo). No se puede guardar sin elegir una.
 5. Si el CRM muestra una casilla para pasar la gestión a la etapa sugerida, marcala solo si es lo que pasó. Si no la marcás, la etapa no cambia.
-6. Revisá el resumen «Revisá lo que se guardará». Si dice «Ninguna persona elegida», tocá «Elegir personas» para marcar con quién hablaste. La fecha y la hora real están en «Fecha, canal y participantes», en formato de 24 horas. Después tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).
+6. Revisá el resumen «Revisá lo que se guardará». Si el negocio tiene una sola persona, ya viene elegida: si no hablaste con ella, destildala en «Participantes y notas (opcional)». Si dice «Ninguna persona elegida», tocá «Elegir personas» para marcar con quién hablaste. La fecha y la hora real están en «Fecha, canal y participantes», en formato de 24 horas. Después tocá «Guardar resultado» (o «Guardar y programar» si dejaste una tarea nueva).
 7. Si la persona pidió que no la contacten, abrí el negocio y usá «Anotar lo que pasó» (no «Anotar cómo salió» de una tarea), o en «Comunicación» tocá «Registrar» y elegí «Respuesta sin mensaje». Elegí «Pidió no ser contactado». El CRM te pide confirmar el bloqueo con «Bloquear contacto» y te deja elegir si además querés cerrar gestiones abiertas. Solo lo puede hacer el responsable del negocio, el responsable de una de sus gestiones o un administrador.
 
 **Qué queda al terminar:** Se completa la tarea y queda guardado lo que pasó. Si dejaste una tarea nueva, se crea con su fecha. Las demás tareas se conservan.

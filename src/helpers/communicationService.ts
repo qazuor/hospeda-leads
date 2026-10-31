@@ -3,7 +3,7 @@ import {CONTACT_EVIDENCE_STATUSES} from './contactEvidence';
 import {terminalEmailEvent} from './emailEngagement';
 import {templateCompatibility} from './messageTemplatePolicy';
 import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
-import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
+import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY,RESTRICTION_RECORD_DENIED} from './doNotContactPermission';
 import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Kysely,type RawBuilder,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -261,12 +261,13 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
   selectedTasks.push(task);
  }
  // Spec 99 §3.4: the linked send and the person are chosen independently (a send to Ana answered by «El negocio»); the send must be of this business.
+ if(input.newReply&&input.linkedMessageId)throw new Error('Una respuesta nueva no responde a un mensaje que mandaste.');
  if(input.linkedMessageId){const linked=(await sql`SELECT id FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${input.accountId}`.execute(e)).rows[0];if(!linked)throw new Error('El mensaje previo no es de este negocio.');}
  const inserted=await sql<{id:string}>`INSERT INTO crm_communication_responses(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,destination_detail,linked_message_id,category,summary,exact_text,other_detail,actor_email) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${input.contactId},${input.channel},${input.recipient},${input.recipientName},${input.destination},${input.linkedMessageId}::uuid,${input.category},${input.summary},${input.exactText},${input.otherDetail},${user.email}) RETURNING id`.execute(e);
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
  // Spec 96 §10.1: the response resolves the pending «¿Cómo salió?» of the send it answers, when that can be told without guessing.
- await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user,answeredAt});
+ await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user,answeredAt,newReply:!!input.newReply});
  for(const task of selectedTasks){
   const completedAt=new Date();const result='Resuelta por la respuesta del cliente';
   const updated=await sql`UPDATE crm_tasks SET status='completed',completed_at=${completedAt},result=${result},updated_at=now() WHERE id=${task.id} AND status='pending' RETURNING id`.execute(e);
@@ -355,7 +356,7 @@ async function startManual(e:Executor,input:Extract<CommunicationMutation,{actio
  if(input.channel==='call'&&status==='manual_sent')await markClientForCare(e,created,user);
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:input.channel==='call'?'contact_completed':'contact_started',actor:user,after:{channel:input.channel,status:created.status,purpose:input.purpose,recipient:created.recipient,recipientName:created.recipientName,destination:created.destinationDetail,content:created.templateSnapshot?.finalBody||created.body||null,summary:created.summary}});return created;
 }
-export async function renderFinal(e:Executor,m:Message,user:User){const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const sender=user.fullName?.trim()||user.displayName;return {htmlBody:buildHospedaEmailHtml({bodyHtml:m.body,senderName:sender,senderEmail:user.email,subject:m.subject,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,logoUrl:(process.env.PUBLIC_APP_URL??'http://localhost:3001').replace(/\/$/,'')+'/hospeda-logo.jpg'}),textBody:buildHospedaEmailText({bodyText:htmlToPlainText(m.body),senderName:sender,senderEmail:user.email})};}
+export async function renderFinal(e:Executor,m:Message,user:User){const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const sender=user.fullName?.trim()||user.displayName;return {htmlBody:buildHospedaEmailHtml({bodyHtml:m.body,senderName:sender,senderEmail:user.email,subject:m.subject,vertical:lead?.tipo??account.tipo,logoUrl:(process.env.PUBLIC_APP_URL??'http://localhost:3001').replace(/\/$/,'')+'/hospeda-logo.jpg'}),textBody:buildHospedaEmailText({bodyText:htmlToPlainText(m.body),senderName:sender,senderEmail:user.email})};}
 /**
  * Spec 96 §2.4 (D6): a fresh draft stores its final text (and the email html) exactly as `edit` would, so the composer opens on the final
  * view and an untouched email can be sent. A blank message, missing variables or unresolved material references keep them null: the
@@ -547,12 +548,13 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   // Spec 99 §3.4: what the screen shows is what is saved. An omitted field (undefined) keeps the row's value; an explicit null clears it.
   const rowLead=row.leadId==null?null:String(row.leadId),leadId=input.leadId===undefined?rowLead:input.leadId;
   const contactId=input.contactId===undefined?(row.contactId==null?null:String(row.contactId)):input.contactId;
-  const linkedMessageId=input.linkedMessageId===undefined?(row.linkedMessageId==null?null:String(row.linkedMessageId)):input.linkedMessageId;
+  // «No, es una respuesta nueva» never takes the row's send.
+  const linkedMessageId=input.linkedMessageId===undefined?(input.newReply||row.linkedMessageId==null?null:String(row.linkedMessageId)):input.linkedMessageId;
   // A chosen management must be a live one of this business (createResponse then applies the same access rule as response_create).
   if(input.leadId){const lead=await e.selectFrom('leads').select(['id','deletedAt']).where('id','=',input.leadId).where('accountId','=',String(row.accountId)).executeTakeFirst();if(!lead||lead.deletedAt)throw new Error('La gestión elegida no es de este negocio o está en la papelera.');}
   // A chosen send must be a real send of this business and, with a management, of that management (the list «Responde a» shows). createResponse checks the person.
   if(input.linkedMessageId){const send=(await sql`SELECT 1 FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${row.accountId} AND status IN (${sql.join(CONTACT_EVIDENCE_STATUSES.map(s=>sql.lit(s)))}) AND (${leadId}::bigint IS NULL OR lead_id=${leadId}::bigint)`.execute(e)).rows[0];if(!send)throw new Error(leadId?'El mensaje elegido no es un envío de esta gestión.':'El mensaje elegido no es un envío de este negocio.');}
-  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId,contactId,channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId,contactId,channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId,newReply:input.newReply,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
   await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
   await communicationJournal(e,{accountId:String(row.accountId),leadId:rowLead,entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
  }
@@ -630,11 +632,13 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]};
  }
  if(input.action==='restrict'){
-  if(user.role!=='admin')throw new CommunicationForbidden('Solo un administrador puede registrar restricciones técnicas manuales.');
   let accountId=input.accountId??null;let leadId=input.leadId??null;
   if(leadId){const {account}=await communicationContext(e,String(accountId??(await leadFor(e,leadId,user,false)).lead.accountId),leadId,user,false);accountId=String(account.id);}
   if(!accountId)throw new Error('Elegí el negocio de la restricción.');
   const {account}=await communicationContext(e,accountId,null,user,false);
+  // Spec 104 D2: adding only restricts, so the responsible of the business or of one of its managements may (same rule as «Pidió no ser contactado»); lifting stays admin-only.
+  await assertCanRecordDoNotContact(e,user,account,RESTRICTION_RECORD_DENIED);
+  if(account.doNotContact&&user.role!=='admin')throw new CommunicationForbidden(DO_NOT_CONTACT_READ_ONLY);
   if(input.contactId)await e.selectFrom('crmContacts').select('id').where('id','=',input.contactId).where('accountId','=',account.id).where('deletedAt','is',null).executeTakeFirstOrThrow();
   const created=await sql<{id:string}>`INSERT INTO crm_contact_restrictions(account_id,lead_id,contact_id,channel,reason,actor_email,source,evidence) VALUES(${account.id},NULL,${input.contactId},${input.channel},${input.reason},${user.email},'manual',${input.reason}) RETURNING id`.execute(e);
   await communicationJournal(e,{accountId:String(account.id),leadId:null,entityType:'restriction',entityId:created.rows[0].id,action:'technical_restriction_added',actor:user,after:{channel:input.channel,contactId:input.contactId,reason:input.reason,source:'manual',evidence:input.reason}});

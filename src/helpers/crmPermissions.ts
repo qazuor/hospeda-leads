@@ -102,9 +102,10 @@ export async function assertLeadAccess(executor:Executor, leadId:string, user:Ac
 /**
  * Server side of decision D1: recording «Pidió no ser contactado» (response_create / a response_correct that changes the category to it)
  * needs admin, the business responsible or the responsible of one of its not deleted managements. Reading the business is not enough.
+ * Spec 104 D2 reuses it for adding a channel restriction, with its own `denied` message.
  */
-export async function assertCanRecordDoNotContact(executor:Executor, user:Actor, account:{id:unknown;assignedUserEmail:string|null}):Promise<void> {
+export async function assertCanRecordDoNotContact(executor:Executor, user:Actor, account:{id:unknown;assignedUserEmail:string|null}, denied:string=DO_NOT_CONTACT_RECORD_DENIED):Promise<void> {
   if(user.role==='admin'||account.assignedUserEmail===user.email)return;
   const owners=(await sql<{email:string}>`SELECT DISTINCT assigned_user_email AS email FROM leads WHERE account_id=${String(account.id)}::bigint AND deleted_at IS NULL AND assigned_user_email=${user.email}`.execute(executor)).rows.map(r=>r.email);
-  if(!canRecordDoNotContact({admin:false,userEmail:user.email,businessOwnerEmail:account.assignedUserEmail,managementOwnerEmails:owners}))throw new CrmForbidden(DO_NOT_CONTACT_RECORD_DENIED);
+  if(!canRecordDoNotContact({admin:false,userEmail:user.email,businessOwnerEmail:account.assignedUserEmail,managementOwnerEmails:owners}))throw new CrmForbidden(denied);
 }

@@ -110,7 +110,6 @@ const sendInvitationEmail=async({
         bodyHtml,
         senderName,
         subject,
-        vertical:"CRM Hospeda",
         logoUrl:appUrl+"/hospeda-logo.jpg"
       }),
       textContent:buildHospedaEmailText({bodyText,senderName})

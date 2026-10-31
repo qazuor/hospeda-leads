@@ -10,10 +10,10 @@ const escapeHtml=(value:string)=>value
   .replaceAll('"',"&quot;")
   .replaceAll("'","&#39;");
 
-const profileLabel=(profile?:string|null)=>{
-  if(profile==="Referente")return "INVITACIÓN INSTITUCIONAL";
-  if(profile==="Consolidado")return "PROPUESTA COMERCIAL";
-  return "INVITACIÓN";
+/** Spec 104 D6: the overline is «HOSPEDA · {VERTICAL}» (just «HOSPEDA» without a vertical), in capitals; it never claims an invitation. */
+const overlineLabel=(vertical?:string|null)=>{
+  const name=vertical?.trim().toLocaleUpperCase("es-AR");
+  return name?`HOSPEDA · ${escapeHtml(name)}`:"HOSPEDA";
 };
 
 const styleBodyHtml=(html:string)=>html
@@ -34,7 +34,6 @@ export function buildHospedaEmailHtml({
   senderEmail,
   subject,
   vertical,
-  commercialProfile,
   logoUrl=DEFAULT_LOGO_URL,
   variant='full'
 }:{
@@ -44,15 +43,13 @@ export function buildHospedaEmailHtml({
   senderEmail?:string|null;
   subject:string;
   vertical?:string|null;
-  commercialProfile?:string|null;
   logoUrl?:string;
   variant?:'full'|'reply';
 }){
   const safeSender=escapeHtml(senderName||"Equipo Hospeda");
   const contactLine=escapeHtml([senderEmail?.trim(),HOSPEDA_PHONE].filter(Boolean).join(" · "));
   const safeSubject=escapeHtml(subject);
-  const safeVertical=escapeHtml(vertical||"Turismo");
-  const overline=profileLabel(commercialProfile);
+  const overline=overlineLabel(vertical);
   const styledBody=styleBodyHtml(bodyHtml);
   if(variant==='reply')return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>${safeSubject}</title></head><body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#24313d;"><div style="font-size:15px;line-height:1.65;color:#314454;">${styledBody}</div><footer style="margin-top:24px;padding-top:16px;border-top:1px solid #e7edf1;font-size:13px;line-height:1.55;color:#405565;"><strong>${safeSender}</strong><br>${contactLine}<br>Equipo Hospeda<br><a href="${SITE_URL}">hospeda.com.ar</a></footer></body></html>`;
   return `<!doctype html>
@@ -91,7 +88,7 @@ export function buildHospedaEmailHtml({
             </tr>
             <tr>
               <td style="padding:28px 34px 24px;background:#DFECF8;">
-                <div style="font-size:11px;line-height:1.5;letter-spacing:1.6px;font-weight:700;color:#1f7fa9;text-transform:uppercase;margin-bottom:9px;">${overline} · ${safeVertical}</div>
+                <div style="font-size:11px;line-height:1.5;letter-spacing:1.6px;font-weight:700;color:#1f7fa9;text-transform:uppercase;margin-bottom:9px;">${overline}</div>
                 <div style="font-size:26px;line-height:1.25;font-weight:700;color:#17354a;">${safeSubject}</div>
               </td>
             </tr>
