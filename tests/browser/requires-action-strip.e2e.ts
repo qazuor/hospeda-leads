@@ -33,7 +33,7 @@ test('collapsed strip, expanded blocks, one outcome per management, answerable �
  const leadA=String((await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:planA,estado:'Cargado'})).id);
  const leadB=String((await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:planB,estado:'Cargado'})).id);
  // Three confirmed calls without outcome: two in Plan A (one group) and one in Plan B.
- const call=(leadId:string,recipientName:string)=>api('communication',{action:'manual_start',id:randomUUID(),accountId,leadId,contactId:null,channel:'call',purpose:'first_contact',otherPurpose:null,recipient:recipientName,recipientName,destination:null,body:'Llamada de la prueba de la tira',result:'manual_sent',templateId:null});
+ const call=(leadId:string,recipientName:string)=>api('communication',{action:'manual_start',id:randomUUID(),accountId,leadId,contactId:null,channel:'call',purpose:null,otherPurpose:null,recipient:recipientName,recipientName,destination:null,body:'Llamada de la prueba de la tira',result:'manual_sent',templateId:null});
  await call(leadA,'Recepción A1');await call(leadA,'Recepción A2');await call(leadB,'Recepción B');
  // Two WhatsApp opens through the API (nothing reaches WhatsApp): one past the script wait, one expired.
  const open=async(leadId:string,body:string)=>{const m=await api('communication',{action:'prepare',id:randomUUID(),leadId,contactId:null,channel:'whatsapp',templateId:null});const edited=await api('communication',{action:'edit',id:m.id,revision:m.revision,subject:'',body});await api('communication',{action:'dispatch',id:m.id,revision:edited.revision,confirm:true});return String(m.id);};
