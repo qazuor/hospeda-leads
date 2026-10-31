@@ -1,6 +1,7 @@
 import {useRef,useState} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
+import {TOAST_MS} from '../helpers/crmFeedback';
 import {CalendarClock,ChevronDown} from 'lucide-react';
 import {useGuardedMutation} from '../helpers/useGuardedMutation';
 import {postWork,type WorkTask,type WorkMutation} from '../endpoints/work.schema';
@@ -51,7 +52,7 @@ export function TaskPostponeMenu({task}:{task:WorkTask}){
   const movedAt=movedDueAt({task,dueDate});
   // Runs outside any hook: the row (and this component) usually unmounts once the task moves to another list. The postponed value is what Deshacer expects to find.
   const undo=async()=>{if(undoing.current)return;undoing.current=true;try{await postWork(rescheduleBody({task:{...task,dueDate,dueAt:movedAt?new Date(movedAt):null},dueDate:task.dueDate,dueAt:task.dueAt?new Date(task.dueAt).toISOString():null,kind:'undo'}));await refresh();toast.success('Volvió a su fecha: '+formatDate(task.dueDate));}catch(e){toast.error('No se pudo deshacer: '+(e instanceof Error?e.message:'probá de nuevo'));}finally{undoing.current=false;}};
-  toast.success('Tarea pospuesta para el '+formatDate(dueDate),{duration:8000,description:task.title,action:{label:'Deshacer',onClick:()=>{void undo();}}});
+  toast.success('Tarea pospuesta para el '+formatDate(dueDate),{duration:TOAST_MS.action,description:task.title,action:{label:'Deshacer',onClick:()=>{void undo();}}});
  },onError:e=>toast.error(e.message)});
  const today=localDay();
  const pickMin=postponeMinimum(task.dueDate,undefined,task.dueAt);

@@ -17,6 +17,7 @@ import {HelpLink} from '../components/HelpLink';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { TOAST_MS } from "../helpers/crmFeedback";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, ArrowDownAZ, ArrowUpAZ, BookmarkPlus, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
@@ -553,7 +554,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       await quickM.mutateAsync({id:mutationId,accountId,field,value:value||null});
       setLastTouchedId(String(id));setCellState(prev=>({...prev,[key]:"saved"}));
       window.setTimeout(()=>setCellState(prev=>{const next={...prev};delete next[key];return next}),1300);
-      toast.success("Cambio guardado",field==="tipo"?undefined:{action:{label:"Deshacer",onClick:()=>quickM.mutate({id:mutationId,accountId,field,value:oldValue||null})}});
+      toast.success("Cambio guardado",field==="tipo"?{duration:TOAST_MS.success}:{duration:TOAST_MS.action,action:{label:"Deshacer",onClick:()=>quickM.mutate({id:mutationId,accountId,field,value:oldValue||null})}});
     }catch(error){
       setCellState(prev=>{const next={...prev};delete next[key];return next});
       toast.error(error instanceof Error?crmError(error):"No se pudo guardar");
