@@ -50,7 +50,8 @@ test('a required field inside the closed "Fecha, canal y participantes" opens it
  test.setTimeout(90000);await login(page);
  const {editor}=await startCall(page,'Validación','Ya llamé: anotar cómo salió');
  await editor.getByRole('button',{name:'Cambiar',exact:true}).click();await waitForTransitions(page);
- const when=editor.getByLabel('Fecha y hora real');await expect(when).toBeVisible();await when.fill('');
+ // Spec 104 (33): the date field restores its value on blur, so the empty required control is the 24 h time (hours cleared with Backspace).
+ const when=editor.getByLabel('Hora real',{exact:true});await expect(when).toBeVisible();await when.focus();await when.press('Backspace');await expect(when).toHaveValue('');
  await editor.getByText('Fecha, canal y participantes',{exact:true}).click();await waitForTransitions(page);await expect(when).toBeHidden();
  await pickOutcome(editor,'other');
  await editor.getByRole('combobox',{name:/^¿Cómo sigue\?/}).selectOption('done');
@@ -91,8 +92,8 @@ test('"Cambiar" next to the channel reveals the hidden fields in Mi día complet
  const dialog=page.getByRole('dialog');await expect(dialog.getByRole('heading',{name:'Anotar lo que pasó',exact:true})).toBeVisible();
  await expect(dialog.getByText('Tarea: algo pendiente con fecha',{exact:false})).toHaveCount(0);
  await expect(dialog.getByRole('combobox',{name:'Propósito',exact:true})).toHaveCount(0);
- await expect(dialog.getByLabel('Fecha y hora real')).toBeHidden();
- await dialog.getByRole('button',{name:'Cambiar',exact:true}).click();await waitForTransitions(page);await expect(dialog.getByLabel('Fecha y hora real')).toBeVisible();
+ await expect(dialog.getByLabel('Fecha real',{exact:true})).toBeHidden();
+ await dialog.getByRole('button',{name:'Cambiar',exact:true}).click();await waitForTransitions(page);await expect(dialog.getByLabel('Fecha real',{exact:true})).toBeVisible();
  // The result is a group of big radio buttons and nothing is chosen for her.
  await expect(dialog.getByRole('radio')).toHaveCount(5);await expect(dialog.locator('input[name="outcome"]:checked')).toHaveCount(0);
 });
