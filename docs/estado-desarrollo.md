@@ -1,11 +1,17 @@
 # Estado del CRM — corte al 30 de octubre de 2026
 
-## Spec 99, bloque 5 — implementación local verificada, PR a `staging` — 31/10/2026
+## Spec 99, bloque 2 — hora real del user script — implementación local verificada, sin PR — 31/10/2026
+
+- Un WhatsApp que el user script ve enviado se guarda con la hora de WhatsApp: `completeUserscriptOpened`, `completeUserscriptManual` y `registerUserscriptSent` reciben `sentAt` (RO-RO) y guardan `last_interaction_at = GREATEST(LEAST(sentAt, now()), created_at del intento)` (sin intento, solo el tope `now()`). `completed_at`/`updated_at` siguen siendo la hora de registro. El journal `contact_completed`/`contact_resolved` agrega `after.sentAt` (la hora efectiva guardada). `activity()` acepta `occurredAt`: la actividad nueva lo usa y la que dejó la apertura sin resultado actualiza `occurred_at` junto con `result`; una actividad con resultado no se toca. Anular el registro automático restaura también el `occurred_at` previo de esa actividad (`previousOccurredAt` en `effects`). Sin migración ni cambios en el user script ni en `matchingPending`; lo histórico conserva la hora de registro.
+- **Validación local (31/10/2026):** sobre base descartable recién sembrada, `test-userscript`, `test-communication`, `test-business-history`, `test-work`, `test-commercial`, `test-inbound-email` y `test-instagram-open-chat` PASS; `npm run typecheck` OK; `npx vitest run --maxWorkers=4` 256 archivos / 2246 tests OK; `npm run build` OK. Los tests nuevos de `test-userscript` fallaron antes del cambio. No se corrieron e2e de navegador (ninguno registra envíos del script).
+- **Pendiente:** PR a `staging` y CI.
+
+## Spec 99, bloque 5 — mergeado a `staging` (#297), 31/10/2026
 
 - «Posponer» usa `max(vencimiento, hoy)` en días argentinos; atajos y selector no adelantan tareas. Una tarea con hora que ya pasó hoy no se puede posponer a hoy (mínimo mañana) y el servidor rechaza `kind:'postpone'` si la nueva hora no queda después de ahora; el cliente recalcula el mínimo al guardar (menú o selector abiertos después de medianoche). El servidor distingue `postpone` de `undo`.
 - El resumen toma la decisión de la actividad visible más nueva (`latestDecision`) y muestra el motivo de «No agendar nada»; en la vista del negocio «La gestión ya está cerrada» usa el texto genérico, no «Gestión cerrada». El historial muestra el motivo. El editor avisa sin bloquear (D5) cuando no ve otra tarea pendiente del negocio; la tarea que se completa se excluye en el cliente (ya no se envía `excludeTaskId`, que `/_api/work` ignora en modo `detail`).
 - **Validación local (31/10/2026):** sobre base descartable recién sembrada, `scripts/test-work.ts`, `scripts/test-business-history.ts`, `scripts/test-commercial.ts` y `scripts/test-global-history.ts` PASS; `npm run typecheck` OK; `npx vitest run --maxWorkers=4` 254 archivos / 2237 tests OK (specs con fecha fija, sin depender del reloj real); `npm run build` OK. No se corrió el e2e `contextual-work.e2e.ts` ni el resto de suites de integración/navegador.
-- **Pendiente:** e2e de navegador, PR a `staging` y CI.
+- CI de #297 verde, incluido el suite de navegador.
 
 ## Spec 99, bloque 1 — evidencia de contacto honesta — mergeado a `staging` (#296), 31/10/2026
 
