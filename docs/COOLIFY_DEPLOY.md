@@ -56,7 +56,7 @@ INSTAGRAM_ACCOUNT_USERNAME=<Hospeda Instagram username, e.g. hospeda.com.ar>
 INSTAGRAM_APP_SECRET=<Meta app secret>
 INSTAGRAM_VERIFY_TOKEN=<random secret, minimum 32 characters; same value as the Meta webhook verify token>
 INSTAGRAM_ACCOUNT_ID=<Hospeda professional Instagram account id>
-INTEGRATION_SECRETS_KEY=<base64 of exactly 32 random bytes: openssl rand -base64 32>  # hex, quoted or padded values are rejected (UI then shows «Falta INTEGRATION_SECRETS_KEY»)
+INTEGRATION_SECRETS_KEY=<base64 of exactly 32 random bytes: openssl rand -base64 32>  # must decode to 32 bytes: a 64-char hex key (openssl rand -hex 32) is rejected; quotes, base64url and missing padding still decode to 32 and are accepted
 CRM_CLIENT_IP_HEADER=cf-connecting-ip  # production value; code default x-real-ip; allowed: x-real-ip, cf-connecting-ip, x-forwarded-for, none
 SLOW_REQUEST_MS=<optional, default 1000>
 DB_LOCK_TIMEOUT_MS=<optional, default 10000>
@@ -251,7 +251,7 @@ Secuencia recomendada:
 Before enabling the webhook, apply `migrations/045_instagram_direct.sql` and configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, `INSTAGRAM_ACCOUNT_ID`, and `INTEGRATION_SECRETS_KEY` (base64-encoded 32 bytes). In Meta, use callback `https://crm.hospeda.com.ar/_api/inbound/instagram`, subscribe to `messages`, and enable the account-level subscription. Publish the app. Load the account token in Settings → Communication → Instagram; it is never shown again. The integration only receives messages; the CRM does not send messages to Meta. For the user script panel on Instagram (spec 97), apply `migrations/053_instagram_threads.sql` and set `INSTAGRAM_ACCOUNT_USERNAME` to Hospeda's Instagram username (for example `hospeda.com.ar`).
 
 Notas del smoke de producción (30/10/2026):
-- `INTEGRATION_SECRETS_KEY` debe ser base64 de exactamente 32 bytes (`openssl rand -base64 32`). Un valor en hexadecimal, entre comillas o con relleno se rechaza y la pantalla muestra «Falta INTEGRATION_SECRETS_KEY» (mensaje engañoso; arreglo planeado).
+- `INTEGRATION_SECRETS_KEY` debe ser base64 de exactamente 32 bytes (`openssl rand -base64 32`). La regla es que el valor decodificado como base64 dé 32 bytes: una clave en hexadecimal de 64 caracteres (`openssl rand -hex 32`) da 48 y se rechaza; entre comillas, en base64url o sin el `=` final sigue dando 32 y se acepta. Desde la spec 103 (bloque 2), Configuración → Instagram distingue «falta la clave», «la clave no es válida» (con una pista si parece hexadecimal) y «la clave cambió y no puede leer el token guardado»; la insignia solo dice «Conectado» con clave válida, token legible y sin vencer.
 - La Callback URL de Meta debe ser `https://crm.hospeda.com.ar/_api/inbound/instagram` (producción tenía una URL `trycloudflare` de desarrollo). Cambiarla no exige un verify token nuevo.
 - Copiar el token de larga duración con el botón de copiar del diálogo de Meta. Un token mal formado hace que Meta responda «Cannot parse access token» y cada mensaje entrante queda en «Sin asociar» con el IGSID numérico como remitente. Verificación: `curl "https://graph.instagram.com/<IGSID>?fields=username,name&access_token=<token>"`, leyendo el token con `read -s`; nunca pegarlo en el chat ni dejarlo en el historial del shell.
 - El acceso estándar de Meta alcanza: llegaron webhooks de una cuenta externa sin rol en la app (cheroga.cdelu). No hace falta App Review (coherente con la spec 88).
