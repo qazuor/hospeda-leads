@@ -52,6 +52,8 @@
 .draftHead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
 .draftHead>div{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
 .draftHead span{font-size:13px;color:var(--muted-foreground)}
+.draftFoot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.draftFoot:empty{display:none}
 .dialogBody{display:flex;flex-direction:column;gap:14px}
 /* Spec 90 review: a sent row that is not confirmed, not done or failed must not look sent. */
 .row[data-tone=unconfirmed] .bubble,.row[data-tone=not_done] .bubble,.row[data-tone=failed] .bubble{background:var(--card);border:1px dashed var(--border-strong);color:var(--muted-foreground)}

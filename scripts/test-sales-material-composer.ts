@@ -52,7 +52,7 @@ try{
  const brochure=await material('Folleto '+stamp),big=await material('Video grande '+stamp,{bytes:11*1048576}),tour=await material('Tour '+stamp,{url:'https://example.com/tour'});
  const internal=await material('Interno '+stamp,{kind:'internal'}),gone=await material('Archivado '+stamp);await sql`UPDATE crm_sales_materials SET status='archived',archived_at=now() WHERE id=${gone}::uuid`.execute(db);
  // A distinct variation per prepare: with a repeated one, prepare reuses the open draft of the same lead, contact and channel instead of creating one.
- let variations=10;const prepare=async(channel:'email'|'whatsapp')=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId:null,variation:variations++},200,owner);
+ let variations=10;const prepare=async(channel:'email'|'whatsapp'|'instagram')=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId:null,variation:variations++},200,owner);
 
  // material_add on a WhatsApp draft: link in the body, new token, revision up, materials returned; refusals for duplicates, internal, missing, archived, attach on WhatsApp, other users and stale revisions.
  let wa=await prepare('whatsapp');assert.deepEqual(wa.materials,[]);
@@ -109,6 +109,27 @@ try{
  // cancel_draft revokes the links of the draft («Borrador cancelado»): they never left.
  let cancel=await prepare('whatsapp');r=await call({action:'material_add',id:cancel.id,revision:cancel.revision,materialId:tour,attach:false},200,owner);cancel=r.message;
  await call({action:'cancel_draft',id:cancel.id,revision:cancel.revision},200,owner);assert.equal((await share(r.materials[0].shareId)).revokeReason,'Borrador cancelado');
+ checks++;
+
+ // Spec 101 block 2: material_add on a blank WhatsApp draft stores the final text equal to the body, like `edit`, so «Abrir WhatsApp» works without
+ // «Guardar cambios»; removing it keeps them in step. A blank email draft keeps no final text: only its review sets it.
+ const finalText=async(id:string)=>(await sql<{body:string;textBody:string|null}>`SELECT body,text_body FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0]!;
+ let blank=await prepare('whatsapp');assert.equal(blank.textBody,null,'A blank WhatsApp draft starts without final text');
+ r=await call({action:'material_add',id:blank.id,revision:blank.revision,materialId:tour,attach:false},200,owner);blank=r.message;
+ assert(blank.body.includes('https://crm.example.test/m/'));assert.equal(blank.textBody,blank.body);assert.equal((await finalText(blank.id)).textBody,blank.body);
+ r=await call({action:'material_remove',id:blank.id,revision:blank.revision,shareId:r.materials[0].shareId},200,owner);blank=r.message;
+ const afterRemove=await finalText(blank.id);assert.equal(afterRemove.textBody,afterRemove.body.trim()?afterRemove.body:null,'Removing the link keeps the final text in step (or empty when the body is blank)');
+ await call({action:'cancel_draft',id:blank.id,revision:blank.revision},200,owner);
+ let blankMail=await prepare('email');assert.equal(blankMail.textBody,null);
+ r=await call({action:'material_add',id:blankMail.id,revision:blankMail.revision,materialId:tour,attach:false},200,owner);blankMail=r.message;
+ assert.equal(blankMail.textBody,null,'Email keeps the final text empty until it is reviewed');assert.equal((await finalText(blankMail.id)).textBody,null);
+ await call({action:'cancel_draft',id:blankMail.id,revision:blankMail.revision},200,owner);
+ // D6 A: Instagram stays as before, its final text is set only by «Guardar cambios».
+ await db.updateTable('crmAccounts').set({perfilInstagram:'@zz.composer.'+stamp}).where('id','=',a.id).execute();
+ let blankIg=await prepare('instagram');assert.equal(blankIg.textBody,null);
+ r=await call({action:'material_add',id:blankIg.id,revision:blankIg.revision,materialId:tour,attach:false},200,owner);blankIg=r.message;
+ assert(blankIg.body.includes('https://crm.example.test/m/'));assert.equal(blankIg.textBody,null,'Instagram keeps the final text empty until it is saved (D6 A)');assert.equal((await finalText(blankIg.id)).textBody,null);
+ await call({action:'cancel_draft',id:blankIg.id,revision:blankIg.revision},200,owner);
  checks++;
 
  // Email: attach within the limit, refusals for external links and files over the limit, and Brevo receives attachment.url (1-hour presigned GET) + attached_version.
