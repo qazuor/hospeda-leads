@@ -498,7 +498,8 @@
           "Nombre: Cabañas Camino Claro. Ciudad: Colón. Teléfono: el de recepción. El email personal de Ana irá en su propia ficha de persona."
         ],
         "notes": [
-          "Si el negocio parecido está marcado No contactar, el CRM no te deja crear un duplicado: abrilo en lugar de crear otro. Si ya existe con otro responsable, el aviso también lo dice."
+          "Si el negocio parecido está marcado No contactar, el CRM no te deja crear un duplicado: abrilo en lugar de crear otro. Si ya existe con otro responsable, el aviso también lo dice.",
+          "En la ficha, «Datos del negocio» muestra el sitio web, Google Maps y los perfiles (Instagram, Facebook, Airbnb, Booking y Turismo Entre Ríos) como enlaces que se abren en otra pestaña; los datos que faltan aparecen en «Sin cargar». Abrir un enlace no registra ningún contacto."
         ],
         "url": "/accounts",
         "linkLabel": "Abrir Negocios",
@@ -508,7 +509,9 @@
           "Persona con la que hablaste (opcional)",
           "Ninguno de estos es mi negocio, crear igual",
           "Crear negocio",
-          "Editar negocio"
+          "Editar negocio",
+          "Datos del negocio",
+          "Sin cargar"
         ]
       },
       {
@@ -567,7 +570,8 @@
           "Archivado y No contactar bloquean las salidas. Las restricciones técnicas también pueden bloquear un canal concreto.",
           "En la computadora, WhatsApp e Instagram necesitan el script de Hospeda instalado, actualizado y conectado con tu cuenta. Si falta algo, el botón queda apagado con el motivo y un enlace «Ir a User script». En el celular no hace falta.",
           "Si falla abrir el email o WhatsApp, el CRM guarda un intento sin confirmar. No lo reenvíes de nuevo: primero revisá su estado en «Requiere acción».",
-          "Si no ves «Contactar», puede ser porque el negocio es No contactar o porque no sos su responsable. Mirá el artículo No puedo modificar un negocio, en Resolver dudas y errores."
+          "Si no ves «Contactar», puede ser porque el negocio es No contactar o porque no sos su responsable. Mirá el artículo No puedo modificar un negocio, en Resolver dudas y errores.",
+          "En una gestión, la pestaña «Comunicación» tiene los mismos botones: el contacto se abre con esa gestión ya elegida en «¿Sobre qué?»."
         ],
         "url": "/accounts",
         "linkLabel": "Abrir Negocios",
@@ -1187,7 +1191,8 @@
           "Guardá la propuesta firmada de Cabañas del Río en su gestión para que el equipo la encuentre."
         ],
         "notes": [
-          "La antigua biblioteca se reemplazó por «Material de venta». Los documentos que ya estaban vinculados a un negocio se siguen viendo en su pestaña."
+          "La antigua biblioteca se reemplazó por «Material de venta». Los documentos que ya estaban vinculados a un negocio se siguen viendo en su pestaña.",
+          "Si no sos administrador, no ves «Agregar documento o recurso»: si falta un documento, pedíselo a un administrador."
         ],
         "url": "/accounts",
         "linkLabel": "Elegir negocio para consultar documentos",
