@@ -1,12 +1,13 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
-import {AUTO_COVER_FILE_NAME,AUTO_COVER_MAX_PDF_BYTES,AUTO_COVER_RELOAD_REASON,autoCoverFailure,autoCoverFormat,autoCoverPlan,encodeAutoCover,failedAutoCoverIds,generateAutoCover,loadImage,needsAutoCover,saveAutoCover,saveMissingAutoCover,videoFrame,type AutoCoverRenderer} from './salesMaterialAutoCover';
+import {AUTO_COVER_FILE_NAME,AUTO_COVER_MAX_PDF_BYTES,AUTO_COVER_RELOAD_REASON,autoCoverFailure,autoCoverFormat,autoCoverPlan,encodeAutoCover,failedAutoCoverIds,generateAutoCover,loadImage,needsAutoCover,saveAutoCover,saveLinkAutoCover,saveMissingAutoCover,videoFrame,type AutoCoverRenderer} from './salesMaterialAutoCover';
+import {CrmApiError} from './apiClient';
 
 const pdf=vi.hoisted(()=>({render:vi.fn()}));
 // pdf.js is mocked: the helper only reaches it through the lazily imported pdfThumbnail module.
 vi.mock('./pdfThumbnail',()=>({renderPdfCover:pdf.render}));
 const version={id:'v-1',version:1,url:null,fileName:'a.pdf',mimeType:'application/pdf',byteSize:5000,actorEmail:'a@example.com',createdAt:new Date()};
-const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:4,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories:[],currentVersion:version,...over});
+const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:4,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,coverSource:null,categories:[],currentVersion:version,...over});
 const yes=()=>true;
 let sizes:number[]=[];const qualities:number[]=[];const drawn:number[][]=[];
 let created:string[]=[],revoked:string[]=[];
@@ -46,7 +47,11 @@ describe('autoCoverFormat and needsAutoCover',()=>{
   expect(needsAutoCover({material:material()})).toBe(true);
   for(const coverSource of ['manual','auto','none'] as const)expect(needsAutoCover({material:material({coverSource})})).toBe(false);
   expect(needsAutoCover({material:material({status:'archived'})})).toBe(false);expect(needsAutoCover({material:material({currentVersion:null})})).toBe(false);
-  expect(needsAutoCover({material:material({source:'url',currentVersion:{...version,url:'https://x.example',mimeType:null}})})).toBe(false);
+  // Spec 102 D1: an active link without a stored cover gets its site's preview image too.
+  const link=(over:Partial<SalesMaterial>={})=>material({source:'url',currentVersion:{...version,url:'https://x.example',fileName:null,mimeType:null,byteSize:null},...over});
+  expect(needsAutoCover({material:link()})).toBe(true);
+  for(const coverSource of ['manual','auto','none'] as const)expect(needsAutoCover({material:link({coverSource})})).toBe(false);
+  expect(needsAutoCover({material:link({status:'archived'})})).toBe(false);expect(needsAutoCover({material:link({currentVersion:null})})).toBe(false);
  });
 });
 describe('encodeAutoCover',()=>{
@@ -165,7 +170,7 @@ describe('autoCoverFailure (spec 102)',()=>{
   expect(await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},generate:vi.fn().mockRejectedValue(raw),upload:vi.fn(),post:vi.fn()})).toEqual({ok:false,error:'El PDF tiene contraseña.'});
   expect(warn).toHaveBeenCalledWith('[portada automática]','m-1',raw);
   expect(await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},generate:vi.fn().mockRejectedValue(new TypeError('error loading dynamically imported module')),upload:vi.fn(),post:vi.fn()})).toEqual({ok:false,error:AUTO_COVER_RELOAD_REASON,reload:true});
-  const {CrmApiError}=await import('./apiClient');
+
   expect(await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},generate:vi.fn().mockResolvedValue(new File(['x'],'a.jpg')),upload:vi.fn().mockResolvedValue('u'),post:vi.fn().mockRejectedValue(new CrmApiError('La versión cambió.',409))})).toEqual({ok:false,error:'La versión cambió.',conflict:true});
   const post=vi.fn().mockResolvedValue({ok:true,revision:5});
   await saveAutoCover({materialId:'m-1',revision:4,format:'pdf',source:{url:'/x'},replaceRemoved:true,generate:vi.fn().mockResolvedValue(new File(['x'],'a.jpg')),upload:vi.fn().mockResolvedValue('u'),post});
@@ -205,5 +210,42 @@ describe('saveMissingAutoCover',()=>{
   await saveMissingAutoCover({material:material(),save:vi.fn().mockResolvedValue({ok:false,error:'x'})});expect(failedAutoCoverIds.has('m-1')).toBe(true);
   failedAutoCoverIds.clear();const controller=new AbortController();controller.abort();
   await saveMissingAutoCover({material:material(),signal:controller.signal,save:vi.fn().mockResolvedValue({ok:false,error:'Aborted'})});expect(failedAutoCoverIds.size).toBe(0);
+ });
+});
+
+describe('spec 102 D1: automatic cover of a link',()=>{
+ const linkMaterial=(over:Partial<SalesMaterial>={})=>material({source:'url',currentVersion:{...version,url:'https://x.example',fileName:null,mimeType:null,byteSize:null},...over});
+ beforeEach(()=>{failedAutoCoverIds.clear();vi.spyOn(console,'warn').mockImplementation(()=>{});});
+ it('asks the server for the preview image of the stored URL and stores it through the normal cover path',async()=>{
+  const blob=new Blob([new Uint8Array([137,80,78,71])],{type:'image/png'}),fetchPreview=vi.fn().mockResolvedValue(blob),save=vi.fn().mockResolvedValue({ok:true,revision:5});
+  const signal=new AbortController().signal;
+  expect(await saveLinkAutoCover({materialId:'m-1',revision:4,signal,fetchPreview,save})).toEqual({ok:true,revision:5});
+  expect(fetchPreview).toHaveBeenCalledWith({id:'m-1',revision:4},{signal});
+  expect(save).toHaveBeenCalledWith({materialId:'m-1',revision:4,format:'image',source:{file:blob},signal});
+ });
+ it('explains a page without image, keeps the conflict flag and never throws',async()=>{
+  const save=vi.fn();
+  expect(await saveLinkAutoCover({materialId:'m-1',revision:4,fetchPreview:vi.fn().mockRejectedValue(new CrmApiError('No encontramos una imagen en ese enlace.',422)),save})).toEqual({ok:false,error:'No encontramos una imagen en ese enlace.'});
+  expect(await saveLinkAutoCover({materialId:'m-1',revision:4,fetchPreview:vi.fn().mockRejectedValue(new CrmApiError('La versión cambió.',409)),save})).toEqual({ok:false,error:'La versión cambió.',conflict:true});
+  expect(await saveLinkAutoCover({materialId:'m-1',revision:4,fetchPreview:vi.fn().mockRejectedValue(new TypeError('Failed to fetch')),save})).toEqual({ok:false,error:'No se pudo traer la imagen del enlace.'});
+  expect(save).not.toHaveBeenCalled();
+ });
+ it('treats the per-minute limit (429) as retryable: never remembered as failed',async()=>{
+  const fetchPreview=vi.fn().mockRejectedValue(new CrmApiError('Generaste muchas portadas de enlaces seguidas. Esperá un minuto y probá de nuevo.',429));
+  expect(await saveLinkAutoCover({materialId:'m-1',revision:4,fetchPreview,save:vi.fn()})).toEqual({ok:false,error:'Generaste muchas portadas de enlaces seguidas. Esperá un minuto y probá de nuevo.',rateLimited:true});
+  const saveLink=vi.fn().mockResolvedValue({ok:false,error:'Esperá un minuto.',rateLimited:true});
+  expect(await saveMissingAutoCover({material:linkMaterial(),save:vi.fn(),saveLink})).toEqual({ok:false,error:'Esperá un minuto.',rateLimited:true});
+  expect(failedAutoCoverIds.has('m-1')).toBe(false);
+ });
+ it('«Generar portadas faltantes» and «Generar desde el enlace» use the link path; a manual cover always wins',async()=>{
+  const saveLink=vi.fn().mockResolvedValue({ok:true,revision:5}),save=vi.fn();
+  expect(await saveMissingAutoCover({material:linkMaterial(),save,saveLink})).toEqual({ok:true});
+  expect(saveLink).toHaveBeenCalledWith({materialId:'m-1',revision:4,signal:undefined});expect(save).not.toHaveBeenCalled();
+  expect(await saveMissingAutoCover({material:linkMaterial({coverSource:'none'}),explicit:true,save,saveLink})).toEqual({ok:true});expect(saveLink.mock.calls[1][0].replaceRemoved).toBe(true);
+  expect(await saveMissingAutoCover({material:linkMaterial({coverSource:'manual',hasCover:true}),explicit:true,save,saveLink})).toEqual({ok:false,error:'Este material ya tiene una portada elegida a mano.'});
+  expect(await saveMissingAutoCover({material:linkMaterial({coverSource:'auto'}),save,saveLink})).toEqual({ok:false});
+  saveLink.mockResolvedValueOnce({ok:false,error:'No encontramos una imagen en ese enlace.'});
+  expect(await saveMissingAutoCover({material:linkMaterial(),explicit:true,save,saveLink})).toEqual({ok:false,error:'No encontramos una imagen en ese enlace.'});
+  expect(failedAutoCoverIds.has('m-1')).toBe(true);
  });
 });

@@ -51,16 +51,17 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
  async function generateMissingCovers(){
   if(lock.current||!missingCovers.length)return;lock.current=true;setError('');
   const controller=new AbortController();backfill.current=controller;setBackfilling(true);
-  const list=[...missingCovers];let done=0,tried=0;
-  try{for(const [i,m] of list.entries()){if(controller.signal.aborted)break;setPending(`Generando portadas… ${i+1} de ${list.length}`);tried++;if((await saveMissingAutoCover({material:m,signal:controller.signal})).ok)done++;}}
+  const list=[...missingCovers];let done=0,tried=0,limited=false;
+  // Spec 102: link previews are capped per minute on the server; at the cap the run stops and the rest stays pending (not failed) for a later click.
+  try{for(const [i,m] of list.entries()){if(controller.signal.aborted)break;setPending(`Generando portadas… ${i+1} de ${list.length}`);tried++;const result=await saveMissingAutoCover({material:m,signal:controller.signal});if(result.ok)done++;else if(result.rateLimited){limited=true;tried--;break;}}}
   finally{
    lock.current=false;backfill.current=null;
    const unmounted=controller.signal.reason==='unmount';
    if(!unmounted){
     setPending('');setBackfilling(false);await qc.invalidateQueries({queryKey:['sales-materials']});
     const stopped=controller.signal.aborted,failed=stopped?0:tried-done;
-    const message=`${done===1?'Se generó 1 portada':`Se generaron ${done} portadas`}.${stopped?' Generación detenida.':''}${failed?` ${failed===1?'1 material no se pudo procesar y muestra':`${failed} materiales no se pudieron procesar y muestran`} el dibujo de su formato.`:''}`;
-    if(failed||stopped)toast.warning(message,{duration:10000});else toast.success(message);
+    const message=`${done===1?'Se generó 1 portada':`Se generaron ${done} portadas`}.${stopped?' Generación detenida.':''}${failed?` ${failed===1?'1 material no se pudo procesar y muestra':`${failed} materiales no se pudieron procesar y muestran`} el dibujo de su formato.`:''}${limited?' Llegamos al límite de portadas de enlaces por minuto: esperá un minuto y tocá de nuevo «Generar portadas faltantes» para seguir con el resto.':''}`;
+    if(failed||stopped||limited)toast.warning(message,{duration:10000});else toast.success(message);
    }
   }
  }
@@ -96,7 +97,7 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
    {backfilling&&<Button variant="outline" onClick={()=>backfill.current?.abort()}><Square size={15} aria-hidden="true"/>Detener</Button>}
   </>:null;
  return <>{header?header(actions):actions&&<div className={styles.toolbar}>{actions}</div>}<section className={layout.panel+' '+styles.stack} aria-busy={q.isFetching||!!pending}>
-  <SalesMaterialFiltersBar admin={admin} categories={q.data?.categories??[]} value={filters} onChange={setFilters}/>
+  <SalesMaterialFiltersBar admin={admin} categories={q.data?.categories??[]} verticals={q.data?.verticals??[]} value={filters} onChange={setFilters}/>
   {limits&&!limits.storageConfigured&&<p className={styles.warning} role="note">Almacenamiento no configurado. Los archivos no se pueden subir ni abrir hasta que un administrador cargue las variables R2 en el servidor. Los enlaces externos siguen funcionando.</p>}
   {pending&&<p role="status" className={styles.status}><Loader size="xs" aria-hidden="true"/>{pending}</p>}{error&&<p role="alert" className={styles.error}>{error}</p>}
   {q.isPending?<QueryLoadingNotice>Cargando material de venta…</QueryLoadingNotice>:!q.data?<QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>:<>
@@ -109,6 +110,6 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
     </section>})}</div>}
   </>}
   {preview&&<SalesMaterialPreview material={preview} onClose={()=>setPreview(null)}/>}
-  {form&&limits&&q.data&&<SalesMaterialForm key={form.type+('material' in form?form.material.id:'')} mode={form} categories={q.data.categories} limits={limits} onClose={()=>setForm(null)} onSaved={saved}/>}
+  {form&&limits&&q.data&&<SalesMaterialForm key={form.type+('material' in form?form.material.id:'')} mode={form} categories={q.data.categories} verticals={q.data.verticals??[]} limits={limits} onClose={()=>setForm(null)} onSaved={saved}/>}
  </section></>;
 }

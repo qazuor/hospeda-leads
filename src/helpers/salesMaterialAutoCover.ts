@@ -1,4 +1,4 @@
-import {postSalesMaterial,salesMaterialFileUrl,type SalesMaterial} from '../endpoints/salesMaterials.schema';
+import {getSalesMaterialLinkPreview,postSalesMaterial,salesMaterialFileUrl,type SalesMaterial} from '../endpoints/salesMaterials.schema';
 import {CrmApiError} from './apiClient';
 import {SALES_MATERIAL_MAX_COVER_BYTES} from './salesMaterialTypes';
 import {uploadSalesMaterialFile} from './salesMaterialUpload';
@@ -55,12 +55,14 @@ export function autoCoverFailure({error,format}:{error:unknown;format:AutoCoverF
  return {reason:error.message||'No se pudo generar la portada.',reload:false};
 }
 /**
- * True when an active file material should get an automatic cover: no stored cover and not removed by an admin (`coverSource` null),
- * and its current version can get one.
+ * True when an active material should get an automatic cover: no stored cover and not removed by an admin (`coverSource` null), and its
+ * current version can get one (a file of a supported format or, spec 102 D1, an external link: its site's preview image).
  */
 export function needsAutoCover({material,canDecode}:{material:SalesMaterial;canDecode?:typeof browserCanDecode}):boolean{
  const v=material.currentVersion;
- return material.status==='active'&&material.source==='file'&&!material.coverSource&&!!v&&!v.url&&autoCoverFormat({mimeType:v.mimeType,byteSize:v.byteSize,canDecode})!==null;
+ if(material.status!=='active'||material.coverSource||!v)return false;
+ if(material.source==='url')return !!v.url;
+ return !v.url&&autoCoverFormat({mimeType:v.mimeType,byteSize:v.byteSize,canDecode})!==null;
 }
 /** Where the pixels come from: the file the admin just picked, or a same-origin URL of a stored version (redirects to R2, which must allow GET over CORS). */
 export type AutoCoverSource={file:Blob}|{url:string};
@@ -134,7 +136,7 @@ export async function generateAutoCover({format,source,signal,timeoutMs=AUTO_COV
  * Result of {@link saveAutoCover}: stored, `kept` out because an admin's manual choice exists (not a failure), or failed with a plain reason
  * (`reload`: the CRM was updated, `conflict`: the material changed meanwhile).
  */
-export type AutoCoverResult={ok:true;revision:number;kept?:boolean}|{ok:false;error:string;reload?:true;conflict?:true};
+export type AutoCoverResult={ok:true;revision:number;kept?:boolean}|{ok:false;error:string;reload?:true;conflict?:true;/** Spec 102: the per-minute limit of link previews; retry later, not a failure of this material. */rateLimited?:true};
 /**
  * Generates and stores an automatic cover through the normal cover path (presigned upload + `cover` mutation with `auto:true`, so the server
  * applies the same type, size and signature checks). Never throws: a failure leaves the material without cover and the card shows its placeholder.
@@ -152,18 +154,43 @@ export async function saveAutoCover({materialId,revision,format,source,signal,re
   return {ok:false,error:reason,...(reload?{reload:true as const}:{}),...(e instanceof CrmApiError&&e.status===409?{conflict:true as const}:{})};
  }
 }
+/**
+ * Spec 102 D1: automatic cover of an external link. The server fetches the Open Graph image of the stored URL (with its SSRF defenses) and
+ * returns the bytes; the browser downscales and stores them like any automatic cover ({@link saveAutoCover}, `auto:true`, so a manual cover
+ * still wins). Never throws: without an image the card keeps its placeholder and the reason comes back for the notice.
+ */
+export async function saveLinkAutoCover({materialId,revision,signal,replaceRemoved,fetchPreview=getSalesMaterialLinkPreview,save=saveAutoCover}:{materialId:string;revision:number;signal?:AbortSignal;replaceRemoved?:boolean;fetchPreview?:typeof getSalesMaterialLinkPreview;save?:typeof saveAutoCover}):Promise<AutoCoverResult>{
+ let image:Blob;
+ try{image=await fetchPreview({id:materialId,revision},{signal});}
+ catch(e){
+  if(!signal?.aborted)console.warn('[portada automática]',materialId,e);
+  return e instanceof CrmApiError?{ok:false,error:e.message,...(e.status===409?{conflict:true as const}:{}),...(e.status===429?{rateLimited:true as const}:{})}:{ok:false,error:'No se pudo traer la imagen del enlace.'};
+ }
+ return save({materialId,revision,format:'image',source:{file:image},signal,...(replaceRemoved?{replaceRemoved:true}:{})});
+}
 /** Materials whose backfill failed in this browser session: «Generar portadas faltantes» does not download them again until a reload. */
 export const failedAutoCoverIds=new Set<string>();
 /** Result of {@link saveMissingAutoCover}. */
-export type MissingAutoCoverResult={ok:boolean;kept?:boolean;error?:string;conflict?:boolean};
+export type MissingAutoCoverResult={ok:boolean;kept?:boolean;error?:string;conflict?:boolean;/** Spec 102: link previews hit the per-minute limit; the material is not remembered as failed. */rateLimited?:boolean};
 /**
  * Automatic cover of a stored material: reads its current version through the same-origin file URL (pdf.js reads PDFs by ranges).
  * Without `explicit` it is the backfill «Generar portadas faltantes» (only materials that {@link needsAutoCover}). With `explicit` it is
  * «Generar desde el archivo» (spec 102): it also regenerates an automatic cover and replaces a removed one (`replaceRemoved`), never a manual one.
  * A failure is remembered for the session unless the run was stopped or the CRM was updated (stale chunk).
  */
-export async function saveMissingAutoCover({material,signal,explicit=false,save=saveAutoCover}:{material:SalesMaterial;signal?:AbortSignal;explicit?:boolean;save?:typeof saveAutoCover}):Promise<MissingAutoCoverResult>{
- const v=material.currentVersion;const plan=v?autoCoverPlan({mimeType:v.mimeType,byteSize:v.byteSize}):null;
+export async function saveMissingAutoCover({material,signal,explicit=false,save=saveAutoCover,saveLink=saveLinkAutoCover}:{material:SalesMaterial;signal?:AbortSignal;explicit?:boolean;save?:typeof saveAutoCover;saveLink?:typeof saveLinkAutoCover}):Promise<MissingAutoCoverResult>{
+ const v=material.currentVersion;
+ // Spec 102 D1: a link takes its site's preview image («Generar desde el enlace» when explicit).
+ if(material.source==='url'){
+  if(explicit&&material.coverSource==='manual')return {ok:false,error:'Este material ya tiene una portada elegida a mano.'};
+  if(explicit?material.status!=='active'||!v?.url:!needsAutoCover({material}))return explicit?{ok:false,error:'Este enlace no admite portada automática.'}:{ok:false};
+  const result=await saveLink({materialId:material.id,revision:material.revision,signal,...(explicit&&material.coverSource==='none'?{replaceRemoved:true}:{})});
+  if(!result.ok&&!signal?.aborted&&!result.reload&&!result.rateLimited)failedAutoCoverIds.add(material.id);
+  if(result.ok)return result.kept?{ok:true,kept:true}:{ok:true};
+  if(result.rateLimited)return {ok:false,error:result.error,rateLimited:true};
+  return explicit?{ok:false,error:result.error,...(result.conflict?{conflict:true}:{})}:{ok:false};
+ }
+ const plan=v?autoCoverPlan({mimeType:v.mimeType,byteSize:v.byteSize}):null;
  if(explicit){
   if(material.coverSource==='manual')return {ok:false,error:'Este material ya tiene una portada elegida a mano.'};
   if(!v||v.url||material.source!=='file'||material.status!=='active'||!plan?.format)return {ok:false,error:plan?.reason??'Este formato no admite portada automática.'};
