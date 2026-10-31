@@ -1,17 +1,20 @@
-import {z} from 'zod';import {apiJson,postJson} from '../helpers/apiClient';
+import {z} from 'zod';import superjson from 'superjson';import {CrmApiError,apiJson,postJson} from '../helpers/apiClient';
+import type {SalesMaterialVerticalMatch} from '../helpers/salesMaterialRelevance';
 import {SALES_MATERIAL_MIMES,uploadDeclarationError,externalUrlError} from '../helpers/salesMaterialTypes';
 const uuid=z.string().uuid(),id=z.string().regex(/^[1-9]\d*$/),revision=z.number().int().min(1);
 const title=z.string().trim().min(3).max(200),description=z.string().trim().max(4000),kind=z.enum(['deliverable','internal']);
 const categoryIds=z.array(id).max(20).transform(ids=>[...new Set(ids)]);
 const categoryName=z.string().trim().min(2).max(100);
+/** Spec 102 D4: catalog names (`crm_verticals.name`, compared exactly on the server); empty means «all verticals». */
+const verticals=z.array(z.string().trim().min(1).max(100)).max(20).default([]).transform(names=>[...new Set(names)]);
 /** An external https URL without credentials. */
 export const salesMaterialUrl=z.string().trim().max(2000).superRefine((value,ctx)=>{const error=externalUrlError({url:value});if(error)ctx.addIssue({code:'custom',message:error})});
 /** A version source: a completed upload or an external URL. */
 export const salesMaterialVersionSource=z.union([z.object({uploadId:uuid}).strict(),z.object({url:salesMaterialUrl}).strict()]);
 /** Admin mutations on sales material (POST /_api/sales_materials). */
 export const salesMaterialMutation=z.discriminatedUnion('action',[
- z.object({action:z.literal('create'),id:uuid,title,description,kind,source:z.enum(['file','url']),categoryIds,version:salesMaterialVersionSource}),
- z.object({action:z.literal('update'),id:uuid,revision,title,description,kind,categoryIds}),
+ z.object({action:z.literal('create'),id:uuid,title,description,kind,source:z.enum(['file','url']),categoryIds,verticals,version:salesMaterialVersionSource}),
+ z.object({action:z.literal('update'),id:uuid,revision,title,description,kind,categoryIds,verticals}),
  z.object({action:z.literal('version'),id:uuid,revision,version:salesMaterialVersionSource}),
  z.object({action:z.literal('cover'),id:uuid,revision,uploadId:uuid.nullable(),/** Spec 95: a cover generated in the browser; never replaces a cover uploaded by hand. */auto:z.boolean().optional(),/** Spec 102: with `auto`, an explicit request («Generar desde el archivo») may replace a cover removed by hand (`none`); ignored without `auto`. */replaceRemoved:z.boolean().optional()}),
  z.object({action:z.literal('archive'),id:uuid,revision}),
@@ -20,27 +23,46 @@ export const salesMaterialMutation=z.discriminatedUnion('action',[
  z.object({action:z.literal('category_update'),id,name:categoryName,active:z.boolean()})
 ]);
 export type SalesMaterialMutation=z.infer<typeof salesMaterialMutation>;
+/** What a caller sends: `verticals` may be left out (spec 102: defaults to «all verticals»). */
+export type SalesMaterialMutationRequest=z.input<typeof salesMaterialMutation>;
 /** Presigned upload request (POST /_api/sales_materials/upload_url). */
 export const salesMaterialUploadInput=z.object({purpose:z.enum(['file','cover']),fileName:z.string().trim().min(1).max(150),mimeType:z.enum(SALES_MATERIAL_MIMES),byteSize:z.number().int().min(1),materialId:uuid}).superRefine((v,ctx)=>{const error=uploadDeclarationError(v);if(error)ctx.addIssue({code:'custom',message:error,path:['byteSize']})});
 export type SalesMaterialUploadInput=z.infer<typeof salesMaterialUploadInput>;
 /** List filters (GET /_api/sales_materials). `categoryIds` is a comma-separated list: a material matches when it has ANY of them. */
-export const salesMaterialListQuery=z.object({search:z.string().max(200).default(''),categoryId:id.optional(),categoryIds:z.string().regex(/^[1-9]\d*(,[1-9]\d*){0,19}$/).transform(v=>[...new Set(v.split(','))]).optional(),kind:kind.optional(),includeArchived:z.enum(['0','1']).default('0'),/** Spec 95: `archived` lists only archived material (admins), so the 500-row limit is spent on them. */status:z.enum(['archived']).optional()});
+export const salesMaterialListQuery=z.object({search:z.string().max(200).default(''),categoryId:id.optional(),categoryIds:z.string().regex(/^[1-9]\d*(,[1-9]\d*){0,19}$/).transform(v=>[...new Set(v.split(','))]).optional(),kind:kind.optional(),includeArchived:z.enum(['0','1']).default('0'),/** Spec 95: `archived` lists only archived material (admins), so the 500-row limit is spent on them. */status:z.enum(['archived']).optional(),
+ /** Spec 102 D5: the business/management the seller is picking for; its vertical orders the list (ignored without read access). */forAccountId:id.optional(),forLeadId:id.optional()});
 export type SalesMaterialListQuery=z.output<typeof salesMaterialListQuery>;
 export type SalesMaterialCategory={id:string;name:string;active:boolean};
 /** A version as the client sees it: never the object key. */
 export type SalesMaterialVersion={id:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;actorEmail:string;createdAt:Date};
-export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;/** Spec 95: `manual`/`auto`: the stored cover and who set it; `none`: the admin removed it (no automatic cover either); `null` or absent: never set (a small image may still be its own cover). */coverSource?:'manual'|'auto'|'none'|null;categories:SalesMaterialCategory[];currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
+export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;/** Spec 95: `manual`/`auto`: the stored cover and who set it; `none`: the admin removed it (no automatic cover either); `null` or absent: never set (a small image may still be its own cover). */coverSource?:'manual'|'auto'|'none'|null;categories:SalesMaterialCategory[];/** Spec 102 D4: catalog names; empty = all verticals. */verticals:string[];/** Spec 102 D3: only with a context vertical (`forAccountId`/`forLeadId`). */verticalMatch?:SalesMaterialVerticalMatch|null;currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
 export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;storageConfigured:boolean;/** Sum of the files attached to one email (spec 89 §8.3). */maxEmailAttachmentBytes:number};
 /** `truncated` is true when more materials matched than the listing returns: narrow the search. */
-export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits};
+export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits;/** Spec 102: active catalog verticals in their order (form and filter options). */verticals?:string[];/** Spec 102 D5: the vertical that ordered the list (management, else business), or null. */contextVertical?:string|null};
 export type SalesMaterialUpload={uploadId:string;putUrl:string;headers:{'Content-Type':string};expiresAt:Date};
 /** Lists sales material with optional filters. */
-export async function getSalesMaterials(input:{search?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived?:boolean;status?:'archived'}={}):Promise<SalesMaterialList>{
+export async function getSalesMaterials(input:{search?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived?:boolean;status?:'archived';forAccountId?:string;forLeadId?:string|null}={}):Promise<SalesMaterialList>{
  const params=new URLSearchParams();if(input.search)params.set('search',input.search);if(input.categoryIds?.length)params.set('categoryIds',input.categoryIds.join(','));if(input.kind)params.set('kind',input.kind);if(input.includeArchived)params.set('includeArchived','1');if(input.status)params.set('status',input.status);
+ if(input.forAccountId)params.set('forAccountId',input.forAccountId);if(input.forLeadId)params.set('forLeadId',input.forLeadId);
  return apiJson<SalesMaterialList>('/_api/sales_materials?'+params);
 }
 /** Runs an admin mutation. */
-export async function postSalesMaterial(input:SalesMaterialMutation):Promise<{id?:string;ok?:boolean;revision?:number;/** Spec 95: an automatic cover was not stored because a manual choice exists. */coverKept?:boolean}>{return postJson('/_api/sales_materials',salesMaterialMutation.parse(input));}
+export async function postSalesMaterial(input:SalesMaterialMutationRequest):Promise<{id?:string;ok?:boolean;revision?:number;/** Spec 95: an automatic cover was not stored because a manual choice exists. */coverKept?:boolean}>{return postJson('/_api/sales_materials',salesMaterialMutation.parse(input));}
+/** Spec 102 D1: the Open Graph image of a link material's current URL (POST /_api/sales_materials/link_preview, admin only). The URL is never sent: the server reads it. */
+export const salesMaterialLinkPreviewInput=z.object({id:uuid,revision});
+export type SalesMaterialLinkPreviewInput=z.infer<typeof salesMaterialLinkPreviewInput>;
+/** Spec 102 D1: the preview image bytes, or a {@link CrmApiError} with the reason (422 when the page has none or the address is refused). */
+export async function getSalesMaterialLinkPreview(input:SalesMaterialLinkPreviewInput,{signal}:{signal?:AbortSignal}={}):Promise<Blob>{
+ const r=await fetch('/_api/sales_materials/link_preview',{method:'POST',headers:{'Content-Type':'application/json'},body:superjson.stringify(salesMaterialLinkPreviewInput.parse(input)),signal});
+ if(!r.ok){
+  let message='No se pudo traer la imagen del enlace.',code:string|undefined;
+  try{const data=superjson.parse<{error?:string;code?:string}>(await r.text());message=data.error??message;code=data.code;}catch{/* Generic message. */}
+  // 422: the page has no preview image, or the guard refused the address, the type, the size or the time.
+  if(r.status===422)message=code==='no_image'?'No encontramos una imagen en ese enlace.':`No pudimos traer la imagen de ese enlace: ${message}`;
+  throw new CrmApiError(message,r.status);
+ }
+ return r.blob();
+}
 /** Asks for a presigned PUT URL. */
 export async function requestSalesMaterialUpload(input:SalesMaterialUploadInput):Promise<SalesMaterialUpload>{return postJson('/_api/sales_materials/upload_url',salesMaterialUploadInput.parse(input));}
 /** Same-origin URL that redirects to a short-lived presigned GET of a version. */

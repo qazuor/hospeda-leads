@@ -150,7 +150,7 @@ try{
  const listBody=await list.json() as {blocked:string|null;materials:{id:string;title:string;categories:string[];format:string;formatLabel:string}[]};
  assert.equal(listBody.blocked,null);const ids=listBody.materials.map(m=>m.id);
  assert(ids.includes(brochure)&&ids.includes(tour)&&!ids.includes(internal)&&!ids.includes(gone)&&!ids.includes(later),'Only active deliverables');
- assert.deepEqual(listBody.materials.find(m=>m.id===brochure),{id:brochure,title:'Folleto '+stamp,categories:['Folletos '+stamp],format:'pdf',formatLabel:'PDF'});
+ assert.deepEqual(listBody.materials.find(m=>m.id===brochure),{id:brochure,title:'Folleto '+stamp,categories:['Folletos '+stamp],format:'pdf',formatLabel:'PDF',otherVertical:false},'Spec 102 adds otherVertical (false without a business vertical)');
  assert.equal((await script.materials(new Request(`http://localhost/_api/userscript/materials?accountId=${a.id}`,{headers:{...scripted(token),'X-Hospeda-Userscript-Version':'1.1.0'}}))).status,426);
  const listing=await script.templates(new Request(`http://localhost/_api/userscript/templates?accountId=${a.id}`,{headers:scripted(token)}));
  const scriptTemplate=(await listing.json() as {leads:{templates:{id:string;body:string}[]}[]}).leads[0]!.templates.find(t=>t.id===waTemplate)!;

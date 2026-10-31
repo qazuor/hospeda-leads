@@ -5,7 +5,7 @@ import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
 import {SalesMaterialCard,categoryInitials} from './SalesMaterialCard';
 
 const version={id:'v-2',version:2,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date('2026-10-20T12:00:00Z')};
-const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories:[{id:'7',name:'Precios 2027',active:true}],currentVersion:version,...over});
+const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,coverSource:null,categories:[{id:'7',name:'Precios 2027',active:true}],currentVersion:version,...over});
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const handlers={onEdit:vi.fn(),onArchive:vi.fn(),onPreview:vi.fn()};

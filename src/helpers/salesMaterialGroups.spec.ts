@@ -3,7 +3,7 @@ import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
 import {EMPTY_SALES_MATERIAL_FILTERS,filterSalesMaterials,groupSalesMaterials,hasSalesMaterialFilters,salesMaterialQuery} from './salesMaterialGroups';
 
 const cat=(id:string,name:string)=>({id,name,active:true});
-const m=(id:string,categories:SalesMaterial['categories'],over:Partial<SalesMaterial>={}):SalesMaterial=>({id,title:id,description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:1,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories,currentVersion:{id:'v-'+id,version:1,url:null,fileName:'a.pdf',mimeType:'application/pdf',byteSize:10,actorEmail:'a@example.com',createdAt:new Date()},...over});
+const m=(id:string,categories:SalesMaterial['categories'],over:Partial<SalesMaterial>={}):SalesMaterial=>({id,title:id,description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:1,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,coverSource:null,categories,currentVersion:{id:'v-'+id,version:1,url:null,fileName:'a.pdf',mimeType:'application/pdf',byteSize:10,actorEmail:'a@example.com',createdAt:new Date()},...over});
 const folletos=cat('1','Folletos'),precios=cat('2','Precios'),videos=cat('3','Videos');
 const summary=(groups:ReturnType<typeof groupSalesMaterials>)=>groups.map(g=>[g.name,g.materials.map(x=>x.id)]);
 describe('groupSalesMaterials',()=>{
@@ -42,8 +42,12 @@ describe('filters',()=>{
   expect(ids({status:'deliverable'})).toEqual(['deliv']);expect(ids({status:'internal'})).toEqual(['intern']);
   expect(ids({status:'archived'})).toEqual(['old']);expect(ids({categoryIds:['2']})).toEqual(['intern']);
  });
+ it('spec 102: the vertical filter keeps material of that vertical (aliases included) and material for all verticals',()=>{
+  const list=[m('own',[],{verticals:['Alojamientos']}),m('all',[]),m('other',[],{verticals:['Gastronomía']})];
+  expect(filterSalesMaterials({materials:list,filters:{...EMPTY_SALES_MATERIAL_FILTERS,vertical:'Alojamiento'}}).map(x=>x.id)).toEqual(['own','all']);
+ });
  it('knows when a filter is active',()=>{
   expect(hasSalesMaterialFilters(EMPTY_SALES_MATERIAL_FILTERS)).toBe(false);expect(hasSalesMaterialFilters({...EMPTY_SALES_MATERIAL_FILTERS,search:'  '})).toBe(false);
-  for(const over of [{search:'a'},{categoryIds:['1']},{format:'pdf' as const},{status:'internal' as const}])expect(hasSalesMaterialFilters({...EMPTY_SALES_MATERIAL_FILTERS,...over})).toBe(true);
+  for(const over of [{search:'a'},{categoryIds:['1']},{format:'pdf' as const},{status:'internal' as const},{vertical:'Alojamiento'}])expect(hasSalesMaterialFilters({...EMPTY_SALES_MATERIAL_FILTERS,...over})).toBe(true);
  });
 });

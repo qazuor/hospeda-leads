@@ -289,6 +289,15 @@ try{
  const addTo=(messageId:string,revision:number)=>materialAdd(new Request('http://localhost/_api/userscript/material_add',{method:'POST',headers:scripted(token),body:JSON.stringify({messageId,revision,materialId})}));
  const igMaterials=await materials(new Request(`http://localhost/_api/userscript/materials?accountId=${igAccount.id}&channel=instagram`,{headers:scripted(token)}));assert.equal(igMaterials.status,200);
  assert.ok((await igMaterials.json() as {materials:{id:string}[]}).materials.some(m=>m.id===materialId),'materials?channel=instagram lists deliverable material with the Instagram scope');
+ // Spec 102 D3/D5: the panel list comes ordered by the business vertical (own, «all», other) with `otherVertical` on the folded part.
+ const tag='Zz Panel vert '+materialId.slice(0,8),vm=async(title:string,verticals:string[])=>{const id=randomUUID();await sql`INSERT INTO crm_sales_materials(id,title,kind,source,verticals,created_by_email) VALUES(${id}::uuid,${tag+' '+title},'deliverable','url',${verticals}::text[],'admin@example.com')`.execute(db);await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,url,actor_email) VALUES(${randomUUID()}::uuid,${id}::uuid,1,'https://example.com/v','admin@example.com')`.execute(db);await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${id}::uuid`.execute(db);return id;};
+ const vOther=await vm('otra',['Gastronomía']),vAll=await vm('todas',[]),vOwn=await vm('propia',['Alojamiento']);
+ const igTipo=(await db.selectFrom('crmAccounts').select('tipo').where('id','=',igAccount.id).executeTakeFirstOrThrow()).tipo;
+ await db.updateTable('crmAccounts').set({tipo:'Alojamiento'}).where('id','=',igAccount.id).execute();
+ const vertList=await (await materials(new Request(`http://localhost/_api/userscript/materials?accountId=${igAccount.id}&channel=instagram&search=${encodeURIComponent(tag)}`,{headers:scripted(token)}))).json() as {contextVertical:string|null;materials:{id:string;otherVertical:boolean}[]};
+ await db.updateTable('crmAccounts').set({tipo:igTipo}).where('id','=',igAccount.id).execute();
+ assert.equal(vertList.contextVertical,'Alojamiento');
+ assert.deepEqual(vertList.materials.map(m=>[m.id,m.otherVertical]),[[vOwn,false],[vAll,false],[vOther,true]],'The panel gets its vertical first, then «all», then the rest marked otherVertical');
  const igFree=await igPrepare({leadId:igLead,templateId:null});assert.equal(igFree.status,200,'An Instagram free draft (templateId null) is prepared');
  const igFreeBody=await igFree.json() as {messageId:string;revision:number;body:string;materials:unknown[]};assert.equal(igFreeBody.body.trim(),'');assert.deepEqual(igFreeBody.materials,[]);
  const igAdded=await addTo(igFreeBody.messageId,igFreeBody.revision);assert.equal(igAdded.status,200,'material_add works on an Instagram script draft');
