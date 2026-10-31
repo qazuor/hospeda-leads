@@ -133,7 +133,7 @@ try{
   const notSent=await row(draft.id);assert.equal(notSent.status,'manual_not_done');assert.equal((await activityResult(notSent.activityId))?.result,'Instagram marcado como no enviado');
   const second=await openAttempt(b.id,'Segundo mensaje de prueba',seller.cookie);
   await call({action:'outcome',id:second.id,event:'manual_sent',notes:''},seller.cookie);assert.equal((await row(second.id)).status,'manual_sent');
-  await call({action:'outcome',id:second.id,event:'manual_sent',notes:''},seller.cookie,400);// only an opened attempt is resolved
+  await call({action:'outcome',id:second.id,event:'manual_sent',notes:''},seller.cookie,409);// spec 100 §8: «Este envío ya estaba confirmado.»
  }
 
  // ── Communication gates on every write path.

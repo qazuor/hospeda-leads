@@ -4,7 +4,7 @@ import {responseCategoryLabel,userLabel,type LabelUser} from './crmLabels';
 import {messageLabels} from './messageLabels';
 import {ECHO_SENDER,ECHO_STATUS,INSTAGRAM_ECHO_OWNER,isInstagramInbound,isInstagramOutbound} from './instagramChannel';
 import {phoneNationalKeys} from './dataNormalization';
-import {isOpenedUnconfirmed} from './contactOutcome';
+import {WHATSAPP_SCRIPT_WAIT_MS,isOpenedUnconfirmed} from './contactOutcome';
 import {isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 
 export {ECHO_STATUS,INSTAGRAM_ECHO_OWNER};
@@ -175,6 +175,23 @@ export const visibleTimeline=(entries:readonly TimelineEntry[],{showOlder,limit=
 export const withDaySeparators=(entries:readonly TimelineEntry[]):{entry:TimelineEntry;separator:string|null}[]=>entries.map((entry,index)=>({entry,separator:index===0||entries[index-1].day!==entry.day?entry.day:null}));
 
 /** True for an opened send the viewer may answer «¿Lo enviaste?» for: a WhatsApp, or an Instagram attempt (spec 92). */
+/** Spec 100 §9 (D7): what an opened WhatsApp shows while the user script can still confirm it. */
+export const WHATSAPP_WAITING_STATUS='Esperando que el script de WhatsApp confirme el envío';
+export const WHATSAPP_WAITING_HINT='Si lo enviaste desde la computadora con el script se confirma solo. Si ya sabés cómo salió, marcalo con «Sí, se envió» o «No se envió».';
+type WaitLike={channel:string;status:string;lastInteractionAt?:Date|string|null};
+/**
+ * An opened WhatsApp younger than 5 minutes: the server leaves it out of «¿Lo enviaste?» (not counted) while the user script can
+ * confirm it, and the panel still lists it, answerable. Like the Instagram wait, `now` is the client clock: only a display delay.
+ */
+export function isWaitingForScript({message,now=Date.now()}:{message:WaitLike;now?:number}):boolean{
+ if(message.status!=='whatsapp_opened'||message.channel!=='whatsapp')return false;
+ const at=message.lastInteractionAt?new Date(message.lastInteractionAt).getTime():NaN;
+ return !Number.isNaN(at)&&now-at<WHATSAPP_SCRIPT_WAIT_MS;
+}
+/** Milliseconds until a waiting WhatsApp open starts counting as «¿Lo enviaste?», or null when it is not waiting. */
+export function scriptWaitRemainingMs({message,now=Date.now()}:{message:WaitLike;now?:number}):number|null{
+ return isWaitingForScript({message,now})?WHATSAPP_SCRIPT_WAIT_MS-(now-new Date(message.lastInteractionAt!).getTime()):null;
+}
 export const isConfirmableOpen=(m:{channel:string;status:string;ownerEmail?:string|null;destinationDetail?:string|null}):boolean=>isOpenedUnconfirmed(m.status)&&(m.status==='whatsapp_opened'?m.channel==='whatsapp':isInstagramAttempt(m));
 /** One «Requiere acción» row: a received message to review or an opened-but-unconfirmed WhatsApp or Instagram send (not in the conversation). */
 export type ActionItem={kind:'review';key:string;at:Date;inbound:InboundMessage}|{kind:'confirm_send';key:string;at:Date;message:Message};

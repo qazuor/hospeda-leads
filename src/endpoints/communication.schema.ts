@@ -44,9 +44,17 @@ export type CommunicationMutation=z.infer<typeof communicationMutation>;
 export type Message={/** Spec 93, read-only: Brevo delivery, opens, clicks and spam of a sent email (null without linked events; only on GET). */emailEngagement?:EmailEngagement|null;id:string;accountId:string;leadId:string|null;contactId:string|null;channel:'email'|'whatsapp'|'call'|'social'|'other';recipient:string;recipientName:string;subject:string;body:string;htmlBody:string|null;textBody:string|null;templateSnapshot:any;ownerEmail:string;activityId:string|null;outboxId:string|null;taskId:string|null;delegatedTaskId?:string|null;delegatedFromEmail?:string|null;status:string;revision:number;lastInteractionAt:Date|null;lastActorEmail:string|null;createdAt:Date;updatedAt:Date;autoRegistrationId?:string|null;autoRegistrationUserEmail?:string|null;purpose?:string|null;otherPurpose?:string|null;destinationDetail?:string|null;/** Provider id (Brevo, WhatsApp or the Instagram echo `mid`); read-only. */externalId?:string|null;/** Confirmation source derived from the immutable communication journal (E1). */confirmationSource?:'userscript'|'instagram'|'manual';contentHash?:string|null;summary?:string|null;completedAt?:Date|null;completedByEmail?:string|null;/** Sales material links of the message (spec 89 §8.4). */materials?:MessageMaterial[];/** Outcome recorded on the message's activity (only on GET). */activityOutcome?:string|null;/** Spec 96 §10.1: the response that set that outcome automatically; null once a person corrected it (only on GET). */autoOutcomeResponseId?:string|null};
 /** `reusedDraft` is set when prepare returns an earlier draft of the same seller, recipient and model instead of a new one (report item 1.14). */
 /** A contact left without "¿Cómo salió?" (decision 2B); it stays pending until an outcome is recorded. */
-export type PendingOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date;externalId?:string|null;destinationDetail?:string|null;ownerEmail?:string;confirmationSource?:'userscript'|'instagram'|'manual'};
-/** Spec 99 §3.6: the server's two follow-up lists, each with its newest `items` (up to the server limit) and its full `count`. */
-export type ContactFollowUps={unconfirmed:{items:PendingOutcome[];count:number};outcomes:{items:PendingOutcome[];count:number}};
+export type PendingOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date;externalId?:string|null;destinationDetail?:string|null;ownerEmail?:string;confirmationSource?:'userscript'|'instagram'|'manual';/** Spec 100 §6: the delegated task of an admin-visible delegated send, which forms its own «Anotá cómo salió» group. */delegatedTaskId?:string|null};
+/**
+ * One follow-up list: its newest `items` (up to the server limit), the full `count` of sends and `groupCount`, the groups the
+ * limit and the counts use (spec 100 §6). For «¿Lo enviaste?» a group is one send; for «Anotá cómo salió» it is one management.
+ */
+export type ContactFollowUpList={items:PendingOutcome[];count:number;groupCount:number};
+/**
+ * Spec 99 §3.6 and spec 100 §7: «¿Lo enviaste?» (`unconfirmed`) and «Anotá cómo salió» (`outcomes`) with only what has not expired,
+ * and `expired` with what did (unconfirmed after 72 h, a management group 7 days after its newest send). Expiring writes nothing.
+ */
+export type ContactFollowUps={unconfirmed:ContactFollowUpList;outcomes:ContactFollowUpList;expired:{unconfirmed:ContactFollowUpList;outcomes:ContactFollowUpList}};
 /** `materialWarnings`: template materials that `prepare` left out (archived, internal, missing) or could only link (spec 89 §9). */
 /**
  * `instagramAutoConfirm` / `instagramShared` (spec 92 §2.6) come with an Instagram prepare: whether Meta's echo can confirm the send and whether

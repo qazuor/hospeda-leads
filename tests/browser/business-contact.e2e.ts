@@ -6,6 +6,16 @@ import {pickOutcome} from './support/outcome';
 import {simulateUserscript} from './helpers/userscript';
 import {whatsappOpenedToast} from '../../src/helpers/contactDestination';
 import {reveal} from './support/contactStep';
+import postgres from 'postgres';
+// Spec 100 §9: a WhatsApp open waits 5 minutes for the user script before Hoy asks «¿Lo enviaste?». The test ages the open with SQL on
+// the disposable database, and the outcome cutoff too (newer than the aged open on a freshly migrated database), restored afterwards.
+let sql:ReturnType<typeof postgres>;let outcomeSince:string|undefined;
+test.beforeAll(async()=>{sql=postgres(process.env.DATABASE_URL!,{max:1,...(process.env.CRM_TEST_DATABASE==='1'&&process.env.CRM_TEST_DATABASE_SOCKET?{path:process.env.CRM_TEST_DATABASE_SOCKET}:{})});outcomeSince=(await sql<{value:string}[]>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`)[0]?.value;});
+test.afterAll(async()=>{if(!sql)return;try{if(outcomeSince!==undefined)await sql`UPDATE app_settings SET value=${outcomeSince} WHERE key='crm_contact_outcome_since'`;}finally{await sql.end();}});
+async function pastScriptWait(id:string){
+ await sql`UPDATE app_settings SET value=to_char((now()-interval '1 hour') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '10 minutes'`;
+ await sql`UPDATE crm_messages SET last_interaction_at=now()-interval '6 minutes' WHERE id=${id}::uuid AND status='whatsapp_opened'`;
+}
 for(const width of [1280,390])test(`business continuity and explicit contact at ${width}px`,async({page})=>{
  test.setTimeout(180000);const run=width+'-'+Date.now().toString(36); // unique per run: Hoy lists tasks of every business, so titles repeated from an earlier run on a used DB would match more than one row
  await page.setViewportSize({width,height:844});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
@@ -81,6 +91,8 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   // Unconfirmed until the script or the seller says so: exactly one open attempt, to Tomás.
   const opened=(await api('communication?leadId='+leadId)).messages.filter((m:any)=>m.channel==='whatsapp'&&m.status==='whatsapp_opened');expect(opened.map((m:any)=>m.recipient)).toEqual(['+5493442000077']);
+  // Hoy lists it only after the script wait (spec 100 §9).
+  await pastScriptWait(opened[0].id);
  };
  const pendingRow=page.getByRole('region',{name:'Anotá cómo salió',exact:true}).getByRole('article',{name:'Contacto pendiente con Tomás con teléfono '+run,exact:true});
  await sendWhatsapp('Hola, te escribo por Hospeda');

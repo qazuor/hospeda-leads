@@ -1,6 +1,14 @@
 # Estado del CRM — corte al 31 de octubre de 2026
 
-## Spec 100, bloque 5 — «Para retomar» y «Próximas acciones» (4.3, 4.4, D5=A, D6=A) — en rama `fix/spec-100-reactivation-defaults` — 31/10/2026
+## Spec 100, bloque 1 — servidor: vencimiento, grupos y espera del script — PR a `staging` — 31/10/2026
+
+- `pendingContactFollowUps` devuelve `{unconfirmed, outcomes, expired:{unconfirmed, outcomes}}`; cada lista suma `groupCount`. Vencimiento al leer con `now()` de la base, sin escribir nada: «¿Lo enviaste?» a las 72 h; «Anotá cómo salió» por gestión (negocio, gestión, tarea delegada), entera, 7 días después de su envío más nuevo (un envío nuevo la devuelve a la cuenta). El límite cuenta grupos (`dense_rank`), así un grupo nunca llega cortado; los ítems traen `delegatedTaskId`. Constantes en `contactOutcome.ts` (`UNCONFIRMED_STALE_HOURS`, `OUTCOME_STALE_DAYS`, `WHATSAPP_SCRIPT_WAIT_MS`).
+- D7: una apertura de WhatsApp de menos de 5 minutos no entra en `unconfirmed` (ni en vencidos). La ficha la sigue listando sin contar (mensaje cargado) con «Esperando que el script de WhatsApp confirme el envío» y «Sí/No»; si el servidor ya la lista, gana el reloj de la base. `useConfirmWaitNow` recarga al terminar cualquiera de las dos esperas.
+- `outcome` (`manual_sent`/`manual_not_sent`) sobre un envío ya `manual_sent` → 409 «Este envío ya estaba confirmado.» (antes 400 genérico).
+- Helper puro `contactFollowUpGroups.ts` (`groupOutcomeFollowUps`, `pendingCount`) para los bloques 2 y 4. La UI actual no cambia de forma (sigue leyendo `count`).
+- **Validación local (31/10/2026):** tras `seed`, `test-communication`, `test-userscript`, `test-instagram-open-chat`, `test-business-history`, `test-commercial`, `test-inbound-email` y `test-inbound-email-reply` PASS. `test-work` FAIL en la línea 137 (anterior a todo lo de este bloque) porque la base descartable acumula datos de corridas previas (el seed no la vacía: 1413 tareas, 352 usuarios) y la vista admin de 100 tareas ya no incluye las del test; una copia temporal sin esa línea pasó entera, incluido el bloque nuevo. `npm run typecheck`, `npx vitest run` (2294) y `npm run build` OK. Suite de navegador no corrida (se ajustaron `business-contact` e `instagram-open-chat` a la espera).
+
+## Spec 100, bloque 5 — «Para retomar» y «Próximas acciones» (4.3, 4.4, D5=A, D6=A) — mergeado a `staging` (#303) — 31/10/2026
 
 - **D5:** «Para retomar» arranca con «Estado de retoma: Todos» y «Hasta» vacío (`src/pages/reactivation.tsx`); el esquema de `GET /_api/pipeline` pasa a `handled` `default('all')` (`src/endpoints/pipeline.ts`), así un pedido sin `handled` se comporta igual que la pantalla. Una gestión recién cerrada con fecha de recontacto futura (que ya tiene su tarea automática) aparece sin tocar filtros; el orden sigue por fecha de recontacto. Los filtros explícitos (`handled=no|yes`, `to`, `from`) siguen igual. No hay «Limpiar filtros» en esa vista.
 - **D6:** «Próximas acciones» en Hoy arranca abierta y se puede plegar (`<Disclosure open>` en `TodayList.tsx`); la preferencia no se recuerda.

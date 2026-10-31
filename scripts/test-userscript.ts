@@ -363,6 +363,7 @@ try{
   const timed=await db.insertInto('crmAccounts').values({nombre:`Zz userscript sent time ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:timedPhone,status:'reviewed'} as never).returningAll().executeTakeFirstOrThrow();
   const since=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
   await sql`UPDATE app_settings SET value=to_char((now()-interval '2 hours') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '1 hour'`.execute(db);
+  try{
   const ago=(ms:number)=>new Date(Math.floor((Date.now()-ms)/1000)*1000);
   const send=async(text:string,sentAt:Date)=>{const r=(await statuses(await post({accountId:String(timed.id),chat:{title:`${timed.nombre} · H${timed.id}`,phone:timedPhone},messages:[{externalId:`true_${randomUUID()}`,direction:'out',text,sentAt:sentAt.toISOString(),author:null}]})))[0]!;assert.equal(r.status,'created',r.reason);return r.id!;};
   const row=async(id:string)=>(await sql<{lastInteractionAt:Date;completedAt:Date|null;updatedAt:Date;occurredAt:Date;result:string}>`SELECT m.last_interaction_at AS "lastInteractionAt",m.completed_at AS "completedAt",m.updated_at AS "updatedAt",a.occurred_at AS "occurredAt",a.result FROM crm_messages m JOIN crm_activities a ON a.id=m.activity_id WHERE m.id=${id}::uuid`.execute(db)).rows[0]!;
@@ -406,7 +407,25 @@ try{
   await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,activity_id,created_at) VALUES(${noted}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'whatsapp_opened',${notedText},${notedActivity.id},now()-interval '15 minutes')`.execute(db);
   const notedSentAt=ago(120_000);assert.equal(await send(notedText,notedSentAt),noted);const notedRow=await row(noted);
   assert.deepEqual([notedRow.lastInteractionAt.getTime(),notedRow.occurredAt.getTime(),notedRow.result],[notedSentAt.getTime(),notedAt.getTime(),'Ya hablamos'],'An activity with an outcome is not touched');
-  if(since)await sql`UPDATE app_settings SET value=${since} WHERE key='crm_contact_outcome_since'`.execute(db);
+  // Spec 100 §9 (D7): an opened WhatsApp younger than 5 minutes waits for the script instead of asking «¿Lo enviaste?» (database clock).
+  // Its own business: the outcome activities above would resolve these sends on the timed one.
+  const waitPhone=`+5493446${String(100000+Math.floor(Math.random()*900000))}`;
+  const waitAccount=await db.insertInto('crmAccounts').values({nombre:`Zz userscript wait ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:waitPhone,status:'reviewed'} as never).returningAll().executeTakeFirstOrThrow();
+  const openedFor=async(text:string,minutes:number)=>{const id=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,text_body,created_at,last_interaction_at) VALUES(${id}::uuid,${waitAccount.id},${waitAccount.id},'whatsapp',${waitPhone},${seller.user.email},'whatsapp_opened',${text},${text},now()-make_interval(mins=>${minutes}::int),now()-make_interval(mins=>${minutes}::int))`.execute(db);return id;};
+  const followUps=()=>pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:String(waitAccount.id)});
+  const ids=(l:{items:{id:string}[]})=>l.items.map(p=>p.id);
+  const waiting=await openedFor('Abrí WhatsApp hace un minuto para mandarte la propuesta',1),asking=await openedFor('Abrí WhatsApp hace seis minutos para mandarte la propuesta',6);
+  let f=await followUps();
+  assert.equal(ids(f.unconfirmed).includes(waiting),false,'A 1-minute WhatsApp open waits for the script: not in «¿Lo enviaste?»');
+  assert.equal(ids(f.expired.unconfirmed).includes(waiting),false,'A waiting open is not expired either');
+  assert.equal(ids(f.unconfirmed).includes(asking),true,'After 5 minutes the open asks «¿Lo enviaste?»');
+  const scriptedText='Te confirmo por WhatsApp la propuesta para tu alojamiento';const confirmedInWait=await openedFor(scriptedText,1);
+  const scriptedSend=(await statuses(await post({accountId:String(waitAccount.id),chat:{title:`${waitAccount.nombre} · H${waitAccount.id}`,phone:waitPhone},messages:[{externalId:`true_${randomUUID()}`,direction:'out',text:scriptedText,sentAt:ago(30_000).toISOString(),author:null}]})))[0]!;
+  assert.deepEqual([scriptedSend.status,scriptedSend.id],['created',confirmedInWait],'The script confirms the open within the wait');
+  f=await followUps();
+  assert.equal([...ids(f.unconfirmed),...ids(f.expired.unconfirmed)].includes(confirmedInWait),false,'An open the script confirmed in the wait never asks «¿Lo enviaste?»');
+  assert.equal(f.outcomes.items.find(p=>p.id===confirmedInWait)?.confirmationSource,'userscript','It only asks how it went, labeled as confirmed by the script');
+  }finally{if(since)await sql`UPDATE app_settings SET value=${since} WHERE key='crm_contact_outcome_since'`.execute(db);}
  }
  const revoked=await tokenRevoke(session(seller.cookie,{id:tokenRow.id}));assert.equal(revoked.status,200);
  const denied=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token)}));assert.equal(denied.status,401);assert.equal((await badges(new Request('http://localhost/_api/userscript/badges',{method:'POST',headers:scripted(token),body:JSON.stringify({chats:[{key:'revoked',title:'Chat'}]})}))).status,401,'Revoked userscript token cannot query badges');
