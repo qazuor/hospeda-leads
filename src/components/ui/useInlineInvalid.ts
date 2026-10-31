@@ -14,10 +14,21 @@ export function invalidMessage(field: Field): string {
   if (v.typeMismatch) return input.type === 'email' ? 'Revisá el formato (ej.: nombre@dominio.com).' : input.type === 'url' ? 'Revisá el enlace (ej.: https://sitio.com).' : 'Revisá este dato.';
   if (v.tooShort) return `Escribí al menos ${input.minLength} caracteres.`;
   if (v.tooLong) return `Escribí hasta ${input.maxLength} caracteres.`;
-  if (v.rangeUnderflow) return `El valor mínimo es ${input.min}.`;
-  if (v.rangeOverflow) return `El valor máximo es ${input.max}.`;
+  const limit = readableLimit(input.type, v.rangeUnderflow ? input.min : input.max);
+  if (v.rangeUnderflow) return limit ? `No puede ser anterior a ${limit}.` : `El valor mínimo es ${input.min}.`;
+  if (v.rangeOverflow) return limit ? `No puede ser posterior a ${limit}.` : `El valor máximo es ${input.max}.`;
   if (v.patternMismatch && input.title) return input.title;
+  if (v.customError && field.validationMessage) return field.validationMessage;
   return 'Revisá este dato.';
+}
+
+/** A date/time limit as the seller reads it (Argentine dd/mm/aaaa, 24 h); null for non-date fields. The value is already an Argentina wall time. */
+function readableLimit(type: string, value: string): string | null {
+  const day = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
+  if (type === 'datetime-local' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) return `${day(value)} ${value.slice(11, 16)}`;
+  if (type === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return day(value);
+  if (type === 'time' && /^\d{2}:\d{2}/.test(value)) return `las ${value.slice(0, 5)}`;
+  return null;
 }
 
 const NAMED_BY_US = 'data-crm-label-name';
@@ -50,6 +61,14 @@ export function useInlineInvalid<T extends Field>({ onInvalid, onChange, onInput
   const errorId = useId();
   return {
     error: message, errorId,
+    /** Clears the message when the value changes outside the field's own events (value-based controls such as pickers). */
+    reset: (field?: Field | null) => { setMessage(null); if (field) releaseLabelName(field); },
+    /** Re-reads a shown message after a constraint changed outside the field (e.g. a new `max`): cleared when valid, rewritten otherwise. Never moves focus. */
+    refresh: (field?: Field | null) => {
+      if (!message || !field) return;
+      if (field.validity.valid) { setMessage(null); releaseLabelName(field); return; }
+      const text = invalidMessage(field); setMessage(text); releaseLabelName(field); pinLabelName(field, text);
+    },
     onInvalid: (event: FormEvent<T>) => {
       onInvalid?.(event);
       if (event.defaultPrevented) return;

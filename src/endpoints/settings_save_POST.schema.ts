@@ -48,7 +48,8 @@ export const schema=z.discriminatedUnion("action",[
   })
 ]);
 export type InputType=z.infer<typeof schema>;
-export type OutputType={ok:true};
+/** `city`: the catalog spelling kept or reactivated by `addCity` (spec 104, 37). */
+export type OutputType={ok:true;city?:string};
 export const postSettingsSave=async(body:InputType):Promise<OutputType>=>{
   return postJson<OutputType>("/_api/settings_save",schema.parse(body));
 };
