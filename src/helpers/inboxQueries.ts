@@ -3,6 +3,7 @@ import type {InboxUser} from './inboxTypes';
 import {db} from './db';
 import {normalizeSearchSql} from './searchSql';
 import {instagramInboundSql,instagramOutboundSql} from './instagramChannelSql';
+import {inboundAwaitingReviewSql} from './inboundReview';
 import {argentinaInstant} from './workDates';
 import superjson from 'superjson';
 import {getServerUserSession} from './getServerUserSession';
@@ -90,7 +91,8 @@ export async function inboxSearch(request:Request){try{
  */
 const listedInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered')`;
 const detailInbound=(alias:'i',includeVoided:boolean)=>includeVoided?sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed','voided')`:sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed')`;
-const pendingInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)}='pending_review' AND ${sql.ref(`${alias}.is_automatic`)}=false`;
+// Spec 99 §3.5: an inbound answered from the CRM with evidence of sending is no longer pending.
+const pendingInbound=(alias:'i')=>sql<boolean>`${inboundAwaitingReviewSql(alias)} AND ${sql.ref(`${alias}.is_automatic`)}=false`;
 /**
  * Spec 92 owner decision (Bandeja included, 27/10/2026): an opened send nobody confirmed (`whatsapp_opened`, `instagram_opened`)
  * is in no list, count, last activity, preview, search or thread until it is confirmed, like «Conversación». A send answered

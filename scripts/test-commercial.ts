@@ -263,7 +263,8 @@ try{
   const duplicated=await duplicates(new Request('http://localhost/_api/leads_duplicates',{headers:{cookie:user.value}}));
   assert.equal(duplicated.status,200);
   const duplicateGroups=superjson.parse<{groups:{leads:{id:string}[]}[]}>(await duplicated.text()).groups;
-  assert(!duplicateGroups.some(g=>g.leads.some(l=>l.id===first)&&g.leads.some(l=>l.id===second)),'Related opportunities must not be duplicate businesses');
+  // Groups list businesses (`id` is the account id), so compare by business: management ids can collide with unrelated account ids.
+  assert(!duplicateGroups.some(g=>g.leads.filter(l=>l.accountId===String(accountId)).length>1),'Related opportunities must not be duplicate businesses');
   const searchResult=await getLeads(new Request('http://localhost/_api/leads?q=Segunda%20venta',{headers:{cookie:user.value}}));
   assert.equal(searchResult.status,200);assert(superjson.parse<{rows:{id:string}[]}>(await searchResult.text()).rows.some(l=>l.id===second));
   async function businesses(params:string){

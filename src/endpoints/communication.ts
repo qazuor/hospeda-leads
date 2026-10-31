@@ -10,6 +10,7 @@ import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {setWorkActor} from '../helpers/workAudit';
 import {smtpConfigured} from '../helpers/smtpTransport';
 import {inboxReplyAvailability} from '../helpers/inboxReplyAvailability';
+import {inboundRepliedAtSql} from '../helpers/inboundReview';
 import {COMMUNICATION_LIST_LIMIT,communicationMutation,communicationSeenInput} from './communication.schema';
 import {messageMaterials} from '../helpers/salesMaterialDraft';
 import {emailEngagementByOutbox} from '../helpers/emailEngagementQuery';
@@ -58,7 +59,7 @@ export async function get(request:Request){
   const responses=(await sql`SELECT r.*,coalesce(l.opportunity_name,'General') AS context_name,(SELECT array_agg(t.title ORDER BY t.id) FROM crm_communication_journal rj JOIN crm_tasks t ON t.id=(rj.after_value->>'taskId')::bigint AND t.deleted_at IS NULL WHERE rj.account_id=r.account_id AND rj.entity_type='response' AND rj.entity_id=r.id::text AND rj.action='response_task_resolved') AS resolved_task_titles,EXISTS(SELECT 1 FROM crm_inbound_messages hi WHERE hi.account_id=r.account_id AND hi.response_id=r.id) AS has_inbound FROM crm_communication_responses r LEFT JOIN leads l ON l.id=r.lead_id WHERE r.account_id=${lead.accountId} AND (r.lead_id IS NULL OR l.deleted_at IS NULL) ORDER BY r.occurred_at DESC LIMIT ${COMMUNICATION_LIST_LIMIT}`.execute(db)).rows;
   const repliesAvailable=smtpConfigured();
   const replySql=inboxReplyAvailability(repliesAvailable,user.role==='admin',user.email);
-  const inbound=(await sql`SELECT i.id,i.channel,i.channel_detail,i.received_at,i.from_address,i.from_name,i.subject,i.text_body,i.status,i.is_automatic,i.match_method,i.lead_id,coalesce(l.opportunity_name,'General') AS context_name,i.linked_message_id,i.response_id,i.attachments,(SELECT r.id::text FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_id, (SELECT r.user_email FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_user_email,
+  const inbound=(await sql`SELECT i.id,i.channel,i.channel_detail,i.received_at,i.from_address,i.from_name,i.subject,i.text_body,i.status,i.is_automatic,i.match_method,i.lead_id,i.contact_id,${inboundRepliedAtSql('i')} AS replied_at,coalesce(l.opportunity_name,'General') AS context_name,i.linked_message_id,i.response_id,i.attachments,(SELECT r.id::text FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_id, (SELECT r.user_email FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) AS auto_registration_user_email,
    ${replySql.canReply} AS can_reply,
    ${replySql.replyRestricted} AS reply_restricted
    FROM crm_inbound_messages i JOIN crm_accounts a ON a.id=i.account_id LEFT JOIN leads l ON l.id=i.lead_id WHERE i.account_id=${lead.accountId} AND (${includeVoided} OR i.status<>'voided') AND (${user.role==='admin'} OR i.lead_id IS NULL OR l.deleted_at IS NULL) ORDER BY i.received_at DESC LIMIT ${COMMUNICATION_LIST_LIMIT}`.execute(db)).rows;

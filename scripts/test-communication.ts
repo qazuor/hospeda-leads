@@ -412,6 +412,63 @@ try{
    console.log('Spec 96 M2: a late-registered reply resolves only the sends before it; No contactar resolves only for an admin');
   }finally{await restoreOutcomeCutoff(since);}
  }
+ // Spec 99 §3.4: inbound_register saves exactly what the screen shows: an omitted field keeps the row's value, an explicit null clears it.
+ {
+  const since=await backOutcomeCutoff();
+  try{
+  const acc=await db.insertInto('crmAccounts').values({nombre:'Spec99 inbound '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const newLead=async(accountId:string|number,deletedAt:Date|null=null)=>db.insertInto('leads').values({accountId,nombre:'Spec99 gestión '+stamp,estado:'Cargado',assignedUserEmail:user.user.email,deletedAt}).returningAll().executeTakeFirstOrThrow();
+  const lead=await newLead(acc.id),lead2=await newLead(acc.id),trashed=await newLead(acc.id,new Date());
+  const elsewhere=await db.insertInto('crmAccounts').values({nombre:'Spec99 elsewhere '+stamp,status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const foreignLead=await newLead(elsewhere.id);
+  const person=async(accountId:string|number,name:string,deletedAt:Date|null=null)=>String((await db.insertInto('crmContacts').values({accountId,name,deletedAt}).returning('id').executeTakeFirstOrThrow()).id);
+  const ana=await person(acc.id,'Ana'),bea=await person(acc.id,'Bea'),gone=await person(acc.id,'Borrada',new Date()),foreign=await person(elsewhere.id,'Ajena');
+  const msg=async(accountId:string|number,status:string,contactId:string|null,leadId:string|number|null=lead.id)=>(await sql<{id:string}>`INSERT INTO crm_messages(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,body,owner_email,status,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${accountId},${accountId},${leadId},${contactId},'whatsapp','5493442000777','Ana','Hola',${user.user.email},${status},now()-interval '1 hour',${user.user.email}) RETURNING id::text AS id`.execute(db)).rows[0].id;
+  const sentToAna=await msg(acc.id,'manual_sent',ana),opened=await msg(acc.id,'whatsapp_opened',null),foreignSend=await msg(elsewhere.id,'manual_sent',null,foreignLead.id),lead2Send=await msg(acc.id,'manual_sent',null,lead2.id);
+  const inbound=async(contactId:string|null=bea,linkedMessageId:string|null=null,accountId:string|number=acc.id,leadId:string|number=lead.id)=>{const id=randomUUID();await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,lead_id,contact_id,linked_message_id,match_method,from_address,text_body,received_at,status,source) VALUES(${id}::uuid,'whatsapp',${'spec99-'+id},${accountId},${leadId},${contactId},${linkedMessageId}::uuid,'phone','5493442000777','Hola',now()-interval '10 minutes','pending_review','userscript')`.execute(db);return id;};
+  const register=(inboundId:string,extra:Record<string,unknown>={})=>({action:'inbound_register',id:randomUUID(),inboundId,category:'information',summary:'Pidió información',otherDetail:null,...extra});
+  const saved=async(id:string)=>(await sql<{contactId:string|null;linkedMessageId:string|null;leadId:string|null}>`SELECT contact_id::text AS "contactId",linked_message_id::text AS "linkedMessageId",lead_id::text AS "leadId" FROM crm_communication_responses WHERE id=${id}::uuid`.execute(db)).rows[0];
+  const status=async(id:string)=>(await sql<{status:string}>`SELECT status FROM crm_inbound_messages WHERE id=${id}::uuid`.execute(db)).rows[0].status;
+  const outcomeOf=async(id:string)=>(await sql<{outcome:string|null}>`SELECT x.outcome FROM crm_messages m LEFT JOIN crm_activities x ON x.id=m.activity_id AND x.deleted_at IS NULL WHERE m.id=${id}::uuid`.execute(db)).rows[0].outcome??null;
+  const rejected=await inbound();
+  await call(register(rejected,{contactId:foreign}),400,user.cookie);
+  await call(register(rejected,{contactId:gone}),400,user.cookie);
+  await call(register(rejected,{linkedMessageId:opened}),400,user.cookie);
+  await call(register(rejected,{linkedMessageId:foreignSend}),400,user.cookie);
+  await call(register(rejected,{leadId:String(foreignLead.id)}),400,user.cookie);
+  await call(register(rejected,{leadId:String(trashed.id)}),400,user.cookie);
+  await call(register(rejected,{leadId:String(lead2.id),linkedMessageId:sentToAna}),400,user.cookie);// the send belongs to another management than the one chosen
+  await call(register(rejected,{linkedMessageId:lead2Send}),400,user.cookie);// omitted leadId keeps the row's management, and the send is of lead2
+  assert.equal(await status(rejected),'pending_review','a rejected choice saves nothing');
+  // Explicit null clears the row's values (row: Ana + a send M to Ana): «El negocio», «No, es una respuesta nueva», «Ninguna (todo el negocio)».
+  const m=await msg(acc.id,'manual_sent',ana);
+  const cleared=await call(register(await inbound(ana,m),{contactId:null,linkedMessageId:null,leadId:null}),200,user.cookie);
+  assert.deepEqual(await saved(cleared.id),{contactId:null,linkedMessageId:null,leadId:null},'explicit nulls store neither the row person, send nor management');
+  assert.equal(await outcomeOf(m),null,'a response the seller said is new does not resolve the row send «Anotá cómo salió» (open sends in two managements)');
+  // Omitted fields keep the row's values (older clients, spec 96 M2): the stored send is resolved.
+  const kept=await call(register(await inbound(ana,m)),200,user.cookie);
+  assert.deepEqual(await saved(kept.id),{contactId:ana,linkedMessageId:m,leadId:String(lead.id)},'omitted fields use the row values');
+  assert.equal(await outcomeOf(m),'other','the row send is resolved when the row link is kept');
+  // A deleted person stored on the row: the screen shows «El negocio» and sends null, which saves; keeping the row value is rejected.
+  const stale=await inbound(gone);
+  await call(register(stale),400,user.cookie);
+  const staleSaved=await call(register(stale,{contactId:null,linkedMessageId:null,leadId:String(lead.id)}),200,user.cookie);
+  assert.deepEqual(await saved(staleSaved.id),{contactId:null,linkedMessageId:null,leadId:String(lead.id)});
+  const created=await call(register(await inbound(),{contactId:ana,linkedMessageId:sentToAna,leadId:String(lead.id)}),200,user.cookie);
+  assert.deepEqual(await saved(created.id),{contactId:ana,linkedMessageId:sentToAna,leadId:String(lead.id)},'the response keeps what the seller chose');
+  // «El negocio» with a send to a person: the send never replaces the chosen person (both may differ).
+  const decoupled=await call(register(await inbound(null),{contactId:null,linkedMessageId:sentToAna}),200,user.cookie);
+  assert.deepEqual(await saved(decoupled.id),{contactId:null,linkedMessageId:sentToAna,leadId:String(lead.id)});
+  // Another management of the business, and a send of it; «Ninguna (todo el negocio)» lists every send of the business.
+  const moved=await call(register(await inbound(),{leadId:String(lead2.id),linkedMessageId:lead2Send}),200,user.cookie);
+  assert.deepEqual(await saved(moved.id),{contactId:bea,linkedMessageId:lead2Send,leadId:String(lead2.id)},'the chosen management is saved');
+  const general=await call(register(await inbound(),{leadId:null,linkedMessageId:sentToAna}),200,user.cookie);
+  assert.deepEqual(await saved(general.id),{contactId:bea,linkedMessageId:sentToAna,leadId:null});
+  const fallback=await call(register(await inbound()),200,user.cookie);
+  assert.deepEqual(await saved(fallback.id),{contactId:bea,linkedMessageId:null,leadId:String(lead.id)},'without choices the row values are used');
+  console.log('Spec 99 §3.4: inbound_register saves what the screen shows (undefined keeps the row value, null clears it) and validates person, send and management');
+  }finally{await restoreOutcomeCutoff(since);}
+ }
  // Merge all new relationships while preserving original attribution and snapshots.
  const dest=await db.insertInto('crmAccounts').values({nombre:'Destino '+stamp,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();let r=await quality(request({action:'merge_preview',sourceId:a.id,destinationId:dest.id}));assert.equal(r.status,200);const p=superjson.parse<any>(await r.text());r=await quality(request({action:'merge_confirm',sourceId:a.id,destinationId:dest.id,token:p.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Revisado en fixture',confirm:true}));assert.equal(r.status,200,await r.text());assert.equal((await message(id)).accountId,dest.id);assert.equal((await sql<{originalAccountId:string}>`SELECT original_account_id FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].originalAccountId,a.id);assert.equal((await sql<{accountId:string}>`SELECT account_id FROM crm_documents WHERE id=${did}::uuid`.execute(db)).rows[0].accountId,dest.id);
  await resource({action:'delete',id:did,revision:2});assert.equal((await download(new Request('http://localhost/_api/resources/download?versionId='+versions[0].id,{headers:{cookie:admin.cookie}}))).status,400);assert.equal(Number((await sql<{n:string}>`SELECT count(*) n FROM crm_document_versions WHERE document_id=${did}::uuid`.execute(db)).rows[0].n),2);
