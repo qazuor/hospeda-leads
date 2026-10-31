@@ -6,7 +6,7 @@ const pdf=vi.hoisted(()=>({render:vi.fn()}));
 // pdf.js is mocked: the helper only reaches it through the lazily imported pdfThumbnail module.
 vi.mock('./pdfThumbnail',()=>({renderPdfCover:pdf.render}));
 const version={id:'v-1',version:1,url:null,fileName:'a.pdf',mimeType:'application/pdf',byteSize:5000,actorEmail:'a@example.com',createdAt:new Date()};
-const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:4,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories:[],currentVersion:version,...over});
+const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:4,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories:[],currentVersion:version,...over});
 const yes=()=>true;
 let sizes:number[]=[];const qualities:number[]=[];const drawn:number[][]=[];
 let created:string[]=[],revoked:string[]=[];

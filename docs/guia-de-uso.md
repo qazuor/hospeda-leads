@@ -763,6 +763,8 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 
 - Las categorías las administra un administrador en «Configuración» → «Categorías de material».
 - Portadas (administradores): un archivo sin portada elegida recibe una automática al guardarlo. Si no se puede generar (por ejemplo, un PDF de más de 150 MB o que no se puede leer), el aviso dice por qué y trae «Elegir portada». En «Portada» podés subir una imagen, también para un enlace externo, o usar «Generar desde el archivo» para reintentar la automática.
+- «Abrir directo» (administradores, en «Nuevo material» y «Editar material»): quien toca el enlace del material ve el archivo, o va directo al sitio si es un enlace externo, sin pasar por la página de Hospeda. La vista previa de WhatsApp sigue mostrando portada y título. Cambiarlo también afecta a los enlaces que ya se mandaron.
+- Los enlaces que se mandan a clientes se ven así: crm.hospeda.com.ar/m/titulo-del-material-Ab3x. El título del enlace es parte de la dirección: si alguien lo cambia, el enlace deja de abrir. Los enlaces largos que se mandaron antes siguen funcionando.
 
 **Dónde ir:** Abrir Material de venta (/sales-material)
 

@@ -11,7 +11,7 @@ vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await im
 vi.mock('../helpers/salesMaterialAutoCover',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialAutoCover')>(),saveAutoCover:api.autoCover,saveMissingAutoCover:api.missing}));
 vi.mock('../helpers/salesMaterialUpload',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialUpload')>(),uploadSalesMaterialFile:api.upload}));
 const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true,maxEmailAttachmentBytes:10485760};
-const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[],currentVersion:null};
+const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[],currentVersion:null};
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};api.post.mockResolvedValue({ok:true});api.autoCover.mockResolvedValue({ok:true,revision:2});});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const onSaved=vi.fn(),onClose=vi.fn();
@@ -97,7 +97,24 @@ describe('SalesMaterialForm',()=>{
   fireEvent.change(screen.getByLabelText('Tipo'),{target:{value:'internal'}});
   expect(screen.getByRole('note').textContent).toContain('van a mostrar «Este material ya no está disponible»');
   fireEvent.click(save('Guardar cambios'));
-  await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'update',id:'m-1',revision:5,title:'Folleto',description:'',kind:'internal',categoryIds:[]}));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'update',id:'m-1',revision:5,title:'Folleto',description:'',kind:'internal',categoryIds:[],openDirect:false}));
+ });
+ it('spec 101 D3/D4: creates a material set to «Abrir directo» and explains what it changes',async()=>{
+  setup({type:'create'});
+  fireEvent.change(screen.getByLabelText('Origen'),{target:{value:'url'}});
+  fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/tour'}});
+  fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Recorrido 360'}});
+  const toggle=screen.getByLabelText('Abrir directo') as HTMLInputElement;expect(toggle.checked).toBe(false);
+  expect(screen.getByText(/va directo al sitio externo/).textContent).toMatch(/enlaces ya enviados/);
+  fireEvent.click(toggle);fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',source:'url',openDirect:true})));
+ });
+ it('spec 101 D3: edits «Abrir directo» from the stored value, with the file wording',async()=>{
+  setup({type:'edit',material:{...material,openDirect:true}});
+  const toggle=screen.getByLabelText('Abrir directo') as HTMLInputElement;expect(toggle.checked).toBe(true);
+  expect(screen.getByText(/ve el archivo/).textContent).toMatch(/se descargan/);
+  fireEvent.click(toggle);fireEvent.click(save('Guardar cambios'));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'update',openDirect:false})));
  });
  it('refuses uploads while storage is not configured',()=>{
   setup({type:'version',material},{storageConfigured:false});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));

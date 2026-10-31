@@ -43,7 +43,7 @@ test('insert sales material in a template and resolve it into a link per message
  const leadId=String((await sql`SELECT id FROM leads WHERE account_id=${accountId} ORDER BY id DESC LIMIT 1`)[0]!.id);
  const prepare=(variation:number)=>api('communication',{action:'prepare',id:randomUUID(),leadId,contactId:null,channel:'whatsapp',templateId:template.id,variation});
  const first=await prepare(1),second=await prepare(2);
- const token=(body:string)=>new RegExp(`${title}: http\\S*/m/([A-Za-z0-9_-]{43})`).exec(body)?.[1];
+ const token=(body:string)=>new RegExp(`${title}: http\\S*/m/([a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4})(?![A-Za-z0-9_-])`).exec(body)?.[1];
  expect(token(first.body)).toBeTruthy();expect(token(second.body)).toBeTruthy();expect(token(first.body)).not.toBe(token(second.body));
  expect(first.materialWarnings).toEqual([]);expect(first.materials.map((m:any)=>m.materialId)).toEqual([materialId]);
 

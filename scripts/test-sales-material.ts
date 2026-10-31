@@ -134,6 +134,21 @@ try{
  await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'file',fileName:'x.pdf',mimeType:'application/pdf',byteSize:10,materialId:linkId},400);
  const linkVersion=(await call(endpoints.get,'sales_materials?search=video+'+stamp,seller.cookie)).materials[0].currentVersion;assert.equal(linkVersion.url,'https://example.com/video');
  assert.equal((await raw(endpoints.file,'sales_materials/file?versionId='+linkVersion.id,seller.cookie)).headers.get('Location'),'https://example.com/video');
+ // Spec 101 D3/D4: «Abrir directo» is off by default, set by an admin only (create and update), kept when an update omits it; destinations stay https.
+ const openDirect=async()=>(await call(endpoints.get,'sales_materials?search=video+'+stamp,seller.cookie)).materials[0].openDirect;
+ assert.equal(await openDirect(),false,'Off by default');
+ const linkRevision=(await call(endpoints.get,'sales_materials?search=video+'+stamp,admin.cookie)).materials[0].revision;
+ await call(endpoints.post,'sales_materials',seller.cookie,{action:'update',id:linkId,revision:linkRevision,title:'Video '+stamp,description:'',kind:'deliverable',categoryIds:[category],openDirect:true},403);
+ assert.equal(await openDirect(),false,'A seller cannot turn it on');
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id:linkId,revision:linkRevision,title:'Video '+stamp,description:'',kind:'deliverable',categoryIds:[category],openDirect:true});
+ assert.equal(await openDirect(),true);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id:linkId,revision:linkRevision+1,title:'Video '+stamp,description:'Con comentario',kind:'deliverable',categoryIds:[category]});
+ assert.equal(await openDirect(),true,'An update without the field keeps it');
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id:linkId,revision:linkRevision+2,title:'Video '+stamp,description:'',kind:'deliverable',categoryIds:[category],openDirect:'yes'},400);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id:linkId,revision:linkRevision+2,version:{url:'http://example.com/otro'}},400);
+ const directId=randomUUID();
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:directId,title:'Directo '+stamp,description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/directo'},openDirect:true});
+ assert.equal((await call(endpoints.get,'sales_materials?search=directo+'+stamp,seller.cookie)).materials[0].openDirect,true);
  checks++;
  // Covers: images up to 1 MB, served through our server; a small image material is its own cover.
  await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'cover',fileName:'tapa.pdf',mimeType:'application/pdf',byteSize:10,materialId:id},400);
