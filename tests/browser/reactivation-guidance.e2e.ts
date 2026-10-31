@@ -9,8 +9,9 @@ test('reactivation rows summarize the business date and link the actionable task
   {id:'10',accountId:'1',nombre:'Cabañas del Río',opportunityName:'Plan de alojamiento',tipo:'Alojamiento',managementType:'main',assignedUserEmail:'admin@example.com',estado:'main:lost',pipelineRevision:1,eventId:'101',reasonId:'4',comment:'Retomar en noviembre',recontactDate:'2026-11-01',businessStatus:'recontact',businessRecontactDate:'2026-11-01',taskId:'15',taskTitle:'Llamar por la propuesta',taskStatus:'pending',taskDueDate:'2026-11-01',relatedLeadId:'10',relatedOpportunityName:'Plan de alojamiento',doNotContact:false},
   {id:'11',accountId:'2',nombre:'Hostería del Valle',opportunityName:'Ficha Hospeda',tipo:'Alojamiento',managementType:'main',assignedUserEmail:'admin@example.com',estado:'main:lost',pipelineRevision:1,eventId:'102',reasonId:'4',comment:null,recontactDate:'2026-11-05',businessStatus:'no_follow_up_scheduled',businessRecontactDate:null,taskId:null,taskTitle:null,taskStatus:null,taskDueDate:null,relatedLeadId:null,relatedOpportunityName:null,doNotContact:false}
  ],total:2,page:1,users:[{email:'admin@example.com',displayName:'Admin'}],verticals:['Alojamiento']};
+ const pipelineQueries:URLSearchParams[]=[];
  await page.route('**/_api/**',async route=>{
-  const path=new URL(route.request().url()).pathname;
+  const url=new URL(route.request().url()),path=url.pathname;if(path.endsWith('/pipeline'))pipelineQueries.push(url.searchParams);
   await route.fulfill({contentType:'application/json',body:superjson.stringify(path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:path.endsWith('/pipeline')?data:{})});
  });
  // Old bookmark: Reactivación now lives in Hoy → Para retomar.
@@ -19,6 +20,9 @@ test('reactivation rows summarize the business date and link the actionable task
  await expect(page.getByRole('tab',{name:'Para retomar',exact:true})).toHaveAttribute('aria-selected','true');
  await expect(page.getByRole('tabpanel',{name:'Para retomar',exact:true})).toBeVisible();
  await expect(page).toHaveTitle('Hoy · Hospeda CRM');
+ // Spec 100 D5: «Todos» and an empty «Hasta» by default, so a management just closed with a future recontact date (task already created) is listed.
+ await expect(page.getByRole('combobox',{name:'Estado de retoma',exact:true})).toHaveValue('all');await expect(page.getByLabel('Hasta',{exact:true})).toHaveValue('');
+ await expect.poll(()=>{const q=pipelineQueries.find(x=>x.get('mode')==='reactivation');return q&&[q.get('handled'),q.has('to'),q.has('from')].join();}).toBe('all,false,false');
  await expect(page.getByRole('link',{name:'Ir a Gestiones',exact:true})).toHaveAttribute('href','/opportunities');
  const planned=page.locator('article').filter({hasText:'Cabañas del Río'});
  await expect(planned).toContainText('Estado del negocio: Recontactar');

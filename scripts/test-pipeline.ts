@@ -6,6 +6,7 @@ import {setServerSession} from '../src/helpers/getSetServerSession';
 import {get,post} from '../src/endpoints/pipeline';
 import {handle as quick} from '../src/endpoints/leads_quick_POST';
 import {handle as list} from '../src/endpoints/leads_GET';
+import {localDay} from '../src/helpers/workDates';
 import type {PipelineData} from '../src/endpoints/pipeline.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');const stamp=Date.now();
 async function identity(role:'admin'|'user'){
@@ -89,6 +90,20 @@ try{
   assert.equal((await db.selectFrom('leads').select('estado').where('id','=',typed.id).executeTakeFirstOrThrow()).estado,'main:lost');
   await mutate({action:'transition',leadId:typed.id,revision:await typedRevision(),stage:'main:contacted'},admin.cookie);
   assert.equal((await db.selectFrom('leads').select('estado').where('id','=',typed.id).executeTakeFirstOrThrow()).estado,'main:contacted');
+ }
+ // Spec 100 D5: a request without `handled`/`to` (the Para retomar defaults) lists a management just closed with a future recontact date,
+ // even though the close already created its automatic recontact task. Explicit filters keep narrowing.
+ {
+  const fresh=await db.insertInto('leads').values({nombre:a.nombre,accountId:a.id,estado:'main:contact',managementType:'main',assignedUserEmail:user.user.email,opportunityName:'Cierre reciente'} as never).returningAll().executeTakeFirstOrThrow();
+  const lostReason=d.managementReasons.find(r=>r.managementType==='main'&&r.outcomeKey==='lost'&&r.active&&!r.doNotContact&&!r.requiresNote)!;
+  const future=localDay(new Date(Date.now()+30*86400000));
+  await mutate({action:'transition',leadId:fresh.id,revision:fresh.pipelineRevision,stage:'main:lost',reasonId:lostReason.id,recontactDate:future});
+  const listed=(await read('mode=reactivation')).reactivations.find(r=>r.id===fresh.id);
+  assert(listed,'a just-closed management with a future recontact date must appear with the default filters');assert(listed.taskId,'the close created its recontact task');assert.equal(listed.recontactDate,future);
+  assert((await read('mode=reactivation&handled=all')).reactivations.some(r=>r.id===fresh.id));
+  assert((await read('mode=reactivation&handled=yes')).reactivations.some(r=>r.id===fresh.id));
+  assert(!(await read('mode=reactivation&handled=no')).reactivations.some(r=>r.id===fresh.id),'explicit handled=no still hides closes with an action');
+  assert(!(await read('mode=reactivation&to='+localDay())).reactivations.some(r=>r.id===fresh.id),'explicit Hasta still hides later dates');
  }
  // Spec 87: customer-marking wins require a useful agreement; non-client wins stay optional and later edits cannot empty customer evidence.
  {
