@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {localDay,calendarDay,localDateTime,argentinaInstant,taskBucket,shortcutDates} from './workDates';
+import {localDay,calendarDay,localDateTime,argentinaInstant,taskBucket,shortcutDates,postponeBase,postponeMinimum} from './workDates';
 import {day} from '../endpoints/work.schema';
 import {nextActionInfo,toDateInput} from './crmDates';
 describe('Commercial days are explicit Argentina calendar days',()=>{
@@ -37,5 +37,24 @@ describe('Due-date shortcuts',()=>{
   expect(shortcutDates(new Date('2026-10-25T15:00:00Z')).nextMonday).toBe('2026-10-26');
   expect(shortcutDates(new Date('2026-10-26T15:00:00Z')).nextMonday).toBe('2026-11-02');
   expect(shortcutDates(new Date('2026-10-24T15:00:00Z')).nextMonday).toBe('2026-10-26');
+ });
+});
+describe('Postpone base',()=>{
+ it('uses the later of the due date and Argentina today',()=>{
+  const now=new Date('2026-10-30T15:00:00Z');
+  expect(postponeBase('2026-11-02',now)).toBe('2026-11-02');
+  expect(postponeBase('2026-10-30',now)).toBe('2026-10-30');
+  expect(postponeBase('2026-10-01',now)).toBe('2026-10-30');
+  expect(shortcutDates(now,postponeBase('2026-11-02',now)).tomorrow).toBe('2026-11-03');
+  expect(postponeMinimum('2026-11-02',now)).toBe('2026-11-03');
+  expect(postponeMinimum('2026-10-01',now)).toBe('2026-10-30');
+  expect(postponeMinimum('2026-10-30',now)).toBe('2026-10-30');
+ });
+ it('starts tomorrow for a timed task whose hour already passed today, so postponing never leaves it overdue',()=>{
+  const now=new Date('2026-10-30T18:00:00Z');// 15:00 in Argentina
+  expect(postponeMinimum('2026-10-29',now,new Date('2026-10-29T12:00:00Z'))).toBe('2026-10-31');// yesterday 09:00
+  expect(postponeMinimum('2026-10-30',now,new Date('2026-10-30T12:00:00Z'))).toBe('2026-10-31');// today 09:00
+  expect(postponeMinimum('2026-10-30',now,new Date('2026-10-30T21:00:00Z'))).toBe('2026-10-30');// today 18:00
+  expect(postponeMinimum('2026-10-29',now,null)).toBe('2026-10-30');
  });
 });
