@@ -71,7 +71,7 @@ Solo nombres; nunca valores en Git, PR, chat o logs. Inventario tomado del códi
 | `BREVO_SMTP_LOGIN` + `BREVO_SMTP_KEY` | Se oculta «Responder» por email (clave propia del CRM, revocable) |
 | `INSTAGRAM_VERIFY_TOKEN` (32+) | La verificación del webhook de Meta responde 503. El mismo valor va en la Callback URL de Meta |
 | `INSTAGRAM_APP_SECRET`, `INSTAGRAM_ACCOUNT_ID` | El webhook de Instagram responde 503; no hay confirmación automática por eco |
-| `INTEGRATION_SECRETS_KEY` (base64 de exactamente 32 bytes: `openssl rand -base64 32`) | No se puede guardar ni renovar el token de Instagram; el log dice «Instagram integration disabled». Nueva para producción, no reutilizar la de pruebas; guardarla también en el gestor de secretos |
+| `INTEGRATION_SECRETS_KEY` (base64 de exactamente 32 bytes: `openssl rand -base64 32`; un valor en hexadecimal, entre comillas o con relleno se rechaza) | No se puede guardar ni renovar el token de Instagram; el log dice «Instagram integration disabled» y la pantalla muestra «Falta INTEGRATION_SECRETS_KEY» (el mensaje también aparece cuando la clave existe pero tiene mal formato; hay un arreglo planeado). Nueva para producción, no reutilizar la de pruebas; guardarla también en el gestor de secretos |
 | `INSTAGRAM_ACCOUNT_USERNAME` (spec 97, @usuario normalizado) | El panel de Instagram del script no puede aprender ni pegar; el vendedor ve «Falta configurar la cuenta de Instagram de Hospeda…» |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | El ID de cuenta debe cumplir `^[A-Za-z0-9-]+$` y el bucket `^[a-z0-9][a-z0-9.-]{1,62}$`. Si falta alguna o está mal formada: Material de venta muestra «Almacenamiento no configurado» y subir responde 503; los enlaces externos siguen funcionando. Ver 3.5, «Material de venta (spec 89), Cloudflare R2» |
 | `BUSINESS_IMPORT_TOKEN_SHA256` | API de importación de negocios deshabilitada |
@@ -93,7 +93,6 @@ Solo nombres; nunca valores en Git, PR, chat o logs. Inventario tomado del códi
 
 **NO cargar en producción**
 
-- `CRM_MCP_*`: el MCP está deshabilitado.
 - `R2_ENDPOINT`, `CRM_TEST_DATABASE*`, `CRM_DEV_*`, `PERF_*`, `CRM_PERF_*`, `CRM_STATE_PREFLIGHT*`.
 - `MIGRATION_DATA_URL` / `MIGRATION_DATA_KEY`: solo para el importador de una única vez; si siguen cargadas, quitarlas.
 
@@ -154,7 +153,7 @@ No hay paso manual de deploy: el merge de 3.1 lo dispara (Coolify auto-deploy so
 ### 3.5 Configuración externa posterior al deploy
 
 **Instagram Direct (spec 88).** Aplicar solo con 045 y las 4 variables cargadas.
-1. En Meta (app ya creada y publicada): Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram` y verify token igual a `INSTAGRAM_VERIFY_TOKEN` de producción. Meta hace un `GET` de verificación: debe responder `hub.challenge`.
+1. En Meta (app ya creada y publicada): Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram` (en el smoke del 30/10/2026 producción tenía una URL `trycloudflare` de desarrollo; cambiar la Callback URL no exige un verify token nuevo) y verify token igual a `INSTAGRAM_VERIFY_TOKEN` de producción. Meta hace un `GET` de verificación: debe responder `hub.challenge`.
 2. Suscribir el campo `messages` y activar la suscripción de la cuenta («Webhook subscription»).
 3. Confirmar que las URLs de política de privacidad y de eliminación de datos cargadas en la app son las definitivas de Hospeda (spec 88 sección 7). **(verificar cuáles son; el repo no las define)**
 4. En el CRM, un admin carga el token de la cuenta en Configuración → «Integraciones» → Instagram (`pendientes.md` lo ubica ahí; el texto en inglés de esa misma página dice «Settings → Communication → Instagram» y `settings.tsx` monta el componente cerca de la sección de Comunicación **(verificar la ruta en la pantalla)**). El token se guarda cifrado y no vuelve a mostrarse; no se valida contra Meta al guardarlo.

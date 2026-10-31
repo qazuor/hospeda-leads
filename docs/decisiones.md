@@ -406,3 +406,4 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 ## Deploy: `main` se despliega solo (30/10/2026, propietario)
 
 - Coolify auto-despliega producción en cada push a `main` (confirmado cuando el merge del #288 desplegó solo). Un merge `staging` → `main` **es** un deploy de producción: solo con la orden explícita del propietario, con las variables de entorno cargadas en Coolify y un respaldo de la base hecho antes. Los merges a `staging` no despliegan nada. `deploy-vps.yml` sigue siendo solo `workflow_dispatch` y no se dispara.
+- El servidor MCP está habilitado en producción (`CRM_MCP_ENABLED=1`, confirmado en el smoke del 30/10/2026). Se desactiva con `CRM_MCP_ENABLED=0` y redeploy.

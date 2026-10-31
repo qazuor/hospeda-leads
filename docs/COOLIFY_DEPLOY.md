@@ -56,7 +56,7 @@ INSTAGRAM_ACCOUNT_USERNAME=<Hospeda Instagram username, e.g. hospeda.com.ar>
 INSTAGRAM_APP_SECRET=<Meta app secret>
 INSTAGRAM_VERIFY_TOKEN=<random secret, minimum 32 characters; same value as the Meta webhook verify token>
 INSTAGRAM_ACCOUNT_ID=<Hospeda professional Instagram account id>
-INTEGRATION_SECRETS_KEY=<base64 of exactly 32 random bytes: openssl rand -base64 32>
+INTEGRATION_SECRETS_KEY=<base64 of exactly 32 random bytes: openssl rand -base64 32>  # hex, quoted or padded values are rejected (UI then shows «Falta INTEGRATION_SECRETS_KEY»)
 CRM_CLIENT_IP_HEADER=cf-connecting-ip  # production value; code default x-real-ip; allowed: x-real-ip, cf-connecting-ip, x-forwarded-for, none
 SLOW_REQUEST_MS=<optional, default 1000>
 DB_LOCK_TIMEOUT_MS=<optional, default 10000>
@@ -72,7 +72,7 @@ Qué pasa cuando falta cada una, y los valores por defecto, está en el inventar
 
 **Confirmado por el propietario (30/10/2026):** producción usa `CRM_CLIENT_IP_HEADER=cf-connecting-ip` (el dominio pasa por el proxy de Cloudflare). El valor por defecto del código, si no se define, es `x-real-ip`. La plantilla de producción del repo está al día con este inventario.
 
-**Worker de email entrante (Cloudflare, despliegue aparte).** No usa Coolify: se despliega desde `workers/inbound-email/` con `wrangler`. Variables en `wrangler.toml`: `CRM_BASE_URL` (debe apuntar a producción) y `TRUSTED_AUTHSERV_ID`. Secrets de wrangler: `INBOUND_EMAIL_TOKEN` (el mismo valor que en Coolify) y `FORWARD_TO`.
+**Worker de email entrante (Cloudflare, despliegue aparte).** No usa Coolify: se despliega desde `workers/inbound-email/` con `wrangler`. Variables en `wrangler.toml`: `CRM_BASE_URL` (debe apuntar a producción) y `TRUSTED_AUTHSERV_ID`. Secrets de wrangler: `INBOUND_EMAIL_TOKEN` (el mismo valor que en Coolify) y `FORWARD_TO`. Diagnóstico: `wrangler tail hospeda-inbound-email` muestra los logs en vivo. En el smoke del 30/10/2026 el Worker devolvió `address list HTTP 530` hasta que se lo redesplegó (causa raíz desconocida); el PR #293 (en `staging`) registra status, `cf-ray` y cuerpo cuando el CRM falla. Durante una falla, las respuestas solo llegan a Gmail y no al CRM.
 
 Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` y, opcionalmente, `BREVO_SMTP_PORT` en Coolify. La clave debe ser propia del CRM y revocable. Si falta el usuario o la clave, el servidor inicia igual y oculta la acción.
 
@@ -249,3 +249,10 @@ Secuencia recomendada:
 # Instagram Direct
 
 Before enabling the webhook, apply `migrations/045_instagram_direct.sql` and configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, `INSTAGRAM_ACCOUNT_ID`, and `INTEGRATION_SECRETS_KEY` (base64-encoded 32 bytes). In Meta, use callback `https://crm.hospeda.com.ar/_api/inbound/instagram`, subscribe to `messages`, and enable the account-level subscription. Publish the app. Load the account token in Settings → Communication → Instagram; it is never shown again. The integration only receives messages; the CRM does not send messages to Meta. For the user script panel on Instagram (spec 97), apply `migrations/053_instagram_threads.sql` and set `INSTAGRAM_ACCOUNT_USERNAME` to Hospeda's Instagram username (for example `hospeda.com.ar`).
+
+Notas del smoke de producción (30/10/2026):
+- `INTEGRATION_SECRETS_KEY` debe ser base64 de exactamente 32 bytes (`openssl rand -base64 32`). Un valor en hexadecimal, entre comillas o con relleno se rechaza y la pantalla muestra «Falta INTEGRATION_SECRETS_KEY» (mensaje engañoso; arreglo planeado).
+- La Callback URL de Meta debe ser `https://crm.hospeda.com.ar/_api/inbound/instagram` (producción tenía una URL `trycloudflare` de desarrollo). Cambiarla no exige un verify token nuevo.
+- Copiar el token de larga duración con el botón de copiar del diálogo de Meta. Un token mal formado hace que Meta responda «Cannot parse access token» y cada mensaje entrante queda en «Sin asociar» con el IGSID numérico como remitente. Verificación: `curl "https://graph.instagram.com/<IGSID>?fields=username,name&access_token=<token>"`, leyendo el token con `read -s`; nunca pegarlo en el chat ni dejarlo en el historial del shell.
+- El acceso estándar de Meta alcanza: llegaron webhooks de una cuenta externa sin rol en la app (cheroga.cdelu). No hace falta App Review (coherente con la spec 88).
+- SPF: el apex `hospeda.com.ar` no tiene registro TXT de SPF (nota de entregabilidad).

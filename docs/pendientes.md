@@ -2,6 +2,26 @@
 
 # Pendientes y próximo trabajo
 
+## Smoke de producción 2026-10-30
+
+El smoke con usuario común quedó completo; el del admin está pendiente. Del smoke salió un lote planeado de specs:
+
+- **99** registro honesto de contactos.
+- **100** «Requiere acción» compacto.
+- **101** links y envío de material.
+- **102** pantalla de material de venta.
+- **103** Bandeja sin asociar + Instagram + user script.
+- **104** pulido de ficha, formularios y visual.
+
+Regla: el trabajo se mergea a `staging`; a `main` solo cuando todos los PR del lote estén en `staging` y el propietario lo pida (un merge a `main` despliega producción).
+
+Datos que necesitan aprobación del propietario (ningún agente los toca por iniciativa propia):
+- Negocio de prueba H1601 «PRUEBA UX — Hospeda — 02-10-2026» en producción.
+- Documento de prueba «aaaa» en Cheroga (H1468) en producción.
+- Ciudades duplicadas: San Jose / San José, Federacion, Chajari.
+
+Otros: el mensaje «Falta INTEGRATION_SECRETS_KEY» aparece también cuando la clave existe pero tiene mal formato (arreglo planeado); el apex `hospeda.com.ar` no tiene SPF TXT; si el Worker `hospeda-inbound-email` vuelve a fallar, ver `COOLIFY_DEPLOY.md` (el PR #293 agrega logs).
+
 ## Specs 94, 96, 97 y 98 — desplegadas a producción el 30/10/2026
 
 PR #281/#284 (94 y 96), #285 (97), #286 (98). Se promovieron con el PR #288 (`staging` → `main`, `dfa9b33`) y Coolify desplegó solo (auto-deploy de `main`, confirmado por el propietario). Producción sirve el user script 1.7.0. Pendiente:
@@ -44,7 +64,7 @@ Specs 87 (#262) y 88 (#260), mergeadas en `staging` el 26/10/2026. **Para produc
 2. En Coolify:
    - definir `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN` (32 caracteres o más) e `INSTAGRAM_ACCOUNT_ID`;
    - definir `INTEGRATION_SECRETS_KEY`: 32 bytes en base64, generados para producción. **No reutilizar** la de la prueba local.
-3. En Meta, poner la Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram` con el verify token de producción, y confirmar las URLs de privacidad y de eliminación de datos.
+3. En Meta, poner la Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram` con el verify token de producción (cambiar la URL no exige un verify token nuevo), y confirmar las URLs de privacidad y de eliminación de datos.
 4. En el CRM de producción, un admin carga el token de la cuenta en Configuración → Integraciones → Instagram.
 
 Límites conocidos de la 88: el token pegado no se valida contra Meta al guardarlo, y viaja como parámetro de la URL a `graph.instagram.com`.
