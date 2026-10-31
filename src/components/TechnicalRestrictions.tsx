@@ -17,6 +17,8 @@ import styles from './Communication.module.css';
 type RestrictionChannel='email'|'whatsapp'|'call'|'social'|'other';
 /** Restriction row as GET /_api/communication returns it. */
 type Restriction={id:string|number;channel:string;contactId:string|number|null;reason:string;actorEmail:string|null;createdAt:Date;liftedAt:Date|null;liftReason:string|null;liftedBy:string|null};
+/** Spec 104 (29): who registers channel restrictions, for whoever is not an admin (decision D2), and who may record «Pidió no ser contactado» (decision D1, `canRecordDoNotContact`). */
+export const SELLER_RESTRICTIONS_NOTE='Las restricciones por canal las registra un administrador. Si el negocio pidió que no le escriban por un canal, avisale a un administrador. Si pidió no ser contactado por ningún medio, lo registra el responsable del negocio o el de una de sus gestiones desde «Anotar lo que pasó» → «Pidió no ser contactado»; si no sos responsable, avisale a un administrador.';
 /** «Todos los canales» for `all`, otherwise the channel label. */
 export const restrictionChannelLabel=(channel:string)=>channel==='all'?'Todos los canales':channelLabel(channel);
 
@@ -50,6 +52,7 @@ export function TechnicalRestrictions({accountId,leadId,collapsible=false}:{acco
    <p>{contactName(r.contactId)} · {r.reason} · {actorLabel(r.actorEmail,detail.data?.users)} · {formatDateTime(r.createdAt)}</p>
    {r.liftedAt?<p>{r.liftReason} · {actorLabel(r.liftedBy,detail.data?.users)} · {formatDateTime(r.liftedAt)}</p>:admin&&<Button variant="outline" disabled={m.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>{setLiftedNotice(null);setLiftTarget({id:String(r.id),channel:r.channel,reason:r.reason,contact:contactName(r.contactId)})}}>Levantar restricción</Button>}
   </article>)}
+  {!admin&&q.data&&<p className={styles.muted}>{SELLER_RESTRICTIONS_NOTE}</p>}
  </div>;
  return <>
   {collapsible?<Disclosure><DisclosureSummary>Restricciones de contacto</DisclosureSummary>{body}</Disclosure>:<section aria-label="Restricciones técnicas por canal"><h4>Restricciones técnicas por canal</h4>{body}</section>}
