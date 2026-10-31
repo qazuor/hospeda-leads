@@ -60,7 +60,8 @@ export function SalesMaterialCard({material,admin,selected,anchor,busy,storageCo
       {admin&&<>
        <DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'edit',material})}><Pencil size={15} aria-hidden="true"/>Editar</DropdownMenuItem>
        {!archived&&<DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'version',material})}><Upload size={15} aria-hidden="true"/>Nueva versión</DropdownMenuItem>}
-       {!archived&&material.source==='file'&&<DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'cover',material})}><ImagePlus size={15} aria-hidden="true"/>Portada</DropdownMenuItem>}
+       {/* Spec 102 block 2: external links take a manual cover too (the server always allowed it). */}
+       {!archived&&<DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'cover',material})}><ImagePlus size={15} aria-hidden="true"/>Portada</DropdownMenuItem>}
        <DropdownMenuSeparator/>
        <DropdownMenuItem {...busyProps} onClick={()=>onArchive(material)}>{archived?<RotateCcw size={15} aria-hidden="true"/>:<Archive size={15} aria-hidden="true"/>}{archived?'Restaurar':'Archivar'}</DropdownMenuItem>
       </>}
