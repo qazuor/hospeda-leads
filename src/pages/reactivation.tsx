@@ -11,14 +11,14 @@ import {Button} from '../components/Button';
 import {PipelineEditor} from '../components/Pipeline';
 import {getPipeline,type ReactivationRow} from '../endpoints/pipeline.schema';
 import {formatDate} from '../helpers/crmDates';
-import {localDay} from '../helpers/workDates';
 import {useAuth} from '../helpers/useAuth';
 import {managementTypeLabels} from '../helpers/businessManagement';
 import styles from '../components/Commercial.module.css';
 /** "Para retomar" view of Hoy (`/my-day?view=retomar`, formerly the Reactivación page): closed managements with a recontact date. Rendered inside the Hoy page shell. */
 export function ReactivationContent(){
  const {authState}=useAuth();const admin=authState.type==='authenticated'&&authState.user.role==='admin';
- const [from,setFrom]=useState(''),[to,setTo]=useState(localDay()),[reason,setReason]=useState(''),[vertical,setVertical]=useState(''),[responsible,setResponsible]=useState(''),[handled,setHandled]=useState('no'),[page,setPage]=useState(1);
+ // Spec 100 D5: «Todos» and an empty «Hasta» by default, so a management just closed with a future recontact date (its task already created) shows up; rows stay ordered by recontact date.
+ const [from,setFrom]=useState(''),[to,setTo]=useState(''),[reason,setReason]=useState(''),[vertical,setVertical]=useState(''),[responsible,setResponsible]=useState(''),[handled,setHandled]=useState('all'),[page,setPage]=useState(1);
  const [target,setTarget]=useState<ReactivationRow|null>(null);const params={mode:'reactivation',...(from?{from}:{}),...(to?{to}:{}),...(reason?{reasonId:reason}:{}),...(vertical?{vertical}:{}),...(responsible?{responsible}:{}),handled,page:String(page)};
  const q=useQuery({queryKey:['pipeline','reactivation',params],queryFn:()=>getPipeline(params)});const d=q.data;
  const change=(fn:()=>void)=>{fn();setPage(1);};
