@@ -281,17 +281,19 @@ Usada por el encabezado del negocio (3.1), la columna «Último contacto» de Ne
 
 | Evento | ¿Cuenta? | Fecha que se usa |
 | --- | --- | --- |
-| Mensaje `manual_sent` (WhatsApp, Instagram, email manual, red social, otro) | Sí | `last_interaction_at` (3.2) |
+| Mensaje `manual_sent` (WhatsApp, Instagram, email manual, red social, otro) | Sí | `last_interaction_at` (3.2); fuente desde journal, no `external_id` solo |
 | Llamada `manual_sent` («Llamada realizada») | Sí | `last_interaction_at` |
 | Email `accepted` o `delivery_confirmed` | Sí (precedente de Primeros pasos; ver pregunta 1) | `last_interaction_at`, o la hora de aceptación del outbox |
 | Mensaje `replied` o `rejected` (respuesta o rechazo registrado sobre el envío) | Sí | `last_interaction_at` |
 | Respuesta registrada (`crm_communication_responses`) | Sí | `occurred_at` |
-| Mensaje recibido no anulado ni descartado (`pending_review`, `registered`) | Sí (ver pregunta 1) | `received_at` |
-| Actividad manual con resultado distinto de `no_answer` (sin mensaje vinculado, o con mensaje de evidencia) | Sí | `occurred_at` |
-| Actividad vinculada a un mensaje que no es evidencia (apertura, «No se envió», incierto) y sin resultado | **No** | — |
+| Mensaje recibido no anulado ni descartado (`pending_review`, `registered`) y no automático | Sí (ver pregunta 1) | `received_at` |
+| Actividad con `outcome` distinto de `no_answer` y sin mensaje vinculado (`interested`, `later`, `replied`, `not_interested`, `do_not_contact`, `other`, `delivered`, `needs_help`, `awaiting_confirmation`, `care_completed`) | Sí | `occurred_at` |
+| Actividad vinculada a un mensaje | Solo si el mensaje es evidencia, cualquiera sea el resultado | `occurred_at` |
+| Actividad histórica con `outcome IS NULL` y sin mensaje vinculado (contacto manual) | Sí | `occurred_at` |
+| Actividad histórica con `outcome IS NULL` y mensaje vinculado | Solo si el mensaje es evidencia | `occurred_at` |
 | `manual_no_contact` («No atendió») o actividad con resultado `no_answer` | **No** (intento, no contacto; ver pregunta 1) | — |
 | `draft`, `cancelled`, `voided`, `whatsapp_opened`, `instagram_opened`, `manual_pending`, `manual_not_done`, `submitting`, `unknown`, `failed` | **No** | — |
-| Cualquier fila del journal de comunicación (borrador preparado o descartado, apertura, envío en curso, incierto, restricciones, No contactar…) | **No** (el journal es auditoría, no contacto) | — |
+| Cualquier fila del journal de comunicación (borrador preparado o descartado, apertura, envío en curso, incierto, restricciones, No contactar…) | **No** (el journal es auditoría; inbound usa la fecha del mensaje) | — |
 | Aperturas o clicks de email (spec 93) | **No** (ya decidido, `docs/decisiones.md:356`) | — |
 | Cambio de etapa, cambio de datos | **No** | — |
 
@@ -418,3 +420,9 @@ El propietario aprobó la recomendación de las seis: **D1 = A, D2 = A, D3 = A, 
    - Opción A: no tocar; corregir al mostrar donde hay mensaje vinculado (sección 3.3).
    - Opción B: backfill acotado (`UPDATE … WHERE` mensaje WhatsApp con `external_id` y `result='Envío confirmado manualmente'`), con runbook revisado y alcance aprobado, ejecutado por el operador.
    - **Recomendación: A.** El texto guardado no se usa para lógica, y la corrección al mostrar cubre burbuja, pendientes e historial. Un backfill de producción necesita runbook y aprobación aparte, y no está justificado por un texto.
+
+### Decisiones adicionales (propietario, 30/10/2026)
+
+- **E1.** Si primero se confirmó manualmente y luego se vinculó el envío mediante el userscript o el eco de Instagram (`contact_linked` / `linked:true`, solo agrega `external_id`), se conserva la atribución manual. La fuente se deriva de los eventos de confirmación del journal (`contact_completed` / `contact_resolved` por script o eco, frente a `contact_linked`); `external_id IS NOT NULL` no basta. Aplica a burbujas (`sentStatusLabel`), «Anotá cómo salió», historial y resultado de tareas en `work.ts`. Sin cambio de esquema.
+- **E2.** Una actividad histórica con `outcome IS NULL` cuenta solo si no tiene mensaje vinculado; cubre contactos anotados manualmente. La misma regla aplica al encabezado, Negocios y Primeros pasos.
+- **E3.** Un inbound con `is_automatic = true` (respuesta automática o fuera de oficina) no cuenta como evidencia en el encabezado ni en Negocios.

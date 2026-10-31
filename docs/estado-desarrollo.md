@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 30 de octubre de 2026
 
+## Spec 99 bloque 1 — segunda revisión corregida en el worktree
+
+- Corregidas las reglas de evidencia de contacto y atribución de fuente; se agregaron pruebas unitarias, pruebas de endpoint listas para CI y los tres acuerdos adicionales E1–E3 a la spec. Sin migración.
+- Validación local: `npm run typecheck` y `npx vitest run --maxWorkers=4` (253 archivos, 2219 pruebas) en verde. No se ejecutaron integraciones porque este entorno no tiene una base descartable; ver el informe de revisión en el scratchpad del propietario.
+- Pendiente: ejecutar `scripts/test-commercial.ts`, `scripts/test-business-history.ts` y `scripts/test-userscript.ts` en CI/base descartable y medir `EXPLAIN ANALYZE` de la proyección de Negocios con volumen comparable al real antes de cerrar el bloque.
+
 ## Smoke de producción con usuario común — completado el 30/10/2026
 
 - Email, WhatsApp, Instagram y material de venta funcionan de punta a punta en producción, después de corregir la configuración (`INTEGRATION_SECRETS_KEY` en base64 de 32 bytes, Callback URL de Meta, token de Instagram bien copiado, redeploy del Worker de email entrante). Detalle en `COOLIFY_DEPLOY.md`.

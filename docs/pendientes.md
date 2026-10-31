@@ -13,6 +13,8 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - **103** Bandeja sin asociar + Instagram + user script.
 - **104** pulido de ficha, formularios y visual.
 
+Spec 99 bloque 1: segunda revisión corregida en el worktree. Typecheck y Vitest completos pasan (253 archivos, 2219 pruebas). Falta ejecutar en CI/base descartable `scripts/test-commercial.ts`, `scripts/test-business-history.ts` y `scripts/test-userscript.ts`, además de revisar `EXPLAIN ANALYZE` de la proyección set based con volumen real; sin esos pasos no se cierra la validación de integración/performance.
+
 Regla: el trabajo se mergea a `staging`; a `main` solo cuando todos los PR del lote estén en `staging` y el propietario lo pida (un merge a `main` despliega producción).
 
 Datos que necesitan aprobación del propietario (ningún agente los toca por iniciativa propia):
@@ -352,4 +354,3 @@ B1 y B2 mergeadas en `staging` (PR #249, `53b14a0`). Falta la revisión del prop
 ### Spec 88 · Instagram Direct (26/10/2026)
 
 **Cerrada**: mergeada en `staging` (#260) y probada de punta a punta con Meta el 26/10/2026. Lo que falta para producción está en «Specs 87 y 88», al principio de este archivo.
-
