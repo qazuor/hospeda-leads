@@ -25,7 +25,9 @@ export const CrmDateInput=forwardRef<HTMLInputElement,Props>(({value,onValueChan
   const node=useRef<HTMLInputElement|null>(null);
   const setRef=(element:HTMLInputElement|null)=>{node.current=element;if(typeof ref==='function')ref(element);else if(ref)ref.current=element;};
   const reset=useRef(invalid.reset);reset.current=invalid.reset;
-  useEffect(()=>{reset.current(node.current);},[value]);
+  // Only a real value change clears the message: a hidden panel (React Activity in a closed Disclosure) re-runs effects when it opens on `invalid`.
+  const shown=useRef(value);
+  useEffect(()=>{if(shown.current===value)return;shown.current=value;reset.current(node.current);},[value]);
   // Mantine's wrapper owns aria-describedby, so the link to the inline message is applied on the node itself (as in Input).
   useEffect(()=>{if(invalid.error)node.current?.setAttribute('aria-describedby',invalid.errorId);else if(node.current?.getAttribute('aria-describedby')===invalid.errorId)node.current.removeAttribute('aria-describedby');},[invalid.error,invalid.errorId]);
   // Dialog reads data-picker-open so Escape closes only the open picker.

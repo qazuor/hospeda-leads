@@ -25,7 +25,9 @@ export function CrmTimeInput({value,onValueChange,required,disabled,label,max,ma
  const reset=useRef(invalid.reset),refresh=useRef(invalid.refresh);reset.current=invalid.reset;refresh.current=invalid.refresh;
  // A new limit (the date changed) re-reads a message already shown, so «posterior a hoy…» does not stay after it stopped applying.
  useEffect(()=>{hours.current?.setCustomValidity(late?maxMessage??`No puede ser posterior a las ${max}.`:'');refresh.current(hours.current);},[late,max,maxMessage]);
- useEffect(()=>{if(!hours.current?.validity.customError)reset.current(hours.current);},[value]);
+ // Only a real value change clears the message: a hidden panel (React Activity in a closed Disclosure) re-runs effects when it opens on `invalid`.
+ const shown=useRef(value);
+ useEffect(()=>{if(shown.current===value)return;shown.current=value;if(!hours.current?.validity.customError)reset.current(hours.current);},[value]);
  const segment={required,onInvalid:invalid.onInvalid,onBlur:invalid.onBlur,'aria-invalid':invalid.error?true:undefined,'aria-describedby':invalid.error?invalid.errorId:undefined};
  return <><TimePicker format="24h" value={value} onChange={onValueChange} disabled={disabled} hoursRef={hours} hoursInputLabel={label} minutesInputLabel="Minutos"
   hoursInputProps={segment} minutesInputProps={segment} error={invalid.error?true:undefined}

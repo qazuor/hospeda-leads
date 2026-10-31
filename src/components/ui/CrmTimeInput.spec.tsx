@@ -1,4 +1,4 @@
-import React,{useState} from 'react';
+import React,{Activity,useState} from 'react';
 import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import {act,cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
@@ -58,6 +58,27 @@ describe('CrmDateInput validation',()=>{
   render(<MantineProvider><form><label>Fecha<CrmDateInput required value="" onValueChange={()=>{}}/></label></form></MantineProvider>);
   const input=screen.getByLabelText('Fecha') as HTMLInputElement;
   act(()=>{input.checkValidity();});
+  expect(screen.getByRole('alert').textContent).toBe('Completá este dato.');
+ });
+});
+
+/** A closed Mantine Disclosure keeps its panel in a hidden React Activity and opens it on `invalid`, like `Disclosure`. */
+function HiddenPanel({children}:{children:React.ReactNode}){
+ const [open,setOpen]=useState(false);
+ return <MantineProvider><form><div onInvalidCapture={()=>setOpen(true)}><Activity mode={open?'visible':'hidden'}>{children}</Activity></div></form></MantineProvider>;
+}
+function HiddenTime(){const [value,setValue]=useState('');return <HiddenPanel><label>Hora<CrmTimeInput label="Hora" required value={value} onValueChange={setValue}/></label></HiddenPanel>;}
+
+describe('validation message inside a closed panel (spec 104, browser regression)',()=>{
+ it('an empty required time keeps «Completá este dato.» after the hidden panel opens',()=>{
+  render(<HiddenTime/>);
+  act(()=>{hours().form!.checkValidity();});
+  expect(screen.getByRole('alert').textContent).toBe('Completá este dato.');
+ });
+ it('an empty required date keeps «Completá este dato.» after the hidden panel opens',()=>{
+  render(<HiddenPanel><label>Fecha<CrmDateInput required value="" onValueChange={()=>{}}/></label></HiddenPanel>);
+  const input=screen.getByLabelText('Fecha') as HTMLInputElement;
+  act(()=>{input.form!.checkValidity();});
   expect(screen.getByRole('alert').textContent).toBe('Completá este dato.');
  });
 });
