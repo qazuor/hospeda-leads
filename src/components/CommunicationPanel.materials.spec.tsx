@@ -17,8 +17,8 @@ const list=(items:Record<string,unknown>[])=>({items,count:items.length,groupCou
 const followUps=(unconfirmed:Record<string,unknown>[]=[],outcomes:Record<string,unknown>[]=[])=>({unconfirmed:list(unconfirmed),outcomes:list(outcomes),expired:{unconfirmed:list([]),outcomes:list([])}});
 /** Spec 100 §5: «Requiere acción» starts collapsed; this expands it and returns the region. */
 const openPending=async()=>{const region=await screen.findByRole('region',{name:'Requiere acción'});const toggle=within(region).queryByRole('button',{name:/^(Revisar|Ver)$/});if(toggle)fireEvent.click(toggle);return screen.getByRole('region',{name:'Requiere acción'});};
-function show({doNotContact=false,onSendMaterial,author='seller@example.com',owner='seller@example.com',message={}}:{doNotContact?:boolean;onSendMaterial?:(m:{id:string;title:string})=>void;author?:string;owner?:string;message?:Record<string,unknown>}={}){
- mocks.getCommunication.mockResolvedValue({messages:[{...sent,...message,materials:[{...shared,createdByEmail:author,...(message.status==='whatsapp_opened'?{sentVersion:null}:{})}]}],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],followUps:message.status==='whatsapp_opened'&&(message.ownerEmail??sent.ownerEmail)==='seller@example.com'?followUps([{...sent,...message,accountName:'Hotel Sol'}]):followUps(),recentContactHours:72,webhookConfigured:false});
+function show({doNotContact=false,onSendMaterial,author='seller@example.com',owner='seller@example.com',message={},listed=true}:{doNotContact?:boolean;onSendMaterial?:(m:{id:string;title:string})=>void;author?:string;owner?:string;message?:Record<string,unknown>;/** The server lists the unconfirmed open (false: still inside its wait). */listed?:boolean}={}){
+ mocks.getCommunication.mockResolvedValue({messages:[{...sent,...message,materials:[{...shared,createdByEmail:author,...(message.status==='whatsapp_opened'?{sentVersion:null}:{})}]}],recentMessages:[],restrictions:[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],followUps:listed&&message.status==='whatsapp_opened'&&(message.ownerEmail??sent.ownerEmail)==='seller@example.com'?followUps([{...sent,...message,accountName:'Hotel Sol'}]):followUps(),recentContactHours:72,webhookConfigured:false});
  mocks.getCommercialDetail.mockResolvedValue({account:{id:'5',nombre:'Hotel Sol',assignedUserEmail:owner,archivedAt:null,doNotContact},contacts:[],opportunities:[],users:[{email:'other@example.com',displayName:'Otra vendedora'}]});
  mocks.getPipeline.mockResolvedValue({stages:[]});
  render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><CommunicationPanel accountId="5" onSendMaterial={onSendMaterial}/></QueryClientProvider></MantineProvider>);
@@ -35,6 +35,14 @@ describe('CommunicationPanel sales material (spec 89 §8.2, §8.4)',()=>{
   expect(await within(entry).findByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeTruthy();
   expect(within(entry).queryByText(/Versión enviada/)).toBeNull();expect(await within(entry).findByRole('button',{name:'Revocar enlace'})).toBeTruthy();
   expect(within(screen.getByRole('region',{name:'Conversación'})).queryByText('Folleto 2027')).toBeNull();
+ });
+ it('opens «Revocar enlace» from the record of a WhatsApp still waiting for the script (regression: the dialog never showed)',async()=>{
+  show({message:{status:'whatsapp_opened',ownerEmail:'seller@example.com',lastInteractionAt:new Date()},listed:false});
+  const region=await openPending(),entry=await within(region).findByRole('group',{name:'WhatsApp sin confirmar para Ana'});
+  expect(within(entry).getByText('Esperando que el script de WhatsApp confirme el envío')).toBeTruthy();
+  fireEvent.click(within(entry).getByRole('button',{name:'Ver mensaje y material'}));
+  fireEvent.click(await within(entry).findByRole('button',{name:'Revocar enlace'}));
+  expect(within(await screen.findByRole('dialog',{name:'Revocar enlace'})).getByLabelText('Motivo')).toBeTruthy();
  });
  it('shows the record of someone else\'s unconfirmed WhatsApp to the business owner, who can still revoke it, without counting it as pending',async()=>{
   show({message:{status:'whatsapp_opened'}});

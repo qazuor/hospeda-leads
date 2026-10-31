@@ -207,3 +207,10 @@
 .block{display:flex;flex-direction:column;gap:6px;min-width:0}
 .blockTitle{margin:0;font-size:13px;font-weight:700;color:var(--foreground)}
 .blockHelp{margin:0;font-size:13px;color:var(--muted-foreground)}
+/* Spec 100 §8: bulk «Sí, se enviaron» / «No se enviaron» bar, its boxes and the confirmation lists. */
+.bulkBar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bulkPick{flex:none;align-self:center}
+.bulkList{margin:0 0 12px;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:14px;overflow-wrap:anywhere}
+.bulkList>li[data-kind="error"],.bulkList>li[data-kind="blocked"]{color:var(--tone-orange-ink)}
+.bulkNote{color:var(--muted-foreground)}
+.bulkActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}

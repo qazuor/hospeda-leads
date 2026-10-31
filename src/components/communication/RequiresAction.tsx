@@ -21,6 +21,7 @@ import {groupOutcomeFollowUps,pendingCount,type OutcomeGroup} from '../../helper
 import {RequiresActionStrip} from './RequiresActionStrip';
 import {ChannelIcon} from './ChannelIcon';
 import {ConfirmSendButtons,canConfirmSend} from './ConfirmSendButtons';
+import {BulkCheckbox,BulkConfirmBar,BulkConfirmDialog,useBulkSelection,type BulkSelection} from './BulkConfirmSends';
 import type {CommunicationView} from './types';
 
 /** Spec 100 §7: what «Vencidos» means. */
@@ -48,6 +49,9 @@ function ReopenInstagram({message}:{message:Message}){
  return <Button variant="ghost" size="sm" onClick={()=>void reopen()}>Copiar y abrir de nuevo</Button>;
 }
 
+/** An open the server does not list yet because it still waits for Meta's echo (Instagram) or the user script (WhatsApp, spec 100 §9). */
+const isWaiting=({message,now,counted}:{message:Message;now:number;counted:boolean})=>!counted&&(isInstagramAttempt(message)?isWaitingForInstagramEcho({message,now}):isWaitingForScript({message,now}));
+
 /**
  * An opened WhatsApp or Instagram nobody confirmed (spec 92 owner decision): it is not in «Conversación», so this entry is
  * self-contained. Spec 100 §5.2 compact form: who opened what for whom and when on one line, then «Sí, se envió» / «No se envió» (and
@@ -55,16 +59,16 @@ function ReopenInstagram({message}:{message:Message}){
  * can be revoked before the send is confirmed) sit behind «Ver mensaje y material». An Instagram attempt still waiting for Meta's echo,
  * or a WhatsApp open still waiting for the user script (spec 100 §9), says so. Nothing here scrolls.
  */
-function ConfirmEntry({view,message,now,counted}:{view:CommunicationView;message:Message;now:number;/** The server lists it: its wait is over by the database clock, whatever the client clock says. */counted:boolean}){
+function ConfirmEntry({view,message,now,counted,bulk,selectable}:{view:CommunicationView;message:Message;now:number;/** The server lists it: its wait is over by the database clock, whatever the client clock says. */counted:boolean;bulk:BulkSelection;/** Spec 100 §8: shows its bulk box. */selectable:boolean}){
  const own=message.ownerEmail===view.userEmail,instagram=isInstagramAttempt(message),channel=instagram?'instagram':'whatsapp',name=instagram?'Instagram':'WhatsApp';
- const waiting=!counted&&(instagram?isWaitingForInstagramEcho({message,now}):isWaitingForScript({message,now})),text=(message.textBody||message.body||'').trim(),[fixingOutcome,setFixingOutcome]=useState(false);
+ const waiting=isWaiting({message,now,counted}),text=(message.textBody||message.body||'').trim(),[fixingOutcome,setFixingOutcome]=useState(false);
  return <li><div role="group" aria-label={name+' sin confirmar para '+(message.recipientName||message.recipient)} className={styles.actionCard} data-waiting={waiting||undefined}>
-  <div className={styles.actionBody}><span className={styles.channel} data-channel={channel}><ChannelIcon channel={channel} size={18}/></span><div>
+  <div className={styles.actionBody}>{selectable&&<BulkCheckbox message={message} bulk={bulk}/>}<span className={styles.channel} data-channel={channel}><ChannelIcon channel={channel} size={18}/></span><div>
    <span className={styles.actionTitle}>{own?'Abriste':'Se abrió'} {name} para {message.recipientName?`${message.recipientName} (${message.recipient})`:message.recipient} · {formatDateTime(message.lastInteractionAt??message.updatedAt)}{own?'':' · '+actorLabel(message.ownerEmail,view.detail?.users)}</span>
    {waiting&&<p className={styles.actionText}><strong role="status">{instagram?INSTAGRAM_WAITING_STATUS:WHATSAPP_WAITING_STATUS}</strong> {instagram?INSTAGRAM_WAITING_HINT:WHATSAPP_WAITING_HINT}</p>}
    {(!!text||!!message.materials?.length)&&<Disclosure><DisclosureSummary>Ver mensaje y material</DisclosureSummary>{text&&<ClampedText className={styles.actionQuote} text={text} lines={3}/>}<MessageMaterialRecord view={view} message={message}/></Disclosure>}
   </div></div>
-  <AutoOutcomeNote message={message}/><div className={styles.actionButtons}><ConfirmSendButtons view={view} message={message}/>{instagram&&message.status==='instagram_opened'&&<ReopenInstagram message={message}/>}{canFixAutoOutcome(view,message)&&<Button size="sm" variant="ghost" onClick={()=>setFixingOutcome(true)}>Corregir cómo salió</Button>}</div>
+  <AutoOutcomeNote message={message}/><div className={styles.actionButtons}><ConfirmSendButtons view={view} message={message} locked={bulk.busy}/>{instagram&&message.status==='instagram_opened'&&<ReopenInstagram message={message}/>}{canFixAutoOutcome(view,message)&&<Button size="sm" variant="ghost" onClick={()=>setFixingOutcome(true)}>Corregir cómo salió</Button>}</div>
   {fixingOutcome&&<AutoOutcomeCorrection view={view} message={message} onClose={()=>setFixingOutcome(false)}/>}
  </div></li>;
 }
@@ -124,7 +128,7 @@ type OpenOutcome={key:string;contact:ContactOutcomeTarget;note?:string};
  * «Sí, se envió» carries its block reason and «No se envió» stays available; with only those, «¿Lo enviaste?» shows no count. The
  * outcome dialog lives here, outside the strip, so it stays open while the save refetches and the row (or the whole strip) goes away.
  */
-export function RequiresAction({view,onFocus}:{view:CommunicationView;onFocus:(key:string)=>void}){
+export function RequiresAction({view,onFocus,bulk:bulkEnabled=false}:{view:CommunicationView;onFocus:(key:string)=>void;/** Spec 100 §8 (D3): bulk «Sí, se enviaron» / «No se enviaron», only in the business view. */bulk?:boolean}){
  // An open waiting for Instagram's echo (spec 92, 15 min) or the WhatsApp script (spec 100, 5 min) switches to «¿Lo enviaste?» when its wait ends; the reload brings the server list.
  const now=useConfirmWaitNow(view.data.messages),qc=useQueryClient(),started=useRef(false),[outcome,setOutcome]=useState<OpenOutcome|null>(null);
  useEffect(()=>{if(!started.current){started.current=true;return;}void qc.invalidateQueries({queryKey:['communication']});},[now,qc]);
@@ -143,18 +147,23 @@ export function RequiresAction({view,onFocus}:{view:CommunicationView;onFocus:(k
  const idle=[expiredCount?plural(expiredCount,'vencido','vencidos'):'',uncounted.length?plural(uncounted.length,'envío esperando confirmación','envíos esperando confirmación'):'',materials.length?(materials.length===1?'material en un envío sin confirmar':`material en ${materials.length} envíos sin confirmar`):''].filter(Boolean).join(' · ');
  const pendingOutcome=(item:PendingOutcome)=>setOutcome({key:'out:'+item.id,contact:outcomeContact(item)});
  const groupOutcome=(g:OutcomeGroup)=>setOutcome({key:'group:'+g.key,contact:outcomeContact(g.newest),note:groupOutcomeNote(g)});
- const line=(e:Entry)=>e.kind==='confirm'?<ConfirmEntry key={e.key} view={view} message={e.message} now={now} counted={e.counted}/>:<PendingConfirmEntry key={e.key} item={e.item} onOutcome={pendingOutcome}/>;
+ // Spec 100 §8: an open the viewer may answer and not waiting gets a box; a block with 2 or more of them gets the bulk bar.
+ const eligible=(entries:Entry[])=>bulkEnabled?entries.flatMap(e=>e.kind==='confirm'&&canConfirmSend({view,message:e.message})&&!isWaiting({message:e.message,now,counted:e.counted})?[e.message]:[]):[];
+ const confirmEligible=eligible(confirm),expiredEligible=eligible(expiredConfirm),boxed=[confirmEligible,expiredEligible].map(list=>list.length>1?list.map(m=>String(m.id)):[]);
+ const bulk=useBulkSelection({blocks:boxed}),selectable=new Set(boxed.flat());
+ const line=(e:Entry)=>e.kind==='confirm'?<ConfirmEntry key={e.key} view={view} message={e.message} now={now} counted={e.counted} bulk={bulk} selectable={selectable.has(String(e.message.id))}/>:<PendingConfirmEntry key={e.key} item={e.item} onOutcome={pendingOutcome}/>;
  const shownOf=(shown:number,all:number,groups=false)=>all>shown?<p className={styles.blockHelp}>{groups?`Se muestran las ${shown} gestiones más recientes de ${all}.`:`Se muestran los ${shown} más recientes de ${all}.`}</p>:null;
  const expiredUnconfirmedCount=followUps?.expired?.unconfirmed.count??0,expiredGroupCount=followUps?.expired?.outcomes.groupCount??0;
  return <><RequiresActionStrip count={count} summary={actionSummary({review:review.length,unconfirmed:unconfirmedCount,outcomes:groupCount})} idle={idle}>
   {review.length>0&&<Block label="Por revisar" count={review.length}><ul className={styles.actionList}>{review.map(r=><ReviewEntry key={r.key} item={r.inbound} onFocus={onFocus}/>)}</ul></Block>}
-  {confirm.length>0&&<Block label="¿Lo enviaste?" count={unconfirmedCount}><ul className={styles.actionList}>{confirm.map(line)}</ul>{shownOf(unconfirmed.length,unconfirmedCount)}</Block>}
+  {confirm.length>0&&<Block label="¿Lo enviaste?" count={unconfirmedCount}><BulkConfirmBar messages={confirmEligible} bulk={bulk}/><ul className={styles.actionList}>{confirm.map(line)}</ul>{shownOf(unconfirmed.length,unconfirmedCount)}</Block>}
   {groups.length>0&&<Block label="Anotá cómo salió" count={groupCount}><div className={styles.actionList}>{groups.map(g=><OutcomeGroupRow key={g.key} group={g} showBusiness={false} onOutcome={groupOutcome}/>)}</div>{shownOf(groups.length,groupCount,true)}</Block>}
   {expiredCount>0&&<section className={styles.block} aria-label="Vencidos"><Disclosure><DisclosureSummary>Vencidos · {expiredCount}</DisclosureSummary><p className={styles.blockHelp}>{EXPIRED_HELP}</p>
-   {expiredConfirm.length>0&&<><ul className={styles.actionList}>{expiredConfirm.map(line)}</ul>{shownOf(expiredUnconfirmed.length,expiredUnconfirmedCount)}</>}
+   {expiredConfirm.length>0&&<><BulkConfirmBar messages={expiredEligible} bulk={bulk}/><ul className={styles.actionList}>{expiredConfirm.map(line)}</ul>{shownOf(expiredUnconfirmed.length,expiredUnconfirmedCount)}</>}
    {expiredGroups.length>0&&<><div className={styles.actionList}>{expiredGroups.map(g=><OutcomeGroupRow key={g.key} group={g} showBusiness={false} onOutcome={groupOutcome}/>)}</div>{shownOf(expiredGroups.length,expiredGroupCount,true)}</>}
   </Disclosure></section>}
   {materials.length>0&&<ul className={styles.actionList} aria-label="Material en envíos sin confirmar">{materials.map(m=><UnconfirmedMaterialEntry key={m.id} view={view} message={m}/>)}</ul>}
  </RequiresActionStrip>
+ <BulkConfirmDialog view={view} bulk={bulk} eligible={[...confirmEligible,...expiredEligible]}/>
  {outcome&&<OutcomeAfterContact key={outcome.key} contact={outcome.contact} note={outcome.note} onDone={()=>setOutcome(null)}/>}</>;
 }

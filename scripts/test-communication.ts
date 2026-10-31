@@ -489,10 +489,12 @@ try{
    await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,body,text_body,owner_email,status,last_interaction_at) VALUES(${id}::uuid,${acc.id},${acc.id},'whatsapp','+5493442555000','Ana','Hola','Hola',${user.user.email},'whatsapp_opened',now()-interval '1 hour')`.execute(db);
    if(dnc)await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',acc.id).execute();return id;};
   const bulk=[await openIn('Masivo uno',false),await openIn('Masivo No contactar',true),await openIn('Masivo tres',false)];
-  const statuses:number[]=[];for(const id of bulk){const r=await post(request({action:'outcome',id,event:'manual_sent',notes:''},user.cookie));statuses.push(r.status);}
-  assert.deepEqual(statuses,[200,403,200],'Each open is checked on its own; No contactar refuses only its own');
+  // The client runs them in sequence; the first open answered again in the middle (as the script would have) is a 409, not a failure.
+  const statuses:number[]=[],errors:string[]=[];for(const id of [bulk[0],bulk[1],bulk[0],bulk[2]]){const r=await post(request({action:'outcome',id,event:'manual_sent',notes:''},user.cookie));statuses.push(r.status);errors.push(r.status===200?'':superjson.parse<{error:string}>(await r.text()).error);}
+  assert.deepEqual(statuses,[200,403,409,200],'Each open is checked on its own; No contactar refuses only its own');
+  assert.equal(errors[2],'Este envío ya estaba confirmado.','The repeated answer says it was already confirmed');
   assert.deepEqual([(await message(bulk[0])).status,(await message(bulk[1])).status,(await message(bulk[2])).status],['manual_sent','whatsapp_opened','manual_sent']);
-  console.log('Spec 100 §8: sequential outcome calls confirm per item and refuse the No contactar open alone');
+  console.log('Spec 100 §8: sequential outcome calls confirm per item, refuse the No contactar open alone and answer 409 on an already confirmed one');
  }
  // Merge all new relationships while preserving original attribution and snapshots.
  const dest=await db.insertInto('crmAccounts').values({nombre:'Destino '+stamp,ciudad:'Colón'}).returningAll().executeTakeFirstOrThrow();let r=await quality(request({action:'merge_preview',sourceId:a.id,destinationId:dest.id}));assert.equal(r.status,200);const p=superjson.parse<any>(await r.text());r=await quality(request({action:'merge_confirm',sourceId:a.id,destinationId:dest.id,token:p.token,selections:Object.fromEntries(businessFields.map(f=>[f,'destination'])),reason:'Revisado en fixture',confirm:true}));assert.equal(r.status,200,await r.text());assert.equal((await message(id)).accountId,dest.id);assert.equal((await sql<{originalAccountId:string}>`SELECT original_account_id FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0].originalAccountId,a.id);assert.equal((await sql<{accountId:string}>`SELECT account_id FROM crm_documents WHERE id=${did}::uuid`.execute(db)).rows[0].accountId,dest.id);

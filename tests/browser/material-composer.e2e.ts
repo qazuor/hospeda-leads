@@ -5,6 +5,7 @@ import postgres from 'postgres';
 import {simulateUserscript} from './helpers/userscript';
 import {openRequiresAction} from './helpers/requiresAction';
 import {reveal} from './support/contactStep';
+import {waitForTransitions} from './support/transitions';
 
 // Spec 89 F3: «Enviar material» from the business «Comunicación» tab opens the contact step with the material already added, the WhatsApp intent carries
 // the link, the sent version is recorded and «Revocar enlace» turns the public page into 410. No real WhatsApp or email is ever sent: window.open is
@@ -78,7 +79,8 @@ test('send sales material from the business, record it and revoke the link',asyn
  // Opening WhatsApp is not evidence of sending: the record never says «Versión enviada» for it.
  // Spec 100 §5: the strip starts collapsed, and the record sits behind «Ver mensaje y material» in the compact entry.
  const entry=(await openRequiresAction(page)).getByRole('group',{name:/^WhatsApp sin confirmar para /});
- await entry.getByRole('button',{name:'Ver mensaje y material',exact:true}).click();
+ // The panel clips its content while it grows: clicking «Revocar enlace» mid-animation slides it under the pointer and the click is lost.
+ await entry.getByRole('button',{name:'Ver mensaje y material',exact:true}).click();await waitForTransitions(page);
  await expect(entry.getByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeVisible();await expect(entry.getByText(/Envío no confirmado/)).toBeVisible();await expect(page.getByText(/Versión enviada/)).toHaveCount(0);
  await expect(page.getByTestId('conversation-body').getByText(title,{exact:true})).toHaveCount(0);
  expect((await request.get('/m/'+token,{headers:{'user-agent':'WhatsApp/2.23.20.0'}})).status()).toBe(200);
