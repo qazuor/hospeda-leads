@@ -43,6 +43,9 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'GET /_api/inbound/review':401,
 'GET /_api/inbound/unmatched':401,
 'POST /_api/inbound/assign':401,
+'POST /_api/inbound/unmatched/dismiss':401,
+'POST /_api/inbound/unmatched/restore':401,
+'POST /_api/inbound/unmatched/rescan':401,
 };
 // Wildcard or ALL routes under /_api are not probed, so none are allowed.
 const WILDCARD_ALLOWLIST=new Set<string>();

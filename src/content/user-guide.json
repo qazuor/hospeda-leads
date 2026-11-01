@@ -1645,14 +1645,14 @@
       },
       {
         "example": [
-          "Llega un email de una dirección nueva que no está cargada en ningún negocio. Por la firma ves que es de Cabañas Camino Claro: lo buscás, lo asociás y Ana lo ve en su próxima revisión."
+          "Llegan dos emails de una dirección que el CRM no conoce. Ves una sola tarjeta con los dos mensajes. Por la firma sabés que es de Cabañas Camino Claro: tocás «Otro negocio», lo buscás, lo asociás y dejás tildada la casilla para guardar el email. El próximo email de esa dirección llega asociado solo."
         ],
         "notes": [
-          "Un email queda sin asociar cuando la dirección no está cargada, está en más de un negocio o el remitente no se pudo verificar.",
-          "Si la dirección del remitente es la buena, cargala en el negocio o en la persona para que los próximos emails se asocien solos.",
-          "Cada mensaje tiene su propia búsqueda: lo que elegís en uno no cambia los demás.",
+          "Un email queda sin asociar cuando la dirección no está cargada, está en más de un negocio o el remitente no se pudo verificar. Si el remitente no está verificado, la tarjeta te pide confirmar que sea quien dice.",
+          "Cada tarjeta tiene su propia búsqueda: lo que elegís en una no cambia las demás.",
           "No se puede asociar un mensaje a un negocio fusionado o en la papelera: el CRM te dice por qué y te pide elegir otro. Un negocio archivado sí recibe mensajes.",
-          "Asociar un mensaje solo lo asocia: no registra una respuesta ni cambia la gestión. Queda por revisar para el responsable."
+          "Asociar un mensaje solo lo asocia: no registra una respuesta ni cambia la gestión. Queda por revisar para el responsable. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes se mueven juntos.",
+          "Los chats de Instagram que llegaron sin usuario (solo un número) se ven así porque la clave de integraciones no estaba bien. «Volver a buscar negocios» le pide el usuario a Instagram, de a 50 chats por vez."
         ],
         "url": "/inbound",
         "linkLabel": "Mensajes sin asociar",
@@ -1661,23 +1661,35 @@
         "when": "Cuando llega un email o un mensaje de Instagram y el CRM no puede saber de qué negocio es.",
         "steps": [
           "Abrí el menú «Administración» y elegí «Mensajes sin asociar». También lo encontrás con Ctrl+K.",
-          "Cada mensaje muestra remitente, asunto cuando corresponde, fecha y extracto. Leelo para saber de qué negocio es.",
-          "En «Buscar negocio» escribí el nombre, la localidad o el teléfono y elegí el negocio correcto. Cada opción muestra código, nombre y localidad (por ejemplo H123 · Cabañas del Río · Colón), así distinguís dos negocios con el mismo nombre. Si no elegís uno, el CRM te avisa «Elegí un negocio para asociar el email.».",
-          "Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)». Solo aparecen las gestiones abiertas. Si no sabés, dejá «Sin gestión» y «Sin persona».",
-          "Tocá «Asociar». El mensaje entrante pasa a la «Conversación» del negocio, queda por revisar para su responsable y el cambio queda en el historial. Si es un chat de Instagram, sus mensajes entrantes y ecos salientes sin asociar se mueven juntos; los salientes aparecen en la comunicación del negocio. Un aviso confirma a qué negocio quedó asociado y, en Instagram, cuántos mensajes se movieron."
+          "Cada tarjeta es una conversación: un chat de Instagram o todos los emails de un mismo remitente. Muestra quién escribió, cuántos mensajes hay y cuándo llegó el último. Con «Canal» ves solo emails o solo Instagram.",
+          "Si el CRM encuentra el negocio probable, la tarjeta pregunta si es de ese negocio, con su código y nombre (por ejemplo H123 · Cabañas del Río), y dice por qué (por ejemplo, el email está cargado en el negocio). Si es correcto, tocá el botón Asociar a con el código del negocio: queda asociado con un clic. Si dice «Posible», revisalo antes.",
+          "Si no hay sugerencia o no es el negocio correcto, tocá «Otro negocio» (o usá directamente «Buscar negocio»). Cada opción muestra código, nombre y localidad. Si corresponde, elegí «Gestión abierta (opcional)» y «Persona (opcional)», o dejá «Sin gestión» y «Sin persona». Después tocá «Asociar». Si no elegís negocio, el CRM te avisa «Elegí un negocio para asociar el email.».",
+          "En una tarjeta de emails todos los mensajes vienen tildados. Si alguno no es de ese negocio, destildalo antes de asociar: solo se asocian los tildados.",
+          "Si el negocio no tiene cargado ese @usuario o ese email, aparece una casilla tildada para guardarlo. Dejala tildada y los próximos mensajes se asocian solos. Nunca reemplaza un dato que el negocio ya tiene, y un email solo se ofrece si el remitente está verificado. Si ese dato ya está en otro negocio, la tarjeta te dice en cuál y no ofrece guardarlo: con el dato en dos negocios los próximos mensajes quedarían sin asociar.",
+          "Si el mensaje es spam o un aviso automático, tocá «Descartar», elegí el «Motivo» (si elegís la opción Otro, escribilo en «Contá el motivo») y tocá «Confirmar descarte». No se borra: queda en «Descartados», donde podés tocar «Restaurar».",
+          "Tocá «Volver a buscar negocios» para que el CRM aplique otra vez sus reglas automáticas a todo lo que sigue sin asociar (por ejemplo, después de cargar el Instagram en un negocio). Al terminar te dice cuántas conversaciones asoció y cuántas quedan. Si hay muchas, revisa lo que puede en unos segundos y te avisa cuántas quedan por revisar: tocá de nuevo para seguir. Si otra persona ya la está usando, esperá a que termine."
         ],
-        "result": "Cada mensaje recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise.",
+        "result": "Cada mensaje recibido queda en la ficha del negocio que corresponde, listo para que su responsable lo revise, y lo que no sirve queda descartado sin perderse.",
         "uiLabels": [
           "Administración",
           "Mensajes sin asociar",
+          "Canal",
+          "Posible",
+          "Otro negocio",
           "Buscar negocio",
-          "Elegí un negocio para asociar el email.",
           "Gestión abierta (opcional)",
           "Persona (opcional)",
           "Sin gestión",
           "Sin persona",
           "Asociar",
-          "Conversación"
+          "Elegí un negocio para asociar el email.",
+          "Descartar",
+          "Motivo",
+          "Contá el motivo",
+          "Confirmar descarte",
+          "Descartados",
+          "Restaurar",
+          "Volver a buscar negocios"
         ]
       }
     ]
