@@ -1,6 +1,6 @@
 import { normalizePhone, parseCode } from "./parse";
 
-export type ChatMessage = { externalId: string; direction: "in" | "out"; text: string; sentAt: string | null; author: string | null };
+export type ChatMessage = { externalId: string; direction: "in" | "out"; text: string; sentAt: string | null; author: string | null; media?: import("./api").Media };
 export function outboundDeliveryState(row:Element):"pending"|"failed"|"sent" { if(row.querySelector("[data-icon*='error'], [data-testid='msg-error']"))return "failed";if(row.querySelector("[data-icon='msg-time']"))return "pending";return "sent"; }
 export type ChatRead = { ok: true; title: string; phone: string | null; code: string | null; group: false; messages: ChatMessage[] } | { ok: false; reason: "unsupported-group" | "unreadable" };
 
@@ -8,14 +8,19 @@ export function getConversationPanel(doc: Document = document): HTMLElement | nu
 export function getAppRoot(doc: Document = document): HTMLElement { return doc.querySelector<HTMLElement>("#app") || doc.body; }
 export function getConversationHeader(doc: Document = document): HTMLElement | null { return getConversationPanel(doc)?.querySelector<HTMLElement>("header") || null; }
 export function getWhatsAppComposer(doc:Document=document):HTMLElement|null{return doc.querySelector<HTMLElement>("footer [contenteditable='true']");}
+export const getCaptionEditor=(doc:Document=document):HTMLElement|null=>[...doc.querySelectorAll<HTMLElement>("[data-testid='media-caption-input-container'] [contenteditable='true'][role='textbox'], [contenteditable='true'][role='textbox']")].find(editor=>!editor.closest("footer")&&editor.getClientRects().length>0)||null;
+export const getMediaSendButton=(doc:Document=document):HTMLElement|null=>doc.querySelector<HTMLElement>("[aria-label='Enviar 1 seleccionado']");
+export const getMediaCloseButton=(doc:Document=document):HTMLElement|null=>doc.querySelector<HTMLElement>("[data-testid='drawer-middle'] [aria-label='Cerrar']")||doc.querySelector<HTMLElement>("[aria-label='Cerrar']");
+export const getDiscardDialog=(doc:Document=document):HTMLElement|null=>[...doc.querySelectorAll<HTMLElement>("[role='dialog']")].find(dialog=>{const labels=[...dialog.querySelectorAll("button")].map(button=>button.textContent?.trim());return labels.includes("Descartar")&&labels.includes("Cancelar");})||null;
+export const mediaPreviewOpen=(doc:Document=document):boolean=>!!doc.querySelector("[data-testid='drawer-middle'] [data-testid='media-caption-input-container']")||!!getCaptionEditor(doc);
 export function phoneDigits(phone:string|null):string{return(phone||"").replace(/\D/g,"");}
 /** Like the CRM's phone search: the same number in another format shares its last 8 digits, also when stored with the local "15" after the area code. */
 const phoneKeys=(digits:string)=>new Set([digits,digits.replace(/^(\d*?\d{2,4})15(\d{6,8})$/,"$1$2")].map(value=>value.slice(-8)));
-/** True unless both phones are known and are different numbers: an unknown chat phone cannot be checked, and the CRM match already chose the business. */
+/** Preserve the text-paste rule: saved-name chats often hide their phone, so an unreadable phone must not block an attach. The captured header title/data-id identity is re-validated after download and guards against a chat switch. */
 export function chatMatchesRecipient(chatPhone:string|null,recipient:string):boolean{const chat=phoneDigits(chatPhone),target=phoneDigits(recipient);if(chat.length<8||target.length<8)return true;const keys=phoneKeys(target);return [...phoneKeys(chat)].some(key=>keys.has(key));}
 const composerText=(editor:HTMLElement)=>editor.innerText||editor.textContent||"";
 /** Compared without whitespace: WhatsApp's editor turns line breaks into paragraphs, so its text spacing differs from the source. */
-const holdsText=(editor:HTMLElement,text:string)=>composerText(editor).replace(/\s+/g,"").includes(text.replace(/\s+/g,""));
+export const holdsText=(editor:HTMLElement,text:string)=>composerText(editor).replace(/\s+/g,"").includes(text.replace(/\s+/g,""));
 /** The composer holds exactly `text` (spacing aside): nothing typed before or after it. */
 export const composerEquals=(editor:HTMLElement,text:string)=>!!text.trim()&&composerText(editor).replace(/\s+/g,"")===text.replace(/\s+/g,"");
 /** Selects everything in the composer and deletes it, as the seller would with Ctrl+A and Delete. True when it ends up empty. */
@@ -29,8 +34,14 @@ export function clearComposer(editor:HTMLElement):boolean{
  * Writes `text` into an empty composer, keeping its line breaks. First a native paste (what Ctrl+V does, WhatsApp's editor keeps the lines),
  * then line by line with soft line breaks (Shift+Enter semantics). Never Enter, which would send. Never over text the seller already typed.
  */
-export function pasteIntoComposer(editor:HTMLElement,text:string):boolean{
- if(composerText(editor).trim())return false;
+export function pasteIntoComposer(editor:HTMLElement,text:string,allowReplace=false):boolean{
+ if(composerText(editor).trim()&&!allowReplace)return false;
+ if(allowReplace&&composerText(editor).trim()){
+  editor.focus();const range=document.createRange();range.selectNodeContents(editor);const selection=document.getSelection();selection?.removeAllRanges();selection?.addRange(range);
+  try{document.execCommand("delete");}catch{}
+  // Lexical may ignore execCommand after WhatsApp moves a discarded caption into the footer.
+  if(composerText(editor).trim())return false;
+ }
  editor.focus();
  try{const data=new DataTransfer();data.setData("text/plain",text);editor.dispatchEvent(new ClipboardEvent("paste",{clipboardData:data,bubbles:true,cancelable:true}));}catch{}
  if(holdsText(editor,text))return true;
@@ -63,7 +74,8 @@ function copyable(row: HTMLElement): HTMLElement { return row.matches("[data-pre
 
 function textOf(row: HTMLElement): string {
   // Only the message's own selectable text: `span[dir]` also matched the bubble time, and a quoted reply carries the original's text.
-  const nodes = [...copyable(row).querySelectorAll<HTMLElement>("[data-testid='selectable-text'], .selectable-text")].filter(node => !node.closest("[data-testid^='quoted'], [aria-label*='citado' i]"));
+  const caption=row.querySelector<HTMLElement>("[data-testid='document-caption selectable-text']");
+  const nodes = [...(caption?[caption]:copyable(row).querySelectorAll<HTMLElement>("[data-testid='selectable-text'], .selectable-text"))].filter(node => !node.closest("[data-testid^='quoted'], [aria-label*='citado' i]"));
   const outer = nodes.filter(node => !nodes.some(other => other !== node && other.contains(node)));
   const parts = [...new Set(outer.map(node => (node.innerText || node.textContent || "").trim()).filter(Boolean))];
   if (parts.length) return parts.join(" ").trim();
@@ -94,7 +106,19 @@ export function parsePrePlainText(raw: string | null): { sentAt: string | null; 
   return { sentAt: valid ? date.toISOString() : null, author: author.trim() || null };
 }
 
-function metadata(row: HTMLElement): { sentAt: string | null; author: string | null } { return parsePrePlainText(copyable(row).getAttribute("data-pre-plain-text")); }
+function metadata(row: HTMLElement): { sentAt: string | null; author: string | null } {
+ const fromAttribute=parsePrePlainText(copyable(row).getAttribute("data-pre-plain-text"));if(fromAttribute.sentAt||fromAttribute.author)return fromAttribute;
+ const meta=row.querySelector<HTMLElement>("[data-testid='msg-meta']"),title=meta?.querySelector<HTMLElement>("[title]")?.getAttribute("title")||"",time=title.match(/\d{1,2}:\d{2}/)?.[0]||meta?.textContent?.match(/\d{1,2}:\d{2}/)?.[0]||null;
+ const tail=row.querySelector("[data-icon^='tail-']")?.getAttribute("data-icon");return {sentAt:time?new Date(`${new Date().toDateString()} ${time}`).toISOString():null,author:row.querySelector("[aria-label$=':']")?.getAttribute("aria-label")?.replace(/:$/,'')||(tail==="tail-out"?"Tú":null)};
+}
+
+function mediaOf(row:HTMLElement):import("./api").Media{
+ if(row.querySelector("[data-testid*='document'], [data-icon^='document-']"))return "document";
+ if(row.querySelector("[data-testid*='image'], img"))return "image";
+ if(row.querySelector("[data-testid*='video'], video"))return "video";
+ if(row.querySelector("[data-testid*='audio'], audio"))return "audio";
+ return null;
+}
 
 /**
  * Message direction. The legacy id carried it (`true_`/`false_`); current WhatsApp ids are bare, so the bubble tail decides. Only the
@@ -142,7 +166,7 @@ export function readChat(doc: Document = document): ChatRead {
       const direction = directionOf(row, externalId, main);
       if (!direction) return [];
       const { sentAt, author } = metadata(row);
-      return [{ externalId, direction, text: textOf(row).slice(0, 10000), sentAt, author: author?.slice(0, 200) ?? null }];
+      const media=mediaOf(row);return [{ externalId, direction, text: textOf(row).slice(0, 10000), sentAt, author: author?.slice(0, 200) ?? null,...(media?{media}:{}) }];
     });
     // Current ids no longer name the chat: several different senders among received messages means a group.
     if (new Set(messages.filter(message => message.direction === "in" && message.author).map(message => message.author)).size > 1) return { ok: false, reason: "unsupported-group" };
