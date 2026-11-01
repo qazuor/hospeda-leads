@@ -225,7 +225,7 @@ Respuesta 200, según D4 (con la recomendación, los bytes pasan por el CRM):
 
 ### 7.4 Interruptor (D5)
 
-Con la recomendación, la variable `USERSCRIPT_ATTACH_FILES` (por defecto encendida; `0` apaga) se lee en el servidor: con `0`, `attach.eligible=false` en 7.1 y 404 en 7.2. Apagarlo es cambiar la variable en Coolify y redesplegar, como `CRM_MCP_ENABLED`. Los scripts 1.8.0 vuelven solos al comportamiento de la 1.7.0.
+Decisión del propietario: un interruptor «Adjuntar archivos desde el script» en Configuración (solo admin, encendido por defecto), guardado en `app_settings` y registrado en el journal de configuración como los demás ajustes. El servidor lo lee en cada pedido: apagado, `attach.eligible=false` en 7.1 y 404 en 7.2. Los scripts 1.8.0 vuelven solos al comportamiento de la 1.7.0, sin redeploy.
 
 ## 8. Seguridad
 
@@ -270,7 +270,7 @@ Nunca se reintenta solo algo cuyo resultado es incierto. El único paso con resu
 | Descarga | `src/endpoints/userscript.ts` (o archivo nuevo), `src/server/app.ts:96-115` | `material_file`, límite por token | 1 |
 | Streaming de R2 | `src/helpers/r2.ts:7-20,45-66` | `stream({key,maxBytes})` | 1 |
 | Registro | `src/endpoints/userscript.ts:35`, `src/helpers/userscriptRegister.ts` | `media` opcional; `attach`/`attached_version` y journal | 1 |
-| Interruptor | `src/endpoints/userscript.ts` | `USERSCRIPT_ATTACH_FILES` | 1 |
+| Interruptor | `src/endpoints/userscript.ts`, Configuración | ajuste `app_settings` «Adjuntar archivos desde el script» | 1 |
 | Plan, descarga e inyección | `userscript/src/attach.ts` (nuevo) | `attachPlan`, `downloadMaterialFile`, `attachToChat` | 2 |
 | Panel | `userscript/src/compose.ts:173-271` | aviso, progreso, estados B y C | 2 |
 | Selectores | `userscript/src/selectors.ts:24-40,68-89` | editor de medios, `pasteIntoComposer(editor)`, `media` | 2 |
@@ -342,13 +342,13 @@ Cada PR con typecheck, `npm test`, build y sus integraciones en verde, y CI verd
 
 1. Todo lo anterior en `staging`, con el smoke 12.1 hecho.
 2. El propietario avisa a los vendedores **antes** del deploy: qué cambia (el archivo va en el chat, siguen apretando Enviar) y que el CRM les va a pedir actualizar el script.
-3. Deploy: la promoción `staging` → `main` es un deploy y la ordena el propietario (decisión del 30/10/2026), con respaldo de la base antes. No hay migración. Con D5 A, `USERSCRIPT_ATTACH_FILES` no hace falta cargarla (encendida por defecto).
+3. Deploy: la promoción `staging` → `main` es un deploy y la ordena el propietario (decisión del 30/10/2026), con respaldo de la base antes. No hay migración. El interruptor de Configuración arranca encendido.
 4. Los vendedores actualizan desde el aviso «Hay una versión nueva» o «Buscar actualizaciones» en Tampermonkey. Con D4 B, Tampermonkey puede pedir aprobar el host de R2.
 5. Smoke 12.1 en producción por el propietario.
 6. Documentación: `src/content/user-guide.json` (y regenerar `docs/guia-de-uso.md`), `userscript/README.md`, `docs/decisiones.md`, `docs/estado-desarrollo.md`, `docs/pendientes.md`.
 
 **Vuelta atrás.**
-- **Solo el adjunto:** `USERSCRIPT_ATTACH_FILES=0` y redeploy (D5). Los 1.8.0 instalados vuelven a solo texto sin actualizar.
+- **Solo el adjunto:** el admin apaga «Adjuntar archivos desde el script» en Configuración (D5), sin redeploy. Los 1.8.0 instalados vuelven a solo texto sin actualizar.
 - **El script entero:** Tampermonkey no baja de versión, así que «volver a la versión anterior» es publicar una **1.8.1** armada desde el código de la 1.7.0 (o con el arreglo puntual). La barrera la exige igual que cualquier versión nueva.
 - **El servidor:** todos los cambios son aditivos; una 1.7.0 sigue funcionando contra el servidor nuevo y una 1.8.0 contra uno viejo (sin `attach` en los metadatos = solo texto).
 
@@ -360,7 +360,7 @@ Cada PR con typecheck, `npm test`, build y sus integraciones en verde, y CI verd
 - **Dado** cualquier falla de 6.2, **entonces** WhatsApp queda en el estado B o C de 5.4, con su aviso, y nunca con una vista previa sin texto con el panel diciendo «Listo».
 - **Dado** que la descarga falla, **entonces** no se llamó a `dispatch`, no hay nada en el chat y el panel ofrece «Reintentar» y «Pegar solo con el enlace»; nada se reintenta solo.
 - **Dado** un token de otro usuario, un enlace de otro mensaje, revocado o sacado del texto, **entonces** `material_file` responde el mismo 404; con «No contactar», 403 o 409; el token nunca aparece en una URL ni en un log.
-- **Dado** `USERSCRIPT_ATTACH_FILES=0`, **entonces** la 1.8.0 se comporta como la 1.7.0.
+- **Dado** el interruptor de Configuración apagado, **entonces** la 1.8.0 se comporta como la 1.7.0.
 - **Dado** el panel de Instagram o el CRM en el celular, **entonces** el material sigue yendo solo como enlace.
 - Con la 1.8.0, el panel de Instagram y el de WhatsApp se ven al día sin recargar y el selector de material pliega «De otras verticales (N)» (specs 103 y 102).
 - `npm run typecheck`, `npm test`, `npm run build`, las integraciones listadas y `npm run test:browser` en verde; CI verde en el SHA de cada PR; smoke 12.1 hecho por el propietario.
@@ -414,6 +414,14 @@ Cada PR con typecheck, `npm test`, build y sus integraciones en verde, y CI verd
    - **Recomendación: A.**
 
 Defaults que la spec ya eligió (no son bifurcaciones): nombre del archivo = título del material + extensión; un solo botón «Pegar en el chat»; bajar antes de `dispatch`; 6 descargas cada 10 minutos por token; 15 minutos de ventana para `whatsapp_opened`; 20 s de espera de la vista previa; tope de 50 MB como constante en el código (decisión del propietario).
+
+### Decisión del propietario (31/10/2026)
+
+- **D1:** sí, también cuando el chat lo abrió el CRM («Abrir WhatsApp» del redactor); `openWhatsapp` pasa `messageId` y materiales en `context`.
+- **D2:** con dos o más materiales, todo va como enlace, con aviso.
+- **D3:** JPG, PNG y WebP como foto; el resto como documento.
+- **D4:** los bytes viajan en streaming a través del CRM; sin `@connect` nuevo ni URL prefirmada en el navegador (requiere un método de lectura en streaming en `R2Storage`).
+- **D5:** interruptor en Configuración (no variable de entorno); ver 7.4.
 
 ## 18. Migraciones y datos
 
