@@ -17,6 +17,7 @@ import { listenForInstagramHandoff } from "./instagramBridge";
 import { startInstagramApp } from "./instagramApp/start";
 import { gmInstagramStore } from "./instagramApp/storage";
 import { instagramApi } from "./instagramApp/client";
+import { listenForVisibility } from "./visibility";
 
 const BASE = (import.meta as ImportMeta & { env: { USERSCRIPT_CRM_BASE_URL?: string } }).env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const TOKEN_KEY = "hospeda-userscript-token", choicesKey = (phone: string | null) => `hospeda-userscript-choice:${phone || "unknown"}`;
@@ -71,8 +72,9 @@ function baseOptions(): UiOptions {
   return { crmBase: BASE, version: USERSCRIPT_VERSION, onSaveToken: saveToken, onClearToken: () => saveToken(""), onCopyDiagnostic: copyChatDiagnostic, onSelect: () => {}, register: null, context: null, selected: null,badgePreference:badgePreference(),badgeError,onBadgePreference:enabled=>{const pane=enabled?document.querySelector<HTMLElement>('#pane-side'):null;badgePane=pane; if(chatBadges)toggleBadgePreference(enabled,chatBadges,pane);else if(!enabled)document.querySelectorAll('[data-hospeda-badge-host]').forEach(node=>node.remove());lastFingerprint="";void update();} };
 }
 async function update(): Promise<void> {
-  if (isEditing()) return;
   const main = getConversationPanel(), chat = main ? currentChat() : null;
+  const nextKey = chat?.ok ? `${chat.title}:${chat.phone || ""}` : "";
+  if (isEditing() && nextKey === activeChat) return;
   if (!chat || !chat.ok) {
     const state = !chat ? "none" : chat.reason;
     if (state === lastFingerprint && document.getElementById("hospeda-userscript-banner")) return;
@@ -130,5 +132,5 @@ function start(): void {
   const badgesRootObserver=new MutationObserver(records=>{if(records.every(record=>[...record.addedNodes,...record.removedNodes].every(node=>node instanceof HTMLElement&&node.hasAttribute('data-hospeda-badge-host'))))return;const pane=document.querySelector<HTMLElement>('#pane-side');if(pane&&pane!==badgePane&&badgePreference()){badgePane=pane;chatBadges?.start(pane);}});badgesRootObserver.observe(document.body,{subtree:true,childList:true});
   // On load, every half hour, and when the seller comes back to the WhatsApp tab (at most every two minutes).
   const check = throttled(() => { void checkForUpdate(); }, 2 * 60_000); check(); window.setInterval(check, UPDATE_CHECK_MS);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); }); const root = getAppRoot(); observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-id", "title", "data-pre-plain-text"] }); void update(); window.addEventListener("pagehide", () => {observer?.disconnect();chatBadges?.stop();badgesRootObserver.disconnect();}, { once: true }); }
+  const stopVisibility = listenForVisibility(document, () => { cache.clear(); lastFingerprint = ""; void update(); check(); }); const root = getAppRoot(); observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-id", "title", "data-pre-plain-text"] }); void update(); window.addEventListener("pagehide", () => {observer?.disconnect();chatBadges?.stop();badgesRootObserver.disconnect();stopVisibility();}, { once: true }); }
 start();
