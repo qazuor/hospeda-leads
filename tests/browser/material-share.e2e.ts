@@ -9,12 +9,19 @@ const R2_PORT=Number(process.env.CRM_E2E_R2_PORT??3019);
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=','base64');
 const objects=new Map<string,{body:Buffer;type:string}>();
 let r2:Server;let sql:ReturnType<typeof postgres>;
-const tokens:{image:string;pdf:string;revoked:string;imageShareId:string}={image:'',pdf:'',revoked:'',imageShareId:''};
-async function share(materialId:string,accountId:string,revoked=false){
- const token=randomBytes(32).toString('base64url'),id=randomUUID();
- await sql`INSERT INTO crm_sales_material_shares(id,token_hash,material_id,account_id,original_account_id,channel,prepared_version,created_by_email,revoked_at,revoked_by_email,revoke_reason)
-  VALUES(${id},${createHash('sha256').update(token).digest('hex')},${materialId},${accountId},${accountId},'whatsapp',1,'admin@example.com',${revoked?new Date():null},${revoked?'admin@example.com':null},${revoked?'Prueba e2e':null})`;
- return {token,id};
+const tokens:{image:string;pdf:string;revoked:string;imageShareId:string;short:string;direct:string}={image:'',pdf:'',revoked:'',imageShareId:'',short:'',direct:''};
+/** A client address no other check uses: a random IPv6 /64 inside 2001:db8::/32 (RFC 3849), the unit of the spec 101 miss budget. */
+const freshClientIp=()=>`2001:db8:${randomBytes(4).toString('hex').replace(/(.{4})/,'$1:')}::1`;
+const BASE62='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+/**
+ * A share row. Without `slug`: a legacy link (43-character token, sent before spec 101), still served. With `slug`: a spec 101 short link,
+ * `/m/<slug>-<4 characters>`; `token` is then the whole path segment.
+ */
+async function share(materialId:string,accountId:string,revoked=false,slug:string|null=null){
+ const raw=slug?Array.from(randomBytes(4),b=>BASE62[b%62]).join(''):randomBytes(32).toString('base64url'),id=randomUUID();
+ await sql`INSERT INTO crm_sales_material_shares(id,token_hash,public_slug,material_id,account_id,original_account_id,channel,prepared_version,created_by_email,revoked_at,revoked_by_email,revoke_reason)
+  VALUES(${id},${createHash('sha256').update(raw).digest('hex')},${slug},${materialId},${accountId},${accountId},'whatsapp',1,'admin@example.com',${revoked?new Date():null},${revoked?'admin@example.com':null},${revoked?'Prueba e2e':null})`;
+ return {token:slug?`${slug}-${raw}`:raw,id};
 }
 async function material(title:string,file:{name:string;mime:string;body:Buffer}){
  const id=randomUUID(),key=`materials/${id}/v1-${randomUUID()}.${file.name.split('.').pop()}`;objects.set(key,{body:file.body,type:file.mime});
@@ -36,6 +43,10 @@ test.beforeAll(async()=>{
  const brochure=await material('Folleto de tarifas 2027',{name:'folleto.pdf',mime:'application/pdf',body:Buffer.from('%PDF-1.4\n%%EOF')});
  const img=await share(photo,account.id);tokens.image=img.token;tokens.imageShareId=img.id;
  tokens.pdf=(await share(brochure,account.id)).token;tokens.revoked=(await share(photo,account.id,true)).token;
+ tokens.short=(await share(brochure,account.id,false,'folleto-de-tarifas-2027')).token;
+ // Spec 101 D3: a material set to «Abrir directo» (the admin's choice, read when the link opens).
+ const direct=await material('Foto directa',{name:'directa.png',mime:'image/png',body:PNG});await sql`UPDATE crm_sales_materials SET open_direct=true WHERE id=${direct}`;
+ tokens.direct=(await share(direct,account.id,false,'foto-directa')).token;
 });
 test.afterAll(async()=>{await sql?.end();await new Promise<void>(resolve=>r2?r2.close(()=>resolve()):resolve());});
 
@@ -68,7 +79,21 @@ for(const width of [1280,390])test(`public material page renders the material, O
  await expect(page.getByRole('link',{name:'Abrir PDF'})).toHaveAttribute('rel','noopener noreferrer');
  // States: revoked 410, unknown 404, never the SPA.
  const revoked=await page.goto('/m/'+tokens.revoked);expect(revoked!.status()).toBe(410);await expect(page.getByRole('heading',{level:1})).toHaveText('Este enlace ya no está disponible');
+ // Spec 101 D1: unknown links spend a persisted budget of 5 per client and hour, and earlier suites on the same database (CI runs
+ // test-sales-material-share.ts first) leave several 198.51.100.x addresses spent. Each check takes its own random IPv6 /64 from the
+ // documentation range (2^32 of them, the budget key is the /64), so neither those suites, reruns nor the other viewport can share it.
+ await page.setExtraHTTPHeaders({'x-real-ip':freshClientIp()});
  const unknown=await page.goto('/m/'+randomBytes(32).toString('base64url'));expect(unknown!.status()).toBe(404);await expect(page.getByRole('heading',{level:1})).toHaveText('Este enlace no es válido');
  await expect(page.locator('#root')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
+});
+test('spec 101: a short link opens with its slug, and «Abrir directo» takes a person straight to the file',async({page,request})=>{
+ const response=await page.goto('/m/'+tokens.short);expect(response!.status()).toBe(200);
+ await expect(page.locator('iframe[title="PDF: Folleto de tarifas 2027"]')).toHaveAttribute('src',`/m/${tokens.short}/file`);
+ const person='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+ const direct=await request.get('/m/'+tokens.direct,{headers:{'user-agent':person},maxRedirects:0});
+ expect(direct.status()).toBe(302);const location=new URL(direct.headers()['location']!);
+ expect(location.origin).toBe(`http://127.0.0.1:${R2_PORT}`);expect(location.searchParams.get('response-content-disposition')).toMatch(/^inline;/);
+ const bot=await request.get('/m/'+tokens.direct,{headers:{'user-agent':'WhatsApp/2.23.20.0'},maxRedirects:0});
+ expect(bot.status()).toBe(200);expect(await bot.text()).toContain('<meta property="og:title" content="Foto directa">');
 });

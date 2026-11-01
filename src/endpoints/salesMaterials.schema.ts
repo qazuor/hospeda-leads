@@ -7,14 +7,16 @@ const categoryIds=z.array(id).max(20).transform(ids=>[...new Set(ids)]);
 const categoryName=z.string().trim().min(2).max(100);
 /** Spec 102 D4: catalog names (`crm_verticals.name`, compared exactly on the server); empty means «all verticals». */
 const verticals=z.array(z.string().trim().min(1).max(100)).max(20).default([]).transform(names=>[...new Set(names)]);
+/** Spec 101 D3/D4: «Abrir directo». Absent on `update` keeps the stored value; absent on `create` is off. */
+const openDirect=z.boolean().optional();
 /** An external https URL without credentials. */
 export const salesMaterialUrl=z.string().trim().max(2000).superRefine((value,ctx)=>{const error=externalUrlError({url:value});if(error)ctx.addIssue({code:'custom',message:error})});
 /** A version source: a completed upload or an external URL. */
 export const salesMaterialVersionSource=z.union([z.object({uploadId:uuid}).strict(),z.object({url:salesMaterialUrl}).strict()]);
 /** Admin mutations on sales material (POST /_api/sales_materials). */
 export const salesMaterialMutation=z.discriminatedUnion('action',[
- z.object({action:z.literal('create'),id:uuid,title,description,kind,source:z.enum(['file','url']),categoryIds,verticals,version:salesMaterialVersionSource}),
- z.object({action:z.literal('update'),id:uuid,revision,title,description,kind,categoryIds,verticals}),
+  z.object({action:z.literal('create'),id:uuid,title,description,kind,source:z.enum(['file','url']),categoryIds,verticals,version:salesMaterialVersionSource,openDirect}),
+  z.object({action:z.literal('update'),id:uuid,revision,title,description,kind,categoryIds,verticals,openDirect}),
  z.object({action:z.literal('version'),id:uuid,revision,version:salesMaterialVersionSource}),
  z.object({action:z.literal('cover'),id:uuid,revision,uploadId:uuid.nullable(),/** Spec 95: a cover generated in the browser; never replaces a cover uploaded by hand. */auto:z.boolean().optional(),/** Spec 102: with `auto`, an explicit request («Generar desde el archivo») may replace a cover removed by hand (`none`); ignored without `auto`. */replaceRemoved:z.boolean().optional()}),
  z.object({action:z.literal('archive'),id:uuid,revision}),
@@ -35,7 +37,7 @@ export type SalesMaterialListQuery=z.output<typeof salesMaterialListQuery>;
 export type SalesMaterialCategory={id:string;name:string;active:boolean};
 /** A version as the client sees it: never the object key. */
 export type SalesMaterialVersion={id:string;version:number;url:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;actorEmail:string;createdAt:Date};
-export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;/** Spec 95: `manual`/`auto`: the stored cover and who set it; `none`: the admin removed it (no automatic cover either); `null` or absent: never set (a small image may still be its own cover). */coverSource?:'manual'|'auto'|'none'|null;categories:SalesMaterialCategory[];/** Spec 102 D4: catalog names; empty = all verticals. */verticals:string[];/** Spec 102 D3: only with a context vertical (`forAccountId`/`forLeadId`). */verticalMatch?:SalesMaterialVerticalMatch|null;currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
+export type SalesMaterial={id:string;title:string;description:string;kind:'deliverable'|'internal';source:'file'|'url';status:'active'|'archived';/** Spec 101 D3/D4: the public link opens the file (or redirects to the external https link) instead of the page, for people; read when the link is opened. */openDirect:boolean;archivedAt:Date|null;archivedByEmail:string|null;revision:number;createdByEmail:string;createdAt:Date;updatedAt:Date;hasCover:boolean;/** Spec 95: `manual`/`auto`: the stored cover and who set it; `none`: the admin removed it (no automatic cover either); `null` or absent: never set (a small image may still be its own cover). */coverSource?:'manual'|'auto'|'none'|null;categories:SalesMaterialCategory[];/** Spec 102 D4: catalog names; empty = all verticals. */verticals:string[];/** Spec 102 D3: only with a context vertical (`forAccountId`/`forLeadId`). */verticalMatch?:SalesMaterialVerticalMatch|null;currentVersion:SalesMaterialVersion|null;versions?:SalesMaterialVersion[]};
 export type SalesMaterialLimits={maxUploadBytes:number;maxCoverBytes:number;storageConfigured:boolean;/** Sum of the files attached to one email (spec 89 §8.3). */maxEmailAttachmentBytes:number};
 /** `truncated` is true when more materials matched than the listing returns: narrow the search. */
 export type SalesMaterialList={materials:SalesMaterial[];truncated:boolean;categories:SalesMaterialCategory[];limits:SalesMaterialLimits;/** Spec 102: active catalog verticals in their order (form and filter options). */verticals?:string[];/** Spec 102 D5: the vertical that ordered the list (management, else business), or null. */contextVertical?:string|null};

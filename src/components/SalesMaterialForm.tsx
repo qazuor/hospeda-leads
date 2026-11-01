@@ -14,12 +14,18 @@ import {Button} from './Button';
 import {Input} from './Input';
 import {Textarea} from './Textarea';
 import {NativeSelect} from './NativeSelect';
+import {Checkbox} from './Checkbox';
 import styles from './SalesMaterial.module.css';
 
 /** What the dialog edits: a new material, its data, a new version or its cover. */
 export type SalesMaterialFormMode={type:'create'}|{type:'edit'|'version'|'cover';material:SalesMaterial};
 const BUSY='La operación está en curso. Esperá a que termine para continuar.';
 const COVER_ACCEPT=SALES_MATERIAL_COVER_MIMES.join(',');
+/** Spec 101 D3/D4: what «Abrir directo» changes for each origin. The setting is read when the link is opened, so it reaches links already sent. */
+const OPEN_DIRECT_HINTS={
+ file:'Quien toca el enlace ve el archivo, sin pasar por la página de Hospeda. La vista previa de WhatsApp sigue mostrando portada y título. En el celular, los archivos que el navegador no muestra (presentaciones, planillas, comprimidos) se descargan. Cambiarlo también afecta a los enlaces ya enviados.',
+ url:'Quien toca el enlace va directo al sitio externo, sin pasar por la página de Hospeda. La vista previa de WhatsApp sigue mostrando portada y título. Cambiarlo también afecta a los enlaces ya enviados.'
+} as const;
 /** Local check of a picked file, so the admin hears about a wrong type or size before uploading. */
 export function pickedFileError({file,purpose,maxUploadBytes}:{file:File;purpose:'file'|'cover';maxUploadBytes:number}):string|null{
  const mimeType=mimeForFile({fileName:file.name,type:file.type});
@@ -43,7 +49,7 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
  const material='material' in mode?mode.material:null;
  const [title,setTitle]=useState(material?.title??''),[description,setDescription]=useState(material?.description??'');
  const [kind,setKind]=useState<'deliverable'|'internal'>(material?.kind??'deliverable'),[source,setSource]=useState<'file'|'url'>(material?.source??'file');
- const [categoryIds,setCategoryIds]=useState<string[]>(material?.categories.map(c=>c.id)??[]);
+ const [categoryIds,setCategoryIds]=useState<string[]>(material?.categories.map(c=>c.id)??[]),[openDirect,setOpenDirect]=useState(material?.openDirect??false);
  const [extraCategories,setExtraCategories]=useState<SalesMaterialCategory[]>([]),[verticals,setVerticals]=useState<string[]>(material?.verticals??[]);
  const [file,setFile]=useState<File|null>(null),[cover,setCover]=useState<File|null>(null),[url,setUrl]=useState('');
  const [fileNotice,setFileNotice]=useState(''),[coverNotice,setCoverNotice]=useState(''),picks=useRef({file:0,cover:0});
@@ -136,11 +142,11 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
     const id=createId.current;
     const version=source==='file'?{uploadId:await upload(file!,'file',id)}:{url:url.trim()};
     setPending('Guardando material…');
-    await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),kind,source,categoryIds,verticals,version});saved='Material guardado.';
+    await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),kind,source,categoryIds,verticals,version,openDirect});saved='Material guardado.';
     if(cover){const uploadId=await upload(cover,'cover',id);setPending('Guardando portada…');await postSalesMaterial({action:'cover',id,revision:1,uploadId});}
     else saved+=source==='file'?await autoCover(file!,id,1):await linkCover(id,1);
    }else if(mode.type==='edit'){
-    setPending('Guardando cambios…');await postSalesMaterial({action:'update',id:material!.id,revision:revision.current,title:title.trim(),description:description.trim(),kind,categoryIds,verticals});saved='Cambios guardados.';
+    setPending('Guardando cambios…');await postSalesMaterial({action:'update',id:material!.id,revision:revision.current,title:title.trim(),description:description.trim(),kind,categoryIds,verticals,openDirect});saved='Cambios guardados.';
    }else if(mode.type==='version'){
     const version=material!.source==='file'?{uploadId:await upload(file!,'file',material!.id)}:{url:url.trim()};
     setPending('Guardando versión…');const result=await postSalesMaterial({action:'version',id:material!.id,revision:revision.current,version});saved='Nueva versión guardada. Las anteriores se conservan.';
@@ -201,6 +207,7 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
     <label>Título<Input value={title} maxLength={200} disabled={busy} onChange={e=>setTitle(e.target.value)} placeholder="Ej.: Folleto de tarifas 2027" aria-describedby="sales-material-title-hint"/></label><span id="sales-material-title-hint" className={styles.hint}>Lo ve el cliente: en el mensaje («Podés ver «…» en: …»), en la página del material y en la vista previa de WhatsApp.</span>
     <label>Comentario<Textarea value={description} maxLength={4000} disabled={busy} onChange={e=>setDescription(e.target.value)} placeholder="Para qué sirve, a quién conviene mostrarlo"/></label>
     <label>Tipo<NativeSelect value={kind} disabled={busy} onChange={e=>setKind(e.target.value as 'deliverable'|'internal')}><option value="deliverable">Entregable: se puede mandar a clientes</option><option value="internal">Interno: solo para vendedores</option></NativeSelect></label>
+    <div><label className={styles.check}><Checkbox checked={openDirect} disabled={busy} disabledReason={BUSY} aria-describedby="sales-material-open-direct-hint" onChange={e=>setOpenDirect(e.currentTarget.checked)}/>Abrir directo</label><span id="sales-material-open-direct-hint" className={styles.hint}>{OPEN_DIRECT_HINTS[mode.type==='create'?source:material?.source??'file']}</span></div>
     {becomesInternal&&<p className={styles.warning} role="note">Al pasarlo a interno, los enlaces que ya se mandaron van a mostrar «Este material ya no está disponible».</p>}
     <CreatableMultiSelect label="Categorías" data={options} compareKey={salesMaterialCategoryKey} unavailable={unavailableCategories} value={categoryIds} onChange={setCategoryIds} onCreate={createCategory} disabled={busy} placeholder="Buscá o escribí una nueva" createLabel={text=>`Crear categoría «${text}»`} creatingLabel="Creando categoría…" nothingFoundMessage="No hay categorías con ese nombre"/>
     <MultiSelect label="Verticales" allLabel="Todas las verticales" data={verticalOptions} value={verticals} onChange={setVerticals} searchable clearable disabled={busy} maxValues={20} nothingFoundMessage="No hay verticales con ese nombre" aria-describedby="sales-material-verticals-hint"/>

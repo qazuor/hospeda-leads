@@ -1,4 +1,4 @@
-import {hashShareToken} from './salesMaterialShare';
+import {SHARE_TOKEN_PATTERN,hashShareToken,normalizeShareSlug} from './salesMaterialShare';
 import {isInstagramAttempt} from './instagramChat';
 /** Channels that can carry a sales material link (spec 89 D8; Instagram since spec 98, link only). Also the share's stored `channel`. */
 export type MaterialChannel='email'|'whatsapp'|'instagram';
@@ -20,8 +20,10 @@ export class MaterialShareUrlUnavailable extends Error{constructor(){super('Falt
 export function materialShareUrl({path,base=process.env.PUBLIC_APP_URL,production=process.env.NODE_ENV==='production'}:{path:string;base?:string|null;production?:boolean}):string{
  const root=base?.trim();
  if(!root&&production)throw new MaterialShareUrlUnavailable();
- return (root||'http://localhost:3001').replace(/\/+$/,'')+path;
+ return shareOrigin({base:root||null})+path; // null, not undefined: undefined would re-read PUBLIC_APP_URL through the default parameter
 }
+/** Origin that share links are built with (`PUBLIC_APP_URL`, or the local server), without trailing slashes. */
+export const shareOrigin=({base=process.env.PUBLIC_APP_URL}:{base?:string|null}={}):string=>(base?.trim()||'http://localhost:3001').replace(/\/+$/,'');
 const escapeHtml=(value:string)=>value.replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const escapeRegExp=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 /** Lead-in before an appended material link, written for the client (owner review of spec 96): «Podés ver «Título» en: URL». */
@@ -69,16 +71,45 @@ export function removeMaterialLink({channel,body,url,title}:{channel:MaterialCha
 export function redactPresignedUrls({text}:{text:string}):string{
  return text.replace(/(https?:\/\/[^\s"'<>?]+)\?[^\s"'<>]*X-Amz-[^\s"'<>]*/gi,'$1?[redacted]');
 }
-/** Share tokens present in a body (`/m/<43 chars>`), as their sha256: the only form the database keeps. */
-export function shareTokenHashesInBody({body}:{body:string}):Set<string>{
- const hashes=new Set<string>();
- for(const match of body.matchAll(/\/m\/([A-Za-z0-9_-]{43})(?![A-Za-z0-9_-])/g))hashes.add(hashShareToken({token:match[1]!}));
- return hashes;
+type LinkInBody={url:string;token:string;slug:string|null};
+/**
+ * Every share link of a body: legacy links (`/m/<43 chars>`, with or without origin) and short links (spec 101, `<origin>/m/<slug>-<4 chars>`).
+ * Short links are only recognized with the CRM origin ({@link shareOrigin}, host in any case): a 4-character tail is common in other sites'
+ * URLs, and an unrecognized link would block `dispatch`. The slug part is read loosely (any characters, or none): a seller who retyped it
+ * still keeps the link in the text, and `dispatch` then checks it against the stored slug (`slug` is `''` when it was deleted).
+ */
+function linksInBody({body,origin}:{body:string;origin:string}):LinkInBody[]{
+ const links:LinkInBody[]=[];
+ for(const match of body.matchAll(/(?:https?:\/\/[^\s"'<>]+)?\/m\/([A-Za-z0-9_-]{43})(?![A-Za-z0-9_-])/g))links.push({url:match[0],token:match[1]!,slug:null});
+ // Short links: any `/m/<segment>` on the CRM origin (host in any case) whose segment, without trailing punctuation, is `<anything>-<4>` or just
+ // `<4>`. Deliberately tolerant: a slug the seller edited (`_`, `.`, deleted) must still be found, so dispatch refuses it with «se modificó»
+ // instead of revoking it as removed and sending a dead link.
+ for(const match of body.matchAll(new RegExp(`${escapeRegExp(origin)}/m/([^\\s"'<>/?#]+)`,'gi'))){
+  const segment=match[1]!.replace(/[.,;:!?)\]»]+$/,''),short=/^(?:(.*)-)?([A-Za-z0-9]{4})$/.exec(segment);
+  if(short)links.push({url:match[0].slice(0,match[0].length-match[1]!.length)+segment,token:short[2]!,slug:short[1]??''});
+ }
+ // A 43-character segment can read both ways. A generated slug is lower case, so then it is the short link; otherwise (about 1.4 % of legacy
+ // tokens have a `-` before their last 4 characters) it is the legacy token, whose 38 first characters are practically never all lower case.
+ const generated=(slug:string)=>/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+ const ambiguous=(l:LinkInBody)=>l.slug!=null&&SHARE_TOKEN_PATTERN.test(l.slug+'-'+l.token);
+ const shortWins=new Set(links.filter(l=>ambiguous(l)&&generated(l.slug!)).map(l=>l.slug+'-'+l.token));
+ return links.filter(l=>l.slug==null?!shortWins.has(l.token):!ambiguous(l)||generated(l.slug));
+}
+/** Share tokens present in a body (legacy and short links, see {@link linksInBody}), as their sha256: the only form the database keeps. */
+export function shareTokenHashesInBody({body,origin=shareOrigin()}:{body:string;origin?:string}):Set<string>{
+ return new Set(linksInBody({body,origin}).map(l=>hashShareToken({token:l.token})));
 }
 /** The full URL of a share whose token appears in the body (null when the seller removed it). */
-export function shareUrlInBody({body,tokenHash}:{body:string;tokenHash:string}):string|null{
- for(const match of body.matchAll(/(?:https?:\/\/[^\s"'<>]+)?\/m\/([A-Za-z0-9_-]{43})(?![A-Za-z0-9_-])/g))if(hashShareToken({token:match[1]!})===tokenHash)return match[0];
- return null;
+export function shareUrlInBody({body,tokenHash,origin=shareOrigin()}:{body:string;tokenHash:string;origin?:string}):string|null{
+ return linksInBody({body,origin}).find(l=>hashShareToken({token:l.token})===tokenHash)?.url??null;
+}
+/**
+ * Spec 101 D2: true when the body carries the link of a short share with its slug intact (case and accents aside). A legacy share
+ * (`publicSlug` null) only needs its token. `dispatch` refuses to send a link whose slug the seller changed: it would answer 404.
+ */
+export function shareSlugIntactInBody({body,tokenHash,publicSlug,origin=shareOrigin()}:{body:string;tokenHash:string;publicSlug:string|null;origin?:string}):boolean{
+ const links=linksInBody({body,origin}).filter(l=>hashShareToken({token:l.token})===tokenHash);
+ return publicSlug==null?links.length>0:links.some(l=>l.slug!=null&&normalizeShareSlug({slug:l.slug})===publicSlug);
 }
 /** «10 MB» style label of a byte limit. */
 export const megabytesLabel=({bytes}:{bytes:number}):string=>`${Number((bytes/1048576).toFixed(1))} MB`;

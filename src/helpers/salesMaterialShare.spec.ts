@@ -1,27 +1,85 @@
 // @vitest-environment node
 import {describe,expect,it} from 'vitest';
-import {clientIp,clientIpMode,createShareRateLimiter,generateShareToken,hashShareToken,isPreviewBot,isShareTokenFormat,mangledShareTokenFromPath,shareTokenMatches} from './salesMaterialShare';
+import {randomBytes} from 'node:crypto';
+import {SHORT_TOKEN_ALPHABET,clientIp,clientIpMode,createShareRateLimiter,generateShortShareToken,hashShareToken,isPreviewBot,isShareTokenFormat,mangledShareTokenFromPath,normalizeShareSlug,parseShareSegment,shareClientKey,shareSlug,shareTokenMatches} from './salesMaterialShare';
 
-describe('share tokens',()=>{
- it('generates 256-bit base64url tokens and stores only their sha256',()=>{
-  const a=generateShareToken(),b=generateShareToken();
-  expect(a.token).toMatch(/^[A-Za-z0-9_-]{43}$/);expect(Buffer.from(a.token,'base64url')).toHaveLength(32);
-  expect(a.token).not.toBe(b.token);expect(a.tokenHash).toMatch(/^[0-9a-f]{64}$/);expect(a.tokenHash).not.toContain(a.token);
-  expect(hashShareToken({token:a.token})).toBe(a.tokenHash);
- });
- it('always ends in an alphanumeric character, so linkifiers cannot swallow or extend it',()=>{
-  for(let i=0;i<2000;i++)expect(generateShareToken().token).toMatch(/[A-Za-z0-9]$/);
- });
- it('validates the exact token shape before any lookup',()=>{
-  const {token}=generateShareToken();
+/** A token in the format sent before spec 101 (32 random bytes, base64url). */
+const legacyToken=()=>{let t='';do{t=randomBytes(32).toString('base64url')}while(!/[A-Za-z0-9]$/.test(t));return t;};
+describe('legacy share tokens (before spec 101)',()=>{
+ it('validates the exact legacy shape before any lookup',()=>{
+  const token=legacyToken();
   expect(isShareTokenFormat({token})).toBe(true);
   for(const bad of ['',token.slice(1),token+'A',token.slice(0,42)+'=',token.slice(0,42)+'/',"' OR 1=1 --",'../../etc/passwd'])expect(isShareTokenFormat({token:bad}),bad).toBe(false);
  });
  it('compares a token with a stored hash in constant time and rejects malformed hashes',()=>{
-  const {token,tokenHash}=generateShareToken();
+  const token=legacyToken(),tokenHash=hashShareToken({token});
   expect(shareTokenMatches({token,tokenHash})).toBe(true);
-  expect(shareTokenMatches({token:generateShareToken().token,tokenHash})).toBe(false);
+  expect(shareTokenMatches({token:legacyToken(),tokenHash})).toBe(false);
   expect(shareTokenMatches({token,tokenHash:'abc'})).toBe(false);expect(shareTokenMatches({token,tokenHash:tokenHash.toUpperCase()})).toBe(false);
+ });
+});
+describe('short share tokens (spec 101 D1)',()=>{
+ it('generates 4 characters of the base62 alphabet and stores only their sha256',()=>{
+  const a=generateShortShareToken();
+  expect(a.token).toMatch(/^[A-Za-z0-9]{4}$/);expect(a.tokenHash).toBe(hashShareToken({token:a.token}));expect(a.tokenHash).toMatch(/^[0-9a-f]{64}$/);
+  expect(SHORT_TOKEN_ALPHABET).toHaveLength(62);expect(new Set(SHORT_TOKEN_ALPHABET).size).toBe(62);
+ });
+ it('never produces `-` or `_`, so the slug separator and WhatsApp italics stay unambiguous',()=>{
+  for(let i=0;i<3000;i++)expect(generateShortShareToken().token).toMatch(/^[A-Za-z0-9]{4}$/);
+ });
+ it('maps bytes uniformly by rejecting the bytes above the last multiple of 62',()=>{
+  const bytes=[255,248,0,61,62,123];let i=0;
+  const t=generateShortShareToken({random:n=>Buffer.from(Array.from({length:n},()=>bytes[i++%bytes.length]!))});
+  // 255 and 248 are rejected; 0→'0', 61→'z' (last), 62→'0', 123→'z'.
+  expect(t.token).toBe(SHORT_TOKEN_ALPHABET[0]!+SHORT_TOKEN_ALPHABET[61]+SHORT_TOKEN_ALPHABET[0]+SHORT_TOKEN_ALPHABET[61]);
+ });
+});
+describe('shareSlug',()=>{
+ it.each([
+  ['Folleto de tarifas 2027','folleto-de-tarifas-2027'],['Cabaña «Río» & más','cabana-rio-mas'],['  ÁÉÍÓÚ üñ  ','aeiou-un'],['--Hola__mundo!!--','hola-mundo'],
+  ['***','material'],['','material'],['Tour 360° — Villa Elisa','tour-360-villa-elisa']
+ ])('turns %j into %j',(title,slug)=>expect(shareSlug({title})).toBe(slug));
+ it('cuts at 40 characters on a dash, never in the middle of a word when it can',()=>{
+  const slug=shareSlug({title:'Presentación completa de servicios turísticos para alojamientos'});
+  expect(slug.length).toBeLessThanOrEqual(40);expect(slug).toBe('presentacion-completa-de-servicios');expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+  expect(shareSlug({title:'a'.repeat(60)})).toBe('a'.repeat(40));
+ });
+});
+describe('normalizeShareSlug',()=>{
+ it('ignores case and accents, and decodes percent-encoded text',()=>{
+  expect(normalizeShareSlug({slug:'Folleto-De-Tarifas'})).toBe('folleto-de-tarifas');
+  expect(normalizeShareSlug({slug:'cabaña-río'})).toBe('cabana-rio');
+  expect(normalizeShareSlug({slug:'caba%C3%B1a'})).toBe('cabana');
+  expect(normalizeShareSlug({slug:'100%-real'})).toBe('100%-real');
+ });
+});
+describe('parseShareSegment',()=>{
+ it('splits a short link into slug and token',()=>{
+  expect(parseShareSegment({segment:'folleto-2027-Ab3x'})).toEqual({legacy:null,short:{slug:'folleto-2027',token:'Ab3x'}});
+  expect(parseShareSegment({segment:'Cabaña-Río-Ab3x'})).toEqual({legacy:null,short:{slug:'Cabaña-Río',token:'Ab3x'}});
+ });
+ it('recognizes a legacy token without slug, and offers both readings for an ambiguous 43-character segment',()=>{
+  const token=legacyToken();expect(parseShareSegment({segment:token}).legacy).toBe(token);
+  const ambiguous='a'.repeat(38)+'-Ab3x';expect(ambiguous).toHaveLength(43);
+  expect(parseShareSegment({segment:ambiguous})).toEqual({legacy:ambiguous,short:{slug:'a'.repeat(38),token:'Ab3x'}});
+ });
+ it('rejects a token without slug, a wrong token length, separators in the token and garbage',()=>{
+  for(const segment of ['Ab3x','-Ab3x','folleto-Ab3','folleto-Ab3xy','folleto-Ab_x','folleto_Ab3x','',"x' OR 1=1 --",'a/b-Ab3x','x'.repeat(250)+'-Ab3x'])
+   expect(parseShareSegment({segment}),segment).toEqual({legacy:null,short:null});
+ });
+});
+describe('shareClientKey',()=>{
+ it('keeps an IPv4 address whole',()=>{expect(shareClientKey({ip:'203.0.113.7'})).toBe('203.0.113.7');expect(shareClientKey({ip:'203.0.113.8'})).not.toBe(shareClientKey({ip:'203.0.113.7'}));});
+ it('groups IPv6 addresses by their /64, whatever the notation',()=>{
+  const key=shareClientKey({ip:'2001:db8:abcd:12::1'});
+  expect(key).toBe('2001:db8:abcd:12::/64');
+  for(const ip of ['2001:db8:abcd:12:ffff:ffff:ffff:ffff','2001:0DB8:ABCD:0012:0:0:0:9','2001:db8:abcd:12:1234::'])expect(shareClientKey({ip}),ip).toBe(key);
+  expect(shareClientKey({ip:'2001:db8:abcd:13::1'})).not.toBe(key);
+  expect(shareClientKey({ip:'::1'})).toBe('0:0:0:0::/64');expect(shareClientKey({ip:'fe80::1'})).toBe('fe80:0:0:0::/64');
+  expect(shareClientKey({ip:'2001:db8::'})).toBe('2001:db8:0:0::/64');
+ });
+ it('treats an IPv4-mapped IPv6 address as IPv4 and leaves unknown alone',()=>{
+  expect(shareClientKey({ip:'::ffff:203.0.113.7'})).toBe('203.0.113.7');expect(shareClientKey({ip:'unknown'})).toBe('unknown');
  });
 });
 describe('isPreviewBot',()=>{
@@ -81,10 +139,15 @@ describe('clientIp',()=>{
  });
 });
 describe('mangledShareTokenFromPath',()=>{
- const {token}=generateShareToken();
- it.each(['/','.',',',')','%29','%2c'])('returns the clean token for a trailing %j',tail=>expect(mangledShareTokenFromPath({pathname:`/m/${token}${tail}`})).toBe(token));
+ // No '-': a 42-character slice with a '-' before its last 4 characters is a valid short link (`slug-XXXX`), which made the null case flaky.
+ const token=(()=>{let t='';do{t=legacyToken()}while(t.includes('-'));return t;})();
+ it.each(['/','.',',',')','%29','%2c'])('returns the clean legacy token for a trailing %j',tail=>expect(mangledShareTokenFromPath({pathname:`/m/${token}${tail}`})).toBe(token));
+ it.each(['/','.',',',')','%29','%2C'])('returns the clean short segment for a trailing %j',tail=>{
+  expect(mangledShareTokenFromPath({pathname:`/m/folleto-2027-Ab3x${tail}`})).toBe('folleto-2027-Ab3x');
+  expect(mangledShareTokenFromPath({pathname:`/m/caba%C3%B1a-Ab3x${tail}`})).toBe('caba%C3%B1a-Ab3x');
+ });
  it('returns null for the clean path, double punctuation, other suffixes and malformed tokens',()=>{
-  for(const path of [`/m/${token}`,`/m/${token}..`,`/m/${token}/file`,`/m/${token}/file/`,`/m/${token.slice(1)}/`,`/m/${token}x.`,'/m/','/x/'+token+'/'])expect(mangledShareTokenFromPath({pathname:path}),path).toBeNull();
+  for(const path of [`/m/${token}`,`/m/${token}..`,`/m/${token}/file`,`/m/${token}/file/`,`/m/${token.slice(1)}/`,`/m/${token}x.`,'/m/','/x/'+token+'/','/m/folleto-Ab3x','/m/folleto-Ab3x..','/m/folleto-Ab3x/file/','/m/Ab3x.','/m/folleto-Ab3.'])expect(mangledShareTokenFromPath({pathname:path}),path).toBeNull();
  });
 });
 describe('createShareRateLimiter',()=>{
@@ -93,12 +156,6 @@ describe('createShareRateLimiter',()=>{
   for(let i=0;i<60;i++)expect(l.allowRequest('a')).toBe(true);
   expect(l.allowRequest('a')).toBe(false);expect(l.allowRequest('b')).toBe(true);
   t=60000;expect(l.allowRequest('a')).toBe(true);
- });
- it('blocks lookups after 20 unknown tokens in 10 minutes per IP',()=>{
-  let t=0;const l=createShareRateLimiter({now:()=>t});
-  for(let i=0;i<20;i++){expect(l.allowUnknownLookup('a')).toBe(true);l.recordUnknown('a');}
-  expect(l.allowUnknownLookup('a')).toBe(false);expect(l.allowUnknownLookup('b')).toBe(true);
-  t=599999;expect(l.allowUnknownLookup('a')).toBe(false);t=600000;expect(l.allowUnknownLookup('a')).toBe(true);
  });
  it('allows 300 requests per minute per IP by default, so shared IPs are not locked out',()=>{
   const l=createShareRateLimiter({now:()=>0});
@@ -117,8 +174,6 @@ describe('createShareRateLimiter',()=>{
   // The newest five survive (their counter is already used); an evicted IP starts again from zero.
   for(let i=15;i<20;i++)expect(l.allowRequest('ip'+i),'ip'+i).toBe(false);
   expect(l.allowRequest('ip0')).toBe(true);
-  for(let i=0;i<50;i++){t=100+i;l.recordUnknown('u'+i);}
-  expect(l.size()).toBeLessThanOrEqual(10);
  });
  it('re-inserting an expired IP moves it to the back, keeping the insertion order sorted by window start',()=>{
   let t=0;const l=createShareRateLimiter({now:()=>t,maxEntries:3,requestsPerMinute:1});
