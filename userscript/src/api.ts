@@ -1,6 +1,8 @@
 import { USERSCRIPT_VERSION } from "./version";
 
-export type Match = { accountId: string; code: string; name: string; city: string | null; status?: string | null; statusLabel?: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { openedAt: string; body?: string | null }[]; autoRegister?: {enabled:boolean;reason?:"global_disabled"|"auto_disabled"|"not_eligible"|string;since:string} };
+export type AttachMetadata={eligible:boolean;reason:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;kind:"document"|"image"|null};
+export type Media="document"|"image"|"video"|"audio"|null;
+export type Match = { accountId: string; code: string; name: string; city: string | null; status?: string | null; statusLabel?: string | null; assignedUserName: string | null; doNotContact: boolean; restrictionActive: boolean; archived: boolean; leads: { id: string; name: string; stage: string }[]; url: string; openWhatsapp?: { messageId:string; openedAt: string; body?: string | null; materials?:HeldMaterial[] }[]; autoRegister?: {enabled:boolean;reason?:"global_disabled"|"auto_disabled"|"not_eligible"|string;since:string} };
 export type ContextResponse = { minVersion: string; latestVersion?: string; user: { email: string; displayName: string }; autoRegister?:boolean; hiddenMatches?: number; matches: Match[] };
 export type RegisterResult = { externalId: string; status: "created" | "duplicate" | "rejected"; kind?: "message" | "inbound"; id?: string; reason?: string };
 export type RegisterResponse = { results: RegisterResult[] };
@@ -50,7 +52,21 @@ export type TemplatesResponse={leads:TemplateLead[];general?:WhatsappGeneral|nul
  */
 export type PreparedTemplate={messageId:string;revision:number;body:string;recipient:string;recipientName:string;unresolved:string[];materialWarnings?:string[];materials?:HeldMaterial[]};
 /** A material the draft holds (its link is in the text). `shareId` is what «Quitar» sends; older CRMs may omit it. */
-export type HeldMaterial={shareId?:string;materialId:string;title:string};
+export type HeldMaterial={shareId?:string;materialId:string;title:string;attach?:AttachMetadata};
+export type MaterialFile={file:File;version:string|null};
+export function fetchMaterialFile(base:string,token:string,messageId:string,shareId:string,expected:{fileName:string;mimeType:string;byteSize:number},onProgress:(loaded:number,total:number)=>void):{promise:Promise<MaterialFile>;abort:()=>void}{
+ let settled=false;let abortRequest=()=>{};
+ const promise=new Promise<MaterialFile>((resolve,reject)=>{
+  const headers={Authorization:`Bearer ${token}`,"X-Hospeda-Userscript-Version":USERSCRIPT_VERSION};
+  const xhr=GM_xmlhttpRequest({method:"GET",url:`${base}/_api/userscript/material_file?${new URLSearchParams({messageId,shareId})}`,headers,timeout:120_000,responseType:"arraybuffer",
+   onprogress:event=>{onProgress(event.loaded,expected.byteSize);if(event.loaded>expected.byteSize){xhr.abort();if(!settled){settled=true;reject(new Error("No pude bajar el archivo."));}}},
+   onload:response=>{if(settled)return;if(response.status<200||response.status>=300){settled=true;const payload=response.response as {error?:string}|null;const fallback=response.status===401?"Token inválido o revocado. Configurá uno nuevo desde el menú del script.":response.status===426?"Actualizá el script desde el menú de Tampermonkey.":response.status===403?"No tenés permiso para registrar en este negocio.":response.status===404?"No encontramos ese archivo.":response.status===409?"Este archivo cambió. Volvé a preparar el mensaje.":response.status===429?"Hay demasiadas descargas en curso. Probá de nuevo en unos minutos.":"No pude bajar el archivo.";reject(new ApiError(payload?.error||fallback,response.status));return;}
+    let bytes=response.response;if(!(bytes instanceof ArrayBuffer)||bytes.byteLength!==expected.byteSize){settled=true;reject(new Error("No pude bajar el archivo."));return;}
+    const type=(response.responseHeaders||"").match(/^content-type:\s*([^;\r\n]+)/im)?.[1]?.trim()||"";if(type.toLowerCase()!==expected.mimeType.toLowerCase()){settled=true;reject(new Error("No pude bajar el archivo."));return;}
+    const version=(response.responseHeaders||"").match(/^x-hospeda-material-version:\s*(.+)$/im)?.[1]?.trim()||null;const file=new File([bytes],expected.fileName,{type});bytes=null;response.response=null;settled=true;resolve({file,version});
+   },onerror:()=>{if(!settled){settled=true;reject(new Error("No pude bajar el archivo."));}},ontimeout:()=>{if(!settled){settled=true;reject(new Error("No pude bajar el archivo."));}}});abortRequest=()=>{if(!settled){settled=true;xhr.abort();reject(new Error("Descarga cancelada."));}};
+ });return {promise,abort:()=>abortRequest()};
+}
 /** The CRM's answer to `material_add` and `material_remove`: the new text and revision, and (since spec 98) the materials the draft holds. */
 export type MaterialChange={revision:number;body:string;materials?:HeldMaterial[]};
 export const fetchTemplates=(base:string,token:string,accountId:string)=>request<TemplatesResponse>(`${base}/_api/userscript/templates?accountId=${encodeURIComponent(accountId)}`,token);
