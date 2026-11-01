@@ -57,7 +57,7 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
   });
   it("Ajustes shows the connection, the version and a newer script", () => {
     render(ready({ view: "settings" })); expect(text()).toContain("Conectado como Ana"); expect(text()).toContain("Versión 1.6.0 · al día");
-    render(ready({ view: "settings", status: { kind: "ok", value: { ...status, latestVersion: "1.7.0" } } })); expect(text()).toContain("Hay una versión nueva del script (1.7.0)");
+    render(ready({ view: "settings", status: { kind: "ok", value: { ...status, latestVersion: "1.8.0" } } })); expect(text()).toContain("Hay una versión nueva del script (1.8.0)");
   });
   it("ignores synthetic clicks from the page on actions that call the CRM (isTrusted)", () => {
     const compose = vi.fn(), confirmChat = vi.fn();
