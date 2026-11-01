@@ -1,4 +1,5 @@
 /** Pure rules for sales material files, shared by the browser and the server (no Node imports). */
+import {cityKey} from './catalogCity';
 export const SALES_MATERIAL_MAX_UPLOAD_BYTES=524288000;
 export const SALES_MATERIAL_MAX_COVER_BYTES=1048576;
 /** Allowed MIME types with their accepted extensions (spec 89 §6.3). Extension and MIME must match. */
@@ -92,6 +93,12 @@ export function formatBytes({bytes}:{bytes:number}):string{
  if(bytes<1024*1024)return `${Math.max(1,Math.ceil(bytes/1024))} KB`;
  const mb=bytes/1024/1024;return `${mb>=100?Math.round(mb):mb.toLocaleString('es-AR',{maximumFractionDigits:1})} MB`;
 }
+/**
+ * Spec 102 D6: comparison form of a material category name, the same as the city catalog's (`cityKey`): accents, case and repeated spaces
+ * ignored, ñ distinct from n. The server rejects a new or renamed category that matches an existing one (active or not) by this key, and the
+ * selector uses it to decide when to offer «Crear».
+ */
+export const salesMaterialCategoryKey=(name:string):string=>cityKey(name.trim());
 /** True for http(s) URLs without credentials; sales material accepts only https. */
 export function externalUrlError({url}:{url:string}):string|null{
  let u:URL;try{u=new URL(url)}catch{return 'Pegá una dirección web completa, que empiece con https://.'}

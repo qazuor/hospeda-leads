@@ -44,7 +44,7 @@ export function SalesMaterialCard({material,admin,selected,anchor,busy,storageCo
    :<div className={styles.cover} data-format={format}><SalesMaterialCover material={material} storageConfigured={storageConfigured}/></div>}
   <div className={styles.body}>
    <h3>{previewable?<button type="button" className={styles.titleButton} aria-label={'Vista previa de «'+material.title+'»'} onClick={()=>onPreview(material)}>{material.title}</button>:material.title}</h3>
-   <div className={styles.badges}><Badge variant={material.kind==='deliverable'?'success':'warning'}>{material.kind==='deliverable'?'Entregable':'Interno'}</Badge><Badge variant="secondary">{SALES_MATERIAL_FORMAT_LABELS[format]}</Badge>{archived&&<Badge variant="destructive">Archivado</Badge>}{material.categories.map(c=><Badge key={c.id} variant="outline">{c.name}</Badge>)}</div>
+   <div className={styles.badges}><Badge variant={material.kind==='deliverable'?'success':'warning'}>{material.kind==='deliverable'?'Entregable':'Interno'}</Badge><Badge variant="secondary">{SALES_MATERIAL_FORMAT_LABELS[format]}</Badge>{archived&&<Badge variant="destructive">Archivado</Badge>}{material.categories.map(c=><Badge key={c.id} variant="outline">{c.name}</Badge>)}{(material.verticals??[]).map(v=><Badge key={'v:'+v} variant="secondary" aria-label={'Vertical '+v}>{v}</Badge>)}</div>
    {material.description&&<p className={styles.description}>{material.description}</p>}
    {current&&<p className={styles.meta}>{current.url?'Enlace externo':`${current.fileName??'Archivo'}${current.byteSize?' · '+formatBytes({bytes:current.byteSize}):''}`} · versión {current.version}</p>}
    {material.kind==='internal'&&<p className={styles.meta}>Solo para vendedores: no se manda a clientes.</p>}
@@ -60,7 +60,8 @@ export function SalesMaterialCard({material,admin,selected,anchor,busy,storageCo
       {admin&&<>
        <DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'edit',material})}><Pencil size={15} aria-hidden="true"/>Editar</DropdownMenuItem>
        {!archived&&<DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'version',material})}><Upload size={15} aria-hidden="true"/>Nueva versión</DropdownMenuItem>}
-       {!archived&&material.source==='file'&&<DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'cover',material})}><ImagePlus size={15} aria-hidden="true"/>Portada</DropdownMenuItem>}
+       {/* Spec 102 block 2: external links take a manual cover too (the server always allowed it). */}
+       {!archived&&<DropdownMenuItem {...busyProps} onClick={()=>onEdit({type:'cover',material})}><ImagePlus size={15} aria-hidden="true"/>Portada</DropdownMenuItem>}
        <DropdownMenuSeparator/>
        <DropdownMenuItem {...busyProps} onClick={()=>onArchive(material)}>{archived?<RotateCcw size={15} aria-hidden="true"/>:<Archive size={15} aria-hidden="true"/>}{archived?'Restaurar':'Archivar'}</DropdownMenuItem>
       </>}

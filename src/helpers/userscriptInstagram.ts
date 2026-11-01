@@ -3,6 +3,7 @@ import {z} from 'zod';
 import type {DB} from './schema';
 import {INSTAGRAM_THREAD_ID,instagramProfilePattern,normalizeInstagramUsername} from './instagramChat';
 import {assertBusinessAccess,canModifyBusiness,canModifyManagement} from './crmPermissions';
+import {labeledStage} from './crmLabels';
 import {businessStatusLabels,type BusinessStatus} from './businessStatus';
 
 /**
@@ -105,14 +106,14 @@ export async function canReportInstagramThread(e:Executor,{username,user}:{usern
 }
 
 /** A business as the Instagram panel shows it: the WhatsApp `Match` shape (without WhatsApp-only fields) plus `canContact`. */
-export type InstagramMatch={accountId:string;code:string;name:string;city:string|null;status:string|null;statusLabel:string|null;assignedUserName:string|null;doNotContact:boolean;restrictionActive:boolean;archived:boolean;canContact:boolean;leads:{id:string;name:string;stage:string}[];url:string};
+export type InstagramMatch={accountId:string;code:string;name:string;city:string|null;status:string|null;statusLabel:string|null;assignedUserName:string|null;doNotContact:boolean;restrictionActive:boolean;archived:boolean;canContact:boolean;leads:{id:string;name:string;stage:string;stageKey:string}[];url:string};
 
 /** `context?instagram=`: visible businesses become matches, the rest only count in `hiddenMatches` (never says which). */
 export async function instagramContextMatches(e:Executor,{username,user,origin}:{username:string;user:Actor;origin:string}):Promise<{matches:InstagramMatch[];hiddenMatches:number}>{
  const matches:InstagramMatch[]=[];let hiddenMatches=0;
  for(const a of await businessesWithInstagram(e,{username})){
   try{await assertBusinessAccess(e,a.id,user,false,false);}catch{hiddenMatches++;continue;}
-  const leads=(await sql<{id:string;name:string;stage:string}>`SELECT l.id::text AS id,l.nombre AS name,l.estado AS stage FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${a.id}::bigint AND l.deleted_at IS NULL AND s.classification='open' ORDER BY l.id LIMIT 10`.execute(e)).rows;
+  const leads=(await sql<{id:string;name:string;stage:string}>`SELECT l.id::text AS id,l.nombre AS name,l.estado AS stage FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${a.id}::bigint AND l.deleted_at IS NULL AND s.classification='open' ORDER BY l.id LIMIT 10`.execute(e)).rows.map(labeledStage);
   const restriction=await sql`SELECT 1 FROM crm_contact_restrictions WHERE account_id=${a.id}::bigint AND lifted_at IS NULL AND channel IN ('social','all') AND contact_id IS NULL AND lead_id IS NULL LIMIT 1`.execute(e);
   matches.push({accountId:a.id,code:'H'+a.id,name:a.nombre,city:a.ciudad,status:a.status,statusLabel:a.status?businessStatusLabels[a.status as BusinessStatus]??null:null,assignedUserName:a.ownerName,doNotContact:a.doNotContact,restrictionActive:!!restriction.rows.length,archived:!!a.archivedAt,canContact:await canContactBusiness(e,{account:a,user}),leads,url:`${origin}/accounts/${a.id}`});
  }

@@ -64,6 +64,11 @@ describe('server calls with a mocked fetch',()=>{
   expect(await createR2Storage({config,now,fetchImpl:small}).read({key:'k',maxBytes:10})).toEqual({body:new Uint8Array([7,8,9]),contentType:'image/png'});
   await expect(createR2Storage({config,now,fetchImpl:small}).read({key:'k',maxBytes:2})).rejects.toThrow('supera');
  });
+ it('streams without buffering and enforces the byte ceiling as chunks arrive',async()=>{
+  const storage=createR2Storage({config,now,fetchImpl:reply(200,{'Content-Length':'4','Content-Type':'application/pdf'},new Uint8Array([1,2,3,4]))});const value=await storage.stream({key:'k',maxBytes:4});expect(value?.size).toBe(4);expect([...new Uint8Array(await new Response(value!.body).arrayBuffer())]).toEqual([1,2,3,4]);
+  expect(value?.contentType).toBe('application/pdf');
+  const tooLarge=await createR2Storage({config,now,fetchImpl:reply(200,{},new Uint8Array([1,2,3]))}).stream({key:'k',maxBytes:2});await expect(new Response(tooLarge!.body).arrayBuffer()).rejects.toThrow();
+ });
  it('aborts a stalled call after the timeout, headers or body, as R2Unavailable',async()=>{
   const stalled=vi.fn((_url:string|URL|Request,init?:RequestInit)=>new Promise<Response>((_resolve,reject)=>{init?.signal?.addEventListener('abort',()=>reject(init.signal!.reason))}));
   await expect(createR2Storage({config,now,fetchImpl:stalled,timeoutMs:20}).head({key:'k'})).rejects.toBeInstanceOf(R2Unavailable);

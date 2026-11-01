@@ -6,10 +6,30 @@ import type {WorkPurpose} from './nextStep';
  * as not done never qualify: nothing is inferred from opening a channel or saving a draft.
  */
 export const OUTCOME_READY_STATUSES=['whatsapp_opened','instagram_opened','manual_pending','manual_sent','manual_no_contact','accepted','delivery_confirmed','replied','rejected'] as const;
+/** Spec 99 §3.6 «Envíos sin confirmar»: a chat opened or a manual attempt started, resolved first with «¿Lo enviaste?». */
+export const UNCONFIRMED_FOLLOW_UP_STATUSES=['whatsapp_opened','instagram_opened','manual_pending'] as const satisfies readonly (typeof OUTCOME_READY_STATUSES)[number][];
+/** Spec 100 §7 (D1): a «¿Lo enviaste?» question older than this many hours (database clock) is expired: not counted, still answerable. */
+export const UNCONFIRMED_STALE_HOURS=72;
+/** Spec 100 §7 (D1): a management's «Anotá cómo salió» group expires as a whole this many days after its newest send. */
+export const OUTCOME_STALE_DAYS=7;
+/** Spec 100 §7 (D1): what «Vencidos» means, in the strip and in Hoy. */
+export const EXPIRED_FOLLOW_UPS_HELP='Preguntas de más de 3 días (envíos sin confirmar) o 7 días (gestiones sin resultado). No cuentan como pendientes, pero podés responderlas igual.';
+/** Spec 100 §9 (D7): a WhatsApp open younger than this waits for the user script to confirm it before «¿Lo enviaste?» counts it. */
+export const WHATSAPP_SCRIPT_WAIT_MS=5*60_000;
+/** Spec 100: newest sends listed per follow-up group; the counts still cover every send. */
+export const FOLLOW_UP_GROUP_ITEM_LIMIT=10;
+/** Spec 99 §3.6 «Anotá cómo salió»: a contact with evidence (or a recorded attempt) still without an outcome. */
+export const OUTCOME_FOLLOW_UP_STATUSES=['manual_sent','manual_no_contact','accepted','delivery_confirmed','replied','rejected'] as const satisfies readonly (typeof OUTCOME_READY_STATUSES)[number][];
+/** Which follow-up list a pending contact belongs to (spec 99 §3.6), or null when it is not outcome-ready. */
+export function followUpKind(status:string|null|undefined):'unconfirmed'|'outcomes'|null{return (UNCONFIRMED_FOLLOW_UP_STATUSES as readonly string[]).includes(status??'')?'unconfirmed':(OUTCOME_FOLLOW_UP_STATUSES as readonly string[]).includes(status??'')?'outcomes':null;}
 
 /** True when a message with this status can end in the outcome step. */
 export function canLogContactOutcome(status:string|null|undefined):boolean{return (OUTCOME_READY_STATUSES as readonly string[]).includes(status??'');}
 
+/** Spec 100 §8: the `outcome` conflict when the script, Meta's echo or another answer confirmed the send first. */
+export const ALREADY_CONFIRMED_MESSAGE='Este envío ya estaba confirmado.';
+/** True for that 409 on the client (`CrmApiError`): it is information, not a failure, and the lists must reload. */
+export const isAlreadyConfirmed=(error:unknown):boolean=>error instanceof Error&&(error as {status?:unknown}).status===409&&error.message===ALREADY_CONFIRMED_MESSAGE;
 /** Statuses of a channel opened from the composer whose send nobody confirmed yet (WhatsApp, and Instagram since spec 92). */
 export const OPENED_UNCONFIRMED_STATUSES=['whatsapp_opened','instagram_opened'] as const;
 /** True for a chat opened from the composer and not confirmed: opening a channel is never a send. */

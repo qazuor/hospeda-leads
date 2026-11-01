@@ -23,7 +23,7 @@ afterEach(()=>{cleanup();vi.clearAllMocks();});
 const id='11111111-1111-4111-8111-111111111111',materialId='22222222-2222-4222-8222-222222222222',shareId='33333333-3333-4333-8333-333333333333';
 const message=(over:Partial<PreparedMessage>={}):PreparedMessage=>({id,accountId:'5',leadId:'9',contactId:'7',channel:'whatsapp',recipient:'+5493442000002',recipientName:'Ana',subject:'',body:'Hola',htmlBody:null,textBody:null,templateSnapshot:null,ownerEmail:'seller@example.com',activityId:null,outboxId:null,taskId:null,status:'draft',revision:4,lastInteractionAt:null,lastActorEmail:null,createdAt:new Date('2026-10-01T15:30:00Z'),updatedAt:new Date('2026-10-01T15:30:00Z'),purpose:null,otherPurpose:null,...over});
 const item=(over:Partial<MessageMaterial>={}):MessageMaterial=>({shareId,messageId:id,materialId,title:'Folleto 2027',channel:'whatsapp',source:'file',fileName:'folleto.pdf',byteSize:2048,available:true,preparedVersion:1,sentVersion:null,attach:false,attachedVersion:null,attachBlockedReason:null,createdByEmail:'seller@example.com',createdAt:new Date('2026-10-01T15:31:00Z'),revokedAt:null,revokedByEmail:null,revokeReason:null,technicalAccessCount:0,lastTechnicalAccessAt:null,...over});
-const catalog=(title:string,mid:string):SalesMaterial=>({id:mid,title,description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:1,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[{id:'1',name:'Folletos',active:true}],currentVersion:{id:'v1',version:1,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date()}});
+const catalog=(title:string,mid:string):SalesMaterial=>({id:mid,title,description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:1,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,categories:[{id:'1',name:'Folletos',active:true}],currentVersion:{id:'v1',version:1,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date()}});
 const sent=()=>vi.mocked(postCommunication).mock.calls.at(-1)?.[0];
 const show=(initial:PreparedMessage,props:Partial<React.ComponentProps<typeof MessageComposer>>={})=>render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MessageComposer initial={initial} {...props}/></QueryClientProvider></MantineProvider>);
 
@@ -39,7 +39,7 @@ describe('MessageComposer sales material (spec 89 §8.2)',()=>{
   await waitFor(()=>expect(sent()).toEqual({action:'material_add',id,revision:4,materialId,attach:false}));
   const included=await screen.findByRole('list',{name:'Material incluido'});
   expect(within(included).getByText('Folleto 2027')).toBeTruthy();
-  expect((screen.getByRole('textbox',{name:'Mensaje final'}) as HTMLTextAreaElement).value).toContain('Folleto 2027: https://crm.example.test/m/x');
+  expect((screen.getByRole('textbox',{name:'Mensaje final'}) as HTMLTextAreaElement).value).toContain('Folleto 2027: <a href="https://crm.example.test/m/x"');
   expect(within(included).queryByLabelText('Adjuntar el archivo')).toBeNull();
  });
  it('keeps the picker open with the error when the server refuses, so the seller can retry',async()=>{
@@ -116,6 +116,22 @@ describe('MessageComposer sales material (spec 89 §8.2)',()=>{
  it('shows no template material notice when prepare resolved everything',()=>{
   show(message({materialWarnings:[]}));
   expect(screen.queryByRole('status',{name:'Material del modelo que no se agregó'})).toBeNull();
+ });
+ it('shows a share link with underscores whole, without italics, in the editor and in the non-navigating final view (spec 101 block 1)',()=>{
+  // Arrange
+  const url='https://crm.hospeda.com.ar/m/Ab3_xY9kLm0pQr_tUv2wXyZ01234567890abcdefgHI',body=`Podés ver «Folleto» en: ${url}`;
+  // Act
+  show(message({body,textBody:body}),{startEditing:true});
+  // Assert: the editor receives the URL as a link, not as italics
+  const editor=(screen.getByLabelText('Mensaje final') as HTMLTextAreaElement).value;
+  expect(editor).toContain(`<a href="${url}"`);
+  expect(editor).not.toContain('<em>');
+  cleanup();
+  show(message({body,textBody:body}));
+  // The final view shows the URL whole but does not navigate: opening it would count as an access to the client's link (spec 101 review).
+  expect(screen.queryByRole('link',{name:url})).toBeNull();
+  const shown=screen.getByText(url);
+  expect(shown.closest('a,em')).toBeNull();
  });
 });
 

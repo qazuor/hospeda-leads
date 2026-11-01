@@ -5,7 +5,7 @@ import {useQuery} from '@tanstack/react-query';
 import {getWork,type WorkTask} from '../endpoints/work.schema';
 import {getBusinessHistory} from '../endpoints/businessHistory.schema';
 import {getCommercialDetail,type CommercialDetail} from '../endpoints/commercial.schema';
-import {nextStep,pendingWork,type WorkPurpose} from '../helpers/nextStep';
+import {nextStep,pendingWork,latestDecision,type WorkPurpose} from '../helpers/nextStep';
 import {localDay,prettyInstant} from '../helpers/workDates';
 import {useAuth} from '../helpers/useAuth';
 import {Button} from './Button';
@@ -30,7 +30,7 @@ export function NextWork({accountId,leadId,classification='open',detail,onAddCon
  if(!d||!work.data)return null;
  const person=d.contacts.find(c=>!c.deletedAt&&(c.phone||c.email)&&(c.id===d.opportunities.find(o=>o.id===leadId)?.primaryContactId))||d.contacts.find(c=>!c.deletedAt&&c.isPrimary&&(c.phone||c.email))||d.contacts.find(c=>!c.deletedAt&&(c.phone||c.email));
  const can=user&&(user.role==='admin'||(leadId?d.opportunities.find(o=>o.id===leadId)?.assignedUserEmail:d.account.assignedUserEmail)===user.email)&&!readOnly;
- const step=nextStep({tasks:work.data.tasks,leadId,classification,blocked:d.account.doNotContact,finished:work.data.activities.find(a=>!leadId||a.leadId===leadId||(classification==='won'&&!a.leadId))?.continuation==='done',hasContact:!!(person?.phone||person?.email||d.account.telefono||d.account.email)});
+ const step=nextStep({tasks:work.data.tasks,leadId,classification,blocked:d.account.doNotContact,...latestDecision({activities:work.data.activities,leadId,classification}),hasContact:!!(person?.phone||person?.email||d.account.telefono||d.account.email)});
  const purpose:WorkPurpose=classification==='won'?'care':classification==='lost'?'reactivation':'commercial';
  const tasks=pendingWork(work.data.tasks,leadId,classification==='won');
  const nothingScheduled=leadId?'No hay nada agendado para esta gestión.':scope==='all'?'No hay nada agendado para este negocio.':'No tenés nada agendado para este negocio.';
@@ -38,7 +38,7 @@ export function NextWork({accountId,leadId,classification='open',detail,onAddCon
  const lastManagementEvent=history.data?.events.find(event=>event.leadId===leadId);
  const synthetic:WorkTask={id:'',accountId,leadId:leadId??null,title:'Conversación con '+d.account.nombre,purpose,description:null,typeId:'call',assignedUserEmail:d.account.assignedUserEmail,dueDate:localDay(),dueAt:null,priority:'media',status:'pending',result:null,completedAt:null,legacy:false,participants:'',contactIds:person?[person.id]:[],accountName:d.account.nombre,city:d.account.ciudad,opportunityName:null,deletedAt:null};
  return <section className={styles.nextWork} data-state={step.kind==='blocked'?'blocked':classification} aria-label="Próximo paso">
-  <div><span className={styles.eyebrow}>{classification==='won'?(leadId?'VENTA CONCRETADA':'CLIENTE'):classification==='lost'?'VENTA CERRADA SIN VENTA':'PRÓXIMO PASO'}</span> <HelpHint term="nextStep" iconOnly/><h2>{step.kind==='task'?'Tu próximo paso':step.title}</h2><p>{help}</p><p className={styles.muted}>{scope==='all'?'Trabajo del equipo':'Trabajo visible para vos'}{leadId?' · Esta gestión'+(classification==='won'?' y acompañamiento general':''):' · Este negocio y sus gestiones'}</p></div>
+  <div><span className={styles.eyebrow}>{classification==='won'?(leadId?'VENTA CONCRETADA':'CLIENTE'):classification==='lost'?'GESTIÓN CERRADA SIN VENTA':'PRÓXIMO PASO'}</span> <HelpHint term="nextStep" iconOnly/><h2>{step.kind==='task'&&step.title!=='Tu próximo paso está en otra tarea'?'Tu próximo paso':step.title}</h2><p>{help}</p><p className={styles.muted}>{scope==='all'?'Trabajo del equipo':'Trabajo visible para vos'}{leadId?' · Esta gestión'+(classification==='won'?' y acompañamiento general':''):' · Este negocio y sus gestiones'}</p></div>
   {leadId&&lastManagementEvent&&<p className={styles.recentWork}><strong>Última actividad registrada:</strong> {lastManagementEvent.title} · {prettyInstant(lastManagementEvent.occurredAt)}{lastManagementEvent.result?` · ${lastManagementEvent.result}`:''}</p>}
   {!step.task&&step.kind!=='plan'&&step.kind!=='done'&&<p>{nothingScheduled}</p>}
   {step.kind==='task'&&<><TaskRow task={step.task!} data={work.data} onEdit={setEditor} readOnly={readOnly} from={leadId?undefined:'business'}/>{step.task&&!step.task.leadId&&leadId&&<p className={styles.muted}>Esta tarea acompaña al negocio en general.</p>}{tasks.length>1&&<Disclosure><DisclosureSummary>Otros próximos pasos ({tasks.length-1})</DisclosureSummary><div className={styles.rows}>{tasks.slice(1,4).map(t=><TaskRow key={t.id} task={t} data={work.data!} onEdit={setEditor} readOnly={readOnly}/>)}</div><p>{onOpenWork?'Para ver todas, usá Ver tareas.':'El resto está en Seguimiento.'}</p></Disclosure>}{onOpenWork&&<Button variant="outline" style={{justifySelf:'start'}} onClick={onOpenWork}>Ver tareas</Button>}</>}

@@ -16,6 +16,11 @@ describe('attributeResponseToSend',()=>{
   const sends=[send('old','1','2026-10-20T10:00:00Z'),send('other','2','2026-10-28T12:00:00Z'),send('new','1','2026-10-27T10:00:00Z')];
   expect(attributeResponseToSend({sends,linkedMessageId:null,leadId:'1',answeredAt:now})).toEqual({messageId:'new'});
  });
+ it('resolves nothing for a response marked new («No, es una respuesta nueva»), even with an open send in its management',()=>{
+  const sends=[send('a','1','2026-10-27T10:00:00Z'),send('b',null,'2026-10-28T10:00:00Z')];
+  expect(attributeResponseToSend({sends,linkedMessageId:null,leadId:'1',answeredAt:now,newReply:true})).toEqual({messageId:null});
+  expect(attributeResponseToSend({sends:[sends[1]],linkedMessageId:null,leadId:null,answeredAt:now,newReply:true})).toEqual({messageId:null});
+ });
  it('resolves nothing when the response management has no open send',()=>{
   const sends=[send('other','2','2026-10-28T12:00:00Z'),send('general',null,'2026-10-28T13:00:00Z')];
   expect(attributeResponseToSend({sends,linkedMessageId:null,leadId:'1',answeredAt:now})).toEqual({messageId:null});

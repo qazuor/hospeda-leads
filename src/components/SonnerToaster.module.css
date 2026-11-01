@@ -146,11 +146,6 @@
     opacity: 1;
   }
   
-  /* Dark mode adjustments */
-  :global(.dark) .toast {
-    border-color: var(--border);
-  }
-  
     :global(.dark) .actionButton:hover {
     background-color: color-mix(in srgb, var(--primary) 90%, white);
   }
@@ -188,3 +183,13 @@
 /* Only the toast cards take clicks: the toaster box never blocks what sits under its empty area (dialog actions included). */
 .toaster{pointer-events:none}
 .toaster :global([data-sonner-toast]){pointer-events:auto}
+/* Contrast (spec 104 §3.11): a stronger border, a stripe in the toast's type colour and a deeper shadow, so a toast stands out on a white dialog or card in
+   light and dark themes. Unlayered so they win over any other rule; layout and motion stay in the base layer above, where Sonner's own stacking rules win. */
+.toast{--toast-accent:var(--border-strong);border:1px solid var(--border-strong);border-left:4px solid var(--toast-accent);box-shadow:var(--shadow-lg)}
+.toast[data-type="success"]{--toast-accent:var(--success)}
+.toast[data-type="error"]{--toast-accent:var(--error)}
+.toast[data-type="warning"]{--toast-accent:var(--warning)}
+.toast[data-type="info"]{--toast-accent:var(--info)}
+.toast:focus-visible{box-shadow:var(--shadow-focus),var(--shadow-lg)}
+@media(max-width:600px){.toast{box-shadow:var(--shadow-md)}}
+

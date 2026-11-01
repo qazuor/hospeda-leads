@@ -1,5 +1,7 @@
 /** Message shown (UI) and returned (server) when someone who is not responsible tries to record "Pidió no ser contactado" (decision D1). */
 export const DO_NOT_CONTACT_RECORD_DENIED='Solo el responsable del negocio, el de una de sus gestiones o un administrador puede registrar «Pidió no ser contactado».';
+/** Spec 104 D2: message when someone who is not responsible tries to add a channel restriction (same rule as decision D1). */
+export const RESTRICTION_RECORD_DENIED='Solo el responsable del negocio, el de una de sus gestiones o un administrador puede registrar restricciones por canal.';
 /** Message for any other change to a No contactar business (decision 1C). */
 export const DO_NOT_CONTACT_READ_ONLY='Este negocio pidió no ser contactado. Solo un administrador puede modificarlo.';
 

@@ -27,7 +27,8 @@ const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{s
 const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict||e instanceof StageSuggestionConflict||e instanceof TaskSaveConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
 import {setWorkActor} from '../helpers/workAudit';
-import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactOutcomes,resolveMessageForWork} from '../helpers/communicationService';
+import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactFollowUps,resolveMessageForWork} from '../helpers/communicationService';
+import {CONTACT_EVIDENCE_STATUSES} from '../helpers/contactEvidence';
 export async function get(request:Request){
  try{
   const {user}=await getServerUserSession(request);
@@ -118,6 +119,9 @@ export async function get(request:Request){
    db.selectFrom('users').select(['email','displayName']).orderBy('displayName').execute(),
    attention.select(['l.id','l.accountId','a.nombre','l.opportunityName','l.createdAt','l.fechaUltimoContacto','l.estado']).where(eb=>eb.not(eb.exists(eb.selectFrom('crmTasks').select('id').whereRef('crmTasks.leadId','=','l.id').where('status','=','pending').where('deletedAt','is',null)))).where(eb=>eb.or([eb('l.estado','in',followup.stages.length?followup.stages:['__none__']),eb.and([eb('l.fechaUltimoContacto','is',null),eb(sql`l.assigned_at AT TIME ZONE 'America/Argentina/Buenos_Aires'`,'>=',sql`${localDay()}::date - ${followup.newAssignmentDays}::integer`)])])).orderBy('l.createdAt','desc').execute(),bucketCountsPromise,doneTodayPromise
   ]);
+  const taskIds=taskRows.map(row=>String(row.id));
+  const taskConfirmationRows=taskIds.length?(await sql<{taskId:string;source:'userscript'|'instagram'}>`SELECT DISTINCT ON (m.task_id) m.task_id::text AS "taskId",CASE WHEN j.triggered_by_email='userscript' THEN 'userscript' ELSE 'instagram' END AS source FROM crm_messages m JOIN crm_communication_journal j ON j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email IN ('userscript','instagram-webhook') WHERE m.task_id=ANY(${taskIds}::bigint[]) AND m.status='manual_sent' AND m.external_id IS NOT NULL AND (m.channel='whatsapp' OR (m.channel='social' AND m.destination_detail ILIKE '%instagram%')) ORDER BY m.task_id,coalesce(m.last_interaction_at,m.created_at) DESC`.execute(db)).rows:[];
+  const taskConfirmationById=new Map(taskConfirmationRows.map(row=>[row.taskId,row.source]));
   const cities=(await db.selectFrom('crmAccounts').select('ciudad').where('mergedIntoId','is',null).where('deletedAt','is',null).where('ciudad','is not',null).distinct().orderBy('ciudad').execute()).map(r=>r.ciudad).filter(Boolean);
   const verticals=(await db.selectFrom('leads').select('tipo').where('deletedAt','is',null).where('tipo','is not',null).distinct().orderBy('tipo').execute()).map(r=>r.tipo).filter(Boolean);
   const contacts=accounts.length?await db.selectFrom('crmContacts').select(['id','accountId','name']).where('accountId','in',accounts.map(a=>a.id)).where('deletedAt','is',null).orderBy('name').execute():[];
@@ -128,14 +132,15 @@ export async function get(request:Request){
   }
   // Decision 2B: the seller's own contacts still waiting for "¿Cómo salió?" stay visible in Hoy.
   const firstSteps=input.mode==='day'?await firstStepFlags(db,user.email):undefined;
-  const pendingOutcomes=input.mode==='day'?await pendingContactOutcomes(db,{ownerEmail:user.email,isAdmin:user.role==='admin'}):[];
-  return reply({firstSteps,pendingOutcomes,cities,verticals,tasks:taskRows.map(t=>({...t,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,doneToday,truncated:bucketCounts?bucketCounts.overdue>URGENT_CAP||bucketCounts.today>URGENT_CAP:undefined,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
+  // Spec 99 §3.6: Hoy (narrowed like its task filters by business/management) and, opt-in (`followUps=1`), the business detail the work editor toast reads.
+  const followUps=input.mode==='day'||(input.mode==='detail'&&input.accountId&&input.followUps)?await pendingContactFollowUps(db,{ownerEmail:user.email,isAdmin:user.role==='admin',accountId:input.accountId??null,leadId:input.mode==='day'?input.leadId??null:null}):undefined;
+  return reply({firstSteps,followUps,cities,verticals,tasks:taskRows.map(t=>({...t,result:t.result==='Envío confirmado manualmente'&&taskConfirmationById.get(String(t.id))==='userscript'?'Envío confirmado por el script de WhatsApp':t.result==='Envío confirmado manualmente'&&taskConfirmationById.get(String(t.id))==='instagram'?'Envío confirmado por Instagram':t.result,dueDate:calendarDay(t.dueDate)})),activities:activityRows,types,accounts,opportunities,contacts,users,attention:needs.map(l=>({id:l.id,accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,reason:followup.stages.includes(l.estado??'')?'Interesado sin tarea pendiente':`Nueva asignada sin contacto (últimos ${followup.newAssignmentDays} días)`})),journal,bucketCounts,doneToday,truncated:bucketCounts?bucketCounts.overdue>URGENT_CAP||bucketCounts.today>URGENT_CAP:undefined,followupStages:followup.stages,newAssignmentDays:followup.newAssignmentDays,totalTasks:Number(taskCount.n),totalActivities:Number(activityCount.n),page:input.page});
  }catch(e){return fail(e)}
 }
 /** First-use checklist flags: true only from the user's own recorded actions (confirmed contact, outcome noted, task scheduled), never from opening a screen or saving a draft. */
 async function firstStepFlags(e:typeof db,email:string){
  const r=(await sql<{contacted:boolean;logged:boolean;scheduled:boolean}>`SELECT
-  (EXISTS(SELECT 1 FROM crm_messages WHERE owner_email=${email} AND status IN ('manual_sent','accepted','delivery_confirmed','replied')) OR EXISTS(SELECT 1 FROM crm_activities WHERE actor_email=${email} AND deleted_at IS NULL AND outcome IS NOT NULL AND outcome<>'no_answer')) AS contacted,
+  (EXISTS(SELECT 1 FROM crm_messages WHERE owner_email=${email} AND status=ANY(${[...CONTACT_EVIDENCE_STATUSES]}::text[])) OR EXISTS(SELECT 1 FROM crm_activities a WHERE a.actor_email=${email} AND a.deleted_at IS NULL AND ((a.outcome IS NOT NULL AND a.outcome<>'no_answer' AND (NOT EXISTS(SELECT 1 FROM crm_messages m WHERE m.activity_id=a.id) OR EXISTS(SELECT 1 FROM crm_messages m WHERE m.activity_id=a.id AND m.status=ANY(${[...CONTACT_EVIDENCE_STATUSES]}::text[])))) OR (a.outcome IS NULL AND NOT EXISTS(SELECT 1 FROM crm_messages m WHERE m.activity_id=a.id))))) AS contacted,
   EXISTS(SELECT 1 FROM crm_activities WHERE actor_email=${email} AND deleted_at IS NULL AND outcome IS NOT NULL) AS logged,
   EXISTS(SELECT 1 FROM crm_work_journal WHERE actor_email=${email} AND entity='crm_tasks' AND action='INSERT') AS scheduled`.execute(e)).rows[0];
  return {contacted:!!r?.contacted,logged:!!r?.logged,scheduled:!!r?.scheduled};
@@ -261,8 +266,12 @@ export async function post(request:Request){
     if(current.status!=='pending')throw new Error('Solo se pueden reprogramar tareas pendientes.');
     const sameDay=calendarDay(current.dueDate)===input.expectedDueDate,sameTime=(current.dueAt?current.dueAt.getTime():null)===(input.expectedDueAt?new Date(input.expectedDueAt).getTime():null);
     if(!sameDay||!sameTime)throw new RescheduleConflict('La tarea cambió mientras tanto. Revisala.');
+    if(input.kind==='postpone'&&input.dueDate<(calendarDay(current.dueDate)>localDay()?calendarDay(current.dueDate):localDay()))throw new Error('Posponer no puede adelantar la tarea.');
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');
+    if(input.kind==='postpone'&&input.dueDate===calendarDay(current.dueDate)&&current.dueAt&&dueAt&&dueAt<current.dueAt)throw new Error('Posponer no puede adelantar la tarea.');
+    // D2: postponing moves an overdue task to the future; a timed result at an hour that already passed would leave it overdue.
+    if(input.kind==='postpone'&&dueAt&&dueAt<=new Date())throw new Error('La hora de la tarea ya pasó. Posponela para mañana o una fecha posterior.');
     await trx.updateTable('crmTasks').set({dueDate:input.dueDate,dueAt,updatedAt:new Date()}).where('id','=',input.id).execute();
     return input.id;
    }

@@ -1,5 +1,7 @@
 # Acceso MCP de solo lectura al CRM
 
+> Estado en producción (smoke del 30/10/2026): el servidor MCP está habilitado (`CRM_MCP_ENABLED=1`).
+
 ## Alcance
 
 El servidor se integra en la aplicación Hono en /mcp. Usa el SDK oficial MCP con Streamable HTTP sin sesiones y respuestas JSON. No expone SQL libre ni herramientas de modificación, importación, fusión, borrado, envío o apertura de WhatsApp. Anota todas las herramientas como lectura y no destructivas.

@@ -9,7 +9,8 @@ import type { InstagramApi } from "./client";
 import type { InstagramStore } from "./storage";
 import { PANEL_ID, removePanel, renderPanel, type PanelActions } from "./panel";
 import { CHAT_CHANGED, openInstagramCompose } from "./compose";
-import { applyInboxBadges, removeInboxBadges } from "./inboxBadges";
+import { applyInboxBadges, inboxBadgeDiagnostic, removeInboxBadges } from "./inboxBadges";
+import { conversationList } from "../instagram/inbox";
 import { accountState, chatUsername, initialState, selectedMatch, type AppState, type StatusState } from "./state";
 
 /**
@@ -39,7 +40,7 @@ export type InstagramApp = { readonly tick: () => Promise<void>; readonly stop: 
 
 /** A thread entry the badges can use: anything else in a response is ignored (review H1). */
 const validThread = (value: unknown): value is InstagramInboxThread => { const v = value as Partial<InstagramInboxThread> | null; return !!v && typeof v.username === "string" && typeof v.displayName === "string" && !!v.badge && typeof v.badge === "object" && (v.badge.kind === "single" ? typeof v.badge.code === "string" : v.badge.kind === "multiple" && Array.isArray(v.badge.businesses)); };
-const STATUS_TTL_MS = 5 * 60_000, CONTEXT_TTL_MS = 60_000, THREADS_TTL_MS = 5 * 60_000, THREADS_RETRY_MS = 60_000;
+const STATUS_TTL_MS = 5 * 60_000, CONTEXT_TTL_MS = 10_000, THREADS_TTL_MS = 5 * 60_000, THREADS_RETRY_MS = 60_000;
 const proofKey = (proof: ThreadProof | null) => !proof ? "" : proof.ok ? `ok:${proof.threadId}:${proof.username}` : `no:${proof.reason}`;
 const errorMessage = (cause: unknown) => cause instanceof Error && cause.message ? cause.message : "No se pudo consultar el CRM.";
 function statusFromError(cause: unknown): StatusState {
@@ -52,7 +53,7 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
   const win = deps.win ?? window, doc = win.document, flow = deps.flow ?? {}, trusted = deps.trusted ?? ((event: Event) => event.isTrusted);
   const platform = win.navigator.platform || win.navigator.userAgent || "";
   const state = initialState({ token: false });
-  let running = false, pending: InstagramHandoff | null = null, confirmHandoff: InstagramHandoff | null = null, lastPath: string | null = null, lastFingerprint = "", statusAt = 0;
+  let running = false, pending: InstagramHandoff | null = null, confirmHandoff: InstagramHandoff | null = null, lastPath: string | null = null, lastFingerprint = "", statusAt = 0, proofCandidate = "", proofTicks = 0, proofTimer = 0, lastVisibleRefresh = 0, badgeDiagnostic = "Apagadas.";
   let statusLoad: Promise<void> | null = null;
   const contexts = new Map<string, { at: number; value: InstagramContextResponse }>(), reported = new Set<string>();
   // §15: one list of learned chats per TTL (no request per row); `at` also throttles retries after a failure.
@@ -84,12 +85,23 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     const { username, threadId } = state.proof, value = state.context.value;
     // Review H2: learn() also runs when a context request resolves, possibly after the chat changed. The chat is proven again now and the name is
     // read in the same synchronous step, so a thread is never stored with another chat's name.
-    const now = proveThread({ doc, readPath: () => win.location.pathname });
-    if (!now.ok || now.username !== username || now.threadId !== threadId || threadIdFromPath(win.location.pathname) !== threadId) return;
+    void stableProof(threadId).then(now => {
+      if (!now?.ok || now.username !== username || now.threadId !== threadId || threadIdFromPath(win.location.pathname) !== threadId) return;
+      reportLearned({ username, threadId, value });
+    });
+  }
+  async function stableProof(threadId: string): Promise<ThreadProof | null> {
+    const first = proveThread({ doc, readPath: () => win.location.pathname });
+    if (!first.ok || first.threadId !== threadId) return null;
+    await new Promise(resolve => win.setTimeout(resolve, 500));
+    const second = proveThread({ doc, readPath: () => win.location.pathname });
+    return proofKey(first) === proofKey(second) && second.ok && second.threadId === threadId ? second : null;
+  }
+  function reportLearned({ username, threadId, value }: { username: string; threadId: string; value: InstagramContextResponse }): void {
     const displayName = headerDisplayName({ doc, username });
     // §15: a known thread is reported again only to store (or correct) the header's display name for the list badges.
     const known = value.instagram.threadId === threadId && (!displayName || value.instagram.displayName === displayName);
-    if (state.context.username !== username || !value.matches.length || known || account() !== "ok") return;
+    if (state.context?.username !== username || !value.matches.length || known || account() !== "ok") return;
     const key = `${username}:${threadId}:${displayName ?? ""}`; if (reported.has(key)) return; reported.add(key);
     void deps.api.reportThread({ username, threadId, proof: "header", ...(displayName ? { displayName } : {}) }).then(() => { if (inbox) inbox = { ...inbox, at: 0 }; }, () => { reported.delete(key); });
   }
@@ -108,14 +120,18 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
   }
   /** §15 on `/direct/` pages: badges only with the switch on, a working token and the Hospeda account logged in (the list is that account's). */
   function badges(rescan: boolean): void {
-    const token = deps.store.token();
-    if (!deps.store.badges() || !token) { removeInboxBadges({ doc }); return; }
+    const token = deps.store.token(), enabled = deps.store.badges();
     if (state.status.kind === "idle" || (state.status.kind === "ok" && Date.now() - statusAt >= STATUS_TTL_MS)) void loadStatus();
     // tick() already read the logged-in account this poll (review L4); a load that finished between polls reads it again.
     if (rescan) state.loggedIn = loggedInUsername({ doc });
-    if (state.status.kind !== "ok" || accountState(state) !== "ok") { removeInboxBadges({ doc }); return; }
+    const listFound = !!conversationList({ doc }), connected = !!token && state.status.kind === "ok", expectedAccount = state.status.kind === "ok" ? state.status.value.instagramAccount ?? null : null, accountMatches = accountState(state) === "ok";
+    const setDiagnostic = (known = 0, marked = 0) => { badgeDiagnostic = inboxBadgeDiagnostic({ enabled, connected, expectedAccount, accountMatches, listFound, known, marked }); win.console.debug(`[Hospeda] Instagram insignias: ${badgeDiagnostic}`); };
+    if (!enabled || !connected || !accountMatches) { setDiagnostic(); removeInboxBadges({ doc }); return; }
     loadInbox(token);
-    if (inbox?.token === token) applyInboxBadges({ doc, threads: inbox.threads, dark: dark(), ownUsername: state.loggedIn, base: deps.base });
+    if (listFound && inbox?.token === token) {
+      const marked = applyInboxBadges({ doc, threads: inbox.threads, dark: dark(), ownUsername: state.loggedIn, base: deps.base });
+      setDiagnostic(inbox.threads.length, marked);
+    } else setDiagnostic(inbox?.token === token ? inbox.threads.length : 0, 0);
   }
   /** Review H1: the badges are an extra; whatever goes wrong there never stops the panel, learning or paste. */
   function safeBadges(rescan: boolean): void {
@@ -124,7 +140,7 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
   async function loadContext(username: string, force = false): Promise<void> {
     const cached = contexts.get(username);
     if (!force && cached && Date.now() - cached.at < CONTEXT_TTL_MS) { state.context = { username, kind: "ok", value: cached.value }; learn(); render(); return; }
-    state.context = { username, kind: "loading" }; render();
+    if (!force || state.context?.username !== username) { state.context = { username, kind: "loading" }; render(); }
     try {
       const value = await deps.api.fetchContext(username); contexts.set(username, { at: Date.now(), value });
       if (state.context?.username !== username) return;
@@ -144,11 +160,12 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
 
   function render(force = false): void {
     if (!state.threadId) return;
-    if (!force && (isEditing() || (state.view === "compose" && doc.getElementById(PANEL_ID)))) return;
-    const open = deps.store.isOpen(), isDark = dark(), fingerprint = JSON.stringify([state, open, isDark, deps.store.badges()]);
+    const existing = doc.getElementById(PANEL_ID);
+    if (!force && ((isEditing() && existing?.dataset.threadId === state.threadId) || (state.view === "compose" && existing?.dataset.threadId === state.threadId))) return;
+    const open = deps.store.isOpen(), isDark = dark(), fingerprint = JSON.stringify([state, open, isDark, deps.store.badges(), badgeDiagnostic]);
     if (!force && fingerprint === lastFingerprint && doc.getElementById(PANEL_ID)) return;
     lastFingerprint = fingerprint;
-    renderPanel({ doc, state, open, dark: isDark, theme: deps.store.theme(), badges: deps.store.badges(), base: deps.base, version: deps.version, actions, mountCompose });
+    const host = renderPanel({ doc, state, open, dark: isDark, theme: deps.store.theme(), badges: deps.store.badges(), badgeDiagnostic, base: deps.base, version: deps.version, actions, mountCompose }); host.dataset.threadId = state.threadId;
   }
 
   /** Null while the chat is still the one the compose view was opened for; else why not (§4.3 «Pegar en el chat» order). */
@@ -242,13 +259,16 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     const nonce = consumePasteMarker({ location: win.location, history: win.history });
     if (nonce) void runHandoff(nonce);
     const path = win.location.pathname, threadId = threadIdFromPath(path);
-    if (path !== lastPath) { lastPath = path; onPathChange(threadId); }
+    if (path !== lastPath) { lastPath = path; proofCandidate = ""; proofTicks = 0; onPathChange(threadId); }
     // §4.3 decision 12.3: the panel lives on every chat page and nowhere else (feed, profiles, inbox).
     if (onDirect()) { state.loggedIn = loggedInUsername({ doc }); safeBadges(false); } else removeInboxBadges({ doc });
     if (!threadId) { removePanel({ doc }); return; }
     if (state.status.kind === "idle" || (state.status.kind === "ok" && Date.now() - statusAt >= STATUS_TTL_MS)) void loadStatus();
     const proof = proveThread({ doc, readPath: () => win.location.pathname });
-    if (proofKey(proof) !== proofKey(state.proof)) state.proof = proof;
+    const key = proofKey(proof);
+    if (key !== proofCandidate) { proofCandidate = key; proofTicks = 1; win.clearTimeout(proofTimer); proofTimer = win.setTimeout(() => void tick(), 500); }
+    else proofTicks++;
+    if (proofTicks >= 2 && proofKey(proof) !== proofKey(state.proof)) state.proof = proof;
     ensureContext();
     if (pending && pending.expiresAt <= Date.now()) pending = null;
     if (pending && !running && proof.ok && proof.username === pending.username) { const handoff = pending; pending = null; running = true; void pasteFromHandoff(handoff, proof.threadId, false).finally(() => { running = false; }); }
@@ -258,6 +278,8 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
   const timer = win.setInterval(() => void tick(), deps.pollMs ?? 500);
   const onHash = () => void tick();
   win.addEventListener("hashchange", onHash);
+  const onVisibility = () => { if (doc.visibilityState !== "visible" || Date.now() - lastVisibleRefresh < 10_000) return; lastVisibleRefresh = Date.now(); const username = chatUsername(state); if (username) void loadContext(username, true); if (onDirect()) safeBadges(true); };
+  doc.addEventListener("visibilitychange", onVisibility);
   void tick();
-  return { tick, stop: () => { win.clearInterval(timer); win.removeEventListener("hashchange", onHash); removeInboxBadges({ doc }); }, state: () => state };
+  return { tick, stop: () => { win.clearInterval(timer); win.clearTimeout(proofTimer); win.removeEventListener("hashchange", onHash); doc.removeEventListener("visibilitychange", onVisibility); removeInboxBadges({ doc }); }, state: () => state };
 }

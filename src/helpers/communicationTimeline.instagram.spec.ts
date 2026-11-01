@@ -21,10 +21,17 @@ describe('instagram_opened is an unconfirmed send',()=>{
   expect(buildCommunicationTimeline({messages:[message({id:'c',status:'manual_sent',externalId:'mid.1'})]}).map(e=>e.key)).toEqual(['out:c']);
  });
  it('labels a resolved attempt «Enviado · confirmado por Instagram», never an echo or an unlinked one',()=>{
-  expect(sentStatusLabel(message({id:'a',status:'manual_sent',externalId:'mid.1'}))).toBe(INSTAGRAM_CONFIRMED_STATUS);
+  expect(sentStatusLabel(message({id:'a',status:'manual_sent',externalId:'mid.1',confirmationSource:'instagram'}))).toBe(INSTAGRAM_CONFIRMED_STATUS);
   expect(sentStatusLabel(message({id:'a',status:'manual_sent',externalId:null}))).toBe('Envío confirmado manualmente');
   expect(sentStatusLabel(message({id:'a',status:'manual_sent',externalId:'mid.1',ownerEmail:'instagram@hospeda'}))).toBe(ECHO_STATUS);
   expect(sentStatusLabel(message({id:'a'}))).toBe('Instagram abierto · envío no confirmado');
+ });
+ it('keeps the reply or rejection label of a source-confirmed send marked later',()=>{
+  for(const status of ['replied','rejected']){
+   const label=status==='replied'?'Respuesta registrada manualmente':'Rechazo registrado manualmente';
+   expect(sentStatusLabel(message({id:'a',status,externalId:'mid.1',confirmationSource:'instagram'}))).toBe(label);
+   expect(sentStatusLabel(message({id:'w',channel:'whatsapp',destinationDetail:null,status,externalId:'wamid.1',confirmationSource:'userscript'}))).toBe(label);
+  }
  });
  it('keeps the seller as the sender of a resolved attempt and shows the text that went out',()=>{
   const [entry]=buildCommunicationTimeline({users:[{email:'ana@example.com',displayName:'Ana'}],messages:[message({id:'a',status:'manual_sent',externalId:'mid.1',body:'Hola preparado',textBody:'Hola enviado'})]});

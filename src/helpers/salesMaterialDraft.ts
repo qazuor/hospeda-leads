@@ -6,7 +6,7 @@ import {CommunicationConflict,CommunicationForbidden,assertAccountContactAllowed
 import {CrmForbidden,assertAccountViewable} from './crmPermissions';
 import {insertSalesMaterialShare} from './salesMaterialShareService';
 import {salesMaterialConfig} from './salesMaterialService';
-import {appendMaterialLink,attachBlockReasons,materialChannelOf,materialShareUrl,megabytesLabel,removeMaterialLink,shareTokenHashesInBody,shareUrlInBody,type MaterialChannel} from './salesMaterialMessage';
+import {appendMaterialLink,attachBlockReasons,materialChannelOf,materialShareUrl,megabytesLabel,removeMaterialLink,shareSlugIntactInBody,shareTokenHashesInBody,shareUrlInBody,type MaterialChannel} from './salesMaterialMessage';
 import {DRAFT_CHANGED_MESSAGE,MESSAGE_BODY_MAX_LENGTH} from '../endpoints/communication.schema';
 import {contentDisposition} from './salesMaterialTypes';
 import {r2Storage,type R2Storage} from './r2';
@@ -17,9 +17,9 @@ export const REVOKE_REASONS={removed:'Quitado del borrador',cancelled:'Borrador 
 /** Presigned GET handed to Brevo for an attachment: one hour (spec 89 §8.3). */
 export const ATTACHMENT_URL_SECONDS=3600;
 type MaterialAction=Extract<CommunicationMutation,{action:'material_add'|'material_remove'|'material_attach'|'material_retry_without_attachments'}>;
-type ShareRow={shareId:string;messageId:string;materialId:string;tokenHash:string;title:string;channel:MaterialChannel;source:'file'|'url';kind:string;status:string;currentVersion:number|null;objectKey:string|null;fileName:string|null;mimeType:string|null;byteSize:string|number|null;preparedVersion:number|null;sentVersion:number|null;attach:boolean;attachedVersion:number|null;createdByEmail:string;createdAt:Date;revokedAt:Date|null;revokedByEmail:string|null;revokeReason:string|null;technicalAccessCount:number;lastTechnicalAccessAt:Date|null};
+type ShareRow={shareId:string;messageId:string;materialId:string;tokenHash:string;publicSlug:string|null;title:string;channel:MaterialChannel;source:'file'|'url';kind:string;status:string;currentVersion:number|null;objectKey:string|null;fileName:string|null;mimeType:string|null;byteSize:string|number|null;preparedVersion:number|null;sentVersion:number|null;attach:boolean;attachedVersion:number|null;createdByEmail:string;createdAt:Date;revokedAt:Date|null;revokedByEmail:string|null;revokeReason:string|null;technicalAccessCount:number;lastTechnicalAccessAt:Date|null};
 /** Shares of some messages (and, for the dispatch claim, shares whose token is in the body). Locking takes the share FOR UPDATE and its material FOR SHARE, so an archive waits. */
-const shareRows=(e:Executor,messageIds:readonly string[],lock=false,tokenHashes:readonly string[]=[])=>sql<ShareRow>`SELECT s.id AS share_id,s.message_id,s.material_id,s.token_hash,m.title,s.channel,m.source,m.kind,m.status,m.current_version,v.object_key,v.file_name,v.mime_type,v.byte_size,
+const shareRows=(e:Executor,messageIds:readonly string[],lock=false,tokenHashes:readonly string[]=[])=>sql<ShareRow>`SELECT s.id AS share_id,s.message_id,s.material_id,s.token_hash,s.public_slug,m.title,s.channel,m.source,m.kind,m.status,m.current_version,v.object_key,v.file_name,v.mime_type,v.byte_size,
  s.prepared_version,s.sent_version,s.attach,s.attached_version,s.created_by_email,s.created_at,s.revoked_at,s.revoked_by_email,s.revoke_reason,s.technical_access_count,s.last_technical_access_at
  FROM crm_sales_material_shares s JOIN crm_sales_materials m ON m.id=s.material_id LEFT JOIN crm_sales_material_versions v ON v.material_id=m.id AND v.version=m.current_version
  WHERE s.message_id=ANY(${messageIds}::uuid[]) OR s.token_hash=ANY(${tokenHashes}::text[]) ORDER BY s.created_at,s.id ${lock?sql`FOR UPDATE OF s FOR SHARE OF m`:sql``}`.execute(e);
@@ -66,13 +66,16 @@ async function draftFor(e:Executor,input:{id:string;revision:number;taskId?:stri
  if(!m.delegatedTaskId)await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,true);
  return {m,channel};
 }
-/** Saves a new body like `edit` does: same length cap, sanitized for email; the final html/text are refreshed only if the draft had them (they mean «reviewed»). */
+/**
+ * Saves a new body like `edit` does: same length cap, sanitized for email. Email and Instagram refresh their final html/text only if the draft had
+ * them (they mean «reviewed»; D6 A keeps Instagram as before). WhatsApp stores the final text equal to the body, as `edit` does (spec 101 §6.2).
+ */
 async function saveBody(e:Executor,m:Message,body:string,user:User):Promise<Message>{
  if(hasMaterialReferences({text:body}))throw new CommunicationConflict(UNRESOLVED_MATERIAL_MESSAGE);
  if(body.length>MESSAGE_BODY_MAX_LENGTH)throw new CommunicationConflict(`Con el enlace, el mensaje supera los ${MESSAGE_BODY_MAX_LENGTH.toLocaleString('es-AR')} caracteres. Acortá el texto antes de agregar material.`);
  const clean=m.channel==='email'?sanitizeEmail(body):body;
  const final=m.channel==='email'&&m.htmlBody?await renderFinal(e,{...m,body:clean},user):null;
- return (await sql<Message>`UPDATE crm_messages SET body=${clean},html_body=${final?final.htmlBody:m.htmlBody},text_body=${m.textBody==null?null:m.channel==='email'?final?.textBody??m.textBody:clean},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
+ return (await sql<Message>`UPDATE crm_messages SET body=${clean},html_body=${final?final.htmlBody:m.htmlBody},text_body=${m.channel==='whatsapp'?(clean.trim()?clean:null):m.textBody==null?null:m.channel==='email'?final?.textBody??m.textBody:clean},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
 }
 /** Refuses (409) attaching that share of the draft: WhatsApp/Instagram, external link, Brevo extension, size or the sum of the attachments (spec 89 §8.3). */
 export async function assertAttachable(e:Executor,m:Message,shareId:string){
@@ -152,13 +155,18 @@ export async function claimDraftMaterials(e:Executor,{message:m,user,storage}:{m
  const rows=(await shareRows(e,[m.id],true,[...inBody])).rows;
  if(!rows.length&&!inBody.size)return {journal:[],attachments:[]};
  const known=new Set(rows.map(r=>r.tokenHash));
- if([...inBody].some(h=>!known.has(h)))throw new CommunicationConflict('El mensaje tiene un enlace de material que no se reconoce. Quitalo y agregá el material desde «Agregar material de venta».');
+ // Unknown and foreign links get the same message and no title: with 4-character tokens a distinct answer would let a signed-in user enumerate other messages' links from a draft.
+ const UNRECOGNISED='El mensaje tiene un enlace de material que no se reconoce. Quitalo y agregá el material desde «Agregar material de venta».';
+ if([...inBody].some(h=>!known.has(h)))throw new CommunicationConflict(UNRECOGNISED);
  const foreign=rows.find(r=>inBody.has(r.tokenHash)&&String(r.messageId??'')!==String(m.id));
- if(foreign)throw new CommunicationConflict(`El enlace de «${foreign.title}» pertenece a otro mensaje. Quitalo y agregá el material desde «Agregar material de venta».`);
+ if(foreign)throw new CommunicationConflict(UNRECOGNISED);
  const own=rows.filter(r=>String(r.messageId)===String(m.id));
  const revokedInText=own.find(r=>r.revokedAt&&inBody.has(r.tokenHash));
  if(revokedInText)throw new CommunicationConflict(`El enlace de «${revokedInText.title}» fue revocado. Quitalo del mensaje.`);
  const live=own.filter(r=>!r.revokedAt),kept=live.filter(r=>inBody.has(r.tokenHash)),dropped=live.filter(r=>!inBody.has(r.tokenHash));
+ // Spec 101 D2: a short link answers 404 unless its slug is the stored one, so a retyped slug would reach the client broken.
+ const retyped=kept.find(r=>!shareSlugIntactInBody({body:m.body,tokenHash:r.tokenHash,publicSlug:r.publicSlug}));
+ if(retyped)throw new CommunicationConflict(`El enlace de «${retyped.title}» se modificó y ya no abre. Quitalo y agregá el material de nuevo desde «Agregar material de venta».`);
  const unavailable=kept.find(r=>!availableRow(r));
  if(unavailable)throw new CommunicationConflict(`El material «${unavailable.title}» ya no está disponible. Quitalo del mensaje.`);
  const attached=m.channel==='email'?kept.filter(r=>r.attach):[];

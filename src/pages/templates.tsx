@@ -20,7 +20,7 @@ import { getSettings } from "../endpoints/settings_GET.schema";
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import { buildHospedaEmailHtml } from "../helpers/hospedaEmailLayout";
 import { renderMessageTemplate, renderMessageTemplateHtml, normalizeTemplateHtml,htmlToPlainText } from "../helpers/renderMessageTemplate";
-import { htmlToWhatsApp, whatsappTextToPreviewHtml } from "../helpers/templateChannelFormatting";
+import { htmlToWhatsApp, whatsappTextToReadOnlyHtml } from "../helpers/templateChannelFormatting";
 import { useAuth } from "../helpers/useAuth";
 import {managementTypes,managementTypeLabels,type ManagementType} from '../helpers/businessManagement';
 import { defaultMessageVariableSettings } from "../helpers/messageVariables";
@@ -166,7 +166,7 @@ export function TemplatesContent(){
   const renderedBody=renderMessageTemplateHtml(labelMaterialReferences({text:body,titles:{...refTitles,...pickedMaterials},html:true}),context,messageVariables);
   const renderedSubject=renderMessageTemplate(subject,context,messageVariables);
   const whatsappPreview=htmlToWhatsApp(renderedBody);
-  const whatsappPreviewHtml=whatsappTextToPreviewHtml(whatsappPreview);
+  const whatsappPreviewHtml=whatsappTextToReadOnlyHtml(whatsappPreview);
 
   return <section className={styles.embedded}>
     <header className={styles.embeddedHeader}>
@@ -249,7 +249,7 @@ export function TemplatesContent(){
           </label>
           {channel==="whatsapp"
             ? <div className={styles.whatsappPreview} dangerouslySetInnerHTML={{__html:whatsappPreviewHtml||"El mensaje aparecerá acá."}}/>
-            : channel==='email'?<><div className={styles.subjectPreview}>{renderedSubject||"Sin asunto"}</div><iframe sandbox="" className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderedBody,senderName:sender,senderEmail,subject:renderedSubject||"Mensaje de Hospeda",vertical:previewLead?.tipo??vertical,commercialProfile:previewLead?.commercialProfile??profile})}/></>:<pre className={styles.readable}>{htmlToPlainText(renderedBody)||"El mensaje aparecerá acá."}</pre>}
+            : channel==='email'?<><div className={styles.subjectPreview}>{renderedSubject||"Sin asunto"}</div><iframe sandbox="" className={styles.previewFrame} title="Vista previa del email" srcDoc={buildHospedaEmailHtml({bodyHtml:renderedBody,senderName:sender,senderEmail,subject:renderedSubject||"Mensaje de Hospeda",vertical:previewLead?.tipo??vertical})}/></>:<pre className={styles.readable}>{htmlToPlainText(renderedBody)||"El mensaje aparecerá acá."}</pre>}
         </aside>
       </div>
     </div>

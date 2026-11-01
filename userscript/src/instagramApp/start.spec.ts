@@ -173,6 +173,36 @@ describe("Instagram app: unknown thread from the profile (spec 97 §4.2, decisio
 });
 
 describe("Instagram app: panel and learning (spec 97 §4.3–4.4, decision 12.3)", () => {
+  it("revalidates the open chat when the tab becomes visible, but no more than once per ten seconds", async () => {
+    history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    const api = apiOf(); start(storeOf().store, api);
+    await vi.waitFor(() => expect(api.fetchContext).toHaveBeenCalledTimes(1));
+    document.dispatchEvent(new Event("visibilitychange")); await vi.waitFor(() => expect(api.fetchContext).toHaveBeenCalledTimes(2));
+    document.dispatchEvent(new Event("visibilitychange")); await new Promise(resolve => setTimeout(resolve, 20));
+    expect(api.fetchContext).toHaveBeenCalledTimes(2);
+  });
+  it("does not learn a chat until its proof remains stable for the second tick", async () => {
+    history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
+    const api = apiOf(); start(storeOf().store, api);
+    await vi.waitFor(() => expect(api.fetchContext).toHaveBeenCalledOnce());
+    expect(api.reportThread).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(api.reportThread).toHaveBeenCalledOnce());
+  });
+  it("refreshes context older than ten seconds on chat entry and redraws even while a panel control has focus", async () => {
+    let now = Date.now(); vi.spyOn(Date, "now").mockImplementation(() => now);
+    history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
+    const api = apiOf(); start(storeOf().store, api);
+    await vi.waitFor(() => expect(api.fetchContext).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(panelText()).toContain("Cabañas del Río"));
+    [...document.getElementById(PANEL_ID)!.shadowRoot!.querySelectorAll<HTMLButtonElement>("button")].find(button => button.getAttribute("aria-label") === "Ajustes")!.click();
+    const select = document.getElementById(PANEL_ID)!.shadowRoot!.querySelector("select")!; select.focus(); expect(document.getElementById(PANEL_ID)!.shadowRoot!.activeElement).toBe(select);
+    now += 10_001; history.pushState(null, "", "/direct/t/17848251833510165/");
+    const next = new DOMParser().parseFromString(threadFor(USER), "text/html"); document.querySelector('[role="main"]')!.replaceWith(next.querySelector('[role="main"]')!);
+    await app!.tick();
+    await vi.waitFor(() => expect(api.fetchContext).toHaveBeenCalledTimes(2));
+    expect(document.getElementById(PANEL_ID)!.dataset.threadId).toBe("17848251833510165");
+  });
   it("on a proven chat with a CRM business, shows it and reports the thread once", async () => {
     history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
     const api = apiOf(); start(storeOf().store, api);
@@ -280,4 +310,3 @@ describe("Instagram app: learning the display name (spec 97 §15, review H2)", (
     expect(api.reportThread).not.toHaveBeenCalled();
   });
 });
-

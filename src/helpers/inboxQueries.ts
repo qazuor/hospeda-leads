@@ -3,6 +3,7 @@ import type {InboxUser} from './inboxTypes';
 import {db} from './db';
 import {normalizeSearchSql} from './searchSql';
 import {instagramInboundSql,instagramOutboundSql} from './instagramChannelSql';
+import {inboundAwaitingReviewSql} from './inboundReview';
 import {argentinaInstant} from './workDates';
 import superjson from 'superjson';
 import {getServerUserSession} from './getServerUserSession';
@@ -90,7 +91,8 @@ export async function inboxSearch(request:Request){try{
  */
 const listedInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered')`;
 const detailInbound=(alias:'i',includeVoided:boolean)=>includeVoided?sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed','voided')`:sql<boolean>`${sql.ref(`${alias}.status`)} IN ('pending_review','registered','dismissed')`;
-const pendingInbound=(alias:'i')=>sql<boolean>`${sql.ref(`${alias}.status`)}='pending_review' AND ${sql.ref(`${alias}.is_automatic`)}=false`;
+// Spec 99 §3.5: an inbound answered from the CRM with evidence of sending is no longer pending.
+const pendingInbound=(alias:'i')=>sql<boolean>`${inboundAwaitingReviewSql(alias)} AND ${sql.ref(`${alias}.is_automatic`)}=false`;
 /**
  * Spec 92 owner decision (Bandeja included, 27/10/2026): an opened send nobody confirmed (`whatsapp_opened`, `instagram_opened`)
  * is in no list, count, last activity, preview, search or thread until it is confirmed, like «Conversación». A send answered
@@ -184,7 +186,7 @@ export async function queryInboxThreadEvents(accountId:string,leadId:string|null
    NULL::text AS "fromName",NULL::text AS "fromAddress",false AS pending,false AS dismissed,
    (m.channel IN ('call','social','other') OR m.status LIKE 'manual_%') AS "isManualLog",false AS "replyAvailable",false AS "replyRestricted",
    coalesce(m.subject,'') AS subject,false AS "isAutomatic",NULL::text AS "linkedMessageId",m.status='voided' AS voided,
-   ar.id::text AS "autoRegistrationId",ar.user_email AS "autoRegistrationUserEmail",${instagramOutboundSql('m')} AS "isInstagram"
+   ar.id::text AS "autoRegistrationId",ar.user_email AS "autoRegistrationUserEmail",${instagramOutboundSql('m')} AS "isInstagram",m.external_id AS "externalId",m.destination_detail AS "destinationDetail",m.owner_email AS "ownerEmail",CASE WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='userscript') THEN 'userscript' WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='instagram-webhook') THEN 'instagram' ELSE 'manual' END AS "confirmationSource"
   FROM crm_messages m
   LEFT JOIN LATERAL (SELECT r.id,r.user_email FROM crm_auto_registrations r WHERE r.message_id=m.id AND r.voided_at IS NULL LIMIT 1) ar ON true
   WHERE m.account_id=${accountId} AND m.lead_id IS NOT DISTINCT FROM ${leadId}::bigint AND m.channel=${channel}
@@ -192,7 +194,7 @@ export async function queryInboxThreadEvents(accountId:string,leadId:string|null
   UNION ALL
   SELECT 'in',i.id::text,i.received_at,i.channel,i.status,i.text_body,NULL::text,NULL::text,i.from_name,i.from_address,
    ${pendingInbound('i')},i.status='dismissed',false,${replySql.canReply},${replySql.replyRestricted},
-   coalesce(i.subject,''),i.is_automatic,i.linked_message_id::text,i.status='voided',ar.id::text,ar.user_email,${instagramInboundSql('i')}
+   coalesce(i.subject,''),i.is_automatic,i.linked_message_id::text,i.status='voided',ar.id::text,ar.user_email,${instagramInboundSql('i')},NULL::text,NULL::text,NULL::text,NULL::text
   FROM crm_inbound_messages i
   JOIN crm_accounts a ON a.id=i.account_id LEFT JOIN leads l ON l.id=i.lead_id
   LEFT JOIN LATERAL (SELECT r.id,r.user_email FROM crm_auto_registrations r WHERE r.inbound_id=i.id AND r.voided_at IS NULL LIMIT 1) ar ON true

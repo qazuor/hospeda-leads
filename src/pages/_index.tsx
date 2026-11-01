@@ -17,6 +17,7 @@ import {HelpLink} from '../components/HelpLink';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { TOAST_MS } from "../helpers/crmFeedback";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, ArrowDownAZ, ArrowUpAZ, BookmarkPlus, Building2, CalendarClock, CheckCircle2, ChevronDown, Clock3,
@@ -553,7 +554,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       await quickM.mutateAsync({id:mutationId,accountId,field,value:value||null});
       setLastTouchedId(String(id));setCellState(prev=>({...prev,[key]:"saved"}));
       window.setTimeout(()=>setCellState(prev=>{const next={...prev};delete next[key];return next}),1300);
-      toast.success("Cambio guardado",field==="tipo"?undefined:{action:{label:"Deshacer",onClick:()=>quickM.mutate({id:mutationId,accountId,field,value:oldValue||null})}});
+      toast.success("Cambio guardado",field==="tipo"?{duration:TOAST_MS.success}:{duration:TOAST_MS.action,action:{label:"Deshacer",onClick:()=>quickM.mutate({id:mutationId,accountId,field,value:oldValue||null})}});
     }catch(error){
       setCellState(prev=>{const next={...prev};delete next[key];return next});
       toast.error(error instanceof Error?crmError(error):"No se pudo guardar");
@@ -915,7 +916,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <Input value={savedViewName} onChange={e=>setSavedViewName(e.target.value)} placeholder="Ej: Alojamientos de Colón sin contactar" autoFocus/>
         <DialogFooter><Button variant="outline" onClick={()=>setSaveViewOpen(false)}>Cancelar</Button><Button onClick={saveCurrentView} disabled={!savedViewName.trim()} disabledReason={"Escribí un nombre para habilitar esta acción."}>Guardar vista</Button></DialogFooter>
       </DialogContent></Dialog>
-      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} onWhatsApp={lead=>openContact(lead,"whatsapp")} onEmail={lead=>openContact(lead,"email")} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
+      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
       {legacyGuard.confirmation}
       {businessEditor&&<CommercialEditor target={{kind:"account",item:businessEditor.item}} onClose={()=>setBusinessEditor(null)} onSaved={id=>navigate("/accounts/"+id)}/>}
       {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>navigate("/sales/"+id,{state:{from:"opportunities"}})}/>}

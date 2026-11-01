@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {Drawer,Skeleton} from '@mantine/core';
+import {Skeleton} from '@mantine/core';
+import {CrmDrawer} from './ui/CrmDialog';
 import {useMediaQuery} from '@mantine/hooks';
 import {useQuery} from '@tanstack/react-query';
 import {getCommercialDetail,type CommercialDetail} from '../endpoints/commercial.schema';
@@ -15,6 +16,7 @@ import {Button} from './Button';
 import {ValueBadge} from './ValueBadge';
 import {StageStepper} from './StageStepper';
 import {BusinessChannel,type BusinessChannelKind} from './BusinessChannel';
+import {businessLinkHref} from '../helpers/businessLinks';
 import {BusinessContactDialog} from './BusinessContactDialog';
 import {CommercialEditor} from './CommercialEditor';
 import {QueryErrorNotice} from './QueryErrorNotice';
@@ -61,7 +63,7 @@ export function BusinessPreviewDrawer({row,opened,onClose,onOpenRecord,returnFoc
  const d=query.data,openManagements=d?openPreviewManagements(d):[],allowed=canActOnBusiness(d,authState),canEdit=canModifyBusiness(authState.type==='authenticated'?authState.user:undefined,d?.account),reason=d?.account.archivedAt?archivedReason:restrictedReason;
  const responsible=d?.account.assignedUserEmail?users.find(u=>u.email===d.account.assignedUserEmail)?.displayName??d.account.assignedUserEmail:null;
  const overdue=row?.fechaProximaAccion?overdueLabel(row.fechaProximaAccion):'';
- return <><Drawer opened={opened} onClose={onClose} closeOnEscape={!contact&&!edit} closeOnClickOutside={!contact&&!edit} position={narrow?'bottom':'right'} size={narrow?'85dvh':'min(420px, 100vw)'} returnFocus={false}
+ return <><CrmDrawer opened={opened} onClose={onClose} closeOnEscape={!contact&&!edit} closeOnClickOutside={!contact&&!edit} position={narrow?'bottom':'right'} size={narrow?'85dvh':'min(420px, 100vw)'} returnFocus={false}
   classNames={{content:narrow?styles.sheet:undefined,body:styles.body}} overlayProps={{backgroundOpacity:.45,blur:2}}
   title={row?.nombre??'Vista previa'} closeButtonProps={{'aria-label':'Cerrar vista previa'}}>
   <div className={styles.content} aria-busy={query.isPending}>
@@ -74,7 +76,7 @@ export function BusinessPreviewDrawer({row,opened,onClose,onOpenRecord,returnFoc
      <dt>Ciudad</dt><dd>{d.account.ciudad||'—'}</dd>
      <dt>Responsable</dt><dd>{responsible||'Sin responsable'}</dd>
      <dt>Persona de contacto</dt><dd>{d.contacts.find(c=>c.isPrimary)?.name??'Sin persona de contacto'}</dd>
-     <dt>Canales</dt><dd className={styles.channels}>{channelFields.some(([,key])=>d.account[key])?channelFields.filter(([,key])=>d.account[key]).map(([kind,key])=><BusinessChannel key={kind} kind={kind} value={d.account[key]} blocked={!!d.account.doNotContact}/>):d.account.doNotContact?<ValueBadge category="status" value="No contactar"/>:'—'}</dd>
+     <dt>Canales</dt><dd className={styles.channels}>{channelFields.some(([,key])=>d.account[key])?channelFields.filter(([,key])=>d.account[key]).map(([kind,key])=><BusinessChannel key={kind} kind={kind} value={d.account[key]} href={key==='perfilInstagram'||key==='sitioWeb'?businessLinkHref({field:key,value:d.account[key]}):undefined} blocked={!!d.account.doNotContact}/>):d.account.doNotContact?<ValueBadge category="status" value="No contactar"/>:'—'}</dd>
     </dl>
     <section className={styles.section}><h3>Próximo paso</h3>{row?.fechaProximaAccion?<p><strong>{row.nextActionTitle||'Próximo paso'}</strong> · <span className={overdue?styles.overdue:undefined}>{overdue||formatDate(row.fechaProximaAccion)}</span></p>:<p className={styles.muted}>Sin próximo paso</p>}</section>
     <section className={styles.section}><h3>Actividad reciente</h3>{recentPreviewEvents(d).map(item=><p key={item.id}>{item.title} · <span className={styles.muted}>{relativeAgo(item.date)}</span></p>)}{!recentPreviewEvents(d).length&&<p className={styles.muted}>Todavía no hay actividad registrada.</p>}</section>
@@ -86,5 +88,5 @@ export function BusinessPreviewDrawer({row,opened,onClose,onOpenRecord,returnFoc
    <Button disabled={!allowed} disabledReason={d?reason:'Esperá a que cargue la vista previa.'} onClick={()=>setContact(true)}>Contactar</Button>
    <Button variant="outline" disabled={!canEdit} disabledReason={d?reason:'Esperá a que cargue la vista previa.'} onClick={()=>setEdit(true)}>Editar</Button>
   </footer>
- </Drawer>{contact&&d&&<BusinessContactDialog detail={d} onClose={()=>setContact(false)}/ >}{edit&&d&&<CommercialEditor target={{kind:'account'}} detail={d} onClose={()=>setEdit(false)} onSaved={()=>setEdit(false)}/>}</>;
+ </CrmDrawer>{contact&&d&&<BusinessContactDialog detail={d} onClose={()=>setContact(false)}/ >}{edit&&d&&<CommercialEditor target={{kind:'account'}} detail={d} onClose={()=>setEdit(false)} onSaved={()=>setEdit(false)}/>}</>;
 }

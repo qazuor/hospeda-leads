@@ -5,7 +5,8 @@ import {Button} from './Button';
 import {HelpLink} from './HelpLink';
 import {Disclosure,DisclosureSummary} from './Disclosure';
 import {QueryErrorNotice} from './QueryErrorNotice';
-import {PendingOutcomes} from './PendingOutcomes';
+import {PendingOutcomes,type PendingOutcomeDialog} from './PendingOutcomes';
+import {OutcomeAfterContact} from './OutcomeAfterContact';
 import {TaskRow} from './WorkPanel';
 import {TodayReplies} from './TodayReplies';
 import type {WorkTarget} from './WorkEditor';
@@ -15,7 +16,7 @@ import {URGENT_CAP} from '../endpoints/work.schema';
 import {taskBucket} from '../helpers/workDates';
 import {urgentCapNotice} from '../helpers/dayProgress';
 import {upcomingDayLabel} from '../helpers/upcomingDays';
-import {VOCAB} from '../content/vocabulary';
+import {VOCAB,plural} from '../content/vocabulary';
 import styles from './Commercial.module.css';
 import ws from './Work.module.css';
 import ls from './TodayList.module.css';
@@ -27,18 +28,24 @@ const bucketMeta={overdue:{title:'Vencidas',id:'today-overdue',empty:'No tenés 
 const order={outcomes:1,notice:2,overdue:3,today:4,replies:5,upcoming:6,calendar:7,attention:8,empty:9,firstSteps:10} as const;
 const at=(key:keyof typeof order):React.CSSProperties=>({order:order[key]});
 
+/** Whether Hoy shows «Pendientes de contacto»: anything counted or expired (expired items stay answerable, spec 100 §7). */
+const hasFollowUps=(f:WorkData['followUps']):f is NonNullable<WorkData['followUps']>=>!!f&&!!(f.unconfirmed.count||f.outcomes.count||f.expired.unconfirmed.count||f.expired.outcomes.count||f.unconfirmed.items.length||f.outcomes.items.length);
+
 /** Lista tab of Hoy (Phase 5): work on the left; replies, mini calendar and Primeros pasos on the right. */
 export function TodayList({data:d,now,admin,filtered,inboundRows,inboundError,inboundBusy,onInboundRetry,firstSteps,calendar,onEdit,onClearFilters,onFocusFilters}:TodayListProps){
  const [allAttention,setAllAttention]=useState(false);
+ // The outcome dialog of a «Pendientes de contacto» row lives here, outside the card, which unmounts when the save empties it.
+ const [outcome,setOutcome]=useState<PendingOutcomeDialog|null>(null);
  const bucket=(key:keyof typeof bucketMeta)=>{
   const tasks=d.tasks.filter(t=>taskBucket(t.dueDate,t.dueAt,now)===key),total=d.bucketCounts?.[key]??tasks.length,meta=bucketMeta[key];
   if(!tasks.length&&!(d.bucketCounts?.[key]??0))return null;
-  const content=<section className={styles.panel+' '+ws.column} id={meta.id} tabIndex={meta.id?-1:undefined} data-tone={key} style={key==='upcoming'?undefined:at(key)}><header className={ws.columnHeader}><h2>{meta.title}</h2><span aria-label="Total de tareas">{total}</span></header>{key==='upcoming'&&(d.bucketCounts?.upcoming??0)>25&&<p className={styles.muted}>{tasks.length} tareas en esta página</p>}<div className={styles.rows}>{tasks.map((t,index)=><React.Fragment key={t.id}>{key==='upcoming'&&(!index||tasks[index-1].dueDate!==t.dueDate)&&<h3 className={ws.dayGroup}>{upcomingDayLabel(t.dueDate,t.dueAt,now)}</h3>}<TaskRow task={t} data={d} onEdit={onEdit} from="my-day"/></React.Fragment>)}{!tasks.length&&<p className={styles.muted}>{total>0?'No hay más tareas en esta página.':meta.empty}</p>}</div></section>;
-  return key==='upcoming'?<Disclosure className={ws.upcoming} style={at('upcoming')}><DisclosureSummary>Próximas acciones ({total})</DisclosureSummary>{content}</Disclosure>:content;
+  const content=<section className={styles.panel+' '+ws.column} id={meta.id} tabIndex={meta.id?-1:undefined} data-tone={key} style={key==='upcoming'?undefined:at(key)}><header className={ws.columnHeader}><h2>{meta.title}</h2><span aria-label="Total de tareas">{total}</span></header>{key==='upcoming'&&(d.bucketCounts?.upcoming??0)>25&&<p className={styles.muted}>{plural(tasks.length,'tarea','tareas')} en esta página</p>}<div className={styles.rows}>{tasks.map((t,index)=><React.Fragment key={t.id}>{key==='upcoming'&&(!index||tasks[index-1].dueDate!==t.dueDate)&&<h3 className={ws.dayGroup}>{upcomingDayLabel(t.dueDate,t.dueAt,now)}</h3>}<TaskRow task={t} data={d} onEdit={onEdit} from="my-day"/></React.Fragment>)}{!tasks.length&&<p className={styles.muted}>{total>0?'No hay más tareas en esta página.':meta.empty}</p>}</div></section>;
+  // Spec 100 D6: open by default, collapsible, not remembered.
+  return key==='upcoming'?<Disclosure open className={ws.upcoming} style={at('upcoming')}><DisclosureSummary>Próximas acciones ({total})</DisclosureSummary>{content}</Disclosure>:content;
  };
  return <div className={ls.layout}>
   <div className={ws.queue+' '+ls.work}>
-   {!!d.pendingOutcomes?.length&&<div style={at('outcomes')} className={ls.slot}><PendingOutcomes items={d.pendingOutcomes} className={ws.outcomeCard}/></div>}
+   {hasFollowUps(d.followUps)&&<div style={at('outcomes')} className={ls.slot}><PendingOutcomes id="today-outcomes" followUps={d.followUps} onOutcome={setOutcome} className={ws.outcomeCard}/></div>}
    {d.truncated&&d.bucketCounts&&<section className={styles.muted} style={at('notice')} role="status" aria-label="Tareas que no entran en la lista">{urgentCapNotice({overdue:d.bucketCounts.overdue,today:d.bucketCounts.today,cap:URGENT_CAP,admin}).map(line=><p key={line}>{line}</p>)}<Button size="sm" variant="outline" onClick={onFocusFilters}>Abrir filtros de trabajo</Button></section>}
    {bucket('overdue')}{bucket('today')}{bucket('upcoming')}
    {d.attention.length>0&&<section className={styles.panel+' '+ws.attention} style={at('attention')} id="today-attention" tabIndex={-1} aria-label="Gestiones sin tarea agendada"><header className={ws.attentionHeading}><h2>Gestiones sin tarea agendada ({d.attention.length}) <HelpLink topic="managements" hint="attention"/></h2><p>Gestiones que necesitan un próximo paso. Agendá una tarea para atenderlas.</p></header><Disclosure className={ws.guide}><DisclosureSummary>Qué gestiones aparecen aquí</DisclosureSummary><p>Nuevas asignadas en los últimos {d.newAssignmentDays} días sin contacto, e interesadas ({d.followupStages.join(', ')||'sin etapas configuradas'}) sin tarea pendiente.</p></Disclosure><div className={styles.rows}>{(allAttention?d.attention:d.attention.slice(0,8)).map(a=><article key={a.id}><div><Link to={'/opportunities?leadId='+a.id}><strong>{a.nombre}</strong></Link><span>{a.opportunityName||'Gestión sin nombre'} · {a.reason}</span></div><div className={styles.actions}><Button size="sm" aria-label={VOCAB.scheduleTask+' para '+a.nombre} onClick={()=>onEdit({kind:'task',accountId:a.accountId,leadId:a.id})}>{VOCAB.scheduleTask}</Button><Button size="sm" variant="outline" asChild><Link to={'/opportunities?leadId='+a.id+'&contact=email'}>{VOCAB.contact}</Link></Button></div></article>)}</div>{d.attention.length>8&&<Button size="sm" variant="ghost" onClick={()=>setAllAttention(!allAttention)}>{allAttention?'Ver menos':'Ver las '+d.attention.length}</Button>}</section>}
@@ -52,5 +59,6 @@ export function TodayList({data:d,now,admin,filtered,inboundRows,inboundError,in
    {calendar&&<div style={at('calendar')} className={ls.slot}>{calendar}</div>}
    {firstSteps&&<div style={at('firstSteps')} className={ls.slot}>{firstSteps}</div>}
   </div>
+  {outcome&&<OutcomeAfterContact key={outcome.key} contact={outcome.contact} note={outcome.note} onDone={()=>setOutcome(null)}/>}
  </div>;
 }

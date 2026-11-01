@@ -1,7 +1,9 @@
-import {forwardRef,useState} from 'react';
+import {forwardRef,useEffect,useRef,useState} from 'react';
+import {Input as MantineInput} from '@mantine/core';
 import {DateInput,MonthPickerInput,type DateInputProps} from '@mantine/dates';
 import styles from './CrmControls.module.css';
 import {LAYERS} from '../../helpers/layers';
+import {useInlineInvalid} from './useInlineInvalid';
 
 /** Parse display text without timezone conversion; callers keep ISO calendar days. */
 export function parseCalendarInput(text:string):string|null {
@@ -16,17 +18,28 @@ export function parseCalendarInput(text:string):string|null {
 type Props=Omit<DateInputProps,'value'|'defaultValue'|'onChange'|'min'|'max'> & {
   value:string;onValueChange:(value:string)=>void;min?:string;max?:string;
 };
-export const CrmDateInput=forwardRef<HTMLInputElement,Props>(({value,onValueChange,className,min,max,popoverProps,...props},ref)=>{
+export const CrmDateInput=forwardRef<HTMLInputElement,Props>(({value,onValueChange,className,min,max,popoverProps,onInvalid,onBlur,...props},ref)=>{
   const [pickerOpen,setPickerOpen]=useState(false);
+  // Spec 104 (33): a required empty date says «Completá este dato.» under the field instead of the browser's English bubble.
+  const invalid=useInlineInvalid<HTMLInputElement>({onInvalid,onBlur});
+  const node=useRef<HTMLInputElement|null>(null);
+  const setRef=(element:HTMLInputElement|null)=>{node.current=element;if(typeof ref==='function')ref(element);else if(ref)ref.current=element;};
+  const reset=useRef(invalid.reset);reset.current=invalid.reset;
+  // Only a real value change clears the message: a hidden panel (React Activity in a closed Disclosure) re-runs effects when it opens on `invalid`.
+  const shown=useRef(value);
+  useEffect(()=>{if(shown.current===value)return;shown.current=value;reset.current(node.current);},[value]);
+  // Mantine's wrapper owns aria-describedby, so the link to the inline message is applied on the node itself (as in Input).
+  useEffect(()=>{if(invalid.error)node.current?.setAttribute('aria-describedby',invalid.errorId);else if(node.current?.getAttribute('aria-describedby')===invalid.errorId)node.current.removeAttribute('aria-describedby');},[invalid.error,invalid.errorId]);
   // Dialog reads data-picker-open so Escape closes only the open picker.
-  return <DateInput
-  {...props} ref={ref} data-picker-open={pickerOpen||undefined} value={value||null} onChange={next=>onValueChange(next??'')}
+  return <><DateInput
+  {...props} ref={setRef} onInvalid={invalid.onInvalid} onBlur={invalid.onBlur} error={invalid.error?true:props.error} data-picker-open={pickerOpen||undefined} value={value||null} onChange={next=>onValueChange(next??'')}
   minDate={min||undefined} maxDate={max||undefined} locale="es" valueFormat="DD/MM/YYYY" dateParser={parseCalendarInput}
   ariaLabels={{nextMonth:"Mes siguiente",previousMonth:"Mes anterior",nextYear:"Año siguiente",previousYear:"Año anterior",nextDecade:"Década siguiente",previousDecade:"Década anterior",monthLevelControl:"Elegir mes",yearLevelControl:"Elegir año"}}
   placeholder={props.placeholder??'dd/mm/aaaa'} data-autofocus={props.autoFocus||undefined}
   // Callers may only tune placement; z-index, strategy and the open-state tracking stay fixed.
   popoverProps={{...(popoverProps?.position?{position:popoverProps.position}:{}),zIndex:LAYERS.popover,floatingStrategy:'fixed',onOpen:()=>setPickerOpen(true),onClose:()=>setPickerOpen(false)}}
-  classNames={{wrapper:styles.field,input:[styles.input,className].filter(Boolean).join(' ')}}/>;
+  classNames={{wrapper:styles.field,input:[styles.input,className].filter(Boolean).join(' ')}}/>
+  {invalid.error&&<MantineInput.Error id={invalid.errorId} role="alert">{invalid.error}</MantineInput.Error>}</>;
 });
 CrmDateInput.displayName='CrmDateInput';
 

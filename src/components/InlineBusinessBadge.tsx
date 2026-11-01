@@ -17,6 +17,7 @@ import {getSettings} from '../endpoints/settings_GET.schema';
 import {postLeadsQuick} from '../endpoints/leads_quick_POST.schema';
 import {getLeads} from '../endpoints/leads_GET.schema';
 import {toast} from 'sonner';
+import {TOAST_MS} from '../helpers/crmFeedback';
 import styles from './InlineBusinessBadge.module.css';
 import {DisabledTooltip} from './Tooltip';
 
@@ -42,7 +43,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
  const compact=field!=='tipo'&&field!=='subtipo'&&!(scope==='management'&&gestions.length>1);
  async function submit(nextDraft=draft){if(lock.current||!nextDraft||!allowed)return;lock.current=true;setProcessing(true);try{
   await save.mutateAsync({id:management?String(management.id):accountId,accountId,field,value:nextDraft.value||null,expectedValue:nextDraft.expected,scope,...(['tipo','subtipo'].includes(field)?{scope:'business',expectedClassification:nextDraft.classification}:{})});
-  await Promise.all([qc.invalidateQueries({queryKey:['leads']}),qc.invalidateQueries({queryKey:['commercial-detail',accountId]})]);setOpen(false);toast.success(title+' actualizado',{duration:8000});
+  await Promise.all([qc.invalidateQueries({queryKey:['leads']}),qc.invalidateQueries({queryKey:['commercial-detail',accountId]})]);setOpen(false);toast.success(title+' actualizado',{duration:TOAST_MS.success});
  }catch(error){toast.error(crmError(error));}finally{lock.current=false;setProcessing(false);}}
  function reload(){setDraft(null);save.reset();void detail.refetch();}
  return <Popover open={open} onOpenChange={next=>{if(lock.current)return;if(next){setDraft(null);setManagementId('');save.reset();void detail.refetch();}setOpen(next);}}>

@@ -1,8 +1,10 @@
 // @vitest-environment node
-import {afterAll,beforeAll,describe,expect,it} from 'vitest';
+import {afterAll,beforeAll,describe,expect,it,vi} from 'vitest';
 import type {Hono} from 'hono';
 
-// Malformed tokens never reach the database, so a dummy URL is enough (same approach as routes.spec.ts).
+// Malformed tokens never reach the share lookup, so a dummy URL is enough (same approach as routes.spec.ts). The persisted budget of unknown
+// lookups (spec 101 D1, covered by scripts/test-sales-material-share.ts) is replaced by a stub that never limits.
+vi.mock('../helpers/salesMaterialShareAttempts',()=>({SHARE_UNKNOWN_WINDOW_MINUTES:60,recordShareMiss:async()=>({limited:false})}));
 const saved={db:process.env.DATABASE_URL,jwt:process.env.JWT_SECRET};
 let app:Hono;
 beforeAll(async()=>{process.env.DATABASE_URL='postgres://u:p@127.0.0.1:1/x';process.env.JWT_SECRET='material-share-route-secret-0123456789abcdef';app=(await import('./app')).app as unknown as Hono;});

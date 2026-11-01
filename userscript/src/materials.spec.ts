@@ -2,11 +2,22 @@ import { MATERIAL_ADD_FAILED, MATERIAL_REMOVE_FAILED, MATERIAL_SEARCH_DEBOUNCE_M
 
 const folleto = { id: "1", title: "Folleto Alojamiento", categories: ["Folletos"], format: "pdf", formatLabel: "PDF" };
 const video = { id: "2", title: "Video institucional", categories: ["Promoción"], format: "video", formatLabel: "Video" };
+const other = { id: "3", title: "Material Gastronomía", categories: [], format: "pdf", formatLabel: "PDF", otherVertical: true };
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 const options = (over: Partial<Parameters<typeof materialPicker>[0]> = {}): Parameters<typeof materialPicker>[0] => ({ listing: emptyMaterialListing(), refresh: true, busy: false, added: [], search: vi.fn().mockResolvedValue({ materials: [folleto, video], blocked: null }), onListing: vi.fn(), onAdd: vi.fn(), onClose: vi.fn(), ...over });
 afterEach(() => { vi.useRealTimers(); });
 
 describe("sales material in the panel (spec 89 §9)", () => {
+  it("folds other verticals, counts them, and expands on demand while keeping applicable materials above", async () => {
+    const picker = materialPicker(options({ refresh: false, listing: { search: "", materials: [folleto, other, video], truncated: false, error: "" } }));
+    const fold = [...picker.querySelectorAll("button")].find(button => button.textContent === "De otras verticales (1)");
+    expect(fold).toBeTruthy(); expect(picker.textContent).toContain("Folleto Alojamiento"); expect(picker.textContent).not.toContain("Material Gastronomía");
+    fold!.click(); expect(picker.textContent).toContain("Material Gastronomía");
+  });
+  it("shows every material expanded when none applies to the business vertical", () => {
+    const picker = materialPicker(options({ refresh: false, listing: { search: "", materials: [other], truncated: false, error: "" } }));
+    expect(picker.textContent).toContain("Material Gastronomía"); expect(picker.textContent).not.toContain("De otras verticales");
+  });
   it("asks the CRM on opening and marks what is already in the text", async () => {
     const opts = options({ added: ["1"] }), picker = materialPicker(opts);
     expect(picker.textContent).toContain("Cargando material…");

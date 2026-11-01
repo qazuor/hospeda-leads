@@ -1,6 +1,6 @@
 import {post as importLeads} from "../src/endpoints/dataQuality";
 import type {ImportReview} from "../src/endpoints/dataQuality.schema";
-import {localDay} from "../src/helpers/workDates";
+import {localDay,argentinaInstant} from "../src/helpers/workDates";
 import assert from 'node:assert/strict';
 import {sql} from 'kysely';
 import superjson from 'superjson';
@@ -12,8 +12,9 @@ import {handle as save} from '../src/endpoints/leads_save_POST';
 import {handle as contact} from '../src/endpoints/lead_contact_POST';
 import type {WorkData} from '../src/endpoints/work.schema';
 import {handle as liveVersion} from '../src/endpoints/live_version_GET';
-import {post as communicationPost} from '../src/endpoints/communication';
-import {reconcileEvents} from '../src/helpers/communicationService';
+import {post as communicationPost,get as communicationGet} from '../src/endpoints/communication';
+import {pendingContactFollowUps,reconcileEvents} from '../src/helpers/communicationService';
+import type {CommunicationDetail} from '../src/endpoints/communication.schema';
 import type {OutputType as LiveVersion} from '../src/endpoints/live_version_GET.schema';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
 const suffix=Date.now();
@@ -268,11 +269,33 @@ try{
  await mutate({...base,id:resched,title:'Editada por otra persona',description:'Cambió mientras tanto',priority:'alta',dueDate:'2030-03-01',participants:'Otra gente',expectedUpdatedAt:await taskVersion(resched)},admin.cookie);
  await db.updateTable('crmTasks').set({contactIds:sql`'["999999"]'::jsonb`}).where('id','=',resched).execute();
  await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-05',dueAt:null});
+ const overduePostpone=await mutate({...base,title:'Posponer vencida',dueDate:'2020-01-01'});
+ await mutate({action:'task_reschedule',id:overduePostpone,expectedDueDate:'2020-01-01',expectedDueAt:null,dueDate:localDay(),dueAt:null,kind:'postpone'},user.cookie);
+ const overdueMoved=await db.selectFrom('crmTasks').selectAll().where('id','=',overduePostpone).executeTakeFirstOrThrow();
+ assert.equal(overdueMoved.dueDate.toISOString().slice(0,10),localDay(),'an overdue task may be postponed to today');
+ const tomorrowDate=new Date(localDay()+'T00:00:00Z');tomorrowDate.setUTCDate(tomorrowDate.getUTCDate()+1);const tomorrow=tomorrowDate.toISOString().slice(0,10);
+ await mutate({action:'task_reschedule',id:overduePostpone,expectedDueDate:localDay(),expectedDueAt:null,dueDate:tomorrow,dueAt:null,kind:'postpone'},user.cookie);
+ const overdueFuture=await db.selectFrom('crmTasks').selectAll().where('id','=',overduePostpone).executeTakeFirstOrThrow();assert.equal(overdueFuture.dueDate.toISOString().slice(0,10),tomorrow,'an overdue task may be postponed to a future day');
+ const futurePostpone=await mutate({...base,title:'Posponer futura',dueDate:'2030-03-01'});
+ await mutate({action:'task_reschedule',id:futurePostpone,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-02',dueAt:null,kind:'postpone'},user.cookie);
+ const futureMoved=await db.selectFrom('crmTasks').selectAll().where('id','=',futurePostpone).executeTakeFirstOrThrow();assert.equal(futureMoved.dueDate.toISOString().slice(0,10),'2030-03-02','a future task may be postponed forward');
+ const timedPostpone=await mutate({...base,title:'No adelantar hora',dueDate:'2030-03-01',dueAt:'2030-03-01T17:00:00.000Z'});
+ const timedRow=await db.selectFrom('crmTasks').selectAll().where('id','=',timedPostpone).executeTakeFirstOrThrow();
+ await mutate({action:'task_reschedule',id:timedPostpone,expectedDueDate:'2030-03-01',expectedDueAt:timedRow.dueAt!.toISOString(),dueDate:'2030-03-01',dueAt:'2030-03-01T16:00:00.000Z',kind:'postpone'},user.cookie,400);
+ // D2: postponing a timed overdue task to today at an hour that already passed would leave it overdue; it must land after now.
+ const timedOverdue=await mutate({...base,title:'Vencida con hora',dueDate:'2020-01-01',dueAt:argentinaInstant('2020-01-01T00:00').toISOString()});
+ const timedOverdueAt=(await db.selectFrom('crmTasks').select('dueAt').where('id','=',timedOverdue).executeTakeFirstOrThrow()).dueAt!.toISOString();
+ const pastToday=await post(request({action:'task_reschedule',id:timedOverdue,expectedDueDate:'2020-01-01',expectedDueAt:timedOverdueAt,dueDate:localDay(),dueAt:argentinaInstant(localDay()+'T00:00').toISOString(),kind:'postpone'},user.cookie));
+ assert.equal(pastToday.status,400);assert.match(superjson.parse<{error:string}>(await pastToday.text()).error,/ya pasó/);
+ assert.equal((await db.selectFrom('crmTasks').select('dueDate').where('id','=',timedOverdue).executeTakeFirstOrThrow()).dueDate.toISOString().slice(0,10),'2020-01-01','a rejected postpone keeps the task');
+ await mutate({action:'task_reschedule',id:timedOverdue,expectedDueDate:'2020-01-01',expectedDueAt:timedOverdueAt,dueDate:tomorrow,dueAt:argentinaInstant(tomorrow+'T00:00').toISOString(),kind:'postpone'},user.cookie);
+ assert.equal((await db.selectFrom('crmTasks').select('dueDate').where('id','=',timedOverdue).executeTakeFirstOrThrow()).dueDate.toISOString().slice(0,10),tomorrow,'a timed overdue task may be postponed to tomorrow');
  const moved=await db.selectFrom('crmTasks').selectAll().where('id','=',resched).executeTakeFirstOrThrow();
  assert.equal(moved.dueDate.toISOString().slice(0,10),'2030-03-05');assert.equal(moved.title,'Editada por otra persona');assert.equal(moved.description,'Cambió mientras tanto');assert.equal(moved.priority,'alta');assert.equal(moved.participants,'Otra gente');assert.deepEqual(moved.contactIds,['999999']);
  const conflictBody=await post(request({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-09',dueAt:null}));assert.equal(conflictBody.status,409);assert.match(superjson.parse<{error:string}>(await conflictBody.text()).error,/cambió mientras tanto/);
  assert.equal((await db.selectFrom('crmTasks').select('dueDate').where('id','=',resched).executeTakeFirstOrThrow()).dueDate.toISOString().slice(0,10),'2030-03-05');
- await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-05',expectedDueAt:null,dueDate:'2030-03-01',dueAt:null,},user.cookie);
+ await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-05',expectedDueAt:null,dueDate:'2030-03-01',dueAt:null,kind:'postpone'},user.cookie,400);
+ await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-05',expectedDueAt:null,dueDate:'2030-03-01',dueAt:null,kind:'undo'},user.cookie);
  await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-02',dueAt:'2030-03-03T15:00:00-03:00'},user.cookie,400);
  await mutate({action:'task_reschedule',id:resched,expectedDueDate:'2030-03-01',expectedDueAt:null,dueDate:'2030-03-02',dueAt:null},other.cookie,403);
  await db.updateTable('crmTasks').set({status:'cancelled'}).where('id','=',resched).execute();
@@ -384,7 +407,7 @@ try{
  const pendingOld=await contactMessage({status:'manual_sent',channel:'call',at:new Date('2020-01-01T00:00:00Z')});
  const pendingForeign=await contactMessage({status:'manual_sent',channel:'call',owner:admin.user.email,at:new Date()});
  const pendingDraft=await contactMessage({status:'draft',at:new Date()});
- const pendingIds=async(cookie=user.cookie)=>(await read('',cookie)).pendingOutcomes!.map(p=>p.id);
+ const pendingIds=async(cookie=user.cookie)=>{const f=(await read('',cookie)).followUps!;return [...f.unconfirmed.items,...f.outcomes.items].map(p=>p.id);};
  const listed=await pendingIds();assert(listed.includes(pendingNow.id));for(const id of [pendingOld.id,pendingForeign.id,pendingDraft.id])assert(!listed.includes(id));
  assert((await pendingIds(admin.cookie)).includes(pendingForeign.id));
  await mutate({...contactOutcome,channel:'phone',messageId:pendingNow.id,occurredAt:new Date().toISOString()});
@@ -400,7 +423,7 @@ try{
  const foreignLeadCall=await pendingCall(a.id,foreignLead.id);
  assert(!(await pendingIds()).includes(foreignLeadCall.id),'A management of another seller is not hers to resolve');
  // No contactar and closed managements block confirming a send, so those unconfirmed sends stay out; confirmed contacts stay listed.
- const dncOpened=await pendingCall(dnc.acc.id,dnc.lead.id,'whatsapp_opened','whatsapp'),dncCall=await pendingCall(dnc.acc.id,dnc.lead.id);
+ const dncOpened=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:dnc.acc.id,leadId:dnc.lead.id,at:new Date(Date.now()-10*60000)})/* past the WhatsApp script wait, so only No contactar keeps it out */,dncCall=await pendingCall(dnc.acc.id,dnc.lead.id);
  const closedOpened=await pendingCall(closedLead.acc.id,closedLead.lead.id,'manual_pending','social'),closedCall=await pendingCall(closedLead.acc.id,closedLead.lead.id);
  let ids=await pendingIds();
  for(const id of [dncOpened.id,closedOpened.id])assert(!ids.includes(id),'An unconfirmed send that cannot be confirmed is left to the communication panel');
@@ -415,12 +438,108 @@ try{
  assert((await pendingIds()).includes(dncAnswerCall.id));
  for(const [message,category] of [[dncAnswerCall,'do_not_contact'],[plainAnswerCall,'interested']] as const)await sql`INSERT INTO crm_communication_responses(id,account_id,original_account_id,channel,recipient,recipient_name,linked_message_id,category,summary,actor_email) VALUES(${crypto.randomUUID()}::uuid,${dncAnswer.id},${dncAnswer.id},'call','x','x',${message.id}::uuid,${category},'x',${user.user.email})`.execute(db);
  ids=await pendingIds();assert(!ids.includes(dncAnswerCall.id),'A linked No contactar response resolves the contact');assert(ids.includes(plainAnswerCall.id),'Another response category does not');
- // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp.
- const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await pendingCall(laterAccount.id,null,'whatsapp_opened','whatsapp');
+ // On a freshly migrated database (CI) crm_contact_outcome_since is newer than the fixtures below (some are days old, spec 100
+ // expiry); move it back while these blocks run.
+ const splitSince=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+ await sql`UPDATE app_settings SET value=to_char((now()-interval '30 days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '20 days'`.execute(db);
+ try{
+ // A later outcome on the same business resolves a confirmed contact, but never hides an unconfirmed WhatsApp (opened 10 minutes ago:
+ // a younger one is still waiting for the user script, spec 100 §9).
+ const laterAccount=await fresh('Más tarde');const laterCall=await pendingCall(laterAccount.id),laterOpened=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:laterAccount.id,leadId:null,at:new Date(Date.now()-10*60000)});
  assert((await pendingIds()).includes(laterCall.id));
  await new Promise(r=>setTimeout(r,20));
  await mutate({action:'activity_save',accountId:laterAccount.id,leadId:null,title:'Charla en la oficina',typeId:'meeting',occurredAt:new Date().toISOString(),purpose:'commercial',outcome:'interested',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
  ids=await pendingIds();assert(!ids.includes(laterCall.id),'A later outcome resolves the confirmed call');assert(ids.includes(laterOpened.id),'An opened WhatsApp still needs its own answer');
+ // Spec 99 §3.6: one server definition, two lists. Hoy filtered by the business, the business «Comunicación» and the detail the work
+ // editor toast reads return the same lists and counts; opened chats and manual attempts are «Envíos sin confirmar», evidence «Anotá cómo salió».
+ const split=await fresh('Dos listas');const at=(minutes:number)=>new Date(Date.now()-(minutes+10)*60000);// past the WhatsApp script wait
+ const splitUnconfirmed=[await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(1)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(2)}),await contactMessage({status:'manual_pending',channel:'call',accountId:split.id,leadId:null,at:at(3)}),await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:split.id,leadId:null,at:at(4)})];
+ const splitOutcomes=[await contactMessage({status:'manual_sent',channel:'call',accountId:split.id,leadId:null,at:at(5)}),await contactMessage({status:'manual_no_contact',channel:'call',accountId:split.id,leadId:null,at:at(6)}),await contactMessage({status:'manual_sent',channel:'whatsapp',accountId:split.id,leadId:null,at:at(7)})];
+ const hoySplit=(await read('mode=day&accountId='+split.id)).followUps!;
+ assert.deepEqual(hoySplit.unconfirmed.items.map(p=>p.id),splitUnconfirmed.map(m=>m.id),'Unconfirmed sends, newest first');
+ assert.deepEqual(hoySplit.outcomes.items.map(p=>p.id),splitOutcomes.map(m=>m.id),'Contacts without an outcome, newest first');
+ assert.deepEqual([hoySplit.unconfirmed.count,hoySplit.outcomes.count],[4,3]);
+ assert(hoySplit.outcomes.items.every(p=>typeof p.confirmationSource==='string'),'Outcome items keep their confirmation source');
+ const commSplit=superjson.parse<CommunicationDetail&{error?:string}>(await (await communicationGet(new Request('http://localhost/_api/communication?accountId='+split.id,{headers:{cookie:user.cookie}}))).text());
+ assert.deepEqual(commSplit.followUps,hoySplit,'Hoy filtered by the business and Comunicación return the same lists and counts');
+ const detailSplit=(await read('mode=detail&accountId='+split.id+'&followUps=1')).followUps;
+ assert.deepEqual(detailSplit,hoySplit,'Detail with accountId and followUps=1 returns the business follow-ups for the toast');
+ assert.equal((await read('mode=detail&accountId='+split.id)).followUps,undefined,'The other detail readers do not pay for the follow-ups (opt-in)');
+ assert.equal((await read('mode=detail&followUps=1')).followUps,undefined,'Detail without a business carries no follow-ups');
+ const wholeDay=(await read('mode=day')).followUps!;
+ assert(wholeDay.unconfirmed.count>=4&&wholeDay.outcomes.count>=3,'Unfiltered Hoy counts every business');
+ const cut=await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:split.id,limit:2});
+ assert.deepEqual([cut.unconfirmed.items.length,cut.unconfirmed.count,cut.unconfirmed.groupCount],[2,4,4],'«¿Lo enviaste?» is cut at the limit per send and its count does not depend on it');
+ assert.deepEqual([cut.outcomes.items.length,cut.outcomes.count,cut.outcomes.groupCount],[3,3,1],'Spec 100 §6: «Anotá cómo salió» is cut per management group, so the single «Sin gestión» group arrives whole');
+ const otherSplit=await fresh('Dos listas, otro negocio');await contactMessage({status:'manual_sent',channel:'call',accountId:otherSplit.id,leadId:null,at:at(1)});
+ assert.deepEqual((await read('mode=detail&accountId='+split.id+'&followUps=1')).followUps,hoySplit,'Another business never leaks into the lists');
+ // Spec 100 §6, §7, §9: expiry by the database clock (72 h unconfirmed, 7 days after a management's newest send), per-management
+ // groups with their own count and limit, and the 5-minute WhatsApp script wait. Reading never writes.
+ const stale=await fresh('Vencimiento');const hours=(h:number)=>new Date(Date.now()-h*3600_000);
+ const [planA,planB]=await Promise.all(['Plan A','Plan B'].map(opportunityName=>db.insertInto('leads').values({nombre:stale.nombre,accountId:stale.id,opportunityName,estado:'Interesado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow()));
+ const openedOld=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:stale.id,leadId:null,at:hours(73)});
+ const openedRecent=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:stale.id,leadId:null,at:hours(71)});
+ const openedWaiting=await contactMessage({status:'whatsapp_opened',channel:'whatsapp',accountId:stale.id,leadId:null,at:hours(1/30)});// 2 minutes
+ const manualFresh=await contactMessage({status:'manual_pending',channel:'call',accountId:stale.id,leadId:null,at:hours(1/30)});
+ const aOld=await contactMessage({status:'manual_sent',channel:'call',accountId:stale.id,leadId:planA.id,at:hours(8*24+2)}),aNew=await contactMessage({status:'manual_sent',channel:'whatsapp',accountId:stale.id,leadId:planA.id,at:hours(24)});
+ const bNew=await contactMessage({status:'manual_sent',channel:'call',accountId:stale.id,leadId:planB.id,at:hours(8*24)}),bOld=await contactMessage({status:'manual_no_contact',channel:'call',accountId:stale.id,leadId:planB.id,at:hours(9*24)});
+ const general=await contactMessage({status:'manual_no_contact',channel:'call',accountId:stale.id,leadId:null,at:hours(3*24)});
+ const fixtureIds=[openedOld,openedRecent,openedWaiting,manualFresh,aOld,aNew,bNew,bOld,general].map(m=>m.id);
+ const snapshot=async()=>({messages:(await sql<{id:string;status:string;updatedAt:Date;lastInteractionAt:Date}>`SELECT id::text,status,updated_at,last_interaction_at FROM crm_messages WHERE id=ANY(${fixtureIds}::uuid[]) ORDER BY id`.execute(db)).rows,journal:Number((await sql<{n:string}>`SELECT count(*) AS n FROM crm_communication_journal WHERE entity_id=ANY(${fixtureIds}::text[])`.execute(db)).rows[0].n),activities:Number((await sql<{n:string}>`SELECT count(*) AS n FROM crm_activities WHERE account_id=${stale.id}`.execute(db)).rows[0].n)});
+ const before=await snapshot();
+ const hoyStale=(await read('mode=day&accountId='+stale.id)).followUps!,listIds=(l:{items:{id:string}[]})=>l.items.map(p=>p.id);
+ assert.deepEqual(listIds(hoyStale.unconfirmed),[manualFresh.id,openedRecent.id],'71 h still counts; a manual attempt has no script wait; a 2-minute WhatsApp open waits for the script');
+ assert.deepEqual([hoyStale.unconfirmed.count,hoyStale.unconfirmed.groupCount],[2,2]);
+ assert.deepEqual(listIds(hoyStale.expired.unconfirmed),[openedOld.id],'An open of 73 h expires');
+ assert.deepEqual([hoyStale.expired.unconfirmed.count,hoyStale.expired.unconfirmed.groupCount],[1,1]);
+ assert(![...listIds(hoyStale.unconfirmed),...listIds(hoyStale.expired.unconfirmed)].includes(openedWaiting.id),'An open waiting for the script is neither counted nor expired');
+ assert.deepEqual(listIds(hoyStale.outcomes),[aNew.id,general.id,aOld.id],'A group with a 1-day send stays whole, its 8-day send included');
+ assert.deepEqual([hoyStale.outcomes.count,hoyStale.outcomes.groupCount],[3,2],'Counted per management: Plan A and «Sin gestión»');
+ assert.deepEqual(listIds(hoyStale.expired.outcomes),[bNew.id,bOld.id],'A management whose newest send is 8 days old expires whole');
+ assert.deepEqual([hoyStale.expired.outcomes.count,hoyStale.expired.outcomes.groupCount],[2,1]);
+ assert.deepEqual(hoyStale.outcomes.items.map(p=>p.delegatedTaskId),[null,null,null],'Outcome items carry their delegated task (none here)');
+ assert.deepEqual(hoyStale.outcomes.items.map(p=>p.groupTotal),[2,1,2],'Group totals: Plan A has 2 sends, «Sin gestión» 1');assert.deepEqual(hoyStale.unconfirmed.items.map(p=>p.groupTotal),[1,1],'An unconfirmed send is its own group');
+ const commStale=superjson.parse<CommunicationDetail&{error?:string}>(await (await communicationGet(new Request('http://localhost/_api/communication?accountId='+stale.id,{headers:{cookie:user.cookie}}))).text());
+ assert.deepEqual(commStale.followUps,hoyStale,'Hoy filtered by the business and Comunicación return the same lists, groupCount and expired');
+ assert.deepEqual((await read('mode=detail&accountId='+stale.id+'&followUps=1')).followUps,hoyStale,'The work editor toast reads the same object');
+ const staleCut=await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:stale.id,limit:1});
+ assert.deepEqual(listIds(staleCut.outcomes),[aNew.id,aOld.id],'The limit counts groups: the newest management arrives with all its sends');
+ assert.deepEqual([staleCut.outcomes.count,staleCut.outcomes.groupCount],[3,2],'Counts do not depend on the limit');
+ assert.deepEqual(listIds(staleCut.unconfirmed),[manualFresh.id]);assert.deepEqual(listIds(staleCut.expired.outcomes),[bNew.id,bOld.id],'Expired groups are cut per group too');
+ assert.deepEqual(await snapshot(),before,'Expiring is a read: no status, journal or activity change');
+ // A group lists its newest sends only (FOLLOW_UP_GROUP_ITEM_LIMIT); counts still cover every send.
+ {const many=await fresh('Muchos envíos');const sends=[];for(let n=0;n<12;n++)sends.push(await contactMessage({status:'manual_sent',channel:'call',accountId:many.id,leadId:null,at:new Date(Date.now()-(10+n)*60000)}));
+ const capped=(await pendingContactFollowUps(db,{ownerEmail:user.user.email,isAdmin:false,accountId:many.id})).outcomes;
+ assert.deepEqual(capped.items.map(p=>p.id),sends.slice(0,10).map(m=>m.id),'One group lists its 10 newest sends');assert.deepEqual([capped.count,capped.groupCount],[12,1],'The count still covers every send');
+ assert.deepEqual([...new Set(capped.items.map(p=>p.groupTotal))],[12],'Each listed send carries its group total before the cap (spec 100 §6)');}
+ // A new send in an expired management brings the whole group back to the count.
+ const bRevived=await contactMessage({status:'manual_sent',channel:'call',accountId:stale.id,leadId:planB.id,at:hours(2)});
+ const revived=(await read('mode=day&accountId='+stale.id)).followUps!;
+ assert.deepEqual(listIds(revived.outcomes),[bRevived.id,aNew.id,general.id,bNew.id,aOld.id,bOld.id]);assert.deepEqual([revived.outcomes.groupCount,revived.expired.outcomes.count],[3,0]);
+ // One outcome recorded on a management's newest send resolves every send of that management (existing rule, spec 99 §6).
+ await new Promise(r=>setTimeout(r,20));
+ await mutate({action:'activity_save',accountId:stale.id,leadId:planB.id,title:'Contacto por teléfono',typeId:'call',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'phone',messageId:bRevived.id,outcome:'no_answer',result:'No atendió',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ const resolved=(await read('mode=day&accountId='+stale.id)).followUps!;
+ assert.deepEqual(listIds(resolved.outcomes),[aNew.id,general.id,aOld.id],'The three Plan B sends leave with one outcome');assert.equal(resolved.outcomes.groupCount,2);
+ // Regression (spec 100 §6): the newest send's activity may be older than an earlier send. Opening WhatsApp creates its activity at open
+ // time and «Sí, se envió» only bumps the message, so open WhatsApp → call → confirm → outcome on the newest must still resolve the call.
+ {const acc=await fresh('Abrir, llamar, confirmar');const lead=await db.insertInto('leads').values({nombre:acc.nombre,accountId:acc.id,opportunityName:'Plan',estado:'Interesado',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+ const person=await db.insertInto('crmContacts').values({accountId:acc.id,name:'Lía',phone:'+5493442000077'}).returningAll().executeTakeFirstOrThrow();
+ const template=await db.insertInto('messageTemplates').values({name:'WhatsApp regresión '+suffix,channel:'whatsapp',body:'<p>Hola {{contact}}</p>'}).returningAll().executeTakeFirstOrThrow();
+ const comm=async(body:Record<string,unknown>)=>{const r=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:user.cookie},body:superjson.stringify(body)}));const v=superjson.parse<{id:string;revision:number;error?:string}>(await r.text());assert.equal(r.status,200,v.error);return v;};
+ const pause=()=>new Promise(r=>setTimeout(r,30));
+ const draft=await comm({action:'prepare',id:crypto.randomUUID(),leadId:String(lead.id),contactId:String(person.id),channel:'whatsapp',templateId:String(template.id)});
+ await comm({action:'dispatch',id:draft.id,revision:draft.revision,confirm:true});assert.equal((await messageRow(draft.id)).status,'whatsapp_opened');
+ await pause();const callId=crypto.randomUUID();
+ await comm({action:'manual_start',id:callId,accountId:String(acc.id),leadId:String(lead.id),contactId:String(person.id),channel:'call',purpose:null,otherPurpose:null,recipient:'+5493442000077',recipientName:'Lía',destination:null,body:'Llamada realizada',result:'manual_sent',templateId:null});
+ await pause();await comm({action:'outcome',id:draft.id,event:'manual_sent',notes:''});
+ const groupOf=async()=>(await read('mode=day&accountId='+acc.id)).followUps!.outcomes;
+ assert.deepEqual(listIds(await groupOf()),[draft.id,callId],'The confirmed WhatsApp is now the newest send of the management');
+ const order=(await sql<{opened:Date;called:Date}>`SELECT x.created_at AS opened,c.last_interaction_at AS called FROM crm_messages m JOIN crm_activities x ON x.id=m.activity_id JOIN crm_messages c ON c.id=${callId}::uuid WHERE m.id=${draft.id}::uuid`.execute(db)).rows[0];
+ assert(order.opened<order.called,'Fixture: the WhatsApp activity was created before the call');
+ await pause();await mutate({action:'activity_save',accountId:acc.id,leadId:lead.id,title:'Contacto por WhatsApp',typeId:'message',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'whatsapp',contactIds:[person.id],messageId:draft.id,outcome:'no_answer',result:'No respondió',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'});
+ const after=await groupOf();assert.deepEqual([listIds(after),after.count,after.groupCount],[[],0,0],'One outcome on the newest send resolves the older call too');}
+ }finally{if(splitSince)await sql`UPDATE app_settings SET value=${splitSince} WHERE key='crm_contact_outcome_since'`.execute(db);}
  // Edits stay exempt from linking.
  await mutate({...contactOutcome,id:callActivity,messageId:(await contactMessage({status:'manual_sent',channel:'call'})).id},user.cookie,400);
  // U-27 first-use checklist flags: true only from the user's own recorded actions.
@@ -428,8 +547,12 @@ try{
  assert.deepEqual(await rookieFlags(),{contacted:false,logged:false,scheduled:false},'A user with no history has nothing ticked');
  const rookieAccount=await fresh('Primeros pasos',rookie.user.email);
  // Real snapshot behaviour: opening WhatsApp, a failed/denied send and a send marked not done each leave an activity WITH a channel; none of them is a contact.
- for(const status of ['whatsapp_opened','manual_not_done','rejected'])await contactMessage({status,owner:rookie.user.email,channel:'whatsapp',accountId:rookieAccount.id,leadId:null,activity:true,at:new Date()});
- assert.equal((await rookieFlags())!.contacted,false,'Opening WhatsApp, a rejected or not-done send is not a contact');
+ for(const status of ['whatsapp_opened','manual_not_done'])await contactMessage({status,owner:rookie.user.email,channel:'whatsapp',accountId:rookieAccount.id,leadId:null,activity:true,at:new Date()});
+ assert.equal((await rookieFlags())!.contacted,false,'Opening WhatsApp or a not-done send is not a contact');
+ // A registered rejection (the business said no) is contact evidence under section 4; it is checked on another seller so the rookie stays untouched.
+ const rejecter=await identity('user'),rejecterAccount=await fresh('Rechazo registrado',rejecter.user.email);
+ await contactMessage({status:'rejected',owner:rejecter.user.email,channel:'whatsapp',accountId:rejecterAccount.id,leadId:null,activity:true,at:new Date()});
+ assert.equal((await read('mode=day',rejecter.cookie)).firstSteps!.contacted,true,'A registered rejection is contact evidence under section 4');
  const attempt=await identity('user'),attemptAccount=await fresh('Sin respuesta',attempt.user.email);
  await mutate({action:'activity_save',accountId:attemptAccount.id,leadId:null,title:'Llamada sin respuesta',typeId:'call',occurredAt:new Date().toISOString(),purpose:'commercial',channel:'call',outcome:'no_answer',continuation:'done',continuationReason:'Ya tengo otra tarea agendada'},attempt.cookie);
  const attemptFlags=(await read('mode=day',attempt.cookie)).firstSteps!;

@@ -4,8 +4,8 @@ import {responseCategoryLabel,userLabel,type LabelUser} from './crmLabels';
 import {messageLabels} from './messageLabels';
 import {ECHO_SENDER,ECHO_STATUS,INSTAGRAM_ECHO_OWNER,isInstagramInbound,isInstagramOutbound} from './instagramChannel';
 import {phoneNationalKeys} from './dataNormalization';
-import {isOpenedUnconfirmed} from './contactOutcome';
-import {isInstagramAttempt,isInstagramConfirmed,normalizeInstagramUsername} from './instagramChat';
+import {WHATSAPP_SCRIPT_WAIT_MS,isOpenedUnconfirmed} from './contactOutcome';
+import {isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 
 export {ECHO_STATUS,INSTAGRAM_ECHO_OWNER};
 
@@ -44,7 +44,7 @@ export const INSTAGRAM_WAITING_HINT='Si lo enviaste desde la cuenta de Hospeda s
  * An Instagram echo was sent from the Instagram app and only recorded here; an Instagram attempt carrying the echo `mid`
  * was confirmed by Instagram.
  */
-export const sentStatusLabel=(msg:{channel:string;ownerEmail:string;status:string;destinationDetail?:string|null;externalId?:string|null}):string=>isInstagramEcho(msg)&&msg.status==='manual_sent'?ECHO_STATUS:isInstagramConfirmed(msg)?INSTAGRAM_CONFIRMED_STATUS:messageLabels[msg.status]??msg.status;
+export const sentStatusLabel=(msg:{channel:string;ownerEmail:string;status:string;destinationDetail?:string|null;externalId?:string|null;confirmationSource?:'userscript'|'instagram'|'manual'}):string=>isInstagramEcho(msg)&&msg.status==='manual_sent'?ECHO_STATUS:msg.confirmationSource==='instagram'&&msg.status==='manual_sent'?INSTAGRAM_CONFIRMED_STATUS:msg.channel==='whatsapp'&&msg.status==='manual_sent'&&msg.confirmationSource==='userscript'?'Enviado · confirmado por el script de WhatsApp':messageLabels[msg.status]??msg.status;
 /** How sure we are that a sent row went out: unconfirmed (opened, pending, uncertain, submitting), not done, failed, or sent. */
 export type SentTone='sent'|'unconfirmed'|'not_done'|'failed';
 export const sentTone=(status:string):SentTone=>status==='manual_not_done'?'not_done':status==='failed'?'failed':isOpenedUnconfirmed(status)||['manual_pending','unknown','submitting'].includes(status)?'unconfirmed':'sent';
@@ -68,7 +68,9 @@ const managementOf=(input:{leadId:string|number|null|undefined;name?:string|null
  return {context:name==null?'Sin gestión':'Gestión: '+name,managementId:name==null?null:String(input.leadId),managementName:name};
 };
 /** Tag under a received message. */
-export type TimelineTag={kind:'review'|'response'|'dismissed'|'automatic'|'auto_registered'|'voided';label:string};
+export type TimelineTag={kind:'review'|'replied'|'response'|'dismissed'|'automatic'|'auto_registered'|'voided';label:string};
+/** Spec 99 §3.5: «Por revisar» is `pending_review` without a CRM reply with evidence of sending (`repliedAt`, same rule as inboundReview.ts). */
+export const awaitingReview=(item:{status:string;repliedAt?:Date|string|null}):boolean=>item.status==='pending_review'&&!item.repliedAt;
 /** «Respuesta registrada · <outcome>[ · completó la tarea «X»]». */
 export const responseTagLabel=(response:Pick<CommunicationResponse,'category'|'resolvedTaskTitles'>):string=>{
  const tasks=(response.resolvedTaskTitles??[]).filter(Boolean);
@@ -130,7 +132,8 @@ export function buildCommunicationTimeline({messages,inbound,responses,users,man
   const response=item.responseId?byId.get(String(item.responseId))??null:null;
   const tags:TimelineTag[]=[];
   if(item.status==='voided')tags.push({kind:'voided',label:messageLabels.voided});
-  if(item.status==='pending_review')tags.push({kind:'review',label:'Por revisar'});
+  if(awaitingReview(item))tags.push({kind:'review',label:'Por revisar'});
+  else if(item.status==='pending_review')tags.push({kind:'replied',label:'Respondido desde el CRM'});
   if(response)tags.push({kind:'response',label:responseTagLabel(response)});
   else if(item.status==='registered')tags.push({kind:'response',label:'Respuesta registrada'});
   if(item.status==='dismissed')tags.push({kind:'dismissed',label:'No es una respuesta'});
@@ -172,6 +175,23 @@ export const visibleTimeline=(entries:readonly TimelineEntry[],{showOlder,limit=
 export const withDaySeparators=(entries:readonly TimelineEntry[]):{entry:TimelineEntry;separator:string|null}[]=>entries.map((entry,index)=>({entry,separator:index===0||entries[index-1].day!==entry.day?entry.day:null}));
 
 /** True for an opened send the viewer may answer «¿Lo enviaste?» for: a WhatsApp, or an Instagram attempt (spec 92). */
+/** Spec 100 §9 (D7): what an opened WhatsApp shows while the user script can still confirm it. */
+export const WHATSAPP_WAITING_STATUS='Esperando que el script de WhatsApp confirme el envío';
+export const WHATSAPP_WAITING_HINT='Si lo enviaste desde la computadora con el script se confirma solo. Si ya sabés cómo salió, marcalo con «Sí, se envió» o «No se envió».';
+type WaitLike={channel:string;status:string;lastInteractionAt?:Date|string|null};
+/**
+ * An opened WhatsApp younger than 5 minutes: the server leaves it out of «¿Lo enviaste?» (not counted) while the user script can
+ * confirm it, and the panel still lists it, answerable. Like the Instagram wait, `now` is the client clock: only a display delay.
+ */
+export function isWaitingForScript({message,now=Date.now()}:{message:WaitLike;now?:number}):boolean{
+ if(message.status!=='whatsapp_opened'||message.channel!=='whatsapp')return false;
+ const at=message.lastInteractionAt?new Date(message.lastInteractionAt).getTime():NaN;
+ return !Number.isNaN(at)&&now-at<WHATSAPP_SCRIPT_WAIT_MS;
+}
+/** Milliseconds until a waiting WhatsApp open starts counting as «¿Lo enviaste?», or null when it is not waiting. */
+export function scriptWaitRemainingMs({message,now=Date.now()}:{message:WaitLike;now?:number}):number|null{
+ return isWaitingForScript({message,now})?WHATSAPP_SCRIPT_WAIT_MS-(now-new Date(message.lastInteractionAt!).getTime()):null;
+}
 export const isConfirmableOpen=(m:{channel:string;status:string;ownerEmail?:string|null;destinationDetail?:string|null}):boolean=>isOpenedUnconfirmed(m.status)&&(m.status==='whatsapp_opened'?m.channel==='whatsapp':isInstagramAttempt(m));
 /** One «Requiere acción» row: a received message to review or an opened-but-unconfirmed WhatsApp or Instagram send (not in the conversation). */
 export type ActionItem={kind:'review';key:string;at:Date;inbound:InboundMessage}|{kind:'confirm_send';key:string;at:Date;message:Message};
@@ -181,7 +201,7 @@ export type ActionItem={kind:'review';key:string;at:Date;inbound:InboundMessage}
  * attempt still waiting for its echo is listed too: the entry says it is waiting and already offers «Sí» / «No».
  */
 export function requiresAction({inbound,messages,userEmail,admin,readOnly}:{inbound?:readonly InboundMessage[]|null;messages:readonly Message[];userEmail:string;admin:boolean;readOnly:boolean}):ActionItem[]{
- const review=(inbound??[]).filter(i=>i.status==='pending_review').map(i=>({kind:'review' as const,key:'in:'+i.id,at:new Date(i.receivedAt),inbound:i}));
+ const review=(inbound??[]).filter(awaitingReview).map(i=>({kind:'review' as const,key:'in:'+i.id,at:new Date(i.receivedAt),inbound:i}));
  const confirm=readOnly?[]:messages.filter(m=>isConfirmableOpen(m)&&(admin||m.ownerEmail===userEmail)).map(m=>({kind:'confirm_send' as const,key:'out:'+m.id,at:new Date(m.lastInteractionAt??m.updatedAt),message:m}));
  return [...review,...confirm].sort((a,b)=>time(b.at)-time(a.at)||a.key.localeCompare(b.key));
 }
@@ -215,9 +235,9 @@ export function newSinceKey({entries,lastSeenAt,userEmail}:{entries:readonly Tim
 /** Time of the newest loaded item that is not voided, sent to POST /_api/communication/seen (never the client clock). */
 export const newestAt=(entries:readonly TimelineEntry[]):Date|null=>{const times=entries.filter(e=>!isVoidedEntry(e)).map(e=>time(e.at));return times.length?new Date(Math.max(...times)):null;};
 
-/** Spec 91 §9: «N mensajes por revisar · M envíos sin confirmar» (only the non-zero parts). */
+/** Spec 91 §9: «N mensajes por revisar · M envíos sin confirmar · K gestiones sin resultado» (only the non-zero parts; spec 100 §5.1: `outcomes` counts management groups). */
 export function actionSummary({review,unconfirmed,outcomes}:{review:number;unconfirmed:number;outcomes:number}):string{
- return [review?`${review} ${review===1?'mensaje por revisar':'mensajes por revisar'}`:'',unconfirmed?`${unconfirmed} ${unconfirmed===1?'envío sin confirmar':'envíos sin confirmar'}`:'',outcomes?`${outcomes} ${outcomes===1?'contacto sin resultado':'contactos sin resultado'}`:''].filter(Boolean).join(' · ');
+ return [review?`${review} ${review===1?'mensaje por revisar':'mensajes por revisar'}`:'',unconfirmed?`${unconfirmed} ${unconfirmed===1?'envío sin confirmar':'envíos sin confirmar'}`:'',outcomes?`${outcomes} ${outcomes===1?'gestión sin resultado':'gestiones sin resultado'}`:''].filter(Boolean).join(' · ');
 }
 
 /** Who can receive a reply from the composer: the business people and its own email and phones. */

@@ -3,6 +3,7 @@ import {createHmac,randomUUID} from 'node:crypto';
 import postgres from 'postgres';
 import superjson from 'superjson';
 import {simulateUserscript} from './helpers/userscript';
+import {openRequiresAction} from './helpers/requiresAction';
 import {reveal} from './support/contactStep';
 import {encryptInstagramToken} from '../../src/helpers/instagram';
 import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from '../../scripts/lib/instagram-secret';
@@ -86,11 +87,15 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
 
  // Unconfirmed sends are not in «Conversación» (owner decision): they live only in «Requiere acción», with their own actions.
  await page.goto('/accounts/'+accountId+'?tab=comunicacion');
- const conversation=page.getByTestId('conversation-body'),required=page.getByRole('region',{name:'Requiere acción',exact:true});
+ // Spec 100 §5: both opens are still waiting (uncounted), so the strip is the grey «Sin pendientes · …» line; «Ver» expands it.
+ const conversation=page.getByTestId('conversation-body'),required=await openRequiresAction(page);
  const igEntry=required.getByRole('group',{name:/^Instagram sin confirmar para /}),waEntry=required.getByRole('group',{name:/^WhatsApp sin confirmar para /});
+ // The compact entries keep the prepared text behind «Ver mensaje y material».
+ for(const entry of [igEntry,waEntry])await entry.getByRole('button',{name:'Ver mensaje y material',exact:true}).click();
  await expect(igEntry).toContainText('Esperando que Instagram confirme el envío…');await expect(igEntry).toContainText(text.slice(0,40));
  for(const name of ['Sí, se envió','No se envió','Copiar y abrir de nuevo'])await expect(igEntry.getByRole('button',{name,exact:true})).toBeVisible();
- await expect(waEntry).toContainText('¿Lo enviaste?');await expect(waEntry).toContainText(waText);await expect(waEntry.getByRole('button',{name:'Copiar y abrir de nuevo',exact:true})).toHaveCount(0);
+ // Spec 100 §9: a WhatsApp opened seconds ago waits for the user script (uncounted) and stays answerable.
+ await expect(waEntry).toContainText('Esperando que el script de WhatsApp confirme el envío');for(const name of ['Sí, se envió','No se envió'])await expect(waEntry.getByRole('button',{name,exact:true})).toBeVisible();await expect(waEntry).toContainText(waText);await expect(waEntry.getByRole('button',{name:'Copiar y abrir de nuevo',exact:true})).toHaveCount(0);
  await expect(required.getByRole('button',{name:'Ver en la conversación',exact:true})).toHaveCount(0);
  await expect(conversation.getByText(text.slice(0,40))).toHaveCount(0);await expect(conversation.getByText(waText)).toHaveCount(0);
  if(shots){for(const close of await page.locator('[data-sonner-toast] [data-close-button]').all())await close.click().catch(()=>{});await required.screenshot({path:shots+'/3-requires-action-unconfirmed.png'});}
@@ -111,7 +116,10 @@ test('opens the Instagram chat, waits for the echo and resolves the same attempt
  const hook=await page.request.post('/_api/inbound/instagram',{headers:{'Content-Type':'application/json','X-Hub-Signature-256':'sha256='+createHmac('sha256',secret!).update(raw).digest('hex')},data:raw});expect(hook.status()).toBe(200);
  await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages.filter((m:any)=>m.channel==='social').map((m:any)=>[m.id,m.status])).toEqual([[attempt.id,'manual_sent']]);
  await page.reload();
- await expect(page.getByRole('region',{name:'Requiere acción',exact:true}).getByRole('group',{name:/^Instagram sin confirmar para /})).toHaveCount(0);
+ // The confirmed attempt now waits for its outcome, so the strip counts it: expand it so the absence below is checked on open blocks.
+ const afterEcho=await openRequiresAction(page);
+ await expect(afterEcho.getByRole('region',{name:'Anotá cómo salió',exact:true})).toContainText('confirmado por Instagram');
+ await expect(afterEcho.getByRole('group',{name:/^Instagram sin confirmar para /})).toHaveCount(0);
  expect(await thread('social')).toEqual([attempt.id]);// confirmed: a normal sent message in the Bandeja too
  const resolved=page.getByTestId('conversation-body').locator('article').filter({hasText:'Enviado · confirmado por Instagram'}).first();
  await expect(resolved).toContainText(text.slice(0,40));await expect(resolved).not.toContainText('Esperando que Instagram confirme');

@@ -16,6 +16,8 @@ En el Coolify existente del VPS de Hospeda:
 - Reinicio: `unless-stopped`
 - PostgreSQL: versión 17, recurso separado gestionado por Coolify
 
+**Auto-deploy:** un push a `main` despliega producción solo (confirmado por el propietario el 30/10/2026, con el merge del #288). Mergear a `main` es desplegar: antes hay que tener las variables cargadas y un respaldo de la base. Los merges a `staging` no despliegan nada. Las migraciones pendientes corren al arrancar el contenedor (`scripts/migrate.mjs` en el `CMD` del `Dockerfile`).
+
 No hace falta desplegar el `docker-compose.yml` en Coolify. Ese compose queda para desarrollo local / despliegue autónomo.
 
 ## Dominio
@@ -49,9 +51,28 @@ R2_ACCESS_KEY_ID=<R2 API token access key id, Object Read & Write on the materia
 R2_SECRET_ACCESS_KEY=<R2 API token secret access key>
 R2_BUCKET=<private bucket name, e.g. hospeda-crm-material>
 BREVO_WEBHOOK_TOKEN=<random secret, minimum 32 characters; the Brevo transactional webhook sends it as a Bearer token>
+BREVO_SMTP_HOST=<optional, default smtp-relay.brevo.com>
+INSTAGRAM_ACCOUNT_USERNAME=<Hospeda Instagram username, e.g. hospeda.com.ar>
+INSTAGRAM_APP_SECRET=<Meta app secret>
+INSTAGRAM_VERIFY_TOKEN=<random secret, minimum 32 characters; same value as the Meta webhook verify token>
+INSTAGRAM_ACCOUNT_ID=<Hospeda professional Instagram account id>
+INTEGRATION_SECRETS_KEY=<base64 of exactly 32 random bytes: openssl rand -base64 32>  # must decode to 32 bytes: a 64-char hex key (openssl rand -hex 32) is rejected; quotes, base64url and missing padding still decode to 32 and are accepted
+CRM_CLIENT_IP_HEADER=cf-connecting-ip  # production value; code default x-real-ip; allowed: x-real-ip, cf-connecting-ip, x-forwarded-for, none
+SLOW_REQUEST_MS=<optional, default 1000>
+DB_LOCK_TIMEOUT_MS=<optional, default 10000>
+DB_POOL_MAX=<optional, default 10>
+DB_STATEMENT_TIMEOUT_MS=<optional, default 30000>
+BUSINESS_IMPORT_TOKEN_SHA256=<optional: SHA-256 of the business import API token; without it the import API is disabled>
+BUSINESS_IMPORT_ACTOR_EMAIL=<optional, defaults to ADMIN_EMAIL>
 ```
 
 No versionar valores reales.
+
+Qué pasa cuando falta cada una, y los valores por defecto, está en el inventario de `docs/runbook-promocion-produccion.md` (sección 3.2). Solo `DATABASE_URL` y `JWT_SECRET` son obligatorias para arrancar; `PUBLIC_APP_URL` es de nivel «función» en el código pero en producción es efectivamente obligatoria (sin ella fallan los enlaces para compartir material y la recuperación de contraseña responde 503). No cargar `CRM_MCP_*`, `R2_ENDPOINT`, `CRM_TEST_DATABASE*`, `CRM_DEV_*`, `PERF_*`, `CRM_PERF_*` ni `CRM_STATE_PREFLIGHT*` en producción.
+
+**Confirmado por el propietario (30/10/2026):** producción usa `CRM_CLIENT_IP_HEADER=cf-connecting-ip` (el dominio pasa por el proxy de Cloudflare). El valor por defecto del código, si no se define, es `x-real-ip`. La plantilla de producción del repo está al día con este inventario.
+
+**Worker de email entrante (Cloudflare, despliegue aparte).** No usa Coolify: se despliega desde `workers/inbound-email/` con `wrangler`. Variables en `wrangler.toml`: `CRM_BASE_URL` (debe apuntar a producción) y `TRUSTED_AUTHSERV_ID`. Secrets de wrangler: `INBOUND_EMAIL_TOKEN` (el mismo valor que en Coolify) y `FORWARD_TO`. Diagnóstico: `wrangler tail hospeda-inbound-email` muestra los logs en vivo. En el smoke del 30/10/2026 el Worker devolvió `address list HTTP 530` hasta que se lo redesplegó (causa raíz desconocida); el PR #293 (en `staging`) registra status, `cf-ray` y cuerpo cuando el CRM falla. Durante una falla, las respuestas solo llegan a Gmail y no al CRM.
 
 Para habilitar «Responder» en emails recibidos, cargá `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` y, opcionalmente, `BREVO_SMTP_PORT` en Coolify. La clave debe ser propia del CRM y revocable. Si falta el usuario o la clave, el servidor inicia igual y oculta la acción.
 
@@ -102,10 +123,10 @@ Un barrido interno corre cada 6 horas (y un minuto después de arrancar) y borra
 
 Antes del deploy de F1: el propietario borra a mano sus materiales de prueba en Configuración → «Biblioteca» con la acción existente. Después del deploy la biblioteca vieja deja de mostrarse (sus filas quedan en la base, inertes) y `/library` redirige a `/sales-material`. Ningún agente borra filas de producción.
 
-### Enlaces públicos `/m/<token>`: IP del cliente y Open Graph (spec 89)
+### Enlaces públicos `/m/<token>`: IP del cliente y Open Graph (specs 89 y 101)
 
 - **`PUBLIC_APP_URL` es obligatoria** para las vistas previas: `og:url` y `og:image` se arman solo con ella. Si falta, la página omite `og:url` y `og:image` (nunca usa la cabecera `Host`, que controla quien pide).
-- **`CRM_CLIENT_IP_HEADER`** define de dónde sale la IP del cliente para el límite de tasa de `/m/*` (300 pedidos por minuto por IP; 20 tokens inexistentes cada 10 minutos, que solo corta a quien adivina, nunca a un enlace válido). Una sola fuente, el resto de las cabeceras se ignora:
+- **`CRM_CLIENT_IP_HEADER`** define de dónde sale la IP del cliente para el límite de tasa de `/m/*` (300 pedidos por minuto por IP en memoria; y, desde la spec 101, 5 fallos por cliente por hora persistidos en la base, IPv6 agrupada por /64. Fallo es token desconocido, slug equivocado o ausente, segmento roto o subruta desconocida; pasado el cupo los fallos responden 429 con `Retry-After: 3600`. Un enlace válido siempre abre, aunque el cliente haya gastado su cupo). Una sola fuente, el resto de las cabeceras se ignora:
 
   | Valor | Fuente | Cuándo |
   | --- | --- | --- |
@@ -115,6 +136,9 @@ Antes del deploy de F1: el propietario borra a mano sus materiales de prueba en 
   | `none` | la dirección del socket | Sin proxy, o si no se confía en ninguna cabecera |
 
   Si el dominio pasa por Cloudflare y no se usa `cf-connecting-ip`, `X-Real-IP` trae la IP de un nodo de Cloudflare: todos los clientes comparten el límite (el de 300 por minuto es generoso a propósito). Un valor desconocido vuelve al por defecto.
+
+- **Precondición para promover la spec 101 a `main`:** los enlaces nuevos tienen tokens de 4 caracteres, así que lo único que frena a quien adivina es el cupo por IP, y ese cupo depende por completo de la IP del cliente. Con `cf-connecting-ip`, el origen tiene que aceptar **solo** tráfico de Cloudflare (firewall del VPS a los rangos de Cloudflare, o Tunnel): si no, cualquiera manda su propia `CF-Connecting-IP`, cambia de IP en cada pedido y el cupo no corta nada. Verificarlo antes del deploy.
+  **Estado (01/11/2026):** verificado que el origen responde directo por IP (`curl --resolve crm.hospeda.com.ar:443:<IP del VPS>` devuelve 200), así que hoy no se cumple. El propietario lo aceptó como riesgo por ahora y ya no bloquea la promoción (`decisiones.md`). Para cerrarlo: firewall de Vultr con 80/443 solo para los rangos de Cloudflare, y repetir esa prueba (debe fallar o dar timeout).
 
 ## Migraciones
 
@@ -228,3 +252,10 @@ Secuencia recomendada:
 # Instagram Direct
 
 Before enabling the webhook, apply `migrations/045_instagram_direct.sql` and configure `INSTAGRAM_APP_SECRET`, `INSTAGRAM_VERIFY_TOKEN`, `INSTAGRAM_ACCOUNT_ID`, and `INTEGRATION_SECRETS_KEY` (base64-encoded 32 bytes). In Meta, use callback `https://crm.hospeda.com.ar/_api/inbound/instagram`, subscribe to `messages`, and enable the account-level subscription. Publish the app. Load the account token in Settings → Communication → Instagram; it is never shown again. The integration only receives messages; the CRM does not send messages to Meta. For the user script panel on Instagram (spec 97), apply `migrations/053_instagram_threads.sql` and set `INSTAGRAM_ACCOUNT_USERNAME` to Hospeda's Instagram username (for example `hospeda.com.ar`).
+
+Notas del smoke de producción (30/10/2026):
+- `INTEGRATION_SECRETS_KEY` debe ser base64 de exactamente 32 bytes (`openssl rand -base64 32`). La regla es que el valor decodificado como base64 dé 32 bytes: una clave en hexadecimal de 64 caracteres (`openssl rand -hex 32`) da 48 y se rechaza; entre comillas, en base64url o sin el `=` final sigue dando 32 y se acepta. Desde la spec 103 (bloque 2), Configuración → Instagram distingue «falta la clave», «la clave no es válida» (con una pista si parece hexadecimal) y «la clave cambió y no puede leer el token guardado»; la insignia solo dice «Conectado» con clave válida, token legible y sin vencer.
+- La Callback URL de Meta debe ser `https://crm.hospeda.com.ar/_api/inbound/instagram` (producción tenía una URL `trycloudflare` de desarrollo). Cambiarla no exige un verify token nuevo.
+- Copiar el token de larga duración con el botón de copiar del diálogo de Meta. Un token mal formado hace que Meta responda «Cannot parse access token» y cada mensaje entrante queda en «Sin asociar» con el IGSID numérico como remitente. Verificación: `curl "https://graph.instagram.com/<IGSID>?fields=username,name&access_token=<token>"`, leyendo el token con `read -s`; nunca pegarlo en el chat ni dejarlo en el historial del shell.
+- El acceso estándar de Meta alcanza: llegaron webhooks de una cuenta externa sin rol en la app (cheroga.cdelu). No hace falta App Review (coherente con la spec 88).
+- SPF: el apex `hospeda.com.ar` no tiene registro TXT de SPF (nota de entregabilidad).

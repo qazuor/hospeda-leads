@@ -3,7 +3,9 @@ import {randomUUID} from 'node:crypto';
 import superjson from 'superjson';
 import postgres from 'postgres';
 import {simulateUserscript} from './helpers/userscript';
+import {openRequiresAction} from './helpers/requiresAction';
 import {reveal} from './support/contactStep';
+import {waitForTransitions} from './support/transitions';
 
 // Spec 89 F3: «Enviar material» from the business «Comunicación» tab opens the contact step with the material already added, the WhatsApp intent carries
 // the link, the sent version is recorded and «Revocar enlace» turns the public page into 410. No real WhatsApp or email is ever sent: window.open is
@@ -18,11 +20,16 @@ test('send sales material from the business, record it and revoke the link',asyn
  await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,created_by_email) VALUES(${materialId},${title},'Tarifas y fotos','deliverable','file','admin@example.com')`;
  await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,object_key,file_name,mime_type,byte_size,actor_email) VALUES(${randomUUID()},${materialId},1,${`materials/${materialId}/v1-${run}.pdf`},'folleto.pdf','application/pdf',2048,'admin@example.com')`;
  await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${materialId}`;
+ // Spec 102 D3: a material of another vertical, so the picker folds it under «De otras verticales».
+ const otherId=randomUUID(),otherTitle='Menú gastronomía '+run;
+ await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,verticals,created_by_email) VALUES(${otherId},${otherTitle},'','deliverable','url',${['Gastronomía']},'admin@example.com')`;
+ await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,url,actor_email) VALUES(${randomUUID()},${otherId},1,'https://example.com/menu','admin@example.com')`;
+ await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${otherId}`;
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await simulateUserscript(page,{user:'admin@example.com'});
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
  async function api(endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
- const accountId=(await api('commercial',{action:'account_save',nombre:'Zz Material e2e '+run,telefono:'+5493442000301',assignedUserEmail:'admin@example.com'})).id;
+ const accountId=(await api('commercial',{action:'account_save',nombre:'Zz Material e2e '+run,tipo:'Alojamiento',telefono:'+5493442000301',assignedUserEmail:'admin@example.com'})).id;
  await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Presentación material '+run,estado:'Cargado'});
  await page.goto('/accounts/'+accountId+'?section=comunicacion');
  await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
@@ -35,6 +42,11 @@ test('send sales material from the business, record it and revoke the link',asyn
  await page.getByRole('button',{name:'Enviar material',exact:true}).click();
  let dialog=page.getByRole('dialog',{name:'Enviar material'});
  await dialog.getByLabel('Buscar material').fill(run);
+ // Spec 102 D3: material for all verticals on top (this business is Alojamiento); the other vertical folded, one click away.
+ const folded=dialog.getByRole('button',{name:'De otras verticales (1)',exact:true});
+ await expect(folded).toBeVisible();await expect(folded).toHaveAttribute('aria-expanded','false');
+ await expect(dialog.getByRole('list',{name:'Material entregable'}).getByRole('listitem').filter({hasText:otherTitle})).toHaveCount(0);
+ await folded.click();await expect(dialog.getByRole('list',{name:'Material de otras verticales'}).getByRole('listitem').filter({hasText:otherTitle})).toBeVisible();
  const row=dialog.getByRole('list',{name:'Material entregable'}).getByRole('listitem').filter({hasText:title});
  await row.getByRole('button',{name:'Agregar',exact:true}).click();
  // Spec 96 §2.3: one contact step. Spec 98 decision 2: the material travels by WhatsApp, Email or Instagram (as a link).
@@ -50,6 +62,9 @@ test('send sales material from the business, record it and revoke the link',asyn
  await expect(composer.getByRole('heading',{name:'Elegí un mensaje modelo'})).toHaveCount(0);
  const included=composer.getByRole('list',{name:'Material incluido'});
  await expect(included.getByText(title,{exact:true})).toBeVisible();
+ // Spec 101 block 2 (smoke 30/10): the draft with the material is saved, so «Abrir WhatsApp» is ready without «Guardar cambios».
+ const finalButton=composer.getByRole('button',{name:/^Abrir WhatsApp con (.+ · )?\+54 9 3442000301$/});
+ await expect(finalButton).toBeEnabled();await expect(composer.getByRole('button',{name:'Guardar cambios',exact:true})).toBeVisible();
  // Back in the contact step the material is announced; spec 98 decision 2 offers Instagram too, and WhatsApp stays selected.
  await composer.getByRole('button',{name:'Cambiar destinatario o modelo',exact:true}).click();
  await expect(composer.getByRole('status').filter({hasText:'Material a enviar'})).toContainText(title);
@@ -59,23 +74,28 @@ test('send sales material from the business, record it and revoke the link',asyn
  await composer.getByRole('button',{name:'Escribir un mensaje nuevo',exact:true}).click();
  await composer.getByRole('group',{name:'Borrador anterior'}).getByRole('button',{name:'Seguir con ese borrador',exact:true}).click();
  await expect(included.getByText(title,{exact:true})).toBeVisible();
- await expect(composer.getByText(new RegExp(`Podés ver «${title}» en: http.*/m/[A-Za-z0-9_-]{43}`))).toBeVisible();
- await composer.getByRole('button',{name:'Guardar cambios',exact:true}).click();
- await expect(composer.getByRole('heading',{name:'Revisá el contenido final'})).toBeVisible();
+ await expect(composer.getByText(new RegExp(`Podés ver «${title}» en: http.*/m/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}`))).toBeVisible();
+ // Spec 101 block 1: the link is a link in the editor, never italics, and its text is the exact URL. Block 3: `/m/<slug>-<4 characters>`.
+ const editorLink=composer.locator('.tiptap a');await expect(editorLink).toHaveCount(1);await expect(editorLink).toHaveText(/^https?:\/\/\S+\/m\/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}$/);
+ expect(await editorLink.getAttribute('href')).toBe(await editorLink.textContent());await expect(composer.locator('.tiptap em')).toHaveCount(0);
  await expect(composer.getByRole('heading',{name:'Material de venta'})).toBeVisible();
  // Spec 96 §2.5–2.6: the final button names the destination; from the business the composer closes with a toast once WhatsApp opened.
- await composer.getByRole('button',{name:/^Abrir WhatsApp con (.+ · )?\+54 9 3442000301$/}).click();
+ // Spec 101 block 2: one click from the editor, without «Guardar cambios».
+ await finalButton.click();
  await expect(page.locator('[data-sonner-toast]').filter({hasText:/^WhatsApp abierto para .*\+54 9 3442000301/})).toBeVisible();
  await expect(composer).toHaveCount(0);
  const intent=new URL(await page.evaluate(()=>(window as unknown as {crmWhatsAppPopup:Window}).crmWhatsAppPopup.location.href));
- const token=/\/m\/([A-Za-z0-9_-]{43})/.exec(intent.searchParams.get('text')??'')?.[1];expect(token,'The WhatsApp text carries the link').toBeTruthy();
+ const token=/\/m\/([a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4})(?![A-Za-z0-9_-])/.exec(intent.searchParams.get('text')??'')?.[1];expect(token,'The WhatsApp text carries the link').toBeTruthy();
  const message=(await api('communication?accountId='+accountId)).messages.find((m:any)=>m.channel==='whatsapp'&&m.status==='whatsapp_opened');
  expect(message.materials.map((m:any)=>[m.materialId,m.sentVersion,m.revokedAt])).toEqual([[materialId,1,null]]);
  // The record in «Comunicación»: revoke with a reason; the public link answers 410 from then on.
  await page.goto('/accounts/'+accountId+'?section=comunicacion');await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
  // Spec 92: an unconfirmed WhatsApp is not in «Conversación»; its «Requiere acción» entry carries the material record.
  // Opening WhatsApp is not evidence of sending: the record never says «Versión enviada» for it.
- const entry=page.getByRole('region',{name:'Requiere acción',exact:true}).getByRole('group',{name:/^WhatsApp sin confirmar para /});
+ // Spec 100 §5: the strip starts collapsed, and the record sits behind «Ver mensaje y material» in the compact entry.
+ const entry=(await openRequiresAction(page)).getByRole('group',{name:/^WhatsApp sin confirmar para /});
+ // The panel clips its content while it grows: clicking «Revocar enlace» mid-animation slides it under the pointer and the click is lost.
+ await entry.getByRole('button',{name:'Ver mensaje y material',exact:true}).click();await waitForTransitions(page);
  await expect(entry.getByText(/Versión incluida en el mensaje: 1 · WhatsApp/)).toBeVisible();await expect(entry.getByText(/Envío no confirmado/)).toBeVisible();await expect(page.getByText(/Versión enviada/)).toHaveCount(0);
  await expect(page.getByTestId('conversation-body').getByText(title,{exact:true})).toHaveCount(0);
  expect((await request.get('/m/'+token,{headers:{'user-agent':'WhatsApp/2.23.20.0'}})).status()).toBe(200);

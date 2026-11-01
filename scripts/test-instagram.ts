@@ -115,7 +115,8 @@ try{
  assert.equal((await send(payload(mid('chat-in2'),'Second incoming',false,igsidFail))).status,200);
  const unmatchedList=await unmatchedGET(new Request('http://localhost/_api/inbound/unmatched',{headers:{cookie:admin.cookie}}));assert.equal(unmatchedList.status,200);
  const assignee=(await sql<{id:string}>`SELECT id::text AS id FROM crm_inbound_messages WHERE external_id=${mid('unmatched')}`.execute(db)).rows[0].id;
- const assigned=await assignPOST(new Request('http://localhost/_api/inbound/assign',{method:'POST',headers:{cookie:admin.cookie,'Content-Type':'application/json'},body:JSON.stringify({id:assignee,accountId:target})}));assert.equal(assigned.status,200,await assigned.clone().text());assert.equal(superjson.parse<{associatedChat?:boolean}>(await assigned.text()).associatedChat,true);
+ const chatSize=Number((await sql<{n:string}>`SELECT count(*)::text AS n FROM crm_inbound_messages WHERE status='unmatched' AND instagram_igsid=(SELECT instagram_igsid FROM crm_inbound_messages WHERE id=${assignee}::uuid)`.execute(db)).rows[0].n);assert.ok(chatSize>=3,'the chat has incoming rows and an echo');
+ const assigned=await assignPOST(new Request('http://localhost/_api/inbound/assign',{method:'POST',headers:{cookie:admin.cookie,'Content-Type':'application/json'},body:JSON.stringify({id:assignee,accountId:target})}));assert.equal(assigned.status,200,await assigned.clone().text());const assignedBody=superjson.parse<{associatedChat?:boolean;movedCount?:number;accountCode?:string}>(await assigned.text());assert.equal(assignedBody.associatedChat,true);assert.equal(assignedBody.movedCount,chatSize,'Spec 103 B3: the answer says how many messages of the chat moved');assert.equal(assignedBody.accountCode,`H${target}`);
  for(const m of ['unmatched','chat-in2']){const [r]=await inboundRow(mid(m));assert.equal(r.status,'pending_review');assert.equal(r.accountId,target);assert.equal(r.matchMethod,'manual');}
  assert.equal((await inboundRow(mid('echo-unmatched'))).length,0,'the outgoing row left the inbox');
  sent=await messageRows(mid('echo-unmatched'));assert.equal(sent.length,1);assert.equal(sent[0].accountId,target);assert.equal(sent[0].owner,'instagram@hospeda');assert.equal(sent[0].status,'manual_sent');
@@ -217,6 +218,26 @@ try{
  // Successful renewal replaces the token, clears the error and moves the expiry.
  refreshMode='ok';await refreshInstagramToken();assert.equal(refreshCalls(),3);const renewed=await secretRow();assert.equal(renewed.lastError,null);assert.notEqual(renewed.ciphertext,failed.ciphertext);assert.equal(decryptInstagramToken(renewed,key),refreshedToken);assert.ok(renewed.expiresAt&&renewed.expiresAt.getTime()>Date.now()+50*86400000);
 
+ // Spec 103 B2: the key status distinguishes missing, invalid (hex hint) and a valid key that cannot open the stored token; nothing reveals the key.
+ {
+  const integrationStatus=async()=>{const r=await integrationGET(new Request('http://localhost/_api/inbound/instagram/integration',{headers:{cookie:admin.cookie}}));const text=await r.text();responses.push(text);return {text,body:JSON.parse(text) as {configured:boolean;enabled:boolean;keyStatus:string;keyHint:string|null;tokenReadable:boolean|null}};};
+  const rotated=Buffer.alloc(32,9).toString('base64'),hexKey=Buffer.alloc(32,5).toString('hex'),keyTexts=[key.toString('base64'),rotated,hexKey];
+  const pick=(b:{keyStatus:string;keyHint:string|null;tokenReadable:boolean|null;enabled:boolean})=>({keyStatus:b.keyStatus,keyHint:b.keyHint,tokenReadable:b.tokenReadable,enabled:b.enabled});
+  assert.deepEqual(pick((await integrationStatus()).body),{keyStatus:'ok',keyHint:null,tokenReadable:true,enabled:true},'A valid key that opens the token');
+  const statuses:string[]=[];
+  try{
+   process.env.INTEGRATION_SECRETS_KEY=hexKey;const hex=await integrationStatus();statuses.push(hex.text);assert.deepEqual(pick(hex.body),{keyStatus:'invalid',keyHint:'hex',tokenReadable:null,enabled:false},'A hex key is invalid with the hex hint');assert.equal(hex.body.configured,true,'The stored token is still reported');
+   const hexPost=await integrationPOST(new Request('http://localhost/_api/inbound/instagram/integration',{method:'POST',headers:{cookie:admin.cookie,'Content-Type':'application/json'},body:JSON.stringify({token:pastedToken})}));const hexPostText=await hexPost.text();responses.push(hexPostText);statuses.push(hexPostText);assert.equal(hexPost.status,503);assert.match(hexPostText,/no es válida/);
+   delete process.env.INTEGRATION_SECRETS_KEY;const missing=await integrationStatus();statuses.push(missing.text);assert.deepEqual(pick(missing.body),{keyStatus:'missing',keyHint:null,tokenReadable:null,enabled:false});
+   const missingPost=await integrationPOST(new Request('http://localhost/_api/inbound/instagram/integration',{method:'POST',headers:{cookie:admin.cookie,'Content-Type':'application/json'},body:JSON.stringify({token:pastedToken})}));const missingPostText=await missingPost.text();responses.push(missingPostText);statuses.push(missingPostText);assert.equal(missingPost.status,503);assert.match(missingPostText,/Falta INTEGRATION_SECRETS_KEY/);
+   process.env.INTEGRATION_SECRETS_KEY=rotated;const changed=await integrationStatus();statuses.push(changed.text);assert.deepEqual(pick(changed.body),{keyStatus:'ok',keyHint:null,tokenReadable:false,enabled:true},'Another valid key cannot read the stored token');
+   // The daily renewal with a rotated key says so instead of blaming Meta, never calls Meta and keeps the stored token.
+   await setSecret('mock-token','2 days','30 days');const rotatedBefore=await secretRow(),rotatedCalls=refreshCalls();await refreshInstagramToken();const afterRotation=await secretRow();
+   assert.equal(afterRotation.lastError,'La clave cambió: el token guardado no se puede leer.');assert.equal(refreshCalls(),rotatedCalls,'A token that cannot be read is never sent to Meta');assert.equal(afterRotation.ciphertext,rotatedBefore.ciphertext);
+  }finally{process.env.INTEGRATION_SECRETS_KEY=key.toString('base64');}
+  for(const text of statuses)for(const value of keyTexts){assert.ok(!text.includes(value),'No response carries the key');assert.ok(!text.includes(value.slice(0,8)),'No response carries the start of the key');}
+  await setSecret('mock-token','1 hour','30 days');
+ }
  // An admin pastes a token: write-only, never echoed back, the journal only says it was updated.
  const seller=await identity('user');
  const denied=await integrationPOST(new Request('http://localhost/_api/inbound/instagram/integration',{method:'POST',headers:{cookie:seller.cookie,'Content-Type':'application/json'},body:JSON.stringify({token:pastedToken})}));assert.equal(denied.status,403);responses.push(await denied.text());

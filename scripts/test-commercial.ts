@@ -18,6 +18,7 @@ import {handle as restore} from '../src/endpoints/leads_restore_POST';
 import {handle as getStats} from '../src/endpoints/leads_stats_GET';
 import type {OutputType as ListOutput} from '../src/endpoints/leads_GET.schema';
 import {handle as getLeads} from '../src/endpoints/leads_GET';
+import {handle as saveSettings} from '../src/endpoints/settings_save_POST';
 import {sql} from 'kysely';
 import {BUSINESS_PROJECTION_LEAD_COLUMNS,businessTableSource} from '../src/helpers/businessTable';
 import {calendarDay} from '../src/helpers/workDates';
@@ -47,6 +48,42 @@ try{
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,email:genericEmail},user.value,403);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:genericEmail,assignedUserEmail:user.email},admin.value);
   await mutate({action:'account_save',id:accountId,nombre:`CRM test ${suffix}`,ciudad:`CRM city ${suffix}`,email:genericEmail});
+  {
+    // Spec 104 (37): «Agregar ciudad» rejects a city that differs from an existing one only by accents, case or spaces (ñ ≠ n) and reactivates an inactive match.
+    const addCity=async(name:string)=>{const r=await saveSettings(new Request('http://localhost/_api/settings_save',{method:'POST',headers:{cookie:admin.value,'Content-Type':'application/json'},body:superjson.stringify({action:'addCity',name})}));return {status:r.status,body:superjson.parse<{error?:string;city?:string}>(await r.text())};};
+    const cityRows=(pattern:string)=>db.selectFrom('crmCities').select(['name','active']).where('name','ilike',pattern).orderBy('name').execute();
+    assert.equal((await addCity(`San José ${suffix}`)).status,200);
+    const duplicate=await addCity(`  san   JOSE ${suffix} `);
+    assert.equal(duplicate.status,409,'A city differing only by accents, case or spaces is rejected');
+    assert.equal(duplicate.body.error,`Ya existe «San José ${suffix}». Usá esa.`);
+    assert.equal((await addCity(`San José ${suffix}`)).status,200,'The exact existing name stays a no-op');
+    assert.deepEqual(await cityRows(`%${suffix}`),[{name:`San José ${suffix}`,active:true}],'No second spelling was stored');
+    await db.insertInto('crmCities').values({name:`Chajarí ${suffix}`,active:false}).execute();
+    assert.equal((await addCity(`CHAJARI ${suffix}`)).status,200,'An inactive match is reactivated, not duplicated');
+    assert.deepEqual(await cityRows(`Chaj%${suffix}`),[{name:`Chajarí ${suffix}`,active:true}]);
+    assert.equal((await addCity(`Peña ${suffix}`)).status,200);
+    assert.equal((await addCity(`Pena ${suffix}`)).status,200,'ñ and n are different cities');
+    assert.deepEqual((await cityRows(`Pe%a ${suffix}`)).map(c=>c.name).sort(),[`Pena ${suffix}`,`Peña ${suffix}`]);
+    // Review B2: with duplicates already stored, the exact spelling wins and an active row wins over an inactive one.
+    const states=async(pattern:string)=>(await cityRows(pattern)).map(c=>`${c.name}:${c.active}`).sort();
+    await db.insertInto('crmCities').values([{name:`Villa Elisa ${suffix}`,active:true},{name:`Villa Elísa ${suffix}`,active:true}]).execute();
+    const exactDup=await addCity(`Villa Elísa ${suffix}`);
+    assert.equal(exactDup.status,200,'An exact existing name is a no-op even when a variant exists');
+    assert.equal(exactDup.body.city,`Villa Elísa ${suffix}`,'A correctly typed name is never rewritten to the variant');
+    assert.deepEqual(await states(`Villa El%sa ${suffix}`),[`Villa Elisa ${suffix}:true`,`Villa Elísa ${suffix}:true`].sort(),'No variant was reactivated, renamed or added');
+    assert.equal((await addCity(`VILLA ELISA  ${suffix}`)).status,409,'A non-exact spelling is still rejected');
+    await db.insertInto('crmCities').values([{name:`Ubajay ${suffix}`,active:false},{name:`Ubajáy ${suffix}`,active:false}]).execute();
+    const inactiveDup=await addCity(`Ubajáy ${suffix}`);
+    assert.equal(inactiveDup.status,200);assert.equal(inactiveDup.body.city,`Ubajáy ${suffix}`);
+    assert.deepEqual(await states(`Ubaj%y ${suffix}`),[`Ubajay ${suffix}:false`,`Ubajáy ${suffix}:true`].sort(),'The exact inactive spelling is the one reactivated');
+    await db.insertInto('crmCities').values([{name:`Basavilbaso ${suffix}`,active:true},{name:`Basavilbasó ${suffix}`,active:false}]).execute();
+    const preferActive=await addCity(`Basavilbasó ${suffix}`);
+    assert.equal(preferActive.status,409,'An active variant wins over reactivating an inactive exact spelling');
+    assert.equal(preferActive.body.error,`Ya existe «Basavilbaso ${suffix}». Usá esa.`);
+    await db.updateTable('crmCities').set({active:false}).where('name','=',`Chajarí ${suffix}`).execute();
+    const renamed=await addCity(`chajari ${suffix}`);
+    assert.equal(renamed.status,200);assert.equal(renamed.body.city,`Chajarí ${suffix}`,'Reactivating answers with the catalog spelling, for the notice');
+  }
   assert.equal((await detail(accountId)).account.assignedUserEmail,user.email);
   {// U-09: duplicate check hides private data and No contactar duplicates cannot be created or edited into (admins included)
     const check=async(q:Record<string,string>,who=user.value)=>{const r=await duplicateCheck(new Request('http://localhost/_api/business/duplicate-check?'+new URLSearchParams(q),{headers:{cookie:who}}));const t=await r.text();assert.equal(r.status,200,t);return superjson.parse<{candidates:Record<string,any>[]}>(t).candidates};
@@ -263,7 +300,8 @@ try{
   const duplicated=await duplicates(new Request('http://localhost/_api/leads_duplicates',{headers:{cookie:user.value}}));
   assert.equal(duplicated.status,200);
   const duplicateGroups=superjson.parse<{groups:{leads:{id:string}[]}[]}>(await duplicated.text()).groups;
-  assert(!duplicateGroups.some(g=>g.leads.some(l=>l.id===first)&&g.leads.some(l=>l.id===second)),'Related opportunities must not be duplicate businesses');
+  // Groups list businesses (`id` is the account id), so compare by business: management ids can collide with unrelated account ids.
+  assert(!duplicateGroups.some(g=>g.leads.filter(l=>l.accountId===String(accountId)).length>1),'Related opportunities must not be duplicate businesses');
   const searchResult=await getLeads(new Request('http://localhost/_api/leads?q=Segunda%20venta',{headers:{cookie:user.value}}));
   assert.equal(searchResult.status,200);assert(superjson.parse<{rows:{id:string}[]}>(await searchResult.text()).rows.some(l=>l.id===second));
   async function businesses(params:string){
@@ -311,16 +349,52 @@ try{
   const rowOf=(index:number)=>allRows.find(r=>String(r.id)===projected[index])!;
   assert.equal(calendarDay(rowOf(0).fechaUltimoContacto),'2026-01-10','Deleted activities do not count as contact');
   assert.equal(rowOf(9).fechaUltimoContacto,null);assert.equal(rowOf(1).contactName,'Íñigo Núñez');assert.equal(rowOf(2).contactName,'Ana Única');
+  const messageAt=day(40),insertMessage=async(account:string,status:string,channel='whatsapp',activityId:string|null=null)=>sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,activity_id,created_at,last_interaction_at) VALUES(${randomUUID()}::uuid,${account}::bigint,${account}::bigint,${channel},'test',${user.email},${status},${activityId}::bigint,${messageAt},${messageAt})`.execute(db);
+  const lastDay=async(account:string)=>{const value=await db.selectFrom(businessTableSource().as('p')).select('p.fechaUltimoContacto').where('p.accountId','=',account).executeTakeFirst();return value?.fechaUltimoContacto?calendarDay(value.fechaUltimoContacto):null;};
+  await db.insertInto('crmActivities').values({accountId:projected[9]!,typeId:'call',title:'Contacto manual',occurredAt:day(1)}).execute();
+  for(const status of ['whatsapp_opened','manual_not_done','draft','voided'])await insertMessage(projected[9]!,status);
+  await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,match_method,from_address,text_body,is_automatic,received_at,status,source) VALUES(${randomUUID()}::uuid,'whatsapp',${'auto_'+randomUUID()},${projected[9]}::bigint,'manual','guest@example.com','Fuera de oficina',true,${messageAt},'pending_review','userscript')`.execute(db);
+  assert.equal(await lastDay(projected[9]!),calendarDay(day(1)),'Open, not-sent, draft, voided and automatic inbound do not move last contact');
+  await insertMessage(projected[10]!,'manual_sent');await insertMessage(projected[10]!,'accepted','email');
+  assert.equal(await lastDay(projected[10]!),calendarDay(messageAt),'Manual sends and accepted email count as contact');
+  await sql`INSERT INTO crm_inbound_messages(id,channel,external_id,account_id,match_method,from_address,text_body,is_automatic,received_at,status,source) VALUES(${randomUUID()}::uuid,'whatsapp',${'in_'+randomUUID()},${projected[11]}::bigint,'manual','guest@example.com','Consulta',false,${messageAt},'pending_review','userscript')`.execute(db);
+  assert.equal(await lastDay(projected[11]!),calendarDay(messageAt),'A received inbound message counts at received_at');
+  await db.insertInto('crmActivities').values({accountId:projected[8]!,typeId:'call',title:'Respuesta anotada',outcome:'replied',occurredAt:messageAt}).execute();
+  assert.equal(await lastDay(projected[8]!),calendarDay(messageAt),'A replied activity outcome counts');
   assert.equal(calendarDay(rowOf(3).fechaProximaAccion),'2026-02-05');assert.equal(rowOf(3).nextActionTitle,'Antes');assert.equal(rowOf(4).fechaProximaAccion,null);
   assert.equal(rowOf(1).contactCount,2);assert.equal(rowOf(0).contactCount,0);assert.equal(rowOf(1).whatsapp,'5493447000001');assert.equal(rowOf(1).contactPhone,'111');assert.equal(rowOf(1).contactEmail,'inigo@example.com');assert.equal(rowOf(2).contactPhone,'333','First active contact is used when none is primary');
   const contacted=await pageOf(1,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'fechaUltimoContacto',operator:'not_empty'}]}])));
-  assert.equal(contacted.total,9);assert.equal(contacted.rows.length,9);
+  const contactedRest=await pageOf(2,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'fechaUltimoContacto',operator:'not_empty'}]}])));
+  assert.equal(contacted.total,12,'E2 counts legacy activities with no outcome and no linked message as manual contact evidence');assert.equal(contacted.rows.length,10,'pageOf caps a page at 10 rows');assert.deepEqual(new Set([...contacted.rows,...contactedRest.rows].map(r=>String(r.id))),new Set(projected),'Every projected business has contact evidence');
   const accentless=await pageOf(1,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'contactName',operator:'contains',value:'IÑIGO NUÑEZ'},{field:'contactName',operator:'contains',value:'ANA UNICA'}]}])));
   assert.deepEqual(accentless.rows.map(r=>String(r.id)).sort(),[projected[1],projected[2]].sort(),'OR group on a derived column is accent-insensitive');
   assert.equal((await pageOf(1,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'contactName',operator:'contains',value:'inigo nuñez'}]}])))).total,0,'ñ stays distinct from n');
   const excluded=await pageOf(1,'&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'fechaProximaAccion',operator:'not_empty'}]},{rules:[{field:'contactName',operator:'neq',value:'Ana Única'}]}])));
   assert.deepEqual(excluded.rows.map(r=>String(r.id)),[projected[3]],'AND groups combine a derived filter with an exclusion');
   console.log('Business projection: column parity, derived contact/task/activity values, sort, filters and count across pages passed');
+  {// Spec 104 (24): the Gestiones list reads the management's person (primary_contact_id), then the business primary, then the legacy contact_name.
+    const mark=`Persona gestión ${suffix}`;
+    const [withPeople,withoutPeople]=await Promise.all([mark+' A',mark+' B'].map(async nombre=>(await db.insertInto('crmAccounts').values({nombre,assignedUserEmail:user.email}).returning('id').executeTakeFirstOrThrow()).id));
+    const person=async(name:string,isPrimary:boolean,deleted=false)=>(await db.insertInto('crmContacts').values({accountId:withPeople,name,isPrimary,deletedAt:deleted?new Date():null}).returning('id').executeTakeFirstOrThrow()).id;
+    await person(`Marta Peña ${suffix}`,true);
+    const chosen=await person(`Julián Ñandú ${suffix}`,false),removed=await person(`Borrada ${suffix}`,false,true);
+    const management=async(accountId:string,name:string,values:{primaryContactId?:string;contactName?:string})=>(await db.insertInto('leads').values({accountId,nombre:mark,opportunityName:name,estado:'Cargado',assignedUserEmail:user.email,...values}).returning('id').executeTakeFirstOrThrow()).id;
+    const ids={chosen:await management(withPeople,'Elegida',{primaryContactId:chosen}),fallback:await management(withPeople,'Sin elegir',{}),removed:await management(withPeople,'Persona borrada',{primaryContactId:removed}),legacy:await management(withoutPeople,'Heredada',{contactName:`Legado ${suffix}`})};
+    // Saving a contact_name seeds the business's primary person; remove it so the legacy case has no people.
+    await db.updateTable('leads').set({primaryContactId:null}).where('id','=',ids.legacy).execute();await db.deleteFrom('crmContacts').where('accountId','=',withoutPeople).execute();
+    const managements=async(extra='')=>{const r=await getLeads(new Request('http://localhost/_api/leads?entity=opportunity&pageSize=50&q='+encodeURIComponent(mark)+extra,{headers:{cookie:user.value}}));const body=await r.text();assert.equal(r.status,200,body);return superjson.parse<ListOutput>(body)};
+    const listed=await managements(),nameOf=(id:string)=>listed.rows.find(r=>String(r.id)===String(id))?.contactName;
+    assert.equal(nameOf(ids.chosen),`Julián Ñandú ${suffix}`,'The management primary person wins');
+    assert.equal(nameOf(ids.fallback),`Marta Peña ${suffix}`,'Without a management person, the business primary person');
+    assert.equal(nameOf(ids.removed),`Marta Peña ${suffix}`,'A deleted person is never shown');
+    assert.equal(nameOf(ids.legacy),`Legado ${suffix}`,'Without people, the legacy contact_name');
+    const byText=await managements('&textFilters='+encodeURIComponent(JSON.stringify([{field:'contactName',mode:'contains',value:`julian ñandu ${suffix}`}])));
+    assert.deepEqual(byText.rows.map(r=>String(r.id)),[String(ids.chosen)],'The text filter finds the management by its real person');
+    const byRule=await managements('&filterGroups='+encodeURIComponent(JSON.stringify([{rules:[{field:'contactName',operator:'contains',value:`MARTA PEÑA ${suffix}`}]}])));
+    assert.deepEqual(byRule.rows.map(r=>String(r.id)).sort(),[String(ids.fallback),String(ids.removed)].sort(),'The advanced filter uses the same person');
+    assert.equal((await managements('&textFilters='+encodeURIComponent(JSON.stringify([{field:'contactName',mode:'contains',value:`Borrada ${suffix}`}])))).total,0,'A deleted person does not match');
+    console.log('Gestiones list: contactName from the management person, business primary, legacy contact_name, text and advanced filters passed');
+  }
   assert.equal((await quick(request({id:first,accountId,field:'estado',value:stage}))).status,400,'Ambiguous business quick edit rejected');
   assert.equal((await quick(request({id:first,accountId:otherId,field:'estado',value:stage}))).status,400,'Foreign opportunity rejected');
   assert.equal((await quick(request({id:first,accountId,field:'assignedUserEmail',value:user.email}))).status,403);

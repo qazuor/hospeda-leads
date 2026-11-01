@@ -6,6 +6,7 @@ const sex=z.enum(["masculino","femenino","otro","prefiero_no_decir"]);
 
 export const schema=z.discriminatedUnion("action",[
   z.object({action:z.literal("saveUserscriptAutoRegister"),enabled:z.boolean()}),
+  z.object({action:z.literal("saveUserscriptAttachFiles"),enabled:z.boolean()}),
   z.object({action:z.literal("addCity"),name:z.string().min(1)}),
   z.object({action:z.literal("addSubtype"),name:z.string().min(1),typeName:z.string().nullable().optional()}),
   z.object({action:z.literal("editSubtype"),id:z.union([z.string(),z.number()]),name:z.string().min(1)}),
@@ -48,7 +49,8 @@ export const schema=z.discriminatedUnion("action",[
   })
 ]);
 export type InputType=z.infer<typeof schema>;
-export type OutputType={ok:true};
+/** `city`: the catalog spelling kept or reactivated by `addCity` (spec 104, 37). */
+export type OutputType={ok:true;city?:string};
 export const postSettingsSave=async(body:InputType):Promise<OutputType>=>{
   return postJson<OutputType>("/_api/settings_save",schema.parse(body));
 };

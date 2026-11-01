@@ -134,6 +134,21 @@ try{
  await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'file',fileName:'x.pdf',mimeType:'application/pdf',byteSize:10,materialId:linkId},400);
  const linkVersion=(await call(endpoints.get,'sales_materials?search=video+'+stamp,seller.cookie)).materials[0].currentVersion;assert.equal(linkVersion.url,'https://example.com/video');
  assert.equal((await raw(endpoints.file,'sales_materials/file?versionId='+linkVersion.id,seller.cookie)).headers.get('Location'),'https://example.com/video');
+ // Spec 101 D3/D4: «Abrir directo» is off by default, set by an admin only (create and update), kept when an update omits it; destinations stay https.
+ const openDirect=async()=>(await call(endpoints.get,'sales_materials?search=video+'+stamp,seller.cookie)).materials[0].openDirect;
+ assert.equal(await openDirect(),false,'Off by default');
+ const linkRevision=(await call(endpoints.get,'sales_materials?search=video+'+stamp,admin.cookie)).materials[0].revision;
+ await call(endpoints.post,'sales_materials',seller.cookie,{action:'update',id:linkId,revision:linkRevision,title:'Video '+stamp,description:'',kind:'deliverable',categoryIds:[category],openDirect:true},403);
+ assert.equal(await openDirect(),false,'A seller cannot turn it on');
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id:linkId,revision:linkRevision,title:'Video '+stamp,description:'',kind:'deliverable',categoryIds:[category],openDirect:true});
+ assert.equal(await openDirect(),true);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id:linkId,revision:linkRevision+1,title:'Video '+stamp,description:'Con comentario',kind:'deliverable',categoryIds:[category]});
+ assert.equal(await openDirect(),true,'An update without the field keeps it');
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id:linkId,revision:linkRevision+2,title:'Video '+stamp,description:'',kind:'deliverable',categoryIds:[category],openDirect:'yes'},400);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id:linkId,revision:linkRevision+2,version:{url:'http://example.com/otro'}},400);
+ const directId=randomUUID();
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:directId,title:'Directo '+stamp,description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/directo'},openDirect:true});
+ assert.equal((await call(endpoints.get,'sales_materials?search=directo+'+stamp,seller.cookie)).materials[0].openDirect,true);
  checks++;
  // Covers: images up to 1 MB, served through our server; a small image material is its own cover.
  await call(endpoints.uploadUrl,'sales_materials/upload_url',admin.cookie,{purpose:'cover',fileName:'tapa.pdf',mimeType:'application/pdf',byteSize:10,materialId:id},400);
@@ -284,6 +299,33 @@ try{
   await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id,revision:7,title:'Folleto interno '+stamp,description:'Solo equipo',kind:'internal',categoryIds:[category]});
  }finally{setR2StorageForTests({storage:undefined});}
  checks++;
+ // Spec 102 block 1: «Generar desde el archivo» is an explicit request. `auto` over a removal (`none`) is still kept out, unless it comes with
+ // `replaceRemoved`; a manual cover still wins over it, and `replaceRemoved` without `auto` changes nothing (a manual upload is manual anyway). Admin only.
+ const removedId=randomUUID();const removedFile=await upload(admin.cookie,{purpose:'file',fileName:'quitada.pdf',mimeType:'application/pdf',materialId:removedId},pdf('r1'));
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:removedId,title:'Portada quitada '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[],version:{uploadId:removedFile}});
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:removedId,revision:1,uploadId:null});assert.equal((await material(removedId)).coverMode,'none');
+ const autoCover=async(revision:number,extra:Record<string,unknown>,cookie=admin.cookie,status=200)=>{const uploadId=await upload(admin.cookie,{purpose:'cover',fileName:'portada-automatica.jpg',mimeType:'image/jpeg',materialId:removedId},jpg);return call(endpoints.post,'sales_materials',cookie,{action:'cover',id:removedId,revision,uploadId,auto:true,...extra},status);};
+ assert.deepEqual(await autoCover(2,{}),{ok:true,revision:2,coverKept:true},'Without replaceRemoved a removal still wins');
+ await autoCover(2,{replaceRemoved:true},seller.cookie,403);
+ assert.deepEqual(await autoCover(2,{replaceRemoved:true}),{ok:true,revision:3});
+ let removedRow=await material(removedId);assert.equal(removedRow.coverMode,'auto');assert.match(removedRow.coverKey,new RegExp(`^covers/${removedId}/`));
+ assert.equal((await call(endpoints.get,'sales_materials?search='+encodeURIComponent('portada quitada '+stamp),admin.cookie)).materials[0].coverSource,'auto');
+ const handCover=await upload(admin.cookie,{purpose:'cover',fileName:'tapa.png',mimeType:'image/png',materialId:removedId},png);
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:removedId,revision:3,uploadId:handCover,replaceRemoved:true});removedRow=await material(removedId);
+ assert.equal(removedRow.coverMode,'manual','replaceRemoved without auto is a plain manual cover');
+ assert.deepEqual(await autoCover(4,{replaceRemoved:true}),{ok:true,revision:4,coverKept:true},'replaceRemoved never replaces a manual cover');assert.equal((await material(removedId)).coverKey,removedRow.coverKey);
+ checks++;
+ // Spec 102 block 2: an external link takes a manual cover through the same path (the server always allowed it; the UI now offers it). Admin only.
+ const coveredLinkId=randomUUID();
+ await call(endpoints.post,'sales_materials',admin.cookie,{action:'create',id:coveredLinkId,title:'Recorrido '+stamp,description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/tour'}});
+ await call(endpoints.uploadUrl,'sales_materials/upload_url',seller.cookie,{purpose:'cover',fileName:'tapa.png',mimeType:'image/png',byteSize:png.length,materialId:coveredLinkId},403);
+ const linkCover=await upload(admin.cookie,{purpose:'cover',fileName:'tapa.png',mimeType:'image/png',materialId:coveredLinkId},png);
+ await call(endpoints.post,'sales_materials',seller.cookie,{action:'cover',id:coveredLinkId,revision:1,uploadId:linkCover},403);
+ assert.deepEqual(await call(endpoints.post,'sales_materials',admin.cookie,{action:'cover',id:coveredLinkId,revision:1,uploadId:linkCover}),{ok:true,revision:2});
+ const coveredLink=(await call(endpoints.get,'sales_materials?search='+encodeURIComponent('recorrido '+stamp),seller.cookie)).materials[0];
+ assert.equal(coveredLink.hasCover,true);assert.equal(coveredLink.coverSource,'manual');assert.equal((await material(coveredLinkId)).coverMode,'manual');
+ const linkCoverResponse=await raw(endpoints.cover,'sales_materials/cover?materialId='+coveredLinkId,seller.cookie);assert.equal(linkCoverResponse.status,200);assert.deepEqual(Buffer.from(await linkCoverResponse.arrayBuffer()),png);
+ checks++;
  // Ctrl+K: the «Material de venta» group lists active material only; the retired library rejects writes.
  const results=(await call(searchGet,'search?q='+encodeURIComponent('foto '+stamp),seller.cookie)).results.filter((r:any)=>r.kind==='Material de venta');
  assert.deepEqual(results.map((r:any)=>r.url),['/sales-material?material='+imageId]);
@@ -302,7 +344,7 @@ try{
  assert.equal(JSON.parse((await db.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow()).value).maxDocumentBytes,2097152);
  assert(requests.some(r=>r.startsWith('HEAD '))&&requests.some(r=>r.startsWith('DELETE ')));
  checks++;
- console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, automatic covers (spec 95), sweep with lock and claim, upload ownership and purpose, archived cover, duplicate create, R2 outage and sweep races, missing R2, search, legacy library and journal`);
+ console.log(`Sales material (spec 89 F1): ${checks} groups passed: permissions, categories, presigned upload, verification and discard, versions, revisions, archive/restore, URLs, covers, automatic covers (spec 95), replaceRemoved and link covers (spec 102), sweep with lock and claim, upload ownership and purpose, archived cover, duplicate create, R2 outage and sweep races, missing R2, search, legacy library and journal`);
 }finally{
  await db.deleteFrom('sessions').where('userId','in',userIds).execute();await db.destroy();r2.close();
 }

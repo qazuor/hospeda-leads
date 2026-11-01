@@ -10,6 +10,9 @@ import {instagramAccountUsername,resetInstagramThreadRateLimits} from '../src/he
 import {USERSCRIPT_VERSION} from '../userscript/src/version';
 import {stageLabel} from '../src/helpers/crmLabels';
 import {managementTypeLabels} from '../src/helpers/businessManagement';
+import {pendingContactFollowUps,USERSCRIPT_CONFIRMED_RESULT} from '../src/helpers/communicationService';
+import {queryInboxThreadEvents} from '../src/helpers/inboxQueries';
+import {inboxReplyAvailability} from '../src/helpers/inboxReplyAvailability';
 
 assert.equal(process.env.CRM_TEST_DATABASE,'1');
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`userscript-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
@@ -28,6 +31,26 @@ try{
  const hidden=await context(new Request(`http://localhost/_api/userscript/context?code=H${archived.id}`,{headers:scripted(otherToken)}));assert.equal((await hidden.json() as {matches:unknown[]}).matches.length,0,'An archived business of another seller is hidden');const deniedRegister=await register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(otherToken),body:JSON.stringify({accountId:String(archived.id),chat:{title:archived.nombre},messages:[{externalId:`false_${randomUUID()}`,direction:'in',text:'No access',sentAt:null,author:null}]})}));assert.equal(deniedRegister.status,403);
  const old=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token,'1.1.0')}));assert.equal(old.status,426);assert.equal((await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token,'1.2.0')}))).status,426,'1.2.x is below the minimum since spec 89 F4');assert.equal((await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token,'1.4.9')}))).status,426,'1.4.x is below the minimum since spec 96 (D7)');for(const bad of ['abc','1.2','9.9.9-beta'])assert.equal((await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token,bad)}))).status,426,'A malformed version never passes the version gate');
  const ctx=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token)}));assert.equal(ctx.status,200);const ctxBody=await ctx.json() as {latestVersion:string;matches:{accountId:string;status:string|null;statusLabel:string|null}[]};assert.equal(ctxBody.matches[0]?.accountId,String(account.id));assert.equal(ctxBody.latestVersion,USERSCRIPT_VERSION,'The panel learns the published script version');assert.equal(typeof ctxBody.matches[0]?.statusLabel,'string','The panel can warn about the business status before the preview');const badgeCall=(chats:unknown[],as=token)=>badges(new Request('http://localhost/_api/userscript/badges',{method:'POST',headers:scripted(as),body:JSON.stringify({chats})}));const badgeOne=await badgeCall([{key:'visible',title:'Contact · H'+account.id},{key:'zero-padded',title:`Contact · H${String(account.id).padStart(4,'0')}`}]);assert.equal(badgeOne.status,200);const badgeResults=(await badgeOne.json() as {results:{key:string;kind:string;accountId?:string}[]}).results;assert.equal(badgeResults[0]?.kind,'single');assert.equal(badgeResults[0]?.accountId,String(account.id));assert.equal(badgeResults[1]?.accountId,String(account.id),'Leading-zero H codes resolve to the bigint account id');assert.equal((await badgeCall(Array.from({length:51},(_,i)=>({key:String(i),title:'Chat'})))).status,400,'More than 50 chats are rejected');
+ // Spec 103 B1 (finding 19): the WhatsApp panel reads the responsible, «No contactar» and archived from `context`, and the stage as a label.
+ {
+  const ownerIdentity=await identity('user'),owner=ownerIdentity.user;await db.updateTable('users').set({displayName:'Leandro Fixture'}).where('id','=',owner.id).execute();
+  const ownerToken=(await (await tokenCreate(session(ownerIdentity.cookie,{label:'Owner'}))).json() as {token:string}).token;
+  const ctxPhone=`+5493442${String(100000+Math.floor(Math.random()*900000))}`;
+  const flagged=await db.insertInto('crmAccounts').values({nombre:`Zz userscript flagged ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:owner.email,telefono:ctxPhone,status:'reviewed'}).returningAll().executeTakeFirstOrThrow();
+  const contacted=await db.selectFrom('crmStages').select('name').where('name','=','main:contacted').executeTakeFirstOrThrow();
+  await db.insertInto('leads').values({accountId:flagged.id,nombre:flagged.nombre,estado:contacted.name,managementType:'main',assignedUserEmail:owner.email} as never).execute();await db.updateTable('crmAccounts').set({doNotContact:true,archivedAt:new Date()}).where('id','=',flagged.id).execute();
+  type CtxMatch={accountId:string;assignedUserName:string|null;doNotContact:boolean;archived:boolean;leads:{stage:string;stageKey:string}[]};
+  for(const query of [`code=H${flagged.id}`,`phone=${encodeURIComponent(ctxPhone)}`]){
+   const body=await (await context(new Request(`http://localhost/_api/userscript/context?${query}`,{headers:scripted(ownerToken)}))).json() as {matches:CtxMatch[]};
+   const match=body.matches.find(m=>m.accountId===String(flagged.id));assert.ok(match,`context?${query} finds the business`);
+   assert.deepEqual({assignedUserName:match.assignedUserName,doNotContact:match.doNotContact,archived:match.archived},{assignedUserName:'Leandro Fixture',doNotContact:true,archived:true},`context?${query.split('=')[0]} returns the responsible, «No contactar» and archived`);
+   assert.deepEqual(match.leads.map(l=>[l.stage,l.stageKey]),[['Contactado','main:contacted']],`context?${query.split('=')[0]} returns the readable stage and its key`);
+  }
+  const plainBody=await (await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token)}))).json() as {matches:CtxMatch[]};
+  assert.deepEqual({doNotContact:plainBody.matches[0]?.doNotContact,archived:plainBody.matches[0]?.archived,assignedUserName:plainBody.matches[0]?.assignedUserName},{doNotContact:false,archived:false,assignedUserName:'user'},'A business without flags reports false, not undefined');
+  const waTemplates=await (await templates(new Request(`http://localhost/_api/userscript/templates?accountId=${account.id}`,{headers:scripted(token)}))).json() as {leads:{stage:string;stageKey:string}[]};
+  assert.deepEqual(waTemplates.leads.map(l=>[l.stage,l.stageKey]),[[stageLabel(stage.name),stage.name]],'The WhatsApp models carry the readable stage and its key');assert.notEqual(stageLabel(stage.name),stage.name);
+ }
  const badgeRun=Math.floor(Math.random()*90000)*10,badgePhone=(n:number)=>'+549355'+String(1000000+badgeRun+n).padStart(7,'0');
  await db.insertInto('crmAccounts').values({nombre:'Zz badge no management '+randomUUID(),ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:badgePhone(1),status:'reviewed'}).execute();
  const multiplePhone=badgePhone(2);await db.insertInto('crmAccounts').values({nombre:'Zz badge possible A '+randomUUID(),assignedUserEmail:seller.user.email,telefono:multiplePhone}).execute();await db.insertInto('crmAccounts').values({nombre:'Zz badge possible B '+randomUUID(),assignedUserEmail:seller.user.email,telefono:multiplePhone}).execute();
@@ -57,6 +80,24 @@ try{
  const oversized=await register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(token),body:JSON.stringify({...body,messages:Array.from({length:51},(_,i)=>({...body.messages[0]!,externalId:String(i)}))})}));assert.equal(oversized.status,400);
  const outBody={...body,messages:[{externalId:`true_${randomUUID()}`,direction:'out',text:'Mensaje enviado',sentAt:new Date().toISOString(),author:null}]};const out=await register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(token),body:JSON.stringify(outBody)}));const outResult=(await out.json() as {results:{status:string;kind:string;id:string}[]}).results[0]!;assert.equal(outResult.kind,'message');assert.equal(outResult.status,'created');const outRow=(await sql<{status:string;externalId:string}>`SELECT status,external_id AS "externalId" FROM crm_messages WHERE id=${outResult.id}::uuid`.execute(db)).rows[0];assert.equal(outRow.status,'manual_sent');assert.equal(outRow.externalId,outBody.messages[0]!.externalId);const pendingId=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,owner_email,status) VALUES(${pendingId}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${account.nombre},${seller.user.email},'manual_pending')`.execute(db);const completionId=`true_${randomUUID()}`;const completed=await register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(token),body:JSON.stringify({...body,messages:[{externalId:completionId,direction:'out',text:'Se completó el intento',sentAt:new Date().toISOString(),author:null}]})}));assert.equal((await completed.json() as {results:{id:string}[]}).results[0]?.id,pendingId);const completedRow=(await sql<{status:string;externalId:string}>`SELECT status,external_id AS "externalId" FROM crm_messages WHERE id=${pendingId}::uuid`.execute(db)).rows[0];assert.equal(completedRow.status,'manual_sent');assert.equal(completedRow.externalId,completionId);const concurrentId=`false_${randomUUID()}`;const concurrentBody={...body,messages:[{...body.messages[0]!,externalId:concurrentId}]};const race=await Promise.all([1,2].map(()=>register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(token),body:JSON.stringify(concurrentBody)}))));assert.deepEqual((await Promise.all(race.map(async r=>(await r.json() as {results:{status:string}[]}).results[0]?.status))).sort(),['created','duplicate']);
  const post=(payload:unknown,auth=token)=>register(new Request('http://localhost/_api/userscript/register',{method:'POST',headers:scripted(auth),body:JSON.stringify(payload)}));
+ // Spec 99 §3.4: a WhatsApp inbound stores the person whose phone matches it, only when exactly one active person of the business does.
+ {
+  const phone=`+5493442${String(100000+Math.floor(Math.random()*900000))}`,local=phone.replace('+549','0');
+  const biz=await db.insertInto('crmAccounts').values({nombre:`Zz userscript person ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email}).returningAll().executeTakeFirstOrThrow();
+  const juan=await db.insertInto('crmContacts').values({accountId:biz.id,name:'Juan',phone:local}).returning('id').executeTakeFirstOrThrow();
+  await db.insertInto('crmContacts').values({accountId:biz.id,name:'Juan borrado',phone,deletedAt:new Date()}).execute();
+  const inboundContact=async()=>{const r=await post({accountId:String(biz.id),chat:{title:biz.nombre,phone},messages:[{externalId:`false_${randomUUID()}`,direction:'in',text:'Hola',sentAt:null,author:'Juan'}]});const id=(await r.json() as {results:{id:string}[]}).results[0]!.id;return (await sql<{contactId:string|null}>`SELECT contact_id::text AS "contactId" FROM crm_inbound_messages WHERE id=${id}::uuid`.execute(db)).rows[0].contactId;};
+  assert.equal(await inboundContact(),String(juan.id),'one active person with that phone (written another way) is stored');
+  await db.insertInto('crmContacts').values({accountId:biz.id,name:'Ana',phone}).execute();
+  assert.equal(await inboundContact(),null,'two people with that phone: nobody is guessed');
+  // Identity is not search: another area code with the same local number (341 vs 351) is a different person.
+  const rosario=await db.insertInto('crmAccounts').values({nombre:`Zz userscript area ${randomUUID()}`,ciudad:'Rosario',assignedUserEmail:seller.user.email}).returningAll().executeTakeFirstOrThrow();
+  const areaContact=async(chatPhone:string)=>{const r=await post({accountId:String(rosario.id),chat:{title:rosario.nombre,phone:chatPhone},messages:[{externalId:`false_${randomUUID()}`,direction:'in',text:'Hola',sentAt:null,author:'Lucía'}]});const id=(await r.json() as {results:{id:string}[]}).results[0]!.id;return (await sql<{contactId:string|null}>`SELECT contact_id::text AS "contactId" FROM crm_inbound_messages WHERE id=${id}::uuid`.execute(db)).rows[0].contactId;};
+  const cordoba=await db.insertInto('crmContacts').values({accountId:rosario.id,name:'Lucía Córdoba',phone:'351-4123456'}).returning('id').executeTakeFirstOrThrow();
+  assert.equal(await areaContact('+5493414123456'),null,'351-4123456 is not the chat 341-4123456');
+  assert.equal(await areaContact('+5493514123456'),String(cordoba.id),'the same line with the +54 9 prefix is');
+ }
+ const pendingActivity=(await sql<{result:string}>`SELECT a.result FROM crm_activities a JOIN crm_messages m ON m.activity_id=a.id WHERE m.id=${pendingId}::uuid`.execute(db)).rows[0];assert.equal(pendingActivity.result,'Envío confirmado por el script de WhatsApp');
  const statuses=async(r:Response)=>(await r.json() as {results:{status:string;id?:string;reason?:string}[]}).results;
  // A pending WhatsApp attempt is completed only when it was addressed to the chat's phone; another contact's attempt stays pending.
  const otherPending=randomUUID(),samePending=randomUUID();
@@ -153,13 +194,30 @@ try{
  const shownVoided=await communicationList(true);assert.ok(shownVoided.messages.some(row=>row.id===loose.id&&row.status==='voided'&&!row.autoRegistrationId),'Admin includeVoided returns the voided row, without a registration to void again');assert.ok(shownVoided.inbound.some(row=>row.id===autoResult.id&&row.status==='voided'&&!row.autoRegistrationId),'Admin includeVoided returns voided inbound rows too');
  assert.equal((await voidAs(token,looseReg.id)).status,409,'A registration is voided only once');
  // Sent message that completed an opened attempt: the attempt goes back to «WhatsApp abierto».
- const reopened=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,created_at) VALUES(${reopened}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${seller.user.email},'whatsapp_opened','Hola, te paso la propuesta de Hospeda para tu alojamiento',now()-interval '2 minutes')`.execute(db);
+ const completedTask=await db.insertInto('crmTasks').values({accountId:account.id,title:'Confirmación por script',typeId:'followup',dueDate:'2026-10-30',assignedUserEmail:seller.user.email}).returning('id').executeTakeFirstOrThrow();
+ const reopened=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,task_id,created_at) VALUES(${reopened}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${seller.user.email},'whatsapp_opened','Hola, te paso la propuesta de Hospeda para tu alojamiento',${completedTask.id},now()-interval '2 minutes')`.execute(db);
  const completedAuto=(await (await autoOut('Hola, te paso la propuesta de Hospeda para tu alojamiento en Colón')).json() as {results:{id:string;status:string}[]}).results[0]!;assert.equal(completedAuto.id,reopened,'The automatic send completes the matching opened attempt');
- const completedReg=await registrationOf(reopened);assert.equal((completedReg.effects.before as {status:string}).status,'whatsapp_opened');
+ const completedReg=await registrationOf(reopened);assert.equal((completedReg.effects.before as {status:string}).status,'whatsapp_opened');const completionActivity=(await sql<{result:string}>`SELECT a.result FROM crm_activities a JOIN crm_messages m ON m.activity_id=a.id WHERE m.id=${reopened}::uuid`.execute(db)).rows[0];assert.equal(completionActivity.result,'Envío confirmado por el script de WhatsApp');assert.equal((await db.selectFrom('crmTasks').select(['status','result']).where('id','=',completedTask.id).executeTakeFirstOrThrow()).result,'Envío confirmado por el script de WhatsApp');
  assert.equal((await voidAs(token,completedReg.id)).status,200);
  const restored=(await sql<{status:string;externalId:string|null;textBody:string|null}>`SELECT status,external_id AS "externalId",text_body AS "textBody" FROM crm_messages WHERE id=${reopened}::uuid`.execute(db)).rows[0]!;
  assert.deepEqual([restored.status,restored.externalId,restored.textBody],['whatsapp_opened',null,null],'Voiding restores the opened attempt exactly');
+ assert.equal((await db.selectFrom('crmTasks').select(['status','result']).where('id','=',completedTask.id).executeTakeFirstOrThrow()).status,'pending','Voiding a current userscript result reopens its task');
+ // N2: the voided script confirmation leaves its journal row; a later manual confirmation must read as manual everywhere.
+ const manualAfterVoid=await communicationPost(new Request('http://localhost/_api/communication',{method:'POST',headers:{cookie:admin.cookie},body:superjson.stringify({action:'outcome',id:reopened,event:'manual_sent',notes:'Lo envié yo'})}));assert.equal(manualAfterVoid.status,200,await manualAfterVoid.clone().text());
+ const sourceAfterVoid=(await communicationList(false)).messages.find(row=>row.id===reopened) as {status:string;confirmationSource?:string}|undefined;assert.deepEqual([sourceAfterVoid?.status,sourceAfterVoid?.confirmationSource],['manual_sent','manual'],'A manual confirmation after a void is not attributed to the script');
+ const pendingAfterVoid=(await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:account.id})).outcomes.items.find(p=>p.id===reopened);assert.equal(pendingAfterVoid?.confirmationSource,'manual','«Anotá cómo salió» says manual after a void');
+ const inboxAfterVoid=(await queryInboxThreadEvents(account.id,null,'whatsapp',inboxReplyAvailability(false,true,admin.user.email),false,undefined,200)).rows.find(row=>row.id===reopened) as {confirmationSource?:string}|undefined;assert.equal(inboxAfterVoid?.confirmationSource,'manual','The inbox says manual after a void');
  await sql`UPDATE crm_messages SET status='manual_not_done' WHERE id=${reopened}::uuid`.execute(db);
+ // Spec 99 §3.2: voiding a send that moved the opening's activity to the WhatsApp time puts the opening's time back.
+ const keptText='Te paso la ficha de Hospeda para que la revises con calma',keptAt=new Date(Date.now()-600_000),kept=randomUUID();
+ const keptActivity=await db.insertInto('crmActivities').values({accountId:account.id,leadId:null,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto',occurredAt:keptAt,contactIds:[],actorEmail:seller.user.email} as never).returning('id').executeTakeFirstOrThrow();
+ await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,activity_id,created_at) VALUES(${kept}::uuid,${account.id},${account.id},'whatsapp',${chatPhone},${seller.user.email},'whatsapp_opened',${keptText},${keptActivity.id},now()-interval '3 minutes')`.execute(db);
+ assert.equal((await (await autoOut(keptText)).json() as {results:{id:string}[]}).results[0]?.id,kept);
+ const keptTime=async()=>(await db.selectFrom('crmActivities').select(['occurredAt','result']).where('id','=',keptActivity.id).executeTakeFirstOrThrow());
+ assert.notEqual((await keptTime()).occurredAt.getTime(),keptAt.getTime(),'The send moves the opening activity to the WhatsApp time');
+ assert.equal((await voidAs(token,(await registrationOf(kept)).id)).status,200);
+ assert.deepEqual([(await keptTime()).occurredAt.getTime(),(await keptTime()).result],[keptAt.getTime(),'WhatsApp abierto'],'Voiding restores the opening activity time and result');
+ await sql`UPDATE crm_messages SET status='manual_not_done' WHERE id=${kept}::uuid`.execute(db);
  // Inbound already used to register a response cannot be voided.
  const usedIn=(await (await autoRequest(true,`auto_${randomUUID()}`)).json() as {results:{id:string}[]}).results[0]!;
  const usedReg=(await sql<{id:string}>`SELECT id::text FROM crm_auto_registrations WHERE inbound_id=${usedIn.id}::uuid`.execute(db)).rows[0]!;
@@ -185,6 +243,7 @@ try{
  await db.insertInto('crmAccounts').values({nombre:`Zz instagram hidden ${randomUUID()}`,assignedUserEmail:other.user.email,archivedAt:new Date(),perfilInstagram:`@${igUser}.hidden`} as never).execute();
  const igContext=async(user:string,auth=token)=>(await context(new Request(`http://localhost/_api/userscript/context?instagram=${encodeURIComponent(user)}`,{headers:scripted(auth)}))).json() as Promise<{instagramAccount:string|null;matches:{accountId:string}[];hiddenMatches:number;instagram:{username:string;threadId:string|null;displayName:string|null}}>;
  const found=await igContext('@'+igUser);assert.equal(found.instagramAccount,'hospeda.test');assert.deepEqual(found.matches.map(m=>m.accountId),[String(igAccount.id)],'context?instagram finds the business by the normalized username, not the substring one');assert.equal(found.instagram.threadId,null);
+ {const igMatch=(await (await context(new Request(`http://localhost/_api/userscript/context?instagram=${encodeURIComponent(igUser)}`,{headers:scripted(token)}))).json() as {matches:{leads:{stage:string;stageKey:string}[]}[]}).matches[0];assert.deepEqual(igMatch?.leads.map(l=>[l.stage,l.stageKey]),[[stageLabel(stage.name),stage.name]],'Spec 103 B1: context?instagram carries the readable stage and its key');}
  assert.equal((await igContext(igUser+'.hidden')).hiddenMatches,1,'A hidden business only counts');
  assert.equal((await context(new Request('http://localhost/_api/userscript/context?instagram=no%20valid',{headers:scripted(token)}))).status,400);
  const report=(path:'thread'|'stale',payload:unknown,auth=token)=>(path==='thread'?instagramThread:instagramThreadStale)(new Request(`http://localhost/_api/userscript/instagram/${path==='thread'?'thread':'thread/stale'}`,{method:'POST',headers:scripted(auth),body:JSON.stringify(payload)}));
@@ -206,6 +265,7 @@ try{
  // Templates and drafts for Instagram: the stored channel is `social`, always to the business username.
  const igTemplate=await db.insertInto('messageTemplates').values({channel:'social',name:`Userscript IG ${randomUUID()}`,body:'Hola desde Hospeda'}).returning('id').executeTakeFirstOrThrow();
  const igTemplates=await (await templates(new Request(`http://localhost/_api/userscript/templates?accountId=${igAccount.id}&channel=instagram`,{headers:scripted(token)}))).json() as {leads:{id:string;templates:{id:string}[]}[];general:{purposes:{value:string}[]}|null;username:string|null};
+ assert.deepEqual((igTemplates as unknown as {leads:{id:string;stage:string;stageKey:string}[]}).leads.filter(l=>l.id===igLead).map(l=>[l.stage,l.stageKey]),[[stageLabel(stage.name),stage.name]],'Spec 103 B1: the Instagram models carry the readable stage and its key');
  assert.equal(igTemplates.username,igUser);assert.ok(igTemplates.leads.some(l=>l.id===igLead&&l.templates.some(t=>t.id===String(igTemplate.id))),'The social template is offered for the management');
  assert.ok(igTemplates.general?.purposes.some(p=>p.value==='first_contact'));assert.equal(igTemplates.general?.purposes.some(p=>p.value==='care'),false,'«care» is not offered without a management to a non-client');
  const igPrepare=(payload:Record<string,unknown>)=>prepare(new Request('http://localhost/_api/userscript/prepare',{method:'POST',headers:scripted(token),body:JSON.stringify({id:randomUUID(),channel:'instagram',accountId:String(igAccount.id),templateId:String(igTemplate.id),...payload})}));
@@ -229,10 +289,19 @@ try{
  const addTo=(messageId:string,revision:number)=>materialAdd(new Request('http://localhost/_api/userscript/material_add',{method:'POST',headers:scripted(token),body:JSON.stringify({messageId,revision,materialId})}));
  const igMaterials=await materials(new Request(`http://localhost/_api/userscript/materials?accountId=${igAccount.id}&channel=instagram`,{headers:scripted(token)}));assert.equal(igMaterials.status,200);
  assert.ok((await igMaterials.json() as {materials:{id:string}[]}).materials.some(m=>m.id===materialId),'materials?channel=instagram lists deliverable material with the Instagram scope');
+ // Spec 102 D3/D5: the panel list comes ordered by the business vertical (own, «all», other) with `otherVertical` on the folded part.
+ const tag='Zz Panel vert '+materialId.slice(0,8),vm=async(title:string,verticals:string[])=>{const id=randomUUID();await sql`INSERT INTO crm_sales_materials(id,title,kind,source,verticals,created_by_email) VALUES(${id}::uuid,${tag+' '+title},'deliverable','url',${verticals}::text[],'admin@example.com')`.execute(db);await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,url,actor_email) VALUES(${randomUUID()}::uuid,${id}::uuid,1,'https://example.com/v','admin@example.com')`.execute(db);await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${id}::uuid`.execute(db);return id;};
+ const vOther=await vm('otra',['Gastronomía']),vAll=await vm('todas',[]),vOwn=await vm('propia',['Alojamiento']);
+ const igTipo=(await db.selectFrom('crmAccounts').select('tipo').where('id','=',igAccount.id).executeTakeFirstOrThrow()).tipo;
+ await db.updateTable('crmAccounts').set({tipo:'Alojamiento'}).where('id','=',igAccount.id).execute();
+ const vertList=await (await materials(new Request(`http://localhost/_api/userscript/materials?accountId=${igAccount.id}&channel=instagram&search=${encodeURIComponent(tag)}`,{headers:scripted(token)}))).json() as {contextVertical:string|null;materials:{id:string;otherVertical:boolean}[]};
+ await db.updateTable('crmAccounts').set({tipo:igTipo}).where('id','=',igAccount.id).execute();
+ assert.equal(vertList.contextVertical,'Alojamiento');
+ assert.deepEqual(vertList.materials.map(m=>[m.id,m.otherVertical]),[[vOwn,false],[vAll,false],[vOther,true]],'The panel gets its vertical first, then «all», then the rest marked otherVertical');
  const igFree=await igPrepare({leadId:igLead,templateId:null});assert.equal(igFree.status,200,'An Instagram free draft (templateId null) is prepared');
  const igFreeBody=await igFree.json() as {messageId:string;revision:number;body:string;materials:unknown[]};assert.equal(igFreeBody.body.trim(),'');assert.deepEqual(igFreeBody.materials,[]);
  const igAdded=await addTo(igFreeBody.messageId,igFreeBody.revision);assert.equal(igAdded.status,200,'material_add works on an Instagram script draft');
- const igAddedBody=await igAdded.json() as {revision:number;body:string};assert.match(igAddedBody.body,/^Podés ver «Zz Folleto panel [^»]+» en: \S+\/m\/[A-Za-z0-9_-]{43}$/);
+ const igAddedBody=await igAdded.json() as {revision:number;body:string};assert.match(igAddedBody.body,/^Podés ver «Zz Folleto panel [^»]+» en: \S+\/m\/[a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4}$/);
  assert.deepEqual(await shareRows(igFreeBody.messageId),[{channel:'instagram',sentVersion:null}],'The share is stored as instagram and passes the CHECK of migration 055');
  const igReused=await igPrepare({leadId:igLead,templateId:null});assert.deepEqual((await igReused.json() as {materials:{materialId:string}[]}).materials.map(m=>m.materialId),[materialId],'prepare returns the materials a reused draft holds');
  const igMaterialDispatch=await dispatch(new Request('http://localhost/_api/userscript/dispatch',{method:'POST',headers:scripted(token),body:JSON.stringify({id:igFreeBody.messageId,revision:igAddedBody.revision})}));assert.equal(igMaterialDispatch.status,200);
@@ -319,6 +388,76 @@ try{
  await sql`UPDATE crm_instagram_threads SET display_name=${igName.replace('ñ','n')} WHERE viewer_username='hospeda.test' AND username=${igUser+'.hidden'}`.execute(db);
  assert.equal((await inboxFor(token)).some(row=>row.username===igUser),true,'Accents count: «Cabañas» and «Cabanas» are different names');
  delete process.env.INSTAGRAM_ACCOUNT_USERNAME;assert.equal((await instagramThreads(new Request('http://localhost/_api/userscript/instagram/threads',{headers:scripted(token)}))).status,409,'Without the Hospeda account there is no list');
+ // Spec 99 §3.2: a send seen by the script keeps the WhatsApp time (capped by now and by its attempt), not the registration time.
+ {
+  const timedPhone=`+5493445${String(100000+Math.floor(Math.random()*900000))}`;
+  const timed=await db.insertInto('crmAccounts').values({nombre:`Zz userscript sent time ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:timedPhone,status:'reviewed'} as never).returningAll().executeTakeFirstOrThrow();
+  const since=(await sql<{value:string}>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`.execute(db)).rows[0]?.value;
+  await sql`UPDATE app_settings SET value=to_char((now()-interval '2 hours') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '1 hour'`.execute(db);
+  try{
+  const ago=(ms:number)=>new Date(Math.floor((Date.now()-ms)/1000)*1000);
+  const send=async(text:string,sentAt:Date)=>{const r=(await statuses(await post({accountId:String(timed.id),chat:{title:`${timed.nombre} · H${timed.id}`,phone:timedPhone},messages:[{externalId:`true_${randomUUID()}`,direction:'out',text,sentAt:sentAt.toISOString(),author:null}]})))[0]!;assert.equal(r.status,'created',r.reason);return r.id!;};
+  const row=async(id:string)=>(await sql<{lastInteractionAt:Date;completedAt:Date|null;updatedAt:Date;occurredAt:Date;result:string}>`SELECT m.last_interaction_at AS "lastInteractionAt",m.completed_at AS "completedAt",m.updated_at AS "updatedAt",a.occurred_at AS "occurredAt",a.result FROM crm_messages m JOIN crm_activities a ON a.id=m.activity_id WHERE m.id=${id}::uuid`.execute(db)).rows[0]!;
+  const journalSentAt=async(id:string,action:string)=>(await sql<{sentAt:string|null}>`SELECT after_value->>'sentAt' AS "sentAt" FROM crm_communication_journal WHERE entity_id=${id} AND action=${action} AND triggered_by_email='userscript' ORDER BY created_at DESC LIMIT 1`.execute(db)).rows[0]?.sentAt;
+  const recent=(d:Date|null,label:string)=>{assert.ok(d&&Math.abs(Date.now()-d.getTime())<60_000,label);};
+  // An outcome written between the send and its registration resolves «Anotá cómo salió»; a send after that outcome stays pending.
+  const between=await db.insertInto('crmActivities').values({accountId:timed.id,leadId:null,typeId:'call',title:'Llamada',channel:'phone',outcome:'interested',occurredAt:ago(60_000),contactIds:[],actorEmail:seller.user.email,createdAt:ago(60_000)} as never).returning('id').executeTakeFirstOrThrow();
+  const beforeOutcome=await send('Te escribí antes de llamarte',ago(180_000)),afterOutcome=await send('Te escribí después de la llamada',ago(30_000));
+  const pendingIds=(await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:String(timed.id)})).outcomes.items.map(p=>p.id);
+  assert.equal(pendingIds.includes(afterOutcome),true,'A send after the outcome still asks how it went');
+  assert.equal(pendingIds.includes(beforeOutcome),false,'An outcome written between the WhatsApp time and the registration resolves the send');
+  await db.updateTable('crmActivities').set({deletedAt:new Date()}).where('id','=',between.id).execute();
+  // Without an attempt: the WhatsApp time goes to last_interaction_at, the activity and the journal; the registration stays now().
+  const loneAt=ago(120_000),lone=await send('Mensaje sin borrador',loneAt),loneRow=await row(lone);
+  assert.deepEqual([loneRow.lastInteractionAt.getTime(),loneRow.occurredAt.getTime()],[loneAt.getTime(),loneAt.getTime()],'A send without an attempt keeps the WhatsApp time');
+  recent(loneRow.updatedAt,'updated_at is the registration time');assert.equal(new Date((await journalSentAt(lone,'contact_completed'))!).getTime(),loneAt.getTime(),'The journal records the WhatsApp time');
+  // A time in the future (allowed up to 10 minutes of clock skew) is stored as now.
+  const future=await row(await send('Mensaje con reloj adelantado',new Date(Date.now()+5*60_000)));
+  assert.ok(future.lastInteractionAt.getTime()<=Date.now(),'A future WhatsApp time is capped at now');recent(future.lastInteractionAt,'A future WhatsApp time is stored as now');assert.equal(future.occurredAt.getTime(),future.lastInteractionAt.getTime());
+  // manual_pending: the WhatsApp time is stored; completed_at stays the registration time.
+  const manual=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,created_at) VALUES(${manual}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'manual_pending',now()-interval '1 hour')`.execute(db);
+  const manualAt=ago(120_000);assert.equal(await send('Completa el intento manual',manualAt),manual);const manualRow=await row(manual);
+  assert.deepEqual([manualRow.lastInteractionAt.getTime(),manualRow.occurredAt.getTime()],[manualAt.getTime(),manualAt.getTime()],'A manual attempt keeps the WhatsApp time');
+  recent(manualRow.completedAt,'completed_at is the registration time');assert.equal(new Date((await journalSentAt(manual,'contact_completed'))!).getTime(),manualAt.getTime());
+  // whatsapp_opened with the activity the opening left without an outcome: its time moves to the WhatsApp time along with the result.
+  const opened=randomUUID(),openedText='Hola, te paso la propuesta de Hospeda para tu alojamiento en Colón',openedAt=ago(120_000);
+  const openActivity=await db.insertInto('crmActivities').values({accountId:timed.id,leadId:null,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'WhatsApp abierto',occurredAt:ago(600_000),contactIds:[],actorEmail:seller.user.email} as never).returning('id').executeTakeFirstOrThrow();
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,activity_id,created_at) VALUES(${opened}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'whatsapp_opened',${openedText},${openActivity.id},now()-interval '10 minutes')`.execute(db);
+  assert.equal(await send(openedText,openedAt),opened);const openedRow=await row(opened);
+  assert.deepEqual([openedRow.lastInteractionAt.getTime(),openedRow.occurredAt.getTime(),openedRow.result],[openedAt.getTime(),openedAt.getTime(),USERSCRIPT_CONFIRMED_RESULT],'An opened attempt keeps the WhatsApp time, also on the activity the opening created');
+  recent(openedRow.updatedAt,'updated_at is the registration time');assert.equal(new Date((await journalSentAt(opened,'contact_resolved'))!).getTime(),openedAt.getTime());
+  // A WhatsApp time before the draft (clock skew) is stored as the draft time.
+  const early=randomUUID(),earlyText='Te mando los datos de la publicación en Hospeda para revisar';
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,created_at) VALUES(${early}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'whatsapp_opened',${earlyText},date_trunc('second',now())-interval '3 minutes')`.execute(db);
+  const draftAt=(await sql<{createdAt:Date}>`SELECT created_at AS "createdAt" FROM crm_messages WHERE id=${early}::uuid`.execute(db)).rows[0]!.createdAt;
+  assert.equal(await send(earlyText,new Date(draftAt.getTime()-5*60_000)),early);const earlyRow=await row(early);
+  assert.deepEqual([earlyRow.lastInteractionAt.getTime(),earlyRow.occurredAt.getTime()],[draftAt.getTime(),draftAt.getTime()],'A send is never stored before its draft');
+  // An activity whose outcome was already written keeps its time and result.
+  const noted=randomUUID(),notedText='Te comparto el enlace de tu ficha en Hospeda',notedAt=ago(600_000);
+  const notedActivity=await db.insertInto('crmActivities').values({accountId:timed.id,leadId:null,typeId:'other',title:'Comunicación WhatsApp',channel:'whatsapp',result:'Ya hablamos',outcome:'interested',occurredAt:notedAt,contactIds:[],actorEmail:seller.user.email} as never).returning('id').executeTakeFirstOrThrow();
+  await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,activity_id,created_at) VALUES(${noted}::uuid,${timed.id},${timed.id},'whatsapp',${timedPhone},${seller.user.email},'whatsapp_opened',${notedText},${notedActivity.id},now()-interval '15 minutes')`.execute(db);
+  const notedSentAt=ago(120_000);assert.equal(await send(notedText,notedSentAt),noted);const notedRow=await row(noted);
+  assert.deepEqual([notedRow.lastInteractionAt.getTime(),notedRow.occurredAt.getTime(),notedRow.result],[notedSentAt.getTime(),notedAt.getTime(),'Ya hablamos'],'An activity with an outcome is not touched');
+  // Spec 100 §9 (D7): an opened WhatsApp younger than 5 minutes waits for the script instead of asking «¿Lo enviaste?» (database clock).
+  // Its own business: the outcome activities above would resolve these sends on the timed one.
+  const waitPhone=`+5493446${String(100000+Math.floor(Math.random()*900000))}`;
+  const waitAccount=await db.insertInto('crmAccounts').values({nombre:`Zz userscript wait ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,telefono:waitPhone,status:'reviewed'} as never).returningAll().executeTakeFirstOrThrow();
+  const openedFor=async(text:string,minutes:number)=>{const id=randomUUID();await sql`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,owner_email,status,body,text_body,created_at,last_interaction_at) VALUES(${id}::uuid,${waitAccount.id},${waitAccount.id},'whatsapp',${waitPhone},${seller.user.email},'whatsapp_opened',${text},${text},now()-make_interval(mins=>${minutes}::int),now()-make_interval(mins=>${minutes}::int))`.execute(db);return id;};
+  const followUps=()=>pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:String(waitAccount.id)});
+  const ids=(l:{items:{id:string}[]})=>l.items.map(p=>p.id);
+  const waiting=await openedFor('Abrí WhatsApp hace un minuto para mandarte la propuesta',1),asking=await openedFor('Abrí WhatsApp hace seis minutos para mandarte la propuesta',6);
+  let f=await followUps();
+  assert.equal(ids(f.unconfirmed).includes(waiting),false,'A 1-minute WhatsApp open waits for the script: not in «¿Lo enviaste?»');
+  assert.equal(ids(f.expired.unconfirmed).includes(waiting),false,'A waiting open is not expired either');
+  assert.equal(ids(f.unconfirmed).includes(asking),true,'After 5 minutes the open asks «¿Lo enviaste?»');
+  const scriptedText='Te confirmo por WhatsApp la propuesta para tu alojamiento';const confirmedInWait=await openedFor(scriptedText,1);
+  const scriptedSend=(await statuses(await post({accountId:String(waitAccount.id),chat:{title:`${waitAccount.nombre} · H${waitAccount.id}`,phone:waitPhone},messages:[{externalId:`true_${randomUUID()}`,direction:'out',text:scriptedText,sentAt:ago(30_000).toISOString(),author:null}]})))[0]!;
+  assert.deepEqual([scriptedSend.status,scriptedSend.id],['created',confirmedInWait],'The script confirms the open within the wait');
+  f=await followUps();
+  assert.equal([...ids(f.unconfirmed),...ids(f.expired.unconfirmed)].includes(confirmedInWait),false,'An open the script confirmed in the wait never asks «¿Lo enviaste?»');
+  assert.equal(f.outcomes.items.find(p=>p.id===confirmedInWait)?.confirmationSource,'userscript','It only asks how it went, labeled as confirmed by the script');
+  }finally{if(since)await sql`UPDATE app_settings SET value=${since} WHERE key='crm_contact_outcome_since'`.execute(db);}
+ }
  const revoked=await tokenRevoke(session(seller.cookie,{id:tokenRow.id}));assert.equal(revoked.status,200);
  const denied=await context(new Request(`http://localhost/_api/userscript/context?code=H${account.id}`,{headers:scripted(token)}));assert.equal(denied.status,401);assert.equal((await badges(new Request('http://localhost/_api/userscript/badges',{method:'POST',headers:scripted(token),body:JSON.stringify({chats:[{key:'revoked',title:'Chat'}]})}))).status,401,'Revoked userscript token cannot query badges');
  console.log('Userscript: tokens, version gate, context read rules, register idempotency, manual completion, concurrency, limits and Instagram (spec 97) passed');

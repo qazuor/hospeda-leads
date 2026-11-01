@@ -11,6 +11,7 @@ import { validateMessageVariables } from "../helpers/messageVariables";
 import {errorResponse} from '../helpers/errorResponse';
 import {parseBody} from '../helpers/parseBody';
 import {validateTemplateMaterials} from '../helpers/templateMaterialService';
+import {findCityRow} from '../helpers/catalogCity';
 
 const INVITE_PREFIX="user_invitation:";
 const INVITE_TTL_MS=7*24*60*60*1000;
@@ -109,7 +110,6 @@ const sendInvitationEmail=async({
         bodyHtml,
         senderName,
         subject,
-        vertical:"CRM Hospeda",
         logoUrl:appUrl+"/hospeda-logo.jpg"
       }),
       textContent:buildHospedaEmailText({bodyText,senderName})
@@ -159,10 +159,19 @@ export async function handle(request:Request){
       await db.insertInto("appSettings").values({key:"crm_userscript_auto_register",value:JSON.stringify({enabled:input.enabled})})
         .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify({enabled:input.enabled}),updatedAt:new Date()})).execute();
     }
+    if(input.action==="saveUserscriptAttachFiles"){
+      await db.insertInto("appSettings").values({key:"crm_userscript_attach_files",value:JSON.stringify({enabled:input.enabled})})
+        .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify({enabled:input.enabled}),updatedAt:new Date()})).execute();
+    }
 
     if(input.action==="addCity"){
-      await db.insertInto("crmCities").values({name:input.name.trim()})
-        .onConflict(oc=>oc.column("name").doUpdateSet({active:true})).execute();
+      // Spec 104 (37): no new city that differs from an existing one only by accents, case or spaces (ñ ≠ n). The exact spelling is used
+      // as typed; an active match by `cityKey` is reported (409); an inactive one is reactivated. With duplicates, active wins, then exact.
+      const name=input.name.trim(),existing=findCityRow({name,rows:await db.selectFrom("crmCities").select(["id","name","active"]).execute()});
+      if(existing?.active&&existing.name!==name)return new Response(superjson.stringify({error:`Ya existe «${existing.name}». Usá esa.`}),{status:409});
+      if(existing&&!existing.active)await db.updateTable("crmCities").set({active:true}).where("id","=",existing.id).execute();
+      else if(!existing)await db.insertInto("crmCities").values({name}).onConflict(oc=>oc.column("name").doUpdateSet({active:true})).execute();
+      return new Response(superjson.stringify({ok:true,city:existing?.name??name} satisfies OutputType));
     }
 
     if(input.action==="addSubtype"){

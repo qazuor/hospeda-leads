@@ -61,7 +61,7 @@ try{
  // Unmatched list and manual assignment are admin only and validate ownership.
  const unmatched=await inbound(null,'unmatched');
  assert.equal((await unmatchedGET(new Request('http://localhost/_api/inbound/unmatched',{headers:{cookie:seller.cookie}}))).status,403);
- const list=await parse(await unmatchedGET(new Request('http://localhost/_api/inbound/unmatched',{headers:{cookie:admin.cookie}})));assert(list.rows.some((r:any)=>r.id===unmatched));
+ const list=await parse(await unmatchedGET(new Request('http://localhost/_api/inbound/unmatched',{headers:{cookie:admin.cookie}})));assert(list.groups.some((g:any)=>g.messages.some((m:any)=>m.id===unmatched)),'Spec 103 D2: the message is listed inside its sender card');
  assert.equal((await assign({id:unmatched,accountId},seller.cookie)).status,403);
  assert.equal((await assign({id:unmatched,accountId,leadId:String(foreignLead.id)},admin.cookie)).status,400,'A management from another business is rejected');
  assert.equal((await assign({id:unmatched,accountId,contactId:String(foreignContact.id)},admin.cookie)).status,400,'A person from another business is rejected');
@@ -77,5 +77,25 @@ try{
  const linked=await inbound(accountId,'pending_review',{linkedMessageId:message});
  assert.equal((await assign({id:linked,accountId:String(elsewhere.id)},admin.cookie)).status,200);
  assert.equal((await row(linked)).linkedMessageId,null,'Reassignment never keeps a link to another business message');
+ // Spec 103 B3 (finding 16): the target must be a live business (not merged or in the trash) and a chosen management must be open.
+ // Archived blocks outputs, not inputs (decisiones.md), so an archived business is a valid target, as in the automatic matching.
+ {
+  const survivor=await db.insertInto('crmAccounts').values({nombre:`Zz inbound ui survivor ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email}).returningAll().executeTakeFirstOrThrow();
+  const merged=await db.insertInto('crmAccounts').values({nombre:`Zz inbound ui merged ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email}).returningAll().executeTakeFirstOrThrow();await db.updateTable('crmAccounts').set({mergedIntoId:survivor.id}).where('id','=',merged.id).execute();
+  const archivedTarget=await db.insertInto('crmAccounts').values({nombre:`Zz inbound ui archived ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,archivedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
+  const trashed=await db.insertInto('crmAccounts').values({nombre:`Zz inbound ui trashed ${randomUUID()}`,ciudad:'Colón',assignedUserEmail:seller.user.email,deletedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
+  const closedStage=await db.selectFrom('crmStages').select('name').where('classification','=','won').executeTakeFirstOrThrow();
+  const closedLead=await db.insertInto('leads').values({accountId:account.id,nombre:account.nombre,estado:openStage.name,assignedUserEmail:seller.user.email}).returningAll().executeTakeFirstOrThrow();await sql`UPDATE leads SET estado=${closedStage.name} WHERE id=${closedLead.id}`.execute(db);
+  const target=await inbound(null,'unmatched');
+  const rejected=async(body:Record<string,unknown>,pattern:RegExp,why:string)=>{const r=await assign({id:target,...body},admin.cookie);const d=await parse(r);assert.equal(r.status,400,why);assert.match(String(d.error),pattern,why);};
+  await rejected({accountId:String(merged.id)},/se fusionó con otro/,'A merged business is rejected');
+  await rejected({accountId:String(trashed.id)},/papelera/,'A business in the trash is rejected');
+  await rejected({accountId:'999999999999'},/papelera|no existe/,'A missing business is rejected with a readable error');
+  await rejected({accountId,leadId:String(closedLead.id)},/abierta/,'A closed management is rejected');
+  assert.equal((await row(target)).status,'unmatched','Nothing moves on a rejection');assert.equal(await journal(target,'inbound_matched'),0);
+  const ok=await assign({id:target,accountId:String(survivor.id)},admin.cookie);assert.equal(ok.status,200);assert.deepEqual(await parse(ok),{ok:true,accountName:survivor.nombre,accountCode:`H${survivor.id}`},'The answer names the business for the notice');
+  const after=await row(target);assert.deepEqual([after.status,after.responseId,after.leadId],['pending_review',null,null],'Associating is only the association: no response, no management');
+  const toArchived=await inbound(null,'unmatched');const archivedOk=await assign({id:toArchived,accountId:String(archivedTarget.id)},admin.cookie);assert.equal(archivedOk.status,200,'An archived business accepts an incoming message');assert.equal((await row(toArchived)).accountId,String(archivedTarget.id));
+ }
  console.log('Inbound email UI: payload without HTML/headers, Hoy visibility, register/dismiss permissions and idempotency, unmatched admin assignment and ownership checks passed');
 }finally{await db.destroy();}

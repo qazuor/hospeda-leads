@@ -9,6 +9,7 @@ vi.mock('../endpoints/communication.schema',async importOriginal=>({...await imp
 vi.mock('../endpoints/work.schema',async importOriginal=>({...await importOriginal<object>(),getWork:async()=>({tasks:[],activities:[],types:[{id:'message',name:'Mensaje',agenda:false,active:true}],accounts:[{id:'1',nombre:'Hotel',ciudad:null,assignedUserEmail:'a@example.com'}],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:0,totalActivities:0,page:1})}));
 vi.mock('../helpers/useAuth',()=>({useAuth:()=>({authState:{type:'authenticated',user:{id:1,email:'a@example.com',displayName:'A',role:'user'}}})}));
 import {OutcomeAfterContact,leaveWithoutOutcome} from './OutcomeAfterContact';
+import {CrmApiError} from '../helpers/apiClient';
 
 beforeAll(()=>{
  window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){}}));
@@ -25,6 +26,15 @@ describe('OutcomeAfterContact',()=>{
   fireEvent.click(screen.getByRole('button',{name:'No, no lo envié'}));
   await waitFor(()=>expect(onDone).toHaveBeenCalledWith('not_sent'));
   expect(postCommunication).toHaveBeenCalledWith({action:'outcome',id:'m1',event:'manual_not_sent',notes:''});
+ });
+ it('shows «Este envío ya estaba confirmado.» as information, refreshes and closes when the script confirmed it first (spec 100 §9.4)',async()=>{
+  const {toast}=await import('sonner');const info=vi.spyOn(toast,'info');const qc=new QueryClient(),refresh=vi.spyOn(qc,'invalidateQueries');
+  postCommunication.mockRejectedValueOnce(new CrmApiError('Este envío ya estaba confirmado.',409));
+  const onDone=vi.fn();render(<MantineProvider><QueryClientProvider client={qc}><OutcomeAfterContact contact={{accountId:'1',leadId:'2',channel:'whatsapp',messageId:'m1',messageStatus:'whatsapp_opened'}} onDone={onDone}/></QueryClientProvider></MantineProvider>);
+  fireEvent.click(await screen.findByRole('button',{name:'No, no lo envié'}));
+  await waitFor(()=>expect(onDone).toHaveBeenCalledWith('left'));
+  expect(info).toHaveBeenCalledWith('Este envío ya estaba confirmado.');expect(refresh).toHaveBeenCalledWith({queryKey:['communication']});
+  expect(screen.queryByRole('alert')).toBeNull();
  });
  it('closes a pending manual attempt as not done',async()=>{
   const onDone=renderOutcome('manual_pending');

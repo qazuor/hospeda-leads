@@ -6,16 +6,16 @@ import type {SalesMaterial,SalesMaterialLimits} from '../endpoints/salesMaterial
 import {CrmApiError} from '../helpers/apiClient';
 import {SalesMaterialForm,pickedFileError,type SalesMaterialFormMode} from './SalesMaterialForm';
 
-const api=vi.hoisted(()=>({post:vi.fn(),upload:vi.fn(),list:vi.fn(),autoCover:vi.fn()}));
+const api=vi.hoisted(()=>({post:vi.fn(),upload:vi.fn(),list:vi.fn(),autoCover:vi.fn(),missing:vi.fn(),linkCover:vi.fn()}));
 vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),postSalesMaterial:api.post,getSalesMaterials:api.list}));
-vi.mock('../helpers/salesMaterialAutoCover',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialAutoCover')>(),saveAutoCover:api.autoCover}));
+vi.mock('../helpers/salesMaterialAutoCover',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialAutoCover')>(),saveAutoCover:api.autoCover,saveMissingAutoCover:api.missing,saveLinkAutoCover:api.linkCover}));
 vi.mock('../helpers/salesMaterialUpload',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialUpload')>(),uploadSalesMaterialFile:api.upload}));
 const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true,maxEmailAttachmentBytes:10485760};
-const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,categories:[],currentVersion:null};
-beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};api.post.mockResolvedValue({ok:true});api.autoCover.mockResolvedValue({ok:true,revision:2});});
+const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,categories:[],currentVersion:null};
+beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};api.post.mockResolvedValue({ok:true});api.autoCover.mockResolvedValue({ok:true,revision:2});api.linkCover.mockResolvedValue({ok:true,revision:2});Element.prototype.scrollIntoView=vi.fn();});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const onSaved=vi.fn(),onClose=vi.fn();
-const setup=(mode:SalesMaterialFormMode,overrides:Partial<SalesMaterialLimits>={})=>render(<MantineProvider><QueryClientProvider client={new QueryClient()}><SalesMaterialForm mode={mode} categories={[{id:'1',name:'Folletos',active:true}]} limits={{...limits,...overrides}} onClose={onClose} onSaved={onSaved}/></QueryClientProvider></MantineProvider>);
+const setup=(mode:SalesMaterialFormMode,overrides:Partial<SalesMaterialLimits>={})=>render(<MantineProvider env="test"><QueryClientProvider client={new QueryClient()}><SalesMaterialForm mode={mode} categories={[{id:'1',name:'Folletos',active:true},{id:'2',name:'Promoción vieja',active:false}]} verticals={['Alojamiento','Gastronomía']} limits={{...limits,...overrides}} onClose={onClose} onSaved={onSaved}/></QueryClientProvider></MantineProvider>);
 const save=(name:string)=>screen.getByRole('button',{name}) as HTMLButtonElement;
 const pick=(label:string,file:File)=>fireEvent.change(screen.getByLabelText(label,{selector:'input'}),{target:{files:[file]}});
 describe('pickedFileError',()=>{
@@ -41,8 +41,72 @@ describe('SalesMaterialForm',()=>{
   fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/video'}});
   fireEvent.click(save('Guardar material'));
   await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));
-  expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',title:'Video institucional',description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/video'}}));
+  expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',title:'Video institucional',description:'',kind:'deliverable',source:'url',categoryIds:[],verticals:[],version:{url:'https://example.com/video'}}));
   expect(api.upload).not.toHaveBeenCalled();
+  // Spec 102 D1: without a manual cover, the link asks for its site's preview image.
+  expect(api.linkCover).toHaveBeenCalledWith({materialId:expect.any(String),revision:1});
+ });
+ it('spec 102 D1: a link without preview image is saved and the notice offers «Elegir portada»; a manual cover skips the preview',async()=>{
+  api.linkCover.mockResolvedValueOnce({ok:false,error:'No encontramos una imagen en ese enlace.'});
+  setup({type:'create'});
+  fireEvent.change(screen.getByLabelText('Origen'),{target:{value:'url'}});fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/tour'}});fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Recorrido'}});
+  fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  const [message,notice]=onSaved.mock.calls[0];expect(message).toBe('Material guardado. No encontramos una imagen en ese enlace. La tarjeta muestra el dibujo del enlace; podés subir una imagen con «Elegir portada».');
+  expect(notice).toEqual({coverMaterialId:api.linkCover.mock.calls[0][0].materialId});
+  cleanup();vi.clearAllMocks();api.post.mockResolvedValue({ok:true});api.upload.mockResolvedValue('u-9');
+  setup({type:'create'});
+  fireEvent.change(screen.getByLabelText('Origen'),{target:{value:'url'}});fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/tour'}});fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Recorrido'}});
+  pick('Portada (opcional)',new File([new Uint8Array([137,80,78,71,13,10,26,10])],'tapa.png',{type:'image/png'}));
+  await waitFor(()=>expect(save('Guardar material').disabled).toBe(false));fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));expect(api.linkCover).not.toHaveBeenCalled();
+ });
+ it('spec 102 D6: creates a category from the same control and saves the material with it',async()=>{
+  api.post.mockImplementation(async(input:{action:string})=>input.action==='category_create'?{id:'42'}:{ok:true});
+  setup({type:'create'});
+  fireEvent.change(screen.getByLabelText('Origen'),{target:{value:'url'}});fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/v'}});fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Video'}});
+  expect(screen.queryByLabelText('Nueva categoría')).toBeNull();
+  const field=screen.getByLabelText('Categorías');fireEvent.focus(field);fireEvent.change(field,{target:{value:'Tarifas 2027'}});
+  fireEvent.click(await screen.findByRole('option',{name:'Crear categoría «Tarifas 2027»'}));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'category_create',name:'Tarifas 2027'}));
+  expect(await screen.findByText('Tarifas 2027')).toBeTruthy();
+  fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',categoryIds:['42']})));
+ });
+ it('spec 102 D6: «Guardar material» shows the category being created and is disabled until it finishes',async()=>{
+  let finish:(v:{id:string})=>void=()=>{};
+  api.post.mockImplementation((input:{action:string})=>input.action==='category_create'?new Promise(resolve=>{finish=resolve;}):Promise.resolve({ok:true}));
+  setup({type:'create'});
+  fireEvent.change(screen.getByLabelText('Origen'),{target:{value:'url'}});fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/v'}});fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Video'}});
+  const field=screen.getByLabelText('Categorías');fireEvent.focus(field);fireEvent.change(field,{target:{value:'Tarifas'}});
+  fireEvent.click(await screen.findByRole('option',{name:'Crear categoría «Tarifas»'}));
+  const button=await screen.findByRole('button',{name:'Creando categoría…'});expect((button as HTMLButtonElement).disabled).toBe(true);
+  finish({id:'5'});
+  await waitFor(()=>expect(save('Guardar material').disabled).toBe(false));
+ });
+ it('spec 102 D6: no «Crear» for a name equal to an existing category by accents/case/spaces, nor for a deactivated one (says where to reactivate it)',async()=>{
+  setup({type:'create'});
+  const field=screen.getByLabelText('Categorías');fireEvent.focus(field);fireEvent.change(field,{target:{value:'FOLLETOS'}});
+  await waitFor(()=>expect(screen.getByRole('option',{name:'Folletos'})).toBeTruthy());expect(screen.queryByRole('option',{name:/Crear categoría/})).toBeNull();
+  fireEvent.change(field,{target:{value:'promocion  VIEJA'}});
+  expect(await screen.findByText('«Promoción vieja» está desactivada. Reactivala en Configuración → «Categorías de material».')).toBeTruthy();
+  expect(screen.queryByRole('option',{name:/Crear categoría/})).toBeNull();expect(api.post).not.toHaveBeenCalled();
+ });
+ it('spec 102 D4: «Verticales» reads «Todas las verticales» when empty and an inactive vertical the material has is kept on save',async()=>{
+  setup({type:'create'});expect((screen.getAllByLabelText('Verticales').find(el=>el instanceof HTMLInputElement&&el.type!=='hidden') as HTMLInputElement).placeholder).toBe('Todas las verticales');cleanup();
+  setup({type:'edit',material:{...material,verticals:['Alojamiento','Vieja']}});
+  expect(screen.getAllByText('Vieja (desactivada)').length).toBeGreaterThan(0);
+  fireEvent.click(save('Guardar cambios'));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'update',verticals:['Alojamiento','Vieja']})));
+ });
+ it('spec 102 D1: «Portada» of a link offers «Generar desde el enlace»',async()=>{
+  api.missing.mockResolvedValue({ok:true});
+  const link:SalesMaterial={...material,source:'url',currentVersion:{id:'v-1',version:1,url:'https://example.com/tour',fileName:null,mimeType:null,byteSize:null,actorEmail:'a@example.com',createdAt:new Date()}};
+  setup({type:'cover',material:link});
+  fireEvent.click(screen.getByRole('button',{name:'Generar desde el enlace'}));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Portada generada.'));
+  expect(api.missing).toHaveBeenCalledWith(expect.objectContaining({material:expect.objectContaining({id:'m-1',source:'url'}),explicit:true}));
+  cleanup();setup({type:'cover',material:{...link,coverSource:'manual',hasCover:true}});expect(screen.queryByRole('button',{name:'Generar desde el enlace'})).toBeNull();
  });
  it('uploads a JPEG saved as .png under its real type and says so (owner review of spec 96)',async()=>{
   // Arrange
@@ -97,7 +161,24 @@ describe('SalesMaterialForm',()=>{
   fireEvent.change(screen.getByLabelText('Tipo'),{target:{value:'internal'}});
   expect(screen.getByRole('note').textContent).toContain('van a mostrar «Este material ya no está disponible»');
   fireEvent.click(save('Guardar cambios'));
-  await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'update',id:'m-1',revision:5,title:'Folleto',description:'',kind:'internal',categoryIds:[]}));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'update',id:'m-1',revision:5,title:'Folleto',description:'',kind:'internal',categoryIds:[],verticals:[],openDirect:false}));
+ });
+ it('spec 101 D3/D4: creates a material set to «Abrir directo» and explains what it changes',async()=>{
+  setup({type:'create'});
+  fireEvent.change(screen.getByLabelText('Origen'),{target:{value:'url'}});
+  fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/tour'}});
+  fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Recorrido 360'}});
+  const toggle=screen.getByLabelText('Abrir directo') as HTMLInputElement;expect(toggle.checked).toBe(false);
+  expect(screen.getByText(/va directo al sitio externo/).textContent).toMatch(/enlaces ya enviados/);
+  fireEvent.click(toggle);fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',source:'url',openDirect:true})));
+ });
+ it('spec 101 D3: edits «Abrir directo» from the stored value, with the file wording',async()=>{
+  setup({type:'edit',material:{...material,openDirect:true}});
+  const toggle=screen.getByLabelText('Abrir directo') as HTMLInputElement;expect(toggle.checked).toBe(true);
+  expect(screen.getByText(/ve el archivo/).textContent).toMatch(/se descargan/);
+  fireEvent.click(toggle);fireEvent.click(save('Guardar cambios'));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'update',openDirect:false})));
  });
  it('refuses uploads while storage is not configured',()=>{
   setup({type:'version',material},{storageConfigured:false});pick('Archivo',new File(['%PDF-'],'v2.pdf',{type:'application/pdf'}));
@@ -166,8 +247,89 @@ describe('SalesMaterialForm',()=>{
   api.upload.mockResolvedValue('up-1');api.autoCover.mockResolvedValue({ok:false,error:'Canvas unavailable'});
   setup({type:'create'});pick('Archivo',new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
   fireEvent.click(save('Guardar material'));
-  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado. La portada automática no se pudo generar: la tarjeta muestra el dibujo del formato.'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado. La portada automática no se pudo generar: Canvas unavailable La tarjeta muestra el dibujo del formato; podés subir una imagen o reintentar con «Elegir portada».',{coverMaterialId:expect.stringMatching(/^[0-9a-f-]{36}$/)}));
   expect(screen.queryByRole('alert')).toBeNull();
+ });
+ it('spec 102: the notice keeps the real reason of a failed cover and offers «Elegir portada»',async()=>{
+  // Regression (smoke 30/10, finding 15d): the reason was dropped and nothing offered to create the cover.
+  api.upload.mockResolvedValue('up-1');api.post.mockResolvedValue({id:'x',revision:1});api.autoCover.mockResolvedValue({ok:false,error:'El PDF tiene contraseña.'});
+  setup({type:'create'});pick('Archivo',new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto 2027'}});
+  fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  const [message,notice]=onSaved.mock.calls[0];const id=api.post.mock.calls[0][0].id;
+  expect(message).toContain('El PDF tiene contraseña.');expect(notice).toEqual({coverMaterialId:id});
+ });
+ it('spec 102: a PDF over 150 MB is saved and the notice says why it has no cover, never a silent skip',async()=>{
+  api.upload.mockResolvedValue('up-1');api.post.mockResolvedValue({id:'x',revision:1});
+  setup({type:'create'});const big=new File(['%PDF-'],'folleto.pdf',{type:'application/pdf'});Object.defineProperty(big,'size',{value:160*1024*1024});
+  pick('Archivo',big);fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Folleto pesado'}});
+  fireEvent.click(save('Guardar material'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  expect(onSaved).toHaveBeenCalledWith('Material guardado. Este PDF pesa más de 150 MB: no podemos generar su portada en el navegador. Subí una imagen con «Elegir portada».',{coverMaterialId:api.post.mock.calls[0][0].id});
+  expect(api.autoCover).not.toHaveBeenCalled();
+ });
+ it('spec 102 block 2: an external link can get a manual cover when it is created',async()=>{
+  api.upload.mockResolvedValue('cover-1');api.post.mockResolvedValue({id:'x',revision:1});
+  setup({type:'create'});fireEvent.change(screen.getByLabelText('Origen'),{target:{value:'url'}});
+  fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/tour'}});fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Recorrido 360'}});
+  pick('Portada (opcional)',new File(['png'],'tapa.png',{type:'image/png'}));
+  fireEvent.click(save('Guardar material'));await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));
+  const id=api.post.mock.calls[0][0].id;expect(api.upload).toHaveBeenCalledWith(expect.objectContaining({purpose:'cover',materialId:id}));
+  expect(api.post.mock.calls[1][0]).toEqual({action:'cover',id,revision:1,uploadId:'cover-1'});expect(api.autoCover).not.toHaveBeenCalled();
+ });
+});
+describe('«Portada» dialog: «Generar desde el archivo» (spec 102)',()=>{
+ const pdfVersion={id:'v-1',version:1,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:5000,actorEmail:'a@example.com',createdAt:new Date()};
+ const fileMaterial=(over:Partial<SalesMaterial>={}):SalesMaterial=>({...material,coverSource:null,currentVersion:pdfVersion,...over});
+ it('generates the cover from the stored file, shows progress, blocks a double click and keeps the reason with a retry',async()=>{
+  let fail!:(r:unknown)=>void;api.missing.mockImplementationOnce(()=>new Promise(resolve=>{fail=resolve})).mockResolvedValueOnce({ok:true});
+  setup({type:'cover',material:fileMaterial()});
+  const generate=screen.getByRole('button',{name:'Generar desde el archivo'}) as HTMLButtonElement;
+  fireEvent.click(generate);fireEvent.click(generate);
+  expect(await screen.findByText('Generando portada…',{selector:'p'})).toBeTruthy();
+  expect(api.missing).toHaveBeenCalledTimes(1);expect(api.missing.mock.calls[0][0]).toMatchObject({material:expect.objectContaining({id:'m-1',revision:5}),explicit:true});
+  fail({ok:false,error:'No se pudo leer el PDF.'});
+  expect((await screen.findByRole('alert')).textContent).toBe('No se pudo leer el PDF. Podés reintentar o subir una imagen.');
+  // The image field stays next to the reason.
+  expect(screen.getByLabelText('Imagen de portada',{selector:'input'})).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Generar desde el archivo'}));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Portada generada.'));expect(api.missing).toHaveBeenCalledTimes(2);
+ });
+ it('appears for an automatic or removed cover, not for a manual cover nor a link; a PDF over the limit shows the reason instead',()=>{
+  for(const coverSource of ['auto','none'] as const){setup({type:'cover',material:fileMaterial({coverSource,hasCover:coverSource==='auto'})});expect(screen.getByRole('button',{name:'Generar desde el archivo'})).toBeTruthy();cleanup();}
+  setup({type:'cover',material:fileMaterial({coverSource:'manual',hasCover:true})});expect(screen.queryByRole('button',{name:'Generar desde el archivo'})).toBeNull();cleanup();
+  setup({type:'cover',material:fileMaterial({source:'url',currentVersion:{...pdfVersion,url:'https://example.com',mimeType:null,byteSize:null}})});expect(screen.queryByRole('button',{name:'Generar desde el archivo'})).toBeNull();
+  expect(screen.getByLabelText('Imagen de portada',{selector:'input'})).toBeTruthy();cleanup();
+  setup({type:'cover',material:fileMaterial({currentVersion:{...pdfVersion,byteSize:160*1024*1024}})});expect(screen.queryByRole('button',{name:'Generar desde el archivo'})).toBeNull();
+  expect(screen.getByText(/Este PDF pesa más de 150 MB/)).toBeTruthy();
+ });
+ it('after a conflict takes the latest revision before the retry',async()=>{
+  api.missing.mockResolvedValueOnce({ok:false,error:'La versión cambió. Actualizá antes de continuar.',conflict:true}).mockResolvedValueOnce({ok:true});
+  api.list.mockResolvedValue({materials:[fileMaterial({revision:8})],truncated:false,categories:[],limits});
+  setup({type:'cover',material:fileMaterial()});fireEvent.click(screen.getByRole('button',{name:'Generar desde el archivo'}));
+  expect((await screen.findByRole('alert')).textContent).toContain('Ya tomamos los datos más recientes');
+  fireEvent.click(screen.getByRole('button',{name:'Generar desde el archivo'}));await waitFor(()=>expect(onSaved).toHaveBeenCalled());
+  expect(api.missing.mock.calls[1][0].material.revision).toBe(8);
+ });
+ it('after a conflict also takes the latest cover state: a cover removed meanwhile is replaced, not reported as a manual choice (spec 102 review)',async()=>{
+  api.missing.mockResolvedValueOnce({ok:false,error:'La versión cambió. Actualizá antes de continuar.',conflict:true}).mockResolvedValueOnce({ok:true});
+  api.list.mockResolvedValue({materials:[fileMaterial({revision:8,coverSource:'none',hasCover:false})],truncated:false,categories:[],limits});
+  setup({type:'cover',material:fileMaterial({coverSource:'auto',hasCover:true})});fireEvent.click(screen.getByRole('button',{name:'Generar desde el archivo'}));
+  expect((await screen.findByRole('alert')).textContent).toContain('Ya tomamos los datos más recientes');
+  fireEvent.click(screen.getByRole('button',{name:'Generar desde el archivo'}));await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Portada generada.'));
+  expect(api.missing.mock.calls[1][0].material).toMatchObject({revision:8,coverSource:'none'});
+ });
+ it('can be cancelled while it runs: the signal reaches the download and upload, and the dialog offers a retry (spec 102 review)',async()=>{
+  api.missing.mockImplementationOnce(({signal}:{signal:AbortSignal})=>new Promise(resolve=>signal.addEventListener('abort',()=>resolve({ok:false,error:'Aborted'}))));
+  setup({type:'cover',material:fileMaterial()});fireEvent.click(screen.getByRole('button',{name:'Generar desde el archivo'}));
+  fireEvent.click(await screen.findByRole('button',{name:'Cancelar'}));
+  expect((await screen.findByRole('alert')).textContent).toBe('Se canceló la generación de la portada. Podés reintentar o subir una imagen.');
+  expect((api.missing.mock.calls[0][0].signal as AbortSignal).aborted).toBe(true);
+  expect(screen.queryByRole('button',{name:'Cancelar'})).toBeNull();expect((screen.getByRole('button',{name:'Generar desde el archivo'}) as HTMLButtonElement).disabled).toBe(false);
+  expect(onSaved).not.toHaveBeenCalled();
+ });
+ it('is off while storage is not configured, with the reason',()=>{
+  setup({type:'cover',material:fileMaterial()},{storageConfigured:false});expect((screen.getByRole('button',{name:'Generar desde el archivo'}) as HTMLButtonElement).disabled).toBe(true);
  });
  it('small images, audio and office files get no automatic cover',async()=>{
   api.upload.mockResolvedValue('up-1');

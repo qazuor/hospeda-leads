@@ -1,6 +1,7 @@
 import { sql } from "kysely";
 import type { Leads } from "./schema";
 import { idSetSearchSql } from "./searchSql";
+import {lastContactByAccountSql} from './contactEvidence';
 
 // Columns of the leads table in table order. The business projection returns
 // these columns plus the separate business contact fields and business_status; scripts/test-commercial.ts
@@ -22,7 +23,7 @@ const BUSINESS_OVERRIDES:Readonly<Partial<Record<typeof BUSINESS_PROJECTION_LEAD
   fecha_creacion:"coalesce(l.fecha_creacion, a.created_at)::date",
   contact_name:"coalesce(pc.name,l.contact_name)",
   fecha_proxima_accion:"nt.due_date",
-  fecha_ultimo_contacto:"coalesce(la.occurred_at,l.fecha_ultimo_contacto)::date",
+  fecha_ultimo_contacto:"coalesce(lc.occurred_at,l.fecha_ultimo_contacto)::date",
 };
 
 /** One [column, SQL expression] pair per leads column, in table order. */
@@ -44,8 +45,21 @@ export const businessTableSource = (includeDeleted=false) => sql<BusinessProject
   left join leads l on l.account_id = a.id and l.deleted_at is null
   left join (select distinct on (c.account_id) c.account_id, c.name, c.phone, c.email from crm_contacts c where c.deleted_at is null order by c.account_id, c.is_primary desc, c.id) pc on pc.account_id = a.id
   left join (select t.account_id, min(t.due_date) as due_date from crm_tasks t left join leads tl on tl.id=t.lead_id where t.status='pending' and t.deleted_at is null and (t.lead_id is null or tl.deleted_at is null) group by t.account_id) nt on nt.account_id = a.id
-  left join (select ac.account_id, max(ac.occurred_at) as occurred_at from crm_activities ac left join leads al on al.id=ac.lead_id where ac.deleted_at is null and (ac.lead_id is null or al.deleted_at is null) group by ac.account_id) la on la.account_id = a.id
+  left join ${lastContactByAccountSql()} lc on lc.account_id = a.id
   where a.merged_into_id is null and a.archived_at is null and (${includeDeleted} or a.deleted_at is null)
+)`;
+
+/**
+ * Person shown for a management (spec 104): its own primary person, then the business primary person (same rule as the
+ * business projection: is_primary first, then lowest id), then the legacy `contact_name`. Deleted people are never used.
+ */
+const MANAGEMENT_CONTACT_NAME="coalesce(mpc.name,(select c.name from crm_contacts c where c.account_id=l.account_id and c.deleted_at is null order by c.is_primary desc, c.id limit 1),l.contact_name)";
+const managementColumns=BUSINESS_PROJECTION_LEAD_COLUMNS.map(column=>column==="contact_name"?`${MANAGEMENT_CONTACT_NAME} as contact_name`:`l.${column}`).join(", ");
+/** Gestiones list source aliased `leads`: every leads column, with `contact_name` resolved by {@link MANAGEMENT_CONTACT_NAME} so the column, its filters and its sort agree. */
+export const managementTableSource = () => sql<Leads>`(
+  select ${sql.raw(managementColumns)}
+  from leads l
+  left join crm_contacts mpc on mpc.id = l.primary_contact_id and mpc.account_id = l.account_id and mpc.deleted_at is null
 )`;
 
 /**

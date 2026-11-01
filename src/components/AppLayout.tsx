@@ -1,5 +1,6 @@
 import React from 'react';
-import { Drawer, Tooltip } from '@mantine/core';
+import { Tooltip } from '@mantine/core';
+import { CrmDrawer } from './ui/CrmDialog';
 import { ChevronDown, LogOut, Moon, Search, Sun, SunMoon, UserCircle, CircleUserRound, PanelLeftClose, PanelLeftOpen, Code, Ellipsis, ShieldCheck } from 'lucide-react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { APP_TITLE, adminNavigation, breadcrumbTrail, documentTitle, mainNavigation, recordNavigation, sectionTitle, toolNavigation, workNavigation } from '../helpers/appNavigation';
@@ -62,7 +63,7 @@ export function AppLayout() {
     </aside>
     <div className={styles.main}><header className={styles.topbar}>{breadcrumbs(trail)}<div className={styles.topbarActions}><LiveModeSwitch/>{userMenu()}</div></header><header className={styles.mobileTop}><Link to="/my-day" className={styles.mobileBrand}><img src="/hospeda-logo.jpg" alt="Hospeda"/><strong>{(isAdmin && adminNavigation.find(item => item.url.includes('?') ? location.pathname + location.search === item.url : item.url === location.pathname)?.label) ?? sectionTitle({ pathname: location.pathname }) ?? trail.at(-1)?.label ?? APP_TITLE}</strong></Link>{searchButton(true)}<div className={styles.mobileActions}><LiveModeSwitch/>{userMenu(true)}</div></header><div className={styles.page}><React.Suspense fallback={<RouteLoading/>}><Outlet/></React.Suspense></div><UserscriptRequirement/></div>
     <nav className={styles.bottomNav} aria-label="Navegación inferior">{mainNavigation.map(item => <Link key={item.url} to={item.url} className={styles.bottomItem} aria-current={isActive(item.url) ? 'page' : undefined}><item.icon size={20}/><span>{item.label}</span></Link>)}<button type="button" className={styles.bottomItem} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}><Ellipsis size={20} aria-hidden="true"/><span>Más</span></button></nav>
-    <Drawer opened={moreOpen} onClose={() => setMoreOpen(false)} position="bottom" title="Otras secciones" closeButtonProps={{ 'aria-label': 'Cerrar otras secciones' }} overlayProps={{ className: 'crm-dialog-overlay' }} classNames={{ content: styles.sheet, body: styles.sheetBody }}><div className={styles.sheetContent}><div className={styles.groupLabel}>Herramientas</div>{toolNavigation.map(item => navLink(item, true))}{isAdmin && <><div className={styles.groupLabel}>Administración</div>{adminNavigation.map(item => navLink(item, true))}</>}</div></Drawer>
+    <CrmDrawer opened={moreOpen} onClose={() => setMoreOpen(false)} position="bottom" title="Otras secciones" closeButtonProps={{ 'aria-label': 'Cerrar otras secciones' }} overlayProps={{ className: 'crm-dialog-overlay' }} classNames={{ content: styles.sheet, body: styles.sheetBody }}><div className={styles.sheetContent}><div className={styles.groupLabel}>Herramientas</div>{toolNavigation.map(item => navLink(item, true))}{isAdmin && <><div className={styles.groupLabel}>Administración</div>{adminNavigation.map(item => navLink(item, true))}</>}</div></CrmDrawer>
     <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen}/>
   </div></PageCrumbContext.Provider>;
 }

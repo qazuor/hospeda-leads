@@ -1,8 +1,9 @@
 import {cancelRecontactTaskFor} from './recontactTask';
+import {CONTACT_EVIDENCE_STATUSES} from './contactEvidence';
 import {terminalEmailEvent} from './emailEngagement';
 import {templateCompatibility} from './messageTemplatePolicy';
 import {assertAccountReadable,assertAccountViewable,assertAccountWritable,assertCanRecordDoNotContact,assertLeadAccess,lockAccounts} from './crmPermissions';
-import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY} from './doNotContactPermission';
+import {DO_NOT_CONTACT_LIFT_DENIED,DO_NOT_CONTACT_READ_ONLY,RESTRICTION_RECORD_DENIED} from './doNotContactPermission';
 import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Kysely,type RawBuilder,type Transaction} from 'kysely';
 import {z} from 'zod';
@@ -22,15 +23,17 @@ import {resolveTemplateMaterials} from './templateMaterialService';
 import {UNRESOLVED_MATERIAL_MESSAGE,hasMaterialReferences} from './templateMaterials';
 import {responseCategoryLabel} from './crmLabels';
 import {voidAutoRegistration} from './autoRegistration';
-import {OPENED_UNCONFIRMED_STATUSES,OUTCOME_READY_STATUSES,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
+import {ALREADY_CONFIRMED_MESSAGE,OUTCOME_READY_STATUSES,OUTCOME_STALE_DAYS,UNCONFIRMED_FOLLOW_UP_STATUSES,UNCONFIRMED_STALE_HOURS,WHATSAPP_SCRIPT_WAIT_MS,FOLLOW_UP_GROUP_ITEM_LIMIT,canLogContactOutcome,isOpenedUnconfirmed,needsSentAnswer} from './contactOutcome';
 import {INSTAGRAM_DESTINATION,INSTAGRAM_ECHO_WAIT_MS,attemptUsername,instagramChatUrl,isInstagramAttempt,normalizeInstagramUsername} from './instagramChat';
 import {instagramComposerFlags,resolveEarlierInstagramEcho,withEchoSavepoint} from './instagramEcho';
 import {instagramAccountUsername,instagramThreadFor} from './userscriptInstagram';
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
 import {refreshAutoOutcomesFromResponse,resolveSendOutcomeFromResponse} from './responseOutcomeService';
+import {whatsappAttachEligibility,whatsappAttachSingleEligible} from './salesMaterialMessage';
 import {contactLogBlocked} from './responseOutcome';
 export type Executor=Kysely<DB>|Transaction<DB>;
+export const USERSCRIPT_CONFIRMED_RESULT='Envío confirmado por el script de WhatsApp';
 /** Columns read back to recognise a replayed `response_create` (camelCased by the Kysely plugin). */
 type ResponseReplay={id:string;actorEmail:string;accountId:string|number;leadId:string|number|null;category:string;contactId:string|number|null;linkedMessageId:string|null};
 export class CommunicationForbidden extends Error{}
@@ -258,12 +261,14 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
   if(user.role!=='admin'&&task.assignedUserEmail!==user.email)throw new CommunicationForbidden('Solo el asignado a la tarea o un administrador puede resolverla.');
   selectedTasks.push(task);
  }
- if(input.linkedMessageId){const linked=(await sql`SELECT id FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${input.accountId} AND contact_id IS NOT DISTINCT FROM ${input.contactId}::bigint`.execute(e)).rows[0];if(!linked)throw new Error('El contacto previo no coincide con el destinatario.');}
+ // Spec 99 §3.4: the linked send and the person are chosen independently (a send to Ana answered by «El negocio»); the send must be of this business.
+ if(input.newReply&&input.linkedMessageId)throw new Error('Una respuesta nueva no responde a un mensaje que mandaste.');
+ if(input.linkedMessageId){const linked=(await sql`SELECT id FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${input.accountId}`.execute(e)).rows[0];if(!linked)throw new Error('El mensaje previo no es de este negocio.');}
  const inserted=await sql<{id:string}>`INSERT INTO crm_communication_responses(id,account_id,original_account_id,lead_id,contact_id,channel,recipient,recipient_name,destination_detail,linked_message_id,category,summary,exact_text,other_detail,actor_email) VALUES(${input.id}::uuid,${account.id},${account.id},${input.leadId},${input.contactId},${input.channel},${input.recipient},${input.recipientName},${input.destination},${input.linkedMessageId}::uuid,${input.category},${input.summary},${input.exactText},${input.otherDetail},${user.email}) RETURNING id`.execute(e);
  const responseId=inserted.rows[0].id;
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_registered',actor:user,after:{category:input.category,summary:input.summary,exactText:input.exactText,channel:input.channel,recipient:input.recipient,recipientName:input.recipientName,destination:input.destination}});
  // Spec 96 §10.1: the response resolves the pending «¿Cómo salió?» of the send it answers, when that can be told without guessing.
- await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user,answeredAt});
+ await resolveSendOutcomeFromResponse(e,{response:{id:responseId,accountId:String(account.id),leadId:input.leadId,linkedMessageId:input.linkedMessageId,category:input.category,summary:input.summary},user,answeredAt,newReply:!!input.newReply});
  for(const task of selectedTasks){
   const completedAt=new Date();const result='Resuelta por la respuesta del cliente';
   const updated=await sql`UPDATE crm_tasks SET status='completed',completed_at=${completedAt},result=${result},updated_at=now() WHERE id=${task.id} AND status='pending' RETURNING id`.execute(e);
@@ -352,7 +357,7 @@ async function startManual(e:Executor,input:Extract<CommunicationMutation,{actio
  if(input.channel==='call'&&status==='manual_sent')await markClientForCare(e,created,user);
  await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'interaction',entityId:created.id,action:input.channel==='call'?'contact_completed':'contact_started',actor:user,after:{channel:input.channel,status:created.status,purpose:input.purpose,recipient:created.recipient,recipientName:created.recipientName,destination:created.destinationDetail,content:created.templateSnapshot?.finalBody||created.body||null,summary:created.summary}});return created;
 }
-export async function renderFinal(e:Executor,m:Message,user:User){const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const sender=user.fullName?.trim()||user.displayName;return {htmlBody:buildHospedaEmailHtml({bodyHtml:m.body,senderName:sender,senderEmail:user.email,subject:m.subject,vertical:lead?.tipo??account.tipo,commercialProfile:lead?.commercialProfile??null,logoUrl:(process.env.PUBLIC_APP_URL??'http://localhost:3001').replace(/\/$/,'')+'/hospeda-logo.jpg'}),textBody:buildHospedaEmailText({bodyText:htmlToPlainText(m.body),senderName:sender,senderEmail:user.email})};}
+export async function renderFinal(e:Executor,m:Message,user:User){const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);const sender=user.fullName?.trim()||user.displayName;return {htmlBody:buildHospedaEmailHtml({bodyHtml:m.body,senderName:sender,senderEmail:user.email,subject:m.subject,vertical:lead?.tipo??account.tipo,logoUrl:(process.env.PUBLIC_APP_URL??'http://localhost:3001').replace(/\/$/,'')+'/hospeda-logo.jpg'}),textBody:buildHospedaEmailText({bodyText:htmlToPlainText(m.body),senderName:sender,senderEmail:user.email})};}
 /**
  * Spec 96 §2.4 (D6): a fresh draft stores its final text (and the email html) exactly as `edit` would, so the composer opens on the final
  * view and an untouched email can be sent. A blank message, missing variables or unresolved material references keep them null: the
@@ -366,26 +371,32 @@ async function renderPreparedFinal<T extends Message>(e:Executor,m:T,user:User):
  const saved=(await sql<Message>`UPDATE crm_messages SET body=${body},html_body=${m.channel==='email'?final.htmlBody:null},text_body=${m.channel==='email'?final.textBody:body},updated_at=now() WHERE id=${m.id}::uuid RETURNING *`.execute(e)).rows[0]!;
  return {...m,...saved};
 }
-async function activity(e:Executor,m:Message,user:User,result:string){
+/** Records (or updates while it has no outcome) the activity of a message; `occurredAt` is when the contact happened (default now). */
+async function activity(e:Executor,m:Message,user:User,result:string,occurredAt?:Date){
  const {lead,account}=await communicationContext(e,String(m.accountId),m.leadId==null?null:String(m.leadId),user,false);
  const current=(await sql<{activityId:string|null;status:string}>`SELECT activity_id,status FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0];
  const replyInboundId=m.templateSnapshot?.inboundId;
  const replyActivity=replyInboundId&&!current?.activityId?await e.selectFrom('crmActivities').select('id').where('accountId','=',m.accountId).where('notes','=','Respuesta al email entrante '+replyInboundId).where('outcome','is',null).executeTakeFirst():undefined;
  const existingId=current?.activityId??m.activityId??replyActivity?.id;
- if(existingId){const providerResult=result.startsWith('Email aceptado')||result==='Rechazo de Brevo';if(!(providerResult&&['replied','rejected'].includes(current?.status??'')))await e.updateTable('crmActivities').set({result,updatedAt:new Date()}).where('id','=',existingId).where('outcome','is',null).execute();return existingId;}
- const a=await e.insertInto('crmActivities').values({accountId:account.id,leadId:lead?.id??null,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':isInstagramAttempt(m)?'Comunicación Instagram':'Comunicación '+m.channel,channel:m.channel,result,occurredAt:new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
+ if(existingId){const providerResult=result.startsWith('Email aceptado')||result==='Rechazo de Brevo';if(!(providerResult&&['replied','rejected'].includes(current?.status??'')))await e.updateTable('crmActivities').set({result,...(occurredAt?{occurredAt}:{}),updatedAt:new Date()}).where('id','=',existingId).where('outcome','is',null).execute();return existingId;}
+ const a=await e.insertInto('crmActivities').values({accountId:account.id,leadId:lead?.id??null,typeId:m.channel==='whatsapp'?'other':'message',title:m.channel==='whatsapp'?'Comunicación WhatsApp':isInstagramAttempt(m)?'Comunicación Instagram':'Comunicación '+m.channel,channel:m.channel,result,occurredAt:occurredAt??new Date(),contactIds:m.contactId?[m.contactId]:[],participants:m.recipientName,actorEmail:user.email,notes:'Snapshot de mensaje #'+m.id}).returning('id').executeTakeFirstOrThrow();
  await sql`UPDATE crm_messages SET activity_id=${a.id} WHERE id=${m.id}::uuid`.execute(e);
  if(lead)await writeLeadJournal(e as Transaction<DB>,{leadId:String(lead.id),leadName:lead.nombre,actor:user,action:'contact_logged',metadata:{activityId:a.id,messageId:m.id,channel:m.channel,result,template:m.templateSnapshot?.name??null}});return a.id;
 }
+/**
+ * The time a send seen by the user script is stored with (spec 99 §3.2): the WhatsApp time, never after now() and, for an attempt,
+ * never before the attempt was prepared. completed_at/updated_at keep now(): when it was registered in the CRM.
+ */
+const effectiveSentAt=(sentAt:Date)=>sql`GREATEST(LEAST(${sentAt}::timestamptz,now()),created_at)`;
 /** Completes a WhatsApp manual attempt that the user script observed as sent, reusing CRM completion rules and journal effects. */
-export async function completeUserscriptManual(e:Executor,id:string,externalId:string,text:string,user:User){
+export async function completeUserscriptManual(e:Executor,{id,externalId,text,sentAt}:{id:string;externalId:string;text:string;sentAt:Date},user:User){
  const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp'||m.status!=='manual_pending')throw new CommunicationConflict('Este intento ya fue completado.');
  await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),'whatsapp');
- await sql`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},body=${text},text_body=${text},summary=${text},completed_at=now(),completed_by_email=${user.email},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
- await activity(e,m,user,'Envío confirmado manualmente');
- if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
+ const at=(await sql<{at:Date}>`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},body=${text},text_body=${text},summary=${text},completed_at=now(),completed_by_email=${user.email},last_interaction_at=${effectiveSentAt(sentAt)},last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING last_interaction_at AS at`.execute(e)).rows[0]!.at;
+ await activity(e,m,user,USERSCRIPT_CONFIRMED_RESULT,at);
+ if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:USERSCRIPT_CONFIRMED_RESULT,updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
  await markClientForCare(e,m,user);
- await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_completed',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId}});
+ await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_completed',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,sentAt:at}});
  return m.id;
 }
 /**
@@ -393,7 +404,7 @@ export async function completeUserscriptManual(e:Executor,id:string,externalId:s
  * chat, with the same effects as answering "Sí, lo envié": the prepared body stays, the text actually sent is kept in text_body/summary.
  * A WhatsApp already confirmed by hand (manual_sent without a WhatsApp id) is only linked to the message id, so it is not recorded twice.
  */
-export async function completeUserscriptOpened(e:Executor,id:string,externalId:string,text:string,user:User){
+export async function completeUserscriptOpened(e:Executor,{id,externalId,text,sentAt,media=null}:{id:string;externalId:string;text:string;sentAt:Date;media?:'document'|'image'|'video'|'audio'|null},user:User){
  const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp')throw new CommunicationConflict('Este intento ya fue completado.');
  const linkedId=(await sql<{externalId:string|null}>`SELECT external_id FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]?.externalId;
  if(m.status==='manual_sent'&&!linkedId){
@@ -404,20 +415,28 @@ export async function completeUserscriptOpened(e:Executor,id:string,externalId:s
  }
  if(m.status!=='whatsapp_opened')throw new CommunicationConflict('Este intento ya fue completado.');
  await assertAccountContactAllowed(e,String(m.accountId),m.leadId==null?null:String(m.leadId),m.contactId==null?null:String(m.contactId),'whatsapp');
- await sql`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},text_body=${text},summary=${text},last_interaction_at=now(),last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
- await activity(e,m,user,'Envío confirmado manualmente');
- if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:'Envío confirmado manualmente',updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
+ const at=(await sql<{at:Date}>`UPDATE crm_messages SET status='manual_sent',external_id=${externalId},text_body=${text},summary=${text},last_interaction_at=${effectiveSentAt(sentAt)},last_actor_email=${user.email},revision=revision+1,updated_at=now() WHERE id=${m.id}::uuid RETURNING last_interaction_at AS at`.execute(e)).rows[0]!.at;
+ await activity(e,m,user,USERSCRIPT_CONFIRMED_RESULT,at);
+ if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:USERSCRIPT_CONFIRMED_RESULT,updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
  await markClientForCare(e,m,user);
- await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_resolved',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,source:'userscript'}});
+ await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_resolved',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,source:'userscript',sentAt:at}});
+ if(media==='document'||media==='image'){
+  const switchRow=await e.selectFrom('appSettings').select('value').where('key','=','crm_userscript_attach_files').executeTakeFirst();let enabled=true;try{if(switchRow)enabled=JSON.parse(switchRow.value).enabled!==false}catch{enabled=true;}
+  if(enabled){
+   const shares=(await sql<{id:string;materialId:string;sentVersion:number|null;source:'file'|'url';fileName:string|null;mimeType:string|null;byteSize:number|null;kind:string;status:string;objectKey:string|null}>`SELECT s.id,s.material_id AS "materialId",s.sent_version AS "sentVersion",mt.source,v.file_name AS "fileName",v.mime_type AS "mimeType",v.byte_size AS "byteSize",mt.kind,mt.status,v.object_key AS "objectKey" FROM crm_sales_material_shares s JOIN crm_sales_materials mt ON mt.id=s.material_id LEFT JOIN crm_sales_material_versions v ON v.material_id=mt.id AND v.version=s.sent_version WHERE s.message_id=${m.id}::uuid AND s.revoked_at IS NULL AND s.sent_version IS NOT NULL ORDER BY s.created_at,s.id`.execute(e)).rows;
+   const eligible=shares.map(s=>({share:s,eligible:whatsappAttachEligibility({source:s.source,title:'',fileName:s.fileName,mimeType:s.mimeType,byteSize:s.byteSize==null?null:Number(s.byteSize),enabled:s.kind==='deliverable'&&s.status==='active'&&!!s.objectKey}).eligible}));
+   if(eligible.length===1&&whatsappAttachSingleEligible(shares.length,eligible[0]!.eligible)){const {share}=eligible[0]!;await sql`UPDATE crm_sales_material_shares SET attach=true,attached_version=${share.sentVersion} WHERE id=${share.id}::uuid`.execute(e);await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'material_file_attached',actor:user,triggeredBy:'userscript',after:{shareId:share.id,materialId:share.materialId,version:share.sentVersion}});}
+  }
+ }
  return {id:m.id,linked:false};
 }
-/** Records an already-sent WhatsApp message when no CRM manual attempt exists for it. */
+/** Records an already-sent WhatsApp message when no CRM manual attempt exists for it, with the WhatsApp time capped at now(). */
 export async function registerUserscriptSent(e:Executor,v:{accountId:string;externalId:string;phone:string;title:string;text:string;sentAt:Date},user:User){
  await assertAccountContactAllowed(e,v.accountId,null,null,'whatsapp');
  const account=await e.selectFrom('crmAccounts').select('status').where('id','=',v.accountId).executeTakeFirstOrThrow();if(account.status==='new')throw new CommunicationForbidden('En estado Nuevo solo se permite verificar los datos.');
- const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,body,text_body,owner_email,status,external_id,created_at,updated_at,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${v.accountId}::bigint,${v.accountId}::bigint,'whatsapp',${v.phone},${v.title},${v.text},${v.text},${user.email},'manual_sent',${v.externalId},${v.sentAt},now(),now(),${user.email}) ON CONFLICT(channel,external_id) WHERE external_id IS NOT NULL DO NOTHING RETURNING *`.execute(e)).rows[0];
+ const created=(await sql<Message>`INSERT INTO crm_messages(id,account_id,original_account_id,channel,recipient,recipient_name,body,text_body,owner_email,status,external_id,created_at,updated_at,last_interaction_at,last_actor_email) VALUES(${randomUUID()}::uuid,${v.accountId}::bigint,${v.accountId}::bigint,'whatsapp',${v.phone},${v.title},${v.text},${v.text},${user.email},'manual_sent',${v.externalId},${v.sentAt},now(),LEAST(${v.sentAt}::timestamptz,now()),${user.email}) ON CONFLICT(channel,external_id) WHERE external_id IS NOT NULL DO NOTHING RETURNING *`.execute(e)).rows[0];
  if(!created)return (await sql<{id:string}>`SELECT id::text AS id FROM crm_messages WHERE channel='whatsapp' AND external_id=${v.externalId}`.execute(e)).rows[0]?.id;
- await activity(e,created,user,'Envío confirmado manualmente');await markClientForCare(e,created,user);await communicationJournal(e,{accountId:v.accountId,leadId:null,entityType:'interaction',entityId:created.id,action:'contact_completed',actor:user,triggeredBy:'userscript',after:{status:'manual_sent',externalId:v.externalId,channel:'whatsapp'}});return created.id;
+ await activity(e,created,user,USERSCRIPT_CONFIRMED_RESULT,created.lastInteractionAt??undefined);await markClientForCare(e,created,user);await communicationJournal(e,{accountId:v.accountId,leadId:null,entityType:'interaction',entityId:created.id,action:'contact_completed',actor:user,triggeredBy:'userscript',after:{status:'manual_sent',externalId:v.externalId,channel:'whatsapp',sentAt:created.lastInteractionAt}});return created.id;
 }
 /**
  * Links the outcome a seller writes after a contact (work.ts, decision 2B) to its message, inside the caller's transaction.
@@ -451,29 +470,63 @@ export async function resolveMessageForWork(e:Executor,user:User,v:{messageId:st
  }
  return {activityId:existing?String(existing.id):null};
 }
-/** A contact the seller left without "¿Cómo salió?" (decision 2B): it stays in Hoy until an outcome is recorded. */
-export type PendingContactOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date};
 /**
- * The seller's own contacts since outcome tracking started (migration 028) that she can still resolve: she is the management's
- * (or, without one, the business's) responsible or an admin, and the message's activity has no outcome. A confirmed contact is
- * also resolved by any later outcome activity of the same business and management; an unconfirmed send (WhatsApp opened, manual
- * attempt started) is not, and it is left out when No contactar or a closed management blocks confirming it (the communication
- * panel keeps it with its reason). Archived, merged or trashed businesses, trashed managements, drafts, not-sent and uncertain
- * sends never appear.
+ * SQL condition on a send aliased `m`: an outcome of the same business and management already covers it. Either the outcome activity was
+ * created after the send, or it is linked (`crm_messages.activity_id`) to a send of that context whose `last_interaction_at` is not older
+ * (spec 100 §6). The second branch matters because opening WhatsApp/Instagram creates the activity at open time and confirming the send
+ * only bumps the message, so the newest send's activity can be older than an earlier send. Shared by the follow-up lists and the sends a
+ * response may resolve (`responseOutcomeService`), so both agree.
  */
-export async function pendingContactOutcomes(e:Executor,{ownerEmail,isAdmin,accountId=null,leadId=null,limit=20}:{ownerEmail:string;isAdmin:boolean;accountId?:string|null;leadId?:string|null;limit?:number}):Promise<PendingContactOutcome[]>{
- return (await sql<PendingContactOutcome>`SELECT m.id,m.account_id,a.nombre AS account_name,m.lead_id,l.opportunity_name,m.contact_id,m.channel,m.status,m.purpose,m.recipient_name,m.last_interaction_at
+export const laterOutcomeCoversSend=sql<boolean>`(EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at) OR EXISTS(SELECT 1 FROM crm_messages y JOIN crm_activities x ON x.id=y.activity_id WHERE y.account_id=m.account_id AND y.lead_id IS NOT DISTINCT FROM m.lead_id AND y.last_interaction_at>=m.last_interaction_at AND x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL))`;
+/** A contact the seller left without "¿Cómo salió?" (decision 2B): it stays in Hoy until an outcome is recorded. */
+export type PendingContactOutcome={id:string;accountId:string;accountName:string;leadId:string|null;opportunityName:string|null;contactId:string|null;channel:string;status:string;purpose:string|null;recipientName:string;lastInteractionAt:Date;externalId:string|null;destinationDetail:string|null;ownerEmail:string;confirmationSource:'userscript'|'instagram'|'manual';/** Spec 100 §6: a delegated send (admin view) forms its own outcome group per task. */delegatedTaskId:string|null;/** Sends in this item's group before the per-group cap ({@link FOLLOW_UP_GROUP_ITEM_LIMIT}); 1 for «¿Lo enviaste?», where each send is its own group. */groupTotal:number};
+/**
+ * One follow-up list: the items of its newest groups (up to the limit), the full `count` of sends and `groupCount`, neither of which
+ * depends on the limit. Spec 100 §6: an «Anotá cómo salió» group is (business, management, delegated task) and the limit counts
+ * groups, so a group never arrives cut; for «¿Lo enviaste?» each send is its own group (`groupCount` = `count`).
+ */
+export type ContactFollowUpList={items:PendingContactOutcome[];count:number;groupCount:number};
+/**
+ * Spec 99 §3.6: «Envíos sin confirmar» (`unconfirmed`) and «Anotá cómo salió» (`outcomes`), the same object for Hoy, Comunicación and
+ * the work editor toast. Spec 100 §7: both hold only what has not expired; `expired` holds the rest, with the same limit per list.
+ */
+export type ContactFollowUps={unconfirmed:ContactFollowUpList;outcomes:ContactFollowUpList;expired:{unconfirmed:ContactFollowUpList;outcomes:ContactFollowUpList}};
+/**
+ * The seller's own contacts since outcome tracking started (migration 028) that she can still resolve, split in two lists (spec 99
+ * §3.6): `unconfirmed` (WhatsApp/Instagram opened, manual attempt started) and `outcomes` (evidence without an outcome). She is the
+ * management's (or, without one, the business's) responsible or an admin, and the message's activity has no outcome. A confirmed
+ * contact is also resolved by a later outcome of the same business and management ({@link laterOutcomeCoversSend}); an unconfirmed send is not, and it is
+ * left out when No contactar or a closed management blocks confirming it, while an Instagram attempt waits for Meta's echo (15 min)
+ * or a WhatsApp open waits for the user script (5 min, spec 100 §9). Archived, merged or trashed businesses, trashed managements,
+ * drafts, not-sent and uncertain sends never appear.
+ * Spec 100 §6-7, all with the database clock and without writing anything: outcomes are grouped by (business, management, delegated
+ * task); an unconfirmed send expires 72 h after its open and an outcome group 7 days after its newest send, as a whole (a new send
+ * brings the group back). Each of the four lists is newest group first (ties by the group's newest id), cut at `limit` groups, with
+ * its own `count` and `groupCount`. An open left out here is not lost: when its message is loaded in the communication panel and the
+ * viewer may answer it, «Requiere acción» still lists it, uncounted, with «Sí, se envió» off and its reason when confirming is
+ * blocked (`RequiresAction`).
+ */
+export async function pendingContactFollowUps(e:Executor,{ownerEmail,isAdmin,accountId=null,leadId=null,limit=20}:{ownerEmail:string;isAdmin:boolean;accountId?:string|null;leadId?:string|null;limit?:number}):Promise<ContactFollowUps>{
+ const unconfirmedStatuses=[...UNCONFIRMED_FOLLOW_UP_STATUSES];
+ const rows=(await sql<PendingContactOutcome&{unconfirmed:boolean;stale:boolean;total:string|number;groups:string|number;groupTotal:string|number;grank:string|number;gitem:string|number;groupAt:Date;groupId:string}>`WITH f AS (SELECT m.id,m.account_id,a.nombre AS account_name,m.lead_id,l.opportunity_name,m.contact_id,m.channel,m.status,m.purpose,m.recipient_name,m.last_interaction_at,m.external_id,m.destination_detail,m.owner_email,m.delegated_task_id,CASE WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='userscript') THEN 'userscript' WHEN m.external_id IS NOT NULL AND EXISTS(SELECT 1 FROM crm_communication_journal j WHERE j.entity_type='interaction' AND j.entity_id=m.id::text AND j.action IN ('contact_completed','contact_resolved') AND j.triggered_by_email='instagram-webhook') THEN 'instagram' ELSE 'manual' END AS "confirmationSource",m.status=ANY(${unconfirmedStatuses}::text[]) AS unconfirmed
   FROM crm_messages m JOIN crm_accounts a ON a.id=m.account_id LEFT JOIN leads l ON l.id=m.lead_id
   WHERE (m.owner_email=${ownerEmail} OR (${isAdmin} AND m.delegated_task_id IS NOT NULL)) AND (${accountId}::bigint IS NULL OR m.account_id=${accountId}::bigint) AND (${leadId}::bigint IS NULL OR m.lead_id=${leadId}::bigint) AND m.status=ANY(${[...OUTCOME_READY_STATUSES]}::text[])
    AND m.last_interaction_at>=(SELECT value::timestamptz FROM app_settings WHERE key='crm_contact_outcome_since')
    AND a.deleted_at IS NULL AND a.archived_at IS NULL AND a.merged_into_id IS NULL AND (m.lead_id IS NULL OR l.deleted_at IS NULL)
    AND (${isAdmin} OR coalesce(l.assigned_user_email,a.assigned_user_email)=${ownerEmail})
    AND NOT (m.status='instagram_opened' AND m.last_interaction_at>now()-(${INSTAGRAM_ECHO_WAIT_MS}*interval '1 millisecond'))
-   AND (m.status<>ALL(${[...OPENED_UNCONFIRMED_STATUSES,'manual_pending']}::text[]) OR (NOT a.do_not_contact AND (m.lead_id IS NULL OR coalesce((SELECT classification FROM crm_stages WHERE name=l.estado),'')='open')))
+   AND NOT (m.status='whatsapp_opened' AND m.last_interaction_at>now()-(${WHATSAPP_SCRIPT_WAIT_MS}*interval '1 millisecond'))
+   AND (m.status<>ALL(${unconfirmedStatuses}::text[]) OR (NOT a.do_not_contact AND (m.lead_id IS NULL OR coalesce((SELECT classification FROM crm_stages WHERE name=l.estado),'')='open')))
    AND NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.id=m.activity_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL)
    AND NOT EXISTS(SELECT 1 FROM crm_communication_responses r WHERE r.linked_message_id=m.id AND r.category='do_not_contact')
-   AND (m.status=ANY(${[...OPENED_UNCONFIRMED_STATUSES,'manual_pending']}::text[]) OR NOT EXISTS(SELECT 1 FROM crm_activities x WHERE x.account_id=m.account_id AND x.lead_id IS NOT DISTINCT FROM m.lead_id AND x.outcome IS NOT NULL AND x.deleted_at IS NULL AND x.created_at>=m.last_interaction_at))
-  ORDER BY m.last_interaction_at DESC LIMIT ${limit}`.execute(e)).rows.map(r=>({...r,id:String(r.id),accountId:String(r.accountId),leadId:r.leadId==null?null:String(r.leadId),contactId:r.contactId==null?null:String(r.contactId)}));
+   AND (m.status=ANY(${unconfirmedStatuses}::text[]) OR NOT ${laterOutcomeCoversSend})),
+  g AS (SELECT f.*,CASE WHEN f.unconfirmed THEN f.last_interaction_at ELSE max(f.last_interaction_at) OVER p END AS group_at,CASE WHEN f.unconfirmed THEN f.id ELSE first_value(f.id) OVER (p ORDER BY f.last_interaction_at DESC,f.id DESC) END AS group_id FROM f WINDOW p AS (PARTITION BY f.unconfirmed,f.account_id,f.lead_id,f.delegated_task_id)),
+  s AS (SELECT g.*,g.group_at<now()-CASE WHEN g.unconfirmed THEN ${UNCONFIRMED_STALE_HOURS}*interval '1 hour' ELSE ${OUTCOME_STALE_DAYS}*interval '1 day' END AS stale FROM g),
+  r AS (SELECT s.*,count(*) OVER (PARTITION BY s.unconfirmed,s.stale) AS total,count(*) OVER (PARTITION BY s.unconfirmed,s.stale,s.group_id) AS group_total,dense_rank() OVER (PARTITION BY s.unconfirmed,s.stale ORDER BY s.group_at DESC,s.group_id DESC) AS grank,row_number() OVER (PARTITION BY s.unconfirmed,s.stale,s.group_id ORDER BY s.last_interaction_at DESC,s.id DESC) AS gitem FROM s),
+  t AS (SELECT r.*,max(r.grank) OVER (PARTITION BY r.unconfirmed,r.stale) AS groups FROM r)
+  SELECT * FROM t WHERE grank<=${limit} AND gitem<=${FOLLOW_UP_GROUP_ITEM_LIMIT} ORDER BY last_interaction_at DESC,id DESC`.execute(e)).rows;
+ const list=(unconfirmed:boolean,stale:boolean):ContactFollowUpList=>{const own=rows.filter(r=>r.unconfirmed===unconfirmed&&r.stale===stale);return {count:Number(own[0]?.total??0),groupCount:Number(own[0]?.groups??0),items:own.map(({unconfirmed:_u,stale:_s,total:_t,groups:_g,grank:_r,gitem:_n,groupAt:_a,groupId:_i,...r})=>({...r,id:String(r.id),accountId:String(r.accountId),leadId:r.leadId==null?null:String(r.leadId),contactId:r.contactId==null?null:String(r.contactId),delegatedTaskId:r.delegatedTaskId==null?null:String(r.delegatedTaskId),groupTotal:Number(r.groupTotal)}))};};
+ return {unconfirmed:list(true,false),outcomes:list(false,false),expired:{unconfirmed:list(true,true),outcomes:list(false,true)}};
 }
 /** Points a message at the activity that records its outcome (see {@link resolveMessageForWork}). */
 export async function linkMessageActivity(e:Executor,messageId:string,activityId:string){await sql`UPDATE crm_messages SET activity_id=${activityId} WHERE id=${messageId}::uuid`.execute(e);}
@@ -501,9 +554,18 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
   if(row.status==='registered'&&row.responseId){await communicationContext(e,String(row.accountId),row.leadId==null?null:String(row.leadId),user,false);return {id:String(row.responseId),duplicate:true};}
   if(row.status!=='pending_review')throw new CommunicationConflict('Este email ya no está pendiente de revisión.');
-  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),contactId:row.contactId==null?null:String(row.contactId),channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId:row.linkedMessageId??null,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
+  // Spec 99 §3.4: what the screen shows is what is saved. An omitted field (undefined) keeps the row's value; an explicit null clears it.
+  const rowLead=row.leadId==null?null:String(row.leadId),leadId=input.leadId===undefined?rowLead:input.leadId;
+  const contactId=input.contactId===undefined?(row.contactId==null?null:String(row.contactId)):input.contactId;
+  // «No, es una respuesta nueva» never takes the row's send.
+  const linkedMessageId=input.linkedMessageId===undefined?(input.newReply||row.linkedMessageId==null?null:String(row.linkedMessageId)):input.linkedMessageId;
+  // A chosen management must be a live one of this business (createResponse then applies the same access rule as response_create).
+  if(input.leadId){const lead=await e.selectFrom('leads').select(['id','deletedAt']).where('id','=',input.leadId).where('accountId','=',String(row.accountId)).executeTakeFirst();if(!lead||lead.deletedAt)throw new Error('La gestión elegida no es de este negocio o está en la papelera.');}
+  // A chosen send must be a real send of this business and, with a management, of that management (the list «Responde a» shows). createResponse checks the person.
+  if(input.linkedMessageId){const send=(await sql`SELECT 1 FROM crm_messages WHERE id=${input.linkedMessageId}::uuid AND account_id=${row.accountId} AND status IN (${sql.join(CONTACT_EVIDENCE_STATUSES.map(s=>sql.lit(s)))}) AND (${leadId}::bigint IS NULL OR lead_id=${leadId}::bigint)`.execute(e)).rows[0];if(!send)throw new Error(leadId?'El mensaje elegido no es un envío de esta gestión.':'El mensaje elegido no es un envío de este negocio.');}
+  const created=await createResponse(e,{action:'response_create',id:input.id,accountId:String(row.accountId),leadId,contactId,channel:row.channel==='whatsapp'?'whatsapp':row.channel==='social'?'social':'email',recipient:String(row.fromAddress),recipientName:String(row.fromName||row.fromAddress),destination:String(row.fromAddress),linkedMessageId,newReply:input.newReply,category:input.category,summary:input.summary,exactText:String(row.textBody||'').slice(0,50000),otherDetail:input.otherDetail,confirmDoNotContact:input.confirmDoNotContact,closeLeadIds:[],reminder:null},user,new Date(row.receivedAt));
   await sql`UPDATE crm_inbound_messages SET status='registered',response_id=${created.id}::uuid,updated_at=now() WHERE id=${input.inboundId}::uuid`.execute(e);
-  await communicationJournal(e,{accountId:String(row.accountId),leadId:row.leadId==null?null:String(row.leadId),entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
+  await communicationJournal(e,{accountId:String(row.accountId),leadId:rowLead,entityType:'inbound',entityId:input.inboundId,action:'inbound_registered',actor:user,after:{status:'registered',responseId:created.id}});return created;
  }
  if(input.action==='inbound_dismiss'){
   const row=(await sql<any>`SELECT * FROM crm_inbound_messages WHERE id=${input.inboundId}::uuid FOR UPDATE`.execute(e)).rows[0];if(!row||!row.accountId)throw new Error('Email entrante inexistente');
@@ -563,6 +625,8 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
  if(input.action==='outcome'){
   const m=await messageFor(e,input.id,user,true);await assertMessageTaskContext(e,m,input.taskId,user);
   const openedInstagram=m.status==='instagram_opened'&&isInstagramAttempt(m);
+  // Spec 100 §8: the script, Meta's echo or another answer may have confirmed it first; the client shows this as information.
+  if(['manual_sent','manual_not_sent'].includes(input.event)&&m.status==='manual_sent')throw new CommunicationConflict(ALREADY_CONFIRMED_MESSAGE);
   if(['manual_sent','manual_not_sent'].includes(input.event)&&!(isOpenedUnconfirmed(m.status)&&(m.status==='whatsapp_opened'?m.channel==='whatsapp':openedInstagram)))throw new Error('Solo podés resolver un intento de WhatsApp o Instagram No confirmado.');
   if(m.status==='voided')throw new CommunicationConflict('Este registro fue anulado.');
   if(input.event!=='manual_sent'&&['draft','cancelled'].includes(m.status))throw new Error('El mensaje todavía no fue utilizado');
@@ -577,11 +641,13 @@ export async function mutateCommunication(db:Kysely<DB>,input:CommunicationMutat
   return {message:(await sql<Message>`SELECT * FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]};
  }
  if(input.action==='restrict'){
-  if(user.role!=='admin')throw new CommunicationForbidden('Solo un administrador puede registrar restricciones técnicas manuales.');
   let accountId=input.accountId??null;let leadId=input.leadId??null;
   if(leadId){const {account}=await communicationContext(e,String(accountId??(await leadFor(e,leadId,user,false)).lead.accountId),leadId,user,false);accountId=String(account.id);}
   if(!accountId)throw new Error('Elegí el negocio de la restricción.');
   const {account}=await communicationContext(e,accountId,null,user,false);
+  // Spec 104 D2: adding only restricts, so the responsible of the business or of one of its managements may (same rule as «Pidió no ser contactado»); lifting stays admin-only.
+  await assertCanRecordDoNotContact(e,user,account,RESTRICTION_RECORD_DENIED);
+  if(account.doNotContact&&user.role!=='admin')throw new CommunicationForbidden(DO_NOT_CONTACT_READ_ONLY);
   if(input.contactId)await e.selectFrom('crmContacts').select('id').where('id','=',input.contactId).where('accountId','=',account.id).where('deletedAt','is',null).executeTakeFirstOrThrow();
   const created=await sql<{id:string}>`INSERT INTO crm_contact_restrictions(account_id,lead_id,contact_id,channel,reason,actor_email,source,evidence) VALUES(${account.id},NULL,${input.contactId},${input.channel},${input.reason},${user.email},'manual',${input.reason}) RETURNING id`.execute(e);
   await communicationJournal(e,{accountId:String(account.id),leadId:null,entityType:'restriction',entityId:created.rows[0].id,action:'technical_restriction_added',actor:user,after:{channel:input.channel,contactId:input.contactId,reason:input.reason,source:'manual',evidence:input.reason}});

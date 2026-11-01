@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {autoEffectsMatch,autoRegisterReason,globalAutoRegisterEnabled} from './autoRegistration';
+import {autoEffectsMatch,autoRegisterReason,globalAutoRegisterEnabled,isUserscriptConfirmedResult} from './autoRegistration';
 
 describe('automatic registration helpers',()=>{
  it('turns the global switch on by default and respects a value an admin saved (owner, 28/10/2026)',()=>{
@@ -21,5 +21,10 @@ describe('automatic registration helpers',()=>{
  it('matches a recorded effect only while its current value is unchanged',()=>{
   expect(autoEffectsMatch({status:'pending',result:'confirmed'},{status:'pending',result:'confirmed'})).toBe(true);
   expect(autoEffectsMatch({status:'completed'},{status:'pending'})).toBe(false);
+ });
+ it('recognizes both historical and current userscript confirmation results when voiding',()=>{
+  expect(isUserscriptConfirmedResult('Envío confirmado manualmente')).toBe(true);
+  expect(isUserscriptConfirmedResult('Envío confirmado por el script de WhatsApp')).toBe(true);
+  expect(isUserscriptConfirmedResult('Resultado editado por la persona')).toBe(false);
  });
 });

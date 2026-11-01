@@ -100,7 +100,7 @@ export function CommunicationPanel({leadId,accountId,readOnly=false,onContact,on
   <header className={view.head}><div><h3>Comunicación</h3><p>{leadId?'Lo enviado en esta gestión y todo lo recibido del negocio, en orden.':'Todo lo enviado y recibido con este negocio, en orden, con o sin gestión.'}</p></div>{inboxHref&&<a href={inboxHref}>Abrir en la Bandeja</a>}</header>
   <CommunicationActionBar view={v} leadId={leadId} onContact={onContact} onSendMaterial={onSendMaterial}/>
   {leadId?<TechnicalRestrictions leadId={leadId} accountId={accountId} collapsible/>:<RestrictionNotice data={q.data} contacts={d?.contacts??[]}/>}
-  <RequiresAction view={v} onFocus={key=>setFocus({key,seq:++focusSeq.current})}/>
+  <RequiresAction view={v} bulk={!leadId} onFocus={key=>setFocus({key,seq:++focusSeq.current})}/>
   <Conversation view={v} includeVoided={admin&&includeVoided} onToggleVoided={()=>setIncludeVoided(value=>!value)} lastSeenAt={lastSeenAt} focus={focus} reply={reply}/>
   <DraftsBlock view={v}/>
   <ResponseRecordDialog request={responseRequest} onClose={()=>setResponseRequest(null)} data={q.data} detail={d} leadId={leadId}/>

@@ -2,7 +2,7 @@
 // revocation on cancel, dispatch validation (409, «Quitado del texto», sent_version, journal), Brevo attachment.url (fetch mocked, never the network),
 // «Reintentar sin adjuntos», «Revocar enlace» and materials[] in GET /_api/communication. R2 is never contacted: presigning is local.
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {randomBytes,randomUUID} from 'node:crypto';
 import superjson from 'superjson';
 import {sql} from 'kysely';
 import postgres from 'postgres';
@@ -17,7 +17,9 @@ const {resetShareRateLimitsForTests}=await import('../src/endpoints/materialShar
 const stamp=randomUUID().slice(0,8);
 const realFetch=globalThis.fetch;
 const {claimDraftMaterials}=await import('../src/helpers/salesMaterialDraft');
-const {hashShareToken,generateShareToken}=await import('../src/helpers/salesMaterialShare');
+const {hashShareToken}=await import('../src/helpers/salesMaterialShare');
+/** A token in the format sent before spec 101 (43 base64url characters ending in an alphanumeric). */
+const legacyToken=()=>{let t='';do{t=randomBytes(32).toString('base64url')}while(!/[A-Za-z0-9]$/.test(t));return t;};
 import type {User} from '../src/helpers/User';
 async function identity(role:'admin'|'user'){
  const u=await db.insertInto('users').values({email:`composer-${role}-${stamp}-${randomUUID().slice(0,4)}@example.com`,displayName:'Composer '+role,role}).returningAll().executeTakeFirstOrThrow();
@@ -34,7 +36,8 @@ async function detail(accountId:string,who:Id){const r=await get(new Request('ht
 const share=async(id:string)=>(await sql<{messageId:string|null;revokedAt:Date|null;revokeReason:string|null;sentVersion:number|null;attach:boolean;attachedVersion:number|null;preparedVersion:number}>`SELECT message_id,revoked_at,revoke_reason,sent_version,attach,attached_version,prepared_version FROM crm_sales_material_shares WHERE id=${id}::uuid`.execute(db)).rows[0]!;
 const message=async(id:string)=>(await sql<{status:string;body:string;revision:number}>`SELECT status,body,revision FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0]!;
 const journal=async(id:string,action:string)=>(await sql<{after:any}>`SELECT after_value AS after FROM crm_communication_journal WHERE entity_type='interaction' AND entity_id=${id} AND action=${action} ORDER BY id`.execute(db)).rows;
-const tokenOf=(body:string,title:string)=>new RegExp(`«${title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}» en: (?:<a href=")?https://crm\\.example\\.test/m/([A-Za-z0-9_-]{43})`).exec(body)?.[1];
+/** The `/m/<slug>-<token>` segment (spec 101) of the link added for a material title. */
+const tokenOf=(body:string,title:string)=>new RegExp(`«${title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}» en: (?:<a href=")?https://crm\\.example\\.test/m/([a-z0-9]+(?:-[a-z0-9]+)*-[A-Za-z0-9]{4})(?![A-Za-z0-9_-])`).exec(body)?.[1];
 async function material(title:string,{kind='deliverable',bytes=2048,url,fileName}:{kind?:string;bytes?:number;url?:string;fileName?:string|null}={}){
  const id=randomUUID();
  await sql`INSERT INTO crm_sales_materials(id,title,kind,source,created_by_email) VALUES(${id}::uuid,${title},${kind},${url?'url':'file'},'admin@example.com')`.execute(db);
@@ -52,7 +55,7 @@ try{
  const brochure=await material('Folleto '+stamp),big=await material('Video grande '+stamp,{bytes:11*1048576}),tour=await material('Tour '+stamp,{url:'https://example.com/tour'});
  const internal=await material('Interno '+stamp,{kind:'internal'}),gone=await material('Archivado '+stamp);await sql`UPDATE crm_sales_materials SET status='archived',archived_at=now() WHERE id=${gone}::uuid`.execute(db);
  // A distinct variation per prepare: with a repeated one, prepare reuses the open draft of the same lead, contact and channel instead of creating one.
- let variations=10;const prepare=async(channel:'email'|'whatsapp')=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId:null,variation:variations++},200,owner);
+ let variations=10;const prepare=async(channel:'email'|'whatsapp'|'instagram')=>call({action:'prepare',id:randomUUID(),leadId:String(l.id),contactId:String(c.id),channel,templateId:null,variation:variations++},200,owner);
 
  // material_add on a WhatsApp draft: link in the body, new token, revision up, materials returned; refusals for duplicates, internal, missing, archived, attach on WhatsApp, other users and stale revisions.
  let wa=await prepare('whatsapp');assert.deepEqual(wa.materials,[]);
@@ -109,6 +112,27 @@ try{
  // cancel_draft revokes the links of the draft («Borrador cancelado»): they never left.
  let cancel=await prepare('whatsapp');r=await call({action:'material_add',id:cancel.id,revision:cancel.revision,materialId:tour,attach:false},200,owner);cancel=r.message;
  await call({action:'cancel_draft',id:cancel.id,revision:cancel.revision},200,owner);assert.equal((await share(r.materials[0].shareId)).revokeReason,'Borrador cancelado');
+ checks++;
+
+ // Spec 101 block 2: material_add on a blank WhatsApp draft stores the final text equal to the body, like `edit`, so «Abrir WhatsApp» works without
+ // «Guardar cambios»; removing it keeps them in step. A blank email draft keeps no final text: only its review sets it.
+ const finalText=async(id:string)=>(await sql<{body:string;textBody:string|null}>`SELECT body,text_body FROM crm_messages WHERE id=${id}::uuid`.execute(db)).rows[0]!;
+ let blank=await prepare('whatsapp');assert.equal(blank.textBody,null,'A blank WhatsApp draft starts without final text');
+ r=await call({action:'material_add',id:blank.id,revision:blank.revision,materialId:tour,attach:false},200,owner);blank=r.message;
+ assert(blank.body.includes('https://crm.example.test/m/'));assert.equal(blank.textBody,blank.body);assert.equal((await finalText(blank.id)).textBody,blank.body);
+ r=await call({action:'material_remove',id:blank.id,revision:blank.revision,shareId:r.materials[0].shareId},200,owner);blank=r.message;
+ const afterRemove=await finalText(blank.id);assert.equal(afterRemove.textBody,afterRemove.body.trim()?afterRemove.body:null,'Removing the link keeps the final text in step (or empty when the body is blank)');
+ await call({action:'cancel_draft',id:blank.id,revision:blank.revision},200,owner);
+ let blankMail=await prepare('email');assert.equal(blankMail.textBody,null);
+ r=await call({action:'material_add',id:blankMail.id,revision:blankMail.revision,materialId:tour,attach:false},200,owner);blankMail=r.message;
+ assert.equal(blankMail.textBody,null,'Email keeps the final text empty until it is reviewed');assert.equal((await finalText(blankMail.id)).textBody,null);
+ await call({action:'cancel_draft',id:blankMail.id,revision:blankMail.revision},200,owner);
+ // D6 A: Instagram stays as before, its final text is set only by «Guardar cambios».
+ await db.updateTable('crmAccounts').set({perfilInstagram:'@zz.composer.'+stamp}).where('id','=',a.id).execute();
+ let blankIg=await prepare('instagram');assert.equal(blankIg.textBody,null);
+ r=await call({action:'material_add',id:blankIg.id,revision:blankIg.revision,materialId:tour,attach:false},200,owner);blankIg=r.message;
+ assert(blankIg.body.includes('https://crm.example.test/m/'));assert.equal(blankIg.textBody,null,'Instagram keeps the final text empty until it is saved (D6 A)');assert.equal((await finalText(blankIg.id)).textBody,null);
+ await call({action:'cancel_draft',id:blankIg.id,revision:blankIg.revision},200,owner);
  checks++;
 
  // Email: attach within the limit, refusals for external links and files over the limit, and Brevo receives attachment.url (1-hour presigned GET) + attached_version.
@@ -186,7 +210,7 @@ try{
  // Pasting the revoked link back is refused at dispatch: it belongs to another message (and is revoked).
  const pasted=await call({action:'edit',id:again.id,revision:again.revision,subject:'Dos',body:again.body+`<p>Otra vez: <a href="https://crm.example.test/m/${tokenA}">https://crm.example.test/m/${tokenA}</a></p>`},200,owner);
  let leaks=0;globalThis.fetch=async()=>{leaks++;return new Response('{}',{status:201});};
- await call({action:'dispatch',id:pasted.id,revision:pasted.revision,confirm:true},409,owner,/pertenece a otro mensaje/);globalThis.fetch=realFetch;assert.equal(leaks,0,'Nothing reached Brevo');
+ await call({action:'dispatch',id:pasted.id,revision:pasted.revision,confirm:true},409,owner,/enlace de material que no se reconoce/);globalThis.fetch=realFetch;assert.equal(leaks,0,'Nothing reached Brevo');
  again=await call({action:'edit',id:pasted.id,revision:pasted.revision,subject:'Dos',body:retried.message.body},200,owner);
  let finalPayload:any=null;globalThis.fetch=async(_url,init)=>{finalPayload=JSON.parse(String(init?.body));return new Response(JSON.stringify({messageId:'<retry-'+stamp+'@brevo.test>'}),{status:201});};
  const retriedSent=await call({action:'dispatch',id:again.id,revision:again.revision,confirm:true},200,owner);globalThis.fetch=realFetch;
@@ -196,14 +220,40 @@ try{
 
  // Regression (review F3 #1): a pasted `/m/<token>` of another business or an unknown token is refused at dispatch, and nothing is recorded as sent.
  const b=await db.insertInto('crmAccounts').values({nombre:'Zz Ajeno '+stamp,status:'reviewed',assignedUserEmail:other.user.email}).returningAll().executeTakeFirstOrThrow();
- const foreignToken=generateShareToken().token;
+ const foreignToken=legacyToken();
  await sql`INSERT INTO crm_sales_material_shares(id,token_hash,material_id,account_id,original_account_id,channel,prepared_version,sent_version,created_by_email) VALUES(${randomUUID()}::uuid,${hashShareToken({token:foreignToken})},${brochure}::uuid,${b.id},${b.id},'whatsapp',1,1,${other.user.email})`.execute(db);
  let paste=await prepare('whatsapp');
  paste=await call({action:'edit',id:paste.id,revision:paste.revision,subject:'',body:`Hola, mirá https://crm.example.test/m/${foreignToken}`},200,owner);
- await call({action:'dispatch',id:paste.id,revision:paste.revision,confirm:true},409,owner,/pertenece a otro mensaje/);
- paste=await call({action:'edit',id:paste.id,revision:paste.revision,subject:'',body:`Hola, mirá https://crm.example.test/m/${generateShareToken().token}`},200,owner);
+ await call({action:'dispatch',id:paste.id,revision:paste.revision,confirm:true},409,owner,/enlace de material que no se reconoce/);
+ paste=await call({action:'edit',id:paste.id,revision:paste.revision,subject:'',body:`Hola, mirá https://crm.example.test/m/${legacyToken()}`},200,owner);
+ await call({action:'dispatch',id:paste.id,revision:paste.revision,confirm:true},409,owner,/no se reconoce/);
+ // Spec 101: an unknown short link with the CRM origin is refused the same way; another site's `/m/slug-XXXX` is not a share link.
+ paste=await call({action:'edit',id:paste.id,revision:paste.revision,subject:'',body:'Hola, mirá https://crm.example.test/m/folleto-Zz9q'},200,owner);
  await call({action:'dispatch',id:paste.id,revision:paste.revision,confirm:true},409,owner,/no se reconoce/);
  assert.equal((await message(paste.id)).status,'draft');
+ checks++;
+
+ // Spec 101 D2: the slug of a short link is required. A retyped slug blocks dispatch (the client would get 404); case and accents do not.
+ let slugged=await prepare('whatsapp');
+ r=await call({action:'material_add',id:slugged.id,revision:slugged.revision,materialId:brochure,attach:false},200,owner);slugged=r.message;const sluggedShare=r.materials[0].shareId;
+ const segment=tokenOf(slugged.body,'Folleto '+stamp)!;assert(segment,'Short link in the body: '+slugged.body);
+ assert.match(segment,new RegExp(`^folleto-${stamp}-[A-Za-z0-9]{4}$`));
+ const tail=segment.slice(-4);
+ slugged=await call({action:'edit',id:slugged.id,revision:slugged.revision,subject:'',body:slugged.body.replace(segment,'tarifas-viejas-'+tail)},200,owner);
+ await call({action:'dispatch',id:slugged.id,revision:slugged.revision,confirm:true},409,owner,/se modificó y ya no abre/);
+ assert.equal((await share(sluggedShare)).revokedAt,null,'A retyped slug is refused, not revoked as removed');
+ // Review regression: slugs edited out of shape (`_`, `.`, deleted) or an upper-case host are still recognized, so they are refused, never silently revoked.
+ for(const edited of [segment.slice(0,-5).replace('-','_')+'-'+tail,segment.slice(0,-5).replace('-','.')+'-'+tail,tail]){
+  slugged=await call({action:'edit',id:slugged.id,revision:slugged.revision,subject:'',body:slugged.body.replace(/https:\/\/crm\.example\.test\/m\/\S+/,'https://crm.example.test/m/'+edited)},200,owner);
+  await call({action:'dispatch',id:slugged.id,revision:slugged.revision,confirm:true},409,owner,/se modificó y ya no abre/);
+  assert.equal((await share(sluggedShare)).revokedAt,null,'Not revoked: '+edited);
+ }
+ slugged=await call({action:'edit',id:slugged.id,revision:slugged.revision,subject:'',body:slugged.body.replace(/https:\/\/crm\.example\.test\/m\/\S+/,'HTTPS://CRM.EXAMPLE.TEST/m/otro-'+tail)},200,owner);
+ await call({action:'dispatch',id:slugged.id,revision:slugged.revision,confirm:true},409,owner,/se modificó y ya no abre/);
+ slugged=await call({action:'edit',id:slugged.id,revision:slugged.revision,subject:'',body:slugged.body.replace(/HTTPS:\/\/CRM\.EXAMPLE\.TEST\/m\/\S+/,'https://crm.example.test/m/tarifas-viejas-'+tail)},200,owner);
+ slugged=await call({action:'edit',id:slugged.id,revision:slugged.revision,subject:'',body:slugged.body.replace('tarifas-viejas-'+tail,segment.slice(0,-5).toUpperCase()+'-'+tail)},200,owner);
+ const sluggedOpened=await call({action:'dispatch',id:slugged.id,revision:slugged.revision,confirm:true},200,owner);assert.equal(sluggedOpened.message.status,'whatsapp_opened');
+ const sluggedRow=await share(sluggedShare);assert.equal(sluggedRow.revokedAt,null,'Upper case keeps the link');assert.equal(sluggedRow.sentVersion,2);
  checks++;
 
  // Regression (review F3 #2): Brevo only attaches its extension list; webp/webm and a file without a name go only as a link, also when attach was forced.
@@ -221,7 +271,7 @@ try{
  // someone else sent; a seller with no role on it gets 403. Removing a link from a draft works under No contactar; adding or attaching does not.
  const leadSeller=await identity('user');
  const l2=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre,opportunityName:'Segunda '+stamp,estado:'Cargado',assignedUserEmail:leadSeller.user.email}).returningAll().executeTakeFirstOrThrow();
- const adminShare=async(leadId:string|null)=>{const id=randomUUID();await sql`INSERT INTO crm_sales_material_shares(id,token_hash,material_id,account_id,original_account_id,lead_id,channel,prepared_version,sent_version,created_by_email) VALUES(${id}::uuid,${generateShareToken().tokenHash},${brochure}::uuid,${a.id},${a.id},${leadId},'whatsapp',1,1,${admin.user.email})`.execute(db);return id;};
+ const adminShare=async(leadId:string|null)=>{const id=randomUUID();await sql`INSERT INTO crm_sales_material_shares(id,token_hash,material_id,account_id,original_account_id,lead_id,channel,prepared_version,sent_version,created_by_email) VALUES(${id}::uuid,${hashShareToken({token:legacyToken()})},${brochure}::uuid,${a.id},${a.id},${leadId},'whatsapp',1,1,${admin.user.email})`.execute(db);return id;};
  const byOwner=await adminShare(String(l.id)),byLeadSeller=await adminShare(String(l2.id)),denied=await adminShare(String(l.id));
  let dnc=await prepare('whatsapp');r=await call({action:'material_add',id:dnc.id,revision:dnc.revision,materialId:catalogue,attach:false},200,owner);dnc=r.message;
  await sql`UPDATE crm_accounts SET do_not_contact=true WHERE id=${a.id}`.execute(db);

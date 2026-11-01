@@ -6,6 +6,16 @@ import {pickOutcome} from './support/outcome';
 import {simulateUserscript} from './helpers/userscript';
 import {whatsappOpenedToast} from '../../src/helpers/contactDestination';
 import {reveal} from './support/contactStep';
+import postgres from 'postgres';
+// Spec 100 §9: a WhatsApp open waits 5 minutes for the user script before Hoy asks «¿Lo enviaste?». The test ages the open with SQL on
+// the disposable database, and the outcome cutoff too (newer than the aged open on a freshly migrated database), restored afterwards.
+let sql:ReturnType<typeof postgres>;let outcomeSince:string|undefined;
+test.beforeAll(async()=>{sql=postgres(process.env.DATABASE_URL!,{max:1,...(process.env.CRM_TEST_DATABASE==='1'&&process.env.CRM_TEST_DATABASE_SOCKET?{path:process.env.CRM_TEST_DATABASE_SOCKET}:{})});outcomeSince=(await sql<{value:string}[]>`SELECT value FROM app_settings WHERE key='crm_contact_outcome_since'`)[0]?.value;});
+test.afterAll(async()=>{if(!sql)return;try{if(outcomeSince!==undefined)await sql`UPDATE app_settings SET value=${outcomeSince} WHERE key='crm_contact_outcome_since'`;}finally{await sql.end();}});
+async function pastScriptWait(id:string){
+ await sql`UPDATE app_settings SET value=to_char((now()-interval '1 hour') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE key='crm_contact_outcome_since' AND value::timestamptz>now()-interval '10 minutes'`;
+ await sql`UPDATE crm_messages SET last_interaction_at=now()-interval '6 minutes' WHERE id=${id}::uuid AND status='whatsapp_opened'`;
+}
 for(const width of [1280,390])test(`business continuity and explicit contact at ${width}px`,async({page})=>{
  test.setTimeout(180000);const run=width+'-'+Date.now().toString(36); // unique per run: Hoy lists tasks of every business, so titles repeated from an earlier run on a used DB would match more than one row
  await page.setViewportSize({width,height:844});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
@@ -20,7 +30,7 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
  // The contact step is one dialog («Preparar …»): closing it ends the whole contact at every width.
  const closeContact=async()=>{await page.getByRole('dialog').getByRole('button',{name:'Cerrar',exact:true}).first().click();await expect(page.getByRole('dialog')).toHaveCount(0);};
  const accountId=(await api('commercial',{action:'account_save',nombre:'Contacto claro '+width+' '+Date.now(),email:'business@example.com',assignedUserEmail:'admin@example.com'})).id;
- await page.goto('/accounts/'+accountId);await expect(page.getByRole('heading',{name:'Elegir el próximo paso',exact:true})).toBeVisible();await expect(page.getByText('Sin contactos registrados',{exact:true})).toBeVisible();await expect(page.getByRole('tab',{name:'Resumen',exact:true})).toHaveAttribute('aria-selected','true');await page.getByRole('button',{name:'Contactar',exact:true}).first().click();{await reveal(page.getByRole('dialog',{name:'Preparar email',exact:true}),page.getByRole('dialog',{name:'Preparar email',exact:true}).getByRole('button',{name:'Llamada',exact:true}));await page.getByRole('dialog',{name:'Preparar email',exact:true}).getByRole('button',{name:'Llamada',exact:true}).click();const call=page.getByRole('dialog',{name:'Registrar una llamada',exact:true});await expect(line(call,'Propósito')).toBeVisible();await change(call,'Propósito').click();await expect(call.getByLabel('Propósito del contacto')).toHaveValue('verification');await call.getByLabel('Nota de la llamada (opcional)').fill('Verificación de datos hecha desde el negocio sin gestión');await call.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true}).click();}await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages[0]?.purpose,{message:`Propósito del contacto; errores de navegador: ${errors.join(' | ')}`}).toBe('verification');expect((await api('communication?accountId='+accountId)).messages[0].leadId).toBeNull();
+ await page.goto('/accounts/'+accountId);await expect(page.getByRole('heading',{name:'Elegir el próximo paso',exact:true})).toBeVisible();await expect(page.getByText('Último contacto: todavía no hay ninguno registrado',{exact:true})).toBeVisible();await expect(page.getByRole('tab',{name:'Resumen',exact:true})).toHaveAttribute('aria-selected','true');await page.getByRole('button',{name:'Contactar',exact:true}).first().click();{await reveal(page.getByRole('dialog',{name:'Preparar email',exact:true}),page.getByRole('dialog',{name:'Preparar email',exact:true}).getByRole('button',{name:'Llamada',exact:true}));await page.getByRole('dialog',{name:'Preparar email',exact:true}).getByRole('button',{name:'Llamada',exact:true}).click();const call=page.getByRole('dialog',{name:'Registrar una llamada',exact:true});await expect(line(call,'Propósito')).toBeVisible();await change(call,'Propósito').click();await expect(call.getByLabel('Propósito del contacto')).toHaveValue('verification');await call.getByLabel('Nota de la llamada (opcional)').fill('Verificación de datos hecha desde el negocio sin gestión');await call.getByRole('button',{name:'Ya llamé: anotar cómo salió',exact:true}).click();}await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages[0]?.purpose,{message:`Propósito del contacto; errores de navegador: ${errors.join(' | ')}`}).toBe('verification');expect((await api('communication?accountId='+accountId)).messages[0].leadId).toBeNull();
  // Decision 2B: the registered call goes straight to "¿Cómo salió?" → "¿Cómo sigue?"; saving needs the next step and links the call.
  {const outcome=page.getByRole('dialog',{name:'Anotar lo que pasó',exact:true});await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por llamada');await pickOutcome(outcome,'no_answer');await expect(outcome.getByLabel('¿Cómo sigue?')).toHaveValue('wait');await outcome.getByRole('button',{name:'Guardar y programar',exact:true}).click();
  await expect(outcome.getByRole('textbox',{name:'Cuándo',exact:true})).toBeFocused();await expect(outcome).toBeVisible();expect((await api('communication?accountId='+accountId)).messages[0].activityId).toBeNull();
@@ -28,7 +38,7 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
  await expect.poll(async()=>(await api('communication?accountId='+accountId)).messages[0].activityId).toBeTruthy();}
  // Spec 90: on narrow screens the business column comes first with «Datos del negocio» collapsed; open it to read the email.
  if(width<=1140){await page.getByRole('button',{name:'Datos del negocio',exact:true}).click();await waitForTransitions(page);}
- await expect(page.getByText('business@example.com',{exact:true}).last()).toBeVisible();await expect(page.getByRole('heading',{name:'Por ahora no hay otro paso',exact:true})).toBeVisible();await expect(page.getByText('Sin contactos registrados',{exact:true})).toHaveCount(0);
+ await expect(page.getByText('business@example.com',{exact:true}).last()).toBeVisible();await expect(page.getByRole('heading',{name:'No encontramos la otra tarea',exact:true})).toBeVisible();await expect(page.getByText('Sin contactos registrados',{exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Contactar',exact:true}).first().click();let dialog=page.getByRole('dialog');await expect(line(dialog,'Sobre')).toContainText('Sin gestión (contacto general)');await reveal(dialog,dialog.getByRole('button',{name:'Iniciar gestión',exact:true}));await expect(dialog.getByRole('button',{name:'Iniciar gestión',exact:true})).toBeEnabled();await closeContact();expect((await api('commercial?accountId='+accountId)).opportunities).toHaveLength(0);
  const newAccountId=(await api('commercial',{action:'account_save',nombre:'Nuevo y válido '+width+' '+Date.now(),assignedUserEmail:'admin@example.com'})).id;await page.goto('/accounts/'+newAccountId);await page.getByRole('button',{name:'Contactar',exact:true}).first().click();dialog=page.getByRole('dialog');await reveal(dialog,dialog.getByRole('button',{name:'Iniciar gestión',exact:true}));await dialog.getByRole('button',{name:'Iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:'Iniciar gestión'});await expect(dialog.getByText(/figura como Nuevo/)).toBeVisible();await dialog.getByRole('button',{name:'Marcar Revisado e iniciar gestión',exact:true}).click();dialog=page.getByRole('dialog',{name:/^Preparar /});await expect(dialog.getByText(/^Gestión guardada/)).toBeVisible();const reviewedDetail=await api('commercial?accountId='+newAccountId);expect(reviewedDetail.account.status).toBe('in_management');expect(reviewedDetail.opportunities).toHaveLength(1);await closeContact();
  const generalTask=(await api('work',{action:'task_save',accountId,title:'Contacto general sin gestión '+run,typeId:'message',dueDate:localDay()})).id;
@@ -67,7 +77,8 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
   await closeContact();
  }
  // Spec 96 §2.6: from the business, opening WhatsApp closes the composer with a toast; opening proves nothing, so the attempt waits in Hoy
- // («Anotá cómo salió»), where "¿Lo enviaste?" comes first and the outcome updates the same activity (decision 2B).
+ // («Pendientes de contacto» → «¿Lo enviaste?», spec 100 §4.2); once confirmed it moves to «Anotá cómo salió» (one row per management),
+ // and the outcome updates the same activity (decision 2B).
  const tomasFinal='Abrir WhatsApp con Tomás con teléfono '+run+' · +54 9 3442000077';
  const sendWhatsapp=async(text:string)=>{
   // Re-stubbed on every page load: nothing reaches WhatsApp.
@@ -81,19 +92,25 @@ for(const width of [1280,390])test(`business continuity and explicit contact at 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   // Unconfirmed until the script or the seller says so: exactly one open attempt, to Tomás.
   const opened=(await api('communication?leadId='+leadId)).messages.filter((m:any)=>m.channel==='whatsapp'&&m.status==='whatsapp_opened');expect(opened.map((m:any)=>m.recipient)).toEqual(['+5493442000077']);
+  // Hoy lists it only after the script wait (spec 100 §9).
+  await pastScriptWait(opened[0].id);
  };
- const pendingRow=page.getByRole('region',{name:'Anotá cómo salió',exact:true}).getByRole('article',{name:'Contacto pendiente con Tomás con teléfono '+run,exact:true});
+ const pendingCard=page.getByRole('region',{name:'Pendientes de contacto',exact:true});
+ const pendingRow=pendingCard.getByRole('region',{name:'¿Lo enviaste?',exact:true}).getByRole('article',{name:'Contacto pendiente con Tomás con teléfono '+run,exact:true});
+ const outcomeRow=pendingCard.getByRole('region',{name:'Anotá cómo salió',exact:true}).getByRole('article').filter({hasText:'Tomás con teléfono '+run});
  await sendWhatsapp('Hola, te escribo por Hospeda');
- await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');await pendingRow.getByRole('button',{name:'Anotá cómo salió',exact:true}).click();
- await page.getByRole('dialog',{name:'¿Lo enviaste?',exact:true}).getByRole('button',{name:'Sí, lo envié',exact:true}).click();
+ await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');
+ await expect(pendingRow.getByRole('link',{name:'Ver en el negocio',exact:true})).toHaveAttribute('href','/accounts/'+accountId+'?section=communication&pending=open');
+ await pendingRow.getByRole('button',{name:'Sí, se envió',exact:true}).click();await expect(pendingRow).toHaveCount(0);
+ await outcomeRow.getByRole('button',{name:'Anotá cómo salió',exact:true}).click();
  {const outcome=page.getByRole('dialog',{name:'Anotar lo que pasó',exact:true});await expect(outcome.getByLabel('Título')).toHaveValue('Contacto por WhatsApp');await pickOutcome(outcome,'interested');await outcome.getByLabel('¿Cómo sigue?').selectOption('task');await outcome.getByRole('textbox',{name:'Qué hay que hacer',exact:true}).fill('Mandar propuesta a Tomás '+run);await outcome.getByRole('button',{name:'Mañana',exact:true}).click();await outcome.getByRole('button',{name:'Guardar y programar',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);}
- await expect(pendingRow).toHaveCount(0);
+ await expect(outcomeRow).toHaveCount(0);
  const whatsappMessage=(await api('communication?leadId='+leadId)).messages.find((m:any)=>m.channel==='whatsapp'&&m.recipient==='+5493442000077'&&m.status!=='draft'&&m.status!=='cancelled');expect(whatsappMessage.status).toBe('manual_sent');
  const contactWork=await api('work?mode=detail&accountId='+accountId);expect(contactWork.activities.filter((a:any)=>a.id===String(whatsappMessage.activityId)).map((a:any)=>[a.outcome,a.continuation])).toEqual([['interested','task']]);expect(contactWork.tasks.some((t:any)=>t.title==='Mandar propuesta a Tomás '+run)).toBe(true);
- // Decision 14A: the contact stays in Hoy until its outcome is recorded; there "No, no lo envié" records it as not sent.
+ // Decision 14A: the contact stays in Hoy until its outcome is recorded; there «No se envió» records it as not sent.
  await page.goto('/accounts/'+accountId);await sendWhatsapp('Segundo intento por WhatsApp');
- await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');await pendingRow.getByRole('button',{name:'Anotá cómo salió',exact:true}).click();
- await page.getByRole('dialog',{name:'¿Lo enviaste?',exact:true}).getByRole('button',{name:'No, no lo envié',exact:true}).click();await expect(pendingRow).toHaveCount(0);
+ await page.goto('/my-day');await expect(pendingRow).toContainText('Envío sin confirmar');
+ await pendingRow.getByRole('button',{name:'No se envió',exact:true}).click();await expect(pendingRow).toHaveCount(0);
  expect((await api('communication?leadId='+leadId)).messages.filter((m:any)=>m.channel==='whatsapp'&&m.recipient==='+5493442000077').map((m:any)=>m.status).sort()).toEqual(['manual_not_done','manual_sent']);
  await page.goto('/accounts/'+accountId);
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);await page.screenshot({path:`test-results/business-contact-${width}.png`,fullPage:true});expect(errors).toEqual([]);

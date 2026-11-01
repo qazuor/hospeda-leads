@@ -19,7 +19,7 @@ import {buildMessageTemplateContext} from '../helpers/messageTemplateContext';
 import {toast} from 'sonner';
 import {templateCompatibility,orderTemplatesBySpecificity} from '../helpers/messageTemplatePolicy';
 import {managementTypeLabels,type ManagementType} from '../helpers/businessManagement';
-import {messageLabels} from '../helpers/messageLabels';
+import {sentStatusLabel} from '../helpers/communicationTimeline';
 import {formatDate,formatDateTime} from '../helpers/crmDates';
 import styles from './Communication.module.css';
 import {MissingCommercialProfileNotice} from './MissingCommercialProfileNotice';
@@ -61,7 +61,7 @@ export function ManualCommunicationForm({detail,currentLeadId,userEmail,isAdmin,
   {!context&&!fixedPurpose&&purpose==='care'&&!detail.account.isClient&&<label><input type="checkbox" checked={confirmedClient} onChange={e=>setConfirmedClient(e.target.checked)}/> Si registrás el contacto como realizado, se marcará Es cliente. ¿Continuar?</label>}
   <label>Modelo (opcional)<NativeSelect value={templateId} onChange={e=>{const t=templates.find(t=>String(t.id)===e.target.value);setTemplateId(e.target.value);setVariation(0);setBody(t?renderTemplate(t,0):'')}}><option value="">Escribir desde cero</option>{templates.map(t=><option key={t.id} value={t.id}>{t.name}{t.managementType?` · ${managementTypeLabels[t.managementType as ManagementType]}`:t.vertical?` · ${t.vertical}`:''}</option>)}</NativeSelect></label>
   {channel==='social'&&selectedTemplate&&<><MissingCommercialProfileNotice commercialProfile={lead?.commercialProfile}/><p aria-label="Vista previa del modelo">{renderTemplate()}</p><Button variant="outline" onClick={()=>{const next=variation+1;setVariation(next);setBody(renderTemplate(selectedTemplate,next))}}>Otra redacción</Button><Button variant="outline" onClick={()=>void copyModel()}>Copiar texto</Button></>}
-  {recent&&<p role="status"><strong>Contacto reciente</strong> · {formatDateTime(recent.lastInteractionAt!)} · {recent.channel} · {messageLabels[recent.status]??recent.status}. Es un aviso; podés continuar.</p>}
+  {recent&&<p role="status"><strong>Contacto reciente</strong> · {formatDateTime(recent.lastInteractionAt!)} · {recent.channel} · {sentStatusLabel(recent)}. Es un aviso; podés continuar.</p>}
   <label>Texto a copiar (opcional)<Textarea rows={4} value={body} onChange={e=>setBody(e.target.value)} /></label>
   {missingVariables.length>0&&<p role="alert">Completá o quitá estas variables antes de copiar: {missingVariables.map(v=>`{{${v}}}`).join(', ')}.</p>}
   {copyNotice&&<p role="status">{copyNotice}</p>}

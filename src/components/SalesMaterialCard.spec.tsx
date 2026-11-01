@@ -5,7 +5,7 @@ import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
 import {SalesMaterialCard,categoryInitials} from './SalesMaterialCard';
 
 const version={id:'v-2',version:2,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date('2026-10-20T12:00:00Z')};
-const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories:[{id:'7',name:'Precios 2027',active:true}],currentVersion:version,...over});
+const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,coverSource:null,categories:[{id:'7',name:'Precios 2027',active:true}],currentVersion:version,...over});
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const handlers={onEdit:vi.fn(),onArchive:vi.fn(),onPreview:vi.fn()};
@@ -29,12 +29,13 @@ describe('SalesMaterialCard',()=>{
   fireEvent.click(item(menu,'Nueva versión'));expect(handlers.onEdit).toHaveBeenCalledWith({type:'version',material:expect.objectContaining({id:'m-1'})});
   cleanup();setup(material());fireEvent.click(item(await openMenu(),'Archivar'));expect(handlers.onArchive).toHaveBeenCalledTimes(1);
  });
- it('archived material: only Editar and Restaurar for admins; links have no Portada nor Descargar',async()=>{
+ it('archived material: only Editar and Restaurar for admins; links have Portada (spec 102 block 2) but no Descargar',async()=>{
   setup(material({status:'archived',archivedAt:new Date()}));let menu=await openMenu();
   expect(menu.map(i=>i.textContent)).toEqual(['Descargar','Editar','Restaurar']);cleanup();
   setup(material({source:'url',currentVersion:{...version,url:'https://example.com/x',fileName:null,mimeType:null,byteSize:null}}));
   expect(screen.getByRole('link',{name:'Abrir enlace'})).toBeTruthy();menu=await openMenu();
-  expect(menu.map(i=>i.textContent)).toEqual(['Editar','Nueva versión','Archivar']);
+  expect(menu.map(i=>i.textContent)).toEqual(['Editar','Nueva versión','Portada','Archivar']);
+  fireEvent.click(item(menu,'Portada'));expect(handlers.onEdit).toHaveBeenCalledWith({type:'cover',material:expect.objectContaining({source:'url'})});
  });
  it('sellers get only Descargar, and no menu at all on a link',async()=>{
   setup(material(),{admin:false});const menu=await openMenu();expect(menu.map(i=>i.textContent)).toEqual(['Descargar']);cleanup();

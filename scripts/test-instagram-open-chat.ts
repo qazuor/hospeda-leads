@@ -7,7 +7,7 @@ import {encryptInstagramToken} from '../src/helpers/instagram';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {post as webhook} from '../src/endpoints/inboundInstagram';
 import {post as communication} from '../src/endpoints/communication';
-import {pendingContactOutcomes} from '../src/helpers/communicationService';
+import {pendingContactFollowUps} from '../src/helpers/communicationService';
 import {CompiledQuery} from 'kysely';
 import {NO_SECRET_SNAPSHOT,assertLocalTestDatabase,cleanupThenRestore,instagramSecretFingerprint,restoreInstagramSecret,snapshotInstagramSecret,type SecretQuery} from './lib/instagram-secret';
 
@@ -104,7 +104,7 @@ try{
   assert.deepEqual([draft.instagramAutoConfirm,draft.instagramShared],[true,false],'read-only flags with the integration configured');
   // A second business with the same username flips instagramShared; nothing else of it is exposed.
   const twin=await db.insertInto('crmAccounts').values({nombre:'Zz IG gemelo '+run.slice(0,8),perfilInstagram:'@'+b.username}).returningAll().executeTakeFirstOrThrow();accountIds.push(String(twin.id));
-  const shared=await call(general(b.id),seller.cookie);assert.equal(shared.instagramShared,true);assert.equal(JSON.stringify(shared).includes(String(twin.id)),false);
+  const shared=await call(general(b.id),seller.cookie);assert.equal(shared.instagramShared,true);const sharedJson=JSON.stringify(shared);assert.equal(new RegExp(`[:"\\[,]"?${twin.id}"?[,\\]}]`).test(sharedJson),false,'the twin id is not exposed');assert.equal(sharedJson.includes('IG gemelo'),false,'the twin name is not exposed');
   await db.updateTable('crmAccounts').set({perfilInstagram:null}).where('id','=',twin.id).execute();
   // Without the integration token the composer warns that it will not confirm on its own.
   await sql`UPDATE crm_integration_secrets SET expires_at=now()-interval '1 day' WHERE name='instagram'`.execute(db);
@@ -122,7 +122,8 @@ try{
   assert.equal((await call({action:'dispatch',id:draft.id,revision:edited.revision,confirm:true},seller.cookie)).username,undefined);
 
   // Waiting period: Hoy's pending outcomes skip the attempt for 15 minutes, then list it.
-  const pending=()=>pendingContactOutcomes(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id});
+  // Spec 99 §3.6: an opened Instagram belongs to «Envíos sin confirmar» once the wait ends, never to «Anotá cómo salió».
+  const pending=async()=>{const f=await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id});assert(!f.outcomes.items.some(p=>p.status==='instagram_opened'));return f.unconfirmed.items;};
   assert.equal((await pending()).some(p=>p.id===draft.id),false,'an attempt waiting for the echo is not pending yet');
   await backdateOpen(draft.id,16);
   assert.equal((await pending()).some(p=>p.id===draft.id),true,'after 15 minutes it asks «¿Lo enviaste?» like WhatsApp');
@@ -132,7 +133,7 @@ try{
   const notSent=await row(draft.id);assert.equal(notSent.status,'manual_not_done');assert.equal((await activityResult(notSent.activityId))?.result,'Instagram marcado como no enviado');
   const second=await openAttempt(b.id,'Segundo mensaje de prueba',seller.cookie);
   await call({action:'outcome',id:second.id,event:'manual_sent',notes:''},seller.cookie);assert.equal((await row(second.id)).status,'manual_sent');
-  await call({action:'outcome',id:second.id,event:'manual_sent',notes:''},seller.cookie,400);// only an opened attempt is resolved
+  await call({action:'outcome',id:second.id,event:'manual_sent',notes:''},seller.cookie,409);// spec 100 §8: «Este envío ya estaba confirmado.»
  }
 
  // ── Communication gates on every write path.
@@ -201,6 +202,7 @@ try{
   await echo(mid('resolve'),sent,b.igsid);
   const resolved=await row(id);
   assert.deepEqual([resolved.status,resolved.externalId,resolved.textBody,resolved.body,resolved.ownerEmail],['manual_sent',mid('resolve'),sent,text,seller.user.email]);
+  assert.equal((await pendingContactFollowUps(db,{ownerEmail:seller.user.email,isAdmin:false,accountId:b.id})).outcomes.items.find(p=>p.id===id)?.externalId,mid('resolve'),'the pending outcome carries the echo mid for source labeling');
   assert.deepEqual((await socialRows(b.id)).map(r=>r.id),[id],'no echo row is inserted');
   assert.equal((await activityResult(resolved.activityId))?.result,'Envío confirmado por Instagram');assert.equal((await activityResult(resolved.activityId))?.actorEmail,seller.user.email);
   assert.equal((await db.selectFrom('crmTasks').select(['status','result']).where('id','=',task.id).executeTakeFirstOrThrow()).status,'completed');

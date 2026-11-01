@@ -74,7 +74,7 @@ export function ClassificationSettings({data}: {data: SettingsOutput}) {
       <SectionTabPanel value="cities">
         <article className={styles.card}>
           <header className={styles.cardHeading}><div><span className={styles.eyebrow}>UBICACIÓN</span><h3>Ciudades</h3><p>Localidades disponibles al cargar negocios y al filtrar las listas.</p></div><span className={styles.count}>{data.cities.length} {data.cities.length === 1 ? 'ciudad' : 'ciudades'}</span></header>
-          <form className={styles.addForm} onSubmit={e => {e.preventDefault(); if (!city.trim() || save.isPending) return; save.mutate({action: 'addCity', name: city.trim()}, {onSuccess: () => {setNotice('Ciudad agregada: ' + city.trim()); setCity(''); setCitySearch('');}});}}>
+          <form className={styles.addForm} onSubmit={e => {e.preventDefault(); if (!city.trim() || save.isPending) return; save.mutate({action: 'addCity', name: city.trim()}, {onSuccess: result => {setNotice('Ciudad agregada: ' + (result.city ?? city.trim())); setCity(''); setCitySearch('');}});}}>
             <label>Nueva ciudad<Input value={city} onChange={e => setCity(e.target.value)} placeholder="Nombre de la ciudad" maxLength={120}/></label><Button type="submit" disabled={save.isPending || !city.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí el nombre de la ciudad."}><Plus size={16}/>Agregar ciudad</Button>
           </form>
           <div className={styles.listHeading}><label>Buscar ciudad<Input type="search" value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Escribí una localidad…"/></label><span>{cities.length} de {data.cities.length}</span></div>

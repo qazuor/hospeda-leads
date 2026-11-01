@@ -52,6 +52,8 @@
 .draftHead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
 .draftHead>div{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
 .draftHead span{font-size:13px;color:var(--muted-foreground)}
+.draftFoot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.draftFoot:empty{display:none}
 .dialogBody{display:flex;flex-direction:column;gap:14px}
 /* Spec 90 review: a sent row that is not confirmed, not done or failed must not look sent. */
 .row[data-tone=unconfirmed] .bubble,.row[data-tone=not_done] .bubble,.row[data-tone=failed] .bubble{background:var(--card);border:1px dashed var(--border-strong);color:var(--muted-foreground)}
@@ -193,3 +195,24 @@
 .frameBody .row[data-side="out"][data-tone=unconfirmed] .bubble:focus-visible{outline:2px solid var(--platform);outline-offset:2px}
 /* Spec 92: «Ver texto preparado» of an Instagram attempt confirmed by the echo. */
 .preparedText{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
+/* Spec 100 §5: «Requiere acción» as one 44 px line on mount; the breakdown only in containers of 600 px or more (D4: never at 390 px). */
+.strip{display:flex;flex-direction:column;gap:10px;min-width:0;container-type:inline-size}
+.stripLine{display:flex;align-items:center;gap:8px;min-height:44px;min-width:0;padding:0 4px 0 12px;border:1px solid var(--tone-orange);border-radius:10px;background:var(--tone-orange-soft);color:var(--tone-orange-ink);font-size:14px}
+.strip[data-idle] .stripLine{border-color:var(--border);background:transparent;color:var(--muted-foreground)}
+.strip[data-open] .stripLine{padding:0;border:0;background:transparent}
+.stripIcon{flex:none}
+.stripCount{flex:none;white-space:nowrap}
+.stripSummary,.stripIdle{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted-foreground);font-weight:400}
+.strip[data-open] .stripLine>h4{flex:none}
+.stripLine>:last-child{margin-left:auto;flex:none}
+@container (max-width:599px){.stripSummary{display:none}}
+.block{display:flex;flex-direction:column;gap:6px;min-width:0}
+.blockTitle{margin:0;font-size:13px;font-weight:700;color:var(--foreground)}
+.blockHelp{margin:0;font-size:13px;color:var(--muted-foreground)}
+/* Spec 100 §8: bulk «Sí, se enviaron» / «No se enviaron» bar, its boxes and the confirmation lists. */
+.bulkBar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bulkPick{flex:none;align-self:center}
+.bulkList{margin:0 0 12px;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:14px;overflow-wrap:anywhere}
+.bulkList>li[data-kind="error"],.bulkList>li[data-kind="blocked"]{color:var(--tone-orange-ink)}
+.bulkNote{color:var(--muted-foreground)}
+.bulkActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}

@@ -1,4 +1,4 @@
-import type { Match, ContextResponse, RegisterResult } from "./api";
+import { type Match, type ContextResponse, type RegisterResult } from "./api";
 import type { ChatMessage } from "./selectors";
 import { filterCached, RegisterController, summarizeResults } from "./register";
 import { sentMatchesPrepared } from "./textMatch";
@@ -8,6 +8,8 @@ import { compareSemver } from "./parse";
 import { UPDATE_PROMPT_ID } from "./updatePrompt";
 import { openCompose, type ComposeMode } from "./compose";
 import { openAutoList } from "./autoList";
+import { attachPlan, attachToChat, captureAttachContext, downloadMaterialFile, pasteTextAfterClosingPreview, validateAttachContext } from "./attach";
+import { composerEquals, getWhatsAppComposer, pasteIntoComposer } from "./selectors";
 
 const ID = "hospeda-userscript-banner";
 const OPEN_KEY = "hospeda-userscript-open", AUTO_OPEN_KEY = "hospeda-userscript-auto-open", TOKEN_KEY = "hospeda-userscript-token", THEME_KEY = "hospeda-userscript-theme";
@@ -187,7 +189,7 @@ function chat(options: UiOptions, card: HTMLElement): HTMLElement {
 function business(options: UiOptions, selected: Match, body: HTMLElement, card: HTMLElement, status: HTMLElement): void {
   body.append(el("span", "eyebrow", `${selected.code}${selected.city ? ` · ${selected.city}` : ""}`), el("span", "name", selected.name));
   if(options.autoStatus) { const line=el("div","meta");const label=options.autoStatus.startsWith("Registro automático activo")?`${options.autoStatus} · ${options.autoTodayCount??0} registrados hoy`:options.autoStatus;line.append(el("span","muted",label));if(options.autoStatus.startsWith("Registro automático activo")){const see=el("button","btn small","Ver");see.type="button";see.addEventListener("click",()=>{view="autoList";options.onPreviewChange?.(true);openAutoList(card,options,selected,()=>{view="chat";options.onPreviewChange?.(false);},title=>bar(options,{main:title,sub:selected.name}));});line.append(see);}body.append(line); }
-  const chips = el("div", "chips"); chips.append(el("span", "chip", `Responsable: ${selected.assignedUserName || "Sin asignar"}`));
+  const chips = el("div", "chips"); chips.append(el("span", "chip", `Responsable: ${selected.assignedUserName || "Sin responsable"}`));
   if (selected.statusLabel) chips.append(el("span", "chip", selected.statusLabel));
   chips.append(el("span", "chip", selected.leads.length ? plural(selected.leads.length, "gestión abierta", "gestiones abiertas") : "Sin gestiones abiertas")); body.append(chips);
   if (selected.leads.length) { const box = el("div", "box"); box.append(el("span", "label", selected.leads.length === 1 ? "Gestión abierta" : "Gestiones abiertas")); for (const lead of selected.leads.slice(0, 3)) box.append(el("span", undefined, `${lead.name} · ${lead.stage}`)); body.append(box); }
@@ -197,6 +199,14 @@ function business(options: UiOptions, selected: Match, body: HTMLElement, card: 
   meta.append(el("span", undefined, fresh ? `${plural(fresh, "mensaje nuevo", "mensajes nuevos")} en este chat` : "Sin mensajes nuevos"), el("span", undefined, options.lastRegistered ? `Último registro: ${options.lastRegistered}` : ""));
   body.append(meta);
   const actions = el("div", "actions grid");
+  const openAttempt=(selected.openWhatsapp||[]).find(item=>Date.now()-new Date(item.openedAt).getTime()<=15*60_000&&!!item.body&&attachPlan(item.materials,item.body).kind==="attach");
+  if(openAttempt&&openAttempt.body&&options.crmBase&&!selected.doNotContact&&!selected.restrictionActive&&!selected.archived){
+    const plan=attachPlan(openAttempt.materials,openAttempt.body);
+    if(plan.kind==="attach"&&plan.material.shareId){
+      const meta=plan.material.attach!,editor=getWhatsAppComposer(),attach=el("button","btn","Adjuntar archivo");attach.type="button";attach.disabled=!hasToken()||!editor||!composerEquals(editor,openAttempt.body);attach.title=attach.disabled?"La caja de WhatsApp debe conservar el texto abierto desde el CRM":"Adjuntar el material del mensaje abierto desde el CRM";
+      attach.addEventListener("click",async()=>{attach.disabled=true;const snapshot=captureAttachContext(options.phone||"",document,()=>!options.isCurrentChat||options.isCurrentChat());if(!snapshot){status.textContent="El chat, el destinatario o el texto cambiaron. No pegué nada; volvé a intentarlo.";attach.disabled=false;return;}const download=downloadMaterialFile(options.crmBase!,GM_getValue<string>(TOKEN_KEY,""),openAttempt.messageId,plan.material.shareId!,{fileName:meta.fileName!,mimeType:meta.mimeType!,byteSize:meta.byteSize!},(loaded,total)=>{status.textContent=`Bajando el archivo… ${Math.min(99,Math.floor(loaded/Math.max(total,1)*100))} %`;});const cancel=el("button","btn small","Cancelar");cancel.type="button";cancel.addEventListener("click",()=>download.abort());actions.append(cancel);let file:File|null=null;try{file=(await download.promise).file;cancel.remove();if(!validateAttachContext(snapshot)){file=null;status.textContent="El chat, el destinatario o el texto cambiaron mientras bajaba el archivo. No pegué nada; volvé a intentarlo.";return;}const result=await attachToChat(file,openAttempt.body!,document,true);file=null;status.textContent=result.state==="A"?"Revisá la vista previa de WhatsApp y apretá Enviar. Si al final no lo mandás, avisalo acá.":result.state==="C"?"La vista previa de WhatsApp quedó abierta sin el texto. Cerrala con la X (no la envíes) y tocá «Pegar solo el texto».":result.state==="error"?result.message:"No pude adjuntar el archivo en WhatsApp: pegué el texto con el enlace.";if(result.state==="C"){const textOnly=el("button","btn","Pegar solo el texto");textOnly.type="button";textOnly.addEventListener("click",async()=>{textOnly.disabled=true;const restored=await pasteTextAfterClosingPreview(openAttempt.body!,document);status.textContent=restored?"No pude adjuntar el archivo en WhatsApp: pegué el texto con el enlace.":"Cerrá la vista previa con la X (no la envíes) y probá «Pegar solo el texto» de nuevo.";textOnly.disabled=false;});actions.append(textOnly);}if(result.state==="error"){const link=el("button","btn","Pegar solo con el enlace");link.type="button";link.addEventListener("click",()=>{if(!validateAttachContext(snapshot,document,true)){status.textContent="El chat, el destinatario o el texto cambiaron. No pegué nada; volvé a intentarlo.";return;}const composer=getWhatsAppComposer();if(composer&&(composerEquals(composer,openAttempt.body!)||pasteIntoComposer(composer,openAttempt.body!)))status.textContent="No pude adjuntar el archivo en WhatsApp: pegué el texto con el enlace.";else status.textContent="No pude escribir en la caja de WhatsApp. Copialo y pegalo con Ctrl+V.";});actions.append(link);}}catch(error){status.textContent=error instanceof Error?error.message:"No pude bajar el archivo.";const link=el("button","btn","Pegar solo con el enlace");link.type="button";link.addEventListener("click",()=>{if(!validateAttachContext(snapshot,document,true)){status.textContent="El chat, el destinatario o el texto cambiaron. No pegué nada; volvé a intentarlo.";return;}const composer=getWhatsAppComposer();if(composer&&(composerEquals(composer,openAttempt.body!)||pasteIntoComposer(composer,openAttempt.body!)))status.textContent="No pude adjuntar el archivo en WhatsApp: pegué el texto con el enlace.";else status.textContent="No pude escribir en la caja de WhatsApp. Copialo y pegalo con Ctrl+V.";});actions.append(link);}finally{file=null;cancel.remove();attach.disabled=false;}});actions.append(attach);
+    }
+  }
   if (options.register && options.readMessages) {
     const button = el("button", "btn primary", "Registrar mensajes"); button.type = "button";
     button.addEventListener("click", () => {
@@ -316,4 +326,3 @@ export function whatsappSearchOrCreateUrl({ base, phone }: { base: string; phone
   const value = `${phone!.trim().startsWith("+") ? "+" : ""}${digits}`;
   return `${base}/accounts?${new URLSearchParams({ q: value, createPhone: value })}`;
 }
-

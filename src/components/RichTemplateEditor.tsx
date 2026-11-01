@@ -14,6 +14,7 @@ import Strike from "@tiptap/extension-strike";
 import HardBreak from "@tiptap/extension-hard-break";
 import History from "@tiptap/extension-history";
 import Link from "@tiptap/extension-link";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import Underline from "@tiptap/extension-underline";
 import Heading from "@tiptap/extension-heading";
 import BulletList from "@tiptap/extension-bullet-list";
@@ -36,6 +37,35 @@ import { editorHtmlToMaterialReferences, materialReferencesToEditorHtml } from "
 import { SalesMaterialNode } from "./salesMaterialNode";
 import { SalesMaterialPicker } from "./SalesMaterialPicker";
 import { HelpLink } from "./HelpLink";
+
+const LINK_OPTIONS={openOnClick:false,autolink:true,defaultProtocol:"https"} as const;
+/**
+ * WhatsApp/Instagram send plain text, where a URL link is just its URL. With autolink the link mark is inclusive, so text typed right after a URL
+ * joined the link and was sent as `texto (URL)` (spec 101 review). Here a link whose text starts with its href gives that extra text back, so
+ * a URL link never grows; a link with its own label (added at the cursor, then typed) keeps growing as before. Email keeps TipTap's default.
+ */
+const PlainChannelLink=Link.extend({
+  addProseMirrorPlugins(){
+    const type=this.type;
+    const trimUrlLinks=new Plugin({key:new PluginKey('plainChannelUrlLinks'),appendTransaction:(transactions,_old,state)=>{
+      if(!transactions.some(t=>t.docChanged))return null;
+      const extra:{from:number;to:number}[]=[];
+      let run:{href:string;from:number;to:number;text:string}|null=null;
+      const close=()=>{if(run&&run.text.length>run.href.length&&run.text.startsWith(run.href))extra.push({from:run.from+run.href.length,to:run.to});run=null;};
+      state.doc.descendants((node,pos)=>{
+        if(!node.isText){close();return true;}
+        const href=node.marks.find(m=>m.type===type)?.attrs.href as string|undefined;
+        if(href&&run&&run.href===href&&run.to===pos){run.to=pos+node.nodeSize;run.text+=node.text??'';return false;}
+        close();if(href)run={href,from:pos,to:pos+node.nodeSize,text:node.text??''};return false;
+      });
+      close();
+      if(!extra.length)return null;
+      const tr=state.tr;for(const r of extra)tr.removeMark(r.from,r.to,type);
+      return tr;
+    }});
+    return [...(this.parent?.()??[]),trimUrlLinks];
+  }
+}).configure(LINK_OPTIONS);
 
 /**
  * TipTap editor of templates and drafts. With `salesMaterials` (template editor only, spec 89 §9) it also offers «Insertar material de venta»:
@@ -65,9 +95,9 @@ export const RichTemplateEditor=({
   const extensions=useMemo(()=>{
     const base:AnyExtension[]=[
       Document,Paragraph,Text,Bold,Italic,Strike,HardBreak,History,
-      Link.configure({openOnClick:false,autolink:true,defaultProtocol:"https"})
+      channel==="email"?Link.configure(LINK_OPTIONS):PlainChannelLink
     ];
-    if(channel==="instagram")return [Document,Paragraph,Text,HardBreak,History,Link.configure({openOnClick:false,autolink:true,defaultProtocol:"https"})];
+    if(channel==="instagram")return [Document,Paragraph,Text,HardBreak,History,PlainChannelLink];
     if(withMaterials)base.push(SalesMaterialNode.configure({HTMLAttributes:{class:styles.materialChip}}));
     if(channel==="whatsapp")return base;
     return [

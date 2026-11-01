@@ -1,12 +1,14 @@
 # Runbook de promoción a producción (`staging` → `main`)
 
-Borrador para revisión del propietario. Describe todo lo que hay en `staging` y no está en `main`, y los pasos para promoverlo y desplegarlo. **Este documento no autoriza nada**: la promoción, el deploy y cualquier operación sobre datos de producción necesitan la orden explícita del propietario en la conversación (ver `AGENTS.md`).
+**Ejecutado el 30/10/2026** (PR #288, `staging` → `main`, merge commit `dfa9b33`): Coolify desplegó producción solo al mergear, y producción sirve el user script 1.7.0. Este documento sigue siendo el procedimiento reutilizable para las próximas promociones; los números de PR, migraciones y conteos de abajo describen el corte del 27/10 y hay que rehacerlos cada vez. Pendiente de verificar en producción: variables cargadas, migraciones aplicadas sin error y las pruebas funcionales del propietario.
 
-Hechos tomados de git al 27/10/2026 sobre `origin/staging` = `5eedb32`, actualizado con la spec 90 (`92e65f5`) (CI verde en ese SHA según `gh run list`). Todo lo que no se pudo comprobar desde el repo está marcado **(verificar)**. Si `staging` avanza antes de promover (por ejemplo la spec 90, que a esta fecha no está mergeada), rehacer las secciones 1, 3.2 y 3.3 con `git log --first-parent origin/main..origin/staging` y `git diff --name-only origin/main origin/staging -- migrations/`.
+Borrador original para revisión del propietario. Describe todo lo que hay en `staging` y no está en `main`, y los pasos para promoverlo y desplegarlo. **Este documento no autoriza nada**: la promoción, el deploy y cualquier operación sobre datos de producción necesitan la orden explícita del propietario en la conversación (ver `AGENTS.md`).
+
+La sección 1 y las listas de migraciones describen el corte del 27/10/2026 (antes de las specs 94 a 98, promovidas el 30/10). Hechos tomados de git al 27/10/2026 sobre `origin/staging` = `5eedb32`, actualizado con la spec 90 (`92e65f5`) (CI verde en ese SHA según `gh run list`). Todo lo que no se pudo comprobar desde el repo está marcado **(verificar)**. Si `staging` avanza antes de promover (por ejemplo la spec 90, que a esta fecha no está mergeada), rehacer las secciones 1, 3.2 y 3.3 con `git log --first-parent origin/main..origin/staging` y `git diff --name-only origin/main origin/staging -- migrations/`.
 
 ## 1. Qué va a producción
 
-177 merges/commits en la primera línea de historia entre `origin/main` y `origin/staging`. Desplegado a producción: nada de esto (`docs/estado-desarrollo.md`). Agrupado por tema:
+177 merges/commits en la primera línea de historia entre `origin/main` y `origin/staging`. A la fecha del corte del 27/10, nada de esto estaba desplegado (`docs/estado-desarrollo.md`); se promovió el 30/10/2026. Agrupado por tema:
 
 | Tema | PRs | Qué cambia para el usuario / operación |
 |---|---|---|
@@ -37,36 +39,68 @@ Fuera de esta promoción (no mergeado a `staging` a esta fecha): F3/F4 de la spe
 - [ ] Rol de migración con `CREATE` sobre la base (migración 032 ejecuta `CREATE EXTENSION IF NOT EXISTS pg_trgm`): `SELECT has_database_privilege(current_user, current_database(), 'CREATE');` debe dar `true`. Si no, crear la extensión antes con un rol administrador. Si 032 falla, la app no arranca (el contenedor corre migrar y arrancar).
 - [ ] Ventana de poco tráfico. 026 toma `SHARE ROW EXCLUSIVE` por tabla sin `lock_timeout` a propósito; 032, 034, 043 y 046 crean índices GIN/B-tree sin `CONCURRENTLY` (las escrituras de cada tabla esperan mientras se construye el índice). Con ~1.600 negocios debería ser cuestión de segundos **(verificar con el volumen real)**.
 - [ ] El propietario exportó o descartó a conciencia sus **modelos de mensajes** actuales (036 los borra) y borró a mano sus materiales de prueba en Configuración → «Biblioteca» (ver 3.5).
-- [ ] Confirmar en Coolify si la aplicación despliega sola al empujar a `main` (webhook / auto-deploy). `AGENTS.md` dice que el deploy es manual (`deploy-vps.yml` solo `workflow_dispatch`, nunca se dispara desde un agente). Si hay auto-deploy activo, el merge del paso 3.1 **es** el deploy: cargar variables (3.2) antes de mergear. **(verificar)**
+- [ ] **El merge a `main` ES el deploy.** Coolify despliega solo cada push a `main` (confirmado por el propietario el 30/10/2026, cuando el merge del #288 desplegó producción). Antes de mergear: variables de 3.2 cargadas en Coolify, respaldo de la base hecho y ventana elegida. `deploy-vps.yml` sigue siendo solo `workflow_dispatch` y no se dispara.
 - [ ] Healthcheck de Coolify en `/_api/health/ready` (verifica la base). Informado por el propietario el 21/10/2026, no verificable desde el repo. **(verificar)**
 
 ## 3. Pasos, en orden
 
 ### 3.1 PR `staging` → `main`
 
-Solo cuando el propietario lo pida. Abrir el PR con base `main`, cabeza `staging`, título con la etiqueta de trabajo que corresponda (por ejemplo `[NOSPEC:promote-staging] chore: promote staging to main`), cuerpo con el resumen de la sección 1, las migraciones de 3.3 y las variables de 3.2. Esperar CI verde en el head exacto y mergear sin `--admin`. No hacer push directo a `main`. Un merge no es un deploy (salvo auto-deploy, ver checklist).
+Solo cuando el propietario lo pida. Abrir el PR con base `main`, cabeza `staging`, título con la etiqueta de trabajo que corresponda (por ejemplo `[NOSPEC:promote-staging] chore: promote staging to main`), cuerpo con el resumen de la sección 1, las migraciones de 3.3 y las variables de 3.2. Esperar CI verde en el head exacto y mergear sin `--admin`. No hacer push directo a `main`. **Este merge despliega producción** (Coolify auto-deploy sobre `main`): no mergear sin la orden explícita del propietario, las variables de 3.2 cargadas y el respaldo hecho.
 
 ### 3.2 Variables de entorno en Coolify, ANTES del deploy
 
-Solo nombres; nunca valores en Git, PR, chat o logs. Referencia: `.env.example` (diferencia `origin/main`..`origin/staging`) y `docs/COOLIFY_DEPLOY.md`.
+Solo nombres; nunca valores en Git, PR, chat o logs. Inventario tomado del código en `dfa9b33`. Referencias: la plantilla de variables de la raíz del repo (su variante de producción está desactualizada, no usarla) y `docs/COOLIFY_DEPLOY.md`.
 
-| Variable | Obligatoria | Cómo obtenerla |
-|---|---|---|
-| `JWT_SECRET` | **Sí, el servidor no arranca sin ella** (mínimo 32 caracteres, sin valores de ejemplo) | Si la actual ya cumple, no tocarla (cambiarla cierra todas las sesiones). Si hay que crearla: `openssl rand -hex 32`. **(verificar longitud en Coolify)** |
-| `PUBLIC_APP_URL` | Sí (ya existe) | `https://crm.hospeda.com.ar`, exacto. Las vistas previas de `/m/<token>` la usan para `og:url` y `og:image` |
-| `INBOUND_EMAIL_TOKEN` | Para email entrante | `openssl rand -hex 32` (32+). El mismo valor va como secret del Worker de Cloudflare |
-| `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY` | Para «Responder» por email (si faltan, la acción queda oculta) | Brevo → SMTP y API: generar una clave SMTP propia del CRM, revocable |
-| `BREVO_SMTP_PORT` | No (587 por defecto) | `587` |
-| `INSTAGRAM_APP_SECRET` | Para Instagram | Secreto de la app de Instagram en el panel de Meta (se copia, no se genera) |
-| `INSTAGRAM_VERIFY_TOKEN` | Para Instagram | `openssl rand -hex 32` (32+). El mismo valor va en la Callback URL de Meta |
-| `INSTAGRAM_ACCOUNT_ID` | Para Instagram | ID de la cuenta profesional de Hospeda, del panel de Meta. **(verificar de dónde se copia)** |
-| `INTEGRATION_SECRETS_KEY` | Para guardar el token de Instagram | 32 bytes en base64: `openssl rand -base64 32`. **Nueva para producción; no reutilizar la de la prueba local.** Guardarla además en el gestor de secretos: si se pierde, hay que volver a cargar el token |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Para Material de venta (sin ellas el servidor arranca y la página muestra «Almacenamiento no configurado») | Cloudflare R2, ver 3.5 |
-| `CRM_CLIENT_IP_HEADER` | No (`x-real-ip` por defecto) | Ver tabla en `COOLIFY_DEPLOY.md`. `cf-connecting-ip` solo si el origen acepta únicamente tráfico de Cloudflare |
-| `BREVO_API_KEY`, `BREVO_WEBHOOK_TOKEN`, `ADMIN_EMAIL`, `DATABASE_URL`, `PORT`, `NODE_ENV` | Ya existen | No cambiar |
-| `DB_LOCK_TIMEOUT_MS` (10000), `SLOW_REQUEST_MS` (1000), `BREVO_SMTP_HOST` (`smtp-relay.brevo.com`) | No | Solo si hay que ajustar; los valores entre paréntesis son los por defecto del código |
+**OBLIGATORIAS (si faltan o son inválidas, el servidor no arranca)**
 
-No hay que cargar en producción: `R2_ENDPOINT` (solo tests), `CRM_TEST_DATABASE*`, `PERF_*`, `CRM_PERF_*`, `CRM_STATE_PREFLIGHT*`, `MIGRATION_DATA_*`. Las variables `CRM_MCP_*` no se tocan: el servicio MCP no está habilitado en producción.
+| Variable | Detalle |
+|---|---|
+| `DATABASE_URL` | La necesita también `scripts/migrate.mjs` al arrancar el contenedor |
+| `JWT_SECRET` | 32 caracteres o más. Se rechazan valores con marcas de ejemplo (`change-me`, `example`, `placeholder`, `replace`, `your-secret`). Si la actual ya cumple, no tocarla (cambiarla cierra todas las sesiones); si hay que crearla: `openssl rand -hex 32` |
+
+**POR FUNCIÓN (el servidor arranca, pero una función queda apagada)**
+
+| Variable | Si falta o es inválida |
+|---|---|
+| `PUBLIC_APP_URL` (`https://crm.hospeda.com.ar`, exacto) | La recuperación de contraseña responde 503; la acción de Brevo en Ajustes falla; las páginas `/m/` pierden `og:url` y `og:image`; los enlaces para compartir material **lanzan error en producción**; el logo del email cae a localhost. En el código es de nivel «función», pero **en producción es efectivamente obligatoria** |
+| `ADMIN_EMAIL` | Nadie recibe el rol admin al registrarse |
+| `BREVO_API_KEY` | Falla el envío de emails y la recuperación de contraseña |
+| `BREVO_WEBHOOK_TOKEN` (32+) | `POST /_api/brevo/events` responde 503; no hay eventos de entrega, apertura ni click |
+| `INBOUND_EMAIL_TOKEN` (32+) | Email entrante apagado. El mismo valor es un secret del Worker de Cloudflare |
+| `BREVO_SMTP_LOGIN` + `BREVO_SMTP_KEY` | Se oculta «Responder» por email (clave propia del CRM, revocable) |
+| `INSTAGRAM_VERIFY_TOKEN` (32+) | La verificación del webhook de Meta responde 503. El mismo valor va en la Callback URL de Meta |
+| `INSTAGRAM_APP_SECRET`, `INSTAGRAM_ACCOUNT_ID` | El webhook de Instagram responde 503; no hay confirmación automática por eco |
+| `INTEGRATION_SECRETS_KEY` (base64 de exactamente 32 bytes: `openssl rand -base64 32`; tiene que dar 32 bytes al decodificarla: una clave en hexadecimal de 64 caracteres se rechaza; comillas o base64url no la invalidan) | No se puede guardar ni renovar el token de Instagram; el log dice «Instagram integration disabled: INTEGRATION_SECRETS_KEY is missing» o «… is invalid», y Configuración → Instagram muestra si falta, si no es válida (con pista si parece hexadecimal) o si cambió y ya no lee el token guardado (spec 103, bloque 2). Nueva para producción, no reutilizar la de pruebas; guardarla también en el gestor de secretos |
+| `INSTAGRAM_ACCOUNT_USERNAME` (spec 97, @usuario normalizado) | El panel de Instagram del script no puede aprender ni pegar; el vendedor ve «Falta configurar la cuenta de Instagram de Hospeda…» |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | El ID de cuenta debe cumplir `^[A-Za-z0-9-]+$` y el bucket `^[a-z0-9][a-z0-9.-]{1,62}$`. Si falta alguna o está mal formada: Material de venta muestra «Almacenamiento no configurado» y subir responde 503; los enlaces externos siguen funcionando. Ver 3.5, «Material de venta (spec 89), Cloudflare R2» |
+| `BUSINESS_IMPORT_TOKEN_SHA256` | API de importación de negocios deshabilitada |
+
+**OPCIONALES (con su valor por defecto)**
+
+| Variable | Por defecto |
+|---|---|
+| `NODE_ENV` | `production`, lo fija el `Dockerfile` |
+| `PORT` | `3001` |
+| `BREVO_SMTP_PORT` | `587` |
+| `BREVO_SMTP_HOST` | `smtp-relay.brevo.com` |
+| `CRM_CLIENT_IP_HEADER` | `x-real-ip` (producción carga `cf-connecting-ip`); permitidos: `x-real-ip`, `cf-connecting-ip`, `x-forwarded-for`, `none` (ver `COOLIFY_DEPLOY.md`; `cf-connecting-ip` solo si el origen acepta únicamente tráfico de Cloudflare) |
+| `SLOW_REQUEST_MS` | `1000` |
+| `DB_LOCK_TIMEOUT_MS` | `10000` |
+| `DB_POOL_MAX` | `10` |
+| `DB_STATEMENT_TIMEOUT_MS` | `30000` |
+| `BUSINESS_IMPORT_ACTOR_EMAIL` | el valor de `ADMIN_EMAIL` |
+
+**NO cargar en producción**
+
+- `R2_ENDPOINT`, `CRM_TEST_DATABASE*`, `CRM_DEV_*`, `PERF_*`, `CRM_PERF_*`, `CRM_STATE_PREFLIGHT*`.
+- `MIGRATION_DATA_URL` / `MIGRATION_DATA_KEY`: solo para el importador de una única vez; si siguen cargadas, quitarlas.
+
+**Lo que no es una variable de entorno**
+
+- `USERSCRIPT_MIN_VERSION` es una constante del código (`1.5.0`).
+- El interruptor global del registro automático del script es la fila `crm_userscript_auto_register` de `app_settings` (por defecto encendido), más un interruptor por usuario.
+- `USERSCRIPT_CRM_BASE_URL` existe solo al construir; el `Dockerfile` no tiene `ARG` para ella, así que el build de producción usa el valor por defecto `https://crm.hospeda.com.ar`.
 
 ### 3.3 Migraciones
 
@@ -109,15 +143,17 @@ Comprobación posterior: tras desplegar, `SELECT count(*) FROM schema_migrations
 
 ### 3.4 Deploy en Coolify
 
-1. Confirmar que las variables de 3.2 están cargadas y guardadas.
-2. Con el respaldo hecho y la ventana elegida, el propietario despliega la aplicación `hospeda-leads-prod` desde Coolify (rama `main`) **(verificar nombre actual de la app y la rama configurada)**. No disparar `deploy-vps.yml` desde un agente.
-3. Seguir el log del contenedor: deben aparecer `Applied 0NN_...` por cada migración nueva y luego el servidor escuchando en `3001`. Cualquier error de migración detiene el arranque (ver sección 4).
+No hay paso manual de deploy: el merge de 3.1 lo dispara (Coolify auto-deploy sobre `main`).
+
+1. Antes del merge: variables de 3.2 cargadas y guardadas, respaldo hecho, ventana elegida.
+2. Después del merge, abrir en Coolify el despliegue de la aplicación y seguir su log de build y de arranque **(verificar nombre actual de la app y la rama configurada)**. No disparar `deploy-vps.yml` desde un agente.
+3. En el log del contenedor deben aparecer `Applied 0NN_...` por cada migración nueva y luego el servidor escuchando en `3001`. Cualquier error de migración detiene el arranque (ver sección 4).
 4. Esperar a que `/_api/health/ready` responda OK antes de dar tráfico.
 
 ### 3.5 Configuración externa posterior al deploy
 
 **Instagram Direct (spec 88).** Aplicar solo con 045 y las 4 variables cargadas.
-1. En Meta (app ya creada y publicada): Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram` y verify token igual a `INSTAGRAM_VERIFY_TOKEN` de producción. Meta hace un `GET` de verificación: debe responder `hub.challenge`.
+1. En Meta (app ya creada y publicada): Callback URL `https://crm.hospeda.com.ar/_api/inbound/instagram` (en el smoke del 30/10/2026 producción tenía una URL `trycloudflare` de desarrollo; cambiar la Callback URL no exige un verify token nuevo) y verify token igual a `INSTAGRAM_VERIFY_TOKEN` de producción. Meta hace un `GET` de verificación: debe responder `hub.challenge`.
 2. Suscribir el campo `messages` y activar la suscripción de la cuenta («Webhook subscription»).
 3. Confirmar que las URLs de política de privacidad y de eliminación de datos cargadas en la app son las definitivas de Hospeda (spec 88 sección 7). **(verificar cuáles son; el repo no las define)**
 4. En el CRM, un admin carga el token de la cuenta en Configuración → «Integraciones» → Instagram (`pendientes.md` lo ubica ahí; el texto en inglés de esa misma página dice «Settings → Communication → Instagram» y `settings.tsx` monta el componente cerca de la sección de Comunicación **(verificar la ruta en la pantalla)**). El token se guarda cifrado y no vuelve a mostrarse; no se valida contra Meta al guardarlo.
@@ -130,7 +166,7 @@ Comprobación posterior: tras desplegar, `SELECT count(*) FROM schema_migrations
 4. Cargar las 4 variables `R2_*` y **redesplegar** (se leen al arrancar; la CSP también suma el origen de R2 al arrancar).
 5. Verificar con R2 real los overrides `response-content-*` y la subida firmada con `Content-Length` (`pendientes.md` lo marca pendiente).
 6. Antes del deploy: el propietario borra a mano sus materiales de prueba en Configuración → «Biblioteca». Después del deploy la biblioteca vieja deja de mostrarse (filas inertes) y `/library` redirige a `/sales-material`.
-7. Definir `CRM_CLIENT_IP_HEADER` según si el dominio pasa por Cloudflare (ver `COOLIFY_DEPLOY.md`).
+7. `CRM_CLIENT_IP_HEADER`: producción usa `cf-connecting-ip` (el dominio pasa por Cloudflare; confirmado el 30/10/2026).
 
 **Email entrante (spec 83 F1/F2).**
 1. `INBOUND_EMAIL_TOKEN` en Coolify y el mismo valor como secret del Worker.
@@ -201,6 +237,6 @@ Después de un deploy estable: actualizar `docs/estado-desarrollo.md` y `docs/pe
 | 8 | Selectores de WhatsApp | Fixtures sintéticos aún sin reemplazar por capturas reales en todos los casos; Firefox declarado compatible pero no probado | `pendientes.md` (F3) |
 | 9 | Modelos de mensajes | Confirmar que se acepta perder los modelos actuales (036) y exportarlos antes si hace falta | `estado-desarrollo.md` (#213), migración 036 |
 | 10 | Estado real de migraciones 018–023 en producción | Ver checklist; confirmar con `schema_migrations` | `estado-desarrollo.md`, `rendimiento-y-arquitectura-2026-10.md` |
-| 11 | Auto-deploy de Coolify | Confirmar si el merge a `main` despliega solo | `AGENTS.md`, `COOLIFY_DEPLOY.md` |
+| 11 | Auto-deploy de Coolify | **Resuelto el 30/10/2026**: el merge a `main` despliega solo (confirmado con el #288) | `AGENTS.md`, `COOLIFY_DEPLOY.md` |
 | 12 | Cloudflare Email Routing y Worker | Deploy del Worker, alta del catch-all y `CRM_BASE_URL` a producción | `pendientes.md` (F1), `workers/inbound-email/README.md` |
 | 13 | Siguientes fases de 89 | No mergeadas; decidir si entran en esta promoción o en la siguiente | `pendientes.md` |

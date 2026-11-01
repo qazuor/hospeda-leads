@@ -19,10 +19,10 @@ const message=(id:string,over:Record<string,unknown>={})=>({id,accountId:'5',lea
 const inbound=(id:string,over:Record<string,unknown>={})=>({id,channel:'whatsapp',receivedAt:day(3),fromAddress:'+5493442123456',fromName:'Julia',subject:'',textBody:'Gracias, lo vemos',status:'pending_review',isAutomatic:false,matchMethod:'phone',leadId:null,contextName:'General',linkedMessageId:null,responseId:null,attachments:[],canReply:false,replyAvailable:false,replyRestricted:false,...over});
 const response=(id:string,over:Record<string,unknown>={})=>({id,leadId:null,channel:'call',category:'interested',summary:'Le interesa el plan',exactText:null,actorEmail:'seller@example.com',occurredAt:day(4),contextName:'General',...over});
 const account={id:'5',nombre:'Hotel Sol',assignedUserEmail:'seller@example.com',email:'hotel@example.com',telefono:'3447',tipo:'Alojamiento',ciudad:'Colón',subtipo:null,archivedAt:null,recontactAt:null,status:'active',doNotContact:false,isClient:false};
-type Data={messages?:unknown[];inbound?:unknown[];responses?:unknown[];activeRestrictions?:unknown[];pendingOutcomes?:unknown[]};
+type Data={messages?:unknown[];inbound?:unknown[];responses?:unknown[];activeRestrictions?:unknown[];followUps?:unknown};
 function setup({data={},role='user',accountOver={},opportunities=[] as unknown[]}:{data?:Data;role?:string;accountOver?:Record<string,unknown>;opportunities?:unknown[]}={}){
  mocks.role=role;
- mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:data.activeRestrictions??[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],pendingOutcomes:[],recentContactHours:72,webhookConfigured:false,...data});
+ mocks.getCommunication.mockResolvedValue({messages:[],recentMessages:[],restrictions:data.activeRestrictions??[],activeRestrictions:[],responses:[],inbound:[],openManagements:[],recentContactHours:72,webhookConfigured:false,...data});
  mocks.getCommercialDetail.mockResolvedValue({account:{...account,...accountOver},contacts:[],opportunities,users:[{email:'seller@example.com',displayName:'Seller'},{email:'other@example.com',displayName:'Otra'}]});
  mocks.getPipeline.mockResolvedValue({stages:[]});
  mocks.getWork.mockResolvedValue({tasks:[]});
@@ -104,13 +104,15 @@ describe('action bar gating',()=>{
 });
 
 describe('«Requiere acción»',()=>{
- it('shows the empty state with a zero count',async()=>{
+ it('shows nothing when nothing is pending (spec 100 §5.1: no «Nada pendiente…» line)',async()=>{
   setup();show();await ready();
-  expect(screen.getByRole('heading',{name:'Requiere acción · 0'})).toBeTruthy();
-  expect(screen.getByText('Nada pendiente: no hay mensajes por revisar ni envíos sin confirmar.')).toBeTruthy();
+  expect(screen.queryByRole('region',{name:'Requiere acción'})).toBeNull();expect(screen.queryByText(/Nada pendiente/)).toBeNull();
  });
  it('confirms an opened WhatsApp send once, blocking a second submit',async()=>{
-  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],inbound:[inbound('pending')]}});show();await ready();
+  // Spec 99 §3.6: the entry is the server's unconfirmed send, drawn from the loaded message.
+  setup({data:{messages:[message('opened',{status:'whatsapp_opened'})],inbound:[inbound('pending')],followUps:{unconfirmed:{items:[message('opened',{status:'whatsapp_opened'})],count:1,groupCount:1},outcomes:{items:[],count:0,groupCount:0},expired:{unconfirmed:{items:[],count:0,groupCount:0},outcomes:{items:[],count:0,groupCount:0}}}}});show();await ready();
+  expect(within(screen.getByRole('region',{name:'Requiere acción'})).getByText('2 pendientes')).toBeTruthy();
+  fireEvent.click(within(screen.getByRole('region',{name:'Requiere acción'})).getByRole('button',{name:'Revisar'}));
   const region=screen.getByRole('region',{name:'Requiere acción'});
   expect(within(region).getByRole('heading',{name:'Requiere acción · 2'})).toBeTruthy();
   expect(within(region).getByText('1 mensaje por revisar · 1 envío sin confirmar')).toBeTruthy();
@@ -175,5 +177,37 @@ describe('«Borradores»',()=>{
   fireEvent.click(within(mine).getByRole('button',{name:'Seguir editando'}));
   expect(await within(mine).findByRole('heading',{name:'Personalizá el mensaje'})).toBeTruthy();
   expect(within(screen.getByRole('region',{name:'Conversación'})).queryAllByRole('article')).toHaveLength(0);
+ });
+ it('shows «Abrir WhatsApp» while editing a WhatsApp draft and opens it in one click (spec 101 block 2)',async()=>{
+  // Arrange
+  connectScript();
+  const tab={opener:{},closed:false,location:{href:'about:blank'},close:vi.fn()};const open=vi.spyOn(window,'open').mockReturnValue(tab as unknown as Window);
+  mocks.postCommunication.mockReturnValue(new Promise(()=>{}));
+  setup({data:{messages:[message('mine',{status:'draft',textBody:null,revision:3})]}});show();await ready();
+  const mine=within(screen.getByRole('region',{name:'Borradores'})).getByRole('article',{name:'Borrador de WhatsApp a Julia'});
+  fireEvent.click(await within(mine).findByRole('button',{name:'Seguir editando'}));
+  await within(mine).findByRole('heading',{name:'Personalizá el mensaje'});
+  // Act
+  const button=await within(mine).findByRole('button',{name:/^Abrir WhatsApp/}) as HTMLButtonElement;
+  await waitFor(()=>expect(button.disabled).toBe(false));
+  fireEvent.click(button);
+  // Assert
+  expect(open).toHaveBeenCalledTimes(1);
+  await waitFor(()=>expect(mocks.postCommunication.mock.calls.map(c=>c[0])).toEqual([expect.objectContaining({action:'dispatch',id:'mine',revision:3,confirm:true})]));
+  open.mockRestore();
+ });
+ it('keeps an email draft as before: no send button while editing, only «Guardar cambios» (spec 101 §6.2.4)',async()=>{
+  // Arrange
+  connectScript();
+  setup({data:{messages:[message('mail',{channel:'email',recipient:'julia@example.com',subject:'Tarifas',body:'<p>Hola Julia</p>',htmlBody:'<p>Hola Julia</p>',textBody:'Hola Julia',status:'draft',revision:2})]}});show();await ready();
+  const mine=within(screen.getByRole('region',{name:'Borradores'})).getByRole('article',{name:'Borrador de Email a Julia'});
+  // Act
+  fireEvent.click(await within(mine).findByRole('button',{name:'Seguir editando'}));
+  await within(mine).findByRole('heading',{name:'Personalizá el mensaje'});
+  // Assert
+  expect(within(mine).getByRole('button',{name:/Guardar cambios/})).toBeTruthy();
+  expect(within(mine).queryByRole('button',{name:'Guardar y revisar'})).toBeNull();
+  expect(within(mine).queryByRole('button',{name:/^Enviar email/})).toBeNull();
+  expect(mocks.postCommunication).not.toHaveBeenCalled();
  });
 });

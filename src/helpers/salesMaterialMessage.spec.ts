@@ -1,9 +1,16 @@
 import {describe,expect,it} from 'vitest';
-import {BREVO_ATTACHMENT_EXTENSIONS,MaterialShareUrlUnavailable,appendMaterialLink,attachBlockReasons,contactChannelOf,materialChannelOf,fileExtension,materialLinkSnippet,materialShareUrl,megabytesLabel,redactPresignedUrls,removeMaterialLink,shareTokenHashesInBody,shareUrlInBody} from './salesMaterialMessage';
+import {BREVO_ATTACHMENT_EXTENSIONS,MaterialShareUrlUnavailable,appendMaterialLink,attachBlockReasons,contactChannelOf,materialChannelOf,fileExtension,materialLinkSnippet,materialShareUrl,megabytesLabel,redactPresignedUrls,removeMaterialLink,shareSlugIntactInBody,shareTokenHashesInBody,shareUrlInBody,whatsappAttachEligibility,whatsappAttachGroupEligible,whatsappAttachSingleEligible,WHATSAPP_ATTACH_MAX_BYTES} from './salesMaterialMessage';
 import {hashShareToken} from './salesMaterialShare';
 
 const tokenA='A'.repeat(42)+'E',tokenB='b'.repeat(42)+'Q';
 const urlA='https://crm.example.test/m/'+tokenA,urlB='https://crm.example.test/m/'+tokenB;
+
+describe('whatsappAttachEligibility',()=>{
+ it('permits attaching only when the draft contains one material',()=>{expect(whatsappAttachGroupEligible(1)).toBe(true);expect(whatsappAttachGroupEligible(2)).toBe(false);});
+ it('requires the sole material to be eligible before attachment',()=>{expect(whatsappAttachSingleEligible(1,true)).toBe(true);expect(whatsappAttachSingleEligible(2,true)).toBe(false);expect(whatsappAttachSingleEligible(1,false)).toBe(false);});
+ it('allows a file exactly at 50 MB and derives its display name and kind',()=>expect(whatsappAttachEligibility({source:'file',title:'Folleto 2027',fileName:'upload.PDF',mimeType:'application/pdf',byteSize:WHATSAPP_ATTACH_MAX_BYTES})).toMatchObject({eligible:true,fileName:'Folleto 2027.pdf',kind:'document'}));
+ it('rejects oversize and external materials, recognizes D3 images, and hides the switch reason',()=>{expect(whatsappAttachEligibility({source:'file',title:'Foto',fileName:'x.webp',mimeType:'image/webp',byteSize:1}).kind).toBe('image');expect(whatsappAttachEligibility({source:'file',title:'Grande',fileName:'x.pdf',mimeType:'application/pdf',byteSize:WHATSAPP_ATTACH_MAX_BYTES+1}).eligible).toBe(false);expect(whatsappAttachEligibility({source:'url',title:'Web',fileName:null,mimeType:null,byteSize:null})).toMatchObject({eligible:false,reason:'Es un enlace externo: va solo el enlace.'});expect(whatsappAttachEligibility({source:'file',title:'x',fileName:'x.pdf',mimeType:'application/pdf',byteSize:1,enabled:false})).toMatchObject({eligible:false,reason:null});});
+});
 
 describe('materialShareUrl',()=>{
  it('joins PUBLIC_APP_URL and the share path without double slashes',()=>{
@@ -70,6 +77,40 @@ describe('share tokens in the body',()=>{
  it('returns the full URL of the share whose hash matches',()=>{
   expect(shareUrlInBody({body:`Folleto: ${urlA}\nTour: ${urlB}`,tokenHash:hashShareToken({token:tokenB})})).toBe(urlB);
   expect(shareUrlInBody({body:'nada',tokenHash:hashShareToken({token:tokenB})})).toBeNull();
+ });
+ // Spec 101: short links `/m/<slug>-<4 chars>`, only with the CRM origin.
+ const origin='https://crm.example.test',short=origin+'/m/folleto-2027-Ab3x';
+ it('finds short links with the CRM origin, in plain text and inside an email anchor (regression: dispatch must not revoke them as removed)',()=>{
+  const h=hashShareToken({token:'Ab3x'});
+  expect([...shareTokenHashesInBody({body:`Podés ver «Folleto» en: ${short}`,origin})]).toEqual([h]);
+  expect([...shareTokenHashesInBody({body:`<p>Podés ver: <a href="${short}">${short}</a></p>`,origin})]).toEqual([h]);
+  expect([...shareTokenHashesInBody({body:`Mirá ${short}. Y ${origin}/m/tour-XyZ9, chau`,origin})].sort()).toEqual([h,hashShareToken({token:'XyZ9'})].sort());
+  expect(shareUrlInBody({body:`Ver ${short}.`,tokenHash:h,origin})).toBe(short);
+ });
+ it('ignores look-alike paths of other sites and longer or broken tails',()=>{
+  for(const body of ['https://otro.example/m/folleto-Ab3x','/m/folleto-Ab3x',`${origin}/m/folleto-Ab3xy`,`${origin}/m/folleto-Ab3_`])expect(shareTokenHashesInBody({body,origin}).size,body).toBe(0);
+ });
+ it('reads a 43-character segment as a short link when its slug is generated, and as a legacy token otherwise',()=>{
+  const shortSegment='a'.repeat(38)+'-Ab3x',legacy='Q'.repeat(38)+'-Ab3x';
+  expect([...shareTokenHashesInBody({body:`${origin}/m/${shortSegment}`,origin})]).toEqual([hashShareToken({token:'Ab3x'})]);
+  expect([...shareTokenHashesInBody({body:`${origin}/m/${legacy}`,origin})]).toEqual([hashShareToken({token:legacy})]);
+ });
+ it('review regression: recognizes a short link whose slug was edited out of shape (`_`, `.`, deleted) or with an upper-case host, so dispatch refuses it instead of revoking it',()=>{
+  const tokenHash=hashShareToken({token:'Ab3x'});
+  for(const body of [`Ver ${origin}/m/folleto_2027-Ab3x`,`Ver ${origin}/m/folleto.2027-Ab3x.`,`Ver ${origin}/m/Ab3x`,`Ver HTTPS://CRM.EXAMPLE.TEST/m/folleto-2027-Ab3x`,`<a href="${origin}/m/folleto_2027-Ab3x">${origin}/m/folleto_2027-Ab3x</a>`]){
+   expect([...shareTokenHashesInBody({body,origin})],body).toEqual([tokenHash]);
+   expect(shareSlugIntactInBody({body,tokenHash,publicSlug:'folleto-2027',origin}),body).toBe(body.includes('CRM.EXAMPLE.TEST'));
+  }
+  expect(shareUrlInBody({body:`Ver ${origin}/m/folleto.2027-Ab3x.`,tokenHash,origin})).toBe(`${origin}/m/folleto.2027-Ab3x`);
+  expect(shareUrlInBody({body:'Ver HTTPS://CRM.EXAMPLE.TEST/m/Ab3x',tokenHash,origin})).toBe('HTTPS://CRM.EXAMPLE.TEST/m/Ab3x');
+ });
+ it('checks that a short link keeps its stored slug, ignoring case and accents',()=>{
+  const tokenHash=hashShareToken({token:'Ab3x'});
+  expect(shareSlugIntactInBody({body:`Ver ${short}`,tokenHash,publicSlug:'folleto-2027',origin})).toBe(true);
+  expect(shareSlugIntactInBody({body:`Ver ${origin}/m/Folleto-2027-Ab3x`,tokenHash,publicSlug:'folleto-2027',origin})).toBe(true);
+  expect(shareSlugIntactInBody({body:`Ver ${origin}/m/cabaña-Ab3x`,tokenHash,publicSlug:'cabana',origin})).toBe(true);
+  expect(shareSlugIntactInBody({body:`Ver ${origin}/m/folleto-2028-Ab3x`,tokenHash,publicSlug:'folleto-2027',origin})).toBe(false);
+  expect(shareSlugIntactInBody({body:`Ver ${urlA}`,tokenHash:hashShareToken({token:tokenA}),publicSlug:null,origin})).toBe(true);
  });
 });
 

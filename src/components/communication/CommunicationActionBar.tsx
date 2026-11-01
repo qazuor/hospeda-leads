@@ -77,7 +77,7 @@ export function CommunicationActionBar({view,leadId,onContact,onSendMaterial}:{v
    {showRecord&&<RecordItem label="Llamada u otro contacto" reason={view.detail?undefined:'Estamos cargando los datos del negocio.'} onSelect={()=>setRecording(true)}/>}
    {showResponse&&<RecordItem label="Respuesta sin mensaje" onSelect={()=>view.openResponse(null)}/>}
   </DropdownMenuContent></DropdownMenu>}
-  {showMaterial&&<><Button variant="outline" disabled={!!sendMaterialBlock} disabledReason={sendMaterialBlock} onClick={()=>setMaterialPicker(true)}>Enviar material</Button><HelpLink topic="salesMaterial" hint="sendMaterial"/><SalesMaterialPicker opened={materialPicker} title="Enviar material" onClose={()=>setMaterialPicker(false)} onPick={x=>{setMaterialPicker(false);onSendMaterial?.(x)}}/></>}
+  {showMaterial&&<><Button variant="outline" disabled={!!sendMaterialBlock} disabledReason={sendMaterialBlock} onClick={()=>setMaterialPicker(true)}>Enviar material</Button><HelpLink topic="salesMaterial" hint="sendMaterial"/><SalesMaterialPicker opened={materialPicker} title="Enviar material" context={{accountId:String(account!.id),leadId:leadId??null}} onClose={()=>setMaterialPicker(false)} onPick={x=>{setMaterialPicker(false);onSendMaterial?.(x)}}/></>}
   {recording&&view.detail&&<RecordContactDialog view={view} leadId={leadId} onContact={onContact} callSession={callSession} onClose={()=>setRecording(false)}/>}
  </div>{showContact&&<UserscriptGateNotice gate={gate}/>}</>;
 }

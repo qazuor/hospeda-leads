@@ -1,4 +1,5 @@
 import { ApiError, addMaterial, dispatchTemplate, removeMaterial, fetchMaterials, fetchTemplates, markTemplateNotSent, prepareTemplate, type Match, type PreparedTemplate, type ScriptMaterial, type ScriptPurpose, type TemplateLead, type TemplatesResponse, type WhatsappGeneral, type WhatsappPrepare } from "./api";
+import { attachPlan, attachToChat, captureAttachContext, downloadMaterialFile, pasteTextAfterClosingPreview, validateAttachContext, type AttachContext } from "./attach";
 import { MATERIAL_ADD_FAILED, MATERIAL_REMOVE_FAILED, addMissingMaterials, applyMaterialChange, emptyMaterialListing, heldMaterialsList, materialPicker, materialsInDraft, missingMaterials, removeHeldMaterial, type AddedMaterial, type MaterialListing } from "./materials";
 import { chatMatchesRecipient, clearComposer, composerEquals, getWhatsAppComposer, pasteIntoComposer } from "./selectors";
 import type { UiOptions } from "./ui";
@@ -20,7 +21,7 @@ export type ComposeMode = "template" | "material";
  * draft (D2); `inDraft` are the ones the current draft holds; `removeFailed` is the material whose «Quitar» failed (it shows «Reintentar»).
  */
 type Materials = { picker: boolean; listing: MaterialListing; refreshMaterials: boolean; added: AddedMaterial[]; inDraft: string[]; removeFailed: string | null; chosen: boolean };
-type State = Scope & Materials & { mode: ComposeMode; busy: boolean; prepared: PreparedTemplate | null; error: string; dispatched: boolean; done: Done; pasteFailed: boolean; confirmReplace: boolean };
+type State = Scope & Materials & { mode: ComposeMode; busy: boolean; prepared: PreparedTemplate | null; error: string; dispatched: boolean; done: Done; pasteFailed: boolean; confirmReplace: boolean; progress:number|null; cancelDownload:(()=>void)|null; attachmentReady:boolean; blockedPreview:boolean;downloadFailed:boolean };
 const GENERAL = "";
 
 /**
@@ -87,7 +88,7 @@ function templatePopover(row: HTMLElement, template: { name: string; body: strin
  * in the chat and sends it. Without open managements it offers «Sin gestión» with a purpose (spec 98 decision 4).
  */
 export function openCompose(card: HTMLElement, options: UiOptions, match: Match, back: () => void, header: (title: string) => HTMLElement, mode: ComposeMode = "template"): void {
-  const base = options.crmBase || "", state: State = { mode, leadId: "", templateId: "", contactId: null, purpose: null, otherPurpose: "", busy: false, prepared: null, error: "", dispatched: false, done: null, pasteFailed: false, confirmReplace: false, picker: mode === "material", listing: emptyMaterialListing(), refreshMaterials: mode === "material", added: [], inDraft: [], removeFailed: null, chosen: false };
+  const base = options.crmBase || "", state: State = { mode, leadId: "", templateId: "", contactId: null, purpose: null, otherPurpose: "", busy: false, prepared: null, error: "", dispatched: false, done: null, pasteFailed: false, confirmReplace: false, picker: mode === "material", listing: emptyMaterialListing(), refreshMaterials: mode === "material", added: [], inDraft: [], removeFailed: null, chosen: false,progress:null,cancelDownload:null,attachmentReady:false,blockedPreview:false,downloadFailed:false };
   let data: TemplatesResponse | null = null;
   const head = header, title = mode === "material" ? "Enviar material" : "Mandar un mensaje";
   const general = () => (state.leadId === GENERAL ? data?.general ?? null : null);
@@ -103,7 +104,7 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
     // The list scrolls inside the body; the notice and the buttons stay in the footer, always in view.
     const body = el("div", "body"), footer = el("div", "footer"); body.setAttribute("aria-busy", String(state.busy));
     if (state.done) {
-      body.append(el("p", "muted", state.done === "pasted" ? "Revisalo y apretá Enter para enviarlo. Si al final no lo mandás, avisalo acá." : "Pegalo en el chat con Ctrl+V, revisalo y envialo. Si al final no lo mandás, avisalo acá."));
+      body.append(el("p", "muted", state.attachmentReady ? "Revisá la vista previa de WhatsApp y apretá Enviar. Si al final no lo mandás, avisalo acá." : state.done === "pasted" ? "Revisalo y apretá Enter para enviarlo. Si al final no lo mandás, avisalo acá." : "Pegalo en el chat con Ctrl+V, revisalo y envialo. Si al final no lo mandás, avisalo acá."));
       if (state.error) footer.append(el("p", "note warn", state.error));
       const grid = el("div", "actions grid");
       grid.append(button("Volver al negocio", "btn primary", back, state.busy), button("Cambiar de modelo", "btn", () => { state.done = null; render(); }, state.busy), button(state.busy ? "Registrando…" : "No lo voy a enviar", "btn", () => void notSent(), state.busy));
@@ -172,7 +173,9 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
       // Owner, 29/10/2026: every material of the draft above the preview, each with «Quitar».
       const held = state.prepared.materials ?? [];
       if (held.length) body.append(heldMaterialsList({ materials: held, busy: state.busy || state.dispatched, failed: state.removeFailed, onRemove: materialId => void removeFromDraft(materialId) }));
+      const plan=attachPlan(held,state.prepared.body);
       const section = el("div", "section"); section.append(el("h3", undefined, "VISTA PREVIA"), el("span", "muted", `Para ${state.prepared.recipientName || "el negocio"} · ${state.prepared.recipient}`), previewText(state.prepared.body, state.prepared.unresolved));
+      if(plan.notice)section.append(el("p","note info",plan.notice));
       if (state.prepared.unresolved.length) section.append(el("p", "note warn", `Falta ${state.prepared.unresolved.join(", ")}. Completalo en el CRM o elegí otra persona.`));
       for (const warning of state.prepared.materialWarnings ?? []) section.append(el("p", "note warn", warning));
       if (missing.length && !state.busy) {
@@ -190,14 +193,19 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
       if (state.error && request()) section.append(button("Reintentar", "btn small", () => void prepare(), state.busy));
       body.append(section);
     }
-    footer.append(el("p", "note info", NOT_SENT_BY_SCRIPT));
+    const activePlan=state.prepared?attachPlan(state.prepared.materials,state.prepared.body):{kind:"links" as const,notice:null};
+    footer.append(el("p", "note info", activePlan.kind==="attach"?"El mensaje no se envía solo: el archivo y el texto quedan en la vista previa para que los revises y aprietes Enviar.":NOT_SENT_BY_SCRIPT));
+    if(state.progress!==null)footer.append(el("p","muted",`Bajando el archivo… ${state.progress} %`));
+    if(state.blockedPreview)footer.append(el("p","note warn",`La vista previa de WhatsApp quedó abierta sin el texto. Cerrala con la X (no la envíes) y tocá «Pegar solo el texto».`));
     if (state.error) footer.append(el("p", "note warn", state.error));
     const actions = el("div", "actions"), ready = canPasteTemplate(state.prepared, data.blocked) && !missing.length;
     if (state.confirmReplace) {
       footer.append(el("p", "note warn", "La caja de WhatsApp tiene un texto que no pegó el script. ¿Lo reemplazo por este mensaje?"));
       actions.append(button("Reemplazar", "btn primary", () => void paste(true), state.busy), button("Cancelar", "btn", () => { state.confirmReplace = false; render(); }, state.busy));
     } else if (state.pasteFailed) actions.append(button("Copiar texto", "btn primary", () => void copy(), state.busy), button("Reintentar", "btn", () => void paste(), state.busy));
-    else actions.append(button(state.busy ? "Procesando…" : "Pegar en el chat", "btn primary", () => void paste(), state.busy || !ready), button("Copiar", "btn", () => void copy(), state.busy || !ready));
+    else if(state.blockedPreview)actions.append(button("Pegar solo el texto","btn primary",()=>void pasteTextAfterPreview(),state.busy),button("Copiar texto","btn",()=>void copy(),state.busy));
+    else if(state.downloadFailed)actions.append(button("Reintentar","btn primary",()=>void paste(),state.busy),button("Pegar solo con el enlace","btn",()=>void paste(false,true),state.busy));
+    else actions.append(button(state.busy ? "Adjuntando en WhatsApp…" : "Pegar en el chat", "btn primary", () => void paste(), state.busy || !ready), button("Copiar", "btn", () => void copy(), state.busy || !ready),...(state.cancelDownload?[button("Cancelar","btn",()=>state.cancelDownload?.(),false)]:[]));
     footer.append(actions); card.replaceChildren(head(title), body, footer);
   }
 
@@ -205,7 +213,7 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
   function choose(next: Scope): void { state.leadId = next.leadId; state.templateId = next.templateId; state.contactId = next.contactId; state.purpose = next.purpose; state.otherPurpose = next.otherPurpose; state.prepared = null; state.inDraft = []; state.removeFailed = null; state.dispatched = false; state.pasteFailed = false; state.confirmReplace = false; state.picker = false; void prepare(); }
   async function run(work: () => Promise<void>, fallback: string): Promise<void> {
     if (state.busy) return; state.busy = true; state.error = ""; render();
-    try { await work(); } catch (cause) { state.error = failure(cause, fallback); } finally { state.busy = false; render(); }
+    try { await work(); } catch (cause) { state.error = cause instanceof Error&&cause.message==="Descarga cancelada."?"":failure(cause, fallback); } finally { state.busy = false; render(); }
   }
   /** The prepare request of the chosen scope, or null while it is incomplete (no scope, «Otro» without its aclaración, a person missing). */
   function request(): WhatsappPrepare | null {
@@ -265,23 +273,34 @@ export function openCompose(card: HTMLElement, options: UiOptions, match: Match,
    * Text the script pasted earlier is replaced, and that earlier attempt is recorded as not sent so a later register does not complete it.
    * Any other text is the seller's: it is replaced only after they confirm it in the panel.
    */
-  function paste(replace = false): Promise<void> {
+  function paste(replace = false,forceLinks=false): Promise<void> {
+    let file:File|null=null;
     return run(async () => {
       state.confirmReplace = false;
       const read = () => { const editor = getWhatsAppComposer(); return { editor, text: editor ? editor.innerText || editor.textContent || "" : "" }; };
       const before = read(), composer = before.editor, typed = !!before.text.trim();
       const previous = lastPasted(match.accountId), ours = typed && !!previous && composerEquals(composer!, previous.body);
       if (typed && !ours && !replace) { state.confirmReplace = true; return; }
+      const plan=forceLinks?{kind:"links" as const,notice:null}:attachPlan(state.prepared?.materials,state.prepared?.body||"");let snapshot:AttachContext|null=null;
+      if(plan.kind==="attach"){
+        snapshot=captureAttachContext(state.prepared!.recipient,document,()=>!options.isCurrentChat||options.isCurrentChat());if(!snapshot)throw new Error(CHAT_CHANGED);
+        const meta=plan.material.attach!;if(!plan.material.shareId||!meta.fileName||!meta.mimeType||meta.byteSize===null)throw new Error("No pude bajar el archivo.");
+        const download=downloadMaterialFile(base,token(),state.prepared!.messageId,plan.material.shareId,{fileName:meta.fileName,mimeType:meta.mimeType,byteSize:meta.byteSize},(loaded,total)=>{state.progress=Math.min(99,Math.floor(loaded/Math.max(1,total)*100));render();});state.cancelDownload=download.abort;state.downloadFailed=false;render();
+        try{file=(await download.promise).file;if(!validateAttachContext(snapshot))throw new Error("El chat, el destinatario o el texto cambiaron mientras bajaba el archivo. No pegué nada; volvé a intentarlo.");}catch(error){const cancelled=error instanceof Error&&error.message==="Descarga cancelada.";state.downloadFailed=!cancelled&&!(error instanceof Error&&error.message.startsWith("El chat, el destinatario"));if(cancelled)state.error="";throw error;}finally{state.cancelDownload=null;state.progress=null;render();}
+      }
       const prepared = await open();
       if (typed && previous && previous.messageId !== prepared.messageId) { await closePasted(base, previous); rememberPasted(match.accountId, null); }
       // The seller may have switched chats or typed during the requests: never write into a composer that is not the one just checked.
       const after = read();
       if (options.isCurrentChat && !options.isCurrentChat()) throw new Error(CHAT_CHANGED);
+      if(file&&(!snapshot||!validateAttachContext(snapshot)))throw new Error("El chat, el destinatario o el texto cambiaron. No pegué nada; volvé a intentarlo.");
       if (after.editor !== composer || after.text !== before.text) throw new Error("La caja de WhatsApp cambió mientras preparaba el mensaje. Tocá «Pegar en el chat» de nuevo.");
-      if (composer && (!typed || clearComposer(composer)) && pasteIntoComposer(composer, prepared.body)) { rememberPasted(match.accountId, { messageId: prepared.messageId, body: prepared.body, at: Date.now() }); state.done = "pasted"; state.pasteFailed = false; }
+      if(file){const result=await attachToChat(file,prepared.body);file=null;if(result.state==="C"){state.blockedPreview=true;state.error="";return;}if(result.state==="error"){state.error=result.message;state.downloadFailed=true;return;}if(result.state==="B"){state.error="No pude adjuntar el archivo en WhatsApp: pegué el texto con el enlace.";state.downloadFailed=false;}else state.attachmentReady=true;rememberPasted(match.accountId,{messageId:prepared.messageId,body:prepared.body,at:Date.now()});state.done="pasted";state.pasteFailed=false;}
+      else if (composer && (!typed || clearComposer(composer)) && pasteIntoComposer(composer, prepared.body)) { rememberPasted(match.accountId, { messageId: prepared.messageId, body: prepared.body, at: Date.now() }); state.done = "pasted"; state.pasteFailed = false; }
       else { state.pasteFailed = true; throw new Error(PASTE_FAILED); }
-    }, "No se pudo pegar. Podés reintentar.");
+    }, "No se pudo pegar. Podés reintentar.").finally(()=>{file=null;});
   }
+  function pasteTextAfterPreview():Promise<void>{return run(async()=>{if(!await pasteTextAfterClosingPreview(state.prepared!.body))throw new Error("Cerrá la vista previa con la X (no la envíes) y probá de nuevo.");state.blockedPreview=false;state.done="pasted";state.attachmentReady=false;},PASTE_FAILED);}
   function copy(): Promise<void> { return run(async () => { const prepared = await open(); await navigator.clipboard.writeText(prepared.body); state.done = "copied"; }, "No se pudo copiar. Podés reintentar."); }
   function notSent(): Promise<void> { return run(async () => { await markTemplateNotSent(base, token(), state.prepared!.messageId); if (lastPasted(match.accountId)?.messageId === state.prepared!.messageId) rememberPasted(match.accountId, null); back(); }, "No se pudo registrar. Podés reintentar."); }
 
