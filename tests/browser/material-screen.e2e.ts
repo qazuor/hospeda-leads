@@ -163,7 +163,9 @@ test('sales material covers: reasons, «Elegir portada», «Generar desde el arc
  await dialog.getByLabel('Categorías',{exact:true}).fill('Recorridos '+stamp);
  await page.getByRole('option',{name:`Crear categoría «Recorridos ${stamp}»`,exact:true}).click();
  await expect(dialog.getByText('Recorridos '+stamp,{exact:true})).toBeVisible();
- await dialog.locator('input[placeholder="Todas las verticales"]').click();await page.getByRole('option',{name:'Alojamiento',exact:true}).click();
+ // Scope the option to this field's own listbox: another «Alojamiento» option (the toolbar's «Vertical» filter) can be in the page too.
+ const verticalsInput=dialog.locator('input[placeholder="Todas las verticales"]');await verticalsInput.click();
+ await expect(verticalsInput).toHaveAttribute('aria-controls',/.+/);await page.locator(`[id="${await verticalsInput.getAttribute('aria-controls')}"]`).getByRole('option',{name:'Alojamiento',exact:true}).click();
  await dialog.getByRole('button',{name:'Guardar material',exact:true}).click();
  await expect(page.getByText('Material guardado.',{exact:true}).first()).toBeVisible({timeout:30000});
  const link=main.getByRole('article',{name:'Recorrido '+stamp});await imageReady(link);
