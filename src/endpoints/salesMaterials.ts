@@ -1,12 +1,13 @@
 import superjson from 'superjson';import {z} from 'zod';
 import {db} from '../helpers/db';import {getServerUserSession} from '../helpers/getServerUserSession';import {NotAuthenticatedError} from '../helpers/getSetServerSession';import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {CrmForbidden} from '../helpers/crmPermissions';import {CommunicationConflict,CommunicationForbidden} from '../helpers/communicationService';import {R2NotConfigured,R2Unavailable} from '../helpers/r2';
-import {SalesMaterialNotFound,createSalesMaterialUpload,listSalesMaterials,mutateSalesMaterial,salesMaterialCover,salesMaterialFileLocation} from '../helpers/salesMaterialService';
-import {salesMaterialListQuery,salesMaterialMutation,salesMaterialShareRevokeInput,salesMaterialUploadInput} from './salesMaterials.schema';
+import {SalesMaterialNotFound,createSalesMaterialUpload,listSalesMaterials,mutateSalesMaterial,salesMaterialCover,salesMaterialFileLocation,salesMaterialLinkPreview} from '../helpers/salesMaterialService';
+import {salesMaterialLinkPreviewInput,salesMaterialListQuery,salesMaterialMutation,salesMaterialShareRevokeInput,salesMaterialUploadInput} from './salesMaterials.schema';
+import {LinkPreviewError} from '../helpers/linkPreview';
 import {revokeSalesMaterialShare} from '../helpers/salesMaterialDraft';
 const response=(v:unknown,status=200)=>new Response(superjson.stringify(v),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 /** 401 session, 403 permission, 404 missing, 409 revision/consumed upload, 503 storage not configured or down; otherwise 400/500 as in /_api/resources. */
-export const salesMaterialStatus=(e:unknown)=>e instanceof NotAuthenticatedError?401:e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof SalesMaterialNotFound?404:e instanceof CommunicationConflict?409:e instanceof R2NotConfigured||e instanceof R2Unavailable?503:fallbackStatus(e);
+export const salesMaterialStatus=(e:unknown)=>e instanceof NotAuthenticatedError?401:e instanceof LinkPreviewError?422:e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof SalesMaterialNotFound?404:e instanceof CommunicationConflict?409:e instanceof R2NotConfigured||e instanceof R2Unavailable?503:fallbackStatus(e);
 const failure=(e:unknown)=>response({error:crmError(e)},salesMaterialStatus(e));
 const body=async(request:Request)=>{const raw=await request.text();if(Buffer.byteLength(raw)>64000)throw new Error('Solicitud demasiado grande');try{return superjson.parse(raw)}catch{throw new Error('Solicitud inválida.')}};
 /** GET /_api/sales_materials: any authenticated user; archived material and older versions only for admins. */
@@ -38,3 +39,22 @@ export async function cover(request:Request){try{
 }catch(e){return new Response(null,{status:salesMaterialStatus(e),headers:{'Cache-Control':'no-store'}})}}
 /** POST /_api/sales_materials/share_revoke: admin, the author of the send or whoever can write on the business (spec 89 §10). */
 export async function shareRevoke(request:Request){try{const {user}=await getServerUserSession(request);return response(await revokeSalesMaterialShare(db,{input:salesMaterialShareRevokeInput.parse(await body(request)),user}));}catch(e){return failure(e)}}
+/** Spec 102 D1: at most this many link previews per admin per minute (in memory, like the CRM's other limits). */
+export const LINK_PREVIEW_PER_MINUTE=20;
+const previewHits=new Map<string,number[]>();
+/** True when `key` may make one more preview now; records it. Exported for tests. */
+export function takeLinkPreviewSlot(key:string,now=Date.now()):boolean{
+ const recent=(previewHits.get(key)??[]).filter(t=>now-t<60000);
+ if(recent.length>=LINK_PREVIEW_PER_MINUTE){previewHits.set(key,recent);return false;}
+ recent.push(now);previewHits.set(key,recent);
+ if(previewHits.size>1000)for(const [k,v] of previewHits)if(!v.some(t=>now-t<60000))previewHits.delete(k);
+ return true;
+}
+/** POST /_api/sales_materials/link_preview: admin only; the Open Graph image bytes of a link material's stored URL (422 when there is none or the address is refused). */
+export async function linkPreview(request:Request){try{
+ const {user}=await getServerUserSession(request);
+ const input=salesMaterialLinkPreviewInput.parse(await body(request));
+ if(user.role==='admin'&&!takeLinkPreviewSlot(user.email))return response({error:'Generaste muchas portadas de enlaces seguidas. Esperá un minuto y probá de nuevo.'},429);
+ const image=await salesMaterialLinkPreview(db,{input,user});
+ return new Response(new Uint8Array(image.body),{headers:{'Content-Type':image.contentType,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Disposition':'attachment'}});
+}catch(e){return e instanceof LinkPreviewError?response({error:e.message,code:e.code},422):failure(e)}}

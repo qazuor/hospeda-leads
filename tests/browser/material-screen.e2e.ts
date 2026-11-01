@@ -57,8 +57,12 @@ for(const width of [1280,390])test(`sales material screen: groups, card menu, fi
  const upload=await api(page,'sales_materials/upload_url',{purpose:'file',fileName:'guardado.pdf',mimeType:'application/pdf',byteSize:pdf.length,materialId:storedId});
  expect((await fetch(upload.putUrl,{method:'PUT',headers:{'Content-Type':'application/pdf'},body:new Uint8Array(pdf)})).status).toBe(200);
  await api(page,'sales_materials',{action:'create',id:storedId,title:'Tarifario guardado '+stamp,description:'',kind:'deliverable',source:'file',categoryIds:[folletos],version:{uploadId:upload.uploadId}});
- await api(page,'sales_materials',{action:'create',id:randomUUID(),title:'Video promo '+stamp,description:'',kind:'deliverable',source:'url',categoryIds:[folletos,videos],version:{url:'https://example.com/promo'}});
- await api(page,'sales_materials',{action:'create',id:randomUUID(),title:'Guía suelta '+stamp,description:'',kind:'internal',source:'url',categoryIds:[],version:{url:'https://example.com/guia'}});
+ const promoId=randomUUID(),guideId=randomUUID();
+ await api(page,'sales_materials',{action:'create',id:promoId,title:'Video promo '+stamp,description:'',kind:'deliverable',source:'url',categoryIds:[folletos,videos],version:{url:'https://example.com/promo'}});
+ await api(page,'sales_materials',{action:'create',id:guideId,title:'Guía suelta '+stamp,description:'',kind:'internal',source:'url',categoryIds:[],version:{url:'https://example.com/guia'}});
+ // Spec 102 D1: links without cover would join «Generar portadas faltantes» (their preview image is fetched by the server, which must not reach the
+ // internet from CI); a removed cover keeps them out, so this test still counts only the stored PDF. The link preview has its own test below.
+ for(const id of [promoId,guideId])await api(page,'sales_materials',{action:'cover',id,revision:1,uploadId:null});
 
  await page.goto('/sales-material');const main=page.locator('main');
  await main.getByLabel('Buscar material',{exact:true}).fill(stamp);
@@ -154,12 +158,42 @@ test('sales material covers: reasons, «Elegir portada», «Generar desde el arc
  await dialog.getByRole('combobox',{name:'Origen',exact:true}).selectOption('url');await dialog.getByLabel('Enlace (https)',{exact:true}).fill('https://example.com/tour-'+stamp);
  await dialog.getByLabel('Título',{exact:true}).fill('Recorrido '+stamp);
  await dialog.getByLabel('Portada (opcional)',{exact:true}).setInputFiles({name:'tapa.png',mimeType:'image/png',buffer:tinyPng()});
+ // Spec 102 D6: «Categorías» searches, picks and creates in one control (no «Nueva categoría» field). D4: «Verticales», empty = all.
+ await expect(dialog.getByLabel('Nueva categoría',{exact:true})).toHaveCount(0);
+ await dialog.getByLabel('Categorías',{exact:true}).fill('Recorridos '+stamp);
+ await page.getByRole('option',{name:`Crear categoría «Recorridos ${stamp}»`,exact:true}).click();
+ await expect(dialog.getByText('Recorridos '+stamp,{exact:true})).toBeVisible();
+ // Scope the option to this field's own listbox: another «Alojamiento» option (the toolbar's «Vertical» filter) can be in the page too.
+ const verticalsInput=dialog.locator('input[placeholder="Todas las verticales"]');await verticalsInput.click();
+ await expect(verticalsInput).toHaveAttribute('aria-controls',/.+/);await page.locator(`[id="${await verticalsInput.getAttribute('aria-controls')}"]`).getByRole('option',{name:'Alojamiento',exact:true}).click();
  await dialog.getByRole('button',{name:'Guardar material',exact:true}).click();
  await expect(page.getByText('Material guardado.',{exact:true}).first()).toBeVisible({timeout:30000});
  const link=main.getByRole('article',{name:'Recorrido '+stamp});await imageReady(link);
+ await expect(link.getByText('Recorridos '+stamp,{exact:true})).toBeVisible();await expect(link.getByLabel('Vertical Alojamiento',{exact:true})).toBeVisible();
  await link.getByRole('button',{name:`Más acciones de «Recorrido ${stamp}»`,exact:true}).click();
  await expect(page.getByRole('menuitem')).toHaveText(['Editar','Nueva versión','Portada','Archivar']);await page.keyboard.press('Escape');
  const list=await api(page,'sales_materials?search='+encodeURIComponent(stamp));
  expect(Object.fromEntries(list.materials.map((m:any)=>[m.title.replace(' '+stamp,''),m.coverSource]))).toEqual({'Folleto CMYK':'auto','Folleto roto':'manual','Recorrido':'manual'});
+ const recorrido=list.materials.find((m:any)=>m.title==='Recorrido '+stamp);expect(recorrido.verticals).toEqual(['Alojamiento']);expect(recorrido.categories.map((c:any)=>c.name)).toEqual(['Recorridos '+stamp]);
+ expect(errors).toEqual([]);
+});
+
+// Spec 102 D1: a link saved without a manual cover gets its site's preview image as automatic cover. The server fetch is simulated here
+// (page.route on the preview endpoint only); the SSRF guard is covered by unit and integration tests.
+test('sales material link cover: the preview image of the site becomes the automatic cover',async({page})=>{
+ test.setTimeout(120000);await page.setViewportSize({width:1280,height:900});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ const previews:string[]=[];
+ await page.route('**/_api/sales_materials/link_preview',async route=>{previews.push(route.request().postData()??'');await route.fulfill({status:200,contentType:'image/png',body:tinyPng()});});
+ await login(page);const stamp='l'+randomUUID().slice(0,6);
+ await page.goto('/sales-material');const main=page.locator('main');const dialog=page.getByRole('dialog');
+ await main.getByRole('button',{name:'Nuevo material',exact:true}).click();
+ await dialog.getByRole('combobox',{name:'Origen',exact:true}).selectOption('url');await dialog.getByLabel('Enlace (https)',{exact:true}).fill('https://example.com/sitio-'+stamp);
+ await dialog.getByLabel('Título',{exact:true}).fill('Sitio '+stamp);
+ await dialog.getByRole('button',{name:'Guardar material',exact:true}).click();
+ await expect(page.getByText('Material guardado.',{exact:true}).first()).toBeVisible({timeout:30000});
+ expect(previews.length).toBe(1);expect(previews[0]).not.toContain('example.com');
+ await expect.poll(async()=>(await api(page,'sales_materials?search='+encodeURIComponent(stamp))).materials[0]?.coverSource,{timeout:15000}).toBe('auto');
  expect(errors).toEqual([]);
 });

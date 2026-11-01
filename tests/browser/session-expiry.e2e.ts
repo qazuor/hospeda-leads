@@ -11,7 +11,8 @@ test('an expired session re-logs in from a dialog and keeps the unsaved draft',a
  expect(r.status,r.text).toBe(200);const accountId=superjson.parse<{id:string}>(r.text).id;
  await page.getByRole('button',{name:'Agendar tarea',exact:true}).click();const editor=page.getByRole('dialog');
  await editor.getByLabel('Buscar negocio',{exact:true}).fill(name);await editor.getByRole('button',{name:'Elegir H'+accountId+' · '+name+' · Colón',exact:true}).click();await expect(editor.getByRole('combobox',{name:'Negocio',exact:true})).toHaveValue(accountId);await editor.getByLabel('Título',{exact:true}).fill(title);await editor.getByLabel('Fecha de vencimiento').fill(localDay());
- await editor.getByText('Participantes y notas (opcional)',{exact:true}).click();await editor.getByLabel('Descripción / notas').fill('Borrador que no se tiene que perder');
+ // A typed date leaves the calendar open over the form; a click outside closes it, as it does for a seller (same as work.e2e).
+ await editor.getByRole('heading',{name:'Agendar tarea',exact:true}).click();await editor.getByText('Participantes y notas (opcional)',{exact:true}).click();await editor.getByLabel('Descripción / notas').fill('Borrador que no se tiene que perder');
  // The session ends while the seller is typing: the save answers 401 (once; later saves reach the server).
  let saves=0;await page.route(url=>url.pathname==='/_api/work',async route=>{if(route.request().method()!=='POST')return route.fallback();saves++;if(saves===1)return route.fulfill({status:401,contentType:'application/json',body:superjson.stringify({error:'Tu sesión venció. Volvé a ingresar.'})});return route.fallback();});
  await editor.getByRole('button',{name:'Agendar tarea',exact:true}).click();

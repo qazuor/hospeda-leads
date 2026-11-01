@@ -1,12 +1,13 @@
 import type {SalesMaterial,SalesMaterialCategory} from '../endpoints/salesMaterials.schema';
 import {salesMaterialFormat,type SalesMaterialFormat} from './salesMaterialTypes';
+import {salesMaterialVerticalMatch} from './salesMaterialRelevance';
 /** Status filter of «Material de venta» (spec 95): all active, only deliverables, only internal, or archived (admins). */
 export type SalesMaterialStatusFilter=''|'deliverable'|'internal'|'archived';
 /** Filters of the screen. `search`, `categoryIds` and the kind go to the API; format and «archived only» are applied to the returned list. */
-export type SalesMaterialFilters={search:string;categoryIds:string[];format:''|SalesMaterialFormat;status:SalesMaterialStatusFilter};
-export const EMPTY_SALES_MATERIAL_FILTERS:SalesMaterialFilters={search:'',categoryIds:[],format:'',status:''};
+export type SalesMaterialFilters={search:string;categoryIds:string[];format:''|SalesMaterialFormat;status:SalesMaterialStatusFilter;/** Spec 102: a catalog vertical; «all verticals» material passes any of them. */vertical:string};
+export const EMPTY_SALES_MATERIAL_FILTERS:SalesMaterialFilters={search:'',categoryIds:[],format:'',status:'',vertical:''};
 /** True when any filter differs from the default (shows «Limpiar filtros»). */
-export const hasSalesMaterialFilters=(f:SalesMaterialFilters):boolean=>!!(f.search.trim()||f.categoryIds.length||f.format||f.status);
+export const hasSalesMaterialFilters=(f:SalesMaterialFilters):boolean=>!!(f.search.trim()||f.categoryIds.length||f.format||f.status||f.vertical);
 /**
  * The API query for the filters. «Archivados» asks the server for archived material only (`status=archived`, admins), so the
  * 500-row limit is spent on them; sellers never send it.
@@ -16,14 +17,16 @@ export function salesMaterialQuery({filters,search,admin}:{filters:SalesMaterial
  return {search,categoryIds:filters.categoryIds.length?[...filters.categoryIds].sort():undefined,kind:filters.status==='deliverable'||filters.status==='internal'?filters.status:undefined,includeArchived:false,...(archived?{status:'archived' as const}:{})};
 }
 /**
- * Restates the filters on the client (all but the search text): active only unless «Archivados», the kind of Entregables/Internos, the categories and the format of the current version.
+ * Restates the filters on the client (all but the search text): active only unless «Archivados», the kind of Entregables/Internos, the categories, the format of the current version
+ * and (spec 102) the vertical, which only lives here: a material for «all verticals» passes it.
  * While a new filter loads, the previous answer stays on screen (`keepPreviousData`); this keeps it from showing cards that do not match.
  */
 export function filterSalesMaterials({materials,filters}:{materials:readonly SalesMaterial[];filters:SalesMaterialFilters}):SalesMaterial[]{
  return materials.filter(m=>(filters.status==='archived'?m.status==='archived':m.status==='active')
   &&(filters.status!=='deliverable'&&filters.status!=='internal'||m.kind===filters.status)
   &&(!filters.categoryIds.length||m.categories.some(c=>filters.categoryIds.includes(c.id)))
-  &&(!filters.format||salesMaterialFormat({mimeType:m.currentVersion?.mimeType??null})===filters.format));
+  &&(!filters.format||salesMaterialFormat({mimeType:m.currentVersion?.mimeType??null})===filters.format)
+  &&(!filters.vertical||salesMaterialVerticalMatch({verticals:m.verticals??[],vertical:filters.vertical})!=='other'));
 }
 /** One section of the list. `key` is the category id or {@link UNCATEGORIZED_KEY}. */
 export type SalesMaterialGroup={key:string;name:string;materials:SalesMaterial[]};

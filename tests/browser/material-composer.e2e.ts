@@ -20,11 +20,16 @@ test('send sales material from the business, record it and revoke the link',asyn
  await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,created_by_email) VALUES(${materialId},${title},'Tarifas y fotos','deliverable','file','admin@example.com')`;
  await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,object_key,file_name,mime_type,byte_size,actor_email) VALUES(${randomUUID()},${materialId},1,${`materials/${materialId}/v1-${run}.pdf`},'folleto.pdf','application/pdf',2048,'admin@example.com')`;
  await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${materialId}`;
+ // Spec 102 D3: a material of another vertical, so the picker folds it under «De otras verticales».
+ const otherId=randomUUID(),otherTitle='Menú gastronomía '+run;
+ await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,verticals,created_by_email) VALUES(${otherId},${otherTitle},'','deliverable','url',${['Gastronomía']},'admin@example.com')`;
+ await sql`INSERT INTO crm_sales_material_versions(id,material_id,version,url,actor_email) VALUES(${randomUUID()},${otherId},1,'https://example.com/menu','admin@example.com')`;
+ await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${otherId}`;
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await simulateUserscript(page,{user:'admin@example.com'});
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.com');await page.getByLabel('Contraseña',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL(/my-day$/);
  async function api(endpoint:string,body?:unknown){const result=await page.evaluate(async({endpoint,body})=>{const r=await fetch('/_api/'+endpoint,body?{method:'POST',headers:{'Content-Type':'application/json'},body}:{});return {status:r.status,text:await r.text()}},{endpoint,body:body?superjson.stringify(body):undefined});expect(result.status,result.text).toBe(200);return superjson.parse<any>(result.text);}
- const accountId=(await api('commercial',{action:'account_save',nombre:'Zz Material e2e '+run,telefono:'+5493442000301',assignedUserEmail:'admin@example.com'})).id;
+ const accountId=(await api('commercial',{action:'account_save',nombre:'Zz Material e2e '+run,tipo:'Alojamiento',telefono:'+5493442000301',assignedUserEmail:'admin@example.com'})).id;
  await api('commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Presentación material '+run,estado:'Cargado'});
  await page.goto('/accounts/'+accountId+'?section=comunicacion');
  await page.getByRole('tab',{name:'Comunicación',exact:true}).click();
@@ -37,6 +42,11 @@ test('send sales material from the business, record it and revoke the link',asyn
  await page.getByRole('button',{name:'Enviar material',exact:true}).click();
  let dialog=page.getByRole('dialog',{name:'Enviar material'});
  await dialog.getByLabel('Buscar material').fill(run);
+ // Spec 102 D3: material for all verticals on top (this business is Alojamiento); the other vertical folded, one click away.
+ const folded=dialog.getByRole('button',{name:'De otras verticales (1)',exact:true});
+ await expect(folded).toBeVisible();await expect(folded).toHaveAttribute('aria-expanded','false');
+ await expect(dialog.getByRole('list',{name:'Material entregable'}).getByRole('listitem').filter({hasText:otherTitle})).toHaveCount(0);
+ await folded.click();await expect(dialog.getByRole('list',{name:'Material de otras verticales'}).getByRole('listitem').filter({hasText:otherTitle})).toBeVisible();
  const row=dialog.getByRole('list',{name:'Material entregable'}).getByRole('listitem').filter({hasText:title});
  await row.getByRole('button',{name:'Agregar',exact:true}).click();
  // Spec 96 §2.3: one contact step. Spec 98 decision 2: the material travels by WhatsApp, Email or Instagram (as a link).

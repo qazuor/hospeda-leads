@@ -748,9 +748,9 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Cuándo usarlo:** Cuando necesitás mostrar o mandar un folleto, una foto, un video o una presentación de Hospeda.
 
 1. Entrá en «Material de venta», en el grupo «Herramientas» del menú.
-2. Buscá por título o comentario y filtrá por «Categoría» y «Tipo». Los entregables se pueden mandar a clientes; los internos son información solo para el equipo.
+2. Buscá por título o comentario y filtrá por «Categoría», «Vertical» y «Tipo». Los entregables se pueden mandar a clientes; los internos son información solo para el equipo. Un material para todas las verticales aparece con cualquier vertical.
 3. Tocá «Abrir» para verlo o «Descargar» para guardarlo. Si es un enlace externo, tocá «Abrir enlace».
-4. Si sos administrador, usá «Nuevo material» para subir un archivo o registrar un enlace, con título, categorías, comentario y tipo. Con «Nueva versión» cambiás el archivo y las versiones anteriores se conservan.
+4. Si sos administrador, usá «Nuevo material» para subir un archivo o registrar un enlace, con título, categorías, verticales, comentario y tipo. En «Categorías» escribís para buscar; si la categoría no existe, la última opción la crea y la deja elegida. En «Verticales» marcás a qué verticales aplica; vacío («Todas las verticales») significa que se ofrece para cualquier negocio. Con «Nueva versión» cambiás el archivo y las versiones anteriores se conservan.
 5. «Archivar» lo saca de la lista sin borrar nada; «Restaurar» lo vuelve a mostrar.
 
 **Qué queda al terminar:** Encontrás siempre la versión actual del material. Abrirlo o descargarlo no lo envía al cliente.
@@ -762,7 +762,8 @@ Usá modelos, documentos, calendario y filtros cuando ayudan a tu trabajo.
 **Tené en cuenta:**
 
 - Las categorías las administra un administrador en «Configuración» → «Categorías de material».
-- Portadas (administradores): un archivo sin portada elegida recibe una automática al guardarlo. Si no se puede generar (por ejemplo, un PDF de más de 150 MB o que no se puede leer), el aviso dice por qué y trae «Elegir portada». En «Portada» podés subir una imagen, también para un enlace externo, o usar «Generar desde el archivo» para reintentar la automática.
+- Al elegir material para un negocio, arriba aparece el de su vertical (la de la gestión, o la del negocio si no hay gestión) y el de todas las verticales; el resto queda plegado en «De otras verticales». Si no hay material marcado para esa vertical, se muestra todo.
+- Portadas (administradores): un archivo sin portada elegida recibe una automática al guardarlo. Si no se puede generar (por ejemplo, un PDF de más de 150 MB o que no se puede leer), el aviso dice por qué y trae «Elegir portada». En «Portada» podés subir una imagen, también para un enlace externo, o usar «Generar desde el archivo» para reintentar la automática. Un enlace externo sin portada elegida toma la imagen de vista previa de su sitio, si la tiene; en «Portada», «Generar desde el enlace» la vuelve a buscar. Los sitios que piden iniciar sesión no tienen imagen: subí una a mano.
 - «Abrir directo» (administradores, en «Nuevo material» y «Editar material»): quien toca el enlace del material ve el archivo, o va directo al sitio si es un enlace externo, sin pasar por la página de Hospeda. La vista previa de WhatsApp sigue mostrando portada y título. Cambiarlo también afecta a los enlaces que ya se mandaron.
 - Los enlaces que se mandan a clientes se ven así: crm.hospeda.com.ar/m/titulo-del-material-Ab3x. El título del enlace es parte de la dirección: si alguien lo cambia, el enlace deja de abrir. Los enlaces largos que se mandaron antes siguen funcionando.
 

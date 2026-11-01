@@ -14,7 +14,7 @@ import {post as inboundEmailPOST,addresses as inboundAddressesGET,reviewGET as i
 import {verify as instagramVerify,post as instagramPOST,integrationGET as instagramIntegrationGET,integrationPOST as instagramIntegrationPOST} from '../endpoints/inboundInstagram';
 import {context as userscriptContext,status as userscriptStatus,register as userscriptRegister,tokenList as userscriptTokenList,tokenCreate as userscriptTokenCreate,tokenRevoke as userscriptTokenRevoke,templates as userscriptTemplates,materials as userscriptMaterials,materialAdd as userscriptMaterialAdd,materialRemove as userscriptMaterialRemove,prepare as userscriptPrepare,dispatch as userscriptDispatch,outcome as userscriptOutcome,preferences as userscriptPreferences,autoRegistrations as userscriptAutoRegistrations,voidRegistration as userscriptVoid,badges as userscriptBadges,instagramThread as userscriptInstagramThread,instagramThreadStale as userscriptInstagramThreadStale,instagramThreads as userscriptInstagramThreads} from '../endpoints/userscript';
 import {get as resourcesGET,post as resourcesPOST,download as resourceDownload} from '../endpoints/resources';
-import {get as salesMaterialsGET,post as salesMaterialsPOST,uploadUrl as salesMaterialUploadUrl,file as salesMaterialFile,cover as salesMaterialCover,shareRevoke as salesMaterialShareRevoke} from '../endpoints/salesMaterials';
+import {get as salesMaterialsGET,post as salesMaterialsPOST,uploadUrl as salesMaterialUploadUrl,file as salesMaterialFile,cover as salesMaterialCover,shareRevoke as salesMaterialShareRevoke,linkPreview as salesMaterialLinkPreview} from '../endpoints/salesMaterials';
 import {page as materialSharePage,file as materialShareFile,cover as materialShareCover,notFound as materialShareNotFound} from '../endpoints/materialShare';
 import {clientIp} from '../helpers/salesMaterialShare';
 import {get as qualityGET,post as qualityPOST} from '../endpoints/dataQuality';
@@ -125,6 +125,7 @@ app.post('/_api/sales_materials/upload_url',c=>salesMaterialUploadUrl(c.req.raw)
 app.get('/_api/sales_materials/file',c=>salesMaterialFile(c.req.raw));
 app.get('/_api/sales_materials/cover',c=>salesMaterialCover(c.req.raw));
 app.post('/_api/sales_materials/share_revoke',c=>salesMaterialShareRevoke(c.req.raw));
+app.post('/_api/sales_materials/link_preview',c=>salesMaterialLinkPreview(c.req.raw));
 app.get("/_api/data_quality",c=>qualityGET(c.req.raw));
 app.post("/_api/data_quality",c=>qualityPOST(c.req.raw));
 app.post("/_api/auth/password_recovery/request",c=>passwordRecoveryRequest(c.req.raw));
