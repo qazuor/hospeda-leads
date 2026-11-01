@@ -22,6 +22,9 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
     for (const part of ["H7 · Colón", "Cabañas del Río", "Responsable: Ana", "Contactado", "1 gestión abierta", "@cabanas_del_rio · chat verificado", "Mandar un mensaje", "Abrir en CRM"]) expect(text()).toContain(part);
     expect(buttonNamed("Mandar un mensaje").disabled).toBe(false);
   });
+  it("uses the shared missing-owner copy", () => {
+    render(ready({}, [matchOf({ assignedUserName: null })])); expect(text()).toContain("Responsable: Sin responsable"); expect(text()).not.toContain("Sin asignar");
+  });
   it("«No contactar» shows the note and disables «Mandar un mensaje» with the CRM's reason", () => {
     render(ready({}, [matchOf({ doNotContact: true })]));
     expect(text()).toContain("Este negocio pidió no ser contactado. No le escribas desde Instagram.");
@@ -71,8 +74,9 @@ describe("Instagram panel views (spec 97 §4.3)", () => {
     buttonNamed("No es este chat").click(); expect(rejectChat).not.toHaveBeenCalled();
   });
   it("Ajustes has the conversation-list badges switch (spec 97 §15)", () => {
-    const setBadges = vi.fn(); renderPanel({ doc: document, state: ready({ view: "settings" }), open: true, dark: false, theme: "auto", badges: true, base: "https://crm.test", version: "1.6.0", actions: actionsOf({ setBadges }) });
+    const setBadges = vi.fn(); renderPanel({ doc: document, state: ready({ view: "settings" }), open: true, dark: false, theme: "auto", badges: true, badgeDiagnostic: "2 chats conocidos · 1 marcados en esta lista.", base: "https://crm.test", version: "1.6.0", actions: actionsOf({ setBadges }) });
     const check = root().querySelector<HTMLInputElement>('input[type="checkbox"]')!; expect(check.checked).toBe(true); expect(text()).toContain("Mostrar insignias en la lista de chats");
+    expect(text()).toContain("2 chats conocidos · 1 marcados en esta lista.");
     check.click(); expect(setBadges).toHaveBeenCalledWith(false);
   });
   it("keeps the token out of the page", () => {

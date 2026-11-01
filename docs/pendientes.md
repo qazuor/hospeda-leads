@@ -2,6 +2,8 @@
 
 # Pendientes y próximo trabajo
 
+- **Spec 105, bloques 3 y 4:** implementación local del user script terminada (sin cambiar `USERSCRIPT_VERSION`); `otherVertical` ya estaba en la respuesta del servidor, ahora está tipado como opcional y se pliega en el selector. Typecheck y Vitest focalizado PASS (152 pruebas en seis archivos y 32 casos seleccionados de diagnóstico, panel y sincronización). No se corrieron build, navegador ni suite completa, por las restricciones de la tarea. Próximo paso: revisar e integrar los bloques con spec 105 antes de publicar 1.8.0.
+
 - Spec 105 block 1 review fixes: coordinator disposable-DB runs now pass for `test-userscript-material-file.ts`, `test-userscript.ts`, and `test-communication.ts`; focused typecheck and unit tests also pass. Next: review and open the staging PR through the project workflow. The browser prototype, remaining spec 105 work, and seller notification are still pending as described below.
 
 ## Smoke de producción 2026-10-30

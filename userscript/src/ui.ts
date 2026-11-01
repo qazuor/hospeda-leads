@@ -187,7 +187,7 @@ function chat(options: UiOptions, card: HTMLElement): HTMLElement {
 function business(options: UiOptions, selected: Match, body: HTMLElement, card: HTMLElement, status: HTMLElement): void {
   body.append(el("span", "eyebrow", `${selected.code}${selected.city ? ` · ${selected.city}` : ""}`), el("span", "name", selected.name));
   if(options.autoStatus) { const line=el("div","meta");const label=options.autoStatus.startsWith("Registro automático activo")?`${options.autoStatus} · ${options.autoTodayCount??0} registrados hoy`:options.autoStatus;line.append(el("span","muted",label));if(options.autoStatus.startsWith("Registro automático activo")){const see=el("button","btn small","Ver");see.type="button";see.addEventListener("click",()=>{view="autoList";options.onPreviewChange?.(true);openAutoList(card,options,selected,()=>{view="chat";options.onPreviewChange?.(false);},title=>bar(options,{main:title,sub:selected.name}));});line.append(see);}body.append(line); }
-  const chips = el("div", "chips"); chips.append(el("span", "chip", `Responsable: ${selected.assignedUserName || "Sin asignar"}`));
+  const chips = el("div", "chips"); chips.append(el("span", "chip", `Responsable: ${selected.assignedUserName || "Sin responsable"}`));
   if (selected.statusLabel) chips.append(el("span", "chip", selected.statusLabel));
   chips.append(el("span", "chip", selected.leads.length ? plural(selected.leads.length, "gestión abierta", "gestiones abiertas") : "Sin gestiones abiertas")); body.append(chips);
   if (selected.leads.length) { const box = el("div", "box"); box.append(el("span", "label", selected.leads.length === 1 ? "Gestión abierta" : "Gestiones abiertas")); for (const lead of selected.leads.slice(0, 3)) box.append(el("span", undefined, `${lead.name} · ${lead.stage}`)); body.append(box); }
@@ -316,4 +316,3 @@ export function whatsappSearchOrCreateUrl({ base, phone }: { base: string; phone
   const value = `${phone!.trim().startsWith("+") ? "+" : ""}${digits}`;
   return `${base}/accounts?${new URLSearchParams({ q: value, createPhone: value })}`;
 }
-

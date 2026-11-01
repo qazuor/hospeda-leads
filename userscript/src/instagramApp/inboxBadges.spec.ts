@@ -4,7 +4,7 @@ import type { InstagramInboxBadge, InstagramInboxThread } from "../api";
 import { INBOX_BADGE_ATTRIBUTE, conversationList, inboxChatRows, normalizeDisplayName, uniqueByName } from "../instagram/inbox";
 import { conversationPane } from "../instagram/finders";
 import { headerDisplayName, headerText, proveThread } from "../instagram/thread";
-import { applyInboxBadges, inboxBadgeDetail, inboxBadgeText, removeInboxBadges } from "./inboxBadges";
+import { applyInboxBadges, inboxBadgeDetail, inboxBadgeText, inboxBadgeDiagnostic, removeInboxBadges } from "./inboxBadges";
 
 const single = (code: string, over: Partial<Extract<InstagramInboxBadge, { kind: "single" }>> = {}): InstagramInboxBadge => ({ kind: "single", accountId: code.slice(1), code, name: `Negocio ${code}`, city: "Colón", statusLabel: "Contactado", assignedUserName: "Ana", doNotContact: false, restricted: false, openManagement: { stageLabel: "Contactado", typeLabel: "Principal" }, ...over });
 const thread = (displayName: string, username: string, badge: InstagramInboxBadge = single("H7")): InstagramInboxThread => ({ displayName, username, badge });
@@ -17,6 +17,17 @@ const hover = (id: string) => badgeOf(id)!.dispatchEvent(new MouseEvent("mouseen
 afterEach(() => { removeInboxBadges({ doc: document }); document.body.innerHTML = ""; history.replaceState(null, "", "/"); });
 
 describe("Instagram conversation list rows (spec 97 §15, live findings §9.1 item 9)", () => {
+  it("reports each badge diagnostic without including chat names or usernames", () => {
+    const cases = [
+      [{ enabled: false, connected: false, expectedAccount: null, accountMatches: false, listFound: false, known: 0, marked: 0 }, "Apagadas."],
+      [{ enabled: true, connected: false, expectedAccount: null, accountMatches: false, listFound: false, known: 0, marked: 0 }, "Sin conexión con el CRM."],
+      [{ enabled: true, connected: true, expectedAccount: "hospeda", accountMatches: false, listFound: false, known: 0, marked: 0 }, "No pudimos confirmar que esta sea la cuenta de Hospeda (@hospeda)."],
+      [{ enabled: true, connected: true, expectedAccount: "hospeda", accountMatches: true, listFound: false, known: 0, marked: 0 }, "No encontramos la lista de chats en esta página."],
+      [{ enabled: true, connected: true, expectedAccount: "hospeda", accountMatches: true, listFound: true, known: 0, marked: 0 }, "El CRM todavía no conoce chats con nombre: abrí cada chat una vez con el panel."],
+      [{ enabled: true, connected: true, expectedAccount: "hospeda", accountMatches: true, listFound: true, known: 2, marked: 1 }, "2 chats conocidos · 1 marcados en esta lista."],
+    ] as const;
+    for (const [input, expected] of cases) { const message = inboxBadgeDiagnostic(input); expect(message).toBe(expected); expect(message).not.toContain("Leandro"); expect(message).not.toContain("qaz.uor"); }
+  });
   it("finds the list and only the chat rows: switcher, labelled buttons, notes tray and tablist are skipped", () => {
     // Arrange
     mount();

@@ -288,6 +288,10 @@ describe("panel", () => {
     expect(shadow(blocked).textContent).toContain("Responsable: Marta Gómez"); expect(shadow(blocked).textContent).toContain("Este negocio pidió no ser contactado");
     expect(button(blocked, "Mandar un mensaje")!.disabled).toBe(true); expect(button(blocked, "Enviar material")!.disabled).toBe(true);
   });
+  it("shows the unified missing-owner copy", () => {
+    const host = renderBanner({ context: context(), selected: { ...match, assignedUserName: null }, register: null, title: "Cabañas", onSelect: () => {} });
+    expect(shadow(host).textContent).toContain("Responsable: Sin responsable"); expect(shadow(host).textContent).not.toContain("Sin asignar");
+  });
   it("refuses to open the preview when the chat changed since the panel was rendered", () => {
     const readMessages = vi.fn(() => [message("A1", "in", "Hola")]);
     const host = renderBanner({ context: context(), selected: match, register: new RegisterController("https://crm.example", "hcu_test"), title: "Cabañas del Río · H1234", phone: null, readMessages, isCurrentChat: () => false, onSelect: () => {} });

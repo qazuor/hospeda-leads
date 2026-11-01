@@ -32,7 +32,7 @@ export type PanelActions = {
   /** §15: the conversation-list badges switch (no CRM call, so no trusted guard). */
   readonly setBadges: (enabled: boolean) => void;
 };
-export type PanelInput = { readonly doc: Document; readonly state: AppState; readonly open: boolean; readonly dark: boolean; readonly theme: PanelTheme; readonly badges?: boolean; readonly base: string; readonly version: string; readonly actions: PanelActions;
+export type PanelInput = { readonly doc: Document; readonly state: AppState; readonly open: boolean; readonly dark: boolean; readonly theme: PanelTheme; readonly badges?: boolean; readonly badgeDiagnostic?: string; readonly base: string; readonly version: string; readonly actions: PanelActions;
   /** Fills the card in the compose view (`compose.ts`). */
   readonly mountCompose?: (card: HTMLElement, header: (title: string) => HTMLElement) => void };
 
@@ -157,7 +157,7 @@ function business(input: PanelInput, el: El, match: InstagramMatch, username: st
   }
   nodes.push(el("div", "eyebrow", [match.code, match.city].filter(Boolean).join(" · ")), el("div", "name", match.name));
   const chips = el("div", "chips");
-  if (match.assignedUserName) chips.append(el("span", "chip", `Responsable: ${match.assignedUserName}`));
+  chips.append(el("span", "chip", `Responsable: ${match.assignedUserName || "Sin responsable"}`));
   if (match.statusLabel) chips.append(el("span", "chip", match.statusLabel));
   chips.append(el("span", "chip", match.leads.length === 1 ? "1 gestión abierta" : `${match.leads.length} gestiones abiertas`));
   nodes.push(chips);
@@ -192,6 +192,7 @@ function settings(input: PanelInput, el: El): HTMLElement {
   select.addEventListener("change", () => input.actions.setTheme(select.value as PanelTheme)); field.append(select); theme.append(field);
   const toggle = el("label", "field toggle", "Mostrar insignias en la lista de chats"), check = el("input"); check.type = "checkbox"; check.checked = input.badges ?? true;
   check.addEventListener("change", () => input.actions.setBadges(check.checked)); toggle.prepend(check); theme.append(toggle);
+  const diagnostic = input.badgeDiagnostic ?? "Apagadas."; theme.append(el("p", "muted", diagnostic));
   const back = button(el, "Volver", "btn", () => input.actions.view("main"));
   body.append(connection, script, theme, back); return body;
 }
