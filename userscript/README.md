@@ -1,5 +1,11 @@
 # Hospeda CRM para WhatsApp Web e Instagram
 
+## Novedades 1.8.0
+
+- **Bloque 2:** en WhatsApp Web, «Pegar en el chat» puede adjuntar el archivo de un material (hasta 50 MB). Revisá la vista previa y tocá **Enviar** vos; el script nunca envía.
+- **Bloque 3:** el panel de Instagram y WhatsApp refresca el negocio y el chat al cambiar de conversación o volver a la pestaña; Ajustes explica por qué no aparecen insignias.
+- **Bloque 4:** los materiales de otras verticales quedan plegados bajo «De otras verticales»; allí los materiales siguen viajando como enlace en Instagram.
+
 El script permite registrar en el CRM mensajes visibles del chat abierto, después de revisar una vista previa y confirmar. Solo lee WhatsApp Web: no envía mensajes, no hace clics allí ni modifica contactos o etiquetas. Los medios se guardan como marcadores, sin descargar archivos.
 
 Desde la versión 1.4.0 el mismo script también trabaja en Instagram Web: después de «Abrir Instagram» en el CRM, toca «Enviar mensaje» en el perfil y escribe el mensaje preparado, sin enviarlo ([spec 94](../docs/crm-roadmap/94-instagram-userscript.md)).
@@ -25,6 +31,14 @@ En **Mandar un mensaje**, elegí el modelo y la persona. Si el modelo trae mater
 
 Endpoints que usa (mismo token Bearer `hcu_…` y mismo control de versión 426 que el resto): `GET /_api/userscript/materials?accountId=<id>` y `POST /_api/userscript/material_add` `{messageId, revision, materialId}`, que devuelve `{revision, body}`. `POST /_api/userscript/prepare` suma `materialWarnings`.
 
+### Adjuntar el archivo (versión 1.8.0)
+
+Al pegar en WhatsApp Web un mensaje con un único material que sea un archivo de hasta 50 MB, el script descarga el archivo desde Hospeda y lo deja en la vista previa de WhatsApp con el texto y el enlace corto como descripción. JPG, PNG y WebP se preparan como foto; los demás formatos, como documento. Revisá destinatario, archivo y descripción, y tocá **Enviar** para mandarlo.
+
+Si el mensaje tiene varios materiales, si el material es un enlace externo o si el archivo supera 50 MB, el script deja solo el texto con el enlace y muestra el aviso correspondiente. Si la descarga falla, también podés elegir **Pegar solo con el enlace**. Si descartás la vista previa, WhatsApp deja el texto con el enlace en la caja de mensaje: podés enviarlo así o borrarlo.
+
+El administrador puede apagar o volver a encender **Configuración → Adjuntar archivos desde el script**. Al apagarlo, el script vuelve a pegar solo el texto con el enlace.
+
 Si aparece **No pude leer este chat**, tocá **Copiar diagnóstico del chat** en el panel. El diagnóstico oculta texto y enmascara teléfonos. Enviáselo al equipo para actualizar los selectores.
 
 ### Solución de problemas
@@ -41,7 +55,7 @@ En las páginas del CRM el script, además de anunciar su versión, comprueba su
 - `data-hospeda-userscript-connection`: `connected`, `missing-token` (sin token, no hace pedido), `rejected` (401), `outdated` (426) o `unknown` (error de red, timeout o 5xx);
 - `data-hospeda-userscript-user`: el email del dueño del token, solo con `connected`.
 
-Avisa cada cambio con el mismo evento de instalación. Vuelve a comprobar al volver a la pestaña (enseguida si no está conectado; cada 2 minutos como máximo si lo está) y cuando la página dispara `hospeda-userscript-recheck` («Verificar de nuevo»). En la computadora, el CRM solo deja contactar por WhatsApp o Instagram con el script en la última versión, conectado y con el token de la misma cuenta. La versión mínima del servidor pasa a 1.5.0: un 1.4.x recibe 426 en WhatsApp Web. Detalle en la [spec 96](../docs/crm-roadmap/96-contact-three-clicks.md).
+Avisa cada cambio con el mismo evento de instalación. Vuelve a comprobar al volver a la pestaña (enseguida si no está conectado; cada 2 minutos como máximo si lo está) y cuando la página dispara `hospeda-userscript-recheck` («Verificar de nuevo»). En la computadora, el CRM solo deja contactar por WhatsApp o Instagram con el script en la última versión, conectado y con el token de la misma cuenta. Desde la publicación 1.8.0, el servidor exige esa versión: una 1.7.x recibe 426. Detalle de la barrera en la [spec 96](../docs/crm-roadmap/96-contact-three-clicks.md).
 
 ## Instagram (versión 1.4.0)
 

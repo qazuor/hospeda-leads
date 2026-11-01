@@ -1069,7 +1069,11 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 - Podés tener hasta cinco tokens activos, uno por computadora. Si dejás de usar una, tocá «Revocar» junto a su token. La lista muestra qué versión del script usó cada token la última vez y marca «Desactualizado» si quedó vieja.
 - El script solo lee lo que ves en pantalla. No manda mensajes, no hace clics en WhatsApp y no cambia contactos ni etiquetas.
 - Desde la versión 1.4.0 el mismo script también trabaja en Instagram. La primera vez que Tampermonkey lo actualice te va a pedir que apruebes un sitio nuevo (instagram.com): aceptalo una sola vez. Si no lo aprobás, el script sigue funcionando en WhatsApp.
-- La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.5.0 el CRM pide siempre la última versión del script.
+- La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.8.0 el CRM pide esa versión del script.
+- Desde la versión 1.8.0, al tocar «Pegar en el chat» con un único material que sea un archivo de hasta 50 MB, WhatsApp Web muestra la vista previa del archivo y el texto del mensaje como descripción. Revisá el destinatario, el archivo y el texto, y tocá Enviar vos: el script nunca envía. JPG, PNG y WebP se preparan como foto; los demás archivos, como documento.
+- Si el mensaje tiene varios materiales, el material es un enlace externo o el archivo supera 50 MB, se pega solo el texto con el enlace y aparece un aviso. Si falla la descarga, podés elegir «Pegar solo con el enlace». Si descartás la vista previa, WhatsApp deja el texto con el enlace en la caja de mensaje: podés enviarlo así o borrarlo.
+- En la lista de materiales, los que son de otras verticales quedan plegados en «De otras verticales»; tocá para desplegarlos. Si no hay materiales de la vertical del negocio ni de todas las verticales, la lista se muestra completa.
+- Un administrador puede activar o desactivar «Adjuntar archivos desde el script» en «Configuración». Si está apagado, WhatsApp Web recibe solo el texto con el enlace.
 
 **Dónde ir:** User script de WhatsApp (/userscript)
 
