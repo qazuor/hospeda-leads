@@ -29,16 +29,26 @@ export function materialPicker(options: { listing: MaterialListing; refresh: boo
   const section = el("div", "section"), field = el("label", "field", "Buscar material"), input = el("input"), status = el("div"), list = el("div", "section");
   section.append(el("h3", undefined, options.heading ?? "AGREGAR MATERIAL"));
   input.type = "search"; input.value = options.listing.search; input.disabled = options.busy; input.placeholder = "Título o descripción";
-  let listing = options.listing, sequence = 0, timer: ReturnType<typeof setTimeout> | undefined;
+  let listing = options.listing, sequence = 0, timer: ReturnType<typeof setTimeout> | undefined, expandedOther = false;
   const paint = (loading: boolean) => {
     status.replaceChildren(...(listing.error ? [el("p", "note warn", listing.error)] : loading ? [el("p", "muted", listing.materials ? "Buscando…" : "Cargando material…")] : []));
     if (!listing.materials) { list.replaceChildren(); return; }
-    list.replaceChildren(...(listing.materials.length ? listing.materials.map(material => {
+    const top = listing.materials.filter(material => !material.otherVertical), others = listing.materials.filter(material => material.otherVertical);
+    if (!top.length || (listing.search.trim() && !top.length && others.length)) expandedOther = true;
+    const renderMaterial = (material: ScriptMaterial) => {
       const row = el("div", "row"), content = el("span", "content"), added = options.added.includes(material.id), add = el("button", "btn small", added ? "Agregado" : "Agregar");
       content.append(el("strong", undefined, material.title), el("span", "muted", [material.formatLabel, ...material.categories].join(" · ")));
       add.type = "button"; add.disabled = options.busy || added; add.addEventListener("click", event => { if (trusted(event)) options.onAdd(material); });
       row.append(content, add); return row;
-    }) : listing.error ? [] : [el("p", "muted", listing.search.trim() ? "No hay material con esa búsqueda." : "No hay material entregable. Lo carga un administrador en el CRM.")]));
+    };
+    const rows: HTMLElement[] = top.map(renderMaterial);
+    if (others.length && top.length) {
+      const fold = el("button", "btn small", `De otras verticales (${others.length})`); fold.type = "button"; fold.setAttribute("aria-expanded", String(expandedOther));
+      fold.addEventListener("click", event => { if (!trusted(event)) return; expandedOther = !expandedOther; paint(false); }); rows.push(fold);
+    }
+    if (!top.length && others.length) rows.push(el("p", "muted", "No hay material marcado para esta vertical; te mostramos todo."));
+    if (expandedOther || !top.length) rows.push(...others.map(renderMaterial));
+    list.replaceChildren(...(listing.materials.length ? rows : listing.error ? [] : [el("p", "muted", listing.search.trim() ? "No hay material con esa búsqueda." : "No hay material entregable. Lo carga un administrador en el CRM.")]));
     if (listing.truncated) list.append(el("p", "muted", "Hay más material del que se muestra: buscá por título."));
   };
   const load = async (term: string) => {
@@ -120,4 +130,3 @@ export function heldMaterialsList(options: { materials: readonly HeldMaterial[];
   }
   return section;
 }
-

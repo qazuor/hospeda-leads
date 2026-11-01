@@ -60,7 +60,7 @@ export const prepareTemplate=(base:string,token:string,payload:WhatsappPrepare)=
 export const dispatchTemplate=(base:string,token:string,payload:{id:string;revision:number})=>request(`${base}/_api/userscript/dispatch`,token,"POST",payload);
 export const markTemplateNotSent=(base:string,token:string,id:string)=>request(`${base}/_api/userscript/outcome`,token,"POST",{id,event:"manual_not_sent"});
 /** An active deliverable sales material the seller can add to a WhatsApp or Instagram draft. */
-export type ScriptMaterial={id:string;title:string;categories:string[];format:string;formatLabel:string};
+export type ScriptMaterial={id:string;title:string;categories:string[];format:string;formatLabel:string;otherVertical?:boolean};
 export type MaterialsResponse={materials:ScriptMaterial[];blocked:string|null;truncated?:boolean};
 /** The CRM searches title and description (accent-insensitive) and caps the list, so a search always reaches every material. */
 export const fetchMaterials=(base:string,token:string,accountId:string,search='',channel:"whatsapp"|"instagram"="whatsapp")=>request<MaterialsResponse>(`${base}/_api/userscript/materials?${new URLSearchParams({accountId,...(search.trim()?{search:search.trim()}:{}),...(channel==="instagram"?{channel}:{})})}`,token);
