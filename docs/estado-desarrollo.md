@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 31 de octubre de 2026
 
+## Spec 105, bloques 3 y 4 — user script — 01/11/2026
+
+Implementación local de los arreglos de sincronización y diagnóstico de la spec 103 (caché de contexto de Instagram a 10 s, revalidación al volver visible, redibujo al cambiar de chat aun con foco en un control, prueba estable en dos ticks y `learn()` estable; WhatsApp invalida el contexto al volver visible), diagnóstico de insignias en Ajustes y copy «Sin responsable». `materialPicker` agrupa con `otherVertical` y permite expandir «De otras verticales (N)»; si no hay material superior, expande todo. El endpoint ya incluía ese campo; solo faltaba tiparlo opcional en el cliente para compatibilidad con respuestas anteriores.
+
+Pruebas de regresión añadidas para plegado/desplegado, lista sin material superior, copy del responsable, los motivos de diagnóstico, refresco y estabilidad del chat. Validación: `npm run typecheck` PASS; `npx vitest run --maxWorkers=2 userscript/src/materials.spec.ts userscript/src/compose.spec.ts userscript/src/userscript.spec.ts userscript/src/instagramApp/panel.spec.ts userscript/src/instagramApp/state.spec.ts userscript/src/visibility.spec.ts` PASS (152 pruebas); `npx vitest run --maxWorkers=2 userscript/src/instagramApp/inboxBadges.spec.ts userscript/src/instagramApp/panel.spec.ts userscript/src/instagramApp/start.spec.ts -t 'conversation list|Ajustes has the conversation-list badges|refreshes context older than ten seconds|revalidates the open chat|stable for the second tick'` PASS (32 seleccionadas). Sin build, navegador ni suite completa; sin cambio de versión. Próximo paso: revisar el resultado e integrar estos bloques con la rama principal de spec 105 antes de publicar 1.8.0.
+
 ## Spec 101, bloques 3 y 4 — enlace corto con slug, límites duros y «Abrir directo» — rama `feat/spec-101-links` (sin PR todavía) — 31/10/2026
 
 Decisiones del propietario del 31/10/2026 (D1–D4; D5 es la spec 105).
