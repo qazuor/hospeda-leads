@@ -2,6 +2,8 @@
 
 # Pendientes y próximo trabajo
 
+- Spec 105 block 1 review fixes: coordinator disposable-DB runs now pass for `test-userscript-material-file.ts`, `test-userscript.ts`, and `test-communication.ts`; focused typecheck and unit tests also pass. Next: review and open the staging PR through the project workflow. The browser prototype, remaining spec 105 work, and seller notification are still pending as described below.
+
 ## Smoke de producción 2026-10-30
 
 El smoke con usuario común quedó completo; el del admin está pendiente. Del smoke salió un lote planeado de specs:
@@ -14,7 +16,7 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - **104** pulido de ficha, formularios y visual.
 - **105** el script adjunta el material en WhatsApp Web (decisión D5 de la 101; sale en el script 1.8.0 con el bloque 4 de la 103 y el separador de verticales de la 102).
 
-**Spec 105** (el script adjunta el material en WhatsApp Web; [`crm-roadmap/105-script-adjunta-material.md`](crm-roadmap/105-script-adjunta-material.md), borrador para revisión del propietario, rama `docs/spec-105-script-attach`): pendiente de implementación. Primero el prototipo en WhatsApp Web real (§6.4) y las decisiones abiertas D1–D5 (§17); después servidor (`material_file`, metadatos de adjunto, `media` en el registro, interruptor), script 1.8.0 (adjuntar + bloque 4 de la 103 + separador «De otras verticales» de la 102, que espera la rama `feat/spec-102-verticals-covers` en `staging`) y publicación con aviso previo a los vendedores. Sin migración.
+**Spec 105** (el script adjunta el material en WhatsApp Web; [`crm-roadmap/105-script-adjunta-material.md`](crm-roadmap/105-script-adjunta-material.md), borrador para revisión del propietario, rama `docs/spec-105-script-attach`): el bloque 1 del servidor (descarga protegida, metadatos y registro de adjunto) está implementado y sus integraciones descartables pasan; falta su PR a `staging`. Siguen pendientes el prototipo en WhatsApp Web real (§6.4), las decisiones abiertas D1–D5 (§17), el script 1.8.0 (adjuntar + bloque 4 de la 103 + separador «De otras verticales» de la 102, que espera la rama `feat/spec-102-verticals-covers` en `staging`) y la publicación con aviso previo a los vendedores. Sin migración.
 
 **Spec 104, decisiones D2, D3 y D6 + spec 96 §10.1** (rama `fix/owner-decisions-small`, sin PR todavía): el responsable agrega restricciones por canal (levantar sigue solo admin), persona única preseleccionada en «Anotar lo que pasó», rótulo «HOSPEDA · {VERTICAL}» y respuesta nueva que no resuelve envíos. Falta: PR a `staging`, CI completo (suite de unidad entera, build y navegador no corridos en local) y revisar visualmente el rótulo en Gmail. D1, D4 y D5 siguen fuera de esta rama. Nota de despliegue (D6): los borradores de email guardados antes del deploy conservan el rótulo viejo hasta que se editen, porque el envío usa el `html_body` guardado.
 
@@ -395,3 +397,4 @@ B1 y B2 mergeadas en `staging` (PR #249, `53b14a0`). Falta la revisión del prop
 ### Spec 88 · Instagram Direct (26/10/2026)
 
 **Cerrada**: mergeada en `staging` (#260) y probada de punta a punta con Meta el 26/10/2026. Lo que falta para producción está en «Specs 87 y 88», al principio de este archivo.
+# Spec 105 block 1: run `scripts/test-userscript-material-file.ts` in the coordinator's disposable integration environment; the full endpoint scenarios still need coordinator verification.
