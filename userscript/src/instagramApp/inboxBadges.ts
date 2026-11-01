@@ -16,6 +16,16 @@ const CARD_ATTRIBUTE = "data-hospeda-inbox-card", HIDE_MS = 160;
 const SWALLOWED = ["click", "mousedown", "mouseup", "pointerdown", "pointerup", "touchstart", "touchend", "dblclick", "contextmenu"] as const;
 const sheets = new WeakMap<Document, CSSStyleSheet | null>();
 
+/** Spec 103 §8: short, privacy-safe explanation shown in Instagram settings and copied to the debug log. */
+export function inboxBadgeDiagnostic({ enabled, connected, expectedAccount, accountMatches, listFound, known, marked }: { enabled: boolean; connected: boolean; expectedAccount: string | null; accountMatches: boolean; listFound: boolean; known: number; marked: number }): string {
+  if (!enabled) return "Apagadas.";
+  if (!connected) return "Sin conexión con el CRM.";
+  if (expectedAccount && !accountMatches) return `No pudimos confirmar que esta sea la cuenta de Hospeda (@${expectedAccount}).`;
+  if (!listFound) return "No encontramos la lista de chats en esta página.";
+  if (!known) return "El CRM todavía no conoce chats con nombre: abrí cada chat una vez con el panel.";
+  return `${known} chats conocidos · ${marked} marcados en esta lista.`;
+}
+
 function styleRoot(doc: Document, root: ShadowRoot): void {
   if (!sheets.has(doc)) {
     try { const View = doc.defaultView as (Window & typeof globalThis) | null; if (!View) throw new Error("no view"); const sheet = new View.CSSStyleSheet(); sheet.replaceSync(CSS); sheets.set(doc, sheet); }
