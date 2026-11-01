@@ -12,6 +12,9 @@ El smoke con usuario común quedó completo; el del admin está pendiente. Del s
 - **102** pantalla de material de venta.
 - **103** Bandeja sin asociar + Instagram + user script.
 - **104** pulido de ficha, formularios y visual.
+- **105** el script adjunta el material en WhatsApp Web (decisión D5 de la 101; sale en el script 1.8.0 con el bloque 4 de la 103 y el separador de verticales de la 102).
+
+**Spec 105** (el script adjunta el material en WhatsApp Web; [`crm-roadmap/105-script-adjunta-material.md`](crm-roadmap/105-script-adjunta-material.md), borrador para revisión del propietario, rama `docs/spec-105-script-attach`): pendiente de implementación. Primero el prototipo en WhatsApp Web real (§6.4) y las decisiones abiertas D1–D5 (§17); después servidor (`material_file`, metadatos de adjunto, `media` en el registro, interruptor), script 1.8.0 (adjuntar + bloque 4 de la 103 + separador «De otras verticales» de la 102, que espera la rama `feat/spec-102-verticals-covers` en `staging`) y publicación con aviso previo a los vendedores. Sin migración.
 
 **Spec 104, decisiones D2, D3 y D6 + spec 96 §10.1** (rama `fix/owner-decisions-small`, sin PR todavía): el responsable agrega restricciones por canal (levantar sigue solo admin), persona única preseleccionada en «Anotar lo que pasó», rótulo «HOSPEDA · {VERTICAL}» y respuesta nueva que no resuelve envíos. Falta: PR a `staging`, CI completo (suite de unidad entera, build y navegador no corridos en local) y revisar visualmente el rótulo en Gmail. D1, D4 y D5 siguen fuera de esta rama. Nota de despliegue (D6): los borradores de email guardados antes del deploy conservan el rótulo viejo hasta que se editen, porque el envío usa el `html_body` guardado.
 
