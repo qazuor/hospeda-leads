@@ -30,6 +30,7 @@ import {instagramAccountUsername,instagramThreadFor} from './userscriptInstagram
 import {sendInboundReply} from './emailReply';
 import {claimDraftMaterials,markAttachedVersions,mutateDraftMaterial,revokeDraftShares,withMaterials} from './salesMaterialDraft';import {redactPresignedUrls} from './salesMaterialMessage';
 import {refreshAutoOutcomesFromResponse,resolveSendOutcomeFromResponse} from './responseOutcomeService';
+import {whatsappAttachEligibility,whatsappAttachSingleEligible} from './salesMaterialMessage';
 import {contactLogBlocked} from './responseOutcome';
 export type Executor=Kysely<DB>|Transaction<DB>;
 export const USERSCRIPT_CONFIRMED_RESULT='Envío confirmado por el script de WhatsApp';
@@ -403,7 +404,7 @@ export async function completeUserscriptManual(e:Executor,{id,externalId,text,se
  * chat, with the same effects as answering "Sí, lo envié": the prepared body stays, the text actually sent is kept in text_body/summary.
  * A WhatsApp already confirmed by hand (manual_sent without a WhatsApp id) is only linked to the message id, so it is not recorded twice.
  */
-export async function completeUserscriptOpened(e:Executor,{id,externalId,text,sentAt}:{id:string;externalId:string;text:string;sentAt:Date},user:User){
+export async function completeUserscriptOpened(e:Executor,{id,externalId,text,sentAt,media=null}:{id:string;externalId:string;text:string;sentAt:Date;media?:'document'|'image'|'video'|'audio'|null},user:User){
  const m=await messageFor(e,id,user,true);if(m.channel!=='whatsapp')throw new CommunicationConflict('Este intento ya fue completado.');
  const linkedId=(await sql<{externalId:string|null}>`SELECT external_id FROM crm_messages WHERE id=${m.id}::uuid`.execute(e)).rows[0]?.externalId;
  if(m.status==='manual_sent'&&!linkedId){
@@ -419,6 +420,14 @@ export async function completeUserscriptOpened(e:Executor,{id,externalId,text,se
  if(m.taskId)await e.updateTable('crmTasks').set({status:'completed',completedAt:new Date(),result:USERSCRIPT_CONFIRMED_RESULT,updatedAt:new Date()}).where('id','=',m.taskId).where('status','=','pending').execute();
  await markClientForCare(e,m,user);
  await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'contact_resolved',actor:user,triggeredBy:'userscript',before:{status:m.status},after:{status:'manual_sent',externalId,source:'userscript',sentAt:at}});
+ if(media==='document'||media==='image'){
+  const switchRow=await e.selectFrom('appSettings').select('value').where('key','=','crm_userscript_attach_files').executeTakeFirst();let enabled=true;try{if(switchRow)enabled=JSON.parse(switchRow.value).enabled!==false}catch{enabled=true;}
+  if(enabled){
+   const shares=(await sql<{id:string;materialId:string;sentVersion:number|null;source:'file'|'url';fileName:string|null;mimeType:string|null;byteSize:number|null;kind:string;status:string;objectKey:string|null}>`SELECT s.id,s.material_id AS "materialId",s.sent_version AS "sentVersion",mt.source,v.file_name AS "fileName",v.mime_type AS "mimeType",v.byte_size AS "byteSize",mt.kind,mt.status,v.object_key AS "objectKey" FROM crm_sales_material_shares s JOIN crm_sales_materials mt ON mt.id=s.material_id LEFT JOIN crm_sales_material_versions v ON v.material_id=mt.id AND v.version=s.sent_version WHERE s.message_id=${m.id}::uuid AND s.revoked_at IS NULL AND s.sent_version IS NOT NULL ORDER BY s.created_at,s.id`.execute(e)).rows;
+   const eligible=shares.map(s=>({share:s,eligible:whatsappAttachEligibility({source:s.source,title:'',fileName:s.fileName,mimeType:s.mimeType,byteSize:s.byteSize==null?null:Number(s.byteSize),enabled:s.kind==='deliverable'&&s.status==='active'&&!!s.objectKey}).eligible}));
+   if(eligible.length===1&&whatsappAttachSingleEligible(shares.length,eligible[0]!.eligible)){const {share}=eligible[0]!;await sql`UPDATE crm_sales_material_shares SET attach=true,attached_version=${share.sentVersion} WHERE id=${share.id}::uuid`.execute(e);await communicationJournal(e,{accountId:String(m.accountId),leadId:m.leadId,entityType:'interaction',entityId:m.id,action:'material_file_attached',actor:user,triggeredBy:'userscript',after:{shareId:share.id,materialId:share.materialId,version:share.sentVersion}});}
+  }
+ }
  return {id:m.id,linked:false};
 }
 /** Records an already-sent WhatsApp message when no CRM manual attempt exists for it, with the WhatsApp time capped at now(). */
