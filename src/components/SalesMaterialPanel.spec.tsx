@@ -11,7 +11,7 @@ vi.mock('sonner',()=>({toast:{success:api.success,warning:api.warning}}));
 vi.mock('../helpers/salesMaterialAutoCover',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialAutoCover')>(),saveMissingAutoCover:api.missing}));
 vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await importOriginal<typeof import('../endpoints/salesMaterials.schema')>(),getSalesMaterials:api.list,postSalesMaterial:api.post}));
 const version={id:'v-2',version:2,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date('2026-10-20T12:00:00Z')};
-const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto de tarifas',description:'Precios 2027',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),hasCover:false,coverSource:null,categories:[{id:'1',name:'Folletos',active:true}],currentVersion:version,...over});
+const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto de tarifas',description:'Precios 2027',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,coverSource:null,categories:[{id:'1',name:'Folletos',active:true}],currentVersion:version,...over});
 const data=(materials:SalesMaterial[],storageConfigured=true):SalesMaterialList=>({materials,truncated:false,categories:[{id:'1',name:'Folletos',active:true},{id:'2',name:'Videos',active:true}],limits:{maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured,maxEmailAttachmentBytes:10485760}});
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));Element.prototype.scrollIntoView=vi.fn();globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});
 // jsdom decodes no media: the backfill would skip every video without this.
@@ -125,6 +125,15 @@ describe('SalesMaterialPanel',()=>{
   release();
   await waitFor(()=>expect(api.warning).toHaveBeenCalledWith('Se generó 1 portada. 1 material no se pudo procesar y muestra el dibujo de su formato.',{duration:10000}));expect(api.success).not.toHaveBeenCalled();
   expect(api.missing).toHaveBeenCalledTimes(2);expect(api.missing.mock.calls.map(c=>c[0].material.id)).toEqual(['m-1','m-2']);
+ });
+ it('spec 102: at the per-minute limit of link previews the run stops, says to retry in a minute and keeps the rest pending',async()=>{
+  const link=(id:string)=>material({id,title:'Enlace '+id,source:'url',currentVersion:{...version,id:'v-'+id,url:'https://example.com/'+id,fileName:null,mimeType:null,byteSize:null}});
+  api.list.mockResolvedValue(data([link('l-1'),link('l-2'),link('l-3')]));
+  api.missing.mockResolvedValueOnce({ok:true}).mockResolvedValueOnce({ok:false,rateLimited:true,error:'Esperá un minuto.'});
+  setup(true);
+  fireEvent.click(await screen.findByRole('button',{name:'Generar portadas faltantes (3)'}));
+  await waitFor(()=>expect(api.warning).toHaveBeenCalledWith('Se generó 1 portada. Llegamos al límite de portadas de enlaces por minuto: esperá un minuto y tocá de nuevo «Generar portadas faltantes» para seguir con el resto.',{duration:10000}));
+  expect(api.missing).toHaveBeenCalledTimes(2);expect(failedAutoCoverIds.has('l-2')).toBe(false);expect(failedAutoCoverIds.has('l-3')).toBe(false);
  });
  it('«Detener» and leaving the page abort the backfill; leaving announces nothing; failed materials are not retried this session',async()=>{
   const video={...version,id:'v-vid',fileName:'spot.mp4',mimeType:'video/mp4'};

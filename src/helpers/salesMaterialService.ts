@@ -1,8 +1,9 @@
 import {sql,type Kysely,type Transaction} from 'kysely';import {randomUUID} from 'node:crypto';import {z} from 'zod';
 import type {DB} from './schema';import type {User} from './User';import {setWorkActor} from './workAudit';
-import {CrmForbidden} from './crmPermissions';import {CommunicationConflict} from './communicationService';
+import {CrmForbidden,assertBusinessAccess,assertLeadAccess} from './crmPermissions';import {salesMaterialRelevance} from './salesMaterialRelevance';
+import {LinkPreviewError,fetchLinkPreviewImage} from './linkPreview';import {CommunicationConflict} from './communicationService';
 import {searchSql} from './searchSql';import {r2Configured,r2Storage,R2Unavailable,type R2Storage} from './r2';
-import {SALES_MATERIAL_MAX_COVER_BYTES,SALES_MATERIAL_MAX_UPLOAD_BYTES,contentDisposition,fileExtension,salesMaterialObjectKey,signatureMatches,uploadDeclarationError} from './salesMaterialTypes';
+import {salesMaterialCategoryKey,SALES_MATERIAL_MAX_COVER_BYTES,SALES_MATERIAL_MAX_UPLOAD_BYTES,contentDisposition,fileExtension,salesMaterialObjectKey,signatureMatches,uploadDeclarationError} from './salesMaterialTypes';
 import type {SalesMaterial,SalesMaterialCategory,SalesMaterialList,SalesMaterialMutation,SalesMaterialUpload,SalesMaterialUploadInput,SalesMaterialVersion} from '../endpoints/salesMaterials.schema';
 type E=Kysely<DB>|Transaction<DB>;
 /** Presigned PUT lifetime (spec 89 §6.3) and GET lifetime (§6.4), in seconds. */
@@ -21,14 +22,25 @@ export async function salesMaterialConfig(e:E):Promise<SalesMaterialConfig>{
 }
 /** Only admins create, edit, version, archive and manage categories (spec 89 §10). */
 export function assertSalesMaterialAdmin(user:Pick<User,'role'>):void{if(user.role!=='admin')throw new CrmForbidden('Solo un administrador puede administrar el material de venta.');}
-type MaterialRow=Omit<SalesMaterial,'hasCover'|'coverSource'|'categories'|'currentVersion'|'versions'>&{currentVersion:number|null;coverKey:string|null;coverMime:string|null;coverBytes:number|null;coverMode:'manual'|'auto'|'none'};
+type MaterialRow=Omit<SalesMaterial,'hasCover'|'coverSource'|'categories'|'currentVersion'|'versions'|'verticalMatch'>&{currentVersion:number|null;coverKey:string|null;coverMime:string|null;coverBytes:number|null;coverMode:'manual'|'auto'|'none'};
 type VersionRow=SalesMaterialVersion&{materialId:string;objectKey:string|null};
 type UploadRow={id:string;objectKey:string;purpose:'file'|'cover';materialId:string|null;declaredMime:string;declaredBytes:string|number;fileName:string;actorEmail:string;status:'pending'|'deleting'|'completed'|'discarded';expiresAt:Date};
 const publicVersion=({objectKey:_key,materialId:_material,...v}:VersionRow):SalesMaterialVersion=>({...v,byteSize:v.byteSize==null?null:Number(v.byteSize)});
 /** Most materials one listing returns; beyond it the list says `truncated` and the UI asks for a narrower search. */
 export const LIST_LIMIT=500;
 /** Lists materials (`categoryIds`: any of them). Sellers see active ones (both kinds) with the current version only; `includeArchived` and older versions are admin-only. */
-export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived:'0'|'1';status?:'archived'}}):Promise<SalesMaterialList>{
+/**
+ * Spec 102 D5: the vertical of the seller's context: the management's, else its business's; without a management, the business's. Read only
+ * when the user may read that management/business: otherwise (or when it does not exist) null, so a foreign business's vertical never leaks.
+ */
+export async function salesMaterialContextVertical(e:E,{user,accountId,leadId}:{user:User;accountId?:string|null;leadId?:string|null}):Promise<string|null>{
+ const tipo=(v:string|null|undefined)=>v?.trim()||null;
+ // A management of another business than the one given is ignored.
+ if(leadId)try{const lead=await assertLeadAccess(e,leadId,user);if(!accountId||String(lead.accountId)===String(accountId)){if(tipo(lead.tipo))return tipo(lead.tipo);accountId=String(lead.accountId);}}catch{/* Unreadable or missing: try the business. */}
+ if(accountId)try{return tipo((await assertBusinessAccess(e,accountId,user)).tipo);}catch{/* Unreadable or missing: no order. */}
+ return null;
+}
+export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived:'0'|'1';status?:'archived';forAccountId?:string;forLeadId?:string}}):Promise<SalesMaterialList>{
  const admin=user.role==='admin';
  const categoryIds=[...new Set([...(query.categoryIds??[]),...(query.categoryId?[query.categoryId]:[])])];
  if((query.includeArchived==='1'||query.status==='archived')&&!admin)throw new CrmForbidden('Solo un administrador ve el material archivado.');
@@ -45,12 +57,16 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
   sql<SalesMaterialCategory>`SELECT id,name,active FROM crm_sales_material_categories WHERE ${admin} OR active ORDER BY lower(name)`.execute(db),
   salesMaterialConfig(db)
  ]);
+ const [verticals,contextVertical]=await Promise.all([
+  db.selectFrom('crmVerticals').select('name').where('active','=',true).orderBy('sortOrder').orderBy('name').execute(),
+  query.forAccountId||query.forLeadId?salesMaterialContextVertical(db,{user,accountId:query.forAccountId,leadId:query.forLeadId}):Promise.resolve(null)
+ ]);
  const materials=rows.map(({coverKey,coverMime:_mime,coverBytes:_bytes,coverMode,currentVersion,...m}):SalesMaterial=>{
   const own=versions.rows.filter(v=>v.materialId===m.id).map(publicVersion);
   const current=own.find(v=>v.version===currentVersion)??null;
-  return {...m,hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,coverSource:coverMode==='none'?'none':coverKey?coverMode:null,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
+  return {...m,verticals:m.verticals??[],hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,coverSource:coverMode==='none'?'none':coverKey?coverMode:null,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
  });
- return {materials,truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
+ return {materials:contextVertical?salesMaterialRelevance({materials,vertical:contextVertical}):materials,contextVertical,verticals:verticals.map(v=>v.name),truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
 }
 async function materialFor(e:E,id:string,lock=false){
  const m=(await (lock?sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid FOR UPDATE`:sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid`).execute(e)).rows[0];
@@ -130,6 +146,13 @@ async function replaceCategories(e:E,materialId:string,ids:readonly string[],bef
  // The link table has no id column for the audit trigger: journal the whole set once per change.
  await sql`INSERT INTO crm_resource_journal(entity,entity_id,actor_email,action,before_value,after_value) VALUES('crm_sales_material_category_links',${materialId},nullif(current_setting('crm.actor_email',true),''),'UPDATE',${JSON.stringify({categoryIds:prev})}::text::jsonb,${JSON.stringify({categoryIds:next})}::text::jsonb)`.execute(e);
 }
+/** Spec 102 D4: every name must be an active catalog vertical (exact name); an inactive one the material already had is kept, like categories. */
+async function assertVerticals(e:E,names:readonly string[],allowedInactive:readonly string[]=[]){
+ if(!names.length)return;
+ const found=(await sql<{name:string;active:boolean}>`SELECT name,active FROM crm_verticals WHERE name=ANY(${[...names]}::text[])`.execute(e)).rows;
+ if(names.some(n=>!found.some(v=>v.name===n)))throw new Error('Alguna vertical no existe en el catálogo. Actualizá la página.');
+ if(found.some(v=>!v.active&&!allowedInactive.includes(v.name)))throw new Error('Alguna vertical está desactivada. Elegí otra.');
+}
 const categoryIdsOf=async(e:E,materialId:string)=>(await sql<{categoryId:string}>`SELECT category_id FROM crm_sales_material_category_links WHERE material_id=${materialId}::uuid`.execute(e)).rows.map(r=>String(r.categoryId));
 /** Admin mutations (spec 89 §5). Uploads are verified against R2 before the transaction; the transaction re-checks revision and consumes the upload once. */
 export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{input:SalesMaterialMutation;user:User;storage?:R2Storage}):Promise<{id?:string;ok?:boolean;revision?:number;coverKept?:boolean}>{
@@ -137,8 +160,12 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
  const store=()=>storage??r2Storage();
  if(input.action==='category_create'||input.action==='category_update')return db.transaction().execute(async e=>{
   await setWorkActor(e,user);
-  const clash=(await sql`SELECT id FROM crm_sales_material_categories WHERE lower(btrim(name))=lower(btrim(${input.name})) AND (${input.action==='category_update'?input.id:null}::bigint IS NULL OR id<>${input.action==='category_update'?input.id:null}::bigint)`.execute(e)).rows[0];
-  if(clash)throw new Error('Ya existe una categoría con ese nombre.');
+  // Spec 102 D6: same comparison as the selector and the city catalog (`salesMaterialCategoryKey`), against active and deactivated categories.
+  // The lock serializes concurrent creations (the table is small; no unique index on the normalized name).
+  await sql`SELECT pg_advisory_xact_lock(hashtext('crm_sales_material_categories'))`.execute(e);
+  const key=salesMaterialCategoryKey(input.name),self=input.action==='category_update'?String(input.id):null;
+  const clash=(await sql<{id:string;name:string;active:boolean}>`SELECT id,name,active FROM crm_sales_material_categories ORDER BY active DESC,id`.execute(e)).rows.find(c=>String(c.id)!==self&&salesMaterialCategoryKey(c.name)===key);
+  if(clash)throw new Error(clash.active?'Ya existe una categoría con ese nombre.':`Ya existe la categoría «${clash.name}», desactivada. Reactivala en Configuración → «Categorías de material».`);
   if(input.action==='category_create')return {id:String((await sql<{id:string}>`INSERT INTO crm_sales_material_categories(name) VALUES(${input.name}) RETURNING id`.execute(e)).rows[0].id)};
   const row=(await sql`UPDATE crm_sales_material_categories SET name=${input.name},active=${input.active},updated_at=now() WHERE id=${input.id}::bigint RETURNING id`.execute(e)).rows[0];
   if(!row)throw new SalesMaterialNotFound('La categoría no existe.');return {ok:true};
@@ -158,8 +185,8 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
    await setWorkActor(e,user);
    await sql`SELECT pg_advisory_xact_lock(hashtext('crm_sales_materials'),hashtext(${input.id}))`.execute(e);
    if((await sql`SELECT id FROM crm_sales_materials WHERE id=${input.id}::uuid`.execute(e)).rows[0])return {id:input.id};
-   await assertCategories(e,input.categoryIds);
-   await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,open_direct,created_by_email) VALUES(${input.id}::uuid,${input.title},${input.description},${input.kind},${input.source},${input.openDirect??false},${user.email})`.execute(e);
+   await assertCategories(e,input.categoryIds);await assertVerticals(e,input.verticals);
+   await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,verticals,open_direct,created_by_email) VALUES(${input.id}::uuid,${input.title},${input.description},${input.kind},${input.source},${input.verticals}::text[],${input.openDirect??false},${user.email})`.execute(e);
    await replaceCategories(e,input.id,input.categoryIds,[]);
    await insertVersion(e,{materialId:input.id,version:1,source:input.version,verified,user});
    await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${input.id}::uuid`.execute(e);
@@ -180,8 +207,8 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   const m=await materialFor(e,input.id,true);assertRevision(m,input.revision);
   const next=m.revision+1;
   if(input.action==='update'){
-   const before=await categoryIdsOf(e,m.id);await assertCategories(e,input.categoryIds,before);
-   await sql`UPDATE crm_sales_materials SET title=${input.title},description=${input.description},kind=${input.kind},open_direct=coalesce(${input.openDirect??null}::boolean,open_direct),revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+   const before=await categoryIdsOf(e,m.id);await assertCategories(e,input.categoryIds,before);await assertVerticals(e,input.verticals,m.verticals??[]);
+   await sql`UPDATE crm_sales_materials SET title=${input.title},description=${input.description},kind=${input.kind},verticals=${input.verticals}::text[],open_direct=coalesce(${input.openDirect??null}::boolean,open_direct),revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
    await replaceCategories(e,m.id,input.categoryIds,before);
   }else if(input.action==='version'){
    if(m.status==='archived')throw new Error('Restaurá el material para agregar una versión.');
@@ -210,6 +237,26 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   }
   return {ok:true,revision:next};
  });
+}
+/** Test seam: the integration suite swaps the network fetch of {@link salesMaterialLinkPreview} for a local fake. */
+let linkPreviewFetcher:typeof fetchLinkPreviewImage=fetchLinkPreviewImage;
+export function setLinkPreviewFetcherForTests(fetcher:typeof fetchLinkPreviewImage|null){linkPreviewFetcher=fetcher??fetchLinkPreviewImage;}
+/**
+ * Spec 102 D1: the Open Graph image of an active link material, for the browser to encode and store as its automatic cover through the normal
+ * cover path. Admin only; the URL comes from the stored current version, never from the request, so the endpoint cannot probe arbitrary
+ * addresses. The log records only the host and the outcome (the full URL may carry tokens).
+ */
+export async function salesMaterialLinkPreview(db:Kysely<DB>,{input,user,log=console.log}:{input:{id:string;revision:number};user:User;log?:(message:string)=>void}):Promise<{body:Uint8Array;contentType:string}>{
+ assertSalesMaterialAdmin(user);
+ const m=await materialFor(db,input.id);
+ if(m.source!=='url')throw new Error('Este material es un archivo: su portada se genera desde el archivo.');
+ if(m.status!=='active')throw new Error('Restaurá el material antes de generar su portada.');
+ assertRevision(m,input.revision);
+ const url=(await sql<{url:string|null}>`SELECT url FROM crm_sales_material_versions WHERE material_id=${m.id}::uuid AND version=${m.currentVersion}`.execute(db)).rows[0]?.url;
+ if(!url)throw new SalesMaterialNotFound('El material no tiene un enlace vigente.');
+ let host='?';try{host=new URL(url).hostname;}catch{/* Logged as unknown. */}
+ try{const image=await linkPreviewFetcher({url});log(`Link preview ${host}: ok`);return image;}
+ catch(error){log(`Link preview ${host}: ${error instanceof LinkPreviewError?error.code:'failed'}`);throw error;}
 }
 /** Resolves a version for viewing or download (presigned GET: see {@link readUrlSeconds}). Sellers only reach the current version of an active material (spec 89 §5). */
 export async function salesMaterialFileLocation(db:Kysely<DB>,{versionId,disposition,user,storage}:{versionId:string;disposition:'inline'|'attachment';user:User;storage?:R2Storage}):Promise<string>{

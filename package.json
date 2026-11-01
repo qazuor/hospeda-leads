@@ -49,6 +49,7 @@
     "test:sales-material-share": "node --env-file-if-exists=.env.test --import tsx scripts/test-sales-material-share.ts",
     "test:sales-material-composer": "node --env-file-if-exists=.env.test --import tsx scripts/test-sales-material-composer.ts",
     "test:sales-material-templates": "node --env-file-if-exists=.env.test --import tsx scripts/test-sales-material-templates.ts",
+    "test:sales-material-verticals": "node --env-file-if-exists=.env.test --import tsx scripts/test-sales-material-verticals.ts",
     "db:recover:businesses": "node scripts/recover-business-metadata.mjs"
   },
   "dependencies": {

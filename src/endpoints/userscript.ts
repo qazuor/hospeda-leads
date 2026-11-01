@@ -184,8 +184,11 @@ async function materialBlock(accountId:string,channel:'whatsapp'|'instagram',use
 export async function materials(request:Request){try{const auth=await scriptAuth(request);if(auth.response)return auth.response;const params=new URL(request.url).searchParams,accountId=params.get('accountId'),channel=scriptChannelParam.safeParse(params.get('channel')??undefined);if(!accountId||!scriptId.safeParse(accountId).success)return plain({error:'Indicá un negocio válido.'},400);if(!channel.success)return plain({error:'Canal inválido.'},400);
  const scope=await materialBlock(accountId,channel.data,auth.user);if(!scope.visible)return plain({materials:[],blocked:null});if(scope.blocked)return plain({materials:[],blocked:scope.blocked});
  const search=materialSearch.safeParse(new URL(request.url).searchParams.get('search')??'');if(!search.success)return plain({error:'La búsqueda es demasiado larga.'},400);
- const list=await listSalesMaterials(db,{user:auth.user,query:{search:search.data,kind:'deliverable',includeArchived:'0'}});
- return plain({blocked:null,truncated:list.truncated,materials:list.materials.filter(m=>m.kind==='deliverable'&&m.status==='active'&&m.currentVersion).map(m=>{const format=salesMaterialFormat({mimeType:m.currentVersion!.url?null:m.currentVersion!.mimeType});return {id:m.id,title:m.title,categories:m.categories.filter(c=>c.active).map(c=>c.name),format,formatLabel:SALES_MATERIAL_FORMAT_LABELS[format]};})});
+ const leadId=params.get('leadId');
+ // Spec 102 D3/D5: ordered by the business's vertical (the management's when the panel sends one); `otherVertical` marks the folded part.
+ // Installed scripts list in the received order, so the order works without a new script version.
+ const list=await listSalesMaterials(db,{user:auth.user,query:{search:search.data,kind:'deliverable',includeArchived:'0',forAccountId:accountId,...(leadId&&scriptId.safeParse(leadId).success?{forLeadId:leadId}:{})}});
+ return plain({blocked:null,truncated:list.truncated,contextVertical:list.contextVertical??null,materials:list.materials.filter(m=>m.kind==='deliverable'&&m.status==='active'&&m.currentVersion).map(m=>{const format=salesMaterialFormat({mimeType:m.currentVersion!.url?null:m.currentVersion!.mimeType});return {id:m.id,title:m.title,categories:m.categories.filter(c=>c.active).map(c=>c.name),format,formatLabel:SALES_MATERIAL_FORMAT_LABELS[format],otherVertical:m.verticalMatch==='other'};})});
 }catch(e){if(e instanceof CrmForbidden)return failure(e,403);return failure(e,400);}}
 const materialAddInput=z.object({messageId:z.string().uuid(),revision:z.number().int(),materialId:z.string().uuid()});
 const materialRemoveInput=z.object({messageId:z.string().uuid(),revision:z.number().int(),shareId:z.string().uuid()}).strict();
