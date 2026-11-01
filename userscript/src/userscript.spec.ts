@@ -7,6 +7,7 @@ import unknown from "../fixtures/unrecognizable.html?raw";
 import currentSaved from "../fixtures/current-saved-name.html?raw";
 import currentNumber from "../fixtures/current-unsaved-number.html?raw";
 import currentGroup from "../fixtures/current-group.html?raw";
+import documentCaption from "../fixtures/document-caption.html?raw";
 import { fromChatModel, internalChat } from "./internals";
 import { compareSemver, normalizePhone, parseCode } from "./parse";
 import { parsePrePlainText, readChat, redactedSnapshot } from "./selectors";
@@ -78,10 +79,21 @@ describe("WhatsApp fixture readers", () => {
   it("returns null metadata when the pre-plain-text attribute is missing", () => {
     const result = parse(missing); expect(result.ok && result.messages[0]).toMatchObject({ sentAt: null, author: null });
   });
+  it("reads document caption media and metadata from msg-meta when pre-plain-text is absent",()=>{const result=parse(documentCaption);expect(result.ok).toBe(true);if(!result.ok)return;expect(result.messages[0]).toMatchObject({text:"Prueba Hospeda (no enviar)",media:"document",direction:"out",author:"Tú"});expect(result.messages[0]?.sentAt).not.toBeNull();});
   it("marks group chats unsupported and unknown DOM unreadable", () => {
     expect(parse(group)).toEqual({ ok: false, reason: "unsupported-group" });
     expect(parse(unknown)).toEqual({ ok: false, reason: "unreadable" });
   });
+});
+
+describe("D1 attachment from openWhatsapp context",()=>{
+ it("revalidates the chat after downloading and pastes nothing if it switched",async()=>{
+  const body="Texto con https://crm.example/m/abc";document.body.innerHTML='<div id="app"><div id="main"><header><span data-testid="conversation-info-header-chat-title">+5493442123456</span></header><footer><div contenteditable="true" role="textbox"></div></footer></div></div>';
+  const editor=document.querySelector<HTMLElement>("footer [contenteditable]")!;editor.textContent=body;const headerTitle=document.querySelector<HTMLElement>("[data-testid='conversation-info-header-chat-title']")!;const held={shareId:"share-1",materialId:"material-1",title:"Folleto",attach:{eligible:true,reason:null,fileName:"Folleto.pdf",mimeType:"application/pdf",byteSize:4,kind:"document" as const}};
+  gmValues.set("hospeda-userscript-token","hcu_test");let request:Parameters<typeof GM_xmlhttpRequest>[0]|null=null;vi.stubGlobal("GM_xmlhttpRequest",(options:Parameters<typeof GM_xmlhttpRequest>[0])=>{request=options;return{abort(){}};});
+  const selected={accountId:"1234",code:"H1234",name:"Cabañas",city:null,status:"reviewed",statusLabel:"Revisado",assignedUserName:null,doNotContact:false,restrictionActive:false,archived:false,leads:[],url:"https://crm.example/accounts/1234",openWhatsapp:[{messageId:"message-1",openedAt:new Date().toISOString(),body,materials:[held]}]};const host=renderBanner({context:{minVersion:"1.2.0",user:{email:"a@b.c",displayName:"Ana"},matches:[selected]},selected,register:null,title:"+5493442123456",phone:"+5493442123456",crmBase:"https://crm.example",isCurrentChat:()=>true,onSelect:()=>{}});
+  const attach=[...host.shadowRoot!.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent==="Adjuntar archivo")!;expect(attach.disabled).toBe(false);attach.click();await Promise.resolve();expect(request).not.toBeNull();headerTitle.textContent="+5491155550101";request!.onload({status:200,response:new Uint8Array([1,2,3,4]).buffer,responseText:"",responseHeaders:"Content-Type: application/pdf\r\nX-Hospeda-Material-Version: 1"});await vi.waitFor(()=>expect(host.shadowRoot!.textContent).toContain("No pegué nada"));expect(editor.textContent).toBe(body);expect(document.querySelector("[contenteditable]:not(footer [contenteditable])")).toBeNull();
+ });
 });
 
 describe("current WhatsApp Web DOM (captured 25/10/2026)", () => {

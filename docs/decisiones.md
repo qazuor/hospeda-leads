@@ -431,3 +431,15 @@ Las decisiones A1–A5 las aprobó el propietario. D1–D8 son las recomendacion
 - **Spec 96 §10.1.** Una respuesta marcada como nueva no resuelve ningún envío abierto.
 - **CSP.** `'wasm-unsafe-eval'` se agrega recién cuando la CSP pase a obligatoria (requisito de ese cambio).
 - **Promoción.** `staging` → `main` recién cuando esté implementado lo decidido hoy; se promueve todo junto.
+
+### Decisiones del propietario (01/11/2026)
+
+- **Origen del VPS sin cerrar.** El servidor de Coolify responde directo por su IP (`https://` 200 con el nombre del CRM, sin pasar por Cloudflare), así que `CF-Connecting-IP` se puede falsificar. El propietario decide dejarlo así por ahora y verlo más adelante. Riesgo aceptado:
+  - el cupo de intentos fallidos de la spec 101 se puede saltear rotando IPs falsas, y queda expuesto solo material de venta, porque abrir un enlace no escribe nada;
+  - el origen no tiene la protección de Cloudflare (WAF, DDoS, bots).
+
+  Deja de ser precondición de la promoción. Arreglo recomendado para cuando se retome: firewall de Vultr que acepte 80/443 solo desde los rangos de Cloudflare.
+- **Spec 103 D7 (reusar la pestaña de WhatsApp Web).** Queda como está: «Abrir WhatsApp» abre una pestaña nueva cada vez.
+  - Una pestaña con nombre fijo no sirve: `web.whatsapp.com` manda `Cross-Origin-Opener-Policy: same-origin` y el navegador le borra el nombre.
+  - El único camino real es que el script lo maneje desde adentro, porque un enlace `wa.me/<número>` cliqueado dentro de WhatsApp Web cambia de chat sin recargar. Queda como mejora futura.
+- **Spec 105, bloque 0.** El script adjunta con un «pegar» sintético del archivo; la ruta del menú de adjuntar se descarta. El detalle está en `docs/crm-roadmap/105-script-adjunta-material.md` §6.4.

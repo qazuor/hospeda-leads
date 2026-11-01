@@ -1,8 +1,10 @@
 import { NOT_SENT_BY_SCRIPT, PASTE_FAILED, openCompose } from "./compose";
-import { ApiError, addMaterial, dispatchTemplate, fetchMaterials, fetchTemplates, markTemplateNotSent, prepareTemplate, removeMaterial, type Match, type TemplatesResponse } from "./api";
+import { attachToChat } from "./attach";
+import { ApiError, addMaterial, dispatchTemplate, fetchMaterialFile, fetchMaterials, fetchTemplates, markTemplateNotSent, prepareTemplate, removeMaterial, type Match, type MaterialFile, type TemplatesResponse } from "./api";
 import type { UiOptions } from "./ui";
 
-vi.mock("./api", async original => ({ ApiError: (await original<typeof import("./api")>()).ApiError, fetchTemplates: vi.fn(), prepareTemplate: vi.fn(), dispatchTemplate: vi.fn(), markTemplateNotSent: vi.fn(), fetchMaterials: vi.fn(), addMaterial: vi.fn(), removeMaterial: vi.fn() }));
+vi.mock("./api", async original => ({ ...(await original<typeof import("./api")>()), fetchTemplates: vi.fn(), prepareTemplate: vi.fn(), dispatchTemplate: vi.fn(), markTemplateNotSent: vi.fn(), fetchMaterials: vi.fn(), addMaterial: vi.fn(), removeMaterial: vi.fn(), fetchMaterialFile: vi.fn() }));
+vi.mock("./attach", async original => ({ ...(await original<typeof import("./attach")>()), attachToChat: vi.fn() }));
 
 const match: Match = { accountId: "7", code: "H7", name: "Cabañas del Río", city: "Colón", status: "reviewed", statusLabel: "Revisado", assignedUserName: null, doNotContact: false, restrictionActive: false, archived: false, leads: [], url: "https://crm.example/accounts/7" };
 const listing = (overrides: Partial<TemplatesResponse> = {}): TemplatesResponse => ({
@@ -212,6 +214,37 @@ describe("«Enviar material» in the WhatsApp panel (spec 98 §4.1)", () => {
   const heldTitles = () => [...card.querySelectorAll(".held-materials .row .content")].map(node => node.textContent);
   const pick = async (name = "Folleto 2027") => { const row = [...card.querySelectorAll(".row")].find(item => item.textContent?.includes(name))!; row.querySelector("button")!.click(); await flush(); await flush(); await flush(); };
   beforeEach(() => { vi.mocked(fetchMaterials).mockResolvedValue({ materials: [folleto, tour], blocked: null }); vi.mocked(prepareTemplate).mockResolvedValue(prepared({ body: "" })); vi.mocked(addMaterial).mockResolvedValue({ revision: 2, body: link, materials: [held] }); });
+
+  it("renders the exact §5.3 attach notice, formatting size with formatSize", async () => {
+    const attached={...held,attach:{eligible:true,reason:null,fileName:"Folleto 2027.pdf",mimeType:"application/pdf",byteSize:1024,kind:"document" as const}};
+    vi.mocked(addMaterial).mockResolvedValueOnce({revision:2,body:link,materials:[attached]});
+    await open({},"material");await pick();
+    expect(card.querySelector(".note.info")?.textContent).toBe("Va el archivo «Folleto 2027» (1 KB) con el texto como descripción.");
+  });
+  it.each([401,403,404,409])( "offers the exact manual link fallback after HTTP %i download failure", async status => {
+    const attached={...held,attach:{eligible:true,reason:null,fileName:"Folleto 2027.pdf",mimeType:"application/pdf",byteSize:4,kind:"document" as const}};
+    vi.mocked(addMaterial).mockResolvedValueOnce({revision:2,body:link,materials:[attached]});
+    vi.mocked(fetchMaterialFile).mockImplementation(()=>({promise:new Promise((_resolve,reject)=>setTimeout(()=>reject(new ApiError(`HTTP ${status}`,status)),5)),abort:vi.fn()}));
+    const title=document.createElement("span");title.dataset.testid="conversation-info-header-chat-title";title.textContent="+5493442453797";const header=document.createElement("header");header.append(title);document.querySelector("#main")!.prepend(header);
+    await open({},"material");await pick();buttonNamed(card,"Pegar en el chat").click();await new Promise(resolve=>setTimeout(resolve,10));await flush();
+    expect(card.textContent).toContain(`HTTP ${status}`);buttonNamed(card,"Pegar solo con el enlace").click();await flush();await flush();
+    expect(composer.textContent).toBe(link);expect(card.querySelector(".bar")?.textContent).toBe("Listo, está en el chat");expect(buttonNamed(card,"Pegar solo con el enlace")).toBeUndefined();
+  });
+  it("does not announce «Listo» when text restoration fails after attachment",async()=>{
+    const attached={...held,attach:{eligible:true,reason:null,fileName:"Folleto 2027.pdf",mimeType:"application/pdf",byteSize:4,kind:"document" as const}};vi.mocked(addMaterial).mockResolvedValueOnce({revision:2,body:link,materials:[attached]});
+    vi.mocked(fetchMaterialFile).mockReturnValue({promise:Promise.resolve({file:new File(["data"],"Folleto 2027.pdf",{type:"application/pdf"}),version:"1"}),abort:vi.fn()});
+    vi.mocked(attachToChat).mockResolvedValueOnce({state:"error",message:"No pude adjuntar el archivo en WhatsApp: no quedó pegado el texto con el enlace."});
+    const title=document.createElement("span");title.dataset.testid="conversation-info-header-chat-title";title.textContent="+5493442453797";const header=document.createElement("header");header.append(title);document.querySelector("#main")!.prepend(header);
+    await open({},"material");await pick();buttonNamed(card,"Pegar en el chat").click();await flush();await flush();
+    expect(card.textContent).toContain("No pude adjuntar el archivo en WhatsApp: no quedó pegado el texto con el enlace.");expect(card.querySelector(".bar")?.textContent).not.toBe("Listo, está en el chat");expect(buttonNamed(card,"Pegar solo con el enlace")).toBeTruthy();
+  });
+  it("aborts when the chat changes during download and pastes nothing",async()=>{
+    const attached={...held,attach:{eligible:true,reason:null,fileName:"Folleto 2027.pdf",mimeType:"application/pdf",byteSize:4,kind:"document" as const}};vi.mocked(addMaterial).mockResolvedValueOnce({revision:2,body:link,materials:[attached]});
+    const title=document.createElement("span");title.dataset.testid="conversation-info-header-chat-title";title.textContent="+5493442453797";const header=document.createElement("header");header.append(title);document.querySelector("#main")!.prepend(header);
+    let resolveDownload!:(value:MaterialFile)=>void;vi.mocked(fetchMaterialFile).mockReturnValue({promise:new Promise(resolve=>{resolveDownload=resolve;}),abort:vi.fn()});
+    await open({},"material");await pick();buttonNamed(card,"Pegar en el chat").click();await flush();title.textContent="+5491155550101";resolveDownload({file:new File(["data"],"Folleto 2027.pdf",{type:"application/pdf"}),version:"1"});await flush();await flush();
+    expect(card.textContent).toContain("No pegué nada");expect(dispatchTemplate).not.toHaveBeenCalled();expect(composer.textContent).toBe("");expect(buttonNamed(card,"Pegar solo con el enlace")).toBeUndefined();
+  });
 
   it("opens on the picker and prepares nothing until a material is chosen", async () => {
     await open({}, "material");
