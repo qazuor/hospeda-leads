@@ -1,5 +1,9 @@
 # Estado del CRM — corte al 31 de octubre de 2026
 
+## Spec 105, bloque 5 — release del user script 1.8.0 — 01/11/2026
+
+Versión del script 1.8.0 (`USERSCRIPT_MIN_VERSION` sigue en 1.5.0; la barrera de la spec 96 exige igual la última versión en la computadora); `@connect` conserva el host CRM (D4: los bytes viajan por Hospeda). Guía y README describen adjuntos, el separador de verticales y los cambios del panel de Instagram. Falta el smoke manual del propietario según §12.1 en staging y producción, además de coordinar el aviso previo a vendedores porque todos deberán actualizar el mismo día. Validación de este bloque: pendiente de ejecutar.
+
 ## Spec 105, bloque 2 — adjunto del user script — 01/11/2026
 
 - Implementado localmente sin cambiar `USERSCRIPT_VERSION`: plan D2/D3, descarga binaria autenticada por `GM_xmlhttpRequest`, preview/caption en WhatsApp, fallback B/C, progreso/cancelación y lectura de filas de documentos. D1 conserva `messageId` y `materials` que entrega el contexto del CRM; el mismo panel obtiene esos metadatos.
