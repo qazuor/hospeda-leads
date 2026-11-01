@@ -29,6 +29,7 @@ const PUBLIC_EXPECTED:Record<string,number>={
 'GET /_api/userscript/materials':401,
 'POST /_api/userscript/material_add':401,
 'POST /_api/userscript/material_remove':401,
+'GET /_api/userscript/material_file':401,
 'POST /_api/userscript/dispatch':401,
 'POST /_api/userscript/outcome':401,
 'POST /_api/userscript/instagram/thread':401,

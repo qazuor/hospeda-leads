@@ -32,6 +32,7 @@ export type SettingsOutput = {
     brevoConnected:boolean;
   };
   userscriptAutoRegister?:{enabled:boolean};
+  userscriptAttachFiles?:{enabled:boolean};
   contactPositions:string[];
   contactChannels:string[];
   opportunityStages:string[];

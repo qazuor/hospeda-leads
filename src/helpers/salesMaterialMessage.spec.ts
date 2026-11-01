@@ -1,9 +1,16 @@
 import {describe,expect,it} from 'vitest';
-import {BREVO_ATTACHMENT_EXTENSIONS,MaterialShareUrlUnavailable,appendMaterialLink,attachBlockReasons,contactChannelOf,materialChannelOf,fileExtension,materialLinkSnippet,materialShareUrl,megabytesLabel,redactPresignedUrls,removeMaterialLink,shareSlugIntactInBody,shareTokenHashesInBody,shareUrlInBody} from './salesMaterialMessage';
+import {BREVO_ATTACHMENT_EXTENSIONS,MaterialShareUrlUnavailable,appendMaterialLink,attachBlockReasons,contactChannelOf,materialChannelOf,fileExtension,materialLinkSnippet,materialShareUrl,megabytesLabel,redactPresignedUrls,removeMaterialLink,shareSlugIntactInBody,shareTokenHashesInBody,shareUrlInBody,whatsappAttachEligibility,whatsappAttachGroupEligible,whatsappAttachSingleEligible,WHATSAPP_ATTACH_MAX_BYTES} from './salesMaterialMessage';
 import {hashShareToken} from './salesMaterialShare';
 
 const tokenA='A'.repeat(42)+'E',tokenB='b'.repeat(42)+'Q';
 const urlA='https://crm.example.test/m/'+tokenA,urlB='https://crm.example.test/m/'+tokenB;
+
+describe('whatsappAttachEligibility',()=>{
+ it('permits attaching only when the draft contains one material',()=>{expect(whatsappAttachGroupEligible(1)).toBe(true);expect(whatsappAttachGroupEligible(2)).toBe(false);});
+ it('requires the sole material to be eligible before attachment',()=>{expect(whatsappAttachSingleEligible(1,true)).toBe(true);expect(whatsappAttachSingleEligible(2,true)).toBe(false);expect(whatsappAttachSingleEligible(1,false)).toBe(false);});
+ it('allows a file exactly at 50 MB and derives its display name and kind',()=>expect(whatsappAttachEligibility({source:'file',title:'Folleto 2027',fileName:'upload.PDF',mimeType:'application/pdf',byteSize:WHATSAPP_ATTACH_MAX_BYTES})).toMatchObject({eligible:true,fileName:'Folleto 2027.pdf',kind:'document'}));
+ it('rejects oversize and external materials, recognizes D3 images, and hides the switch reason',()=>{expect(whatsappAttachEligibility({source:'file',title:'Foto',fileName:'x.webp',mimeType:'image/webp',byteSize:1}).kind).toBe('image');expect(whatsappAttachEligibility({source:'file',title:'Grande',fileName:'x.pdf',mimeType:'application/pdf',byteSize:WHATSAPP_ATTACH_MAX_BYTES+1}).eligible).toBe(false);expect(whatsappAttachEligibility({source:'url',title:'Web',fileName:null,mimeType:null,byteSize:null})).toMatchObject({eligible:false,reason:'Es un enlace externo: va solo el enlace.'});expect(whatsappAttachEligibility({source:'file',title:'x',fileName:'x.pdf',mimeType:'application/pdf',byteSize:1,enabled:false})).toMatchObject({eligible:false,reason:null});});
+});
 
 describe('materialShareUrl',()=>{
  it('joins PUBLIC_APP_URL and the share path without double slashes',()=>{

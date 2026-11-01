@@ -122,6 +122,18 @@ export const BREVO_ATTACHMENT_EXTENSIONS:readonly string[]=['xlsx','xls','ods','
 export const fileExtension=({fileName}:{fileName:string}):string|null=>{const m=fileName.trim().match(/\.([A-Za-z0-9]+)$/);return m?m[1]!.toLowerCase():null;};
 /** One material of a draft, as far as attaching it is concerned. */
 export type AttachCandidate={id:string;source:'file'|'url';fileName:string|null;byteSize:number|null;attach:boolean};
+export const WHATSAPP_ATTACH_MAX_BYTES=50*1024*1024;
+export type WhatsappAttachEligibilityInput={source:'file'|'url';title?:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;limitBytes?:number;enabled?:boolean};
+export const whatsappAttachGroupEligible=(materialCount:number)=>materialCount===1;
+export const whatsappAttachSingleEligible=(materialCount:number,eligible:boolean)=>whatsappAttachGroupEligible(materialCount)&&eligible;
+export function whatsappAttachEligibility(input:WhatsappAttachEligibilityInput):{eligible:boolean;reason:string|null;fileName:string|null;mimeType:string|null;byteSize:number|null;kind:'document'|'image'|null}{
+ const {source,mimeType,byteSize}=input,limit=input.limitBytes??WHATSAPP_ATTACH_MAX_BYTES;
+ const extension=fileExtension({fileName:input.fileName??''});
+ const fileName=input.fileName&&extension?`${(input.title?.trim()||input.fileName.replace(/\.[^.]+$/,'')).replace(/[\\/:*?"<>|]/g,' ').trim()}.${extension}`:null;
+ const kind=mimeType?.toLowerCase().startsWith('image/')?(/^(image\/(jpeg|png|webp))$/i.test(mimeType)?'image':'document'):'document';
+ const reason=source==='url'?'Es un enlace externo: va solo el enlace.':!input.fileName?.trim()||byteSize==null?'No se conoce el archivo.':byteSize>limit?`El archivo supera ${megabytesLabel({bytes:limit})}: va solo el enlace.`:null;
+ return {eligible:(input.enabled??true)&&reason===null,reason:input.enabled===false?null:reason,fileName:source==='file'?fileName:null,mimeType:source==='file'?mimeType:null,byteSize:source==='file'?byteSize:null,kind:source==='file'&&input.fileName&&byteSize!=null?kind:null};
+}
 /**
  * Why each material cannot be attached (null = it can), spec 89 D8 and §8.3: WhatsApp and Instagram (spec 98 decision 3) never attach, external links have no file,
  * Brevo only attaches the extensions of {@link BREVO_ATTACHMENT_EXTENSIONS} (a file without a name is refused too),

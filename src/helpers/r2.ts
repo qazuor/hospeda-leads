@@ -16,6 +16,8 @@ export type R2Storage={
  readPrefix(input:{key:string;bytes:number}):Promise<Uint8Array>;
  /** Whole object body, for small objects only (covers); null when it does not exist. */
  read(input:{key:string;maxBytes:number}):Promise<{body:Uint8Array<ArrayBuffer>;contentType:string|null}|null>;
+ /** Reads an object as a web stream and cancels if it exceeds `maxBytes`. */
+ stream(input:{key:string;maxBytes:number}):Promise<{body:ReadableStream<Uint8Array>;size:number;contentType:string|null}|null>;
  /** Deletes an object; a 404 counts as deleted. */
  remove(input:{key:string}):Promise<void>;
 };
@@ -60,6 +62,7 @@ export function createR2Storage({config,fetchImpl=fetch,now=()=>new Date(),timeo
   async head({key}){const r=await call('HEAD',key);if(r.status===404)return null;if(!r.ok)throw new R2Unavailable('HEAD '+r.status);const size=Number(r.headers.get('Content-Length'));if(!Number.isFinite(size))throw new R2Unavailable('HEAD without Content-Length');return {size,contentType:r.headers.get('Content-Type'),etag:r.headers.get('ETag')};},
   async readPrefix({key,bytes:prefix}){const r=await call('GET',key,{Range:`bytes=0-${Math.max(0,prefix-1)}`});if(r.status===404||r.status===416)return new Uint8Array();if(!r.ok)throw new R2Unavailable('GET '+r.status);return (await bytes(r)).subarray(0,prefix);},
   async read({key,maxBytes}){const h=await this.head({key});if(!h)return null;if(h.size>maxBytes)throw new Error('El archivo supera el tamaño permitido.');const r=await call('GET',key);if(r.status===404)return null;if(!r.ok)throw new R2Unavailable('GET '+r.status);return {body:await bytes(r),contentType:r.headers.get('Content-Type')};},
+  async stream({key,maxBytes}){const r=await call('GET',key);if(r.status===404)return null;if(!r.ok||!r.body)throw new R2Unavailable('GET '+r.status);let size=0;const body=r.body.pipeThrough(new TransformStream<Uint8Array,Uint8Array>({transform(chunk,controller){size+=chunk.byteLength;if(size>maxBytes){controller.error(new Error('R2 object exceeded stream limit'));return;}controller.enqueue(chunk);}}));return {body,size:Number(r.headers.get('Content-Length'))||0,contentType:r.headers.get('Content-Type')};},
   async remove({key}){const r=await call('DELETE',key);if(r.status===404||r.ok)return;throw new R2Unavailable('DELETE '+r.status);}
  };
 }

@@ -10,7 +10,7 @@ import type {Executor} from './communicationService';
 import type {User} from './User';
 import {autoRegisterEligibility} from './autoRegistration';
 
-export type UserscriptMessage={externalId:string;direction:'in'|'out';text:string;sentAt:string|null;author:string|null};
+export type UserscriptMessage={externalId:string;direction:'in'|'out';text:string;sentAt:string|null;author:string|null;media?:'document'|'image'|'video'|'audio'|null};
 export type UserscriptBatch={accountId:string;chat:{title:string;phone?:string|null};messages:UserscriptMessage[];automatic?:boolean};
 export type UserscriptResult={externalId:string;status:'created'|'duplicate'|'rejected';kind?:'inbound'|'message';id?:string;reason?:string};
 
@@ -70,7 +70,7 @@ async function registerOutbound(e:Executor,b:UserscriptBatch,m:UserscriptMessage
  await assertBusinessAccess(e,b.accountId,user,true,false);
  const pending=await matchingPending(e,b,sentAt,m.text,user);
  if(pending?.kind==='opened'){
-  const done=await completeUserscriptOpened(e,{id:pending.id,externalId:m.externalId,text:m.text,sentAt},user);
+  const done=await completeUserscriptOpened(e,{id:pending.id,externalId:m.externalId,text:m.text,sentAt,media:m.media??null},user);
   // A send the seller had already confirmed by hand was in the CRM before: report it as such.
   return {externalId:m.externalId,status:done.linked?'duplicate':'created',kind:'message',id:done.id};
  }

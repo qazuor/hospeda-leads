@@ -159,6 +159,10 @@ export async function handle(request:Request){
       await db.insertInto("appSettings").values({key:"crm_userscript_auto_register",value:JSON.stringify({enabled:input.enabled})})
         .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify({enabled:input.enabled}),updatedAt:new Date()})).execute();
     }
+    if(input.action==="saveUserscriptAttachFiles"){
+      await db.insertInto("appSettings").values({key:"crm_userscript_attach_files",value:JSON.stringify({enabled:input.enabled})})
+        .onConflict(oc=>oc.column("key").doUpdateSet({value:JSON.stringify({enabled:input.enabled}),updatedAt:new Date()})).execute();
+    }
 
     if(input.action==="addCity"){
       // Spec 104 (37): no new city that differs from an existing one only by accents, case or spaces (ñ ≠ n). The exact spelling is used
