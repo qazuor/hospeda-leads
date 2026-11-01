@@ -1,5 +1,12 @@
 # Estado del CRM — corte al 31 de octubre de 2026
 
+## Spec 105, bloque 2 — adjunto del user script — 01/11/2026
+
+- Implementado localmente sin cambiar `USERSCRIPT_VERSION`: plan D2/D3, descarga binaria autenticada por `GM_xmlhttpRequest`, preview/caption en WhatsApp, fallback B/C, progreso/cancelación y lectura de filas de documentos. D1 conserva `messageId` y `materials` que entrega el contexto del CRM; el mismo panel obtiene esos metadatos.
+- Se añadió `userscript/fixtures/document-caption.html` y cobertura para plan, descarga, inyección y lectura de documento. Al descartar una vista previa WhatsApp puede mover el caption al composer Lexical: el script intenta restaurar el flujo de texto; `execCommand('delete')` no lo limpia en todos los casos, y puede requerir Ctrl+A/Delete real, que el userscript no puede simular de forma fiable.
+- D1 también expone «Adjuntar archivo» en chats abiertos desde el CRM cuando el texto de la caja coincide exactamente con el intento y hay un material elegible; el vendedor conserva el control de Enviar. El descarte de la vista previa deja el caption que WhatsApp mueve al composer como borrador de texto. Si queda otro texto que requiera limpieza, el userscript no puede emitir Ctrl+A/Delete confiable: puede requerir teclado real.
+- Validación final: `timeout 200 npx vitest run --maxWorkers=1 userscript/src/attach.spec.ts userscript/src/compose.spec.ts userscript/src/userscript.spec.ts userscript/src/autoRegister.spec.ts` PASS (113); `timeout 200 npm run typecheck` PASS; `timeout 200 npm run build:userscript` PASS. Smoke manual §12.1 pendiente, con número propio, antes del bloque 5.
+
 ## Spec 105, bloques 3 y 4 — user script — 01/11/2026
 
 Implementación local de los arreglos de sincronización y diagnóstico de la spec 103 (caché de contexto de Instagram a 10 s, revalidación al volver visible, redibujo al cambiar de chat aun con foco en un control, prueba estable en dos ticks y `learn()` estable; WhatsApp invalida el contexto al volver visible), diagnóstico de insignias en Ajustes y copy «Sin responsable». `materialPicker` agrupa con `otherVertical` y permite expandir «De otras verticales (N)»; si no hay material superior, expande todo. El endpoint ya incluía ese campo; solo faltaba tiparlo opcional en el cliente para compatibilidad con respuestas anteriores.

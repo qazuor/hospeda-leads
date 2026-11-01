@@ -138,6 +138,7 @@ Antes del deploy de F1: el propietario borra a mano sus materiales de prueba en 
   Si el dominio pasa por Cloudflare y no se usa `cf-connecting-ip`, `X-Real-IP` trae la IP de un nodo de Cloudflare: todos los clientes comparten el límite (el de 300 por minuto es generoso a propósito). Un valor desconocido vuelve al por defecto.
 
 - **Precondición para promover la spec 101 a `main`:** los enlaces nuevos tienen tokens de 4 caracteres, así que lo único que frena a quien adivina es el cupo por IP, y ese cupo depende por completo de la IP del cliente. Con `cf-connecting-ip`, el origen tiene que aceptar **solo** tráfico de Cloudflare (firewall del VPS a los rangos de Cloudflare, o Tunnel): si no, cualquiera manda su propia `CF-Connecting-IP`, cambia de IP en cada pedido y el cupo no corta nada. Verificarlo antes del deploy.
+  **Estado (01/11/2026):** verificado que el origen responde directo por IP (`curl --resolve crm.hospeda.com.ar:443:<IP del VPS>` devuelve 200), así que hoy no se cumple. El propietario lo aceptó como riesgo por ahora y ya no bloquea la promoción (`decisiones.md`). Para cerrarlo: firewall de Vultr con 80/443 solo para los rangos de Cloudflare, y repetir esa prueba (debe fallar o dar timeout).
 
 ## Migraciones
 
