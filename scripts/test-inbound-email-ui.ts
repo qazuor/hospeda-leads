@@ -61,7 +61,7 @@ try{
  // Unmatched list and manual assignment are admin only and validate ownership.
  const unmatched=await inbound(null,'unmatched');
  assert.equal((await unmatchedGET(new Request('http://localhost/_api/inbound/unmatched',{headers:{cookie:seller.cookie}}))).status,403);
- const list=await parse(await unmatchedGET(new Request('http://localhost/_api/inbound/unmatched',{headers:{cookie:admin.cookie}})));assert(list.rows.some((r:any)=>r.id===unmatched));
+ const list=await parse(await unmatchedGET(new Request('http://localhost/_api/inbound/unmatched',{headers:{cookie:admin.cookie}})));assert(list.groups.some((g:any)=>g.messages.some((m:any)=>m.id===unmatched)),'Spec 103 D2: the message is listed inside its sender card');
  assert.equal((await assign({id:unmatched,accountId},seller.cookie)).status,403);
  assert.equal((await assign({id:unmatched,accountId,leadId:String(foreignLead.id)},admin.cookie)).status,400,'A management from another business is rejected');
  assert.equal((await assign({id:unmatched,accountId,contactId:String(foreignContact.id)},admin.cookie)).status,400,'A person from another business is rejected');
