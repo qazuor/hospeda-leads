@@ -1,4 +1,15 @@
-# Estado del CRM — corte al 31 de octubre de 2026
+# Estado del CRM — corte al 1 de noviembre de 2026
+
+## Promoción a producción — 01/11/2026
+
+- `staging` → `main` con el #330 (merge `8cc457a`): specs 99–105, las decisiones del propietario del 31/10 y el 01/11, y el script 1.8.0. Pedida por el propietario. El CI salió verde en el SHA exacto.
+- **Respaldo previo:** `pg_dump -Fc` de `hospeda_crm` (50 MB, 3532 negocios, 54 migraciones), en el VPS en `~/backups/crm/hospeda_crm-pre-promotion-20261101-044552.dump` (3,9 MB, permisos 600). Verificado con `pg_restore --list`: 711 entradas, datos de 61 tablas.
+- **Despliegue:** el auto-deploy de Coolify levantó el contenedor nuevo (imagen `8cc457a`, healthy), con `/_api/health` 200 y la SPA 200. Se aplicaron las migraciones 056 y 057 (`schema_migrations` = 56; están `crm_sales_material_share_attempts` y `crm_sales_materials.verticals`), sin errores en el log del arranque.
+- **Pendiente del propietario:**
+  - smoke en producción de los flujos principales;
+  - la 1.8.0 en la computadora de un vendedor (spec 105 §12.1). La prueba manual en staging no se hizo antes de promover.
+- **No se ejecutó:** el runbook de catálogos y ciudades (operación de datos aparte).
+
 
 ## Spec 105, bloque 5 — release del user script 1.8.0 — 01/11/2026
 
