@@ -2,6 +2,8 @@
 
 # Pendientes y próximo trabajo
 
+- **Catálogo de mensajes v3:** migración 058 lista en `feat/message-catalog-v3`; falta PR a staging y promoción. Confirmar con el propietario para quién es «Presentacion Hospedin» (hoy no va en ningún mensaje).
+
 - **Probar el script 1.8.1 en producción:** con el WhatsApp y el Instagram de Hospeda (funciona) y con otra cuenta (queda apagado y muestra el aviso). Las variables ya están cargadas en Coolify desde el 02/11.
 
 - **Spec 105, bloque 5 — smoke manual del propietario (§12.1):** pendiente; ya está en producción desde el 01/11 (se promovió sin el smoke en staging), así que corresponde hacerlo en producción, en Chrome y Firefox con cuenta de prueba y número propio: PDF pequeño (vista previa, descripción y envío manual), registro y versión adjunta, abrir enlace desde celular, imagen, enlace externo, archivo >50 MB, cortar red y «Pegar solo con el enlace», descartar vista previa, No contactar (botón y 403), interruptor apagado, panel de Instagram y «De otras verticales», y actualización visible de 1.7.0 a 1.8.0. El propietario debe avisar a los vendedores antes de producción: 1.8.0 será obligatoria y pedirá actualizar a todos el mismo día. No publicar hasta completar el smoke en staging y coordinar el aviso.

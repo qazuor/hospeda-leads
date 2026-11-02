@@ -38,12 +38,16 @@ describe("message variables", () => {
     expect(values.dia).toBe("lunes");
   });
 
-  it("ships the October 2026 catalog as built-in variables", () => {
+  it("ships the message catalog (v3, 02/11/2026) as built-in variables", () => {
     const values = resolveMessageVariables({ __seed: "catalog", contact: "Ana María", contact_first: "Ana", sender: "Leandro Pérez", sender_short: "Leo", channel: "whatsapp", commercialProfile: "Independiente", city: "Colón", type: "Alojamientos" }, defaultMessageVariableSettings(), new Date("2026-10-19T11:00:00.000Z"));
     expect(values.saludo).toMatch(/Ana/);
     expect(values.saludo).not.toMatch(/María|tardes|noches/);
     expect(values.presentacion).toMatch(/^(Soy Leo|Mi nombre es Leo)/);
-    expect(values.presentacion).toContain("plataforma turística integral del Litoral");
+    // The chat introduction names the brand domain and presents Hospeda as a new tourism platform.
+    expect(values.presentacion).toContain("Hospeda (hospeda.com.ar)");
+    expect(values.presentacion).toMatch(/plataforma turística/);
+    expect(values.link_registro).toBe("https://hospeda.com.ar/es/auth/signup/");
+    expect(values.link_planes).toBe("https://hospeda.com.ar/es/planes/anfitriones/");
     expect(values.ref_ciudad).toMatch(/^en Colón, /);
     expect(values.link_presentacion).toBe("https://hospeda.com.ar/es/presentacion/alojamientos/");
     expect(values.telefono_hospeda).toBe("3442 470650");
