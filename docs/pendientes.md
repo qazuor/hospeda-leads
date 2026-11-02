@@ -1,8 +1,8 @@
-> Promoción `staging` → `main`: última el 01/11/2026 (#330, specs 99–105 y script 1.8.0, con respaldo previo de la base; ver `estado-desarrollo.md`). La anterior fue el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
+> Promoción `staging` → `main`: última el 02/11/2026 (#334, script 1.8.1 solo con las cuentas de Hospeda, con respaldo previo de la base; ver `estado-desarrollo.md`). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
 
 # Pendientes y próximo trabajo
 
-- **Configurar cuentas propias del user script en Coolify:** cargar `WHATSAPP_ACCOUNT_PHONE` con el número de Hospeda en dígitos y revisar que `INSTAGRAM_ACCOUNT_USERNAME` tenga el usuario correcto. Hasta entonces, WhatsApp conserva el comportamiento actual si su variable está ausente.
+- **Probar el script 1.8.1 en producción:** con el WhatsApp y el Instagram de Hospeda (funciona) y con otra cuenta (queda apagado y muestra el aviso). Las variables ya están cargadas en Coolify desde el 02/11.
 
 - **Spec 105, bloque 5 — smoke manual del propietario (§12.1):** pendiente; ya está en producción desde el 01/11 (se promovió sin el smoke en staging), así que corresponde hacerlo en producción, en Chrome y Firefox con cuenta de prueba y número propio: PDF pequeño (vista previa, descripción y envío manual), registro y versión adjunta, abrir enlace desde celular, imagen, enlace externo, archivo >50 MB, cortar red y «Pegar solo con el enlace», descartar vista previa, No contactar (botón y 403), interruptor apagado, panel de Instagram y «De otras verticales», y actualización visible de 1.7.0 a 1.8.0. El propietario debe avisar a los vendedores antes de producción: 1.8.0 será obligatoria y pedirá actualizar a todos el mismo día. No publicar hasta completar el smoke en staging y coordinar el aviso.
 

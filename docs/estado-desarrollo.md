@@ -1,4 +1,18 @@
-# Estado del CRM — corte al 1 de noviembre de 2026
+# Estado del CRM — corte al 2 de noviembre de 2026
+
+## Promoción a producción — 02/11/2026
+
+- `staging` → `main` con el #334 (merge `2968e4a`): #332 (el script solo funciona con las cuentas de Hospeda), #333 (script 1.8.1) y #331 (docs). Pedida por el propietario. CI verde en el SHA exacto. Sin migraciones.
+- **Respaldo previo:** `~/backups/crm/hospeda_crm-pre-promotion-20261102-160033.dump` en el VPS (4,0 MB, permisos 600). Verificado con `pg_restore --list`: 720 entradas, 62 tablas.
+- **Despliegue:**
+  - el auto-deploy de Coolify levantó el contenedor `2968e4a` (healthy);
+  - `/_api/health`, `/_api/health/ready` y la SPA responden 200;
+  - sin errores en los logs;
+  - `/userscripts/hospeda-crm.user.js` publica `@version 1.8.1`;
+  - el propietario cargó `WHATSAPP_ACCOUNT_PHONE` (13 dígitos) antes del deploy, e `INSTAGRAM_ACCOUNT_USERNAME` está presente. Se verificó solo que estén cargadas, sin leer su valor.
+- **Pendiente del propietario:**
+  - probar la 1.8.1 con el WhatsApp y el Instagram de Hospeda (funciona) y con otra cuenta (queda apagado, con aviso);
+  - el smoke de la 1.8.0 (spec 105 §12.1), que sigue pendiente.
 
 ## Guardia de cuentas del user script — 02/11/2026
 
@@ -6,7 +20,7 @@
 - La equivalencia telefónica reutiliza `samePhone`; el parser de WhatsApp tolera valor JSON, valor crudo, ausencia y errores de almacenamiento. Se documentó `WHATSAPP_ACCOUNT_PHONE` en Coolify, la guía y README; se exportó la guía. Decisión del propietario registrada abajo en `decisiones.md`; queda al propietario cargar la variable y revisar Instagram en Coolify.
 - Validación focalizada: `userscript.spec.ts` 62 (incluye el guard del transporte, bloquea peticiones en mismatch/unknown y permite `fetchStatus`); `instagramApp/start.spec.ts` 29; `instagramApp/panel.spec.ts` 34; `instagramApp/state.spec.ts` 5; `whatsappAccount.spec.ts` 7; `userscriptInstagram.spec.ts` 14; `userGuideLabels.spec.ts` 11. `npm run typecheck` y `npm run build:userscript` PASS. No se corrieron suites completas, navegador ni integraciones.
 - Límite de cobertura: el helper de configuración de servidor sí tiene spec; el handler HTTP `status` no tiene seam unitario, por lo que su forma aditiva se cubrió por typecheck/build. El guard común del transporte tiene spy test, pero no hay spec de arranque WhatsApp que cubra DOM, insignias y los temporizadores al cambiar sesión; queda el smoke manual.
-- Siguiente paso: el propietario configura `WHATSAPP_ACCOUNT_PHONE` en Coolify y confirma `INSTAGRAM_ACCOUNT_USERNAME`; luego probar ambas cuentas en sus sesiones reales antes de coordinar el release 1.8.1.
+- Mergeado en #332 y publicado en el script 1.8.1 (#333); en producción desde el 02/11 (#334).
 
 ## Promoción a producción — 01/11/2026
 
