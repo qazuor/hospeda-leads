@@ -14,6 +14,13 @@
   - probar la 1.8.1 con el WhatsApp y el Instagram de Hospeda (funciona) y con otra cuenta (queda apagado, con aviso);
   - el smoke de la 1.8.0 (spec 105 §12.1), que sigue pendiente.
 
+## Catálogo de mensajes v3 — 02/11/2026
+
+- Implementado en `feat/message-catalog-v3`: registro y creación propia de ficha como recorrido comercial; armado por Hospeda queda como rescate si el cliente dice que no entiende cómo hacerlo. Catálogo fuente de 42 plantillas y variables por perfil; `ayuda_ficha` se retiró porque ya no tiene usos.
+- Links reales del sitio en los mensajes y material de venta dentro de «Envío de la información» (por título). Migración `058_message_catalog_v3.sql` generada desde el código: reemplaza las 33 plantillas de la 036 por 42.
+- Validación: `messageCatalog.spec.ts` (13) y `messageVariables.spec.ts` (15) PASS; specs de render, política, materiales, contexto y formato de chat PASS; `npm run typecheck` PASS; `test-message-catalog-migration.mjs` (036) y el nuevo `test-message-catalog-v3-migration.mjs` (058, incluido en `test:communication`) PASS en Postgres 17 descartable. Sin build ni suites completas locales.
+- Próximo paso: PR a staging, CI verde, backup y promoción a main cuando el propietario lo pida; la migración se aplica en el deploy.
+
 ## Guardia de cuentas del user script — 02/11/2026
 
 - Implementación local: el status del script añade `whatsappAccount` (solo el número fijo configurado, normalizado a dígitos). WhatsApp lee `last-wid-md`; si hay cuenta ajena o número desconocido, se apagan panel, contexto, insignias y registro automático. La cuenta desconocida permanece silenciosa 15 s y luego muestra el aviso. La cuenta sin configurar mantiene el comportamiento anterior. Instagram se apaga ante mismatch y mantiene solo su aviso; el estado desconocido se mantiene silencioso. No se cambió `USERSCRIPT_VERSION`.
