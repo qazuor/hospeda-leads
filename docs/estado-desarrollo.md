@@ -1,5 +1,13 @@
 # Estado del CRM — corte al 1 de noviembre de 2026
 
+## Guardia de cuentas del user script — 02/11/2026
+
+- Implementación local: el status del script añade `whatsappAccount` (solo el número fijo configurado, normalizado a dígitos). WhatsApp lee `last-wid-md`; si hay cuenta ajena o número desconocido, se apagan panel, contexto, insignias y registro automático. La cuenta desconocida permanece silenciosa 15 s y luego muestra el aviso. La cuenta sin configurar mantiene el comportamiento anterior. Instagram se apaga ante mismatch y mantiene solo su aviso; el estado desconocido se mantiene silencioso. No se cambió `USERSCRIPT_VERSION`.
+- La equivalencia telefónica reutiliza `samePhone`; el parser de WhatsApp tolera valor JSON, valor crudo, ausencia y errores de almacenamiento. Se documentó `WHATSAPP_ACCOUNT_PHONE` en Coolify, la guía y README; se exportó la guía. Decisión del propietario registrada abajo en `decisiones.md`; queda al propietario cargar la variable y revisar Instagram en Coolify.
+- Validación focalizada: `userscript.spec.ts` 62 (incluye el guard del transporte, bloquea peticiones en mismatch/unknown y permite `fetchStatus`); `instagramApp/start.spec.ts` 29; `instagramApp/panel.spec.ts` 34; `instagramApp/state.spec.ts` 5; `whatsappAccount.spec.ts` 7; `userscriptInstagram.spec.ts` 14; `userGuideLabels.spec.ts` 11. `npm run typecheck` y `npm run build:userscript` PASS. No se corrieron suites completas, navegador ni integraciones.
+- Límite de cobertura: el helper de configuración de servidor sí tiene spec; el handler HTTP `status` no tiene seam unitario, por lo que su forma aditiva se cubrió por typecheck/build. El guard común del transporte tiene spy test, pero no hay spec de arranque WhatsApp que cubra DOM, insignias y los temporizadores al cambiar sesión; queda el smoke manual.
+- Siguiente paso: el propietario configura `WHATSAPP_ACCOUNT_PHONE` en Coolify y confirma `INSTAGRAM_ACCOUNT_USERNAME`; luego probar ambas cuentas en sus sesiones reales antes de coordinar el release 1.8.1.
+
 ## Promoción a producción — 01/11/2026
 
 - `staging` → `main` con el #330 (merge `8cc457a`): specs 99–105, las decisiones del propietario del 31/10 y el 01/11, y el script 1.8.0. Pedida por el propietario. El CI salió verde en el SHA exacto.
@@ -889,3 +897,7 @@ Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y
   - **la prueba real de punta a punta** el 26/10/2026, con la app de Meta publicada, un túnel al CRM local y la cuenta `qaz.uor`: los mensajes del cliente se asociaron por usuario, la respuesta de Hospeda se registró como eco y la Bandeja muestra el ida y vuelta.
 - Sin desplegar.
 # Spec 105 block 1 review fixes — 31/10/2026: draft metadata and registration now share the exact-one-live-material attachment rule; GET size/type are checked against HEAD and stored metadata before headers; failed streams and all pre-stream exits release the per-token slot. Integration coverage verifies foreign/missing 404 equivalence, external links, `Retry-After`, journal metadata, metadata mismatches, and slot recovery after a truncated stream. `npm run typecheck`, focused Vitest (3 files / 45 tests), and disposable-DB `test-userscript-material-file.ts`, `test-userscript.ts`, and `test-communication.ts` passed. No PR or Git operations were performed. Next: review and open the staging PR through the project workflow.
+
+## Userscript account-only activation review fixes — 02/11/2026
+
+WhatsApp and Instagram now wait for account status before showing account-specific UI. When the account is disabled, the panel, badges, chat state, and background work are removed; a local account monitor checks every five seconds and on relevant browser events, then resumes once. Instagram keeps the account monitor while off and delays the unknown-account notice for 15 seconds. Added lifecycle and WhatsApp phone-equivalence regression coverage. Validation: the five requested Vitest files, `npm run typecheck`, and `timeout 200 npm run build:userscript` passed. No PR or Git operations were performed.

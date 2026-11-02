@@ -1223,7 +1223,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 **Tené en cuenta:**
 
 - Solo funciona en la computadora, en Chrome, Edge o Firefox. El navegador no pide permiso para el portapapeles: el script no lo lee, recibe el mensaje directamente del CRM. En el celular se abre la app de Instagram como siempre.
-- Tenés que estar con la cuenta de Instagram de Hospeda. Con otra cuenta el script no pega nada y te avisa.
+- Tenés que estar con la cuenta de Instagram de Hospeda. Con otra cuenta el script queda apagado: no muestra el panel ni insignias, ni consulta el CRM; aparece «Estás con otra cuenta de Instagram: el script está apagado. Entrá con la de Hospeda.»
 - El script nunca pega en un chat flotante ni encima de algo que ya escribiste. Los mensajes de más de 4000 caracteres se pegan a mano.
 - Si el negocio pidió «No contactar», el panel lo muestra y no deja mandar mensajes. Abrir un chat o pegar un mensaje no cuenta como contacto: el envío se confirma cuando Instagram avisa, o cuando contestás «¿Lo enviaste?».
 - El token se conecta solo desde el CRM (User script → Conectar este navegador). En Instagram no hay dónde escribirlo.
@@ -1240,8 +1240,9 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 3. Si ves «Token inválido o revocado. Conectá uno nuevo desde Ajustes.», creá un token nuevo en «User script de WhatsApp», tocá «Cambiar token» en el panel y pegalo.
 4. Si ves «Hay una versión nueva de Hospeda» o «Actualizá el script de Hospeda», tocá «Actualizar», confirmá en Tampermonkey y recargá WhatsApp Web. Con «Más tarde» el aviso vuelve al día siguiente; si el CRM ya no acepta tu versión, vuelve al recargar.
 5. Si ves «No se pudo consultar el CRM. Reintentando en el próximo cambio.», revisá tu conexión. El script vuelve a intentar cuando cambiás de chat.
-6. Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha, en «Comunicación», con «Registrar» y «Respuesta sin mensaje». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.
-7. Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio.
+6. El script de WhatsApp funciona solo con la cuenta del número de Hospeda, configurado por el administrador. Si aparece «Este WhatsApp no es el de Hospeda: el script está apagado.», cambiá de cuenta; si no puede verificarla, esperá a que WhatsApp termine de cargar.
+7. Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha, en «Comunicación», con «Registrar» y «Respuesta sin mensaje». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.
+8. Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio.
 
 **Qué queda al terminar:** Sabés qué hacer ante cada aviso del script, sin perder lo que se habló.
 

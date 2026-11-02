@@ -7,8 +7,12 @@ export type ContextResponse = { minVersion: string; latestVersion?: string; user
 export type RegisterResult = { externalId: string; status: "created" | "duplicate" | "rejected"; kind?: "message" | "inbound"; id?: string; reason?: string };
 export type RegisterResponse = { results: RegisterResult[] };
 export class ApiError extends Error { constructor(message: string, public status: number, public minVersion?: string) { super(message); } }
+let requestAllowed: () => boolean = () => true;
+/** The page app installs its account guard here so every CRM request path shares the same gate. */
+export function setCrmRequestGuard(guard: () => boolean): void { requestAllowed = guard; }
 
-export function request<T>(url: string, token: string, method = "GET", body?: unknown): Promise<T> {
+export function request<T>(url: string, token: string, method = "GET", body?: unknown, statusProbe = false): Promise<T> {
+  if (!statusProbe && !requestAllowed()) return Promise.reject(new ApiError("El script está apagado para esta cuenta.", 409));
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { Authorization: `Bearer ${token}`, "X-Hospeda-Userscript-Version": USERSCRIPT_VERSION };
     if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -29,8 +33,8 @@ export function fetchContext(base: string, query: { code?: string; phone?: strin
 }
 
 /** Since spec 97 the CRM also publishes the Hospeda Instagram username (§4.5); null when it is not configured. */
-export type StatusResponse = Omit<ContextResponse, "matches"> & { instagramAccount?: string | null };
-export function fetchStatus(base: string, token: string): Promise<StatusResponse> { return request(`${base}/_api/userscript/status`, token); }
+export type StatusResponse = Omit<ContextResponse, "matches"> & { instagramAccount?: string | null; whatsappAccount?: string | null };
+export function fetchStatus(base: string, token: string): Promise<StatusResponse> { return request(`${base}/_api/userscript/status`, token, "GET", undefined, true); }
 
 export function registerBatch(base: string, token: string, payload: { accountId: string; chat: { title: string; phone: string | null }; messages: unknown[]; automatic?:boolean }): Promise<RegisterResponse> {
   return request(`${base}/_api/userscript/register`, token, "POST", payload);

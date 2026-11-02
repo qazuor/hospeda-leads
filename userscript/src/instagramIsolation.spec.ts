@@ -15,10 +15,12 @@ import { INSTAGRAM_API_FUNCTIONS } from "./instagramApp/client";
  * (`instagram/`) stays pure; the wiring layer (`instagramApp/`) imports only what it needs and calls only the allowlisted API functions; no WhatsApp
  * module runs; the clipboard is never read.
  */
+/** Local, network-free helpers from ../api the wiring layer may use: the account guard only gates requests, it never makes one. */
+const LOCAL_API_FUNCTIONS = vi.hoisted(() => ["setCrmRequestGuard"]);
 const api = vi.hoisted(() => ({ touched: [] as string[] }));
 vi.mock("./api", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("./api");
-  return Object.fromEntries(Object.entries(actual).map(([name, value]) => [name, typeof value === "function" && !/^[A-Z]/.test(name) ? (...args: unknown[]) => { api.touched.push(name); return (value as (...a: unknown[]) => unknown)(...args); } : value]));
+  return Object.fromEntries(Object.entries(actual).map(([name, value]) => [name, typeof value === "function" && !/^[A-Z]/.test(name) && !LOCAL_API_FUNCTIONS.includes(name) ? (...args: unknown[]) => { api.touched.push(name); return (value as (...a: unknown[]) => unknown)(...args); } : value]));
 });
 // Every app started through the module (main.ts included) is recorded and stopped after each test: the one `main` starts polls every 500 ms
 // against the production base, and left running it would tick inside a later test once that test stores a token and opens a chat page.
@@ -180,7 +182,7 @@ describe("Instagram boundaries inside the shared script (spec 97 §5.4)", () => 
       // From ../api: only the allowlisted calls, ApiError and types.
       for (const [, names] of text.matchAll(/import\s*{([^}]*)}\s*from\s*["']\.\.\/api["']/g)) for (const raw of names.split(",")) {
         const name = raw.trim(); if (!name || name.startsWith("type ")) continue;
-        expect(INSTAGRAM_API_FUNCTIONS.concat("ApiError"), `${file} imports ${name} from ../api`).toContain(name);
+        expect(INSTAGRAM_API_FUNCTIONS.concat("ApiError", ...LOCAL_API_FUNCTIONS), `${file} imports ${name} from ../api`).toContain(name);
       }
     }
   });

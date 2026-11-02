@@ -125,13 +125,13 @@ describe("Instagram app: the CRM handoff on the chat page (spec 97 §4.2)", () =
     [...document.getElementById(PANEL_ID)!.shadowRoot!.querySelectorAll("button")].find(b => b.textContent === "No es este chat")!.click();
     expect(panelText()).toContain("¿Este chat es con");
   });
-  it("another Instagram account: nothing is pasted and nothing is reported", async () => {
+  it("another Instagram account: the script stays off and makes no chat request", async () => {
     history.replaceState(null, "", `${CHAT}#hospeda=${NONCE}`); document.body.innerHTML = threadFor(USER).split("hospeda.com.ar").join("personal.cuenta"); lexical();
     const { store } = storeOf({ handoff: handoff({ threadId: THREAD }) }), api = apiOf(), results: HandoffOutcome[] = [];
     start(store, api, results);
-    await vi.waitFor(() => expect(results).toEqual([{ ok: false, reason: "other-account", composer: null }]));
-    await app!.tick(); expect(composerText()).toBe(""); expect(api.reportThread).not.toHaveBeenCalled();
-    expect(panelText()).toContain("Estás con la cuenta @personal.cuenta.");
+    await vi.waitFor(() => expect(noticeText()).toContain("Estás con otra cuenta de Instagram: el script está apagado. Entrá con la de Hospeda."));
+    await app!.tick(); expect(composerText()).toBe(""); expect(results).toEqual([]); expect(api.fetchContext).not.toHaveBeenCalled(); expect(api.reportThread).not.toHaveBeenCalled();
+    expect(document.getElementById(PANEL_ID)).toBeNull();
   });
   it("a marker for another thread, or without a valid handoff, only gets the neutral notice", async () => {
     history.replaceState(null, "", `${CHAT}#hospeda=${NONCE}`); document.body.innerHTML = threadFor(USER); lexical();
@@ -173,6 +173,28 @@ describe("Instagram app: unknown thread from the profile (spec 97 §4.2, decisio
 });
 
 describe("Instagram app: panel and learning (spec 97 §4.3–4.4, decision 12.3)", () => {
+  it("keeps the chat invisible while account status is pending", async () => {
+    history.replaceState(null, "", CHAT); document.body.innerHTML = `${NAV}${threadFor(USER)}`;
+    let answer!: (value: StatusResponse) => void;
+    const api = apiOf({ fetchStatus: vi.fn(() => new Promise<StatusResponse>(resolve => { answer = resolve; })) });
+    start(storeOf().store, api); await Promise.resolve();
+    expect(api.fetchStatus).toHaveBeenCalledOnce(); expect(api.fetchContext).not.toHaveBeenCalled(); expect(api.fetchThreads).not.toHaveBeenCalled();
+    expect(document.getElementById(PANEL_ID)).toBeNull(); expect(document.querySelector(`[${INBOX_BADGE_ATTRIBUTE}]`)).toBeNull();
+    answer(status()); await vi.waitFor(() => expect(document.getElementById(PANEL_ID)).not.toBeNull());
+  });
+  it("removes chat UI on mismatch and resumes once the Hospeda account returns", async () => {
+    history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
+    let current = "hospeda.com.ar";
+    const api = apiOf({ fetchStatus: vi.fn(async () => status(current)) });
+    const { store } = storeOf(); app = startInstagramApp({ store, api, base: "https://crm.test", version: "1.6.0", pollMs: 1000, flow, trusted: () => true });
+    await vi.waitFor(() => expect(document.getElementById(PANEL_ID)).not.toBeNull());
+    current = "otra.cuenta"; document.body.innerHTML = document.body.innerHTML.split("hospeda.com.ar").join("otra.cuenta");
+    await app.tick(); expect(document.getElementById(PANEL_ID)).toBeNull(); expect(noticeText()).toContain("otra cuenta");
+    const contexts = vi.mocked(api.fetchContext).mock.calls.length;
+    current = "hospeda.com.ar"; document.body.innerHTML = document.body.innerHTML.split("otra.cuenta").join("hospeda.com.ar"); window.dispatchEvent(new Event("storage"));
+    await vi.waitFor(() => expect(document.getElementById(PANEL_ID)).not.toBeNull());
+    expect(api.fetchContext).toHaveBeenCalledTimes(contexts + 1); expect(document.getElementById(PANEL_ID)).not.toBeNull();
+  });
   it("revalidates the open chat when the tab becomes visible, but no more than once per ten seconds", async () => {
     history.replaceState(null, "", CHAT); document.body.innerHTML = threadFor(USER);
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });

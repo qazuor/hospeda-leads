@@ -1967,7 +1967,7 @@
         ],
         "notes": [
           "Solo funciona en la computadora, en Chrome, Edge o Firefox. El navegador no pide permiso para el portapapeles: el script no lo lee, recibe el mensaje directamente del CRM. En el celular se abre la app de Instagram como siempre.",
-          "Tenés que estar con la cuenta de Instagram de Hospeda. Con otra cuenta el script no pega nada y te avisa.",
+          "Tenés que estar con la cuenta de Instagram de Hospeda. Con otra cuenta el script queda apagado: no muestra el panel ni insignias, ni consulta el CRM; aparece «Estás con otra cuenta de Instagram: el script está apagado. Entrá con la de Hospeda.»",
           "El script nunca pega en un chat flotante ni encima de algo que ya escribiste. Los mensajes de más de 4000 caracteres se pegan a mano.",
           "Si el negocio pidió «No contactar», el panel lo muestra y no deja mandar mensajes. Abrir un chat o pegar un mensaje no cuenta como contacto: el envío se confirma cuando Instagram avisa, o cuando contestás «¿Lo enviaste?».",
           "El token se conecta solo desde el CRM (User script → Conectar este navegador). En Instagram no hay dónde escribirlo.",
@@ -1977,6 +1977,7 @@
         "linkLabel": "User script de WhatsApp",
         "uiLabels": [
           "Instagram",
+          "Estás con otra cuenta de Instagram: el script está apagado. Entrá con la de Hospeda.",
           "Comunicación",
           "Contactar",
           "Mensaje pegado. Revisalo y envialo vos.",
@@ -2020,6 +2021,7 @@
           "Si ves «Token inválido o revocado. Conectá uno nuevo desde Ajustes.», creá un token nuevo en «User script de WhatsApp», tocá «Cambiar token» en el panel y pegalo.",
           "Si ves «Hay una versión nueva de Hospeda» o «Actualizá el script de Hospeda», tocá «Actualizar», confirmá en Tampermonkey y recargá WhatsApp Web. Con «Más tarde» el aviso vuelve al día siguiente; si el CRM ya no acepta tu versión, vuelve al recargar.",
           "Si ves «No se pudo consultar el CRM. Reintentando en el próximo cambio.», revisá tu conexión. El script vuelve a intentar cuando cambiás de chat.",
+          "El script de WhatsApp funciona solo con la cuenta del número de Hospeda, configurado por el administrador. Si aparece «Este WhatsApp no es el de Hospeda: el script está apagado.», cambiá de cuenta; si no puede verificarla, esperá a que WhatsApp termine de cargar.",
           "Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha, en «Comunicación», con «Registrar» y «Respuesta sin mensaje». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.",
           "Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio."
         ],
@@ -2037,6 +2039,7 @@
           "Actualizar",
           "Más tarde",
           "No se pudo consultar el CRM. Reintentando en el próximo cambio.",
+          "Este WhatsApp no es el de Hospeda: el script está apagado.",
           "No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.",
           "Copiar diagnóstico del chat",
           "Revocar",

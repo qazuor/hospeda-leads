@@ -2,6 +2,8 @@
 
 # Pendientes y próximo trabajo
 
+- **Configurar cuentas propias del user script en Coolify:** cargar `WHATSAPP_ACCOUNT_PHONE` con el número de Hospeda en dígitos y revisar que `INSTAGRAM_ACCOUNT_USERNAME` tenga el usuario correcto. Hasta entonces, WhatsApp conserva el comportamiento actual si su variable está ausente.
+
 - **Spec 105, bloque 5 — smoke manual del propietario (§12.1):** pendiente; ya está en producción desde el 01/11 (se promovió sin el smoke en staging), así que corresponde hacerlo en producción, en Chrome y Firefox con cuenta de prueba y número propio: PDF pequeño (vista previa, descripción y envío manual), registro y versión adjunta, abrir enlace desde celular, imagen, enlace externo, archivo >50 MB, cortar red y «Pegar solo con el enlace», descartar vista previa, No contactar (botón y 403), interruptor apagado, panel de Instagram y «De otras verticales», y actualización visible de 1.7.0 a 1.8.0. El propietario debe avisar a los vendedores antes de producción: 1.8.0 será obligatoria y pedirá actualizar a todos el mismo día. No publicar hasta completar el smoke en staging y coordinar el aviso.
 
 - **Spec 105, bloques 3 y 4:** implementación local terminada; `otherVertical` está tipado como opcional y se pliega en el selector. Cambios publicados en la versión de trabajo 1.8.0 junto con bloques 2 y 5. Validación previa de bloques 3 y 4: typecheck y Vitest focalizado PASS (152 pruebas en seis archivos y 32 casos seleccionados); build, navegador y suite completa no se corrieron entonces.
@@ -404,3 +406,7 @@ B1 y B2 mergeadas en `staging` (PR #249, `53b14a0`). Falta la revisión del prop
 
 **Cerrada**: mergeada en `staging` (#260) y probada de punta a punta con Meta el 26/10/2026. Lo que falta para producción está en «Specs 87 y 88», al principio de este archivo.
 # Spec 105 block 1: run `scripts/test-userscript-material-file.ts` in the coordinator's disposable integration environment; the full endpoint scenarios still need coordinator verification.
+
+### Userscript account-only activation (02/11/2026)
+
+Review findings addressed locally: account-gated WhatsApp and Instagram lifecycle, OFF-to-ON monitors, and phone identity regression cases. The five requested focused Vitest files, typecheck, and userscript build passed. No PR was opened. Next: review the local diff and prepare the staging PR through the project workflow.
