@@ -5,6 +5,7 @@ import {INSTAGRAM_THREAD_ID,instagramProfilePattern,normalizeInstagramUsername} 
 import {assertBusinessAccess,canModifyBusiness,canModifyManagement} from './crmPermissions';
 import {labeledStage} from './crmLabels';
 import {businessStatusLabels,type BusinessStatus} from './businessStatus';
+import {phoneDigits} from './phoneIdentity';
 
 /**
  * Spec 97: server side of the user script on Instagram's chat page. The Hospeda account (§4.5), the learned thread of each username
@@ -30,6 +31,8 @@ export type InstagramThreadProof=z.infer<typeof instagramThreadInput>['proof'];
 
 /** Decision 12.7: the Hospeda Instagram username from `INSTAGRAM_ACCOUNT_USERNAME`, normalized; null when unset or invalid (learning and pasting stay off). */
 export function instagramAccountUsername(env:Readonly<Record<string,string|undefined>>=process.env):string|null{return normalizeInstagramUsername(env.INSTAGRAM_ACCOUNT_USERNAME);}
+/** The one Hospeda WhatsApp line from `WHATSAPP_ACCOUNT_PHONE`, stored as digits only. */
+export function whatsappAccountPhone(env:Readonly<Record<string,string|undefined>>=process.env):string|null{const digits=phoneDigits({phone:env.WHATSAPP_ACCOUNT_PHONE});return digits.length>=8?digits:null;}
 
 /** The `instagram` query of `context`: a username in any accepted spelling (`@x`, profile URL), normalized; null when invalid. */
 export function instagramQueryUsername(value:string|null):string|null{return value&&value.length<=200?normalizeInstagramUsername(value):null;}
