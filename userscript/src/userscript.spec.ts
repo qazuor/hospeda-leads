@@ -16,7 +16,8 @@ import { PANEL_CSS } from "./styles";
 import { announceInstalled, INSTALLED_ATTRIBUTE, INSTALLED_EVENT } from "./announce";
 import { resetUpdatePrompt, showUpdatePrompt, throttled, UPDATE_PROMPT_ID } from "./updatePrompt";
 import { batches, filterCached, mergeResults, RegisterController, summarizeResults, messageFingerprint } from "./register";
-import { request, ApiError } from "./api";
+import { request, fetchStatus, setCrmRequestGuard, ApiError } from "./api";
+import { whatsappAccountState } from "./whatsappAccount";
 import { USERSCRIPT_VERSION } from "./version";
 import { copyDiagnostic } from "./diagnostic";
 import {chatMatchesRecipient,getWhatsAppComposer,pasteIntoComposer} from './selectors';
@@ -182,7 +183,17 @@ describe("chat refresh and diagnostic fallback", () => {
 });
 
 describe("userscript API transport", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { vi.restoreAllMocks(); setCrmRequestGuard(() => true); });
+  it("blocks every CRM request for mismatch/unknown while allowing status and normal account states", async () => {
+    const stub = vi.spyOn(globalThis, "GM_xmlhttpRequest").mockImplementation(options => { options.onload({ status: 200, response: {}, responseText: "{}" }); return { abort() {} }; });
+    for (const state of [whatsappAccountState({ expected: "5493442123456", loggedIn: "5491112345678" }), whatsappAccountState({ expected: "5493442123456", loggedIn: null })]) {
+      setCrmRequestGuard(() => state === "ok" || state === "unconfigured");
+      await expect(request("https://crm.test/context", "token")).rejects.toMatchObject({ status: 409 });
+    }
+    expect(stub).not.toHaveBeenCalled();
+    await fetchStatus("https://crm.test", "token"); expect(stub).toHaveBeenCalledOnce();
+    setCrmRequestGuard(() => true); await request("https://crm.test/context", "token"); expect(stub).toHaveBeenCalledTimes(2);
+  });
   it("sends token and version headers", async () => {
     const stub = vi.spyOn(globalThis, "GM_xmlhttpRequest").mockImplementation(options => { expect(options.headers).toMatchObject({ Authorization: "Bearer private-token", "X-Hospeda-Userscript-Version": USERSCRIPT_VERSION }); options.onload({ status: 200, response: { ok: true }, responseText: "" }); return { abort() {} }; });
     await expect(request("https://crm.test", "private-token")).resolves.toEqual({ ok: true }); expect(stub).toHaveBeenCalledTimes(1);
