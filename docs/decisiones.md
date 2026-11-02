@@ -1,5 +1,9 @@
 # Decisiones estables del CRM
 
+## Cuenta propia del user script — 01/11/2026
+
+- WhatsApp queda limitado a un único número fijo de Hospeda configurado con `WHATSAPP_ACCOUNT_PHONE`; se compara el número con la cuenta abierta en WhatsApp Web. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`. Si falta la variable, se conserva el comportamiento actual para no interrumpir producción antes de cargarla.
+
 Estas decisiones provienen del propietario y del comportamiento revisado. Cambiarlas requiere tratar el cambio como funcional, no esconderlo en una corrección estética. El estado de implementación y los pendientes están en documentos separados.
 
 ## Entidades y recorrido comercial
