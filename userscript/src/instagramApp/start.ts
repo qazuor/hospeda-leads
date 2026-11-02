@@ -1,10 +1,10 @@
-import { ApiError, type InstagramContextResponse, type InstagramInboxThread } from "../api";
+import { ApiError, setCrmRequestGuard, type InstagramContextResponse, type InstagramInboxThread } from "../api";
 import { consumePasteMarker } from "../instagram/marker";
 import { checkHandoff, parseHandoff, threadIdFromPath, type InstagramHandoff } from "../instagram/handoff";
 import { findPageComposer } from "../instagram/finders";
 import { headerDisplayName, loggedInUsername, proveThread, type ThreadProof } from "../instagram/thread";
 import { openChatFromProfile, pasteOnChatPage, pollFor, proofVerdict, type FlowFailure, type FlowResult } from "../instagram/flow";
-import { PASTED_NOTICE, UNCONFIRMED_NOTICE, failureNotice, pasteShortcut, showNotice, type NoticeLink } from "../instagram/notice";
+import { NOTICE_ID, PASTED_NOTICE, UNCONFIRMED_NOTICE, failureNotice, pasteShortcut, showNotice, type NoticeLink } from "../instagram/notice";
 import type { InstagramApi } from "./client";
 import type { InstagramStore } from "./storage";
 import { PANEL_ID, removePanel, renderPanel, type PanelActions } from "./panel";
@@ -53,7 +53,7 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
   const win = deps.win ?? window, doc = win.document, flow = deps.flow ?? {}, trusted = deps.trusted ?? ((event: Event) => event.isTrusted);
   const platform = win.navigator.platform || win.navigator.userAgent || "";
   const state = initialState({ token: false });
-  let running = false, pending: InstagramHandoff | null = null, confirmHandoff: InstagramHandoff | null = null, lastPath: string | null = null, lastFingerprint = "", statusAt = 0, proofCandidate = "", proofTicks = 0, proofTimer = 0, lastVisibleRefresh = 0, badgeDiagnostic = "Apagadas.";
+  let running = false, pending: InstagramHandoff | null = null, confirmHandoff: InstagramHandoff | null = null, lastPath: string | null = null, lastFingerprint = "", statusAt = 0, proofCandidate = "", proofTicks = 0, proofTimer = 0, lastVisibleRefresh = 0, badgeDiagnostic = "Apagadas.", accountOff = false, timer = 0, accountMonitor = 0, unknownSince = 0, accountNoticeTimer = 0;
   let statusLoad: Promise<void> | null = null;
   const contexts = new Map<string, { at: number; value: InstagramContextResponse }>(), reported = new Set<string>();
   // §15: one list of learned chats per TTL (no request per row); `at` also throttles retries after a failure.
@@ -62,6 +62,39 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
   const warn = (text: string, link?: NoticeLink) => showNotice({ doc, text: pasteShortcut({ text, platform }), tone: "warning", link });
   const result = (outcome: HandoffOutcome) => deps.onResult?.(outcome);
   const account = (): "ok" | "mismatch" | "unknown" => { state.loggedIn = loggedInUsername({ doc }); const value = accountState(state); return value === "ok" || value === "mismatch" ? value : "unknown"; };
+  function enforceAccount(): boolean {
+    if (state.status.kind !== "ok") return false;
+    state.loggedIn = loggedInUsername({ doc });
+    const current = accountState(state);
+    if (current === "unconfigured") return true;
+    if (current === "mismatch") {
+      if (!accountOff) { removeNotice(); showNotice({ doc, text: "Estás con otra cuenta de Instagram: el script está apagado. Entrá con la de Hospeda.", tone: "warning" }); }
+      accountOff = true; win.clearInterval(timer); timer = 0; win.clearTimeout(proofTimer); removePanel({ doc }); removeInboxBadges({ doc }); state.context = null; state.proof = null; state.selectedId = null; state.confirm = null; confirmHandoff = null; return false;
+    }
+    if (current === "unknown") { accountOff = true; win.clearInterval(timer); timer = 0; removePanel({ doc }); removeInboxBadges({ doc }); state.context = null; if (!unknownSince) { unknownSince = Date.now(); accountNoticeTimer = win.setTimeout(() => { if (accountState(state) === "unknown") warn("No pude verificar la cuenta de Instagram: el script está apagado."); }, 15_000); } return false; }
+    const wasOff = accountOff; accountOff = false;
+    unknownSince = 0; win.clearTimeout(accountNoticeTimer); removeNotice();
+    if (wasOff && !timer) timer = win.setInterval(() => void tick(), deps.pollMs ?? 500);
+    return true;
+  }
+  function removeNotice(): void { doc.getElementById(NOTICE_ID)?.remove(); }
+  function monitorAccount(): void { if (!accountOff) return; state.loggedIn = loggedInUsername({ doc }); if (state.status.kind === "ok") { const allowed = enforceAccount(); if (allowed && !timer) timer = win.setInterval(() => void tick(), deps.pollMs ?? 500); if (allowed) void tick(); } }
+  const denied = () => Promise.reject(new Error("Instagram account is not enabled."));
+  const api: InstagramApi = {
+    fetchStatus: () => deps.api.fetchStatus(),
+    fetchContext: username => enforceAccount() ? deps.api.fetchContext(username) : denied(),
+    reportThread: payload => enforceAccount() ? deps.api.reportThread(payload) : denied(),
+    reportThreadStale: payload => enforceAccount() ? deps.api.reportThreadStale(payload) : denied(),
+    fetchTemplates: accountId => enforceAccount() ? deps.api.fetchTemplates(accountId) : denied(),
+    prepare: payload => enforceAccount() ? deps.api.prepare(payload) : denied(),
+    dispatch: payload => enforceAccount() ? deps.api.dispatch(payload) : denied(),
+    markNotSent: id => enforceAccount() ? deps.api.markNotSent(id) : denied(),
+    fetchThreads: () => enforceAccount() ? deps.api.fetchThreads() : denied(),
+    fetchMaterials: (accountId, search) => enforceAccount() ? deps.api.fetchMaterials(accountId, search) : denied(),
+    addMaterial: payload => enforceAccount() ? deps.api.addMaterial(payload) : denied(),
+    removeMaterial: payload => enforceAccount() ? deps.api.removeMaterial(payload) : denied(),
+  };
+  setCrmRequestGuard(enforceAccount);
   const dark = () => { const theme = deps.store.theme(); if (theme !== "auto") return theme === "dark"; return doc.documentElement.classList.contains("__fb-dark-mode") || (typeof win.matchMedia === "function" && win.matchMedia("(prefers-color-scheme: dark)").matches); };
   const onDirect = () => win.location.pathname.startsWith("/direct/");
   const isEditing = () => { const active = doc.getElementById(PANEL_ID)?.shadowRoot?.activeElement; return !!active && (active.tagName === "SELECT" || (active.tagName === "INPUT" && !["checkbox", "radio"].includes((active as HTMLInputElement).type))); };
@@ -74,7 +107,7 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
       if (state.status.kind !== "ok") state.status = { kind: "loading" };
       try { state.status = { kind: "ok", value: await deps.api.fetchStatus() }; statusAt = Date.now(); }
       catch (cause) { state.status = statusFromError(cause); }
-      finally { statusLoad = null; ensureContext(); render(); if (onDirect()) safeBadges(true); }
+      finally { statusLoad = null; if (state.status.kind !== "ok" || enforceAccount()) { ensureContext(); render(); if (onDirect()) safeBadges(true); } }
     })();
     return statusLoad;
   }
@@ -103,7 +136,7 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     const known = value.instagram.threadId === threadId && (!displayName || value.instagram.displayName === displayName);
     if (state.context?.username !== username || !value.matches.length || known || account() !== "ok") return;
     const key = `${username}:${threadId}:${displayName ?? ""}`; if (reported.has(key)) return; reported.add(key);
-    void deps.api.reportThread({ username, threadId, proof: "header", ...(displayName ? { displayName } : {}) }).then(() => { if (inbox) inbox = { ...inbox, at: 0 }; }, () => { reported.delete(key); });
+    void api.reportThread({ username, threadId, proof: "header", ...(displayName ? { displayName } : {}) }).then(() => { if (inbox) inbox = { ...inbox, at: 0 }; }, () => { reported.delete(key); });
   }
   /** §15: the learned chats for the list badges, at most once per TTL (a failure waits a minute). */
   function loadInbox(token: string): void {
@@ -112,7 +145,7 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     inboxLoad = (async () => {
       try {
         // Review H1: a 2xx without the expected shape is an empty list, never a crash.
-        const response: unknown = await deps.api.fetchThreads(), list = (response as { threads?: unknown } | null)?.threads;
+        const response: unknown = await api.fetchThreads(), list = (response as { threads?: unknown } | null)?.threads;
         inbox = { token, at: Date.now(), threads: Array.isArray(list) ? list.filter(validThread) : [] };
       } catch (cause) { const status = statusFromError(cause); if (status.kind !== "error") state.status = status; /* retried after THREADS_RETRY_MS */ inbox = { token, at: Date.now() - THREADS_TTL_MS + THREADS_RETRY_MS, threads: inbox?.threads ?? [] }; }
       finally { inboxLoad = null; if (onDirect()) safeBadges(true); }
@@ -138,11 +171,12 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     try { badges(rescan); } catch (cause) { win.console.debug("[Hospeda] Instagram: list badges skipped.", cause); try { removeInboxBadges({ doc }); } catch { /* nothing left to do */ } }
   }
   async function loadContext(username: string, force = false): Promise<void> {
+    if (!enforceAccount()) return;
     const cached = contexts.get(username);
     if (!force && cached && Date.now() - cached.at < CONTEXT_TTL_MS) { state.context = { username, kind: "ok", value: cached.value }; learn(); render(); return; }
     if (!force || state.context?.username !== username) { state.context = { username, kind: "loading" }; render(); }
     try {
-      const value = await deps.api.fetchContext(username); contexts.set(username, { at: Date.now(), value });
+      const value = await api.fetchContext(username); if (!enforceAccount()) return; contexts.set(username, { at: Date.now(), value });
       if (state.context?.username !== username) return;
       state.context = { username, kind: "ok", value }; learn();
     } catch (cause) {
@@ -182,17 +216,18 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
   function mountCompose(card: HTMLElement, header: (title: string) => HTMLElement): void {
     const match = selectedMatch(state), username = chatUsername(state), threadId = state.threadId;
     if (!match || !username || !threadId) { state.view = "main"; return; }
-    openInstagramCompose(card, { doc, api: deps.api, match, username, trusted, checkChat: checkChatFor(threadId, username), composer: () => findPageComposer({ doc }), back: () => { state.view = "main"; render(true); }, header, settle: flow.settle, mode: composeMode });
+    openInstagramCompose(card, { doc, api, match, username, trusted, checkChat: checkChatFor(threadId, username), composer: () => findPageComposer({ doc }), back: () => { state.view = "main"; render(true); }, header, settle: flow.settle, mode: composeMode });
   }
 
   /** §4.2 on the chat page: proof, account, paste. An inconclusive proof opens the seller confirmation (decision 12.1). */
   async function pasteFromHandoff(handoff: InstagramHandoff, threadId: string, fromCrm: boolean): Promise<void> {
     await loadStatus();
+    if (!enforceAccount()) return;
     const outcome = await pasteOnChatPage({ doc, location: win.location, username: handoff.username, threadId, text: handoff.text, account, ...flow }).catch((): FlowResult => ({ ok: false, reason: "insert-failed", composer: null }));
     if (outcome.ok) { showNotice({ doc, text: PASTED_NOTICE, tone: "success" }); deps.store.setOpen(true); render(true); }
     else if (outcome.reason === "thread-contradicted") {
       // D2: the chat page the CRM stored proves somebody else: forget it, so the next open goes to the profile.
-      if (fromCrm && handoff.threadId === threadId) void deps.api.reportThreadStale({ username: handoff.username, threadId }).catch(() => {});
+      if (fromCrm && handoff.threadId === threadId) void api.reportThreadStale({ username: handoff.username, threadId }).catch(() => {});
       warn(failureNotice({ reason: outcome.reason, username: handoff.username }), { text: `Abrir el perfil de @${handoff.username}`, href: `https://www.instagram.com/${handoff.username}/` });
     } else if (outcome.reason === "thread-unproven") { state.confirm = { username: handoff.username, threadId }; state.error = ""; confirmHandoff = handoff; deps.store.setOpen(true); render(true); }
     else { outcome.composer?.focus(); warn(failureNotice({ reason: outcome.reason, username: handoff.username })); }
@@ -203,12 +238,13 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     if (running) { deps.store.handoff.clear({ nonce }); return; }
     running = true;
     try {
+      await loadStatus(); if (!enforceAccount()) return;
       const handoff = await pollFor({ find: () => { const value = parseHandoff({ value: deps.store.handoff.read() }); return value?.nonce === nonce ? value : null; }, timeoutMs: deps.handoffWaitMs ?? 3000, intervalMs: flow.intervalMs });
       // Single use: the handoff of this nonce is deleted before anything else, whatever the verdict. Another tab's handoff stays.
       if (handoff) deps.store.handoff.clear({ nonce });
       const verdict = checkHandoff({ handoff, nonce, pathname: win.location.pathname });
       // M3: a stored thread that did not open (redirect to the inbox, a profile or another chat) is forgotten, compare-and-delete.
-      if (handoff && handoff.threadId && verdict !== "missing" && verdict !== "nonce" && verdict !== "expired" && threadIdFromPath(win.location.pathname) !== handoff.threadId) void deps.api.reportThreadStale({ username: handoff.username, threadId: handoff.threadId }).catch(() => {});
+      if (handoff && handoff.threadId && verdict !== "missing" && verdict !== "nonce" && verdict !== "expired" && threadIdFromPath(win.location.pathname) !== handoff.threadId) void api.reportThreadStale({ username: handoff.username, threadId: handoff.threadId }).catch(() => {});
       if (!handoff || verdict !== "ok") { win.console.debug(`[Hospeda] Instagram: marker not confirmed (${verdict}).`); warn(UNCONFIRMED_NOTICE); result({ ok: false, reason: "unconfirmed" }); return; }
       const thread = threadIdFromPath(win.location.pathname);
       if (thread) { await pasteFromHandoff(handoff, thread, true); return; }
@@ -237,9 +273,9 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
         const outcome = await pasteOnChatPage({ doc, location: win.location, username: confirm.username, threadId: confirm.threadId, text: handoff.text, account, sellerConfirmed: true, ...flow });
         state.confirm = null; confirmHandoff = null;
         // Stored only once the paste re-checked the chat: a confirmation never survives evidence against the user (H1).
-        if (outcome.ok && outcome.proof === "seller") { /* H2: null unless the labelled header link names this user, so no unverified heading is sent */ const displayName = headerDisplayName({ doc, username: confirm.username }); await deps.api.reportThread({ username: confirm.username, threadId: confirm.threadId, proof: "seller", ...(displayName ? { displayName } : {}) }).catch(() => {}); }
+        if (outcome.ok && outcome.proof === "seller") { /* H2: null unless the labelled header link names this user, so no unverified heading is sent */ const displayName = headerDisplayName({ doc, username: confirm.username }); await api.reportThread({ username: confirm.username, threadId: confirm.threadId, proof: "seller", ...(displayName ? { displayName } : {}) }).catch(() => {}); }
         if (outcome.ok) { state.sellerConfirmed = { username: confirm.username, threadId: confirm.threadId, by: state.status.kind === "ok" ? state.status.value.user.displayName : "vos" }; showNotice({ doc, text: PASTED_NOTICE, tone: "success" }); ensureContext(); }
-        else { if (outcome.reason === "thread-contradicted") void deps.api.reportThreadStale({ username: confirm.username, threadId: confirm.threadId }).catch(() => {}); outcome.composer?.focus(); warn(failureNotice({ reason: outcome.reason, username: confirm.username })); }
+        else { if (outcome.reason === "thread-contradicted") void api.reportThreadStale({ username: confirm.username, threadId: confirm.threadId }).catch(() => {}); outcome.composer?.focus(); warn(failureNotice({ reason: outcome.reason, username: confirm.username })); }
         result(outcome);
       } finally { state.busy = false; render(true); }
     })(),
@@ -260,10 +296,15 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     if (nonce) void runHandoff(nonce);
     const path = win.location.pathname, threadId = threadIdFromPath(path);
     if (path !== lastPath) { lastPath = path; proofCandidate = ""; proofTicks = 0; onPathChange(threadId); }
+    if (!onDirect()) { removePanel({ doc }); removeInboxBadges({ doc }); return; }
+    state.token = !!deps.store.token();
+    if (state.token && (state.status.kind === "idle" || state.status.kind === "loading" || (state.status.kind === "ok" && Date.now() - statusAt >= STATUS_TTL_MS))) await loadStatus();
+    if (state.token && state.status.kind === "loading") { removePanel({ doc }); removeInboxBadges({ doc }); return; }
+    if (state.token && !enforceAccount()) return;
     // §4.3 decision 12.3: the panel lives on every chat page and nowhere else (feed, profiles, inbox).
+    state.loggedIn = loggedInUsername({ doc });
     if (onDirect()) { state.loggedIn = loggedInUsername({ doc }); safeBadges(false); } else removeInboxBadges({ doc });
     if (!threadId) { removePanel({ doc }); return; }
-    if (state.status.kind === "idle" || (state.status.kind === "ok" && Date.now() - statusAt >= STATUS_TTL_MS)) void loadStatus();
     const proof = proveThread({ doc, readPath: () => win.location.pathname });
     const key = proofKey(proof);
     if (key !== proofCandidate) { proofCandidate = key; proofTicks = 1; win.clearTimeout(proofTimer); proofTimer = win.setTimeout(() => void tick(), 500); }
@@ -275,11 +316,14 @@ export function startInstagramApp(deps: InstagramAppDeps): InstagramApp {
     render();
   }
 
-  const timer = win.setInterval(() => void tick(), deps.pollMs ?? 500);
+  timer = win.setInterval(() => void tick(), deps.pollMs ?? 500);
+  accountMonitor = win.setInterval(monitorAccount, 5000);
   const onHash = () => void tick();
   win.addEventListener("hashchange", onHash);
-  const onVisibility = () => { if (doc.visibilityState !== "visible" || Date.now() - lastVisibleRefresh < 10_000) return; lastVisibleRefresh = Date.now(); const username = chatUsername(state); if (username) void loadContext(username, true); if (onDirect()) safeBadges(true); };
+  const onVisibility = () => { monitorAccount(); if (doc.visibilityState !== "visible" || Date.now() - lastVisibleRefresh < 10_000) return; lastVisibleRefresh = Date.now(); void tick(); const username = chatUsername(state); if (username && enforceAccount()) void loadContext(username, true); if (onDirect() && enforceAccount()) safeBadges(true); };
+  const onStorage = () => monitorAccount();
+  win.addEventListener("storage", onStorage);
   doc.addEventListener("visibilitychange", onVisibility);
   void tick();
-  return { tick, stop: () => { win.clearInterval(timer); win.clearTimeout(proofTimer); win.removeEventListener("hashchange", onHash); doc.removeEventListener("visibilitychange", onVisibility); removeInboxBadges({ doc }); }, state: () => state };
+  return { tick, stop: () => { win.clearInterval(timer); win.clearInterval(accountMonitor); win.clearTimeout(proofTimer); win.clearTimeout(accountNoticeTimer); win.removeEventListener("storage", onStorage); win.removeEventListener("hashchange", onHash); doc.removeEventListener("visibilitychange", onVisibility); removeInboxBadges({ doc }); setCrmRequestGuard(() => true); }, state: () => state };
 }
