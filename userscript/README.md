@@ -1,5 +1,9 @@
 # Hospeda CRM para WhatsApp Web e Instagram
 
+## Novedades 1.8.1
+
+- El script solo funciona con el WhatsApp de Hospeda (`WHATSAPP_ACCOUNT_PHONE`) y con la cuenta de Instagram de Hospeda (`INSTAGRAM_ACCOUNT_USERNAME`). Con otra cuenta queda apagado: sin panel, sin insignias y sin consultas al CRM, y muestra solo un aviso. Si la variable de WhatsApp no está configurada, funciona como antes.
+
 ## Novedades 1.8.0
 
 - **Bloque 2:** en WhatsApp Web, «Pegar en el chat» puede adjuntar el archivo de un material (hasta 50 MB). Revisá la vista previa y tocá **Enviar** vos; el script nunca envía.
