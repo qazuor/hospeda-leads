@@ -1,12 +1,13 @@
 // @vitest-environment node
 import {afterEach,describe,expect,it,vi} from 'vitest';
 vi.mock('./db',()=>({db:{}}));
-const {instagramDisplayName,allowInstagramThreadReport,instagramAccountUsername,instagramProfilePattern,instagramQueryUsername,instagramThreadInput,instagramThreadStaleInput,resetInstagramThreadRateLimits}=await import('./userscriptInstagram');
+const {instagramDisplayName,allowInstagramThreadReport,instagramAccountUsername,whatsappAccountPhone,instagramProfilePattern,instagramQueryUsername,instagramThreadInput,instagramThreadStaleInput,resetInstagramThreadRateLimits}=await import('./userscriptInstagram');
 const {panelPurposes}=await import('./userscriptInstagramTemplates');
 const {normalizeInstagramUsername}=await import('./instagramChat');
 
 const THREAD='17848251833510164';
 afterEach(()=>resetInstagramThreadRateLimits());
+it('normalizes the single configured WhatsApp account phone',()=>{expect(whatsappAccountPhone({WHATSAPP_ACCOUNT_PHONE:'+54 9 (3442) 12-3456'})).toBe('5493442123456');expect(whatsappAccountPhone({})).toBeNull();expect(whatsappAccountPhone({WHATSAPP_ACCOUNT_PHONE:'123'})).toBeNull();});
 
 describe('Instagram thread report input (spec 97 §5.2)',()=>{
  it('accepts a normalized username, a numeric thread id and a known proof',()=>{

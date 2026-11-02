@@ -53,6 +53,7 @@ R2_BUCKET=<private bucket name, e.g. hospeda-crm-material>
 BREVO_WEBHOOK_TOKEN=<random secret, minimum 32 characters; the Brevo transactional webhook sends it as a Bearer token>
 BREVO_SMTP_HOST=<optional, default smtp-relay.brevo.com>
 INSTAGRAM_ACCOUNT_USERNAME=<Hospeda Instagram username, e.g. hospeda.com.ar>
+WHATSAPP_ACCOUNT_PHONE=<Hospeda WhatsApp number, digits with country code, e.g. 5493442123456>
 INSTAGRAM_APP_SECRET=<Meta app secret>
 INSTAGRAM_VERIFY_TOKEN=<random secret, minimum 32 characters; same value as the Meta webhook verify token>
 INSTAGRAM_ACCOUNT_ID=<Hospeda professional Instagram account id>
