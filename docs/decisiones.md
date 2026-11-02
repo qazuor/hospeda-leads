@@ -1,5 +1,13 @@
 # Decisiones estables del CRM
 
+## Recorrido comercial y catálogo de mensajes v3 — 02/11/2026
+
+- El negocio se registra y crea su propia ficha; la prueba de 30 días empieza al publicarla y la suscripción se elige al terminar. Ofrecer que Hospeda arme la ficha es un rescate: solo si el cliente dice que no entiende cómo hacerlo, luego de que se registre.
+- El primer contacto pide permiso con una pregunta sencilla y no adjunta material. La presentación se comparte en el mensaje posterior a un sí. La bienvenida no pide material.
+- Los mensajes llevan links reales del sitio (verificados el 02/11/2026): registro `/es/auth/signup/`, planes por rubro, presentación por rubro, preguntas frecuentes e Instagram. El primer mensaje por chat solo nombra el dominio `hospeda.com.ar`: un link largo desde un número desconocido parece spam.
+- El material de venta va dentro de «Envío de la información», resuelto por título al aplicar la migración 058: Alojamientos → «Presentacion Alojamientos», otros rubros → «Folleto», proveedores → «Presentacion a proveedores», aliados → «3 formas de estar en Hospeda». Si el material no existe o está archivado, el mensaje queda sin él.
+- La migración 036 ya está aplicada y no se reescribe: el generador ahora escribe `058_message_catalog_v3.sql`.
+
 ## Cuenta propia del user script — 01/11/2026
 
 - WhatsApp queda limitado a un único número fijo de Hospeda configurado con `WHATSAPP_ACCOUNT_PHONE`; se compara el número con la cuenta abierta en WhatsApp Web. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`. Si falta la variable, se conserva el comportamiento actual para no interrumpir producción antes de cargarla.

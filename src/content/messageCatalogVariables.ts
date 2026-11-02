@@ -59,8 +59,8 @@ const despedida = PERIODS.flatMap(period => [
 
 const presentacion = [
   ...pool("presentacion-email", { channel: "email" }, ["Mi nombre es {{sender}} y formo parte del equipo de {{que_es_hospeda}}.", "Soy {{sender}}, del equipo de {{que_es_hospeda}}.", "Mi nombre es {{sender}}, de {{que_es_hospeda}}."]),
-  ...pool("presentacion-whatsapp", { channel: "whatsapp" }, ["Soy {{sender_short}}, de Hospeda, la plataforma turística integral del Litoral.", "Soy {{sender_short}}, del equipo de Hospeda, la plataforma turística integral del Litoral.", "Mi nombre es {{sender_short}} y trabajo en Hospeda, la plataforma turística integral del Litoral."]),
-  ...pool("presentacion-social", { channel: "social" }, ["Soy {{sender_short}}, de Hospeda, la plataforma turística integral del Litoral.", "Acá {{sender_short}}, del equipo de Hospeda, la plataforma turística integral del Litoral.", "Mi nombre es {{sender_short}} y trabajo en Hospeda, la plataforma turística integral del Litoral."]),
+  ...pool("presentacion-whatsapp", { channel: "whatsapp" }, ["Soy {{sender_short}}, de Hospeda (hospeda.com.ar), una plataforma turística del Litoral que acaba de arrancar.", "Soy {{sender_short}}, del equipo de Hospeda (hospeda.com.ar), la nueva plataforma turística del Litoral.", "Mi nombre es {{sender_short}}, de Hospeda (hospeda.com.ar), una plataforma turística nueva del Litoral."]),
+  ...pool("presentacion-social", { channel: "social" }, ["Soy {{sender_short}}, de Hospeda (hospeda.com.ar), una plataforma turística del Litoral que acaba de arrancar.", "Acá {{sender_short}}, del equipo de Hospeda (hospeda.com.ar), la nueva plataforma turística del Litoral.", "Mi nombre es {{sender_short}}, de Hospeda (hospeda.com.ar), una plataforma turística nueva del Litoral."]),
 ];
 
 /** Short self-introduction for follow-ups (resume, news, care, operations): no description of Hospeda. */
@@ -71,9 +71,9 @@ const presentacionBreve = [
 ];
 
 const queEsHospeda = pool("que-es-hospeda", {}, [
-  "Hospeda, la plataforma turística integral del Litoral",
-  "Hospeda, una plataforma turística integral del Litoral que reúne alojamientos, gastronomía y experiencias",
-  "Hospeda, la plataforma turística integral del Litoral donde los viajeros planifican su visita",
+  "Hospeda, la nueva plataforma turística integral del Litoral",
+  "Hospeda, una plataforma turística del Litoral que recién arranca y reúne alojamientos, gastronomía y experiencias",
+  "Hospeda, una plataforma turística nueva del Litoral, pensada para que los viajeros planifiquen su visita",
 ]);
 
 /** Short local references that close a sentence ("...qué hacer en Colón, con sus playas..."), never the opening. Taken from the descriptions of the 22 destinations published by Hospeda. Other cities use the generic text. */
@@ -109,15 +109,15 @@ const refCiudad = [
 
 /** Honest stage of Hospeda for email: online, still early and with low traffic, adding supply so it becomes useful. */
 const etapaHospeda = pool("etapa-hospeda", {}, [
-  "Hospeda ya está en línea, pero recién arranca y el tráfico todavía es bajo. Por eso hoy el foco está en sumar alojamientos, gastronomía y experiencias: cuanto más completa esté la oferta, más útil va a ser para quien viaja.",
-  "La plataforma está en línea hace poco y todavía tiene pocas visitas. Estamos sumando a los negocios turísticos de la región para que a quien viaja le sirva de verdad y las visitas crezcan.",
-  "Estamos dando los primeros pasos: el sitio ya está en línea y estamos sumando la oferta turística de la zona. Mientras más negocios se sumen, más útil va a ser para quien viaja, y eso es lo que hace crecer las visitas.",
+  "Hospeda ya está en línea, pero recién arranca y el tráfico todavía es bajo. Por eso hoy el foco está en sumar alojamientos, gastronomía y experiencias: la meta es que en poco tiempo sea la referencia turística de la región, y los primeros negocios en sumarse son los que más se van a ver.",
+  "La plataforma está en línea hace poco y todavía tiene pocas visitas. Estamos sumando a los primeros negocios turísticos de la región, con la idea de que en breve Hospeda sea el lugar donde se planifica el viaje por el Litoral.",
+  "Estamos dando los primeros pasos: el sitio ya está en línea y estamos sumando la oferta turística de la zona. El objetivo es convertirnos pronto en la referencia de la región, y mientras más negocios se sumen, más rápido crecen las visitas.",
 ]);
 /** One-line version of the stage for WhatsApp and Instagram. */
 const etapaCorta = pool("etapa-corta", {}, [
-  "Estamos recién arrancando y sumando a los negocios de la zona.",
-  "Arrancamos hace poco y estamos sumando la oferta turística de la región.",
-  "Ya estamos en línea y estamos sumando a los negocios turísticos de la zona.",
+  "Estamos arrancando, y la idea es que en poco tiempo sea la referencia para quien viaja por la región.",
+  "Recién empezamos, con el objetivo de ser pronto la guía turística de referencia del Litoral.",
+  "Estamos sumando a los primeros negocios de la zona para ser pronto la referencia turística de la región.",
 ]);
 
 const ALOJAMIENTOS = ["Alojamientos"], GASTRONOMIA = ["Gastronomía"], EXPERIENCIAS = ["Experiencias", "Turismo rural"];
@@ -150,9 +150,25 @@ const pruebaGratis = pool("prueba", {}, ["los primeros 30 días son sin costo y 
 const pruebaCorta = pool("prueba-corta", {}, ["Hay 30 días de prueba sin costo.", "Se puede probar 30 días sin costo.", "La prueba es de 30 días, sin costo."]);
 
 /** Follows a bold "Nos ocupamos de la carga:" label, so it starts in lowercase. */
-const ayudaFicha = [
-  ...pool("ayuda-vos", { commercialProfiles: VOS }, ["nos pasás fotos y datos, armamos la ficha y vos solo creás la cuenta.", "con las fotos y los datos que nos mandes dejamos la ficha lista; solo hace falta que crees la cuenta.", "si querés, armamos la ficha con tu material y vos solo creás la cuenta."]),
-  ...pool("ayuda-ustedes", { commercialProfiles: USTEDES }, ["nos pasan fotos y datos, armamos la ficha y ustedes solo crean la cuenta.", "con las fotos y los datos que nos manden dejamos la ficha lista; solo hace falta que creen la cuenta.", "si quieren, armamos la ficha con su material y ustedes solo crean la cuenta."]),
+const ctaRegistro = [
+  ...pool("cta-registro-vos", { commercialProfiles: VOS }, ["Para sumarte, te registrás en {{link_registro}} y creás la ficha desde tu cuenta.", "El primer paso es registrarte en {{link_registro}} y crear la ficha desde tu cuenta."]),
+  ...pool("cta-registro-ustedes", { commercialProfiles: USTEDES }, ["Para sumarse, se registran en {{link_registro}} y crean la ficha desde su cuenta.", "El primer paso es registrarse en {{link_registro}} y crear la ficha desde su cuenta."]),
+];
+const ofrecerAyuda = [
+  ...pool("ofrecer-ayuda-vos", { commercialProfiles: VOS }, ["Si en algún paso te trabás, escribime y lo vemos.", "Cualquier duda en el camino, escribime por acá."]),
+  ...pool("ofrecer-ayuda-ustedes", { commercialProfiles: USTEDES }, ["Si en algún paso se traban, escríbanme y lo vemos.", "Cualquier duda en el camino, me escriben por acá."]),
+];
+const pasoFicha = [
+  ...pool("paso-ficha-vos", { commercialProfiles: VOS }, ["El siguiente paso es crear la ficha desde tu cuenta: la prueba de 30 días empieza cuando se publica."]),
+  ...pool("paso-ficha-ustedes", { commercialProfiles: USTEDES }, ["El siguiente paso es crear la ficha desde su cuenta: la prueba de 30 días empieza cuando se publica."]),
+];
+const ofertaArmado = [
+  ...pool("oferta-armado-vos", { commercialProfiles: VOS }, ["Tranqui, si te resulta más fácil, la ficha la armamos nosotros. Solo necesitás registrarte en {{link_registro}} y pasarnos por acá:"]),
+  ...pool("oferta-armado-ustedes", { commercialProfiles: USTEDES }, ["Tranquilos, si les resulta más fácil, la ficha la armamos nosotros. Solo necesitan registrarse en {{link_registro}} y pasarnos por acá:"]),
+];
+const preguntaCharla = [
+  ...pool("pregunta-charla-vos", { commercialProfiles: VOS }, ["¿Qué día te queda cómodo?", "¿Cuándo te viene bien?"]),
+  ...pool("pregunta-charla-ustedes", { commercialProfiles: USTEDES }, ["¿Qué día les queda cómodo?", "¿Cuándo les viene bien?"]),
 ];
 
 const temporada = [
@@ -162,6 +178,13 @@ const temporada = [
 ];
 
 const BASE = "https://hospeda.com.ar/es/presentacion";
+/** Plans or publishing page per rubro, verified on the public site (02/11/2026). */
+const linkPlanes = [
+  ...pool("planes-general", {}, ["https://hospeda.com.ar/es/suscriptores/planes/"]),
+  ...pool("planes-alojamientos", { verticals: ALOJAMIENTOS }, ["https://hospeda.com.ar/es/planes/anfitriones/"]),
+  ...pool("planes-gastronomia", { verticals: GASTRONOMIA }, ["https://hospeda.com.ar/es/publicar/comer-y-salir/"]),
+  ...pool("planes-experiencias", { verticals: EXPERIENCIAS }, ["https://hospeda.com.ar/es/publicar/experiencias/"]),
+];
 const linkPresentacion = [
   ...pool("link-general", {}, ["https://hospeda.com.ar"]),
   ...pool("link-alojamientos", { verticals: ALOJAMIENTOS }, [`${BASE}/alojamientos/`]),
@@ -183,13 +206,12 @@ const propuestaEditores = pool("editores", {}, [
 ]);
 
 const preguntaPresentacion = [
-  ...pool("pregunta-presentacion-vos", { commercialProfiles: VOS }, ["¿Te cuento cómo funciona?", "¿Te interesa que te pase más información?", "¿Te parece si lo charlamos un rato?"]),
-  ...pool("pregunta-presentacion-consolidado", { commercialProfiles: ["Consolidado"] }, ["¿Les interesa que les comparta más información?", "¿Les parece si lo charlamos un rato?", "¿Les cuento cómo funciona?"]),
-  ...pool("pregunta-presentacion-referente", { commercialProfiles: ["Referente"] }, ["¿Con quién podríamos coordinar una charla breve?", "¿Les parece si coordinamos una charla corta?"]),
+  ...pool("pregunta-presentacion-vos", { commercialProfiles: VOS }, ["¿Te cuento cómo funciona?", "¿Te interesa que te cuente un poco más?", "¿Te paso más información?"]),
+  ...pool("pregunta-presentacion-ustedes", { commercialProfiles: USTEDES }, ["¿Les cuento cómo funciona?", "¿Les interesa que les cuente un poco más?", "¿Les paso más información?"]),
 ];
 const preguntaRetomar = [
-  ...pool("pregunta-retomar-vos", { commercialProfiles: VOS }, ["¿Pudiste verlo? Si te sirve, lo charlamos cuando te quede cómodo.", "¿Querés que lo veamos juntos? Te cuento lo que necesites.", "¿Te parece si lo charlamos esta semana?"]),
-  ...pool("pregunta-retomar-ustedes", { commercialProfiles: USTEDES }, ["¿Pudieron verlo? Si les sirve, lo charlamos cuando les quede cómodo.", "¿Quieren que lo veamos juntos? Les cuento lo que necesiten.", "¿Les parece si lo charlamos esta semana?"]),
+  ...pool("pregunta-retomar-vos", { commercialProfiles: VOS }, ["¿Pudiste verlo? Si te sirve, lo charlamos cuando te quede cómodo.", "¿Querés que lo veamos juntos? Te cuento lo que necesites."]),
+  ...pool("pregunta-retomar-ustedes", { commercialProfiles: USTEDES }, ["¿Pudieron verlo? Si les sirve, lo charlamos cuando les quede cómodo.", "¿Quieren que lo veamos juntos? Les cuento lo que necesiten."]),
 ];
 
 /** Variables that read CRM or system data. `business_status` and `is_client` stay out: they are conditions, never printed. */
@@ -221,7 +243,14 @@ export const MESSAGE_CATALOG_VARIABLES: MessageVariableDefinition[] = [
   text("propuesta_corta", "Propuesta de valor (corta)", "Para WhatsApp e Instagram: la propuesta en una línea.", propuestaCorta),
   text("prueba_gratis", "Prueba gratis", "Los 30 días de prueba sin tarjeta (va después de «Para probarlo:»).", pruebaGratis),
   text("prueba_corta", "Prueba sin costo (corta)", "Para WhatsApp e Instagram: los 30 días de prueba en una línea.", pruebaCorta),
-  text("ayuda_ficha", "Ayuda con la ficha", "Ofrece armar la ficha con el material del negocio (va después de «Nos ocupamos de la carga:»).", ayudaFicha),
+  fixed("link_registro", "Registro en Hospeda", "Página de registro: el negocio crea su cuenta y desde ahí su ficha.", "https://hospeda.com.ar/es/auth/signup/"),
+  text("link_planes", "Planes por rubro", "Página de planes o de publicación del rubro del negocio.", linkPlanes),
+  fixed("link_faq", "Preguntas frecuentes", "Preguntas frecuentes de Hospeda.", "https://hospeda.com.ar/es/preguntas-frecuentes/"),
+  text("cta_registro", "Invitación a registrarse", "Indica que el negocio se registra y crea su ficha desde su propia cuenta.", ctaRegistro),
+  text("ofrecer_ayuda", "Ayuda durante el registro", "Ofrece acompañamiento si surge una duda durante el registro o la creación de la ficha.", ofrecerAyuda),
+  text("paso_ficha", "Siguiente paso: crear la ficha", "Explica el paso de creación propia y el inicio de la prueba al publicar.", pasoFicha),
+  text("oferta_armado", "Armado de ficha de rescate", "Oferta de armado sólo cuando el cliente explica que no entiende cómo hacerlo.", ofertaArmado),
+  text("pregunta_charla", "Pregunta para coordinar charla", "Pregunta breve para coordinar una charla sobre el programa de aliados.", preguntaCharla),
   text("temporada", "Temporada", "Referencia a la temporada según el mes; vacía el resto del año.", temporada),
   text("propuesta_aliados", "Propuesta para aliados", "Programa de aliados (Partners).", propuestaAliados),
   text("propuesta_proveedores", "Propuesta para proveedores", "Directorio de proveedores para anfitriones.", propuestaProveedores),

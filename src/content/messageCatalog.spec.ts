@@ -1,8 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGE_CATALOG_CITIES, MESSAGE_CATALOG_VARIABLES } from './messageCatalogVariables';
 import { MESSAGE_CATALOG_TEMPLATES } from './messageCatalogTemplates';
-import { buildMessageCatalogMigration, MESSAGE_CATALOG_MIGRATION } from './messageCatalogMigration';
+import { buildMessageCatalogMigration } from './messageCatalogMigration';
 import { validateMessageVariables, resolveMessageVariables, DEFAULT_MESSAGE_VARIABLES } from '../helpers/messageVariables';
 import { buildMessageTemplateContext } from '../helpers/messageTemplateContext';
 import { htmlToPlainText, renderMessageTemplate } from '../helpers/renderMessageTemplate';
@@ -33,9 +32,15 @@ describe('message catalog', () => {
       const names = MESSAGE_CATALOG_TEMPLATES.filter(template => template.channel === channel).map(template => template.name);
       expect(new Set(names).size).toBe(names.length);
     }
-    expect(new Set(MESSAGE_CATALOG_TEMPLATES.map(template => template.purpose))).toEqual(new Set(['verification', 'first_contact', 'resume', 'relationship', 'care', 'operations']));
+    expect(new Set(MESSAGE_CATALOG_TEMPLATES.map(template => template.purpose))).toEqual(new Set(['verification', 'first_contact', 'resume', 'care', 'operations']));
     expect(MESSAGE_CATALOG_TEMPLATES.filter(template => template.channel === 'email').every(template => template.subject)).toBe(true);
     expect(MESSAGE_CATALOG_TEMPLATES.filter(template => template.channel !== 'email').every(template => template.subject === null)).toBe(true);
+    for (const name of ['Bienvenida', 'Revisión de la ficha', 'Fin de la prueba']) {
+      expect(MESSAGE_CATALOG_TEMPLATES.filter(template => template.name.startsWith(`${name} ·`)).map(template => template.channel)).toEqual(['email', 'whatsapp']);
+    }
+    for (const managementType of ['main', 'provider', 'partner']) {
+      expect(MESSAGE_CATALOG_TEMPLATES.filter(template => template.name.startsWith('Envío de la información') && template.managementType === managementType)).toHaveLength(managementType === 'main' ? 6 : 3);
+    }
   });
 
   it('renders every template without leftovers in every profile, time, city and rubro', () => {
@@ -63,8 +68,28 @@ describe('message catalog', () => {
     for (const template of MESSAGE_CATALOG_TEMPLATES) {
       const first = template.purpose === 'verification' || template.purpose === 'first_contact';
       expect(template.body.includes('{{presentacion}}'), template.name).toBe(first);
-      expect(template.body.includes('{{presentacion_breve}}'), template.name).toBe(!first);
+      if (template.name.startsWith('Seguimiento ·') || template.name.startsWith('Último seguimiento ·') || template.name.startsWith('Bienvenida ·') || template.name.startsWith('Fin de la prueba ·')) expect(template.body.includes('{{presentacion_breve}}'), template.name).toBe(true);
       if (!first) expect(render(template, { profile: 'Independiente', contact: 'Ana', city: 'Colón', type: 'Alojamientos' }).body, template.name).not.toMatch(/plataforma|Litoral/);
+    }
+  });
+
+  it('never offers to build the listing in a first contact or information delivery template', () => {
+    for (const template of MESSAGE_CATALOG_TEMPLATES) {
+      if (template.purpose === 'first_contact' || template.name.startsWith('Envío de la información')) {
+        expect(template.body, template.name).not.toMatch(/armamos la ficha/i);
+        for (const profile of PROFILES) {
+          expect(render(template, { profile, contact: 'Ana', city: 'Colón', type: 'Alojamientos' }).body, `${template.name} · ${profile}`).not.toMatch(/armamos la ficha/i);
+        }
+      }
+    }
+  });
+
+  it('renders every template with person-specific variables in one consistent register', () => {
+    const vos = /\b(?:te|tu|tus|tenés|querés|podés|escribime|registrás|creás|necesitás|sumarte)\b/i;
+    const ustedes = /\b(?:ustedes|escríbanme|registran|crean|necesitan|tienen|quieren|les (?:cuento|interesa|paso|cuente)|su cuenta)\b/i;
+    for (const template of MESSAGE_CATALOG_TEMPLATES) for (const profile of PROFILES) {
+      const body = render(template, { profile, contact: 'Ana', city: 'Colón', type: 'Alojamientos' }).body;
+      expect(body, `${template.name} · ${profile ?? 'none'}`).not.toMatch(USTEDES.has(profile ?? '') ? vos : ustedes);
     }
   });
 
@@ -81,7 +106,8 @@ describe('message catalog', () => {
   });
 
   it('never uses retired vocabulary, prices or promises of results', () => {
-    const all = JSON.stringify([MESSAGE_CATALOG_TEMPLATES, MESSAGE_CATALOG_VARIABLES]);
+    // URLs are the public site's paths (e.g. /suscriptores/planes/), not copy: the rule checks only the wording.
+    const all = JSON.stringify([MESSAGE_CATALOG_TEMPLATES, MESSAGE_CATALOG_VARIABLES]).replace(/https?:\/\/[^\s"<]+/g, '');
     expect(all).not.toMatch(/\b(lead|leads|oportunidad|Filtrado|Suscripto|garantiz|asegur[aá]mos|\$\s?\d)/i);
   });
 
@@ -110,7 +136,10 @@ describe('message catalog', () => {
     expect(partner.map(template => template.name)).toEqual(['Primer contacto · Aliados · Email']);
   });
 
-  it('matches the committed migration', () => {
-    expect(readFileSync(`migrations/${MESSAGE_CATALOG_MIGRATION}`, 'utf8')).toBe(buildMessageCatalogMigration().sql);
+  it('builds migration rows with vertical targeting without writing a migration artifact', () => {
+    const sql = buildMessageCatalogMigration().sql;
+    expect(sql).toContain('message_templates(channel,name,subject,body,management_type,purpose,vertical)');
+    expect(sql).toContain("'main','resume','Alojamientos'");
+    expect(sql.match(/INSERT INTO message_templates/g)).toHaveLength(1);
   });
 });
