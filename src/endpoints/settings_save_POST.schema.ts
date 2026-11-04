@@ -15,6 +15,10 @@ export const schema=z.discriminatedUnion("action",[
   z.object({action:z.literal("saveUserSenderEmail"),userId:z.number().int().positive(),senderEmail:z.string().email().nullable()}),
   z.object({action:z.literal("inviteUser"),email:z.string().email()}),
   z.object({action:z.literal("resendUserInvite"),userId:z.number().int().positive()}),
+  z.object({action:z.literal("setUserRole"),userId:z.number().int().positive(),role:z.enum(["admin","user"])}),
+  z.object({action:z.literal("resetUserPassword"),userId:z.number().int().positive()}),
+  z.object({action:z.literal("deactivateUser"),userId:z.number().int().positive(),reassignToUserId:z.number().int().positive().optional()}),
+  z.object({action:z.literal("reactivateUser"),userId:z.number().int().positive()}),
   z.object({
     action:z.literal("updateUser"),
     userId:z.number().int().positive(),
@@ -22,6 +26,7 @@ export const schema=z.discriminatedUnion("action",[
     fullName:z.string().nullable().optional(),
     displayName:z.string().min(1),
     phone:z.string().nullable().optional(),
+    whatsappPhone:z.string().nullable().optional(),
     sex:z.union([sex,z.literal(""),z.null()]).optional(),
     senderEmail:nullableSender
   }),

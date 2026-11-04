@@ -308,8 +308,12 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const cityOptions=settings?.cities.map(x=>x.name)??filters.ciudades;
   const typeOptions=settings?.types??filters.tipos;
   const peopleOptions=settings?.authorizedEmails.map(x=>x.displayName||x.email)??filters.asignados;
-  const userOptions=settings?.users??[];
-  const responsibleLabel=(email:string|null|undefined)=>userOptions.find(user=>user.email===email)?.displayName||email||"";
+  const allUsers=settings?.users??[];
+  const userOptions=allUsers.filter(user=>!user.deactivatedAt);
+  const filterUserOptions=[...userOptions,...allUsers.filter(user=>!!user.deactivatedAt)];
+  const userOptionLabel=(user:typeof allUsers[number])=>(user.displayName||user.email)+(user.deactivatedAt?' (inactivo)':'');
+  const userLabels=allUsers;
+  const responsibleLabel=(email:string|null|undefined)=>userLabels.find(user=>user.email===email)?.displayName||email||"";
   const subtypeOptions=(settings?.subtypes??[]).filter(x=>!x.typeName||!form.tipo||x.typeName===form.tipo).map(x=>x.name);
   const allSubtypeOptions=Array.from(new Set((settings?.subtypes??[]).map(x=>x.name)));
   const templates=settings?.templates??[];
@@ -317,7 +321,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
   const filterFields:FilterFieldDefinition[]=[
     {key:"id",label:businessMode?"ID de entrada original":"ID",kind:"number"},
     {key:"nombre",label:"Nombre del negocio",kind:"text"},
-    {key:"assignedUserEmail",label:"Responsable",kind:"category",options:userOptions.map(user=>({value:user.email,label:user.displayName||user.email}))},
+    {key:"assignedUserEmail",label:"Responsable",kind:"category",options:filterUserOptions.map(user=>({value:user.email,label:userOptionLabel(user)}))},
     {key:"contactName",label:"Persona de contacto",kind:"text"},
     {key:"tipo",label:"Vertical",kind:"category",options:optionList(typeOptions)},
     {key:"subtipo",label:"Subtipo",kind:"category",options:optionList(allSubtypeOptions)},
@@ -376,7 +380,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     {key:"commercialProfile",label:"Perfil",category:"profile",options:asOptions(PROFILE_OPTIONS),value:commercialProfileFilter,setValue:setCommercialProfileFilter},
     {key:"estado",label:"Etapa",category:"status",options:FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)})),value:statusFilter,setValue:setStatusFilter},
     {key:"prioridad",label:"Prioridad",category:"priority",options:asOptions(PRIORITY_OPTIONS),value:priorityFilter,setValue:setPriorityFilter},
-    {key:"assignedUserEmail",label:"Responsable",category:"person",options:[...userOptions.map(user=>({value:user.email,label:user.displayName||user.email})),{value:"__EMPTY__",label:"Sin valor"}],value:assignedUserFilter,setValue:setAssignedUserFilter},
+    {key:"assignedUserEmail",label:"Responsable",category:"person",options:[...filterUserOptions.map(user=>({value:user.email,label:userOptionLabel(user)})),{value:"__EMPTY__",label:"Sin valor"}],value:assignedUserFilter,setValue:setAssignedUserFilter},
     {key:"suscripcion",label:"Suscripción",category:"generic",options:asOptions(filters.suscripciones),value:subscriptionFilter,setValue:setSubscriptionFilter},
     {key:"origen",label:"Origen",category:"generic",options:asOptions(filters.origenes),value:originFilter,setValue:setOriginFilter},
     {key:"quienCargo",label:"Quién cargó",category:"person",options:asOptions(filters.quienesCargaron),value:loadedByFilter,setValue:setLoadedByFilter},
@@ -655,7 +659,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
     if(key==="assignedUserEmail"){
       const label=responsibleLabel(l.assignedUserEmail)||l.asignadoA||"";
       return isAdmin
-        ? <UserBadgeSelect className={styles.inlineBadgeSelect} value={l.assignedUserEmail??""} users={userOptions} placeholder="Asignar responsable" assignWhenEmpty onChange={v=>quick(l.id,"assignedUserEmail",v)}/>
+        ? <UserBadgeSelect className={styles.inlineBadgeSelect} value={l.assignedUserEmail??""} users={allUsers} selectableUsers={userOptions} placeholder="Asignar responsable" assignWhenEmpty onChange={v=>quick(l.id,"assignedUserEmail",v)}/>
         : label?<ValueBadge value={label} category="person"/>:"—";
     }
     if(key==="medioContactoPreferido")return <BadgeSelect disabled={l.canModify===false} className={styles.inlineBadgeSelect} value={l.medioContactoPreferido??""} options={CONTACT_OPTIONS} category="contact" placeholder="Asignar medio" assignWhenEmpty onChange={v=>quick(l.id,"medioContactoPreferido",v)}/>;
@@ -692,7 +696,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
           <Button variant="outline" onClick={()=>setFilterDialogOpen(true)} className={styles.filterButton}>
             <Filter size={15}/>Filtrar{appliedRuleCount>0&&<span className={styles.filterButtonCount}>{appliedRuleCount}</span>}
           </Button>
-          {!businessMode&&<ManagementQuickFilters className={styles.quickFilters} groups={appliedFilterGroups} stages={FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))} users={userOptions} currentUser={!!currentUser} onChange={groups=>{setAppliedFilterGroups(groups);setActiveQuick('custom');resetPage()}}/>}
+          {!businessMode&&<ManagementQuickFilters className={styles.quickFilters} groups={appliedFilterGroups} stages={FILTER_STATUS_OPTIONS.map(value=>({value,label:statusOptionLabel(value)}))} users={filterUserOptions.map(user=>({...user,displayName:userOptionLabel(user)}))} currentUser={!!currentUser} onChange={groups=>{setAppliedFilterGroups(groups);setActiveQuick('custom');resetPage()}}/>}
           {businessMode&&<><Button variant="outline" aria-pressed={advancedTable} onClick={()=>setAdvancedTable(v=>!v)}>{advancedTable?'Vista simple':'Vista avanzada'}</Button><HelpLink topic="businesses" hint="advancedView"/></>}{(businessMode?advancedTable:!pipelineView)&&<><ColumnPicker columns={tableColumns} visible={visibleColumns} onChange={setVisibleColumns}/></>}
         </div>
       </section>
@@ -852,7 +856,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
               <div className={styles.editGrid}>
                 <label className={styles.editField}><span>Quién cargó</span><BadgeSelect className={styles.editBadgeSelect} value={str(form.quienCargo)} options={peopleOptions} category="person" onChange={v=>set("quienCargo",v)} placeholder="Seleccionar persona…"/></label>
                 <label className={styles.editField}><span>Responsable</span>{isAdmin
-                  ? <UserBadgeSelect className={styles.editBadgeSelect} value={str(form.assignedUserEmail)} users={userOptions} onChange={v=>set("assignedUserEmail",v)} placeholder="Seleccionar responsable…"/>
+                  ? <UserBadgeSelect className={styles.editBadgeSelect} value={str(form.assignedUserEmail)} users={allUsers} selectableUsers={userOptions} onChange={v=>set("assignedUserEmail",v)} placeholder="Seleccionar responsable…"/>
                   : <div className={styles.readOnlyResponsible}>{form.assignedUserEmail
                       ? <ValueBadge value={responsibleLabel(form.assignedUserEmail)} category="person"/>
                       : <span>Sin asignar</span>}<small>Solo un administrador puede modificarlo</small></div>
@@ -916,7 +920,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
         <Input value={savedViewName} onChange={e=>setSavedViewName(e.target.value)} placeholder="Ej: Alojamientos de Colón sin contactar" autoFocus/>
         <DialogFooter><Button variant="outline" onClick={()=>setSaveViewOpen(false)}>Cancelar</Button><Button onClick={saveCurrentView} disabled={!savedViewName.trim()} disabledReason={"Escribí un nombre para habilitar esta acción."}>Guardar vista</Button></DialogFooter>
       </DialogContent></Dialog>
-      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userOptions} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
+      <LeadDetailDialog open={viewOpen} onOpenChange={setViewOpen} lead={selectedLead} users={userLabels} onEdit={editLead} onDelete={lead=>requestDelete(lead.id,lead.nombre)} position={selectedIndex>=0?{current:selectedIndex+1,total:leads.length}:undefined} onPrevious={selectedIndex>0?()=>moveView(-1):undefined} onNext={selectedIndex>=0&&selectedIndex<leads.length-1?()=>moveView(1):undefined}/>
       {legacyGuard.confirmation}
       {businessEditor&&<CommercialEditor target={{kind:"account",item:businessEditor.item}} onClose={()=>setBusinessEditor(null)} onSaved={id=>navigate("/accounts/"+id)}/>}
       {startingOpportunity&&<OpportunityStart onClose={()=>setStartingOpportunity(false)} onCreated={id=>navigate("/sales/"+id,{state:{from:"opportunities"}})}/>}

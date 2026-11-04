@@ -1,3 +1,4 @@
+import {assertActiveAssignee} from '../helpers/activeAssignee';
 import superjson from 'superjson';
 import {z} from 'zod';
 import {sql} from 'kysely';
@@ -13,7 +14,7 @@ async function loadPlan(executor:Kysely<DB>|Transaction<DB>,lock=false){
  const selected=['id','status','assignedUserEmail','deletedAt','archivedAt','mergedIntoId'] as const;
  const [accounts,users]=await Promise.all([
   lock?executor.selectFrom('crmAccounts').select(selected).where('mergedIntoId','is',null).orderBy('id').forUpdate().execute():executor.selectFrom('crmAccounts').select(selected).where('mergedIntoId','is',null).orderBy('id').execute(),
-  executor.selectFrom('users').select(['email','displayName']).where('role','=','user').orderBy('displayName').orderBy('email').execute()
+  executor.selectFrom('users').select(['email','displayName']).where('role','=','user').where('deactivatedAt','is',null).orderBy('displayName').orderBy('email').execute()
  ]);
  return createBusinessReassignmentPlan(users,accounts.map(account=>({...account,id:String(account.id),mergedIntoId:account.mergedIntoId===null?null:String(account.mergedIntoId)})) as ReassignmentAccount[]);
 }
@@ -40,6 +41,7 @@ export async function post(request:Request){
    const plan=await loadPlan(trx,true);
    if(plan.fingerprint!==input.fingerprint)throw new Error('Los datos cambiaron desde la vista previa. Actualizala y revisá el nuevo reparto.');
    if(!plan.moves.length)return {ok:true,moved:0,plan};
+   for(const recipient of new Set(plan.moves.map(move=>move.toEmail)))await assertActiveAssignee(trx,{next:recipient,previous:null});
    const byId=new Map(plan.moves.map(move=>[move.accountId,move.toEmail]));
    const ids=[...byId.keys()];
    for(let offset=0;offset<ids.length;offset+=250){

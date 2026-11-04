@@ -1,3 +1,4 @@
+import {assertActiveAssignee} from '../helpers/activeAssignee';
 import {CrmForbidden,assertLeadAccess,assertBusinessAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
 import superjson from "superjson";
@@ -80,6 +81,7 @@ export async function handle(request: Request) {
         updatedAt: new Date(),
       };
 
+      await assertActiveAssignee(trx,{next:values.assignedUserEmail,previous:existing?.assignedUserEmail});
       if(input.scope==="opportunity"&&existing){
         Object.assign(values,Object.fromEntries(["nombre","ciudad","telefono","email","sitioWeb","urlGmap","perfilInstagram","perfilFacebook","perfilAirbnb","perfilBooking","perfilTurismoEntreRios","contactName"].map(key=>[key,existing[key as keyof typeof existing]])));
       }

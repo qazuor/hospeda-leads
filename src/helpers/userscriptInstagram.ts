@@ -31,7 +31,7 @@ export type InstagramThreadProof=z.infer<typeof instagramThreadInput>['proof'];
 
 /** Decision 12.7: the Hospeda Instagram username from `INSTAGRAM_ACCOUNT_USERNAME`, normalized; null when unset or invalid (learning and pasting stay off). */
 export function instagramAccountUsername(env:Readonly<Record<string,string|undefined>>=process.env):string|null{return normalizeInstagramUsername(env.INSTAGRAM_ACCOUNT_USERNAME);}
-/** The one Hospeda WhatsApp line from `WHATSAPP_ACCOUNT_PHONE`, stored as digits only. */
+/** The legacy fallback WhatsApp line from `WHATSAPP_ACCOUNT_PHONE`, stored as digits only. */
 export function whatsappAccountPhone(env:Readonly<Record<string,string|undefined>>=process.env):string|null{const digits=phoneDigits({phone:env.WHATSAPP_ACCOUNT_PHONE});return digits.length>=8?digits:null;}
 
 /** The `instagram` query of `context`: a username in any accepted spelling (`@x`, profile URL), normalized; null when invalid. */

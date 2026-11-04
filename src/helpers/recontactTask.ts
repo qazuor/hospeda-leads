@@ -2,6 +2,7 @@ import type {Kysely,Transaction} from 'kysely';
 import type {DB} from './schema';
 import {calendarDay,localDay} from './workDates';
 import {formatDate} from './crmDates';
+import {activeAssigneeOrNull} from './activeAssignee';
 
 /** Title of the task that a business "Recontactar" date schedules (owner decision 7A). */
 export const RECONTACT_TASK_TITLE='Volver a contactar';
@@ -77,10 +78,11 @@ export async function syncRecontactTask(trx:Db,{account,previous,status,recontac
  const managed=previousDay?await untouchedTask(trx,accountId,account.assignedUserEmail,previousDay,'management'):undefined;
  if(managed){
   if(untouched)await cancel(trx,untouched.id,'management');
-  if(previousDay!==recontactDay)await trx.updateTable('crmTasks').set({dueDate:recontactDay as never,updatedAt:new Date()}).where('id','=',managed.id).execute();
+  const managementAssignee=await activeAssigneeOrNull(trx,managed.assignedUserEmail);
+  if(previousDay!==recontactDay||managed.assignedUserEmail!==managementAssignee)await trx.updateTable('crmTasks').set({dueDate:recontactDay as never,assignedUserEmail:managementAssignee,updatedAt:new Date()}).where('id','=',managed.id).execute();
   return {id:String(managed.id),dueDate:recontactDay,action:previousDay===recontactDay?'kept':'moved',title:MANAGEMENT_RECONTACT_TASK_TITLE};
  }
- const assignee=account.assignedUserEmail??actorEmail;
+ const assignee=(await activeAssigneeOrNull(trx,account.assignedUserEmail))??(await activeAssigneeOrNull(trx,actorEmail));
  const same=await trx.selectFrom('crmTasks').select('id').where('accountId','=',accountId).where('leadId','is',null).where('title','=',RECONTACT_TASK_TITLE)
   .where('purpose','=','reactivation').where('status','=','pending').where('deletedAt','is',null).where('dueDate','=',recontactDay as never).$if(!!account.assignedUserEmail,qb=>qb.where('assignedUserEmail','=',assignee)).orderBy('id','asc').executeTakeFirst();
  if(same){// Idempotent: this feature's task already exists on that day.

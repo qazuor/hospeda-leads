@@ -14,7 +14,7 @@ export function resourceMetadata(c:Config){return {resource:c.resource,authoriza
 async function sign(c:Config,data:Record<string,unknown>,seconds:number){return new SignJWT(data).setProtectedHeader({alg:'HS256'}).setIssuer(c.origin).setAudience(c.resource).setIssuedAt().setExpirationTime(Math.floor(Date.now()/1000)+seconds).sign(new TextEncoder().encode(c.tokenSecret));}
 async function verify(c:Config,token:string){return (await jwtVerify(token,new TextEncoder().encode(c.tokenSecret),{issuer:c.origin,audience:c.resource,algorithms:['HS256']})).payload;}
 async function admin(id:number){
- const user=await db.selectFrom('users').innerJoin('authorizedEmails','users.email','authorizedEmails.email').select('users.id').where('users.id','=',id).where('users.role','=','admin').where('authorizedEmails.active','=',true).executeTakeFirst();
+ const user=await db.selectFrom('users').innerJoin('authorizedEmails','users.email','authorizedEmails.email').select('users.id').where('users.id','=',id).where('users.role','=','admin').where('users.deactivatedAt','is',null).where('authorizedEmails.active','=',true).executeTakeFirst();
  if(!user)throw new Error('Admin authorization revoked');
 }
 export async function access(c:Config,token:string){const p=await verify(c,token);if(p.kind!=='access'||p.scope!==scope||!Number.isSafeInteger(p.userId))throw new Error('Invalid token');await admin(p.userId as number);return p.userId as number;}
@@ -65,7 +65,7 @@ export async function token(c:Config,request:Request){
    if(!row)return json({error:'invalid_grant'},400);
    if(kind==='code'&&(p.get('redirect_uri')!==row.redirectUri||!/^[-._~a-zA-Z0-9]{43,128}$/.test(p.get('code_verifier')??'')||hash(p.get('code_verifier')!)!==row.challenge))return json({error:'invalid_grant'},400);
    // Recheck live role and allowlist during every exchange and every MCP request.
-   const allowed=await tx.selectFrom('users').innerJoin('authorizedEmails','users.email','authorizedEmails.email').select('users.id').where('users.id','=',row.userId).where('users.role','=','admin').where('authorizedEmails.active','=',true).executeTakeFirst();
+   const allowed=await tx.selectFrom('users').innerJoin('authorizedEmails','users.email','authorizedEmails.email').select('users.id').where('users.id','=',row.userId).where('users.role','=','admin').where('users.deactivatedAt','is',null).where('authorizedEmails.active','=',true).executeTakeFirst();
    if(!allowed)return json({error:'invalid_grant'},400);
    await sql`DELETE FROM crm_mcp_credentials WHERE hash=${hash(credential)}`.execute(tx);
    const accessToken=await sign(c,{kind:'access',userId:row.userId,scope},3600);

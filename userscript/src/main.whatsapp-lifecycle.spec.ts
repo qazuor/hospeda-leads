@@ -43,7 +43,7 @@ describe("WhatsApp account lifecycle boot", () => {
 
   it("boot mismatch shows only the account notice and leaves only the account monitor", async () => {
     api.fetchStatus.mockResolvedValue(success("+5491111111111")); await boot();
-    expect(visibleText()).toBe("Este WhatsApp no es el de Hospeda: el script está apagado.");
+    expect(visibleText()).toBe("Este WhatsApp no es el número asignado a tu usuario: el script está apagado.");
     expect(allApi().filter(fn => fn !== api.fetchStatus).every(fn => !(fn as ReturnType<typeof vi.fn>).mock.calls.length)).toBe(true);
     expect(activeIntervals.size).toBe(1);
   });
@@ -60,7 +60,7 @@ describe("WhatsApp account lifecycle boot", () => {
     document.getElementById("hospeda-userscript-banner")?.remove(); const chatPanel = document.createElement("div"); chatPanel.id = "hospeda-userscript-banner"; document.body.append(chatPanel);
     const before = allApi().map(fn => (fn as ReturnType<typeof vi.fn>).mock.calls.length);
     storage.setItem("last-wid-md", JSON.stringify("5491111111111:12@c.us")); window.dispatchEvent(new StorageEvent("storage", { key: "last-wid-md" })); await flush();
-    expect(visibleText()).toBe("Este WhatsApp no es el de Hospeda: el script está apagado.");
+    expect(visibleText()).toBe("Este WhatsApp no es el número asignado a tu usuario: el script está apagado.");
     const after = allApi().map(fn => (fn as ReturnType<typeof vi.fn>).mock.calls.length); expect(after).toEqual(before);
   });
 

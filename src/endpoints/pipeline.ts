@@ -1,4 +1,5 @@
 import {MANAGEMENT_RECONTACT_TASK_TITLE,managementRecontactOwner,cancelRecontactTaskFor,cancelUntouchedRecontactTask,reassignRecontactTask,syncRecontactTask} from '../helpers/recontactTask';
+import {activeAssigneeOrNull,assertActiveAssignee} from '../helpers/activeAssignee';
 import {CrmForbidden,assertLeadAccess,canModifyManagement} from '../helpers/crmPermissions';
 import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {parseBody} from '../helpers/parseBody';
@@ -154,12 +155,13 @@ export async function post(request:Request){
     if(typedDnc&&p.recontactDate)throw new Error('Un negocio marcado para no contactar se archiva y no se programa recontacto.');
     if(referral){
      if(stateAccount.referredToLeandro)throw new Error('Este negocio ya está derivado a Leandro.');
-     const leandro=(await sql<{email:string}>`SELECT email FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro'`.execute(trx)).rows;
+     const leandro=(await sql<{email:string;deactivatedAt:Date|null}>`SELECT email,deactivated_at AS "deactivatedAt" FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro'`.execute(trx)).rows;
      if(leandro.length!==1)throw new Error('No se encontró un único usuario Leandro. Revisá el nombre visible del usuario en Configuración.');
+     const referralOwner=leandro[0]!.deactivatedAt?null:leandro[0]!.email;
      await sql`SELECT set_config('crm.refer_management','true',true)`.execute(trx);
-     await sql`UPDATE leads SET referred_previous_stage=estado,referred_previous_assigned_user_email=assigned_user_email,assigned_user_email=${leandro[0].email},estado=${p.stage},updated_at=now() WHERE id=${lead.id}`.execute(trx);
-     await sql`UPDATE crm_accounts SET referred_to_leandro=true,referred_original_owner_email=assigned_user_email,assigned_user_email=${leandro[0].email},updated_at=now() WHERE id=${account.id}`.execute(trx);
-     await reassignRecontactTask(trx,{accountId:account.id,fromEmail:account.assignedUserEmail,toEmail:leandro[0].email});
+     await sql`UPDATE leads SET referred_previous_stage=estado,referred_previous_assigned_user_email=assigned_user_email,assigned_user_email=${referralOwner},estado=${p.stage},updated_at=now() WHERE id=${lead.id}`.execute(trx);
+     await sql`UPDATE crm_accounts SET referred_to_leandro=true,referred_original_owner_email=assigned_user_email,assigned_user_email=${referralOwner},updated_at=now() WHERE id=${account.id}`.execute(trx);
+     await reassignRecontactTask(trx,{accountId:account.id,fromEmail:account.assignedUserEmail,toEmail:referralOwner});
      await sql`SELECT set_config('crm.refer_management','false',true)`.execute(trx);
     }else{
      if(typedDnc&&p.closeOtherOpen){
@@ -189,7 +191,8 @@ export async function post(request:Request){
      const remaining=(await sql<{n:string}>`SELECT count(*) n FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.account_id=${account.id} AND l.deleted_at IS NULL AND s.classification='open'`.execute(trx)).rows[0];
      if(p.recontactDate&&!typedDnc){
       // Owner decision 21/10: the recontact reminder belongs to the business responsible; without one, to the management assignee, then the actor.
-      const owner=managementRecontactOwner({accountOwner:account.assignedUserEmail,managementOwner:lead.assignedUserEmail,actorEmail:user.email});
+      const ownerCandidate=managementRecontactOwner({accountOwner:account.assignedUserEmail,managementOwner:lead.assignedUserEmail,actorEmail:user.email});
+      const owner=await activeAssigneeOrNull(trx,ownerCandidate);
       const task=await trx.insertInto('crmTasks').values({accountId:account.id,leadId:lead.id,title:MANAGEMENT_RECONTACT_TASK_TITLE,description:p.comment||null,typeId:'followup',purpose:'reactivation',assignedUserEmail:owner,dueDate:p.recontactDate,priority:lead.prioridad??'media'}).returning('id').executeTakeFirstOrThrow();
       await sql`UPDATE crm_pipeline_events SET task_id=${task.id} WHERE id=(SELECT id FROM crm_pipeline_events WHERE lead_id=${lead.id} AND action='stage' ORDER BY id DESC LIMIT 1)`.execute(trx);
      }
@@ -214,8 +217,9 @@ export async function post(request:Request){
     if(p.onboarding){
      const winsAsClient=!!typed&&chosen.classification==='won'&&((typed==='main'||typed==='partner')||(typed==='editor'&&chosen.outcomeKey==='proposal_won'&&p.convertClient));
      if(!stateAccount.isClient&&!p.convertClient&&!winsAsClient)throw new Error('El acompañamiento requiere que el negocio sea Cliente.');
-     const care=(await sql<{id:string}>`INSERT INTO leads(account_id,nombre,opportunity_name,tipo,subtipo,estado,assigned_user_email,management_type) VALUES(${account.id},${account.nombre},'Acompañamiento de ficha',${lead.tipo},${lead.subtipo},'accompaniment:pending',${lead.assignedUserEmail??account.assignedUserEmail??user.email},'accompaniment') RETURNING id`.execute(trx)).rows[0];
-     await trx.insertInto('crmTasks').values({accountId:account.id,leadId:care.id,typeId:'followup',purpose:'care',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:lead.assignedUserEmail??account.assignedUserEmail??user.email}).execute();
+     const careOwner=await activeAssigneeOrNull(trx,lead.assignedUserEmail??account.assignedUserEmail??user.email);
+     const care=(await sql<{id:string}>`INSERT INTO leads(account_id,nombre,opportunity_name,tipo,subtipo,estado,assigned_user_email,management_type) VALUES(${account.id},${account.nombre},'Acompañamiento de ficha',${lead.tipo},${lead.subtipo},'accompaniment:pending',${careOwner},'accompaniment') RETURNING id`.execute(trx)).rows[0];
+     await trx.insertInto('crmTasks').values({accountId:account.id,leadId:care.id,typeId:'followup',purpose:'care',title:p.onboarding.title,dueDate:p.onboarding.dueDate,assignedUserEmail:careOwner}).execute();
     }
     return lead.id;
    }
@@ -224,12 +228,14 @@ export async function post(request:Request){
     if(user.role!=='admin')throw new Forbidden('Solo un administrador puede desactivar la derivación a Leandro.');
     if(lead.pipelineRevision!==p.revision)throw new Conflict('La gestión cambió. Volvé a abrirla antes de desactivar la derivación.');
     if(!typedLead.managementType||!stateAccount.referredToLeandro||!typedLead.referredPreviousStage)throw new Error('La gestión no tiene una derivación activa.');
-    const restoredAccountOwner=p.assignedUserEmail===undefined?stateAccount.referredOriginalOwnerEmail:p.assignedUserEmail;
+    if(p.assignedUserEmail!==undefined)await assertActiveAssignee(trx,{next:p.assignedUserEmail,previous:stateAccount.referredOriginalOwnerEmail});
+    const restoredAccountOwner=await activeAssigneeOrNull(trx,p.assignedUserEmail===undefined?stateAccount.referredOriginalOwnerEmail:p.assignedUserEmail);
+    const restoredManagementOwner=await activeAssigneeOrNull(trx,typedLead.referredPreviousAssignedUserEmail);
     if(restoredAccountOwner)await trx.selectFrom('users').select('email').where('email','=',restoredAccountOwner).executeTakeFirstOrThrow();
     const restoredStage=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${typedLead.referredPreviousStage} AND management_type=${typedLead.managementType} AND active AND classification='open'`.execute(trx)).rows[0];
     if(!restoredStage)throw new Error('La etapa previa ya no está disponible.');
     await sql`SELECT set_config('crm.unrefer_management','true',true)`.execute(trx);
-    await sql`UPDATE leads SET estado=${restoredStage.name},assigned_user_email=${typedLead.referredPreviousAssignedUserEmail},referred_previous_stage=NULL,referred_previous_assigned_user_email=NULL,updated_at=now() WHERE id=${lead.id}`.execute(trx);
+    await sql`UPDATE leads SET estado=${restoredStage.name},assigned_user_email=${restoredManagementOwner},referred_previous_stage=NULL,referred_previous_assigned_user_email=NULL,updated_at=now() WHERE id=${lead.id}`.execute(trx);
     await sql`SELECT set_config('crm.unrefer_management','false',true)`.execute(trx);
     await sql`UPDATE crm_accounts SET referred_to_leandro=false,referred_original_owner_email=NULL,assigned_user_email=${restoredAccountOwner},updated_at=now() WHERE id=${account.id}`.execute(trx);
     await reassignRecontactTask(trx,{accountId:account.id,fromEmail:account.assignedUserEmail,toEmail:restoredAccountOwner});
@@ -243,6 +249,7 @@ export async function post(request:Request){
    if(!event||latest?.id!==event.id||stage?.classification!=='lost')throw new Conflict('Este cierre ya no es el actual.');
    if(event.taskId||event.relatedLeadId)throw new Conflict('Este cierre ya generó seguimiento.');
    if(p.mode==='reopen'&&!mayReopenManagement(user.role))throw new Forbidden('Solo un administrador puede reabrir una gestión cerrada.');
+   const reactivationOwner=await activeAssigneeOrNull(trx,lead.assignedUserEmail);
    let target=lead;
    if(p.mode!=='followup'){
     if(!p.stage)throw new Error('Elegí una etapa abierta.');
@@ -250,10 +257,11 @@ export async function post(request:Request){
     if(p.mode==='reopen')target=await trx.updateTable('leads').set({estado:p.stage,updatedAt:new Date()}).where('id','=',lead.id).returningAll().executeTakeFirstOrThrow();
     else{
      if(!p.opportunityName)throw new Error('Dale un nombre a la nueva gestión.');
-     target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,primaryContactId:lead.primaryContactId,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:lead.assignedUserEmail,estado:p.stage,managementType:typedLead.managementType,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
+     target=await trx.insertInto('leads').values({accountId:lead.accountId,nombre:lead.nombre,opportunityName:p.opportunityName,primaryContactId:lead.primaryContactId,tipo:lead.tipo,subtipo:lead.subtipo,commercialProfile:lead.commercialProfile,assignedUserEmail:reactivationOwner,estado:p.stage,managementType:typedLead.managementType,reactivatedFromId:lead.id}).returningAll().executeTakeFirstOrThrow();
     }
    }
-   const task=await trx.insertInto('crmTasks').values({accountId:lead.accountId,leadId:target.id,title:p.title,purpose:'reactivation',typeId:'followup',assignedUserEmail:lead.assignedUserEmail,dueDate:p.dueDate,priority:lead.prioridad??'media',description:`Retomar cierre #${event.id}: ${event.comment??''}`}).returning('id').executeTakeFirstOrThrow();
+   if(p.mode==='reopen'&&target.assignedUserEmail!==reactivationOwner)await trx.updateTable('leads').set({assignedUserEmail:reactivationOwner,updatedAt:new Date()}).where('id','=',target.id).execute();
+   const task=await trx.insertInto('crmTasks').values({accountId:lead.accountId,leadId:target.id,title:p.title,purpose:'reactivation',typeId:'followup',assignedUserEmail:reactivationOwner,dueDate:p.dueDate,priority:lead.prioridad??'media',description:`Retomar cierre #${event.id}: ${event.comment??''}`}).returning('id').executeTakeFirstOrThrow();
    await sql`UPDATE crm_pipeline_events SET task_id=${task.id},related_lead_id=${target.id} WHERE id=${event.id}`.execute(trx);
    await log(trx,lead.accountId,lead.id,'reactivation',{mode:p.mode,eventId:event.id,taskId:task.id,relatedLeadId:target.id});return target.id;
   });return reply({id});

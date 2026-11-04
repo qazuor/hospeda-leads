@@ -1,3 +1,4 @@
+import {assertActiveAssignee} from '../helpers/activeAssignee';
 import {inlineBadgeFields,isInlineBadgeField} from '../helpers/inlineBadgeFields';
 import {CrmForbidden,assertLeadAccess,assertBusinessAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
@@ -33,6 +34,7 @@ export async function handle(request: Request) {
       if(input.scope==='management'){
         if(!input.accountId||!isInlineBadgeField(input.field)||inlineBadgeFields[input.field].scope!=='management')throw new Error('Elegí un dato de la gestión.');
         const old=await assertLeadAccess(trx,String(input.id),user,true);
+        if(input.field==='assignedUserEmail')await assertActiveAssignee(trx,{next:input.value,previous:old.assignedUserEmail});
         if(String(old.accountId)!==input.accountId)throw new Error('La gestión no pertenece a este negocio.');
         const current=old[input.field as 'commercialProfile'|'medioContactoPreferido'|'origen'|'quienCargo'|'creadoPor'];
         if(input.expectedValue!==undefined&&current!==input.expectedValue&&current!==input.value)throw new InlineConflict('Este dato cambió mientras lo editabas. Recargá los datos y revisá el nuevo valor.');
@@ -44,6 +46,10 @@ export async function handle(request: Request) {
       }
       if(input.scope==='business'&&(!input.accountId||!isInlineBadgeField(input.field)||inlineBadgeFields[input.field].scope!=='business'))throw new Error('Elegí un dato del negocio.');
       if(input.accountId){
+        if(input.field==='assignedUserEmail'){
+          const old=await trx.selectFrom('crmAccounts').select('assignedUserEmail').where('id','=',input.accountId).forUpdate().executeTakeFirstOrThrow();
+          await assertActiveAssignee(trx,{next:input.value,previous:old.assignedUserEmail});
+        }
         const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:input.field==="tipo"?{tipo:input.value,subtipo:null}:input.field==="subtipo"?{subtipo:input.value}:{};
         if(Object.keys(fields).length&&(input.expectedValue!==undefined||input.field==="tipo"||input.field==="subtipo")){
           const account=await assertBusinessAccess(trx,input.accountId,user,true);

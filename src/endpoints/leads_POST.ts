@@ -1,3 +1,4 @@
+import {assertActiveAssignee} from '../helpers/activeAssignee';
 import {CrmForbidden,assertLeadAccess,assertBusinessAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
 import { db } from "../helpers/db";
@@ -24,11 +25,12 @@ export async function handle(request:Request){
       if(x.asignadoA!==undefined){
         responsible=null;
         if(x.asignadoA){
-          const candidates=await trx.selectFrom("users").select("email").where(eb=>eb.or([eb("email","=",x.asignadoA!),eb("displayName","=",x.asignadoA!)])).execute();
+          const candidates=await trx.selectFrom("users").select("email").where("deactivatedAt","is",null).where(eb=>eb.or([eb("email","=",x.asignadoA!),eb("displayName","=",x.asignadoA!)])).execute();
           if(candidates.length!==1)throw new Error("Responsable ambiguo o no registrado. Usá la edición actual del lead.");
           responsible=candidates[0].email;
         }
       }
+      await assertActiveAssignee(trx,{next:responsible,previous:existing?.assignedUserEmail});
       const data={nombre:x.nombre,tipo:x.tipo??null,subtipo:x.subtipo??null,ciudad:x.ciudad??null,estado:x.estado??null,email:x.email??null,telefono:x.telefono??null,origen:x.origen??null,prioridad:x.prioridad??null,assignedUserEmail:responsible,...(x.asignadoA!==undefined?{asignadoA:null}:{}),fechaProximaAccion:x.fechaProximaAccion?new Date(x.fechaProximaAccion):null,notas:x.notas??null,updatedAt:new Date()};
       const row=existing?await trx.updateTable("leads").set(data).where("id","=",x.id!).returningAll().executeTakeFirstOrThrow():null;
       if(!row)throw new Error("Gestión no encontrada");

@@ -10,7 +10,7 @@
 
 ## Cuenta propia del user script — 01/11/2026
 
-- WhatsApp queda limitado a un único número fijo de Hospeda configurado con `WHATSAPP_ACCOUNT_PHONE`; se compara el número con la cuenta abierta en WhatsApp Web. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`. Si falta la variable, se conserva el comportamiento actual para no interrumpir producción antes de cargarla.
+- WhatsApp compara la cuenta abierta en WhatsApp Web con el número asignado al usuario del CRM; si ese usuario no tiene línea configurada, usa `WHATSAPP_ACCOUNT_PHONE` como fallback global. Si ambos faltan, se conserva el comportamiento actual. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`.
 
 Estas decisiones provienen del propietario y del comportamiento revisado. Cambiarlas requiere tratar el cambio como funcional, no esconderlo en una corrección estética. El estado de implementación y los pendientes están en documentos separados.
 
@@ -455,3 +455,7 @@ Las decisiones A1–A5 las aprobó el propietario. D1–D8 son las recomendacion
   - Una pestaña con nombre fijo no sirve: `web.whatsapp.com` manda `Cross-Origin-Opener-Policy: same-origin` y el navegador le borra el nombre.
   - El único camino real es que el script lo maneje desde adentro, porque un enlace `wa.me/<número>` cliqueado dentro de WhatsApp Web cambia de chat sin recargar. Queda como mejora futura.
 - **Spec 105, bloque 0.** El script adjunta con un «pegar» sintético del archivo; la ruta del menú de adjuntar se descarta. El detalle está en `docs/crm-roadmap/105-script-adjunta-material.md` §6.4.
+
+### Administración de usuarios — 04/11/2026
+
+Al desactivar un usuario, los negocios activos no archivados, las gestiones abiertas y las tareas pendientes se reasignan dentro del propio diálogo a un usuario activo que el administrador elige. Los registros cerrados/archivados permanecen como historial. La operación bloquea al usuario y vuelve a contar asignaciones dentro de la transacción.

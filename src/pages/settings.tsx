@@ -18,7 +18,7 @@ import {MessageVariablesSettings} from "../components/MessageVariablesSettings";
 import {InstagramIntegration} from '../components/InstagramIntegration';
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GitBranch, FileText, Mail, MailPlus, Pencil, Radio, RotateCw, SlidersHorizontal, Tags, Users, Variable } from "lucide-react";
+import { GitBranch, FileText, KeyRound, Mail, MailPlus, Pencil, Radio, RotateCw, Shield, SlidersHorizontal, Tags, UserCheck, Users, UserX, Variable } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -27,14 +27,18 @@ import { Input } from "../components/Input";
 import { LiveModeSwitch } from "../components/LiveModeSwitch";
 import { ThemeModeSwitch } from "../components/ThemeModeSwitch";
 import { TemplatesContent } from "./templates";
+import {useAuth} from "../helpers/useAuth";
 import { getSettings, type OperationalUser } from "../endpoints/settings_GET.schema";
 import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
+import {CrmApiError} from '../helpers/apiClient';
 import styles from "./settings.module.css";
+import {plural} from '../content/vocabulary';
 
 type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"variables"|"materialCategories"|"system";
 const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","variables","materialCategories","system"];
 
 export default function SettingsPage(){
+  const {authState}=useAuth();
   const qc=useQueryClient();
   const [params,setParams]=useSearchParams();
   const requested=params.get("section") as Section|null;
@@ -45,10 +49,13 @@ export default function SettingsPage(){
   const [inviteOpen,setInviteOpen]=useState(false);
   const [inviteEmail,setInviteEmail]=useState("");
   const [editingUser,setEditingUser]=useState<OperationalUser|null>(null);
+  const [userAction,setUserAction]=useState<{user:OperationalUser;action:'role'|'reset'|'deactivate'|'reactivate'}|null>(null);
+  const [reassignToUserId,setReassignToUserId]=useState<number|undefined>(undefined);
   const [editEmail,setEditEmail]=useState("");
   const [editFullName,setEditFullName]=useState("");
   const [editDisplayName,setEditDisplayName]=useState("");
   const [editPhone,setEditPhone]=useState("");
+  const [editWhatsappPhone,setEditWhatsappPhone]=useState("");
   const [editSex,setEditSex]=useState("");
   const [editSenderEmail,setEditSenderEmail]=useState("");
   const [senderName,setSenderName]=useState("");
@@ -59,7 +66,7 @@ export default function SettingsPage(){
   useEffect(()=>{
     if(!editingUser)return;
     setEditEmail(editingUser.email);setEditFullName(editingUser.fullName??"");setEditDisplayName(editingUser.displayName);
-    setEditPhone(editingUser.phone??"");setEditSex(editingUser.sex??"");setEditSenderEmail(editingUser.senderEmail??"");
+    setEditPhone(editingUser.phone??"");setEditWhatsappPhone(editingUser.whatsappPhone??"");setEditSex(editingUser.sex??"");setEditSenderEmail(editingUser.senderEmail??"");
   },[editingUser]);
   useEffect(()=>{
     if(!data?.emailDelivery)return;
@@ -70,10 +77,11 @@ export default function SettingsPage(){
   const inviteUser=async()=>{return runOperation('settings',async()=>{if(!inviteEmail.trim())return;await save.mutateAsync({action:"inviteUser",email:inviteEmail.trim()});setInviteEmail("");setInviteOpen(false)});};
   const saveUser=async()=>{return runOperation('settings',async()=>{
     if(!editingUser||!editEmail.trim()||!editDisplayName.trim())return;
-    await save.mutateAsync({action:"updateUser",userId:editingUser.id,email:editEmail.trim(),fullName:editFullName.trim()||null,displayName:editDisplayName.trim(),phone:editPhone.trim()||null,sex:(editSex||null) as "masculino"|"femenino"|"otro"|"prefiero_no_decir"|null,senderEmail:editSenderEmail.trim()||null});
+    await save.mutateAsync({action:"updateUser",userId:editingUser.id,email:editEmail.trim(),fullName:editFullName.trim()||null,displayName:editDisplayName.trim(),phone:editPhone.trim()||null,whatsappPhone:editWhatsappPhone.trim()||null,sex:(editSex||null) as "masculino"|"femenino"|"otro"|"prefiero_no_decir"|null,senderEmail:editSenderEmail.trim()||null});
     setEditingUser(null);
   });};
   const resendInvite=async(userId:number)=>{return runOperation('settings',async()=>{await save.mutateAsync({action:"resendUserInvite",userId})});};
+  const confirmUserAction=async()=>{if(!userAction)return;return runOperation('settings',async()=>{const {user,action}=userAction;try{if(action==='role')await save.mutateAsync({action:'setUserRole',userId:user.id,role:user.role==='admin'?'user':'admin'});else if(action==='reset')await save.mutateAsync({action:'resetUserPassword',userId:user.id});else if(action==='deactivate')await save.mutateAsync({action:'deactivateUser',userId:user.id,...(user.businessCount||user.managementCount||user.taskCount?{reassignToUserId}: {})});else await save.mutateAsync({action:'reactivateUser',userId:user.id});}catch(error){if(action==='deactivate'&&error instanceof CrmApiError&&error.status===409){const refreshed=await q.refetch();const latest=refreshed.data?.users.find(item=>item.id===user.id);if(latest)setUserAction({user:latest,action});}throw error;}toast.success(action==='reset'?'Enviamos el enlace de recuperación.':action==='role'?'Se actualizó el rol.':action==='deactivate'?'Usuario desactivado.':'Usuario reactivado.');setUserAction(null);});};
   const saveEmailDelivery=async()=>{return runOperation('settings',async()=>{
     if(!senderName.trim()||!senderEmail.trim()||!replyToEmail.trim())return;
     await save.mutateAsync({action:"saveEmailDelivery",senderName,senderEmail,replyToEmail});
@@ -110,18 +118,22 @@ export default function SettingsPage(){
             <Button onClick={()=>setInviteOpen(true)}><MailPlus size={16}/>Agregar usuario</Button>
           </div>
           <div className={styles.userTableHeader}><span>Usuario</span><span>Email real</span><span>Email Hospeda</span><span>Rol</span><span>Estado</span><span/></div>
-          <div className={styles.usersList}>{data?.users.map(user=><div className={styles.userRow} key={user.id}>
+          <div className={styles.usersList}>{[...(data?.users??[])].sort((a,b)=>Number(!!a.deactivatedAt)-Number(!!b.deactivatedAt)).map(user=><div className={styles.userRow} key={user.id} style={user.deactivatedAt?{opacity:.58}:undefined}>
             <div className={styles.userMain}><strong>{user.displayName}</strong><span>{user.fullName||"Nombre completo sin cargar"}</span></div>
-            <div className={styles.userCell}>{user.email}</div><div className={styles.userCell}>{user.senderEmail||"—"}</div>
+            <div className={styles.userCell}>{user.email}{user.whatsappPhone&&<small>WhatsApp: {user.whatsappPhone}</small>}</div><div className={styles.userCell}>{user.senderEmail||"—"}</div>
             <div><Badge variant="outline">{user.role==="admin"?"Administrador":"Usuario"}</Badge></div>
-            <div><Badge variant={user.hasPassword?"success":"outline"}>{user.hasPassword?"Activo":user.invitationPending?"Invitación enviada":"Pendiente"}</Badge></div>
+            <div><Badge variant={user.deactivatedAt?"warning":user.hasPassword?"success":"outline"}>{user.deactivatedAt?"Inactivo":user.hasPassword?"Activo":user.invitationPending?"Invitación enviada":"Pendiente"}</Badge></div>
             <div className={styles.userActions}>
-              {!user.hasPassword&&<Button variant="ghost" size="icon-sm" title={user.invitationPending?"Reenviar invitación":"Enviar invitación"} onClick={()=>resendInvite(user.id)} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar."><RotateCw size={15}/></Button>}
+              {!user.deactivatedAt&&!user.hasPassword&&<Button variant="ghost" size="icon-sm" title={user.invitationPending?"Reenviar invitación":"Enviar invitación"} onClick={()=>resendInvite(user.id)} disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar."><RotateCw size={15}/></Button>}
+              {!user.deactivatedAt&&user.hasPassword&&<Button variant="ghost" size="icon-sm" title="Restablecer contraseña" aria-label="Restablecer contraseña" onClick={()=>setUserAction({user,action:'reset'})} disabled={save.isPending}><KeyRound size={15}/></Button>}
+              {!user.deactivatedAt&&authState.type==='authenticated'&&user.id!==authState.user.id&&<><Button variant="ghost" size="icon-sm" title={user.role==='admin'?'Hacer usuario':'Hacer administrador'} aria-label={user.role==='admin'?'Hacer usuario':'Hacer administrador'} onClick={()=>setUserAction({user,action:'role'})} disabled={save.isPending}><Shield size={15}/></Button><Button variant="ghost" size="icon-sm" title="Desactivar usuario" aria-label="Desactivar usuario" onClick={()=>{setReassignToUserId(undefined);setUserAction({user,action:'deactivate'})}} disabled={save.isPending}><UserX size={15}/></Button></>}
+              {user.deactivatedAt&&<Button variant="ghost" size="icon-sm" title="Reactivar usuario" aria-label="Reactivar usuario" onClick={()=>setUserAction({user,action:'reactivate'})} disabled={save.isPending}><UserCheck size={15}/></Button>}
               <Button variant="ghost" size="icon-sm" title="Editar usuario" onClick={()=>setEditingUser(user)}><Pencil size={15}/></Button>
             </div>
           </div>)}</div>
-        </article>
+      </article>
       </section>}
+      <Dialog open={!!userAction} onOpenChange={open=>{if(!open&&!save.isPending)setUserAction(null)}}><DialogContent><DialogHeader><DialogTitle>{userAction?.action==='role'?'Cambiar rol':userAction?.action==='reset'?'Restablecer contraseña':userAction?.action==='deactivate'?'Desactivar usuario':'Reactivar usuario'}</DialogTitle><DialogDescription>{userAction?.action==='role'?`¿Querés cambiar el rol de ${userAction.user.displayName}?`:userAction?.action==='reset'?`Se invalida la contraseña actual y enviamos un enlace a ${userAction.user.email}.`:userAction?.action==='deactivate'?`¿Desactivar a ${userAction.user.displayName}?`: `¿Reactivar a ${userAction?.user.displayName}?`}</DialogDescription></DialogHeader>{userAction?.action==='deactivate'&&!!((userAction.user.businessCount||0)+(userAction.user.managementCount||0)+(userAction.user.taskCount||0))&&<div><p>Tiene {plural(userAction.user.businessCount||0,'negocio','negocios')}, {plural(userAction.user.managementCount||0,'gestión abierta','gestiones abiertas')} y {plural(userAction.user.taskCount||0,'tarea pendiente','tareas pendientes')}. Elegí a quién reasignarlas:</p><NativeSelect value={reassignToUserId??''} onChange={e=>setReassignToUserId(Number(e.target.value)||undefined)}><option value="">Elegir usuario activo</option>{(data?.users??[]).filter(u=>!u.deactivatedAt&&u.id!==userAction.user.id).map(u=><option key={u.id} value={u.id}>{u.displayName}</option>)}</NativeSelect></div>}<DialogFooter><Button variant="outline" onClick={()=>setUserAction(null)} disabled={save.isPending}>Cancelar</Button><Button onClick={()=>void confirmUserAction()} disabled={save.isPending||(userAction?.action==='deactivate'&&!!((userAction.user.businessCount||0)+(userAction.user.managementCount||0)+(userAction.user.taskCount||0))&&!reassignToUserId)}>{save.isPending?'Procesando…':'Confirmar'}</Button></DialogFooter></DialogContent></Dialog>
 
       {section==="classifications"&&<section className={styles.content}>{data?<ClassificationSettings data={data}/>:<p role="status">Cargando clasificaciones…</p>}</section>}
 
@@ -165,6 +177,7 @@ export default function SettingsPage(){
         <label className={styles.dialogField}><span>Nombre completo</span><Input value={editFullName} onChange={e=>setEditFullName(e.target.value)}/></label>
         <label className={styles.dialogField}><span>Nombre visible</span><Input value={editDisplayName} onChange={e=>setEditDisplayName(e.target.value)}/></label>
         <label className={styles.dialogField}><span>Teléfono</span><Input type="tel" value={editPhone} onChange={e=>setEditPhone(e.target.value)}/></label>
+        <label className={styles.dialogField}><span>WhatsApp asignado</span><Input type="tel" value={editWhatsappPhone} onChange={e=>setEditWhatsappPhone(e.target.value)} placeholder="+54 9 3442 12-3456"/></label>
         <label className={styles.dialogField}><span>Sexo</span><NativeSelect value={editSex} onChange={e=>setEditSex(e.target.value)}><option value="">Sin completar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option><option value="otro">Otro</option><option value="prefiero_no_decir">Prefiere no decir</option></NativeSelect></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email real</span><Input type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)}/></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email Hospeda para enviar mails</span><Input type="email" value={editSenderEmail} onChange={e=>setEditSenderEmail(e.target.value)} placeholder="nombre@hospeda.com.ar"/></label>

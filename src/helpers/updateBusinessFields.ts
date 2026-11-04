@@ -1,6 +1,7 @@
 import {classificationErrors} from './accountClassification';
 import {assertAccountWritable} from './crmPermissions';
 import {reassignRecontactTask} from './recontactTask';
+import {assertActiveAssignee} from './activeAssignee';
 import { sql, type Transaction } from "kysely";
 import type { DB } from "./schema";
 
@@ -8,6 +9,7 @@ export async function updateBusinessFields(trx:Transaction<DB>,ids:string[],chan
   const accounts=await trx.selectFrom("crmAccounts").selectAll().where("id","in",ids).orderBy("id").forUpdate().execute();
   if(accounts.length!==new Set(ids).size)throw new Error("Uno de los negocios ya no existe.");
   for(const before of accounts)assertAccountWritable(actor,before);
+  if(changes.assignedUserEmail!==undefined)for(const before of accounts)await assertActiveAssignee(trx,{next:changes.assignedUserEmail,previous:before.assignedUserEmail});
   for(const before of accounts){
     if(changes.tipo!==undefined||changes.subtipo!==undefined){
       const errors=await classificationErrors(trx,changes.tipo===undefined?before.tipo:changes.tipo,changes.subtipo===undefined?before.subtipo:changes.subtipo,before);

@@ -1,5 +1,10 @@
 # Estado del CRM — corte al 2 de noviembre de 2026
 
+## Administración de usuarios y línea de WhatsApp — 04/11/2026
+
+- Trabajo local en `feat/user-admin-whatsapp-line`; sin PR. Incluye línea WhatsApp por usuario con fallback de entorno, roles, desactivación/reactivación, reset administrativo y ocultamiento de usuarios inactivos en selectores de asignación.
+- Userscript actualizado a 1.8.2 para el aviso de número asignado. Migración nueva 059. Pass 4 cierra el journal de reasignación de tareas (trigger `crm_task_audit`), guardas de asignaciones automáticas del pipeline y cobertura/limpieza de `test-user-admin.ts`. Typecheck y specs focalizadas pasan; integraciones confirmadas por el coordinador, PR pendiente.
+
 ## Promoción a producción — 02/11/2026
 
 - `staging` → `main` con el #334 (merge `2968e4a`): #332 (el script solo funciona con las cuentas de Hospeda), #333 (script 1.8.1) y #331 (docs). Pedida por el propietario. CI verde en el SHA exacto. Sin migraciones.
@@ -922,3 +927,7 @@ Validación local: `npm run typecheck`, `npm test` (122 archivos, 926 pruebas) y
 ## Userscript account-only activation review fixes — 02/11/2026
 
 WhatsApp and Instagram now wait for account status before showing account-specific UI. When the account is disabled, the panel, badges, chat state, and background work are removed; a local account monitor checks every five seconds and on relevant browser events, then resumes once. Instagram keeps the account monitor while off and delays the unknown-account notice for 15 seconds. Added lifecycle and WhatsApp phone-equivalence regression coverage. Validation: the five requested Vitest files, `npm run typecheck`, and `timeout 200 npm run build:userscript` passed. No PR or Git operations were performed.
+
+## Administración de usuarios · pase 3 · 04/11/2026
+
+Se añadieron conteos de negocios no archivados, gestiones abiertas y tareas pendientes al listado de usuarios. La desactivación bloquea el usuario objetivo y, en una transacción, reasigna esos registros al responsable activo elegido en el diálogo, registra historial para negocios y gestiones y aplica revocaciones. Los usuarios desactivados siguen disponibles para resolver nombres en historial; las opciones operativas se filtran en cliente. Validación puntual: `npm run typecheck` y Vitest dirigido (2 archivos / 11 pruebas). No se ejecutaron integraciones DB; el script de integración requiere confirmar sus fixtures y limpieza antes de CI.
