@@ -300,7 +300,7 @@ export async function handle(request:Request){
       });
       if(!throttle)return new Response(superjson.stringify({error:'Ya se solicitó una recuperación para este email en los últimos 5 minutos. Esperá antes de volver a intentar.'}),{status:429});
       const randomHash=await generatePasswordHash(randomBytes(48).toString('base64url'));
-      try{await createAndSendRecoveryEmail({userId:target.id,email:target.email,adminTriggered:true,beforeSend:async()=>{await db.transaction().execute(async trx=>{await trx.updateTable('userPasswords').set({passwordHash:randomHash}).where('userId','=',target.id).execute();await trx.deleteFrom('sessions').where('userId','=',target.id).execute();});}});}
+      try{await createAndSendRecoveryEmail({userId:target.id,email:target.email,adminTriggered:true,beforeSend:async()=>{await db.transaction().execute(async trx=>{await trx.updateTable('userPasswords').set({passwordHash:randomHash}).where('userId','=',target.id).execute();await trx.deleteFrom('sessions').where('userId','=',target.id).execute();await sql`UPDATE crm_userscript_tokens SET revoked_at=now() WHERE user_id=${target.id} AND revoked_at IS NULL`.execute(trx);await sql`DELETE FROM crm_mcp_credentials WHERE user_id=${target.id}`.execute(trx);});}});}
       catch{await sql`DELETE FROM password_reset_requests WHERE email_hash=${createHash('sha256').update(target.email.toLowerCase()).digest('hex')}`.execute(db);throw new Error('No se pudo enviar el correo de recuperación. Revisá la configuración del correo e intentá de nuevo.');}
     }
 
@@ -353,6 +353,9 @@ export async function handle(request:Request){
       const target=await db.selectFrom('users').select(['id','email','displayName','deactivatedAt']).where('id','=',input.userId).executeTakeFirst();
       if(!target)return new Response(superjson.stringify({error:'El usuario no existe.'}),{status:404});
       if(!target.deactivatedAt)return new Response(superjson.stringify({error:'El usuario ya está activo.'}),{status:409});
+      // Deactivation deleted pending invitations; a passwordless user gets a fresh one BEFORE the allowlist reopens, so self-registration without the invite link stays blocked.
+      const hasPassword=!!await db.selectFrom('userPasswords').select('id').where('userId','=',target.id).executeTakeFirst();
+      if(!hasPassword)await createAndSendInvitation(target.id,target.email,user.displayName);
       await db.transaction().execute(async trx=>{
         await trx.updateTable('users').set({deactivatedAt:null,updatedAt:new Date()}).where('id','=',target.id).execute();
         await trx.insertInto('authorizedEmails').values({email:target.email,displayName:target.displayName,active:true}).onConflict(oc=>oc.column('email').doUpdateSet({active:true,displayName:target.displayName})).execute();
