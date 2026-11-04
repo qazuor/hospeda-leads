@@ -35,10 +35,12 @@ export async function getServerUserSession(request: Request) {
       "users.displayName",
       "users.fullName",
       "users.role",
+      "users.deactivatedAt",
       "users.avatarUrl",
     ])
     .where("sessions.id", "=", session.id)
     .where("sessions.expiresAt", ">", new Date())
+    .where("users.deactivatedAt", "is", null)
     .limit(1)
     .execute();
 

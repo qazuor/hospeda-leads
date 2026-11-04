@@ -8,11 +8,14 @@ export type SettingsUser={
   fullName:string|null;
   displayName:string;
   phone:string|null;
+  whatsappPhone:string|null;
+  deactivatedAt:Date|null;
   sex:string|null;
   senderEmail:string|null;
   role:"admin"|"user";
   hasPassword:boolean;
   invitationPending:boolean;
+  businessCount?:number; managementCount?:number; taskCount?:number;
 };
 
 export type OperationalUser=Pick<SettingsUser,"id"|"email"|"displayName"|"role"> & Partial<Omit<SettingsUser,"id"|"email"|"displayName"|"role">>;

@@ -93,6 +93,11 @@ jobs:
         run: npm run test:auth
         env:
           CRM_TEST_DATABASE: "1"
+      - name: User administration integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:user-admin
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Data quality migration and integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:quality

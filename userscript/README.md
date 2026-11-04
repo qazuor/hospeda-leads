@@ -1,8 +1,8 @@
 # Hospeda CRM para WhatsApp Web e Instagram
 
-## Novedades 1.8.1
+## Novedades 1.8.2
 
-- El script solo funciona con el WhatsApp de Hospeda (`WHATSAPP_ACCOUNT_PHONE`) y con la cuenta de Instagram de Hospeda (`INSTAGRAM_ACCOUNT_USERNAME`). Con otra cuenta queda apagado: sin panel, sin insignias y sin consultas al CRM, y muestra solo un aviso. Si la variable de WhatsApp no está configurada, funciona como antes.
+- El aviso de WhatsApp explica que debe coincidir con el número asignado a tu usuario del CRM. Se mantiene el fallback a `WHATSAPP_ACCOUNT_PHONE` cuando no tenés una línea individual configurada.
 
 ## Novedades 1.8.0
 
@@ -80,7 +80,7 @@ Detalle en la [spec 97](../docs/crm-roadmap/97-instagram-chat-panel.md). Reempla
 1. **Chat conocido.** Si el CRM ya aprendió el chat del usuario, «Abrir Instagram» abre `https://www.instagram.com/direct/t/<id>/` (con `#hospeda=<nonce>` si el script confirmó el traspaso, que lleva `threadId`). En el chat, el script exige que el traspaso sea de ese id.
 2. **Chat desconocido.** Desde el perfil toca «Enviar mensaje»; si Instagram abre un chat flotante, toca su «Expandir» y sigue en `/direct/t/<id>/`. Nunca escribe en un chat flotante; si no hay «Expandir», avisa y pega cuando el vendedor abre ese chat (solo en esa pestaña, mientras no se recargue).
 3. **Prueba del chat.** En el panel de conversación (`[role="main"]`, fuera de chats flotantes) los enlaces de perfil tienen que nombrar un solo usuario y uno tiene que tener la etiqueta «Abrir la página del perfil de X» / «Open the profile page of X». Sin prueba, el panel pregunta «Sí, es este chat · pegar»; un encabezado que contradice no se pisa nunca y borra el chat guardado.
-4. **Cuenta.** Instagram muestra panel, insignias y consultas solo con la cuenta de Hospeda (`INSTAGRAM_ACCOUNT_USERNAME`, comparada con el enlace «Perfil» y el `alt` de la foto); con otra cuenta, el script queda apagado. En WhatsApp, `WHATSAPP_ACCOUNT_PHONE` fija el único número habilitado; si falta, conserva el comportamiento actual. El número se devuelve al script solo como configuración esperada, nunca se envía la cuenta abierta.
+4. **Cuenta.** Instagram muestra panel, insignias y consultas solo con la cuenta de Hospeda (`INSTAGRAM_ACCOUNT_USERNAME`, comparada con el enlace «Perfil» y el `alt` de la foto); con otra cuenta, el script queda apagado. En WhatsApp, se valida la línea asignada a tu usuario del CRM; si no tiene una, se usa `WHATSAPP_ACCOUNT_PHONE` como fallback. Si ambas faltan, conserva el comportamiento actual. El número se devuelve al script solo como configuración esperada, nunca se envía la cuenta abierta.
 5. **Panel «Hospeda»** en todos los chats: negocio del CRM por usuario, «Mandar un mensaje» (modelos de la gestión o «Sin gestión» con propósito) y «Pegar en el chat», que registra el intento de Instagram antes de pegar.
 6. **Insignias en la lista de chats** (`/direct/`, §15): la fila cuyo nombre visible coincide con exactamente un chat aprendido (el script guarda el nombre del encabezado al probar el chat) muestra el código del negocio. Solo informa, sin enlace; se apaga en Ajustes («Mostrar insignias en la lista de chats»). Datos: `GET /_api/userscript/instagram/threads`, una vez cada 5 minutos.
 

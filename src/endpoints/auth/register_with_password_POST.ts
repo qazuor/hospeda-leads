@@ -50,13 +50,16 @@ export async function handle(request:Request){
     const existingUser=await db.selectFrom("users")
       .leftJoin("userPasswords","users.id","userPasswords.userId")
       .select([
-        "users.id","users.email","users.displayName","users.fullName","users.avatarUrl","users.role","users.createdAt",
+        "users.id","users.email","users.displayName","users.fullName","users.avatarUrl","users.role","users.createdAt","users.deactivatedAt",
         "userPasswords.id as passwordId"
       ])
       .where(eb=>eb.fn("lower",["users.email"]),"=",normalizedEmail)
       .limit(1)
       .executeTakeFirst();
 
+    if(existingUser?.deactivatedAt){
+      return new Response(superjson.stringify({message:"Este usuario está inactivo. Pedile a un administrador que lo reactive."}),{status:403,headers:{"Content-Type":"application/json"}});
+    }
     if(existingUser?.passwordId){
       return new Response(superjson.stringify({message:"Ese usuario ya tiene acceso creado. Ingresá desde la pantalla de login."}),{
         status:409,headers:{"Content-Type":"application/json"}

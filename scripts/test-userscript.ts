@@ -22,7 +22,15 @@ const account=await db.insertInto('crmAccounts').values({nombre:`Zz inbound user
 const session=(cookie:string,body:unknown)=>new Request('http://localhost/_api/userscript/tokens',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify(body)});
 const scripted=(token:string,version='1.5.0')=>({Authorization:`Bearer ${token}`,'X-Hospeda-Userscript-Version':version,'Content-Type':'application/json'});
 try{
- const created=await tokenCreate(session(seller.cookie,{label:'Fixture'}));assert.equal(created.status,200);const token=(await created.json() as {token:string}).token;
+ const created=await tokenCreate(session(seller.cookie,{label:'Fixture'}));assert.equal(created.status,200);const token=(await created.json() as {token:string}).token;const otherCreated=await tokenCreate(session(other.cookie,{label:'Phone fallback'}));const fallbackToken=(await otherCreated.json() as {token:string}).token;
+ const assignedPhone='5493442123456';await db.updateTable('users').set({whatsappPhone:assignedPhone}).where('id','=',seller.user.id).execute();
+ const statusRequest=(scriptToken:string)=>status(new Request('http://localhost/_api/userscript/status',{headers:scripted(scriptToken)}));
+ assert.equal((await statusRequest(token).then(r=>r.json()) as {whatsappAccount:string|null}).whatsappAccount,assignedPhone,'Per-user WhatsApp line takes precedence');
+ const savedFallback=process.env.WHATSAPP_ACCOUNT_PHONE;process.env.WHATSAPP_ACCOUNT_PHONE='5493111223344';
+ assert.equal((await statusRequest(fallbackToken).then(r=>r.json()) as {whatsappAccount:string|null}).whatsappAccount,'5493111223344','Legacy environment value is the fallback');
+ delete process.env.WHATSAPP_ACCOUNT_PHONE;
+ assert.equal((await statusRequest(fallbackToken).then(r=>r.json()) as {whatsappAccount:string|null}).whatsappAccount,null,'No assigned or fallback number stays unconfigured');
+ if(savedFallback!==undefined)process.env.WHATSAPP_ACCOUNT_PHONE=savedFallback;await db.updateTable('users').set({whatsappPhone:null}).where('id','=',seller.user.id).execute();
  const list=await tokenList(new Request('http://localhost/_api/userscript/tokens',{headers:{Cookie:seller.cookie}}));assert.equal(list.status,200);const tokenRow=(await list.json() as {tokens:{id:string}[]}).tokens[0]!;assert.equal((await tokenList(new Request('http://localhost/_api/userscript/tokens',{headers:{Cookie:seller.cookie}})).then(r=>r.json()) as {tokens:unknown[]}).tokens.length,1);
  const forbidden=await tokenRevoke(session(other.cookie,{id:tokenRow.id}));assert.equal(forbidden.status,404);const otherTokenResult=await tokenCreate(session(other.cookie,{label:'Other seller'}));const otherToken=(await otherTokenResult.json() as {token:string}).token;
  // Business read rules: a colleague reads an active business, but not an archived one owned by someone else.

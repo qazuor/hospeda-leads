@@ -6,13 +6,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "./Popover";
 import { ValueBadge } from "./ValueBadge";
 import styles from "./UserBadgeSelect.module.css";
 
-type UserOption={id:number;email:string;displayName:string;role:"admin"|"user"};
+type UserOption={id:number;email:string;displayName:string;role:"admin"|"user";deactivatedAt?:Date|null};
 
 export const UserBadgeSelect=({
-  value,users,onChange,placeholder="Seleccionar usuario…",emptyLabel="Sin asignar",assignWhenEmpty=false,className
+  value,users,selectableUsers=users,onChange,placeholder="Seleccionar usuario…",emptyLabel="Sin asignar",assignWhenEmpty=false,className
 }:{
   value:string;
   users:UserOption[];
+  selectableUsers?:UserOption[];
   onChange:(email:string)=>void;
   placeholder?:string;
   emptyLabel?:string;
@@ -20,8 +21,8 @@ export const UserBadgeSelect=({
   className?:string;
 })=>{
   const [open,setOpen]=useState(false);
-  const options=useMemo(()=>users.map(user=>({...user,label:user.displayName||user.email})),[users]);
-  const selected=options.find(user=>user.email===value);
+  const options=useMemo(()=>selectableUsers.map(user=>({...user,label:user.displayName||user.email})),[selectableUsers]);
+  const selected=users.map(user=>({...user,label:(user.displayName||user.email)+(user.deactivatedAt?' (inactivo)':'')})).find(user=>user.email===value);
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
       <UnstyledButton

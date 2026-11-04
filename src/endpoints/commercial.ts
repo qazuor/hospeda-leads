@@ -1,3 +1,4 @@
+import {assertActiveAssignee} from '../helpers/activeAssignee';
 import {businessHistory} from '../helpers/businessHistoryServer';
 import {searchSql} from "../helpers/searchSql";
 import {createHash} from "node:crypto";
@@ -119,6 +120,7 @@ export async function post(request:Request){
         if(existing&&input.primaryContact)throw new Error("Las personas de un negocio existente se agregan desde su ficha.");
         checkEmail(input.primaryContact?.email);
         checkResponsible(input.assignedUserEmail,existing?.assignedUserEmail??null);
+        await assertActiveAssignee(trx,{next:input.assignedUserEmail===undefined?(existing?.assignedUserEmail??user.email):nullable(input.assignedUserEmail),previous:existing?.assignedUserEmail});
         checkEmail(input.email,existing?.email);
         const extra=Object.fromEntries(accountExtraFields.filter(f=>input[f]!==undefined).map(f=>[f,nullable(input[f])]));
         const tipo=input.tipo===undefined?existing?.tipo??null:nullable(input.tipo);
@@ -225,6 +227,7 @@ export async function post(request:Request){
       }
       const old=input.id?await trx.selectFrom("leads").selectAll().where("id","=",input.id).where("accountId","=",input.accountId).where("deletedAt","is",null).forUpdate().executeTakeFirstOrThrow():null;
       checkResponsible(input.assignedUserEmail,old?.assignedUserEmail??null);
+      await assertActiveAssignee(trx,{next:input.assignedUserEmail===undefined?(old?.assignedUserEmail??account.assignedUserEmail??user.email):nullable(input.assignedUserEmail),previous:old?.assignedUserEmail});
       if(input.primaryContactId)await trx.selectFrom("crmContacts").select("id").where("id","=",input.primaryContactId).where("accountId","=",input.accountId).where("deletedAt","is",null).executeTakeFirstOrThrow();
       if(input.tipo&&input.tipo!==old?.tipo){
         const vertical=await trx.selectFrom("crmVerticals").select("id").where("name","=",input.tipo).where("active","=",true).executeTakeFirst();

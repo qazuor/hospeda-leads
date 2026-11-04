@@ -2,6 +2,8 @@
 
 # Pendientes y próximo trabajo
 
+- **Administración de usuarios / WhatsApp:** rama `feat/user-admin-whatsapp-line`, sin PR. El coordinador confirmó `test:auth`, `test:user-admin` y `scripts/test-userscript.ts` PASS en DB descartable; pass 4 corrió `npm run typecheck` y specs focalizadas. Falta `test:inbound` en DB descartable y PR a staging.
+
 - **Catálogo de mensajes v3:** migración 058 lista en `feat/message-catalog-v3`; falta PR a staging y promoción. Confirmar con el propietario para quién es «Presentacion Hospedin» (hoy no va en ningún mensaje).
 
 - **Probar el script 1.8.1 en producción:** con el WhatsApp y el Instagram de Hospeda (funciona) y con otra cuenta (queda apagado y muestra el aviso). Las variables ya están cargadas en Coolify desde el 02/11.
@@ -412,3 +414,7 @@ B1 y B2 mergeadas en `staging` (PR #249, `53b14a0`). Falta la revisión del prop
 ### Userscript account-only activation (02/11/2026)
 
 Review findings addressed locally: account-gated WhatsApp and Instagram lifecycle, OFF-to-ON monitors, and phone identity regression cases. The five requested focused Vitest files, typecheck, and userscript build passed. No PR was opened. Next: review the local diff and prepare the staging PR through the project workflow.
+
+### Administración de usuarios · pase 3
+
+Pendiente completar la cobertura de guardas de responsable activo en todas las rutas de escritura de asignaciones y la historia/auditoría de tareas reasignadas. Ejecutar `scripts/test-user-admin.ts`, `scripts/test-password-recovery.ts` y `scripts/test-userscript.ts` en la base descartable; revisar limpieza de fixtures. Sin PR ni operaciones Git.

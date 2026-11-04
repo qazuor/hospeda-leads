@@ -1,5 +1,6 @@
 import {CrmForbidden,assertBusinessAccess,assertLeadAccess} from '../helpers/crmPermissions';
 import {setWorkActor} from "../helpers/workAudit";
+import {assertActiveAssignee} from "../helpers/activeAssignee";
 import {createHash} from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
@@ -46,6 +47,7 @@ export async function handle(request:Request){
         await updateBusinessFields(trx,ids,shared,user);
       }
       for(const lead of leads){
+        if(input.entity!=='business'&&changesInput.assignedUserEmail!==undefined)await assertActiveAssignee(trx,{next:changesInput.assignedUserEmail,previous:lead.assignedUserEmail});
         const values:Record<string,unknown>={updatedAt:new Date()};
         const changes:{fieldName:string;oldValue:unknown;newValue:unknown}[]=[];
         const add=(fieldName:string,newValue:unknown)=>{

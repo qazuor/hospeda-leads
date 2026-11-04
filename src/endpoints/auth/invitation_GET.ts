@@ -20,8 +20,8 @@ export async function handle(request:Request){
       return new Response(superjson.stringify({error:"La invitación venció. Pedile a un administrador que la reenvíe."}),{status:410});
     }
 
-    const user=await db.selectFrom("users").select("email").where("id","=",invitation.userId).executeTakeFirst();
-    if(!user||user.email.toLowerCase()!==invitation.email.toLowerCase()){
+    const user=await db.selectFrom("users").select(["email","deactivatedAt"]).where("id","=",invitation.userId).executeTakeFirst();
+    if(!user||user.deactivatedAt||user.email.toLowerCase()!==invitation.email.toLowerCase()){
       return new Response(superjson.stringify({error:"La invitación ya no corresponde a este usuario."}),{status:409});
     }
 

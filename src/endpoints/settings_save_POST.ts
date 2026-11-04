@@ -12,6 +12,10 @@ import {errorResponse} from '../helpers/errorResponse';
 import {parseBody} from '../helpers/parseBody';
 import {validateTemplateMaterials} from '../helpers/templateMaterialService';
 import {findCityRow} from '../helpers/catalogCity';
+import {normalizeWhatsappPhone} from '../helpers/userAdmin';
+import {canChangeUserRole,canDeactivateUser} from '../helpers/userAdmin';
+import {generatePasswordHash} from '../helpers/generatePasswordHash';
+import {createAndSendRecoveryEmail} from './auth/passwordRecoveryEmail';
 
 const INVITE_PREFIX="user_invitation:";
 const INVITE_TTL_MS=7*24*60*60*1000;
@@ -232,6 +236,8 @@ export async function handle(request:Request){
 
       let userId:number;
       if(existing){
+        const inactive=await db.selectFrom("users").select("deactivatedAt").where("id","=",existing.id).executeTakeFirst();
+        if(inactive?.deactivatedAt)return new Response(superjson.stringify({error:"El usuario está inactivo. Reactivalo antes de enviar una invitación."}),{status:409});
         if(existing.passwordId){
           return new Response(superjson.stringify({error:"Ese email ya pertenece a un usuario activo."}),{status:409});
         }
@@ -253,14 +259,107 @@ export async function handle(request:Request){
     if(input.action==="resendUserInvite"){
       const target=await db.selectFrom("users")
         .leftJoin("userPasswords","users.id","userPasswords.userId")
-        .select(["users.id","users.email","userPasswords.id as passwordId"])
+        .select(["users.id","users.email","users.deactivatedAt","userPasswords.id as passwordId"])
         .where("users.id","=",input.userId)
         .executeTakeFirst();
       if(!target)return new Response(superjson.stringify({error:"El usuario no existe."}),{status:404});
+      if(target.deactivatedAt)return new Response(superjson.stringify({error:"El usuario está inactivo. Reactivalo antes de enviar una invitación."}),{status:409});
       if(target.passwordId){
         return new Response(superjson.stringify({error:"Ese usuario ya terminó de crear su acceso."}),{status:409});
       }
       await createAndSendInvitation(target.id,target.email,user.displayName);
+    }
+
+    if(input.action==="setUserRole"){
+      const result=await db.transaction().execute(async trx=>{
+        await sql`SELECT pg_advisory_xact_lock(706241901)`.execute(trx);
+        const target=await trx.selectFrom('users').select(['id','role','deactivatedAt']).where('id','=',input.userId).forUpdate().executeTakeFirst();
+        if(!target)return {error:"El usuario no existe.",status:404};
+        if(target.deactivatedAt)return {error:"Reactivá al usuario antes de cambiar su rol.",status:409};
+        const activeAdmins=Number((await sql<{n:string}>`SELECT count(*)::text n FROM users WHERE role='admin' AND deactivated_at IS NULL`.execute(trx)).rows[0]?.n??0);
+        if(!canChangeUserRole({actorId:user.id,targetId:target.id,targetRole:target.role,nextRole:input.role,activeAdmins}))return {error:user.id===target.id?'No podés cambiar tu propio rol.':'Tiene que quedar al menos un administrador activo.',status:409};
+        await trx.updateTable('users').set({role:input.role,updatedAt:new Date()}).where('id','=',target.id).execute();
+        await trx.deleteFrom('sessions').where('userId','=',target.id).execute();
+        return null;
+      });
+      if(result)return new Response(superjson.stringify({error:result.error}),{status:result.status});
+    }
+
+    if(input.action==="resetUserPassword"){
+      const target=await db.selectFrom('users').innerJoin('userPasswords','users.id','userPasswords.userId').select(['users.id','users.email','users.deactivatedAt']).where('users.id','=',input.userId).executeTakeFirst();
+      if(!target)return new Response(superjson.stringify({error:'El usuario no tiene una contraseña configurada.'}),{status:409});
+      if(target.deactivatedAt)return new Response(superjson.stringify({error:'No se puede restablecer la contraseña de un usuario inactivo.'}),{status:409});
+      if(!process.env.BREVO_API_KEY||!process.env.PUBLIC_APP_URL)return new Response(superjson.stringify({error:'La recuperación no está disponible: falta configurar el envío de correo.'}),{status:503});
+      const throttle=await db.transaction().execute(async trx=>{
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended('password-reset-request',0))`.execute(trx);
+        await sql`DELETE FROM password_reset_requests WHERE requested_at < now()-interval '1 hour'`.execute(trx);
+        const cap=await sql<{n:string}>`SELECT count(*)::text n FROM password_reset_requests`.execute(trx);
+        if(Number(cap.rows[0]?.n)>=100)return false;
+        const allowed=await sql`INSERT INTO password_reset_requests(email_hash) VALUES(${createHash('sha256').update(target.email.toLowerCase()).digest('hex')}) ON CONFLICT(email_hash) DO UPDATE SET requested_at=now() WHERE password_reset_requests.requested_at < now()-interval '5 minutes' RETURNING email_hash`.execute(trx);
+        return allowed.rows.length>0;
+      });
+      if(!throttle)return new Response(superjson.stringify({error:'Ya se solicitó una recuperación para este email en los últimos 5 minutos. Esperá antes de volver a intentar.'}),{status:429});
+      const randomHash=await generatePasswordHash(randomBytes(48).toString('base64url'));
+      try{await createAndSendRecoveryEmail({userId:target.id,email:target.email,adminTriggered:true,beforeSend:async()=>{await db.transaction().execute(async trx=>{await trx.updateTable('userPasswords').set({passwordHash:randomHash}).where('userId','=',target.id).execute();await trx.deleteFrom('sessions').where('userId','=',target.id).execute();await sql`UPDATE crm_userscript_tokens SET revoked_at=now() WHERE user_id=${target.id} AND revoked_at IS NULL`.execute(trx);await sql`DELETE FROM crm_mcp_credentials WHERE user_id=${target.id}`.execute(trx);});}});}
+      catch{await sql`DELETE FROM password_reset_requests WHERE email_hash=${createHash('sha256').update(target.email.toLowerCase()).digest('hex')}`.execute(db);throw new Error('No se pudo enviar el correo de recuperación. Revisá la configuración del correo e intentá de nuevo.');}
+    }
+
+    if(input.action==="deactivateUser"){
+      const result=await db.transaction().execute(async trx=>{
+        await sql`SELECT pg_advisory_xact_lock(706241901)`.execute(trx);
+        await setWorkActor(trx,user);
+        const target=await trx.selectFrom('users').select(['id','email','role','deactivatedAt']).where('id','=',input.userId).forUpdate().executeTakeFirst();
+        if(!target)return {error:'El usuario no existe.',status:404};
+        if(target.deactivatedAt)return null;
+        const activeAdmins=Number((await sql<{n:string}>`SELECT count(*)::text n FROM users WHERE role='admin' AND deactivated_at IS NULL`.execute(trx)).rows[0]?.n??0);
+        if(!canDeactivateUser({actorId:user.id,targetId:target.id,targetRole:target.role,activeAdmins}))return {error:user.id===target.id?'No podés desactivar tu propio usuario.':'No podés desactivar al último administrador activo.',status:409};
+        const counts=(await sql<{businesses:string;managements:string;tasks:string}>`SELECT
+         (SELECT count(*) FROM crm_accounts WHERE assigned_user_email=${target.email} AND deleted_at IS NULL AND archived_at IS NULL AND merged_into_id IS NULL)::text businesses,
+         (SELECT count(*) FROM leads l JOIN crm_stages s ON s.name=l.estado WHERE l.assigned_user_email=${target.email} AND l.deleted_at IS NULL AND s.classification='open')::text managements,
+         (SELECT count(*) FROM crm_tasks WHERE assigned_user_email=${target.email} AND deleted_at IS NULL AND status='pending')::text tasks`.execute(trx)).rows[0]!;
+        const total=Number(counts.businesses)+Number(counts.managements)+Number(counts.tasks);
+        if(total&&!input.reassignToUserId)return {error:'Elegí un usuario activo para reasignar el trabajo pendiente.',status:409};
+        if(total){
+          const recipient=await trx.selectFrom('users').select(['id','email','displayName']).where('id','=',input.reassignToUserId!).where('deactivatedAt','is',null).forUpdate().executeTakeFirst();
+          if(!recipient||recipient.id===target.id)return {error:'Elegí otro usuario activo para recibir las asignaciones.',status:409};
+          const actor=await trx.selectFrom('users').select('displayName').where('id','=',user.id).executeTakeFirst();
+          const accounts=await trx.selectFrom('crmAccounts').select(['id','assignedUserEmail']).where('assignedUserEmail','=',target.email).where('deletedAt','is',null).where('archivedAt','is',null).where('mergedIntoId','is',null).forUpdate().execute();
+          await trx.updateTable('crmAccounts').set({assignedUserEmail:recipient.email,updatedAt:new Date()}).where('assignedUserEmail','=',target.email).where('deletedAt','is',null).where('archivedAt','is',null).where('mergedIntoId','is',null).execute();
+          if(accounts.length)await trx.insertInto('crmCommercialJournal').values(accounts.map(a=>({accountId:a.id,contactId:null,action:'business_assignment_rebalanced',actorEmail:user.email,actorName:actor?.displayName??user.displayName,metadata:sql`${JSON.stringify({before:{assignedUserEmail:target.email},after:{assignedUserEmail:recipient.email},reason:'user_deactivated'})}::text::jsonb`}))).execute();
+          await sql`INSERT INTO lead_journal(lead_id,account_id,lead_name,lead_city,lead_type,action,field_name,old_value,new_value,actor_email,actor_name,actor_user_id,metadata)
+            SELECT l.id,l.account_id,l.nombre,a.ciudad,l.tipo,'field_changed','assignedUserEmail',l.assigned_user_email,${recipient.email},${user.email},${actor?.displayName??user.displayName},${user.id},jsonb_build_object('reason','user_deactivated')
+            FROM leads l JOIN crm_accounts a ON a.id=l.account_id JOIN crm_stages s ON s.name=l.estado
+            WHERE l.assigned_user_email=${target.email} AND l.deleted_at IS NULL AND s.classification='open'`.execute(trx);
+          await sql`SELECT set_config('crm.projecting','1',true)`.execute(trx);
+          await sql`UPDATE leads SET assigned_user_email=${recipient.email},updated_at=now() WHERE assigned_user_email=${target.email} AND deleted_at IS NULL AND estado IN (SELECT name FROM crm_stages WHERE classification='open')`.execute(trx);
+          await sql`SELECT set_config('crm.projecting','',true)`.execute(trx);
+          await sql`UPDATE crm_tasks SET assigned_user_email=${recipient.email},updated_at=now() WHERE assigned_user_email=${target.email} AND deleted_at IS NULL AND status='pending'`.execute(trx);
+        }
+        await trx.updateTable('users').set({deactivatedAt:new Date(),updatedAt:new Date()}).where('id','=',target.id).execute();
+        await trx.updateTable('authorizedEmails').set({active:false}).where(eb=>eb.fn('lower',['email']),'=',target.email.toLowerCase()).execute();
+        await trx.deleteFrom('sessions').where('userId','=',target.id).execute();
+        await sql`UPDATE crm_userscript_tokens SET revoked_at=now() WHERE user_id=${target.id} AND revoked_at IS NULL`.execute(trx);
+        await sql`DELETE FROM crm_mcp_credentials WHERE user_id=${target.id}`.execute(trx);
+        await sql`DELETE FROM password_reset_tokens WHERE user_id=${target.id}`.execute(trx);
+        const inviteRows=await trx.selectFrom("appSettings").select(["key","value"]).where("key","like",INVITE_PREFIX+"%").execute();
+        const invitationKeys=inviteRows.flatMap(row=>{try{return (JSON.parse(row.value) as {userId?:number}).userId===target.id?[row.key]:[]}catch{return []}});
+        if(invitationKeys.length)await trx.deleteFrom("appSettings").where("key","in",invitationKeys).execute();
+        return null;
+      });
+      if(result)return new Response(superjson.stringify({error:result.error}),{status:result.status});
+    }
+
+    if(input.action==="reactivateUser"){
+      const target=await db.selectFrom('users').select(['id','email','displayName','deactivatedAt']).where('id','=',input.userId).executeTakeFirst();
+      if(!target)return new Response(superjson.stringify({error:'El usuario no existe.'}),{status:404});
+      if(!target.deactivatedAt)return new Response(superjson.stringify({error:'El usuario ya está activo.'}),{status:409});
+      // Deactivation deleted pending invitations; a passwordless user gets a fresh one BEFORE the allowlist reopens, so self-registration without the invite link stays blocked.
+      const hasPassword=!!await db.selectFrom('userPasswords').select('id').where('userId','=',target.id).executeTakeFirst();
+      if(!hasPassword)await createAndSendInvitation(target.id,target.email,user.displayName);
+      await db.transaction().execute(async trx=>{
+        await trx.updateTable('users').set({deactivatedAt:null,updatedAt:new Date()}).where('id','=',target.id).execute();
+        await trx.insertInto('authorizedEmails').values({email:target.email,displayName:target.displayName,active:true}).onConflict(oc=>oc.column('email').doUpdateSet({active:true,displayName:target.displayName})).execute();
+      });
     }
 
     if(input.action==="updateUser"){
@@ -269,9 +368,11 @@ export async function handle(request:Request){
       const fullName=input.fullName?.trim()||null;
       const phone=input.phone?.trim()||null;
       const sex=input.sex||null;
+      const whatsapp=normalizeWhatsappPhone(input.whatsappPhone);
+      if(whatsapp.error)return new Response(superjson.stringify({error:whatsapp.error}),{status:400});
       const displayName=input.displayName.trim();
 
-      const target=await db.selectFrom("users").select(["id","email"]).where("id","=",input.userId).executeTakeFirst();
+      const target=await db.selectFrom("users").select(["id","email","deactivatedAt"]).where("id","=",input.userId).executeTakeFirst();
       if(!target)return new Response(superjson.stringify({error:"El usuario no existe."}),{status:404});
 
       const collision=await db.selectFrom("users").select("id")
@@ -283,14 +384,16 @@ export async function handle(request:Request){
 
       await db.transaction().execute(async trx=>{
         await setWorkActor(trx,user);
+        const locked=await trx.selectFrom('users').select(['id','email','deactivatedAt']).where('id','=',input.userId).forUpdate().executeTakeFirstOrThrow();
+        if(locked.deactivatedAt)throw new Error('Reactivá al usuario antes de editarlo.');
         if(target.email.toLowerCase()!==email){
           await trx.updateTable("authorizedEmails").set({active:false})
             .where(eb=>eb.fn("lower",["email"]),"=",target.email.toLowerCase()).execute();
         }
-        await trx.insertInto("authorizedEmails").values({email,displayName,active:true})
-          .onConflict(oc=>oc.column("email").doUpdateSet({active:true,displayName})).execute();
+        await trx.insertInto("authorizedEmails").values({email,displayName,active:!locked.deactivatedAt})
+          .onConflict(oc=>oc.column("email").doUpdateSet({active:!locked.deactivatedAt,displayName})).execute();
         await trx.updateTable("users").set({
-          email,fullName,displayName,phone,sex,senderEmail,updatedAt:new Date()
+          email,fullName,displayName,phone,...(input.whatsappPhone!==undefined?{whatsappPhone:whatsapp.phone}:{}),sex,senderEmail,updatedAt:new Date()
         }).where("id","=",target.id).execute();
       });
 
