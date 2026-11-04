@@ -221,6 +221,8 @@ export interface Users {
   fullName: string | null;
   id: Generated<number>;
   phone: string | null;
+  whatsappPhone: string | null;
+  deactivatedAt: Timestamp | null;
   role: Generated<UserRole>;
   senderEmail: string | null;
   sex: string | null;
