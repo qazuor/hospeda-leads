@@ -1,3 +1,4 @@
+import {assertActiveAssignee} from './activeAssignee';
 import {cancelRecontactTaskFor} from './recontactTask';
 import {CONTACT_EVIDENCE_STATUSES} from './contactEvidence';
 import {terminalEmailEvent} from './emailEngagement';
@@ -285,6 +286,7 @@ async function createResponse(e:Executor,input:Extract<CommunicationMutation,{ac
   const assignee=input.reminder.assignedUserEmail??contextOwner??user.email;
   if(user.role!=='admin'&&assignee!==contextOwner)throw new CommunicationForbidden('Solo administración puede reasignar este recordatorio.');
   await e.selectFrom('users').select('email').where('email','=',assignee).executeTakeFirstOrThrow();
+  await assertActiveAssignee(e,{next:assignee,previous:null});
   const task=await sql<{id:string}>`INSERT INTO crm_tasks(account_id,lead_id,title,type_id,purpose,due_date,assigned_user_email,priority,communication_response_id) VALUES(${account.id},${input.leadId},'Retomar conversación','followup','reactivation',${input.reminder.dueDate}::date,${assignee},'media',${responseId}::uuid) RETURNING id`.execute(e);
   await communicationJournal(e,{accountId:String(account.id),leadId:input.leadId,entityType:'response',entityId:responseId,action:'response_reminder_created',actor:user,after:{taskId:task.rows[0].id,dueDate:input.reminder.dueDate,assignedUserEmail:assignee}});
  }

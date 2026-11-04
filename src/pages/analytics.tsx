@@ -42,7 +42,7 @@ export default function AnalyticsPage(){
     <section className={styles.filters}>
       <label>Período de alta<NativeSelect value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="custom">Personalizado</option></NativeSelect></label>
       {period==="custom"&&<><label>Desde<CrmDateInput  value={from} onValueChange={e=>setFrom(e)}/></label><label>Hasta<CrmDateInput  value={to} onValueChange={e=>setTo(e)}/></label></>}
-      <label>Responsable<NativeSelect value={responsible} onChange={e=>setResponsible(e.target.value)}><option value="">Todos</option>{settings.data?.users.map(user=><option key={user.id} value={user.email}>{user.displayName}</option>)}</NativeSelect></label>
+      <label>Responsable<NativeSelect value={responsible} onChange={e=>setResponsible(e.target.value)}><option value="">Todos</option>{settings.data?.users.filter(user=>!user.deactivatedAt).map(user=><option key={user.id} value={user.email}>{user.displayName}</option>)}</NativeSelect></label>
       <label>Vertical<NativeSelect value={type} onChange={e=>setType(e.target.value)}><option value="">Todas</option>{settings.data?.types.map(item=><option key={item}>{item}</option>)}</NativeSelect></label>
       <label>Ciudad<NativeSelect value={city} onChange={e=>setCity(e.target.value)}><option value="">Todas</option>{settings.data?.cities.map(item=><option key={item.id}>{item.name}</option>)}</NativeSelect></label>
       {(period!=="all"||responsible||type||city)&&<Button variant="ghost" size="sm" onClick={()=>{setPeriod("all");setFrom("");setTo("");setResponsible("");setType("");setCity("")}}>Limpiar</Button>}

@@ -1,3 +1,4 @@
+import {assertActiveAssignee} from './activeAssignee';
 import {cancelRecontactTaskFor} from './recontactTask';
 import {assertAccountWritable,assertLeadAccess,lockAccounts} from './crmPermissions';
 import {createHash,randomUUID} from 'node:crypto';
@@ -124,6 +125,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      if(await findNewDncBlocker(trx,{after:fields}))throw new QualityConflict(`Fila ${row.index+1}: ${DNC_DUPLICATE_MESSAGE}`);
      const assigned=fields.asignadoA?await trx.selectFrom('users').select('email').where(eb=>eb.or([eb('email','=',fields.asignadoA.trim()),eb('displayName','=',fields.asignadoA.trim())])).executeTakeFirstOrThrow():null;
      const data=Object.fromEntries(Object.entries(fields).filter(([f])=>(businessFields as readonly string[]).includes(f)));
+     await assertActiveAssignee(trx,{next:assigned?.email,previous:null});
      const account=await trx.insertInto('crmAccounts').values({...data,nombre:fields.nombre,assignedUserEmail:assigned?.email??null}).returningAll().executeTakeFirstOrThrow();
      await evidence(trx,String(account.id),data,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
      await trx.insertInto('crmCommercialJournal').values({accountId:String(account.id),action:'account_created',actorEmail:user.email,actorName:user.displayName,metadata:json({after:account,batchId:batch.id,source:batch.source})}).execute();

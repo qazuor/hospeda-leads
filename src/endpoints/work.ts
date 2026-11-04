@@ -26,6 +26,7 @@ class TaskSaveConflict extends Error {}
 const reply=(data:unknown,status=200)=>new Response(superjson.stringify(data),{status,headers:{'Content-Type':'application/json'}});
 const fail=(e:unknown)=>reply({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden||e instanceof CommunicationForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof CommunicationConflict||e instanceof RescheduleConflict||e instanceof StageSuggestionConflict||e instanceof TaskSaveConflict?409:fallbackStatus(e));
 const serialize=(v:unknown)=>JSON.parse(JSON.stringify(v));
+import {assertActiveAssignee} from '../helpers/activeAssignee';
 import {setWorkActor} from '../helpers/workAudit';
 import {CommunicationConflict,CommunicationForbidden,linkMessageActivity,lockCommunication,pendingContactFollowUps,resolveMessageForWork} from '../helpers/communicationService';
 import {CONTACT_EVIDENCE_STATUSES} from '../helpers/contactEvidence';
@@ -283,6 +284,7 @@ export async function post(request:Request){
     if(existing&&existing.status!=='pending')throw new Error('Solo se pueden editar o reprogramar tareas pendientes.');
     const assignee=input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:commercialOwner):input.assignedUserEmail;
     if(user.role!=='admin'&&assignee!==(existing?existing.assignedUserEmail:commercialOwner))throw new Forbidden('Solo admin puede asignar o cambiar el responsable de una tarea.');
+    await assertActiveAssignee(trx,{next:assignee,previous:existing?.assignedUserEmail});
     if(existing?.legacy&&assignee!==commercialOwner)throw new Error('El seguimiento histórico conserva el responsable de la gestión.');
     const dueAt=input.dueAt?new Date(input.dueAt):null;
     if(dueAt&&localDay(dueAt)!==input.dueDate)throw new Error('La fecha y hora deben pertenecer al mismo día en Argentina.');

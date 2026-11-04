@@ -112,6 +112,7 @@ export async function handle(request: Request) {
           "users.fullName",
           "users.avatarUrl",
           "users.role",
+          "users.deactivatedAt",
           "userPasswords.passwordHash",
         ])
         .where(sql`LOWER(users.email)`, "=", normalizedEmail)
@@ -130,7 +131,7 @@ export async function handle(request: Request) {
 
       // Always run one bcrypt compare (dummy hash when there is no account) to keep timing roughly constant
       const passwordValid = await compare(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
-      if (!user || !allowed || !passwordValid) {
+      if (!user || !allowed || user.deactivatedAt || !passwordValid) {
         // Log failed attempt for unknown, unauthorized or invalid credentials
         await trx
           .insertInto("loginAttempts")
