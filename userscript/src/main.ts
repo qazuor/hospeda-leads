@@ -41,7 +41,7 @@ function whatsappAccountGate(): boolean {
   whatsappOff = true;
   window.clearInterval(updateInterval); updateInterval=0;
   window.clearTimeout(timer); observer?.disconnect(); document.getElementById("hospeda-userscript-banner")?.remove();
-  if (state === "mismatch") { showAccountNotice("Este WhatsApp no es el de Hospeda: el script está apagado."); return false; }
+  if (state === "mismatch") { showAccountNotice("Este WhatsApp no es el número asignado a tu usuario: el script está apagado."); return false; }
   if (!whatsappUnknownAt) { whatsappUnknownAt = Date.now(); unknownNoticeTimer = window.setTimeout(() => showAccountNotice("No pude verificar la cuenta de WhatsApp: el script está apagado."), 15_000); }
   if (Date.now() - whatsappUnknownAt >= 15_000) showAccountNotice("No pude verificar la cuenta de WhatsApp: el script está apagado.");
   return false;
