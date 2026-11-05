@@ -1,5 +1,9 @@
 # Hospeda CRM para WhatsApp Web e Instagram
 
+## Novedades 1.8.4
+
+- Las etiquetas de la lista de chats acompañan el scroll en vez de quedarse quietas hasta que parás, y se ocultan al pasar por debajo del encabezado.
+
 ## Novedades 1.8.3
 
 - En WhatsApp con una cuenta distinta a la asignada, el aviso permanece visible y el resto de la interfaz de Hospeda queda apagada.

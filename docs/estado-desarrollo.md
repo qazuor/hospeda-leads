@@ -1,5 +1,10 @@
 # Estado del CRM — corte al 2 de noviembre de 2026
 
+## Etiquetas de chats siguen el scroll — 04/11/2026
+
+- `fix/userscript-badges-follow-scroll` (PR a `staging`): las etiquetas de la lista de chats se reubican en cada frame durante el scroll (antes sólo al detenerse, por el escaneo con debounce) y se ocultan al salir del área de la lista. Userscript 1.8.4.
+- Pruebas: regresión en `badges.spec.ts` (falla sin el arreglo), `npx vitest run userscript/src` (386) y `npm run typecheck` pasan.
+
 ## Userscript WhatsApp mismatch — 04/11/2026
 
 - Corrección en `fix/userscript-mismatch-flicker` (PR a `staging`): el aviso de cuenta tiene un host propio; la UI del CRM se protege también desde `renderBanner`, y el aviso de actualización se quita mientras la cuenta está apagada. Versión 1.8.3; `USERSCRIPT_MIN_VERSION` permanece en 1.5.0.
