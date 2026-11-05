@@ -1,5 +1,9 @@
 # Hospeda CRM para WhatsApp Web e Instagram
 
+## Novedades 1.8.6
+
+- La presencia del equipo también se actualiza mientras WhatsApp Web o Instagram están abiertos.
+
 ## Novedades 1.8.5
 
 - El administrador puede asignar hasta cinco números de WhatsApp por usuario; el panel funciona con cualquiera de ellos.

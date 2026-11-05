@@ -242,6 +242,8 @@ export interface CrmUserscriptTokens {
   revokedAt:Timestamp|null;
 }
 
+export interface UserPresence { userId:number; source:'crm'|'whatsapp'|'instagram'; lastSeenAt:Timestamp }
+
 /** Spec 97 §5.1: the Instagram web thread of a username for the Hospeda account (migration 053). */
 export interface CrmInstagramThreads {
   viewerUsername:string;
@@ -394,6 +396,7 @@ export interface DB {
   sessions: Sessions;
   userPasswords: UserPasswords;
   users: Users;
+  userPresence: UserPresence;
 }
 
 

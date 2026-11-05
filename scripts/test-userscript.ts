@@ -16,6 +16,7 @@ import {queryInboxThreadEvents} from '../src/helpers/inboxQueries';
 import {inboxReplyAvailability} from '../src/helpers/inboxReplyAvailability';
 
 assert.equal(process.env.CRM_TEST_DATABASE,'1');
+assert.equal(USERSCRIPT_VERSION,'1.8.6','Presence support ships in userscript 1.8.6');
 async function identity(role:'admin'|'user'){const u=await db.insertInto('users').values({email:`userscript-${role}-${randomUUID()}@example.com`,displayName:role,role}).returningAll().executeTakeFirstOrThrow();const s={id:u.email,createdAt:Date.now(),lastAccessed:Date.now()};await db.insertInto('sessions').values({id:s.id,userId:u.id,expiresAt:new Date(Date.now()+3600000)}).execute();const r=new Response();await setServerSession(r,s);return {user:u,cookie:r.headers.get('set-cookie')!.split(';')[0]};}
 const seller=await identity('user'),other=await identity('user'),admin=await identity('admin'),outsider=await identity('user');
 const chatPhone=`+5493442${String(100000+Math.floor(Math.random()*900000))}`;
