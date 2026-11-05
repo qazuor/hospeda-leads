@@ -155,7 +155,9 @@ function start(): void {
   if (site === "whatsapp") startUserscriptPresence({ source: "whatsapp", base: BASE, readToken: token, active: whatsappAccountActive });
   // Instagram (spec 97 §5.3–5.4): the handoff and the chat page's panel. GM only through the Instagram store (token read-only, handoff,
   // panel state) and the CRM only through the allowlisted calls; no WhatsApp module, no page events, no clipboard read.
-  if (site === "instagram") { const store = gmInstagramStore(), api = instagramApi({ base: BASE, token: store.token }); startUserscriptPresence({ source: "instagram", base: BASE, readToken: store.token, send: instagramPresence({ base: BASE, token: store.token }), active: () => location.pathname.startsWith("/direct/") }); startInstagramApp({ store, api, base: BASE, version: USERSCRIPT_VERSION }); return; }
+  if (site === "instagram") { const store = gmInstagramStore(), api = instagramApi({ base: BASE, token: store.token }); startInstagramApp({ store, api, base: BASE, version: USERSCRIPT_VERSION });
+    // After the app: its account guard (setCrmRequestGuard) must exist before the first beat, so a wrong Instagram account sends nothing.
+    startUserscriptPresence({ source: "instagram", base: BASE, readToken: store.token, send: instagramPresence({ base: BASE, token: store.token }), active: () => location.pathname.startsWith("/direct/") }); return; }
   // On the CRM's own page the script says it is here, accepts the Instagram handoff from the page and publishes whether its token works
   // (spec 96 §3.1: one status request, only the state and the token owner's email reach the page), and since 1.5.1 takes a new token from
   // «Conectar este navegador». No WhatsApp logic.

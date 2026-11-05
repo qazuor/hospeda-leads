@@ -20,7 +20,8 @@ export async function heartbeat(request:Request){
 
 export async function online(request:Request){
   try{
-    const {user}=await getServerUserSession(request);
+    // The header polls this every 30 s: polling must not keep an idle admin session alive.
+    const {user}=await getServerUserSession(request,{touchSession:false});
     onlineSchema.parse(input(request));
     if(user.role!=='admin')return json({error:'Solo administradores pueden ver quién está en línea.'},403);
     const rows=await sql<{id:number;displayName:string;email:string;role:'admin'|'user';lastSeenAt:Date;sources:('crm'|'whatsapp'|'instagram')[]}>`SELECT u.id,u.display_name AS "displayName",u.email,u.role,max(p.last_seen_at) AS "lastSeenAt",array_agg(p.source ORDER BY p.source) AS sources FROM users u JOIN user_presence p ON p.user_id=u.id WHERE u.deactivated_at IS NULL AND p.last_seen_at > now() - interval '2 minutes' GROUP BY u.id ORDER BY u.display_name`.execute(db);
