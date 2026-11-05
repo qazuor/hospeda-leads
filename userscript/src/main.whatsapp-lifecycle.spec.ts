@@ -42,6 +42,12 @@ describe("WhatsApp account lifecycle boot", () => {
     expect(visibleText()).toBe(""); resolve(success("+5493442123456")); await flush();
   });
 
+  it("matching account keeps the same panel host across account monitor ticks", async () => {
+    await boot(); await vi.advanceTimersByTimeAsync(600); await flush();
+    const panel = document.getElementById("hospeda-userscript-banner"); expect(panel).not.toBeNull();
+    for (let second = 0; second < 30; second++) { await vi.advanceTimersByTimeAsync(1000); expect(panel!.isConnected).toBe(true); expect(document.getElementById("hospeda-userscript-banner")).toBe(panel); }
+  });
+
   it("boot mismatch shows only the account notice and leaves only the account monitor", async () => {
     api.fetchStatus.mockResolvedValue(success("+5491111111111")); await boot();
     expect(visibleText()).toBe("Este WhatsApp no es el número asignado a tu usuario: el script está apagado.");
